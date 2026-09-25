@@ -35,6 +35,7 @@ import { CHECKOUT_GRACE_MS } from "@/lib/signup/setupGate";
 import { STEP_LABELS, signupFact, stalledDecision, tradeLabelFor } from "@/lib/signup/leads";
 import { companyFactsOf } from "@/lib/signup/salesFloor";
 import { signupOpenerFor } from "@/lib/sales/playbook/signupOpener";
+import { repPublicName } from "@/lib/sales/repIdentity";
 import { normalizeScriptLanguage } from "@/lib/sales/intel/callScript";
 
 export async function GET(request) {
@@ -95,7 +96,7 @@ export async function GET(request) {
       language: c.defaultLanguage || null,
       leadId: leadByCompany.get(c.id) || null,
       fact: signupFact({ kind, stateReason: verdict.reason, company: { ...facts, city: c.city, industries: c.industries, defaultLanguage: c.defaultLanguage } }, { now }),
-      opener: signupOpenerFor({ kind, language, first, business: c.name, rep: rep.name, at: c.createdAt, stalledReason: verdict.reason, now }),
+      opener: signupOpenerFor({ kind, language, first, business: c.name, rep: repPublicName(rep), at: c.createdAt, stalledReason: verdict.reason, now }),
     };
   });
 
@@ -118,7 +119,7 @@ export async function GET(request) {
       leadId: l.promotedLeadId,
       prospectId: l.prospectId,
       fact: signupFact({ kind: "abandoned", lead }, { now }),
-      opener: signupOpenerFor({ kind: "abandoned", language, first: l.firstName || null, business: l.companyName || "", rep: rep.name, step: STEP_LABELS[l.stepReached] || l.stepReached, at: l.lastSeenAt, now }),
+      opener: signupOpenerFor({ kind: "abandoned", language, first: l.firstName || null, business: l.companyName || "", rep: repPublicName(rep), step: STEP_LABELS[l.stepReached] || l.stepReached, at: l.lastSeenAt, now }),
     };
   });
 

@@ -17,16 +17,21 @@ import { requireOutreachRep } from "@/lib/sales/outreachGate";
 import { saveRepDemoHours } from "@/lib/sales/demoHoursWrite";
 import { DEFAULT_DEMO_HOURS, parseDemoHours, repDemoZone, usableTimeZone } from "@/lib/sales/demoBooking/slots";
 import { repDemoUrl } from "@/lib/sales/demoBooking/url";
+import { ensureReferralToken } from "@/lib/sales/repLink";
 import { getAppOrigin } from "@/lib/appUrl";
 
-function view(row, request) {
+// `linkCode` is the rep's opaque referralToken (lib/sales/repLink.js). The
+// page used to be addressed by SalesRep.code — the rep's real name, slugged —
+// so every prospect who opened it read the rep's real name in the address
+// bar. Old /demo/<code> links still open (book.js loadRepForDemo).
+function view(row, request, linkCode) {
   const zone = repDemoZone(row);
   return {
     timeZone: zone.stated ? zone.timeZone : null,
     effectiveTimeZone: zone.timeZone,
     demoHours: Array.isArray(row.demoHours) ? row.demoHours : null,
     defaultHours: DEFAULT_DEMO_HOURS,
-    url: row.code ? repDemoUrl(getAppOrigin(request), row.code) : null,
+    url: linkCode ? repDemoUrl(getAppOrigin(request), linkCode) : null,
   };
 }
 
@@ -37,7 +42,7 @@ export async function GET(request) {
   if (refusal) return NextResponse.json(refusal.body, { status: refusal.status });
   const row = await db.salesRep.findUnique({ where: { id: rep.id }, select: SELECT });
   if (!row) return NextResponse.json({ error: "No such rep." }, { status: 404 });
-  return NextResponse.json(view(row, request));
+  return NextResponse.json(view(row, request, await ensureReferralToken(rep)));
 }
 
 export async function PUT(request) {
@@ -62,5 +67,5 @@ export async function PUT(request) {
   }
   await saveRepDemoHours({ salesRepId: rep.id, timeZone, demoHours });
   const row = await db.salesRep.findUnique({ where: { id: rep.id }, select: SELECT });
-  return NextResponse.json(view(row, request));
+  return NextResponse.json(view(row, request, await ensureReferralToken(rep)));
 }

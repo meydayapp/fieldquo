@@ -120,6 +120,7 @@ const { AUTODIAL_WRITES_ON_SALES_REP } = await import("@/lib/sales/autodialWrite
 const { SELLS_IN_WRITES_ON_SALES_REP } = await import("@/lib/sales/sellsInWrite");
 const { DEMO_HOURS_WRITES_ON_SALES_REP } = await import("@/lib/sales/demoHoursWrite");
 const { SESSION_WRITES_ON_SALES_REP } = await import("@/lib/sales/sessionWrite");
+const { WORK_NAME_WRITES_ON_SALES_REP } = await import("@/lib/sales/workNameWrite");
 
 let pass = 0;
 const failures = [];
@@ -915,6 +916,25 @@ const LIB_FORBIDDEN_WRITE_BY_DESIGN = {
     "workEmail cannot change what is owed, who a company is credited to, " +
     "whether a batch pays, or whether the rep can sign in tomorrow — and an " +
     "address another rep already holds is refused before the write.",
+  "lib/sales/workNameWrite.js":
+    "saveRepWorkName(). Writes ONLY SalesRep.workName — " +
+    "WORK_NAME_WRITES_ON_SALES_REP — the name prospects see (the owner, " +
+    "2026-09-22: \"Jesus… go as Daniel\"). It cannot change what is owed, " +
+    "who a company is credited to (links carry referralToken, which this " +
+    "never touches), whether a batch pays, or whether the rep can sign in " +
+    "tomorrow; /platform and every money record keep the real name beside " +
+    "it. Validated by lib/sales/repIdentity.js validateWorkName before the " +
+    "writer sees it. Its own file for preferenceWrite.js's reason. Column " +
+    "asserted below.",
+  "lib/sales/repLink.js":
+    "ensureReferralToken(). Writes ONLY SalesRep.referralToken, and only " +
+    "where it is still null (`referralToken: null` in the WHERE) — the lazy, " +
+    "one-row mint of the opaque half of a rep's link, the first time a link " +
+    "is built for them (the owner's rule: no bulk backfill). The value is " +
+    "the server's CSPRNG, never the request's; a token once set is never " +
+    "replaced, so no rep can re-point links already handed out, and a token " +
+    "equal to any rep's legacy code is refused so attribution can never " +
+    "resolve one string to two reps. Column and WHERE asserted below.",
   "lib/sales/demoHoursWrite.js":
     "saveRepDemoHours(). Writes ONLY SalesRep.timeZone and SalesRep.demoHours " +
     "— DEMO_HOURS_WRITES_ON_SALES_REP — the hours a prospect may book fifteen " +
@@ -1265,6 +1285,47 @@ function objectKeys(src, from) {
       !/db\.salesRep\.update/.test(sellRoute),
   );
   ok("…behind the outreach gate, like the language route", /requireOutreachRep\(request\)/.test(sellRoute));
+}
+
+// ── The work name, fenced the same way ─────────────────────────────────────
+{
+  const wnSrc = decomment(read("lib/sales/workNameWrite.js"));
+  const columns = WORK_NAME_WRITES_ON_SALES_REP;
+  ok("the work-name writer names its column as data", Array.isArray(columns) && columns.length === 1 && columns[0] === "workName", columns);
+  ok(
+    "…and the file makes exactly one write",
+    (wnSrc.match(/salesRep\.(update|updateMany|upsert|create|delete|deleteMany)\(/g) || []).length === 1,
+    wnSrc.match(/salesRep\.\w+\(/g) || [],
+  );
+  const upd = wnSrc.indexOf("salesRep.update(");
+  const dataAt = wnSrc.indexOf("data: {", upd);
+  ok("the update's data block was located", upd > 0 && dataAt > upd, { upd, dataAt });
+  const written = objectKeys(wnSrc, wnSrc.indexOf("{", dataAt));
+  ok("the writer sets EXACTLY the workName column and nothing else", written.length === 1 && written[0] === "workName", written);
+  ok("…and takes the rep id from the caller's gate, never a request body", /salesRepId is required/.test(wnSrc));
+  const wnRoute = decomment(read("app/api/sales/work-name/route.js"));
+  ok(
+    "the work-name route validates through validateWorkName and reaches the writer only through saveRepWorkName",
+    /validateWorkName\(/.test(wnRoute) &&
+      /saveRepWorkName\(\{ salesRepId: rep\.id, workName: parsed\.value \}\)/.test(wnRoute) &&
+      !/db\.salesRep\.update/.test(wnRoute),
+  );
+  ok("…behind the outreach gate, like the language route", /requireOutreachRep\(request\)/.test(wnRoute));
+}
+
+// ── The referral-token mint, fenced ────────────────────────────────────────
+{
+  const rlSrc = decomment(read("lib/sales/repLink.js"));
+  const writes = rlSrc.match(/salesRep\.(update|updateMany|upsert|create|delete|deleteMany)\(/g) || [];
+  ok("the link module makes exactly one write, an updateMany", writes.length === 1 && writes[0] === "salesRep.updateMany(", writes);
+  const at = rlSrc.indexOf("salesRep.updateMany(");
+  const whereAt = rlSrc.indexOf("where: {", at);
+  const dataAt = rlSrc.indexOf("data: {", at);
+  const whereKeys = objectKeys(rlSrc, rlSrc.indexOf("{", whereAt));
+  const dataKeys = objectKeys(rlSrc, rlSrc.indexOf("{", dataAt));
+  ok("…conditional on the token still being null, so a set token is never replaced", whereKeys.includes("referralToken") && /referralToken: null/.test(rlSrc.slice(whereAt, dataAt)), whereKeys);
+  ok("…and it writes EXACTLY referralToken", dataKeys.length === 1 && dataKeys[0] === "referralToken", dataKeys);
+  ok("…with a value the server minted, not one from a request", /const token = mint\(\)/.test(rlSrc) && !/body\./.test(rlSrc));
 }
 
 // ── The demo-page hours, fenced the same way ───────────────────────────────

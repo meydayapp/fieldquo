@@ -14,6 +14,8 @@ import { requireSalesRep } from "@/lib/sales/gate";
 import { getAppOrigin } from "@/lib/appUrl";
 import { repSignupStats, signupLinkFor } from "@/lib/sales/repStats";
 import { agencyOf, isAgency, isAgencyEmployee } from "@/lib/sales/agency";
+import { ensureReferralToken } from "@/lib/sales/repLink";
+import { repPublicName, workNameOf } from "@/lib/sales/repIdentity";
 
 export async function GET(request) {
   const { rep, refusal } = await requireSalesRep(request);
@@ -24,7 +26,7 @@ export async function GET(request) {
   // The link and the counts come from here rather than from a separate call
   // because the portal shows them together, and two round trips to render one
   // card is how a screen ends up half-populated on a bad connection.
-  const stats = await repSignupStats(rep.id);
+  const [stats, linkCode] = await Promise.all([repSignupStats(rep.id), ensureReferralToken(rep)]);
 
   return NextResponse.json({
     id: rep.id,
@@ -33,8 +35,15 @@ export async function GET(request) {
     /// The mailbox they SEND from, which is not the address they sign in with
     /// and may not exist yet — a mailbox is bought after the rep is created.
     workEmail: rep.workEmail || null,
-    code: rep.code,
-    signupLink: signupLinkFor(getAppOrigin(request), rep.code),
+    // The name prospects see, and whether it is one the rep chose or the
+    // first-name fallback — the settings card says which.
+    workName: workNameOf(rep),
+    publicName: repPublicName(rep),
+    // The opaque token the link is built from (lib/sales/repLink.js). The
+    // legacy name-slug `code` is deliberately no longer returned: a screen
+    // that printed it would hand it out, and it names the rep.
+    code: linkCode,
+    signupLink: signupLinkFor(getAppOrigin(request), linkCode),
     // The agency tier (lib/sales/agency.js). `agency` is the call centre this
     // rep works for, so the shell can drop the Pay row and the Pay screen can
     // say who is paid; `isAgency` is the account that manages a team, so the

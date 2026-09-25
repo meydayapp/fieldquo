@@ -39,6 +39,8 @@ import {
   workEmailProblem,
 } from "@/lib/sales/repAdmin";
 import { signupLinkFor } from "@/lib/sales/repStats";
+import { ensureReferralToken } from "@/lib/sales/repLink";
+import { repPublicName, repStaffLabel } from "@/lib/sales/repIdentity";
 import { STEP_LABELS, stalledDecision } from "@/lib/signup/leads";
 import { companyFactsOf } from "@/lib/signup/salesFloor";
 import { CHECKOUT_GRACE_MS } from "@/lib/signup/setupGate";
@@ -85,6 +87,10 @@ export async function GET(request) {
       // lib/sales/outreachSender.js refused every send for want of it.
       workEmail: true,
       code: true,
+      // The name prospects see, and the opaque half of the rep's link
+      // (lib/sales/repIdentity.js, lib/sales/repLink.js).
+      workName: true,
+      referralToken: true,
       active: true,
       invitedAt: true,
       acceptedAt: true,
@@ -310,12 +316,17 @@ export async function GET(request) {
   // own SalesLead (lib/signup/salesFloor.js "rep_lead"), or is still waiting
   // to. Shown as "referred by {rep}" with the state; never assignable here.
   const referredRows = await db.signupLead.findMany({
-    where: { completedCompanyId: null, OR: [{ referredRepId: { in: reps.map((r) => r.id) } }, { salesCode: { in: reps.map((r) => r.code).filter(Boolean) } }] },
+    // Both halves of a rep's link: the opaque token every link carries since
+    // 2026-09-25, and the legacy name slug older links still carry.
+    where: { completedCompanyId: null, OR: [{ referredRepId: { in: reps.map((r) => r.id) } }, { salesCode: { in: [...reps.map((r) => r.code), ...reps.map((r) => r.referralToken)].filter(Boolean) } }] },
     orderBy: { lastSeenAt: "desc" },
     take: 500,
     select: { id: true, companyName: true, firstName: true, lastName: true, phoneE164: true, stepReached: true, lastSeenAt: true, promotedLeadId: true, skipReason: true, referredRepId: true, salesCode: true },
   });
-  const repByCode = new Map(reps.map((r) => [r.code, r.id]));
+  const repByCode = new Map([
+    ...reps.map((r) => [r.code, r.id]),
+    ...reps.filter((r) => r.referralToken).map((r) => [r.referralToken, r.id]),
+  ]);
   const referredByRep = new Map();
   for (const l of referredRows) {
     const repId = l.referredRepId || repByCode.get(l.salesCode) || null;
@@ -352,12 +363,26 @@ export async function GET(request) {
     reps: reps.map((r, i) => ({
       id: r.id,
       name: r.name,
+      // The real name stays `name`; the console labels the rep with both
+      // ("Jesus Pérez — works as Daniel") so a payout is never made out to a
+      // persona and a prospect's "I spoke to Daniel" can be placed.
+      workName: r.workName || null,
+      staffLabel: repStaffLabel(r),
+      publicName: repPublicName(r),
       email: r.email,
       workEmail: r.workEmail,
+      // The LEGACY code — the rep's real name slugged. Still resolves on old
+      // links; no link is built from it any more.
       code: r.code,
+      referralToken: r.referralToken || null,
       // Built from this deployment's own origin, so a preview hands out a
       // preview link instead of quietly pointing testers at production.
-      signupLink: signupLinkFor(origin, r.code),
+      // From the opaque token only. A rep who predates the token has none
+      // until something builds their link (their portal, a text, an intro
+      // email) — minted one row at a time, never in bulk from this list
+      // (lib/sales/repLink.js). Null until then, and the card says so,
+      // rather than falling back to a link that names the rep.
+      signupLink: r.referralToken ? signupLinkFor(origin, r.referralToken) : null,
       kind: r.kind || "rep",
       // For an influencer: the company whose ledger this is, and the link
       // they actually hand out (/refer/<code> — the referee gets their month
@@ -675,12 +700,17 @@ export async function POST(request) {
     },
   });
 
+  // The rep's opaque link token, minted now: this is the first time their
+  // link is shown to anybody. lib/sales/repLink.js.
+  const linkCode = await ensureReferralToken(rep);
+
   return NextResponse.json(
     {
       ...rep,
+      referralToken: linkCode,
       // Returned with the row so the screen can show the link the moment the
       // rep exists, rather than after a refetch — the link IS the rep's job.
-      signupLink: signupLinkFor(getAppOrigin(request), rep.code),
+      signupLink: signupLinkFor(getAppOrigin(request), linkCode),
       invite: { sent: outcome.sent, error: outcome.error || null },
     },
     { status: 201 },

@@ -44,6 +44,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { requireSmsRep } from "@/lib/sales/smsGate";
+import { repPublicName } from "@/lib/sales/repIdentity";
 import { salesThread, salesSmsStatus } from "@/lib/sales/salesSms";
 import { normalisePhone } from "@/lib/sales/suppressionRules";
 import { getAppOrigin } from "@/lib/appUrl";
@@ -124,7 +125,7 @@ export async function POST(request) {
       salesRepId: rep.id,
       company,
       timeZone,
-      repName: rep.name,
+      repName: repPublicName(rep),
     });
     if (!fresh.suggestion) {
       return NextResponse.json(

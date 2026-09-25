@@ -77,6 +77,8 @@ import { deactivationGate, queueCountsFor } from "@/lib/sales/reassign";
 import { AGENCY_ENGAGEMENT, AGENCY_KIND, clearSetupIfComplete } from "@/lib/sales/agency";
 import { agencyConversion, conversionCounts, resolveEngagementChange } from "@/lib/sales/repEngagement";
 import { parseSellsIn, sellsInOf } from "@/lib/sales/leadLanguage";
+import { repPublicName, repStaffLabel, validateWorkName, WORK_NAME_MAX, WORK_NAME_MIN } from "@/lib/sales/repIdentity";
+import { ensureReferralToken } from "@/lib/sales/repLink";
 
 export async function PATCH(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -98,6 +100,8 @@ export async function PATCH(request, { params }) {
     select: {
       id: true,
       name: true,
+      // Read for the audit row's `from` when a superadmin sets the work name.
+      workName: true,
       active: true,
       email: true,
       workEmail: true,
@@ -246,6 +250,35 @@ export async function PATCH(request, { params }) {
     sellsIn = parsed.sellsIn;
   }
 
+  // ── Work name (owner, 2026-09-22) ───────────────────────────────────────
+  //
+  // "Jesus… go as Daniel." The name prospects see; the rep sets it on
+  // /sales/settings and a superadmin may set or override it here. Validated
+  // by the same pure function the rep's route uses (lib/sales/repIdentity.js
+  // validateWorkName), so the two writers cannot disagree. Null / "" clears
+  // it — prospects then see the rep's first name — and stays sendable, so
+  // `in` again rather than a truthiness test. The real `name` is never
+  // touched by this: payroll and commission records keep it.
+  const touchesWorkName = "workName" in body;
+  let workName;
+  if (touchesWorkName) {
+    const parsed = validateWorkName(body.workName);
+    if (!parsed.ok) {
+      return NextResponse.json(
+        { error: `A work name is ${WORK_NAME_MIN}–${WORK_NAME_MAX} letters, spaces or hyphens.`, code: `work_name_${parsed.error}` },
+        { status: 400 },
+      );
+    }
+    workName = parsed.value;
+  }
+
+  // "Create link": mint the rep's opaque link token now. A rep who predates
+  // the token gets one the first time their link is built — this is that
+  // first time when a superadmin needs to hand the link out before the rep
+  // has opened their portal. One row, idempotent (an existing token is
+  // returned untouched), never a bulk backfill. lib/sales/repLink.js.
+  const mintsLink = body.mintLink === true;
+
   // ── Test account (owner, 2026-09-17) ────────────────────────────────────
   //
   // The calling window is not applied to this rep's dials, and every dial
@@ -302,9 +335,9 @@ export async function PATCH(request, { params }) {
     }
   }
 
-  if (typeof active !== "boolean" && !touchesMailbox && !touchesPlan && !touchesEngagement && !touchesSellsIn && !touchesKind && !touchesTestAccount && !touchesPrivileges) {
+  if (typeof active !== "boolean" && !touchesMailbox && !touchesPlan && !touchesEngagement && !touchesSellsIn && !touchesKind && !touchesTestAccount && !touchesPrivileges && !touchesWorkName && !mintsLink) {
     return NextResponse.json(
-      { error: "Send active (true/false), workEmail, commissionPlanId, engagement (with agencyId for an agency), sellsIn, kind, testAccount, canCallColleagues or canCallOffCampaign." },
+      { error: "Send active (true/false), workEmail, workName, commissionPlanId, engagement (with agencyId for an agency), sellsIn, kind, testAccount, canCallColleagues or canCallOffCampaign." },
       { status: 400 },
     );
   }
@@ -356,6 +389,7 @@ export async function PATCH(request, { params }) {
     ...(transition && !transition.unchanged ? transition.data : {}),
     ...(conversion && !conversion.unchanged ? conversion.data : {}),
     ...(touchesSellsIn ? { sellsIn } : {}),
+    ...(touchesWorkName ? { workName } : {}),
     ...(touchesTestAccount ? { testAccount: body.testAccount } : {}),
     ...("canCallColleagues" in body ? { canCallColleagues: body.canCallColleagues } : {}),
     ...("canCallOffCampaign" in body ? { canCallOffCampaign: body.canCallOffCampaign } : {}),
@@ -365,7 +399,9 @@ export async function PATCH(request, { params }) {
     name: true,
     email: true,
     workEmail: true,
+    workName: true,
     code: true,
+    referralToken: true,
     active: true,
     endedAt: true,
     acceptedAt: true,
@@ -397,6 +433,9 @@ export async function PATCH(request, { params }) {
   let gateCounts = null;
   let updated;
   const now = new Date();
+  // Before the update below, so its SELECT returns the token.
+  const hadToken = mintsLink ? Boolean((await db.salesRep.findUnique({ where: { id: existing.id }, select: { referralToken: true } }))?.referralToken) : true;
+  if (mintsLink) await ensureReferralToken(existing);
   // ── Deactivating an AGENCY deactivates its employees (owner, 2026-09-16) ──
   //
   // The employees are the agency's; with the agency gone they have nobody to
@@ -528,6 +567,20 @@ export async function PATCH(request, { params }) {
       });
     }
   }
+  if (mintsLink && !hadToken && updated.referralToken) {
+    actions.push({
+      action: "sales_rep_link_minted",
+      details: { salesRepId: updated.id, email: updated.email, referralToken: updated.referralToken },
+    });
+  }
+  if (touchesWorkName && (existing.workName || null) !== (updated.workName || null)) {
+    // Its own row: "who changed the name prospects see" is asked after a
+    // prospect says they spoke to somebody nobody recognises.
+    actions.push({
+      action: "sales_rep_work_name_set",
+      details: { salesRepId: updated.id, email: updated.email, from: existing.workName || null, to: updated.workName || null },
+    });
+  }
   if (touchesTestAccount && updated.testAccount !== existing.testAccount) {
     // Its own row, because "why did this rep's dials stop counting" and
     // "who let this account ring at 03:00" are both answered from the audit
@@ -554,5 +607,12 @@ export async function PATCH(request, { params }) {
 
   // sellsIn through sellsInOf(), as the list route returns it — the response
   // the screen reloads from and the one it got from the save must agree.
-  return NextResponse.json({ ...updated, sellsIn: sellsInOf(updated), ...(handled ? { handoff: handled } : {}) });
+  return NextResponse.json({
+    ...updated,
+    sellsIn: sellsInOf(updated),
+    // Both names, the way every /platform surface labels a rep.
+    staffLabel: repStaffLabel(updated),
+    publicName: repPublicName(updated),
+    ...(handled ? { handoff: handled } : {}),
+  });
 }

@@ -439,7 +439,9 @@ section("5. The login — the pool's mechanism, one per rep");
 
   const minted = await ensureRepDemoLogin({ rep: freshRep(client, "rep_a"), password: "correct-horse-battery", ...deps(client) });
   ok("the login is minted at demo-<code>@fieldquo.com", minted.ok && minted.email === "demo-ana@fieldquo.com" && minted.replaced === false, minted);
-  ok("...through sign-up (the user row exists with the rep's name)", client.tables.user.some((u) => u.email === "demo-ana@fieldquo.com" && u.name === "Ana Lima"));
+  // The demo user is on screen when a rep shares it with a prospect, so it
+  // carries the rep's PUBLIC name (lib/sales/repIdentity.js), not "Ana Lima".
+  ok("...through sign-up (the user row exists with the rep's public name)", client.tables.user.some((u) => u.email === "demo-ana@fieldquo.com" && u.name === "Ana"));
   ok("...with an owner membership on the demo", client.tables.member.some((m) => m.companyId === painting.company.id && m.role === "owner" && m.active));
   ok("...and an organization on the company", Boolean(client.tables.company.find((c) => c.id === painting.company.id).authOrgId));
   const state1 = await repDemoState(freshRep(client, "rep_a"), client);
@@ -556,7 +558,7 @@ section("8. Wired in");
   ok("...the trade comes from INDUSTRIES, never trusted", /INDUSTRIES\[trade\]/.test(postBody));
   ok("...no 'claim' from the pool any more", !/action === "claim"/.test(route));
   ok("...no in-place re-dress of a rep's demo", !/applyIndustry|resetDemo\(/.test(route));
-  ok("the rep row is re-read with code and name for every derivation", /select: \{ id: true, name: true, code: true, demoCompanyId: true \}/.test(route));
+  ok("the rep row is re-read with code and name for every derivation", /select: \{ id: true, name: true, workName: true, code: true, demoCompanyId: true \}/.test(route));
 
   const page = decomment(read("app/sales/demo/page.js"));
   ok("the page has no Claim", !/claim/i.test(page));

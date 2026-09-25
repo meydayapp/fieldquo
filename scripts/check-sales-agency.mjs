@@ -76,6 +76,8 @@ const EMP = (id, name) => ({
   name,
   email: `${id}@northline.example`,
   code: id,
+  // The opaque half of the link (lib/sales/repLink.js) — what the link carries.
+  referralToken: `${id}tok`,
   engagement: AGENCY_ENGAGEMENT,
   managerId: AGENCY.id,
   manager: { id: AGENCY.id, kind: AGENCY_KIND, name: AGENCY.name, email: AGENCY.email },
@@ -338,7 +340,7 @@ section("10. agencyTeam and the floor scope");
   const team = await agencyTeam({ agencyId: AGENCY.id, origin: "https://app.example", now: NOW });
   ok("lists the three employees and nobody else", team.length === 3 && team.every((m) => ["e1", "e2", "e3"].includes(m.id)), team.map((m) => m.id));
   const ann = team.find((m) => m.id === "e1");
-  ok("each carries their unique link", ann.signupLink === "https://app.example/signup?sales=e1");
+  ok("each carries their unique link — the opaque token, not the name-derived code", ann.signupLink === "https://app.example/signup?sales=e1tok");
   ok("calls today/week count outbound dials only", ann.calls.today === 1 && ann.calls.thisWeek === 1 && team.find((m) => m.id === "e2").calls.today === 0);
   ok("signups today / week / total from attribution rows", ann.signups.today === 1 && ann.signups.total === 2);
   ok("earned from the ledger rows", ann.earned.lifetimeCents === 700 && ann.earned.openCents === 700);

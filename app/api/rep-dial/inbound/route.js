@@ -108,6 +108,7 @@ import {
   inboundPlan,
 } from "@/lib/sales/calls/inboundRouting";
 import { queueStep, MAX_QUEUE_ROUNDS } from "@/lib/sales/calls/queue";
+import { repPublicName } from "@/lib/sales/repIdentity";
 import {
   attachProviderCall,
   callStoreState,
@@ -285,6 +286,8 @@ async function repToTell(candidateIds) {
         select: {
           id: true,
           name: true,
+          // The caller hears this one — inboundPlan's fallback line.
+          workName: true,
           active: true,
           endedAt: true,
           acceptedAt: true,
@@ -293,7 +296,7 @@ async function repToTell(candidateIds) {
         },
       })
       .catch(() => null);
-    if (row && canAuthenticate(row)) return { id: row.id, name: row.name };
+    if (row && canAuthenticate(row)) return { id: row.id, name: row.name, workName: row.workName };
   }
   return null;
 }
@@ -352,10 +355,12 @@ async function afterDial(request, params) {
     const row = await db.salesCallAttempt
       .findFirst({
         where: { id: attemptId, direction: "in" },
-        select: { salesRep: { select: { name: true } } },
+        select: { salesRep: { select: { name: true, workName: true } } },
       })
       .catch(() => null);
-    repName = row?.salesRep?.name || null;
+    // The name the caller knows — work name, else first name — never the
+    // rep's real full name (lib/sales/repIdentity.js).
+    repName = repPublicName(row?.salesRep);
   }
 
   const result = afterTransfer({
@@ -487,7 +492,7 @@ async function queueStage(request, params) {
               toE164: true,
               fromE164: true,
               salesRepId: true,
-              salesRep: { select: { name: true } },
+              salesRep: { select: { name: true, workName: true } },
               // Only for the push's one line — who is ringing, by name.
               prospect: { select: { businessName: true } },
             },
@@ -533,9 +538,10 @@ async function queueStage(request, params) {
     holdMusicUrl: holdMusicUrl(),
     // The name is spoken only when that rep was on the ring plan: "X isn't
     // picking up" about a rep the plan never rang is a lie (queue.js).
+    // Spoken to the caller, so the public name (lib/sales/repIdentity.js).
     repName:
-      attempt?.salesRep?.name && ring.targets.some((t) => t.salesRepId === attempt.salesRepId)
-        ? attempt.salesRep.name
+      attempt?.salesRep && ring.targets.some((t) => t.salesRepId === attempt.salesRepId)
+        ? repPublicName(attempt.salesRep)
         : null,
     parked,
     maxRounds: MAX_QUEUE_ROUNDS,

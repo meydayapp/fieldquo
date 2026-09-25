@@ -90,6 +90,7 @@ import { queueWhere } from "@/lib/sales/prospectView";
 import { SIGNUP_PROSPECT_SELECT, signupStateOf } from "@/lib/signup/salesFloor";
 import { assembleProspectPlaybook } from "@/lib/sales/playbook/assemble";
 import { weaveDisclosure } from "@/lib/sales/playbook/recordingDisclosure";
+import { repPublicName } from "@/lib/sales/repIdentity";
 
 /** The response shape of one stored row. */
 function shapeScript(row) {
@@ -160,7 +161,9 @@ export async function GET(request) {
   const [result, rows] = await Promise.all([
     assembleProspectPlaybook({
       prospectId,
-      rep: { id: rep.id, name: rep.name },
+      // workName rides along so the script's {repName} is the name the rep
+      // introduces themselves by, not their real one (repPublicName).
+      rep: { id: rep.id, name: rep.name, workName: rep.workName },
       useAi: false,
       persist: false,
       assignVariant: false,
@@ -293,7 +296,7 @@ export async function GET(request) {
       repId: rep.id,
     },
     // Who is on the call, for the signup opener's "{rep} here".
-    repName: rep.name || null,
+    repName: repPublicName(rep),
     objections: result.objections,
     talkingPoints: result.talkingPoints,
     // Carried up so a three-line script off a business whose site timed out

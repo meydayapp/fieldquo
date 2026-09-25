@@ -72,7 +72,7 @@ const bad = (error, status = 400) => NextResponse.json({ error }, { status });
 async function freshRep(id) {
   return db.salesRep.findUnique({
     where: { id },
-    select: { id: true, name: true, code: true, demoCompanyId: true },
+    select: { id: true, name: true, workName: true, code: true, demoCompanyId: true },
   });
 }
 

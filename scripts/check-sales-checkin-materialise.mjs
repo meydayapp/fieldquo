@@ -495,7 +495,7 @@ section("2b. Unfinished signups: +2 h and +24 h after the link was opened, on th
   // Against the in-memory client: two opened links (one Quebec), one
   // completed, one not yet due, one with no number, one another rep's lead.
   const client = memoryClient({
-    salesRep: [{ ...REP, code: "daniel" }],
+    salesRep: [{ ...REP, code: "daniel-legacy", referralToken: "daniel" }],
     salesLead: [
       { id: "lead_on", salesRepId: "rep_daniel", businessName: "Easy Roofers Inc.", phone: "416-555-0180", timeZone: null, province: "ON", country: "CA" },
       { id: "lead_qc", salesRepId: "rep_daniel", businessName: "Toitures Tremblay", phone: "514-555-0199", timeZone: null, province: "QC", country: "CA" },
@@ -531,9 +531,9 @@ section("2b. Unfinished signups: +2 h and +24 h after the link was opened, on th
   ok("a second run writes nothing — the dedupe key holds", again.created.length === 0 && again.skipped.filter((s) => s.reason === "open").length === 2 && client.tables.salesCheckIn.length === 2);
   const later = await materialiseUnfinishedSignupsForRep({ salesRepId: "rep_daniel", client, now: new Date(NOW.getTime() + 24 * HOUR), origin: "https://fieldquo.com" });
   ok("a day later the Ontario link gets its 24h draft beside the 2h one, and the once-too-soon link its first; Quebec (now 54 h) gets nothing new", later.created.map((c) => c.dedupeKey).sort().join() === "signup:sp_on:24h,signup:sp_soon:24h" && client.tables.salesCheckIn.length === 4 && later.skipped.some((s) => s.progressId === "sp_qc" && s.reason === "open"), later);
-  const done = await materialiseUnfinishedSignupsForRep({ salesRepId: "rep_daniel", client: memoryClient({ salesRep: [{ ...REP, code: "daniel" }], salesLead: [], salesSignupProgress: [{ id: "sp_x", token: "tok_x_aaaaaaaaaaaaaaaaa", leadId: "l", salesRepId: "rep_daniel", openedAt: new Date(NOW.getTime() - 3 * HOUR), completedAt: NOW }] }), now: NOW, origin: "https://fieldquo.com" });
+  const done = await materialiseUnfinishedSignupsForRep({ salesRepId: "rep_daniel", client: memoryClient({ salesRep: [{ ...REP, code: "daniel-legacy", referralToken: "daniel" }], salesLead: [], salesSignupProgress: [{ id: "sp_x", token: "tok_x_aaaaaaaaaaaaaaaaa", leadId: "l", salesRepId: "rep_daniel", openedAt: new Date(NOW.getTime() - 3 * HOUR), completedAt: NOW }] }), now: NOW, origin: "https://fieldquo.com" });
   ok("a completed signup drafts nothing, ever", done.created.length === 0 && done.skipped.length === 0);
-  const noOrigin = await materialiseUnfinishedSignupsForRep({ salesRepId: "rep_daniel", client: memoryClient({ salesRep: [{ ...REP, code: "daniel" }], salesLead: [{ id: "lead_on", salesRepId: "rep_daniel", businessName: "X", phone: "416-555-0180", province: "ON", country: "CA" }], salesSignupProgress: [{ id: "sp_on", token: "tok_on_aaaaaaaaaaaaaaaa", leadId: "lead_on", salesRepId: "rep_daniel", openedAt: new Date(NOW.getTime() - 3 * HOUR), completedAt: null }] }), now: NOW, origin: null });
+  const noOrigin = await materialiseUnfinishedSignupsForRep({ salesRepId: "rep_daniel", client: memoryClient({ salesRep: [{ ...REP, code: "daniel-legacy", referralToken: "daniel" }], salesLead: [{ id: "lead_on", salesRepId: "rep_daniel", businessName: "X", phone: "416-555-0180", province: "ON", country: "CA" }], salesSignupProgress: [{ id: "sp_on", token: "tok_on_aaaaaaaaaaaaaaaa", leadId: "lead_on", salesRepId: "rep_daniel", openedAt: new Date(NOW.getTime() - 3 * HOUR), completedAt: null }] }), now: NOW, origin: null });
   ok("no origin for the link: skipped as no_origin, never a draft without its link", noOrigin.created.length === 0 && noOrigin.skipped[0]?.reason === "no_origin");
   ok("a client without the table (the company engine's own fixtures above): a quiet no-op", (await materialiseUnfinishedSignupsForRep({ salesRepId: "rep_daniel", client: seed(), now: NOW, origin: "https://fieldquo.com" })).created.length === 0);
   // Through materialiseCheckInsForRep: the pass runs first and its result rides on the report.

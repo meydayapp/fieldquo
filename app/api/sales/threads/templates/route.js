@@ -11,6 +11,7 @@ import { db } from "@/lib/db";
 import { requireOutreachRep } from "@/lib/sales/outreachGate";
 import { leadWhere } from "@/lib/sales/outreach";
 import { emailTemplatesFor } from "@/lib/sales/emailTemplates";
+import { ensureReferralToken } from "@/lib/sales/repLink";
 import { getAppOrigin } from "@/lib/appUrl";
 
 export async function GET(request) {
@@ -24,8 +25,10 @@ export async function GET(request) {
   });
   if (!lead) return NextResponse.json({ error: "Not found." }, { status: 404 });
 
-  const [row, checkIns] = await Promise.all([
-    db.salesRep.findUnique({ where: { id: rep.id }, select: { code: true, name: true } }),
+  const [linkCode, checkIns] = await Promise.all([
+    // The opaque token the link is built from, minted on first use — never
+    // the legacy name slug (lib/sales/repLink.js).
+    ensureReferralToken(rep),
     db.salesCheckIn.findMany({
       where: { salesRepId: rep.id, leadId: lead.id, status: "draft" },
       orderBy: { scheduledFor: "asc" },
@@ -35,6 +38,6 @@ export async function GET(request) {
   ]);
 
   return NextResponse.json(
-    emailTemplatesFor({ rep: { name: row?.name || rep.name, code: row?.code }, lead, origin: getAppOrigin(request), checkIns }),
+    emailTemplatesFor({ rep: { name: rep.name, workName: rep.workName, linkCode }, lead, origin: getAppOrigin(request), checkIns }),
   );
 }

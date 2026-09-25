@@ -49,6 +49,9 @@ import { NEXT_STEP_MINUTES, WALKTHROUGH_SOURCE, endOf, walkthroughGate } from "@
 import { loadMigrationHosts } from "@/lib/migrations/hosts";
 import { availableSlotsByDayFor, hostsFreeFor, pickHost } from "@/lib/demo/slots";
 import { sendHostHeadsUp } from "@/lib/demo/bookingEmails";
+// FieldQuo staff read these two lines: both names, so the specialist knows
+// the prospect was talking to "Daniel" (lib/sales/repIdentity.js).
+import { repStaffLabel } from "@/lib/sales/repIdentity";
 import { getOnboardingStatus } from "@/lib/onboarding";
 
 export async function GET(request) {
@@ -222,7 +225,7 @@ export async function POST(request) {
           email: lead.email,
           companyName: lead.businessName || null,
           phone: lead.phone || null,
-          notes: `One-hour onboarding walkthrough booked by ${rep.name || "a sales rep"} from lead ${lead.id}.${data.notes ? ` ${data.notes}` : ""}`,
+          notes: `One-hour onboarding walkthrough booked by ${repStaffLabel(rep) || "a sales rep"} from lead ${lead.id}.${data.notes ? ` ${data.notes}` : ""}`,
           scheduledAt: startAt,
           hostAdminId: host.adminId,
           source: WALKTHROUGH_SOURCE,
@@ -259,7 +262,7 @@ export async function POST(request) {
   try {
     await sendHostHeadsUp(created.booking, host.email, {
       kind: "walkthrough",
-      bookedBy: `Booked by ${rep.name || "a sales rep"} (${rep.workEmail || rep.email || "sales"}) from lead ${lead.id}`,
+      bookedBy: `Booked by ${repStaffLabel(rep) || "a sales rep"} (${rep.workEmail || rep.email || "sales"}) from lead ${lead.id}`,
     });
     headsUp = true;
   } catch (err) {
