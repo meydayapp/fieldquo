@@ -628,7 +628,7 @@ async function runScene(scene) {
     // quote opens with Cabinet Refinishing on it; the two taps below are
     // the shipped tile row, and the result is three scopes and ONE total.
     for (const key of ["cabinet_refacing", "countertop"]) {
-      const tile = await until(`[data-service-tiles-variant="row"] [data-service-tile="${key}"]`);
+      const tile = await until(`[data-service-tiles] [data-service-tile="${key}"]`);
       tile.click();
       await wait(250);
     }

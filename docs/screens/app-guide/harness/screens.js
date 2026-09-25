@@ -580,4 +580,10 @@ export const SCREENS = [
   { slug: "form-look-quote-b-square-390", href: "/quote/erable-design", page: "app/quote/[companySlug]/SelfQuoteFlow.js", props: { companySlug: "erable-design", look: { brandColor: "#1f4e3d", appearance: { fontPreset: "display_serif", fieldStyle: "filled", radius: "none", buttonStyle: "outline", surface: "light", density: "compact" } } }, mode: "public", width: 390, height: 900, out: "docs/screens/form-look", chapter: "form-look" },
   { slug: "form-look-settings-1280", href: "/app/settings/instant-quotes", page: "app/app/settings/instant-quotes/page.js", settings: true, width: 1280, height: 3600, out: "docs/screens/form-look", chapter: "form-look" },
   { slug: "form-look-settings-375", href: "/app/settings/instant-quotes", page: "app/app/settings/instant-quotes/page.js", settings: true, width: 375, height: 4200, out: "docs/screens/form-look", chapter: "form-look" },
+  // ── Service cards (2026-09-25) ────────────────────────────────────────────
+  // The quote's "Add a service" cards on the electrical fixture, whose
+  // services carry the captured estimate templates (routes-templates.js keys
+  // on the "services-templates-electrical" prefix): name, one line of the
+  // service's wording, its price, and "Add with its template lines (n)".
+  { slug: "services-templates-electrical-quote-cards", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", height: 1400, out: "docs/screens/quote-cards", chapter: "quote-cards" },
 ];

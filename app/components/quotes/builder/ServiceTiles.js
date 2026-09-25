@@ -144,11 +144,22 @@ function iconFor(category) {
 
 // `documentLanguage` is the QUOTE's language, not the reader's: a section
 // preset becomes the scope group's label on the document the client reads.
-export default function ServiceTiles({ categories = [], onAdd, documentLanguage, variant = "card" }) {
+//
+// `details(cat)` (optional, card shape only) → { description, priceHint,
+// templates: [{ id, name, count, onAdd }] } — what the owner asked a service
+// card to say (2026-09-22): what the service is, roughly what it costs, and,
+// when the company's own service carries an estimate template, a second
+// action that adds the service WITH its template lines. The caller computes
+// all of it (it holds the products, the wording and the money formatter);
+// this component only draws it, and draws nothing for a field that is absent
+// rather than a placeholder.
+export default function ServiceTiles({ categories = [], onAdd, documentLanguage, variant = "card", details = null }) {
   const { t } = useTranslation();
   // Which tile is showing its section presets. One at a time — two open
   // accordions on a phone means the tiles below are off-screen.
   const [expanded, setExpanded] = useState(null);
+  // Which card is showing every one of its templated services.
+  const [allTemplates, setAllTemplates] = useState(null);
   const row = variant === "row";
 
   // The presets for whichever tile is open, drawn below the tiles in both
@@ -310,15 +321,18 @@ export default function ServiceTiles({ categories = [], onAdd, documentLanguage,
           // the colour on the client's copy.
           const accent = resolveServiceContent(cat.key).accent;
           const isOpen = expanded === cat.id;
+          const info = details ? details(cat) || {} : {};
+          const templates = Array.isArray(info.templates) ? info.templates : [];
 
           return (
+            <div key={cat.id} className="flex flex-col gap-1 min-w-0" data-service-card={cat.key || cat.id}>
             <button
-              key={cat.id}
               type="button"
               onClick={() =>
                 presets ? setExpanded(isOpen ? null : cat.id) : onAdd(cat, cat.label)
               }
-              className={`group relative flex flex-col items-start gap-2 rounded-xl border p-3 text-left transition-colors ${
+              data-service-tile={cat.key || cat.id}
+              className={`group relative flex flex-1 flex-col items-start gap-2 rounded-xl border p-3 text-left transition-colors ${
                 isOpen
                   ? "border-transparent"
                   : "border-border hover:border-transparent"
@@ -346,7 +360,18 @@ export default function ServiceTiles({ categories = [], onAdd, documentLanguage,
                 {cat.label}
               </span>
 
-              <span className="text-xs text-muted-foreground inline-flex items-center gap-0.5">
+              {info.description ? (
+                <span className="text-xs text-muted-foreground leading-snug line-clamp-2" data-service-card-description>
+                  {info.description}
+                </span>
+              ) : null}
+              {info.priceHint ? (
+                <span className="text-xs font-medium text-foreground tabular-nums" data-service-card-price>
+                  {info.priceHint}
+                </span>
+              ) : null}
+
+              <span className="text-xs text-muted-foreground inline-flex items-center gap-0.5 mt-auto">
                 {presets ? (
                   <>
                     {t("app.serviceTiles.options", { count: presets.length })}
@@ -363,6 +388,42 @@ export default function ServiceTiles({ categories = [], onAdd, documentLanguage,
                 )}
               </span>
             </button>
+            {/* The second way in: the company's own service, with the lines
+                its estimate template writes (lib/quotes/serviceTemplateLines
+                .js) — one per templated service linked to this trade. A
+                sibling of the tile, never inside it: a button in a button is
+                two targets a thumb cannot tell apart. */}
+            {/* Three, then the rest behind one press — a trade whose eleven
+                services all carry a template would otherwise be a column
+                eleven actions tall beside a row of one-line cards. */}
+            {(allTemplates === cat.id ? templates : templates.slice(0, 3)).map((tpl) => (
+              <button
+                key={tpl.id}
+                type="button"
+                onClick={tpl.onAdd}
+                className="inline-flex items-start gap-1 rounded-lg px-2 py-1 text-left text-[11px] font-medium text-foreground hover:bg-muted"
+                data-service-card-template={tpl.id}
+              >
+                <Plus size={11} className="mt-0.5 shrink-0" style={{ color: accent }} />
+                <span className="min-w-0">
+                  {templates.length > 1 ? `${tpl.name} — ` : ""}
+                  {/* The library's own words for the same action, so the
+                      card and the dialog name it identically. */}
+                  {t("app.templateLines.addWith", "Add with its template lines ({count})", { count: tpl.count })}
+                </span>
+              </button>
+            ))}
+            {templates.length > 3 && allTemplates !== cat.id && (
+              <button
+                type="button"
+                onClick={() => setAllTemplates(cat.id)}
+                className="px-2 py-1 text-left text-[11px] text-muted-foreground underline underline-offset-2"
+                data-service-card-more-templates
+              >
+                {t("app.serviceTiles.moreTemplates", "{count} more with template lines", { count: templates.length - 3 })}
+              </button>
+            )}
+            </div>
           );
         })}
       </div>

@@ -393,6 +393,7 @@ export default function LineItemsTable({
         <button
           type="button"
           onClick={onAdd}
+          data-add-blank-line
           className="text-xs font-medium text-foreground flex items-center gap-1"
         >
           <Plus size={12} /> {t("app.lineItems.addLine")}

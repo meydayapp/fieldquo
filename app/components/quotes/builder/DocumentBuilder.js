@@ -87,6 +87,7 @@ import {
   ExternalLink,
   Loader2,
   CheckCircle2,
+  Plus,
 } from "lucide-react";
 
 import {
@@ -578,6 +579,25 @@ export default function DocumentBuilder({ b, kind = "quote" }) {
     el?.scrollIntoView?.({ behavior: "smooth", block: "start" });
     setCalcFocus(null);
   }, [calcFocus, openGroup]);
+
+  // "Add line item" on a service card: once its editor has rendered, open
+  // that group's line library — the button the line table already draws —
+  // or, where the table offers no library (an invoice with no products),
+  // add the blank line its "+ Add line" adds. Either way into THIS group.
+  const [libraryFocus, setLibraryFocus] = useState(null);
+  useEffect(() => {
+    if (!libraryFocus || openGroup !== libraryFocus.tempId) return;
+    const root = groupRefs.current[libraryFocus.tempId];
+    const editor = root?.querySelector?.("[data-doc-group-editor]");
+    const target =
+      editor?.querySelector?.("[data-open-line-item-library]") ||
+      editor?.querySelector?.("[data-add-blank-line]");
+    if (target) {
+      target.scrollIntoView?.({ behavior: "smooth", block: "center" });
+      target.click();
+    }
+    setLibraryFocus(null);
+  }, [libraryFocus, openGroup]);
 
   // A room click opens the group's takeoff and lands on that room's card.
   useEffect(() => {
@@ -1294,6 +1314,23 @@ export default function DocumentBuilder({ b, kind = "quote" }) {
                           >
                             <Pencil size={12} /> {isOpen ? t("app.docBuilder.closeEditor", "Close") : isInvoice ? t("app.invoiceBuilder.editLines", "Edit lines") : t("app.docBuilder.openEditor", "Edit lines & measurements")}
                           </button>
+                          {/* Where a line item is added: inside the service it
+                              belongs to, one press from the card. It opens the
+                              same line library the editor's own button does —
+                              text blocks, the trade's extras, Products &
+                              Services with their templates, a custom line —
+                              not a second picker. */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenGroup(group.tempId);
+                              setLibraryFocus({ tempId: group.tempId });
+                            }}
+                            className="text-xs font-medium text-foreground inline-flex items-center gap-1"
+                            data-doc-add-line
+                          >
+                            <Plus size={12} /> {t("app.docBuilder.addLineItem", "Add line item")}
+                          </button>
                         </div>
                       )}
                       {isOpen && (
@@ -1340,16 +1377,30 @@ export default function DocumentBuilder({ b, kind = "quote" }) {
                   row now — visible, after the last group, the way the classic
                   layout's picker is always on the page. The full card is kept
                   for the empty quote, where it is the first thing to do. */}
+              {/* Services ONLY, as cards (owner, 2026-09-22): the pill row
+                  was headed "Add a service, area or line item" and offered
+                  services alone, so the heading promised two things the row
+                  could not do. A line item belongs to a service and is added
+                  inside it ("Add line item" on each card above). The card
+                  shape carries the service's one-line description, its price
+                  and, when the company's own service has an estimate
+                  template, "Add with its template lines". The template add
+                  opens the new service like a tile add does. */}
               {!isInvoice && b.canEditScope && !b.paintingFirst && (
                 <div className="pt-1" data-doc-add-service>
-                  <p className="text-[11px] font-bold tracking-wider uppercase text-muted-foreground pb-1.5">
-                    {t("app.docBuilder.addService", "Add a service, area or line item")}
-                  </p>
                   <ServiceTiles
-                    variant={b.scopeGroups.length === 0 ? "card" : "row"}
+                    variant="card"
                     categories={b.categories}
                     onAdd={addAndOpen((category, label) => b.addScopeGroup(category, label))}
                     documentLanguage={b.quoteLanguage}
+                    details={
+                      b.serviceCardDetails
+                        ? (cat) => {
+                            const d = b.serviceCardDetails(cat);
+                            return { ...d, templates: d.templates.map((x) => ({ ...x, onAdd: addAndOpen(x.onAdd) })) };
+                          }
+                        : null
+                    }
                   />
                   {b.scopeGroups.length > 0 && (
                     <p className="text-xs text-muted-foreground mt-2">

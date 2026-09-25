@@ -99,7 +99,9 @@ import { PAINT_ESTIMATE_TYPES } from "@/lib/pricing/paintTakeoff";
 import { APP_MESSAGES } from "@/app/i18n/appMessages";
 import { fieldsForCategory } from "@/app/data/quoteIntakeFields";
 import { isLotMeasureTrade } from "@/lib/measure/lotTakeoff";
-import { getPriceBook } from "@/app/data/tradePriceBooks";
+import { getPriceBook, defaultTradeRate } from "@/app/data/tradePriceBooks";
+import { resolveServiceContent } from "@/lib/documents/serviceContent";
+import { templatesFor } from "@/lib/services/templates";
 import {
   estimateCabinetDoorCost,
   tradeLabourHours,
@@ -120,6 +122,7 @@ import {
   expandServiceTemplate,
   measurementsFromGroups,
   refillTemplateRun,
+  serviceTextIn,
   templateOffered,
   templateRunOf,
 } from "@/lib/quotes/serviceTemplateLines";
@@ -1135,6 +1138,75 @@ export function QuoteBuilderForm({
         tempId: crypto.randomUUID(),
       }),
     ]);
+  }
+
+  // ── A service card's second line, and its "with its template lines" ─────
+  //
+  // The owner (2026-09-22): the add row at the foot of the quote is SERVICES
+  // only, as cards that say what the service is and roughly what it costs;
+  // line items are added inside a service. Everything here is read from what
+  // the company already has — its wording (Settings › Services), its own
+  // services' prices (Products & Services), its rate — and a field with no
+  // source is left off the card rather than filled with a guess.
+  function serviceCardDetails(category) {
+    const lang = quoteLanguage || companyLanguage;
+    const money = (n) => formatAppMoney(n, companyCurrency, "en");
+    const own = (Array.isArray(products) ? products : []).filter(
+      (p) =>
+        p &&
+        p.active !== false &&
+        (p.type == null || p.type === "service") &&
+        Array.isArray(p.categories) &&
+        p.categories.some((c) => c?.id === category.id),
+    );
+    // One sentence of the paragraph the client reads under this service.
+    const para = resolveServiceContent(category.key, wordingOverrideFor(category.id), null, lang).description || "";
+    const description = (para.match(/^[^.!?。]*[.!?。]?/)?.[0] || para).trim();
+    // The price: the cheapest of the company's own services on this trade
+    // ("from"), else the trade's own rate, else — for a cabinet trade — the
+    // per-door figure a new group opens at. Never a benchmark of ours.
+    const priced = own.map((p) => ({ p, v: num(p.unitPrice) })).filter((x) => x.v > 0).sort((a, b) => a.v - b.v)[0];
+    const rate = category.defaultRate != null ? num(category.defaultRate) : num(defaultTradeRate(category.key)?.rate);
+    const perDoor = isUnitPriced(category.key) ? num(getPriceBook(category.key, rateOverridesFor(category.id))?.perDoor) : 0;
+    const unitOf = (u) => (u && u !== "flat" ? ` / ${u}` : "");
+    const priceHint = priced
+      ? t("app.serviceTiles.priceFrom", "from {price}", { price: `${money(priced.v)}${unitOf(priced.p.unit)}` })
+      : rate > 0
+        ? `${money(rate)}${unitOf(category.unit)}`
+        : perDoor > 0
+          ? `${money(perDoor)} · ${t("app.setInstantQuotes.perDoor", "Per door")}`
+          : null;
+    const templates = templatesFor({ products: own, categoryId: category.id, categoryKey: category.key })
+      .map((p) => ({
+        id: String(p.id),
+        name: serviceTextIn(p, lang, companyLanguage).name,
+        count: expandServiceTemplate(p, { currency: companyCurrency, heading: false }).summary.lines,
+        onAdd: () => addScopeGroupWithTemplate(category, p),
+      }))
+      .filter((x) => x.count > 0);
+    return { description, priceHint, templates };
+  }
+
+  /**
+   * The service AND its template's lines, in one press from its card — the
+   * same lines "Add with its template lines" writes from inside a group
+   * (addProductTemplate below), measured from the quote as it stands.
+   * The group opens with the template's lines and nothing else: a seeded
+   * "{service} — $rate" line under a template that already prices the job
+   * would be the same work billed twice.
+   */
+  function addScopeGroupWithTemplate(category, product) {
+    const group = newScopeGroup(category, category.label, rateOverridesFor(category.id), {
+      tempId: crypto.randomUUID(),
+    });
+    const { lines } = expandServiceTemplate(product, {
+      measurements: measurementsFromGroups([...scopeGroups, group], { targetTempId: group.tempId }),
+      language: quoteLanguage || companyLanguage,
+      companyLanguage,
+      currency: companyCurrency,
+      runId: crypto.randomUUID(),
+    });
+    setScopeGroups((prev) => [...prev, { ...group, lineItems: lines }]);
   }
 
   /**
@@ -2600,7 +2672,7 @@ export function QuoteBuilderForm({
           showNewClient, setShowNewClient, newClient, setNewClient, handleCreateClient, creatingClient,
           siteAddress, setSiteAddress,
           categories, products, teamRoster, settingsAccess,
-          scopeGroups, setScopeGroups, addScopeGroup, addPaintingEstimate, paintingFirst, removeScopeGroup, updateLineItem, removeLineItem,
+          scopeGroups, setScopeGroups, addScopeGroup, addPaintingEstimate, paintingFirst, serviceCardDetails, removeScopeGroup, updateLineItem, removeLineItem,
           groupFromStored, groupTotal, rateOverridesFor, wordingOverrideFor, getProductsForCategory,
           notes, setNotes, reviewNotes, setReviewNotes, reviewNotesRef, processNotes, setProcessNotes,
           assignedToId, setAssignedToId, setAssignedToTouched,
@@ -2884,6 +2956,7 @@ export function QuoteBuilderForm({
           categories={categories}
           onAdd={addScopeGroup}
           documentLanguage={quoteLanguage}
+          details={serviceCardDetails}
         />
       )}
 

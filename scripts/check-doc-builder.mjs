@@ -530,11 +530,47 @@ for (const [lang, tab, prepared] of [["fr", "Devis", "Préparé pour"], ["es", "
 
   // The picker itself: every enabled service is offered after the last
   // group, with no click first. This is the regression, stated.
-  ok("the document offers the service tiles with a quote already in progress", doc.includes('data-service-tiles-variant="row"'));
+  // Since 2026-09-25 the foot is SERVICES only, as cards (owner): the pill
+  // row's heading promised "a service, area or line item" and could add
+  // only services. A line item is added inside its service.
+  ok("the document offers the service cards with a quote already in progress", doc.includes('data-service-tiles-variant="card"'));
+  ok("…and no longer promises an area or a line item down there", !doc.includes("Add a service, area or line item"));
   for (const cat of BOOTSTRAP.categories) {
-    ok(`the row offers ${cat.key}`, doc.includes(`data-service-tile="${cat.key}"`));
+    ok(`the cards offer ${cat.key}`, doc.includes(`data-service-tile="${cat.key}"`));
   }
-  ok("the row includes the service already on the quote (adding it twice is the point)", doc.includes('data-service-tile="cabinet_refinishing"'));
+  ok("the cards include the service already on the quote (adding it twice is the point)", doc.includes('data-service-tile="cabinet_refinishing"'));
+  ok("every service on the quote has its own Add line item", (doc.match(/data-doc-add-line/g) || []).length === twoOfOne.scopeGroups.length);
+  ok("a card carries the service's one-line description", /data-service-card-description/.test(doc));
+  ok("…and a price where the company has one", /data-service-card-price/.test(doc));
+  // A company service with an estimate template, linked to Stairs: its card
+  // gets "Add with its template lines (2)" and its price hint reads the
+  // company's own figure. Unlinked products (the Rush fee) put nothing on a
+  // card — a product for every quote type is not any one service's price.
+  const templated = {
+    id: "p2", name: "Stair refinish", description: "Sand and stain.", unitPrice: 95, unit: "tread", type: "service", active: true,
+    templateEnabled: true, estimateTypes: [], categories: [{ id: "cat1", label: "Stairs" }],
+    templateLines: [
+      { kind: "labour", name: "Treads", qty: 1, unit: "each", unitPrice: 95, measurementKey: "treads" },
+      { kind: "other", name: "Dust containment", qty: 1, unit: "flat", unitPrice: 120 },
+    ],
+  };
+  const cardsDoc = renderToStaticMarkup(
+    <LanguageProvider initialLanguage="en">
+      <PermissionProvider role="owner" permissions={{}}>
+        <QuoteBuilderForm
+          mode="create"
+          quoteId={null}
+          bootstrap={{ ...BOOTSTRAP, layout: "document", products: [...BOOTSTRAP.products, templated], categories: BOOTSTRAP.categories.filter((c) => c.key !== "interior_painting") }}
+          initial={initialStateFromQuote(null)}
+        />
+      </PermissionProvider>
+    </LanguageProvider>,
+  );
+  const stairsCard = cardsDoc.split('data-service-card="stairs"')[1]?.split("data-service-card=")[0] || "";
+  ok("a templated service's card offers it with its template lines", /data-service-card-template="p2"/.test(stairsCard) && /Add with its template lines \(2\)/.test(stairsCard), stairsCard.slice(0, 400));
+  ok("…priced from the company's own service", /from \$95\.00 \/ tread/.test(stairsCard), stairsCard.slice(0, 400));
+  const cabCard = cardsDoc.split('data-service-card="cabinet_refinishing"')[1]?.split("data-service-card=")[0] || "";
+  ok("a service with no template offers no template action", !/data-service-card-template/.test(cabCard));
   // An empty quote still gets the full card, which is the first thing to do
   // on a blank page.
   // …on a company with no painting, where the tiles are the first step (a
