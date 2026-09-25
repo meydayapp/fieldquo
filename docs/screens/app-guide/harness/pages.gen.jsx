@@ -124,6 +124,7 @@ import P121 from "@/app/co/[token]/ChangeOrderApproval.js";
 import P122 from "@/app/app/invoices/[id]/edit/page.js";
 import P123 from "@/app/app/tickets/page.js";
 import P124 from "@/app/app/tickets/[id]/page.js";
+import P125 from "@/app/app/leads/traffic/page.js";
 export const PAGES = {
   "app/app/page.js": P0,
   "app/app/leads/page.js": P1,
@@ -250,4 +251,5 @@ export const PAGES = {
   "app/app/invoices/[id]/edit/page.js": P122,
   "app/app/tickets/page.js": P123,
   "app/app/tickets/[id]/page.js": P124,
+  "app/app/leads/traffic/page.js": P125,
 };

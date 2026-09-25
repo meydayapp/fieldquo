@@ -21,6 +21,7 @@ import { ROUTES_HELP } from "./routes-help.js";
 import { ROUTES_TEMPLATES } from "./routes-templates.js";
 import { ROUTES_FIELD } from "./routes-field.js";
 import { ROUTES_PICKER } from "./routes-picker.js";
+import { ROUTES_ADTRACKING } from "./routes-adtracking.js";
 
 // Settings B before Grow: both answer /api/settings/document-templates,
 // and only the settings file's list carries the PDF layouts and the
@@ -33,6 +34,8 @@ export const ROUTES = [
   // The Add service frames (slug prefix "picker-"): their own company
   // shapes and a recorder on the save; everything else falls through.
   ...ROUTES_PICKER,
+  // A company's own ad tracking (slug prefix "adtrack-", routes-adtracking.js).
+  ...ROUTES_ADTRACKING,
   // The estimate-template screens first: slug-scoped, every other screen
   // falls through (routes-templates.js).
   ...ROUTES_TEMPLATES,
