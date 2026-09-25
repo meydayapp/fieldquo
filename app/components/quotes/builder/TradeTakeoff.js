@@ -37,6 +37,7 @@ import {
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 import PaverDesigner from "./PaverDesigner";
 import PaintAreas from "./PaintAreas";
+import { SidingWalls } from "./ReuseTakeoff";
 import LabourPanel from "./LabourPanel";
 import { hasTakeoff } from "@/lib/pricing/takeoffTrades";
 import {
@@ -2907,6 +2908,11 @@ function SidingTakeoff({ takeoff, book, onChange }) {
           </p>
         </Field>
       </div>
+
+      {/* Measured rather than typed: the elevations, less the openings,
+          fill Wall area above (lib/measure/reuseTakeoffs.js). The box stays
+          the one the price reads, so nothing about how siding prices moves. */}
+      <SidingWalls takeoff={takeoff} onChange={onChange} />
 
       <div>
         <OptionRow

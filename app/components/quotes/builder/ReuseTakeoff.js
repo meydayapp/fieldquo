@@ -35,9 +35,11 @@ import {
   DRYWALL_SHEETS,
   newRoomMeasure,
   newMeasureRoom,
+  newSidingWall,
   newOpening,
   roomFigures,
   roomMeasureFigures,
+  sidingWallsFigures,
   statedWaste,
 } from "@/lib/measure/reuseTakeoffs";
 import { Field, Num, inputClass, asList } from "./fields";
@@ -403,6 +405,82 @@ export function RoomMeasure({ trade, takeoff, onChange }) {
               )}
         </p>
       </div>
+    </div>
+  );
+}
+
+/* ── Siding walls — inside the siding takeoff ──────────────────────────── */
+
+/**
+ * Measure the walls being clad as elevations and fill the siding takeoff's
+ * own Wall area box. Every edit writes the walls AND the box in one change,
+ * the way the lawn tracer owns Lot Size once a shape exists: while walls are
+ * listed, their net area is the box's value (typing over it holds until a
+ * wall is next edited); removing the last wall zeroes it.
+ */
+export function SidingWalls({ takeoff, onChange }) {
+  const { t, language } = useTranslation();
+  const walls = asList(takeoff?.walls);
+  const commit = (next) => {
+    const f = sidingWallsFigures(next);
+    onChange({ ...takeoff, walls: next, sqft: f ? Math.round(f.netSqft) : 0 });
+  };
+  const figures = sidingWallsFigures(walls);
+
+  if (!walls.length) {
+    return (
+      <button
+        type="button"
+        onClick={() => commit([newSidingWall(t("app.reuseTakeoff.frontWall", "Front"))])}
+        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        data-siding-walls="empty"
+      >
+        <Plus size={14} /> {t("app.reuseTakeoff.measureWalls", "Measure the walls (elevations, less openings)")}
+      </button>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-border p-3 space-y-3" data-siding-walls>
+      <div>
+        <h3 className="text-sm font-medium">{t("app.reuseTakeoff.wallsTitle", "Walls being clad")}</h3>
+        <p className="text-xs text-muted-foreground">
+          {t(
+            "app.reuseTakeoff.wallsIntro",
+            "Each elevation is a wall run × its height, plus the gable; doors and windows come off. The net total fills Wall area above.",
+          )}
+        </p>
+      </div>
+      {walls.map((w, i) => (
+        <MeasureRoomCard
+          key={i}
+          room={{ ...(w && typeof w === "object" ? w : {}), surfaces: { walls: true } }}
+          index={i}
+          surfaces={["walls"]}
+          trade="siding"
+          gable
+          t={t}
+          language={language}
+          onChange={(next) => commit(walls.map((x, j) => (j === i ? next : x)))}
+          onRemove={() => commit(walls.filter((_, j) => j !== i))}
+        />
+      ))}
+      <button
+        type="button"
+        onClick={() => commit([...walls, newSidingWall("")])}
+        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <Plus size={14} /> {t("app.reuseTakeoff.addWall", "Add a wall")}
+      </button>
+      {figures && (
+        <div className="rounded bg-accent px-3 py-2 text-sm tabular-nums" data-siding-net>
+          {t("app.reuseTakeoff.wallsTotal", "{gross} sq ft of wall, less {openings} sq ft of openings = {net} sq ft to clad", {
+            gross: fmt(figures.grossSqft, language),
+            openings: fmt(figures.openingsSqft, language),
+            net: fmt(figures.netSqft, language),
+          })}
+        </div>
+      )}
     </div>
   );
 }
