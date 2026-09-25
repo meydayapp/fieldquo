@@ -171,8 +171,11 @@ section("2b. The SCREEN refuses it too — the handset link reaches no server");
 
   const queue = read("app/api/sales/queue/route.js");
   ok("the queue route reads the suppression list", /checkSuppression\(db, \{ channel: "phone"/.test(decomment(queue)));
-  ok("…and fails closed when it cannot", /suppressed: true,\n              reason: "The do-not-contact list could not be read/.test(queue));
-  ok("…and passes it into the view", /\n          suppression,/.test(queue));
+  // Whitespace-tolerant: the block was re-indented when it joined the
+  // route's Promise.all, and an assertion pinned to a column count fails on
+  // indentation while saying nothing about whether the guard is there.
+  ok("…and fails closed when it cannot", /checkSuppression\(db, \{ channel: "phone"[^)]*\)\.catch\(\(\) => \(\{\s*suppressed: true,\s*reason: "The do-not-contact list could not be read/.test(queue));
+  ok("…and passes it into the view", /\n\s*suppression,/.test(decomment(queue)));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
