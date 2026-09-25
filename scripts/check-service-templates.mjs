@@ -78,6 +78,7 @@ import {
 } from "@/lib/services/templates";
 import { MEASUREMENT_KEYS as REGISTRY, MEASUREMENT_KEY_LIST, isMeasurementKey, TRADE_MEASUREMENTS, measurementKeysForTrade } from "@/lib/services/measurementKeys";
 import { roofLabour } from "@/lib/pricing/roofLabour";
+import { priceCleaning } from "@/lib/cleaning/pricing";
 import { deriveGutters } from "@/lib/measure/gutterMeasurement";
 import { baseMaterials } from "@/lib/pricing/paverTakeoff";
 import { LOT_AREA_FIELD, LOT_EDGE_FIELD } from "@/lib/measure/lotTakeoff";
@@ -414,6 +415,11 @@ section("I — every calculator's keys are real output names; trades that reuse 
   for (const k of ["roughInHours", "trimOutHours", "panelHours", "totalHours"]) ok(isMeasurementKey(k) && lh && k in lh, `estimateLabourHours produces "${k}"`, lh?.[k]);
   const tr = measureTracedArea([[45.4, -75.7], [45.4001, -75.7], [45.4001, -75.6999], [45.4, -75.6999]]);
   ok(tr.ok === false || (isMeasurementKey("areaSqft") && tr.measurement.areaSqft > 0), "measureTracedArea's figure is areaSqft", tr);
+  // Cleaning: the intake names priceCleaning reads — a change in either moves the price.
+  const clean = (x) => JSON.stringify(priceCleaning({ squareFootage: 1500, bedrooms: 3, bathrooms: 2, ...x }));
+  for (const [k, v] of [["bedrooms", 5], ["bathrooms", 4], ["squareFootage", 3000]]) ok(isMeasurementKey(k) && clean({ [k]: v }) !== clean({}), `cleaning key "${k}" is an intake field priceCleaning reads`);
+  ok(isMeasurementKey("halfBaths") && /manual/.test(REGISTRY.halfBaths.source), "halfBaths registered as typed on the quote (no intake field yet)");
+  ok(!isMeasurementKey("bedroomCount") && !isMeasurementKey("homeSqft"), "no second spelling of the intake names");
   for (const [trade, keys] of Object.entries(TRADE_MEASUREMENTS)) ok(keys.every(isMeasurementKey), `TRADE_MEASUREMENTS.${trade}: every key registered`, keys.filter((k) => !isMeasurementKey(k)));
   ok(JSON.stringify(TRADE_MEASUREMENTS.flooring) === JSON.stringify(["floorSqft", "linearFt"]) && TRADE_MEASUREMENTS.tiling.includes("wallSqft") && TRADE_MEASUREMENTS.drywall.includes("ceilingSqft") && TRADE_MEASUREMENTS.siding[0] === "wallSqft" && TRADE_MEASUREMENTS.fence_services[0] === "edgingFt" && TRADE_MEASUREMENTS.concrete[0] === "areaSqft", "flooring, tile, drywall, siding, fencing, concrete reuse the existing takeoffs");
   const fk = measurementKeysForTrade("flooring");
