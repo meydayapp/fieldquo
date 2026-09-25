@@ -126,9 +126,16 @@ Settings › Company stores a bare www. address as https://.
   `{ name, total }` line rows, which the template (reading QuoteLineItem's
   `description`/`amount`) prints at $0.00 — found while wiring the signup's
   email; not fixed here.
-- Funnel builder: the step editor's heading reads `STEP_KINDS…?.label`, but
-  entries only carry `labelKey` — the heading renders empty (found by the
-  extraction pass; left as a pure move).
+- ~~Funnel builder: the step editor's heading reads `STEP_KINDS…?.label`, but
+  entries only carry `labelKey` — the heading renders empty.~~ Fixed: the
+  heading is `t(kind.labelKey)` (falls back to the kind id, like the step
+  list). The stale read dates from the i18n pass (6dee123c), not the
+  extraction. `check:marketing-controls` §6 now parses STEP_KINDS, requires
+  every labelKey in every language, and fails on any `.label` read off an
+  entry in page.js or FunnelStepListItem.js. Harness funnel-builder frame
+  shows INTRO / INTRODUCTION / INTRODUCCIÓN. Seen in the same frame, not
+  fixed: the status pill prints the raw key `app.funnels.status.published`,
+  and the editor's Headline / Subtext / PREVIEW stay English in fr/es.
 - AUD visitors see no seed prices (benchmarkFx converts USD/CAD only) and so
   get the fixture quote; the same gap means AUD companies are seeded unpriced.
 - Samples render the fixture's dates (Sept 2026) and its CAD dashboard.

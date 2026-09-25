@@ -349,7 +349,36 @@ console.log("\n6. The builder's server-written labels reach the catalogue\n");
     ok(`funnel builder asks for ${key}`, funnelBuilder.includes(`"${key}"`));
     ok(`…defined in every language`, LANGS.every((l) => typeof APP_MESSAGES[l][key] === "string"));
   }
-  const email = stripComments(read("app/components/marketing/EmailCampaignDetail.js"));
+
+  // The step kinds. STEP_KINDS entries carry `labelKey`, never `label` — the
+  // i18n pass renamed the field and the step editor's heading kept reading
+  // `.label`, so it rendered empty in every language. The table is
+  // parsed out of the source (the file is JSX, which this loader can't import)
+  // and every reader of it in the builder is held to the new field.
+  const stepListSrc = stripComments(read("app/app/funnels/[id]/FunnelStepListItem.js"));
+  const stepKindsBlock = stepListSrc.match(/export const STEP_KINDS = \[([\s\S]*?)\];/)?.[1] || "";
+  const stepKinds = [...stepKindsBlock.matchAll(/\{\s*kind:\s*"([^"]+)",\s*labelKey:\s*"([^"]+)"\s*\}/g)]
+    .map((m) => ({ kind: m[1], labelKey: m[2] }));
+  ok("STEP_KINDS parses to seven kinds, each with a labelKey", stepKinds.length === 7 && !/\blabel:/.test(stepKindsBlock),
+    stepKinds.map((k) => k.kind));
+  ok("…every step-kind label defined (non-empty) in every language",
+    stepKinds.every(({ labelKey }) => LANGS.every((l) => typeof APP_MESSAGES[l][labelKey] === "string" && APP_MESSAGES[l][labelKey].trim())),
+    stepKinds.map((k) => k.labelKey));
+  for (const [name, src] of [["page.js", funnelBuilder], ["FunnelStepListItem.js", stepListSrc]]) {
+    const bound = [...src.matchAll(/const (\w+) = STEP_KINDS\.find\(/g)].map((m) => m[1]);
+    // [^\n]*? rather than [^)]*: the predicate itself is `(k) => …`, so the
+    // first ")" closes the arrow's parameter list, not the find() call.
+    const staleRead = /STEP_KINDS\.find\([^\n]*?\)\??\.label\b/.test(src)
+      || bound.some((v) => new RegExp(`\\b${v}\\??\\.label\\b`).test(src));
+    ok(`${name}: nothing reads .label off a STEP_KINDS entry (only labelKey exists)`, !staleRead, bound);
+  }
+  const stepEditor = funnelBuilder.slice(funnelBuilder.indexOf("function StepEditor("),
+    funnelBuilder.indexOf("\nfunction ", funnelBuilder.indexOf("function StepEditor(") + 1));
+  ok("the step editor's heading translates the kind's labelKey through t()",
+    /const \{ t \} = useTranslation\(\)/.test(stepEditor) && /t\(kind\.labelKey\)/.test(stepEditor));
+  ok("…and so does the step list", /t\(kind\.labelKey\)/.test(stepListSrc));
+
+  const email =stripComments(read("app/components/marketing/EmailCampaignDetail.js"));
   ok("EmailCampaignDetail has no bare English button left",
     !/>\s*Send Campaign\s*</.test(email) && !/"Yes, send now"\s*\}/.test(email.replace(/t\([^)]*\)/g, "")) && /app\.mkEmail\.sendCampaign/.test(email));
   for (const key of ["sendError", "noTemplate", "editTemplate", "loadingSubscribers", "subscribedCount", "manageList", "sentOn", "partial", "sending", "resumeSend", "confirm", "sendNow", "pickTemplateFirst", "noRecipients", "sendCampaign"]) {

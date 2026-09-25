@@ -720,7 +720,14 @@ function StepEditor({ step, onChange, iqTrades, iqError }) {
   return (
     <div className="space-y-3">
       <div className="text-xs font-semibold text-foreground uppercase tracking-wide">
-        {STEP_KINDS.find((k) => k.kind === step.kind)?.label}
+        {(() => {
+          // STEP_KINDS carries a labelKey, not a label — the i18n pass renamed
+          // the field and this read of the old one rendered an empty heading.
+          // Same fallback as the step list: an unknown kind shows its id
+          // rather than nothing.
+          const kind = STEP_KINDS.find((k) => k.kind === step.kind);
+          return kind ? t(kind.labelKey) : step.kind;
+        })()}
       </div>
 
       {(step.kind === "intro" ||
