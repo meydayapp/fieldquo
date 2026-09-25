@@ -3,8 +3,12 @@
 // Public. The homeowner has a range and wants it — this captures their contact
 // details and creates a draft Quote flagged for review. It RE-measures and
 // RE-prices server-side from the same inputs, so the stored figure can't be
-// anything the browser chose. Nothing is sent to the homeowner here and no
-// price is promised as binding: the company's review queue is the next step.
+// anything the browser chose. The QUOTE is never sent from here — it stays a
+// draft for the company's review queue, which is the next step, and no price
+// is promised as binding. What the homeowner does receive is the estimate
+// REPORT (publishEstimateReport below: the page, its PDF and an emailed copy,
+// asked for by the owner on 2026-09-18). How that sits with the owner's
+// "not the quote" auto-send policy is written up in docs/CLIENT-MESSAGES.md.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
