@@ -1673,6 +1673,8 @@ const RBQ_SEVENTEEN = [
       assignedRepId: null,
       claimExpiresAt: null,
       doNotContactAt: null,
+      // Unmerged: the list filters `mergedIntoId: null` since d8559598d.
+      mergedIntoId: null,
     },
     {
       id: "p_other",
@@ -1691,6 +1693,7 @@ const RBQ_SEVENTEEN = [
       assignedRepId: null,
       claimExpiresAt: null,
       doNotContactAt: null,
+      mergedIntoId: null,
     },
   ];
 
@@ -1724,6 +1727,9 @@ const RBQ_SEVENTEEN = [
     salesTerritory: { findMany: async () => [] },
     prospectCampaign: { findMany: async () => [] },
     prospectScore: { count: async () => 0 },
+    // The assignable reps and the holder-name lookup (f915d2a8e, 80f3a6599).
+    // No rep holds a fixture row, so both reads are empty.
+    salesRep: { findMany: async () => [] },
     $queryRaw: async () => [
       { category: "rbq:9", n: 44134 },
       { category: "painting", n: 12 },
