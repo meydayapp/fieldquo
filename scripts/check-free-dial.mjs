@@ -557,12 +557,28 @@ ok(
 {
   // The POST's write lives in lib/sales/contact/record.js (shared with the
   // text-thread opener since 2026-09-18); the PATCH still writes here. Both
-  // files are held to the same table.
+  // are held to the same table.
+  //
+  // Only recordContactNumber's own body, not the whole of record.js: the file
+  // also holds recordContactEmail (4ed0ec2f, the after-call intro email),
+  // which writes salesContactEmail and is not reachable from this route. So
+  // the route must import nothing else from that file, or the scope below
+  // would stop describing what the route can do.
+  const recordImport = numbersRoute.match(/import \{([^}]*)\} from "@\/lib\/sales\/contact\/record";/)?.[1] || "";
+  ok(
+    "the recording route takes only recordContactNumber's writer from record.js",
+    /\brecordContactNumber\b/.test(recordImport) && !/\brecordContactEmail\b/.test(recordImport),
+    recordImport.trim(),
+  );
+  const numberFrom = recordLib.indexOf("export async function recordContactNumber(");
+  const numberTo = recordLib.indexOf("\nexport ", numberFrom + 1);
+  const recordNumber = numberFrom === -1 ? "" : recordLib.slice(numberFrom, numberTo === -1 ? undefined : numberTo);
+  ok("recordContactNumber was found in record.js", recordNumber.length > 0);
   const writes = [
     ...numbersRoute.matchAll(
       /\bdb\.(\w+)\.(create|createMany|update|updateMany|upsert|delete|deleteMany)\b/g,
     ),
-    ...recordLib.matchAll(
+    ...recordNumber.matchAll(
       /\bclient\.(\w+)\.(create|createMany|update|updateMany|upsert|delete|deleteMany)\b/g,
     ),
   ];
