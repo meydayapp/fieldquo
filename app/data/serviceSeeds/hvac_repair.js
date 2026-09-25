@@ -1491,6 +1491,52 @@ const TEMPLATES = {
       tl: ["Insulated flex duct — kada rolyo", "6 in R6 insulated flex duct, 25 ft na rolyo."],
     }, { measurementKey: "linearFt" }),
   ], null),
+
+  // ── Taken from the schema agent's template draft (branch
+  //    agent/services-templates-seeds-wip) for rows this file had not
+  //    templated; prices and costs as drafted there. ──────────────────
+  "fq.hvac_repair.air_quality.replace_filter": T("maintenance", {
+    it: ["Sostituzione del filtro dell'aria", "Il filtro dell'impianto sostituito con uno nuovo della misura giusta e la griglia di ripresa pulita."],
+    de: ["Luftfilterwechsel", "Der Anlagenfilter durch einen neuen in der richtigen Größe ersetzt und das Rückluftgitter gereinigt."],
+    uk: ["Заміна повітряного фільтра", "Фільтр системи замінено на новий потрібного розміру, решітку рециркуляції очищено."],
+    tl: ["Pagpapalit ng air filter", "Pinalitan ang filter ng sistema ng bagong tamang sukat at nilinis ang return grille."],
+  }, [
+    L.labour(1, "flat", 60, {
+      en: ["Filter change and return cleaning", "The old filter out, the return grille vacuumed, the new filter in and the airflow arrow checked."],
+      fr: ["Changement de filtre et nettoyage du retour d'air", "Ancien filtre retiré, grille de retour aspirée, filtre neuf posé et sens de la flèche vérifié."],
+      es: ["Cambio de filtro y limpieza del retorno", "Filtro viejo fuera, rejilla de retorno aspirada, filtro nuevo puesto y la flecha de flujo verificada."],
+      it: ["Cambio filtro e pulizia della ripresa", "Filtro vecchio tolto, griglia di ripresa aspirata, filtro nuovo inserito e freccia del flusso controllata."],
+      de: ["Filterwechsel und Rückluftreinigung", "Alter Filter raus, Rückluftgitter abgesaugt, neuer Filter rein und der Luftrichtungspfeil geprüft."],
+      uk: ["Заміна фільтра та чищення решітки", "Старий фільтр знято, решітку пропилососено, новий фільтр встановлено, стрілку напряму перевірено."],
+      tl: ["Pagpapalit ng filter at paglilinis ng return", "Tinanggal ang lumang filter, na-vacuum ang return grille, inilagay ang bago at sinuri ang arrow ng daloy."],
+    }, { cost: 30 }),
+    L.material(1, "each", 45, {
+      en: ["High-efficiency pleated filter", "A MERV 11 pleated filter in the size the system takes."],
+      fr: ["Filtre plissé haute efficacité", "Filtre plissé MERV 11 à la dimension du système."],
+      es: ["Filtro plisado de alta eficiencia", "Filtro plisado MERV 11 en la medida que usa el sistema."],
+      it: ["Filtro pieghettato ad alta efficienza", "Filtro pieghettato MERV 11 nella misura dell'impianto."],
+      de: ["Hochleistungs-Faltenfilter", "MERV-11-Faltenfilter in der Größe der Anlage."],
+      uk: ["Гофрований фільтр високої ефективності", "Гофрований фільтр MERV 11 потрібного розміру."],
+      tl: ["High-efficiency pleated filter", "MERV 11 pleated filter sa sukat ng sistema."],
+    }, { cost: 34 }),
+  ], null),
+
+  "fq.hvac_repair.coils.inspect": T("inspection", {
+    it: ["Ispezione delle batterie", "Batterie dell'evaporatore e del condensatore ispezionate per sporco, corrosione e perdite, con quanto trovato riferito prima di consigliare una pulizia o una riparazione."],
+    de: ["Inspektion der Wärmetauscher", "Verdampfer- und Verflüssigerregister auf Verschmutzung, Korrosion und Lecks geprüft; der Befund wird berichtet, bevor eine Reinigung oder Reparatur empfohlen wird."],
+    uk: ["Огляд теплообмінників", "Випарник і конденсатор оглянуто на забруднення, корозію та витоки; результат повідомлено до рекомендації чищення або ремонту."],
+    tl: ["Inspeksyon ng coil", "Sinuri ang evaporator at condenser coil kung may dumi, kalawang at tagas, at iniulat ang natuklasan bago magrekomenda ng paglilinis o pag-aayos."],
+  }, [
+    L.labour(1, "flat", 125, {
+      en: ["Coil inspection", "Both coils opened up and examined for fouling, corrosion and oil traces that mean a leak."],
+      fr: ["Inspection des serpentins", "Les deux serpentins ouverts et examinés pour encrassement, corrosion et traces d'huile signalant une fuite."],
+      es: ["Inspección de serpentines", "Ambos serpentines abiertos y examinados en busca de suciedad, corrosión y rastros de aceite que indiquen fuga."],
+      it: ["Ispezione delle batterie", "Entrambe le batterie aperte ed esaminate per sporco, corrosione e tracce d'olio che indicano una perdita."],
+      de: ["Registerinspektion", "Beide Register geöffnet und auf Verschmutzung, Korrosion und Ölspuren, die auf ein Leck hindeuten, untersucht."],
+      uk: ["Огляд теплообмінників", "Обидва теплообмінники відкрито та оглянуто на забруднення, корозію та сліди оливи, що вказують на витік."],
+      tl: ["Inspeksyon ng coil", "Binuksan at sinuri ang dalawang coil kung may dumi, kalawang at bakas ng langis na senyales ng tagas."],
+    }, { cost: 60 }),
+  ], null),
 };
 
 withTemplates(SEED, TEMPLATES);

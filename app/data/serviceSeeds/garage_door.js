@@ -566,6 +566,35 @@ const TEMPLATES = {
     uk: ["Полиаспартикова система — за кв. фут", "Полиаспартиковий базовий і верхній шар з декоративними чипсами."],
     tl: ["Polyaspartic system — kada sq ft", "Polyaspartic na base at top coat na may decorative flake."],
   }, { measurementKey: "areaSqFt" })], null, { categories: ["garage_door", "epoxy", "flooring_install"] }),
+
+  // ── Taken from the schema agent's template draft (branch
+  //    agent/services-templates-seeds-wip) for rows this file had not
+  //    templated; prices and costs as drafted there. ──────────────────
+  "fq.garage_door.install.wood_metal_components": T("installation", {
+    it: ["Sostituzione di componenti in legno e metallo", "Cornici marce, cerniere piegate o staffe arrugginite sostituite con parti nuove, così la porta scorre dritta e si chiude a tenuta."],
+    de: ["Austausch von Holz- und Metallteilen", "Morsche Zargen, verbogene Scharniere oder verrostete Beschläge durch neue Teile ersetzt, damit das Tor gerade läuft und dicht schließt."],
+    uk: ["Заміна дерев'яних і металевих елементів", "Гнилу обшивку, зігнуті петлі чи іржаві кронштейни замінено на нові, щоб ворота ходили рівно та щільно зачинялися."],
+    tl: ["Pagpapalit ng kahoy at metal na bahagi", "Pinalitan ang bulok na trim, baluktot na bisagra o kalawanging bracket ng bago para tuwid ang takbo at siksik ang sara ng pinto."],
+  }, [
+    L.labour(1, "flat", 180, {
+      en: ["Component replacement labour", "Rotten jamb trim, bent hinges or rusted brackets cut out and replaced, then the door cycled to check its travel."],
+      fr: ["Main-d'œuvre — remplacement de composants", "Moulures de jambage pourries, charnières tordues ou supports rouillés retirés et remplacés, puis porte actionnée pour vérifier sa course."],
+      es: ["Mano de obra — reemplazo de componentes", "Molduras de jamba podridas, bisagras dobladas o soportes oxidados retirados y reemplazados, y luego la puerta accionada para revisar su recorrido."],
+      it: ["Manodopera — sostituzione dei componenti", "Cornici marce, cerniere piegate o staffe arrugginite rimosse e sostituite, poi la porta azionata per verificarne la corsa."],
+      de: ["Arbeitsleistung — Bauteiltausch", "Morsche Zargenleisten, verbogene Scharniere oder verrostete Halter herausgetrennt und ersetzt, dann das Tor zur Laufprüfung gefahren."],
+      uk: ["Робота — заміна елементів", "Гнилі накладки, зігнуті петлі чи іржаві кронштейни вирізано та замінено, ворота прогнано для перевірки ходу."],
+      tl: ["Trabaho — pagpapalit ng bahagi", "Tinanggal at pinalitan ang bulok na jamb trim, baluktot na bisagra o kalawanging bracket, pagkatapos pinaandar ang pinto para masuri ang takbo."],
+    }, { cost: 90 }),
+    L.material(1, "flat", 120, {
+      en: ["Replacement trim, hinges and brackets", "PVC jamb trim, galvanised hinges and brackets in the sizes the door takes."],
+      fr: ["Moulures, charnières et supports de rechange", "Moulures de jambage en PVC, charnières et supports galvanisés aux dimensions de la porte."],
+      es: ["Molduras, bisagras y soportes de repuesto", "Molduras de jamba de PVC, bisagras y soportes galvanizados en las medidas de la puerta."],
+      it: ["Cornici, cerniere e staffe di ricambio", "Cornici in PVC, cerniere e staffe zincate nelle misure della porta."],
+      de: ["Ersatzleisten, Scharniere und Halter", "PVC-Zargenleisten, verzinkte Scharniere und Halter in den Maßen des Tors."],
+      uk: ["Змінні накладки, петлі та кронштейни", "ПВХ-накладки, оцинковані петлі та кронштейни за розмірами воріт."],
+      tl: ["Kapalit na trim, bisagra at bracket", "PVC jamb trim, galvanized na bisagra at bracket sa sukat ng pinto."],
+    }, { cost: 90 }),
+  ], null),
 };
 
 withTemplates(SEED, TEMPLATES);

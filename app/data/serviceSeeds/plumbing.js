@@ -1031,6 +1031,87 @@ const TEMPLATES = {
     }, { measurementKey: "linearFt" }),
     SHARED.consumables(45),
   ], null),
+
+  // ── Taken from the schema agent's template draft (branch
+  //    agent/services-templates-seeds-wip) for rows this file had not
+  //    templated; prices and costs as drafted there. ──────────────────
+  "fq.plumbing.appliances.clean_dryer_vent": T("maintenance", {
+    it: ["Pulizia del condotto dell'asciugatrice", "Il condotto dell'asciugatrice spazzolato e aspirato dall'apparecchio allo sfiato esterno, e il flusso d'aria verificato alla fine."],
+    de: ["Reinigung des Trockner-Abluftkanals", "Der Abluftkanal des Trockners vom Gerät bis zur Außenklappe gebürstet und abgesaugt, der Luftstrom danach geprüft."],
+    uk: ["Чищення вентиляції сушильної машини", "Витяжний канал сушарки прочищено щіткою та пропилососено від приладу до вуличної решітки, потік повітря перевірено."],
+    tl: ["Paglilinis ng vent ng dryer", "Binrush at na-vacuum ang vent ng dryer mula sa makina hanggang sa labas, at sinuri ang daloy ng hangin pagkatapos."],
+  }, [
+    L.labour(1, "flat", 175, {
+      en: ["Dryer vent cleaning", "The full run brushed and vacuumed from the dryer to the exterior hood, and the airflow measured after."],
+      fr: ["Nettoyage du conduit de sécheuse", "Conduit brossé et aspiré sur toute sa longueur, de la sécheuse à la hotte extérieure, et débit d'air mesuré ensuite."],
+      es: ["Limpieza del ducto de la secadora", "Todo el recorrido cepillado y aspirado desde la secadora hasta la campana exterior, y el flujo de aire medido después."],
+      it: ["Pulizia del condotto dell'asciugatrice", "L'intero percorso spazzolato e aspirato dall'asciugatrice alla griglia esterna, e il flusso d'aria misurato dopo."],
+      de: ["Reinigung des Trockner-Abluftkanals", "Der gesamte Kanal vom Trockner bis zur Außenhaube gebürstet und abgesaugt, der Luftstrom danach gemessen."],
+      uk: ["Чищення вентиляції сушарки", "Увесь канал від сушарки до вуличного ковпака прочищено щіткою та пропилососено, потік повітря виміряно."],
+      tl: ["Paglilinis ng vent ng dryer", "Binrush at na-vacuum ang buong daan mula dryer hanggang sa hood sa labas, at sinukat ang daloy ng hangin pagkatapos."],
+    }, { cost: 85 }),
+    L.material(1, "each", 25, {
+      en: ["Foil transition duct and clamps", "A new transition duct behind the dryer when the old one is crushed or lint-packed."],
+      fr: ["Conduit de raccord en aluminium et colliers", "Conduit de raccord neuf derrière la sécheuse si l'ancien est écrasé ou bourré de charpie."],
+      es: ["Ducto de transición de aluminio y abrazaderas", "Ducto de transición nuevo detrás de la secadora cuando el anterior está aplastado o lleno de pelusa."],
+      it: ["Condotto di raccordo in alluminio e fascette", "Condotto di raccordo nuovo dietro l'asciugatrice quando il vecchio è schiacciato o pieno di lanugine."],
+      de: ["Alu-Übergangsschlauch und Schellen", "Neuer Übergangsschlauch hinter dem Trockner, wenn der alte gequetscht oder mit Flusen voll ist."],
+      uk: ["Алюмінієвий перехідний гофрорукав і хомути", "Новий перехідний рукав за сушаркою, якщо старий зім'ятий або забитий ворсом."],
+      tl: ["Foil transition duct at clamp", "Bagong transition duct sa likod ng dryer kapag sira o puno ng lint ang luma."],
+    }, { cost: 18 }),
+  ], null),
+
+  "fq.plumbing.drains.clean_drain": T("repair", {
+    it: ["Disostruzione di scarico — singolo apparecchio", "Un lavandino, una vasca o una doccia che scarica lentamente liberato con una sonda, e lo scarico provato a piena portata."],
+    de: ["Abflussreinigung — ein Ablauf", "Ein langsam laufendes Waschbecken, eine Wanne oder Dusche mit der Spirale freigemacht und der Abfluss bei vollem Durchfluss geprüft."],
+    uk: ["Прочищення зливу — один прилад", "Повільний злив умивальника, ванни чи душу прочищено тросом, злив перевірено на повний потік."],
+    tl: ["Paglilinis ng drain — isang fixture", "Lababo, bathtub o shower na mabagal umagos na nilinis gamit ang cable, at sinubok ang drain sa buong daloy."],
+  }, [
+    L.labour(1, "flat", 150, {
+      en: ["Single-fixture drain clearing", "The blockage cleared with a hand or small drum cable and the drain run to confirm full flow."],
+      fr: ["Débouchage d'un seul appareil", "Bouchon dégagé au câble manuel ou petit tambour et évacuation vérifiée à plein débit."],
+      es: ["Destape de un solo desagüe", "Obstrucción eliminada con cable manual o de tambor pequeño y desagüe probado a caudal completo."],
+      it: ["Disostruzione di un singolo scarico", "Ostruzione rimossa con sonda manuale o piccolo tamburo e scarico verificato a piena portata."],
+      de: ["Reinigung eines einzelnen Abflusses", "Verstopfung mit Hand- oder kleiner Trommelspirale gelöst und der Abfluss bei vollem Durchfluss geprüft."],
+      uk: ["Прочищення одного зливу", "Засмічення усунуто ручним або малим барабанним тросом, злив перевірено на повний потік."],
+      tl: ["Paglilinis ng isang drain", "Inalis ang bara gamit ang hand o maliit na drum cable at sinubok ang drain sa buong daloy."],
+    }, { cost: 75 }),
+    L.material(1, "each", 30, {
+      en: ["Trap and tailpiece washers", "Fresh washers where the trap is opened, so it goes back together without a drip."],
+      fr: ["Rondelles de siphon et de tube de sortie", "Rondelles neuves là où le siphon est ouvert, pour un remontage sans goutte."],
+      es: ["Empaques de sifón y tubo de descarga", "Empaques nuevos donde se abre el sifón, para que quede sin goteo al armarlo."],
+      it: ["Guarnizioni del sifone e del tubo di scarico", "Guarnizioni nuove dove il sifone viene aperto, così si rimonta senza gocciolare."],
+      de: ["Dichtungen für Siphon und Ablaufrohr", "Neue Dichtungen, wo der Siphon geöffnet wird, damit er ohne Tropfen wieder zusammengeht."],
+      uk: ["Прокладки сифона та зливної трубки", "Нові прокладки там, де розкривається сифон, щоб зібрати без краплі."],
+      tl: ["Mga washer ng trap at tailpiece", "Bagong washer kung saan binuksan ang trap para walang tulo sa pagkabit."],
+    }, { cost: 22 }),
+  ], null),
+
+  "fq.plumbing.toilets.repair": T("repair", {
+    it: ["Riparazione di WC", "Un WC che scorre, perde o non scarica: la causa trovata e le parti interne guaste sostituite nella stessa visita."],
+    de: ["WC-Reparatur", "Ein WC, das nachläuft, leckt oder nicht spült: die Ursache gefunden und die defekten Innenteile im selben Besuch ersetzt."],
+    uk: ["Ремонт унітаза", "Унітаз, що підтікає, тече або не змиває: причину знайдено, зіпсовані внутрішні деталі замінено за один візит."],
+    tl: ["Pag-aayos ng inidoro", "Inidorong tumatagas, tumutulo o hindi nag-flush: nahanap ang sanhi at pinalitan ang sirang bahagi sa loob sa iisang pagbisita."],
+  }, [
+    L.labour(1, "flat", 135, {
+      en: ["Toilet repair labour", "The running, leaking or weak flush diagnosed and the worn parts inside the tank replaced."],
+      fr: ["Main-d'œuvre — réparation de toilette", "Écoulement continu, fuite ou chasse faible diagnostiqués et pièces usées du réservoir remplacées."],
+      es: ["Mano de obra — reparación de inodoro", "Fuga, goteo o descarga débil diagnosticados y las piezas gastadas del tanque reemplazadas."],
+      it: ["Manodopera — riparazione del WC", "Scarico continuo, perdita o scarico debole diagnosticati e parti usurate della cassetta sostituite."],
+      de: ["Arbeitsleistung — WC-Reparatur", "Nachlaufen, Leck oder schwache Spülung diagnostiziert und verschlissene Teile im Spülkasten ersetzt."],
+      uk: ["Робота — ремонт унітаза", "Постійне протікання, теча або слабкий змив діагностовано, зношені деталі в бачку замінено."],
+      tl: ["Trabaho — pag-aayos ng inidoro", "Na-diagnose ang tumutulo, tumatagas o mahinang flush at pinalitan ang mga sirang bahagi sa loob ng tangke."],
+    }, { cost: 65 }),
+    L.material(1, "each", 45, {
+      en: ["Fill valve and flapper kit", "A universal fill valve and flapper, the two parts that fail most."],
+      fr: ["Ensemble soupape de remplissage et clapet", "Soupape de remplissage universelle et clapet, les deux pièces qui lâchent le plus souvent."],
+      es: ["Kit de válvula de llenado y flapper", "Válvula de llenado universal y flapper, las dos piezas que más fallan."],
+      it: ["Kit galleggiante e flapper", "Galleggiante universale e flapper, i due pezzi che si guastano più spesso."],
+      de: ["Füllventil- und Klappenset", "Universal-Füllventil und Klappe, die beiden Teile, die am häufigsten ausfallen."],
+      uk: ["Комплект заливного клапана та клапана-груші", "Універсальний заливний клапан і клапан-груша — дві деталі, що виходять з ладу найчастіше."],
+      tl: ["Fill valve at flapper kit", "Universal na fill valve at flapper, ang dalawang bahaging madalas masira."],
+    }, { cost: 30 }),
+  ], D.regular("fixed", 8)),
 };
 
 withTemplates(SEED, TEMPLATES);

@@ -443,6 +443,26 @@ const TEMPLATES = {
     ["Обслуговування кухні", "Теплообмінник холодильника пропилососено, фільтр посудомийки очищено, плиту й пралку перевірено."],
     ["Maintenance visit ng kusina", "Binakyum ang coil ng ref, nilinis ang filter ng dishwasher, chineck ang range at washer."],
   ))], D.bundle("percent", 10)),
+
+  // ── Taken from the schema agent's template draft (branch
+  //    agent/services-templates-seeds-wip) for rows this file had not
+  //    templated; prices and costs as drafted there. ──────────────────
+  "fq.appliance_repair.additional.smart_setup": T("installation", {
+    it: ["Configurazione di elettrodomestico smart", "L'elettrodomestico collegato al Wi-Fi di casa, l'app installata sul telefono del cliente e le notifiche e i programmi impostati insieme."],
+    de: ["Einrichtung eines Smart-Geräts", "Das Gerät mit dem WLAN verbunden, die App auf dem Telefon des Kunden eingerichtet und Benachrichtigungen und Programme gemeinsam eingestellt."],
+    uk: ["Налаштування розумної техніки", "Прилад підключено до домашнього Wi-Fi, застосунок встановлено на телефон клієнта, сповіщення та програми налаштовано разом."],
+    tl: ["Pag-set up ng smart appliance", "Ikinonekta ang appliance sa Wi-Fi ng bahay, inilagay ang app sa telepono ng customer at magkasamang inayos ang notification at program."],
+  }, [
+    L.labour(1, "flat", 95, {
+      en: ["Smart appliance set-up", "Wi-Fi pairing, app installation on the customer's phone, and notifications and schedules set up together."],
+      fr: ["Configuration d'appareil connecté", "Jumelage Wi-Fi, installation de l'application sur le téléphone du client, notifications et horaires configurés ensemble."],
+      es: ["Configuración de electrodoméstico inteligente", "Emparejamiento Wi-Fi, instalación de la app en el teléfono del cliente y notificaciones y horarios configurados juntos."],
+      it: ["Configurazione di elettrodomestico smart", "Abbinamento Wi-Fi, installazione dell'app sul telefono del cliente, notifiche e programmi impostati insieme."],
+      de: ["Einrichtung des Smart-Geräts", "WLAN-Kopplung, App-Installation auf dem Kundentelefon, Benachrichtigungen und Zeitpläne gemeinsam eingerichtet."],
+      uk: ["Налаштування розумного приладу", "Підключення до Wi-Fi, встановлення застосунку на телефон клієнта, спільне налаштування сповіщень і розкладів."],
+      tl: ["Pag-set up ng smart appliance", "Wi-Fi pairing, pag-install ng app sa telepono ng customer, at magkasamang pag-set up ng notification at schedule."],
+    }, { cost: 45 }),
+  ], null),
 };
 
 withTemplates(SEED, TEMPLATES);

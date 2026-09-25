@@ -800,6 +800,88 @@ const TEMPLATES = {
       tl: ["First-year check", "Ikinumpara ang charge, drain, kuryente at hangin sa readings noong start-up."],
     }),
   ], null),
+
+  // ── Taken from the schema agent's template draft (branch
+  //    agent/services-templates-seeds-wip) for rows this file had not
+  //    templated; prices and costs as drafted there. ──────────────────
+  "fq.hvac_install.central.system_2_to_3_5_ton": T("installation", {
+    it: ["Installazione di impianto centralizzato da 2 a 3,5 tonnellate", "Il vecchio impianto rimosso e un nuovo condensatore con la sua batteria abbinata installati, messi sotto vuoto, caricati e collaudati con il permesso incluso."],
+    de: ["Installation einer Zentralanlage 2 bis 3,5 Tonnen", "Die alte Anlage ausgebaut und ein neuer Verflüssiger mit passendem Verdampferregister installiert, evakuiert, befüllt und abgenommen; Genehmigung inklusive."],
+    uk: ["Встановлення центральної системи 2–3,5 тонни", "Стару систему демонтовано, новий конденсатор із відповідним випарником встановлено, вакуумовано, заправлено та здано; дозвіл включено."],
+    tl: ["Pag-install ng central system na 2 hanggang 3.5 tonelada", "Tinanggal ang lumang sistema at ikinabit ang bagong condenser na may tugmang coil, vinacuum, nilagyan ng refrigerant at sinubok; kasama ang permit."],
+  }, [
+    L.labour(1, "flat", 350, {
+      en: ["Removal and disposal of the old unit", "The existing unit is disconnected, removed and taken away for disposal."],
+      fr: ["Dépose et élimination de l'ancien équipement", "L'équipement existant est débranché, déposé et emporté pour élimination."],
+      es: ["Retiro y desecho del equipo anterior", "El equipo existente se desconecta, se retira y se lleva para su desecho."],
+      it: ["Rimozione e smaltimento del vecchio impianto", "L'impianto esistente viene scollegato, rimosso e portato via per lo smaltimento."],
+      de: ["Ausbau und Entsorgung des Altgeräts", "Das vorhandene Gerät wird abgeklemmt, ausgebaut und zur Entsorgung mitgenommen."],
+      uk: ["Демонтаж і утилізація старого обладнання", "Наявне обладнання від'єднується, демонтується та вивозиться на утилізацію."],
+      tl: ["Pagtanggal at pagtatapon ng lumang unit", "Ang kasalukuyang unit ay tatanggalin sa koneksyon, aalisin at dadalhin para itapon."],
+    }, { cost: 175 }),
+    L.labour(1, "flat", 1800, {
+      en: ["Central system installation labour", "The condenser set on a new pad, the coil fitted to the air handler, line set brazed, system evacuated, charged and commissioned."],
+      fr: ["Main-d'œuvre — installation du système central", "Condenseur posé sur une nouvelle base, serpentin monté sur la centrale, conduite brasée, système tiré au vide, chargé et mis en service."],
+      es: ["Mano de obra — instalación del sistema central", "Condensador colocado sobre base nueva, serpentín instalado en el manejador, línea soldada, sistema evacuado, cargado y puesto en marcha."],
+      it: ["Manodopera — installazione dell'impianto centralizzato", "Condensatore posato su nuova base, batteria montata sull'unità interna, linea brasata, impianto messo sotto vuoto, caricato e avviato."],
+      de: ["Arbeitsleistung — Montage der Zentralanlage", "Verflüssiger auf neuem Sockel gesetzt, Register am Luftbehandlungsgerät eingebaut, Leitung gelötet, Anlage evakuiert, befüllt und in Betrieb genommen."],
+      uk: ["Робота — монтаж центральної системи", "Конденсатор встановлено на нову основу, випарник змонтовано в повітрообробник, трасу запаяно, систему вакуумовано, заправлено та запущено."],
+      tl: ["Trabaho — pag-install ng central system", "Inilagay ang condenser sa bagong pad, ikinabit ang coil sa air handler, binrazed ang line set, vinacuum, nilagyan at pinaandar ang sistema."],
+    }, { cost: 900 }),
+    L.material(1, "each", 3300, {
+      en: ["Condenser and matched coil — 2 to 3.5 ton", "A matched outdoor condenser and indoor coil sized to the home, with pad, line set and thermostat."],
+      fr: ["Condenseur et serpentin assorti — 2 à 3,5 tonnes", "Condenseur extérieur et serpentin intérieur assortis, dimensionnés pour la maison, avec base, conduite et thermostat."],
+      es: ["Condensador y serpentín a juego — 2 a 3,5 toneladas", "Condensador exterior y serpentín interior a juego, dimensionados para la casa, con base, línea y termostato."],
+      it: ["Condensatore e batteria abbinata — da 2 a 3,5 tonnellate", "Condensatore esterno e batteria interna abbinati, dimensionati per la casa, con base, linea e termostato."],
+      de: ["Verflüssiger und passendes Register — 2 bis 3,5 Tonnen", "Aufeinander abgestimmter Außenverflüssiger und Innenregister, für das Haus dimensioniert, mit Sockel, Leitung und Thermostat."],
+      uk: ["Конденсатор і відповідний випарник — 2–3,5 тонни", "Узгоджені зовнішній конденсатор і внутрішній випарник, підібрані під будинок, з основою, трасою та термостатом."],
+      tl: ["Condenser at tugmang coil — 2 hanggang 3.5 tonelada", "Tugmang outdoor condenser at indoor coil na tama ang sukat sa bahay, may pad, line set at thermostat."],
+    }, { cost: 2475 }),
+    L.other(1, "flat", 250, {
+      en: ["Permit coordination", "The permit application filed with the municipality and the inspection booked."],
+      fr: ["Coordination du permis", "Demande de permis déposée auprès de la municipalité et inspection planifiée."],
+      es: ["Gestión del permiso", "Solicitud del permiso presentada ante el municipio e inspección programada."],
+      it: ["Gestione del permesso", "Richiesta di permesso presentata al comune e ispezione prenotata."],
+      de: ["Genehmigungsabwicklung", "Genehmigungsantrag bei der Gemeinde eingereicht und Abnahme terminiert."],
+      uk: ["Оформлення дозволу", "Заява на дозвіл подається до муніципалітету, інспекція узгоджується."],
+      tl: ["Pag-aayos ng permit", "Isinampa ang aplikasyon ng permit sa munisipyo at naka-iskedyul ang inspeksyon."],
+    }, { cost: 150 }),
+  ], D.newCustomer("fixed", 300)),
+
+  "fq.hvac_install.components.air_handler": T("installation", {
+    it: ["Installazione di unità di trattamento aria", "Una nuova unità interna posata, collegata alle canalizzazioni, allo scarico condensa e all'elettrico, e avviata con l'impianto esistente."],
+    de: ["Installation eines Luftbehandlungsgeräts", "Ein neues Innengerät gesetzt, an Kanäle, Kondensatablauf und Elektrik angeschlossen und mit der bestehenden Anlage in Betrieb genommen."],
+    uk: ["Встановлення повітрообробного блока", "Новий внутрішній блок встановлено, підключено до повітроводів, дренажу та електрики і запущено з наявною системою."],
+    tl: ["Pag-install ng air handler", "Bagong indoor unit na inilagay, ikinabit sa ductwork, condensate drain at kuryente, at pinaandar kasama ang kasalukuyang sistema."],
+  }, [
+    L.labour(1, "flat", 200, {
+      en: ["Removal and disposal of the old unit", "The existing unit is disconnected, removed and taken away for disposal."],
+      fr: ["Dépose et élimination de l'ancien équipement", "L'équipement existant est débranché, déposé et emporté pour élimination."],
+      es: ["Retiro y desecho del equipo anterior", "El equipo existente se desconecta, se retira y se lleva para su desecho."],
+      it: ["Rimozione e smaltimento del vecchio impianto", "L'impianto esistente viene scollegato, rimosso e portato via per lo smaltimento."],
+      de: ["Ausbau und Entsorgung des Altgeräts", "Das vorhandene Gerät wird abgeklemmt, ausgebaut und zur Entsorgung mitgenommen."],
+      uk: ["Демонтаж і утилізація старого обладнання", "Наявне обладнання від'єднується, демонтується та вивозиться на утилізацію."],
+      tl: ["Pagtanggal at pagtatapon ng lumang unit", "Ang kasalukuyang unit ay tatanggalin sa koneksyon, aalisin at dadalhin para itapon."],
+    }, { cost: 100 }),
+    L.labour(1, "flat", 700, {
+      en: ["Air handler installation labour", "The unit set and levelled, plenums and returns connected, the drain trapped, wiring landed and the system started."],
+      fr: ["Main-d'œuvre — installation de la centrale de traitement d'air", "Unité posée et mise à niveau, plénums et retours raccordés, siphon de drain posé, câblage raccordé et système démarré."],
+      es: ["Mano de obra — instalación del manejador de aire", "Unidad colocada y nivelada, plenums y retornos conectados, drenaje con sifón, cableado conectado y sistema arrancado."],
+      it: ["Manodopera — installazione dell'unità di trattamento aria", "Unità posata e livellata, plenum e riprese collegati, sifone sullo scarico, cablaggio collegato e impianto avviato."],
+      de: ["Arbeitsleistung — Montage des Luftbehandlungsgeräts", "Gerät gesetzt und ausgerichtet, Plenen und Rückluft angeschlossen, Ablauf mit Siphon versehen, Verkabelung angeschlossen und Anlage gestartet."],
+      uk: ["Робота — монтаж повітрообробника", "Блок встановлено та вирівняно, пленуми та рециркуляцію підключено, дренаж із сифоном, проводку підключено, систему запущено."],
+      tl: ["Trabaho — pag-install ng air handler", "Inilagay at pinantay ang unit, ikinabit ang plenum at return, nilagyan ng trap ang drain, ikinonekta ang wiring at pinaandar ang sistema."],
+    }, { cost: 350 }),
+    L.material(1, "each", 1100, {
+      en: ["Air handler — variable speed", "A variable-speed air handler matched to the existing condenser, with filter rack and drain pan."],
+      fr: ["Centrale de traitement d'air — vitesse variable", "Centrale à vitesse variable assortie au condenseur existant, avec porte-filtre et bac de drainage."],
+      es: ["Manejador de aire — velocidad variable", "Manejador de velocidad variable a juego con el condensador existente, con portafiltro y bandeja de drenaje."],
+      it: ["Unità di trattamento aria — velocità variabile", "Unità a velocità variabile abbinata al condensatore esistente, con portafiltro e vaschetta di scarico."],
+      de: ["Luftbehandlungsgerät — variable Drehzahl", "Luftbehandlungsgerät mit variabler Drehzahl, passend zum vorhandenen Verflüssiger, mit Filterrahmen und Ablaufwanne."],
+      uk: ["Повітрообробний блок — змінна швидкість", "Блок зі змінною швидкістю, узгоджений із наявним конденсатором, з рамкою фільтра та піддоном."],
+      tl: ["Air handler — variable speed", "Variable-speed air handler na tugma sa kasalukuyang condenser, may filter rack at drain pan."],
+    }, { cost: 825 }),
+  ], null),
 };
 
 withTemplates(SEED, TEMPLATES);
