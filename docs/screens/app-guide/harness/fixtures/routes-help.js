@@ -1344,6 +1344,17 @@ export const ROUTES_HELP = [
   { path: "/api/products", method: "GET", reply: (ctx) => (ctx.screen?.slug === "settings-services-seeds" ? [...PRODUCTS_FIXTURE, ...SEEDED_HANDYMAN] : ctx.next()) },
   { path: "/api/settings/business-info", method: "GET", reply: (ctx) => (ctx.screen?.slug === "settings-services-seeds" ? { ...BUSINESS_INFO_FIXTURE, industries: [...(BUSINESS_INFO_FIXTURE.industries || []), "handyman"] } : ctx.next()) },
   { path: "/api/settings/business-info", method: "GET", reply: (ctx) => (isDocBuilder(ctx) ? { ...COMPANY, quoteBuilderLayout: "document" } : ctx.next()) },
+  // Company Settings › Save (2026-09-24): the PATCH answers the row plus the
+  // auto-translation summary the route queues for the two client-facing
+  // texts, which is what the "Translated automatically" banner reads.
+  {
+    path: "/api/settings/business-info",
+    method: "PATCH",
+    reply: () => ({
+      ...BUSINESS_INFO_FIXTURE,
+      autoTranslate: { queued: true, model: "company", keys: ["paymentTerms", "defaultProcessNotes"], languages: ["fr", "es", "uk", "pa", "tl", "de", "it"] },
+    }),
+  },
   // Two more shapes for the quote-fix frames (2026-09-22): "purepainter" is a
   // painter with NO cabinet trade, so the painter's own "Cabinets & millwork"
   // takeoff is what its card opens; "stairs" is the cabinet shop with Stairs
@@ -1460,6 +1471,21 @@ export const ROUTES_HELP = [
   { path: "/api/messaging/review/ai", method: "GET", reply: () => REVIEW_AI },
 
   // Client-facing
+  // Auto-translation on save (2026-09-24): the client page of a FRENCH quote
+  // for a company that writes in English — the payment terms arrive in the
+  // document's language, as app/api/public/quotes/[token] now resolves them
+  // through lib/i18n/companyText.js localisedCompany (the draft of the
+  // company's current sentence), instead of the English column verbatim.
+  {
+    path: `/api/public/quotes/${QUOTE_TOKEN}`,
+    method: "GET",
+    reply: (ctx) => {
+      if (ctx.screen?.slug !== "translate-client-quote-fr") return ctx.next();
+      const terms = "Acompte de 50 % à la réservation, solde à l'installation.";
+      const base = publicQuote({ ...ctx, lang: "fr" });
+      return { ...base, language: "fr", company: { ...base.company, paymentTerms: terms }, paymentTerms: terms, paymentSchedule: parsePaymentSchedule(terms) };
+    },
+  },
   { path: `/api/public/quotes/${QUOTE_TOKEN}`, method: "GET", reply: (ctx) => publicQuote(ctx) },
   { path: `/api/public/quotes/${QUOTE_PREVIEW_TOKEN}`, method: "GET", reply: (ctx) => ({ ...publicQuote(ctx), status: "draft", sentAt: null, preview: true }) },
   { path: `/api/quotes/received/${QUOTE_PREVIEW_TOKEN}`, method: "GET", status: 404, reply: () => ({ error: "Not a contractor's quote" }) },

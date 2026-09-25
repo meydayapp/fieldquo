@@ -30,6 +30,7 @@ import {
   dominantGlossary,
 } from "@/lib/documents/serviceContent";
 import { parsePaymentSchedule } from "@/lib/documents/paymentSchedule";
+import { localisedCompany } from "@/lib/i18n/companyText";
 import {
   requireMoney,
   permissionErrorResponse,
@@ -65,6 +66,9 @@ export async function GET(request, { params }) {
     where: { id, companyId: member.companyId },
     select: {
       id: true,
+      // Read below for the process steps and the company wording; it was
+      // never selected, so the preview's steps were always English.
+      language: true,
       processNotes: true,
       scopeGroups: {
         orderBy: { sortOrder: "asc" },
@@ -81,10 +85,12 @@ export async function GET(request, { params }) {
           category: { select: { key: true, label: true } },
         },
       },
-      company: { select: { paymentTerms: true, defaultProcessNotes: true } },
+      company: { select: { paymentTerms: true, defaultProcessNotes: true, defaultLanguage: true } },
     },
   });
   if (!quote) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  // The same wording the PDF and the client page print for this language.
+  const companyText = await localisedCompany(db, quote.company, { companyId: member.companyId, language: quote.language });
 
   // The company's own wording where they have customised it — the same join
   // the client-facing route makes, so the two documents cannot drift.
@@ -134,13 +140,13 @@ export async function GET(request, { params }) {
     // is what actually prints, so the staff page must resolve it the same way
     // rather than showing the template and letting somebody assume.
     processNotes:
-      quote.processNotes || quote.company?.defaultProcessNotes || null,
+      quote.processNotes || companyText?.defaultProcessNotes || null,
     processNotesSource: quote.processNotes
       ? "quote"
-      : quote.company?.defaultProcessNotes
+      : companyText?.defaultProcessNotes
         ? "company"
         : null,
-    paymentTerms: quote.company?.paymentTerms || null,
-    paymentSchedule: parsePaymentSchedule(quote.company?.paymentTerms),
+    paymentTerms: companyText?.paymentTerms || null,
+    paymentSchedule: parsePaymentSchedule(companyText?.paymentTerms),
   });
 }

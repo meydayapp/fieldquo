@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { loadSmsTemplateTranslations } from "@/lib/i18n/companyText";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { sendSms } from "@/lib/sms/twilioClient";
 import { renderMessage } from "@/lib/sms/renderTemplate";
@@ -264,10 +265,15 @@ export async function PATCH(request, { params }) {
           type: "on_my_way",
           templates: visit.job.company.smsTemplates,
           // The text follows the client's language like their quote did; the
-          // company's custom wording applies only to clients who read the
-          // language it was written in.
+          // company's custom wording applies to clients who read the
+          // language it was written in, and — since the save-time drafts —
+          // to any language its draft exists in.
           language: resolveClientLanguage({ client: visit.job.client, company: visit.job.company }),
           templateLanguage: visit.job.company.defaultLanguage || "en",
+          translatedTemplates: await loadSmsTemplateTranslations(db, visit.job.company, {
+            companyId: visit.job.companyId,
+            language: resolveClientLanguage({ client: visit.job.client, company: visit.job.company }),
+          }),
           values: {
             company: visit.job.company.name,
             worker: updated.assignedTo?.name || "Your technician",

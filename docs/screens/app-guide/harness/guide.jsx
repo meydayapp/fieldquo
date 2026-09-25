@@ -294,6 +294,42 @@ async function runScene(scene) {
     await wait(300);
     return;
   }
+  if (scene === "templates-open") {
+    // Settings › Services: the first trade card's estimate-template list
+    // unfolded, and the first service that carries a template opened on its
+    // editor — the lines, the discount and the totals.
+    // The first trade card may hold no services (a custom quote type with
+    // nothing linked), so walk the cards until one lists rows.
+    await until("[data-service-templates-toggle]");
+    let toggle = null;
+    for (const candidate of document.querySelectorAll("[data-service-templates-toggle]")) {
+      candidate.click();
+      await wait(150);
+      if (candidate.closest("[data-service-templates-card]")?.querySelector("[data-service-template-row]")) {
+        toggle = candidate;
+        break;
+      }
+      candidate.click();
+    }
+    if (!toggle) throw new Error("no trade card lists a service");
+    const rows = [...toggle.closest("[data-service-templates-card]").querySelectorAll("[data-service-template-row]")];
+    const withTemplate = rows.find((r) => /template total/i.test(r.textContent)) || rows[0];
+    withTemplate.querySelector("button[aria-expanded]").click();
+    await until("[data-service-template-editor]");
+    toggle.scrollIntoView({ block: "start" });
+    window.scrollBy(0, -80);
+    await wait(400);
+    return;
+  }
+  if (scene === "library-ready") {
+    // Pricing insights: the preset library with its first trade tab drawn
+    // and the rows priced — wait for a "Your price" cell, then the compare
+    // block under it.
+    await until("[data-library-row]");
+    await until("[data-benchmark-compare]");
+    await wait(400);
+    return;
+  }
   if (scene === "settings-library-open") {
     // Settings › Services: the text-block library card, unfolded.
     (await until("[data-text-block-library-card] button[aria-expanded]")).click();
@@ -684,6 +720,26 @@ async function runScene(scene) {
   if (scene === "funnel-start") {
     await clickButton("Start");
     await wait(400);
+    return;
+  }
+  if (scene === "company-save") {
+    // Company Settings: press Save; the PATCH fixture answers a queued
+    // auto-translation, and the banner it draws is what the frame shows.
+    const button = await until("[data-save-business-info]");
+    button.click();
+    const banner = await until("[data-auto-translate-banner]");
+    banner.scrollIntoView({ block: "center" });
+    await wait(400);
+    return;
+  }
+  if (scene === "company-save-ready") {
+    // The same Save, held until the banner has asked the status route and
+    // rewritten itself from what actually landed ("7 of 7 ready").
+    (await until("[data-save-business-info]")).click();
+    const banner = await until("[data-auto-translate-banner]");
+    banner.scrollIntoView({ block: "center" });
+    for (let i = 0; i < 40 && /Drafting|Rédaction|Redactando/.test(banner.textContent); i++) await wait(250);
+    await wait(300);
     return;
   }
   if (scene === "quote-presentation") {

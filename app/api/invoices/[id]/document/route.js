@@ -50,6 +50,7 @@ import {
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
 import { groupInvoiceLineItems } from "@/lib/invoices/documentGroups";
+import { localisedCompany } from "@/lib/i18n/companyText";
 
 const num = (v) => Number(v ?? 0);
 
@@ -109,11 +110,13 @@ export async function GET(request, { params }) {
           },
         },
       },
-      company: { select: { paymentTerms: true, defaultProcessNotes: true } },
+      company: { select: { paymentTerms: true, defaultProcessNotes: true, defaultLanguage: true } },
     },
   });
   if (!invoice)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  // The same wording the PDF and the portal print for this language.
+  const companyText = await localisedCompany(db, invoice.company, { companyId: member.companyId, language: invoice.language });
 
   // The company's own wording where they have customised it — the same join the
   // quote route and the client-facing route make, so the three cannot drift.
@@ -201,14 +204,14 @@ export async function GET(request, { params }) {
     glossary: scopeGroups.length ? dominantGlossary(forDominant) : [],
     processNotes:
       invoice.quote?.processNotes ||
-      invoice.company?.defaultProcessNotes ||
+      companyText?.defaultProcessNotes ||
       null,
     processNotesSource: invoice.quote?.processNotes
       ? "quote"
-      : invoice.company?.defaultProcessNotes
+      : companyText?.defaultProcessNotes
         ? "company"
         : null,
-    paymentTerms: invoice.company?.paymentTerms || null,
-    paymentSchedule: parsePaymentSchedule(invoice.company?.paymentTerms),
+    paymentTerms: companyText?.paymentTerms || null,
+    paymentSchedule: parsePaymentSchedule(companyText?.paymentTerms),
   });
 }

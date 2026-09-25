@@ -28,6 +28,7 @@ import { isVatJurisdiction } from "@/lib/tax/jurisdictions";
 import { resolveDocumentTax } from "@/lib/tax/documentTax";
 import { taxLineHeadline } from "@/lib/tax/taxLine";
 import { reportResponseError } from "@/lib/clientErrors";
+import AutoTranslateBanner from "@/app/components/settings/AutoTranslateBanner";
 import {
   contractTemplateList,
   unfilledPlaceholders,
@@ -569,6 +570,9 @@ export default function CompanySettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  // What the save queued for the other languages (payment terms, what
+  // happens next) — the banner under the save bar reads it.
+  const [autoTranslate, setAutoTranslate] = useState(null);
   const [slug, setSlug] = useState("");
   const [form, setForm] = useState(null);
 
@@ -892,6 +896,7 @@ export default function CompanySettingsPage() {
         // turn the "place your address on the map first" note into the
         // sentence. Anything else on the form is left as the owner has it.
         const data = await res.json().catch(() => null);
+        setAutoTranslate(data?.autoTranslate || null);
         if (data && typeof data === "object") {
           setForm((prev) => ({
             ...prev,
@@ -1614,6 +1619,13 @@ export default function CompanySettingsPage() {
                 "app.setCompany.benchmarkHint",
                 "Your numbers are pooled with other companies and never shown individually. You can turn this off any time.",
               )}
+              {" "}
+              {/* On by default since 2026-09-24 — Terms §7. The sentence is
+                  here so the box and the Terms say the same thing. */}
+              {t(
+                "app.setCompany.benchmarkDefaultNote",
+                "Sharing is on by default under the Terms (section 7); switching it off also hides the comparison from you.",
+              )}
             </span>
           </span>
         </label>
@@ -1769,6 +1781,7 @@ export default function CompanySettingsPage() {
           need to account for both the AdminSidebar and SettingsSidebar widths,
           which vary with the AdminSidebar's collapsed state. Keeping it in
           normal flow avoids that fragility. */}
+      <AutoTranslateBanner result={autoTranslate} />
       <div className="flex items-center justify-end gap-3 border-t border-border pt-4">
         {saved && (
           <span className="text-sm text-green-600 dark:text-green-400">
@@ -1778,6 +1791,7 @@ export default function CompanySettingsPage() {
         <button
           onClick={handleSave}
           disabled={saving}
+          data-save-business-info
           className="bg-inverted text-inverted-foreground px-6 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
         >
           {saving ? t("app.action.saving") : t("app.setCompany.updateSettings")}

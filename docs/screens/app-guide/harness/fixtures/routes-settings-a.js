@@ -68,7 +68,7 @@ const BUSINESS_INFO = {
 
 // ── Service categories (Settings → Services, and every page that filters by
 // quote type) ────────────────────────────────────────────────────────────────
-const systemCategory = (key, label, icon, sortOrder, enabled, unit = null) => ({
+export const systemCategory = (key, label, icon, sortOrder, enabled, unit = null) => ({
   id: `sc_${key}`,
   key,
   label,

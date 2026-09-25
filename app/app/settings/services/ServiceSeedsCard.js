@@ -75,7 +75,7 @@ export default function ServiceSeedsCard({ category, currency, canEdit, products
     }
   }
 
-  async function usePrice(product, value) {
+  async function savePrice(product, value) {
     setSavingId(product.id);
     try {
       const res = await fetch(`/api/products/${product.id}`, {
@@ -143,7 +143,7 @@ export default function ServiceSeedsCard({ category, currency, canEdit, products
                     currency={currency}
                     price={p.unitPrice}
                     compact
-                    onUse={canEdit && savingId !== p.id ? (v) => usePrice(p, v) : undefined}
+                    onUse={canEdit && savingId !== p.id ? (v) => savePrice(p, v) : undefined}
                   />
                 </div>
                 <div className="shrink-0 text-sm tabular-nums text-foreground sm:text-right">

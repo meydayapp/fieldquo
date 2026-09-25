@@ -17,6 +17,9 @@ import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import { PROPOSAL_SECTION_KEYS, sanitiseCompanySections } from "@/lib/proposal/sections";
 import { PROPOSAL_COMPANY_SELECT, loadProposalContent } from "@/lib/proposal/load";
+// The story and its headline are read by a client in the quote's language;
+// a save drafts the other languages after the response.
+import { scheduleAutoTranslate } from "@/lib/i18n/autoTranslateSchedule";
 
 const HTTP_URL = /^https?:\/\//i;
 const str = (v) => (typeof v === "string" ? v.trim() : "");
@@ -116,6 +119,16 @@ export async function PATCH(request) {
     metadata: { changed },
   });
 
-  return NextResponse.json(await present(member.companyId, updated));
+  const textChanged = changed.filter((k) => k === "story" || k === "storyHeadline");
+  const autoTranslate = textChanged.length
+    ? scheduleAutoTranslate({
+        companyId: member.companyId,
+        model: "company",
+        fields: Object.fromEntries(textChanged.map((k) => [k, updated[k] || ""])),
+        sourceLanguage: updated.defaultLanguage || "en",
+      })
+    : null;
+
+  return NextResponse.json({ ...(await present(member.companyId, updated)), autoTranslate });
 }
 

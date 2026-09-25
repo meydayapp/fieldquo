@@ -50,6 +50,45 @@ model Product {
   // the key is a pointer to a guideline, not a live link to a price.
   seedKey String?
 
+  // ── The template inside a service ────────────────────────────────────────
+  //
+  // A service is more than one price: the estimate a contractor sends for a
+  // "200 A panel upgrade" is two labour lines, a materials line and a
+  // new-customer discount. These three columns hold that template on the
+  // Product row so the same service always opens with the same lines.
+  //
+  //   templateLines   [{ kind: "labour"|"material"|"other", name, description,
+  //                      qty, unit, unitPrice, unitCost, taxable,
+  //                      measurementKey?, translations? }] — the lines the
+  //                      service expands to. `measurementKey` (roofing) names
+  //                      a figure the satellite report produces (squares,
+  //                      eaveFt, ridgeFt …) so the qty is taken from the
+  //                      measurement rather than typed; `translations` is the
+  //                      per-language { name, description } map, the same
+  //                      shape as `translations` above.
+  //   defaultDiscount { name, kind: "fixed"|"percent", amount } — the discount
+  //                      the template opens with, or null.
+  //   imageUrl        a photo of the service for the catalogue card.
+  //
+  // Written by Settings > Services (PATCH /api/products/[id], sanitised by
+  // lib/services/templates.js) and by the seeder from the trade's seed; read
+  // by Settings > Services and expanded by expandTemplate() in the same file.
+  // Null on every row that predates them and on a service with no template —
+  // a service with no template is priced by `unitPrice` exactly as before.
+  templateLines   Json?
+  defaultDiscount Json?
+  imageUrl        String?
+  /// Where the template is offered, by QUOTE TYPE (the owner's decision,
+  /// 2026-09-24): `categories` above is the primary link — the quote types
+  /// this service can be added to — and `estimateTypes` narrows it for a
+  /// quote type that has sub-types (painting's PAINT_ESTIMATE_TYPES:
+  /// interior · exterior · cabinets · staining · commercial). Empty = every
+  /// estimate type of the quote type. `templateEnabled` lets a company switch
+  /// a seeded template off without deleting it (Settings > Services). The
+  /// selector is lib/services/templates.js#templatesFor.
+  estimateTypes   String[] @default([])
+  templateEnabled Boolean  @default(true)
+
   // Which quote types (ServiceCategory) this product/service can be added to
   // as a line item. Empty = available on every quote type (e.g. a generic
   // "Rush Fee"); non-empty = only offered when building a quote in one of
@@ -1414,7 +1453,12 @@ model Company {
   trialReminder15At      DateTime?
   trialReminder7At       DateTime?
   trialReminder3At       DateTime?
-  shareAnonymizedPricing Boolean          @default(false)
+  /// On by default for a NEW company: sharing anonymised pricing and
+  /// conversion figures is part of the Terms (§7) a company accepts at signup,
+  /// so it is not a box to hunt for — it can be switched off in Settings >
+  /// Company. Rows created before 2026-09-24 keep whatever they had; the
+  /// default changed, no existing value did.
+  shareAnonymizedPricing Boolean          @default(true)
 
   /// ── The abandoned-signup recovery nudge ──────────────────────────────────
   ///
@@ -1510,6 +1554,7 @@ model Company {
   galleryMergedAt DateTime?
 
   galleryPairs       CompanyGalleryPair[]
+  textTranslations   CompanyTextTranslation[]
   companyDocuments   CompanyDocument[]
   documentSignatures DocumentSignature[]
 
@@ -19020,4 +19065,56 @@ model DocumentSignature {
   @@index([jobId])
   @@index([invoiceId])
   @@index([clientId, status])
+}
+
+/// One language's rendering of ONE Company-level client-facing text — the
+/// payment terms, "what happens next", the proposal story and its headline,
+/// and each custom SMS wording — drafted automatically when the company saves
+/// the source (lib/i18n/autoTranslate.js) and reviewed, when someone gets to
+/// it, on /app/settings/translations.
+///
+/// ── Why a table and not a `translations Json?` on Company ────────────────
+///
+/// Product, QuoteTextBlock and CompanySite each carry a JSON column because
+/// each row IS one item. Company carries seven unrelated texts whose drafts
+/// land seconds apart from different routes; a JSON read-merge-write from two
+/// `after()` callbacks would drop one of them. A row per (key, language) is
+/// an atomic upsert with no merge to lose, and the reviewed guard is a WHERE
+/// clause instead of a code path.
+///
+/// ── `sourceHash` is the reader's contract ─────────────────────────────────
+///
+/// A row is used only when its hash matches the hash of the text the company
+/// has NOW (lib/i18n/companyText.js). Change the terms and every old row is
+/// silently ignored until a fresh draft lands — the client gets the source
+/// language, never a translation of a sentence the company no longer says.
+/// `status`: "drafted" (machine, unread) | "reviewed" (a person saved it) |
+/// "pending" (the draft failed or AI was unavailable; no text). `previousText`
+/// keeps a person's reviewed wording when the source changed and a fresh draft
+/// replaced it — nothing a human typed is ever destroyed, it is only retired.
+model CompanyTextTranslation {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// "paymentTerms" | "defaultProcessNotes" | "story" | "storyHeadline" |
+  /// "smsTemplates.<type>" — the closed list in lib/i18n/companyText.js.
+  key      String
+  language String
+
+  text       String @default("")
+  sourceHash String
+  /// "drafted" | "reviewed" | "pending"
+  status String  @default("drafted")
+  auto   Boolean @default(true)
+
+  draftedAt    DateTime?
+  reviewedAt   DateTime?
+  previousText String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, key, language])
+  @@index([companyId, language])
 }

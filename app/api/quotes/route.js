@@ -36,6 +36,10 @@ import { mintShareToken } from "@/lib/quotes/shareToken";
 import { normaliseSiteAddress } from "@/lib/geo/geocodeJob";
 import { offlineDiscountPctFor } from "@/lib/payments/offlineDiscount";
 import { attachDefaultWaivers } from "@/lib/waivers/service";
+// "What happens next" is copied onto the quote in the QUOTE's language: the
+// company's reviewed or auto-drafted translation when one exists for the
+// current wording, the source text otherwise (lib/i18n/companyText.js).
+import { localisedCompany } from "@/lib/i18n/companyText";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -279,6 +283,7 @@ export async function POST(request) {
       where: { id: member.companyId },
       select: {
         defaultProcessNotes: true,
+        defaultLanguage: true,
         taxRate: true,
         autoApplyLocalTax: true,
         taxMode: true,
@@ -294,6 +299,10 @@ export async function POST(request) {
     }),
   ]);
   const quoteNumber = getNextQuoteNumber(lastQuote?.quoteNumber);
+  const companyText = await localisedCompany(db, company, {
+    companyId: member.companyId,
+    language: language || "en",
+  });
 
   // ── The job address, checked against the client's kind ──────────────────
   //
@@ -434,7 +443,7 @@ export async function POST(request) {
       processNotes:
         processNotes !== undefined
           ? processNotes || null
-          : company?.defaultProcessNotes || null,
+          : companyText?.defaultProcessNotes || null,
       validUntil: validUntil ? new Date(validUntil) : null,
       language: language || "en",
       siteAddress: siteAddressValue,

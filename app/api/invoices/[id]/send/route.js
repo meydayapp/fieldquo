@@ -44,6 +44,7 @@ import {
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
 import { loadDocumentWording } from "@/lib/email/documentEmailCopies";
+import { localisedCompany } from "@/lib/i18n/companyText";
 import { buildHowToPay, onlineOptions } from "@/lib/payments/offlineMethods";
 
 export async function POST(request, { params }) {
@@ -206,6 +207,9 @@ export async function POST(request, { params }) {
     client: invoice.client,
     company,
   });
+  // Payment terms in the invoice's language when the company's current
+  // wording has a translation; the source text otherwise.
+  const companyText = await localisedCompany(db, company, { companyId: member.companyId, language: invoiceLanguage });
 
   // ── How to pay, fixed at first send ─────────────────────────────────────
   //
@@ -221,7 +225,7 @@ export async function POST(request, { params }) {
     invoice.howToPay && typeof invoice.howToPay === "object" && Array.isArray(invoice.howToPay.methods)
       ? invoice.howToPay
       : buildHowToPay({
-          company: company || {},
+          company: companyText || {},
           language: invoiceLanguage,
           reference: invoice.invoiceNumber,
           online: canTakeCard ? onlineOptions(company, plainInvoiceUrl) : null,
@@ -233,7 +237,7 @@ export async function POST(request, { params }) {
   const { subject, html, text } = buildInvoiceEmail({
     invoice: { ...invoice, customFields },
     client: invoice.client,
-    company: company || {},
+    company: companyText || {},
     // Deep-link to the invoice itself (the page with the Pay button), not the
     // portal home — one click to pay instead of hunting through a list. With
     // `?stage=<id>` when a stage is asked for, so the portal's Pay button

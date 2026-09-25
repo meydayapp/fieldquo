@@ -632,7 +632,11 @@ for (const [lang, tab, prepared] of [["fr", "Devis", "Préparé pour"], ["es", "
   ok("the quote's own words win over the default", effectiveProcessNotes({ processNotes: "Ours.", defaultProcessNotes: DEFAULT_WORDING }) === "Ours." && effectiveProcessNotes({ processNotes: "  ", defaultProcessNotes: DEFAULT_WORDING }) === DEFAULT_WORDING);
 
   const docRoute = src("app/api/quotes/[id]/document/route.js");
-  ok("…and that IS what the document route prints", /quote\.processNotes \|\| quote\.company\?\.defaultProcessNotes/.test(docRoute));
+  // `companyText` is the company row localised to the quote's language
+  // (lib/i18n/companyText.js, 2026-09-24) — the same default, in the
+  // language the document is written in; the rule "the quote's words, else
+  // the company default" is unchanged.
+  ok("…and that IS what the document route prints", /quote\.processNotes \|\| (quote\.company|companyText)\?\.defaultProcessNotes/.test(docRoute));
   const email = src("lib/email/quoteEmail.js");
   ok("the covering email resolves it the same way, and the send route loads the column", /effectiveProcessNotes\(\{ \.\.\.quote, company \}\)/.test(email) && /defaultProcessNotes: true/.test(src("app/api/quotes/[id]/send/route.js")));
   ok("…and a select that forgets it is refused rather than silently dropping the section", /"defaultProcessNotes" in company/.test(src("lib/quotes/emailSections.js")));

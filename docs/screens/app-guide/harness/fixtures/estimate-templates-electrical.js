@@ -1,0 +1,374 @@
+// docs/screens/app-guide/harness/fixtures/estimate-templates-electrical.js
+//
+// A verbatim JS copy of docs/research/hcp-estimate-templates-electrical.json
+// for the harness bundle: scripts/check-exports.mjs (which the production
+// build runs) cannot see a JSON module's default export, so the fixture
+// imports this file instead. scripts/check-service-templates.mjs asserts the
+// two are identical, so the copy cannot drift from the research file.
+export const CAPTURE = {
+  "captured": "2026-09-24",
+  "source": "pro.housecallpro.com /alpha/estimate_templates (trial, signup industry Electrical, USD)",
+  "categories": [
+    {
+      "name": "Installation",
+      "templates": [
+        {
+          "template_name": "Panel Upgrade – Standard 200 Amp (with New customer discount)",
+          "option_name": "Panel Upgrade",
+          "description": "Upgrade from 100A to 200A service for modern home power demands. Permit coordination included.",
+          "total": 1475,
+          "labor": [
+            {
+              "name": "Existing Panel Removal",
+              "description": "Safe removal and disposal of existing electrical panel.",
+              "qty": 1,
+              "unit_price": 200,
+              "unit_cost": 100,
+              "taxable": true
+            },
+            {
+              "name": "200 Amp Panel Installation",
+              "description": "Installation of new 200 Amp main panel including permit coordination.",
+              "qty": 1,
+              "unit_price": 500,
+              "unit_cost": 250,
+              "taxable": true
+            }
+          ],
+          "materials": [
+            {
+              "name": "200 Amp Main Panel (Square D/Leviton)",
+              "description": "200 Amp main breaker load center. 30 breaker spaces.",
+              "qty": 1,
+              "unit_price": 850,
+              "unit_cost": 650,
+              "taxable": false
+            }
+          ],
+          "discounts": [
+            {
+              "name": "New customer discount",
+              "kind": "fixed discount",
+              "amount": 75
+            }
+          ]
+        },
+        {
+          "template_name": "Light Fixture Installation (6pcs) – Standard (with New customer discount)",
+          "option_name": "Light Fixture Installation (6pcs) – Standard",
+          "description": "Service includes:\n– Installation of 6 new light fixtures.\n– Removal and disposal of old fixtures.\n– Wiring and connection of each fixture to the existing electrical system.\n– Mounting and securing the fixtures securely and in accordance with safety standards.",
+          "total": 1030,
+          "labor": [
+            {
+              "name": "Old Fixtures Removal",
+              "description": "Our technicians will remove and dispose of old fixtures.",
+              "qty": 1,
+              "unit_price": 200,
+              "unit_cost": 100,
+              "taxable": true
+            },
+            {
+              "name": "Light Fixture Installation",
+              "description": "Our technicians will install new light fixtures to existing electrical connections.",
+              "qty": 1,
+              "unit_price": 600,
+              "unit_cost": 300,
+              "taxable": true
+            }
+          ],
+          "materials": [
+            {
+              "name": "36W LED Flush Mount – Gold",
+              "description": "12-inch energy-saving 36W LED ceiling lamp in Gold color",
+              "qty": 6,
+              "unit_price": 55,
+              "unit_cost": 50
+            }
+          ],
+          "discounts": [
+            {
+              "name": "New customer discount",
+              "kind": "fixed discount",
+              "amount": 100
+            }
+          ]
+        },
+        {
+          "template_name": "EV Charger Installation (with New customer discount)",
+          "option_name": "EV Charger Installation",
+          "description": "Level 2 EV charging station with dedicated 240V circuit. Compatible with all electric vehicles.",
+          "total": 665,
+          "labor": [
+            {
+              "name": "EV Charger Installation Labor",
+              "description": "Installation of Level 2 EV charging station including dedicated circuit and permit coordination.",
+              "qty": 1,
+              "unit_price": 300,
+              "unit_cost": 150,
+              "taxable": true
+            }
+          ],
+          "materials": [
+            {
+              "name": "Level 2 EV Charger (48A)",
+              "description": "240V/48A Level 2 EV charger. Compatible with all EVs. NEMA 14-50 connection.",
+              "qty": 1,
+              "unit_price": 400,
+              "unit_cost": 250,
+              "taxable": false
+            }
+          ],
+          "discounts": [
+            {
+              "name": "New customer discount",
+              "kind": "fixed discount",
+              "amount": 35
+            }
+          ]
+        },
+        {
+          "template_name": "Light Fixture Installation (6pcs) – Premium (with New customer discount)",
+          "option_name": "Light Fixture Installation (6pcs) – Premium",
+          "description": "(same as Standard)",
+          "total": 1140,
+          "labor": [
+            {
+              "name": "Old Fixtures Removal",
+              "qty": 1,
+              "unit_price": 200,
+              "unit_cost": 100
+            },
+            {
+              "name": "Light Fixture Installation",
+              "qty": 1,
+              "unit_price": 600,
+              "unit_cost": 300
+            }
+          ],
+          "materials": [
+            {
+              "name": "36W LED Flush Mount – Gold",
+              "description": "14-inch energy-saving 36W LED ceiling lamp in Gold color",
+              "qty": 6,
+              "unit_price": 90,
+              "unit_cost": 80
+            }
+          ],
+          "discounts": [
+            {
+              "name": "New customer discount",
+              "kind": "fixed discount",
+              "amount": 200
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Repair",
+      "templates": [
+        {
+          "template_name": "Outlet or Switch Repair (with Regular customer discount)",
+          "option_name": "Outlet/Switch Repair",
+          "description": "Diagnose and replace faulty outlet or switch to restore safe, reliable power.",
+          "total": 157,
+          "labor": [
+            {
+              "name": "Outlet or Switch Repair Labor",
+              "description": "Diagnose and replace faulty outlet or switch.",
+              "qty": 1,
+              "unit_price": 150,
+              "unit_cost": 75
+            }
+          ],
+          "materials": [
+            {
+              "name": "Duplex Outlet or Rocker Switch",
+              "description": "Standard 15A/125V outlet or matching rocker switch.",
+              "qty": 1,
+              "unit_price": 15,
+              "unit_cost": 5
+            }
+          ],
+          "discounts": [
+            {
+              "name": "Regular customer discount",
+              "kind": "fixed discount",
+              "amount": 8
+            }
+          ]
+        },
+        {
+          "template_name": "Circuit Breaker Replacement (with Regular customer discount)",
+          "option_name": "Breaker Replacement",
+          "description": "Safe replacement of tripped or failed circuit breaker to restore power and prevent hazards.",
+          "total": 190,
+          "labor": [
+            {
+              "name": "Circuit Breaker Replacement Labor",
+              "description": "Safely replace tripped or failed circuit breaker.",
+              "qty": 1,
+              "unit_price": 175,
+              "unit_cost": 85
+            }
+          ],
+          "materials": [
+            {
+              "name": "Single Pole Circuit Breaker",
+              "description": "15A or 20A single pole breaker. OEM compatible.",
+              "qty": 1,
+              "unit_price": 25,
+              "unit_cost": 12
+            }
+          ],
+          "discounts": [
+            {
+              "name": "Regular customer discount",
+              "kind": "fixed discount",
+              "amount": 10
+            }
+          ]
+        },
+        {
+          "template_name": "Damaged GFCI Outlet Repair (with Regular customer discount)",
+          "option_name": "Damaged GFCI Outlet Repair",
+          "description": "Your GFCI Outlet’s not working? Worry not, one of our skilled technicians will come to your house, investigate, and fix the issue.",
+          "total": 383.15,
+          "labor": [
+            {
+              "name": "Diagnostic Visit",
+              "description": "Our technician will come to your home to diagnose your problem.",
+              "qty": 1,
+              "unit_price": 95,
+              "unit_cost": 80
+            },
+            {
+              "name": "Damaged GFCI Outlet Repair",
+              "description": "Repair to restore the functionality of the outlet. This could involve reattaching wires, replacing damaged internal components, or fixing loose connections.",
+              "qty": 1,
+              "unit_price": 300,
+              "unit_cost": 100
+            }
+          ],
+          "materials": [],
+          "discounts": [
+            {
+              "name": "Regular customer discount",
+              "kind": "percent discount",
+              "amount": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Inspection",
+      "templates": [
+        {
+          "template_name": "Electrical Safety Inspection (with Regular customer discount)",
+          "option_name": "Safety Inspection",
+          "description": "Comprehensive home electrical inspection covering panel, wiring, outlets, GFCI/AFCI devices, and smoke detectors.",
+          "total": 119,
+          "labor": [
+            {
+              "name": "Electrical Safety Inspection",
+              "description": "Full inspection of panel, wiring, outlets, GFCI/AFCI devices, and smoke detectors.",
+              "qty": 1,
+              "unit_price": 125,
+              "unit_cost": 60
+            }
+          ],
+          "materials": [],
+          "discounts": [
+            {
+              "name": "Regular customer discount",
+              "kind": "fixed discount",
+              "amount": 6
+            }
+          ]
+        },
+        {
+          "template_name": "Damaged GFCI Outlet – Diagnostic Visit (with Regular customer discount)",
+          "option_name": "Damaged GFCI Outlet – Diagnostic Visit",
+          "description": "Your GFCI Outlet’s not working? Worry not, one of our skilled technicians will come to your house and investigate the issue.",
+          "total": 92.15,
+          "labor": [
+            {
+              "name": "Diagnostic Visit",
+              "description": "Our technician will come to your home to diagnose your problem.",
+              "qty": 1,
+              "unit_price": 95,
+              "unit_cost": 80
+            }
+          ],
+          "materials": [],
+          "discounts": [
+            {
+              "name": "Regular customer discount",
+              "kind": "percent discount",
+              "amount": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Maintenance",
+      "templates": [
+        {
+          "template_name": "Annual Panel & GFCI Maintenance (with Regular customer discount)",
+          "option_name": "Panel & GFCI Maintenance",
+          "description": "Annual electrical maintenance to ensure all safety devices are functioning and all connections are secure.",
+          "total": 142,
+          "labor": [
+            {
+              "name": "Panel Inspection & Connection Tightening",
+              "description": "Inspect and tighten all breaker connections and verify proper panel labeling.",
+              "qty": 1,
+              "unit_price": 100,
+              "unit_cost": 50
+            },
+            {
+              "name": "Smoke Detector & GFCI Testing",
+              "description": "Test and document all smoke detectors, CO detectors, and GFCI/AFCI outlets.",
+              "qty": 1,
+              "unit_price": 50,
+              "unit_cost": 25
+            }
+          ],
+          "materials": [],
+          "discounts": [
+            {
+              "name": "Regular customer discount",
+              "kind": "fixed discount",
+              "amount": 8
+            }
+          ]
+        },
+        {
+          "template_name": "Preventive maintenance of electrical system",
+          "option_name": "Preventive maintenance of electrical system",
+          "description": "The service includes conducting preventive maintenance tasks, such as cleaning electrical panels and tightening connections.\n\nRegular maintenance is advised to prevent potential electrical hazards and addressing any issues before they escalate. Regular electrical inspections and maintenance help extend the lifespan of electrical components, improve energy efficiency, and minimize the risk of electrical failures or malfunctions.",
+          "total": 388,
+          "labor": [
+            {
+              "name": "Routine Electrical Inspection and Maintenance Visit",
+              "description": "Our technicians will come to your home to conduct any necessary maintenance work.",
+              "qty": 1,
+              "unit_price": 400,
+              "unit_cost": 100
+            }
+          ],
+          "materials": [],
+          "discounts": [
+            {
+              "name": "Regular customer discount",
+              "kind": "percent discount",
+              "amount": 3
+            }
+          ]
+        }
+      ]
+    }
+  ]
+};

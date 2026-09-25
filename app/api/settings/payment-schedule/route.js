@@ -36,6 +36,9 @@ import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import { validatePaymentScheduleInput } from "@/lib/paymentSchedule/validate";
 import { scheduleToText } from "@/lib/paymentSchedule/engine";
+// The generated sentence is Company.paymentTerms, printed on every document —
+// so it is drafted into the other languages like a typed one.
+import { scheduleAutoTranslate } from "@/lib/i18n/autoTranslateSchedule";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -131,5 +134,13 @@ export async function PUT(request) {
     },
   ).catch(() => {});
 
-  return NextResponse.json({ stages, generatedText });
+  const lang = await db.company.findUnique({ where: { id: member.companyId }, select: { defaultLanguage: true } });
+  const autoTranslate = scheduleAutoTranslate({
+    companyId: member.companyId,
+    model: "company",
+    fields: { paymentTerms: generatedText || "" },
+    sourceLanguage: lang?.defaultLanguage || "en",
+  });
+
+  return NextResponse.json({ stages, generatedText, autoTranslate });
 }

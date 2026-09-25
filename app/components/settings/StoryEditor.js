@@ -14,6 +14,7 @@ import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import { ReadOnlyNotice } from "@/app/components/settings/PermissionNotice";
+import AutoTranslateBanner from "@/app/components/settings/AutoTranslateBanner";
 
 const CAPABILITY = "user:manage";
 
@@ -25,6 +26,7 @@ export default function StoryEditor({ compact = false, onSaved }) {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [autoTranslate, setAutoTranslate] = useState(null);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef(null);
 
@@ -66,11 +68,12 @@ export default function StoryEditor({ compact = false, onSaved }) {
     setError("");
     setSaved(false);
     try {
-      await fetchJson("/api/settings/presentation", {
+      const answer = await fetchJson("/api/settings/presentation", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
+      setAutoTranslate(answer?.autoTranslate || null);
       setSaved(true);
       onSaved?.();
     } catch (err) {
@@ -183,6 +186,7 @@ export default function StoryEditor({ compact = false, onSaved }) {
           {saved && <span className="text-sm text-emerald-600">{t("app.action.saved", "Saved")}</span>}
         </div>
       )}
+      <AutoTranslateBanner result={autoTranslate} />
     </form>
   );
 }
