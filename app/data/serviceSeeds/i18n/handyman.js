@@ -76,6 +76,13 @@ export const I18N = {
    "uk": "Сантехніка",
    "pa": "ਪਲੰਬਿੰਗ",
    "tl": "Tubero"
+  },
+  "childproofing": {
+   "it": "Sicurezza bambini in casa",
+   "de": "Kindersicherung im Haus",
+   "uk": "Безпека дітей удома",
+   "pa": "ਘਰ ਵਿੱਚ ਬੱਚਿਆਂ ਦੀ ਸੁਰੱਖਿਆ",
+   "tl": "Childproofing at kaligtasan sa bahay"
   }
  },
  "services": {
@@ -1606,6 +1613,270 @@ export const I18N = {
     "ਪਰਨਾਲੇ ਦੀ ਮੁਰੰਮਤ",
     "ਝੁਕਿਆ, ਲੀਕ ਜਾਂ ਉੱਖੜਿਆ ਪਰਨਾਲਾ ਮੁੜ ਜੋੜਿਆ, ਸੀਲ ਅਤੇ ਨਿਕਾਸ ਲਈ ਢਲਾਣ।"
    ]
+  },
+  "fq.handyman.doors_windows.lock_rekey": {
+   "it": [
+    "Ricifratura serratura — per cilindro",
+    "Serratura ripinnata su una nuova chiave così le chiavi perse o vecchie non aprono più, senza cambiare la ferramenta."
+   ],
+   "de": [
+    "Schloss umstiften — pro Zylinder",
+    "Schloss auf einen neuen Schlüssel umgestiftet, damit verlorene oder alte Schlüssel nicht mehr sperren, ohne die Beschläge zu tauschen."
+   ],
+   "uk": [
+    "Перекодування замка — за циліндр",
+    "Замок перепіновано під новий ключ, щоб загублені чи старі ключі більше не відчиняли, без заміни фурнітури."
+   ],
+   "pa": [
+    "ਤਾਲੇ ਦੀ ਰੀਕੀਇੰਗ — ਪ੍ਰਤੀ ਸਿਲੰਡਰ",
+    "ਤਾਲੇ ਦੇ ਪਿੰਨ ਨਵੀਂ ਚਾਬੀ ਲਈ ਬਦਲੇ ਤਾਂ ਜੋ ਗੁੰਮ ਜਾਂ ਪੁਰਾਣੀਆਂ ਚਾਬੀਆਂ ਨਾ ਚੱਲਣ, ਹਾਰਡਵੇਅਰ ਬਦਲੇ ਬਿਨਾਂ।"
+   ],
+   "tl": [
+    "Rekey ng lock — kada cylinder",
+    "Pinalitan ang pin ng lock para sa bagong susi para hindi na gumana ang nawala o lumang susi, nang hindi pinapalitan ang hardware."
+   ]
+  },
+  "fq.handyman.doors_windows.deadbolt_install": {
+   "it": [
+    "Installazione catenaccio",
+    "Catenaccio aggiunto a una porta che non ne ha: porta forata, catenaccio montato e bocchetta rinforzata fino all'intelaiatura."
+   ],
+   "de": [
+    "Riegelschloss einbauen",
+    "Ein Riegelschloss an einer Tür ohne: Tür gebohrt, Riegel eingesetzt und das Schließblech bis in den Rahmen verstärkt."
+   ],
+   "uk": [
+    "Встановлення засувного замка",
+    "Засувний замок на двері, де його немає: двері просвердлено, засув встановлено, відповідну планку підсилено до каркаса."
+   ],
+   "pa": [
+    "ਡੈੱਡਬੋਲਟ ਲਾਉਣਾ",
+    "ਜਿਸ ਦਰਵਾਜ਼ੇ 'ਤੇ ਡੈੱਡਬੋਲਟ ਨਹੀਂ ਉੱਥੇ ਲਾਇਆ: ਦਰਵਾਜ਼ੇ ਵਿੱਚ ਛੇਕ, ਬੋਲਟ ਫ਼ਿੱਟ ਅਤੇ ਸਟ੍ਰਾਈਕ ਚੁਗਾਠ ਤੱਕ ਮਜ਼ਬੂਤ ਕੀਤੀ।"
+   ],
+   "tl": [
+    "Pagkabit ng deadbolt",
+    "Nagdagdag ng deadbolt sa pintong wala nito: binutasan ang pinto, ikinabit ang bolt at pinatibay ang strike hanggang sa frame."
+   ]
+  },
+  "fq.handyman.doors_windows.smart_lock_install": {
+   "it": [
+    "Installazione serratura smart",
+    "Catenaccio esistente sostituito con una serratura smart a tastierino o via app, abbinata e configurata con i codici della famiglia."
+   ],
+   "de": [
+    "Smart Lock montieren",
+    "Vorhandenes Riegelschloss gegen ein Smart Lock mit Tastatur oder App getauscht, gekoppelt und mit den Codes des Haushalts eingerichtet."
+   ],
+   "uk": [
+    "Встановлення розумного замка",
+    "Наявний засув замінено на розумний замок із клавіатурою чи керуванням через застосунок, спарено й налаштовано з кодами родини."
+   ],
+   "pa": [
+    "ਸਮਾਰਟ ਤਾਲਾ ਲਾਉਣਾ",
+    "ਮੌਜੂਦਾ ਡੈੱਡਬੋਲਟ ਦੀ ਥਾਂ ਕੀਪੈਡ ਜਾਂ ਐਪ ਨਾਲ ਚੱਲਣ ਵਾਲਾ ਸਮਾਰਟ ਤਾਲਾ, ਜੋੜਿਆ ਅਤੇ ਘਰ ਦੇ ਕੋਡਾਂ ਨਾਲ ਸੈੱਟ ਕੀਤਾ।"
+   ],
+   "tl": [
+    "Pagkabit ng smart lock",
+    "Pinalitan ang dating deadbolt ng smart lock na may keypad o app, pinair at in-set up sa mga code ng bahay."
+   ]
+  },
+  "fq.handyman.doors_windows.lockset_replacement": {
+   "it": [
+    "Sostituzione della serratura della porta",
+    "Serratura a pomolo o maniglia consumata o rotta sostituita e scrocco allineato perché la porta chiuda e si blocchi bene."
+   ],
+   "de": [
+    "Türschloss tauschen",
+    "Abgenutzte oder defekte Knauf- oder Drückergarnitur ersetzt und die Falle ausgerichtet, damit die Tür sauber schließt und sperrt."
+   ],
+   "uk": [
+    "Заміна дверного замка",
+    "Зношений чи зламаний замок із ручкою-кнопкою або натискною ручкою замінено, засувку вирівняно, щоб двері чисто зачинялися й замикалися."
+   ],
+   "pa": [
+    "ਦਰਵਾਜ਼ੇ ਦਾ ਲੌਕਸੈੱਟ ਬਦਲਣਾ",
+    "ਘਸਿਆ ਜਾਂ ਟੁੱਟਿਆ ਨੌਬ ਜਾਂ ਲੀਵਰ ਲੌਕਸੈੱਟ ਬਦਲਿਆ ਅਤੇ ਲੈਚ ਸਿੱਧੀ ਕੀਤੀ ਤਾਂ ਜੋ ਦਰਵਾਜ਼ਾ ਠੀਕ ਬੰਦ ਹੋਵੇ ਅਤੇ ਤਾਲਾ ਲੱਗੇ।"
+   ],
+   "tl": [
+    "Palit ng lockset ng pinto",
+    "Pinalitan ang pudpod o sirang knob o lever lockset at inayos ang latch para maayos magsara at mag-lock ang pinto."
+   ]
+  },
+  "fq.handyman.doors_windows.weatherstrip_sweep": {
+   "it": [
+    "Sostituzione guarnizioni e paraspifferi della porta",
+    "Guarnizioni consumate di una porta esterna sostituite e nuovo paraspifferi montato, così la porta sigilla quando si chiude."
+   ],
+   "de": [
+    "Türdichtungen und Bodendichtung erneuern",
+    "Verschlissene Dichtungen einer Außentür ersetzt und eine neue Bodendichtung gesetzt, damit die Tür geschlossen dicht ist."
+   ],
+   "uk": [
+    "Заміна ущільнювачів і нижньої щітки дверей",
+    "Зношений ущільнювач вхідних дверей замінено й встановлено нову нижню щітку, щоб зачинені двері не пропускали повітря."
+   ],
+   "pa": [
+    "ਦਰਵਾਜ਼ੇ ਦੀ ਵੈਦਰਸਟ੍ਰਿਪ ਅਤੇ ਸਵੀਪ ਬਦਲਣਾ",
+    "ਬਾਹਰੀ ਦਰਵਾਜ਼ੇ ਦੀ ਘਸੀ ਵੈਦਰਸਟ੍ਰਿਪ ਬਦਲੀ ਅਤੇ ਨਵੀਂ ਸਵੀਪ ਲਾਈ, ਤਾਂ ਜੋ ਬੰਦ ਹੋਣ 'ਤੇ ਦਰਵਾਜ਼ਾ ਸੀਲ ਹੋਵੇ।"
+   ],
+   "tl": [
+    "Palit ng weatherstrip at sweep ng pinto",
+    "Pinalitan ang pudpod na weatherstrip ng panlabas na pinto at nilagyan ng bagong sweep, para selyado ang pinto pag sarado."
+   ]
+  },
+  "fq.handyman.painting.tub_shower_recaulk": {
+   "it": [
+    "Nuova sigillatura di vasca e doccia",
+    "Vecchio sigillante ammuffito tolto attorno a vasca o doccia, giunto pulito e asciugato e nuovo cordone di silicone steso."
+   ],
+   "de": [
+    "Wanne und Dusche neu verfugen",
+    "Alte, verschimmelte Fuge rund um Wanne oder Dusche entfernt, gereinigt und getrocknet und eine frische Silikonfuge gezogen."
+   ],
+   "uk": [
+    "Повторна герметизація ванни та душу",
+    "Старий пліснявий герметик навколо ванни чи душу вирізано, шов очищено й висушено, нанесено новий силіконовий шов."
+   ],
+   "pa": [
+    "ਟੱਬ ਅਤੇ ਸ਼ਾਵਰ ਦੀ ਮੁੜ ਕੌਕਿੰਗ",
+    "ਟੱਬ ਜਾਂ ਸ਼ਾਵਰ ਦੁਆਲੇ ਪੁਰਾਣੀ, ਉੱਲੀ ਲੱਗੀ ਕੌਕ ਕੱਟੀ, ਜੋੜ ਸਾਫ਼ ਕਰਕੇ ਸੁਕਾਇਆ ਅਤੇ ਨਵੀਂ ਸਿਲੀਕੋਨ ਲਕੀਰ ਲਾਈ।"
+   ],
+   "tl": [
+    "Muling pag-caulk ng tub at shower",
+    "Tinanggal ang luma at inaamag na caulk sa paligid ng tub o shower, nilinis at pinatuyo ang dugtungan, at nilagyan ng bagong silicone."
+   ]
+  },
+  "fq.handyman.painting.window_door_weatherproofing": {
+   "it": [
+    "Sigillatura e impermeabilizzazione — per finestra o porta",
+    "Giunto esterno di una finestra o porta sigillato contro spifferi e acqua: vecchio sigillante tolto, fessure riempite e nuovo cordone lisciato."
+   ],
+   "de": [
+    "Abdichten gegen Wind und Wasser — pro Fenster oder Tür",
+    "Die Außenfuge eines Fensters oder einer Tür gegen Zugluft und Wasser abgedichtet: alte Fuge raus, Spalten hinterfüllt, neue Fuge gezogen."
+   ],
+   "uk": [
+    "Герметизація від протягів і води — за вікно чи двері",
+    "Зовнішній шов одного вікна чи дверей загерметизовано від протягів і води: старий герметик прибрано, щілини заповнено, новий шов вирівняно."
+   ],
+   "pa": [
+    "ਕੌਕਿੰਗ ਅਤੇ ਮੌਸਮ-ਰੋਕ — ਪ੍ਰਤੀ ਖਿੜਕੀ ਜਾਂ ਦਰਵਾਜ਼ਾ",
+    "ਇੱਕ ਖਿੜਕੀ ਜਾਂ ਦਰਵਾਜ਼ੇ ਦੁਆਲੇ ਬਾਹਰਲਾ ਜੋੜ ਹਵਾ ਅਤੇ ਪਾਣੀ ਤੋਂ ਸੀਲ: ਪੁਰਾਣੀ ਕੌਕ ਕੱਢੀ, ਵਿਰਲਾਂ ਭਰੀਆਂ ਅਤੇ ਨਵੀਂ ਲਕੀਰ ਲਾਈ।"
+   ],
+   "tl": [
+    "Caulking at weatherproofing — kada bintana o pinto",
+    "Sinelyuhan laban sa hangin at tubig ang labas na dugtungan ng isang bintana o pinto: tinanggal ang lumang caulk, pinunan ang puwang at nilagyan ng bagong caulk."
+   ]
+  },
+  "fq.handyman.childproofing.home_visit": {
+   "it": [
+    "Visita di messa in sicurezza per bambini — tutta la casa",
+    "Casa percorsa stanza per stanza all'altezza di un bambino, poi chiusure, copriprese, paraspigoli e ancoraggi montati dove servono."
+   ],
+   "de": [
+    "Kindersicherungs-Besuch — ganzes Haus",
+    "Das Haus Raum für Raum auf Kinderhöhe begangen, dann Sperren, Steckdosenschutz, Eckenschutz und Kippsicherungen angebracht, wo sie nötig sind."
+   ],
+   "uk": [
+    "Візит із захисту для малюка — увесь дім",
+    "Будинок обійдено кімната за кімнатою на рівні зросту дитини, потім встановлено блокувальники, заглушки розеток, захисні кути й кріплення там, де потрібно."
+   ],
+   "pa": [
+    "ਬੱਚਿਆਂ ਲਈ ਸੁਰੱਖਿਆ ਵਿਜ਼ਿਟ — ਸਾਰਾ ਘਰ",
+    "ਬੱਚੇ ਦੀ ਉਚਾਈ ਤੋਂ ਹਰ ਕਮਰਾ ਦੇਖਿਆ, ਫਿਰ ਜਿੱਥੇ ਲੋੜ ਹੋਵੇ ਲੈਚ, ਸਾਕਟ ਕਵਰ, ਕੋਨਾ ਗਾਰਡ ਅਤੇ ਐਂਕਰ ਲਾਏ।"
+   ],
+   "tl": [
+    "Baby-proofing visit — buong bahay",
+    "Nilibot ang bahay kuwarto-kuwarto sa taas ng bata, tapos ikinabit ang latch, takip ng outlet, corner guard at anchor kung saan kailangan."
+   ]
+  },
+  "fq.handyman.childproofing.safety_gate": {
+   "it": [
+    "Installazione cancelletto di sicurezza",
+    "Cancelletto fissato a vite in cima o in fondo alle scale o in un vano porta, con apertura dalla parte opposta ai gradini."
+   ],
+   "de": [
+    "Treppenschutzgitter montieren",
+    "Ein verschraubtes Schutzgitter oben oder unten an der Treppe oder in einer Türöffnung, das von den Stufen weg aufschwingt."
+   ],
+   "uk": [
+    "Встановлення захисних воріт для дитини",
+    "Захисні ворітця прикручено вгорі чи внизу сходів або в дверному отворі, відчиняються в бік від сходинок."
+   ],
+   "pa": [
+    "ਬੱਚਿਆਂ ਵਾਲਾ ਸੁਰੱਖਿਆ ਗੇਟ ਲਾਉਣਾ",
+    "ਪੌੜੀਆਂ ਦੇ ਉੱਪਰ ਜਾਂ ਹੇਠਾਂ ਜਾਂ ਦਰਵਾਜ਼ੇ ਵਿੱਚ ਪੇਚਾਂ ਨਾਲ ਲੱਗਿਆ ਸੁਰੱਖਿਆ ਗੇਟ, ਜੋ ਪੌੜੀਆਂ ਤੋਂ ਦੂਰ ਵੱਲ ਖੁੱਲ੍ਹਦਾ ਹੈ।"
+   ],
+   "tl": [
+    "Pagkabit ng baby gate",
+    "Safety gate na tinurnilyo sa itaas o ibaba ng hagdan o sa pintuan, na bumubukas palayo sa baitang."
+   ]
+  },
+  "fq.handyman.childproofing.cabinet_latches": {
+   "it": [
+    "Blocchi di sicurezza per ante e cassetti",
+    "Blocchi di sicurezza o serrature magnetiche montati su ante e cassetti con prodotti chimici, coltelli o medicinali."
+   ],
+   "de": [
+    "Kindersicherungen für Schränke und Schubladen",
+    "Sicherungsriegel oder Magnetschlösser an Schränken und Schubladen mit Chemikalien, Messern oder Medikamenten."
+   ],
+   "uk": [
+    "Блокувальники для шаф і шухляд",
+    "Дитячі блокувальники чи магнітні замки на шафах і шухлядах, де зберігаються хімія, ножі чи ліки."
+   ],
+   "pa": [
+    "ਕੈਬਨਿਟਾਂ ਅਤੇ ਦਰਾਜ਼ਾਂ ਲਈ ਸੁਰੱਖਿਆ ਲੈਚ",
+    "ਕੈਮੀਕਲ, ਚਾਕੂ ਜਾਂ ਦਵਾਈਆਂ ਵਾਲੀਆਂ ਕੈਬਨਿਟਾਂ ਅਤੇ ਦਰਾਜ਼ਾਂ 'ਤੇ ਬੱਚਿਆਂ ਤੋਂ ਸੁਰੱਖਿਆ ਲੈਚ ਜਾਂ ਚੁੰਬਕੀ ਤਾਲੇ।"
+   ],
+   "tl": [
+    "Safety latch sa cabinet at drawer",
+    "Child-safety latch o magnetic lock na ikinabit sa cabinet at drawer na may kemikal, kutsilyo o gamot."
+   ]
+  },
+  "fq.handyman.childproofing.furniture_anchoring": {
+   "it": [
+    "Ancoraggio antiribaltamento di mobili e TV",
+    "Cassettiere, librerie e TV fissati ai montanti del muro perché un bambino che si arrampica non li faccia cadere."
+   ],
+   "de": [
+    "Kippsicherung für Möbel und Fernseher",
+    "Kommoden, Regale und Fernseher an den Wandständern gesichert, damit ein kletterndes Kind sie nicht umreißen kann."
+   ],
+   "uk": [
+    "Кріплення меблів і телевізора від перекидання",
+    "Комоди, книжкові шафи й телевізори прикріплено до стійок стіни, щоб дитина, яка лізе, не перекинула їх."
+   ],
+   "pa": [
+    "ਫ਼ਰਨੀਚਰ ਅਤੇ ਟੀਵੀ ਨੂੰ ਡਿੱਗਣ ਤੋਂ ਰੋਕਣ ਵਾਲੇ ਐਂਕਰ",
+    "ਡ੍ਰੈੱਸਰ, ਕਿਤਾਬਾਂ ਵਾਲੀਆਂ ਅਲਮਾਰੀਆਂ ਅਤੇ ਟੀਵੀ ਕੰਧ ਦੇ ਸਟੱਡਾਂ ਨਾਲ ਬੰਨ੍ਹੇ ਤਾਂ ਜੋ ਚੜ੍ਹਦਾ ਬੱਚਾ ਉਹਨਾਂ ਨੂੰ ਨਾ ਸੁੱਟ ਸਕੇ।"
+   ],
+   "tl": [
+    "Anti-tip anchoring ng muwebles at TV",
+    "Itinali sa stud ng pader ang dresser, bookshelf at TV para hindi mahila pababa ng batang umaakyat."
+   ]
+  },
+  "fq.handyman.childproofing.window_safety": {
+   "it": [
+    "Fermi e grate per finestre",
+    "Fermi che limitano l'apertura a 4 pollici, o grate sull'anta inferiore, perché un bambino non possa cadere."
+   ],
+   "de": [
+    "Fensterstopper und Fenstergitter",
+    "Stopper, die ein Fenster auf 4 Zoll Öffnung begrenzen, oder Gitter vor dem unteren Flügel, damit kein Kind hinausfallen kann."
+   ],
+   "uk": [
+    "Обмежувачі та ґрати для вікон",
+    "Обмежувачі, що дають відчинити вікно лише на 4 дюйми, або ґрати на нижній стулці, щоб дитина не могла випасти."
+   ],
+   "pa": [
+    "ਖਿੜਕੀ ਸਟੌਪ ਅਤੇ ਗਾਰਡ",
+    "ਖਿੜਕੀ ਨੂੰ ਸਿਰਫ਼ 4 ਇੰਚ ਖੁੱਲ੍ਹਣ ਦੇਣ ਵਾਲੇ ਸਟੌਪ, ਜਾਂ ਹੇਠਲੇ ਸੈਸ਼ 'ਤੇ ਗਾਰਡ, ਤਾਂ ਜੋ ਬੱਚਾ ਡਿੱਗ ਨਾ ਸਕੇ।"
+   ],
+   "tl": [
+    "Window stop at guard",
+    "Stop na naglilimita sa bukas ng bintana sa 4 in, o guard sa ibabang sash, para hindi mahulog ang bata."
+   ]
   }
  },
  "lines": {
@@ -2531,6 +2802,144 @@ export const I18N = {
    "pa": [
     "ਟਾਇਲਟ ਮੁਰੰਮਤ ਜਾਂ ਮੁੜ ਬਿਠਾਉਣ ਦੀ ਲੇਬਰ",
     "ਟਾਇਲਟ ਲਾਹਿਆ, ਫ਼ਲੈਂਜ ਠੀਕ ਕੀਤੀ ਜਾਂ ਟੈਂਕ ਮੁੜ ਬਣਾਇਆ, ਫਿਰ ਨਵੀਂ ਸੀਲ 'ਤੇ ਮੁੜ ਬਿਠਾ ਕੇ ਜਾਂਚਿਆ।"
+   ]
+  },
+  "Deadbolt installation — boring and fitting": {
+   "pa": [
+    "ਡੈੱਡਬੋਲਟ ਲਾਉਣਾ — ਛੇਕ ਅਤੇ ਫ਼ਿਟਿੰਗ",
+    "ਜਿਗ ਨਾਲ ਦਰਵਾਜ਼ੇ ਵਿੱਚ ਛੇਕ, ਲੈਚ ਅਤੇ ਸਟ੍ਰਾਈਕ ਲਈ ਖਾਂਚੇ, ਡੈੱਡਬੋਲਟ ਲਾਇਆ ਅਤੇ ਸਟ੍ਰਾਈਕ 3 ਇੰਚ ਪੇਚਾਂ ਨਾਲ ਚੁਗਾਠ ਵਿੱਚ ਕੱਸੀ।"
+   ]
+  },
+  "Grade 2 single-cylinder deadbolt": {
+   "pa": [
+    "ਗ੍ਰੇਡ 2 ਸਿੰਗਲ-ਸਿਲੰਡਰ ਡੈੱਡਬੋਲਟ",
+    "ANSI ਗ੍ਰੇਡ 2 ਡੈੱਡਬੋਲਟ, ਜਿੱਥੇ ਬ੍ਰਾਂਡ ਇਜਾਜ਼ਤ ਦੇਵੇ ਘਰ ਦੀ ਮੌਜੂਦਾ ਚਾਬੀ ਨਾਲ।"
+   ]
+  },
+  "Reinforced strike plate": {
+   "pa": [
+    "ਮਜ਼ਬੂਤ ਸਟ੍ਰਾਈਕ ਪਲੇਟ",
+    "ਮੋਟੀ ਸਟ੍ਰਾਈਕ ਪਲੇਟ ਅਤੇ 3 ਇੰਚ ਪੇਚ ਜੋ ਚੁਗਾਠ ਪਿੱਛੇ ਢਾਂਚੇ ਤੱਕ ਪਹੁੰਚਦੇ ਹਨ।"
+   ]
+  },
+  "Smart lock installation and setup": {
+   "pa": [
+    "ਸਮਾਰਟ ਤਾਲਾ ਲਾਉਣਾ ਅਤੇ ਸੈੱਟਅੱਪ",
+    "ਪੁਰਾਣਾ ਡੈੱਡਬੋਲਟ ਕੱਢਿਆ, ਸਮਾਰਟ ਤਾਲਾ ਲਾ ਕੇ ਕੈਲੀਬ੍ਰੇਟ ਕੀਤਾ, ਐਪ ਨਾਲ ਜੋੜਿਆ ਅਤੇ ਘਰ ਦੇ ਕੋਡ ਸੈੱਟ ਕੀਤੇ।"
+   ]
+  },
+  "Smart deadbolt": {
+   "pa": [
+    "ਸਮਾਰਟ ਡੈੱਡਬੋਲਟ",
+    "ਕੀਪੈਡ ਅਤੇ ਚਾਬੀ ਵਾਲੇ ਬਦਲ ਸਮੇਤ Wi-Fi ਜਾਂ ਬਲੂਟੁੱਥ ਡੈੱਡਬੋਲਟ।"
+   ]
+  },
+  "Lockset replacement labour": {
+   "pa": [
+    "ਲੌਕਸੈੱਟ ਬਦਲਣ ਦੀ ਲੇਬਰ",
+    "ਪੁਰਾਣਾ ਨੌਬ ਜਾਂ ਲੀਵਰ ਲਾਹਿਆ, ਨਵਾਂ ਲੌਕਸੈੱਟ ਲਾਇਆ ਅਤੇ ਲੈਚ ਅਤੇ ਸਟ੍ਰਾਈਕ ਸਿੱਧੇ ਕੀਤੇ ਤਾਂ ਜੋ ਦਰਵਾਜ਼ਾ ਠੀਕ ਬੰਦ ਹੋਵੇ ਅਤੇ ਤਾਲਾ ਲੱਗੇ।"
+   ]
+  },
+  "Entry knob or lever lockset": {
+   "pa": [
+    "ਐਂਟਰੀ ਨੌਬ ਜਾਂ ਲੀਵਰ ਲੌਕਸੈੱਟ",
+    "ਗਾਹਕ ਦੀ ਚੁਣੀ ਫ਼ਿਨਿਸ਼ ਵਿੱਚ ਚਾਬੀ ਵਾਲਾ ਐਂਟਰੀ ਨੌਬ ਜਾਂ ਲੀਵਰ ਸੈੱਟ।"
+   ]
+  },
+  "Old caulk removal and re-caulk — per tub or shower": {
+   "pa": [
+    "ਪੁਰਾਣੀ ਕੌਕ ਲਾਹੁਣਾ ਅਤੇ ਨਵੀਂ ਲਾਉਣਾ — ਪ੍ਰਤੀ ਟੱਬ ਜਾਂ ਸ਼ਾਵਰ",
+    "ਪੁਰਾਣੀ ਕੌਕ ਕੱਟ ਕੇ ਖੁਰਚੀ, ਉੱਲੀ ਸਾਫ਼ ਕੀਤੀ, ਜੋੜ ਸੁਕਾਇਆ ਅਤੇ ਨਵੀਂ ਸਿਲੀਕੋਨ ਲਕੀਰ ਲਾਈ।"
+   ]
+  },
+  "Mould-resistant silicone and caulk remover": {
+   "pa": [
+    "ਉੱਲੀ-ਰੋਧਕ ਸਿਲੀਕੋਨ ਅਤੇ ਕੌਕ ਰਿਮੂਵਰ",
+    "100% ਸਿਲੀਕੋਨ ਰਸੋਈ-ਬਾਥਰੂਮ ਸੀਲੈਂਟ, ਕੌਕ ਰਿਮੂਵਰ ਅਤੇ ਉੱਲੀ ਕਲੀਨਰ।"
+   ]
+  },
+  "Opening caulking labour — per window or door": {
+   "pa": [
+    "ਖੁੱਲ੍ਹ ਦੀ ਕੌਕਿੰਗ ਲੇਬਰ — ਪ੍ਰਤੀ ਖਿੜਕੀ ਜਾਂ ਦਰਵਾਜ਼ਾ",
+    "ਫ਼ਰੇਮ ਦੁਆਲੇ ਖ਼ਰਾਬ ਕੌਕ ਕੱਢੀ, 1/4 ਇੰਚ ਤੋਂ ਵੱਡੀਆਂ ਵਿਰਲਾਂ ਵਿੱਚ ਫ਼ੋਮ ਰਾਡ ਭਰੀ, ਅਤੇ ਬਾਹਰ ਨਵੀਂ ਲਕੀਰ ਲਾਈ।"
+   ]
+  },
+  "Exterior sealant and backer rod — per opening": {
+   "pa": [
+    "ਬਾਹਰੀ ਸੀਲੈਂਟ ਅਤੇ ਬੈਕਰ ਰਾਡ — ਪ੍ਰਤੀ ਖੁੱਲ੍ਹ",
+    "ਇੱਕ ਖਿੜਕੀ ਜਾਂ ਦਰਵਾਜ਼ੇ ਲਈ ਪੇਂਟ ਹੋਣ ਵਾਲਾ ਬਾਹਰੀ ਸੀਲੈਂਟ ਅਤੇ ਬੰਦ-ਸੈੱਲ ਬੈਕਰ ਰਾਡ।"
+   ]
+  },
+  "Weatherstrip and sweep replacement labour": {
+   "pa": [
+    "ਵੈਦਰਸਟ੍ਰਿਪ ਅਤੇ ਸਵੀਪ ਬਦਲਣ ਦੀ ਲੇਬਰ",
+    "ਪੁਰਾਣੀ ਵੈਦਰਸਟ੍ਰਿਪ ਲਾਹੀ, ਨਵੀਂ ਚੁਗਾਠ ਦੀ ਖਾਂਚ ਵਿੱਚ ਦਬਾਈ ਜਾਂ ਸਟੈਪਲ ਕੀਤੀ, ਅਤੇ ਨਵੀਂ ਸਵੀਪ ਲਾ ਕੇ ਦਹਿਲੀਜ਼ ਮੁਤਾਬਕ ਠੀਕ ਕੀਤੀ।"
+   ]
+  },
+  "Childproofing labour": {
+   "pa": [
+    "ਬੱਚਿਆਂ ਦੀ ਸੁਰੱਖਿਆ ਦੀ ਲੇਬਰ",
+    "ਬੱਚੇ ਦੀ ਉਚਾਈ ਤੋਂ ਘਰ ਵਿੱਚ ਖ਼ਤਰੇ ਦੇਖੇ, ਫਿਰ ਲੈਚ, ਤਾਲੇ, ਕਵਰ ਅਤੇ ਐਂਕਰ ਲਾਏ, ਘੰਟੇ ਦੇ ਹਿਸਾਬ ਨਾਲ।"
+   ]
+  },
+  "Childproofing kit": {
+   "pa": [
+    "ਬੱਚਿਆਂ ਦੀ ਸੁਰੱਖਿਆ ਕਿੱਟ",
+    "ਆਮ ਘਰ ਲਈ ਕੈਬਨਿਟ ਲੈਚ, ਸਾਕਟ ਕਵਰ, ਕੋਨਾ ਗਾਰਡ, ਦਰਵਾਜ਼ੇ ਦੇ ਨੌਬ ਕਵਰ ਅਤੇ ਟਾਇਲਟ ਲੌਕ।"
+   ]
+  },
+  "Safety gate installation — per gate": {
+   "pa": [
+    "ਸੁਰੱਖਿਆ ਗੇਟ ਲਾਉਣਾ — ਪ੍ਰਤੀ ਗੇਟ",
+    "ਗੇਟ ਸਟੱਡਾਂ ਵਿੱਚ ਜਾਂ ਬੈਨਿਸਟਰ ਅਡੈਪਟਰਾਂ ਨਾਲ ਲਾਇਆ, ਪੌੜੀਆਂ ਤੋਂ ਦੂਰ ਖੁੱਲ੍ਹਣ ਵਾਲਾ, ਅਤੇ ਲੈਚ ਜਾਂਚੀ।"
+   ]
+  },
+  "Hardware-mounted safety gate": {
+   "pa": [
+    "ਪੇਚਾਂ ਨਾਲ ਲੱਗਣ ਵਾਲਾ ਸੁਰੱਖਿਆ ਗੇਟ",
+    "ਪੌੜੀਆਂ ਦੇ ਉੱਪਰ ਲਈ ਮਨਜ਼ੂਰ ਗੇਟ ਜੋ ਕੰਧ ਨਾਲ ਪੇਚਾਂ ਨਾਲ ਲੱਗਦਾ ਹੈ, ਮਾਊਂਟਿੰਗ ਕਿੱਟ ਸਮੇਤ।"
+   ]
+  },
+  "Banister adapter kit": {
+   "pa": [
+    "ਬੈਨਿਸਟਰ ਅਡੈਪਟਰ ਕਿੱਟ",
+    "ਕਲੈਂਪ ਵਾਲੇ ਅਡੈਪਟਰ ਤਾਂ ਜੋ ਗੇਟ ਬੈਨਿਸਟਰ ਵਿੱਚ ਛੇਕ ਕੀਤੇ ਬਿਨਾਂ ਲੱਗ ਜਾਵੇ।"
+   ]
+  },
+  "Safety latch installation — per latch": {
+   "pa": [
+    "ਸੁਰੱਖਿਆ ਲੈਚ ਲਾਉਣਾ — ਪ੍ਰਤੀ ਲੈਚ",
+    "ਇੱਕ ਕੈਬਨਿਟ ਦਰਵਾਜ਼ੇ ਜਾਂ ਦਰਾਜ਼ 'ਤੇ ਲੈਚ ਜਾਂ ਚੁੰਬਕੀ ਤਾਲਾ ਲਾਇਆ ਅਤੇ ਜਾਂਚਿਆ।"
+   ]
+  },
+  "Safety latch — per latch": {
+   "pa": [
+    "ਸੁਰੱਖਿਆ ਲੈਚ — ਪ੍ਰਤੀ ਲੈਚ",
+    "ਚਿਪਕਣ ਵਾਲੀ ਜਾਂ ਪੇਚ ਵਾਲੀ ਲੈਚ, ਜਾਂ ਚਾਬੀ ਸਮੇਤ ਚੁੰਬਕੀ ਤਾਲਾ।"
+   ]
+  },
+  "Anti-tip anchoring — per piece": {
+   "pa": [
+    "ਡਿੱਗਣ-ਰੋਕ ਐਂਕਰ — ਪ੍ਰਤੀ ਚੀਜ਼",
+    "ਡ੍ਰੈੱਸਰ, ਕਿਤਾਬਾਂ ਵਾਲੀ ਅਲਮਾਰੀ ਜਾਂ ਟੀਵੀ ਸਟੱਡ ਨਾਲ ਬੰਨ੍ਹਿਆ ਤਾਂ ਜੋ ਚੜ੍ਹਦੇ ਬੱਚੇ 'ਤੇ ਨਾ ਡਿੱਗੇ।"
+   ]
+  },
+  "Anti-tip strap kit — per piece": {
+   "pa": [
+    "ਡਿੱਗਣ-ਰੋਕ ਸਟ੍ਰੈਪ ਕਿੱਟ — ਪ੍ਰਤੀ ਚੀਜ਼",
+    "ਕੰਧ ਅਤੇ ਫ਼ਰਨੀਚਰ ਬ੍ਰੈਕਟਾਂ ਸਮੇਤ ਸਟੀਲ ਕੇਬਲ ਜਾਂ ਸਟ੍ਰੈਪ ਕਿੱਟ।"
+   ]
+  },
+  "Window stop or guard installation — per window": {
+   "pa": [
+    "ਖਿੜਕੀ ਸਟੌਪ ਜਾਂ ਗਾਰਡ ਲਾਉਣਾ — ਪ੍ਰਤੀ ਖਿੜਕੀ",
+    "ਖੁੱਲ੍ਹ ਨੂੰ 4 ਇੰਚ ਤੱਕ ਸੀਮਤ ਕਰਨ ਲਈ ਸਟੌਪ ਲਾਇਆ, ਜਾਂ ਹੇਠਲੇ ਸੈਸ਼ 'ਤੇ ਗਾਰਡ ਲਾਇਆ।"
+   ]
+  },
+  "Window stop or guard — per window": {
+   "pa": [
+    "ਖਿੜਕੀ ਸਟੌਪ ਜਾਂ ਗਾਰਡ — ਪ੍ਰਤੀ ਖਿੜਕੀ",
+    "ਖਿੜਕੀ ਦੇ ਨਾਪ ਦਾ ਸੈਸ਼ ਸਟੌਪ ਜਾਂ ਲਾਹੁਣਯੋਗ ਖਿੜਕੀ ਗਾਰਡ।"
    ]
   }
  }

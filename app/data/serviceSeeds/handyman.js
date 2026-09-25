@@ -26,6 +26,9 @@ export const SEED = {
     { key: "hvac", name: { en: "HVAC and ventilation", fr: "CVC et ventilation", es: "Climatización y ventilación" } },
     { key: "painting", name: { en: "Painting, drywall and finishes", fr: "Peinture, gypse et finitions", es: "Pintura, panel de yeso y acabados" } },
     { key: "plumbing", name: { en: "Plumbing", fr: "Plomberie", es: "Plomería" } },
+    // Added 2026-09-25 for the baby-proofing quote type, which has no seed of
+    // its own and borrows this file (lib/services/confirmServices.js).
+    { key: "childproofing", name: { en: "Childproofing and home safety", fr: "Sécurité des enfants à la maison", es: "Seguridad infantil en casa" } },
   ],
   services: [
     S("fq.handyman.assembly.furniture", "assembly", "flat", null,
@@ -489,6 +492,75 @@ export const SEED = {
     S("fq.handyman.exterior.gutter_repair", "exterior", "flat", null,
       ["Gutter repair", "Réparation de gouttière", "Reparación de canaleta"],
       ["A sagging, leaking or detached section of gutter reattached, resealed and pitched to drain.", "Section de gouttière affaissée, qui fuit ou décrochée refixée, rescellée et remise en pente.", "Tramo de canaleta caído, con fuga o suelto refijado, resellado y con pendiente para drenar."]),
+    // ── Added 2026-09-25 for the quote types that borrow this file ─────────
+    // Locksmith, caulking & sealants and baby-proofing have no seed of their
+    // own (lib/services/confirmServices.js NEAREST_TRADES) and this book held
+    // one lock row, one caulking row (already templated, so its categories
+    // stay as they are) and no baby-proofing row at all — so those quote
+    // types opened with no templated service.
+    // These are the everyday jobs of each; the window-or-door caulking row is
+    // the handyman capture's own ($65 a window or door).
+    S("fq.handyman.doors_windows.lock_rekey", "doors_windows", "each", null,
+      ["Lock rekeying — per cylinder", "Recodage de serrure — le barillet", "Cambio de combinación de cerradura — por cilindro"],
+      ["A lock re-pinned to a new key so lost or old keys stop working, without replacing the hardware.",
+       "Serrure regoupillée pour une nouvelle clé afin que les clés perdues ou anciennes ne fonctionnent plus, sans changer la quincaillerie.",
+       "Cerradura con pernos nuevos para otra llave, para que las llaves perdidas o viejas dejen de abrir, sin cambiar el herraje."]),
+    S("fq.handyman.doors_windows.deadbolt_install", "doors_windows", "each", null,
+      ["Deadbolt installation", "Pose de pêne dormant", "Instalación de cerrojo"],
+      ["A deadbolt added to a door that has none: the door bored, the bolt fitted and the strike reinforced into the framing.",
+       "Pêne dormant ajouté à une porte qui n'en a pas : porte percée, pêne posé et gâche renforcée jusque dans la charpente.",
+       "Cerrojo agregado a una puerta que no tiene: puerta perforada, cerrojo colocado y la contrachapa reforzada hasta la estructura."]),
+    S("fq.handyman.doors_windows.smart_lock_install", "doors_windows", "each", null,
+      ["Smart lock installation", "Pose de serrure intelligente", "Instalación de cerradura inteligente"],
+      ["An existing deadbolt swapped for a keypad or app-controlled smart lock, paired and set up with the household's codes.",
+       "Pêne dormant existant remplacé par une serrure intelligente à clavier ou contrôlée par application, jumelée et configurée avec les codes de la maison.",
+       "Cerrojo existente cambiado por una cerradura inteligente con teclado o app, vinculada y configurada con los códigos de la casa."]),
+    S("fq.handyman.doors_windows.lockset_replacement", "doors_windows", "each", null,
+      ["Door lockset replacement", "Remplacement de serrure de porte", "Cambio de cerradura de puerta"],
+      ["A worn or broken knob or lever lockset replaced and the latch lined up so the door closes and locks cleanly.",
+       "Serrure à bouton ou à levier usée ou brisée remplacée, loquet aligné pour que la porte ferme et se verrouille bien.",
+       "Cerradura de perilla o manija gastada o rota reemplazada y el pestillo alineado para que la puerta cierre y trabe bien."]),
+    S("fq.handyman.doors_windows.weatherstrip_sweep", "doors_windows", "each", null,
+      ["Door weatherstripping and sweep replacement", "Remplacement du coupe-froid et du bas de porte", "Cambio de burletes y barredor de puerta"],
+      ["Worn weatherstrip on an exterior door replaced and a new sweep fitted, so the door seals when it closes.",
+       "Coupe-froid usé d'une porte extérieure remplacé et nouveau bas de porte posé, pour que la porte soit étanche une fois fermée.",
+       "Burlete gastado de una puerta exterior reemplazado y un barredor nuevo colocado, para que la puerta selle al cerrar."]),
+    S("fq.handyman.painting.tub_shower_recaulk", "painting", "each", null,
+      ["Tub and shower re-caulking", "Recalfeutrage de baignoire et de douche", "Resellado de tina y ducha"],
+      ["Old, mouldy caulk cut out round a tub or shower, the joint cleaned and dried, and a fresh silicone bead run.",
+       "Vieux calfeutrant moisi retiré autour d'une baignoire ou d'une douche, joint nettoyé et séché, et nouveau cordon de silicone appliqué.",
+       "Sellador viejo con moho retirado alrededor de la tina o ducha, la junta limpiada y secada, y un cordón nuevo de silicón aplicado."]),
+    S("fq.handyman.painting.window_door_weatherproofing", "painting", "each", null,
+      ["Caulking and weatherproofing — per window or door", "Calfeutrage et étanchéité — par fenêtre ou porte", "Sellado e impermeabilización — por ventana o puerta"],
+      ["The exterior joint round one window or door sealed against drafts and water: failed caulk out, gaps backed and a fresh bead tooled.",
+       "Joint extérieur d'une fenêtre ou d'une porte scellé contre l'air et l'eau : vieux calfeutrant retiré, espaces bourrés et nouveau cordon lissé.",
+       "La junta exterior de una ventana o puerta sellada contra corrientes y agua: sellador viejo fuera, huecos rellenos y un cordón nuevo alisado."]),
+    S("fq.handyman.childproofing.home_visit", "childproofing", "flat", null,
+      ["Baby-proofing visit — whole home", "Visite de sécurité pour bébé — toute la maison", "Visita para proteger al bebé — toda la casa"],
+      ["The home walked room by room at a child's height, then latches, outlet covers, corner guards and anchors fitted where they are needed.",
+       "Maison parcourue pièce par pièce à hauteur d'enfant, puis loquets, cache-prises, protège-coins et ancrages posés là où il le faut.",
+       "La casa recorrida cuarto por cuarto a la altura de un niño, y luego seguros, tapas de contactos, protectores de esquinas y anclajes colocados donde hagan falta."],
+      { durationMinutes: 120, bookable: true }),
+    S("fq.handyman.childproofing.safety_gate", "childproofing", "each", null,
+      ["Baby gate installation", "Pose de barrière de sécurité pour bébé", "Instalación de reja de seguridad para bebé"],
+      ["A hardware-mounted safety gate fixed at the top or bottom of the stairs or across a doorway, swinging away from the steps.",
+       "Barrière de sécurité vissée en haut ou en bas de l'escalier ou dans une ouverture de porte, s'ouvrant du côté opposé aux marches.",
+       "Reja de seguridad atornillada arriba o abajo de la escalera o en un vano de puerta, que abre hacia el lado contrario a los escalones."]),
+    S("fq.handyman.childproofing.cabinet_latches", "childproofing", "each", null,
+      ["Cabinet and drawer safety latches", "Loquets de sécurité pour armoires et tiroirs", "Seguros para gabinetes y cajones"],
+      ["Child-safety latches or magnetic locks fitted to the cabinets and drawers that hold chemicals, knives or medicine.",
+       "Loquets de sécurité ou serrures magnétiques posés sur les armoires et tiroirs qui contiennent produits chimiques, couteaux ou médicaments.",
+       "Seguros o cerraduras magnéticas colocados en los gabinetes y cajones con químicos, cuchillos o medicinas."]),
+    S("fq.handyman.childproofing.furniture_anchoring", "childproofing", "each", null,
+      ["Furniture and TV anti-tip anchoring", "Ancrage anti-basculement des meubles et du téléviseur", "Anclaje antivuelco de muebles y TV"],
+      ["Dressers, bookcases and TVs strapped to the wall studs so a climbing child cannot pull them over.",
+       "Commodes, bibliothèques et téléviseurs attachés aux montants du mur pour qu'un enfant qui grimpe ne puisse pas les renverser.",
+       "Cómodas, libreros y televisores sujetos a los montantes del muro para que un niño que trepa no los tire."]),
+    S("fq.handyman.childproofing.window_safety", "childproofing", "each", null,
+      ["Window stops and guards", "Butées et grilles de fenêtre", "Topes y rejas de ventana"],
+      ["Stops that limit a window to a 4 in opening, or guards across the lower sash, so a child cannot fall through.",
+       "Butées qui limitent l'ouverture d'une fenêtre à 4 po, ou grilles sur le châssis du bas, pour qu'un enfant ne puisse pas tomber.",
+       "Topes que limitan la apertura de la ventana a 4 pulg, o rejas en la hoja inferior, para que un niño no pueda caer."]),
   ],
 };
 
@@ -2367,4 +2439,241 @@ add("plumbing.pipe_materials", "installation", [H.pipeLabour, H.pexCoil, H.fitti
 add("plumbing.toilet_install_repair", "installation", [H.toiletRemove, H.toiletLabour, H.toiletUnit, H.waxKit, H.supplyLine]);
 add("plumbing.toilet_install_seat_valve", "installation", [H.toiletLabour, H.toiletUnit, H.seatValveKit, H.supplyLine]);
 add("plumbing.toilet_labour", "repair", [H.toiletRepair, H.waxKit]);
+
+// The rows added for locksmith, caulking & sealants and baby-proofing (see
+// the services list). Rekeying reuses the per-cylinder lines above; the
+// window-or-door row is the capture's $65 split into labour and sealant.
+const HX2 = {
+  deadboltLabour: {
+    en: ["Deadbolt installation — boring and fitting", "Door bored with a jig, latch and strike mortised, the deadbolt fitted and the strike fixed with 3 in screws into the framing."],
+    fr: ["Pose de pêne dormant — perçage et ajustement", "Porte percée au gabarit, pêne et gâche mortaisés, pêne dormant posé et gâche fixée avec des vis de 3 po dans la charpente."],
+    es: ["Instalación de cerrojo — perforado y ajuste", "Puerta perforada con plantilla, pestillo y contrachapa embutidos, el cerrojo colocado y la contrachapa fijada con tornillos de 3 pulg a la estructura."],
+    it: ["Montaggio catenaccio — foratura e posa", "Porta forata con la dima, scrocco e bocchetta incassati, catenaccio montato e bocchetta fissata con viti da 3 pollici nell'intelaiatura."],
+    de: ["Riegelschloss einbauen — Bohren und Einpassen", "Tür mit Schablone gebohrt, Riegel und Schließblech eingelassen, Schloss montiert und das Schließblech mit 3-Zoll-Schrauben im Rahmen befestigt."],
+    uk: ["Встановлення засуву — свердління та припасування", "Двері просвердлено за шаблоном, засув і планку врізано, замок встановлено, планку закріплено шурупами 3 дюйми в каркас."],
+    tl: ["Pagkabit ng deadbolt — pagbutas at pag-fit", "Binutasan ang pinto gamit ang jig, inukit ang lugar ng latch at strike, ikinabit ang deadbolt at tinurnilyo ang strike ng 3 in sa frame."],
+  },
+  deadboltMat: {
+    en: ["Grade 2 single-cylinder deadbolt", "ANSI grade 2 deadbolt, keyed to the household's existing key where the brand allows."],
+    fr: ["Pêne dormant à simple cylindre, grade 2", "Pêne dormant ANSI de grade 2, sur la clé existante de la maison quand la marque le permet."],
+    es: ["Cerrojo de un cilindro, grado 2", "Cerrojo ANSI grado 2, con la misma llave de la casa cuando la marca lo permite."],
+    it: ["Catenaccio a cilindro singolo, grado 2", "Catenaccio ANSI grado 2, con la chiave già in uso in casa quando la marca lo consente."],
+    de: ["Einzylinder-Riegelschloss, Klasse 2", "ANSI-Riegelschloss Klasse 2, auf den vorhandenen Hausschlüssel gestiftet, wo die Marke es zulässt."],
+    uk: ["Засувний замок з одним циліндром, клас 2", "Засув класу ANSI 2, під наявний ключ дому, якщо дозволяє марка."],
+    tl: ["Grade 2 na single-cylinder deadbolt", "ANSI grade 2 na deadbolt, kapareho ng susi ng bahay kung papayag ang brand."],
+  },
+  strikeMat: {
+    en: ["Reinforced strike plate", "Heavy-gauge strike plate and 3 in screws that reach the framing behind the jamb."],
+    fr: ["Gâche renforcée", "Gâche en acier épais et vis de 3 po qui atteignent la charpente derrière le montant."],
+    es: ["Contrachapa reforzada", "Contrachapa de calibre grueso y tornillos de 3 pulg que llegan a la estructura detrás de la jamba."],
+    it: ["Bocchetta rinforzata", "Bocchetta in acciaio spesso e viti da 3 pollici che arrivano all'intelaiatura dietro lo stipite."],
+    de: ["Verstärktes Schließblech", "Schweres Schließblech und 3-Zoll-Schrauben, die bis in den Rahmen hinter der Zarge reichen."],
+    uk: ["Посилена відповідна планка", "Товста сталева планка та шурупи 3 дюйми, що дістають до каркаса за коробкою."],
+    tl: ["Pinatibay na strike plate", "Makapal na strike plate at 3 in na turnilyo na umaabot sa frame sa likod ng hamba."],
+  },
+  smartLabour: {
+    en: ["Smart lock installation and setup", "The old deadbolt out, the smart lock fitted and calibrated, paired with the app and the household's codes set."],
+    fr: ["Pose et configuration de serrure intelligente", "Ancien pêne retiré, serrure intelligente posée et calibrée, jumelée à l'application et codes de la maison programmés."],
+    es: ["Instalación y configuración de cerradura inteligente", "Cerrojo viejo fuera, la cerradura inteligente colocada y calibrada, vinculada a la app y con los códigos de la casa."],
+    it: ["Montaggio e configurazione serratura smart", "Vecchio catenaccio tolto, serratura smart montata e calibrata, abbinata all'app e codici della famiglia impostati."],
+    de: ["Smart Lock montieren und einrichten", "Altes Riegelschloss raus, Smart Lock eingebaut und kalibriert, mit der App gekoppelt und die Codes des Haushalts eingestellt."],
+    uk: ["Монтаж і налаштування розумного замка", "Старий засув знято, розумний замок встановлено й відкалібровано, спарено із застосунком і задано коди родини."],
+    tl: ["Pagkabit at setup ng smart lock", "Tinanggal ang lumang deadbolt, ikinabit at kinalibrate ang smart lock, pinair sa app at in-set ang mga code ng bahay."],
+  },
+  smartMat: {
+    en: ["Smart deadbolt", "Wi-Fi or Bluetooth deadbolt with a keypad and a key override."],
+    fr: ["Pêne dormant intelligent", "Pêne dormant Wi-Fi ou Bluetooth avec clavier et clé de secours."],
+    es: ["Cerrojo inteligente", "Cerrojo Wi-Fi o Bluetooth con teclado y llave de respaldo."],
+    it: ["Catenaccio smart", "Catenaccio Wi-Fi o Bluetooth con tastierino e chiave di emergenza."],
+    de: ["Smartes Riegelschloss", "WLAN- oder Bluetooth-Riegelschloss mit Tastatur und Notschlüssel."],
+    uk: ["Розумний засувний замок", "Засув із Wi-Fi чи Bluetooth, клавіатурою та резервним ключем."],
+    tl: ["Smart na deadbolt", "Wi-Fi o Bluetooth na deadbolt na may keypad at key override."],
+  },
+  locksetLabour: {
+    en: ["Lockset replacement labour", "The old knob or lever off, the new lockset fitted and the latch and strike lined up so the door closes and locks cleanly."],
+    fr: ["Main-d'œuvre — remplacement de serrure", "Ancien bouton ou levier retiré, nouvelle serrure posée, loquet et gâche alignés pour que la porte ferme et se verrouille bien."],
+    es: ["Mano de obra — cambio de cerradura", "Perilla o manija vieja fuera, la cerradura nueva colocada y el pestillo y la contrachapa alineados para que la puerta cierre y trabe bien."],
+    it: ["Manodopera — sostituzione serratura", "Vecchio pomolo o maniglia tolto, nuova serratura montata, scrocco e bocchetta allineati perché la porta chiuda e si blocchi bene."],
+    de: ["Arbeit — Schlossgarnitur tauschen", "Alter Knauf oder Drücker ab, neue Garnitur montiert, Falle und Schließblech ausgerichtet, damit die Tür sauber schließt und sperrt."],
+    uk: ["Робота — заміна замка", "Стару ручку знято, новий замок встановлено, засувку й планку вирівняно, щоб двері чисто зачинялися й замикалися."],
+    tl: ["Labor — palit ng lockset", "Tinanggal ang lumang knob o lever, ikinabit ang bagong lockset at inayos ang latch at strike para maayos magsara at mag-lock."],
+  },
+  locksetMat: {
+    en: ["Entry knob or lever lockset", "Keyed entry knob or lever set in the finish the client picks."],
+    fr: ["Serrure d'entrée à bouton ou à levier", "Serrure d'entrée à clé, à bouton ou à levier, dans le fini choisi par le client."],
+    es: ["Cerradura de entrada de perilla o manija", "Cerradura de entrada con llave, de perilla o manija, en el acabado que elija el cliente."],
+    it: ["Serratura d'ingresso a pomolo o maniglia", "Serratura d'ingresso con chiave, a pomolo o maniglia, nella finitura scelta dal cliente."],
+    de: ["Eingangsgarnitur mit Knauf oder Drücker", "Abschließbare Knauf- oder Drückergarnitur in der Oberfläche, die der Kunde wählt."],
+    uk: ["Вхідний замок із ручкою-кнопкою чи натискною ручкою", "Вхідний замок під ключ із кнопкою чи натискною ручкою в оздобленні на вибір клієнта."],
+    tl: ["Entry knob o lever na lockset", "Entry knob o lever na may susi, sa finish na pipiliin ng kliyente."],
+  },
+  recaulkLabour: {
+    en: ["Old caulk removal and re-caulk — per tub or shower", "Old caulk cut and scraped out, mould cleaned off, the joint dried and a new silicone bead tooled in."],
+    fr: ["Retrait et recalfeutrage — la baignoire ou la douche", "Vieux calfeutrant coupé et gratté, moisissure nettoyée, joint séché et nouveau cordon de silicone lissé."],
+    es: ["Retiro y resellado — por tina o ducha", "Sellador viejo cortado y raspado, el moho limpiado, la junta secada y un cordón nuevo de silicón alisado."],
+    it: ["Rimozione e nuova sigillatura — per vasca o doccia", "Vecchio sigillante tagliato e raschiato, muffa pulita, giunto asciugato e nuovo cordone di silicone lisciato."],
+    de: ["Alte Fuge raus und neu verfugen — pro Wanne oder Dusche", "Alte Fuge geschnitten und ausgekratzt, Schimmel entfernt, Fuge getrocknet und eine neue Silikonfuge abgezogen."],
+    uk: ["Видалення старого та новий герметик — за ванну чи душ", "Старий герметик вирізано й зішкрябано, пліснява видалена, шов висушено й нанесено новий силіконовий шов."],
+    tl: ["Pagtanggal at bagong caulk — kada tub o shower", "Hiniwa at kinayod ang lumang caulk, nilinis ang amag, pinatuyo ang dugtungan at nilagyan ng bagong silicone."],
+  },
+  siliconeKit: {
+    en: ["Mould-resistant silicone and caulk remover", "100% silicone kitchen-and-bath sealant, caulk remover and mould cleaner."],
+    fr: ["Silicone anti-moisissure et décapant à calfeutrant", "Scellant 100 % silicone cuisine et salle de bain, décapant à calfeutrant et nettoyant anti-moisissure."],
+    es: ["Silicón antimoho y removedor de sellador", "Sellador 100 % silicón para cocina y baño, removedor de sellador y limpiador de moho."],
+    it: ["Silicone antimuffa e rimuovi-sigillante", "Sigillante 100% silicone per cucina e bagno, rimuovi-sigillante e detergente antimuffa."],
+    de: ["Schimmelhemmendes Silikon und Fugenentferner", "Sanitärsilikon 100 %, Silikonentferner und Schimmelreiniger."],
+    uk: ["Протигрибковий силікон і засіб для зняття герметика", "100% силіконовий герметик для кухні й ванної, засіб для зняття старого герметика та очисник від плісняви."],
+    tl: ["Mould-resistant na silicone at caulk remover", "100% silicone na sealant pang-kusina at banyo, caulk remover at panlinis ng amag."],
+  },
+  sealOpening: {
+    en: ["Opening caulking labour — per window or door", "Failed caulk cut out round the frame, gaps over 1/4 in backed with foam rod, and a fresh exterior bead tooled in."],
+    fr: ["Main-d'œuvre — calfeutrage d'ouverture, par fenêtre ou porte", "Calfeutrant défaillant retiré autour du cadre, espaces de plus de 1/4 po bourrés de boudin de mousse et nouveau cordon extérieur lissé."],
+    es: ["Mano de obra — sellado de vano, por ventana o puerta", "Sellador dañado cortado alrededor del marco, huecos de más de 1/4 pulg rellenos con cordón de espuma y un cordón exterior nuevo alisado."],
+    it: ["Manodopera — sigillatura del vano, per finestra o porta", "Sigillante degradato tolto attorno al telaio, fessure oltre 1/4 di pollice riempite con cordone in espanso e nuovo cordone esterno lisciato."],
+    de: ["Arbeit — Öffnung abdichten, pro Fenster oder Tür", "Defekte Fuge rund um den Rahmen entfernt, Spalten über 1/4 Zoll mit Rundschnur hinterfüllt und eine neue Außenfuge abgezogen."],
+    uk: ["Робота — герметизація отвору, за вікно чи двері", "Зруйнований герметик навколо рами видалено, щілини понад 1/4 дюйма заповнено пінним джгутом, нанесено новий зовнішній шов."],
+    tl: ["Labor — pag-caulk ng bukana, kada bintana o pinto", "Tinanggal ang sirang caulk sa paligid ng frame, nilagyan ng foam rod ang puwang na lampas 1/4 in, at nilagyan ng bagong caulk sa labas."],
+  },
+  sealantMat: {
+    en: ["Exterior sealant and backer rod — per opening", "Paintable exterior sealant and closed-cell backer rod for one window or door."],
+    fr: ["Scellant extérieur et boudin de mousse — l'ouverture", "Scellant extérieur peinturable et boudin à cellules fermées pour une fenêtre ou une porte."],
+    es: ["Sellador exterior y cordón de respaldo — por vano", "Sellador exterior pintable y cordón de celda cerrada para una ventana o puerta."],
+    it: ["Sigillante esterno e cordone di fondo — per apertura", "Sigillante esterno verniciabile e cordone a celle chiuse per una finestra o porta."],
+    de: ["Außendichtstoff und Hinterfüllschnur — pro Öffnung", "Überstreichbarer Außendichtstoff und geschlossenzellige Rundschnur für ein Fenster oder eine Tür."],
+    uk: ["Зовнішній герметик і ущільнювальний джгут — за отвір", "Фарбований зовнішній герметик і джгут із закритими порами для одного вікна чи дверей."],
+    tl: ["Exterior sealant at backer rod — kada bukana", "Paintable na exterior sealant at closed-cell backer rod para sa isang bintana o pinto."],
+  },
+  weatherLabour: {
+    en: ["Weatherstrip and sweep replacement labour", "Old weatherstrip pulled, the new strip pressed into the jamb kerf or stapled, and a new sweep fitted and set to the threshold."],
+    fr: ["Main-d'œuvre — remplacement du coupe-froid et du bas de porte", "Ancien coupe-froid retiré, nouveau inséré dans la rainure du montant ou agrafé, et nouveau bas de porte posé et réglé sur le seuil."],
+    es: ["Mano de obra — cambio de burlete y barredor", "Burlete viejo retirado, el nuevo insertado en la ranura de la jamba o engrapado, y un barredor nuevo colocado y ajustado al umbral."],
+    it: ["Manodopera — sostituzione guarnizioni e paraspifferi", "Vecchia guarnizione tolta, nuova inserita nella scanalatura dello stipite o graffettata, e nuovo paraspifferi montato e regolato sulla soglia."],
+    de: ["Arbeit — Dichtungen und Bodendichtung tauschen", "Alte Dichtung abgezogen, neue in die Zargennut gedrückt oder getackert und eine neue Bodendichtung auf die Schwelle eingestellt."],
+    uk: ["Робота — заміна ущільнювача та нижньої щітки", "Старий ущільнювач знято, новий вставлено в паз коробки чи прибито скобами, нову нижню щітку встановлено й відрегульовано по порогу."],
+    tl: ["Labor — palit ng weatherstrip at sweep", "Tinanggal ang lumang weatherstrip, isiningit sa kerf ng hamba o na-staple ang bago, at ikinabit at inayos sa threshold ang bagong sweep."],
+  },
+  childproofHour: {
+    en: ["Childproofing labour", "The home walked for hazards at a child's height, then latches, locks, covers and anchors fitted, by the hour."],
+    fr: ["Main-d'œuvre — sécurité des enfants", "Maison inspectée à hauteur d'enfant pour les dangers, puis loquets, verrous, cache-prises et ancrages posés, à l'heure."],
+    es: ["Mano de obra — seguridad infantil", "La casa revisada a la altura de un niño buscando peligros, y luego seguros, cerraduras, tapas y anclajes colocados, por hora."],
+    it: ["Manodopera — sicurezza bambini", "Casa controllata all'altezza di un bambino in cerca di pericoli, poi chiusure, blocchi, copriprese e ancoraggi montati, a ore."],
+    de: ["Arbeit — Kindersicherung", "Das Haus auf Kinderhöhe nach Gefahren abgesucht, dann Sperren, Schlösser, Abdeckungen und Kippsicherungen angebracht, nach Stunden."],
+    uk: ["Робота — захист для дітей", "Будинок перевірено на небезпеки на рівні зросту дитини, потім встановлено блокувальники, замки, заглушки й кріплення, погодинно."],
+    tl: ["Labor — childproofing", "Sinuri ang bahay sa taas ng bata kung may panganib, tapos ikinabit ang latch, lock, takip at anchor, kada oras."],
+  },
+  childproofKit: {
+    en: ["Childproofing kit", "Cabinet latches, outlet covers, corner guards, door-knob covers and toilet locks for a typical home."],
+    fr: ["Trousse de sécurité pour enfants", "Loquets d'armoire, cache-prises, protège-coins, couvre-poignées et verrous de toilette pour une maison type."],
+    es: ["Kit de seguridad infantil", "Seguros para gabinetes, tapas de contactos, protectores de esquinas, cubre perillas y seguros de inodoro para una casa típica."],
+    it: ["Kit sicurezza bambini", "Blocchi per ante, copriprese, paraspigoli, coprimaniglie e blocchi per WC per una casa tipo."],
+    de: ["Kindersicherungs-Set", "Schrankriegel, Steckdosenschutz, Eckenschutz, Türknaufschutz und WC-Sperren für ein typisches Haus."],
+    uk: ["Набір для захисту дітей", "Блокувальники шаф, заглушки розеток, захисні кути, накладки на ручки дверей і замки унітаза для типового дому."],
+    tl: ["Childproofing kit", "Latch ng cabinet, takip ng outlet, corner guard, takip ng door knob at lock ng inidoro para sa karaniwang bahay."],
+  },
+  gateLabour: {
+    en: ["Safety gate installation — per gate", "Gate mounted into studs or with banister adapters, the swing set away from the stairs and the latch tested."],
+    fr: ["Pose de barrière de sécurité — la barrière", "Barrière fixée dans les montants ou avec adaptateurs de rampe, ouverture orientée à l'opposé de l'escalier et loquet testé."],
+    es: ["Instalación de reja de seguridad — por reja", "Reja fijada a los montantes o con adaptadores de barandal, abriendo hacia el lado contrario a la escalera y el seguro probado."],
+    it: ["Montaggio cancelletto — per cancelletto", "Cancelletto fissato ai montanti o con adattatori per ringhiera, apertura lontano dalle scale e chiusura provata."],
+    de: ["Schutzgitter montieren — pro Gitter", "Gitter in den Ständern verschraubt oder mit Geländeradaptern befestigt, Öffnungsrichtung weg von der Treppe, Verriegelung geprüft."],
+    uk: ["Монтаж захисних воріт — за ворітця", "Ворітця закріплено в стійках або через адаптери для поручнів, відчинення в бік від сходів, фіксатор перевірено."],
+    tl: ["Pagkabit ng safety gate — kada gate", "Ikinabit sa stud o gamit ang banister adapter ang gate na bumubukas palayo sa hagdan, at sinubukan ang latch."],
+  },
+  gateMat: {
+    en: ["Hardware-mounted safety gate", "A top-of-stairs rated gate that screws to the wall, with its mounting kit."],
+    fr: ["Barrière de sécurité à visser", "Barrière homologuée pour le haut de l'escalier qui se visse au mur, avec sa trousse de fixation."],
+    es: ["Reja de seguridad para atornillar", "Reja certificada para parte alta de escalera que se atornilla al muro, con su kit de montaje."],
+    it: ["Cancelletto di sicurezza da fissare a vite", "Cancelletto omologato per la cima delle scale che si avvita al muro, con kit di montaggio."],
+    de: ["Verschraubtes Schutzgitter", "Für den Treppenkopf zugelassenes Gitter zum Anschrauben an die Wand, mit Montageset."],
+    uk: ["Захисні ворітця з кріпленням на гвинти", "Ворітця, сертифіковані для верху сходів, що прикручуються до стіни, з монтажним набором."],
+    tl: ["Safety gate na tinuturnilyo", "Gate na pang-itaas ng hagdan na tinuturnilyo sa pader, kasama ang mounting kit."],
+  },
+  banisterKit: {
+    en: ["Banister adapter kit", "Clamp-on adapters so the gate mounts to a banister without drilling it."],
+    fr: ["Trousse d'adaptateurs pour rampe", "Adaptateurs à serrer pour fixer la barrière à une rampe sans la percer."],
+    es: ["Kit adaptador para barandal", "Adaptadores de abrazadera para montar la reja en un barandal sin perforarlo."],
+    it: ["Kit adattatori per ringhiera", "Adattatori a morsetto per fissare il cancelletto alla ringhiera senza forarla."],
+    de: ["Geländeradapter-Set", "Klemmadapter, damit das Gitter ohne Bohren am Treppengeländer hält."],
+    uk: ["Набір адаптерів для поручнів", "Затискні адаптери, щоб закріпити ворітця на поручні без свердління."],
+    tl: ["Banister adapter kit", "Clamp-on na adapter para maikabit ang gate sa banister nang hindi ito binubutas."],
+  },
+  latchLabour: {
+    en: ["Safety latch installation — per latch", "A latch or magnetic lock fitted to one cabinet door or drawer and tested."],
+    fr: ["Pose de loquet de sécurité — le loquet", "Loquet ou serrure magnétique posé sur une porte d'armoire ou un tiroir et testé."],
+    es: ["Instalación de seguro — por seguro", "Un seguro o cerradura magnética colocado en una puerta de gabinete o cajón y probado."],
+    it: ["Montaggio blocco di sicurezza — per blocco", "Un blocco o una serratura magnetica montato su un'anta o un cassetto e provato."],
+    de: ["Sicherungsriegel montieren — pro Riegel", "Ein Riegel oder Magnetschloss an einer Schranktür oder Schublade angebracht und geprüft."],
+    uk: ["Встановлення блокувальника — за штуку", "Блокувальник чи магнітний замок встановлено на одні дверцята чи шухляду й перевірено."],
+    tl: ["Pagkabit ng safety latch — kada latch", "Ikinabit at sinubukan ang latch o magnetic lock sa isang pinto ng cabinet o drawer."],
+  },
+  latchMat: {
+    en: ["Safety latch — per latch", "An adhesive or screw-in latch, or a magnetic lock with its key."],
+    fr: ["Loquet de sécurité — le loquet", "Loquet adhésif ou à visser, ou serrure magnétique avec sa clé."],
+    es: ["Seguro — por seguro", "Seguro adhesivo o atornillable, o cerradura magnética con su llave."],
+    it: ["Blocco di sicurezza — per blocco", "Blocco adesivo o a vite, o serratura magnetica con la sua chiave."],
+    de: ["Sicherungsriegel — pro Riegel", "Klebe- oder Schraubriegel oder ein Magnetschloss mit Schlüssel."],
+    uk: ["Блокувальник — за штуку", "Блокувальник на клейкій основі чи на гвинтах або магнітний замок із ключем."],
+    tl: ["Safety latch — kada latch", "Adhesive o turnilyong latch, o magnetic lock na may susi."],
+  },
+  anchorLabour: {
+    en: ["Anti-tip anchoring — per piece", "A dresser, bookcase or TV strapped to a stud so it cannot tip onto a climbing child."],
+    fr: ["Ancrage anti-basculement — le meuble", "Commode, bibliothèque ou téléviseur attaché à un montant pour qu'il ne bascule pas sur un enfant qui grimpe."],
+    es: ["Anclaje antivuelco — por pieza", "Cómoda, librero o TV sujeto a un montante para que no se venga encima de un niño que trepa."],
+    it: ["Ancoraggio antiribaltamento — per pezzo", "Cassettiera, libreria o TV fissati a un montante perché non si ribaltino su un bambino che si arrampica."],
+    de: ["Kippsicherung — pro Stück", "Kommode, Regal oder Fernseher an einem Ständer gesichert, damit nichts auf ein kletterndes Kind kippt."],
+    uk: ["Кріплення від перекидання — за предмет", "Комод, книжкову шафу чи телевізор прикріплено до стійки, щоб не впав на дитину, яка лізе."],
+    tl: ["Anti-tip anchoring — kada piraso", "Itinali sa stud ang dresser, bookshelf o TV para hindi tumumba sa batang umaakyat."],
+  },
+  anchorMat: {
+    en: ["Anti-tip strap kit — per piece", "Steel-cable or strap kit with wall and furniture brackets."],
+    fr: ["Trousse de sangles anti-basculement — le meuble", "Trousse à câble d'acier ou à sangle avec supports muraux et pour meuble."],
+    es: ["Kit de correa antivuelco — por pieza", "Kit de cable de acero o correa con soportes para muro y mueble."],
+    it: ["Kit cinghie antiribaltamento — per pezzo", "Kit a cavo d'acciaio o cinghia con staffe per muro e mobile."],
+    de: ["Kippschutz-Set — pro Stück", "Stahlseil- oder Gurtset mit Wand- und Möbelwinkeln."],
+    uk: ["Набір ременів від перекидання — за предмет", "Набір зі сталевим тросом або ременем і кронштейнами для стіни та меблів."],
+    tl: ["Anti-tip strap kit — kada piraso", "Steel-cable o strap kit na may bracket sa pader at muwebles."],
+  },
+  windowStopLabour: {
+    en: ["Window stop or guard installation — per window", "A stop set to limit the opening to 4 in, or a guard fixed across the lower sash."],
+    fr: ["Pose de butée ou de grille de fenêtre — la fenêtre", "Butée réglée pour limiter l'ouverture à 4 po, ou grille fixée sur le châssis du bas."],
+    es: ["Instalación de tope o reja de ventana — por ventana", "Tope ajustado para limitar la apertura a 4 pulg, o reja fijada en la hoja inferior."],
+    it: ["Montaggio fermo o grata per finestra — per finestra", "Fermo regolato per limitare l'apertura a 4 pollici, o grata fissata sull'anta inferiore."],
+    de: ["Fensterstopper oder -gitter montieren — pro Fenster", "Stopper so gesetzt, dass das Fenster nur 4 Zoll aufgeht, oder ein Gitter vor dem unteren Flügel befestigt."],
+    uk: ["Встановлення обмежувача чи ґрат — за вікно", "Обмежувач налаштовано на відчинення не більше 4 дюймів або ґрати закріплено на нижній стулці."],
+    tl: ["Pagkabit ng window stop o guard — kada bintana", "Inilagay ang stop para 4 in lang ang bukas, o ikinabit ang guard sa ibabang sash."],
+  },
+  windowStopMat: {
+    en: ["Window stop or guard — per window", "A sash stop or removable window guard sized to the window."],
+    fr: ["Butée ou grille de fenêtre — la fenêtre", "Butée de châssis ou grille amovible à la dimension de la fenêtre."],
+    es: ["Tope o reja de ventana — por ventana", "Tope de hoja o reja removible del tamaño de la ventana."],
+    it: ["Fermo o grata per finestra — per finestra", "Fermo per anta o grata rimovibile della misura della finestra."],
+    de: ["Fensterstopper oder -gitter — pro Fenster", "Flügelstopper oder abnehmbares Fenstergitter in Fenstergröße."],
+    uk: ["Обмежувач чи ґрати для вікна — за вікно", "Обмежувач стулки або знімні ґрати за розміром вікна."],
+    tl: ["Window stop o guard — kada bintana", "Sash stop o natatanggal na window guard na sukat sa bintana."],
+  },
+};
+add("doors_windows.lock_rekey", "installation", [H.call, H.rekeyLabour, H.rekeyPins], ["locksmith"]);
+add("doors_windows.deadbolt_install", "installation", [
+  lab(1, "each", 120, HX2.deadboltLabour), mat(1, "each", 45, HX2.deadboltMat, { cost: 34 }), mat(1, "each", 15, HX2.strikeMat),
+], ["locksmith", "doors_windows"]);
+add("doors_windows.smart_lock_install", "installation", [
+  lab(1, "each", 125, HX2.smartLabour), mat(1, "each", 219, HX2.smartMat, { cost: 175 }),
+], ["locksmith", "installation_services", "smart_home"]);
+add("doors_windows.lockset_replacement", "installation", [
+  lab(1, "each", 65, HX2.locksetLabour), mat(1, "each", 45, HX2.locksetMat, { cost: 34 }),
+], ["locksmith", "doors_windows"]);
+add("doors_windows.weatherstrip_sweep", "repair", [lab(1, "each", 75, HX2.weatherLabour), H.weatherstrip], ["caulking_sealants", "doors_windows"]);
+add("painting.tub_shower_recaulk", "maintenance", [
+  lab(1, "each", 145, HX2.recaulkLabour), mat(1, "each", 20, HX2.siliconeKit),
+], ["caulking_sealants"]);
+add("painting.window_door_weatherproofing", "maintenance", [
+  lab(1, "each", 55, HX2.sealOpening, EACH), mat(1, "each", 10, HX2.sealantMat, EACH),
+], ["caulking_sealants", "doors_windows"]);
+add("childproofing.home_visit", "installation", [lab(2, "hour", 85, HX2.childproofHour), mat(1, "flat", 95, HX2.childproofKit)], ["baby_proofing"]);
+add("childproofing.safety_gate", "installation", [
+  lab(1, "each", 85, HX2.gateLabour), mat(1, "each", 75, HX2.gateMat, { cost: 56 }), mat(1, "each", 30, HX2.banisterKit, { optional: true }),
+], ["baby_proofing", "installation_services"]);
+add("childproofing.cabinet_latches", "installation", [lab(1, "each", 12, HX2.latchLabour, EACH), mat(1, "each", 6, HX2.latchMat, EACH)], ["baby_proofing"]);
+add("childproofing.furniture_anchoring", "installation", [lab(1, "each", 45, HX2.anchorLabour, EACH), mat(1, "each", 12, HX2.anchorMat, EACH)], ["baby_proofing"]);
+add("childproofing.window_safety", "installation", [lab(1, "each", 35, HX2.windowStopLabour, EACH), mat(1, "each", 18, HX2.windowStopMat, EACH)], ["baby_proofing"]);
 withTemplates(SEED, HANDYMAN_ADDED);
