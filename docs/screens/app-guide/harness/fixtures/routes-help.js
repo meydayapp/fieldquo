@@ -1336,7 +1336,49 @@ const PURE_PAINTER_CATEGORIES = PAINTER_CATEGORIES.map((c) =>
 );
 const STAIRS_CATEGORIES = SERVICE_CATEGORIES.map((c) => (c.key === "stairs" ? { ...c, enabled: true } : c));
 
+// ── Client tickets (2026-09-24) ─────────────────────────────────────────
+// What the Tickets queue, one ticket and the open-count badge answer for the
+// client-portal rows in screens.js.
+const TICKET_1 = {
+  id: "tk_hinge", companyId: COMPANY.id, clientId: CLIENT.id, jobId: JOB.id, jobVisitId: null, invoiceId: null, quoteId: null, servicePlanId: null,
+  type: "warranty", subject: "Pantry door hinge is dropping", body: "Since last week the tall pantry door rubs the drawer below when it closes. Photo attached.",
+  photos: [{ url: "https://images.unsplash.com/photo-1556911220-bff31c812dba?w=400", kind: "photo" }],
+  status: "in_progress", priority: "high", assignedToId: "u_julie", convertedJobId: null,
+  firstResponseAt: iso(day(-1)), resolvedAt: null, createdAt: iso(day(-2)), updatedAt: iso(day(-1)),
+  client: { id: CLIENT.id, name: CLIENT.name, email: CLIENT.email, phone: CLIENT.phone },
+  messages: [
+    { id: "tm_1", author: "member", memberId: "m_julie", authorName: "Julie Gagnon", body: "Thanks Sophie — that is covered. Léo can adjust the hinge Thursday morning; does 9:00 work?", photos: null, createdAt: iso(day(-1)) },
+    { id: "tm_2", author: "client", memberId: null, authorName: null, body: "Thursday at 9 is perfect, thank you.", photos: null, createdAt: iso(day(0)) },
+  ],
+};
+const TICKET_ROWS = [
+  { id: "tk_hinge", type: "warranty", subject: TICKET_1.subject, status: "in_progress", priority: "high", assignedToId: "u_julie", assignee: "Julie Gagnon", jobId: JOB.id, convertedJobId: null, createdAt: TICKET_1.createdAt, updatedAt: TICKET_1.updatedAt, firstResponseAt: TICKET_1.firstResponseAt, client: { id: CLIENT.id, name: CLIENT.name }, _count: { messages: 2 } },
+  { id: "tk_move", type: "reschedule", subject: "Move Interior repaint on Tue, Oct 6", status: "open", priority: "normal", assignedToId: null, assignee: null, jobId: null, convertedJobId: null, createdAt: iso(day(0)), updatedAt: iso(day(0)), firstResponseAt: null, client: { id: "cl_lavoie", name: "Martin Lavoie" }, _count: { messages: 0 } },
+  { id: "tk_bill", type: "billing", subject: "Deposit shows twice on my statement", status: "waiting_on_client", priority: "normal", assignedToId: "u_marc", assignee: "Marc Tremblay", jobId: null, convertedJobId: null, createdAt: iso(day(-4)), updatedAt: iso(day(-3)), firstResponseAt: iso(day(-3)), client: { id: "cl_fortin", name: "Élise Fortin" }, _count: { messages: 1 } },
+];
+const CLIENT_TICKET_ROUTES = [
+  {
+    path: "/api/client-tickets",
+    method: "GET",
+    reply: ({ search }) =>
+      search?.get("count") === "1"
+        ? { open: 2 }
+        : { tickets: TICKET_ROWS, counts: { open: 1, in_progress: 1, waiting_on_client: 1, resolved: 4, closed: 2 } },
+  },
+  {
+    path: "/api/client-tickets/tk_hinge",
+    method: "GET",
+    reply: () => ({
+      ticket: TICKET_1,
+      job: { id: JOB.id, title: JOB.title },
+      convertedJob: null,
+      assignees: PEOPLE.map((p) => ({ userId: p.userId, name: p.name })),
+    }),
+  },
+];
+
 export const ROUTES_HELP = [
+  ...CLIENT_TICKET_ROUTES,
   // Settings › Services, seeds screen: the same cabinet company with handyman
   // switched on, its seeded rows in the price book, and the industry preset
   // widened so the handyman card is shown. Every other screen falls through.

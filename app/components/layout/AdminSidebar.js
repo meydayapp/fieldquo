@@ -212,6 +212,10 @@ export const MORE_GROUPS = [
       // Recurring work sold as a package — a standing instruction to raise
       // an invoice.
       { key: "app.nav.plans", href: "/app/plans", icon: CalendarSync, helpArticle: "plans" },
+      // What clients raised from their portal — repairs, warranty claims,
+      // questions, reschedules, visits to book. Reached from here, from the
+      // notification a new one raises, and from the count on a client's page.
+      { key: "app.nav.clientTickets", href: "/app/tickets", icon: LifeBuoy, helpArticle: "the-client-portal-as-a-client" },
       // /app/tasks existed, worked, and was once reachable from NOTHING; it
       // stays a row so that never happens again.
       { key: "app.nav.tasks", href: "/app/tasks", icon: ListTodo, helpArticle: "tasks" },

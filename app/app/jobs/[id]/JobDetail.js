@@ -63,6 +63,7 @@ import { usePermissions } from "@/app/providers/PermissionProvider";
 import { hasLevel } from "@/lib/permissions/enforce";
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import PaymentScheduleCard from "./PaymentScheduleCard";
+import OpenTicketsLink from "@/app/components/tickets/OpenTicketsLink";
 
 // ── One STATUS_STYLES held two vocabularies, and lost a key doing it ───────
 //
@@ -295,6 +296,9 @@ export default function JobDetail({ jobId }) {
             {/* Status and archived are different facts, so they get different
                 badges. A job can be Completed AND filed away, or Cancelled and
                 still sitting in the list. */}
+            {/* What the client raised about this job from their portal —
+                drawn only when something is open. */}
+            <OpenTicketsLink jobId={job.id} />
             {job.archivedAt && (
               <span className="text-xs px-2.5 py-1 rounded-full border border-border bg-muted text-muted-foreground">
                 {t("app.jobs.archived", "Archived")}

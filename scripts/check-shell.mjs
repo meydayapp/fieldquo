@@ -267,8 +267,13 @@ ok("every old destination is ≤ 2 clicks on desktop", table.every((r) => r.desk
 ok("every old destination is ≤ 2 taps on a phone", table.every((r) => r.phone <= 2),
   table.filter((r) => !(r.phone <= 2)).map((r) => `${r.href}:${r.phone}`).join(", "));
 const newRows = [...railRows, ...moreRows, ...BOTTOM].filter((r) => !OLD_RAIL.some(([h]) => h === r.href) && !OLD_SETTINGS.includes(r.href));
+// Pages that did not exist when the shell was reorganised, added since as
+// real destinations — each named here with the change that built it, so a
+// row for nothing new still fails.
+//   /app/tickets — client tickets from the portal (2026-09-24)
+const NEW_DESTINATIONS = ["/app/more", "/app/tickets"];
 ok("no rail/More/account row points somewhere that was not a destination before (the change adds rows for nothing new)",
-  newRows.every((r) => r.href === "/app/more"), newRows.map((r) => r.href).join(", "));
+  newRows.every((r) => NEW_DESTINATIONS.includes(r.href)), newRows.map((r) => r.href).join(", "));
 
 // ── 4. The trade gate hides only trade rows ────────────────────────────────
 section("4. The trade gate hides only rows tied to a trade");

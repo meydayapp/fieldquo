@@ -16,6 +16,7 @@ import { offlinePaymentLines } from "@/lib/payments/offlinePaymentNote";
 import { jsonBody } from "@/lib/jsonBody";
 import JobProgressCard from "./JobProgressCard";
 import PlansAndVisits from "./PlansAndVisits";
+import TicketsAndRequests from "./TicketsAndRequests";
 import {
   Loader2,
   Building2,
@@ -37,6 +38,9 @@ export default function ClientPortal({ token }) {
   // two different sentences, because a bank debit is not received on
   // return: it clears in 3–5 business days.
   const [justPaid, setJustPaid] = useState(null);
+  // "Report an issue" pressed on a past visit: which visit, for the form in
+  // TicketsAndRequests to open about.
+  const [issueDraft, setIssueDraft] = useState(null);
 
   useEffect(() => {
     // Stripe sends the client back here with ?paid=true (card) or
@@ -230,6 +234,19 @@ export default function ClientPortal({ token }) {
         date={date}
         brandColor={c.brandColor}
         companyName={c.name}
+        onReportIssue={setIssueDraft}
+      />
+
+      {/* Report an issue · Request work · the client's own tickets and their
+          conversations. Hidden until its own request answers. */}
+      <TicketsAndRequests
+        token={token}
+        copy={copy}
+        locale={fmt.locale}
+        brandColor={c.brandColor}
+        companyName={c.name}
+        issueDraft={issueDraft}
+        onIssueDraftUsed={() => setIssueDraft(null)}
       />
 
       {/* Balance — it's the other thing most people open this for. */}

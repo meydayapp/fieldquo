@@ -457,4 +457,7 @@ export const SCREENS = [
   { slug: "client-portal-website-switch", nav: "app.settings.website", href: "/app/settings/website", page: "app/app/settings/website/page.js", settings: true, scene: "website-client-login", height: 1000, chapter: "client-portal", out: "docs/screens/client-portal" },
   { slug: "client-portal-website-switch-375", nav: "app.settings.website", href: "/app/settings/website", page: "app/app/settings/website/page.js", settings: true, scene: "website-client-login", width: 375, height: 1400, chapter: "client-portal", out: "docs/screens/client-portal" },
   { slug: "client-portal-client-page-link", href: "/app/clients", page: "app/app/clients/[id]/page.js", params: { id: "cl_dubois" }, height: 1100, chapter: "client-portal", out: "docs/screens/client-portal" },
+  { slug: "client-tickets-queue", nav: "app.nav.clientTickets", href: "/app/tickets", page: "app/app/tickets/page.js", height: 800, chapter: "client-portal", out: "docs/screens/client-portal" },
+  { slug: "client-tickets-detail", href: "/app/tickets", page: "app/app/tickets/[id]/page.js", params: { id: "tk_hinge" }, height: 1300, chapter: "client-portal", out: "docs/screens/client-portal" },
+  { slug: "client-tickets-detail-375", href: "/app/tickets", page: "app/app/tickets/[id]/page.js", params: { id: "tk_hinge" }, width: 375, height: 1700, chapter: "client-portal", out: "docs/screens/client-portal" },
 ];

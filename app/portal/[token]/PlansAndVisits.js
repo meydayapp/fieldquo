@@ -43,7 +43,7 @@ function makeFormatters(locale, timeZone) {
   };
 }
 
-export default function PlansAndVisits({ plans = [], visits = {}, token, copy, locale, timeZone, money, date, brandColor, companyName }) {
+export default function PlansAndVisits({ plans = [], visits = {}, token, copy, locale, timeZone, money, date, brandColor, companyName, onReportIssue = null }) {
   const c = copy.portal;
   const theme = useMemo(() => documentTheme({ brandColor }), [brandColor]);
   const fill = useMemo(() => fillPair(theme), [theme]);
@@ -291,8 +291,23 @@ export default function PlansAndVisits({ plans = [], visits = {}, token, copy, l
         <VisitSection icon={History} title={c.pastHeading}>
           {past.map((v) => (
             <div key={`${v.kind}:${v.id}`} className="py-3" data-portal-past={v.id}>
-              <div className="font-medium text-sm" style={{ color: INK }}>
-                {f.shortDay(v.at)}
+              <div className="flex items-start justify-between gap-3">
+                <div className="font-medium text-sm" style={{ color: INK }}>
+                  {f.shortDay(v.at)}
+                </div>
+                {/* Something wrong after a crew visit — the ticket is filed
+                    about THIS visit (and so its job), proved server-side. */}
+                {onReportIssue && v.kind === "visit" && (
+                  <button
+                    type="button"
+                    data-portal-report-visit={v.id}
+                    onClick={() => onReportIssue({ jobVisitId: v.id, label: f.shortDay(v.at) })}
+                    className="text-xs font-semibold underline shrink-0"
+                    style={{ color: INK }}
+                  >
+                    {c.tickets.reportOnVisit}
+                  </button>
+                )}
               </div>
               <div className={`text-xs mt-0.5 ${MUTED}`}>
                 {[typeLabel(v), v.title, v.crew ? c.withCrew(v.crew) : null].filter(Boolean).join(" · ")}

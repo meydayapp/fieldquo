@@ -188,8 +188,8 @@ const basePlan = {
   ok("a date to move to is never taken from the browser", !("newDate" in parsed.value) && !("companyId" in parsed.value));
   ok("message is capped and control-stripped", parsed.value.message.length === 1000 && !/[\u0000\u0007]/.test(parsed.value.message));
   const prefix = changeRequestPrefix({ kind: "plan", id: "p_1", occurrence: "2026-10-15" });
-  const stored = `${prefix}${Date.now()}`;
-  ok("the key the portal reads back is the key filed", stored.replace(/\d+$/, "") === prefix);
+  ok("a plan-date key names the plan and the date", prefix === "portal_change:plan:p_1:2026-10-15:");
+  ok("two dates of one plan are two keys", prefix !== changeRequestPrefix({ kind: "plan", id: "p_1", occurrence: "2027-04-15" }));
   ok("plan prefix needs a real date", changeRequestPrefix({ kind: "plan", id: "p_1", occurrence: "x" }) === null);
   ok("unparseable time cannot be requested", canRequestChange("garbage", { now: NOW }) === false);
 }
@@ -241,7 +241,7 @@ const basePlan = {
   for (const code of Object.keys(SITE_COPY)) {
     ok(`site copy ${code} has Client login`, Boolean(SITE_COPY[code].clientLogin && SITE_COPY[code].clientLoginSent));
   }
-  const appKeys = ["app.portalRequest.rescheduleTitle", "app.portalRequest.skipTitle", "app.portalRequest.desc", "app.setWebsite.clientPortal.title", "app.clientDetail.portal.copy", "app.clientDetail.portal.send"];
+  const appKeys = ["app.portalRequest.preferredDates", "app.portalRequest.maintenanceTag", "app.setWebsite.clientPortal.title", "app.clientDetail.portal.copy", "app.clientDetail.portal.send", "app.clientTickets.title"];
   for (const code of Object.keys(APP_MESSAGES)) {
     ok(`app messages ${code} carry the portal keys`, appKeys.every((k) => typeof APP_MESSAGES[code][k] === "string"));
   }
@@ -329,6 +329,7 @@ const basePlan = {
   const change = read("lib/portal/changeRequest.js");
   ok("change requests re-find every target under client AND company", (change.match(/companyId: client\.companyId/g) || []).length >= 4);
   ok("change requests never update a visit, appointment or plan", !/(jobVisit|appointment|servicePlan)\.(update|delete)/.test(change));
+  ok("a change request is a ticket, filed with its key, and a duplicate is looked up by that key", /type: "reschedule"/.test(change) && /requestKey: prefix/.test(change) && /allowedTypes: \["reschedule"\]/.test(change));
 }
 
 console.log(`check-client-portal: ${passed} passed, ${failed} failed`);
