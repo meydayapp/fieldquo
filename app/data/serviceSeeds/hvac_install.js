@@ -17,7 +17,8 @@
 // No takeoff or price book exists for HVAC, so nothing here is pricedBy; every
 // row is a flat-priced service the company sets its own rate on.
 
-import { L, SHARED, D, T, withTemplates } from "./_templateLines";
+import { L, SHARED, D, T, withTemplates, withLanguages } from "./_templateLines";
+import { I18N } from "./i18n/hvac_install.js";
 
 export const SEED = {
   trade: "hvac_install",
@@ -884,4 +885,5 @@ const TEMPLATES = {
   ], null),
 };
 
+withLanguages(SEED, I18N);
 withTemplates(SEED, TEMPLATES);
