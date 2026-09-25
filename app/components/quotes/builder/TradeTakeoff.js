@@ -54,6 +54,10 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DRIVEWAY_LABELS } from "@/lib/pricing/tradeScope";
 import { useTranslation } from "@/app/hooks/useTranslation";
+// The factor list (stairs 14, roofing 7) — named apart from this file's own
+// ComplexityPicker, which is the tier tiles and stays exactly as it was.
+import FactorPicker from "@/app/components/pricing/ComplexityPicker";
+import { resolveComplexity, tierForLevel } from "@/lib/pricing/complexity";
 // The one address picker in this codebase, not a second one. It already
 // handles the Places script load, the eleven-country question, the postal code
 // Google leaves out of a street-level result, and the Enter key that used to
@@ -399,11 +403,46 @@ function StairSection({ section, index, book, canRemove, onChange, onRemove }) {
 
 function StairsTakeoff({ takeoff, book, onChange }) {
   const money = useCompanyMoney();
+  const { t, language } = useTranslation();
   const sections = Array.isArray(takeoff.sections) ? takeoff.sections : [];
   const setSections = (next) => onChange({ ...takeoff, sections: next });
 
+  // The level the stored answers add up to, for the note and for the "did
+  // this answer move it" test below. Null for a takeoff with no factor object.
+  const levelOf = (c) => resolveComplexity({ trade: "stairs", complexity: c, book })?.level ?? null;
+  const level = levelOf(takeoff.complexity);
+  const tierLabel = COMPLEXITY_LEVELS.find((l) => l.value === tierForLevel(level))?.label || "";
+
   return (
     <div className="space-y-3">
+      {/* The fourteen questions, above the staircases whose tier tiles they
+          press. The tiles stay the price (the tier grid, unchanged) — an
+          answer that MOVES the level presses the matching tile on every
+          staircase, and one that leaves it where it was touches nothing, so
+          a tile pressed by hand survives every answer that does not change
+          the level. Specialty presses nothing: that group becomes the
+          unpriced "on-site assessment" line. */}
+      <FactorPicker
+        trade="stairs"
+        value={takeoff.complexity}
+        book={book}
+        language={language}
+        note={
+          tierLabel
+            ? t("app.complexity.stairsTierNote", "Answers set every staircase's price tier to {tier}. Press a tier on a staircase to change it by hand.", { tier: tierLabel })
+            : null
+        }
+        onChange={(next) => {
+          const to = levelOf(next);
+          const tier = to !== level ? tierForLevel(to) : null;
+          onChange({
+            ...takeoff,
+            complexity: next,
+            ...(tier ? { sections: sections.map((s) => ({ ...s, complexityLevel: tier })) } : {}),
+          });
+        }}
+      />
+
       {sections.map((section, i) => (
         <StairSection
           key={i}
@@ -2526,7 +2565,7 @@ function RoofMeasurePanel({ takeoff, book, onApply, defaultAddress = "" }) {
 
 function RoofingTakeoff({ takeoff, book, onChange, siteAddress = "" }) {
   const money = useCompanyMoney();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const set = (patch) => onChange({ ...takeoff, ...patch });
 
   const materials = book?.materials || {};
@@ -2730,6 +2769,19 @@ function RoofingTakeoff({ takeoff, book, onChange, siteAddress = "" }) {
                 },
               )
         }
+      />
+
+      {/* The seven roofing questions. Roofing has no tier tiles to press:
+          what a level changes here is the crew's hours (the cost panel and
+          the proposal's day plan, lib/pricing/tradeScope.js) and the reason
+          lines under the first line on the client's copy — which is what the
+          picker's own staff line says. */}
+      <FactorPicker
+        trade="roofing_service"
+        value={takeoff.complexity}
+        book={book}
+        language={language}
+        onChange={(next) => set({ complexity: next })}
       />
 
       <Field label={t("app.takeoff.scopeNotes", "Scope notes")}>

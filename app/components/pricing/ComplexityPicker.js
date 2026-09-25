@@ -3,47 +3,25 @@
 // The compact "Complexity" control for a scope group: four chips for the
 // level, and a "Why" that opens the trade's factor list.
 //
-// ── NOT MOUNTED, and why ───────────────────────────────────────────────────
+// ── Where it is mounted (2026-09-25) ───────────────────────────────────────
 //
-// The scope-group UI (app/components/quotes/builder/ScopeGroupCard.js,
-// UnitPricingFields.js, TradeTakeoff.js) belongs to another agent working on
-// the quote builder at the same time this landed. Editing their files under
-// them is how two agents truncate each other's work, so this component is
-// finished, styled to the builder's own idiom and exported — and nothing
-// renders it yet.
-//
-// To mount it, inside a scope group's card:
-//
-//     import ComplexityPicker from "@/app/components/pricing/ComplexityPicker";
-//     import { complexityFor } from "@/lib/pricing/complexity";
-//     …
-//     {complexityFor(group.categoryKey) && (
-//       <ComplexityPicker
-//         trade={group.categoryKey}
-//         // Three places, because a cabinet group has no `takeoff` column: it
-//         // sits on the group while the builder is open, and comes back inside
-//         // intakeValues once the quote has been round-tripped (see
-//         // withCabinetAnswers in lib/quotes/builderPayload.js). Read all three
-//         // or a reopened quote shows every factor unticked on a quote that has
-//         // them — the bug that put the cabinet answers in intakeValues.
-//         value={
-//           group.takeoff?.complexity ??
-//           group.complexity ??
-//           group.intakeValues?.complexity
-//         }
-//         book={getPriceBook(group.categoryKey, rateOverrides)}
-//         onChange={(next) =>
-//           group.takeoff
-//             ? updateGroup({ takeoff: { ...group.takeoff, complexity: next } })
-//             : updateGroup({ complexity: next })
-//         }
-//       />
-//     )}
+// The owner: "i also don't see a complexity list". It was finished on
+// 2026-09-22 and rendered nowhere. It now sits where each factor trade's
+// existing level control already is — above the staircases on the stair
+// takeoff, under the chips on the cabinet unit-pricing card, and on the roof
+// takeoff — ADDITIVE beside those controls, not instead of them: the stair
+// tier tiles and the cabinet chips still price exactly as they did. An answer
+// here presses the matching tile or chip (`tierForLevel`, lib/pricing/
+// complexity — the same Complex → High mapping app/data/cabinetPricing.js
+// prices by), so the level the answers add up to and the tier on screen
+// agree; a tile pressed by hand afterwards still wins. A group nobody answers
+// for sends the byte-identical payload it always did.
 //
 // `onChange` hands back the whole `{ model, factors }` object. Everything
 // downstream — the price, the labour hours, the reason lines on the PDF —
 // already reads it; see lib/pricing/tradeScope.js and lib/quotes/
-// builderPayload.js. Nothing else has to be wired.
+// builderPayload.js. A cabinet group has no `takeoff`, so its object sits on
+// the group and travels inside intakeValues (withCabinetAnswers).
 //
 // ── What staff see and what the client sees ────────────────────────────────
 //
@@ -93,12 +71,21 @@ export default function ComplexityPicker({
   book = null,
   onChange,
   language = "en",
+  // The caller's own staff line under the chips, in place of the labour-hours
+  // one — for a trade where the answers press a price tier, saying only
+  // "Labour hours ×1.25" would describe the lesser of the two effects.
+  // Specialty keeps its own line whatever is passed.
+  note = null,
 }) {
   const [open, setOpen] = useState(false);
   const list = complexityFor(trade);
 
-  const complexity =
-    value && value.model === COMPLEXITY_MODEL ? value : newComplexity(trade);
+  // Not on the model yet (a cabinet group nobody has answered for): the
+  // questions open on their benign answers, but no level chip is shown as
+  // pressed — "Standard" lit beside a chip row that says Moderate would be
+  // this control stating a level nobody chose.
+  const onModel = Boolean(value && value.model === COMPLEXITY_MODEL);
+  const complexity = onModel ? value : newComplexity(trade);
 
   const resolved = useMemo(
     () => resolveComplexity({ trade, complexity, book, language }),
@@ -136,9 +123,9 @@ export default function ComplexityPicker({
               key={key}
               type="button"
               onClick={() => setOpen(true)}
-              aria-pressed={resolved.level === key}
+              aria-pressed={onModel && resolved.level === key}
               className={`rounded-full border px-3 py-1 text-xs font-semibold ${
-                resolved.level === key
+                onModel && resolved.level === key
                   ? LEVEL_TONE[key]
                   : "border-border text-muted-foreground hover:bg-muted"
               }`}
@@ -165,7 +152,9 @@ export default function ComplexityPicker({
       {/* Staff-only arithmetic. Deliberately beside the chips and not on the
           client's copy: the homeowner is owed the reasons, not the coefficient. */}
       <p className="mt-1 text-xs text-muted-foreground">
-        {resolved.priced
+        {resolved.priced && note
+          ? note
+          : resolved.priced
           ? (MULTIPLIER_NOTE[language] || MULTIPLIER_NOTE.en)(
               resolved.multiplier,
               resolved.score,

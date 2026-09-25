@@ -24,6 +24,14 @@ import {
 import { formatAppMoney } from "@/lib/format/money";
 import { currencyMeta } from "@/lib/currency";
 import { cabinetAddOnLines } from "@/lib/pricing/tradeScope";
+import ComplexityPicker from "@/app/components/pricing/ComplexityPicker";
+import {
+  COMPLEXITY_MODEL,
+  complexityFor,
+  resolveComplexity,
+  tierForLevel,
+} from "@/lib/pricing/complexity";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 // Kept as a plain list rather than a lookup: the internal primer-coats rule in
 // the costing engine reads these exact strings.
@@ -127,8 +135,16 @@ export default function UnitPricingFields({
   // One bound formatter for the whole component. Currency is the company's,
   // locale is "en" — the same pair every other builder panel passes.
   const money = (n) => formatAppMoney(n, currency, "en");
+  const { t, language } = useTranslation();
   const units = groupUnits(group);
-  const finalPrice = finalUnitPrice(group);
+  // The factor answers, when there are any (null on every group nobody has
+  // answered for, which is every group before 2026-09-25).
+  const factors =
+    group.complexity?.model === COMPLEXITY_MODEL ? group.complexity : null;
+  // With the book, as scopeGroupPayload prices it: on the chips the book is
+  // never read (identical figure), on the factor answers it is the company's
+  // own Moderate / High per-unit grid — so the box shows what gets saved.
+  const finalPrice = finalUnitPrice(group, book);
   const iv = group.intakeValues || {};
   const doors = Number(iv.doorCount) || 0;
   const drawers = Number(iv.drawerCount) || 0;
@@ -137,8 +153,9 @@ export default function UnitPricingFields({
     book,
   ).reduce((sum, i) => sum + i.amount, 0);
 
-  const upcharge =
-    group.complexityLevel === "custom"
+  const upcharge = factors
+    ? finalPrice - (Number(group.baseUnitPrice) || 0)
+    : group.complexityLevel === "custom"
       ? Number(group.complexityUpcharge) || 0
       : COMPLEXITY_LEVELS.find((l) => l.value === group.complexityLevel)
           ?.upcharge || 0;
@@ -251,7 +268,18 @@ export default function UnitPricingFields({
             <button
               key={lvl.value}
               type="button"
-              onClick={() => onPricingChange({ complexityLevel: lvl.value })}
+              // Pressed by hand while factor answers are set: the answers are
+              // cleared, because app/data/cabinetPricing.js prices from them
+              // FIRST and a chip left under them would light up and move no
+              // number — the 2026-09-22 defect. Untouched groups send exactly
+              // the patch they always did.
+              onClick={() =>
+                onPricingChange(
+                  factors
+                    ? { complexityLevel: lvl.value, complexity: null }
+                    : { complexityLevel: lvl.value },
+                )
+              }
               className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${
                 group.complexityLevel === lvl.value
                   ? "border-inverted bg-inverted text-inverted-foreground"
@@ -283,6 +311,44 @@ export default function UnitPricingFields({
               placeholder="e.g. 60"
             />
           </div>
+        )}
+
+        {/* The seven cabinet questions (lib/pricing/complexity/cabinets.js),
+            under the chips they press. An answer sets the factor object AND
+            the matching chip — Complex presses High, the mapping the price
+            path already uses — so the chip on screen is the level the saved
+            price is built from. Specialty leaves the chip alone: the group
+            becomes the unpriced "on-site assessment" line. */}
+        {complexityFor(group.categoryKey) && (
+          <ComplexityPicker
+            trade={group.categoryKey}
+            value={factors}
+            book={book}
+            language={language}
+            note={
+              factors
+                ? t(
+                    "app.complexity.cabinetChipNote",
+                    "The level above follows these answers. Pressing a level by hand clears them.",
+                  )
+                : t(
+                    "app.complexity.cabinetUnanswered",
+                    "Optional — answer these and the level above follows them; the reasons print on the quote.",
+                  )
+            }
+            onChange={(next) => {
+              const resolved = resolveComplexity({
+                trade: group.categoryKey,
+                complexity: next,
+                book,
+              });
+              const tier = resolved?.priced ? tierForLevel(resolved.level) : null;
+              onPricingChange({
+                complexity: next,
+                ...(tier ? { complexityLevel: tier } : {}),
+              });
+            }}
+          />
         )}
       </div>
 

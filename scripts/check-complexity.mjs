@@ -42,6 +42,7 @@ import {
   resolveComplexity,
   say,
   specialtyLine,
+  tierForLevel,
 } from "@/lib/pricing/complexity";
 import { inferComplexity } from "@/lib/pricing/complexity/instantStairs";
 import {
@@ -689,6 +690,53 @@ console.log("\n10. The seams");
 
   ok("10e: newComplexity refuses to invent a list for a trade that has none",
     newComplexity("snow_removal") === null && newComplexity("__proto__") === null);
+}
+
+/* ── 11. The factor list is mounted, and pressing it moves the tier it maps to ─ */
+
+console.log("\n11. The picker is on screen for every factor trade, beside the controls it presses");
+{
+  const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
+  const TAKEOFF = src("app/components/quotes/builder/TradeTakeoff.js");
+  const UNIT = src("app/components/quotes/builder/UnitPricingFields.js");
+  const PICKER = src("app/components/pricing/ComplexityPicker.js");
+
+  ok("11a: the stair takeoff renders the factor list for stairs",
+    /import FactorPicker from "@\/app\/components\/pricing\/ComplexityPicker"/.test(TAKEOFF) && /<FactorPicker\s+trade="stairs"/.test(TAKEOFF));
+  ok("11b: ...and the roof takeoff for roofing", /<FactorPicker\s+trade="roofing_service"/.test(TAKEOFF));
+  ok("11c: the cabinet card renders it under the chips, for a trade with a list",
+    /complexityFor\(group\.categoryKey\) && \(\s*<ComplexityPicker/.test(UNIT));
+  ok("11d: the stair tier tiles are still drawn (additive, not a replacement)",
+    /<ComplexityPicker\s+value=\{level\}/.test(TAKEOFF) && /function ComplexityPicker\(\{ value, book, onChange \}\)/.test(TAKEOFF));
+  ok("11e: the cabinet chips are still drawn from COMPLEXITY_LEVELS", /COMPLEXITY_LEVELS\.map\(\(lvl\)/.test(UNIT));
+  ok("11f: a chip pressed while answers are set clears them (else it would move no number)",
+    /factors\s*\?\s*\{ complexityLevel: lvl\.value, complexity: null \}\s*:\s*\{ complexityLevel: lvl\.value \}/.test(UNIT));
+  ok("11g: the picker no longer says it is unmounted", !/NOT MOUNTED/.test(PICKER));
+
+  eq("11h: tierForLevel — Complex takes High, Specialty and junk press nothing",
+    ["standard", "moderate", "complex", "specialty", "high", undefined, "__proto__"].map(tierForLevel),
+    ["standard", "moderate", "high", null, null, null, null]);
+
+  // The cabinet path, as the card's onChange builds it: the answers AND the
+  // chip they map to. The saved unit price must equal the one the chip alone
+  // prices at (no book customisation), i.e. the picker cannot put a number on
+  // the quote that the chip row would not have.
+  const cab = newScopeGroup({ id: "c", key: "cabinet_refinishing", label: "Cabinets" }, "Cabinets", null, { tempId: "c" });
+  for (const [answers, chip] of [
+    [{ surface: "worn" }, "moderate"],
+    [{ surface: "failing", contamination: "bleed_risk" }, "high"],
+    [{}, "standard"],
+  ]) {
+    const next = { model: COMPLEXITY_MODEL, factors: { ...newComplexity("cabinet_refinishing").factors, ...answers } };
+    const r = resolveComplexity({ trade: "cabinet_refinishing", complexity: next });
+    const patched = { ...cab, complexity: next, complexityLevel: tierForLevel(r.level) };
+    eq(`11i: answers ${JSON.stringify(answers)} press the ${chip} chip`, patched.complexityLevel, chip);
+    eq(`11j: ...and price exactly as that chip alone (${chip})`,
+      finalUnitPrice(patched), finalUnitPrice({ ...cab, complexityLevel: chip }));
+  }
+  // A chip pressed by hand afterwards: answers cleared, the chip is the price.
+  const handPressed = { ...cab, complexity: null, complexityLevel: "custom", complexityUpcharge: 55 };
+  eq("11k: a chip pressed after answers prices from the chip", finalUnitPrice(handPressed), 150 + 55);
 }
 
 /* ── */
