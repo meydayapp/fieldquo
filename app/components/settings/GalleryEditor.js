@@ -7,7 +7,8 @@
 //
 // A list with no single Save: every completed pair, caption edit or removal
 // PUTs the whole list (onChanged). A pair is only stored once BOTH photos
-// exist — see PairPhotoFields.js NewPair.
+// exist; until then it is the company's one gallery DRAFT, stored apart from
+// the pairs clients see, with its own Discard — see PairPhotoFields.js NewPair.
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -18,6 +19,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import { ReadOnlyNotice } from "@/app/components/settings/PermissionNotice";
 import { PhotoSlot, Field, NewPair } from "@/app/components/settings/PairPhotoFields";
+import AutoTranslateBanner from "@/app/components/settings/AutoTranslateBanner";
 
 const CAPABILITY = "user:manage";
 
@@ -26,29 +28,41 @@ export default function GalleryEditor({ compact = false, onChanged }) {
   const access = useSettingsAccess();
   const canEdit = access.canChange(CAPABILITY);
   const [pairs, setPairs] = useState(null);
+  const [draft, setDraft] = useState(undefined);
+  const [autoTranslate, setAutoTranslate] = useState(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetchJson("/api/settings/gallery")
-      .then((d) => setPairs(d.pairs || []))
+      .then((d) => {
+        setDraft(d.draft || null);
+        setPairs(d.pairs || []);
+      })
       .catch((err) => setError(err.message));
   }, []);
 
   const save = useCallback(
-    async (next) => {
+    // Resolves true when stored, false when not — NewPair keeps its draft on
+    // false. `extra` rides in the same request ({ draft: null } when a pair is
+    // completed, so the pair and the cleared draft land together).
+    async (next, extra = {}) => {
       setSaving(true);
       setError("");
       try {
         const d = await fetchJson("/api/settings/gallery", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pairs: next }),
+          body: JSON.stringify({ pairs: next, ...extra }),
         });
         setPairs(d.pairs || []);
+        // A new caption is drafted into the other document languages.
+        setAutoTranslate(d.autoTranslate || null);
         onChanged?.();
+        return true;
       } catch (err) {
         setError(err.message);
+        return false;
       } finally {
         setSaving(false);
       }
@@ -96,7 +110,7 @@ export default function GalleryEditor({ compact = false, onChanged }) {
                 onClick={() => save(pairs.filter((_, j) => j !== i))}
                 disabled={saving}
                 aria-label={t("app.setQuoteEmail.remove")}
-                className="p-1.5 text-muted-foreground hover:text-red-600 disabled:opacity-50 min-h-9 min-w-9"
+                className="p-1.5 text-muted-foreground hover:text-red-600 disabled:opacity-50 min-h-11 min-w-11 flex items-center justify-center shrink-0"
               >
                 <Trash2 size={15} />
               </button>
@@ -105,9 +119,16 @@ export default function GalleryEditor({ compact = false, onChanged }) {
         </div>
       ))}
       {canEdit && (
-        <NewPair disabled={saving} onError={setError} onComplete={(pair) => save([...pairs, pair])} t={t} />
+        <NewPair
+          disabled={saving}
+          onError={setError}
+          initialDraft={draft}
+          onComplete={async (pair) => ((await save([...pairs, pair], { draft: null })) ? "cleared" : false)}
+          t={t}
+        />
       )}
       {error && <p className="text-sm text-red-600">{error}</p>}
+      <AutoTranslateBanner result={autoTranslate} />
       {saving && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 size={14} className="animate-spin" />

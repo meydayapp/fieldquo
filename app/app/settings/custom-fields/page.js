@@ -65,6 +65,7 @@ import { reportResponseError, showError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import { ReadOnlyNotice } from "@/app/components/settings/PermissionNotice";
+import AutoTranslateBanner from "@/app/components/settings/AutoTranslateBanner";
 
 // In the order a job flows: the client, what was quoted, the work, the
 // bill, the people. Property is deliberately absent — see the header — and
@@ -126,6 +127,10 @@ export default function CustomFieldsPage() {
     showOnDocuments: false,
   });
   const [saving, setSaving] = useState(false);
+  // A label printed on documents is drafted into the other document
+  // languages on save; the route answers the summary only when the
+  // client-facing words changed (a new flagged box, or one just flagged).
+  const [autoTranslate, setAutoTranslate] = useState(null);
 
   function load() {
     setLoading(true);
@@ -168,7 +173,10 @@ export default function CustomFieldsPage() {
         prev.map((f) => (f.id === field.id ? { ...f, showOnDocuments: field.showOnDocuments } : f)),
       );
       await reportResponseError(res);
+      return;
     }
+    const d = await res.json().catch(() => null);
+    setAutoTranslate(d?.autoTranslate || null);
   }
 
   async function handleSubmit(e) {
@@ -194,6 +202,8 @@ export default function CustomFieldsPage() {
         }),
       });
       if (res.ok) {
+        const d = await res.json().catch(() => null);
+        setAutoTranslate(d?.autoTranslate || null);
         setModalEntityType(null);
         load();
       } else {
@@ -236,6 +246,8 @@ export default function CustomFieldsPage() {
           .
         </p>
       </div>
+
+      <AutoTranslateBanner result={autoTranslate} />
 
       {!access.canChange("user:manage") && (
         <ReadOnlyNotice

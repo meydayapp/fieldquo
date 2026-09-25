@@ -310,7 +310,8 @@ export async function POST(request, { params }) {
     console.error("[visit] manage link unavailable:", err?.message);
   }
 
-  const movedLanguage = visitView(after, now).language;
+  const movedView = visitView(after, now);
+  const movedLanguage = movedView.language;
   const invite = await bookingInviteAttachment({
     booking: after.booking,
     company,
@@ -324,7 +325,10 @@ export async function POST(request, { params }) {
     company,
     clientName: booking.clientName,
     clientEmail: booking.clientEmail,
-    eventTypeName: eventType.name,
+    // The client's copy in the page's language (the stored draft, via
+    // visitView); the office's copy in the company's own words.
+    eventTypeName: movedView.eventTypeName,
+    officeEventTypeName: eventType.name,
     previousStartTime,
     startTime: plan.start,
     where: visitFacts(after.booking),
@@ -352,7 +356,7 @@ export async function POST(request, { params }) {
     startTime: plan.start,
     previousStartTime,
     where: visitFacts(after.booking),
-    service: eventType.name,
+    service: movedView.eventTypeName,
     manageUrl,
     ref: target.ref,
     clientId: target.clientId,

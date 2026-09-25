@@ -213,7 +213,9 @@ const CLOUD = process.env.CLOUDINARY_CLOUD_NAME;
   }
   const tickets = read("app/api/portal/[token]/tickets/route.js");
   ok("portal ticket POST is rate-limited", /rateLimit\(request, "portal-ticket"/.test(tickets));
-  ok("services are names only — no rate column is read", /select: \{ category: \{ select: \{ id: true, label: true, labelTranslations: true \} \} \}/.test(tickets) && !/defaultRate|price|amount/i.test(tickets.replace(/\/\/.*$/gm, "")));
+  // companyId is read only to tell a company's own service from the
+  // catalogue's (lib/i18n/serviceName.js) — an owner id, not a rate.
+  ok("services are names only — no rate column is read", /select: \{ category: \{ select: \{ id: true, label: true, labelTranslations: true(, companyId: true)? \} \} \}/.test(tickets) && !/defaultRate|price|amount/i.test(tickets.replace(/\/\/.*$/gm, "")));
   ok("maintenance must name one of the client's own active plans", /plans\.find\(\(p\) => p\.id === body\?\.servicePlanId\)/.test(tickets));
   const reply = read("app/api/portal/[token]/tickets/[id]/messages/route.js");
   ok("portal replies are rate-limited and token-scoped", /rateLimit\(request, "portal-ticket-reply"/.test(reply) && /portalToken/.test(reply));

@@ -7,6 +7,7 @@ import { findBookingCompany } from "@/lib/booking/findBookingCompany";
 import { effectiveBookingFeeCents, bookingModePresets } from "@/lib/booking/fee";
 import { categoryLabel } from "@/lib/i18n/translateContent";
 import { offeredModes } from "@/lib/booking/bookingModes";
+import { loadPhraseTranslations } from "@/lib/i18n/phrases";
 
 // Public — company branding + bookable event types for the public booking page
 export async function GET(request, { params }) {
@@ -76,6 +77,20 @@ export async function GET(request, { params }) {
     );
   }
 
+  // ── Each name in every language it has a draft in ─────────────────────
+  //
+  // The page is read in the VISITOR's language, which only the browser knows
+  // (the pills, ?lang=, what they chose here before) — so the drafts stored
+  // on save ride along as { fr: "…", es: "…" } and BookingFlow picks the one
+  // it is showing, else the name as typed. Nothing is translated here; a
+  // language with no draft is simply absent (lib/i18n/phrases.js).
+  const nameDrafts = await loadPhraseTranslations(
+    db,
+    company.id,
+    "eventTypeName",
+    (company.eventTypes || []).map((et) => et.name),
+  );
+
   // Resolve the EFFECTIVE fee per event type server-side (the browser never
   // computes money) via the shared helper the confirm route also uses.
   const eventTypes = (company.eventTypes || []).map((et) => {
@@ -83,6 +98,7 @@ export async function GET(request, { params }) {
     return {
       id: et.id,
       name: et.name,
+      nameTranslations: nameDrafts[et.name] || {},
       slug: et.slug,
       durationMinutes: et.durationMinutes,
       // EventType.location is deliberately NOT here. It was the free-text

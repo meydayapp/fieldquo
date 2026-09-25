@@ -22,7 +22,9 @@ import {
   autoTranslateSummary,
   planField,
   acceptDraft,
+  parseDetection,
   targetLanguages,
+  MODELS,
   DAILY_DRAFT_CAP,
   MAX_SOURCE_CHARS,
   USAGE_AREA,
@@ -31,9 +33,15 @@ import {
   COMPANY_TEXT_KEYS,
   companyTextFields,
   localiseCompanyText,
+  localisedCompany,
   smsTemplateTranslations,
   sourceHash,
 } from "../lib/i18n/companyText.js";
+import { serviceContentHash } from "../lib/i18n/contentHash.js";
+import { phraseFields, phraseLookup, isPhraseKey, loadPhrases, loadPhraseTranslations } from "../lib/i18n/phrases.js";
+import { resolveServiceContent } from "../lib/documents/serviceContent.js";
+import { resolveTextBlockText } from "../lib/quotes/textBlocks.js";
+import { resolveProductText } from "../lib/i18n/translateContent.js";
 import { renderMessage } from "../lib/sms/renderTemplate.js";
 import { APP_MESSAGES } from "../app/i18n/appMessages.js";
 
@@ -51,7 +59,7 @@ function ok(name, pass, detail = "") {
 
 // ── An in-memory Prisma, for exactly the calls the drafter makes ───────────
 function fakeDb() {
-  const tables = { companyTextTranslation: [], platformAiUsage: [], quoteTextBlock: [], product: [] };
+  const tables = { companyTextTranslation: [], platformAiUsage: [], quoteTextBlock: [], product: [], companyServiceCategory: [] };
   let seq = 0;
   const matches = (row, where = {}) =>
     Object.entries(where).every(([k, v]) => {
@@ -60,6 +68,7 @@ function fakeDb() {
         if ("in" in v) return v.in.includes(row[k]);
         if ("gte" in v) return row[k] >= v.gte;
         if ("path" in v) return row[k]?.[v.path[0]] === v.equals;
+        if ("not" in v) return row[k] !== v.not && row[k] !== undefined;
       }
       return row[k] === v;
     });
@@ -86,6 +95,11 @@ function fakeDb() {
       Object.assign(r, data);
       return r;
     },
+    updateMany: async ({ where, data }) => {
+      const rows = tables[name].filter((x) => matches(x, where));
+      for (const r of rows) Object.assign(r, data);
+      return { count: rows.length };
+    },
     upsert: async ({ where, create, update }) => {
       const r = tables[name].find((x) => matches(x, where));
       if (r) {
@@ -101,6 +115,7 @@ function fakeDb() {
     platformAiUsage: table("platformAiUsage"),
     quoteTextBlock: table("quoteTextBlock"),
     product: table("product"),
+    companyServiceCategory: table("companyServiceCategory"),
     // The drafter meters through meterFor("translation") since 2026-09-25:
     // the payer switch's row (none → the registry default, FieldQuo) and
     // FieldQuo's own AI budget (none set → allowed, uncapped) are read first.
@@ -111,8 +126,14 @@ function fakeDb() {
   return db;
 }
 
-/** A model that answers `[to] source`, keeps SMS tokens, and can be told to misbehave. */
-function stubModel({ dropToken = null, failFor = null } = {}) {
+/**
+ * A model that answers `[to] source`, keeps SMS tokens, and can be told to
+ * misbehave. `detect(source)` → a language code makes it answer the
+ * "LANGUAGE: xx" first line the prompt asks for (no `detect` → no line, the
+ * shape of a model that ignored the question). A JSON array source — the
+ * job-process lists — comes back as a JSON array with every string prefixed.
+ */
+function stubModel({ dropToken = null, failFor = null, detect = null, shortenList = false, plain = false } = {}) {
   const calls = [];
   const complete = async ({ system, prompt, maxTokens, onUsage }) => {
     calls.push({ system, prompt, maxTokens });
@@ -120,9 +141,23 @@ function stubModel({ dropToken = null, failFor = null } = {}) {
     const source = prompt.split("<<<TEXT\n")[1].split("\nTEXT>>>")[0];
     if (failFor && prompt.includes(`into ${failFor}.`)) throw new Error("vendor down");
     await onUsage?.({ model: "gpt-5-mini", promptTokens: 120, completionTokens: 80 });
-    let out = `[${to}] ${source}`;
+    const line = detect ? `LANGUAGE: ${detect(source)}\n` : "";
+    if (prompt.startsWith("Which language")) return line;
+    let out;
+    if (source.trim().startsWith("[") && /JSON array/.test(prompt)) {
+      const arr = JSON.parse(source);
+      const tr = (s) => (typeof s === "string" && s ? `${to}: ${s}` : s);
+      let mapped = arr.map((x) => (typeof x === "string" ? tr(x) : Object.fromEntries(Object.entries(x).map(([k, v]) => [k, tr(v)]))));
+      if (shortenList) mapped = mapped.slice(1);
+      out = JSON.stringify(mapped);
+    } else {
+      // `plain`: "French: text" rather than "[French] text" — to the job-
+      // process wording a bracket is a placeholder, and the drafter rightly
+      // refuses a draft that grew one.
+      out = plain ? `${to}: ${source}` : `[${to}] ${source}`;
+    }
     if (dropToken && prompt.includes(`into ${dropToken.language}.`)) out = out.replace(dropToken.token, "");
-    return out;
+    return line + out;
   };
   return { complete, calls };
 }
@@ -338,6 +373,185 @@ ok("eight supported languages give seven targets from English", targets.length =
   ok("planField: a person's row with no hash → left alone", plan({ fr: { text: "x", reviewed: true } }).draft.length === 0);
 }
 
+// ── Detection: which language the source is actually in (2026-09-25) ───────
+console.log("\nDetection\n");
+{
+  ok("parseDetection: a language line is read and stripped", JSON.stringify(parseDetection("LANGUAGE: fr\nBonjour")) === JSON.stringify({ detected: "fr", text: "Bonjour" }));
+  ok("parseDetection: 'other', a region code, and no line at all", parseDetection("LANGUAGE: other\nx").detected === "other" && parseDetection("LANGUAGE: FR-CA\nx").detected === "fr" && parseDetection("Bonjour").detected === null && parseDetection("Bonjour").text === "Bonjour");
+  ok("parseDetection: an unknown code detects nothing (the assumption stands)", parseDetection("LANGUAGE: pt\nOlá").detected === null);
+  ok("MODELS.company is the closed list — all nine texts, moved and cancelled SMS included", MODELS.company.fields.length === COMPANY_TEXT_KEYS.length && MODELS.company.fields.includes("smsTemplates.booking_cancelled"));
+
+  // a. The owner's case: an English-default company writes its story in French.
+  const db = fakeDb();
+  const story = "Deux frères, une camionnette, et vingt ans de cuisines repeintes à Gatineau.";
+  const model = stubModel({ detect: () => "fr" });
+  const r = await autoTranslateOnSave(
+    { companyId: C, model: "company", fields: { story }, sourceLanguage: "en" },
+    { db, complete: model.complete, isAiConfigured: () => true, log: quiet },
+  );
+  const rows = db.tables.companyTextTranslation;
+  ok("the prompt asks for the language line, biased to the assumed one", model.calls[0].prompt.includes("LANGUAGE:") && model.calls[0].prompt.includes("answer en unless"));
+  ok("wrong default: detected French — the source is French", r.detected.story === "fr", JSON.stringify(r.detected));
+  ok("…seven calls, no more: the probe's own draft is kept, nothing is spent twice", r.calls === 7 && model.calls.length === 7, `${r.calls}`);
+  ok("…English IS drafted (the company's default), French is NOT (it is the source)", rows.some((x) => x.language === "en" && x.status === "drafted") && !rows.some((x) => x.language === "fr"));
+  ok("…every row records its source language", rows.length === 7 && rows.every((x) => x.sourceLanguage === "fr"));
+  ok("…and the drafts were asked for FROM French", model.calls.slice(1).every((c) => c.prompt.startsWith("Translate the text between the markers from French into")));
+  const english = localiseCompanyText({ story, defaultLanguage: "en" }, { story: rows.find((x) => x.language === "en") });
+  ok("an English document prints the English draft, not the French original", english.story === `[English] ${story}`, english.story);
+  const reread = await localisedCompany(db, { id: C, story, defaultLanguage: "en" }, { companyId: C, language: "en" });
+  ok("…through localisedCompany too — the default language is no longer assumed to need nothing", reread.story === `[English] ${story}`, reread.story);
+  const french = await localisedCompany(db, { id: C, story, defaultLanguage: "en" }, { companyId: C, language: "fr" });
+  ok("a French document prints the company's own French", french.story === story);
+
+  // b. Saved again, unchanged: detection is remembered, nothing is spent.
+  const again = await autoTranslateOnSave(
+    { companyId: C, model: "company", fields: { story }, sourceLanguage: "en" },
+    { db, complete: model.complete, isAiConfigured: () => true, log: quiet },
+  );
+  ok("the same story saved again: no call, detection remembered", again.calls === 0 && again.reason === "unchanged" && again.detected.story === "fr");
+
+  // c. Reviewed wording kept: a person's Spanish for this story survives a
+  //    detection, and survives the same text saved again.
+  const es = rows.find((x) => x.language === "es");
+  Object.assign(es, { status: "reviewed", auto: false, text: "Dos hermanos, una camioneta.", reviewedAt: new Date() });
+  await autoTranslateOnSave({ companyId: C, model: "company", fields: { story }, sourceLanguage: "en" }, { db, complete: model.complete, isAiConfigured: () => true, log: quiet });
+  ok("reviewed wording is never overwritten for the same source", es.text === "Dos hermanos, una camioneta." && es.status === "reviewed");
+
+  // d. Rows from before detection: an unchanged text costs ONE detection
+  //    call, once; the stale row in the source's own language stops applying.
+  const db2 = fakeDb();
+  const h = sourceHash(story);
+  for (const l of ["fr", "es", "uk", "pa", "tl", "de", "it"]) {
+    db2.tables.companyTextTranslation.push({ id: `old_${l}`, companyId: C, key: "story", language: l, text: `[old ${l}] ${story}`, sourceHash: h, status: "drafted", auto: true, sourceLanguage: null });
+  }
+  const m2 = stubModel({ detect: () => "fr" });
+  const legacy = await autoTranslateOnSave({ companyId: C, model: "company", fields: { story }, sourceLanguage: "en" }, { db: db2, complete: m2.complete, isAiConfigured: () => true, log: quiet });
+  ok("legacy rows, unchanged text: one detection-only call, then the missing English draft", m2.calls.length === 2 && m2.calls[0].prompt.startsWith("Which language") && legacy.detected.story === "fr", `${m2.calls.length}`);
+  const oldFr = db2.tables.companyTextTranslation.find((x) => x.language === "fr");
+  ok("…every row of that text now says French", db2.tables.companyTextTranslation.every((x) => x.sourceLanguage === "fr"));
+  ok("…and the old French→French row is never printed", localiseCompanyText({ story }, { story: oldFr }).story === story);
+  const quiet2 = await autoTranslateOnSave({ companyId: C, model: "company", fields: { story }, sourceLanguage: "en" }, { db: db2, complete: m2.complete, isAiConfigured: () => true, log: quiet });
+  ok("…and never asks again", quiet2.calls === 0 && m2.calls.length === 2);
+
+  // e. A text in the assumed language: detection costs nothing extra.
+  const db3 = fakeDb();
+  const m3 = stubModel({ detect: () => "en" });
+  const same = await autoTranslateOnSave({ companyId: C, model: "company", fields: { paymentTerms: "Net 30" }, sourceLanguage: "en" }, { db: db3, complete: m3.complete, isAiConfigured: () => true, log: quiet });
+  ok("detected = assumed: the usual seven calls, rows say English", same.calls === 7 && db3.tables.companyTextTranslation.every((x) => x.sourceLanguage === "en"));
+
+  // f. None of the eight: drafted into all eight, the default included.
+  const db4 = fakeDb();
+  const m4 = stubModel({ detect: () => "other" });
+  const other = await autoTranslateOnSave({ companyId: C, model: "company", fields: { storyHeadline: "Qualidade desde 1998" }, sourceLanguage: "en" }, { db: db4, complete: m4.complete, isAiConfigured: () => true, log: quiet });
+  ok("a source in none of the eight: all eight drafted, English included", other.detected.storyHeadline === "other" && db4.tables.companyTextTranslation.length === 8 && db4.tables.companyTextTranslation.some((x) => x.language === "en"));
+  ok("…and the prompts no longer claim it is English", m4.calls.slice(1).every((c) => c.prompt.includes("from the language it is written in into")));
+
+  // g. The SMS path: a French wording at an English-default company.
+  const sms = "Bonjour {name}, {worker} de {company} arrive.";
+  const smsCompany = { smsTemplates: { on_my_way: sms }, defaultLanguage: "en" };
+  const sh = sourceHash(sms);
+  const sources = { "smsTemplates.on_my_way": { language: "fr", sourceHash: sh } };
+  const enMap = smsTemplateTranslations(smsCompany, { "smsTemplates.on_my_way": { language: "en", sourceLanguage: "fr", text: "Hi {name}, {worker} from {company} is coming.", sourceHash: sh } }, { language: "en", sourceLanguages: sources });
+  const V = { name: "Sam", worker: "Dave", company: "Acme", eta: "20 min", phone: "555-0100" };
+  const enText = renderMessage({ type: "on_my_way", templates: smsCompany.smsTemplates, values: V, language: "en", templateLanguage: "en", translatedTemplates: enMap });
+  ok("an English reader of a French-written SMS gets the English draft, not the French", enText === "Hi Sam, Dave from Acme is coming.", enText);
+  const frMap = smsTemplateTranslations(smsCompany, {}, { language: "fr", sourceLanguages: sources });
+  const frText = renderMessage({ type: "on_my_way", templates: smsCompany.smsTemplates, values: V, language: "fr", templateLanguage: "en", translatedTemplates: frMap });
+  ok("…and a French reader gets the company's own French wording, not the built-in", frText === "Bonjour Sam, Dave de Acme arrive.", frText);
+
+  // h. A text block written in another language than it was saved as.
+  const db5 = fakeDb();
+  db5.tables.quoteTextBlock.push({ id: "tb9", companyId: C, name: "Exclusions", body: "Les meubles ne sont pas déplacés.", language: "en", translations: {} });
+  const tb = await autoTranslateOnSave({ companyId: C, model: "quoteTextBlock", id: "tb9", fields: { name: "Exclusions", body: "Les meubles ne sont pas déplacés." }, sourceLanguage: "en" }, { db: db5, complete: stubModel({ detect: () => "fr" }).complete, isAiConfigured: () => true, log: quiet });
+  const block = db5.tables.quoteTextBlock[0];
+  ok("a text block detected as French: its own language is corrected, English drafted, French not", tb.detected.tb9 === "fr" && block.language === "fr" && block.translations.en?.auto && !block.translations.fr && block.translations.en.from === "fr");
+  ok("…and resolveTextBlockText then reads the English draft on an English quote", resolveTextBlockText(block, "en").name === "[English] Exclusions");
+
+  // i. A product: the default-language draft is used on a default-language quote.
+  const product = { name: "Frais d'urgence", description: "", translations: { en: { name: "Rush fee", auto: true, from: "fr", sourceHash: "x" }, es: { name: "Cargo urgente", auto: true, from: "fr" } } };
+  ok("a product detected as French prints its English draft on an English quote", resolveProductText(product, "en", "en").name === "Rush fee");
+  ok("…and its own French on a French one, not flagged missing", resolveProductText(product, "fr", "en").name === "Frais d'urgence" && resolveProductText(product, "fr", "en").missing === false);
+  ok("…and a product with no drafts reads exactly as before", JSON.stringify(resolveProductText({ name: "Rush fee", description: "" }, "en", "en")) === JSON.stringify({ name: "Rush fee", description: "", missing: false }));
+}
+
+// ── The job-process wording a company edited (model "serviceContent") ──────
+console.log("\nEdited job-process wording\n");
+{
+  const db = fakeDb();
+  const included = ["Walls washed and sanded", "Two coats of [your paint line]"];
+  const steps = [{ title: "Walkthrough", body: "We agree the colours." }, { title: "Painting", body: "Two full coats.", timeline: "2 days" }];
+  const row = { id: "csc1", companyId: C, categoryId: "cat1", scopeDescription: "We paint the rooms listed above.", includedItems: included, processSteps: steps, translations: null };
+  db.tables.companyServiceCategory.push(row);
+  const model = stubModel({ plain: true });
+  const r = await autoTranslateOnSave(
+    { companyId: C, model: "serviceContent", id: "csc1", fields: { scopeDescription: row.scopeDescription, includedItems: included, processSteps: steps }, sourceLanguage: "en" },
+    { db, complete: model.complete, isAiConfigured: () => true, log: quiet },
+  );
+  const t = row.translations;
+  ok("three edited fields × seven languages = 21 calls, all drafted", r.calls === 21 && r.drafted === 21, JSON.stringify(r));
+  ok("…per field, per language, hash-matched", ["fr", "es", "de"].every((l) => t[l].scopeDescription?.text && t[l].includedItems?.items?.length === 2 && t[l].processSteps?.steps?.length === 2 && t[l].processSteps.sourceHash === serviceContentHash("processSteps", steps)));
+  ok("…a step's timeline kept when the company wrote one, never invented", t.fr.processSteps.steps[1].timeline === "French: 2 days" && !("timeline" in t.fr.processSteps.steps[0]));
+  ok("…a [placeholder] stays a placeholder", t.fr.includedItems.items[1].includes("[your paint line]"));
+  const fr = resolveServiceContent("interior_painting", row, null, "fr");
+  ok("a French quote prints the French draft of the company's OWN wording", fr.description === `French: ${row.scopeDescription}` && fr.steps[0].title === "French: Walkthrough");
+  ok("…with the placeholder line withheld exactly as in English", fr.included.length === 1 && resolveServiceContent("interior_painting", row, null, "en").included.length === 1);
+  ok("an English quote prints the company's own English", resolveServiceContent("interior_painting", row, null, "en").description === row.scopeDescription);
+  const edited = { ...row, processSteps: [{ title: "Walkthrough", body: "We agree the colours and the sheen." }, steps[1]] };
+  ok("an edit not yet redrafted prints the company's own words, never the stale translation", resolveServiceContent("interior_painting", edited, null, "fr").steps[0].title === "Walkthrough" && resolveServiceContent("interior_painting", edited, null, "fr").description === `French: ${row.scopeDescription}`);
+  const again = await autoTranslateOnSave(
+    { companyId: C, model: "serviceContent", id: "csc1", fields: { scopeDescription: row.scopeDescription, includedItems: included, processSteps: steps }, sourceLanguage: "en" },
+    { db, complete: model.complete, isAiConfigured: () => true, log: quiet },
+  );
+  ok("the same wording saved again makes no call", again.calls === 0);
+  // Reviewed wording kept: a person's German list stands through a steps edit.
+  t.de.includedItems = { items: ["Wände gewaschen", "Zwei Anstriche [Ihre Farbe]"], reviewed: true, sourceHash: serviceContentHash("includedItems", included), from: "en" };
+  const stepEdit = await autoTranslateOnSave(
+    { companyId: C, model: "serviceContent", id: "csc1", fields: { scopeDescription: row.scopeDescription, includedItems: included, processSteps: edited.processSteps }, sourceLanguage: "en" },
+    { db, complete: stubModel({ plain: true }).complete, isAiConfigured: () => true, log: quiet },
+  );
+  ok("editing the steps redrafts ONLY the steps (7 calls), the reviewed German list untouched", stepEdit.calls === 7 && row.translations.de.includedItems.items[0] === "Wände gewaschen" && row.translations.de.includedItems.reviewed === true, JSON.stringify(stepEdit));
+  // A draft that dropped a line is refused, never stored short.
+  const db2 = fakeDb();
+  const row2 = { id: "csc2", companyId: C, includedItems: included, translations: null };
+  db2.tables.companyServiceCategory.push(row2);
+  const short = await autoTranslateOnSave({ companyId: C, model: "serviceContent", id: "csc2", fields: { includedItems: included }, sourceLanguage: "en" }, { db: db2, complete: stubModel({ shortenList: true, plain: true }).complete, isAiConfigured: () => true, log: quiet });
+  ok("a translated list with a line missing is refused → pending, and the quote prints the original", short.drafted === 0 && short.pending === 7 && Object.values(row2.translations).every((e) => e.includedItems.pending) && resolveServiceContent("x", row2, null, "fr").included.join() === included.slice(0, 1).join());
+  // Detection on the edited wording, too.
+  const db3 = fakeDb();
+  const row3 = { id: "csc3", companyId: C, scopeDescription: "Nous peignons les pièces énumérées.", translations: null };
+  db3.tables.companyServiceCategory.push(row3);
+  const det = await autoTranslateOnSave({ companyId: C, model: "serviceContent", id: "csc3", fields: { scopeDescription: row3.scopeDescription }, sourceLanguage: "en" }, { db: db3, complete: stubModel({ detect: () => "fr", plain: true }).complete, isAiConfigured: () => true, log: quiet });
+  ok("edited wording typed in French at an English default: English drafted, French not, English quote reads English", det.detected.scopeDescription === "fr" && row3.translations.en?.scopeDescription?.from === "fr" && !row3.translations.fr && resolveServiceContent("x", row3, null, "en").description === `English: ${row3.scopeDescription}` && resolveServiceContent("x", row3, null, "fr").description === row3.scopeDescription);
+  ok("acceptDraft: steps whose count, title or timeline changed are refused",
+    acceptDraft({ model: "serviceContent", field: "processSteps", text: JSON.stringify([{ title: "A", body: "b" }]), value: steps }) === null &&
+    acceptDraft({ model: "serviceContent", field: "processSteps", text: JSON.stringify([{ title: "A", body: "b" }, { title: "B", body: "c" }]), value: steps }) === null);
+}
+
+// ── Phrases: short texts on rows of their own (lib/i18n/phrases.js) ────────
+console.log("\nPhrases\n");
+{
+  const db = fakeDb();
+  const fields = phraseFields("galleryCaption", ["Kitchen respray — Aylmer", "  ", "Kitchen respray — Aylmer", "Basement stairs"]);
+  ok("phraseFields: one key per distinct non-empty text, keyed by namespace and hash", Object.keys(fields).length === 2 && Object.keys(fields).every((k) => isPhraseKey(k) && k.startsWith("phrase:galleryCaption:")));
+  ok("…an unknown namespace yields nothing", Object.keys(phraseFields("nope", ["x"])).length === 0 && !isPhraseKey("phrase:nope:0123456789abcdef0123"));
+  const model = stubModel();
+  const r = await autoTranslateOnSave({ companyId: C, model: "phrase", fields, sourceLanguage: "en" }, { db, complete: model.complete, isAiConfigured: () => true, log: quiet });
+  ok("two captions × seven languages = 14 calls, all drafted, prompted as titles", r.calls === 14 && r.drafted === 14 && model.calls.every((c) => c.prompt.includes("short line-item or block title")));
+  const trFr = phraseLookup(db.tables.companyTextTranslation.filter((x) => x.language === "fr"));
+  ok("a French reader gets the French caption", trFr("galleryCaption", "Kitchen respray — Aylmer") === "[French] Kitchen respray — Aylmer");
+  ok("…a renamed caption (no draft yet) prints the company's own words", trFr("galleryCaption", "Kitchen respray — Hull") === "Kitchen respray — Hull");
+  ok("…the same text in another namespace is not confused with it", trFr("documentTitle", "Kitchen respray — Aylmer") === "Kitchen respray — Aylmer");
+  const tr = await loadPhrases(db, C, "fr", [{ ns: "galleryCaption", text: "Basement stairs" }]);
+  ok("loadPhrases reads one language in one query", tr("galleryCaption", "Basement stairs") === "[French] Basement stairs");
+  ok("…no language → the company's own text, no query", (await loadPhrases(db, C, "", [{ ns: "galleryCaption", text: "Basement stairs" }]))("galleryCaption", "Basement stairs") === "Basement stairs");
+  const again = await autoTranslateOnSave({ companyId: C, model: "phrase", fields, sourceLanguage: "en" }, { db, complete: model.complete, isAiConfigured: () => true, log: quiet });
+  ok("the same captions saved again make no call", again.calls === 0);
+  const all = await loadPhraseTranslations(db, C, "galleryCaption", ["Basement stairs"]);
+  ok("loadPhraseTranslations: every language's text for a browser-side reader", Object.keys(all["Basement stairs"] || {}).length === 7 && all["Basement stairs"].de === "[German] Basement stairs");
+  const summary = autoTranslateSummary({ model: "phrase", fields }, { isAiConfigured: () => true });
+  ok("a phrase save's banner says it is not on the review page", summary.queued && summary.reviewable === false && summary.keys.length === 2);
+}
+
 // ── The readers ────────────────────────────────────────────────────────────
 console.log("\nThe readers\n");
 {
@@ -364,7 +578,12 @@ console.log("\nThe readers\n");
   const V = { name: "Sam", worker: "Dave", company: "Acme", eta: "20 min", phone: "555-0100" };
   const fr = renderMessage({ type: "on_my_way", templates: company.smsTemplates, values: V, language: "fr", templateLanguage: "en", translatedTemplates: map });
   ok("renderMessage uses the French draft for a French reader", fr === "Bonjour Sam, Dave de Acme arrive.", fr);
-  const en = renderMessage({ type: "on_my_way", templates: company.smsTemplates, values: V, language: "en", templateLanguage: "en", translatedTemplates: map });
+  // The map is built FOR a reader's language (smsTemplateTranslations over
+  // that language's rows); an English reader of English-written wording has
+  // no English row, so its map is empty. Since 2026-09-25 a map entry wins
+  // over the custom wording — it is only there when the wording was detected
+  // in another language — so this case now hands the English reader's own map.
+  const en = renderMessage({ type: "on_my_way", templates: company.smsTemplates, values: V, language: "en", templateLanguage: "en", translatedTemplates: smsTemplateTranslations(company, {}) });
   ok("…and the company's own wording for an English reader", en === "Hi Sam, Dave from Acme is on the way.");
   const bad = renderMessage({ type: "on_my_way", templates: company.smsTemplates, values: V, language: "fr", templateLanguage: "en", translatedTemplates: { on_my_way: "Bonjour {name}, total {price}" } });
   ok("…a translated wording with a bad token falls back to the built-in French", !bad.includes("{price}") && bad !== fr);
@@ -381,9 +600,9 @@ console.log("\nThe wiring\n");
   // default ledger is FieldQuo's (the executed runs above prove every call
   // landed on platformAiUsage with area "translation" and the company).
   ok("…every call is recorded through the translation meter", /\(USAGE_AREA, \{ companyId, prisma: db/.test(lib) && /onUsage: \(u\) => meter\.record\(u,/.test(lib) && USAGE_AREA === "translation");
-  ok("…which is checked before a single call", lib.indexOf("await meter.check()") > -1 && lib.indexOf("await meter.check()") < lib.indexOf("mapLimit(jobs"));
+  ok("…which is checked before a single call", lib.indexOf("await meter.check()") > -1 && lib.indexOf("await meter.check()") < lib.indexOf("mapLimit(probes") && lib.indexOf("mapLimit(probes") < lib.indexOf("mapLimit(remaining"));
   ok("…and translation defaults to FieldQuo paying", /feature: "translation",[\s\S]{0,400}?defaultPayer: "fieldquo"/.test(read("lib/ai/featurePayer.js")));
-  ok("…and the daily cap is checked before any call", lib.indexOf("draftsToday(") < lib.indexOf("mapLimit(jobs"));
+  ok("…and the daily cap is checked before any call", lib.indexOf("draftsToday(db, companyId, now)") > -1 && lib.indexOf("draftsToday(db, companyId, now)") < lib.indexOf("mapLimit(probes"));
   ok("…on the model the provider names, never a vendor client of its own", !/new OpenAI|openai\(/i.test(lib));
   ok("the drafter never reads or writes a quote, invoice or PDF", !/db\.(quote|invoice)\b|pdf/i.test(lib));
   const sched = code(read("lib/i18n/autoTranslateSchedule.js"));
@@ -424,6 +643,44 @@ console.log("\nThe wiring\n");
   const sms = ["lib/booking/finalizeBooking.js", "app/api/jobs/[id]/visits/[visitId]/route.js", "app/api/cron/appointment-reminders/route.js"];
   for (const file of sms) {
     ok(`${file} hands the reader's drafts to renderMessage`, /translatedTemplates: await loadSmsTemplateTranslations\(db/.test(code(read(file))));
+  }
+
+  // The edited job-process wording (2026-09-25).
+  const services = code(read("app/api/settings/service-categories/route.js"));
+  ok("Settings › Services queues the edited wording as model serviceContent, per row, and answers autoTranslate",
+    /scheduleAutoTranslate\(\{[\s\S]{0,120}model: "serviceContent"/.test(services) && /updated: results\.length, autoTranslate/.test(services));
+  ok("…and its editor is shown the company's OWN words, never a draft (translations stripped)", /\{ \.\.\.setting, translations: null \}/.test(services));
+  for (const file of ["lib/documents/loadServiceSettings.js", "lib/prepGuide/build.js"]) {
+    ok(`${file} loads the override's translations for the document reader`, /translations: true/.test(code(read(file))));
+  }
+  ok("Settings › Services mounts the banner off the save response", /<AutoTranslateBanner result=\{autoTranslate\}/.test(code(read("app/app/settings/services/ServicesEditor.js"))) && /answer\?\.autoTranslate/.test(code(read("app/app/settings/services/ServicesEditor.js"))));
+  ok("…and each trade says what happened to its wording, measured off the stored drafts", /serviceContentHash\(f, overrides\[f\]\)/.test(code(read("app/app/settings/services/QuoteWording.js"))));
+  const reviewRoute = code(read("app/api/settings/translations/company/route.js"));
+  ok("the review lists the edited job-process wording and takes a person's version of it", /serviceItems/.test(reviewRoute) && /body\.serviceRowId/.test(reviewRoute) && /acceptDraft\(\{ model: "serviceContent"/.test(reviewRoute));
+  ok("…refuses a review in the language a text is WRITTEN in, not merely the default", /keySource === language/.test(reviewRoute) && !/\(company\?\.defaultLanguage \|\| "en"\) === language/.test(reviewRoute));
+  ok("…and the status route reports the detected language per text", /sourceLanguages: sources/.test(reviewRoute));
+  ok("the banner says \"Written in …\" from that report", /app\.autoTranslate\.writtenIn/.test(code(read("app/components/settings/AutoTranslateBanner.js"))) && /d\.sourceLanguages/.test(code(read("app/components/settings/AutoTranslateBanner.js"))));
+
+  // Phrases: gallery captions, reference notes, company documents.
+  ok("every gallery writer queues its captions", ["app/api/settings/gallery/route.js", "app/api/settings/quote-email/route.js", "app/api/settings/website/photos/route.js"].every((f) => /schedulePhrases\(\{[^}]*ns: "galleryCaption"/.test(code(read(f)))));
+  ok("…the quote email's reference notes too", /ns: "referenceNote"/.test(code(read("app/api/settings/quote-email/route.js"))));
+  ok("…and a document's title and summary (a waiver excepted)", ["app/api/settings/company-documents/route.js", "app/api/settings/company-documents/[id]/route.js"].every((f) => /ns: "documentTitle"/.test(code(read(f))) && /ns: "documentSummary"/.test(code(read(f))) && /type === "waiver"/.test(code(read(f)))));
+  const proposal = code(read("lib/proposal/load.js"));
+  ok("the proposal prints captions, document titles and summaries in its language", /loadPhrases\(db, companyId, language/.test(proposal) && /tr\("galleryCaption"/.test(proposal) && /tr\("documentTitle"/.test(proposal) && /tr\("documentSummary"/.test(proposal));
+  ok("the website's before & after block prints captions in the page's language", /loadPhrases\(db, site\.companyId, language/.test(code(read("app/site/[subdomain]/page.js"))));
+  ok("every email path that localises the company localises captions and reference notes with it", /ns: "galleryCaption", text: p\?\.caption/.test(code(read("lib/i18n/companyText.js"))) && /ns: "referenceNote", text: r\?\.note/.test(code(read("lib/i18n/companyText.js"))));
+  {
+    const company = { id: C, quoteEmailBeforeAfter: [{ beforeUrl: "https://x/b.jpg", afterUrl: "https://x/a.jpg", caption: "Kitchen respray" }], quoteEmailReferences: [{ name: "Ann", phone: "555", note: "Did our kitchen" }] };
+    const db = fakeDb();
+    const rows = [["galleryCaption", "Kitchen respray", "Cuisine repeinte"], ["referenceNote", "Did our kitchen", "A fait notre cuisine"]];
+    for (const [ns, text, fr] of rows) {
+      const key = Object.keys(phraseFields(ns, [text]))[0];
+      db.tables.companyTextTranslation.push({ id: key, companyId: C, key, language: "fr", text: fr, sourceHash: key.split(":")[2], status: "drafted", auto: true, sourceLanguage: "en" });
+    }
+    const fr = await localisedCompany(db, company, { companyId: C, language: "fr" });
+    ok("…executed: a French email gets the French caption and reference note, the input untouched", fr.quoteEmailBeforeAfter[0].caption === "Cuisine repeinte" && fr.quoteEmailReferences[0].note === "A fait notre cuisine" && company.quoteEmailBeforeAfter[0].caption === "Kitchen respray");
+    const es = await localisedCompany(db, company, { companyId: C, language: "es" });
+    ok("…and a language with no draft keeps the company's own words", es.quoteEmailBeforeAfter[0].caption === "Kitchen respray");
   }
 
   const banner = code(read("app/components/settings/AutoTranslateBanner.js"));

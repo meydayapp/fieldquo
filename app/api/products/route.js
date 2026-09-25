@@ -31,6 +31,8 @@ import { productCommissionData } from "@/lib/commissions/compute";
 import { redactProductCommission } from "@/lib/commissions/access";
 import { sanitiseProduction } from "@/lib/services/productionRates";
 import { isAddedForYou } from "@/lib/services/addedForYou";
+import { loadPhraseTranslations } from "@/lib/i18n/phrases";
+import { templateLineTexts, templateLinePhrasesFor } from "@/lib/services/templates";
 
 /** Owner/admin only. Mirrors the other settings routes. */
 function requireCatalogueWrite(member) {
@@ -105,12 +107,30 @@ export async function GET(request) {
   ]);
   const currency = company?.currency || "CAD";
 
+  // Template-line words the company wrote itself, drafted into the other
+  // languages on save (PATCH ./[id]). The quote and invoice builders expand a
+  // template in the browser in the DOCUMENT's language, which only they
+  // know, so every drafted language travels — per product, only its own
+  // lines' texts, beside templateLines rather than inside it (see
+  // lib/services/templates.js for why). Two indexed reads; a failure is
+  // logged inside loadPhraseTranslations and leaves the words as written.
+  const { names, descriptions } = templateLineTexts(products);
+  const [nameDrafts, descriptionDrafts] = await Promise.all([
+    loadPhraseTranslations(db, member.companyId, "templateLineName", names),
+    loadPhraseTranslations(db, member.companyId, "templateLineDescription", descriptions),
+  ]);
+  const drafts = { name: nameDrafts, description: descriptionDrafts };
+
   // An item's commission rate is what a worker earns on it — pay, which
   // showPricing does not open. Stripped for anyone without payroll view_all.
   // `addedForYou`: a seeded row the company has not renamed or repriced —
   // the "Added for you" badge (lib/services/addedForYou.js has the rule).
   return NextResponse.json(
-    products.map((p) => ({ ...redactProductCommission(full, p), addedForYou: isAddedForYou(p, { currency }) })),
+    products.map((p) => {
+      const templateLinePhrases = templateLinePhrasesFor(p, drafts);
+      const out = { ...redactProductCommission(full, p), addedForYou: isAddedForYou(p, { currency }) };
+      return templateLinePhrases ? { ...out, templateLinePhrases } : out;
+    }),
   );
 }
 

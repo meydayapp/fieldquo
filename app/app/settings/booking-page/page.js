@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from "react";
 import EmbedCode from "@/app/components/settings/EmbedCode";
+import AutoTranslateBanner from "@/app/components/settings/AutoTranslateBanner";
 import { Plus, X } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -83,6 +84,9 @@ export default function BookingPageSettings() {
 function BookingPageScreen() {
   const { t } = useTranslation();
   const [eventTypes, setEventTypes] = useState([]);
+  // What the last new appointment type's name queued for translation — the
+  // name is what a homeowner reads on /book, in their own language.
+  const [nameTranslate, setNameTranslate] = useState(null);
   const [loading, setLoading] = useState(true);
   // business-info is not optional here. Every control on this screen falls back
   // to an invented value when `info` is null — modes ["visit"], travel on with a
@@ -341,8 +345,11 @@ function BookingPageScreen() {
       body: JSON.stringify(form),
     });
     if (res.ok) {
-      const created = await res.json();
+      // The route answers the row plus what it queued for the name's
+      // translation; the row goes in the list, the summary in the banner.
+      const { autoTranslate, ...created } = await res.json();
       setEventTypes((prev) => [...prev, created]);
+      setNameTranslate(autoTranslate || null);
       setShowForm(false);
       setForm({
         name: "",
@@ -758,6 +765,7 @@ function BookingPageScreen() {
       </div>
 
       <div className="space-y-2">
+        <AutoTranslateBanner result={nameTranslate} />
         {eventTypes.length === 0 && (
           <div className="bg-card border border-border rounded-xl p-6 text-center text-sm text-muted-foreground">
             {t("app.setBooking.noEventTypes")}

@@ -30,8 +30,11 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, Plus, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { ChevronDown, Languages, Plus, Trash2 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { LANGUAGES } from "@/app/i18n/languages";
+import { serviceContentHash } from "@/lib/i18n/contentHash";
 
 // Two classes, not one with a width bolted on afterwards. The timeline box
 // used to take `${inputClass} w-28`, which put `w-full` and `w-28` on the same
@@ -85,6 +88,28 @@ export default function QuoteWording({
 
   const unfilled = Array.isArray(resolved.unfilled) ? resolved.unfilled : [];
 
+  // Languages holding a current draft of EVERY field the company customised.
+  const translated = (() => {
+    const tr = overrides.translations && typeof overrides.translations === "object" ? overrides.translations : null;
+    if (!customised || !tr) return null;
+    const fields = ["scopeDescription", "includedItems", "processSteps"].filter((f) =>
+      f === "scopeDescription" ? typeof overrides[f] === "string" && overrides[f].trim() : Array.isArray(overrides[f]) && overrides[f].length,
+    );
+    const hashes = Object.fromEntries(fields.map((f) => [f, serviceContentHash(f, overrides[f])]));
+    let from = null;
+    const langs = Object.entries(tr).filter(([, e]) =>
+      fields.every((f) => {
+        const x = e?.[f];
+        if (!x || x.pending || x.sourceHash !== hashes[f]) return false;
+        from = from || x.from || null;
+        return true;
+      }),
+    );
+    if (!langs.length) return null;
+    const written = from === "other" ? t("app.autoTranslate.otherLanguage", "Another language") : LANGUAGES.find((l) => l.code === from)?.nativeName || null;
+    return { count: langs.length, written };
+  })();
+
   // An edit promotes the resolved list into an override wholesale. Editing one
   // bullet of an inherited list has to capture the rest of it, or saving would
   // silently delete the four the company never touched.
@@ -129,6 +154,23 @@ export default function QuoteWording({
           <p className="text-xs text-muted-foreground">
             {t("app.quoteWording.intro")}
           </p>
+
+          {/* What happened to the company's own wording in the other
+              languages — measured off the stored drafts against the wording
+              on screen, not assumed: an edit not yet saved reads as not yet
+              translated. */}
+          {translated && (
+            <p className="flex flex-wrap items-center gap-x-2 text-xs text-emerald-800 dark:text-emerald-300" data-wording-translated>
+              <Languages size={13} className="shrink-0" aria-hidden="true" />
+              {translated.written && (
+                <span>{t("app.autoTranslate.writtenIn", "Written in {language} —", { language: translated.written })}</span>
+              )}
+              <span>{t("app.autoTranslate.banner", "Translated automatically into {count} languages.", { count: translated.count })}</span>
+              <Link href="/app/settings/translations#company-text" className="font-semibold underline underline-offset-2">
+                {t("app.autoTranslate.review", "Review")}
+              </Link>
+            </p>
+          )}
 
           {/* The withheld lines. Without this the filtering in
               resolveServiceContent is invisible, which is its own dead

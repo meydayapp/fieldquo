@@ -13,7 +13,7 @@ import {
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 import { planOfficeMove, bracketStops, moveReasonMessage } from "@/lib/schedule/moveEntry";
 import { assigneeStopsAround } from "@/lib/schedule/entryNeighbours";
-import { notifyClientMoved, notifyClientCancelled, serviceName, isMeasure } from "@/lib/schedule/clientNotice";
+import { notifyClientMoved, notifyClientCancelled, localServiceName, isMeasure } from "@/lib/schedule/clientNotice";
 import { textClientOfChange } from "@/lib/schedule/changeText";
 import { travelMinutes, hasPoint } from "@/lib/booking/travel";
 import { serverMapsKey } from "@/lib/measure/roofMeasurement";
@@ -525,7 +525,10 @@ export async function PATCH(request, { params }) {
       previousStartTime: plan ? existing.scheduledAt : null,
       where: common.where,
       location: common.location,
-      service: serviceName({
+      // The booked type's name in the letter's language, by the same lookup
+      // the letter used (lib/schedule/clientNotice.js).
+      service: await localServiceName({
+        company: existing.company,
         eventTypeName: common.eventTypeName,
         language: result.language,
         measure: isMeasure(existing.quote, common.about),

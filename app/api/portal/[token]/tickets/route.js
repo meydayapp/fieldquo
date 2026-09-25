@@ -27,7 +27,8 @@ import { clientTickets, openTicket, emailOffice } from "@/lib/clientTickets/serv
 import { clientTicketView, CLIENT_ISSUE_TYPES, sanitiseBody } from "@/lib/clientTickets/rules";
 import { upcomingPlanDates } from "@/lib/portal/view";
 import { planBlockedReason } from "@/lib/servicePlans/schedule";
-import { categoryLabel } from "@/lib/i18n/translateContent";
+import { serviceName, customCategoryPhrases } from "@/lib/i18n/serviceName";
+import { loadPhrases } from "@/lib/i18n/phrases";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
 
@@ -85,17 +86,21 @@ export async function GET(request, { params }) {
       where: { companyId: client.companyId, enabled: true },
       // Names only. The category row carries no price, and nothing priced
       // (Product, InstantQuoteConfig, the rate sets) is read here at all.
-      select: { category: { select: { id: true, label: true, labelTranslations: true } } },
+      // companyId only tells the company's own services from the catalogue's
+      // (lib/i18n/serviceName.js); it is not in the response.
+      select: { category: { select: { id: true, label: true, labelTranslations: true, companyId: true } } },
       take: 60,
     }),
     activePlans(client, now),
   ]);
+  const categories = enabled.map((e) => e.category).filter(Boolean);
+  // A service the company created itself is named in the client's language
+  // from the phrase drafted when it was created; catalogue ones as before.
+  const trService = await loadPhrases(db, client.companyId, language, customCategoryPhrases(categories));
   return NextResponse.json({
     tickets: tickets.map(clientTicketView),
-    services: enabled
-      .map((e) => e.category)
-      .filter(Boolean)
-      .map((c) => ({ id: c.id, name: categoryLabel(c, language) }))
+    services: categories
+      .map((c) => ({ id: c.id, name: serviceName(c, language, trService) }))
       .filter((s) => s.name)
       .sort((a, b) => a.name.localeCompare(b.name)),
     maintenancePlans,

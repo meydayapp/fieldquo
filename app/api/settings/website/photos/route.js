@@ -32,6 +32,7 @@ import { recordActivity } from "@/lib/activity/log";
 // keeps a copy so the builder's preview and the section editor show what was
 // confirmed; the public page renders from the gallery.
 import { replaceCompanyGallery } from "@/lib/company/gallery";
+import { schedulePhrases } from "@/lib/i18n/autoTranslateSchedule";
 
 
 /** Same guard the block sanitiser uses — these land in src on a public page. */
@@ -209,6 +210,10 @@ export async function PUT(request) {
     data,
   });
   await replaceCompanyGallery(member.companyId, pairs, { source: "website" });
+  // The captions print on the site, the quote email and the proposal in the
+  // reader's language — drafted on save (lib/i18n/phrases.js).
+  const lang = (await db.company.findUnique({ where: { id: member.companyId }, select: { defaultLanguage: true } }))?.defaultLanguage || "en";
+  schedulePhrases({ companyId: member.companyId, ns: "galleryCaption", texts: pairs.map((p) => p.caption), sourceLanguage: lang });
 
   await recordActivity(member, {
     action: "website.pairs_set",

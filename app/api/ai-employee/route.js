@@ -61,6 +61,7 @@ import { FACES, defaultFaceFor } from "@/lib/aiEmployee/faces";
 import { READABLE_EXTENSIONS, SOURCE_KINDS } from "@/lib/aiEmployee/sources";
 import { withinBusinessHours } from "@/lib/aiEmployee/decide";
 import { isLoaderSlug } from "@/lib/embed/chatLoader";
+import { schedulePhrases, companyWritingLanguage } from "@/lib/i18n/autoTranslateSchedule";
 
 async function admin(request, { allowSupportToLook = false } = {}) {
   const { member, response } = await memberOrRefusal(request);
@@ -404,7 +405,25 @@ export async function PUT(request) {
     });
   }
 
-  return NextResponse.json({ employee: publicEmployee(saved) });
+  // ── The opening line, in the customer's language ────────────────────────
+  //
+  // The greeting is printed word for word in front of the first reply, and
+  // the reply is written in the customer's language — typed once in the
+  // company's language, it made one message in two languages. Drafted into the other languages now, on save, and stored (lib/i18n/
+  // phrases.js); lib/aiEmployee/respond.js prints the stored draft. Only when
+  // the text changed: the screen auto-saves every field, and the tone or a
+  // switch must not come back claiming a translation.
+  const autoTranslate =
+    "greeting" in data && saved.greeting && saved.greeting !== current.greeting
+      ? schedulePhrases({
+          companyId: member.companyId,
+          ns: "aiGreeting",
+          texts: [saved.greeting],
+          sourceLanguage: await companyWritingLanguage(member.companyId),
+        })
+      : null;
+
+  return NextResponse.json({ employee: publicEmployee(saved), autoTranslate });
 }
 
 /**
