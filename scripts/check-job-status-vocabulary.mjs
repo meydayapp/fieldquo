@@ -178,7 +178,8 @@ console.log("\nNo page keeps its own copy");
 // The four screens that render a job's status. Each must read the shared
 // helper and must not declare a private status→classes object.
 const CONSUMERS = [
-  ["jobs list", "../app/app/jobs/page.js", "jobStatusClasses"],
+  // The list's badge is drawn by the row page.js renders per job.
+  ["jobs list", "../app/app/jobs/JobListRow.js", "jobStatusClasses"],
   ["job detail", "../app/app/jobs/[id]/JobDetail.js", "jobStatusClasses"],
   ["job edit form", "../app/app/jobs/[id]/edit/page.js", "jobStatusLabel"],
   ["client detail", "../app/app/clients/[id]/page.js", "jobStatusClasses"],

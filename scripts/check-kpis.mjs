@@ -951,7 +951,7 @@ ok("every REASONS entry (bar the one documented exception) was exercised by a fi
 // Section 10 — a reason string never hardcodes the floor as a literal
 // ═══════════════════════════════════════════════════════════════════════════
 //
-// The whole point of app/app/analytics/kpis/page.js's REASON_I18N_KEYS is that
+// The whole point of app/app/analytics/kpis/KpiTiles.js's REASON_I18N_KEYS is that
 // the count comes from the `kpi()` envelope (`floor`/`sampleSize`/`remaining`)
 // and gets substituted at render time — never typed as a digit into the
 // sentence. This is the assertion with the longest life: it survives

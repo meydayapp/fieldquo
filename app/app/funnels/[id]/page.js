@@ -12,8 +12,6 @@ import {
   ArrowLeft,
   Plus,
   Trash2,
-  ChevronUp,
-  ChevronDown,
   Loader2,
   Check,
   Copy,
@@ -22,7 +20,6 @@ import {
 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { embedSnippet } from "@/lib/embed/snippet";
-import { readableForeground } from "@/lib/brand/colour";
 import {
   bandFieldsFor,
   choiceFieldsFor,
@@ -34,6 +31,8 @@ import { funnelStatusLabel } from "@/lib/funnels/status";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import Link from "next/link";
 import TrackingLinkBuilder from "@/app/components/settings/TrackingLinkBuilder";
+import FunnelStepListItem, { STEP_KINDS } from "./FunnelStepListItem";
+import StepPreview from "./StepPreview";
 
 // ── Where the line between UI and CONTENT falls on this screen ─────────────
 //
@@ -53,15 +52,9 @@ import TrackingLinkBuilder from "@/app/components/settings/TrackingLinkBuilder";
 //
 // (What newStep() seeds is still ENGLISH for everyone, which is a real gap and
 // a product decision rather than a keying one — see the report.)
-const STEP_KINDS = [
-  { kind: "intro", labelKey: "app.funnels.step.intro" },
-  { kind: "question_single", labelKey: "app.funnels.step.questionSingle" },
-  { kind: "question_multi", labelKey: "app.funnels.step.questionMulti" },
-  { kind: "instant_estimate", labelKey: "app.funnels.step.instantEstimate" },
-  { kind: "photo_upload", labelKey: "app.funnels.step.photoUpload" },
-  { kind: "form", labelKey: "app.funnels.step.form" },
-  { kind: "thankyou", labelKey: "app.funnels.step.thankyou" },
-];
+//
+// STEP_KINDS, the palette's list, lives in FunnelStepListItem.js with the
+// step-list row that names a step by its kind; StepPreview.js is the preview.
 
 function newStep(kind, i) {
   const id = `${kind}_${i}_${Date.now().toString(36)}`;
@@ -555,51 +548,18 @@ export default function FunnelBuilderPage() {
             {t("app.funnels.steps", "Steps")}
           </div>
           {steps.map((s, i) => (
-            <div
+            <FunnelStepListItem
               key={s.id}
-              className={`rounded-lg border px-3 py-2 flex items-center gap-2 ${
-                i === sel ? "border-foreground bg-accent" : "border-border"
-              }`}
-            >
-              <button
-                onClick={() => setSel(i)}
-                className="flex-1 text-left min-w-0"
-              >
-                <div className="text-xs font-medium text-foreground truncate">
-                  {(() => {
-                    const kind = STEP_KINDS.find((k) => k.kind === s.kind);
-                    return kind ? t(kind.labelKey) : s.kind;
-                  })()}
-                </div>
-                <div className="text-[11px] text-muted-foreground truncate">
-                  {s.question || s.headline || "—"}
-                </div>
-              </button>
-              <div className="flex flex-col">
-                <button
-                  onClick={() => move(i, -1)}
-                  disabled={i === 0}
-                  className="text-muted-foreground disabled:opacity-30"
-                >
-                  <ChevronUp size={13} />
-                </button>
-                <button
-                  onClick={() => move(i, 1)}
-                  disabled={i === steps.length - 1}
-                  className="text-muted-foreground disabled:opacity-30"
-                >
-                  <ChevronDown size={13} />
-                </button>
-              </div>
-              {steps.length > 1 && (
-                <button
-                  onClick={() => removeStep(i)}
-                  className="text-muted-foreground hover:text-red-600"
-                >
-                  <Trash2 size={13} />
-                </button>
-              )}
-            </div>
+              step={s}
+              selected={i === sel}
+              isFirst={i === 0}
+              isLast={i === steps.length - 1}
+              canRemove={steps.length > 1}
+              onSelect={() => setSel(i)}
+              onMoveUp={() => move(i, -1)}
+              onMoveDown={() => move(i, 1)}
+              onRemove={() => removeStep(i)}
+            />
           ))}
           <div className="pt-1">
             <div className="text-[11px] text-muted-foreground mb-1">
@@ -1175,167 +1135,6 @@ function EstimateStepEditor({ step, onChange, iqTrades, iqError }) {
           ))}
         </ul>
       )}
-    </div>
-  );
-}
-
-// A faithful single-step preview in a phone frame, brand-accented.
-function StepPreview({ step, accent, company }) {
-  // Only the EDITOR'S annotations inside this frame are keyed — "No step
-  // selected", "Add a size option", the note under the placeholder price.
-  // Everything that stands in for the funnel's own copy stays as it is,
-  // because that is the text a homeowner will read and it belongs to the
-  // contractor, not to the interface. See the note on STEP_KINDS.
-  const { t } = useTranslation();
-  const on = readableForeground(accent);
-  return (
-    <div
-      className="rounded-2xl p-4 min-h-[380px] flex items-center justify-center"
-      style={{ backgroundColor: accent }}
-    >
-      <div className="w-full bg-white rounded-xl p-5 shadow-lg">
-        {!step ? (
-          <p className="text-sm text-neutral-500 text-center">
-            {t("app.funnels.noStepSelected")}
-          </p>
-        ) : step.kind === "thankyou" ? (
-          <div className="text-center py-4">
-            <div
-              className="w-12 h-12 rounded-full grid place-items-center mx-auto mb-3"
-              style={{ backgroundColor: accent, color: on }}
-            >
-              <Check size={22} />
-            </div>
-            <h3 className="font-bold text-[#2d2520]">
-              {step.headline || "Thanks!"}
-            </h3>
-            {step.subhead && (
-              <p className="text-xs text-[#2d2520]/70 mt-1">{step.subhead}</p>
-            )}
-          </div>
-        ) : step.kind === "intro" ? (
-          <div className="text-center">
-            <h3 className="text-lg font-bold text-[#2d2520]">
-              {step.headline}
-            </h3>
-            {step.subhead && (
-              <p className="text-xs text-[#2d2520]/70 mt-1">{step.subhead}</p>
-            )}
-            <button
-              className="w-full mt-4 py-2.5 rounded-full text-sm font-bold"
-              style={{ backgroundColor: accent, color: on }}
-            >
-              {step.buttonText || "Get started"}
-            </button>
-          </div>
-        ) : step.kind === "form" ? (
-          <div>
-            <h3 className="font-bold text-[#2d2520]">
-              {step.headline || "Your details"}
-            </h3>
-            <div className="mt-3 space-y-2">
-              {(step.fields || ["name", "email", "phone"]).map((f) => (
-                <div
-                  key={f}
-                  className="border border-black/15 rounded-lg px-3 py-2 text-xs text-neutral-400 capitalize"
-                >
-                  {f}
-                </div>
-              ))}
-            </div>
-            <button
-              className="w-full mt-3 py-2.5 rounded-full text-sm font-bold"
-              style={{ backgroundColor: accent, color: on }}
-            >
-              {step.buttonText || "Submit"}
-            </button>
-          </div>
-        ) : step.kind === "instant_estimate" ? (
-          <div>
-            <h3 className="font-bold text-[#2d2520]">
-              {step.headline || "Your instant price"}
-            </h3>
-            {step.subhead && (
-              <p className="text-xs text-[#2d2520]/70 mt-1">{step.subhead}</p>
-            )}
-            {step.sizeQuestion && (
-              <p className="text-xs font-semibold text-[#2d2520] mt-3">
-                {step.sizeQuestion}
-              </p>
-            )}
-            <div className="mt-2 space-y-2">
-              {(step.bands || []).length === 0 ? (
-                <div className="border border-dashed border-black/15 rounded-lg px-3 py-4 text-center text-xs text-neutral-400">
-                  {t("app.funnels.previewAddSizeOption")}
-                </div>
-              ) : (
-                (step.bands || []).map((b) => (
-                  <div
-                    key={b.id}
-                    className="border border-black/15 rounded-lg px-3 py-2 text-sm text-[#2d2520]"
-                  >
-                    {b.label || "Untitled option"}
-                  </div>
-                ))
-              )}
-            </div>
-            {/* A stand-in, never an invented figure: the real number is
-                computed on the server from this company's saved rates and the
-                option the visitor taps, so there is nothing truthful to show
-                here until someone taps one. */}
-            <div className="mt-3 rounded-lg border border-black/10 px-3 py-4 text-center">
-              <div className="text-xl font-bold" style={{ color: accent }}>
-                $—— – $——
-              </div>
-              <div className="text-[11px] text-neutral-400 mt-1">
-                {step.order === "details_first"
-                  ? t("app.funnels.previewPriceAfter")
-                  : t("app.funnels.previewPriceBefore")}
-              </div>
-            </div>
-          </div>
-        ) : step.kind === "photo_upload" ? (
-          <div>
-            <h3 className="font-bold text-[#2d2520]">{step.headline}</h3>
-            {step.subhead && (
-              <p className="text-xs text-[#2d2520]/70 mt-1">{step.subhead}</p>
-            )}
-            <div className="mt-3 border-2 border-dashed border-black/15 rounded-lg py-6 text-center text-xs text-neutral-400">
-              {/* Editor chrome, not funnel copy: the live step renders
-                  MediaUploader, which has its own control and resolves the
-                  VISITOR's language. This dashed box is a stand-in for it, the
-                  same way "$—— – $——" stands in for a price, so it follows the
-                  contractor's language like the rest of the preview frame. */}
-              {t("app.funnels.previewAddPhotos")}
-            </div>
-          </div>
-        ) : (
-          <div>
-            <h3 className="font-bold text-[#2d2520]">{step.question}</h3>
-            {step.help && (
-              <p className="text-xs text-[#2d2520]/60 mt-1">{step.help}</p>
-            )}
-            <div className="mt-3 space-y-2">
-              {(step.answers || []).map((a) => (
-                <div
-                  key={a.id}
-                  className="border border-black/15 rounded-lg px-3 py-2 text-sm text-[#2d2520]"
-                >
-                  {a.label}
-                </div>
-              ))}
-            </div>
-            {step.kind === "question_multi" && (
-              <button
-                className="w-full mt-3 py-2.5 rounded-full text-sm font-bold"
-                style={{ backgroundColor: accent, color: on }}
-              >
-                {step.buttonText || "Continue"}
-              </button>
-            )}
-          </div>
-        )}
-      </div>
     </div>
   );
 }
