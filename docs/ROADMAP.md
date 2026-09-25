@@ -88,6 +88,28 @@ NEW rows only (existing rows untouched); the Settings › Company toggle stays a
 turns it off; Terms §7 and Privacy §7 now say sharing is on by default under the
 Terms and can be switched off in Settings.
 
+**Every calculator, and the trades that reuse one.** The registry names the real
+output fields of roofLabour (hours, onRoofHours, fixedHours), the gutter measurement
+(gutterFt, downspouts), the paver base (gravelCuYd, sandCuYd), the lot takeoff
+(lotSize, edgingFt), the rewire takeoff (openings … totalFt, roughInHours …
+totalHours) and the traced outline (areaSqft) — `check:service-templates` runs each
+calculator to prove it. `TRADE_MEASUREMENTS` maps flooring (floorSqft, linearFt =
+the room perimeter), tile, drywall, siding (wallSqft of an exterior wall run),
+fencing (edgingFt, the traced outline length — `measureTracedArea` returns only an
+area) and concrete (traced areaSqft) onto the existing takeoffs; a line's `coverage`
+turns a figure into sheets / posts / cubic yards. **Not done:** mounting the room
+takeoff and tracer on those six trades' quotes (`lib/pricing/takeoffTrades.js` + a
+builder form) — builder wiring, next pass. Painting's payload is untouched
+(`builderPayload.js`, `paintTakeoff.js`, `takeoffTrades.js` have no diff).
+
+**Existing companies.** `lib/services/backfillTemplates.js` fills templateLines /
+defaultDiscount / estimateTypes / quote-type links on seeded rows only where empty —
+never a price, a company's edit, or a delete — and the re-seed path
+(`seedServicesForTrade`) runs it for the rows a company already held.
+`scripts/backfill-service-templates.mjs` is a dry run unless `--apply`. Dry run on
+production 2026-09-24: 163 seeded products, 0 whose seed carries a template yet
+(the seed content is its own pass), 0 to fill. **`--apply` is the owner's call.**
+
 **Left for the next passes.** The builder expansion (a service's template onto a
 quote, a roofing line over the satellite report), the "Like me" cohort (the
 FieldQuo median across companies that share), and the seed content itself.
