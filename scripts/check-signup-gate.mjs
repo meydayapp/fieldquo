@@ -548,9 +548,19 @@ console.log("\nThe gate is actually wired in\n");
     // Both halves, and both anchored. /handleSignOut/ alone still matched
     // after the mutation test renamed it to handleSignOutRemoved — a substring
     // is not a binding, and the rule that "passed" was checking nothing.
-    /async function handleSignOut\(\)/.test(page) &&
-      /onClick=\{handleSignOut\}/.test(page) &&
-      /\bsignOut\(\{/.test(page),
+    //
+    // Since d9e5fc7f handleSignOut takes where to land (the resumed-signup
+    // "Not you? Sign out" returns to this page, this one to /login), so the
+    // binding is an arrow that passes the destination — still anchored to
+    // the exact name, and still required inside the finish-checkout banner,
+    // which is the screen a redirected owner is actually stuck on.
+    /async function handleSignOut\((?:to\s*=\s*"\/login")?\)/.test(page) &&
+      /\bsignOut\(\{/.test(page) &&
+      (() => {
+        const at = page.indexOf('"app.signup.finish.banner"');
+        const banner = at >= 0 ? page.slice(at, page.indexOf("</div>", at)) : "";
+        return /onClick=\{(?:handleSignOut|\(\)\s*=>\s*handleSignOut\("\/login"\))\}/.test(banner);
+      })(),
     "every /app route sends them back here and the header's avatar links to /app, so without this there is no way to leave an account they cannot use — the same reason /api/auth is on the locked-account allow-list",
   );
   ok(
