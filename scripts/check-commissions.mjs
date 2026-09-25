@@ -463,7 +463,7 @@ section("L — wired, not just correct");
   const read = (p) => fs.readFileSync(p, "utf8");
   const hooked = [
     "lib/invoices/recordStripePayment.js",
-    "lib/invoices/refund.js",
+    "app/api/invoices/[id]/refund/route.js",
     "lib/stripe/settleChargeEvent.js",
     "app/api/payments/route.js",
     "app/api/invoices/[id]/route.js",

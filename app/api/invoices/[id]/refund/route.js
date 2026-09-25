@@ -24,6 +24,7 @@ import {
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
 import { issueRefund } from "@/lib/invoices/refund";
+import { syncCommissionsForInvoice } from "@/lib/commissions/hook";
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -67,6 +68,11 @@ export async function POST(request, { params }) {
     if (!result.ok) {
       return NextResponse.json({ error: result.error, ...(result.limitCents != null ? { limitCents: result.limitCents } : {}) }, { status: result.status || 400 });
     }
+    // Money went back to the client, so the commission earned on it comes
+    // back too — a negative ledger row (lib/commissions/sync.js). Here rather
+    // than inside issueRefund, which the invoice page also imports in the
+    // browser. Never throws.
+    await syncCommissionsForInvoice(db, result.invoiceId || id);
     return NextResponse.json({
       ok: true,
       refund: { id: result.row.id, amount: result.row.amount, stripeRefundId: result.stripeRefundId },

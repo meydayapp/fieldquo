@@ -137,6 +137,8 @@ export async function GET(request, { params }) {
   for (const [k, l] of byEarner) {
     const [memberId, role] = k.split("|");
     if (earnerRows.some((e) => e.memberId === memberId && e.role === role)) continue;
+    // Fully reversed and never settled: nothing left to say about them.
+    if (!l.earnedCents && !l.paidCents && !l.inRunCents && !l.pendingCents) continue;
     earnerRows.push({
       memberId,
       name: l.name,
@@ -205,29 +207,42 @@ export async function GET(request, { params }) {
   });
 }
 
-/** One sentence per thing that changed, for the audit and the activity log. */
+/**
+ * What changed, as data — { kind, name, role, from, to } — so the card can
+ * say it in the reader's language (the audit is read by an owner in French as
+ * readily as in English), with an English sentence beside each for the
+ * activity log, which is English at write time like every other row in it.
+ */
 function describeChange(before, after, nameOf) {
   const key = (e) => `${e.memberId}|${e.role}`;
   const roleWord = (r) => (r === "sold" ? "sold-by" : "worked-by");
   const b = new Map((before || []).map((e) => [key(e), e]));
   const a = new Map((after || []).map((e) => [key(e), e]));
   const out = [];
+  const push = (kind, e, from, to, text) =>
+    out.push({ kind, memberId: e.memberId, name: nameOf(e.memberId), role: e.role, from, to, text });
   for (const [k, e] of a) {
     const was = b.get(k);
     const who = `${nameOf(e.memberId)} (${roleWord(e.role)})`;
     if (!was) {
-      out.push(`added ${who} at ${e.splitPct}%${e.fixedAmount != null ? `, fixed ${e.fixedAmount}` : ""}`);
+      push("added", e, null, e.splitPct, `added ${who} at ${e.splitPct}%`);
+      if (e.fixedAmount != null) push("fixed", e, null, e.fixedAmount, `${who} fixed override none → ${e.fixedAmount}`);
       continue;
     }
-    if (Number(was.splitPct) !== Number(e.splitPct)) out.push(`${who} split ${was.splitPct}% → ${e.splitPct}%`);
+    if (Number(was.splitPct) !== Number(e.splitPct)) {
+      push("split", e, was.splitPct, e.splitPct, `${who} split ${was.splitPct}% → ${e.splitPct}%`);
+    }
     const wf = was.fixedAmount ?? null;
     const nf = e.fixedAmount ?? null;
-    if (wf !== nf) out.push(`${who} fixed override ${wf == null ? "none" : wf} → ${nf == null ? "none" : nf}`);
+    if (wf !== nf) push("fixed", e, wf, nf, `${who} fixed override ${wf == null ? "none" : wf} → ${nf == null ? "none" : nf}`);
     const wl = [...(was.excludedLines || [])].sort().join(",");
     const nl = [...(e.excludedLines || [])].sort().join(",");
-    if (wl !== nl) out.push(`${who} now earns on ${e.excludedLines?.length ? "all lines but " + e.excludedLines.length : "every line"}`);
+    if (wl !== nl) {
+      const n = e.excludedLines?.length || 0;
+      push("lines", e, (was.excludedLines || []).length, n, `${who} now opts out of ${n} line${n === 1 ? "" : "s"}`);
+    }
   }
-  for (const [k, e] of b) if (!a.has(k)) out.push(`removed ${nameOf(e.memberId)} (${roleWord(e.role)})`);
+  for (const [k, e] of b) if (!a.has(k)) push("removed", e, e.splitPct, null, `removed ${nameOf(e.memberId)} (${roleWord(e.role)})`);
   return out;
 }
 
@@ -265,7 +280,10 @@ export async function PATCH(request, { params }) {
   }
 
   const nameOf = (id) => memberDisplayName(inputs.members.find((m) => m.id === id)) || "someone";
-  const changes = body.reset === true ? ["reset to the defaults"] : describeChange(before, next, nameOf);
+  const changes =
+    body.reset === true
+      ? [{ kind: "reset", memberId: null, name: null, role: null, from: null, to: null, text: "reset to the defaults" }]
+      : describeChange(before, next, nameOf);
   if (!changes.length) return NextResponse.json({ ok: true, unchanged: true });
 
   const existing = await db.jobCommission.findUnique({ where: { jobId: job.id }, select: { audit: true } });
@@ -290,7 +308,7 @@ export async function PATCH(request, { params }) {
     action: "commissions.job_changed",
     entityType: "job",
     entityId: job.id,
-    summary: `Commissions on ${job.title}: ${changes.join("; ")}`,
+    summary: `Commissions on ${job.title}: ${changes.map((c) => c.text).join("; ")}`,
     metadata: { before, after: next },
   });
 

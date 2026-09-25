@@ -42,6 +42,7 @@ import WaiversCard from "@/app/components/waivers/WaiversCard";
 import PrepGuideCard from "@/app/components/jobs/PrepGuideCard";
 import FiledEmails from "@/app/components/mailbox/FiledEmails";
 import JobSubcontractors from "@/app/components/jobs/JobSubcontractors";
+import JobCommissions from "@/app/components/commissions/JobCommissions";
 import DailyLog from "@/app/components/jobs/DailyLog";
 import { SiteVisitRows } from "@/app/components/quotes/SiteVisitPanel";
 import {
@@ -718,6 +719,14 @@ export default function JobDetail({ jobId }) {
           amounts, the status and the payments are written. Renders itself
           away for someone who can neither see a sub on the job nor add one. */}
       <JobSubcontractors jobId={job.id} onChanged={() => setCostingKey((k) => k + 1)} />
+
+      {/* Who earns commission on this job, and what they have earned from the
+          money collected so far. Under the costing and the subs because on
+          the gross-profit basis it is computed FROM them — keyed on the same
+          refresh so a sub's agreed amount changing re-reads it. Renders
+          itself away while commissions are off, and shows a crew member only
+          their own row (lib/commissions/access.js). */}
+      <JobCommissions jobId={job.id} refreshKey={costingKey} />
 
       {/* The plan: the approved quote's lines as ordered steps with
           dependencies, and the crew day view under it. Above the change

@@ -31,6 +31,7 @@ import { formatCalendarDay, formatShortDate } from "@/lib/format/localeDate";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
+import { useCommissionSettings } from "@/app/components/commissions/useCommissionSettings";
 // Keys, not labels. The frequency wording deliberately reuses the pay-cycle
 // card's four keys rather than a second English list: this select and
 // Settings → Payroll's "How often" offer the SAME four values, and they used
@@ -118,6 +119,13 @@ export default function PayrollPage() {
   const [preview, setPreview] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // Workers whose commission due the owner ticked. Nothing is added to
+  // anyone's pay unless they are in here — the owner's rule; see
+  // lib/commissions/payRun.js. Every tick re-runs the preview, so what is
+  // ticked is always what the totals on screen include; cleared once a run
+  // is saved.
+  const [includeCommissions, setIncludeCommissions] = useState([]);
+  const commissions = useCommissionSettings();
 
   const loadRuns = useCallback(async () => {
     try {
@@ -164,7 +172,7 @@ export default function PayrollPage() {
       .catch(() => setCycle(null));
   }, [loadRuns]);
 
-  async function runPreview() {
+  async function runPreview(include = includeCommissions) {
     setBusy(true);
     setError("");
     setPreview(null);
@@ -172,7 +180,7 @@ export default function PayrollPage() {
       const d = await fetchJson("/api/payroll/runs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, commit: false }),
+        body: JSON.stringify({ ...form, includeCommissionWorkerIds: include, commit: false }),
       });
       setPreview(d);
     } catch (err) {
@@ -189,9 +197,10 @@ export default function PayrollPage() {
       await fetchJson("/api/payroll/runs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, commit: true }),
+        body: JSON.stringify({ ...form, includeCommissionWorkerIds: includeCommissions, commit: true }),
       });
       setPreview(null);
+      setIncludeCommissions([]);
       await loadRuns();
     } catch (err) {
       setError(err.message);
@@ -226,6 +235,14 @@ export default function PayrollPage() {
             {t("app.payroll.introPayYourself")}
           </strong>
         </p>
+        {/* Where everyone finds their commission. Only while the company pays
+            commission — a link to an empty report on a company that pays none
+            would be a door to nothing. The report scopes itself. */}
+        {commissions?.enabled && (
+          <Link href="/app/analytics/commissions" className="inline-block mt-2 text-sm underline text-foreground">
+            {t("app.commissions.reportLink")}
+          </Link>
+        )}
       </div>
 
       {/* ── My payslips: everyone sees this, including owners ── */}
@@ -479,7 +496,7 @@ export default function PayrollPage() {
 
             <div className="flex items-center gap-2 mt-4 flex-wrap">
               <button
-                onClick={runPreview}
+                onClick={() => runPreview()}
                 disabled={busy}
                 className="inline-flex items-center gap-2 border border-border rounded-full px-4 py-2 text-sm font-semibold disabled:opacity-60"
               >
@@ -595,6 +612,64 @@ export default function PayrollPage() {
                     <Info size={13} className="mt-0.5 shrink-0" />
                     {t("app.payroll.noDeductionsSetUp")}
                   </p>
+                )}
+                {/* ── Commissions due: offered, never added unasked ──────
+                    Every person with commission earned by the end of this
+                    period and not yet on a run. Ticking one re-runs the
+                    preview with it as an earning line, so the totals above
+                    always say exactly what is included. Someone with no
+                    payroll record, or a net clawback, is listed with the
+                    reason and no box — see lib/commissions/payRun.js. */}
+                {preview.meta?.commissions?.length > 0 && (
+                  <div className="rounded-lg border border-border px-3 py-2.5 mb-3" data-payrun-commissions>
+                    <p className="text-xs font-semibold text-foreground mb-1">
+                      {t("app.commissions.payRun.title")}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground mb-2">
+                      {t("app.commissions.payRun.hint")}
+                    </p>
+                    <div className="space-y-1.5">
+                      {preview.meta.commissions.map((c) => (
+                        <label key={c.memberId} className="flex items-center gap-2 text-sm flex-wrap">
+                          {c.payable ? (
+                            <input
+                              type="checkbox"
+                              checked={includeCommissions.includes(c.workerId)}
+                              disabled={busy}
+                              onChange={(e) => {
+                                const next = e.target.checked
+                                  ? [...includeCommissions, c.workerId]
+                                  : includeCommissions.filter((id) => id !== c.workerId);
+                                setIncludeCommissions(next);
+                                runPreview(next);
+                              }}
+                            />
+                          ) : (
+                            <span className="w-[13px]" />
+                          )}
+                          <span className="flex-1 min-w-0 text-foreground">
+                            {c.name || t("app.commissions.unnamed")}{" "}
+                            <span className="text-xs text-muted-foreground">
+                              · {t("app.commissions.payRun.jobs", { value: c.jobs })}
+                            </span>
+                          </span>
+                          <span className={`tabular-nums font-semibold ${c.amount < 0 ? "text-red-600 dark:text-red-400" : "text-foreground"}`}>
+                            {money(c.amount)}
+                          </span>
+                          {c.reason === "no_worker" && (
+                            <span className="w-full text-[11px] text-amber-700 dark:text-amber-400">
+                              {t("app.commissions.payRun.noWorker")}
+                            </span>
+                          )}
+                          {c.reason === "clawback" && (
+                            <span className="w-full text-[11px] text-muted-foreground">
+                              {t("app.commissions.payRun.clawback")}
+                            </span>
+                          )}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                 )}
                 {preview.warnings?.map((w, i) => (
                   <p

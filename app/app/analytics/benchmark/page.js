@@ -136,6 +136,15 @@ export default function BenchmarkPage() {
           >
             {t("app.benchmark.kpis", "KPI dashboard")}
           </Link>
+          {/* Seventh, same argument: Reports › Commissions. It gates itself
+              (your own figures unless payroll or job costing says otherwise),
+              and is also linked from Payroll, where people look for pay. */}
+          <Link
+            href="/app/analytics/commissions"
+            className="inline-flex items-center gap-1.5 text-sm text-foreground underline"
+          >
+            {t("app.commissions.reportTitle")}
+          </Link>
         </div>
       </div>
 
