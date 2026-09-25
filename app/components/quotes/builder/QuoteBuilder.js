@@ -111,12 +111,22 @@ import {
 // cent — the two screens once didn't, and reading them was how that was missed.
 import {
   groupSubtotal,
+  groupBaseSubtotal,
   scopeGroupPayload as buildScopeGroupPayload,
   lineItemsFromStored,
   applyLineItemEdit,
   newScopeGroup,
   billedUnitsOf,
 } from "@/lib/quotes/builderPayload";
+// The estimator's own complexity factors, on any trade — the model and its
+// composition order are in lib/pricing/customFactors.js.
+import CustomFactorsEditor from "@/app/components/pricing/CustomFactorsEditor";
+import {
+  customFactorLines,
+  hasCustomFactors,
+  hourlyRateForFactors,
+  splitCustomFactorLines,
+} from "@/lib/pricing/customFactors";
 import { lineFromProduct, lineFromSuggestion } from "@/lib/quotes/lineDetail";
 import {
   expandServiceTemplate,
@@ -174,6 +184,12 @@ const OPEN_STATUSES = ["draft", "sent"];
  * edited as lines, and only groups added in THIS session derive.
  */
 function groupFromStored(g, importedIds, fallbackLabel) {
+  // The estimator's own complexity factors were saved as lines (see
+  // lib/pricing/customFactors.js). They come back as FACTORS, so the factor
+  // editor is the one place they are changed and the line table never offers
+  // a second, disconnected way to edit the same money. A group with none
+  // keeps exactly the lines, and exactly the shape, it always had.
+  const { lines, factors } = splitCustomFactorLines(lineItemsFromStored(g.lineItems));
   return {
     tempId: g.id || `stored-${Math.random().toString(36).slice(2)}`,
     id: g.id,
@@ -196,7 +212,8 @@ function groupFromStored(g, importedIds, fallbackLabel) {
     // it would have to reprice, and repricing a sent quote is the thing the
     // flatten-at-save exists to prevent.
     takeoff: g.takeoff ?? null,
-    lineItems: lineItemsFromStored(g.lineItems),
+    lineItems: lines,
+    ...(factors.length ? { customFactors: factors } : {}),
   };
 }
 
@@ -813,6 +830,46 @@ export function QuoteBuilderForm({
   // ── Scope ────────────────────────────────────────────────────────────────
   const [scopeGroups, setScopeGroups] = useState(start.groups || []);
   const [reasonsOpen, setReasonsOpen] = useState({});
+
+  // ── The company's saved complexity factors ──────────────────────────────
+  //
+  // Optional data, like the product catalogue: the factor editor works
+  // without it, and a failed read simply offers no "From your library" list
+  // rather than an error over a quote the estimator came here to write.
+  const [factorLibrary, setFactorLibrary] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/complexity-factors")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows) => alive && setFactorLibrary(Array.isArray(rows) ? rows : []))
+      .catch(() => alive && setFactorLibrary([]));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  /** "Save to library" beside a factor — the row the route returned joins the list. */
+  async function saveFactorToLibrary(factor) {
+    const row = await fetchJson("/api/complexity-factors", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: jsonBody(
+        {
+          label: factor.label,
+          mode: factor.mode,
+          value: factor.value,
+          // What the label was typed in: the quote's language, since that is
+          // the document it was written for.
+          language: quoteLanguage || companyLanguage,
+        },
+        "complexity factor",
+      ),
+    });
+    setFactorLibrary((prev) =>
+      (Array.isArray(prev) ? prev : []).some((p) => p.id === row.id) ? prev : [...(prev || []), row],
+    );
+    return row;
+  }
 
   // ── Terms & content ──────────────────────────────────────────────────────
   const [notes, setNotes] = useState(start.notes || "");
@@ -1602,6 +1659,38 @@ export function QuoteBuilderForm({
     return cat?.defaultRate != null ? num(cat.defaultRate) : null;
   }
 
+  /**
+   * The hourly SELL rate an "extra hours" custom factor is priced at, or null
+   * when this service is not sold by the hour. Stricter than hourlyRateFor
+   * above on purpose: that one opens a text block's box on the category's
+   * rate whatever its unit, which is fine for a box the estimator reads and
+   * edits, and wrong for a factor that multiplies it silently — a flooring
+   * service's per-sq-ft rate is not an hour.
+   */
+  function factorHourlyRateFor(group) {
+    const cat = categories.find((c) => c.id === group.categoryId);
+    return hourlyRateForFactors({
+      book: getPriceBook(group.categoryKey, rateOverridesFor(group.categoryId)),
+      category: cat ? { unit: cat.unit, defaultRate: cat.defaultRate } : null,
+      fallbackUnitRate: defaultTradeRate(group.categoryKey),
+    });
+  }
+
+  function updateCustomFactors(groupTempId, next) {
+    setScopeGroups((prev) =>
+      prev.map((g) => {
+        if (g.tempId !== groupTempId) return g;
+        // Empty goes back to ABSENT, not []: a group whose factors were all
+        // removed must save exactly as one that never had any.
+        if (!Array.isArray(next) || next.length === 0) {
+          const { customFactors, ...rest } = g;
+          return rest;
+        }
+        return { ...g, customFactors: next };
+      }),
+    );
+  }
+
   function removeLineItem(groupTempId, itemIndex) {
     setScopeGroups((prev) =>
       prev.map((g) =>
@@ -1667,6 +1756,22 @@ export function QuoteBuilderForm({
     return sum + (cost?.total || 0);
   }, 0);
 
+  // The estimator's own complexity factors, per group, as the save will write
+  // them — the lines they become (customFactorLines) are what the server
+  // reads the extra hours off (customFactorHoursOf), so the panel and the
+  // saved cost row count the same hours.
+  const customFactorRows = scopeGroups.flatMap((g) => {
+    if (!hasCustomFactors(g)) return [];
+    const base = groupBaseSubtotal(g, rateOverridesFor(g.categoryId));
+    return customFactorLines({ base, factors: g.customFactors }).map((line) => ({
+      group: g.label,
+      label: line.description,
+      amount: line.amount,
+      hours: line.meta.customFactor.mode === "hours" ? num(line.meta.customFactor.value) : 0,
+    }));
+  });
+  const customFactorHours = round2(customFactorRows.reduce((s, r) => s + r.hours, 0));
+
   const estimate = estimateQuoteCost({
     // The company's rate overrides ride along with each group, so the cost side
     // reads the same book the priced lines were built from.
@@ -1679,7 +1784,9 @@ export function QuoteBuilderForm({
     // Hours the takeoffs imply, plus anything the estimator added by hand.
     // Both, not either: a recipe or a productivity rate is a prediction, and
     // the estimator standing on the site is allowed to know better.
-    manualLabourHours: takeoffLabourHours + num(manualLabourHours),
+    // And the hours a custom complexity factor sold: hours sold are hours
+    // worked. 0 when no factor sells hours.
+    manualLabourHours: takeoffLabourHours + num(manualLabourHours) + customFactorHours,
     manualMaterialCost: num(manualMaterialCost),
     // Post-discount. The server costs the saved row against subtotal − discount,
     // so passing the gross subtotal here would show a margin on screen that the
@@ -2302,13 +2409,50 @@ export function QuoteBuilderForm({
             </div>
           )}
 
+        {/* ── The estimator's own complexity factors ─────────────────────
+            Every trade, new group or saved one — the owner's "things that
+            are unforeseen". After the takeoff and its built-in complexity,
+            because a percentage here is a percentage of what those priced
+            (lib/pricing/customFactors.js). Not on a locked group: a decided
+            quote's money is settled, and an import's is another company's. */}
+        {!locked && (
+          <CustomFactorsEditor
+            factors={group.customFactors}
+            base={groupBaseSubtotal(group, rateOverridesFor(group.categoryId))}
+            hourlyRate={factorHourlyRateFor(group)}
+            money={(n) => formatAppMoney(n, companyCurrency, "en")}
+            onChange={(next) => updateCustomFactors(group.tempId, next)}
+            library={factorLibrary}
+            onSaveToLibrary={saveFactorToLibrary}
+            documentLanguageName={
+              LANGUAGES.find((l) => l.code === (quoteLanguage || companyLanguage))?.nativeName || ""
+            }
+            t={t}
+          />
+        )}
+
         {locked ? (
           <div className="space-y-1.5">
             {/* Not group.lineItems directly — ScopeGroupCard above already
                 shows this group's label and subtotal; a blended
                 subcontractor import's one line item repeats both, word
-                for word. See lib/quotes/scopeGroupDisplay.js. */}
-            {visibleLineItems(group).map((item, li) => (
+                for word. See lib/quotes/scopeGroupDisplay.js. The custom
+                factors' lines are put back for the reading: they were split
+                off for the editor, and a locked group has no editor. */}
+            {visibleLineItems(
+              hasCustomFactors(group)
+                ? {
+                    ...group,
+                    lineItems: [
+                      ...group.lineItems,
+                      ...customFactorLines({
+                        base: groupBaseSubtotal(group, rateOverridesFor(group.categoryId)),
+                        factors: group.customFactors,
+                      }),
+                    ],
+                  }
+                : group,
+            ).map((item, li) => (
               <div
                 key={li}
                 className="flex justify-between gap-3 text-sm text-muted-foreground"
@@ -2414,6 +2558,11 @@ export function QuoteBuilderForm({
         overheadSource={boot.overheadSource || null}
         subtotal={taxableBase}
         totalGroupCount={scopeGroups.length}
+        // The estimator's own complexity factors — what each adds to the
+        // price, and the hours the "extra hours" ones put into the labour
+        // pool above. Omitted on invoices, where the panel renders nothing
+        // for them.
+        customFactors={customFactorRows}
         marginTarget={marginTarget}
         onMaterialOverride={updateMaterialOverride}
         // Which groups' bills can actually be typed over. The same test the

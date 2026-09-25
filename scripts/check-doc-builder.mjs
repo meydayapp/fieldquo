@@ -412,6 +412,43 @@ for (const [label, mode, id, initial] of CASES) {
   ok("stored: the imported group cannot be edited", /Subcontracted railing[\s\S]*?importedLocked|Subcontracted railing/.test(doc) && !/Subcontracted railing[\s\S]{0,400}data-doc-group-toggle/.test(doc));
 }
 
+// A stored draft carrying the estimator's own complexity factor (lib/pricing/
+// customFactors.js): saved as a LINE, reopened as a FACTOR in the editor,
+// drawn on the document as the reason line the client reads, and the same
+// total in both layouts.
+{
+  const factorLine = {
+    description: "Tight access — 3rd floor walk-up",
+    quantity: 1,
+    unit: "flat",
+    rate: 727.5,
+    amount: 727.5,
+    meta: { customFactor: { id: "cf1", mode: "percent", value: 15 } },
+  };
+  const q = {
+    ...STORED_QUOTE,
+    subtotal: 4970 + 727.5,
+    scopeGroups: [
+      { ...STORED_QUOTE.scopeGroups[0], lineItems: [...STORED_QUOTE.scopeGroups[0].lineItems, factorLine], subtotal: 4850 + 727.5 },
+      STORED_QUOTE.scopeGroups[1],
+    ],
+  };
+  const initial = { ...initialStateFromQuote(q), quote: q, costingLoaded: true };
+  const g1 = initial.groups[0];
+  ok("factor: reopened as a factor, not a line", g1.customFactors?.length === 1 && !g1.lineItems.some((l) => l.meta?.customFactor));
+  const classic = render("classic", "edit", "q1", initial);
+  const doc = render("document", "edit", "q1", initial);
+  ok("factor: the classic editor shows it in the factor editor", /data-custom-factors[\s\S]*?value="Tight access — 3rd floor walk-up"/.test(classic));
+  ok("factor: …with what it adds", /data-custom-factor-amount[^>]*>\+ \$727\.50/.test(classic), (classic.match(/data-custom-factor-amount[^>]*>[^<]*/) || [""])[0]);
+  ok("factor: the document draws the reason line", (doc.split("data-doc-editor")[1] || "").includes("Tight access — 3rd floor walk-up"));
+  ok("factor: both layouts show the same total", totalOf(doc) !== null && totalOf(doc) === totalOf(classic), `${totalOf(doc)} vs ${totalOf(classic)}`);
+  ok("factor: the cost panel lists it", /data-cost-custom-factors[\s\S]*?Tight access/.test(classic));
+  // A decided quote keeps it, read-only.
+  const acceptedInitial = { ...initialStateFromQuote({ ...q, status: "accepted" }), quote: { ...q, status: "accepted", jobs: [{ id: "j1" }] } };
+  const locked = render("classic", "edit", "q1", acceptedInitial);
+  ok("factor: a locked group prints it as a line and offers no editor", locked.includes("Tight access — 3rd floor walk-up") && !locked.includes("data-custom-factor-add"));
+}
+
 // The cost gate, both directions, in the document layout: the drawer's
 // toggle is offered to a member who may cost and withheld from one who may
 // not — and the panel itself is never inside the document.

@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 25 September 2026 (two lost 22-September asks: the estimator's OWN complexity factors on any service of any trade — label + %, fixed amount or extra hours, printed as the client's reason line, saved as a line and reopened as a factor, carried to invoices, in the cost panel, with a company library in Settings › Services — and "Often added with this" add-on offers while building a quote; see the section of that name below)
 Last updated: 25 September 2026 (import, not export: the five bulk exports — price book, timesheets, pay run, subcontractor year-end list, bookkeeping ZIP — removed from /app with their routes refusing 403 through `lib/export/companyDataExport.js`; single documents and every import kept; a copy of a company's data stays available on written request; help centre, marketing, sales playbook and guide made honest)
 Last updated: 25 September 2026 (who pays for AI, the owner's decision: FieldQuo AI and translation on FieldQuo's own budget — the copilot keeps a per-company fair-use ceiling, translation the daily draft cap; the AI employee's replies and front desk charged in dollars from the company's AI credit at cost × 2 rounded up, gated on one reply's estimate, debited once per reply, NO_CREDIT → a person; a one-time grace on the old allowance until 1 October 2026; Settings › AI employee shows paused / the change and date / the balance; /platform/ai-billing shows dollars debited per company)
 Last updated: 25 September 2026 (the receipts book: photo AND PDF receipts captured from Expenses, a job page or the Create menu's "Snap receipt", read into lines / store / date + time / card last four / GST-PST-HST separately, checked against themselves, matched to the job the person was clocked in on (or overhead) by deterministic scoring with a reason for every point, split by line or amount, booked only on a tap as Expense rows carrying their tax; crew book to their own jobs or hand it to the office; /platform/ai-billing — the generic "who pays" switch, receipts on FieldQuo)
@@ -30,6 +31,64 @@ than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## Custom complexity on any trade, and add-ons while building (25 September 2026)
+
+Two more of the owner's 22-September asks, lost at the same compaction as the four below.
+Both additive. The payload of every fixture group and request that uses neither is
+md5-identical to origin/main at 853639c9 (recorded there before any change, held in
+`scripts/check-custom-factors.mjs` §1 — e.g. stairs en `6e295eafccd377b64213be3dac363ac3`,
+cabinets en `196e0b2e79ff5f71bf0ee3cdf37cff93`, POST `9f94d62e8ed3bd6e63ca50ddea494ef8`,
+PATCH `c0d0d529d17ca87588fe86bd12829b09`).
+
+1. **"Custom complexity … for any type of trade … things that are unforeseen."** Every
+   service the estimator can edit, on both layouts, now has "Your own complexity factors"
+   (`app/components/pricing/CustomFactorsEditor.js`) under the trade's own picker: a label
+   ("Tight access — 3rd floor walk-up") and a % of the service, a fixed amount, or extra
+   hours (offered only where the service is sold by the hour — painting's hourly sell rate,
+   or a service whose unit is the hour; a per-sq-ft rate is never used as one).
+   - **Composition, deterministic** (`lib/pricing/customFactors.js`): built-in tier/factors
+     are already inside the service's price (the BASE); each custom % is taken of that same
+     base, rounded to the cent on its own and summed — not compounded, so order never
+     matters; then fixed amounts and hours × the hourly rate captured when added.
+   - **On the document:** each factor is an ordinary line appended last in its group —
+     description = the label exactly as typed (never translated), amount = the adjustment,
+     quantity 1; the %, hours and rate ride in `meta.customFactor`, which no client renderer
+     reads. So the quote page, PDF, email, work order and the invoice built from the quote
+     (`createInvoiceFromQuote` copies lines whole) all carry it with no change of their own.
+   - **Saved and reopened:** `groupFromStored` splits the lines back into factors, so they
+     are edited in one place; re-saving an untouched quote writes the same lines to the
+     cent (fixed point proven on five fixtures). Works on a reopened saved group too; not
+     on a decided or imported group (read-only lines there).
+   - **Refused:** no label, zero, negative (a reduction is the quote's discount), past
+     300% / 1,000,000 / 1,000 h, a % of a zero base (Specialty) — each says why, prices
+     nothing and writes nothing. Max eight per service.
+   - **Cost panel:** a "Custom complexity factors" block lists each with what it adds; the
+     hours an "extra hours" factor sold go into the labour pool on the screen, the saved
+     cost row (`costingWrite`, input box untouched) and the recompute fallback — the same
+     sum, read off the same lines.
+   - **Library:** "Save to library" beside a factor; "Add from your library…" on any
+     service (an hours preset takes THAT service's rate, and is disabled where the service
+     is not sold by the hour). Settings › Services has "Your complexity factors" beside the
+     text-block library to add and remove them. New model `ComplexityFactorPreset`
+     (additive, created by SQL on the live DB — the migrate diff's unrelated DROPs of
+     `Community*` and `Company.instantQuoteLanguages` were NOT applied); removing archives
+     (`archivedAt`), never deletes. Routes `/api/complexity-factors` (GET view_only, value
+     withheld without showPricing; POST view_create_edit + showPricing, de-duplicates) and
+     `/api/complexity-factors/[id]` (DELETE = archive).
+   - Strings in all nine app languages (40 keys). Proof: `check:custom-factors` (169),
+     `check:doc-builder` 208 → 215 (a stored factor reopens as a factor, the document draws
+     the reason line, both layouts agree on the total, a locked group prints it read-only).
+
+### Still owed here
+
+- Not walked in a signed-in browser (no account in this session); proven by the render
+  checks against the real `QuoteBuilderForm` in both layouts, the executed arithmetic and
+  `npm run build`.
+- A custom factor typed on the invoice builder itself is not offered — the ask was "carried
+  to invoices from the quote", which it is; on an invoice the line is an ordinary line.
 
 ---
 

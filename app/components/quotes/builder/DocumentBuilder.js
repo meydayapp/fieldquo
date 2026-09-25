@@ -129,6 +129,7 @@ import { visibleLineItems } from "@/lib/quotes/scopeGroupDisplay";
 import { resolveServiceContent } from "@/lib/documents/serviceContent";
 import { isTextLine } from "@/lib/quotes/textBlocks";
 import { scopeGroupPayload } from "@/lib/quotes/builderPayload";
+import { hasCustomFactors } from "@/lib/pricing/customFactors";
 import { quoteStatusLabel, quoteStatusClasses } from "@/lib/quotes/statusLabels";
 import { fetchClientLink, downloadQuotePdf } from "@/lib/quotes/clientActions";
 import { workOrderPath, workOrderPdfPath } from "@/lib/workOrder/url";
@@ -1195,7 +1196,14 @@ export default function DocumentBuilder({ b, kind = "quote" }) {
                 // The lines as they will be STORED — derived now for a group
                 // added this session, the stored ones for a persisted group —
                 // then through the same visibility rule every reader applies.
-                const asStored = group.persisted ? group : { ...group, lineItems: scopeGroupPayload(group, overrides, language).lineItems };
+                // A persisted group with custom complexity factors goes through
+                // the payload too: its factor lines were split off for the
+                // editor (groupFromStored), and the payload is what puts them
+                // back where the save will write them — last.
+                const asStored =
+                  group.persisted && !hasCustomFactors(group)
+                    ? group
+                    : { ...group, lineItems: scopeGroupPayload(group, overrides, language).lineItems };
                 const paint = !group.persisted && isPaintAreas(group) && hasTakeoff(group.categoryKey);
                 const book = paint ? getPriceBook(group.categoryKey, overrides) : null;
                 // Which of the stored lines the room cards already drew.

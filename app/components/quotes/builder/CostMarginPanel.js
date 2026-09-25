@@ -304,6 +304,9 @@ export default function CostMarginPanel({
   // tempIds whose takeoff still round-trips on save. A group not in here keeps
   // the read-only row even when a callback was passed.
   editableMaterialGroups = [],
+  // [{ group, label, amount, hours }] — the quote's custom complexity
+  // factors as the save will write them. Absent on an invoice.
+  customFactors = null,
 }) {
   const { t, language } = useTranslation();
   const money = (n) => formatAppMoney(n, currency, language);
@@ -611,6 +614,36 @@ export default function CostMarginPanel({
           </div>
         </div>
       ))}
+
+      {/* The estimator's own complexity factors (lib/pricing/customFactors.js):
+          what each adds to the PRICE, and the extra hours the "extra hours"
+          ones sold — already inside the labour figure above, which is the
+          one thing on this panel they change on the cost side. A percentage
+          or fixed factor is price only, and the line under it says so, so a
+          margin that rose with one is not read as a job that got cheaper. */}
+      {Array.isArray(customFactors) && customFactors.length > 0 && (
+        <div className="border-t border-border pt-3 space-y-1 text-xs text-muted-foreground" data-cost-custom-factors>
+          <p className="font-medium text-foreground">
+            {t("app.customFactors.costTitle", "Custom complexity factors")}
+          </p>
+          {customFactors.map((f, i) => (
+            <div key={i} className="flex justify-between gap-3">
+              <span className="min-w-0 truncate" title={`${f.group} — ${f.label}`}>
+                {f.label}
+                {f.hours > 0 ? ` · ${t("app.cost.hrs", { hours: f.hours })}` : ""}
+              </span>
+              <span className="tabular-nums shrink-0">+ {money(f.amount)}</span>
+            </div>
+          ))}
+          <p>
+            {customFactors.some((f) => f.hours > 0)
+              ? t("app.customFactors.costHours", "{hours} h sold — counted in the labour hours above.", {
+                  hours: Math.round(customFactors.reduce((s, f) => s + (f.hours || 0), 0) * 100) / 100,
+                })
+              : t("app.customFactors.costPriceOnly", "Price only — if it also costs crew time, add the hours below.")}
+          </p>
+        </div>
+      )}
 
       {/* What the estimator knows and the recipe doesn't. Additive on top of
           whatever a recipe produced, never a replacement for it — an override

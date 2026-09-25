@@ -1715,6 +1715,7 @@ model Company {
   invoices              Invoice[]
   quoteTextBlocks       QuoteTextBlock[]
   quoteTemplates        QuoteTemplate[]
+  complexityFactorPresets ComplexityFactorPreset[]
   // FieldQuo's paid data-migration service — the sanctioned write exception,
   // see the model's own header comment.
   migrationRequests     MigrationRequest[]
@@ -4578,6 +4579,40 @@ model QuoteTextBlock {
   updatedAt DateTime @updatedAt
 
   @@index([companyId, sortOrder])
+}
+
+/// A company's own complexity factor, saved for reuse — "Tight access — 3rd
+/// floor walk-up, +15%", "Crated dog on site, +1.5 h".
+///
+/// The estimator types one on a quote (lib/pricing/customFactors.js) and can
+/// keep it here; Settings › Services lists them beside the trades' own
+/// complexity. Applying one COPIES it onto the quote as a line — a later edit
+/// to this row never reaches a quote already written, for the same reason a
+/// text block's copy does not.
+///
+/// `value` is the percentage, the amount, or the HOURS — never an hourly
+/// rate: an hours preset is priced at the rate of the service it lands on,
+/// because a plumber's hour and a painter's hour are not the same price.
+/// `language` is what `label` was typed in; nothing translates it
+/// (non-negotiable #6). `archivedAt` is how one leaves the library — the
+/// row is kept, never deleted.
+model ComplexityFactorPreset {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  label String
+  /// "percent" | "fixed" | "hours" — lib/pricing/customFactors.js CUSTOM_FACTOR_MODES
+  mode  String
+  value Decimal @db.Decimal(12, 2)
+
+  language    String    @default("en")
+  createdById String?
+  archivedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([companyId, archivedAt])
 }
 
 /// A reusable starting point for a new quote: the scope groups (with their
