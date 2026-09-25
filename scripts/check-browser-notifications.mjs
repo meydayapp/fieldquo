@@ -294,9 +294,22 @@ const pushSrc = decomment(read("lib/notify/push.js"));
 ok("web-push is imported lazily, never at module load", /await import\("web-push"\)/.test(pushSrc) && !/^import .* from "web-push"/m.test(pushSrc));
 ok("the three variables are read as process.env.NAME (so check-env-docs can see them)", ["WEB_PUSH_VAPID_PUBLIC_KEY", "WEB_PUSH_VAPID_PRIVATE_KEY", "WEB_PUSH_SUBJECT"].every((n) => pushSrc.includes(`process.env.${n}`)));
 ok("web-push is a dependency", Boolean(JSON.parse(read("package.json")).dependencies["web-push"]));
-ok("public/sw.js exists, handles push and notificationclick, and never intercepts fetch", (() => {
+// The worker was push-only with no fetch handler until 8c76017a gave it a
+// deliberate, narrow one: the offline app-shell cache for the field screens
+// (check:offline-invoicing asserts its rules — network first, 200-only, the
+// off switch). What this check still owns is that the push worker does not
+// become a second router: a fetch handler, if present, has to let every
+// non-GET and every other origin through untouched, BEFORE it can respond.
+ok("public/sw.js exists, handles push and notificationclick, and its fetch handler passes through anything but a same-origin GET", (() => {
   const sw = decomment(read("public/sw.js"));
-  return /addEventListener\("push"/.test(sw) && /addEventListener\("notificationclick"/.test(sw) && !/addEventListener\("fetch"/.test(sw);
+  if (!/addEventListener\("push"/.test(sw) || !/addEventListener\("notificationclick"/.test(sw)) return false;
+  const at = sw.indexOf('addEventListener("fetch"');
+  if (at < 0) return true;
+  const handler = sw.slice(at, sw.indexOf("\n});", at));
+  const respond = handler.indexOf("respondWith(");
+  const getGuard = handler.search(/if \(request\.method !== "GET"\) return;/);
+  const originGuard = handler.search(/if \(url\.origin !== self\.location\.origin\) return;/);
+  return respond > 0 && getGuard >= 0 && getGuard < respond && originGuard >= 0 && originGuard < respond;
 })());
 ok("the worker hands a push to a VISIBLE tab instead of showing it over the screen", /visibilityState === "visible"/.test(decomment(read("public/sw.js"))) && /postMessage\(\{ type: "fq:push"/.test(decomment(read("public/sw.js"))));
 ok("…and the toast layer listens for that hand-over", /onPushMessage\(/.test(layer));
