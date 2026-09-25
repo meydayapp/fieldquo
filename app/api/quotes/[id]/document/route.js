@@ -135,7 +135,7 @@ export async function GET(request, { params }) {
     groups,
     // Shown once, from the largest group by value — see dominantProcessSteps.
     processSteps: dominantProcessSteps(forDominant, quote.language),
-    glossary: dominantGlossary(forDominant),
+    glossary: dominantGlossary(forDominant, quote.language),
     // The quote's own words if it has them, else the company's default. This
     // is what actually prints, so the staff page must resolve it the same way
     // rather than showing the template and letting somebody assume.

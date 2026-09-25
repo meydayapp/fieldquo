@@ -486,6 +486,9 @@ function present(quote) {
         override: g.companySettings || null,
         subtotal: num(g.subtotal),
       })),
+      // Told the language since 2026-09-25 — until then a French roofing
+      // quote printed its glossary in English.
+      docLanguage,
     ),
     // Shown once at the bottom, from the largest scope group — see
     // dominantProcessSteps for why this isn't per-service.
