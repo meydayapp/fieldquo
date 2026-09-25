@@ -82,6 +82,33 @@ PATCH `c0d0d529d17ca87588fe86bd12829b09`).
      `check:doc-builder` 208 → 215 (a stored factor reopens as a factor, the document draws
      the reason line, both layouts agree on the total, a locked group prints it read-only).
 
+2. **"Add-ons offered when I review but not when I'm creating it."** Under every service
+   in the builder (both layouts), "Often added with this" (`OftenAddedRow.js`,
+   `lib/quotes/builderOffers.js`) shows the same two sources the saved quote later shows:
+   - the review's rule-based co-occurrence (`lib/ai/quoteSuggestions.js` — no model, no AI
+     cost), now fetched per service while building through the previously caller-less
+     `POST /api/ai/quote-suggestions` (`byCategory: true`; gated to quotes:view_create_edit
+     + showPricing), each priced at the median this company's ACCEPTED quotes carried —
+     `typicalPriceByCategory` moved there from `quoteReview.js`, one median, two callers.
+     A suggestion with no accepted price is not offered (an offer needs a number);
+   - the company's catalogue extras for that service (`catalogueAddOnsFor`). On a NEW
+     quote those are already seeded at save, so they show as "offered automatically"
+     (not as buttons whose un-clicked state would do the same); on an EDIT the ones not
+     yet offered are buttons.
+   One click OFFERS it — a QuoteAddOn the client can tick, like the review's — and can be
+   taken back before saving. The browser sends REFERENCES only (`offerAddOns: [{ kind,
+   productId?, categoryId }]`, appended last and only when non-empty); POST / PATCH price
+   them after the write from the company's own rows (`lib/quotes/suggestedAddOns.js`:
+   product × this quote's counts, or the accepted median; history labels in the quote's
+   language via `labelTranslations`), after the catalogue seed, skipping duplicates, a
+   line already billed, a service already on the quote, another tenant's category and
+   anything past the cap of eight; never on a decided quote. Not shown: anything already
+   offered, already a line, or a service already on the quote. Eight strings × nine
+   languages. Proof: `check:builder-offers` (74, incl. smuggled amounts ignored and the
+   request md5 unchanged with no clicks), `check:doc-builder` 215 → 221 (create shows the
+   automatic chip, edit a button, an offered extra is not re-offered, a decided quote
+   offers nothing), `check:route-callers` (entry removed, now has a caller).
+
 ### Still owed here
 
 - Not walked in a signed-in browser (no account in this session); proven by the render
@@ -89,6 +116,13 @@ PATCH `c0d0d529d17ca87588fe86bd12829b09`).
   `npm run build`.
 - A custom factor typed on the invoice builder itself is not offered — the ask was "carried
   to invoices from the quote", which it is; on an invoice the line is an ordinary line.
+- "Often added with this" offers extras as OPTIONS the client ticks, never as billed lines
+  (the line library still adds a catalogue product as a line). The review's AI-written
+  one-line reason is not added to a builder offer — that needs a model call, and this path
+  is deliberately free; the review can still write it later.
+- After a save the edit screen does not re-read the offered list, so a chip clicked and
+  saved can reappear as clickable until the page reloads; clicking it again is skipped
+  server-side as a duplicate.
 
 ---
 

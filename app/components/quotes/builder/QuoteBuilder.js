@@ -121,6 +121,10 @@ import {
 // The estimator's own complexity factors, on any trade — the model and its
 // composition order are in lib/pricing/customFactors.js.
 import CustomFactorsEditor from "@/app/components/pricing/CustomFactorsEditor";
+// "Often added with this" — the review's add-on suggestions and the
+// catalogue's extras, offered while the quote is being built.
+import OftenAddedRow from "./OftenAddedRow";
+import { builderOfferRows, offerKey } from "@/lib/quotes/builderOffers";
 import {
   customFactorLines,
   hasCustomFactors,
@@ -847,6 +851,47 @@ export function QuoteBuilderForm({
       alive = false;
     };
   }, []);
+
+  // ── "Often added with this" ──────────────────────────────────────────────
+  //
+  // The owner: "Add-ons offered when I review but not when I'm creating it."
+  // The same rule-based suggestions the review makes (lib/ai/quoteSuggestions
+  // .js — no model, no AI cost), fetched per service as services are added,
+  // and the catalogue extras the save would offer anyway. A click records a
+  // REFERENCE; the save route prices it (lib/quotes/suggestedAddOns.js).
+  const [pendingOffers, setPendingOffers] = useState([]);
+  const [offerHistory, setOfferHistory] = useState({});
+  const offerCategoryIds = [...new Set(scopeGroups.map((g) => g.categoryId).filter(Boolean))].sort();
+  const offerCategoryKey = offerCategoryIds.join(",");
+  useEffect(() => {
+    if (!offerCategoryIds.length) return;
+    let alive = true;
+    // Optional data: a failure offers nothing rather than an error over a
+    // quote the estimator came here to write.
+    fetch("/api/ai/quote-suggestions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        byCategory: true,
+        categoryIds: offerCategoryIds,
+        onQuote: offerCategoryIds,
+        // The trade name on the offered row is written in the DOCUMENT's
+        // language, so the chip says what the client will read.
+        language: quoteLanguage || companyLanguage,
+      }),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (alive && data?.byCategory && typeof data.byCategory === "object") setOfferHistory(data.byCategory);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+    // offerCategoryKey stands for offerCategoryIds: the array is rebuilt on
+    // every render, the key only changes when a service is added or removed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [offerCategoryKey, quoteLanguage, companyLanguage]);
 
   /** "Save to library" beside a factor — the row the route returned joins the list. */
   async function saveFactorToLibrary(factor) {
@@ -1772,6 +1817,24 @@ export function QuoteBuilderForm({
   });
   const customFactorHours = round2(customFactorRows.reduce((s, r) => s + r.hours, 0));
 
+  // What each service offers under it (lib/quotes/builderOffers.js). None on
+  // a decided quote — the offer is settled once the client has answered.
+  const offerRows = canEditScope
+    ? builderOfferRows({
+        groups: scopeGroups,
+        products,
+        history: offerHistory,
+        existing: isEdit && Array.isArray(start.quote?.addOns) ? start.quote.addOns : [],
+        pending: pendingOffers,
+        isEdit,
+      })
+    : { byGroup: {}, used: 0, room: 0 };
+  // Only the clicks still on screen are sent: an offer under a service that
+  // has since been removed from the quote goes with it.
+  const livePendingOffers = pendingOffers.filter((ref) =>
+    Object.values(offerRows.byGroup).some((b) => b.offers.some((o) => o.pending && o.key === offerKey(ref))),
+  );
+
   const estimate = estimateQuoteCost({
     // The company's rate overrides ride along with each group, so the cost side
     // reads the same book the priced lines were built from.
@@ -2034,6 +2097,9 @@ export function QuoteBuilderForm({
       // time. Null on an edit — an edit is not composition.
       composeSeconds: isEdit ? null : (composeTimer.current?.stop() ?? null),
       language: quoteLanguage || companyLanguage,
+      // References only — the route prices them. Empty on a save that
+      // clicked none, and then the body is exactly what it always was.
+      offerAddOns: livePendingOffers,
     });
 
     let quote = null;
@@ -2086,6 +2152,10 @@ export function QuoteBuilderForm({
     }
 
     const id = quote?.id || quoteId;
+    // The offers went with that save; a second save from this screen (a
+    // custom-field refusal below keeps the person here) must not send them
+    // again as though they were new clicks.
+    setPendingOffers([]);
 
     // The quote is saved; its extra boxes save against it. A refusal here is
     // named as the boxes' — the quote exists and the person stays on the
@@ -2533,6 +2603,24 @@ export function QuoteBuilderForm({
                 });
               };
             })()}
+          />
+        )}
+
+        {/* "Often added with this" — the extras this company sells beside
+            this service, offered to the client with one click while the
+            quote is still being written (lib/quotes/builderOffers.js). */}
+        {!locked && (
+          <OftenAddedRow
+            row={offerRows.byGroup[group.tempId]}
+            room={offerRows.room}
+            money={(n) => formatAppMoney(n, companyCurrency, "en")}
+            onOffer={(ref) =>
+              setPendingOffers((prev) =>
+                prev.some((r) => offerKey(r) === offerKey(ref)) ? prev : [...prev, ref],
+              )
+            }
+            onUndo={(key) => setPendingOffers((prev) => prev.filter((r) => offerKey(r) !== key))}
+            t={t}
           />
         )}
       </>

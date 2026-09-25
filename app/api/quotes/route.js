@@ -29,6 +29,7 @@ import {
 } from "./costingWrite";
 import { syncTakeoffAddOns } from "@/lib/quotes/takeoffAddOns";
 import { seedCatalogueAddOns } from "@/lib/quotes/offeredAddOns";
+import { createOfferedAddOns } from "@/lib/quotes/suggestedAddOns";
 import { withCapturedMeasureImages } from "@/lib/measure/measureImages";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 import { requireCreatedVia } from "@/lib/quotes/createdVia";
@@ -190,6 +191,11 @@ export async function POST(request) {
     // extra click. Naming someone ELSE is a staffing decision and gated the
     // same way reassigning an appointment is.
     assignedToId,
+    // The builder's "Often added with this" clicks — REFERENCES only
+    // ({ kind, productId?, categoryId }), priced below from this company's
+    // own rows (lib/quotes/suggestedAddOns.js). Absent from every request
+    // that clicked none.
+    offerAddOns,
   } = body;
 
   // The satellite still behind a measured group, captured to Cloudinary
@@ -520,6 +526,23 @@ export async function POST(request) {
       });
     } catch (err) {
       console.error("[quotes POST] catalogue add-ons:", err?.message);
+    }
+    // The extras the estimator offered from "Often added with this" while
+    // building. AFTER the seed, so the seed's "nothing offered yet" test is
+    // unchanged; a clicked offer the seed already wrote is skipped as a
+    // duplicate. Priced here, never from the request.
+    if (Array.isArray(offerAddOns) && offerAddOns.length) {
+      try {
+        await createOfferedAddOns(db, {
+          companyId: member.companyId,
+          quoteId: quote.id,
+          refs: offerAddOns,
+          scopeGroups: quote.scopeGroups,
+          language: quote.language || language || "en",
+        });
+      } catch (err) {
+        console.error("[quotes POST] builder offers:", err?.message);
+      }
     }
   }
 

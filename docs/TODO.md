@@ -287,7 +287,7 @@ declared in the check with the reason, rather than suppressed:
 | `/api/analytics/pricing-benchmark` | A second door onto what `/api/analytics/benchmark` already serves. |
 | `/api/leads/public` | `app/quote/[companySlug]/page.js` was built to give this and `/api/self-quote` a home; only the self-quote half was wired. The public quote form works — the page's header comment just overstates what it closed. |
 | `/api/feedback` | Documented in `lib/supportContact.js`: the console reads what it writes, nothing in `/app` renders a form, which is exactly why `SUPPORT_EMAIL` points at an inbox a human answers. |
-| `/api/ai/quote-suggestions` | An HTTP wrapper around `lib/ai/quoteSuggestions.js`, which IS used — `quoteReview.js` calls it in process. |
+| ~~`/api/ai/quote-suggestions`~~ | Has a caller since 25 September 2026: the quote builder's "Often added with this" row (`byCategory: true`). |
 
 **Built.** `/platform/voice-economics` — the endpoint computed the per-minute
 margin, the number-rental spread, the concurrency bill nobody is charged for

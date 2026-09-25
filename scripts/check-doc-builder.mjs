@@ -449,6 +449,37 @@ for (const [label, mode, id, initial] of CASES) {
   ok("factor: a locked group prints it as a line and offers no editor", locked.includes("Tight access — 3rd floor walk-up") && !locked.includes("data-custom-factor-add"));
 }
 
+// "Often added with this" (lib/quotes/builderOffers.js): on a create the
+// catalogue extra the save will seed is shown as offered automatically; on
+// an edit an extra not yet offered is a button; an extra already offered is
+// not offered again; a decided quote offers nothing.
+{
+  const products = [
+    ...BOOTSTRAP.products,
+    { id: "p_ceil", name: "Ceiling refresh", unitPrice: 450, unit: "flat", active: true, categories: [{ id: "cat3" }] },
+    { id: "p_runner", name: "Runner removal", unitPrice: 150, unit: "flat", active: true, categories: [{ id: "cat1" }] },
+    { id: "p_two", name: "Two-tone finish", unitPrice: 600, unit: "flat", active: true, categories: [{ id: "cat1" }] },
+  ];
+  const withProducts = (layout, mode, id, initial) =>
+    renderToStaticMarkup(
+      <LanguageProvider initialLanguage="en">
+        <PermissionProvider role="owner" permissions={{}}>
+          <QuoteBuilderForm mode={mode} quoteId={id} bootstrap={{ ...BOOTSTRAP, layout, products }} initial={initial} />
+        </PermissionProvider>
+      </LanguageProvider>,
+    );
+  const create = withProducts("classic", "create", null, CASES[1][3]);
+  ok("offers: a create shows the seeded catalogue extra as automatic", /data-often-added-auto[\s\S]*?Ceiling refresh/.test(create));
+  ok("offers: …not as a button", !/data-often-added-offer[^>]*>[\s\S]{0,80}Ceiling refresh/.test(create));
+  const edit = withProducts("classic", "edit", "q1", CASES[2][3]);
+  ok("offers: an edit offers an extra not yet on the quote as a button", /data-often-added-offer[\s\S]*?Runner removal/.test(edit));
+  ok("offers: …and not one already offered (Two-tone finish)", !/data-often-added-offer[\s\S]{0,300}Two-tone finish/.test(edit));
+  const accepted = withProducts("classic", "edit", "q1", CASES[3][3]);
+  ok("offers: a decided quote offers nothing", !accepted.includes("data-often-added"));
+  const doc = withProducts("document", "edit", "q1", CASES[2][3]);
+  ok("offers: the document layout renders with offers wired", doc.includes('data-builder-layout="document"'));
+}
+
 // The cost gate, both directions, in the document layout: the drawer's
 // toggle is offered to a member who may cost and withheld from one who may
 // not — and the panel itself is never inside the document.
