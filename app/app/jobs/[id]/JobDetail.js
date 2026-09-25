@@ -31,6 +31,7 @@ import InstalledEquipment from "@/app/components/jobs/InstalledEquipment";
 import JobPhotoTimeline from "@/app/components/jobs/JobPhotoTimeline";
 import SuggestedTasks from "@/app/components/jobs/SuggestedTasks";
 import VisitChecklist from "@/app/components/jobs/VisitChecklist";
+import JobChecklist from "@/app/components/checklists/JobChecklist";
 import VisitStatus from "@/app/components/jobs/VisitStatus";
 import { visitStatusLabel, visitStatusClasses } from "@/lib/jobs/visitStatus";
 import { isVisitOutsideJobRange } from "@/lib/jobs/visitInRange";
@@ -918,6 +919,12 @@ export default function JobDetail({ jobId }) {
           </div>
         )}
       </div>
+
+      {/* The job's own checklists — the trade's form attached when the job
+          was created, or added here. The office (anyone who can edit the job)
+          opens it read-only with the crew's answers; the crew opens it ready
+          to fill. See app/components/checklists/JobChecklist.js. */}
+      <JobChecklist job={job} onChanged={load} readOnlyByDefault={canEditJob} />
 
       {/* Turn what a human wrote about this job into office to-dos */}
       <SuggestedTasks jobId={jobId} onCreated={load} />

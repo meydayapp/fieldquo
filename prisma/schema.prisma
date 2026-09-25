@@ -5318,6 +5318,12 @@ model Job {
   /// When the AI material list was last built, by whom, and on which model —
   /// the banner over the list prints all three, so "Last built today 7:42 by
   /// Sam" is a fact read back rather than a sentence typed in.
+  /// A job-level checklist — the per-trade inspection form attached when the
+  /// job is created (JobChecklistTemplate.autoAddFor) or added by hand on the
+  /// job page. Same item shape as JobVisit.checklistItems
+  /// (lib/jobs/checklistItems.js); null = none, never an empty array.
+  checklistItems Json?
+
   materialListBuiltAt   DateTime?
   materialListBuiltById String?
   materialListModel     String?
@@ -5877,9 +5883,36 @@ model JobChecklistTemplate {
   /// honest answer: nobody stated a sign-off role for "mask the baseboards".
   meta Json?
 
+  /// Stable identity of a template installed from app/data/checklistSeeds
+  /// ("fq.cl.painting.cabinet"), so lib/checklists/seedTemplates.js can tell
+  /// "already installed" from "new" when a trade is switched on twice. Null
+  /// for every template a company wrote itself and for the system library,
+  /// which keys itself by `systemKey` instead. Never rewritten after install:
+  /// the row is the company's from the moment it exists.
+  seedKey String?
+
+  /// The job cannot be marked completed while any item this list put on it is
+  /// unanswered. Stamped onto each copied item as `required` at the moment the
+  /// list is applied (lib/checklists/typedItems.js), because the copy on a job
+  /// outlives the template — see JobVisit.checklistItems. Enforced by
+  /// PATCH /api/jobs/[id] with a message naming what is missing.
+  requiredToClose Boolean @default(false)
+
+  /// ServiceCategory keys ("interior_painting") whose jobs get this list
+  /// attached automatically when the job is created
+  /// (lib/checklists/autoAdd.js). Empty = offered only, which is what every
+  /// template written before this existed means.
+  autoAddFor String[] @default([])
+
+  /// The template's own name in other languages: { fr: { name }, … }. Item
+  /// wording in other languages rides on each item (`i18n`) so it moves with
+  /// the item when the list is reordered.
+  translations Json?
+
   createdAt DateTime @default(now())
 
   @@index([companyId])
+  @@unique([companyId, seedKey])
 }
 
 // ============================================================

@@ -301,6 +301,17 @@ export const SCREENS = [
   ...INTRO_FRAMES,
   ...TRIAL_FRAMES,
 
+  // ── Typed per-trade checklists (docs/screens/checklists/) ──────────────
+  //
+  // Unnumbered, so the guide does not renumber. Settings with the installed
+  // starter lists, the cabinet painting editor open (sections, types,
+  // required, auto-add), the same form on the job at phone width for the crew
+  // (stop-light and signature pad), and the office's read-only view of it.
+  { slug: "checklists-settings", href: "/app/settings/checklists", page: "app/app/settings/checklists/page.js", settings: true, height: 1500, chapter: "checklists", out: "docs/screens/checklists" },
+  { slug: "checklists-settings-edit", href: "/app/settings/checklists", page: "app/app/settings/checklists/page.js", settings: true, scene: "edit-first-checklist", height: 2600, chapter: "checklists", out: "docs/screens/checklists" },
+  { slug: "checklists-job-crew-390", href: "/app/jobs", page: "app/app/jobs/[id]/JobDetail.js", props: { jobId: "j_318" }, member: "crew", width: 390, height: 2400, scene: "scroll-checklist", chapter: "checklists", out: "docs/screens/checklists" },
+  { slug: "checklists-job-office", href: "/app/jobs", page: "app/app/jobs/[id]/JobDetail.js", props: { jobId: "j_318" }, height: 1800, scene: "scroll-checklist", chapter: "checklists", out: "docs/screens/checklists" },
+
   // ── The booking page at phone width, one frame per mode ────────────────
   //
   // Unnumbered, under docs/screens/booking-modes/, so the guide's chapter
