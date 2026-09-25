@@ -364,7 +364,10 @@ section("6. Wiring (source, decommented): the scale object travels with the URL"
   // the address field and zoom controls; this holds the scale wiring.
   const hook = decomment(read("app/components/quotes/builder/useSatelliteStill.js"));
   ok("QuoteBuilder no longer fetches the still for the page", !/\/api\/measure\/satellite/.test(builder));
-  ok("…and hands TradeTakeoff the client's address as the default", /siteAddress=\{selectedClient\?\.address/.test(builder));
+  // Since 90c3d397 the quote's own job address (Quote.siteAddress) comes
+  // first when one was typed; the client's address is still the default
+  // under it.
+  ok("…and hands TradeTakeoff the client's address as the default", /siteAddress=\{siteAddress \|\| selectedClient\?\.address/.test(builder));
   ok("useSatelliteStill keeps the route's scale object beside the URL", /scale:\s*data\.scale/.test(hook) && /image:\s*data\.image/.test(hook));
   ok("PavingTakeoff holds its own still through the hook", /useSatelliteStill\(\{/.test(takeoff));
   ok("PavingTakeoff hands PaverDesigner imageScale from it", /imageScale=\{still\.still\?\.scale/.test(takeoff));
