@@ -124,5 +124,12 @@
   "sourceCategory": "Specialty & Installation",
   "sourceService": "Garage Door Installation (Door + Basic Hardware)",
   "taskCode": "DEFAULT_GARAGE_SERVICE_17"
+ },
+ {
+  "seedKey": "fq.garage_door.maintenance.tune_up",
+  "industry": "Garage",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Garage door tune-up",
+  "taskCode": null
  }
 ]
