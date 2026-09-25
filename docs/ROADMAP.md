@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 25 September 2026 (Confirm what you quote, round two: untick a service already in the list to REMOVE it — archived through the existing `Product.active`, never deleted, restored as the same row when ticked again — with every picker, builder and settings list that read the whole book now filtering through `lib/products/offered.js`; All / Selected (N) tabs; the "0 of 0 selected" count fixed; "Added for you" on seeded rows the company never renamed or repriced, in the dialog and in Products & Services, which gains Remove and a Removed tab with Add back; "Review the services we added for you (N)" on the home card — see "Confirm what you quote: untick to remove" below)
+Last updated: 25 September 2026 (Confirm what you quote, round two: untick a service already in the list to REMOVE it — archived through the existing `Product.active`, never deleted, restored as the same row when ticked again — with every picker, builder and settings list that read the whole book now filtering through `lib/products/offered.js`; All / Selected (N) tabs; the "0 of 0 selected" count fixed; "Added for you" on seeded rows the company never renamed or repriced, in the dialog and in Products & Services, which gains Remove and a Removed tab with Add back; "Review the services we added for you (N)" on the home card for EVERY company signup seeded, not only thin trades (the owner's decision) — see "Confirm what you quote: untick to remove" below)
 Last updated: 25 September 2026 (three follow-ups: cancelling a pay run now gives back its daily-sheet bonuses as well as its commissions; the checks read prisma/schema.prisma through one Prisma-aware stripper, and only four ever stripped it; check:call-to-client now runs the booking follow-up it was skipping, and the phone agent promises a confirmation only when the follow-up reports one — see "Pay-run cancel, the schema stripper, the booking follow-up" below)
 Last updated: 25 September 2026 (phone menus and the Create sheet: every row of the phone's Create sheet was dead, because the hidden desktop pill's outside-press listener closed it before the tap landed; the quote's More… opened off the left of the screen; one ActionMenu now — a bottom sheet below 640px, a flip-and-shift dropdown above — plus a launcher clearance so the + and Jennifer never cover a list's last row, dialog cards capped at the screen, and 44px settings/crew controls; every harness screen audited at 375 and 390 — see "Phone menus, the Create sheet and a mobile audit" below)
 Last updated: 25 September 2026 (one cabinet scope, Refinish | Reface: a company selling both cabinet trades gets a switch inside an unsaved cabinet group's card that moves the group between the two price books while keeping every count and answer already entered; a still-default name follows the service, switching back restores the previous figures byte-for-byte, and only the chosen service reaches the saved quote — see "Refinish | Reface inside one cabinet card" below)
@@ -107,9 +107,15 @@ rows on purpose, so "Add missing services" never re-creates one.
 - **"We added N services for {trades} when you signed up"** at the top of the
   dialog — N is seeded rows created within an hour of the company row
   (signup seeds inside `POST /api/companies`); later trade switch-ons don't
-  count. The home step's title becomes "Review the services we added for you
-  (N)" when N > 0 (`titleWhen` in `lib/setupSteps.js`; the card, the dialog
-  title, the next-steps email and the sales check-in signal all fill it).
+  count. **The home step now applies to every company signup seeded** (the
+  owner's decision, same day: "they might not do it — it is loaded by
+  default, so if it is loaded by default it should say so") — a plumber with
+  101 seeded rows sees "Review the services we added for you (101)". A
+  company with a thin or missing list keeps "Confirm what you quote"; one
+  with a full list and nothing seeded does not see the step. Done
+  (`servicesConfirmedAt`) and "Done, hide" work as before. `titleWhen` /
+  `appliesWhen` in `lib/setupSteps.js`; the card, the dialog title, the
+  next-steps email and the sales check-in signal all fill the figure.
 - **Settings › Products & Services**: "Your list (N)" / "Removed (N)" tabs;
   a Remove (archive) button beside Edit on every row; Add back on the Removed
   tab — `PATCH /api/products/[id] { active }`, which now refuses a
@@ -133,17 +139,14 @@ rows on purpose, so "Add missing services" never re-creates one.
   source-level sweep that every reader named above filters removed services.
 - `check:service-seeds`: the seeder skips a removed key, never re-creates or
   re-activates it.
-- `check:setup-steps`: the reworded title, its nine translations, and that
-  the card/email pass the figure.
+- `check:setup-steps`: a seeded plumber (101, full list) sees the step titled
+  with 101 and counted in progress; confirmed → done; "Done, hide" → off the
+  card; a full list with nothing seeded → not shown; a thin list keeps
+  "Confirm what you quote"; the nine translations; the card/email pass the
+  figure.
 
 ### Still owed here
 
-- **A product decision**: the step still only APPLIES to a thin-trade company
-  (`quoteCoverageThin`). A plumber who got 101 rows at signup never sees
-  "Review the services we added for you" on the home card — only the badges
-  and the line in Products & Services. Showing the step to every seeded
-  company is one line in `appliesWhen`, but it adds a row to every new
-  company's card, so it waits for the owner.
 - A maintenance-plan template that already includes a service later removed
   still offers that service inside the plan on new quotes
   (`app/api/quotes/[id]/plan-offers` reads the template's product ids

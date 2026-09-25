@@ -185,16 +185,30 @@ const TOTAL = EXPECTED_KEYS.length;
   ok("confirm: POST requires user:manage unconditionally; GET lets impersonation look", (route.match(/requirePermission\(member\.role, "user:manage"\)/g) || []).length === 2 && (route.match(/if \(!member\.impersonation\)/g) || []).length === 1);
   ok("confirm: POST refuses unknown keys BEFORE writing (restore, create or archive)", route.indexOf("plan.unknown.length") > 0 && ["createSeededServices({", "data: { active: true }", "data: { active: false }"].every((w) => route.indexOf(w) > route.indexOf("plan.unknown.length")));
   ok("confirm: the browser sends keys, never a price", !/unitPrice|price:/.test(stripComments(source("app/app/settings/services/ConfirmServices.js")).match(/body: \{[^}]*\}/)?.[0] || "x") && /body: \{ seedKeys: add, removeSeedKeys: remove \}/.test(stripComments(source("app/app/settings/services/ConfirmServices.js"))));
-  // "Review the services we added for you (N)" — the owner, 2026-09-25: "if
-  // it is loaded by default it should say so."
-  ok("confirm: a company signup seeded reads 'Review the services we added for you (N)'", (() => {
-    const r = row({ signupSeededServices: 42 });
-    return r.titleKey === "app.setup.step.confirm_services_seeded" && r.titleParams?.n === 42 && r.title === "Review the services we added for you ({n})";
-  })());
-  ok("confirm: nothing seeded (or an unmeasured count) keeps 'Confirm what you quote'", [0, undefined, null, -3, 2.5, "42", {}].every((v) => {
-    const r = row({ signupSeededServices: v });
-    return r.titleKey === "app.setup.step.confirm_services" && r.titleParams === null;
-  }));
+  // "Review the services we added for you (N)" — the owner, 2026-09-25: "they
+  // might not do it — it is loaded by default, so if it is loaded by default
+  // it should say so." Every company signup seeded, full list or not.
+  {
+    const plumber = { quoteCoverage: [rich], signupSeededServices: 101 };
+    const r = row(plumber);
+    ok("confirm: a seeded plumber (101 services, full list) now sees the step", r.applies === true && r.done === false &&
+      remainingSteps(stepsFor({ ...EMPTY, ...plumber })).some((x) => x.key === "confirm_services"));
+    ok("confirm: …titled 'Review the services we added for you (101)'",
+      r.titleKey === "app.setup.step.confirm_services_seeded" && r.titleParams?.n === 101 && r.title === "Review the services we added for you ({n})");
+    ok("confirm: …and counted in the progress total", setupProgress(stepsFor({ ...EMPTY, ...plumber })).total === TOTAL);
+    ok("confirm: the seeded plumber, confirmed → done and off the card", row({ ...plumber, servicesConfirmed: true }).done === true &&
+      !remainingSteps(stepsFor({ ...EMPTY, ...plumber, servicesConfirmed: true })).some((x) => x.key === "confirm_services"));
+    ok("confirm: the seeded plumber, 'Done, hide' → off the card, not counted done",
+      !remainingSteps(stepsFor({ ...EMPTY, ...plumber, dismissed: ["confirm_services"] })).some((x) => x.key === "confirm_services") &&
+      row({ ...plumber, dismissed: ["confirm_services"] }).done === false);
+    ok("confirm: a full list with NO seeded rows → the step does not apply",
+      [0, undefined, null, -3, 2.5, "42", {}].every((v) => row({ quoteCoverage: [rich], signupSeededServices: v }).applies === false));
+    ok("confirm: a thin or missing list keeps 'Confirm what you quote', seeded rows or not",
+      [0, 1, 40, undefined].every((v) => {
+        const t = row({ quoteCoverage: [{ key: "caulking_sealants", ownSeed: false, installed: 1 }], signupSeededServices: v });
+        return t.applies === true && t.titleKey === "app.setup.step.confirm_services" && t.titleParams === null;
+      }) && row({ signupSeededServices: 12 }).titleKey === "app.setup.step.confirm_services");
+  }
   ok("confirm: every other step has no title params", stepsFor({ ...EMPTY, signupSeededServices: 9 }).filter((s) => s.key !== "confirm_services").every((s) => s.titleParams === null));
   ok("confirm: the snapshot counts signup's rows from the company's and the rows' creation times",
     /createdAt: true,\s*\},/.test(snap) && /seedKey: true, createdAt: true/.test(snap) && /signupSeededServices: signupSeededRows\(products, company\.createdAt\)\.length/.test(snap));
