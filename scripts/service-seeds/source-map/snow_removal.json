@@ -1,8 +1,72 @@
 [
-  { "seedKey": "fq.snow_removal.removal.shoveling", "industry": "Snow Removal", "sourceCategory": "Snow Removal > Removal > Snow removal", "sourceService": "Removal - Snow shoveling", "taskCode": "DEFAULT_SNOW_REMOVAL_SERVICE_1" },
-  { "seedKey": "fq.snow_removal.removal.plowing", "industry": "Snow Removal", "sourceCategory": "Snow Removal > Removal > Snow removal", "sourceService": "Removal - Snow plowing", "taskCode": "DEFAULT_SNOW_REMOVAL_SERVICE_2" },
-  { "seedKey": "fq.snow_removal.removal.blowing", "industry": "Snow Removal", "sourceCategory": "Snow Removal > Removal > Snow removal", "sourceService": "Removal - Snow blowing", "taskCode": "DEFAULT_SNOW_REMOVAL_SERVICE_3" },
-  { "seedKey": "fq.snow_removal.removal.hauling", "industry": "Snow Removal", "sourceCategory": "Snow Removal > Removal > Snow removal", "sourceService": "Removal - Snow removal and hauling", "taskCode": "DEFAULT_SNOW_REMOVAL_SERVICE_4" },
-  { "seedKey": "fq.snow_removal.removal.banking", "industry": "Snow Removal", "sourceCategory": "Snow Removal > Removal > Snow removal", "sourceService": "Removal - Snow removal and banking", "taskCode": "DEFAULT_SNOW_REMOVAL_SERVICE_5" },
-  { "seedKey": "fq.snow_removal.removal.other", "industry": "Snow Removal", "sourceCategory": "Snow Removal > Removal > Other", "sourceService": "Removal - Something else / I don't know", "taskCode": "DEFAULT_SNOW_REMOVAL_SERVICE_6" }
+ {
+  "seedKey": "fq.snow_removal.removal.shoveling",
+  "industry": "Snow Removal",
+  "sourceCategory": "Snow Removal > Removal > Snow removal",
+  "sourceService": "Removal - Snow shoveling",
+  "taskCode": "DEFAULT_SNOW_REMOVAL_SERVICE_1"
+ },
+ {
+  "seedKey": "fq.snow_removal.removal.plowing",
+  "industry": "Snow Removal",
+  "sourceCategory": "Snow Removal > Removal > Snow removal",
+  "sourceService": "Removal - Snow plowing",
+  "taskCode": "DEFAULT_SNOW_REMOVAL_SERVICE_2"
+ },
+ {
+  "seedKey": "fq.snow_removal.removal.blowing",
+  "industry": "Snow Removal",
+  "sourceCategory": "Snow Removal > Removal > Snow removal",
+  "sourceService": "Removal - Snow blowing",
+  "taskCode": "DEFAULT_SNOW_REMOVAL_SERVICE_3"
+ },
+ {
+  "seedKey": "fq.snow_removal.removal.hauling",
+  "industry": "Snow Removal",
+  "sourceCategory": "Snow Removal > Removal > Snow removal",
+  "sourceService": "Removal - Snow removal and hauling",
+  "taskCode": "DEFAULT_SNOW_REMOVAL_SERVICE_4"
+ },
+ {
+  "seedKey": "fq.snow_removal.removal.banking",
+  "industry": "Snow Removal",
+  "sourceCategory": "Snow Removal > Removal > Snow removal",
+  "sourceService": "Removal - Snow removal and banking",
+  "taskCode": "DEFAULT_SNOW_REMOVAL_SERVICE_5"
+ },
+ {
+  "seedKey": "fq.snow_removal.removal.other",
+  "industry": "Snow Removal",
+  "sourceCategory": "Snow Removal > Removal > Other",
+  "sourceService": "Removal - Something else / I don't know",
+  "taskCode": "DEFAULT_SNOW_REMOVAL_SERVICE_6"
+ },
+ {
+  "seedKey": "fq.snow_removal.removal.salting",
+  "industry": "Snow Removal",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "De-icing and salting",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.snow_removal.removal.roof_snow",
+  "industry": "Snow Removal",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Roof snow removal",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.snow_removal.removal.site_assessment",
+  "industry": "Snow Removal",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Site assessment for a snow contract",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.snow_removal.removal.seasonal_contract",
+  "industry": "Snow Removal",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Seasonal snow contract set-up",
+  "taskCode": null
+ }
 ]
