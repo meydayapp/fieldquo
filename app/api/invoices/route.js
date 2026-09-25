@@ -401,6 +401,7 @@ export async function POST(request) {
           companyId: member.companyId,
           costing,
           price: (Number(subtotal) || 0) - (Number(discount) || 0),
+          lineItems,
         })
       : null;
 

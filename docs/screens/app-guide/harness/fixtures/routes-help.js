@@ -1501,6 +1501,33 @@ export const ROUTES_HELP = [
   { path: "/api/service-categories/public", method: "GET", reply: () => SERVICE_CATEGORIES.filter((c) => c.isSystem).map((c) => ({ id: c.id, key: c.key, label: c.label, icon: c.icon })) },
   // /app/jobs/import asks what an empty batch would default to.
   { path: "/api/jobs/import/preview", method: "POST", reply: () => ({ rows: [], summary: { total: 0, ready: 0, blocked: 0, duplicates: 0, defaultTaxApplied: true } }) },
+  // ── One document look (2026-09-23): the invoice builder's own routes ────
+  //
+  // The document-shaped invoice builder loads the cost panel at the top of
+  // its screen (useInvoiceCosting.js) and the review + deep read on an edit.
+  // An edit frame answers a SAVED cost panel — two on the crew, materials —
+  // so the profit card has labour and expenses to draw; the review frame
+  // answers a stored review and one paid deep read, so the panel is
+  // photographed with findings rather than with a button.
+  { path: "/api/invoices/costing", method: "GET", reply: (ctx) => (/onelook-invoice-(edit|review)/.test(ctx.screen?.slug || "")
+    ? { currency: "CAD", workers: [{ id: W.u_ana.id, name: ANA.name, hourlyRate: 40, userId: ANA.userId }, { id: W.u_leo.id, name: LEO.name, hourlyRate: 34, userId: LEO.userId }], overheadPerJob: null, overheadSource: null,
+        saved: { crew: [{ id: W.u_ana.id, name: ANA.name, rate: 40, hours: 18 }, { id: W.u_leo.id, name: LEO.name, rate: 34, hours: 12 }], materialCost: 1840, overheadPct: 10, note: "", totals: { labourHours: 30, labourCost: 1128, materialCost: 1840, lineItemCost: 0, overhead: 632, totalCost: 3600 } }, seed: null }
+    : /onelook-invoice/.test(ctx.screen?.slug || "")
+      ? { currency: "CAD", workers: [{ id: W.u_ana.id, name: ANA.name, hourlyRate: 40, userId: ANA.userId }, { id: W.u_leo.id, name: LEO.name, hourlyRate: 34, userId: LEO.userId }], overheadPerJob: null, overheadSource: null, saved: null, seed: null }
+      : ctx.next()) },
+  { path: `/api/invoices/${INV_2069.id}/review`, method: "GET", reply: (ctx) => (/onelook-invoice-review/.test(ctx.screen?.slug || "")
+    ? { review: { generatedAt: iso(day(0, 9, 12)), invoiceTotal: INV_2069.total, currency: "CAD", readiness: 78,
+        checks: [
+          { id: "no_due_date", severity: "medium", title: "No due date", detail: "The overdue reminders, the chase task and the \"overdue\" banner all key off the due date. Without one this invoice never becomes late." },
+          { id: "vague_items", severity: "medium", title: "1 line the client won't recognise", detail: "\"Installation\" — a client paying a bill wants to see the work they agreed to, in the words they agreed to it in." },
+          { id: "no_photos", severity: "low", title: "No photos", detail: "A finished-work photo on the invoice shows what was paid for. Optional, but it settles most \"what did I get for this\" calls before they happen." },
+        ],
+        rewrites: [{ from: "Installation", to: "Installation of the laundry room cabinets and counter — one day, two installers" }],
+        photosAttached: 0 }, reviewedAt: iso(day(0, 9, 12)) }
+    : { review: null, reviewedAt: null }) },
+  { path: `/api/invoices/${INV_2069.id}/deep-read`, method: "GET", reply: (ctx) => (/onelook-invoice-review/.test(ctx.screen?.slug || "")
+    ? { passes: [{ at: iso(day(-1, 15, 40)), photosRead: 2, costCents: 25, notes: ["The counter's back edge looks unsealed at the wall in the second photo — check before the client raises it.", "Looks like the left filler panel sits proud of the door line; may just be the angle."] }], spend: { allowed: true, reason: null, needCents: 25, balanceCents: 1240, shortfallCents: 0 } }
+    : { passes: [], spend: { allowed: true, reason: null, needCents: 25, balanceCents: 1240, shortfallCents: 0 } }) },
   { path: "/api/invoices/costing", method: "GET", reply: () => ({ saved: null }) },
   { path: `/api/clients/${CLIENT.id}`, method: "GET", reply: () => CLIENT_DETAIL },
   { path: `/api/clients/${CLIENT.id}/equipment`, method: "GET", reply: () => CLIENT_EQUIPMENT },

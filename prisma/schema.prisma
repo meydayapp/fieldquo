@@ -3670,6 +3670,19 @@ model Invoice {
   // InvoiceCosting for why that distinction is load-bearing.
   costing InvoiceCosting?
 
+  /// The last AI review of this invoice — the same free, text-only pass a
+  /// quote gets (lib/ai/invoiceReview.js beside lib/ai/quoteReview.js), and
+  /// the same rule: stored so reopening the invoice never spends tokens, and
+  /// overwritten on re-run because nothing was paid for the discarded copy.
+  aiReview     Json?
+  aiReviewedAt DateTime?
+  /// Every PAID deep photo read over the invoice's photos — Quote.aiVisionPasses'
+  /// twin, and for the same reason a separate, ACCUMULATING column: each pass
+  /// cost VISION_PASS_CENTS of real credit, and a second run must not discard
+  /// what the first was paid for. Newest first; see
+  /// app/api/invoices/[id]/deep-read/route.js.
+  aiVisionPasses Json?
+
   // ── The job this invoice bills for ────────────────────────────────────────
   //
   // Until now the only path from an invoice to the work was
@@ -3774,6 +3787,10 @@ model InvoiceCosting {
   /// against later.
   labourHours Decimal @default(0) @db.Decimal(10, 2)
   labourCost  Decimal @default(0) @db.Decimal(12, 2)
+  /// The invoice's own lines' cost — QuoteCosting.lineItemCost's twin, off
+  /// the stored lines' unitCost. Folded into totalCost below; kept as its
+  /// own column so the read-only card's rows still add up to the total.
+  lineItemCost Decimal @default(0) @db.Decimal(12, 2)
   overhead    Decimal @default(0) @db.Decimal(12, 2)
   totalCost   Decimal @default(0) @db.Decimal(12, 2)
 
@@ -4490,6 +4507,12 @@ model QuoteCosting {
   labourHours   Decimal @default(0) @db.Decimal(10, 2)
   labourCost    Decimal @default(0) @db.Decimal(12, 2)
   materialTotal Decimal @default(0) @db.Decimal(12, 2)
+  /// What the priced lines themselves cost — quantity × the unitCost a line
+  /// carries (lib/costing/lineItemCost.js). The third bucket beside labour and
+  /// materials: a bought-in door set, a subcontracted counter. 0 on every row
+  /// written before the column existed, which reads as "no line stated a
+  /// cost" — the panel prints the row only above zero.
+  lineItemCost  Decimal @default(0) @db.Decimal(12, 2)
 
   /// Bill-of-materials lines that had a quantity and no supplier price. Stored
   /// with the figures because a material total built over eleven unpriced

@@ -169,6 +169,86 @@ function MaterialLine({ m, money, t, onOverride }) {
   );
 }
 
+/**
+ * The profit-margin card — Jobber's, by the owner's request (2026-09-23):
+ * the margin in one figure, revenue against cost as two bars, and the cost
+ * bar split into the three buckets a field job actually has: the priced
+ * lines' own cost, labour (hours × the crew's blended rate), and expenses
+ * (the recipes' materials plus the overhead share).
+ *
+ * Drawn from the same `estimate` the rows below print, so the card and the
+ * table cannot disagree. Nothing here is a new calculation — it is the
+ * existing one, read across instead of down. Withheld until there is a price
+ * or a cost to draw: two empty bars under "0%" would be a claim about a job
+ * nobody has priced yet.
+ */
+function ProfitMarginCard({ estimate, subtotal, money, t, marginTarget }) {
+  const revenue = Number(subtotal) || 0;
+  const lines = Number(estimate.lineItemCost) || 0;
+  const labour = Number(estimate.labourCost) || 0;
+  const expenses = (Number(estimate.materialTotal) || 0) + (Number(estimate.overhead) || 0);
+  const cost = Number(estimate.estimatedCost) || 0;
+  if (revenue <= 0 && cost <= 0) return null;
+  // The cost bar is drawn against the revenue bar's width; a cost above the
+  // price runs the full width and the margin figure says the rest.
+  const scale = Math.max(revenue, cost) || 1;
+  const pct = (n) => `${Math.max(0, Math.min(100, (n / scale) * 100))}%`;
+  const tone =
+    estimate.signal === "red"
+      ? "text-red-600 dark:text-red-400"
+      : estimate.signal === "amber"
+        ? "text-amber-600 dark:text-amber-400"
+        : "text-green-700 dark:text-green-400";
+  return (
+    <div className="mt-3 rounded-lg border border-border p-3" data-profit-margin-card>
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {t("app.cost.profitMargin", "Profit margin")}
+        </span>
+        <span className={`text-xl font-bold tabular-nums ${estimate.marginPct == null ? "text-muted-foreground" : tone}`} data-profit-margin-pct>
+          {estimate.marginPct == null ? "—" : `${Math.round(Number(estimate.marginPct))}%`}
+        </span>
+      </div>
+      <div className="mt-2 space-y-1.5 text-xs">
+        <div className="grid grid-cols-[4.5rem_minmax(0,1fr)_auto] items-center gap-2">
+          <span className="text-muted-foreground">{t("app.cost.revenue", "Revenue")}</span>
+          <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+            <div className="h-full rounded-full bg-inverted" style={{ width: pct(revenue) }} />
+          </div>
+          <span className="tabular-nums font-medium text-foreground" data-profit-revenue>{money(revenue)}</span>
+        </div>
+        <div className="grid grid-cols-[4.5rem_minmax(0,1fr)_auto] items-center gap-2">
+          <span className="text-muted-foreground">{t("app.cost.costWord", "Cost")}</span>
+          <div className="h-2.5 rounded-full bg-muted overflow-hidden flex" title={money(cost)}>
+            {/* Three segments, three weights of the one foreground — the
+                split is read from the legend, not from a hue a colour-blind
+                reader would have to tell apart. */}
+            <div className="h-full bg-foreground/80" style={{ width: pct(lines) }} />
+            <div className="h-full bg-foreground/55" style={{ width: pct(labour) }} />
+            <div className="h-full bg-foreground/30" style={{ width: pct(expenses) }} />
+          </div>
+          <span className="tabular-nums font-medium text-foreground" data-profit-cost>{money(cost)}</span>
+        </div>
+      </div>
+      <p className="mt-2 text-[11px] text-muted-foreground tabular-nums" data-profit-legend>
+        <span className="inline-block h-2 w-2 rounded-sm bg-foreground/80 mr-1 align-middle" aria-hidden="true" />
+        {t("app.cost.lineItemsCost", "Line items")} {money(lines)}
+        {" · "}
+        <span className="inline-block h-2 w-2 rounded-sm bg-foreground/55 mr-1 align-middle" aria-hidden="true" />
+        {t("app.cost.labour")}{estimate.labourHours > 0 ? ` ${t("app.cost.hrs", { hours: estimate.labourHours })}` : ""} {money(labour)}
+        {" · "}
+        <span className="inline-block h-2 w-2 rounded-sm bg-foreground/30 mr-1 align-middle" aria-hidden="true" />
+        {t("app.cost.expenses", "Expenses")} {money(expenses)}
+      </p>
+      {marginTarget != null && estimate.marginPct != null && (
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          {t("app.cost.targetIs", "Target {pct}%", { pct: marginTarget })}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function Row({ label, value, bold, tone }) {
   return (
     <div
@@ -260,6 +340,8 @@ export default function CostMarginPanel({
           </span>
         )}
       </div>
+
+      <ProfitMarginCard estimate={estimate} subtotal={subtotal} money={money} t={t} marginTarget={marginTarget} />
 
       {/* Where the labour rate comes from. A worker with an hourly rate on
           their record wins; otherwise the manual box appears. */}
@@ -630,6 +712,13 @@ export default function CostMarginPanel({
                   { count: estimate.unpricedMaterials },
                 )}
           </p>
+        )}
+        {/* The lines' own cost — typed per line in the cost / markup popover
+            or copied from Product.costPrice (lib/costing/lineItemCost.js).
+            Only when a line stated one: a $0.00 row would claim the lines
+            were free. */}
+        {estimate.lineItemCost > 0 && (
+          <Row label={t("app.cost.lineItemsCost", "Line items")} value={money(estimate.lineItemCost)} />
         )}
         <Row
           label={

@@ -12,10 +12,17 @@
 // Someone amending a paid invoice needs to know they're creating a revision,
 // not correcting a typo in place — otherwise the version history fills up with
 // unexplained rows and the audit trail is worthless.
+//
+// The screen is the document-shaped builder now — app/components/invoices/
+// builder/InvoiceBuilder.js in edit mode, the same document a new invoice
+// and a quote are drawn by. The form below is kept verbatim as
+// ClassicEditInvoicePage and served on this route behind ?layout=classic
+// until the document is proven; see app/app/invoices/new/page.js.
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import InvoiceBuilder from "@/app/components/invoices/builder/InvoiceBuilder";
 import Link from "next/link";
 import { ArrowLeft, Trash2, Plus, Loader2, AlertCircle, History } from "lucide-react";
 import MediaUploader from "@/app/components/MediaUploader";
@@ -42,6 +49,21 @@ const blankItem = () => ({
 });
 
 export default function EditInvoicePage() {
+  const { id } = useParams();
+  // Read off window in an effect rather than useSearchParams: this route
+  // never called that hook, and adding it would change how the page is
+  // rendered at build for one optional flag.
+  const [layout, setLayout] = useState(null);
+  useEffect(() => {
+    setLayout(new URLSearchParams(window.location.search).get("layout") === "classic" ? "classic" : "document");
+  }, []);
+  if (!layout) return <div className="p-4 sm:p-6 max-w-4xl mx-auto animate-pulse h-96 bg-accent rounded-xl" />;
+  if (layout === "classic") return <ClassicEditInvoicePage />;
+  return <InvoiceBuilder mode="edit" invoiceId={id} />;
+}
+
+/** The form this route drew until 2026-09-23 — reachable behind ?layout=classic. */
+export function ClassicEditInvoicePage() {
   const { t } = useTranslation();
   const money = useCompanyMoney();
   const { currency } = useCompanyPreferences();

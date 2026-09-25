@@ -74,7 +74,9 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
+import { loadEnforceableMember } from "@/lib/permissions/enforce";
 import { askJennifer } from "@/lib/ai/jennifer/client";
+import { askerFirstName } from "@/lib/ai/askerName";
 import { readerLanguage } from "@/lib/i18n/readerLanguage";
 import { escalationLabel } from "@/lib/ai/jennifer/escalate";
 import { isAiConfigured } from "@/lib/ai/provider";
@@ -284,10 +286,30 @@ async function handleCompanyPost(request, body, member) {
   const images = companyOwnImageUrls(body?.images, member.companyId);
   const priorMessages = toModelMessages(conversation.messages);
 
+  // WHO is asking, for the data tools — the same resolution
+  // app/api/ai/copilot/route.js does, for the same reason: the grid decides
+  // which of the company's numbers this person may be told. The two no-row
+  // cases (a platform admin viewing read-only, the demo sandbox) fall back to
+  // the coarse session shape. A member who HAS an id whose row won't load
+  // gets NO data tools — Jennifer still answers support questions, because
+  // that is what she is for, but a chat that can't identify the asker's
+  // access level must not read them the ledger.
+  let dataMember = null;
+  if (member.id) {
+    dataMember = await loadEnforceableMember(db, member.id);
+    if (!dataMember) {
+      console.error(`[jennifer] member ${member.id} has no loadable row — data tools withheld`);
+    }
+  } else {
+    dataMember = { role: member.role, permissions: null, userId: member.userId };
+  }
+
   const result = await askJennifer({
     mode: "company",
     companyId: member.companyId,
     member: { role: member.role },
+    dataMember,
+    firstName: await askerFirstName({ userId: member.userId }),
     messages: [...priorMessages, { role: "user", content: message }],
     images,
     // Support answers follow the person asking. Anonymous mode above passes

@@ -451,6 +451,29 @@ export const SCREENS = [
   { slug: "translate-banner-375", nav: "app.settings.company", href: "/app/settings/company", page: "app/app/settings/company/page.js", settings: true, scene: "company-save", width: 375, height: 1000, chapter: "translate", out: "docs/screens/translate-on-save" },
   { slug: "translate-client-quote-fr", href: "/q/qt_8f2c1a7d4e", page: "app/q/[token]/QuoteApproval.js", props: { token: "qt_8f2c1a7d4e" }, mode: "public", height: 3600, chapter: "translate", out: "docs/screens/translate-on-save" },
   { slug: "translate-banner-ready", nav: "app.settings.company", href: "/app/settings/company", page: "app/app/settings/company/page.js", settings: true, scene: "company-save-ready", height: 900, chapter: "translate", out: "docs/screens/translate-on-save" },
+  // ── One document look (2026-09-23) ──────────────────────────────────────
+  //
+  // The owner's ask: edit quote = new quote = edit instant estimate = new
+  // invoice = edit invoice, one document builder, with Cost & margin open
+  // while building and AI review + deep read on an invoice. "doc-builder"
+  // in every slug keeps the fixture company on the document layout;
+  // "onelook-invoice-edit" answers a saved cost panel; "onelook-invoice-
+  // review" answers a stored review and a paid deep read. Unnumbered under
+  // docs/screens/one-look/. The same rows shot against the pristine
+  // origin/main tree are the "before" frames (see the harness README).
+  { slug: "onelook-quote-new-doc-builder", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", height: 1500, chapter: "one-look", out: "docs/screens/one-look" },
+  { slug: "onelook-quote-edit-doc-builder", href: "/app/quotes/q_1045/edit", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, height: 1500, chapter: "one-look", out: "docs/screens/one-look" },
+  { slug: "onelook-quote-edit-instant-doc-builder", href: "/app/quotes/q_1046/edit", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1046" }, height: 1500, chapter: "one-look", out: "docs/screens/one-look" },
+  { slug: "onelook-invoice-new-doc-builder", href: "/app/invoices/new", page: "app/app/invoices/new/page.js", height: 1500, chapter: "one-look", out: "docs/screens/one-look" },
+  { slug: "onelook-invoice-new-job-doc-builder", href: "/app/invoices/new?jobId=j_318", page: "app/app/invoices/new/page.js", scene: "invoice-pick-client", height: 1500, chapter: "one-look", out: "docs/screens/one-look" },
+  { slug: "onelook-invoice-edit-doc-builder", href: "/app/invoices/inv_2069/edit", page: "app/app/invoices/[id]/edit/page.js", params: { id: "inv_2069" }, height: 1500, chapter: "one-look", out: "docs/screens/one-look" },
+  { slug: "onelook-invoice-new-classic", href: "/app/invoices/new?layout=classic", page: "app/app/invoices/new/page.js", height: 1500, chapter: "one-look", out: "docs/screens/one-look" },
+  { slug: "onelook-cost-popover-doc-builder", href: "/app/quotes/q_1045/edit", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "cost-popover", height: 1100, chapter: "one-look", out: "docs/screens/one-look" },
+  { slug: "onelook-profit-card-before-doc-builder", href: "/app/quotes/q_1045/edit", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "profit-card-open", height: 1100, chapter: "one-look", out: "docs/screens/one-look" },
+  { slug: "onelook-profit-card-after-doc-builder", href: "/app/quotes/q_1045/edit", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "profit-card-change", height: 1100, chapter: "one-look", out: "docs/screens/one-look" },
+  { slug: "onelook-invoice-review-edit-doc-builder", href: "/app/invoices/inv_2069/edit", page: "app/app/invoices/[id]/edit/page.js", params: { id: "inv_2069" }, scene: "scroll-invoice-review", height: 1300, chapter: "one-look", out: "docs/screens/one-look" },
+  { slug: "onelook-invoice-new-mobile-doc-builder", href: "/app/invoices/new", page: "app/app/invoices/new/page.js", width: 390, height: 1400, chapter: "one-look", out: "docs/screens/one-look" },
+  { slug: "onelook-quote-new-mobile-doc-builder", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", width: 390, height: 1400, chapter: "one-look", out: "docs/screens/one-look" },
   // ── Client portal: Client login switch + portal link (2026-09-24) ────────
   // Settings → Website with Fine-tune open on the "Client login on your
   // website" switch, and a client's page with Copy / Email portal link.

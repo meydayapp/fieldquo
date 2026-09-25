@@ -87,6 +87,7 @@ import { resolveBuilderLayout } from "@/lib/quotes/builderLayout";
 import { quoteRequestBody } from "@/lib/quotes/builderRequest";
 
 import { estimateQuoteCost } from "@/lib/costing/estimateJobCost";
+import { scopeGroupsLineItemCost } from "@/lib/costing/lineItemCost";
 import {
   MARGIN_TARGET_PCT,
   FALLBACK_OVERHEAD_PCT,
@@ -1523,6 +1524,11 @@ export function QuoteBuilderForm({
     purchasedMaterialCost,
     marginTargetPct: marginTarget,
     recipeOverridesByCategory: recipeOverrides,
+    // The lines' own cost — the unitCost typed in the line table's cost /
+    // markup popover, or copied from Product.costPrice. Off the groups' own
+    // lines, which is the same set the save routes sum (lib/costing/
+    // lineItemCost.js), so the margin on screen is the margin the row keeps.
+    lineItemCost: scopeGroupsLineItemCost(scopeGroups),
   });
 
   // ── Saving ───────────────────────────────────────────────────────────────
