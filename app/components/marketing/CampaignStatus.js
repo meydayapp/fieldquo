@@ -71,7 +71,7 @@ export function CampaignStatusActions({ campaign, onChanged, onError, size = "xs
               type="button"
               disabled={Boolean(busy)}
               onClick={() => apply(a)}
-              className="font-semibold text-foreground underline disabled:opacity-60"
+              className="min-h-[36px] font-semibold text-foreground underline disabled:opacity-60"
             >
               {t("app.marketing.action.archiveYes", "Yes, archive")}
             </button>
@@ -79,7 +79,7 @@ export function CampaignStatusActions({ campaign, onChanged, onError, size = "xs
               type="button"
               disabled={Boolean(busy)}
               onClick={() => setConfirmArchive(false)}
-              className="underline disabled:opacity-60"
+              className="min-h-[36px] underline disabled:opacity-60"
             >
               {t("app.action.cancel", "Cancel")}
             </button>
@@ -90,7 +90,7 @@ export function CampaignStatusActions({ campaign, onChanged, onError, size = "xs
             type="button"
             disabled={Boolean(busy)}
             onClick={() => (a.action === "archive" ? setConfirmArchive(true) : apply(a))}
-            className={`rounded-full border border-border font-semibold disabled:opacity-60 ${pad} ${
+            className={`inline-flex min-h-[36px] items-center rounded-full border border-border font-semibold disabled:opacity-60 ${pad} ${
               a.action === "archive" || a.action === "restore"
                 ? "text-muted-foreground hover:text-foreground"
                 : "text-foreground hover:bg-muted"

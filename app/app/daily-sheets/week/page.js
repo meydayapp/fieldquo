@@ -81,7 +81,7 @@ function WeekScreen() {
         <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 size={16} className="animate-spin" /> {t("app.state.loading")}</div>
       )}
       {data && (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="bg-card border border-border rounded-xl overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-[10px] uppercase tracking-wide text-muted-foreground">
