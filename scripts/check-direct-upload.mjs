@@ -15,6 +15,7 @@ import { createRequire } from "node:module";
 import {
   uploadScope, planUpload, effectiveCap, ourCap, cloudinarySignature, sameSignature,
   isOwnPublicId, readClaim, responseSignatureValid, judgeUploadedAsset, deliveryUrl,
+  decideVerify, judgeOnSignature, lookupFailureKind,
   MEMBER_PURPOSES, PHOTO_FORMATS, VIDEO_FORMATS, LOGO_FORMATS,
 } from "@/lib/media/directUpload";
 import { PHOTO_TYPES, VIDEO_TYPES, LOGO_EXTRA_TYPES, PHOTO_MAX_BYTES, DOCUMENT_MAX_BYTES } from "@/lib/media/validate";
@@ -183,7 +184,8 @@ ok("no signed photo format is a vector or a document", !PHOTO_FORMATS.some((f) =
 // ─────────────────────────────────────────────────────────────────────────────
 console.log("\n7. The browser helper, end to end, against the real rules");
 const fakeAdmin = new Map();
-function fakeServer(scope, { tamper } = {}) {
+function fakeServer(scope, { tamper, lookupError = null } = {}) {
+  const recorded = [];
   const calls = [];
   const fetchImpl = async (url, init = {}) => {
     calls.push(url);
@@ -210,18 +212,22 @@ function fakeServer(scope, { tamper } = {}) {
       return { status: 200, json: async () => answer };
     }
     if (url.endsWith("/verify")) {
-      const body = JSON.parse(init.body);
-      const read = readClaim(body);
-      if (!read.ok) return { status: 400, json: async () => ({ error: read.error }) };
-      if (!isOwnPublicId(read.claim.publicId, scope, read.claim.resourceType) || !responseSignatureValid(read.claim, SECRET)) return { status: 403, json: async () => ({ error: "That upload could not be confirmed. Upload the file again.", code: "not_ours" }) };
-      const rec = fakeAdmin.get(read.claim.publicId);
-      if (!rec || rec.resource_type !== read.claim.resourceType) return { status: 404, json: async () => ({ error: "That upload could not be confirmed. Upload the file again.", code: "not_found" }) };
-      const v = judgeUploadedAsset({ claim: read.claim, asset: rec, scope, cloudName: CLOUD, filename: body.filename });
-      return v.ok ? { status: 200, json: async () => v.entry } : { status: v.code === "too_large" ? 413 : 403, json: async () => ({ error: v.error, code: v.code }) };
+      // The real decision (decideVerify), with the Admin API played by the
+      // record the fake Cloudinary wrote — or by `lookupError` when set.
+      const out = await decideVerify({
+        scope, body: JSON.parse(init.body), secret: SECRET, cloudName: CLOUD, record: async (e) => recorded.push(e),
+        lookup: async (publicId, resourceType) => {
+          if (lookupError) throw lookupError;
+          const rec = fakeAdmin.get(publicId);
+          if (!rec || rec.resource_type !== resourceType) throw { error: { message: "Resource not found", http_code: 404 } };
+          return rec;
+        },
+      });
+      return { status: out.status, json: async () => out.body };
     }
     throw new Error("unexpected " + url);
   };
-  return { fetchImpl, calls };
+  return { fetchImpl, calls, recorded };
 }
 const blob = (size, type = "image/jpeg") => new File([new Uint8Array(size)], "IMG_0001.JPG", { type });
 
@@ -322,9 +328,96 @@ for (const r of ["app/api/portal/[token]/upload/sign/route.js", "app/api/portal/
 }
 ok("both public sign routes are rate-limited", /rateLimit\(request, "portal-upload"/.test(readFileSync("app/api/portal/[token]/upload/sign/route.js", "utf8")) && /rateLimit\(request, "self-quote-upload"/.test(readFileSync("app/api/self-quote/[companySlug]/upload/sign/route.js", "utf8")));
 const server = readFileSync("lib/media/directUploadServer.js", "utf8");
-ok("verify refuses by folder and signature BEFORE the Admin API call", server.indexOf("isOwnPublicId(") < server.indexOf("api.resource(") && server.indexOf("responseSignatureValid(") < server.indexOf("api.resource("));
-ok("verify fails closed when the Admin API can't be reached", /lookup_failed/.test(server) && /status: 503/.test(server));
-ok("nothing deletes a refused upload (no data deletion)", !/destroy|delete_resources|deleteAsset/.test(server));
+ok("the verify route runs decideVerify with the real lookup and the error log", /decideVerify\(\{/.test(server) && /lookup: lookupAsset/.test(server) && /record: recordUploadEvent/.test(server));
+ok("a signature-only acceptance is written to PlatformErrorLog as upload_signature_only", /code: "upload_signature_only"/.test(server) && /recordError\(/.test(server));
+ok("the lookup is raced against a timeout (the SDK's own never rejects)", /Promise\.race\(\[/.test(server) && /TimeoutError/.test(server));
+ok("nothing deletes a refused upload (no data deletion)", !/destroy|delete_resources|deleteAsset/.test(server + readFileSync("lib/media/directUpload.js", "utf8")));
+
+// ─────────────────────────────────────────────────────────────────────────────
+console.log("\n9. The Admin API is rate-limited or down — accept on the signature, and only then");
+ok("420 (Cloudinary's rate limit) → rate_limited", lookupFailureKind({ error: { message: "Rate Limit Exceeded", http_code: 420 } }) === "rate_limited");
+ok("429 → rate_limited", lookupFailureKind({ message: "Server returned unexpected status code - 429", http_code: 429 }) === "rate_limited");
+ok("'rate limit' in the message with no code → rate_limited", lookupFailureKind(new Error("Rate limit reached")) === "rate_limited");
+ok("502 / 503 → transient", lookupFailureKind({ error: { message: "Bad gateway", http_code: 502 } }) === "transient" && lookupFailureKind({ message: "x", http_code: 503 }) === "transient");
+ok("a timeout → transient", lookupFailureKind(Object.assign(new Error("Admin API lookup timed out"), { name: "TimeoutError" })) === "transient");
+ok("a dropped connection → transient", lookupFailureKind(Object.assign(new Error("read ECONNRESET"), { code: "ECONNRESET" })) === "transient");
+ok("404 / 401 / 400 are answers, not reasons to fall back", [404, 401, 400].every((c) => lookupFailureKind({ error: { message: "x", http_code: c } }) === null));
+ok("junk → null, no throw", lookupFailureKind(undefined) === null && lookupFailureKind("x") === null);
+
+const rateLimited = { error: { message: "Rate Limit Exceeded", http_code: 420 } };
+const verify = async (body, { lookupErr = null, asset = null, scope = jobs } = {}) => {
+  const events = [];
+  let looked = 0;
+  const out = await decideVerify({
+    scope, body, secret: SECRET, cloudName: CLOUD, record: async (e) => events.push(e),
+    lookup: async () => { looked++; if (lookupErr) throw lookupErr; return asset; },
+  });
+  return { ...out, events, looked };
+};
+const genuine = { ...claim, filename: "IMG_4471.HEIC", format: "heic" };
+
+const rl = await verify(genuine, { lookupErr: rateLimited });
+ok("rate-limited + a genuine signature → accepted (200)", rl.status === 200 && rl.body.verifiedBy === "signature", rl);
+ok("…the URL is BUILT from our cloud and the signed id+version, HEIC delivered as .jpg", rl.body.url === `https://res.cloudinary.com/${CLOUD}/image/upload/v${claim.version}/${claim.publicId}.jpg`, rl.body.url);
+ok("…bytes are null — nothing trustworthy said what they are", rl.body.bytes === null);
+ok("…and it is recorded, once, with the reason and the company", rl.events.length === 1 && rl.events[0].type === "accepted_on_signature" && rl.events[0].reason === "rate_limited" && rl.events[0].companyId === CO, rl.events);
+const tr = await verify(genuine, { lookupErr: Object.assign(new Error("timed out"), { name: "TimeoutError" }) });
+ok("a timed-out lookup + a genuine signature → accepted, recorded as transient", tr.status === 200 && tr.events[0]?.reason === "transient");
+const f5 = await verify(genuine, { lookupErr: { error: { message: "Internal", http_code: 500 } } });
+ok("a 500 from the lookup → accepted on signature too", f5.status === 200 && f5.body.verifiedBy === "signature");
+
+const forgedSig = await verify({ ...genuine, signature: "b".repeat(40) }, { lookupErr: rateLimited });
+ok("rate-limited + a FORGED signature → refused (403), and the lookup was never even called", forgedSig.status === 403 && forgedSig.body.code === "bad_signature" && forgedSig.looked === 0 && forgedSig.events.length === 0, forgedSig);
+const otherId = `fieldquo/companies/${OTHER}/jobs/${UUID}`;
+const foreign = await verify({ ...genuine, publicId: otherId, signature: cloudinarySignature({ public_id: otherId, version: claim.version }, SECRET, { version: 1 }) }, { lookupErr: rateLimited });
+ok("rate-limited + ANOTHER company's id with its own genuine signature → refused (403 not_ours)", foreign.status === 403 && foreign.body.code === "not_ours" && foreign.looked === 0, foreign);
+const otherPurpose = `fieldquo/companies/${CO}/portal/${UUID}`;
+const wrongFolder = await verify({ ...genuine, publicId: otherPurpose, signature: cloudinarySignature({ public_id: otherPurpose, version: claim.version }, SECRET, { version: 1 }) }, { lookupErr: rateLimited });
+ok("rate-limited + a genuine id in the portal folder, claimed by staff → refused", wrongFolder.status === 403 && wrongFolder.body.code === "not_ours");
+const noSecret = await decideVerify({ scope: jobs, body: genuine, secret: "", cloudName: CLOUD, lookup: async () => { throw rateLimited; } });
+ok("no secret configured → nothing verifies, rate-limited or not", noSecret.status === 403);
+
+const fourOhFour = await verify(genuine, { lookupErr: { error: { message: "Resource not found", http_code: 404 } } });
+ok("a 404 lookup is NOT a fallback → refused", fourOhFour.status === 404 && fourOhFour.events.length === 0);
+const badCreds = await verify(genuine, { lookupErr: { error: { message: "Invalid credentials", http_code: 401 } } });
+ok("a 401 lookup is NOT a fallback → fails closed (503), nothing accepted", badCreds.status === 503 && badCreds.body.code === "lookup_failed" && !badCreds.events.some((e) => e.type === "accepted_on_signature"));
+const normal = await verify(genuine, { asset: asset({ format: "heic", secure_url: `https://res.cloudinary.com/${CLOUD}/image/upload/v${claim.version}/${claim.publicId}.heic` }) });
+ok("when the lookup works, the Admin API decides (bytes present) and nothing is recorded", normal.status === 200 && normal.body.verifiedBy === "admin_api" && normal.body.bytes === 6 * MB && normal.events.length === 0, normal);
+const tooBig = await verify(genuine, { asset: asset({ bytes: 16 * MB }) });
+ok("…and still refuses an oversized file it can see", tooBig.status === 413);
+
+console.log("\n   judgeOnSignature on its own");
+const jos = (over = {}) => judgeOnSignature({ claim, scope: jobs, cloudName: CLOUD, secret: SECRET, filename: "a.jpg", format: "png", ...over });
+ok("a relayed format outside the allowed list adds no extension", jos({ format: "html" }).entry.url.endsWith(`/${claim.publicId}`));
+ok("a relayed svg on a public scope adds no .svg", (() => {
+  const id = `fieldquo/companies/${CO}/portal/${UUID}`;
+  const c = { ...claim, publicId: id, signature: cloudinarySignature({ public_id: id, version: claim.version }, SECRET, { version: 1 }) };
+  const r = judgeOnSignature({ claim: c, scope: uploadScope("portal", { companyId: CO }), cloudName: CLOUD, secret: SECRET, format: "svg" });
+  return r.ok && !r.entry.url.endsWith(".svg");
+})());
+ok("a document keeps its minted extension and no other", (() => {
+  const c = { ...docClaim, signature: cloudinarySignature({ public_id: docId, version: docClaim.version }, SECRET, { version: 1 }) };
+  const r = judgeOnSignature({ claim: c, scope: docScope, cloudName: CLOUD, secret: SECRET, format: "exe" });
+  return r.ok && r.entry.url === `https://res.cloudinary.com/${CLOUD}/raw/upload/v${docClaim.version}/${docId}` && r.entry.kind === "document";
+})());
+ok("no cloud name → refused", !jos({ cloudName: "" }).ok);
+
+console.log("\n   End to end through the helper, lookup rate-limited");
+{
+  const { fetchImpl, recorded } = fakeServer(jobs, { lookupError: rateLimited });
+  const entry = await uploadFile(blob(2 * MB), { purpose: "jobs", fetchImpl });
+  ok("a genuine upload goes through while the Admin API is rate-limited", entry.url.includes(`/fieldquo/companies/${CO}/jobs/`) && entry.bytes === null && recorded.some((e) => e.type === "accepted_on_signature"), { entry, recorded });
+}
+{
+  const { fetchImpl, recorded } = fakeServer(jobs, { lookupError: rateLimited, tamper: (a) => ({ ...a, public_id: `fieldquo/companies/${OTHER}/jobs/${UUID}` }) });
+  const err = await uploadFile(blob(MB), { purpose: "jobs", fetchImpl }).catch((e) => e);
+  ok("a relayed foreign id is refused even while the Admin API is rate-limited", err?.code === "unconfirmed" && err?.status === 403 && recorded.length === 0, { code: err?.code, recorded });
+}
+{
+  const { fetchImpl } = fakeServer(jobs, { lookupError: rateLimited, tamper: (a) => ({ ...a, version: a.version + 1 }) });
+  const err = await uploadFile(blob(MB), { purpose: "jobs", fetchImpl }).catch((e) => e);
+  ok("a doctored version is refused even while the Admin API is rate-limited", err?.code === "unconfirmed");
+}
 ok("the progress UI is mounted in the /app shell", /<UploadProgress \/>/.test(readFileSync("app/app/layout.js", "utf8")));
 
 console.log(`\n${fail === 0 ? "ALL PASS" : "FAILURES"} — ${pass} passed, ${fail} failed\n`);

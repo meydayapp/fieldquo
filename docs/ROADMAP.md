@@ -84,9 +84,25 @@ is not a browser upload (inbound MMS, server-side `uploadBuffer`) and is unchang
   (`api.resource`) — Cloudinary answering us about our cloud — must agree on public_id,
   resource type, delivery type `upload`, version, format (photo/video lists; SVG only in
   staff scopes) and **bytes ≤ our cap**; the URL stored is the Admin API's, checked with
-  `isOurCloudinaryUrl`. An Admin API failure fails CLOSED (503, "couldn't be confirmed
-  just now"). A file refused at verify is never saved in FieldQuo and is **left in
-  Cloudinary, not deleted** (logged with its public_id).
+  `isOurCloudinaryUrl`. A file refused at verify is never saved in FieldQuo and is
+  **left in Cloudinary, not deleted** (logged with its public_id).
+- **When the Admin API is rate-limited or down, verify is not a single point of
+  failure.** A lookup refused with 420/429 (or a "rate limit" message) or lost to a
+  5xx, a timeout (raced at 8 s — the SDK's own timeout never rejects) or a dropped
+  connection falls back to `judgeOnSignature`: Cloudinary's response signature over
+  public_id+version checked with our secret, plus a public_id of exactly the shape this
+  scope minted — then ACCEPTS, with a URL built from our cloud name and the signed
+  id+version (never the browser's). A forged signature, a foreign company's or
+  purpose's id, or no secret is still refused, and the lookup is never even called for
+  them. A 404 is still "not found" and a 401/400 still fails closed. **What the fallback
+  gives up:** the byte count and format are not re-read — the format is still bounded by
+  the signed `allowed_formats` (Cloudinary-enforced) and the minted document extension,
+  and the size only by the size declared at sign and the plan's own per-file ceiling
+  (on Free ≤ every cap of ours; on a bigger plan it could hold a file up to that plan's
+  ceiling). Every fallback acceptance is a `PlatformErrorLog` row (area `upload`, code
+  `upload_signature_only`, with the company) on /platform/errors, and Cloudinary's
+  rate-limit headers write one `admin_api_near_cap` row an hour per instance when under
+  10% of the hour's calls are left.
 - The receipts PDF rule holds: the server still only fetches `res.cloudinary.com/<our
   cloud>/` (`lib/receipts/pdf.js`). Its size cap was "Vercel's 4.5 MB"; it is now a
   deliberate 10 MB (memory + base64 bound, the Free plan's raw ceiling), with the same
@@ -103,7 +119,7 @@ browser reports no type (Chrome/Windows) is declared `image/heic` by the helper;
 Cloudinary's allowed_formats checks the content. EXIF orientation: unchanged — no
 incoming transformation on either path, exactly as before.
 
-**Checks.** `check:direct-upload` (new, 124): scopes, the signed params, signature maths
+**Checks.** `check:direct-upload` (new, 154): scopes, the signed params, signature maths
 cross-checked against the Cloudinary SDK, forged public_id / other company / other
 purpose / other cloud / look-alike host / wrong resource or delivery type / stale version
 / oversized / wrong format / SVG in a public scope, HEIC delivery, format lists in step
@@ -125,7 +141,8 @@ mid-deploy).
 
 - **The Cloudinary plan is the binding limit** — Free: 10 MB photos and PDFs, and 500
   Admin API calls/hour across the account, which verify now spends one of per upload.
-  Plus lifts images to 20 MB and the Admin API to 2,000/hour. A cost decision for the
+  Plus lifts images to 20 MB and the Admin API to 2,000/hour. Past the hourly calls, uploads
+  are accepted on their signature alone (see above) — watch `upload_signature_only`. A cost decision for the
   owner; nothing in the code changes when the plan does.
 - Three other multipart routes still go through Vercel's 4.5 MB body and were out of this
   ask: the migration-service document upload (`/api/migrations/[id]/documents`, 25 MB
