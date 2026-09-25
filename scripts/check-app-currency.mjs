@@ -379,7 +379,8 @@ console.log("\nNo catalogue entry decides the currency of a number for the calle
 // hardcoded dollar.
 console.log("\nCredit surfaces stay in the credit currency, not the company's");
 const CREDIT_SURFACES = [
-  "app/app/receptionist/page.js",
+  // The per-call cost is drawn by the row, not the page around it.
+  "app/app/receptionist/CallRow.js",
   "app/app/settings/account-billing/CancelFlow.js",
   "app/components/designer/hooks/useAiImageStatus.js",
   "app/components/quotes/SuggestAddOns.js",

@@ -2,11 +2,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { JOB_STATUS_LABEL_KEYS, jobStatusClasses } from "@/lib/jobs/statusLabels";
+import { JOB_STATUS_LABEL_KEYS } from "@/lib/jobs/statusLabels";
 import Link from "next/link";
-import { Briefcase, Plus, Search, ArrowRight, Upload } from "lucide-react";
+import { Briefcase, Plus, Search, Upload } from "lucide-react";
 import { fetchArray } from "@/lib/loadState";
 import ListState from "@/app/components/ListState";
+import JobListRow from "./JobListRow";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useHasLevel, useSeesOnlyAssignedJobs } from "@/app/providers/PermissionProvider";
@@ -226,46 +227,7 @@ export default function JobsPage() {
       >
         <div className="bg-card border border-border rounded-xl divide-y divide-border">
           {filtered.map((job) => (
-            <Link
-              key={job.id}
-              href={`/app/jobs/${job.id}`}
-              className="flex items-center justify-between px-5 py-4 hover:bg-muted"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
-                  <Briefcase size={18} className="text-muted-foreground" />
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-foreground truncate">
-                      {job.title}
-                    </span>
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${jobStatusClasses(job.status)}`}
-                    >
-                      {statusLabel(job.status)}
-                    </span>
-                    {job.recurring && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 shrink-0">
-                        {t("app.jobs.recurring")}
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-sm text-muted-foreground truncate">
-                    {job.client?.name || "Unknown client"}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 shrink-0">
-                {job.visits?.length > 0 && (
-                  <span className="text-xs text-muted-foreground">
-                    {job.visits.length} visit
-                    {job.visits.length !== 1 ? "s" : ""}
-                  </span>
-                )}
-                <ArrowRight size={16} className="text-muted-foreground" />
-              </div>
-            </Link>
+            <JobListRow key={job.id} job={job} statusLabel={statusLabel} />
           ))}
         </div>
       </ListState>
