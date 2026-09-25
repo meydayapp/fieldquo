@@ -452,7 +452,10 @@ console.log("\nThe wiring: written AND read");
   ok("both steps can be skipped, and skipping stores nothing", /data-skip-step="team"/.test(page) && /setTeamSizeBand\(null\);\s*setYearsBand\(null\);/.test(page) && /data-skip-step="goals"/.test(page) && /setSignupGoal\(null\);\s*setSignupSource\(""\);/.test(page));
   ok("the page posts the four answers, null when skipped", /teamSizeBand: teamSizeBand \|\| null,\s*yearsInBusinessBand: yearsBand \|\| null,\s*signupGoal: signupGoal \|\| null,\s*signupSource: signupSource\.trim\(\) \|\| null,/.test(page));
   ok("the draft keeps them for a refresh", /teamSizeBand,\s*yearsBand,\s*signupGoal,\s*signupSource,\s*step,/.test(page) && /typeof draft\?\.teamSizeBand === "string"/.test(page));
-  ok("the funnel map names the two steps (as null — the platform funnel has no column for them)", /team: null, goals: null/.test(page));
+  // Since 2026-09-25 the platform funnel has a bar for each (Team shown =
+  // account submitted, Goals shown = Team done — lib/analytics/product/
+  // events.js SIGNUP_STEP_BAR), so the page sends both.
+  ok("the funnel map sends the two steps", /\{ team: "team", goals: "goals", industry: "trades", services: "services" \}/.test(page));
   ok("the aside and the strip are handed the live preview", /<AuthAside variant="signup" preview=\{asidePreview\} \/>/.test(page) && /<SignupAsideStrip preview=\{asidePreview\} \/>/.test(page));
   ok("the route cleans each answer against its closed list", /cleanTeamSizeBand\(teamSizeBand\)/.test(route) && /cleanYearsBand\(yearsInBusinessBand\)/.test(route) && /cleanSignupGoal\(signupGoal\)/.test(route) && /cleanSignupSource\(signupSource\)/.test(route));
   ok("the route writes the four columns", /teamSizeBand: teamBand,\s*yearsInBusinessBand: yearsBand,\s*signupGoal: goal,\s*signupSource: source,/.test(route));
