@@ -24,14 +24,41 @@
 // hero opens on, of a screen that exists. A stock photo standing in for a
 // feature is a claim; the note in app/components/marketing/Hero.js makes the
 // same argument about the tabs that deliberately have no picture.
+//
+// ══ The reactive signup panel (2026-09-24) ═════════════════════════════════
+//
+// With a `preview` prop the signup variant stops being a static panel and
+// becomes the side screen the owner pointed at in Housecall Pro's and
+// Jobber's signups: a headline per step ("Feature | one-line benefit"), a
+// live picture drawn from what has been typed (SignupPreviews.js), and two
+// or three benefit lines. The account step shows the client's email with
+// their company name in the From line; an address adds the booking page
+// with the tax line their province carries; the team step's chips change
+// the calendar's shape; the trades step shows a sample quote whose two lines
+// are the trade's own services; the services step shows the price book.
+//
+// Without `preview` — /login, and check:auth-pages' bare render — the panel
+// is exactly what it was. Nothing static was replaced; the three rules above
+// still hold for every sentence in the reactive panel, and the trial line
+// and the counted trades line are drawn under it too.
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Check } from "lucide-react";
+import { Check, ChevronDown, ChevronUp } from "lucide-react";
 import { INDUSTRIES } from "@/app/data/industries";
 import { trialLabel } from "@/lib/pricing";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import {
+  BookingPreview,
+  CalendarPreview,
+  EmailPreview,
+  GoalPreview,
+  PriceBookPreview,
+  QuoteSamplePreview,
+} from "@/app/components/auth/SignupPreviews";
+import { taxPreviewFor } from "@/lib/signup/signupPreview";
 
 // Keys and English fallbacks, not finished sentences, so the copy can be
 // translated later without this file changing shape — the same arrangement
@@ -81,9 +108,196 @@ const PANELS = {
   },
 };
 
-export default function AuthAside({ variant = "login" }) {
+/**
+ * What the reactive panel says and shows on each step. Keys and English
+ * fallbacks like PANELS above; the picture is a SignupPreviews component fed
+ * the form. Pure apart from t(), so the check renders every branch.
+ *
+ * @param preview  { step, form, language, teamSizeBand, signupGoal,
+ *                   sampleServices, fallbackLines, groupLabel, currency,
+ *                   serviceLabels }
+ */
+export function signupPanelFor(preview, t) {
+  const { step, form, language = "en" } = preview || {};
+  const point = (key, fallback) => ({ key, fallback });
+  switch (step) {
+    case "team":
+      return {
+        feature: t("app.signup.aside.team.headline", "Multi-view scheduling"),
+        benefit: t("app.signup.aside.team.benefit", "A calendar that fits a crew of one or twenty — day, week or dispatch board."),
+        points: [
+          point("app.signup.aside.team.point1", "Every visit, shift and job on one calendar, per person."),
+          point("app.signup.aside.team.point2", "Hours clock in from the field and land on the pay run."),
+          point("app.signup.aside.team.point3", "Breaks, time off and who is on site, at a glance."),
+        ],
+        picture: <CalendarPreview form={form} band={preview.teamSizeBand || null} />,
+      };
+    case "goals": {
+      const goal = preview.signupGoal || null;
+      const copy = {
+        look_professional: [
+          "Quotes clients say yes to",
+          "A branded, itemised quote with photos and a clear next step.",
+          point("app.signup.aside.goals.look.point1", "Your logo, your colour, your story and your reviews beside the price."),
+          point("app.signup.aside.goals.look.point2", "Approve, sign and pay from the same link."),
+        ],
+        feel_in_control: [
+          "Know where the money is",
+          "Quotes out, jobs booked, invoices paid — one screen, every morning.",
+          point("app.signup.aside.goals.control.point1", "Job costing against the quote, so you know what each one made."),
+          point("app.signup.aside.goals.control.point2", "Overdue invoices chased for you, with a record of every nudge."),
+        ],
+        win_more_jobs: [
+          "Never miss a lead",
+          "Every call, text and web enquiry lands in one inbox and gets an answer.",
+          point("app.signup.aside.goals.win.point1", "A booking link and an instant estimate on your website."),
+          point("app.signup.aside.goals.win.point2", "Follow-ups on quotes that have gone quiet, in your name."),
+        ],
+      }[goal] || [
+        "Lead to paid, in one place",
+        "Win the job, do the job, get paid — without leaving the app.",
+        point("app.signup.aside.goals.default.point1", "Quote, schedule, invoice and take payment under your own name."),
+        point("app.signup.aside.goals.default.point2", "Start with what you need today; the rest is there when you do."),
+      ];
+      const headlineKey = { look_professional: "look", feel_in_control: "control", win_more_jobs: "win" }[goal] || "default";
+      return {
+        feature: t(`app.signup.aside.goals.${headlineKey}.headline`, copy[0]),
+        benefit: t(`app.signup.aside.goals.${headlineKey}.benefit`, copy[1]),
+        points: [copy[2], copy[3]],
+        picture: <GoalPreview goal={goal} quoteProps={quotePropsOf(preview)} />,
+      };
+    }
+    case "industry":
+      return {
+        feature: t("app.signup.aside.industry.headline", "Industry-specific quotes"),
+        benefit: t("app.signup.aside.industry.benefit", "Start from your trade's own services, then send a quote that reads like a proposal, not a receipt."),
+        points: [
+          point("app.signup.aside.industry.point1", "Line items with plain-language scope, so nothing is argued about later."),
+          point("app.signup.aside.industry.point2", "Photos, your story and your reviews beside the price."),
+          point("app.signup.aside.industry.point3", "The same quote comes off your website as an instant estimate."),
+        ],
+        picture: <QuoteSamplePreview {...quotePropsOf(preview)} />,
+      };
+    case "services":
+      return {
+        feature: t("app.signup.aside.services.headline", "Your price book"),
+        benefit: t("app.signup.aside.services.benefit", "Templates for the work you do, priced once and reused on every quote."),
+        points: [
+          point("app.signup.aside.services.point1", "Each service becomes a template with its own line items."),
+          point("app.signup.aside.services.point2", "You see cost and margin while you quote, not after."),
+          point("app.signup.aside.services.point3", "Add-ons your client can tick on the quote page."),
+        ],
+        picture: <PriceBookPreview labels={preview.serviceLabels || []} />,
+      };
+    default: {
+      // account / business: the email, and the booking page once the
+      // address resolves to somewhere the tax table knows.
+      const tax = taxPreviewFor({ country: form?.country, province: form?.province }, language);
+      return {
+        feature: t("app.signup.aside.account.headline", "Your name on everything"),
+        benefit: t("app.signup.aside.account.benefit", "Every quote, invoice and email looks like it came from you, not from us."),
+        points: [
+          point("app.signup.aside.account.point1", "Your logo, your brand colour and your name in the From line."),
+          point("app.signup.aside.account.point2", "One link to view, approve and pay — on a phone, in a driveway."),
+          point("app.signup.aside.account.point3", "Online booking into the same calendar, with the right tax for where you are."),
+        ],
+        picture: (
+          <div className="space-y-3">
+            <EmailPreview form={form} language={language} />
+            {tax ? <BookingPreview form={form} language={language} /> : null}
+          </div>
+        ),
+      };
+    }
+  }
+}
+
+function quotePropsOf(preview) {
+  return {
+    form: preview?.form,
+    language: preview?.language || "en",
+    services: preview?.sampleServices || [],
+    fallbackLines: preview?.fallbackLines || [],
+    groupLabel: preview?.groupLabel || "",
+    currency: preview?.currency || "",
+  };
+}
+
+/** The reactive signup panel — see the header. */
+function ReactiveSignupAside({ preview }) {
+  const { t } = useTranslation();
+  const panel = signupPanelFor(preview, t);
+  return (
+    <div data-signup-aside={preview.step}>
+      <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+        <div className="border-b border-border bg-muted/40 p-4 sm:p-5">{panel.picture}</div>
+        <div className="p-6 sm:p-8">
+          <p className="text-xs font-semibold uppercase tracking-wider text-brand-accent-text">{panel.feature}</p>
+          <h2 className="mt-1 text-lg font-semibold text-foreground">{panel.benefit}</h2>
+          <ul className="mt-4 space-y-3">
+            {panel.points.map((point) => (
+              <li key={point.key} className="flex gap-3">
+                <Check size={18} className="mt-0.5 shrink-0 text-primary" aria-hidden="true" />
+                <span className="text-sm text-foreground leading-relaxed">{t(point.key, point.fallback)}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-6 border-t border-border pt-4 text-xs text-muted-foreground leading-relaxed">
+            {t(
+              "auth.aside.signup.billing",
+              "{trial}. No card and no plan today \u2014 you pick a plan from inside the app before the free month is up, and nothing is charged until you do.",
+              { trial: trialLabel() },
+            )}
+          </p>
+        </div>
+      </div>
+      <p className="mt-4 text-xs text-muted-foreground">
+        {t("auth.aside.trades", "Built for {count} trades, from painting to roofing.", {
+          count: INDUSTRIES.length,
+        })}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * The phone's version: a strip above the form — the feature and its benefit
+ * in one line, and a button that opens the full panel in place. Never hidden
+ * and never a sideways scroll; never in the way of the email field either,
+ * which is the reason AuthShell puts the full panel AFTER the form on a
+ * phone and this strip is a single line until it is asked to grow.
+ */
+export function SignupAsideStrip({ preview }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const panel = signupPanelFor(preview, t);
+  return (
+    <div className="rounded-xl border border-border bg-card shadow-sm" data-signup-aside-strip={preview.step}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-3 px-4 py-3 text-left"
+      >
+        <span className="min-w-0 flex-1">
+          <span className="block text-[11px] font-semibold uppercase tracking-wider text-brand-accent-text">{panel.feature}</span>
+          <span className="block truncate text-sm text-foreground">{panel.benefit}</span>
+        </span>
+        <span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-foreground">
+          {open ? t("app.signup.aside.strip.hide", "Hide preview") : t("app.signup.aside.strip.show", "Show preview")}
+          {open ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
+        </span>
+      </button>
+      {open ? <div className="border-t border-border p-3">{panel.picture}</div> : null}
+    </div>
+  );
+}
+
+export default function AuthAside({ variant = "login", preview = null }) {
   const { t } = useTranslation();
   const panel = PANELS[variant] || PANELS.login;
+
+  if (variant === "signup" && preview) return <ReactiveSignupAside preview={preview} />;
 
   return (
     <div>

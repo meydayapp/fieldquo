@@ -67,6 +67,51 @@ export const TRIAL_FRAMES = [
   out: "docs/screens/no-card-signup",
 }));
 
+// ── The reactive signup panel (2026-09-24) — docs/screens/signup-aside ────
+// The real /signup parked on each step (SignupAsideFrame.jsx seeds the draft
+// and answers the signup routes): the account step empty and typed, the
+// team step at all five bands, the goals step per goal, the trades step for
+// four trades, the services step — at 1280 and at 390 (the strip above the
+// form, closed and opened by the scene).
+const SA = (slug, props, width = 1280, extra = {}) => ({
+  slug,
+  href: "/signup",
+  page: "docs/screens/app-guide/harness/SignupAsideFrame.jsx",
+  props,
+  mode: "public",
+  width,
+  height: width < 768 ? 1500 : 1500,
+  chapter: "signup-aside",
+  out: "docs/screens/signup-aside",
+  ...extra,
+});
+export const SIGNUP_ASIDE_FRAMES = [
+  SA("account-empty", { step: "account", typed: false }),
+  SA("account-typed", { step: "account" }),
+  SA("account-typed-phone", { step: "account" }, 390),
+  SA("account-typed-phone-open", { step: "account" }, 390, { scene: "signup-strip-open" }),
+  SA("team-1", { step: "team", band: "1" }),
+  SA("team-2-5", { step: "team", band: "2-5" }),
+  SA("team-6-10", { step: "team", band: "6-10" }),
+  SA("team-11-15", { step: "team", band: "11-15" }),
+  SA("team-16-plus", { step: "team", band: "16+" }),
+  SA("team-6-10-phone", { step: "team", band: "6-10" }, 390),
+  SA("team-6-10-phone-open", { step: "team", band: "6-10" }, 390, { scene: "signup-strip-open" }),
+  SA("goals-none", { step: "goals" }),
+  SA("goals-look-professional", { step: "goals", goal: "look_professional" }),
+  SA("goals-feel-in-control", { step: "goals", goal: "feel_in_control" }),
+  SA("goals-win-more-jobs", { step: "goals", goal: "win_more_jobs" }),
+  SA("goals-phone", { step: "goals", goal: "win_more_jobs" }, 390),
+  SA("trades-painting", { step: "industry", trade: "painting" }, 1280, { height: 1900 }),
+  SA("trades-electrical", { step: "industry", trade: "electrical" }, 1280, { height: 1900 }),
+  SA("trades-roofing", { step: "industry", trade: "roofing" }, 1280, { height: 1900 }),
+  SA("trades-landscaping", { step: "industry", trade: "landscaping" }, 1280, { height: 1900 }),
+  SA("trades-painting-phone", { step: "industry", trade: "painting" }, 390),
+  SA("trades-painting-phone-open", { step: "industry", trade: "painting" }, 390, { scene: "signup-strip-open", height: 2600 }),
+  SA("services-painting", { step: "services", trade: "painting" }),
+  SA("services-painting-phone", { step: "services", trade: "painting" }, 390),
+];
+
 export const SCREENS = [
   // ── The main rail: Home, then the seventeen (2026-09-21 shell) ─────────
   { slug: "home", nav: "app.nav.home", href: "/app", page: "app/app/page.js" },
@@ -301,6 +346,7 @@ export const SCREENS = [
   { slug: "mobile-supplies", href: "/app/me/supplies", page: "app/app/me/supplies/page.js", member: "crew", width: 375, height: 1400, chapter: "help" },
   ...INTRO_FRAMES,
   ...TRIAL_FRAMES,
+  ...SIGNUP_ASIDE_FRAMES,
 
   // ── Typed per-trade checklists (docs/screens/checklists/) ──────────────
   //
@@ -508,4 +554,30 @@ export const SCREENS = [
   { slug: "client-tickets-queue", nav: "app.nav.clientTickets", href: "/app/tickets", page: "app/app/tickets/page.js", height: 800, chapter: "client-portal", out: "docs/screens/client-portal" },
   { slug: "client-tickets-detail", href: "/app/tickets", page: "app/app/tickets/[id]/page.js", params: { id: "tk_hinge" }, height: 1300, chapter: "client-portal", out: "docs/screens/client-portal" },
   { slug: "client-tickets-detail-375", href: "/app/tickets", page: "app/app/tickets/[id]/page.js", params: { id: "tk_hinge" }, width: 375, height: 1700, chapter: "client-portal", out: "docs/screens/client-portal" },
+
+  // ── docs/screens/form-look — the public form's fields and look (2026-09-24) ──
+  //
+  // The instant estimate in TrueFinish's shape (fixtures/routes-help.js
+  // answers the gold brand and its three trades for these slugs): before, with
+  // photos optional, and in three presets, at 390 and 1280; the request-a-
+  // quote form in the third preset; and the settings screen with the per-
+  // trade "Form fields" rows and the "How the form looks" card. The look is
+  // the prop the page.js hands the flow (lib/estimate/publicFormLook.js);
+  // the preview iframe on the settings card points at /form-preview, a Next
+  // page the harness cannot serve, so that box is blank in these frames.
+  { slug: "form-look-tf-before-390", href: "/instant-quote/truefinish", page: "app/instant-quote/[companySlug]/InstantQuoteFlow.js", props: { companySlug: "erable-design", look: null }, mode: "public", scene: "instant-pick", width: 390, height: 2300, out: "docs/screens/form-look", chapter: "form-look" },
+  { slug: "form-look-tf-before-1280", href: "/instant-quote/truefinish", page: "app/instant-quote/[companySlug]/InstantQuoteFlow.js", props: { companySlug: "erable-design", look: null }, mode: "public", scene: "instant-pick", width: 1280, height: 1500, out: "docs/screens/form-look", chapter: "form-look" },
+  { slug: "form-look-tf-photos-optional-390", href: "/instant-quote/truefinish", page: "app/instant-quote/[companySlug]/InstantQuoteFlow.js", props: { companySlug: "erable-design", look: null }, mode: "public", scene: "instant-pick", width: 390, height: 2300, out: "docs/screens/form-look", chapter: "form-look" },
+  { slug: "form-look-tf-photos-optional-1280", href: "/instant-quote/truefinish", page: "app/instant-quote/[companySlug]/InstantQuoteFlow.js", props: { companySlug: "erable-design", look: null }, mode: "public", scene: "instant-pick", width: 1280, height: 1500, out: "docs/screens/form-look", chapter: "form-look" },
+  { slug: "form-look-tf-a-warm-390", href: "/instant-quote/truefinish", page: "app/instant-quote/[companySlug]/InstantQuoteFlow.js", props: { companySlug: "erable-design", look: { brandColor: "#bd9d60", appearance: { fontPreset: "humanist", fieldStyle: "outlined", radius: "small", buttonStyle: "solid", surface: "brand-wash", density: "comfortable" } } }, mode: "public", scene: "instant-pick", width: 390, height: 2300, out: "docs/screens/form-look", chapter: "form-look" },
+  { slug: "form-look-tf-a-warm-1280", href: "/instant-quote/truefinish", page: "app/instant-quote/[companySlug]/InstantQuoteFlow.js", props: { companySlug: "erable-design", look: { brandColor: "#bd9d60", appearance: { fontPreset: "humanist", fieldStyle: "outlined", radius: "small", buttonStyle: "solid", surface: "brand-wash", density: "comfortable" } } }, mode: "public", scene: "instant-pick", width: 1280, height: 1500, out: "docs/screens/form-look", chapter: "form-look" },
+  { slug: "form-look-tf-b-square-390", href: "/instant-quote/truefinish", page: "app/instant-quote/[companySlug]/InstantQuoteFlow.js", props: { companySlug: "erable-design", look: { brandColor: "#bd9d60", appearance: { fontPreset: "display_serif", fieldStyle: "filled", radius: "none", buttonStyle: "outline", surface: "light", density: "compact" } } }, mode: "public", scene: "instant-pick", width: 390, height: 2300, out: "docs/screens/form-look", chapter: "form-look" },
+  { slug: "form-look-tf-b-square-1280", href: "/instant-quote/truefinish", page: "app/instant-quote/[companySlug]/InstantQuoteFlow.js", props: { companySlug: "erable-design", look: { brandColor: "#bd9d60", appearance: { fontPreset: "display_serif", fieldStyle: "filled", radius: "none", buttonStyle: "outline", surface: "light", density: "compact" } } }, mode: "public", scene: "instant-pick", width: 1280, height: 1500, out: "docs/screens/form-look", chapter: "form-look" },
+  { slug: "form-look-tf-c-dark-390", href: "/instant-quote/truefinish", page: "app/instant-quote/[companySlug]/InstantQuoteFlow.js", props: { companySlug: "erable-design", look: { brandColor: "#bd9d60", appearance: { fontPreset: "geometric", fieldStyle: "pill", radius: "full", buttonStyle: "pill", surface: "dark", density: "comfortable" } } }, mode: "public", scene: "instant-pick", width: 390, height: 2300, out: "docs/screens/form-look", chapter: "form-look" },
+  { slug: "form-look-tf-c-dark-1280", href: "/instant-quote/truefinish", page: "app/instant-quote/[companySlug]/InstantQuoteFlow.js", props: { companySlug: "erable-design", look: { brandColor: "#bd9d60", appearance: { fontPreset: "geometric", fieldStyle: "pill", radius: "full", buttonStyle: "pill", surface: "dark", density: "comfortable" } } }, mode: "public", scene: "instant-pick", width: 1280, height: 1500, out: "docs/screens/form-look", chapter: "form-look" },
+  { slug: "form-look-quote-before-390", href: "/quote/erable-design", page: "app/quote/[companySlug]/SelfQuoteFlow.js", props: { companySlug: "erable-design", look: null }, mode: "public", width: 390, height: 900, out: "docs/screens/form-look", chapter: "form-look" },
+  { slug: "form-look-quote-c-dark-390", href: "/quote/erable-design", page: "app/quote/[companySlug]/SelfQuoteFlow.js", props: { companySlug: "erable-design", look: { brandColor: "#1f4e3d", appearance: { fontPreset: "geometric", fieldStyle: "pill", radius: "full", buttonStyle: "pill", surface: "dark", density: "comfortable" } } }, mode: "public", width: 390, height: 900, out: "docs/screens/form-look", chapter: "form-look" },
+  { slug: "form-look-quote-b-square-390", href: "/quote/erable-design", page: "app/quote/[companySlug]/SelfQuoteFlow.js", props: { companySlug: "erable-design", look: { brandColor: "#1f4e3d", appearance: { fontPreset: "display_serif", fieldStyle: "filled", radius: "none", buttonStyle: "outline", surface: "light", density: "compact" } } }, mode: "public", width: 390, height: 900, out: "docs/screens/form-look", chapter: "form-look" },
+  { slug: "form-look-settings-1280", href: "/app/settings/instant-quotes", page: "app/app/settings/instant-quotes/page.js", settings: true, width: 1280, height: 3600, out: "docs/screens/form-look", chapter: "form-look" },
+  { slug: "form-look-settings-375", href: "/app/settings/instant-quotes", page: "app/app/settings/instant-quotes/page.js", settings: true, width: 375, height: 4200, out: "docs/screens/form-look", chapter: "form-look" },
 ];

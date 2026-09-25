@@ -49,6 +49,10 @@ export function rungsFor({ accountExists = false, current = null } = {}) {
 const LABELS = {
   account: { key: "auth.steps.account", fallback: "Account" },
   business: { key: "auth.steps.business", fallback: "Business" },
+  // app.signup.*, not auth.*: the app catalogue is the gated one for keys
+  // added since the rail was written (see check-auth-pages' prefix note).
+  team: { key: "app.signup.steps.team", fallback: "Team" },
+  goals: { key: "app.signup.steps.goals", fallback: "Goals" },
   industry: { key: "auth.steps.industry", fallback: "Trades" },
   services: { key: "auth.steps.services", fallback: "Services" },
   plan: { key: "auth.steps.plan", fallback: "Plan" },

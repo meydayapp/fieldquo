@@ -236,6 +236,15 @@ async function runScene(scene) {
   // Each frame is reached by operating the shipped controls: the collapse
   // button, the tab bar's More, the floating +, the top bar's search and
   // avatar, the phone's hamburger.
+  // ── The signup panel's phone strip (2026-09-24) ──────────────────────────
+  // Opened by pressing the shipped "Show preview" button, never by rendering
+  // the picture on its own.
+  if (scene === "signup-strip-open") {
+    (await until("[data-signup-aside-strip] button[aria-expanded]")).click();
+    await until("[data-signup-aside-strip] [data-signup-preview]");
+    await wait(400);
+    return;
+  }
   if (scene === "rail-collapse") {
     (await until('aside[data-rail="expanded"] [data-rail-toggle]')).click();
     await until('[data-rail="collapsed"]');

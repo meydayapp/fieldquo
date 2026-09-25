@@ -92,10 +92,12 @@ const eq = (label, actual, expected) =>
 
 console.log("\nThe order: plan is LAST, because it prices off the address");
 
+// Seven since 2026-09-24: Team and Goals (both skippable — see
+// lib/signup/funnel.js OPTIONAL_STEPS) between the entry and Trades.
 eq(
-  "STEPS is account → business → industry → services → plan",
+  "STEPS is account → business → team → goals → industry → services → plan",
   STEPS.join(" > "),
-  "account > business > industry > services > plan",
+  "account > business > team > goals > industry > services > plan",
 );
 eq("the plan step is last", STEPS[STEPS.length - 1], "plan");
 ok(
@@ -117,7 +119,7 @@ eq("a signed-in one starts on business", firstStep({ accountExists: true }), "bu
   eq(
     "walking nextStep from the start ends at the plan step",
     walked.join(" > "),
-    "account > industry > services > plan",
+    "account > team > goals > industry > services > plan",
   );
 }
 // And Back walks the same path in reverse, never off the end of the funnel.
@@ -131,7 +133,7 @@ eq("a signed-in one starts on business", firstStep({ accountExists: true }), "bu
   eq(
     "previousStep from the plan step walks back to the entry and stops",
     walked.join(" > "),
-    "plan > services > industry > business",
+    "plan > services > industry > goals > team > business",
   );
   eq(
     "the entry step has nothing behind it — Back must not leave the funnel",
@@ -151,7 +153,7 @@ for (const accountExists of [false, true])
       for (const hasServices of [false, true])
         ALL_STATES.push({ accountExists, companyReady, hasIndustries, hasServices });
 
-const RANK = { account: 0, business: 0, industry: 1, services: 2, plan: 3 };
+const RANK = { account: 0, business: 0, team: 1, goals: 2, industry: 3, services: 4, plan: 5 };
 const SAVED_VALUES = [...STEPS, undefined, null, "", "wat", "PLAN", 7];
 
 // ── The named cases, spelled out ──────────────────────────────────────────
@@ -185,6 +187,13 @@ eq(
   "business",
 );
 eq("mid-draft on industry, with the state for it → industry", resumeStep("industry", WITH_COMPANY), "industry");
+// The optional rungs never gate: a draft parked on either lands there with a
+// company and no trades, and one parked past them with the trades unpicked
+// still clamps to industry — skipping them stored nothing to judge.
+eq("mid-draft on team, with a company → team", resumeStep("team", WITH_COMPANY), "team");
+eq("mid-draft on goals, with a company → goals", resumeStep("goals", WITH_COMPANY), "goals");
+eq("mid-draft on team with no company yet → business", resumeStep("team", SIGNED_IN), "business");
+eq("everything filled in but the draft says goals → goals, not skipped ahead", resumeStep("goals", READY_TO_PAY), "goals");
 eq(
   "mid-draft on services with no trades picked → back to industry, one click away",
   resumeStep("services", WITH_COMPANY),

@@ -38,6 +38,11 @@
  * @param rail      optional progress rail, between the header and the form.
  * @param aside     the proof column. Omitted on the plan step, which needs the
  *                  full width for its own cards — see app/signup/page.js.
+ * @param strip     optional: the phone's stand-in for `aside`, drawn ABOVE
+ *                  the form below `lg` (a single line that opens on demand —
+ *                  AuthAside's SignupAsideStrip). With a strip the full aside
+ *                  is drawn only from `lg`, where it has a column of its own;
+ *                  without one (/login) nothing about the layout changes.
  * @param children  the form column.
  */
 export default function AuthShell({
@@ -46,6 +51,7 @@ export default function AuthShell({
   subtitle,
   rail = null,
   aside = null,
+  strip = null,
   children,
 }) {
   const header = (
@@ -74,11 +80,13 @@ export default function AuthShell({
           <div className="grid gap-10 lg:gap-16 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:items-start">
             <div className="min-w-0">
               {header}
-              <div className="mt-8">{children}</div>
+              {strip ? <div className="mt-6 lg:hidden">{strip}</div> : null}
+              <div className={strip ? "mt-6" : "mt-8"}>{children}</div>
             </div>
             {/* Sticky only where there is room to be sticky. On a phone it is
-                just the next thing down the page. */}
-            <div className="min-w-0 lg:sticky lg:top-24">{aside}</div>
+                just the next thing down the page — or, with a strip, the
+                strip above the form is its whole appearance there. */}
+            <div className={`min-w-0 lg:sticky lg:top-24 ${strip ? "hidden lg:block" : ""}`}>{aside}</div>
           </div>
         ) : (
           <div className="mx-auto w-full max-w-5xl">

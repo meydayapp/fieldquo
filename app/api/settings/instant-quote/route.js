@@ -38,6 +38,9 @@ import {
   instantTradeOffered,
 } from "@/lib/trades/catalog";
 import { normaliseFinancing } from "@/lib/estimate/financing";
+import { normaliseFormFields } from "@/lib/estimate/formFields";
+import { normaliseFormAppearance, isDefaultAppearance, formPalette } from "@/lib/estimate/formAppearance";
+import { serviceAreaConfigured } from "@/lib/company/serviceArea";
 import {
   reportWebsiteChoice,
   resolveReportWebsite,
@@ -95,6 +98,16 @@ export async function GET(request) {
         // For the report's website rule — see lib/estimate/report/website.js.
         website: true,
         instantReportWebsite: true,
+        // The form's look (lib/estimate/formAppearance.js) and the brand it
+        // is derived from, for the live preview and the contrast readout.
+        publicFormAppearance: true,
+        brandColor: true,
+        // Whether a service area is drawn: it locks the job address to
+        // "required" on every trade's field settings, and the card says so.
+        latitude: true,
+        longitude: true,
+        serviceRadiusKm: true,
+        servicePostalPrefixes: true,
         site: {
           select: { subdomain: true, published: true, blocks: true, pages: true, handEditedAt: true, photoLibrary: true },
         },
@@ -338,6 +351,12 @@ export async function GET(request) {
     companySlug: company?.slug || null,
     // Company-level, not per-trade — one financing offer for the business.
     financing: normaliseFinancing(company?.financing),
+    // The form's look, normalised (a saved value the normaliser rejects reads
+    // as the default, which is what the public page will draw), the brand it
+    // derives from, and whether the job address is locked by a service area.
+    formAppearance: normaliseFormAppearance(company?.publicFormAppearance).appearance,
+    brandColor: company?.brandColor || null,
+    serviceAreaConfigured: serviceAreaConfigured(company),
     // Where the estimate REPORT's website tile sends a homeowner: the saved
     // choice (null = automatic), what the automatic rule would pick today,
     // and the two candidate URLs so the screen can say what each choice
@@ -420,10 +439,73 @@ export async function PUT(request) {
     return NextResponse.json({ ok: true, instantReportWebsite: choice });
   }
 
-  const { trade, enabled, config } = body || {};
+  // ── The form's look ──────────────────────────────────────────────────────
+  //
+  // `{ formAppearance }` — company-level like financing. Normalised (unknown
+  // keys dropped, a value outside its set replaced by the default), then
+  // MEASURED against the company's brand: a preset whose text cannot reach
+  // 4.5:1 on its surface is refused with the failing pairs named, never
+  // saved for a stranger to squint at. The default look is stored as null,
+  // which is also what every company had before the setting existed.
+  if (body && body.formAppearance !== undefined) {
+    const { appearance } = normaliseFormAppearance(body.formAppearance);
+    const company = await db.company.findUnique({
+      where: { id: member.companyId },
+      select: { brandColor: true },
+    });
+    const palette = formPalette(company?.brandColor, appearance);
+    if (palette.failures.length) {
+      return NextResponse.json(
+        {
+          error: `That look can't be read on your brand colour: ${palette.failures
+            .map((f) => `${f.label} measures ${f.ratio}:1 (needs ${f.need}:1)`)
+            .join("; ")}. Pick another surface or field style.`,
+          failures: palette.failures,
+        },
+        { status: 400 },
+      );
+    }
+    const stored = isDefaultAppearance(appearance) ? null : appearance;
+    await db.company.update({
+      where: { id: member.companyId },
+      data: { publicFormAppearance: stored },
+    });
+    await recordActivity(member, {
+      action: "settings.form_appearance_updated",
+      entityType: "settings",
+      summary: stored
+        ? `Public form look set to ${Object.entries(stored).map(([k, v]) => `${k}=${v}`).join(", ")}`
+        : "Public form look reset to the standard look",
+      metadata: { appearance: stored },
+    });
+    return NextResponse.json({ ok: true, formAppearance: appearance });
+  }
+
+  const { trade, enabled, config: postedConfig } = body || {};
   const spec = INSTANT_ESTIMATE_TRADES[trade];
   if (!spec) {
     return NextResponse.json({ error: "Unknown trade" }, { status: 400 });
+  }
+
+  // ── The form's fields, per trade ─────────────────────────────────────────
+  //
+  // `config.fields` (lib/estimate/formFields.js) is normalised before it is
+  // stored: unknown field names and unknown states are dropped rather than
+  // saved for the public route to trip on, and the one rule the setting may
+  // not break — phone and email both hidden — is refused with a sentence
+  // instead of silently corrected, because a silent correction is a switch
+  // that looks flipped and isn't. A config with no `fields` is stored as it
+  // came, which the public route reads as the defaults.
+  let config = postedConfig;
+  if (config && typeof config === "object" && !Array.isArray(config) && config.fields !== undefined) {
+    const { fields, problems } = normaliseFormFields(config.fields);
+    if (problems.some((p) => p.key === "contact")) {
+      return NextResponse.json(
+        { error: "Phone and email can't both be hidden — a homeowner has to leave one way to be reached." },
+        { status: 400 },
+      );
+    }
+    config = { ...config, fields };
   }
 
   // Refuse to enable a trade that can't actually price, or one the company
