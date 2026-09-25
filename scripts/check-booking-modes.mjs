@@ -583,5 +583,175 @@ ok("the office's move/cancel does the same", /nextSequence\(existing\.booking\)/
 ok("the manage page offers the same file", /href=\{`\/api\/visit\/\$\{token\}\/calendar`\}/.test(read("app/visit/[token]/VisitManager.js")) && /bookingInviteAttachment\(/.test(read("app/api/visit/[token]/calendar/route.js")));
 ok("the SMS carries no attachment (no such field on the send)", !/attachments/.test(read("lib/booking/finalizeBooking.js").split("sendSms(")[1] || ""));
 
+// ───────────────────────────────────────────────────────────────────────────
+console.log("\n8. The visit address changes the times — the availability route and the slot engine, executed");
+//
+// The owner (2026-09-24): auto-booking "glitches when we enter a new address".
+// Reproduced 2026-09-25 on a demo company's booking page; what was wrong, and
+// what each fixture below pins:
+//
+//   · a slow answer for a half-typed address landed AFTER the answer for the
+//     address then picked, and the grid showed times for the wrong house
+//     (client: the newest-request-wins guards, checked at source below);
+//   · the calendar collapsed to a spinner on every change (client, source);
+//   · step 3's late address field unmounted on its first keystroke (source);
+//   · "we couldn't place that address" was printed for a company whose check
+//     is OFF, and for a missing server key — the visitor's address was fine
+//     (route: `reason`, executed);
+//   · the last day of every requested range read no busy time at all, so a
+//     booked visit's hour was offered as free and no drive was checked
+//     against it (engine: the widened busy window, executed).
+//
+// Google is stubbed at `fetch`: the geocoder answers from a table, and the
+// Distance Matrix is refused so travel falls back to the straight-line
+// estimate — deterministic, and the same fallback production takes when
+// Google is down.
+{
+  const { scheduleTimeToUtc } = await import("../lib/booking/timezone.js");
+  const { GET: serviceArea } = await import("../app/api/service-area/[companySlug]/route.js");
+  const TZ = "America/Toronto";
+  const OTTAWA_VISIT = { lat: 45.448783, lng: -75.63748 };
+  const PLACES = [
+    // Picked from the suggestions, or typed in full — the server geocodes the
+    // TEXT either way; the browser's coordinates are never sent.
+    [/near st/i, { lat: 45.4501, lng: -75.6402, formatted_address: "12 Near St, Ottawa, ON K1K 1A1, Canada" }],
+    [/far rd/i, { lat: 43.6532, lng: -79.3832, formatted_address: "99 Far Rd, Toronto, ON M5H 2N2, Canada" }],
+  ];
+  const realFetch = globalThis.fetch;
+  const geocodeCalls = [];
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    if (u.includes("/geocode/json")) {
+      const address = decodeURIComponent(new URL(u).searchParams.get("address") || "");
+      geocodeCalls.push(address);
+      const hit = PLACES.find(([re]) => re.test(address));
+      const body = hit
+        ? { status: "OK", results: [{ formatted_address: hit[1].formatted_address, geometry: { location: { lat: hit[1].lat, lng: hit[1].lng }, location_type: "ROOFTOP" } }] }
+        : { status: "ZERO_RESULTS", results: [] };
+      return new Response(JSON.stringify(body), { status: 200 });
+    }
+    if (u.includes("/distancematrix/json")) {
+      return new Response(JSON.stringify({ status: "REQUEST_DENIED" }), { status: 200 });
+    }
+    throw new Error(`unexpected fetch in check: ${u}`);
+  };
+  const savedKey = process.env.GOOGLE_MAPS_SERVER_KEY;
+
+  // Day D, ten days out: 9–5 Toronto, one booked visit 13:00–14:00 at an
+  // Ottawa address. Day D2, eleven days out: a visit with NO coordinates.
+  const dayOnly = (n) => {
+    const d = new Date(Date.now() + n * 864e5);
+    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  };
+  const D = dayOnly(10);
+  const D2 = dayOnly(11);
+  const iso = (d) => d.toISOString().slice(0, 10);
+  const at = (day, hhmm) => scheduleTimeToUtc(day, hhmm, TZ);
+
+  const seed = ({ travelCheckEnabled = true, withVisit = true, noPointVisit = true } = {}) => {
+    resetDbStub();
+    rows.company.push({ ...COMPANY, travelCheckEnabled, city: "Ottawa", latitude: 45.4215, longitude: -75.6972, serviceRadiusKm: 25, servicePostalPrefixes: [] });
+    rows.eventType.push({ ...EVENT_TYPE });
+    for (const dayOfWeek of [0, 1, 2, 3, 4, 5, 6]) rows.availabilitySchedule.push({ id: `s${dayOfWeek}`, userId: "u1", dayOfWeek, startTime: "09:00", endTime: "17:00", timezone: TZ });
+    if (withVisit) rows.appointment.push({ id: "a1", assignedToId: "u1", status: "scheduled", scheduledAt: at(D, "13:00"), latitude: OTTAWA_VISIT.lat, longitude: OTTAWA_VISIT.lng });
+    if (noPointVisit) rows.appointment.push({ id: "a2", assignedToId: "u1", status: "scheduled", scheduledAt: at(D2, "13:00"), latitude: null, longitude: null });
+  };
+  const ask = async ({ address = null, mode = "visit", from = D, to = D2 } = {}) => {
+    const url =
+      `http://x/api/booking/acme/availability?eventTypeSlug=consult&from=${iso(from)}&to=${iso(to)}&mode=${mode}` +
+      (address ? `&address=${encodeURIComponent(address)}` : "");
+    const res = await availability(new Request(url), { params: Promise.resolve({ companySlug: "acme" }) });
+    const data = await res.json();
+    return { status: res.status, data, offers: (day, hhmm) => (data.slots?.[iso(day)] || []).includes(at(day, hhmm).toISOString()) };
+  };
+
+  process.env.GOOGLE_MAPS_SERVER_KEY = "check-key";
+  try {
+    console.log("\n   A typed address that was never picked from the suggestions");
+    seed();
+    const typed = await ask({ address: "12 near st ottawa" });
+    ok("…is geocoded on the server from the text alone", typed.data.travel?.applied === true && geocodeCalls.includes("12 near st ottawa"), typed.data.travel);
+    ok("…and names the place it resolved to, not what was typed", typed.data.travel?.address === "12 Near St, Ottawa, ON K1K 1A1, Canada");
+    ok("…and never echoes a coordinate the browser sent (none is accepted)", !/[?&](lat|lng|latitude|longitude)=/.test(read("app/book/[companySlug]/BookingFlow.js").split("async function submit")[0]));
+
+    console.log("\n   The address changes mid-flow: near → far → near");
+    const near1 = await ask({ address: "12 Near St, Ottawa" });
+    const far = await ask({ address: "99 Far Rd, Toronto" });
+    const near2 = await ask({ address: "12 Near St, Ottawa" });
+    ok("near: a slot 15 minutes after the Ottawa visit is offered (≈1 min drive)", near1.offers(D, "14:15"), near1.data.slots?.[iso(D)]);
+    ok("near: the slot starting the minute that visit ends is not (the drive is > 0)", !near1.offers(D, "14:00"));
+    ok("near: a morning slot that ends before the visit is offered", near1.offers(D, "09:00"));
+    ok("far: the same 14:15 is removed — Toronto is hours away", !far.offers(D, "14:15"));
+    ok("far: so is the morning — they couldn't get BACK to the 1pm visit", !far.offers(D, "09:00") && !(far.data.slots?.[iso(D)] || []).length, far.data.slots?.[iso(D)]);
+    ok("far: a day with no located visit keeps every hour (nothing to drive from)", (far.data.slots?.[iso(D2)] || []).length > 0);
+    ok("back to near: the answer depends on this request's address only — nothing is remembered", JSON.stringify(near2.data.slots) === JSON.stringify(near1.data.slots));
+    ok("each answer names its own address", near1.data.travel.address !== far.data.travel.address && far.data.travel.address.startsWith("99 Far Rd"));
+
+    console.log("\n   Outside the service area");
+    const areaRes = await serviceArea(new Request(`http://x/api/service-area/acme?address=${encodeURIComponent("99 Far Rd, Toronto")}`), { params: Promise.resolve({ companySlug: "acme" }) });
+    const area = await areaRes.json();
+    ok("the service-area route says outside for the Toronto address", area.configured === true && area.inside === false, area);
+    ok("…and never returns the company's base coordinates", !("latitude" in area) && !("longitude" in area));
+    ok("…but the slot route still answers — the area is a note, never a gate", far.status === 200 && Object.keys(far.data.slots || {}).length > 0);
+    const flow = read("app/book/[companySlug]/BookingFlow.js");
+    ok("the page renders the outside-area line only for the address it was checked for", /areaVerdict\.address === geoAddress/.test(flow) && /serviceAreaCopy\(language\)\.outside\(/.test(flow));
+
+    console.log("\n   Missing coordinates never hide a slot");
+    ok("a visit with no coordinates: the slot right after it is still offered, even from far away", far.offers(D2, "14:00"), far.data.slots?.[iso(D2)]);
+    ok("…and its own hour is still blocked (busy is busy, located or not)", !far.offers(D2, "13:00") && !far.offers(D2, "12:30"));
+    const nowhere = await ask({ address: "zzqq nowhere 9999" });
+    const blank = await ask({});
+    ok("an address Google can't place: reason not_found, filter off", nowhere.data.travel?.applied === false && nowhere.data.travel?.reason === "not_found", nowhere.data.travel);
+    ok("…and the times are exactly the no-address times", JSON.stringify(nowhere.data.slots) === JSON.stringify(blank.data.slots));
+    ok("no address at all: no travel block, and the Ottawa visit's hour is still busy", blank.data.travel === null && !blank.offers(D, "13:00") && blank.offers(D, "14:00"));
+
+    console.log("\n   Why the filter did not engage is said, not guessed");
+    seed({ travelCheckEnabled: false });
+    const beforeOff = geocodeCalls.length;
+    const off = await ask({ address: "99 Far Rd, Toronto" });
+    ok("check switched off: reason off, no geocode spent, all times shown", off.data.travel?.reason === "off" && off.offers(D, "14:15") && geocodeCalls.length === beforeOff, off.data.travel);
+    seed();
+    delete process.env.GOOGLE_MAPS_SERVER_KEY;
+    const before = geocodeCalls.length;
+    const noKey = await ask({ address: "99 Far Rd, Toronto" });
+    ok("no server Maps key: reason no_lookup, nothing sent to Google", noKey.data.travel?.reason === "no_lookup" && geocodeCalls.length === before, noKey.data.travel);
+    process.env.GOOGLE_MAPS_SERVER_KEY = "check-key";
+    const call = await ask({ address: "99 Far Rd, Toronto", mode: "call" });
+    ok("a phone call carries no travel at all, whatever address is on the form", call.data.travel === null && call.offers(D, "14:15"));
+
+    console.log("\n   The last day of the range sees its own visits");
+    seed({ noPointVisit: false });
+    const lastDay = await ask({ from: D, to: D });
+    ok("to=D: the booked 13:00 visit on D blocks 13:00 (it used to be offered as free)", !lastDay.offers(D, "13:00") && !lastDay.offers(D, "12:30"), lastDay.data.slots?.[iso(D)]);
+    ok("…while 14:00 stays open", lastDay.offers(D, "14:00"));
+    const lastDayFar = await ask({ from: D, to: D, address: "99 Far Rd, Toronto" });
+    ok("…and the drive is checked against it there too", !(lastDayFar.data.slots?.[iso(D)] || []).length, lastDayFar.data.slots?.[iso(D)]);
+  } finally {
+    globalThis.fetch = realFetch;
+    if (savedKey === undefined) delete process.env.GOOGLE_MAPS_SERVER_KEY;
+    else process.env.GOOGLE_MAPS_SERVER_KEY = savedKey;
+  }
+
+  console.log("\n   The page: newest answer wins, a busy grid instead of a collapsed one (source)");
+  const cal = read("app/components/public/SlotCalendar.js");
+  const flow = read("app/book/[companySlug]/BookingFlow.js");
+  ok("SlotCalendar numbers each load and drops an answer that isn't the newest", /const mine = \+\+requestSeq\.current/.test(cal) && /if \(stale\(\)\) return;\s*setSlots\(got/.test(cal));
+  ok("…a failed stale load can't paint an error over a good answer either", /catch \(err\) \{\s*if \(stale\(\)\) return;/.test(cal));
+  ok("…only the first load replaces the grid with a spinner", /if \(loading && !everLoaded\)/.test(cal));
+  ok("…later loads keep the grid, dimmed and un-pickable, with a status line", /const refreshing = loading && everLoaded/.test(cal) && /inert=\{refreshing \|\| undefined\}/.test(cal) && /data-slots-refreshing/.test(cal));
+  ok("…a chosen day with no times under the new address goes back to 'pick a day'", /setChosenDay\(\(d\) => \(d && !\(got \|\| \{\}\)\[d\]\?\.length \? null : d\)\)/.test(cal));
+  ok("BookingFlow's loadSlots writes the travel note only from the newest answer", /const mine = \+\+slotQuery\.current/.test(flow) && /if \(latest\(\)\) \{\s*setTravelInfo\(data\?\.travel/.test(flow));
+  ok("…and says 'checking' the moment a new address is asked about", /setTravelInfo\(forVisit \? \{ pending: true \} : null\)/.test(flow));
+  ok("only not_found asks the visitor to check their address", /travelState === "not_found"\s*\?\s*t\("booking\.mode\.travelNotFound"\)/.test(flow) && /t\("booking\.mode\.addressHintPlain"\)/.test(flow));
+  ok("step 3's address field is decided when the time is picked, not re-derived per keystroke", /setAskAddressLate\(mode === "visit" && !address\.trim\(\)\)/.test(flow) && /mode === "visit" && askAddressLate &&/.test(flow) && !/mode === "visit" && !address\.trim\(\) && \(/.test(flow));
+  ok("a time the late address rules out is said in words and Book waits", /data-chosen-unreachable/.test(flow) && /\|\| chosenUnreachable \|\|/.test(flow));
+  const { MESSAGES } = await import("../app/i18n/messages.js");
+  const NEW_KEYS = ["addressHintPlain", "travelChecking", "travelApplied", "travelNotFound", "timeUnreachable", "pickAnotherTime"].map((k) => `booking.mode.${k}`);
+  const langs = Object.keys(MESSAGES);
+  const missingKeys = langs.flatMap((l) => NEW_KEYS.filter((k) => typeof MESSAGES[l]?.[k] !== "string" || !MESSAGES[l][k].trim()).map((k) => `${l}:${k}`));
+  ok(`the new lines exist in all ${langs.length} catalogue languages`, missingKeys.length === 0, missingKeys);
+  ok("…and every travelApplied keeps its {address} slot", langs.every((l) => MESSAGES[l]["booking.mode.travelApplied"]?.includes("{address}")));
+}
+
 console.log(`\n${fail === 0 ? "ALL PASS" : "FAILURES"} — ${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);
