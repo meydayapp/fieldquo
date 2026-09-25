@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 25 September 2026 (three lost items: the client auto-send policy written down in docs/CLIENT-MESSAGES.md with every automatic client sender audited — no path auto-sends a quote; Facebook/Instagram threads past Meta's 24-hour window show a closed state, disable Send and say why and what still works, and the AI employee no longer replies past it; check:prep-guide green again — sixteen trades had no prep guide — so check:all now runs on to the next of 86 checks that were already failing on main behind it)
 Last updated: 25 September 2026 (leads: a "Linked documents" block — quote, jobs, invoices — with "Link an existing quote", and Won now needs an APPROVED quote or work behind it, refusing with a reason and "Link the quote that won it"; calendar: a Cards view on /app/appointments, each entry a card opening a side panel with open quote/job/invoice/client, call, directions and reschedule/cancel)
 Last updated: 25 September 2026 (Australia: GST 10% on an AU contractor's quotes and invoices as a VAT-table row named GST, gated on "Are you registered for GST?"; AUD plans at the same numbers and every other Stripe country on the USD rows, Checkout's currency now taken from the Plan row; tax on FieldQuo's own subscription stays Stripe Tax — new /platform/billing/tax shows per region the subscribers, 12-month taxable vs reverse-charged invoices, FieldQuo's thresholds (UK/EU from the first sale, AU A$75,000) and the Stripe registration checklist; owner to run `npm run seed:seat-ladder`)
 Last updated: 25 September 2026 (import, not export: the five bulk exports — price book, timesheets, pay run, subcontractor year-end list, bookkeeping ZIP — removed from /app with their routes refusing 403 through `lib/export/companyDataExport.js`; single documents and every import kept; a copy of a company's data stays available on written request; help centre, marketing, sales playbook and guide made honest)
@@ -34,6 +35,72 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## Three lost items: the auto-send policy, Messenger's 24-hour window, check:prep-guide (25 September 2026)
+
+### The client auto-send policy (owner, 2026-09-22)
+
+"The invoice yes and any receipts, the follow-ups, the thank-you email, the
+change orders, the booking or reschedule confirmation — but not the quote."
+Written down as a standing policy in **`docs/CLIENT-MESSAGES.md`**, with an
+audit of every automatic client-facing sender read from the code.
+
+- **No path auto-sends a quote.** `POST /api/quotes/[id]/send` is the one
+  route that emails a quote; instant-quote, call drafts, the AI employee and
+  approve-estimate all leave the Quote a draft. Nothing changed to draft +
+  notify because nothing needed to.
+- **Automatic and allowed:** payment-schedule stage invoices, service-plan
+  invoices and receipts, quote follow-ups (1/7/14 days, on by default), the
+  review request (off by default), booking / reschedule / cancel
+  confirmations, reminders (off by default).
+- **Allowed but not automatic — listed with cost, NOT built** (each is a new
+  automation and needs the owner's yes): invoice on acceptance without a
+  schedule, invoice on job completion, a client receipt for an ordinary
+  Stripe or manual payment (today only the company's owners/admins hear),
+  a thank-you beyond the opt-in review request, confirmation of a client's
+  change-order decision.
+- **Owed — owner decision:** the instant-estimate REPORT email (asked for
+  2026-09-18) goes to the homeowner on submit, with "starting at" figures
+  where the company chose to show them. Read as not the quote; the change if
+  the owner reads it otherwise is written in the doc.
+
+### Facebook and Instagram: the 24-hour window (owner, 2026-09-22)
+
+A Messenger or Instagram thread past 24 hours from the customer's last
+message now shows a closed state in /app/messages: why ("Facebook only lets
+businesses reply within 24 hours of the customer's last message"), what still
+works (they message again; call or email — with a link to the client record
+when the thread has one), and the box and Send disabled. No HUMAN_AGENT: that
+tag needs Meta's Human Agent permission, which is not in
+`META_MESSAGING_SCOPE` and was never requested, so there is no flag for it.
+
+- `SERVICE_WINDOW_PLATFORMS` is now whatsapp, facebook, instagram;
+  `TEMPLATE_PLATFORMS` (whatsapp) is the separate "is there a way through".
+  The notice carries `wayThrough` ("template" | "contact"); the page draws
+  the template picker only for "template".
+- `lib/messaging/metaSend.js` refuses outside the window by name
+  (`service_window_closed`) before the token decrypt, as whatsappSend.js does.
+- **AI employee:** decide.js already had the guard, but respond.js only
+  computed the window for WhatsApp, so it never fired on Messenger. It does
+  now, for all three.
+- 7 new keys + the handling reason made platform-neutral, nine languages.
+  `check:whatsapp` 732/0 (the two assertions of the old decision replaced).
+
+### check:prep-guide, and what was behind it
+
+The cause: the 2026-09-21 service-seed work added sixteen trades to
+`lib/trades/catalog.js` with no prep guide, so 16 "maps to a guide"
+assertions failed — the check was right. Lighting now shares the electrical
+guide; the other fifteen have their own in en/fr/es. The chain's next stale
+link, `check:interconnections`, got the entity graph regenerated.
+
+**Still owed:** `check:all` now stops at `check:app-catalogue`. Running every
+link without stopping shows **86 checks failing on origin/main** (88 before
+this change, minus prep-guide and interconnections), hidden because the
+chain never got past its second link — app-catalogue (de/zh/it ~125 absent
+keys), document-money, job-deletion, dashboard, tenant-scope, feature-pages,
+help-centre and a long tail of sales/platform checks. Not fixed here: each is
+its own drift and needs its own look.
 
 ## /platform/signups: holder, history, take back, Do Not Contact (25 September 2026)
 
