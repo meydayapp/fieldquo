@@ -606,7 +606,10 @@ export default function CostMarginPanel({
             {g.labourBreakdown.map((l, i) => (
               <div key={`l${i}`} className="flex justify-between">
                 <span>
-                  {l.name} — {t("app.cost.hrs", { hours: l.hours })}
+                  {/* A group whose services' production rates gave its
+                      hours (lib/services/productionRates.js) says so in
+                      the reader's language; every recipe row is as before. */}
+                  {l.source === "production" ? t("app.cost.productionRates", "Hours from service production rates") : l.name} — {t("app.cost.hrs", { hours: l.hours })}
                 </span>
                 <span className="tabular-nums">{money(l.cost)}</span>
               </div>

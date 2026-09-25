@@ -21,6 +21,8 @@ import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import BenchmarkRange from "@/app/components/pricing/BenchmarkRange";
 import { benchmarkForSeedKey } from "@/lib/services/seeds";
+import ProductionRateField, { productionDraftFrom, productionFromDraft } from "@/app/components/pricing/ProductionRateField";
+import { defaultProductionKey, tradeOfSeedKey } from "@/lib/services/productionRates";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -34,6 +36,7 @@ function emptyForm() {
     costPrice: "",
     unit: "",
     categoryIds: [],
+    production: productionDraftFrom(null),
   };
 }
 
@@ -49,6 +52,7 @@ function formFor(product) {
     categoryIds: Array.isArray(product.categories)
       ? product.categories.map((c) => c.id)
       : [],
+    production: productionDraftFrom(product.production, defaultProductionKey(product) || ""),
   };
 }
 
@@ -72,6 +76,16 @@ export default function ProductFormModal({
   const { t } = useTranslation();
   const [form, setForm] = useState(() => formFor(editing));
   const [saving, setSaving] = useState(false);
+  // The rate as the row holds it, so a save that did not touch the box sends
+  // exactly the payload this form always sent (the header's byte-for-byte
+  // promise) — `production` rides along only when it changed.
+  const [startProduction] = useState(() => JSON.stringify(productionFromDraft(formFor(editing).production)));
+  // The quote types the item is linked to, by key — orders the measurement
+  // picker and picks the suggested rate; a seeded row's own trade after them.
+  const tradeKeys = [
+    ...quoteTypes.filter((c) => form.categoryIds.includes(c.id)).map((c) => c.key),
+    tradeOfSeedKey(editing?.seedKey),
+  ].filter(Boolean);
 
   function toggleCategory(id) {
     setForm((prev) => ({
@@ -95,6 +109,8 @@ export default function ProductFormModal({
         unit: form.unit || null,
         categoryIds: form.categoryIds,
       };
+      const production = productionFromDraft(form.production);
+      if (JSON.stringify(production) !== startProduction) payload.production = production;
       const res = await fetch(
         editing ? `/api/products/${editing.id}` : "/api/products",
         {
@@ -123,7 +139,7 @@ export default function ProductFormModal({
       onClick={onClose}
     >
       <div
-        className="bg-card rounded-2xl w-full max-w-md p-6"
+        className="bg-card rounded-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -215,6 +231,13 @@ export default function ProductFormModal({
               />
             </div>
           </div>
+          <ProductionRateField
+            draft={form.production}
+            onChange={(production) => setForm((f) => ({ ...f, production }))}
+            tradeKeys={tradeKeys}
+            t={t}
+            compact
+          />
           <div>
             <label className="text-xs text-muted-foreground block mb-1">
               {t("app.setProducts.availableOnTypes")}

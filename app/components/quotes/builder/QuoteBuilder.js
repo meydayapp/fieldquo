@@ -104,6 +104,7 @@ import { isRoomMeasureTrade, isTraceMeasureTrade } from "@/lib/measure/reuseTake
 import { getPriceBook, defaultTradeRate } from "@/app/data/tradePriceBooks";
 import { resolveServiceContent } from "@/lib/documents/serviceContent";
 import { templatesFor } from "@/lib/services/templates";
+import { groupProduction, productionMapFrom } from "@/lib/services/productionRates";
 import {
   estimateCabinetDoorCost,
   tradeLabourHours,
@@ -373,6 +374,7 @@ export default function QuoteBuilder({ mode = "create", quoteId = null }) {
           recipesData,
           overheadData,
           forecastData,
+          productionData,
         ] = await Promise.all([
           // fetchJson throws on a non-ok/HTML-error response instead of feeding
           // a 404/500 body into a state setter — a failed load surfaces below
@@ -422,6 +424,14 @@ export default function QuoteBuilder({ mode = "create", quoteId = null }) {
           fetch("/api/settings/forecast")
             .then((r) => (r.ok ? r.json() : null))
             .catch(() => null),
+          // The services' production rates (lib/services/productionRates.js)
+          // — rates and names only, readable without showPricing, so the
+          // panel reads the same rates the saved costing does. Optional like
+          // the rest: a failed read is "no rates", and every group then
+          // takes the trade's own hours exactly as before.
+          fetch("/api/products/production")
+            .then((r) => (r.ok ? r.json() : []))
+            .catch(() => []),
         ]);
 
         if (cancelled) return;
@@ -494,6 +504,7 @@ export default function QuoteBuilder({ mode = "create", quoteId = null }) {
           marginTargetPct: Number.isFinite(Number(forecastData?.targetMarginPct))
             ? Number(forecastData.targetMarginPct)
             : null,
+          productionRates: Array.isArray(productionData) ? productionData : [],
         });
       } catch (e) {
         if (!cancelled) setLoadError(e?.message || t("app.quoteNew.createError"));
@@ -752,6 +763,9 @@ export function QuoteBuilderForm({
 
   const categories = Array.isArray(boot.categories) ? boot.categories : [];
   const products = Array.isArray(boot.products) ? boot.products : [];
+  // Product id → production rate, for the groups' template runs. Empty on a
+  // boot without rates (every check fixture, every company that set none).
+  const productionById = useMemo(() => productionMapFrom(boot.productionRates), [boot.productionRates]);
   const workers = Array.isArray(boot.workers) ? boot.workers : [];
   const teamRoster = Array.isArray(boot.members) ? boot.members : [];
   const recipeOverrides =
@@ -1783,10 +1797,20 @@ export function QuoteBuilderForm({
 
   // Crew hours the priced takeoffs imply — "how long will this take", which is
   // both a cost input and the answer to the question every client asks.
+  //
+  // A group whose services' production rates answer (lib/services/
+  // productionRates.js) is left out: its hours ride on the group itself into
+  // estimateQuoteCost below, taking precedence over the book's — the same
+  // rule the server's saved costing applies (costingWrite.js
+  // resolveCostingGroups). No rate on the group and it counts as it always has.
+  const productionByGroup = new Map(
+    scopeGroups.map((g) => [g.tempId, groupProduction(g, productionById)]),
+  );
+  const productionHoursOf = (g) => productionByGroup.get(g.tempId)?.hours ?? null;
   const takeoffLabourHours = scopeGroups.reduce(
     (sum, g) =>
       sum +
-      (g.takeoff
+      (g.takeoff && productionHoursOf(g) === null
         ? tradeLabourHours(g.categoryKey, g.takeoff, rateOverridesFor(g.categoryId))
         : 0),
     0,
@@ -1840,10 +1864,14 @@ export function QuoteBuilderForm({
   const estimate = estimateQuoteCost({
     // The company's rate overrides ride along with each group, so the cost side
     // reads the same book the priced lines were built from.
-    scopeGroups: scopeGroups.map((g) => ({
-      ...g,
-      rateOverrides: rateOverridesFor(g.categoryId),
-    })),
+    scopeGroups: scopeGroups.map((g) => {
+      const productionHours = productionHoursOf(g);
+      return {
+        ...g,
+        rateOverrides: rateOverridesFor(g.categoryId),
+        ...(productionHours !== null ? { productionHours } : {}),
+      };
+    }),
     labourRatePerHour: num(fallbackRate),
     crew,
     // Hours the takeoffs imply, plus anything the estimator added by hand.
@@ -2979,6 +3007,12 @@ export function QuoteBuilderForm({
           renderGroupEditor, renderCostMarginPanel, renderNotesBox, renderReviewNotesBox,
           renderPhotosBox, renderProcessNotes, renderSuggestAddOns, renderSendConfirm,
           calculatorOpenerRef,
+          // The Services tab (lib/quotes/servicesTab.js): each group's
+          // production-rate hours, the book's takeoff hours it would have had,
+          // and the showPricing toggle the tab redacts prices by.
+          productionByGroup,
+          tradeHoursFor: (g) => (g?.takeoff ? tradeLabourHours(g.categoryKey, g.takeoff, rateOverridesFor(g.categoryId)) : 0),
+          showPricing: caller ? hasToggle(caller, "showPricing") : true,
         }}
       />
     );

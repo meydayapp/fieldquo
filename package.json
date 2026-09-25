@@ -49,6 +49,7 @@
     "check:duration": "node scripts/check-duration.mjs",
     "check:construction-checklists": "node --import ./scripts/alias-loader.mjs scripts/check-construction-checklists.mjs",
     "check:task-suggestions": "node --import ./scripts/alias-loader.mjs scripts/check-task-suggestions.mjs",
+    "check:production-rates": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-production-rates.mjs",
     "check:job-plan": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-job-plan.mjs",
     "check:rbac-redaction": "node --import ./scripts/alias-loader.mjs scripts/check-rbac-redaction.mjs",
     "check:rbac-nav": "node --import ./scripts/alias-loader.mjs scripts/check-rbac-nav.mjs",

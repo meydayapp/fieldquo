@@ -32,6 +32,11 @@ import { calculateMinimumPrice } from "@/lib/analytics/minimumPrice";
 import { companyMarginTarget } from "@/lib/costing/quoteCostEstimate";
 import { scopeGroupsLineItemCost } from "@/lib/costing/lineItemCost";
 import { customFactorHoursOf } from "@/lib/pricing/customFactors";
+import {
+  groupProductionHours,
+  productIdsInGroups,
+  productionMapFrom,
+} from "@/lib/services/productionRates";
 
 // The SAME gate the invoice cost panel uses, imported rather than reimplemented.
 // "Same permission" written twice is two permissions that agree until one of
@@ -68,18 +73,46 @@ export async function resolveCostingGroups(companyId, groups) {
 
   const keyById = new Map(categories.map((c) => [c.id, c.key]));
   const ratesById = new Map(settings.map((s) => [s.categoryId, s.rates]));
+  const productionById = await productionRatesFor(companyId, list);
 
-  return list.map((g, i) => ({
-    tempId: g.id || `g${i}`,
-    categoryKey: keyById.get(g.categoryId) || null,
-    label: g.label || null,
-    takeoff: g.takeoff ?? null,
-    // Read from the group, never from the request. A browser asserting "40
-    // doors" against a quote billed for 12 would write a margin the quote's own
-    // scope does not support.
-    intakeValues: g.intakeValues ?? null,
-    rateOverrides: ratesById.get(g.categoryId) ?? null,
-  }));
+  return list.map((g, i) => {
+    const resolved = {
+      tempId: g.id || `g${i}`,
+      categoryKey: keyById.get(g.categoryId) || null,
+      label: g.label || null,
+      takeoff: g.takeoff ?? null,
+      // Read from the group, never from the request. A browser asserting "40
+      // doors" against a quote billed for 12 would write a margin the quote's own
+      // scope does not support.
+      intakeValues: g.intakeValues ?? null,
+      rateOverrides: ratesById.get(g.categoryId) ?? null,
+    };
+    // The hours this group's services' production rates give it — the
+    // company's own Product rows, looked up here and never taken from the
+    // request, for the same reason as the rate overrides above. Only set
+    // when a rate answered; every other group is the object it always was.
+    const hours = productionById.size
+      ? groupProductionHours({ ...resolved, lineItems: g.lineItems }, productionById)
+      : null;
+    return hours === null ? resolved : { ...resolved, productionHours: hours };
+  });
+}
+
+/**
+ * The production rates of the services a quote's template runs name
+ * (lib/services/productionRates.js), as productionMapFrom's Map. No query at
+ * all when no line names a product — every quote with no template run — and
+ * this company's rows only: a product id is a string off a stored line, and
+ * another tenant's rate must not price this quote's hours.
+ */
+export async function productionRatesFor(companyId, groups) {
+  const ids = productIdsInGroups(groups);
+  if (!ids.length) return new Map();
+  const rows = await db.product.findMany({
+    where: { companyId, id: { in: ids } },
+    select: { id: true, name: true, production: true },
+  });
+  return productionMapFrom(rows);
 }
 
 /**
