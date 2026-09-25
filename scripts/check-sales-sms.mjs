@@ -54,6 +54,7 @@
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, sep } from "node:path";
+import { readPrismaSchema } from "./prismaSchema.mjs";
 
 let fail = 0;
 let pass = 0;
@@ -1375,7 +1376,10 @@ section("12. Whose text is it — the attribution ladder, on hostile rows");
   ok("…and never a raw update", !/salesSmsMessage\.update/.test(route));
   const inboundFn = functionSource(stripComments(read("lib/sales/salesSms.js")), "handleSalesInboundSms");
   ok("the webhook pushes only the rep the row was filed to", Boolean(inboundFn) && /salesRepIds: \[ownerRepId\]/.test(inboundFn));
-  const schema = read("prisma/schema.prisma");
+  // Not read(): its JS stripper deletes 133 of the schema's 353 models by
+  // pairing a literal `/*` in a doc comment with a `*/` 8,500 lines later.
+  // SalesSmsMessage happened to sit below the hole. See scripts/prismaSchema.mjs.
+  const schema = readPrismaSchema();
   const smsModel = schema.slice(schema.indexOf("model SalesSmsMessage {"), schema.indexOf("model SalesSmsMessage {") + 6000);
   ok("SalesSmsMessage carries prospectId and matchedBy, and both are read", /prospectId String\?/.test(smsModel) && /matchedBy String\?/.test(smsModel) && /prospectId: true/.test(listFn) && /matchedBy/.test(stripComments(read("lib/sales/smsAttribution.js"))));
 }

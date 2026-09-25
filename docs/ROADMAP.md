@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 25 September 2026 (three follow-ups: cancelling a pay run now gives back its daily-sheet bonuses as well as its commissions; the checks read prisma/schema.prisma through one Prisma-aware stripper, and only four ever stripped it; check:call-to-client now runs the booking follow-up it was skipping, and the phone agent promises a confirmation only when the follow-up reports one — see "Pay-run cancel, the schema stripper, the booking follow-up" below)
 Last updated: 25 September 2026 (one cabinet scope, Refinish | Reface: a company selling both cabinet trades gets a switch inside an unsaved cabinet group's card that moves the group between the two price books while keeping every count and answer already entered; a still-default name follows the service, switching back restores the previous figures byte-for-byte, and only the chosen service reaches the saved quote — see "Refinish | Reface inside one cabinet card" below)
 Last updated: 25 September 2026 (production rates per service — `Product.production` { key, amount, basis } edited in Settings › Services and the Products & Services form, suggested rates for the takeoff trades shown greyed and never applied; a group whose template-run services carry a rate takes its crew hours from them ahead of the trade book and recipe hours on the saved costing, the live Cost & margin panel and the job plan; a read-only Services tab beside Estimate with measurements, rates, hours and — by jobCosting/showPricing — labour cost, materials, price and margin; md5 unchanged with no rate)
 Last updated: 25 September 2026 (check:all run end to end for the first time in weeks: 85 hidden failures down to 5 — real fixes to crew seeing the AI-credit balance, the lawn-care rate card without the quotes grid, English upload errors on French forms, a paint-builder crash and do-not-contact normalisation in the Maps sweep; tenant-scope and feature-matrix wait on the owner, app-currency and sales-server-copy on appMessages.js — see "check:all run end to end" below)
@@ -46,6 +47,112 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## Pay-run cancel, the schema stripper, the booking follow-up (25 September 2026)
+
+Three follow-ups earlier agents found. One commit each; nothing touches the
+database.
+
+### Cancelling a pay run gives back its daily-sheet bonuses (real bug)
+
+Saving a run stamps `payRunId` on the commission rows it carries AND on the
+daily sheets whose performance bonus it pays. The cancel released only the
+commission rows. So a cancelled run, which paid nobody, kept its bonus sheets:
+the next run's preview reads only `payRunId: null` and never offered those
+bonuses again, and the sheets stayed locked against edits (the day PUT refuses
+a sheet with a `payRunId`).
+
+- `lib/payroll/runClaims.js` now holds the claim, the release and the "still
+  free" filter together. `claimRunItems` is the POST's two stamps, same
+  behaviour. `cancelPayRun` sets the status and releases both kinds of row in
+  one transaction, and refuses a paid run. It is idempotent: a repeat cancel
+  matches only this run's id, so it can never free a row a later run has
+  claimed. `unclaimedBonusSheetsWhere` is `buildPayRun`'s query.
+- A repeat cancel no longer writes a second "Cancelled the pay run" activity
+  row. The UI hides Cancel on a cancelled run. The API still accepts it, and
+  that heals any run cancelled before this fix.
+- `check:daily-objectives` section 5 runs these cases against an in-memory
+  database: stamp → cancel → offered again, a second run racing for the same
+  rows, a double-cancel, cross-tenant scoping, a paid run, and the heal. If
+  the bonus release is removed, 5 of these cases fail.
+- A read-only production query found **0** sheets stamped to a cancelled run.
+  Nothing needs repairing.
+
+### One Prisma-aware schema stripper for the checks
+
+`scripts/prismaSchema.mjs` exports `stripPrismaComments` and
+`readPrismaSchema`. It is a per-line lexer: it skips `"strings"` (including
+`\"` escapes) and cuts at the first `//` outside one. That handles `///` doc
+comments, `//` comments and a string that contains `//`. It leaves `/*` alone,
+because Prisma has no block comments. Line numbers are kept.
+
+`readPrismaSchema()` throws if any `model`/`enum`/`type`/`view` declaration is
+lost. Test: the old JS stripper dropped into the helper made it throw "lost
+133 declaration(s)".
+
+The "about 30 checks" estimate came from a grep. It matched each check's JS
+`stripComments` sitting next to a plain `read`. To get the real number, all
+132 checks that mention `schema.prisma` were run under a preload that records
+every comment-shaped regex replace applied to the schema text. **Exactly four
+strip it:**
+
+- `check-sales-sms` was still on the broken stripper, which deleted 133 of
+  353 models and enums (schema lines 42–8587). It passed only because
+  `SalesSmsMessage` sits below that range.
+- `check-consent-mechanisms`, `check-grace-warning` and
+  `check-renewal-reminders` were fixed in 6eae21eb with three different hand
+  regexes. One of them still cut any string containing a `//` that wasn't
+  preceded by `:`.
+
+All four now use the helper, and they pass with no assertion changed. Every
+other check reads the schema raw. No check newly failed, so there was nothing
+to triage.
+
+### check:call-to-client runs the booking follow-up
+
+The check's stand-in for `@/lib/voice/outbound` did not export `DISCLOSURE`.
+So `finalizeBooking` failed to link on every booking in the file, and
+`bookSlot`'s catch logged "[voice] booking follow-up failed" 8 times while all
+257 assertions passed. The stub now re-exports `DISCLOSURE` from
+`lib/voice/disclosure.js` and records each consent.
+
+Running the path revealed:
+
+- **A real bug (fixed in `lib/voice/availability.js`):** `confirmationSent`
+  came from `Boolean(booking.clientEmail)`. It ignored the `{ emailed }` that
+  `finalizeBooking` returns, even though a comment there says the phone path
+  reads it. When the follow-up never ran, a caller who spelled out an email
+  was told "You'll get a confirmation shortly" and no letter was posted. The
+  AI employee's booking tool makes the same promise. The flag now comes from
+  the follow-up's report. Test: with the stub broken and the old line, the
+  promise is made; with the fix it isn't.
+- **A check-safety gap:** with the follow-up live, the check calls the real
+  Resend and Twilio send paths. Vendor keys are now deleted from the
+  environment before anything loads. The fixture's real gmail address is
+  replaced with `capri@example.com`.
+- **Fixture gaps:** the company had no name ("Confirmed: Phone call with
+  undefined") and there was no app origin, so the manage link was refused.
+  Both are now supplied.
+- **New assertions:** consent is stored with `DISCLOSURE.booking`, a manage
+  token is minted, the letter reaches the sender, and the text path runs. A
+  new section 19 fails the run on any "booking follow-up failed" line. If
+  the export is dropped again, 8 of 265 fail.
+
+### Verification
+
+- Every step of `check:all` was run serially without stopping, by a
+  throwaway runner outside the repo: **562 steps, 560 pass, 2 fail**. The two
+  failures are `check:tenant-scope` and `check:feature-matrix`, the same two
+  that fail on main. Each was compared against an `origin/main` snapshot and
+  fails identically (tenant-scope 140/2 with the same 20 unscoped lookups;
+  feature-matrix `team_chat` and `ai_material_list`).
+- `check:commissions` is outside the chain; it passes 122/122.
+- `npm run build` passes.
+
+### Still owed here
+
+- Nothing from these three. The two `check:all` failures listed above are
+  unchanged and still wait on the owner (see "check:all run end to end" below).
 
 ## Refinish | Reface inside one cabinet card (25 September 2026)
 

@@ -20027,7 +20027,7 @@ model DailyObjectiveSheet {
   bonusBreakdown Json?
   /// Set when a pay run picked this bonus up as an earning line
   /// (lib/payroll/buildPayRun.js). A sheet with a payRunId is never paid
-  /// twice; deleting the run frees it.
+  /// twice; cancelling or deleting the run frees it (lib/payroll/runClaims.js).
   payRunId String?
   payRun   PayRun? @relation(fields: [payRunId], references: [id], onDelete: SetNull)
 

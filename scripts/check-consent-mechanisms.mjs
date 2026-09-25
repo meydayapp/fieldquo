@@ -33,6 +33,7 @@ process.env.NEXT_PUBLIC_APP_URL = "https://app.fieldquo.test";
 
 import { readFileSync, readdirSync } from "node:fs";
 import { join, sep } from "node:path";
+import { readPrismaSchema } from "./prismaSchema.mjs";
 import {
   newUnsubscribeToken,
   unsubscribeUrl,
@@ -72,13 +73,12 @@ function stripComments(src) {
 }
 
 function readSrc(path) {
-  const src = readFileSync(path, "utf8");
-  // Prisma has no block comments, so `/*` in a schema is literal text — a
-  // doc comment naming a glob like `app/data/serviceSeeds/*` paired with a
-  // later `accounts/*/locations` and the JS stripper deleted ~8,000 lines of
-  // schema, Subscription and SmsOptOut included. Strip line comments only.
-  if (path.endsWith(".prisma")) return src.replace(/\/\/.*$/gm, "");
-  return stripComments(src);
+  // The schema is not JavaScript: the stripper above deleted ~8,000 lines of
+  // it (Subscription and SmsOptOut included) by pairing a literal `/*` in a
+  // doc comment with a later `*/`. scripts/prismaSchema.mjs is the one
+  // Prisma-aware reader, and refuses to return a schema that lost a model.
+  if (path === "prisma/schema.prisma") return readPrismaSchema();
+  return stripComments(readFileSync(path, "utf8"));
 }
 
 function walk(dir, out = []) {

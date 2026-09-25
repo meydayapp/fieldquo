@@ -15,6 +15,7 @@
 // Run: node --import ./scripts/alias-loader.mjs scripts/check-renewal-reminders.mjs
 
 import { readFileSync } from "node:fs";
+import { readPrismaSchema } from "./prismaSchema.mjs";
 import {
   decideRenewalReminder,
   windowDaysFor,
@@ -300,11 +301,11 @@ ok("the amount is repriced from the plan's own row, not trusted from anywhere el
 ok("a plan with no price for its own interval is logged, not guessed",
   /recordError/.test(cron) && /plan_missing_price_for_interval/.test(cron));
 
-// Line comments only: Prisma has no block comments, so a `/*` in a schema
-// doc comment (a glob like `app/data/serviceSeeds/*`) is literal text, and
-// the JS stripper above paired it with a later `*/` and deleted thousands of
-// lines — Subscription among them.
-const schema = readFileSync("prisma/schema.prisma", "utf8").replace(/(^|[^:])\/\/.*$/gm, "$1");
+// Through the shared Prisma-aware reader, not the JS stripper above: Prisma
+// has no block comments, and that stripper paired a literal `/*` in a doc
+// comment with a later `*/` and deleted thousands of lines, Subscription
+// among them (scripts/prismaSchema.mjs says how).
+const schema = readPrismaSchema();
 const subModel = schema.slice(schema.indexOf("model Subscription {"));
 const subBody = subModel.slice(0, subModel.indexOf("\n}"));
 ok("Subscription carries the period-keyed reminder marker",

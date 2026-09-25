@@ -472,7 +472,11 @@ section("L — wired, not just correct");
   ];
   for (const p of hooked) ok(`${p} calls syncCommissionsForInvoice`, /await syncCommissionsForInvoice\(/.test(read(p)));
   ok("the pay-run preview re-syncs stale jobs before offering commissions", /syncStaleCommissions\(/.test(read("app/api/payroll/runs/route.js")));
-  ok("cancelling a pay run frees its commission rows", /jobCommissionEntry\.updateMany\(/.test(read("app/api/payroll/runs/[id]/route.js")));
+  // Executed in scripts/check-daily-objectives.mjs section 5 (stamp, cancel,
+  // due again, double-cancel); here only that the route reaches it.
+  ok("cancelling a pay run frees its commission rows",
+    /await cancelPayRun\(db, run,/.test(read("app/api/payroll/runs/[id]/route.js")) &&
+      /jobCommissionEntry\.updateMany\(\{\s*where: \{ payRunId: run\.id, companyId \}/.test(read("lib/payroll/runClaims.js")));
   ok("the job page renders the Commissions card", /<JobCommissions\b/.test(read("app/app/jobs/[id]/JobDetail.js")));
 }
 
