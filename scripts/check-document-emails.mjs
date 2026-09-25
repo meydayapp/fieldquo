@@ -73,7 +73,11 @@ const quote = {
   quoteNumber: "Q-77",
   total: 4250,
   validUntil: null,
-  lineItems: [{ name: "Doors", quantity: 2, unitPrice: 100, total: 200 }],
+  // The stored line shape — description/amount — which is what the builder
+  // reads. This fixture used to say name/total, so its line printed $0.00;
+  // nothing below measured the figure, which is how the preview's sample
+  // carried the same mistake unseen.
+  lineItems: [{ description: "Doors", quantity: 2, unitPrice: 100, amount: 200 }],
   processNotes: null,
   emailReferences: null,
   emailBeforeAfter: null,
@@ -241,6 +245,23 @@ console.log("\nThe preview runs the real builder\n");
   };
   const out = await renderDocumentEmailPreview(db, { companyId: "c1", kind: "quote", language: "es", copy: null });
   ok("quote preview on the sample document, in the asked language", out.document.sample === true && /presupuesto/i.test(out.subject) && out.html.includes("Q-1042"));
+  // The sample quote's lines must carry their own figures. Rows in the wrong
+  // shape (name/total instead of description/amount) render every line as
+  // $0.00 and the card subtotal as nothing — the preview a company with no
+  // quote yet sees of its own email. Measured in English so the figures are
+  // literal: each line's amount, the lines' subtotal, and no zero anywhere.
+  const enQuote = await renderDocumentEmailPreview(db, { companyId: "c1", kind: "quote", language: "en", copy: null });
+  const lineFigures = ["$3,000.00", "$750.00", "$150.00"];
+  ok(
+    "sample quote prints each line's amount and the subtotal, never $0.00",
+    enQuote.document.sample === true &&
+      lineFigures.every((f) => enQuote.html.includes(f) && enQuote.text.includes(f)) &&
+      enQuote.html.includes("$3,900.00") &&
+      ["Cabinet doors & drawer fronts", "Cabinet boxes", "Premium hardware"].every((d) => enQuote.text.includes(d)) &&
+      !enQuote.html.includes("$0.00") &&
+      !enQuote.text.includes("$0.00"),
+    lineFigures.filter((f) => !enQuote.html.includes(f)).join(", ") || (enQuote.html.includes("$0.00") ? "$0.00 in the HTML" : ""),
+  );
   const withCopy = await renderDocumentEmailPreview(db, { companyId: "c1", kind: "invoice", language: "en", copy: { slots: { ...originalWording("invoice", "en"), greeting: "Yo {{clientName}}," }, sentMode: "blocks", canvas: null } });
   ok("preview shows the unsaved draft", withCopy.html.includes("Yo Jane,"));
   const receipt = await renderDocumentEmailPreview(db, { companyId: "c1", kind: "receipt", language: "fr", copy: null });
