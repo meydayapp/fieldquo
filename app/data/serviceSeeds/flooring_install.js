@@ -140,7 +140,7 @@ export const SEED = {
       unit: "linear_ft", benchmark: null, durationMinutes: null, bookable: false },
     { seedKey: "fq.flooring_install.visits.measure_visit", category: "visits", name: { en: "On-site measure and estimate", fr: "Mesure sur place et soumission", es: "Medición en sitio y presupuesto" },
       description: { en: "Every room measured, the subfloor looked at and a written price left for the flooring the client has in mind.", fr: "Chaque pièce mesurée, sous-plancher examiné et prix écrit laissé pour le plancher que le client envisage.", es: "Cada habitación medida, el subpiso revisado y un precio por escrito para el piso que el cliente tiene en mente." },
-      unit: "flat", benchmark: null, durationMinutes: null, bookable: false, durationMinutes: 60, bookable: true },
+      unit: "flat", benchmark: null, durationMinutes: 60, bookable: true },
     { seedKey: "fq.flooring_install.visits.moisture_test", category: "visits", name: { en: "Subfloor moisture test", fr: "Test d'humidité du sous-plancher", es: "Prueba de humedad del subpiso" },
       description: { en: "Slab or wood subfloor moisture measured with a calibrated meter before any floor goes down, with the readings written up.", fr: "Humidité de la dalle ou du sous-plancher de bois mesurée avec un appareil étalonné avant toute pose, lectures consignées.", es: "Humedad de la losa o del subpiso de madera medida con un medidor calibrado antes de instalar cualquier piso, con las lecturas anotadas." },
       unit: "flat", benchmark: null, durationMinutes: null, bookable: false },
