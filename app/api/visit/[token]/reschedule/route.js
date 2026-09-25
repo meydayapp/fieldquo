@@ -20,6 +20,7 @@ import {
 import { sendVisitRescheduledEmails } from "@/app/admin/lib/email/templates";
 import { bookingInviteAttachment, nextSequence } from "@/lib/booking/bookingInvite";
 import { scheduleSync } from "@/lib/calendar/googleSync";
+import { textClientOfChange, bookingTextTarget } from "@/lib/schedule/changeText";
 
 // Public, token-only — the client moving their own visit.
 //
@@ -337,6 +338,25 @@ export async function POST(request, { params }) {
     initiatedBy: "client",
     ...(invite && { attachments: [invite] }),
   }).catch((err) => console.error("[visit] reschedule emails failed:", err?.message));
+
+  // And the text, when they booked with a phone: the new time and the same
+  // link, in the page's language, behind the confirmation's gates
+  // (lib/schedule/changeText.js). Their own move deserves the same receipt
+  // an office move gets — "did it take?" is the question either way.
+  const target = await bookingTextTarget(booking);
+  await textClientOfChange({
+    kind: "moved",
+    company,
+    phone: booking.clientPhone,
+    language: movedLanguage,
+    startTime: plan.start,
+    previousStartTime,
+    where: visitFacts(after.booking),
+    service: eventType.name,
+    manageUrl,
+    ref: target.ref,
+    clientId: target.clientId,
+  });
 
   return NextResponse.json({ ...visitView(after, now), rescheduled: true });
 }

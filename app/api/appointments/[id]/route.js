@@ -13,7 +13,8 @@ import {
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 import { planOfficeMove, bracketStops, moveReasonMessage } from "@/lib/schedule/moveEntry";
 import { assigneeStopsAround } from "@/lib/schedule/entryNeighbours";
-import { notifyClientMoved, notifyClientCancelled } from "@/lib/schedule/clientNotice";
+import { notifyClientMoved, notifyClientCancelled, serviceName, isMeasure } from "@/lib/schedule/clientNotice";
+import { textClientOfChange } from "@/lib/schedule/changeText";
 import { travelMinutes, hasPoint } from "@/lib/booking/travel";
 import { serverMapsKey } from "@/lib/measure/roofMeasurement";
 import { getAppOrigin } from "@/lib/appUrl";
@@ -115,7 +116,10 @@ export async function PATCH(request, { params }) {
   const existing = await db.appointment.findFirst({
     where: { id: _params.id, companyId: member.companyId },
     include: {
-      client: { select: { id: true, name: true, email: true, language: true, address: true } },
+      // `phone` for the moved / cancelled text (lib/schedule/changeText.js)
+      // when no booking carries the number the client gave; the letter
+      // never reads it.
+      client: { select: { id: true, name: true, email: true, language: true, address: true, phone: true } },
       quote: { select: { id: true, language: true, quoteNumber: true } },
       job: { select: { id: true, title: true, quote: { select: { language: true } } } },
       invoice: { select: { id: true, invoiceNumber: true, language: true } },
@@ -435,7 +439,7 @@ export async function PATCH(request, { params }) {
   // write to and lets the office untick it for a change already agreed by
   // phone. `notifyClient: false` is that tick.
   const tell = body.notifyClient !== false;
-  const notice = { sent: false, language: null };
+  const notice = { sent: false, language: null, texted: false };
   if (tell && (plan || cancelling)) {
     let manageUrl = null;
     if (existing.booking?.manageToken) {
@@ -505,6 +509,33 @@ export async function PATCH(request, { params }) {
         });
     notice.sent = result.sent;
     notice.language = result.language;
+
+    // ── And by text, when they gave a phone ─────────────────────────────
+    //
+    // Same gates as the booking confirmation (lib/schedule/changeText.js),
+    // in the letter's language, labelled against this appointment so the
+    // calendar's "Texts" line shows it. The booking's number first — the
+    // one the client typed when they booked — else the client record's.
+    const texted = await textClientOfChange({
+      kind: plan ? "moved" : "cancelled",
+      company: existing.company,
+      phone: existing.booking?.clientPhone || existing.client?.phone || null,
+      language: result.language,
+      startTime: plan ? plan.start : existing.scheduledAt,
+      previousStartTime: plan ? existing.scheduledAt : null,
+      where: common.where,
+      location: common.location,
+      service: serviceName({
+        eventTypeName: common.eventTypeName,
+        language: result.language,
+        measure: isMeasure(existing.quote, common.about),
+      }),
+      manageUrl: plan ? manageUrl : null,
+      ref: { type: "appointment", id: existing.id },
+      clientId: existing.client?.id || null,
+      alreadyCancelled: !plan && existing.status === "cancelled",
+    });
+    notice.texted = texted.texted;
   }
 
   // ── A measure's completion or cancellation is job history ────────────────

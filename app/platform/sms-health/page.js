@@ -17,6 +17,8 @@ import { fetchJson } from "@/lib/fetchJson";
 
 const PURPOSE_LABELS = {
   booking_confirmation: "Booking confirmation",
+  booking_moved: "Appointment moved",
+  booking_cancelled: "Appointment cancelled",
   appointment_reminder: "Appointment reminder",
   visit_reminder: "Visit reminder",
   on_my_way: "On my way",

@@ -35,7 +35,7 @@
 // invisible selected day. Nothing here reads a raw brand hex.
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Loader2, AlertCircle } from "lucide-react";
 
 /** Local date, not toISOString() — that converts to UTC first, so anyone west
@@ -85,8 +85,25 @@ export default function SlotCalendar({
   // "try another month", the other is "the page is broken" — and the second
   // needs to say so rather than quietly render an empty grid.
   const [error, setError] = useState("");
+  // Whether a month has EVER arrived. The first load has nothing to show and
+  // gets the full spinner; every later one — a new address, a new mode, a 409
+  // refresh — keeps the grid on screen and marks it busy instead. Swapping
+  // the whole calendar for a one-line spinner collapsed the card by ~400px
+  // on every address change, which on a contractor's website (where this
+  // sits mid-page) jolted everything under it while Google's suggestion list
+  // was open over it.
+  const [everLoaded, setEverLoaded] = useState(false);
+  // Only the NEWEST request may write. Each call takes a number, and an
+  // answer that comes back after a later call started is dropped. Without
+  // this, a slow answer for the half-typed address landed after the fast one
+  // for the address they then picked, and the grid showed times for a house
+  // nobody was booking — reproduced 2026-09-25, the owner's "glitch when we
+  // enter a new address".
+  const requestSeq = useRef(0);
 
   const fetchMonth = useCallback(async () => {
+    const mine = ++requestSeq.current;
+    const stale = () => mine !== requestSeq.current;
     setLoading(true);
     setError("");
     try {
@@ -116,8 +133,14 @@ export default function SlotCalendar({
       const from = isoDate(first < today ? today : first);
       const to = isoDate(last);
       const got = await loadSlots(from, to);
+      if (stale()) return;
       setSlots(got || {});
+      // A day that was open under the old address may have no times under
+      // the new one. Leaving it selected draws a heading over nothing, so it
+      // goes back to "pick a day".
+      setChosenDay((d) => (d && !(got || {})[d]?.length ? null : d));
     } catch (err) {
+      if (stale()) return;
       setSlots({});
       // A sentence, not the status line. "Request failed (405)" is accurate and
       // useless to a homeowner in a driveway; the real thing goes to the
@@ -125,7 +148,10 @@ export default function SlotCalendar({
       console.error("[slots] couldn't load times:", err?.message);
       setError(copy.timesFailed);
     } finally {
-      setLoading(false);
+      if (!stale()) {
+        setLoading(false);
+        setEverLoaded(true);
+      }
     }
   }, [monthCursor, loadSlots, copy]);
 
@@ -199,7 +225,7 @@ export default function SlotCalendar({
     ...(timeZone && { timeZone }),
   });
 
-  if (loading) {
+  if (loading && !everLoaded) {
     return (
       <div
         className="flex items-center gap-2 text-sm py-10 justify-center"
@@ -210,8 +236,23 @@ export default function SlotCalendar({
     );
   }
 
+  // Recomputing over a grid already on screen: the grid stays, dimmed, and
+  // nothing in it can be picked until the new answer is in — a time tapped
+  // now would be a time for the previous address.
+  const refreshing = loading && everLoaded;
+
   return (
-    <div>
+    <div aria-busy={refreshing || undefined}>
+      {refreshing && (
+        <div
+          className="flex items-center gap-2 text-sm mb-2"
+          style={{ color: theme.inkMuted }}
+          role="status"
+          data-slots-refreshing
+        >
+          <Loader2 size={14} className="animate-spin" /> {copy.findingTimes}
+        </div>
+      )}
       {error && (
         <div
           className="rounded-lg px-3 py-2 mb-3 flex items-start gap-2 text-sm border"
@@ -229,7 +270,12 @@ export default function SlotCalendar({
       {/* Two columns only from md up. At sm the card is still narrower than
           calendar + times side by side, which is how the day cells ended up
           17px wide the first time. */}
-      <div className="md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,15rem)] md:gap-6 md:items-start">
+      <div
+        className={`md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,15rem)] md:gap-6 md:items-start transition-opacity ${
+          refreshing ? "opacity-50 pointer-events-none" : ""
+        }`}
+        inert={refreshing || undefined}
+      >
         <div className="mx-auto w-full max-w-sm md:max-w-none">
           <div className="flex items-center justify-between gap-2 mb-2">
             <NavButton

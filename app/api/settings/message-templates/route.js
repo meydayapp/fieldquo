@@ -17,6 +17,7 @@ import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import {
   SMS_TEMPLATE_TYPES,
+  BOOKING_TEXT_TYPES,
   validateTemplate,
   fillTemplate,
 } from "@/lib/sms/renderTemplate";
@@ -60,9 +61,18 @@ export async function GET(request) {
         key,
         label: spec.label,
         // The switch that governs whether this type sends at all, when it has
-        // one. Only the booking confirmation does. Same rule as the send path
-        // (lib/booking/bookingText.js): on unless the company turned it off.
+        // one. The booking confirmation carries it; the moved and cancelled
+        // texts follow the SAME switch (one switch for booking texts — see
+        // lib/schedule/changeText.js), so they report its state and say
+        // whose it is rather than growing a second toggle that could
+        // disagree. Same rule as the send path (lib/booking/bookingText.js):
+        // on unless the company turned it off.
         ...(key === "booking_confirmation" && { enabled: bookingTextOn(company) }),
+        ...(BOOKING_TEXT_TYPES.includes(key) &&
+          key !== "booking_confirmation" && {
+            followsSwitch: "booking_confirmation",
+            switchOn: bookingTextOn(company),
+          }),
         // The screen renders the KEY through t(); `label`/`hint` stay as the
         // English fallback for a language missing one.
         labelKey: spec.labelKey,

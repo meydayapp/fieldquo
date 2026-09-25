@@ -348,7 +348,10 @@ console.log("\nThe readers\n");
   const gone = localiseCompanyText({ ...company, paymentTerms: "" }, { paymentTerms: { text: "Net 30 jours", sourceHash: h } });
   ok("a cleared source prints nothing, whatever rows remain", gone.paymentTerms === "");
   ok("companyTextFields lists only the non-empty keys", JSON.stringify(Object.keys(companyTextFields(company))) === JSON.stringify(["paymentTerms", "defaultProcessNotes", "smsTemplates.on_my_way"]));
-  ok("COMPANY_TEXT_KEYS covers the seven texts", COMPANY_TEXT_KEYS.length === 7 && COMPANY_TEXT_KEYS.some((k) => k.key === "smsTemplates.booking_confirmation"));
+  // Nine since 2026-09-25: the moved and cancelled texts (lib/schedule/
+  // changeText.js) are editable, so a custom wording of either is drafted
+  // into the client's language like the other three.
+  ok("COMPANY_TEXT_KEYS covers the nine texts", COMPANY_TEXT_KEYS.length === 9 && ["booking_confirmation", "booking_moved", "booking_cancelled"].every((t) => COMPANY_TEXT_KEYS.some((k) => k.key === `smsTemplates.${t}`)));
 
   const sh = sourceHash(company.smsTemplates.on_my_way);
   const map = smsTemplateTranslations(company, { "smsTemplates.on_my_way": { text: "Bonjour {name}, {worker} de {company} arrive.", sourceHash: sh } });

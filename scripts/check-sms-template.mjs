@@ -76,10 +76,15 @@ for (const [key, spec] of Object.entries(SMS_TEMPLATE_TYPES)) {
   ok(`${key.padEnd(22)} fallback produces text`, typeof out === "string" && out.length > 5, out?.slice(0, 40));
 }
 
-console.log("\nEditable = wired to send. All three send today.");
+console.log("\nEditable = wired to send. All five send today.");
 const editable = Object.entries(SMS_TEMPLATE_TYPES).filter(([, s]) => s.editable).map(([k]) => k).sort();
-ok("on_my_way, appointment_reminder and booking_confirmation are editable",
-  editable.join(",") === "appointment_reminder,booking_confirmation,on_my_way", editable);
+ok("on_my_way, appointment_reminder, booking_confirmation, booking_moved and booking_cancelled are editable",
+  editable.join(",") === "appointment_reminder,booking_cancelled,booking_confirmation,booking_moved,on_my_way", editable);
+// The two change texts send from lib/schedule/changeText.js, which every
+// move/cancel path calls — scripts/check-booking-modes.mjs executes them.
+const changeSrc = readFileSync(new URL("../lib/schedule/changeText.js", import.meta.url), "utf8");
+ok("the moved / cancelled texts render through renderMessage", /renderMessage\(\{\s*type,/.test(changeSrc) && /moved: "booking_moved", cancelled: "booking_cancelled"/.test(changeSrc));
+ok("…behind the confirmation's own verdict (one switch, the phone, the opt-out)", /bookingTextVerdict\(\{ company, booking: \{ clientPhone: phone \} \}\)/.test(changeSrc));
 // Editable is a promise that it sends. The booking confirmation is texted by
 // finalizeBooking — the one point both the free and the paid path pass
 // through — behind the company's switch, the client's phone and the opt-out.
@@ -119,7 +124,32 @@ for (const lang of SMS_LANGUAGES) {
   const o = renderMessage({ type: "on_my_way", templates: null, language: lang, values: { company: "Northside", worker: "Dave", eta: "20 min" } });
   ok(`${lang}: on-my-way mentions the worker and the ETA`, o.includes("Dave") && o.includes("20 min"), o);
   ok(`${lang}: on-my-way is not the English sentence`, lang === "en" || !/is on the way/.test(o), o);
+
+  // The change texts: a real-length manage link (43-char token), the mode
+  // line, the time. The link wins over the phone; without it the phone is
+  // the tail; without either the sentence is dropped, never left as a hole.
+  const when = formatWhen(D, { language: lang, timezone: "America/Toronto" });
+  const link = "https://app.fieldquo.com/visit/" + "x".repeat(43);
+  const mv = renderMessage({ type: "booking_moved", templates: null, language: lang, values: { company: "Northside", when, where: "On-site visit at 123 Oak St", link, phone: "555-0100" } });
+  ok(`${lang}: moved text carries the time, the place and the link`, mv.includes(when.replace(/\.$/, "")) && mv.includes("123 Oak St") && mv.includes(link) && !mv.includes("555-0100"), mv);
+  ok(`${lang}: moved text keeps STOP and fits in two segments' worth`, /\bSTOP\b/.test(mv) && mv.length <= 320, mv.length);
+  const mvPhone = renderMessage({ type: "booking_moved", templates: null, language: lang, values: { company: "Northside", when, where: null, link: null, phone: "555-0100" } });
+  ok(`${lang}: no link → the phone, and no empty where clause`, mvPhone.includes("555-0100") && !/null|undefined|, ,|\.\s+,|\.\./.test(mvPhone), mvPhone);
+  const mvBare = renderMessage({ type: "booking_moved", templates: null, language: lang, values: { company: "Northside", when } });
+  ok(`${lang}: no link and no phone → neither sentence`, !/null|undefined|:\s*$/.test(mvBare) && /\bSTOP\b/.test(mvBare), mvBare);
+  const cx = renderMessage({ type: "booking_cancelled", templates: null, language: lang, values: { company: "Northside", when, where: "Phone call — we'll ring 819-238-7263", phone: "555-0100" } });
+  ok(`${lang}: cancelled text names the time, the mode line and the number to rebook`, cx.includes(when.replace(/\.$/, "")) && cx.includes("819-238-7263") && cx.includes("555-0100") && /\bSTOP\b/.test(cx), cx);
+  ok(`${lang}: the change texts are not the English sentences`, lang === "en" || (!/has moved/.test(mv) && !/is cancelled/.test(cx)), [mv, cx]);
 }
+ok("every catalogue language has the two change texts", SMS_LANGUAGES.every((l) => ["moved", "cancelled"].every((k) => typeof SMS_COPY[l][k] === "function")));
+console.log(`     → "${renderMessage({ type: "booking_moved", templates: null, language: "en", values: { company: "TrueFinish Cabinets", when: formatWhen(D, { language: "en", timezone: "America/Toronto" }), where: "On-site visit at 12 Elm St", link: "https://app.fieldquo.com/visit/abc" } })}"`);
+console.log(`     → "${renderMessage({ type: "booking_cancelled", templates: null, language: "en", values: { company: "TrueFinish Cabinets", when: formatWhen(D, { language: "en", timezone: "America/Toronto" }), where: "On-site visit at 12 Elm St", phone: "819-555-0100" } })}"`);
+
+console.log("\nA custom moved text: the company's wording, every token filled");
+const customMoved = renderMessage({ type: "booking_moved", templates: { booking_moved: "{company}: moved from {previous} to {when} ({service}). {link}" }, language: "en", templateLanguage: "en",
+  values: { company: "Acme", when: "Thu 10 AM", previous: "Tue 2 PM", service: "Estimate", link: "https://x/visit/t" } });
+ok("{previous}, {when}, {service} and {link} all fill", customMoved === "Acme: moved from Tue 2 PM to Thu 10 AM (Estimate). https://x/visit/t", customMoved);
+ok("a cancelled template may not use {link} (a cancelled visit has none to manage)", !validateTemplate("booking_cancelled", "{company} cancelled {link}").ok);
 ok("every catalogue language has all three messages", SMS_LANGUAGES.every((l) => ["onMyWay", "reminder", "booking"].every((k) => typeof SMS_COPY[l][k] === "function")));
 ok("an unknown language reads English", /is on the way/.test(renderMessage({ type: "on_my_way", templates: null, language: "xx", values: { company: "A", worker: "Dave" } })));
 

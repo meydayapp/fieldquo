@@ -6,7 +6,7 @@ Last updated: 24 September 2026 (the reactive signup panel: the panel beside the
 Last updated: 24 September 2026 (maintenance plans on quotes — `ServicePlanTemplate` + `QuotePlanOffer`, additive; Settings → Maintenance Plans with 23 starter plans in eight languages; included or optional on a quote, ids-only approval, a running ServicePlan invoiced per visit with the discount on each invoice — see its section)
 Last updated: 25 September 2026 ("How this was handled" on a conversation — AI team R1: a read-only timeline in /app/messages of the front desk's reading, assignments, hand-offs, ping-pong escalations, take-overs, replies with tools/model/confidence/cost, stop reasons and proposals with who decided, built from AiEmployeeRoutingEvent / AiEmployeeReply / AiEmployeeProposal with no schema change — see its section)
 Last updated: 25 September 2026 (the chat bubble on a company's OWN website: a one-line `<script src="…/embed/<slug>/chat.js" async>` loader replaces the fixed-size iframe snippet on Settings → AI employee — closed, the frame is the bubble and nothing else on their page is covered; open, it is the panel; on a phone, full screen with host scroll locked; disabled chat leaves nothing; the old iframe snippet still works — see "The chat bubble on a company's own website" below)
-Last updated: 25 September 2026 (SMS delivery receipts — every text sendSms() sends is tracked in `SmsDelivery` from send to carrier verdict: Twilio statusCallback at /api/sms/status (signature-verified, forward-only), an hourly reconcile cron for callbacks that never come, "Delivered / Not delivered — why" on SMS threads, the calendar and the client page, and /platform/sms-health; table SQL to apply by hand — see "SMS delivery receipts" below)
+Last updated: 25 September 2026 (moved / cancelled appointments now TEXT the client as well as email them — every office move/cancel (EntryActions → the appointment and job-visit PATCH) and the client's own manage-link reschedule/cancel, behind the booking-text switch, the phone and STOP, in the client's language, editable on Settings › Client messages as "Appointment moved" / "Appointment cancelled", tracked as `booking_moved` / `booking_cancelled` so the calendar's Texts line shows them — see "Moved and cancelled appointments text the client" below; before it, SMS delivery receipts — every text tracked in `SmsDelivery` from send to carrier verdict, table SQL to apply by hand — see "SMS delivery receipts")
 Last updated: 24 September 2026 (a service's estimate template expands onto a quote and an invoice: "Add with its template lines" beside a templated service in the line library, lines in the document's language from the company's own Product row, measured quantities filled from the quote's own takeoffs with the source printed under the line, a missing figure at quantity 0 with the calculator named or linked, `ventCount` / `returnCount` registered — see "A service's template, expanded onto the quote" below)
 Last updated: 24 September 2026 (the estimate template inside a service — `Product.templateLines` / `defaultDiscount` / `imageUrl` / `estimateTypes` / `templateEnabled`, additive; templates attach by quote type (`categories` + painting estimate types) through `templatesFor()`; a closed measurement registry every trade's lines can take their qty from; the seed LOADER contract in `lib/services/seeds.js`; Settings › Services edits each service's template; `/app/analytics/benchmark` is the preset library with an editable Your price; benchmark sharing is on by default for new companies and Terms §7 / Privacy §7 say so. The seed CONTENT — templates on every trade in seven languages — is a separate pass landing against the same contract.; landed just before it on main: auto-translation on save — see its section.)
 Last updated: 24 September 2026 (tours re-pinned to the new shell: welcome-v2 walks the 17-row rail — Leads, Quotes, Quote reviews, Assign shifts, Marketing, Receptionist, FieldQuo AI, AI team, More, Create, Search, Settings at the foot — unfolding a folded People/Grow group through its header and folding it back, a new ai-team-v1 page tour, "Take the tour" on the dashboard's set-up card, the Help centre's replay fixed; every onboarding and set-up row shows a counted time estimate, the onboarding card says "n of 6 done" and the set-up card "n of 15 done · n hidden" — see "Tours on the new shell" below)
@@ -91,13 +91,75 @@ the French UI. No production data was read or written.
 - The cabinet chips' "(+$20.00)" labels and the Upcharge box read the fixed 20/40, while
   factor answers price from the company's own `complexityUpchargePerUnit`; the two agree
   on every company that has not customised that grid (pre-existing, now visible).
-- A stair template (per-tread lines) added to a stairs group that also has a filled
-  takeoff bills the treads twice — true of the library path since 24 September, and now
-  reachable from the card too. Needs a product decision (skip measured lines a takeoff
-  already prices, or warn).
+- ~~A stair template added to a stairs group with a filled takeoff billed the treads
+  twice~~ — closed the same day: `keysPricedByGroup` holds back every template line keyed
+  to a unit the group's own calculator bills (stairs, cabinet doors/drawers, flooring,
+  siding, roofing, gutters; painting only where a room's substrate already prices it), on
+  the library path and the card, with "Treads — already priced by the stair takeoff, so
+  not added again." `check:service-template-lines` §J proves the total is takeoff + the
+  template's other lines, not the treads twice. Consequence to know: a cabinet add-on
+  whose template is keyed per door (a hinge upgrade) also loses those lines inside a
+  cabinet group — the plain product row still adds it as one line.
 - The stair card has no price hint (its price is the tier grid; no one figure is honest).
 - Screens not re-shot into `docs/screens/` (the harness frames were walked, not
   photographed); `shoot.mjs` covers the new `quote-cards` row.
+
+## Booking: a new address no longer glitches the times, and the distance rule is written down (25 September 2026)
+
+The owner (2026-09-24): auto-booking "glitches when we enter a new address …
+on the website", and how does distance to other visits pick the slots?
+Reproduced in the browser on `demo-danielboves-painting`'s booking page and
+its `/embed/…/book` widget (the website's Booking block renders the same
+`BookingFlow`). Five faults, all fixed:
+
+- **Stale answer wins.** Pause while typing, then pick a suggestion: two
+  queries went out, and whichever came back LAST set the grid and the note.
+  With the half-typed one delayed, the field read "350 5th Ave, Brooklyn"
+  while the page said "Showing times we can reach Empire State Building".
+  Now the newest request wins (`SlotCalendar` `requestSeq`, `BookingFlow`
+  `slotQuery`).
+- **Calendar collapsed** to a spinner on each change, which made a website
+  jump mid-page. Now the grid stays on screen, dimmed and `inert`, with
+  "Finding times…". The note says "Checking…", and a chosen day with no
+  times left goes back to "pick a day".
+- **Step 3's late address field unmounted on its first keystroke** (it was
+  shown only while the address was empty, so "1" became the visit address).
+  It's now decided when the time is picked. If that late address rules out
+  the picked time, the page says so with "Pick another time", and Book waits.
+- **"We couldn't place that address"** was shown for companies with the
+  travel check OFF and when there was no server Maps key. The route now
+  returns `travel.reason` (`off` / `no_lookup` / `not_found`), and only
+  `not_found` asks the visitor to check their address. There are six new
+  `booking.mode.*` lines, in all nine catalogue languages.
+- **The last day of every range read no busy time.** `to=2026-09-30` is
+  midnight at the start of the 30th, so visits on the last day of each
+  calendar month were invisible. Their hours were offered as free (on the
+  demo: 4:00 PM offered over a booked 4 PM visit) and no drive was checked.
+  `computeAvailableSlots` now reads busy time a day wider on both sides.
+  Mutation-tested: reverting it fails 3 checks.
+
+The rule is written down in plain words in `docs/BOOKING.md` and in the
+header of `lib/booking/computeAvailability.js`. Distance only removes times
+and never ranks them. Only the visits just before and just after a time count,
+and each gap must be at least the drive time plus "Extra time between jobs".
+Unknown (no address, no coordinates, Google can't find it, phone or video)
+never removes a time.
+
+Checks: `check:booking-modes` section 8 runs the route, the engine and the
+service-area route against typed-not-picked, near → far → near, outside the
+area, missing coordinates, off / no-key / not-found, and the last day. It
+also checks the client guards at source. 477 pass.
+
+### Still owed here
+
+- The confirm route doesn't re-run the travel test (overlap with bookings
+  only, not office-made appointments). See `docs/BOOKING.md` → "Not covered
+  yet".
+- Each 700 ms typing pause sends one paid geocode, and the service-area check
+  sends another. Fewer lookups (for example, only on pick or blur) changes
+  how a hand-typed address behaves, so the owner should decide.
+- The Booking block on a live published website was not opened: the demo
+  company's site is unpublished. The embed is the same component.
 
 ## The receipts book, and who pays for AI (25 September 2026)
 
@@ -207,6 +269,61 @@ documented chat-completions shape and has not been exercised against the vendor.
   company's (shown, not converted) are not built.
 
 ---
+## Settings › AI employee: each employee's own name, auto-save, and "Tell clients it's an AI" (25 September 2026)
+
+The owner, 2026-09-22 (lost at a compaction, re-issued): "it doesn't seem to save the name and
+voice"; "each assistant should have its own default name that the company can change"; "the AI
+team doesn't update with the new name"; "it should have auto save"; "Face and name" looked
+company-wide. And: the AI never announces it's an AI unless asked, except where the law requires it.
+
+**Root cause (three, all fixed).** (1) `PUT /api/ai-employee` fell back to `rows[0]` when the body
+had no id. (2) The PUT was a full replace — every column rewritten from the body, a missing key
+blanked or defaulted (a missing role became the closed preset). (3) The screen re-seeded its form
+whenever the selected row's `updatedAt` moved, and the flow view's tool switch is a PATCH that moves
+it — so a name or voice typed and not yet saved (Save was a long scroll down) was silently replaced
+by the old value. The readers were all already per-employee (`displayName || name`): roster, flow
+view, handling timeline, web-chat face, hand-off introduction.
+
+**What shipped**
+- `lib/aiEmployee/settings.js` — `planEmployeeSave`: by id among the company's own rows (no id →
+  400, another company's id → 404, no fallback), only the fields in the body, an unknown value
+  refused by name instead of coerced, channel-conflict and SMS-number rules. The PUT calls it.
+- Auto-save per field (text after an 800 ms pause, switches at once, pending text flushed on blur,
+  employee switch and `pagehide` with keepalive), each field saying Saving… / Saved / Couldn't save
+  — Retry; refused switches revert to the server value; failures toast through
+  `reportResponseError`. A move to MORE autonomy still waits for a second click. The Save button is
+  gone.
+- The roster is a tab list and the selected employee's settings (face, name, voice, job, writing,
+  mode, channels, limits, Fire) sit inside that employee's own bordered card, headed with its face,
+  name and an all-fields save summary. The flow view moved below it.
+- `lib/aiEmployee/names.js` — each role hired under its own name, distinct per role in each of the
+  nine languages (en: Emma / Jack / Sam / Alex), in the company's language; the first receptionist
+  too. A legacy row still called "Assistant" with no customer name gets its role's name once.
+- `AiEmployee.greeting` ("Opening line") was saved and never read — now sent word for word at the
+  start of the first reply, and the model is told (fenced) not to greet again.
+- `Company.aiDisclosure Boolean?` (added by SQL, `ADD COLUMN` only) + `lib/aiEmployee/disclosure.js`
+  + `PUT /api/ai-employee/disclosure` (owner/admin, audited). null follows the location default:
+  ON for EU-27 (+ NO/IS/LI, EEA incorporation not verified), US-CA (B&P §17941), US-NJ (N.J.S.A.
+  56:18-2), US-ME (10 M.R.S. §1500-DD); ON when the country, or a US company's state, is unknown;
+  OFF elsewhere (UT, CO after SB 26-189, TX, NY, all of Canada, UK, AU). Sources in the file header.
+  The card says in one line why it defaulted that way and warns if switched off where required.
+- Prompt rule 5 either way: never claim to be human, NEVER deny being an AI, answer truthfully
+  whenever asked (covers Utah's ask-rule everywhere).
+- `check:ai-employee` 570 → 680: planner cases (foreign id 404, no id 400, the second employee's edit
+  lands on the second, one-field saves touch nothing else), names, disclosure by jurisdiction, the
+  prompt never denying, and the real responder: TX first reply without the line, CA with it, owner
+  override both ways, greeting sent.
+
+### Still owed here
+- Not walked in the browser: no signed-in session was available and accounts/passwords are off
+  limits. Walk Settings › AI employee on a demo company: rename, change voice, switch tabs mid-typing,
+  toggle a flow-view tool, reload — names should hold everywhere.
+- Most of these laws key on the CONSUMER's location; the default reads the company's. A per-thread
+  override from the client's known address was not built (product decision).
+- `handoffPhrase` is still written by nothing and read by nothing (no UI) — a separate sweep.
+- The help centre (`content/help/*/settings-4.js`, `messages-1.js`, nine languages) still says
+  "then **Save**" for the AI employee and does not mention the disclosure switch — rewrite owed.
+- The owner should confirm the EEA and "unknown location → ON" choices.
 
 ## The public form's fields and look (24 September 2026) — landed 25 September on `land/stranded-0925`
 
@@ -486,6 +603,99 @@ legacy iframe snippet still renders the bubble.
   page behind it; making the host `inert` is invasive on someone else's site.
 - A host page with a strict CSP must allow our origin in `script-src` and
   `frame-src`; the settings notes do not say so.
+## Moved and cancelled appointments text the client (25 September 2026)
+
+The owner (2026-09-20, lost at a compaction, re-confirmed today): "I just
+booked an appointment with TrueFinish Cabinets and didn't get an email
+confirmation... or a text confirmation... I'm sure that if TrueFinish
+reschedules the client won't get an update text nor email." The confirmation
+text was fixed (on unless the company turns it off — 0e57b313) and every text
+is delivery-tracked (1f173900), but a MOVE or a CANCEL still sent the letter
+only. Now it texts too.
+
+**What shipped (branch `worktree-agent-adbdfefc360a60415`, not pushed):**
+
+- **One sender, `lib/schedule/changeText.js` `textClientOfChange()`**, called
+  by every path that moves or cancels a client's appointment or visit:
+  - the office's dialog (`app/components/schedule/EntryActions.js`) →
+    `PATCH /api/appointments/[id]` (moves through `planOfficeMove`, cancels
+    with a reason) and `PATCH /api/jobs/[id]/visits/[visitId]` (same);
+  - the client's own manage link → `POST /api/visit/[token]/reschedule` and
+    `POST /api/visit/[token]` (cancel).
+  - Looked for and not found: a calendar drag (the calendar moves through
+    EntryActions; the scheduler's drag is staff shifts), an AI or voice
+    reschedule (the phone agent only books — `book_visit`; copilot tools are
+    read-only). The portal's "request to reschedule" files a ticket for the
+    office, whose move then texts. Deleting an appointment sends nothing, as
+    before (no letter either).
+- **The confirmation's gates, called not copied:** `bookingTextVerdict` —
+  the company's booking-text switch (`bookingTextOn`; ONE switch governs the
+  confirmation, moved and cancelled texts), a dialable phone, `maySms` (STOP
+  or a call opt-out wins); `clientSmsFrom` for the company's own line;
+  demo tenants simulate (`lib/sms/demoSms.js`). The office's
+  "tell the client" tick (`notifyClient: false`) stops the text too.
+- **The number:** the booking's `clientPhone` (what they typed when they
+  booked), else the client record's phone. A client with a phone and no
+  email is now told — the dialog's tick used to default OFF for them.
+- **No double texts:** each action has exactly one sending path (the office
+  PATCH writes the booking itself, the manage link writes the appointment
+  itself — neither calls the other). A "move" to the instant it already had
+  and a cancel of an already-cancelled row send no text; the client's
+  double-tapped cancel was already answered before any send. The letters
+  have no "under N minutes doesn't count" rule, so none was invented.
+- **Wording:** two new editable types in `lib/sms/renderTemplate.js` —
+  `booking_moved` (tokens company, service, when, previous, where, link,
+  phone) and `booking_cancelled` (company, service, when, where, phone) —
+  built in the 8 document languages in `lib/sms/templates.js`, rendered with
+  the company's wording and its save-time drafts (auto-translate picks them
+  up: 9 company texts now). Default English:
+  - moved: "TrueFinish Cabinets: Your appointment has moved. On-site visit at
+    12 Elm St, Thu, Oct 8, 2:30 p.m. Change or cancel: https://…/visit/… Reply
+    STOP to opt out." (no manage link → "Questions? Call {phone}."; neither
+    → nothing)
+  - cancelled: "TrueFinish Cabinets: Your appointment is cancelled. On-site
+    visit at 12 Elm St, Tue, Oct 6, 10:00 a.m. To rebook, call 819-555-0100.
+    Reply STOP to opt out."
+  The mode line is the confirmation's (`bookingModeLine`); a row with no
+  booking is a visit at its location; with neither, the clause is dropped.
+- **Settings › Client messages** shows both, with "On/Off — follows the
+  booking confirmation switch" instead of a second toggle; the switch's own
+  wording now says it covers moves and cancellations.
+- **Tracking:** purposes `booking_moved` / `booking_cancelled` (registered in
+  `SMS_PURPOSES`, labelled on the calendar/client page and
+  /platform/sms-health), ref = the appointment (booking → the appointment it
+  became, else the booking) or the visit, with the clientId.
+- **Toast:** "The client was emailed and texted in French." /
+  "…texted in …" from the route's `notice.texted`.
+- **Emails unchanged:** md5 of all nine moved/cancelled letters (office
+  booking / hand-booked / visit / fee, client move + cancel with both copies)
+  identical before and after (`b51ebf16fec4b9bf7ceb2add0eb83b11`). The letter
+  code is untouched; the only line in the office route's read is `phone` on
+  the client select, which no letter reads.
+- **Checks:** new `check:change-texts` (66 — the gates matrix, languages,
+  custom wording, tracking rows, and the four routes executed end to end);
+  `check:booking-modes` asserts the client's move and cancel each record one
+  text; `check:sms-template` the wording in every language;
+  `check:sales-sms` knows the new call site; `check:auto-translate` 9 texts.
+  `scripts/fixtures/dbStub.mjs` gained `jobVisit` and `smsDelivery`.
+
+### Still owed here
+
+- Not sent live: Twilio is Sensitive in Vercel. First thing after deploy:
+  move a TrueFinish test booking from the calendar and watch its Texts line
+  and /platform/sms-health.
+- The dialog names the client record's phone; an appointment whose booking
+  carries a different number texts the booking's (the toast says what was
+  sent).
+- Pre-existing check failures, identical at HEAD (compared line by line):
+  check:sales-sms (4), help-centre, app-catalogue, lead-intake, sales-agency,
+  trade-suggestions, browser-notifications, rbac-supervisors,
+  sales-intro-email, rep-demo-page, booking-language, sales-brief,
+  signup-gate, schedule-map, addon-descriptions, call-qa, call-script,
+  rbq-provider, client-proposal, gutter-instant.
+
+---
+
 ## SMS delivery receipts: did the text ARRIVE? (25 September 2026)
 
 The owner: "did you fix the text issue from booking? And any other text
