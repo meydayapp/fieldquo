@@ -224,6 +224,28 @@ export const SEED = {
 // 2026 installed rates — 6 ft wood privacy $30–40 a linear ft, vinyl $35–45,
 // chain link $18–25, a walk gate $250–400 — with the Home Depot reference for
 // privacy panels and posts. The run is the traced line `edgingFt`.
+//
+// The rest of the grid (added 2026-09-25) has no insight of its own, so each
+// row is priced from 2026 installed rates, labour a third to a half of the
+// lin-ft figure and the named material the rest: aluminium ~$36 a linear ft, ornamental estate
+// aluminium ~$54, steel ~$46, split rail ~$14 plus $34 a post, barbed wire
+// ~$3.50 plus T-posts, electric ~$2.50 plus the energiser, temporary $3 a ft
+// set-and-strike plus $1.25 a ft a month rental and a delivery trip, stockade
+// on the same Home Depot 6 × 8 panel as wood, and railings at wood ~$45,
+// PVC ~$52, composite ~$70, metal ~$78, cable ~$120, glass ~$220. Posts sold
+// per post read `fencePosts`, walk gates `gateCount`, drive and estate gates
+// `driveGateCount` (the fence intake's own boxes); the estate gate row's range
+// is therefore a per-gate rate. Removal of an old fence or railing is an
+// OPTIONAL haul-away line — a new run on bare ground has nothing to haul, so
+// it opens unticked rather than being charged by default. A permit line sits
+// only where one is normally pulled: a guardrail, a pool barrier, a pergola
+// (optional there — it depends on size and whether it is attached). The
+// orange safety mesh carries none: it is a site barrier, not a pool enclosure.
+// Repairs open with the service call and price the damaged stretch per linear
+// ft, except glass, which is replaced by the panel, and the four per-item
+// rows, which are a visit plus a flat repair. Labour descriptions come from
+// six groups (fence, wire, kennel, railing, temporary, pool barrier) so a
+// barbed-wire run is never described as "sections set in concrete".
 const n = (it, de, uk, tl) => ({ it, de, uk, tl });
 const t7 = (en, fr, es, it, de, uk, tl) => ({ en, fr, es, it, de, uk, tl });
 const RUN = (price, t) => L.labour(1, "linear_ft", price, t, { measurementKey: "edgingFt" });
@@ -236,6 +258,782 @@ const GATE = (price = 325) => L.labour(1, "each", price, t7(
   ["Хвіртка — за хвіртку", "Раму хвіртки виготовлено чи поставлено, навішено на міцні завіси з самозакривною клямкою."],
   ["Walk gate — kada gate", "Ginawa o dinala ang frame ng gate, isinabit sa matibay na bisagra na may self-closing na latch."],
 ), { measurementKey: "each" });
+
+// ── Helpers for the rest of the grid ─────────────────────────────────────────
+//
+// The rows below already carry their it/de/uk/pa/tl names from the i18n
+// file; T() still asks for them, so they are read from there, not re-typed.
+const N = (key) => { const e = I18N.services[key]; return { it: e.it, de: e.de, uk: e.uk, pa: e.pa, tl: e.tl }; };
+// New lines carry Punjabi inline — a per-line pair cannot collide with
+// another template's line of the same English name in the i18n lines map.
+const t8 = (en, fr, es, it, de, uk, pa, tl) => ({ en, fr, es, it, de, uk, pa, tl });
+const LANG8 = ["en", "fr", "es", "it", "de", "uk", "pa", "tl"];
+
+// What each run is called inside a labour line's name. One label per type,
+// eight languages, so the install and repair labour lines of 25 types are
+// built from two sentence patterns instead of fifty hand copies that drift.
+const LBL = {
+  aluminum: { en: "aluminium fence", fr: "clôture en aluminium", es: "cerca de aluminio", it: "recinzione in alluminio", de: "Aluminiumzaun", uk: "алюмінієвий паркан", pa: "ਐਲੂਮੀਨੀਅਮ ਵਾੜ", tl: "aluminyong bakod" },
+  barbed_wire: { en: "barbed wire fence", fr: "clôture de barbelés", es: "cerca de alambre de púas", it: "recinzione in filo spinato", de: "Stacheldrahtzaun", uk: "паркан із колючого дроту", pa: "ਕੰਡਿਆਲੀ ਤਾਰ ਦੀ ਵਾੜ", tl: "bakod na barbed wire" },
+  chain_link: { en: "chain-link fence", fr: "clôture en mailles de chaîne", es: "cerca de malla ciclónica", it: "recinzione in rete metallica", de: "Maschendrahtzaun", uk: "сітчастий паркан", pa: "ਚੇਨ-ਲਿੰਕ ਵਾੜ", tl: "chain-link na bakod" },
+  dog_kennel: { en: "dog kennel", fr: "enclos pour chien", es: "corral para perro", it: "recinto per cani", de: "Hundezwinger", uk: "вольєр для собаки", pa: "ਕੁੱਤੇ ਦਾ ਵਾੜਾ", tl: "kulungan ng aso" },
+  dog_park: { en: "dog park fence", fr: "clôture de parc canin", es: "cerca de parque canino", it: "recinzione per area cani", de: "Hundeauslaufzaun", uk: "паркан собачого майданчика", pa: "ਡੌਗ ਪਾਰਕ ਵਾੜ", tl: "bakod ng dog park" },
+  electric: { en: "electric fence", fr: "clôture électrique", es: "cerca eléctrica", it: "recinzione elettrica", de: "Elektrozaun", uk: "електропастух", pa: "ਬਿਜਲੀ ਵਾਲੀ ਵਾੜ", tl: "electric fence" },
+  guardrail: { en: "steel guardrail", fr: "glissière de sécurité", es: "barrera de contención", it: "guardrail in acciaio", de: "Stahlschutzplanke", uk: "сталеве огородження", pa: "ਸਟੀਲ ਗਾਰਡਰੇਲ", tl: "steel guardrail" },
+  ornamental_aluminum: { en: "ornamental aluminium fence", fr: "clôture ornementale en aluminium", es: "cerca ornamental de aluminio", it: "recinzione ornamentale in alluminio", de: "Aluminium-Zierzaun", uk: "декоративний алюмінієвий паркан", pa: "ਸਜਾਵਟੀ ਐਲੂਮੀਨੀਅਮ ਵਾੜ", tl: "ornamental na aluminyong bakod" },
+  pvc: { en: "PVC fence", fr: "clôture en PVC", es: "cerca de PVC", it: "recinzione in PVC", de: "PVC-Zaun", uk: "паркан із ПВХ", pa: "PVC ਵਾੜ", tl: "PVC na bakod" },
+  retainage: { en: "retaining fence", fr: "clôture de soutènement", es: "cerca de contención", it: "recinzione di contenimento", de: "Stützzaun", uk: "підпірний паркан", pa: "ਮਿੱਟੀ ਰੋਕੂ ਵਾੜ", tl: "retaining na bakod" },
+  solar_field: { en: "solar field perimeter fence", fr: "clôture de champ solaire", es: "cerca perimetral de campo solar", it: "recinzione perimetrale di campo solare", de: "Solarpark-Umzäunung", uk: "огорожа периметра сонячної станції", pa: "ਸੋਲਰ ਫ਼ੀਲਡ ਦੀ ਘੇਰਾ ਵਾੜ", tl: "perimeter fence ng solar field" },
+  split_rail: { en: "split-rail fence", fr: "clôture à perches", es: "cerca de rieles partidos", it: "staccionata a correnti", de: "Spaltlattenzaun", uk: "жердинний паркан", pa: "ਸਪਲਿਟ-ਰੇਲ ਵਾੜ", tl: "split-rail na bakod" },
+  steel: { en: "steel fence", fr: "clôture en acier", es: "cerca de acero", it: "recinzione in acciaio", de: "Stahlzaun", uk: "сталевий паркан", pa: "ਸਟੀਲ ਵਾੜ", tl: "bakal na bakod" },
+  stockade: { en: "stockade privacy fence", fr: "clôture intimité en planches", es: "cerca de privacidad de tablas", it: "recinzione frangivista in tavole", de: "Palisaden-Sichtschutzzaun", uk: "глухий дощатий паркан", pa: "ਫੱਟਿਆਂ ਵਾਲੀ ਪਰਦਾ ਵਾੜ", tl: "stockade na privacy fence" },
+  temporary: { en: "temporary construction fence", fr: "clôture temporaire de chantier", es: "cerca temporal de obra", it: "recinzione provvisoria di cantiere", de: "Bauzaun", uk: "тимчасове будівельне огородження", pa: "ਆਰਜ਼ੀ ਉਸਾਰੀ ਵਾੜ", tl: "pansamantalang bakod sa construction" },
+  vinyl: { en: "vinyl fence", fr: "clôture en vinyle", es: "cerca de vinilo", it: "recinzione in vinile", de: "Vinylzaun", uk: "вініловий паркан", pa: "ਵਿਨਾਇਲ ਵਾੜ", tl: "vinyl na bakod" },
+  water: { en: "waterfront fence", fr: "clôture en bord de l'eau", es: "cerca junto al agua", it: "recinzione in riva all'acqua", de: "Zaun am Wasser", uk: "паркан біля води", pa: "ਪਾਣੀ ਕੰਢੇ ਦੀ ਵਾੜ", tl: "bakod sa tabing-tubig" },
+  pool_safety_mesh: { en: "orange safety mesh", fr: "clôture de sécurité orange", es: "malla de seguridad naranja", it: "rete di sicurezza arancione", de: "orangefarbenes Absperrnetz", uk: "помаранчева захисна сітка", pa: "ਸੰਤਰੀ ਸੁਰੱਖਿਆ ਜਾਲ", tl: "orange na safety mesh" },
+  pool_temporary: { en: "temporary pool barrier", fr: "barrière de piscine temporaire", es: "barrera temporal de alberca", it: "barriera provvisoria per piscina", de: "provisorische Poolabsperrung", uk: "тимчасове огородження басейну", pa: "ਪੂਲ ਦੀ ਆਰਜ਼ੀ ਰੋਕ", tl: "pansamantalang harang sa pool" },
+  composite_railing: { en: "composite railing", fr: "garde-corps en composite", es: "barandal de compuesto", it: "ringhiera in composito", de: "WPC-Geländer", uk: "композитне поруччя", pa: "ਕੰਪੋਜ਼ਿਟ ਰੇਲਿੰਗ", tl: "composite na railing" },
+  metal_railing: { en: "metal railing", fr: "garde-corps en métal", es: "barandal de metal", it: "ringhiera in metallo", de: "Metallgeländer", uk: "металеве поруччя", pa: "ਧਾਤ ਦੀ ਰੇਲਿੰਗ", tl: "metal na railing" },
+  pvc_railing: { en: "PVC railing", fr: "garde-corps en PVC", es: "barandal de PVC", it: "ringhiera in PVC", de: "PVC-Geländer", uk: "поруччя з ПВХ", pa: "PVC ਰੇਲਿੰਗ", tl: "PVC na railing" },
+  glass_railing: { en: "glass panel railing", fr: "garde-corps en verre", es: "barandal de vidrio", it: "parapetto in vetro", de: "Glasgeländer", uk: "скляне поруччя", pa: "ਸ਼ੀਸ਼ੇ ਦੀ ਰੇਲਿੰਗ", tl: "glass na railing" },
+  cable_railing: { en: "cable railing", fr: "garde-corps à câbles", es: "barandal de cables", it: "ringhiera a cavi", de: "Seilgeländer", uk: "тросове поруччя", pa: "ਕੇਬਲ ਰੇਲਿੰਗ", tl: "cable railing" },
+  wood_railing: { en: "wood railing", fr: "garde-corps en bois", es: "barandal de madera", it: "ringhiera in legno", de: "Holzgeländer", uk: "дерев'яне поруччя", pa: "ਲੱਕੜ ਦੀ ਰੇਲਿੰਗ", tl: "kahoy na railing" },
+};
+
+// The two labour-line name patterns, per language.
+const INSTALL_NAME = {
+  en: (x) => `Install labour — ${x}, per linear ft`,
+  fr: (x) => `Main-d'œuvre — pose, ${x}, au pi lin.`,
+  es: (x) => `Mano de obra — instalación, ${x}, por pie lineal`,
+  it: (x) => `Manodopera — posa, ${x}, al piede lineare`,
+  de: (x) => `Arbeit — Montage ${x}, pro lfd. Fuß`,
+  uk: (x) => `Робота — монтаж: ${x}, за пог. фут`,
+  pa: (x) => `ਲਾਉਣ ਦੀ ਮਜ਼ਦੂਰੀ — ${x}, ਪ੍ਰਤੀ ਲੀਨੀਅਰ ਫੁੱਟ`,
+  tl: (x) => `Labor — pagkabit ng ${x}, kada linear ft`,
+};
+const REPAIR_NAME = {
+  en: (x) => `Section repair — ${x}, per linear ft`,
+  fr: (x) => `Réparation de section — ${x}, au pi lin.`,
+  es: (x) => `Reparación de tramo — ${x}, por pie lineal`,
+  it: (x) => `Riparazione tratto — ${x}, al piede lineare`,
+  de: (x) => `Abschnittsreparatur — ${x}, pro lfd. Fuß`,
+  uk: (x) => `Ремонт ділянки — ${x}, за пог. фут`,
+  pa: (x) => `ਹਿੱਸੇ ਦੀ ਮੁਰੰਮਤ — ${x}, ਪ੍ਰਤੀ ਲੀਨੀਅਰ ਫੁੱਟ`,
+  tl: (x) => `Pag-ayos ng seksyon — ${x}, kada linear ft`,
+};
+
+// What the crew does, by how the run is built — a wire fence is driven and
+// stretched, a railing is bolted to a structure, a kennel sits on a pad.
+const DESC = {
+  install: {
+    fence: {
+      en: "Posts set to depth in concrete and plumbed, sections or rails fastened, and the run checked for line and level.",
+      fr: "Poteaux coulés dans le béton à la bonne profondeur et mis d'aplomb, sections ou traverses fixées, alignement et niveau vérifiés.",
+      es: "Postes colados en concreto a la profundidad correcta y aplomados, tramos o travesaños fijados, y la línea revisada a nivel.",
+      it: "Pali annegati nel calcestruzzo alla giusta profondità e messi a piombo, sezioni o correnti fissati, allineamento e livello controllati.",
+      de: "Pfosten in richtiger Tiefe einbetoniert und gelotet, Felder oder Riegel befestigt, Flucht und Höhe geprüft.",
+      uk: "Стовпи забетоновано на потрібну глибину й виставлено по вертикалі, секції чи прогони закріплено, лінію й рівень перевірено.",
+      pa: "ਥੰਮ੍ਹ ਪੂਰੀ ਡੂੰਘਾਈ 'ਤੇ ਕੰਕਰੀਟ ਵਿੱਚ ਸਿੱਧੇ ਗੱਡੇ, ਸੈਕਸ਼ਨ ਜਾਂ ਰੇਲਾਂ ਕੱਸੀਆਂ, ਅਤੇ ਲਾਈਨ ਤੇ ਲੈਵਲ ਜਾਂਚਿਆ।",
+      tl: "Sinementuhan ang poste sa tamang lalim at itinuwid, ikinabit ang seksyon o rail, at tsinek ang linya at level.",
+    },
+    wire: {
+      en: "Line and corner posts driven or set, corners braced, strands or mesh stretched tight and tied off along the line.",
+      fr: "Poteaux de ligne et de coin enfoncés ou posés, coins contreventés, fils ou grillage tendus et attachés le long de la ligne.",
+      es: "Postes de línea y de esquina hincados o colocados, esquinas arriostradas, hilos o malla tensados y amarrados a lo largo.",
+      it: "Pali di linea e d'angolo infissi o posati, angoli controventati, fili o rete tesi e legati lungo il tracciato.",
+      de: "Linien- und Eckpfosten eingeschlagen oder gesetzt, Ecken verstrebt, Drähte oder Netz straff gespannt und befestigt.",
+      uk: "Лінійні й кутові стовпи забито чи встановлено, кути розкосено, дріт або сітку туго натягнуто й закріплено вздовж лінії.",
+      pa: "ਲਾਈਨ ਅਤੇ ਕੋਨੇ ਦੇ ਥੰਮ੍ਹ ਠੋਕੇ ਜਾਂ ਗੱਡੇ, ਕੋਨਿਆਂ ਨੂੰ ਸਹਾਰਾ ਦਿੱਤਾ, ਤਾਰਾਂ ਜਾਂ ਜਾਲ ਕੱਸ ਕੇ ਖਿੱਚਿਆ ਅਤੇ ਬੰਨ੍ਹਿਆ।",
+      tl: "Ibinaon o pinukpok ang line at corner post, nilagyan ng brace ang kanto, hinila nang mahigpit at itinali ang wire o mesh.",
+    },
+    kennel: {
+      en: "Panels stood on a level base, clamped together, anchored to the ground or slab, and the door checked to swing and latch.",
+      fr: "Panneaux posés sur une base de niveau, attachés ensemble, ancrés au sol ou à la dalle; porte vérifiée pour s'ouvrir et se verrouiller.",
+      es: "Paneles sobre una base nivelada, unidos con abrazaderas, anclados al suelo o losa, y la puerta revisada para abrir y trabar.",
+      it: "Pannelli su una base in piano, uniti con morsetti, ancorati al terreno o alla soletta; porta verificata in apertura e chiusura.",
+      de: "Elemente auf ebenem Untergrund aufgestellt, verklammert, im Boden oder auf der Platte verankert; Tür auf Lauf und Verriegelung geprüft.",
+      uk: "Панелі встановлено на рівну основу, скріплено хомутами, заякорено в ґрунт чи плиту; дверцята перевірено на відкривання й замикання.",
+      pa: "ਪੈਨਲ ਪੱਧਰੀ ਥਾਂ 'ਤੇ ਖੜ੍ਹੇ, ਕਲੈਂਪਾਂ ਨਾਲ ਜੋੜੇ, ਜ਼ਮੀਨ ਜਾਂ ਸਲੈਬ ਨਾਲ ਪੱਕੇ ਕੀਤੇ ਅਤੇ ਦਰਵਾਜ਼ਾ ਖੁੱਲ੍ਹਣ-ਬੰਦ ਹੋਣ ਲਈ ਜਾਂਚਿਆ।",
+      tl: "Itinayo ang panel sa patag na base, kinlamp, in-anchor sa lupa o slab, at tsinek na bumubukas at nagla-lock ang pinto.",
+    },
+    rail: {
+      en: "Railing posts through-bolted or mounted to the structure, rails and infill fitted, and the run checked for height and plumb.",
+      fr: "Poteaux de garde-corps boulonnés ou fixés à la structure, main courante et remplissage posés, hauteur et aplomb vérifiés.",
+      es: "Postes del barandal atornillados o anclados a la estructura, pasamanos y relleno colocados, altura y plomo revisados.",
+      it: "Montanti della ringhiera imbullonati o fissati alla struttura, corrimano e tamponamento montati, altezza e piombo controllati.",
+      de: "Geländerpfosten durchgeschraubt oder an der Konstruktion befestigt, Handlauf und Füllung montiert, Höhe und Lot geprüft.",
+      uk: "Стійки поруччя прикручено наскрізь або закріплено до конструкції, поручень і заповнення встановлено, висоту й вертикаль перевірено.",
+      pa: "ਰੇਲਿੰਗ ਦੇ ਥੰਮ੍ਹ ਢਾਂਚੇ ਨਾਲ ਬੋਲਟ ਜਾਂ ਫ਼ਿੱਟ ਕੀਤੇ, ਰੇਲਾਂ ਅਤੇ ਵਿਚਕਾਰਲਾ ਭਰਾਅ ਲਾਇਆ, ਉਚਾਈ ਅਤੇ ਸਿੱਧ ਜਾਂਚੀ।",
+      tl: "Ikinabit o in-bolt sa istruktura ang railing post, inilagay ang rail at infill, at tsinek ang taas at pagkatuwid.",
+    },
+    temp: {
+      en: "Panels stood on weighted stands, clamped together and braced along the line; taken down and hauled out at the end of the hire.",
+      fr: "Panneaux posés sur socles lestés, attachés ensemble et contreventés le long de la ligne; démontés et évacués à la fin de la location.",
+      es: "Paneles parados sobre bases con peso, unidos con abrazaderas y apuntalados a lo largo; se retiran al terminar la renta.",
+      it: "Pannelli su basi zavorrate, uniti con morsetti e controventati lungo il tracciato; smontati e portati via a fine noleggio.",
+      de: "Elemente auf beschwerten Füßen aufgestellt, verklammert und entlang der Linie abgestützt; nach der Mietzeit abgebaut und abgeholt.",
+      uk: "Панелі встановлено на обважнені опори, скріплено хомутами й підперто вздовж лінії; після оренди демонтовано й вивезено.",
+      pa: "ਪੈਨਲ ਭਾਰ ਵਾਲੇ ਸਟੈਂਡਾਂ 'ਤੇ ਖੜ੍ਹੇ ਕੀਤੇ, ਕਲੈਂਪਾਂ ਨਾਲ ਜੋੜੇ ਅਤੇ ਲਾਈਨ ਨਾਲ ਸਹਾਰਾ ਦਿੱਤਾ; ਕਿਰਾਏ ਦੇ ਅੰਤ 'ਤੇ ਖੋਲ੍ਹ ਕੇ ਲਿਜਾਏ।",
+      tl: "Itinayo ang panel sa may pabigat na stand, kinlamp at nilagyan ng brace sa linya; binabaklas at hinahakot pagkatapos ng renta.",
+    },
+    pool: {
+      en: "Barrier poles set in ground sleeves or core-drilled deck holes, mesh tensioned between them and a self-closing, self-latching gate fitted.",
+      fr: "Poteaux de barrière posés dans des manchons ou des trous carottés dans la terrasse, filet tendu entre eux et porte à fermeture et loquet automatiques posée.",
+      es: "Postes de la barrera en fundas enterradas o perforaciones en el deck, malla tensada entre ellos y puerta con cierre y pestillo automáticos.",
+      it: "Pali della barriera in manicotti interrati o fori carotati nella pavimentazione, rete tesa tra i pali e cancelletto a chiusura e scatto automatici.",
+      de: "Absperrpfosten in Bodenhülsen oder Kernbohrungen gesetzt, Netz dazwischen gespannt und ein selbstschließendes, selbstverriegelndes Tor montiert.",
+      uk: "Стійки огородження встановлено в гільзи в ґрунті чи висвердлені отвори в настилі, сітку натягнуто між ними, встановлено хвіртку, що сама зачиняється й замикається.",
+      pa: "ਰੋਕ ਦੇ ਡੰਡੇ ਜ਼ਮੀਨੀ ਸਲੀਵਾਂ ਜਾਂ ਡੈੱਕ ਵਿੱਚ ਕੀਤੇ ਛੇਕਾਂ 'ਚ ਲਾਏ, ਵਿਚਕਾਰ ਜਾਲ ਕੱਸਿਆ ਅਤੇ ਆਪੇ ਬੰਦ ਹੋਣ ਤੇ ਕੁੰਡਾ ਲੱਗਣ ਵਾਲਾ ਗੇਟ ਲਾਇਆ।",
+      tl: "Inilagay ang poste ng harang sa ground sleeve o binutas na deck, hinila ang mesh sa pagitan at ikinabit ang self-closing, self-latching na gate.",
+    },
+  },
+  repair: {
+    fence: {
+      en: "Damaged sections or rails cut out and replaced to match, leaning posts re-plumbed and the run fastened back to line.",
+      fr: "Sections ou traverses endommagées retirées et remplacées à l'identique, poteaux penchés redressés et ligne refixée.",
+      es: "Tramos o travesaños dañados retirados y reemplazados a juego, postes inclinados aplomados y la línea refijada.",
+      it: "Sezioni o correnti danneggiati rimossi e sostituiti in tinta, pali inclinati rimessi a piombo e tratto rifissato in linea.",
+      de: "Beschädigte Felder oder Riegel herausgenommen und passend ersetzt, schiefe Pfosten gerichtet und die Strecke wieder in Flucht befestigt.",
+      uk: "Пошкоджені секції чи прогони вирізано й замінено під решту, похилені стовпи вирівняно, лінію закріплено.",
+      pa: "ਖ਼ਰਾਬ ਸੈਕਸ਼ਨ ਜਾਂ ਰੇਲਾਂ ਕੱਢ ਕੇ ਮਿਲਦੀਆਂ ਲਾਈਆਂ, ਟੇਢੇ ਥੰਮ੍ਹ ਸਿੱਧੇ ਕੀਤੇ ਅਤੇ ਲਾਈਨ ਮੁੜ ਕੱਸੀ।",
+      tl: "Tinanggal at pinalitan nang katugma ang sirang seksyon o rail, itinuwid ang nakahilig na poste at ikinabit ulit sa linya.",
+    },
+    wire: {
+      en: "Broken strands or mesh spliced or restrung, loose posts re-driven and ties replaced along the damaged stretch.",
+      fr: "Fils ou grillage brisés raboutés ou retendus, poteaux lâches renfoncés et attaches remplacées sur la partie endommagée.",
+      es: "Hilos o malla rotos empalmados o retensados, postes flojos re-hincados y amarres cambiados en el tramo dañado.",
+      it: "Fili o rete rotti giuntati o ritesi, pali allentati reinfissi e legature sostituite sul tratto danneggiato.",
+      de: "Gerissene Drähte oder Netz verbunden oder neu gespannt, lose Pfosten nachgeschlagen und Bindungen auf dem Schadensstück ersetzt.",
+      uk: "Обірваний дріт чи сітку зрощено або перетягнуто, хиткі стовпи добито, кріплення на пошкодженій ділянці замінено.",
+      pa: "ਟੁੱਟੀਆਂ ਤਾਰਾਂ ਜਾਂ ਜਾਲ ਜੋੜੇ ਜਾਂ ਮੁੜ ਖਿੱਚੇ, ਢਿੱਲੇ ਥੰਮ੍ਹ ਮੁੜ ਠੋਕੇ ਅਤੇ ਖ਼ਰਾਬ ਹਿੱਸੇ 'ਤੇ ਬੰਧਨ ਬਦਲੇ।",
+      tl: "Dinugtong o hinila ulit ang putol na wire o mesh, pinukpok ulit ang maluwag na poste at pinalitan ang tali sa sirang bahagi.",
+    },
+    kennel: {
+      en: "Bent or broken panels straightened or replaced, clamps renewed and the enclosure re-anchored so the door latches.",
+      fr: "Panneaux tordus ou brisés redressés ou remplacés, colliers renouvelés et enclos réancré pour que la porte se verrouille.",
+      es: "Paneles doblados o rotos enderezados o cambiados, abrazaderas nuevas y el corral re-anclado para que la puerta trabe.",
+      it: "Pannelli piegati o rotti raddrizzati o sostituiti, morsetti rinnovati e recinto riancorato perché la porta si chiuda.",
+      de: "Verbogene oder gebrochene Elemente gerichtet oder ersetzt, Klammern erneuert und der Zwinger neu verankert, damit die Tür schließt.",
+      uk: "Погнуті чи зламані панелі вирівняно або замінено, хомути оновлено, вольєр заново заякорено, щоб дверцята замикалися.",
+      pa: "ਮੁੜੇ ਜਾਂ ਟੁੱਟੇ ਪੈਨਲ ਸਿੱਧੇ ਜਾਂ ਬਦਲੇ, ਕਲੈਂਪ ਨਵੇਂ ਲਾਏ ਅਤੇ ਵਾੜਾ ਮੁੜ ਪੱਕਾ ਕੀਤਾ ਤਾਂ ਜੋ ਦਰਵਾਜ਼ੇ ਨੂੰ ਕੁੰਡਾ ਲੱਗੇ।",
+      tl: "Itinuwid o pinalitan ang baluktot o sirang panel, bagong clamp at in-anchor ulit ang kulungan para mag-lock ang pinto.",
+    },
+    rail: {
+      en: "Loose posts re-anchored, damaged rails or infill replaced to match, and the run re-checked for height and firmness.",
+      fr: "Poteaux lâches réancrés, main courante ou remplissage endommagés remplacés à l'identique, hauteur et solidité revérifiées.",
+      es: "Postes flojos re-anclados, pasamanos o relleno dañados reemplazados a juego, y altura y firmeza revisadas de nuevo.",
+      it: "Montanti allentati riancorati, corrimano o tamponamento danneggiati sostituiti in tinta, altezza e solidità ricontrollate.",
+      de: "Lose Pfosten neu verankert, beschädigter Handlauf oder Füllung passend ersetzt, Höhe und Festigkeit erneut geprüft.",
+      uk: "Хиткі стійки заново закріплено, пошкоджений поручень чи заповнення замінено під решту, висоту й міцність перевірено.",
+      pa: "ਢਿੱਲੇ ਥੰਮ੍ਹ ਮੁੜ ਪੱਕੇ ਕੀਤੇ, ਖ਼ਰਾਬ ਰੇਲਾਂ ਜਾਂ ਭਰਾਅ ਮਿਲਦਾ ਬਦਲਿਆ, ਉਚਾਈ ਅਤੇ ਮਜ਼ਬੂਤੀ ਮੁੜ ਜਾਂਚੀ।",
+      tl: "In-anchor ulit ang maluwag na poste, pinalitan nang katugma ang sirang rail o infill, at tsinek ulit ang taas at tibay.",
+    },
+    temp: {
+      en: "Knocked-over panels stood back up, broken clamps and stands replaced and the line braced again.",
+      fr: "Panneaux renversés relevés, attaches et socles brisés remplacés et ligne recontreventée.",
+      es: "Paneles caídos levantados, abrazaderas y bases rotas cambiadas y la línea apuntalada de nuevo.",
+      it: "Pannelli caduti rialzati, morsetti e basi rotti sostituiti e tracciato ricontroventato.",
+      de: "Umgefallene Elemente wieder aufgestellt, gebrochene Klammern und Füße ersetzt und die Linie neu abgestützt.",
+      uk: "Повалені панелі піднято, зламані хомути й опори замінено, лінію знову підперто.",
+      pa: "ਡਿੱਗੇ ਪੈਨਲ ਮੁੜ ਖੜ੍ਹੇ ਕੀਤੇ, ਟੁੱਟੇ ਕਲੈਂਪ ਅਤੇ ਸਟੈਂਡ ਬਦਲੇ ਅਤੇ ਲਾਈਨ ਨੂੰ ਮੁੜ ਸਹਾਰਾ ਦਿੱਤਾ।",
+      tl: "Itinayo ulit ang natumbang panel, pinalitan ang sirang clamp at stand at nilagyan ulit ng brace ang linya.",
+    },
+    pool: {
+      en: "Loose poles re-seated, torn mesh replaced and the gate re-set so it closes and latches on its own.",
+      fr: "Poteaux lâches replacés, filet déchiré remplacé et porte réajustée pour qu'elle se ferme et se verrouille seule.",
+      es: "Postes flojos reasentados, malla rota reemplazada y la puerta ajustada para que cierre y trabe sola.",
+      it: "Pali allentati riposizionati, rete strappata sostituita e cancelletto regolato perché si chiuda e scatti da solo.",
+      de: "Lose Stangen neu eingesetzt, gerissenes Netz ersetzt und das Tor so eingestellt, dass es selbst schließt und einrastet.",
+      uk: "Хиткі стійки переставлено, порвану сітку замінено, хвіртку відрегульовано, щоб сама зачинялася й замикалася.",
+      pa: "ਢਿੱਲੇ ਡੰਡੇ ਮੁੜ ਬਿਠਾਏ, ਫਟਿਆ ਜਾਲ ਬਦਲਿਆ ਅਤੇ ਗੇਟ ਠੀਕ ਕੀਤਾ ਤਾਂ ਜੋ ਆਪੇ ਬੰਦ ਹੋ ਕੇ ਕੁੰਡਾ ਲੱਗੇ।",
+      tl: "Ibinalik sa puwesto ang maluwag na poste, pinalitan ang punit na mesh at inayos ang gate para kusang sumara at mag-lock.",
+    },
+  },
+};
+
+const runLabourText = (names, desc, label) => Object.fromEntries(LANG8.map((l) => [l, [names[l](label[l]), desc[l]]]));
+const INSTALL_RUN = (type, group, price) => RUN(price, runLabourText(INSTALL_NAME, DESC.install[group], LBL[type]));
+const REPAIR_RUN = (type, group, price) => RUN(price, runLabourText(REPAIR_NAME, DESC.repair[group], LBL[type]));
+const MAT_RUN = (text) => (price) => L.material(1, "linear_ft", price, text, { measurementKey: "edgingFt" });
+const OLD_FENCE_HAUL = (price) => SHARED.haulAway(price, { optional: true });
+
+// ── Run materials, one per type (install and repair share them) ──────────────
+const MAT = {
+  aluminum: MAT_RUN(t8(
+    ["Aluminium fence sections and posts — per linear ft", "Powder-coated aluminium panels, posts, caps and brackets, 4–5 ft residential style."],
+    ["Sections et poteaux d'aluminium — au pi lin.", "Panneaux d'aluminium thermolaqué, poteaux, capuchons et supports, style résidentiel 4–5 pi."],
+    ["Tramos y postes de aluminio — por pie lineal", "Paneles de aluminio con pintura en polvo, postes, tapas y soportes, estilo residencial de 4–5 pies."],
+    ["Sezioni e pali in alluminio — al piede lineare", "Pannelli in alluminio verniciato a polvere, pali, cappellotti e staffe, stile residenziale 4–5 piedi."],
+    ["Aluminium-Zaunfelder und Pfosten — pro lfd. Fuß", "Pulverbeschichtete Aluminiumfelder, Pfosten, Kappen und Halter, Wohnbau-Ausführung 4–5 Fuß."],
+    ["Алюмінієві секції та стовпи — за пог. фут", "Алюмінієві панелі з порошковим фарбуванням, стовпи, ковпаки й кронштейни, житловий варіант 4–5 футів."],
+    ["ਐਲੂਮੀਨੀਅਮ ਵਾੜ ਸੈਕਸ਼ਨ ਅਤੇ ਥੰਮ੍ਹ — ਪ੍ਰਤੀ ਲੀਨੀਅਰ ਫੁੱਟ", "ਪਾਊਡਰ-ਕੋਟ ਐਲੂਮੀਨੀਅਮ ਪੈਨਲ, ਥੰਮ੍ਹ, ਢੱਕਣ ਅਤੇ ਬਰੈਕਟ, 4–5 ਫੁੱਟ ਘਰੇਲੂ ਕਿਸਮ।"],
+    ["Aluminyong seksyon at poste — kada linear ft", "Powder-coated na aluminyong panel, poste, cap at bracket, 4–5 ft na pang-residential."],
+  )),
+  barbed_wire: MAT_RUN(t8(
+    ["Galvanised barbed wire — four strands, per linear ft", "Four strands of 12.5-gauge galvanised barbed wire with clips and tie wire."],
+    ["Fil barbelé galvanisé — quatre rangs, au pi lin.", "Quatre rangs de barbelé galvanisé calibre 12,5 avec attaches et fil à ligaturer."],
+    ["Alambre de púas galvanizado — cuatro hilos, por pie lineal", "Cuatro hilos de alambre de púas galvanizado calibre 12.5 con grapas y alambre de amarre."],
+    ["Filo spinato zincato — quattro fili, al piede lineare", "Quattro fili di filo spinato zincato calibro 12,5 con fermagli e filo di legatura."],
+    ["Verzinkter Stacheldraht — vier Lagen, pro lfd. Fuß", "Vier Lagen verzinkter Stacheldraht 12,5 Gauge mit Klammern und Bindedraht."],
+    ["Оцинкований колючий дріт — чотири ряди, за пог. фут", "Чотири ряди оцинкованого колючого дроту 12,5 калібру з кліпсами й в'язальним дротом."],
+    ["ਗੈਲਵਨਾਈਜ਼ਡ ਕੰਡਿਆਲੀ ਤਾਰ — ਚਾਰ ਲੜੀਆਂ, ਪ੍ਰਤੀ ਲੀਨੀਅਰ ਫੁੱਟ", "12.5 ਗੇਜ ਗੈਲਵਨਾਈਜ਼ਡ ਕੰਡਿਆਲੀ ਤਾਰ ਦੀਆਂ ਚਾਰ ਲੜੀਆਂ, ਕਲਿੱਪਾਂ ਅਤੇ ਬੰਨ੍ਹਣ ਵਾਲੀ ਤਾਰ ਸਮੇਤ।"],
+    ["Galvanized na barbed wire — apat na hilera, kada linear ft", "Apat na hilera ng 12.5-gauge na galvanized barbed wire, may clip at tie wire."],
+  )),
+  chain_link: MAT_RUN(t8(
+    ["Chain-link fabric and rail to match — per linear ft", "Galvanised or vinyl-coated fabric matched to the height and gauge on site, with top rail, ties and tension bar."],
+    ["Grillage et traverse assortis — au pi lin.", "Grillage galvanisé ou gainé de vinyle assorti à la hauteur et au calibre existants, avec traverse, attaches et barre de tension."],
+    ["Malla y riel a juego — por pie lineal", "Malla galvanizada o plastificada igual a la altura y calibre existentes, con riel superior, amarres y barra de tensión."],
+    ["Rete e corrente abbinati — al piede lineare", "Rete zincata o plastificata abbinata ad altezza e calibro esistenti, con corrente superiore, legature e barra di tensione."],
+    ["Passendes Geflecht und Holm — pro lfd. Fuß", "Verzinktes oder kunststoffummanteltes Geflecht in vorhandener Höhe und Stärke, mit Oberholm, Bindern und Spannstab."],
+    ["Сітка й прогін під наявні — за пог. фут", "Оцинкована чи ПВХ-сітка під наявну висоту й калібр, з верхнім прогоном, в'язками й натяжною планкою."],
+    ["ਮਿਲਦਾ ਚੇਨ-ਲਿੰਕ ਜਾਲ ਅਤੇ ਰੇਲ — ਪ੍ਰਤੀ ਲੀਨੀਅਰ ਫੁੱਟ", "ਮੌਜੂਦਾ ਉਚਾਈ ਅਤੇ ਗੇਜ ਨਾਲ ਮਿਲਦਾ ਗੈਲਵਨਾਈਜ਼ਡ ਜਾਂ ਵਿਨਾਇਲ-ਕੋਟ ਜਾਲ, ਉੱਪਰਲੀ ਰੇਲ, ਬੰਧਨ ਅਤੇ ਟੈਂਸ਼ਨ ਬਾਰ ਸਮੇਤ।"],
+    ["Katugmang chain-link mesh at rail — kada linear ft", "Galvanized o vinyl-coated na mesh na kapareho ng taas at gauge, may top rail, tali at tension bar."],
+  )),
+  dog_kennel: MAT_RUN(t8(
+    ["Welded-wire kennel panels — per linear ft", "6 ft galvanised welded-wire kennel panels with frame clamps; one panel carries the door."],
+    ["Panneaux d'enclos en treillis soudé — au pi lin.", "Panneaux d'enclos galvanisés en treillis soudé de 6 pi avec colliers; un panneau porte la porte."],
+    ["Paneles de corral de malla soldada — por pie lineal", "Paneles galvanizados de malla soldada de 6 pies con abrazaderas; uno trae la puerta."],
+    ["Pannelli per recinto in rete elettrosaldata — al piede lineare", "Pannelli zincati in rete elettrosaldata da 6 piedi con morsetti; uno porta la porta."],
+    ["Zwingerelemente aus Schweißgitter — pro lfd. Fuß", "Verzinkte Schweißgitterelemente 6 Fuß mit Rahmenklemmen; ein Element trägt die Tür."],
+    ["Панелі вольєра зі зварної сітки — за пог. фут", "Оцинковані панелі зі зварної сітки 6 футів із хомутами; в одній панелі — дверцята."],
+    ["ਵੈਲਡਡ-ਤਾਰ ਵਾੜੇ ਦੇ ਪੈਨਲ — ਪ੍ਰਤੀ ਲੀਨੀਅਰ ਫੁੱਟ", "6 ਫੁੱਟ ਗੈਲਵਨਾਈਜ਼ਡ ਵੈਲਡਡ-ਤਾਰ ਪੈਨਲ ਫ਼ਰੇਮ ਕਲੈਂਪਾਂ ਨਾਲ; ਇੱਕ ਪੈਨਲ ਵਿੱਚ ਦਰਵਾਜ਼ਾ।"],
+    ["Welded-wire na panel ng kulungan — kada linear ft", "6 ft na galvanized welded-wire panel na may frame clamp; may pinto ang isang panel."],
+  )),
+  dog_park: MAT_RUN(t8(
+    ["Commercial chain-link, 5 ft — per linear ft", "9-gauge galvanised fabric, schedule-40 line and terminal posts, top and bottom rail."],
+    ["Mailles de chaîne commerciales, 5 pi — au pi lin.", "Grillage galvanisé calibre 9, poteaux de ligne et d'extrémité schedule 40, traverses haute et basse."],
+    ["Malla ciclónica comercial, 5 pies — por pie lineal", "Malla galvanizada calibre 9, postes de línea y terminales cédula 40, riel superior e inferior."],
+    ["Rete metallica commerciale, 5 piedi — al piede lineare", "Rete zincata calibro 9, pali di linea e terminali schedule 40, corrente superiore e inferiore."],
+    ["Gewerblicher Maschendraht, 5 Fuß — pro lfd. Fuß", "Verzinktes Geflecht 9 Gauge, Linien- und Endpfosten Schedule 40, Ober- und Unterholm."],
+    ["Комерційна сітка-рабиця, 5 футів — за пог. фут", "Оцинкована сітка 9 калібру, лінійні й кінцеві стовпи schedule 40, верхній і нижній прогони."],
+    ["ਕਮਰਸ਼ੀਅਲ ਚੇਨ-ਲਿੰਕ, 5 ਫੁੱਟ — ਪ੍ਰਤੀ ਲੀਨੀਅਰ ਫੁੱਟ", "9 ਗੇਜ ਗੈਲਵਨਾਈਜ਼ਡ ਜਾਲ, schedule-40 ਲਾਈਨ ਅਤੇ ਸਿਰੇ ਦੇ ਥੰਮ੍ਹ, ਉੱਪਰਲੀ ਅਤੇ ਹੇਠਲੀ ਰੇਲ।"],
+    ["Commercial chain-link, 5 ft — kada linear ft", "9-gauge na galvanized mesh, schedule-40 na line at terminal post, top at bottom rail."],
+  )),
+  electric: MAT_RUN(t8(
+    ["Electric fence wire and insulators — per linear ft", "Two strands of high-tensile or poly wire with the insulators, tensioners and connectors they need."],
+    ["Fil et isolateurs de clôture électrique — au pi lin.", "Deux rangs de fil haute tension ou de polyfil avec isolateurs, tendeurs et raccords."],
+    ["Alambre y aisladores de cerca eléctrica — por pie lineal", "Dos hilos de alambre de alta tensión o polialambre con sus aisladores, tensores y conectores."],
+    ["Filo e isolatori per recinzione elettrica — al piede lineare", "Due fili ad alta resistenza o in polifilo con isolatori, tenditori e connettori."],
+    ["Elektrozaundraht und Isolatoren — pro lfd. Fuß", "Zwei Lagen hochfester Draht oder Polydraht mit Isolatoren, Spannern und Verbindern."],
+    ["Дріт і ізолятори електропастуха — за пог. фут", "Два ряди високоміцного дроту чи полідроту з ізоляторами, натягувачами й з'єднувачами."],
+    ["ਬਿਜਲੀ ਵਾੜ ਦੀ ਤਾਰ ਅਤੇ ਇੰਸੂਲੇਟਰ — ਪ੍ਰਤੀ ਲੀਨੀਅਰ ਫੁੱਟ", "ਹਾਈ-ਟੈਂਸਾਈਲ ਜਾਂ ਪੋਲੀ ਤਾਰ ਦੀਆਂ ਦੋ ਲੜੀਆਂ, ਇੰਸੂਲੇਟਰ, ਟੈਂਸ਼ਨਰ ਅਤੇ ਕੁਨੈਕਟਰ ਸਮੇਤ।"],
+    ["Wire at insulator ng electric fence — kada linear ft", "Dalawang hilera ng high-tensile o poly wire, kasama ang insulator, tensioner at connector."],
+  )),
+  guardrail: MAT_RUN(t8(
+    ["Galvanised W-beam guardrail — per linear ft", "12-gauge galvanised W-beam rail on steel posts with blockouts, splice bolts and end pieces."],
+    ["Glissière galvanisée à onde W — au pi lin.", "Glissière galvanisée calibre 12 à onde W sur poteaux d'acier avec écarteurs, boulons d'éclissage et embouts."],
+    ["Barrera galvanizada de viga W — por pie lineal", "Viga W galvanizada calibre 12 sobre postes de acero con separadores, pernos de empalme y terminales."],
+    ["Guardrail zincato a doppia onda — al piede lineare", "Nastro zincato a doppia onda calibro 12 su paletti in acciaio con distanziatori, bulloni di giunzione e terminali."],
+    ["Verzinkte Schutzplanke (W-Profil) — pro lfd. Fuß", "Verzinkte W-Profil-Planke 12 Gauge auf Stahlpfosten mit Distanzstücken, Stoßschrauben und Endstücken."],
+    ["Оцинкована W-балка огородження — за пог. фут", "Оцинкована W-балка 12 калібру на сталевих стійках із консолями, стиковими болтами й кінцевими елементами."],
+    ["ਗੈਲਵਨਾਈਜ਼ਡ W-ਬੀਮ ਗਾਰਡਰੇਲ — ਪ੍ਰਤੀ ਲੀਨੀਅਰ ਫੁੱਟ", "12 ਗੇਜ ਗੈਲਵਨਾਈਜ਼ਡ W-ਬੀਮ ਰੇਲ ਸਟੀਲ ਥੰਮ੍ਹਾਂ 'ਤੇ, ਬਲਾਕਆਊਟ, ਜੋੜ ਬੋਲਟ ਅਤੇ ਸਿਰੇ ਦੇ ਟੁਕੜਿਆਂ ਸਮੇਤ।"],
+    ["Galvanized W-beam guardrail — kada linear ft", "12-gauge na galvanized W-beam rail sa steel post, may blockout, splice bolt at end piece."],
+  )),
+  ornamental_aluminum: MAT_RUN(t8(
+    ["Ornamental aluminium estate sections — per linear ft", "Heavy-gauge powder-coated aluminium, 5–6 ft, with finials, rings or scrolls and matching posts."],
+    ["Sections ornementales en aluminium — au pi lin.", "Aluminium thermolaqué de fort calibre, 5–6 pi, avec fleurons, anneaux ou volutes et poteaux assortis."],
+    ["Tramos ornamentales de aluminio — por pie lineal", "Aluminio de calibre grueso con pintura en polvo, 5–6 pies, con remates, anillos o volutas y postes a juego."],
+    ["Sezioni ornamentali in alluminio — al piede lineare", "Alluminio di grosso spessore verniciato a polvere, 5–6 piedi, con puntali, anelli o volute e pali coordinati."],
+    ["Aluminium-Zierfelder — pro lfd. Fuß", "Starkwandiges pulverbeschichtetes Aluminium, 5–6 Fuß, mit Spitzen, Ringen oder Voluten und passenden Pfosten."],
+    ["Декоративні алюмінієві секції — за пог. фут", "Товстостінний алюміній із порошковим фарбуванням, 5–6 футів, з навершями, кільцями чи завитками й відповідними стовпами."],
+    ["ਸਜਾਵਟੀ ਐਲੂਮੀਨੀਅਮ ਸੈਕਸ਼ਨ — ਪ੍ਰਤੀ ਲੀਨੀਅਰ ਫੁੱਟ", "ਭਾਰੀ ਗੇਜ ਪਾਊਡਰ-ਕੋਟ ਐਲੂਮੀਨੀਅਮ, 5–6 ਫੁੱਟ, ਨੋਕਾਂ, ਛੱਲਿਆਂ ਜਾਂ ਵੇਲਾਂ ਅਤੇ ਮਿਲਦੇ ਥੰਮ੍ਹਾਂ ਸਮੇਤ।"],
+    ["Ornamental na aluminyong seksyon — kada linear ft", "Makapal na powder-coated na aluminyo, 5–6 ft, may finial, ring o scroll at katugmang poste."],
+  )),
+  pvc: MAT_RUN(t8(
+    ["PVC picket sections and posts — per linear ft", "4 ft PVC picket or semi-privacy sections, routed posts and caps."],
+    ["Sections à piquets et poteaux en PVC — au pi lin.", "Sections en PVC de 4 pi à piquets ou semi-intimité, poteaux mortaisés et capuchons."],
+    ["Tramos de estacas y postes de PVC — por pie lineal", "Tramos de PVC de 4 pies tipo estaca o semiprivacidad, postes ranurados y tapas."],
+    ["Sezioni a doghe e pali in PVC — al piede lineare", "Sezioni in PVC da 4 piedi a doghe o semi-frangivista, pali forati e cappellotti."],
+    ["PVC-Lattenfelder und Pfosten — pro lfd. Fuß", "4 Fuß PVC-Latten- oder Halbsichtschutzfelder, gefräste Pfosten und Kappen."],
+    ["ПВХ-секції зі штахетника та стовпи — за пог. фут", "Секції з ПВХ 4 фути, штахетник або напівглухі, фрезеровані стовпи й ковпаки."],
+    ["PVC ਪਿਕਟ ਸੈਕਸ਼ਨ ਅਤੇ ਥੰਮ੍ਹ — ਪ੍ਰਤੀ ਲੀਨੀਅਰ ਫੁੱਟ", "4 ਫੁੱਟ PVC ਪਿਕਟ ਜਾਂ ਅੱਧ-ਪਰਦਾ ਸੈਕਸ਼ਨ, ਛੇਕਾਂ ਵਾਲੇ ਥੰਮ੍ਹ ਅਤੇ ਢੱਕਣ।"],
+    ["PVC na picket na seksyon at poste — kada linear ft", "4 ft na PVC picket o semi-privacy na seksyon, routed na poste at cap."],
+  )),
+  retainage: MAT_RUN(t8(
+    ["Ground-contact posts and retaining boards — per linear ft", "Pressure-treated ground-contact posts, 2 × 8 kickboards holding the soil and fence boards above."],
+    ["Poteaux contact-sol et planches de retenue — au pi lin.", "Poteaux traités pour contact avec le sol, planches 2 × 8 qui retiennent la terre et planches de clôture au-dessus."],
+    ["Postes de contacto con suelo y tablas de contención — por pie lineal", "Postes tratados para contacto con suelo, tablas 2 × 8 que contienen la tierra y tablas de cerca arriba."],
+    ["Pali da interro e tavole di contenimento — al piede lineare", "Pali impregnati per contatto col terreno, tavole 2 × 8 che trattengono la terra e tavole di recinzione sopra."],
+    ["Erdkontakt-Pfosten und Stützbretter — pro lfd. Fuß", "Druckimprägnierte Erdkontakt-Pfosten, 2 × 8-Sockelbretter, die das Erdreich halten, und Zaunbretter darüber."],
+    ["Стовпи для контакту з ґрунтом і підпірні дошки — за пог. фут", "Просочені стовпи для контакту з ґрунтом, дошки 2 × 8, що тримають ґрунт, і парканні дошки зверху."],
+    ["ਜ਼ਮੀਨ-ਸੰਪਰਕ ਥੰਮ੍ਹ ਅਤੇ ਮਿੱਟੀ ਰੋਕੂ ਫੱਟੇ — ਪ੍ਰਤੀ ਲੀਨੀਅਰ ਫੁੱਟ", "ਪ੍ਰੈਸ਼ਰ-ਟ੍ਰੀਟਡ ਜ਼ਮੀਨ-ਸੰਪਰਕ ਥੰਮ੍ਹ, ਮਿੱਟੀ ਰੋਕਣ ਵਾਲੇ 2 × 8 ਫੱਟੇ ਅਤੇ ਉੱਪਰ ਵਾੜ ਦੇ ਫੱਟੇ।"],
+    ["Ground-contact na poste at retaining board — kada linear ft", "Pressure-treated na ground-contact na poste, 2 × 8 na kickboard na pumipigil sa lupa at tabla ng bakod sa itaas."],
+  )),
+  solar_field: MAT_RUN(t8(
+    ["Commercial chain-link with barbed top — per linear ft", "6 ft galvanised 9-gauge fabric, heavy terminal and line posts, and three strands of barbed wire on extension arms."],
+    ["Mailles de chaîne commerciales avec barbelés — au pi lin.", "Grillage galvanisé calibre 9 de 6 pi, poteaux d'extrémité et de ligne robustes et trois rangs de barbelés sur bras."],
+    ["Malla ciclónica comercial con púas arriba — por pie lineal", "Malla galvanizada calibre 9 de 6 pies, postes terminales y de línea reforzados y tres hilos de púas en brazos."],
+    ["Rete metallica commerciale con filo spinato — al piede lineare", "Rete zincata calibro 9 da 6 piedi, pali terminali e di linea pesanti e tre fili spinati su bracci."],
+    ["Gewerblicher Maschendraht mit Stacheldrahtaufsatz — pro lfd. Fuß", "6 Fuß verzinktes Geflecht 9 Gauge, schwere End- und Linienpfosten und drei Lagen Stacheldraht auf Auslegern."],
+    ["Комерційна сітка з колючим дротом зверху — за пог. фут", "Оцинкована сітка 9 калібру 6 футів, посилені кінцеві й лінійні стовпи та три ряди колючого дроту на кронштейнах."],
+    ["ਉੱਪਰ ਕੰਡਿਆਲੀ ਤਾਰ ਵਾਲਾ ਕਮਰਸ਼ੀਅਲ ਚੇਨ-ਲਿੰਕ — ਪ੍ਰਤੀ ਲੀਨੀਅਰ ਫੁੱਟ", "6 ਫੁੱਟ 9 ਗੇਜ ਗੈਲਵਨਾਈਜ਼ਡ ਜਾਲ, ਭਾਰੀ ਸਿਰੇ ਅਤੇ ਲਾਈਨ ਥੰਮ੍ਹ, ਅਤੇ ਬਾਹਾਂ 'ਤੇ ਕੰਡਿਆਲੀ ਤਾਰ ਦੀਆਂ ਤਿੰਨ ਲੜੀਆਂ।"],
+    ["Commercial chain-link na may barbed wire sa itaas — kada linear ft", "6 ft na 9-gauge galvanized mesh, mabigat na terminal at line post, at tatlong hilera ng barbed wire sa arm."],
+  )),
+  split_rail: MAT_RUN(t8(
+    ["Split-rail rails — per linear ft", "Rough-split cedar or pressure-treated rails, two or three per 10 ft section."],
+    ["Perches fendues — au pi lin.", "Perches de cèdre fendues ou en bois traité, deux ou trois par section de 10 pi."],
+    ["Rieles partidos — por pie lineal", "Rieles de cedro partido o madera tratada, dos o tres por tramo de 10 pies."],
+    ["Correnti spaccati — al piede lineare", "Correnti in cedro spaccato o legno impregnato, due o tre per sezione da 10 piedi."],
+    ["Spaltlatten-Riegel — pro lfd. Fuß", "Gespaltene Zedern- oder druckimprägnierte Riegel, zwei oder drei je 10-Fuß-Feld."],
+    ["Колоті жердини — за пог. фут", "Колоті кедрові чи просочені жердини, дві або три на секцію 10 футів."],
+    ["ਸਪਲਿਟ-ਰੇਲ ਡੰਡੇ — ਪ੍ਰਤੀ ਲੀਨੀਅਰ ਫੁੱਟ", "ਪਾੜੀ ਸੀਡਰ ਜਾਂ ਪ੍ਰੈਸ਼ਰ-ਟ੍ਰੀਟਡ ਰੇਲਾਂ, ਹਰ 10 ਫੁੱਟ ਸੈਕਸ਼ਨ ਵਿੱਚ ਦੋ ਜਾਂ ਤਿੰਨ।"],
+    ["Split-rail na rail — kada linear ft", "Biniyak na cedar o pressure-treated na rail, dalawa o tatlo kada 10 ft na seksyon."],
+  )),
+  steel: MAT_RUN(t8(
+    ["Steel picket sections and posts — per linear ft", "Powder-coated galvanised steel picket panels, 2 × 2 posts, brackets and caps."],
+    ["Sections à barreaux et poteaux en acier — au pi lin.", "Panneaux à barreaux en acier galvanisé thermolaqué, poteaux 2 × 2, supports et capuchons."],
+    ["Tramos de barrotes y postes de acero — por pie lineal", "Paneles de barrotes de acero galvanizado con pintura en polvo, postes de 2 × 2, soportes y tapas."],
+    ["Sezioni a pioli e pali in acciaio — al piede lineare", "Pannelli a pioli in acciaio zincato verniciato a polvere, pali 2 × 2, staffe e cappellotti."],
+    ["Stahl-Stabfelder und Pfosten — pro lfd. Fuß", "Pulverbeschichtete verzinkte Stahlstabfelder, 2 × 2-Pfosten, Halter und Kappen."],
+    ["Сталеві секції з прутів і стовпи — за пог. фут", "Панелі з оцинкованих сталевих прутів із порошковим фарбуванням, стовпи 2 × 2, кронштейни й ковпаки."],
+    ["ਸਟੀਲ ਪਿਕਟ ਸੈਕਸ਼ਨ ਅਤੇ ਥੰਮ੍ਹ — ਪ੍ਰਤੀ ਲੀਨੀਅਰ ਫੁੱਟ", "ਪਾਊਡਰ-ਕੋਟ ਗੈਲਵਨਾਈਜ਼ਡ ਸਟੀਲ ਪਿਕਟ ਪੈਨਲ, 2 × 2 ਥੰਮ੍ਹ, ਬਰੈਕਟ ਅਤੇ ਢੱਕਣ।"],
+    ["Bakal na picket na seksyon at poste — kada linear ft", "Powder-coated na galvanized steel picket panel, 2 × 2 na poste, bracket at cap."],
+  )),
+  vinyl: MAT_RUN(t8(
+    ["Vinyl replacement panels and rails — per linear ft", "Vinyl pickets, rails and caps matched to the existing colour and profile."],
+    ["Panneaux et traverses de vinyle de remplacement — au pi lin.", "Planches, traverses et capuchons en vinyle assortis à la couleur et au profil existants."],
+    ["Paneles y travesaños de vinilo de reemplazo — por pie lineal", "Tablas, travesaños y tapas de vinilo iguales al color y perfil existentes."],
+    ["Pannelli e correnti in vinile di ricambio — al piede lineare", "Doghe, correnti e cappellotti in vinile abbinati a colore e profilo esistenti."],
+    ["Vinyl-Ersatzfelder und Riegel — pro lfd. Fuß", "Vinyllatten, Riegel und Kappen passend zu vorhandener Farbe und Profil."],
+    ["Вінілові панелі й прогони на заміну — за пог. фут", "Вінілові планки, прогони й ковпаки під наявний колір і профіль."],
+    ["ਵਿਨਾਇਲ ਬਦਲਵੇਂ ਪੈਨਲ ਅਤੇ ਰੇਲਾਂ — ਪ੍ਰਤੀ ਲੀਨੀਅਰ ਫੁੱਟ", "ਮੌਜੂਦਾ ਰੰਗ ਅਤੇ ਬਣਤਰ ਨਾਲ ਮਿਲਦੀਆਂ ਵਿਨਾਇਲ ਫੱਟੀਆਂ, ਰੇਲਾਂ ਅਤੇ ਢੱਕਣ।"],
+    ["Pamalit na vinyl panel at rail — kada linear ft", "Vinyl na picket, rail at cap na kapareho ng kulay at profile."],
+  )),
+  water: MAT_RUN(t8(
+    ["Waterfront-grade fence materials — per linear ft", "Ground-contact posts rated for wet soil, boards or panels to the chosen style, and stainless-steel fasteners throughout."],
+    ["Matériaux de clôture pour bord de l'eau — au pi lin.", "Poteaux conçus pour sol humide, planches ou panneaux selon le style choisi et quincaillerie en acier inoxydable partout."],
+    ["Materiales de cerca para junto al agua — por pie lineal", "Postes para suelo húmedo, tablas o paneles del estilo elegido y tornillería de acero inoxidable en todo."],
+    ["Materiali per recinzione in riva all'acqua — al piede lineare", "Pali adatti a terreno umido, tavole o pannelli nello stile scelto e viteria in acciaio inox ovunque."],
+    ["Zaunmaterial für Wasserlage — pro lfd. Fuß", "Pfosten für nassen Boden, Bretter oder Felder im gewählten Stil und durchgehend Edelstahlbefestigung."],
+    ["Матеріали паркану біля води — за пог. фут", "Стовпи для вологого ґрунту, дошки чи панелі обраного стилю та кріплення з нержавіючої сталі."],
+    ["ਪਾਣੀ ਕੰਢੇ ਵਾਲਾ ਵਾੜ ਸਮਾਨ — ਪ੍ਰਤੀ ਲੀਨੀਅਰ ਫੁੱਟ", "ਗਿੱਲੀ ਮਿੱਟੀ ਲਈ ਥੰਮ੍ਹ, ਚੁਣੀ ਕਿਸਮ ਦੇ ਫੱਟੇ ਜਾਂ ਪੈਨਲ, ਅਤੇ ਹਰ ਥਾਂ ਸਟੇਨਲੈੱਸ ਸਟੀਲ ਦੇ ਪੇਚ।"],
+    ["Waterfront-grade na materyales ng bakod — kada linear ft", "Poste na pang-basang lupa, tabla o panel ayon sa napiling style, at stainless na turnilyo sa lahat."],
+  )),
+  pool_safety_mesh: MAT_RUN(t8(
+    ["Orange safety mesh — per linear ft", "4 ft high-visibility polyethylene barrier mesh with zip ties."],
+    ["Filet de sécurité orange — au pi lin.", "Filet de barrière en polyéthylène haute visibilité de 4 pi avec attaches autobloquantes."],
+    ["Malla de seguridad naranja — por pie lineal", "Malla de barrera de polietileno de alta visibilidad de 4 pies con cinchos."],
+    ["Rete di sicurezza arancione — al piede lineare", "Rete barriera in polietilene ad alta visibilità da 4 piedi con fascette."],
+    ["Orangefarbenes Absperrnetz — pro lfd. Fuß", "4 Fuß hohes, gut sichtbares Polyethylen-Absperrnetz mit Kabelbindern."],
+    ["Помаранчева захисна сітка — за пог. фут", "Поліетиленова сітка-огородження підвищеної видимості 4 фути зі стяжками."],
+    ["ਸੰਤਰੀ ਸੁਰੱਖਿਆ ਜਾਲ — ਪ੍ਰਤੀ ਲੀਨੀਅਰ ਫੁੱਟ", "4 ਫੁੱਟ ਚਮਕਦਾਰ ਪੋਲੀਥੀਨ ਰੋਕ ਜਾਲ, ਜ਼ਿਪ ਟਾਈਆਂ ਸਮੇਤ।"],
+    ["Orange na safety mesh — kada linear ft", "4 ft na high-visibility na polyethylene barrier mesh, may zip tie."],
+  )),
+  pool_temporary: MAT_RUN(t8(
+    ["Removable pool mesh barrier — per linear ft", "4 ft removable mesh panels on aluminium poles, with the sleeves they drop into."],
+    ["Barrière de piscine amovible en filet — au pi lin.", "Panneaux en filet amovibles de 4 pi sur poteaux d'aluminium, avec les manchons où ils s'insèrent."],
+    ["Barrera de malla removible para alberca — por pie lineal", "Paneles de malla removibles de 4 pies en postes de aluminio, con las fundas donde se insertan."],
+    ["Barriera removibile in rete per piscina — al piede lineare", "Pannelli in rete removibili da 4 piedi su pali in alluminio, con i manicotti in cui si inseriscono."],
+    ["Abnehmbare Pool-Netzabsperrung — pro lfd. Fuß", "4 Fuß hohe abnehmbare Netzfelder auf Aluminiumstangen, mit den Hülsen, in die sie gesteckt werden."],
+    ["Знімне сітчасте огородження басейну — за пог. фут", "Знімні сітчасті панелі 4 фути на алюмінієвих стійках, з гільзами, в які вони вставляються."],
+    ["ਪੂਲ ਲਈ ਹਟਾਉਣਯੋਗ ਜਾਲ ਰੋਕ — ਪ੍ਰਤੀ ਲੀਨੀਅਰ ਫੁੱਟ", "ਐਲੂਮੀਨੀਅਮ ਡੰਡਿਆਂ 'ਤੇ 4 ਫੁੱਟ ਹਟਾਉਣਯੋਗ ਜਾਲ ਪੈਨਲ, ਉਹਨਾਂ ਸਲੀਵਾਂ ਸਮੇਤ ਜਿਨ੍ਹਾਂ ਵਿੱਚ ਇਹ ਫਸਦੇ ਹਨ।"],
+    ["Removable na pool mesh barrier — kada linear ft", "4 ft na removable na mesh panel sa aluminyong poste, kasama ang sleeve na pinagsasaksakan."],
+  )),
+  composite_railing: MAT_RUN(t8(
+    ["Composite railing system — per linear ft", "Composite post sleeves over structural posts, top and bottom rails, balusters and caps from one manufacturer's system."],
+    ["Système de garde-corps en composite — au pi lin.", "Manchons de poteaux en composite sur poteaux structuraux, mains courantes haute et basse, balustres et capuchons d'un même système."],
+    ["Sistema de barandal de compuesto — por pie lineal", "Fundas de poste de compuesto sobre postes estructurales, pasamanos superior e inferior, balaustres y tapas de un mismo sistema."],
+    ["Sistema di ringhiera in composito — al piede lineare", "Coprimontanti in composito su montanti strutturali, corrimano superiore e inferiore, colonnine e cappellotti di un unico sistema."],
+    ["WPC-Geländersystem — pro lfd. Fuß", "WPC-Pfostenhülsen über tragenden Pfosten, Ober- und Unterholm, Stäbe und Kappen aus einem Herstellersystem."],
+    ["Система композитного поруччя — за пог. фут", "Композитні кожухи на несучі стійки, верхній і нижній поручні, балясини й ковпаки однієї системи."],
+    ["ਕੰਪੋਜ਼ਿਟ ਰੇਲਿੰਗ ਸਿਸਟਮ — ਪ੍ਰਤੀ ਲੀਨੀਅਰ ਫੁੱਟ", "ਢਾਂਚਾਗਤ ਥੰਮ੍ਹਾਂ 'ਤੇ ਕੰਪੋਜ਼ਿਟ ਖੋਲ, ਉੱਪਰਲੀ ਅਤੇ ਹੇਠਲੀ ਰੇਲ, ਜੰਗਲੇ ਦੀਆਂ ਡੰਡੀਆਂ ਅਤੇ ਢੱਕਣ, ਇੱਕੋ ਸਿਸਟਮ ਦੇ।"],
+    ["Composite railing system — kada linear ft", "Composite na post sleeve sa structural post, top at bottom rail, baluster at cap mula sa iisang system."],
+  )),
+  metal_railing: MAT_RUN(t8(
+    ["Metal railing system — per linear ft", "Powder-coated aluminium or steel posts, rails and balusters with mounting plates and hardware."],
+    ["Système de garde-corps en métal — au pi lin.", "Poteaux, mains courantes et barreaux en aluminium ou acier thermolaqué avec platines et quincaillerie."],
+    ["Sistema de barandal de metal — por pie lineal", "Postes, pasamanos y barrotes de aluminio o acero con pintura en polvo, con placas de montaje y herrajes."],
+    ["Sistema di ringhiera in metallo — al piede lineare", "Montanti, corrimano e colonnine in alluminio o acciaio verniciato a polvere con piastre di fissaggio e minuteria."],
+    ["Metallgeländersystem — pro lfd. Fuß", "Pulverbeschichtete Aluminium- oder Stahlpfosten, Handläufe und Stäbe mit Montageplatten und Befestigung."],
+    ["Система металевого поруччя — за пог. фут", "Стійки, поручні й балясини з алюмінію чи сталі з порошковим фарбуванням, з монтажними пластинами й кріпленням."],
+    ["ਧਾਤ ਰੇਲਿੰਗ ਸਿਸਟਮ — ਪ੍ਰਤੀ ਲੀਨੀਅਰ ਫੁੱਟ", "ਪਾਊਡਰ-ਕੋਟ ਐਲੂਮੀਨੀਅਮ ਜਾਂ ਸਟੀਲ ਦੇ ਥੰਮ੍ਹ, ਰੇਲਾਂ ਅਤੇ ਡੰਡੀਆਂ, ਮਾਊਂਟਿੰਗ ਪਲੇਟਾਂ ਅਤੇ ਹਾਰਡਵੇਅਰ ਸਮੇਤ।"],
+    ["Metal railing system — kada linear ft", "Powder-coated na aluminyo o bakal na poste, rail at baluster, may mounting plate at hardware."],
+  )),
+  pvc_railing: MAT_RUN(t8(
+    ["PVC railing kit — per linear ft", "White PVC post sleeves, rail sections with balusters, brackets and caps."],
+    ["Ensemble de garde-corps en PVC — au pi lin.", "Manchons de poteaux en PVC blanc, sections de main courante avec balustres, supports et capuchons."],
+    ["Kit de barandal de PVC — por pie lineal", "Fundas de poste de PVC blanco, tramos de pasamanos con balaustres, soportes y tapas."],
+    ["Kit ringhiera in PVC — al piede lineare", "Coprimontanti in PVC bianco, sezioni di corrimano con colonnine, staffe e cappellotti."],
+    ["PVC-Geländerbausatz — pro lfd. Fuß", "Weiße PVC-Pfostenhülsen, Geländerfelder mit Stäben, Halter und Kappen."],
+    ["Комплект поруччя з ПВХ — за пог. фут", "Білі ПВХ-кожухи стійок, секції поручня з балясинами, кронштейни й ковпаки."],
+    ["PVC ਰੇਲਿੰਗ ਕਿੱਟ — ਪ੍ਰਤੀ ਲੀਨੀਅਰ ਫੁੱਟ", "ਚਿੱਟੇ PVC ਥੰਮ੍ਹ ਖੋਲ, ਡੰਡੀਆਂ ਵਾਲੇ ਰੇਲ ਸੈਕਸ਼ਨ, ਬਰੈਕਟ ਅਤੇ ਢੱਕਣ।"],
+    ["PVC railing kit — kada linear ft", "Puting PVC na post sleeve, rail section na may baluster, bracket at cap."],
+  )),
+  glass_railing: MAT_RUN(t8(
+    ["Tempered glass railing system — per linear ft", "Tempered safety-glass panels in an aluminium base shoe or on posts, with top cap and glazing gaskets."],
+    ["Système de garde-corps en verre trempé — au pi lin.", "Panneaux de verre trempé de sécurité dans un profilé de base en aluminium ou sur poteaux, avec main courante et joints."],
+    ["Sistema de barandal de vidrio templado — por pie lineal", "Paneles de vidrio templado de seguridad en zapata de aluminio o sobre postes, con pasamanos y empaques."],
+    ["Sistema di parapetto in vetro temperato — al piede lineare", "Lastre di vetro temperato di sicurezza in profilo di base in alluminio o su montanti, con corrimano e guarnizioni."],
+    ["Geländersystem aus Sicherheitsglas — pro lfd. Fuß", "Scheiben aus Einscheibensicherheitsglas im Aluminium-Bodenprofil oder an Pfosten, mit Handlauf und Dichtungen."],
+    ["Система поруччя із загартованого скла — за пог. фут", "Панелі загартованого безпечного скла в алюмінієвому профілі чи на стійках, з поручнем і ущільнювачами."],
+    ["ਟੈਂਪਰਡ ਸ਼ੀਸ਼ਾ ਰੇਲਿੰਗ ਸਿਸਟਮ — ਪ੍ਰਤੀ ਲੀਨੀਅਰ ਫੁੱਟ", "ਐਲੂਮੀਨੀਅਮ ਬੇਸ ਸ਼ੂ ਵਿੱਚ ਜਾਂ ਥੰਮ੍ਹਾਂ 'ਤੇ ਟੈਂਪਰਡ ਸੁਰੱਖਿਆ ਸ਼ੀਸ਼ੇ ਦੇ ਪੈਨਲ, ਉੱਪਰਲੀ ਕੈਪ ਅਤੇ ਗੈਸਕੇਟਾਂ ਸਮੇਤ।"],
+    ["Tempered glass railing system — kada linear ft", "Tempered na safety glass panel sa aluminyong base shoe o sa poste, may top cap at gasket."],
+  )),
+  cable_railing: MAT_RUN(t8(
+    ["Stainless cable railing system — per linear ft", "Posts drilled for cable, 1/8 in 316 stainless cable runs with tensioners and end fittings, and a top rail."],
+    ["Système de garde-corps à câbles inox — au pi lin.", "Poteaux percés pour câbles, câbles inox 316 de 1/8 po avec tendeurs et embouts, et main courante."],
+    ["Sistema de barandal de cable inoxidable — por pie lineal", "Postes perforados para cable, cables inoxidables 316 de 1/8 pulg con tensores y terminales, y pasamanos."],
+    ["Sistema di ringhiera a cavi inox — al piede lineare", "Montanti forati per i cavi, cavi inox 316 da 1/8 di pollice con tenditori e terminali, e corrimano."],
+    ["Edelstahl-Seilgeländersystem — pro lfd. Fuß", "Für Seile gebohrte Pfosten, 1/8-Zoll-Edelstahlseile 316 mit Spannern und Endbeschlägen, dazu der Handlauf."],
+    ["Система тросового поруччя з нержавійки — за пог. фут", "Стійки з отворами під трос, троси з нержавіючої сталі 316 діаметром 1/8 дюйма з натягувачами й наконечниками, поручень."],
+    ["ਸਟੇਨਲੈੱਸ ਕੇਬਲ ਰੇਲਿੰਗ ਸਿਸਟਮ — ਪ੍ਰਤੀ ਲੀਨੀਅਰ ਫੁੱਟ", "ਕੇਬਲ ਲਈ ਛੇਕ ਕੀਤੇ ਥੰਮ੍ਹ, 1/8 ਇੰਚ 316 ਸਟੇਨਲੈੱਸ ਕੇਬਲਾਂ ਟੈਂਸ਼ਨਰ ਅਤੇ ਸਿਰੇ ਦੀਆਂ ਫ਼ਿਟਿੰਗਾਂ ਸਮੇਤ, ਅਤੇ ਉੱਪਰਲੀ ਰੇਲ।"],
+    ["Stainless cable railing system — kada linear ft", "Posteng binutas para sa cable, 1/8 in na 316 stainless cable na may tensioner at end fitting, at top rail."],
+  )),
+  cable_repair: MAT_RUN(t8(
+    ["Replacement stainless cable and fittings — per linear ft", "316 stainless cable runs with new tensioners and end fittings, cut to the posts on site."],
+    ["Câbles inox et raccords de remplacement — au pi lin.", "Câbles inox 316 avec tendeurs et embouts neufs, coupés aux poteaux sur place."],
+    ["Cable inoxidable y terminales de reemplazo — por pie lineal", "Cables inoxidables 316 con tensores y terminales nuevos, cortados a medida entre postes."],
+    ["Cavi inox e terminali di ricambio — al piede lineare", "Cavi inox 316 con tenditori e terminali nuovi, tagliati sul posto tra i montanti."],
+    ["Ersatz-Edelstahlseile und Beschläge — pro lfd. Fuß", "Edelstahlseile 316 mit neuen Spannern und Endbeschlägen, vor Ort auf die Pfosten abgelängt."],
+    ["Запасні троси з нержавійки й фітинги — за пог. фут", "Троси з нержавіючої сталі 316 з новими натягувачами й наконечниками, відрізані по стійках на місці."],
+    ["ਬਦਲਵੀਆਂ ਸਟੇਨਲੈੱਸ ਕੇਬਲਾਂ ਅਤੇ ਫ਼ਿਟਿੰਗਾਂ — ਪ੍ਰਤੀ ਲੀਨੀਅਰ ਫੁੱਟ", "ਨਵੇਂ ਟੈਂਸ਼ਨਰਾਂ ਅਤੇ ਸਿਰੇ ਦੀਆਂ ਫ਼ਿਟਿੰਗਾਂ ਨਾਲ 316 ਸਟੇਨਲੈੱਸ ਕੇਬਲਾਂ, ਮੌਕੇ 'ਤੇ ਥੰਮ੍ਹਾਂ ਮੁਤਾਬਕ ਕੱਟੀਆਂ।"],
+    ["Pamalit na stainless cable at fitting — kada linear ft", "316 stainless na cable na may bagong tensioner at end fitting, pinutol ayon sa poste sa site."],
+  )),
+  wood_railing: MAT_RUN(t8(
+    ["Wood railing materials — per linear ft", "Pressure-treated or cedar 4 × 4 posts, 2 × 4 rails, 2 × 2 balusters and a 2 × 6 cap, with structural screws."],
+    ["Matériaux de garde-corps en bois — au pi lin.", "Poteaux 4 × 4, traverses 2 × 4, balustres 2 × 2 et main courante 2 × 6 en bois traité ou cèdre, avec vis structurales."],
+    ["Materiales de barandal de madera — por pie lineal", "Postes 4 × 4, travesaños 2 × 4, balaustres 2 × 2 y tapa 2 × 6 de madera tratada o cedro, con tornillos estructurales."],
+    ["Materiali per ringhiera in legno — al piede lineare", "Montanti 4 × 4, correnti 2 × 4, colonnine 2 × 2 e corrimano 2 × 6 in legno impregnato o cedro, con viti strutturali."],
+    ["Material für Holzgeländer — pro lfd. Fuß", "Druckimprägnierte oder Zedern-Pfosten 4 × 4, Riegel 2 × 4, Stäbe 2 × 2 und Abdeckung 2 × 6, mit Konstruktionsschrauben."],
+    ["Матеріали для дерев'яного поруччя — за пог. фут", "Просочені чи кедрові стійки 4 × 4, прогони 2 × 4, балясини 2 × 2 і поручень 2 × 6, з конструкційними шурупами."],
+    ["ਲੱਕੜ ਰੇਲਿੰਗ ਦਾ ਸਮਾਨ — ਪ੍ਰਤੀ ਲੀਨੀਅਰ ਫੁੱਟ", "ਪ੍ਰੈਸ਼ਰ-ਟ੍ਰੀਟਡ ਜਾਂ ਸੀਡਰ 4 × 4 ਥੰਮ੍ਹ, 2 × 4 ਰੇਲਾਂ, 2 × 2 ਡੰਡੀਆਂ ਅਤੇ 2 × 6 ਕੈਪ, ਢਾਂਚਾਗਤ ਪੇਚਾਂ ਸਮੇਤ।"],
+    ["Materyales ng kahoy na railing — kada linear ft", "Pressure-treated o cedar na 4 × 4 na poste, 2 × 4 na rail, 2 × 2 na baluster at 2 × 6 na cap, may structural screw."],
+  )),
+  temp_replace: MAT_RUN(t8(
+    ["Replacement temporary panel and stand — per linear ft", "Damaged rental panels, stands and clamps swapped for sound ones along the repaired stretch."],
+    ["Panneau et socle temporaires de remplacement — au pi lin.", "Panneaux, socles et attaches endommagés remplacés par des pièces en bon état sur la partie réparée."],
+    ["Panel y base temporales de reemplazo — por pie lineal", "Paneles, bases y abrazaderas dañados cambiados por piezas en buen estado en el tramo reparado."],
+    ["Pannello e base provvisori di ricambio — al piede lineare", "Pannelli, basi e morsetti danneggiati sostituiti con pezzi integri sul tratto riparato."],
+    ["Ersatz-Bauzaunelement und Fuß — pro lfd. Fuß", "Beschädigte Mietelemente, Füße und Klammern auf dem reparierten Stück gegen intakte getauscht."],
+    ["Запасна тимчасова панель і опора — за пог. фут", "Пошкоджені орендовані панелі, опори й хомути на відремонтованій ділянці замінено на цілі."],
+    ["ਬਦਲਵਾਂ ਆਰਜ਼ੀ ਪੈਨਲ ਅਤੇ ਸਟੈਂਡ — ਪ੍ਰਤੀ ਲੀਨੀਅਰ ਫੁੱਟ", "ਮੁਰੰਮਤ ਵਾਲੇ ਹਿੱਸੇ 'ਤੇ ਖ਼ਰਾਬ ਕਿਰਾਏ ਦੇ ਪੈਨਲ, ਸਟੈਂਡ ਅਤੇ ਕਲੈਂਪ ਠੀਕ ਵਾਲਿਆਂ ਨਾਲ ਬਦਲੇ।"],
+    ["Pamalit na temporary panel at stand — kada linear ft", "Pinalitan ng maayos ang sirang rentang panel, stand at clamp sa inayos na bahagi."],
+  )),
+};
+
+// Stockade is the same Home Depot 6 × 8 dog-ear panel the wood row buys,
+// under its own line name (the English name keys the Punjabi i18n map).
+const STOCKADE_PANEL = () => hdMaterial(HD.fence_panel_6x8, t8(
+  ["Stockade panel — 6 × 8 ft, pressure-treated", "Dog-ear stockade privacy panel; one covers 8 ft of run."],
+  ["Panneau palissade — 6 × 8 pi, bois traité", "Panneau d'intimité à planches en pointe; un panneau couvre 8 pi."],
+  ["Panel estacada — 6 × 8 pies, madera tratada", "Panel de privacidad de tablas con punta; uno cubre 8 pies."],
+  ["Pannello a palizzata — 6 × 8 piedi, impregnato", "Pannello frangivista a tavole sagomate; uno copre 8 piedi di tratto."],
+  ["Palisadenelement — 6 × 8 Fuß, druckimprägniert", "Sichtschutzelement mit abgeschrägten Brettern; eines deckt 8 Fuß Strecke."],
+  ["Секція-частокіл — 6 × 8 футів, просочена", "Глуха секція з фігурними дошками; одна покриває 8 футів."],
+  ["ਸਟੌਕੇਡ ਪੈਨਲ — 6 × 8 ਫੁੱਟ, ਪ੍ਰੈਸ਼ਰ-ਟ੍ਰੀਟਡ", "ਨੋਕਦਾਰ ਫੱਟਿਆਂ ਵਾਲਾ ਪਰਦਾ ਪੈਨਲ; ਇੱਕ ਪੈਨਲ 8 ਫੁੱਟ ਲਾਈਨ।"],
+  ["Stockade panel — 6 × 8 ft, pressure-treated", "Dog-ear na stockade privacy panel; isa ay 8 ft ng bakod."],
+), { measurementKey: "edgingFt" });
+
+// ── Posts sold per post (`fencePosts`: one every 8 ft plus the closing one) ──
+const T_POST = (price = 9) => L.material(1, "each", price, t8(
+  ["Steel T-post — per post", "Steel T-post driven to depth, with its wire clips."],
+  ["Poteau en T d'acier — l'unité", "Poteau en T d'acier enfoncé à la bonne profondeur, avec ses attaches."],
+  ["Poste T de acero — por poste", "Poste T de acero hincado a la profundidad correcta, con sus grapas."],
+  ["Paletto a T in acciaio — cadauno", "Paletto a T in acciaio infisso alla giusta profondità, con i suoi fermagli."],
+  ["Stahl-T-Pfosten — pro Pfosten", "Stahl-T-Pfosten auf Tiefe eingeschlagen, mit den zugehörigen Klammern."],
+  ["Сталевий Т-стовпчик — за стовпчик", "Сталевий Т-стовпчик, забитий на потрібну глибину, з кліпсами."],
+  ["ਸਟੀਲ T-ਥੰਮ੍ਹ — ਪ੍ਰਤੀ ਥੰਮ੍ਹ", "ਸਟੀਲ T-ਥੰਮ੍ਹ ਪੂਰੀ ਡੂੰਘਾਈ ਤੱਕ ਠੋਕਿਆ, ਉਸ ਦੀਆਂ ਕਲਿੱਪਾਂ ਸਮੇਤ।"],
+  ["Steel T-post — kada poste", "Steel T-post na ibinaon sa tamang lalim, kasama ang clip nito."],
+), { measurementKey: "fencePosts" });
+const SPLIT_POST = (price = 34) => L.material(1, "each", price, t8(
+  ["Mortised split-rail post — per post", "Cedar or pressure-treated post with rail mortises, set with tamped gravel."],
+  ["Poteau mortaisé à perches — l'unité", "Poteau de cèdre ou traité avec mortaises, posé dans du gravier compacté."],
+  ["Poste ranurado para rieles — por poste", "Poste de cedro o tratado con ranuras para rieles, asentado con grava compactada."],
+  ["Palo forato per staccionata — cadauno", "Palo in cedro o impregnato con fori per i correnti, posato con ghiaia costipata."],
+  ["Gelochter Spaltlattenpfosten — pro Pfosten", "Zedern- oder imprägnierter Pfosten mit Riegellöchern, in verdichtetem Kies gesetzt."],
+  ["Стовп із пазами для жердин — за стовп", "Кедровий чи просочений стовп із пазами, встановлений в утрамбований гравій."],
+  ["ਛੇਕਾਂ ਵਾਲਾ ਸਪਲਿਟ-ਰੇਲ ਥੰਮ੍ਹ — ਪ੍ਰਤੀ ਥੰਮ੍ਹ", "ਰੇਲਾਂ ਲਈ ਛੇਕਾਂ ਵਾਲਾ ਸੀਡਰ ਜਾਂ ਟ੍ਰੀਟਡ ਥੰਮ੍ਹ, ਕੁੱਟੀ ਬਜਰੀ ਵਿੱਚ ਗੱਡਿਆ।"],
+  ["Mortised na split-rail post — kada poste", "Cedar o treated na poste na may butas para sa rail, ibinaon sa siniksik na graba."],
+), { measurementKey: "fencePosts" });
+const WOOD_POST = (price = 30) => L.material(1, "each", price, t8(
+  ["Treated 4 × 4 fence post with concrete — per post", "Ground-contact 4 × 4 × 8 post and two bags of concrete mix, one every 8 ft."],
+  ["Poteau de clôture traité 4 × 4 avec béton — l'unité", "Poteau 4 × 4 × 8 pour contact avec le sol et deux sacs de béton, un aux 8 pi."],
+  ["Poste tratado de 4 × 4 con concreto — por poste", "Poste 4 × 4 × 8 para contacto con suelo y dos bolsas de concreto, uno cada 8 pies."],
+  ["Palo impregnato 4 × 4 con calcestruzzo — cadauno", "Palo 4 × 4 × 8 da interro e due sacchi di calcestruzzo, uno ogni 8 piedi."],
+  ["Imprägnierter 4 × 4-Zaunpfosten mit Beton — pro Pfosten", "Erdkontakt-Pfosten 4 × 4 × 8 und zwei Sack Beton, einer alle 8 Fuß."],
+  ["Просочений стовп 4 × 4 з бетоном — за стовп", "Стовп 4 × 4 × 8 для контакту з ґрунтом і два мішки бетону, один на кожні 8 футів."],
+  ["ਟ੍ਰੀਟਡ 4 × 4 ਵਾੜ ਥੰਮ੍ਹ ਕੰਕਰੀਟ ਸਮੇਤ — ਪ੍ਰਤੀ ਥੰਮ੍ਹ", "ਜ਼ਮੀਨ-ਸੰਪਰਕ 4 × 4 × 8 ਥੰਮ੍ਹ ਅਤੇ ਕੰਕਰੀਟ ਦੇ ਦੋ ਬੈਗ, ਹਰ 8 ਫੁੱਟ 'ਤੇ ਇੱਕ।"],
+  ["Treated na 4 × 4 na poste ng bakod, may semento — kada poste", "Ground-contact na 4 × 4 × 8 na poste at dalawang sako ng semento, isa bawat 8 ft."],
+), { measurementKey: "fencePosts" });
+
+// ── Gates: walk gates on the intake's `gateCount`, drive gates on
+// `driveGateCount`. GATE above keeps its "each" key for the rows it already
+// serves; these read the intake's own boxes so the count is filled, not typed.
+const WALK_GATE = (price) => L.labour(1, "each", price, t8(
+  ["Matching walk gate, hung — per gate", "A walk gate in the fence's own material, hung on self-closing hinges with a latch and gate stop."],
+  ["Porte piétonne assortie, posée — l'unité", "Porte piétonne du même matériau que la clôture, posée sur pentures à fermeture automatique avec loquet et butée."],
+  ["Puerta peatonal a juego, colgada — por puerta", "Puerta peatonal del mismo material que la cerca, colgada con bisagras de cierre automático, pestillo y tope."],
+  ["Cancelletto coordinato, montato — cadauno", "Cancelletto nello stesso materiale della recinzione, su cerniere a chiusura automatica con serratura e fermo."],
+  ["Passendes Gartentor, eingehängt — pro Tor", "Gartentor im Material des Zauns, an selbstschließenden Bändern mit Falle und Anschlag eingehängt."],
+  ["Хвіртка в тон паркану, навішена — за хвіртку", "Хвіртка з того ж матеріалу, що й паркан, на самозакривних завісах із клямкою та упором."],
+  ["ਮਿਲਦਾ ਪੈਦਲ ਗੇਟ, ਟੰਗਿਆ — ਪ੍ਰਤੀ ਗੇਟ", "ਵਾੜ ਦੇ ਹੀ ਸਮਾਨ ਦਾ ਪੈਦਲ ਗੇਟ, ਆਪੇ ਬੰਦ ਹੋਣ ਵਾਲੇ ਕਬਜ਼ਿਆਂ, ਕੁੰਡੇ ਅਤੇ ਰੋਕ ਨਾਲ ਟੰਗਿਆ।"],
+  ["Katugmang walk gate, nakakabit — kada gate", "Walk gate na kapareho ng materyal ng bakod, nakasabit sa self-closing na bisagra, may latch at gate stop."],
+), { measurementKey: "gateCount" });
+const DRIVE_GATE = (price) => L.labour(1, "each", price, t8(
+  ["Double-swing drive gate — per gate", "Commercial chain-link double-swing gate, 20 ft opening, on heavy gate posts set in concrete, with drop rod and padlock latch."],
+  ["Portail double battant — l'unité", "Portail commercial double battant en mailles de chaîne, ouverture de 20 pi, sur poteaux robustes coulés dans le béton, avec tige d'arrêt et loquet cadenassable."],
+  ["Portón de doble hoja — por portón", "Portón comercial de malla de doble hoja, claro de 20 pies, en postes reforzados colados en concreto, con pasador al piso y cerrojo para candado."],
+  ["Cancello carraio a due ante — cadauno", "Cancello commerciale in rete a due ante, luce 20 piedi, su pali pesanti annegati nel calcestruzzo, con asta a terra e chiusura per lucchetto."],
+  ["Zweiflügeliges Einfahrtstor — pro Tor", "Gewerbliches Maschendraht-Doppeltor, 20 Fuß Öffnung, an schweren einbetonierten Torpfosten, mit Bodenriegel und Vorhängeschlossfalle."],
+  ["Двостулкова в'їзна брама — за браму", "Комерційна двостулкова брама з сітки, проїзд 20 футів, на посилених забетонованих стовпах, з нижнім засувом і замком під навісний замок."],
+  ["ਦੋ-ਪੱਲਿਆਂ ਵਾਲਾ ਡਰਾਈਵ ਗੇਟ — ਪ੍ਰਤੀ ਗੇਟ", "ਕਮਰਸ਼ੀਅਲ ਚੇਨ-ਲਿੰਕ ਦੋ-ਪੱਲਾ ਗੇਟ, 20 ਫੁੱਟ ਖੁੱਲ੍ਹਾ, ਕੰਕਰੀਟ ਵਿੱਚ ਗੱਡੇ ਭਾਰੀ ਥੰਮ੍ਹਾਂ 'ਤੇ, ਡਰੌਪ ਰਾਡ ਅਤੇ ਤਾਲੇ ਵਾਲੇ ਕੁੰਡੇ ਸਮੇਤ।"],
+  ["Double-swing na drive gate — kada gate", "Commercial chain-link na double-swing gate, 20 ft na bukana, sa mabigat na poste na sinementuhan, may drop rod at latch para sa padlock."],
+), { measurementKey: "driveGateCount" });
+
+// ── Single-purpose lines ─────────────────────────────────────────────────────
+const ENERGISER = (price = 325) => L.material(1, "flat", price, t8(
+  ["Fence energiser and grounding kit", "Mains or solar energiser sized to the run, three ground rods, lead-out cable and warning signs."],
+  ["Électrificateur et mise à la terre", "Électrificateur sur secteur ou solaire adapté à la longueur, trois piquets de terre, câble de sortie et panneaux d'avertissement."],
+  ["Energizador y kit de tierra", "Energizador de corriente o solar según el largo, tres varillas de tierra, cable de salida y letreros de advertencia."],
+  ["Elettrificatore e kit di messa a terra", "Elettrificatore a rete o solare dimensionato sul tracciato, tre picchetti di terra, cavo di uscita e cartelli di avviso."],
+  ["Weidezaungerät und Erdungsset", "Netz- oder Solargerät passend zur Länge, drei Erdstäbe, Anschlusskabel und Warnschilder."],
+  ["Генератор імпульсів і заземлення", "Мережевий чи сонячний генератор під довжину лінії, три заземлювальні стрижні, вивідний кабель і попереджувальні таблички."],
+  ["ਫ਼ੈਂਸ ਐਨਰਜਾਈਜ਼ਰ ਅਤੇ ਗਰਾਊਂਡਿੰਗ ਕਿੱਟ", "ਲਾਈਨ ਦੀ ਲੰਬਾਈ ਮੁਤਾਬਕ ਬਿਜਲੀ ਜਾਂ ਸੋਲਰ ਐਨਰਜਾਈਜ਼ਰ, ਤਿੰਨ ਗਰਾਊਂਡ ਰਾਡਾਂ, ਲੀਡ-ਆਊਟ ਕੇਬਲ ਅਤੇ ਚੇਤਾਵਨੀ ਬੋਰਡ।"],
+  ["Fence energizer at grounding kit", "Energizer na de-kuryente o solar ayon sa haba, tatlong ground rod, lead-out cable at warning sign."],
+));
+// Rental is the company's own stock hired out, so it carries a cost below
+// the price rather than the pass-through default of an `other` line.
+const TEMP_RENTAL = (price = 1.25) => L.other(1, "linear_ft", price, t8(
+  ["Temporary fence rental — per linear ft, per month", "Galvanised 6 × 12 ft panels, weighted stands and clamps on hire for the first month; each further month is billed at the same rate."],
+  ["Location de clôture temporaire — au pi lin., par mois", "Panneaux galvanisés de 6 × 12 pi, socles lestés et attaches loués pour le premier mois; chaque mois suivant au même taux."],
+  ["Renta de cerca temporal — por pie lineal, por mes", "Paneles galvanizados de 6 × 12 pies, bases con peso y abrazaderas rentados el primer mes; cada mes adicional a la misma tarifa."],
+  ["Noleggio recinzione provvisoria — al piede lineare, al mese", "Pannelli zincati 6 × 12 piedi, basi zavorrate e morsetti a noleggio per il primo mese; ogni mese in più alla stessa tariffa."],
+  ["Bauzaunmiete — pro lfd. Fuß und Monat", "Verzinkte Elemente 6 × 12 Fuß, beschwerte Füße und Klammern für den ersten Monat; jeder weitere Monat zum gleichen Satz."],
+  ["Оренда тимчасового огородження — за пог. фут на місяць", "Оцинковані панелі 6 × 12 футів, обважнені опори й хомути в оренду на перший місяць; кожен наступний місяць за тією ж ставкою."],
+  ["ਆਰਜ਼ੀ ਵਾੜ ਦਾ ਕਿਰਾਇਆ — ਪ੍ਰਤੀ ਲੀਨੀਅਰ ਫੁੱਟ, ਪ੍ਰਤੀ ਮਹੀਨਾ", "6 × 12 ਫੁੱਟ ਗੈਲਵਨਾਈਜ਼ਡ ਪੈਨਲ, ਭਾਰ ਵਾਲੇ ਸਟੈਂਡ ਅਤੇ ਕਲੈਂਪ ਪਹਿਲੇ ਮਹੀਨੇ ਲਈ ਕਿਰਾਏ 'ਤੇ; ਹਰ ਅਗਲਾ ਮਹੀਨਾ ਇਸੇ ਰੇਟ 'ਤੇ।"],
+  ["Renta ng temporary fence — kada linear ft, kada buwan", "Galvanized na 6 × 12 ft na panel, may pabigat na stand at clamp, renta sa unang buwan; bawat dagdag na buwan ay parehong rate."],
+), { cost: 0.6, measurementKey: "edgingFt" });
+const TEMP_DELIVERY = (price = 225) => L.other(1, "flat", price, t8(
+  ["Delivery and pick-up of rental panels", "Truck delivery of the panels and stands to the site and collection at the end of the hire."],
+  ["Livraison et reprise des panneaux loués", "Livraison par camion des panneaux et socles au chantier et reprise à la fin de la location."],
+  ["Entrega y recolección de paneles rentados", "Entrega en camión de paneles y bases a la obra y recolección al terminar la renta."],
+  ["Consegna e ritiro dei pannelli a noleggio", "Consegna con camion di pannelli e basi in cantiere e ritiro a fine noleggio."],
+  ["Anlieferung und Abholung der Mietelemente", "Lkw-Anlieferung der Elemente und Füße zur Baustelle und Abholung nach der Mietzeit."],
+  ["Доставка й вивезення орендованих панелей", "Доставка панелей і опор вантажівкою на об'єкт і вивезення після завершення оренди."],
+  ["ਕਿਰਾਏ ਦੇ ਪੈਨਲਾਂ ਦੀ ਡਿਲਿਵਰੀ ਅਤੇ ਵਾਪਸੀ", "ਪੈਨਲ ਅਤੇ ਸਟੈਂਡ ਟਰੱਕ ਰਾਹੀਂ ਸਾਈਟ 'ਤੇ ਪਹੁੰਚਾਏ ਅਤੇ ਕਿਰਾਏ ਦੇ ਅੰਤ 'ਤੇ ਵਾਪਸ ਲਿਜਾਏ ਜਾਂਦੇ ਹਨ।"],
+  ["Delivery at pick-up ng rentang panel", "Dinadala ng truck ang panel at stand sa site at kinukuha pagkatapos ng renta."],
+), { cost: 140 });
+const GLASS_PANEL_LABOUR = (price = 185) => L.labour(1, "each", price, t8(
+  ["Glass panel replacement — per panel", "Broken or cracked panel removed from the shoe or clamps, the new panel set, shimmed plumb and re-gasketed."],
+  ["Remplacement de panneau de verre — l'unité", "Panneau brisé ou fissuré retiré du profilé ou des pinces, nouveau panneau posé, calé d'aplomb et rejointoyé."],
+  ["Reemplazo de panel de vidrio — por panel", "Panel roto o estrellado retirado de la zapata o pinzas, panel nuevo colocado, calzado a plomo y con empaques nuevos."],
+  ["Sostituzione lastra di vetro — cadauna", "Lastra rotta o incrinata tolta dal profilo o dai morsetti, nuova lastra posata, spessorata a piombo e riguarnita."],
+  ["Glasscheibentausch — pro Scheibe", "Gebrochene oder gesprungene Scheibe aus Profil oder Klemmen genommen, neue Scheibe gesetzt, gelotet unterlegt und neu abgedichtet."],
+  ["Заміна скляної панелі — за панель", "Розбиту чи тріснуту панель знято з профілю чи затискачів, нову встановлено, виставлено по вертикалі й ущільнено."],
+  ["ਸ਼ੀਸ਼ੇ ਦਾ ਪੈਨਲ ਬਦਲਣਾ — ਪ੍ਰਤੀ ਪੈਨਲ", "ਟੁੱਟਿਆ ਜਾਂ ਤਿੜਕਿਆ ਪੈਨਲ ਸ਼ੂ ਜਾਂ ਕਲੈਂਪਾਂ ਵਿੱਚੋਂ ਕੱਢਿਆ, ਨਵਾਂ ਲਾਇਆ, ਸਿੱਧਾ ਕਰਕੇ ਗੈਸਕੇਟ ਮੁੜ ਲਾਏ।"],
+  ["Palit ng glass panel — kada panel", "Tinanggal ang basag o may lamat na panel sa shoe o clamp, ikinabit ang bago, itinuwid at nilagyan ulit ng gasket."],
+), { measurementKey: "each" });
+const GLASS_PANEL = (price = 420) => L.material(1, "each", price, t8(
+  ["Tempered glass panel, cut to size — per panel", "1/2 in tempered safety glass made to the opening's measurements."],
+  ["Panneau de verre trempé sur mesure — l'unité", "Verre trempé de sécurité de 1/2 po fabriqué aux mesures de l'ouverture."],
+  ["Panel de vidrio templado a medida — por panel", "Vidrio templado de seguridad de 1/2 pulg hecho a la medida del claro."],
+  ["Lastra in vetro temperato su misura — cadauna", "Vetro temperato di sicurezza da 1/2 pollice fatto sulle misure dell'apertura."],
+  ["Sicherheitsglasscheibe nach Maß — pro Scheibe", "1/2-Zoll-Einscheibensicherheitsglas, nach den Maßen der Öffnung gefertigt."],
+  ["Панель загартованого скла за розміром — за панель", "Загартоване безпечне скло 1/2 дюйма, виготовлене за розмірами прорізу."],
+  ["ਨਾਪ ਮੁਤਾਬਕ ਟੈਂਪਰਡ ਸ਼ੀਸ਼ਾ ਪੈਨਲ — ਪ੍ਰਤੀ ਪੈਨਲ", "ਖੁੱਲ੍ਹੀ ਥਾਂ ਦੇ ਨਾਪ ਮੁਤਾਬਕ ਬਣਿਆ 1/2 ਇੰਚ ਟੈਂਪਰਡ ਸੁਰੱਖਿਆ ਸ਼ੀਸ਼ਾ।"],
+  ["Tempered glass panel, sukat sa puwesto — kada panel", "1/2 in na tempered safety glass na ginawa ayon sa sukat ng bukana."],
+), { measurementKey: "each" });
+const FOOTING_MIX = (price) => L.material(1, "flat", price, t8(
+  ["Footing concrete — bagged mix", "Bagged concrete mix for the footing, mixed on site."],
+  ["Béton pour la base — en sacs", "Béton en sacs pour la base, gâché sur place."],
+  ["Concreto para la base — en bolsas", "Concreto en bolsas para la base, mezclado en sitio."],
+  ["Calcestruzzo per il plinto — in sacchi", "Calcestruzzo premiscelato in sacchi per il plinto, impastato sul posto."],
+  ["Fundamentbeton — Sackware", "Sackbeton für das Fundament, vor Ort angemischt."],
+  ["Бетон для фундаменту — у мішках", "Суха бетонна суміш у мішках для фундаменту, замішана на місці."],
+  ["ਨੀਂਹ ਲਈ ਕੰਕਰੀਟ — ਬੈਗਾਂ ਵਾਲਾ", "ਨੀਂਹ ਲਈ ਬੈਗਾਂ ਵਾਲਾ ਕੰਕਰੀਟ ਮਿਕਸ, ਮੌਕੇ 'ਤੇ ਮਿਲਾਇਆ।"],
+  ["Semento para sa footing — naka-sako", "Naka-sakong concrete mix para sa footing, hinalo sa site."],
+));
+
+// ── Per-item rows: lamp post, mailbox, estate gate, pergola ─────────────────
+const PER_ITEM = {
+  lampSet: (p) => L.labour(1, "each", p, t8(
+    ["Lamp post set — per post", "Hole dug, footing poured, the post and fixture set plumb and secured; ready for the electrician's feed."],
+    ["Pose de lampadaire — l'unité", "Trou creusé, base coulée, poteau et luminaire posés d'aplomb et fixés; prêt pour le raccordement par l'électricien."],
+    ["Colocación de poste de luz — por poste", "Hoyo excavado, base colada, poste y lámpara colocados a plomo y asegurados; listo para la conexión del electricista."],
+    ["Posa del lampione — cadauno", "Buca scavata, plinto gettato, palo e lampada posati a piombo e fissati; pronto per l'allaccio dell'elettricista."],
+    ["Laternenmast setzen — pro Mast", "Loch gegraben, Fundament gegossen, Mast und Leuchte lotrecht gesetzt und gesichert; bereit für den Anschluss durch den Elektriker."],
+    ["Встановлення ліхтарного стовпа — за стовп", "Яму викопано, фундамент залито, стовп і світильник виставлено вертикально й закріплено; готово до підключення електриком."],
+    ["ਲੈਂਪ ਪੋਸਟ ਲਾਉਣਾ — ਪ੍ਰਤੀ ਪੋਸਟ", "ਟੋਆ ਪੁੱਟਿਆ, ਨੀਂਹ ਭਰੀ, ਪੋਸਟ ਅਤੇ ਲਾਈਟ ਸਿੱਧੀ ਲਾ ਕੇ ਕੱਸੀ; ਇਲੈਕਟ੍ਰੀਸ਼ੀਅਨ ਦੇ ਕੁਨੈਕਸ਼ਨ ਲਈ ਤਿਆਰ।"],
+    ["Pagtayo ng lamp post — kada poste", "Hinukay ang butas, binuhusan ang footing, itinayo nang tuwid at ikinabit ang poste at ilaw; handa para sa electrician."],
+  )),
+  lampKit: (p) => L.material(1, "each", p, t8(
+    ["Outdoor lamp post and lantern", "Cast-aluminium post with a base, lantern head and anchor kit."],
+    ["Lampadaire extérieur et lanterne", "Poteau en fonte d'aluminium avec base, lanterne et nécessaire d'ancrage."],
+    ["Poste de luz exterior y farol", "Poste de aluminio fundido con base, farol y kit de anclaje."],
+    ["Lampione da esterno e lanterna", "Palo in alluminio pressofuso con base, lanterna e kit di ancoraggio."],
+    ["Außenlaternenmast mit Leuchte", "Aluguss-Mast mit Sockel, Laternenkopf und Ankerset."],
+    ["Вуличний ліхтарний стовп і ліхтар", "Литий алюмінієвий стовп з основою, ліхтарем і комплектом анкерів."],
+    ["ਬਾਹਰੀ ਲੈਂਪ ਪੋਸਟ ਅਤੇ ਲਾਲਟੈਣ", "ਢਲੇ ਐਲੂਮੀਨੀਅਮ ਦੀ ਪੋਸਟ, ਬੇਸ, ਲਾਲਟੈਣ ਅਤੇ ਐਂਕਰ ਕਿੱਟ ਸਮੇਤ।"],
+    ["Outdoor lamp post at parol", "Cast-aluminum na poste na may base, lantern head at anchor kit."],
+  )),
+  lampFix: (p) => L.labour(1, "each", p, t8(
+    ["Lamp post straightened or reset", "Leaning or loose post dug out, straightened or re-footed and set plumb; the fixture refitted."],
+    ["Lampadaire redressé ou refixé", "Poteau penché ou lâche dégagé, redressé ou refondé et remis d'aplomb; luminaire reposé."],
+    ["Poste de luz enderezado o reasentado", "Poste inclinado o flojo desenterrado, enderezado o con base nueva y puesto a plomo; lámpara reinstalada."],
+    ["Lampione raddrizzato o riposato", "Palo inclinato o allentato scalzato, raddrizzato o rifondato e rimesso a piombo; lampada rimontata."],
+    ["Laternenmast gerichtet oder neu gesetzt", "Schiefer oder loser Mast freigelegt, gerichtet oder neu fundamentiert und lotrecht gesetzt; Leuchte wieder montiert."],
+    ["Ліхтарний стовп вирівняно чи переставлено", "Похилений чи хиткий стовп відкопано, вирівняно чи поставлено на новий фундамент; світильник встановлено назад."],
+    ["ਲੈਂਪ ਪੋਸਟ ਸਿੱਧੀ ਜਾਂ ਮੁੜ ਲਾਈ", "ਟੇਢੀ ਜਾਂ ਢਿੱਲੀ ਪੋਸਟ ਪੁੱਟ ਕੇ ਸਿੱਧੀ ਕੀਤੀ ਜਾਂ ਨਵੀਂ ਨੀਂਹ 'ਤੇ ਲਾਈ; ਲਾਈਟ ਮੁੜ ਫ਼ਿੱਟ ਕੀਤੀ।"],
+    ["Itinuwid o itinayo ulit ang lamp post", "Hinukay ang nakahilig o maluwag na poste, itinuwid o binigyan ng bagong footing at itinayo nang tuwid; ikinabit ulit ang ilaw."],
+  )),
+  lampParts: (p) => L.material(1, "each", p, t8(
+    ["Lamp post replacement parts", "Base collar, post section, lantern glass or anchor bolts as the damage needs, plus footing mix."],
+    ["Pièces de remplacement de lampadaire", "Collet de base, section de poteau, verre de lanterne ou boulons d'ancrage selon les dommages, plus béton."],
+    ["Refacciones para poste de luz", "Collarín de base, tramo de poste, vidrio del farol o pernos de anclaje según el daño, más concreto."],
+    ["Ricambi per lampione", "Collare di base, tratto di palo, vetro della lanterna o tirafondi secondo il danno, più calcestruzzo."],
+    ["Ersatzteile für Laternenmast", "Sockelring, Mastabschnitt, Laternenglas oder Ankerschrauben je nach Schaden, dazu Fundamentbeton."],
+    ["Запчастини для ліхтарного стовпа", "Кільце основи, секція стовпа, скло ліхтаря чи анкерні болти за пошкодженням, плюс бетон."],
+    ["ਲੈਂਪ ਪੋਸਟ ਦੇ ਬਦਲਵੇਂ ਪੁਰਜ਼ੇ", "ਨੁਕਸਾਨ ਮੁਤਾਬਕ ਬੇਸ ਕਾਲਰ, ਪੋਸਟ ਦਾ ਹਿੱਸਾ, ਲਾਲਟੈਣ ਦਾ ਸ਼ੀਸ਼ਾ ਜਾਂ ਐਂਕਰ ਬੋਲਟ, ਨਾਲ ਕੰਕਰੀਟ।"],
+    ["Piyesa ng lamp post", "Base collar, bahagi ng poste, salamin ng parol o anchor bolt ayon sa sira, dagdag ang semento."],
+  )),
+  mailboxSet: (p) => L.labour(1, "each", p, t8(
+    ["Mailbox post set and box mounted", "Hole dug to depth, post set in concrete at the height and setback the post office asks for, box mounted and numbered."],
+    ["Pose du poteau et de la boîte aux lettres", "Trou creusé, poteau coulé dans le béton à la hauteur et au recul demandés par la poste, boîte fixée et numérotée."],
+    ["Colocación de poste y buzón", "Hoyo excavado, poste colado en concreto a la altura y distancia que pide el correo, buzón montado y numerado."],
+    ["Posa del palo e montaggio della cassetta", "Buca scavata, palo annegato nel calcestruzzo all'altezza e distanza richieste dalle poste, cassetta montata e numerata."],
+    ["Briefkastenpfosten setzen und Kasten montieren", "Loch gegraben, Pfosten in der von der Post verlangten Höhe und Entfernung einbetoniert, Kasten montiert und nummeriert."],
+    ["Встановлення стовпа й поштової скриньки", "Яму викопано, стовп забетоновано на висоті й відступі, яких вимагає пошта, скриньку закріплено й пронумеровано."],
+    ["ਡਾਕ ਡੱਬੇ ਦੀ ਪੋਸਟ ਲਾਉਣਾ ਅਤੇ ਡੱਬਾ ਫ਼ਿੱਟ ਕਰਨਾ", "ਟੋਆ ਪੁੱਟਿਆ, ਡਾਕਘਰ ਦੀ ਮੰਗੀ ਉਚਾਈ ਅਤੇ ਦੂਰੀ 'ਤੇ ਪੋਸਟ ਕੰਕਰੀਟ ਵਿੱਚ ਗੱਡੀ, ਡੱਬਾ ਲਾ ਕੇ ਨੰਬਰ ਲਾਇਆ।"],
+    ["Pagtayo ng poste at pagkabit ng mailbox", "Hinukay ang butas, sinementuhan ang poste sa taas at layo na hinihingi ng post office, ikinabit at nilagyan ng numero ang mailbox."],
+  )),
+  mailboxKit: (p) => L.material(1, "each", p, t8(
+    ["Mailbox and post", "Steel or poly mailbox on a 4 × 4 wood or decorative post, with house numbers."],
+    ["Boîte aux lettres et poteau", "Boîte en acier ou en poly sur poteau de bois 4 × 4 ou décoratif, avec numéros civiques."],
+    ["Buzón y poste", "Buzón de acero o plástico sobre poste de madera de 4 × 4 o decorativo, con números de la casa."],
+    ["Cassetta postale e palo", "Cassetta in acciaio o polimero su palo in legno 4 × 4 o decorativo, con numeri civici."],
+    ["Briefkasten und Pfosten", "Stahl- oder Kunststoffbriefkasten auf 4 × 4-Holzpfosten oder Zierpfosten, mit Hausnummern."],
+    ["Поштова скринька й стовп", "Сталева чи пластикова скринька на дерев'яному стовпі 4 × 4 або декоративному, з номерами будинку."],
+    ["ਡਾਕ ਡੱਬਾ ਅਤੇ ਪੋਸਟ", "4 × 4 ਲੱਕੜ ਜਾਂ ਸਜਾਵਟੀ ਪੋਸਟ 'ਤੇ ਸਟੀਲ ਜਾਂ ਪੋਲੀ ਦਾ ਡਾਕ ਡੱਬਾ, ਘਰ ਦੇ ਨੰਬਰਾਂ ਸਮੇਤ।"],
+    ["Mailbox at poste", "Bakal o poly na mailbox sa 4 × 4 na kahoy o decorative na poste, may numero ng bahay."],
+  )),
+  mailboxFix: (p) => L.labour(1, "each", p, t8(
+    ["Mailbox post reset and box re-mounted", "Knocked or leaning post straightened or replaced and re-set in concrete, the box re-mounted square."],
+    ["Poteau refixé et boîte aux lettres reposée", "Poteau heurté ou penché redressé ou remplacé et recoulé dans le béton, boîte reposée d'équerre."],
+    ["Poste reasentado y buzón remontado", "Poste golpeado o inclinado enderezado o cambiado y colado de nuevo en concreto, buzón montado derecho."],
+    ["Palo riposato e cassetta rimontata", "Palo urtato o inclinato raddrizzato o sostituito e riannegato nel calcestruzzo, cassetta rimontata in squadra."],
+    ["Briefkastenpfosten neu gesetzt und Kasten neu montiert", "Angefahrener oder schiefer Pfosten gerichtet oder ersetzt und neu einbetoniert, Kasten gerade montiert."],
+    ["Стовп переставлено, скриньку перевстановлено", "Збитий чи похилений стовп вирівняно або замінено й заново забетоновано, скриньку закріплено рівно."],
+    ["ਡਾਕ ਡੱਬੇ ਦੀ ਪੋਸਟ ਮੁੜ ਲਾਈ ਅਤੇ ਡੱਬਾ ਮੁੜ ਫ਼ਿੱਟ", "ਟੱਕਰ ਖਾਧੀ ਜਾਂ ਟੇਢੀ ਪੋਸਟ ਸਿੱਧੀ ਜਾਂ ਬਦਲ ਕੇ ਮੁੜ ਕੰਕਰੀਟ ਵਿੱਚ ਗੱਡੀ, ਡੱਬਾ ਸਿੱਧਾ ਲਾਇਆ।"],
+    ["Itinayo ulit ang poste at ikinabit ulit ang mailbox", "Itinuwid o pinalitan ang nabangga o nakahilig na poste at sinementuhan ulit, ikinabit nang diretso ang mailbox."],
+  )),
+  mailboxParts: (p) => L.material(1, "each", p, t8(
+    ["Mailbox replacement parts", "A new box, post or mounting bracket as the damage needs, with footing mix."],
+    ["Pièces de remplacement de boîte aux lettres", "Nouvelle boîte, nouveau poteau ou support selon les dommages, avec béton."],
+    ["Refacciones para buzón", "Buzón, poste o soporte nuevo según el daño, con concreto."],
+    ["Ricambi per cassetta postale", "Nuova cassetta, palo o staffa secondo il danno, con calcestruzzo."],
+    ["Ersatzteile für Briefkasten", "Neuer Kasten, Pfosten oder Halter je nach Schaden, mit Fundamentbeton."],
+    ["Запчастини для поштової скриньки", "Нова скринька, стовп чи кронштейн за пошкодженням, з бетоном."],
+    ["ਡਾਕ ਡੱਬੇ ਦੇ ਬਦਲਵੇਂ ਪੁਰਜ਼ੇ", "ਨੁਕਸਾਨ ਮੁਤਾਬਕ ਨਵਾਂ ਡੱਬਾ, ਪੋਸਟ ਜਾਂ ਬਰੈਕਟ, ਕੰਕਰੀਟ ਸਮੇਤ।"],
+    ["Piyesa ng mailbox", "Bagong mailbox, poste o bracket ayon sa sira, may semento."],
+  )),
+  estateHang: (p) => L.labour(1, "each", p, t8(
+    ["Estate gate installation — per gate", "Heavy gate posts set in concrete, the gate hung and levelled, and the latch and drop rod set so it swings clear."],
+    ["Pose de portail d'entrée — l'unité", "Poteaux de portail robustes coulés dans le béton, portail suspendu et mis de niveau, loquet et tige d'arrêt réglés pour qu'il pivote librement."],
+    ["Instalación de portón — por portón", "Postes reforzados colados en concreto, portón colgado y nivelado, y cerrojo y pasador ajustados para que abra sin rozar."],
+    ["Posa del cancello carraio — cadauno", "Pilastri pesanti annegati nel calcestruzzo, cancello appeso e livellato, serratura e asta a terra regolate perché apra senza strisciare."],
+    ["Einfahrtstor montieren — pro Tor", "Schwere Torpfosten einbetoniert, Tor eingehängt und ausgerichtet, Falle und Bodenriegel so eingestellt, dass es frei schwingt."],
+    ["Встановлення в'їзної брами — за браму", "Посилені стовпи забетоновано, браму навішено й вирівняно, клямку й нижній засув налаштовано, щоб вона вільно відкривалася."],
+    ["ਵੱਡਾ ਗੇਟ ਲਾਉਣਾ — ਪ੍ਰਤੀ ਗੇਟ", "ਭਾਰੀ ਗੇਟ ਥੰਮ੍ਹ ਕੰਕਰੀਟ ਵਿੱਚ ਗੱਡੇ, ਗੇਟ ਟੰਗ ਕੇ ਪੱਧਰਾ ਕੀਤਾ, ਅਤੇ ਕੁੰਡਾ ਤੇ ਡਰੌਪ ਰਾਡ ਸੈੱਟ ਕੀਤੇ ਤਾਂ ਜੋ ਖੁੱਲ੍ਹ ਕੇ ਘੁੰਮੇ।"],
+    ["Pagkabit ng estate gate — kada gate", "Sinementuhan ang mabigat na poste ng gate, isinabit at pinantay ang gate, at inayos ang latch at drop rod para malayang bumukas."],
+  ), { measurementKey: "driveGateCount" }),
+  estateGate: (p) => L.material(1, "each", p, t8(
+    ["Aluminium estate drive gate — per gate", "Double-swing powder-coated aluminium gate for a 12 ft drive opening, with heavy hinges and a lockable latch."],
+    ["Portail d'entrée en aluminium — l'unité", "Portail double battant en aluminium thermolaqué pour une entrée de 12 pi, avec pentures robustes et loquet verrouillable."],
+    ["Portón de aluminio para entrada — por portón", "Portón de doble hoja de aluminio con pintura en polvo para una entrada de 12 pies, con bisagras reforzadas y cerrojo con llave."],
+    ["Cancello carraio in alluminio — cadauno", "Cancello a due ante in alluminio verniciato a polvere per un passo carraio di 12 piedi, con cerniere robuste e serratura."],
+    ["Aluminium-Einfahrtstor — pro Tor", "Zweiflügeliges pulverbeschichtetes Aluminiumtor für eine 12-Fuß-Einfahrt, mit schweren Bändern und abschließbarer Falle."],
+    ["Алюмінієва в'їзна брама — за браму", "Двостулкова алюмінієва брама з порошковим фарбуванням під проїзд 12 футів, з посиленими завісами й замком."],
+    ["ਐਲੂਮੀਨੀਅਮ ਡਰਾਈਵ ਗੇਟ — ਪ੍ਰਤੀ ਗੇਟ", "12 ਫੁੱਟ ਦੇ ਰਸਤੇ ਲਈ ਦੋ-ਪੱਲਾ ਪਾਊਡਰ-ਕੋਟ ਐਲੂਮੀਨੀਅਮ ਗੇਟ, ਭਾਰੀ ਕਬਜ਼ਿਆਂ ਅਤੇ ਤਾਲੇ ਵਾਲੇ ਕੁੰਡੇ ਸਮੇਤ।"],
+    ["Aluminyong estate drive gate — kada gate", "Double-swing na powder-coated na aluminyong gate para sa 12 ft na daanan, may matibay na bisagra at nakakandadong latch."],
+  ), { measurementKey: "driveGateCount" }),
+  estatePosts: (p) => L.material(1, "each", p, t8(
+    ["Gate posts and concrete — per gate", "A pair of heavy-wall aluminium or steel gate posts with the concrete to set them."],
+    ["Poteaux de portail et béton — l'unité", "Paire de poteaux de portail en aluminium ou acier à paroi épaisse avec le béton pour les couler."],
+    ["Postes de portón y concreto — por portón", "Par de postes de pared gruesa de aluminio o acero con el concreto para colarlos."],
+    ["Pilastri del cancello e calcestruzzo — cadauno", "Coppia di pilastri in alluminio o acciaio a parete spessa con il calcestruzzo per fissarli."],
+    ["Torpfosten und Beton — pro Tor", "Ein Paar starkwandige Aluminium- oder Stahltorpfosten mit dem Beton zum Setzen."],
+    ["Стовпи брами й бетон — за браму", "Пара товстостінних алюмінієвих чи сталевих стовпів брами з бетоном для встановлення."],
+    ["ਗੇਟ ਥੰਮ੍ਹ ਅਤੇ ਕੰਕਰੀਟ — ਪ੍ਰਤੀ ਗੇਟ", "ਮੋਟੀ ਕੰਧ ਵਾਲੇ ਐਲੂਮੀਨੀਅਮ ਜਾਂ ਸਟੀਲ ਗੇਟ ਥੰਮ੍ਹਾਂ ਦਾ ਜੋੜਾ, ਗੱਡਣ ਲਈ ਕੰਕਰੀਟ ਸਮੇਤ।"],
+    ["Poste ng gate at semento — kada gate", "Isang pares ng makapal na aluminyo o bakal na poste ng gate, kasama ang semento."],
+  ), { measurementKey: "driveGateCount" }),
+  estateFix: (p) => L.labour(1, "each", p, t8(
+    ["Estate gate realignment and hinge repair — per gate", "Sagging leaves re-hung and levelled, worn hinges and latch replaced, drop rod and stops re-set."],
+    ["Réalignement du portail et réparation des pentures — l'unité", "Battants affaissés reposés et mis de niveau, pentures et loquet usés remplacés, tige d'arrêt et butées réajustées."],
+    ["Realineación de portón y reparación de bisagras — por portón", "Hojas caídas recolgadas y niveladas, bisagras y cerrojo gastados cambiados, pasador y topes reajustados."],
+    ["Riallineamento cancello e riparazione cerniere — cadauno", "Ante cadenti riappese e livellate, cerniere e serratura usurate sostituite, asta a terra e fermi regolati."],
+    ["Einfahrtstor ausrichten und Bänder reparieren — pro Tor", "Hängende Flügel neu eingehängt und ausgerichtet, verschlissene Bänder und Falle ersetzt, Bodenriegel und Anschläge neu eingestellt."],
+    ["Вирівнювання брами й ремонт завіс — за браму", "Провислі стулки перевішано й вирівняно, зношені завіси й клямку замінено, засув і упори відрегульовано."],
+    ["ਵੱਡੇ ਗੇਟ ਦੀ ਸੈਟਿੰਗ ਅਤੇ ਕਬਜ਼ਿਆਂ ਦੀ ਮੁਰੰਮਤ — ਪ੍ਰਤੀ ਗੇਟ", "ਲਟਕਦੇ ਪੱਲੇ ਮੁੜ ਟੰਗ ਕੇ ਪੱਧਰੇ ਕੀਤੇ, ਘਸੇ ਕਬਜ਼ੇ ਅਤੇ ਕੁੰਡਾ ਬਦਲੇ, ਡਰੌਪ ਰਾਡ ਅਤੇ ਰੋਕਾਂ ਮੁੜ ਸੈੱਟ।"],
+    ["Pag-align ng estate gate at pag-ayos ng bisagra — kada gate", "Isinabit ulit at pinantay ang lumaylay na pinto, pinalitan ang lumang bisagra at latch, inayos ang drop rod at stop."],
+  ), { measurementKey: "driveGateCount" }),
+  estateParts: (p) => L.material(1, "each", p, t8(
+    ["Gate hinges, latch and hardware — per gate", "Heavy-duty hinges, latch, drop rod and fasteners matched to the gate's finish."],
+    ["Pentures, loquet et quincaillerie — l'unité", "Pentures robustes, loquet, tige d'arrêt et fixations assortis au fini du portail."],
+    ["Bisagras, cerrojo y herrajes — por portón", "Bisagras reforzadas, cerrojo, pasador y tornillería del mismo acabado que el portón."],
+    ["Cerniere, serratura e ferramenta — cadauno", "Cerniere pesanti, serratura, asta a terra e viteria abbinate alla finitura del cancello."],
+    ["Torbänder, Falle und Beschläge — pro Tor", "Schwerlastbänder, Falle, Bodenriegel und Befestigung passend zur Oberfläche des Tors."],
+    ["Завіси, клямка й фурнітура брами — за браму", "Посилені завіси, клямка, засув і кріплення в тон покриттю брами."],
+    ["ਗੇਟ ਦੇ ਕਬਜ਼ੇ, ਕੁੰਡਾ ਅਤੇ ਹਾਰਡਵੇਅਰ — ਪ੍ਰਤੀ ਗੇਟ", "ਗੇਟ ਦੀ ਫ਼ਿਨਿਸ਼ ਨਾਲ ਮਿਲਦੇ ਭਾਰੀ ਕਬਜ਼ੇ, ਕੁੰਡਾ, ਡਰੌਪ ਰਾਡ ਅਤੇ ਪੇਚ।"],
+    ["Bisagra, latch at hardware ng gate — kada gate", "Heavy-duty na bisagra, latch, drop rod at turnilyo na katugma ng finish ng gate."],
+  ), { measurementKey: "driveGateCount" }),
+  pergolaBuild: (p) => L.labour(1, "flat", p, t8(
+    ["Pergola build and anchoring", "Footings or post bases set, posts raised plumb, beams and rafters fastened and the frame braced square."],
+    ["Construction et ancrage de la pergola", "Bases ou ancrages posés, poteaux levés d'aplomb, poutres et chevrons fixés et structure contreventée d'équerre."],
+    ["Armado y anclaje de la pérgola", "Bases o anclas de poste colocadas, postes a plomo, vigas y largueros fijados y la estructura arriostrada a escuadra."],
+    ["Montaggio e ancoraggio della pergola", "Plinti o basi dei pilastri posati, pilastri a piombo, travi e travetti fissati e struttura controventata in squadra."],
+    ["Pergola aufbauen und verankern", "Fundamente oder Pfostenträger gesetzt, Pfosten lotrecht gestellt, Balken und Sparren befestigt und das Gerüst winklig ausgesteift."],
+    ["Складання й анкерування перголи", "Фундаменти чи опори стовпів встановлено, стовпи виставлено вертикально, балки й крокви закріплено, каркас розкосено під прямим кутом."],
+    ["ਪਰਗੋਲਾ ਬਣਾਉਣਾ ਅਤੇ ਪੱਕਾ ਕਰਨਾ", "ਨੀਂਹਾਂ ਜਾਂ ਥੰਮ੍ਹ ਬੇਸ ਲਾਏ, ਥੰਮ੍ਹ ਸਿੱਧੇ ਖੜ੍ਹੇ ਕੀਤੇ, ਸ਼ਤੀਰ ਅਤੇ ਕੜੀਆਂ ਕੱਸੀਆਂ ਅਤੇ ਢਾਂਚਾ ਚੌਰਸ ਬੰਨ੍ਹਿਆ।"],
+    ["Pagbuo at pag-anchor ng pergola", "Inilagay ang footing o post base, itinayo nang tuwid ang poste, ikinabit ang beam at rafter at nilagyan ng brace nang eskwala."],
+  )),
+  pergolaKit: (p) => L.material(1, "flat", p, t8(
+    ["Pergola kit or lumber package", "Cedar or pressure-treated posts, beams, rafters and purlins for a 12 × 12 ft pergola, with structural hardware."],
+    ["Pergola en trousse ou lot de bois", "Poteaux, poutres, chevrons et pannes en cèdre ou bois traité pour une pergola de 12 × 12 pi, avec quincaillerie structurale."],
+    ["Kit de pérgola o paquete de madera", "Postes, vigas, largueros y travesaños de cedro o madera tratada para una pérgola de 12 × 12 pies, con herrajes estructurales."],
+    ["Kit pergola o pacchetto legname", "Pilastri, travi, travetti e arcarecci in cedro o legno impregnato per una pergola 12 × 12 piedi, con ferramenta strutturale."],
+    ["Pergola-Bausatz oder Holzpaket", "Pfosten, Balken, Sparren und Pfetten aus Zeder oder druckimprägniertem Holz für eine Pergola 12 × 12 Fuß, mit Konstruktionsbeschlägen."],
+    ["Комплект перголи або пакет пиломатеріалів", "Кедрові чи просочені стовпи, балки, крокви й прогони для перголи 12 × 12 футів, з конструкційним кріпленням."],
+    ["ਪਰਗੋਲਾ ਕਿੱਟ ਜਾਂ ਲੱਕੜ ਦਾ ਪੈਕੇਜ", "12 × 12 ਫੁੱਟ ਪਰਗੋਲਾ ਲਈ ਸੀਡਰ ਜਾਂ ਪ੍ਰੈਸ਼ਰ-ਟ੍ਰੀਟਡ ਥੰਮ੍ਹ, ਸ਼ਤੀਰ, ਕੜੀਆਂ ਅਤੇ ਪਰਲਿਨ, ਢਾਂਚਾਗਤ ਹਾਰਡਵੇਅਰ ਸਮੇਤ।"],
+    ["Pergola kit o lumber package", "Cedar o pressure-treated na poste, beam, rafter at purlin para sa 12 × 12 ft na pergola, may structural hardware."],
+  )),
+  pergolaFootings: (p) => L.material(1, "flat", p, t8(
+    ["Footings and post bases", "Concrete for four footings and galvanised standoff post bases."],
+    ["Bases et ancrages de poteaux", "Béton pour quatre bases et ancrages de poteaux galvanisés surélevés."],
+    ["Bases y anclas de poste", "Concreto para cuatro bases y anclas de poste galvanizadas elevadas."],
+    ["Plinti e basi dei pilastri", "Calcestruzzo per quattro plinti e basi zincate rialzate per i pilastri."],
+    ["Fundamente und Pfostenträger", "Beton für vier Fundamente und verzinkte, aufgeständerte Pfostenträger."],
+    ["Фундаменти й опори стовпів", "Бетон для чотирьох фундаментів і оцинковані підняті опори стовпів."],
+    ["ਨੀਂਹਾਂ ਅਤੇ ਥੰਮ੍ਹ ਬੇਸ", "ਚਾਰ ਨੀਂਹਾਂ ਲਈ ਕੰਕਰੀਟ ਅਤੇ ਗੈਲਵਨਾਈਜ਼ਡ ਉੱਚੇ ਥੰਮ੍ਹ ਬੇਸ।"],
+    ["Footing at post base", "Semento para sa apat na footing at galvanized na standoff post base."],
+  )),
+  pergolaFix: (p) => L.labour(1, "flat", p, t8(
+    ["Pergola member replacement and re-anchoring", "Rotted or cracked posts, beams or rafters replaced to match, loose connections re-bolted and the posts re-anchored."],
+    ["Remplacement de pièces et réancrage de la pergola", "Poteaux, poutres ou chevrons pourris ou fendus remplacés à l'identique, assemblages lâches reboulonnés et poteaux réancrés."],
+    ["Cambio de piezas y re-anclaje de la pérgola", "Postes, vigas o largueros podridos o rajados cambiados a juego, uniones flojas re-atornilladas y postes re-anclados."],
+    ["Sostituzione elementi e riancoraggio della pergola", "Pilastri, travi o travetti marci o fessurati sostituiti in tinta, giunti allentati reimbullonati e pilastri riancorati."],
+    ["Pergolateile ersetzen und neu verankern", "Morsche oder gerissene Pfosten, Balken oder Sparren passend ersetzt, lose Verbindungen neu verschraubt und Pfosten neu verankert."],
+    ["Заміна елементів і повторне анкерування перголи", "Гнилі чи тріснуті стовпи, балки чи крокви замінено під решту, слабкі з'єднання перекручено, стовпи заново заякорено."],
+    ["ਪਰਗੋਲਾ ਦੇ ਹਿੱਸੇ ਬਦਲਣਾ ਅਤੇ ਮੁੜ ਪੱਕਾ ਕਰਨਾ", "ਸੜੇ ਜਾਂ ਤਿੜਕੇ ਥੰਮ੍ਹ, ਸ਼ਤੀਰ ਜਾਂ ਕੜੀਆਂ ਮਿਲਦੇ ਬਦਲੇ, ਢਿੱਲੇ ਜੋੜ ਮੁੜ ਬੋਲਟ ਕੀਤੇ ਅਤੇ ਥੰਮ੍ਹ ਮੁੜ ਪੱਕੇ ਕੀਤੇ।"],
+    ["Palit ng piyesa at pag-anchor ulit ng pergola", "Pinalitan nang katugma ang bulok o bitak na poste, beam o rafter, in-bolt ulit ang maluwag na dugtungan at in-anchor ulit ang poste."],
+  )),
+  pergolaParts: (p) => L.material(1, "flat", p, t8(
+    ["Replacement lumber and connectors", "Cedar or pressure-treated members cut to match, with galvanised brackets, bolts and post bases."],
+    ["Bois et connecteurs de remplacement", "Pièces de cèdre ou de bois traité coupées à l'identique, avec équerres, boulons et ancrages galvanisés."],
+    ["Madera y conectores de reemplazo", "Piezas de cedro o madera tratada cortadas a juego, con escuadras, pernos y anclas galvanizadas."],
+    ["Legname e connettori di ricambio", "Elementi in cedro o legno impregnato tagliati su misura, con staffe, bulloni e basi zincate."],
+    ["Ersatzholz und Verbinder", "Passend zugeschnittene Zedern- oder druckimprägnierte Teile, mit verzinkten Winkeln, Bolzen und Pfostenträgern."],
+    ["Пиломатеріали й з'єднувачі на заміну", "Кедрові чи просочені елементи, нарізані під наявні, з оцинкованими кутниками, болтами й опорами."],
+    ["ਬਦਲਵੀਂ ਲੱਕੜ ਅਤੇ ਕੁਨੈਕਟਰ", "ਮਿਲਦੇ ਨਾਪ 'ਤੇ ਕੱਟੇ ਸੀਡਰ ਜਾਂ ਪ੍ਰੈਸ਼ਰ-ਟ੍ਰੀਟਡ ਹਿੱਸੇ, ਗੈਲਵਨਾਈਜ਼ਡ ਬਰੈਕਟਾਂ, ਬੋਲਟਾਂ ਅਤੇ ਥੰਮ੍ਹ ਬੇਸਾਂ ਸਮੇਤ।"],
+    ["Pamalit na kahoy at connector", "Cedar o pressure-treated na piyesa na hiniwa ayon sa sukat, may galvanized na bracket, bolt at post base."],
+  )),
+};
+
+// One install row: the run's labour first, then what it is built from.
+const INSTALL = (type, group, labour, lines, discount = D.newCustomer("percent", 5)) =>
+  T("installation", N(`fq.fence_services.install.${type}`), [INSTALL_RUN(type, group, labour), ...lines], discount);
+// One repair row: the visit, the damaged stretch, then the matching material.
+const REPAIR = (type, group, labour, lines) =>
+  T("repair", N(`fq.fence_services.repair.${type}`), [SHARED.serviceCall(85), REPAIR_RUN(type, group, labour), ...lines], null);
 
 const TEMPLATES = {
   "fq.fence_services.install.wood": T("installation", n(
@@ -374,6 +1172,81 @@ const TEMPLATES = {
     ["Регулювання хвіртки — за хвіртку", "Завіси підкладено чи замінено, стяжку від провисання встановлено, клямку вирівняно."],
     ["Pag-ayos ng gate — kada gate", "Sinapinan o pinalitan ang bisagra, nilagyan ng anti-sag kit at inayos ang latch."],
   ), { measurementKey: "each" }), SHARED.consumables(20)], D.seasonal("fixed", 15)),
+  // ── The rest of the grid: installation ─────────────────────────────────────
+  "fq.fence_services.install.aluminum": INSTALL("aluminum", "fence", 13, [MAT.aluminum(23), WALK_GATE(425), OLD_FENCE_HAUL(275)]),
+  "fq.fence_services.install.barbed_wire": INSTALL("barbed_wire", "wire", 2.25, [MAT.barbed_wire(1.25), T_POST(9)], null),
+  "fq.fence_services.install.dog_kennel": INSTALL("dog_kennel", "kennel", 9, [MAT.dog_kennel(20)]),
+  "fq.fence_services.install.dog_park": INSTALL("dog_park", "fence", 10, [MAT.dog_park(16), WALK_GATE(475)], null),
+  "fq.fence_services.install.electric": INSTALL("electric", "wire", 1.5, [MAT.electric(1), T_POST(9), ENERGISER(325)], null),
+  "fq.fence_services.install.guardrail": INSTALL("guardrail", "fence", 18, [MAT.guardrail(32), SHARED.permit(350)], null),
+  "fq.fence_services.install.ornamental_aluminum": INSTALL("ornamental_aluminum", "fence", 18, [MAT.ornamental_aluminum(36), WALK_GATE(575), OLD_FENCE_HAUL(275)]),
+  "fq.fence_services.install.pvc": INSTALL("pvc", "fence", 11, [MAT.pvc(21), WALK_GATE(350), OLD_FENCE_HAUL(250)]),
+  "fq.fence_services.install.retainage": INSTALL("retainage", "fence", 18, [MAT.retainage(20), OLD_FENCE_HAUL(275)]),
+  "fq.fence_services.install.solar_field": INSTALL("solar_field", "fence", 10, [MAT.solar_field(18), DRIVE_GATE(2400)], null),
+  "fq.fence_services.install.split_rail": INSTALL("split_rail", "fence", 6, [MAT.split_rail(8), SPLIT_POST(34)]),
+  "fq.fence_services.install.steel": INSTALL("steel", "fence", 16, [MAT.steel(30), WALK_GATE(500), OLD_FENCE_HAUL(275)]),
+  "fq.fence_services.install.stockade": INSTALL("stockade", "fence", 15, [STOCKADE_PANEL(), WOOD_POST(30), WALK_GATE(325), OLD_FENCE_HAUL(275)]),
+  "fq.fence_services.install.temporary": INSTALL("temporary", "temp", 3, [TEMP_RENTAL(1.25), TEMP_DELIVERY(225)], null),
+  "fq.fence_services.install.water": INSTALL("water", "fence", 16, [MAT.water(26), WALK_GATE(400), OLD_FENCE_HAUL(275)]),
+  "fq.fence_services.install.pool_safety_mesh": INSTALL("pool_safety_mesh", "wire", 1.25, [MAT.pool_safety_mesh(0.6), T_POST(9)], null),
+  "fq.fence_services.install.pool_temporary": INSTALL("pool_temporary", "pool", 6, [MAT.pool_temporary(13), WALK_GATE(350), SHARED.permit(175)], null),
+  "fq.fence_services.install.composite_railing": INSTALL("composite_railing", "rail", 25, [MAT.composite_railing(45), OLD_FENCE_HAUL(175)]),
+  "fq.fence_services.install.metal_railing": INSTALL("metal_railing", "rail", 28, [MAT.metal_railing(50), OLD_FENCE_HAUL(175)]),
+  "fq.fence_services.install.pvc_railing": INSTALL("pvc_railing", "rail", 20, [MAT.pvc_railing(32), OLD_FENCE_HAUL(175)]),
+  "fq.fence_services.install.glass_railing": INSTALL("glass_railing", "rail", 70, [MAT.glass_railing(150), OLD_FENCE_HAUL(175)]),
+  "fq.fence_services.install.cable_railing": INSTALL("cable_railing", "rail", 45, [MAT.cable_railing(75), OLD_FENCE_HAUL(175)]),
+  "fq.fence_services.install.wood_railing": INSTALL("wood_railing", "rail", 22, [MAT.wood_railing(23), OLD_FENCE_HAUL(175)]),
+  // Per-item rows: flat lines, no run key — the price is the item.
+  "fq.fence_services.install.lamp_post": T("installation", N("fq.fence_services.install.lamp_post"),
+    [PER_ITEM.lampSet(195), PER_ITEM.lampKit(260), FOOTING_MIX(24)], null),
+  "fq.fence_services.install.mailbox": T("installation", N("fq.fence_services.install.mailbox"),
+    [PER_ITEM.mailboxSet(135), PER_ITEM.mailboxKit(120), FOOTING_MIX(16)], null),
+  // Priced per drive gate (`driveGateCount`), so the range is a per-gate rate.
+  "fq.fence_services.install.estate_gate": T("installation", N("fq.fence_services.install.estate_gate"),
+    [PER_ITEM.estateHang(950), PER_ITEM.estateGate(3200), PER_ITEM.estatePosts(480)], D.newCustomer("percent", 5)),
+  "fq.fence_services.install.pergola": T("installation", N("fq.fence_services.install.pergola"),
+    [PER_ITEM.pergolaBuild(1800), PER_ITEM.pergolaKit(3200), PER_ITEM.pergolaFootings(260), SHARED.permit(250, { optional: true })], D.newCustomer("percent", 5)),
+
+  // ── The rest of the grid: repair ───────────────────────────────────────────
+  "fq.fence_services.repair.aluminum": REPAIR("aluminum", "fence", 16, [MAT.aluminum(23)]),
+  "fq.fence_services.repair.barbed_wire": REPAIR("barbed_wire", "wire", 3, [MAT.barbed_wire(1.25)]),
+  "fq.fence_services.repair.chain_link": REPAIR("chain_link", "fence", 10, [MAT.chain_link(12)]),
+  "fq.fence_services.repair.dog_kennel": REPAIR("dog_kennel", "kennel", 12, [MAT.dog_kennel(20)]),
+  "fq.fence_services.repair.dog_park": REPAIR("dog_park", "fence", 12, [MAT.dog_park(16)]),
+  // An electric fence fault is found before it is fixed: a diagnostic visit
+  // replaces the plain service call, and insulators and connectors are used up.
+  "fq.fence_services.repair.electric": T("repair", N("fq.fence_services.repair.electric"),
+    [SHARED.diagnostic(95), REPAIR_RUN("electric", "wire", 2.5), MAT.electric(1), SHARED.consumables(25)], null),
+  "fq.fence_services.repair.guardrail": REPAIR("guardrail", "fence", 30, [MAT.guardrail(32), SHARED.haulAway(150)]),
+  "fq.fence_services.repair.ornamental_aluminum": REPAIR("ornamental_aluminum", "fence", 22, [MAT.ornamental_aluminum(36)]),
+  "fq.fence_services.repair.pvc": REPAIR("pvc", "fence", 14, [MAT.pvc(21)]),
+  "fq.fence_services.repair.retainage": REPAIR("retainage", "fence", 22, [MAT.retainage(20)]),
+  "fq.fence_services.repair.solar_field": REPAIR("solar_field", "fence", 12, [MAT.solar_field(18)]),
+  "fq.fence_services.repair.split_rail": REPAIR("split_rail", "fence", 7, [MAT.split_rail(8), SPLIT_POST(34)]),
+  "fq.fence_services.repair.steel": REPAIR("steel", "fence", 20, [MAT.steel(30)]),
+  "fq.fence_services.repair.stockade": REPAIR("stockade", "fence", 18, [STOCKADE_PANEL()]),
+  "fq.fence_services.repair.temporary": REPAIR("temporary", "temp", 2.5, [MAT.temp_replace(4)]),
+  "fq.fence_services.repair.vinyl": REPAIR("vinyl", "fence", 14, [MAT.vinyl(28)]),
+  "fq.fence_services.repair.water": REPAIR("water", "fence", 20, [MAT.water(26)]),
+  "fq.fence_services.repair.pool_safety_mesh": REPAIR("pool_safety_mesh", "wire", 1.5, [MAT.pool_safety_mesh(0.6)]),
+  "fq.fence_services.repair.pool_temporary": REPAIR("pool_temporary", "pool", 8, [MAT.pool_temporary(13)]),
+  "fq.fence_services.repair.composite_railing": REPAIR("composite_railing", "rail", 30, [MAT.composite_railing(45)]),
+  "fq.fence_services.repair.metal_railing": REPAIR("metal_railing", "rail", 32, [MAT.metal_railing(50)]),
+  "fq.fence_services.repair.pvc_railing": REPAIR("pvc_railing", "rail", 24, [MAT.pvc_railing(32)]),
+  // Glass is replaced by the panel, not the foot: the row has no per-foot
+  // rate, so its range is "measured" until the panel count is typed.
+  "fq.fence_services.repair.glass_railing": T("repair", N("fq.fence_services.repair.glass_railing"),
+    [SHARED.serviceCall(85), GLASS_PANEL_LABOUR(185), GLASS_PANEL(420), SHARED.consumables(35)], null),
+  "fq.fence_services.repair.cable_railing": REPAIR("cable_railing", "rail", 22, [MAT.cable_repair(18)]),
+  "fq.fence_services.repair.wood_railing": REPAIR("wood_railing", "rail", 26, [MAT.wood_railing(23)]),
+  "fq.fence_services.repair.lamp_post": T("repair", N("fq.fence_services.repair.lamp_post"),
+    [SHARED.serviceCall(85), PER_ITEM.lampFix(175), PER_ITEM.lampParts(95)], null),
+  "fq.fence_services.repair.mailbox": T("repair", N("fq.fence_services.repair.mailbox"),
+    [SHARED.serviceCall(85), PER_ITEM.mailboxFix(110), PER_ITEM.mailboxParts(65)], null),
+  "fq.fence_services.repair.estate_gate": T("repair", N("fq.fence_services.repair.estate_gate"),
+    [SHARED.serviceCall(85), PER_ITEM.estateFix(285), PER_ITEM.estateParts(140)], null),
+  "fq.fence_services.repair.pergola": T("repair", N("fq.fence_services.repair.pergola"),
+    [SHARED.serviceCall(85), PER_ITEM.pergolaFix(480), PER_ITEM.pergolaParts(240)], null),
 };
 
 withLanguages(SEED, I18N);

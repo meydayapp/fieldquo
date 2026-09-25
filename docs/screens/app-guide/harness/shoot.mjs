@@ -136,7 +136,10 @@ for (const screen of SCREENS) {
     const shot = await send("Page.captureScreenshot", { format: "png", clip: { x: 0, y: scrollY, width: WIDTH, height: HEIGHT, scale: 1 } });
     writeFileSync(file, Buffer.from(shot.result.data, "base64"));
     const calls = JSON.parse((await evaluate("JSON.stringify((window.__calls||[]).map(c=>c.method+' '+c.url))")) || "[]");
-    const line = { slug: screen.slug, lang, file: file.replace(ROOT + "/", ""), error: err || null, unanswered: JSON.parse(unanswered), calls, chars: rootText.length, ms: Date.now() - t0 };
+    // A scene may leave a result for the report (the Add service md5 frames
+    // leave the save bodies they recorded).
+    const result = JSON.parse((await evaluate("JSON.stringify(window.__harnessResult ?? null)")) || "null");
+    const line = { slug: screen.slug, lang, file: file.replace(ROOT + "/", ""), error: err || null, unanswered: JSON.parse(unanswered), calls, chars: rootText.length, ms: Date.now() - t0, ...(result != null ? { result } : {}) };
     report.push(line);
     console.log(`${line.file}${err ? "  ERROR " + err : ""}${line.unanswered.length ? "  unanswered: " + line.unanswered.join(" ") : ""}${rootText.length < 400 ? "  (thin: " + rootText.length + " chars)" : ""}  ${line.ms}ms`);
   }

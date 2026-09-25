@@ -887,3 +887,387 @@ const TEMPLATES = {
 
 withLanguages(SEED, I18N);
 withTemplates(SEED, TEMPLATES);
+
+// ── Templates added 2026-09-25 ───────────────────────────────────────────────
+//
+// The owner (2026-09-25): a service added to a quote should arrive with a few
+// lines, not as one bare line. The templates above cover sixteen rows; these
+// cover the other ten, at the same evidence: the captured A/C templates'
+// shape (removal, installation labour, the equipment line at distributor
+// cost ≈ 75%, a permit where the work needs one) and each row's benchmark
+// median for the level. Equipment carries no Home Depot reference — central
+// condensers, furnaces and air handlers are bought from HVAC distributors
+// (the material-cost capture says as much); the lines say "matched to the
+// load" and the estimator sets the model.
+//
+// The multi-zone row prices per indoor head and the ductwork row per supply
+// register: those lines carry the `each` / `ventCount` keys so the count is
+// typed on the estimate; the outdoor unit and the permit stay flat.
+//
+// Every row here is a whole-system or component install, which is what a
+// mechanical contractor quotes, so each is also tagged mechanical_contracting
+// (NEAREST_TRADES borrows this list for that quote type).
+//
+// Kept apart from TEMPLATES and applied in a second pass, so every template
+// above stays exactly as it was — a key that already has a template throws
+// instead of being overwritten. Punjabi sits inline beside the other seven
+// languages; the service's own name in every language is the row's
+// (./i18n/hvac_install.js).
+
+/** [name, description] in the eight languages, in this order. */
+const X = (en, fr, es, it, de, uk, pa, tl) => ({ en, fr, es, it, de, uk, pa, tl });
+const MECH = { categories: ["hvac_install", "mechanical_contracting"] };
+const SYSTEM_OUT = (price) => SHARED.removeOld(price, { cost: price / 2 });
+const SYSTEM_IN = (price) => L.labour(1, "flat", price, X(
+  ["System installation labour", "Equipment set and levelled, line set and drain run, duct transitions fitted and sealed, wiring and disconnect connected, evacuated, charged and started up."],
+  ["Main-d'œuvre — installation du système", "Appareils posés et mis de niveau, conduites et drain installés, raccords de conduits posés et scellés, câblage et sectionneur raccordés, tirage au vide, charge et démarrage."],
+  ["Mano de obra — instalación del sistema", "Equipos colocados y nivelados, tubería y drenaje tendidos, transiciones de ducto colocadas y selladas, cableado y desconectador conectados, vacío, carga y arranque."],
+  ["Manodopera — installazione dell'impianto", "Apparecchi posati e livellati, linee e scarico posati, raccordi dei condotti montati e sigillati, cablaggio e sezionatore collegati, vuoto, carica e avvio."],
+  ["Arbeit — Anlagenmontage", "Geräte gesetzt und ausgerichtet, Leitungen und Ablauf verlegt, Kanalübergänge gesetzt und abgedichtet, Verkabelung und Trennschalter angeschlossen, evakuiert, befüllt und in Betrieb genommen."],
+  ["Робота — монтаж системи", "Обладнання встановлено й вирівняно, трасу й дренаж прокладено, перехідники повітроводів встановлено й загерметизовано, проводку й вимикач під'єднано, відвакуумовано, заправлено й запущено."],
+  ["ਸਿਸਟਮ ਲਾਉਣ ਦੀ ਲੇਬਰ", "ਉਪਕਰਣ ਰੱਖ ਕੇ ਪੱਧਰ ਕੀਤੇ, ਲਾਈਨ ਸੈੱਟ ਅਤੇ ਡ੍ਰੇਨ ਪਾਏ, ਡਕਟ ਜੋੜ ਲਾ ਕੇ ਸੀਲ, ਤਾਰਾਂ ਅਤੇ ਡਿਸਕਨੈਕਟ ਜੋੜੇ, ਵੈਕਿਊਮ, ਚਾਰਜ ਅਤੇ ਚਾਲੂ।"],
+  ["Labor — pagkabit ng sistema", "Inilagay at pinantay ang unit, inilatag ang line set at drain, ikinabit at sinelyuhan ang duct transition, ikinonekta ang wiring at disconnect, vinacuum, chinarge at pinaandar."],
+), { cost: price / 2 });
+const EQUIP = (price, cost, text) => L.material(1, "each", price, text, { cost, taxable: false });
+
+const ADDED = {
+  "fq.hvac_install.central.split_3_5_ton": { kind: "installation", lines: [
+    SYSTEM_OUT(400), SYSTEM_IN(3100),
+    EQUIP(3200, 2400, X(
+      ["3.5-ton condenser — 15 SEER2", "Outdoor condensing unit matched to the air handler, with a ten-year parts warranty once registered."],
+      ["Condenseur 3,5 tonnes — 15 SEER2", "Appareil extérieur assorti à l'appareil de traitement d'air, garantie de dix ans sur les pièces une fois enregistré."],
+      ["Condensador de 3.5 toneladas — 15 SEER2", "Unidad exterior a juego con el manejador de aire, con garantía de piezas de diez años al registrarla."],
+      ["Unità esterna 3,5 tonnellate — 15 SEER2", "Unità condensante abbinata all'unità di trattamento aria, dieci anni di garanzia sui pezzi dopo la registrazione."],
+      ["Außengerät 3,5 Tonnen — 15 SEER2", "Verflüssigereinheit passend zum Lüftungsgerät, zehn Jahre Teilegarantie nach Registrierung."],
+      ["Зовнішній блок 3,5 тонни — 15 SEER2", "Конденсаторний блок під повітрообробник, гарантія на деталі десять років після реєстрації."],
+      ["3.5-ਟਨ ਕੰਡੈਂਸਰ — 15 SEER2", "ਏਅਰ ਹੈਂਡਲਰ ਨਾਲ ਮਿਲਦੀ ਬਾਹਰੀ ਯੂਨਿਟ, ਰਜਿਸਟਰ ਕਰਨ 'ਤੇ ਪੁਰਜ਼ਿਆਂ ਦੀ ਦਸ ਸਾਲ ਵਾਰੰਟੀ।"],
+      ["3.5-ton condenser — 15 SEER2", "Outdoor condensing unit na tugma sa air handler, may sampung taong warranty sa piyesa kapag nairehistro."],
+    )),
+    EQUIP(2000, 1500, X(
+      ["Air handler with 10 kW heat kit", "Multi-position air handler matched to the condenser, with an electric heat kit and breaker."],
+      ["Appareil de traitement d'air avec élément de 10 kW", "Appareil multiposition assorti au condenseur, avec élément chauffant électrique et disjoncteur."],
+      ["Manejador de aire con kit de calor de 10 kW", "Manejador multiposición a juego con el condensador, con kit de calefacción eléctrica e interruptor."],
+      ["Unità di trattamento aria con resistenza da 10 kW", "Unità multiposizione abbinata al condensatore, con kit di riscaldamento elettrico e interruttore."],
+      ["Lüftungsgerät mit 10-kW-Heizregister", "Lüftungsgerät für mehrere Einbaulagen passend zum Außengerät, mit elektrischem Heizregister und Automat."],
+      ["Повітрообробник з нагрівачем 10 кВт", "Багатопозиційний повітрообробник під зовнішній блок, з електронагрівачем і автоматом."],
+      ["10 kW ਹੀਟ ਕਿੱਟ ਵਾਲਾ ਏਅਰ ਹੈਂਡਲਰ", "ਕੰਡੈਂਸਰ ਨਾਲ ਮਿਲਦਾ ਮਲਟੀ-ਪੋਜ਼ੀਸ਼ਨ ਏਅਰ ਹੈਂਡਲਰ, ਬਿਜਲੀ ਹੀਟ ਕਿੱਟ ਅਤੇ ਬ੍ਰੇਕਰ ਸਮੇਤ।"],
+      ["Air handler na may 10 kW heat kit", "Multi-position na air handler na tugma sa condenser, may electric heat kit at breaker."],
+    )),
+    SHARED.permit(350),
+  ], opts: MECH },
+
+  "fq.hvac_install.central.split_ac_4_ton": { kind: "installation", lines: [
+    SYSTEM_OUT(400), SYSTEM_IN(3000),
+    EQUIP(3400, 2550, X(
+      ["4-ton air conditioner — 15 SEER2", "Outdoor condensing unit sized to a Manual J load, with a ten-year parts warranty once registered."],
+      ["Climatiseur 4 tonnes — 15 SEER2", "Appareil extérieur dimensionné selon le calcul de charge, garantie de dix ans sur les pièces une fois enregistré."],
+      ["Aire acondicionado de 4 toneladas — 15 SEER2", "Unidad exterior dimensionada con cálculo de carga Manual J, con garantía de piezas de diez años al registrarla."],
+      ["Climatizzatore 4 tonnellate — 15 SEER2", "Unità esterna dimensionata sul calcolo dei carichi, dieci anni di garanzia sui pezzi dopo la registrazione."],
+      ["Klimagerät 4 Tonnen — 15 SEER2", "Außengerät nach Heizlastberechnung ausgelegt, zehn Jahre Teilegarantie nach Registrierung."],
+      ["Кондиціонер 4 тонни — 15 SEER2", "Зовнішній блок, підібраний за розрахунком навантаження, гарантія на деталі десять років після реєстрації."],
+      ["4-ਟਨ ਏਅਰ ਕੰਡੀਸ਼ਨਰ — 15 SEER2", "ਲੋਡ ਹਿਸਾਬ ਮੁਤਾਬਕ ਬਾਹਰੀ ਯੂਨਿਟ, ਰਜਿਸਟਰ ਕਰਨ 'ਤੇ ਪੁਰਜ਼ਿਆਂ ਦੀ ਦਸ ਸਾਲ ਵਾਰੰਟੀ।"],
+      ["4-ton na aircon — 15 SEER2", "Outdoor unit na sukat sa Manual J load, may sampung taong warranty sa piyesa kapag nairehistro."],
+    )),
+    EQUIP(1400, 1050, X(
+      ["Matching 4-ton evaporator coil", "Cased coil matched to the condenser, with its expansion valve."],
+      ["Serpentin d'évaporateur 4 tonnes assorti", "Serpentin en boîtier assorti au condenseur, avec son détendeur."],
+      ["Serpentín evaporador de 4 toneladas a juego", "Serpentín con gabinete a juego con el condensador, con su válvula de expansión."],
+      ["Batteria evaporante 4 tonnellate abbinata", "Batteria con cassa abbinata al condensatore, con la sua valvola di espansione."],
+      ["Passendes 4-Tonnen-Verdampferregister", "Register im Gehäuse passend zum Außengerät, mit Expansionsventil."],
+      ["Узгоджений випарник 4 тонни", "Випарник у корпусі під зовнішній блок, з розширювальним клапаном."],
+      ["ਮਿਲਦੀ 4-ਟਨ ਇਵੈਪੋਰੇਟਰ ਕੋਇਲ", "ਕੰਡੈਂਸਰ ਨਾਲ ਮਿਲਦੀ ਕੇਸ ਵਾਲੀ ਕੋਇਲ, ਐਕਸਪੈਂਸ਼ਨ ਵਾਲਵ ਸਮੇਤ।"],
+      ["Katugmang 4-ton na evaporator coil", "Cased na coil na tugma sa condenser, may expansion valve."],
+    )),
+    SHARED.permit(350),
+  ], opts: MECH },
+
+  "fq.hvac_install.central.system_5_ton": { kind: "installation", lines: [
+    SYSTEM_OUT(450), SYSTEM_IN(2500),
+    EQUIP(3500, 2625, X(
+      ["5-ton condenser — 15 SEER2", "Outdoor condensing unit sized to the load, with a ten-year parts warranty once registered."],
+      ["Condenseur 5 tonnes — 15 SEER2", "Appareil extérieur dimensionné selon la charge, garantie de dix ans sur les pièces une fois enregistré."],
+      ["Condensador de 5 toneladas — 15 SEER2", "Unidad exterior dimensionada a la carga, con garantía de piezas de diez años al registrarla."],
+      ["Unità esterna 5 tonnellate — 15 SEER2", "Unità condensante dimensionata sul carico, dieci anni di garanzia sui pezzi dopo la registrazione."],
+      ["Außengerät 5 Tonnen — 15 SEER2", "Verflüssigereinheit nach Last ausgelegt, zehn Jahre Teilegarantie nach Registrierung."],
+      ["Зовнішній блок 5 тонн — 15 SEER2", "Конденсаторний блок під навантаження, гарантія на деталі десять років після реєстрації."],
+      ["5-ਟਨ ਕੰਡੈਂਸਰ — 15 SEER2", "ਲੋਡ ਮੁਤਾਬਕ ਬਾਹਰੀ ਯੂਨਿਟ, ਰਜਿਸਟਰ ਕਰਨ 'ਤੇ ਪੁਰਜ਼ਿਆਂ ਦੀ ਦਸ ਸਾਲ ਵਾਰੰਟੀ।"],
+      ["5-ton condenser — 15 SEER2", "Outdoor condensing unit na sukat sa load, may sampung taong warranty sa piyesa kapag nairehistro."],
+    )),
+    EQUIP(2800, 2100, X(
+      ["Furnace and matching coil", "Gas furnace sized for 5-ton airflow with a matched cased coil, and the gas and vent connections it needs."],
+      ["Fournaise et serpentin assorti", "Fournaise au gaz dimensionnée pour le débit de 5 tonnes avec serpentin en boîtier assorti, raccords de gaz et d'évent compris."],
+      ["Horno y serpentín a juego", "Horno de gas para flujo de 5 toneladas con serpentín con gabinete a juego, y las conexiones de gas y ventilación que necesita."],
+      ["Generatore e batteria abbinata", "Generatore a gas per portata da 5 tonnellate con batteria in cassa abbinata, e gli attacchi gas e fumi necessari."],
+      ["Ofen und passendes Register", "Gasofen für 5-Tonnen-Luftmenge mit passendem Register im Gehäuse sowie den nötigen Gas- und Abgasanschlüssen."],
+      ["Піч і узгоджений випарник", "Газова піч під потік 5 тонн з випарником у корпусі та потрібними газовими й димовими з'єднаннями."],
+      ["ਫ਼ਰਨੇਸ ਅਤੇ ਮਿਲਦੀ ਕੋਇਲ", "5-ਟਨ ਹਵਾ ਲਈ ਗੈਸ ਫ਼ਰਨੇਸ, ਮਿਲਦੀ ਕੇਸ ਵਾਲੀ ਕੋਇਲ, ਅਤੇ ਲੋੜੀਂਦੇ ਗੈਸ ਅਤੇ ਵੈਂਟ ਕਨੈਕਸ਼ਨ।"],
+      ["Furnace at katugmang coil", "Gas furnace para sa 5-ton na airflow na may katugmang cased coil, at ang kailangang gas at vent na koneksyon."],
+    )),
+    SHARED.permit(400),
+  ], opts: MECH },
+
+  "fq.hvac_install.ductless.cold_climate_heat_pump": { kind: "installation", lines: [
+    L.labour(1, "flat", 2800, X(
+      ["Cold-climate mini-split installation labour", "Outdoor unit set on a stand above the snow line, head mounted, line set, drain and power run, vacuumed, charged and commissioned."],
+      ["Main-d'œuvre — thermopompe murale grand froid", "Unité extérieure posée sur un support au-dessus de la neige, unité intérieure fixée, conduites, drain et alimentation installés, tirage au vide, charge et mise en service."],
+      ["Mano de obra — mini split para clima frío", "Unidad exterior en base por encima de la nieve, unidad interior montada, tubería, drenaje y alimentación tendidos, vacío, carga y puesta en marcha."],
+      ["Manodopera — split per clima freddo", "Unità esterna su supporto sopra la neve, unità interna montata, linee, scarico e alimentazione posati, vuoto, carica e messa in servizio."],
+      ["Arbeit — Kaltklima-Split-Wärmepumpe", "Außengerät auf einem Gestell über der Schneehöhe, Innengerät montiert, Leitungen, Ablauf und Strom verlegt, evakuiert, befüllt und in Betrieb genommen."],
+      ["Робота — спліт-тепловий насос для холодного клімату", "Зовнішній блок на стійці вище снігу, внутрішній змонтовано, трасу, дренаж і живлення прокладено, відвакуумовано, заправлено й запущено."],
+      ["ਠੰਢੇ ਮੌਸਮ ਵਾਲਾ ਮਿਨੀ-ਸਪਲਿਟ ਲਾਉਣ ਦੀ ਲੇਬਰ", "ਬਾਹਰੀ ਯੂਨਿਟ ਬਰਫ਼ ਤੋਂ ਉੱਚੇ ਸਟੈਂਡ 'ਤੇ, ਹੈੱਡ ਲਾਇਆ, ਲਾਈਨ ਸੈੱਟ, ਡ੍ਰੇਨ ਅਤੇ ਬਿਜਲੀ ਪਾਈ, ਵੈਕਿਊਮ, ਚਾਰਜ ਅਤੇ ਚਾਲੂ।"],
+      ["Labor — cold-climate na mini-split", "Inilagay ang outdoor unit sa stand na lampas sa taas ng niyebe, ikinabit ang head, inilatag ang line set, drain at kuryente, vinacuum, chinarge at pinaandar."],
+    )),
+    EQUIP(3600, 2700, X(
+      ["Cold-climate heat pump — 18,000 BTU", "Inverter mini-split rated to keep heating well below freezing, head and outdoor unit."],
+      ["Thermopompe grand froid — 18 000 BTU", "Thermopompe murale à inverseur conçue pour chauffer bien sous le point de congélation, unités intérieure et extérieure."],
+      ["Bomba de calor para clima frío — 18,000 BTU", "Mini split inverter que sigue calentando muy por debajo de cero, unidad interior y exterior."],
+      ["Pompa di calore per clima freddo — 18.000 BTU", "Split inverter che continua a scaldare ben sotto lo zero, unità interna ed esterna."],
+      ["Kaltklima-Wärmepumpe — 18.000 BTU", "Inverter-Split, das weit unter dem Gefrierpunkt weiterheizt, Innen- und Außengerät."],
+      ["Тепловий насос для холодного клімату — 18 000 BTU", "Інверторна спліт-система, що гріє при сильних морозах, внутрішній і зовнішній блоки."],
+      ["ਠੰਢੇ ਮੌਸਮ ਵਾਲਾ ਹੀਟ ਪੰਪ — 18,000 BTU", "ਬਹੁਤ ਠੰਢ ਵਿੱਚ ਵੀ ਗਰਮੀ ਦੇਣ ਵਾਲਾ ਇਨਵਰਟਰ ਮਿਨੀ-ਸਪਲਿਟ, ਹੈੱਡ ਅਤੇ ਬਾਹਰੀ ਯੂਨਿਟ।"],
+      ["Cold-climate na heat pump — 18,000 BTU", "Inverter na mini-split na patuloy na nagpapainit kahit malamig na malamig, head at outdoor unit."],
+    )),
+    L.material(1, "flat", 450, X(
+      ["Line set, stand and disconnect", "Insulated line set, wall stand or ground stand, line-hide cover, disconnect and whip."],
+      ["Conduites, support et sectionneur", "Conduites isolées, support mural ou au sol, couvre-conduites, sectionneur et câble."],
+      ["Tubería, soporte y desconectador", "Tubería aislada, soporte de pared o piso, cubierta de tubería, desconectador y cable."],
+      ["Linee, supporto e sezionatore", "Linee isolate, staffa a muro o a terra, canalina copritubo, sezionatore e cavo."],
+      ["Leitungen, Gestell und Trennschalter", "Gedämmte Leitungen, Wand- oder Bodengestell, Leitungsabdeckung, Trennschalter und Anschlussleitung."],
+      ["Траса, стійка й вимикач", "Утеплена траса, настінна чи підлогова стійка, короб для траси, вимикач і кабель."],
+      ["ਲਾਈਨ ਸੈੱਟ, ਸਟੈਂਡ ਅਤੇ ਡਿਸਕਨੈਕਟ", "ਇੰਸੂਲੇਟਿਡ ਲਾਈਨ ਸੈੱਟ, ਕੰਧ ਜਾਂ ਜ਼ਮੀਨੀ ਸਟੈਂਡ, ਲਾਈਨ ਕਵਰ, ਡਿਸਕਨੈਕਟ ਅਤੇ ਤਾਰ।"],
+      ["Line set, stand at disconnect", "Insulated na line set, wall o ground stand, line-hide cover, disconnect at whip."],
+    ), { cost: 320 }),
+    SHARED.permit(250),
+  ], opts: MECH },
+
+  "fq.hvac_install.ductless.multi_zone": { kind: "installation", lines: [
+    L.labour(1, "each", 1100, X(
+      ["Multi-zone installation — per indoor head", "Head mounted, its line set, drain and communication wire run back to the outdoor unit, and the zone commissioned."],
+      ["Installation multizone — par unité intérieure", "Unité intérieure fixée, conduites, drain et fil de communication ramenés à l'unité extérieure, zone mise en service."],
+      ["Instalación multizona — por unidad interior", "Unidad interior montada, su tubería, drenaje y cable de comunicación llevados a la unidad exterior, y la zona puesta en marcha."],
+      ["Installazione multizona — per unità interna", "Unità interna montata, linee, scarico e cavo di comunicazione portati all'unità esterna, zona messa in servizio."],
+      ["Mehrzonen-Montage — pro Innengerät", "Innengerät montiert, Leitungen, Ablauf und Datenleitung zum Außengerät geführt und die Zone in Betrieb genommen."],
+      ["Мультизональний монтаж — за внутрішній блок", "Внутрішній блок змонтовано, трасу, дренаж і кабель зв'язку проведено до зовнішнього, зону запущено."],
+      ["ਮਲਟੀ-ਜ਼ੋਨ ਲਾਉਣਾ — ਪ੍ਰਤੀ ਅੰਦਰਲਾ ਹੈੱਡ", "ਹੈੱਡ ਲਾਇਆ, ਉਸਦਾ ਲਾਈਨ ਸੈੱਟ, ਡ੍ਰੇਨ ਅਤੇ ਕਮਿਊਨੀਕੇਸ਼ਨ ਤਾਰ ਬਾਹਰੀ ਯੂਨਿਟ ਤੱਕ, ਅਤੇ ਜ਼ੋਨ ਚਾਲੂ।"],
+      ["Multi-zone na pagkabit — kada indoor head", "Ikinabit ang head, inilatag ang line set, drain at communication wire pabalik sa outdoor unit, at pinaandar ang zone."],
+    ), { measurementKey: "each" }),
+    L.material(1, "each", 650, X(
+      ["Wall-mount indoor head — 9,000 to 12,000 BTU", "Inverter head matched to the multi-zone outdoor unit, with remote."],
+      ["Unité intérieure murale — 9 000 à 12 000 BTU", "Unité à inverseur assortie à l'unité extérieure multizone, avec télécommande."],
+      ["Unidad interior de pared — 9,000 a 12,000 BTU", "Unidad inverter a juego con la exterior multizona, con control remoto."],
+      ["Unità interna a parete — da 9.000 a 12.000 BTU", "Unità inverter abbinata all'esterna multizona, con telecomando."],
+      ["Wand-Innengerät — 9.000 bis 12.000 BTU", "Inverter-Innengerät passend zum Mehrzonen-Außengerät, mit Fernbedienung."],
+      ["Настінний внутрішній блок — 9 000–12 000 BTU", "Інверторний блок під мультизональний зовнішній, з пультом."],
+      ["ਕੰਧ ਵਾਲਾ ਅੰਦਰਲਾ ਹੈੱਡ — 9,000 ਤੋਂ 12,000 BTU", "ਮਲਟੀ-ਜ਼ੋਨ ਬਾਹਰੀ ਯੂਨਿਟ ਨਾਲ ਮਿਲਦਾ ਇਨਵਰਟਰ ਹੈੱਡ, ਰਿਮੋਟ ਸਮੇਤ।"],
+      ["Wall-mount na indoor head — 9,000 hanggang 12,000 BTU", "Inverter na head na tugma sa multi-zone na outdoor unit, may remote."],
+    ), { cost: 490, taxable: false, measurementKey: "each" }),
+    L.material(1, "each", 180, X(
+      ["Line set and communication wire — per head", "Insulated line set, drain hose and communication cable for one head's run."],
+      ["Conduites et fil de communication — par unité", "Conduites isolées, tuyau de drain et câble de communication pour le tracé d'une unité."],
+      ["Tubería y cable de comunicación — por unidad", "Tubería aislada, manguera de drenaje y cable de comunicación para el tramo de una unidad."],
+      ["Linee e cavo di comunicazione — per unità", "Linee isolate, tubo di scarico e cavo di comunicazione per la tratta di un'unità."],
+      ["Leitungen und Datenkabel — pro Innengerät", "Gedämmte Leitungen, Ablaufschlauch und Datenkabel für die Strecke eines Innengeräts."],
+      ["Траса й кабель зв'язку — на блок", "Утеплена траса, дренажний шланг і кабель зв'язку на ділянку одного блока."],
+      ["ਲਾਈਨ ਸੈੱਟ ਅਤੇ ਕਮਿਊਨੀਕੇਸ਼ਨ ਤਾਰ — ਪ੍ਰਤੀ ਹੈੱਡ", "ਇੱਕ ਹੈੱਡ ਦੀ ਲਾਈਨ ਲਈ ਇੰਸੂਲੇਟਿਡ ਲਾਈਨ ਸੈੱਟ, ਡ੍ਰੇਨ ਹੋਜ਼ ਅਤੇ ਕਮਿਊਨੀਕੇਸ਼ਨ ਕੇਬਲ।"],
+      ["Line set at communication wire — kada head", "Insulated na line set, drain hose at communication cable para sa linya ng isang head."],
+    ), { cost: 130, measurementKey: "each" }),
+    EQUIP(2400, 1800, X(
+      ["Multi-zone outdoor unit", "Inverter outdoor unit sized for the number and capacity of heads."],
+      ["Unité extérieure multizone", "Unité extérieure à inverseur dimensionnée pour le nombre et la puissance des unités intérieures."],
+      ["Unidad exterior multizona", "Unidad exterior inverter del tamaño para el número y capacidad de unidades interiores."],
+      ["Unità esterna multizona", "Unità esterna inverter dimensionata per numero e potenza delle unità interne."],
+      ["Mehrzonen-Außengerät", "Inverter-Außengerät, ausgelegt auf Anzahl und Leistung der Innengeräte."],
+      ["Мультизональний зовнішній блок", "Інверторний зовнішній блок під кількість і потужність внутрішніх."],
+      ["ਮਲਟੀ-ਜ਼ੋਨ ਬਾਹਰੀ ਯੂਨਿਟ", "ਹੈੱਡਾਂ ਦੀ ਗਿਣਤੀ ਅਤੇ ਸਮਰੱਥਾ ਮੁਤਾਬਕ ਇਨਵਰਟਰ ਬਾਹਰੀ ਯੂਨਿਟ।"],
+      ["Multi-zone na outdoor unit", "Inverter na outdoor unit na sukat sa dami at kapasidad ng mga head."],
+    )),
+    SHARED.permit(250),
+  ], opts: MECH },
+
+  "fq.hvac_install.ductless.condenser": { kind: "installation", lines: [
+    L.labour(1, "flat", 900, X(
+      ["Outdoor unit installation", "Pad or wall bracket set, the unit mounted and wired, the line set flared and torqued, nitrogen-tested and evacuated before start-up."],
+      ["Installation de l'unité extérieure", "Base ou support mural posé, unité fixée et câblée, conduites évasées et serrées au couple, essai à l'azote et tirage au vide avant le démarrage."],
+      ["Instalación de la unidad exterior", "Base o soporte de pared colocado, la unidad montada y cableada, tubería abocinada y apretada al torque, probada con nitrógeno y al vacío antes de arrancar."],
+      ["Installazione dell'unità esterna", "Basamento o staffa a muro posati, unità montata e cablata, linee cartellate e serrate a coppia, prova in azoto e vuoto prima dell'avvio."],
+      ["Außengerät montieren", "Sockel oder Wandkonsole gesetzt, Gerät montiert und verdrahtet, Leitungen gebördelt und mit Drehmoment angezogen, mit Stickstoff geprüft und evakuiert vor dem Start."],
+      ["Монтаж зовнішнього блока", "Основу чи настінний кронштейн встановлено, блок змонтовано й під'єднано, трасу розвальцьовано й затягнуто, перевірено азотом і відвакуумовано перед запуском."],
+      ["ਬਾਹਰੀ ਯੂਨਿਟ ਲਾਉਣਾ", "ਪੈਡ ਜਾਂ ਕੰਧ ਬ੍ਰੈਕਟ ਲਾਇਆ, ਯੂਨਿਟ ਲਾ ਕੇ ਤਾਰਾਂ ਜੋੜੀਆਂ, ਲਾਈਨ ਸੈੱਟ ਫ਼ਲੇਅਰ ਅਤੇ ਕੱਸਿਆ, ਚਾਲੂ ਕਰਨ ਤੋਂ ਪਹਿਲਾਂ ਨਾਈਟ੍ਰੋਜਨ ਟੈਸਟ ਅਤੇ ਵੈਕਿਊਮ।"],
+      ["Pagkabit ng outdoor unit", "Inilagay ang pad o wall bracket, ikinabit at kinablehan ang unit, fineflare at hinigpitan ang line set, nitrogen test at vacuum bago paandarin."],
+    )),
+    EQUIP(1400, 1050, X(
+      ["Mini-split outdoor unit", "Inverter outdoor unit matched to the existing or new indoor head."],
+      ["Unité extérieure de thermopompe murale", "Unité extérieure à inverseur assortie à l'unité intérieure existante ou neuve."],
+      ["Unidad exterior de mini split", "Unidad exterior inverter a juego con la unidad interior existente o nueva."],
+      ["Unità esterna split", "Unità esterna inverter abbinata all'unità interna esistente o nuova."],
+      ["Split-Außengerät", "Inverter-Außengerät passend zum vorhandenen oder neuen Innengerät."],
+      ["Зовнішній блок спліт-системи", "Інверторний зовнішній блок під наявний чи новий внутрішній."],
+      ["ਮਿਨੀ-ਸਪਲਿਟ ਬਾਹਰੀ ਯੂਨਿਟ", "ਮੌਜੂਦਾ ਜਾਂ ਨਵੇਂ ਅੰਦਰਲੇ ਹੈੱਡ ਨਾਲ ਮਿਲਦੀ ਇਨਵਰਟਰ ਬਾਹਰੀ ਯੂਨਿਟ।"],
+      ["Mini-split na outdoor unit", "Inverter na outdoor unit na tugma sa existing o bagong indoor head."],
+    )),
+    L.material(1, "flat", 220, X(
+      ["Pad or bracket, disconnect and whip", "Composite pad or wall bracket, a disconnect and a liquid-tight whip."],
+      ["Base ou support, sectionneur et câble", "Base composite ou support mural, sectionneur et câble étanche."],
+      ["Base o soporte, desconectador y cable", "Base de material compuesto o soporte de pared, desconectador y cable hermético."],
+      ["Basamento o staffa, sezionatore e cavo", "Basamento in composito o staffa a muro, sezionatore e cavo a tenuta."],
+      ["Sockel oder Konsole, Trennschalter und Leitung", "Verbundsockel oder Wandkonsole, Trennschalter und flüssigkeitsdichte Anschlussleitung."],
+      ["Основа чи кронштейн, вимикач і кабель", "Композитна основа чи настінний кронштейн, вимикач і герметичний кабель."],
+      ["ਪੈਡ ਜਾਂ ਬ੍ਰੈਕਟ, ਡਿਸਕਨੈਕਟ ਅਤੇ ਤਾਰ", "ਕੰਪੋਜ਼ਿਟ ਪੈਡ ਜਾਂ ਕੰਧ ਬ੍ਰੈਕਟ, ਡਿਸਕਨੈਕਟ ਅਤੇ ਲਿਕਵਿਡ-ਟਾਈਟ ਤਾਰ।"],
+      ["Pad o bracket, disconnect at whip", "Composite na pad o wall bracket, disconnect at liquid-tight na whip."],
+    ), { cost: 160 }),
+    SHARED.testing(200),
+  ], opts: MECH },
+
+  "fq.hvac_install.components.ductwork": { kind: "installation", lines: [
+    L.labour(1, "flat", 1100, X(
+      ["Ductwork installation labour", "Trunk and branch runs laid out, hung and joined, boots set at each register and every joint sealed with mastic."],
+      ["Main-d'œuvre — installation des conduits", "Conduit principal et branches tracés, suspendus et raccordés, bottes posées à chaque grille et chaque joint scellé au mastic."],
+      ["Mano de obra — instalación de ductos", "Troncal y ramales trazados, colgados y unidos, botas colocadas en cada rejilla y cada unión sellada con mástique."],
+      ["Manodopera — posa dei condotti", "Condotto principale e diramazioni tracciati, appesi e giuntati, raccordi a ogni bocchetta e ogni giunto sigillato con mastice."],
+      ["Arbeit — Kanalmontage", "Haupt- und Abzweigkanäle angelegt, abgehängt und verbunden, Anschlussstutzen an jedem Auslass gesetzt und jede Verbindung mit Dichtmasse abgedichtet."],
+      ["Робота — монтаж повітроводів", "Магістраль і відгалуження розмічено, підвішено й з'єднано, бути встановлено на кожну решітку, кожен стик промазано мастикою."],
+      ["ਡਕਟਵਰਕ ਲਾਉਣ ਦੀ ਲੇਬਰ", "ਮੁੱਖ ਅਤੇ ਬ੍ਰਾਂਚ ਡਕਟਾਂ ਵਿਛਾਈਆਂ, ਟੰਗੀਆਂ ਅਤੇ ਜੋੜੀਆਂ, ਹਰ ਰਜਿਸਟਰ 'ਤੇ ਬੂਟ ਅਤੇ ਹਰ ਜੋੜ ਮੈਸਟਿਕ ਨਾਲ ਸੀਲ।"],
+      ["Labor — pagkabit ng ductwork", "Inilatag, isinabit at pinagdugtong ang trunk at branch, ikinabit ang boot sa bawat register at sinelyuhan ng mastic ang bawat dugtungan."],
+    )),
+    L.material(1, "flat", 450, X(
+      ["Duct materials — trunk, fittings, flex and mastic", "Sheet-metal trunk and fittings, insulated flex runs, hangers, mastic and foil tape."],
+      ["Matériaux de conduits — principal, raccords, flexible et mastic", "Conduit principal et raccords en tôle, conduits flexibles isolés, supports, mastic et ruban d'aluminium."],
+      ["Materiales de ducto — troncal, accesorios, flexible y mástique", "Troncal y accesorios de lámina, tramos flexibles aislados, soportes, mástique y cinta de aluminio."],
+      ["Materiali condotti — principale, raccordi, flessibile e mastice", "Condotto principale e raccordi in lamiera, tratti flessibili isolati, staffe, mastice e nastro alluminio."],
+      ["Kanalmaterial — Hauptkanal, Formteile, Flex und Dichtmasse", "Blech-Hauptkanal und Formteile, gedämmte Flexkanäle, Abhänger, Dichtmasse und Alu-Klebeband."],
+      ["Матеріали — магістраль, фітинги, гнучкі й мастика", "Магістраль і фітинги з бляхи, утеплені гнучкі повітроводи, підвіси, мастика й фольгована стрічка."],
+      ["ਡਕਟ ਸਮਾਨ — ਮੁੱਖ ਡਕਟ, ਫ਼ਿਟਿੰਗ, ਫ਼ਲੈਕਸ ਅਤੇ ਮੈਸਟਿਕ", "ਸ਼ੀਟ-ਮੈਟਲ ਮੁੱਖ ਡਕਟ ਅਤੇ ਫ਼ਿਟਿੰਗ, ਇੰਸੂਲੇਟਿਡ ਫ਼ਲੈਕਸ, ਹੈਂਗਰ, ਮੈਸਟਿਕ ਅਤੇ ਫ਼ੌਇਲ ਟੇਪ।"],
+      ["Duct materials — trunk, fittings, flex at mastic", "Sheet-metal na trunk at fittings, insulated na flex, hanger, mastic at foil tape."],
+    ), { cost: 340 }),
+    L.material(1, "each", 60, X(
+      ["Register and boot — per supply vent", "Register boot and a steel register for each new supply."],
+      ["Grille et botte — par bouche d'alimentation", "Botte et grille d'acier pour chaque nouvelle bouche d'alimentation."],
+      ["Rejilla y bota — por salida de suministro", "Bota y rejilla de acero para cada salida de suministro nueva."],
+      ["Bocchetta e raccordo — per mandata", "Raccordo e bocchetta in acciaio per ogni nuova mandata."],
+      ["Auslass und Stutzen — pro Zuluftauslass", "Anschlussstutzen und Stahlgitter für jeden neuen Zuluftauslass."],
+      ["Решітка й бут — на припливний отвір", "Бут і сталева решітка на кожен новий припливний отвір."],
+      ["ਰਜਿਸਟਰ ਅਤੇ ਬੂਟ — ਪ੍ਰਤੀ ਸਪਲਾਈ ਵੈਂਟ", "ਹਰ ਨਵੇਂ ਸਪਲਾਈ ਵੈਂਟ ਲਈ ਰਜਿਸਟਰ ਬੂਟ ਅਤੇ ਸਟੀਲ ਰਜਿਸਟਰ।"],
+      ["Register at boot — kada supply vent", "Register boot at steel na register para sa bawat bagong supply."],
+    ), { cost: 40, measurementKey: "ventCount" }),
+  ], opts: MECH },
+
+  "fq.hvac_install.components.boiler_zone_valves": { kind: "installation", lines: [
+    L.labour(1, "flat", 900, X(
+      ["Boiler set and piping — owner-supplied boiler", "The customer's boiler set, piped to supply and return, the gas line re-run as needed, venting connected and filled and purged."],
+      ["Pose et tuyauterie de la chaudière — fournie par le client", "Chaudière du client posée, raccordée à l'alimentation et au retour, conduite de gaz refaite au besoin, évent raccordé, remplie et purgée."],
+      ["Colocación y tubería de la caldera — del cliente", "Caldera del cliente colocada, conectada a suministro y retorno, línea de gas rehecha si hace falta, ventilación conectada, llenada y purgada."],
+      ["Posa e tubazioni della caldaia — fornita dal cliente", "Caldaia del cliente posata, collegata a mandata e ritorno, linea gas rifatta se serve, scarico fumi collegato, riempita e sfiatata."],
+      ["Kessel setzen und verrohren — vom Kunden gestellt", "Kessel des Kunden gesetzt, an Vor- und Rücklauf angeschlossen, Gasleitung bei Bedarf neu verlegt, Abgas angeschlossen, gefüllt und entlüftet."],
+      ["Встановлення й обв'язка котла — від клієнта", "Котел клієнта встановлено, під'єднано до подачі й зворотки, газову лінію перекладено за потреби, димохід під'єднано, наповнено й видалено повітря."],
+      ["ਬੌਇਲਰ ਰੱਖਣਾ ਅਤੇ ਪਾਈਪਿੰਗ — ਗਾਹਕ ਦਾ ਬੌਇਲਰ", "ਗਾਹਕ ਦਾ ਬੌਇਲਰ ਰੱਖਿਆ, ਸਪਲਾਈ ਅਤੇ ਰਿਟਰਨ ਨਾਲ ਪਾਈਪ ਜੋੜੇ, ਲੋੜ ਹੋਵੇ ਤਾਂ ਗੈਸ ਲਾਈਨ ਮੁੜ ਪਾਈ, ਵੈਂਟ ਜੋੜਿਆ, ਭਰਿਆ ਅਤੇ ਹਵਾ ਕੱਢੀ।"],
+      ["Pagkabit at piping ng boiler — galing sa customer", "Inilagay ang boiler ng customer, ikinonekta sa supply at return, inulit ang gas line kung kailangan, ikinabit ang vent, pinuno at pinurga."],
+    )),
+    L.labour(1, "each", 150, X(
+      ["Zone valve replacement — per zone", "Old valve cut out, the new valve soldered in and its actuator wired to the zone control and thermostat."],
+      ["Remplacement de vanne de zone — par zone", "Ancienne vanne coupée, la neuve soudée et son actionneur raccordé à la commande de zone et au thermostat."],
+      ["Cambio de válvula de zona — por zona", "Válvula vieja cortada, la nueva soldada y su actuador cableado al control de zona y al termostato."],
+      ["Sostituzione valvola di zona — per zona", "Vecchia valvola tagliata, la nuova saldata e il suo attuatore collegato alla centralina di zona e al termostato."],
+      ["Zonenventil tauschen — pro Zone", "Altes Ventil ausgetrennt, das neue eingelötet und der Stellantrieb an Zonensteuerung und Thermostat angeschlossen."],
+      ["Заміна зонного клапана — за зону", "Старий клапан вирізано, новий упаяно, привод під'єднано до зонного контролера й термостата."],
+      ["ਜ਼ੋਨ ਵਾਲਵ ਬਦਲਣਾ — ਪ੍ਰਤੀ ਜ਼ੋਨ", "ਪੁਰਾਣਾ ਵਾਲਵ ਕੱਟਿਆ, ਨਵਾਂ ਟਾਂਕੇ ਨਾਲ ਲਾਇਆ ਅਤੇ ਐਕਚੁਏਟਰ ਜ਼ੋਨ ਕੰਟਰੋਲ ਅਤੇ ਥਰਮੋਸਟੈਟ ਨਾਲ ਜੋੜਿਆ।"],
+      ["Palit ng zone valve — kada zone", "Tinanggal ang lumang valve, hinang ang bago at kinablehan ang actuator sa zone control at thermostat."],
+    ), { measurementKey: "each" }),
+    L.material(1, "each", 185, X(
+      ["Zone valve with actuator", "Two-way zone valve with a 24 V actuator and end switch."],
+      ["Vanne de zone avec actionneur", "Vanne de zone à deux voies avec actionneur 24 V et interrupteur de fin de course."],
+      ["Válvula de zona con actuador", "Válvula de zona de dos vías con actuador de 24 V y final de carrera."],
+      ["Valvola di zona con attuatore", "Valvola di zona a due vie con attuatore 24 V e microinterruttore."],
+      ["Zonenventil mit Stellantrieb", "Zweiwege-Zonenventil mit 24-V-Stellantrieb und Endschalter."],
+      ["Зонний клапан із приводом", "Двоходовий зонний клапан із приводом 24 В і кінцевим вимикачем."],
+      ["ਐਕਚੁਏਟਰ ਵਾਲਾ ਜ਼ੋਨ ਵਾਲਵ", "24 V ਐਕਚੁਏਟਰ ਅਤੇ ਐਂਡ ਸਵਿੱਚ ਵਾਲਾ ਦੋ-ਵੇਅ ਜ਼ੋਨ ਵਾਲਵ।"],
+      ["Zone valve na may actuator", "Two-way na zone valve na may 24 V actuator at end switch."],
+    ), { cost: 140, measurementKey: "each" }),
+    L.material(1, "flat", 180, X(
+      ["Piping, fittings and gas connector", "Copper or black-iron fittings, unions, isolation valves and a gas connector."],
+      ["Tuyauterie, raccords et raccord de gaz", "Raccords en cuivre ou en fer noir, unions, robinets d'isolement et raccord de gaz."],
+      ["Tubería, accesorios y conector de gas", "Conexiones de cobre o hierro negro, tuercas unión, válvulas de corte y conector de gas."],
+      ["Tubazioni, raccordi e raccordo gas", "Raccordi in rame o ferro nero, bocchettoni, valvole d'intercettazione e raccordo gas."],
+      ["Rohre, Formteile und Gasanschluss", "Kupfer- oder Schwarzstahlformteile, Verschraubungen, Absperrventile und Gasanschluss."],
+      ["Труби, фітинги й газове з'єднання", "Мідні чи чорні сталеві фітинги, згони, запірні крани й газове з'єднання."],
+      ["ਪਾਈਪਿੰਗ, ਫ਼ਿਟਿੰਗ ਅਤੇ ਗੈਸ ਕਨੈਕਟਰ", "ਤਾਂਬੇ ਜਾਂ ਕਾਲੇ ਲੋਹੇ ਦੀਆਂ ਫ਼ਿਟਿੰਗਾਂ, ਯੂਨੀਅਨ, ਬੰਦ ਕਰਨ ਵਾਲੇ ਵਾਲਵ ਅਤੇ ਗੈਸ ਕਨੈਕਟਰ।"],
+      ["Piping, fittings at gas connector", "Tanso o black-iron na fittings, union, isolation valve at gas connector."],
+    ), { cost: 135 }),
+    SHARED.permit(250),
+  ], opts: MECH },
+
+  "fq.hvac_install.components.generator": { kind: "installation", lines: [
+    L.labour(1, "flat", 950, X(
+      ["Generator set and wiring to the HVAC circuits", "Pad set, the generator placed with code clearances, the transfer switch wired to the furnace, heat-pump and air-conditioning circuits, and a live transfer tested."],
+      ["Pose de la génératrice et câblage des circuits CVC", "Base posée, génératrice placée aux dégagements réglementaires, commutateur de transfert câblé aux circuits de fournaise, thermopompe et climatisation, transfert testé."],
+      ["Colocación del generador y cableado a los circuitos HVAC", "Base colocada, generador ubicado con las distancias de código, interruptor de transferencia cableado a los circuitos de horno, bomba de calor y aire, y una transferencia real probada."],
+      ["Posa del generatore e cablaggio dei circuiti HVAC", "Basamento posato, generatore collocato alle distanze di norma, commutatore collegato ai circuiti di generatore d'aria, pompa di calore e climatizzazione, commutazione provata."],
+      ["Generator setzen und HLK-Kreise verdrahten", "Sockel gesetzt, Generator mit Normabständen aufgestellt, Umschalter an Ofen-, Wärmepumpen- und Klimakreise angeschlossen und eine echte Umschaltung getestet."],
+      ["Встановлення генератора й підключення кіл HVAC", "Основу встановлено, генератор розміщено з нормативними відступами, перемикач під'єднано до кіл печі, теплового насоса й кондиціонера, перемикання перевірено."],
+      ["ਜਨਰੇਟਰ ਰੱਖਣਾ ਅਤੇ HVAC ਸਰਕਟਾਂ ਦੀ ਵਾਇਰਿੰਗ", "ਪੈਡ ਲਾਇਆ, ਕੋਡ ਮੁਤਾਬਕ ਦੂਰੀ 'ਤੇ ਜਨਰੇਟਰ ਰੱਖਿਆ, ਟ੍ਰਾਂਸਫ਼ਰ ਸਵਿੱਚ ਫ਼ਰਨੇਸ, ਹੀਟ ਪੰਪ ਅਤੇ AC ਸਰਕਟਾਂ ਨਾਲ ਜੋੜਿਆ, ਅਤੇ ਅਸਲ ਟ੍ਰਾਂਸਫ਼ਰ ਟੈਸਟ ਕੀਤਾ।"],
+      ["Pagkabit ng generator at wiring sa HVAC circuit", "Inilagay ang pad, pinuwesto ang generator ayon sa code, kinablehan ang transfer switch sa furnace, heat pump at aircon circuit, at sinubukan ang totoong transfer."],
+    )),
+    L.material(1, "each", 450, X(
+      ["Transfer switch — HVAC circuits", "Automatic or manual transfer switch sized for the heating and cooling circuits."],
+      ["Commutateur de transfert — circuits CVC", "Commutateur de transfert automatique ou manuel dimensionné pour les circuits de chauffage et de climatisation."],
+      ["Interruptor de transferencia — circuitos HVAC", "Interruptor de transferencia automático o manual dimensionado para los circuitos de calefacción y aire."],
+      ["Commutatore — circuiti HVAC", "Commutatore automatico o manuale dimensionato per i circuiti di riscaldamento e raffrescamento."],
+      ["Umschalter — HLK-Stromkreise", "Automatischer oder manueller Umschalter, ausgelegt auf Heiz- und Kühlkreise."],
+      ["Перемикач — кола HVAC", "Автоматичний чи ручний перемикач під кола опалення й охолодження."],
+      ["ਟ੍ਰਾਂਸਫ਼ਰ ਸਵਿੱਚ — HVAC ਸਰਕਟ", "ਗਰਮ ਅਤੇ ਠੰਢ ਸਰਕਟਾਂ ਮੁਤਾਬਕ ਆਟੋਮੈਟਿਕ ਜਾਂ ਮੈਨੂਅਲ ਟ੍ਰਾਂਸਫ਼ਰ ਸਵਿੱਚ।"],
+      ["Transfer switch — HVAC circuit", "Automatic o manual na transfer switch na sukat sa heating at cooling circuit."],
+    ), { cost: 340 }),
+    L.material(1, "each", 120, X(
+      ["Generator pad", "Composite equipment pad for the generator."],
+      ["Base de génératrice", "Base composite pour la génératrice."],
+      ["Base para generador", "Base de material compuesto para el generador."],
+      ["Basamento del generatore", "Basamento in composito per il generatore."],
+      ["Generatorsockel", "Verbundsockel für den Generator."],
+      ["Основа для генератора", "Композитна основа для генератора."],
+      ["ਜਨਰੇਟਰ ਪੈਡ", "ਜਨਰੇਟਰ ਲਈ ਕੰਪੋਜ਼ਿਟ ਪੈਡ।"],
+      ["Generator pad", "Composite na pad para sa generator."],
+    ), { cost: 90 }),
+    L.material(1, "each", 3500, X(
+      ["Standby generator — 10 kW", "Air-cooled standby generator, when the customer is not supplying one."],
+      ["Génératrice de secours — 10 kW", "Génératrice de secours refroidie à l'air, si le client n'en fournit pas."],
+      ["Generador de respaldo — 10 kW", "Generador de respaldo enfriado por aire, si el cliente no aporta uno."],
+      ["Generatore di emergenza — 10 kW", "Generatore di emergenza raffreddato ad aria, se il cliente non lo fornisce."],
+      ["Notstromaggregat — 10 kW", "Luftgekühltes Notstromaggregat, falls der Kunde keines stellt."],
+      ["Резервний генератор — 10 кВт", "Резервний генератор з повітряним охолодженням, якщо клієнт не надає свій."],
+      ["ਸਟੈਂਡਬਾਈ ਜਨਰੇਟਰ — 10 kW", "ਹਵਾ ਨਾਲ ਠੰਢਾ ਹੋਣ ਵਾਲਾ ਸਟੈਂਡਬਾਈ ਜਨਰੇਟਰ, ਜੇ ਗਾਹਕ ਆਪਣਾ ਨਹੀਂ ਦਿੰਦਾ।"],
+      ["Standby generator — 10 kW", "Air-cooled na standby generator, kung walang ibibigay ang customer."],
+    ), { cost: 2800, taxable: false, optional: true }),
+    SHARED.permit(250),
+  ], opts: MECH },
+
+  "fq.hvac_install.additional.relocate_system": { kind: "installation", lines: [
+    L.labour(1, "flat", 400, X(
+      ["Disconnect, move and reset the equipment", "Refrigerant pumped down or recovered, the equipment disconnected, moved to its new spot, set level and reconnected."],
+      ["Débranchement, déplacement et remise en place", "Frigorigène récupéré ou pompé, appareils débranchés, déplacés au nouvel emplacement, mis de niveau et rebranchés."],
+      ["Desconexión, traslado y recolocación del equipo", "Refrigerante recogido o recuperado, equipo desconectado, llevado al nuevo lugar, nivelado y reconectado."],
+      ["Scollegamento, spostamento e riposizionamento", "Refrigerante recuperato, apparecchi scollegati, portati nella nuova posizione, livellati e ricollegati."],
+      ["Abklemmen, versetzen und neu aufstellen", "Kältemittel abgepumpt oder abgesaugt, Geräte abgeklemmt, an den neuen Platz gebracht, ausgerichtet und wieder angeschlossen."],
+      ["Від'єднання, перенесення й встановлення", "Холодоагент зібрано чи відкачано, обладнання від'єднано, перенесено на нове місце, вирівняно й під'єднано знову."],
+      ["ਉਪਕਰਣ ਖੋਲ੍ਹਣਾ, ਹਿਲਾਉਣਾ ਅਤੇ ਮੁੜ ਲਾਉਣਾ", "ਰੈਫ਼ਰੀਜਰੈਂਟ ਇਕੱਠਾ ਜਾਂ ਕੱਢਿਆ, ਉਪਕਰਣ ਖੋਲ੍ਹ ਕੇ ਨਵੀਂ ਥਾਂ ਲਿਜਾਇਆ, ਪੱਧਰ ਕੀਤਾ ਅਤੇ ਮੁੜ ਜੋੜਿਆ।"],
+      ["Tanggal, lipat at balik-kabit ng unit", "Pinump-down o ni-recover ang refrigerant, dinisconnect ang unit, inilipat sa bagong puwesto, pinantay at ikinonekta ulit."],
+    )),
+    L.material(1, "flat", 180, X(
+      ["Line set extension, wire and fittings", "Copper to extend the line set, wire, drain line and fittings for the new location."],
+      ["Rallonge de conduites, fil et raccords", "Cuivre pour prolonger les conduites, fil, conduite de drain et raccords pour le nouvel emplacement."],
+      ["Extensión de tubería, cable y accesorios", "Cobre para alargar la tubería, cable, línea de drenaje y accesorios para el nuevo lugar."],
+      ["Prolunga linee, cavo e raccordi", "Rame per prolungare le linee, cavo, linea di scarico e raccordi per la nuova posizione."],
+      ["Leitungsverlängerung, Kabel und Formteile", "Kupfer zur Verlängerung, Kabel, Ablaufleitung und Formteile für den neuen Standort."],
+      ["Подовження траси, кабель і фітинги", "Мідь для подовження траси, кабель, дренажна лінія й фітинги для нового місця."],
+      ["ਲਾਈਨ ਸੈੱਟ ਵਾਧਾ, ਤਾਰ ਅਤੇ ਫ਼ਿਟਿੰਗ", "ਨਵੀਂ ਥਾਂ ਲਈ ਲਾਈਨ ਸੈੱਟ ਲੰਮਾ ਕਰਨ ਲਈ ਤਾਂਬਾ, ਤਾਰ, ਡ੍ਰੇਨ ਲਾਈਨ ਅਤੇ ਫ਼ਿਟਿੰਗ।"],
+      ["Dugtong ng line set, wire at fittings", "Tanso para humaba ang line set, wire, drain line at fittings para sa bagong puwesto."],
+    ), { cost: 130 }),
+    SHARED.testing(150),
+  ], opts: MECH },
+};
+
+for (const key of Object.keys(ADDED)) {
+  if (SEED.services.find((s) => s.seedKey === key)?.templateLines) throw new Error(`hvac_install: ${key} already has a template — this pass only adds`);
+}
+withTemplates(SEED, Object.fromEntries(Object.entries(ADDED).map(([key, a]) => {
+  const s = I18N.services[key];
+  return [key, T(a.kind, { it: s.it, de: s.de, uk: s.uk, pa: s.pa, tl: s.tl }, a.lines, null, a.opts)];
+})));

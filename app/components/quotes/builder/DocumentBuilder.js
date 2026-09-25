@@ -23,12 +23,13 @@
 // which hands over the same `b` shape from its own state and its own save.
 // The default is "quote" and every quote caller passes nothing, so a quote is
 // drawn exactly as before. What the kind changes is only what an invoice does
-// not have: the estimate-type cards, the templates, the service tiles, the
+// not have: the estimate-type cards, the templates, the quote types, the
 // job address, the e-transfer line, "what happens next", the readiness block,
 // the Presentation / Work order / Notes tabs and the quote-only banners. The
 // masthead, the parties, the line cards, the totals, the notes, the photos,
-// the custom fields, the cost drawer, the review panel and the dock are the
-// same components in the same places — which is the point.
+// the custom fields, the cost drawer, the review panel, the dock and the
+// "Add service" control (its services only — no quote types) are the same
+// components in the same places — which is the point.
 //
 // ── The page ────────────────────────────────────────────────────────────────
 //
@@ -105,7 +106,7 @@ import {
 } from "./QuoteTotalsBar";
 import ClientPicker from "./ClientPicker";
 import JobAddressField from "./JobAddressField";
-import ServiceTiles from "./ServiceTiles";
+import AddServicePicker from "./AddServicePicker";
 import TemplatePicker from "./TemplatePicker";
 import ServicesTab from "./ServicesTab";
 import EstimateTypeFirst from "./EstimateTypeFirst";
@@ -1392,30 +1393,26 @@ export default function DocumentBuilder({ b, kind = "quote" }) {
                   row now — visible, after the last group, the way the classic
                   layout's picker is always on the page. The full card is kept
                   for the empty quote, where it is the first thing to do. */}
-              {/* Services ONLY, as cards (owner, 2026-09-22): the pill row
-                  was headed "Add a service, area or line item" and offered
-                  services alone, so the heading promised two things the row
-                  could not do. A line item belongs to a service and is added
-                  inside it ("Add line item" on each card above). The card
-                  shape carries the service's one-line description, its price
-                  and, when the company's own service has an estimate
-                  template, "Add with its template lines". The template add
-                  opens the new service like a tile add does. */}
-              {!isInvoice && b.canEditScope && !b.paintingFirst && (
+              {/* Services ONLY (owner, 2026-09-22): a line item belongs to a
+                  service and is added inside it ("Add line item" on each
+                  card above). Since 2026-09-25 the cards that were here are
+                  ONE control, AddServicePicker.js — "This seems very busy.
+                  Maybe it should be a button 'Add service' and then a
+                  popup": a handful of offerings stay inline buttons, more
+                  open the list. Every add is the builder's own function —
+                  the quote type still b.addScopeGroup(category, label), the
+                  call the tiles made — wrapped in addAndOpen so the new
+                  service opens unfolded, as before. */}
+              {!isInvoice && b.canEditScope && !b.paintingFirst && b.servicePicker && (
                 <div className="pt-1" data-doc-add-service>
-                  <ServiceTiles
-                    variant="card"
-                    categories={b.categories}
-                    onAdd={addAndOpen((category, label) => b.addScopeGroup(category, label))}
+                  <AddServicePicker
+                    picker={{
+                      ...b.servicePicker,
+                      addType: addAndOpen((category, label) => b.addScopeGroup(category, label)),
+                      addTemplate: addAndOpen(b.servicePicker.addTemplate),
+                      addLine: addAndOpen(b.servicePicker.addLine),
+                    }}
                     documentLanguage={b.quoteLanguage}
-                    details={
-                      b.serviceCardDetails
-                        ? (cat) => {
-                            const d = b.serviceCardDetails(cat);
-                            return { ...d, templates: d.templates.map((x) => ({ ...x, onAdd: addAndOpen(x.onAdd) })) };
-                          }
-                        : null
-                    }
                   />
                   {b.scopeGroups.length > 0 && (
                     <p className="text-xs text-muted-foreground mt-2">
@@ -1425,6 +1422,14 @@ export default function DocumentBuilder({ b, kind = "quote" }) {
                       )}
                     </p>
                   )}
+                </div>
+              )}
+              {/* The invoice's own: the company's services, added into its
+                  lines by the same control and dialog, handed the invoice's
+                  addProductTemplate / addProductLine (InvoiceBuilder.js). */}
+              {isInvoice && b.servicePicker && (
+                <div className="pt-1" data-invoice-add-service>
+                  <AddServicePicker picker={b.servicePicker} documentLanguage={b.quoteLanguage} />
                 </div>
               )}
               {!isInvoice && isEdit && b.scopeGroups.length === 0 && !b.canEditScope && (
