@@ -306,6 +306,79 @@ section("2b. The category rows a demo gets are rows a real company could hold");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+section("2c. Every demo line is in the shape the documents read");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The seed wrote { name, unitPrice, total } lines — a shape Prisma happily
+// stores in a Json column and no document reads. The invoice page, the
+// portal, the PDF and the covering email all print `money(item.amount)`, so
+// every demo line (the service-plan invoices, the deposit, every quote and
+// invoice in the pipeline) showed $0.00 under a correct total. Asserted over
+// every quote and invoice of every trade: the canonical keys, rate × quantity
+// = amount, the parent's subtotal = the sum of its lines, and the grouping the
+// invoice page actually renders (groupInvoiceLineItems) adds back up to it.
+{
+  const { groupInvoiceLineItems } = await import("@/lib/invoices/documentGroups");
+  const round2 = (n) => Math.round(Number(n) * 100) / 100;
+  const near = (a, b) => Math.abs(Number(a) - Number(b)) < 0.005;
+  const LEGACY_KEYS = ["name", "unitPrice", "total"];
+  const badLine = (li) => {
+    if (!li || typeof li !== "object") return "not an object";
+    const legacy = LEGACY_KEYS.filter((k) => k in li);
+    if (legacy.length) return `legacy keys ${legacy.join(",")}`;
+    if (typeof li.description !== "string" || !li.description.trim()) return "no description";
+    for (const k of ["quantity", "rate", "amount"]) if (!Number.isFinite(Number(li[k])) || li[k] === null || li[k] === undefined) return `no ${k}`;
+    if (!(Number(li.quantity) > 0)) return "quantity ≤ 0";
+    if (!near(li.amount, round2(Number(li.rate) * Number(li.quantity)))) return "amount ≠ rate × quantity";
+    return null;
+  };
+  let docsChecked = 0;
+  let planInvoices = 0;
+  let depositInvoices = 0;
+  for (const key of INDUSTRY_KEYS) {
+    const id = seeded[key].company.id;
+    const docs = [
+      ...of("quote", id).map((d) => ({ kind: "quote", d })),
+      ...of("invoice", id).map((d) => ({ kind: "invoice", d })),
+    ].filter(({ d }) => Array.isArray(d.lineItems));
+    const lineProblems = [];
+    const sumProblems = [];
+    const groupProblems = [];
+    for (const { kind, d } of docs) {
+      docsChecked += 1;
+      const num = kind === "quote" ? d.quoteNumber : d.invoiceNumber;
+      if (!d.lineItems.length) lineProblems.push(`${num}: no lines`);
+      d.lineItems.forEach((li, i) => {
+        const why = badLine(li);
+        if (why) lineProblems.push(`${num}[${i}]: ${why}`);
+      });
+      const sum = round2(d.lineItems.reduce((s, li) => s + Number(li?.amount || 0), 0));
+      if (!near(d.subtotal, sum)) sumProblems.push(`${num}: subtotal ${d.subtotal} ≠ lines ${sum}`);
+      if (!near(d.total, round2(Number(d.subtotal) - Number(d.discount || 0) + Number(d.tax || 0))))
+        sumProblems.push(`${num}: total ${d.total} ≠ subtotal − discount + tax`);
+      if (kind === "invoice") {
+        const printed = round2(groupInvoiceLineItems(d.lineItems, []).reduce((s, g) => s + g.subtotal, 0));
+        if (!near(printed, d.subtotal)) groupProblems.push(`${num}: page prints ${printed}, invoice says ${d.subtotal}`);
+        if (String(d.stripePaymentIntentId || "").includes("_plan_")) planInvoices += 1;
+        if (d.lineItems.some((li) => String(li?.description || "").startsWith("Deposit — "))) depositInvoices += 1;
+      }
+    }
+    ok(`${key.padEnd(12)} every quote and invoice line is { description, quantity, rate, amount } with amount = rate × quantity`, lineProblems.length === 0, lineProblems.slice(0, 5));
+    ok(`${key.padEnd(12)} every document's subtotal is the sum of its lines, and its total adds up`, sumProblems.length === 0, sumProblems.slice(0, 5));
+    ok(`${key.padEnd(12)} the invoice page's line grouping prints the invoice's own subtotal`, groupProblems.length === 0, groupProblems.slice(0, 5));
+    // The occurrence on the plan screen and the invoice it produced must
+    // agree — the plan is where the owner looks, the invoice is what was charged.
+    const occ = rows("servicePlanOccurrence").filter((o) => o.invoiceId && of("invoice", id).some((i) => i.id === o.invoiceId));
+    ok(`${key.padEnd(12)} each paid plan occurrence's subtotal equals its invoice's line sum`, occ.length > 0 && occ.every((o) => {
+      const inv = of("invoice", id).find((i) => i.id === o.invoiceId);
+      return near(o.subtotal, inv.lineItems.reduce((s, li) => s + Number(li.amount || 0), 0));
+    }), occ.length);
+  }
+  ok("the reported cases were in the sample: service-plan and deposit invoices", planInvoices > 0 && depositInvoices > 0, { planInvoices, depositInvoices });
+  ok("...across a real number of documents", docsChecked > 100, docsChecked);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 section("3. Idempotent — a second run adds nothing");
 // ═══════════════════════════════════════════════════════════════════════════
 
