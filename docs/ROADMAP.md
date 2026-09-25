@@ -30,6 +30,75 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## The quote builder's four 22-September asks (25 September 2026)
+
+Asked by the owner on 22 September for "the next push", promised four times and lost at a
+compaction. All four are additive: nothing an existing button, chip or tile did has changed,
+and the priced payload (`quoteRequestBody`) of a stairs quote (14 steps L, Moderate tile),
+a cabinet quote (30 doors + 5 drawers at Moderate, at Custom +$35, and with factor answers)
+and an interior-painting quote is md5-identical before and after, in English and French
+(e.g. stairs en `8f42260af1bca718aadda0df71463b2a`, cabinets en
+`cd0cd9c63a281f2c4193ef5f79ec1e1b`, painting en `f42048c69c64d0a6b8823da16034f702`).
+
+1. **The complexity list is on screen** ("i also don't see a complexity list").
+   `ComplexityPicker` (14 stair / 7 cabinet / 7 roofing questions) is mounted above the
+   staircases, under the cabinet chips and on the roof takeoff. It PRESSES the existing
+   control rather than replacing it (`tierForLevel`: Complex → High, the mapping
+   `cabinetPricing` already prices by): on stairs an answer that moves the level presses
+   that tier on every staircase ($7,865 → $10,300 Moderate → $13,798 High for 30 steps in
+   the harness) and a tile pressed by hand afterwards wins; on cabinets an answer sets the
+   chip ($4,500 / $5,100 / $5,700 for 30 doors), and a chip pressed by hand clears the
+   answers — the factor model prices first, so a chip left under answers would be the
+   2026-09-22 dead chip again. Specialty presses nothing (unpriced assessment line).
+   Roofing has no tiers: its answers scale the crew hours and print the reasons, which the
+   picker's own line says. Proof: `check:complexity` §11.
+2. **A scope group can be renamed** ("vanity refinishing"). "Name on the quote" heads every
+   service's editor, both layouts; `label` was already what the PDF / document route, the
+   client's page, the email, the staff quote page and the work order print
+   (`g.label || g.category.label`) and what PATCH reconciles, so nothing else changed.
+   Printed as typed, never translated; blank goes back to the service's name on blur.
+   Proof: `check:quote-builder` §13.
+3. **Services only at the foot, line items inside a service.** The pill row headed "Add a
+   service, area or line item" is the service picker's card shape headed "Add a service":
+   each card has one sentence of the service's wording, a price (the company's own
+   cheapest service on that trade, else the trade rate, else a cabinet trade's per-door
+   figure — never a benchmark) and "Add with its template lines (n)" per templated
+   service (three, then "n more"), which adds the service with its template's lines and
+   no seeded rate line. Every service in the document has "Add line item" beside "Edit
+   lines & measurements", opening the same line library its editor had; the invoice gets
+   the same button on its card. Proof: `check:doc-builder` 200 → 207; harness frame
+   `services-templates-electrical-quote-cards`.
+4. **Stairs fill as the step count is typed** — no Fill button. `stairFillPatch` writes
+   every count and switches the parts on, except a box typed over or a part switched off
+   after a fill; "Filled from 14 steps — boxes you typed over are left alone" with Undo.
+   On a fresh staircase the patch is exactly the button's (md5 of the section and of the
+   priced lines). Reopening the editor recognises the earlier fill from the counts
+   (`inferStairFill`) instead of storing anything new on the takeoff. Proof:
+   `check:stairs-from-steps` 93 → 118.
+
+Walked in the app-guide harness (the real builder against the cabinet-maker fixture — no
+account, no password): the stairs document (rename, answers, hand-pressed tile, typed-over
+fill, Undo, reopen), the painter's cabinet card, the electrical cards, a new invoice, and
+the French UI. No production data was read or written.
+
+### Still owed here
+
+- **The factor wording is English, French and Spanish only** (`lib/pricing/complexity/*`,
+  the picker's own four staff strings). German, Italian, Ukrainian, Punjabi, Tagalog and
+  Chinese fall back to English — on the staff screen and, for the REASON lines, on a quote
+  written in those languages. 28 factors × their options and reasons; a translation pass
+  of its own.
+- The cabinet chips' "(+$20.00)" labels and the Upcharge box read the fixed 20/40, while
+  factor answers price from the company's own `complexityUpchargePerUnit`; the two agree
+  on every company that has not customised that grid (pre-existing, now visible).
+- A stair template (per-tread lines) added to a stairs group that also has a filled
+  takeoff bills the treads twice — true of the library path since 24 September, and now
+  reachable from the card too. Needs a product decision (skip measured lines a takeoff
+  already prices, or warn).
+- The stair card has no price hint (its price is the tier grid; no one figure is honest).
+- Screens not re-shot into `docs/screens/` (the harness frames were walked, not
+  photographed); `shoot.mjs` covers the new `quote-cards` row.
+
 ## The receipts book, and who pays for AI (25 September 2026)
 
 The owner: "Those receipts should be linked by job or overhead and also be kept as
