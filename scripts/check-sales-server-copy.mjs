@@ -491,15 +491,21 @@ section("2. The SCREEN resolves the key — it does not print the English");
 const RESOLVES = [
   ["app/components/sales/DialRegion.js", ["say(t, space.titleKey", "say(t, b.titleKey", "say(t, u.titleKey", "say(t, w.titleKey", "WindowLines"]],
   // The picker moved to OutcomeForm.js (the owner's six buttons) and reads
-  // the choice keys; CallPanel names the label key on the auto-log strip.
-  ["app/components/sales/CallPanel.js", ["t(`app.salesCall.disposition.${autoLogged.code}.label`)", "t(choiceLabelKey(c.key))"]],
+  // the choice keys. The auto-log strip and the empty Disposition tab moved
+  // out of CallPanel into OutboundWriteUp.js (b8290956 — one renderer for
+  // the four places the write-up is drawn); CallPanel mounts both, and the
+  // keys are resolved where the strip is drawn.
+  ["app/components/sales/CallPanel.js", ["<AutoLoggedStrip t={t}", "NoCallToLog"]],
+  ["app/components/sales/OutboundWriteUp.js", ["t(`app.salesCall.disposition.${autoLogged.code}.label`)", "t(choiceLabelKey(c.key))"]],
   ["app/components/sales/OutcomeForm.js", ["t(choiceLabelKey(choice.key))", "t(choiceHintKey(chosen.key))"]],
   ["app/components/sales/PayoutDestinationForm.js", ["t(m.labelKey", "t(m.noteKey", "t(chosen.handleLabelKey", "t(engagement.labelKey"]],
   ["app/components/sales/EarningsPanel.js", ["t(rung.labelKey"]],
   ["app/components/sales/RepNoteUnavailable.js", ["NOTES_REFUSAL_KEYS"]],
   ["app/sales/queue/page.js", ["t(heading.titleKey", "t(f.labelKey", "t(inf.refusalKey", "t(o.refusalKey", "t(inf.confidenceTextKey", "t(inf.sourceTextKey"]],
   ["app/sales/leads/[id]/page.js", ["optedOutReasonKey"]],
-  ["app/sales/threads/[id]/page.js", ["optedOutReasonKey"]],
+  // The email thread is drawn by the inbox at /sales/threads since a250a7cd;
+  // /sales/threads/[id] is a redirect to it and renders nothing.
+  ["app/sales/threads/page.js", ["optedOutReasonKey"]],
   ["app/sales/messages/CheckInDraft.js", ["checkinHeadlineKey"]],
   ["app/sales/login/page.js", ["errorText(t, err, AUTH_REFUSAL_KEYS)"]],
   ["app/sales/invite/[token]/page.js", ["errorText(t, err, AUTH_REFUSAL_KEYS)"]],
@@ -531,7 +537,7 @@ for (const route of ["app/api/sales/auth/login/route.js", "app/api/sales/auth/in
 // still hold, and both are easy to break from THIS side — resolving a key into
 // a component instead of into a variable would break the first, and hard-coding
 // a friendlier sentence would break the second. Asserted twice on purpose.
-for (const screen of ["app/sales/leads/[id]/page.js", "app/sales/threads/[id]/page.js"]) {
+for (const screen of ["app/sales/leads/[id]/page.js", "app/sales/threads/page.js"]) {
   const src = decomment(read(screen));
   ok(`${screen} still renders {optedOutReason} as a bare expression`, /\{\s*optedOutReason\s*\}/.test(src));
   ok(

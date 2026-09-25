@@ -335,7 +335,10 @@ section("10. agencyTeam and the floor scope");
 {
   fresh();
   rows.salesAttribution.push({ salesRepId: "e1", capturedAt: NOW }, { salesRepId: "e1", capturedAt: new Date("2026-08-01T00:00:00Z") }, { salesRepId: FREELANCER.id, capturedAt: NOW });
-  rows.salesCallAttempt.push({ salesRepId: "e1", direction: "out", dialledAt: NOW }, { salesRepId: "e1", direction: "in", dialledAt: NOW }, { salesRepId: FREELANCER.id, direction: "out", dialledAt: NOW });
+  // `kind: "prospect"` is the column's schema default, which the stub does
+  // not apply: every count here now reads through prospectDialsOnly
+  // (lib/sales/testLines.js, af4ad500), which asks for it by name.
+  rows.salesCallAttempt.push({ salesRepId: "e1", direction: "out", kind: "prospect", dialledAt: NOW }, { salesRepId: "e1", direction: "in", kind: "prospect", dialledAt: NOW }, { salesRepId: FREELANCER.id, direction: "out", kind: "prospect", dialledAt: NOW });
   rows.salesCommissionEntry.push({ salesRepId: "e1", amountCents: 700, payoutBatchId: null });
   const team = await agencyTeam({ agencyId: AGENCY.id, origin: "https://app.example", now: NOW });
   ok("lists the three employees and nobody else", team.length === 3 && team.every((m) => ["e1", "e2", "e3"].includes(m.id)), team.map((m) => m.id));
@@ -623,7 +626,8 @@ section("The agency performance page: one computation, scoped to the team (owner
   fresh();
   const { loadPerformanceReport } = await import("@/lib/sales/performanceLoad");
   const { callQaQueue } = await import("@/lib/sales/calls/qaQueue");
-  const dial = (salesRepId, i, extra = {}) => ({ id: `${salesRepId}-${i}`, salesRepId, direction: "out", dialChannel: "browser", dialledAt: NOW, providerCallSid: `CA${salesRepId}${i}`, providerStatus: "completed", talkSeconds: 90, answeredAt: NOW, endedAt: NOW, disposition: "reached", qa: null, ...extra });
+  // kind: the schema default the stub does not apply (see section 10).
+  const dial = (salesRepId, i, extra = {}) => ({ id: `${salesRepId}-${i}`, salesRepId, direction: "out", kind: "prospect", dialChannel: "browser", dialledAt: NOW, providerCallSid: `CA${salesRepId}${i}`, providerStatus: "completed", talkSeconds: 90, answeredAt: NOW, endedAt: NOW, disposition: "reached", qa: null, ...extra });
   rows.salesCallAttempt.push(
     dial("e1", 1), dial("e1", 2, { talkSeconds: 30, disposition: "voicemail" }), dial("e1", 3, { providerStatus: "no-answer", talkSeconds: 0, answeredAt: null, disposition: "no_answer" }),
     dial("e2", 1),

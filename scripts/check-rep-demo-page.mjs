@@ -111,8 +111,9 @@ function fakeClient() {
   const intro = new Map();
   const events = [];
   const leads = [];
+  const leadWrites = [];
   const client = {
-    reps, intro, events, leads,
+    reps, intro, events, leads, leadWrites,
     // The page resolves its path segment through lib/sales/repLink.js:
     // the opaque token by findUnique, the legacy code by a case-insensitive
     // findFirst.
@@ -137,7 +138,18 @@ function fakeClient() {
       findUnique: async ({ where }) => events.find((e) => e.id === where.id) || null,
       create: async ({ data }) => { const e = { id: `ev_${events.length + 1}`, ...data }; events.push(e); return e; },
     },
-    salesLead: { findFirst: async ({ where }) => leads.find((l) => l.salesRepId === where.salesRepId && l.email === where.email) || null },
+    // A booked demo moves the lead forward to "demoed" through
+    // lib/sales/leadStatus.js's compare-and-set updateMany (inside the
+    // booking's transaction). Recorded so the check can say what it asked.
+    salesLead: {
+      findFirst: async ({ where }) => leads.find((l) => l.salesRepId === where.salesRepId && l.email === where.email) || null,
+      updateMany: async ({ where, data }) => {
+        leadWrites.push({ where, data });
+        const hit = leads.filter((l) => l.id === where.id && l.salesRepId === where.salesRepId && (!where.status?.in || where.status.in.includes(l.status)));
+        for (const l of hit) Object.assign(l, data);
+        return { count: hit.length };
+      },
+    },
     salesCallAttempt: { findMany: async () => [] },
     platformSmsNumber: { findFirst: async () => null },
     salesMailbox: { findUnique: async () => null },
@@ -199,6 +211,10 @@ function fakeClient() {
   const ev = client.events[0];
   ok("…as a SalesEvent of type demo, 15 minutes, linked to the lead and snapshotting the contact", client.events.length === 1 && ev.type === "demo" && ev.leadId === "lead_1" && ev.endAt.getTime() - ev.startAt.getTime() === 15 * 60_000 && ev.contactName === "Dave Martin" && ev.businessName === "Acme Roofing", ev);
   ok("…and stamps the intro row with the event and the request time", client.intro.get("ie_1").demoEventId === "ev_1" && client.intro.get("ie_1").demoRequestedAt === now);
+  ok("…and moves the lead forward to demoed, never back (compare-and-set on the statuses below it)",
+    client.leadWrites.length === 1 && client.leadWrites[0].where.id === "lead_1" && client.leadWrites[0].where.salesRepId === "rep_1" &&
+      client.leadWrites[0].data.status === "demoed" && Array.isArray(client.leadWrites[0].where.status?.in) && !client.leadWrites[0].where.status.in.includes("demoed"),
+    client.leadWrites);
   ok("the label is in French in the lead's zone", /vendredi/.test(booked.when) && /13/.test(booked.when), booked.when);
 
   const again = await bookRepDemo({ repCode: "dan", token, slot: "2026-09-18T17:30:00.000Z", name: "Dave Martin", email: "dave@acme.example", client, now });
@@ -224,7 +240,12 @@ function fakeClient() {
 // ── Wiring ─────────────────────────────────────────────────────────────────
 {
   const send = decomment(read("lib/sales/outreach/introSend.js"));
-  ok("the intro email mints the demo button as the rep's page with the token", /demoUrl: repDemoUrl\(appOrigin, repRow\?\.code, \{ token: sealIntroLink\(/.test(send));
+  // Since c972ee02 the rep's page is addressed by the opaque referral token
+  // (ensureReferralToken), not the name-derived code — the page accepts
+  // both, and the email mints the token.
+  ok("the intro email mints the demo button as the rep's page with the token",
+    /const linkCode = repRow \? await ensureReferralToken\(repRow\) : null;/.test(send) &&
+      /demoUrl: repDemoUrl\(appOrigin, linkCode, \{ token: sealIntroLink\(/.test(send));
   const iPage = decomment(read("app/i/[token]/page.js"));
   ok("the old /i link forwards a demo token to the page", /opened\.kind === "demo"/.test(iPage) && /redirect\(repDemoUrl\(/.test(iPage));
   const route = decomment(read("app/api/demo/rep/[repCode]/route.js"));

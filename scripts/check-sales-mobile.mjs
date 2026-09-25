@@ -441,7 +441,15 @@ section("6. Every screen clears the bar");
     ok("the ring is drawn through the shared AlertDialog, role=alertdialog, labelled and described, Pick up focused first", /<AlertDialog\s+open=\{ringing\}\s+role="alertdialog"/.test(dockSrc) && /labelledBy="fq-incoming-call-title"/.test(dockSrc) && /id="fq-incoming-call-title"/.test(dockSrc) && /describedBy="fq-incoming-call-caller"/.test(dockSrc) && /id="fq-incoming-call-caller"/.test(dockSrc) && /initialFocusRef=\{pickUpRef\}/.test(dockSrc) && /ref=\{pickUpRef\}[\s\S]*?data-incoming-pick-up/.test(dockSrc));
     ok("…with no onEscape and no onScrim — a ring cannot be dismissed by accident", ringJsx.length > 0 && !/onEscape=/.test(ringJsx) && !/onScrim=/.test(ringJsx));
     ok("…and the primitive's defaults are the safe direction: Escape and the scrim do nothing unless told", /escapeRef\.current\?\.\(\);/.test(dialog) && /onScrim \? \(/.test(dialog) && /aria-hidden="true"/.test(dialog));
-    ok("…centred at every width, inside the wrapper's 16px gutters, a full-width card", /placement="center"/.test(dockSrc) && /items-center justify-center/.test(dialog) && /p-4/.test(dialog) && /relative w-full sm:max-w-md/.test(dialog));
+    // Since 89c9f81a the gutter and the card width are AlertDialog props
+    // whose DEFAULTS are the classes the ring had inline ("p-4",
+    // "sm:max-w-md"), so the ring gets them by not overriding either.
+    ok("…centred at every width, inside the wrapper's 16px gutters, a full-width card",
+      /placement="center"/.test(dockSrc) && /items-center justify-center/.test(dialog) &&
+        /wrapperClass = "p-4"/.test(dialog) && /widthClass = "sm:max-w-md"/.test(dialog) &&
+        /className=\{`fixed inset-0 \$\{zClass\} flex \$\{wrapperLayout\} \$\{wrapperClass\}`\}/.test(dialog) &&
+        /className=\{`relative w-full \$\{widthClass\}/.test(dialog) &&
+        !/wrapperClass=|widthClass=/.test(ringJsx));
     ok("…Pick up and Decline are ≥ 44px and carry hooks", /min-h-\[52px\][^"]*"\s*data-incoming-pick-up/.test(dockSrc) && /min-h-\[52px\][^"]*"\s*data-incoming-decline/.test(dockSrc));
     ok("…with a ring clock in the catalogue's words", /data-incoming-ring-clock/.test(dockSrc) && /app\.salesDial\.ringingFor/.test(dockSrc));
     // 2026-09-18: the live call and the outbound write-up are LiveCallStrip's
