@@ -3,7 +3,7 @@
 ## The entity graph
 
 Every model, and what points at it. Generated from `prisma/schema.prisma`, so
-it cannot drift from the code. 304 models.
+it cannot drift from the code. 306 models.
 
 **Read it before adding anything.** The question it answers is "what already
 touches this, and what would my change touch" — which is the question that was
@@ -18,7 +18,7 @@ tenancy, so it carries no information.
 | Entity | Pointed at by | From |
 |---|---:|---|
 | **SalesRep** | 31 | Company, PlatformAuditLog, PlatformSmsNumber, PushSubscription, SalesAttribution, SalesAttributionTouch, SalesCallAttempt, SalesCallTransfer, SalesCheckIn, SalesCommissionEntry +21 |
-| **Job** | 21 | Appointment, AssetUseLog, ChangeOrder, CompanyChatRoom, DailyObjectiveSheet, Invoice, JobDailyLog, JobDocument, JobMaterial, JobPaymentStage +11 |
+| **Job** | 22 | Appointment, AssetUseLog, ChangeOrder, CompanyChatRoom, DailyObjectiveSheet, Invoice, JobCommission, JobDailyLog, JobDocument, JobMaterial +12 |
 | **Worker** | 21 | AvailabilityRequest, DailyObjectiveSheet, LeaveBalance, LeaveRequest, LocationStamp, OnboardingRun, PayRunLine, Payout, PolicyAcknowledgement, SafetyIncident +11 |
 | **Prospect** | 18 | PlatformVoiceCall, ProspectCapability, ProspectCorrection, ProspectEvidence, ProspectInference, ProspectOpportunity, ProspectPerson, ProspectScore, ProspectTalkingPoint, ProspectTechnology +8 |
 | **PlatformAdmin** | 16 | DemoBooking, DemoHostAvailability, PlatformAuditLog, PlatformFixedBill, PlatformSmsNumber, PushSubscription, SalesCallAttempt, SalesCallEvent, SalesJurisdictionOverride, SalesTelemarketerRegistration +6 |
@@ -38,7 +38,7 @@ tenancy, so it carries no information.
 
 ### Every model, both directions
 
-<details><summary>304 models — expand</summary>
+<details><summary>306 models — expand</summary>
 
 | Model | Points at | Pointed at by |
 |---|---|---|
@@ -62,7 +62,7 @@ tenancy, so it carries no information.
 | `ClientEquipmentService` | ClientEquipment | — |
 | `ClientTicket` | Client | ClientTicketMessage |
 | `ClientTicketMessage` | ClientTicket | — |
-| `Company` | AiCreditBundle, CompanyGoogleBusiness, CompanySite, CrewInboxNumber, ForecastSettings, LinkPage, MetaAdConnection, SalesAttribution, SalesRep, SignupDismissal, SignupLead, SignupOrigin, Subscription, VoiceAgent, VoiceAutoTopup | AccountAbuseStrike, ActivityLog, AiCreditBundle, AiDigest, AiEmployee, AiEmployeeProposal, AiEmployeeReply, AiEmployeeRoutingEvent, AiEmployeeSource, AiUsage, Appointment, Asset, AssetUseLog, AvailabilityRequest, CallConsent, CallbackEntry, CallbackList, CallbackRule, Client, ClientEquipment, ClientTicket, CompanyChatMember, CompanyChatMessage, CompanyChatRoom, CompanyDocument, CompanyFeatureOverride, CompanyGalleryPair, CompanyGoogleBusiness, CompanyServiceCategory, CompanySite, CompanyTextTranslation, ComplexityFactorPreset, ConnectFeeRecovery, CrewInboundMessage, CrewInboxNumber, CustomField, DailyObjectiveSheet, Debt, DocumentSignature, DocumentTemplate, EmailMessage, EventType, Expense, ExpenseImportBatch, FollowUpRule, ForecastSettings, Funnel, FunnelVisit, GoogleReview, InstantPayout, InstantQuoteConfig, Invoice, Job, JobChecklistTemplate, JobDailyLog, JobDocument, JobPaymentStage, JobPhoto, JobPhotoComment, JobPhotoMention, JobPhotoTag, JobSubcontractor, LeadRequest, LeavePolicy, LeaveRequest, LinkPage, LocationStamp, MailboxConnection, MarketingCampaign, MarketingDesign, MarketingSpend, MarketingSubscriber, Material, MaterialRecipeSetting, Member, MessageThread, MessagingChannel, MetaAdConnection, MetaLeadForm, MetaPageConnection, MigrationRequest, NotificationDelivery, NotificationEvent, NotificationRule, OfflineSyncItem, PayRun, PaymentScheduleStage, PendingTeamProfile, Product, Prospect, PurchaseOrder, QuickAddItem, Quote, QuoteImport, QuoteTemplate, QuoteTextBlock, Receipt, RecordEdit, ReferralCredit, ReferralInvite, SafetyIncident, Salary, SalaryComponent, SalesAttribution, SalesAttributionTouch, SalesCheckIn, SalesCommissionEntry, SalesRep, SatisfactionResponse, ScheduleEvent, ServiceCategory, ServiceDocument, ServicePlan, ServicePlanTemplate, Shift, ShiftAttendance, ShiftRequest, ShoutOut, SignupDismissal, SignupLead, SignupOrigin, SmsDelivery, SmsOptOut, SocialPublish, StockMovement, Subcontractor, SubcontractorPayment, Subscription, Supplier, SupplyRequest, SupportTicket, Task, TaxRate, VehicleDetail, VoiceAgent, VoiceAutoTopup, VoiceCall, VoiceCallTask, VoiceCreditEntry, VoicePhoneNumber, WhatsAppTemplate, WorkArea, Worker, WorkingHours |
+| `Company` | AiCreditBundle, CompanyGoogleBusiness, CompanySite, CrewInboxNumber, ForecastSettings, LinkPage, MetaAdConnection, SalesAttribution, SalesRep, SignupDismissal, SignupLead, SignupOrigin, Subscription, VoiceAgent, VoiceAutoTopup | AccountAbuseStrike, ActivityLog, AiCreditBundle, AiDigest, AiEmployee, AiEmployeeProposal, AiEmployeeReply, AiEmployeeRoutingEvent, AiEmployeeSource, AiUsage, Appointment, Asset, AssetUseLog, AvailabilityRequest, CallConsent, CallbackEntry, CallbackList, CallbackRule, Client, ClientEquipment, ClientTicket, CompanyChatMember, CompanyChatMessage, CompanyChatRoom, CompanyDocument, CompanyFeatureOverride, CompanyGalleryPair, CompanyGoogleBusiness, CompanyServiceCategory, CompanySite, CompanyTextTranslation, ComplexityFactorPreset, ConnectFeeRecovery, CrewInboundMessage, CrewInboxNumber, CustomField, DailyObjectiveSheet, Debt, DocumentSignature, DocumentTemplate, EmailMessage, EventType, Expense, ExpenseImportBatch, FollowUpRule, ForecastSettings, Funnel, FunnelVisit, GoogleReview, InstantPayout, InstantQuoteConfig, Invoice, Job, JobChecklistTemplate, JobCommission, JobCommissionEntry, JobDailyLog, JobDocument, JobPaymentStage, JobPhoto, JobPhotoComment, JobPhotoMention, JobPhotoTag, JobSubcontractor, LeadRequest, LeavePolicy, LeaveRequest, LinkPage, LocationStamp, MailboxConnection, MarketingCampaign, MarketingDesign, MarketingSpend, MarketingSubscriber, Material, MaterialRecipeSetting, Member, MessageThread, MessagingChannel, MetaAdConnection, MetaLeadForm, MetaPageConnection, MigrationRequest, NotificationDelivery, NotificationEvent, NotificationRule, OfflineSyncItem, PayRun, PaymentScheduleStage, PendingTeamProfile, Product, Prospect, PurchaseOrder, QuickAddItem, Quote, QuoteImport, QuoteTemplate, QuoteTextBlock, Receipt, RecordEdit, ReferralCredit, ReferralInvite, SafetyIncident, Salary, SalaryComponent, SalesAttribution, SalesAttributionTouch, SalesCheckIn, SalesCommissionEntry, SalesRep, SatisfactionResponse, ScheduleEvent, ServiceCategory, ServiceDocument, ServicePlan, ServicePlanTemplate, Shift, ShiftAttendance, ShiftRequest, ShoutOut, SignupDismissal, SignupLead, SignupOrigin, SmsDelivery, SmsOptOut, SocialPublish, StockMovement, Subcontractor, SubcontractorPayment, Subscription, Supplier, SupplyRequest, SupportTicket, Task, TaxRate, VehicleDetail, VoiceAgent, VoiceAutoTopup, VoiceCall, VoiceCallTask, VoiceCreditEntry, VoicePhoneNumber, WhatsAppTemplate, WorkArea, Worker, WorkingHours |
 | `CompanyChatMember` | CompanyChatRoom, Member | — |
 | `CompanyChatMessage` | CompanyChatRoom, Member | — |
 | `CompanyChatRoom` | Job | CompanyChatMember, CompanyChatMessage, Job |
@@ -97,8 +97,9 @@ tenancy, so it carries no information.
 | `InvoiceCosting` | Invoice | Invoice |
 | `JenniferConversation` | — | JenniferMessage |
 | `JenniferMessage` | JenniferConversation | — |
-| `Job` | Client, ClientEquipment, CompanyChatRoom, Quote, SatisfactionResponse | Appointment, AssetUseLog, ChangeOrder, CompanyChatRoom, DailyObjectiveSheet, Invoice, JobDailyLog, JobDocument, JobMaterial, JobPaymentStage, JobPhoto, JobSubcontractor, JobVisit, LocationStamp, MarketingDesign, SafetyIncident, SatisfactionResponse, Shift, SupplyRequest, Task, TimeEntry |
+| `Job` | Client, ClientEquipment, CompanyChatRoom, JobCommission, Quote, SatisfactionResponse | Appointment, AssetUseLog, ChangeOrder, CompanyChatRoom, DailyObjectiveSheet, Invoice, JobCommission, JobDailyLog, JobDocument, JobMaterial, JobPaymentStage, JobPhoto, JobSubcontractor, JobVisit, LocationStamp, MarketingDesign, SafetyIncident, SatisfactionResponse, Shift, SupplyRequest, Task, TimeEntry |
 | `JobChecklistTemplate` | ServiceCategory | — |
+| `JobCommission` | Job | Job |
 | `JobDailyLog` | Job | — |
 | `JobDocument` | Job | — |
 | `JobMaterial` | Job | — |

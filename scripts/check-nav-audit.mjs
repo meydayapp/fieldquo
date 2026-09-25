@@ -242,6 +242,7 @@ for (const [name, groupList] of [
 // not decoration: it's what a reviewer reads to judge whether "unreachable
 // from the nav" is actually true of a route with no sidebar row.
 const DRILL_INS = {
+  "/app/analytics/commissions": "the commissions report — opened from Settings → Commissions and from the pay run page, beside the rates and the payout it reports on; commissions are off until a company turns them on, so it is not a nav row everyone sees",
   "/app/callbacks": "the past-client callback list for whoever the rotation is assigned to — opened from the Clients list's own link and from Settings → Follow-ups → Past clients; not a nav row because most weeks it is one person's short list, not a place the company browses to",
   "/app/daily-sheets/week": "one person's week of daily sheets — opened from the This week link on their sheet",
   "/app/settings/follow-ups/past-clients": "the callback rotation rule and this week's list — opened from the Follow-ups settings page's own Past clients link, beside the rules it belongs with",
