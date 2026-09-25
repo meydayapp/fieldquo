@@ -185,7 +185,7 @@ export async function POST(request) {
       // audit named: a rep on a demo account types a live prospect's mobile in
       // and a stranger gets a real text about a company that does not exist.
       // See lib/sms/demoSms.js.
-      const result = await sendSms({ to: phone, body: text, companyId: company.id });
+      const result = await sendSms({ to: phone, body: text, companyId: company.id, purpose: "referral_invite" });
       if (!result.success) throw new Error(result.error || "SMS failed");
       providerMessageId = result.sid;
     } else {

@@ -320,6 +320,23 @@ as "for development, not for production apps used by real advertisers."
   — no email, no SMS, no AI. A company with nobody on a checklist and no
   dated certificate costs nothing beyond the invocation.
 - **`/api/cron/time-clock-watch` — every 15 minutes (2026-09-13). Nothing to set** beyond `CRON_SECRET`. Asks a worker "Still clocked in?" (push + bell) and tells their manager once when an open time entry has outlived its published shift by 30 min (14 h with no shift), and writes the late / no-show / early-out verdict per published shift (`ShiftAttendance`). It never closes an entry. Cost: **96 invocations a day** (~2,900 a month), each a handful of indexed reads bounded at 500 open entries and 2,000 shifts; a company with no published shifts and nobody clocked in costs one query per run. `vercel.json` carries the schedule.
+- **`/api/cron/sms-delivery-reconcile` — hourly at :41 (2026-09-24). Nothing
+  new to set** beyond `CRON_SECRET` and the Twilio credentials already there.
+  Every text sendSms() sends carries a Twilio `statusCallback` pointing at
+  **`/api/sms/status`** (public, verified with `X-Twilio-Signature`, so it
+  needs `TWILIO_AUTH_TOKEN` — an API key alone can send but cannot verify the
+  callback). The callback URL is built from `NEXT_PUBLIC_APP_URL`, falling
+  back to `VERCEL_URL`; if Deployment Protection covers the `*.vercel.app`
+  URL, set `NEXT_PUBLIC_APP_URL` to the production domain or every callback
+  401s. This cron is the net under that: any text still in flight 30 minutes
+  after sending is looked up by SID in Twilio (at most 150 a run, each at most
+  hourly, never after 72 h) and its real status written to `SmsDelivery`.
+  **/platform/sms-health** shows how many rows each mechanism settled — lots
+  "settled by reconcile, no callback" means the callback isn't arriving.
+  Cost: 24 invocations a day, one indexed query each, plus one Twilio GET per
+  unsettled text. **Schema:** the `SmsDelivery` table must exist before this
+  deploy is useful (until it does, texts still send — untracked); SQL in
+  docs/ROADMAP.md under "SMS delivery receipts".
 - **`/api/cron/billing-sync` — every 6 hours at :20 (2026-09-13). Nothing to
   set** beyond `CRON_SECRET` and the live `STRIPE_SECRET_KEY` already there.
   Reads every non-demo subscription with a Stripe id back from Stripe and

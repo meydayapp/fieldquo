@@ -528,6 +528,11 @@ const GROUPS = [
       // account" for where call events land; the numbers it bills for are a
       // Spending row (Retell numbers).
       { label: "Voice webhooks", href: "/platform/voice-webhooks", icon: Webhook },
+      // Whether texts actually ARRIVED — carrier receipts per number, per
+      // company, per error code (30034 = an unregistered A2P 10DLC number).
+      // Beside voice webhooks because it is the same kind of question: is
+      // the provider's side doing what our side believes it did.
+      { label: "SMS delivery", href: "/platform/sms-health", icon: MessageSquareText },
       // Where fieldquo.com's traffic goes, the signup funnel, which /app
       // screens are used and by how many companies. FieldQuo's own count
       // (lib/analytics/product/), so it sits with FieldQuo's own systems.

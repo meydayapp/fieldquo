@@ -19,6 +19,7 @@ import { pickAbout, prefillLocation, aboutLabel } from "@/lib/schedule/appointme
 import { loadAboutRecord } from "@/lib/schedule/aboutRecord";
 import { geocodeAppointment, appointmentAddress } from "@/lib/geo/geocodeAppointment";
 import { loadScheduleFeed } from "@/lib/schedule/feed";
+import { attachCalendarTexts } from "@/lib/sms/deliveryStore";
 import { scheduleSync } from "@/lib/calendar/googleSync";
 
 export async function GET(request) {
@@ -32,7 +33,13 @@ export async function GET(request) {
   // no caller can hand it a session member with no permissions and have every
   // scope fall open.
   const full = await loadEnforceableMember(db, member.id);
-  return NextResponse.json(await loadScheduleFeed(db, member, full));
+  const feed = await loadScheduleFeed(db, member, full);
+  // Whether the confirmation / reminder / on-my-way text for each entry
+  // actually ARRIVED (model SmsDelivery). Attached here, after the feed's
+  // scoping, so it can only decorate entries this member may already see.
+  // A failure costs the receipts, never the calendar.
+  const withTexts = await attachCalendarTexts(member.companyId, feed).catch(() => feed);
+  return NextResponse.json(withTexts);
 }
 
 export async function POST(request) {

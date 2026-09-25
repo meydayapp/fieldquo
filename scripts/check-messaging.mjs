@@ -862,7 +862,9 @@ ok(
 );
 ok(
   "a FAILED reply is marked failed from the stored reason, never drawn as delivered",
-  /status: m\.failedReason \? "failed" : "sent"/.test(read("lib/messaging/rooms.js")) &&
+  // Widened 2026-09-24: an SMS carrier failure (SmsDelivery receipt) also
+  // turns the bubble — the stored reason still does, first.
+  /status: m\.failedReason \|\| receipt\?\.verdict === "failed" \? "failed" : "sent"/.test(read("lib/messaging/rooms.js")) &&
     /error: m\.failedReason \|\| null/.test(read("lib/messaging/rooms.js")),
 );
 

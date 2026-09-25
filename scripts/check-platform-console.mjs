@@ -527,6 +527,8 @@ const HREFS_BEFORE_REGROUP = [
   "/platform/sales/windows", "/platform/service-categories", "/platform/settings",
   "/platform/signup-origins", "/platform/signups", "/platform/support", "/platform/suppressions",
   "/platform/team", "/platform/voice-economics", "/platform/voice-numbers", "/platform/voice-webhooks",
+  // 2026-09-24: SMS delivery receipts (own systems, beside voice webhooks).
+  "/platform/sms-health",
 ];
 const allHrefs = [HOME?.[1], ...PLATFORM_ITEMS.map((i) => i.href)].filter(Boolean);
 const counts = new Map();
@@ -548,7 +550,7 @@ const MEMBERSHIP = {
   salesTeam: ["/platform/sales/reps", "/platform/sales/floor", "/platform/sales/performance", "/platform/sales/call-quality", "/platform/sales/funnel", "/platform/sales/notes", "/platform/sales/conversations", "/platform/sales/windows", "/platform/sales/review", "/platform/sales/retry-pool"],
   leadData: ["/platform/sales/prospects", "/platform/sales/campaigns", "/platform/sales/snapshots", "/platform/sales/capabilities", "/platform/sales/rules", "/platform/sales/playbooks", "/platform/sales/confidence", "/platform/sales/signatures", "/platform/suppressions"],
   support: ["/platform/chat", "/platform/support", "/platform/feedback", "/platform/jennifer", "/platform/data-deletion", "/platform/errors"],
-  own: ["/platform/sales-agent", "/platform/voice-webhooks", "/platform/analytics", "/platform/service-categories", "/platform/audit-log", "/platform/help", "/platform/team", "/platform/settings"],
+  own: ["/platform/sales-agent", "/platform/voice-webhooks", "/platform/sms-health", "/platform/analytics", "/platform/service-categories", "/platform/audit-log", "/platform/help", "/platform/team", "/platform/settings"],
 };
 for (const [key, hrefs] of Object.entries(MEMBERSHIP)) {
   const strays = hrefs.filter((h) => groupOf(h) !== key);

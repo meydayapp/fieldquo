@@ -237,7 +237,7 @@ export async function POST(request) {
   // record is the part that must be real, and it is.
   if (shouldSendOwnConfirmation()) {
     const text = verdict === "opt_out" ? optOutConfirmation(company.name) : optInConfirmation(company.name);
-    await sendSms({ to: from, from: to, body: text, companyId: company.id }).catch((err) =>
+    await sendSms({ to: from, from: to, body: text, companyId: company.id, purpose: "opt_out_confirmation" }).catch((err) =>
       recordError({
         area: "sms_opt_out",
         message: `${verdict === "opt_out" ? "Opt-out" : "Opt-in"} confirmation text failed: ${err.message}`,

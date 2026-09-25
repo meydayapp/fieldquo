@@ -2058,6 +2058,9 @@ model Company {
   /// minScore }.
   performancePayRule Json?
   smsOptOuts    SmsOptOut[]
+  /// Every text sent on this company's behalf and what the carrier did with
+  /// it — see model SmsDelivery.
+  smsDeliveries SmsDelivery[]
 
   /// Where a happy customer should leave a review. Usually a Google review
   /// link. Null means we don't ask — a review request with nowhere to go is
@@ -6513,6 +6516,100 @@ model SmsOptOut {
   createdAt DateTime @default(now())
 
   @@unique([companyId, e164])
+}
+
+/// One outbound text, and what became of it after Twilio accepted it.
+///
+/// ══ Why this table exists ══════════════════════════════════════════════════
+///
+/// Twilio answering 201 means Twilio QUEUED the text — not that a phone got it.
+/// US carriers silently drop texts from numbers not registered for A2P 10DLC
+/// (error 30034), and landlines, dead numbers and spam filters fail the same
+/// way: after the send "worked". Until this table, FieldQuo recorded the 201
+/// and nothing after it, so a booking confirmation that never arrived looked
+/// exactly like one that did. The owner asked "did you fix the text issue?"
+/// and nobody could answer.
+///
+/// ══ How a row moves ═══════════════════════════════════════════════════════
+///
+/// Written by lib/sms/twilioClient.js's sendSms() — the ONE place every
+/// client, crew and FieldQuo-own text goes through — BEFORE the send, so the
+/// statusCallback URL can name it (`?d=<id>`) and a callback that races the
+/// send's own reply still finds its row. Then advanced by:
+///   · /api/sms/status — Twilio's statusCallback, signature-verified;
+///   · /api/cron/sms-delivery-reconcile — for a row no callback moved, it
+///     asks Twilio's API directly. A system that depends on a webhook must
+///     notice the webhook's ABSENCE, and lastCallbackAt vs reconciledAt is
+///     how /platform/sms-health tells the two apart.
+/// Status only moves FORWARD (lib/sms/deliveryStatus.js canAdvance): a late
+/// "sent" never un-delivers a delivered text, and a failure is final.
+///
+/// Demo tenants' simulated texts are NOT written here — nothing was sent, so
+/// there is nothing to be delivered (lib/sms/demoSms.js).
+model SmsDelivery {
+  id String @id @default(cuid())
+
+  /// Twilio's Message SID. Null until Twilio answers the create call, and
+  /// null for ever on a send Twilio refused outright (errorCode says why).
+  sid String? @unique
+
+  /// The tenant the text was sent for. Null for FieldQuo's OWN texts
+  /// (lib/sales/salesSms.js) — there is no tenant behind them.
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// What the text was FOR — booking_confirmation, appointment_reminder,
+  /// on_my_way, thread_reply, change_order, crew_reply, … (the list is in
+  /// lib/sms/deliveryStatus.js SMS_PURPOSES). Read by the platform panel's
+  /// breakdown and by the screens that label a text ("Confirmation text").
+  purpose String
+
+  /// The record the text was about, when it has one: "appointment",
+  /// "booking", "visit", "change_order", "referral". Read by
+  /// /api/appointments to put a text's fate on the calendar entry it was
+  /// sent for. Loose on purpose (no FK): the table outlives the rows it
+  /// names and is keyed by what the send path had in hand.
+  refType String?
+  refId   String?
+
+  /// The Client it went to, when the send path knew — read by the client
+  /// page's "Texts" list.
+  clientId String?
+
+  /// E.164. The full number is stored because the provider lookup and the
+  /// per-number breakdown need it; every SCREEN shows the last four only
+  /// (lib/sms/deliveryStatus.js maskPhone).
+  toE164   String
+  fromE164 String?
+
+  /// pending (row written, Twilio not answered yet) → accepted/queued/sending
+  /// → sent → delivered | undelivered | failed. "unconfirmed" is ours: a row
+  /// whose send never came back with a SID, closed by the reconcile cron.
+  status String @default("pending")
+
+  /// Twilio's error code (30034, 30003, 21610 …) and, when Twilio's API gave
+  /// one, its message. The code is what the screens translate into a plain
+  /// reason; the message is kept for the platform console.
+  errorCode    Int?
+  errorMessage String?
+
+  sentAt    DateTime  @default(now())
+  /// When `status` last changed.
+  statusAt  DateTime?
+  updatedAt DateTime  @updatedAt
+
+  /// Evidence of which mechanism is working. A row with reconciledAt and no
+  /// lastCallbackAt is a text whose statusCallback never arrived — counted
+  /// on /platform/sms-health, because a misrouted webhook must be visible.
+  lastCallbackAt DateTime?
+  callbackCount  Int       @default(0)
+  reconciledAt   DateTime?
+
+  @@index([companyId, sentAt])
+  @@index([status, sentAt])
+  @@index([refType, refId])
+  @@index([clientId, sentAt])
+  @@index([sentAt])
 }
 
 // One address on a pamphlet route. Ordering is precomputed (nearest-neighbor

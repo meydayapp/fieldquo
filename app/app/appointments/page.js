@@ -22,7 +22,9 @@ import {
   Mail,
   Video,
   FileText,
+  MessageSquare,
 } from "lucide-react";
+import SmsReceiptLine from "@/app/components/sms/SmsReceiptLine";
 import { reportResponseError } from "@/lib/clientErrors";
 import { fetchJson } from "@/lib/fetchJson";
 import { personOptionLabel } from "@/lib/team/personLabel";
@@ -1340,6 +1342,19 @@ function AppointmentDetails({ appt, panelId, canOpenClient, t, language = "en" }
         </DetailRow>
         <DetailRow icon={MapPin} label={t("app.field.address")}>
           {address(clientAddress)}
+        </DetailRow>
+        {/* Whether the confirmation / reminder / on-my-way text reached the
+            client's phone (SmsDelivery, attached by GET /api/appointments).
+            Nothing at all when no receipt exists — a text sent before
+            receipts were kept has none, and "no text" would be a claim. */}
+        <DetailRow icon={MessageSquare} label={t("app.sms.textsLabel")}>
+          {Array.isArray(appt.texts) && appt.texts.length ? (
+            <div className="space-y-1">
+              {appt.texts.slice(0, 4).map((text, i) => (
+                <SmsReceiptLine key={`${text.purpose}:${i}`} text={text} />
+              ))}
+            </div>
+          ) : null}
         </DetailRow>
         <DetailRow icon={FileText} label={t("app.field.notes")}>
           {notesText ? (
