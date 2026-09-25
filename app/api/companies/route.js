@@ -36,6 +36,7 @@ import { stampSignupPlanByToken } from "@/lib/sales/signupProgress";
 import { isRetired, RETIRED_PLAN_ERROR } from "@/lib/platform/sellablePlans";
 import { recordSignupCompletion } from "@/lib/signup/salesFloor";
 import { SEAT_LADDER, customSeatsFromTierKey } from "@/lib/pricing/ladder";
+import { readWebsiteAnswer } from "@/lib/signup/website";
 
 export async function POST(request) {
   const session = await auth.api.getSession({ headers: request.headers });
@@ -129,7 +130,22 @@ export async function POST(request) {
     // trusted for a price — it names a card, nothing more.
     wantedTier,
     wantedPlanId,
+    // "Do you have a website?" (2026-09-24). true + the address, false, or
+    // absent. Read through lib/signup/website.js — the URL lands on
+    // Company.website, the column the company's own site already lived in;
+    // the answer on Company.hasWebsite (false puts "Create your website" on
+    // the set-up steps, lib/setupSteps.js).
+    hasWebsite,
+    website,
   } = await request.json();
+
+  const websiteAnswer = readWebsiteAnswer({ hasWebsite, website });
+  if (websiteAnswer.error) {
+    return NextResponse.json(
+      { error: "That website address doesn't look right — check it, or answer No.", field: "website" },
+      { status: 400 },
+    );
+  }
 
   // The company's default language, validated to a supported code (else English).
   const defaultLanguage = isSupported(language) ? language : DEFAULT_LANGUAGE;
@@ -343,6 +359,8 @@ export async function POST(request) {
         city: city || null,
         province: province || null,
         postalCode: postalCode || null,
+        website: websiteAnswer.website,
+        hasWebsite: websiteAnswer.hasWebsite,
         country: homeCountry,
         defaultLanguage,
         currency,

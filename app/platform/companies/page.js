@@ -25,13 +25,20 @@ const STATUS_FILTERS = [
   // /platform/signups carries the contact details and the nudge state; this
   // filter exists so somebody already IN the company list can see the same
   // population without having to know that screen is there.
-  { value: "incomplete", label: "Never finished checkout" },
+  { value: "incomplete", label: "Never finished signup" },
+  // Finished on the card-free trial (no card, no plan yet — lib/signup/
+  // abandoned.js cardFreeTrialWhere). The target of the links on
+  // /platform/signups and /platform/billing/subscriptions.
+  { value: "trial_no_plan", label: "Free trial · no plan" },
   // The ten seeded sales demos. Excluded from every other filter server-side
   // (statusWhere) so the customer list never counts them.
   { value: "demo", label: "Demo" },
 ];
 
 const STATUS_STYLES = {
+  // lib/platform/companyStanding.js tones for a card-free trial.
+  trial: "bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-900",
+  warning: "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900",
   active: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900",
   pending: "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900",
   churned: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-900",
@@ -78,6 +85,16 @@ export default function PlatformCompaniesPage() {
   const [companies, setCompanies] = useState(null);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
+  // Seeded from ?status= so the links on /platform/signups and
+  // /platform/billing/subscriptions ("Free trials without a plan") land on
+  // the filter they name. Read from window.location after mount — a lazy
+  // initialiser would disagree with the server render, and useSearchParams
+  // would need a Suspense boundary around the page — and only a value the
+  // filter row offers is taken.
+  useEffect(() => {
+    const wanted = new URLSearchParams(window.location.search).get("status") || "";
+    if (wanted && STATUS_FILTERS.some((f) => f.value === wanted)) setStatus(wanted);
+  }, []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const byCountry = useMemo(() => tallyByCountry(companies), [companies]);
@@ -231,13 +248,18 @@ export default function PlatformCompaniesPage() {
                               : "Demo"}
                         </span>
                       ) : (
+                        /* The API's derived status (lib/platform/
+                           companyStanding.js), not onboardingStatus: that
+                           column said "pending" about every card-free
+                           trial. */
                         <span
                           className={`text-xs px-2 py-0.5 rounded-full border ${
-                            STATUS_STYLES[c.onboardingStatus] ||
+                            STATUS_STYLES[c.standing?.tone || c.onboardingStatus] ||
                             "bg-muted text-muted-foreground border-border"
                           }`}
+                          data-company-standing={c.standing?.key || c.onboardingStatus}
                         >
-                          {c.onboardingStatus}
+                          {c.standing?.label || c.onboardingStatus}
                         </span>
                       )}
                       {/* The row's own status badge says "pending", which is
@@ -251,13 +273,12 @@ export default function PlatformCompaniesPage() {
                           trial date is a card-free TRIAL, not an abandoned
                           checkout (lib/billing/access.js trialAccessFor); the
                           badge says which, and how long is left. */}
-                      {!c.subscription && !c.isDemo && (
+                      {/* The trial's own words are the status badge now
+                          (standing, above); only an unfinished signup still
+                          needs this second badge. */}
+                      {!c.subscription && !c.isDemo && !c.trialEndsAt && (
                         <span className="text-xs px-2 py-0.5 rounded-full border bg-muted text-muted-foreground border-border">
-                          {!c.trialEndsAt
-                            ? "Never finished checkout"
-                            : daysLeft > 0
-                              ? `Trial · no plan yet · ${daysLeft}d left`
-                              : "Trial ended · no plan"}
+                          Never finished checkout
                         </span>
                       )}
                       {/* Expiring trials are the single most actionable thing

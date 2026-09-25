@@ -46,6 +46,9 @@ import PlatformWriteGate, {
 } from "@/app/components/platform/PlatformWriteGate";
 
 const STATUS_STYLES = {
+  // lib/platform/companyStanding.js tones for a card-free trial.
+  trial: "bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-900",
+  warning: "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900",
   active: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900",
   pending: "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900",
   churned: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-900",
@@ -203,13 +206,18 @@ export default function CompanyDetail({ companyId }) {
         <div>
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-2xl font-bold text-foreground">{company.name}</h1>
+            {/* Derived by the API (lib/platform/companyStanding.js): a
+                card-free trial reads "Trialing · no plan yet · N days left",
+                never onboardingStatus's "pending", which only moves at a
+                checkout this company never had. */}
             <span
               className={`text-xs px-2.5 py-1 rounded-full border ${
-                STATUS_STYLES[company.onboardingStatus] ||
+                STATUS_STYLES[company.standing?.tone || company.onboardingStatus] ||
                 "bg-muted text-muted-foreground border-border"
               }`}
+              data-company-standing={company.standing?.key || company.onboardingStatus}
             >
-              {company.onboardingStatus}
+              {company.standing?.label || company.onboardingStatus}
             </span>
             {/* Both columns, the same test lib/influencers makes. */}
             {company.influencerAt && company.influencerRepId ? (
