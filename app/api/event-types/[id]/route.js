@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
+import { schedulePhrases, companyWritingLanguage } from "@/lib/i18n/autoTranslateSchedule";
 
 // Same gate as POST on the collection route, and for the same reason: this
 // handler writes feeCents/promoFeeCents, which is the amount a homeowner is
@@ -84,6 +85,20 @@ export async function PATCH(request, { params }) {
       ...(promoActive !== undefined && { promoActive: Boolean(promoActive) }),
     },
   });
+
+  // A rename is drafted into the other document languages (see the POST). Only
+  // a name that actually changed: a fee or an on/off toggle must not come back
+  // claiming a translation, and the key is the text's hash, so the old
+  // name's drafts simply stop matching anything printed.
+  if (name !== undefined && updated.name !== existing.name) {
+    const autoTranslate = schedulePhrases({
+      companyId: member.companyId,
+      ns: "eventTypeName",
+      texts: [updated.name],
+      sourceLanguage: await companyWritingLanguage(member.companyId),
+    });
+    return NextResponse.json({ ...updated, autoTranslate });
+  }
 
   return NextResponse.json(updated);
 }

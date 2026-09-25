@@ -263,7 +263,14 @@ console.log("\n6. A lost connection has its own screen, and a way back");
 ok("a thrown fetch is caught separately from a refused response", /catch \{\s*if \(!cancelled\) \{\s*setOffline\(true\)/.test(pageSrc));
 ok("…and never renders err.message as the headline", !/setLoadError\(err\.message\)/.test(pageSrc.split("async function submit")[0]));
 ok("the offline screen offers a retry", /setAttempt\(\(n\) => n \+ 1\)/.test(pageSrc));
-ok("…and the retry actually re-runs the load", /\}, \[token, attempt\]\);/.test(pageSrc));
+ok("…and the retry actually re-runs the load", /\}, \[token, attempt, sample\]\);/.test(pageSrc));
+// 2026-09-25: the /signup panel renders this page from a `sample` payload
+// (app/components/auth/samples/QuoteSample.js). A sample must never reach the
+// network: the load returns before its fetch, submit refuses before its
+// POST, and "see the property" gets no token to look up.
+ok("a sample never fetches the quote", /if \(sample\) \{\s*setQuote\(sample\);\s*return undefined;\s*\}\s*let cancelled = false;/.test(pageSrc));
+ok("a sample never posts a decision", /async function submit\(decision\) \{\s*if \(sample\) return;/.test(pageSrc));
+ok("a sample asks for no street view", /token=\{sample \? null : token\}/.test(pageSrc));
 for (const code of Object.keys(CLIENT_DOC_COPY)) {
   const c = clientDocCopy(code);
   ok(`${code}: connectionLost / hint / tryAgain / linkInvalidHint are present`, Boolean(c.connectionLost && c.connectionLostHint && c.tryAgain && c.linkInvalidHint));

@@ -22,6 +22,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 // The per-trade card and its field helpers live in ./TradeCard.js, because
 // the home page's set-up dialog renders the same cards.
 import TradeCard from "./TradeCard";
+import AutoTranslateBanner from "@/app/components/settings/AutoTranslateBanner";
 import { instantQuoteCopy } from "@/lib/i18n/instantQuoteCopy";
 import AdTrackingCard from "./AdTrackingCard";
 import {
@@ -913,6 +914,9 @@ function FinancingCard({ financing, canEdit, onSaved }) {
   );
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  // The note is drafted into the other languages on save; the route answers
+  // what it queued only when the note's words changed.
+  const [autoTranslate, setAutoTranslate] = useState(null);
 
   // One stated without the other can't produce a payment, so the server stores
   // neither. Saying so here beats saving a value that silently vanishes.
@@ -924,7 +928,7 @@ function FinancingCard({ financing, canEdit, onSaved }) {
     setSaving(true);
     setSaved(false);
     try {
-      await fetchJson("/api/settings/instant-quote", {
+      const answer = await fetchJson("/api/settings/instant-quote", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -939,6 +943,7 @@ function FinancingCard({ financing, canEdit, onSaved }) {
           },
         }),
       });
+      setAutoTranslate(answer?.autoTranslate || null);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
       onSaved?.();
@@ -1116,6 +1121,7 @@ function FinancingCard({ financing, canEdit, onSaved }) {
           )}
         </div>
       )}
+      <AutoTranslateBanner result={autoTranslate} className="mt-3" />
     </section>
   );
 }

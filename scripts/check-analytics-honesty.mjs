@@ -164,7 +164,8 @@ console.log("\nPayroll — a refusal and a failure are different sentences\n");
 
   // PayRun.status is a free string column: draft | approved | paid |
   // cancelled. Three of the four used to reach the badge raw and lowercase.
-  for (const file of ["app/app/payroll/page.js", "app/app/payroll/[id]/page.js"]) {
+  // The list's badge is drawn by PayRunRow.js, the row page.js renders per run.
+  for (const file of ["app/app/payroll/PayRunRow.js", "app/app/payroll/[id]/page.js"]) {
     const s = code(file);
     ok(
       `${file} routes PayRun.status through the catalogue`,

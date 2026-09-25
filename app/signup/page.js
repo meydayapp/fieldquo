@@ -53,6 +53,8 @@ import { trackSignupStep, trackCheckoutStarted, visitorId } from "@/lib/analytic
 import { CAPTURE_DEBOUNCE_MS, CAPTURE_ENDPOINT, captureBodyFor, captureFingerprint } from "@/lib/signup/leadCapture";
 import { readWebsiteAnswer } from "@/lib/signup/website";
 import { RESUME_ACTIONS, safeResumeTarget } from "@/lib/signup/resumeRoute";
+import SignupCreating from "@/app/components/auth/SignupCreating";
+import { CREATING_TIMEOUTS, initialStages, runSignupCreation } from "@/lib/signup/creatingProgress";
 
 // "1 month free" / "3 months free". The banner hardcoded the plural and read
 // "1 months free" for the whole life of the current one-month offer. Same
@@ -285,7 +287,7 @@ const PASSWORD_MAX = 128;
 // validator that throws "t is not a function" the moment a field is empty
 // took the whole funnel down on 2026-09-13 — every visitor saw "This page
 // couldn't load". A message nobody reads may be English; a crash may not.
-function validateCompanyFields(form, t = englishOnly) {
+export function validateCompanyFields(form, t = englishOnly) {
   const errors = {};
   if (!form.companyName.trim())
     errors.companyName = t("app.signup.error.companyName", "Company name is required");
@@ -543,9 +545,15 @@ function CompanyFields({ form, setForm, fieldErrors, t = englishOnly }) {
           <label htmlFor="signup-website" className={FIELD_LABEL}>
             {t("app.signup.field.website", "Website address")}
           </label>
+          {/* type="text", not "url": the browser's URL validator refuses
+              "www.truefinishcabinets.com" (no scheme) with its own "Please
+              enter a URL." and blocks Continue — and owners type www.
+              without https. inputMode keeps the URL keyboard on a phone;
+              lib/signup/website.js adds https:// and refuses junk, and the
+              refusal is OUR inline error, in the signup's language. */}
           <input
             id="signup-website"
-            type="url"
+            type="text"
             inputMode="url"
             autoComplete="url"
             value={form.website || ""}
@@ -1114,14 +1122,23 @@ export default function SignupPage() {
   const [yearsBand, setYearsBand] = useState(null);
   const [signupGoal, setSignupGoal] = useState(null);
   const [signupSource, setSignupSource] = useState("");
-  // Two service names and descriptions for the sample quote beside the
-  // Trades step, per industry slug, from /api/signup/sample-services — the
-  // seeds stay on the server (lib/signup/sampleServices.js). Cached for the
-  // tab: the same trade is not fetched twice.
+  // The sample quote beside the Trades step, per industry slug, language and
+  // currency, from /api/signup/sample-services: two of the trade's seed
+  // services with the price a company in that trade starts with, and the
+  // trade's scope wording and steps — the seeds stay on the server
+  // (lib/signup/sampleServices.js). Cached for the tab: the same trade is not
+  // fetched twice.
   const [sampleServices, setSampleServices] = useState({});
 
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // The progress screen after "Start my free trial" (SignupCreating): null
+  // until pressed, then { stages, problem, running, slowNavigation, appUrl }.
+  // The ref holds what a Retry needs and the render does not: the request as
+  // it was first built, and whether an earlier attempt's outcome was unknown
+  // (lib/signup/creatingProgress.js — that is what makes a Retry safe).
+  const [creating, setCreating] = useState(null);
+  const creationRef = useRef({ postCompany: null, stages: null, companyMaybeCreated: false, appUrl: null });
 
   // add this state alongside your other useState calls
   const [fieldErrors, setFieldErrors] = useState({});
@@ -1792,23 +1809,32 @@ export default function SignupPage() {
   // (network, an industry with no seed) leaves the trade's quote-type
   // labels standing in — the form is never blocked on a picture.
   const firstIndustry = selectedIndustries[0] || null;
+  const sampleKey = `${firstIndustry}|${form.language}|${planCurrency}`;
   useEffect(() => {
     if (!firstIndustry || (step !== "industry" && step !== "goals")) return;
-    const cacheKey = `${firstIndustry}|${form.language}`;
-    if (sampleServices[cacheKey]) return;
+    if (sampleServices[sampleKey]) return;
     let cancelled = false;
-    fetch(`/api/signup/sample-services?industry=${encodeURIComponent(firstIndustry)}&lang=${encodeURIComponent(form.language)}`)
+    fetch(`/api/signup/sample-services?industry=${encodeURIComponent(firstIndustry)}&lang=${encodeURIComponent(form.language)}&currency=${encodeURIComponent(planCurrency || "")}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (cancelled) return;
-        const services = Array.isArray(d?.services) ? d.services : [];
-        setSampleServices((prev) => ({ ...prev, [cacheKey]: services }));
+        setSampleServices((prev) => ({
+          ...prev,
+          [sampleKey]: {
+            services: Array.isArray(d?.services) ? d.services : [],
+            categoryKey: typeof d?.categoryKey === "string" ? d.categoryKey : null,
+            currency: typeof d?.currency === "string" ? d.currency : null,
+            group: d?.group && typeof d.group === "object" ? d.group : null,
+            processSteps: Array.isArray(d?.processSteps) ? d.processSteps : [],
+            glossary: Array.isArray(d?.glossary) ? d.glossary : [],
+          },
+        }));
       })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, [firstIndustry, form.language, step, sampleServices]);
+  }, [firstIndustry, form.language, planCurrency, sampleKey, step, sampleServices]);
 
   // ── One place decides what is selected ──────────────────────────────────
   //
@@ -2055,10 +2081,14 @@ export default function SignupPage() {
       }
     }
 
-    try {
-      const res = await fetch("/api/companies", {
+    // Built once per press and kept for a Retry, so a resend is the same
+    // request byte for byte — the route's one-business guard, not this page,
+    // is what makes sending it twice safe.
+    const postCompany = (signal) =>
+      fetch("/api/companies", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal,
         body: JSON.stringify({
           name: form.companyName,
           phone: form.phone,
@@ -2104,28 +2134,32 @@ export default function SignupPage() {
           // this for anything but the stamp.
           signupLinkToken: signupLinkToken || undefined,
           next: nextPath || undefined,
+          // The no-plan finish shows the seeding as named steps, so it asks
+          // the route to create the company and leave the seeding to POST
+          // /api/signup/setup. The plan step on its way to Stripe does not.
+          stagedSetup: withoutPlan ? true : undefined,
         }),
       });
 
+    // ── No plan: the progress screen, then the app ──────────────────────────
+    //
+    // No checkout, no Stripe, no "checkout started" bar — the funnel's last
+    // two bars describe a payment that did not happen here. What the owner
+    // sees instead is SignupCreating: the company, each trade's services, the
+    // checklists, the templates, the dashboard — each ticked off when the
+    // server says it is done (runCreation below).
+    if (withoutPlan) {
+      creationRef.current = { ...creationRef.current, postCompany, stages: null };
+      await runCreation();
+      return;
+    }
+
+    try {
+      const res = await postCompany();
       const data = await res.json();
 
       if (!res.ok) {
         setError(data.error || t("app.signup.error.finishCompany", "Could not finish setting up your company"));
-        return;
-      }
-
-      // ── No plan: the company exists and the app is the next screen ─────
-      //
-      // No checkout, no Stripe, no "checkout started" bar — the funnel's last
-      // two bars describe a payment that did not happen here. The draft goes
-      // for the same reason as below: the company exists now.
-      if (withoutPlan && data.appUrl) {
-        try {
-          sessionStorage.removeItem(DRAFT_KEY);
-        } catch {
-          // Nothing to do about it, and nothing that should stop the app opening.
-        }
-        window.location.href = data.appUrl;
         return;
       }
 
@@ -2158,6 +2192,80 @@ export default function SignupPage() {
     }
   }
 
+  // ── The progress screen's run, and its Retry ────────────────────────────
+  //
+  // lib/signup/creatingProgress.js does the work: the company POST under a
+  // deadline, then the seeding stream, each stage ticked only when the server
+  // reports it. This only keeps the screen's state and does the two things a
+  // library should not — the draft and the navigation.
+  //
+  // A Retry calls this again with the stages the failed run left (done stays
+  // done) and the SAME postCompany; `companyMaybeCreated` carries "we never
+  // heard back" across, which is what lets the resend's 409 mean "it worked".
+  const signupAppUrl = isInternalPath(nextPath) ? nextPath : "/app?welcome=true";
+  async function runCreation() {
+    const trades = categories
+      .filter((c) => selectedCategoryIds.includes(c.id))
+      .map((c) => ({ id: c.id, label: c.label }));
+    const start = creationRef.current.stages || initialStages(trades);
+    setError("");
+    setCreating((c) => ({
+      stages: start,
+      problem: null,
+      running: true,
+      slowNavigation: false,
+      appUrl: c?.appUrl || signupAppUrl,
+    }));
+
+    const result = await runSignupCreation({
+      stages: start,
+      postCompany: creationRef.current.postCompany,
+      openSetup: (signal) => fetch("/api/signup/setup", { method: "POST", signal }),
+      companyMaybeCreated: creationRef.current.companyMaybeCreated,
+      fallbackAppUrl: creationRef.current.appUrl || signupAppUrl,
+      onStages: (stages) => setCreating((c) => (c ? { ...c, stages } : c)),
+    });
+
+    creationRef.current.stages = result.stages;
+    if (result.companyUnknown) creationRef.current.companyMaybeCreated = true;
+    if (result.appUrl) creationRef.current.appUrl = result.appUrl;
+
+    // Once the company exists the draft describes finished work — left
+    // behind, it would offer to build it again. Kept while that is unknown or
+    // untrue, so "Back to the form" still has everything typed.
+    if (result.outcome === "done" || result.companyCreated === true) {
+      try {
+        sessionStorage.removeItem(DRAFT_KEY);
+      } catch {
+        // Nothing to do about it, and nothing that should stop the app opening.
+      }
+    }
+
+    if (result.outcome === "done") {
+      setCreating((c) => ({ ...c, stages: result.stages, running: false, appUrl: result.appUrl }));
+      window.location.href = result.appUrl;
+      // Normally this page is gone long before this fires. If it is not, the
+      // screen offers the link by hand rather than sit on "Preparing".
+      setTimeout(
+        () => setCreating((c) => (c ? { ...c, slowNavigation: true } : c)),
+        CREATING_TIMEOUTS.navigateSlowMs,
+      );
+      return;
+    }
+    setCreating((c) => ({ ...c, stages: result.stages, problem: result, running: false, appUrl: result.appUrl || c?.appUrl }));
+  }
+
+  // Back to the form: only offered while no company exists. The error the
+  // route gave (a website it could not read, a country it could not place)
+  // goes where the form shows its errors.
+  function leaveCreating() {
+    const message = creating?.problem?.message || "";
+    creationRef.current.stages = null;
+    setCreating(null);
+    setSubmitting(false);
+    if (message) setError(message);
+  }
+
   // ── What the panel beside the form is told ──────────────────────────────
   //
   // Everything the reactive aside draws, in one object: the step, the form
@@ -2174,7 +2282,8 @@ export default function SignupPage() {
     language: form.language,
     teamSizeBand,
     signupGoal,
-    sampleServices: sampleServices[`${firstIndustry}|${form.language}`] || [],
+    sampleServices: sampleServices[sampleKey]?.services || [],
+    sampleTrade: sampleServices[sampleKey] || null,
     fallbackLines: presetLabelsForFirstTrade,
     groupLabel: INDUSTRIES.find((i) => i.slug === firstIndustry)?.label || "",
     currency: planCurrency,
@@ -2832,7 +2941,28 @@ export default function SignupPage() {
             </button>
           </div>
         )}
-        {entryChecked && !alreadyOnFieldquo && step === "services" && (
+        {/* ── After "Start my free trial": the progress screen ───────────────
+            Replaces the services card for as long as the run lasts — the
+            company, each trade, the checklists, the templates, the dashboard,
+            each ticked when the server reports it (see runCreation). Only
+            "Back to the form" brings the card back, and only while no
+            company exists. */}
+        {creating && (
+          <SignupCreating
+            stages={creating.stages}
+            companyName={form.companyName}
+            problem={creating.problem}
+            running={creating.running}
+            slowNavigation={creating.slowNavigation}
+            appUrl={creating.appUrl}
+            onRetry={runCreation}
+            onBack={leaveCreating}
+            onContinue={() => {
+              window.location.href = creating.appUrl || signupAppUrl;
+            }}
+          />
+        )}
+        {entryChecked && !alreadyOnFieldquo && step === "services" && !creating && (
           <div className="bg-card border border-border rounded-xl shadow-sm p-6 sm:p-8">
             <h2 className="text-lg font-semibold text-foreground mb-1">
               {t("app.signup.services.title", "Which services do you offer?")}

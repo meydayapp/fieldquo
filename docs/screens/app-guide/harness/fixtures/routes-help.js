@@ -22,7 +22,9 @@ import { W, TIME_ENTRIES, POLICIES, TEAM_REQUESTS, TEAM_BALANCES, INCIDENTS, CLO
 import { publicIntakeFields } from "@/app/data/quoteIntakeFields";
 import { budgetBands } from "@/lib/estimate/budgetBands";
 import { effectiveFormFields } from "@/lib/estimate/formFields";
-import { sanitiseFunnelSteps } from "@/app/data/funnelBlocks";
+import { FUNNEL_STEPS, FUNNEL } from "./funnel.js";
+import { ADD_ONS, SCOPE_GROUPS, QUOTE_PAGE_HEAD, QUOTE_PAGE_TAIL } from "./public-quote.js";
+export { FUNNEL_STEPS, FUNNEL } from "./funnel.js";
 import { parsePaymentSchedule } from "@/lib/documents/paymentSchedule";
 import { seedRowsFor } from "@/lib/quotes/textBlockDefaults";
 import { presentTextBlock } from "@/lib/quotes/textBlocks";
@@ -85,66 +87,13 @@ const MEASURE_ROUTES = [
   { path: "/api/measure/roof", reply: () => ROOF_MEASUREMENT },
   { path: "/api/measure/gutters", reply: () => GUTTER_MEASUREMENT },
 ];
-const ADD_ONS = [
-  { id: "ao1", description: "Under-cabinet LED lighting", detail: "Warm white strip under every upper run, hard-wired to a wall switch", amount: 640, taxable: true, selected: false },
-  { id: "ao2", description: "Pull-out waste and recycling", detail: "Two-bin unit in the base beside the sink", amount: 385, taxable: true, selected: false },
-  { id: "ao3", description: "Soft-close upgrade on all drawers", detail: "Blum undermount runners", amount: 520, taxable: true, selected: true },
-];
-const SCOPE_GROUPS = [
-  {
-    label: "Kitchen cabinets",
-    subtotal: 17620,
-    accent: null,
-    description: "Every box and door built in our Laval shop, sprayed in the booth, installed level and plumb.",
-    included: ["Site measure and shop drawings for approval", "Soft-close hinges on every door", "Removal and disposal of the old cabinets", "Two-year workmanship warranty"],
-    mayChange: [{ title: "Countertops", body: "Quoted separately once the boxes are set — the template is taken on site." }],
-    lineItems: QUOTE.items.slice(0, 3).map((it) => ({ description: `${it.name} — ${it.description}`, quantity: it.quantity, amount: it.total })),
-  },
-  {
-    label: "Installation",
-    subtotal: 830,
-    accent: null,
-    description: "",
-    included: ["Two installers, two days", "Hardware fitted and hinges adjusted before we leave"],
-    mayChange: [],
-    lineItems: [{ description: "Installation — 2 installers, 2 days", quantity: 2, amount: 830 }],
-  },
-];
 const publicQuote = (ctx) => ({
   quoteNumber: QUOTE.quoteNumber,
   status: "sent",
   language: docLang(ctx),
-  notes: "Colour: Benjamin Moore OC-17 White Dove on the perimeter; the island stays natural white oak with a matte clear coat.",
-  processNotes: COMPANY.defaultProcessNotes,
-  validUntil: QUOTE.validUntil,
-  sentAt: QUOTE.sentAt,
-  subtotal: QUOTE.subtotal,
-  discount: 0,
-  tax: QUOTE.taxTotal,
-  taxKind: "charged",
-  taxAssumedRegion: null,
-  total: QUOTE.total,
-  acceptedTotal: null,
-  taxRate: COMPANY.taxRate / 100,
-  addOns: ADD_ONS,
-  client: { name: CLIENT.name },
+  ...QUOTE_PAGE_HEAD,
   company: COMPANY_PUBLIC,
-  financing: null,
-  scopeGroups: SCOPE_GROUPS,
-  glossary: [
-    { term: "Shaker", body: "A flat centre panel framed by four square-edged rails — the plainest door profile, and the one that hides wear best." },
-    { term: "Rift sawn", body: "White oak cut so the grain runs straight and tight across the face, with none of the cathedral figure of plain-sawn boards." },
-  ],
-  processSteps: [
-    { num: 1, title: "Measure", body: "We measure on site and draw every elevation for your approval.", timeline: "Week 1" },
-    { num: 2, title: "Build", body: "Boxes, doors and the island are built and sprayed in our Laval shop.", timeline: "Weeks 2–5" },
-    { num: 3, title: "Install", body: "Day one we remove the old cabinets and set the boxes; day two we hang doors and fit hardware.", timeline: "Week 6" },
-  ],
-  paymentTerms: COMPANY.paymentTerms,
-  paymentSchedule: [
-    { pct: "50%", label: "Deposit to book the shop time" },
-    { pct: "50%", label: "Balance on installation" },
-  ],
+  ...QUOTE_PAGE_TAIL,
   // ── The proposal beside the document (client mockup §1, 2026-09-21) ──
   // Every section the fixture company has content for, in the shape
   // app/api/public/quotes/[token] publishes: rendered sections only, no ids.
@@ -226,7 +175,10 @@ const portal = (ctx) => ({
   invoices: [
     {
       id: INVOICE.id, invoiceNumber: INVOICE.invoiceNumber, total: INVOICE.total, amountPaid: 0, dueDate: INVOICE.dueDate,
-      lineItems: INVOICE.items, notes: null, subtotal: INVOICE.subtotal, discount: 0, tax: INVOICE.taxTotal,
+      // INVOICE.items is the harness's list-row shape ({ name, unitPrice,
+      // total }); the portal reads Invoice.lineItems ({ description, amount }),
+      // so passed through raw it printed a blank line at $0.00.
+      lineItems: INVOICE.items.map((it) => ({ description: it.name, quantity: it.quantity, rate: it.unitPrice, amount: it.total })), notes: null, subtotal: INVOICE.subtotal, discount: 0, tax: INVOICE.taxTotal,
       jobPaymentStages: [], taxKind: "charged", taxAssumedRegion: null,
     },
   ],
@@ -416,59 +368,7 @@ const instantQuote = (ctx) => {
   };
 };
 
-// ── /f/<slug>/<funnel> — the kitchen landing page ───────────────────────────
-// One funnel, shared by the builder (app/app/funnels/[id], GET /api/funnels/
-// [id]) and the public runner (GET /api/funnels/public/…): the steps go
-// through the same sanitiser the save route and the public route apply, so a
-// step this file gets wrong is dropped here the way it would be there.
-export const FUNNEL_STEPS = sanitiseFunnelSteps([
-  { id: "s_intro", kind: "intro", headline: "A new kitchen, priced in two minutes", subhead: "Answer four quick questions and we'll come back with a range — no visit needed for a first number.", buttonText: "Start" },
-  {
-    id: "s_style", kind: "question_single", question: "What look are you after?", help: "Pick the closest — we can mix.",
-    answers: [
-      { id: "a_shaker", label: "Shaker, painted", value: "shaker", weight: 10 },
-      { id: "a_slab", label: "Flat slab, wood veneer", value: "slab", weight: 10 },
-      { id: "a_mixed", label: "Painted perimeter, wood island", value: "mixed", weight: 20 },
-      { id: "a_unsure", label: "Not sure yet", value: "unsure", weight: 0 },
-    ],
-  },
-  {
-    id: "s_scope", kind: "question_multi", question: "What's in scope?", buttonText: "Next",
-    answers: [
-      { id: "b_uppers", label: "Upper cabinets", value: "uppers", weight: 5 },
-      { id: "b_bases", label: "Base cabinets", value: "bases", weight: 5 },
-      { id: "b_island", label: "An island", value: "island", weight: 15 },
-      { id: "b_pantry", label: "A pantry wall", value: "pantry", weight: 10 },
-    ],
-  },
-  {
-    id: "s_budget", kind: "question_single", question: "Roughly what budget do you have in mind?", maps: "budget",
-    answers: [
-      { id: "c_1", label: "Under $15,000", value: "under_15k", weight: 0, maps: "budget" },
-      { id: "c_2", label: "$15,000 – $30,000", value: "15_30k", weight: 10, maps: "budget" },
-      { id: "c_3", label: "$30,000 – $50,000", value: "30_50k", weight: 20, maps: "budget" },
-      { id: "c_4", label: "Over $50,000", value: "over_50k", weight: 25, maps: "budget" },
-    ],
-  },
-  { id: "s_form", kind: "form", headline: "Where should we send your range?", subhead: "We reply within one business day.", buttonText: "Send me my range", fields: ["name", "email", "phone"], consent: "By sending this you agree to be contacted about your kitchen." },
-  { id: "s_thanks", kind: "thankyou", headline: "Thanks — your range is on its way.", subhead: "Marc or Samuel will call to talk through it and book a measure if you'd like one." },
-]);
-export const FUNNEL = {
-  id: "fn_kitchen",
-  name: "Kitchen quote — landing page",
-  slug: "kitchen-quote",
-  status: "published",
-  channel: "web",
-  steps: FUNNEL_STEPS,
-  theme: null,
-  metaPixelId: null,
-  tiktokPixelId: null,
-  ga4Id: null,
-  createdAt: iso(day(-40, 9)),
-  updatedAt: iso(day(-3, 15)),
-  publishedAt: iso(day(-30, 11)),
-  _count: { responses: 14 },
-};
+// The kitchen landing-page funnel (FUNNEL_STEPS, FUNNEL) lives in funnel.js.
 const publicFunnel = () => ({
   company: { name: COMPANY.name, logoUrl: COMPANY.logoUrl, brandColor: COMPANY.brandColor, phone: COMPANY.phone, currency: COMPANY.currency },
   funnel: { id: FUNNEL.id, name: FUNNEL.name, slug: FUNNEL.slug, steps: FUNNEL.steps, theme: null, pixels: { meta: null, tiktok: null, ga4: null } },

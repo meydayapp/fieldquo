@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { DOCUMENT_ENTITY_TYPES } from "@/lib/customFields/validate";
+import { schedulePhrases, companyWritingLanguage } from "@/lib/i18n/autoTranslateSchedule";
 
 export async function PATCH(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -46,7 +47,22 @@ export async function PATCH(request, { params }) {
     },
   });
 
-  return NextResponse.json(updated);
+  // A document label is drafted into the other document languages (see
+  // POST). Queued on every save of a flagged definition — an unchanged label
+  // costs nothing — but the banner speaks only when the client-facing words
+  // changed: a new label, or a box that just started printing.
+  let autoTranslate = null;
+  if (updated.showOnDocuments) {
+    const summary = schedulePhrases({
+      companyId: member.companyId,
+      ns: "customFieldLabel",
+      texts: [updated.label],
+      sourceLanguage: await companyWritingLanguage(member.companyId),
+    });
+    if (updated.label !== existing.label || !existing.showOnDocuments) autoTranslate = summary;
+  }
+
+  return NextResponse.json({ ...updated, autoTranslate });
 }
 
 export async function DELETE(request, { params }) {

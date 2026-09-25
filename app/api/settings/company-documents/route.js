@@ -15,6 +15,7 @@ import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import { isDocumentType, sanitiseWaiverBody } from "@/lib/company/documents";
 import { DOCUMENT_SELECT, presentForStaff, listDocuments } from "@/lib/company/documentLibrary";
+import { schedulePhraseGroups, companyWritingLanguage } from "@/lib/i18n/autoTranslateSchedule";
 
 const HTTP_URL = /^https?:\/\//i;
 const str = (v) => (typeof v === "string" ? v.trim() : "");
@@ -86,5 +87,17 @@ export async function POST(request) {
     metadata: { documentId: created.id, type },
   });
 
-  return NextResponse.json({ document: presentForStaff(created) }, { status: 201 });
+  // A document's title and summary are listed on every client proposal in
+  // the reader's language — drafted on save (lib/i18n/phrases.js). A waiver
+  // is signed as written and is not translated (its body is hashed on
+  // signing); its title stays with it.
+  const autoTranslate = created.type === "waiver"
+    ? null
+    : schedulePhraseGroups({
+        companyId: member.companyId,
+        groups: [{ ns: "documentTitle", texts: [created.title] }, { ns: "documentSummary", texts: [created.summary] }],
+        sourceLanguage: await companyWritingLanguage(member.companyId),
+      });
+
+  return NextResponse.json({ document: presentForStaff(created), autoTranslate }, { status: 201 });
 }

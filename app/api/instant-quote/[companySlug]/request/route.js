@@ -21,7 +21,8 @@ import { normaliseMediaList } from "@/lib/media/validate";
 import { lawnPublicView } from "@/lib/estimate/lawnPublicView";
 import { publicEstimate, gatedMessage, effectiveVisibility } from "@/lib/estimate/visibility";
 import { bandForIndex, estimateExceedsBudget, scoreKeyForBandIndex } from "@/lib/estimate/budgetBands";
-import { financingOffer } from "@/lib/estimate/financing";
+import { financingOffer, financingPhrases } from "@/lib/estimate/financing";
+import { loadPhrases } from "@/lib/i18n/phrases";
 import { createScoredLead } from "@/lib/leads/createLead";
 import { emailRefusal } from "@/lib/validation";
 import { buildLeadIntake } from "@/lib/leads/intakeShape";
@@ -463,6 +464,10 @@ export async function POST(request, { params }) {
       }
     : null;
 
+  // The company's own financing note in the language the confirmation is
+  // read in — drafted when it was saved (lib/i18n/phrases.js).
+  const trFinancing = await loadPhrases(db, company.id, emailLanguage, financingPhrases(company.financing));
+
   // When no figure is shown, SAY so. Returning `{ estimate: null }` and nothing
   // else left the confirmation page looking like the estimate had failed — the
   // owner hit exactly that and assumed the flow was broken. The message carries
@@ -496,7 +501,7 @@ export async function POST(request, { params }) {
     },
     // The company's own financing offer, same rule as everywhere else: their
     // words or their provider link, never a monthly figure from us.
-    financing: financingOffer(company.financing, { language: emailLanguage }),
+    financing: financingOffer(company.financing, { language: emailLanguage, tr: trFinancing }),
     message: shown ? null : gatedMessage(emailLanguage, "confirmed"),
     // What the company's ad pixels may be told about this Lead, built here so
     // the page forwards it untouched (lib/tracking/attribution.js

@@ -23,6 +23,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import { getAppOrigin } from "@/lib/appUrl";
+import { normaliseWebsiteUrl } from "@/lib/signup/website";
 import { validReviewUrl, clampDelay, MAX_DELAY_HOURS } from "@/lib/reviews/request";
 import { reviewUrlForPlaceId, looksLikePlaceId, placeLabel } from "@/lib/reviews/googlePlace";
 import { cardUrl } from "@/lib/reviews/card";
@@ -142,7 +143,10 @@ export async function PATCH(request) {
   const data = {};
 
   if (body.reviewUrl !== undefined) {
-    const url = typeof body.reviewUrl === "string" ? body.reviewUrl.trim() : "";
+    // "g.page/r/.../review" pasted without a scheme gains https:// (the
+    // signup's reader, lib/signup/website.js) rather than being refused.
+    const typed = typeof body.reviewUrl === "string" ? body.reviewUrl.trim() : "";
+    const url = (typed && normaliseWebsiteUrl(typed)) || typed;
     if (url && !validReviewUrl(url)) {
       // Refused with a sentence rather than silently stored. A link that
       // doesn't work is only discovered by the customer who clicks it, weeks

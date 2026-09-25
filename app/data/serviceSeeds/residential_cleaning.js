@@ -558,5 +558,180 @@ const TEMPLATES = {
   ], null),
 };
 
+// ── Templates added 2026-09-25 ───────────────────────────────────────────────
+//
+// The owner (2026-09-25): a service added to a quote opens WITH its lines, so
+// every row sized by bedrooms and bathrooms gets its kitchen, living-area,
+// bedroom and bathroom lines. The captured per-room prices above are one
+// competitor's demo figures (a recurring 2-bed/2-bath at $378); the benchmark
+// on this file's own rows is lower — a 1-bed/1-bath apartment clean at $150,
+// a bi-weekly clean at $178 — so the sized rows are set on the benchmark:
+//
+//   standard clean   kitchen $45 · living area $30 · bedroom $30 · bath $45
+//                    (= the $150 apartment median)
+//   recurring        kitchen $40 · living area $25 · bedroom $25 · bath $40
+//                    (a 2/2 at $195, a 3/2 at $220), 5 % regular discount
+//   one-time         kitchen $55 · living area $35 · bedroom $35 · bath $50
+//   move-in / out    deep kitchen with appliances $110 · bedroom deep $55 ·
+//                    bath deep $75 · inside cabinets $60 (a 3/2 at $465)
+//
+// Costs keep the captured ratio (about 65 % — cleaning is almost all wages).
+//
+// A row that NAMES its counts ("3 bedrooms") carries them as plain
+// quantities: a measured line opens at 0 on the quote until the intake fills
+// it (lib/quotes/serviceTemplateLines.js), and the row already says 3. The
+// "2–5 bathrooms" band opens at its floor of 2 for the estimator to raise. A
+// row that names no count (routine cleaning, an office's restrooms) keeps the
+// intake keys `bedrooms` / `bathrooms` / `squareFootage`.
+//
+// Punjabi is written inline beside the other seven (the line builder reads
+// `text.pa` before the language file); lines the templates above already
+// sell are reused by their text, not retyped.
+//
+// Move-in/out cleans and the inside-fridge and inside-cabinet add-ons are
+// deep-clean work, so they also name the deep_cleaning quote type (no seed
+// file; lib/services/confirmServices.js borrows this one). The one-time and
+// recurring rows are standard cleans and are not tagged.
+const t8 = (en, fr, es, it, de, uk, tl, pa) => ({ en, fr, es, it, de, uk, tl, pa });
+const namesOf = (key) => {
+  const s = I18N.services?.[key];
+  if (!s?.it || !s?.de || !s?.uk || !s?.tl) throw new Error(`residential_cleaning: ${key} has no it/de/uk/tl name in i18n/residential_cleaning.js`);
+  return { it: s.it, de: s.de, uk: s.uk, tl: s.tl, pa: s.pa };
+};
+const sameText = (key, en) => {
+  const l = TEMPLATES[key]?.lines.find((x) => x.text.en[0] === en);
+  if (!l) throw new Error(`residential_cleaning: no line "${en}" on ${key}`);
+  return l.text;
+};
+const ROOM_TEXT = {
+  bed: BEDROOM(1, 0, false).text,
+  bedDeep: BEDROOM(1, 0, true).text,
+  bath: BATHROOM(1, 0, false).text,
+  bathDeep: BATHROOM(1, 0, true).text,
+};
+const rooms = (qty, which, price, cost) => L.labour(qty, "each", price, ROOM_TEXT[which], { cost });
+const LIVING = (price, cost) => L.labour(1, "flat", price, sameText("fq.residential_cleaning.visits.recurring_service", "Living area cleaning"), { cost });
+const KITCHEN_DEEP = () => L.labour(1, "flat", 110, t8(
+  ["Kitchen deep clean — inside appliances", "Counters, sink, cabinet faces and backsplash degreased; fridge, oven and microwave cleaned inside."],
+  ["Grand ménage de la cuisine — intérieur des appareils", "Comptoirs, évier, façades d'armoires et dosseret dégraissés; réfrigérateur, four et micro-ondes nettoyés à l'intérieur."],
+  ["Limpieza profunda de cocina — interior de electrodomésticos", "Cubiertas, fregadero, frentes de gabinetes y salpicadero desengrasados; refrigerador, horno y microondas limpiados por dentro."],
+  ["Pulizia profonda cucina — interno elettrodomestici", "Piani, lavello, ante e alzatina sgrassati; frigo, forno e microonde puliti all'interno."],
+  ["Küchengrundreinigung — Geräte innen", "Arbeitsflächen, Spüle, Schrankfronten und Rückwand entfettet; Kühlschrank, Backofen und Mikrowelle innen gereinigt."],
+  ["Генеральне прибирання кухні — техніка всередині", "Стільниці, мийку, фасади й фартух знежирено; холодильник, духовку й мікрохвильовку вимито всередині."],
+  ["Deep clean ng kusina — loob ng appliance", "Tinanggalan ng mantika ang counter, lababo, harap ng cabinet at backsplash; nilinis ang loob ng ref, oven at microwave."],
+  ["ਰਸੋਈ ਦੀ ਡੂੰਘੀ ਸਫ਼ਾਈ — ਉਪਕਰਣਾਂ ਦੇ ਅੰਦਰ", "ਕਾਊਂਟਰ, ਸਿੰਕ, ਅਲਮਾਰੀਆਂ ਦੇ ਮੂਹਰੇ ਅਤੇ ਬੈਕਸਪਲੈਸ਼ ਚਿਕਨਾਈ-ਰਹਿਤ; ਫ਼ਰਿੱਜ, ਓਵਨ ਅਤੇ ਮਾਈਕ੍ਰੋਵੇਵ ਅੰਦਰੋਂ ਸਾਫ਼।"],
+), { cost: 70 });
+
+// Sized rows: [bedrooms, bathrooms] from the row's own name.
+const RECURRING = (beds, baths) => [KITCHEN(40, 26), LIVING(25, 17), rooms(beds, "bed", 25, 17), rooms(baths, "bath", 40, 26)];
+const ONE_TIME = (beds, baths) => [KITCHEN(55, 35), LIVING(35, 23), rooms(beds, "bed", 35, 23), rooms(baths, "bath", 50, 33), FRIDGE()];
+const MOVE = (beds, baths) => [KITCHEN_DEEP(), rooms(beds, "bedDeep", 55, 40), rooms(baths, "bathDeep", 75, 52), CABINETS(60, 35, false)];
+const DEEP = { categories: ["residential_cleaning", "deep_cleaning"] };
+const R = "fq.residential_cleaning.";
+const recurring = (slug, beds, baths) => [R + slug, T("maintenance", namesOf(R + slug), RECURRING(beds, baths), D.regular("percent", 5))];
+const oneTime = (slug, beds, baths) => [R + slug, T("installation", namesOf(R + slug), ONE_TIME(beds, baths), null)];
+const move = (slug, beds, baths) => [R + slug, T("installation", namesOf(R + slug), MOVE(beds, baths), null, DEEP)];
+
+const ADDED = {
+  // ── Installation (first cleans, by size) ──
+  ...Object.fromEntries([
+    oneTime("core.one_time_1br", 1, 2), oneTime("core.one_time_2br", 2, 2), oneTime("core.one_time_3br", 3, 2),
+    oneTime("core.one_time_4br", 4, 2), oneTime("core.one_time_5br", 5, 2),
+    move("move.1br_2_5ba", 1, 2), move("move.2br_1ba", 2, 1), move("move.2br_2_5ba", 2, 2), move("move.3br_1ba", 3, 1),
+    move("move.3br_2_5ba", 3, 2), move("move.4br_1ba", 4, 1), move("move.4br_2_5ba", 4, 2), move("move.5br_2_5ba", 5, 2),
+  ]),
+  // A studio has no bedroom: its one main room is the living area.
+  "fq.residential_cleaning.core.one_time_studio": T("installation", namesOf("fq.residential_cleaning.core.one_time_studio"),
+    [KITCHEN(55, 35), LIVING(35, 23), rooms(1, "bath", 50, 33), FRIDGE(), OVEN()], null),
+  "fq.residential_cleaning.move.studio": T("installation", namesOf("fq.residential_cleaning.move.studio"),
+    [KITCHEN_DEEP(), LIVING(50, 33), rooms(1, "bathDeep", 75, 52), CABINETS(60, 35, false)], null, DEEP),
+
+  // ── Repair (deep-clean add-ons) ──
+  "fq.residential_cleaning.add_ons.inside_fridge": T("repair", namesOf("fq.residential_cleaning.add_ons.inside_fridge"), [
+    L.labour(1, "each", 45, t8(
+      ["Refrigerator interior clean — per fridge", "Emptied, shelves and drawers washed, walls and seals wiped, contents put back."],
+      ["Nettoyage intérieur du réfrigérateur — l'appareil", "Vidé, tablettes et tiroirs lavés, parois et joints essuyés, contenu remis en place."],
+      ["Limpieza interior del refrigerador — por refrigerador", "Vaciado, repisas y cajones lavados, paredes y empaques limpios, contenido reacomodado."],
+      ["Pulizia interna del frigorifero — per frigo", "Svuotato, ripiani e cassetti lavati, pareti e guarnizioni pulite, contenuto rimesso a posto."],
+      ["Kühlschrank innen — pro Gerät", "Ausgeräumt, Böden und Schubladen gewaschen, Wände und Dichtungen gewischt, wieder eingeräumt."],
+      ["Чищення холодильника всередині — за холодильник", "Спорожнено, полиці й ящики вимито, стінки й ущільнювачі протерто, продукти повернуто."],
+      ["Paglilinis ng loob ng ref — kada ref", "Inalisan, hinugasan ang shelf at drawer, pinunasan ang loob at gasket, ibinalik ang laman."],
+      ["ਫ਼ਰਿੱਜ ਦੀ ਅੰਦਰੋਂ ਸਫ਼ਾਈ — ਪ੍ਰਤੀ ਫ਼ਰਿੱਜ", "ਖ਼ਾਲੀ ਕਰਕੇ ਸ਼ੈਲਫ਼ ਅਤੇ ਦਰਾਜ਼ ਧੋਤੇ, ਕੰਧਾਂ ਅਤੇ ਰਬੜ ਪੂੰਝੇ, ਸਮਾਨ ਵਾਪਸ ਰੱਖਿਆ।"],
+    ), { cost: 25, measurementKey: "each" }),
+    L.material(1, "flat", 5, t8(
+      ["Food-safe cleaner and deodoriser", "Food-contact-safe cleaner and a baking-soda deodoriser left inside."],
+      ["Nettoyant alimentaire et désodorisant", "Nettoyant sans danger pour les aliments et désodorisant au bicarbonate laissé à l'intérieur."],
+      ["Limpiador apto para alimentos y desodorante", "Limpiador seguro para contacto con alimentos y desodorante de bicarbonato dentro."],
+      ["Detergente per alimenti e deodorante", "Detergente sicuro per il contatto con gli alimenti e deodorante al bicarbonato lasciato dentro."],
+      ["Lebensmittelechter Reiniger und Geruchsbinder", "Lebensmittelgeeigneter Reiniger und ein Natron-Geruchsbinder im Innenraum."],
+      ["Харчово-безпечний засіб і поглинач запахів", "Безпечний для продуктів засіб і содовий поглинач запахів усередині."],
+      ["Food-safe na cleaner at deodoriser", "Cleaner na ligtas sa pagkain at baking soda na deodoriser na iniwan sa loob."],
+      ["ਖਾਣੇ ਲਈ ਸੁਰੱਖਿਅਤ ਕਲੀਨਰ ਅਤੇ ਡੀਓਡੋਰਾਈਜ਼ਰ", "ਖਾਣੇ ਨਾਲ ਲੱਗਣ ਲਈ ਸੁਰੱਖਿਅਤ ਕਲੀਨਰ ਅਤੇ ਅੰਦਰ ਰੱਖਿਆ ਮਿੱਠੇ ਸੋਡੇ ਵਾਲਾ ਡੀਓਡੋਰਾਈਜ਼ਰ।"],
+    )),
+  ], null, DEEP),
+  "fq.residential_cleaning.add_ons.inside_cabinets": T("repair", namesOf("fq.residential_cleaning.add_ons.inside_cabinets"), [
+    CABINETS(130, 72, false),
+    L.material(1, "flat", 20, t8(
+      ["Cabinet-safe cleaner and microfibre", "Wood-safe degreaser and fresh microfibre cloths for the cabinet interiors."],
+      ["Nettoyant pour armoires et microfibre", "Dégraissant sans danger pour le bois et chiffons microfibre neufs pour l'intérieur des armoires."],
+      ["Limpiador para gabinetes y microfibra", "Desengrasante seguro para madera y paños de microfibra nuevos para el interior de gabinetes."],
+      ["Detergente per mobili e microfibra", "Sgrassatore sicuro per il legno e panni in microfibra nuovi per l'interno dei pensili."],
+      ["Schrankreiniger und Mikrofaser", "Holzschonender Entfetter und frische Mikrofasertücher für die Schrankinnenräume."],
+      ["Засіб для шаф і мікрофібра", "Безпечний для дерева знежирювач і нові мікрофіброві серветки для шаф усередині."],
+      ["Cabinet-safe na cleaner at microfibre", "Degreaser na ligtas sa kahoy at bagong microfibre na tela para sa loob ng cabinet."],
+      ["ਅਲਮਾਰੀਆਂ ਲਈ ਸੁਰੱਖਿਅਤ ਕਲੀਨਰ ਅਤੇ ਮਾਈਕ੍ਰੋਫ਼ਾਈਬਰ", "ਲੱਕੜ ਲਈ ਸੁਰੱਖਿਅਤ ਡੀਗ੍ਰੀਜ਼ਰ ਅਤੇ ਅਲਮਾਰੀਆਂ ਦੇ ਅੰਦਰ ਲਈ ਨਵੇਂ ਮਾਈਕ੍ਰੋਫ਼ਾਈਬਰ ਕੱਪੜੇ।"],
+    )),
+  ], null, DEEP),
+
+  // ── Maintenance (standard and recurring) ──
+  ...Object.fromEntries([
+    recurring("recurring.1br_1ba", 1, 1), recurring("recurring.1br_2_5ba", 1, 2), recurring("recurring.2br_2_5ba", 2, 2),
+    recurring("recurring.3br_2_5ba", 3, 2), recurring("recurring.4br_2_5ba", 4, 2), recurring("recurring.5br_2_5ba", 5, 2),
+  ]),
+  // The benchmark's $150 apartment clean, line by line.
+  "fq.residential_cleaning.core.apartment_1_1": T("maintenance", namesOf("fq.residential_cleaning.core.apartment_1_1"),
+    [KITCHEN(45, 29), LIVING(30, 20), rooms(1, "bed", 30, 20), rooms(1, "bath", 45, 29)], null),
+  // No count in the row's name: the rooms come from the intake.
+  "fq.residential_cleaning.core.routine_general": T("maintenance", namesOf("fq.residential_cleaning.core.routine_general"),
+    [KITCHEN(45, 29), LIVING(30, 20), BEDROOM(30, 20, false), BATHROOM(45, 29, false)], null),
+  "fq.residential_cleaning.recurring.kitchen_restroom": T("maintenance", namesOf("fq.residential_cleaning.recurring.kitchen_restroom"),
+    [KITCHEN(40, 26), BATHROOM(40, 26, false)], D.regular("percent", 5)),
+  "fq.residential_cleaning.add_ons.additional_rooms": T("maintenance", namesOf("fq.residential_cleaning.add_ons.additional_rooms"), [
+    L.labour(1, "each", 35, t8(
+      ["Extra room sanitisation — per room", "One more bedroom or bathroom cleaned and its touch points disinfected."],
+      ["Désinfection d'une pièce supplémentaire — la pièce", "Une chambre ou salle de bain de plus nettoyée et ses points de contact désinfectés."],
+      ["Sanitización de cuarto adicional — por cuarto", "Una recámara o baño más limpiado y sus puntos de contacto desinfectados."],
+      ["Igienizzazione stanza extra — per stanza", "Una camera o un bagno in più pulito e i punti di contatto disinfettati."],
+      ["Zusätzlicher Raum desinfiziert — pro Raum", "Ein weiteres Schlaf- oder Badezimmer gereinigt und die Kontaktflächen desinfiziert."],
+      ["Дезінфекція додаткової кімнати — за кімнату", "Ще одну спальню чи ванну прибрано, поверхні дотику продезінфіковано."],
+      ["Sanitation ng dagdag na kuwarto — kada kuwarto", "Isa pang kuwarto o banyo na nilinis at dinisinfect ang mga hinahawakan."],
+      ["ਵਾਧੂ ਕਮਰੇ ਦੀ ਕੀਟਾਣੂ-ਸਫ਼ਾਈ — ਪ੍ਰਤੀ ਕਮਰਾ", "ਇੱਕ ਹੋਰ ਬੈੱਡਰੂਮ ਜਾਂ ਬਾਥਰੂਮ ਸਾਫ਼ ਅਤੇ ਛੂਹਣ ਵਾਲੀਆਂ ਥਾਵਾਂ ਕੀਟਾਣੂ-ਰਹਿਤ।"],
+    ), { cost: 22, measurementKey: "each" }),
+    L.material(1, "each", 5, t8(
+      ["Disinfectant — per room", "Registered disinfectant used at its label dwell time."],
+      ["Désinfectant — la pièce", "Désinfectant homologué appliqué selon le temps de contact de l'étiquette."],
+      ["Desinfectante — por cuarto", "Desinfectante registrado usado con el tiempo de contacto de la etiqueta."],
+      ["Disinfettante — per stanza", "Disinfettante registrato usato con il tempo di contatto indicato in etichetta."],
+      ["Desinfektionsmittel — pro Raum", "Zugelassenes Desinfektionsmittel mit der Einwirkzeit laut Etikett."],
+      ["Дезінфектант — за кімнату", "Зареєстрований дезінфектант із витримкою за етикеткою."],
+      ["Disinfectant — kada kuwarto", "Rehistradong disinfectant na ginamit ayon sa dwell time sa label."],
+      ["ਕੀਟਾਣੂਨਾਸ਼ਕ — ਪ੍ਰਤੀ ਕਮਰਾ", "ਰਜਿਸਟਰਡ ਕੀਟਾਣੂਨਾਸ਼ਕ, ਲੇਬਲ 'ਤੇ ਲਿਖੇ ਸਮੇਂ ਤੱਕ ਲੱਗਾ ਰਹਿਣ ਦਿੱਤਾ।"],
+    ), { measurementKey: "each" }),
+  ], null),
+  // An office is priced like the weekly janitorial row above: floor area plus
+  // restrooms, both from the walkthrough.
+  "fq.residential_cleaning.commercial.recurring_office": T("maintenance", namesOf("fq.residential_cleaning.commercial.recurring_office"), [
+    FLOOR_AREA(0.09, sameText("fq.residential_cleaning.commercial.weekly_janitorial", "Janitorial cleaning — per sq ft")),
+    room("bathrooms", 35, 20, sameText("fq.residential_cleaning.commercial.one_time_office", "Restroom cleaning — per restroom")),
+  ], D.regular("percent", 5)),
+  "fq.residential_cleaning.commercial.recurring_weekly": T("maintenance", namesOf("fq.residential_cleaning.commercial.recurring_weekly"), [
+    FLOOR_AREA(0.09, sameText("fq.residential_cleaning.commercial.weekly_janitorial", "Janitorial cleaning — per sq ft")),
+    room("bathrooms", 35, 20, sameText("fq.residential_cleaning.commercial.one_time_office", "Restroom cleaning — per restroom")),
+  ], D.regular("percent", 5)),
+};
+// This pass only adds: a row that already has a template keeps it untouched.
+for (const key of Object.keys(ADDED)) if (TEMPLATES[key]) throw new Error(`residential_cleaning: ${key} is already templated above`);
+
 withLanguages(SEED, I18N);
 withTemplates(SEED, TEMPLATES);
+withTemplates(SEED, ADDED);

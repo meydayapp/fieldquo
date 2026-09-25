@@ -54,7 +54,35 @@ function StatusBadge({ status, reviewedAt, formatDate, t }) {
   );
 }
 
-export default function CompanyTextReview({ language }) {
+// ── A trade's edited job-process wording (2026-09-25) ───────────────────────
+// The scope paragraph is one box; "what's included" is one line per bullet;
+// the steps are a title / body / timeline per step, the same shape the
+// Settings › Services editor writes. The server refuses a reviewed list whose
+// count or [prompts] differ from the original.
+function serviceDraftText(field, value) {
+  if (field === "scopeDescription") return typeof value === "string" ? value : "";
+  if (field === "includedItems") return Array.isArray(value) ? value.join("\n") : "";
+  return Array.isArray(value) ? value.map((s) => ({ title: s?.title || "", body: s?.body || "", timeline: s?.timeline || "" })) : null;
+}
+
+function serviceDraftValue(field, draft, source) {
+  if (field === "scopeDescription") return String(draft || "");
+  if (field === "includedItems") return String(draft || "").split("\n").map((l) => l.trim()).filter(Boolean);
+  const steps = Array.isArray(draft) ? draft : [];
+  return steps.map((s, i) => ({
+    title: s.title,
+    body: s.body,
+    ...(source?.[i]?.timeline ? { timeline: s.timeline } : {}),
+  }));
+}
+
+const SERVICE_FIELD_LABEL = {
+  scopeDescription: ["app.translations.serviceScope", "What the work is"],
+  includedItems: ["app.translations.serviceIncluded", "What's included"],
+  processSteps: ["app.translations.serviceSteps", "How the job runs"],
+};
+
+export default function CompanyTextReview({ language, nested = false }) {
   const { t } = useTranslation();
   const { formatDate } = useCompanyPreferences();
   const [data, setData] = useState(null);
@@ -75,6 +103,7 @@ export default function CompanyTextReview({ language }) {
       const next = {};
       for (const i of d.items) next[i.key] = i.translation || "";
       for (const b of d.textBlocks) next[`block:${b.id}`] = { name: b.translation.name || "", body: b.translation.body || "" };
+      for (const s of d.serviceItems || []) next[`service:${s.id}`] = serviceDraftText(s.field, s.translation);
       setDrafts(next);
     } catch (err) {
       setError(err.message);
@@ -108,16 +137,27 @@ export default function CompanyTextReview({ language }) {
     }
   }
 
-  const sourceName = LANGUAGES.find((l) => l.code === data?.sourceLanguage)?.nativeName || data?.sourceLanguage;
+  // Per text since detection (2026-09-25): a story written in French at an
+  // English-default company is labelled French, whatever the default says.
+  const nameOf = (code) =>
+    code === "other"
+      ? t("app.autoTranslate.otherLanguage", "Another language")
+      : LANGUAGES.find((l) => l.code === code)?.nativeName || code;
+  const sourceNameOf = (item) => nameOf(item?.sourceLanguage || data?.sourceLanguage);
   const targetName = LANGUAGES.find((l) => l.code === language)?.nativeName || language;
 
   if (loading) return <div className="animate-pulse h-40 bg-accent rounded-xl" />;
 
-  const empty = !data || (data.items.length === 0 && data.textBlocks.length === 0);
+  const serviceItems = data?.serviceItems || [];
+  const empty = !data || (data.items.length === 0 && data.textBlocks.length === 0 && serviceItems.length === 0);
+  // Texts written in another language than the company's default have a
+  // draft IN the default, which the page's language picker (default
+  // excluded) cannot reach — so it is listed here, once, under its own title.
+  const showDefaultSection = !nested && data?.foreignSource && data.defaultLanguage && data.defaultLanguage !== language;
 
   return (
-    <section className="space-y-3" id="company-text">
-      <div>
+    <section className="space-y-3" id={nested ? undefined : "company-text"}>
+      <div hidden={nested}>
         <h2 className="text-lg font-semibold text-foreground">{t("app.translations.companyTitle", "Your wording")}</h2>
         <p className="text-sm text-muted-foreground mt-1">
           {t("app.translations.companyHint", "Payment terms, what happens next, your story, your text messages and your quote text blocks are translated automatically when you save them. Clients in this language receive the translation as it stands — read it and correct anything that isn't how you'd say it.")}
@@ -153,7 +193,7 @@ export default function CompanyTextReview({ language }) {
                 </div>
                 <div className="grid gap-5 md:grid-cols-2">
                   <div>
-                    <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">{sourceName}</div>
+                    <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">{sourceNameOf(item)}</div>
                     <p className="text-sm text-foreground whitespace-pre-wrap">{item.source}</p>
                   </div>
                   <div>
@@ -209,7 +249,7 @@ export default function CompanyTextReview({ language }) {
                 </div>
                 <div className="grid gap-5 md:grid-cols-2">
                   <div>
-                    <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">{sourceName}</div>
+                    <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">{sourceNameOf(b)}</div>
                     <div className="text-sm font-medium text-foreground">{b.source.name}</div>
                     {b.source.body && <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">{b.source.body}</p>}
                   </div>
@@ -249,6 +289,104 @@ export default function CompanyTextReview({ language }) {
               </div>
             );
           })}
+
+          {serviceItems.length > 0 && (
+            <h3 className="text-sm font-semibold text-foreground pt-2">{t("app.translations.serviceTitle", "Your job-process wording")}</h3>
+          )}
+          {serviceItems.map((s) => {
+            const id = `service:${s.id}`;
+            const draft = drafts[id];
+            const attention = s.status !== "reviewed";
+            const [labelKey, labelFallback] = SERVICE_FIELD_LABEL[s.field];
+            const sourceSteps = Array.isArray(s.source) ? s.source : [];
+            const value = serviceDraftValue(s.field, draft, sourceSteps);
+            const ready = s.field === "scopeDescription" ? Boolean(String(draft || "").trim()) : Array.isArray(value) && value.length === sourceSteps.length;
+            const box = `w-full border rounded-lg px-3 py-2 text-sm ${s.status === "drafted" ? "border-amber-400" : "border-border"}`;
+            return (
+              <div key={s.id} className={`bg-card border rounded-xl p-5 ${attention ? "border-amber-300" : "border-border"}`}>
+                <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {s.trade} · {t(labelKey, labelFallback)}
+                  </div>
+                  <StatusBadge status={s.status} reviewedAt={s.reviewedAt} formatDate={formatDate} t={t} />
+                </div>
+                <div className="grid gap-5 md:grid-cols-2">
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">{sourceNameOf(s)}</div>
+                    {s.field === "scopeDescription" && <p className="text-sm text-foreground whitespace-pre-wrap">{s.source}</p>}
+                    {s.field === "includedItems" && (
+                      <ul className="text-sm text-foreground list-disc pl-5 space-y-1">
+                        {sourceSteps.map((l, i) => <li key={i}>{l}</li>)}
+                      </ul>
+                    )}
+                    {s.field === "processSteps" && (
+                      <ol className="text-sm text-foreground list-decimal pl-5 space-y-2">
+                        {sourceSteps.map((st, i) => (
+                          <li key={i}>
+                            <span className="font-medium">{st.title}</span>
+                            {st.timeline ? <span className="text-muted-foreground"> · {st.timeline}</span> : null}
+                            {st.body ? <p className="text-muted-foreground">{st.body}</p> : null}
+                          </li>
+                        ))}
+                      </ol>
+                    )}
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">{targetName}</div>
+                    {s.field !== "processSteps" ? (
+                      <textarea
+                        value={typeof draft === "string" ? draft : ""}
+                        onChange={(e) => setDrafts((d) => ({ ...d, [id]: e.target.value }))}
+                        rows={s.field === "includedItems" ? Math.min(20, Math.max(2, sourceSteps.length)) : 5}
+                        disabled={!data.canEdit}
+                        placeholder={s.field === "includedItems" ? t("app.translations.oneLinePerItem", "One line per item, in the same order") : ""}
+                        className={box}
+                      />
+                    ) : (
+                      <div className="space-y-3">
+                        {sourceSteps.map((st, i) => {
+                          const steps = Array.isArray(draft) && draft.length === sourceSteps.length ? draft : sourceSteps.map(() => ({ title: "", body: "", timeline: "" }));
+                          const set = (patch) => setDrafts((d) => ({ ...d, [id]: steps.map((x, j) => (j === i ? { ...x, ...patch } : x)) }));
+                          return (
+                            <div key={i} className="space-y-1">
+                              <input value={steps[i].title} onChange={(e) => set({ title: e.target.value })} disabled={!data.canEdit} className={box} placeholder={`${i + 1}.`} />
+                              <textarea value={steps[i].body} onChange={(e) => set({ body: e.target.value })} disabled={!data.canEdit} rows={2} className={box} />
+                              {st.timeline ? <input value={steps[i].timeline} onChange={(e) => set({ timeline: e.target.value })} disabled={!data.canEdit} className={box} /> : null}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {data.canEdit && (
+                      <div className="flex items-center gap-3 mt-2">
+                        <button
+                          onClick={() => save({ serviceRowId: s.rowId, field: s.field, value }, id)}
+                          disabled={savingKey === id || !ready}
+                          className="inline-flex items-center gap-1.5 bg-inverted text-inverted-foreground text-xs font-semibold px-3 min-h-9 rounded-lg disabled:opacity-50"
+                        >
+                          {savingKey === id && <Loader2 size={11} className="animate-spin" />}
+                          {t("app.translations.markReviewed", "Mark reviewed")}
+                        </button>
+                        {savedKey === id && <span className="text-xs text-green-700 dark:text-green-300">{t("app.action.saved", "Saved")}</span>}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {showDefaultSection && (
+        <div className="pt-4 space-y-2">
+          <h3 className="text-sm font-semibold text-foreground">
+            {t("app.translations.defaultLanguageTitle", "Written in another language — their {language} version", { language: nameOf(data.defaultLanguage) })}
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            {t("app.translations.defaultLanguageHint", "Some of your wording is written in a language other than your default. Clients reading in {language} get this translation.", { language: nameOf(data.defaultLanguage) })}
+          </p>
+          <CompanyTextReview language={data.defaultLanguage} nested />
         </div>
       )}
     </section>

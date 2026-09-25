@@ -13,6 +13,7 @@ import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import { isDocumentType, sanitiseWaiverBody } from "@/lib/company/documents";
 import { DOCUMENT_SELECT, presentForStaff } from "@/lib/company/documentLibrary";
+import { schedulePhraseGroups, companyWritingLanguage } from "@/lib/i18n/autoTranslateSchedule";
 
 const HTTP_URL = /^https?:\/\//i;
 const str = (v) => (typeof v === "string" ? v.trim() : "");
@@ -97,7 +98,15 @@ export async function PATCH(request, { params }) {
     summary: `Updated company document "${updated.title}"`,
     metadata: { documentId: id, changed: Object.keys(data) },
   });
-  return NextResponse.json({ document: presentForStaff(updated) });
+  // Title and summary in the other document languages (see the POST).
+  const autoTranslate = updated.type === "waiver" || !("title" in data || "summary" in data)
+    ? null
+    : schedulePhraseGroups({
+        companyId: member.companyId,
+        groups: [{ ns: "documentTitle", texts: [updated.title] }, { ns: "documentSummary", texts: [updated.summary] }],
+        sourceLanguage: await companyWritingLanguage(member.companyId),
+      });
+  return NextResponse.json({ document: presentForStaff(updated), autoTranslate });
 }
 
 export async function DELETE(request, { params }) {

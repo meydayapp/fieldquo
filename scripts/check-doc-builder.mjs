@@ -603,22 +603,27 @@ for (const [lang, tab, prepared] of [["fr", "Devis", "Préparé pour"], ["es", "
 
   // The picker itself: every enabled service is offered after the last
   // group, with no click first. This is the regression, stated.
-  // Since 2026-09-25 the foot is SERVICES only, as cards (owner): the pill
-  // row's heading promised "a service, area or line item" and could add
-  // only services. A line item is added inside its service.
-  ok("the document offers the service cards with a quote already in progress", doc.includes('data-service-tiles-variant="card"'));
+  // Since 2026-09-25 the foot is SERVICES only (owner): the pill row's
+  // heading promised "a service, area or line item" and could add only
+  // services. A line item is added inside its service. And the cards are
+  // ONE control now ("a button 'Add service' and then a popup … if there are
+  // more than 4 it makes a pop-up"): this fixture offers three quote types
+  // and no linked service, so it is the inline buttons — every trade still
+  // one press from the foot. The dialog is scripts/check-service-picker.mjs.
+  ok("the document offers Add a service with a quote already in progress", doc.includes("data-doc-add-service") && doc.includes('data-service-picker="inline"'));
   ok("…and no longer promises an area or a line item down there", !doc.includes("Add a service, area or line item"));
   for (const cat of BOOTSTRAP.categories) {
-    ok(`the cards offer ${cat.key}`, doc.includes(`data-service-tile="${cat.key}"`));
+    ok(`the inline buttons offer ${cat.key}`, doc.includes(`data-service-tile="${cat.key}"`));
   }
-  ok("the cards include the service already on the quote (adding it twice is the point)", doc.includes('data-service-tile="cabinet_refinishing"'));
+  ok("the buttons include the service already on the quote (adding it twice is the point)", doc.includes('data-service-tile="cabinet_refinishing"'));
   ok("every service on the quote has its own Add line item", (doc.match(/data-doc-add-line/g) || []).length === twoOfOne.scopeGroups.length);
-  ok("a card carries the service's one-line description", /data-service-card-description/.test(doc));
-  ok("…and a price where the company has one", /data-service-card-price/.test(doc));
-  // A company service with an estimate template, linked to Stairs: its card
-  // gets "Add with its template lines (2)" and its price hint reads the
-  // company's own figure. Unlinked products (the Rush fee) put nothing on a
-  // card — a product for every quote type is not any one service's price.
+  ok("the busy grid of cards is gone from the foot", !doc.includes('data-service-tiles-variant="card"') && !doc.includes("data-service-card"));
+  // A company service with an estimate template, linked to Stairs: offered
+  // beside the two quote types as its own button, with the count of lines
+  // its Add writes — one, because the stair takeoff already bills the treads
+  // (the preview and its held-back sentence: check-service-picker B and D).
+  // Unlinked products (the Rush fee) are not offered: a product for every
+  // quote type is not any one service.
   const templated = {
     id: "p2", name: "Stair refinish", description: "Sand and stain.", unitPrice: 95, unit: "tread", type: "service", active: true,
     templateEnabled: true, estimateTypes: [], categories: [{ id: "cat1", label: "Stairs" }],
@@ -639,14 +644,27 @@ for (const [lang, tab, prepared] of [["fr", "Devis", "Préparé pour"], ["es", "
       </PermissionProvider>
     </LanguageProvider>,
   );
-  const stairsCard = cardsDoc.split('data-service-card="stairs"')[1]?.split("data-service-card=")[0] || "";
-  // Two template lines; the tread line prices what the stair takeoff already
-  // prices, so the card offers ONE and says why (keysPricedByGroup).
-  ok("a templated service's card offers it with its template lines", /data-service-card-template="p2"/.test(stairsCard) && /Add with its template lines \(1\)/.test(stairsCard), stairsCard.slice(0, 400));
-  ok("…holding back the tread line the stair takeoff already bills, and saying so", /data-service-card-template-skipped[^>]*>Treads — already priced by the stair takeoff, so not added again\./.test(stairsCard), stairsCard.slice(0, 600));
-  ok("…priced from the company's own service", /from \$95\.00 \/ tread/.test(stairsCard), stairsCard.slice(0, 400));
-  const cabCard = cardsDoc.split('data-service-card="cabinet_refinishing"')[1]?.split("data-service-card=")[0] || "";
-  ok("a service with no template offers no template action", !/data-service-card-template/.test(cabCard));
+  ok("a templated service is offered inline with the lines its Add writes", /data-service-picker-inline="p2"/.test(cardsDoc) && /Template lines \(1\)/.test(cardsDoc), cardsDoc.split("data-doc-add-service")[1]?.slice(0, 600));
+  ok("the unlinked Rush fee is not offered at the foot", !(cardsDoc.split("data-doc-add-service")[1] || "").includes("Rush fee"));
+  // More than four → the button, and nothing of the grid.
+  const more = ["Stair stain", "Handrail refinish", "Riser paint"].map((name, i) => ({
+    id: `pm${i}`, name, unitPrice: 50 + i, unit: "each", type: "service", active: true, categories: [{ id: "cat1", label: "Stairs" }],
+  }));
+  const manyDoc = renderToStaticMarkup(
+    <LanguageProvider initialLanguage="en">
+      <PermissionProvider role="owner" permissions={{}}>
+        <QuoteBuilderForm
+          mode="create"
+          quoteId={null}
+          bootstrap={{ ...BOOTSTRAP, layout: "document", products: [...BOOTSTRAP.products, templated, ...more], categories: BOOTSTRAP.categories.filter((c) => c.key !== "interior_painting") }}
+          initial={initialStateFromQuote(null)}
+        />
+      </PermissionProvider>
+    </LanguageProvider>,
+  );
+  const manyFoot = manyDoc.split("data-doc-add-service")[1] || "";
+  ok("more than four offerings → one Add service button", manyFoot.includes('data-service-picker="dialog"') && manyFoot.includes("data-add-service-open") && manyFoot.includes("2 quote types · 4 services"));
+  ok("…with no tile, card or template action beside it", !/data-service-tile=|data-service-card|data-service-picker-inline/.test(manyFoot));
   // An empty quote still gets the full card, which is the first thing to do
   // on a blank page.
   // …on a company with no painting, where the tiles are the first step (a
@@ -663,7 +681,7 @@ for (const [lang, tab, prepared] of [["fr", "Devis", "Préparé pour"], ["es", "
       </PermissionProvider>
     </LanguageProvider>,
   );
-  ok("an empty quote gets the full picker card", blankDoc.includes('data-service-tiles-variant="card"'));
+  ok("an empty quote gets the picker as its first step (the tour's anchor)", blankDoc.includes('data-tour="service-picker"') && blankDoc.includes("data-doc-add-service"));
   ok("one component draws both shapes", !src("app/components/quotes/builder/ServiceTiles.js").includes("ServiceTilesRow"));
 
   // ── On the wire ──────────────────────────────────────────────────────────

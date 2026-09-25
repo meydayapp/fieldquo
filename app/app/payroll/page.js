@@ -32,6 +32,7 @@ import { formatCalendarDay, formatShortDate } from "@/lib/format/localeDate";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 import { useCommissionSettings } from "@/app/components/commissions/useCommissionSettings";
+import PayRunRow from "./PayRunRow";
 // Keys, not labels. The frequency wording deliberately reuses the pay-cycle
 // card's four keys rather than a second English list: this select and
 // Settings → Payroll's "How often" offer the SAME four values, and they used
@@ -40,35 +41,8 @@ import { useCommissionSettings } from "@/app/components/commissions/useCommissio
 const REGIONS = ["CA", "US", "UK"];
 const FREQUENCIES = ["weekly", "biweekly", "semimonthly", "monthly"];
 
-const STATUS_STYLE = {
-  draft: "bg-muted text-muted-foreground",
-  approved: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300",
-  paid: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300",
-  cancelled: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300",
-};
-
-// PayRun.status is a free string column (prisma/schema.prisma: draft |
-// approved | paid | cancelled). Three of the four used to reach the badge
-// raw and lowercase — "draft", "approved", "cancelled" — in every language.
-// app.payRunStatus.* is the catalogue's existing wording for exactly these
-// four, already used on the job page's pay-period panel; reused rather than
-// written a second time. "paid" keeps its own longer phrasing, because
-// FieldQuo records that a company paid, it does not pay.
-const STATUS_FALLBACK = {
-  draft: "Draft",
-  approved: "Approved",
-  paid: "Paid",
-  cancelled: "Cancelled",
-};
-
-function statusLabel(t, status) {
-  if (status === "paid") return t("app.payrollRun.paidRecorded", "paid (recorded)");
-  // An unmapped value prints itself rather than nothing: a status nobody
-  // anticipated is a bug report, and a blank badge is what hides it.
-  return STATUS_FALLBACK[status]
-    ? t(`app.payRunStatus.${status}`, STATUS_FALLBACK[status])
-    : status;
-}
+// The run's status badge — its colours and its wording — lives in PayRunRow.js
+// with the row that draws it.
 
 // Two formatters on purpose. Pay period boundaries are calendar days stored at
 // midnight UTC, so a local formatter shows the day before — see the note in
@@ -740,37 +714,7 @@ export default function PayrollPage() {
             )}
             <div className="space-y-2">
               {runs?.map((r) => (
-                <Link
-                  key={r.id}
-                  href={`/app/payroll/${r.id}`}
-                  className="block rounded-xl border border-border bg-card px-4 py-3 hover:bg-muted/40"
-                >
-                  <div className="flex items-center justify-between gap-3 flex-wrap">
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        {date(r.periodStart, language)} –{" "}
-                        {date(r.periodEnd, language)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {r._count.lines}{" "}
-                        {r._count.lines === 1
-                          ? t("app.payrollRun.person", "person")
-                          : t("app.payrollRun.people", "people")}{" "}
-                        · {r.region}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-bold text-foreground tabular-nums">
-                        {money(r.netTotal)}
-                      </span>
-                      <span
-                        className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${STATUS_STYLE[r.status] || ""}`}
-                      >
-                        {statusLabel(t, r.status)}
-                      </span>
-                    </div>
-                  </div>
-                </Link>
+                <PayRunRow key={r.id} run={r} money={money} />
               ))}
             </div>
           </section>

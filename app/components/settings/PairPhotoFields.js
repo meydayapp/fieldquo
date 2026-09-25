@@ -10,8 +10,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Upload } from "lucide-react";
+import { Loader2, Trash2, Upload } from "lucide-react";
 import { uploadFile } from "@/lib/media/uploadClient";
+import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 /** One "before" or "after" slot. Uploads through the shared upload helper. */
@@ -96,43 +97,187 @@ export function Field({ value, placeholder, disabled, onCommit, format }) {
 }
 
 
-export function NewPair({ disabled, onComplete, onError, t }) {
-  const [before, setBefore] = useState(null);
-  const [after, setAfter] = useState(null);
+// ── The new pair, and the draft it can be left as ───────────────────────────
+//
+// The bug this replaced (owner, 2026-09-25): "I cannot delete the new pair
+// and I think I'm stuck like that." The slot held its first photo in React
+// state with no remove control, so a before with no after to hand sat there
+// with no way out — and closing the dialog silently threw it away.
+//
+// Now the half pair is STORED as the company's one gallery draft
+// (Company.galleryDraftPair, via /api/settings/gallery `draft`), so:
+//   - it survives closing the dialog and can be finished later, anywhere;
+//   - it is marked as a draft, in words, with a Discard control (confirmed);
+//   - it never reaches a client — the draft is not a gallery row, and the
+//     website, quote email and proposal read only gallery rows.
+// When the second photo lands, the pair is handed to `onComplete` and the
+// draft cleared only once that save succeeded; a failed save leaves both
+// photos in the draft with a "Save this pair" retry.
+
+const GALLERY_URL = "/api/settings/gallery";
+
+function sideOf(draft, side) {
+  const url = draft?.[`${side}Url`];
+  return url ? { url, publicId: draft?.[`${side}PublicId`] || "" } : null;
+}
+
+function putDraft(draft) {
+  return fetchJson(GALLERY_URL, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ draft }),
+  });
+}
+
+/**
+ * @param initialDraft  the draft the parent already loaded (GET /api/settings/
+ *                      gallery answers it); undefined → loaded here
+ * @param onComplete    async (pair) → true when the pair was stored, false
+ *                      when not, or "cleared" when the parent's own save also
+ *                      cleared the draft (the gallery editor sends both in one
+ *                      request)
+ */
+export function NewPair({ disabled, onComplete, onError, t, initialDraft }) {
+  const [before, setBefore] = useState(() => sideOf(initialDraft, "before"));
+  const [after, setAfter] = useState(() => sideOf(initialDraft, "after"));
+  const [busy, setBusy] = useState(false);
+  const loaded = useRef(initialDraft !== undefined);
 
   useEffect(() => {
-    if (!before || !after) return;
-    onComplete({
-      beforeUrl: before.url,
-      beforePublicId: before.publicId,
-      afterUrl: after.url,
-      afterPublicId: after.publicId,
-    });
-    setBefore(null);
-    setAfter(null);
-  }, [before, after, onComplete]);
+    if (loaded.current) return;
+    loaded.current = true;
+    let cancelled = false;
+    fetchJson(GALLERY_URL)
+      .then((d) => {
+        if (cancelled || !d?.draft) return;
+        setBefore(sideOf(d.draft, "before"));
+        setAfter(sideOf(d.draft, "after"));
+      })
+      .catch(() => {
+        // The editor above reports its own load failure; an unreadable draft
+        // leaves an empty slot, which is what there was before drafts existed.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const draftOf = (b, a) => ({
+    beforeUrl: b?.url || null,
+    beforePublicId: b?.publicId || null,
+    afterUrl: a?.url || null,
+    afterPublicId: a?.publicId || null,
+  });
+
+  async function finish(b, a) {
+    setBusy(true);
+    try {
+      const done = await onComplete({
+        beforeUrl: b.url,
+        beforePublicId: b.publicId,
+        afterUrl: a.url,
+        afterPublicId: a.publicId,
+      });
+      if (!done) return; // the parent showed its error; the draft stays
+      if (done !== "cleared") await putDraft(null);
+      setBefore(null);
+      setAfter(null);
+    } catch (err) {
+      onError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function placed(side, photo) {
+    const b = side === "before" ? photo : before;
+    const a = side === "after" ? photo : after;
+    if (side === "before") setBefore(photo);
+    else setAfter(photo);
+    // Stored before anything else, so a failed completion below cannot lose
+    // the photo that was just uploaded.
+    try {
+      await putDraft(draftOf(b, a));
+    } catch (err) {
+      onError(err.message);
+      return;
+    }
+    if (b && a) await finish(b, a);
+  }
+
+  async function discard() {
+    if (!window.confirm(t("app.gallery.draftDiscardConfirm", "Discard this unfinished pair? The photo you uploaded for it is removed from your gallery editor."))) return;
+    setBusy(true);
+    try {
+      await putDraft(null);
+      setBefore(null);
+      setAfter(null);
+    } catch (err) {
+      onError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const isDraft = Boolean(before || after);
+  const complete = Boolean(before && after);
 
   return (
-    <div className="border border-dashed border-border rounded-lg p-3">
-      <div className="text-xs text-muted-foreground mb-2">
-        {t("app.setQuoteEmail.addPair")}
-      </div>
+    <div
+      className={`border border-dashed rounded-lg p-3 ${isDraft ? "border-amber-400 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20" : "border-border"}`}
+      data-gallery-draft={isDraft ? "" : undefined}
+    >
+      {isDraft ? (
+        <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
+          <div className="min-w-0">
+            <div className="text-xs font-semibold text-amber-800 dark:text-amber-300">
+              {t("app.gallery.draftLabel", "Unfinished pair — draft")}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {t("app.gallery.draftHint", "Clients don't see it until both photos are in. You can finish it later.")}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={discard}
+            disabled={disabled || busy}
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 text-sm text-foreground hover:text-red-600 disabled:opacity-50 min-h-11"
+          >
+            <Trash2 size={14} aria-hidden="true" />
+            {t("app.gallery.draftDiscard", "Discard")}
+          </button>
+        </div>
+      ) : (
+        <div className="text-xs text-muted-foreground mb-2">
+          {t("app.setQuoteEmail.addPair")}
+        </div>
+      )}
       <div className="flex gap-3">
         <PhotoSlot
           url={before?.url}
           label={t("app.setQuoteEmail.before")}
-          disabled={disabled}
+          disabled={disabled || busy}
           onError={onError}
-          onUploaded={setBefore}
+          onUploaded={(p) => placed("before", p)}
         />
         <PhotoSlot
           url={after?.url}
           label={t("app.setQuoteEmail.after")}
-          disabled={disabled}
+          disabled={disabled || busy}
           onError={onError}
-          onUploaded={setAfter}
+          onUploaded={(p) => placed("after", p)}
         />
       </div>
+      {complete && !busy && (
+        <button
+          type="button"
+          onClick={() => finish(before, after)}
+          disabled={disabled}
+          className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-inverted text-inverted-foreground px-4 text-sm font-semibold min-h-11 disabled:opacity-50"
+        >
+          {t("app.gallery.draftSave", "Save this pair")}
+        </button>
+      )}
     </div>
   );
 }

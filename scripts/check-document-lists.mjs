@@ -84,8 +84,13 @@ function stripComments(src) {
 }
 
 const QUOTES_PAGE = "app/app/quotes/page.js";
+// The quotes list is two files: page.js draws the chips, the grouping and the
+// card, and QuoteListRow.js draws each row inside it. Every rule below is a
+// rule about the list, so it reads both — a row rule run over page.js alone
+// would pass by measuring nothing.
+const QUOTES_ROW = "app/app/quotes/QuoteListRow.js";
 const INVOICES_PAGE = "app/app/invoices/page.js";
-const quotesSrc = stripComments(read(QUOTES_PAGE));
+const quotesSrc = stripComments(read(QUOTES_PAGE) + "\n" + read(QUOTES_ROW));
 const invoicesSrc = stripComments(read(INVOICES_PAGE));
 
 // stripComments is the trap that produced a false pass in this repo before: a

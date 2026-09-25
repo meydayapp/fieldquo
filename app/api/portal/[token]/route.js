@@ -7,6 +7,7 @@ import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
 import { latestPerFamily } from "@/lib/invoices/family";
 import { loadDocumentCustomFields } from "@/lib/customFields/values";
 import { resolveClientLanguage } from "@/lib/i18n/resolveLanguage";
+import { loadPhrases } from "@/lib/i18n/phrases";
 import { taxStatement } from "@/lib/tax/documentTax";
 import { documentTaxSentence } from "@/lib/tax/documentSentence";
 import { bankDebitOffer } from "@/lib/stripe/bankDebit";
@@ -377,13 +378,28 @@ export async function GET(request, { params }) {
   // The company's own boxes flagged for the document (a PO number), per
   // invoice family — the same line the emailed copy and the PDF print. One
   // query per invoice; the portal lists a handful, never hundreds.
+  //
+  // The portal frames every invoice in ONE language — the client's, the same
+  // `language` returned below that PortalInvoice.js builds its labels from —
+  // so the company's own words on it (the custom-field labels, a payment
+  // stage's name in the "Deposit — $3,000" bar) are looked up in that
+  // language here, server-side: the page is a client component and never
+  // sees a translation table. Drafted on save (lib/i18n/phrases.js); a text
+  // with no draft yet arrives as the company wrote it.
+  const portalLanguage = resolveClientLanguage(client, client.company);
   const customFieldsByInvoice = new Map(
     await Promise.all(
       client.invoices.map(async (invoice) => [
         invoice.id,
-        await loadDocumentCustomFields(db, client.companyId, "invoice", invoice.id),
+        await loadDocumentCustomFields(db, client.companyId, "invoice", invoice.id, { language: portalLanguage }),
       ]),
     ),
+  );
+  const trStage = await loadPhrases(
+    db,
+    client.companyId,
+    portalLanguage,
+    client.invoices.flatMap((invoice) => (invoice.jobPaymentStages || []).map((stage) => ({ ns: "paymentStage", text: stage.label }))),
   );
 
   const invoices = client.invoices.map((invoice) => {
@@ -441,6 +457,7 @@ export async function GET(request, { params }) {
       // charge itself is — lib/stripe.js createInvoiceCheckoutSession).
       jobPaymentStages: (invoice.jobPaymentStages || []).map((stage) => ({
         ...stage,
+        label: trStage("paymentStage", stage.label),
         bankDebit: offerFor(Math.min(stage.amountCents, invoiceBalanceCents(invoice))),
       })),
       // The bank-debit offer for the invoice's whole remaining balance —

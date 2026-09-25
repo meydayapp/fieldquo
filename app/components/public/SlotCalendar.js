@@ -62,6 +62,11 @@ export function isoDate(d) {
  *                  away which month and day the visitor had open.
  * @param onPick    (iso) => void, called when a time is tapped
  * @param selected  the currently picked iso, so the caller can control it
+ * @param initialDay a "YYYY-MM-DD" to open with the times of, or null (the
+ *                  default: "pick a day"). The signup's sample opens on a
+ *                  day so it can show the times panel; a day with no times
+ *                  falls back to "pick a day" through the same rule a stale
+ *                  day does after a refetch.
  */
 export default function SlotCalendar({
   theme,
@@ -73,12 +78,13 @@ export default function SlotCalendar({
   loadSlots,
   onPick,
   selected = null,
+  initialDay = null,
 }) {
   const [monthCursor, setMonthCursor] = useState(() => {
     const n = new Date();
     return new Date(Date.UTC(n.getFullYear(), n.getMonth(), 1));
   });
-  const [chosenDay, setChosenDay] = useState(null);
+  const [chosenDay, setChosenDay] = useState(initialDay);
   const [slots, setSlots] = useState({});
   const [loading, setLoading] = useState(true);
   // A load that failed must not look like a month with nothing free. One is

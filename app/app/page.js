@@ -19,6 +19,7 @@ import HeroRevenue from "@/app/components/dashboard/HeroRevenue";
 import SecondaryMetrics from "@/app/components/dashboard/SecondaryMetrics";
 import MigrationNotice from "@/app/components/dashboard/MigrationNotice";
 import { Figure, FigureText } from "@/app/components/dashboard/Figure";
+import { monthLabel, sparklineMonthsFor, trendSentenceFor } from "@/app/components/dashboard/trendSentence";
 import { CARD_CLIPPED, INSET } from "@/app/components/dashboard/surface";
 
 import { buildDashboardRank } from "@/lib/dashboard/rank";
@@ -64,38 +65,9 @@ const AGING_LABEL = {
   days_90_plus: ["app.dash.aging.d90plus", "90+ days"],
 };
 
-// ── The change, stated and nothing more ────────────────────────────────────
-//
-// Key and English fallback together, so the sentence reads correctly before the
-// catalogue entry lands rather than rendering "app.dash.revenue.down" at a
-// contractor. Every one of these says WHAT MOVED and stops there — the
-// competitor's "focus on new sales opportunities" is advice derived from one
-// number, and a panel that dispenses it is trusted less on the figures too.
-const TREND_SENTENCE = {
-  up: [
-    "app.dash.revenue.up",
-    "{month}: {amount} — up {pct}% on {priorMonth}.",
-  ],
-  down: [
-    "app.dash.revenue.down",
-    "{month}: {amount} — down {pct}% on {priorMonth}.",
-  ],
-  flat: [
-    "app.dash.revenue.flat",
-    "{month}: {amount} — about the same as {priorMonth}.",
-  ],
-};
-
-/** "2026-08" → "Aug 26", read on the UTC calendar the series was built on. */
-function monthLabel(key) {
-  const [y, m] = String(key).split("-").map(Number);
-  if (!y || !m) return key;
-  return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString(undefined, {
-    month: "short",
-    year: "2-digit",
-    timeZone: "UTC",
-  });
-}
+// The trend sentence (TREND_SENTENCE, trendSentenceFor) and monthLabel live
+// in app/components/dashboard/trendSentence.js since 2026-09-25, so the
+// /signup side panel's dashboard sample prints the same sentence as this page.
 
 /** "Sep 8" — the same short form the due-date line on each owed row uses. */
 function shortDay(value) {
@@ -462,57 +434,11 @@ export default function DashboardPage() {
 
   // ── The one comparison on this page that is genuinely computable ─────────
   //
-  // Built here rather than inside the hero component because the key and its
-  // English fallback have to stay in this file: scripts/check-dashboard.mjs
-  // section 6 reads it to prove the panel states the change and never adds
-  // advice to it.
-  //
-  // buildRevenueTrend compares the last two COMPLETE months, so this is never
-  // a part-month measured against a whole one — that would manufacture a
-  // collapse on the 2nd of every month. `headline` is null when the window
-  // holds fewer than two complete months, and this renders nothing for a null:
-  // a first-month company gets the figure and no trend, never an invented one.
-  //
-  // Built as an ELEMENT rather than a string, so the money inside it is
-  // wrapped by the same <FigureText> every other figure on this page goes
-  // through. A sentence assembled into a bare string here and rendered
-  // somewhere else is the one path by which a figure escapes the tabular
-  // digits — scripts/check-dashboard-rank.mjs section 8 closes it.
-  const trendSentence = useMemo(() => {
-    const h = money?.revenue?.headline;
-    if (!h) return null;
-    if (h.deltaPct === null) {
-      return (
-        <FigureText className="mt-2 text-xs text-foreground">
-          {t(
-            "app.dash.revenue.fromNothing",
-            "{month}: {amount}. Nothing was received in {priorMonth}.",
-            {
-              month: monthLabel(h.month),
-              amount: formatMoney(h.amount, money.currency),
-              priorMonth: monthLabel(h.priorMonth),
-            },
-          )}
-        </FigureText>
-      );
-    }
-    return (
-      <FigureText className="mt-2 text-xs text-foreground">
-        {t(...(TREND_SENTENCE[h.direction] || TREND_SENTENCE.flat), {
-          month: monthLabel(h.month),
-          amount: formatMoney(h.amount, money.currency),
-          pct: h.deltaPct,
-          priorMonth: monthLabel(h.priorMonth),
-        })}
-      </FigureText>
-    );
-  }, [money, t]);
+  // Last complete month against the one before, or nothing — see
+  // trendSentenceFor (app/components/dashboard/trendSentence.js) for why.
+  const trendSentence = useMemo(() => trendSentenceFor(money, t), [money, t]);
 
-  const sparklineMonths = useMemo(() => {
-    const series = rank.hero.received?.series;
-    if (!Array.isArray(series) || series.length < 2) return null;
-    return [monthLabel(series[0].month), monthLabel(series[series.length - 1].month)];
-  }, [rank.hero.received]);
+  const sparklineMonths = useMemo(() => sparklineMonthsFor(rank.hero.received), [rank.hero.received]);
 
   if (loading) {
     return (

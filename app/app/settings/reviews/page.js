@@ -230,7 +230,9 @@ export default function ReviewSettingsPage() {
         <div className="flex flex-wrap gap-2 mt-3">
           <input
             id="reviewUrl"
-            type="url"
+            type="text"
+            inputMode="url"
+            autoComplete="url"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             placeholder="https://g.page/r/…/review"

@@ -95,8 +95,8 @@ export async function POST(request, { params }) {
 
   // The company's own boxes flagged for the document (a PO number). Loaded
   // here, by the ONE reader of CustomFieldValue, so the PDF cannot print an
-  // answer the definition did not flag.
-  const customFields = await loadDocumentCustomFields(db, member.companyId, "quote", quote.id);
+  // answer the definition did not flag. Labels in the document's language.
+  const customFields = await loadDocumentCustomFields(db, member.companyId, "quote", quote.id, { language: documentLanguage });
 
   const pdfBuffer = await renderDocumentPdfBuffer({
     sections,

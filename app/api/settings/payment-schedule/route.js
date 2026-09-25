@@ -38,7 +38,7 @@ import { validatePaymentScheduleInput } from "@/lib/paymentSchedule/validate";
 import { scheduleToText } from "@/lib/paymentSchedule/engine";
 // The generated sentence is Company.paymentTerms, printed on every document —
 // so it is drafted into the other languages like a typed one.
-import { scheduleAutoTranslate } from "@/lib/i18n/autoTranslateSchedule";
+import { scheduleAutoTranslate, schedulePhrases } from "@/lib/i18n/autoTranslateSchedule";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -103,6 +103,14 @@ export async function PUT(request) {
 
   const generatedText = scheduleToText(stages);
 
+  // What was there before, so the response only claims a translation when
+  // the wording actually changed (a percentage-only edit still changes the
+  // generated sentence; a re-save of the same schedule changes nothing).
+  const [beforeStages, beforeCompany] = await Promise.all([
+    db.paymentScheduleStage.findMany({ where: { companyId: member.companyId }, select: { label: true } }),
+    db.company.findUnique({ where: { id: member.companyId }, select: { paymentTerms: true, defaultLanguage: true } }),
+  ]);
+
   await db.$transaction([
     db.paymentScheduleStage.deleteMany({ where: { companyId: member.companyId } }),
     db.paymentScheduleStage.createMany({
@@ -134,13 +142,37 @@ export async function PUT(request) {
     },
   ).catch(() => {});
 
-  const lang = await db.company.findUnique({ where: { id: member.companyId }, select: { defaultLanguage: true } });
-  const autoTranslate = scheduleAutoTranslate({
+  const sourceLanguage = beforeCompany?.defaultLanguage || "en";
+  const terms = scheduleAutoTranslate({
     companyId: member.companyId,
     model: "company",
     fields: { paymentTerms: generatedText || "" },
-    sourceLanguage: lang?.defaultLanguage || "en",
+    sourceLanguage,
   });
+  // Each stage's own name is printed on its own too — the deposit email's
+  // heading, the portal's "Deposit — $3,000 due" bar — and it is COPIED onto
+  // every job's JobPaymentStage at acceptance. Drafted as phrases keyed by
+  // the text (lib/i18n/phrases.js), so those copies find the translation
+  // without this route knowing they exist. Every save queues every label;
+  // an unchanged one costs nothing.
+  const labels = stages.map((s) => s.label);
+  const stageLabels = schedulePhrases({ companyId: member.companyId, ns: "paymentStage", texts: labels, sourceLanguage });
+
+  const before = new Set(beforeStages.map((s) => s.label));
+  const changed = (beforeCompany?.paymentTerms || "") !== (generatedText || "") || labels.some((l) => !before.has(l));
+  const autoTranslate = changed ? oneSummary(terms, stageLabels) : null;
 
   return NextResponse.json({ stages, generatedText, autoTranslate });
+}
+
+// The banner takes one summary. The sentence and the labels are drafted by
+// the same drafter into the same languages, and the status route reads
+// company keys and phrase keys from one `keys` list — so the two summaries
+// merge by concatenating their keys. The sentence is reviewable on the
+// Translations page, so the merged one keeps its Review link.
+function oneSummary(a, b) {
+  const all = [a, b].filter(Boolean);
+  if (!all.length) return null;
+  const [first] = all;
+  return { ...first, queued: all.some((s) => s.queued), keys: all.flatMap((s) => s.keys || []) };
 }

@@ -390,12 +390,22 @@ export async function sendBookingConfirmationEmail({ to, company, attachments, .
  *                                        words it — it must never work out for
  *                                        itself whether the fee comes back.
  * @param {string} [params.quoteNumber]   the estimate this visit was about
+ * @param {string} [params.officeEventTypeName] the appointment type's name as
+ *                                        the company typed it, for the
+ *                                        office's copy. `eventTypeName` is
+ *                                        the CLIENT's — the stored draft in
+ *                                        the letter's language
+ *                                        (lib/i18n/phrases.js) — and the
+ *                                        office should not read its own
+ *                                        service back in a client's language.
+ *                                        Absent → the same name for both.
  */
 export function buildVisitCancelledEmails({
   company,
   clientName,
   clientEmail,
   eventTypeName,
+  officeEventTypeName = null,
   startTime,
   location,
   where = null,
@@ -455,7 +465,7 @@ export function buildVisitCancelledEmails({
   const officeNamed = describeAppointment({
     where,
     location,
-    eventTypeName,
+    eventTypeName: officeEventTypeName || eventTypeName,
     language: company?.defaultLanguage || "en",
   });
   const companyHtml = byOffice
@@ -543,12 +553,16 @@ async function sendBothCopies(company, letters, attachments = null) {
  * know which slot just freed up.
  *
  * @param {string} [params.quoteNumber]  the estimate this visit is about
+ * @param {string} [params.officeEventTypeName] the company's own words for the
+ *                                       office's copy — see
+ *                                       buildVisitCancelledEmails.
  */
 export function buildVisitRescheduledEmails({
   company,
   clientName,
   clientEmail,
   eventTypeName,
+  officeEventTypeName = null,
   previousStartTime,
   startTime,
   location,
@@ -599,7 +613,12 @@ export function buildVisitRescheduledEmails({
   const officeCopy = visitCopy(officeLanguage);
   const exactWhen = formatWhen(startTime, timezone, officeLanguage);
   const officeWasWhen = formatWhen(previousStartTime, timezone, officeLanguage);
-  const officeNamed = describeAppointment({ where, location, eventTypeName, language: officeLanguage });
+  const officeNamed = describeAppointment({
+    where,
+    location,
+    eventTypeName: officeEventTypeName || eventTypeName,
+    language: officeLanguage,
+  });
   const companyHtml = byOffice
     ? null
     : bookingEmailShell({

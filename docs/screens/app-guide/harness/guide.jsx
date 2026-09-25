@@ -48,6 +48,7 @@ import { COMPANY, MEMBER, CREW_MEMBER, CREW, DISPATCHER, DISPATCHER_MEMBER, OWNE
 import { PUBLIC_PROPS } from "./fixtures/public.js";
 import { documentTheme } from "@/lib/documents/theme";
 import PreviewBanner from "@/app/q/[token]/PreviewBanner";
+import { getSectionPresets } from "@/app/data/sectionPresets";
 
 const params = new URLSearchParams(window.location.search);
 const slug = params.get("page") || "home";
@@ -226,12 +227,124 @@ const clickButton = async (text, tries = 50) => {
   }
   throw new Error(`scene: no button containing "${text}"`);
 };
+// ── Add service (2026-09-25) — the foot of the quote ─────────────────────
+//
+// The frames open the dialog, unfold a service's template lines, search,
+// and add, by pressing the shipped controls. The md5 frames
+// (picker-md5:<type|tpl>:<key>[:<productId>]) add ONE thing through
+// whichever foot the build has — origin/main's cards or this branch's
+// dialog — and press Save; routes-picker.js records the body. Written to
+// run unchanged on both trees, so the two bodies come from the same press.
+const typeInto = (input, value) => {
+  Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set.call(input, value);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+};
+const buttonWithText = (text, root = document) =>
+  [...root.querySelectorAll("button")].find((b) => b.textContent.trim() === text);
+async function openPicker() {
+  (await until("[data-add-service-open]")).click();
+  return until("[data-service-picker-list]");
+}
+async function openGroup(key) {
+  const head = await until(`[data-service-picker-group="${key}"] h3 button`);
+  if (head.getAttribute("aria-expanded") !== "true") head.click();
+  await wait(150);
+}
+async function pickerScene(scene) {
+  if (scene === "picker-scroll-foot") {
+    (await until("[data-doc-add-service], [data-service-picker]")).scrollIntoView({ block: "center" });
+    await wait(300);
+    return;
+  }
+  if (scene === "picker-open") {
+    await openPicker();
+    await wait(500);
+    return;
+  }
+  if (scene === "picker-open-lines") {
+    const list = await openPicker();
+    const toggle = await until("[data-service-picker-lines-toggle]");
+    toggle.click();
+    await until("[data-service-picker-preview]");
+    // Scroll the dialog's own body, not the page: scrollIntoView moves every
+    // scrolling ancestor, the card included, and cuts off its heading.
+    const li = toggle.closest("li");
+    const body = li?.closest(".overflow-y-auto");
+    if (li && body) body.scrollTop += li.getBoundingClientRect().top - body.getBoundingClientRect().top - 90;
+    void list;
+    await wait(500);
+    return;
+  }
+  if (scene === "picker-search") {
+    await openPicker();
+    typeInto(await until("[data-service-picker-search]"), "lock");
+    await wait(500);
+    return;
+  }
+  if (scene === "picker-add-first-template") {
+    await openPicker();
+    const toggle = await until("[data-service-picker-lines-toggle]");
+    toggle.closest("li").querySelector("[data-service-picker-add]").click();
+    await wait(600);
+    const groups = document.querySelectorAll("[data-doc-group]");
+    groups[groups.length - 1]?.scrollIntoView({ block: "start" });
+    await wait(400);
+    return;
+  }
+  if (scene.startsWith("picker-md5:")) {
+    const [, mode, key, productId] = scene.split(":");
+    let n = 0;
+    Object.defineProperty(window.crypto, "randomUUID", { configurable: true, value: () => `00000000-0000-4000-8000-${String(++n).padStart(12, "0")}` });
+    window.__pickerSaves = [];
+    const presets = getSectionPresets(key, "en");
+    if (document.querySelector("[data-add-service-open]")) {
+      // This branch: the dialog.
+      await openPicker();
+      await openGroup(key);
+      if (mode === "type") {
+        (await until(`[data-service-picker-type-add="${key}"]`)).click();
+        if (presets) {
+          await wait(150);
+          buttonWithText(presets[0], await until("[data-service-presets]")).click();
+        }
+      } else {
+        (await until(`[data-service-picker-group="${key}"] [data-service-picker-add="${productId}"]`)).click();
+      }
+    } else if (document.querySelector("[data-service-picker-inline], [data-service-picker='inline']")) {
+      // This branch, four or fewer: the inline buttons.
+      if (mode === "type") {
+        (await until(`[data-service-tile="${key}"]`)).click();
+        if (presets) { await wait(150); buttonWithText(presets[0]).click(); }
+      } else {
+        (await until(`[data-service-picker-inline="${productId}"]`)).click();
+      }
+    } else {
+      // origin/main: the cards.
+      if (mode === "type") {
+        (await until(`[data-service-tile="${key}"]`)).click();
+        if (presets) { await wait(150); buttonWithText(presets[0]).click(); }
+      } else {
+        (await until(`[data-service-card-template="${productId}"]`)).click();
+      }
+    }
+    await wait(400);
+    const save = document.querySelector("[data-doc-save]") || document.querySelector("svg.lucide-save")?.closest("button");
+    if (!save) throw new Error("scene: no Save button");
+    save.click();
+    for (let i = 0; i < 50 && !(window.__pickerSaves || []).length; i++) await wait(100);
+    if (!(window.__pickerSaves || []).length) throw new Error("scene: Save posted nothing");
+    window.__harnessResult = window.__pickerSaves;
+    return;
+  }
+  throw new Error(`unknown picker scene ${scene}`);
+}
 const setSelect = (el, value) => {
   Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, "value").set.call(el, value);
   el.dispatchEvent(new Event("change", { bubbles: true }));
 };
 async function runScene(scene) {
   if (!scene) return;
+  if (scene.startsWith("picker-")) return pickerScene(scene);
   // ── The shell (2026-09-21) ───────────────────────────────────────────────
   // Each frame is reached by operating the shipped controls: the collapse
   // button, the tab bar's More, the floating +, the top bar's search and
@@ -239,10 +352,30 @@ async function runScene(scene) {
   // ── The signup panel's phone strip (2026-09-24) ──────────────────────────
   // Opened by pressing the shipped "Show preview" button, never by rendering
   // the picture on its own.
+  // Since 2026-09-25 the panel's samples are real components loaded on
+  // demand and measured inside their frames; a frame is photographed once
+  // every sample on screen has been measured (data-sample-ready), or once
+  // the drawn price book is up.
+  const samplesReady = async (scope) => {
+    // A phone keeps the full panel hidden and loads nothing into it (the
+    // samples load only when on screen); only the strip is waited for there.
+    const box = await until(scope);
+    if (!box.getClientRects().length) return;
+    await until(`${scope} [data-sample-frame], ${scope} [data-signup-preview]`);
+    for (let i = 0; i < 80; i++) {
+      const frames = [...document.querySelectorAll(`${scope} [data-sample-frame]`)];
+      if (frames.every((f) => f.getAttribute("data-sample-ready") === "1")) break;
+      await wait(100);
+    }
+    await wait(500);
+  };
+  if (scene === "signup-samples") {
+    await samplesReady("[data-signup-aside]");
+    return;
+  }
   if (scene === "signup-strip-open") {
     (await until("[data-signup-aside-strip] button[aria-expanded]")).click();
-    await until("[data-signup-aside-strip] [data-signup-preview]");
-    await wait(400);
+    await samplesReady("[data-signup-aside-strip]");
     return;
   }
   if (scene === "rail-collapse") {

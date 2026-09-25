@@ -201,7 +201,7 @@ export async function GET(request, { params }) {
     // returns the GENERIC set, which is a reasonable default on a quote being
     // written and a fabrication on an invoice for work already done.
     processSteps: scopeGroups.length ? dominantProcessSteps(forDominant, invoice.language) : [],
-    glossary: scopeGroups.length ? dominantGlossary(forDominant) : [],
+    glossary: scopeGroups.length ? dominantGlossary(forDominant, invoice.language) : [],
     processNotes:
       invoice.quote?.processNotes ||
       companyText?.defaultProcessNotes ||

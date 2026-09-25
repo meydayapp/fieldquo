@@ -132,7 +132,7 @@ export default function PairPhotos({ pool = [], pairs = [], onSaved, onClose }) 
                   <button
                     onClick={() => setMade((m) => m.filter((_, j) => j !== i))}
                     aria-label={t("app.pairPhotos.removePair", "Remove pair")}
-                    className="p-1.5 text-muted-foreground hover:text-red-600 shrink-0"
+                    className="p-1.5 text-muted-foreground hover:text-red-600 shrink-0 min-h-11 min-w-11 flex items-center justify-center"
                   >
                     <X size={14} />
                   </button>
@@ -151,7 +151,22 @@ export default function PairPhotos({ pool = [], pairs = [], onSaved, onClose }) 
                 >
                   {made.length + 1}
                 </span>
-                <p className="text-sm font-semibold text-foreground">{step}</p>
+                <p className="text-sm font-semibold text-foreground flex-1">{step}</p>
+                {/* A before picked with no after to pair it with had no way
+                    back until the caption step — the same "stuck with half a
+                    pair" the gallery editor had (2026-09-25). */}
+                {picking === "after" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDraft({ before: null, after: null, caption: "" });
+                      setPicking("before");
+                    }}
+                    className="rounded-full border border-border px-3 text-sm min-h-11 shrink-0"
+                  >
+                    {t("app.pairPhotos.startOver", "Start over")}
+                  </button>
+                )}
               </div>
 
               {picking === "caption" ? (

@@ -85,7 +85,9 @@ function ok(name, cond, got) {
   const route = decomment(read("app/api/invoices/[id]/send/route.js"));
   ok("the send route decides by invoiceSendAsk from family payments and the invoice's stage rows", /invoiceSendAsk\(/.test(route) && /familyPayments\(db, invoice\.id\)/.test(route) && /jobPaymentStage\.findMany/.test(route));
   ok("…refuses when everything is collected, before the portal token is minted", route.indexOf('code: "nothing_owed"') > 0 && route.indexOf('code: "nothing_owed"') < route.indexOf("ensurePortalToken("));
-  ok("…hands the email the ask as requestAmount with the stage's label", /requestAmount: ask\.requestCents \/ 100/.test(route) && /note: ask\.stage \? ask\.stage\.label : null/.test(route));
+  // The label is printed in the invoice's language since 2026-09-25 (drafted
+  // on save as a paymentStage phrase — scripts/check-phrases-labels.mjs).
+  ok("…hands the email the ask as requestAmount with the stage's label", /requestAmount: ask\.requestCents \/ 100/.test(route) && /note: ask\.stage \? trStage\("paymentStage", ask\.stage\.label\) : null/.test(route));
   ok("…links the portal to the stage so its Pay button takes that amount", /\?stage=\$\{ask\.stage\.id\}/.test(route));
   ok("…marks a pending stage requested after the send, scoped to the company", /jobPaymentStage\.updateMany\(\{\s*where: \{ id: ask\.stage\.id, companyId: member\.companyId, status: "pending" \}/.test(route));
   ok("…and the stamp comes after the send is accepted", route.indexOf("jobPaymentStage.updateMany") > route.indexOf("await sendEmail("));

@@ -847,7 +847,8 @@ section("Structure");
     "",
   );
 
-  const page = read("app/app/receptionist/page.js");
+  // The badge is on the call's row, which page.js renders per call.
+  const page = read("app/app/receptionist/CallRow.js");
   ok(
     "the booked-visit badge is a link, not an ornament",
     /href="\/app\/appointments"/.test(page),

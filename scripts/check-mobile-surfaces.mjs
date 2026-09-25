@@ -224,6 +224,12 @@ const STRICT_FILES = [
   // chip, a nowrap pill, an 18px close button, two underline buttons, two
   // invoice pills). The rest already passed — measured, not assumed.
   "app/app/jobs/page.js",
+  // The three list rows below were drawn inline in their pages, under strict,
+  // until they became components of their own; listed so the move out of the
+  // page did not move them out of the tier.
+  "app/app/jobs/JobListRow.js",
+  "app/app/quotes/QuoteListRow.js",
+  "app/app/clients/ClientListRow.js",
   "app/app/jobs/[id]/page.js",
   "app/app/jobs/[id]/JobDetail.js",
   "app/app/jobs/[id]/PaymentScheduleCard.js",

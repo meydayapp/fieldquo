@@ -360,9 +360,13 @@ section("J — a template never bills the units its group's own calculator alrea
     "no priced keys → byte-identical to the unguarded add (every other trade unchanged)");
 
   // Every add path in the builder passes the guard.
+  // The card's preview moved into the Add service dialog on 2026-09-25 —
+  // lib/quotes/servicePicker.js templatePreview — so it is counted there.
   const builder = readFileSync(new URL("../app/components/quotes/builder/QuoteBuilder.js", import.meta.url), "utf8");
-  ok((builder.match(/pricedKeys: keysPricedByGroup\(|const pricedKeys = keysPricedByGroup\(/g) || []).length === 4,
-    "the library add, the library preview, the card preview and the card add all hold the calculator's units back", (builder.match(/keysPricedByGroup\(/g) || []).length);
+  const pickerLib = readFileSync(new URL("../lib/quotes/servicePicker.js", import.meta.url), "utf8");
+  const guardedIn = (s) => (s.match(/pricedKeys: keysPricedByGroup\(|const pricedKeys = keysPricedByGroup\(/g) || []).length;
+  ok(guardedIn(builder) === 3 && guardedIn(pickerLib) === 1,
+    "the library add, the library preview, the service's add and the Add service dialog's preview all hold the calculator's units back", `${guardedIn(builder)} + ${guardedIn(pickerLib)}`);
 }
 
 section("K — the reuse takeoffs: flooring, tile, drywall, siding, fencing, concrete (lib/measure/reuseTakeoffs.js)");

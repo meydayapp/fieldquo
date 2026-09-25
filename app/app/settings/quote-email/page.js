@@ -111,8 +111,12 @@ export default function QuoteEmailSettingsPage() {
       );
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
+      return true;
     } catch (err) {
       setError(err.message);
+      // False, not a throw: NewPair keeps its stored draft when the pair it
+      // completed did not land, so the photo is there to retry from.
+      return false;
     } finally {
       setSaving(false);
     }
@@ -170,7 +174,7 @@ export default function QuoteEmailSettingsPage() {
     save({ references: { items } });
   }
   function setPairs(items) {
-    save({ beforeAfter: { items } });
+    return save({ beforeAfter: { items } });
   }
 
   return (
@@ -386,7 +390,7 @@ export default function QuoteEmailSettingsPage() {
                     }
                     disabled={saving}
                     aria-label={t("app.setQuoteEmail.remove")}
-                    className="p-1.5 text-muted-foreground hover:text-red-600 disabled:opacity-50"
+                    className="p-1.5 text-muted-foreground hover:text-red-600 disabled:opacity-50 min-h-11 min-w-11 flex items-center justify-center shrink-0"
                   >
                     <Trash2 size={15} />
                   </button>
@@ -397,9 +401,12 @@ export default function QuoteEmailSettingsPage() {
         </div>
 
         {/* A pair is only stored once BOTH photos exist — half a before-and-
-            after is the same picture twice under two labels. So the new-pair
-            slot is a draft held in the browser and only saved when complete;
-            see NewPair. */}
+            after is the same picture twice under two labels. Until then the
+            new-pair slot is the company's stored gallery DRAFT (kept apart
+            from the pairs any client sees), which can be finished later or
+            discarded; see NewPair. No initialDraft is passed: this page's
+            own load does not carry the draft, so NewPair reads it from
+            /api/settings/gallery itself. */}
         {/* No cap on adding: since 2026-09-21 these pairs are the company's
             ONE gallery (lib/company/gallery.js), shared with the website and
             the client proposal. The email prints the first `max`; the note

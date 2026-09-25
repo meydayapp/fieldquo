@@ -12,7 +12,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { resolveServiceContent, dominantProcessSteps, isFrench } from "../lib/documents/serviceContent.js";
+import { resolveServiceContent, dominantProcessSteps, isFrench, presetCatalogues } from "../lib/documents/serviceContent.js";
 import { CONTENT_FR, GENERIC_FR } from "../lib/documents/serviceContent.fr.js";
 
 let passed = 0;
@@ -80,7 +80,9 @@ for (const [key, entry] of Object.entries(CONTENT_FR)) {
   if (entry.description) ok(`${key}: French description contains no English function words`, !english.test(f.description), f.description.slice(0, 80));
   ok(`${key}: French inclusions contain no English function words`, f.included.every((l) => !english.test(l)), f.included.filter((l) => english.test(l)));
 }
-ok("seven trades translated so far — the owner's company's set", untranslated === 8, untranslated);
+// Was "seven trades translated so far" (=== 8). Since 2026-09-25 every trade
+// is, and check-service-content-languages.mjs proves every field of each.
+ok("every English trade has a French entry", untranslated === Object.keys(presetCatalogues().en.content).length, untranslated);
 
 // ── Process steps for a whole quote ────────────────────────────────────────
 const dom = dominantProcessSteps([{ categoryKey: "interior_painting", subtotal: 100 }, { categoryKey: "countertop", subtotal: 900 }], "fr");

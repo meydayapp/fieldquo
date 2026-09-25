@@ -79,6 +79,8 @@ import { CREDIT_CURRENCY } from "@/lib/voice/creditCurrency";
 import { formatCalendarDay } from "@/lib/format/localeDate";
 import BackToHome from "@/app/components/BackToHome";
 import TeamFlow from "@/app/components/aiEmployee/TeamFlow";
+import AiTeamRoster, { Face } from "./AiTeamRoster";
+import AutoTranslateBanner from "@/app/components/settings/AutoTranslateBanner";
 
 const money = (cents) => formatAppMoney(Number(cents || 0) / 100, CREDIT_CURRENCY, "en");
 
@@ -124,28 +126,6 @@ function Notice({ tone = "info", children }) {
       )}
       <div>{children}</div>
     </div>
-  );
-}
-
-function initialsOf(name) {
-  const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return "AI";
-  return parts.slice(0, 2).map((p) => p[0].toUpperCase()).join("");
-}
-
-function Face({ url, name, size = 48 }) {
-  if (url) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={url} alt="" width={size} height={size} className="rounded-full object-cover shrink-0" style={{ width: size, height: size }} />;
-  }
-  return (
-    <span
-      aria-hidden="true"
-      className="rounded-full bg-muted text-foreground inline-flex items-center justify-center font-semibold shrink-0"
-      style={{ width: size, height: size, fontSize: size * 0.38 }}
-    >
-      {initialsOf(name)}
-    </span>
   );
 }
 
@@ -248,6 +228,10 @@ export default function AiEmployeePage() {
   // Keyed by EMPLOYEE as well as field, so switching to another employee
   // never shows the first one's "Saved" — or hides its "Couldn't save".
   const [fieldState, setFieldState] = useState({});
+  // The opening line's drafting, as the save answered it: { id, result } —
+  // keyed by employee for the same reason as fieldState. Shown under the
+  // field by AutoTranslateBanner, which then reads the real status.
+  const [greetingTranslate, setGreetingTranslate] = useState(null);
   // A move to MORE autonomy waits here for a second click. Auto-save must
   // not turn one stray tap on a radio into "it books on its own now".
   const [modeAsk, setModeAsk] = useState(null);
@@ -426,8 +410,12 @@ export default function AiEmployeePage() {
         fail(message || t("app.aiEmployee.saveError", "Couldn't save."));
         return;
       }
-      const { employee } = await res.json().catch(() => ({}));
+      const { employee, autoTranslate } = await res.json().catch(() => ({}));
       if (latest.current[key] !== seq) return;
+      // Only a greeting save speaks about translation; the route answers
+      // null for a greeting that did not change or was cleared, which hides
+      // a banner about words that are no longer there.
+      if (job.field === "greeting") setGreetingTranslate({ id: job.id, result: autoTranslate || null });
       if (employee?.id) {
         // Merge the field this request saved — not the whole row, which may
         // predate a neighbouring field's save that finished first.
@@ -882,29 +870,7 @@ export default function AiEmployeePage() {
         icon={Bot}
         hint={t("app.aiEmployee.teamHintPerEmployee", "One employee per job. Pick one to set it up — its face, name, voice and everything else below belong to that employee alone, and every change saves as you make it.")}
       >
-        <div className="flex flex-wrap gap-2" role="tablist" aria-label={t("app.aiEmployee.teamTitle", "Your AI team")}>
-          {data.employees.map((e) => (
-            <button
-              key={e.id || "unsaved"}
-              type="button"
-              role="tab"
-              aria-selected={selectedId === e.id}
-              onClick={() => selectEmployee(e.id)}
-              className={`flex items-center gap-3 rounded-lg border-2 p-2 pr-3 min-h-[44px] text-left ${
-                selectedId === e.id ? "border-primary bg-muted" : "border-border"
-              }`}
-            >
-              <Face url={e.avatarUrl} name={e.displayName || e.name} size={36} />
-              <span>
-                <span className="block text-sm font-medium text-foreground">{e.displayName || e.name}</span>
-                <span className="block text-xs text-muted-foreground">
-                  {t(`app.aiEmployee.role.${e.role}`, e.role)}
-                  {" · "}
-                  {e.enabled ? t("app.aiEmployee.on", "on") : t("app.aiEmployee.off", "off")}
-                </span>
-              </span>
-            </button>
-          ))}
+        <AiTeamRoster employees={data.employees} selectedId={selectedId} onSelect={selectEmployee}>
           {rolesLeft.length > 0 && (
             <div className="flex items-center gap-2">
               <select
@@ -927,7 +893,7 @@ export default function AiEmployeePage() {
               <UserPlus size={16} className="text-muted-foreground" />
             </div>
           )}
-        </div>
+        </AiTeamRoster>
 
         {form && (
           <div role="tabpanel" className="mt-4 rounded-xl border-2 border-primary p-4 sm:p-5" data-tour="ai-employee-card">
@@ -1128,6 +1094,7 @@ export default function AiEmployeePage() {
                     {t("app.aiEmployee.greetingHint", "Word for word, at the start of its first reply in a conversation. Leave it empty and it simply answers.")}
                   </span>
                 </label>
+                {greetingTranslate?.id === form.id && <AutoTranslateBanner result={greetingTranslate.result} />}
 
                 <label className="block">
                   <FieldHead label={t("app.aiEmployee.instructionsLabel", "Your instructions")} note={savedNote("instructions")} />

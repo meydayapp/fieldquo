@@ -72,7 +72,9 @@ export const TRIAL_FRAMES = [
 // and answers the signup routes): the account step empty and typed, the
 // team step at all five bands, the goals step per goal, the trades step for
 // four trades, the services step — at 1280 and at 390 (the strip above the
-// form, closed and opened by the scene).
+// form, closed and opened by the scene). Since 2026-09-25 every sample is a
+// real component in a lazily-loaded chunk, so each frame's scene waits for
+// the samples on screen to be measured in their frames ("signup-samples").
 const SA = (slug, props, width = 1280, extra = {}) => ({
   slug,
   href: "/signup",
@@ -83,6 +85,7 @@ const SA = (slug, props, width = 1280, extra = {}) => ({
   height: width < 768 ? 1500 : 1500,
   chapter: "signup-aside",
   out: "docs/screens/signup-aside",
+  scene: "signup-samples",
   ...extra,
 });
 export const SIGNUP_ASIDE_FRAMES = [
@@ -100,9 +103,12 @@ export const SIGNUP_ASIDE_FRAMES = [
   SA("goals-none", { step: "goals" }),
   SA("goals-look-professional", { step: "goals", goal: "look_professional" }),
   SA("goals-feel-in-control", { step: "goals", goal: "feel_in_control" }),
-  SA("goals-win-more-jobs", { step: "goals", goal: "win_more_jobs" }),
+  SA("goals-win-more-jobs", { step: "goals", goal: "win_more_jobs" }, 1280, { height: 1900 }),
+  SA("goals-exploring", { step: "goals", goal: "exploring" }, 1280, { height: 1700 }),
+  SA("goals-exploring-phone-open", { step: "goals", goal: "exploring" }, 390, { scene: "signup-strip-open", height: 2600 }),
   SA("goals-phone", { step: "goals", goal: "win_more_jobs" }, 390),
   SA("trades-painting", { step: "industry", trade: "painting" }, 1280, { height: 1900 }),
+  SA("trades-hvac", { step: "industry", trade: "hvac" }, 1280, { height: 1900 }),
   SA("trades-electrical", { step: "industry", trade: "electrical" }, 1280, { height: 1900 }),
   SA("trades-roofing", { step: "industry", trade: "roofing" }, 1280, { height: 1900 }),
   SA("trades-landscaping", { step: "industry", trade: "landscaping" }, 1280, { height: 1900 }),
@@ -111,6 +117,26 @@ export const SIGNUP_ASIDE_FRAMES = [
   SA("services-painting", { step: "services", trade: "painting" }),
   SA("services-painting-phone", { step: "services", trade: "painting" }, 390),
 ];
+
+// The Add service md5 frames (2026-09-25), built here so the list of quote
+// types is written once: every quote type of the cabinet fixture, and the
+// two templated services routes-picker.js adds, in both layouts.
+const PICKER_MD5_TYPES = ["sc_kitchen_cabinets", "sc_bathroom_vanities", "sc_builtins_closets", "cabinet_refinishing", "cabinet_refacing", "countertop", "flooring", "stairs", "interior_painting", "exterior_painting"];
+const PICKER_MD5_TEMPLATES = [["stairs", "pr_tpl_stairs"], ["cabinet_refinishing", "pr_tpl_cab"]];
+const pickerMd5Row = (layout, kind, key, pid) => ({
+  slug: `picker-md5${layout === "classic" ? "-classic" : ""}-${kind}-${key}`,
+  href: "/app/quotes",
+  page: "app/app/quotes/[id]/edit/page.js",
+  params: { id: "q_1045" },
+  scene: kind === "type" ? `picker-md5:type:${key}` : `picker-md5:tpl:${key}:${pid}`,
+  height: 900,
+  out: "docs/screens/service-picker/md5",
+  chapter: "service-picker-md5",
+});
+const PICKER_MD5_ROWS = ["document", "classic"].flatMap((layout) => [
+  ...PICKER_MD5_TYPES.map((key) => pickerMd5Row(layout, "type", key)),
+  ...PICKER_MD5_TEMPLATES.map(([key, pid]) => pickerMd5Row(layout, "tpl", key, pid)),
+]);
 
 export const SCREENS = [
   // ── The main rail: Home, then the seventeen (2026-09-21 shell) ─────────
@@ -587,4 +613,25 @@ export const SCREENS = [
   // on the "services-templates-electrical" prefix): name, one line of the
   // service's wording, its price, and "Add with its template lines (n)".
   { slug: "services-templates-electrical-quote-cards", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", height: 1400, out: "docs/screens/quote-cards", chapter: "quote-cards" },
+  // ── Add service (2026-09-25) — docs/screens/service-picker/ ─────────────
+  // The foot of the quote as ONE control (fixtures/routes-picker.js): three
+  // quote types stay inline buttons; fifteen (the owner's handyman
+  // screenshot) are one "Add service" button and a dialog — opened, a
+  // service's template lines unfolded, searched, and a service added with
+  // its lines; the same at 375 as the phone's bottom sheet; and the invoice.
+  { slug: "picker-3types-inline", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", height: 1100, out: "docs/screens/service-picker", chapter: "service-picker" },
+  { slug: "picker-3types-inline-phone", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", width: 375, height: 1500, out: "docs/screens/service-picker", chapter: "service-picker" },
+  { slug: "picker-15types-button", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "picker-scroll-foot", height: 900, out: "docs/screens/service-picker", chapter: "service-picker" },
+  { slug: "picker-15types-dialog", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "picker-open", height: 900, out: "docs/screens/service-picker", chapter: "service-picker" },
+  { slug: "picker-15types-dialog-lines", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "picker-open-lines", height: 900, out: "docs/screens/service-picker", chapter: "service-picker" },
+  { slug: "picker-15types-dialog-search", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "picker-search", height: 900, out: "docs/screens/service-picker", chapter: "service-picker" },
+  { slug: "picker-15types-added", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "picker-add-first-template", height: 1100, out: "docs/screens/service-picker", chapter: "service-picker" },
+  { slug: "picker-15types-button-phone", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "picker-scroll-foot", width: 375, height: 812, out: "docs/screens/service-picker", chapter: "service-picker" },
+  { slug: "picker-15types-dialog-phone", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "picker-open", width: 375, height: 812, out: "docs/screens/service-picker", chapter: "service-picker" },
+  { slug: "picker-15types-dialog-lines-phone", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "picker-open-lines", width: 375, height: 812, out: "docs/screens/service-picker", chapter: "service-picker" },
+  { slug: "picker-invoice-dialog", href: "/app/invoices/new", page: "app/app/invoices/new/page.js", scene: "picker-open", height: 900, out: "docs/screens/service-picker", chapter: "service-picker" },
+  // The md5 frames: one quote type (or one templated service) added through
+  // the foot and saved, in both layouts, on every fixture quote type. Run on
+  // this tree and on origin/main; the recorded PATCH bodies must be equal.
+  ...PICKER_MD5_ROWS,
 ];

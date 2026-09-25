@@ -84,10 +84,7 @@ import { THREAD_OUTCOMES, outcomeLabelKey } from "@/lib/messaging/outcomes";
 import { MESSAGING_PLATFORMS, platformLabelKey } from "@/lib/messaging/platforms";
 import { activityLabel } from "@/lib/messaging/activity";
 import {
-  GROUP_ORDER,
   GROUP_DONE,
-  groupThreads,
-  groupTitleKey,
   messageItem,
   lastReadInstant,
 } from "@/lib/messaging/rooms";
@@ -98,7 +95,7 @@ import { SocialGlyph } from "@/app/components/links/linkIcons";
 // row; the panel sits on the Outcome tab, above the outcome control, because
 // "is this person going to buy" is the question you ask BEFORE you record what
 // happened.
-import ConversationTemperature, { TemperatureChip } from "@/app/components/messaging/ConversationTemperature";
+import ConversationTemperature from "@/app/components/messaging/ConversationTemperature";
 // "Coach me on this conversation" — its own tab in the same side panel, opened
 // from a button in the thread header. Paid, priced before the click, and its
 // draft reply only ever lands in the composer below (never sent from there).
@@ -130,6 +127,7 @@ import {
   ComposerTabs, AssigneePicker, ServiceWindowNotice, TemplatePicker, AttachControl,
 } from "./ConversationBits";
 import { uploadFile } from "@/lib/media/uploadClient";
+import { threadRoomGroups } from "./threadRooms";
 
 const ACTION =
   "inline-flex items-center gap-1.5 min-h-[36px] whitespace-nowrap rounded-md border border-border bg-card px-2.5 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-60";
@@ -498,29 +496,9 @@ function MessagesScreen() {
   const isDemo = Boolean(connection?.mock);
 
   // ── The list, bucketed ────────────────────────────────────────────────
-  const groups = useMemo(() => {
-    const buckets = groupThreads(threads || []);
-    return GROUP_ORDER.map((key) => ({
-      key,
-      title: t(groupTitleKey(key)),
-      rooms: buckets[key].map((row) => ({
-        id: row.id,
-        title: row.participantName || t("app.messages.unknownPerson"),
-        subtitle:
-          row.lastDirection === "out"
-            ? t("app.messages.lastFromYou", { message: row.preview || "" })
-            : row.preview || "",
-        time: row.lastMessageAt,
-        unread: row.unread ?? 0,
-        // A brand mark in the avatar's corner, not one of the kit's three
-        // glyphs. The accessible name is the platform's own word.
-        channelLabel: row.platform ? t(platformLabelKey(row.platform)) : "",
-        channelBadge: row.platform ? <SocialGlyph platform={row.platform} size={10} /> : null,
-        initials: initialsOf(row.participantName || "?"),
-        badges: <RowBadges row={row} now={now} t={t} />,
-      })),
-    }));
-  }, [threads, now, t]);
+  // The rows themselves are threadRoomGroups (./threadRooms.js), shared with
+  // the /signup side panel's inbox sample.
+  const groups = useMemo(() => threadRoomGroups(threads, { t, now }), [threads, now, t]);
 
   // ── The thread's rows ─────────────────────────────────────────────────
   const them = thread?.participantName || t("app.messages.unknownPerson");
@@ -1108,29 +1086,6 @@ function activitySentence(activity, t) {
  * they have been waiting, the temperature chip, and a failed last reply.
  * Every one draws nothing when it has nothing to say.
  */
-function RowBadges({ row, now, t }) {
-  return (
-    <>
-      {/* The whole reason waitingSince is a column: this sentence, here, on
-          a list of two hundred — rather than in a report once a month. */}
-      <WaitingBadge thread={row} t={t} now={now} />
-      {/* An annotation, never a filter. A conversation that scored cold sits
-          in this list exactly where it would have without a score. */}
-      <TemperatureChip temperature={row.temperature} score={row.score} t={t} />
-      {row.lastFailed && (
-        // Surfaced on the list, not only inside the thread: a reply that
-        // never reached the homeowner is the thing a contractor most needs
-        // to see without opening anything. An icon with the word for a
-        // screen reader — the row is 280px wide and the preview has to
-        // survive.
-        <span className="shrink-0 text-destructive" title={t("app.messages.failed")}>
-          <AlertTriangle size={12} aria-hidden="true" />
-          <span className="sr-only">{t("app.messages.failed")}</span>
-        </span>
-      )}
-    </>
-  );
-}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // The outcome chip — the control, on the thread header

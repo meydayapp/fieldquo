@@ -11,6 +11,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { normaliseWebsiteUrl } from "@/lib/signup/website";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
@@ -79,7 +80,10 @@ export async function PATCH(request) {
     changed.push("storyHeadline");
   }
   if ("storyVideoUrl" in body) {
-    const url = str(body.storyVideoUrl).slice(0, 1000);
+    // "youtu.be/abc" as pasted gains https://, the same reader the signup
+    // uses; anything it refuses falls through to the scheme check below.
+    const typed = str(body.storyVideoUrl).slice(0, 1000);
+    const url = (typed && normaliseWebsiteUrl(typed)) || typed;
     if (url && !HTTP_URL.test(url)) {
       return NextResponse.json({ error: "The video link must start with http:// or https://." }, { status: 400 });
     }

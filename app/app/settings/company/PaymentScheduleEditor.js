@@ -18,6 +18,7 @@
 import { useEffect, useState } from "react";
 import { Plus, Trash2, Loader2, Check, AlertCircle } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import AutoTranslateBanner from "@/app/components/settings/AutoTranslateBanner";
 import {
   PAYMENT_SCHEDULE_TRIGGERS,
   DEFAULT_STAGE_LABELS,
@@ -50,6 +51,10 @@ export default function PaymentScheduleEditor({ canEdit, onSaved, onCleared }) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  // The route's `autoTranslate` summary — the stage names and the generated
+  // terms sentence are drafted into the other document languages on save.
+  // Null unless the wording changed.
+  const [autoTranslate, setAutoTranslate] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -115,6 +120,7 @@ export default function PaymentScheduleEditor({ canEdit, onSaved, onCleared }) {
       }
       setStages(d.stages || []);
       setSaved(true);
+      setAutoTranslate(d?.autoTranslate || null);
       onSaved?.(d);
     } catch {
       setError("Couldn't reach the server — check your connection and try again.");
@@ -148,6 +154,7 @@ export default function PaymentScheduleEditor({ canEdit, onSaved, onCleared }) {
         return;
       }
       setStages([]);
+      setAutoTranslate(null);
       onCleared?.();
     } catch {
       setError("Couldn't reach the server — check your connection and try again.");
@@ -273,6 +280,8 @@ export default function PaymentScheduleEditor({ canEdit, onSaved, onCleared }) {
           </button>
         </div>
       )}
+
+      <AutoTranslateBanner result={autoTranslate} />
     </div>
   );
 }

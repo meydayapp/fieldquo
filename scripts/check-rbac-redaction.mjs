@@ -428,8 +428,9 @@ check("the importer's cost/markup/price view is gated",
   /hasToggle\(full, "showPricing"\)/.test(src("app/api/quotes/[id]/imports/route.js")));
 
 console.log("\nThe screens do not render the absence as a number\n");
+// The total is printed by the list's row component, not by page.js.
 check("the quotes list prints a dash, not Number(undefined)",
-  /pricingHidden \?/.test(src("app/app/quotes/page.js")));
+  /pricingHidden \?/.test(src("app/app/quotes/QuoteListRow.js")));
 check("the invoices list too", /pricingHidden \?/.test(src("app/app/invoices/page.js")));
 check("the invoices list does not sum absent totals into $0.00",
   /!pricingHidden/.test(src("app/app/invoices/page.js")));
@@ -638,7 +639,9 @@ export async function load(url, context, nextLoad) {
   }
   if (url === "fq-stub:next") {
     return { format: "module", shortCircuit: true,
-      source: "export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) };" };
+      // after(): Settings › Services queues its wording translations after the
+      // response (lib/i18n/autoTranslateSchedule.js); nothing runs here.
+      source: "export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) }; export const after = () => {};" };
   }
   return nextLoad(url, context);
 }

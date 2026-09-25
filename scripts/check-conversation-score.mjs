@@ -821,7 +821,7 @@ ok(/SILENCE_DAYS/.test(code("app/api/cron/messaging-snooze/route.js")), "...usin
 // ── Read ─────────────────────────────────────────────────────────────────
 ok(/temperature: true/.test(code("app/api/messaging/threads/route.js")), "the inbox list selects it");
 ok(/temperature: true/.test(code("app/api/messaging/review/route.js")), "the month-end report selects it");
-ok(/TemperatureChip/.test(read("app/app/messages/page.js")), "the inbox row draws it");
+ok(/TemperatureChip/.test(read("app/app/messages/threadRooms.js")) && /threadRoomGroups\(threads/.test(read("app/app/messages/page.js")), "the inbox row draws it (app/app/messages/threadRooms.js, which the inbox renders its rows through)");
 ok(/ConversationTemperature/.test(read("app/app/messages/page.js")), "the conversation draws the whole panel, with its reasons");
 ok(/TemperatureChip/.test(read("app/app/messages/review/page.js")), "the month-end screen draws it");
 ok(/review\.ranked/.test(read("app/app/messages/review/page.js")), "...and ranks by it");
