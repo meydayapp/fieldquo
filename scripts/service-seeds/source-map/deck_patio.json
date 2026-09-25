@@ -1,0 +1,170 @@
+[
+ {
+  "seedKey": "fq.deck_patio.install.pavers",
+  "industry": "Deck & Patio",
+  "sourceCategory": "Deck & Patio > Installation > Driveway / patio",
+  "sourceService": "Installation - Pavers",
+  "taskCode": "DEFAULT_DECK_PATIO_SERVICE_1"
+ },
+ {
+  "seedKey": "fq.deck_patio.install.blacktop",
+  "industry": "Deck & Patio",
+  "sourceCategory": "Deck & Patio > Installation > Driveway / patio",
+  "sourceService": "Installation - Blacktop",
+  "taskCode": "DEFAULT_DECK_PATIO_SERVICE_2"
+ },
+ {
+  "seedKey": "fq.deck_patio.install.coating",
+  "industry": "Deck & Patio",
+  "sourceCategory": "Deck & Patio > Installation > Driveway / patio",
+  "sourceService": "Installation - Coating / epoxy",
+  "taskCode": "DEFAULT_DECK_PATIO_SERVICE_3"
+ },
+ {
+  "seedKey": "fq.deck_patio.install.concrete",
+  "industry": "Deck & Patio",
+  "sourceCategory": "Deck & Patio > Installation > Driveway / patio",
+  "sourceService": "Installation - Concrete flooring",
+  "taskCode": "DEFAULT_DECK_PATIO_SERVICE_4"
+ },
+ {
+  "seedKey": "fq.deck_patio.install.tile",
+  "industry": "Deck & Patio",
+  "sourceCategory": "Deck & Patio > Installation > Driveway / patio",
+  "sourceService": "Installation - Tile flooring",
+  "taskCode": "DEFAULT_DECK_PATIO_SERVICE_5"
+ },
+ {
+  "seedKey": "fq.deck_patio.install.wood_floor",
+  "industry": "Deck & Patio",
+  "sourceCategory": "Deck & Patio > Installation > Driveway / patio",
+  "sourceService": "Installation - Wood flooring",
+  "taskCode": "DEFAULT_DECK_PATIO_SERVICE_6"
+ },
+ {
+  "seedKey": "fq.deck_patio.install.wood_deck",
+  "industry": "Deck & Patio",
+  "sourceCategory": "Deck & Patio > Installation > Decks and railings",
+  "sourceService": "Installation - Wood deck",
+  "taskCode": "DEFAULT_DECK_PATIO_SERVICE_7"
+ },
+ {
+  "seedKey": "fq.deck_patio.install.composite_deck",
+  "industry": "Deck & Patio",
+  "sourceCategory": "Deck & Patio > Installation > Decks and railings",
+  "sourceService": "Installation - Composite deck",
+  "taskCode": "DEFAULT_DECK_PATIO_SERVICE_8"
+ },
+ {
+  "seedKey": "fq.deck_patio.install.wood_railing",
+  "industry": "Deck & Patio",
+  "sourceCategory": "Deck & Patio > Installation > Decks and railings",
+  "sourceService": "Installation - Wood railing",
+  "taskCode": "DEFAULT_DECK_PATIO_SERVICE_9"
+ },
+ {
+  "seedKey": "fq.deck_patio.install.composite_railing",
+  "industry": "Deck & Patio",
+  "sourceCategory": "Deck & Patio > Installation > Decks and railings",
+  "sourceService": "Installation - Composite railing",
+  "taskCode": "DEFAULT_DECK_PATIO_SERVICE_10"
+ },
+ {
+  "seedKey": "fq.deck_patio.install.other",
+  "industry": "Deck & Patio",
+  "sourceCategory": "Deck & Patio > Installation > Other",
+  "sourceService": "Installation - Something else / I don't know",
+  "taskCode": "DEFAULT_DECK_PATIO_SERVICE_11"
+ },
+ {
+  "seedKey": "fq.deck_patio.repair.pavers",
+  "industry": "Deck & Patio",
+  "sourceCategory": "Deck & Patio > Repair > Driveway / patio",
+  "sourceService": "Repair - Pavers",
+  "taskCode": "DEFAULT_DECK_PATIO_SERVICE_12"
+ },
+ {
+  "seedKey": "fq.deck_patio.repair.blacktop",
+  "industry": "Deck & Patio",
+  "sourceCategory": "Deck & Patio > Repair > Driveway / patio",
+  "sourceService": "Repair - Blacktop",
+  "taskCode": "DEFAULT_DECK_PATIO_SERVICE_13"
+ },
+ {
+  "seedKey": "fq.deck_patio.repair.coating",
+  "industry": "Deck & Patio",
+  "sourceCategory": "Deck & Patio > Repair > Driveway / patio",
+  "sourceService": "Repair - Coating / epoxy",
+  "taskCode": "DEFAULT_DECK_PATIO_SERVICE_14"
+ },
+ {
+  "seedKey": "fq.deck_patio.repair.concrete",
+  "industry": "Deck & Patio",
+  "sourceCategory": "Deck & Patio > Repair > Driveway / patio",
+  "sourceService": "Repair - Concrete flooring",
+  "taskCode": "DEFAULT_DECK_PATIO_SERVICE_15"
+ },
+ {
+  "seedKey": "fq.deck_patio.repair.tile",
+  "industry": "Deck & Patio",
+  "sourceCategory": "Deck & Patio > Repair > Driveway / patio",
+  "sourceService": "Repair - Tile flooring",
+  "taskCode": "DEFAULT_DECK_PATIO_SERVICE_16"
+ },
+ {
+  "seedKey": "fq.deck_patio.repair.wood_floor",
+  "industry": "Deck & Patio",
+  "sourceCategory": "Deck & Patio > Repair > Driveway / patio",
+  "sourceService": "Repair - Wood flooring",
+  "taskCode": "DEFAULT_DECK_PATIO_SERVICE_17"
+ },
+ {
+  "seedKey": "fq.deck_patio.repair.wood_deck",
+  "industry": "Deck & Patio",
+  "sourceCategory": "Deck & Patio > Repair > Decks and railings",
+  "sourceService": "Repair - Wood deck",
+  "taskCode": "DEFAULT_DECK_PATIO_SERVICE_18"
+ },
+ {
+  "seedKey": "fq.deck_patio.repair.composite_deck",
+  "industry": "Deck & Patio",
+  "sourceCategory": "Deck & Patio > Repair > Decks and railings",
+  "sourceService": "Repair - Composite deck",
+  "taskCode": "DEFAULT_DECK_PATIO_SERVICE_19"
+ },
+ {
+  "seedKey": "fq.deck_patio.repair.wood_railing",
+  "industry": "Deck & Patio",
+  "sourceCategory": "Deck & Patio > Repair > Decks and railings",
+  "sourceService": "Repair - Wood railing",
+  "taskCode": "DEFAULT_DECK_PATIO_SERVICE_20"
+ },
+ {
+  "seedKey": "fq.deck_patio.repair.composite_railing",
+  "industry": "Deck & Patio",
+  "sourceCategory": "Deck & Patio > Repair > Decks and railings",
+  "sourceService": "Repair - Composite railing",
+  "taskCode": "DEFAULT_DECK_PATIO_SERVICE_21"
+ },
+ {
+  "seedKey": "fq.deck_patio.repair.other",
+  "industry": "Deck & Patio",
+  "sourceCategory": "Deck & Patio > Repair > Other",
+  "sourceService": "Repair - Something else / I don't know",
+  "taskCode": "DEFAULT_DECK_PATIO_SERVICE_22"
+ },
+ {
+  "seedKey": "fq.deck_patio.maintenance.patio_sealing",
+  "industry": "Deck & Patio",
+  "sourceCategory": "Deck & Patio > Maintenance > Driveway / patio",
+  "sourceService": "Maintenance - Sealing driveway / patio",
+  "taskCode": "DEFAULT_DECK_PATIO_SERVICE_25"
+ },
+ {
+  "seedKey": "fq.deck_patio.maintenance.deck_inspection",
+  "industry": "Deck & Patio",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Deck safety inspection",
+  "taskCode": null
+ }
+]

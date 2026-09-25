@@ -49,7 +49,7 @@ export const MATERIAL_REFERENCE = [
   R("osb_7_16", "7/16 in OSB sheathing 4 × 8", "sheet", cov(32, "sqft"), "label", { US: US(11.9) }),
   R("osb_subfloor_23_32", "23/32 in T&G OSB subfloor", "sheet", cov(32, "sqft"), "label", { US: US(25.73), CA: CA(84.33) }),
   R("plywood_3_4_pt", "3/4 in pressure-treated plywood", "sheet", cov(32, "sqft"), "label", { US: US(63.08) }),
-  R("deck_board_5_4x6x8", "5/4 × 6 pressure-treated deck board", "board", null, "rule", { US: US(7.78), CA: CA(10.35, { note: "10 ft premium decking — the Canadian store's shortest" }) }),
+  R("deck_board_5_4x6x8", "5/4 × 6 pressure-treated deck board", "board", cov(3.7, "sqft"), "rule", { US: US(7.78), CA: CA(10.35, { coverage: cov(4.6, "sqft"), note: "10 ft premium decking — the Canadian store's shortest" }) }),
   // ── Paint and finishing ──
   R("paint_interior_gal", "Interior eggshell, 1 gal (3.79 L)", "gallon", cov(187.5, "sqft"), "rule", { US: US(37.98), CA: CA(45.97, { unit: "can" }) }),
   R("paint_interior_5gal", "Interior eggshell, 5 gal", "pail", cov(937.5, "sqft"), "rule", { US: US(168) }),

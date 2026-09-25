@@ -56,6 +56,7 @@ const USES = {
   shingles_bundle: ["shingles_bundle"],
   roof_underlayment_roll: ["roof_underlayment"],
   deck_board_5_4x6x8: ["deck_board_5_4x6x8"],
+  deck_board_area: ["deck_board_5_4x6x8"], // by the board, from the deck area
   fence_panel_6x8: ["fence_panel"],
   mulch_2cuft: ["mulch_2cuft"],
   sod_pallet: ["sod_pallet"],
