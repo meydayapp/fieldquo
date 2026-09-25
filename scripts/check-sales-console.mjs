@@ -729,9 +729,11 @@ section("7. Six tabs, and all six on a 375px screen");
   // 1600px screen had the thread — the pane with the composer — squeezed
   // to ~300px inside the centred 7xl band. Both working surfaces take what
   // the sidebar leaves; the reading screens keep their measure.
+  // The mailbox's three-pane inbox (/sales/threads) joined them in
+  // a250a7cd5, for the same reason.
   ok(
-    "the queue and the texts containers have no max-width cap — the panes fill what the sidebar leaves",
-    /pathname\.startsWith\("\/sales\/queue"\) \|\| pathname\.startsWith\("\/sales\/messages"\) \? "max-w-none"/.test(containerLine),
+    "the queue, the texts and the mailbox containers have no max-width cap — the panes fill what the sidebar leaves",
+    /pathname\.startsWith\("\/sales\/queue"\) \|\| pathname\.startsWith\("\/sales\/messages"\) \|\| pathname\.startsWith\("\/sales\/threads"\) \? "max-w-none"/.test(containerLine),
     containerLine.slice(0, 200),
   );
   ok(
