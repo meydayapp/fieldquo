@@ -26,6 +26,7 @@ import {
   renderTemplateSections,
   renderSubject,
 } from "../lib/email/renderTemplateSections.js";
+import { sampleTemplateLines } from "../lib/email/templateLineItems.js";
 
 const OUT = path.join(process.cwd(), ".preview-emails");
 
@@ -67,16 +68,9 @@ const MERGE = {
   projectEndDate: "Jul 30, 2026",
   jobTitle: "Kitchen Cabinet Refinishing",
   // progressStage is set per-template in the loop below, from STAGE_INDEX.
-  lineItems: [
-    {
-      name: "Cabinet doors & drawer fronts — spray refinish",
-      quantity: 24,
-      unitPrice: 125,
-      total: 3000,
-    },
-    { name: "Cabinet boxes — on-site refinish", quantity: 1, unitPrice: 750, total: 750 },
-    { name: "Premium hardware replacement", quantity: 24, unitPrice: 6.25, total: 150 },
-  ],
+  // The same sample the editor preview and the test send draw — stored-shape
+  // lines through the builder a real quote chase uses.
+  lineItems: sampleTemplateLines({ language: "en", currency: "CAD" }),
 };
 
 // Cheap smoke tests. These catch the failure modes that are easy to introduce

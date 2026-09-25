@@ -316,10 +316,15 @@ for (const rel of PREVIEW_FIXTURES) {
   const src = fs
     .readFileSync(path.join(ROOT, rel), "utf8")
     .replace(/^\s*\/\/.*$/gm, " ");
-  // The sample block runs from the first merge key to lineItems, which is an
-  // array of objects whose own keys would otherwise be read as tokens.
+  // The sample block runs from the first merge key to the end of the object
+  // literal. It used to stop at `lineItems:`, an array of objects whose own
+  // keys would otherwise be read as tokens; the fixtures no longer carry that
+  // array (the itemised sample is built from lib/email/templateLineItems.js at
+  // render time), so the literal's closing brace is the end — and a
+  // `lineItems:` that does appear inside the literal still ends it first.
   const start = src.indexOf("quoteNumber:");
-  const block = start === -1 ? "" : src.slice(start, src.indexOf("lineItems:", start));
+  const ends = [src.indexOf("lineItems:", start), src.indexOf("\n};", start)].filter((i) => i > start);
+  const block = start === -1 || !ends.length ? "" : src.slice(start, Math.min(...ends));
   const keys = [...block.matchAll(/^\s+([a-zA-Z][A-Za-z0-9]*):/gm)].map((m) => m[1]);
   const orphans = keys.filter((k) => !supplied.has(k));
   ok(

@@ -59,8 +59,10 @@ export const BLOCK_TYPES = [
   {
     type: "lineItems",
     label: "Itemized list",
-    // Renders Quote.lineItems / Invoice.lineItems (both `Json?` in the
-    // schema) as a proper table. Unlike "summary" — which prints only the
+    // Renders the stored lines of the quote (its scope groups) or invoice a
+    // follow-up rule is sending for, grouped and labelled as that document
+    // is — built by lib/email/templateLineItems.js. Emails with no document
+    // (campaigns, lead and job chases) leave it out. Unlike "summary" — which prints only the
     // document number and grand total — this shows each line. Toggles let a
     // company hide columns that don't apply (e.g. a flat-rate job with no
     // meaningful per-unit price).
@@ -150,8 +152,8 @@ export const MERGE_FIELDS = [
 ];
 
 // Deliberately NOT in MERGE_FIELDS: `progressStage` (a 0-based index that
-// drives the Project progress block) and `lineItems` (an array consumed by
-// the Itemized list block). Both are supplied by the send paths and would
+// drives the Project progress block) and `lineItems` (the object the
+// Itemized list block draws). Both are supplied by the send paths and would
 // render as "1" and "[object Object]" if someone dropped them into a text
 // block, so they're not offered as insertable chips.
 

@@ -73,11 +73,9 @@ const quote = {
   quoteNumber: "Q-77",
   total: 4250,
   validUntil: null,
-  // The stored line shape — description/amount — which is what the builder
-  // reads. This fixture used to say name/total, so its line printed $0.00;
-  // nothing below measured the figure, which is how the preview's sample
-  // carried the same mistake unseen.
-  lineItems: [{ description: "Doors", quantity: 2, unitPrice: 100, amount: 200 }],
+  // The stored shape. This was name/unitPrice/total, which no stored quote
+  // has and buildQuoteEmail does not read — every run priced "Doors" $0.00.
+  lineItems: [{ description: "Doors", quantity: 2, unit: "each", rate: 100, amount: 200 }],
   processNotes: null,
   emailReferences: null,
   emailBeforeAfter: null,
@@ -128,6 +126,7 @@ function derivedPart(html) {
   ok("copy changes greeting, intro, closing and signature", ["Hello Jane,", "Custom intro for", "Ring 555-0100 any time.", "The Acme crew"].every((s) => withCopy.html.includes(s)));
   ok("the intro shows the formatted amount, never a raw number the browser sent", /Custom intro for (CA)?\$4,250\.00/.test(withCopy.text), withCopy.text.split("\n")[2]);
   ok("the derived middle is byte-identical between original and copy", derivedPart(original.html) !== null && derivedPart(original.html) === derivedPart(withCopy.html));
+  ok("a stored-shape line is priced from its amount (Doors $200.00)", /Doors[\s\S]{0,400}\$200\.00/.test(original.html));
   ok("a copy's wording is HTML-escaped", buildQuoteEmail({ quote, client, company, url: "https://x.test/q/1", language: "en", wording: chooseWording({ copy: { ...copyRow, sections: sectionsFromSlots({ ...slots, intro: "<script>x</script>" }) } }) }).html.includes("&lt;script&gt;"));
 
   const inactive = buildQuoteEmail({ quote, client, company, url: "https://x.test/q/1", language: "en", wording: chooseWording({ copy: { ...copyRow, isDefault: false } }) });
@@ -261,6 +260,16 @@ console.log("\nThe preview runs the real builder\n");
       !enQuote.html.includes("$0.00") &&
       !enQuote.text.includes("$0.00"),
     lineFigures.filter((f) => !enQuote.html.includes(f)).join(", ") || (enQuote.html.includes("$0.00") ? "$0.00 in the HTML" : ""),
+  );
+  // The sample quote's lines were name/unitPrice/total, and buildQuoteEmail
+  // reads `amount` — so a company with no quote yet previewed an email
+  // pricing every line at zero. The sample is the stored shape now.
+  const zero = /(^|[^\d.,])0[.,]00(?!\d)/;
+  const samplePriced = ["3,000.00", "750.00", "150.00"].every((a) => out.html.includes(a)) && !zero.test(out.html);
+  ok(
+    "sample quote preview prices every line (3,000 / 750 / 150), never 0.00",
+    samplePriced,
+    samplePriced ? "" : (out.html.match(/[^<>]{0,20}0[.,]00[^<>]{0,10}/g) || []).slice(0, 6).join(" | "),
   );
   const withCopy = await renderDocumentEmailPreview(db, { companyId: "c1", kind: "invoice", language: "en", copy: { slots: { ...originalWording("invoice", "en"), greeting: "Yo {{clientName}}," }, sentMode: "blocks", canvas: null } });
   ok("preview shows the unsaved draft", withCopy.html.includes("Yo Jane,"));

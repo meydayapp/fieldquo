@@ -52,6 +52,7 @@ import {
   newBlock,
 } from "@/app/data/emailTemplateBlocks";
 import { renderTemplateSections } from "@/lib/email/renderTemplateSections";
+import { sampleTemplateLines } from "@/lib/email/templateLineItems";
 import { compileCanvasEmail } from "@/lib/email/canvasEmail";
 import EmailCanvasEditor from "@/app/components/emailCanvas/EmailCanvasEditor";
 import ReplyToPromptModal from "@/app/components/settings/ReplyToPromptModal";
@@ -94,22 +95,12 @@ const PREVIEW_MERGE_DATA = {
   // NOTE: progressStage is deliberately NOT set here. It's derived from the
   // template's type below (see previewMergeData) so a quote template previews
   // at "Quote" instead of showing the invoice stage as already done.
-  // Shape matches Quote.lineItems / Invoice.lineItems (`Json?` columns).
-  lineItems: [
-    {
-      name: "Cabinet doors & drawer fronts — spray refinish",
-      quantity: 24,
-      unitPrice: 125,
-      total: 3000,
-    },
-    {
-      name: "Cabinet boxes — on-site refinish",
-      quantity: 1,
-      unitPrice: 750,
-      total: 750,
-    },
-    { name: "Premium hardware replacement", quantity: 24, unitPrice: 6.25, total: 150 },
-  ],
+  //
+  // lineItems is not set here either. It is built in previewMergeData from
+  // lib/email/templateLineItems.js's sample — stored-shape lines run through
+  // the same builder a real quote chase uses — in the company's currency.
+  // This fixture used to carry its own name/unitPrice/total rows, a shape no
+  // stored document has, so the preview drew a table no send could.
 };
 
 // Sensible per-template theme defaults shown in the editor controls. `null`
@@ -344,7 +335,12 @@ function BlockFields({ block, update, setFocus }) {
           ))}
         </div>
         <p className="text-xs text-muted-foreground">
-          {t("app.emailEditor.lineItemsHelp", "Pulls the real line items from the quote or invoice this email is sent for. Hidden automatically when there aren't any.")}
+          {/* Says WHICH sends fill it, rather than "the quote or invoice
+              this email is sent for": a template is not bound to a document
+              type — the same one can go out on a quote chase, an overdue
+              invoice, a lead chase or a campaign — and only the first two
+              have lines (app/api/cron/follow-ups/route.js lineItemsFor). */}
+          {t("app.emailEditor.lineItemsWhereFilled", "Filled from the quote or invoice a follow-up rule sends this email for — a quote nobody has answered, or an overdue invoice — grouped and priced as that document is, in its language and currency. Campaigns, lead follow-ups and job follow-ups have no document, so the list is left out of those emails. The preview shows sample lines.")}
         </p>
       </div>
     );
@@ -496,7 +492,7 @@ function SortableBlock({ block, update, remove, setFocus }) {
 }
 
 export default function EmailTemplateEditorPage() {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const { id } = useParams();
 
   const [template, setTemplate] = useState(null);
@@ -580,9 +576,17 @@ export default function EmailTemplateEditorPage() {
   // back to the first stage.
   const previewStage = STAGE_INDEX[template?.type] ?? 0;
 
+  // A template has no document, so the itemised sample is labelled in the
+  // language this person works in — the closest stand-in for the language
+  // their documents are written in — and priced in the company's currency.
+  // A real send labels it in the document's own language (non-negotiable 6).
   const previewMergeData = useMemo(
-    () => ({ ...PREVIEW_MERGE_DATA, progressStage: previewStage }),
-    [previewStage],
+    () => ({
+      ...PREVIEW_MERGE_DATA,
+      progressStage: previewStage,
+      lineItems: sampleTemplateLines({ language, currency: company?.currency || null }),
+    }),
+    [previewStage, language, company?.currency],
   );
 
   // `preview: true` makes links inert so clicking a CTA can't navigate the
