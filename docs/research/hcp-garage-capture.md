@@ -1,0 +1,10 @@
+# HCP Garage (door) trial capture (2026-09-24)
+## Estimate templates (17 + 2 generic) — labour-only flat prices, no unit costs
+General: service call / diagnostic $79 · Springs: torsion single $125, torsion pair $225, extension $125 · Openers: install standard $225, smart/premium $275, repair/diagnostic $95 · Panels: panel/section replacement labour $200 · Tracks/cables/rollers: track & roller repair $195, cable replacement (pair) $160 · Tune-up $89 · Weatherstrip & bottom seal $135 · New door install labour: single car $375, double car $500. Generic: diagnostic $100/80, repair $200/100.
+## Checklists (4, 39 items; stop-light safety tests)
+- Spring Repair & Replacement (11): door secured (C-clamps), spring type & wind direction [text], size/wire gauge match, winding bars; replace both torsion springs; lubricate; spring tension [stop], balance test [stop], cable drum set screws [stop], auto-reverse test [stop]
+- Opener Install & Repair (9): HP/drive matches door; mount per bracket spec; photo-eyes at 6"; program remotes/keypad; travel & force limits; auto-reverse [stop]; photo-eye [stop]; manual release [stop]; smart features walkthrough
+- New Door Installation (9): measurements & clearance; framing square/level [stop]; track/hinges/rollers; springs to door weight; weatherstrip & bottom seal; opener; balance [stop]; track alignment [stop]; auto-reverse [stop]
+- Garage Door Service Visit (10): scope; make/model/age [text]; inspect springs/cables; secure door; work; clean up; balance [stop]; auto-reverse [stop]; walkthrough; satisfaction
+## Services (18): bottom seal, opener service, spring replacement, repair, track realignment, panel/section, nylon rollers, cable, torsion spring, opener repair/adjust, safety sensor, opener diagnostic, door install (door + hardware), opener install chain/belt, garage floor coating (polyaspartic flake), entry door lock & deadbolt, wood & metal components.
+No forms, materials or plans. We have garage_door.js. Home Depot has openers/springs/rollers/weatherstrip to add as material costs (not yet captured).

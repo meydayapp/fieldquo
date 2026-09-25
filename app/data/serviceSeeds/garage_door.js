@@ -123,6 +123,27 @@ export const SEED = {
        "Ressorts, câbles, roulettes et charnières inspectés, pièces mobiles lubrifiées, porte équilibrée et inversion automatique testée.",
        "Resortes, cables, rodillos y bisagras inspeccionados, partes móviles lubricadas, puerta balanceada y reversa automática probada."],
       { durationMinutes: 60, bookable: true }),
+    // ── Added 2026-09-24 from the garage template capture ────────────────
+    S("fq.garage_door.repair.torsion_spring_single", "repair", "flat", null,
+      ["Single torsion spring replacement", "Remplacement d'un ressort de torsion", "Reemplazo de un resorte de torsión"],
+      ["A single-spring door's broken torsion spring replaced, wound to the door weight and the door balanced.",
+       "Ressort de torsion brisé d'une porte à un ressort remplacé, remonté selon le poids de la porte et porte équilibrée.",
+       "Resorte de torsión roto de una puerta de un resorte reemplazado, tensado según el peso y la puerta balanceada."]),
+    S("fq.garage_door.repair.extension_spring", "repair", "flat", null,
+      ["Extension spring replacement", "Remplacement de ressort d'extension", "Reemplazo de resorte de extensión"],
+      ["Side-mounted extension springs replaced with safety cables run through them and the door balanced.",
+       "Ressorts d'extension latéraux remplacés avec câbles de sécurité passés au travers et porte équilibrée.",
+       "Resortes de extensión laterales reemplazados con cables de seguridad pasados por dentro y puerta balanceada."]),
+    S("fq.garage_door.install.opener_smart", "install", "each", null,
+      ["Smart opener installation", "Installation d'ouvre-porte intelligent", "Instalación de abridor inteligente"],
+      ["A Wi-Fi opener installed with the phone app, remotes and wall console set up and the safety reverse tested.",
+       "Ouvre-porte Wi-Fi installé avec l'application, télécommandes et console murale configurées et inversion de sécurité testée.",
+       "Abridor Wi-Fi instalado con la aplicación, controles y consola configurados y reversa de seguridad probada."]),
+    S("fq.garage_door.install.door_install_double", "install", "each", null,
+      ["Double garage door installation", "Installation de porte de garage double", "Instalación de puerta de garaje doble"],
+      ["A new 16 ft double door hung on new tracks and springs, balanced and weather-sealed.",
+       "Nouvelle porte double de 16 pi posée sur rails et ressorts neufs, équilibrée et étanchéisée.",
+       "Puerta doble nueva de 16 pies colgada en rieles y resortes nuevos, balanceada y sellada."]),
   ],
 };
 
@@ -135,8 +156,18 @@ export const SEED = {
 // at the distributor, a half-horsepower belt-drive opener $260–300, nylon
 // rollers $6–8 each. The two sample services a Jobber garage signup shows
 // (panel replacement, spring repair) both carry a template.
+//
+// Folded in 2026-09-24: the garage template capture under docs/research/ —
+// labour-only flat prices with no costs: service call $79, torsion springs
+// single $125 / pair $225, extension spring $125, opener install $225 /
+// smart $275, opener diagnostic $95, section $200, track and rollers $195,
+// cable pair $160, tune-up $89, weatherstrip $135, door install single $375 /
+// double $500. Those replace the figures above; costs are ours at 50% of
+// labour. Springs, openers, rollers, cables and seals are not in the Home
+// Depot reference (they are bought from door distributors), so their costs
+// stay the 75% rule — a company overwrites them with its supplier's price.
 const n = (it, de, uk, tl) => ({ it, de, uk, tl });
-const CALL = () => SHARED.serviceCall(95);
+const CALL = () => SHARED.serviceCall(79);
 
 const TEMPLATES = {
   // ── Installation ──
@@ -173,7 +204,7 @@ const TEMPLATES = {
     ["Pagkabit ng garage door — pinto at basic hardware", "Bagong garage door sa bagong track at spring kasama ang frame at trim."],
   ), [
     SHARED.removeOld(150),
-    L.labour(1, "each", 450, {
+    L.labour(1, "each", 375, {
       en: ["Door installation labour", "Sections stacked, tracks and springs set, the door balanced and weather-sealed."],
       fr: ["Main-d'œuvre — pose de la porte", "Sections montées, rails et ressorts posés, porte équilibrée et étanchéisée."],
       es: ["Mano de obra — instalación de la puerta", "Secciones montadas, rieles y resortes colocados, puerta balanceada y sellada."],
@@ -218,7 +249,7 @@ const TEMPLATES = {
     ["Palit ng torsion spring", "Pinalitan ang torsion spring at binalanse ang pinto para hindi buhatin ng opener ang bigat."],
   ), [
     CALL(),
-    L.labour(1, "flat", 170, {
+    L.labour(1, "flat", 225, {
       en: ["Spring replacement labour", "Tension let off safely, both springs replaced as a pair, wound, set and the door balanced."],
       fr: ["Main-d'œuvre — remplacement des ressorts", "Tension relâchée en sécurité, deux ressorts remplacés en paire, remontés et porte équilibrée."],
       es: ["Mano de obra — cambio de resortes", "Tensión liberada con seguridad, ambos resortes cambiados en par, tensados y puerta balanceada."],
@@ -245,7 +276,7 @@ const TEMPLATES = {
     ["Palit ng panel o section", "Pinalitan ang yupi o sirang section ng pinto at ikinabit ulit ang hardware."],
   ), [
     CALL(),
-    L.labour(1, "each", 175, {
+    L.labour(1, "each", 200, {
       en: ["Section replacement — per section", "Door secured, hinges and rollers moved to the new section, reset and balanced."],
       fr: ["Remplacement de section — la section", "Porte immobilisée, charnières et roulettes transférées sur la nouvelle section, réglée et équilibrée."],
       es: ["Reemplazo de sección — por sección", "Puerta asegurada, bisagras y rodillos pasados a la sección nueva, ajustada y balanceada."],
@@ -272,7 +303,7 @@ const TEMPLATES = {
     ["Palit ng lift cable", "Pinalitan ang punit o putol na cable at sinuri ang kaugnay na hardware."],
   ), [
     CALL(),
-    L.labour(1, "flat", 125, {
+    L.labour(1, "flat", 160, {
       en: ["Cable replacement labour", "Springs unwound, both cables replaced on the drums, re-tensioned and balanced."],
       fr: ["Main-d'œuvre — remplacement des câbles", "Ressorts détendus, deux câbles remplacés sur les tambours, retendus et équilibrés."],
       es: ["Mano de obra — cambio de cables", "Resortes destensados, ambos cables cambiados en los tambores, tensados y balanceados."],
@@ -325,7 +356,7 @@ const TEMPLATES = {
     ["Pag-align at pag-ayos ng track", "Itinuwid, in-align at hinigpitan ang baluktot o nalihis na track."],
   ), [
     CALL(),
-    L.labour(1, "flat", 150, {
+    L.labour(1, "flat", 195, {
       en: ["Track realignment labour", "Tracks plumbed and spaced, brackets re-lagged and the door run tested."],
       fr: ["Main-d'œuvre — réalignement des rails", "Rails d'aplomb et espacés, supports refixés et porte testée."],
       es: ["Mano de obra — alineación de rieles", "Rieles a plomo y espaciados, soportes refijados y puerta probada."],
@@ -356,7 +387,7 @@ const TEMPLATES = {
     ["Serviceeinsatz Torantrieb", "Antriebsfehler — keine Reaktion, stoppt auf halber Höhe, reversiert — diagnostiziert und behoben."],
     ["Сервісний виклик для приводу", "Несправності приводу — не реагує, зупиняється посередині, реверсує — діагностовано й усунено."],
     ["Service visit ng opener", "Sira ng opener — walang sagot, humihinto sa gitna, bumabalik — na-diagnose at inayos."],
-  ), [CALL(), SHARED.techHour(1, 110)], null),
+  ), [SHARED.diagnostic(95, { cost: 48 }), SHARED.techHour(1, 110)], null),
 
   // ── Maintenance ──
   "fq.garage_door.maintenance.tune_up": T("maintenance", n(
@@ -365,7 +396,7 @@ const TEMPLATES = {
     ["Обслуговування гаражних воріт", "Пружини, троси, ролики й завіси оглянуто, рухомі частини змащено, ворота збалансовано, реверс перевірено."],
     ["Tune-up ng garage door", "Sinuri ang spring, cable, roller at bisagra, nilagyan ng lubricant, binalanse at sinubukan ang auto-reverse."],
   ), [
-    L.labour(1, "flat", 119, {
+    L.labour(1, "flat", 89, {
       en: ["Tune-up and lubrication", "Every moving part inspected and lubricated, hardware tightened, balance and safety tested."],
       fr: ["Mise au point et lubrification", "Chaque pièce mobile inspectée et lubrifiée, quincaillerie resserrée, équilibre et sécurité testés."],
       es: ["Afinación y lubricación", "Cada parte móvil revisada y lubricada, herrajes apretados, balance y seguridad probados."],
@@ -383,7 +414,7 @@ const TEMPLATES = {
     ["Заміна нижнього ущільнювача", "Зношений гумовий ущільнювач унизу воріт замінено від води, вітру й шкідників."],
     ["Palit ng bottom seal", "Pinalitan ang lumang rubber seal sa ibaba ng pinto laban sa tubig, hangin at peste."],
   ), [
-    L.labour(1, "each", 95, {
+    L.labour(1, "each", 135, {
       en: ["Bottom seal replacement — per door", "Old seal slid out of the retainer, new seal fed in and trimmed."],
       fr: ["Remplacement du coupe-froid — la porte", "Ancien joint retiré du profilé, nouveau glissé et coupé."],
       es: ["Cambio de sello inferior — por puerta", "Sello viejo retirado del riel, nuevo insertado y recortado."],
@@ -428,6 +459,113 @@ const TEMPLATES = {
       tl: ["Pares ng safety sensor", "Kapalit na photo-eye sensor para sa brand ng opener."],
     }),
   ], null),
+  // ── Folded in from the garage template capture ──
+  "fq.garage_door.repair.torsion_spring_single": T("repair", n(
+    ["Sostituzione di una molla di torsione", "Molla di torsione rotta di una porta a molla singola sostituita, caricata sul peso della porta e porta bilanciata."],
+    ["Einzelne Torsionsfeder ersetzen", "Gebrochene Torsionsfeder eines Einfedertors ersetzt, auf das Torgewicht gespannt und Tor ausbalanciert."],
+    ["Заміна однієї торсіонної пружини", "Зламану пружину воріт з однією пружиною замінено, закручено під вагу, ворота збалансовано."],
+    ["Palit ng isang torsion spring", "Pinalitan ang sirang spring ng pintong iisa ang spring, pinaikot ayon sa bigat at binalanse."],
+  ), [CALL(), L.labour(1, "flat", 125, {
+    en: ["Single spring replacement labour", "Tension let off, the spring replaced, wound and the door balanced."],
+    fr: ["Main-d'œuvre — remplacement d'un ressort", "Tension relâchée, ressort remplacé, remonté et porte équilibrée."],
+    es: ["Mano de obra — cambio de un resorte", "Tensión liberada, resorte cambiado, tensado y puerta balanceada."],
+    it: ["Manodopera — sostituzione di una molla", "Tensione scaricata, molla sostituita, caricata e porta bilanciata."],
+    de: ["Arbeit — eine Feder tauschen", "Spannung abgelassen, Feder ersetzt, gespannt und Tor ausbalanciert."],
+    uk: ["Робота — заміна однієї пружини", "Натяг знято, пружину замінено, закручено, ворота збалансовано."],
+    tl: ["Labor — palit ng isang spring", "Binitawan ang tension, pinalitan, pinaikot at binalanse ang pinto."],
+  }), L.material(1, "each", 85, {
+    en: ["Torsion spring — single", "Oil-tempered torsion spring sized to the door."],
+    fr: ["Ressort de torsion — unité", "Ressort de torsion trempé à l'huile selon la porte."],
+    es: ["Resorte de torsión — uno", "Resorte de torsión templado en aceite según la puerta."],
+    it: ["Molla di torsione — singola", "Molla di torsione temprata in olio dimensionata sulla porta."],
+    de: ["Torsionsfeder — einzeln", "Öl-gehärtete Torsionsfeder passend zum Tor."],
+    uk: ["Торсіонна пружина — одна", "Загартована в олії пружина під ворота."],
+    tl: ["Torsion spring — isa", "Oil-tempered na torsion spring ayon sa pinto."],
+  })], D.regular("fixed", 10)),
+
+  "fq.garage_door.repair.extension_spring": T("repair", n(
+    ["Sostituzione molle di estensione", "Molle di estensione laterali sostituite con cavi di sicurezza passati all'interno e porta bilanciata."],
+    ["Zugfedern ersetzen", "Seitliche Zugfedern ersetzt, Sicherheitsseile durchgeführt und Tor ausbalanciert."],
+    ["Заміна пружин розтягу", "Бічні пружини розтягу замінено, запобіжні троси протягнуто, ворота збалансовано."],
+    ["Palit ng extension spring", "Pinalitan ang extension spring sa gilid, dinaanan ng safety cable at binalanse ang pinto."],
+  ), [CALL(), L.labour(1, "flat", 125, {
+    en: ["Extension spring replacement labour", "Door opened and secured, both springs replaced and safety cables threaded."],
+    fr: ["Main-d'œuvre — ressorts d'extension", "Porte ouverte et immobilisée, deux ressorts remplacés, câbles de sécurité passés."],
+    es: ["Mano de obra — resortes de extensión", "Puerta abierta y asegurada, ambos resortes cambiados y cables de seguridad pasados."],
+    it: ["Manodopera — molle di estensione", "Porta aperta e bloccata, entrambe le molle sostituite e cavi di sicurezza infilati."],
+    de: ["Arbeit — Zugfedern tauschen", "Tor geöffnet und gesichert, beide Federn ersetzt und Sicherheitsseile eingefädelt."],
+    uk: ["Робота — пружини розтягу", "Ворота відчинено й зафіксовано, обидві пружини замінено, троси протягнуто."],
+    tl: ["Labor — extension spring", "Binuksan at sinigurado ang pinto, pinalitan ang dalawang spring at dinaanan ng safety cable."],
+  }), L.material(1, "each", 65, {
+    en: ["Extension springs — pair", "Colour-coded extension springs for the door weight."],
+    fr: ["Ressorts d'extension — paire", "Ressorts d'extension codés par couleur selon le poids de la porte."],
+    es: ["Resortes de extensión — par", "Resortes codificados por color según el peso de la puerta."],
+    it: ["Molle di estensione — coppia", "Molle a codice colore per il peso della porta."],
+    de: ["Zugfedern — Paar", "Farbcodierte Zugfedern passend zum Torgewicht."],
+    uk: ["Пружини розтягу — пара", "Пружини з колірним кодом під вагу воріт."],
+    tl: ["Extension spring — pares", "Color-coded na spring ayon sa bigat ng pinto."],
+  })], D.regular("fixed", 10)),
+
+  "fq.garage_door.install.opener_smart": T("installation", n(
+    ["Installazione motorizzazione smart", "Motorizzazione Wi-Fi installata con app, telecomandi e pulsantiera configurati e inversione di sicurezza provata."],
+    ["Smarter Torantrieb", "WLAN-Antrieb eingebaut, App, Sender und Wandtaster eingerichtet und Sicherheitsreversierung getestet."],
+    ["Встановлення розумного приводу", "Wi-Fi привід встановлено, застосунок, пульти й панель налаштовано, реверс безпеки перевірено."],
+    ["Pagkabit ng smart opener", "Ikinabit ang Wi-Fi opener, in-set up ang app, remote at wall console at sinubukan ang safety reverse."],
+  ), [L.labour(1, "each", 275, {
+    en: ["Smart opener installation labour", "Opener hung and wired, app paired to the owner's phone, limits and force set."],
+    fr: ["Main-d'œuvre — ouvre-porte intelligent", "Ouvre-porte suspendu et câblé, application jumelée au téléphone, limites et force réglées."],
+    es: ["Mano de obra — abridor inteligente", "Abridor colgado y cableado, app vinculada al teléfono, límites y fuerza ajustados."],
+    it: ["Manodopera — motorizzazione smart", "Motore appeso e cablato, app associata al telefono, finecorsa e forza regolati."],
+    de: ["Arbeit — smarter Antrieb", "Antrieb montiert und angeschlossen, App mit dem Telefon gekoppelt, Endlagen und Kraft eingestellt."],
+    uk: ["Робота — розумний привід", "Привід підвішено й під'єднано, застосунок спарено з телефоном, межі й зусилля налаштовано."],
+    tl: ["Labor — smart opener", "Isinabit at kinablehan, ipinares ang app sa phone at in-set ang limit at force."],
+  }, { measurementKey: "each" }), L.material(1, "each", 420, {
+    en: ["Wi-Fi belt-drive opener", "Smart belt-drive opener with battery backup, two remotes and keypad."],
+    fr: ["Ouvre-porte Wi-Fi à courroie", "Ouvre-porte intelligent à courroie avec batterie de secours, deux télécommandes et clavier."],
+    es: ["Abridor Wi-Fi de banda", "Abridor inteligente de banda con batería de respaldo, dos controles y teclado."],
+    it: ["Motorizzazione Wi-Fi a cinghia", "Motore smart a cinghia con batteria di riserva, due telecomandi e tastierino."],
+    de: ["WLAN-Riemenantrieb", "Smarter Riemenantrieb mit Notstromakku, zwei Sendern und Codetastatur."],
+    uk: ["Wi-Fi пасовий привід", "Розумний пасовий привід з акумулятором, двома пультами й кодовою панеллю."],
+    tl: ["Wi-Fi belt-drive opener", "Smart belt-drive opener na may battery backup, dalawang remote at keypad."],
+  }, { measurementKey: "each" })], D.newCustomer("fixed", 25)),
+
+  "fq.garage_door.install.door_install_double": T("installation", n(
+    ["Installazione porta garage doppia", "Nuova porta doppia da 16 piedi montata su binari e molle nuovi, bilanciata e sigillata."],
+    ["Doppel-Garagentor einbauen", "Neues 16-Fuß-Doppeltor an neuen Schienen und Federn montiert, ausbalanciert und abgedichtet."],
+    ["Встановлення подвійних гаражних воріт", "Нові подвійні ворота 16 футів змонтовано на нових напрямних і пружинах, збалансовано й ущільнено."],
+    ["Pagkabit ng double garage door", "Bagong 16 ft na double door sa bagong track at spring, binalanse at sinelyuhan."],
+  ), [SHARED.removeOld(175), L.labour(1, "each", 500, {
+    en: ["Double door installation labour", "Sections stacked, tracks and springs set, the door balanced and weather-sealed."],
+    fr: ["Main-d'œuvre — porte double", "Sections montées, rails et ressorts posés, porte équilibrée et étanchéisée."],
+    es: ["Mano de obra — puerta doble", "Secciones montadas, rieles y resortes colocados, puerta balanceada y sellada."],
+    it: ["Manodopera — porta doppia", "Sezioni montate, binari e molle posati, porta bilanciata e sigillata."],
+    de: ["Arbeit — Doppeltor", "Sektionen gestapelt, Schienen und Federn gesetzt, Tor ausbalanciert und abgedichtet."],
+    uk: ["Робота — подвійні ворота", "Секції зібрано, напрямні й пружини встановлено, ворота збалансовано й ущільнено."],
+    tl: ["Labor — double door", "Pinagpatong ang section, ikinabit ang track at spring, binalanse at sinelyuhan."],
+  }, { measurementKey: "each" })], null),
+
+  "fq.garage_door.install.floor_coating": T("installation", n(
+    ["Rivestimento pavimento garage — poliaspartico con scaglie", "Soletta levigata e riparata, poi rivestita con poliaspartico a scaglie e finitura trasparente."],
+    ["Garagenbodenbeschichtung — Polyaspartic mit Chips", "Bodenplatte geschliffen und ausgebessert, dann mit Polyaspartic, Farbchips und Klarlack beschichtet."],
+    ["Покриття підлоги гаража — полиаспартик із чипсами", "Плиту відшліфовано й відремонтовано, потім покрито полиаспартиком із чипсами та прозорим шаром."],
+    ["Coating ng sahig ng garahe — polyaspartic flake", "Ginrind at inayos ang slab, nilagyan ng polyaspartic, flake at clear coat."],
+  ), [L.labour(1, "sqft", 4.5, {
+    en: ["Floor coating labour — per sq ft", "Slab diamond-ground, cracks filled, base coat, full flake broadcast and clear top coat."],
+    fr: ["Main-d'œuvre — revêtement, au pi²", "Dalle meulée au diamant, fissures comblées, couche de base, flocons à saturation et couche de finition claire."],
+    es: ["Mano de obra — recubrimiento, por pie²", "Losa pulida con diamante, grietas rellenas, capa base, hojuela completa y capa final transparente."],
+    it: ["Manodopera — rivestimento, al piede quadro", "Soletta levigata a diamante, crepe riempite, mano di fondo, scaglie a saturazione e finitura trasparente."],
+    de: ["Arbeit — Beschichtung, pro sq ft", "Platte diamantgeschliffen, Risse gefüllt, Grundschicht, volle Chipeinstreuung und Klarlack."],
+    uk: ["Робота — покриття, за кв. фут", "Плиту відшліфовано алмазом, тріщини заповнено, базовий шар, повна засипка чипсами й прозорий верхній шар."],
+    tl: ["Labor — coating, kada sq ft", "Diamond-grind ang slab, tinapalan ang bitak, base coat, full flake at clear top coat."],
+  }, { measurementKey: "areaSqFt" }), L.material(1, "sqft", 2.25, {
+    en: ["Polyaspartic system — per sq ft", "Polyaspartic base and top coat with decorative flake."],
+    fr: ["Système polyaspartique — au pi²", "Couche de base et de finition polyaspartiques avec flocons décoratifs."],
+    es: ["Sistema poliaspártico — por pie²", "Capa base y final poliaspártica con hojuela decorativa."],
+    it: ["Sistema poliaspartico — al piede quadro", "Fondo e finitura poliaspartici con scaglie decorative."],
+    de: ["Polyaspartic-System — pro sq ft", "Polyaspartic-Grund- und Deckschicht mit Dekorchips."],
+    uk: ["Полиаспартикова система — за кв. фут", "Полиаспартиковий базовий і верхній шар з декоративними чипсами."],
+    tl: ["Polyaspartic system — kada sq ft", "Polyaspartic na base at top coat na may decorative flake."],
+  }, { measurementKey: "areaSqFt" })], null, { categories: ["garage_door", "epoxy", "flooring_install"] }),
 };
 
 withTemplates(SEED, TEMPLATES);

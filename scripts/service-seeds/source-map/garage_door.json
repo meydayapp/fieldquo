@@ -131,5 +131,33 @@
   "sourceCategory": "Added with the estimate templates",
   "sourceService": "Garage door tune-up",
   "taskCode": null
+ },
+ {
+  "seedKey": "fq.garage_door.repair.torsion_spring_single",
+  "industry": "Garage",
+  "sourceCategory": "Estimate templates (Springs)",
+  "sourceService": "Torsion spring — single",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.garage_door.repair.extension_spring",
+  "industry": "Garage",
+  "sourceCategory": "Estimate templates (Springs)",
+  "sourceService": "Extension spring",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.garage_door.install.opener_smart",
+  "industry": "Garage",
+  "sourceCategory": "Estimate templates (Openers)",
+  "sourceService": "Opener install — smart/premium",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.garage_door.install.door_install_double",
+  "industry": "Garage",
+  "sourceCategory": "Estimate templates (New door)",
+  "sourceService": "Door install — double car",
+  "taskCode": null
  }
 ]
