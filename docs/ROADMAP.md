@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 25 September 2026 (the receipts book: photo AND PDF receipts captured from Expenses, a job page or the Create menu's "Snap receipt", read into lines / store / date + time / card last four / GST-PST-HST separately, checked against themselves, matched to the job the person was clocked in on (or overhead) by deterministic scoring with a reason for every point, split by line or amount, booked only on a tap as Expense rows carrying their tax; crew book to their own jobs or hand it to the office; /platform/ai-billing — the generic "who pays" switch, receipts on FieldQuo)
 Last updated: 24 September 2026 (a service's estimate template expands onto a quote and an invoice: "Add with its template lines" beside a templated service in the line library, lines in the document's language from the company's own Product row, measured quantities filled from the quote's own takeoffs with the source printed under the line, a missing figure at quantity 0 with the calculator named or linked, `ventCount` / `returnCount` registered — see "A service's template, expanded onto the quote" below)
 Last updated: 24 September 2026 (the estimate template inside a service — `Product.templateLines` / `defaultDiscount` / `imageUrl` / `estimateTypes` / `templateEnabled`, additive; templates attach by quote type (`categories` + painting estimate types) through `templatesFor()`; a closed measurement registry every trade's lines can take their qty from; the seed LOADER contract in `lib/services/seeds.js`; Settings › Services edits each service's template; `/app/analytics/benchmark` is the preset library with an editable Your price; benchmark sharing is on by default for new companies and Terms §7 / Privacy §7 say so. The seed CONTENT — templates on every trade in seven languages — is a separate pass landing against the same contract.; landed just before it on main: auto-translation on save — see its section.)
 Last updated: 24 September 2026 (tours re-pinned to the new shell: welcome-v2 walks the 17-row rail — Leads, Quotes, Quote reviews, Assign shifts, Marketing, Receptionist, FieldQuo AI, AI team, More, Create, Search, Settings at the foot — unfolding a folded People/Grow group through its header and folding it back, a new ai-team-v1 page tour, "Take the tour" on the dashboard's set-up card, the Help centre's replay fixed; every onboarding and set-up row shows a counted time estimate, the onboarding card says "n of 6 done" and the set-up card "n of 15 done · n hidden" — see "Tours on the new shell" below)
@@ -20,6 +21,115 @@ than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## The receipts book, and who pays for AI (25 September 2026)
+
+The owner: "Those receipts should be linked by job or overhead and also be kept as
+bookkeeping. It should be able to scan all the items, price, time, store … and if it's
+based on time provide a suggestion as to which job it might be possibly linked, or if it
+might be overhead related, based on logical algorithmic assumptions."
+
+**What shipped**
+
+- **Capture anywhere** — `/app/receipts` (the book), reached from Settings › Expense
+  Tracking ("Receipts", "Scan receipt"), from a job page ("Scan a receipt for this job",
+  `?jobId=` is a scoring HINT, never a link) and from the Create menu's new **Snap
+  receipt** (`?snap=1`, gated on the lowest Expenses rung so crew get it). Photos AND a
+  PDF, several at once: each file is its own receipt unless "these photos are one long
+  receipt" is ticked (≤ 4 photos; a PDF is always read alone). Capture
+  (`POST /api/receipts`) saves the `Receipt` row and its files BEFORE the read
+  (`POST /api/receipts/[id]/read`), so the original — the bookkeeping record — survives a
+  failed read and shows "Read again". Nothing is ever deleted: a duplicate or a personal
+  purchase is **voided** with a reason and kept.
+- **Extraction** (`lib/receipts/extract.js`, one call through `lib/ai/provider.js`,
+  gpt-5-mini at detail "high"): every line (+ SKU, + a `kind` label — the model's only
+  judgement), store name / address / phone / town / postal code, date AND time (24 h),
+  receipt #, payment method + card last four (anything longer is refused), subtotal,
+  a single printed tax AND each separate tax line (GST / PST / HST / QST), total,
+  currency. Still a transcriber — every amount a string. PDFs: `provider.js` gained a
+  `files` part (base64, one PDF); `lib/receipts/pdf.js` fetches it from OUR Cloudinary
+  only (SSRF pin), checks `%PDF-`, ≤ 4.5 MB, ≤ 6 pages.
+- **Validation** (`lib/receipts/validate.js`) — flags, never fixes: lines vs subtotal
+  (≤ 2¢ is "rounding"), subtotal + tax vs total, GST + PST vs the tax line, unreadable
+  lines / tax, no total. Split-by-line is only offered when the lines ARE the purchase.
+- **Duplicates** (`lib/receipts/duplicates.js`) — same store + receipt number; same store
+  + total within 5 min; same store + total + day when a time is missing. A warning on
+  the row and a second "book anyway?" at confirm; never an auto-delete.
+- **Suggestions** (`lib/receipts/suggest.js`, pure, no model) — weights in one table:
+  captured from this job's page 30 · uploader clocked in there at the printed time 45 ·
+  clocked in/out within 90 min 10–30 (scaled) · worked there that day (no printed time)
+  25 · visit booked for them within 4 h 25 / same day 12 · someone else clocked in there
+  (only when the uploader has no clock of their own — the office entering a crew
+  receipt) 15 · same postal area (FSA / ZIP3) 15 · same town 8 · each line matching the
+  quote / material list 6 (cap 20) · same trade family 8 · in progress 8 / starts near 5 /
+  just finished 3. Overhead: ≥ 60 % overhead-kind lines 45 · a fuel / telco / software /
+  office / restaurant store 35 · outside 06–20 h or a weekend with nobody clocked in 20 ·
+  no active job 20 · −20 when ≥ 60 % is materials. Top 3 jobs + overhead with category,
+  confidence marked DOWN when two answers are close, every point a translated reason
+  ("Dana was clocked in at 14 Elm St from 08:02"). Overnight shifts, DST days, a receipt
+  across UTC midnight, an unknown store, two crews on two jobs — all in
+  `npm run check:receipt-books` (190 assertions; two mutations caught).
+- **Booking** (`app/api/receipts/[id]/confirm`, `lib/receipts/allocate.js`,
+  `lib/receipts/record.js`) — one place, split by line, or split by typed amount; the
+  rows add up to the paper to the cent (largest remainder, tax and each tax label too).
+  Each part is an `Expense` with `receiptId`, `taxAmount`, `taxBreakdown`,
+  `paymentMethod`, `receiptLines`, the original file, the vendor, `createdById` = the
+  person who paid. Job parts move job costing; overhead parts are `isOverhead` (never
+  `recurring` — burn rate would multiply a purchase into a commitment). Materials lines
+  that match the job's material list write `MaterialPriceEntry` (with `expenseId` and
+  `supplier`, both columns previously written by nothing). Once: a compare-and-set on
+  the status inside the transaction.
+- **Books** — the sales-tax summary gained "Tax paid on purchases, read off receipts"
+  (by label), shown beside what was charged and never netted; the limitation line and the
+  job-cost "excludes" now say what is and isn't known. No CSV export (owner, 2026-09-24:
+  import yes, export no).
+- **RBAC** (`lib/receipts/access.js`) — the Expenses grid: "their own" = capture, see and
+  book their own receipts, to THEIR jobs only (a visit assigned or time clocked there),
+  or "Not sure — let the office decide" (the office queue sorts those first);
+  "everyone's" = every receipt, any job, overhead, and re-linking a booked part
+  (`PATCH /api/receipts/[id]/expenses/[expenseId]`). The older
+  `PATCH /api/expenses/[id]` now refuses a crew member moving a receipt's expense. Every
+  route re-reads the member; impersonation stays read-only (middleware + currentMember).
+- **Who pays for AI** (`lib/ai/featurePayer.js`, `AiFeaturePayer`, `/platform/ai-billing`)
+  — generic per-feature switch: `meterFor(feature)` routes to FieldQuo's own budget and
+  ledger (`checkPlatformAiBudget` / `recordPlatformAiUsage`, with `meta.companyId`) or to
+  the company's allowance (`checkAiQuota` / `recordAiUsage`). 60 s cache. Registry
+  defaults (no rows written): receipt_scan, copilot, translation → FieldQuo;
+  ai_employee_reply / ai_employee_front_desk → company. Only `receipt_scan` is WIRED
+  (both receipt routes); the page draws the switch only for wired features and says so
+  for the rest. Superadmin-only, audit-logged (`ai_payer_changed`). The page also shows
+  each feature's spend last month / this month on both ledgers and receipt reading per
+  company.
+- 202 strings × 9 languages.
+
+**Schema (additive, applied by SQL):** `Receipt` (new), `AiFeaturePayer` (new),
+`Expense.receiptId / taxAmount / taxBreakdown / paymentMethod / receiptLines`.
+`Receipt.chargedCents` is RESERVED and unused — created for a wallet charge before the
+payer design settled; dropping it was refused by the permission classifier, so it stays,
+documented, until the owner says drop it or the dollar-metering follow-up uses it.
+
+**Measured / verified:** build green; the whole capture → suggest → split → confirm →
+double-confirm path run against a demo company's real rows inside a rolled-back
+transaction (split of the demo receipt booked 97.73 + 58.12 = 155.85, tax 12.73 + 7.57,
+GST/QST 6.78 / 13.52 carried; second confirm "already_confirmed"; 0 rows left behind).
+**Not measured:** a live model read — no OpenAI key locally and production has never
+run a receipt read. Estimated from token counts: 0.15¢ (one photo, 3 lines) to 0.35¢
+(4 photos / 4-page PDF, 30 lines) on gpt-5-mini. The PDF `file` part follows OpenAI's
+documented chat-completions shape and has not been exercised against the vendor.
+
+**Owed / decisions for the owner**
+- Store distance in km needs the store's address geocoded — a paid Google call per
+  receipt. Not added; matching is by postal area and town. Say yes to add it.
+- `checkPlatformAiBudget` sums every PlatformAiUsage area, so a daily/global budget set
+  for prospecting now also covers FieldQuo-paid receipt reads (and vice versa). Its
+  refusal is reworded for contractors in `meterFor`; whether receipts want their own
+  budget scope is a decision.
+- copilot / translation are seeded "FieldQuo pays" but still meter to the company's
+  allowance until their call sites move onto `meterFor` (the page says so).
+- Supplier invoices by email (parity item 10) and a receipt currency different from the
+  company's (shown, not converted) are not built.
 
 ---
 
@@ -10102,6 +10212,10 @@ quota rather than the credit wallet, which would have meant editing
 `lib/ai/imageEconomics.js` and `lib/voice/credits.js` — a pricing decision for
 the owner. `Expense` still has no attachment column, so receipts against
 expenses remain the two-job item the audit described.
+
+*(25 September 2026: superseded by "The receipts book, and who pays for AI" at
+the top — PDFs are read there, receipts are booked from the Expenses side, and
+this scanner now meters through the payer switch.)*
 
 ---
 
