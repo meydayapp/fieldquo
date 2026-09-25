@@ -1657,6 +1657,14 @@ model Company {
   // into CompanyGalleryPair (lib/company/gallery.js). Additive: the old
   // columns are left as they were. Null = not merged yet.
   galleryMergedAt DateTime?
+  // The gallery's ONE unfinished pair: { beforeUrl?, beforePublicId?,
+  // afterUrl?, afterPublicId?, caption?, updatedAt } — a before uploaded with
+  // no after yet (or the reverse). Kept here, not as a CompanyGalleryPair
+  // row, because every client-facing reader (website, quote email, proposal)
+  // reads that table and a half pair must never reach a client. Written and
+  // read only by the gallery editors (lib/company/gallery.js
+  // loadGalleryDraft / saveGalleryDraft). Null = no draft.
+  galleryDraftPair Json?
 
   galleryPairs       CompanyGalleryPair[]
   textTranslations   CompanyTextTranslation[]
