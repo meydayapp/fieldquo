@@ -101,6 +101,7 @@
     "check:meta-token-crypto": "node --import ./scripts/alias-loader.mjs scripts/check-meta-token-crypto.mjs",
     "check:conversation-attribution": "node --import ./scripts/alias-loader.mjs scripts/check-conversation-attribution.mjs",
     "check:ai-employee": "node --import ./scripts/alias-loader.mjs scripts/check-ai-employee.mjs",
+    "check:handling-timeline": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-handling-timeline.mjs",
     "check:conversation-review": "node --import ./scripts/alias-loader.mjs scripts/check-conversation-review.mjs",
     "check:conversation-score": "node --import ./scripts/alias-loader.mjs scripts/check-conversation-score.mjs",
     "check:whatsapp": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-whatsapp.mjs",
