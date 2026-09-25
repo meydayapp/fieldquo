@@ -93,7 +93,6 @@ const EXPECTED_KEYS = [
   "availability",
   "materials",
   "add_ons",
-  "emails",
   "import_jobs",
   // 2026-09-24: the signup asks "Do you have a website?" — a no (or no
   // answer) puts this row on the card until the builder's site is published.
@@ -119,9 +118,6 @@ const EMPTY = {
   bookableScheduleRows: 0,
   materialRecipeSettings: 0,
   products: [],
-  emailDomainVerified: false,
-  editedEmailTemplates: 0,
-  quoteEmailSectionsOn: false,
   historicalImports: 0,
   // The owner alone on the roster, nothing pending, an ordinary plan, no
   // "it's just me" claim: the team row is undone and applies.
@@ -218,9 +214,6 @@ const FLIPS = [
   ["materialRecipeSettings", 1, "materials"],
   ["enabledCategories", [{ rates: { perDoor: 120 } }], "materials"],
   ["products", [{ name: "Site clean-up", unitPrice: 150, active: true }], "add_ons"],
-  ["emailDomainVerified", true, "emails"],
-  ["editedEmailTemplates", 1, "emails"],
-  ["quoteEmailSectionsOn", true, "emails"],
   ["historicalImports", 3, "import_jobs"],
   ["activeMembers", 2, "team"],
   ["pendingInvites", 1, "team"],
@@ -291,16 +284,16 @@ for (const [field, value, expectKey] of FLIPS) {
 
 // Dismissed hides; done removes; both are reported.
 {
-  const steps = stepsFor({ ...EMPTY, dismissed: ["emails", "bogus", "emails"], overheadAssets: 2 });
-  const emails = steps.find((s) => s.key === "emails");
+  const steps = stepsFor({ ...EMPTY, dismissed: ["import_jobs", "bogus", "import_jobs"], overheadAssets: 2 });
+  const importJobs = steps.find((s) => s.key === "import_jobs");
   const overhead = steps.find((s) => s.key === "overhead");
-  ok("a dismissed step is still returned, flagged dismissed", emails && emails.dismissed === true && emails.done === false);
+  ok("a dismissed step is still returned, flagged dismissed", importJobs && importJobs.dismissed === true && importJobs.done === false);
   ok("a done step is still returned, flagged done", overhead && overhead.done === true);
   const shown = remainingSteps(steps).map((s) => s.key);
-  ok("the card shows neither the dismissed nor the done step", !shown.includes("emails") && !shown.includes("overhead"));
+  ok("the card shows neither the dismissed nor the done step", !shown.includes("import_jobs") && !shown.includes("overhead"));
   ok("…and shows all the others", shown.length === TOTAL - 2, shown.length);
-  ok("normaliseDismissed drops unknown keys and duplicates", JSON.stringify(normaliseDismissed(["emails", "bogus", "emails", 7, null])) === JSON.stringify(["emails"]));
-  ok("normaliseDismissed of garbage is []", normaliseDismissed("emails").length === 0 && normaliseDismissed(null).length === 0);
+  ok("normaliseDismissed drops unknown keys and duplicates", JSON.stringify(normaliseDismissed(["import_jobs", "bogus", "import_jobs", 7, null])) === JSON.stringify(["import_jobs"]));
+  ok("normaliseDismissed of garbage is []", normaliseDismissed("import_jobs").length === 0 && normaliseDismissed(null).length === 0);
   ok("done beats dismissed: a step both done and dismissed is simply gone", remainingSteps(stepsFor({ ...EMPTY, dismissed: ["overhead"], overheadDebts: 1 })).length === TOTAL - 1);
   ok("…and \"team\" is a key the dismiss route accepts", normaliseDismissed(["team"]).length === 1);
 }
