@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 25 September 2026 (check:all run end to end for the first time in weeks: 85 hidden failures down to 5 — real fixes to crew seeing the AI-credit balance, the lawn-care rate card without the quotes grid, English upload errors on French forms, a paint-builder crash and do-not-contact normalisation in the Maps sweep; tenant-scope and feature-matrix wait on the owner, app-currency and sales-server-copy on appMessages.js — see "check:all run end to end" below)
 Last updated: 25 September 2026 (the paid deep photo read now returns trade-specific evidence on the SAME one vision call — junk volume in pickup beds → cu yd / m³ with item categories and the fees they carry, roof pitch/layers/damage, paint condition/peeling/colour change, cabinet door and drawer counts/style/finish, current floor and transitions, stair tread/riser counts and shape, gutter run/downspouts/storeys/issues — each with a confidence and how it was judged, shown as an estimate BESIDE the quote's measured figure and never written over it; plus a non-blocking "these photos may not be of this job" warning when a clearly-read photo matches none of the quote's trades, on the quote panel, the invoice twin and the estimate-review queue — see "The deep read reads the trade" below)
 Last updated: 25 September 2026 (three lost items: the client auto-send policy written down in docs/CLIENT-MESSAGES.md with every automatic client sender audited — no path auto-sends a quote; Facebook/Instagram threads past Meta's 24-hour window show a closed state, disable Send and say why and what still works, and the AI employee no longer replies past it; check:prep-guide green again — sixteen trades had no prep guide — so check:all now runs on to the next of 86 checks that were already failing on main behind it)
 Last updated: 25 September 2026 (flooring, tile, drywall, siding, fencing and concrete measured on the quote with the calculators that already exist — rooms on paint's geometry with openings off the walls and a waste per material, drywall sheets 4 × 8 / 4 × 12, siding elevations into the siding box, the aerial tracer into the fence's Linear Feet and the slab's Square Footage, posts every 8 ft, cubic yards at the chosen thickness — feeding "Add with its template lines"; nothing new is priced by a takeoff, so nothing new is held back — see "Flooring, tile, drywall, siding, fencing, concrete: measured on the quote" below)
@@ -42,6 +43,84 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## check:all run end to end: 85 hidden failures down to 5 (25 September 2026)
+
+`npm run check:all` is one `&&` chain, so for weeks it stopped at the first red
+check and never ran the rest. Every script in the chain (560 unique; the chain
+lists `check:offline-invoicing` twice) was run on its own against main at
+`ef759bb1`, with no database and no `.env`.
+
+**Before:** 475 pass, 85 fail (run one at a time; 87 under a parallel runner).
+**After:** 555 pass, 5 fail. `npm run build` passes.
+
+Each failure was put in one of four categories:
+
+1. **Real bug:** the check was right, so the product code was fixed with the smallest change.
+2. **Stale check:** the product changed on purpose. The change was confirmed against its commit, and the assertion now points at the new behaviour. Nothing was deleted or weakened.
+3. **Environment:** the check needs something that isn't there locally.
+4. **Owner:** the fix needs a product decision.
+
+The work was split four ways: security and money (by hand), product UX, the sales portal part 1, and the sales portal part 2 plus the platform console and mobile.
+
+### Real bugs fixed (the scenario a person would hit)
+
+- **Crew could read the company's AI-credit balance.** `GET /api/jobs/[id]/materials` returned the AI build's spend verdict, including `balanceCents`, to any reader with `jobs:view_only`. Crew have that level on their own jobs. The banner that uses it is only shown to people who can edit.
+  - Now `spend` is computed only at `view_create_edit`. Crew get `null`.
+  - `check:crew-access` pins this.
+- **The lawn-care rate card was open to anyone with `showPricing`.** `GET /api/quotes/lawn-care-offer` checked the `showPricing` toggle but never the permission grid. A member with `quotes:none` who holds `showPricing` (a bookkeeper who handles invoices) could read it. It now also requires `quotes:view_only`.
+- **Upload errors showed in English on the French self-quote form.** `MediaUploader` put the helper's English `err.message` ahead of the translated `rejectedLabel`. A client on the French or Spanish form read English whenever Cloudinary refused a file.
+- **The painting builder could crash.** An area with a saved `areaType` and no loaded book crashed the render: `book.areaTypes[key]` was read unguarded.
+- **Estimate review had no label for `lawn_estimate`.** The chip was missing that source. It now reads "Source not recorded" on purpose instead of by fall-through.
+- **Do-not-contact slipped through the Maps promotion sweep.** `lib/sales/intel/promoteListings.js` queried the suppression table with raw strings, so `www.acme.com` got past a do-not-contact row for `acme.com`. A missing table also read as an empty list.
+  - It now goes through `liveSuppressedContacts()` in `lib/sales/suppression.js`, which normalises the same way the list stores values, and throws if it can't read the list.
+  - The dial and send paths already re-checked, so this put do-not-contact businesses in the pipeline, not on the phone.
+- **Two features had no spoken sentence for the sales voice agent.** `team_chat` and `ai_material_list` had none in `lib/platform/salesKnowledge.js`, so it would have said the bare labels.
+- **The platform audit log showed "Unrecognised action".** Five actions had no wording, including floor settings, outcome settings, referral links and work names.
+- **Waiver views were counted as website pages.** `/w/<token>` was missing from product analytics' `TENANT_PASSTHROUGH`.
+- **A latent bug in voice intake for gutter calls.** The agent looked for intake fields under a category key that doesn't exist (`gutters` instead of `gutter_services`). Harmless today, because gutters has no intake fields, but fields added later would never have been asked.
+- **Help centre gaps.** `paint_takeoff` and `ai_material_list` had no article. The Client tickets row linked to nothing. Three articles were written in en, fr and es.
+- **Client tickets.** The default "Open" tab hid a ticket as soon as the office replied, while its badge still counted it. Crew saw a Client tickets row that led to a 403.
+- **Phone layout.** About 30 buttons were under 36px across the sales inbox and texts, invoices, quotes, marketing and `/platform`. Tables on `/platform/costs` and two others had no scroll wrapper, so the body scrolled sideways at 375px.
+
+### Stale checks re-pointed (selection)
+
+- **rbac-supervisors:** redaction now wraps `attachAttendance(entries)`.
+- **access-labels:** added the `useHasLevel` hook, and the `canDelete` prop traced to its parents. Mutation-tested.
+- **import-gates:** the clients route's conditional notes field gate.
+- **crew-access:** a file-local `gate()` helper, and `lib/workOrder/load.js`.
+- **public-payload:** routes gated by `getCurrentPlatformAdmin` are authenticated, not public.
+- **cost-basis:** the seven pipeline copilot tools are now each executed against the REST route that serves the same numbers.
+- **credit-currency:** the `app.voiceSettings.addCredit` label. The label exclusions are now asserted to be keys only.
+- **bank-debit-cap:** invoice Checkout uses a Payment Method Configuration (PMC) since 2026-09-23. The check sets test PMC ids and asserts the dynamic-methods session.
+- **quote-text-blocks:** `meterFor("translation")`, following the owner's 2026-09-25 AI billing decision.
+- **pricing-console:** signup no longer needs a plan (2026-09-24), so the guard is `plan && isRetired(plan)`.
+- **destructure-arity:** the check wrongly compared a nested `Promise.all` with the outer names. Mutation-tested.
+- **Schema comment stripper (grace-warning, renewal-reminders, consent-mechanisms):** the stripper paired a `/*` in a schema comment with a `*/` 8,000 lines later and deleted the schema in between.
+- **Others:** about 50 more, each with its commit in the branch history.
+
+### Still failing: owner or blocked
+
+- **`check:tenant-scope`: needs the owner to approve a change to the security check.**
+  - It reports 20 undeclared unscoped lookups and 4 platform writes.
+  - Every one was read and is safe:
+    - 13 lookups and all 4 platform writes are on `Prospect`. It gained a `companyId` column on 2026-09-21 (`0302279b`) as a pointer to "the company this signup became". It is FieldQuo's own sales data, scoped by rep through `queueWhere(rep.id)` or by the platform console.
+    - The other 7 (`ai-employee`, `jobs/[id]/change-orders`, `jobs/[id]/plan`, `portal/[token]`, `time-clock`) key off rows already loaded under a company scope or a token.
+  - The fix:
+    - Name `Prospect` as not tenant data in `scripts/tenantScopeScan.mjs`, with a reason and an assertion that no company-facing route touches it.
+    - Add five `GLOBAL_BY_DESIGN` declarations.
+  - The session's auto-mode classifier refused that edit as "security test removal", so it was reverted and left for the owner.
+- **`check:feature-matrix`: owner decision.** Crew chat (`team_chat`) and the AI material list (`ai_material_list`) are neither claimed on /pricing nor deliberately excluded.
+- **`check:app-currency`: blocked on `app/i18n/appMessages.js`.** `app.quoteDetail.declinePlaceholder` ("about $800 under us") and `app.cost.hoursAtZero` ("costed at $0") print a dollar sign in every currency. These are real copy bugs, but that file belongs to the translation-completeness work.
+- **`check:sales-server-copy`: blocked on `appMessages.js`.** Four `app.salesIntel.fact.*` keys are missing in uk, pa and tl.
+- **`check:app-catalogue`: owned by the translation-completeness work.** Not touched.
+
+### Worth knowing
+
+- **Two checks fail only under a parallel runner.** `campaign-rollup` and `accounting-route` (and once `dashboard`) pass on their own. About 25 checks mutation-test by rewriting a lib file in place and restoring it. That is safe in the sequential `check:all` but not in parallel, and a killed run would leave a mutated file behind.
+- **About 30 other checks read `prisma/schema.prisma` through the same comment stripper** that was deleting chunks of the schema. They may be passing on less schema than they think; the fix in `6eae21eb` probably applies.
+- **`check:call-to-client` passes but logs a missing `DISCLOSURE` export.** Its stand-in for `@/lib/voice/outbound` lacks that export, so the booking follow-up path isn't exercised.
+- **`check:interconnections` rewrote the entity-graph docs on every run.** Main said 303 models and the schema has 304. They are regenerated here.
 
 ## The deep read reads the trade, and says when the photos aren't of the job (25 September 2026)
 
