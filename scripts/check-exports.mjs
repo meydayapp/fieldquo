@@ -189,6 +189,16 @@ function exportsOf(file, seen = new Set()) {
   if (seen.has(file)) return { names: new Set(), hasDefault: false, unknown: false };
   seen.add(file);
 
+  // A JSON module's one export is its default — the parsed document — which
+  // both bundlers and Node's JSON modules provide. Named imports of its keys
+  // are a bundler nicety this regex reader cannot vouch for, so it is UNKNOWN
+  // for those (the platform-mobile harness imports costs.snapshot.json whole).
+  if (file.endsWith(".json")) {
+    const json = { names: new Set(), hasDefault: true, unknown: true };
+    exportCache.set(file, json);
+    return json;
+  }
+
   // Same race as the walk above: this resolves an import TARGET, which can be
   // deleted just as easily. An unreadable module is UNKNOWN, not empty — an
   // empty export set would make every named import of it look wrong and print
