@@ -201,7 +201,7 @@ export async function POST(request) {
   }
   // The currency the COMPANY's own documents are in. Distinct from
   // basis.planCurrency, which is the one FieldQuo may bill THEM in: the seat
-  // ladder exists in CAD and USD only, while a company can quote its own
+  // ladder exists in CAD, USD and AUD only (USD for every other Stripe country), while a company can quote its own
   // clients in any of the currencies lib/currency.js lists.
   const currency = currencyForCountry(homeCountry);
 

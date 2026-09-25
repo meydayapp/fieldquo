@@ -512,9 +512,9 @@ export const ARTICLES = {
     title: "Impuestos y moneda de su suscripción",
     summary:
       "Por qué una empresa canadiense paga en CAD y una estadounidense en USD, cómo se agrega el impuesto sobre las ventas al cobro de FieldQuo en la página de pago, y por qué nada de eso toca el impuesto de sus propias facturas.",
-    updated: "2026-09-12",
+    updated: "2026-09-25",
     intro: [
-      "FieldQuo cobra en **su propia moneda**: dólares canadienses para una empresa en Canadá, dólares estadounidenses para una en Estados Unidos. Los precios de los planes son el mismo número en cada una — Solo es 99 en CAD para un canadiense y 99 en USD para un estadounidense —, así que nadie paga un precio de lista más un tipo de cambio más una comisión de tarjeta. El impuesto sobre las ventas de ese cobro lo calcula Stripe a partir de su dirección de facturación y se agrega en la página de pago.",
+      "FieldQuo cobra en **su propia moneda**: dólares canadienses para una empresa en Canadá, dólares australianos para una en Australia, dólares estadounidenses en cualquier otro lugar. Los precios de los planes son el mismo número en cada una — Solo es 99 en CAD para un canadiense y 99 en USD para un estadounidense —, así que nadie paga un precio de lista más un tipo de cambio más una comisión de tarjeta. El impuesto sobre las ventas de ese cobro lo calcula Stripe a partir de su dirección de facturación y se agrega en la página de pago.",
       "Este es el cobro de FieldQuo a usted. No tiene nada que ver con el impuesto que usted cobra a sus clientes: ese se configura en **Configuración → Configuración de la empresa** y se aplica a sus presupuestos y facturas, y los dos nunca se cruzan.",
     ],
     sections: [
@@ -534,7 +534,9 @@ export const ARTICLES = {
             rows: [
               ["Canadá", "CAD", "CA$"],
               ["Estados Unidos", "USD", "US$"],
-              ["Cualquier otro lugar, o sin dirección todavía", "Sin decidir: la cuadrícula Planes le pide primero agregar la dirección de su negocio", "—"],
+              ["Australia", "AUD", "A$"],
+              ["Cualquier otro país donde opera Stripe (Reino Unido, la UE, Nueva Zelanda…)", "USD: las mismas cifras; no hay planes en GBP ni en EUR", "US$"],
+              ["Un país donde Stripe no opera, o sin dirección todavía", "Sin decidir: la cuadrícula Planes le pide primero agregar la dirección de su negocio", "—"],
             ],
           } },
           { p: "Los cuatro peldaños son 99, 169, 269 y 369 al mes, las mismas cifras en cualquiera de las dos monedas, y un **Compromiso de 1 año** son diez meses por doce — vea [[the-four-plans|Los cuatro planes]] y [[monthly-or-a-year-commitment|Mensual, o un compromiso de un año]]. Si Cuenta y facturación dice que necesita saber dónde está su negocio, pulse **Agregar la dirección de tu negocio**, guarde el país, y vuelva." },
@@ -547,7 +549,8 @@ export const ARTICLES = {
           { bullets: [
             "**Stripe Tax calcula la tasa** a partir de la dirección de facturación que ingresa en la página de pago, y la agrega como su propia línea: GST/HST/QST para una dirección canadiense, impuesto estatal sobre las ventas donde un estado de EE. UU. lo cobra.",
             "**Se requiere una dirección de facturación** en la página de pago por esa razón, y Stripe la escribe en su registro de cliente para que las renovaciones, que no pasan por la página de pago, se graven de la misma forma.",
-            "**Puede ingresar su número fiscal** en la página de pago — un número de empresa de Quebec o de EE. UU. — y aparece en la factura que Stripe emite.",
+            "**Puede ingresar su número fiscal** en la página de pago — un número de empresa de Quebec o de EE. UU., un número de IVA del Reino Unido o de la UE, un ABN australiano — y aparece en la factura que Stripe emite.",
+            "**Reino Unido, la UE y Australia:** en cuanto el registro de FieldQuo allí está activo, el IVA británico (20 %), el IVA de la UE a la tasa de su país o el GST australiano (10 %) se agrega de la misma forma. Una empresa que ingresa su número de IVA o su ABN en la página de pago no lo paga: la factura indica inversión del sujeto pasivo y usted lo declara.",
             "**Un cambio de plan programado conserva la configuración de impuestos** con la que empezó, así que una bajada programada para la fecha de renovación se grava exactamente como el plan que reemplaza.",
           ] },
           { note: "Nada de esto cambia lo que pagan sus clientes. El impuesto de sus presupuestos y facturas sale de su propia configuración de impuestos — vea [[tax-settings|Configuración de impuestos]] y [[sales-tax-on-invoices|Impuesto sobre las ventas en las facturas]] — y se cobra en la moneda de su empresa a través de su propia cuenta de Stripe. El impuesto automático de Stripe deliberadamente no se aplica allí, porque gravaría por segunda vez un total ya gravado." },

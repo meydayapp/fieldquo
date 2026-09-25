@@ -346,11 +346,16 @@ console.log("\nCurrency comes from the address, and absence is not CAD");
   });
   eq("'Canada Street, Buffalo, NY, USA' is in the United States", buffalo.country, "US");
 
-  // Somewhere we do not price. A DIFFERENT answer from "we don't know where
-  // you are" — the screen says so, and neither becomes CAD.
+  // The owner, 2026-09-24: Australia is priced in AUD, every other country
+  // Stripe serves on the USD rows — no EUR or GBP rows, and still never CAD.
   const ireland = billingBasis({ country: "IE", address: "" });
   eq("a country the visitor PICKED is kept", ireland.country, "IE");
-  eq("...but the ladder prices nothing there, so no currency", ireland.planCurrency, null);
+  eq("...and priced on the USD rows, not EUR and not CAD", ireland.planCurrency, "USD");
+  const sydney = billingBasis({ country: "AU", address: "1 George St, Sydney NSW 2000, Australia" });
+  eq("Australia is kept", sydney.country, "AU");
+  eq("...and priced in AUD", sydney.planCurrency, "AUD");
+  const london = billingBasis({ country: "GB", address: "" });
+  eq("the United Kingdom is priced on the USD rows, not GBP", london.planCurrency, "USD");
 
   const junk = billingBasis({ country: "ZZ", address: "" });
   eq("a country code the form never offers is not believed", junk.country, null);

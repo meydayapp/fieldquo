@@ -592,14 +592,18 @@ export default function PricingPlans({ plans, customOffer = null, asOf = renderA
 
               What IS true from here: the numbers are one set, not two; the
               billing currency is decided by the business address at signup;
-              and the two supported currencies carry the same number rather
-              than a converted one (SUPPORTED_CURRENCIES — CAD and USD, and
-              nothing implies a third). Tax stays a second sentence because it
-              is a second fact — Ontario adds 13% HST on top of whichever. */}
+              and the supported currencies carry the same number rather than a
+              converted one (SUPPORTED_CURRENCIES — CAD, AUD and USD, the last
+              for everywhere else Stripe serves; the owner, 2026-09-24: no GBP
+              or EUR rows, so nothing here may imply one). Tax stays a second
+              sentence because it is a second fact — Ontario adds 13% HST on
+              top of whichever. The card prices keep a bare "$": a visitor's
+              country is not known until the address at signup, and all
+              three currencies are dollars. */}
           <p className="mt-8 text-center text-sm text-muted-foreground max-w-2xl mx-auto">
             {t(
               "pricingPage.currencyBasis",
-              "One set of prices. Which money you're billed in comes from the business address you give when you sign up: Canadian companies are billed in Canadian dollars, US companies in US dollars — the same number either way, not a converted one.",
+              "One set of prices. Which money you're billed in comes from the business address you give when you sign up: Canadian companies are billed in Canadian dollars, Australian companies in Australian dollars, and companies everywhere else in US dollars — the same number either way, not a converted one.",
             )}{" "}
             {t("pricingPage.taxNote")}
           </p>

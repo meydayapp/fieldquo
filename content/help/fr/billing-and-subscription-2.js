@@ -512,9 +512,9 @@ export const ARTICLES = {
     title: "Taxes et devise de votre abonnement",
     summary:
       "Pourquoi une entreprise canadienne paie en CAD et une américaine en USD, comment les taxes de vente s'ajoutent au prélèvement de FieldQuo à la page de paiement, et pourquoi rien de tout ça ne touche aux taxes de vos propres factures.",
-    updated: "2026-09-12",
+    updated: "2026-09-25",
     intro: [
-      "FieldQuo facture dans **votre propre devise** : dollars canadiens pour une entreprise au Canada, dollars américains pour une entreprise aux États-Unis. Les prix des forfaits sont le même nombre dans chacune — Solo, c'est 99 en CAD pour un Canadien et 99 en USD pour un Américain — alors personne ne paie un prix affiché plus un taux de change plus des frais de carte. Les taxes de vente sur ce prélèvement sont calculées par Stripe d'après votre adresse de facturation et ajoutées à la page de paiement.",
+      "FieldQuo facture dans **votre propre devise** : dollars canadiens pour une entreprise au Canada, dollars australiens pour une entreprise en Australie, dollars américains partout ailleurs. Les prix des forfaits sont le même nombre dans chacune — Solo, c'est 99 en CAD pour un Canadien et 99 en USD pour un Américain — alors personne ne paie un prix affiché plus un taux de change plus des frais de carte. Les taxes de vente sur ce prélèvement sont calculées par Stripe d'après votre adresse de facturation et ajoutées à la page de paiement.",
       "C'est le prélèvement de FieldQuo envers vous. Ça n'a rien à voir avec les taxes que vous facturez à vos clients : celles-là se règlent dans **Paramètres → Profil de l'entreprise** et s'appliquent à vos soumissions et à vos factures, et les deux ne se croisent jamais.",
     ],
     sections: [
@@ -534,7 +534,9 @@ export const ARTICLES = {
             rows: [
               ["Canada", "CAD", "CA$"],
               ["États-Unis", "USD", "US$"],
-              ["Ailleurs, ou pas encore d'adresse", "Pas décidée — la grille Forfaits vous demande d'abord d'ajouter l'adresse de votre entreprise", "—"],
+              ["Australie", "AUD", "A$"],
+              ["Tout autre pays desservi par Stripe (Royaume-Uni, UE, Nouvelle-Zélande…)", "USD — les mêmes chiffres; il n'y a pas de forfaits en GBP ni en EUR", "US$"],
+              ["Un pays que Stripe ne dessert pas, ou pas encore d'adresse", "Pas décidée — la grille Forfaits vous demande d'abord d'ajouter l'adresse de votre entreprise", "—"],
             ],
           } },
           { p: "Les quatre échelons sont 99, 169, 269 et 369 par mois, les mêmes chiffres dans l'une ou l'autre devise, et un **Engagement d'un an**, c'est dix mois pour douze — voir [[the-four-plans|Les quatre forfaits]] et [[monthly-or-a-year-commitment|Au mois, ou un engagement d'un an]]. Si Compte et facturation dit qu'il doit savoir où se trouve votre entreprise, appuyez sur **Ajouter l'adresse de votre entreprise**, enregistrez le pays, et revenez." },
@@ -547,7 +549,8 @@ export const ARTICLES = {
           { bullets: [
             "**Stripe Tax calcule le taux** d'après l'adresse de facturation que vous entrez à la page de paiement, et l'ajoute comme sa propre ligne — TPS/TVH/TVQ pour une adresse canadienne, taxe de vente d'État là où un État américain en prélève une.",
             "**Une adresse de facturation est requise** à la page de paiement pour cette raison, et Stripe la réécrit sur votre fiche client pour que les renouvellements, qui ne passent pas par la page de paiement, soient taxés de la même façon.",
-            "**Vous pouvez entrer votre numéro de taxe** à la page de paiement — un numéro d'entreprise du Québec ou américain — et il apparaît sur la facture que Stripe émet.",
+            "**Vous pouvez entrer votre numéro de taxe** à la page de paiement — un numéro d'entreprise du Québec ou américain, un numéro de TVA britannique ou européen, un ABN australien — et il apparaît sur la facture que Stripe émet.",
+            "**Royaume-Uni, UE et Australie :** dès que l'inscription de FieldQuo y est active, la TVA britannique (20 %), la TVA européenne au taux de votre pays ou la GST australienne (10 %) s'ajoute de la même façon. Une entreprise qui entre son numéro de TVA ou son ABN à la page de paiement n'en paie pas — la facture indique l'autoliquidation et vous la déclarez vous-même.",
             "**Un changement de forfait programmé garde le réglage de taxes** avec lequel il a commencé, alors une descente programmée pour la date de renouvellement est taxée exactement comme le forfait qu'elle remplace.",
           ] },
           { note: "Rien de tout ça ne change ce que vos clients paient. Les taxes sur vos soumissions et vos factures viennent de vos propres réglages de taxes — voir [[tax-settings|Réglages des taxes]] et [[sales-tax-on-invoices|Taxes de vente sur les factures]] — et sont facturées dans la devise de votre entreprise par votre propre compte Stripe. La taxe automatique de Stripe n'y est volontairement pas appliquée, parce que ça taxerait une deuxième fois un total déjà taxé." },

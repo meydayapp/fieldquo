@@ -70,7 +70,7 @@ export const ARTICLES = {
         heading: "The Plans grid",
         blocks: [
           { p: "Under **Plans**, a **Monthly** / **1 year commitment** switch and one card per tier, each with its price, its seats and crew line, **FieldQuo AI included**, and a button. The card you are on reads **Current plan** and is greyed out; the others read **Choose plan**. With the switch on the year, your own tier's button reads **Switch to yearly** instead, because taking the commitment is a real change even though the tier is the same." },
-          { p: "The switch starts on whatever you are already billed on, and flipping it only re-prices the cards — the plan line above does not move until you actually confirm a change. The grid shows the ladder in your currency only: Canadian dollars for a Canadian address, US dollars for a US one. A company whose address has no country sees a prompt to add it instead of a price list." },
+          { p: "The switch starts on whatever you are already billed on, and flipping it only re-prices the cards — the plan line above does not move until you actually confirm a change. The grid shows the ladder in your currency only: Canadian dollars for a Canadian address, Australian dollars for an Australian one, US dollars for anywhere else. A company whose address has no country sees a prompt to add it instead of a price list." },
           { tip: "Every card carries the words **1 seat · 5 crew included free**, **3 seats · 8 crew included free**, and so on. Compare that with the **seats used** line on **Manage Team** before you upgrade — the crew you already have may fit the plan you are on." },
         ],
       },
@@ -114,7 +114,7 @@ export const ARTICLES = {
               ["Scale", "$369", "$3,690", "10", "15"],
             ],
           } },
-          { p: "The same number in either currency: a Canadian company pays these figures in Canadian dollars, a US company pays them in US dollars. Which currency you are billed in is decided by your business address, never by a picker — see [[taxes-and-currency-on-your-subscription|Taxes and currency on your subscription]]. The yearly price is ten months for twelve; see [[monthly-or-a-year-commitment|Monthly, or a one-year commitment]]." },
+          { p: "The same number in every currency: a Canadian company pays these figures in Canadian dollars, an Australian one in Australian dollars, and everyone else in US dollars. Which currency you are billed in is decided by your business address, never by a picker — see [[taxes-and-currency-on-your-subscription|Taxes and currency on your subscription]]. The yearly price is ten months for twelve; see [[monthly-or-a-year-commitment|Monthly, or a one-year commitment]]." },
           { figure: "harness:plan", caption: "Account & Billing — the four plan cards, each with its seats and crew line, FieldQuo AI included, and Choose plan or Current plan." },
         ],
       },
@@ -534,7 +534,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Overview",
         blocks: [
-          { p: "FieldQuo bills you through Stripe Billing, in your own currency — Canadian dollars for a Canadian address, US dollars for a US one. Each period Stripe issues an invoice, charges the card on file, and marks the invoice paid; the paid invoice is the receipt. There is no separate FieldQuo-branded receipt email per charge." },
+          { p: "FieldQuo bills you through Stripe Billing, in your own currency — Canadian dollars for a Canadian address, Australian dollars for an Australian one, US dollars for anywhere else. Each period Stripe issues an invoice, charges the card on file, and marks the invoice paid; the paid invoice is the receipt. There is no separate FieldQuo-branded receipt email per charge." },
           { p: "These are the opposite direction from the invoices on your **Invoices** screen, which are yours to your clients and go through your own connected Stripe account. The two never mix: your subscription invoice is never among your invoices to clients, and a client's payment is never on your Stripe customer." },
         ],
       },

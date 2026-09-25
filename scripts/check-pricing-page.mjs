@@ -179,7 +179,7 @@ const legacy = {
 const TABLE = [...ladderRows, bespoke, legacy];
 
 console.log("\nThe premise: one tier, two rows, the same number");
-ok("eight ladder rows exist, not four", ladderRows.length === 8, ladderRows.length);
+ok("twelve ladder rows exist (four rungs × CAD, USD, AUD), not four", ladderRows.length === 12, ladderRows.length);
 ok(
   "each tier appears once per supported currency",
   SEAT_LADDER.every((tier) =>
@@ -197,9 +197,11 @@ ok(
     return new Set(prices).size === 1;
   }),
 );
-// If a third currency is ever added, the disclaimer below stops being true and
-// this fails on purpose rather than shipping copy that names two.
-ok("only CAD and USD are priced", SUPPORTED_CURRENCIES.join(",") === "CAD,USD");
+// If a fourth currency is ever added, the disclaimer below stops being true
+// and this fails on purpose rather than shipping copy that names three. AUD
+// joined 2026-09-24 (the owner: Australia = same numbers in AUD; everywhere
+// else Stripe serves = USD; no GBP or EUR rows).
+ok("only CAD, USD and AUD are priced", SUPPORTED_CURRENCIES.join(",") === "CAD,USD,AUD");
 
 console.log("\nFour cards, not eight");
 const { sellable } = partitionPlans(TABLE);
@@ -308,6 +310,24 @@ ok(
   "...and a Canadian on the CAD row",
   resolve({ wantedPlanId: "solo-usd" }) === "solo-cad",
   resolve({ wantedPlanId: "solo-usd" }),
+);
+// The third currency. The pricing page's card may now BE the AUD row (the
+// tie-break is alphabetical), so its id travels in links to non-Australians.
+const visibleAud = ladderRows.filter((r) => r.currency === "AUD");
+ok(
+  "?tier=crew in Australia selects the AUD row",
+  resolve({ visible: visibleAud, wantedTier: "crew" }) === "crew-aud",
+  resolve({ visible: visibleAud, wantedTier: "crew" }),
+);
+ok(
+  "a ?plan=<AUD id> lands a Canadian on the CAD row of the same tier",
+  resolve({ wantedPlanId: "crew-aud" }) === "crew-cad",
+  resolve({ wantedPlanId: "crew-aud" }),
+);
+ok(
+  "...and an Australian holding a USD link on the AUD row",
+  resolve({ visible: visibleAud, wantedPlanId: "shop-usd" }) === "shop-aud",
+  resolve({ visible: visibleAud, wantedPlanId: "shop-usd" }),
 );
 // The draft carries a selection across a change of address. The rung survives.
 ok(
@@ -458,9 +478,11 @@ async function main() {
 
   console.log("\nThe disclaimer no longer claims a currency it cannot know");
   ok('nothing says "All prices are in"', !html.includes("All prices are in"));
-  ok("no bare currency CODE is printed beside a price", !/>\s*(CAD|USD)\s*</.test(html));
+  ok("no bare currency CODE is printed beside a price", !/>\s*(CAD|USD|AUD)\s*</.test(html));
+  ok("no A$ / CA$ / US$ beside a card price either — the card says \"$\" as it always did", !/(A|CA|US)\$\d/.test(html));
   ok("it names the address as what decides", /business address/i.test(html));
-  ok("...says both currencies", /Canadian dollars/i.test(html) && /US dollars/i.test(html));
+  ok("...says every currency", /Canadian dollars/i.test(html) && /US dollars/i.test(html) && /Australian dollars/i.test(html));
+  ok("...and that everywhere else is billed in US dollars", /everywhere else in US dollars/i.test(html));
   ok("...says the number is the same either way", /same number/i.test(html));
   ok("...and that it is not a conversion", /not a converted/i.test(html) || /not a conversion/i.test(html));
   ok("...and still mentions tax", /applicable taxes/i.test(html));

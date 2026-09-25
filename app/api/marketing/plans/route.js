@@ -56,7 +56,7 @@ export async function GET(request) {
       aiCopilotEnabled: true,
       // ── What the signup plan step needs to price honestly ────────────────
       //
-      // The ladder exists once per currency (8 rows, CAD and USD), carrying the
+      // The ladder exists once per currency (12 rows: CAD, USD and AUD), carrying the
       // SAME NUMBER rather than a conversion. Without `currency` on this
       // payload the signup page could only render all of them at once, where
       // picking the wrong card is not a currency choice — it is a Canadian

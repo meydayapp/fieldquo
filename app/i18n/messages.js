@@ -249,7 +249,7 @@ const en = {
   "pricing.custom.annual": "or {amount} a year, billed yearly",
   "pricing.seatsOneIncluded": "1 seat — quoting, jobs and invoicing",
   "pricing.seatsManyIncluded": "{count} seats — quoting, jobs and invoicing",
-  "pricingPage.currencyBasis": "One set of prices. Which money you're billed in comes from the business address you give when you sign up: Canadian companies are billed in Canadian dollars, US companies in US dollars — the same number either way, not a converted one.",
+  "pricingPage.currencyBasis": "One set of prices. Which money you're billed in comes from the business address you give when you sign up: Canadian companies are billed in Canadian dollars, Australian companies in Australian dollars, and companies everywhere else in US dollars — the same number either way, not a converted one.",
   "pricing.fullAccess":
     "Full access — quotes, invoicing, scheduling, analytics",
   "pricing.quoteLimit": "Up to {count} quotes per month",
@@ -822,7 +822,7 @@ const fr = {
   "pricing.custom.annual": "ou {amount} par an, facturé annuellement",
   "pricing.seatsOneIncluded": "1 siège — soumissions, contrats et facturation",
   "pricing.seatsManyIncluded": "{count} sièges — soumissions, contrats et facturation",
-  "pricingPage.currencyBasis": "Un seul jeu de prix. La devise facturée découle de l'adresse d'entreprise fournie à l'inscription : les entreprises canadiennes sont facturées en dollars canadiens, les américaines en dollars américains — le même montant, pas une conversion.",
+  "pricingPage.currencyBasis": "Un seul jeu de prix. La devise facturée découle de l'adresse d'entreprise fournie à l'inscription : les entreprises canadiennes sont facturées en dollars canadiens, les australiennes en dollars australiens, et toutes les autres en dollars américains — le même montant, pas une conversion.",
   "pricing.fullAccess":
     "Accès complet — soumissions, facturation, planification, analytique",
   "pricing.quoteLimit": "Jusqu'à {count} soumissions par mois",
@@ -1357,7 +1357,7 @@ const es = {
   "pricing.custom.annual": "o {amount} al año, facturado anualmente",
   "pricing.seatsOneIncluded": "1 puesto — presupuestos, trabajos y facturación",
   "pricing.seatsManyIncluded": "{count} puestos — presupuestos, trabajos y facturación",
-  "pricingPage.currencyBasis": "Un solo conjunto de precios. La moneda que se te cobra depende de la dirección comercial que indiques al registrarte: a las empresas canadienses se les cobra en dólares canadienses y a las estadounidenses en dólares estadounidenses — la misma cifra, no una conversión.",
+  "pricingPage.currencyBasis": "Un solo conjunto de precios. La moneda que se te cobra depende de la dirección comercial que indiques al registrarte: a las empresas canadienses se les cobra en dólares canadienses, a las australianas en dólares australianos y a las de cualquier otro lugar en dólares estadounidenses — la misma cifra, no una conversión.",
   "pricing.fullAccess":
     "Acceso completo — presupuestos, facturación, agenda, analítica",
   "pricing.quoteLimit": "Hasta {count} presupuestos por mes",
@@ -1840,7 +1840,7 @@ const uk = {
   "pricing.custom.annual": "або {amount} на рік, з річною оплатою",
   "pricing.seatsOneIncluded": "1 місце — кошториси, роботи та рахунки",
   "pricing.seatsManyIncluded": "{count} місць — кошториси, роботи та рахунки",
-  "pricingPage.currencyBasis": "Один набір цін. Валюта оплати визначається адресою бізнесу, яку ви вкажете під час реєстрації: канадські компанії оплачують у канадських доларах, американські — у доларах США. Та сама сума, не конвертація.",
+  "pricingPage.currencyBasis": "Один набір цін. Валюта оплати визначається адресою бізнесу, яку ви вкажете під час реєстрації: канадські компанії оплачують у канадських доларах, австралійські — в австралійських доларах, а всі інші — у доларах США. Та сама сума, не конвертація.",
   "pricing.fullAccess":
     "Повний доступ — кошториси, рахунки, планування, аналітика",
   "pricing.quoteLimit": "До {count} кошторисів на місяць",
@@ -2375,7 +2375,7 @@ const pa = {
   "pricing.custom.annual": "ਜਾਂ {amount} ਪ੍ਰਤੀ ਸਾਲ, ਸਾਲਾਨਾ ਬਿਲ",
   "pricing.seatsOneIncluded": "1 ਸੀਟ — ਹਵਾਲੇ, ਕੰਮ ਅਤੇ ਬਿਲਿੰਗ",
   "pricing.seatsManyIncluded": "{count} ਸੀਟਾਂ — ਹਵਾਲੇ, ਕੰਮ ਅਤੇ ਬਿਲਿੰਗ",
-  "pricingPage.currencyBasis": "ਕੀਮਤਾਂ ਦਾ ਇੱਕੋ ਸੈੱਟ। ਤੁਹਾਨੂੰ ਕਿਸ ਮੁਦਰਾ ਵਿੱਚ ਬਿੱਲ ਕੀਤਾ ਜਾਵੇਗਾ, ਇਹ ਸਾਈਨ ਅੱਪ ਵੇਲੇ ਦਿੱਤੇ ਕਾਰੋਬਾਰੀ ਪਤੇ ਤੋਂ ਤੈਅ ਹੁੰਦਾ ਹੈ: ਕੈਨੇਡੀਅਨ ਕੰਪਨੀਆਂ ਨੂੰ ਕੈਨੇਡੀਅਨ ਡਾਲਰ ਵਿੱਚ ਅਤੇ ਅਮਰੀਕੀ ਕੰਪਨੀਆਂ ਨੂੰ ਅਮਰੀਕੀ ਡਾਲਰ ਵਿੱਚ — ਰਕਮ ਓਹੀ ਰਹਿੰਦੀ ਹੈ, ਕੋਈ ਬਦਲੀ ਨਹੀਂ।",
+  "pricingPage.currencyBasis": "ਕੀਮਤਾਂ ਦਾ ਇੱਕੋ ਸੈੱਟ। ਤੁਹਾਨੂੰ ਕਿਸ ਮੁਦਰਾ ਵਿੱਚ ਬਿੱਲ ਕੀਤਾ ਜਾਵੇਗਾ, ਇਹ ਸਾਈਨ ਅੱਪ ਵੇਲੇ ਦਿੱਤੇ ਕਾਰੋਬਾਰੀ ਪਤੇ ਤੋਂ ਤੈਅ ਹੁੰਦਾ ਹੈ: ਕੈਨੇਡੀਅਨ ਕੰਪਨੀਆਂ ਨੂੰ ਕੈਨੇਡੀਅਨ ਡਾਲਰ ਵਿੱਚ, ਆਸਟ੍ਰੇਲੀਅਨ ਕੰਪਨੀਆਂ ਨੂੰ ਆਸਟ੍ਰੇਲੀਅਨ ਡਾਲਰ ਵਿੱਚ, ਅਤੇ ਬਾਕੀ ਹਰ ਥਾਂ ਦੀਆਂ ਕੰਪਨੀਆਂ ਨੂੰ ਅਮਰੀਕੀ ਡਾਲਰ ਵਿੱਚ — ਰਕਮ ਓਹੀ ਰਹਿੰਦੀ ਹੈ, ਕੋਈ ਬਦਲੀ ਨਹੀਂ।",
   "pricing.fullAccess":
     "ਪੂਰੀ ਪਹੁੰਚ — ਕੋਟ, ਇਨਵੌਇਸਿੰਗ, ਸ਼ਡਿਊਲਿੰਗ, ਵਿਸ਼ਲੇਸ਼ਣ",
   "pricing.quoteLimit": "ਹਰ ਮਹੀਨੇ {count} ਕੋਟ ਤੱਕ",
@@ -2912,7 +2912,7 @@ const tl = {
   "pricing.custom.annual": "o {amount} kada taon, sinisingil taon-taon",
   "pricing.seatsOneIncluded": "1 seat — quoting, trabaho at invoicing",
   "pricing.seatsManyIncluded": "{count} seats — quoting, trabaho at invoicing",
-  "pricingPage.currencyBasis": "Iisang set ng presyo. Ang pera na sisingilin sa iyo ay batay sa business address na ibibigay mo sa pag-sign up: ang mga kumpanyang Canadian ay sinisingil sa Canadian dollars, ang mga US sa US dollars — parehong halaga, hindi kinonvert.",
+  "pricingPage.currencyBasis": "Iisang set ng presyo. Ang pera na sisingilin sa iyo ay batay sa business address na ibibigay mo sa pag-sign up: ang mga kumpanyang Canadian ay sinisingil sa Canadian dollars, ang mga Australian sa Australian dollars, at ang mga kumpanya sa ibang lugar sa US dollars — parehong halaga, hindi kinonvert.",
   "pricing.fullAccess":
     "Buong access — quotes, invoicing, scheduling, analytics",
   "pricing.quoteLimit": "Hanggang {count} na quote bawat buwan",
@@ -3477,7 +3477,7 @@ const de = {
   "pricing.custom.annual": "oder {amount} pro Jahr, jährlich abgerechnet",
   "pricing.seatsOneIncluded": "1 Platz — Angebote, Aufträge und Rechnungen",
   "pricing.seatsManyIncluded": "{count} Plätze — Angebote, Aufträge und Rechnungen",
-  "pricingPage.currencyBasis": "Ein einziger Preissatz. In welcher Währung Ihnen berechnet wird, ergibt sich aus der Geschäftsadresse, die Sie bei der Anmeldung angeben: kanadische Betriebe zahlen in kanadischen Dollar, US-Betriebe in US-Dollar — dieselbe Zahl, nicht umgerechnet.",
+  "pricingPage.currencyBasis": "Ein einziger Preissatz. In welcher Währung Ihnen berechnet wird, ergibt sich aus der Geschäftsadresse, die Sie bei der Anmeldung angeben: kanadische Betriebe zahlen in kanadischen Dollar, australische in australischen Dollar und alle anderen in US-Dollar — dieselbe Zahl, nicht umgerechnet.",
   "pricing.fullAccess": "Voller Zugriff — Angebote, Rechnungen, Planung, Auswertungen",
   "pricing.quoteLimit": "Bis zu {count} Angebote pro Monat",
   "pricing.aiIncluded": "KI-Assistent enthalten",
@@ -3874,7 +3874,7 @@ const zh = {
   "pricing.custom.annual": "或每年 {amount}，按年计费",
   "pricing.seatsOneIncluded": "1 个席位——报价、工程和开账单",
   "pricing.seatsManyIncluded": "{count} 个席位——报价、工程和开账单",
-  "pricingPage.currencyBasis": "只有一套价格。用哪种货币结算，取决于你注册时填的营业地址：加拿大公司按加元结算，美国公司按美元结算——数字是同一个，不是换算过来的。",
+  "pricingPage.currencyBasis": "只有一套价格。用哪种货币结算，取决于你注册时填的营业地址：加拿大公司按加元结算，澳大利亚公司按澳元结算，其他地方的公司按美元结算——数字是同一个，不是换算过来的。",
   "pricing.fullAccess": "完整功能——报价、开账单、排期、报表",
   "pricing.quoteLimit": "每月最多 {count} 份报价单",
   "pricing.aiIncluded": "含 AI 助手",
@@ -4312,7 +4312,7 @@ const it = {
   "pricing.custom.annual": "oppure {amount} all'anno, fatturato annualmente",
   "pricing.seatsOneIncluded": "1 postazione — preventivi, lavori e fatturazione",
   "pricing.seatsManyIncluded": "{count} postazioni — preventivi, lavori e fatturazione",
-  "pricingPage.currencyBasis": "Un solo listino. La valuta in cui le viene fatturato dipende dall'indirizzo dell'attività che indica alla registrazione: le imprese canadesi sono fatturate in dollari canadesi, quelle statunitensi in dollari statunitensi — lo stesso numero in entrambi i casi, non un importo convertito.",
+  "pricingPage.currencyBasis": "Un solo listino. La valuta in cui le viene fatturato dipende dall'indirizzo dell'attività che indica alla registrazione: le imprese canadesi sono fatturate in dollari canadesi, quelle australiane in dollari australiani e tutte le altre in dollari statunitensi — lo stesso numero in ogni caso, non un importo convertito.",
   "pricing.fullAccess":
     "Accesso completo — preventivi, fatturazione, pianificazione, analisi",
   "pricing.quoteLimit": "Fino a {count} preventivi al mese",

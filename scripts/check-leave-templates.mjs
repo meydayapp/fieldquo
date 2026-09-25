@@ -111,9 +111,11 @@ is("the USA still resolves", resolveCountry({ address: "12 Main St, Buffalo, NY 
 // The trap the endings are anchored for; a substring match prices Buffalo in CAD.
 is("a street called Canada, in the USA, is still the USA",
   resolveCountry({ address: "9 Canada Street, Buffalo, NY, USA" }).country, "US");
-// And the widening must not leak into money: GB is an answer, not a price.
-is("a GB company still gets no billing currency",
-  currencyForCountry(statedCountry({ country: "GB" }).country), null);
+// Money follows the owner's rule of 2026-09-24, not the widening: a British
+// company is billed on the USD rows (no GBP row exists), because GB is a
+// country Stripe serves — not because this reader heard it.
+is("a GB company is billed on the USD ladder, never a GBP one",
+  currencyForCountry(statedCountry({ country: "GB" }).country), "USD");
 is("a CA company still bills in CAD",
   currencyForCountry(statedCountry({ country: null, address: "1039 Bank St, Ottawa, ON, Canada" }).country),
   "CAD");

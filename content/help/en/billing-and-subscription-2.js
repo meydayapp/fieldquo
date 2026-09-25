@@ -516,10 +516,10 @@ export const ARTICLES = {
   "taxes-and-currency-on-your-subscription": {
     title: "Taxes and currency on your subscription",
     summary:
-      "Why a Canadian company pays in CAD and an American one in USD, how sales tax is added to FieldQuo's charge at checkout, and how none of it touches the tax on your own invoices.",
-    updated: "2026-09-12",
+      "Why a Canadian company pays in CAD, an Australian one in AUD and everyone else in USD, how sales tax, VAT or GST is added to FieldQuo's charge at checkout, and how none of it touches the tax on your own invoices.",
+    updated: "2026-09-25",
     intro: [
-      "FieldQuo bills in **your own currency**: Canadian dollars for a company in Canada, US dollars for one in the United States. The plan prices are the same number in each — Solo is 99 in CAD for a Canadian and 99 in USD for an American — so nobody pays a sticker price plus an exchange rate plus a card fee. Sales tax on that charge is worked out by Stripe from your billing address and added at checkout.",
+      "FieldQuo bills in **your own currency**: Canadian dollars for a company in Canada, Australian dollars for one in Australia, US dollars everywhere else. The plan prices are the same number in each — Solo is 99 in CAD for a Canadian and 99 in USD for an American — so nobody pays a sticker price plus an exchange rate plus a card fee. Sales tax on that charge is worked out by Stripe from your billing address and added at checkout.",
       "This is FieldQuo's charge to you. It has nothing to do with the tax you charge your clients: that is set on **Settings → Company Settings** and applied to your quotes and invoices, and the two never meet.",
     ],
     sections: [
@@ -539,7 +539,9 @@ export const ARTICLES = {
             rows: [
               ["Canada", "CAD", "CA$"],
               ["United States", "USD", "US$"],
-              ["Anywhere else, or no address yet", "Not decided — the Plans grid asks you to add your business address first", "—"],
+              ["Australia", "AUD", "A$"],
+              ["Any other country Stripe serves (the UK, the EU, New Zealand…)", "USD — the same numbers; there are no GBP or EUR plans", "US$"],
+              ["Somewhere Stripe does not serve, or no address yet", "Not decided — the Plans grid asks you to add your business address first", "—"],
             ],
           } },
           { p: "The four rungs are 99, 169, 269 and 369 a month, the same figures in either currency, and a **1 year commitment** is ten months for twelve — see [[the-four-plans|The four plans]] and [[monthly-or-a-year-commitment|Monthly, or a one-year commitment]]. If Account & Billing says it needs to know where your business is, press **Add your business address**, save the country, and come back." },
@@ -552,7 +554,8 @@ export const ARTICLES = {
           { bullets: [
             "**Stripe Tax works out the rate** from the billing address you enter at checkout, and adds it as its own line — GST/HST/QST for a Canadian address, state sales tax where a US state charges it.",
             "**A billing address is required** at checkout for that reason, and Stripe writes it back to your customer record so that renewals, which do not go through checkout, are taxed the same way.",
-            "**You can enter your tax number** at checkout — a Quebec or US business number — and it appears on the invoice Stripe issues.",
+            "**You can enter your tax number** at checkout — a Quebec or US business number, a UK or EU VAT number, an Australian ABN — and it appears on the invoice Stripe issues.",
+            "**The UK, the EU and Australia:** once FieldQuo's registration there is active, UK VAT (20%), EU VAT at your country's rate or Australian GST (10%) is added the same way. A business that enters its VAT number or ABN at checkout is not charged it — the invoice says reverse charge and you account for it yourself.",
             "**A scheduled plan change keeps the tax setting** it started with, so a downgrade booked for the renewal date is taxed exactly as the plan it replaces.",
           ] },
           { note: "None of this changes what your clients pay. The tax on your quotes and invoices comes from your own tax settings — see [[tax-settings|Tax settings]] and [[sales-tax-on-invoices|Sales tax on invoices]] — and is charged in your company's own currency through your own Stripe account. Stripe's automatic tax is deliberately not applied there, because that would tax an already-taxed total a second time." },

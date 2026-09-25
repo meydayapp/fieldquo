@@ -13,9 +13,9 @@ import {
   createBillingCheckoutSession,
   changeSubscriptionPlan,
   schedulePlanChange,
+  planStripeCurrency,
 } from "@/lib/platform/stripeBilling";
 import { classifyPlanChange } from "@/lib/platform/planChange";
-import { stripeCurrency } from "@/lib/currency";
 import { recordError } from "@/lib/platform/errorLog";
 import { recordActivity } from "@/lib/activity/log";
 import { getAppOrigin } from "@/lib/appUrl";
@@ -27,7 +27,7 @@ import { trialDaysAllowed } from "@/lib/billing/trialOnce";
 import { isRetired, RETIRED_PLAN_ERROR } from "@/lib/platform/sellablePlans";
 import { ensureCustomPlan } from "@/lib/billing/customPlan";
 import { currencyForCountry } from "@/lib/pricing/ladder";
-import { resolveCountry } from "@/lib/company/resolveCountry";
+import { billingCountry } from "@/lib/company/resolveCountry";
 
 // Note: this is called by a COMPANY (upgrading their own plan), not a platform admin —
 // hence getCurrentMember, not getCurrentPlatformAdmin. It lives under /platform/billing
@@ -72,7 +72,9 @@ export async function POST(request) {
 
   let planId = requestedPlanId;
   if (customSeats !== undefined) {
-    const currency = currencyForCountry(resolveCountry(company).country);
+    // Same reading as /api/settings/plans, so the custom card is priced in the
+    // currency the plan list was shown in.
+    const currency = currencyForCountry(billingCountry(company).country);
     if (!currency) {
       return NextResponse.json(
         { error: "Add your business address first — the plan is priced in your country's currency." },
@@ -159,9 +161,17 @@ export async function POST(request) {
   // retrieve here: the row is healed from it, and a cancelled subscription
   // falls through to Checkout below — which IS the way to start a new plan.
   let liveStatus = existing?.status || null;
+  // The currency the live subscription is ACTUALLY billed in. A Stripe
+  // subscription cannot change currency, so a plan change must be built in
+  // this one — not re-derived from the company, whose own currency (what it
+  // quotes clients in: GBP for a British company) is not what FieldQuo bills
+  // it in (the USD ladder). Null when Stripe could not be asked; the plan
+  // row's currency is used then (planStripeCurrency).
+  let liveCurrency = null;
   if (existing?.stripeSubscriptionId) {
     try {
       const live = await stripe.subscriptions.retrieve(existing.stripeSubscriptionId);
+      liveCurrency = typeof live?.currency === "string" && live.currency ? live.currency.toLowerCase() : null;
       await writeSubscriptionFromStripe(member.companyId, live, { row: existing });
       // In our enum, not Stripe's: `unpaid` is a past_due company that may
       // still upgrade, and the LIVE set below is written in our words.
@@ -224,7 +234,7 @@ export async function POST(request) {
           subscription: existing,
           plan,
           interval,
-          currency: stripeCurrency(company?.currency),
+          currency: liveCurrency || planStripeCurrency(plan, company),
         });
         await recordActivity(member, {
           action: "billing.plan_change_scheduled",
@@ -245,7 +255,7 @@ export async function POST(request) {
         subscription: existing,
         plan,
         interval,
-        currency: stripeCurrency(company?.currency),
+        currency: liveCurrency || planStripeCurrency(plan, company),
       });
       return NextResponse.json({ changed: true, kind: change.kind, planId: result.planId, interval: result.interval });
     } catch (err) {

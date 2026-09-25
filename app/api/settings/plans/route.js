@@ -15,7 +15,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { currencyForCountry } from "@/lib/pricing/ladder";
-import { resolveCountry } from "@/lib/company/resolveCountry";
+import { billingCountry } from "@/lib/company/resolveCountry";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
@@ -68,7 +68,10 @@ export async function GET(request) {
     where: { id: member.companyId },
     select: { country: true, address: true, province: true },
   });
-  const currency = currencyForCountry(resolveCountry(company).country);
+  // billingCountry, not resolveCountry: the latter hears only CA and US, and
+  // since 2026-09-24 Australia is billed in AUD and every other country
+  // Stripe serves on the USD rows (lib/pricing/ladder.js currencyForCountry).
+  const currency = currencyForCountry(billingCountry(company).country);
 
   // `Plan.currency` is NOT NULL with a default, so there is no null branch to
   // allow for — an earlier version wrote `{ currency: null }` for legacy rows

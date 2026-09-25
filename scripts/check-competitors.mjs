@@ -964,8 +964,11 @@ ok("the module imports them rather than restating them",
 // The fact that removes the need for a conversion in the first place.
 ok("the same-number-in-both-currencies fact is recorded",
   FIELDQUO_REFERENCE.sameNumberBothCurrencies === true);
-ok("...and it is true of the ladder as shipped — one price list, two currencies",
-  SUPPORTED_CURRENCIES.length === 2 && SEAT_LADDER.every((t) => Number.isFinite(t.price)));
+// Three since 2026-09-24 (AUD — the owner: Australia pays the same numbers in
+// Australian dollars). Still one price list: the count is asserted so a
+// fourth currency is a deliberate edit here, not a silent drift.
+ok("...and it is true of the ladder as shipped — one price list, three currencies",
+  SUPPORTED_CURRENCIES.length === 3 && SEAT_LADDER.every((t) => Number.isFinite(t.price)));
 ok("the entry tier is the cheapest rung, not a hand-picked one",
   FIELDQUO_REFERENCE.entryTier.price === Math.min(...SEAT_LADDER.map((t) => t.price)),
   FIELDQUO_REFERENCE.entryTier);

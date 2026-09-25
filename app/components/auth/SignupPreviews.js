@@ -478,7 +478,7 @@ export function QuoteSamplePreview({ form, language = "en", services = [], fallb
   const lines = (services.length ? services : fallbackLines.map((name) => ({ name, description: "" })))
     .slice(0, 2)
     .map((s, i) => ({ description: s.name, detail: s.description || "", amount: SAMPLE_AMOUNTS[i] ?? 0, quantity: 1 }));
-  const symbol = currency === "USD" || currency === "CAD" || !currency ? "$" : `${currency} `;
+  const symbol = currency === "USD" || currency === "CAD" || currency === "AUD" || !currency ? "$" : `${currency} `;
   const money = (n) => `${symbol}${Number(n).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const subtotal = lines.reduce((a, l) => a + l.amount, 0);
   const next = [

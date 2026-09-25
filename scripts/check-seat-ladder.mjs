@@ -34,6 +34,7 @@ import {
   promotionApplies,
   currencyForCountry,
   currencyLabel,
+  SUPPORTED_CURRENCIES,
   ANNUAL_FREE_MONTHS,
   defaultAnnualPrice,
   annualComparison,
@@ -196,11 +197,21 @@ ok("spelled out works too", currencyForCountry("Canada") === "CAD" && currencyFo
 // is picking a discount. Unknown must therefore never resolve to one.
 ok("no country is NOT CAD", currencyForCountry(null) === null);
 ok("an empty country is NOT CAD", currencyForCountry("  ") === null);
-ok("a country we do not price is null, not a guess", currencyForCountry("GB") === null);
+// The owner, 2026-09-24: Australia pays the same numbers in AUD; any other
+// country Stripe serves pays them in USD; no GBP or EUR rows.
+ok("Australia is AUD", currencyForCountry("AU") === "AUD" && currencyForCountry("australia") === "AUD");
+ok("the United Kingdom is billed on the USD rows, not GBP", currencyForCountry("GB") === "USD");
+ok("...spelled UK too", currencyForCountry("uk") === "USD");
+ok("an EU country is billed on the USD rows, not EUR", currencyForCountry("DE") === "USD" && currencyForCountry("ie") === "USD");
+ok("New Zealand (Stripe-served, not Australia) is USD", currencyForCountry("NZ") === "USD");
+ok("a country Stripe does not serve is null, not a guess", currencyForCountry("UA") === null && currencyForCountry("KE") === null);
+ok("a non-country is null", currencyForCountry("ZZ") === null && currencyForCountry("__proto__") === null && currencyForCountry("constructor") === null);
+ok("AUD is a priced currency", SUPPORTED_CURRENCIES.includes("AUD") && !SUPPORTED_CURRENCIES.includes("GBP") && !SUPPORTED_CURRENCIES.includes("EUR"));
 // A bare $ in front of an American price shown to a Canadian is the ambiguity
 // the address rule exists to remove.
 ok("USD is written US$", currencyLabel("USD") === "US$");
 ok("CAD is written CA$", currencyLabel("CAD") === "CA$");
+ok("AUD is written A$", currencyLabel("AUD") === "A$");
 
 console.log("\nA year's commitment actually saves money");
 // It did not. The owner said "billed annually instead of the no commitment" and
