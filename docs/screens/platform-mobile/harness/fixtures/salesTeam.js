@@ -12,6 +12,8 @@
 //   /api/platform/sales/campaigns (+ /[id], /registrations)  → /platform/sales/campaigns, /[id]
 //   /api/platform/sales/windows                              → /platform/sales/windows
 //   /api/platform/sales/test-lines                           → /platform/sales/windows (the test-lines card)
+//   /api/platform/sales/supervision/settings                 → /platform/sales/windows (the supervision card)
+//   /api/platform/sales/transfer-numbers                     → /platform/sales/windows (the transfer phones card)
 //
 // Where a route's shape is produced by a PURE helper in lib/ (the growth
 // projection, the pipeline stage board, the calling-window policy, the
@@ -51,6 +53,8 @@ import { campaignTradeLabel, DISCOVERY_TRADES } from "@/lib/sales/discovery/trad
 import { SIGNUP_FLAG_LABELS, needsReview } from "@/lib/platform/signupFlags";
 
 const ORIGIN = "https://fieldquo.com";
+/** The stored supervision setting, as the windows page's card edits it. */
+const SUPERVISION = { enabled: false, tellRepOnListen: true, holdMusicUrl: null };
 const MIN = 60_000;
 const HOUR = 60 * MIN;
 const DAY = 24 * HOUR;
@@ -1359,6 +1363,26 @@ export default function answer({ method, path, url, body }) {
   if (path === "/api/platform/sales/test-lines") {
     const numbers = method === "PUT" ? (Array.isArray(body?.numbers) ? body.numbers : []) : ["+14165550100"];
     return { numbers, max: 10, serverNow: NOW };
+  }
+  // Call supervision (lib/sales/calls/supervision.js DEFAULT_SUPERVISION_
+  // SETTINGS — off, because Twilio bills conference minutes on top of each
+  // leg) and the phones a rep may transfer to (lib/sales/transferNumbers.js,
+  // MAX 10, labels up to 40, rung for TRANSFER_RING_SECONDS 25). Written out
+  // for the same reason as the test lines: both modules reach lib/db through
+  // suppressionRules. A PUT echoes back what was sent, as the routes do.
+  if (path === "/api/platform/sales/supervision/settings") {
+    // The route's PUT body is the patch itself, merged over what is stored.
+    if (method === "PUT" && body && typeof body === "object") Object.assign(SUPERVISION, body);
+    return { settings: { ...SUPERVISION }, serverNow: NOW };
+  }
+  if (path === "/api/platform/sales/transfer-numbers") {
+    const numbers = method === "PUT" && Array.isArray(body?.numbers)
+      ? body.numbers
+      : [
+          { e164: "+15145550142", label: "Emilio — cell" },
+          { e164: "+14165550177", label: "Toronto office front desk" },
+        ];
+    return { numbers, max: 10, maxLabel: 40, ringSeconds: 25, standing: { e164: "+15145550142", label: "Emilio — cell" }, serverNow: NOW };
   }
 
   return undefined;

@@ -58,7 +58,6 @@ export default function CompanyDetailsFields({
   inputClass = COMPANY_DETAILS_INPUT_CLASS,
 }) {
   const { t } = useTranslation();
-  const handlePlaceSelected = onPlaceSelected;
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -140,7 +139,11 @@ export default function CompanyDetailsFields({
         <AddressAutocomplete
           value={form.address}
           onChange={(v) => set("address", v)}
-          onPlaceSelected={handlePlaceSelected}
+          // address-jurisdiction: forwarded — this component chooses nothing.
+          // The whole place object goes to the caller's `onPlaceSelected`
+          // (Settings > Company, and the home page's business-info dialog),
+          // which is where city, province and country are kept — and checked.
+          onPlaceSelected={onPlaceSelected}
           placeholder={t("app.setCompany.addressPlaceholder")}
           className={inputClass}
         />

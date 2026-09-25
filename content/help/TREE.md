@@ -90,7 +90,7 @@ callbacks, the crew inbox, team chat, How You Compare, the KPI dashboard,
 
 <!-- tree:start -->
 
-_Generated 2026-09-25 — 328 articles in the tree; written: en 328, fr 328, es 328; “Only in FieldQuo”: 34._
+_Generated 2026-09-25 — 331 articles in the tree; written: en 331, fr 331, es 331; “Only in FieldQuo”: 34._
 
 ### getting-started (23)
 
@@ -120,7 +120,7 @@ _Generated 2026-09-25 — 328 articles in the tree; written: en 328, fr 328, es 
 | `glossary` — Glossary | ✓ | ✓ | ✓ |  |  |  |
 | `what-your-clients-get` — What your clients get out of it | ✓ | ✓ | ✓ |  | client_portal |  |
 
-### leads-and-quotes (39)
+### leads-and-quotes (40)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -136,6 +136,7 @@ _Generated 2026-09-25 — 328 articles in the tree; written: en 328, fr 328, es 
 | `quote-types-and-takeoffs` — Quote types and takeoffs | ✓ | ✓ | ✓ | settings-services | quotes |  |
 | `lines-from-your-price-book` — Lines from your price book | ✓ | ✓ | ✓ | settings-products | price_book |  |
 | `group-a-quote-by-room-or-scope` — Group a quote by room or scope | ✓ | ✓ | ✓ |  | quotes |  |
+| `painting-by-production-rate` — Painting priced by production rate | ✓ | ✓ | ✓ |  | paint_takeoff |  |
 | `photos-on-a-quote` — Photos on a quote | ✓ | ✓ | ✓ |  | quotes |  |
 | `ai-quote-review` — AI quote review | ✓ | ✓ | ✓ |  | ai_quote_review | ✓ |
 | `the-ai-deep-photo-read` — The AI deep photo read | ✓ | ✓ | ✓ |  | ai_vision | ✓ |
@@ -164,7 +165,7 @@ _Generated 2026-09-25 — 328 articles in the tree; written: en 328, fr 328, es 
 | `scope-of-work-and-terms` — Scope of work and payment terms on every quote | ✓ | ✓ | ✓ | settings-company | contract_terms |  |
 | `the-large-quote-alert` — The large-quote alert | ✓ | ✓ | ✓ | settings-notifications |  |  |
 
-### jobs-and-scheduling (30)
+### jobs-and-scheduling (31)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -194,6 +195,7 @@ _Generated 2026-09-25 — 328 articles in the tree; written: en 328, fr 328, es 
 | `safety-incidents` — Safety incidents and near-misses | ✓ | ✓ | ✓ | safety | proof | ✓ |
 | `job-costing` — Job costing: quoted against actual | ✓ | ✓ | ✓ |  | job_costing |  |
 | `materials-on-a-job` — Materials on a job | ✓ | ✓ | ✓ |  | materials |  |
+| `the-ai-material-list` — The AI material list | ✓ | ✓ | ✓ |  | ai_material_list |  |
 | `cancel-or-archive-a-job` — Cancel or archive a job | ✓ | ✓ | ✓ |  | jobs |  |
 | `when-a-job-is-completed` — When a job is completed | ✓ | ✓ | ✓ |  | review_requests |  |
 | `a-chat-room-for-every-job` — A chat room for every job | ✓ | ✓ | ✓ | chat | team_chat | ✓ |
@@ -232,7 +234,7 @@ _Generated 2026-09-25 — 328 articles in the tree; written: en 328, fr 328, es 
 | `booking-fees-and-visit-deposits` — Booking fees and visit deposits | ✓ | ✓ | ✓ | settings-booking-page | booking_deposit |  |
 | `money-owed-and-receivables-aging` — Money owed and receivables aging | ✓ | ✓ | ✓ | home | dashboard |  |
 
-### clients (13)
+### clients (14)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -242,6 +244,7 @@ _Generated 2026-09-25 — 328 articles in the tree; written: en 328, fr 328, es 
 | `business-clients-and-contacts` — Business clients and their contact person | ✓ | ✓ | ✓ |  | clients |  |
 | `past-client-callbacks` — Past-client callback rotation | ✓ | ✓ | ✓ |  |  |  |
 | `client-notes` — Client notes | ✓ | ✓ | ✓ |  | clients |  |
+| `client-tickets` — Client tickets | ✓ | ✓ | ✓ | client-tickets-queue | client_portal |  |
 | `a-clients-language` — A client's language | ✓ | ✓ | ✓ |  | languages |  |
 | `client-equipment-and-warranties` — Client equipment and warranties | ✓ | ✓ | ✓ | client-equipment | proof | ✓ |
 | `client-consent-and-unsubscribes` — Client consent and unsubscribes | ✓ | ✓ | ✓ |  | review_requests |  |

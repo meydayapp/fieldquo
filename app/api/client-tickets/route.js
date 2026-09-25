@@ -28,8 +28,17 @@ export async function GET(request) {
     return NextResponse.json({ open });
   }
 
+  // "open" is the GROUP — open, in progress and waiting on client — as the
+  // header says and as the queue's Open tab counts it (its badge sums those
+  // three from `counts`). Read as the single status it also names, the tab
+  // listed only untouched tickets under a badge counting all three, and a
+  // ticket somebody had replied to vanished from the default view.
   const statusWhere =
-    status === "all" ? {} : TICKET_STATUSES.includes(status) ? { status } : { status: { in: OPEN_STATUSES } };
+    status === "all"
+      ? {}
+      : status !== "open" && TICKET_STATUSES.includes(status)
+        ? { status }
+        : { status: { in: OPEN_STATUSES } };
   const [rows, grouped] = await Promise.all([
     db.clientTicket.findMany({
       where: { ...scope, ...statusWhere },

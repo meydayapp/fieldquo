@@ -50,7 +50,22 @@ const APP_SHELL = "app/app/layout.js";
 // preview, the kitchen designer and the website builder all compute literal
 // hex (or iframe the real public route) and need no wrapper — adding one would
 // be a second mechanism to keep in step.
-const DOCUMENT_PREVIEWS = ["app/app/quotes/[id]/page.js"];
+//
+// A preview either mounts the pair itself (a plain path), or renders a shared
+// FRAME component that does — the quote page has drawn its document inside
+// DocumentFrame (app/components/document/QuoteDocument.js) since e4326a82, the
+// same frame the document-shaped builder uses, so the wrapper lives there
+// once rather than in each screen. For a framed preview both halves are
+// asserted: the page really renders that frame and feeds it the company, and
+// the frame itself carries data-brand + <BrandTheme brandColor=…>.
+const DOCUMENT_PREVIEWS = [
+  {
+    page: "app/app/quotes/[id]/page.js",
+    frame: "DocumentFrame",
+    frameFile: "app/components/document/QuoteDocument.js",
+  },
+  "app/app/invoices/[id]/page.js",
+];
 
 // Public, client-facing routes. These render for a stranger who may have no
 // JS, and the PDF renderer has no cascade at all, so they compute literal hex
@@ -98,8 +113,13 @@ const ok = (name, cond, detail) => {
  * say the words "data-brand" and "BrandTheme" in the course of explaining
  * where they must NOT appear.
  */
+//
+// Whole-line // comments go FIRST: a line comment that mentions a glob
+// (`// lib/documentSections/* and ...`, the quote page's header) otherwise
+// opens a "block comment" the next real `*/` closes, and the imports and JSX
+// between the two silently vanish from every scan.
 const stripComments = (src) =>
-  src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  src.replace(/^\s*\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
 
 /**
  * A data-brand JSX ATTRIBUTE, not the CSS selector `[data-brand]`.
@@ -193,10 +213,33 @@ console.log("\ndata-brand and <BrandTheme> travel together");
 // ── The document previews still have their wrapper ──────────────────────────
 
 console.log("\nIn-app previews of a client document are still themed");
-for (const rel of DOCUMENT_PREVIEWS) {
-  const src = read(rel);
-  ok(`${rel} exists`, src !== null);
-  if (src === null) continue;
+for (const entry of DOCUMENT_PREVIEWS) {
+  const rel = typeof entry === "string" ? entry : entry.page;
+  const pageSrc = read(rel);
+  ok(`${rel} exists`, pageSrc !== null);
+  if (pageSrc === null) continue;
+  let src = pageSrc;
+  if (typeof entry !== "string") {
+    const code = stripComments(pageSrc);
+    const spec = entry.frameFile.replace(/\.js$/, "");
+    ok(
+      `  ...imports ${entry.frame} from ${entry.frameFile}`,
+      new RegExp(`import\\s*\\{[^}]*\\b${entry.frame}\\b[^}]*\\}\\s*from\\s*["']@/${spec}["']`).test(code),
+    );
+    // Fed the company, or the frame renders with no colour to apply.
+    ok(`  ...renders <${entry.frame} company={…}>`, new RegExp(`<${entry.frame}\\s+company=\\{`).test(code));
+    const frameSrc = read(entry.frameFile);
+    ok(`${entry.frameFile} exists`, frameSrc !== null);
+    if (frameSrc === null) continue;
+    // Only the frame's own body — the file holds a dozen other sections, and
+    // a <BrandTheme> in one of those would not theme the frame.
+    const at = frameSrc.indexOf(`export function ${entry.frame}(`);
+    ok(`  ...defines export function ${entry.frame}`, at >= 0);
+    if (at < 0) continue;
+    const rest = frameSrc.slice(at);
+    const end = rest.indexOf("\n}\n");
+    src = end >= 0 ? rest.slice(0, end + 2) : rest;
+  }
   ok(`  ...renders <BrandTheme>`, rendersTheme(src));
   ok(`  ...scopes it with data-brand`, hasBrandAttr(src));
   // Without this the wrapper could be present and fed nothing, which renders

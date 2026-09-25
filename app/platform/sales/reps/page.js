@@ -2304,7 +2304,7 @@ export default function PlatformSalesRepsPage() {
                         <span>
                           Is this account really a call centre?{" "}
                           {rep.commissionPlanId ? (
-                            <button onClick={() => convertToAgency(rep)} disabled={busy} className="underline underline-offset-2 hover:text-foreground disabled:opacity-50">
+                            <button onClick={() => convertToAgency(rep)} disabled={busy} className="min-h-[36px] underline underline-offset-2 hover:text-foreground disabled:opacity-50">
                               Convert it into an agency
                             </button>
                           ) : (
@@ -2615,7 +2615,7 @@ export default function PlatformSalesRepsPage() {
             <button
               type="button"
               onClick={() => setShowArchived((v) => !v)}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
+              className="inline-flex min-h-[36px] items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
             >
               <Archive size={13} />
               {showArchived ? "Hide archived" : `Show archived (${archivedReps.length})`}
@@ -3015,7 +3015,7 @@ function MailboxConnectForm({ rep, draft, busy, onChange, onSave, onCancel }) {
         second window onto the same mailbox: the rep keeps using privateemail.com too, and what they
         read or send in either place shows in both.
       </p>
-      <button type="button" onClick={() => onChange({ advanced: !d.advanced })} className="text-xs text-muted-foreground underline">
+      <button type="button" onClick={() => onChange({ advanced: !d.advanced })} className="min-h-[36px] text-xs text-muted-foreground underline">
         {d.advanced ? "Hide server settings" : "Server settings (Namecheap defaults are filled in)"}
       </button>
       {d.advanced ? (

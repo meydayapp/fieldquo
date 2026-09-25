@@ -95,6 +95,12 @@ const OFFERS = [
     list: "app/app/clients/page.js",
     hrefs: ["/app/clients/new", "/app/clients/import"],
     from: "app/api/clients/route.js",
+    // A FIELD gate, not the door (2026-09-12, the Notes dial): the route asks
+    // notes:view_edit_all only when a note would actually be stored, and the
+    // form hides that one field below the level. The list decides whether to
+    // offer the form at all, so it asks the door's level; the form asks the
+    // field's — asserted below, so the carve-out cannot outlive the hiding.
+    fieldGates: [{ category: "notes", level: "view_edit_all", form: "app/app/clients/new/page.js" }],
   },
 ];
 
@@ -138,9 +144,18 @@ for (const { page, route, workMarker } of GUARDED) {
 }
 
 console.log("\nAnd the lists stop offering what those pages refuse\n");
-for (const { list, hrefs, from } of OFFERS) {
-  const reqs = routeRequirements(from);
+for (const { list, hrefs, from, fieldGates = [] } of OFFERS) {
+  const field = (r) => fieldGates.some((g) => g.category === r.category && g.level === r.level);
+  const reqs = routeRequirements(from).filter((r) => !field(r));
   const src = stripComments(read(list));
+  for (const g of fieldGates) {
+    ok(
+      `${g.form} hides the ${g.category}:${g.level} field itself`,
+      new RegExp(String.raw`useHasLevel\(\s*"${g.category}"\s*,\s*"${g.level}"\s*\)`).test(stripComments(read(g.form))) &&
+        routeRequirements(from).some(field),
+      "a field gate is only a carve-out while the route still asks it and the form still hides the field",
+    );
+  }
   ok(
     `${list} asks the same level as ${from}`,
     reqs.length > 0 &&

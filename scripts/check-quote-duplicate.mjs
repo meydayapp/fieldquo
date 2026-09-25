@@ -189,7 +189,14 @@ const detail = read("app/app/quotes/[id]/page.js");
 // Both live in the Send… menu now (app/components/quotes/SendMenu.js): the
 // gate is on the menu ITEM (`canDuplicateQuote && {`), not on a pill.
 ok("the quote detail offers Duplicate to members who may create quotes, and calls the route", /canDuplicateQuote && [({]/.test(detail) && /\/api\/quotes\/\$\{id\}\/duplicate/.test(detail));
-ok("the quote detail offers Download PDF only with showPricing — the toggle the PDF route refuses without", /hasToggle\(caller, "showPricing"\)/.test(detail) && /\/api\/quotes\/\$\{id\}\/pdf/.test(detail) && /canDownloadPdf && [({]/.test(detail));
+// The fetch itself moved into lib/quotes/clientActions.js (2026-09-21, shared
+// with the document builder); the detail page calls downloadQuotePdf(id, …),
+// and that helper is read to confirm it still POSTs to the PDF route.
+const clientActions = read("lib/quotes/clientActions.js");
+const callsPdf =
+  /\/api\/quotes\/\$\{id\}\/pdf/.test(detail) ||
+  (/downloadQuotePdf\(id,/.test(detail) && /fetch\(`\/api\/quotes\/\$\{quoteId\}\/pdf`/.test(clientActions));
+ok("the quote detail offers Download PDF only with showPricing — the toggle the PDF route refuses without", /hasToggle\(caller, "showPricing"\)/.test(detail) && callsPdf && /canDownloadPdf && [({]/.test(detail));
 const kitchen = read("app/app/quotes/[id]/kitchen/KitchenPage.js");
 ok("the kitchen page's locked note now has the Duplicate button beside it, opening the COPY's designer", /app\.kitchen\.lockedNote[\s\S]{0,900}?onClick=\{duplicateQuote\}/.test(kitchen) && /\/app\/quotes\/\$\{copy\.id\}\/kitchen/.test(kitchen));
 

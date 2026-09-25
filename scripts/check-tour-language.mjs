@@ -423,7 +423,9 @@ for (const [label, client, route] of [
   ok(`${label} writes in the reader's language`, /withLanguage\(/.test(clientSrc), client);
   ok(
     `${label} takes the language from its caller`,
-    /\blanguage\b/.test(clientSrc.split("\n").find((l) => /export async function ask/.test(l)) || ""),
+    // The whole parameter list, not the first line: askJennifer's spans
+    // lines since 10c1457c added dataMember and firstName.
+    /\blanguage\b/.test(clientSrc.match(/export async function ask\w*\(\{[\s\S]*?\}\)/)?.[0] || ""),
     client,
   );
   ok(

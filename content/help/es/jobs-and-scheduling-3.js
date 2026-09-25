@@ -783,4 +783,83 @@ export const ARTICLES = {
     ],
     "updated": "2026-09-21"
   },
+  "the-ai-material-list": {
+    title: "La lista de materiales con IA",
+    summary:
+      "Armar la lista de materiales lee el presupuesto aprobado de un trabajo, su cómputo, sus tarifas de Costos de materiales y su inventario, y escribe todo lo que consume el trabajo — agrupado, con una razón por línea — por unos centavos de crédito IA.",
+    updated: "2026-09-25",
+    intro: [
+      "**Reconstruir desde el presupuesto** escribe las líneas del propio cómputo: la pintura, las planchas, los paquetes que prevén sus tarifas. No piensa en la cinta, el plástico, la silicona, los discos de lija ni las bisagras que nadie cotizó. **Armar la lista de materiales** sí: FieldQuo AI lee el trabajo y escribe la lista completa, agrupada, cada línea con la razón por la que está y lo que ya tiene en el estante.",
+      "Es un armado pagado — unos centavos de crédito IA cada vez que se ejecuta, del mismo crédito que paga la lectura a fondo de fotos — y **Reconstruir desde el presupuesto** sigue siendo gratis.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "Resumen",
+        blocks: [
+          { p: "El botón está en el panel **Materiales por comprar** de la página del trabajo, junto a **Reconstruir desde el presupuesto**. Bajo el título, un aviso dice qué lee el armado, qué modelo lo hizo, cuánto cuesta, su saldo de crédito, y cuándo se hizo por última vez y quién lo hizo. Termina con la frase más importante: **Las cantidades son estimaciones — revísalas antes de pedir.**" },
+          { figure: "harness:job-materials", caption: "El panel Materiales por comprar de un trabajo después de un armado: el aviso, los grupos Principal, Insumos, Consumibles, Fijaciones / adhesivos, Transiciones / molduras y Otro, cada línea con su razón, su cantidad en stock y su etiqueta." },
+        ],
+      },
+      {
+        id: "build-the-list",
+        heading: "Cómo armar la lista",
+        blocks: [
+          { steps: [
+            "Abra el trabajo. Necesita un presupuesto detrás; sin él, el armado responde **This job has no quote to build a material list from.**",
+            "En **Materiales por comprar**, pulse **Armar la lista de materiales**. Mientras trabaja dice **Armando…**.",
+            "Lea la línea de resultado: **Listo: 12 líneas agregadas, 2 cantidades mantenidas según el cómputo, 0 filas rechazadas.**",
+            "Revise las cantidades, cambie la de una línea de la IA con **Cambiar cuántos se necesitan** y quite lo que no necesite.",
+          ] },
+          { note: "Una línea que quita sigue quitada la próxima vez que arme la lista, igual que lo ya marcado como comprado o agregado a mano. Todo lo demás de la lista lo reemplaza el nuevo armado." },
+        ],
+      },
+      {
+        id: "what-it-reads",
+        heading: "Qué lee, y qué nunca ve",
+        blocks: [
+          { bullets: [
+            "Las líneas del presupuesto aprobado y las líneas que deriva el cómputo. Cuando la IA propone una línea que el cómputo ya prevé, gana la cantidad del cómputo: son las que se cuentan como mantenidas según el cómputo.",
+            "Sus tarifas de **Costos de materiales**, para la cobertura y las cantidades: las mismas que usa **Reconstruir desde el presupuesto**.",
+            "Su inventario, sumado de los movimientos de compras, para que cada línea pueda decir **3 en stock** y **Cubierto**, **Faltan 3** o **Sin seguimiento**.",
+            "Ningún precio. Los datos que se envían al modelo no llevan tarifas, costos ni totales, y el armado se niega a ejecutarse si alguno se cuela. Una razón que cite un monto también se rechaza.",
+          ] },
+        ],
+      },
+      {
+        id: "what-it-costs",
+        heading: "Cuánto cuesta",
+        blocks: [
+          { p: "Cada armado toma el precio que indica el aviso — US$0.10 hoy — del crédito IA de la empresa, no de la asignación de IA incluida en el plan ni del saldo telefónico. El crédito se reserva antes de que el modelo trabaje y se devuelve si no produce nada utilizable: **Couldn't build the list just now. Nothing was charged.**" },
+          { table: {
+            head: ["Cuándo", "Lo que ve"],
+            rows: [
+              ["El saldo es menor que el precio", "**Building the list costs $0.10 of AI credit. Your balance is $0.04 — add at least $0.06 first.** A un dueño o administrador se le ofrece la recarga ahí mismo."],
+              ["La asignación mensual de IA está agotada", "El armado se rechaza hasta que la asignación se renueve, como en todas las funciones de FieldQuo AI."],
+              ["FieldQuo no ha activado la función para su cuenta", "**The AI material list isn't available on your account yet.**"],
+            ],
+          } },
+        ],
+      },
+      {
+        id: "short-lines-and-purchasing",
+        heading: "Líneas faltantes y compras",
+        blocks: [
+          { p: "Una línea marcada **Faltan** tiene un enlace **Agregar a la lista de compras**, y **Agregar faltantes a la lista de compras** debajo de la lista las toma todas a la vez. Van a una orden de compra en borrador — la página la nombra — que usted cotiza y envía desde **Compras**. Marcar líneas como compradas, el recibo y la cantidad realmente usada funcionan exactamente como se describe en [[materials-on-a-job|Materiales en un trabajo]]." },
+        ],
+      },
+      {
+        id: "who-can-use-it",
+        heading: "Quién puede usarla",
+        blocks: [
+          { p: "Armar la lista requiere **Jobs** en ver, crear y editar — el mismo nivel que reconstruir, agregar o quitar una línea — y el trabajo debe ser uno que usted pueda abrir. El aviso, el precio y el saldo solo se muestran a quienes tienen ese nivel. Agregar faltantes a una orden de compra requiere además acceso a compras." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "¿La lista sale igual cada vez que la armo?", a: "No necesariamente. Es una lectura del trabajo por la IA, y por eso el aviso le pide revisar las cantidades. Las cantidades del cómputo nunca se mueven: cuando la IA y el cómputo no coinciden, gana el cómputo." },
+      { q: "¿Armar la lista cambia el presupuesto o la factura?", a: "No. La lista es interna del trabajo. Nada de ella llega al cliente." },
+      { q: "¿Por qué no usar simplemente Reconstruir desde el presupuesto?", a: "Úselo siempre que las líneas del cómputo alcancen: es gratis. El armado pagado es para los insumos y consumibles que un cómputo no prevé." },
+    ],
+  },
 };

@@ -526,11 +526,14 @@ console.log("\n── Financing says who lends, and where it stops ────�
   );
 
   // The bounds, against the constants that enforce them. $50 and $30,000 are
-  // AFFIRM_MIN and AFFIRM_MAX in cents.
-  const stripeSrc = readFileSync("lib/stripe.js", "utf8");
-  const min = Number((stripeSrc.match(/AFFIRM_MIN\s*=\s*([\d_]+)/) || [])[1]?.replace(/_/g, ""));
-  const max = Number((stripeSrc.match(/AFFIRM_MAX\s*=\s*([\d_]+)/) || [])[1]?.replace(/_/g, ""));
-  ok("lib/stripe.js still bounds the Affirm offer", Number.isFinite(min) && Number.isFinite(max), `${min}..${max}`);
+  // AFFIRM_MIN_CENTS and AFFIRM_MAX_CENTS. They moved out of lib/stripe.js
+  // into lib/stripe/affirm.js with the capability rework (5d356950), which is
+  // now the one place every gate — the capability request, the session and
+  // the settings card — reads them from.
+  const affirmSrc = readFileSync("lib/stripe/affirm.js", "utf8");
+  const min = Number((affirmSrc.match(/AFFIRM_MIN_CENTS\s*=\s*([\d_]+)/) || [])[1]?.replace(/_/g, ""));
+  const max = Number((affirmSrc.match(/AFFIRM_MAX_CENTS\s*=\s*([\d_]+)/) || [])[1]?.replace(/_/g, ""));
+  ok("lib/stripe/affirm.js still bounds the Affirm offer", Number.isFinite(min) && Number.isFinite(max), `${min}..${max}`);
   ok(
     `...and the page prints those bounds ($${min / 100}–$${(max / 100).toLocaleString("en-US")})`,
     text.includes(`$${min / 100}`) && text.includes(`$${(max / 100).toLocaleString("en-US")}`),
@@ -540,8 +543,12 @@ console.log("\n── Financing says who lends, and where it stops ────�
     /Canadian or US dollars/i.test(text),
   );
   ok(
-    "lib/stripe.js still gates Affirm on the company opting in",
-    /company\.offerFinancing/.test(stripeSrc),
+    "lib/stripe/affirm.js still gates Affirm on the company opting in",
+    /company\??\.offerFinancing/.test(affirmSrc),
+  );
+  ok(
+    "...and lib/stripe.js asks it, rather than deciding Affirm on its own",
+    /from\s+["']@\/lib\/stripe\/affirm["']/.test(readFileSync("lib/stripe.js", "utf8")),
   );
 }
 

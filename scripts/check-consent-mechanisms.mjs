@@ -72,7 +72,13 @@ function stripComments(src) {
 }
 
 function readSrc(path) {
-  return stripComments(readFileSync(path, "utf8"));
+  const src = readFileSync(path, "utf8");
+  // Prisma has no block comments, so `/*` in a schema is literal text — a
+  // doc comment naming a glob like `app/data/serviceSeeds/*` paired with a
+  // later `accounts/*/locations` and the JS stripper deleted ~8,000 lines of
+  // schema, Subscription and SmsOptOut included. Strip line comments only.
+  if (path.endsWith(".prisma")) return src.replace(/\/\/.*$/gm, "");
+  return stripComments(src);
 }
 
 function walk(dir, out = []) {

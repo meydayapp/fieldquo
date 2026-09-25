@@ -144,7 +144,9 @@ console.log("\nThe signed quote's PDF shows the signature, in the document's own
   t("dispatchDecisionEmails accepts the just-built signature record",
     /async function dispatchDecisionEmails\([^)]*signatureRecord[^)]*\)/.test(route));
   t("the acceptance handler passes signatureRecord to dispatchDecisionEmails",
-    /dispatchDecisionEmails\(updated, quote, decision, priced, signatureRecord\)/.test(route));
+    // A trailing argument may follow: plansTaken (maintenance plans on
+    // quotes, 2026-09-24) rides after the signature, which stays in place.
+    /dispatchDecisionEmails\(updated, quote, decision, priced, signatureRecord(?:,\s*\w+)*\)/.test(route));
   t("renderApprovedQuotePdf accepts the signature record",
     /async function renderApprovedQuotePdf\([^)]*signatureRecord[^)]*\)/.test(route));
   t("renderApprovedQuotePdf is called with the signature record",

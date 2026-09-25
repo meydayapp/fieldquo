@@ -211,7 +211,14 @@ section("4. The rep is told: 'Reviewed by the owner on <date>'");
   const line = decomment(read("app/components/sales/ReviewedByOwner.js"));
   ok("…from the review's date, in the rep's language", /app\.salesText\.reviewedByOwner/.test(line) && /toLocaleDateString\(language/.test(line));
   ok("…and draws nothing when there is no review (never 'never reviewed')", /if \(!at \|\| Number\.isNaN\(at\.getTime\(\)\)\) return null;/.test(line));
-  ok("the email thread screen mounts it", /<ReviewedByOwner review=\{data\.reviewedByOwner\}/.test(decomment(read("app/sales/threads/[id]/page.js"))));
+  // The email thread is drawn by the three-pane inbox at /sales/threads
+  // since a250a7cd; /sales/threads/[id] only redirects there. `detail` is
+  // what that screen fetched from /api/sales/threads/[id] — the payload the
+  // assertion above holds to carrying reviewedByOwner.
+  const inbox = decomment(read("app/sales/threads/page.js"));
+  ok("the email thread screen mounts it",
+    /<ReviewedByOwner review=\{detail\.reviewedByOwner\}/.test(inbox) &&
+      /fetchJson\(`\/api\/sales\/threads\/\$\{encodeURIComponent\(id\)\}`\)/.test(inbox));
   // The texts screen (app/sales/messages/page.js) is owned by a concurrent
   // change; the mount there is one line — <ReviewedByOwner review=
   // {thread?.reviewedByOwner} /> under the thread header — and this check

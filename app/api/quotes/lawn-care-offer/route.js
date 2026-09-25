@@ -15,7 +15,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { priceLawnCare } from "@/lib/estimate/lawnCare";
-import { loadEnforceableMember, requireToggle, permissionErrorResponse } from "@/lib/permissions/enforce";
+import { loadEnforceableMember, requireLevel, requireToggle, permissionErrorResponse } from "@/lib/permissions/enforce";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -23,9 +23,14 @@ export async function GET(request) {
 
   // The same gate the settings screen's rate card sits behind: these are
   // prices, and a member without showPricing does not see them anywhere else.
+  // And the quotes dial first, at the level plan-offers' GET reads at: this
+  // is the quote builder's picker, so a member with no access to quotes (a
+  // bookkeeper who holds showPricing for invoices) is not handed the
+  // lawn-care rate card by a route the grid never asked about.
   if (!member.impersonation) {
     const full = await loadEnforceableMember(db, member.id);
     try {
+      requireLevel(full, "quotes", "view_only", "see quote pricing");
       requireToggle(full, "showPricing", "price lawn-care programs");
     } catch (err) {
       const { body, status } = permissionErrorResponse(err);

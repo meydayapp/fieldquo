@@ -64,6 +64,10 @@ const company = {
   quoteEmailBeforeAfter: [],
   quoteEmailIncludeReferences: false,
   quoteEmailIncludeBeforeAfter: false,
+  // Part of QUOTE_EMAIL_COMPANY_SELECT since 2026-09-22; buildQuoteEmail
+  // refuses a company row that was selected without it. Null = a company that
+  // has written no default "what happens next", which is a real state.
+  defaultProcessNotes: null,
 };
 const quote = {
   quoteNumber: "Q-77",

@@ -424,7 +424,7 @@ export default function SalesDemoPage() {
                     type="button"
                     disabled={Boolean(busy)}
                     onClick={() => setConfirmRemove(company.id)}
-                    className="text-xs text-muted-foreground underline underline-offset-2 self-start"
+                    className="min-h-[36px] text-xs text-muted-foreground underline underline-offset-2 self-start"
                     data-demo-remove
                   >
                     {t("app.salesCal.demoRemoveButton")}

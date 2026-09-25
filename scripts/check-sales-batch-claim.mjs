@@ -1105,7 +1105,10 @@ section("6. Source: the route, the gate, the cron, the screen, the sticky fix");
   ok("the dial section is in normal flow — no sticky, no fixed, no z-index on it", dialTag.length > 0 && !/\bsticky\b|\bfixed\b|\bz-\d/.test(dialTag), dialTag.slice(0, 120));
   ok("…and the header records why (the owner's sentence about the notes scrolling underneath)", /scrolls underneath/.test(read("app/sales/queue/page.js")) && /taller than the viewport/.test(read("app/sales/queue/page.js")));
   ok("…the lead editor and the notes still come AFTER the dial in the same column, so nothing else could cover them", page.indexOf('data-tour="sales-queue-dial"') < page.indexOf("<QueueLeadEditor") && page.indexOf("<QueueLeadEditor") < page.indexOf("<ProspectNotes"));
-  const dialerColumn = page.match(/<div className=\{`lg:w-\[360px\][^`]*`\} data-dialer-column>/)?.[0] || "";
+  // The column's width became lg:w-[clamp(300px,33%,360px)] (a third of
+  // the row, not a fixed 360 — see the comment above it); the sticky rule
+  // is about the column, whatever its width, so the width is not pinned.
+  const dialerColumn = page.match(/<div className=\{`lg:w-\[[^\]`]+\][^`]*`\} data-dialer-column>/)?.[0] || "";
   ok("the Dialer column's sticky is bounded (max-h + overflow-y-auto), which is the version that covers nothing", /lg:sticky/.test(dialerColumn) && /lg:max-h-\[/.test(dialerColumn) && /lg:overflow-y-auto/.test(dialerColumn), dialerColumn.slice(0, 160));
 
   // Every key the screen asks for, in nine languages.

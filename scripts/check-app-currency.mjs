@@ -114,16 +114,26 @@ const hits = [];
 for (const abs of files) {
   const rel = relative(ROOT, abs);
   const lines = readFileSync(abs, "utf8").split("\n");
+  // Backtick parity at the start of each line, over code lines only. Used for
+  // ONE shape: a line opening with `}${` while a template literal is still
+  // open (AiCreditCard.js builds its hint that way) is `}` closing one
+  // interpolation and `${` opening the next, with no character between them
+  // for a symbol to be. Every other line is judged exactly as before.
+  let inTemplate = false;
   lines.forEach((line, i) => {
     const t = line.trimStart();
-    if (t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")) return;
+    const openAtStart = inTemplate;
+    const isComment = t.startsWith("//") || t.startsWith("*") || t.startsWith("/*");
+    if (!isComment && (line.match(/`/g) || []).length % 2) inTemplate = !inTemplate;
+    if (isComment) return;
+    const templateJoin = openAtStart && /^\}\$\{/.test(t);
 
     // `$${…}` — a literal dollar in front of a template interpolation.
     if (line.includes("$${")) hits.push({ rel, n: i + 1, line: line.trim(), kind: "template" });
     // `${…}` on a line with no backtick — a literal dollar in JSX text in
     // front of an expression container. The no-backtick test is what keeps
     // ordinary interpolation out of this branch.
-    else if (!line.includes("`") && /\$\{/.test(line))
+    else if (!line.includes("`") && /\$\{/.test(line) && !templateJoin)
       hits.push({ rel, n: i + 1, line: line.trim(), kind: "jsx" });
   });
 }
@@ -282,6 +292,21 @@ console.log("\nNo catalogue entry decides the currency of a number for the calle
     ["app.leads.budget1k5k", "See app.leads.budgetUnder1k — same four-band set."],
     ["app.leads.budget5k15k", "See app.leads.budgetUnder1k — same four-band set."],
     ["app.leads.budget15kPlus", "See app.leads.budgetUnder1k — same four-band set."],
+    // The same four bands again, as the lead-scoring REASON line ("Budget
+    // under $1k") printed beside a score: the band's label, not an amount,
+    // so the band decision above covers it too.
+    ["app.leads.reason.budgetUnder1k", "See app.leads.budgetUnder1k — the scoring reason for the same band."],
+    ["app.leads.reason.budget1k5k", "See app.leads.budgetUnder1k — the scoring reason for the same band."],
+    ["app.leads.reason.budget5k15k", "See app.leads.budgetUnder1k — the scoring reason for the same band."],
+    ["app.leads.reason.budget15kPlus", "See app.leads.budgetUnder1k — the scoring reason for the same band."],
+    [
+      "app.tax.us.reason.commercial",
+      "A US state statute's threshold, quoted: commercial contracts over " +
+        "$10,000 owe the contractor's tax. It lives under app.tax.us and is " +
+        "only printed for a US jurisdiction; the law is written in dollars, and " +
+        "restating it in another currency would misquote it (the same reason " +
+        "Affirm's bounds above stay in USD).",
+    ],
     [
       "app.salesPlay.cardOursStartsAt",
       "FieldQuo's OWN price, on the sales rep's battlecard, not a contractor's " +
@@ -401,7 +426,9 @@ const layout = readFileSync(join(ROOT, "app/app/layout.js"), "utf8");
 ok("the /app layout selects the currency", /currency:\s*true/.test(layout));
 ok(
   "...and passes it to the provider",
-  /<CompanyPreferencesProvider initialCurrency=/.test(layout),
+  // Whitespace-tolerant: the element is wrapped over lines now (the layout
+  // grew more props, 2026-09-15) and still passes the same value.
+  /<CompanyPreferencesProvider\s+initialCurrency=/.test(layout),
   "without this the first paint of every money figure is the schema default",
 );
 

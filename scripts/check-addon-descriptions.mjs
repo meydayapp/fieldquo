@@ -185,8 +185,20 @@ section("C. The three paths, each producing a line with a detail");
   ok(/const line = lineFromSuggestion\(suggestion\);/.test(src), "builder: the chip path calls lineFromSuggestion");
   ok(!/description: product\.name,/.test(src), "builder: the old hand-copied product line is gone");
   ok(/buildScopeGroupPayload\(\s*g,\s*rateOverridesFor\(g\.categoryId\),\s*quoteLanguage \|\| companyLanguage,\s*\)/.test(src), "builder: the payload gets the quote language, so derived cabinet lines are written in it");
+  // Since 90c3d397 the picking happens in the "Add area or line item"
+  // library (LineItemLibrary.js), which the table mounts with its two
+  // callbacks. The object handed up is still the whole row — the product from
+  // `products` (filtered, never mapped) and the suggestion from
+  // getDefaultLineItems — so its detail still rides on it.
   const table = read("app/components/quotes/builder/LineItemsTable.js");
-  ok(/onAddProduct\(product\)/.test(table) && /onAddSuggested\(s\)/.test(table), "…and the table still hands the full product / suggestion object up (the detail rides on it)");
+  const library = read("app/components/quotes/builder/LineItemLibrary.js");
+  ok(
+    /<LineItemLibrary[\s\S]*?onAddSuggested=\{onAddSuggested\}[\s\S]*?onAddProduct=\{onAddProduct\}/.test(table) &&
+      /onAddProduct\(p\)/.test(library) &&
+      /onAddSuggested\(s\)/.test(library) &&
+      /products\.filter\(\(p\) =>/.test(library) && !/products\.map\(/.test(library),
+    "…and the table still hands the full product / suggestion object up (the detail rides on it)",
+  );
   const payload = read("lib/quotes/builderPayload.js");
   ok(/cabinetAddOnLinesFor\(group, rateOverrides, language\)/.test(payload), "…and scopeGroupPayload threads it into cabinetAddOnLinesFor");
   const addOns = read("app/components/quotes/SuggestAddOns.js");

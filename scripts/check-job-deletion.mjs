@@ -105,8 +105,14 @@ t("the job page can archive and restore", /setArchived\(!job\.archivedAt\)/.test
 t("an archived job says so", /app\.jobs\.archived/.test(PAGE));
 
 const APPTS = read("../app/api/appointments/route.js");
+// GET /api/appointments builds its visits through lib/schedule/feed.js now
+// (shared with the map and the calendar feed), so the filter is read where
+// the query lives — and the route must still be the one calling it.
+const FEED = read("../lib/schedule/feed.js");
 t("an archived job's visits leave the calendar too",
-  /companyId: member\.companyId, archivedAt: null/.test(APPTS));
+  /companyId: member\.companyId, archivedAt: null/.test(APPTS) ||
+    (/loadScheduleFeed\(db, member/.test(APPTS) &&
+      /job: \{ companyId: member\.companyId, archivedAt: null \}/.test(FEED)));
 
 console.log("\nA quote that became an invoice explains itself");
 const QUOTE = read("../app/api/quotes/[id]/route.js");

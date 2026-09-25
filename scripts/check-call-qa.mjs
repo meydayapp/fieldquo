@@ -481,6 +481,10 @@ section("8. The queue, the detail, the review — and the agency's scope, read f
   const at = (d) => new Date(`2026-09-${String(d).padStart(2, "0")}T12:00:00Z`);
   const mk = (id, repId, over = {}) => ({
     id,
+    // The column's schema default. callQaQueue reads prospect dials only
+    // since af4ad500 (prospectDialsOnly — a colleague call is not reach), so
+    // a fixture row without it matched nothing.
+    kind: "prospect",
     salesRepId: repId,
     salesRep: rows.salesRep.find((r) => r.id === repId),
     prospect: { id: `p_${id}`, businessName: `Biz ${id}`, city: "Ottawa", province: "ON" },
@@ -603,7 +607,13 @@ section("9. The routes: who may open which door");
   const perfAgency = decomment(read("app/api/sales/agency/performance/route.js"));
   ok("both performance routes use the one loader", /loadPerformanceReport\(\{ from, to, repIds: null \}\)/.test(perfPlatform) && /loadPerformanceReport\(\{ from, to, repIds \}\)/.test(perfAgency));
   const load = decomment(read("lib/sales/performanceLoad.js"));
-  ok("the loader excludes test dials at the query and selects qa beside the call rows", /excludingTestDials\(/.test(load) && /qa: \{ select:/.test(load));
+  // prospectDialsOnly since af4ad500: excludingTestDials plus kind "prospect"
+  // (lib/sales/testLines.js), so test dials are still kept out at the query.
+  const testLines = decomment(read("lib/sales/testLines.js"));
+  ok("the loader excludes test dials at the query and selects qa beside the call rows",
+    (/excludingTestDials\(/.test(load) ||
+      (/prospectDialsOnly\(/.test(load) && /function prospectDialsOnly\([^)]*\) \{\s*const base = excludingTestDials\(/.test(testLines))) &&
+      /qa: \{ select:/.test(load));
   ok("the loader scopes every table by repIds when given", (load.match(/where: scopedWhere/g) || []).length >= 4 && /where: repWhere/.test(load));
   const sidebar = read("app/components/platform/PlatformSidebar.js");
   ok("the review queue has a nav row", /href: "\/platform\/sales\/call-quality"/.test(sidebar));

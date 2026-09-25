@@ -724,6 +724,26 @@ const TOOL_REST_EQUIVALENT = {
   // enforce.js), so "the REST route 403s" is the wrong question for them. Their
   // rules are asserted directly below instead.
   getUpcomingWork: [],
+  // The seven pipeline tools (2026-09-24, lib/ai/copilotTools.js "The pipeline
+  // in numbers"), each paired with the screen that serves the same numbers.
+  // Counting quotes by status is the Quotes list with its filter.
+  countQuotesByStatus: ["@/app/api/quotes/route"],
+  // Who owes what is the Invoices list; the tool is narrower still (it also
+  // needs the payments switch), which a subset is allowed to be.
+  getReceivables: ["@/app/api/invoices/route"],
+  // Won-but-not-billed lists quotes and says no invoice exists: both lists.
+  getUnbilledWork: ["@/app/api/quotes/route", "@/app/api/invoices/route"],
+  // The week's schedule is the Jobs list, narrowed to assigned jobs inside
+  // the same way the tool narrows.
+  getJobsThisWeek: ["@/app/api/jobs/route"],
+  // Leads are the Requests board.
+  countLeads: ["@/app/api/leads/route"],
+  // An average of quote totals: the analytics dashboard, like the conversion
+  // rate beside it.
+  getAverageQuoteValue: ["@/app/api/analytics/overview/route"],
+  // Recorded purchase prices are company-wide expense data: the expense
+  // summary, the endpoint getCashFlow is held to for the same reason.
+  getMaterialCostChanges: ["@/app/api/expenses/summary/route"],
   findQuote: [],
   findInvoice: [],
   findJob: [],

@@ -41,6 +41,12 @@ const ok = (name, cond, got) => {
 // patched below so no request ever leaves this process.
 process.env.STRIPE_SECRET_KEY = "sk_test_check_bank_debit_cap";
 process.env.NEXT_PUBLIC_APP_URL = "https://app.example.test";
+// Invoice Checkout names a server-side Payment Method Configuration since
+// 2026-09-23 (lib/stripe/invoicePaymentConfiguration.js) and refuses to start
+// without one, by design. Test ids, as check-processing-fee.mjs sets them;
+// Stripe itself is stubbed below, so they never leave this process.
+process.env.STRIPE_INVOICE_PMC_FINANCING_OFF = "pmc_testfinancingoff";
+process.env.STRIPE_INVOICE_PMC_FINANCING_ALLOWED = "pmc_testfinancingallowed";
 
 // ── The scripted database ───────────────────────────────────────────────────
 //
@@ -277,7 +283,13 @@ const post = (bodyObj) => POST(
   reset();
   rows.invoice = [{ ...invoiceRow("inv_big", "INV-401", 4150), client: rows.client[0] }];
   const r = await post({ invoiceId: "inv_big", method: "card" });
-  ok("$4,150 by card: unaffected — a card + Affirm session", r.status === 200 && captured[0].params.payment_method_types.join() === "card", { status: r.status, types: captured[0]?.params.payment_method_types });
+  // Since 2026-09-23 a non-bank invoice session is Dynamic Payment Methods:
+  // no method list, the server-chosen Payment Method Configuration instead
+  // (lib/stripe/invoicePaymentConfiguration.js). The cap must leave it alone.
+  const p = captured[0]?.params;
+  ok("$4,150 by card: unaffected — the normal dynamic-methods session, not a bank debit",
+    r.status === 200 && /^pmc_/.test(p?.payment_method_configuration || "") && p?.payment_method_types === undefined,
+    { status: r.status, pmc: p?.payment_method_configuration, types: p?.payment_method_types });
 }
 {
   // Stripe throws anyway — the guard was bypassed, or a cap moved. The

@@ -228,8 +228,23 @@ for (const file of FILES) {
     // array this file exists to check — which is exactly what the first
     // version did, reporting a clean sweep while only ever reading the
     // ternary's other arm.
+    //
+    // Only a Promise.all at the initialiser's own depth, though: a slot whose
+    // callback runs its OWN Promise.all (app/api/sales/badges — the voicemail
+    // badge counts messages and missed calls in a nested pair) feeds that
+    // slot, not the destructuring, and comparing its two slots against the
+    // outer six names reported correct code as broken.
+    const depthAt = (idx) => {
+      let k = 0;
+      for (let i = 0; i < idx; i++) {
+        if ("[({".includes(region[i])) k++;
+        else if ("])}".includes(region[i])) k--;
+      }
+      return k;
+    };
     const starts = new Set();
     for (const pm of region.matchAll(/Promise\.all\s*\(\s*\[/g)) {
+      if (depthAt(pm.index) !== 0) continue;
       starts.add(pm.index + pm[0].length - 1);
     }
     let dd = 0;

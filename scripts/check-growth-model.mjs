@@ -381,7 +381,12 @@ const read = (p) => fs.readFileSync(path.join(ROOT, p), "utf8");
   ok("PUT records who saved", /updatedByAdminId: admin\.id/.test(route));
   const measured = read("lib/platform/growthMeasured.js");
   ok("reached is derived from DISPOSITIONS[].reached, not a hardcoded list", /Object\.entries\(DISPOSITIONS\)[\s\S]{0,80}d\.reached/.test(measured) && !/"reached_interested"/.test(measured));
-  ok("every dial count filters direction \"out\"", (measured.match(/salesCallAttempt\.count\(\{ where: excludingTestDials\(\{ direction: "out"/g) || []).length >= 4);
+  // prospectDialsOnly (lib/sales/testLines.js, af4ad500) is excludingTestDials
+  // plus `kind: prospect`, so a rep ringing a colleague ("internal") or an
+  // off-campaign number is not a reach attempt either. Either wrapper counts;
+  // an unwrapped count does not.
+  ok("every dial count filters direction \"out\"", (measured.match(/salesCallAttempt\.count\(\{ where: (?:excludingTestDials|prospectDialsOnly)\(\{ direction: "out"/g) || []).length >= 4);
+  ok("…and no dial count is unwrapped", !/salesCallAttempt\.count\(\{ where: \{/.test(measured));
   ok("demo companies are excluded from every signup and subscription measure", /isDemo: true/.test(measured) && (measured.match(/\.\.\.notDemo/g) || []).length >= 5);
   ok("on-trial is billingStartedAt == null, per the schema's own rule", /billingStartedAt: null, status: "trialing"/.test(measured));
   ok("only FULL months are observed — never the current one", /for \(let i = MONTHS_BACK; i >= 1; i -= 1\)/.test(measured));

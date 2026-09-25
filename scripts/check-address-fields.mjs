@@ -90,6 +90,16 @@ const files = [
 // callers face exactly the same choice.
 const HANDLER_PROPS = ["onPlaceSelected", "onResolved"];
 
+// The components whose `onPlaceSelected` / `onResolved` carries a Places
+// result. AddressAutocomplete produces it; the others are wrappers that
+// declare `address-jurisdiction: forwarded`, so whoever renders THEM makes
+// the choice and must be a consumer here too. CompanyDetailsFields joined in
+// 89c9f81a, when Settings > Company and the home page's business-info dialog
+// started sharing one set of fields — without it in this list both handlers
+// dropped out of the check the day they moved behind the wrapper.
+const AUTOCOMPLETE_COMPONENTS = ["AddressAutocomplete", "AddressField", "CompanyDetailsFields"];
+const RENDERS_AUTOCOMPLETE = new RegExp(`<(?:${AUTOCOMPLETE_COMPONENTS.join("|")})[\\s>]`);
+
 /**
  * The source of the handler passed to one of those props.
  *
@@ -142,7 +152,7 @@ for (const full of files) {
   const src = readFileSync(full, "utf8");
   // Renders one of them — not merely imports it, and not the component's own
   // definition.
-  if (!/<AddressAutocomplete[\s>]|<AddressField[\s>]/.test(src)) continue;
+  if (!RENDERS_AUTOCOMPLETE.test(src)) continue;
   for (const prop of HANDLER_PROPS) {
     const found = handlerSource(src, prop);
     if (found === null) continue;
@@ -172,6 +182,8 @@ ok(
 // get renamed to — a rename that silently emptied this set would make the
 // whole check pass by finding nothing.
 for (const must of [
+  "app/app/settings/company/page.js",
+  "app/components/dashboard/panels/BusinessInfoPanel.js",
   "app/components/quotes/builder/ClientPicker.js",
   "app/quote/[companySlug]/SelfQuoteFlow.js",
   "app/signup/page.js",

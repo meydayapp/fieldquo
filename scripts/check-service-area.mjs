@@ -218,7 +218,14 @@ section("7. The public route never returns the base coordinates");
   ok(/serviceRadiusKm:\s*true/.test(settings) && /servicePostalPrefixes:\s*true/.test(settings), "settings GET selects both columns");
   ok(/serviceRadiusKm:\s*cleanRadius\.value/.test(settings) && /servicePostalPrefixes:\s*cleanPrefixes/.test(settings), "settings PATCH writes both columns");
   ok(/normalisePostalPrefixes\(servicePostalPrefixes\)/.test(settings), "…prefixes normalised through the rule module on save");
-  ok(/backfillCoordinates\(member\.companyId,\s*updated\)/.test(settings), "…and saving a radius with no coordinates geocodes the base");
+  // The geocode-if-missing helper moved to lib/company/coordinates.js
+  // (838e58fe) so the day map centres on the same address; the PATCH still
+  // calls it, and still only when a radius was saved and coordinates are
+  // missing.
+  ok(
+    /cleanRadius\?\.value && \(updated\.latitude == null \|\| updated\.longitude == null\)\s*\?\s*await ensureCompanyCoordinates\(db,\s*member\.companyId,\s*updated\)/.test(settings),
+    "…and saving a radius with no coordinates geocodes the base",
+  );
   const page = code("app/app/settings/company/page.js");
   ok(/serviceRadiusKm:\s*form\.serviceRadiusKm === "" \? null/.test(page), "the settings page sends null for an emptied radius, so clearing clears");
   ok(/servicePostalPrefixes:\s*normalisePostalPrefixes\(form\.servicePostalPrefixes\)/.test(page), "…and [] for an emptied prefix list");

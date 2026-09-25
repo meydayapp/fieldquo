@@ -68,6 +68,7 @@ import {
   releaseDayEnded,
 } from "@/lib/sales/queueBatch";
 import { subdivisionOptions } from "@/lib/sales/callingRules";
+import { claimCandidateWhere } from "@/lib/sales/prospectView";
 import { AUDIT_ACTIONS } from "@/lib/platform/auditActions";
 import { APP_MESSAGES } from "@/app/i18n/appMessages";
 
@@ -585,7 +586,21 @@ section("7. Source: one selection, two routes, two screens, the catalogue");
   ok("assignLeads defines no selection of its own: no findMany over the candidate WHERE", !/prospect\.findMany\(\{\s*where: \{ AND: \[base/.test(lib) && !/researchedWhere/.test(lib));
   ok("assignLeads never writes assignedRepId: null — unassign is releaseUntouched", !/assignedRepId:\s*null/.test(lib) && /releaseUntouched\(\{ db, rep, reason: "admin"/.test(lib));
   ok("every admin claim row is written with mode ASSIGN_MODE, never a literal", (lib.match(/mode: ASSIGN_MODE/g) || []).length >= 1 && !/mode: "admin"/.test(lib));
-  ok("pool counts use the same expression the rep's ClaimCard counts with", /db\.prospect\.count\(\{ where: claimCandidateWhere\(\{ tradeKey: key, now, rep \}\) \}\)/.test(lib) && /db\.prospect\.count\(\{ where: claimCandidateWhere\(\{ tradeKey: key, now, rep \}\) \}\)/.test(salesRoute));
+  // Since 880307a1 the rep's route asks once with a GROUP BY instead of a
+  // COUNT per trade: the same claimCandidateWhere, with the rep, its
+  // `tradeKey` taken off and the grouping put in its place. Same rows per
+  // trade; the only field that differs is the one grouped by.
+  ok("pool counts use the same expression the rep's ClaimCard counts with",
+    /db\.prospect\.count\(\{ where: claimCandidateWhere\(\{ tradeKey: key, now, rep \}\) \}\)/.test(lib) &&
+      /const \{ tradeKey: _anyTrade, \.\.\.candidateWhere \} = claimCandidateWhere\(\{ tradeKey: null, now, rep \}\);/.test(salesRoute) &&
+      /db\.prospect\.groupBy\(\{\s*by: \["tradeKey"\],\s*where: \{ \.\.\.candidateWhere, tradeKey: \{ in: discoveryTradeKeys\(\) \} \}/.test(salesRoute));
+  // …and the claim WHERE carries the trade ONLY as its top-level key, which
+  // is what makes dropping that one key the same pool, grouped.
+  {
+    const w = claimCandidateWhere({ tradeKey: "painting", now: new Date(), rep: { sellsIn: ["en"] } });
+    ok("…and claimCandidateWhere names the trade only at the top level (so the GROUP BY is the same pool)",
+      w.tradeKey === "painting" && !JSON.stringify({ ...w, tradeKey: undefined }).includes("painting"));
+  }
   ok("both routes are superadmin-only by the literal role check", /role !== "superadmin"/.test(assignRoute) && /role !== "superadmin"/.test(unassignRoute));
   ok("the assign route passes the window-policy context the rep's claim reads", /loadWindowPolicyContext\(\{ now \}\)/.test(assignRoute) && /policyContext,/.test(assignRoute));
   ok("the unassign route calls unassignFromRep and nothing else on the pool", /unassignFromRep\(\{ db, rep, admin/.test(unassignRoute) && !/prospect\.update/.test(unassignRoute));

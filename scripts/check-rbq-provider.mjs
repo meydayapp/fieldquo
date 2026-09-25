@@ -746,7 +746,12 @@ section("CASL: a register is not consent");
   ok("deliverOutreach resolves the contact's provenance", deliver.includes("sourceProviderForContact("));
   ok("...and passes it to the suppression check", /checkSuppression\(db,\s*\{[^}]*sourceProvider/.test(deliver));
   ok("...before it builds the email", deliver.indexOf("sourceProviderForContact(") < deliver.indexOf("buildOutboundEmail"));
-  ok("...and before anything is sent", deliver.indexOf("sourceProviderForContact(") < deliver.indexOf("sendEmail("));
+  // The send is the rep's own mailbox since a250a7cd5 (sendFromMailbox); a
+  // body with neither send fails rather than comparing against -1.
+  const sendAt = deliver.search(/\b(sendFromMailbox|sendEmail)\(/);
+  ok("...and before anything is sent",
+    sendAt !== -1 && deliver.indexOf("sourceProviderForContact(") < sendAt,
+    JSON.stringify({ provenance: deliver.indexOf("sourceProviderForContact("), send: sendAt }));
 
   const sms = read("lib/sales/salesSms.js");
   const smsGate = functionBody(sms, "async function suppressionFor(lead)");

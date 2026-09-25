@@ -49,6 +49,11 @@ const SOURCE_LABEL = {
   traced: ["app.reviews.source.lawn", "Lawn traced on map"],
   parcel_gatineau: ["app.reviews.source.lawnParcel", "Lawn estimated from the lot (Gatineau parcel − roof − driveway)"],
   minimum: ["app.reviews.source.lawnMinimum", "Lawn NOT measured — minimum pricing band"],
+  // SOURCE_BY_MEASURE's lawn_address default: written only when the lawn
+  // measurement arrived WITHOUT naming parcel / trace / minimum. Which of the
+  // three produced the figure is exactly what is missing, so the sentence is
+  // the unknown one, said on purpose rather than by falling through.
+  lawn_estimate: ["app.reviews.source.unknown", "Source not recorded"],
   manual: ["app.reviews.source.manual", "Homeowner-entered"],
   phone_call: ["app.reviews.source.phoneCall", "Taken from a phone call"],
 };

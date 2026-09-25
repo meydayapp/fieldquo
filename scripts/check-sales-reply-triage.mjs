@@ -504,7 +504,13 @@ section("5. The wiring");
     /roadblock: "bg-red-600 text-white"/.test(page) && /question: "bg-amber-100/.test(page) && /positive: "bg-emerald-100/.test(page) && /not_interested: "bg-muted/.test(page) && /if \(!triageShowsChip\(kind\)\) return null/.test(page));
   ok("the Roadblocks filter is at the top of the list", /data-triage-filter/.test(page) && /setRoadblocksOnly\(\(v\) => !v\)/.test(page) && /aria-pressed=\{roadblocksOnly\}/.test(page));
   ok("…and its buttons meet the portal's 36px touch floor (check:mobile's rule)", (page.match(/min-h-\[36px\]/g) || []).length >= 2);
-  ok("…narrows every bucket rather than replacing them", /const visible = \(rooms\) => \(roadblocksOnly \? rooms\.filter\(\(c\) => c\.triage\?\.kind === TRIAGE_ROADBLOCK\) : rooms\)/.test(page));
+  // The drafts filter (988edc1c) chains a second .filter onto the same
+  // narrowing, so the roadblock test is a pass-through when the filter is
+  // off rather than a ternary. Still a narrowing of each bucket, applied to
+  // every one of them — never a bucket of its own.
+  ok("…narrows every bucket rather than replacing them",
+    /const visible = \(rooms\) =>\s*rooms\s*\.filter\(\(c\) => !roadblocksOnly \|\| c\.triage\?\.kind === TRIAGE_ROADBLOCK\)/.test(page) &&
+      /GROUP_ORDER\.map\([\s\S]{0,200}rooms: visible\(buckets\[key\]\)/.test(page));
   ok("…and says so when it hides everything", /filterNoRoadblocks/.test(page));
   ok("the grouping call the messages check pins is untouched", /groupConversations\(list \|\| \[\]\)/.test(page));
   ok("the thread header has the dropdown that overrides the chip", /data-triage-select/.test(page) && /\/api\/sales\/messages\/triage/.test(page));

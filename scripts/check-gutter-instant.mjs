@@ -20,6 +20,7 @@ import { instantQuoteReadiness, priceOptionsFor } from "@/lib/estimate/instantQu
 import { instantRateFields, readRate, rateFieldPatch } from "@/lib/estimate/instantRateFields";
 import { costingInputsForInstantTrade } from "@/lib/estimate/instantQuoteCosting";
 import { gutterEstimateCopy, GUTTER_ESTIMATE_COPY } from "@/lib/i18n/gutterEstimateCopy";
+import { measureErrorMessage } from "@/lib/estimate/measureErrorMessage";
 import { primaryCategoryForInstantTrade, instantTradeForCategory } from "@/lib/trades/catalog";
 import { measureShapeFor } from "@/lib/estimate/callEstimate";
 import { gutterLines } from "@/lib/pricing/tradeScope";
@@ -154,9 +155,24 @@ console.log("\n6. Public shape: never a rate, and the refusal is a sentence\n");
   ok(/trustworthy === false[\s\S]{0,200}needs_site_visit/.test(server), "measureForTrade refuses an untrustworthy gutter measurement before pricing");
   const route = read("app/api/instant-quote/[companySlug]/measure/route.js");
   ok(/satelliteImageUrl: measured\.partial\.satelliteImageUrl/.test(route) && !/partial: measured\.partial \|\| null/.test(route), "the public /measure strips a refused measurement's flags to the image and the address");
-  ok(/needsSiteVisit/.test(route) && /notes:/.test(route), "the public /measure carries the language-aware sentences");
+  // The refusal sentence moved into lib/estimate/measureErrorMessage.js
+  // (e9376b9b) so /measure and /request cannot explain the same failure two
+  // ways. Executed, not grepped: needs_site_visit on the gutter trade is the
+  // gutter table's own sentence in every language, and both routes answer a
+  // failed measurement through that one function with the form's language
+  // and the trade.
+  ok(
+    Object.keys(GUTTER_ESTIMATE_COPY).every(
+      (lang) => measureErrorMessage("needs_site_visit", lang, "gutters") === GUTTER_ESTIMATE_COPY[lang].needsSiteVisit,
+    ),
+    "needs_site_visit on gutters is the gutter table's sentence, in every language",
+  );
+  const refusesThroughHelper = (src) =>
+    /import \{ measureErrorMessage \} from "@\/lib\/estimate\/measureErrorMessage"/.test(src) &&
+    /error: measureErrorMessage\(measured\.reason, language, trade\)/.test(src);
+  ok(refusesThroughHelper(route) && /notes:\s*\[\s*gutterEstimateCopy\(language\)/.test(route), "the public /measure carries the language-aware sentences");
   const req = read("app/api/instant-quote/[companySlug]/request/route.js");
-  ok(/needsSiteVisit/.test(req), "the public /request refuses with the same sentence");
+  ok(refusesThroughHelper(req), "the public /request refuses with the same sentence");
   // The draft is built from a SANITISED measurement — an allowlist. A gutter
   // field missing from it would build a draft with no takeoff and no flags,
   // silently, which is how the first version of this shipped for an hour.

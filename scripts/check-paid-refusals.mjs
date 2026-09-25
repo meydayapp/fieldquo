@@ -440,7 +440,9 @@ ok(
 );
 // The price, before the click, in the wallet's currency and not a bare "$".
 ok(
-  /formatAppMoney\(VISION_PASS_CENTS \/ 100, CREDIT_CURRENCY, "en"\)/.test(suggest),
+  // Formatted in the reader's language since the screens were translated
+  // (`language`, not a pinned "en"); the currency is still the credit's.
+  /formatAppMoney\(VISION_PASS_CENTS \/ 100, CREDIT_CURRENCY, (?:"en"|language)\)/.test(suggest),
   "the deep read names its price up front, formatted as the USD credit it spends",
 );
 ok(

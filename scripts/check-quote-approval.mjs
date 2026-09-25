@@ -310,7 +310,10 @@ const flowSrc = strip(read(FLOW));
 for (const [prop, useSite] of [
   ["busyLabel", "{busy ? busyLabel : label}"],
   ["failedLabel", "setError(failedLabel)"],
-  ["rejectedLabel", "setError(data?.error || rejectedLabel)"],
+  // Since the direct-to-Cloudinary upload (2026-09-25) the server's reason
+  // arrives as err.serverMessage; the label must be the very next fallback,
+  // with no helper-authored English sentence ahead of it.
+  ["rejectedLabel", "signedOutLabel : rejectedLabel)"],
   ["removeLabel", "aria-label={removeLabel}"],
   ["limitLabel", "setError(limitLabel(max))"],
 ]) {

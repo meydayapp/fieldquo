@@ -58,7 +58,10 @@ ok("…and onto a client who had not stated one, never over a stated one", /if \
 const finalize = decomment(read("lib/booking/finalizeBooking.js"));
 ok("the letter reads the booking's language between the quote and the company", /client: booking\.language \? \{ language: booking\.language \} : client/.test(finalize));
 const manage = decomment(read("lib/booking/manageVisit.js"));
-ok("the manage page reads it too, and selects it", /client: booking\.language \? \{ language: booking\.language \} : null/.test(manage) && /language: true,\s*quote: \{ select/.test(manage));
+// `language: true` in the booking's own select — the scalars after it may
+// grow (calendarSequence arrived with the calendar invite, f95ff622); what
+// matters is that it sits in the same select as the quote, not elsewhere.
+ok("the manage page reads it too, and selects it", /client: booking\.language \? \{ language: booking\.language \} : null/.test(manage) && /language: true,\s*(?:\w+: true,\s*)*quote: \{ select/.test(manage));
 const schema = read("prisma/schema.prisma");
 ok("Booking.language exists, nullable", /model Booking \{[\s\S]*?\n  language\s+String\?/.test(schema));
 

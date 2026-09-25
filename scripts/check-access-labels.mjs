@@ -358,9 +358,29 @@ for (const [route, needs] of reqs) {
       const [category, level] = need.split(":");
       // The same question, of the same grid, in the file that offers the
       // control. Whitespace-tolerant because prettier wraps long calls.
-      const asks = new RegExp(
-        `hasLevel\\([\\s\\S]{0,80}?"${category}",\\s*"${level}"`,
-      ).test(call.src);
+      // `useHasLevel` is PermissionProvider's hook form of the same question
+      // (the leads drawer asks it that way). A modal that takes the answer as
+      // a `canDelete` prop asks it through every file that renders it — each
+      // must compute the value it passes with the same hasLevel question.
+      const q = `[\\s\\S]{0,80}?"${category}",\\s*"${level}"`;
+      const asksHere = (s) => new RegExp(`(?:\\bhasLevel|\\buseHasLevel)\\(${q}`).test(s);
+      let asks = asksHere(call.src);
+      if (!asks && /\bcanDelete\s*=\s*false/.test(call.src)) {
+        const comp = call.file.split("/").pop().replace(/\.jsx?$/, "");
+        const parents = [];
+        for (const root of [join(ROOT, "app"), join(ROOT, "components")])
+          for (const f of walk(root)) {
+            if (!/\.(js|jsx)$/.test(f) || f.includes(`${sep}api${sep}`)) continue;
+            const s = readFileSync(f, "utf8");
+            if (new RegExp(`<${comp}\\b`).test(s)) parents.push(s);
+          }
+        asks =
+          parents.length > 0 &&
+          parents.every((s) => {
+            const passed = new RegExp(`<${comp}\\b[\\s\\S]*?\\bcanDelete=\\{(\\w+)\\}`).exec(s)?.[1];
+            return !!passed && new RegExp(`\\b${passed}\\s*=\\s*(?:use)?[hH]asLevel\\(${q}`).test(s);
+          });
+      }
       checked++;
       t(`${call.file} → DELETE ${route} asks for ${category}:${level}`, asks);
     }

@@ -1340,7 +1340,7 @@ export default function InvoiceDetailPage() {
                       <button
                         type="button"
                         onClick={() => setRefunding(p)}
-                        className="ml-2 text-xs font-semibold underline text-foreground"
+                        className="ml-2 min-h-[36px] text-xs font-semibold underline text-foreground"
                       >
                         {t("app.invoiceDetail.refundAction")}
                       </button>

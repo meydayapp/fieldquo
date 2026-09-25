@@ -952,4 +952,103 @@ export const ARTICLES = {
     ],
     "updated": "2026-09-21"
   },
+  "client-tickets": {
+    title: "Billets clients",
+    summary:
+      "Ce que vos clients soumettent depuis leur portail — une réparation, une réclamation sous garantie, une question, une question de facturation, une date à changer, une visite d'entretien à réserver — et comment le bureau y répond, les assigne et les transforme en chantiers.",
+    updated: "2026-09-25",
+    intro: [
+      "Un client qui a le lien de votre portail peut vous demander quelque chose sans prendre le téléphone. **Signaler un problème** crée un billet; **Demander un autre moment** sur une visite à venir, **Sauter cette visite** sur une date de forfait et une visite d'entretien réservée sur un forfait en créent un aussi. Chacun arrive dans **Billets clients**, sous **Plus › Travail et ventes**, sous forme de conversation : les mots et les photos du client, vos réponses et un statut que vous voyez tous les deux.",
+      "Un billet demande; il ne fait jamais rien. Rien de ce qu'un client soumet ne réserve, ne déplace ni ne facture quoi que ce soit — c'est le bureau qui décide de la suite.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "Aperçu",
+        blocks: [
+          { p: "Les billets viennent uniquement du portail client, et uniquement du client à qui appartient ce lien. Chacun a un type, un résumé court, ce que le client a écrit, jusqu'à six photos et — quand il a été soumis depuis une visite, un chantier ou un forfait — l'élément dont il parle, vers lequel la page du billet fait un lien." },
+          { table: {
+            head: ["D'où part le client", "Le billet créé"],
+            rows: [
+              ["**Signaler un problème**, dans la carte **Vos demandes** du portail ou sur la ligne d'une visite passée", "**Réparation**, **Garantie**, **Question** ou **Facturation** — le client choisit"],
+              ["**Demander un autre moment** sur une visite à venir, ou **Sauter cette visite** sur une date de forfait d'entretien", "**Changement de date**"],
+              ["**Demander des travaux › Une visite d'entretien**, sur un forfait qui a encore des visites incluses", "**Visite d'entretien**"],
+            ],
+          } },
+          { note: "**Demander des travaux › Un nouveau chantier ou une soumission** — et une demande d'entretien d'un client qui n'a pas de forfait — n'est pas un billet. C'est du nouveau travail : il arrive sur le tableau des **Prospects** comme un prospect, avec le service, la description et les photos." },
+        ],
+      },
+      {
+        id: "the-queue",
+        heading: "La file",
+        blocks: [
+          { p: "**Billets clients** s'ouvre sur **Ouverts**, qui regroupe tous les billets encore en traitement — ouverts, en cours ou en attente du client — le plus récemment mis à jour en premier. Les autres onglets sont **En cours**, **En attente du client**, **Résolu**, **Fermé** et **Tous**, chacun avec son nombre." },
+          { bullets: [
+            "Chaque ligne montre le statut, le type, **Haute** ou **Urgente** en rouge quand vous avez fixé cette priorité, le résumé, le client, la personne à qui il est assigné (ou **Non assigné**), la date de la dernière activité et le nombre de réponses.",
+            "Quand l'onglet est vide, la page affiche **Rien en attente**.",
+            "La page d'un client et celle d'un chantier affichent un lien comme **2 billets clients ouverts** tant qu'il y en a, et il ouvre cette file.",
+            "Un nouveau billet, et chaque réponse d'un client, vous arrivent aussi en notification, qui ouvre le billet.",
+          ] },
+        ],
+      },
+      {
+        id: "answer-a-ticket",
+        heading: "Répondre à un billet",
+        blocks: [
+          { steps: [
+            "Ouvrez le billet depuis la file, depuis la notification ou depuis le lien sur la page du client ou du chantier.",
+            "Réglez **Statut**, **Priorité** et **Assigné à** en haut. Chaque changement est enregistré dès que vous le choisissez.",
+            "Écrivez dans la boîte de réponse et appuyez sur **Envoyer la réponse**. La réponse s'ajoute au fil et est envoyée par courriel au client au nom de votre entreprise, dans la langue du client, avec un bouton qui le ramène à son portail.",
+            "Une fois la demande réglée, passez le statut à **Résolu** — ou à **Fermé** pour mettre fin à la conversation.",
+          ] },
+          { p: "Deux changements de statut se font d'eux-mêmes. Votre première réponse fait passer un billet **Ouvert** à **En cours**. Un client qui répond à un billet **En attente du client** ou **Résolu** le rouvre à **Ouvert** — soit il vous a répondu, soit ce n'est pas réglé. Un billet **Fermé** n'accepte plus de réponse du client; le portail l'invite plutôt à signaler un nouveau problème." },
+          { note: "Quand une réponse ne peut pas partir par courriel — aucune adresse sur la fiche du client, ou le courriel de votre entreprise n'est pas configuré — elle est quand même enregistrée, le client peut la lire dans son portail, et la page vous le dit : **Réponse enregistrée — le client peut la lire dans son portail, mais elle ne lui a pas été envoyée par courriel.**" },
+        ],
+      },
+      {
+        id: "turn-into-a-job",
+        heading: "Transformer une réparation ou une garantie en chantier",
+        blocks: [
+          { p: "Un billet **Réparation** ou **Garantie** qui demande une équipe peut devenir un chantier : appuyez sur **Transformer en chantier** dans le billet." },
+          { bullets: [
+            "Le chantier est créé pour le même client par le même chemin que **Nouveau chantier**, non planifié et sans rien de chiffré. Planifiez-le et chiffrez-le comme n'importe quel autre chantier.",
+            "Son titre est **Repair — …** ou **Warranty — …**, suivi du titre du chantier d'origine, ou du résumé du billet quand le billet ne porte pas sur un chantier.",
+            "Quand le billet porte sur un chantier, le nouveau chantier reprend son adresse et y est lié comme rappel — **Garantie — travaux couverts** pour un billet de garantie, **Reprise — on a manqué quelque chose** pour une réparation. Le billet affiche alors **Transformé en chantier :** avec un lien, et ne peut pas en créer un second.",
+          ] },
+        ],
+      },
+      {
+        id: "what-the-client-sees",
+        heading: "Ce que voit le client",
+        blocks: [
+          { bullets: [
+            "Sous **Vos demandes** dans le portail, chaque billet qu'il a soumis, avec son statut dans ses mots : **Reçue**, **En cours**, **En attente de vous**, **Résolue** ou **Fermée**.",
+            "Le fil, vos réponses signées du prénom de la personne qui les a écrites, et une boîte de réponse tant que le billet n'est pas fermé.",
+            "Jamais la priorité ni la personne assignée — cela regarde le bureau.",
+            "Vos réponses aussi par courriel, sur votre papier à en-tête, au nom de votre entreprise, dans sa langue.",
+          ] },
+        ],
+      },
+      {
+        id: "who-is-told-and-who-can-see-it",
+        heading: "Qui est avisé, et qui peut voir",
+        blocks: [
+          { p: "Un nouveau billet et une réponse d'un client avisent, dans l'application et par notification poussée, la personne à qui le billet est assigné — ou, tant qu'il n'est pas assigné, toutes les personnes qui voient les demandes des clients. Un courriel part aussi à la personne assignée, ou au propriétaire tant que personne ne l'est. La ligne et l'écran suivent la zone **Requests** de la grille d'accès : le profil Équipe (**Requests: none**) ne les voit pas." },
+          { table: {
+            head: ["Pour", "Il faut"],
+            rows: [
+              ["Voir **Billets clients** et lire un billet", "**Requests** en lecture seule ou plus"],
+              ["Répondre, changer le statut ou la priorité, assigner", "**Requests** en voir, créer et modifier"],
+              ["**Transformer en chantier**", "Cela, et **Jobs** en voir, créer et modifier"],
+            ],
+          } },
+        ],
+      },
+    ],
+    faq: [
+      { q: "Un client peut-il fermer ou résoudre un billet ?", a: "Non. Seul le bureau change le statut d'un billet. La réponse d'un client peut rouvrir un billet qui était en attente de lui ou marqué résolu; un billet fermé n'accepte plus de réponse." },
+      { q: "Un billet de changement de date déplace-t-il la visite ?", a: "Non. Le client nomme la visite et dit ce qui lui conviendrait mieux; la date ne bouge que lorsque quelqu'un au bureau la déplace dans le calendrier." },
+      { q: "Où va une demande de nouveaux travaux ?", a: "Sur le tableau des prospects, comme un prospect. Du nouveau travail se soumissionne; ce n'est pas un billet auquel répondre — voir [[the-leads-board|Le tableau des prospects]]." },
+    ],
+  },
 };

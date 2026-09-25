@@ -1238,7 +1238,7 @@ function AreaCard({
           >
             {areaTypeKeys.map((key) => (
               <option key={key} value={key}>
-                {book.areaTypes[key]?.label || key}
+                {book?.areaTypes?.[key]?.label || key}
               </option>
             ))}
           </select>

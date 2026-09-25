@@ -549,8 +549,13 @@ ok(
   /referencePhotoUrl:/.test(aiSidebar),
   "…and sends a reference photo with it — the call site that did not exist before",
 );
+// Since 86e4650a every browser upload goes through uploadFile()
+// (lib/media/uploadClient.js: sign, Cloudinary, verify), and AGENTS.md
+// forbids a new fetch("/api/upload"). Still a real upload path: the file
+// picker's photo is what becomes the reference.
 ok(
-  /fetch\("\/api\/upload"/.test(aiSidebar),
+  /import \{ uploadFile \} from "@\/lib\/media\/uploadClient"/.test(aiSidebar) &&
+    /await uploadFile\(file, \{ purpose: "designer" \}\)/.test(aiSidebar),
   "…with a real upload path behind it, not a URL box",
 );
 

@@ -300,7 +300,11 @@ ok("the amount is repriced from the plan's own row, not trusted from anywhere el
 ok("a plan with no price for its own interval is logged, not guessed",
   /recordError/.test(cron) && /plan_missing_price_for_interval/.test(cron));
 
-const schema = stripComments(readFileSync("prisma/schema.prisma", "utf8"));
+// Line comments only: Prisma has no block comments, so a `/*` in a schema
+// doc comment (a glob like `app/data/serviceSeeds/*`) is literal text, and
+// the JS stripper above paired it with a later `*/` and deleted thousands of
+// lines — Subscription among them.
+const schema = readFileSync("prisma/schema.prisma", "utf8").replace(/(^|[^:])\/\/.*$/gm, "$1");
 const subModel = schema.slice(schema.indexOf("model Subscription {"));
 const subBody = subModel.slice(0, subModel.indexOf("\n}"));
 ok("Subscription carries the period-keyed reminder marker",

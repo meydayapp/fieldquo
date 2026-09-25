@@ -323,14 +323,19 @@ ok(
 // Shape, not words: both write controls must sit INSIDE the gate's block. An
 // "appears after the gate" test would pass just as happily on a button that
 // sits after the gate closed, which is the ungated case.
-const editGate = blockFrom(sched, "{canEditSchedule && (");
+//
+// Since 13ee184b (the week as an employee grid) the week's tool bar is its
+// own block, `{view === "week" && canEditSchedule && (`, and the publish
+// button is labelled with the draft count ("Publish (N)",
+// app.scheduler.publishCount) and wired to publishWeek.
+const editGate = blockFrom(sched, '{view === "week" && canEditSchedule && (');
 ok(
   "the Add shift button is inside the edit gate's block",
   Boolean(editGate) && editGate.includes('data-tour="scheduler-add"'),
 );
 ok(
   "the Publish week button is inside that same block",
-  Boolean(editGate) && editGate.includes("app.scheduler.publishWeek"),
+  Boolean(editGate) && editGate.includes("onClick={publishWeek}") && editGate.includes("app.scheduler.publishCount"),
 );
 // The other half: `manager` is user:view and must no longer gate a write.
 const managerGates = (sched.match(/\{isManager && \(/g) || []).length;
@@ -349,7 +354,10 @@ ok(
   managerBlocks.every(
     (b) =>
       !b.includes("app.scheduler.addShift") &&
-      !b.includes("app.scheduler.publishWeek"),
+      !b.includes("app.scheduler.publishWeek") &&
+      !b.includes("app.scheduler.publishCount") &&
+      !b.includes("publishWeek") &&
+      !b.includes("publishDay"),
   ),
   `${managerBlocks.length} isManager block(s) inspected`,
 );
@@ -358,10 +366,24 @@ ok(
   (sched.match(/\{canEditSchedule && \(/g) || []).length >= 2,
   `${(sched.match(/\{canEditSchedule && \(/g) || []).length} gates`,
 );
-ok(
-  "...and it is a 44px target, not a bare 16px icon",
-  /size-11[\s\S]{0,200}?aria-label=\{t\("app\.scheduler\.addShift"\)\}/.test(sched),
-);
+// The per-day add moved out of page.js with the redesign. On the phone the
+// default view is the day board (useState("day")), whose dashed "+" on an
+// empty row is h-11 (44px) and named; the week grid's "ADD +" is a
+// full-width cell button, 3.25rem (52px) tall on an empty cell. Both are
+// gated on the same level: DayBoard's canClickCells and WeekGrid's canEdit
+// are canEditSchedule.
+{
+  const board = code("app/app/scheduler/DayBoard.js");
+  const grid = code("app/app/scheduler/WeekGrid.js");
+  ok(
+    "...and it is a 44px target, not a bare 16px icon",
+    /const \[view, setViewState\] = useState\("day"\)/.test(sched) &&
+      /const canClickCells = canEditSchedule && !leave;/.test(board) &&
+      /onClick=\{\(\) => onAddAt\(worker\.id, plusAt\)\}\s*aria-label=\{t\("app\.scheduler\.addShiftAt"[\s\S]{0,200}?className="[^"]*\bh-11\b/.test(board) &&
+      /canEdit=\{canEditSchedule\}/.test(sched) &&
+      /aria-label=\{t\("app\.scheduler\.addShiftFor"[\s\S]{0,200}?className=\{`[^`]*\bw-full\b[^`]*min-h-\[3\.25rem\]/.test(grid),
+  );
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 section("4. A week that failed to load says so");
@@ -380,14 +402,28 @@ ok(
   "the failure panel replaces the seven day cards rather than sitting above them",
   /\{errorKey \? \(/.test(sched) && /\) : loading \? \(/.test(sched),
 );
-// Locate the "No shifts scheduled." copy and prove the error branch is an
-// earlier arm of the SAME conditional, so the two can never both render.
-const noShiftsAt = sched.indexOf("app.scheduler.noShifts");
+// Locate the empty-state copy and prove the error branch is an earlier arm
+// of the SAME conditional, so the two can never both render. The seven day
+// cards and their "No shifts scheduled." went with the redesign (13ee184b);
+// what can claim "nothing scheduled" now is the day board with its
+// app.scheduler.emptyDay line, and the week grid's empty cells. All three
+// must sit in arms after `{errorKey ? (` and its `: loading ? (`, i.e. the
+// failure panel replaces them rather than sitting above them.
 const errBranchAt = sched.indexOf("{errorKey ? (");
+const loadingArmAt = sched.indexOf(") : loading ? (", errBranchAt);
+const noShiftsAt = sched.indexOf("app.scheduler.emptyDay");
+const boardAt = sched.indexOf("<DayBoard", errBranchAt);
+const gridAt = sched.indexOf("<WeekGrid", errBranchAt);
 ok(
   "...and 'No shifts scheduled.' lives inside the arm the failure skips",
-  errBranchAt > -1 && noShiftsAt > errBranchAt,
-  `errorBranch@${errBranchAt} noShifts@${noShiftsAt}`,
+  errBranchAt > -1 &&
+    loadingArmAt > errBranchAt &&
+    boardAt > loadingArmAt &&
+    noShiftsAt > boardAt &&
+    gridAt > noShiftsAt &&
+    sched.indexOf("<DayBoard") === boardAt &&
+    sched.indexOf("<WeekGrid") === gridAt,
+  `errorBranch@${errBranchAt} loading@${loadingArmAt} board@${boardAt} emptyDay@${noShiftsAt} grid@${gridAt}`,
 );
 ok(
   "the panel carries the shared retry",

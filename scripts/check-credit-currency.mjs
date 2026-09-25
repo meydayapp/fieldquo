@@ -88,6 +88,10 @@ const crediters = execLines("grep -rln 'addCredit' app lib").filter(
     !f.endsWith("lib/voice/credits.js") &&
     !f.endsWith("app/app/settings/ai-credit/page.js") &&
     !f.endsWith("app/app/settings/ai-credit/AiCreditCard.js") &&
+    // The same six letters in a label: t("app.voiceSettings.addCredit") on
+    // the phone wallet's button (translated 2026-09-10). It opens the top-up
+    // flow, which credits through lib/voice/topup.js, counted below.
+    !f.endsWith("app/app/settings/voice/page.js") &&
     !f.endsWith("app/i18n/appMessages.js"),
 );
 // Four modules today, not two — the AI wallet doubled the count when it
@@ -96,6 +100,18 @@ const crediters = execLines("grep -rln 'addCredit' app lib").filter(
 // lib/voice/topup.js already used for the phone side. A fifth appearing here
 // uncommented is the thing this assertion exists to catch.
 ok("exactly four modules may add credit", crediters.length === 4, crediters.join(" | "));
+// The label exclusions stay labels: in those screens every `addCredit` is the
+// tail of a catalogue key (`….addCredit"`), never an import or a call.
+for (const f of [
+  "app/app/settings/ai-credit/page.js",
+  "app/app/settings/ai-credit/AiCreditCard.js",
+  "app/app/settings/voice/page.js",
+]) {
+  const src = readFileSync(join(ROOT, f), "utf8");
+  const all = (src.match(/addCredit/g) || []).length;
+  const asKey = (src.match(/\.addCredit["']/g) || []).length;
+  ok(`${f}: addCredit appears only as a catalogue key`, all === asKey, `${all} mentions, ${asKey} as a key`);
+}
 ok("one is the voice top-up settlement — the single place phone money buys credit",
    crediters.some((f) => f.endsWith("lib/voice/topup.js")), crediters.join(" | "));
 ok("another is the reservation refund, not a second purchase",

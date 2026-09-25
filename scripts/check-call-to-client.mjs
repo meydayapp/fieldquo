@@ -800,8 +800,14 @@ ok(
     !/notes:\s*reviewNotesFromDraft/.test(src),
   );
   const create = read("lib/estimate/createEstimateQuote.js");
-  ok("...and createEstimateDraft lands it in reviewNotes", /reviewNotes:\s*reviewNotes \|\| null/.test(create));
-  ok("...never in notes", !/\bnotes:\s*reviewNotes\b/.test(create));
+  // Since e9376b9b the caller's reviewNotes is merged with the homeowner's
+  // answer lines (both internal) before it is written — still to reviewNotes.
+  ok(
+    "...and createEstimateDraft lands it in reviewNotes",
+    /reviewNotes:\s*reviewNotes \|\| null/.test(create) ||
+      (/const mergedReviewNotes = \[reviewNotes,/.test(create) && /reviewNotes:\s*mergedReviewNotes \|\| null/.test(create)),
+  );
+  ok("...never in notes", !/\bnotes:\s*(reviewNotes|mergedReviewNotes)\b/.test(create));
 }
 
 section("11b. The facts come from the transcript, not from a compression of it");

@@ -835,7 +835,7 @@ export default function PlatformSignupsPage() {
               type="button"
               onClick={() => setFilter(f.key)}
               aria-pressed={filter === f.key}
-              className={`text-xs px-3 py-1.5 rounded-full border ${
+              className={`min-h-[44px] lg:min-h-0 inline-flex items-center text-xs px-3 py-1.5 rounded-full border ${
                 filter === f.key ? "bg-inverted text-inverted-foreground border-inverted" : "border-border text-muted-foreground hover:bg-muted"
               }`}
             >
@@ -892,7 +892,7 @@ export default function PlatformSignupsPage() {
             type="button"
             disabled={!repId || !tickedTargets.length || Boolean(busy)}
             onClick={() => assign(tickedTargets, "bulk")}
-            className="bg-inverted text-inverted-foreground rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-40"
+            className="min-h-[44px] lg:min-h-0 bg-inverted text-inverted-foreground rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-40"
             data-bulk-assign
           >
             {busy === "bulk" ? "Assigning…" : `Assign ${tickedTargets.length || ""} to ${repById.get(repId)?.name || "…"} for callback`}

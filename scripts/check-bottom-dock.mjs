@@ -114,6 +114,17 @@ const ALLOWED = [
     path: "app/components/sales/SalesTour.js",
     reason: "the tour's launcher pill; check-sales-mobile.mjs asserts it sits above the tab bar",
   },
+  // ── Public, client-facing pages ─────────────────────────────────────────
+  //
+  // Not back office at all: no /app shell, no tab bar, no Jennifer or Help
+  // launcher, so there is nothing for a dock to clear and nothing that reads
+  // --fq-dock-height. Excused by FILE, not by app/components/public/, so a
+  // component there that does end up mounted under /app is still caught.
+  {
+    path: "app/components/public/AdConsentNotice.js",
+    reason:
+      "the ad-cookie notice on the public instant estimate and lead funnels (InstantQuoteFlow, FunnelRunner) — no /app shell there, so no tab bar or launchers to clear",
+  },
   {
     path: "app/components/sales/IncomingCallDock.js",
     reason: "the ringing-call dialog and in-call strip; check-sales-mobile.mjs asserts both sit above the tab bar",
