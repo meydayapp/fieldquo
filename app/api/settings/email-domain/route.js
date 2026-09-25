@@ -25,6 +25,7 @@ import {
   normalizeStatus,
   isPlausibleDomain,
 } from "@/lib/email/resendDomains";
+import { suggestSendingDomain } from "@/lib/email/suggestSendingDomain";
 
 const SELECT = {
   emailDomain: true,
@@ -75,10 +76,15 @@ export async function GET(request) {
 
   const company = await db.company.findUnique({
     where: { id: member.companyId },
-    select: SELECT,
+    select: { ...SELECT, website: true },
   });
+  if (!company) return NextResponse.json({});
 
-  return NextResponse.json(company || {});
+  // The website from signup, turned into a proposed sending domain for the
+  // empty form (lib/email/suggestSendingDomain.js says when it declines). The
+  // raw website stays out of the response: the form needs the suggestion only.
+  const { website, ...rest } = company;
+  return NextResponse.json({ ...rest, suggestedDomain: suggestSendingDomain(website) });
 }
 
 // POST { domain } to register a new one, or POST {} to re-check the existing

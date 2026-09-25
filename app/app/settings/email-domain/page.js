@@ -85,7 +85,9 @@ export default function EmailDomainPage() {
       if (!res.ok) throw new Error(json.error || t("app.setEmailDomain.loadError"));
       setData(json);
       setLocalInput(json.emailFromLocal || "quotes");
-      setDomainInput(json.emailDomain || "");
+      // Prefilled from the website given at signup when nothing is connected
+      // yet — a proposal they can edit; Connect is still their press.
+      setDomainInput(json.emailDomain || json.suggestedDomain || "");
     } catch (err) {
       setError(err.message);
     } finally {
