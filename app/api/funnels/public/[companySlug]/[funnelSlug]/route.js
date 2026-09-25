@@ -7,6 +7,7 @@ import { findBookingCompany } from "@/lib/booking/findBookingCompany";
 import { sanitiseFunnelSteps } from "@/app/data/funnelBlocks";
 import { serveFunnelSteps } from "../../funnelEstimate";
 import { effectivePixels } from "@/lib/funnels/pixels";
+import { funnelPageLanguage } from "@/lib/i18n/funnelCopy";
 
 // Public — the funnel a stranger taps through. Branding + steps only. No prices,
 // no response data, no admin fields. Pixel IDs are returned because the pixel
@@ -63,10 +64,14 @@ export async function GET(request, { params }) {
   // funnel whose estimate step has nothing behind it; this log line is for
   // support, who get a slug and need the reason without a screen-share.
   const clean = sanitiseFunnelSteps(funnel.steps);
+  // One language for the whole page: the chrome the runner draws and the
+  // estimate wording served here both follow the company (see
+  // lib/i18n/funnelCopy.js for why never the visitor).
+  const language = funnelPageLanguage(company);
   const { steps, dropped } = await serveFunnelSteps({
     companyId: company.id,
     steps: clean,
-    language: company.defaultLanguage || "en",
+    language,
   });
   for (const d of dropped) {
     console.warn(
@@ -83,9 +88,11 @@ export async function GET(request, { params }) {
       // The estimate step renders money, and a Michigan contractor quoting in
       // CA$ is a page that looks like it belongs to someone else.
       currency: company.currency,
-      // The page's language for the two tracking sentences (the save notice
-      // and the ad-cookie question); the funnel's own copy is the company's.
-      language: company.defaultLanguage || "en",
+      // The page's language — every word of chrome the runner draws around
+      // the funnel's own copy (lib/i18n/funnelCopy.js), the save notice and
+      // the ad-cookie question included. The same rule the page itself used
+      // for the runner's `language` prop, so the two cannot disagree.
+      language,
       pixelConsentRequired: Boolean(company.pixelConsentRequired),
     },
     funnel: {

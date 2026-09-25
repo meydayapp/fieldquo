@@ -369,6 +369,101 @@ console.log("\n7. The competitor ledger no longer denies purchase orders\n");
 }
 
 // ══════════════════════════════════════════════════════════════════════════
+console.log("\n8. The public funnel's chrome is in the company's language, not English\n");
+//
+// A French company's funnel read "Votre projet ?" over a "Your name" box and
+// an English "Submit", "Back", "Thanks!", validation and estimate footnote —
+// every word FieldQuo drew was hardcoded English. The rule now: the chrome is
+// drawn in the COMPANY's language (funnelPageLanguage), the same one the
+// public API already priced the estimate wording in, because the funnel's own
+// copy is written once in that language and chrome that followed the visitor
+// would make a two-language page. Executed for the words, read from source for
+// the wiring.
+{
+  const { funnelCopy, funnelPageLanguage } = await import("@/lib/i18n/funnelCopy");
+  const { CLIENT_DOC_COPY } = await import("@/lib/i18n/clientDocCopy");
+  const { lockedEstimateMessage, gatedMessage } = await import("@/lib/estimate/visibility");
+  const CLIENT_LANGS = ["en", "fr", "es", "uk", "pa", "tl", "de", "it"];
+
+  // ── The rule ──
+  for (const code of CLIENT_LANGS) {
+    ok(`a company whose default is ${code} gets a ${code} page`, funnelPageLanguage({ defaultLanguage: code }) === code);
+  }
+  ok("…a default with no client catalogue (zh) is English, not a half-translated page",
+    funnelPageLanguage({ defaultLanguage: "zh" }) === "en");
+  ok("…no company / no default is English",
+    funnelPageLanguage(null) === "en" && funnelPageLanguage({}) === "en" && funnelPageLanguage(undefined) === "en");
+  ok("…and it takes the company ONLY — no argument a visitor's browser could reach",
+    funnelPageLanguage.length === 1);
+
+  // ── The words, in every client language ──
+  const flat = (o, p = "") =>
+    Object.entries(o).flatMap(([k, v]) => (v && typeof v === "object" ? flat(v, `${p}${k}.`) : [[`${p}${k}`, v]]));
+  const sample = (v) => (typeof v === "function" ? v(3, 5) : v);
+  const en = Object.fromEntries(flat(funnelCopy("en")).map(([k, v]) => [k, sample(v)]));
+  // "Email" is the word Tagalog and Italian forms really use.
+  const SAME_AS_ENGLISH_OK = { tl: ["emailPlaceholder"], it: ["emailPlaceholder"] };
+  for (const code of CLIENT_LANGS) {
+    ok(`clientDocCopy has a funnel block for ${code}`, Boolean(CLIENT_DOC_COPY[code]?.funnel));
+    const words = Object.fromEntries(flat(funnelCopy(code)).map(([k, v]) => [k, sample(v)]));
+    const blank = Object.entries(words).filter(([k, v]) => k !== "unit" && !(typeof v === "string" && v.trim()));
+    ok(`${code}: every chrome string is present`, blank.length === 0, blank.map(([k]) => k));
+    if (code === "en") continue;
+    const english = Object.keys(en).filter(
+      (k) => k !== "unit" && words[k] === en[k] && !(SAME_AS_ENGLISH_OK[code] || []).includes(k),
+    );
+    ok(`${code}: none of it is still English`, english.length === 0, english);
+    ok(`${code}: the pricer's "per visit" unit is translated`, funnelCopy(code).unit("per visit") !== "per visit");
+    ok(`${code}: the locked-estimate wording the API serves is not English`,
+      lockedEstimateMessage(code).title !== lockedEstimateMessage("en").title &&
+        lockedEstimateMessage(code).body !== lockedEstimateMessage("en").body);
+    ok(`${code}: the gated wording the API serves is not English`,
+      gatedMessage(code, "prompt") !== gatedMessage("en", "prompt"));
+  }
+  ok("an unknown unit is shown as it came rather than dropped", funnelCopy("fr").unit("per door") === "per door");
+  ok("the company's name reaches the estimate footnote", funnelCopy("fr").estimateNote("Peinture Roy").includes("Peinture Roy"));
+
+  // ── The wiring ──
+  const runner = stripComments(read("app/f/[companySlug]/[funnelSlug]/FunnelRunner.js"));
+  const OLD_ENGLISH = [
+    "Your name", "\"Email\"", "\"Phone\"", "Where should we send it?", "Get started", "\"Continue\"",
+    "\"Submit\"", "Thanks!", "Need it sooner?", "Your estimate", "Please tell us your name",
+    "Add an email or phone", "Couldn't send that", "Couldn't work that out", "This funnel isn't available",
+    "under our minimum charge", "This is an estimate from the details",
+  ];
+  const left = OLD_ENGLISH.filter((s) => runner.includes(s));
+  ok("FunnelRunner draws none of its old hardcoded English", left.length === 0, left);
+  ok("…no literal placeholder, no literal `|| \"…\"` fallback, no bare English text node",
+    !/placeholder="/.test(runner) && !/\|\|\s*"[A-Z]/.test(runner) && !/>\s*[A-Z][a-z]+(?:[ ,'][a-z?!.]+)*\s*</.test(runner));
+  ok("…no server error string is put on screen", !/setError\(err\.message\)/.test(runner) && !/setLoadError\(err\.message\)/.test(runner));
+  ok("…its words come from funnelCopy in the page language",
+    /funnelCopy\(pageLanguage\)/.test(runner) && /data\?\.company\?\.language \|\| language/.test(runner));
+  ok("…the upload control is handed the page's strings, not its /app English defaults",
+    /<MediaUploader[\s\S]*?\{\.\.\.copy\.upload\}/.test(runner));
+  const shells = runner.match(/<Shell\b[^>]*>/g) || [];
+  ok("…every Shell marks the page's language (lang=)", shells.length >= 3 && shells.every((s) => /lang=\{pageLanguage\}/.test(s)), shells);
+  ok("…and the progress bar says where the visitor is, in words", /aria-valuetext=\{copy\.progress\(/.test(runner));
+
+  const page = stripComments(read("app/f/[companySlug]/[funnelSlug]/page.js"));
+  const embedPage = stripComments(read("app/embed/[companySlug]/funnel/[funnelSlug]/page.js"));
+  const api = stripComments(read("app/api/funnels/public/[companySlug]/[funnelSlug]/route.js"));
+  ok("the /f page resolves the language on the server and hands it to the runner",
+    /defaultLanguage:\s*true/.test(page) && /language=\{funnelPageLanguage\(company\)\}/.test(page));
+  ok("…so does the embed", /defaultLanguage:\s*true/.test(embedPage) && /language=\{funnelPageLanguage\(company\)\}/.test(embedPage));
+  ok("…and the public API answers with the same rule, for both the chrome and the estimate wording",
+    /const language = funnelPageLanguage\(company\)/.test(api) && /serveFunnelSteps\(\{[\s\S]*?language,/.test(api) && /\blanguage,\s*\n\s*pixelConsentRequired/.test(api));
+
+  const preview = stripComments(read("app/app/funnels/[id]/StepPreview.js"));
+  ok("the builder's preview stands in for the public chrome with the public words, not English",
+    !/\|\|\s*"[A-Z]/.test(preview) && /funnelCopy\(company \? funnelPageLanguage\(company\) : language\)/.test(preview));
+  ok("…and the builder hands it the company's language",
+    /defaultLanguage:\s*true/.test(stripComments(read("app/api/funnels/[id]/route.js"))));
+  ok("…an unnamed option (editor-only: it cannot be published) is keyed in every interface language",
+    /app\.funnels\.previewUntitledOption/.test(preview) &&
+      LANGS.every((l) => typeof APP_MESSAGES[l]["app.funnels.previewUntitledOption"] === "string"));
+}
+
+// ══════════════════════════════════════════════════════════════════════════
 console.log("");
 if (fails.length) {
   console.log(`FAILED — ${fails.length} of ${pass + fails.length}\n`);

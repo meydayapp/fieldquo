@@ -63,7 +63,15 @@ ok("range payload has the figures but nothing else numeric", /4200/.test(payload
 console.log("\ngatedMessage — never blank, language-aware");
 ok("en message", /quote/i.test(gatedMessage("en")));
 ok("fr message", /soumission/i.test(gatedMessage("fr")));
-ok("unknown lang -> en", gatedMessage("de") === gatedMessage("en"));
+// "de" used to be the unknown language here. It is not any more — the lead
+// funnel is drawn in the company's language, which can be any of the eight
+// client languages — so the unknown case is a code nothing claims.
+ok("unknown lang -> en", gatedMessage("zz") === gatedMessage("en"));
+for (const code of ["uk", "pa", "tl", "de", "it"]) {
+  ok(`${code} message, both stages, not English`,
+    gatedMessage(code, "prompt") !== gatedMessage("en", "prompt") &&
+      gatedMessage(code, "confirmed") !== gatedMessage("en", "confirmed"));
+}
 ok("no arg -> en", typeof gatedMessage() === "string" && gatedMessage().length > 10);
 
 console.log(`\n${fail === 0 ? "ALL PASS" : "FAILURES"} — ${pass} passed, ${fail} failed\n`);

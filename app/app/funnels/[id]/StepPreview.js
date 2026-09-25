@@ -12,22 +12,44 @@
 //            answers [{ id, label }]
 //   accent   the company's brand hex; the frame and buttons are drawn in it,
 //            with readableForeground() choosing the ink on top
-//   company  accepted and unused — the builder has always passed it
+//   company  the builder's company (needs `defaultLanguage`), or null on the
+//            /signup panel
+//
+// ── Two languages in one frame, on purpose ──────────────────────────────────
+//
+// The frame stands in for the public page, so the words that stand in for
+// the public page's chrome — "Get started", the contact placeholders, "Submit"
+// where the contractor left a button blank — are the words the visitor will
+// actually see: funnelCopy() in the COMPANY's language, by the same rule the
+// public runner uses (lib/i18n/funnelCopy.js funnelPageLanguage). They used to
+// be English, and not even the runner's English ("Your details" here, "Where
+// should we send it?" there), so a French contractor previewed a page that
+// did not exist. The editor's own annotations stay in the contractor's
+// interface language through t(), below. With no company (the /signup panel,
+// fixture steps) there is no page to be faithful to, and the frame follows
+// the interface language like everything around it.
 "use client";
 
 import { Check } from "lucide-react";
 import { readableForeground } from "@/lib/brand/colour";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { funnelCopy, funnelPageLanguage } from "@/lib/i18n/funnelCopy";
 
 // A faithful single-step preview in a phone frame, brand-accented.
 export default function StepPreview({ step, accent, company }) {
-  // Only the EDITOR'S annotations inside this frame are keyed — "No step
-  // selected", "Add a size option", the note under the placeholder price.
-  // Everything that stands in for the funnel's own copy stays as it is,
-  // because that is the text a homeowner will read and it belongs to the
-  // contractor, not to the interface. See the note above newStep() in
-  // page.js on where that line falls.
-  const { t } = useTranslation();
+  // Only the EDITOR'S annotations inside this frame go through t() — "No step
+  // selected", "Add a size option", the note under the placeholder price, an
+  // unnamed option. The funnel's own copy is drawn as the contractor wrote
+  // it, and where they left a field blank the frame shows the public page's
+  // chrome in the public page's language (`copy`, see the header). See the
+  // note above newStep() in page.js on where that line falls.
+  const { t, language } = useTranslation();
+  const copy = funnelCopy(company ? funnelPageLanguage(company) : language);
+  const placeholder = {
+    name: copy.namePlaceholder,
+    email: copy.emailPlaceholder,
+    phone: copy.phonePlaceholder,
+  };
   const on = readableForeground(accent);
   return (
     <div
@@ -48,7 +70,7 @@ export default function StepPreview({ step, accent, company }) {
               <Check size={22} />
             </div>
             <h3 className="font-bold text-[#2d2520]">
-              {step.headline || "Thanks!"}
+              {step.headline || copy.thanks}
             </h3>
             {step.subhead && (
               <p className="text-xs text-[#2d2520]/70 mt-1">{step.subhead}</p>
@@ -66,21 +88,21 @@ export default function StepPreview({ step, accent, company }) {
               className="w-full mt-4 py-2.5 rounded-full text-sm font-bold"
               style={{ backgroundColor: accent, color: on }}
             >
-              {step.buttonText || "Get started"}
+              {step.buttonText || copy.getStarted}
             </button>
           </div>
         ) : step.kind === "form" ? (
           <div>
             <h3 className="font-bold text-[#2d2520]">
-              {step.headline || "Your details"}
+              {step.headline || copy.formTitle}
             </h3>
             <div className="mt-3 space-y-2">
               {(step.fields || ["name", "email", "phone"]).map((f) => (
                 <div
                   key={f}
-                  className="border border-black/15 rounded-lg px-3 py-2 text-xs text-neutral-400 capitalize"
+                  className="border border-black/15 rounded-lg px-3 py-2 text-xs text-neutral-400"
                 >
-                  {f}
+                  {placeholder[f] || f}
                 </div>
               ))}
             </div>
@@ -88,13 +110,13 @@ export default function StepPreview({ step, accent, company }) {
               className="w-full mt-3 py-2.5 rounded-full text-sm font-bold"
               style={{ backgroundColor: accent, color: on }}
             >
-              {step.buttonText || "Submit"}
+              {step.buttonText || copy.submit}
             </button>
           </div>
         ) : step.kind === "instant_estimate" ? (
           <div>
             <h3 className="font-bold text-[#2d2520]">
-              {step.headline || "Your instant price"}
+              {step.headline || copy.estimateTitle}
             </h3>
             {step.subhead && (
               <p className="text-xs text-[#2d2520]/70 mt-1">{step.subhead}</p>
@@ -115,7 +137,10 @@ export default function StepPreview({ step, accent, company }) {
                     key={b.id}
                     className="border border-black/15 rounded-lg px-3 py-2 text-sm text-[#2d2520]"
                   >
-                    {b.label || "Untitled option"}
+                    {/* Editor chrome: an unnamed option cannot be published
+                        (funnelBlocks.js refuses "unlabelled_band"), so this
+                        only ever speaks to the contractor. */}
+                    {b.label || t("app.funnels.previewUntitledOption")}
                   </div>
                 ))
               )}
@@ -171,7 +196,7 @@ export default function StepPreview({ step, accent, company }) {
                 className="w-full mt-3 py-2.5 rounded-full text-sm font-bold"
                 style={{ backgroundColor: accent, color: on }}
               >
-                {step.buttonText || "Continue"}
+                {step.buttonText || copy.continue}
               </button>
             )}
           </div>

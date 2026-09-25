@@ -42,13 +42,18 @@ import StepPreview from "./StepPreview";
 // All of it goes through t() and follows the contractor's interface language.
 //
 // The funnel's own copy is CLIENT-FACING — the headline a homeowner reads, the
-// button they tap, the placeholder seeded by newStep() and the preview
-// fallbacks that stand in for it. None of that is keyed, on purpose: it is the
-// contractor's text, editable on this screen, and it appears on a public page
-// in whatever language they sell in. Running it through the back-office
-// language would mean a Spanish-speaking contractor with English-speaking
-// customers could not seed English copy — and it would change what an already
-// published funnel says, which is the same rule as AGENTS.md non-negotiable #6.
+// button they tap, the placeholder seeded by newStep(). None of that is keyed,
+// on purpose: it is the contractor's text, editable on this screen, and it
+// appears on a public page in whatever language they sell in. Running it
+// through the back-office language would mean a Spanish-speaking contractor
+// with English-speaking customers could not seed English copy — and it would
+// change what an already published funnel says, which is the same rule as
+// AGENTS.md non-negotiable #6.
+//
+// The preview's FALLBACKS for a field left blank are neither: they stand in
+// for the public page's own chrome, so StepPreview draws them from
+// lib/i18n/funnelCopy.js in the company's language — what the visitor will
+// actually see — rather than in either of the two above.
 //
 // (What newStep() seeds is still ENGLISH for everyone, which is a real gap and
 // a product decision rather than a keying one — see the report.)
