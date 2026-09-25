@@ -528,7 +528,7 @@ export default function PlatformAnalyticsPage() {
                 {data.campaigns ? (
                   <p className="text-xs text-muted-foreground">
                     How each signup was credited: {num(data.campaigns.attributionBasis.stored)} from the first touch kept on the signup,{" "}
-                    {num(data.campaigns.attributionBasis.visitor)} read from the browser&apos;s landings, {num(data.campaigns.attributionBasis.link)} from
+                    {num(data.campaigns.attributionBasis.visitor)} read from the browser&apos;s landings, {num(data.campaigns.attributionBasis.link)} from{" "}
                     the /signup link&apos;s own tags, {num(data.campaigns.attributionBasis.none)} with no campaign.
                     {data.campaigns.truncated ? " The landing read hit its cap; views are a floor." : ""}
                   </p>
