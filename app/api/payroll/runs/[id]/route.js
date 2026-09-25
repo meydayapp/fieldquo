@@ -189,7 +189,17 @@ export async function PATCH(request, { params }) {
         { status: 409 },
       );
     }
-    await db.payRun.update({ where: { id }, data: { status: "cancelled" } });
+    // The commission rows this run carried go back to "due", in the same
+    // transaction as the cancel: a cancelled run paid nobody, and a row left
+    // pointing at it would never be offered again. (The row keeps its
+    // history — the ledger is append-only; only the settlement is undone.)
+    await db.$transaction([
+      db.payRun.update({ where: { id }, data: { status: "cancelled" } }),
+      db.jobCommissionEntry.updateMany({
+        where: { payRunId: id, companyId: member.companyId },
+        data: { payRunId: null },
+      }),
+    ]);
     await recordActivity(member, {
       action: "payroll.run_cancelled",
       entityType: "payrun",

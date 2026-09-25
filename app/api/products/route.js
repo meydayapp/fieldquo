@@ -27,6 +27,8 @@ import { translateFields } from "@/lib/i18n/translateContent";
 // carries the send-language drafts for the review screen.
 import { scheduleAutoTranslate } from "@/lib/i18n/autoTranslateSchedule";
 import { loadEnforceableMember, requireToggle } from "@/lib/permissions/enforce";
+import { productCommissionData } from "@/lib/commissions/compute";
+import { redactProductCommission } from "@/lib/commissions/access";
 
 /** Owner/admin only. Mirrors the other settings routes. */
 function requireCatalogueWrite(member) {
@@ -54,6 +56,8 @@ export async function GET(request) {
   // this refuses outright rather than returning rows with the numbers
   // stripped — a catalogue of names with no prices would read as a broken
   // screen rather than a boundary.
+  // Declared out here: the commission redaction at the end reads it too.
+  let full;
   try {
     // (db, memberId) — this passed (member), so `db` was the member object and
     // `memberId` was undefined. loadEnforceableMember returns null for a
@@ -65,7 +69,7 @@ export async function GET(request) {
     // page ignored res.ok and rendered [] (fixed alongside this). The only
     // call site in the repo with the wrong arity; every other one already
     // passes (db, member.id).
-    const full = await loadEnforceableMember(db, member.id);
+    full = await loadEnforceableMember(db, member.id);
     requireToggle(full, "showPricing", "see the price book");
   } catch (err) {
     return denied(err);
@@ -91,7 +95,9 @@ export async function GET(request) {
     include: { categories: { select: { id: true, label: true } } },
   });
 
-  return NextResponse.json(products);
+  // An item's commission rate is what a worker earns on it — pay, which
+  // showPricing does not open. Stripped for anyone without payroll view_all.
+  return NextResponse.json(products.map((p) => redactProductCommission(full, p)));
 }
 
 export async function POST(request) {
@@ -111,6 +117,9 @@ export async function POST(request) {
   if (!name) {
     return NextResponse.json({ error: "name is required" }, { status: 400 });
   }
+  // The item's commission override — see the PATCH route beside this one.
+  const commission = productCommissionData(body);
+  if (!commission.ok) return NextResponse.json({ error: commission.error }, { status: 400 });
 
   // Draft translations for the languages this company actually sends in.
   // Awaited rather than fired-and-forgotten so the response carries them and
@@ -145,6 +154,7 @@ export async function POST(request) {
       unitPrice: unitPrice ?? null,
       costPrice: costPrice ?? null,
       unit: unit || null,
+      ...commission.data,
       ...(Array.isArray(categoryIds) && categoryIds.length > 0
         ? { categories: { connect: categoryIds.map((id) => ({ id })) } }
         : {}),

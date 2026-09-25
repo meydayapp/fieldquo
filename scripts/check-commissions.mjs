@@ -34,6 +34,8 @@ import { syncCommissionsForInvoice } from "@/lib/commissions/hook";
 import { commissionAccess, visibleEarners, canConfigureCommissions } from "@/lib/commissions/access";
 import { PERMISSION_PRESETS } from "@/lib/permissions";
 import { lineFromProduct } from "@/lib/quotes/lineDetail";
+import { commissionLinesForRun } from "@/lib/commissions/payRun";
+import { computePayRun } from "@/lib/payroll/computePayRun";
 
 let passed = 0;
 let failed = 0;
@@ -410,6 +412,50 @@ section("K — RBAC");
   eq("sees-all sees both", visibleEarners({ role: "owner" }, rows, "me").length, 2);
   ok("only owner/admin configure the feature", canConfigureCommissions({ role: "owner" }) && canConfigureCommissions({ role: "admin" }) && !canConfigureCommissions({ role: "supervisor" }));
   ok("no member → nothing", !commissionAccess(null).seesAll);
+}
+
+section("M — the pay run offers, and adds only what is ticked");
+{
+  const rows = [
+    { id: "r1", memberId: "m_ana", memberName: "Ana", amount: 50, jobId: "j1" },
+    { id: "r2", memberId: "m_ana", memberName: "Ana", amount: 50, jobId: "j2" },
+    { id: "r3", memberId: "m_ana", memberName: "Ana", amount: -20, jobId: "j1" },
+    { id: "r4", memberId: "m_sam", memberName: "Sam", amount: 25, jobId: "j1" },
+    { id: "r5", memberId: "m_ben", memberName: "Ben", amount: 10, jobId: "j3" },
+    { id: "r6", memberId: "m_ben", memberName: "Ben", amount: -30, jobId: "j3" },
+  ];
+  const members = [
+    { id: "m_ana", userId: "u_ana", user: { name: "Ana" } },
+    { id: "m_sam", userId: "u_sam", user: { name: "Sam" } },
+    { id: "m_ben", userId: "u_ben", user: { name: "Ben" } },
+  ];
+  const workers = [
+    { id: "w_ana", userId: "u_ana", name: "Ana Lopez" },
+    { id: "w_ben", userId: "u_ben", name: "Ben Ito" },
+  ];
+  const none = commissionLinesForRun({ rows, members, workers, include: [] });
+  ok("nothing ticked → no earning is added to anyone", Object.keys(none.adjustments).length === 0 && none.entryIds.length === 0);
+  const ana = none.due.find((d) => d.memberId === "m_ana");
+  ok("…but Ana's $80 net (50 + 50 − 20) over 2 jobs is offered", ana && ana.amount === 80 && ana.jobs === 2 && ana.payable && !ana.included, ana);
+  const sam = none.due.find((d) => d.memberId === "m_sam");
+  ok("Sam has no worker row → shown, not payable, and says why", sam && !sam.payable && sam.reason === "no_worker", sam);
+  const ben = none.due.find((d) => d.memberId === "m_ben");
+  ok("Ben's net clawback (−$20) is shown and never offered", ben && ben.amount === -20 && !ben.payable && ben.reason === "clawback", ben);
+
+  const ticked = commissionLinesForRun({ rows, members, workers, include: ["w_ana", "w_ben", "w_nobody"] });
+  ok("ticking Ana adds one earning line of $80", ticked.adjustments.w_ana?.length === 1 && ticked.adjustments.w_ana[0].amount === 80 && ticked.adjustments.w_ana[0].source === "commission", ticked.adjustments);
+  ok("…and carries exactly her three rows for the commit to stamp", JSON.stringify(ticked.entryIds.sort()) === JSON.stringify(["r1", "r2", "r3"]));
+  ok("ticking Ben does not deduct his clawback", !ticked.adjustments.w_ben);
+  const slip = computePayRun({
+    workers: [{ worker: { id: "w_ana", name: "Ana Lopez", type: "employee", hourlyRate: 30 }, totalHours: 10, salaryPerPeriod: 0, deductions: [], adjustments: ticked.adjustments.w_ana, perYear: 26 }],
+    region: "CA",
+    weeks: 2,
+    frequency: "biweekly",
+  });
+  const line = slip.lines[0];
+  ok("the payslip carries it as a 'commission' earning", line.items.some((i) => i.source === "commission" && i.amount === 80), line.items);
+  eq("gross = 10h × $30 + $80 commission", line.gross, 380);
+  ok("junk rows don't crash it", commissionLinesForRun({ rows: [null, { memberId: "x", amount: "abc" }], members: [], workers: [] }).due.length === 0);
 }
 
 section("L — wired, not just correct");

@@ -12,6 +12,7 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { sanitiseTemplateLines, sanitiseDefaultDiscount, sanitiseImageUrl, sanitiseEstimateTypes } from "@/lib/services/templates";
 import { scheduleAutoTranslate } from "@/lib/i18n/autoTranslateSchedule";
+import { productCommissionData } from "@/lib/commissions/compute";
 
 /** Owner/admin only, matching every other company-wide settings route. */
 function requireCatalogueWrite(member) {
@@ -86,6 +87,13 @@ export async function PATCH(request, { params }) {
     templateEnabled,
   } = body;
 
+  // The item's commission override (Settings › Products, shown only when the
+  // company has commissions on). Refused, not clamped, when out of range —
+  // lib/commissions/compute.js#productCommissionData. The route is already
+  // owner/admin only, and both hold payroll, so no second gate is needed.
+  const commission = productCommissionData(body);
+  if (!commission.ok) return NextResponse.json({ error: commission.error }, { status: 400 });
+
   if (Array.isArray(categoryIds) && categoryIds.length) {
     const usable = await usableCategoryIds(member.companyId, categoryIds);
     if (categoryIds.some((id) => !usable.has(id)))
@@ -112,6 +120,7 @@ export async function PATCH(request, { params }) {
       ...(imageUrl !== undefined && { imageUrl: sanitiseImageUrl(imageUrl) }),
       ...(estimateTypes !== undefined && { estimateTypes: sanitiseEstimateTypes(estimateTypes) }),
       ...(templateEnabled !== undefined && { templateEnabled: templateEnabled !== false }),
+      ...commission.data,
       // `set` fully replaces the linked quote types with this list (as
       // opposed to `connect`, which would only add) — matches how the
       // multi-select in the Products & Services edit modal works, where the
