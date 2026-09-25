@@ -138,6 +138,61 @@ documented chat-completions shape and has not been exercised against the vendor.
   company's (shown, not converted) are not built.
 
 ---
+## Settings › AI employee: each employee's own name, auto-save, and "Tell clients it's an AI" (25 September 2026)
+
+The owner, 2026-09-22 (lost at a compaction, re-issued): "it doesn't seem to save the name and
+voice"; "each assistant should have its own default name that the company can change"; "the AI
+team doesn't update with the new name"; "it should have auto save"; "Face and name" looked
+company-wide. And: the AI never announces it's an AI unless asked, except where the law requires it.
+
+**Root cause (three, all fixed).** (1) `PUT /api/ai-employee` fell back to `rows[0]` when the body
+had no id. (2) The PUT was a full replace — every column rewritten from the body, a missing key
+blanked or defaulted (a missing role became the closed preset). (3) The screen re-seeded its form
+whenever the selected row's `updatedAt` moved, and the flow view's tool switch is a PATCH that moves
+it — so a name or voice typed and not yet saved (Save was a long scroll down) was silently replaced
+by the old value. The readers were all already per-employee (`displayName || name`): roster, flow
+view, handling timeline, web-chat face, hand-off introduction.
+
+**What shipped**
+- `lib/aiEmployee/settings.js` — `planEmployeeSave`: by id among the company's own rows (no id →
+  400, another company's id → 404, no fallback), only the fields in the body, an unknown value
+  refused by name instead of coerced, channel-conflict and SMS-number rules. The PUT calls it.
+- Auto-save per field (text after an 800 ms pause, switches at once, pending text flushed on blur,
+  employee switch and `pagehide` with keepalive), each field saying Saving… / Saved / Couldn't save
+  — Retry; refused switches revert to the server value; failures toast through
+  `reportResponseError`. A move to MORE autonomy still waits for a second click. The Save button is
+  gone.
+- The roster is a tab list and the selected employee's settings (face, name, voice, job, writing,
+  mode, channels, limits, Fire) sit inside that employee's own bordered card, headed with its face,
+  name and an all-fields save summary. The flow view moved below it.
+- `lib/aiEmployee/names.js` — each role hired under its own name, distinct per role in each of the
+  nine languages (en: Emma / Jack / Sam / Alex), in the company's language; the first receptionist
+  too. A legacy row still called "Assistant" with no customer name gets its role's name once.
+- `AiEmployee.greeting` ("Opening line") was saved and never read — now sent word for word at the
+  start of the first reply, and the model is told (fenced) not to greet again.
+- `Company.aiDisclosure Boolean?` (added by SQL, `ADD COLUMN` only) + `lib/aiEmployee/disclosure.js`
+  + `PUT /api/ai-employee/disclosure` (owner/admin, audited). null follows the location default:
+  ON for EU-27 (+ NO/IS/LI, EEA incorporation not verified), US-CA (B&P §17941), US-NJ (N.J.S.A.
+  56:18-2), US-ME (10 M.R.S. §1500-DD); ON when the country, or a US company's state, is unknown;
+  OFF elsewhere (UT, CO after SB 26-189, TX, NY, all of Canada, UK, AU). Sources in the file header.
+  The card says in one line why it defaulted that way and warns if switched off where required.
+- Prompt rule 5 either way: never claim to be human, NEVER deny being an AI, answer truthfully
+  whenever asked (covers Utah's ask-rule everywhere).
+- `check:ai-employee` 570 → 680: planner cases (foreign id 404, no id 400, the second employee's edit
+  lands on the second, one-field saves touch nothing else), names, disclosure by jurisdiction, the
+  prompt never denying, and the real responder: TX first reply without the line, CA with it, owner
+  override both ways, greeting sent.
+
+### Still owed here
+- Not walked in the browser: no signed-in session was available and accounts/passwords are off
+  limits. Walk Settings › AI employee on a demo company: rename, change voice, switch tabs mid-typing,
+  toggle a flow-view tool, reload — names should hold everywhere.
+- Most of these laws key on the CONSUMER's location; the default reads the company's. A per-thread
+  override from the client's known address was not built (product decision).
+- `handoffPhrase` is still written by nothing and read by nothing (no UI) — a separate sweep.
+- The help centre (`content/help/*/settings-4.js`, `messages-1.js`, nine languages) still says
+  "then **Save**" for the AI employee and does not mention the disclosure switch — rewrite owed.
+- The owner should confirm the EEA and "unknown location → ON" choices.
 
 ## The public form's fields and look (24 September 2026) — landed 25 September on `land/stranded-0925`
 
