@@ -140,13 +140,10 @@ export const MEASUREMENT_KEYS = [
   "exteriorReceptacles", "garageReceptacles", "circuits", "totalFt", "roughInHours", "trimOutHours", "panelHours", "totalHours",
   "bedrooms", "bathrooms", "squareFootage", "halfBaths",
   "areaSqFt", "perimeterLf", "each",
-  // NOT YET in lib/services/measurementKeys.js — asked for 2026-09-24 for air
-  // duct cleaning, where the price driver is the number of supply vents and
-  // returns. Until the registry carries them the loader flags these lines
-  // needsMeasurement and the estimator types the count.
+  // Air duct cleaning, where the price driver is the number of supply vents
+  // and returns — registered 2026-09-24 as counts typed on the estimate.
   "ventCount", "returnCount",
 ];
-export const PENDING_REGISTRY_KEYS = ["ventCount", "returnCount"];
 /** Line units that are a measurement — such a line must carry a key. */
 export const MEASURED_UNITS = ["sqft", "linear_ft", "square"];
 export const DISCOUNT_KINDS = ["fixed", "percent"];

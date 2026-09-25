@@ -82,6 +82,8 @@ import { taxPlaceOf } from "@/lib/quotes/taxPlace";
 import { quoteTotals, round2 } from "@/lib/quotes/totals";
 import { applyLineItemEdit } from "@/lib/quotes/builderPayload";
 import { lineFromProduct } from "@/lib/quotes/lineDetail";
+import { expandServiceTemplate, templateOffered, templateRunOf } from "@/lib/quotes/serviceTemplateLines";
+import { describeTemplateLine } from "@/app/components/quotes/builder/templateLineNotes";
 import { invoiceCostSummary } from "@/lib/costing/actualJobCost";
 import { lineItemCostOf } from "@/lib/costing/lineItemCost";
 import { invoiceCreateBody, invoicePatchBody, invoiceOfflinePayload } from "@/lib/invoices/builderRequest";
@@ -467,6 +469,22 @@ export function InvoiceBuilderForm({ mode = "create", invoiceId = null, bootstra
   const removeLineAt = (i) => setLineItems((prev) => prev.filter((_, j) => j !== i));
   const addProductLine = (product) =>
     setLineItems((prev) => [...prev, lineFromProduct(product, { language: documentLanguage, defaultLanguage: companyLanguage })]);
+  // A service's template, as the quote builder adds it (lib/quotes/
+  // serviceTemplateLines.js) — with two differences an invoice imposes. It
+  // has no takeoffs, so every measured line asks for its quantity; and no
+  // unpriced heading line, because the invoice renderers print every line
+  // with an amount and a heading would read "$0.00" there.
+  const addProductTemplate = (product) => {
+    const { lines } = expandServiceTemplate(product, {
+      measurements: null,
+      language: documentLanguage,
+      companyLanguage,
+      currency: companyCurrency,
+      runId: crypto.randomUUID(),
+      heading: false,
+    });
+    if (lines.length) setLineItems((prev) => [...prev, ...lines]);
+  };
 
   const labourRate = labourOffer?.rates?.find((r) => r.key === labourRateKey) || null;
   // The preview line for the clocked hours: the server's hours × the
@@ -788,6 +806,22 @@ export function InvoiceBuilderForm({ mode = "create", invoiceId = null, bootstra
         onAddProduct={products.length ? addProductLine : undefined}
         documentLanguage={documentLanguage}
         showPricing={showPricing}
+        templateInfo={(product) => {
+          if (!templateOffered(product, { invoice: true })) return null;
+          const { summary } = expandServiceTemplate(product, { currency: companyCurrency, heading: false });
+          if (!summary.lines) return null;
+          return {
+            count: summary.lines,
+            // Nothing on an invoice measures, so no "n of m fill" preview.
+            measured: 0,
+            filled: 0,
+            alreadyAdded: lineItems.some((l) => templateRunOf(l)?.productId === String(product.id)),
+          };
+        }}
+        onAddProductTemplate={addProductTemplate}
+        describeLine={(item, i, items) =>
+          templateRunOf(item) ? describeTemplateLine({ t, language, item, index: i, items }) : null
+        }
       />
     </>
   );
