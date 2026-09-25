@@ -43,6 +43,7 @@ import {
   stairsFromSteps,
   stairFillPatch,
   stairFillSnapshot,
+  inferStairFill,
   STAIR_SHAPES,
   DEFAULT_STAIR_SHAPE,
 } from "@/lib/estimate/stairsFromSteps";
@@ -192,11 +193,15 @@ const STAIR_ELEMENTS = [
 const STAIR_SHAPE_GLYPHS = { straight: "─", L: "L", U: "U" };
 
 function FillFromSteps({ section, onPatch, t }) {
-  const [steps, setSteps] = useState("");
-  const [shape, setShape] = useState(DEFAULT_STAIR_SHAPE);
+  // Reopened on a staircase an earlier fill wrote: the box comes back on
+  // that step count and shape, and the rule's boxes are the fill's again
+  // (inferStairFill — nothing extra is stored on the takeoff).
+  const [inferred] = useState(() => inferStairFill(section));
+  const [steps, setSteps] = useState(inferred ? String(inferred.steps) : "");
+  const [shape, setShape] = useState(inferred?.shape || DEFAULT_STAIR_SHAPE);
   // What the last fill wrote (so the next one can tell its own numbers from
   // the estimator's), and the boxes as they were before the first fill.
-  const [last, setLast] = useState(null);
+  const [last, setLast] = useState(inferred?.last || null);
   const [before, setBefore] = useState(null);
   const [filledSteps, setFilledSteps] = useState(null);
   const derived = stairsFromSteps({ steps, shape });

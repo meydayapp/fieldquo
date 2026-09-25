@@ -29,6 +29,7 @@ import {
   stairsDerivationNote,
   stairFillPatch,
   stairFillSnapshot,
+  inferStairFill,
   STAIR_SHAPES,
   DEFAULT_STAIR_SHAPE,
 } from "@/lib/estimate/stairsFromSteps";
@@ -189,7 +190,7 @@ ok("a FillFromSteps control exists", /function FillFromSteps\(/.test(TAKEOFF));
 ok("...rendered inside the staircase section", /<FillFromSteps/.test(TAKEOFF));
 ok("...that calls the one rule, not a copy of it", /stairsFromSteps\(\{ steps, shape \}\)/.test(TAKEOFF) && !/balusters: 2 \* /.test(TAKEOFF));
 ok("...offers the three shapes as ─ / L / U", /STAIR_SHAPE_GLYPHS = \{ straight: "─", L: "L", U: "U" \}/.test(TAKEOFF));
-ok("...defaults to L", /useState\(DEFAULT_STAIR_SHAPE\)/.test(TAKEOFF));
+ok("...defaults to L (unless reopened on a stair an earlier fill wrote)", /useState\(inferred\?\.shape \|\| DEFAULT_STAIR_SHAPE\)/.test(TAKEOFF));
 // No Fill button (owner, 2026-09-22): the step box and the shape fill at once.
 ok("there is no Fill button any more", !/stairs-fill-apply/.test(TAKEOFF));
 ok("typing the step count fills", /onChange=\{\(e\) => fill\(e\.target\.value, shape\)\}/.test(TAKEOFF));
@@ -244,6 +245,20 @@ ok("the fill goes through the same set() the inputs use", /onPatch=\{\(patch\) =
   ok("Undo's snapshot is the eight fillable boxes as they stood", JSON.stringify(
     stairFillSnapshot(fresh)) === JSON.stringify(
     { treads: 0, risers: 0, balusters: 0, posts: 0, handrailFt: 0, paintRisers: false, paintBalusters: false, paintPosts: false }));
+
+  // Reopened: the editor was closed and the step box's state went with it.
+  // The fill is recognised from the counts, so a new step count still moves
+  // the rule's boxes and still leaves a typed-over one alone.
+  const filled14 = { ...fresh, ...first.patch };
+  const inf = inferStairFill(filled14);
+  ok("a stair filled from 14 steps, L, is recognised as such on reopen", inf?.steps === 14 && inf?.shape === "L", inf);
+  const reopened = stairFillPatch({ ...filled14, balusters: 30 }, d20, inf.last);
+  ok("…and 20 typed after reopening moves the fill's boxes", reopened.patch.treads === 20 && reopened.patch.risers === d20.risers, reopened.patch);
+  ok("…but not the one typed over before closing", !("balusters" in reopened.patch), reopened.patch);
+  ok("…nor a part switched off before closing", !("paintPosts" in stairFillPatch({ ...filled14, paintPosts: false }, d20, inf.last).patch));
+  ok("a U-shape fill is recognised as U", inferStairFill({ ...fresh, ...stairFillPatch(fresh, stairsFromSteps({ steps: 12, shape: "U" }), null).patch })?.shape === "U");
+  ok("counts typed by hand that no rule gives are not claimed as a fill", inferStairFill({ ...fresh, treads: 14, risers: 14, posts: 2 }) === null);
+  ok("an empty or junk section infers nothing", inferStairFill(fresh) === null && inferStairFill(null) === null && inferStairFill({ treads: "x" }) === null);
 
   // Hostile.
   ok("no derived stair (bad step count) writes nothing", Object.keys(stairFillPatch(fresh, stairsFromSteps({ steps: "abc" }), null).patch).length === 0);
