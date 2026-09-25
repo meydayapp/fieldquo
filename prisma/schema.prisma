@@ -18685,6 +18685,63 @@ model ConversationReview {
   @@index([companyId, generatedAt])
 }
 
+/// "Coach me on this conversation" — the last paid coaching read of ONE
+/// thread (lib/ai/conversationCoach.js), kept so reopening the thread shows it
+/// again instead of buying it again.
+///
+/// ══ One row per thread, replaced on a re-run ═══════════════════════════════
+///
+/// The owner's rule: cache the last result with the message count it was based
+/// on, and re-run only when somebody asks. A history of every coaching would be
+/// a second, slower inbox nobody reads; the one that matters is the latest, and
+/// `basedOnMessages` is what lets the panel say "3 messages since this was
+/// written" rather than silently presenting advice about a shorter thread.
+///
+/// ══ Plain id columns, no relations ═════════════════════════════════════════
+///
+/// Same shape as ConversationReview above and for the same reason: a relation
+/// needs a back-reference inside MessageThread and Company, which other
+/// concurrent changes also append to. The thread is looked up by
+/// (companyId, threadId) in every read — never by threadId alone — so a row can
+/// only ever be served to the company that paid for it.
+model ConversationCoach {
+  id        String @id @default(cuid())
+  companyId String
+  threadId  String @unique
+
+  generatedAt       DateTime @default(now())
+  /// Who pressed the button. An audit stamp, never joined on.
+  generatedByUserId String?
+
+  /// The rule-score message count the read was built from. Compared with the
+  /// thread's current count to say whether anything has been said since.
+  basedOnMessages Int @default(0)
+
+  /// What answered, as provider.js reported it, and what it cost — tokens
+  /// (what the company's allowance spent) and micros (FieldQuo's vendor cost,
+  /// never shown to the tenant).
+  model            String?
+  promptTokens     Int     @default(0)
+  completionTokens Int     @default(0)
+  costMicros       Int     @default(0)
+
+  /// The language the coaching prose was written in (the reader's) and the
+  /// language the suggested reply was drafted in (the client's). Stored so the
+  /// panel can say which language the draft is in without re-deriving it from
+  /// a client record that may have changed since.
+  readerLanguage String @default("en")
+  replyLanguage  String @default("en")
+
+  /// The coaching itself — see shapeCoachResult() in
+  /// lib/ai/conversationCoach.js. Every figure in it came from our code.
+  result Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, generatedAt])
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Sales-rep escalation to FieldQuo tech support
 // ═══════════════════════════════════════════════════════════════════════════
