@@ -84,6 +84,31 @@ import { PROMOTE_AFTER_MS, STEP_LABELS, emailKeyOf, tradeKeyForIndustries, unfin
 import { EARLY_NUDGE_DELAY_MINUTES, EARLY_TOUCH, RECOVERY_TOUCH } from "@/lib/signup/earlyNudge";
 import { discoveryTradeKeys, discoveryTradeLabel, isDiscoveryTradeKey } from "@/lib/sales/discovery/trades";
 import { INDUSTRIES } from "@/app/data/industries";
+import { dncSentence, loadSignupHistories, signupHolderOf, signupSuppressions } from "@/lib/signup/assignment";
+
+/**
+ * The floor row's columns every signup row reads: who holds it and since
+ * when (the holder line), the Prospect's own do-not-contact flag, and the
+ * address and number the list is asked about.
+ */
+const FLOOR_SELECT = {
+  id: true, hot: true, signupKind: true, tradeKey: true, assignedRepId: true, assignedAt: true, claimExpiresAt: true,
+  doNotContactAt: true, doNotContactReason: true, mergedIntoId: true, email: true, phoneE164: true,
+};
+
+/**
+ * What the owner may press on a row, decided here beside the holder so the
+ * screen draws only what the server would do. The routes re-check all of it.
+ */
+function actionsFor({ holder, dnc, dismissed, referred }) {
+  const heldByRep = holder.kind === "rep";
+  return {
+    // A lease back to the platform. A worked row is moved, never released.
+    takeBack: heldByRep && !holder.worked,
+    reassign: heldByRep && !dnc.dnc && !dismissed,
+    assign: !heldByRep && holder.kind !== "rep_own" && !referred && !dnc.dnc && !dismissed,
+  };
+}
 
 /**
  * The trade a row is about, derived from the person's OWN words and never
@@ -184,7 +209,7 @@ export async function GET(request) {
   // Rachel" / "unassigned" beside each unfinished signup.
   const floor = await db.prospect.findMany({
     where: { companyId: { in: rows.map((c) => c.id) }, signupKind: { not: null } },
-    select: { id: true, companyId: true, signupKind: true, hot: true, tradeKey: true, assignedRepId: true, assignedAt: true, claimExpiresAt: true },
+    select: { ...FLOOR_SELECT, companyId: true },
   });
   // Every rep, once: the names behind the holders AND the picker on the
   // screen (active, not ended, not a test account — the review folder's own
@@ -227,7 +252,7 @@ export async function GET(request) {
       trades: true, language: true, stepReached: true, startedAt: true, lastSeenAt: true, promotedAt: true, promotedLeadId: true, skipReason: true, salesCode: true,
       authUserId: true, completedCompanyId: true,
       referredRep: { select: { id: true, name: true } },
-      prospect: { select: { id: true, hot: true, signupKind: true, tradeKey: true, assignedRepId: true, assignedAt: true, claimExpiresAt: true, doNotContactAt: true } },
+      prospect: { select: FLOOR_SELECT },
       ...DISMISSAL_SELECT,
     },
   });
@@ -253,11 +278,55 @@ export async function GET(request) {
   const dismissalOf = (row) =>
     isDismissed(row) ? { at: row.signupDismissal.dismissedAt, by: dismissers.get(row.signupDismissal.dismissedById) || null } : null;
 
+  // ── Do not contact, who holds it, how it got there ─────────────────────
+  //
+  // The owner, 2026-09-24: a Do-Not-Contact row that still read "in the
+  // review folder" (Luma Painting), and "I don't see to who has it or if it
+  // was assigned". lib/signup/assignment.js answers all three, from ONE read
+  // of the do-not-contact list for every address and number on the screen
+  // (the Prospect's own flag included) and the claim log for the history.
+  // The email-only verdict above stays what it was: it is the letters'
+  // question ("may we email them"), and decideSignupNudge reads it.
+  const holderIds = [...new Set(startedRows.map((r) => r.prospect?.assignedRepId).filter(Boolean).filter((id) => !repName.has(id)))];
+  if (holderIds.length) {
+    for (const r of await db.salesRep.findMany({ where: { id: { in: holderIds } }, select: { id: true, name: true } })) repName.set(r.id, r.name);
+  }
+  const floorRowByCompany = new Map(floor.map((p) => [p.companyId, p]));
+  const dnc = await signupSuppressions({
+    client: db,
+    contacts: [
+      ...rows.map((c) => {
+        const p = floorRowByCompany.get(c.id) || null;
+        return { key: `company:${c.id}`, emails: [c.email, c.members[0]?.user?.email, p?.email], phones: [c.phone, p?.phoneE164], prospect: p };
+      }),
+      ...startedRows.map((r) => ({ key: `lead:${r.id}`, emails: [r.email, r.prospect?.email], phones: [r.phoneE164, r.prospect?.phoneE164], prospect: r.prospect })),
+    ],
+  });
+  const repOwnOf = (r) => (r.promotedLeadId && r.referredRep ? r.referredRep : null);
+  const { histories } = await loadSignupHistories({
+    client: db,
+    prospects: [...floor, ...startedRows.map((r) => r.prospect).filter(Boolean)],
+    referredById: new Map(startedRows.filter((r) => r.prospect && repOwnOf(r)).map((r) => [r.prospect.id, { rep: repOwnOf(r), at: r.promotedAt }])),
+    repName,
+    now,
+  });
+  const dncFields = (verdict) => ({
+    doNotContact: Boolean(verdict?.dnc),
+    // The reason alone, and the one sentence the screen prints in place of
+    // any "waiting for a call" line — never "in the review folder".
+    doNotContactReason: verdict?.dnc ? verdict.reason : null,
+    doNotContactText: verdict?.dnc ? dncSentence(verdict) : null,
+  });
+
   const companyRow = (c, { finished }) => {
     const to = nudgeRecipient(c.email);
     const verdict = to ? suppressed.get(to) : null;
     const lead = floorByCompany.get(c.id) || null;
     const referredRepId = c.salesAttribution?.salesRepId || null;
+    const floorRow = floorRowByCompany.get(c.id) || null;
+    const dncRow = dnc.get(`company:${c.id}`);
+    const referredRep = referredRepId ? { id: referredRepId, name: repName.get(referredRepId) || "a rep" } : null;
+    const holder = signupHolderOf({ prospect: floorRow, referredRep, dnc: dncRow, dismissed: isDismissed(c), repName, now });
     // The SAME predicate the cron uses, so the screen cannot print a different
     // answer from the one the send path will reach — the failure
     // lib/platform/trialCounting.js exists because of, where a banner and a
@@ -292,10 +361,14 @@ export async function GET(request) {
       nudgeSentAt: c.signupNudgeSentAt,
       // Both halves. "Suppressed" alone would not tell a rep WHY the phone is
       // off-limits, and the reason is what they would otherwise ring support to
-      // find out.
-      doNotContact: Boolean(verdict?.suppressed),
-      doNotContactReason: verdict?.suppressed ? verdict.reason : null,
+      // find out. Every channel and every address the row is known by — not
+      // just the company email's letters verdict above.
+      ...dncFields(dncRow),
       nudgeState: decision.reason,
+      // Who holds it now, and how it got there (lib/signup/assignment.js).
+      holder,
+      history: floorRow ? histories.get(floorRow.id) || [] : referredRep ? [{ at: c.createdAt, type: "referred", repId: referredRep.id, text: `Came in on ${referredRep.name}'s link — theirs`, by: null }] : [],
+      actions: actionsFor({ holder, dnc: dncRow, dismissed: isDismissed(c), referred: Boolean(referredRepId || c.referredByCode) }),
       // The sales-floor row: kind (new / stalled), whether it is hot, and
       // which rep holds it — null when none was written (a referred signup,
       // or one older than the floor).
@@ -329,12 +402,11 @@ export async function GET(request) {
   // The SignupLead rows (lib/signup/leads.js): what people typed into the
   // first step and where each one now stands on the floor. Newest first,
   // bounded — this is a list a person reads, not an export.
-  const holderIds = [...new Set(startedRows.map((r) => r.prospect?.assignedRepId).filter(Boolean).filter((id) => !repName.has(id)))];
-  if (holderIds.length) {
-    for (const r of await db.salesRep.findMany({ where: { id: { in: holderIds } }, select: { id: true, name: true } })) repName.set(r.id, r.name);
-  }
+  // (The holders' names were read above, with the do-not-contact list.)
   const started = startedRows.map((r) => {
     const p = r.prospect || null;
+    const dncRow = dnc.get(`lead:${r.id}`);
+    const holder = signupHolderOf({ prospect: p, referredRep: repOwnOf(r), dnc: dncRow, dismissed: isDismissed(r), repName, now });
     const live = p?.assignedRepId && (!p.claimExpiresAt || p.claimExpiresAt > now);
     let state;
     if (r.promotedLeadId && r.referredRep) state = { code: "rep_lead", rep: r.referredRep };
@@ -366,6 +438,10 @@ export async function GET(request) {
       trade: tradeOf({ prospectTradeKey: p?.tradeKey || null, slugs: r.trades }),
       nudges: nudgesFor(r.email),
       dismissed: dismissalOf(r),
+      ...dncFields(dncRow),
+      holder,
+      history: p ? histories.get(p.id) || [] : [],
+      actions: actionsFor({ holder, dnc: dncRow, dismissed: isDismissed(r), referred: Boolean(r.referredRep || r.salesCode) }),
     };
   });
 

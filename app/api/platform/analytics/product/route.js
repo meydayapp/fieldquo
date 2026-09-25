@@ -31,7 +31,7 @@ import {
 import { SIGNUP_FUNNEL, FEATURES } from "@/lib/analytics/product/events";
 import { RAW_RETENTION_DAYS } from "@/lib/analytics/product/rollup";
 import { db } from "@/lib/db";
-import { unplacedSignupWhere } from "@/lib/signup/leads";
+import { countUnplacedSignups } from "@/lib/signup/salesFloor";
 
 const ALLOWED_ROLES = new Set(["superadmin", "admin"]);
 
@@ -117,7 +117,7 @@ export async function GET(request) {
   // The funnel counts browsers; lib/signup/leads.js keeps what they typed.
   // Beside the drop: how many SignupLeads in this range never became a
   // company, how many of those left a phone number, and how many are hot
-  // leads nobody has placed yet (unplacedSignupWhere — the same WHERE the
+  // leads nobody has placed yet (countUnplacedSignups — the same rows the
   // review folder's section lists). Demo-free by construction: a demo has
   // no SignupLead.
   let signupLeads = null;
@@ -126,7 +126,7 @@ export async function GET(request) {
     const [started, withPhone, hotWaiting] = await Promise.all([
       db.signupLead.count({ where: { startedAt: { gte: range.start, lt: range.end }, completedCompanyId: null } }),
       db.signupLead.count({ where: { startedAt: { gte: range.start, lt: range.end }, completedCompanyId: null, phoneE164: { not: null } } }),
-      db.prospect.count({ where: { ...unplacedSignupWhere(now), hot: true } }),
+      countUnplacedSignups({ client: db, now, hotOnly: true }),
     ]);
     signupLeads = { started, withPhone, hotWaiting, reviewHref: "/platform/sales/review?signups=hot", signupsHref: "/platform/signups" };
   } catch (err) {

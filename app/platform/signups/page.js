@@ -28,6 +28,17 @@
 // through the one assign write the review folder uses. A referred signup is
 // shown as the referring rep's and offered to nobody else.
 //
+// ══ 2026-09-24: who holds it, how it got there, and Do Not Contact ═════════
+//
+// Luma Painting read "Do not contact" and "in the review folder" on one row —
+// it had unsubscribed, and the folder had offered it anyway. A do-not-contact
+// row now reads "Do not contact — {reason}" and nothing else about the floor,
+// and the server keeps it out of the folder and every assign path. Every row
+// says who holds it now (a rep, the Platform, or nobody yet) and a compact
+// history off the claim log — assigned to X by Y, released, taken back,
+// moved. A row a rep holds can be taken back to the Platform or moved to
+// another rep (lib/signup/assignment.js; superadmin, re-checked server-side).
+//
 // English only, like the rest of the console.
 "use client";
 
@@ -35,6 +46,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   AlertCircle,
+  ArrowRightLeft,
   Ban,
   Building2,
   Flame,
@@ -43,6 +55,7 @@ import {
   MailCheck,
   Phone,
   RefreshCw,
+  Undo2,
   UserCheck,
 } from "lucide-react";
 import { count } from "@/app/components/platform/MetricCard";
@@ -142,9 +155,14 @@ function unify(data) {
       assignedTo,
       signedIn: Boolean(r.signedIn),
       referred: s.code === "rep_lead" ? s.rep : r.referredBy,
-      doNotContact: false,
-      doNotContactReason: null,
-      floorText: startedState(s),
+      doNotContact: Boolean(r.doNotContact),
+      doNotContactReason: r.doNotContactReason || null,
+      // A do-not-contact row never reads as waiting for a call (the
+      // owner's 2026-09-24 Luma Painting row said both at once).
+      floorText: floorLine(r, () => startedState(s)),
+      holder: r.holder || null,
+      history: r.history || [],
+      actions: r.actions || {},
       nudges: r.nudges,
       companyHref: null,
       usedProduct: null,
@@ -170,9 +188,12 @@ function unify(data) {
     hot: Boolean(c.lead?.hot),
     assignedTo: c.lead?.assignedTo || (c.referredTo?.id ? c.referredTo : null),
     referred: c.referredTo,
-    doNotContact: c.doNotContact,
+    doNotContact: Boolean(c.doNotContact),
     doNotContactReason: c.doNotContactReason,
-    floorText: companyState(c),
+    floorText: floorLine(c, () => companyState(c)),
+    holder: c.holder || null,
+    history: c.history || [],
+    actions: c.actions || {},
     nudges: c.nudges,
     nudgeState: c.nudgeState,
     companyHref: `/platform/companies/${c.id}`,
@@ -202,6 +223,38 @@ function trialLine(trial) {
   if (trial.level === "readonly") return `Signed up · trial ended, read-only for ${days} more · no plan chosen yet`;
   return "Signed up · trial ended, locked · no plan chosen yet";
 }
+
+/**
+ * A do-not-contact row's one line: "Do not contact — {reason}", worded by
+ * the API (lib/signup/assignment.js dncSentence) so the refusal an assign
+ * gets and the row the owner reads say the same thing. Takes the place of
+ * every "in the review folder" / "becomes a hot lead" line — the server
+ * keeps such a row out of the folder and every assign path.
+ */
+function dncState(row) {
+  return { text: row.doNotContactText || `Do not contact — ${row.doNotContactReason || "on FieldQuo's do-not-contact list"}`, tone: "dnc" };
+}
+
+/**
+ * The row's floor line. Do-not-contact first, whatever else is true; then a
+ * floor row the platform holds but the folder does not offer (removed,
+ * merged) says so rather than "unassigned, in the review folder"; otherwise
+ * the kind's own sentence.
+ */
+function floorLine(row, otherwise) {
+  if (row.doNotContact) return dncState(row);
+  if (row.holder?.kind === "platform" && !row.holder.inFolder) return { text: row.holder.text, tone: "muted" };
+  return otherwise();
+}
+
+/** A moment in the history, in the viewer's own clock: "24 Sep, 22:32". */
+function atWord(value) {
+  if (!value) return "—";
+  return new Date(value).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+
+/** How many history lines a row shows before "N earlier". */
+const HISTORY_SHOWN = 3;
 
 /** Where a started-never-finished signup stands on the sales floor, in words. */
 function startedState(state) {
@@ -250,6 +303,15 @@ export default function PlatformSignupsPage() {
   const { isSuperadmin } = usePlatformAdmin();
   // Removed rows are hidden unless this is on — "Show removed (N)".
   const [showRemoved, setShowRemoved] = useState(false);
+  // Rows whose whole assignment history is unfolded (the latest few show).
+  const [openHistory, setOpenHistory] = useState(() => new Set());
+  const toggleHistory = (key) =>
+    setOpenHistory((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -347,6 +409,54 @@ export default function PlatformSignupsPage() {
       await load();
     } catch (err) {
       setOutcome({ error: err.message || "Could not set the trade." });
+    } finally {
+      setBusy("");
+    }
+  }
+
+  // "Take back to Platform" — the rep's lease released, the row the
+  // platform's again (in the review folder unless it may not be rung). And
+  // "Reassign" — straight from the rep holding it to another. Both re-read
+  // everything server-side (lib/signup/assignment.js); the answer is printed
+  // whatever it is, refusals included.
+  async function takeBack(row) {
+    setBusy(`take:${row.key}`);
+    setOutcome(null);
+    try {
+      const res = await fetchJson("/api/platform/signups/assign", {
+        method: "POST",
+        body: { action: "take_back", targets: [row.target] },
+      });
+      const r = res.results?.[0];
+      if (r?.error) setOutcome({ error: `${row.name}: ${r.error}` });
+      else if (r?.already) setOutcome({ text: `${row.name}: ${r.note || "nobody holds it — already the platform's."}` });
+      else setOutcome({ text: `${row.name} taken back from ${r?.fromRep?.name || "the rep"} — it is the platform's again.` });
+      await load();
+    } catch (err) {
+      setOutcome({ error: err.message || "Could not take it back." });
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function reassign(row) {
+    if (!repId) {
+      setOutcome({ error: "Choose a rep first." });
+      return;
+    }
+    setBusy(`move:${row.key}`);
+    setOutcome(null);
+    try {
+      const res = await fetchJson("/api/platform/signups/assign", {
+        method: "POST",
+        body: { action: "reassign", salesRepId: repId, targets: [row.target] },
+      });
+      const r = res.results?.[0];
+      if (r?.error) setOutcome({ error: `${row.name}: ${r.error}` });
+      else setOutcome({ text: `${row.name} moved${r?.fromRep?.name ? ` from ${r.fromRep.name}` : ""} to ${res.rep?.name || "the rep"}.` });
+      await load();
+    } catch (err) {
+      setOutcome({ error: err.message || "Could not reassign." });
     } finally {
       setBusy("");
     }
@@ -483,8 +593,12 @@ export default function PlatformSignupsPage() {
               )}
             </div>
 
-            {/* ── Assigned to / assign for callback ───────────────── */}
-            <div className="flex flex-wrap items-center gap-2 text-xs pt-1">
+            {/* ── Who holds it now ─────────────────────────────────────
+                The owner, 2026-09-24: "I don't see to who has it or if it
+                was assigned". A rep, the platform, or nobody yet — the
+                API's holder (lib/signup/assignment.js signupHolderOf). */}
+            <div className="flex flex-wrap items-center gap-2 text-xs pt-1" data-holder={r.holder?.kind || "unknown"}>
+              <span className="text-muted-foreground">Holder:</span>
               {r.assignedTo ? (
                 <Link
                   href={r.prospectId ? `/platform/sales/prospects?id=${r.prospectId}` : "/platform/sales/reps"}
@@ -494,10 +608,65 @@ export default function PlatformSignupsPage() {
                   <UserCheck size={11} />
                   {r.referred?.id && r.referred.id === r.assignedTo.id ? "Theirs" : "Assigned to"} {r.assignedTo.name}
                   {r.assignedTo.at ? ` · ${dayWord(r.assignedTo.at)}` : ""}
+                  {r.holder?.kind === "rep" && r.holder.worked ? " · worked" : ""}
                 </Link>
-              ) : r.referred?.code && !r.referred?.id ? (
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-border text-foreground" data-holder-text>
+                  {r.holder?.kind === "platform" ? <Building2 size={11} /> : null}
+                  {r.holder?.text || "Unassigned"}
+                </span>
+              )}
+              {/* Take back / reassign — only on a row a rep holds, and
+                  only for a superadmin; the route re-checks both. */}
+              {isSuperadmin && r.actions?.takeBack && (
+                <button
+                  type="button"
+                  disabled={Boolean(busy)}
+                  onClick={() => takeBack(r)}
+                  className="inline-flex items-center gap-1 border border-border rounded px-2 py-0.5 text-xs font-medium hover:bg-muted disabled:opacity-40"
+                  data-take-back
+                >
+                  <Undo2 size={11} /> {busy === `take:${r.key}` ? "Taking back…" : "Take back to Platform"}
+                </button>
+              )}
+              {isSuperadmin && r.actions?.reassign && (
+                <>
+                  <select
+                    aria-label={`Move ${r.name} to`}
+                    value={repId}
+                    onChange={(e) => setRepId(e.target.value)}
+                    className="border border-border rounded px-1.5 py-0.5 text-xs bg-background"
+                  >
+                    <option value="">Move to…</option>
+                    {reps
+                      .filter((rep) => rep.id !== r.holder?.rep?.id)
+                      .map((rep) => (
+                        <option key={rep.id} value={rep.id}>
+                          {rep.name}
+                        </option>
+                      ))}
+                  </select>
+                  <button
+                    type="button"
+                    disabled={!repId || repId === r.holder?.rep?.id || Boolean(busy)}
+                    onClick={() => reassign(r)}
+                    className="inline-flex items-center gap-1 border border-border rounded px-2 py-0.5 text-xs font-medium hover:bg-muted disabled:opacity-40"
+                    data-reassign
+                  >
+                    <ArrowRightLeft size={11} /> {busy === `move:${r.key}` ? "Moving…" : "Reassign"}
+                  </button>
+                </>
+              )}
+              {isSuperadmin && r.holder?.kind === "rep" && r.holder.worked && !r.actions?.takeBack ? (
+                <span className="text-muted-foreground">worked — a conversation stays with a rep; reassign to move it</span>
+              ) : null}
+            </div>
+
+            {/* ── Assign for callback, and where the row stands ────────── */}
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              {r.assignedTo ? null : r.referred?.code && !r.referred?.id ? (
                 <span className="text-muted-foreground">referred ({r.referred.code}) — not a rep's code</span>
-              ) : isSuperadmin && !r.doNotContact ? (
+              ) : isSuperadmin && !r.doNotContact && !r.dismissed ? (
                 <>
                   <select
                     aria-label={`Rep for ${r.name}`}
@@ -523,9 +692,11 @@ export default function PlatformSignupsPage() {
                   </button>
                 </>
               ) : null}
-              {/* An unplaced floor row is also in the review folder's
-                  signup section — the same row, the other door. */}
-              {r.prospectId && !r.assignedTo ? (
+              {/* An unplaced floor row the folder offers is also in the
+                  review folder's signup section — the same row, the other
+                  door. Only when the API says the folder offers it: a
+                  do-not-contact row is the platform's and is NOT there. */}
+              {r.holder?.inFolder && !r.assignedTo ? (
                 <Link href="/platform/sales/review?signups=all" className={`underline ${r.floorText.tone === "hot" ? "text-red-700 dark:text-red-300" : "text-muted-foreground"}`}>
                   {r.floorText.text}
                 </Link>
@@ -538,9 +709,39 @@ export default function PlatformSignupsPage() {
                   {r.floorText.text}
                 </Link>
               ) : (
-                <span className={r.floorText.tone === "hot" ? "text-red-700 dark:text-red-300" : "text-muted-foreground"}>{r.floorText.text}</span>
+                <span
+                  className={r.floorText.tone === "dnc" ? "font-medium text-red-700 dark:text-red-300" : r.floorText.tone === "hot" ? "text-red-700 dark:text-red-300" : "text-muted-foreground"}
+                  data-dnc-line={r.floorText.tone === "dnc" ? "" : undefined}
+                >
+                  {r.floorText.text}
+                </span>
               )}
             </div>
+
+            {/* ── How it got there ─────────────────────────────────────
+                Assigned to X by Y, released, taken back, moved — read off
+                the claim log, oldest first; the latest few shown. */}
+            {r.history?.length > 0 && (
+              <div className="text-xs text-muted-foreground pt-1" data-assignment-history>
+                {r.history.length > HISTORY_SHOWN && (
+                  <button
+                    type="button"
+                    onClick={() => toggleHistory(r.key)}
+                    className="underline mb-0.5"
+                  >
+                    {openHistory.has(r.key) ? "Show fewer" : `Show ${r.history.length - HISTORY_SHOWN} earlier`}
+                  </button>
+                )}
+                <ol className="space-y-0.5">
+                  {(openHistory.has(r.key) ? r.history : r.history.slice(-HISTORY_SHOWN)).map((e, i) => (
+                    <li key={`${e.at}-${i}`} data-history-type={e.type}>
+                      <span className="tabular-nums">{atWord(e.at)}</span> · {e.text}
+                      {e.by ? ` · by ${e.by}` : ""}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
           </div>
 
           <div className="text-right shrink-0 space-y-1">
@@ -565,9 +766,6 @@ export default function PlatformSignupsPage() {
                 "No follow-up sent yet"
               )}
             </div>
-            {r.doNotContact && r.doNotContactReason && (
-              <div className="text-xs text-red-700 dark:text-red-300 max-w-xs">{r.doNotContactReason}</div>
-            )}
             {/* ── Remove from list / Restore ────────────────────────────
                 Hides the row from this page, the review folder and both
                 follow-up letters; deletes nothing. */}
