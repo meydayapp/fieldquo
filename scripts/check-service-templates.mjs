@@ -89,6 +89,7 @@ import { CAPTURE } from "../docs/screens/app-guide/harness/fixtures/estimate-tem
 import { seedText, seedTemplateFor, seedCategoryKeys, planServiceSeeds, TEMPLATE_LANGUAGES } from "@/lib/services/seeds";
 import { productDataForSeed } from "@/lib/products/seedServices";
 import { templatesFromCapture } from "@/lib/services/templateImport";
+import { planTemplateBackfill } from "@/lib/services/backfillTemplates";
 import { presetStep, roundToStep, presetRange, libraryTrades, libraryForTrade, positionInRange } from "@/lib/services/presetLibrary";
 
 let passed = 0;
@@ -432,6 +433,30 @@ section("I — every calculator's keys are real output names; trades that reuse 
   const bad = sanitiseTemplateLine({ kind: "material", name: "x", measurementKey: "wallSqft", coverage: -3 });
   ok(!("coverage" in bad) && !("coverage" in sanitiseTemplateLine({ kind: "material", name: "x", measurementKey: "wallSqft", coverage: 1 })) && !("coverage" in sanitiseTemplateLine({ kind: "material", name: "x", coverage: 32 })), "coverage: negative, 1, or without a key → not stored");
   ok(validateTemplateLines([{ kind: "material", name: "x", measurementKey: "wallSqft", coverage: 0 }, { kind: "material", name: "y", coverage: 32 }]).length === 2, "validate: zero coverage and coverage without a key are both problems");
+}
+
+section("J — the backfill for existing companies fills what is empty, never overwrites");
+{
+  const seed = { seedKey: "fq.interior_painting.core.x", templateLines: [{ kind: "labour", name: "Walls", qty: 1, unit: "sqft", unitPrice: 1.2, unitCost: 0.6, measurementKey: "wallSqft" }], defaultDiscount: { name: "New customer discount", kind: "fixed", amount: 50 }, categories: ["cabinet_refinishing"], estimateTypes: ["interior"] };
+  const ids = { cabinet_refinishing: "id_cr" };
+  const empty = { seedKey: seed.seedKey, templateLines: null, defaultDiscount: null, estimateTypes: [], categories: [] };
+  const p1 = planTemplateBackfill(empty, seed, { language: "en", currency: "CAD", categoryIdsByKey: ids });
+  ok(p1 && p1.filled.join(",") === "templateLines,defaultDiscount,estimateTypes,categories", "an untouched row gets every field", p1?.filled);
+  ok(p1.data.templateLines[0].unitPrice === 1.75 && p1.data.defaultDiscount.amount === 70, "converted into the company's currency like a fresh seed (USD 1.20 × 1.37 = 1.64 → CAD 1.75 at the $0.25 step, $50 → $70)", [p1.data.templateLines[0].unitPrice, p1.data.defaultDiscount.amount]);
+  ok(!("unitPrice" in p1.data) && !("name" in p1.data) && !("translations" in p1.data) && !("templateEnabled" in p1.data), "never touches price, name, translations or the switch", Object.keys(p1.data));
+  const edited = { seedKey: seed.seedKey, templateLines: [{ kind: "labour", name: "Mine", qty: 1 }], defaultDiscount: { name: "Mine", kind: "percent", amount: 5 }, estimateTypes: ["exterior"], categories: [{ id: "id_ip" }] };
+  ok(planTemplateBackfill(edited, seed, { categoryIdsByKey: ids }) === null, "a row the company edited: nothing to fill");
+  const partial = { ...edited, templateLines: [] };
+  const p2 = planTemplateBackfill(partial, seed, { currency: "USD", categoryIdsByKey: ids });
+  ok(p2 && p2.filled.join(",") === "templateLines", "an emptied template is refilled, the rest left alone", p2?.filled);
+  ok(planTemplateBackfill(empty, { ...seed, templateLines: [] }) === null && planTemplateBackfill(empty, null) === null && planTemplateBackfill({ ...empty, seedKey: null }, seed) === null, "no seed template, no seed, no seedKey → nothing");
+  const again = planTemplateBackfill({ ...empty, ...p1.data, categories: [{ id: "id_cr" }] }, seed, { currency: "CAD", categoryIdsByKey: ids });
+  ok(again === null, "idempotent: the filled row has nothing left to fill");
+  const src = read("lib/services/backfillTemplates.js");
+  ok(!/\.delete(Many)?\(/.test(src) && /apply = false/.test(src), "the backfill never deletes and is a dry run unless told otherwise");
+  const script = read("scripts/backfill-service-templates.mjs");
+  ok(/process\.argv\.includes\("--apply"\)/.test(script), "the script writes only with --apply");
+  ok(/backfillTemplates\(\{ companyId, seedKeyPrefix/.test(read("lib/products/seedServices.js")), "the re-seed path fills the rows a company already held");
 }
 
 section("H — where a template is offered: templatesFor and the seed's quote-type links");
