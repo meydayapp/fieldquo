@@ -108,7 +108,7 @@ function Tile({ group, meta = {}, onNavigate, compact = false }) {
                   onClick={onNavigate}
                   data-nav-row
                   aria-current={active ? "page" : undefined}
-                  className={`inline-flex items-center min-h-[28px] rounded-full px-2 text-xs ${
+                  className={`inline-flex items-center min-h-[44px] rounded-full px-2 text-xs ${
                     active
                       ? "bg-sidebar-primary text-sidebar-primary-foreground font-semibold"
                       : "text-muted-foreground hover:bg-sidebar-panel-accent hover:text-foreground"
