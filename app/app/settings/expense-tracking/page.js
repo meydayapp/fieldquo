@@ -14,6 +14,8 @@ import {
   TrendingUp,
   Download,
   Upload,
+  FileText,
+  ScanLine,
 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
@@ -23,24 +25,15 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 // answer them.
 import { useHasLevel, useHasToggle } from "@/app/providers/PermissionProvider";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
+import { EXPENSE_CATEGORY_PRESETS } from "@/lib/expenses/categories";
 
 // Curated presets so the category select is useful out of the box, but this
 // is still a free-text field underneath (matching your existing Expense.category
 // String column) — anything already in the database shows up in the
 // breakdown even if it's not in this list, and typing a new one just works.
-const CATEGORY_PRESETS = [
-  "Materials",
-  "Fuel & Vehicle",
-  "Tools & Equipment",
-  "Insurance",
-  "Rent & Utilities",
-  "Software & Subscriptions",
-  "Marketing",
-  "Permits & Licensing",
-  "Office Supplies",
-  "Meals & Travel",
-  "Other",
-];
+// Shared with the receipts book so a scanned receipt and a typed expense land
+// in the same buckets — see lib/expenses/categories.js.
+const CATEGORY_PRESETS = EXPENSE_CATEGORY_PRESETS;
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -535,7 +528,21 @@ export default function ExpenseTrackingPage() {
             {t("app.setExpenses.subtitle")}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* The receipts book: every scanned receipt, the ones waiting for a
+              decision, and where each one was booked (app/app/receipts). */}
+          <Link
+            href="/app/receipts"
+            className="flex items-center gap-2 border border-border text-foreground px-4 py-2.5 rounded-full text-sm font-semibold hover:bg-muted"
+          >
+            <FileText size={14} /> {t("app.setExpenses.receipts")}
+          </Link>
+          <Link
+            href="/app/receipts?snap=1&from=expenses"
+            className="flex items-center gap-2 border border-border text-foreground px-4 py-2.5 rounded-full text-sm font-semibold hover:bg-muted"
+          >
+            <ScanLine size={14} /> {t("app.setExpenses.scanReceipt")}
+          </Link>
           <Link
             href="/app/settings/expense-tracking/import"
             className="flex items-center gap-2 border border-border text-foreground px-4 py-2.5 rounded-full text-sm font-semibold hover:bg-muted"

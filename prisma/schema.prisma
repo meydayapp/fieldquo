@@ -576,6 +576,29 @@ model PlatformSetting {
   updatedAt DateTime @updatedAt
 }
 
+/// Who pays for one AI feature's model calls: FieldQuo, or the company.
+///
+/// FieldQuo's OWN configuration — never a tenant's data (non-negotiable 3) —
+/// written only by a superadmin on /platform/ai-billing and read by
+/// lib/ai/featurePayer.js's meterFor(), which is what actually routes a call's
+/// metering to one ledger or the other:
+///
+///   "fieldquo"  checkPlatformAiBudget before, recordPlatformAiUsage after,
+///               with meta.companyId — FieldQuo's cost, not the company's
+///               allowance.
+///   "company"   checkAiQuota before, recordAiUsage after — the company's own
+///               monthly allowance, exactly as every call metered before this.
+///
+/// An ABSENT row is not "unknown": it means the registry default in
+/// lib/ai/featurePayer.js, and a feature the registry does not list keeps the
+/// behaviour it had before the switch existed (the company's allowance).
+model AiFeaturePayer {
+  feature          String   @id
+  payer            String
+  updatedByAdminId String?
+  updatedAt        DateTime @updatedAt
+}
+
 /// One company's answer, overriding the global. Absent row = inherit.
 ///
 /// No foreign key to PlatformFeature on purpose: an override is meaningful
@@ -1710,6 +1733,7 @@ model Company {
   documentTemplates     DocumentTemplate[]
   expenses              Expense[]
   expenseImportBatches  ExpenseImportBatch[]
+  receipts              Receipt[]
   marketingSpends       MarketingSpend[]
   metaAdConnection      MetaAdConnection?
   // Facebook Page / Instagram business messaging. A DIFFERENT connection from
@@ -8096,6 +8120,127 @@ model Expense {
   /// by lib/fleet for cost-per-vehicle; nothing else changes meaning.
   assetId          String?
   asset            Asset?   @relation(fields: [assetId], references: [id])
+
+  // ── The receipt this row was CONFIRMED from (lib/receipts/record.js) ────
+  //
+  // One Receipt can become several Expense rows — the split: some lines to
+  // job A, some to job B, the fuel to overhead. Each row carries its own
+  // share of the receipt's tax so the sales-tax summary can add up input tax
+  // without re-deriving a split it did not make. SetNull, never Cascade: a
+  // receipt is the bookkeeping record and is never deleted, but if one ever
+  // were, the money already booked must not vanish with it.
+  receiptId    String?
+  receipt      Receipt? @relation(fields: [receiptId], references: [id], onDelete: SetNull)
+  /// The sales tax INSIDE `amount` — `amount` stays what was paid, tax
+  /// included, exactly as every hand-entered row means it. Null on every row
+  /// that did not come from a read receipt: "we don't know" is not zero.
+  taxAmount    Decimal? @db.Decimal(12, 2)
+  /// The same tax by printed label — [{ label: "GST", amount: 6.78 }] — for a
+  /// jurisdiction that charges two (GST + PST, GST + QST). Null when the
+  /// receipt printed one undifferentiated tax line.
+  taxBreakdown Json?
+  /// How it was paid, as printed ("VISA", "DEBIT", "CASH") plus the card's
+  /// last four when the paper shows them.
+  paymentMethod String?
+  /// Which of the receipt's printed lines this row carries, by index — so a
+  /// split can be shown back line by line. Null means "the whole receipt".
+  receiptLines Json?
+
+  @@index([receiptId])
+}
+
+/// A purchase receipt, kept as the bookkeeping record — photo(s) or a PDF, what
+/// was read off it, and where the money went.
+///
+/// ══ Why a model of its own and not columns on Expense ══════════════════════
+///
+/// One receipt is often SEVERAL expenses: paint for the Elm St job, screws for
+/// the Oak Ave job, a coffee that is overhead. The paper is one thing and the
+/// bookings are many, and the accountant asks for the paper. So the paper is a
+/// row, it is never deleted (a duplicate is VOIDED with a reason, and stays),
+/// and every Expense it became points back at it through Expense.receiptId.
+///
+/// ══ Status ═════════════════════════════════════════════════════════════════
+///
+///   reading       captured; the read has not finished (or never ran — a
+///                 closed tab mid-read leaves this, and "Read again" is offered)
+///   needs_review  read; nothing is booked until a person confirms
+///   unreadable    the read failed; the photo is kept and can be read again
+///   confirmed     booked — its Expense rows exist
+///   void          a person said "don't book this" (duplicate, not a receipt);
+///                 kept, with voidReason, because the record is the point
+///
+/// Nothing moves a receipt to `confirmed` except a person tapping Confirm
+/// (app/api/receipts/[id]/confirm) — the suggestion engine only ever SUGGESTS.
+model Receipt {
+  id          String   @id @default(cuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  /// The User who captured it. The "their own" expenses level filters on this,
+  /// and the suggestion engine treats it as the person who was at the till.
+  createdById String?
+  /// Where it was captured: "expenses" | "job" | "snap". Shown on the list.
+  source      String   @default("expenses")
+  /// The job page it was captured from — a strong HINT to the scoring in
+  /// lib/receipts/suggest.js, never a link. Only a confirm links anything.
+  contextJobId String?
+  /// [{ url, kind: "photo"|"document", filename }] — every page, as uploaded to
+  /// Cloudinary through /api/upload. Kept forever: it is the record.
+  files       Json
+  status      String   @default("reading")
+  /// A crew member's "not sure — let the office decide". The receipt stays in
+  /// needs_review and the office queue shows it first.
+  officeDecides Boolean @default(false)
+  /// The normalised extraction (lib/receipts/extract.js), verbatim, before any
+  /// person edited anything.
+  extract     Json?
+  /// The failure reason code when status is `unreadable`.
+  readError   String?
+
+  vendorName    String?
+  vendorAddress String?
+  vendorPhone   String?
+  /// The calendar day printed on the receipt, YYYY-MM-DD. A string, not a
+  /// DateTime, because a day without a time is not an instant.
+  purchasedDate String?
+  /// The instant, only when a TIME was printed — the printed wall clock
+  /// resolved in the company's timezone (lib/receipts/time.js). Null when no
+  /// time was printed; never an invented noon.
+  purchasedAt   DateTime?
+  receiptNumber String?
+  paymentMethod String?
+  cardLast4     String?
+  currency      String?
+  subtotal      Decimal? @db.Decimal(12, 2)
+  tax           Decimal? @db.Decimal(12, 2)
+  total         Decimal? @db.Decimal(12, 2)
+  /// [{ label, amount }] — GST / HST / PST / QST / sales tax, as printed.
+  taxLines      Json?
+  /// Another receipt this one looks like (same receipt number, or same store,
+  /// total and time). A WARNING shown on screen; nothing is ever removed.
+  duplicateOfId String?
+  /// RESERVED — written and read by nothing today, and called out here so it
+  /// reads as deliberate rather than dead. It was created for "AI credit taken
+  /// for the read" before the owner settled who pays: receipts are metered
+  /// through lib/ai/featurePayer.js (FieldQuo's ledger, or the company's token
+  /// allowance), neither of which takes cents. It is left in place rather than
+  /// dropped because dropping a column is the owner's call. It is where a
+  /// read would be recorded the day company-paid AI moves to dollar metering
+  /// against the AI wallet — or it is dropped, on the owner's word.
+  chargedCents  Int?
+
+  confirmedAt   DateTime?
+  confirmedById String?
+  voidedAt      DateTime?
+  voidReason    String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  expenses Expense[]
+
+  @@index([companyId, status])
+  @@index([companyId, purchasedDate])
+  @@index([companyId, createdById])
 }
 
 // One CSV upload, reviewed and committed in one sitting. Exists for two

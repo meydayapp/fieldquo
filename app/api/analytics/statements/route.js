@@ -188,6 +188,10 @@ export async function GET(request) {
           recurring: true,
           frequency: true,
           projectId: true,
+          // Tax paid, stated only on receipt-booked rows — the sales-tax
+          // summary's "paid on purchases" line (inputTaxFigure).
+          taxAmount: true,
+          taxBreakdown: true,
         },
       }),
       // TimeEntry carries no companyId — it is scoped through the worker, which

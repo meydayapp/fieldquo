@@ -25,11 +25,13 @@
 //      isDemoCompany() re-reads the row, and the substitution — not a refusal
 //      — is the shape lib/email/demoMail.js and lib/sms/demoSms.js established.
 //
-//   3. checkAiQuota() BEFORE the call, recordAiUsage() after, from provider.js's
-//      own token counts. A receipt is fine text so it runs at imageDetail
-//      "high", which is the most expensive single call in the product; a scan
-//      that skipped the meter would be invisible in /platform/ai-usage and
-//      uncapped against FieldQuo's card.
+//   3. meterFor("receipt_scan").check() BEFORE the call, .record() after, from
+//      provider.js's own token counts. WHICH ledger is the /platform switch's
+//      decision (lib/ai/featurePayer.js): FieldQuo's AI budget, or the
+//      company's allowance (checkAiQuota / recordAiUsage). A receipt is fine
+//      text so it runs at imageDetail "high", which is the most expensive
+//      single call in the product; a scan that skipped the meter would be
+//      invisible on /platform and uncapped against FieldQuo's card.
 //
 // ══ Why job costing is required ════════════════════════════════════════════
 //
@@ -50,7 +52,7 @@ import {
   assignedJobWhere,
 } from "@/lib/permissions/enforce";
 import { requireCost } from "@/app/api/invoices/costingWrite";
-import { checkAiQuota, recordAiUsage } from "@/lib/ai/usage";
+import { meterFor } from "@/lib/ai/featurePayer";
 import { isDemoCompany } from "@/lib/demo/simulatedSpend";
 import { receiptImageOrRefusal } from "@/lib/receipts/media";
 import { extractReceipt } from "@/lib/receipts/extract";
@@ -59,7 +61,8 @@ import { reconcileReceipt, suggestedCostCents } from "@/lib/receipts/reconcile";
 import { prefillMaterial, suggestedQuantity } from "@/lib/receipts/prefill";
 import { centsToAmount } from "@/lib/receipts/money";
 
-/** The name this call is metered under. `_photos` is appended by usage.js. */
+/** The name this call is metered under — and the switch it is paid by.
+ *  `_photos` is appended by whichever ledger records it. */
 const AI_FEATURE = "receipt_scan";
 
 export async function POST(request) {
@@ -107,10 +110,16 @@ export async function POST(request) {
   if (demo) {
     extraction = await simulatedReceiptScan({ member, imageUrl: file.url });
   } else {
-    // ── 3. Quota BEFORE the call ─────────────────────────────────────────
-    const quota = await checkAiQuota(member.companyId);
-    if (!quota.allowed) {
-      return NextResponse.json({ error: quota.reason }, { status: 429 });
+    // ── 3. Who pays, and may they — BEFORE the call ──────────────────────
+    //
+    // The /platform per-feature switch (lib/ai/featurePayer.js): FieldQuo's
+    // own AI budget and ledger, or the company's monthly allowance
+    // (checkAiQuota / recordAiUsage, which is what this route did before the
+    // switch existed and still does when it says "company").
+    const meter = await meterFor(AI_FEATURE, { companyId: member.companyId, userId: member.userId || null });
+    const gate = await meter.check();
+    if (!gate.allowed) {
+      return NextResponse.json({ error: gate.reason }, { status: 429 });
     }
 
     let usage = null;
@@ -126,15 +135,7 @@ export async function POST(request) {
     // content, and this mirrors it. A company whose photos keep coming back
     // unreadable must not show zero AI usage.
     if (usage) {
-      await recordAiUsage({
-        companyId: member.companyId,
-        feature: AI_FEATURE,
-        model: usage.model,
-        promptTokens: usage.promptTokens,
-        completionTokens: usage.completionTokens,
-        userId: member.userId || null,
-        imageCount: usage.imageCount,
-      });
+      await meter.record(usage);
     }
   }
 
