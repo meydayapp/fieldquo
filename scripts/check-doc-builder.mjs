@@ -768,6 +768,55 @@ for (const [lang, tab, prepared] of [["fr", "Devis", "Préparé pour"], ["es", "
   ok("the toolbar row wraps", /data-doc-toolbar/.test(doc) && /class="[^"]*flex-wrap[^"]*"[^>]*data-doc-toolbar/.test(doc));
 }
 
+// ── Refinish | Reface inside the cabinet card ─────────────────────────────
+//
+// The owner (2026-09-22). Drawn only for a company that sells both trades and
+// only on a group whose price is still derived; a company with one cabinet
+// trade sees exactly the card it saw before. The money side is executed in
+// scripts/check-cabinet-switch.mjs — this is the screen.
+{
+  const REFACE_CAT = { id: "cat4", key: "cabinet_refacing", label: "Cabinet Refacing", enabled: true };
+  const cabCat = BOOTSTRAP.categories.find((c) => c.key === "cabinet_refinishing");
+  const cabGroup = newScopeGroup(cabCat, cabCat.label, null, { tempId: "cab1" });
+  const initial = { ...initialStateFromQuote(null), client: BOOTSTRAP.clients[0], groups: [cabGroup] };
+  const draw = (layout, categories, init = initial) =>
+    renderToStaticMarkup(
+      <LanguageProvider initialLanguage="en">
+        <PermissionProvider role="owner" permissions={{}}>
+          <QuoteBuilderForm mode="create" quoteId={null} bootstrap={{ ...BOOTSTRAP, layout, categories }} initial={init} />
+        </PermissionProvider>
+      </LanguageProvider>,
+    );
+  const both = [...BOOTSTRAP.categories, REFACE_CAT];
+  // The document layout draws a service card's editor only once it is opened
+  // (DocumentBuilder's openGroup, null on a create), and what it draws then is
+  // b.renderGroupEditor — the same closure the classic layout renders. So the
+  // markup is asserted on classic and the sharing on the source.
+  const qb = src("app/components/quotes/builder/QuoteBuilder.js");
+  const editorBody = qb.split("const renderGroupEditor = (group) =>")[1]?.split("<UnitPricingFields")[0] || "";
+  ok("switch: lives inside renderGroupEditor, which both layouts mount", editorBody.includes("data-cabinet-service-switch") && src("app/components/quotes/builder/DocumentBuilder.js").includes("b.renderGroupEditor(group)"));
+  for (const layout of ["classic"]) {
+    const html = draw(layout, both);
+    ok(`switch: drawn when both are sold (${layout})`, html.includes("data-cabinet-service-switch"));
+    ok(`switch: refinishing is the pressed side (${layout})`, /aria-pressed="true"[^>]*data-cabinet-service="cabinet_refinishing"/.test(html));
+    ok(`switch: refacing is offered (${layout})`, /aria-pressed="false"[^>]*data-cabinet-service="cabinet_refacing"/.test(html));
+    ok(`switch: nothing new when only one is sold (${layout})`, !draw(layout, BOOTSTRAP.categories).includes("data-cabinet-service-switch"));
+  }
+  // A stored cabinet group: its price is frozen, so no switch either.
+  const storedQ = {
+    ...STORED_QUOTE,
+    scopeGroups: [{ id: "gc", categoryId: "cat2", category: { key: "cabinet_refinishing", label: "Cabinets" }, label: "Kitchen", lineItems: [{ description: "Kitchen", quantity: 30, unit: "unit", rate: 150, amount: 4500, meta: { baseUnitPrice: 150 } }], subtotal: 4500 }],
+  };
+  const storedInit = { ...initialStateFromQuote(storedQ), quote: storedQ, costingLoaded: true };
+  ok("switch: not on a saved cabinet group", !draw("classic", both, storedInit).includes("data-cabinet-service-switch"));
+  const labels = ["app.quoteNew.cabinetServiceLabel", "app.quoteNew.cabinetRefinish", "app.quoteNew.cabinetReface", "app.quoteNew.cabinetServiceHint"];
+  for (const lang of Object.keys(APP_MESSAGES)) {
+    const missing = labels.filter((k) => !APP_MESSAGES[lang][k]);
+    ok(`switch: its strings exist in ${lang}`, missing.length === 0, missing.join(", "));
+    ok(`switch: the hint keeps its {service} slot in ${lang}`, String(APP_MESSAGES[lang]["app.quoteNew.cabinetServiceHint"] || "").includes("{service}"));
+  }
+}
+
 // ── The floating + (CreateMenu.js) stays off the builder ──────────────────
 //
 // "Why is the create button visible when creating a new quote?" — hidden on

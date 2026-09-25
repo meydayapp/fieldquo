@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 25 September 2026 (one cabinet scope, Refinish | Reface: a company selling both cabinet trades gets a switch inside an unsaved cabinet group's card that moves the group between the two price books while keeping every count and answer already entered; a still-default name follows the service, switching back restores the previous figures byte-for-byte, and only the chosen service reaches the saved quote — see "Refinish | Reface inside one cabinet card" below)
 Last updated: 25 September 2026 (the paid deep photo read now returns trade-specific evidence on the SAME one vision call — junk volume in pickup beds → cu yd / m³ with item categories and the fees they carry, roof pitch/layers/damage, paint condition/peeling/colour change, cabinet door and drawer counts/style/finish, current floor and transitions, stair tread/riser counts and shape, gutter run/downspouts/storeys/issues — each with a confidence and how it was judged, shown as an estimate BESIDE the quote's measured figure and never written over it; plus a non-blocking "these photos may not be of this job" warning when a clearly-read photo matches none of the quote's trades, on the quote panel, the invoice twin and the estimate-review queue — see "The deep read reads the trade" below)
 Last updated: 25 September 2026 (three lost items: the client auto-send policy written down in docs/CLIENT-MESSAGES.md with every automatic client sender audited — no path auto-sends a quote; Facebook/Instagram threads past Meta's 24-hour window show a closed state, disable Send and say why and what still works, and the AI employee no longer replies past it; check:prep-guide green again — sixteen trades had no prep guide — so check:all now runs on to the next of 86 checks that were already failing on main behind it)
 Last updated: 25 September 2026 (flooring, tile, drywall, siding, fencing and concrete measured on the quote with the calculators that already exist — rooms on paint's geometry with openings off the walls and a waste per material, drywall sheets 4 × 8 / 4 × 12, siding elevations into the siding box, the aerial tracer into the fence's Linear Feet and the slab's Square Footage, posts every 8 ft, cubic yards at the chosen thickness — feeding "Add with its template lines"; nothing new is priced by a takeoff, so nothing new is held back — see "Flooring, tile, drywall, siding, fencing, concrete: measured on the quote" below)
@@ -40,6 +41,82 @@ than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## Refinish | Reface inside one cabinet card (25 September 2026)
+
+The owner's ask of 2026-09-22, lost and now built: "combine" cabinet refinishing and refacing into
+one cabinet scope with a switch inside the card. TrueFinish Cabinets sells both, and changing its
+mind used to mean deleting the group and typing the kitchen in again.
+
+### What shipped
+
+- **The switch.** A segmented "Refinish | Reface" control at the top of a cabinet group's card
+  (`renderGroupEditor` in `QuoteBuilder.js`, so the classic and document layouts both have it).
+  Drawn only when the company has BOTH trades enabled, only on a group added in this session, and
+  never on an imported or locked group. A company with one cabinet trade sees exactly the card it
+  saw before. A saved group is not offered it: its lines are already flattened and priced, and
+  switching it would reprice a quote that may already be in the client's inbox.
+- **What it does** (`lib/quotes/cabinetServiceSwitch.js`, pure): moves the group's
+  `categoryId` / `categoryKey` / `customFields` to the other trade and swaps `baseUnitPrice`.
+  A first visit opens at what a brand-new group of that trade would open at (through
+  `newScopeGroup`, not a copy of it — the company's own per-door override included). Everything
+  else the builder derives from the category — add-on rates, the complexity grid, the scope
+  paragraph, the cost estimate — follows by itself because it already reads `group.categoryKey`.
+- **Name.** Follows the service only while it is still the service's own name ("Cabinet
+  Refinishing" ↔ "Cabinet Refacing"); a group the estimator renamed keeps its name.
+- **Switching back restores the previous figures exactly.** Each service's base price is kept in
+  `group.serviceFigures` on the in-memory group, so a price typed over on refinishing is still
+  there after a look at refacing, and a price typed on refacing is there on the next visit.
+  `scopeGroupPayload` sends a fixed list of fields and this is not one of them — the saved row
+  and the client's document carry the chosen service only.
+
+### What carries, and what does not
+
+| Carries unchanged | Re-read from the chosen trade's book | Swapped / remembered per service |
+|---|---|---|
+| doors, drawers, wood species, box linear ft — the whole `intakeValues` | add-on rates (hinges, slides, handle holes, two/three-tone) | category, `baseUnitPrice` |
+| complexity chip, custom upcharge, complexity reasons, factor answers | factor-model Moderate/High per-unit figures | name, while still the default |
+| upgrade ticks and their stated counts, colour / sheen / door style | | |
+| typed extra lines, template lines, the estimator's custom factors | | |
+
+- The chips (Standard / Moderate +$20 / High +$40 / Custom) are the fixed amounts they always
+  were on both trades, so a chip-priced group keeps its upcharge; the factor answers are the same
+  seven questions on both trades and map onto the chosen book's own grid.
+- An upgrade the chosen trade's book does not price (a company that zeroed one) stays ticked and
+  adds nothing, exactly as on a fresh group of that trade; switching back prices it again.
+- Typed extra lines and template lines carry as written. A line that only made sense for the
+  other service is the estimator's to delete — the switch never deletes anything.
+
+### Proof
+
+- `npm run check:cabinet-switch` (new, in `check:all`, 73 assertions): untouched refinishing
+  and refacing payloads (chips + add-ons + extra line + custom factor; factor answers + typed base
+  price on a renamed group; Custom upcharge; blank) hash to md5s pinned from origin/main
+  `ef759bb1` (`38d6697a…`, `5f29000a…`, `236c9663…`, `29470ee9…`) — `lib/quotes/builderPayload.js`
+  is not touched; refinish → reface → refinish saves byte-for-byte the untouched payload for every
+  fixture, twice round too; what carries by value, what reprices off the target book (company
+  overrides included), no trace of the other service on the wire, same payload and intake keys.
+- The owner's real groups, read only (one SELECT session set READ ONLY, script deleted): all 11
+  stored cabinet groups of "TrueFinish Cabinets" and "TrueFinish Cabinets Inc." — as saved groups, byte-identical payload and no switch offered (11/11); the same kitchens
+  re-entered as new groups, round trip byte-identical (11/11), e.g. 35 units $5,250 refinishing →
+  $19,250 refacing → back to the same md5.
+- `check:doc-builder` gained the screen: the switch renders with refinishing pressed when both are
+  sold, nothing when one is, nothing on a saved cabinet group, and its four strings exist in all
+  nine app languages with the `{service}` slot. `check:complexity`, `check:quote-builder`,
+  `check:cabinet-labour`, `check:takeoff-render`, `check:call-refinishing`, `check:custom-factors`,
+  `check:builder-offers`, `check:quote-intake-costing`, translations and `npm run build` pass.
+
+### Still owed here
+
+- **Pre-existing, not changed:** the builder's unit card prices every face — drawer fronts too —
+  at the book's `perDoor`. For refinishing the two are equal ($150/$150); for refacing the book
+  says $550 a door and $350 a drawer front, so a refacing group bills drawers at $550. The switch
+  makes this more visible, not different. Pricing drawers at `perDrawer` would move every new
+  refacing quote's total, so it waits for the owner's yes.
+- The painter's "Cabinets & millwork" pick still opens refinishing first; the switch is how that
+  estimate becomes refacing.
 
 ---
 

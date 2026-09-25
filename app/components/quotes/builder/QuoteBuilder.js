@@ -120,6 +120,12 @@ import {
   newScopeGroup,
   billedUnitsOf,
 } from "@/lib/quotes/builderPayload";
+// Refinish | Reface inside one cabinet group — what carries and why is in
+// the module's header.
+import {
+  cabinetServiceOptions,
+  switchCabinetService,
+} from "@/lib/quotes/cabinetServiceSwitch";
 // The estimator's own complexity factors, on any trade — the model and its
 // composition order are in lib/pricing/customFactors.js.
 import CustomFactorsEditor from "@/app/components/pricing/CustomFactorsEditor";
@@ -1391,6 +1397,23 @@ export function QuoteBuilderForm({
     setScopeGroups((prev) => prev.filter((g) => g.tempId !== tempId));
   }
 
+  // The cabinet group's Refinish | Reface switch. The move itself is pure
+  // (lib/quotes/cabinetServiceSwitch.js) so the check script executes the
+  // same function this screen calls; the rate patch is the TARGET trade's,
+  // because the base price a first visit opens at comes from its book.
+  function switchCabinetGroupService(groupTempId, target) {
+    setScopeGroups((prev) =>
+      prev.map((g) =>
+        g.tempId === groupTempId
+          ? switchCabinetService(g, target, {
+              currentCategory: categories.find((c) => c.id === g.categoryId) || null,
+              rateOverrides: rateOverridesFor(target.id),
+            })
+          : g,
+      ),
+    );
+  }
+
   function updatePricing(groupTempId, patch) {
     setScopeGroups((prev) =>
       prev.map((g) => (g.tempId === groupTempId ? { ...g, ...patch } : g)),
@@ -2329,6 +2352,59 @@ export function QuoteBuilderForm({
             </span>
           </label>
         )}
+        {/* ── Refinish | Reface ────────────────────────────────────────
+            The owner (2026-09-22): one cabinet scope, the service chosen
+            inside the card. Only for a company that sells BOTH, and only on
+            a group whose price is still derived — cabinetServiceOptions
+            returns null otherwise and nothing new renders. The counts and
+            answers below stay put; the price follows the chosen trade's
+            rates, and only that trade reaches the saved quote. */}
+        {!locked &&
+          (() => {
+            const options = cabinetServiceOptions(group, categories);
+            if (!options) return null;
+            const words = {
+              cabinet_refinishing: t("app.quoteNew.cabinetRefinish", "Refinish"),
+              cabinet_refacing: t("app.quoteNew.cabinetReface", "Reface"),
+            };
+            return (
+              <div data-cabinet-service-switch>
+                <span className="block text-xs font-medium text-muted-foreground mb-1">
+                  {t("app.quoteNew.cabinetServiceLabel", "Service")}
+                </span>
+                <div
+                  role="group"
+                  aria-label={t("app.quoteNew.cabinetServiceLabel", "Service")}
+                  className="inline-flex rounded-lg border border-border overflow-hidden text-sm"
+                >
+                  {options.map((cat) => {
+                    const on = cat.key === group.categoryKey;
+                    return (
+                      <button
+                        key={cat.key}
+                        type="button"
+                        aria-pressed={on}
+                        data-cabinet-service={cat.key}
+                        onClick={() => {
+                          if (!on) switchCabinetGroupService(group.tempId, cat);
+                        }}
+                        className={`px-3 py-1 ${on ? "bg-primary text-primary-foreground font-semibold" : "text-muted-foreground hover:bg-accent"}`}
+                      >
+                        {words[cat.key]}
+                      </button>
+                    );
+                  })}
+                </div>
+                <span className="block text-[11px] text-muted-foreground mt-1">
+                  {t(
+                    "app.quoteNew.cabinetServiceHint",
+                    "Switching keeps the doors, drawers, complexity answers and upgrades already entered and prices them at the {service} rates. Only the chosen service prints on the quote.",
+                    { service: categories.find((c) => c.id === group.categoryId)?.label || words[group.categoryKey] },
+                  )}
+                </span>
+              </div>
+            );
+          })()}
         {!group.persisted && isUnitPriced(group.categoryKey) && (
           <UnitPricingFields
             book={getPriceBook(
