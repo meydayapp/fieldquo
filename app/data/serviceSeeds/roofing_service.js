@@ -56,8 +56,13 @@ const repairMat = (m) => {
   );
 };
 const item = (kind, slug, name, description, extra) => base(`fq.roofing_service.${kind}.${slug}`, kind, name, description, extra);
+// The source has two repair catch-alls ("shingles" and "other"); the shingle
+// one says so, so a company's list never shows the same name twice
+// (check-service-seeds section I).
 const otherRow = (kind, what) => item(kind, `other${what ? "_" + what : ""}`,
-  { en: `Other ${kind === "install" ? "installation" : kind === "repair" ? "repair" : "roof cleaning"} — describe what you need`, fr: `Autre ${kind === "install" ? "installation" : kind === "repair" ? "réparation" : "nettoyage de toiture"} — décrivez le besoin`, es: `Otra ${kind === "install" ? "instalación" : kind === "repair" ? "reparación" : "limpieza de techo"} — describa lo que necesita` },
+  what === "shingles"
+    ? { en: "Other shingle repair — describe what you need", fr: "Autre réparation de bardeaux — décrivez le besoin", es: "Otra reparación de tejas — describa lo que necesita" }
+    : { en: `Other ${kind === "install" ? "installation" : kind === "repair" ? "repair" : "roof cleaning"} — describe what you need`, fr: `Autre ${kind === "install" ? "installation" : kind === "repair" ? "réparation" : "nettoyage de toiture"} — décrivez le besoin`, es: `Otra ${kind === "install" ? "instalación" : kind === "repair" ? "reparación" : "limpieza de techo"} — describa lo que necesita` },
   { en: "Roofing work not listed above, priced after a look at the roof.", fr: "Travail de toiture non listé ci-dessus, chiffré après examen du toit.", es: "Trabajo de techo no listado arriba, cotizado después de ver el techo." });
 
 export const SEED = {

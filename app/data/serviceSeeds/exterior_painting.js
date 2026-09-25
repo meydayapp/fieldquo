@@ -4,7 +4,7 @@
 // ./index.js. Exterior siding, trim, fascia, decks and fences are priced per
 // sq ft by the painting takeoff and the exterior_painting price book; those
 // rows are kept as references with `pricedBy: "takeoff"`.
-import { L, SHARED, D, T, withTemplates } from "./_templateLines";
+import { L, SHARED, D, T, withTemplates, tagRows } from "./_templateLines";
 import { PAINT } from "./_paintLines";
 
 const BM = (low, median, high) => ({ low, median, high, currency: "USD", source: "benchmark", asOf: "2026-09-21" });
@@ -284,3 +284,9 @@ const TEMPLATES = {
 };
 
 withTemplates(SEED, TEMPLATES);
+
+// Shared services: one canonical row here, installed for these quote types too.
+tagRows(SEED, {
+  "fq.exterior_painting.exterior.pressure_wash": ["pressure_washing_house", "deck_patio", "window_cleaning"],
+  "fq.exterior_painting.exterior.deck_fence": ["deck_patio", "handyman", "fence_services"],
+});

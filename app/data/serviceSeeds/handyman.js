@@ -485,9 +485,6 @@ export const SEED = {
     S("fq.handyman.flooring.tile_replacement", "flooring", "flat", null,
       ["Tile replacement — small area", "Remplacement de carreaux — petite surface", "Reemplazo de azulejo — área pequeña"],
       ["A few cracked or loose tiles chipped out and replaced, then grouted to match.", "Quelques carreaux fissurés ou décollés enlevés et remplacés, puis jointoyés pour s'agencer.", "Unos cuantos azulejos agrietados o sueltos retirados y reemplazados, con lechada a juego."]),
-    S("fq.handyman.exterior.gutter_cleaning", "exterior", "flat", null,
-      ["Gutter cleaning", "Nettoyage de gouttières", "Limpieza de canaletas"],
-      ["Leaves and debris scooped out of the gutters and every downspout flushed so the water runs off.", "Feuilles et débris retirés des gouttières et chaque descente rincée pour que l'eau s'écoule.", "Hojas y residuos retirados de las canaletas y cada bajante enjuagada para que el agua corra."]),
     S("fq.handyman.exterior.gutter_repair", "exterior", "flat", null,
       ["Gutter repair", "Réparation de gouttière", "Reparación de canaleta"],
       ["A sagging, leaking or detached section of gutter reattached, resealed and pitched to drain.", "Section de gouttière affaissée, qui fuit ou décrochée refixée, rescellée et remise en pente.", "Tramo de canaleta caído, con fuga o suelto refijado, resellado y con pendiente para drenar."]),
@@ -1117,23 +1114,6 @@ const TEMPLATES = {
     }),
     SHARED.consumables(15),
   ], null),
-
-  "fq.handyman.exterior.gutter_cleaning": T("maintenance", {
-    it: ["Pulizia grondaie", "Foglie e detriti tolti dalle grondaie e ogni pluviale sciacquato perché l'acqua scorra."],
-    de: ["Dachrinnenreinigung", "Laub und Schmutz aus den Rinnen geholt und jedes Fallrohr gespült, damit das Wasser abläuft."],
-    uk: ["Чищення ринв", "Листя й сміття вибрано з ринв, кожну трубу промито, щоб вода стікала."],
-    tl: ["Paglilinis ng gutter", "Kinuha ang dahon at dumi sa gutter at binuhusan ang bawat downspout para dumaloy ang tubig."],
-  }, [
-    L.labour(1, "flat", 150, {
-      en: ["Gutter cleaning", "Debris removed by hand and downspouts flushed."],
-      fr: ["Nettoyage de gouttières", "Débris retirés à la main et descentes rincées."],
-      es: ["Limpieza de canaletas", "Residuos retirados a mano y bajantes enjuagadas."],
-      it: ["Pulizia grondaie", "Detriti tolti a mano e pluviali sciacquati."],
-      de: ["Rinnenreinigung", "Schmutz von Hand entfernt und Fallrohre gespült."],
-      uk: ["Чищення ринв", "Сміття вибрано вручну, труби промито."],
-      tl: ["Paglilinis ng gutter", "Kinuha sa kamay ang dumi at binuhusan ang downspout."],
-    }),
-  ], D.seasonal("fixed", 15)),
 
   "fq.handyman.exterior.power_wash_deck_refinish": T("maintenance", {
     it: ["Idropulizia e rinnovo del deck", "Deck lavato a pressione e trattato con impregnante o sigillante."],

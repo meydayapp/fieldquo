@@ -54,6 +54,7 @@
 //
 // docs/SERVICE-SEEDS.md has the industry → trade mapping and the counts.
 
+import { SEED as air_duct_cleaning } from "./air_duct_cleaning";
 import { SEED as appliance_repair } from "./appliance_repair";
 import { SEED as carpentry } from "./carpentry";
 import { SEED as carpet_cleaning } from "./carpet_cleaning";
@@ -75,6 +76,7 @@ import { SEED as tree_care_service } from "./tree_care_service";
 import { SEED as window_cleaning } from "./window_cleaning";
 
 export const SERVICE_SEEDS = {
+  air_duct_cleaning,
   appliance_repair,
   carpentry,
   carpet_cleaning,

@@ -535,6 +535,24 @@ const ordered = (min, median, max) => ({
 });
 
 /**
+ * Tag rows with the other quote types that sell them — ONE canonical row per
+ * shared service (caulking, gutter cleaning, a dryer vent), installed for
+ * every trade listed (lib/services/seeds.js#serviceSeedsForCompanyTrade).
+ * Runs after withTemplates and merges with a template's own categories; the
+ * row's own trade is always first. An unknown seed key throws at import.
+ */
+export function tagRows(seed, map) {
+  const byKey = new Map(seed.services.map((s) => [s.seedKey, s]));
+  for (const [key, cats] of Object.entries(map)) {
+    const s = byKey.get(key);
+    if (!s) fail(`${seed.trade}: tag for unknown service ${key}`);
+    if (!Array.isArray(cats) || !cats.every((c) => SLUG.test(c))) fail(`${key}: tags must be ServiceCategory keys`);
+    s.categories = [...new Set([seed.trade, ...(s.categories || []), ...cats])];
+  }
+  return seed;
+}
+
+/**
  * Attach templates to a seed's services, in place, and return the seed.
  * A template whose seed key names no service is a bug, not a silent no-op:
  * it throws at import so the build fails instead of a trade quietly losing a

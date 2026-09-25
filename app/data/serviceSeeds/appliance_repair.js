@@ -2,7 +2,7 @@
 //
 // The service list an appliance repair company starts from. Read ./index.js
 // for the format and the rules. No row carried a pricing insight.
-import { L, SHARED, D, T, withTemplates, hdMaterial } from "./_templateLines";
+import { L, SHARED, D, T, withTemplates, hdMaterial, tagRows } from "./_templateLines";
 import { HD } from "./_materialCosts";
 
 const BM = (low, median, high) => ({ low, median, high, currency: "USD", source: "benchmark", asOf: "2026-09-21" });
@@ -466,3 +466,8 @@ const TEMPLATES = {
 };
 
 withTemplates(SEED, TEMPLATES);
+
+// Shared services: one canonical row here, installed for these quote types too.
+tagRows(SEED, {
+  "fq.appliance_repair.additional.dryer_vent_cleaning": ["air_duct_cleaning", "hvac_repair"],
+});

@@ -10,7 +10,7 @@
 // lines up. Hardwood REFINISHING is the `flooring` trade's takeoff and is not
 // in this book at all.
 
-import { L as TL, SHARED, D, T, withTemplates, hdMaterial } from "./_templateLines";
+import { L as TL, SHARED, D, T, withTemplates, hdMaterial, tagRows } from "./_templateLines";
 import { HD } from "./_materialCosts";
 
 const L = {
@@ -524,3 +524,9 @@ const TEMPLATES = {
 };
 
 withTemplates(SEED, TEMPLATES);
+
+// Shared services: one canonical row here, installed for these quote types too.
+tagRows(SEED, {
+  "fq.flooring_install.maintenance.tile_grout_seal": ["carpet_cleaning", "handyman", "general_contracting"],
+  "fq.flooring_install.maintenance.deck_clean_reseal": ["deck_patio"],
+});

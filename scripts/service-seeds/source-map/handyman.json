@@ -637,13 +637,6 @@
   "taskCode": null
  },
  {
-  "seedKey": "fq.handyman.exterior.gutter_cleaning",
-  "industry": "Handyman",
-  "sourceCategory": "Estimate templates (handyman capture)",
-  "sourceService": "Gutter cleaning",
-  "taskCode": null
- },
- {
   "seedKey": "fq.handyman.exterior.gutter_repair",
   "industry": "Handyman",
   "sourceCategory": "Estimate templates (handyman capture)",

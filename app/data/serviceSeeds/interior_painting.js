@@ -9,7 +9,7 @@
 // the add-ons, prep and specialty jobs are ordinary flat-priced services.
 // Written in source order (every row of the source's painting book except its
 // "Exterior Components", which are in ./exterior_painting.js).
-import { L, SHARED, D, T, withTemplates, hdMaterial } from "./_templateLines";
+import { L, SHARED, D, T, withTemplates, hdMaterial, tagRows } from "./_templateLines";
 import { PAINT } from "./_paintLines";
 import { HD } from "./_materialCosts";
 
@@ -699,3 +699,9 @@ const TEMPLATES = {
 };
 
 withTemplates(SEED, TEMPLATES);
+
+// Shared services: one canonical row here, installed for these quote types too.
+tagRows(SEED, {
+  "fq.interior_painting.prep.caulking_sealing": ["handyman", "window_cleaning", "caulking_sealants"],
+  "fq.interior_painting.prep.drywall_patch": ["handyman", "drywall_install", "general_contracting"],
+});

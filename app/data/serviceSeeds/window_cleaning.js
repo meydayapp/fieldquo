@@ -2,7 +2,7 @@
 //
 // The service list a window and exterior cleaning company starts from. Read
 // ./index.js for the format and the rules. Written in source order.
-import { L, SHARED, D, T, withTemplates } from "./_templateLines";
+import { L, SHARED, D, T, withTemplates, tagRows } from "./_templateLines";
 
 const BM = (low, median, high) => ({ low, median, high, currency: "USD", source: "benchmark", asOf: "2026-09-21" });
 const S = (seedKey, category, unit, benchmark, [en, fr, es], [den, dfr, des], extra = {}) => ({
@@ -539,3 +539,10 @@ const TEMPLATES = {
 };
 
 withTemplates(SEED, TEMPLATES);
+
+// Shared services: one canonical row here, installed for these quote types too.
+tagRows(SEED, {
+  "fq.window_cleaning.exterior.gutter_cleaning": ["gutter_services", "handyman", "roofing_service", "property_maintenance"],
+  "fq.window_cleaning.exterior.driveway_pressure_wash": ["pressure_washing_driveway"],
+  "fq.window_cleaning.exterior.house_soft_wash": ["pressure_washing_house", "exterior_painting"],
+});
