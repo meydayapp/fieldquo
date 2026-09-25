@@ -21,6 +21,7 @@ import { CAMPAIGNS, PLANS as BILLING_PLANS } from "./routes-grow.js";
 import { W, TIME_ENTRIES, POLICIES, TEAM_REQUESTS, TEAM_BALANCES, INCIDENTS, CLOCK } from "./routes-people.js";
 import { publicIntakeFields } from "@/app/data/quoteIntakeFields";
 import { budgetBands } from "@/lib/estimate/budgetBands";
+import { effectiveFormFields } from "@/lib/estimate/formFields";
 import { sanitiseFunnelSteps } from "@/app/data/funnelBlocks";
 import { parsePaymentSchedule } from "@/lib/documents/paymentSchedule";
 import { seedRowsFor } from "@/lib/quotes/textBlockDefaults";
@@ -373,24 +374,41 @@ const selfQuote = (ctx) => ({
 // app/api/instant-quote/[companySlug]: the trades Settings › Instant quotes
 // has switched on, as mode names and labels — the range itself only ever
 // comes back from POST /measure, which is not on the page at first paint.
+//
+// The docs/screens/form-look rows (screens.js, slugs `form-look-tf-*`) ask
+// for the same payload in TrueFinish's shape — the owner's real company,
+// whose three instant trades are this fixture's two plus stairs, and whose
+// brand is the gold on its row — with the photos field optional on the row
+// whose slug says so. The row is read off window.__harness, which guide.jsx
+// sets before anything fetches; every other screen gets the cabinet maker.
 const instantQuote = (ctx) => {
   const language = docLang(ctx) === "fr" ? "fr" : "en";
   const bands = budgetBands(null, { currency: COMPANY.currency, language }).map((b) => ({ index: b.index, label: b.label }));
+  const slug = (typeof window !== "undefined" && window.__harness?.slug) || "";
+  const trueFinish = slug.startsWith("form-look-tf");
+  const savedFields = slug.includes("photos-optional") ? { photos: "optional", notes: "optional" } : null;
+  const fields = effectiveFormFields(savedFields, { measure: "manual_units", serviceAreaConfigured: false }).fields;
   return {
-    company: { name: COMPANY.name, slug: SLUG, logoUrl: COMPANY.logoUrl, brandColor: COMPANY.brandColor },
+    company: trueFinish
+      ? { name: "TrueFinish Cabinets Inc.", slug: SLUG, logoUrl: null, brandColor: "#bd9d60" }
+      : { name: COMPANY.name, slug: SLUG, logoUrl: COMPANY.logoUrl, brandColor: COMPANY.brandColor },
     mapsKey: null,
     language,
     currency: COMPANY.currency,
     trades: [
-      { trade: "cabinet_refinishing", label: "Cabinet refinishing", estimateDisplay: "range", budgetBands: bands, measure: "manual_units", hasMaterials: false, materials: [] },
+      { trade: "cabinet_refinishing", label: "Cabinet refinishing", estimateDisplay: trueFinish ? "after_submit" : "range", budgetBands: bands, measure: "manual_units", hasMaterials: false, materials: [], fields },
       {
-        trade: "cabinet_refacing", label: "Cabinet refacing", estimateDisplay: "range", budgetBands: bands, measure: "manual_units", hasMaterials: true,
+        trade: "cabinet_refacing", label: "Cabinet refacing", estimateDisplay: trueFinish ? "after_submit" : "range", budgetBands: bands, measure: "manual_units", hasMaterials: true,
         materials: [
           { key: "shaker_painted_mdf", label: "Shaker, painted MDF" },
           { key: "shaker_maple", label: "Shaker, painted maple" },
           { key: "slab_white_oak", label: "Slab, white oak veneer" },
         ],
+        fields,
       },
+      ...(trueFinish
+        ? [{ trade: "stair", label: "Stairs & Railings", estimateDisplay: "after_submit", budgetBands: bands, measure: "stair_count", hasMaterials: false, materials: [], fields }]
+        : []),
     ],
     booking: { canBookVisit: true, slug: SLUG },
   };

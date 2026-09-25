@@ -34,6 +34,7 @@ import {
   instantTradeOffered,
 } from "@/lib/trades/catalog";
 import { normaliseFinancing } from "@/lib/estimate/financing";
+import { DEFAULT_FORM_APPEARANCE } from "@/lib/estimate/formAppearance";
 import { TUNING_SETTINGS, TUNING_FIELDS } from "@/lib/voice/agentTuning";
 import { QUOTE_CALL_SCOPE_VALUES } from "@/lib/voice/quoteCallScope";
 import { SITE_STYLES, SITE_STYLE_KEYS } from "@/lib/site/siteStyles";
@@ -262,6 +263,13 @@ function instantQuotePayload() {
     },
     liveTradeCount: trades.filter((t) => t.enabled && t.readiness.ok && !(t.trade === "painting" && t.scopesOffered.length === 0)).length,
     companySlug: SLUG,
+    // The form's look (the standard one — the card shows the six choices and
+    // the measured pairs on this brand), the brand it is measured against,
+    // and no service area drawn, so the address rows on the cards are the
+    // owner's to set.
+    formAppearance: DEFAULT_FORM_APPEARANCE,
+    brandColor: COMPANY.brandColor,
+    serviceAreaConfigured: false,
     financing: normaliseFinancing({ enabled: false }),
   };
 }

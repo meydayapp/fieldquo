@@ -54,6 +54,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Loader2, Check, ArrowLeft, Building2, AlertCircle } from "lucide-react";
 import { documentTheme, fillPair, ruleColor } from "@/lib/documents/theme";
+import { themeUnderLook } from "@/lib/estimate/formAppearance";
+import FormLook, { useFormLook } from "@/app/components/public/FormLook";
 import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
 import { KITCHEN_DESIGN_KEY } from "@/lib/kitchen/key";
 import { LANGUAGES } from "@/app/i18n/languages";
@@ -73,7 +75,11 @@ import {
 // confirmation masthead — because the iframe sits on the company's own site,
 // under their own masthead, and a second one reads as somebody else's widget.
 // The language picker, the brand rule and everything below stay as they are.
-export default function SelfQuoteFlow({ companySlug, embedded = false }) {
+//
+// `look` is the company's saved appearance with its brand colour, read on the
+// server by the page that mounts this (lib/estimate/publicFormLook.js), never
+// from the URL. Null, or the default preset, changes nothing: see FormLook.
+export default function SelfQuoteFlow({ companySlug, embedded = false, look: lookProp = null }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -136,8 +142,13 @@ export default function SelfQuoteFlow({ companySlug, embedded = false }) {
   const lang = language || data?.languages?.[0] || "en";
   const copy = clientDocCopy(lang).selfQuote;
   const c = useMemo(() => data?.company || {}, [data]);
-  const theme = useMemo(() => documentTheme(c), [c]);
-  const fill = useMemo(() => fillPair(theme), [theme]);
+  // This form paints from the theme INLINE (color: theme.ink), so a chosen
+  // look has to reach the theme itself, not only the stylesheet: on a dark
+  // surface themeUnderLook swaps the inks and surfaces for the palette's
+  // measured ones. The default look leaves both exactly as they were.
+  const look = useFormLook(lookProp);
+  const theme = useMemo(() => themeUnderLook(documentTheme(c), look?.palette), [c, look]);
+  const fill = useMemo(() => (look ? look.palette.button : fillPair(theme)), [theme, look]);
 
   async function submit(e) {
     e.preventDefault();
@@ -185,12 +196,14 @@ export default function SelfQuoteFlow({ companySlug, embedded = false }) {
 
   if (loading) {
     return (
-      <Shell theme={theme}>
-        <div className="animate-pulse space-y-3">
-          <div className="h-6 bg-black/10 rounded w-1/3" />
-          <div className="h-40 bg-black/10 rounded-xl" />
-        </div>
-      </Shell>
+      <FormLook look={look}>
+        <Shell theme={theme}>
+          <div className="animate-pulse space-y-3">
+            <div className="h-6 bg-black/10 rounded w-1/3" />
+            <div className="h-40 bg-black/10 rounded-xl" />
+          </div>
+        </Shell>
+      </FormLook>
     );
   }
 
@@ -198,6 +211,7 @@ export default function SelfQuoteFlow({ companySlug, embedded = false }) {
     // English only, deliberately: the company never resolved, so there is no
     // send-language list to pick from and guessing would be inventing one.
     return (
+      <FormLook look={look}>
       <Shell theme={theme}>
         <div className="bg-white border border-black/10 rounded-2xl p-8 text-center">
           <p className="text-lg font-semibold" style={{ color: theme.ink }}>
@@ -208,6 +222,7 @@ export default function SelfQuoteFlow({ companySlug, embedded = false }) {
           </p>
         </div>
       </Shell>
+      </FormLook>
     );
   }
 
@@ -216,6 +231,7 @@ export default function SelfQuoteFlow({ companySlug, embedded = false }) {
 
   if (done) {
     return (
+      <FormLook look={look}>
       <Shell theme={theme}>
         <Confirmation
           doc={buildConfirmation({
@@ -262,10 +278,12 @@ export default function SelfQuoteFlow({ companySlug, embedded = false }) {
           />
         )}
       </Shell>
+      </FormLook>
     );
   }
 
   return (
+    <FormLook look={look}>
     <Shell theme={theme}>
       <Card theme={theme}>
         {/* The identity strip is skipped when embedded — the host page is the
@@ -517,7 +535,7 @@ export default function SelfQuoteFlow({ companySlug, embedded = false }) {
                 type="button"
                 onClick={() => setStep(3)}
                 className="w-full mt-4 py-3 rounded-full text-sm font-bold"
-                style={{ backgroundColor: fill.bg, color: fill.fg }}
+                style={ctaStyle(fill)}
               >
                 {copy.continueCta}
               </button>
@@ -631,7 +649,7 @@ export default function SelfQuoteFlow({ companySlug, embedded = false }) {
                 type="submit"
                 disabled={submitting}
                 className="w-full mt-4 py-3 rounded-full text-sm font-bold inline-flex items-center justify-center gap-2 disabled:opacity-60"
-                style={{ backgroundColor: fill.bg, color: fill.fg }}
+                style={ctaStyle(fill)}
               >
                 {submitting && <Loader2 size={15} className="animate-spin" />}
                 {copy.sendCta}
@@ -650,6 +668,7 @@ export default function SelfQuoteFlow({ companySlug, embedded = false }) {
         </div>
       </Card>
     </Shell>
+    </FormLook>
   );
 }
 
@@ -935,6 +954,17 @@ function Confirmation({ doc, company, theme, fill, emailed, contactEmail, embedd
       )}
     </Card>
   );
+}
+
+// The call-to-action's inline colours. fillPair's pair as always; a look's
+// button pair may carry a border (the outline style), which is drawn only
+// then — on the default the object is the same two keys it always was.
+function ctaStyle(fill) {
+  return {
+    backgroundColor: fill.bg,
+    color: fill.fg,
+    ...(fill.borderWidth ? { borderWidth: fill.borderWidth, borderStyle: "solid", borderColor: fill.border } : {}),
+  };
 }
 
 function LanguagePicker({ value, options, label, theme, onChange }) {

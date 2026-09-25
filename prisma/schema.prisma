@@ -2106,6 +2106,15 @@ model Company {
   /// and carries something of theirs (a hand edit, an own photo), else
   /// nothing — a homeowner is never sent to a page of stock photos.
   instantReportWebsite String?
+  /// How the public request / instant-estimate form and its embed LOOK:
+  /// { fieldStyle, radius, fontPreset, density, buttonStyle, surface } —
+  /// see lib/estimate/formAppearance.js. NULL is the form's original look,
+  /// which is also what every value the normaliser rejects falls back to.
+  /// Company-level, beside the other two company-level instant-quote
+  /// settings (financing, the report's website link), because the two
+  /// public forms and their embeds share one look the way they share one
+  /// brand colour.
+  publicFormAppearance Json?
 
   isDemo Boolean @default(false)
 

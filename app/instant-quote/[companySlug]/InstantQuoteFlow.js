@@ -55,6 +55,8 @@ import {
 } from "@/lib/i18n/instantQuoteCopy";
 import { questionsFor, timelineOptionsFor, tradeQuestionCopy } from "@/lib/leads/tradeQuestions";
 import { serviceAreaCopy } from "@/lib/company/serviceArea";
+import { DEFAULT_FORM_FIELDS, contactRule, contactSatisfied } from "@/lib/estimate/formFields";
+import FormLook, { useFormLook } from "@/app/components/public/FormLook";
 
 // ── The way out ──────────────────────────────────────────────────────────────
 //
@@ -417,7 +419,12 @@ function LawnMap({ mapsKey, onArea, companySlug, centerAddress = "", t, area = f
 // `embedded` is true only from app/embed/[companySlug]/[widget]/page.js. It
 // changes two things — the company header is not drawn, and the root stops
 // claiming the viewport — and nothing else. See the comments at each site.
-export default function InstantQuoteFlow({ companySlug, embedded = false }) {
+//
+// `look` is the company's saved appearance with its brand colour, read on
+// the server by the page that mounts this (lib/estimate/publicFormLook.js) —
+// never from the URL, which on an embed is a string somebody else pasted.
+// Null, or the default preset, changes nothing at all: see FormLook.
+export default function InstantQuoteFlow({ companySlug, embedded = false, look: lookProp = null }) {
   const [data, setData] = useState(null);
   const [loadErr, setLoadErr] = useState("");
   // 404 means this link is for a company that doesn't exist — the only failure
@@ -548,8 +555,21 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
   // steps the colour until it clears 4.5:1 as TEXT on paper, fillPair returns
   // a background plus a foreground measured against it. Neither invents a
   // colour — a dark brand comes back untouched.
-  const theme = useMemo(() => documentTheme({ brandColor: brand }), [brand]);
-  const solid = useMemo(() => fillPair(theme), [theme]);
+  // The chosen look, if any. Its palette re-measures accentText and the
+  // button pair against ITS surfaces (a dark card, a brand-washed page), so
+  // the two values below follow it and every `theme.accentText` and
+  // `solid.bg` in this file is right on that surface too. Null on the
+  // default look, and then these are exactly what they always were.
+  const look = useFormLook(lookProp);
+  const theme = useMemo(() => {
+    const base = documentTheme({ brandColor: brand });
+    return look ? { ...base, accentText: look.palette.accentText } : base;
+  }, [brand, look]);
+  const solid = useMemo(() => (look ? look.palette.button : fillPair(theme)), [theme, look]);
+  // The lit chip — trade, language — is the button's pair on a solid look
+  // and a filled chip beside an outline button, so a selection still reads
+  // as a fill when the call to action is a ghost.
+  const chip = look ? look.palette.chip : solid;
   const lang = language || instantQuoteLanguage(data?.language) || "en";
   const t = instantQuoteCopy(lang);
   const q = tradeQuestionCopy(lang);
@@ -758,17 +778,29 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
   // that don't fit the trade and collecting answers nobody can act on.
   const budgetBands = trade?.budgetBands || [];
   const needsMaterial = (trade?.materials?.length || 0) > 1;
+  // ── Which questions this trade asks, and which it insists on ─────────────
+  //
+  // Per trade, from the payload (lib/estimate/formFields.js): photos, budget,
+  // when, notes, phone, email and the job address are each required,
+  // optional or hidden as the owner set them, with the address already locked
+  // to required where the estimator measures from it or a service area has
+  // to be checked. The defaults are what this form always did. The request
+  // route applies the same table, so this list is a courtesy and the server
+  // is the gate.
+  const fields = trade?.fields || DEFAULT_FORM_FIELDS;
+  const rule = contactRule(fields);
   const missing = [
     !trade && t.missing.whatYouNeed,
     trade && !jobDescribed && t.missing.jobDetails,
     needsMaterial && !materialKey && t.missing.anOption,
     trade?.measure === "lawn_address" && !lawnPick.programKey && t.missing.aProgram,
-    trade && !byAddress(trade.measure) && siteAddress.trim().length < 5 && t.missing.jobAddress,
-    trade && !whenNeeded && t.missing.whenNeeded,
+    trade && !byAddress(trade.measure) && fields.address === "required" && siteAddress.trim().length < 5 && t.missing.jobAddress,
+    trade && fields.timeline === "required" && !whenNeeded && t.missing.whenNeeded,
     trade && !contact.name && t.missing.yourName,
-    trade && !contact.email && !contact.phone && t.missing.emailOrPhone,
-    trade && budgetBands.length > 0 && budgetIndex === null && t.missing.yourBudget,
-    trade && media.length === 0 && t.missing.onePhoto,
+    trade && !contactSatisfied(fields, contact) &&
+      (rule === "both" ? t.missing.phoneAndEmail : rule === "phone" ? t.missing.yourPhone : rule === "email" ? t.missing.yourEmail : t.missing.emailOrPhone),
+    trade && fields.budget === "required" && budgetBands.length > 0 && budgetIndex === null && t.missing.yourBudget,
+    trade && fields.photos === "required" && media.length === 0 && t.missing.onePhoto,
   ].filter(Boolean);
 
   // The promise in the hero and the word on the button both follow the trade's
@@ -810,7 +842,7 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
             }`}
             // The lit pill is a fill carrying text: fillPair's measured pair,
             // with accentText as the edge so a pale brand still has a shape.
-            style={on ? { background: solid.bg, color: solid.fg, borderColor: theme.accentText } : undefined}
+            style={on ? { background: chip.bg, color: chip.fg, borderColor: chip.border || theme.accentText } : undefined}
           >
             {t.languageNames[code]}
           </button>
@@ -821,40 +853,49 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
 
   if (loadErr) {
     return (
-      <Centered embedded={embedded}>
-        <div className="text-center space-y-3">
-          <div className="flex justify-center">{languagePills}</div>
-          <p className="text-red-600">{loadErr}</p>
-          {loadErrStatus !== 404 && <RequestQuoteLink companySlug={companySlug} t={t} />}
-        </div>
-      </Centered>
+      <FormLook look={look}>
+        <Centered embedded={embedded}>
+          <div className="text-center space-y-3">
+            <div className="flex justify-center">{languagePills}</div>
+            <p className="text-red-600">{loadErr}</p>
+            {loadErrStatus !== 404 && <RequestQuoteLink companySlug={companySlug} t={t} />}
+          </div>
+        </Centered>
+      </FormLook>
     );
   }
   if (!data) {
-    return <Centered embedded={embedded}><Loader2 className="animate-spin text-muted-foreground" /></Centered>;
+    return <FormLook look={look}><Centered embedded={embedded}><Loader2 className="animate-spin text-muted-foreground" /></Centered></FormLook>;
   }
   if (!data.trades.length) {
     return (
-      <Centered embedded={embedded}>
-        <div className="text-center space-y-3">
-          <div className="flex justify-center">{languagePills}</div>
-          <p className="text-muted-foreground">{t.notAvailable}</p>
-          <RequestQuoteLink companySlug={companySlug} t={t} />
-        </div>
-      </Centered>
+      <FormLook look={look}>
+        <Centered embedded={embedded}>
+          <div className="text-center space-y-3">
+            <div className="flex justify-center">{languagePills}</div>
+            <p className="text-muted-foreground">{t.notAvailable}</p>
+            <RequestQuoteLink companySlug={companySlug} t={t} />
+          </div>
+        </Centered>
+      </FormLook>
     );
   }
 
+  // No `--brand` custom property on the root any more: it was set on this div
+  // and read by nothing in the tree below it. A value written and never read
+  // is the shape of a control that looks wired up and isn't.
+  //
+  // min-h-screen only when standalone. Inside an iframe "the screen" is the
+  // iframe itself, so the root could never measure shorter than whatever
+  // height the snippet started with — EmbedFrame would post that number
+  // back, the host would set it, and the frame would grow but never shrink.
+  // min-h-0 lets the embed report what it actually is.
+  //
+  // (These notes sit ABOVE the return: a line comment between a JSX opening
+  // tag and its child is text, and shipped as such once FormLook wrapped
+  // this root.)
   return (
-    // No `--brand` custom property here any more: it was set on this div and
-    // read by nothing in the tree below it. A value written and never read is
-    // the shape of a control that looks wired up and isn't.
-    //
-    // min-h-screen only when standalone. Inside an iframe "the screen" is the
-    // iframe itself, so the root could never measure shorter than whatever
-    // height the snippet started with — EmbedFrame would post that number
-    // back, the host would set it, and the frame would grow but never shrink.
-    // min-h-0 lets the embed report what it actually is.
+    <FormLook look={look}>
     <div className={embedded ? "min-h-0 bg-muted/30" : "min-h-screen bg-muted/30"} lang={lang}>
       <div className="max-w-5xl mx-auto px-4 py-8">
         {/* Header. Not drawn when embedded: the iframe sits inside the
@@ -955,15 +996,15 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
                         style={
                           trade?.trade === tr.trade
                             ? {
-                                background: solid.bg,
-                                color: solid.fg,
+                                background: chip.bg,
+                                color: chip.fg,
                                 // The chip's EDGE, which is a separate
                                 // question from its label. fillPair guarantees
                                 // the label is legible on the fill and says
                                 // nothing about the fill against the page —
                                 // silver is 1.82:1 there, so the chip had no
                                 // shape even once its text was readable.
-                                borderColor: theme.accentText,
+                                borderColor: chip.border || theme.accentText,
                               }
                             : undefined
                         }
@@ -1130,8 +1171,8 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
                     The trade questions under it are the one or two facts
                     the company wants before driving out. Chips, same as the
                     budget bands beneath — the same kind of question. */}
-                {trade && whenOptions.length > 0 && (
-                  <Section title={q.whenTitle} required>
+                {trade && whenOptions.length > 0 && fields.timeline !== "hidden" && (
+                  <Section title={q.whenTitle} required={fields.timeline === "required"}>
                     <div className="grid grid-cols-2 gap-2">
                       {whenOptions.map((o) => {
                         const selected = whenNeeded === o.key;
@@ -1193,8 +1234,8 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
                     here moves the estimate by a cent. Asked next to the job
                     itself it reads as "tell us what you'll pay and we'll charge
                     it", which is exactly what a homeowner is afraid of. */}
-                {trade && budgetBands.length > 0 && (
-                  <Section title={t.yourBudget} required>
+                {trade && budgetBands.length > 0 && fields.budget !== "hidden" && (
+                  <Section title={t.yourBudget} required={fields.budget === "required"}>
                     <div className="grid grid-cols-2 gap-2">
                       {budgetBands.map((b) => {
                         const selected = budgetIndex === b.index;
@@ -1217,8 +1258,8 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
                   </Section>
                 )}
 
-                {trade && !byAddress(trade.measure) && (
-                  <Section title={t.whereIsJob} required>
+                {trade && !byAddress(trade.measure) && fields.address !== "hidden" && (
+                  <Section title={t.whereIsJob} required={fields.address === "required"}>
                     <AddressAutocomplete
                       value={siteAddress}
                       // Typing after picking invalidates the components that
@@ -1260,31 +1301,38 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
                         onChange={(e) => setContact({ ...contact, name: e.target.value })}
                         className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
                       />
-                      <input
-                        placeholder={t.emailPlaceholder}
-                        type="email"
-                        value={contact.email}
-                        onChange={(e) => setContact({ ...contact, email: e.target.value })}
-                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                      />
+                      {/* Hidden by the owner means not drawn; required means the
+                          asterisk the name field already carries. Either way
+                          the request route holds a POST to the same rule. */}
+                      {fields.email !== "hidden" && (
+                        <input
+                          placeholder={fields.email === "required" ? `${t.emailPlaceholder} *` : t.emailPlaceholder}
+                          type="email"
+                          value={contact.email}
+                          onChange={(e) => setContact({ ...contact, email: e.target.value })}
+                          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                        />
+                      )}
                       {/* Same formatter as the back office (lib/validation.js),
                           so a number typed in a driveway is stored the way staff
                           type it — one shape in the database, not two. */}
-                      <input
-                        placeholder={t.phonePlaceholder}
-                        type="tel"
-                        inputMode="tel"
-                        autoComplete="tel"
-                        value={contact.phone}
-                        onChange={(e) => setContact({ ...contact, phone: formatPhoneInput(e.target.value) })}
-                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                      />
+                      {fields.phone !== "hidden" && (
+                        <input
+                          placeholder={fields.phone === "required" ? `${t.phonePlaceholder} *` : t.phonePlaceholder}
+                          type="tel"
+                          inputMode="tel"
+                          autoComplete="tel"
+                          value={contact.phone}
+                          onChange={(e) => setContact({ ...contact, phone: formatPhoneInput(e.target.value) })}
+                          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                        />
+                      )}
                     </div>
                   </Section>
                 )}
 
-                {trade && (
-                  <Section title={t.photos} required>
+                {trade && fields.photos !== "hidden" && (
+                  <Section title={t.photos} required={fields.photos === "required"}>
                     <MediaUploader
                       uploadUrl={`/api/self-quote/${companySlug}/upload`}
                       value={media}
@@ -1310,7 +1358,7 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
                     chip could have asked. Capped at the 2000 the server
                     keeps, so nothing is silently cut after they pressed
                     submit. */}
-                {trade && (
+                {trade && fields.notes !== "hidden" && (
                   <Section title={q.notesTitle}>
                     <textarea
                       rows={3}
@@ -1337,7 +1385,7 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
                       // its own fill (fillPair only moves it when the LABEL
                       // needs it), and a silver button on a white page has no
                       // visible edge without one.
-                      style={{ background: solid.bg, color: solid.fg, borderColor: theme.accentText }}
+                      style={{ background: solid.bg, color: solid.fg, borderColor: solid.border || theme.accentText, borderWidth: solid.borderWidth }}
                     >
                       {submitting && <Loader2 size={15} className="animate-spin" />}
                       {submitCta}
@@ -1398,6 +1446,7 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
         )}
       </div>
     </div>
+    </FormLook>
   );
 }
 

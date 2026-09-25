@@ -24,6 +24,7 @@
 export const dynamic = "force-dynamic";
 
 import SelfQuoteFlow from "./SelfQuoteFlow";
+import { loadPublicFormLook } from "@/lib/estimate/publicFormLook";
 
 export async function generateMetadata({ params }) {
   const { companySlug } = await params;
@@ -36,5 +37,8 @@ export async function generateMetadata({ params }) {
 
 export default async function SelfQuotePage({ params }) {
   const { companySlug } = await params;
-  return <SelfQuoteFlow companySlug={companySlug} />;
+  // The company's chosen look (lib/estimate/publicFormLook.js) — server-read,
+  // never a URL parameter.
+  const look = await loadPublicFormLook(companySlug);
+  return <SelfQuoteFlow companySlug={companySlug} look={look} />;
 }
