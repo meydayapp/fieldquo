@@ -39,7 +39,9 @@ import SiteBlocks from "./SiteBlocks";
 import { recentJobPhotos, jobPhotoPairs } from "@/lib/site/jobPhotos";
 import { loadCompanyGallery, galleryAsSitePairs } from "@/lib/company/gallery";
 import { resolveSiteStyle } from "@/lib/site/siteStyles";
-import { resolvePages, findPage, navPages, HOME_SLUG } from "@/lib/site/pages";
+import { resolvePages, findPage, navPages, HOME_SLUG, CLIENT_LOGIN_SLUG } from "@/lib/site/pages";
+import { siteCopy } from "@/lib/site/siteCopy";
+import ClientLoginForm from "./ClientLoginForm";
 import { categoryLabel } from "@/lib/i18n/translateContent";
 import SiteChatMount from "@/app/components/chat/SiteChatMount";
 
@@ -60,6 +62,9 @@ async function loadSite(subdomain, { preview = false } = {}) {
       subdomain: true,
       languages: true,
       translations: true,
+      // "Client login" — draws the header/footer link and decides whether
+      // /client exists at all (CLIENT_LOGIN_SLUG below).
+      clientPortalEnabled: true,
       company: {
         select: {
           name: true,
@@ -118,7 +123,7 @@ async function loadSite(subdomain, { preview = false } = {}) {
   }
 }
 
-export async function generateMetadata({ params, language: langParam }) {
+export async function generateMetadata({ params, language: langParam, pageSlug: pageSlugParam }) {
   const { subdomain } = await params;
   // Deliberately NOT preview-aware. Metadata for a draft would be metadata for
   // a page that doesn't exist publicly, and getting it wrong is how an
@@ -147,6 +152,16 @@ export async function generateMetadata({ params, language: langParam }) {
     language !== primary && site.translations?.[language]
       ? site.translations[language]
       : null;
+
+  // The login page is a door, not content: titled as the company's account
+  // page and kept out of search results.
+  if (pageSlugParam === CLIENT_LOGIN_SLUG) {
+    if (!site.clientPortalEnabled) return { title: "Not found", robots: { index: false } };
+    return {
+      title: `${siteCopy(language).clientLoginHeading} · ${c.name}`,
+      robots: { index: false, follow: false },
+    };
+  }
 
   return {
     title: tr?.seoTitle || title,
@@ -241,7 +256,14 @@ export default async function CompanySitePage({ params, searchParams, language: 
       : [];
   const sourcePages = Array.isArray(translated?.pages) ? translated.pages : site.pages;
   const pages = resolvePages({ blocks: sourceBlocks, pages: sourcePages });
-  const page = findPage(pages, pageSlugParam || HOME_SLUG);
+  // /client is the "Client login" page: it exists only while the company has
+  // switched it on (CompanySite.clientPortalEnabled) — off, it is the same
+  // not-found as any other unknown path, so a company that never enabled it
+  // has no login page for anyone to find. It carries no blocks of its own.
+  const isClientLogin = pageSlugParam === CLIENT_LOGIN_SLUG && Boolean(site.clientPortalEnabled);
+  const page = isClientLogin
+    ? { slug: CLIENT_LOGIN_SLUG, blocks: [] }
+    : findPage(pages, pageSlugParam || HOME_SLUG);
   // An unknown page slug is a 404, same as an unknown language — not a silent
   // fall-through to Home, which would index a broken link as the homepage.
   if (!page) notFound();
@@ -249,6 +271,16 @@ export default async function CompanySitePage({ params, searchParams, language: 
   let blocks = page.blocks;
   // The header menu needs the whole site's nav-visible pages, not just this one.
   const menu = navPages(pages);
+
+  // Where "Client login" in the header and footer points — the same
+  // language prefix and preview wrapping every other link on the page uses.
+  // Null when the company has not switched it on, and then nothing is drawn.
+  const linkBase = query.preview === "1" ? `/site/${subdomain}` : "";
+  const linkSuffix = query.preview === "1" ? "?preview=1" : "";
+  const clientLoginHref = site.clientPortalEnabled
+    ? `${linkBase}${language !== primary ? `/${language}` : ""}/${CLIENT_LOGIN_SLUG}${linkSuffix}`
+    : null;
+  const t = siteCopy(language);
 
   // Auto-fill an empty gallery with real before/after job photos. A gallery the
   // company has curated (uploaded its own images) always wins; this only fills
@@ -440,13 +472,51 @@ export default async function CompanySitePage({ params, searchParams, language: 
         // editor preview loads the site at /site/<sub>?preview=1 on the main
         // domain, so its menu links need the full path and the preview flag or
         // they'd navigate out of the iframe.
-        linkBase={query.preview === "1" ? `/site/${subdomain}` : ""}
-        linkSuffix={query.preview === "1" ? "?preview=1" : ""}
+        linkBase={linkBase}
+        linkSuffix={linkSuffix}
         // Passed in the preview too, and deliberately not forced off there: the
         // editor's preview has to show what a visitor sees, credit included, or
         // a free site's owner never learns it's on the page.
         showFieldquoCredit={showFieldquoCredit}
-      />
+        clientLoginHref={clientLoginHref}
+      >
+        {isClientLogin && (
+          <section className="px-5 sm:px-8 py-14 sm:py-20">
+            <div className="max-w-md mx-auto">
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-[-0.02em]" style={{ color: theme.ink }}>
+                {t.clientLoginHeading}
+              </h1>
+              <p className="mt-2 mb-6 text-base leading-relaxed" style={{ color: theme.inkMuted }}>
+                {t.clientLoginIntro}
+              </p>
+              {/* Plain strings and measured colours only — a Proxy and a
+                  theme object do not cross to a client component. */}
+              <ClientLoginForm
+                subdomain={site.subdomain}
+                copy={{
+                  email: t.clientLoginEmail,
+                  send: t.clientLoginSend,
+                  sent: t.clientLoginSent,
+                  invalid: t.clientLoginInvalid,
+                  busy: t.clientLoginBusy,
+                  failed: t.clientLoginFailed,
+                  noPassword: t.clientLoginNoPassword,
+                }}
+                colours={{
+                  ink: theme.ink,
+                  muted: theme.inkMuted,
+                  border: theme.border,
+                  wash: theme.positiveWash,
+                  positive: theme.positive,
+                  negative: theme.negative,
+                  fillBg: fill.bg,
+                  fillFg: fill.fg,
+                }}
+              />
+            </div>
+          </section>
+        )}
+      </SiteBlocks>
 
       {/* The AI employee's chat button — only when the company has switched
           the web channel on for one (lib/aiEmployee/employees.js). Same slug

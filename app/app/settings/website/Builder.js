@@ -89,6 +89,11 @@ export default function Builder({ data, onReload }) {
   const [confirmPublish, setConfirmPublish] = useState(false);
   const [confirmUnpublish, setConfirmUnpublish] = useState(false);
   const [langBusy, setLangBusy] = useState("");
+  // "Client login" on the public site (CompanySite.clientPortalEnabled). Saved
+  // on its own by PATCH the moment it is flipped — it is a setting, not page
+  // content, so it does not wait for Save/Publish and cannot re-save the page.
+  const [portalOn, setPortalOn] = useState(Boolean(site?.clientPortalEnabled));
+  const [portalBusy, setPortalBusy] = useState(false);
   // The snippet below has to carry an absolute origin — it runs on someone
   // else's domain, where a relative src means their server.
   const [origin, setOrigin] = useState("");
@@ -119,6 +124,7 @@ export default function Builder({ data, onReload }) {
     setPages(Array.isArray(site?.pages) ? site.pages : null);
     if (site?.styleKey) setStyleKey(site.styleKey);
     if (site?.subdomain) setSubdomain(site.subdomain);
+    setPortalOn(Boolean(site?.clientPortalEnabled));
     // Only adopt the stored thread when we don't have one in hand — a live
     // conversation must not be replaced by the persisted copy mid-session.
     setThread((prev) => (prev.length ? prev : data?.chat || []));
@@ -421,6 +427,27 @@ export default function Builder({ data, onReload }) {
       setError(err.message);
     } finally {
       setLangBusy("");
+    }
+  }
+
+  async function toggleClientPortal() {
+    const next = !portalOn;
+    setPortalBusy(true);
+    setError("");
+    try {
+      const r = await fetchJson("/api/settings/website", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientPortalEnabled: next }),
+      });
+      // The server's answer, not the optimistic one: a refusal leaves the
+      // switch where it was and the reason in the error line.
+      setPortalOn(Boolean(r?.clientPortalEnabled));
+      setPreviewKey((k) => k + 1);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setPortalBusy(false);
     }
   }
 
@@ -857,6 +884,47 @@ export default function Builder({ data, onReload }) {
                     {t("app.siteBuilder.languagesNote", "Your main language is marked. Adding one writes the whole site in it and gives visitors a switcher — it doesn't machine-translate the page.")}
                   </p>
                 </div>
+
+                {/* ── Client login ─────────────────────────────────────────
+                    Only once a site exists: the switch lives on the site row,
+                    and the PATCH refuses a company with no website. */}
+                {site?.id && (
+                  <div className="rounded-lg border border-border p-2.5" data-site-client-portal>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-[11px] font-semibold text-foreground">
+                        {t("app.setWebsite.clientPortal.title", "Client login on your website")}
+                      </span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={portalOn}
+                        aria-label={t("app.setWebsite.clientPortal.title", "Client login on your website")}
+                        disabled={portalBusy}
+                        onClick={toggleClientPortal}
+                        className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:opacity-60 ${
+                          portalOn ? "bg-inverted" : "bg-muted-foreground/30"
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 rounded-full bg-background shadow transition-transform ${
+                            portalOn ? "translate-x-4" : "translate-x-0.5"
+                          }`}
+                        />
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
+                      {t(
+                        "app.setWebsite.clientPortal.body",
+                        "Adds a Client login link to your site's header and footer. A client types their email and gets their own link to their quotes, invoices, visits and plans. No passwords, and the page never says whether an email belongs to one of your clients.",
+                      )}
+                    </p>
+                    {portalOn && !site?.published && (
+                      <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-1">
+                        {t("app.setWebsite.clientPortal.needsPublish", "Visitors will see it once your site is published.")}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 <button
                   onClick={() => setPairing(true)}

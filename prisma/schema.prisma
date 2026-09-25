@@ -2234,6 +2234,9 @@ model Company {
   /// Recurring work sold as a package — see the ServicePlan model.
   servicePlans ServicePlan[]
 
+  /// Issues and requests a client raised from the portal — see ClientTicket.
+  clientTickets ClientTicket[]
+
   /// The company's payment-schedule rule set, and every job's frozen copy of
   /// it. See the PaymentScheduleStage/JobPaymentStage models.
   paymentScheduleStages PaymentScheduleStage[]
@@ -2810,6 +2813,7 @@ model Client {
   pamphletStops         PamphletStop[]
   messageThreads        MessageThread[]
   servicePlans          ServicePlan[]
+  clientTickets         ClientTicket[]
   satisfactionResponses SatisfactionResponse[]
   equipment ClientEquipment[]
   callbackEntries CallbackEntry[]
@@ -9568,6 +9572,16 @@ model CompanySite {
   // site's furniture is a static table (lib/site/siteCopy.js); this is the part
   // that is actually written per company.
   translations Json?
+
+  /// "Client login" on the public site — opt-in, off by default. When true the
+  /// site's header and footer carry a Client login link to /client, where a
+  /// client of THIS company enters their email and is sent their own portal
+  /// link (POST /api/portal-login). There is no password behind it: the
+  /// per-client Client.portalToken link is the credential, and this page only
+  /// re-delivers it to the address already on file. False means the link is
+  /// not drawn and /client answers not-found — a company that never switched
+  /// it on has no login page for anyone to probe.
+  clientPortalEnabled Boolean @default(false)
 }
 
 // Per-company, per-trade configuration for the public instant estimator.
@@ -11003,6 +11017,96 @@ model ServicePlan {
 
   @@index([companyId, status])
   @@index([clientId])
+}
+
+/// An issue or request a CLIENT raised with the company from the portal — a
+/// repair, a warranty claim, a question, a billing query, a reschedule, a
+/// maintenance visit to book — and the conversation that follows it.
+///
+/// ── Mirrors SupportTicket, and is the opposite of it ──────────────────────
+///
+/// SupportTicket is FieldQuo's record ABOUT a company, raised by a sales rep,
+/// handled by the platform. This is the company's OWN record, raised by its
+/// client, handled by its staff — tenant data, scoped by companyId and
+/// clientId on every read, reachable by the client only through their own
+/// Client.portalToken. Same shape (subject, body, status, priority, assignee,
+/// resolvedAt, one thread) so the two queues read alike; different table
+/// because the audiences can never mix.
+///
+/// The links (job, invoice, quote, plan, visit, assignee, converted job) are
+/// plain ids rather than relations on purpose: each is verified under the
+/// ticket's company at write time (lib/clientTickets/service.js), and a
+/// relation per link would add a back-relation to six busy models other work
+/// is editing. A link whose row is later archived simply renders without it.
+///
+/// type    repair | warranty | question | billing | reschedule | maintenance
+///         (TICKET_TYPES in lib/clientTickets/rules.js — the closed set)
+/// status  open | in_progress | waiting_on_client | resolved | closed
+model ClientTicket {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  clientId  String
+  client    Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  jobId         String?
+  jobVisitId    String?
+  invoiceId     String?
+  quoteId       String?
+  servicePlanId String?
+
+  type     String
+  subject  String
+  body     String
+  /// [{ url, kind, filename }] — only this company's own Cloudinary uploads
+  /// (lib/clientTickets/rules.js ownUploads), never a URL a browser chose.
+  photos   Json?
+  status   String  @default("open")
+  priority String  @default("normal")
+  /// The User (staff member) handling it. Null = unassigned, said as such.
+  assignedToId String?
+  /// The job a repair / warranty ticket was turned into, once it was.
+  convertedJobId String?
+  /// For a reschedule / skip filed from a visit or plan date: which one
+  /// (lib/portal/view.js changeRequestPrefix). The portal reads it back to
+  /// mark that row "Request sent" while the ticket is open, and it is the
+  /// duplicate guard — one open request per visit.
+  requestKey String?
+
+  /// First staff reply — the response time the queue is measured on.
+  firstResponseAt DateTime?
+  /// Stamped on resolved/closed, cleared on a reopen (SupportTicket's rule).
+  resolvedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  messages ClientTicketMessage[]
+
+  @@index([companyId, status, updatedAt])
+  @@index([clientId, createdAt])
+  @@index([companyId, jobId])
+  @@index([clientId, requestKey])
+}
+
+/// One message on a ClientTicket — the client's opening words are the
+/// ticket's own body; every reply after them, from either side, is a row here.
+model ClientTicketMessage {
+  id       String       @id @default(cuid())
+  ticketId String
+  ticket   ClientTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  /// "client" | "member". Stated, not inferred from memberId, the same
+  /// reasoning as SupportTicketNote.authorKind.
+  author   String
+  /// The Member who wrote it, for "member" rows. A plain id: a member who
+  /// leaves does not un-write a reply.
+  memberId String?
+  /// Their name as it was when they wrote it — the client sees a first name.
+  authorName String?
+  body     String
+  photos   Json?
+  createdAt DateTime @default(now())
+
+  @@index([ticketId, createdAt])
 }
 
 /// One dated instance of a plan: the visit that is due, the invoice it raised,

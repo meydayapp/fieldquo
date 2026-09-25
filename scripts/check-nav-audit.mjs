@@ -266,6 +266,7 @@ const DRILL_INS = {
   "/app/payroll/[id]": "one pay run — opened from the Payroll list",
   "/app/plans/[id]": "one plan — opened from the Plans list",
   "/app/plans/new": "opened from the Plans list page's own New button",
+  "/app/tickets/[id]": "one client ticket — opened from the Client tickets list and from its notification",
   "/app/quote-approval/[id]": "opened from a quote's own detail page",
   "/app/quotes/[id]": "quote document — opened from the quotes list, clients, leads, dashboard",
   "/app/quotes/[id]/edit": "opened from the quote detail page's own Edit button",

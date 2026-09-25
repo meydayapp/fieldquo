@@ -328,9 +328,9 @@ const idsOf = (list) => list.map((m) => m.id).sort();
 section("1. The catalog is sound, and an unrecognised audience REFUSES");
 // ═══════════════════════════════════════════════════════════════════════════
 
-ok("the catalog holds exactly the declared types", NOTIFICATION_TYPE_KEYS.length === 31, NOTIFICATION_TYPE_KEYS);
+ok("the catalog holds exactly the declared types", NOTIFICATION_TYPE_KEYS.length === 33, NOTIFICATION_TYPE_KEYS);
 ok(
-  "six from the audit's tier 1, the undelivered quote, the six rota/time-clock types, the seven HR-file types, the AI employee's two, and the three supply types",
+  "six from the audit's tier 1, the undelivered quote, the six rota/time-clock types, the seven HR-file types, the AI employee's two, the three supply types, and the two client-ticket types",
   JSON.stringify([...NOTIFICATION_TYPE_KEYS].sort()) ===
     JSON.stringify(
       [
@@ -382,6 +382,10 @@ ok(
         "supply.requested",
         "supply.ordered",
         "supply.restocked",
+        // Client tickets (2026-09-24): an issue raised from the portal, and
+        // the client's reply on one — lib/clientTickets/service.js.
+        "client_ticket.opened",
+        "client_ticket.replied",
       ].sort(),
     ),
   NOTIFICATION_TYPE_KEYS,
@@ -535,6 +539,11 @@ const EXPECTED = {
   "supply.requested": ["m_owner", "m_admin", "m_manager"],
   "supply.ordered": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator", "m_crew"],
   "supply.restocked": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator", "m_crew"],
+  // ── Client tickets (2026-09-24) ─────────────────────────────────────────
+  // The new-enquiry rung (requests: view_only): whoever picks up what
+  // clients ask for.
+  "client_ticket.opened": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator"],
+  "client_ticket.replied": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator"],
 };
 
 for (const type of NOTIFICATION_TYPE_KEYS) {
@@ -989,7 +998,7 @@ function decomment(src) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-section("13. The six emit call sites exist and are fire-and-forget");
+section("13. The emit call sites exist and are fire-and-forget");
 // ═══════════════════════════════════════════════════════════════════════════
 //
 // Structural, and weaker than everything above — this reads source rather than
@@ -1004,6 +1013,8 @@ const CALL_SITES = [
   ["lib/leads/createLead.js", '"lead.created"', "new enquiry (all six inbound sources)"],
   ["app/api/leave/route.js", '"leave.requested"', "leave requested"],
   ["lib/estimate/createEstimateQuote.js", '"quote.needsReview"', "estimate awaiting sign-off"],
+  ["lib/clientTickets/service.js", '"client_ticket.opened"', "client ticket opened"],
+  ["lib/clientTickets/service.js", '"client_ticket.replied"', "client ticket replied"],
 ];
 
 for (const [file, needle, label] of CALL_SITES) {

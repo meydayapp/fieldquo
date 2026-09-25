@@ -906,6 +906,9 @@ export const WEBSITE = {
     companyId: COMPANY.id,
     subdomain: SLUG,
     published: true,
+    // "Client login" on the public site — on, so the Fine-tune panel's
+    // switch photographs in its on state (client-portal rows).
+    clientPortalEnabled: true,
     publishedAt: iso(day(-60)),
     styleKey: "warm",
     composition: "showcase",

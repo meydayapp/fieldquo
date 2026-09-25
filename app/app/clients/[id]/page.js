@@ -34,6 +34,8 @@ import { reportResponseError, showError } from "@/lib/clientErrors";
 import { formatAddress } from "@/lib/format/address";
 import { useHasLevel } from "@/app/providers/PermissionProvider";
 import ClientEquipment from "@/app/components/clients/ClientEquipment";
+import ClientPortalLink from "@/app/components/clients/ClientPortalLink";
+import OpenTicketsLink from "@/app/components/tickets/OpenTicketsLink";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 import { jobStatusLabel, jobStatusClasses } from "@/lib/jobs/statusLabels";
 import StreetViewPeek from "@/app/components/StreetViewPeek";
@@ -357,6 +359,14 @@ export default function ClientDetailPage() {
           </Link>
         )}
       </div>
+
+      {/* The client's own portal link — copy it, or email it from the
+          company. Same level POST /api/clients/[id]/portal-link asks for
+          (full client record), which is also the level that sees the token
+          on the record at all; `canSeeEquipment` is that same check. */}
+      {canSeeEquipment && <ClientPortalLink clientId={client.id} hasEmail={Boolean(client.email)} />}
+      {/* Issues this client raised from the portal and nobody has closed. */}
+      <OpenTicketsLink clientId={client.id} />
 
       {/* What's installed at this property, and what's still covered.
           Placed above the document lists deliberately: on a service call the
