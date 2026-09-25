@@ -96,7 +96,7 @@ export default function ReceiptReview({ id, onClose, onChanged, onOpen }) {
   const access = data?.access || {};
   const settled = r && (r.status === "confirmed" || r.status === "void");
   const jobs = data?.jobs || [];
-  const jobTitle = useMemo(() => Object.fromEntries(jobs.map((j) => [j.id, j.title])), [jobs]);
+  const jobTitle = useMemo(() => Object.fromEntries((data?.jobs || []).map((j) => [j.id, j.title])), [data]);
 
   async function act(label, fn) {
     setBusy(label);
