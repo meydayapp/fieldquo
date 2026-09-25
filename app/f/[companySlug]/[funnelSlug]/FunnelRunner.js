@@ -18,6 +18,7 @@ import MediaUploader from "@/app/components/MediaUploader";
 import { useAdTracking } from "@/app/components/public/useAdTracking";
 import AdConsentNotice from "@/app/components/public/AdConsentNotice";
 import { trackingCopy } from "@/lib/i18n/trackingCopy";
+import { funnelCopy } from "@/lib/i18n/funnelCopy";
 
 const FALLBACK_ACCENT = "#06356b";
 
@@ -39,10 +40,23 @@ function makeSession() {
 // masthead; and the Shell stops claiming the viewport, so EmbedFrame can
 // report the funnel's real height. The accent background and every control
 // are the same either way.
-export default function FunnelRunner({ companySlug, funnelSlug, embedded = false }) {
+//
+// ── The page's language ─────────────────────────────────────────────────────
+//
+// `language` is the COMPANY's (lib/i18n/funnelCopy.js funnelPageLanguage),
+// resolved on the server by the page that mounts this so that even the
+// "not available" state — drawn before, or instead of, the funnel's own
+// payload — is in it. Every word of chrome below comes from funnelCopy() in
+// that one language: the funnel's copy is the contractor's, written once in
+// the language they sell in, and chrome that followed the visitor's browser
+// instead would put "Your name" under a French headline. Never Accept-
+// Language, and no picker — the reasons are in funnelCopy.js.
+export default function FunnelRunner({ companySlug, funnelSlug, embedded = false, language = "en" }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
+  // A flag, not a message: the reasons the server gives ("Not found") are
+  // English and are for support, not for a homeowner.
+  const [loadError, setLoadError] = useState(false);
 
   const [idx, setIdx] = useState(0);
   const [answers, setAnswers] = useState({}); // { stepId: value | value[] }
@@ -67,10 +81,11 @@ export default function FunnelRunner({ companySlug, funnelSlug, embedded = false
         const res = await fetch(`/api/funnels/public/${companySlug}/${funnelSlug}`);
         const d = await res.json().catch(() => null);
         if (cancelled) return;
-        if (!res.ok) throw new Error(d?.error || "This funnel isn't available.");
+        if (!res.ok || !d?.funnel) throw new Error(d?.error || `funnel ${res.status}`);
         setData(d);
       } catch (err) {
-        if (!cancelled) setLoadError(err.message);
+        console.error("[funnel] couldn't load:", err);
+        if (!cancelled) setLoadError(true);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -96,7 +111,10 @@ export default function FunnelRunner({ companySlug, funnelSlug, embedded = false
   // visitor accepts. The same hook opens this visit's FunnelVisit row and
   // keeps what is typed into the contact step.
   const pixels = data?.funnel?.pixels || null;
-  const pageLanguage = data?.company?.language || "en";
+  // The API answers with the same rule (funnelPageLanguage) the page used for
+  // `language`; the payload wins only because it is the fresher read.
+  const pageLanguage = data?.company?.language || language || "en";
+  const copy = useMemo(() => funnelCopy(pageLanguage), [pageLanguage]);
   const tracking = useAdTracking({
     ready: Boolean(data),
     companySlug,
@@ -223,12 +241,15 @@ export default function FunnelRunner({ companySlug, funnelSlug, embedded = false
         body: JSON.stringify({ stepId: step.id, bandId }),
       });
       const d = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(d?.error || "Couldn't work that out just now.");
+      if (!res.ok) throw new Error(d?.error || `estimate ${res.status}`);
       setEstimates((p) => ({ ...p, [step.id]: d }));
     } catch (err) {
       // A failed estimate must not trap the visitor on a dead screen: say so,
-      // and the Continue button below still moves them on to the form.
-      setError(err.message);
+      // and the Continue button below still moves them on to the form. Said
+      // in the page's language — the server's reason is English and for the
+      // console, not for a homeowner mid-funnel.
+      console.error("[funnel] estimate failed:", err);
+      setError(copy.estimateFailed);
     } finally {
       setEstimating("");
     }
@@ -245,9 +266,9 @@ export default function FunnelRunner({ companySlug, funnelSlug, embedded = false
 
   async function submit() {
     setError("");
-    if (!contact.name.trim()) return setError("Please tell us your name.");
+    if (!contact.name.trim()) return setError(copy.errName);
     if (!contact.email.trim() && !contact.phone.trim())
-      return setError("Add an email or phone so we can reply.");
+      return setError(copy.errContact);
     setSubmitting(true);
     try {
       // The landing beacon may still be in flight on a fast tap-through; its
@@ -266,7 +287,7 @@ export default function FunnelRunner({ companySlug, funnelSlug, embedded = false
         }),
       });
       const d = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(d?.error || "Couldn't send that.");
+      if (!res.ok) throw Object.assign(new Error(d?.error || `submit ${res.status}`), { code: d?.code });
       beacon("complete", step?.id || "done");
       // The lead is saved; tell the ad platforms so the campaign can optimise
       // toward this rather than toward clicks. After the server answered, not
@@ -294,19 +315,25 @@ export default function FunnelRunner({ companySlug, funnelSlug, embedded = false
 
       goEnd();
     } catch (err) {
-      setError(err.message);
+      // The server's own wording ("An email or phone is required.") is
+      // English; the visitor gets the page's sentence and the console gets
+      // the reason. Branched on the stable `code`, never on the English: an
+      // undeliverable address is the one refusal worth naming, because the
+      // visitor can fix it; the client-side checks above cover the rest.
+      console.error("[funnel] submit failed:", err);
+      setError(err?.code === "invalid_email" ? copy.errEmail : copy.errSend);
     } finally {
       setSubmitting(false);
     }
   }
 
-  if (loading) return <Shell embedded={embedded}><div className="animate-pulse h-40 w-full max-w-md bg-black/10 rounded-2xl" /></Shell>;
+  if (loading) return <Shell embedded={embedded} lang={pageLanguage}><div className="animate-pulse h-40 w-full max-w-md bg-black/10 rounded-2xl" /></Shell>;
 
   if (loadError)
     return (
-      <Shell embedded={embedded}>
+      <Shell embedded={embedded} lang={pageLanguage}>
         <div className="bg-white rounded-2xl p-8 text-center max-w-md w-full">
-          <p className="text-lg font-semibold text-[#2d2520]">{loadError}</p>
+          <p className="text-lg font-semibold text-[#2d2520]">{copy.unavailable}</p>
         </div>
       </Shell>
     );
@@ -316,7 +343,7 @@ export default function FunnelRunner({ companySlug, funnelSlug, embedded = false
   const isForm = step?.kind === "form";
 
   return (
-    <Shell accent={accent} embedded={embedded}>
+    <Shell accent={accent} embedded={embedded} lang={pageLanguage}>
       <div className="w-full max-w-md">
         {tracking.askConsent && (
           <AdConsentNotice
@@ -328,8 +355,17 @@ export default function FunnelRunner({ companySlug, funnelSlug, embedded = false
             embedded={embedded}
           />
         )}
-        {/* Progress */}
-        <div className="flex items-center gap-1.5 mb-5">
+        {/* Progress. The segments are only colour, so a screen reader is
+            told the same thing in words, in the page's language. */}
+        <div
+          className="flex items-center gap-1.5 mb-5"
+          role="progressbar"
+          aria-valuemin={1}
+          aria-valuemax={total}
+          aria-valuenow={Math.min(idx + 1, total)}
+          aria-label={copy.progress(Math.min(idx + 1, total), total)}
+          aria-valuetext={copy.progress(Math.min(idx + 1, total), total)}
+        >
           {steps.map((s, i) => (
             <span
               key={s.id}
@@ -368,7 +404,7 @@ export default function FunnelRunner({ companySlug, funnelSlug, embedded = false
             className="inline-flex items-center gap-1 text-xs mb-3 opacity-80"
             style={{ color: accentOn }}
           >
-            <ArrowLeft size={13} /> Back
+            <ArrowLeft size={13} aria-hidden="true" /> {copy.back}
           </button>
         )}
 
@@ -378,11 +414,11 @@ export default function FunnelRunner({ companySlug, funnelSlug, embedded = false
               <div className="w-14 h-14 rounded-full grid place-items-center mx-auto mb-4" style={{ backgroundColor: cardFill.bg, color: cardFill.fg, border: `1px solid ${pickInk}` }}>
                 <Check size={26} />
               </div>
-              <h1 className="text-xl font-bold text-[#2d2520]">{step?.headline || "Thanks!"}</h1>
+              <h1 className="text-xl font-bold text-[#2d2520]">{step?.headline || copy.thanks}</h1>
               {step?.subhead && <p className="text-sm text-[#2d2520]/70 mt-2">{step.subhead}</p>}
               {c.phone && (
                 <p className="text-sm text-[#2d2520]/60 mt-4">
-                  Need it sooner? <a href={`tel:${c.phone}`} className="underline font-medium">{c.phone}</a>
+                  {copy.needSooner} <a href={`tel:${c.phone}`} className="underline font-medium">{c.phone}</a>
                 </p>
               )}
             </div>
@@ -399,7 +435,7 @@ export default function FunnelRunner({ companySlug, funnelSlug, embedded = false
                 className="w-full mt-6 py-3.5 rounded-full text-sm font-bold"
                 style={{ backgroundColor: cardFill.bg, color: cardFill.fg, border: `1px solid ${pickInk}` }}
               >
-                {step.buttonText || "Get started"}
+                {step.buttonText || copy.getStarted}
               </button>
             </div>
           ) : step?.kind === "question_single" ? (
@@ -448,7 +484,7 @@ export default function FunnelRunner({ companySlug, funnelSlug, embedded = false
                 className="w-full mt-5 py-3.5 rounded-full text-sm font-bold"
                 style={{ backgroundColor: cardFill.bg, color: cardFill.fg, border: `1px solid ${pickInk}` }}
               >
-                {step.buttonText || "Continue"}
+                {step.buttonText || copy.continue}
               </button>
             </div>
           ) : step?.kind === "photo_upload" ? (
@@ -456,14 +492,22 @@ export default function FunnelRunner({ companySlug, funnelSlug, embedded = false
               <h2 className="text-lg font-bold text-[#2d2520]">{step.headline}</h2>
               {step.subhead && <p className="text-sm text-[#2d2520]/60 mt-1">{step.subhead}</p>}
               <div className="mt-4">
-                <MediaUploader uploadUrl={`/api/self-quote/${companySlug}/upload`} value={media} onChange={setMedia} />
+                {/* The uploader's strings are injected for the same reason
+                    the self-quote form injects them: its defaults are the
+                    /app English, and this is a homeowner's page. */}
+                <MediaUploader
+                  uploadUrl={`/api/self-quote/${companySlug}/upload`}
+                  value={media}
+                  onChange={setMedia}
+                  {...copy.upload}
+                />
               </div>
               <button
                 onClick={() => goNext()}
                 className="w-full mt-5 py-3.5 rounded-full text-sm font-bold"
                 style={{ backgroundColor: cardFill.bg, color: cardFill.fg, border: `1px solid ${pickInk}` }}
               >
-                {step.buttonText || "Continue"}
+                {step.buttonText || copy.continue}
               </button>
             </div>
           ) : step?.kind === "instant_estimate" ? (
@@ -476,25 +520,32 @@ export default function FunnelRunner({ companySlug, funnelSlug, embedded = false
               accent={accent}
               currency={c.currency}
               companyName={c.name}
+              copy={copy}
               onPick={(bandId) => pickBand(step, bandId)}
               onContinue={() => (submitted ? goEnd() : goNext())}
             />
           ) : isForm ? (
             <div>
-              <h2 className="text-lg font-bold text-[#2d2520]">{step.headline || "Where should we send it?"}</h2>
+              <h2 className="text-lg font-bold text-[#2d2520]">{step.headline || copy.formTitle}</h2>
               {step.subhead && <p className="text-sm text-[#2d2520]/60 mt-1">{step.subhead}</p>}
+              {/* The placeholder is the only visible label, so it is also the
+                  accessible name — a placeholder alone is not announced
+                  reliably once something is typed. */}
               <div className="mt-4 space-y-3">
                 {(step.fields || ["name", "email", "phone"]).includes("name") && (
                   <input value={contact.name} onChange={(e) => editContact("name", e.target.value)}
-                    placeholder="Your name" className="w-full border border-black/15 rounded-lg px-3 py-2.5 text-sm" />
+                    placeholder={copy.namePlaceholder} aria-label={copy.namePlaceholder} autoComplete="name"
+                    className="w-full border border-black/15 rounded-lg px-3 py-2.5 text-sm" />
                 )}
                 {(step.fields || ["name", "email", "phone"]).includes("email") && (
                   <input type="email" value={contact.email} onChange={(e) => editContact("email", e.target.value)}
-                    placeholder="Email" className="w-full border border-black/15 rounded-lg px-3 py-2.5 text-sm" />
+                    placeholder={copy.emailPlaceholder} aria-label={copy.emailPlaceholder} autoComplete="email"
+                    className="w-full border border-black/15 rounded-lg px-3 py-2.5 text-sm" />
                 )}
                 {(step.fields || ["name", "email", "phone"]).includes("phone") && (
                   <input type="tel" value={contact.phone} onChange={(e) => editContact("phone", e.target.value)}
-                    placeholder="Phone" className="w-full border border-black/15 rounded-lg px-3 py-2.5 text-sm" />
+                    placeholder={copy.phonePlaceholder} aria-label={copy.phonePlaceholder} autoComplete="tel"
+                    className="w-full border border-black/15 rounded-lg px-3 py-2.5 text-sm" />
                 )}
               </div>
               {/* The notice the partial-lead capture depends on — what is
@@ -514,7 +565,7 @@ export default function FunnelRunner({ companySlug, funnelSlug, embedded = false
                 style={{ backgroundColor: cardFill.bg, color: cardFill.fg, border: `1px solid ${pickInk}` }}
               >
                 {submitting && <Loader2 size={15} className="animate-spin" />}
-                {step.buttonText || "Submit"}
+                {step.buttonText || copy.submit}
               </button>
               {step.consent && <p className="text-[11px] text-[#2d2520]/50 mt-3 text-center">{step.consent}</p>}
             </div>
@@ -550,6 +601,9 @@ function EstimateStep({
   accent,
   currency,
   companyName,
+  // funnelCopy() for the page's language — the runner's, so this step cannot
+  // disagree with the card around it about which language the page is in.
+  copy,
   onPick,
   onContinue,
 }) {
@@ -580,7 +634,7 @@ function EstimateStep({
 
   return (
     <div>
-      <h2 className="text-lg font-bold text-[#2d2520]">{step.headline || "Your estimate"}</h2>
+      <h2 className="text-lg font-bold text-[#2d2520]">{step.headline || copy.estimateTitle}</h2>
       {step.subhead && <p className="text-sm text-[#2d2520]/60 mt-1">{step.subhead}</p>}
 
       {/* Collect: the size bands. Gone once an answer has come back, so the
@@ -629,21 +683,18 @@ function EstimateStep({
               <div className="text-2xl font-bold" style={{ color: figureInk }}>
                 {estimateRange(o.low, o.high, currency)}
               </div>
-              {o.unit && <div className="text-xs text-[#2d2520]/60 mt-1">{o.unit}</div>}
+              {o.unit && <div className="text-xs text-[#2d2520]/60 mt-1">{copy.unit(o.unit)}</div>}
               {/* Why a small job and a slightly bigger one can quote the same
                   figure. Says a minimum exists, never what it is — the floor is
                   a rate, and rates stay on the server. */}
               {o.minimumApplied && (
                 <div className="text-[11px] text-[#2d2520]/60 mt-2 border-t border-black/10 pt-2">
-                  This job comes in under our minimum charge, so the minimum applies.
+                  {copy.minimumApplied}
                 </div>
               )}
             </div>
           ))}
-          <p className="text-[11px] text-[#2d2520]/50">
-            This is an estimate from the details you gave us, not a final quote.{" "}
-            {companyName} will confirm it before anything is binding.
-          </p>
+          <p className="text-[11px] text-[#2d2520]/50">{copy.estimateNote(companyName)}</p>
         </div>
       )}
 
@@ -695,14 +746,17 @@ function EstimateStep({
           className="w-full mt-5 py-3.5 rounded-full text-sm font-bold"
           style={{ backgroundColor: cardFill.bg, color: cardFill.fg, border: `1px solid ${pickInk}` }}
         >
-          {step.buttonText || "Continue"}
+          {step.buttonText || copy.continue}
         </button>
       )}
     </div>
   );
 }
 
-function Shell({ accent = FALLBACK_ACCENT, embedded = false, children }) {
+// `lang` marks the page's language on its outermost element — the root
+// layout's <html lang> is the app's, not this company's, and a screen reader
+// or a browser's "translate this page?" prompt should hear what is on screen.
+function Shell({ accent = FALLBACK_ACCENT, embedded = false, lang, children }) {
   // Full-bleed brand background either way. Standalone it is an ad landing
   // page and fills the viewport; embedded, "the viewport" is the iframe, and
   // min-h-screen would stop the frame ever measuring shorter than the height
@@ -712,6 +766,7 @@ function Shell({ accent = FALLBACK_ACCENT, embedded = false, children }) {
     <div
       className={`${embedded ? "min-h-0 py-6" : "min-h-screen"} w-full flex items-center justify-center p-4`}
       style={{ backgroundColor: accent }}
+      lang={lang}
     >
       {children}
     </div>

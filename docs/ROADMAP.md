@@ -54,6 +54,40 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## The public funnel's chrome speaks the company's language (25 September 2026)
+
+A French company's funnel at `/f/[companySlug]/[funnelSlug]` (and its embed)
+drew its own copy under English chrome: "Your name" / "Email" / "Phone",
+Back, Continue, Submit, Get started, Thanks!, "Need it sooner?", the estimate
+title, footnote and minimum-charge line, the validation and failure messages,
+the upload control's /app defaults, and a load failure that printed the
+server's "Not found".
+
+**The rule:** chrome follows `Company.defaultLanguage` → English
+(`lib/i18n/funnelCopy.js` `funnelPageLanguage`) — the same language the
+public funnel API already worded the estimate step in. Never the visitor's
+browser and no picker: a funnel's copy is the contractor's, written once in
+one language, so visitor-driven chrome makes a two-language page. The /f page
+and the embed resolve it on the server and pass it to the runner, so even the
+"not available" state is in it; the API answers with the same function.
+
+**Shipped:** a `funnel` block in `lib/i18n/clientDocCopy.js` in all eight
+client languages (the contact placeholders, upload strings and validation are
+read from the existing `selfQuote` block, not copied); `lockedEstimateMessage`
+/ `gatedMessage` gained uk/pa/tl/de/it; server error strings never reach the
+screen (an undeliverable email is named from its `code`); `lang` on the page's
+root, an accessible progress label, aria-labels on the contact inputs. The
+builder's preview draws its stand-ins for that chrome from the same copy in
+the company's language (it had its own English, not even the runner's), and
+its "Untitled option" editor note is keyed in the app catalogue.
+`check:marketing-controls` §8 fails on the old files (23 assertions) and passes.
+
+**Still owed:** the funnel templates and `newStep()` still SEED English copy
+for every company (noted in the builder since before this) — a French company
+gets French chrome around English headlines until it edits them. The estimate
+figure keeps the reader's number grouping (see funnelCopy.js for why).
+
+
 ## /platform counts one book: trialing, paying, companies (25 September 2026)
 
 The owner: /platform "says 2 trialing subscriptions but I think we have 4".

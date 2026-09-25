@@ -44,10 +44,12 @@ export async function GET(request, { params }) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   // Company branding + slug so the builder can render a branded preview and show
-  // the public /f/<slug>/<funnel> link without a second round-trip.
+  // the public /f/<slug>/<funnel> link without a second round-trip. The
+  // default language is what the public page's chrome is drawn in, so the
+  // preview's stand-ins for that chrome are drawn in it too (StepPreview.js).
   const company = await db.company.findUnique({
     where: { id: member.companyId },
-    select: { name: true, slug: true, logoUrl: true, brandColor: true },
+    select: { name: true, slug: true, logoUrl: true, brandColor: true, defaultLanguage: true },
   });
   return NextResponse.json({ ...funnel, company });
 }

@@ -22,6 +22,7 @@
 
 import { notFound } from "next/navigation";
 import { findBookingCompany } from "@/lib/booking/findBookingCompany";
+import { funnelPageLanguage } from "@/lib/i18n/funnelCopy";
 import FunnelRunner from "@/app/f/[companySlug]/[funnelSlug]/FunnelRunner";
 import EmbedFrame from "../../../EmbedFrame";
 
@@ -43,7 +44,7 @@ export default async function FunnelEmbedPage({ params }) {
   // Checked here rather than letting the runner's own fetch fail. An iframe
   // that loads and then says "not found" is indistinguishable from a broken
   // embed, and the company who pasted it in cannot tell which it is.
-  const company = await findBookingCompany(companySlug, { id: true });
+  const company = await findBookingCompany(companySlug, { id: true, defaultLanguage: true });
   if (!company || !funnelSlug) notFound();
 
   // The runner resolves and validates the funnel itself — including whether it
@@ -54,9 +55,19 @@ export default async function FunnelEmbedPage({ params }) {
   // the runner skips its logo-and-name strip (the host page already carries
   // the company's masthead) and stops claiming the full viewport height, so
   // EmbedFrame can report what the funnel actually measures.
+  //
+  // `language` — the company's, by the same rule as the standalone page
+  // (lib/i18n/funnelCopy.js funnelPageLanguage). Not the host website's and
+  // not the visitor's: the funnel inside the frame is the company's copy in
+  // the company's language, and the chrome around it matches that copy.
   return (
     <EmbedFrame>
-      <FunnelRunner companySlug={companySlug} funnelSlug={funnelSlug} embedded />
+      <FunnelRunner
+        companySlug={companySlug}
+        funnelSlug={funnelSlug}
+        embedded
+        language={funnelPageLanguage(company)}
+      />
     </EmbedFrame>
   );
 }
