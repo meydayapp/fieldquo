@@ -353,8 +353,20 @@ section("H — the screens read what seeding writes");
   ok(shared.includes("app.serviceSeeds.useTypical"), "one shared range component carries the 'Use typical' button");
   const route = read("app/api/settings/products/seed-services/route.js");
   ok(route.includes("seedServicesForTrade(") && /owner.*admin|admin.*owner/.test(route), "seed route calls the seeder and is owner/admin only");
+  // Signup seeds through lib/signup/setupStages.js since 2026-09-25: inline
+  // (runSetupInline) from /api/companies, or streamed stage by stage from
+  // /api/signup/setup behind the progress screen. Both reach the services
+  // stage, which is where the seeder is called.
   const signup = read("app/api/companies/route.js");
-  ok(signup.includes("seedServicesForTrade("), "signup seeds the selected trades");
+  const stagesLib = read("lib/signup/setupStages.js");
+  const setupRoute = read("app/api/signup/setup/route.js");
+  ok(
+    signup.includes("runSetupInline(") &&
+      setupRoute.includes("runSetupStage(") &&
+      stagesLib.includes("call(seeders.seedServicesForTrade, t") &&
+      stagesLib.includes("seedServicesForTrade,"),
+    "signup seeds the selected trades",
+  );
   const patch = read("app/api/settings/service-categories/route.js");
   ok(patch.includes("seedServicesForTrade("), "enabling a trade seeds it");
   const messages = read("app/i18n/appMessages.js");
