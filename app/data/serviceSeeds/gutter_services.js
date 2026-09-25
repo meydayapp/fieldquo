@@ -7,8 +7,9 @@
 // not repeated: gutter cleaning is one canonical row in window_cleaning.js
 // tagged for this trade (lib/services/seeds.js#serviceSeedsForCompanyTrade).
 // Lengths are the gutter measurement's `gutterFt`, downspouts its count.
-import { L, SHARED, D, T, withTemplates, hdMaterial } from "./_templateLines";
+import { L, SHARED, D, T, withTemplates, hdMaterial, withLanguages } from "./_templateLines";
 import { HD } from "./_materialCosts";
+import { I18N } from "./i18n/gutter_services.js";
 const BM = (low, median, high) => ({ low, median, high, currency: "USD", source: "benchmark", asOf: "2026-09-21" });
 const S = (seedKey, category, unit, benchmark, [en, fr, es], [den, dfr, des], extra = {}) => ({
   seedKey, category, name: { en, fr, es }, description: { en: den, fr: dfr, es: des },
@@ -270,4 +271,5 @@ const TEMPLATES = {
   ), { measurementKey: "gutterFt" }), SHARED.serviceCall(75)], D.seasonal("fixed", 20)),
 };
 
+withLanguages(SEED, I18N);
 withTemplates(SEED, TEMPLATES);

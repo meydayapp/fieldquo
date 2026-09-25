@@ -7,8 +7,9 @@
 // repeated here: they are canonical rows in exterior_painting.js and
 // flooring_install.js tagged for this trade. Deck and patio areas are the
 // typed `areaSqFt`, paver patios the traced `areaSqft`.
-import { L, SHARED, D, T, withTemplates, hdMaterial, tagRows } from "./_templateLines";
+import { L, SHARED, D, T, withTemplates, hdMaterial, tagRows, withLanguages } from "./_templateLines";
 import { HD } from "./_materialCosts";
+import { I18N } from "./i18n/deck_patio.js";
 const BM = (low, median, high) => ({ low, median, high, currency: "USD", source: "benchmark", asOf: "2026-09-21" });
 const S = (seedKey, category, unit, benchmark, [en, fr, es], [den, dfr, des], extra = {}) => ({
   seedKey, category, name: { en, fr, es }, description: { en: den, fr: dfr, es: des },
@@ -273,5 +274,6 @@ const TEMPLATES = {
   ], D.seasonal("percent", 10)),
 };
 
+withLanguages(SEED, I18N);
 withTemplates(SEED, TEMPLATES);
 tagRows(SEED, { "fq.deck_patio.maintenance.patio_sealing": ["driveway_sealing"] });
