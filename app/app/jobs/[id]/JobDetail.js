@@ -56,6 +56,7 @@ import {
   Trash2,
   Archive,
   ClipboardList,
+  ScanLine,
 } from "lucide-react";
 import { formatAddress } from "@/lib/format/address";
 import { formatDistanceM } from "@/lib/geo/distance";
@@ -733,6 +734,20 @@ export default function JobDetail({ jobId }) {
           the quote's takeoff — seen from the other end: the cost panel asks
           whether the price covers it, this asks whether it has been bought. */}
       <JobMaterials jobId={job.id} />
+
+      {/* A receipt for anything bought for this job — not just a line on the
+          buy list above. Opens the receipts book with the camera ready and
+          this job as a HINT to the suggestion (?jobId=), never a link: the
+          person still confirms where it goes. Everyone who can see the job
+          can record their own receipt (Expenses, lowest rung). */}
+      <div className="mt-3 flex justify-end">
+        <Link
+          href={`/app/receipts?snap=1&jobId=${encodeURIComponent(job.id)}`}
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
+        >
+          <ScanLine size={14} /> {t("app.jobDetail.scanReceipt")}
+        </Link>
+      </div>
 
       {/* Which of the company's own equipment came along. Sits next to the
           buy list for the same reason: it's the other thing a crew brings to

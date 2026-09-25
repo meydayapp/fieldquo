@@ -23,6 +23,7 @@ import {
   FileText,
   Briefcase,
   Receipt,
+  ScanLine,
   Megaphone,
   Palette,
   Headset,
@@ -299,6 +300,11 @@ export const QUICK_ADD_ITEMS = [
   { key: "app.quickAdd.quote", href: "/app/quotes/new", icon: FileText },
   { key: "app.quickAdd.job", href: "/app/jobs", icon: Briefcase },
   { key: "app.quickAdd.invoice", href: "/app/invoices/new", icon: Receipt },
+  // Snap a receipt at the till: opens the receipts book with the camera
+  // capture already open (app/app/receipts/page.js reads ?snap=1). The one
+  // Create entry a crew member is offered, because it is the one thing they
+  // create — gated on the lowest Expenses rung in lib/permissions/nav.js.
+  { key: "app.quickAdd.receipt", href: "/app/receipts?snap=1", icon: ScanLine },
 ];
 
 // Account rows. They used to sit in the scrolling rail; they now live in the

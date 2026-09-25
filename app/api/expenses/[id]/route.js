@@ -62,6 +62,21 @@ export async function PATCH(request, { params }) {
     assetId,
   } = body;
 
+  // A booked receipt's part is re-linked by the office only — "crew can't
+  // reassign" (lib/receipts/access.js). Without this, the receipts book's
+  // own gate would be one PATCH away from being walked around through this
+  // older, looser door. Amount and notes edits are unaffected.
+  if (
+    existing.receiptId &&
+    (projectId !== undefined || isOverhead !== undefined) &&
+    !hasLevel(await loadEnforceableMember(db, member.id), "expenses", "view_record_edit_all")
+  ) {
+    return NextResponse.json(
+      { error: "Only the office can move an expense that came from a receipt." },
+      { status: 403 },
+    );
+  }
+
   // Same proof as the create: a vehicle link is a foreign key into the fleet
   // register, and re-pointing an expense at another tenant's van is the same
   // hole as creating it there.

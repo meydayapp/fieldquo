@@ -526,6 +526,10 @@ function SalesTax({ data, money, t }) {
     >
       <Line figure={s.charged} money={money} t={t} strong />
       <Line figure={s.collected} money={money} t={t} strong />
+      {/* What was PAID on purchases — only receipt-booked expenses state it.
+          Shown beside what was charged, never subtracted from it: this is not
+          a return, and the recoverable share is the accountant's call. */}
+      {s.paidOnPurchases && <Line figure={s.paidOnPurchases} money={money} t={t} />}
 
       {(kinds.unresolved > 0 || kinds.off > 0 || kinds.none > 0) && (
         <p className="text-xs text-muted-foreground mt-3">

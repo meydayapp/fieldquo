@@ -160,7 +160,9 @@ for (const [name, items] of [
   ["settings panel", settingsItems],
   ["platform console", platformItems],
 ]) {
-  const missing = items.filter((i) => !exists(`app${i.href}/page.js`));
+  // A query string ("/app/receipts?snap=1" — the Create menu's Snap receipt)
+  // does not change which page.js renders, so it is not part of the path.
+  const missing = items.filter((i) => !exists(`app${i.href.split("?")[0]}/page.js`));
   ok(`${name}: every href has a page.js`, missing.length === 0,
     missing.map((i) => `${i.key} -> ${i.href}`).join(", "));
 }
@@ -312,7 +314,7 @@ const allAppRoutes = walkPages("app/app").map((d) => d.replace(/^app/, ""));
 // A page a tab reaches is reached, the same as a sidebar row; the pages
 // under More are named as drill-ins below, because More IS the row.
 const meTabItems = Object.values(ME_TABS).flat();
-const linkedRoutes = new Set([...adminItems, ...settingsItems, ...meTabItems].map((i) => i.href));
+const linkedRoutes = new Set([...adminItems, ...settingsItems, ...meTabItems].map((i) => i.href.split("?")[0]));
 const unexplained = allAppRoutes.filter(
   (r) => !linkedRoutes.has(r) && !(r in DRILL_INS),
 );

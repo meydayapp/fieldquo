@@ -171,6 +171,7 @@ import {
   ShieldCheck,
   FileSpreadsheet,
   Sparkles,
+  Wallet,
   LifeBuoy,
   SirenIcon,
   AlertTriangle,
@@ -270,6 +271,11 @@ const GROUPS = [
       // Superadmin-only (the API refuses everyone else).
       { label: "Costs", href: "/platform/costs", icon: Coins },
       { label: "AI usage", href: "/platform/ai-usage", icon: Sparkles },
+      // Who pays for each AI feature — FieldQuo's own budget, or the
+      // company's allowance — with each feature's spend on both ledgers and
+      // receipt reading per company. Right under AI usage because it is the
+      // lever behind half of that page's numbers.
+      { label: "AI billing", href: "/platform/ai-billing", icon: Wallet },
       // The endpoint behind this had no screen at all — it turned up in the
       // routes-with-no-caller sweep (scripts/check-route-callers.mjs). It is
       // the one Retell row that answers "should we change the price" rather

@@ -436,7 +436,14 @@ ok("the scanner prints it before the uploader", (() => {
 })());
 
 // The route refuses before anything is spent.
-ok("the route checks the file before the quota", scanPost !== null && scanPost.indexOf("receiptImageOrRefusal(") < scanPost.indexOf("checkAiQuota("));
+// The quota/budget check is meterFor("receipt_scan").check() since the
+// /platform payer switch (lib/ai/featurePayer.js) — it routes to checkAiQuota
+// or to FieldQuo's own budget. Each position below is asserted against a
+// string that must EXIST, so a missing call cannot pass as "-1 < n".
+const has = (src, s) => src !== null && src.indexOf(s) !== -1;
+ok("the scan route meters through the payer switch", has(scanPost, 'meterFor(AI_FEATURE') && has(scanPost, "meter.check(") && has(scanPost, "meter.record("));
+ok("...and no longer calls a ledger directly", scanPost !== null && !scanPost.includes("checkAiQuota(") && !scanPost.includes("recordAiUsage("));
+ok("the route checks the file before the quota", has(scanPost, "meter.check(") && scanPost.indexOf("receiptImageOrRefusal(") < scanPost.indexOf("meter.check("));
 ok("...and before the vendor call", scanPost !== null && scanPost.indexOf("receiptImageOrRefusal(") < scanPost.indexOf("extractReceipt("));
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -461,28 +468,28 @@ ok("lib/receipts/demoReceipt.js never imports the AI provider", !demoSrc.include
 // ORDER, scoped to one function. The guard has to run BEFORE the spend, and
 // the demo branch must not contain the vendor call at all.
 ok("the demo guard runs before the vendor call", scanPost !== null && scanPost.indexOf("isDemoCompany(") < scanPost.indexOf("extractReceipt("));
-ok("...and before the quota check", scanPost !== null && scanPost.indexOf("isDemoCompany(") < scanPost.indexOf("checkAiQuota("));
+ok("...and before the quota check", has(scanPost, "meter.check(") && scanPost.indexOf("isDemoCompany(") < scanPost.indexOf("meter.check("));
 
 const demoBranch = scanPost ? functionBody(scanPost, "if (demo)") : null;
 ok("the demo branch calls the simulator", demoBranch !== null && demoBranch.includes("simulatedReceiptScan("));
 ok("the demo branch never calls the vendor", demoBranch !== null && !demoBranch.includes("extractReceipt("));
-ok("the demo branch never meters a spend", demoBranch !== null && !demoBranch.includes("recordAiUsage("));
+ok("the demo branch never meters a spend", demoBranch !== null && !demoBranch.includes("recordAiUsage(") && !demoBranch.includes("meter.record("));
 
 // ═══════════════════════════════════════════════════════════════════════════
 section("11. The metering the AI path is required to do");
 // ═══════════════════════════════════════════════════════════════════════════
 
-ok("quota is checked before the vendor call", scanPost !== null && scanPost.indexOf("checkAiQuota(") < scanPost.indexOf("extractReceipt("));
-ok("usage is recorded after it", scanPost !== null && scanPost.indexOf("extractReceipt(") < scanPost.indexOf("recordAiUsage("));
+ok("quota is checked before the vendor call", has(scanPost, "meter.check(") && scanPost.indexOf("meter.check(") < scanPost.indexOf("extractReceipt("));
+ok("usage is recorded after it", has(scanPost, "meter.record(") && scanPost.indexOf("extractReceipt(") < scanPost.indexOf("meter.record("));
 // Metered on every outcome, because the vendor bills on every outcome —
 // provider.js meters before it decides anything about the content and this
 // mirrors it. A `if (extraction.ok)` around the recording would understate a
 // company whose photos keep coming back unreadable.
-ok("usage is recorded before the failure branch, not inside the success one", scanPost !== null && scanPost.indexOf("recordAiUsage(") < scanPost.indexOf("if (!extraction.ok)"));
+ok("usage is recorded before the failure branch, not inside the success one", has(scanPost, "meter.record(") && scanPost.indexOf("meter.record(") < scanPost.indexOf("if (!extraction.ok)"));
 // Position alone is not enough — `if (usage && extraction.ok)` would still sit
 // above the failure branch and still under-count. The GUARD is asserted too:
 // the only condition on recording is that the vendor reported usage at all.
-ok("...and the only condition on recording is that the vendor reported usage", scanPost !== null && /if \(usage\) \{\s*await recordAiUsage\(/.test(scanPost));
+ok("...and the only condition on recording is that the vendor reported usage", scanPost !== null && /if \(usage\) \{\s*await meter\.record\(usage\)/.test(scanPost));
 
 // ═══════════════════════════════════════════════════════════════════════════
 section("12. The model transcribes; it never calculates");
@@ -517,10 +524,15 @@ ok("the schema declares NO numeric field anywhere", numeric.length === 0, numeri
 // merchantContact, receiptNumber, paymentMethod, currencyCode) and
 // `fileDisplayName` was removed outright, because nothing stores the receipt
 // image and a display name for a file nobody keeps has nowhere to go.
+// The receipts book reads the fields the job-materials scanner never needed
+// (the time, the city, the card's last four, the separate taxes, each line's
+// kind) — lib/receipts/fields.js, validate.js and suggest.js are where.
 const readers = [
   read("app/components/purchasing/ReceiptScanner.js"),
   read("app/api/receipts/scan/route.js"),
   read("lib/receipts/reconcile.js"),
+  read("lib/receipts/fields.js"),
+  read("lib/receipts/validate.js"),
 ].join("\n");
 const unread = Object.keys(RECEIPT_SCHEMA.properties).filter((key) => !readers.includes(key));
 ok("every field the schema collects is read by something", unread.length === 0, unread.join(", "));

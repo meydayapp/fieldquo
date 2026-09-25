@@ -9,6 +9,7 @@
     "build:help": "node scripts/build-help-content.mjs",
     "check:help-centre": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-help-centre.mjs",
     "check:purchasing": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-purchasing.mjs",
+    "check:receipt-books": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-receipt-books.mjs",
     "check:material-list": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-material-list.mjs",
     "check:work-order": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-work-order.mjs",
     "check:supply-requests": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-supply-requests.mjs",
