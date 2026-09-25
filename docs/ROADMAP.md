@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 25 September 2026 (sales reps' WORK NAME and OPAQUE links: `SalesRep.workName` — the name prospects, signups and companies see, falling back to the real FIRST name — on outreach email From/footer, texts, the intro email, calendar invites, the demo page, the call script, voice prompts, check-in drafts and canned texts; the real name stays on /platform and payroll, shown as "Jesus Pérez — works as Daniel"; the rep sets it on /sales/settings, a superadmin on the rep card; `SalesRep.referralToken` — eight random Crockford base32 characters, minted lazily one row at a time — now carries every link, and attribution, the demo page and the signup floor resolve the token first and the legacy name slug second)
 Last updated: 25 September 2026 (leads: a "Linked documents" block — quote, jobs, invoices — with "Link an existing quote", and Won now needs an APPROVED quote or work behind it, refusing with a reason and "Link the quote that won it"; calendar: a Cards view on /app/appointments, each entry a card opening a side panel with open quote/job/invoice/client, call, directions and reschedule/cancel)
 Last updated: 25 September 2026 (Australia: GST 10% on an AU contractor's quotes and invoices as a VAT-table row named GST, gated on "Are you registered for GST?"; AUD plans at the same numbers and every other Stripe country on the USD rows, Checkout's currency now taken from the Plan row; tax on FieldQuo's own subscription stays Stripe Tax — new /platform/billing/tax shows per region the subscribers, 12-month taxable vs reverse-charged invoices, FieldQuo's thresholds (UK/EU from the first sale, AU A$75,000) and the Stripe registration checklist; owner to run `npm run seed:seat-ladder`)
 Last updated: 25 September 2026 (import, not export: the five bulk exports — price book, timesheets, pay run, subcontractor year-end list, bookkeeping ZIP — removed from /app with their routes refusing 403 through `lib/export/companyDataExport.js`; single documents and every import kept; a copy of a company's data stays available on written request; help centre, marketing, sales playbook and guide made honest)
@@ -35,6 +36,121 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Sales reps: a work name, and links that do not name the rep (25 September 2026)
+
+The owner's ask of 22 September ("Jesus… go as Daniel"), lost when the agent building it died
+on a rate limit, rebuilt here. Two halves.
+
+### What shipped
+
+**The work name.** `SalesRep.workName` (additive, nullable). `lib/sales/repIdentity.js` is the
+one place a rep's name is resolved: `repPublicName(rep)` — the work name, else the FIRST word of
+the real name, never the full real name — for anything an outsider reads or hears;
+`repStaffLabel(rep)` — "Jesus Pérez — works as Daniel" — for FieldQuo's own screens. The work
+name is validated by `validateWorkName` (letters in any script, spaces, hyphens, 2–30; no
+digits, apostrophes or markup — it lands in email headers, SMS, .ics and text-to-speech) on
+both doors, and re-validated on every read.
+
+Every outsider-facing surface now uses the public name:
+
+- outreach email — the From display name (`lib/sales/outreachSender.js`) and the CASL footer
+  (`lib/sales/outreach.js`); the From local-part fallback no longer uses the name slug
+  (`lib/sales/outreachIdentity.js`);
+- the intro email (`lib/sales/outreach/introSend.js`) and its link page (`introRequests.js`);
+- the Threads email templates (`lib/sales/emailTemplates.js`);
+- texts: the signup-link SMS (`lib/sales/salesSms.js`), the canned texts and check-in
+  suggestions on /sales/messages, every check-in draft (`lib/sales/checkin/*`,
+  `app/api/sales/checkins`);
+- calendar invites — the rep's own (`app/api/sales/events/[id]/invite`) and the demo page's
+  confirmation (`lib/sales/demoBooking/book.js`);
+- the public demo page (`/demo/<code>`): name and initials;
+- the call script's `{repName}` (`lib/sales/playbook/script.js`), the AI call script
+  (`generateCallScript.js`), the signup opener, and the call-QA "did they name themselves" check
+  (it now listens for the name the rep actually says);
+- voice: what a caller hears when nobody picks up and in the hold queue
+  (`lib/sales/calls/inboundRouting.js`, `app/api/rep-dial/inbound`);
+- the rep's demo tenant: its name ("Painting Demo — Daniel") and the demo login's display name,
+  both visible on a screen share.
+
+FieldQuo's own screens show both names: the rep card and list on `/platform/sales/reps`, the
+payouts screen (`lib/sales/payoutAdmin.js`), performance and funnel tables, and the walkthrough
+heads-up a specialist receives.
+
+Settings: the rep sets it on `/sales/settings` ("The name prospects see", strings in all nine
+app languages, `app/api/sales/work-name` behind `requireOutreachRep`, writer
+`lib/sales/workNameWrite.js` fenced to the one column by `check:sales-auth`); a superadmin sets
+or overrides it on the rep card (`PATCH /api/platform/sales/reps/[id]` `{ workName }`, audited
+as `sales_rep_work_name_set`).
+
+**Opaque links.** `SalesRep.referralToken` (additive, nullable, unique): eight random Crockford
+base32 characters from the platform CSPRNG — not derived from anything, not sequential, no
+i/l/o/u. `lib/sales/repLink.js`:
+
+- `ensureReferralToken` mints one lazily, the first time a link is built for a rep — one row,
+  `referralToken: null` in the WHERE so two tabs cannot give a rep two tokens, never a bulk
+  backfill (the owner's rule). A token equal to any rep's legacy code is refused.
+- `findRepByLinkCode` resolves the token first and the legacy `code` second, so every printed
+  card and old text keeps crediting its rep; anything else resolves to nobody.
+
+Every "copy my link" and every built link now carries the token: the portal's own link
+(`/api/sales/me`), the texted link, the intro email's signup AND demo links, the Threads
+templates, the unfinished-signup check-in, the agency's team list and its add-rep response,
+the demo-hours card, the platform reps list and the add-rep response. Resolution goes through
+`findRepByLinkCode` in attribution (`lib/sales/attribution.js`, so `/signup?sales=` and the
+`salesCode` POST field), the signup floor (`lib/signup/salesFloor.js` referredRepFor), the
+platform's unfinished-signups-per-rep match, and the demo page (`loadRepForDemo`).
+`/i/<token>` forwards to the token when the rep has one (it writes nothing, so it does not mint).
+A platform rep who predates the token and has never opened the portal shows "Create link" on
+their card (`{ mintLink: true }`, one row, audited as `sales_rep_link_minted`).
+
+### Schema
+
+Additive only: `ALTER TABLE "SalesRep" ADD COLUMN "referralToken" TEXT, ADD COLUMN "workName" TEXT;`
+and `CREATE UNIQUE INDEX "SalesRep_referralToken_key"`, applied with `prisma db execute`
+(the diff's unrelated DROPs — Community*, ComplexityFactorPreset, Company.instantQuoteLanguages
+— were not applied). Verified on the live database: both columns, the unique index, 8 reps with
+0 tokens and 0 work names (nothing minted by the checks).
+
+### Checks
+
+New `check:sales-work-name` (111): validation against hostile input; the work name, the
+first-name fallback and a stored value that no longer passes; the staff label; 2,000 token
+mints all distinct and well-shaped; token / legacy code (any case) / unknown through
+`findRepByLinkCode`, the token winning a same-spelling collision; the mint once-only, refusing
+a legacy-code collision, returning the winner of a race; the REAL attribution capture (token →
+attributed, legacy → attributed, unknown → `unknown_rep` and nothing written) and the REAL
+demo-page loader; a grep over 28 outsider-facing files proving none interpolates a rep's real
+name (every allowance named and itself checked) and that no `signupLinkFor` / `repDemoUrl` /
+hand-built `?sales=` anywhere in app/ or lib/ is fed `SalesRep.code`; the gates select
+`workName`; the strings exist in all nine languages. Mutation-tested: putting `rep?.name` back
+in the SMS or `rep.code` back in `/api/sales/me` turns it red.
+
+Updated for the new contract: `check:sales-auth` (the two new writers declared and fenced),
+`check:sales-admin`, `check:sales-agency`, `check:rep-demo-page`, `check:demo-per-rep`,
+`check:call-script`, `check:sales-outreach`, `check:sales-inbound-call`, `check:signup-leads`,
+`check:signup-progress`, `check:sales-sms`, `check:sales-checkin-materialise`. `npm run build`
+green. Red on assertions identical on the base commit (not this change): `check:sales-agency`
+(4, dial counts), `check:sales-sms` (4), `check:call-qa`, `check:call-script` (1),
+`check:lead-language`, `check:platform-rep-queue`, `check:sales-call-playbook`,
+`check:sales-console`, `check:sales-server-copy`, `check:sales-intro-email`,
+`check:rep-demo-page` (a stub without `salesLead.updateMany`, after this change's assertions).
+
+### Still owed here
+
+- **The work mailbox is named by the owner.** The From local part comes from the rep's work
+  mailbox; a rep working as Daniel with `jesus@fieldquo.com` still sends from `jesus@send.…`.
+  Buying the mailbox under the work name is the owner's call.
+- **The demo tenant's slug and sign-in address** still derive from the legacy code
+  (`demo-jesus-perez-painting`, `demo-jesus-perez@fieldquo.com`). Changing them changes a rep's
+  demo sign-in address, so it is left for a decision.
+- **No "your rep" panel exists on /signup** — deliberately (`app/signup/page.js` explains why a
+  rep code renders nothing there), so there was nothing to rename. Jennifer does not mention
+  reps; no caller-ID name (CNAM) is configured; the voicemail drop is a pre-recorded audio URL,
+  not a template.
+- The agency's team list prints the real name (the agency employs them); the "works as" label
+  there would need translating first.
+
+---
 ## /platform/signups: holder, history, take back, Do Not Contact (25 September 2026)
 
 The owner's three asks of 24 September on FieldQuo's own signups screen.
