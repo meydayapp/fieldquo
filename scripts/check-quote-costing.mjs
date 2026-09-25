@@ -498,6 +498,9 @@ const CONTRACT = [
   "labourCost",
   "materialTotal",
   "unpricedMaterials",
+  // The lines' own cost (lib/costing/lineItemCost.js) — 0 on a row written
+  // before the column existed, never absent.
+  "lineItemCost",
   "overhead",
   "overheadBasis",
   "estimatedCost",

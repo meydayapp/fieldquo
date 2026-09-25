@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { loadEnforceableMember } from "@/lib/permissions/enforce";
 import { askCopilot } from "@/lib/ai/copilotClient";
+import { askerFirstName } from "@/lib/ai/askerName";
 import { readerLanguage } from "@/lib/i18n/readerLanguage";
 import { isAiConfigured, AI_MODEL } from "@/lib/ai/provider";
 import { checkAiQuota, recordAiUsage } from "@/lib/ai/usage";
@@ -88,6 +89,8 @@ export async function POST(request) {
         userId: member.userId,
         companyId: member.companyId,
       }),
+      // For the one greeting by name — see voiceRule in copilotClient.js.
+      firstName: await askerFirstName({ userId: member.userId }),
       onUsage: (u) =>
         recordAiUsage({
           companyId: member.companyId,

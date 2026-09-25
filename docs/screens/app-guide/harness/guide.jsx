@@ -528,6 +528,65 @@ async function runScene(scene) {
     return;
   }
   // ── The document-shaped builder ─────────────────────────────────────────
+  // ── One document look (2026-09-23) ───────────────────────────────────
+  // The cost / markup popover behind a line's price, the profit card
+  // moving when a price changes, the invoice builder's review panel.
+  const typeInto = (el, value) => {
+    const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+    set.call(el, value);
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  };
+  if (scene === "cost-popover" || scene === "profit-card-open" || scene === "profit-card-change") {
+    // The one card, opened on its lines as a hand would, then the % beside
+    // the first line's price.
+    const toggle = await until("[data-doc-group-toggle]");
+    if (!document.querySelector("[data-doc-group-editor]")) toggle.click();
+    const pct = await until("[data-cost-markup-toggle]");
+    // The drawer column is open by itself from lg up (DocumentBuilder's
+    // effect); the card is what the change has to move.
+    await until("[data-profit-margin-card]");
+    if (scene === "profit-card-open") {
+      pct.scrollIntoView({ block: "center" });
+      await wait(400);
+      return;
+    }
+    pct.click();
+    const cost = await until("[data-unit-cost-input]");
+    if (scene === "cost-popover") {
+      typeInto(cost, "120");
+      await wait(150);
+      typeInto(await until("[data-markup-input]"), "40");
+      await wait(400);
+      pct.scrollIntoView({ block: "center" });
+      await wait(300);
+      return;
+    }
+    // profit-card-change: a cost of $120 on the doors, marked up 40% — the
+    // price moves to $168 and the card's cost bar grows a line-items segment.
+    typeInto(cost, "120");
+    await wait(150);
+    typeInto(await until("[data-markup-input]"), "40");
+    await wait(300);
+    document.querySelector("[data-cost-markup-popover] button:last-child")?.click();
+    await wait(300);
+    pct.scrollIntoView({ block: "center" });
+    await wait(400);
+    return;
+  }
+  if (scene === "invoice-pick-client") {
+    // A new invoice from a job: the labour offer is above the document and
+    // the client is already the job's; the lines open beneath the card.
+    await until("[data-labour-offer], [data-doc-group-editor]");
+    await wait(400);
+    return;
+  }
+  if (scene === "scroll-invoice-review") {
+    const panel = await until("[data-invoice-review-findings]");
+    panel.scrollIntoView({ block: "start" });
+    window.scrollBy(0, -120);
+    await wait(400);
+    return;
+  }
   if (scene === "doc-cost-drawer") {
     (await until("[data-cost-drawer-toggle]")).click();
     await until("[data-cost-drawer]");

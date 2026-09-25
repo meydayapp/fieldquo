@@ -26,12 +26,13 @@
 // when it carries no price, shows no rate or amount boxes.
 "use client";
 
-import { useState } from "react";
-import { Plus, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Plus, X, Percent } from "lucide-react";
 import { getBenchmark } from "@/lib/pricing/benchmarkGuidance";
 import { formatAppMoney } from "@/lib/format/money";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { isTextLine, lineShowsAmount } from "@/lib/quotes/textBlocks";
+import { markupPct, priceFromMarkup } from "@/lib/costing/lineItemCost";
 import RichTextBody from "@/app/components/quotes/RichTextBody";
 import LineItemLibrary from "./LineItemLibrary";
 
@@ -39,6 +40,107 @@ import LineItemLibrary from "./LineItemLibrary";
 // in the box, so an estimator can see the SHAPE of a good scope note without
 // having to be told. Deliberately about prep and process — the parts a client
 // cannot see and therefore assumes are not happening.
+
+/**
+ * Unit cost / Markup % / Unit price, under a line's price (Jobber's popover,
+ * by the owner's request 2026-09-23).
+ *
+ * ── Which side moves ────────────────────────────────────────────────────────
+ *
+ * Three boxes, one relationship: price = cost × (1 + markup). Typing a cost
+ * keeps the markup and moves the price; typing a markup keeps the cost and
+ * moves the price; typing the price keeps the cost and moves the markup. The
+ * markup is never stored — it is what the two stored numbers imply
+ * (lib/costing/lineItemCost.js markupPct) — so the only thing this writes
+ * that the table did not already write is the line's `unitCost`, through the
+ * same onChange the quantity and rate boxes use.
+ *
+ * ── Internal ────────────────────────────────────────────────────────────────
+ *
+ * The cost never reaches the document: every client-facing renderer reads
+ * description, detail, quantity and amount. It is said in the popover in
+ * words, because the box sits two inches from the price the client will read.
+ */
+function CostMarkupPopover({ item, index, currency, onChange, onClose, t, money }) {
+  const rate = Number(item.rate) || 0;
+  const unitCost = item.unitCost == null || item.unitCost === "" ? "" : Number(item.unitCost);
+  // The markup box's own text while it is being typed — a half-typed "1"
+  // must not snap to the figure the cost and price imply mid-keystroke.
+  const [markup, setMarkup] = useState(() => {
+    const m = markupPct(unitCost, rate);
+    return m == null ? "" : String(m);
+  });
+  const rootRef = useRef(null);
+  useEffect(() => {
+    const onDown = (e) => {
+      if (rootRef.current && !rootRef.current.contains(e.target)) onClose();
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+
+  const box = "w-full border border-border rounded px-2 py-1.5 text-sm bg-background text-foreground tabular-nums";
+  const setCost = (v) => {
+    const next = v === "" ? null : Number(v);
+    onChange(index, "unitCost", next);
+    const m = Number(markup);
+    if (next > 0 && markup !== "" && Number.isFinite(m)) onChange(index, "rate", priceFromMarkup(next, m));
+  };
+  const setMarkupPct = (v) => {
+    setMarkup(v);
+    const m = Number(v);
+    if (unitCost > 0 && v !== "" && Number.isFinite(m)) onChange(index, "rate", priceFromMarkup(unitCost, m));
+  };
+  const setPrice = (v) => {
+    const next = Number(v) || 0;
+    onChange(index, "rate", next);
+    const m = markupPct(unitCost, next);
+    setMarkup(m == null ? "" : String(m));
+  };
+
+  return (
+    <div
+      ref={rootRef}
+      className="absolute right-0 z-30 mt-1 w-64 rounded-lg border border-border bg-card p-3 shadow-lg space-y-2 text-left"
+      data-cost-markup-popover
+    >
+      <p className="text-xs font-semibold text-foreground">{t("app.lineItems.costMarkup", "Cost & markup")}</p>
+      <label className="block text-xs">
+        <span className="block text-[11px] text-muted-foreground mb-0.5">{t("app.lineItems.unitCost", "Unit cost")}</span>
+        <input type="number" min="0" step="0.01" value={unitCost} onChange={(e) => setCost(e.target.value)} className={box} data-unit-cost-input />
+      </label>
+      <label className="block text-xs">
+        <span className="block text-[11px] text-muted-foreground mb-0.5">{t("app.lineItems.markupPct", "Markup %")}</span>
+        <input type="number" step="0.1" value={markup} onChange={(e) => setMarkupPct(e.target.value)} disabled={!(unitCost > 0)} className={`${box} disabled:bg-muted disabled:text-muted-foreground`} data-markup-input />
+      </label>
+      <label className="block text-xs">
+        <span className="block text-[11px] text-muted-foreground mb-0.5">{t("app.lineItems.unitPrice", "Unit price")}</span>
+        <input type="number" min="0" step="0.01" value={item.rate} onChange={(e) => setPrice(e.target.value)} className={box} data-unit-price-input />
+      </label>
+      {unitCost > 0 && (
+        <p className="text-[11px] text-muted-foreground tabular-nums" data-cost-markup-summary>
+          {t("app.lineItems.costChip", "Cost {cost} · markup {pct}%", { cost: money(unitCost), pct: markupPct(unitCost, rate) ?? 0 })}
+        </p>
+      )}
+      <p className="text-[11px] text-muted-foreground">{t("app.lineItems.costHint", "Internal — the client never sees the cost.")}</p>
+      <div className="flex items-center justify-between gap-2 pt-1">
+        <button type="button" onClick={() => { onChange(index, "unitCost", null); setMarkup(""); }} disabled={!(unitCost > 0)} className="text-[11px] underline underline-offset-2 text-muted-foreground disabled:opacity-50">
+          {t("app.lineItems.clearCost", "Clear cost")}
+        </button>
+        <button type="button" onClick={onClose} className="text-xs font-semibold underline underline-offset-2 text-foreground">
+          {t("app.docBuilder.done", "Done")}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function LineItemsTable({
   // The company's billing currency. Without it these rendered a bare
@@ -70,6 +172,9 @@ export default function LineItemsTable({
   const { t, language } = useTranslation();
   const detailPlaceholder = t("app.lineItems.detailPlaceholder");
   const [libraryOpen, setLibraryOpen] = useState(false);
+  // Which line's cost / markup popover is open — one at a time.
+  const [costOpen, setCostOpen] = useState(null);
+  const money = (n) => formatAppMoney(n, currency, language);
 
   return (
     <div>
@@ -149,13 +254,34 @@ export default function LineItemsTable({
                 <span className="sm:hidden block text-[10px] font-medium text-muted-foreground mb-0.5">
                   {t("app.lineItems.rate")}
                 </span>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={item.rate}
-                  onChange={(e) => onChange(i, "rate", Number(e.target.value))}
-                  className="w-full sm:col-span-2 border border-border rounded px-2 py-2 sm:py-1.5 text-sm"
-                />
+                {/* The price box, with the cost / markup popover behind the
+                    % beside it (Jobber's "tap the unit price"). Only for a
+                    member who may see money — a cost is money. */}
+                <span className="relative block w-full sm:col-span-2">
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={item.rate}
+                    onChange={(e) => onChange(i, "rate", Number(e.target.value))}
+                    className={`w-full border border-border rounded px-2 py-2 sm:py-1.5 text-sm ${showPricing ? "pr-7" : ""}`}
+                  />
+                  {showPricing && (
+                    <button
+                      type="button"
+                      onClick={() => setCostOpen((cur) => (cur === i ? null : i))}
+                      aria-label={t("app.lineItems.costMarkup", "Cost & markup")}
+                      title={t("app.lineItems.costMarkup", "Cost & markup")}
+                      aria-expanded={costOpen === i}
+                      className={`absolute right-1 top-1/2 -translate-y-1/2 rounded p-1 ${Number(item.unitCost) > 0 ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                      data-cost-markup-toggle
+                    >
+                      <Percent size={12} />
+                    </button>
+                  )}
+                  {costOpen === i && (
+                    <CostMarkupPopover item={item} index={i} currency={currency} onChange={onChange} onClose={() => setCostOpen(null)} t={t} money={money} />
+                  )}
+                </span>
               </label>
               <div className="sm:col-span-2 text-sm font-medium text-foreground text-right tabular-nums shrink-0 self-end pb-2 sm:pb-0">
                 {formatAppMoney(item.amount, currency, language)}
@@ -208,6 +334,13 @@ export default function LineItemsTable({
               />
             )}
 
+            {/* What the line costs, said on the row once a cost is stated, so
+                the figure is not only in a popover that is closed. */}
+            {showPricing && Number(item.unitCost) > 0 && lineShowsAmount(item) && (
+              <p className="sm:col-span-12 text-[11px] text-muted-foreground tabular-nums" data-line-cost-chip>
+                {t("app.lineItems.costChip", "Cost {cost} · markup {pct}%", { cost: money(item.unitCost), pct: markupPct(item.unitCost, item.rate) ?? 0 })}
+              </p>
+            )}
             <BenchmarkHint item={item} categoryKey={categoryKey} />
           </div>
         ))}

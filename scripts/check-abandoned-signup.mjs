@@ -699,6 +699,8 @@ const EARLY_CASES = [
   ["a completed lead is a customer", leadPerson({ completedCompanyId: "c" }), {}, "completed"],
   ["a company with a subscription is a customer", companyPerson({ subscription: { id: "s" } }), {}, "completed"],
   ["a company with no card, ten minutes on, is due", companyPerson(), {}, "due"],
+  // jaspedo, 2026-09-25: a card-free trial FINISHED signing up and must never hear "you didn't finish".
+  ["a card-free trial (trialEndsAt, no subscription) finished signing up", companyPerson({ trialEndsAt: new Date(T0 + 30 * 86400000) }), {}, "completed"],
   ["a company whose lead was seen a minute ago is still moving", companyPerson({ signupLead: { lastSeenAt: new Date(T0 - 60000), trades: [] } }), {}, "still_active"],
   ["suppressed", leadPerson(), { suppressed: true }, "suppressed"],
   ["already sent — exactly once", leadPerson(), { alreadySent: true }, "already_sent"],
