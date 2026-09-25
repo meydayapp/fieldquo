@@ -258,6 +258,8 @@ const DRILL_INS = {
   "/app/jobs/import": "past jobs, already done and paid, typed in for the year's overview — opened from the Jobs list page's own Past jobs button and from the dashboard's set-up steps. Deliberately not a nav row: it is a thing you do once to catch up, not a place you go, and it must stay reachable after that step is waved off",
   "/app/jobs/new": "opened from the Jobs list, a client's own page, and Quick Add",
   "/app/leads/import": "opened from the Leads list page's own Import button",
+  "/app/leads/traffic": "visits, sources and the people who typed their details and stopped — opened from the Leads list page's own Traffic button beside Import, from Settings › Instant quotes › Ad tracking, and from a funnel's own page. A view OF the leads, not a second inbox, so not a nav row",
+  "/app/settings/services/confirm": "\"Confirm what you quote\" — the target of that home-page set-up step (lib/setupSteps.js confirm_services), which also opens it in a dialog; applies only to a company whose trade FieldQuo has no full service list for, and is done once",
   "/app/messages/review": "the month-end read over Facebook/Instagram conversations — opened from the Messages inbox's own Monthly review button, and deliberately not a nav row: it is a thing you do once a month TO the inbox, not a second inbox to browse to, and a sidebar row for it would compete with the one row that leads to the conversations themselves",
   "/app/settings/expense-tracking/import": "bank-statement CSV import — opened from the Expense Tracking page's own Import button, and deliberately not a nav row: it is a thing you do to expenses, not a place you go",
   "/app/marketing/[id]": "campaign detail — opened from the Marketing list",

@@ -782,4 +782,83 @@ export const ARTICLES = {
     ],
     "updated": "2026-09-21"
   },
+  "the-ai-material-list": {
+    title: "La liste de matériaux par IA",
+    summary:
+      "Bâtir la liste de matériaux lit la soumission approuvée d'un chantier, son relevé, vos taux de Coûts des matériaux et votre stock, et écrit tout ce que le chantier consomme — groupé, avec une raison par ligne — pour quelques cents de crédit IA.",
+    updated: "2026-09-25",
+    intro: [
+      "**Reconstruire à partir de la soumission** écrit les lignes du relevé lui-même : la peinture, les feuilles, les paquets que vos taux prévoient. Elle ne pense pas au ruban, au plastique, au calfeutrant, aux disques de ponçage ni aux pentures que personne n'a chiffrés. **Bâtir la liste de matériaux** le fait : FieldQuo AI lit le chantier et écrit la liste complète, groupée, chaque ligne avec la raison de sa présence et ce que vous avez déjà sur la tablette.",
+      "C'est une construction payante — quelques cents de crédit IA à chaque exécution, pris sur le même crédit que la lecture approfondie des photos — et **Reconstruire à partir de la soumission** reste gratuit.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "Aperçu",
+        blocks: [
+          { p: "Le bouton se trouve dans le panneau **Matériaux à acheter** de la page du chantier, à côté de **Reconstruire à partir de la soumission**. Sous le titre, un bandeau indique ce que la construction lit, quel modèle l'a faite, ce qu'elle coûte, votre solde de crédit, et quand elle a été faite pour la dernière fois et par qui. Il se termine par la phrase la plus importante : **Les quantités sont des estimations — vérifiez-les avant de commander.**" },
+          { figure: "harness:job-materials", caption: "Le panneau Matériaux à acheter d'un chantier après une construction — le bandeau, les groupes Principal, Fournitures, Consommables, Fixations / adhésifs, Transitions / moulures et Autre, chaque ligne avec sa raison, sa quantité en stock et sa pastille." },
+        ],
+      },
+      {
+        id: "build-the-list",
+        heading: "Bâtir la liste",
+        blocks: [
+          { steps: [
+            "Ouvrez le chantier. Il lui faut une soumission derrière; sans elle, la construction répond **This job has no quote to build a material list from.**",
+            "Dans **Matériaux à acheter**, appuyez sur **Bâtir la liste de matériaux**. Le bouton affiche **Construction…** pendant le travail.",
+            "Lisez la ligne de résultat : **Terminé : 12 lignes ajoutées, 2 quantités gardées au chiffre du relevé, 0 lignes refusées.**",
+            "Vérifiez les quantités, modifiez celle d'une ligne de l'IA avec **Modifier la quantité requise**, et retirez ce dont vous n'avez pas besoin.",
+          ] },
+          { note: "Une ligne retirée le reste à la prochaine construction, tout comme ce qui est déjà coché comme acheté ou ajouté à la main. Tout le reste de la liste est remplacé par la nouvelle construction." },
+        ],
+      },
+      {
+        id: "what-it-reads",
+        heading: "Ce qu'elle lit, et ce qu'elle ne voit jamais",
+        blocks: [
+          { bullets: [
+            "Les lignes de la soumission approuvée et les lignes que le relevé en déduit. Quand l'IA propose une ligne que le relevé prévoit déjà, la quantité du relevé l'emporte — ce sont celles comptées comme gardées au chiffre du relevé.",
+            "Vos taux de **Coûts des matériaux**, pour le rendement et les quantités — les mêmes taux que **Reconstruire à partir de la soumission**.",
+            "Votre stock, additionné à partir des mouvements d'achat, pour que chaque ligne puisse dire **3 en stock** et **Couvert**, **Manque 3** ou **Non suivi**.",
+            "Aucun prix. Les faits envoyés au modèle ne contiennent ni taux, ni coût, ni total, et la construction refuse de partir si l'un d'eux s'y glisse. Une raison qui cite un montant est refusée aussi.",
+          ] },
+        ],
+      },
+      {
+        id: "what-it-costs",
+        heading: "Ce qu'elle coûte",
+        blocks: [
+          { p: "Chaque construction prend le prix indiqué au bandeau — 0,10 $ US aujourd'hui — sur le crédit IA de l'entreprise, pas sur l'allocation IA incluse dans le forfait ni sur le solde téléphone. Le crédit est réservé avant que le modèle travaille, et remis s'il ne rend rien d'utilisable : **Couldn't build the list just now. Nothing was charged.**" },
+          { table: {
+            head: ["Quand", "Ce que vous voyez"],
+            rows: [
+              ["Le solde est plus bas que le prix", "**Building the list costs $0.10 of AI credit. Your balance is $0.04 — add at least $0.06 first.** Un propriétaire ou un administrateur se voit proposer la recharge sur place."],
+              ["L'allocation IA du mois est épuisée", "La construction est refusée jusqu'au renouvellement de l'allocation, comme toutes les fonctions FieldQuo AI."],
+              ["FieldQuo n'a pas activé la fonction pour votre compte", "**The AI material list isn't available on your account yet.**"],
+            ],
+          } },
+        ],
+      },
+      {
+        id: "short-lines-and-purchasing",
+        heading: "Les lignes manquantes et les achats",
+        blocks: [
+          { p: "Une ligne marquée **Manque** a un lien **Ajouter à la liste d'achats**, et **Ajouter les manquants à la liste d'achats** sous la liste les prend toutes d'un coup. Elles vont sur un bon de commande brouillon — la page le nomme — que vous chiffrez et envoyez depuis **Achats**. Cocher les lignes achetées, le reçu et la quantité réellement utilisée fonctionnent exactement comme décrit dans [[materials-on-a-job|Matériaux sur un chantier]]." },
+        ],
+      },
+      {
+        id: "who-can-use-it",
+        heading: "Qui peut l'utiliser",
+        blocks: [
+          { p: "Bâtir la liste exige **Jobs** en voir, créer et modifier — le même niveau que reconstruire, ajouter ou retirer une ligne — et le chantier doit être un chantier que vous pouvez ouvrir. Le bandeau, le prix et le solde ne s'affichent qu'aux personnes qui ont ce niveau. Ajouter les manquants à un bon de commande exige aussi l'accès aux achats." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "La liste est-elle la même à chaque construction ?", a: "Pas forcément. C'est une lecture du chantier par l'IA, et c'est pourquoi le bandeau vous demande de vérifier les quantités. Les quantités du relevé, elles, ne bougent jamais : quand l'IA et le relevé ne s'entendent pas, le relevé l'emporte." },
+      { q: "Bâtir la liste change-t-il la soumission ou la facture ?", a: "Non. La liste est interne au chantier. Rien de ce qu'elle contient n'atteint le client." },
+      { q: "Pourquoi ne pas simplement reconstruire à partir de la soumission ?", a: "Faites-le chaque fois que les lignes du relevé suffisent — c'est gratuit. La construction payante sert aux fournitures et consommables qu'un relevé ne prévoit pas." },
+    ],
+  },
 };

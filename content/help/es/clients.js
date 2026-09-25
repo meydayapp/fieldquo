@@ -952,4 +952,103 @@ export const ARTICLES = {
     ],
     "updated": "2026-09-21"
   },
+  "client-tickets": {
+    title: "Tickets de clientes",
+    summary:
+      "Lo que sus clientes envían desde su portal — una reparación, un reclamo de garantía, una pregunta, una consulta de facturación, una fecha que cambiar, una visita de mantenimiento que reservar — y cómo la oficina responde, asigna y los convierte en trabajos.",
+    updated: "2026-09-25",
+    intro: [
+      "Un cliente con el enlace de su portal puede pedirle algo sin llamar por teléfono. **Informar un problema** abre un ticket; también lo abren **Pedir otra fecha** en una visita próxima, **Saltar esta visita** en una fecha de un plan y una visita de mantenimiento reservada sobre un plan. Cada uno llega a **Tickets de clientes**, en **Más › Trabajo y ventas**, como una conversación: las palabras y las fotos del cliente, sus respuestas y un estado que ambos pueden ver.",
+      "Un ticket pide; nunca hace. Nada de lo que un cliente envía reserva, mueve ni cobra nada: la oficina decide qué sigue.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "Resumen",
+        blocks: [
+          { p: "Los tickets se abren solo desde el portal del cliente, y solo por el cliente al que pertenece ese enlace. Cada uno tiene un tipo, un resumen breve, lo que escribió el cliente, hasta seis fotos y — cuando se abrió desde una visita, un trabajo o un plan — aquello de lo que trata, que la página del ticket enlaza." },
+          { table: {
+            head: ["Desde dónde empieza el cliente", "El ticket que se abre"],
+            rows: [
+              ["**Informar un problema**, en la tarjeta **Sus solicitudes** del portal o en la fila de una visita pasada", "**Reparación**, **Garantía**, **Pregunta** o **Facturación**: el cliente elige"],
+              ["**Pedir otra fecha** en una visita próxima, o **Saltar esta visita** en una fecha de un plan de mantenimiento", "**Cambio de fecha**"],
+              ["**Solicitar trabajo › Una visita de mantenimiento**, en un plan que todavía tiene visitas incluidas", "**Visita de mantenimiento**"],
+            ],
+          } },
+          { note: "**Solicitar trabajo › Un trabajo nuevo o presupuesto** — y una solicitud de mantenimiento de un cliente sin plan — no es un ticket. Es trabajo nuevo, así que llega al tablero de **Prospectos** como un prospecto, con el servicio, la descripción y las fotos." },
+        ],
+      },
+      {
+        id: "the-queue",
+        heading: "La cola",
+        blocks: [
+          { p: "**Tickets de clientes** se abre en **Abiertos**, que reúne todos los tickets que siguen en curso — abiertos, en curso o esperando al cliente — con el actualizado más recientemente primero. Las otras pestañas son **En curso**, **Esperando al cliente**, **Resuelto**, **Cerrado** y **Todos**, cada una con su número." },
+          { bullets: [
+            "Cada fila muestra el estado, el tipo, **Alta** o **Urgente** en rojo cuando usted fijó esa prioridad, el resumen, el cliente, a quién está asignado (o **Sin asignar**), la fecha de la última actividad y el número de respuestas.",
+            "Cuando la pestaña está vacía, la página dice **Nada pendiente**.",
+            "La página de un cliente y la de un trabajo muestran un enlace como **2 tickets de clientes abiertos** mientras haya alguno, y abre esta cola.",
+            "Un ticket nuevo, y cada respuesta de un cliente, también le llegan como una notificación que abre el ticket.",
+          ] },
+        ],
+      },
+      {
+        id: "answer-a-ticket",
+        heading: "Cómo responder un ticket",
+        blocks: [
+          { steps: [
+            "Abra el ticket desde la cola, desde la notificación o desde el enlace en la página del cliente o del trabajo.",
+            "Fije **Estado**, **Prioridad** y **Asignado a** arriba. Cada cambio se guarda en cuanto lo elige.",
+            "Escriba en el cuadro de respuesta y pulse **Enviar respuesta**. La respuesta se suma a la conversación y se envía por correo al cliente en nombre de su empresa, en el idioma del cliente, con un botón que lo lleva de vuelta a su portal.",
+            "Cuando esté resuelto, ponga el estado en **Resuelto**, o en **Cerrado** para terminar la conversación.",
+          ] },
+          { p: "Dos cambios de estado ocurren solos. Su primera respuesta pasa un ticket **Abierto** a **En curso**. Un cliente que responde a un ticket **Esperando al cliente** o **Resuelto** lo reabre como **Abierto**: o le respondió, o no está arreglado. Un ticket **Cerrado** ya no acepta respuestas del cliente; el portal le pide que informe un problema nuevo." },
+          { note: "Cuando una respuesta no puede enviarse por correo — no hay dirección en la ficha del cliente, o el correo de su empresa no está configurado — igual se guarda, el cliente puede leerla en su portal y la página se lo dice: **Respuesta guardada: el cliente puede leerla en su portal, pero no se le envió por correo.**" },
+        ],
+      },
+      {
+        id: "turn-into-a-job",
+        heading: "Convertir una reparación o una garantía en un trabajo",
+        blocks: [
+          { p: "Un ticket de **Reparación** o **Garantía** que necesita una cuadrilla puede convertirse en un trabajo: pulse **Convertir en trabajo** en el ticket." },
+          { bullets: [
+            "El trabajo se crea para el mismo cliente por el mismo camino que **Nuevo trabajo**, sin programar y sin nada con precio. Planifíquelo y póngale precio como a cualquier otro trabajo.",
+            "Su título es **Repair — …** o **Warranty — …**, seguido del título del trabajo original, o del resumen del ticket cuando el ticket no trata de un trabajo.",
+            "Cuando el ticket trata de un trabajo, el nuevo toma la dirección de ese trabajo y queda vinculado a él como regreso — **Garantía — trabajo cubierto** para un ticket de garantía, **Retrabajo — se nos pasó algo** para una reparación. El ticket muestra entonces **Convertido en trabajo:** con un enlace, y no puede crear un segundo.",
+          ] },
+        ],
+      },
+      {
+        id: "what-the-client-sees",
+        heading: "Lo que ve el cliente",
+        blocks: [
+          { bullets: [
+            "En **Sus solicitudes** del portal, cada ticket que abrió, con su estado en sus palabras: **Recibida**, **En curso**, **Esperando su respuesta**, **Resuelta** o **Cerrada**.",
+            "La conversación, sus respuestas firmadas con el nombre de pila de quien las escribió, y un cuadro para responder mientras el ticket no esté cerrado.",
+            "Nunca la prioridad ni a quién está asignado: eso es asunto de la oficina.",
+            "Sus respuestas también por correo, con el membrete de su empresa, en nombre de su empresa, en su idioma.",
+          ] },
+        ],
+      },
+      {
+        id: "who-is-told-and-who-can-see-it",
+        heading: "A quién se avisa, y quién puede verlo",
+        blocks: [
+          { p: "Un ticket nuevo y la respuesta de un cliente avisan, en la aplicación y por notificación push, a la persona a quien está asignado el ticket — o, mientras no está asignado, a todos los que pueden ver las solicitudes de clientes. También se envía un correo a la persona asignada, o al dueño mientras no hay nadie asignado. La fila y la pantalla siguen el área **Requests** de la cuadrícula de accesos, así que el perfil Cuadrilla (**Requests: none**) no las ve." },
+          { table: {
+            head: ["Para", "Necesita"],
+            rows: [
+              ["Ver **Tickets de clientes** y leer un ticket", "**Requests** en solo lectura o más"],
+              ["Responder, cambiar el estado o la prioridad, asignar", "**Requests** en ver, crear y editar"],
+              ["**Convertir en trabajo**", "Eso, y **Jobs** en ver, crear y editar"],
+            ],
+          } },
+        ],
+      },
+    ],
+    faq: [
+      { q: "¿Puede un cliente cerrar o resolver un ticket?", a: "No. Solo la oficina cambia el estado de un ticket. La respuesta de un cliente puede reabrir un ticket que lo estaba esperando o que estaba marcado como resuelto; un ticket cerrado ya no acepta respuestas." },
+      { q: "¿Un ticket de cambio de fecha mueve la visita?", a: "No. El cliente indica la visita y dice qué le vendría mejor; la fecha solo se mueve cuando alguien de la oficina la mueve en el calendario." },
+      { q: "¿Adónde va una solicitud de trabajo nuevo?", a: "Al tablero de prospectos, como un prospecto. El trabajo nuevo se presupuesta; no es un ticket que responder. Vea [[the-leads-board|El tablero de prospectos]]." },
+    ],
+  },
 };

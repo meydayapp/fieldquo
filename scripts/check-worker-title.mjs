@@ -77,7 +77,21 @@ t("resolveQuickAddWorker writes title on reactivate AND create",
 t("ensureWorkerForMember accepts the pending title", /ensureWorkerForMember\(\{\s*companyId,\s*userId,\s*title/.test(ensure));
 t("…and never overwrites a title an admin already set", /!byEmail\.title\s*\?\s*\{\s*title:\s*pendingTitle\s*\}/.test(ensure));
 const accept = code("app/api/invitations/[id]/accept/route.js");
-t("the accept route reads the pending title before reconcile deletes the row", /select:\s*\{\s*role:\s*true,\s*title:\s*true\s*\}/.test(accept));
+// The select grew startOnboarding (the onboarding hand-off), so it is read
+// as "role and title are both in the pending profile's select" — and the
+// ordering the name promises is now asserted rather than assumed: that read
+// comes before the reconcile that deletes the row.
+{
+  const readAt = accept.search(/db\.pendingTeamProfile\.findUnique\(/);
+  const sel = readAt >= 0 ? accept.slice(readAt, accept.indexOf("});", readAt)) : "";
+  const reconcileAt = accept.search(/await reconcilePendingProfiles\(/);
+  t(
+    "the accept route reads the pending title before reconcile deletes the row",
+    /select:\s*\{[^}]*\brole:\s*true\b[^}]*\}/.test(sel) &&
+      /select:\s*\{[^}]*\btitle:\s*true\b[^}]*\}/.test(sel) &&
+      reconcileAt > readAt && readAt >= 0,
+  );
+}
 t("…and hands it to ensureWorkerForMember", /title:\s*pending\?\.title/.test(accept));
 
 console.log("\n3. The normaliser, against hostile input");

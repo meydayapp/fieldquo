@@ -2120,6 +2120,7 @@ const PAGES = [
       "client_portal",
       "service_plans",
       "financing",
+      "offline_payment_methods",
     ],
     related: ["invoicing", "financing", "reporting"],
   },
@@ -2969,7 +2970,7 @@ const PAGES = [
           "Requests reach the manager who should see them, balances build up on their own, and the calendar knows about the days that are gone.",
       },
     ],
-    features: ["team_access", "activity_log", "time_off"],
+    features: ["team_access", "activity_log", "time_off", "hr_compliance"],
     related: ["crew", "payroll", "scheduling"],
   },
   {

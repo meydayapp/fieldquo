@@ -159,7 +159,17 @@ const unpriced = catalogKeys.filter((k) => !tradeIsPricedByDefault(k));
 // $/sqft or per-unit rate card, so it was never going to have a price book —
 // same shape as countertop's own documented reason above. A DIFFERENT trade
 // losing its book is still what this count exists to catch.
-ok(`49 of ${catalogKeys.length} catalogue trades cannot price themselves`, unpriced.length === 49, unpriced.length);
+//
+// 65 since d1ad0209 (service seeds, 2026-09-21), which added sixteen trades
+// to the catalogue with no price book and no opening rate: air_duct_cleaning,
+// deck_patio, doors_windows, lighting, security_systems, sewer_septic,
+// smart_home, solar_energy, moving, wildlife_control, caulking_sealants,
+// furniture_upholstery, glass, marine_services, home_organization,
+// baby_proofing. Every one of the 49 above is still unpriced and no trade
+// that had a book lost it (compared against the catalogue and tradePriceBooks
+// at 45216ca5, when this last read 49) — so the number moved by new trades
+// arriving on the unpriced side, not by a book disappearing.
+ok(`65 of ${catalogKeys.length} catalogue trades cannot price themselves`, unpriced.length === 65, unpriced.length);
 ok("only 2 material recipes exist in the whole product", Object.keys(MATERIAL_RECIPES).length === 2);
 ok("...and this file adds 8", Object.keys(INTERIOR_RECIPES).length === 8);
 // The three the brief named as empty. Overwriting any of them would have

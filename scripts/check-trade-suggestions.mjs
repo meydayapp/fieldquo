@@ -89,7 +89,7 @@ import {
   loadTradeSuggestAiApproval,
   runTradeSuggestAiSlice,
 } from "../lib/sales/discovery/suggestTradesAiApproval.js";
-import { parseReviewFilter, reviewWhereSql, reviewOrderSql, suggestedGroupSql, REVIEW_PAGE_SIZE } from "../lib/sales/discovery/reviewFolder.js";
+import { parseReviewFilter, reviewWhereSql, reviewOrderSql, suggestedGroupSql, REVIEW_PAGE_SIZE, REVIEW_PAGE_SIZE_MAX } from "../lib/sales/discovery/reviewFolder.js";
 import { TRADE_SOURCES, bulkReview, tradeKeyFor } from "../lib/sales/discovery/reviewBulk.js";
 import { assertStrictSchema, validateAgainstSchema } from "../lib/ai/jsonSchema.js";
 import { hasKnownPricing } from "../lib/ai/usage.js";
@@ -436,7 +436,16 @@ section("6. bulkReview with tradeSource");
   // The filter and the cards.
   const f = parseReviewFilter({ suggested: "hvac", ids: ["a", "a", " b ", 42, "", "x".repeat(41)] });
   ok("parseReviewFilter: a trade card and de-duplicated, trimmed, bounded ids", f.suggested === "hvac" && JSON.stringify(f.ids) === JSON.stringify(["a", "b"]));
-  ok("parseReviewFilter: ids are capped at a page", parseReviewFilter({ ids: Array.from({ length: 200 }, (_, i) => `id${i}`) }).ids.length === REVIEW_PAGE_SIZE);
+  // Capped at the LARGEST page a reviewer can pick, not the default 50: with
+  // 200 rows on a card, a slice at 50 trimmed an accept to a quarter of what
+  // was ticked and the drift guard refused it (owner, 2026-09-14 — see
+  // parseReviewFilter). 500 in, so the cap is what is being measured.
+  ok(
+    "parseReviewFilter: ids are capped at a page",
+    REVIEW_PAGE_SIZE_MAX > REVIEW_PAGE_SIZE &&
+      parseReviewFilter({ ids: Array.from({ length: 500 }, (_, i) => `id${i}`) }).ids.length === REVIEW_PAGE_SIZE_MAX &&
+      parseReviewFilter({ ids: Array.from({ length: REVIEW_PAGE_SIZE_MAX }, (_, i) => `id${i}`) }).ids.length === REVIEW_PAGE_SIZE_MAX,
+  );
   ok("parseReviewFilter: an unknown card is no filter", parseReviewFilter({ suggested: "welding" }).suggested === null && parseReviewFilter(new URLSearchParams("suggested=agree")).suggested === "agree");
   ok("parseReviewFilter: ids from a URL are never read", parseReviewFilter(new URLSearchParams("ids=a")).ids === null);
   const whereText = (q) => q.strings.join("?") + JSON.stringify(q.values.map((v) => (v?.strings ? v.strings.join("?") : v)));

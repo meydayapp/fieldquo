@@ -97,7 +97,13 @@ section("1. The tree");
   ok("every real category has articles", REAL_CATEGORY_KEYS.every((k) => (HELP_TREE[k] || []).length > 0));
   const badRelated = HELP_ARTICLES.flatMap((a) => (a.related || []).filter((r) => !articleMeta(r)).map((r) => `${a.slug} → ${r}`));
   ok("every `related` slug exists", badRelated.length === 0, badRelated.join(", "));
-  const screenSlugs = new Set(SCREENS.filter((s) => !s.chapter).map((s) => s.slug));
+  // A sidebar row is any entry carrying `nav`. Most rows are un-chaptered
+  // (the guide's "Every screen" walk), but a row can be photographed only
+  // inside a chapter — Client tickets is `client-tickets-queue`, chapter
+  // "client-portal", nav app.nav.clientTickets — and is still the row the
+  // sidebar's helpArticle names. A chaptered frame with no `nav` (the intro
+  // email's trade cards, the help frames) is still refused.
+  const screenSlugs = new Set(SCREENS.filter((s) => !s.chapter || s.nav).map((s) => s.slug));
   const badScreens = HELP_ARTICLES.flatMap((a) => [a.screen, ...(a.alsoScreens || [])].filter((s) => s && !screenSlugs.has(s)).map((s) => `${a.slug}: ${s}`));
   ok("every `screen` names a sidebar row in harness/screens.js", badScreens.length === 0, badScreens.join(", "));
   const inventory = new Set([...FEATURE_MATRIX.map((f) => f.key), ...FEATURE_KEYS]);

@@ -722,7 +722,21 @@ ok(
   withRule.body.automaticReminder?.name,
 );
 const cron = readFileSync("app/api/cron/follow-ups/route.js", "utf8");
-ok("...which is what the cron actually does", /if \(!finder \|\| !rule\.template\)/.test(cron));
+// Since c5c4d0e0 the cron also sends a template-less rule when it is a
+// FieldQuo built-in (builtInKey), in the built-in wording. That does not
+// reach this panel: every built-in rides BUILT_IN_TRIGGER, a quote trigger,
+// and the settings screen never PATCHes a rule's trigger — so a template-less
+// invoice_overdue rule is still skipped, and "no template, no chase" is still
+// what the cron does for the rules this panel reads.
+ok(
+  "...which is what the cron actually does",
+  /const builtIn = Boolean\(rule\.builtInKey\) && !rule\.template;/.test(cron) &&
+    /if \(!finder \|\| \(!rule\.template && !builtIn\)\)/.test(cron),
+);
+ok(
+  "...and no built-in rides invoice_overdue, so none chases an invoice template-less",
+  /export const BUILT_IN_TRIGGER = "quote_no_response";/.test(readFileSync("lib/followUps/defaults.js", "utf8")),
+);
 globalThis.__FQ_ROWS.followUpRule = [];
 
 // ═══════════════════════════════════════════════════════════════════════════

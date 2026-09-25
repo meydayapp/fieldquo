@@ -36,6 +36,11 @@ export const rows = {
   // jobChoices.js since the job plan landed) and an entry may be booked to.
   // Empty unless a check seeds one: no plan, no second picker.
   task: [],
+  // Lunches and breaks taken on an entry (TimeEntryBreak). Every read of the
+  // open entry selects them — the route decides "already on a break?" and nets
+  // unpaid ones out of the hours from these rows — so the relation has to
+  // resolve for real, not come back undefined and read as "no breaks".
+  timeEntryBreak: [],
 };
 
 /** Every write attempted, in order. */
@@ -66,6 +71,7 @@ const RELATIONS = {
     worker: { list: false, get: (e) => rows.worker.find((w) => w.id === e.workerId) || null },
     job: { list: false, get: (e) => (e.jobId ? rows.job.find((j) => j.id === e.jobId) || null : null) },
     task: { list: false, get: (e) => (e.taskId ? rows.task.find((t) => t.id === e.taskId) || null : null) },
+    breaks: { list: true, of: "timeEntryBreak", on: (e, b) => b.timeEntryId === e.id },
   },
 };
 
@@ -163,6 +169,7 @@ function relationModel(model, key) {
   if (model === "timeEntry" && key === "worker") return "worker";
   if (model === "timeEntry" && key === "job") return "job";
   if (model === "timeEntry" && key === "task") return "task";
+  if (model === "timeEntry" && key === "breaks") return "timeEntryBreak";
   throw new Error(`timeClockDb: unknown relation ${model}.${key}`);
 }
 
@@ -179,7 +186,7 @@ function project(model, row, select) {
       const relation = RELATIONS[model]?.[key];
       if (!relation) throw new Error(`timeClockDb: select on unknown relation ${model}.${key}`);
       const target = relation.list
-        ? rows[relation.of].filter((r) => relation.on(row, r))
+        ? sort(rows[relation.of].filter((r) => relation.on(row, r)), spec.orderBy)
         : relation.get(row);
       const child = relationModel(model, key);
       out[key] = relation.list
@@ -187,6 +194,37 @@ function project(model, row, select) {
         : target
           ? project(child, target, spec.select)
           : null;
+    }
+  }
+  return out;
+}
+
+/**
+ * `include`: every scalar on the row, plus the named relations shaped as a
+ * `select` would shape them. Only the object form is understood — anything
+ * else throws, for the same reason an unknown filter does.
+ */
+function shape(model, row, args) {
+  if (!row) return row;
+  if (args.select && args.include) throw new Error(`timeClockDb: ${model} got both select and include`);
+  if (args.select) return project(model, row, args.select);
+  if (!args.include) return row;
+  const out = { ...row };
+  for (const [key, spec] of Object.entries(args.include)) {
+    if (spec !== true && (!spec || typeof spec !== "object")) {
+      throw new Error(`timeClockDb: include ${model}.${key} must be true or an object`);
+    }
+    const relation = RELATIONS[model]?.[key];
+    if (!relation) throw new Error(`timeClockDb: include on unknown relation ${model}.${key}`);
+    const child = relationModel(model, key);
+    const sub = spec === true ? {} : spec;
+    if (relation.list) {
+      out[key] = sort(rows[relation.of].filter((r) => relation.on(row, r)), sub.orderBy).map((r) =>
+        sub.select ? project(child, r, sub.select) : r,
+      );
+    } else {
+      const target = relation.get(row);
+      out[key] = target ? (sub.select ? project(child, target, sub.select) : target) : null;
     }
   }
   return out;
@@ -205,16 +243,16 @@ function model(name) {
   return {
     findFirst: async (args = {}) => {
       const hit = sort(find(args), args.orderBy)[0] || null;
-      return hit ? project(name, hit, args.select) : null;
+      return hit ? shape(name, hit, args) : null;
     },
     findUnique: async (args = {}) => {
       const hit = find(args)[0] || null;
-      return hit ? project(name, hit, args.select) : null;
+      return hit ? shape(name, hit, args) : null;
     },
     findMany: async (args = {}) => {
       let list = sort(find(args), args.orderBy);
       if (args.take != null) list = list.slice(0, args.take);
-      return list.map((r) => project(name, r, args.select));
+      return list.map((r) => shape(name, r, args));
     },
     create: async ({ data, select } = {}) => {
       writes.push({ model: name, action: "create", data });
@@ -241,6 +279,7 @@ export const db = new Proxy(
     jobVisit: model("jobVisit"),
     timeEntry: model("timeEntry"),
     task: model("task"),
+    timeEntryBreak: model("timeEntryBreak"),
     // Prisma's batch form invokes each call eagerly and awaits the array. The
     // stub's methods are already-running promises by the time they arrive here,
     // so awaiting them is the same sequence a batch would produce — enough to
