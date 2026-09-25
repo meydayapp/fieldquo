@@ -304,7 +304,7 @@ export default function WorkOrderView({ jobId }) {
                       <img key={p.id} src={p.url} alt="" className="h-14 w-16 rounded border border-border object-cover" />
                     ))}
                     <MediaUploader
-                      uploadUrl="/api/upload"
+                      uploadUrl="/api/upload" purpose="jobs"
                       value={[]}
                       max={6}
                       label={t("app.workOrder.addPhoto", "+ photo")}

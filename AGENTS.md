@@ -58,7 +58,7 @@ There is a third: **`/platform`**, FieldQuo's own back office (superadmin only).
 | Payments | Stripe Connect (contractor payouts) + Stripe Billing (FieldQuo's own subs) | two different integrations, don't conflate |
 | Email | Resend | sender is *discovered*, not configured — `lib/email/platformSender.js` |
 | SMS | Twilio | `lib/sms/twilioClient.js` |
-| Images | Cloudinary | signed server-side uploads via `/api/upload` |
+| Images | Cloudinary | signed DIRECT browser uploads — `uploadFile()` in `lib/media/uploadClient.js` (sign → Cloudinary → verify); never a new `fetch("/api/upload")` |
 | AI | OpenAI | **only** through `lib/ai/provider.js` |
 | Maps | Google Maps + Google Solar | homeowner addresses leave the building here — autocomplete, and roof measurement in `lib/measure/roofMeasurement.js` |
 | Stock photos | Unsplash | hotlinked, not copied — a visitor to a contractor's site hits Unsplash's CDN directly |

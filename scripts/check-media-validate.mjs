@@ -159,10 +159,16 @@ ok("junk sizes are not over the limit", !overRequestLimit(undefined) && !overReq
 ok("megabytes never prints a bare 0 for a real file", megabytes(9 * MB) === "9 MB" && megabytes(1.25 * MB) === "1.3 MB" && megabytes(UPLOAD_REQUEST_MAX_BYTES) === "4.5 MB", [megabytes(9 * MB), megabytes(1.25 * MB), megabytes(UPLOAD_REQUEST_MAX_BYTES)]);
 
 const uploader = readFileSync(new URL("../app/components/MediaUploader.js", import.meta.url), "utf8");
-ok("the uploader refuses an over-size file BEFORE spending the connection on it", /if \(overRequestLimit\(file\.size\)\)/.test(uploader));
-ok("…and a 413 with no body still names the size and the limit", /res\.status === 413/.test(uploader) && /tooLargeLabel\(megabytes\(file\.size\), megabytes\(UPLOAD_REQUEST_MAX_BYTES\)\)/.test(uploader));
-ok("the server's own reason still wins over every fallback", /data\?\.error \|\|/.test(uploader));
-ok("an expired session reads as one, not as a bad file", /res\.status === 401 \|\| res\.status === 403/.test(uploader) && /signedOutLabel/.test(uploader));
+// Since 2026-09-25 the uploader goes straight to Cloudinary through
+// lib/media/uploadClient.js, so Vercel's cap no longer binds and pre-refusing
+// at it would refuse the very photos the change exists to let through. The
+// size refusal now comes from the sign step (our cap, or the plan's) — see
+// scripts/check-direct-upload.mjs for those rules executed.
+ok("the uploader goes through the one helper, scoped by its uploadUrl", /uploadFile\(file, \{ endpoint: uploadUrl, purpose \}\)/.test(uploader));
+ok("…and no longer pre-refuses at Vercel's 4.5 MB (it isn't the limit any more)", !/overRequestLimit/.test(uploader));
+ok("a too-large refusal still names the size and the limit", /err\?\.code === "too_large"/.test(uploader) && /tooLargeLabel\(megabytes\(file\.size\)/.test(uploader));
+ok("the server's own reason still wins over every fallback", /err\?\.serverMessage \|\|/.test(uploader));
+ok("an expired session reads as one, not as a bad file", /err\?\.code === "signed_out"/.test(uploader) && /signedOutLabel/.test(uploader));
 
 const route = readFileSync(new URL("../app/api/upload/route.js", import.meta.url), "utf8");
 ok("/api/upload still answers with a specific error for every refusal it can see", /Image uploads aren't configured/.test(route) && /error: verdict\.error/.test(route) && /explainCloudinaryError\(err\)/.test(route));

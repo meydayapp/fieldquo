@@ -3,8 +3,9 @@
 // app/components/MediaUploader.js
 //
 // Attach photos, videos and PDF plans to a quote — the same control on a public
-// self-quote (a homeowner in a driveway) and on staff surfaces. It POSTs each
-// file to the given endpoint, shows a thumbnail as soon as it's up, and hands
+// self-quote (a homeowner in a driveway) and on staff surfaces. It uploads each
+// file through lib/media/uploadClient.js (signed by the given endpoint, bytes
+// straight to Cloudinary, verified), shows a thumbnail as soon as it's up, and hands
 // the parent a normalised list of { url, kind, publicId, filename } to submit
 // with the request.
 //
@@ -18,10 +19,18 @@
 
 import { useRef, useState, useCallback } from "react";
 import { ImagePlus, X, Film, FileText, Loader2 } from "lucide-react";
-import { CLIENT_MEDIA_ACCEPT, UPLOAD_REQUEST_MAX_BYTES, megabytes, overRequestLimit } from "@/lib/media/validate";
+import { CLIENT_MEDIA_ACCEPT, megabytes } from "@/lib/media/validate";
+import { uploadFile } from "@/lib/media/uploadClient";
+import UploadProgress from "@/app/components/UploadProgress";
 
 export default function MediaUploader({
+  // The scope's upload endpoint — "/api/upload", "/api/portal/<token>/upload"
+  // or "/api/self-quote/<slug>/upload". The helper adds /sign and /verify.
   uploadUrl,
+  // Staff only: which sub-folder of the company's own this lands in (see
+  // MEMBER_PURPOSES in lib/media/directUpload.js). Ignored by the public
+  // scopes, whose folder is fixed by the route.
+  purpose,
   value = [],
   onChange,
   max = 12,
@@ -45,12 +54,12 @@ export default function MediaUploader({
   limitLabel = (n) => `You can attach up to ${n} files.`,
   failedLabel = "Upload failed — check your connection and try again.",
   rejectedLabel = "That file couldn't be uploaded.",
-  // The one refusal the SERVER never gets to explain. Vercel answers 413 at
-  // the edge for a body over UPLOAD_REQUEST_MAX_BYTES and puts no JSON in it,
-  // so /api/upload's own sentence never runs and the uploader used to print
-  // `rejectedLabel` — "That file couldn't be uploaded.", no reason, for what
-  // is simply a big photo. Both numbers are named because "too large" without
-  // them leaves somebody guessing how much to shrink it by.
+  // A file over the size that can actually be stored. Until 2026-09-25 this
+  // was Vercel's 4.5 MB request cap, which refused most phone photos; uploads
+  // now go straight to Cloudinary, so the limit is the real one — ours, or the
+  // Cloudinary plan's if lower — and usually arrives with the server's own
+  // sentence. Both numbers are named because "too large" without them leaves
+  // somebody guessing how much to shrink it by.
   tooLargeLabel = (size, limit) => `That file is ${size} — the most that can be sent in one upload is ${limit}. Take the photo at a smaller size, or resize it and try again.`,
   // Every other unexplained status. A 401 after a session expired looked
   // exactly like a corrupt file.
@@ -88,51 +97,42 @@ export default function MediaUploader({
               continue;
             }
           }
-          // Refused BEFORE the request, with the reason, rather than after a
-          // 413 that carries no body — the upload of a 9 MB photo on a phone
-          // costs the person their connection for nothing. Same constant the
-          // 413 branch below reads, so the two sentences cannot disagree.
-          if (overRequestLimit(file.size)) {
-            setError(tooLargeLabel(megabytes(file.size), megabytes(UPLOAD_REQUEST_MAX_BYTES)));
-            continue;
-          }
-          const fd = new FormData();
-          fd.append("file", file);
-          let res;
+          // Direct to Cloudinary through the one helper. The bytes no longer
+          // pass through our server, so Vercel's 4.5 MB request cap — the
+          // reason an ordinary phone photo was refused until 2026-09-25 — is
+          // not in the way, and no pre-check against it is needed. The helper
+          // signs, uploads and verifies (lib/media/uploadClient.js); `uploadUrl`
+          // is the scope's endpoint, unchanged.
+          let entry;
           try {
-            res = await fetch(uploadUrl, { method: "POST", body: fd });
-          } catch {
-            setError(failedLabel);
-            break;
-          }
-          const data = await res.json().catch(() => null);
-          if (!res.ok || !data?.url) {
-            // The server's own reason first — it inspected the file, and
-            // /api/upload says which: not configured, no file, the
-            // classifyMedia verdict, or Cloudinary's own message through
-            // explainCloudinaryError. `rejectedLabel` is the LAST resort, and
-            // until 2026-09-22 it was the only thing a 413 could produce.
+            entry = await uploadFile(file, { endpoint: uploadUrl, purpose });
+          } catch (err) {
+            if (err?.code === "network") {
+              setError(failedLabel);
+              break;
+            }
+            // A size refusal that carries its limit reads through
+            // tooLargeLabel — same two numbers the server would give, but in
+            // the language a public form was opened in. Otherwise the
+            // server's own reason first — it inspected the file: the
+            // classifyMedia verdict, an upload it could not confirm. The
+            // labels are the fallbacks.
             setError(
-              data?.error ||
-                (res.status === 413
-                  ? tooLargeLabel(megabytes(file.size), megabytes(UPLOAD_REQUEST_MAX_BYTES))
-                  : res.status === 401 || res.status === 403
-                    ? signedOutLabel
-                    : rejectedLabel),
+              err?.code === "too_large" && err?.maxBytes
+                ? tooLargeLabel(megabytes(file.size), megabytes(err.maxBytes))
+                : err?.serverMessage ||
+                    (err?.code === "signed_out" ? signedOutLabel : err?.message || rejectedLabel),
             );
             continue;
           }
-          // Trust the server's classification rather than re-deriving it here —
-          // it is the side that actually inspected the file. Unknown values fall
-          // back to "photo", matching normaliseMediaEntry.
-          const kind = ["photo", "video", "document"].includes(data.kind)
-            ? data.kind
-            : "photo";
+          // The server's classification, as the verify step returned it —
+          // it is the side that looked the file up. The entry the parent
+          // stores keeps the shape it always had.
           added.push({
-            url: data.url,
-            kind,
-            publicId: data.publicId || null,
-            filename: typeof data.filename === "string" ? data.filename : "",
+            url: entry.url,
+            kind: entry.kind,
+            publicId: entry.publicId,
+            filename: entry.filename,
           });
         }
         if (added.length) onChange?.([...value, ...added]);
@@ -141,7 +141,7 @@ export default function MediaUploader({
         if (inputRef.current) inputRef.current.value = ""; // allow re-picking the same file
       }
     },
-    [uploadUrl, value, onChange, max, limitLabel, failedLabel, rejectedLabel, tooLargeLabel, signedOutLabel, offlineCapture],
+    [uploadUrl, purpose, value, onChange, max, limitLabel, failedLabel, rejectedLabel, tooLargeLabel, signedOutLabel, offlineCapture],
   );
 
   function remove(idx) {
@@ -208,6 +208,10 @@ export default function MediaUploader({
       </button>
       <p className="mt-1.5 text-xs text-muted-foreground">{hint}</p>
       {error && <p className="mt-1.5 text-xs text-red-600">{error}</p>}
+      {/* The one progress bar. Draws only if no other instance is mounted
+          (the /app shell has one), so the public forms and the portal get it
+          from here and /app pages do not get two. */}
+      <UploadProgress />
 
       <input
         ref={inputRef}

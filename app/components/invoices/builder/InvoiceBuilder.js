@@ -872,7 +872,7 @@ export function InvoiceBuilderForm({ mode = "create", invoiceId = null, bootstra
     <div className="bg-card border border-border rounded-xl p-5" data-photos-box>
       <h2 className="font-semibold text-foreground mb-2">{t("app.quoteDetail.clientMedia")}</h2>
       <MediaUploader
-        uploadUrl="/api/upload"
+        uploadUrl="/api/upload" purpose="invoices"
         value={clientPhotos}
         onChange={setClientPhotos}
         label={t("app.quoteNew.addPhotos")}

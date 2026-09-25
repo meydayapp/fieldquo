@@ -127,7 +127,7 @@ export default function ChecklistItemControl({ item, onAnswer, disabled = false,
       const photos = (item.media || []).filter((m) => m.kind === "photo");
       return (
         <MediaUploader
-          uploadUrl="/api/upload"
+          uploadUrl="/api/upload" purpose="jobs"
           value={photos}
           max={6}
           label={t("app.checklists.addPhoto")}

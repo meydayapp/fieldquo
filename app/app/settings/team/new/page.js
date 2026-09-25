@@ -15,7 +15,8 @@ import {
   PERMISSION_PRESETS,
   PRESET_TO_ROLE,
 } from "@/lib/permissions";
-import { reportResponseError } from "@/lib/clientErrors";
+import { showError } from "@/lib/clientErrors";
+import { uploadFile } from "@/lib/media/uploadClient";
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
@@ -186,18 +187,12 @@ function NewUserForm() {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
-    const formData = new FormData();
-    formData.append("file", file);
     try {
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-      const data = await res.json();
-      if (res.ok) setPersonal((p) => ({ ...p, imageUrl: data.url })); else {
-        // Was silent: a failed request did nothing visible at all.
-        await reportResponseError(res);
-      }
+      const data = await uploadFile(file, { purpose: "team" });
+      setPersonal((p) => ({ ...p, imageUrl: data.url }));
+    } catch (err) {
+      // Was silent once: a failed request did nothing visible at all.
+      showError(err.message);
     } finally {
       setUploading(false);
     }

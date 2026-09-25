@@ -14,6 +14,15 @@
 //
 // So this uses the API key/secret via lib/cloudinary.js. CLOUDINARY_UPLOAD_PRESET
 // is no longer needed.
+//
+// ── Superseded for browser uploads (2026-09-25) ──────────────────────────────
+//
+// Every caller in the app now uploads through lib/media/uploadClient.js:
+// /api/upload/sign → the bytes straight to Cloudinary → /api/upload/verify.
+// This route could never take a body over Vercel's ~4.5 MB (the platform
+// answers 413 before it runs), which is most phone photos. It stays, working
+// and unchanged, for anything that still posts multipart here — a cached
+// older bundle mid-deploy, or a caller added without the helper.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";

@@ -73,6 +73,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError, showError } from "@/lib/clientErrors";
+import { uploadFile } from "@/lib/media/uploadClient";
 import { formatAppMoney } from "@/lib/format/money";
 import { CREDIT_CURRENCY } from "@/lib/voice/creditCurrency";
 import { formatCalendarDay } from "@/lib/format/localeDate";
@@ -572,14 +573,15 @@ export default function AiEmployeePage() {
 
   async function uploadFace(file) {
     if (!file) return;
-    const body = new FormData();
-    body.append("file", file);
-    const res = await fetch("/api/upload", { method: "POST", body });
-    if (!res.ok) {
-      await reportResponseError(res, t("app.aiEmployee.faceUploadError", "Couldn't upload that picture."));
+    let d;
+    try {
+      d = await uploadFile(file, { purpose: "ai-employee" });
+    } catch (err) {
+      // The helper's sentence names the reason (size, type, session); the
+      // translated line is the fallback when it has none.
+      showError(err?.message || t("app.aiEmployee.faceUploadError", "Couldn't upload that picture."));
       return;
     }
-    const d = await res.json();
     if (d.url) edit({ avatarUrl: d.url });
   }
 

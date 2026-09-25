@@ -2,6 +2,7 @@
 
 Last updated: 25 September 2026 (leads: a "Linked documents" block — quote, jobs, invoices — with "Link an existing quote", and Won now needs an APPROVED quote or work behind it, refusing with a reason and "Link the quote that won it"; calendar: a Cards view on /app/appointments, each entry a card opening a side panel with open quote/job/invoice/client, call, directions and reschedule/cancel)
 Last updated: 25 September 2026 (Australia: GST 10% on an AU contractor's quotes and invoices as a VAT-table row named GST, gated on "Are you registered for GST?"; AUD plans at the same numbers and every other Stripe country on the USD rows, Checkout's currency now taken from the Plan row; tax on FieldQuo's own subscription stays Stripe Tax — new /platform/billing/tax shows per region the subscribers, 12-month taxable vs reverse-charged invoices, FieldQuo's thresholds (UK/EU from the first sale, AU A$75,000) and the Stripe registration checklist; owner to run `npm run seed:seat-ladder`)
+Last updated: 25 September 2026 (uploads go browser → Cloudinary on a server-issued signature and are verified against Cloudinary's Admin API before anything is saved — a normal phone photo uploads again; one helper `lib/media/uploadClient.js`, one progress bar, every `/api/upload` caller moved incl. the portal and the three public forms; limits are ours or the Cloudinary plan's if lower — Free: 10 MB)
 Last updated: 25 September 2026 (import, not export: the five bulk exports — price book, timesheets, pay run, subcontractor year-end list, bookkeeping ZIP — removed from /app with their routes refusing 403 through `lib/export/companyDataExport.js`; single documents and every import kept; a copy of a company's data stays available on written request; help centre, marketing, sales playbook and guide made honest)
 Last updated: 25 September 2026 (who pays for AI, the owner's decision: FieldQuo AI and translation on FieldQuo's own budget — the copilot keeps a per-company fair-use ceiling, translation the daily draft cap; the AI employee's replies and front desk charged in dollars from the company's AI credit at cost × 2 rounded up, gated on one reply's estimate, debited once per reply, NO_CREDIT → a person; a one-time grace on the old allowance until 1 October 2026; Settings › AI employee shows paused / the change and date / the balance; /platform/ai-billing shows dollars debited per company)
 Last updated: 25 September 2026 (the receipts book: photo AND PDF receipts captured from Expenses, a job page or the Create menu's "Snap receipt", read into lines / store / date + time / card last four / GST-PST-HST separately, checked against themselves, matched to the job the person was clocked in on (or overhead) by deterministic scoring with a reason for every point, split by line or amount, booked only on a tap as Expense rows carrying their tax; crew book to their own jobs or hand it to the office; /platform/ai-billing — the generic "who pays" switch, receipts on FieldQuo)
@@ -255,6 +256,124 @@ billing-interval/sync/resume, compare-pages, fx. `npm run build` passes.
   `check:signup-gate`, `check:platform-truth`, `check:help-centre` have their own failures — none touched here. Help: the subscription currency table and tax bullets (en, fr, es) now name AUD, the USD rest-of-world rule and UK/EU/AU VAT-GST with the reverse charge.
 
 ---
+## Uploads go straight to Cloudinary — a normal phone photo uploads again (25 September 2026)
+
+Owner report 2026-09-22 (lost at a compaction): "That file couldn't be uploaded." Every
+upload was a multipart POST to `/api/upload`, and Vercel refuses a request body over
+~4.5 MB before the route runs — most phone photos. 863b2479 only made the refusal name
+the size. Now the bytes go **browser → Cloudinary**, on a signature our server issues,
+and our server checks the result before anything is saved.
+
+**One helper, one progress UI.** `uploadFile(file, { purpose })` in
+`lib/media/uploadClient.js`: `POST <endpoint>/sign` → the file to Cloudinary (XHR, with
+progress) → `POST <endpoint>/verify` → `{ url, publicId, kind, filename, bytes }`, the
+same shape `/api/upload` answered. Progress reports to `lib/media/uploadProgress.js` and
+draws in `app/components/UploadProgress.js` — mounted in the /app shell and inside
+MediaUploader / the portal picker, and only the first mounted instance draws. Neutral
+tokens, file name and a percentage, no words, so it sits unchanged on a French
+self-quote form.
+
+**Every caller moved** (no `fetch("/api/upload")` left in app/ or lib/ —
+`check:direct-upload` §8 greps for it): MediaUploader (so quote builder, paint areas,
+invoice builder, new/edit invoice, work order, job tasks, change orders, job photo
+curator, checklist items, safety, supplies, receipt capture, receipt scanner, designer
+image sidebar, and the three public forms — self-quote, instant quote, funnels), website
+builder (Builder, SectionEditor ×2, StoryEditor, before/after PairPhotoFields), branding
+logo, new team member photo, service documents, service template image, AI employee
+face, messages attachment (purpose "messaging" keeps the WhatsApp document widening),
+daily sheets, company documents, job / vehicle / worker / subcontractor documents,
+photo annotator's flattened image, designer AI reference photo, Jennifer screenshot,
+the offline queue's photo replay, and the client portal's issue photos. The crew inbox
+is not a browser upload (inbound MMS, server-side `uploadBuffer`) and is unchanged.
+
+**Security — nothing decided by the browser.**
+- Sign (`/api/upload/sign` behind `memberOrRefusal`; `/api/portal/[token]/upload/sign`
+  and `/api/self-quote/[companySlug]/upload/sign` resolving the company from the token /
+  slug, both rate-limited 20 per 10 min per IP): the same `classifyMedia` verdict; the
+  public_id is minted server-side — `fieldquo/companies/<companyId>/<purpose>/<uuid>`
+  (`.pdf` etc. for documents), purposes a closed list (`MEMBER_PURPOSES`; unknown →
+  `uploads`; a member can never file into `portal` or `leads`). Signed with it:
+  `overwrite=false` (a signature, valid an hour, cannot be replayed to swap a checked
+  file) and `allowed_formats` for photos/videos (Cloudinary itself refuses content that
+  isn't one). All three were proved against the live Cloudinary account: a PDF on a
+  photo signature → 400 "Image file format pdf not allowed"; the same signature posted
+  twice → second answer `existing: true`, original version and bytes; an edited
+  public_id → 401 Invalid Signature.
+- Verify: refused, in this order, without an Admin API call if the public_id is not
+  exactly one this scope could have minted (another company, another purpose, nested,
+  `..`, an extension on an image) or Cloudinary's response signature over
+  public_id+version doesn't check against our secret. Then an **Admin API lookup**
+  (`api.resource`) — Cloudinary answering us about our cloud — must agree on public_id,
+  resource type, delivery type `upload`, version, format (photo/video lists; SVG only in
+  staff scopes) and **bytes ≤ our cap**; the URL stored is the Admin API's, checked with
+  `isOurCloudinaryUrl`. A file refused at verify is never saved in FieldQuo and is
+  **left in Cloudinary, not deleted** (logged with its public_id).
+- **When the Admin API is rate-limited or down, verify is not a single point of
+  failure.** A lookup refused with 420/429 (or a "rate limit" message) or lost to a
+  5xx, a timeout (raced at 8 s — the SDK's own timeout never rejects) or a dropped
+  connection falls back to `judgeOnSignature`: Cloudinary's response signature over
+  public_id+version checked with our secret, plus a public_id of exactly the shape this
+  scope minted — then ACCEPTS, with a URL built from our cloud name and the signed
+  id+version (never the browser's). A forged signature, a foreign company's or
+  purpose's id, or no secret is still refused, and the lookup is never even called for
+  them. A 404 is still "not found" and a 401/400 still fails closed. **What the fallback
+  gives up:** the byte count and format are not re-read — the format is still bounded by
+  the signed `allowed_formats` (Cloudinary-enforced) and the minted document extension,
+  and the size only by the size declared at sign and the plan's own per-file ceiling
+  (on Free ≤ every cap of ours; on a bigger plan it could hold a file up to that plan's
+  ceiling). Every fallback acceptance is a `PlatformErrorLog` row (area `upload`, code
+  `upload_signature_only`, with the company) on /platform/errors, and Cloudinary's
+  rate-limit headers write one `admin_api_near_cap` row an hour per instance when under
+  10% of the hour's calls are left.
+- The receipts PDF rule holds: the server still only fetches `res.cloudinary.com/<our
+  cloud>/` (`lib/receipts/pdf.js`). Its size cap was "Vercel's 4.5 MB"; it is now a
+  deliberate 10 MB (memory + base64 bound, the Free plan's raw ceiling), with the same
+  "upload the receipt pages only" refusal above it.
+
+**Limits.** Ours are unchanged — photo 15 MB, PDF 25 MB, video 100 MB, messaging
+documents 100 MB — **or the Cloudinary plan's if lower**, read once an hour per server
+instance from `api.usage().media_limits`. The account in the local `.env` is on the
+**Free plan: images and raw files 10 MB, video 100 MB, 500 Admin API calls/hour**. So
+today a 12 MB photo is refused at sign, before any bytes move, with "That file is 12 MB —
+the most that can be uploaded here is 10 MB". HEIC: signed and accepted; the stored URL
+asks Cloudinary for `.jpg` so it draws in every browser (original kept). A `.heic` whose
+browser reports no type (Chrome/Windows) is declared `image/heic` by the helper;
+Cloudinary's allowed_formats checks the content. EXIF orientation: unchanged — no
+incoming transformation on either path, exactly as before.
+
+**Checks.** `check:direct-upload` (new, 154): scopes, the signed params, signature maths
+cross-checked against the Cloudinary SDK, forged public_id / other company / other
+purpose / other cloud / look-alike host / wrong resource or delivery type / stale version
+/ oversized / wrong format / SVG in a public scope, HEIC delivery, format lists in step
+with `validate.js`, and the helper end to end against a fake server built from the same
+rule functions (including a browser relaying another company's public_id, a doctored
+version, and an edited signed field). Mutation-tested (cap and signature checks
+disabled → 6 failures). Updated: `check:media`, `check:daily-log`,
+`check:offline-invoicing`. One real upload through the real sign/verify functions
+against the local account landed at
+`fieldquo/companies/fq-direct-upload-selftest/jobs/<uuid>.png`; the same claim replayed
+for another company → 403 `not_ours`, a forged id → 403 `bad_signature`. Three 70-byte
+test PNGs remain in that folder (not deleted). `npm run build` passes.
+
+`/api/upload`, `/api/portal/[token]/upload` and `/api/self-quote/[companySlug]/upload`
+(multipart) are kept, unchanged, for anything still posting there (a cached old bundle
+mid-deploy).
+
+### Still owed here
+
+- **The Cloudinary plan is the binding limit** — Free: 10 MB photos and PDFs, and 500
+  Admin API calls/hour across the account, which verify now spends one of per upload.
+  Plus lifts images to 20 MB and the Admin API to 2,000/hour. Past the hourly calls, uploads
+  are accepted on their signature alone (see above) — watch `upload_signature_only`. A cost decision for the
+  owner; nothing in the code changes when the plan does.
+- Three other multipart routes still go through Vercel's 4.5 MB body and were out of this
+  ask: the migration-service document upload (`/api/migrations/[id]/documents`, 25 MB
+  advertised), the AI employee's knowledge-source upload (`/api/ai-employee/sources`),
+  and the price-book CSV import (`/api/products/import`).
+- The helper's own fallback sentences are English; staff screens that had a translated
+  fallback still show it, and public forms show their translated size / failure labels,
+  but a server refusal (type, unconfirmed) reads in English as it did before.
+- An upload refused at verify leaves an orphan in Cloudinary (by the no-deletion rule); nothing sweeps them.
 
 ## The quote builder's four 22-September asks (25 September 2026)
 

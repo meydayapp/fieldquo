@@ -20,6 +20,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FileText, Loader2, Plus, Trash2, Upload, PenLine, AlertTriangle } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { uploadFile } from "@/lib/media/uploadClient";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import { ReadOnlyNotice } from "@/app/components/settings/PermissionNotice";
@@ -299,9 +300,7 @@ function FileForm({ t, onCancel, onSaved }) {
     setUploading(true);
     setError("");
     try {
-      const fd = new FormData();
-      fd.append("file", f);
-      const up = await fetchJson("/api/upload", { method: "POST", body: fd });
+      const up = await uploadFile(f, { purpose: "documents" });
       setFile({ url: up.url, publicId: up.publicId || "", mimeType: f.type || "", name: up.filename || f.name });
       if (!form.title) setForm((x) => ({ ...x, title: (up.filename || f.name || "").replace(/\.[a-z0-9]+$/i, "") }));
     } catch (err) {

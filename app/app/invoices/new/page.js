@@ -709,7 +709,7 @@ export function ClassicNewInvoicePage() {
           {t("app.quoteDetail.clientMedia")}
         </h2>
         <MediaUploader
-          uploadUrl="/api/upload"
+          uploadUrl="/api/upload" purpose="invoices"
           value={clientPhotos}
           onChange={setClientPhotos}
           label={t("app.quoteNew.addPhotos")}

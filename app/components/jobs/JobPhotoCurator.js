@@ -180,7 +180,7 @@ export default function JobPhotoCurator({ jobId }) {
           works for Crew and Estimator too, not only view_create_edit. */}
       <div className="mt-4 pt-4 border-t border-border">
         <MediaUploader
-          uploadUrl="/api/upload"
+          uploadUrl="/api/upload" purpose="jobs"
           value={[]}
           max={12}
           onChange={async (added) => {
