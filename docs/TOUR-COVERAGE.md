@@ -63,11 +63,25 @@ ringed instead.
 | `ai-team-v1` | `/app/settings/ai-employee` | `ai-team-roster` | "Your AI team" card |
 | | | `ai-team-flow` | "How your AI team works" card |
 
+### invoice-new-v1 — re-pinned (same key, same copy)
+
+`/app/invoices/new` became the document builder (InvoiceBuilder →
+DocumentBuilder, `kind="invoice"`) on the same day; the old form is kept at
+`?layout=classic`, and it was the only place `invoice-client` /
+`invoice-items` / `invoice-save` still rendered — so the tour would have
+silently never opened on the default page. Each step now names both anchors
+(`visibleTarget` rings the one on screen): client → `client-picker`, lines →
+`invoice-items` (new, on the invoice's one lines group in DocumentBuilder),
+save → `totals` (the shared actions dock). `check:translations` now verifies
+every member of a comma-listed target. The client step is absent when the
+invoice arrives with its client chosen (from a job page); the tour then
+opens on a later visit.
+
 ### Every other tour: ok, unchanged
 
 leads-v1 (3), funnels-v1 (1), funnel-builder-v1 (2), booking-fee-v1 (1),
 quotes-v1 (3), quote-new-v1 (3), estimate-reviews-v1 (1), jobs-v1 (3),
-job-builder-v2 (4), invoices-v1 (3), invoice-new-v1 (3), appointments-v1 (2),
+job-builder-v2 (4), invoices-v1 (3), appointments-v1 (2),
 tasks-v1 (2), marketing-v1 (2), availability-v1 (2), scheduler-v1 (2),
 schedule-v1 (1), expense-tracking-v1 (3), payroll-v1 (2), time-off-v1 (1),
 timesheets-v1 (3), voice-v1 (3), payments-v1 (2), receptionist-v1 (2),

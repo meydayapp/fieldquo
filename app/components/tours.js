@@ -324,13 +324,22 @@ export const TOURS = [
       { target: "[data-tour='invoices-search']", titleKey: "app.tour.invoices.searchTitle", bodyKey: "app.tour.invoices.searchBody" },
     ],
   },
+  // New invoice is the document builder since 2026-09-24 (InvoiceBuilder →
+  // DocumentBuilder, kind="invoice"); the old form survives at
+  // ?layout=classic. Each step names BOTH anchors — visibleTarget rings
+  // whichever is on screen — so the tour works in either layout. In the
+  // document layout the client step is the picker itself (the same
+  // `client-picker` the quote builder uses), the lines are the one invoice
+  // lines group, and the save step is the shared actions dock (`totals`).
+  // The picker is not drawn when the invoice arrives with its client chosen
+  // (from a job page); the tour then waits for a visit where it is.
   {
     key: "invoice-new-v1",
     match: (p) => p === "/app/invoices/new",
     steps: [
-      { target: "[data-tour='invoice-client']", titleKey: "app.tour.invoiceNew.clientTitle", bodyKey: "app.tour.invoiceNew.clientBody" },
+      { target: "[data-tour='invoice-client'], [data-tour='client-picker']", titleKey: "app.tour.invoiceNew.clientTitle", bodyKey: "app.tour.invoiceNew.clientBody" },
       { target: "[data-tour='invoice-items']", titleKey: "app.tour.invoiceNew.itemsTitle", bodyKey: "app.tour.invoiceNew.itemsBody" },
-      { target: "[data-tour='invoice-save']", titleKey: "app.tour.invoiceNew.saveTitle", bodyKey: "app.tour.invoiceNew.saveBody" },
+      { target: "[data-tour='invoice-save'], [data-tour='totals']", titleKey: "app.tour.invoiceNew.saveTitle", bodyKey: "app.tour.invoiceNew.saveBody" },
     ],
   },
   {

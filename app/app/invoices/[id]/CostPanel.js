@@ -194,6 +194,16 @@ export default function CostPanel({
               label={t("app.invoiceCost.materials")}
               value={money(totals.materialCost)}
             />
+            {/* The lines' own cost, only when a line stated one (lib/costing/
+                lineItemCost.js) — the rows above and below have to add up to
+                the costed total, and this is the bucket that would otherwise
+                be missing from the sum. */}
+            {Number(totals.lineItemCost) > 0 && (
+              <Row
+                label={t("app.invoiceCost.lineItemCost", "Line items")}
+                value={money(totals.lineItemCost)}
+              />
+            )}
             <Row
               label={t("app.invoiceCost.overhead")}
               value={money(totals.overhead)}
