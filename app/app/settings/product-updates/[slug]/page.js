@@ -13,7 +13,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { findProductUpdate, formatUpdateDate } from "@/lib/data/productUpdates";
+import { findProductUpdate, formatUpdateDate, localizedUpdate } from "@/lib/data/productUpdates";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function ProductUpdatePage() {
@@ -21,7 +21,8 @@ export default function ProductUpdatePage() {
   // `useParams` rather than the page's `params` prop: params is a Promise in
   // Next 16 and this is a client component.
   const { slug } = useParams();
-  const update = findProductUpdate(Array.isArray(slug) ? slug[0] : slug);
+  // In the reader's language when the entry carries it whole, else English.
+  const update = localizedUpdate(findProductUpdate(Array.isArray(slug) ? slug[0] : slug), language);
 
   const backLink = (
     <Link

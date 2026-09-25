@@ -83,6 +83,45 @@ recorded `onboarding_complete` and is not written to about the additional steps 
 product decision if the owner wants otherwise.
 
 ---
+## The batch's write-up in every language, and "new services for your trade" (24 September 2026)
+
+The owner: "A notification should be sent to the trades affected about the new services being
+added. And same a write up for the new features and services. In the language of the user."
+The releases section already existed — **Settings › Product Updates**
+(`/app/settings/product-updates`, data in `lib/data/productUpdates.js`, English-only by design
+until now, no badge or notification of its own). Used, not duplicated.
+
+- **Write-up.** Entries may carry `translations: { <lang>: { title, body, post } }`;
+  `localizedUpdate()` shows a language whole or English whole, never mixed. The 2026-09-24 entry
+  ("Services and estimate templates for 24 trades, job checklists, and a client portal") is in
+  all nine app languages (en fr es uk pa tl de zh it), written against each feature's code and
+  using each screen's own label per language. It says estimate templates are reviewed under
+  Settings › Services & Pricing — not that they expand onto a quote (that builder step is still
+  owed; see "The estimate template inside a service"). `check:updates` asserts completeness and
+  the fallback. Help › Product Updates (en/es/fr) updated. No "new" badge was built — the
+  section never had one, and the owner's brief did not ask for one.
+- **Notification.** `services.new_seeds` (owner + admin: `user:manage`, `supervisors: false` —
+  the roles the seed-services route accepts), opening `/app/settings/services`. Count = what "Add
+  missing services for my trade" would create across the company's ENABLED trades
+  (`planServiceSeeds` over `serviceSeedsForCompanyTrade`; takeoff-priced rows excluded, shared
+  rows once). Non-demo companies. Recipients grouped by language (User.language → company
+  default → en), one event per group carrying the trade names from `labelTranslations`; one row
+  per person. Idempotent with no schema change: `entityId` = `NEW_SEEDS_RELEASE`
+  (`service-seeds-2026-09-24`), members already holding it are skipped. Never inserts a product.
+  `lib/services/newSeedNotice.js`, `scripts/notify-new-service-seeds.mjs`, `check:new-seed-notice`
+  (55, in `check:all`), `check:notifications` 467.
+- **Dry run on production (2026-09-25, read-only):** 5 non-demo companies, 4 to notify, 4
+  owners, all English — Test Inc. 78 (roofing 41, interior painting 28, exterior painting 16,
+  cabinet refinishing 1), Sunset Space 1 (driveway sealing), Luma Painting 8 (exterior 7,
+  interior 1), jaspedo 78 (gutters 34, decks 26, flooring 7, carpentry 6, garage doors 5,
+  drywall 1, driveway sealing 1). TrueFinish Cabinets: 0 new.
+
+### Still owed here
+
+- **The send is the owner's**, after deploy:
+  `npm run notify:new-service-seeds -- --send` (add `--skip cmtzyunut000004jncwlnob1g` to leave
+  out Test Inc.). Re-running is safe. Next time the seeds grow, bump `NEW_SEEDS_RELEASE`.
+- Product Updates has no unread badge; nobody is told a new entry exists except by opening it.
 
 ## See the property and Directions (24 September 2026)
 

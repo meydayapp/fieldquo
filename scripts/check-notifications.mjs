@@ -328,9 +328,9 @@ const idsOf = (list) => list.map((m) => m.id).sort();
 section("1. The catalog is sound, and an unrecognised audience REFUSES");
 // ═══════════════════════════════════════════════════════════════════════════
 
-ok("the catalog holds exactly the declared types", NOTIFICATION_TYPE_KEYS.length === 33, NOTIFICATION_TYPE_KEYS);
+ok("the catalog holds exactly the declared types", NOTIFICATION_TYPE_KEYS.length === 34, NOTIFICATION_TYPE_KEYS);
 ok(
-  "six from the audit's tier 1, the undelivered quote, the six rota/time-clock types, the seven HR-file types, the AI employee's two, the three supply types, and the two client-ticket types",
+  "six from the audit's tier 1, the undelivered quote, the six rota/time-clock types, the seven HR-file types, the AI employee's two, the three supply types, the two client-ticket types, and the new-services notice",
   JSON.stringify([...NOTIFICATION_TYPE_KEYS].sort()) ===
     JSON.stringify(
       [
@@ -386,6 +386,9 @@ ok(
         // the client's reply on one — lib/clientTickets/service.js.
         "client_ticket.opened",
         "client_ticket.replied",
+        // New seeded services for a company's trades (2026-09-24), raised
+        // once per release by scripts/notify-new-service-seeds.mjs.
+        "services.new_seeds",
       ].sort(),
     ),
   NOTIFICATION_TYPE_KEYS,
@@ -544,6 +547,11 @@ const EXPECTED = {
   // clients ask for.
   "client_ticket.opened": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator"],
   "client_ticket.replied": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator"],
+  // ── New seeded services (2026-09-24) ────────────────────────────────────
+  // Owners and admins only — the two roles "Add missing services for my
+  // trade" accepts. user:manage keeps Estimator and Crew out;
+  // supervisors: false keeps Manager and Dispatcher out.
+  "services.new_seeds": ["m_owner", "m_admin"],
 };
 
 for (const type of NOTIFICATION_TYPE_KEYS) {
@@ -1063,8 +1071,24 @@ section("15. The supervisor decision is one line, and it is the conservative one
 for (const type of MONEY_TYPES) {
   ok(`"${type}" excludes supervisors (open product question, answered conservatively)`, supervisorsIncluded(type) === false);
 }
-for (const type of NOTIFICATION_TYPE_KEYS.filter((t) => !NOTIFICATION_TYPES[t].money)) {
+// The one non-money exception, named rather than loosened: the new-services
+// notice asks its reader to press "Add missing services for my trade", which
+// POST /api/settings/products/seed-services refuses to anyone but an owner
+// or admin. Telling a Manager to do it would be a nudge towards a refusal.
+const OWNER_ADMIN_ONLY = new Set(["services.new_seeds"]);
+for (const type of NOTIFICATION_TYPE_KEYS.filter((t) => !NOTIFICATION_TYPES[t].money && !OWNER_ADMIN_ONLY.has(t))) {
   ok(`"${type}" includes supervisors — the audience the owner named first`, supervisorsIncluded(type) === true);
+}
+for (const type of OWNER_ADMIN_ONLY) {
+  ok(`"${type}" excludes supervisors — its action is owner/admin only`, supervisorsIncluded(type) === false);
+  ok(
+    `"${type}" opens Settings › Services`,
+    hrefFor({ entityType: NOTIFICATION_TYPES[type].entityType, entityId: "service-seeds-2026-09-24" }) === "/app/settings/services",
+  );
+}
+{
+  const route = decomment(read("app/api/settings/products/seed-services/route.js"));
+  ok("the seed-services route still refuses everyone but owner/admin", /\["owner",\s*"admin"\]\.includes\(member\.role\)/.test(route));
 }
 ok(
   "flipping the flag is genuinely all it takes: a Manager qualifies on the grid alone",
