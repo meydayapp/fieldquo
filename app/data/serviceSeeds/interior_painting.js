@@ -322,7 +322,7 @@ const TEMPLATES = {
       de: ["Rollomontage — pro Rollo", "Halter befestigt, Rollo eingehängt, ausgerichtet und getestet."],
       uk: ["Монтаж рулонної штори — за штуку", "Кронштейни закріплено, штору повішено, вирівняно й перевірено."],
       tl: ["Pagkabit ng roller shade — kada isa", "Ikinabit ang bracket, isinabit, nilevel at sinubukan ang shade."],
-    }, { measurementKey: "windowCount" }),
+    }, { measurementKey: "each" }),
     L.material(1, "each", 85, {
       en: ["Light-filtering roller shade — per shade", "Made-to-width roller shade with brackets."],
       fr: ["Store à rouleau tamisant — l'unité", "Store à rouleau coupé sur mesure avec supports."],
@@ -331,7 +331,7 @@ const TEMPLATES = {
       de: ["Lichtdurchlässiges Rollo — pro Rollo", "Rollo nach Maß mit Haltern."],
       uk: ["Світлорозсіювальна рулонна штора — за штуку", "Рулонна штора під ширину вікна з кронштейнами."],
       tl: ["Light-filtering roller shade — kada isa", "Roller shade na sukat sa lapad, may bracket."],
-    }, { measurementKey: "windowCount" }),
+    }, { measurementKey: "each" }),
     SHARED.consumables(45),
   ], null, IN),
 

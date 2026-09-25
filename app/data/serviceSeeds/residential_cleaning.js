@@ -238,14 +238,14 @@ export const SEED = {
 // move-in/out (full home $300/175, interior windows $75/40, inside cabinets
 // $100/55, $24 off). Those are carried at the captured prices and costs. Its
 // booking form asks bedrooms, bathrooms, half baths and home size, so the
-// per-room lines are keyed `bedroomCount` / `bathroomCount` / `halfBathCount`
-// and the home-size lines `floorSqft`; each keeps qty 1 and fills from the
+// per-room lines are keyed `bedrooms` / `bathrooms` / `halfBaths` (the names the cleaning intake stores)
+// and the home-size lines `squareFootage`; each keeps qty 1 and fills from the
 // form. The form's add-ons (fridge, oven, cabinets, baseboards) ride as
 // optional lines the client ticks. The captured recurring clean has four
 // required labour lines (kitchen, living area, bedroom, bathroom) and keeps
 // them — one more than the three the other trades use.
 const room = (key, price, cost, text) => L.labour(1, "each", price, text, { cost, measurementKey: key });
-const BEDROOM = (price, cost, deep) => room("bedroomCount", price, cost, deep ? {
+const BEDROOM = (price, cost, deep) => room("bedrooms", price, cost, deep ? {
   en: ["Bedroom deep clean — per bedroom", "Every surface detailed, baseboards and doors wiped, under the bed vacuumed."],
   fr: ["Grand ménage de chambre — la chambre", "Chaque surface détaillée, plinthes et portes essuyées, dessous du lit aspiré."],
   es: ["Limpieza profunda de recámara — por recámara", "Cada superficie detallada, zoclos y puertas limpios, bajo la cama aspirado."],
@@ -262,7 +262,7 @@ const BEDROOM = (price, cost, deep) => room("bedroomCount", price, cost, deep ? 
   uk: ["Прибирання спальні — за спальню", "Пил витерто, поверхні протерто, ліжко застелено, підлогу пропилососено."],
   tl: ["Paglilinis ng kuwarto — kada kuwarto", "Pinunasan ang alikabok at ibabaw, inayos ang kama at binakyum ang sahig."],
 });
-const BATHROOM = (price, cost, deep) => room("bathroomCount", price, cost, deep ? {
+const BATHROOM = (price, cost, deep) => room("bathrooms", price, cost, deep ? {
   en: ["Bathroom deep clean — per bathroom", "Tub, shower and grout scrubbed, fixtures descaled, toilet and floor sanitised."],
   fr: ["Grand ménage de salle de bain — la salle de bain", "Bain, douche et coulis frottés, robinetterie détartrée, toilette et plancher désinfectés."],
   es: ["Limpieza profunda de baño — por baño", "Tina, regadera y lechada tallados, llaves desincrustadas, inodoro y piso desinfectados."],
@@ -279,7 +279,7 @@ const BATHROOM = (price, cost, deep) => room("bathroomCount", price, cost, deep 
   uk: ["Прибирання ванної — за ванну", "Ванну чи душ, умивальник, унітаз, дзеркало й підлогу очищено та продезінфіковано."],
   tl: ["Paglilinis ng banyo — kada banyo", "Nilinis at dinisinfect ang tub o shower, lababo, inodoro, salamin at sahig."],
 });
-const HALF_BATH = (price) => room("halfBathCount", price, Math.round(price * 0.65), {
+const HALF_BATH = (price) => room("halfBaths", price, Math.round(price * 0.65), {
   en: ["Half bathroom — per half bath", "Sink, toilet, mirror and floor cleaned and sanitised."],
   fr: ["Salle d'eau — l'unité", "Lavabo, toilette, miroir et plancher nettoyés et désinfectés."],
   es: ["Medio baño — por medio baño", "Lavabo, inodoro, espejo y piso limpios y desinfectados."],
@@ -334,7 +334,7 @@ const BASEBOARDS = () => ADD_ON(40, 22, {
   uk: ["Додатково: протерти плінтуси", "Усі плінтуси в будинку протерто вручну."],
   tl: ["Add-on: punasan ang baseboard", "Pinunasan sa kamay ang lahat ng baseboard sa bahay."],
 });
-const FLOOR_AREA = (price, text) => L.labour(1, "sqft", price, text, { measurementKey: "floorSqft" });
+const FLOOR_AREA = (price, text) => L.labour(1, "sqft", price, text, { measurementKey: "squareFootage" });
 
 const TEMPLATES = {
   // ── Installation (first cleans) ──
@@ -398,7 +398,7 @@ const TEMPLATES = {
       uk: ["Прибирання офісу — за кв. фут", "Столи, поверхні, міні-кухню й підлогу прибрано, сміття винесено."],
       tl: ["Paglilinis ng opisina — kada sq ft", "Nilinis ang mesa, ibabaw, pantry at sahig at inalis ang basura."],
     }),
-    room("bathroomCount", 45, 25, {
+    room("bathrooms", 45, 25, {
       en: ["Restroom cleaning — per restroom", "Fixtures, partitions and floor sanitised and supplies restocked."],
       fr: ["Ménage de toilettes — l'unité", "Appareils, cloisons et plancher désinfectés, fournitures remplies."],
       es: ["Limpieza de sanitario — por sanitario", "Muebles, divisiones y piso desinfectados y consumibles repuestos."],

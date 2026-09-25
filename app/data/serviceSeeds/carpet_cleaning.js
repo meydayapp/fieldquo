@@ -310,7 +310,7 @@ export const SEED = {
 // stain remover $35/18, $26 off), quarterly area-rug cleaning ($300/200, 4%
 // off) and one-time area-rug deep clean ($600/400, $50 off). Carried at the
 // captured prices and costs. Its booking form counts carpeted areas and
-// stair steps, so per-room lines are keyed `roomCount` and stairs `treads`
+// stair steps, so per-room lines are keyed `each` (the registry has no room count yet — a `roomCount` key is the follow-up) and stairs `treads`
 // (the stairs module's field), each at qty 1 until the form fills it.
 const PER_ROOM = (price, cost, deep) => L.labour(1, "each", price, deep ? {
   en: ["Deep extraction — per room", "Pre-sprayed, agitated and hot-water extracted with extra passes on traffic lanes."],
@@ -328,7 +328,7 @@ const PER_ROOM = (price, cost, deep) => L.labour(1, "each", price, deep ? {
   de: ["Teppichreinigung — pro Raum", "Heißwasserextraktion eines Teppichraums, um die Möbel herum."],
   uk: ["Чищення килимового покриття — за кімнату", "Екстракція гарячою водою однієї кімнати з покриттям, навколо меблів."],
   tl: ["Paglilinis ng carpet — kada kuwarto", "Hot-water extraction ng isang kuwartong may carpet, iniikutan ang muwebles."],
-}, { cost, measurementKey: "roomCount" });
+}, { cost, measurementKey: "each" });
 const LIVING_ROOM = () => L.labour(1, "flat", 120, {
   en: ["Living room carpet", "The main living area extracted, heavy traffic lanes pre-treated."],
   fr: ["Tapis du salon", "Aire de séjour principale extraite, zones passantes prétraitées."],
@@ -452,7 +452,7 @@ const TEMPLATES = {
       de: ["Enzymbehandlung — pro Raum", "Betroffene Stellen mit UV gefunden, mit Enzym getränkt und extrahiert."],
       uk: ["Ензимна обробка — за кімнату", "Уражені місця знайдено УФ-лампою, насичено ензимом та екстраговано."],
       tl: ["Enzyme treatment — kada kuwarto", "Hinanap sa UV ang apektadong bahagi, binabad sa enzyme at in-extract."],
-    }, { measurementKey: "roomCount" }),
+    }, { measurementKey: "each" }),
     L.material(1, "each", 15, {
       en: ["Enzyme treatment — per room", "Bio-enzymatic urine and odour digester."],
       fr: ["Enzyme — la pièce", "Digesteur bio-enzymatique d'urine et d'odeurs."],
@@ -461,7 +461,7 @@ const TEMPLATES = {
       de: ["Enzym — pro Raum", "Bioenzymatischer Urin- und Geruchszersetzer."],
       uk: ["Ензим — за кімнату", "Біоензимний засіб, що розщеплює сечу й запахи."],
       tl: ["Enzyme — kada kuwarto", "Bio-enzymatic na pantunaw ng ihi at amoy."],
-    }, { measurementKey: "roomCount" }),
+    }, { measurementKey: "each" }),
   ], null),
 
   "fq.carpet_cleaning.specialty.stretching_repair": T("repair", n(
@@ -478,7 +478,7 @@ const TEMPLATES = {
       de: ["Nachspannen — pro Raum", "Teppich gelöst, von Wand zu Wand nachgespannt und eingehängt, Nähte geprüft."],
       uk: ["Натягування — за кімнату", "Покриття звільнено, натягнуто від стіни до стіни й зачеплено, шви перевірено."],
       tl: ["Power stretching — kada kuwarto", "Tinanggal, ini-stretch mula pader hanggang pader at ikinabit ulit, chineck ang dugtungan."],
-    }, { measurementKey: "roomCount" }),
+    }, { measurementKey: "each" }),
   ], null),
 
   // ── Inspection ──
@@ -576,7 +576,7 @@ const TEMPLATES = {
       de: ["Schutzmittel auftragen — pro Raum", "Fluorfreies Schutzmittel gesprüht und eingebürstet."],
       uk: ["Нанесення захисту — за кімнату", "Захист без фторхімії розпилено й втерто щіткою."],
       tl: ["Paglagay ng protector — kada kuwarto", "Ini-spray at sinuklay ang protector na walang fluorochemical."],
-    }, { measurementKey: "roomCount" }),
+    }, { measurementKey: "each" }),
     L.material(1, "each", 12, {
       en: ["Carpet protector — per room", "Water-based carpet and fabric protector."],
       fr: ["Protecteur à tapis — la pièce", "Protecteur à base d'eau pour tapis et tissus."],
@@ -585,7 +585,7 @@ const TEMPLATES = {
       de: ["Teppichschutz — pro Raum", "Wasserbasierter Teppich- und Stoffschutz."],
       uk: ["Захист покриття — за кімнату", "Захист на водній основі для покриттів і тканин."],
       tl: ["Carpet protector — kada kuwarto", "Water-based na protector para sa carpet at tela."],
-    }, { measurementKey: "roomCount" }),
+    }, { measurementKey: "each" }),
   ], null),
 };
 

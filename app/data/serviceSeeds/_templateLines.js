@@ -29,7 +29,7 @@
 // `withTemplates(seed, templates)` adds these keys to each matching row and
 // touches nothing else on it:
 //
-//   templateKind    "installation" | "repair" | "inspection" | "maintenance" —
+//   templateCategory "installation" | "repair" | "inspection" | "maintenance" —
 //                   the four headings the template gallery groups by
 //   templateLines   [{ kind: "labour"|"material"|"other", name, description,
 //                      qty, unit, unitPrice, unitCost, taxable,
@@ -60,7 +60,11 @@
 //                   cabinets · staining · commercial); [] = every sub-type
 //   translations    { fr, es, it, de, uk, tl } → { name, description,
 //                   templateLines: [{ name, description }] in the same order
-//                   as `templateLines`, defaultDiscount: { name } | null }
+//                   as `templateLines`, defaultDiscountName? }
+//
+// The shape is the loader's contract in lib/services/seeds.js (header), key
+// for key; `range`, `rangeBasis` and a line's `optional` are this folder's
+// additions and are named in that contract's follow-ups.
 //
 // ── Measurement-driven lines ───────────────────────────────────────────────
 //
@@ -108,24 +112,25 @@ export const TEMPLATE_KINDS = ["installation", "repair", "inspection", "maintena
 export const LINE_KINDS = ["labour", "material", "other"];
 export const LINE_UNITS = ["flat", "each", "hour", "sqft", "linear_ft", "square",
   // purchase units, for material lines costed from _materialCosts.js
-  "gallon", "pail", "sheet", "bundle", "roll", "box", "bag", "piece", "tube", "case", "panel", "board"];
-export const COVERAGE_UNITS = ["sqft", "linft", "cuft", "square", "each"];
+  "gallon", "quart", "pail", "sheet", "bundle", "roll", "box", "bag", "piece", "tube", "case", "panel", "board", "pallet", "kit", "length", "system"];
+export const COVERAGE_UNITS = ["sqft", "linft", "cuft", "each"];
+// The keys, EXACTLY as lib/services/measurementKeys.js registers them (the
+// loader's closed registry — an unknown key fails validateTemplateLines).
+// Kept as a copy so every seed file stays importable by a bare `node`; the
+// template check asserts the two lists agree.
 export const MEASUREMENT_KEYS = [
-  // painting (lib/pricing/paintTakeoff.js)
-  "wallSqft", "ceilingSqft", "floorSqft", "doorCount", "windowCount",
-  // stairs (lib/estimate/stairsFromSteps.js)
-  "treads", "risers", "balusters", "handrailFt", "newels",
-  // cabinets (lib/pricing/cabinetLabour.js) — doorCount is shared with painting
-  "drawerCount",
-  // roofing (lib/measure/roofGeometry.js + the roofing takeoff config)
-  "squares", "ridgeFt", "hipFt", "valleyFt", "eaveFt", "rakeFt", "stepFlashingFt", "wastePct",
-  // cleaning — room counts from the booking form (bedrooms, bathrooms, half baths)
-  "bedroomCount", "bathroomCount", "halfBathCount",
-  // carpet cleaning — rooms (areas up to ~200 sq ft) from the booking form;
-  // stairs use `treads` above
-  "roomCount",
-  // generic
-  "areaSqFt", "linearFt", "each",
+  "wallSqft", "ceilingSqft", "floorSqft", "linearFt",
+  "steps", "treads", "risers", "balusters", "posts", "handrailFt",
+  "doorCount", "drawerCount", "boxLinearFt",
+  "squares", "areaSqft", "footprintSqft", "eaveFt", "rakeFt", "ridgeFt", "hipFt", "valleyFt", "perimeterFt",
+  "hours", "onRoofHours", "fixedHours",
+  "gutterFt", "downspouts",
+  "gravelCuYd", "sandCuYd",
+  "lotSize", "edgingFt",
+  "openings", "receptaclesPractical", "switches", "lighting", "smokeCo", "dedicated", "counterReceptacles",
+  "exteriorReceptacles", "garageReceptacles", "circuits", "totalFt", "roughInHours", "trimOutHours", "panelHours", "totalHours",
+  "bedrooms", "bathrooms", "squareFootage", "halfBaths",
+  "areaSqFt", "perimeterLf", "each",
 ];
 /** Line units that are a measurement — such a line must carry a key. */
 export const MEASURED_UNITS = ["sqft", "linear_ft", "square"];
@@ -166,10 +171,12 @@ export function line(kind, qty, unit, unitPrice, unitCost, text, extra = {}) {
   if (typeof qty !== "number" || !Number.isFinite(qty) || qty < 0) fail(`${where}: qty ${qty}`);
   if (extra.measurementKey !== undefined && !MEASUREMENT_KEYS.includes(extra.measurementKey)) fail(`${where}: measurementKey ${extra.measurementKey}`);
   if (MEASURED_UNITS.includes(unit) && !extra.measurementKey) fail(`${where}: a per-${unit} line needs a measurementKey`);
+  if (extra.wastePct !== undefined && !(kind === "material" && extra.wastePct > 0 && extra.wastePct <= 100)) fail(`${where}: wastePct is a material percent`);
   if (extra.coverage !== undefined) {
     const c = extra.coverage;
     if (!(c && typeof c.per === "number" && c.per > 0 && COVERAGE_UNITS.includes(c.unit))) fail(`${where}: coverage must be { per > 0, unit in ${COVERAGE_UNITS.join("/")} }`);
     if (!extra.measurementKey) fail(`${where}: a line with coverage needs the measurementKey it divides`);
+    if (kind !== "material") fail(`${where}: coverage is a material modifier (lib/services/templates.js)`);
   }
   if (extra.measurementKey && qty !== 1) fail(`${where}: a measured line keeps qty 1 as the fallback, got ${qty}`);
   return {
@@ -181,6 +188,7 @@ export function line(kind, qty, unit, unitPrice, unitCost, text, extra = {}) {
     taxable: extra.taxable === undefined ? true : Boolean(extra.taxable),
     measurementKey: extra.measurementKey,
     coverage: extra.coverage,
+    wastePct: extra.wastePct,
     optional: extra.optional === true,
     text: checkText(text, where),
   };
@@ -191,11 +199,11 @@ export function line(kind, qty, unit, unitPrice, unitCost, text, extra = {}) {
  * = purchase unit, unitCost = shelf price, unitPrice = cost × markup (or the
  * price given), coverage = how much measurement one unit covers.
  */
-export function hdMaterial(item, text, { measurementKey, price, taxable } = {}) {
+export function hdMaterial(item, text, { measurementKey, price, taxable, wastePct } = {}) {
   if (!item) fail(`hdMaterial: unknown item for "${text?.en?.[0]}"`);
   const unitPrice = price ?? Math.round(item.cost * DEFAULT_MATERIAL_MARKUP * 100) / 100;
   return line("material", 1, item.unit, unitPrice, item.cost, text, {
-    measurementKey, taxable, coverage: item.per_unit === "each" ? undefined : { per: item.per, unit: item.per_unit },
+    measurementKey, taxable, wastePct, coverage: item.per_unit === "each" && item.per === 1 ? undefined : { per: item.per, unit: item.per_unit },
   });
 }
 
@@ -466,12 +474,12 @@ export function rangeFor(service, allLines) {
   // A roof sold per sq ft is costed per SQUARE (100 sq ft): its square lines
   // count at a hundredth, and the waste line at the default 10% of that — the
   // qty the report fills is squares × waste factor, not squares.
-  const COVER_TO_UNIT = { sqft: "sqft", linft: "linear_ft", square: "square" };
+  const COVER_TO_UNIT = { sqft: "sqft", linft: "linear_ft" };
+  const waste = (l) => 1 + (l.wastePct || 0) / 100;
   const lineRate = (l) =>
-    l.coverage && COVER_TO_UNIT[l.coverage.unit] === service.unit ? l.unitPrice / l.coverage.per
-    : l.coverage && service.unit === "sqft" && l.coverage.unit === "square" ? l.unitPrice / l.coverage.per / 100 * (l.measurementKey === "wastePct" ? 0.1 : 1)
+    l.coverage && COVER_TO_UNIT[l.coverage.unit] === service.unit ? (l.unitPrice / l.coverage.per) * waste(l)
+    : service.unit === "sqft" && l.unit === "square" ? (l.unitPrice / 100) * waste(l)
     : l.unit === service.unit ? l.unitPrice
-    : service.unit === "sqft" && l.unit === "square" ? (l.unitPrice / 100) * (l.measurementKey === "wastePct" ? 0.1 : 1)
     : 0;
   lines = lines.filter((l) => !l.optional);
   const perUnit = ["sqft", "linear_ft", "hour", "square"].includes(service.unit)
@@ -528,6 +536,7 @@ export function withTemplates(seed, templates) {
       };
       if (l.measurementKey) row.measurementKey = l.measurementKey;
       if (l.coverage) row.coverage = { per: l.coverage.per, unit: l.coverage.unit };
+      if (l.wastePct) row.wastePct = l.wastePct;
       if (l.optional) row.optional = true;
       return row;
     });
@@ -542,13 +551,13 @@ export function withTemplates(seed, templates) {
         name: own[0],
         description: own[1],
         templateLines: t.lines.map((l) => ({ name: l.text[lang][0], description: l.text[lang][1] })),
-        defaultDiscount: t.discount ? { name: DISCOUNT_NAMES[t.discount.key][lang] } : null,
+        ...(t.discount ? { defaultDiscountName: DISCOUNT_NAMES[t.discount.key][lang] } : {}),
       };
     }
     const { basis, range } = rangeFor(s, t.lines);
     return {
       ...s,
-      templateKind: t.kind,
+      templateCategory: t.kind,
       templateLines,
       defaultDiscount,
       categories: t.categories || [seed.trade],

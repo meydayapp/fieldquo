@@ -6,7 +6,7 @@
 // Every measured line uses the field lib/pricing/paintTakeoff.js actually
 // produces for a room: `wallSqft`, `ceilingSqft`, `floorSqft`, `linearFt`
 // (the room perimeter — baseboard and trim run on it; the takeoff has no
-// separate trim or baseboard field), `doorCount`, `windowCount`; cabinet
+// separate trim or baseboard field), `doorCount`; a window is counted with the generic `each`; cabinet
 // lines use `doorCount` / `drawerCount` as lib/pricing/cabinetLabour.js
 // reads them; deck, fence and siding use the generic `areaSqFt` / `linearFt`.
 //
@@ -103,7 +103,7 @@ export const PAINT = {
     ["Fensterrahmen streichen — pro Fenster", "Flügel, Zarge und Bank vorbereitet, versiegelt und lackiert."],
     ["Фарбування віконної рами — за вікно", "Стулку, лиштву й підвіконня підготовлено, загерметизовано й пофарбовано."],
     ["Pintura ng frame ng bintana — kada bintana", "Inihanda, kinaulk at pinintahan ang sash, casing at sill."],
-  ), { measurementKey: "windowCount" }),
+  ), { measurementKey: "each" }),
   cabinetDoors: (price = 100) => L.labour(1, "each", price, t(
     ["Cabinet door refinishing — per door", "Door off, degreased, sanded, primed and sprayed two coats, rehung."],
     ["Refinition de porte d'armoire — la porte", "Porte démontée, dégraissée, sablée, apprêtée et deux couches au pistolet, reposée."],
