@@ -10,7 +10,8 @@
 // lines up. Hardwood REFINISHING is the `flooring` trade's takeoff and is not
 // in this book at all.
 
-import { L as TL, SHARED, D, T, withTemplates } from "./_templateLines";
+import { L as TL, SHARED, D, T, withTemplates, hdMaterial } from "./_templateLines";
+import { HD } from "./_materialCosts";
 
 const L = {
   basement: { key: "basement", en: "basement", fr: "au sous-sol", es: "en el sótano" },
@@ -216,14 +217,14 @@ const TEMPLATES = {
       uk: ["Робота — укладання підлоги, за кв. фут, базовий рівень", "Ламінат або вінілові планки укладено за специфікацією виробника; матеріали окремо."],
       tl: ["Labor — pagkabit ng sahig, kada sq ft, builder grade", "Laminate o LVP na inilatag ayon sa spec ng manufacturer; hiwalay ang materyales."],
     }, { measurementKey: "areaSqFt" }),
-    TL.material(1, "sqft", 3.25, {
-      en: ["Luxury vinyl plank — per sq ft", "Rigid-core LVP, 5 mm with attached pad, plus 10% cutting waste."],
-      fr: ["Vinyle de luxe en planches — au pi²", "Vinyle à âme rigide, 5 mm avec sous-couche intégrée, plus 10 % de perte de coupe."],
-      es: ["Vinilo de lujo en tablas — por pie²", "Vinilo de núcleo rígido, 5 mm con base integrada, más 10 % de desperdicio por corte."],
-      it: ["Vinile LVP — al piede quadro", "LVP ad anima rigida, 5 mm con materassino integrato, più 10% di sfrido."],
-      de: ["Vinylplanken — pro sq ft", "Rigid-Core-LVP, 5 mm mit Trittschallunterlage, plus 10 % Verschnitt."],
-      uk: ["Вінілові планки LVP — за кв. фут", "LVP з жорстким осердям, 5 мм з підкладкою, плюс 10% на підрізку."],
-      tl: ["Luxury vinyl plank — kada sq ft", "Rigid-core LVP, 5 mm na may pad, dagdag 10% para sa tabas."],
+    hdMaterial(HD.lvp_box, {
+      en: ["Luxury vinyl plank — per box", "Rigid-core click LVP with attached pad; about 22 sq ft a box (confirm per product)."],
+      fr: ["Vinyle de luxe en planches — la boîte", "Vinyle à âme rigide à clic avec sous-couche intégrée; environ 22 pi² la boîte (à confirmer selon le produit)."],
+      es: ["Vinilo de lujo en tablas — por caja", "Vinilo de núcleo rígido tipo clic con base integrada; unos 22 pies² por caja (confirmar según producto)."],
+      it: ["Vinile LVP — per scatola", "LVP ad anima rigida a incastro con materassino; circa 22 piedi quadri a scatola (da verificare per prodotto)."],
+      de: ["Vinylplanken — pro Karton", "Rigid-Core-Klick-LVP mit Unterlage; etwa 22 sq ft pro Karton (je Produkt prüfen)."],
+      uk: ["Вінілові планки LVP — за коробку", "LVP із жорстким осердям на замку з підкладкою; близько 22 кв. футів у коробці (уточнити за товаром)."],
+      tl: ["Luxury vinyl plank — kada kahon", "Rigid-core click LVP na may pad; mga 22 sq ft kada kahon (kumpirmahin ayon sa produkto)."],
     }, { measurementKey: "areaSqFt" }),
   ], null),
 
@@ -242,14 +243,14 @@ const TEMPLATES = {
       uk: ["Встановлення перехідних профілів і плінтусів — за пог. фут", "Перехідні профілі та плінтуси встановлено на межах кімнат."],
       tl: ["Pagkabit ng transition strip at trim — kada linear ft", "Ikinabit ang transition strip at trim sa gilid ng kuwarto."],
     }, { measurementKey: "linearFt" }),
-    TL.material(1, "linear_ft", 2.5, {
-      en: ["Trim and transition stock — per linear ft", "Primed MDF base or quarter-round, metal or matching transition strips, nails and caulk."],
-      fr: ["Moulures et profilés de transition — au pi lin.", "Plinthe ou quart-de-rond en MDF apprêté, profilés de transition métalliques ou assortis, clous et calfeutrant."],
-      es: ["Zoclo y molduras de transición — por pie lineal", "Zoclo o cuarto bocel de MDF imprimado, molduras de transición metálicas o a juego, clavos y sellador."],
-      it: ["Battiscopa e profili — al piede lineare", "Battiscopa o quarto tondo in MDF primerizzato, profili di transizione in metallo o coordinati, chiodi e sigillante."],
-      de: ["Leisten und Übergangsprofile — pro lfd. Fuß", "Grundierte MDF-Sockel- oder Viertelstableiste, Metall- oder passende Übergangsprofile, Nägel und Acryl."],
-      uk: ["Плінтуси та перехідні профілі — за пог. фут", "Ґрунтований МДФ-плінтус або галтель, металеві чи підібрані перехідні профілі, цвяхи та герметик."],
-      tl: ["Trim at transition stock — kada linear ft", "Primed MDF base o quarter-round, metal o katernong transition strip, pako at caulk."],
+    hdMaterial(HD.baseboard_mdf_8ft, {
+      en: ["Primed MDF base — per 8 ft piece", "3-1/4 in primed MDF baseboard, 8 ft lengths, with nails and caulk."],
+      fr: ["Plinthe en MDF apprêté — la pièce de 8 pi", "Plinthe en MDF apprêté de 3 1/4 po, longueurs de 8 pi, avec clous et calfeutrant."],
+      es: ["Zoclo de MDF imprimado — por pieza de 8 pies", "Zoclo de MDF imprimado de 3-1/4 pulg, tramos de 8 pies, con clavos y sellador."],
+      it: ["Battiscopa in MDF primerizzato — per pezzo da 8 piedi", "Battiscopa in MDF primerizzato da 3-1/4 pollici, barre da 8 piedi, con chiodi e sigillante."],
+      de: ["Grundierte MDF-Sockelleiste — pro 8-Fuß-Stück", "3-1/4-Zoll-Sockelleiste aus grundiertem MDF, 8-Fuß-Längen, mit Nägeln und Acryl."],
+      uk: ["Ґрунтований МДФ-плінтус — за 8-футовий шматок", "Плінтус 3-1/4 дюйма з ґрунтованого МДФ, довжини по 8 футів, із цвяхами та герметиком."],
+      tl: ["Primed MDF base — kada 8 ft na piraso", "3-1/4 in primed MDF na baseboard, 8 ft ang haba, may pako at caulk."],
     }, { measurementKey: "linearFt" }),
   ], null),
 
@@ -294,14 +295,32 @@ const TEMPLATES = {
       uk: ["Робота — укладання плитки, за кв. фут", "Розмітку зроблено, плитку викладено на клей, зафуговано, периметр загерметизовано."],
       tl: ["Labor — pag-tile, kada sq ft", "Minarkahan ang layout, inilagay ang tile sa thinset, ginrout at kinaulk ang gilid."],
     }, { measurementKey: "areaSqFt" }),
-    TL.material(1, "sqft", 5.5, {
-      en: ["Porcelain tile, thinset and grout — per sq ft", "12 × 24 porcelain tile plus 10% waste, modified thinset, grout and spacers."],
-      fr: ["Porcelaine, ciment-colle et coulis — au pi²", "Carreaux de porcelaine 12 × 24 plus 10 % de perte, ciment-colle modifié, coulis et croisillons."],
-      es: ["Porcelanato, adhesivo y lechada — por pie²", "Porcelanato de 12 × 24 más 10 % de desperdicio, adhesivo modificado, lechada y separadores."],
-      it: ["Gres, colla e stucco — al piede quadro", "Gres porcellanato 12 × 24 più 10% di sfrido, colla modificata, stucco e distanziatori."],
-      de: ["Feinsteinzeug, Kleber und Fugenmasse — pro sq ft", "Feinsteinzeug 12 × 24 plus 10 % Verschnitt, Flexkleber, Fugenmasse und Kreuze."],
-      uk: ["Керамограніт, клей і фуга — за кв. фут", "Керамограніт 12 × 24 плюс 10% на підрізку, модифікований клей, фуга та хрестики."],
-      tl: ["Porcelain tile, thinset at grout — kada sq ft", "12 × 24 porcelain tile dagdag 10% tabas, modified thinset, grout at spacer."],
+    hdMaterial(HD.tile_porcelain_case, {
+      en: ["Porcelain tile — per case", "12 × 24 glazed porcelain; about 15.6 sq ft a case."],
+      fr: ["Carreaux de porcelaine — la caisse", "Porcelaine émaillée 12 × 24; environ 15,6 pi² la caisse."],
+      es: ["Porcelanato — por caja", "Porcelanato esmaltado de 12 × 24; unos 15.6 pies² por caja."],
+      it: ["Gres porcellanato — per scatola", "Gres porcellanato smaltato 12 × 24; circa 15,6 piedi quadri a scatola."],
+      de: ["Feinsteinzeug — pro Karton", "Glasiertes Feinsteinzeug 12 × 24; etwa 15,6 sq ft pro Karton."],
+      uk: ["Керамограніт — за коробку", "Глазурований керамограніт 12 × 24; близько 15,6 кв. футів у коробці."],
+      tl: ["Porcelain tile — kada kahon", "12 × 24 glazed porcelain; mga 15.6 sq ft kada kahon."],
+    }, { measurementKey: "areaSqFt" }),
+    hdMaterial(HD.thinset_50lb, {
+      en: ["Thinset mortar — per bag", "Modified thinset, 50 lb; one bag sets about 95 sq ft with a 1/4 in notch."],
+      fr: ["Ciment-colle — le sac", "Ciment-colle modifié, 50 lb; un sac pose environ 95 pi² à la truelle de 1/4 po."],
+      es: ["Adhesivo para azulejo — por bulto", "Adhesivo modificado, 50 lb; un bulto asienta unos 95 pies² con llana de 1/4 pulg."],
+      it: ["Colla per piastrelle — al sacco", "Colla modificata, 50 lb; un sacco posa circa 95 piedi quadri con spatola da 1/4 di pollice."],
+      de: ["Fliesenkleber — pro Sack", "Flexkleber, 50 lb; ein Sack reicht für etwa 95 sq ft mit 1/4-Zoll-Zahnung."],
+      uk: ["Клей для плитки — за мішок", "Модифікований клей, 50 фунтів; мішок на близько 95 кв. футів гребінкою 1/4 дюйма."],
+      tl: ["Thinset — kada sako", "Modified thinset, 50 lb; ang isang sako ay para sa mga 95 sq ft sa 1/4 in na notch."],
+    }, { measurementKey: "areaSqFt" }),
+    hdMaterial(HD.grout_25lb, {
+      en: ["Sanded grout — per bag", "Sanded grout, 25 lb; one bag fills about 150 sq ft of joints."],
+      fr: ["Coulis sablé — le sac", "Coulis sablé, 25 lb; un sac jointoie environ 150 pi²."],
+      es: ["Lechada con arena — por bulto", "Lechada con arena, 25 lb; un bulto rellena unos 150 pies² de juntas."],
+      it: ["Stucco sabbiato — al sacco", "Stucco sabbiato, 25 lb; un sacco riempie circa 150 piedi quadri di fughe."],
+      de: ["Fugenmasse mit Sand — pro Sack", "Sandhaltige Fugenmasse, 25 lb; ein Sack reicht für etwa 150 sq ft Fugen."],
+      uk: ["Фуга з піском — за мішок", "Фуга з піском, 25 фунтів; мішок на близько 150 кв. футів швів."],
+      tl: ["Sanded grout — kada sako", "Sanded grout, 25 lb; ang isang sako ay para sa mga 150 sq ft ng joint."],
     }, { measurementKey: "areaSqFt" }),
   ], null),
 
@@ -492,14 +511,14 @@ const TEMPLATES = {
       uk: ["Миття та герметизація тераси — за кв. фут", "Дошки очищено та освітлено, висушено, потім валиком нанесено проникний герметик."],
       tl: ["Hugas at reseal ng deck — kada sq ft", "Nilinis at pinaliwanag ang tabla, pinatuyo, tapos nirolyo ng penetrating sealer."],
     }, { measurementKey: "areaSqFt" }),
-    TL.material(1, "sqft", 0.7, {
-      en: ["Deck cleaner and sealer — per sq ft", "Oxygenated cleaner, brightener and a penetrating deck sealer."],
-      fr: ["Nettoyant et scellant à terrasse — au pi²", "Nettoyant oxygéné, raviveur et scellant pénétrant pour terrasse."],
-      es: ["Limpiador y sellador de terraza — por pie²", "Limpiador oxigenado, avivador y sellador penetrante para terraza."],
-      it: ["Detergente e sigillante per deck — al piede quadro", "Detergente ossigenato, ravvivante e sigillante penetrante per deck."],
-      de: ["Terrassenreiniger und Versiegler — pro sq ft", "Sauerstoffreiniger, Aufheller und penetrierender Terrassenversiegler."],
-      uk: ["Засіб для чищення та герметик для тераси — за кв. фут", "Кисневий очищувач, освітлювач і проникний герметик для тераси."],
-      tl: ["Deck cleaner at sealer — kada sq ft", "Oxygenated cleaner, brightener at penetrating deck sealer."],
+    hdMaterial(HD.deck_stain_gal, {
+      en: ["Deck stain — per gallon", "Semi-transparent penetrating stain; one gallon covers about 200 sq ft."],
+      fr: ["Teinture pour terrasse — au gallon", "Teinture pénétrante semi-transparente; un gallon couvre environ 200 pi²."],
+      es: ["Tinte para terraza — por galón", "Tinte penetrante semitransparente; un galón cubre unos 200 pies²."],
+      it: ["Impregnante per deck — al gallone", "Impregnante penetrante semitrasparente; un gallone copre circa 200 piedi quadri."],
+      de: ["Terrassenbeize — pro Gallone", "Halbtransparente, eindringende Beize; eine Gallone reicht für etwa 200 sq ft."],
+      uk: ["Морилка для тераси — за галон", "Напівпрозора проникна морилка; галон покриває близько 200 кв. футів."],
+      tl: ["Deck stain — kada galon", "Semi-transparent na penetrating stain; ang isang galon ay para sa mga 200 sq ft."],
     }, { measurementKey: "areaSqFt" }),
   ], null),
 };

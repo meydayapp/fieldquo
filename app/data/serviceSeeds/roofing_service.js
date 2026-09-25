@@ -10,7 +10,8 @@
 // so it is built from one table per material; rows are emitted in the
 // source's order for the join-back map.
 
-import { L, SHARED, D, T, withTemplates } from "./_templateLines";
+import { L, SHARED, D, T, withTemplates, hdMaterial } from "./_templateLines";
+import { HD } from "./_materialCosts";
 
 // [slug, name{en,fr,es}]
 const MAT = {
@@ -188,24 +189,33 @@ const SHINGLE_LABOUR = () => L.labour(1, SQ, 175, {
   uk: ["Укладання гонту — за сквер", "Підкладку, стартову смугу та архітектурний гонт укладено за схемою цвяхування виробника."],
   tl: ["Pagkabit ng shingles — kada square", "Ikinabit ang underlayment, starter at architectural shingles ayon sa nailing pattern ng manufacturer."],
 }, { measurementKey: "squares" });
-const SHINGLES = () => L.material(1, SQ, 140, {
-  en: ["Architectural shingles — per square", "Laminated architectural shingles, three bundles to the square."],
-  fr: ["Bardeaux architecturaux — au carré", "Bardeaux architecturaux laminés, trois paquets au carré."],
-  es: ["Tejas arquitectónicas — por cuadro", "Tejas arquitectónicas laminadas, tres paquetes por cuadro."],
-  it: ["Tegole architettoniche — per square", "Tegole bituminose architettoniche laminate, tre pacchi per square."],
-  de: ["Architekturschindeln — pro Square", "Laminierte Architekturschindeln, drei Bündel pro Square."],
-  uk: ["Архітектурний гонт — за сквер", "Ламінований архітектурний гонт, три пачки на сквер."],
-  tl: ["Architectural shingles — kada square", "Laminated architectural shingles, tatlong bundle kada square."],
+const SHINGLES = () => hdMaterial(HD.shingles_bundle, {
+  en: ["Architectural shingles — per bundle", "Laminated architectural shingles; three bundles make a square."],
+  fr: ["Bardeaux architecturaux — le paquet", "Bardeaux architecturaux laminés; trois paquets font un carré."],
+  es: ["Tejas arquitectónicas — por paquete", "Tejas arquitectónicas laminadas; tres paquetes hacen un cuadro."],
+  it: ["Tegole architettoniche — per pacco", "Tegole bituminose architettoniche laminate; tre pacchi fanno uno square."],
+  de: ["Architekturschindeln — pro Bündel", "Laminierte Architekturschindeln; drei Bündel ergeben ein Square."],
+  uk: ["Архітектурний гонт — за пачку", "Ламінований архітектурний гонт; три пачки — один сквер."],
+  tl: ["Architectural shingles — kada bundle", "Laminated architectural shingles; tatlong bundle ang isang square."],
 }, { measurementKey: "squares" });
-const WASTE = (price) => L.material(1, SQ, price, {
-  en: ["Waste allowance — per square", "Extra material for cuts at hips, valleys and edges: squares × the rate-card waste factor."],
-  fr: ["Allocation pour pertes — au carré", "Matériau supplémentaire pour les coupes aux arêtiers, noues et rives : carrés × facteur de perte."],
-  es: ["Provisión de desperdicio — por cuadro", "Material extra para cortes en limatesas, limahoyas y bordes: cuadros × factor de desperdicio."],
-  it: ["Scorta per sfrido — per square", "Materiale in più per i tagli su displuvi, compluvi e bordi: square × fattore di sfrido."],
-  de: ["Verschnittzuschlag — pro Square", "Mehrmaterial für Schnitte an Graten, Kehlen und Rändern: Squares × Verschnittfaktor."],
-  uk: ["Запас на відходи — за сквер", "Додатковий матеріал на підрізку на ребрах, ендовах і краях: сквери × коефіцієнт відходів."],
-  tl: ["Allowance para sa tabas — kada square", "Dagdag na materyales para sa tabas sa hip, valley at gilid: squares × waste factor."],
+const WASTE = () => hdMaterial(HD.shingles_bundle, {
+  en: ["Waste allowance — shingle bundles", "Extra bundles for cuts at hips, valleys and edges: squares × the rate-card waste factor."],
+  fr: ["Allocation pour pertes — paquets de bardeaux", "Paquets supplémentaires pour les coupes aux arêtiers, noues et rives : carrés × facteur de perte."],
+  es: ["Provisión de desperdicio — paquetes de tejas", "Paquetes extra para cortes en limatesas, limahoyas y bordes: cuadros × factor de desperdicio."],
+  it: ["Scorta per sfrido — pacchi di tegole", "Pacchi in più per i tagli su displuvi, compluvi e bordi: square × fattore di sfrido."],
+  de: ["Verschnittzuschlag — Schindelbündel", "Zusätzliche Bündel für Schnitte an Graten, Kehlen und Rändern: Squares × Verschnittfaktor."],
+  uk: ["Запас на відходи — пачки гонту", "Додаткові пачки на підрізку на ребрах, ендовах і краях: сквери × коефіцієнт відходів."],
+  tl: ["Allowance para sa tabas — bundle ng shingles", "Dagdag na bundle para sa tabas sa hip, valley at gilid: squares × waste factor."],
 }, { measurementKey: "wastePct" });
+const UNDERLAYMENT = () => hdMaterial(HD.roof_underlayment_roll, {
+  en: ["Synthetic underlayment — per roll", "1,000 sq ft roll of synthetic underlayment; one roll covers ten squares."],
+  fr: ["Sous-couche synthétique — le rouleau", "Rouleau de 1 000 pi² de sous-couche synthétique; un rouleau couvre dix carrés."],
+  es: ["Base sintética — por rollo", "Rollo de 1,000 pies² de base sintética; un rollo cubre diez cuadros."],
+  it: ["Sottomanto sintetico — per rotolo", "Rotolo da 1.000 piedi quadri di sottomanto sintetico; un rotolo copre dieci square."],
+  de: ["Synthetische Unterdeckbahn — pro Rolle", "Rolle mit 1.000 sq ft synthetischer Unterdeckbahn; eine Rolle deckt zehn Squares."],
+  uk: ["Синтетична підкладка — за рулон", "Рулон синтетичної підкладки 1000 кв. футів; рулон покриває десять скверів."],
+  tl: ["Synthetic underlayment — kada rolyo", "1,000 sq ft na rolyo ng synthetic underlayment; ang isang rolyo ay sampung square."],
+}, { measurementKey: "squares" });
 
 const TEMPLATES = {
   // ── Installation ──
@@ -225,7 +235,7 @@ const TEMPLATES = {
       uk: ["Ендова — за пог. фут", "Протильодову мембрану та металеву ендову укладено вздовж кожної ендови."],
       tl: ["Valley flashing — kada linear ft", "Ice-and-water membrane at metal valley na ikinabit sa bawat valley."],
     }, { measurementKey: "valleyFt" }),
-    SHINGLES(), WASTE(140),
+    SHINGLES(), WASTE(),
     L.material(1, LF, 5.5, {
       en: ["Ridge cap shingles — per linear ft", "Pre-cut ridge cap shingles and ridge vent where the attic needs it."],
       fr: ["Bardeaux de faîte — au pi lin.", "Bardeaux de faîte précoupés et évent de faîte là où le grenier en a besoin."],
@@ -262,7 +272,7 @@ const TEMPLATES = {
       uk: ["Капельник на фронтонах — за пог. фут", "Капельник закріплено вздовж кожного фронтонного звису поверх підкладки."],
       tl: ["Drip edge sa rakes — kada linear ft", "Ikinabit ang drip edge sa bawat rake sa ibabaw ng underlayment."],
     }, { measurementKey: "rakeFt" }),
-    SHINGLES(), WASTE(140),
+    SHINGLES(), WASTE(), UNDERLAYMENT(),
   ], null),
 
   "fq.roofing_service.replace.metal": T("installation", {
@@ -299,7 +309,15 @@ const TEMPLATES = {
       uk: ["Фальцеві панелі — за сквер", "Фальцеві панелі з фарбованої сталі калібру 24, ширина 16 дюймів."],
       tl: ["Standing-seam panels — kada square", "24-gauge painted steel standing-seam panel, 16 in ang lapad."],
     }, { measurementKey: "squares" }),
-    WASTE(450),
+    L.material(1, SQ, 450, {
+      en: ["Waste allowance — panels, per square", "Extra panel for cuts at hips, valleys and edges: squares × the rate-card waste factor."],
+      fr: ["Allocation pour pertes — panneaux, au carré", "Panneaux supplémentaires pour les coupes aux arêtiers, noues et rives : carrés × facteur de perte."],
+      es: ["Provisión de desperdicio — paneles, por cuadro", "Panel extra para cortes en limatesas, limahoyas y bordes: cuadros × factor de desperdicio."],
+      it: ["Scorta per sfrido — pannelli, per square", "Pannelli in più per i tagli su displuvi, compluvi e bordi: square × fattore di sfrido."],
+      de: ["Verschnittzuschlag — Paneele, pro Square", "Zusätzliche Paneele für Schnitte an Graten, Kehlen und Rändern: Squares × Verschnittfaktor."],
+      uk: ["Запас на відходи — панелі, за сквер", "Додаткові панелі на підрізку на ребрах, ендовах і краях: сквери × коефіцієнт відходів."],
+      tl: ["Allowance para sa tabas — panel, kada square", "Dagdag na panel para sa tabas sa hip, valley at gilid: squares × waste factor."],
+    }, { measurementKey: "wastePct" }),
     L.material(1, LF, 9, {
       en: ["Ridge cap and closures — per linear ft", "Vented ridge cap, foam closures and fasteners."],
       fr: ["Faîtière et closoirs — au pi lin.", "Faîtière ventilée, closoirs en mousse et fixations."],

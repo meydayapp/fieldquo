@@ -3,7 +3,8 @@
 // The service list a handyman starts from — the benchmark's handyman book,
 // all ten headings. Read ./index.js for the format and the rules. Most rows
 // carried no pricing insight and seed unpriced.
-import { L, SHARED, D, T, withTemplates } from "./_templateLines";
+import { L, SHARED, D, T, withTemplates, hdMaterial } from "./_templateLines";
+import { HD } from "./_materialCosts";
 
 const BM = (low, median, high) => ({ low, median, high, currency: "USD", source: "benchmark", asOf: "2026-09-21" });
 const S = (seedKey, category, unit, benchmark, [en, fr, es], [den, dfr, des], extra = {}) => ({
@@ -805,14 +806,14 @@ const TEMPLATES = {
       uk: ["Видалення старого та нова герметизація — за пог. фут", "Старий герметик вирізано, стик очищено та нанесено новий шов."],
       tl: ["Pagtanggal at bagong caulk — kada linear ft", "Tinanggal ang sirang caulk, nilinis ang dugtungan at nilagyan ng bagong linya."],
     }, { measurementKey: "linearFt" }),
-    L.material(1, "linear_ft", 0.35, {
-      en: ["Exterior sealant — per linear ft", "Paintable elastomeric exterior sealant."],
-      fr: ["Scellant extérieur — au pi lin.", "Scellant extérieur élastomère peinturable."],
-      es: ["Sellador exterior — por pie lineal", "Sellador elastomérico exterior pintable."],
-      it: ["Sigillante da esterno — al piede lineare", "Sigillante elastomerico da esterno verniciabile."],
-      de: ["Außendichtstoff — pro lfd. Fuß", "Überstreichbarer elastischer Außendichtstoff."],
-      uk: ["Зовнішній герметик — за пог. фут", "Еластомерний зовнішній герметик під фарбування."],
-      tl: ["Panlabas na sealant — kada linear ft", "Paintable elastomeric na panlabas na sealant."],
+    hdMaterial(HD.caulk_tube, {
+      en: ["Caulk — per tube", "Paintable elastomeric sealant; one tube runs about 40 linear ft."],
+      fr: ["Calfeutrant — le tube", "Scellant élastomère peinturable; un tube fait environ 40 pi lin."],
+      es: ["Sellador — por tubo", "Sellador elastomérico pintable; un tubo rinde unos 40 pies lineales."],
+      it: ["Sigillante — per cartuccia", "Sigillante elastomerico verniciabile; una cartuccia fa circa 40 piedi lineari."],
+      de: ["Dichtstoff — pro Kartusche", "Überstreichbarer elastischer Dichtstoff; eine Kartusche reicht für etwa 40 lfd. Fuß."],
+      uk: ["Герметик — за тубу", "Еластичний герметик під фарбування; туба на близько 40 пог. футів."],
+      tl: ["Caulk — kada tubo", "Paintable na elastomeric sealant; ang isang tubo ay para sa mga 40 linear ft."],
     }, { measurementKey: "linearFt" }),
   ], null),
 
@@ -913,15 +914,15 @@ const TEMPLATES = {
       uk: ["Заміна дошки — за дошку", "Стару дошку знято, лагу перевірено, нову вирізано й закріплено."],
       tl: ["Palit ng tabla — kada tabla", "Tinanggal ang luma, chineck ang joist, pinutol at ikinabit ang bago."],
     }, { measurementKey: "each" }),
-    L.material(1, "each", 28, {
-      en: ["Pressure-treated deck board — per board", "5/4 × 6 in pressure-treated board, 12 ft, with deck screws."],
-      fr: ["Planche de bois traité — à la planche", "Planche traitée 5/4 × 6 po, 12 pi, avec vis à terrasse."],
-      es: ["Tabla tratada — por tabla", "Tabla tratada de 5/4 × 6 pulg, 12 pies, con tornillos para terraza."],
-      it: ["Tavola impregnata — per tavola", "Tavola impregnata 5/4 × 6 pollici, 12 piedi, con viti da deck."],
-      de: ["Druckimprägnierte Diele — pro Diele", "Druckimprägnierte Diele 5/4 × 6 Zoll, 12 Fuß, mit Terrassenschrauben."],
-      uk: ["Просочена дошка — за дошку", "Просочена дошка 5/4 × 6 дюймів, 12 футів, із шурупами для тераси."],
-      tl: ["Pressure-treated na tabla — kada tabla", "5/4 × 6 in pressure-treated na tabla, 12 ft, may deck screw."],
-    }, { measurementKey: "each" }),
+    L.material(1, "board", 9.73, {
+      en: ["Pressure-treated deck board — per board", "5/4 × 6 in pressure-treated board, 8 ft, with deck screws."],
+      fr: ["Planche de bois traité — à la planche", "Planche traitée 5/4 × 6 po, 8 pi, avec vis à terrasse."],
+      es: ["Tabla tratada — por tabla", "Tabla tratada de 5/4 × 6 pulg, 8 pies, con tornillos para terraza."],
+      it: ["Tavola impregnata — per tavola", "Tavola impregnata 5/4 × 6 pollici, 8 piedi, con viti da deck."],
+      de: ["Druckimprägnierte Diele — pro Diele", "Druckimprägnierte Diele 5/4 × 6 Zoll, 8 Fuß, mit Terrassenschrauben."],
+      uk: ["Просочена дошка — за дошку", "Просочена дошка 5/4 × 6 дюймів, 8 футів, із шурупами для тераси."],
+      tl: ["Pressure-treated na tabla — kada tabla", "5/4 × 6 in pressure-treated na tabla, 8 ft, may deck screw."],
+    }, { cost: 7.78, measurementKey: "each" }),
   ], null),
 
   "fq.handyman.exterior.deck_work": T("repair", {
@@ -957,15 +958,15 @@ const TEMPLATES = {
       uk: ["Ремонт секції паркану — за секцію", "Пошкоджену секцію відновлено або замінено й закріплено до стовпів."],
       tl: ["Pag-ayos ng panel ng bakod — kada panel", "Inayos o pinalitan ang sirang panel at ikinabit ulit sa poste."],
     }, { measurementKey: "each" }),
-    L.material(1, "each", 85, {
-      en: ["Fence boards and rails — per panel", "Pickets, rails and galvanised fasteners for one panel."],
-      fr: ["Planches et traverses — la section", "Planches, traverses et fixations galvanisées pour une section."],
-      es: ["Tablas y travesaños — por panel", "Tablas, travesaños y fijaciones galvanizadas para un panel."],
-      it: ["Tavole e correnti — per pannello", "Doghe, correnti e fissaggi zincati per un pannello."],
-      de: ["Zaunbretter und Riegel — pro Feld", "Latten, Riegel und verzinkte Befestiger für ein Feld."],
-      uk: ["Дошки та перекладини — за секцію", "Штахети, перекладини та оцинковане кріплення на одну секцію."],
-      tl: ["Tabla at rail ng bakod — kada panel", "Picket, rail at galvanized na fastener para sa isang panel."],
-    }, { measurementKey: "each" }),
+    L.material(1, "panel", 83.73, {
+      en: ["Privacy fence panel — per panel", "6 × 8 ft pressure-treated privacy panel with galvanised fasteners."],
+      fr: ["Panneau de clôture intimité — la section", "Panneau d'intimité en bois traité 6 × 8 pi avec fixations galvanisées."],
+      es: ["Panel de cerca de privacidad — por panel", "Panel de privacidad de madera tratada de 6 × 8 pies con fijaciones galvanizadas."],
+      it: ["Pannello frangivista — per pannello", "Pannello frangivista in legno impregnato 6 × 8 piedi con fissaggi zincati."],
+      de: ["Sichtschutzelement — pro Feld", "Druckimprägniertes Sichtschutzelement 6 × 8 Fuß mit verzinkten Befestigern."],
+      uk: ["Глуха секція паркану — за секцію", "Просочена глуха секція 6 × 8 футів з оцинкованим кріпленням."],
+      tl: ["Privacy fence panel — kada panel", "6 × 8 ft pressure-treated na privacy panel na may galvanized na fastener."],
+    }, { cost: 66.98, measurementKey: "each" }),
   ], null),
 
   "fq.handyman.flooring.floor_patch": T("repair", {
@@ -1149,14 +1150,14 @@ const TEMPLATES = {
       uk: ["Морилка та герметизація тераси — за кв. фут", "Терасу вимито, висушено й покрито морилкою чи герметиком."],
       tl: ["Stain at seal ng deck — kada sq ft", "Hinugasan, pinatuyo at nilagyan ng stain o sealer ang deck."],
     }, { measurementKey: "areaSqFt" }),
-    L.material(1, "sqft", 0.6, {
-      en: ["Deck stain — per sq ft", "Semi-transparent penetrating deck stain."],
-      fr: ["Teinture à terrasse — au pi²", "Teinture pénétrante semi-transparente."],
-      es: ["Tinte para terraza — por pie²", "Tinte penetrante semitransparente."],
-      it: ["Impregnante per deck — al piede quadro", "Impregnante penetrante semitrasparente."],
-      de: ["Terrassenbeize — pro sq ft", "Halbtransparente, eindringende Terrassenbeize."],
-      uk: ["Морилка для тераси — за кв. фут", "Напівпрозора проникна морилка."],
-      tl: ["Deck stain — kada sq ft", "Semi-transparent na penetrating deck stain."],
+    hdMaterial(HD.deck_stain_gal, {
+      en: ["Deck stain — per gallon", "Semi-transparent penetrating stain; one gallon covers about 200 sq ft."],
+      fr: ["Teinture pour terrasse — au gallon", "Teinture pénétrante semi-transparente; un gallon couvre environ 200 pi²."],
+      es: ["Tinte para terraza — por galón", "Tinte penetrante semitransparente; un galón cubre unos 200 pies²."],
+      it: ["Impregnante per deck — al gallone", "Impregnante penetrante semitrasparente; un gallone copre circa 200 piedi quadri."],
+      de: ["Terrassenbeize — pro Gallone", "Halbtransparente, eindringende Beize; eine Gallone reicht für etwa 200 sq ft."],
+      uk: ["Морилка для тераси — за галон", "Напівпрозора проникна морилка; галон покриває близько 200 кв. футів."],
+      tl: ["Deck stain — kada galon", "Semi-transparent na penetrating stain; ang isang galon ay para sa mga 200 sq ft."],
     }, { measurementKey: "areaSqFt" }),
   ], null),
 

@@ -7,7 +7,8 @@
 // row overlaps a trade FieldQuo already prices structurally (roofing, siding,
 // gutters, insulation, cabinets), `existing` points there; the general
 // contractor's own row still seeds, because a GC quotes the whole job.
-import { L, SHARED, D, T, withTemplates } from "./_templateLines";
+import { L, SHARED, D, T, withTemplates, hdMaterial } from "./_templateLines";
+import { HD } from "./_materialCosts";
 
 const BM = (low, median, high) => ({ low, median, high, currency: "USD", source: "benchmark", asOf: "2026-09-21" });
 const S = (seedKey, category, unit, benchmark, [en, fr, es], [den, dfr, des], extra = {}) => ({
@@ -796,14 +797,32 @@ const TEMPLATES = {
       tl: ["Patch at finish ng drywall — kada sq ft", "Pinutol ang sirang board, nilagyan ng bago, tinape, tinapalan ng tatlong patong at hinasa para sa pintura."],
     }, { measurementKey: "areaSqFt" }),
     SHARED.haulAway(75),
-    L.material(1, "sqft", 1.5, {
-      en: ["Drywall, tape and compound — per sq ft", "Board, paper tape, setting compound and screws."],
-      fr: ["Gypse, ruban et composé — au pi²", "Panneau, ruban de papier, composé à prise et vis."],
-      es: ["Panel, cinta y pasta — por pie²", "Panel, cinta de papel, pasta de fraguado y tornillos."],
-      it: ["Cartongesso, nastro e stucco — al piede quadro", "Lastra, nastro di carta, stucco a presa e viti."],
-      de: ["Platte, Band und Spachtel — pro sq ft", "Gipsplatte, Papierband, Ansetzspachtel und Schrauben."],
-      uk: ["Гіпсокартон, стрічка та шпаклівка — за кв. фут", "Лист, паперова стрічка, шпаклівка та саморізи."],
-      tl: ["Drywall, tape at compound — kada sq ft", "Board, paper tape, setting compound at turnilyo."],
+    hdMaterial(HD.drywall_half_4x8, {
+      en: ["Drywall sheet — 1/2 in 4 × 8", "Lightweight 1/2 in board; one sheet covers 32 sq ft."],
+      fr: ["Panneau de gypse — 1/2 po 4 × 8", "Panneau léger de 1/2 po; une feuille couvre 32 pi²."],
+      es: ["Panel de yeso — 1/2 pulg 4 × 8", "Panel ligero de 1/2 pulg; una hoja cubre 32 pies²."],
+      it: ["Lastra di cartongesso — 1/2 pollice 4 × 8", "Lastra leggera da 1/2 pollice; una lastra copre 32 piedi quadri."],
+      de: ["Gipsplatte — 1/2 Zoll 4 × 8", "Leichte 1/2-Zoll-Platte; eine Platte deckt 32 sq ft."],
+      uk: ["Гіпсокартон — 1/2 дюйма 4 × 8", "Легкий лист 1/2 дюйма; лист покриває 32 кв. фути."],
+      tl: ["Drywall sheet — 1/2 in 4 × 8", "Magaan na 1/2 in na board; ang isang sheet ay 32 sq ft."],
+    }, { measurementKey: "areaSqFt" }),
+    hdMaterial(HD.joint_compound, {
+      en: ["Joint compound — per pail", "All-purpose ready-mix, 4.5 gal; about 350 sq ft of board in three coats."],
+      fr: ["Composé à joints — la chaudière", "Prêt à l'emploi tout usage, 4,5 gal; environ 350 pi² de panneau en trois couches."],
+      es: ["Pasta para juntas — por cubeta", "Premezclada multiuso, 4.5 gal; unos 350 pies² de panel a tres manos."],
+      it: ["Stucco per giunti — per secchio", "Pronto all'uso multiuso, 4,5 galloni; circa 350 piedi quadri di lastra in tre mani."],
+      de: ["Fugenspachtel — pro Eimer", "Gebrauchsfertiger Allzweckspachtel, 4,5 gal; etwa 350 sq ft Platte in drei Lagen."],
+      uk: ["Шпаклівка для швів — за відро", "Готова універсальна, 4,5 галона; близько 350 кв. футів листа у три шари."],
+      tl: ["Joint compound — kada timba", "All-purpose ready-mix, 4.5 gal; mga 350 sq ft ng board sa tatlong patong."],
+    }, { measurementKey: "areaSqFt" }),
+    hdMaterial(HD.drywall_tape, {
+      en: ["Paper joint tape — per roll", "500 ft roll; enough for about 13 sheets of board."],
+      fr: ["Ruban à joints en papier — le rouleau", "Rouleau de 500 pi; assez pour environ 13 panneaux."],
+      es: ["Cinta de papel para juntas — por rollo", "Rollo de 500 pies; alcanza para unas 13 hojas."],
+      it: ["Nastro di carta per giunti — per rotolo", "Rotolo da 500 piedi; basta per circa 13 lastre."],
+      de: ["Papierfugenband — pro Rolle", "500-Fuß-Rolle; reicht für etwa 13 Platten."],
+      uk: ["Паперова стрічка для швів — за рулон", "Рулон 500 футів; вистачає приблизно на 13 листів."],
+      tl: ["Paper joint tape — kada rolyo", "500 ft na rolyo; sapat para sa mga 13 sheet."],
     }, { measurementKey: "areaSqFt" }),
   ], null),
 
@@ -921,14 +940,32 @@ const TEMPLATES = {
       uk: ["Робота — укладання плитки, за кв. фут", "Плитку викладено на підготовлену гідроізольовану основу, зафуговано та загерметизовано на стиках площин."],
       tl: ["Labor — pag-tile, kada sq ft", "Inilagay ang tile sa inihanda at waterproofed na base, ginrout at kinaulk sa mga kanto."],
     }, { measurementKey: "areaSqFt" }),
-    L.material(1, "sqft", 3.5, {
-      en: ["Thinset, grout and waterproofing — per sq ft", "Modified thinset, grout, silicone and the waterproofing membrane."],
-      fr: ["Ciment-colle, coulis et imperméabilisation — au pi²", "Ciment-colle modifié, coulis, silicone et membrane d'étanchéité."],
-      es: ["Adhesivo, lechada e impermeabilización — por pie²", "Adhesivo modificado, lechada, silicón y membrana impermeable."],
-      it: ["Colla, stucco e impermeabilizzazione — al piede quadro", "Colla modificata, stucco, silicone e membrana impermeabilizzante."],
-      de: ["Kleber, Fugenmasse und Abdichtung — pro sq ft", "Flexkleber, Fugenmasse, Silikon und Abdichtungsbahn."],
-      uk: ["Клей, фуга та гідроізоляція — за кв. фут", "Модифікований клей, фуга, силікон і гідроізоляційна мембрана."],
-      tl: ["Thinset, grout at waterproofing — kada sq ft", "Modified thinset, grout, silicone at waterproofing membrane."],
+    hdMaterial(HD.thinset_50lb, {
+      en: ["Thinset mortar — per bag", "Modified thinset, 50 lb; one bag sets about 95 sq ft with a 1/4 in notch."],
+      fr: ["Ciment-colle — le sac", "Ciment-colle modifié, 50 lb; un sac pose environ 95 pi² à la truelle de 1/4 po."],
+      es: ["Adhesivo para azulejo — por bulto", "Adhesivo modificado, 50 lb; un bulto asienta unos 95 pies² con llana de 1/4 pulg."],
+      it: ["Colla per piastrelle — al sacco", "Colla modificata, 50 lb; un sacco posa circa 95 piedi quadri con spatola da 1/4 di pollice."],
+      de: ["Fliesenkleber — pro Sack", "Flexkleber, 50 lb; ein Sack reicht für etwa 95 sq ft mit 1/4-Zoll-Zahnung."],
+      uk: ["Клей для плитки — за мішок", "Модифікований клей, 50 фунтів; мішок на близько 95 кв. футів гребінкою 1/4 дюйма."],
+      tl: ["Thinset — kada sako", "Modified thinset, 50 lb; ang isang sako ay para sa mga 95 sq ft sa 1/4 in na notch."],
+    }, { measurementKey: "areaSqFt" }),
+    hdMaterial(HD.grout_25lb, {
+      en: ["Sanded grout — per bag", "Sanded grout, 25 lb; one bag fills about 150 sq ft of joints."],
+      fr: ["Coulis sablé — le sac", "Coulis sablé, 25 lb; un sac jointoie environ 150 pi²."],
+      es: ["Lechada con arena — por bulto", "Lechada con arena, 25 lb; un bulto rellena unos 150 pies² de juntas."],
+      it: ["Stucco sabbiato — al sacco", "Stucco sabbiato, 25 lb; un sacco riempie circa 150 piedi quadri di fughe."],
+      de: ["Fugenmasse mit Sand — pro Sack", "Sandhaltige Fugenmasse, 25 lb; ein Sack reicht für etwa 150 sq ft Fugen."],
+      uk: ["Фуга з піском — за мішок", "Фуга з піском, 25 фунтів; мішок на близько 150 кв. футів швів."],
+      tl: ["Sanded grout — kada sako", "Sanded grout, 25 lb; ang isang sako ay para sa mga 150 sq ft ng joint."],
+    }, { measurementKey: "areaSqFt" }),
+    L.material(1, "sqft", 1.8, {
+      en: ["Waterproofing membrane — per sq ft", "Sheet or liquid waterproofing over the shower walls and floor."],
+      fr: ["Membrane d'étanchéité — au pi²", "Membrane en feuille ou liquide sur les murs et le plancher de la douche."],
+      es: ["Membrana impermeable — por pie²", "Membrana en lámina o líquida sobre muros y piso de la regadera."],
+      it: ["Membrana impermeabilizzante — al piede quadro", "Guaina in foglio o liquida su pareti e pavimento della doccia."],
+      de: ["Abdichtungsbahn — pro sq ft", "Bahnen- oder Flüssigabdichtung auf Duschwänden und -boden."],
+      uk: ["Гідроізоляційна мембрана — за кв. фут", "Листова або рідка гідроізоляція на стіни й підлогу душу."],
+      tl: ["Waterproofing membrane — kada sq ft", "Sheet o liquid na waterproofing sa pader at sahig ng shower."],
     }, { measurementKey: "areaSqFt" }),
   ], null),
 
