@@ -109,8 +109,14 @@
 
 import { DEFAULT_MATERIAL_MARKUP } from "./_materialCosts";
 
-export const TEMPLATE_LANGUAGES = ["fr", "es", "it", "de", "uk", "tl"];
-const ALL_LANGUAGES = ["en", ...TEMPLATE_LANGUAGES];
+// The eight languages FieldQuo sends documents in (lib/i18n/documentLabels.js):
+// every seed string — category, service name and description, template line,
+// discount name — is written in all of them. `pa` is Punjabi in Gurmukhi.
+export const SEED_DOCUMENT_LANGUAGES = ["en", "fr", "es", "it", "de", "uk", "pa", "tl"];
+export const TEMPLATE_LANGUAGES = ["fr", "es", "it", "de", "uk", "pa", "tl"];
+// A line's text is authored with en/fr/es/it/de/uk/tl inline; Punjabi (and any
+// language a file adds later) may come from the trade's i18n file instead.
+const INLINE_LANGUAGES = ["en", "fr", "es", "it", "de", "uk", "tl"];
 export const TEMPLATE_KINDS = ["installation", "repair", "inspection", "maintenance"];
 export const LINE_KINDS = ["labour", "material", "other"];
 export const LINE_UNITS = ["flat", "each", "hour", "sqft", "linear_ft", "square",
@@ -152,7 +158,7 @@ const fail = (msg) => {
 /** `text` is { en: [name, description], fr: [...], … } — all seven, checked. */
 function checkText(text, where) {
   if (!text || typeof text !== "object") fail(`${where}: text is not an object`);
-  for (const lang of ALL_LANGUAGES) {
+  for (const lang of INLINE_LANGUAGES) {
     const t = text[lang];
     if (!Array.isArray(t) || t.length !== 2) fail(`${where}: ${lang} must be [name, description]`);
     if (typeof t[0] !== "string" || !t[0].trim()) fail(`${where}: ${lang} name is empty`);
@@ -262,6 +268,7 @@ const TXT = {
     it: ["Uscita e trasferta", "Tecnico inviato sul posto; copre il viaggio e la prima verifica del problema."],
     de: ["Anfahrt und Serviceeinsatz", "Techniker vor Ort; deckt die Anfahrt und die erste Sichtung des Problems ab."],
     uk: ["Виклик майстра та виїзд", "Виїзд техніка на об'єкт; включає дорогу та первинний огляд проблеми."],
+    pa: ["ਸਰਵਿਸ ਕਾਲ ਅਤੇ ਆਉਣ-ਜਾਣ", "ਟੈਕਨੀਸ਼ੀਅਨ ਨੂੰ ਘਰ ਭੇਜਿਆ ਜਾਂਦਾ ਹੈ; ਇਸ ਵਿੱਚ ਆਉਣ-ਜਾਣ ਅਤੇ ਸਮੱਸਿਆ ਦੀ ਪਹਿਲੀ ਜਾਂਚ ਸ਼ਾਮਲ ਹੈ।"],
     tl: ["Service call at biyahe", "Pagpapadala ng technician sa bahay; kasama ang biyahe at unang tingin sa problema."],
   },
   diagnostic: {
@@ -271,6 +278,7 @@ const TXT = {
     it: ["Visita diagnostica", "Un tecnico viene a casa, individua la causa del problema e spiega l'intervento prima di eseguirlo."],
     de: ["Diagnosebesuch", "Ein Techniker kommt ins Haus, findet die Ursache und erklärt die Reparatur, bevor sie ausgeführt wird."],
     uk: ["Діагностичний візит", "Технік приїжджає додому, знаходить причину проблеми та пояснює ремонт до його початку."],
+    pa: ["ਡਾਇਗਨੌਸਟਿਕ ਵਿਜ਼ਿਟ", "ਟੈਕਨੀਸ਼ੀਅਨ ਘਰ ਆ ਕੇ ਸਮੱਸਿਆ ਦਾ ਕਾਰਨ ਲੱਭਦਾ ਹੈ ਅਤੇ ਮੁਰੰਮਤ ਤੋਂ ਪਹਿਲਾਂ ਹੱਲ ਸਮਝਾਉਂਦਾ ਹੈ।"],
     tl: ["Diagnostic visit", "Pupunta ang technician sa bahay, hahanapin ang sanhi ng problema at ipapaliwanag ang ayos bago gawin."],
   },
   removeOld: {
@@ -280,6 +288,7 @@ const TXT = {
     it: ["Smontaggio e smaltimento del vecchio apparecchio", "Apparecchio esistente scollegato, rimosso e portato allo smaltimento."],
     de: ["Ausbau und Entsorgung des Altgeräts", "Bestehendes Gerät abgeklemmt, ausgebaut und zur Entsorgung abtransportiert."],
     uk: ["Демонтаж та утилізація старого обладнання", "Наявне обладнання від'єднано, демонтовано та вивезено на утилізацію."],
+    pa: ["ਪੁਰਾਣੀ ਯੂਨਿਟ ਹਟਾਉਣਾ ਅਤੇ ਨਿਪਟਾਰਾ", "ਮੌਜੂਦਾ ਯੂਨਿਟ ਨੂੰ ਡਿਸਕਨੈਕਟ ਕਰਕੇ ਹਟਾਇਆ ਅਤੇ ਨਿਪਟਾਰੇ ਲਈ ਲਿਜਾਇਆ ਜਾਂਦਾ ਹੈ।"],
     tl: ["Pagtanggal at pagtapon ng lumang unit", "Tinanggal at hinakot ang lumang unit para itapon."],
   },
   haulAway: {
@@ -289,6 +298,7 @@ const TXT = {
     it: ["Rimozione detriti e pulizia", "Area di lavoro pulita e tutti i detriti portati via dalla proprietà."],
     de: ["Schuttabfuhr und Reinigung", "Arbeitsbereich gereinigt und sämtlicher Schutt vom Grundstück entfernt."],
     uk: ["Вивезення сміття та прибирання", "Робоча зона прибрана, усе сміття вивезено з ділянки."],
+    pa: ["ਮਲਬਾ ਚੁੱਕਣਾ ਅਤੇ ਸਫ਼ਾਈ", "ਕੰਮ ਵਾਲੀ ਥਾਂ ਸਾਫ਼ ਕੀਤੀ ਅਤੇ ਸਾਰਾ ਮਲਬਾ ਜਾਇਦਾਦ ਤੋਂ ਹਟਾਇਆ ਜਾਂਦਾ ਹੈ।"],
     tl: ["Paghakot ng debris at paglilinis", "Nilinis ang pinagtrabahuan at hinakot lahat ng debris mula sa property."],
   },
   techHour: {
@@ -298,6 +308,7 @@ const TXT = {
     it: ["Manodopera — tecnico", "Manodopera qualificata fatturata a ore, un tecnico."],
     de: ["Arbeitszeit — Techniker", "Fachkraft, abgerechnet nach Stunden, ein Techniker."],
     uk: ["Робота техніка", "Кваліфікована праця з погодинною оплатою, один технік."],
+    pa: ["ਟੈਕਨੀਸ਼ੀਅਨ ਲੇਬਰ", "ਹੁਨਰਮੰਦ ਲੇਬਰ, ਇੱਕ ਟੈਕਨੀਸ਼ੀਅਨ, ਘੰਟੇ ਦੇ ਹਿਸਾਬ ਨਾਲ।"],
     tl: ["Labor — technician", "Skilled labor na sinisingil kada oras, isang technician."],
   },
   helperHour: {
@@ -307,6 +318,7 @@ const TXT = {
     it: ["Manodopera — aiutante", "Seconda persona della squadra, fatturata a ore."],
     de: ["Arbeitszeit — Helfer", "Zweite Person im Team, abgerechnet nach Stunden."],
     uk: ["Робота помічника", "Друга людина в бригаді, погодинна оплата."],
+    pa: ["ਹੈਲਪਰ ਲੇਬਰ", "ਟੀਮ ਦਾ ਦੂਜਾ ਬੰਦਾ, ਘੰਟੇ ਦੇ ਹਿਸਾਬ ਨਾਲ।"],
     tl: ["Labor — helper", "Pangalawang tao sa crew, sinisingil kada oras."],
   },
   permit: {
@@ -316,6 +328,7 @@ const TXT = {
     it: ["Permesso e coordinamento del collaudo", "Permesso richiesto e collaudo comunale prenotato per conto del cliente."],
     de: ["Genehmigung und Abnahmekoordination", "Genehmigung eingeholt und die behördliche Abnahme im Namen des Kunden terminiert."],
     uk: ["Дозвіл та узгодження перевірки", "Отримання дозволу та запис на муніципальну перевірку від імені клієнта."],
+    pa: ["ਪਰਮਿਟ ਅਤੇ ਇੰਸਪੈਕਸ਼ਨ ਦਾ ਪ੍ਰਬੰਧ", "ਗਾਹਕ ਵੱਲੋਂ ਪਰਮਿਟ ਲਿਆ ਅਤੇ ਨਗਰਪਾਲਿਕਾ ਦੀ ਇੰਸਪੈਕਸ਼ਨ ਬੁੱਕ ਕੀਤੀ ਜਾਂਦੀ ਹੈ।"],
     tl: ["Permit at pag-schedule ng inspeksyon", "Kinuha ang permit at in-schedule ang inspeksyon ng munisipyo para sa kliyente."],
   },
   protect: {
@@ -325,6 +338,7 @@ const TXT = {
     it: ["Protezione dei locali e preparazione", "Pavimenti, mobili e arredi coperti prima dell'inizio dei lavori."],
     de: ["Abdecken und Einrichten der Baustelle", "Böden, Möbel und Einrichtung vor Arbeitsbeginn abgedeckt."],
     uk: ["Захист приміщення та підготовка", "Підлога, меблі та обладнання накриті перед початком робіт."],
+    pa: ["ਥਾਂ ਦੀ ਸੁਰੱਖਿਆ ਅਤੇ ਤਿਆਰੀ", "ਕੰਮ ਸ਼ੁਰੂ ਹੋਣ ਤੋਂ ਪਹਿਲਾਂ ਫ਼ਰਸ਼, ਫ਼ਰਨੀਚਰ ਅਤੇ ਫ਼ਿਕਸਚਰ ਢੱਕੇ ਜਾਂਦੇ ਹਨ।"],
     tl: ["Proteksyon at paghahanda ng lugar", "Tinakpan ang sahig, muwebles at fixtures bago magsimula ang trabaho."],
   },
   report: {
@@ -334,6 +348,7 @@ const TXT = {
     it: ["Relazione scritta con foto", "Rilievi documentati con foto e un elenco di raccomandazioni in ordine di priorità."],
     de: ["Schriftlicher Bericht mit Fotos", "Befunde mit Fotos dokumentiert und eine nach Dringlichkeit geordnete Empfehlungsliste."],
     uk: ["Письмовий звіт із фото", "Результати задокументовано з фото та переліком рекомендацій за пріоритетом."],
+    pa: ["ਫ਼ੋਟੋਆਂ ਸਮੇਤ ਲਿਖਤੀ ਰਿਪੋਰਟ", "ਨਤੀਜੇ ਫ਼ੋਟੋਆਂ ਨਾਲ ਦਰਜ ਅਤੇ ਤਰਜੀਹ ਅਨੁਸਾਰ ਸਿਫ਼ਾਰਸ਼ਾਂ ਦੀ ਸੂਚੀ।"],
     tl: ["Nakasulat na report na may litrato", "Naka-dokumento ang nakita, may litrato at listahan ng rekomendasyon ayon sa priyoridad."],
   },
   walkthrough: {
@@ -343,6 +358,7 @@ const TXT = {
     it: ["Sopralluogo finale", "Lavoro finito esaminato con il cliente prima che la squadra vada via."],
     de: ["Abschlussbegehung", "Die fertige Arbeit mit dem Kunden durchgesehen, bevor das Team abrückt."],
     uk: ["Фінальний огляд із клієнтом", "Виконану роботу переглянуто з клієнтом до від'їзду бригади."],
+    pa: ["ਆਖ਼ਰੀ ਵਾਕ-ਥਰੂ", "ਟੀਮ ਦੇ ਜਾਣ ਤੋਂ ਪਹਿਲਾਂ ਮੁਕੰਮਲ ਕੰਮ ਗਾਹਕ ਨਾਲ ਦੇਖਿਆ ਜਾਂਦਾ ਹੈ।"],
     tl: ["Final walkthrough", "Sinuri kasama ang kliyente ang natapos na trabaho bago umalis ang crew."],
   },
   testing: {
@@ -352,6 +368,7 @@ const TXT = {
     it: ["Prove e messa in servizio", "Impianto installato avviato, collaudato e regolato; il cliente istruito sull'uso."],
     de: ["Prüfung und Inbetriebnahme", "Die Anlage in Betrieb genommen, geprüft und eingestellt; der Kunde eingewiesen."],
     uk: ["Випробування та введення в експлуатацію", "Встановлене обладнання запущено, перевірено й налаштовано; клієнту показано, як користуватися."],
+    pa: ["ਟੈਸਟਿੰਗ ਅਤੇ ਚਾਲੂ ਕਰਨਾ", "ਲਗਾਇਆ ਉਪਕਰਣ ਚਲਾ ਕੇ ਟੈਸਟ ਅਤੇ ਸੈੱਟ ਕੀਤਾ, ਅਤੇ ਗਾਹਕ ਨੂੰ ਵਰਤੋਂ ਦੱਸੀ ਜਾਂਦੀ ਹੈ।"],
     tl: ["Testing at pag-commission", "Pinaandar, sinubukan at in-set up ang bagong kagamitan, at tinuruan ang kliyente."],
   },
   consumables: {
@@ -361,6 +378,7 @@ const TXT = {
     it: ["Viti, sigillante e materiale di consumo", "Viti, tasselli, sigillante, nastro e la minuteria che un lavoro consuma."],
     de: ["Befestigungsmaterial, Dichtstoff und Verbrauchsmaterial", "Schrauben, Dübel, Dichtstoff, Klebeband und die Kleinteile, die ein Auftrag verbraucht."],
     uk: ["Кріплення, герметик і витратні матеріали", "Шурупи, анкери, герметик, стрічка та дрібні деталі, які витрачаються на роботі."],
+    pa: ["ਪੇਚ, ਸੀਲੈਂਟ ਅਤੇ ਖਪਤ ਵਾਲਾ ਸਮਾਨ", "ਪੇਚ, ਐਂਕਰ, ਸੀਲੈਂਟ, ਟੇਪ ਅਤੇ ਕੰਮ ਵਿੱਚ ਲੱਗਣ ਵਾਲੇ ਛੋਟੇ ਪੁਰਜ਼ੇ।"],
     tl: ["Turnilyo, sealant at consumables", "Turnilyo, anchor, sealant, tape at maliliit na parte na nauubos sa trabaho."],
   },
   disposalFee: {
@@ -370,6 +388,7 @@ const TXT = {
     it: ["Costo di smaltimento", "Tariffa della discarica, addebitata al costo."],
     de: ["Entsorgungsgebühr", "Gebühr der Umladestation, zum Selbstkostenpreis weitergegeben."],
     uk: ["Плата за утилізацію", "Плата за приймання відходів на станції, за собівартістю."],
+    pa: ["ਨਿਪਟਾਰਾ ਫ਼ੀਸ", "ਟ੍ਰਾਂਸਫ਼ਰ ਸਟੇਸ਼ਨ ਦੀ ਫ਼ੀਸ, ਲਾਗਤ ਮੁੱਲ 'ਤੇ।"],
     tl: ["Bayad sa pagtapon", "Bayad sa transfer station, ipinapasa sa kliyente sa cost."],
   },
   binRental: {
@@ -379,6 +398,7 @@ const TXT = {
     it: ["Noleggio cassone", "Cassone consegnato per il lavoro e ritirato a fine lavori."],
     de: ["Containermiete", "Container für die Baustelle geliefert und nach Abschluss abgeholt."],
     uk: ["Оренда контейнера", "Контейнер доставлено на час робіт і забрано після завершення."],
+    pa: ["ਬਿਨ ਕਿਰਾਇਆ", "ਕੰਮ ਲਈ ਰੋਲ-ਆਫ਼ ਬਿਨ ਪਹੁੰਚਾਇਆ ਅਤੇ ਕੰਮ ਮੁੱਕਣ 'ਤੇ ਚੁੱਕਿਆ ਜਾਂਦਾ ਹੈ।"],
     tl: ["Renta ng bin", "Roll-off bin na dinala para sa trabaho at kinuha pagkatapos."],
   },
   materialsAllowance: {
@@ -388,6 +408,7 @@ const TXT = {
     it: ["Stanziamento per materiali", "Importo previsto per i materiali, conguagliato in fattura sugli scontrini."],
     de: ["Materialpauschale", "Pauschale für Material, auf der Rechnung anhand der Belege abgerechnet."],
     uk: ["Резерв на матеріали", "Сума на матеріали, яка уточнюється в рахунку за чеками."],
+    pa: ["ਸਮਾਨ ਲਈ ਅਲਾਊਂਸ", "ਸਮਾਨ ਲਈ ਰਕਮ, ਇਨਵੌਇਸ 'ਤੇ ਰਸੀਦਾਂ ਮੁਤਾਬਕ ਠੀਕ ਕੀਤੀ ਜਾਂਦੀ ਹੈ।"],
     tl: ["Allowance para sa materyales", "Allowance para sa materyales, ia-adjust sa invoice base sa resibo."],
   },
 };
@@ -413,11 +434,11 @@ export const SHARED = {
 // ── Discounts ──────────────────────────────────────────────────────────────
 
 const DISCOUNT_NAMES = {
-  newCustomer: { en: "New customer discount", fr: "Rabais nouveau client", es: "Descuento cliente nuevo", it: "Sconto nuovo cliente", de: "Neukundenrabatt", uk: "Знижка для нового клієнта", tl: "Discount para sa bagong kliyente" },
-  regular: { en: "Regular customer discount", fr: "Rabais client fidèle", es: "Descuento cliente frecuente", it: "Sconto cliente abituale", de: "Stammkundenrabatt", uk: "Знижка для постійного клієнта", tl: "Discount para sa suki" },
-  seasonal: { en: "Seasonal discount", fr: "Rabais saisonnier", es: "Descuento de temporada", it: "Sconto stagionale", de: "Saisonrabatt", uk: "Сезонна знижка", tl: "Seasonal discount" },
-  bundle: { en: "Bundle discount", fr: "Rabais de regroupement", es: "Descuento por paquete", it: "Sconto pacchetto", de: "Paketrabatt", uk: "Знижка за пакет послуг", tl: "Bundle discount" },
-  senior: { en: "Senior discount", fr: "Rabais aînés", es: "Descuento para adultos mayores", it: "Sconto over 65", de: "Seniorenrabatt", uk: "Знижка для пенсіонерів", tl: "Senior discount" },
+  newCustomer: { en: "New customer discount", fr: "Rabais nouveau client", es: "Descuento cliente nuevo", it: "Sconto nuovo cliente", de: "Neukundenrabatt", uk: "Знижка для нового клієнта", pa: "ਨਵੇਂ ਗਾਹਕ ਲਈ ਛੋਟ", tl: "Discount para sa bagong kliyente" },
+  regular: { en: "Regular customer discount", fr: "Rabais client fidèle", es: "Descuento cliente frecuente", it: "Sconto cliente abituale", de: "Stammkundenrabatt", uk: "Знижка для постійного клієнта", pa: "ਪੱਕੇ ਗਾਹਕ ਲਈ ਛੋਟ", tl: "Discount para sa suki" },
+  seasonal: { en: "Seasonal discount", fr: "Rabais saisonnier", es: "Descuento de temporada", it: "Sconto stagionale", de: "Saisonrabatt", uk: "Сезонна знижка", pa: "ਮੌਸਮੀ ਛੋਟ", tl: "Seasonal discount" },
+  bundle: { en: "Bundle discount", fr: "Rabais de regroupement", es: "Descuento por paquete", it: "Sconto pacchetto", de: "Paketrabatt", uk: "Знижка за пакет послуг", pa: "ਬੰਡਲ ਛੋਟ", tl: "Bundle discount" },
+  senior: { en: "Senior discount", fr: "Rabais aînés", es: "Descuento para adultos mayores", it: "Sconto over 65", de: "Seniorenrabatt", uk: "Знижка для пенсіонерів", pa: "ਸੀਨੀਅਰ ਨਾਗਰਿਕ ਛੋਟ", tl: "Senior discount" },
 };
 
 function discount(key, kind, amount) {
@@ -451,6 +472,7 @@ export function T(kind, names, lines, discount = null, { categories, estimateTyp
     const t = names?.[lang];
     if (!Array.isArray(t) || t.length !== 2 || !t[0] || typeof t[1] !== "string") fail(`service ${lang} must be [name, description]`);
   }
+  if (names?.pa !== undefined && !(Array.isArray(names.pa) && names.pa[0])) fail("service pa must be [name, description]");
   if (categories !== undefined && !(Array.isArray(categories) && categories.length && categories.every((c) => SLUG.test(c)))) fail("categories must be a non-empty list of ServiceCategory keys");
   if (estimateTypes !== undefined && !(Array.isArray(estimateTypes) && estimateTypes.every((e) => PAINT_ESTIMATE_TYPE_KEYS.includes(e)))) fail(`estimateTypes must be from ${PAINT_ESTIMATE_TYPE_KEYS.join("/")}`);
   return { kind, names, lines, discount, categories, estimateTypes };
@@ -534,6 +556,38 @@ const ordered = (min, median, max) => ({
   max: Math.max(max, median),
 });
 
+// Per-trade language files (./i18n/<trade>.js) supply the languages a trade
+// file does not write inline: category names, service names and descriptions,
+// and line text keyed by the English line name. Kept per seed object so
+// withTemplates can read the line text when it builds the translations.
+const LINE_I18N = new WeakMap();
+
+/**
+ * Merge a trade's language file into its seed, filling only languages the
+ * seed does not already carry — a string written inline always wins.
+ *   i18n = { categories: { key: { it, de, uk, pa, tl } },
+ *            services: { seedKey: { lang: [name, description] } },
+ *            lines: { "<English line name>": { lang: [name, description] } } }
+ */
+export function withLanguages(seed, i18n = {}) {
+  for (const c of seed.categories || []) {
+    const add = i18n.categories?.[c.key];
+    if (add) for (const [lang, v] of Object.entries(add)) if (v && !c.name[lang]) c.name[lang] = v;
+  }
+  const byKey = new Map((seed.services || []).map((s) => [s.seedKey, s]));
+  for (const [key, langs] of Object.entries(i18n.services || {})) {
+    const s = byKey.get(key);
+    if (!s) fail(`${seed.trade}: language entry for unknown service ${key}`);
+    for (const [lang, pair] of Object.entries(langs)) {
+      if (!Array.isArray(pair) || !pair[0]) fail(`${key}: ${lang} must be [name, description]`);
+      if (!s.name[lang]) s.name[lang] = pair[0];
+      if (!s.description[lang]) s.description[lang] = pair[1] || "";
+    }
+  }
+  LINE_I18N.set(seed, i18n.lines || {});
+  return seed;
+}
+
 /**
  * Tag rows with the other quote types that sell them — ONE canonical row per
  * shared service (caulking, gutter cleaning, a dryer vent), installed for
@@ -588,13 +642,18 @@ export function withTemplates(seed, templates) {
       ? { name: DISCOUNT_NAMES[t.discount.key].en, kind: t.discount.kind, amount: t.discount.amount }
       : null;
     const translations = {};
+    const lineI18n = LINE_I18N.get(seed) || {};
+    const lineText = (l, lang) => l.text[lang] || lineI18n[l.text.en[0]]?.[lang] || null;
     for (const lang of TEMPLATE_LANGUAGES) {
       const own = s.name?.[lang] && s.description?.[lang] ? [s.name[lang], s.description[lang]] : t.names[lang];
-      if (!own) fail(`${s.seedKey}: no ${lang} name`);
+      const lines = t.lines.map((l) => lineText(l, lang));
+      // A language with a missing service name or line is left out whole —
+      // never a half-translated template; check:seed-languages fails on it.
+      if (!own || lines.some((x) => !x)) continue;
       translations[lang] = {
         name: own[0],
         description: own[1],
-        templateLines: t.lines.map((l) => ({ name: l.text[lang][0], description: l.text[lang][1] })),
+        templateLines: lines.map((x) => ({ name: x[0], description: x[1] })),
         ...(t.discount ? { defaultDiscountName: DISCOUNT_NAMES[t.discount.key][lang] } : {}),
       };
     }

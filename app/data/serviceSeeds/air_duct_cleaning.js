@@ -12,8 +12,9 @@
 // those lines are keyed `ventCount` / `returnCount`, keys the measurement
 // registry does not carry yet — the loader flags them for the estimator to
 // type until it does.
-import { L, SHARED, D, T, withTemplates, hdMaterial } from "./_templateLines";
+import { L, SHARED, D, T, withTemplates, hdMaterial, withLanguages } from "./_templateLines";
 import { HD } from "./_materialCosts";
+import { I18N } from "./i18n/air_duct_cleaning.js";
 
 const S = (seedKey, category, unit, benchmark, [en, fr, es], [den, dfr, des], extra = {}) => ({
   seedKey, category, name: { en, fr, es }, description: { en: den, fr: dfr, es: des },
@@ -216,4 +217,5 @@ const TEMPLATES = {
 
 };
 
+withLanguages(SEED, I18N);
 withTemplates(SEED, TEMPLATES);
