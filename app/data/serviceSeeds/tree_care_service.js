@@ -579,5 +579,34 @@ const TEMPLATES = {
   ))], null),
 };
 
+// ── Templates added 2026-09-25 ───────────────────────────────────────────────
+//
+// The owner (2026-09-25): a service added to a quote opens WITH its lines.
+// The two "more than one" rows are their single siblings above, counted: two
+// shrubs at $110 each (a little under the single $120 — one set-up), two
+// trees as nine crew hours rather than ten, with a bigger chip-and-clean and
+// tipping fee. Every line is one the templates above already sell, so its
+// eight languages are already written.
+//
+// Not templated: tree_care.other — "describe what you need" has no typical
+// lines. (Its removal twin carries a bare service call; add the same here if
+// the owner wants the two to match.)
+const namesOf = (key) => {
+  const s = I18N.services?.[key];
+  if (!s?.it || !s?.de || !s?.uk || !s?.tl) throw new Error(`tree_care_service: ${key} has no it/de/uk/tl name in i18n/tree_care_service.js`);
+  return { it: s.it, de: s.de, uk: s.uk, tl: s.tl, pa: s.pa };
+};
+const SHRUB_TEXT = TEMPLATES["fq.tree_care_service.shrub_removal.one_shrub"].lines.find((l) => l.text.en[0] === "Shrub removal — per shrub").text;
+
+const ADDED = {
+  "fq.tree_care_service.shrub_removal.two_plus_shrubs": T("installation", namesOf("fq.tree_care_service.shrub_removal.two_plus_shrubs"),
+    [L.labour(2, "each", 110, SHRUB_TEXT), SHARED.disposalFee(35)], null),
+  "fq.tree_care_service.tree_removal.two_trees": T("installation", namesOf("fq.tree_care_service.tree_removal.two_trees"),
+    [CREW(9), CHIP(150), SHARED.disposalFee(110)], null),
+};
+// This pass only adds: a row that already has a template keeps it untouched.
+for (const key of Object.keys(ADDED)) if (TEMPLATES[key]) throw new Error(`tree_care_service: ${key} is already templated above`);
+
 withLanguages(SEED, I18N);
 withTemplates(SEED, TEMPLATES);
+withTemplates(SEED, ADDED);

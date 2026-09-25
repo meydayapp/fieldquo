@@ -755,5 +755,101 @@ const TEMPLATES = {
   ], null),
 };
 
+// ── Templates added 2026-09-25 ───────────────────────────────────────────────
+//
+// The owner (2026-09-25): a service added to a quote opens WITH its lines.
+// The three rows below are crew work and use this file's own rates — a mow
+// $45 a visit, crew labour $65–75 an hour, the shared haul-away, tipping and
+// materials-allowance lines. The season plan is its visits counted out
+// (26 weekly mows, 8 monthly bed rounds, spring and fall cleanups), so the
+// client sees what the plan price buys.
+//
+// Still NOT templated, on purpose (see the header of the block above):
+// fertilization, weed control, seasonal lawn treatment and lawn pest control.
+// Their price is the lawn-care estimator's banded card; a template line would
+// re-price them in a second, lossy place. Changing that is the owner's call.
+//
+// Punjabi is written inline beside the other seven (the line builder reads
+// `text.pa` before the language file).
+//
+// Quote types without a seed file that borrow this one
+// (lib/services/confirmServices.js): trimming and the season plan are also
+// landscaping_design and property_maintenance work, the plan is lawn_mowing
+// work, and an installation visit is landscaping_design work.
+const t8 = (en, fr, es, it, de, uk, tl, pa) => ({ en, fr, es, it, de, uk, tl, pa });
+const namesOf = (key) => {
+  const s = I18N.services?.[key];
+  if (!s?.it || !s?.de || !s?.uk || !s?.tl) throw new Error(`lawn_care: ${key} has no it/de/uk/tl name in i18n/lawn_care.js`);
+  return { it: s.it, de: s.de, uk: s.uk, tl: s.tl, pa: s.pa };
+};
+
+const ADDED = {
+  "fq.lawn_care.core.tree_shrub_trimming": T("maintenance", namesOf("fq.lawn_care.core.tree_shrub_trimming"), [
+    L.labour(3, "hour", 65, t8(
+      ["Tree and shrub trimming — per crew hour", "Shrubs sheared to shape, low limbs and deadwood cut from small trees, clippings gathered."],
+      ["Taille d'arbres et d'arbustes — par heure d'équipe", "Arbustes taillés en forme, branches basses et bois mort coupés sur les petits arbres, résidus ramassés."],
+      ["Poda de árboles y arbustos — por hora de cuadrilla", "Arbustos recortados en forma, ramas bajas y madera muerta cortadas en árboles pequeños, restos recogidos."],
+      ["Potatura di alberi e arbusti — per ora di squadra", "Arbusti rifilati in forma, rami bassi e legno secco tagliati dai piccoli alberi, sfalci raccolti."],
+      ["Baum- und Strauchschnitt — pro Teamstunde", "Sträucher in Form geschnitten, tiefe Äste und Totholz an kleinen Bäumen entfernt, Schnittgut gesammelt."],
+      ["Обрізка дерев і кущів — за годину бригади", "Кущі підстрижено за формою, нижні й сухі гілки невеликих дерев зрізано, обрізки зібрано."],
+      ["Pag-trim ng puno at halaman — kada oras ng crew", "Hinubog ang halaman, pinutol ang mababang sanga at patay na kahoy sa maliliit na puno, inipon ang pinutol."],
+      ["ਰੁੱਖਾਂ ਅਤੇ ਝਾੜੀਆਂ ਦੀ ਛੰਗਾਈ — ਪ੍ਰਤੀ ਟੀਮ-ਘੰਟਾ", "ਝਾੜੀਆਂ ਨੂੰ ਸ਼ਕਲ ਦਿੱਤੀ, ਛੋਟੇ ਰੁੱਖਾਂ ਦੀਆਂ ਨੀਵੀਆਂ ਅਤੇ ਸੁੱਕੀਆਂ ਟਾਹਣੀਆਂ ਕੱਟੀਆਂ, ਕਤਰਨ ਇਕੱਠੀ ਕੀਤੀ।"],
+    )),
+    SHARED.haulAway(45),
+    SHARED.disposalFee(25),
+  ], null, { categories: ["lawn_care", "landscaping_design", "property_maintenance"] }),
+
+  "fq.lawn_care.maintenance.landscape_maintenance_plan": T("maintenance", namesOf("fq.lawn_care.maintenance.landscape_maintenance_plan"), [
+    L.labour(26, "each", 45, t8(
+      ["Mowing and trimming — per visit", "Weekly mow, string-trim and blow-off through the growing season."],
+      ["Tonte et taille — la visite", "Tonte hebdomadaire, coupe-bordure et soufflage pendant la saison de pousse."],
+      ["Corte y orillado — por visita", "Corte semanal, orillado y soplado durante la temporada de crecimiento."],
+      ["Taglio e rifinitura — per visita", "Taglio settimanale, rifinitura e soffiatura per tutta la stagione vegetativa."],
+      ["Mähen und Trimmen — pro Einsatz", "Wöchentliches Mähen, Trimmen und Abblasen während der Wachstumssaison."],
+      ["Косіння й підрізання — за візит", "Щотижневе косіння, підрізання тримером і продування протягом сезону росту."],
+      ["Paggapas at trimming — kada visit", "Lingguhang gapas, trim at hipan buong growing season."],
+      ["ਕਟਾਈ ਅਤੇ ਟ੍ਰਿਮਿੰਗ — ਪ੍ਰਤੀ ਵਿਜ਼ਿਟ", "ਵਧਣ ਦੇ ਮੌਸਮ ਦੌਰਾਨ ਹਫ਼ਤਾਵਾਰ ਘਾਹ ਕਟਾਈ, ਟ੍ਰਿਮਿੰਗ ਅਤੇ ਬਲੋਅਰ।"],
+    )),
+    L.labour(8, "each", 85, t8(
+      ["Bed care — per visit", "Beds weeded, edges touched up and shrubs tidied on a monthly round."],
+      ["Entretien des plates-bandes — la visite", "Plates-bandes désherbées, bordures retouchées et arbustes rafraîchis lors d'une tournée mensuelle."],
+      ["Cuidado de canteros — por visita", "Canteros deshierbados, bordes retocados y arbustos arreglados en una ronda mensual."],
+      ["Cura delle aiuole — per visita", "Aiuole diserbate, bordi ritoccati e arbusti riordinati in un giro mensile."],
+      ["Beetpflege — pro Einsatz", "Beete gejätet, Kanten nachgestochen und Sträucher in einer monatlichen Runde in Form gebracht."],
+      ["Догляд за клумбами — за візит", "Клумби прополото, краї підрівняно, кущі впорядковано під час щомісячного обходу."],
+      ["Pag-aalaga ng taniman — kada visit", "Binunutan ng damo ang taniman, inayos ang gilid at halaman sa buwanang ikot."],
+      ["ਕਿਆਰੀਆਂ ਦੀ ਦੇਖਭਾਲ — ਪ੍ਰਤੀ ਵਿਜ਼ਿਟ", "ਮਹੀਨਾਵਾਰ ਗੇੜੇ ਵਿੱਚ ਕਿਆਰੀਆਂ ਦੀ ਗੋਡੀ, ਕਿਨਾਰੇ ਠੀਕ ਅਤੇ ਝਾੜੀਆਂ ਸੰਵਾਰੀਆਂ।"],
+    )),
+    L.labour(2, "each", 240, t8(
+      ["Spring and fall cleanup — per cleanup", "Leaves and winter debris raked out, beds cut back and everything hauled away."],
+      ["Nettoyage de printemps et d'automne — le nettoyage", "Feuilles et débris d'hiver râtelés, plates-bandes rabattues et tout évacué."],
+      ["Limpieza de primavera y otoño — por limpieza", "Hojas y restos del invierno rastrillados, canteros recortados y todo retirado."],
+      ["Pulizia di primavera e d'autunno — per intervento", "Foglie e detriti invernali rastrellati, aiuole ripulite e tutto portato via."],
+      ["Frühjahrs- und Herbstputz — pro Einsatz", "Laub und Winterreste ausgerecht, Beete zurückgeschnitten und alles abgefahren."],
+      ["Весняне й осіннє прибирання — за прибирання", "Листя й зимове сміття згребено, клумби обрізано, усе вивезено."],
+      ["Spring at fall cleanup — kada cleanup", "Kinalaykay ang dahon at dumi ng taglamig, pinutol ang taniman at hinakot lahat."],
+      ["ਬਸੰਤ ਅਤੇ ਪਤਝੜ ਦੀ ਸਫ਼ਾਈ — ਪ੍ਰਤੀ ਸਫ਼ਾਈ", "ਪੱਤੇ ਅਤੇ ਸਰਦੀਆਂ ਦਾ ਮਲਬਾ ਇਕੱਠਾ, ਕਿਆਰੀਆਂ ਛਾਂਗੀਆਂ ਅਤੇ ਸਭ ਕੁਝ ਚੁੱਕਿਆ।"],
+    )),
+  ], D.bundle("percent", 5), { categories: ["lawn_care", "lawn_mowing", "landscaping_design", "property_maintenance"] }),
+
+  "fq.lawn_care.additional.install_upgrade_visit": T("installation", namesOf("fq.lawn_care.additional.install_upgrade_visit"), [
+    L.labour(2, "hour", 75, t8(
+      ["Landscape installation labour", "Planting, edging, bed building or a small feature installed, by the hour."],
+      ["Main-d'œuvre — aménagement paysager", "Plantation, bordures, création de plate-bande ou petit aménagement installé, à l'heure."],
+      ["Mano de obra — instalación de jardín", "Plantación, bordes, armado de canteros o un elemento pequeño instalado, por hora."],
+      ["Manodopera — realizzazione giardino", "Messa a dimora, bordure, realizzazione aiuole o piccolo elemento installato, a ore."],
+      ["Arbeit — Gartenanlage", "Pflanzen, Beeteinfassung, Beetanlage oder ein kleines Element eingebaut, nach Stunden."],
+      ["Робота — облаштування ландшафту", "Висаджування, бордюри, облаштування клумби чи невеликого елемента, погодинно."],
+      ["Labor — pag-install ng landscape", "Pagtatanim, edging, paggawa ng taniman o maliit na feature, kada oras."],
+      ["ਲੈਂਡਸਕੇਪ ਲਗਾਉਣ ਦੀ ਲੇਬਰ", "ਬੂਟੇ ਲਗਾਉਣਾ, ਕਿਨਾਰੇ, ਕਿਆਰੀ ਬਣਾਉਣਾ ਜਾਂ ਛੋਟਾ ਹਿੱਸਾ ਲਗਾਉਣਾ, ਘੰਟੇ ਦੇ ਹਿਸਾਬ ਨਾਲ।"],
+    )),
+    SHARED.materialsAllowance(150),
+    SHARED.haulAway(40),
+  ], null, { categories: ["lawn_care", "landscaping_design"] }),
+};
+// This pass only adds: a row that already has a template keeps it untouched.
+for (const key of Object.keys(ADDED)) if (TEMPLATES[key]) throw new Error(`lawn_care: ${key} is already templated above`);
+
 withLanguages(SEED, I18N);
 withTemplates(SEED, TEMPLATES);
+withTemplates(SEED, ADDED);
