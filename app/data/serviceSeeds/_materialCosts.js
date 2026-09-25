@@ -65,6 +65,7 @@ export const HD = {
   supply_line: { cost: 7.9, unit: "each", per: 1, per_unit: "each" },
   pex_half_100: { cost: 33.3, unit: "coil", per: 100, per_unit: "linft" },
   mini_split_12k: { cost: 609.99, unit: "system", per: 1, per_unit: "each" },
+  gfci_15a: { cost: 18.98, unit: "each", per: 1, per_unit: "each" },
   smoke_detector_hw: { cost: 28.47, unit: "each", per: 1, per_unit: "each" },
   filter_16x25x1: { cost: 18.97, unit: "each", per: 1, per_unit: "each" },
 };
