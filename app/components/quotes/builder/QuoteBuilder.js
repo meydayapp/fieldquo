@@ -70,7 +70,7 @@ import TradeTakeoff, { hasTakeoff } from "./TradeTakeoff";
 import UnitPricingFields from "./UnitPricingFields";
 import IntakeFields from "./IntakeFields";
 import LotAreaMeasure from "./LotAreaMeasure";
-import { RoomMeasure } from "./ReuseTakeoff";
+import { RoomMeasure, TraceMeasure } from "./ReuseTakeoff";
 import LawnProgramPicker from "./LawnProgramPicker";
 import TierSelector from "./TierSelector";
 import LineItemsTable from "./LineItemsTable";
@@ -100,7 +100,7 @@ import { PAINT_ESTIMATE_TYPES } from "@/lib/pricing/paintTakeoff";
 import { APP_MESSAGES } from "@/app/i18n/appMessages";
 import { fieldsForCategory } from "@/app/data/quoteIntakeFields";
 import { isLotMeasureTrade } from "@/lib/measure/lotTakeoff";
-import { isRoomMeasureTrade } from "@/lib/measure/reuseTakeoffs";
+import { isRoomMeasureTrade, isTraceMeasureTrade } from "@/lib/measure/reuseTakeoffs";
 import { getPriceBook, defaultTradeRate } from "@/app/data/tradePriceBooks";
 import { resolveServiceContent } from "@/lib/documents/serviceContent";
 import { templatesFor } from "@/lib/services/templates";
@@ -2232,6 +2232,17 @@ export function QuoteBuilderForm({
                   trade={group.categoryKey}
                   takeoff={group.takeoff || null}
                   onChange={(next) => updatePricing(group.tempId, { takeoff: next })}
+                />
+              )}
+              {isTraceMeasureTrade(group.categoryKey) && (
+                <TraceMeasure
+                  trade={group.categoryKey}
+                  intakeValues={group.intakeValues || {}}
+                  fields={getGroupFields(group)}
+                  onIntakeChange={(patch) => updateIntakeValues(group.tempId, patch)}
+                  takeoff={group.takeoff || null}
+                  siteAddress={siteAddress || selectedClient?.address || ""}
+                  onTakeoffChange={(patch) => updateTakeoff(group.tempId, patch)}
                 />
               )}
               {/* Lawn care sells PROGRAMS priced by the lawn's size band

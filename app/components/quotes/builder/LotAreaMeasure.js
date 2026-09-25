@@ -29,6 +29,16 @@
 // the same picture. A zoom change re-projects the outline through lat/lng
 // (reprojectDrawing) rather than dropping it.
 //
+// ── Fencing and concrete (2026-09-25) ──────────────────────────────────────
+//
+// The same tracer, pointed at other boxes (lib/measure/reuseTakeoffs.js
+// TRACE_MEASURE_TRADES): a fence group's outline length fills Linear Feet,
+// less the sides not being fenced; a concrete group's area fills Square
+// Footage. Every option below defaults to the lawn's, so a lot trade renders
+// and writes exactly what it did. They do not write the document outline
+// (`outlineKey` null): measureImages.js prints that still as the LAWN, and a
+// slab printed as "Lawn measured" is the wrong words on a client's quote.
+//
 // ── What the CLIENT sees of it ─────────────────────────────────────────────
 //
 // The drawing is in viewBox units and means nothing off this canvas. So the
@@ -49,6 +59,7 @@ import {
   LOT_AREA_FIELD,
   LOT_EDGE_FIELD,
   lotIntakePatch,
+  traceIntakePatch,
 } from "@/lib/measure/lotTakeoff";
 import { canvasShapeToLatLng, reprojectDrawing, DEFAULT_ZOOM } from "@/lib/measure/imageScale";
 import PolygonMeasure, { asShapes, blankDrawing, usePolygonMeasure, VIEW_W, VIEW_H } from "./PolygonMeasure";
@@ -92,10 +103,18 @@ export default function LotAreaMeasure({
   takeoff = null,
   siteAddress = "",
   onTakeoffChange,
+  // Fencing / concrete — see the header. Defaults are the lawn's.
+  areaField = LOT_AREA_FIELD,
+  edgeField = LOT_EDGE_FIELD,
+  drawingKey = LOT_DRAWING_KEY,
+  outlineKey = "lawn",
+  edgeDeductFt = 0,
+  layers = LAYERS,
+  text = null,
 }) {
   const { t } = useTranslation();
 
-  const stored = intakeValues?.[LOT_DRAWING_KEY];
+  const stored = intakeValues?.[drawingKey];
   const doc = useMemo(
     () => ({ ...blankDrawing(), ...(stored && typeof stored === "object" ? stored : {}) }),
     [stored],
@@ -145,12 +164,12 @@ export default function LotAreaMeasure({
         ...doc,
         ...(typeof patch === "function" ? patch(doc) : patch),
       };
-      onIntakeChange?.({ [LOT_DRAWING_KEY]: next });
+      onIntakeChange?.({ [drawingKey]: next });
     },
-    [doc, onIntakeChange],
+    [doc, onIntakeChange, drawingKey],
   );
 
-  const measure = usePolygonMeasure({ doc, imageUrl, imageScale, layers: LAYERS });
+  const measure = usePolygonMeasure({ doc, imageUrl, imageScale, layers });
   const { totals, fpp, natural, scaleSource } = measure;
 
   // The outline follows the ground, not the picture: a new still (another
@@ -159,7 +178,7 @@ export default function LotAreaMeasure({
   // drawing and the picture it is on change together.
   function adoptStill(next, from) {
     const moved = from ? reprojectDrawing(doc, from, placementOf(next)) : null;
-    if (moved) onIntakeChange?.({ [LOT_DRAWING_KEY]: moved });
+    if (moved) onIntakeChange?.({ [drawingKey]: moved });
     onTakeoffChange?.({ measureFrame: next.frame, measureAddress: next.formattedAddress || address });
   }
   async function measureAt(query) {
@@ -178,8 +197,8 @@ export default function LotAreaMeasure({
   });
   const zoom = still.still?.frame?.zoom ?? null;
 
-  const hasEdgeField = fields.some((f) => f?.key === LOT_EDGE_FIELD);
-  const hasAreaField = fields.some((f) => f?.key === LOT_AREA_FIELD);
+  const hasEdgeField = Boolean(edgeField) && fields.some((f) => f?.key === edgeField);
+  const hasAreaField = Boolean(areaField) && fields.some((f) => f?.key === areaField);
 
   /* ── Emit into the intake ──────────────────────────────────────────── */
 
@@ -188,8 +207,12 @@ export default function LotAreaMeasure({
   // mounting an untouched canvas never zeroes a lot size somebody typed; once
   // a shape is closed the drawing owns those boxes, including on the way back
   // down to zero when the last shape is removed.
-  const emitted = useMemo(() => lotIntakePatch(totals, fields), [totals, fields]);
-  const lastEmit = useRef(JSON.stringify(lotIntakePatch({ areaSqFt: 0, perimeterFt: 0 }, fields)));
+  const lotDefaults = areaField === LOT_AREA_FIELD && edgeField === LOT_EDGE_FIELD && !(Number(edgeDeductFt) > 0);
+  const emitted = useMemo(
+    () => (lotDefaults ? lotIntakePatch(totals, fields) : traceIntakePatch(totals, fields, { areaField, edgeField, edgeDeductFt })),
+    [lotDefaults, totals, fields, areaField, edgeField, edgeDeductFt],
+  );
+  const lastEmit = useRef(JSON.stringify(traceIntakePatch({ areaSqFt: 0, perimeterFt: 0 }, fields, { areaField, edgeField })));
 
   useEffect(() => {
     const key = JSON.stringify(emitted);
@@ -205,7 +228,7 @@ export default function LotAreaMeasure({
   // coordinates to give. The largest closed shape is the lawn; the canvas
   // area is the figure the group is priced on and is what is written.
   const lawnTakeoff = useMemo(() => {
-    if (!onTakeoffChange) return undefined;
+    if (!onTakeoffChange || !outlineKey) return undefined;
     const closed = (measure.measured || []).filter((x) => x?.m?.ok && Array.isArray(x.shape?.points) && x.shape.points.length >= 3);
     if (!closed.length || !fpp) return null;
     if (scaleSource !== "auto" || !siteLocation || !imageScale) return null;
@@ -228,7 +251,7 @@ export default function LotAreaMeasure({
       vertices: vertices.map((v) => ({ lat: Math.round(v.lat * 1e7) / 1e7, lng: Math.round(v.lng * 1e7) / 1e7 })),
       address: measuredAddress || "",
     };
-  }, [fpp, scaleSource, siteLocation, imageScale, natural, totals, measure.measured, measuredAddress, onTakeoffChange]);
+  }, [fpp, scaleSource, siteLocation, imageScale, natural, totals, measure.measured, measuredAddress, onTakeoffChange, outlineKey]);
 
   const lastTakeoff = useRef(undefined);
   useEffect(() => {
@@ -242,16 +265,16 @@ export default function LotAreaMeasure({
       return;
     }
     lastTakeoff.current = key;
-    onTakeoffChange?.({ lawn: lawnTakeoff, measureImage: null });
-  }, [lawnTakeoff, onTakeoffChange]);
+    onTakeoffChange?.({ [outlineKey]: lawnTakeoff, measureImage: null });
+  }, [lawnTakeoff, onTakeoffChange, outlineKey]);
 
   // A form with no box for the area cannot be filled from here. Not rendering
   // is the honest answer — a canvas whose numbers go nowhere is the dead
   // control AGENTS.md is about — and lotTakeoff's list is checked against the
   // field definitions so this branch is never reached in practice.
-  if (!hasAreaField) return null;
+  if (!hasAreaField && !hasEdgeField) return null;
 
-  const any = numOf(emitted[LOT_AREA_FIELD]) > 0;
+  const any = hasAreaField ? numOf(emitted[areaField]) > 0 : numOf(emitted[edgeField]) > 0;
 
   return (
     <div className="space-y-3">
@@ -276,15 +299,15 @@ export default function LotAreaMeasure({
       <PolygonMeasure
         doc={doc}
         update={update}
-        layers={LAYERS}
+        layers={layers}
         measure={measure}
         imageUrl={imageUrl}
-        ariaLabel={t("app.lawn.canvasAria")}
+        ariaLabel={text?.canvasAria || t("app.lawn.canvasAria")}
         heading={
           <div>
-            <h3 className="text-sm font-medium">{t("app.lawn.title")}</h3>
+            <h3 className="text-sm font-medium">{text?.title || t("app.lawn.title")}</h3>
             <p className="text-xs text-muted-foreground">
-              {hasEdgeField ? t("app.lawn.introAreaEdge") : t("app.lawn.introArea")}
+              {text?.intro || (hasEdgeField ? t("app.lawn.introAreaEdge") : t("app.lawn.introArea"))}
             </p>
           </div>
         }
@@ -293,7 +316,7 @@ export default function LotAreaMeasure({
       <div className="rounded-lg border border-border p-3">
         <div className="grid gap-2 sm:grid-cols-2">
           <div>
-            <div className="text-xs text-muted-foreground">{t("app.lawn.areaLabel")}</div>
+            <div className="text-xs text-muted-foreground">{text?.areaLabel || t("app.lawn.areaLabel")}</div>
             <div className="text-lg font-medium tabular-nums">
               {fpp ? (
                 <>
@@ -310,7 +333,7 @@ export default function LotAreaMeasure({
             </div>
           </div>
           <div>
-            <div className="text-xs text-muted-foreground">{t("app.lawn.edgeLabel")}</div>
+            <div className="text-xs text-muted-foreground">{text?.edgeLabel || t("app.lawn.edgeLabel")}</div>
             <div className="text-lg font-medium tabular-nums">
               {fpp ? (
                 <>
@@ -328,7 +351,11 @@ export default function LotAreaMeasure({
           </div>
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
-          {any
+          {text?.totals
+            ? any
+              ? text.totals({ sqft: Math.round(totals.areaSqFt), edge: totals.perimeterFt.toFixed(1), emitted })
+              : text.nothing || t("app.lawn.nothingMeasured")
+            : any
             ? hasEdgeField
               ? t("app.lawn.totalsAreaEdge", {
                   sqft: Math.round(totals.areaSqFt),

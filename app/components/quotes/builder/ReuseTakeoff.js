@@ -33,6 +33,11 @@ import {
   ROOM_MEASURE_TRADES,
   ROOM_MEASURE_MODEL,
   DRYWALL_SHEETS,
+  FENCE_POST_SPACING_FT,
+  FENCE_LENGTH_FIELD,
+  CONCRETE_AREA_FIELD,
+  CONCRETE_THICKNESS_FIELD,
+  CONCRETE_WASTE_FIELD,
   newRoomMeasure,
   newMeasureRoom,
   newSidingWall,
@@ -40,10 +45,13 @@ import {
   roomFigures,
   roomMeasureFigures,
   sidingWallsFigures,
+  fencePosts,
+  concreteCuYd,
   statedWaste,
 } from "@/lib/measure/reuseTakeoffs";
 import { Field, Num, inputClass, asList } from "./fields";
 import { MeasurementStyleToggle, AreaDimensionFields, GeometryStrip } from "./AreaGeometry";
+import LotAreaMeasure from "./LotAreaMeasure";
 
 const fmt = (n, language) => Number(n || 0).toLocaleString(language || "en", { maximumFractionDigits: 2 });
 
@@ -483,4 +491,144 @@ export function SidingWalls({ takeoff, onChange }) {
       )}
     </div>
   );
+}
+
+/* ── Fencing and concrete — the aerial tracer ─────────────────────────── */
+
+// Module-level so the tracer's totals memo sees a stable list.
+const FENCE_LAYERS = [
+  { key: "yard", label: "Fenced yard", labelKey: "app.reuseTakeoff.fenceLayer", stroke: "#7c3aed", fill: "rgba(124,58,237,0.18)" },
+];
+const SLAB_LAYERS = [
+  { key: "slab", label: "Slab", labelKey: "app.reuseTakeoff.slabLayer", stroke: "#b45309", fill: "rgba(245,158,11,0.28)" },
+];
+
+/**
+ * @param trade          fence_services | concrete
+ * @param intakeValues   the group's intake answers (the boxes the trace fills)
+ * @param fields         the category's intake field list
+ * @param onIntakeChange (patch) → merges into intakeValues
+ * @param takeoff        the group's takeoff (the still's frame; the fence's
+ *                       "not fenced" feet)
+ * @param onTakeoffChange (patch) → merges into the group's takeoff
+ */
+export function TraceMeasure({ trade, intakeValues = {}, fields = [], onIntakeChange, takeoff = null, siteAddress = "", onTakeoffChange }) {
+  const { t, language } = useTranslation();
+  const iv = intakeValues && typeof intakeValues === "object" ? intakeValues : {};
+
+  if (trade === "fence_services") {
+    const notFenced = Number(takeoff?.notFencedFt) > 0 ? Number(takeoff.notFencedFt) : 0;
+    const L = Number(iv[FENCE_LENGTH_FIELD]) > 0 ? Number(iv[FENCE_LENGTH_FIELD]) : 0;
+    const posts = fencePosts(L);
+    return (
+      <div className="space-y-3" data-reuse-takeoff={trade}>
+        <LotAreaMeasure
+          intakeValues={iv}
+          fields={fields}
+          onIntakeChange={onIntakeChange}
+          takeoff={takeoff}
+          siteAddress={siteAddress}
+          onTakeoffChange={onTakeoffChange}
+          areaField={null}
+          edgeField={FENCE_LENGTH_FIELD}
+          drawingKey="fenceDrawing"
+          outlineKey={null}
+          edgeDeductFt={notFenced}
+          layers={FENCE_LAYERS}
+          text={{
+            title: t("app.reuseTakeoff.fenceTitle", "Trace the fence line"),
+            intro: t(
+              "app.reuseTakeoff.fenceIntro",
+              "Outline the yard on the aerial photo. Its outline, less the sides not being fenced, fills Linear Feet below.",
+            ),
+            areaLabel: t("app.reuseTakeoff.fenceArea", "Enclosed area"),
+            edgeLabel: t("app.reuseTakeoff.fenceOutline", "Outline"),
+            canvasAria: t("app.reuseTakeoff.fenceAria", "Fence outline canvas. Arrow keys move the crosshair, Enter places a point, Backspace removes the last point, Escape cancels."),
+            totals: ({ edge, emitted }) =>
+              t("app.reuseTakeoff.fenceTotals", "Outline {edge} ft → Linear Feet {run} ft.", { edge, run: emitted?.[FENCE_LENGTH_FIELD] ?? 0 }),
+            nothing: t("app.lawn.nothingMeasured"),
+          }}
+        />
+        <div className="rounded-lg border border-border p-3 space-y-2">
+          <div className="grid gap-2 sm:grid-cols-3">
+            <Field label={t("app.reuseTakeoff.notFenced", "Not fenced (ft)")}>
+              <Num value={takeoff?.notFencedFt} onChange={(v) => onTakeoffChange?.({ notFencedFt: v })} step={1} />
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                {t("app.reuseTakeoff.notFencedHint", "The house wall or a neighbour's fence along the outline")}
+              </p>
+            </Field>
+          </div>
+          <p className="text-sm tabular-nums" data-reuse-figures>
+            {L > 0
+              ? t("app.reuseTakeoff.fenceFigures", "{run} ft of fence → {posts} posts (one every {spacing} ft, plus the end post)", {
+                  run: fmt(L, language),
+                  posts,
+                  spacing: FENCE_POST_SPACING_FT,
+                })
+              : t("app.reuseTakeoff.fenceNone", "No run yet — trace the yard or type Linear Feet below.")}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {t(
+              "app.reuseTakeoff.fenceFoot",
+              "The run, the posts and the gate counts below fill this service's template lines. Nothing here is priced on its own.",
+            )}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (trade === "concrete") {
+    const area = Number(iv[CONCRETE_AREA_FIELD]) > 0 ? Number(iv[CONCRETE_AREA_FIELD]) : 0;
+    const thick = Number(iv[CONCRETE_THICKNESS_FIELD]) > 0 ? Number(iv[CONCRETE_THICKNESS_FIELD]) : 0;
+    const w = statedWaste(iv[CONCRETE_WASTE_FIELD]);
+    const yd = concreteCuYd(area, thick, w);
+    return (
+      <div className="space-y-3" data-reuse-takeoff={trade}>
+        <LotAreaMeasure
+          intakeValues={iv}
+          fields={fields}
+          onIntakeChange={onIntakeChange}
+          takeoff={takeoff}
+          siteAddress={siteAddress}
+          onTakeoffChange={onTakeoffChange}
+          areaField={CONCRETE_AREA_FIELD}
+          edgeField={null}
+          drawingKey="slabDrawing"
+          outlineKey={null}
+          layers={SLAB_LAYERS}
+          text={{
+            title: t("app.reuseTakeoff.slabTitle", "Trace the slab"),
+            intro: t("app.reuseTakeoff.slabIntro", "Outline the slab, pad or driveway on the aerial photo. Its area fills Square Footage below."),
+            areaLabel: t("app.reuseTakeoff.slabArea", "Slab area"),
+            edgeLabel: t("app.reuseTakeoff.slabEdge", "Form edge"),
+            canvasAria: t("app.reuseTakeoff.slabAria", "Slab outline canvas. Arrow keys move the crosshair, Enter places a point, Backspace removes the last point, Escape cancels."),
+            totals: ({ sqft }) => t("app.reuseTakeoff.slabTotals", "Slab {sqft} sq ft → Square Footage.", { sqft }),
+            nothing: t("app.lawn.nothingMeasured"),
+          }}
+        />
+        <div className="rounded-lg border border-border p-3 space-y-1" data-reuse-figures>
+          <p className="text-sm tabular-nums">
+            {area > 0 && thick > 0
+              ? t("app.reuseTakeoff.slabYards", "{sqft} sq ft at {inches} in{waste} → {yards} cu yd (rounded up to the quarter yard)", {
+                  sqft: fmt(area, language),
+                  inches: fmt(thick, language),
+                  waste: w !== null ? t("app.reuseTakeoff.slabWaste", " + {n}% waste", { n: fmt(w, language) }) : "",
+                  yards: fmt(yd, language),
+                })
+              : area > 0
+                ? t("app.reuseTakeoff.slabNoThickness", "Pick a thickness below to get the cubic yards.")
+                : t("app.reuseTakeoff.slabNone", "No slab yet — trace it or type Square Footage below.")}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {t(
+              "app.reuseTakeoff.slabFoot",
+              "The area and the yards fill this service's template lines. The waste factor below is inside the yards, so a line priced per yard adds none on top.",
+            )}
+          </p>
+        </div>
+      </div>
+    );
+  }
+  return null;
 }
