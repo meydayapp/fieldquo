@@ -22,6 +22,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 // The per-trade card and its field helpers live in ./TradeCard.js, because
 // the home page's set-up dialog renders the same cards.
 import TradeCard from "./TradeCard";
+import { instantQuoteCopy } from "@/lib/i18n/instantQuoteCopy";
 import AdTrackingCard from "./AdTrackingCard";
 import {
   DEFAULT_FORM_APPEARANCE,
@@ -42,6 +43,8 @@ export default function InstantQuotesSettingsPage() {
   const [canEdit, setCanEdit] = useState(false);
   const [financing, setFinancing] = useState(null);
   const [reportWebsite, setReportWebsite] = useState(null);
+  // The language pills the public form offers; null until loaded.
+  const [languages, setLanguages] = useState(null);
   // The form's look and the brand it is measured against; null until loaded.
   const [appearance, setAppearance] = useState(null);
   const [brandColor, setBrandColor] = useState(null);
@@ -58,6 +61,7 @@ export default function InstantQuotesSettingsPage() {
       setCanEdit(Boolean(data.canEdit));
       setFinancing(data.financing || { enabled: false });
       setReportWebsite(data.reportWebsite || null);
+      setLanguages(data.languages || null);
       setAppearance(normaliseFormAppearance(data.formAppearance).appearance);
       setBrandColor(data.brandColor || null);
       setServiceAreaConfigured(Boolean(data.serviceAreaConfigured));
@@ -353,6 +357,10 @@ export default function InstantQuotesSettingsPage() {
             )}
           </Link>
         </p>
+      )}
+
+      {languages && (
+        <LanguagesCard key={JSON.stringify(languages)} languages={languages} canEdit={canEdit} onSaved={load} />
       )}
 
       {appearance && live.slug && (
@@ -750,6 +758,115 @@ function ReportWebsiteCard({ reportWebsite, canEdit, onSaved }) {
             type="button"
             onClick={() => save()}
             disabled={saving}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-inverted text-inverted-foreground text-sm font-semibold disabled:opacity-50"
+          >
+            {saving ? <Loader2 size={14} className="animate-spin" /> : null}{" "}
+            {t("app.action.save")}
+          </button>
+          {saved && (
+            <span className="text-sm text-emerald-600 dark:text-emerald-400">{t("app.action.saved")}</span>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/**
+ * Which languages the public instant-estimate form offers a visitor.
+ *
+ * Until the company saves a choice, every language is offered — what the
+ * form has always done (lib/estimate/instantQuoteLanguages.js says why that
+ * is the unset reading), and the card says so rather than showing boxes
+ * that look like a decision somebody made. With one language ticked the
+ * form draws no pills at all; the save refuses none ticked.
+ */
+function LanguagesCard({ languages, canEdit, onSaved }) {
+  const { t } = useTranslation();
+  const [picked, setPicked] = useState(languages.offered);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  // No effect re-seeding `picked` from the prop: the parent keys this card on
+  // the saved value, so a reload after a save remounts it fresh.
+
+  const names = instantQuoteCopy("en").languageNames;
+  const dirty = JSON.stringify(picked) !== JSON.stringify(languages.chosen.length ? languages.chosen : null);
+  const toggle = (code) =>
+    setPicked((prev) =>
+      // Kept in pill order, whatever order they were ticked in.
+      languages.all.filter((c) => (c === code ? !prev.includes(c) : prev.includes(c))),
+    );
+  // The language a visitor lands on when their browser asks for none of these.
+  const landing = picked.includes(languages.companyLanguage) ? languages.companyLanguage : picked[0];
+
+  async function save() {
+    if (!picked.length) return;
+    setSaving(true);
+    setSaved(false);
+    try {
+      await fetchJson("/api/settings/instant-quote", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ instantQuoteLanguages: picked }),
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+      onSaved?.();
+    } catch (err) {
+      showError(err.message || t("app.setInstantQuotes.couldNotSave", "Could not save"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="mt-4 rounded-xl border border-border bg-card p-5">
+      <h3 className="text-base font-semibold text-foreground">
+        {t("app.setInstantQuotes.languages.title", "Languages on your instant estimate")}
+      </h3>
+      <p className="text-xs text-muted-foreground mt-1 max-w-md">
+        {t(
+          "app.setInstantQuotes.languages.intro",
+          "Homeowners pick one of these at the top of the form, and their estimate, the email and the report are written in it. Offer only the languages you can answer in.",
+        )}
+      </p>
+      {!languages.chosen.length && (
+        <p className="text-xs text-muted-foreground mt-2">
+          {t(
+            "app.setInstantQuotes.languages.unset",
+            "You haven't chosen yet, so all of them are offered.",
+          )}
+        </p>
+      )}
+      <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label={t("app.setInstantQuotes.languages.title", "Languages on your instant estimate")}>
+        {languages.all.map((code) => (
+          <label
+            key={code}
+            className={`flex items-center gap-2 rounded-lg border border-border px-3 py-2 min-h-10 text-sm text-foreground ${canEdit ? "cursor-pointer" : "opacity-60"}`}
+          >
+            <input
+              type="checkbox"
+              checked={picked.includes(code)}
+              disabled={!canEdit}
+              onChange={() => toggle(code)}
+            />
+            <span lang={code}>{names[code] || code}</span>
+          </label>
+        ))}
+      </div>
+      <p className="text-xs text-muted-foreground mt-2">
+        {!picked.length
+          ? t("app.setInstantQuotes.languages.none", "Tick at least one language.")
+          : picked.length === 1
+            ? t("app.setInstantQuotes.languages.one", "One language: the form shows no language choice and opens in {language}.", { language: names[picked[0]] || picked[0] })
+            : t("app.setInstantQuotes.languages.landing", "A visitor whose browser asks for none of these lands on {language}.", { language: names[landing] || landing })}
+      </p>
+      {canEdit && (
+        <div className="mt-4 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => save()}
+            disabled={saving || !picked.length || !dirty}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-inverted text-inverted-foreground text-sm font-semibold disabled:opacity-50"
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : null}{" "}

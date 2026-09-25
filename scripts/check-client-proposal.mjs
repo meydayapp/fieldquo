@@ -200,7 +200,8 @@ section("5. Contrast ≥ 4.5:1 across hostile brand colours");
   ok("the locked Accept / Sign: white on #4b5563", contrastRatio("#ffffff", "#4b5563") >= 4.5);
   ok("body ink #2d2520 at /85, /80 and /70 over white all clear 4.5", [0.85, 0.8, 0.7].every((a) => contrastRatio(composite("#2d2520", a), PAPER) >= 4.5));
   ok("…and /60 does NOT, which is why the page never uses it", contrastRatio(composite("#2d2520", 0.6), PAPER) < 4.5);
-  const alphas = [...strip(read("app/q/[token]/QuoteApproval.js")).matchAll(/text-\[#2d2520\]\/(\d+)/g)].map((m) => Number(m[1]));
+  const alphas = ["app/q/[token]/QuoteApproval.js", "app/components/public/proposal/ProposalSections.js", "app/estimate-report/[token]/ReportView.js"]
+    .flatMap((f) => [...strip(read(f)).matchAll(/text-\[#2d2520\]\/(\d+)/g)].map((m) => Number(m[1])));
   ok("the page uses no muted ink lighter than /70", alphas.length > 0 && alphas.every((a) => a >= 70), alphas.filter((a) => a < 70).join(","));
   ok("the BEFORE/AFTER tags: white on #20242b at 80% over a mid photo", contrastRatio("#ffffff", composite("#20242b", 0.8, "#888888")) >= 4.5);
   ok("the star on paper (#b45309)", contrastRatio("#b45309", PAPER) >= 4.5);
@@ -211,6 +212,8 @@ section("6. Nothing client-facing says FieldQuo");
 {
   const files = [
     "app/q/[token]/QuoteApproval.js",
+    "app/components/public/proposal/ProposalSections.js",
+    "app/estimate-report/[token]/ReportView.js",
     "app/components/public/WaiverSign.js",
     "app/w/[token]/WaiverPage.js",
     "app/w/[token]/page.js",
@@ -261,7 +264,11 @@ section("8. Wiring the fixtures cannot execute");
 {
   const route = strip(read("app/api/public/quotes/[token]/route.js"));
   ok("the public route strips the section defaults and story columns from `company`", /proposalSections: _proposalSections/.test(route) && /story: _story/.test(route));
-  ok("…publishes only rendered sections' content", /about: sections\.about\.rendered \? content\.about : null/.test(route) && /gallery: sections\.beforeAfter\.rendered \? content\.gallery : \[\]/.test(route));
+  // Since 2026-09-25 the projection is one function both proposal pages
+  // call (lib/proposal/load.js#projectProposal) — the instant-estimate
+  // presentation publishes the company through the same one.
+  const loadSrc = strip(read("lib/proposal/load.js"));
+  ok("…publishes only rendered sections' content", /\.\.\.projectProposal\(\{ content, sections \}\)/.test(route) && /about: on\("about"\) \? content\?\.about \|\| null : null/.test(loadSrc) && /gallery: on\("beforeAfter"\) \? content\?\.gallery \|\| \[\] : \[\]/.test(loadSrc));
   ok("…refuses an acceptance while a waiver is pending, with needsWaiver", /pendingWaiversForQuote\(/.test(route) && /needsWaiver: true/.test(route) && route.indexOf("pendingWaiversForQuote(") < route.indexOf("buildSignatureRecord({"));
   ok("…files signed waivers on the job the acceptance created", /fileSignedWaiversForJob\(\{ quoteId: updated\.id, jobId: job\.id \}\)/.test(route));
   const svc = strip(read("lib/waivers/service.js"));
@@ -269,12 +276,15 @@ section("8. Wiring the fixtures cannot execute");
   ok("…files the PDF as a JobDocument of kind waiver", /kind: "waiver"/.test(svc) && /source: "waiver_signed"/.test(svc));
   ok("the DocumentSignature token is the credential of /w/[token], and the page 404s on an unknown one", /findUnique\(\{ where: \{ token \}, select: \{ id: true \} \}\)/.test(strip(read("app/w/[token]/page.js"))) && /notFound\(\)/.test(read("app/w/[token]/page.js")));
   const page = strip(read("app/q/[token]/QuoteApproval.js"));
-  ok("the page draws a section only when the server listed it", /sectionKeys\.includes\("about"\)/.test(page) && /sectionKeys\.includes\("documents"\)/.test(page));
+  // The company sections are drawn by the component the quote shares with
+  // the instant-estimate presentation (app/components/public/proposal/).
+  const sections = strip(read("app/components/public/proposal/ProposalSections.js"));
+  ok("the page draws a section only when the server listed it", /<CompanySections proposal=\{proposal\} sectionKeys=\{sectionKeys\}/.test(page) && /sectionKeys\.includes\(key\)/.test(sections) && /on\("about"\)/.test(sections) && /on\("documents"\)/.test(sections));
   ok("…the Accept buttons are disabled with the reason while a waiver is pending", /disabled=\{waiverBlocks\}/.test(page) && /copy\.waiverRequiredBeforeApprove/.test(page));
   ok("…the day plan prints only from the server's derived days", /plan\?\.days\?\.length > 0/.test(page) && !/Day 1|Prep, repairs/.test(page));
   ok("…the scope paragraph prints once (Scope of work), not in the price card too", /scopeOfWork\(quote\.scopeGroups\)/.test(page) && !/\{g\.description\}/.test(page));
   ok("…extras still post addOnIds only", /addOnIds: decision === "accepted" \? picked : \[\]/.test(page) && !/amount:/.test(page.match(/body: jsonBody\(\{[\s\S]*?\}, "approval"\)/)?.[0] || ""));
-  ok("View document opens the file URL in a new tab, never an id", /href=\{d\.url\}/.test(page) && /target="_blank"/.test(page));
+  ok("View document opens the file URL in a new tab, never an id", /href=\{d\.url\}/.test(sections) && /target="_blank"/.test(sections));
   const sign = strip(read("app/components/public/WaiverSign.js"));
   ok("WaiverSign posts acknowledgement indexes and the signature, nothing else", /acknowledgements: \[\.\.\.ticked\]/.test(sign) && /signature: \{ name: name\.trim\(\), dataUrl, consent \}/.test(sign));
   ok("…and locks Sign until every box is ticked", /const allTicked = lines\.length > 0 && remaining === 0/.test(sign) && /disabled=\{!canSign \|\| busy\}/.test(sign));

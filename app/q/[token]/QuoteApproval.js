@@ -38,7 +38,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, X, Loader2, Building2, Plus, FileText, Play, Star } from "lucide-react";
+import { Check, X, Loader2, Building2, Plus } from "lucide-react";
 import { accessiblePair } from "@/lib/brand/colour";
 import {
   documentTheme,
@@ -60,6 +60,17 @@ import { lineShowsAmount, isTextLine } from "@/lib/quotes/textBlocks";
 import RichTextBody from "@/app/components/quotes/RichTextBody";
 import PreviewDecisionNote from "./PreviewDecisionNote";
 import StreetViewPeek from "@/app/components/StreetViewPeek";
+// The company sections beside the document, the process steps and the
+// section anchors — shared with the instant-estimate presentation
+// (app/estimate-report/[token]/ReportView.js), so the two pages a homeowner
+// reads from one company are drawn by one set of components.
+import {
+  PROPOSAL_SECTION_IDS as SECTION_IDS,
+  proposalSectionLabel,
+  SectionKicker,
+  ProcessStepList,
+  CompanySections,
+} from "@/app/components/public/proposal/ProposalSections";
 
 // ── Muted ink is /70, never lighter ──────────────────────────────────────────
 //
@@ -502,18 +513,7 @@ export default function QuoteApproval({ token }) {
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  const sectionLabel = (key) =>
-    key === "project"
-      ? copy.proposal.yourProject
-      : key === "about"
-        ? copy.proposal.aboutUs
-        : key === "beforeAfter"
-          ? copy.proposal.beforeAfter
-          : key === "documents"
-            ? copy.proposal.importantDocuments
-            : key === "testimonials"
-              ? copy.proposal.testimonials
-              : copy.proposal.services;
+  const sectionLabel = (key) => proposalSectionLabel(key, copy);
 
   const scopeBlocks = scopeOfWork(quote.scopeGroups);
   const plan = proposal?.plan || null;
@@ -675,7 +675,7 @@ export default function QuoteApproval({ token }) {
           {/* Where the work is — the same line the PDF's "Prepared for"
               panel prints, when the quote names a site. */}
           {quote.siteAddress && (
-            <p className="text-sm mt-1 text-[#2d2520]/60">
+            <p className="text-sm mt-1 text-[#2d2520]/70">
               {labels.jobAddress} · <span className="text-[#2d2520]">{quote.siteAddress}</span>
             </p>
           )}
@@ -742,35 +742,7 @@ export default function QuoteApproval({ token }) {
           {howTheWorkRuns && (
             <div>
               <SectionKicker theme={theme}>{copy.howTheWorkRuns}</SectionKicker>
-              {quote.processSteps?.length > 0 && (
-                <ol className="space-y-0 mb-3">
-                  {quote.processSteps.map((s, i) => {
-                    const last = i === quote.processSteps.length - 1;
-                    return (
-                      <li key={i} className="flex gap-3">
-                        <div className="flex flex-col items-center shrink-0">
-                          <span
-                            className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold"
-                            style={{ backgroundColor: fill.bg, color: fill.fg }}
-                          >
-                            {s.num}
-                          </span>
-                          {!last && <span className="w-px flex-1 my-1" style={{ backgroundColor: theme.accentRule }} />}
-                        </div>
-                        <div className={last ? "pb-0" : "pb-4"}>
-                          <p className="text-sm font-semibold text-[#2d2520]">
-                            {s.title}
-                            {s.timeline && (
-                              <span className="ml-2 text-xs font-normal text-[#2d2520]/70">{s.timeline}</span>
-                            )}
-                          </p>
-                          <p className="text-xs text-[#2d2520]/70 leading-relaxed mt-0.5">{s.body}</p>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ol>
-              )}
+              <ProcessStepList steps={quote.processSteps} theme={theme} fill={fill} />
               {plan?.days?.length > 0 && (
                 <div className="rounded-xl border border-black/10 divide-y divide-black/5">
                   {plan.days.map((d) => (
@@ -1282,7 +1254,7 @@ export default function QuoteApproval({ token }) {
                 <span className="flex-1 flex justify-between gap-3 text-[#2d2520]">
                   <span>
                     {quote.offlineDiscount.label}
-                    <span className="block text-xs text-[#2d2520]/60">{copy.payOfflineHint}</span>
+                    <span className="block text-xs text-[#2d2520]/70">{copy.payOfflineHint}</span>
                   </span>
                   <span className="tabular-nums shrink-0">
                     −{money(Math.round(Math.max(0, pricing.subtotal - Number(quote.discount || 0)) * quote.offlineDiscount.pct) / 100)}
@@ -1666,104 +1638,10 @@ export default function QuoteApproval({ token }) {
 
       {/* ── The company beside the document ───────────────────────────────
           Each of these renders only when the server listed it — see the
-          file header. Same paper, same measured theme, same language. */}
-      {proposal?.about && sectionKeys.includes("about") && (
-        <ProposalSection id={SECTION_IDS.about} kicker={copy.proposal.aboutUs} title={proposal.about.headline} theme={theme}>
-          <div className={proposal.about.teamPhotoUrl ? "grid gap-4 sm:grid-cols-[1fr_200px] items-start" : ""}>
-            <p className="text-sm leading-relaxed text-[#2d2520]/80 whitespace-pre-line">{proposal.about.story}</p>
-            {proposal.about.teamPhotoUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={proposal.about.teamPhotoUrl} alt={copy.proposal.teamPhotoAlt} className="w-full rounded-lg border border-black/10 object-cover aspect-[4/3]" />
-            )}
-          </div>
-          {proposal.about.videoUrl && (
-            <a
-              href={proposal.about.videoUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 mt-4 text-sm font-semibold min-h-11"
-              style={{ color: theme.accentText }}
-            >
-              <Play size={14} /> {copy.proposal.watchVideo}
-            </a>
-          )}
-        </ProposalSection>
-      )}
-
-      {proposal?.gallery?.length > 0 && sectionKeys.includes("beforeAfter") && (
-        <ProposalSection id={SECTION_IDS.beforeAfter} kicker={copy.proposal.beforeAfter} title={copy.proposal.recentWork} theme={theme}>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {proposal.gallery.map((p, i) => (
-              <figure key={i}>
-                <div className="grid grid-cols-2 gap-1">
-                  <div className="relative">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={p.before} alt={`${copy.proposal.before}${p.caption ? ` — ${p.caption}` : ""}`} className="w-full aspect-[4/3] object-cover rounded-l-md border border-black/10" />
-                    <span className="absolute left-1.5 top-1.5 text-[10px] font-bold tracking-wider px-1.5 py-0.5 rounded bg-[#20242b]/80 text-white">{copy.proposal.before.toUpperCase()}</span>
-                  </div>
-                  <div className="relative">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={p.after} alt={`${copy.proposal.after}${p.caption ? ` — ${p.caption}` : ""}`} className="w-full aspect-[4/3] object-cover rounded-r-md border border-black/10" />
-                    <span className="absolute left-1.5 top-1.5 text-[10px] font-bold tracking-wider px-1.5 py-0.5 rounded bg-[#20242b]/80 text-white">{copy.proposal.after.toUpperCase()}</span>
-                  </div>
-                </div>
-                {p.caption && <figcaption className="text-xs text-[#2d2520]/70 mt-1.5">{p.caption}</figcaption>}
-              </figure>
-            ))}
-          </div>
-        </ProposalSection>
-      )}
-
-      {proposal?.documents?.length > 0 && sectionKeys.includes("documents") && (
-        <ProposalSection id={SECTION_IDS.documents} kicker={copy.proposal.importantDocuments} title={copy.proposal.documentsHeading} theme={theme}>
-          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3">
-            {proposal.documents.map((d, i) => (
-              <a
-                key={i}
-                href={d.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-lg border border-black/10 p-3 hover:border-black/25 flex flex-col"
-              >
-                <div className="h-14 rounded-md border border-black/10 flex items-center justify-center" style={{ backgroundColor: wash.bg, color: wash.accent }}>
-                  <FileText size={22} />
-                </div>
-                <p className="text-sm font-semibold text-[#2d2520] mt-2 leading-snug">{d.title}</p>
-                {d.summary && <p className="text-xs text-[#2d2520]/70 mt-0.5">{d.summary}</p>}
-                <span className="text-xs font-bold mt-auto pt-2" style={{ color: theme.accentText }}>
-                  {copy.proposal.viewDocument}
-                </span>
-              </a>
-            ))}
-          </div>
-        </ProposalSection>
-      )}
-
-      {proposal?.testimonials?.length > 0 && sectionKeys.includes("testimonials") && (
-        <ProposalSection id={SECTION_IDS.testimonials} kicker={copy.proposal.testimonials} title={copy.proposal.whatClientsSaid} theme={theme}>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {proposal.testimonials.map((r, i) => (
-              <blockquote key={i} className="rounded-lg border border-black/10 p-3.5 text-sm">
-                <Star size={13} className="inline -mt-0.5 mr-1" style={{ color: "#b45309" }} aria-hidden="true" />
-                <span className="text-[#2d2520]/85">“{r.quote}”</span>
-                {r.author && <footer className="text-xs text-[#2d2520]/70 mt-2">— {r.author}</footer>}
-              </blockquote>
-            ))}
-          </div>
-        </ProposalSection>
-      )}
-
-      {proposal?.services?.length > 0 && sectionKeys.includes("services") && (
-        <ProposalSection id={SECTION_IDS.services} kicker={copy.proposal.services} title={copy.proposal.whatElseWeDo} theme={theme}>
-          <ul className="grid gap-2 grid-cols-2 sm:grid-cols-3">
-            {proposal.services.map((sv) => (
-              <li key={sv.key} className="rounded-lg border border-black/10 px-3 py-2.5 text-sm font-semibold text-[#2d2520]" style={{ borderLeft: `3px solid ${rule}` }}>
-                {sv.label}
-              </li>
-            ))}
-          </ul>
-        </ProposalSection>
-      )}
+          file header. Same paper, same measured theme, same language — and
+          the same components (app/components/public/proposal/) draw them on
+          the instant-estimate presentation. */}
+      <CompanySections proposal={proposal} sectionKeys={sectionKeys} copy={copy} theme={theme} rule={rule} wash={wash} />
 
       <p className="text-center text-xs text-[#2d2520]/70 mt-2">
         {copy.quoteQuestions(c.name, c.phone)}
@@ -1792,16 +1670,6 @@ export default function QuoteApproval({ token }) {
   );
 }
 
-/** The section ids the contents jump to; keys match the server's `sections`. */
-const SECTION_IDS = {
-  project: "project",
-  about: "about",
-  beforeAfter: "before-after",
-  documents: "documents",
-  testimonials: "testimonials",
-  services: "services",
-};
-
 /**
  * "Scope of work": each group's scope paragraph under its label, then any
  * prose block the estimator added as a text-kind line. Groups with neither
@@ -1816,30 +1684,6 @@ function scopeOfWork(groups) {
     }
   }
   return out;
-}
-
-function SectionKicker({ theme, children }) {
-  return (
-    <h2
-      className="text-xs font-bold tracking-wider mb-3 uppercase"
-      style={{ color: theme.accentText }}
-    >
-      {children}
-    </h2>
-  );
-}
-
-function ProposalSection({ id, kicker, title, theme, children }) {
-  return (
-    <section id={id} className="scroll-mt-24 bg-white border border-black/10 rounded-2xl shadow-sm px-6 sm:px-8 py-6">
-      <p className="text-[10px] font-bold tracking-[0.15em] uppercase" style={{ color: theme.accentText }}>
-        {kicker}
-      </p>
-      {title && <h2 className="text-lg font-semibold text-[#2d2520] mt-0.5 mb-3">{title}</h2>}
-      {!title && <div className="mb-3" />}
-      {children}
-    </section>
-  );
 }
 
 function Shell({ children, wide = false }) {

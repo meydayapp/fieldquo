@@ -1,7 +1,9 @@
 // app/estimate-report/[token]/page.js
 //
 // The instant-estimate report a homeowner opens from their email — the
-// branded page behind the "View online" link on the PDF.
+// branded page behind the "View online" link on the PDF, and where the form
+// sends them on submit. Laid out as the company's proposal with the range
+// where the prices would be (see ReportView.js).
 //
 // Public, like /q/<token>: no session, no app shell, nothing suggesting the
 // reader has an account anywhere. Everything on it comes from
@@ -17,6 +19,7 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { loadEstimateReportByToken } from "@/lib/estimate/report/load";
+import { loadEstimatePresentation } from "@/lib/estimate/report/presentation";
 import ReportView from "./ReportView";
 
 // generateMetadata and the page both need the report; React's cache() makes
@@ -41,5 +44,9 @@ export default async function EstimateReportPage({ params }) {
   const { token } = await params;
   const loaded = await load(token);
   if (!loaded) notFound();
-  return <ReportView report={loaded.report} company={loaded.company} token={token} />;
+  // The company's proposal sections and the trade's process steps — the
+  // "same presentation" half. Only this page reads them; the PDF and the
+  // email are built without (lib/estimate/report/presentation.js).
+  const presentation = await loadEstimatePresentation({ quote: loaded.quote, language: loaded.report.language });
+  return <ReportView report={loaded.report} company={loaded.company} token={token} presentation={presentation} />;
 }

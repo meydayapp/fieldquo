@@ -37,8 +37,8 @@ import {
   loadProposalContent,
   loadQuoteWaivers,
   loadWorkPlan,
+  projectProposal,
 } from "@/lib/proposal/load";
-import { renderedSectionKeys } from "@/lib/proposal/sections";
 import { pendingWaiversForQuote, fileSignedWaiversForJob } from "@/lib/waivers/service";
 
 // First hop of x-forwarded-for is the client on Vercel. Best-effort — an audit
@@ -591,12 +591,9 @@ export async function GET(request, { params }) {
       loadQuoteWaivers({ quoteId: quote.id, companyId: quote.companyId }),
     ]);
     presented.proposal = {
-      sections: renderedSectionKeys(sections),
-      about: sections.about.rendered ? content.about : null,
-      gallery: sections.beforeAfter.rendered ? content.gallery : [],
-      documents: sections.documents.rendered ? content.documents : [],
-      testimonials: sections.testimonials.rendered ? content.testimonials : [],
-      services: sections.services.rendered ? content.services : [],
+      // The same projection the instant-estimate presentation uses: only
+      // rendered sections' content leaves the server.
+      ...projectProposal({ content, sections }),
       plan: plan && (plan.days || plan.paint) ? { days: plan.days, crewSize: plan.days ? plan.crewSize : null, paint: plan.paint } : null,
       waivers,
     };

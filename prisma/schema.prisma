@@ -2268,6 +2268,14 @@ model Company {
   /// public forms and their embeds share one look the way they share one
   /// brand colour.
   publicFormAppearance Json?
+  /// Which languages the instant-estimate form offers a visitor — a subset
+  /// of lib/i18n/instantQuoteCopy.js INSTANT_QUOTE_LANGUAGES, chosen under
+  /// Settings › Instant quotes. EMPTY means "never chosen" and offers all of
+  /// them, which is what every form did before the setting existed (see
+  /// lib/estimate/instantQuoteLanguages.js for why that, and not "the
+  /// default language only", is the unset reading). Read by the public
+  /// payload, the form's pills and the ?lang= resolution.
+  instantQuoteLanguages String[] @default([])
 
   isDemo Boolean @default(false)
 
