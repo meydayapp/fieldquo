@@ -310,7 +310,18 @@ section("9. Every hand-out path carries the rule — source");
   const route = decomment(read("app/api/sales/queue/route.js"));
   ok("the single claim's read passes the rep", /findFirst\(\{\s*where: claimCandidateWhere\(\{ tradeKey, now: at, rep \}\)/.test(route));
   ok("…and its write is guarded by the same WHERE with the rep", /where: \{ id: candidate\.id, \.\.\.claimCandidateWhere\(\{ tradeKey, now: at, rep \}\) \}/.test(route));
-  ok("the per-trade available count is this rep's, not the pool's", /db\.prospect\.count\(\{ where: claimCandidateWhere\(\{ tradeKey: key, now, rep \}\) \}\)/.test(route));
+  // The per-trade counts became one groupBy over the rep's candidate WHERE
+  // (trade dropped, then grouped by it), memoised per language fragment — no
+  // longer a count() per trade. What must hold is the same: the WHERE is
+  // built WITH the rep, and the memo key is the rep's language rule, so two
+  // reps with different languages can never share a count.
+  ok(
+    "the per-trade available count is this rep's, not the pool's",
+    /const \{ tradeKey: _anyTrade, \.\.\.candidateWhere \} = claimCandidateWhere\(\{ tradeKey: null, now, rep \}\);/.test(route) &&
+      /db\.prospect\.groupBy\(\{\s*by: \["tradeKey"\],\s*where: \{ \.\.\.candidateWhere,/.test(route) &&
+      /const langKey = JSON\.stringify\(languageWhereFor\(rep\) \?\? null\);/.test(route) &&
+      /queueMemo\.get\(`availableByTrade:\$\{langKey\}`/.test(route),
+  );
   ok("the queue row carries the language for the chip", /language: requiredLanguageFor\(p\)/.test(route));
   const gate = decomment(read("lib/sales/queueGate.js"));
   ok("the queue gate selects sellsIn so the rep row carries it", /sellsIn: true/.test(gate));
@@ -389,7 +400,14 @@ section("10. The column round-trips");
   ok("the platform PATCH accepts sellsIn", /const touchesSellsIn = "sellsIn" in body;/.test(patch));
   ok("…validates it through parseSellsIn", /parseSellsIn\(body\)/.test(patch));
   ok("…writes it", /\.\.\.\(touchesSellsIn \? \{ sellsIn \} : \{\}\)/.test(patch));
-  ok("…selects it back", /sellsIn: true,\s*setupRequestedAt: true,\s*commissionPlan:/.test(patch));
+  // In the SELECT every write path of this route returns through (the
+  // update, and the activation flips that pass `select: SELECT`), not merely
+  // somewhere in the file — the agency-employee listing selects it too.
+  {
+    const at = patch.indexOf("const SELECT = {");
+    const select = at >= 0 ? patch.slice(at, patch.indexOf("\n  };", at)) : "";
+    ok("…selects it back", /\bsellsIn: true,/.test(select) && /select: SELECT\b/.test(patch));
+  }
   ok("…returns it through the same normaliser", /sellsIn: sellsInOf\(updated\)/.test(patch));
   ok("…and audits the change", /sales_rep_sells_in_set/.test(patch));
   ok("the audit catalogue knows the action", /sales_rep_sells_in_set:/.test(read("lib/platform/auditActions.js")));
