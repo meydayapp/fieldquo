@@ -31,6 +31,7 @@ import {
 import { calculateMinimumPrice } from "@/lib/analytics/minimumPrice";
 import { companyMarginTarget } from "@/lib/costing/quoteCostEstimate";
 import { scopeGroupsLineItemCost } from "@/lib/costing/lineItemCost";
+import { customFactorHoursOf } from "@/lib/pricing/customFactors";
 
 // The SAME gate the invoice cost panel uses, imported rather than reimplemented.
 // "Same permission" written twice is two permissions that agree until one of
@@ -149,7 +150,12 @@ export async function buildQuoteCostingRow({
   const summary = quoteCostSummary({
     scopeGroups: groups,
     crew: clean.crew,
-    addedLabourHours: clean.addedLabourHours,
+    // The typed hours PLUS the hours a custom complexity factor sold, read
+    // off the groups' own lines (lib/pricing/customFactors.js) — the same sum
+    // the builder's panel shows. Only the typed figure is stored as the input
+    // below: the factor hours live on their line, and folding them into the
+    // input box would count them twice the next time the panel reopened.
+    addedLabourHours: clean.addedLabourHours + customFactorHoursOf(scopeGroups),
     addedMaterialCost: clean.addedMaterialCost,
     labourRate: clean.labourRate,
     overheadPct: clean.overheadPct,

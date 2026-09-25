@@ -36,6 +36,7 @@ import QuoteWording from "./QuoteWording";
 import PrepGuideEditor from "./PrepGuideEditor";
 import PrepGuideCompanyCard from "./PrepGuideCompanyCard";
 import TextBlockLibraryCard from "./TextBlockLibraryCard";
+import CustomFactorLibraryCard from "./CustomFactorLibraryCard";
 import ServiceDocuments from "./ServiceDocuments";
 import ServiceSeedsCard from "./ServiceSeedsCard";
 import ServiceTemplatesCard from "./ServiceTemplatesCard";
@@ -495,6 +496,11 @@ export default function ServicesEditor({ compact = false, focus = "services", on
               rights follow the quote grid, not the role: the routes ask for
               quotes:view_create_edit and refuse anyone under it. */}
           <TextBlockLibraryCard canEdit={canEditLibrary} />
+
+          {/* The company's own complexity factors, beside the trades' built-in
+              complexity the rows below describe. Same gate as the text-block
+              library: the routes ask for quotes:view_create_edit. */}
+          <CustomFactorLibraryCard canEdit={canEditLibrary} />
         </>
       )}
 

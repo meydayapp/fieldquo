@@ -4,6 +4,7 @@ Last updated: 25 September 2026 (leads: a "Linked documents" block — quote, jo
 Last updated: 25 September 2026 (Australia: GST 10% on an AU contractor's quotes and invoices as a VAT-table row named GST, gated on "Are you registered for GST?"; AUD plans at the same numbers and every other Stripe country on the USD rows, Checkout's currency now taken from the Plan row; tax on FieldQuo's own subscription stays Stripe Tax — new /platform/billing/tax shows per region the subscribers, 12-month taxable vs reverse-charged invoices, FieldQuo's thresholds (UK/EU from the first sale, AU A$75,000) and the Stripe registration checklist; owner to run `npm run seed:seat-ladder`)
 Last updated: 25 September 2026 (uploads go browser → Cloudinary on a server-issued signature and are verified against Cloudinary's Admin API before anything is saved — a normal phone photo uploads again; one helper `lib/media/uploadClient.js`, one progress bar, every `/api/upload` caller moved incl. the portal and the three public forms; limits are ours or the Cloudinary plan's if lower — Free: 10 MB)
 Last updated: 25 September 2026 (the instant estimate: the company picks the visitor's languages — `Company.instantQuoteLanguages`, unset = all three — a one-line description under each service card, and the page after submit is the company's proposal with the RANGE in place of prices, drawn by the same section components as the quote; stairs inference left unwired as an owner decision — see "The instant estimate: the company's languages…" below)
+Last updated: 25 September 2026 (two lost 22-September asks: the estimator's OWN complexity factors on any service of any trade — label + %, fixed amount or extra hours, printed as the client's reason line, saved as a line and reopened as a factor, carried to invoices, in the cost panel, with a company library in Settings › Services — and "Often added with this" add-on offers while building a quote; see the section of that name below)
 Last updated: 25 September 2026 (import, not export: the five bulk exports — price book, timesheets, pay run, subcontractor year-end list, bookkeeping ZIP — removed from /app with their routes refusing 403 through `lib/export/companyDataExport.js`; single documents and every import kept; a copy of a company's data stays available on written request; help centre, marketing, sales playbook and guide made honest)
 Last updated: 25 September 2026 (who pays for AI, the owner's decision: FieldQuo AI and translation on FieldQuo's own budget — the copilot keeps a per-company fair-use ceiling, translation the daily draft cap; the AI employee's replies and front desk charged in dollars from the company's AI credit at cost × 2 rounded up, gated on one reply's estimate, debited once per reply, NO_CREDIT → a person; a one-time grace on the old allowance until 1 October 2026; Settings › AI employee shows paused / the change and date / the balance; /platform/ai-billing shows dollars debited per company)
 Last updated: 25 September 2026 (the receipts book: photo AND PDF receipts captured from Expenses, a job page or the Create menu's "Snap receipt", read into lines / store / date + time / card last four / GST-PST-HST separately, checked against themselves, matched to the job the person was clocked in on (or overhead) by deterministic scoring with a reason for every point, split by line or amount, booked only on a tap as Expense rows carrying their tax; crew book to their own jobs or hand it to the office; /platform/ai-billing — the generic "who pays" switch, receipts on FieldQuo)
@@ -440,6 +441,95 @@ none reaches the HTML, every figure on the page is a range end or a starting-at 
 shared components, the copy in 8 languages, contrast on nine hostile brands);
 `check:instant-quote-copy` §6b (languages + blurbs + payload over the db stub);
 `check:client-proposal` 228/0; `check:estimate-report`; `npm run build` green.
+## Custom complexity on any trade, and add-ons while building (25 September 2026)
+
+Two more of the owner's 22-September asks, lost at the same compaction as the four below.
+Both additive. The payload of every fixture group and request that uses neither is
+md5-identical to origin/main at 853639c9 (recorded there before any change, held in
+`scripts/check-custom-factors.mjs` §1 — e.g. stairs en `6e295eafccd377b64213be3dac363ac3`,
+cabinets en `196e0b2e79ff5f71bf0ee3cdf37cff93`, POST `9f94d62e8ed3bd6e63ca50ddea494ef8`,
+PATCH `c0d0d529d17ca87588fe86bd12829b09`).
+
+1. **"Custom complexity … for any type of trade … things that are unforeseen."** Every
+   service the estimator can edit, on both layouts, now has "Your own complexity factors"
+   (`app/components/pricing/CustomFactorsEditor.js`) under the trade's own picker: a label
+   ("Tight access — 3rd floor walk-up") and a % of the service, a fixed amount, or extra
+   hours (offered only where the service is sold by the hour — painting's hourly sell rate,
+   or a service whose unit is the hour; a per-sq-ft rate is never used as one).
+   - **Composition, deterministic** (`lib/pricing/customFactors.js`): built-in tier/factors
+     are already inside the service's price (the BASE); each custom % is taken of that same
+     base, rounded to the cent on its own and summed — not compounded, so order never
+     matters; then fixed amounts and hours × the hourly rate captured when added.
+   - **On the document:** each factor is an ordinary line appended last in its group —
+     description = the label exactly as typed (never translated), amount = the adjustment,
+     quantity 1; the %, hours and rate ride in `meta.customFactor`, which no client renderer
+     reads. So the quote page, PDF, email, work order and the invoice built from the quote
+     (`createInvoiceFromQuote` copies lines whole) all carry it with no change of their own.
+   - **Saved and reopened:** `groupFromStored` splits the lines back into factors, so they
+     are edited in one place; re-saving an untouched quote writes the same lines to the
+     cent (fixed point proven on five fixtures). Works on a reopened saved group too; not
+     on a decided or imported group (read-only lines there).
+   - **Refused:** no label, zero, negative (a reduction is the quote's discount), past
+     300% / 1,000,000 / 1,000 h, a % of a zero base (Specialty) — each says why, prices
+     nothing and writes nothing. Max eight per service.
+   - **Cost panel:** a "Custom complexity factors" block lists each with what it adds; the
+     hours an "extra hours" factor sold go into the labour pool on the screen, the saved
+     cost row (`costingWrite`, input box untouched) and the recompute fallback — the same
+     sum, read off the same lines.
+   - **Library:** "Save to library" beside a factor; "Add from your library…" on any
+     service (an hours preset takes THAT service's rate, and is disabled where the service
+     is not sold by the hour). Settings › Services has "Your complexity factors" beside the
+     text-block library to add and remove them. New model `ComplexityFactorPreset`
+     (additive, created by SQL on the live DB — the migrate diff's unrelated DROPs of
+     `Community*` and `Company.instantQuoteLanguages` were NOT applied); removing archives
+     (`archivedAt`), never deletes. Routes `/api/complexity-factors` (GET view_only, value
+     withheld without showPricing; POST view_create_edit + showPricing, de-duplicates) and
+     `/api/complexity-factors/[id]` (DELETE = archive).
+   - Strings in all nine app languages (40 keys). Proof: `check:custom-factors` (169),
+     `check:doc-builder` 208 → 215 (a stored factor reopens as a factor, the document draws
+     the reason line, both layouts agree on the total, a locked group prints it read-only).
+
+2. **"Add-ons offered when I review but not when I'm creating it."** Under every service
+   in the builder (both layouts), "Often added with this" (`OftenAddedRow.js`,
+   `lib/quotes/builderOffers.js`) shows the same two sources the saved quote later shows:
+   - the review's rule-based co-occurrence (`lib/ai/quoteSuggestions.js` — no model, no AI
+     cost), now fetched per service while building through the previously caller-less
+     `POST /api/ai/quote-suggestions` (`byCategory: true`; gated to quotes:view_create_edit
+     + showPricing), each priced at the median this company's ACCEPTED quotes carried —
+     `typicalPriceByCategory` moved there from `quoteReview.js`, one median, two callers.
+     A suggestion with no accepted price is not offered (an offer needs a number);
+   - the company's catalogue extras for that service (`catalogueAddOnsFor`). On a NEW
+     quote those are already seeded at save, so they show as "offered automatically"
+     (not as buttons whose un-clicked state would do the same); on an EDIT the ones not
+     yet offered are buttons.
+   One click OFFERS it — a QuoteAddOn the client can tick, like the review's — and can be
+   taken back before saving. The browser sends REFERENCES only (`offerAddOns: [{ kind,
+   productId?, categoryId }]`, appended last and only when non-empty); POST / PATCH price
+   them after the write from the company's own rows (`lib/quotes/suggestedAddOns.js`:
+   product × this quote's counts, or the accepted median; history labels in the quote's
+   language via `labelTranslations`), after the catalogue seed, skipping duplicates, a
+   line already billed, a service already on the quote, another tenant's category and
+   anything past the cap of eight; never on a decided quote. Not shown: anything already
+   offered, already a line, or a service already on the quote. Eight strings × nine
+   languages. Proof: `check:builder-offers` (74, incl. smuggled amounts ignored and the
+   request md5 unchanged with no clicks), `check:doc-builder` 215 → 221 (create shows the
+   automatic chip, edit a button, an offered extra is not re-offered, a decided quote
+   offers nothing), `check:route-callers` (entry removed, now has a caller).
+
+### Still owed here
+
+- Not walked in a signed-in browser (no account in this session); proven by the render
+  checks against the real `QuoteBuilderForm` in both layouts, the executed arithmetic and
+  `npm run build`.
+- A custom factor typed on the invoice builder itself is not offered — the ask was "carried
+  to invoices from the quote", which it is; on an invoice the line is an ordinary line.
+- "Often added with this" offers extras as OPTIONS the client ticks, never as billed lines
+  (the line library still adds a catalogue product as a line). The review's AI-written
+  one-line reason is not added to a builder offer — that needs a model call, and this path
+  is deliberately free; the review can still write it later.
+- After a save the edit screen does not re-read the offered list, so a chip clicked and
+  saved can reappear as clickable until the page reloads; clicking it again is skipped
+  server-side as a duplicate.
 
 ---
 

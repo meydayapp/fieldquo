@@ -281,10 +281,6 @@ const NO_FRONT_DOOR = {
     "/api/self-quote a home, and only the self-quote half was wired — the " +
     "flow posts to /api/self-quote throughout. Not urgent (the public quote " +
     "form works), but the page's own header comment overstates it.",
-  "/api/ai/quote-suggestions":
-    "An HTTP wrapper around lib/ai/quoteSuggestions.js, which IS used — " +
-    "lib/ai/quoteReview.js imports getSuggestedAddOns and calls it in " +
-    "process. The feature ships; this door onto it is redundant.",
   "/api/platform/sales/attribution":
     "Sales attribution: read one company's attribution, attribute one by " +
     "hand, and correct one. The rules and the writes are real and covered by " +
