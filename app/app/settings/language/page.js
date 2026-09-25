@@ -9,6 +9,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Check, Loader2, Globe } from "lucide-react";
 import { LANGUAGES } from "@/app/i18n/languages";
 import { appCoverage, appReviewed } from "@/app/i18n/appMessages";
@@ -52,7 +53,8 @@ function Coverage({ code, t }) {
 }
 
 export default function LanguageSettingsPage() {
-  const { t, changeLanguage } = useTranslation();
+  const { t, applyAccountLanguage } = useTranslation();
+  const router = useRouter();
   // ── Why this screen is one of the three Crew keeps ────────────────────────
   //
   // "Your language" is a PERSONAL setting: PATCH /api/settings/language with
@@ -121,8 +123,14 @@ export default function LanguageSettingsPage() {
 
       // Apply immediately rather than waiting for a reload — the effective
       // language is the personal choice, or the company default when
-      // inheriting.
-      changeLanguage(data.language ?? data.defaultLanguage ?? "en");
+      // inheriting. applyAccountLanguage, not the header switcher's
+      // changeLanguage: this IS the account preference, so every provider on
+      // the page and every public page after it follows it, and a switch made
+      // earlier in this tab stops overriding it (app/providers/LanguageProvider.js).
+      applyAccountLanguage(data.language ?? data.defaultLanguage ?? "en");
+      // The route does not revalidate app/app/layout.js, so without this the
+      // shell's provider kept handing down the previous choice until a reload.
+      router.refresh();
 
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 2000);

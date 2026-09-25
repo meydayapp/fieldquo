@@ -28,7 +28,7 @@ function safeNext(raw) {
 
 export default function LoginPage() {
   const router = useRouter();
-  const { t, changeLanguage } = useTranslation();
+  const { t, setPageLanguage } = useTranslation();
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -55,7 +55,10 @@ export default function LoginPage() {
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (cancelled || !d?.prefill?.email || !d.route) return;
-        if (d.prefill.language) changeLanguage(d.prefill.language);
+        // The resume link's language, for this page only — never stored
+        // (app/providers/LanguageProvider.js). A signed-in account's own
+        // preference still outranks it.
+        if (d.prefill.language) setPageLanguage(d.prefill.language);
         const after = safeResumeTarget(d.route.next);
         if (after) setNext(after);
         if (d.route.action !== RESUME_ACTIONS.SIGN_IN && d.route.action !== RESUME_ACTIONS.SWITCH) return;
@@ -71,7 +74,7 @@ export default function LoginPage() {
     return () => {
       cancelled = true;
     };
-    // Once, on arrival. changeLanguage is the provider's stable callback.
+    // Once, on arrival. setPageLanguage is the provider's stable callback.
   }, []);
 
   const resendVerification = async () => {

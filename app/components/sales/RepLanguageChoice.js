@@ -87,7 +87,9 @@ export default function RepLanguageChoice({ onSaved }) {
       // Two steps, and both are needed.
       //
       // changeLanguage() moves the chrome NOW, so the tabs above change while
-      // the rep is still looking at the button they pressed. Without it the
+      // the rep is still looking at the button they pressed. It remembers the
+      // pick for this tab's session only (sessionStorage); the column saved
+      // above is what every later page load reads. Without it the
       // control looks dead until the refresh lands, which on a bad connection
       // is a second or two of nothing.
       //

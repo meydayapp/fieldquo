@@ -768,7 +768,7 @@ export default function SignupPage() {
   // fallback (app.signup.* in appMessages.js). It was English-only for a long
   // time on the reasoning that converting it belonged to its own change; this
   // is that change. What stays fixed is number formatting — see money().
-  const { t, changeLanguage } = useTranslation();
+  const { t, setPageLanguage } = useTranslation();
 
   // Signed-out is the common case, so the funnel opens on "account". A visitor
   // who turns out to have a login is moved to "business" by the resume effect
@@ -880,8 +880,10 @@ export default function SignupPage() {
             .catch(() => null);
           if (cancelled) return;
           // The language the follow-up email was written in — the page it
-          // opened should not answer in a browser guess.
-          if (found?.prefill?.language) changeLanguage(found.prefill.language);
+          // opened should not answer in a browser guess. For this page only:
+          // a prefill is not the person choosing a language for FieldQuo, so
+          // it is never stored (app/providers/LanguageProvider.js).
+          if (found?.prefill?.language) setPageLanguage(found.prefill.language);
           const route = found?.route;
           const to = safeResumeTarget(route?.to);
           if ((route?.action === RESUME_ACTIONS.APP || route?.action === RESUME_ACTIONS.SIGN_IN) && to) {
@@ -994,7 +996,7 @@ export default function SignupPage() {
     return () => {
       cancelled = true;
     };
-    // Once, on arrival. changeLanguage is the provider's stable callback.
+    // Once, on arrival. setPageLanguage is the provider's stable callback.
   }, []);
 
   useEffect(() => {

@@ -9,8 +9,8 @@
 // Two reasons, both about the host. The marketing components link with
 // relative hrefs (/pricing, /product/quoting) that on help.fieldquo.com would
 // be rewritten into /help/pricing and 404; and they read the visitor's
-// language from the LanguageProvider (localStorage), whereas here the
-// language is the URL — a French article must keep a French frame whatever
+// language from the LanguageProvider (account, tab switch, device), whereas
+// here the language is the URL — a French article must keep a French frame whatever
 // the browser last chose on fieldquo.com. So this frame borrows the
 // marketing site's LOOK — the same tokens, the same header height and
 // border, the same navy footer — and none of its routing.

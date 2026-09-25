@@ -59,9 +59,11 @@ export const dynamic = "force-dynamic";
  * Resolved HERE rather than in the root layout, even though the provider it
  * feeds lives there. The root layout wraps the marketing site too, and reading
  * headers() that high up opts every static marketing page into dynamic
- * rendering. /app is already force-dynamic, so a nested provider costs nothing
- * and keeps the boundary honest: signed-in screens follow the account, public
- * pages follow the browser.
+ * rendering. /app is already force-dynamic, so a nested provider costs nothing.
+ * Public pages still follow the account for a signed-in browser — they learn it
+ * on the client, after the static page has loaded, from what this shell
+ * recorded and from GET /api/me/language (lib/i18n/languageStorage.js), so no
+ * marketing page had to become dynamic for it.
  *
  * Never throws. A language lookup failing must not take down the whole app, and
  * the fallback is what everyone gets today anyway.
@@ -404,6 +406,13 @@ export default async function AppLayout({ children }) {
       resolveSettingsShell(),
     ]);
 
+  // Whether the shell may tell the rest of this browser "signed in, and this
+  // is the account's language" (LanguageProvider's accountSession). Only for a
+  // resolved, real session: a read-only support session is a superadmin
+  // looking at SOMEBODY ELSE's account, and must not leave that account's
+  // language — or a signed-in flag — behind in the superadmin's browser.
+  const accountSession = Boolean(settingsShell.access && !settingsShell.access.impersonation);
+
   // Before the lock check: a company that doesn't exist, or one that never
   // reached Stripe at all, can't be behind on its bill. In practice the two
   // can't both be true — "locked" needs a Subscription row and this needs the
@@ -424,7 +433,7 @@ export default async function AppLayout({ children }) {
   if (setupPath?.setupIncomplete) {
     return (
       <div className="min-h-screen bg-background">
-        <LanguageProvider initialLanguage={language} fromAccount={Boolean(language)}>
+        <LanguageProvider initialLanguage={language} fromAccount={Boolean(language)} accountSession={accountSession}>
           <SetupIncomplete companyName={company?.name} />
         </LanguageProvider>
       </div>
@@ -491,13 +500,16 @@ export default async function AppLayout({ children }) {
           structural rather than a rule someone has to remember. */}
       {/* Nested inside the root provider on purpose — see getAppLanguage. The
           inner one wins for this subtree, so /app follows the saved account
-          preference while the marketing site keeps following the browser.
+          preference whatever this tab or this device would otherwise say.
 
           fromAccount tells it the value is a stated CHOICE, not a guess, so
-          localStorage can't overwrite it. Without that, a user who picked French
-          in Settings got English back on any browser that had previously visited
-          the marketing site. */}
-      <LanguageProvider initialLanguage={language} fromAccount={Boolean(language)}>
+          no browser signal can overwrite it. Without that, a user who picked
+          French in Settings got English back on any browser that had
+          previously visited the marketing site. accountSession lets it carry
+          that choice past /app — to the marketing site, /login, the help
+          centre — for as long as this browser stays signed in
+          (lib/i18n/statedLanguage.js, rung 3). */}
+      <LanguageProvider initialLanguage={language} fromAccount={Boolean(language)} accountSession={accountSession}>
       <CompanyPreferencesProvider
         initialCurrency={company?.currency || null}
         initialInfluencer={isInfluencer(company)}

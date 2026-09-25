@@ -1,13 +1,14 @@
 // app/components/marketing/MarketingHeader.js
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { ChevronDown, Menu, X } from "lucide-react";
 import LanguageSwitcher from "./LanguageSwitcher";
 import { useSession } from "@/lib/auth-client";
+import { noteSessionPresence } from "@/lib/i18n/languageStorage";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useIndustryLabels } from "@/app/hooks/useIndustryLabels";
 import Logo from "@/app/components/Logo";
@@ -68,8 +69,19 @@ export default function MarketingHeader() {
   // Trade names in the visitor's language. app/data/industries.js only
   // carries English ones; see the hook.
   const industries = useIndustryLabels();
-  const { data: session, isPending } = useSession();
+  const { data: session, isPending, error: sessionError } = useSession();
   const isLoggedIn = !isPending && !!session?.user;
+
+  // This header already asks Better Auth who is signed in, for every visitor,
+  // to draw "Log in" or the avatar. Its answer is also the cheapest way for a
+  // public page to learn the account's language without a request of its own
+  // for anonymous visitors: signed in → ask for the account's language (once
+  // per page); signed out → drop a stale signed-in flag without asking.
+  // A failed session lookup is neither, and changes nothing.
+  useEffect(() => {
+    if (isPending || sessionError) return;
+    noteSessionPresence(isLoggedIn);
+  }, [isPending, sessionError, isLoggedIn]);
 
   const [productOpen, setProductOpen] = useState(false);
   const [industriesOpen, setIndustriesOpen] = useState(false);

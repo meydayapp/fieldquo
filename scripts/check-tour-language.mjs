@@ -15,8 +15,9 @@
 //
 // /app nests two LanguageProviders. The inner one is handed the account's
 // language with `fromAccount`; the outer one (app/layout.js) has no account to
-// ask and follows localStorage, a key this origin shares with the marketing
-// site. AppTours is mounted AFTER `</LanguageProvider>` in app/app/layout.js —
+// ask and followed localStorage, a key this origin shared with the marketing
+// site (since 2026-09-25 that rung is a per-tab sessionStorage switch — see
+// check-language-precedence.mjs; the channel below must beat it either way). AppTours is mounted AFTER `</LanguageProvider>` in app/app/layout.js —
 // a sibling of the inner provider, a child of the outer one — so the tour, and
 // only the tour, read the marketing site's leftover "uk".
 //
@@ -123,7 +124,7 @@ function translatorFor(code) {
  * @returns { shell, tours } — what the sidebar renders in, and what a tour
  *          mounted OUTSIDE the account provider renders in.
  */
-function renderAppPage({ accountLanguage = null, stored = null, browser = null } = {}) {
+function renderAppPage({ accountLanguage = null, session = null, browser = null } = {}) {
   __resetStatedLanguage();
 
   // Inner provider: app/app/layout.js, `fromAccount={Boolean(language)}`.
@@ -137,7 +138,7 @@ function renderAppPage({ accountLanguage = null, stored = null, browser = null }
     initialLanguage: undefined,
     fromAccount: false,
     stated: statedLanguage(),
-    stored,
+    session,
     browser,
   });
 
@@ -202,17 +203,17 @@ for (const key of REPORTED) {
 // ═══ 2. The resolver, against the owner's exact inputs ═════════════════════
 console.log("\n2. resolveShellLanguage, executed\n");
 
-// THE BUG. A signed-in Spanish user, on a browser whose localStorage carries
-// the marketing site's leftover "uk", on the provider that was never told
-// about the account.
+// THE BUG. A signed-in Spanish user, in a tab that switched the marketing site
+// to "uk" (then a permanent localStorage key, now this tab's session switch),
+// on the provider that was never told about the account.
 eq(
-  "outer provider on /app: stated es beats stored uk",
-  resolveShellLanguage({ fromAccount: false, stated: "es", stored: "uk", browser: "en-CA" }),
+  "outer provider on /app: stated es beats a session uk",
+  resolveShellLanguage({ fromAccount: false, stated: "es", session: "uk", browser: "en-CA" }),
   "es",
 );
 eq(
   "the same call with nothing announced is what shipped",
-  resolveShellLanguage({ fromAccount: false, stated: null, stored: "uk", browser: "en-CA" }),
+  resolveShellLanguage({ fromAccount: false, stated: null, session: "uk", browser: "en-CA" }),
   "uk",
 );
 eq(
@@ -221,41 +222,42 @@ eq(
   "es",
 );
 eq(
-  "fromAccount ignores a stored guess even when one exists",
-  resolveShellLanguage({ initialLanguage: "fr", fromAccount: true, stored: "uk", browser: "de" }),
+  "fromAccount ignores a session switch even when one exists",
+  resolveShellLanguage({ initialLanguage: "fr", fromAccount: true, session: "uk", browser: "de" }),
   "fr",
 );
 eq(
   "fromAccount with an unsupported value falls to English, not to a guess",
-  resolveShellLanguage({ initialLanguage: "zz", fromAccount: true, stored: "uk" }),
+  resolveShellLanguage({ initialLanguage: "zz", fromAccount: true, session: "uk" }),
   DEFAULT_LANGUAGE,
 );
 
-// The marketing site must be untouched by all of this: a stranger with no
-// account still gets their browser, and still gets whatever they last picked.
+// The marketing site: a stranger with no account gets their device, and gets
+// whatever they picked IN THIS TAB. The full matrix, including the permanent
+// key this used to read, is check-language-precedence.mjs.
 eq(
-  "marketing: a stored choice still wins",
-  resolveShellLanguage({ fromAccount: false, stored: "uk", browser: "en-CA" }),
+  "marketing: this tab's switch still wins",
+  resolveShellLanguage({ fromAccount: false, session: "uk", browser: "en-CA" }),
   "uk",
 );
 eq(
-  "marketing: no storage, French browser",
-  resolveShellLanguage({ fromAccount: false, stored: null, browser: "fr-CA" }),
+  "marketing: no switch, French device",
+  resolveShellLanguage({ fromAccount: false, session: null, browser: "fr-CA" }),
   "fr",
 );
 eq(
-  "marketing: no storage, es-419 normalises to es",
-  resolveShellLanguage({ fromAccount: false, stored: null, browser: "es-419" }),
+  "marketing: no switch, es-419 normalises to es",
+  resolveShellLanguage({ fromAccount: false, session: null, browser: "es-419" }),
   "es",
 );
 eq(
-  "marketing: an unrecognised browser code does not overwrite the server's render",
-  resolveShellLanguage({ initialLanguage: "it", fromAccount: false, stored: null, browser: "sv-SE" }),
+  "marketing: an unrecognised device code does not overwrite the server's render",
+  resolveShellLanguage({ initialLanguage: "it", fromAccount: false, session: null, browser: "sv-SE" }),
   "it",
 );
 eq(
-  "an unsupported stored value is ignored, not adopted",
-  resolveShellLanguage({ fromAccount: false, stored: "zz", browser: "de-DE" }),
+  "an unsupported session value is ignored, not adopted",
+  resolveShellLanguage({ fromAccount: false, session: "zz", browser: "de-DE" }),
   "de",
 );
 eq("nothing at all is English", resolveShellLanguage({}), DEFAULT_LANGUAGE);
@@ -288,7 +290,7 @@ __resetStatedLanguage();
 // ═══ 4. The whole page, and what the tour actually says ════════════════════
 console.log("\n4. The owner's session, end to end\n");
 
-const owner = renderAppPage({ accountLanguage: "es", stored: "uk", browser: "en-CA" });
+const owner = renderAppPage({ accountLanguage: "es", session: "uk", browser: "en-CA" });
 eq("the app shell renders Spanish", owner.shell, "es");
 eq("the tour renders Spanish too", owner.tours, "es");
 
@@ -309,20 +311,27 @@ for (const key of REPORTED) {
   );
 }
 
-// Leaving /app puts the guesses back in charge — otherwise one visit to the
-// app would pin the marketing site to the account's language for the session.
+// Leaving /app withdraws the announcement. What the marketing site shows then
+// is the rungs below it: this tab's explicit switch, else the account (the
+// owner's rule since 2026-09-25 — a signed-in person reads their own language
+// on the public pages too), else the device.
 owner.retract();
 eq(
-  "after the app unmounts, the marketing guess is live again",
-  resolveShellLanguage({ fromAccount: false, stated: statedLanguage(), stored: "uk" }),
+  "after the app unmounts, this tab's switch is live again",
+  resolveShellLanguage({ fromAccount: false, stated: statedLanguage(), session: "uk", account: "es" }),
   "uk",
+);
+eq(
+  "…and with no switch, the account's language stays",
+  resolveShellLanguage({ fromAccount: false, stated: statedLanguage(), session: null, account: "es", browser: "en-CA" }),
+  "es",
 );
 __resetStatedLanguage();
 
 // A user who has stated nothing is unchanged: fromAccount is false on both
 // providers and both still follow the browser.
-const guest = renderAppPage({ accountLanguage: null, stored: "fr", browser: "en-CA" });
-eq("no stated preference: the shell still follows storage", guest.shell, DEFAULT_LANGUAGE);
+const guest = renderAppPage({ accountLanguage: null, session: "fr", browser: "en-CA" });
+eq("no stated preference: the shell renders the server default", guest.shell, DEFAULT_LANGUAGE);
 eq("no stated preference: so does the tour", guest.tours, "fr");
 __resetStatedLanguage();
 
@@ -480,8 +489,8 @@ console.log("\n7. The rep's language — written at activation, on Pay, on Welco
   eq("a stored language reaches the provider as an account choice", stated.language, "fr");
   eq("…with fromAccount true", stated.fromAccount, true);
   eq(
-    "…so a stored fr beats a stored-in-the-browser uk AND a German browser",
-    resolveShellLanguage({ initialLanguage: stated.language, fromAccount: stated.fromAccount, stored: "uk", browser: "de-DE" }),
+    "…so a stored fr beats this tab's uk switch AND a German browser",
+    resolveShellLanguage({ initialLanguage: stated.language, fromAccount: stated.fromAccount, session: "uk", browser: "de-DE" }),
     "fr",
   );
   const nothing = shellLanguage({ language: null });
@@ -489,7 +498,7 @@ console.log("\n7. The rep's language — written at activation, on Pay, on Welco
   eq("…with fromAccount false", nothing.fromAccount, false);
   eq(
     "…so the browser's fallbacks are live for a rep who never chose",
-    resolveShellLanguage({ initialLanguage: nothing.language, fromAccount: nothing.fromAccount, stored: null, browser: "fr-CA" }),
+    resolveShellLanguage({ initialLanguage: nothing.language, fromAccount: nothing.fromAccount, session: null, browser: "fr-CA" }),
     "fr",
   );
   eq("a dropped language reads as no statement, not as English", shellLanguage({ language: "zz" }).fromAccount, false);

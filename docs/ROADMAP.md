@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 25 September 2026 (the owner's own signup test, four faults: account-email pages now render in the account's language from the first byte — server wrappers on /verify-email and /reset-password, a layout on /accept-invitation, the link carries ?lang=; the confirmation link lands on the page, which names the address it confirmed and asks when another account is signed in; a ?resume= link for an address that already has a login goes to sign-in (or the app) instead of the account step; the five-minute letter skips any address whose login owns a finished signup and any half-typed address the same browser finished under another — check:auth-link-routing)
+Last updated: 25 September 2026 (FieldQuo's own language no longer follows the last page you visited: the permanent origin-wide localStorage key is gone (removed on load), a signed-in account's language wins on public pages too (GET /api/me/language, only for a browser that has signed in), the header switcher lasts one tab session, booking pages / prefills / email-link landings set their page only — see "FieldQuo's language follows the person, not the last page")
 Last updated: 25 September 2026 (/platform/analytics: the signup funnel is the card-free flow counted "reached this step or later" — monotone, trial started tied to a finished company — and the laptop leak that put "Account & company 581" over "Visited 565" is closed; FieldQuo's own Meta campaigns as campaign ▸ ad set ▸ ad with signups / trials / paying, "+"/%20 merged, id-only campaigns labelled, Instagram read from site_source_name; the Ads Manager URL-parameters string with a how-to — see "/platform/analytics: an honest signup funnel, and FieldQuo's own Meta campaigns" below)
 Last updated: 25 September 2026 (Create › Request opens a hand-entered lead form at /app/leads/new — the owner's six fields, posted through createScoredLead as source "manual", gated at requests:view_create_edit on page and route, landing on the board with the new lead's drawer open; the board's ?lead= deep link now also works after an in-app navigation — see "Still owed here" under "Phone menus, the Create sheet and a mobile audit" below)
 Last updated: 25 September 2026 (Kitchen Designer on by itself for the trades that build kitchens — kitchen_design, remodeling, renovation, general contracting, new construction, cabinet refacing; refinishing/countertop/stairs/painting stay off; a handyman opts in — plus `Company.kitchenDesignerOverride` (follow / always on / always off) on Settings › Services, read by the one gate in lib/kitchen/access.js that every surface and Cabinet Rates now ask — see "Kitchen Designer: on for the trades that build kitchens" below)
@@ -60,6 +60,92 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## FieldQuo's language follows the person, not the last page (25 September 2026)
+
+The owner: "Why when I click on the links of FieldQuo it'll send me in a
+different language? Is there a way to have so it matches the device's language
+until it matches the user's preferences in the /app?"
+
+### Root cause (confirmed)
+
+The shell (`app/providers/LanguageProvider.js`, via `resolveShellLanguage` in
+`lib/i18n/statedLanguage.js`) followed `localStorage["fieldquo-language"]` —
+permanent and shared by the whole origin — ahead of the device, and
+`changeLanguage()` wrote that key from places that are not a person choosing
+FieldQuo's language: a contractor's client booking page
+(`app/book/[companySlug]/BookingFlow.js` — pill click, `?lang=`/stored pick, the
+company-default fallback), the signup and login resume prefills, and the
+email-link landings (`LinkLanguage`). Testing a Spanish booking page made
+fieldquo.com Spanish on every later link. Public pages also never learned a
+signed-in account's preference (only /app announced it).
+
+### The rule now (`lib/i18n/statedLanguage.js` header)
+
+account (`fromAccount` / announced from /app, sales, email-link page) >
+this tab's explicit switch (sessionStorage) > the account learned on a public
+page > a page-only override > the device (first supported of
+`navigator.languages`; `fil` → Tagalog) > English. Pages that speak for a
+contractor (`COMPANY_VOICE_PREFIXES`: /book, /quote, /q, /portal, /site, /embed,
+/f, /instant-quote and the other homeowner trees) skip the switch and the
+account.
+
+- `changeLanguage` = explicit switch, this tab only. Callers: the marketing
+  switcher, the sales invite picker, the rep picker — nothing else
+  (`check:language-precedence` fails on any other caller).
+- `setPageLanguage` = this render only, keyed to the path, stored nowhere:
+  BookingFlow, the signup/login prefills.
+- `applyAccountLanguage` = Settings › Language saved: applies now, re-announces,
+  drops the tab's switch; the page now also `router.refresh()`es, because the
+  route never revalidated the /app layout (the old comment claiming it did was
+  wrong).
+- The old key is removed on first load (`forgetLegacyLanguage`), so every
+  browser carrying one returns to device/account at once.
+- Signed-in on public pages: Better Auth's cookie is httpOnly, so a
+  `fieldquo-signed-in` = "1" flag (no language in it) is set by the /app shell
+  (never during a support session) and by the marketing header's existing
+  session lookup; cleared by `signOut()` (wrapped in `lib/auth-client.js`), by
+  the header seeing nobody, or by `GET /api/me/language` answering
+  `signedIn:false`. Anonymous visitors make no new request. No marketing page
+  became dynamic (root layout untouched). `/help` (already dynamic) now
+  redirects a signed-in person to their account language when the articles
+  exist in it.
+
+### Checks
+
+- `check:language-precedence` (new, in `check:all`): the owner's four scenarios,
+  a 720-combination matrix (signed in/out × stale key × tab switch × device incl.
+  fr-CA, es-419, pa-IN, zh-Hant, ja × page override × page voice), the storage
+  layer in a fake browser, and the caller allow-list. 111/111 now; against the
+  old code 10/48 with exit 1.
+- Client-facing language decisions (bookingLanguage, instantQuoteLanguage,
+  both resolveClientLanguage, resolveDocumentLanguage, resolveUserLanguage,
+  linkLanguage, normalizeLanguage) over 16,880 inputs: md5
+  4780ce7e5c8c3d2a03a53851ecca62ce before and after.
+- Browser (dev server, placeholder DB): stale `es` + device en → English and
+  key removed; device fr-CA → French marketing; DE on the switcher → German, kept
+  on a full load in the same tab, English with a fresh sessionStorage; a
+  `?lang=es` booking page renders `<html lang="es">`, and `/` afterwards
+  (client nav and full load) is English with nothing stored; a stale signed-in
+  flag costs one request and is removed; anonymous loads make none.
+
+### Still owed here
+
+- Not exercised live: a real signed-in session on a public page (needs a
+  database). The route and flag are covered by the check, not a browser.
+- The booking page's language pills could not be clicked on a placeholder DB
+  (the payload fetch fails, so they do not render); the `?lang=` path was.
+- `/api/me/language` resolves the account through `accountLanguageContext`
+  (the same lookup as the account emails: personal language, else the EARLIEST
+  active company's default); /app uses the ACTIVE company's default. They differ
+  only for a multi-company user with no personal language.
+- /q's contractor preview banners (staff language) stay on the device language:
+  /q is a company-voice path, so the account is not consulted there.
+- An email-link landing no longer carries its language to the next page
+  (/login after /reset-password): that page follows the account if signed in,
+  else the device. Carrying `?lang=` onto those links would close it.
+- /platform admins have no language column; /platform follows their Better Auth
+  account if they have one on this browser, else the device.
 
 ## Email templates: money tokens in the company's currency, FieldQuo's words in the document's language (25 September 2026)
 

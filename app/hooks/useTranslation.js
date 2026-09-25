@@ -37,7 +37,11 @@ function resolve(dict, key) {
 }
 
 export function useTranslation() {
-  const { language, changeLanguage } = useLanguageContext();
+  // changeLanguage is an explicit, this-tab-only switch; setPageLanguage is
+  // this page's render only; applyAccountLanguage is Settings saving the
+  // account's preference. Which one a caller may use is the whole fix in
+  // app/providers/LanguageProvider.js — read its note before picking.
+  const { language, changeLanguage, setPageLanguage, applyAccountLanguage } = useLanguageContext();
 
   const t = useCallback(
     (key, fallbackOrValues, maybeValues) => {
@@ -70,5 +74,5 @@ export function useTranslation() {
     [language],
   );
 
-  return { t, language, changeLanguage };
+  return { t, language, changeLanguage, setPageLanguage, applyAccountLanguage };
 }

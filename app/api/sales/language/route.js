@@ -6,8 +6,8 @@
 //
 // app/sales/layout.js rendered `<LanguageProvider initialLanguage="en"
 // fromAccount>`. `fromAccount` means "this is a signed-in user's SAVED
-// preference" and makes the provider skip its localStorage and navigator
-// fallbacks — so a hardcoded literal beside it claimed a decision on behalf of
+// preference" and makes the provider skip its browser-side (then localStorage,
+// now a per-tab switch) and navigator fallbacks — so a hardcoded literal beside it claimed a decision on behalf of
 // somebody who had never been offered one, and denied a francophone rep even
 // the browser fallback they would have got as a stranger on the marketing site.
 // lib/sales/repLanguage.js's header carries the full story, including the real

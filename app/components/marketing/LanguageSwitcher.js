@@ -4,6 +4,12 @@
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { LANGUAGES } from "@/app/i18n/languages";
 
+// An explicit choice, and a SHORT-LIVED one: it holds for this tab's browsing
+// session only (sessionStorage — app/providers/LanguageProvider.js), so a link
+// clicked tomorrow opens in the device's language or the account's, not in
+// whatever this header was last pressed to. For a signed-in person it changes
+// what this tab shows and nothing else — their account preference is changed
+// in Settings › Language, never here.
 export default function LanguageSwitcher({ compact = false }) {
   const { language, changeLanguage } = useTranslation();
 

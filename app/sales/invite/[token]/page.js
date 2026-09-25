@@ -55,7 +55,8 @@ export default function SalesInvitePage({ params }) {
   const { t } = useTranslation();
   // `language` is what this screen is rendering in right now — the picker's
   // default and, until the rep touches it, what gets written. changeLanguage
-  // re-renders the form in the chosen language immediately.
+  // re-renders the form in the chosen language immediately — for this tab's
+  // session only; what lasts is the SalesRep.language the form submits.
   const { language, changeLanguage } = useLanguageContext();
 
   const [invite, setInvite] = useState(null);

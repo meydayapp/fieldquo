@@ -158,7 +158,13 @@ export default function BookingFlow({
   // to WRITE rather than recognise, and a question you can't read is a question
   // you skip.
   const { t, language } = useTranslation();
-  const { changeLanguage } = useLanguageContext();
+  // setPageLanguage, never changeLanguage: the booker's language is THIS
+  // page's, in the company's and the client's voice. It used to be written
+  // into FieldQuo's own permanent preference, so a contractor who tested his
+  // Spanish booking page got a Spanish fieldquo.com for days afterwards. The
+  // per-company pick below (bookingLangStorageKey) is the booking page's own
+  // memory and is unchanged.
+  const { setPageLanguage } = useLanguageContext();
   // An appointment type's name in the language this page is showing: the
   // draft stored when the company saved it (the payload carries every
   // language's, because only this browser knows which one the visitor
@@ -182,7 +188,7 @@ export default function BookingFlow({
   function chooseLanguage(code) {
     const lang = bookingLanguage(code);
     if (!lang) return;
-    changeLanguage(lang);
+    setPageLanguage(lang);
     setLanguageChosen(true);
     try {
       window.localStorage.setItem(bookingLangStorageKey(companySlug), lang);
@@ -200,7 +206,7 @@ export default function BookingFlow({
     const fromQuery = bookingLanguage(new URLSearchParams(window.location.search).get("lang"));
     const first = fromQuery || stored;
     if (first) {
-      changeLanguage(first);
+      setPageLanguage(first);
       setLanguageChosen(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -373,7 +379,7 @@ export default function BookingFlow({
         // of the three: the company's own language, said by the payload.
         if (!languageChosen && !bookingLanguage(language)) {
           const theirs = bookingLanguage(data?.defaultLanguage);
-          if (theirs) changeLanguage(theirs);
+          if (theirs) setPageLanguage(theirs);
         }
 
         // The estimator list. Best-effort — if it fails or is empty, Step 1

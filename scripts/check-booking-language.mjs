@@ -46,7 +46,11 @@ const flow = decomment(read("app/book/[companySlug]/BookingFlow.js"));
 ok("the form draws the three pills from the one table", /BOOKING_LANGUAGES\.map\(/.test(flow) && /BOOKING_LANGUAGE_NAMES\[code\]/.test(flow));
 ok("…reads ?lang= first, then the stored pick", flow.indexOf('get("lang")') > 0 && /bookingLangStorageKey\(companySlug\)/.test(flow) && /const first = fromQuery \|\| stored/.test(flow));
 ok("…falls back to the company's language from the payload only when nothing was chosen", /if \(!languageChosen && !bookingLanguage\(language\)\)/.test(flow) && /bookingLanguage\(data\?\.defaultLanguage\)/.test(flow));
-ok("…stores a pick per company and changes the shell's language", /localStorage\.setItem\(bookingLangStorageKey\(companySlug\), lang\)/.test(flow) && /changeLanguage\(lang\)/.test(flow));
+ok("…stores a pick per company and changes the shell's language for THIS page only", /localStorage\.setItem\(bookingLangStorageKey\(companySlug\), lang\)/.test(flow) && /setPageLanguage\(lang\)/.test(flow));
+// Never FieldQuo's own preference: this page speaks for the company, and the
+// persisting setter here is what made fieldquo.com Spanish for days after the
+// owner tested a Spanish booking page (check-language-precedence.mjs).
+ok("…and never through the shell's persisting changeLanguage", !/changeLanguage\(/.test(flow));
 ok("…and still posts `language` with the booking", /\n\s+language,\n/.test(flow));
 ok("the header is mounted with the pills on every step", (flow.match(/onLanguage=\{chooseLanguage\}/g) || []).length === 3);
 
