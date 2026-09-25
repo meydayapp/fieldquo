@@ -117,5 +117,26 @@
   "sourceCategory": "Window Cleaning",
   "sourceService": "Commercial Window & Glass Door Cleaning + Sill Wipe",
   "taskCode": "DEFAULT_EXTERIOR_SERVICE_16"
+ },
+ {
+  "seedKey": "fq.window_cleaning.exterior.gutter_roof_rinse",
+  "industry": "Window & Exterior Cleaning",
+  "sourceCategory": "Estimate templates (Gutter)",
+  "sourceService": "Gutter Cleaning + Roof Rinse",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.window_cleaning.exterior.gutter_inspection",
+  "industry": "Window & Exterior Cleaning",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Gutter and downspout inspection",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.window_cleaning.visits.estimate_visit",
+  "industry": "Window & Exterior Cleaning",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Window count and estimate visit",
+  "taskCode": null
  }
 ]

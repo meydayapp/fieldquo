@@ -8,7 +8,8 @@
 // (the room perimeter — baseboard and trim run on it; the takeoff has no
 // separate trim or baseboard field), `doorCount`; a window is counted with the generic `each`; cabinet
 // lines use `doorCount` / `drawerCount` as lib/pricing/cabinetLabour.js
-// reads them; deck, fence and siding use the generic `areaSqFt` / `linearFt`.
+// reads them; exterior siding is the exterior takeoff's `wallSqft`; deck and fence the typed
+// `areaSqFt` / `linearFt`.
 //
 // Prices are 2026 North-American residential repaint figures: $1.50–1.75 a
 // sq ft of wall for two coats, $1.25–1.50 a ceiling, $2–2.50 a linear ft of
@@ -166,7 +167,7 @@ export const PAINT = {
     ["Fassade streichen — pro sq ft", "Verkleidung gewaschen, abgekratzt, punktuell grundiert und zweimal gestrichen."],
     ["Фарбування фасаду — за кв. фут", "Обшивку вимито, зачищено, точково заґрунтовано й пофарбовано у два шари."],
     ["Pintura ng siding — kada sq ft", "Hinugasan, kinayod, nilagyan ng primer sa ilang bahagi at dalawang patong ang siding."],
-  ), { measurementKey: "areaSqFt" }),
+  ), { measurementKey: "wallSqft" }),
   exteriorPaint: () => hdMaterial(HD.paint_exterior_gal_2coats, t(
     ["Exterior paint — per gallon", "Exterior satin acrylic; one gallon covers about 160 sq ft of siding in two coats."],
     ["Peinture extérieure — au gallon", "Acrylique extérieur satiné; un gallon couvre environ 160 pi² de revêtement en deux couches."],
@@ -175,5 +176,5 @@ export const PAINT = {
     ["Außenfarbe — pro Gallone", "Seidenglänzende Außen-Acrylfarbe; eine Gallone reicht für etwa 160 sq ft Fassade in zwei Anstrichen."],
     ["Фасадна фарба — за галон", "Сатинова фасадна акрилова фарба; галон покриває близько 160 кв. футів обшивки у два шари."],
     ["Pintura sa labas — kada galon", "Exterior satin acrylic; ang isang galon ay para sa mga 160 sq ft ng siding sa dalawang patong."],
-  ), { measurementKey: "areaSqFt" }),
+  ), { measurementKey: "wallSqft" }),
 };

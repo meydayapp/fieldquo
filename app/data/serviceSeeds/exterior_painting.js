@@ -76,7 +76,7 @@ export const SEED = {
 // exterior components, the benchmark sets the two totals it has ($1,541 deck
 // and masonry staining, $4,500 full exterior), and the lines are the shared
 // 2026 rates in _paintLines.js with paint and stain by the gallon at Home
-// Depot cost. Siding, deck and fence areas are `areaSqFt`, fascia and soffit
+// Depot cost. Siding is the exterior takeoff's `wallSqft`, deck and fence areas `areaSqFt`, fascia and soffit
 // the eave run (`linearFt`), garage doors a count. Quote type: exterior
 // painting, sub-type exterior; the staining rows also carry staining.
 const EXT = { categories: ["exterior_painting"], estimateTypes: ["exterior"] };
@@ -191,7 +191,7 @@ const TEMPLATES = {
       de: ["Abkratzen und Schleifen — pro sq ft", "Lose Farbe abgekratzt, Kanten mit dem Schleifer beigeschliffen."],
       uk: ["Зачистка та шліфування — за кв. фут", "Облущену фарбу зішкрябано, краї розтушовано шліфмашиною."],
       tl: ["Pagkayod at paghasa — kada sq ft", "Kinayod ang natutuklap na pintura at pinakinis ang gilid gamit ang sander."],
-    }, { measurementKey: "areaSqFt" }),
+    }, { measurementKey: "wallSqft" }),
     L.labour(1, "sqft", 0.45, {
       en: ["Spot priming — per sq ft", "Bare wood primed with an exterior bonding primer."],
       fr: ["Apprêt localisé — au pi²", "Bois nu apprêté avec un apprêt d'adhérence extérieur."],
@@ -200,7 +200,7 @@ const TEMPLATES = {
       de: ["Punktuelles Grundieren — pro sq ft", "Blankes Holz mit Außen-Haftgrund grundiert."],
       uk: ["Точкове ґрунтування — за кв. фут", "Оголене дерево заґрунтовано зовнішнім адгезійним ґрунтом."],
       tl: ["Spot priming — kada sq ft", "Nilagyan ng exterior bonding primer ang hubad na kahoy."],
-    }, { measurementKey: "areaSqFt" }),
+    }, { measurementKey: "wallSqft" }),
   ], null, EXT),
 
   // ── Inspection ──
@@ -261,7 +261,7 @@ const TEMPLATES = {
       de: ["Sanfte Wäsche — pro sq ft", "Schimmelmittel aufgetragen und mit Niederdruck gespült, ohne die Fassade zu belasten."],
       uk: ["М'яке миття — за кв. фут", "Засіб від цвілі нанесено й змито низьким тиском, щоб не пошкодити обшивку."],
       tl: ["Soft wash — kada sq ft", "Nilagyan ng mildewcide at hinugasan sa mababang pressure para hindi masira ang siding."],
-    }, { measurementKey: "areaSqFt" }),
+    }, { measurementKey: "wallSqft" }),
   ], D.seasonal("fixed", 25), EXT),
 
   "fq.exterior_painting.exterior.touch_up": T("maintenance", n(
