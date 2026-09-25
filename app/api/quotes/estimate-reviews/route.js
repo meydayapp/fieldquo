@@ -14,6 +14,7 @@ import { redactClient, redactQuoteMoney, hasLevel } from "@/lib/permissions/enfo
 import { callRecordingHref } from "@/lib/voice/recording";
 import { estimateReportUrl } from "@/lib/estimate/report/load";
 import { isInstantEstimateQuote } from "@/lib/estimate/report/model";
+import { withChecks, tradeNamesFor, DEEP_READ_SCOPE_SELECT } from "@/lib/ai/deepReadView";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -62,6 +63,12 @@ export async function GET(request) {
       // this queue IS the "leave it for review" the schema comment on
       // Quote.assignedToId points to.
       assignedTo: { select: { id: true, name: true } },
+      // The latest paid deep read, if anyone ran one, and the trades it is
+      // judged against — so a reviewer about to sign off a figure sees "these
+      // photos look like a roof" on the card, not only on the quote page.
+      // Only the verdict leaves this route (photoCheck below), never the pass.
+      aiVisionPasses: true,
+      scopeGroups: DEEP_READ_SCOPE_SELECT,
     },
   });
 
@@ -87,8 +94,31 @@ export async function GET(request) {
   // redactShareToken applies to the token itself: view_create_edit on quotes.
   // Below that level the field is absent, not empty.
   const mayShare = hasLevel(full, "quotes", "view_create_edit");
-  const redacted = quotes.map(({ sourceCallId, shareToken, autoEstimated, quoteType, createdVia, ...q }) => ({
+  // The photo-vs-trade verdict on the NEWEST read only — it is the one the
+  // photos on the quote now were read by. Computed against the quote's
+  // current trades (lib/ai/deepReadView.js); only a real mismatch travels,
+  // because "match", "unclear" and "never read" all mean the same thing to a
+  // reviewer here: nothing to warn about. Warning, never a gate — the
+  // approve route does not read it.
+  const photoCheckFor = (q) => {
+    const latest = Array.isArray(q.aiVisionPasses) ? q.aiVisionPasses[0] : null;
+    if (!latest) return null;
+    const [viewed] = withChecks([latest], q.scopeGroups);
+    const m = viewed.check.mismatch;
+    return m.verdict === "mismatch" ? { at: latest.at || null, ...m } : null;
+  };
+  const checks = quotes.map(photoCheckFor);
+  const mentioned = new Set();
+  for (const c of checks) {
+    if (!c) continue;
+    for (const k of c.quoteTrades) mentioned.add(k);
+    for (const p of c.photos) for (const k of p.trades) mentioned.add(k);
+  }
+  const tradeNames = await tradeNamesFor([...mentioned]);
+
+  const redacted = quotes.map(({ sourceCallId, shareToken, autoEstimated, quoteType, createdVia, aiVisionPasses, scopeGroups, ...q }, i) => ({
     ...redactQuoteMoney(full, q),
+    photoCheck: checks[i],
     client: redactClient(full, q.client),
     // Null until the report has been published (the token is minted then), so
     // the screen offers the link only when there is a page behind it.
@@ -105,6 +135,7 @@ export async function GET(request) {
 
   return NextResponse.json({
     quotes: redacted,
+    tradeNames,
     // Whether THIS member may approve — drives the button state, but the
     // approve route enforces it again server-side. Hiding a button is not
     // access control.

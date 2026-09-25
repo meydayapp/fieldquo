@@ -25,6 +25,7 @@ import { publicTopupOffer } from "@/lib/ai/topupOffer";
 import { checkSpend, reserveSpend, refundReservation } from "@/lib/voice/spendGate";
 import { loadQuote, photosFromQuote } from "@/lib/ai/quoteReview";
 import { runVisionPass } from "@/lib/ai/visionPass";
+import { deepReadView, DEEP_READ_SCOPE_SELECT } from "@/lib/ai/deepReadView";
 
 export async function GET(request, { params }) {
   // Next 16: params is a Promise.
@@ -37,9 +38,17 @@ export async function GET(request, { params }) {
 
   const quote = await db.quote.findFirst({
     where: { id: _params.id, companyId: member.companyId },
-    select: { aiVisionPasses: true },
+    // The scope groups too: the photo-vs-trade check and the measured-beside
+    // rows are computed against the quote AS IT IS NOW, never stored with
+    // the pass — see lib/ai/deepReadView.js.
+    select: { aiVisionPasses: true, scopeGroups: DEEP_READ_SCOPE_SELECT },
   });
   if (!quote) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const view = await deepReadView(
+    Array.isArray(quote.aiVisionPasses) ? quote.aiVisionPasses : [],
+    quote.scopeGroups,
+  );
 
   // Whether the company could afford one read RIGHT NOW, read-only — the
   // same verdict POST takes the money on, minus the taking. The panel's
@@ -52,7 +61,8 @@ export async function GET(request, { params }) {
   const spend = await checkSpend({ companyId: member.companyId, kind: "image_vision" });
 
   return NextResponse.json({
-    passes: Array.isArray(quote.aiVisionPasses) ? quote.aiVisionPasses : [],
+    passes: view.passes,
+    tradeNames: view.tradeNames,
     spend: {
       allowed: spend.allowed,
       reason: spend.reason,
@@ -187,15 +197,25 @@ export async function POST(request, { params }) {
       notes: result.notes,
       photosRead: result.photosRead,
       costCents: reserved.needCents,
+      // What each photo looked like, and the trade evidence — observations
+      // only. The mismatch verdict is NOT stored: it is computed on every
+      // read against the quote's current trades (lib/ai/deepReadView.js).
+      photos: result.photos,
+      evidence: result.evidence,
+      evidenceFamilies: result.evidenceFamilies,
     };
     const passes = [pass, ...existing];
 
+    // The ONLY write this route makes. Nothing from the read — no estimate,
+    // no count — is copied onto a scope group, a takeoff or a line: the
+    // measured quantities stay the estimator's.
     await db.quote.update({
       where: { id: _params.id },
       data: { aiVisionPasses: passes },
     });
 
-    return NextResponse.json({ passes, chargedCents: reserved.needCents });
+    const view = await deepReadView(passes, quote.scopeGroups);
+    return NextResponse.json({ passes: view.passes, tradeNames: view.tradeNames, chargedCents: reserved.needCents });
   } catch (err) {
     await refund("Refund — the deep read couldn't run");
     console.error("[quotes/vision]", err);

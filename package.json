@@ -439,6 +439,7 @@
     "check:ai-images": "node --import ./scripts/alias-loader.mjs scripts/check-ai-images.mjs",
     "check:digest-transcripts": "node --import ./scripts/alias-loader.mjs scripts/check-digest-transcripts.mjs",
     "check:ai-structured-output": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-ai-structured-output.mjs",
+    "check:deep-read-evidence": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-deep-read-evidence.mjs",
     "check:ai-allowance": "node --import ./scripts/alias-loader.mjs scripts/check-ai-allowance.mjs",
     "check:ai-credit": "node --import ./scripts/alias-loader.mjs scripts/check-ai-credit.mjs",
     "check:ai-wallet-meter": "node --import ./scripts/alias-loader.mjs scripts/check-ai-wallet-meter.mjs",

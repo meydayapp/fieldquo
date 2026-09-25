@@ -40,6 +40,7 @@ import {
   useAiCreditTopup,
 } from "@/app/components/ai/AiCreditTopupDialog";
 import { resolveParams } from "@/lib/quotes/reviewSentence";
+import DeepReadFindings from "@/app/components/ai/DeepReadFindings";
 
 // Whole dollars in the reader's own locale. This was pinned to en-CA/CAD,
 // which printed "CA$1,200" for an American company and "1 200 $CA" for
@@ -159,6 +160,10 @@ export default function SuggestAddOns({
   // The PAID deep photo read — a separate spend from the free review above,
   // off a separate AI credit wallet. See app/api/quotes/[id]/vision/route.js.
   const [visionPasses, setVisionPasses] = useState([]);
+  // The names of every trade the passes mention, per language, from the
+  // route (lib/ai/deepReadView.js) — so the photo warning says "Roofing" in
+  // the reader's language, never `roofing_service`.
+  const [visionTradeNames, setVisionTradeNames] = useState({});
   // GET /api/quotes/[id]/vision's read-only verdict on whether the wallet
   // covers one read. Drives the pill's colour (lib/ai/visionPill.js); null
   // until it arrives or when it never does, which the pill treats as "price
@@ -235,9 +240,11 @@ export default function SuggestAddOns({
     try {
       const vision = await fetchJson(`/api/quotes/${quoteId}/vision`);
       setVisionPasses(Array.isArray(vision?.passes) ? vision.passes : []);
+      setVisionTradeNames(vision?.tradeNames || {});
       setVisionSpend(vision?.spend || null);
     } catch {
       setVisionPasses([]);
+      setVisionTradeNames({});
       setVisionSpend(null);
     }
   }, [quoteId]);
@@ -312,6 +319,7 @@ export default function SuggestAddOns({
     try {
       const data = await fetchJson(`/api/quotes/${quoteId}/vision`, { method: "POST" });
       setVisionPasses(Array.isArray(data?.passes) ? data.passes : []);
+      setVisionTradeNames(data?.tradeNames || {});
       // The wallet just moved. Re-read the verdict rather than arithmetic on
       // the old one, so the pill and the next refusal agree to the cent.
       try {
@@ -982,6 +990,10 @@ export default function SuggestAddOns({
                       {t("app.deepRead.nothingFound")}
                     </p>
                   )}
+                  {/* The photo-vs-trade warning and the trade evidence —
+                      computed against the quote as it is now, estimates
+                      beside the measured figures, never over them. */}
+                  <DeepReadFindings pass={p} tradeNames={visionTradeNames} docKind="quote" />
                 </div>
               ))}
               <p className="text-[11px] text-muted-foreground/70">

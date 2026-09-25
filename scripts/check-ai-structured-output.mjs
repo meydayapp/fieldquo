@@ -682,11 +682,11 @@ const { parseModelJson } = await import("@/lib/ai/marketingCopy");
     ok(out === null, `visionPass: "${label}" returns null, so the caller refunds the credit it reserved`, out);
   }
 
-  stub.next = () => reply(JSON.stringify({ notes: [] }));
+  stub.next = () => reply(JSON.stringify({ notes: [], photos: [] }));
   const emptyRead = await runVisionPass({ quote, onUsage: async () => {} });
   ok(emptyRead !== null && emptyRead.notes.length === 0, "visionPass: an EMPTY notes array is a real answer and is NOT a refund — this is the distinction that would have cost a company money", emptyRead);
 
-  stub.next = () => reply(JSON.stringify({ notes: ["", "   ", "Check the sill.", "x"] }));
+  stub.next = () => reply(JSON.stringify({ notes: ["", "   ", "Check the sill.", "x"], photos: [] }));
   const trimmed = await runVisionPass({ quote, onUsage: async () => {} });
   ok(trimmed.notes.length === 2 && trimmed.notes[0] === "Check the sill.", "visionPass: blank strings are still dropped — the schema cannot express minLength, so this coercion had to survive", trimmed.notes);
   ok(trimmed.photosRead === 1, "visionPass: photosRead is counted in code, never read out of the model's JSON", trimmed);

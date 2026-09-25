@@ -13,6 +13,7 @@ import { Loader2, BadgeCheck, ExternalLink, Play } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { showError } from "@/lib/clientErrors";
 import { jsonBody } from "@/lib/jsonBody";
+import { DeepReadMismatch } from "@/app/components/ai/DeepReadFindings";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
 import {
@@ -73,6 +74,8 @@ export default function EstimateReviewsPage() {
   const [quotes, setQuotes] = useState(null);
   const [canApprove, setCanApprove] = useState(false);
   const [currentUserId, setCurrentUserId] = useState(null);
+  // Trade names for the photo warning, per language (lib/ai/deepReadView.js).
+  const [tradeNames, setTradeNames] = useState({});
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState(null);
 
@@ -82,6 +85,7 @@ export default function EstimateReviewsPage() {
       setQuotes(data.quotes);
       setCanApprove(Boolean(data.canApprove));
       setCurrentUserId(data.currentUserId || null);
+      setTradeNames(data.tradeNames || {});
     } catch (err) {
       setError(err.message || t("app.reviews.loadError", "Couldn't load reviews."));
     }
@@ -167,6 +171,7 @@ export default function EstimateReviewsPage() {
             onApprove={approve}
             onAssignToMe={assignToMe}
             currentUserId={currentUserId}
+            tradeNames={tradeNames}
           />
         ))}
       </div>
@@ -174,7 +179,7 @@ export default function EstimateReviewsPage() {
   );
 }
 
-function ReviewCard({ q, canApprove, busy, onApprove, onAssignToMe, currentUserId }) {
+function ReviewCard({ q, canApprove, busy, onApprove, onAssignToMe, currentUserId, tradeNames }) {
   const { t } = useTranslation();
   // The company's own currency. This page formatted every figure as
   // `"$" + Math.round(...)`, so a GBP contractor read dollars on the screen
@@ -349,6 +354,15 @@ function ReviewCard({ q, canApprove, busy, onApprove, onAssignToMe, currentUserI
             </li>
           ))}
         </ul>
+      )}
+
+      {/* The paid deep read's photo check, when the newest read found photos
+          that don't look like this quote's trade — "a roof on a stairs
+          quote". Above the approve button for the same reason as the caveat
+          below: a warning read after signing is read too late. A warning,
+          never a gate: the approve route does not read it. */}
+      {q.photoCheck && (
+        <DeepReadMismatch mismatch={q.photoCheck} tradeNames={tradeNames} docKind="quote" />
       )}
 
       {/* What the call asked for that this price does not include. Rendered

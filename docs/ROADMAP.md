@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 25 September 2026 (the paid deep photo read now returns trade-specific evidence on the SAME one vision call — junk volume in pickup beds → cu yd / m³ with item categories and the fees they carry, roof pitch/layers/damage, paint condition/peeling/colour change, cabinet door and drawer counts/style/finish, current floor and transitions, stair tread/riser counts and shape, gutter run/downspouts/storeys/issues — each with a confidence and how it was judged, shown as an estimate BESIDE the quote's measured figure and never written over it; plus a non-blocking "these photos may not be of this job" warning when a clearly-read photo matches none of the quote's trades, on the quote panel, the invoice twin and the estimate-review queue — see "The deep read reads the trade" below)
 Last updated: 25 September 2026 (leads: a "Linked documents" block — quote, jobs, invoices — with "Link an existing quote", and Won now needs an APPROVED quote or work behind it, refusing with a reason and "Link the quote that won it"; calendar: a Cards view on /app/appointments, each entry a card opening a side panel with open quote/job/invoice/client, call, directions and reschedule/cancel)
 Last updated: 25 September 2026 (Australia: GST 10% on an AU contractor's quotes and invoices as a VAT-table row named GST, gated on "Are you registered for GST?"; AUD plans at the same numbers and every other Stripe country on the USD rows, Checkout's currency now taken from the Plan row; tax on FieldQuo's own subscription stays Stripe Tax — new /platform/billing/tax shows per region the subscribers, 12-month taxable vs reverse-charged invoices, FieldQuo's thresholds (UK/EU from the first sale, AU A$75,000) and the Stripe registration checklist; owner to run `npm run seed:seat-ladder`)
 Last updated: 25 September 2026 (import, not export: the five bulk exports — price book, timesheets, pay run, subcontractor year-end list, bookkeeping ZIP — removed from /app with their routes refusing 403 through `lib/export/companyDataExport.js`; single documents and every import kept; a copy of a company's data stays available on written request; help centre, marketing, sales playbook and guide made honest)
@@ -32,6 +33,71 @@ than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## The deep read reads the trade, and says when the photos aren't of the job (25 September 2026)
+
+The owner's 22 September ask, which had been lost: the paid deep photo read (`lib/ai/visionPass.js`,
+VISION_PASS_CENTS) returned prose notes only. It now also returns (1) trade-specific evidence and (2) a
+per-photo reading that a photo-vs-trade warning is computed from. Same ONE vision call, same meter.
+
+### What shipped
+
+- **`lib/ai/deepReadEvidence.js`** (pure) — seven evidence families keyed to catalogue trades:
+  `junk` (junk_removal), `roofing` (roofing_service), `painting` (interior/exterior_painting),
+  `cabinets` (cabinet_refinishing/refacing), `flooring` (flooring/flooring_install), `stairs`,
+  `gutters` (gutter_services). The schema is built PER QUOTE — only the families of the quote's own
+  trades, at most three — so a plumbing quote asks for no evidence at all.
+  - junk: size in pickup-truck BEDS (low/high) + how judged → cu yd (×2.5, `PICKUP_BED_CU_YD`) and m³
+    computed in code; item categories; fees derived in code (mattress, refrigerant, e-waste, tire,
+    heavy, hazard) from the categories, matching `lib/junk/pricing.js`'s specials.
+  - roofing: pitch band (≤3, 4–6, 7–9, 10+/12) + cue, layers (one / more than one suspected) + cue, damage list.
+  - painting: condition, peeling, current colour (words, never a code), colour change (extra coat/primer likely).
+  - cabinets: doors and drawer fronts VISIBLE (counts), door style, finish, condition.
+  - flooring: current material, transitions visible, condition.
+  - stairs: treads and risers visible, shape.
+  - gutters: run in feet (range, rounded in code; metres computed), downspouts visible, storeys, issues.
+  - Every family carries a confidence; every quantity is a visible count or a by-eye range with a
+    "basis" sentence. The `notes` rule ("Never state a measurement…") is unchanged for notes.
+- **Never overwrites a measured quantity.** Nothing writes to a scope group, takeoff, intake value or
+  line. `measuredBeside()` shows the quote's own measured figure (takeoff first, intake second) with
+  the photo estimate beside it, flagging only a real disagreement (seeing MORE than counted; a range
+  outside ±25%; pitch two bands off; layers disagreeing).
+- **Mismatch warning** (`deepReadMismatch()`): computed at READ time against the document's CURRENT
+  trades, never stored. A photo read at medium/high confidence whose trades share no work area with
+  any of the quote's trades → "These photos may not be of this job", naming the photo and what it
+  looks like. Low-confidence / unplaceable photos → "unclear" (a quiet line, no warning). Generalist
+  trades (renovation, handyman, cleaning…) never warn. No trade on the document → no verdict. Every
+  catalogue key has work areas or is a generalist (the check fails on a new unplaced key).
+- **Where it shows**: the quote's review panel and the invoice twin (`app/components/ai/DeepReadFindings.js`,
+  one shared component), and the estimate-review queue card above Approve (warning only; the approve
+  route does not read it — never blocking). Routes: `app/api/quotes/[id]/vision`,
+  `app/api/invoices/[id]/deep-read` (judged against the invoice's source quote), and
+  `app/api/quotes/estimate-reviews` (`photoCheck`), all through `lib/ai/deepReadView.js`.
+- **Strings**: 125 new `app.deepRead.*` keys in all nine app languages. Internal only; no client surface reads any of it.
+
+### Cost
+
+One vision call per read, detail "high", ≤8 photos, VISION_PASS_CENTS unchanged. The schema grew from
+228 chars to ~2.3k (base: the per-photo trade enum is the catalogue) plus ~1.2k per family; output grows
+by a per-photo line and one family object. Rough vendor cost at the 8-photo cap: ~+1¢ on ~13¢ — still
+under the flat 25¢ charge.
+
+### Checks
+
+`npm run check:deep-read-evidence` (193 assertions: each family's schema and sanitising through the
+shipped `runVisionPass` against a stubbed vendor, the mismatch rule incl. ambiguous photos, no overwrite
+with deep-frozen inputs and the routes' only write, one call / cost unchanged, nine languages).
+`check:ai-structured-output` updated for the now-required `photos` field.
+
+### Still owed here
+
+- Model-written text (notes, "how it was judged", what a photo shows) is still in English on every
+  screen, as notes always were; the labels around it are translated.
+- Only the seven families the owner named have evidence; other trades get the photo check only.
+- `check:addon-descriptions` has one failure on origin/main unrelated to this (LineItemsTable's
+  `onAddProduct(product)` pattern), not touched here.
 
 ---
 

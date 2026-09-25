@@ -24,6 +24,8 @@ import { checkSpend, reserveSpend, refundReservation } from "@/lib/voice/spendGa
 import { photosFromQuote } from "@/lib/ai/quoteReview";
 import { loadInvoice, invoiceServicesContext } from "@/lib/ai/invoiceReview";
 import { runVisionPass } from "@/lib/ai/visionPass";
+import { deepReadView, DEEP_READ_SCOPE_SELECT } from "@/lib/ai/deepReadView";
+import { tradeKeysOf } from "@/lib/ai/deepReadEvidence";
 
 export async function GET(request, { params }) {
   // Next 16: params is a Promise.
@@ -36,16 +38,26 @@ export async function GET(request, { params }) {
 
   const invoice = await db.invoice.findFirst({
     where: { id, companyId: member.companyId },
-    select: { aiVisionPasses: true },
+    // The source quote's scope groups: an invoice carries no trade of its
+    // own, so the photo check and the measured-beside rows judge against the
+    // quote it was raised from. No quote → no trade → no verdict, never a
+    // guessed one (lib/ai/deepReadEvidence.js deepReadMismatch "unknown").
+    select: { aiVisionPasses: true, quote: { select: { scopeGroups: DEEP_READ_SCOPE_SELECT } } },
   });
   if (!invoice) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const view = await deepReadView(
+    Array.isArray(invoice.aiVisionPasses) ? invoice.aiVisionPasses : [],
+    invoice.quote?.scopeGroups || [],
+  );
 
   // The read-only verdict on whether the wallet covers one read — the same
   // verdict POST takes the money on, minus the taking. Never a 402 from GET.
   const spend = await checkSpend({ companyId: member.companyId, kind: "image_vision" });
 
   return NextResponse.json({
-    passes: Array.isArray(invoice.aiVisionPasses) ? invoice.aiVisionPasses : [],
+    passes: view.passes,
+    tradeNames: view.tradeNames,
     spend: {
       allowed: spend.allowed,
       reason: spend.reason,
@@ -125,7 +137,12 @@ export async function POST(request, { params }) {
     // The invoice's own lines as the services context — the prompt judges
     // the photos against the document being billed, not a quote it may not
     // have (lib/ai/visionPass.js `services`).
-    const result = await runVisionPass({ quote: invoice, services: invoiceServicesContext(invoice) });
+    const scopeGroups = invoice.quote?.scopeGroups || [];
+    const result = await runVisionPass({
+      quote: invoice,
+      services: invoiceServicesContext(invoice),
+      trades: tradeKeysOf(scopeGroups),
+    });
 
     if (!result) {
       await refund("Refund — the deep read couldn't run");
@@ -139,12 +156,18 @@ export async function POST(request, { params }) {
       notes: result.notes,
       photosRead: result.photosRead,
       costCents: reserved.needCents,
+      // Observations only; the mismatch verdict is computed on read.
+      photos: result.photos,
+      evidence: result.evidence,
+      evidenceFamilies: result.evidenceFamilies,
     };
     const passes = [pass, ...existing];
 
+    // The only write: the pass itself. No estimate reaches a line.
     await db.invoice.update({ where: { id }, data: { aiVisionPasses: passes } });
 
-    return NextResponse.json({ passes, chargedCents: reserved.needCents });
+    const view = await deepReadView(passes, scopeGroups);
+    return NextResponse.json({ passes: view.passes, tradeNames: view.tradeNames, chargedCents: reserved.needCents });
   } catch (err) {
     await refund("Refund — the deep read couldn't run");
     console.error("[invoices/deep-read]", err);

@@ -31,6 +31,7 @@ import { VISION_PASS_CENTS } from "@/lib/ai/imageEconomics";
 import { visionPillState } from "@/lib/ai/visionPill";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { AiCreditTopupDialog, useAiCreditTopup } from "@/app/components/ai/AiCreditTopupDialog";
+import DeepReadFindings from "@/app/components/ai/DeepReadFindings";
 
 const SEVERITY = {
   high: { Icon: AlertTriangle, className: "text-red-600 dark:text-red-400" },
@@ -57,6 +58,7 @@ export default function InvoiceReviewPanel({ invoiceId, readOnly = false, autoRe
   const [error, setError] = useState("");
 
   const [visionPasses, setVisionPasses] = useState([]);
+  const [visionTradeNames, setVisionTradeNames] = useState({});
   const [visionSpend, setVisionSpend] = useState(null);
   const [visionRunning, setVisionRunning] = useState(false);
   const [visionError, setVisionError] = useState("");
@@ -83,9 +85,11 @@ export default function InvoiceReviewPanel({ invoiceId, readOnly = false, autoRe
     try {
       const vision = await fetchJson(`/api/invoices/${invoiceId}/deep-read`);
       setVisionPasses(Array.isArray(vision?.passes) ? vision.passes : []);
+      setVisionTradeNames(vision?.tradeNames || {});
       setVisionSpend(vision?.spend || null);
     } catch {
       setVisionPasses([]);
+      setVisionTradeNames({});
       setVisionSpend(null);
     }
   }, [invoiceId]);
@@ -123,6 +127,7 @@ export default function InvoiceReviewPanel({ invoiceId, readOnly = false, autoRe
     try {
       const data = await fetchJson(`/api/invoices/${invoiceId}/deep-read`, { method: "POST" });
       setVisionPasses(Array.isArray(data?.passes) ? data.passes : []);
+      setVisionTradeNames(data?.tradeNames || {});
       // The wallet just moved: re-read the verdict rather than arithmetic.
       try {
         const again = await fetchJson(`/api/invoices/${invoiceId}/deep-read`);
@@ -339,6 +344,9 @@ export default function InvoiceReviewPanel({ invoiceId, readOnly = false, autoRe
                   ) : (
                     <p className="text-xs text-muted-foreground mt-1.5">{t("app.deepRead.nothingFound")}</p>
                   )}
+                  {/* The same photo check and trade evidence as the quote's
+                      panel, judged against the invoice's source quote. */}
+                  <DeepReadFindings pass={p} tradeNames={visionTradeNames} docKind="invoice" />
                 </div>
               ))}
               <p className="text-[11px] text-muted-foreground/70">{t("app.deepRead.notForClient")}</p>
