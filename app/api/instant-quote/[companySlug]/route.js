@@ -14,13 +14,14 @@ import { effectivePixels } from "@/lib/funnels/pixels";
 export async function GET(request, { params }) {
   const { companySlug } = await params;
   // ?lang=fr|es|en — the visitor's pick (the pills on the form, or a link a
-  // contractor put on their French page). Anything else falls back to the
-  // company's language inside loadCompanyInstantTrades.
+  // contractor put on their French page). Anything else — or a language the
+  // company does not offer — falls back to the company's language inside
+  // loadCompanyInstantTrades.
   const requested = new URL(request.url).searchParams.get("lang");
   const data = await loadCompanyInstantTrades(companySlug, { language: requested });
   if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const { company, trades, booking, language } = data;
+  const { company, trades, booking, language, languages } = data;
 
   // The company's own ad pixels (Settings → Instant quotes → Ad tracking).
   // Public identifiers — the platforms put them in page source everywhere —
@@ -52,6 +53,10 @@ export async function GET(request, { params }) {
     // from it and sends it back on /measure and /request, so the document is
     // created in the language the form was read in (non-negotiable #6).
     language,
+    // The language pills the page draws — the company's choice under
+    // Settings › Instant quotes, or all three when it never chose. `language`
+    // above is always one of these.
+    languages,
     // Whether the company itself is French/Spanish/English — the selector's
     // default before the visitor touches it, kept apart from `language` so a
     // ?lang= link does not make a French company look English-by-default.

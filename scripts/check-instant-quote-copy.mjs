@@ -32,8 +32,16 @@ import {
   instantQuoteCopy,
   instantQuoteLanguage,
   instantTradeLabel,
+  instantTradeBlurb,
+  INSTANT_TRADE_BLURBS,
   junkItemLabel,
 } from "@/lib/i18n/instantQuoteCopy";
+import {
+  sanitiseInstantLanguages,
+  offeredInstantLanguages,
+  resolveInstantLanguage,
+  instantLanguagesForSave,
+} from "@/lib/estimate/instantQuoteLanguages";
 import { LAWN_ESTIMATE_COPY } from "@/lib/i18n/lawnEstimateCopy";
 import { GUTTER_ESTIMATE_COPY } from "@/lib/i18n/gutterEstimateCopy";
 import { TRADE_QUESTION_COPY, cleanTradeAnswers } from "@/lib/leads/tradeQuestions";
@@ -191,7 +199,9 @@ console.log("\nThe language is posted, validated, and becomes the document's");
 
   ok("GET reads ?lang= and hands it to loadCompanyInstantTrades", /searchParams\.get\("lang"\)/.test(get) && /loadCompanyInstantTrades\(companySlug, \{ language: requested \}\)/.test(get));
   ok("/measure validates the posted language", /instantQuoteLanguage\(body\?\.language\)/.test(measure));
-  ok("/request validates the posted language", /const language = instantQuoteLanguage\(body\?\.language\) \|\| company\.defaultLanguage/.test(request));
+  // Since 2026-09-25 through the company's offered list, one function for the
+  // payload and the POST (lib/estimate/instantQuoteLanguages.js).
+  ok("/request validates the posted language against the company's offered list", /const language = resolveInstantLanguage\(company, body\?\.language\)/.test(request) && /instantQuoteLanguages: true/.test(request));
   ok("/request creates the draft in it", /createEstimateDraft\(\{[\s\S]*?\n    language,\n/.test(request));
   ok("/request emails in it", /const emailLanguage = language;/.test(request));
   ok("/request creates the lead in it", /createScoredLead\(\{[\s\S]*?language: emailLanguage,/.test(request));
@@ -202,7 +212,10 @@ console.log("\nThe language is posted, validated, and becomes the document's");
   ok("the form posts language, whenNeeded, answers and notes on /request", /language: lang,\s*whenNeeded,\s*answers,\s*\.\.\.\(notes\.trim\(\)/.test(flow));
   ok("?lang= pre-selects, localStorage remembers, per company", /new URLSearchParams\(window\.location\.search\)\.get\("lang"\)/.test(flow) && /fq\.instantQuote\.lang\.\$\{slug\}/.test(flow) && /storeLanguage\(companySlug, code\)/.test(flow));
   ok("the browser's Accept-Language is tried when it is one of the three", /instantQuoteLanguage\(window\.navigator\?\.language\)/.test(flow));
-  ok("three pills, aria-pressed on the lit one", /INSTANT_QUOTE_LANGUAGES\.map\(\(code\)/.test(flow) && /aria-pressed=\{on\}/.test(flow));
+  ok("the company's offered pills, aria-pressed on the lit one", /offeredLanguages\.map\(\(code\)/.test(flow) && /aria-pressed=\{on\}/.test(flow) && /data\?\.languages/.test(flow));
+  ok("one language offered draws no pills at all", /offeredLanguages\.length < 2 \? null/.test(flow));
+  ok("a pill for a language the company switched off cannot be chosen", /!offeredLanguages\.includes\(code\)\) return;/.test(flow));
+  ok("GET publishes the offered list", /languages,/.test(get) && /const \{ company, trades, booking, language, languages \} = data;/.test(get));
   ok("no `fr ?` ternary and no `=== \"fr\"` left in the form", !/\bfr \?/.test(flow) && !/=== "fr"/.test(flow));
   for (const s of ["\"Your details\"", "\"Tell us about the property\"", "\"What do you need?\"", "\"Which option?\"", "\"Your budget\"", "\"Where's the job?\"", "\"Photos\"", "Still needed:", "Request a quote instead", "Powered by measurements", "You&apos;re all set", "Select…", "Fewer", "\"Property\""]) {
     ok(`hardcoded English gone: ${s}`, !flow.includes(s));
@@ -224,6 +237,76 @@ console.log("\nThe language is posted, validated, and becomes the document's");
 
   const r = cleanTradeAnswers("roofing", { whenNeeded: "this_season", answers: { activeLeak: "yes" }, notes: "x" });
   ok("cleanTradeAnswers maps this_season to the scorer's 1_3_months", r.timeline === "1_3_months" && r.answers.activeLeak === "yes");
+}
+
+// ── 6b. The company picks the languages; the cards say what each service is ─
+console.log("\nThe company's languages, and the one line under each service card");
+{
+  // Pure rules first, against hostile input.
+  ok("sanitise keeps only instant languages, once, in pill order", JSON.stringify(sanitiseInstantLanguages(["ES", "fr", "de", "fr", 3, null, " en "])) === JSON.stringify(["en", "fr", "es"]));
+  ok("sanitise of a non-array is []", [null, undefined, "en", { en: true }, 7].every((v) => sanitiseInstantLanguages(v).length === 0));
+  ok("never chosen ([] / null / junk) offers all three — today's behaviour", [[], null, ["xx"], undefined].every((v) => JSON.stringify(offeredInstantLanguages({ instantQuoteLanguages: v })) === JSON.stringify(INSTANT_QUOTE_LANGUAGES)));
+  ok("a choice is honoured", JSON.stringify(offeredInstantLanguages({ instantQuoteLanguages: ["fr"] })) === JSON.stringify(["fr"]));
+  const co = { defaultLanguage: "fr", instantQuoteLanguages: ["en", "fr"] };
+  ok("an offered request wins", resolveInstantLanguage(co, "en") === "en");
+  ok("a switched-off request falls to the company's own language", resolveInstantLanguage(co, "es") === "fr");
+  ok("…and to the first offered when the company's own is switched off too", resolveInstantLanguage({ defaultLanguage: "es", instantQuoteLanguages: ["fr", "en"] }, "es") === "en");
+  ok("a garbage request is the company's language", resolveInstantLanguage(co, "<script>") === "fr" && resolveInstantLanguage(co, null) === "fr");
+  ok("a non-instant company language (de) resolves inside the offered list", resolveInstantLanguage({ defaultLanguage: "de", instantQuoteLanguages: [] }, null) === "en");
+  ok("the save refuses an empty choice and a non-list", Boolean(instantLanguagesForSave([]).error) && Boolean(instantLanguagesForSave(["de"]).error) && Boolean(instantLanguagesForSave("en").error));
+  ok("the save cleans what it stores", JSON.stringify(instantLanguagesForSave(["es", "EN"]).languages) === JSON.stringify(["en", "es"]));
+
+  // The payload: the real loader over the db stub.
+  resetDbStub();
+  rows.company = [{
+    id: "c2", slug: "duo", name: "Duo", logoUrl: null, brandColor: "#123456", defaultLanguage: "fr",
+    currency: "CAD", bookingModes: [], bookingSlug: null, eventTypes: [], financing: null, phone: null,
+    instantQuoteLanguages: ["en", "fr"],
+  }];
+  rows.instantQuoteConfig = [
+    { companyId: "c2", trade: "roofing", enabled: true, config: { ...INSTANT_ESTIMATE_DEFAULTS.roofing } },
+    { companyId: "c2", trade: "junk_removal", enabled: true, config: { ...INSTANT_ESTIMATE_DEFAULTS.junk_removal } },
+  ];
+  rows.companyServiceCategory = [
+    { id: "d_roof", companyId: "c2", enabled: true, rates: null, category: { key: "roofing_service" } },
+    { id: "d_junk", companyId: "c2", enabled: true, rates: null, category: { key: "junk_removal" } },
+  ];
+  const plain = await loadCompanyInstantTrades("duo");
+  const asEs = await loadCompanyInstantTrades("duo", { language: "es" });
+  const asEn = await loadCompanyInstantTrades("duo", { language: "en" });
+  ok("the payload lists the company's languages", JSON.stringify(plain.languages) === JSON.stringify(["en", "fr"]));
+  ok("no ?lang= opens in the company's language", plain.language === "fr");
+  ok("?lang=es on a form that does not offer Spanish is French, labels and all", asEs.language === "fr" && asEs.trades.find((x) => x.trade === "roofing").label === "Toiture");
+  ok("?lang=en on a form that offers it is English", asEn.language === "en" && asEn.trades.find((x) => x.trade === "roofing").label === "Roofing");
+  const desc = (d, k) => d.trades.find((x) => x.trade === k).description;
+  ok("each card carries its one line, in the page's language", desc(plain, "roofing") === instantTradeBlurb("roofing", "fr") && desc(asEn, "roofing") === instantTradeBlurb("roofing", "en") && desc(asEn, "roofing") !== desc(plain, "roofing"));
+  ok("…and no figure crossed with it", !/\d|\$|€|£/.test(JSON.stringify(plain.trades.map((x) => x.description))));
+  rows.company[0].instantQuoteLanguages = [];
+  ok("a company that never chose still gets all three", JSON.stringify((await loadCompanyInstantTrades("duo")).languages) === JSON.stringify(INSTANT_QUOTE_LANGUAGES));
+  resetDbStub();
+
+  // The table: every instant trade, every instant language, no price.
+  for (const trade of Object.keys(INSTANT_ESTIMATE_TRADES)) {
+    const row = INSTANT_TRADE_BLURBS[trade];
+    ok(`blurb: ${trade} in ${INSTANT_QUOTE_LANGUAGES.join("/")}`, Boolean(row) && INSTANT_QUOTE_LANGUAGES.every((l) => typeof row[l] === "string" && row[l].length > 15 && row[l].length <= 140));
+    ok(`blurb: ${trade} names no figure and no currency`, Boolean(row) && INSTANT_QUOTE_LANGUAGES.every((l) => !/\d|\$|€|£/.test(row[l])));
+    ok(`blurb: ${trade} is translated, not English in French`, Boolean(row) && row.fr !== row.en && row.es !== row.en);
+  }
+  ok("an unknown trade has no line rather than a generic one", instantTradeBlurb("no_such_trade", "en") === null);
+
+  // The form draws it only when there is a choice.
+  const flow = stripComments(read("app/instant-quote/[companySlug]/InstantQuoteFlow.js"));
+  ok("the card shows the line only when more than one service is offered", /data\.trades\.length > 1 && tr\.description &&/.test(flow));
+  ok("auto-select of a single trade is kept", /payload\.trades\.length === 1\s*\?\s*payload\.trades\[0\]/.test(flow));
+
+  // The settings screen writes it and the public side reads it.
+  const settingsRoute = stripComments(read("app/api/settings/instant-quote/route.js"));
+  const settingsPage = stripComments(read("app/app/settings/instant-quotes/page.js"));
+  ok("the settings PUT stores the cleaned list and refuses an empty one", /instantLanguagesForSave\(body\.instantQuoteLanguages\)/.test(settingsRoute) && /data: \{ instantQuoteLanguages: languages \}/.test(settingsRoute));
+  ok("the settings GET reports chosen and offered", /chosen: sanitiseInstantLanguages\(company\?\.instantQuoteLanguages\)/.test(settingsRoute) && /offered: offeredInstantLanguages\(company \|\| \{\}\)/.test(settingsRoute));
+  ok("the settings card PUTs instantQuoteLanguages", /body: JSON\.stringify\(\{ instantQuoteLanguages: picked \}\)/.test(settingsPage) && /<LanguagesCard/.test(settingsPage));
+  ok("the column is in the schema", /instantQuoteLanguages String\[\] @default\(\[\]\)/.test(read("prisma/schema.prisma")));
+  ok("the loader reads the column", /instantQuoteLanguages: true/.test(stripComments(read("lib/estimate/instantQuoteServer.js"))));
 }
 
 // ── 7. Contrast on hostile brands ─────────────────────────────────────────
