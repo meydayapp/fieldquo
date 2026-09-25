@@ -11,9 +11,10 @@
 //
 // Also gated by TRADE, on top of role: this is the ONLY screen that reads or
 // writes Company.cabinetRates, and the only thing that ever reads that column
-// back out is the Kitchen Designer's own save routes, which are gated on
-// kitchen_design (lib/kitchen/access.js). A company that has never turned
-// kitchen_design on — and has never saved its own rates either — has nothing
+// back out is the Kitchen Designer's own save routes, which are gated by
+// lib/kitchen/access.js (a kitchen-building trade, or the company's own
+// override). A company without the designer — and that has never saved its
+// own rates either — has nothing
 // this screen can do for them; the nav row hides for exactly that company
 // (app/components/layout/SettingsSidebar.js via lib/settings/tradeGateNav.js)
 // and this route refuses it too, because AGENTS.md is explicit that hiding a

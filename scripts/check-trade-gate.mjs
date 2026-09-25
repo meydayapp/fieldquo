@@ -32,11 +32,15 @@
 //                                                    of the logic itself.
 //
 //   the owner's exact scenario, against a scripted  cabinet_refinishing and
-//   db (scripts/fixtures/dbStub.mjs)                cabinet_refacing do NOT
-//                                                    unlock Cabinet Rates —
-//                                                    only kitchen_design does,
-//                                                    or a rate card the
-//                                                    company already saved.
+//   db (scripts/fixtures/dbStub.mjs)                countertop do NOT unlock
+//                                                    Cabinet Rates — only what
+//                                                    opens the Kitchen Designer
+//                                                    does (since 2026-09-25 the
+//                                                    kitchen-building trades,
+//                                                    refacing among them, or
+//                                                    the company override), or
+//                                                    a rate card the company
+//                                                    already saved.
 //
 //   the existing-data rule, both screens            a company that saved
 //                                                    cabinet rates, or a
@@ -90,6 +94,7 @@ import {
   filterSettingsGroupsByTrade,
 } from "@/lib/settings/tradeGateNav";
 import { MATERIAL_RECIPES } from "@/app/data/materialRecipes";
+import { KITCHEN_GRANTING_TRADE_KEYS } from "@/lib/kitchen/key";
 import { APP_MESSAGES } from "../app/i18n/appMessages.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -152,14 +157,23 @@ ok("cabinetRatesEnabledPure('kitchen_design') (a string, not an array) is false"
   cabinetRatesEnabledPure("kitchen_design") === false);
 ok("cabinetRatesEnabledPure(['kitchen_design']) is true",
   cabinetRatesEnabledPure(["kitchen_design"]) === true);
-// The exact claim the owner's report turns on: cabinet_refinishing and
-// cabinet_refacing are cabinetry, but neither is what unlocks this screen.
-ok("cabinetRatesEnabledPure(['cabinet_refinishing']) is false",
+// Cabinet Rates opens exactly when the Kitchen Designer does — it prices
+// nothing else. 2026-08-30 that was kitchen_design alone; 2026-09-25 the
+// owner added the kitchen-building trades ("kitchen refacing could also do
+// it") and a company override. Refinishing still does NOT unlock it.
+ok("cabinetRatesEnabledPure(['cabinet_refinishing']) is false — the 08-30 rule stands",
   cabinetRatesEnabledPure(["cabinet_refinishing"]) === false);
-ok("cabinetRatesEnabledPure(['cabinet_refacing']) is false",
-  cabinetRatesEnabledPure(["cabinet_refacing"]) === false);
-ok("cabinetRatesEnabledPure(['cabinet_refinishing','cabinet_refacing']) is still false",
-  cabinetRatesEnabledPure(["cabinet_refinishing", "cabinet_refacing"]) === false);
+ok("cabinetRatesEnabledPure(['cabinet_refacing']) is true — refacing grants the designer since 09-25",
+  cabinetRatesEnabledPure(["cabinet_refacing"]) === true);
+ok("cabinetRatesEnabledPure(['remodeling']) is true", cabinetRatesEnabledPure(["remodeling"]) === true);
+ok("cabinetRatesEnabledPure(['handyman']) is false — not automatic",
+  cabinetRatesEnabledPure(["handyman"]) === false);
+ok("cabinetRatesEnabledPure(['remodeling'], false) is false — the company's off beats its trade",
+  cabinetRatesEnabledPure(["remodeling"], false) === false);
+ok("cabinetRatesEnabledPure(['handyman'], true) is true — the company's on works for any trade",
+  cabinetRatesEnabledPure(["handyman"], true) === true);
+ok("CABINET_RATES_CATEGORY_KEYS is the designer's own list, not a restated copy",
+  CABINET_RATES_CATEGORY_KEYS === KITCHEN_GRANTING_TRADE_KEYS);
 ok("cabinetRatesEnabledPure(['countertop','kitchen_design']) is true (order/extras don't matter)",
   cabinetRatesEnabledPure(["countertop", "kitchen_design"]) === true);
 
@@ -254,14 +268,42 @@ ok("scenario B (kitchen_design on): Cabinet Rates allowed",
 ok("scenario B: Material Costs still refused — kitchen_design isn't a recipe category",
   (await canUseMaterialCostsSettings(COMPANY)) === false);
 
-// Scenario C — the exact wrong-axis case the owner's report and the header
-// comment both call out: cabinet_refinishing AND cabinet_refacing on, but
-// kitchen_design never touched.
+// Scenario C — the wrong-axis case the 08-30 report called out: cabinet
+// refinishing and countertop on, kitchen_design never touched. (Refacing was
+// in this list until 2026-09-25, when the owner made it a granting trade —
+// scenario C2 below.)
+resetDbStub();
+rows.company = [{ id: COMPANY, cabinetRates: null }];
+setCompanyCategories(["cabinet_refinishing", "countertop"]);
+ok("scenario C (refinishing+countertop, no kitchen_design): Cabinet Rates STILL refused",
+  (await canUseCabinetRatesSettings(COMPANY)) === false);
+
+// Scenario C2 — refacing added: the designer opens, so its rate card does.
 resetDbStub();
 rows.company = [{ id: COMPANY, cabinetRates: null }];
 setCompanyCategories(["cabinet_refinishing", "cabinet_refacing", "countertop"]);
-ok("scenario C (refinishing+refacing+countertop, no kitchen_design): Cabinet Rates STILL refused",
+ok("scenario C2 (+ cabinet_refacing): Cabinet Rates allowed — refacing grants the designer",
+  (await canUseCabinetRatesSettings(COMPANY)) === true);
+
+// Scenario C3 — the same company switched the designer OFF: the override is
+// read by this gate too, not just by the designer's.
+resetDbStub();
+rows.company = [{ id: COMPANY, cabinetRates: null, kitchenDesignerOverride: false }];
+setCompanyCategories(["cabinet_refacing", "remodeling"]);
+ok("scenario C3 (granting trades, override off): Cabinet Rates refused",
   (await canUseCabinetRatesSettings(COMPANY)) === false);
+
+// Scenario C4 — a handyman who switched it ON.
+resetDbStub();
+rows.company = [{ id: COMPANY, cabinetRates: null, kitchenDesignerOverride: true }];
+setCompanyCategories(["handyman"]);
+ok("scenario C4 (handyman, override on): Cabinet Rates allowed",
+  (await canUseCabinetRatesSettings(COMPANY)) === true);
+
+// Back to scenario C's company for the Material Costs half of it.
+resetDbStub();
+rows.company = [{ id: COMPANY, cabinetRates: null }];
+setCompanyCategories(["cabinet_refinishing", "cabinet_refacing", "countertop"]);
 ok("scenario C: Material Costs allowed — cabinet_refinishing has a recipe",
   (await canUseMaterialCostsSettings(COMPANY)) === true);
 {

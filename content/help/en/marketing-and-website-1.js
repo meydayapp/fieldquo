@@ -371,7 +371,7 @@ export const ARTICLES = {
             "**Request a quote** — “They describe the job and leave their details. Lands in your Leads pipeline. Best for people still comparing prices.”",
             "**Book a visit** — “They pick a time from your real availability. Best for people who've already decided and just want you there.”",
             "**Instant estimate** — the address-in, price-out page; every estimate lands in your review queue before it is binding. Trades and rates live under **Settings → Instant Quotes**.",
-            "**Design your kitchen** — “A homeowner lays out their own kitchen — cabinets, finishes, the lot — and sends it to you as an enquiry with the drawing attached.” Shown only while **Kitchen Design & New Installs** is on under Services, and as a link only: there is no embed snippet for it.",
+            "**Design your kitchen** — “A homeowner lays out their own kitchen — cabinets, finishes, the lot — and sends it to you as an enquiry with the drawing attached.” Shown only while the **Kitchen Designer** is on under Services (on by itself for Kitchen Design & New Installs, Remodeling, Renovation, General Contracting, New Construction and Cabinet Refacing; the company can switch it on or off there), and as a link only: there is no embed snippet for it.",
             "**One card per published funnel**, named as you named it — “A tap-through lead funnel — share the link on an ad, or put it on your site.” Draft funnels are not listed, because their link would not work yet.",
             "A closing line: the quote form only offers the services you enabled under Settings → Services, and never shows your prices.",
           ] },
@@ -502,7 +502,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Overview",
         blocks: [
-          { p: "The page is derived from your company record, not typed from scratch. A row appears because the thing behind it exists: the quote form is always there; **Book a visit** appears once you have an active event type; **Get an instant price** once an instant estimator is switched on; **Design your kitchen** once Kitchen Design & New Installs is on under Services; each published funnel as its own button; your website once it is published or once you entered a domain in Company Settings; the review link once it is set under Reviews; your phone and email from Company Settings. A row you turn off stays off; a row nobody touched is on the first time the page loads — including a funnel you publish next month." },
+          { p: "The page is derived from your company record, not typed from scratch. A row appears because the thing behind it exists: the quote form is always there; **Book a visit** appears once you have an active event type; **Get an instant price** once an instant estimator is switched on; **Design your kitchen** once the Kitchen Designer is on under Services; each published funnel as its own button; your website once it is published or once you entered a domain in Company Settings; the review link once it is set under Reviews; your phone and email from Company Settings. A row you turn off stays off; a row nobody touched is on the first time the page loads — including a funnel you publish next month." },
           { p: "The page follows the visitor's phone between light and dark on its own; the light / dark switch on this screen only changes the preview frame. It carries a small **Made by FieldQuo** line at the very bottom on every plan — see [[the-site-by-fieldquo-footer|The “Site by FieldQuo” footer]]." },
         ],
       },
@@ -546,7 +546,7 @@ export const ARTICLES = {
             rows: [
               ["Get an instant price", "An instant estimator is switched on under Settings → Instant Quotes", "Yes"],
               ["Get a free quote (the quote form)", "Always — every company has it", "Yes"],
-              ["Design your kitchen", "Kitchen Design & New Installs is on under Settings → Services", "Yes"],
+              ["Design your kitchen", "The Kitchen Designer is on under Settings → Services", "Yes"],
               ["Book a visit", "At least one active event type under Settings → Booking Page", "Yes"],
               ["Each published funnel, by its name", "The funnel is published", "Yes"],
               ["Visit our website", "A domain in Company Settings, or a published FieldQuo site", "Yes"],

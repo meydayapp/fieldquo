@@ -39,12 +39,12 @@ export default async function Page({ params }) {
   // a company that doesn't exist.
   if (!company) notFound();
 
-  // A company that has never turned on "Kitchen Design & New Installs" gets
-  // the same 404 a wrong slug does — there's no logged-in session and no
+  // A company without the designer — no kitchen-building trade enabled, or
+  // its own override set to off (lib/kitchen/access.js, the one gate) — gets
+  // the same 404 a wrong slug does. There's no logged-in session and no
   // existing quote to fall back on here, unlike the internal designer, so
   // there's nothing to preserve access to. A link a company never published
-  // (this page isn't linked from anywhere until they turn the service on)
-  // must not still work by URL.
+  // (nothing links here until the gate opens) must not still work by URL.
   if (!(await companyOffersKitchenDesign(company.id))) notFound();
 
   return <KitchenSelfQuote company={company} />;

@@ -506,7 +506,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Visión general",
         blocks: [
-          { p: "El botón **Diseñador de cocina** aparece en un presupuesto cuando su empresa tiene activado **Kitchen Design & New Installs** en **Configuración → Servicios y precios**, o cuando ese presupuesto ya lleva un diseño. Guardar en el diseñador almacena el dibujo y recalcula el presupuesto en un solo paso — a propósito no hay un «guardar diseño» y un «actualizar presupuesto» separados, porque con dos botones es como un presupuesto sale a un precio que no coincide con el dibujo engrapado encima." },
+          { p: "El botón **Diseñador de cocina** aparece en un presupuesto cuando su empresa tiene el **diseñador de cocinas** activado en **Configuración → Servicios y precios** — se activa solo para Kitchen Design & New Installs, remodelación, renovación, contratación general, construcción nueva y renovación de frentes de gabinetes; un técnico de mantenimiento o restaurador que instala cocinas puede activarlo, y cualquier empresa puede desactivarlo — o cuando ese presupuesto ya lleva un diseño. Guardar en el diseñador almacena el dibujo y recalcula el presupuesto en un solo paso — a propósito no hay un «guardar diseño» y un «actualizar presupuesto» separados, porque con dos botones es como un presupuesto sale a un precio que no coincide con el dibujo engrapado encima." },
           { note: "**Solo en FieldQuo.** Un diseñador de cocinas y gabinetes cuyos precios y plano de planta van directo al presupuesto no aparece en la página de precios de Jobber, Housecall Pro, Projul, QuoteIQ ni ServiceTitan en ningún nivel." },
         ],
       },
@@ -556,7 +556,7 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "Vendo reacabado de gabinetes. ¿Necesito Precios de gabinetes?", a: "No. El reacabado y el recubrimiento se cotizan desde sus propias listas de tarifas en Servicios y precios y Cotizaciones instantáneas; Precios de gabinetes alimenta solo al diseñador de cocina, y la pantalla permanece oculta hasta que el diseño de cocinas esté activado." },
-      { q: "¿Un propietario puede diseñar una cocina antes de que yo haya cotizado?", a: "Sí. Con **Kitchen Design & New Installs** activado en Servicios, existe una página pública **Diseña tu cocina**: una tarjeta en Configuración → Comparte tus enlaces, una fila en su enlace para la bio y un enlace en el paso Diseño de cocina del formulario de cotización. Lo que dibuja llega como prospecto con el plano adjunto y sin precio — usted lo cotiza. El enlace del cliente de un presupuesto enviado es otra cosa: edita el diseño de ese presupuesto." },
+      { q: "¿Un propietario puede diseñar una cocina antes de que yo haya cotizado?", a: "Sí. Con el **diseñador de cocinas** activado en Servicios, existe una página pública **Diseña tu cocina**: una tarjeta en Configuración → Comparte tus enlaces, una fila en su enlace para la bio y un enlace en el paso de cualquiera de esos servicios de cocina del formulario de cotización. Lo que dibuja llega como prospecto con el plano adjunto y sin precio — usted lo cotiza. El enlace del cliente de un presupuesto enviado es otra cosa: edita el diseño de ese presupuesto." },
       { q: "¿La edición del cliente cambia mi presupuesto?", a: "Nunca por sí sola. Es una segunda versión que usted puede cargar; el presupuesto solo se mueve cuando presiona Guardar y recalcular la cotización." },
     ],
   },

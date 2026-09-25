@@ -29,9 +29,9 @@ import { kitchenLineItems, getKitchenBreakdown } from "@/lib/kitchen/pricing";
 import { resolveDocumentTax } from "@/lib/tax/documentTax";
 import { attachUsTaxRate } from "@/lib/tax/usRates";
 import {
-  KITCHEN_DESIGN_KEY,
   KITCHEN_GROUP_LABEL,
   canUseKitchenDesigner,
+  kitchenCategoryRow,
 } from "@/lib/kitchen/access";
 
 /** The quote, if this member is allowed to see it. Scoped by company. */
@@ -159,12 +159,14 @@ export async function PUT(request, { params }) {
   const subtotal = Number(breakdown.total.toFixed(2));
 
   // The category to file it under: whatever the company already uses for this
-  // quote, else its own "Kitchen Design & New Installs" category if it has
-  // one enabled, else the nearest cabinetry-ish service as a fallback for a
-  // company that reached this screen only because the quote already carries
-  // a design (the canUseKitchenDesigner check above lets that through even
-  // with kitchen_design off), else its first service at all. A quote can't
-  // have a scope group without a category.
+  // quote, else the first kitchen-granting trade it has enabled (Kitchen
+  // Design & New Installs, then Remodeling, Renovation, General Contracting,
+  // New Construction, Cabinet Refacing — kitchenCategoryRow in
+  // lib/kitchen/access.js), else the nearest cabinetry-ish service as a
+  // fallback for a company that reached this screen only because the quote
+  // already carries a design (the canUseKitchenDesigner check above lets that
+  // through with the designer off), else its first service at all. A quote
+  // can't have a scope group without a category.
   const existing = quote.scopeGroups.find((g) => g.label === KITCHEN_GROUP_LABEL);
   let categoryId = existing?.categoryId || quote.scopeGroups[0]?.categoryId;
   if (!categoryId) {
@@ -172,11 +174,7 @@ export async function PUT(request, { params }) {
       where: { companyId: member.companyId, enabled: true },
       include: { category: { select: { id: true, key: true } } },
     });
-    const kitchenDesign = enabled.find((e) => e.category?.key === KITCHEN_DESIGN_KEY);
-    const cabinetish = enabled.find((e) =>
-      /cabinet|kitchen|countertop|remodel/.test(e.category?.key || ""),
-    );
-    categoryId = (kitchenDesign || cabinetish || enabled[0])?.category?.id;
+    categoryId = (kitchenCategoryRow(enabled) || enabled[0])?.category?.id;
   }
   if (!categoryId) {
     return NextResponse.json(

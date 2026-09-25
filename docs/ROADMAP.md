@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 25 September 2026 (Kitchen Designer on by itself for the trades that build kitchens — kitchen_design, remodeling, renovation, general contracting, new construction, cabinet refacing; refinishing/countertop/stairs/painting stay off; a handyman opts in — plus `Company.kitchenDesignerOverride` (follow / always on / always off) on Settings › Services, read by the one gate in lib/kitchen/access.js that every surface and Cabinet Rates now ask — see "Kitchen Designer: on for the trades that build kitchens" below)
 Last updated: 25 September 2026 (three follow-ups: cancelling a pay run now gives back its daily-sheet bonuses as well as its commissions; the checks read prisma/schema.prisma through one Prisma-aware stripper, and only four ever stripped it; check:call-to-client now runs the booking follow-up it was skipping, and the phone agent promises a confirmation only when the follow-up reports one — see "Pay-run cancel, the schema stripper, the booking follow-up" below)
 Last updated: 25 September 2026 (phone menus and the Create sheet: every row of the phone's Create sheet was dead, because the hidden desktop pill's outside-press listener closed it before the tap landed; the quote's More… opened off the left of the screen; one ActionMenu now — a bottom sheet below 640px, a flip-and-shift dropdown above — plus a launcher clearance so the + and Jennifer never cover a list's last row, dialog cards capped at the screen, and 44px settings/crew controls; every harness screen audited at 375 and 390 — see "Phone menus, the Create sheet and a mobile audit" below)
 Last updated: 25 September 2026 (one cabinet scope, Refinish | Reface: a company selling both cabinet trades gets a switch inside an unsaved cabinet group's card that moves the group between the two price books while keeping every count and answer already entered; a still-default name follows the service, switching back restores the previous figures byte-for-byte, and only the chosen service reaches the saved quote — see "Refinish | Reface inside one cabinet card" below)
@@ -46,6 +47,82 @@ than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## Kitchen Designer: on for the trades that build kitchens, with a company override (25 September 2026)
+
+The owner, 2026-09-25: "those that have enabled kitchen remodel or
+construction should have access to the kitchen designer — construction
+trades, remodeling, renovation — maybe handyman if they enable that — and
+kitchen refacing could also do it." Until now only `kitchen_design` opened it
+(the 2026-08-30 fix).
+
+### The rule (one place: `lib/kitchen/key.js` → `kitchenDesignerOnPure`)
+
+| Company has enabled | Designer |
+|---|---|
+| `kitchen_design`, `remodeling`, `general_contracting_reno`, `general_contracting`, `construction`, `cabinet_refacing` | **on** by itself |
+| `cabinet_refinishing`, `countertop`, `stairs`, interior/exterior painting | off (the 08-30 rule stands) |
+| `handyman` | off — on only if it ticks Kitchen Design & New Installs or sets the override on |
+| anything, override **off** | off (the company's word beats its trade) |
+| anything, override **on** | on |
+
+There is no separate "kitchen remodel" key in the catalogue — kitchen
+remodelling is a service inside Remodeling and General Contracting, so those
+are how it arrives. A quote that already carries a design keeps its designer
+whatever the override (`hasKitchenData`, unchanged): off stops new designs,
+it never locks a drawn one.
+
+### What shipped
+
+- `Company.kitchenDesignerOverride Boolean?` — additive; null = follow the
+  trades. Applied as the one `ALTER TABLE … ADD COLUMN` line via
+  `prisma db execute`, nothing else from the diff.
+- `lib/kitchen/access.js` — the gate reads trades + override
+  (`companyKitchenDesignerState`), and a shared `kitchenCategoryRow` replaced
+  the two routes' copies of the cabinet-ish filing regex (design/lead filed
+  under kitchen_design, then the granting trades in order).
+- Every surface now asks the gate: quote button + internal designer + save
+  route (unchanged callers), the public page and its POST, the self-quote
+  form's "design it yourself" link (server sends `kitchenDesigner`; the link
+  shows on any granting service, not only Kitchen Design), the bio link, Share
+  your links (now asks `GET /api/settings/kitchen-designer` instead of
+  re-deriving "kitchen_design is ticked"), and **Cabinet Rates**, which prices
+  only the designer and so follows it (a remodeler gets the rate card; a
+  refinisher still doesn't).
+- `PATCH /api/settings/kitchen-designer` — owner/admin only, exactly
+  true/false/null, activity-logged. Settings › Services has a Kitchen
+  Designer card: status and why ("On — because you offer Remodeling"),
+  Follow my services / Always on / Always off, and for a company without
+  Kitchen Design ticked a handyman line plus a button that reveals and
+  scrolls to that switch (it belongs to no industry preset, so a handyman's
+  list hides it otherwise — deliberately, so signup never auto-ticks it).
+- Strings: 13 new app keys in all 9 app languages; Share your links' kitchen
+  card copy updated in all 9; help articles in en/fr/es (5 articles) no
+  longer say "only when Kitchen Design & New Installs is on". No public-page
+  (document-language) string changed.
+
+### Checks
+
+`check:kitchen-access` (now with the db stub) — 123 assertions: each granting
+trade → on and is a real catalogue key; refinishing/countertop/stairs/painting
+→ off; handyman → off unless kitchen_design or override on; override false
+beats every granting trade; override true works for every catalogue trade;
+non-boolean overrides follow the trades; the 08-30 account still off; the DB
+wrapper executed against the stub; and a sweep of app/ + lib/ proving
+`KITCHEN_DESIGN_KEY` and `kitchenDesignerOverride` are used only where listed
+(every reader goes through `kitchenDesignerOnPure`, one writer). Two
+mutations (drop the override-false branch; add handyman to the list) each
+fail it. `check:trade-gate` and `check:kitchen-link` updated for the new
+rule. `npm run build` passes.
+
+### Still owed here
+
+- Nothing on the rule. If the owner wants a handyman preset to *offer* (not
+  tick) Kitchen Design & New Installs in its list, that is an industry-preset
+  change in `lib/trades/catalog.js` and `check-trade-catalog.mjs`'s pinned
+  count — not done, because it risks signup auto-enabling it.
 
 ---
 

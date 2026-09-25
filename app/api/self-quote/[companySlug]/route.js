@@ -32,6 +32,7 @@ import { findBookingCompany } from "@/lib/booking/findBookingCompany";
 import { canBookVisit } from "@/lib/booking/canBookVisit";
 import { publicIntakeFields } from "@/app/data/quoteIntakeFields";
 import { sendLanguagesFor } from "@/lib/company/sendLanguages";
+import { kitchenDesignerOnPure } from "@/lib/kitchen/key";
 
 export async function GET(request, { params }) {
   const { companySlug } = await params;
@@ -52,6 +53,7 @@ export async function GET(request, { params }) {
     bookingSlug: true,
     slug: true,
     eventTypes: { where: { active: true }, select: { id: true } },
+    kitchenDesignerOverride: true,
   });
 
   if (!company) {
@@ -97,6 +99,15 @@ export async function GET(request, { params }) {
     // homeowner reasonably expect a reply in it.
     languages: sendLanguagesFor(company),
     services,
+    // Whether /quote/<slug>/kitchen will render — the one rule
+    // (lib/kitchen/key.js, which lib/kitchen/access.js's gate calls) over the
+    // keys already read above, so the form offers the "design it yourself"
+    // link only where the page behind it exists. A boolean, not the override
+    // or the rule's inputs: the form needs the answer, nothing else.
+    kitchenDesigner: kitchenDesignerOnPure(
+      services.map((s) => s.key),
+      company.kitchenDesignerOverride,
+    ),
     // ── The in-person visit ────────────────────────────────────────────────
     //
     // Booking already exists as a whole flow (/book/<slug>), with a calendar,
