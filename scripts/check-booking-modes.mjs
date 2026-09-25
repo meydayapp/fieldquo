@@ -101,6 +101,7 @@ const COMPANY = {
   refundVisitFeeOnCancel: false,
   refundCutoffHours: null,
   bookingSmsConfirmation: false,
+  bookingSmsChosenAt: null,
   smsTemplates: null,
   smsFromNumber: null,
   stripeChargesEnabled: false,
@@ -404,7 +405,18 @@ const textBooking = bookingRow({ mode: "call" });
 resetDbStub();
 rows.company.push({ ...COMPANY });
 let v = await bookingTextVerdict({ company: { ...COMPANY }, booking: textBooking });
-ok("switched off → no text", v.send === false && v.reason === "switched_off", v);
+// 2026-09-25: never chose = ON (off-by-default meant no booking ever texted).
+ok("never chose → the text is ON", v.send === true && v.reason === "ok", v);
+resetDbStub();
+rows.company.push({ ...COMPANY, bookingSmsChosenAt: new Date() });
+v = await bookingTextVerdict({ company: { ...COMPANY }, booking: textBooking });
+ok("deliberately switched off → no text", v.send === false && v.reason === "switched_off", v);
+resetDbStub();
+rows.company.push({ ...COMPANY, bookingSmsConfirmation: true, bookingSmsChosenAt: new Date() });
+v = await bookingTextVerdict({ company: { ...COMPANY }, booking: textBooking });
+ok("deliberately switched on → text", v.send === true, v);
+resetDbStub();
+rows.company.push({ ...COMPANY });
 v = await bookingTextVerdict({ company: { ...COMPANY, bookingSmsConfirmation: true }, booking: { ...textBooking, clientPhone: null } });
 ok("no phone → no text", v.send === false && v.reason === "no_phone", v);
 v = await bookingTextVerdict({ company: { ...COMPANY, bookingSmsConfirmation: true }, booking: { ...textBooking, clientPhone: "12" } });
@@ -431,7 +443,7 @@ const runFinalize = async (over) => {
   const simulated = writes.filter((w) => w.model === "activityLog" && /sms/i.test(JSON.stringify(w.data)));
   return { out, simulated };
 };
-const off = await runFinalize({ bookingSmsConfirmation: false });
+const off = await runFinalize({ bookingSmsConfirmation: false, bookingSmsChosenAt: new Date() });
 ok("switch off: finalize reports no text and records no send", off.out.texted === false && off.simulated.length === 0, off);
 const on = await runFinalize({ bookingSmsConfirmation: true });
 ok("switch on: finalize reports a text and the send is recorded", on.out.texted === true && on.simulated.length === 1, on);
@@ -497,7 +509,7 @@ ok("the phone agent books a call at the company's call length", /bookingDuration
 const msgs = read("app/app/settings/messages/page.js");
 ok("Settings → Messages has the switch beside the booking text", /role="switch"/.test(msgs) && /bookingSmsOn/.test(msgs));
 const tplRoute = read("app/api/settings/message-templates/route.js");
-ok("…saved to bookingSmsConfirmation", /bookingSmsConfirmation: body\.enabled/.test(tplRoute));
+ok("…saved to bookingSmsConfirmation with the choice stamp", /bookingSmsConfirmation: body\.enabled, bookingSmsChosenAt: new Date\(\)/.test(tplRoute));
 
 // ───────────────────────────────────────────────────────────────────────────
 console.log("\n7. The calendar invite — one UID, a rising SEQUENCE, CANCEL on cancel, the mode in the SUMMARY");

@@ -1968,6 +1968,13 @@ model Company {
   // cost money. Read by lib/booking/finalizeBooking.js; set from
   // Settings → Messages beside the template it governs.
   bookingSmsConfirmation Boolean @default(false)
+  /// When the company last flipped the booking-text switch on Settings ›
+  /// Messages. NULL = never chose, and then the text is ON (the owner,
+  /// 2026-09-25: a booking got an email and no text "even though FieldQuo
+  /// bought a Twilio line" — off-by-default meant no company ever texted).
+  /// Only a deliberate "off" (this stamp set, bookingSmsConfirmation false)
+  /// stops it. Read through lib/booking/bookingText.js, never directly.
+  bookingSmsChosenAt     DateTime?
 
   // How a client may meet this company: "call", "visit", "video".
   //
