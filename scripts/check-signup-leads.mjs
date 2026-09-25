@@ -1019,7 +1019,11 @@ section("15. A finished card-free trial on /platform/signups — what it is, nev
   ok("the page splits 'Signed up — on free trial' from 'Incomplete signups — never finished'", /Signed up — on free trial/.test(page) && /Incomplete signups — never finished/.test(page));
   ok("a trial row reads 'Signed up · free trial, N days left · no plan chosen yet'", /Signed up · free trial, \$\{days\} left · no plan chosen yet/.test(page));
   ok("…and 'got as far as' is only printed for an unfinished row", /r\.section === "trial" \? ` · \$\{trialLine\(r\.trial\)\}` : r\.stepLabel \? ` · got as far as/.test(page));
-  ok("the trial section links to the companies list filtered to the same population", /\/platform\/companies\?status=trial_no_plan/.test(page) && /status === "trial_no_plan"/.test(read("app/api/platform/companies/route.js")));
+  // The section lists every card-free trial whatever its day (cardFreeTrialWhere),
+  // so its link lands on `card_free`, which the route resolves with the same
+  // isCardFreeTrial predicate — not on the Trialing·no-plan BUCKET, which
+  // holds only the ones still inside their thirty days.
+  ok("the trial section links to the companies list filtered to the same population", /\/platform\/companies\?status=card_free/.test(page) && /status === "card_free"\) return \(c\) => isCardFreeTrial\(c\)/.test(read("app/api/platform/companies/route.js")));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

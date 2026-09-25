@@ -941,7 +941,7 @@ export default function PlatformSignupsPage() {
               <h2 className="text-lg font-semibold text-foreground">
                 Signed up — on free trial ({count(trialVisible.length)})
               </h2>
-              <Link href="/platform/companies?status=trial_no_plan" className="text-sm text-muted-foreground underline">
+              <Link href="/platform/companies?status=card_free" className="text-sm text-muted-foreground underline">
                 All free trials without a plan in Companies →
               </Link>
             </div>

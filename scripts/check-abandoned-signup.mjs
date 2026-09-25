@@ -58,6 +58,7 @@ import {
   nudgeRecipient,
   planSignupNudges,
 } from "@/lib/signup/abandoned";
+import { BUCKETS, BUCKET_GROUPS, BUCKET_ORDER } from "@/lib/platform/subscriberBuckets";
 import {
   buildSignupRecoveryEmail,
   SIGNUP_RECOVERY_PAIRS,
@@ -239,9 +240,11 @@ ok(
 );
 // completedSignupWhere is an OR, so a caller spreading it beside an OR of its
 // own would lose one silently. Every caller spreads it beside isDemo only.
+// (The overview no longer counts with the fragment at all — it classifies
+// the book with hasFinishedSignup, asserted under "The counts" below.)
 for (const [file, needle] of [
-  ["app/api/platform/analytics/overview/route.js", "...NOT_DEMO, ...completedSignupWhere() }"],
   ["lib/analytics/tenantData.js", "{ isDemo: false, ...completedSignupWhere() }"],
+  ["lib/analytics/product/queries.js", "{ isDemo: false, ...completedSignupWhere() }"],
 ]) {
   ok(`${file} spreads completedSignupWhere beside the demo filter alone`, read(file).includes(needle));
 }
@@ -635,12 +638,20 @@ ok(
 // ── The counts ──────────────────────────────────────────────────────────
 const overview = decomment(read("app/api/platform/analytics/overview/route.js"));
 const overviewGet = handlerBodies(overview).find((h) => h.name === "GET")?.text || "";
-ok("the overview imports the shared fragments rather than writing its own",
-  overview.includes('from "@/lib/signup/abandoned"'));
-ok("the overview's company total is scoped to completed signups",
-  overviewGet.includes("completedSignupWhere()"));
+// Since 2026-09-25 the overview counts no company with a where-clause of its
+// own: every number is a bucket of lib/platform/trialCounting.js's classified
+// book, and the bucket that says "incomplete" is this file's own
+// hasFinishedSignup.
+const trialCountingSrc = decomment(read("lib/platform/trialCounting.js"));
+ok("the shared classifier decides 'incomplete' with this file's predicate",
+  trialCountingSrc.includes('from "@/lib/signup/abandoned"') &&
+    /if \(!hasFinishedSignup\(company\)\) return "incomplete";/.test(trialCountingSrc));
+ok("the overview counts from the classified book rather than writing its own query",
+  overview.includes('from "@/lib/platform/trialCounting"') && overviewGet.includes("loadSubscriberBook(db, { now })"));
+ok("the overview's company total is the book's finished signups (demos and incomplete excluded)",
+  overviewGet.includes("totalCompanies: tally.customers,"));
 ok("the overview counts incomplete signups separately rather than hiding them",
-  overviewGet.includes("incompleteSignupWhere()") && overviewGet.includes("incompleteSignups"));
+  overviewGet.includes("incompleteSignups: tally.counts.incomplete"));
 ok("the bare unscoped company count is gone",
   !/db\.company\.count\(\{\s*where:\s*NOT_DEMO\s*\}\)/.test(overviewGet));
 
@@ -648,25 +659,28 @@ const dash = read("app/platform/page.js");
 ok("the dashboard renders the incomplete-signup count", dash.includes("data.incompleteSignups"));
 ok("and links to the screen that lists them", dash.includes('href="/platform/signups"'));
 
+// The companies list filters by the dashboard's buckets (2026-09-25), so
+// "incomplete" is a bucket the route resolves against each row's
+// subscriberBucket — the classifier above — rather than a fragment of its own.
 const listRoute = decomment(read("app/api/platform/companies/route.js"));
-ok("the companies list resolves the `incomplete` filter server-side",
-  listRoute.includes('status === "incomplete"') && listRoute.includes("incompleteSignupWhere()"));
+ok("the companies list resolves bucket filters server-side, by the shared classifier",
+  listRoute.includes("subscriberBucket(c, now)") && /if \(BUCKETS\[status\]\) return \(c\) => c\.bucket === status;/.test(listRoute));
+ok("`incomplete` is one of those buckets", Boolean(BUCKETS.incomplete) && BUCKET_ORDER.includes("incomplete"));
 const listPage = read("app/platform/companies/page.js");
-ok("the list page offers that filter",
-  listPage.includes('value: "incomplete"'));
+ok("the list page offers every bucket, incomplete included",
+  /\.\.\.BUCKET_ORDER\.filter\(\(b\) => b !== "unknown"\)\.map\(\(b\) => \(\{ value: b, label: BUCKETS\[b\]\.label \}\)\)/.test(listPage));
 // Every filter chip the page renders has to be one the route actually resolves
 // — a dead filter is the "control that appears to work" this repo keeps finding.
-// `active`/`pending`/`churned` are OnboardingStatus values the route passes
-// straight through; anything else has to be named in the route's own source.
-const OFFERED = [...listPage.matchAll(/value:\s*"([a-z_]*)"/g)]
-  .map((m) => m[1])
-  .filter(Boolean);
+// The chips are the literal values plus every bucket in BUCKET_ORDER; each
+// must be a bucket, a bucket group, or named in the route's own source.
+const OFFERED = [
+  ...[...listPage.matchAll(/value:\s*"([a-z_]*)"/g)].map((m) => m[1]).filter(Boolean),
+  ...BUCKET_ORDER.filter((b) => b !== "unknown"),
+];
 ok("the page's filter chips were found to check", OFFERED.length >= 4, String(OFFERED));
 ok(
   "every filter the page offers is one the API implements",
-  OFFERED.every(
-    (v) => ["active", "pending", "churned"].includes(v) || listRoute.includes(`"${v}"`),
-  ),
+  OFFERED.every((v) => Boolean(BUCKETS[v]) || Boolean(BUCKET_GROUPS[v]) || listRoute.includes(`"${v}"`)),
   String(OFFERED),
 );
 
@@ -1000,8 +1014,8 @@ const MUTATIONS = [
   {
     file: "app/api/platform/analytics/overview/route.js",
     label: "the dashboard counts abandoned signups as companies again",
-    from: "    db.company.count({ where: { ...NOT_DEMO, ...completedSignupWhere() } }),",
-    to: "    db.company.count({ where: NOT_DEMO }),",
+    from: "    totalCompanies: tally.customers,",
+    to: "    totalCompanies: tally.customers + tally.counts.incomplete,",
   },
 ];
 

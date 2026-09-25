@@ -120,8 +120,15 @@ export default function PlatformPlansPage() {
     // every card said "0 companies" and the delete button lit up on plans that
     // people were paying for.
     try {
+      // By plan ID, counting paying, past-due AND trialing-with-a-plan
+      // companies (overview.planUsage). This read `planMix[plan.name]`, whose
+      // keys became "Solo (CAD)" when the currency split landed — so every
+      // card said "0 companies" and the price-change warning never fired,
+      // while two companies were trialing on Solo.
       const overview = await fetchJson("/api/platform/analytics/overview");
-      setUsage(overview.planMix || {});
+      const byId = {};
+      for (const [id, u] of Object.entries(overview.planUsage || {})) byId[id] = u.total;
+      setUsage(byId);
     } catch (err) {
       setUsage({});
       setUsageError(
@@ -155,7 +162,7 @@ export default function PlatformPlansPage() {
 
   async function save() {
     const isEdit = Boolean(draft.id);
-    const subscribers = usage[draft.name] || 0;
+    const subscribers = (draft.id && usage[draft.id]) || 0;
 
     if (isEdit && subscribers > 0) {
       const original = plans.find((p) => p.id === draft.id);
@@ -652,7 +659,7 @@ function Group({ title, note, plans, usage, usageKnown, canManage, canRetire, bu
             <PlanCard
               key={p.id}
               plan={p}
-              subscribers={usage[p.name] || 0}
+              subscribers={usage[p.id] || 0}
               usageKnown={usageKnown}
               canManage={canManage}
               canRetire={canRetire}

@@ -15,26 +15,30 @@ import { statusMeta } from "@/lib/platform/subscriptionStatus";
 import NextStepsEmailCard from "./NextStepsEmailCard";
 import PresenceBadge, { usePresencePoll } from "@/app/components/platform/PresenceBadge";
 import { countOnline, presenceBadge, presenceSortKey } from "@/lib/platform/companyPresence";
+import {
+  BUCKETS,
+  BUCKET_ORDER,
+  isBilledBucket,
+  isTrialingBucket,
+} from "@/lib/platform/subscriberBuckets";
 
+// ── The chips are the dashboard's buckets ──────────────────────────────────
+//
+// They were Active / Trial·pending / Churned — Company.onboardingStatus, which
+// says "active" about a Stripe trial that has paid nothing and "pending"
+// about every card-free trial — so "Trial / pending" held three of five
+// trialing companies. Every chip is now a bucket from lib/platform/
+// subscriberBuckets.js, resolved server-side against the same classification
+// the /platform tiles count with, so a tile's number and its chip's list are
+// one array. "Trialing" is both trial buckets together, the number the owner
+// asks about; "No-plan free trials, any day" is the card-free trial whatever
+// its day, which /platform/signups and /platform/billing/subscriptions link
+// to. Demos stay out of every chip but their own.
 const STATUS_FILTERS = [
   { value: "", label: "All" },
-  { value: "active", label: "Active" },
-  { value: "pending", label: "Trial / pending" },
-  { value: "churned", label: "Churned" },
-  // A different axis from the three above — no Subscription row rather than an
-  // onboardingStatus. Server-side, like the rest (see statusWhere in
-  // app/api/platform/companies/route.js). The dedicated screen at
-  // /platform/signups carries the contact details and the nudge state; this
-  // filter exists so somebody already IN the company list can see the same
-  // population without having to know that screen is there.
-  { value: "incomplete", label: "Never finished signup" },
-  // Finished on the card-free trial (no card, no plan yet — lib/signup/
-  // abandoned.js cardFreeTrialWhere). The target of the links on
-  // /platform/signups and /platform/billing/subscriptions.
-  { value: "trial_no_plan", label: "Free trial · no plan" },
-  // The ten seeded sales demos. Excluded from every other filter server-side
-  // (statusWhere) so the customer list never counts them.
-  { value: "demo", label: "Demo" },
+  { value: "trialing", label: "Trialing" },
+  ...BUCKET_ORDER.filter((b) => b !== "unknown").map((b) => ({ value: b, label: BUCKETS[b].label })),
+  { value: "card_free", label: "No-plan free trials, any day" },
 ];
 
 // The four goals the signup offers (lib/signup/signupPreview.js SIGNUP_GOALS),
@@ -64,21 +68,18 @@ function trialDaysLeft(trialEndsAt) {
 /**
  * Trialling and paying companies by country, for tax-registration tracking:
  * where FieldQuo's customers are is where FieldQuo may have to register.
- * Counted from the rows on screen (the API already carries country,
- * subscription and trialEndsAt), demos left out. "Paying" is a live or
- * past-due subscription; "trialling" is a trialing subscription OR a company
- * with no subscription whose trial has not ended — the card-free trial
- * (lib/billing/access.js trialAccessFor). A company with neither (trial over,
- * no plan; cancelled) is in neither column, on purpose.
+ * Counted from the rows on screen by the `bucket` the API puts on each one —
+ * the same classification the dashboard tiles and the tax page count with
+ * (lib/platform/trialCounting.js). "Paying" is the Paying or Past-due bucket;
+ * "trialling" is either trial bucket. It used to re-derive both from the
+ * subscription status and trialEndsAt right here — a second copy of the rule
+ * in a client file, which is exactly the copy that rots.
  */
 function tallyByCountry(companies) {
   const map = new Map();
   for (const c of companies || []) {
-    if (c.isDemo) continue;
-    const status = c.subscription?.status;
-    const paying = status === "active" || status === "past_due";
-    const trialling =
-      status === "trialing" || (!c.subscription && c.trialEndsAt && new Date(c.trialEndsAt).getTime() > Date.now());
+    const paying = isBilledBucket(c.bucket);
+    const trialling = isTrialingBucket(c.bucket);
     if (!paying && !trialling) continue;
     const key = c.country || "?";
     const row = map.get(key) || { country: key, trialling: 0, paying: 0 };
