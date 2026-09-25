@@ -33,5 +33,47 @@
   "sourceCategory": "Exterior Components",
   "sourceService": "Exterior Painting of Residential Surfaces and Trim",
   "taskCode": "DEFAULT_PAINT_SERVICE_35"
+ },
+ {
+  "seedKey": "fq.exterior_painting.exterior.wood_rot_repair",
+  "industry": "Painting",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Exterior wood rot repair",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.exterior_painting.exterior.scrape_prime",
+  "industry": "Painting",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Peeling paint scrape and prime",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.exterior_painting.exterior.condition_inspection",
+  "industry": "Painting",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Exterior paint condition inspection",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.exterior_painting.exterior.estimate_visit",
+  "industry": "Painting",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Exterior painting estimate visit",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.exterior_painting.exterior.pressure_wash",
+  "industry": "Painting",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Exterior pressure wash",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.exterior_painting.exterior.touch_up",
+  "industry": "Painting",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Exterior paint touch-up",
+  "taskCode": null
  }
 ]
