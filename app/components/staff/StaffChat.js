@@ -35,6 +35,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Hash, Loader2, Lock, Pencil, Plus, Search, UserPlus, Users, X } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import ActionMenu from "@/app/components/mobile/ActionMenu";
 import { errorText } from "@/lib/fetchJson";
 import { notify } from "@/lib/notify/browser";
 import { staffApi, STAFF_REFUSAL_KEYS } from "@/lib/staff/client";
@@ -363,7 +364,6 @@ export default function StaffChat({ heading = "Team", height = "h-[calc(100vh-9r
   const [context, setContext] = useState(null); // "members" | null
   const [modal, setModal] = useState(null); // "message" | "group" | null
   const [collapsed, setCollapsed] = useState([JOINABLE]);
-  const [newMenu, setNewMenu] = useState(false);
   const [actionError, setActionError] = useState("");
   const lastSeenRef = useRef(null);
 
@@ -788,26 +788,17 @@ export default function StaffChat({ heading = "Team", height = "h-[calc(100vh-9r
       header={
         <div className="relative flex items-center gap-2 border-b border-border px-3 py-2">
           <h1 className="min-w-0 flex-1 truncate text-base font-semibold text-foreground">{heading}</h1>
-          <button
-            type="button"
-            onClick={() => setNewMenu((v) => !v)}
-            aria-haspopup="menu"
-            aria-expanded={newMenu}
-            data-new-button
-            className="inline-flex min-h-[44px] lg:min-h-[36px] items-center gap-1 rounded-lg border border-border px-2.5 text-sm font-medium text-foreground hover:bg-muted"
-          >
-            <Plus size={14} aria-hidden="true" /> {t("app.teamChat.new")}
-          </button>
-          {newMenu ? (
-            <div role="menu" className="absolute right-3 top-full z-20 mt-1 w-48 overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-lg" data-new-menu>
-              <button type="button" role="menuitem" onClick={() => { setNewMenu(false); setModal("message"); }} className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-muted">
-                <Pencil size={14} aria-hidden="true" /> {t("app.teamChat.newMessage")}
-              </button>
-              <button type="button" role="menuitem" onClick={() => { setNewMenu(false); setModal("group"); }} className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-muted">
-                <Users size={14} aria-hidden="true" /> {t("app.teamChat.newGroup")}
-              </button>
-            </div>
-          ) : null}
+          <ActionMenu
+            title={t("app.teamChat.new")}
+            triggerClassName="inline-flex min-h-[44px] lg:min-h-[36px] items-center gap-1 rounded-lg border border-border px-2.5 text-sm font-medium text-foreground hover:bg-muted"
+            triggerProps={{ "data-new-button": true }}
+            popupProps={{ "data-new-menu": true }}
+            trigger={<><Plus size={14} aria-hidden="true" /> {t("app.teamChat.new")}</>}
+            items={[
+              { key: "message", label: t("app.teamChat.newMessage"), icon: Pencil, onSelect: () => setModal("message") },
+              { key: "group", label: t("app.teamChat.newGroup"), icon: Users, onSelect: () => setModal("group") },
+            ]}
+          />
         </div>
       }
       empty={<p className="px-4 py-8 text-center text-sm text-muted-foreground">{t("app.teamChat.emptyList")}</p>}

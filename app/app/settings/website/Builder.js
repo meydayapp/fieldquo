@@ -1117,7 +1117,7 @@ export default function Builder({ data, onReload }) {
       {confirmRegen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50" onClick={() => setConfirmRegen(null)} />
-          <div className="relative w-full max-w-md rounded-2xl bg-card p-5 shadow-xl">
+          <div className="fq-dialog-card relative w-full max-w-md rounded-2xl bg-card p-5 shadow-xl">
             <h2 className="font-bold text-foreground">
               {t("app.siteBuilder.regenTitle", "This will rewrite the words you edited")}
             </h2>
@@ -1155,7 +1155,7 @@ export default function Builder({ data, onReload }) {
       {confirmPublish && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50" onClick={() => setConfirmPublish(false)} />
-          <div className="relative w-full max-w-md rounded-2xl bg-card p-5 shadow-xl">
+          <div className="fq-dialog-card relative w-full max-w-md rounded-2xl bg-card p-5 shadow-xl">
             <h2 className="font-bold text-foreground">
               {t("app.siteBuilder.stockPhotosTitle", "{count} stock photo{s} still on your site", { count: data.placeholderCount, s: data.placeholderCount === 1 ? "" : "s" })}
             </h2>
@@ -1197,7 +1197,7 @@ export default function Builder({ data, onReload }) {
       {confirmUnpublish && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50" onClick={() => setConfirmUnpublish(false)} />
-          <div className="relative w-full max-w-md rounded-2xl bg-card p-5 shadow-xl">
+          <div className="fq-dialog-card relative w-full max-w-md rounded-2xl bg-card p-5 shadow-xl">
             <h2 className="font-bold text-foreground">
               {t("app.siteBuilder.unpublishTitle", "Take your website offline?")}
             </h2>

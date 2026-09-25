@@ -648,7 +648,7 @@ function RowsMode({ modeSwitch }) {
       {/* ── Confirmation ───────────────────────────────────────────────── */}
       {confirm ? (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" data-bulk-confirm>
-          <div className="w-full max-w-md rounded-xl border border-border bg-card p-5 space-y-4">
+          <div className="fq-dialog-card w-full max-w-md rounded-xl border border-border bg-card p-5 space-y-4">
             <h2 className="text-base font-semibold text-foreground" data-bulk-confirm-title>
               {confirm.decision === "accept"
                 ? `Assign ${tradeLabel(confirm.tradeKey)} to ${confirm.count.toLocaleString()} rows${confirm.excluded.length ? ` (${confirm.excluded.length} excluded)` : ""}?`
@@ -1627,7 +1627,7 @@ function SuggestedGroup({ card, onBack, onChanged, setNote, setError }) {
 
       {confirm ? (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" data-bulk-confirm>
-          <div className="w-full max-w-md rounded-xl border border-border bg-card p-5 space-y-4">
+          <div className="fq-dialog-card w-full max-w-md rounded-xl border border-border bg-card p-5 space-y-4">
             <h2 className="text-base font-semibold text-foreground">
               {confirm.decision === "accept"
                 ? `Accept ${confirm.count.toLocaleString()} rows ${sourceLabel(confirm.tradeSource)}?`

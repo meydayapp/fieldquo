@@ -455,11 +455,15 @@ export function SettingsPhoneNav() {
   if (!group) return null;
   return (
     <div className="lg:hidden sticky top-[52px] z-30 border-b border-border/60 bg-card/80 supports-[backdrop-filter]:bg-card/65 backdrop-blur-xl">
-      <div className="flex items-center gap-1.5 px-3 py-2 overflow-x-auto" data-settings-phone-nav>
+      {/* 44px chips (2026-09-25): at py-1 they were 26px — the ONLY way
+          between settings pages on a phone, measured on every settings
+          screen in the harness. The strip loses its own py-2 instead, so it
+          grows by 10px, not 26. */}
+      <div className="flex items-center gap-1.5 px-3 py-1 overflow-x-auto" data-settings-phone-nav>
         <Link
           href="/app/settings"
           onClick={() => shell.close()}
-          className="shrink-0 inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs font-semibold text-muted-foreground hover:bg-sidebar-panel-accent hover:text-foreground"
+          className="shrink-0 inline-flex min-h-[44px] items-center gap-1 rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground hover:bg-sidebar-panel-accent hover:text-foreground"
         >
           <ChevronLeft size={14} />
           {t("app.settings.allSettings")}
@@ -474,7 +478,7 @@ export function SettingsPhoneNav() {
               key={item.href}
               href={item.href}
               aria-current={active ? "page" : undefined}
-              className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold border ${
+              className={`shrink-0 inline-flex min-h-[44px] items-center rounded-full px-3 text-xs font-semibold border ${
                 active
                   ? "bg-sidebar-primary text-sidebar-primary-foreground border-sidebar-primary"
                   : "text-muted-foreground border-border hover:bg-sidebar-panel-accent hover:text-foreground"

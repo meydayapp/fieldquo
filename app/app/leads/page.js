@@ -530,7 +530,7 @@ export default function LeadsPage() {
           onClick={() => setLostPromptLead(null)}
         >
           <div
-            className="bg-card border border-border rounded-xl shadow-lg w-full max-w-sm p-4 space-y-3"
+            className="fq-dialog-card bg-card border border-border rounded-xl shadow-lg w-full max-w-sm p-4 space-y-3"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="text-sm font-semibold text-foreground">

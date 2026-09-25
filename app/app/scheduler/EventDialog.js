@@ -45,7 +45,7 @@ export default function EventDialog({ ymd, event = null, onClose, onSaved, t }) 
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 backdrop-blur-sm sm:items-center" onClick={onClose}>
-      <div role="dialog" aria-modal="true" className="w-full max-w-sm rounded-2xl bg-card p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div role="dialog" aria-modal="true" className="fq-dialog-card w-full max-w-sm rounded-2xl bg-card p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-bold text-foreground">{editing ? t("app.scheduler.editEvent") : t("app.scheduler.addEvent")}</h2>
           <button type="button" onClick={onClose} aria-label={t("app.action.close")}>

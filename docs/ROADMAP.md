@@ -1,6 +1,7 @@
 # FieldQuo — current phase and what's left
 
 Last updated: 25 September 2026 (three follow-ups: cancelling a pay run now gives back its daily-sheet bonuses as well as its commissions; the checks read prisma/schema.prisma through one Prisma-aware stripper, and only four ever stripped it; check:call-to-client now runs the booking follow-up it was skipping, and the phone agent promises a confirmation only when the follow-up reports one — see "Pay-run cancel, the schema stripper, the booking follow-up" below)
+Last updated: 25 September 2026 (phone menus and the Create sheet: every row of the phone's Create sheet was dead, because the hidden desktop pill's outside-press listener closed it before the tap landed; the quote's More… opened off the left of the screen; one ActionMenu now — a bottom sheet below 640px, a flip-and-shift dropdown above — plus a launcher clearance so the + and Jennifer never cover a list's last row, dialog cards capped at the screen, and 44px settings/crew controls; every harness screen audited at 375 and 390 — see "Phone menus, the Create sheet and a mobile audit" below)
 Last updated: 25 September 2026 (one cabinet scope, Refinish | Reface: a company selling both cabinet trades gets a switch inside an unsaved cabinet group's card that moves the group between the two price books while keeping every count and answer already entered; a still-default name follows the service, switching back restores the previous figures byte-for-byte, and only the chosen service reaches the saved quote — see "Refinish | Reface inside one cabinet card" below)
 Last updated: 25 September 2026 (production rates per service — `Product.production` { key, amount, basis } edited in Settings › Services and the Products & Services form, suggested rates for the takeoff trades shown greyed and never applied; a group whose template-run services carry a rate takes its crew hours from them ahead of the trade book and recipe hours on the saved costing, the live Cost & margin panel and the job plan; a read-only Services tab beside Estimate with measurements, rates, hours and — by jobCosting/showPricing — labour cost, materials, price and margin; md5 unchanged with no rate)
 Last updated: 25 September 2026 (check:all run end to end for the first time in weeks: 85 hidden failures down to 5 — real fixes to crew seeing the AI-credit balance, the lawn-care rate card without the quotes grid, English upload errors on French forms, a paint-builder crash and do-not-contact normalisation in the Maps sweep; tenant-scope and feature-matrix wait on the owner, app-currency and sales-server-copy on appMessages.js — see "check:all run end to end" below)
@@ -153,6 +154,89 @@ Running the path revealed:
 
 - Nothing from these three. The two `check:all` failures listed above are
   unchanged and still wait on the owner (see "check:all run end to end" below).
+## Phone menus, the Create sheet and a mobile audit (25 September 2026)
+
+The owner, on his iPhone in production: the orange + opened the Create sheet
+and **no row did anything**; on a quote, **More… opened off the left edge**
+("s. Opens in the", "PDF", a white column over the page); on the Quotes list
+the + and the chat bubble **covered the last amount** ("$6,780.0"). "The menus
+are not mobile friendly — check that everything is mobile friendly."
+
+### Root causes
+
+- **Create sheet.** The desktop Create pill (`CreateButton`) is mounted at
+  every width, display:none inside the `hidden lg:flex` header, and shares the
+  sheet's overlay flag. Its outside-press listener read a finger's emulated
+  mousedown on a sheet row as "outside me", closed the flag, and the sheet
+  unmounted before the click — which landed on the page underneath.
+  Reproduced with synthesized taps: 0 of 6 rows reached their href; after the
+  fix, 6 of 6. The listener now stands down when its element is not drawn.
+- **More….** `SendMenu` drew its list `absolute right-0 w-72` under the
+  toggle. On a phone the strip wraps and More… sits at the left, so the list
+  started at x = −181 (375 and 390) and still −173 at 640 and 700.
+- **Covered amounts.** `<main>` padded for the tab bar and the dock but not
+  for the launcher column above them.
+
+### What shipped
+
+- `app/components/mobile/ActionMenu.js` — THE menu: below 640px a bottom
+  sheet (the existing `BottomSheet`/@base-ui Drawer: full width, safe area,
+  scrolls, backdrop/Escape/swipe close, focus trapped and returned to the
+  trigger); from 640px @base-ui Menu with side flip, alignment flip-then-shift
+  and a viewport cap. Used by SendMenu (quote detail + document builder), the
+  messages outcome chip, team chat's New, the paint builder's Add option and
+  Settings › Policies' From a template.
+- Create › Client and Create › Job open `/app/clients/new` and `/app/jobs/new`
+  (they opened the lists).
+- `--fq-launcher-clearance` (9rem below lg, 5.25rem from lg) in `<main>`'s
+  bottom padding; full-screen frames opt out with `data-fills-screen`.
+- `fq-dialog-card` (globals.css): 32 hand-drawn dialog cards plus AlertDialog
+  cap at the visible height and scroll inside.
+- 44px on a phone: the settings page-to-page chips (26px, every settings
+  screen), the More sheet's page links, the job plan and change-order
+  buttons, a to-do's tick, a campaign's per-stop buttons.
+
+### The audit
+
+Every harness screen (168 rows: all /app sidebar and settings rows, the detail
+pages, and /q, /book, /portal, /instant-quote, /quote, /site, /l, /f) at
+375×812 and 390×844, measuring horizontal page overflow, elements past either
+edge outside a scrolling/clipping ancestor, and visible controls under 36px.
+
+- Horizontal page overflow: **0 screens** before and after.
+- Past the edge: before, only `quote-send-menu` (the More… list); after, 0.
+- Sub-36px controls at 390: 2,374 → 1,917 across the board; the client-facing
+  pages were already at 0.
+
+### Still owed here
+
+- **Create › Request has no form to open.** The leads board has no
+  hand-entered lead form, so the row lands on the board. A product gap, not
+  a bug in this change — needs a "new request" form (or the row removed).
+- **~1,900 sub-36px controls remain**, mostly inline text links (exempt) and
+  dense editor rows: the quote builder's cost toggles and line delete buttons,
+  job detail's 34px pills and 24px Edit links, the daily-log day stepper
+  (28px), text-block editors. A per-screen pass, not a shared-component fix.
+- Menus deliberately NOT on ActionMenu, allow-listed in check:mobile with
+  reasons: the desktop Create pill and avatar menu (lg-only header), the
+  cost & markup form popover, the website's server-rendered `<details>`
+  nav, the sales composer's suggestions, and the rep status picker (stays
+  open on a refusal to show the sentence why).
+- StaffChat's New menu (sales team / platform chat) and the paint Add option
+  are not in any harness screen, so they were verified by build and check,
+  not by a tap.
+
+### Checks
+
+`check:mobile` gains three sections: the Create menu (every href a real page,
+rows are `<Link href>`, the not-drawn guard — mutation-tested), menus (no
+hand-positioned dropdown in /app, its components or the client pages; the
+ActionMenu contract — mutation-tested with the old SendMenu class list), and
+a baseline rule that a centred dialog's card is bounded. `check:dock`
+asserts `<main>` pads by all three terms and computes the clearance against
+the two launchers' own offsets and heights.
+
+---
 
 ## Refinish | Reface inside one cabinet card (25 September 2026)
 

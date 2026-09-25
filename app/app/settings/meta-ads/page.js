@@ -450,7 +450,7 @@ function MetaAdsPageScreen() {
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
           onClick={() => setShowDisconnectConfirm(false)}
         >
-          <div className="bg-card border border-border rounded-xl shadow-lg w-full max-w-sm p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+          <div className="fq-dialog-card bg-card border border-border rounded-xl shadow-lg w-full max-w-sm p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-semibold text-foreground">{t("app.setMetaAds.disconnectConfirmTitle", "Disconnect Meta Ads?")}</h3>
             <p className="text-sm text-muted-foreground">
               {t("app.setMetaAds.disconnectConfirmBody", "FieldQuo will stop syncing spend from this ad account. Rows already imported stay in your marketing spend history.")}

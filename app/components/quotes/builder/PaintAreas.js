@@ -80,6 +80,7 @@ import { Field, Num, inputClass, asList } from "./fields";
 import { MeasurementStyleToggle, AreaDimensionFields, GeometryStrip } from "./AreaGeometry";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 import MediaUploader from "@/app/components/MediaUploader";
+import ActionMenu from "@/app/components/mobile/ActionMenu";
 import { reportResponseError } from "@/lib/clientErrors";
 
 const own = (map, key) =>
@@ -912,7 +913,6 @@ function SubstrateRow({
 function OptionRows({ area, priced, book, t, money, onChange }) {
   const options = asList(area.options);
   const substrates = asList(area.substrates);
-  const [menu, setMenu] = useState(false);
   const optionalLines = (priced?.lines || []).filter((l) => l.kind === "substrate" && l.optional);
   const pricedOptions = priced?.options || [];
   const includedLines = (priced?.lines || []).filter((l) => l.kind === "substrate" && !l.optional);
@@ -922,7 +922,6 @@ function OptionRows({ area, priced, book, t, money, onChange }) {
     onChange({ ...area, options: options.map((o, j) => (j === i ? { ...o, ...patch } : o)) });
   const addOption = (kind, patch = {}) => {
     onChange({ ...area, options: [...options, newPaintOption(kind, patch)] });
-    setMenu(false);
   };
 
   // Premium candidates: the products marked as an upgrade of the line's
@@ -1102,48 +1101,37 @@ function OptionRows({ area, priced, book, t, money, onChange }) {
           })}
         </tbody>
       </table>
-      <div className="relative inline-block mt-2">
-        <button
-          type="button"
-          onClick={() => setMenu((v) => !v)}
-          className="text-sm text-muted-foreground hover:text-foreground"
-          aria-expanded={menu}
-        >
-          + {t("app.paint.addOption", "Add option")}
-        </button>
-        {menu && (
-          <div className="absolute z-20 mt-1 w-64 rounded-lg border border-border bg-card shadow-lg p-1 text-sm">
-            {PAINT_OPTION_KINDS.map((kind) => (
-              <button
-                key={kind}
-                type="button"
-                onClick={() =>
-                  addOption(kind, {
-                    substrateIndex: kind === "custom" ? null : (includedLines[0]?.rowIndex ?? null),
-                    productKey:
-                      kind === "premium_paint" && includedLines[0]
-                        ? premiumFor(includedLines[0])[0] || null
-                        : null,
-                  })
-                }
-                className="w-full text-left rounded px-2 py-1.5 hover:bg-accent"
-              >
-                {kind === "extra_coat"
-                  ? t("app.paint.addExtraCoat", "Extra coat")
-                  : kind === "premium_paint"
-                    ? t("app.paint.addPremium", "Premium paint upgrade")
-                    : t("app.paint.addCustomOption", "Custom option")}
-                <span className="block text-xs text-muted-foreground">
-                  {kind === "extra_coat"
-                    ? t("app.paint.addExtraCoatHint", "One more coat on a line, repriced by the takeoff")
-                    : kind === "premium_paint"
-                      ? t("app.paint.addPremiumHint", "Swap the product; the client pays the paint difference")
-                      : t("app.paint.addCustomOptionHint", "Anything else, priced by hand")}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
+      {/* ActionMenu, not an absolute w-64 under the link: a bottom sheet on a
+          phone, a dropdown kept on screen above that (2026-09-25 sweep —
+          this list had no outside-close, no Escape and 32px rows). */}
+      <div className="mt-2">
+        <ActionMenu
+          title={t("app.paint.addOption", "Add option")}
+          align="start"
+          triggerClassName="min-h-[40px] text-sm text-muted-foreground hover:text-foreground"
+          trigger={<>+ {t("app.paint.addOption", "Add option")}</>}
+          items={PAINT_OPTION_KINDS.map((kind) => ({
+            key: kind,
+            label:
+              kind === "extra_coat"
+                ? t("app.paint.addExtraCoat", "Extra coat")
+                : kind === "premium_paint"
+                  ? t("app.paint.addPremium", "Premium paint upgrade")
+                  : t("app.paint.addCustomOption", "Custom option"),
+            hint:
+              kind === "extra_coat"
+                ? t("app.paint.addExtraCoatHint", "One more coat on a line, repriced by the takeoff")
+                : kind === "premium_paint"
+                  ? t("app.paint.addPremiumHint", "Swap the product; the client pays the paint difference")
+                  : t("app.paint.addCustomOptionHint", "Anything else, priced by hand"),
+            onSelect: () =>
+              addOption(kind, {
+                substrateIndex: kind === "custom" ? null : (includedLines[0]?.rowIndex ?? null),
+                productKey:
+                  kind === "premium_paint" && includedLines[0] ? premiumFor(includedLines[0])[0] || null : null,
+              }),
+          }))}
+        />
       </div>
     </div>
   );

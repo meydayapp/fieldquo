@@ -97,7 +97,7 @@ export default function ShareWithStaffModal({ isOpen, onClose, quoteId, quoteNum
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4" role="dialog" aria-modal="true" onClick={busy ? undefined : onClose}>
-      <div className="bg-card text-foreground w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl border border-border shadow-xl" onClick={(e) => e.stopPropagation()} data-share-staff-modal>
+      <div className="fq-dialog-card bg-card text-foreground w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl border border-border shadow-xl" onClick={(e) => e.stopPropagation()} data-share-staff-modal>
         <div className="flex items-center justify-between px-5 py-3 border-b border-border">
           <h2 className="font-semibold flex items-center gap-2"><Share2 size={16} /> {t("app.shareStaff.title", "Share with staff")}</h2>
           <button type="button" onClick={onClose} aria-label={t("app.action.close", "Close")} className="p-1.5 text-muted-foreground hover:text-foreground"><X size={16} /></button>

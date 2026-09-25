@@ -574,7 +574,7 @@ export default function SocialPublishingPanel() {
           onClick={() => setShowDisconnectConfirm(false)}
         >
           <div
-            className="bg-card border border-border rounded-xl shadow-lg w-full max-w-sm p-4 space-y-3"
+            className="fq-dialog-card bg-card border border-border rounded-xl shadow-lg w-full max-w-sm p-4 space-y-3"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="font-semibold text-foreground">

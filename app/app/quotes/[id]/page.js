@@ -2435,7 +2435,7 @@ function DecisionDialog({ kind, quoteNumber, reason, onReason, busy, onClose, on
         role="dialog"
         aria-modal="true"
         aria-labelledby="quote-decision-title"
-        className="bg-card rounded-2xl w-full max-w-md p-6 space-y-4"
+        className="fq-dialog-card bg-card rounded-2xl w-full max-w-md p-6 space-y-4"
         onClick={(e) => e.stopPropagation()}
         data-testid={`quote-decision-${kind}`}
       >

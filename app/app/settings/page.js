@@ -110,7 +110,7 @@ export default function SettingsIndexPage() {
                           <Link
                             href={item.href}
                             data-nav-row
-                            className={`inline-flex items-center min-h-[28px] rounded-full px-2 text-xs text-muted-foreground hover:bg-sidebar-panel-accent hover:text-foreground ${
+                            className={`inline-flex items-center min-h-[44px] lg:min-h-[28px] rounded-full px-2 text-xs text-muted-foreground hover:bg-sidebar-panel-accent hover:text-foreground ${
                               gated ? "border border-dashed border-sidebar-primary/60" : ""
                             }`}
                           >

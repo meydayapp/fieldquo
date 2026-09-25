@@ -13,6 +13,7 @@
 // rather than restating its output by hand, so the picture cannot drift from
 // what the real route would send.
 import { checklistSeedsForTrade } from "@/app/data/checklistSeeds";
+import { policyTemplates } from "@/lib/hr/policyTemplates";
 import { templateDataForSeed } from "@/lib/checklists/seedData";
 import { COMPANY, PEOPLE, CLIENT, QUOTE, JOB, INVOICE, day, iso, TODAY } from "./company.js";
 import {
@@ -1317,4 +1318,9 @@ export const ROUTES_SETTINGS_B = [
       askedRecently: 3,
     }),
   },
+  // Settings › Policies' "Start from a template" (PoliciesManager's
+  // StarterMenu): the real starter set in the frame's language, as the route
+  // returns it. Without it the button drew nothing here — which is now what
+  // it does on a failed load, since a menu with no rows is a dead control.
+  { path: "/api/hr/policies/templates", method: "GET", reply: ({ lang }) => ({ templates: policyTemplates(lang) }) },
 ];

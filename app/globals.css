@@ -339,6 +339,31 @@
     --fq-tab-bar-height: 0px;
   }
 }
+/* ── A dialog card is never taller than the screen ─────────────────────────
+ *
+ * The owner, 2026-09-25: "check that everything is mobile friendly". Twenty-
+ * four hand-drawn dialogs in /app sat in a `fixed inset-0 flex items-center`
+ * overlay with a card that had no height limit and no scroll. On a phone in
+ * landscape, or with the keyboard up, a card taller than the screen is
+ * centred with its top AND its bottom cut off, and nothing scrolls: the title
+ * and the Cancel/Save row are both out of reach. This caps the card at the
+ * visible height (dvh, so the browser's own bars are subtracted) less the
+ * overlay's p-4, and scrolls inside it.
+ *
+ * A utility (so it sits in Tailwind's layer and a caller's own max-h-* on the
+ * same card is still a same-layer rule it can override by order), not a
+ * change to each overlay: the overlays differ, the card is the one element
+ * they all share. Rejected: overflow on the overlay with the card centred by
+ * flex — a flex-centred child taller than its scroll container overflows at
+ * the top too, and that top part can never be scrolled to. Native <select>
+ * lists open outside any clip; nothing that opens INSIDE a card with this
+ * class may rely on overflowing it (checked when it was applied). */
+@utility fq-dialog-card {
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 /* ── The launcher column's clearance ────────────────────────────────────────
  *
  * The owner, 2026-09-25, on the Quotes list at 390px: the + and Jennifer's

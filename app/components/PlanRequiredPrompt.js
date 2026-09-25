@@ -46,7 +46,7 @@ export default function PlanRequiredPrompt() {
       aria-modal="true"
       aria-labelledby="fq-plan-required-title"
     >
-      <div className="bg-card border border-border rounded-2xl shadow-xl w-full sm:max-w-md p-5">
+      <div className="fq-dialog-card bg-card border border-border rounded-2xl shadow-xl w-full sm:max-w-md p-5">
         <div className="flex items-start gap-3">
           <span className="rounded-full bg-amber-100 dark:bg-amber-900/40 p-2 shrink-0">
             <CreditCard size={18} className="text-amber-700 dark:text-amber-300" />

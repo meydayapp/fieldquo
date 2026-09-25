@@ -219,7 +219,10 @@ function TaskRow({
             type="button"
             onClick={onToggle}
             disabled={busy}
-            className="mt-0.5 shrink-0 disabled:opacity-50"
+            // The tick is 16px and is the crew's one action on a to-do; the
+            // ::after ring widens what a thumb can hit to 44px without moving
+            // the row's layout (2026-09-25 mobile audit).
+            className="relative mt-0.5 shrink-0 disabled:opacity-50 after:absolute after:-inset-3.5 after:content-['']"
             aria-label={isDone ? t("app.job.taskReopen") : t("app.job.taskMarkDone")}
           >
             {busy ? (
