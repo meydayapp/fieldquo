@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 25 September 2026 (Create › Request opens a hand-entered lead form at /app/leads/new — the owner's six fields, posted through createScoredLead as source "manual", gated at requests:view_create_edit on page and route, landing on the board with the new lead's drawer open; the board's ?lead= deep link now also works after an in-app navigation — see "Still owed here" under "Phone menus, the Create sheet and a mobile audit" below)
 Last updated: 25 September 2026 (three follow-ups: cancelling a pay run now gives back its daily-sheet bonuses as well as its commissions; the checks read prisma/schema.prisma through one Prisma-aware stripper, and only four ever stripped it; check:call-to-client now runs the booking follow-up it was skipping, and the phone agent promises a confirmation only when the follow-up reports one — see "Pay-run cancel, the schema stripper, the booking follow-up" below)
 Last updated: 25 September 2026 (phone menus and the Create sheet: every row of the phone's Create sheet was dead, because the hidden desktop pill's outside-press listener closed it before the tap landed; the quote's More… opened off the left of the screen; one ActionMenu now — a bottom sheet below 640px, a flip-and-shift dropdown above — plus a launcher clearance so the + and Jennifer never cover a list's last row, dialog cards capped at the screen, and 44px settings/crew controls; every harness screen audited at 375 and 390 — see "Phone menus, the Create sheet and a mobile audit" below)
 Last updated: 25 September 2026 (one cabinet scope, Refinish | Reface: a company selling both cabinet trades gets a switch inside an unsaved cabinet group's card that moves the group between the two price books while keeping every count and answer already entered; a still-default name follows the service, switching back restores the previous figures byte-for-byte, and only the chosen service reaches the saved quote — see "Refinish | Reface inside one cabinet card" below)
@@ -210,9 +211,28 @@ edge outside a scrolling/clipping ancestor, and visible controls under 36px.
 
 ### Still owed here
 
-- **Create › Request has no form to open.** The leads board has no
-  hand-entered lead form, so the row lands on the board. A product gap, not
-  a bug in this change — needs a "new request" form (or the row removed).
+- ~~**Create › Request has no form to open.**~~ Done 2026-09-25: the row
+  opens `/app/leads/new` — name, phone, email, address (Places, typing still
+  works), service (the company's enabled services), note; nothing else until
+  the owner asks. It posts to `POST /api/leads`, which hands the lead to
+  `createScoredLead` (scored, `lead.created` feed, shared intake shape) with
+  `source: "manual"` — the word kpis.js already excludes from blended CPL.
+  Name plus a phone or an email; an undeliverable email and a service the
+  company does not offer are refused; no dedupe, same as every channel.
+  Gated at requests:view_create_edit on the page (server shell, enforceable
+  member) and the route (`levelOrRefusal`); a support session is refused by
+  both. After the save the board opens with the new lead's drawer, which
+  needed a fix of its own: `?lead=<id>` was read only in a `useState`
+  initializer, which on a client-side `router.push` reads the page being
+  LEFT (measured: initializer empty, mount effect correct), so it never
+  opened after an in-app navigation. `npm run check:manual-lead` executes the
+  route's refusals and its hand-off to createScoredLead. Deliberately NOT
+  done, for the owner: no confirmation email to the household and no call
+  consent recorded (a number staff typed is not the person asking to be
+  rung); the scorer still counts the unasked budget against a manual lead
+  (the screen says "Nobody asked", NOT_ASKED_BY_SOURCE; UNASKABLE_BY_SOURCE
+  untouched); and the board itself has no "New" button beside Import —
+  Create › Request is the one entry.
 - **~1,900 sub-36px controls remain**, mostly inline text links (exempt) and
   dense editor rows: the quote builder's cost toggles and line delete buttons,
   job detail's 34px pills and 24px Edit links, the daily-log day stepper

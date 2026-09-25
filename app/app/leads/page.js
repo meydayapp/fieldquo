@@ -217,6 +217,16 @@ export default function LeadsPage() {
   const [openId, setOpenId] = useState(() =>
     typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("lead") || "" : "",
   );
+  // …and read again once mounted. The initializer alone only works on a full
+  // page load: on a client-side router.push the new page renders BEFORE Next
+  // commits the URL, so it reads the page being left. Measured in a harness
+  // (2026-09-25): initializer "(empty)", this effect "abc123", for the same
+  // push. That is the path /app/leads/new takes after a save — the new lead's
+  // drawer would silently not open — and any in-app "Open lead" Link.
+  useEffect(() => {
+    const fromUrl = new URLSearchParams(window.location.search).get("lead");
+    if (fromUrl) setOpenId(fromUrl);
+  }, []);
 
   const load = useCallback(async () => {
     setErrorKey("");

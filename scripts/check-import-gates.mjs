@@ -86,6 +86,16 @@ const GUARDED = [
     route: "app/api/clients/route.js",
     workMarker: "<form",
   },
+  // Create › Request. The route's pair is read off its PATCH's requireLevel
+  // (the POST asks the same pair through levelOrRefusal, which this scan does
+  // not read); scripts/check-manual-lead.mjs EXECUTES the POST's refusal. The
+  // form is the client half — page.js is a server shell that refuses on the
+  // enforceable member first.
+  {
+    page: "app/app/leads/new/NewLeadForm.js",
+    route: "app/api/leads/route.js",
+    workMarker: "<form",
+  },
 ];
 
 // Lists that link to a guarded page must not offer the link to somebody the
