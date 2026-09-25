@@ -169,7 +169,7 @@ function Funnel({ funnel, rangeLabel }) {
           <div key={s.key} className="grid grid-cols-[minmax(0,9rem)_1fr_auto] sm:grid-cols-[minmax(0,14rem)_1fr_auto] gap-3 items-center text-sm">
             <span className="min-w-0">
               <span className="block text-foreground truncate">{STEP_LABELS[s.key] || s.key}</span>
-              <span className="block text-[11px] leading-tight text-muted-foreground truncate" title={STEP_HINTS[s.key] || ""}>{STEP_HINTS[s.key] || ""}</span>
+              <span className="block text-[11px] leading-tight text-muted-foreground">{STEP_HINTS[s.key] || ""}</span>
             </span>
             <div className="h-5 rounded bg-muted overflow-hidden">
               <div className="h-full bg-primary/70" style={{ width: `${Math.max(1, Math.round((s.count / max) * 100))}%` }} />
@@ -446,7 +446,11 @@ export default function PlatformAnalyticsPage() {
   }, [load]);
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    // w-full min-w-0: the campaign table scrolls sideways inside its card.
+    // Under a flex parent, mx-auto alone sizes this page to its content's
+    // min-content (auto margins switch off stretch), and a phone got the
+    // whole console at 610px.
+    <div className="w-full max-w-6xl mx-auto space-y-6 min-w-0">
       <header className="space-y-2">
         <h1 className="text-2xl font-bold text-foreground">Analytics</h1>
         <p className="text-sm text-muted-foreground">

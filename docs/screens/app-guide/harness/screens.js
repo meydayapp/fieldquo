@@ -634,4 +634,10 @@ export const SCREENS = [
   // the foot and saved, in both layouts, on every fixture quote type. Run on
   // this tree and on origin/main; the recorded PATCH bodies must be equal.
   ...PICKER_MD5_ROWS,
+  // ── /platform/analytics: the signup funnel and FieldQuo's own ad campaigns
+  // (2026-09-25) — docs/screens/adtrack/. Mounted without the /app shell
+  // (the console has its own), answered by fixtures/routes-platform-analytics.js;
+  // the scene opens the first campaign and its first ad set.
+  { slug: "adtrack-platform-analytics-1280", href: "/platform/analytics", page: "app/platform/analytics/page.js", mode: "public", scene: "adtrack-expand", width: 1280, height: 3300, out: "docs/screens/adtrack", chapter: "adtrack" },
+  { slug: "adtrack-platform-analytics-390", href: "/platform/analytics", page: "app/platform/analytics/page.js", mode: "public", scene: "adtrack-expand", width: 390, height: 5600, out: "docs/screens/adtrack", chapter: "adtrack" },
 ];
