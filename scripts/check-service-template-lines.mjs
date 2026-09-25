@@ -24,6 +24,9 @@
 //   G. Where it is offered (the owner's quote-type rule), invoices included.
 //   H. The completeness check names unfinished template lines until filled.
 //   I. ventCount / returnCount are registered and survive the seed loader.
+//   J. A template never bills the units its group's own calculator bills.
+//   K. The reuse takeoffs (flooring, tile, drywall, siding, fencing,
+//      concrete): one fixture each, the figures reaching the lines.
 
 import {
   measurementsFromGroups,
@@ -49,6 +52,7 @@ import { seedTemplateFor } from "@/lib/services/seeds";
 import { SERVICE_SEEDS } from "@/app/data/serviceSeeds";
 import { MEASUREMENT_KEYS as SEED_KEYS } from "@/app/data/serviceSeeds/_templateLines";
 import { MEASUREMENT_KEY_LIST } from "@/lib/services/measurementKeys";
+import { newRoomMeasure, newMeasureRoom } from "@/lib/measure/reuseTakeoffs";
 
 let passed = 0;
 let fail = 0;
@@ -355,6 +359,39 @@ section("J — a template never bills the units its group's own calculator alrea
   const builder = readFileSync(new URL("../app/components/quotes/builder/QuoteBuilder.js", import.meta.url), "utf8");
   ok((builder.match(/pricedKeys: keysPricedByGroup\(|const pricedKeys = keysPricedByGroup\(/g) || []).length === 4,
     "the library add, the library preview, the card preview and the card add all hold the calculator's units back", (builder.match(/keysPricedByGroup\(/g) || []).length);
+}
+
+section("K — the reuse takeoffs: flooring, tile, drywall, siding, fencing, concrete (lib/measure/reuseTakeoffs.js)");
+// One fixture per trade, through the same functions the builder calls. The
+// arithmetic itself — waste, openings, sheets, posts, yards, hostile input —
+// is npm run check:reuse-takeoffs; this asserts the figures reach the lines.
+{
+  const roomTakeoff = (trade, rooms, extra = {}) => ({ ...newRoomMeasure(trade), rooms: rooms.map((r) => ({ ...newMeasureRoom(trade), ...r })), ...extra });
+  const groups = [
+    { tempId: "fl", label: "Floors", categoryKey: "flooring_install", takeoff: roomTakeoff("flooring_install", [{ lengthFt: 15, widthFt: 12, heightFt: 8 }], { waste: { floorSqft: 10 } }) },
+    { tempId: "ti", label: "Bath tile", categoryKey: "tiling", takeoff: roomTakeoff("tiling", [{ lengthFt: 8, widthFt: 5, heightFt: 8 }, { measurement: "wall", linearFt: 10, heightFt: 1.5, surfaces: { walls: true } }]) },
+    { tempId: "dw", label: "Drywall", categoryKey: "drywall_install", takeoff: roomTakeoff("drywall_install", [{ lengthFt: 12, widthFt: 10, heightFt: 8, openings: [{ kind: "door", count: 1, widthFt: 3, heightFt: 7 }] }]) },
+    { tempId: "sd", label: "Siding", categoryKey: "siding", takeoff: { sqft: 809, walls: [{ measurement: "wall", linearFt: 40, heightFt: 10 }] } },
+    { tempId: "fe", label: "Fence", categoryKey: "fence_services", intakeValues: { linearFeet: 160, gateCount: 1 } },
+    { tempId: "cc", label: "Slab", categoryKey: "concrete", intakeValues: { squareFootage: 810, thicknessInches: "4", wasteFactorPercent: 5 } },
+  ];
+  const at = (id) => measurementsFromGroups(groups, { targetTempId: id });
+  ok(at("fl").values.floorSqft === 180 && at("fl").values.areaSqFt === 180 && at("fl").values.linearFt === 54 && at("fl").sources.floorSqft.wastePct === 10, "flooring: floor 180 (waste 10 stated), perimeter 54, the generic area", at("fl").sources.floorSqft);
+  ok(at("ti").values.floorSqft === 40 && at("ti").values.wallSqft === 15 && at("ti").values.areaSqFt === 55, "tile: floor 40, backsplash 15, tiled 55", at("ti").values);
+  ok(at("dw").values.wallSqft === 331 && at("dw").values.ceilingSqft === 120 && at("dw").values.drywallSheets === 16 && at("dw").sources.drywallSheets.wastePct === 0, "drywall: walls 352 − 21 door = 331, ceiling 120, ceil(451 × 1.10 ÷ 32) = 16 sheets with the waste inside", at("dw").values);
+  ok(at("sd").values.wallSqft === 809 && at("sd").sources.wallSqft.calc === "siding", "siding: the measured walls reach the lines through the siding box", at("sd").sources.wallSqft);
+  ok(at("fe").values.edgingFt === 160 && at("fe").values.fencePosts === 21 && at("fe").values.gateCount === 1, "fencing: run 160, 21 posts, the gate count", at("fe").values);
+  ok(at("cc").values.areaSqft === 810 && at("cc").values.concreteCuYd === 10.5, "concrete: slab 810 sq ft, 10.5 yd at 4 in + 5%", at("cc").values);
+  // The group the template goes into wins: the tile group's wall, not the drywall's.
+  ok(at("ti").sources.wallSqft.groupTempId === "ti" && at("dw").sources.wallSqft.groupTempId === "dw", "each group reads its own walls first");
+  // Nothing held back on the five that only measure; siding still holds its priced box.
+  ok(["fl", "ti", "dw", "fe", "cc"].every((id) => keysPricedByGroup(groups.find((g) => g.tempId === id)).length === 0) && keysPricedByGroup(groups[3]).join() === "wallSqft", "only a takeoff that prices a quantity holds its template lines back");
+  const tpl = { templateLines: [
+    { kind: "labour", name: "Hang", qty: 1, unit: "sqft", unitPrice: 2, measurementKey: "areaSqFt" },
+    { kind: "material", name: "Board", qty: 1, unit: "each", unitPrice: 18, measurementKey: "drywallSheets", wastePct: 10 },
+  ] };
+  const d = expandServiceTemplate(tpl, { measurements: at("dw"), currency: "USD", runId: "k", heading: false, pricedKeys: keysPricedByGroup(groups[2]) });
+  ok(d.lines[0].quantity === 451 && d.lines[1].quantity === 16 && d.summary.awaiting === 0, "drywall template: hang 451 sq ft, 16 sheets — the template's 10% not added on top of the sheet waste", d.lines.map((l) => l.quantity));
 }
 
 console.log(`\n${passed} passed, ${fail} failed`);

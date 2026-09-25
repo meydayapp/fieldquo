@@ -63,7 +63,6 @@ import {
   paintFormula,
   areaGeometry,
   derivedGeometry,
-  isGeometryOverride,
   newPaintArea,
   newPaintSubstrate,
   newPaintOption,
@@ -75,10 +74,10 @@ import {
   substrateProvenance,
   PAINT_ESTIMATE_TYPES,
   PAINT_QUICK_PICKS,
-  PAINT_GEOMETRY_OVERRIDES,
   PAINT_OPTION_KINDS,
 } from "@/lib/pricing/paintTakeoff";
 import { Field, Num, inputClass, asList } from "./fields";
+import { MeasurementStyleToggle, AreaDimensionFields, GeometryStrip } from "./AreaGeometry";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 import MediaUploader from "@/app/components/MediaUploader";
 import { reportResponseError } from "@/lib/clientErrors";
@@ -1192,16 +1191,6 @@ function AreaCard({
   });
   if (area.areaType && !areaTypeKeys.includes(area.areaType)) areaTypeKeys.unshift(area.areaType);
 
-  const overridden = Object.keys(PAINT_GEOMETRY_OVERRIDES).some((f) =>
-    isGeometryOverride(area[PAINT_GEOMETRY_OVERRIDES[f]]),
-  );
-  const strip = [
-    ["linearFt", t("app.paint.geoLinear", "Linear ft")],
-    ["wallSqft", t("app.paint.geoWalls", "Walls sqft")],
-    ["ceilingSqft", t("app.paint.geoCeiling", "Ceiling sqft")],
-    ["floorSqft", t("app.paint.geoFloor", "Floor sqft")],
-  ];
-
   const media = asList(area.media);
   const hasNotes = Boolean(area.clientNote || area.crewNote);
 
@@ -1211,25 +1200,7 @@ function AreaCard({
     <div className="rounded-lg border border-border p-3 space-y-3" data-paint-area={index}>
       {/* ── Header: name · Room/Surface · total ── */}
       <div className="flex items-center gap-2 flex-wrap">
-        <div className="inline-flex rounded-lg border border-border overflow-hidden text-sm">
-          {[
-            ["area", t("app.paint.room", "Room (4 walls)")],
-            ["wall", t("app.paint.singleWall", "Surface (single wall)")],
-          ].map(([key, label]) => {
-            const on = key === "area" ? closed : !closed;
-            return (
-              <button
-                key={key}
-                type="button"
-                onClick={() => set({ measurement: key })}
-                aria-pressed={on}
-                className={`px-3 py-1 ${on ? "bg-primary text-primary-foreground font-semibold" : "text-muted-foreground hover:bg-accent"}`}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
+        <MeasurementStyleToggle closed={closed} set={set} t={t} />
         <span className="ml-auto shrink-0 text-sm font-semibold tabular-nums">{money(priced?.total ?? 0)}</span>
         <button
           type="button"
@@ -1241,47 +1212,7 @@ function AreaCard({
         </button>
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-4">
-        <Field label={t("app.paint.name", "Name")}>
-          <input
-            value={area.label || ""}
-            onChange={(e) => set({ label: e.target.value })}
-            placeholder={t("app.paint.areaPlaceholder", "Area {n}", { n: index + 1 })}
-            className={inputClass}
-          />
-        </Field>
-        {closed ? (
-          <>
-            <Field label={t("app.paint.widthFt", "Width (ft)")}>
-              <Num value={area.widthFt} onChange={(v) => set({ widthFt: v })} step={0.5} />
-            </Field>
-            <Field label={t("app.paint.lengthFt", "Length (ft)")}>
-              <Num value={area.lengthFt} onChange={(v) => set({ lengthFt: v })} step={0.5} />
-            </Field>
-            <Field label={t("app.paint.heightFt", "Height (ft)")}>
-              <Num value={area.heightFt} onChange={(v) => set({ heightFt: v })} step={0.5} />
-            </Field>
-          </>
-        ) : style === "surface" ? (
-          <>
-            <Field label={t("app.paint.surfaceSqft", "Measured area (sqft)")}>
-              <Num value={area.surfaceSqft} onChange={(v) => set({ surfaceSqft: v })} step={1} />
-            </Field>
-            <Field label={t("app.paint.linearFt", "Linear feet")}>
-              <Num value={area.linearFt} onChange={(v) => set({ linearFt: v })} step={0.5} />
-            </Field>
-          </>
-        ) : (
-          <>
-            <Field label={t("app.paint.wallRunFt", "Width of the wall (ft)")}>
-              <Num value={area.linearFt} onChange={(v) => set({ linearFt: v })} step={0.5} />
-            </Field>
-            <Field label={t("app.paint.heightFt", "Height (ft)")}>
-              <Num value={area.heightFt} onChange={(v) => set({ heightFt: v })} step={0.5} />
-            </Field>
-          </>
-        )}
-      </div>
+      <AreaDimensionFields area={area} index={index} style={style} closed={closed} set={set} t={t} />
 
       <div className="grid gap-2 sm:grid-cols-3">
         <Field label={t("app.paint.areaType", "Area type")}>
@@ -1330,79 +1261,18 @@ function AreaCard({
       </div>
 
       {/* ── Calculated from measurements — type over any figure ── */}
-      <div className="rounded bg-accent px-3 py-2 text-xs">
-        <div className="flex items-baseline justify-between gap-2 flex-wrap">
-          <span className="font-semibold uppercase tracking-wide text-muted-foreground">
-            {t("app.paint.calculated", "Calculated from measurements")}
-          </span>
-          <span className="text-muted-foreground">
-            {t("app.paint.overrideHint", "Type over any figure to override it")}
-            {overridden && (
-              <>
-                {" · "}
-                <button
-                  type="button"
-                  onClick={() =>
-                    set(
-                      Object.fromEntries(
-                        Object.values(PAINT_GEOMETRY_OVERRIDES).map((k) => [k, null]),
-                      ),
-                    )
-                  }
-                  className="underline"
-                >
-                  {t("app.paint.reset", "reset")}
-                </button>
-              </>
-            )}
-          </span>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-1.5">
-          {strip.map(([field, label]) => {
-            const key = PAINT_GEOMETRY_OVERRIDES[field];
-            const edited = isGeometryOverride(area[key]);
-            const unsupported = !closed && (field === "ceilingSqft" || field === "floorSqft");
-            return (
-              <div key={field}>
-                <div className="text-muted-foreground">{label}</div>
-                {unsupported ? (
-                  <div
-                    className="font-medium text-muted-foreground"
-                    title={t("app.paint.noCeilingOnWall", "A single wall has no ceiling or floor.")}
-                  >
-                    —
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <input
-                      type="number"
-                      min={0}
-                      step={1}
-                      value={edited ? area[key] : geo[field]}
-                      onChange={(e) => set({ [key]: e.target.value === "" ? null : Number(e.target.value) })}
-                      className={`${smallInput} ${edited ? "border-blue-600 pr-14" : ""}`}
-                    />
-                    {edited && (
-                      <span
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-blue-700 dark:text-blue-300"
-                        title={t("app.paint.calculatedWas", "Calculated: {n}", { n: calc[field] })}
-                      >
-                        {t("app.paint.edited", "edited")}
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-        <p className="text-muted-foreground mt-1.5">
-          {t(
-            "app.paint.grossHint",
-            "Every surface below reads its quantity from this strip. Gross area — openings are not deducted, which is what the production rates were recovered against.",
-          )}
-        </p>
-      </div>
+      <GeometryStrip
+        area={area}
+        geo={geo}
+        calc={calc}
+        closed={closed}
+        set={set}
+        t={t}
+        hint={t(
+          "app.paint.grossHint",
+          "Every surface below reads its quantity from this strip. Gross area — openings are not deducted, which is what the production rates were recovered against.",
+        )}
+      />
 
       {/* ── Tick what's painted ── */}
       {estimateType && (

@@ -23,6 +23,9 @@ const CALC_FALLBACK = {
   cabinet: "cabinet door and drawer counts",
   lot: "lot measure",
   cleaning: "cleaning details",
+  roomMeasure: "room measure",
+  fence: "fence line",
+  concrete: "slab measure",
   intake: "service details",
 };
 
