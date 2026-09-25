@@ -39,6 +39,7 @@ import { useLanguageContext } from "@/app/providers/LanguageProvider";
 import { BOOKING_LANGUAGES, BOOKING_LANGUAGE_NAMES, bookingLanguage, bookingLangStorageKey } from "@/lib/i18n/bookingLanguages";
 import SlotCalendar from "@/app/components/public/SlotCalendar";
 import AddressField from "./AddressField";
+import { useAdTracking } from "@/app/components/public/useAdTracking";
 import {
   offeredModes,
   bookingModeLabel,
@@ -137,6 +138,18 @@ export default function BookingFlow({
   // Only BookVisitPanel passes it, for the instant estimate's Schedule
   // pixel event; nothing here depends on it.
   onBooked = null,
+  // Count this page as a "booking" visit in the company's Leads › Visits &
+  // unfinished report (app/components/public/useAdTracking.js): the
+  // standalone /book pages and the website's booking block pass it. Off
+  // everywhere else on purpose — inside the instant estimate or the
+  // self-quote confirmation this flow is a step of THAT page, whose visit
+  // or lead already carries the landing, and inside an embed on another
+  // site the landing is not ours to read. No pixel, no contact capture:
+  // step counts and the first-touch link only. "inherit" (the website's
+  // booking block): the page URL is the website's, already counted as the
+  // website visit's landing, so this visit takes that one's instead of
+  // counting the same arrival twice.
+  trackVisit = false,
 }) {
   // The visitor's own language, not the company's. Everything else on this page
   // is still English literals — see CALENDAR_COPY above — so the two fields
@@ -333,6 +346,19 @@ export default function BookingFlow({
   // in state rather than being a pure redirect because the redirect can be
   // refused — see the hand-off screen below.
   const [payment, setPayment] = useState(null);
+
+  const tracking = useAdTracking({
+    ready: Boolean(trackVisit) && Boolean(company),
+    companySlug,
+    surface: "booking",
+    language,
+    ownLanding: trackVisit !== "inherit",
+  });
+  const { reportStep } = tracking;
+  // "Picked a time" — once per visit; the hook drops repeats.
+  useEffect(() => {
+    if (chosen) reportStep("slot");
+  }, [chosen, reportStep]);
 
   useEffect(() => {
     let cancelled = false;
@@ -609,6 +635,15 @@ export default function BookingFlow({
     setSubmitting(true);
     setSubmitError("");
     try {
+      // The visit this booking belongs to, so the booking is credited to the
+      // ad that brought the visitor. Bounded wait for the landing beacon;
+      // null when this page is not tracked, and the server checks it either
+      // way (company, surface, its own row).
+      let visitToken = null;
+      if (trackVisit) {
+        await tracking.settled();
+        visitToken = tracking.visitToken();
+      }
       const res = await fetch(`/api/booking/${companySlug}/confirm`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -636,6 +671,7 @@ export default function BookingFlow({
           // the visitor told this form, not a service the company sells.
           ...(serviceKey && serviceKey !== SERVICE_UNSURE ? { serviceKey } : {}),
           ...(quoteId ? { quoteId } : {}),
+          ...(visitToken ? { visitToken } : {}),
           address: mode === "visit" ? address.trim() || null : null,
           // Only when the address was picked AND this is a site visit — a
           // video call carries no site address, so it must carry no

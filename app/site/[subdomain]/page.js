@@ -45,6 +45,7 @@ import { siteCopy } from "@/lib/site/siteCopy";
 import ClientLoginForm from "./ClientLoginForm";
 import { serviceName, customCategoryPhrases } from "@/lib/i18n/serviceName";
 import SiteChatMount from "@/app/components/chat/SiteChatMount";
+import SiteVisitBeacon from "./SiteVisitBeacon";
 
 async function loadSite(subdomain, { preview = false } = {}) {
   const site = await db.companySite.findUnique({
@@ -202,6 +203,10 @@ export default async function CompanySitePage({ params, searchParams, language: 
   const query = (await searchParams) || {};
   const site = await loadSite(subdomain, { preview: query.preview === "1" });
   if (!site) notFound();
+  // Counted in the company's Visits & unfinished report only when the public
+  // is looking: never a draft, never the editor's ?preview=1 frame of a
+  // published site (the owner checking their own page is not a visit).
+  const countVisit = !site.draft && query.preview !== "1";
 
   // workAreas comes back as [{ name }]; the renderer wants names. Flattened
   // here rather than in the component so the component stays a pure function of
@@ -464,6 +469,8 @@ export default async function CompanySitePage({ params, searchParams, language: 
         }}
       />
 
+      {countVisit && <SiteVisitBeacon subdomain={site.subdomain} language={language} />}
+
       <SiteBlocks
         blocks={blocks}
         company={company}
@@ -486,6 +493,7 @@ export default async function CompanySitePage({ params, searchParams, language: 
         // a free site's owner never learns it's on the page.
         showFieldquoCredit={showFieldquoCredit}
         clientLoginHref={clientLoginHref}
+        trackVisits={countVisit}
       >
         {isClientLogin && (
           <section className="px-5 sm:px-8 py-14 sm:py-20">

@@ -61,8 +61,6 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
-<<<<<<< HEAD
-=======
 ## Email templates: money tokens in the company's currency, FieldQuo's words in the document's language (25 September 2026)
 
 Client-facing. A company's email template (Settings › Email templates) is
@@ -194,7 +192,6 @@ on the old code with "CAD 0.00" per line).
 
 ---
 
->>>>>>> fix/followup-tokens-currency
 ## The owner's signup test: language, the wrong account, the resume link, the letter (25 September 2026)
 
 Four linked faults from the owner signing up with his own addresses. Each has
@@ -253,7 +250,6 @@ an executed check in `npm run check:auth-link-routing` (in check:all).
   now says which account is signed in instead.
 - The 24-hour recovery note is company-based and was not changed; one login
   owns one business, so the same gap does not arise there today.
-<<<<<<< HEAD
 ## The public funnel's chrome speaks the company's language (25 September 2026)
 
 A French company's funnel at `/f/[companySlug]/[funnelSlug]` (and its embed)
@@ -578,8 +574,6 @@ on the old code with "CAD 0.00" per line).
   English.
 
 ---
-=======
->>>>>>> fix/followup-tokens-currency
 
 ## /platform counts one book: trialing, paying, companies (25 September 2026)
 
@@ -4754,6 +4748,15 @@ the unlanded Community* tables — not ours, never apply them.
   reads "35".
 - Team and Goals sent no beacon before this deploy: a browser that stopped on
   them earlier counts only as Visited.
+
+## Meta ad tracking for a company's own pages (25 September 2026)
+
+- Every company landing reads the full Ads Manager string (`META_URL_PARAMETERS`: campaign / ad set / ad names and ids, placement, site_source_name) and keeps it on `FunnelVisit.ad`; `site_source_name` / `placement` decide the network, so an Instagram Story with an fbclid is Instagram.
+- The link builder (Settings › Instant quotes › Ad tracking, linked from Settings › Meta Ads) offers every page whose visits are counted — instant estimate, each published funnel, booking page and per-service links, published website — with the URL-parameters string, the joined link, an Ads Manager how-to, and what is and isn't sent to Meta (nothing about customers).
+- The booking page and the website open FunnelVisits too (surfaces `booking`, `website`); a page reached from the company's own site inherits that landing through the tab's sessionStorage token list (`fq.touch`; no cookie, no IP). Bookings link to their visit (`bookingId`); self-quote requests after the website carry its attribution.
+- Leads › Visits & unfinished has a campaign ▸ ad set ▸ ad table: visits, unfinished, leads, booked visits, quotes sent, quotes won, revenue won — first touch, ids first; quotes need quotes view_only, revenue also needs showPricing; hidden figures show "—", never 0.
+- Schema (additive, applied by hand 2026-09-25): `FunnelVisit.ad` JSONB, `firstVisitId`, `bookingId`. `check:ad-tracking` (119 assertions).
+- Still owed: Conversions API (owner decision), partial capture on the booking page and website (no "we save what you type" notice there), the embed iframe.
 
 ## Auto-translation on save (24 September 2026)
 

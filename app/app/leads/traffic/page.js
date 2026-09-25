@@ -1,12 +1,17 @@
 // app/app/leads/traffic/page.js
 //
 // Leads › Visits & unfinished — the company's own report on its instant
-// estimate and lead funnels (GET /api/leads/traffic):
+// estimate, lead funnels, booking page and website (GET /api/leads/traffic):
 //
-//   · per surface: visits, started, sent, completion, and how many reached
-//     each step or further (lib/tracking/funnelSteps.js countSteps);
-//   · where visits came from, by source and campaign, with how many of each
-//     sent a request;
+//   · per page: visits, started, sent (booked, on the booking page),
+//     completion, and how many reached each step or further
+//     (lib/tracking/funnelSteps.js countSteps);
+//   · where visits came from, by page and source;
+//   · the company's own ad campaigns, campaign ▸ ad set ▸ ad: visits,
+//     unfinished requests, leads, booked visits, quotes sent and won, and
+//     revenue won — first touch, from the link the visitor arrived on
+//     (lib/tracking/campaignReport.js). Quotes and money are shown only to
+//     members whose access includes them, and the table says so otherwise;
 //   · "Started, didn't finish": people who typed an email or phone and
 //     stopped, with a way to call or write — and nothing that sends to them
 //     automatically, because the form promised only that the company COULD
@@ -14,20 +19,24 @@
 //
 // First-party counts from our own rows, so the numbers do not move when a
 // visitor blocks a pixel or declines the ad-cookie question. Counting began
-// when this shipped; there is no history before it.
+// when each page was added; there is no history before it.
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Mail, Phone, UserRound, Settings2 } from "lucide-react";
+import { ArrowLeft, ChevronRight, Mail, Phone, UserRound, Settings2 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useHasLevel } from "@/app/providers/PermissionProvider";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 import { fetchJson } from "@/lib/fetchJson";
 import { sourceName } from "@/lib/tracking/describe";
 import { formatShortDate } from "@/lib/format/localeDate";
+import { formatMoney } from "@/lib/currency";
 
 const RANGES = [7, 30, 90];
+
+/** The Ads Manager macro that would have named each level. */
+const NAME_MACROS = { campaign: "{{campaign.name}}", adset: "{{adset.name}}", ad: "{{ad.name}}" };
 
 export default function TrafficPage() {
   const { t, language } = useTranslation();
@@ -56,10 +65,14 @@ export default function TrafficPage() {
   const surfaceName = (key) =>
     key === "instant_quote"
       ? t("app.traffic.instantEstimate")
-      : data?.funnelNames?.[key.replace(/^funnel:/, "")] || t("app.traffic.funnel");
+      : key === "booking"
+        ? t("app.adLinks.bookingPage")
+        : key === "website"
+          ? t("app.traffic.source.website")
+          : data?.funnelNames?.[key.replace(/^funnel:/, "")] || t("app.traffic.funnel");
   const stepName = (surfaceKind, step) => {
-    if (step.key === "submitted") return t("app.traffic.step.submitted");
-    if (surfaceKind === "instant_quote") return t(`app.traffic.step.${step.key}`);
+    if (step.key === "submitted") return surfaceKind === "booking" ? t("app.traffic.booked") : t("app.traffic.step.submitted");
+    if (surfaceKind !== "funnel") return t(`app.traffic.step.${step.key}`);
     return step.label || t("app.traffic.stepNumber", { n: step.rank + 1 });
   };
 
@@ -104,13 +117,28 @@ export default function TrafficPage() {
           <div className="grid gap-4 md:grid-cols-2">
             {data.surfaces.map((s) => {
               const first = s.steps[0]?.reached || 0;
+              // The website takes no request itself (funnelSteps.js): a
+              // "started" or "sent" figure there would be a zero that reads
+              // like a verdict, so it shows its visits and says where its
+              // requests are counted.
+              if (s.kind === "website") {
+                return (
+                  <section key={s.key} className="rounded-xl border border-border bg-card p-4">
+                    <h2 className="text-sm font-semibold text-foreground">{surfaceName(s.key)}</h2>
+                    <div className="grid grid-cols-4 gap-2 mt-3">
+                      <Stat label={t("app.traffic.visits")} value={s.visits} />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-3">{t("app.traffic.websiteNote")}</p>
+                  </section>
+                );
+              }
               return (
                 <section key={s.key} className="rounded-xl border border-border bg-card p-4">
                   <h2 className="text-sm font-semibold text-foreground">{surfaceName(s.key)}</h2>
                   <div className="grid grid-cols-4 gap-2 mt-3">
                     <Stat label={t("app.traffic.visits")} value={s.visits} />
                     <Stat label={t("app.traffic.started")} value={s.started} />
-                    <Stat label={t("app.traffic.submitted")} value={s.submitted} />
+                    <Stat label={s.kind === "booking" ? t("app.traffic.booked") : t("app.traffic.submitted")} value={s.submitted} />
                     <Stat label={t("app.traffic.completion")} value={s.completionRate == null ? "—" : `${s.completionRate}%`} />
                   </div>
                   {s.visits === 0 ? (
@@ -141,6 +169,9 @@ export default function TrafficPage() {
             })}
           </div>
 
+          {/* ── Your ad campaigns ─────────────────────────────────────── */}
+          <CampaignSection data={data} t={t} language={language} />
+
           {/* ── Where they came from ──────────────────────────────────── */}
           <section className="rounded-xl border border-border bg-card p-4">
             <h2 className="text-sm font-semibold text-foreground">{t("app.traffic.bySourceTitle")}</h2>
@@ -154,19 +185,17 @@ export default function TrafficPage() {
                     <tr className="text-left text-muted-foreground border-b border-border">
                       <th className="py-1.5 pr-3 font-medium">{t("app.traffic.col.page")}</th>
                       <th className="py-1.5 pr-3 font-medium">{t("app.traffic.col.source")}</th>
-                      <th className="py-1.5 pr-3 font-medium">{t("app.traffic.col.campaign")}</th>
                       <th className="py-1.5 pr-3 font-medium text-right">{t("app.traffic.visits")}</th>
-                      <th className="py-1.5 font-medium text-right">{t("app.traffic.submitted")}</th>
+                      <th className="py-1.5 font-medium text-right">{t("app.traffic.col.completed")}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {data.bySource.map((r) => (
-                      <tr key={`${r.surfaceKey}|${r.source}|${r.campaign || ""}`} className="border-b border-border/60">
+                      <tr key={`${r.surfaceKey}|${r.source}`} className="border-b border-border/60">
                         <td className="py-1.5 pr-3 text-foreground">{surfaceName(r.surfaceKey)}</td>
                         <td className="py-1.5 pr-3 text-foreground">{sourceLabel(r.source)}</td>
-                        <td className="py-1.5 pr-3 text-muted-foreground break-all">{r.campaign || "—"}</td>
                         <td className="py-1.5 pr-3 text-right tabular-nums text-foreground">{r.visits}</td>
-                        <td className="py-1.5 text-right tabular-nums text-foreground">{r.submitted}</td>
+                        <td className="py-1.5 text-right tabular-nums text-foreground">{r.surfaceKey === "website" ? "—" : r.submitted}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -243,6 +272,123 @@ export default function TrafficPage() {
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * Campaign ▸ ad set ▸ ad, each level opened by tapping its row. The table
+ * scrolls sideways inside its card on a phone; the page itself never does.
+ */
+function CampaignSection({ data, t, language }) {
+  const [open, setOpen] = useState(() => new Set());
+  const campaigns = Array.isArray(data.campaigns) ? data.campaigns : [];
+  const access = data.campaignAccess || { quotes: false, money: false };
+  const untagged = data.campaignsUntagged?.metrics || null;
+  const toggle = (key) =>
+    setOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+  const nodeName = (level, n) => {
+    if (n.name) return n.name;
+    if (n.id) return t(`app.traffic.camp.${level}IdOnly`, { id: n.id, macro: NAME_MACROS[level] });
+    return t(`app.traffic.camp.${level}None`);
+  };
+  const num = (v) => (v === null || v === undefined ? "—" : v);
+  const money = (v) => (v === null || v === undefined ? "—" : formatMoney(v, data.currency, language));
+
+  const cells = (m) => (
+    <>
+      <td className="py-1.5 pl-2 text-right tabular-nums text-foreground">{num(m.visits)}</td>
+      <td className="py-1.5 pl-2 text-right tabular-nums text-foreground">{num(m.partials)}</td>
+      <td className="py-1.5 pl-2 text-right tabular-nums text-foreground">{num(m.leads)}</td>
+      <td className="py-1.5 pl-2 text-right tabular-nums text-foreground">{num(m.booked)}</td>
+      <td className="py-1.5 pl-2 text-right tabular-nums text-foreground">{num(m.quotesSent)}</td>
+      <td className="py-1.5 pl-2 text-right tabular-nums text-foreground">{num(m.quotesWon)}</td>
+      <td className="py-1.5 pl-2 text-right tabular-nums text-foreground whitespace-nowrap">{money(m.revenueWon)}</td>
+    </>
+  );
+
+  // A plain render function, not a component: a component defined inside
+  // this one would be a new type every render and remount every row.
+  const row = ({ rowKey, level, node, depth, expandKey = null, hasChildren }) => {
+    const isOpen = expandKey && open.has(expandKey);
+    const label = nodeName(level, node);
+    return (
+      <tr key={rowKey} className="border-b border-border/60 align-top">
+        <td className="py-1.5 pr-2 text-foreground min-w-[12rem]" style={{ paddingLeft: `${depth * 1}rem` }}>
+          {hasChildren ? (
+            <button
+              type="button"
+              onClick={() => toggle(expandKey)}
+              aria-expanded={Boolean(isOpen)}
+              className="inline-flex items-start gap-1 text-left hover:underline"
+            >
+              <ChevronRight size={13} className={`shrink-0 mt-0.5 transition-transform ${isOpen ? "rotate-90" : ""}`} />
+              <span className={`break-words ${level === "campaign" ? "font-semibold" : ""} ${node.name ? "" : "text-muted-foreground"}`}>{label}</span>
+            </button>
+          ) : (
+            <span className={`inline-block pl-[17px] break-words ${node.name ? "" : "text-muted-foreground"}`}>{label}</span>
+          )}
+        </td>
+        {cells(node.metrics)}
+      </tr>
+    );
+  };
+
+  return (
+    <section id="campaigns" className="rounded-xl border border-border bg-card p-4 scroll-mt-4">
+      <h2 className="text-sm font-semibold text-foreground">{t("app.traffic.camp.title")}</h2>
+      <p className="text-xs text-muted-foreground mt-0.5 max-w-3xl">{t("app.traffic.camp.hint")}</p>
+      {!access.quotes && <p className="text-xs text-muted-foreground mt-1">{t("app.traffic.camp.quotesHidden")}</p>}
+      {access.quotes && !access.money && <p className="text-xs text-muted-foreground mt-1">{t("app.traffic.camp.moneyHidden")}</p>}
+      {campaigns.length === 0 ? (
+        <p className="text-xs text-muted-foreground mt-3">{t("app.traffic.camp.empty")}</p>
+      ) : (
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-muted-foreground border-b border-border">
+                <th className="py-1.5 pr-2 font-medium text-left">{t("app.traffic.camp.col.name")}</th>
+                <th className="py-1.5 pl-2 font-medium text-right">{t("app.traffic.visits")}</th>
+                <th className="py-1.5 pl-2 font-medium text-right">{t("app.traffic.partialBadge")}</th>
+                <th className="py-1.5 pl-2 font-medium text-right">{t("app.traffic.camp.col.leads")}</th>
+                <th className="py-1.5 pl-2 font-medium text-right">{t("app.traffic.camp.col.booked")}</th>
+                <th className="py-1.5 pl-2 font-medium text-right">{t("app.traffic.camp.col.quotesSent")}</th>
+                <th className="py-1.5 pl-2 font-medium text-right">{t("app.traffic.camp.col.quotesWon")}</th>
+                <th className="py-1.5 pl-2 font-medium text-right">{t("app.traffic.camp.col.revenueWon")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {campaigns.map((c) => (
+                <Fragment key={c.key}>
+                  {row({ rowKey: "c", level: "campaign", node: c, depth: 0, expandKey: c.key, hasChildren: c.adsets?.length > 0 })}
+                  {open.has(c.key) &&
+                    (c.adsets || []).map((s) => (
+                      <Fragment key={`${c.key}|${s.key}`}>
+                        {row({ rowKey: "s", level: "adset", node: s, depth: 1, expandKey: `${c.key}|${s.key}`, hasChildren: s.ads?.length > 0 })}
+                        {open.has(`${c.key}|${s.key}`) &&
+                          (s.ads || []).map((a) =>
+                            row({ rowKey: `${c.key}|${s.key}|${a.key}`, level: "ad", node: a, depth: 2, hasChildren: false }),
+                          )}
+                      </Fragment>
+                    ))}
+                </Fragment>
+              ))}
+              {untagged && (untagged.visits > 0 || untagged.leads > 0) && (
+                <tr className="text-muted-foreground">
+                  <td className="py-1.5 pr-2 pl-[17px]">{t("app.traffic.camp.untagged")}</td>
+                  {cells(untagged)}
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   );
 }
 

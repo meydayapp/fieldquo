@@ -345,6 +345,29 @@ const setSelect = (el, value) => {
 async function runScene(scene) {
   if (!scene) return;
   if (scene.startsWith("picker-")) return pickerScene(scene);
+  // ── A company's own ad tracking (2026-09-25) ─────────────────────────────
+  // The campaign table's rows are pressed open (first campaign, then its
+  // first ad set); the ad-link builder is scrolled to, never rendered alone.
+  if (scene === "adtrack-expand" || scene === "adtrack-campaigns") {
+    const table = await until("#campaigns table");
+    if (scene === "adtrack-expand") {
+      table.querySelector('button[aria-expanded="false"]').click();
+      await wait(200);
+      const next = [...table.querySelectorAll('button[aria-expanded="false"]')][0];
+      next?.click();
+      await wait(300);
+      return;
+    }
+    (await until("#campaigns")).scrollIntoView({ block: "start" });
+    await wait(300);
+    return;
+  }
+  if (scene === "adtrack-links") {
+    await until("#ad-tracking select");
+    (await until("#ad-tracking")).scrollIntoView({ block: "start" });
+    await wait(400);
+    return;
+  }
   // ── The shell (2026-09-21) ───────────────────────────────────────────────
   // Each frame is reached by operating the shipped controls: the collapse
   // button, the tab bar's More, the floating +, the top bar's search and

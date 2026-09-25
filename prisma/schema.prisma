@@ -7251,7 +7251,7 @@ model FunnelVisit {
   companyId String
   company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  /// "funnel" | "instant_quote"
+  /// "funnel" | "instant_quote" | "booking" | "website"
   surface  String
   /// The Funnel this visit is on, as a plain id — not a relation, so deleting
   /// a funnel keeps the visits (and the partial leads) it collected.
@@ -7280,6 +7280,23 @@ model FunnelVisit {
   /// Meta's click id in its _fbc cookie shape: fb.1.<landing ms>.<fbclid>.
   fbc          String?
   referrerHost String?
+  /// Meta's ad parameters from the landing, cleaned and compact
+  /// (lib/tracking/adParams.js compactAd: campaign / ad set / ad names and
+  /// ids, placement, site_source_name) — what the campaign ▸ ad set ▸ ad
+  /// report on Leads › Visits & unfinished groups by, and what a lead's
+  /// `attribution.ad` is copied from. Null when the link carried none; a
+  /// visit from before this column is grouped by its utm_* instead.
+  ad           Json?
+  /// Set when this visit's landing was INHERITED from an earlier visit of
+  /// the same company in the same browser tab (the website → its booking
+  /// page), not arrived with: the id of that first visit. The report counts
+  /// such a visit's requests and bookings for the campaign, and does not
+  /// count it as a second visit. lib/tracking/visits.js openVisit.
+  firstVisitId String?
+  /// The Booking a "booking" visit made (plain id, like leadId — deleting a
+  /// booking keeps the count history). Counted only while that booking is
+  /// confirmed or completed, so an unpaid hold is never a booked visit.
+  bookingId    String?
 
   contactName  String?
   contactEmail String?

@@ -22,6 +22,21 @@
 // It never returns anything but the token: no counts, no company data, no
 // price. A failure answers { ok: false } with 200 on purpose — a beacon the
 // page cannot do anything about must not become an error in a driveway.
+//
+// ══ The booking page and the website (25 September 2026) ═══════════════════
+//
+// Two more surfaces, opened the same way. The booking page is resolved as
+// the booking page resolves itself (findBookingCompany); the website by its
+// SUBDOMAIN, and only while it is published — the draft preview never posts,
+// and a post naming an unpublished site files nothing. Neither keeps contact
+// details: a partial lead is only ever kept under the "we save what you
+// type" sentence, and neither page renders it, so a capture posted for them
+// is ignored rather than stored.
+//
+// `touches` — the tokens of the visits this tab opened earlier — lets a
+// page reached from the company's own site inherit the landing that brought
+// the visitor (lib/tracking/visits.js, "First touch"). They are resolved
+// against this company's rows only.
 
 export const runtime = "nodejs";
 
@@ -54,10 +69,20 @@ export async function POST(request, { params }) {
   // company's slug only (lib/estimate/instantQuoteServer.js), a funnel by
   // booking slug then slug (its own public routes). A different rule here
   // could file a visit under a different company than the page showed.
-  const company =
-    surface === "instant_quote"
-      ? await db.company.findUnique({ where: { slug: String(companySlug || "") }, select: { id: true } })
-      : await findBookingCompany(companySlug, { id: true });
+  let company = null;
+  if (surface === "instant_quote") {
+    company = await db.company.findUnique({ where: { slug: String(companySlug || "") }, select: { id: true } });
+  } else if (surface === "website") {
+    // The site page resolves by subdomain (app/site/[subdomain]/page.js
+    // loadSite), lower-cased; a draft is a 404 to the public there and here.
+    const site = await db.companySite.findUnique({
+      where: { subdomain: String(companySlug || "").toLowerCase().slice(0, 63) },
+      select: { companyId: true, published: true },
+    });
+    company = site?.published ? { id: site.companyId } : null;
+  } else {
+    company = await findBookingCompany(companySlug, { id: true });
+  }
   if (!company) return NextResponse.json({ ok: false }, { status: 404 });
 
   let funnel = null;
@@ -77,7 +102,7 @@ export async function POST(request, { params }) {
   const trade = surface === "instant_quote" && typeof body.trade === "string" && TRADE.test(body.trade) ? body.trade : null;
 
   let contact = null;
-  if (body.contact) {
+  if (body.contact && (surface === "funnel" || surface === "instant_quote")) {
     const parsed = normalisePartialContact(body.contact);
     // A capture that fails the rules is ignored rather than refused: the
     // visitor is mid-typing, and "not an email yet" is the normal state.
@@ -96,6 +121,7 @@ export async function POST(request, { params }) {
         funnelId: funnel?.id || null,
         language: instantQuoteLanguage(body.language) || (typeof body.language === "string" && /^[a-z]{2}$/.test(body.language) ? body.language : null),
         landing: body.landing && typeof body.landing === "object" ? body.landing : {},
+        touches: body.touches,
         step,
       });
       // A contact capture on the very first post (a funnel that opens on its

@@ -640,4 +640,13 @@ export const SCREENS = [
   // the scene opens the first campaign and its first ad set.
   { slug: "adtrack-platform-analytics-1280", href: "/platform/analytics", page: "app/platform/analytics/page.js", mode: "public", scene: "adtrack-expand", width: 1280, height: 3300, out: "docs/screens/adtrack", chapter: "adtrack" },
   { slug: "adtrack-platform-analytics-390", href: "/platform/analytics", page: "app/platform/analytics/page.js", mode: "public", scene: "adtrack-expand", width: 390, height: 5600, out: "docs/screens/adtrack", chapter: "adtrack" },
+  // ── A company's own Meta ad tracking (2026-09-25) — docs/screens/ad-tracking/
+  // Leads › Visits & unfinished with the campaign ▸ ad set ▸ ad table opened
+  // by pressing its rows, and the ad-link builder on Settings › Instant
+  // quotes (fixtures/routes-adtracking.js).
+  { slug: "adtrack-report-1280", href: "/app/leads/traffic", page: "app/app/leads/traffic/page.js", scene: "adtrack-expand", width: 1280, height: 2300, out: "docs/screens/ad-tracking", chapter: "ad-tracking" },
+  { slug: "adtrack-report-390", href: "/app/leads/traffic", page: "app/app/leads/traffic/page.js", scene: "adtrack-expand", width: 390, height: 3400, out: "docs/screens/ad-tracking", chapter: "ad-tracking" },
+  { slug: "adtrack-report-restricted-1280", href: "/app/leads/traffic", page: "app/app/leads/traffic/page.js", scene: "adtrack-campaigns", width: 1280, height: 900, out: "docs/screens/ad-tracking", chapter: "ad-tracking" },
+  { slug: "adtrack-links-1280", href: "/app/settings/instant-quotes", page: "app/app/settings/instant-quotes/page.js", settings: true, scene: "adtrack-links", width: 1280, height: 1900, out: "docs/screens/ad-tracking", chapter: "ad-tracking" },
+  { slug: "adtrack-links-390", href: "/app/settings/instant-quotes", page: "app/app/settings/instant-quotes/page.js", settings: true, scene: "adtrack-links", width: 390, height: 2900, out: "docs/screens/ad-tracking", chapter: "ad-tracking" },
 ];

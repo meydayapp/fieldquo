@@ -38,7 +38,7 @@ export default async function DirectBookingPage({ params }) {
   const theme = documentTheme(company || {});
   return (
     <div className="min-h-dvh" style={{ backgroundColor: theme.page }}>
-      <BookingFlow companySlug={companySlug} initialEventSlug={eventSlug} />
+      <BookingFlow companySlug={companySlug} initialEventSlug={eventSlug} trackVisit />
     </div>
   );
 }

@@ -63,6 +63,7 @@ import { formatPhoneInput } from "@/lib/validation";
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 import MediaUploader from "@/app/components/MediaUploader";
 import BookVisitPanel from "@/app/components/public/BookVisitPanel";
+import { readTouches } from "@/lib/tracking/touches";
 import {
   buildConfirmation,
   budgetOptions,
@@ -182,6 +183,11 @@ export default function SelfQuoteFlow({ companySlug, embedded = false, look: loo
           // languages; it is not trusted here.
           language: lang,
           media,
+          // This tab's visits to the company's own pages (the website that
+          // links here or embeds this form), so the request is credited to
+          // the ad that brought the visitor. Tokens only; the server looks
+          // them up inside this company. [] when nothing was opened.
+          visitTouches: readTouches(),
         }),
       });
       const d = await res.json().catch(() => null);
