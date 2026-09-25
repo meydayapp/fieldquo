@@ -219,3 +219,204 @@ const TEMPLATES = {
 
 withLanguages(SEED, I18N);
 withTemplates(SEED, TEMPLATES);
+
+// ── Templates added 2026-09-25 ───────────────────────────────────────────────
+//
+// The owner (2026-09-25): a service added to a quote should arrive with a few
+// lines, not as one bare line. The templates above cover six rows; these
+// cover the other eight. None of these rows carries a benchmark, so the
+// levels come from the captured duct templates ($300–320 for the ducts,
+// $70–90 for vents and registers, labour cost ≈ 50–65%) and 2026 trade
+// figures for the add-ons. Whole-system and return cleaning price by the
+// count of vents and returns, like the vent-cleaning template above, so
+// those rows show no flat preset until the counts are typed.
+//
+// Kept apart from TEMPLATES and applied in a second pass, so every template
+// above stays exactly as it was — a key that already has a template throws
+// instead of being overwritten. Punjabi sits inline beside the other seven
+// languages; the service's own name in every language is the row's
+// (./i18n/air_duct_cleaning.js).
+
+/** [name, description] in the eight languages, in this order. */
+const X = (en, fr, es, it, de, uk, pa, tl) => ({ en, fr, es, it, de, uk, pa, tl });
+const VENT = () => L.labour(1, "each", 15, X(
+  ["Supply vent — per vent", "Register off and washed, branch vacuumed to the trunk."],
+  ["Bouche d'alimentation — l'unité", "Grille retirée et lavée, branche aspirée jusqu'au conduit principal."],
+  ["Rejilla de suministro — por rejilla", "Difusor retirado y lavado, ramal aspirado hasta el troncal."],
+  ["Bocchetta di mandata — cadauna", "Griglia tolta e lavata, diramazione aspirata fino al condotto principale."],
+  ["Zuluftauslass — pro Stück", "Gitter ab und gewaschen, Abzweig bis zum Hauptkanal gesaugt."],
+  ["Припливна решітка — за штуку", "Решітку знято й вимито, відгалуження пропилососено до магістралі."],
+  ["ਸਪਲਾਈ ਵੈਂਟ — ਪ੍ਰਤੀ ਵੈਂਟ", "ਰਜਿਸਟਰ ਉਤਾਰ ਕੇ ਧੋਤਾ, ਮੁੱਖ ਡਕਟ ਤੱਕ ਬ੍ਰਾਂਚ ਵੈਕਿਊਮ ਕੀਤੀ।"],
+  ["Supply vent — kada isa", "Tinanggal at hinugasan ang register at binakyum ang branch hanggang trunk."],
+), { cost: 8, measurementKey: "ventCount" });
+const RETURN = () => L.labour(1, "each", 25, X(
+  ["Return — per return", "Return grille off and washed, the return duct vacuumed."],
+  ["Retour d'air — l'unité", "Grille de retour retirée et lavée, conduit de retour aspiré."],
+  ["Retorno — por retorno", "Rejilla de retorno retirada y lavada, ducto de retorno aspirado."],
+  ["Ripresa — cadauna", "Griglia di ripresa tolta e lavata, condotto di ripresa aspirato."],
+  ["Rückluft — pro Stück", "Rückluftgitter ab und gewaschen, Rückluftkanal gesaugt."],
+  ["Зворотна решітка — за штуку", "Зворотну решітку знято й вимито, зворотний повітровід пропилососено."],
+  ["ਰਿਟਰਨ — ਪ੍ਰਤੀ ਰਿਟਰਨ", "ਰਿਟਰਨ ਗਰਿੱਲ ਉਤਾਰ ਕੇ ਧੋਤੀ, ਰਿਟਰਨ ਡਕਟ ਵੈਕਿਊਮ ਕੀਤੀ।"],
+  ["Return — kada isa", "Tinanggal at hinugasan ang return grille at binakyum ang return duct."],
+), { cost: 13, measurementKey: "returnCount" });
+
+const ADDED = {
+  "fq.air_duct_cleaning.core.system_cleaning": { kind: "maintenance", lines: [
+    L.labour(1, "flat", 250, X(
+      ["Blower, coil and plenum cleaning", "Blower compartment and wheel cleaned, the evaporator coil face brushed and the supply and return plenums vacuumed."],
+      ["Nettoyage du ventilateur, du serpentin et des plénums", "Compartiment et roue du ventilateur nettoyés, face du serpentin brossée, plénums d'alimentation et de retour aspirés."],
+      ["Limpieza de ventilador, serpentín y plenos", "Compartimiento y turbina del ventilador limpiados, cara del serpentín cepillada y plenos de suministro y retorno aspirados."],
+      ["Pulizia ventilatore, batteria e plenum", "Vano e girante del ventilatore puliti, faccia della batteria spazzolata, plenum di mandata e ripresa aspirati."],
+      ["Reinigung von Gebläse, Register und Plenum", "Gebläseraum und -rad gereinigt, Registerfläche gebürstet, Zu- und Rückluftplenum gesaugt."],
+      ["Чищення вентилятора, теплообмінника й пленумів", "Відсік і крильчатку вентилятора очищено, поверхню теплообмінника вичищено, припливний і зворотний пленуми пропилососено."],
+      ["ਬਲੋਅਰ, ਕੋਇਲ ਅਤੇ ਪਲੈਨਮ ਸਫ਼ਾਈ", "ਬਲੋਅਰ ਖਾਨਾ ਅਤੇ ਵ੍ਹੀਲ ਸਾਫ਼, ਕੋਇਲ ਦਾ ਮੂੰਹ ਬੁਰਸ਼ ਕੀਤਾ ਅਤੇ ਸਪਲਾਈ ਤੇ ਰਿਟਰਨ ਪਲੈਨਮ ਵੈਕਿਊਮ।"],
+      ["Paglinis ng blower, coil at plenum", "Nilinis ang blower compartment at wheel, biniristsa ang mukha ng coil at binakyum ang supply at return plenum."],
+    ), { cost: 150 }),
+    VENT(), RETURN(),
+    hdMaterial(HD.filter_16x25x1, X(
+      ["Pleated filter", "MERV 11 pleated filter fitted after the cleaning."],
+      ["Filtre plissé", "Filtre plissé MERV 11 posé après le nettoyage."],
+      ["Filtro plisado", "Filtro plisado MERV 11 colocado después de la limpieza."],
+      ["Filtro pieghettato", "Filtro pieghettato MERV 11 montato dopo la pulizia."],
+      ["Faltenfilter", "Faltenfilter MERV 11 nach der Reinigung eingesetzt."],
+      ["Гофрований фільтр", "Гофрований фільтр MERV 11, встановлений після чищення."],
+      ["ਪਲੀਟਿਡ ਫ਼ਿਲਟਰ", "ਸਫ਼ਾਈ ਮਗਰੋਂ ਲਾਇਆ MERV 11 ਪਲੀਟਿਡ ਫ਼ਿਲਟਰ।"],
+      ["Pleated filter", "MERV 11 na pleated filter na ikinabit pagkatapos maglinis."],
+    ), { price: 25 }),
+  ] },
+
+  "fq.air_duct_cleaning.core.return_cleaning": { kind: "maintenance", lines: [
+    L.labour(1, "flat", 95, X(
+      ["Return trunk cleaning", "Negative-air machine on the return side and the return trunk agitated and vacuumed back to the air handler."],
+      ["Nettoyage du conduit de retour principal", "Aspirateur à pression négative côté retour, conduit de retour principal agité et aspiré jusqu'à l'appareil."],
+      ["Limpieza del troncal de retorno", "Máquina de presión negativa en el retorno y el troncal de retorno agitado y aspirado hasta el manejador."],
+      ["Pulizia del condotto di ripresa", "Aspiratore a pressione negativa sulla ripresa, condotto principale spazzolato e aspirato fino all'unità."],
+      ["Rückluft-Hauptkanal reinigen", "Unterdruckgerät auf der Rückluftseite, Rückluft-Hauptkanal bis zum Lüftungsgerät abgebürstet und gesaugt."],
+      ["Чищення зворотної магістралі", "Установка негативного тиску на зворотному боці, магістраль прочищено й пропилососено до повітрообробника."],
+      ["ਰਿਟਰਨ ਮੁੱਖ ਡਕਟ ਸਫ਼ਾਈ", "ਰਿਟਰਨ ਪਾਸੇ ਨੈਗੇਟਿਵ-ਏਅਰ ਮਸ਼ੀਨ, ਅਤੇ ਰਿਟਰਨ ਮੁੱਖ ਡਕਟ ਏਅਰ ਹੈਂਡਲਰ ਤੱਕ ਹਿਲਾ ਕੇ ਵੈਕਿਊਮ।"],
+      ["Paglinis ng return trunk", "Negative-air machine sa return side at kinalog at binakyum ang return trunk hanggang air handler."],
+    ), { cost: 55 }),
+    RETURN(),
+  ] },
+
+  "fq.air_duct_cleaning.additional.deodorization": { kind: "maintenance", lines: [
+    L.labour(1, "flat", 85, X(
+      ["Duct deodorizing treatment", "Odour neutraliser fogged through the clean supply and return with the blower running."],
+      ["Traitement désodorisant des conduits", "Neutralisant d'odeurs nébulisé dans l'alimentation et le retour propres, ventilateur en marche."],
+      ["Tratamiento desodorizante de ductos", "Neutralizador de olores nebulizado en el suministro y retorno limpios con el ventilador encendido."],
+      ["Trattamento deodorante dei condotti", "Neutralizzatore di odori nebulizzato in mandata e ripresa pulite con il ventilatore acceso."],
+      ["Geruchsbehandlung der Kanäle", "Geruchsneutralisierer bei laufendem Gebläse durch die gereinigte Zu- und Rückluft vernebelt."],
+      ["Дезодорація повітроводів", "Нейтралізатор запахів розпилено в чисті приплив і повернення при увімкненому вентиляторі."],
+      ["ਡਕਟ ਬਦਬੂ ਹਟਾਉਣ ਦਾ ਇਲਾਜ", "ਬਲੋਅਰ ਚੱਲਦੇ ਹੋਏ ਸਾਫ਼ ਸਪਲਾਈ ਅਤੇ ਰਿਟਰਨ ਵਿੱਚ ਬਦਬੂ ਨਿਊਟ੍ਰਲਾਈਜ਼ਰ ਫ਼ੌਗ ਕੀਤਾ।"],
+      ["Deodorizing treatment ng duct", "Ini-fog ang odor neutralizer sa malinis na supply at return habang tumatakbo ang blower."],
+    )),
+    L.material(1, "flat", 30, X(
+      ["Odour neutraliser", "Duct-safe odour neutraliser for smoke, pet and musty odours, one system."],
+      ["Neutralisant d'odeurs", "Neutralisant sans danger pour les conduits contre la fumée, les animaux et le moisi, un système."],
+      ["Neutralizador de olores", "Neutralizador seguro para ductos contra humo, mascotas y humedad, un sistema."],
+      ["Neutralizzatore di odori", "Neutralizzatore sicuro per condotti contro fumo, animali e muffa, un impianto."],
+      ["Geruchsneutralisierer", "Kanalgeeigneter Neutralisierer gegen Rauch-, Tier- und Modergeruch, ein System."],
+      ["Нейтралізатор запахів", "Безпечний для повітроводів нейтралізатор диму, тварин і затхлості, одна система."],
+      ["ਬਦਬੂ ਨਿਊਟ੍ਰਲਾਈਜ਼ਰ", "ਧੂੰਏਂ, ਪਾਲਤੂ ਜਾਨਵਰਾਂ ਅਤੇ ਸਲ੍ਹਾਬੇ ਦੀ ਬਦਬੂ ਲਈ ਡਕਟ-ਸੁਰੱਖਿਅਤ ਨਿਊਟ੍ਰਲਾਈਜ਼ਰ, ਇੱਕ ਸਿਸਟਮ।"],
+      ["Odor neutralizer", "Ligtas sa duct na odor neutralizer para sa usok, alaga at amoy-kulob, isang sistema."],
+    ), { cost: 15 }),
+  ] },
+
+  "fq.air_duct_cleaning.additional.mold_treatment": { kind: "repair", lines: [
+    L.labour(1, "flat", 250, X(
+      ["Mould cleanup at the air handler and ducts", "Visible growth cleaned from the cabinet, coil area and affected duct runs under containment, and the surfaces treated."],
+      ["Nettoyage de moisissure à l'appareil et aux conduits", "Moisissure visible nettoyée dans le boîtier, près du serpentin et dans les conduits touchés sous confinement, surfaces traitées."],
+      ["Limpieza de moho en el manejador y ductos", "Moho visible limpiado del gabinete, zona del serpentín y tramos afectados con contención, y las superficies tratadas."],
+      ["Pulizia muffa nell'unità e nei condotti", "Muffa visibile pulita da mobile, zona batteria e tratti colpiti con confinamento, superfici trattate."],
+      ["Schimmelbeseitigung an Gerät und Kanälen", "Sichtbarer Befall unter Abschottung aus Gehäuse, Registerbereich und betroffenen Kanälen entfernt, Oberflächen behandelt."],
+      ["Прибирання цвілі в повітрообробнику й повітроводах", "Видиму цвіль прибрано з корпусу, зони теплообмінника й уражених ділянок під ізоляцією, поверхні оброблено."],
+      ["ਏਅਰ ਹੈਂਡਲਰ ਅਤੇ ਡਕਟਾਂ ਵਿੱਚ ਉੱਲੀ ਸਫ਼ਾਈ", "ਘੇਰਾ ਬਣਾ ਕੇ ਕੈਬਿਨੇਟ, ਕੋਇਲ ਵਾਲੀ ਥਾਂ ਅਤੇ ਪ੍ਰਭਾਵਿਤ ਡਕਟਾਂ ਤੋਂ ਦਿਸਦੀ ਉੱਲੀ ਸਾਫ਼, ਅਤੇ ਸਤ੍ਹਾ 'ਤੇ ਇਲਾਜ।"],
+      ["Paglinis ng amag sa air handler at duct", "Nilinis na may containment ang nakikitang amag sa cabinet, paligid ng coil at apektadong duct, at tinratong ang surface."],
+    )),
+    L.material(1, "flat", 55, X(
+      ["Mould inhibitor", "EPA-registered mould inhibitor rated for HVAC surfaces."],
+      ["Inhibiteur de moisissure", "Inhibiteur de moisissure homologué pour les surfaces CVC."],
+      ["Inhibidor de moho", "Inhibidor de moho registrado apto para superficies HVAC."],
+      ["Inibitore di muffa", "Inibitore di muffa registrato, adatto alle superfici HVAC."],
+      ["Schimmelhemmer", "Zugelassener Schimmelhemmer für HLK-Oberflächen."],
+      ["Інгібітор цвілі", "Зареєстрований інгібітор цвілі для поверхонь HVAC."],
+      ["ਉੱਲੀ ਰੋਕੂ", "HVAC ਸਤ੍ਹਾ ਲਈ ਮਨਜ਼ੂਰਸ਼ੁਦਾ ਉੱਲੀ ਰੋਕੂ।"],
+      ["Mold inhibitor", "EPA-registered na mold inhibitor para sa HVAC na surface."],
+    ), { cost: 35 }),
+    SHARED.report(35),
+  ] },
+
+  "fq.air_duct_cleaning.additional.air_purification_addon": { kind: "installation", lines: [
+    L.labour(1, "flat", 175, X(
+      ["Purifier installation", "The purifier mounted in the supply plenum or return, wired to the air handler so it runs with the blower, and tested."],
+      ["Pose du purificateur", "Purificateur fixé dans le plénum d'alimentation ou au retour, raccordé à l'appareil pour fonctionner avec le ventilateur, et testé."],
+      ["Instalación del purificador", "Purificador montado en el pleno de suministro o en el retorno, cableado al manejador para que funcione con el ventilador, y probado."],
+      ["Posa del purificatore", "Purificatore montato nel plenum di mandata o nella ripresa, collegato all'unità per funzionare col ventilatore, e provato."],
+      ["Luftreiniger einbauen", "Reiniger im Zuluftplenum oder in der Rückluft montiert, am Lüftungsgerät angeschlossen, damit er mit dem Gebläse läuft, und getestet."],
+      ["Монтаж очищувача", "Очищувач встановлено в припливному пленумі чи на поверненні, під'єднано до повітрообробника для роботи з вентилятором і перевірено."],
+      ["ਪਿਊਰੀਫ਼ਾਇਰ ਲਾਉਣਾ", "ਪਿਊਰੀਫ਼ਾਇਰ ਸਪਲਾਈ ਪਲੈਨਮ ਜਾਂ ਰਿਟਰਨ ਵਿੱਚ ਲਾਇਆ, ਬਲੋਅਰ ਨਾਲ ਚੱਲਣ ਲਈ ਏਅਰ ਹੈਂਡਲਰ ਨਾਲ ਜੋੜਿਆ ਅਤੇ ਟੈਸਟ ਕੀਤਾ।"],
+      ["Pagkabit ng purifier", "Ikinabit ang purifier sa supply plenum o return, kinablehan sa air handler para sumabay sa blower, at sinubukan."],
+    )),
+    L.material(1, "each", 450, X(
+      ["In-duct air purifier", "In-duct UV or bipolar-ionization purifier sized to the system."],
+      ["Purificateur d'air pour conduit", "Purificateur UV ou à ionisation bipolaire pour conduit, dimensionné pour le système."],
+      ["Purificador de aire para ducto", "Purificador UV o de ionización bipolar para ducto, del tamaño del sistema."],
+      ["Purificatore d'aria per condotto", "Purificatore UV o a ionizzazione bipolare per condotto, dimensionato sull'impianto."],
+      ["Kanal-Luftreiniger", "UV- oder Bipolar-Ionisations-Reiniger für den Kanal, passend zur Anlage."],
+      ["Канальний очищувач повітря", "Канальний УФ- чи біполярний іонізаційний очищувач під систему."],
+      ["ਡਕਟ ਵਿੱਚ ਲੱਗਣ ਵਾਲਾ ਏਅਰ ਪਿਊਰੀਫ਼ਾਇਰ", "ਸਿਸਟਮ ਮੁਤਾਬਕ ਡਕਟ ਵਿੱਚ UV ਜਾਂ ਬਾਇਪੋਲਰ-ਆਇਓਨਾਈਜ਼ੇਸ਼ਨ ਪਿਊਰੀਫ਼ਾਇਰ।"],
+      ["In-duct na air purifier", "In-duct na UV o bipolar-ionization na purifier na sukat sa sistema."],
+    ), { cost: 340 }),
+  ] },
+
+  "fq.air_duct_cleaning.inspection.efficiency_check": { kind: "inspection", lines: [
+    L.labour(1, "flat", 125, X(
+      ["Static pressure and temperature split test", "Total external static pressure and the supply-return temperature split measured and read against the equipment's rating, and the filter checked."],
+      ["Mesure de pression statique et d'écart de température", "Pression statique externe totale et écart de température alimentation-retour mesurés et comparés aux valeurs de l'appareil, filtre vérifié."],
+      ["Prueba de presión estática y diferencia de temperatura", "Presión estática externa total y diferencia de temperatura entre suministro y retorno medidas contra los valores del equipo, y el filtro revisado."],
+      ["Prova di pressione statica e salto termico", "Pressione statica esterna totale e salto termico mandata-ripresa misurati rispetto ai valori dell'apparecchio, filtro controllato."],
+      ["Messung von statischem Druck und Temperaturspreizung", "Gesamter externer statischer Druck und Temperaturdifferenz zwischen Zu- und Rückluft gegen die Gerätewerte gemessen, Filter geprüft."],
+      ["Тест статичного тиску й перепаду температур", "Загальний зовнішній статичний тиск і перепад температур подачі й повернення виміряно й звірено з номіналом, фільтр перевірено."],
+      ["ਸਟੈਟਿਕ ਪ੍ਰੈਸ਼ਰ ਅਤੇ ਤਾਪਮਾਨ ਫ਼ਰਕ ਟੈਸਟ", "ਕੁੱਲ ਬਾਹਰੀ ਸਟੈਟਿਕ ਪ੍ਰੈਸ਼ਰ ਅਤੇ ਸਪਲਾਈ-ਰਿਟਰਨ ਤਾਪਮਾਨ ਫ਼ਰਕ ਮਾਪ ਕੇ ਉਪਕਰਣ ਦੀ ਰੇਟਿੰਗ ਨਾਲ ਮਿਲਾਏ, ਅਤੇ ਫ਼ਿਲਟਰ ਜਾਂਚਿਆ।"],
+      ["Static pressure at temperature split test", "Sinukat ang total external static pressure at ang temperature split ng supply at return laban sa rating ng unit, at chineck ang filter."],
+    ), { cost: 60 }),
+    SHARED.report(35),
+  ] },
+
+  "fq.air_duct_cleaning.visits.booked_inspection": { kind: "inspection", lines: [
+    L.labour(1, "flat", 89, X(
+      ["Duct and vent inspection", "Camera run into the trunk and branches, vents and returns counted and checked, and the cleaning priced on the spot."],
+      ["Inspection des conduits et des bouches", "Caméra passée dans le conduit principal et les branches, bouches et retours comptés et vérifiés, nettoyage chiffré sur place."],
+      ["Inspección de ductos y rejillas", "Cámara pasada por troncal y ramales, rejillas y retornos contados y revisados, y la limpieza cotizada en el momento."],
+      ["Ispezione di condotti e bocchette", "Telecamera nel condotto principale e nelle diramazioni, bocchette e riprese contate e controllate, pulizia quotata sul posto."],
+      ["Inspektion von Kanälen und Auslässen", "Kamera in Haupt- und Abzweigkanäle geführt, Auslässe und Rückluftgitter gezählt und geprüft, Reinigung vor Ort angeboten."],
+      ["Огляд повітроводів і решіток", "Камеру проведено магістраллю й відгалуженнями, решітки й повернення пораховано й перевірено, чищення оцінено на місці."],
+      ["ਡਕਟ ਅਤੇ ਵੈਂਟ ਜਾਂਚ", "ਮੁੱਖ ਡਕਟ ਅਤੇ ਬ੍ਰਾਂਚਾਂ ਵਿੱਚ ਕੈਮਰਾ, ਵੈਂਟ ਅਤੇ ਰਿਟਰਨ ਗਿਣ ਕੇ ਜਾਂਚੇ, ਅਤੇ ਸਫ਼ਾਈ ਦਾ ਰੇਟ ਉੱਥੇ ਹੀ ਦਿੱਤਾ।"],
+      ["Inspeksyon ng duct at vent", "Pinadaan ang camera sa trunk at branch, binilang at chineck ang vent at return, at in-quote agad ang paglilinis."],
+    ), { cost: 45 }),
+    SHARED.report(35),
+  ] },
+
+  "fq.air_duct_cleaning.visits.booked_install": { kind: "installation", lines: [
+    SHARED.serviceCall(89),
+    SHARED.techHour(2, 120),
+    L.material(1, "flat", 85, X(
+      ["Register, boot and duct fittings", "A register and boot, a takeoff and the fittings to add or upgrade one run."],
+      ["Grille, botte et raccords de conduit", "Une grille et sa botte, un départ et les raccords pour ajouter ou améliorer un conduit."],
+      ["Rejilla, bota y accesorios de ducto", "Una rejilla y su bota, una derivación y los accesorios para agregar o mejorar un tramo."],
+      ["Bocchetta, raccordo e pezzi speciali", "Una bocchetta con raccordo, uno stacco e i pezzi per aggiungere o migliorare una tratta."],
+      ["Auslass, Stutzen und Kanalformteile", "Ein Auslass mit Stutzen, ein Abzweig und die Formteile, um eine Strecke zu ergänzen oder zu verbessern."],
+      ["Решітка, бут і фітинги повітроводу", "Решітка з бутом, відвід і фітинги, щоб додати чи покращити одну ділянку."],
+      ["ਰਜਿਸਟਰ, ਬੂਟ ਅਤੇ ਡਕਟ ਫ਼ਿਟਿੰਗ", "ਇੱਕ ਲਾਈਨ ਜੋੜਨ ਜਾਂ ਸੁਧਾਰਨ ਲਈ ਰਜਿਸਟਰ ਅਤੇ ਬੂਟ, ਟੇਕਆਫ਼ ਅਤੇ ਫ਼ਿਟਿੰਗ।"],
+      ["Register, boot at duct fittings", "Register at boot, takeoff at fittings para magdagdag o mag-upgrade ng isang linya."],
+    ), { cost: 60 }),
+  ] },
+};
+
+for (const key of Object.keys(ADDED)) {
+  if (SEED.services.find((s) => s.seedKey === key)?.templateLines) throw new Error(`air_duct_cleaning: ${key} already has a template — this pass only adds`);
+}
+withTemplates(SEED, Object.fromEntries(Object.entries(ADDED).map(([key, a]) => {
+  const s = I18N.services[key];
+  return [key, T(a.kind, { it: s.it, de: s.de, uk: s.uk, pa: s.pa, tl: s.tl }, a.lines, null)];
+})));
