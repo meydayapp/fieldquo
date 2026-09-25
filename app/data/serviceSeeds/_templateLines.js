@@ -36,6 +36,8 @@
 //                      measurementKey? }]  — English text; the other six
 //                   languages are under `translations`
 //   defaultDiscount { name, kind: "fixed"|"percent", amount } | null
+//                   optional? true on an add-on the client may tick or not;
+//                   it opens unticked and is left out of the preset range
 //                   coverage? { per, unit } on a material line bought in a
 //                   purchase unit (gallon, sheet, bundle…): qty =
 //                   ceil(measurement ÷ per); see _materialCosts.js
@@ -117,6 +119,8 @@ export const MEASUREMENT_KEYS = [
   "drawerCount",
   // roofing (lib/measure/roofGeometry.js + the roofing takeoff config)
   "squares", "ridgeFt", "hipFt", "valleyFt", "eaveFt", "rakeFt", "stepFlashingFt", "wastePct",
+  // cleaning — room counts from the booking form (bedrooms, bathrooms, half baths)
+  "bedroomCount", "bathroomCount", "halfBathCount",
   // generic
   "areaSqFt", "linearFt", "each",
 ];
@@ -174,6 +178,7 @@ export function line(kind, qty, unit, unitPrice, unitCost, text, extra = {}) {
     taxable: extra.taxable === undefined ? true : Boolean(extra.taxable),
     measurementKey: extra.measurementKey,
     coverage: extra.coverage,
+    optional: extra.optional === true,
     text: checkText(text, where),
   };
 }
@@ -442,7 +447,8 @@ export function roundPreset(n) {
  * UNIT PRICES of the lines sold in that unit — the per-unit rate — because
  * `range` is in the service's unit and a 200 sq ft example job is not a rate.
  */
-export function rangeFor(service, lines) {
+export function rangeFor(service, allLines) {
+  let lines = allLines;
   const b = service.benchmark;
   if (b && Number.isFinite(Number(b.median)) && Number(b.median) > 0) {
     const median = Number(b.median);
@@ -464,6 +470,7 @@ export function rangeFor(service, lines) {
     : l.unit === service.unit ? l.unitPrice
     : service.unit === "sqft" && l.unit === "square" ? (l.unitPrice / 100) * (l.measurementKey === "wastePct" ? 0.1 : 1)
     : 0;
+  lines = lines.filter((l) => !l.optional);
   const perUnit = ["sqft", "linear_ft", "hour", "square"].includes(service.unit)
     ? lines.reduce((s, l) => s + lineRate(l), 0)
     : service.unit === "each" && lines.some((l) => l.measurementKey)
@@ -518,6 +525,7 @@ export function withTemplates(seed, templates) {
       };
       if (l.measurementKey) row.measurementKey = l.measurementKey;
       if (l.coverage) row.coverage = { per: l.coverage.per, unit: l.coverage.unit };
+      if (l.optional) row.optional = true;
       return row;
     });
     const defaultDiscount = t.discount

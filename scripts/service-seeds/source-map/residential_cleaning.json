@@ -271,5 +271,26 @@
   "sourceCategory": "Recurring Cleaning",
   "sourceService": "Recurring - 2 Bedrooms, 2–5 Bathrooms",
   "taskCode": "DEFAULT_MAID_SERVICE_38"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.visits.walkthrough_estimate",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Walkthrough and cleaning estimate",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.residential_cleaning.commercial.site_walkthrough",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Commercial site walkthrough",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.residential_cleaning.move.pre_move_out_inspection",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Move-out condition walkthrough",
+  "taskCode": null
  }
 ]

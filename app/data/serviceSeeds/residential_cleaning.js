@@ -2,6 +2,8 @@
 //
 // The service list a home-cleaning company starts from. Read ./index.js for
 // the format and the rules. Written in source order.
+import { L, SHARED, D, T, withTemplates } from "./_templateLines";
+
 const BM = (low, median, high) => ({ low, median, high, currency: "USD", source: "benchmark", asOf: "2026-09-21" });
 const S = (seedKey, category, unit, benchmark, [en, fr, es], [den, dfr, des], extra = {}) => ({
   seedKey, category, name: { en, fr, es }, description: { en: den, fr: dfr, es: des },
@@ -214,5 +216,345 @@ export const SEED = {
       ["Recurring cleaning of a two-bedroom home: bedrooms, bathrooms, kitchen and living areas.",
        "Ménage récurrent d'une maison de deux chambres : chambres, salles de bain, cuisine et aires de vie.",
        "Limpieza recurrente de una casa de dos recámaras: recámaras, baños, cocina y áreas de estar."]),
+    // ── Added 2026-09-24 with the estimate templates ──────────────────────
+    S("fq.residential_cleaning.visits.walkthrough_estimate", "visits", "flat", null,
+      ["Walkthrough and cleaning estimate", "Visite et soumission de ménage", "Recorrido y presupuesto de limpieza"],
+      ["The home walked with the client, rooms counted and priorities agreed, and a written price left for the first clean and the recurring visits.", "Maison parcourue avec le client, pièces comptées et priorités convenues, prix écrit laissé pour le premier ménage et les visites régulières.", "Casa recorrida con el cliente, habitaciones contadas y prioridades acordadas, y un precio por escrito para la primera limpieza y las visitas recurrentes."], { durationMinutes: 30, bookable: true }),
+    S("fq.residential_cleaning.commercial.site_walkthrough", "commercial", "flat", null,
+      ["Commercial site walkthrough", "Visite de site commercial", "Recorrido de sitio comercial"],
+      ["The premises walked with the manager, square footage, restrooms and access hours noted, and a cleaning scope and price written up.", "Locaux parcourus avec le gestionnaire, superficie, toilettes et heures d'accès notées, portée et prix du ménage rédigés.", "Local recorrido con el encargado, superficie, baños y horarios de acceso anotados, y el alcance y precio de limpieza redactados."]),
+    S("fq.residential_cleaning.move.pre_move_out_inspection", "move", "flat", null,
+      ["Move-out condition walkthrough", "Visite d'état avant départ", "Recorrido de estado antes de la mudanza"],
+      ["The empty unit checked room by room against the lease checklist, with photos, before the move-out clean is booked.", "Logement vide vérifié pièce par pièce selon la liste du bail, avec photos, avant de réserver le ménage de départ.", "Unidad vacía revisada cuarto por cuarto con la lista del contrato, con fotos, antes de agendar la limpieza de salida."]),
   ],
 };
+
+// ── Estimate templates ───────────────────────────────────────────────────────
+//
+// Evidence: the home-cleaning template capture under docs/research/ — three
+// templates priced PER ROOM with real unit costs: recurring clean (kitchen
+// $80/50, living area $60/40, bedroom $50/35, bathroom $75/50, $12 off),
+// one-time deep clean (bedroom $100/80, bathroom $150/110, $15 off) and
+// move-in/out (full home $300/175, interior windows $75/40, inside cabinets
+// $100/55, $24 off). Those are carried at the captured prices and costs. Its
+// booking form asks bedrooms, bathrooms, half baths and home size, so the
+// per-room lines are keyed `bedroomCount` / `bathroomCount` / `halfBathCount`
+// and the home-size lines `floorSqft`; each keeps qty 1 and fills from the
+// form. The form's add-ons (fridge, oven, cabinets, baseboards) ride as
+// optional lines the client ticks. The captured recurring clean has four
+// required labour lines (kitchen, living area, bedroom, bathroom) and keeps
+// them — one more than the three the other trades use.
+const room = (key, price, cost, text) => L.labour(1, "each", price, text, { cost, measurementKey: key });
+const BEDROOM = (price, cost, deep) => room("bedroomCount", price, cost, deep ? {
+  en: ["Bedroom deep clean — per bedroom", "Every surface detailed, baseboards and doors wiped, under the bed vacuumed."],
+  fr: ["Grand ménage de chambre — la chambre", "Chaque surface détaillée, plinthes et portes essuyées, dessous du lit aspiré."],
+  es: ["Limpieza profunda de recámara — por recámara", "Cada superficie detallada, zoclos y puertas limpios, bajo la cama aspirado."],
+  it: ["Pulizia profonda camera — per camera", "Ogni superficie curata nei dettagli, battiscopa e porte pulite, sotto il letto aspirato."],
+  de: ["Grundreinigung Schlafzimmer — pro Zimmer", "Jede Fläche gründlich, Sockelleisten und Türen gewischt, unter dem Bett gesaugt."],
+  uk: ["Генеральне прибирання спальні — за спальню", "Кожну поверхню ретельно очищено, плінтуси й двері протерто, під ліжком пропилососено."],
+  tl: ["Deep clean ng kuwarto — kada kuwarto", "Detalyadong nilinis ang bawat ibabaw, pinunasan ang baseboard at pinto, binakyum ang ilalim ng kama."],
+} : {
+  en: ["Bedroom cleaning — per bedroom", "Dusted, surfaces wiped, bed made and floors vacuumed."],
+  fr: ["Ménage de chambre — la chambre", "Époussetée, surfaces essuyées, lit fait et plancher aspiré."],
+  es: ["Limpieza de recámara — por recámara", "Sacudida, superficies limpias, cama tendida y piso aspirado."],
+  it: ["Pulizia camera — per camera", "Spolverata, superfici pulite, letto rifatto e pavimento aspirato."],
+  de: ["Schlafzimmerreinigung — pro Zimmer", "Abgestaubt, Flächen gewischt, Bett gemacht und Boden gesaugt."],
+  uk: ["Прибирання спальні — за спальню", "Пил витерто, поверхні протерто, ліжко застелено, підлогу пропилососено."],
+  tl: ["Paglilinis ng kuwarto — kada kuwarto", "Pinunasan ang alikabok at ibabaw, inayos ang kama at binakyum ang sahig."],
+});
+const BATHROOM = (price, cost, deep) => room("bathroomCount", price, cost, deep ? {
+  en: ["Bathroom deep clean — per bathroom", "Tub, shower and grout scrubbed, fixtures descaled, toilet and floor sanitised."],
+  fr: ["Grand ménage de salle de bain — la salle de bain", "Bain, douche et coulis frottés, robinetterie détartrée, toilette et plancher désinfectés."],
+  es: ["Limpieza profunda de baño — por baño", "Tina, regadera y lechada tallados, llaves desincrustadas, inodoro y piso desinfectados."],
+  it: ["Pulizia profonda bagno — per bagno", "Vasca, doccia e fughe strofinate, rubinetteria disincrostata, WC e pavimento igienizzati."],
+  de: ["Grundreinigung Bad — pro Bad", "Wanne, Dusche und Fugen geschrubbt, Armaturen entkalkt, WC und Boden desinfiziert."],
+  uk: ["Генеральне прибирання ванної — за ванну", "Ванну, душ і шви відтерто, змішувачі очищено від накипу, унітаз і підлогу продезінфіковано."],
+  tl: ["Deep clean ng banyo — kada banyo", "Kinuskos ang tub, shower at grout, tinanggalan ng kaliskis ang gripo, dinisinfect ang inodoro at sahig."],
+} : {
+  en: ["Bathroom cleaning — per bathroom", "Tub or shower, sink, toilet, mirror and floor cleaned and sanitised."],
+  fr: ["Ménage de salle de bain — la salle de bain", "Bain ou douche, lavabo, toilette, miroir et plancher nettoyés et désinfectés."],
+  es: ["Limpieza de baño — por baño", "Tina o regadera, lavabo, inodoro, espejo y piso limpios y desinfectados."],
+  it: ["Pulizia bagno — per bagno", "Vasca o doccia, lavabo, WC, specchio e pavimento puliti e igienizzati."],
+  de: ["Badreinigung — pro Bad", "Wanne oder Dusche, Waschbecken, WC, Spiegel und Boden gereinigt und desinfiziert."],
+  uk: ["Прибирання ванної — за ванну", "Ванну чи душ, умивальник, унітаз, дзеркало й підлогу очищено та продезінфіковано."],
+  tl: ["Paglilinis ng banyo — kada banyo", "Nilinis at dinisinfect ang tub o shower, lababo, inodoro, salamin at sahig."],
+});
+const HALF_BATH = (price) => room("halfBathCount", price, Math.round(price * 0.65), {
+  en: ["Half bathroom — per half bath", "Sink, toilet, mirror and floor cleaned and sanitised."],
+  fr: ["Salle d'eau — l'unité", "Lavabo, toilette, miroir et plancher nettoyés et désinfectés."],
+  es: ["Medio baño — por medio baño", "Lavabo, inodoro, espejo y piso limpios y desinfectados."],
+  it: ["Bagno di servizio — cadauno", "Lavabo, WC, specchio e pavimento puliti e igienizzati."],
+  de: ["Gäste-WC — pro Stück", "Waschbecken, WC, Spiegel und Boden gereinigt und desinfiziert."],
+  uk: ["Гостьовий санвузол — за штуку", "Умивальник, унітаз, дзеркало й підлогу очищено та продезінфіковано."],
+  tl: ["Half bath — kada isa", "Nilinis at dinisinfect ang lababo, inodoro, salamin at sahig."],
+});
+const KITCHEN = (price, cost) => L.labour(1, "flat", price, {
+  en: ["Kitchen cleaning", "Counters, sink, appliance fronts, stovetop and floor cleaned."],
+  fr: ["Ménage de la cuisine", "Comptoirs, évier, façades d'appareils, cuisinière et plancher nettoyés."],
+  es: ["Limpieza de cocina", "Cubiertas, fregadero, frentes de electrodomésticos, estufa y piso limpios."],
+  it: ["Pulizia cucina", "Piani, lavello, frontali degli elettrodomestici, piano cottura e pavimento puliti."],
+  de: ["Küchenreinigung", "Arbeitsflächen, Spüle, Gerätefronten, Kochfeld und Boden gereinigt."],
+  uk: ["Прибирання кухні", "Стільниці, мийку, фасади техніки, плиту й підлогу очищено."],
+  tl: ["Paglilinis ng kusina", "Nilinis ang counter, lababo, harap ng appliance, kalan at sahig."],
+}, { cost });
+const ADD_ON = (price, cost, text) => L.labour(1, "flat", price, text, { cost, optional: true });
+const FRIDGE = () => ADD_ON(45, 25, {
+  en: ["Add-on: inside fridge and freezer", "Emptied, shelves and drawers washed, walls wiped and restocked."],
+  fr: ["Option : intérieur du frigo et du congélateur", "Vidé, tablettes et tiroirs lavés, parois essuyées et remis en place."],
+  es: ["Extra: interior de refrigerador y congelador", "Vaciado, repisas y cajones lavados, paredes limpias y reacomodado."],
+  it: ["Extra: interno frigo e congelatore", "Svuotato, ripiani e cassetti lavati, pareti pulite e riordinato."],
+  de: ["Zusatz: Kühlschrank und Gefrierfach innen", "Ausgeräumt, Böden und Schubladen gewaschen, Wände gewischt und wieder eingeräumt."],
+  uk: ["Додатково: холодильник і морозилка всередині", "Спорожнено, полиці й ящики вимито, стінки протерто, продукти повернуто."],
+  tl: ["Add-on: loob ng ref at freezer", "Inalisan, hinugasan ang shelf at drawer, pinunasan ang loob at ibinalik ang laman."],
+});
+const OVEN = () => ADD_ON(50, 28, {
+  en: ["Add-on: inside oven", "Oven interior, door glass and racks degreased."],
+  fr: ["Option : intérieur du four", "Intérieur du four, vitre de porte et grilles dégraissés."],
+  es: ["Extra: interior del horno", "Interior del horno, vidrio de la puerta y parrillas desengrasados."],
+  it: ["Extra: interno forno", "Interno del forno, vetro dello sportello e griglie sgrassati."],
+  de: ["Zusatz: Backofen innen", "Backofeninnenraum, Türglas und Roste entfettet."],
+  uk: ["Додатково: духовка всередині", "Внутрішню частину духовки, скло дверцят і решітки знежирено."],
+  tl: ["Add-on: loob ng oven", "Tinanggalan ng mantika ang loob ng oven, salamin ng pinto at rack."],
+});
+const CABINETS = (price = 100, cost = 55, optional = true) => L.labour(1, "flat", price, {
+  en: ["Inside cabinets and drawers", "Cabinets and drawers emptied, wiped inside and dried."],
+  fr: ["Intérieur des armoires et tiroirs", "Armoires et tiroirs vidés, essuyés à l'intérieur et séchés."],
+  es: ["Interior de gabinetes y cajones", "Gabinetes y cajones vaciados, limpios por dentro y secados."],
+  it: ["Interno di pensili e cassetti", "Pensili e cassetti svuotati, puliti all'interno e asciugati."],
+  de: ["Schränke und Schubladen innen", "Schränke und Schubladen ausgeräumt, innen ausgewischt und getrocknet."],
+  uk: ["Шафи та шухляди всередині", "Шафи й шухляди спорожнено, протерто всередині й висушено."],
+  tl: ["Loob ng cabinet at drawer", "Inalisan, pinunasan sa loob at pinatuyo ang cabinet at drawer."],
+}, { cost, optional });
+const BASEBOARDS = () => ADD_ON(40, 22, {
+  en: ["Add-on: wipe baseboards", "Every baseboard in the home hand-wiped."],
+  fr: ["Option : essuyage des plinthes", "Toutes les plinthes de la maison essuyées à la main."],
+  es: ["Extra: limpiar zoclos", "Todos los zoclos de la casa limpiados a mano."],
+  it: ["Extra: pulizia battiscopa", "Tutti i battiscopa della casa puliti a mano."],
+  de: ["Zusatz: Sockelleisten wischen", "Alle Sockelleisten im Haus von Hand gewischt."],
+  uk: ["Додатково: протерти плінтуси", "Усі плінтуси в будинку протерто вручну."],
+  tl: ["Add-on: punasan ang baseboard", "Pinunasan sa kamay ang lahat ng baseboard sa bahay."],
+});
+const FLOOR_AREA = (price, text) => L.labour(1, "sqft", price, text, { measurementKey: "floorSqft" });
+
+const TEMPLATES = {
+  // ── Installation (first cleans) ──
+  "fq.residential_cleaning.add_ons.post_construction": T("installation", {
+    it: ["Pulizia post cantiere", "Polvere di cantiere rimossa da ogni superficie, arredo e pavimento, bocchette e binari delle finestre inclusi."],
+    de: ["Bauendreinigung", "Baustaub von jeder Fläche, jedem Einbau und Boden entfernt, Lüftungsgitter und Fensterschienen inklusive."],
+    uk: ["Прибирання після ремонту", "Будівельний пил прибрано з кожної поверхні, обладнання та підлоги, включно з решітками й віконними напрямними."],
+    tl: ["Paglilinis pagkatapos ng construction", "Tinanggal ang alikabok ng construction sa bawat ibabaw, fixture at sahig, kasama ang vent at track ng bintana."],
+  }, [
+    FLOOR_AREA(0.3, {
+      en: ["Post-construction clean — per sq ft", "Fine dust vacuumed and wiped from walls, fixtures, vents, sills and floors."],
+      fr: ["Ménage après travaux — au pi²", "Fine poussière aspirée et essuyée sur murs, accessoires, grilles, rebords et planchers."],
+      es: ["Limpieza post obra — por pie²", "Polvo fino aspirado y limpiado de muros, accesorios, rejillas, repisas y pisos."],
+      it: ["Pulizia post cantiere — al piede quadro", "Polvere fine aspirata e pulita da pareti, arredi, bocchette, davanzali e pavimenti."],
+      de: ["Bauendreinigung — pro sq ft", "Feinstaub von Wänden, Einbauten, Gittern, Bänken und Böden gesaugt und gewischt."],
+      uk: ["Прибирання після ремонту — за кв. фут", "Дрібний пил пропилососено й витерто зі стін, обладнання, решіток, підвіконь і підлоги."],
+      tl: ["Post-construction clean — kada sq ft", "Binakyum at pinunasan ang pinong alikabok sa pader, fixture, vent, sill at sahig."],
+    }),
+    SHARED.haulAway(60),
+  ], null),
+
+  "fq.residential_cleaning.visits.move_in_out": T("installation", {
+    it: ["Pulizia trasloco in entrata o uscita", "Pulizia accurata di una casa vuota prima di entrare o dopo essere usciti."],
+    de: ["Ein- oder Auszugsreinigung", "Gründliche Reinigung einer leeren Wohnung vor dem Einzug oder nach dem Auszug."],
+    uk: ["Прибирання перед заїздом або після виїзду", "Ретельне прибирання порожнього житла перед заїздом або після виїзду."],
+    tl: ["Move-in / move-out na paglilinis", "Masusing paglilinis ng bakanteng bahay bago lumipat o pagkaalis."],
+  }, [
+    L.labour(1, "flat", 300, {
+      en: ["Full home deep clean", "Every room of the empty home deep-cleaned top to bottom."],
+      fr: ["Grand ménage de toute la maison", "Chaque pièce du logement vide nettoyée à fond de haut en bas."],
+      es: ["Limpieza profunda de toda la casa", "Cada habitación de la casa vacía limpiada a fondo de arriba abajo."],
+      it: ["Pulizia profonda di tutta la casa", "Ogni stanza della casa vuota pulita a fondo dall'alto in basso."],
+      de: ["Grundreinigung der ganzen Wohnung", "Jeder Raum der leeren Wohnung von oben bis unten gründlich gereinigt."],
+      uk: ["Генеральне прибирання всього житла", "Кожну кімнату порожнього житла ретельно прибрано згори донизу."],
+      tl: ["Deep clean ng buong bahay", "Bawat kuwarto ng bakanteng bahay ay nilinis nang husto mula taas hanggang baba."],
+    }, { cost: 175 }),
+    L.labour(1, "flat", 75, {
+      en: ["Interior windows", "Inside glass, frames, sills and tracks cleaned."],
+      fr: ["Fenêtres intérieures", "Vitres, cadres, rebords et glissières nettoyés côté intérieur."],
+      es: ["Ventanas interiores", "Vidrios, marcos, repisas y rieles limpiados por dentro."],
+      it: ["Finestre interne", "Vetri, telai, davanzali e binari puliti all'interno."],
+      de: ["Fenster innen", "Glas, Rahmen, Bänke und Schienen innen gereinigt."],
+      uk: ["Вікна зсередини", "Скло, рами, підвіконня й напрямні вимито зсередини."],
+      tl: ["Bintana sa loob", "Nilinis ang salamin, frame, sill at track sa loob."],
+    }, { cost: 40 }),
+    CABINETS(100, 55, false),
+  ], D.newCustomer("fixed", 24)),
+
+  "fq.residential_cleaning.commercial.one_time_office": T("installation", {
+    it: ["Pulizia una tantum di uffici o locali commerciali", "Una pulizia completa di un ufficio o locale commerciale, prenotata come intervento singolo."],
+    de: ["Einmalige Büro- oder Gewerbereinigung", "Eine gründliche Reinigung eines Büros oder Gewerberaums als einzelner Einsatz."],
+    uk: ["Разове прибирання офісу чи комерційного приміщення", "Повне прибирання офісу або комерційного приміщення як разовий виклик."],
+    tl: ["Isang beses na paglilinis ng opisina o commercial", "Buong paglilinis ng opisina o commercial space bilang isang visit."],
+  }, [
+    FLOOR_AREA(0.12, {
+      en: ["Office cleaning — per sq ft", "Desks, surfaces, kitchenette and floors cleaned and trash removed."],
+      fr: ["Ménage de bureau — au pi²", "Bureaux, surfaces, cuisinette et planchers nettoyés, poubelles vidées."],
+      es: ["Limpieza de oficina — por pie²", "Escritorios, superficies, cocineta y pisos limpios y basura retirada."],
+      it: ["Pulizia ufficio — al piede quadro", "Scrivanie, superfici, angolo cottura e pavimenti puliti e rifiuti rimossi."],
+      de: ["Büroreinigung — pro sq ft", "Schreibtische, Flächen, Teeküche und Böden gereinigt, Müll entsorgt."],
+      uk: ["Прибирання офісу — за кв. фут", "Столи, поверхні, міні-кухню й підлогу прибрано, сміття винесено."],
+      tl: ["Paglilinis ng opisina — kada sq ft", "Nilinis ang mesa, ibabaw, pantry at sahig at inalis ang basura."],
+    }),
+    room("bathroomCount", 45, 25, {
+      en: ["Restroom cleaning — per restroom", "Fixtures, partitions and floor sanitised and supplies restocked."],
+      fr: ["Ménage de toilettes — l'unité", "Appareils, cloisons et plancher désinfectés, fournitures remplies."],
+      es: ["Limpieza de sanitario — por sanitario", "Muebles, divisiones y piso desinfectados y consumibles repuestos."],
+      it: ["Pulizia servizi igienici — cadauno", "Sanitari, divisori e pavimento igienizzati e forniture ripristinate."],
+      de: ["Sanitärreinigung — pro WC-Raum", "Objekte, Trennwände und Boden desinfiziert, Verbrauchsmaterial aufgefüllt."],
+      uk: ["Прибирання туалету — за туалет", "Сантехніку, перегородки й підлогу продезінфіковано, витратні матеріали поповнено."],
+      tl: ["Paglilinis ng CR — kada CR", "Dinisinfect ang fixture, partition at sahig at nilagyan ulit ng supply."],
+    }),
+  ], null),
+
+  // ── Repair (deep cleans that restore) ──
+  "fq.residential_cleaning.visits.one_time_deep": T("repair", {
+    it: ["Pulizia profonda una tantum", "Una pulizia dettagliata di tutta la casa, dall'alto in basso, prenotata come singola visita."],
+    de: ["Einmalige Grundreinigung", "Eine gründliche Reinigung des ganzen Hauses von oben bis unten als einzelner Termin."],
+    uk: ["Разове генеральне прибирання", "Ретельне прибирання всього будинку згори донизу як один візит."],
+    tl: ["Isang beses na deep cleaning", "Detalyadong paglilinis ng buong bahay mula taas hanggang baba sa isang visit."],
+  }, [BEDROOM(100, 80, true), BATHROOM(150, 110, true), HALF_BATH(95), FRIDGE(), OVEN(), BASEBOARDS()], D.newCustomer("fixed", 15)),
+
+  "fq.residential_cleaning.add_ons.deep_clean_key_areas": T("repair", {
+    it: ["Pulizia profonda e igienizzazione — cucina e bagni", "Cucina e bagni puliti nei dettagli e igienizzati, fughe, rubinetteria e frontali degli elettrodomestici inclusi."],
+    de: ["Grundreinigung und Desinfektion — Küche und Bäder", "Küche und Bäder gründlich gereinigt und desinfiziert, einschließlich Fugen, Armaturen und Gerätefronten."],
+    uk: ["Генеральне прибирання й дезінфекція — кухня та ванні", "Кухню й ванні ретельно прибрано та продезінфіковано, включно зі швами, змішувачами й фасадами техніки."],
+    tl: ["Deep clean at sanitize — kusina at banyo", "Detalyadong nilinis at dinisinfect ang kusina at banyo, kasama ang grout, gripo at harap ng appliance."],
+  }, [KITCHEN(110, 70), BATHROOM(150, 110, true)], null),
+
+  "fq.residential_cleaning.add_ons.inside_oven": T("repair", {
+    it: ["Pulizia interno forno", "Interno del forno e griglie sgrassati e rifiniti."],
+    de: ["Backofen innen reinigen", "Backofeninnenraum und Roste entfettet und gereinigt."],
+    uk: ["Чищення духовки всередині", "Внутрішню частину духовки та решітки знежирено й начищено."],
+    tl: ["Paglilinis ng loob ng oven", "Tinanggalan ng mantika at nilinis ang loob ng oven at rack."],
+  }, [
+    L.labour(1, "each", 50, {
+      en: ["Oven interior clean — per oven", "Racks soaked and scrubbed, the cavity and door glass degreased."],
+      fr: ["Nettoyage intérieur du four — le four", "Grilles trempées et frottées, cavité et vitre dégraissées."],
+      es: ["Limpieza interior del horno — por horno", "Parrillas remojadas y talladas, cavidad y vidrio desengrasados."],
+      it: ["Pulizia interno forno — per forno", "Griglie in ammollo e strofinate, cavità e vetro sgrassati."],
+      de: ["Backofen innen — pro Ofen", "Roste eingeweicht und geschrubbt, Garraum und Türglas entfettet."],
+      uk: ["Чищення духовки — за духовку", "Решітки замочено й відтерто, камеру та скло знежирено."],
+      tl: ["Paglilinis ng loob ng oven — kada oven", "Binabad at kinuskos ang rack, tinanggalan ng mantika ang loob at salamin."],
+    }, { cost: 28, measurementKey: "each" }),
+  ], null),
+
+  // ── Inspection ──
+  "fq.residential_cleaning.visits.walkthrough_estimate": T("inspection", {
+    it: ["Sopralluogo e preventivo di pulizia", "Casa percorsa con il cliente, stanze contate e priorità concordate, e un prezzo scritto per la prima pulizia e le visite ricorrenti."],
+    de: ["Besichtigung und Reinigungsangebot", "Haus mit dem Kunden begangen, Räume gezählt und Prioritäten vereinbart, schriftlicher Preis für die Erst- und die regelmäßige Reinigung."],
+    uk: ["Огляд і кошторис прибирання", "Будинок обійдено з клієнтом, кімнати пораховано, пріоритети погоджено, залишено письмову ціну першого та регулярних прибирань."],
+    tl: ["Walkthrough at estimate ng paglilinis", "Nilibot ang bahay kasama ang kliyente, binilang ang kuwarto at pinagkasunduan ang priyoridad, at iniwan ang nakasulat na presyo."],
+  }, [
+    L.labour(1, "flat", 0, {
+      en: ["Walkthrough", "Rooms counted, priorities agreed; free with a booked clean."],
+      fr: ["Visite des lieux", "Pièces comptées, priorités convenues; gratuit avec un ménage réservé."],
+      es: ["Recorrido", "Habitaciones contadas, prioridades acordadas; gratis al agendar la limpieza."],
+      it: ["Sopralluogo", "Stanze contate, priorità concordate; gratuito con una pulizia prenotata."],
+      de: ["Besichtigung", "Räume gezählt, Prioritäten vereinbart; kostenlos bei gebuchter Reinigung."],
+      uk: ["Огляд", "Кімнати пораховано, пріоритети погоджено; безкоштовно за замовленого прибирання."],
+      tl: ["Walkthrough", "Binilang ang kuwarto at pinagkasunduan ang priyoridad; libre kapag nag-book."],
+    }, { cost: 0 }),
+  ], null),
+
+  "fq.residential_cleaning.commercial.site_walkthrough": T("inspection", {
+    it: ["Sopralluogo di un sito commerciale", "Locali percorsi con il responsabile, superficie, servizi e orari di accesso annotati, ambito e prezzo della pulizia redatti."],
+    de: ["Objektbegehung Gewerbe", "Räume mit der Leitung begangen, Fläche, Sanitärräume und Zugangszeiten notiert, Leistungsumfang und Preis erstellt."],
+    uk: ["Огляд комерційного об'єкта", "Приміщення обійдено з керівником, площу, туалети й години доступу записано, обсяг і ціну прибирання складено."],
+    tl: ["Walkthrough ng commercial site", "Nilibot kasama ang manager, isinulat ang sukat, CR at oras ng access, at ginawa ang scope at presyo."],
+  }, [
+    L.labour(1, "flat", 95, {
+      en: ["Site walkthrough and scope", "Areas measured, restrooms counted and a cleaning scope written."],
+      fr: ["Visite et portée des travaux", "Surfaces mesurées, toilettes comptées et portée du ménage rédigée."],
+      es: ["Recorrido y alcance", "Áreas medidas, sanitarios contados y alcance de limpieza redactado."],
+      it: ["Sopralluogo e ambito", "Aree misurate, servizi contati e ambito della pulizia redatto."],
+      de: ["Begehung und Leistungsumfang", "Flächen gemessen, Sanitärräume gezählt und Reinigungsumfang erstellt."],
+      uk: ["Огляд і обсяг робіт", "Площі виміряно, туалети пораховано, обсяг прибирання складено."],
+      tl: ["Walkthrough at scope", "Sinukat ang lugar, binilang ang CR at isinulat ang scope."],
+    }),
+  ], null),
+
+  "fq.residential_cleaning.move.pre_move_out_inspection": T("inspection", {
+    it: ["Sopralluogo dello stato prima del trasloco", "Unità vuota controllata stanza per stanza con la lista del contratto, con foto, prima di prenotare la pulizia di uscita."],
+    de: ["Zustandsbegehung vor dem Auszug", "Leere Wohnung Raum für Raum anhand der Mietvertragsliste mit Fotos geprüft, bevor die Auszugsreinigung gebucht wird."],
+    uk: ["Огляд стану перед виїздом", "Порожнє житло перевірено кімната за кімнатою за списком договору з фото перед замовленням прибирання."],
+    tl: ["Walkthrough ng kondisyon bago lumipat", "Chineck kuwarto-kuwarto ang bakanteng unit ayon sa checklist ng lease, may litrato, bago i-book ang move-out clean."],
+  }, [
+    L.labour(1, "flat", 75, {
+      en: ["Condition walkthrough", "Each room checked and photographed against the lease checklist."],
+      fr: ["Visite d'état", "Chaque pièce vérifiée et photographiée selon la liste du bail."],
+      es: ["Recorrido de estado", "Cada habitación revisada y fotografiada según la lista del contrato."],
+      it: ["Sopralluogo dello stato", "Ogni stanza controllata e fotografata secondo la lista del contratto."],
+      de: ["Zustandsbegehung", "Jeder Raum anhand der Vertragsliste geprüft und fotografiert."],
+      uk: ["Огляд стану", "Кожну кімнату перевірено й сфотографовано за списком договору."],
+      tl: ["Walkthrough ng kondisyon", "Chineck at kinunan ng litrato ang bawat kuwarto ayon sa checklist ng lease."],
+    }),
+    SHARED.report(25),
+  ], null),
+
+  // ── Maintenance (recurring) ──
+  "fq.residential_cleaning.visits.recurring_service": T("maintenance", {
+    it: ["Pulizia ricorrente", "Pulizia settimanale, quindicinale o mensile con un calendario fisso."],
+    de: ["Regelmäßige Reinigung", "Wöchentliche, zweiwöchentliche oder monatliche Reinigung nach festem Plan."],
+    uk: ["Регулярне прибирання", "Щотижневе, раз на два тижні або щомісячне прибирання за сталим графіком."],
+    tl: ["Regular na paglilinis", "Lingguhan, kada dalawang linggo o buwanang paglilinis sa nakatakdang schedule."],
+  }, [
+    KITCHEN(80, 50),
+    L.labour(1, "flat", 60, {
+      en: ["Living area cleaning", "Living and dining areas dusted, surfaces wiped and floors vacuumed and mopped."],
+      fr: ["Ménage des aires de séjour", "Salon et salle à manger époussetés, surfaces essuyées, planchers aspirés et lavés."],
+      es: ["Limpieza de áreas comunes", "Sala y comedor sacudidos, superficies limpias y pisos aspirados y trapeados."],
+      it: ["Pulizia zona giorno", "Soggiorno e sala da pranzo spolverati, superfici pulite, pavimenti aspirati e lavati."],
+      de: ["Wohnbereichsreinigung", "Wohn- und Essbereich abgestaubt, Flächen gewischt, Böden gesaugt und gewischt."],
+      uk: ["Прибирання вітальні", "Вітальню та їдальню очищено від пилу, поверхні протерто, підлогу пропилососено й вимито."],
+      tl: ["Paglilinis ng sala", "Pinunasan ang alikabok at ibabaw sa sala at kainan, binakyum at minap ang sahig."],
+    }, { cost: 40 }),
+    BEDROOM(50, 35, false), BATHROOM(75, 50, false), FRIDGE(),
+  ], D.newCustomer("fixed", 12)),
+
+  "fq.residential_cleaning.recurring.bi_weekly": T("maintenance", {
+    it: ["Pulizia ricorrente — ogni due settimane", "Pulizia quindicinale di zone comuni, bagni e cucina per la manutenzione continua."],
+    de: ["Regelmäßige Reinigung — alle zwei Wochen", "Zweiwöchentliche Reinigung von Wohnbereichen, Bädern und Küche für die laufende Pflege."],
+    uk: ["Регулярне прибирання — раз на два тижні", "Прибирання спільних зон, ванних і кухні раз на два тижні для постійного догляду."],
+    tl: ["Regular na paglilinis — kada dalawang linggo", "Paglilinis kada dalawang linggo ng common area, banyo at kusina para sa tuloy-tuloy na upkeep."],
+  }, [KITCHEN(75, 48), BEDROOM(45, 32, false), BATHROOM(70, 47, false)], D.regular("percent", 5)),
+
+  "fq.residential_cleaning.commercial.weekly_janitorial": T("maintenance", {
+    it: ["Servizio di pulizia settimanale", "Pulizia settimanale di spazi commerciali: pavimenti, bagni, cucine e rifiuti."],
+    de: ["Wöchentlicher Hausmeister-Reinigungsdienst", "Wöchentliche Reinigung von Gewerbeflächen: Böden, Sanitärräume, Küchen und Müll."],
+    uk: ["Щотижневе прибирання приміщень", "Щотижневе прибирання комерційних приміщень: підлога, туалети, кухні та сміття."],
+    tl: ["Lingguhang janitorial service", "Lingguhang paglilinis ng commercial space: sahig, CR, kusina at basura."],
+  }, [
+    FLOOR_AREA(0.09, {
+      en: ["Janitorial cleaning — per sq ft", "Floors, surfaces and break area cleaned and trash removed each visit."],
+      fr: ["Entretien ménager — au pi²", "Planchers, surfaces et salle de pause nettoyés, poubelles vidées à chaque visite."],
+      es: ["Limpieza de conserjería — por pie²", "Pisos, superficies y comedor limpios y basura retirada en cada visita."],
+      it: ["Pulizia di manutenzione — al piede quadro", "Pavimenti, superfici e area ristoro puliti e rifiuti rimossi a ogni visita."],
+      de: ["Unterhaltsreinigung — pro sq ft", "Böden, Flächen und Pausenraum bei jedem Besuch gereinigt, Müll entsorgt."],
+      uk: ["Поточне прибирання — за кв. фут", "Підлогу, поверхні й зону відпочинку прибрано, сміття винесено щоразу."],
+      tl: ["Janitorial cleaning — kada sq ft", "Nilinis ang sahig, ibabaw at break area at inalis ang basura bawat visit."],
+    }),
+  ], null),
+
+  "fq.residential_cleaning.core.hourly_two_cleaners": T("maintenance", {
+    it: ["Pulizia della casa — a ore, due addetti, minimo 2 ore", "Due addetti prenotati a ore per le stanze e i compiti che scegli, minimo due ore."],
+    de: ["Hausreinigung — stundenweise, zwei Reinigungskräfte, mind. 2 Stunden", "Zwei Reinigungskräfte stundenweise für die Räume und Aufgaben Ihrer Wahl, mindestens zwei Stunden."],
+    uk: ["Прибирання — погодинно, двоє прибиральників, мінімум 2 години", "Двоє прибиральників погодинно для обраних кімнат і завдань, мінімум дві години."],
+    tl: ["Paglilinis ng bahay — kada oras, dalawang cleaner, 2 oras minimum", "Dalawang cleaner kada oras para sa kuwarto at gawain na pipiliin, minimum dalawang oras."],
+  }, [
+    L.labour(1, "hour", 90, {
+      en: ["Two cleaners — per hour", "Two cleaners working the rooms and tasks chosen, billed by the hour."],
+      fr: ["Deux préposés — à l'heure", "Deux préposés sur les pièces et tâches choisies, facturés à l'heure."],
+      es: ["Dos limpiadores — por hora", "Dos limpiadores en las habitaciones y tareas elegidas, cobrados por hora."],
+      it: ["Due addetti — a ore", "Due addetti su stanze e compiti scelti, fatturati a ore."],
+      de: ["Zwei Reinigungskräfte — pro Stunde", "Zwei Kräfte für die gewählten Räume und Aufgaben, nach Stunden."],
+      uk: ["Двоє прибиральників — за годину", "Двоє прибиральників на обрані кімнати й завдання, погодинно."],
+      tl: ["Dalawang cleaner — kada oras", "Dalawang cleaner sa piniling kuwarto at gawain, kada oras."],
+    }, { cost: 55 }),
+    BASEBOARDS(),
+  ], null),
+};
+
+withTemplates(SEED, TEMPLATES);
