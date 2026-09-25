@@ -7,8 +7,10 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { sanitiseTemplateLines, sanitiseDefaultDiscount, sanitiseImageUrl, sanitiseEstimateTypes } from "@/lib/services/templates";
 import { scheduleAutoTranslate } from "@/lib/i18n/autoTranslateSchedule";
 
 /** Owner/admin only, matching every other company-wide settings route. */
@@ -71,6 +73,17 @@ export async function PATCH(request, { params }) {
     unit,
     active,
     categoryIds,
+    // The template inside the service (Settings > Services). Sanitised by
+    // lib/services/templates.js: a line with no name is dropped, a negative
+    // cost becomes null, an unknown measurement key is not stored. `null`
+    // clears the column; an absent key leaves it alone.
+    templateLines,
+    defaultDiscount,
+    imageUrl,
+    // Where the template is offered (by quote type — `categoryIds` above —
+    // narrowed by estimate type) and whether it is offered at all.
+    estimateTypes,
+    templateEnabled,
   } = body;
 
   if (Array.isArray(categoryIds) && categoryIds.length) {
@@ -92,6 +105,13 @@ export async function PATCH(request, { params }) {
       ...(costPrice !== undefined && { costPrice }),
       ...(unit !== undefined && { unit }),
       ...(active !== undefined && { active }),
+      // Prisma refuses a bare null on a Json column; DbNull is how an emptied
+      // template clears the column instead of leaving the old lines behind.
+      ...(templateLines !== undefined && { templateLines: sanitiseTemplateLines(templateLines) ?? Prisma.DbNull }),
+      ...(defaultDiscount !== undefined && { defaultDiscount: sanitiseDefaultDiscount(defaultDiscount) ?? Prisma.DbNull }),
+      ...(imageUrl !== undefined && { imageUrl: sanitiseImageUrl(imageUrl) }),
+      ...(estimateTypes !== undefined && { estimateTypes: sanitiseEstimateTypes(estimateTypes) }),
+      ...(templateEnabled !== undefined && { templateEnabled: templateEnabled !== false }),
       // `set` fully replaces the linked quote types with this list (as
       // opposed to `connect`, which would only add) — matches how the
       // multi-select in the Products & Services edit modal works, where the

@@ -411,5 +411,19 @@
   "sourceCategory": "Roof & Attic > Repair > Other",
   "sourceService": "Repair - Windows",
   "taskCode": "DEFAULT_ROOFING_SERVICE_59"
+ },
+ {
+  "seedKey": "fq.roofing_service.inspection.storm_damage",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Storm and hail damage inspection",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.roofing_service.inspection.measure_estimate",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Roof measure and estimate visit",
+  "taskCode": null
  }
 ]

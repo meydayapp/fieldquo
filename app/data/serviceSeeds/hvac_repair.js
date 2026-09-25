@@ -19,6 +19,9 @@
 
 // Compact constructors — this file imports nothing (see index.js), so they are
 // declared here. Every entry below is the same shape as the long-hand ones.
+import { L, SHARED, D, T, withTemplates, hdMaterial, tagRows } from "./_templateLines";
+import { HD } from "./_materialCosts";
+
 const BM = (low, median, high) => ({ low, median, high, currency: "USD", source: "benchmark", asOf: "2026-09-21" });
 const S = (seedKey, category, unit, benchmark, [en, fr, es], [den, dfr, des], extra = {}) => ({
   seedKey, category, name: { en, fr, es }, description: { en: den, fr: dfr, es: des },
@@ -826,5 +829,526 @@ export const SEED = {
       ["The diagnostic visit for an address beyond the usual service area, travel included in the fee.",
        "La visite diagnostique pour une adresse au-delà du territoire habituel, déplacement inclus dans les frais.",
        "La visita de diagnóstico para una dirección fuera del área habitual, con el traslado incluido en el cargo."]),
+    // ── Added 2026-09-24 with the estimate templates: the four generic rows the
+    //    source seeds for its signup industry, and the full-system inspection
+    //    its HVAC template set prices. ─────────────────────────────────────
+    S("fq.hvac_repair.diagnostics.system_inspection", "diagnostics", "flat", null,
+      ["HVAC system inspection", "Inspection du système de chauffage et climatisation", "Inspección del sistema de climatización"],
+      ["Coils, filter, refrigerant pressures, electrical connections and thermostat checked for safety and performance, with the findings written down.",
+       "Serpentins, filtre, pressions de frigorigène, connexions électriques et thermostat vérifiés pour la sécurité et le rendement, constats consignés par écrit.",
+       "Serpentines, filtro, presiones de refrigerante, conexiones eléctricas y termostato revisados por seguridad y rendimiento, con los hallazgos por escrito."],
+      { durationMinutes: 60, bookable: true }),
+    S("fq.hvac_repair.diagnostics.diagnostic_visit", "diagnostics", "flat", null,
+      ["Diagnostic visit", "Visite de diagnostic", "Visita de diagnóstico"],
+      ["A technician finds why the heating or cooling is not working and gives a written price for the fix before any repair.",
+       "Un technicien trouve pourquoi le chauffage ou la climatisation ne fonctionne pas et remet un prix écrit avant toute réparation.",
+       "Un técnico encuentra por qué no funciona la calefacción o el aire y entrega un precio por escrito antes de reparar."]),
+    S("fq.hvac_repair.diagnostics.service_visit", "diagnostics", "flat", null,
+      ["Service visit", "Visite de service", "Visita de servicio"],
+      ["A call-out to get heating or cooling running again, with the repair made on the spot where the part is on the truck.",
+       "Déplacement pour remettre le chauffage ou la climatisation en marche, réparation faite sur place quand la pièce est dans le camion.",
+       "Salida para volver a poner en marcha la calefacción o el aire, con la reparación hecha en el momento si la pieza está en la camioneta."]),
+    S("fq.hvac_repair.maintenance.preventative_maintenance", "maintenance", "flat", null,
+      ["Preventative maintenance", "Entretien préventif", "Mantenimiento preventivo"],
+      ["A scheduled visit to clean, adjust and test the system before the season, so small faults are caught before they become a no-heat call.",
+       "Visite planifiée pour nettoyer, régler et tester le système avant la saison, afin de repérer les petits défauts avant la panne.",
+       "Visita programada para limpiar, ajustar y probar el sistema antes de la temporada y detectar fallas pequeñas antes de una avería."]),
   ],
 };
+
+// ── Estimate templates ───────────────────────────────────────────────────────
+//
+// Evidence: every templated row carries a benchmark median (the HVAC book is
+// the one with insight on all 103 rows), so the totals are set by it and the
+// lines are the trade's usual split — a diagnostic fee credited on repair, a
+// part at supply-house cost (a 45/5 capacitor ~$15, an ECM blower motor
+// ~$350–500, a surge protector ~$180) and the technician's hour at $125–150.
+// Labour cost ≈ 50% of price, material ≈ 75% unless a line says otherwise.
+//
+// Folded in 2026-09-24: the HVAC template capture under docs/research/ (nine
+// templates with real unit costs). Its capacitor ($150 labour / $75 part,
+// $12 off), recharge ($200 labour + 3 lb at $85, $15 off), tune-up ($129 +
+// $20 filter, $7 off), furnace repair, no-cooling diagnostic, system
+// inspection and evaporator coil cleaning are carried at the captured prices
+// and costs. Refrigerant stays qty 3 with no measurement key: pounds are
+// weighed in on site, not read from a takeoff.
+const TEMPLATES = {
+  // ── Installation ──
+  "fq.hvac_repair.controls.surge_protector": T("installation", {
+    it: ["Installazione scaricatore di sovratensione HVAC", "Dispositivo di protezione da sovratensioni montato sull'unità esterna o sull'air handler, così un fulmine o un picco di rete non brucia la scheda di controllo."],
+    de: ["Einbau eines HLK-Überspannungsschutzes", "Überspannungsschutz am Außengerät oder Lüftungsgerät montiert, damit ein Blitzschlag oder eine Netzspitze nicht die Steuerplatine zerstört."],
+    uk: ["Встановлення захисту від перенапруги для HVAC", "Пристрій захисту від перенапруги встановлено на зовнішньому блоці або повітрообробнику, щоб блискавка чи стрибок у мережі не спалили плату керування."],
+    tl: ["Pagkabit ng HVAC surge protector", "Surge protection device na ikinabit sa outdoor unit o air handler para hindi masira ng kidlat o spike ng kuryente ang control board."],
+  }, [
+    L.labour(1, "flat", 220, {
+      en: ["Surge protector installation labour", "The device mounted at the disconnect, wired in and its indicator verified."],
+      fr: ["Main-d'œuvre — installation du parasurtenseur", "Dispositif posé au sectionneur, câblé et voyant vérifié."],
+      es: ["Mano de obra — instalación del protector", "Dispositivo montado en el desconectador, cableado y su indicador verificado."],
+      it: ["Manodopera — installazione scaricatore", "Dispositivo montato al sezionatore, cablato e indicatore verificato."],
+      de: ["Arbeit — Überspannungsschutz einbauen", "Gerät am Trennschalter montiert, verdrahtet und die Anzeige geprüft."],
+      uk: ["Робота — встановлення захисту від перенапруги", "Пристрій змонтовано біля роз'єднувача, під'єднано, індикатор перевірено."],
+      tl: ["Labor — pagkabit ng surge protector", "Ikinabit ang device sa disconnect, kinablehan at chineck ang indicator."],
+    }),
+    L.material(1, "each", 260, {
+      en: ["HVAC surge protection device", "Outdoor-rated surge protector for a 240 V condenser or heat pump."],
+      fr: ["Parasurtenseur CVC", "Parasurtenseur pour l'extérieur, condenseur ou thermopompe 240 V."],
+      es: ["Protector contra sobretensión HVAC", "Protector para exterior, condensador o bomba de calor de 240 V."],
+      it: ["Scaricatore di sovratensione HVAC", "Scaricatore per esterni, per condensatore o pompa di calore a 240 V."],
+      de: ["HLK-Überspannungsschutz", "Wetterfester Überspannungsschutz für einen 240-V-Verflüssiger oder eine Wärmepumpe."],
+      uk: ["Пристрій захисту від перенапруги HVAC", "Вуличний захист від перенапруги для конденсатора або теплового насоса на 240 В."],
+      tl: ["HVAC surge protection device", "Outdoor-rated surge protector para sa 240 V condenser o heat pump."],
+    }, { cost: 180 }),
+  ], D.newCustomer("fixed", 25)),
+
+  "fq.hvac_repair.air_quality.uv_purifier_install": T("installation", {
+    it: ["Installazione purificatore d'aria UV", "Lampada UV montata nell'air handler o nel condotto per tenere muffa e batteri lontani dalla batteria e dal flusso d'aria."],
+    de: ["Einbau eines UV-Luftreinigers", "UV-Lampe im Lüftungsgerät oder Kanal eingebaut, damit Schimmel und Bakterien vom Register und aus dem Luftstrom bleiben."],
+    uk: ["Встановлення УФ-очищувача повітря", "УФ-лампу встановлено у повітрообробнику або повітроводі, щоб цвіль і бактерії не осідали на теплообміннику та не потрапляли в потік повітря."],
+    tl: ["Pagkabit ng UV air purifier", "UV lamp na ikinabit sa air handler o duct para hindi tumubo ang amag at bacteria sa coil at sa hangin."],
+  }, [
+    L.labour(1, "flat", 320, {
+      en: ["UV lamp installation labour", "The plenum cut and the lamp mounted over the coil, wired to its own transformer and tested."],
+      fr: ["Main-d'œuvre — installation de la lampe UV", "Plénum percé, lampe posée au-dessus du serpentin, câblée à son transformateur et testée."],
+      es: ["Mano de obra — instalación de la lámpara UV", "Plénum cortado, lámpara montada sobre el serpentín, cableada a su transformador y probada."],
+      it: ["Manodopera — installazione lampada UV", "Plenum forato, lampada montata sopra la batteria, cablata al suo trasformatore e testata."],
+      de: ["Arbeit — UV-Lampe einbauen", "Plenum ausgeschnitten, Lampe über dem Register montiert, an den eigenen Trafo angeschlossen und getestet."],
+      uk: ["Робота — встановлення УФ-лампи", "Пленум прорізано, лампу змонтовано над теплообмінником, під'єднано до власного трансформатора та перевірено."],
+      tl: ["Labor — pagkabit ng UV lamp", "Hiniwa ang plenum, ikinabit ang lamp sa ibabaw ng coil, kinablehan sa sariling transformer at sinubukan."],
+    }),
+    L.material(1, "each", 550, {
+      en: ["Coil-mount UV air purifier", "Dual-lamp UV purifier with 24 V transformer and one-year lamp."],
+      fr: ["Purificateur UV pour serpentin", "Purificateur UV à deux lampes avec transformateur 24 V et lampe d'un an."],
+      es: ["Purificador UV para serpentín", "Purificador UV de dos lámparas con transformador de 24 V y lámpara de un año."],
+      it: ["Purificatore UV per batteria", "Purificatore UV a due lampade con trasformatore 24 V e lampada da un anno."],
+      de: ["UV-Luftreiniger für Register", "UV-Reiniger mit zwei Lampen, 24-V-Trafo und Einjahres-Lampe."],
+      uk: ["УФ-очищувач для теплообмінника", "Дволамповий УФ-очищувач із трансформатором 24 В і лампою на рік."],
+      tl: ["Coil-mount UV air purifier", "Dual-lamp UV purifier na may 24 V transformer at isang taong lamp."],
+    }, { cost: 400 }),
+  ], D.newCustomer("fixed", 40)),
+
+  "fq.hvac_repair.condensate.drain_pan_switch": T("installation", {
+    it: ["Installazione interruttore di troppo pieno vaschetta", "Galleggiante aggiunto alla vaschetta di condensa che spegne l'impianto quando l'acqua sale, così un intasamento non diventa una macchia sul soffitto."],
+    de: ["Einbau eines Überlaufschalters für die Kondensatwanne", "Schwimmerschalter in der Kondensatwanne, der die Anlage abschaltet, wenn das Wasser steigt — damit aus einer Verstopfung kein Deckenfleck wird."],
+    uk: ["Встановлення датчика переливу піддона", "Поплавковий вимикач у піддоні конденсату вимикає систему, коли вода піднімається, щоб засмічення не стало плямою на стелі."],
+    tl: ["Pagkabit ng overflow switch sa drain pan", "Float switch na idinagdag sa drain pan na pumapatay sa sistema kapag tumaas ang tubig, para hindi maging mantsa sa kisame ang bara."],
+  }, [
+    L.labour(1, "flat", 190, {
+      en: ["Float switch installation labour", "The switch fitted in the drain pan or line, wired into the low-voltage circuit and tested."],
+      fr: ["Main-d'œuvre — installation du flotteur", "Flotteur posé dans le bac ou la conduite, câblé au circuit basse tension et testé."],
+      es: ["Mano de obra — instalación del flotador", "Interruptor colocado en la charola o la línea, cableado al circuito de bajo voltaje y probado."],
+      it: ["Manodopera — installazione galleggiante", "Interruttore montato nella vaschetta o sulla linea, cablato al circuito a bassa tensione e testato."],
+      de: ["Arbeit — Schwimmerschalter einbauen", "Schalter in Wanne oder Leitung eingesetzt, in den Kleinspannungskreis eingebunden und getestet."],
+      uk: ["Робота — встановлення поплавкового вимикача", "Вимикач встановлено в піддон або лінію, під'єднано до низьковольтного кола та перевірено."],
+      tl: ["Labor — pagkabit ng float switch", "Ikinabit ang switch sa drain pan o linya, kinablehan sa low-voltage circuit at sinubukan."],
+    }),
+    L.material(1, "each", 60, {
+      en: ["Condensate overflow float switch", "In-pan or in-line float switch, 24 V."],
+      fr: ["Flotteur de trop-plein de condensat", "Flotteur pour bac ou en ligne, 24 V."],
+      es: ["Interruptor flotador de condensado", "Flotador para charola o en línea, 24 V."],
+      it: ["Galleggiante di troppo pieno condensa", "Galleggiante per vaschetta o in linea, 24 V."],
+      de: ["Kondensat-Schwimmerschalter", "Schwimmerschalter für Wanne oder Leitung, 24 V."],
+      uk: ["Поплавковий датчик переливу конденсату", "Поплавковий вимикач у піддон або в лінію, 24 В."],
+      tl: ["Condensate overflow float switch", "In-pan o in-line float switch, 24 V."],
+    }),
+  ], null),
+
+  // ── Repair ──
+  "fq.hvac_repair.controls.replace_capacitor": T("repair", {
+    it: ["Sostituzione condensatore", "Condensatore di marcia o di avviamento guasto sostituito con uno di pari valore, così compressore o ventola ripartono."],
+    de: ["Kondensatortausch", "Defekter Betriebs- oder Anlaufkondensator durch einen mit gleichen Werten ersetzt, damit Verdichter oder Lüfter wieder anlaufen."],
+    uk: ["Заміна конденсатора", "Несправний робочий або пусковий конденсатор замінено на такий самий за номіналом, щоб компресор чи вентилятор знову запускалися."],
+    tl: ["Palit ng capacitor", "Sirang run o start capacitor na pinalitan ng parehong rating para umandar ulit ang compressor o fan."],
+  }, [
+    L.labour(1, "each", 150, {
+      en: ["Capacitor replacement labour", "Power isolated, the capacitor discharged and swapped, and the start amps checked."],
+      fr: ["Main-d'œuvre — remplacement du condensateur", "Alimentation coupée, condensateur déchargé et remplacé, ampérage de démarrage vérifié."],
+      es: ["Mano de obra — reemplazo del capacitor", "Energía aislada, capacitor descargado y cambiado, y el amperaje de arranque revisado."],
+      it: ["Manodopera — sostituzione condensatore", "Alimentazione isolata, condensatore scaricato e sostituito, corrente di spunto controllata."],
+      de: ["Arbeit — Kondensator tauschen", "Strom getrennt, Kondensator entladen und getauscht, Anlaufstrom geprüft."],
+      uk: ["Робота — заміна конденсатора", "Живлення вимкнено, конденсатор розряджено та замінено, пусковий струм перевірено."],
+      tl: ["Labor — palit ng capacitor", "Pinatay ang kuryente, dinischarge at pinalitan ang capacitor, at chineck ang start amps."],
+    }, { cost: 75 }),
+    L.material(1, "each", 75, {
+      en: ["Dual run capacitor", "Dual run capacitor, 35/5 to 50/5 µF, 440 V."],
+      fr: ["Condensateur double", "Condensateur de marche double, 35/5 à 50/5 µF, 440 V."],
+      es: ["Capacitor dual", "Capacitor de marcha dual, 35/5 a 50/5 µF, 440 V."],
+      it: ["Condensatore doppio", "Condensatore di marcia doppio, da 35/5 a 50/5 µF, 440 V."],
+      de: ["Doppel-Betriebskondensator", "Doppel-Betriebskondensator, 35/5 bis 50/5 µF, 440 V."],
+      uk: ["Подвійний робочий конденсатор", "Подвійний робочий конденсатор, 35/5–50/5 мкФ, 440 В."],
+      tl: ["Dual run capacitor", "Dual run capacitor, 35/5 hanggang 50/5 µF, 440 V."],
+    }, { cost: 35 }),
+  ], D.regular("fixed", 12)),
+
+  "fq.hvac_repair.blower.replace_motor": T("repair", {
+    it: ["Sostituzione motore ventilatore", "Motore del ventilatore interno guasto sostituito e ricablato, riportando il flusso d'aria nei condotti alla normalità."],
+    de: ["Gebläsemotor tauschen", "Defekter Innengebläsemotor gegen einen neuen getauscht und angeschlossen, damit der Luftstrom in den Kanälen wieder stimmt."],
+    uk: ["Заміна двигуна вентилятора", "Несправний двигун внутрішнього вентилятора замінено на новий і під'єднано; потік повітря в повітроводах відновлено."],
+    tl: ["Palit ng blower motor", "Sirang indoor blower motor na pinalitan ng bago at kinablehan, para bumalik sa normal ang hangin sa duct."],
+  }, [
+    SHARED.diagnostic(99, { cost: 50 }),
+    L.labour(1, "flat", 240, {
+      en: ["Blower motor replacement labour", "The blower assembly pulled, the motor and capacitor swapped, the wheel rebalanced and airflow checked."],
+      fr: ["Main-d'œuvre — remplacement du moteur", "Ensemble ventilateur retiré, moteur et condensateur remplacés, roue rééquilibrée et débit vérifié."],
+      es: ["Mano de obra — reemplazo del motor", "Conjunto del ventilador retirado, motor y capacitor cambiados, la turbina balanceada y el flujo verificado."],
+      it: ["Manodopera — sostituzione motore", "Gruppo ventilatore estratto, motore e condensatore sostituiti, girante bilanciata e portata verificata."],
+      de: ["Arbeit — Gebläsemotor tauschen", "Gebläseeinheit ausgebaut, Motor und Kondensator getauscht, Rad ausgewuchtet und Luftstrom geprüft."],
+      uk: ["Робота — заміна двигуна вентилятора", "Вентиляторний вузол знято, двигун і конденсатор замінено, крильчатку відбалансовано, потік перевірено."],
+      tl: ["Labor — palit ng blower motor", "Tinanggal ang blower assembly, pinalitan ang motor at capacitor, binalanse ang wheel at chineck ang hangin."],
+    }),
+    L.material(1, "each", 380, {
+      en: ["PSC blower motor with capacitor", "Direct-drive PSC blower motor, 1/2 HP, with matching run capacitor."],
+      fr: ["Moteur de ventilateur PSC avec condensateur", "Moteur PSC à entraînement direct, 1/2 HP, avec condensateur de marche assorti."],
+      es: ["Motor de ventilador PSC con capacitor", "Motor PSC de transmisión directa, 1/2 HP, con capacitor de marcha a juego."],
+      it: ["Motore ventilatore PSC con condensatore", "Motore PSC a trasmissione diretta, 1/2 HP, con condensatore di marcia abbinato."],
+      de: ["PSC-Gebläsemotor mit Kondensator", "Direktantriebs-PSC-Motor, 1/2 PS, mit passendem Betriebskondensator."],
+      uk: ["Двигун вентилятора PSC з конденсатором", "Двигун PSC прямого приводу, 1/2 к.с., з відповідним робочим конденсатором."],
+      tl: ["PSC blower motor na may capacitor", "Direct-drive PSC blower motor, 1/2 HP, may katernong run capacitor."],
+    }, { cost: 250 }),
+  ], D.regular("fixed", 20)),
+
+  "fq.hvac_repair.refrigerant.leak_repair_recharge": T("repair", {
+    it: ["Riparazione perdita con vuoto e ricarica", "Perdita riparata, poi vuoto completo per togliere l'umidità e carica pesata fino al valore di targa."],
+    de: ["Leckreparatur mit Evakuierung und Neubefüllung", "Leck repariert, dann vollständig evakuiert, um Feuchtigkeit zu entfernen, und die Füllmenge nach Typenschild eingewogen."],
+    uk: ["Усунення витоку з вакуумуванням і заправкою", "Витік усунено, потім систему повністю відвакуумовано від вологи та заправлено за вагою до паспортної кількості."],
+    tl: ["Pag-ayos ng tagas na may evacuation at recharge", "Inayos ang tagas, tapos full evacuation para matanggal ang moisture at tinimbang na charge hanggang sa nameplate."],
+  }, [
+    L.labour(1, "flat", 200, {
+      en: ["Leak repair, evacuation and recharge labour", "The leak brazed or the fitting replaced, the system pulled to 500 microns and the charge weighed in."],
+      fr: ["Main-d'œuvre — réparation, tirage au vide et recharge", "Fuite brasée ou raccord remplacé, système tiré au vide à 500 microns et charge pesée."],
+      es: ["Mano de obra — reparación, vacío y recarga", "Fuga soldada o conexión reemplazada, sistema llevado a 500 micrones y la carga pesada."],
+      it: ["Manodopera — riparazione, vuoto e ricarica", "Perdita brasata o raccordo sostituito, impianto portato a 500 micron e carica pesata."],
+      de: ["Arbeit — Reparatur, Evakuierung und Befüllung", "Leck gelötet oder Fitting ersetzt, Anlage auf 500 Mikron evakuiert und die Füllmenge eingewogen."],
+      uk: ["Робота — ремонт, вакуумування та заправка", "Витік запаяно або фітинг замінено, систему відвакуумовано до 500 мікрон, заправку зважено."],
+      tl: ["Labor — pag-ayos, evacuation at recharge", "Binraze ang tagas o pinalitan ang fitting, binaba sa 500 microns ang sistema at tinimbang ang charge."],
+    }),
+    L.material(3, "each", 85, {
+      en: ["R-410A refrigerant — per pound", "R-410A refrigerant, weighed in per pound."],
+      fr: ["Frigorigène R-410A — la livre", "Frigorigène R-410A, pesé à la livre."],
+      es: ["Refrigerante R-410A — por libra", "Refrigerante R-410A, pesado por libra."],
+      it: ["Refrigerante R-410A — alla libbra", "Refrigerante R-410A, pesato alla libbra."],
+      de: ["Kältemittel R-410A — pro Pfund", "Kältemittel R-410A, pro Pfund eingewogen."],
+      uk: ["Холодоагент R-410A — за фунт", "Холодоагент R-410A, за вагою на фунт."],
+      tl: ["R-410A refrigerant — kada libra", "R-410A refrigerant, tinitimbang kada libra."],
+    }, { cost: 45 }),
+  ], D.regular("fixed", 15)),
+
+  // ── Inspection ──
+  "fq.hvac_repair.diagnostics.residential": T("inspection", {
+    it: ["Visita diagnostica — residenziale", "Un tecnico ispeziona l'impianto, trova il guasto e dà un prezzo scritto per la riparazione; la tariffa viene scontata se la riparazione si fa."],
+    de: ["Diagnosebesuch — privat", "Ein Techniker prüft die Anlage, findet den Fehler und nennt einen schriftlichen Reparaturpreis; die Gebühr wird bei Auftrag angerechnet."],
+    uk: ["Діагностичний візит — житловий", "Технік оглядає систему, знаходить несправність і дає письмову ціну ремонту; плата зараховується, якщо ремонт замовлено."],
+    tl: ["Diagnostic visit — bahay", "Sinusuri ng technician ang sistema, hinahanap ang sira at nagbibigay ng nakasulat na presyo; ibinabawas ang bayad kung ituloy ang pag-ayos."],
+  }, [
+    SHARED.diagnostic(99, { cost: 50 }),
+  ], null),
+
+  "fq.hvac_repair.refrigerant.check_levels": T("inspection", {
+    it: ["Controllo livello refrigerante", "Pressioni e temperature lette all'unità esterna per confermare che la carica sia corretta, con l'eventuale mancanza segnalata prima del rabbocco."],
+    de: ["Kältemittelstand prüfen", "Drücke und Temperaturen am Außengerät gemessen, um die Füllmenge zu bestätigen; ein Mangel wird vor dem Nachfüllen gemeldet."],
+    uk: ["Перевірка рівня холодоагенту", "Тиск і температури зчитано на зовнішньому блоці, щоб підтвердити заправку; нестачу повідомляють до дозаправки."],
+    tl: ["Check ng refrigerant level", "Binasa ang pressure at temperatura sa outdoor unit para makumpirma ang charge, at ini-report ang kulang bago dagdagan."],
+  }, [
+    L.labour(1, "flat", 129, {
+      en: ["Refrigerant charge check", "Gauges on, superheat and subcooling calculated and the reading written on the ticket."],
+      fr: ["Vérification de la charge de frigorigène", "Manomètres branchés, surchauffe et sous-refroidissement calculés, lecture inscrite au bon."],
+      es: ["Verificación de la carga de refrigerante", "Manómetros conectados, sobrecalentamiento y subenfriamiento calculados y la lectura anotada."],
+      it: ["Controllo della carica di refrigerante", "Manometri collegati, surriscaldamento e sottoraffreddamento calcolati e la lettura annotata."],
+      de: ["Prüfung der Kältemittelfüllung", "Manometer angeschlossen, Überhitzung und Unterkühlung berechnet und der Wert notiert."],
+      uk: ["Перевірка заправки холодоагентом", "Манометри під'єднано, перегрів і переохолодження розраховано, показники записано."],
+      tl: ["Check ng refrigerant charge", "Ikinabit ang gauge, kinuwenta ang superheat at subcooling at isinulat ang reading."],
+    }, { cost: 60 }),
+  ], null),
+
+  "fq.hvac_repair.air_quality.iaq_testing": T("inspection", {
+    it: ["Test della qualità dell'aria interna", "Particolato, umidità, anidride carbonica e composti volatili misurati in casa, con un risultato scritto e cosa correggerebbe ogni valore."],
+    de: ["Raumluftqualitätsmessung", "Feinstaub, Feuchte, Kohlendioxid und flüchtige Verbindungen im Haus gemessen, mit schriftlichem Ergebnis und was jeden Wert verbessern würde."],
+    uk: ["Тестування якості повітря в приміщенні", "Частинки, вологість, вуглекислий газ і леткі сполуки виміряно в будинку, з письмовим результатом і тим, що виправить кожен показник."],
+    tl: ["Indoor air quality testing", "Sinukat ang particles, humidity, carbon dioxide at volatile compounds sa bahay, may nakasulat na resulta at kung ano ang aayos sa bawat reading."],
+  }, [
+    L.labour(1, "flat", 110, {
+      en: ["Air quality measurement", "Particle, humidity, CO2 and VOC readings taken in the main living areas."],
+      fr: ["Mesure de la qualité de l'air", "Lectures de particules, d'humidité, de CO2 et de COV prises dans les pièces principales."],
+      es: ["Medición de la calidad del aire", "Lecturas de partículas, humedad, CO2 y COV tomadas en las áreas principales."],
+      it: ["Misurazione della qualità dell'aria", "Letture di particolato, umidità, CO2 e COV nelle stanze principali."],
+      de: ["Luftqualitätsmessung", "Feinstaub-, Feuchte-, CO2- und VOC-Werte in den Hauptwohnräumen gemessen."],
+      uk: ["Вимірювання якості повітря", "Показники частинок, вологості, CO2 та ЛОС зняті в основних житлових кімнатах."],
+      tl: ["Pagsukat ng kalidad ng hangin", "Kinuha ang reading ng particles, humidity, CO2 at VOC sa mga pangunahing kuwarto."],
+    }),
+    SHARED.report(40),
+  ], null),
+
+  // ── Maintenance ──
+  "fq.hvac_repair.maintenance.ac_tune_up": T("maintenance", {
+    it: ["Tagliando del climatizzatore", "Controllo stagionale dell'impianto di raffrescamento: pressioni del refrigerante, collegamenti elettrici, condensatore, stato della batteria e scarico, con annotato tutto ciò che non va."],
+    de: ["Klimaanlagen-Wartung", "Saisonprüfung der Kühlanlage: Kältemitteldrücke, elektrische Anschlüsse, Kondensator, Registerzustand und Ablauf, mit Vermerk aller Auffälligkeiten."],
+    uk: ["Сезонне обслуговування кондиціонера", "Сезонна перевірка системи охолодження: тиск холодоагенту, електричні з'єднання, конденсатор, стан теплообмінника та дренаж; усе, що не в нормі, записано."],
+    tl: ["Tune-up ng aircon", "Seasonal check ng cooling system: refrigerant pressure, koneksyon ng kuryente, capacitor, kondisyon ng coil at drain, at nakatala ang lahat ng may problema."],
+  }, [
+    L.labour(1, "flat", 129, {
+      en: ["Cooling system tune-up", "Pressures, amps, capacitor and contactor checked, the condenser coil rinsed and the drain cleared."],
+      fr: ["Mise au point du système de climatisation", "Pressions, ampérage, condensateur et contacteur vérifiés, serpentin du condenseur rincé et drain dégagé."],
+      es: ["Afinación del sistema de enfriamiento", "Presiones, amperaje, capacitor y contactor revisados, el serpentín del condensador enjuagado y el drenaje destapado."],
+      it: ["Tagliando dell'impianto di raffrescamento", "Pressioni, assorbimenti, condensatore e contattore controllati, batteria del condensatore sciacquata e scarico liberato."],
+      de: ["Wartung der Kühlanlage", "Drücke, Stromaufnahme, Kondensator und Schütz geprüft, Verflüssigerregister gespült und der Ablauf freigemacht."],
+      uk: ["Обслуговування системи охолодження", "Тиск, струм, конденсатор і контактор перевірено, теплообмінник конденсатора промито, дренаж прочищено."],
+      tl: ["Tune-up ng cooling system", "Chineck ang pressure, amps, capacitor at contactor, hinugasan ang condenser coil at nilinis ang drain."],
+    }, { cost: 65 }),
+    L.material(1, "each", 20, {
+      en: ["Pleated air filter", "1-inch pleated filter, MERV 8, in the system's size."],
+      fr: ["Filtre à air plissé", "Filtre plissé de 1 po, MERV 8, à la dimension du système."],
+      es: ["Filtro de aire plisado", "Filtro plisado de 1 pulg, MERV 8, en la medida del sistema."],
+      it: ["Filtro aria pieghettato", "Filtro pieghettato da 1 pollice, MERV 8, nella misura dell'impianto."],
+      de: ["Faltenfilter", "1-Zoll-Faltenfilter, MERV 8, in der Größe der Anlage."],
+      uk: ["Гофрований повітряний фільтр", "Гофрований фільтр 1 дюйм, MERV 8, за розміром системи."],
+      tl: ["Pleated air filter", "1-inch pleated filter, MERV 8, sa size ng sistema."],
+    }, { cost: 8 }),
+  ], D.regular("fixed", 7)),
+
+  "fq.hvac_repair.maintenance.furnace_maintenance": T("maintenance", {
+    it: ["Manutenzione caldaia ad aria", "Controllo stagionale della caldaia: bruciatori, accensione, scambiatore, ventilatore, sicurezze e scarico fumi, con annotato tutto ciò che non va."],
+    de: ["Heizungswartung", "Saisonprüfung des Warmluftofens: Brenner, Zündung, Wärmetauscher, Gebläse, Sicherheitseinrichtungen und Abgasführung, mit Vermerk aller Auffälligkeiten."],
+    uk: ["Обслуговування печі опалення", "Сезонна перевірка печі: пальники, запалювання, теплообмінник, вентилятор, захисти та димохід; усе, що не в нормі, записано."],
+    tl: ["Maintenance ng furnace", "Seasonal check ng furnace: burner, ignition, heat exchanger, blower, safeties at venting, at nakatala ang lahat ng may problema."],
+  }, [
+    L.labour(1, "flat", 150, {
+      en: ["Furnace maintenance visit", "Burners cleaned, flame sensor polished, heat exchanger inspected, safeties and venting checked and the blower cleaned."],
+      fr: ["Visite d'entretien de la fournaise", "Brûleurs nettoyés, capteur de flamme poli, échangeur inspecté, sécurités et évacuation vérifiées, ventilateur nettoyé."],
+      es: ["Visita de mantenimiento de la caldera", "Quemadores limpiados, sensor de flama pulido, intercambiador inspeccionado, seguridades y venteo revisados y el ventilador limpiado."],
+      it: ["Visita di manutenzione caldaia", "Bruciatori puliti, sensore di fiamma lucidato, scambiatore ispezionato, sicurezze e scarico controllati, ventilatore pulito."],
+      de: ["Heizungswartungsbesuch", "Brenner gereinigt, Flammenfühler poliert, Wärmetauscher geprüft, Sicherheitseinrichtungen und Abgas kontrolliert, Gebläse gereinigt."],
+      uk: ["Візит з обслуговування печі", "Пальники очищено, датчик полум'я відполіровано, теплообмінник оглянуто, захисти й димохід перевірено, вентилятор очищено."],
+      tl: ["Maintenance visit ng furnace", "Nilinis ang burner, pinakintab ang flame sensor, sinuri ang heat exchanger, chineck ang safeties at venting at nilinis ang blower."],
+    }, { cost: 70 }),
+    L.material(1, "each", 23.71, {
+      en: ["Pleated air filter", "1-inch pleated filter, MERV 11, in the system's size."],
+      fr: ["Filtre à air plissé", "Filtre plissé de 1 po, MERV 11, à la dimension du système."],
+      es: ["Filtro de aire plisado", "Filtro plisado de 1 pulg, MERV 11, en la medida del sistema."],
+      it: ["Filtro aria pieghettato", "Filtro pieghettato da 1 pollice, MERV 11, nella misura dell'impianto."],
+      de: ["Faltenfilter", "1-Zoll-Faltenfilter, MERV 11, in der Größe der Anlage."],
+      uk: ["Гофрований повітряний фільтр", "Гофрований фільтр 1 дюйм, MERV 11, за розміром системи."],
+      tl: ["Pleated air filter", "1-inch pleated filter, MERV 11, sa size ng sistema."],
+    }, { cost: 18.97, ref: HD.filter_16x25x1 }),
+  ], D.regular("fixed", 10)),
+
+  "fq.hvac_repair.coils.clean": T("maintenance", {
+    it: ["Pulizia batterie — evaporatore e condensatore", "Entrambe le batterie pulite dalla patina di sporco e lanugine che blocca lo scambio termico, così l'impianto raffredda e riscalda di nuovo a piena capacità."],
+    de: ["Registerreinigung — Verdampfer und Verflüssiger", "Beide Register vom Schmutz- und Flusenfilm befreit, der den Wärmeübergang blockiert, damit die Anlage wieder mit voller Leistung kühlt und heizt."],
+    uk: ["Чищення теплообмінників — випарник і конденсатор", "Обидва теплообмінники очищено від плівки бруду й ворсу, що блокує теплообмін, щоб система знову охолоджувала й гріла на повну."],
+    tl: ["Paglilinis ng coil — evaporator at condenser", "Nilinis ang dalawang coil mula sa dumi at lint na humaharang sa heat transfer, para bumalik sa full capacity ang sistema."],
+  }, [
+    L.labour(1, "flat", 340, {
+      en: ["Evaporator and condenser coil cleaning", "The condenser coil washed out from the inside and the evaporator coil foamed, rinsed and the drain flushed."],
+      fr: ["Nettoyage des serpentins d'évaporateur et de condenseur", "Serpentin du condenseur lavé de l'intérieur, serpentin d'évaporateur moussé et rincé, drain purgé."],
+      es: ["Limpieza de serpentines evaporador y condensador", "Serpentín del condensador lavado desde adentro, el del evaporador espumado y enjuagado, y el drenaje purgado."],
+      it: ["Pulizia batterie evaporatore e condensatore", "Batteria del condensatore lavata dall'interno, batteria dell'evaporatore schiumata e sciacquata, scarico spurgato."],
+      de: ["Reinigung von Verdampfer- und Verflüssigerregister", "Verflüssigerregister von innen gespült, Verdampferregister eingeschäumt und gespült, Ablauf durchgespült."],
+      uk: ["Чищення теплообмінників випарника й конденсатора", "Теплообмінник конденсатора промито зсередини, випарник оброблено піною та промито, дренаж прочищено."],
+      tl: ["Paglilinis ng evaporator at condenser coil", "Hinugasan mula sa loob ang condenser coil, nilagyan ng foam at hinugasan ang evaporator coil, at ni-flush ang drain."],
+    }),
+    L.material(1, "each", 40, {
+      en: ["Coil cleaner", "Foaming evaporator coil cleaner and condenser coil detergent, one service."],
+      fr: ["Nettoyant à serpentin", "Nettoyant moussant pour évaporateur et détergent pour condenseur, un entretien."],
+      es: ["Limpiador de serpentín", "Limpiador espumante para evaporador y detergente para condensador, un servicio."],
+      it: ["Detergente per batterie", "Schiuma per evaporatore e detergente per condensatore, un intervento."],
+      de: ["Registerreiniger", "Schaumreiniger für den Verdampfer und Reiniger für den Verflüssiger, ein Einsatz."],
+      uk: ["Засіб для чищення теплообмінників", "Пінний очищувач випарника та мийний засіб для конденсатора, одне обслуговування."],
+      tl: ["Coil cleaner", "Foaming evaporator coil cleaner at condenser coil detergent, isang service."],
+    }),
+  ], D.regular("fixed", 25)),
+
+  // ── Folded in from the captured HVAC template set (2026-09-24): prices and
+  //    costs as captured, wording ours. ──────────────────────────────────
+  "fq.hvac_repair.diagnostics.heating_repair_visit": T("repair", {
+    it: ["Intervento di riparazione del riscaldamento", "Visita prenotata per un riscaldamento che non scalda: guasto trovato e riparato nella stessa visita quando possibile."],
+    de: ["Heizungsreparatur-Einsatz", "Gebuchter Besuch bei einer Heizung, die nicht heizt: Fehler gefunden und wenn möglich im selben Besuch behoben."],
+    uk: ["Виклик для ремонту опалення", "Запланований візит, коли опалення не гріє: несправність знаходять і усувають за той самий візит, коли можливо."],
+    tl: ["Visit para sa pag-ayos ng heating", "Naka-book na visit kapag hindi umiinit: hahanapin at aayusin ang sira sa parehong visit kung kaya."],
+  }, [
+    SHARED.diagnostic(95, { cost: 80 }),
+    L.labour(1, "flat", 500, {
+      en: ["Furnace repair", "The furnace fault repaired with quality parts, then the system tested through a full heating cycle."],
+      fr: ["Réparation de la fournaise", "Défaut de la fournaise réparé avec des pièces de qualité, puis système testé sur un cycle de chauffe complet."],
+      es: ["Reparación de la caldera", "Falla de la caldera reparada con piezas de calidad y el sistema probado en un ciclo completo de calefacción."],
+      it: ["Riparazione caldaia", "Guasto della caldaia riparato con ricambi di qualità, poi impianto provato per un ciclo completo di riscaldamento."],
+      de: ["Heizungsreparatur", "Fehler am Warmluftofen mit Qualitätsteilen behoben, dann die Anlage über einen vollen Heizzyklus geprüft."],
+      uk: ["Ремонт печі опалення", "Несправність печі усунено якісними деталями, систему перевірено на повному циклі нагрівання."],
+      tl: ["Pag-ayos ng furnace", "Inayos ang sira ng furnace gamit ang de-kalidad na piyesa at sinubukan ang buong heating cycle."],
+    }, { cost: 300 }),
+  ], D.regular("percent", 3)),
+
+  "fq.hvac_repair.diagnostics.service_visit": T("repair", {
+    it: ["Intervento di assistenza", "Uscita per rimettere in funzione riscaldamento o raffrescamento, con la riparazione fatta sul posto se il ricambio è sul furgone."],
+    de: ["Serviceeinsatz", "Einsatz, um Heizung oder Kühlung wieder in Gang zu bringen — repariert vor Ort, wenn das Teil im Wagen ist."],
+    uk: ["Сервісний виїзд", "Виїзд, щоб знову запустити опалення чи охолодження, з ремонтом на місці, якщо деталь є в машині."],
+    tl: ["Service visit", "Pagpunta para paandarin ulit ang heating o cooling, inaayos agad kung nasa truck ang piyesa."],
+  }, [
+    SHARED.serviceCall(89),
+    SHARED.techHour(1, 135),
+  ], D.regular("percent", 3)),
+
+  "fq.hvac_repair.diagnostics.cooling_repair_visit": T("inspection", {
+    it: ["Visita diagnostica — nessun raffrescamento", "Il climatizzatore non raffresca: un tecnico viene a casa e trova la causa prima di qualsiasi riparazione."],
+    de: ["Diagnosebesuch — keine Kühlung", "Die Klimaanlage kühlt nicht: ein Techniker kommt ins Haus und findet die Ursache vor jeder Reparatur."],
+    uk: ["Діагностика — не охолоджує", "Кондиціонер не охолоджує: технік приїжджає додому й знаходить причину до будь-якого ремонту."],
+    tl: ["Diagnostic visit — walang lamig", "Hindi lumalamig ang aircon: pupunta ang technician at hahanapin ang sanhi bago mag-ayos."],
+  }, [
+    SHARED.diagnostic(95, { cost: 80 }),
+  ], D.regular("percent", 3)),
+
+  "fq.hvac_repair.diagnostics.system_inspection": T("inspection", {
+    it: ["Ispezione dell'impianto HVAC", "Batterie, filtro, pressioni del refrigerante, collegamenti elettrici e termostato controllati per sicurezza e prestazioni, con i risultati per iscritto."],
+    de: ["HLK-Anlageninspektion", "Register, Filter, Kältemitteldrücke, elektrische Anschlüsse und Thermostat auf Sicherheit und Leistung geprüft, Befunde schriftlich."],
+    uk: ["Огляд системи HVAC", "Теплообмінники, фільтр, тиск холодоагенту, електричні з'єднання та термостат перевірено на безпеку й роботу, результати письмово."],
+    tl: ["Inspeksyon ng HVAC system", "Chineck ang coil, filter, refrigerant pressure, koneksyon ng kuryente at thermostat para sa kaligtasan at performance, nakasulat ang resulta."],
+  }, [
+    L.labour(1, "flat", 99, {
+      en: ["Full HVAC system inspection", "Coils, filter, refrigerant levels, electrical connections and thermostat inspected."],
+      fr: ["Inspection complète du système", "Serpentins, filtre, niveaux de frigorigène, connexions électriques et thermostat inspectés."],
+      es: ["Inspección completa del sistema", "Serpentines, filtro, niveles de refrigerante, conexiones eléctricas y termostato inspeccionados."],
+      it: ["Ispezione completa dell'impianto", "Batterie, filtro, livelli del refrigerante, collegamenti elettrici e termostato ispezionati."],
+      de: ["Vollständige Anlageninspektion", "Register, Filter, Kältemittelstand, elektrische Anschlüsse und Thermostat geprüft."],
+      uk: ["Повний огляд системи", "Оглянуто теплообмінники, фільтр, рівень холодоагенту, електричні з'єднання та термостат."],
+      tl: ["Buong inspeksyon ng HVAC", "Sinuri ang coil, filter, refrigerant level, koneksyon ng kuryente at thermostat."],
+    }, { cost: 50 }),
+  ], D.regular("fixed", 5)),
+
+  "fq.hvac_repair.diagnostics.diagnostic_visit": T("inspection", {
+    it: ["Visita diagnostica", "Un tecnico trova perché riscaldamento o raffrescamento non funzionano e dà un prezzo scritto prima di riparare."],
+    de: ["Diagnosebesuch", "Ein Techniker findet, warum Heizung oder Kühlung nicht laufen, und nennt vor der Reparatur einen schriftlichen Preis."],
+    uk: ["Діагностичний візит", "Технік з'ясовує, чому не працює опалення чи охолодження, і дає письмову ціну до ремонту."],
+    tl: ["Diagnostic visit", "Aalamin ng technician kung bakit hindi gumagana ang heating o cooling at magbibigay ng nakasulat na presyo bago mag-ayos."],
+  }, [
+    SHARED.diagnostic(95, { cost: 80 }),
+  ], null),
+
+  "fq.hvac_repair.coils.evaporator_clean": T("maintenance", {
+    it: ["Pulizia batteria evaporatore", "Batteria dell'evaporatore pulita con detergente specifico, vaschetta pulita, alette raddrizzate e prestazioni verificate."],
+    de: ["Verdampferreinigung", "Verdampferregister mit Spezialreiniger gesäubert, Wanne gereinigt, Lamellen gerichtet und die Leistung geprüft."],
+    uk: ["Чищення випарника", "Випарник очищено спеціальним засобом, піддон вимито, ламелі вирівняно, роботу перевірено."],
+    tl: ["Paglilinis ng evaporator coil", "Nilinis ang evaporator coil gamit ang espesyal na cleaner, nilinis ang pan, inayos ang fins at sinubukan ang performance."],
+  }, [
+    L.labour(1, "flat", 500, {
+      en: ["Coil cleaning", "Surrounding parts protected, cleaner applied and rinsed, drain pan cleaned, fins combed and the system tested."],
+      fr: ["Nettoyage du serpentin", "Pièces voisines protégées, nettoyant appliqué et rincé, bac nettoyé, ailettes redressées et système testé."],
+      es: ["Limpieza del serpentín", "Piezas cercanas protegidas, limpiador aplicado y enjuagado, charola limpia, aletas peinadas y el sistema probado."],
+      it: ["Pulizia batteria", "Componenti vicini protetti, detergente applicato e risciacquato, vaschetta pulita, alette pettinate e impianto provato."],
+      de: ["Registerreinigung", "Umliegende Teile geschützt, Reiniger aufgetragen und gespült, Wanne gereinigt, Lamellen gekämmt, Anlage getestet."],
+      uk: ["Чищення теплообмінника", "Сусідні деталі захищено, засіб нанесено й змито, піддон очищено, ламелі вирівняно, систему перевірено."],
+      tl: ["Paglilinis ng coil", "Pinrotektahan ang katabing parte, nilagyan ng cleaner at hinugasan, nilinis ang pan, sinuklay ang fins at sinubukan."],
+    }, { cost: 200 }),
+  ], D.regular("percent", 3)),
+
+  "fq.hvac_repair.maintenance.preventative_maintenance": T("maintenance", {
+    it: ["Manutenzione preventiva", "Visita programmata per pulire, regolare e provare l'impianto prima della stagione, così i piccoli difetti si trovano prima del guasto."],
+    de: ["Vorbeugende Wartung", "Planmäßiger Besuch, um die Anlage vor der Saison zu reinigen, einzustellen und zu prüfen — kleine Mängel werden vor dem Ausfall gefunden."],
+    uk: ["Профілактичне обслуговування", "Плановий візит, щоб очистити, налаштувати й перевірити систему до сезону й виявити дрібні несправності до аварії."],
+    tl: ["Preventive maintenance", "Naka-schedule na visit para linisin, ayusin at subukan ang sistema bago ang season, para mahuli ang maliit na sira bago masira."],
+  }, [
+    L.labour(1, "flat", 129, {
+      en: ["Seasonal tune-up", "Coil cleaning, belt check, thermostat calibration, drain flush and safety check."],
+      fr: ["Mise au point saisonnière", "Nettoyage des serpentins, vérification de la courroie, étalonnage du thermostat, purge du drain et contrôle de sécurité."],
+      es: ["Afinación de temporada", "Limpieza de serpentines, revisión de banda, calibración del termostato, purga del drenaje y revisión de seguridad."],
+      it: ["Tagliando stagionale", "Pulizia batterie, controllo cinghia, taratura termostato, lavaggio scarico e verifica di sicurezza."],
+      de: ["Saisonwartung", "Registerreinigung, Riemenprüfung, Thermostatkalibrierung, Ablaufspülung und Sicherheitsprüfung."],
+      uk: ["Сезонне обслуговування", "Чищення теплообмінників, перевірка ременя, калібрування термостата, промивання дренажу та перевірка безпеки."],
+      tl: ["Seasonal tune-up", "Paglilinis ng coil, check ng belt, calibration ng thermostat, flush ng drain at safety check."],
+    }, { cost: 65 }),
+    L.material(1, "each", 20, {
+      en: ["Pleated air filter", "1-inch pleated filter, MERV 8, in the system's size."],
+      fr: ["Filtre à air plissé", "Filtre plissé de 1 po, MERV 8, à la dimension du système."],
+      es: ["Filtro de aire plisado", "Filtro plisado de 1 pulg, MERV 8, en la medida del sistema."],
+      it: ["Filtro aria pieghettato", "Filtro pieghettato da 1 pollice, MERV 8, nella misura dell'impianto."],
+      de: ["Faltenfilter", "1-Zoll-Faltenfilter, MERV 8, in der Größe der Anlage."],
+      uk: ["Гофрований повітряний фільтр", "Гофрований фільтр 1 дюйм, MERV 8, за розміром системи."],
+      tl: ["Pleated air filter", "1-inch pleated filter, MERV 8, sa size ng sistema."],
+    }, { cost: 8 }),
+  ], D.regular("fixed", 7)),
+
+  // ── The captured one-time duct cleaning (air-duct capture under
+  //    docs/research/: $320 at $200 cost, vents and registers $90 at $50,
+  //    $20 off). The rest of that set lives in air_duct_cleaning.js; this
+  //    row is tagged for that trade below. ───────────────────────────────
+  "fq.hvac_repair.air_quality.clean_ducts": T("installation", {
+    it: ["Pulizia dei condotti d'aria", "Condotti di mandata e ripresa puliti con aspirazione a pressione negativa e spazzole rotanti."],
+    de: ["Luftkanalreinigung", "Zu- und Abluftkanäle mit Unterdruckabsaugung und rotierenden Bürsten gereinigt."],
+    uk: ["Чищення повітроводів", "Припливні та зворотні повітроводи очищено негативним тиском і обертовими щітками."],
+    tl: ["Paglilinis ng air duct", "Nilinis ang supply at return duct gamit ang negative-pressure vacuum at umiikot na brush."],
+  }, [
+    L.labour(1, "flat", 320, {
+      en: ["Air duct cleaning", "Trunk and branch ducts cleaned under negative pressure with rotary brushes."],
+      fr: ["Nettoyage des conduits", "Conduits principaux et secondaires nettoyés sous pression négative avec brosses rotatives."],
+      es: ["Limpieza de ductos", "Ductos troncales y ramales limpiados con presión negativa y cepillos rotativos."],
+      it: ["Pulizia dei condotti", "Condotti principali e diramazioni puliti in depressione con spazzole rotanti."],
+      de: ["Kanalreinigung", "Haupt- und Abzweigkanäle im Unterdruck mit rotierenden Bürsten gereinigt."],
+      uk: ["Чищення повітроводів", "Магістральні й відгалужені повітроводи очищено під негативним тиском обертовими щітками."],
+      tl: ["Paglilinis ng duct", "Nilinis ang trunk at branch duct sa negative pressure gamit ang rotary brush."],
+    }, { cost: 200 }),
+    L.labour(1, "flat", 90, {
+      en: ["Vent and register cleaning", "Every vent and register removed, washed and refitted."],
+      fr: ["Nettoyage des bouches et grilles", "Chaque bouche et grille retirée, lavée et reposée."],
+      es: ["Limpieza de rejillas y difusores", "Cada rejilla y difusor retirado, lavado y recolocado."],
+      it: ["Pulizia bocchette e griglie", "Ogni bocchetta e griglia tolta, lavata e rimontata."],
+      de: ["Auslässe und Gitter reinigen", "Jeder Auslass und jedes Gitter abgenommen, gewaschen und wieder angebracht."],
+      uk: ["Чищення решіток і дифузорів", "Кожну решітку й дифузор знято, вимито й встановлено назад."],
+      tl: ["Paglilinis ng vent at register", "Tinanggal, hinugasan at ibinalik ang bawat vent at register."],
+    }, { cost: 50 }),
+  ], D.newCustomer("fixed", 20)),
+
+  // ── Taken from the schema agent's template draft (branch
+  //    agent/services-templates-seeds-wip) for rows this file had not
+  //    templated; prices and costs as drafted there. ──────────────────
+  "fq.hvac_repair.air_quality.replace_filter": T("maintenance", {
+    it: ["Sostituzione del filtro dell'aria", "Il filtro dell'impianto sostituito con uno nuovo della misura giusta e la griglia di ripresa pulita."],
+    de: ["Luftfilterwechsel", "Der Anlagenfilter durch einen neuen in der richtigen Größe ersetzt und das Rückluftgitter gereinigt."],
+    uk: ["Заміна повітряного фільтра", "Фільтр системи замінено на новий потрібного розміру, решітку рециркуляції очищено."],
+    tl: ["Pagpapalit ng air filter", "Pinalitan ang filter ng sistema ng bagong tamang sukat at nilinis ang return grille."],
+  }, [
+    L.labour(1, "flat", 60, {
+      en: ["Filter change and return cleaning", "The old filter out, the return grille vacuumed, the new filter in and the airflow arrow checked."],
+      fr: ["Changement de filtre et nettoyage du retour d'air", "Ancien filtre retiré, grille de retour aspirée, filtre neuf posé et sens de la flèche vérifié."],
+      es: ["Cambio de filtro y limpieza del retorno", "Filtro viejo fuera, rejilla de retorno aspirada, filtro nuevo puesto y la flecha de flujo verificada."],
+      it: ["Cambio filtro e pulizia della ripresa", "Filtro vecchio tolto, griglia di ripresa aspirata, filtro nuovo inserito e freccia del flusso controllata."],
+      de: ["Filterwechsel und Rückluftreinigung", "Alter Filter raus, Rückluftgitter abgesaugt, neuer Filter rein und der Luftrichtungspfeil geprüft."],
+      uk: ["Заміна фільтра та чищення решітки", "Старий фільтр знято, решітку пропилососено, новий фільтр встановлено, стрілку напряму перевірено."],
+      tl: ["Pagpapalit ng filter at paglilinis ng return", "Tinanggal ang lumang filter, na-vacuum ang return grille, inilagay ang bago at sinuri ang arrow ng daloy."],
+    }, { cost: 30 }),
+    L.material(1, "each", 45, {
+      en: ["High-efficiency pleated filter", "A MERV 11 pleated filter in the size the system takes."],
+      fr: ["Filtre plissé haute efficacité", "Filtre plissé MERV 11 à la dimension du système."],
+      es: ["Filtro plisado de alta eficiencia", "Filtro plisado MERV 11 en la medida que usa el sistema."],
+      it: ["Filtro pieghettato ad alta efficienza", "Filtro pieghettato MERV 11 nella misura dell'impianto."],
+      de: ["Hochleistungs-Faltenfilter", "MERV-11-Faltenfilter in der Größe der Anlage."],
+      uk: ["Гофрований фільтр високої ефективності", "Гофрований фільтр MERV 11 потрібного розміру."],
+      tl: ["High-efficiency pleated filter", "MERV 11 pleated filter sa sukat ng sistema."],
+    }, { cost: 34 }),
+  ], null),
+
+  "fq.hvac_repair.coils.inspect": T("inspection", {
+    it: ["Ispezione delle batterie", "Batterie dell'evaporatore e del condensatore ispezionate per sporco, corrosione e perdite, con quanto trovato riferito prima di consigliare una pulizia o una riparazione."],
+    de: ["Inspektion der Wärmetauscher", "Verdampfer- und Verflüssigerregister auf Verschmutzung, Korrosion und Lecks geprüft; der Befund wird berichtet, bevor eine Reinigung oder Reparatur empfohlen wird."],
+    uk: ["Огляд теплообмінників", "Випарник і конденсатор оглянуто на забруднення, корозію та витоки; результат повідомлено до рекомендації чищення або ремонту."],
+    tl: ["Inspeksyon ng coil", "Sinuri ang evaporator at condenser coil kung may dumi, kalawang at tagas, at iniulat ang natuklasan bago magrekomenda ng paglilinis o pag-aayos."],
+  }, [
+    L.labour(1, "flat", 125, {
+      en: ["Coil inspection", "Both coils opened up and examined for fouling, corrosion and oil traces that mean a leak."],
+      fr: ["Inspection des serpentins", "Les deux serpentins ouverts et examinés pour encrassement, corrosion et traces d'huile signalant une fuite."],
+      es: ["Inspección de serpentines", "Ambos serpentines abiertos y examinados en busca de suciedad, corrosión y rastros de aceite que indiquen fuga."],
+      it: ["Ispezione delle batterie", "Entrambe le batterie aperte ed esaminate per sporco, corrosione e tracce d'olio che indicano una perdita."],
+      de: ["Registerinspektion", "Beide Register geöffnet und auf Verschmutzung, Korrosion und Ölspuren, die auf ein Leck hindeuten, untersucht."],
+      uk: ["Огляд теплообмінників", "Обидва теплообмінники відкрито та оглянуто на забруднення, корозію та сліди оливи, що вказують на витік."],
+      tl: ["Inspeksyon ng coil", "Binuksan at sinuri ang dalawang coil kung may dumi, kalawang at bakas ng langis na senyales ng tagas."],
+    }, { cost: 60 }),
+  ], null),
+};
+
+withTemplates(SEED, TEMPLATES);
+
+// Shared services: one canonical row here, installed for these quote types too.
+tagRows(SEED, {
+  "fq.hvac_repair.air_quality.clean_ducts": ["air_duct_cleaning"],
+  "fq.hvac_repair.air_quality.replace_filter": ["air_duct_cleaning"],
+  "fq.hvac_repair.air_quality.seal_insulate_ducts": ["air_duct_cleaning"],
+  "fq.hvac_repair.air_quality.uv_purifier_install": ["air_duct_cleaning"],
+  "fq.hvac_repair.air_quality.duct_cleaning_visit": ["air_duct_cleaning"],
+  "fq.hvac_repair.air_quality.iaq_testing": ["air_duct_cleaning"],
+});

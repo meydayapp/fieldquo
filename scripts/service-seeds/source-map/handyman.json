@@ -565,5 +565,82 @@
   "sourceCategory": "Plumbing",
   "sourceService": "Toilet Repair, Replacement, and Installation Services",
   "taskCode": "DEFAULT_HANDYMAN_SERVICE_80"
+ },
+ {
+  "seedKey": "fq.handyman.electrical.light_fixture_replacement",
+  "industry": "Handyman",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Light Fixture Replacement",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.handyman.labour.home_walkthrough",
+  "industry": "Handyman",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Home maintenance walkthrough and punch list",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.handyman.labour.estimate_visit",
+  "industry": "Handyman",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "On-site estimate visit",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.handyman.labour.seasonal_checklist",
+  "industry": "Handyman",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Seasonal home maintenance visit",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.handyman.labour.diagnostic_visit",
+  "industry": "Handyman",
+  "sourceCategory": "Estimate templates (handyman capture)",
+  "sourceService": "Diagnostic visit",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.handyman.labour.repair_visit",
+  "industry": "Handyman",
+  "sourceCategory": "Estimate templates (handyman capture)",
+  "sourceService": "Repair visit",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.handyman.doors_windows.glass_pane",
+  "industry": "Handyman",
+  "sourceCategory": "Estimate templates (handyman capture)",
+  "sourceService": "Glass pane replacement",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.handyman.exterior.deck_board_replacement",
+  "industry": "Handyman",
+  "sourceCategory": "Estimate templates (handyman capture)",
+  "sourceService": "Deck board replacement — per board",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.handyman.flooring.floor_patch",
+  "industry": "Handyman",
+  "sourceCategory": "Estimate templates (handyman capture)",
+  "sourceService": "Flooring repair and patch",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.handyman.flooring.tile_replacement",
+  "industry": "Handyman",
+  "sourceCategory": "Estimate templates (handyman capture)",
+  "sourceService": "Tile replacement — small area",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.handyman.exterior.gutter_repair",
+  "industry": "Handyman",
+  "sourceCategory": "Estimate templates (handyman capture)",
+  "sourceService": "Gutter repair",
+  "taskCode": null
  }
 ]

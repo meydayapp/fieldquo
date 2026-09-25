@@ -7,6 +7,10 @@
 // row overlaps a trade FieldQuo already prices structurally (roofing, siding,
 // gutters, insulation, cabinets), `existing` points there; the general
 // contractor's own row still seeds, because a GC quotes the whole job.
+import { L, SHARED, D, T, withTemplates, hdMaterial, withLanguages } from "./_templateLines";
+import { HD } from "./_materialCosts";
+import { I18N } from "./i18n/general_contracting.js";
+
 const BM = (low, median, high) => ({ low, median, high, currency: "USD", source: "benchmark", asOf: "2026-09-21" });
 const S = (seedKey, category, unit, benchmark, [en, fr, es], [den, dfr, des], extra = {}) => ({
   seedKey, category, name: { en, fr, es }, description: { en: den, fr: dfr, es: des },
@@ -30,6 +34,11 @@ export const SEED = {
     { key: "roofing", name: { en: "Roofing, gutters and chimneys", fr: "Toiture, gouttières et cheminées", es: "Techos, canaletas y chimeneas" } },
     { key: "waterproofing", name: { en: "Waterproofing and restoration", fr: "Imperméabilisation et restauration", es: "Impermeabilización y restauración" } },
     { key: "openings", name: { en: "Windows, doors and garage", fr: "Fenêtres, portes et garage", es: "Ventanas, puertas y garaje" } },
+    // Two headings added 2026-09-24 with the estimate templates: the captured
+    // construction-and-remodelling template set prices design, project
+    // management and whole-home / basement work the book had no row for.
+    { key: "consulting", name: { en: "Design, consultation and project management", fr: "Conception, consultation et gestion de projet", es: "Diseño, consultoría y gestión de proyecto" } },
+    { key: "renovation", name: { en: "Whole-home renovation and basement finishing", fr: "Rénovation complète et finition de sous-sol", es: "Renovación integral y acabado de sótano" } },
   ],
   services: [
     S("fq.general_contracting.bathroom.demolition", "bathroom", "flat", null,
@@ -599,5 +608,568 @@ export const SEED = {
        "Fenêtres à guillotine, coulissantes et fixes fournies et posées, avec solins et scellement.",
        "Ventanas de guillotina, corredizas y fijas suministradas e instaladas, con tapajuntas y sellado."],
       { existing: "doors_windows seed." }),
+    // ── Added 2026-09-24 with the estimate templates ──────────────────────
+    S("fq.general_contracting.consulting.diagnostic_visit", "consulting", "flat", null,
+      ["Diagnostic visit", "Visite de diagnostic", "Visita de diagnóstico"],
+      ["Something in the house is not working as it should: a technician comes out, finds the cause and says what the fix will take.",
+       "Quelque chose dans la maison ne fonctionne pas comme il faut : un technicien se déplace, trouve la cause et précise ce que la réparation demandera.",
+       "Algo en la casa no funciona como debe: un técnico acude, encuentra la causa y explica qué requerirá la reparación."],
+      { durationMinutes: 60, bookable: true }),
+    S("fq.general_contracting.consulting.repair_visit", "consulting", "flat", null,
+      ["Repair visit", "Visite de réparation", "Visita de reparación"],
+      ["A call-out to investigate and fix a fault around the house, with the repair done on the same visit where possible.",
+       "Déplacement pour trouver et corriger un problème dans la maison, réparation faite pendant la même visite quand c'est possible.",
+       "Salida para investigar y corregir una falla en la casa, con la reparación hecha en la misma visita cuando es posible."],
+      { durationMinutes: 120, bookable: true }),
+    S("fq.general_contracting.consulting.kitchen_design", "consulting", "flat", null,
+      ["Kitchen design and planning consultation", "Consultation de conception et planification de cuisine", "Consulta de diseño y planificación de cocina"],
+      ["The kitchen measured on site, the scope worked out with the client and preliminary layout options drawn up.",
+       "Cuisine mesurée sur place, portée des travaux établie avec le client et options d'aménagement préliminaires dessinées.",
+       "Cocina medida en sitio, el alcance definido con el cliente y opciones preliminares de distribución dibujadas."]),
+    S("fq.general_contracting.consulting.kitchen_project_management", "consulting", "flat", null,
+      ["Kitchen remodel project management", "Gestion de projet — rénovation de cuisine", "Gestión de proyecto — remodelación de cocina"],
+      ["Permits pulled, subcontractors scheduled and every inspection coordinated from demolition to the final walkthrough.",
+       "Permis obtenus, sous-traitants planifiés et chaque inspection coordonnée de la démolition à la visite finale.",
+       "Permisos tramitados, subcontratistas programados y cada inspección coordinada desde la demolición hasta el recorrido final."]),
+    S("fq.general_contracting.renovation.whole_home_scope", "renovation", "flat", null,
+      ["Whole-home design and scope development", "Conception et définition de portée — rénovation complète", "Diseño y definición de alcance — renovación integral"],
+      ["A multi-trade scope document, a sequencing plan and an allowance schedule prepared for the whole renovation.",
+       "Document de portée multi-métiers, plan de séquencement et grille d'allocations préparés pour l'ensemble de la rénovation.",
+       "Documento de alcance multioficio, plan de secuencia y programa de provisiones preparados para toda la renovación."]),
+    S("fq.general_contracting.renovation.whole_home_finish_labour", "renovation", "sqft", null,
+      ["Whole-home renovation labour — per sq ft", "Main-d'œuvre de rénovation complète — au pi²", "Mano de obra de renovación integral — por pie²"],
+      ["Framing touch-ins, drywall, paint and trim across the renovated footprint, priced per square foot; kitchen and bath specialty work quoted separately.",
+       "Retouches de charpente, gypse, peinture et moulures sur toute la surface rénovée, au pied carré; les travaux spécialisés de cuisine et de salle de bain sont chiffrés à part.",
+       "Ajustes de estructura, panel de yeso, pintura y molduras en toda el área renovada, por pie cuadrado; el trabajo especializado de cocina y baño se cotiza aparte."]),
+    S("fq.general_contracting.renovation.whole_home_project_management", "renovation", "flat", null,
+      ["Whole-home renovation project management", "Gestion de projet — rénovation complète", "Gestión de proyecto — renovación integral"],
+      ["Trade sequencing, permits and inspections managed across every room of the renovation through to completion.",
+       "Séquencement des corps de métier, permis et inspections gérés dans chaque pièce de la rénovation jusqu'à la fin des travaux.",
+       "Secuencia de oficios, permisos e inspecciones gestionados en cada habitación de la renovación hasta su finalización."]),
+    S("fq.general_contracting.renovation.basement_moisture_prep", "renovation", "sqft", null,
+      ["Basement moisture and structural prep — per sq ft", "Préparation contre l'humidité et structure de sous-sol — au pi²", "Preparación contra humedad y estructura de sótano — por pie²"],
+      ["Moisture tested, a vapour barrier laid and pressure-treated framing prepared against the concrete before the basement is finished.",
+       "Humidité testée, pare-vapeur posé et charpente en bois traité préparée contre le béton avant la finition du sous-sol.",
+       "Humedad medida, barrera de vapor colocada y estructura de madera tratada preparada contra el concreto antes de terminar el sótano."]),
+    S("fq.general_contracting.renovation.basement_framing_rough_in", "renovation", "sqft", null,
+      ["Basement framing and rough-in — per sq ft", "Charpente et plomberie-électricité brutes de sous-sol — au pi²", "Estructura e instalaciones brutas de sótano — por pie²"],
+      ["Walls framed and the electrical and plumbing rough-ins coordinated for a finished basement, priced per square foot.",
+       "Murs montés et travaux bruts d'électricité et de plomberie coordonnés pour un sous-sol fini, au pied carré.",
+       "Muros estructurados e instalaciones brutas de electricidad y plomería coordinadas para un sótano terminado, por pie cuadrado."]),
+    S("fq.general_contracting.renovation.basement_finish", "renovation", "sqft", null,
+      ["Basement finish labour — per sq ft", "Main-d'œuvre de finition de sous-sol — au pi²", "Mano de obra de acabado de sótano — por pie²"],
+      ["Drywall, paint, trim and flooring installed through the basement, priced per square foot.",
+       "Gypse, peinture, moulures et plancher posés dans tout le sous-sol, au pied carré.",
+       "Panel de yeso, pintura, molduras y piso instalados en todo el sótano, por pie cuadrado."]),
+    S("fq.general_contracting.renovation.egress_window", "renovation", "each", null,
+      ["Basement egress window addition", "Ajout de fenêtre de sortie de secours au sous-sol", "Adición de ventana de salida de emergencia en sótano"],
+      ["The foundation cut, a code-compliant egress window set and a window well installed, priced per window.",
+       "Fondation découpée, fenêtre de sortie conforme au code posée et margelle installée, prix par fenêtre.",
+       "Cimentación cortada, ventana de salida conforme al código colocada y pozo de ventana instalado, precio por ventana."]),
+    S("fq.general_contracting.renovation.whole_home_demolition", "renovation", "sqft", null,
+      ["Whole-home demolition — per sq ft", "Démolition de rénovation complète — au pi²", "Demolición de renovación integral — por pie²"],
+      ["Existing finishes stripped out across every room in the renovation and hauled away, priced per square foot of renovated footprint.",
+       "Finitions existantes arrachées dans chaque pièce visée par la rénovation et évacuées, au pied carré de surface rénovée.",
+       "Acabados existentes retirados en cada habitación de la renovación y llevados, por pie cuadrado de área renovada."]),
   ],
 };
+
+// ── Estimate templates ───────────────────────────────────────────────────────
+//
+// Evidence: nineteen templates captured on 2026-09-24 from a competitor trial
+// signed up as construction and remodelling (docs/research/, the
+// construction estimate-template capture): labour-only lines, per-sq-ft
+// pricing for demolition, finish, basement and flooring work ($8, $7, $20,
+// $4, $15, $7.50 a sq ft), fixed design and scope fees ($650–700) and project
+// management fees ($1,200–2,500), "Builder Grade" vs "Standard" option names,
+// no materials, and a unit cost of ZERO on every remodel line — the source
+// ships no cost for this trade. The prices are kept; the costs are ours:
+// labour ≈ 50% of price (the ratio the captured electrical set uses), the
+// two visit lines keep their captured 80/100 costs. The five templates
+// authored beyond the capture (crack repair, drywall repair, the three
+// maintenance visits) follow the same ratio.
+//
+// Per-sq-ft lines carry `areaSqFt` and keep qty 1: the app fills the room or
+// footprint from the takeoff. The kitchen demolition row is `flat` with a
+// benchmark, so its range comes from the benchmark and the $8/sq ft line
+// prices the job once the area is in.
+const TEMPLATES = {
+  // ── Inspection ──
+  "fq.general_contracting.consulting.diagnostic_visit": T("inspection", {
+    it: ["Visita diagnostica", "Qualcosa in casa non funziona come dovrebbe: un tecnico esce, trova la causa e dice cosa richiederà la riparazione."],
+    de: ["Diagnosebesuch", "Etwas im Haus funktioniert nicht, wie es soll: ein Techniker kommt, findet die Ursache und sagt, was die Reparatur braucht."],
+    uk: ["Діагностичний візит", "Щось у будинку працює не так, як має: технік приїжджає, знаходить причину й каже, що потрібно для ремонту."],
+    tl: ["Diagnostic visit", "May hindi gumagana sa bahay: pupunta ang technician, hahanapin ang sanhi at sasabihin kung ano ang kailangan sa pag-ayos."],
+  }, [
+    SHARED.diagnostic(100, { cost: 80 }),
+  ], D.newCustomer("fixed", 10)),
+
+  "fq.general_contracting.consulting.kitchen_design": T("inspection", {
+    it: ["Consulenza di progettazione e pianificazione cucina", "Cucina misurata sul posto, ambito dei lavori definito con il cliente e opzioni preliminari di layout disegnate."],
+    de: ["Küchenplanung und Beratung", "Küche vor Ort aufgemessen, der Umfang mit dem Kunden festgelegt und erste Grundrissvarianten gezeichnet."],
+    uk: ["Консультація з дизайну та планування кухні", "Кухню виміряно на місці, обсяг робіт узгоджено з клієнтом, підготовлено попередні варіанти планування."],
+    tl: ["Konsultasyon sa disenyo at pagpaplano ng kusina", "Sinukat ang kusina sa bahay, napagkasunduan ang scope kasama ang kliyente at ginuhit ang mga paunang layout."],
+  }, [
+    L.labour(1, "flat", 700, {
+      en: ["Design and planning fee", "The initial design consultation and scope development, on site."],
+      fr: ["Honoraires de conception et de planification", "Consultation de conception initiale et définition de la portée, sur place."],
+      es: ["Honorarios de diseño y planificación", "Consulta inicial de diseño y definición del alcance, en sitio."],
+      it: ["Onorario di progettazione e pianificazione", "Consulenza di progettazione iniziale e definizione dell'ambito, sul posto."],
+      de: ["Planungs- und Beratungspauschale", "Erstes Planungsgespräch und Festlegung des Umfangs, vor Ort."],
+      uk: ["Плата за дизайн і планування", "Початкова консультація з дизайну та визначення обсягу робіт на місці."],
+      tl: ["Bayad sa disenyo at pagpaplano", "Unang konsultasyon sa disenyo at pagbuo ng scope, sa bahay."],
+    }),
+  ], null),
+
+  "fq.general_contracting.renovation.whole_home_scope": T("inspection", {
+    it: ["Progettazione e definizione ambito — ristrutturazione completa", "Documento di ambito multi-mestiere, piano di sequenza e tabella delle provvisioni preparati per l'intera ristrutturazione."],
+    de: ["Planung und Leistungsumfang — Komplettsanierung", "Gewerkeübergreifendes Leistungsverzeichnis, Ablaufplan und Budgetposten für die gesamte Sanierung erstellt."],
+    uk: ["Дизайн і визначення обсягу — повна реновація", "Підготовлено документ обсягу робіт по всіх спеціальностях, план послідовності та кошторис резервів на всю реновацію."],
+    tl: ["Disenyo at scope — buong-bahay na renovation", "Inihanda ang multi-trade na scope document, sequencing plan at allowance schedule para sa buong renovation."],
+  }, [
+    L.labour(1, "flat", 650, {
+      en: ["Design and scope development fee", "The whole-house scope, trade sequencing and allowance schedule written up."],
+      fr: ["Honoraires de conception et de définition de portée", "Portée de toute la maison, séquencement des métiers et grille d'allocations rédigés."],
+      es: ["Honorarios de diseño y definición de alcance", "Alcance de toda la casa, secuencia de oficios y programa de provisiones redactados."],
+      it: ["Onorario di progettazione e definizione ambito", "Ambito dell'intera casa, sequenza dei mestieri e tabella delle provvisioni redatti."],
+      de: ["Planungs- und Leistungsumfangspauschale", "Umfang für das ganze Haus, Gewerkereihenfolge und Budgetposten ausgearbeitet."],
+      uk: ["Плата за дизайн і визначення обсягу", "Складено обсяг робіт на весь будинок, послідовність спеціальностей і кошторис резервів."],
+      tl: ["Bayad sa disenyo at scope", "Isinulat ang scope ng buong bahay, pagkakasunod ng trades at allowance schedule."],
+    }),
+  ], null),
+
+  // ── Repair ──
+  "fq.general_contracting.consulting.repair_visit": T("repair", {
+    it: ["Intervento di riparazione", "Uscita per individuare e sistemare un guasto in casa, con la riparazione fatta nella stessa visita quando possibile."],
+    de: ["Reparatureinsatz", "Einsatz, um einen Fehler im Haus zu finden und zu beheben — wenn möglich im selben Besuch."],
+    uk: ["Ремонтний виїзд", "Виїзд, щоб знайти й усунути несправність у будинку, з ремонтом за той самий візит, коли можливо."],
+    tl: ["Repair visit", "Pagpunta para hanapin at ayusin ang sira sa bahay, inaayos sa parehong visit kung kaya."],
+  }, [
+    L.labour(1, "flat", 200, {
+      en: ["Repair", "The fault diagnosed and repaired on site."],
+      fr: ["Réparation", "Défaut diagnostiqué et réparé sur place."],
+      es: ["Reparación", "Falla diagnosticada y reparada en sitio."],
+      it: ["Riparazione", "Guasto diagnosticato e riparato sul posto."],
+      de: ["Reparatur", "Fehler vor Ort diagnostiziert und behoben."],
+      uk: ["Ремонт", "Несправність діагностовано та усунено на місці."],
+      tl: ["Pag-ayos", "Na-diagnose at naayos ang sira sa bahay."],
+    }, { cost: 100 }),
+  ], D.regular("percent", 3)),
+
+  "fq.general_contracting.concrete_masonry.crack_repair": T("repair", {
+    it: ["Riparazione crepe in fondazione e calcestruzzo", "Crepe iniettate, stuccate e sigillate per fermare l'acqua e ulteriori movimenti."],
+    de: ["Riss-Sanierung an Fundament und Beton", "Risse verpresst, verspachtelt und abgedichtet, um Wasser und weitere Bewegung zu stoppen."],
+    uk: ["Ремонт тріщин у фундаменті та бетоні", "Тріщини заповнено ін'єкцією, зашпакльовано та загерметизовано, щоб зупинити воду й подальший рух."],
+    tl: ["Pag-ayos ng bitak sa pundasyon at kongkreto", "Ininject, tinapalan at sinelyuhan ang bitak para hindi pumasok ang tubig at hindi na gumalaw."],
+  }, [
+    L.labour(1, "linear_ft", 45, {
+      en: ["Crack injection labour — per linear ft", "The crack routed, ports set and epoxy or polyurethane injected to full depth."],
+      fr: ["Main-d'œuvre — injection de fissure, au pi lin.", "Fissure ouverte, injecteurs posés et époxy ou polyuréthane injecté sur toute la profondeur."],
+      es: ["Mano de obra — inyección de grieta, por pie lineal", "Grieta ranurada, puertos colocados y epoxi o poliuretano inyectado a toda la profundidad."],
+      it: ["Manodopera — iniezione crepa, al piede lineare", "Crepa fresata, iniettori posati ed epossidico o poliuretano iniettato a piena profondità."],
+      de: ["Arbeit — Rissverpressung, pro lfd. Fuß", "Riss aufgefräst, Packer gesetzt und Epoxid oder Polyurethan bis in die volle Tiefe verpresst."],
+      uk: ["Робота — ін'єкція тріщини, за пог. фут", "Тріщину розшито, встановлено пакери, епоксид або поліуретан закачано на всю глибину."],
+      tl: ["Labor — injection ng bitak, kada linear ft", "Binuksan ang bitak, nilagyan ng port at in-inject ng epoxy o polyurethane hanggang sa dulo."],
+    }, { measurementKey: "linearFt" }),
+    L.material(1, "linear_ft", 12, {
+      en: ["Injection resin and ports — per linear ft", "Epoxy or polyurethane resin, surface paste and injection ports."],
+      fr: ["Résine et injecteurs — au pi lin.", "Résine époxy ou polyuréthane, pâte de surface et injecteurs."],
+      es: ["Resina y puertos de inyección — por pie lineal", "Resina epóxica o de poliuretano, pasta de superficie y puertos de inyección."],
+      it: ["Resina e iniettori — al piede lineare", "Resina epossidica o poliuretanica, pasta di superficie e iniettori."],
+      de: ["Injektionsharz und Packer — pro lfd. Fuß", "Epoxid- oder Polyurethanharz, Oberflächenspachtel und Packer."],
+      uk: ["Смола та пакери — за пог. фут", "Епоксидна або поліуретанова смола, поверхнева паста та ін'єкційні пакери."],
+      tl: ["Injection resin at ports — kada linear ft", "Epoxy o polyurethane resin, surface paste at injection ports."],
+    }, { measurementKey: "linearFt" }),
+  ], null),
+
+  "fq.general_contracting.painting.drywall_repair_debris": T("repair", {
+    it: ["Riparazione cartongesso e smaltimento detriti", "Cartongesso riparato e i rifiuti di cantiere che ne derivano smaltiti."],
+    de: ["Trockenbaureparatur und Schuttentsorgung", "Trockenbau repariert und der dabei anfallende Bauschutt entsorgt."],
+    uk: ["Ремонт гіпсокартону та вивезення сміття", "Гіпсокартон відремонтовано, будівельне сміття від ремонту вивезено."],
+    tl: ["Pag-ayos ng drywall at pagtapon ng debris", "Inayos ang drywall at itinapon ang basurang galing dito."],
+  }, [
+    L.labour(1, "sqft", 6.5, {
+      en: ["Drywall patch and finish — per sq ft", "Damaged board cut out, new board set, taped, mudded in three coats and sanded ready for paint."],
+      fr: ["Rapiéçage et finition de gypse — au pi²", "Panneau abîmé découpé, nouveau panneau posé, rubané, tiré en trois couches et sablé, prêt pour la peinture."],
+      es: ["Parche y acabado de panel de yeso — por pie²", "Panel dañado cortado, panel nuevo colocado, encintado, tres manos de pasta y lijado listo para pintar."],
+      it: ["Rappezzo e finitura cartongesso — al piede quadro", "Lastra danneggiata tagliata, nuova lastra posata, nastrata, stuccata in tre mani e carteggiata pronta per la pittura."],
+      de: ["Trockenbau flicken und spachteln — pro sq ft", "Beschädigte Platte herausgeschnitten, neue Platte gesetzt, verspachtelt in drei Lagen und streichfertig geschliffen."],
+      uk: ["Латання й фінішування гіпсокартону — за кв. фут", "Пошкоджений лист вирізано, новий встановлено, проклеєно, зашпакльовано в три шари й відшліфовано під фарбування."],
+      tl: ["Patch at finish ng drywall — kada sq ft", "Pinutol ang sirang board, nilagyan ng bago, tinape, tinapalan ng tatlong patong at hinasa para sa pintura."],
+    }, { measurementKey: "areaSqFt" }),
+    SHARED.haulAway(75),
+    hdMaterial(HD.drywall_half_4x8, {
+      en: ["Drywall sheet — 1/2 in 4 × 8", "Lightweight 1/2 in board; one sheet covers 32 sq ft."],
+      fr: ["Panneau de gypse — 1/2 po 4 × 8", "Panneau léger de 1/2 po; une feuille couvre 32 pi²."],
+      es: ["Panel de yeso — 1/2 pulg 4 × 8", "Panel ligero de 1/2 pulg; una hoja cubre 32 pies²."],
+      it: ["Lastra di cartongesso — 1/2 pollice 4 × 8", "Lastra leggera da 1/2 pollice; una lastra copre 32 piedi quadri."],
+      de: ["Gipsplatte — 1/2 Zoll 4 × 8", "Leichte 1/2-Zoll-Platte; eine Platte deckt 32 sq ft."],
+      uk: ["Гіпсокартон — 1/2 дюйма 4 × 8", "Легкий лист 1/2 дюйма; лист покриває 32 кв. фути."],
+      tl: ["Drywall sheet — 1/2 in 4 × 8", "Magaan na 1/2 in na board; ang isang sheet ay 32 sq ft."],
+    }, { measurementKey: "areaSqFt" }),
+    hdMaterial(HD.joint_compound, {
+      en: ["Joint compound", "All-purpose ready-mix; a pail or carton finishes about 350 sq ft of board in three coats."],
+      fr: ["Composé à joints", "Prêt à l'emploi tout usage; une chaudière ou une boîte finit environ 350 pi² de panneau en trois couches."],
+      es: ["Pasta para juntas", "Premezclada multiuso; una cubeta o caja termina unos 350 pies² de panel a tres manos."],
+      it: ["Stucco per giunti", "Pronto all'uso multiuso; un secchio o una scatola rifinisce circa 350 piedi quadri di lastra in tre mani."],
+      de: ["Fugenspachtel", "Gebrauchsfertiger Allzweckspachtel; ein Eimer oder Karton reicht für etwa 350 sq ft Platte in drei Lagen."],
+      uk: ["Шпаклівка для швів", "Готова універсальна; відро чи коробка — близько 350 кв. футів листа у три шари."],
+      tl: ["Joint compound", "All-purpose ready-mix; ang isang timba o kahon ay para sa mga 350 sq ft ng board sa tatlong patong."],
+    }, { measurementKey: "areaSqFt" }),
+    hdMaterial(HD.drywall_tape, {
+      en: ["Paper joint tape — per roll", "500 ft roll; enough for about 13 sheets of board."],
+      fr: ["Ruban à joints en papier — le rouleau", "Rouleau de 500 pi; assez pour environ 13 panneaux."],
+      es: ["Cinta de papel para juntas — por rollo", "Rollo de 500 pies; alcanza para unas 13 hojas."],
+      it: ["Nastro di carta per giunti — per rotolo", "Rotolo da 500 piedi; basta per circa 13 lastre."],
+      de: ["Papierfugenband — pro Rolle", "500-Fuß-Rolle; reicht für etwa 13 Platten."],
+      uk: ["Паперова стрічка для швів — за рулон", "Рулон 500 футів; вистачає приблизно на 13 листів."],
+      tl: ["Paper joint tape — kada rolyo", "500 ft na rolyo; sapat para sa mga 13 sheet."],
+    }, { measurementKey: "areaSqFt" }),
+  ], null),
+
+  // ── Installation — kitchen ──
+  "fq.general_contracting.kitchen.demolition": T("installation", {
+    it: ["Demolizione mobili e piani cucina", "Mobili e piani esistenti rimossi e portati via, impianti idraulico ed elettrico tappati."],
+    de: ["Küchendemontage — Schränke und Arbeitsplatten", "Vorhandene Schränke und Arbeitsplatten ausgebaut und abtransportiert, Wasser und Strom abgekappt."],
+    uk: ["Демонтаж кухонних шаф і стільниць", "Наявні шафи та стільниці демонтовано й вивезено, сантехніку та електрику заглушено."],
+    tl: ["Demolisyon ng cabinet at countertop sa kusina", "Tinanggal at hinakot ang lumang cabinet at countertop, tinakpan ang tubo at kuryente."],
+  }, [
+    L.labour(1, "sqft", 8, {
+      en: ["Demolition labour — per sq ft", "Cabinets, countertops and flooring taken out and hauled off, per sq ft of kitchen footprint."],
+      fr: ["Main-d'œuvre — démolition, au pi²", "Armoires, comptoirs et plancher enlevés et évacués, au pied carré de surface de cuisine."],
+      es: ["Mano de obra — demolición, por pie²", "Gabinetes, cubiertas y piso retirados y llevados, por pie cuadrado de cocina."],
+      it: ["Manodopera — demolizione, al piede quadro", "Mobili, piani e pavimento rimossi e portati via, al piede quadro di superficie cucina."],
+      de: ["Arbeit — Demontage, pro sq ft", "Schränke, Arbeitsplatten und Boden ausgebaut und abgefahren, pro sq ft Küchenfläche."],
+      uk: ["Робота — демонтаж, за кв. фут", "Шафи, стільниці та підлогу знято й вивезено, за кв. фут площі кухні."],
+      tl: ["Labor — demolisyon, kada sq ft", "Tinanggal at hinakot ang cabinet, countertop at sahig, kada sq ft ng kusina."],
+    }, { measurementKey: "areaSqFt" }),
+    SHARED.binRental(450, { cost: 400 }),
+  ], null),
+
+  "fq.general_contracting.kitchen.remodel_full": T("installation", {
+    it: ["Ristrutturazione cucina — mobili, piani e paraschizzi", "Mobili installati, piani realizzati e posati, paraschizzi piastrellato."],
+    de: ["Küchenumbau — Schränke, Arbeitsplatten und Rückwand", "Schränke montiert, Arbeitsplatten gefertigt und gesetzt, Rückwand gefliest."],
+    uk: ["Реновація кухні — шафи, стільниці та фартух", "Шафи встановлено, стільниці виготовлено й змонтовано, фартух викладено плиткою."],
+    tl: ["Renovation ng kusina — cabinet, countertop at backsplash", "Ikinabit ang cabinet, ginawa at inilagay ang countertop, at tinile ang backsplash."],
+  }, [
+    L.labour(1, "flat", 3500, {
+      en: ["Cabinetry and countertop installation labour — builder grade", "Stock cabinets set and levelled, the countertop templated and set; materials billed separately."],
+      fr: ["Main-d'œuvre — pose d'armoires et de comptoir, gamme constructeur", "Armoires de série posées et mises de niveau, comptoir gabarié et posé; matériaux facturés à part."],
+      es: ["Mano de obra — instalación de gabinetes y cubierta, grado constructor", "Gabinetes de línea instalados y nivelados, cubierta plantillada y colocada; materiales facturados aparte."],
+      it: ["Manodopera — posa mobili e piano, grado base", "Mobili di serie posati e livellati, piano rilevato e posato; materiali fatturati a parte."],
+      de: ["Arbeit — Schrank- und Arbeitsplattenmontage, Standard", "Serienschränke gesetzt und ausgerichtet, Arbeitsplatte aufgemessen und gesetzt; Material separat."],
+      uk: ["Робота — монтаж шаф і стільниці, базовий рівень", "Серійні шафи встановлено й вирівняно, стільницю зашаблоновано та змонтовано; матеріали окремо."],
+      tl: ["Labor — pagkabit ng cabinet at countertop, builder grade", "Ikinabit at nilevel ang stock cabinet, tinemplate at inilagay ang countertop; hiwalay ang materyales."],
+    }),
+    L.labour(1, "flat", 900, {
+      en: ["Backsplash tile installation", "Backsplash tiled, grouted and caulked at the counter."],
+      fr: ["Pose du dosseret de céramique", "Dosseret carrelé, jointoyé et calfeutré au comptoir."],
+      es: ["Instalación del azulejo del salpicadero", "Salpicadero azulejado, lechadeado y sellado en la cubierta."],
+      it: ["Posa piastrelle paraschizzi", "Paraschizzi piastrellato, stuccato e sigillato al piano."],
+      de: ["Rückwand fliesen", "Rückwand gefliest, verfugt und an der Arbeitsplatte versiegelt."],
+      uk: ["Укладання плитки фартуха", "Фартух викладено плиткою, зафуговано та загерметизовано біля стільниці."],
+      tl: ["Pag-tile ng backsplash", "Tinile, ginrout at kinaulk ang backsplash sa counter."],
+    }),
+  ], null),
+
+  "fq.general_contracting.consulting.kitchen_project_management": T("installation", {
+    it: ["Gestione progetto — ristrutturazione cucina", "Permessi richiesti, subappaltatori programmati e ogni collaudo coordinato dalla demolizione al sopralluogo finale."],
+    de: ["Projektleitung — Küchenumbau", "Genehmigungen eingeholt, Subunternehmer terminiert und jede Abnahme koordiniert — von der Demontage bis zur Endbegehung."],
+    uk: ["Управління проєктом — реновація кухні", "Дозволи отримано, субпідрядників заплановано й кожну перевірку узгоджено від демонтажу до фінального огляду."],
+    tl: ["Project management — renovation ng kusina", "Kinuha ang permit, in-schedule ang subcontractor at inayos ang bawat inspeksyon mula demolisyon hanggang final walkthrough."],
+  }, [
+    L.labour(1, "flat", 1200, {
+      en: ["Project management and permit coordination fee", "Permitting, trade scheduling and inspections managed through completion."],
+      fr: ["Honoraires de gestion de projet et de coordination des permis", "Permis, planification des métiers et inspections gérés jusqu'à la fin des travaux."],
+      es: ["Honorarios de gestión de proyecto y coordinación de permisos", "Permisos, programación de oficios e inspecciones gestionados hasta la finalización."],
+      it: ["Onorario di gestione progetto e coordinamento permessi", "Permessi, programmazione dei mestieri e collaudi gestiti fino al completamento."],
+      de: ["Projektleitungs- und Genehmigungspauschale", "Genehmigungen, Gewerketermine und Abnahmen bis zur Fertigstellung gemanagt."],
+      uk: ["Плата за управління проєктом і дозволи", "Дозволи, графік спеціальностей і перевірки супроводжено до завершення."],
+      tl: ["Bayad sa project management at permit", "Permit, schedule ng trades at inspeksyon na inasikaso hanggang matapos."],
+    }),
+  ], null),
+
+  // ── Installation — bathroom ──
+  "fq.general_contracting.bathroom.demolition": T("installation", {
+    it: ["Demolizione e sgombero bagno", "Sanitari, mobile, piastrelle e finiture rimossi e portati via, così la stanza è pronta per la ricostruzione."],
+    de: ["Baddemontage und Entsorgung", "Sanitärobjekte, Waschtisch, Fliesen und Oberflächen ausgebaut und abtransportiert, damit der Raum für den Neuaufbau bereit ist."],
+    uk: ["Демонтаж і вивезення ванної", "Сантехніку, тумбу, плитку та оздоблення знято й вивезено, щоб кімната була готова до перебудови."],
+    tl: ["Demolisyon at paghakot sa banyo", "Tinanggal at hinakot ang fixture, vanity, tile at finishes para handa na ang kuwarto sa rebuild."],
+  }, [
+    L.labour(1, "flat", 650, {
+      en: ["Demolition and waterproofing prep", "Fixtures and tile stripped out and the substrate prepared for the waterproof membrane."],
+      fr: ["Démolition et préparation à l'imperméabilisation", "Appareils et céramique arrachés, support préparé pour la membrane d'étanchéité."],
+      es: ["Demolición y preparación para impermeabilizar", "Muebles y azulejo retirados y la base preparada para la membrana impermeable."],
+      it: ["Demolizione e preparazione all'impermeabilizzazione", "Sanitari e piastrelle rimossi e il supporto preparato per la membrana impermeabile."],
+      de: ["Demontage und Abdichtungsvorbereitung", "Sanitärobjekte und Fliesen entfernt, der Untergrund für die Abdichtungsbahn vorbereitet."],
+      uk: ["Демонтаж і підготовка до гідроізоляції", "Сантехніку та плитку знято, основу підготовлено під гідроізоляційну мембрану."],
+      tl: ["Demolisyon at paghahanda sa waterproofing", "Tinanggal ang fixture at tile at inihanda ang substrate para sa waterproof membrane."],
+    }),
+    SHARED.binRental(450, { cost: 400 }),
+  ], null),
+
+  "fq.general_contracting.bathroom.complete_remodel": T("installation", {
+    it: ["Ristrutturazione completa del bagno", "Mobile, sanitari, impianto elettrico, piastrelle e finiture rifatti dalla struttura in poi, con ogni mestiere coordinato."],
+    de: ["Komplette Badsanierung", "Waschtisch, Sanitärobjekte, Elektrik, Fliesen und Oberflächen ab dem Rohbau erneuert, jedes Gewerk koordiniert."],
+    uk: ["Повна реновація ванної", "Тумбу, сантехніку, електрику, плитку та оздоблення замінено від каркаса, з координацією всіх спеціальностей."],
+    tl: ["Kumpletong renovation ng banyo", "Pinalitan ang vanity, fixture, kuryente, tile at finishes mula sa stud, at inayos ang bawat trade."],
+  }, [
+    L.labour(1, "flat", 4500, {
+      en: ["Bathroom remodel installation labour — builder grade", "Tub or shower, vanity, tile and fixtures installed in standard finishes."],
+      fr: ["Main-d'œuvre — rénovation de salle de bain, gamme constructeur", "Bain ou douche, meuble-lavabo, céramique et appareils posés en finitions standard."],
+      es: ["Mano de obra — remodelación de baño, grado constructor", "Tina o regadera, tocador, azulejo y accesorios instalados en acabados estándar."],
+      it: ["Manodopera — ristrutturazione bagno, grado base", "Vasca o doccia, mobile, piastrelle e sanitari installati in finiture standard."],
+      de: ["Arbeit — Badsanierung, Standard", "Wanne oder Dusche, Waschtisch, Fliesen und Armaturen in Standardausführung montiert."],
+      uk: ["Робота — реновація ванної, базовий рівень", "Ванну або душ, тумбу, плитку та сантехніку встановлено в стандартному оздобленні."],
+      tl: ["Labor — renovation ng banyo, builder grade", "Ikinabit ang tub o shower, vanity, tile at fixture sa standard na finishes."],
+    }),
+    SHARED.permit(350),
+  ], null),
+
+  "fq.general_contracting.bathroom.tile_finishing": T("installation", {
+    it: ["Posa e finitura piastrelle per bagni e docce", "Piastrelle di pavimento, parete doccia e nicchia posate, stuccate e sigillate."],
+    de: ["Fliesenverlegung und -abschluss für Bad und Dusche", "Boden-, Duschwand- und Nischenfliesen verlegt, verfugt und versiegelt."],
+    uk: ["Укладання та фінішування плитки для ванних і душових", "Плитку підлоги, стін душу та ніші викладено, зафуговано та загерметизовано."],
+    tl: ["Pag-tile at finishing para sa banyo at shower", "Inilagay, ginrout at sinelyuhan ang tile sa sahig, shower wall at niche."],
+  }, [
+    L.labour(1, "sqft", 14, {
+      en: ["Tile setting labour — per sq ft", "Tile laid on a prepared, waterproofed substrate, grouted and caulked at the changes of plane."],
+      fr: ["Main-d'œuvre — pose de céramique, au pi²", "Carreaux posés sur un support préparé et imperméabilisé, jointoyés et calfeutrés aux changements de plan."],
+      es: ["Mano de obra — colocación de azulejo, por pie²", "Azulejo colocado sobre base preparada e impermeabilizada, lechadeado y sellado en los cambios de plano."],
+      it: ["Manodopera — posa piastrelle, al piede quadro", "Piastrelle posate su supporto preparato e impermeabilizzato, stuccate e sigillate ai cambi di piano."],
+      de: ["Arbeit — Fliesen legen, pro sq ft", "Fliesen auf vorbereitetem, abgedichtetem Untergrund verlegt, verfugt und an den Kanten versiegelt."],
+      uk: ["Робота — укладання плитки, за кв. фут", "Плитку викладено на підготовлену гідроізольовану основу, зафуговано та загерметизовано на стиках площин."],
+      tl: ["Labor — pag-tile, kada sq ft", "Inilagay ang tile sa inihanda at waterproofed na base, ginrout at kinaulk sa mga kanto."],
+    }, { measurementKey: "areaSqFt" }),
+    hdMaterial(HD.thinset_50lb, {
+      en: ["Thinset mortar — per bag", "Modified thinset, 50 lb; one bag sets about 95 sq ft with a 1/4 in notch."],
+      fr: ["Ciment-colle — le sac", "Ciment-colle modifié, 50 lb; un sac pose environ 95 pi² à la truelle de 1/4 po."],
+      es: ["Adhesivo para azulejo — por bulto", "Adhesivo modificado, 50 lb; un bulto asienta unos 95 pies² con llana de 1/4 pulg."],
+      it: ["Colla per piastrelle — al sacco", "Colla modificata, 50 lb; un sacco posa circa 95 piedi quadri con spatola da 1/4 di pollice."],
+      de: ["Fliesenkleber — pro Sack", "Flexkleber, 50 lb; ein Sack reicht für etwa 95 sq ft mit 1/4-Zoll-Zahnung."],
+      uk: ["Клей для плитки — за мішок", "Модифікований клей, 50 фунтів; мішок на близько 95 кв. футів гребінкою 1/4 дюйма."],
+      tl: ["Thinset — kada sako", "Modified thinset, 50 lb; ang isang sako ay para sa mga 95 sq ft sa 1/4 in na notch."],
+    }, { measurementKey: "areaSqFt" }),
+    hdMaterial(HD.grout_25lb, {
+      en: ["Sanded grout", "Sanded grout for the joints; the quantity follows the coverage of the bag size the store sells."],
+      fr: ["Coulis sablé", "Coulis sablé pour les joints; la quantité suit le rendement du format de sac vendu."],
+      es: ["Lechada con arena", "Lechada con arena para las juntas; la cantidad sigue el rendimiento del tamaño de bolsa de la tienda."],
+      it: ["Stucco sabbiato", "Stucco sabbiato per le fughe; la quantità segue la resa del formato del sacco in vendita."],
+      de: ["Fugenmasse mit Sand", "Sandhaltige Fugenmasse; die Menge folgt der Ergiebigkeit der Sackgröße im Handel."],
+      uk: ["Фуга з піском", "Фуга з піском для швів; кількість залежить від витрати мішка, який продає магазин."],
+      tl: ["Sanded grout", "Sanded grout para sa joint; ang dami ay batay sa coverage ng laki ng sako sa tindahan."],
+    }, { measurementKey: "areaSqFt" }),
+    L.material(1, "sqft", 1.8, {
+      en: ["Waterproofing membrane — per sq ft", "Sheet or liquid waterproofing over the shower walls and floor."],
+      fr: ["Membrane d'étanchéité — au pi²", "Membrane en feuille ou liquide sur les murs et le plancher de la douche."],
+      es: ["Membrana impermeable — por pie²", "Membrana en lámina o líquida sobre muros y piso de la regadera."],
+      it: ["Membrana impermeabilizzante — al piede quadro", "Guaina in foglio o liquida su pareti e pavimento della doccia."],
+      de: ["Abdichtungsbahn — pro sq ft", "Bahnen- oder Flüssigabdichtung auf Duschwänden und -boden."],
+      uk: ["Гідроізоляційна мембрана — за кв. фут", "Листова або рідка гідроізоляція на стіни й підлогу душу."],
+      tl: ["Waterproofing membrane — kada sq ft", "Sheet o liquid na waterproofing sa pader at sahig ng shower."],
+    }, { measurementKey: "areaSqFt" }),
+  ], null),
+
+  // ── Installation — whole home and basement ──
+  "fq.general_contracting.renovation.whole_home_demolition": T("installation", {
+    it: ["Demolizione ristrutturazione completa — al piede quadro", "Finiture esistenti rimosse in ogni stanza della ristrutturazione e portate via, al piede quadro di superficie rinnovata."],
+    de: ["Demontage Komplettsanierung — pro sq ft", "Vorhandene Oberflächen in jedem Raum der Sanierung entfernt und abgefahren, pro sq ft sanierter Fläche."],
+    uk: ["Демонтаж при повній реновації — за кв. фут", "Наявне оздоблення знято в кожній кімнаті реновації та вивезено, за кв. фут оновлюваної площі."],
+    tl: ["Demolisyon ng buong-bahay na renovation — kada sq ft", "Tinanggal at hinakot ang lumang finishes sa bawat kuwarto ng renovation, kada sq ft."],
+  }, [
+    L.labour(1, "sqft", 7, {
+      en: ["Demolition labour — per sq ft", "Existing finishes removed and hauled off across the renovation footprint."],
+      fr: ["Main-d'œuvre — démolition, au pi²", "Finitions existantes enlevées et évacuées sur toute la surface rénovée."],
+      es: ["Mano de obra — demolición, por pie²", "Acabados existentes retirados y llevados en toda el área renovada."],
+      it: ["Manodopera — demolizione, al piede quadro", "Finiture esistenti rimosse e portate via su tutta la superficie rinnovata."],
+      de: ["Arbeit — Demontage, pro sq ft", "Vorhandene Oberflächen über die gesamte Sanierungsfläche entfernt und abgefahren."],
+      uk: ["Робота — демонтаж, за кв. фут", "Наявне оздоблення знято та вивезено по всій площі реновації."],
+      tl: ["Labor — demolisyon, kada sq ft", "Tinanggal at hinakot ang lumang finishes sa buong renovation footprint."],
+    }, { measurementKey: "areaSqFt" }),
+  ], null),
+
+  "fq.general_contracting.renovation.whole_home_finish_labour": T("installation", {
+    it: ["Manodopera ristrutturazione completa — al piede quadro", "Ritocchi di struttura, cartongesso, pittura e cornici su tutta la superficie rinnovata, al piede quadro; cucina e bagno quotati a parte."],
+    de: ["Sanierungsarbeit Komplettsanierung — pro sq ft", "Rahmenanpassungen, Trockenbau, Anstrich und Leisten über die sanierte Fläche, pro sq ft; Küche und Bad separat angeboten."],
+    uk: ["Робота при повній реновації — за кв. фут", "Підправлення каркаса, гіпсокартон, фарбування та плінтуси по всій оновлюваній площі, за кв. фут; кухня та ванна — окремо."],
+    tl: ["Labor sa buong-bahay na renovation — kada sq ft", "Framing touch-in, drywall, pintura at trim sa buong renovation footprint, kada sq ft; hiwalay ang kusina at banyo."],
+  }, [
+    L.labour(1, "sqft", 20, {
+      en: ["Renovation installation labour — per sq ft, builder grade", "Framing touch-ins, drywall, paint and trim across the renovation footprint."],
+      fr: ["Main-d'œuvre — rénovation, au pi², gamme constructeur", "Retouches de charpente, gypse, peinture et moulures sur toute la surface rénovée."],
+      es: ["Mano de obra — renovación, por pie², grado constructor", "Ajustes de estructura, panel de yeso, pintura y molduras en toda el área renovada."],
+      it: ["Manodopera — ristrutturazione, al piede quadro, grado base", "Ritocchi di struttura, cartongesso, pittura e cornici su tutta la superficie rinnovata."],
+      de: ["Arbeit — Sanierung, pro sq ft, Standard", "Rahmenanpassungen, Trockenbau, Anstrich und Leisten über die gesamte Sanierungsfläche."],
+      uk: ["Робота — реновація, за кв. фут, базовий рівень", "Підправлення каркаса, гіпсокартон, фарбування та плінтуси по всій площі реновації."],
+      tl: ["Labor — renovation, kada sq ft, builder grade", "Framing touch-in, drywall, pintura at trim sa buong renovation footprint."],
+    }, { measurementKey: "areaSqFt" }),
+  ], null),
+
+  "fq.general_contracting.renovation.whole_home_project_management": T("installation", {
+    it: ["Gestione progetto — ristrutturazione completa", "Sequenza dei mestieri, permessi e collaudi gestiti in ogni stanza della ristrutturazione fino al completamento."],
+    de: ["Projektleitung — Komplettsanierung", "Gewerkereihenfolge, Genehmigungen und Abnahmen in jedem Raum der Sanierung bis zur Fertigstellung gemanagt."],
+    uk: ["Управління проєктом — повна реновація", "Послідовність спеціальностей, дозволи та перевірки супроводжено в кожній кімнаті реновації до завершення."],
+    tl: ["Project management — buong-bahay na renovation", "Pagkakasunod ng trades, permit at inspeksyon na inasikaso sa bawat kuwarto hanggang matapos."],
+  }, [
+    L.labour(1, "flat", 2500, {
+      en: ["Project management and permit coordination fee", "Permitting, trade sequencing and inspections managed through completion."],
+      fr: ["Honoraires de gestion de projet et de coordination des permis", "Permis, séquencement des métiers et inspections gérés jusqu'à la fin des travaux."],
+      es: ["Honorarios de gestión de proyecto y coordinación de permisos", "Permisos, secuencia de oficios e inspecciones gestionados hasta la finalización."],
+      it: ["Onorario di gestione progetto e coordinamento permessi", "Permessi, sequenza dei mestieri e collaudi gestiti fino al completamento."],
+      de: ["Projektleitungs- und Genehmigungspauschale", "Genehmigungen, Gewerkereihenfolge und Abnahmen bis zur Fertigstellung gemanagt."],
+      uk: ["Плата за управління проєктом і дозволи", "Дозволи, послідовність спеціальностей і перевірки супроводжено до завершення."],
+      tl: ["Bayad sa project management at permit", "Permit, pagkakasunod ng trades at inspeksyon na inasikaso hanggang matapos."],
+    }),
+  ], null),
+
+  "fq.general_contracting.renovation.basement_moisture_prep": T("installation", {
+    it: ["Preparazione umidità e struttura seminterrato — al piede quadro", "Umidità testata, barriera al vapore posata e struttura in legno trattato preparata contro il calcestruzzo prima di finire il seminterrato."],
+    de: ["Feuchte- und Rahmenvorbereitung Keller — pro sq ft", "Feuchte gemessen, Dampfsperre verlegt und druckimprägnierter Rahmen gegen den Beton vorbereitet, bevor der Keller ausgebaut wird."],
+    uk: ["Підготовка підвалу від вологи та каркас — за кв. фут", "Вологість перевірено, пароізоляцію покладено та каркас з обробленої деревини підготовлено біля бетону перед оздобленням підвалу."],
+    tl: ["Moisture at structural prep ng basement — kada sq ft", "Tinest ang moisture, nilagyan ng vapor barrier at inihanda ang pressure-treated framing sa kongkreto bago tapusin ang basement."],
+  }, [
+    L.labour(1, "sqft", 4, {
+      en: ["Moisture prep and vapour barrier labour — per sq ft", "Moisture tested, the vapour barrier installed and the framing prepared against the concrete."],
+      fr: ["Main-d'œuvre — préparation contre l'humidité et pare-vapeur, au pi²", "Humidité testée, pare-vapeur posé et charpente préparée contre le béton."],
+      es: ["Mano de obra — preparación contra humedad y barrera de vapor, por pie²", "Humedad medida, barrera de vapor instalada y estructura preparada contra el concreto."],
+      it: ["Manodopera — preparazione umidità e barriera vapore, al piede quadro", "Umidità testata, barriera al vapore installata e struttura preparata contro il calcestruzzo."],
+      de: ["Arbeit — Feuchtevorbereitung und Dampfsperre, pro sq ft", "Feuchte gemessen, Dampfsperre eingebaut und der Rahmen gegen den Beton vorbereitet."],
+      uk: ["Робота — підготовка від вологи та пароізоляція, за кв. фут", "Вологість перевірено, пароізоляцію встановлено, каркас підготовлено біля бетону."],
+      tl: ["Labor — moisture prep at vapor barrier, kada sq ft", "Tinest ang moisture, ikinabit ang vapor barrier at inihanda ang framing sa kongkreto."],
+    }, { measurementKey: "areaSqFt" }),
+  ], null),
+
+  "fq.general_contracting.renovation.basement_framing_rough_in": T("installation", {
+    it: ["Struttura e predisposizioni seminterrato — al piede quadro", "Pareti intelaiate e predisposizioni elettriche e idrauliche coordinate per un seminterrato finito, al piede quadro."],
+    de: ["Kellerrahmen und Rohinstallation — pro sq ft", "Wände aufgestellt und die Elektro- und Sanitär-Rohinstallation für einen ausgebauten Keller koordiniert, pro sq ft."],
+    uk: ["Каркас і чорнові комунікації підвалу — за кв. фут", "Стіни зведено на каркасі, чорнову електрику та сантехніку узгоджено для оздобленого підвалу, за кв. фут."],
+    tl: ["Framing at rough-in ng basement — kada sq ft", "Nilagyan ng framing ang mga pader at inayos ang electrical at plumbing rough-in para sa finished basement, kada sq ft."],
+  }, [
+    L.labour(1, "sqft", 15, {
+      en: ["Framing and rough-in labour — per sq ft", "Walls framed and the rough-in trades coordinated."],
+      fr: ["Main-d'œuvre — charpente et travaux bruts, au pi²", "Murs montés et métiers des travaux bruts coordonnés."],
+      es: ["Mano de obra — estructura e instalaciones brutas, por pie²", "Muros estructurados y los oficios de instalaciones brutas coordinados."],
+      it: ["Manodopera — struttura e predisposizioni, al piede quadro", "Pareti intelaiate e mestieri delle predisposizioni coordinati."],
+      de: ["Arbeit — Rahmen und Rohinstallation, pro sq ft", "Wände aufgestellt und die Rohinstallationsgewerke koordiniert."],
+      uk: ["Робота — каркас і чорнові комунікації, за кв. фут", "Стіни зведено на каркасі, чорнові роботи спеціальностей узгоджено."],
+      tl: ["Labor — framing at rough-in, kada sq ft", "Nilagyan ng framing ang pader at inayos ang rough-in trades."],
+    }, { measurementKey: "areaSqFt" }),
+  ], null),
+
+  "fq.general_contracting.renovation.basement_finish": T("installation", {
+    it: ["Manodopera finitura seminterrato — al piede quadro", "Cartongesso, pittura, cornici e pavimento installati in tutto il seminterrato, al piede quadro."],
+    de: ["Kellerausbau Endarbeiten — pro sq ft", "Trockenbau, Anstrich, Leisten und Bodenbelag im ganzen Keller eingebaut, pro sq ft."],
+    uk: ["Оздоблення підвалу — за кв. фут", "Гіпсокартон, фарбування, плінтуси та підлогу встановлено по всьому підвалу, за кв. фут."],
+    tl: ["Labor sa pagtapos ng basement — kada sq ft", "Drywall, pintura, trim at sahig na ikinabit sa buong basement, kada sq ft."],
+  }, [
+    L.labour(1, "sqft", 7.5, {
+      en: ["Basement finish labour — per sq ft, builder grade", "Drywall, paint, trim and flooring installed."],
+      fr: ["Main-d'œuvre — finition de sous-sol, au pi², gamme constructeur", "Gypse, peinture, moulures et plancher posés."],
+      es: ["Mano de obra — acabado de sótano, por pie², grado constructor", "Panel de yeso, pintura, molduras y piso instalados."],
+      it: ["Manodopera — finitura seminterrato, al piede quadro, grado base", "Cartongesso, pittura, cornici e pavimento installati."],
+      de: ["Arbeit — Kellerausbau, pro sq ft, Standard", "Trockenbau, Anstrich, Leisten und Bodenbelag eingebaut."],
+      uk: ["Робота — оздоблення підвалу, за кв. фут, базовий рівень", "Гіпсокартон, фарбування, плінтуси та підлогу встановлено."],
+      tl: ["Labor — pagtapos ng basement, kada sq ft, builder grade", "Ikinabit ang drywall, pintura, trim at sahig."],
+    }, { measurementKey: "areaSqFt" }),
+  ], null),
+
+  "fq.general_contracting.renovation.egress_window": T("installation", {
+    it: ["Aggiunta finestra di uscita di emergenza nel seminterrato", "Fondazione tagliata, finestra di uscita a norma posata e pozzo luce installato, prezzo per finestra."],
+    de: ["Einbau eines Kellerfluchtfensters", "Fundament aufgeschnitten, normgerechtes Fluchtfenster gesetzt und Lichtschacht eingebaut, Preis pro Fenster."],
+    uk: ["Влаштування евакуаційного вікна в підвалі", "Фундамент прорізано, встановлено евакуаційне вікно за нормами та приямок, ціна за вікно."],
+    tl: ["Pagdagdag ng egress window sa basement", "Hiniwa ang pundasyon, ikinabit ang code-compliant na egress window at window well, presyo kada bintana."],
+  }, [
+    L.labour(1, "each", 2400, {
+      en: ["Egress window addition labour", "The foundation opening cut, the window set and flashed, the well installed and backfilled."],
+      fr: ["Main-d'œuvre — ajout de fenêtre de sortie", "Ouverture découpée dans la fondation, fenêtre posée avec solins, margelle installée et remblayée."],
+      es: ["Mano de obra — adición de ventana de salida", "Abertura cortada en la cimentación, ventana colocada con tapajuntas, pozo instalado y relleno."],
+      it: ["Manodopera — aggiunta finestra di uscita", "Apertura tagliata nella fondazione, finestra posata e scossalinata, pozzo luce installato e rinterrato."],
+      de: ["Arbeit — Fluchtfenster einbauen", "Öffnung im Fundament geschnitten, Fenster gesetzt und abgedichtet, Lichtschacht eingebaut und verfüllt."],
+      uk: ["Робота — влаштування евакуаційного вікна", "Отвір у фундаменті прорізано, вікно встановлено з відливами, приямок змонтовано та засипано."],
+      tl: ["Labor — pagdagdag ng egress window", "Hiniwa ang pundasyon, ikinabit at ni-flash ang bintana, inilagay at tinabunan ang well."],
+    }),
+    L.material(1, "each", 1400, {
+      en: ["Egress window and well", "Code-size casement egress window, window well, cover and drainage gravel."],
+      fr: ["Fenêtre de sortie et margelle", "Fenêtre à battant aux dimensions du code, margelle, couvercle et gravier de drainage."],
+      es: ["Ventana de salida y pozo", "Ventana abatible de medida de código, pozo de ventana, cubierta y grava de drenaje."],
+      it: ["Finestra di uscita e pozzo luce", "Finestra a battente a misura di norma, pozzo luce, copertura e ghiaia drenante."],
+      de: ["Fluchtfenster und Lichtschacht", "Normgerechtes Drehflügelfenster, Lichtschacht, Abdeckung und Drainagekies."],
+      uk: ["Евакуаційне вікно та приямок", "Поворотне вікно нормативного розміру, приямок, кришка та дренажний гравій."],
+      tl: ["Egress window at well", "Code-size casement egress window, window well, takip at drainage gravel."],
+    }, { cost: 1050 }),
+  ], null),
+
+  // ── Maintenance ──
+  "fq.general_contracting.hvac.annual_maintenance": T("maintenance", {
+    it: ["Manutenzione e ispezione annuale HVAC", "Riscaldamento e raffrescamento revisionati, puliti e ispezionati una volta l'anno."],
+    de: ["Jährliche HLK-Wartung und Inspektion", "Heizung und Kühlung einmal im Jahr gewartet, gereinigt und geprüft."],
+    uk: ["Щорічне обслуговування та огляд HVAC", "Опалення та охолодження раз на рік обслуговано, очищено та оглянуто."],
+    tl: ["Taunang maintenance at inspeksyon ng HVAC", "Isang beses sa isang taon, tine-tune-up, nililinis at sinusuri ang heating at cooling."],
+  }, [
+    L.labour(1, "flat", 180, {
+      en: ["Heating and cooling tune-up", "Both systems checked, cleaned and adjusted, filters swapped and the readings recorded."],
+      fr: ["Mise au point chauffage et climatisation", "Les deux systèmes vérifiés, nettoyés et réglés, filtres remplacés et lectures consignées."],
+      es: ["Afinación de calefacción y enfriamiento", "Ambos sistemas revisados, limpiados y ajustados, filtros cambiados y las lecturas anotadas."],
+      it: ["Tagliando riscaldamento e raffrescamento", "Entrambi gli impianti controllati, puliti e regolati, filtri sostituiti e letture registrate."],
+      de: ["Wartung Heizung und Kühlung", "Beide Anlagen geprüft, gereinigt und eingestellt, Filter getauscht und Werte protokolliert."],
+      uk: ["Обслуговування опалення та охолодження", "Обидві системи перевірено, очищено й відрегульовано, фільтри замінено, показники записано."],
+      tl: ["Tune-up ng heating at cooling", "Chineck, nilinis at inayos ang dalawang sistema, pinalitan ang filter at nirekord ang readings."],
+    }),
+    L.material(1, "each", 23.71, {
+      en: ["Pleated air filter", "1-inch pleated filter, MERV 11, in the system's size."],
+      fr: ["Filtre à air plissé", "Filtre plissé de 1 po, MERV 11, à la dimension du système."],
+      es: ["Filtro de aire plisado", "Filtro plisado de 1 pulg, MERV 11, en la medida del sistema."],
+      it: ["Filtro aria pieghettato", "Filtro pieghettato da 1 pollice, MERV 11, nella misura dell'impianto."],
+      de: ["Faltenfilter", "1-Zoll-Faltenfilter, MERV 11, in der Größe der Anlage."],
+      uk: ["Гофрований повітряний фільтр", "Гофрований фільтр 1 дюйм, MERV 11, за розміром системи."],
+      tl: ["Pleated air filter", "1-inch pleated filter, MERV 11, sa size ng sistema."],
+    }, { cost: 18.97, ref: HD.filter_16x25x1 }),
+  ], D.regular("fixed", 15)),
+
+  "fq.general_contracting.roofing.gutter_cleaning": T("maintenance", {
+    it: ["Pulizia e manutenzione grondaie", "Grondaie e pluviali liberati dai detriti e ispezionati per perdite e cedimenti."],
+    de: ["Dachrinnenreinigung und -wartung", "Dachrinnen und Fallrohre von Laub befreit und auf Undichtigkeiten und Durchhang geprüft."],
+    uk: ["Чищення та обслуговування водостоків", "Ринви та водостічні труби очищено від сміття та перевірено на протікання й провисання."],
+    tl: ["Paglilinis at maintenance ng gutter", "Nilinis ang gutter at downspout mula sa dumi at chineck kung may tagas at lumulubog."],
+  }, [
+    L.labour(1, "linear_ft", 1.5, {
+      en: ["Gutter cleaning — per linear ft", "Gutters scooped and flushed, downspouts cleared and the run checked for pitch and leaks."],
+      fr: ["Nettoyage de gouttières — au pi lin.", "Gouttières vidées et rincées, descentes dégagées, pente et fuites vérifiées."],
+      es: ["Limpieza de canaletas — por pie lineal", "Canaletas vaciadas y enjuagadas, bajantes destapadas y el tramo revisado por pendiente y fugas."],
+      it: ["Pulizia grondaie — al piede lineare", "Grondaie svuotate e sciacquate, pluviali liberati e il tratto controllato per pendenza e perdite."],
+      de: ["Dachrinnenreinigung — pro lfd. Fuß", "Rinnen ausgeräumt und gespült, Fallrohre freigemacht, Gefälle und Dichtheit geprüft."],
+      uk: ["Чищення водостоків — за пог. фут", "Ринви вичищено та промито, труби прочищено, ухил і протікання перевірено."],
+      tl: ["Paglilinis ng gutter — kada linear ft", "Kinuha ang dumi at binuhusan ang gutter, nilinis ang downspout at chineck ang slope at tagas."],
+    }, { measurementKey: "eaveFt" }),
+    SHARED.serviceCall(75),
+  ], D.seasonal("fixed", 20)),
+
+  "fq.general_contracting.plumbing.spring_startup": T("maintenance", {
+    it: ["Riapertura primaverile impianto idraulico e manutenzione scaldabagno", "Impianto stagionale rimesso in servizio, scaldabagno avviato e sistema ispezionato."],
+    de: ["Frühjahrs-Inbetriebnahme Sanitär und Warmwasserservice", "Saisonale Leitungen wieder in Betrieb genommen, Warmwasserspeicher gestartet und die Anlage geprüft."],
+    uk: ["Весняний запуск сантехніки та обслуговування бойлера", "Сезонну сантехніку повернуто в роботу, бойлер запущено, систему оглянуто."],
+    tl: ["Spring start-up ng tubero at service ng water heater", "Ibinalik sa serbisyo ang seasonal na tubo, pinaandar ang water heater at sinuri ang sistema."],
+  }, [
+    L.labour(1, "flat", 220, {
+      en: ["Spring start-up visit", "Exterior lines and hose bibs opened and checked, the water heater started, flushed and set."],
+      fr: ["Visite de mise en service printanière", "Conduites extérieures et robinets de jardin ouverts et vérifiés, chauffe-eau démarré, vidangé et réglé."],
+      es: ["Visita de arranque de primavera", "Líneas exteriores y llaves de manguera abiertas y revisadas, el calentador arrancado, purgado y ajustado."],
+      it: ["Visita di riapertura primaverile", "Linee esterne e rubinetti da giardino aperti e controllati, scaldabagno avviato, spurgato e regolato."],
+      de: ["Frühjahrs-Inbetriebnahmebesuch", "Außenleitungen und Gartenhähne geöffnet und geprüft, Warmwasserspeicher gestartet, gespült und eingestellt."],
+      uk: ["Весняний візит запуску", "Зовнішні лінії та садові крани відкрито й перевірено, бойлер запущено, промито та налаштовано."],
+      tl: ["Spring start-up visit", "Binuksan at chineck ang panlabas na tubo at hose bib, pinaandar, ni-flush at inayos ang water heater."],
+    }),
+    L.material(1, "each", 45, {
+      en: ["Anode rod", "Magnesium or aluminium anode rod, fitted if the old one is spent."],
+      fr: ["Anode", "Anode en magnésium ou en aluminium, posée si l'ancienne est épuisée."],
+      es: ["Ánodo", "Ánodo de magnesio o aluminio, instalado si el viejo está gastado."],
+      it: ["Anodo", "Anodo di magnesio o alluminio, montato se il vecchio è consumato."],
+      de: ["Anodenstab", "Magnesium- oder Aluminiumanode, eingebaut falls die alte verbraucht ist."],
+      uk: ["Анод", "Магнієвий або алюмінієвий анод, встановлюється, якщо старий вичерпано."],
+      tl: ["Anode rod", "Magnesium o aluminum anode rod, ikakabit kung ubos na ang luma."],
+    }),
+  ], D.seasonal("fixed", 20)),
+};
+
+withLanguages(SEED, I18N);
+withTemplates(SEED, TEMPLATES);

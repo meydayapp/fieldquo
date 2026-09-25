@@ -14,6 +14,10 @@
 // No benchmark exists for any of these: the capture carried no pricing
 // insight for the trade. Every `benchmark` is null on purpose.
 
+import { L, SHARED, D, T, withTemplates, hdMaterial, withLanguages } from "./_templateLines";
+import { HD } from "./_materialCosts";
+import { I18N } from "./i18n/lawn_care.js";
+
 export const SEED = {
   trade: "lawn_care",
   categories: [
@@ -398,3 +402,358 @@ export const SEED = {
     },
   ],
 };
+
+// ── Estimate templates ───────────────────────────────────────────────────────
+//
+// Evidence: the landscaping capture under docs/research/ names the twenty
+// services and ships no templates, forms or materials, so the templates here
+// are authored: 2026 residential rates (mowing $45 a visit, cleanup crews
+// $60 an hour, sod laid $0.90 a sq ft, mulch spread $1.25 a sq ft of bed,
+// pavers laid $14 a sq ft) and the Home Depot costs in _materialCosts.js for
+// mulch, sod, seed, edging, paver base and gravel.
+//
+// The treatment PROGRAMS — fertilization, weed control, seasonal treatment,
+// pest control — are NOT templated here: their price is the owner's measured
+// competitor card in lib/estimate/lawnCareSeed.js, a base at the minimum lawn
+// band plus a step per 1,000 sq ft, and the lawn-care estimator prices them.
+// A template line cannot carry "step per 1,000 sq ft" (a labour line has no
+// coverage, and a per-sq-ft rate rounds to a cent), so copying those numbers
+// here would re-price them in a second, lossy place.
+//
+// Keys (lib/services/measurementKeys.js): lawn area `lotSize`, bed edge
+// `edgingFt`, planting beds the typed `areaSqFt`, paver areas the traced
+// `areaSqft`, drain runs `linearFt`.
+const n = (it, de, uk, tl) => ({ it, de, uk, tl });
+
+const TEMPLATES = {
+  // ── Maintenance ──
+  "fq.lawn_care.core.lawn_mowing": T("maintenance", n(
+    ["Taglio del prato", "Erba tagliata a un'altezza sana a ogni visita, bordi rifiniti lungo vialetti e aiuole, sfalci triturati o raccolti."],
+    ["Rasenmähen", "Rasen bei jedem Termin auf gesunde Höhe gemäht, Kanten an Wegen und Beeten geschnitten, Schnittgut gemulcht oder eingesammelt."],
+    ["Косіння газону", "Траву скошено на здорову висоту під час кожного візиту, краї вздовж доріжок і клумб підрізано, покіс подрібнено або зібрано."],
+    ["Paggapas ng damuhan", "Ginapas sa tamang taas bawat visit, tinrim ang gilid sa daanan at taniman, dinurog o sinako ang ginapas."],
+  ), [
+    L.labour(1, "flat", 45, {
+      en: ["Mowing and trimming", "Mowed, string-trimmed around obstacles and hard surfaces blown clean."],
+      fr: ["Tonte et taille", "Tondu, taillé au coupe-bordure autour des obstacles et surfaces dures soufflées."],
+      es: ["Corte y orillado", "Cortado, orillado con desbrozadora alrededor de obstáculos y superficies duras sopladas."],
+      it: ["Taglio e rifinitura", "Tagliato, rifinito col decespugliatore attorno agli ostacoli e superfici dure soffiate."],
+      de: ["Mähen und Trimmen", "Gemäht, um Hindernisse getrimmt und befestigte Flächen abgeblasen."],
+      uk: ["Косіння та підрізання", "Скошено, підрізано тримером навколо перешкод, тверді поверхні продуто."],
+      tl: ["Paggapas at trimming", "Ginapas, tinrim sa paligid ng harang at hinipan ang semento."],
+    }),
+    L.labour(1, "linear_ft", 0.1, {
+      en: ["Edging — per linear ft", "Walks, drive and bed lines edged with a blade edger."],
+      fr: ["Bordures — au pi lin.", "Allées, entrée et plates-bandes bordurées à la coupe-bordure."],
+      es: ["Bordeado — por pie lineal", "Banquetas, entrada y canteros bordeados con orilladora."],
+      it: ["Bordatura — al piede lineare", "Vialetti, accesso e aiuole rifiniti con tagliabordi."],
+      de: ["Kantenschnitt — pro lfd. Fuß", "Wege, Einfahrt und Beetkanten mit dem Kantenschneider gestochen."],
+      uk: ["Окантовка — за пог. фут", "Доріжки, в'їзд і межі клумб окантовано кантувальником."],
+      tl: ["Edging — kada linear ft", "Nilinyahan ang daanan, driveway at gilid ng taniman gamit ang edger."],
+    }, { measurementKey: "edgingFt" }),
+  ], D.bundle("percent", 5)),
+
+  "fq.lawn_care.additional.seasonal_yard_cleanup": T("maintenance", n(
+    ["Pulizia stagionale del giardino", "Foglie, rami caduti e accumuli di stagione rastrellati, raccolti e portati via."],
+    ["Saisonale Gartenreinigung", "Laub, heruntergefallene Äste und saisonale Ablagerungen gerecht, gesammelt und abgefahren."],
+    ["Сезонне прибирання подвір'я", "Листя, гілки й сезонні нашарування згребено, зібрано й вивезено."],
+    ["Seasonal na paglilinis ng bakuran", "Kinalaykay, inipon at hinakot ang dahon, sanga at naipong dumi ng season."],
+  ), [
+    L.labour(3, "hour", 60, {
+      en: ["Leaf and debris cleanup — per crew hour", "Lawn and beds raked or blown, debris bagged or tarped."],
+      fr: ["Ramassage de feuilles et débris — par heure d'équipe", "Pelouse et plates-bandes râtelées ou soufflées, débris ensachés."],
+      es: ["Limpieza de hojas y residuos — por hora de cuadrilla", "Césped y canteros rastrillados o soplados, residuos embolsados."],
+      it: ["Raccolta foglie e detriti — per ora di squadra", "Prato e aiuole rastrellati o soffiati, detriti insaccati."],
+      de: ["Laub- und Schnittgutreinigung — pro Teamstunde", "Rasen und Beete gerecht oder geblasen, Material eingesackt."],
+      uk: ["Прибирання листя та сміття — за годину бригади", "Газон і клумби згребено або продуто, сміття запаковано."],
+      tl: ["Paglilinis ng dahon at dumi — kada oras ng crew", "Kinalaykay o hinipan ang damuhan at taniman, sinako ang dumi."],
+    }),
+    SHARED.disposalFee(45),
+  ], D.seasonal("percent", 10)),
+
+  "fq.lawn_care.core.landscape_maintenance": T("maintenance", n(
+    ["Manutenzione del verde", "Aiuole diserbate, arbusti rifilati e bordi ripuliti a ogni visita programmata."],
+    ["Gartenpflege", "Beete gejätet, Sträucher in Form geschnitten und Kanten bei jedem Termin gepflegt."],
+    ["Догляд за ландшафтом", "Клумби прополото, кущі підстрижено, краї підрівняно під час кожного планового візиту."],
+    ["Maintenance ng landscape", "Binunutan ng damo ang taniman, tinrim ang halaman at inayos ang gilid bawat visit."],
+  ), [
+    L.labour(1, "sqft", 0.08, {
+      en: ["Bed maintenance — per sq ft of bed", "Weeds pulled, spent growth cut back and beds tidied."],
+      fr: ["Entretien des plates-bandes — au pi²", "Mauvaises herbes arrachées, tiges fanées coupées et plates-bandes rangées."],
+      es: ["Mantenimiento de canteros — por pie²", "Maleza arrancada, crecimiento seco cortado y canteros ordenados."],
+      it: ["Manutenzione aiuole — al piede quadro", "Erbacce estirpate, parti secche tagliate e aiuole riordinate."],
+      de: ["Beetpflege — pro sq ft Beet", "Unkraut gezogen, Verblühtes zurückgeschnitten und Beete aufgeräumt."],
+      uk: ["Догляд за клумбами — за кв. фут", "Бур'яни виполото, відцвіле обрізано, клумби впорядковано."],
+      tl: ["Maintenance ng taniman — kada sq ft", "Binunot ang damo, pinutol ang lanta at inayos ang taniman."],
+    }, { measurementKey: "areaSqFt" }),
+    SHARED.helperHour(1, 55),
+  ], D.bundle("percent", 5)),
+
+  // ── Installation ──
+  "fq.lawn_care.core.sod_installation": T("installation", n(
+    ["Posa di prato a rotoli", "Terreno livellato e preparato, zolle nuove posate strette e rullate, poi irrigate per un prato finito in giornata."],
+    ["Rollrasen verlegen", "Boden planiert und vorbereitet, frischer Rollrasen dicht verlegt und gewalzt, dann eingewässert — fertiger Rasen am selben Tag."],
+    ["Укладання рулонного газону", "Ґрунт вирівняно й підготовлено, свіжий дерн укладено щільно й прикатано, полито — готовий газон того ж дня."],
+    ["Pagkabit ng sod", "Pinatag at inihanda ang lupa, inilatag nang dikit at ni-roll ang sod, dinilig para tapos na damuhan sa araw ding iyon."],
+  ), [
+    L.labour(1, "sqft", 0.45, {
+      en: ["Soil prep and grading — per sq ft", "Old turf stripped, soil loosened, graded and rolled."],
+      fr: ["Préparation du sol et nivellement — au pi²", "Ancien gazon enlevé, sol ameubli, nivelé et roulé."],
+      es: ["Preparación y nivelación — por pie²", "Pasto viejo retirado, suelo aflojado, nivelado y compactado."],
+      it: ["Preparazione e livellamento — al piede quadro", "Vecchio manto rimosso, terreno smosso, livellato e rullato."],
+      de: ["Bodenvorbereitung und Planum — pro sq ft", "Alte Grasnarbe entfernt, Boden gelockert, planiert und gewalzt."],
+      uk: ["Підготовка й вирівнювання ґрунту — за кв. фут", "Старий дерн знято, ґрунт розпушено, вирівняно й прикатано."],
+      tl: ["Paghahanda at grading — kada sq ft", "Tinanggal ang lumang damo, niluwagan, pinatag at ni-roll ang lupa."],
+    }, { measurementKey: "lotSize" }),
+    L.labour(1, "sqft", 0.45, {
+      en: ["Sod laying — per sq ft", "Rolls laid with staggered seams, cut to edges, rolled and watered in."],
+      fr: ["Pose de tourbe — au pi²", "Rouleaux posés à joints décalés, coupés aux bordures, roulés et arrosés."],
+      es: ["Colocación de pasto en rollo — por pie²", "Rollos colocados con juntas alternadas, cortados a los bordes, compactados y regados."],
+      it: ["Posa zolle — al piede quadro", "Rotoli posati a giunti sfalsati, tagliati ai bordi, rullati e irrigati."],
+      de: ["Rollrasen verlegen — pro sq ft", "Rollen versetzt verlegt, an Kanten geschnitten, gewalzt und gewässert."],
+      uk: ["Укладання дерну — за кв. фут", "Рулони укладено зі зміщенням швів, підрізано по краях, прикатано й полито."],
+      tl: ["Paglatag ng sod — kada sq ft", "Inilatag nang salit-salitan ang dugtungan, pinutol sa gilid, ni-roll at dinilig."],
+    }, { measurementKey: "lotSize" }),
+    hdMaterial(HD.sod_pallet, {
+      en: ["Sod — per pallet", "Bluegrass sod; one pallet covers 500 sq ft."],
+      fr: ["Tourbe — la palette", "Tourbe de pâturin; une palette couvre 500 pi²."],
+      es: ["Pasto en rollo — por tarima", "Pasto bluegrass; una tarima cubre 500 pies²."],
+      it: ["Prato a rotoli — per bancale", "Zolle di poa; un bancale copre 500 piedi quadri."],
+      de: ["Rollrasen — pro Palette", "Rispengras-Rollrasen; eine Palette deckt 500 sq ft."],
+      uk: ["Рулонний газон — за палету", "Дерн тонконогу; палета покриває 500 кв. футів."],
+      tl: ["Sod — kada pallet", "Bluegrass na sod; ang isang pallet ay 500 sq ft."],
+    }, { measurementKey: "lotSize" }),
+  ], null),
+
+  "fq.lawn_care.additional.mulch_installation": T("installation", n(
+    ["Stesura pacciamatura", "Aiuole rifilate e coperte da uno strato fresco di pacciamatura che trattiene l'umidità e frena le infestanti."],
+    ["Mulch ausbringen", "Beete abgestochen und mit frischem Mulch bedeckt, der Feuchte hält und Unkraut unterdrückt."],
+    ["Мульчування", "Краї клумб підрізано, клумби вкрито свіжим шаром мульчі, що тримає вологу й стримує бур'яни."],
+    ["Paglagay ng mulch", "Nilinyahan ang taniman at nilagyan ng bagong mulch para mapanatili ang halumigmig at pigilan ang damo."],
+  ), [
+    L.labour(1, "sqft", 1.25, {
+      en: ["Mulch spreading — per sq ft of bed", "Beds weeded, edged and mulch spread three inches deep."],
+      fr: ["Épandage de paillis — au pi² de plate-bande", "Plates-bandes désherbées, bordurées et paillis étendu sur trois pouces."],
+      es: ["Esparcido de mantillo — por pie² de cantero", "Canteros deshierbados, bordeados y mantillo esparcido a tres pulgadas."],
+      it: ["Stesura pacciamatura — al piede quadro di aiuola", "Aiuole diserbate, rifilate e pacciamatura stesa per tre pollici."],
+      de: ["Mulch verteilen — pro sq ft Beet", "Beete gejätet, abgestochen und Mulch drei Zoll dick verteilt."],
+      uk: ["Розкладання мульчі — за кв. фут клумби", "Клумби прополото, окантовано, мульчу розкладено шаром три дюйми."],
+      tl: ["Paglatag ng mulch — kada sq ft ng taniman", "Binunutan, nilinyahan at nilatagan ng tatlong pulgadang mulch."],
+    }, { measurementKey: "areaSqFt" }),
+    hdMaterial(HD.mulch_2cuft, {
+      en: ["Mulch — per bag", "2 cu ft bag of shredded mulch; about 8 sq ft at three inches."],
+      fr: ["Paillis — le sac", "Sac de 2 pi³ de paillis déchiqueté; environ 8 pi² sur trois pouces."],
+      es: ["Mantillo — por bolsa", "Bolsa de 2 pies³ de mantillo triturado; unos 8 pies² a tres pulgadas."],
+      it: ["Pacciamatura — al sacco", "Sacco da 2 piedi cubi di pacciamatura; circa 8 piedi quadri a tre pollici."],
+      de: ["Mulch — pro Sack", "2-Kubikfuß-Sack Rindenmulch; etwa 8 sq ft bei drei Zoll."],
+      uk: ["Мульча — за мішок", "Мішок подрібненої мульчі 2 куб. фути; близько 8 кв. футів шаром три дюйми."],
+      tl: ["Mulch — kada sako", "2 cu ft na sako ng shredded mulch; mga 8 sq ft sa tatlong pulgada."],
+    }, { measurementKey: "areaSqFt" }),
+    hdMaterial(HD.edging_20ft, {
+      en: ["Bed edging — per kit", "No-dig landscape edging; one kit runs 20 linear ft."],
+      fr: ["Bordure de plate-bande — l'ensemble", "Bordure sans creusage; un ensemble fait 20 pi lin."],
+      es: ["Borde para cantero — por kit", "Borde sin excavación; un kit rinde 20 pies lineales."],
+      it: ["Bordura per aiuole — per kit", "Bordura senza scavo; un kit fa 20 piedi lineari."],
+      de: ["Beeteinfassung — pro Set", "Einfassung ohne Graben; ein Set reicht für 20 lfd. Fuß."],
+      uk: ["Бордюр для клумби — за комплект", "Бордюр без копання; комплект на 20 пог. футів."],
+      tl: ["Edging ng taniman — kada kit", "No-dig na landscape edging; ang isang kit ay 20 linear ft."],
+    }, { measurementKey: "edgingFt" }),
+  ], null),
+
+  "fq.lawn_care.additional.hardscape_install": T("installation", n(
+    ["Posa hardscape — patii, vialetti ed elementi in pietra", "Masselli, lastre o muretti posati su una base compattata per un patio, un vialetto o un elemento che dura."],
+    ["Hardscape — Terrassen, Wege und Steinelemente", "Pflaster, Platten oder Stützmauern auf verdichtetem Unterbau für eine dauerhafte Terrasse, einen Weg oder ein Element."],
+    ["Мощення — патіо, доріжки та кам'яні елементи", "Бруківку, плиту чи підпірні стінки укладено на ущільнену основу для міцного патіо, доріжки чи елемента."],
+    ["Hardscape — patio, daanan at batong elemento", "Pavers, flagstone o retaining wall sa siksik na base para sa matibay na patio, daanan o elemento."],
+  ), [
+    L.labour(1, "sqft", 14, {
+      en: ["Paver installation — per sq ft", "Excavated, base compacted in lifts, pavers laid, edged and joint-sanded."],
+      fr: ["Pose de pavés — au pi²", "Excavé, fondation compactée par couches, pavés posés, bordés et jointoyés au sable."],
+      es: ["Instalación de adoquín — por pie²", "Excavado, base compactada por capas, adoquines colocados, confinados y arenados."],
+      it: ["Posa autobloccanti — al piede quadro", "Scavato, base compattata a strati, masselli posati, bordati e sigillati a sabbia."],
+      de: ["Pflasterverlegung — pro sq ft", "Ausgehoben, Tragschicht lagenweise verdichtet, Pflaster verlegt, eingefasst und eingesandet."],
+      uk: ["Укладання бруківки — за кв. фут", "Викопано, основу ущільнено шарами, бруківку укладено, обрамлено й засипано піском."],
+      tl: ["Pagkabit ng pavers — kada sq ft", "Hinukay, siniksik ang base nang paisa-isang layer, inilatag, nilagyan ng gilid at buhangin."],
+    }, { measurementKey: "areaSqft" }),
+    hdMaterial(HD.paver_base_half_cuft, {
+      en: ["Paver base — per bag", "0.5 cu ft bag of paver base; about 1.5 sq ft at four inches."],
+      fr: ["Fondation pour pavés — le sac", "Sac de 0,5 pi³; environ 1,5 pi² sur quatre pouces."],
+      es: ["Base para adoquín — por bolsa", "Bolsa de 0.5 pies³; unos 1.5 pies² a cuatro pulgadas."],
+      it: ["Sottofondo per masselli — al sacco", "Sacco da 0,5 piedi cubi; circa 1,5 piedi quadri a quattro pollici."],
+      de: ["Pflasterunterbau — pro Sack", "0,5-Kubikfuß-Sack; etwa 1,5 sq ft bei vier Zoll."],
+      uk: ["Основа під бруківку — за мішок", "Мішок 0,5 куб. фута; близько 1,5 кв. фута шаром чотири дюйми."],
+      tl: ["Paver base — kada sako", "0.5 cu ft na sako; mga 1.5 sq ft sa apat na pulgada."],
+    }, { measurementKey: "areaSqft" }),
+    L.material(1, "sqft", 4.5, {
+      en: ["Concrete pavers — per sq ft", "Standard concrete pavers, edge restraint and polymeric joint sand."],
+      fr: ["Pavés de béton — au pi²", "Pavés de béton standard, bordure de retenue et sable polymère."],
+      es: ["Adoquín de concreto — por pie²", "Adoquín de concreto estándar, confinamiento y arena polimérica."],
+      it: ["Masselli in calcestruzzo — al piede quadro", "Masselli standard, cordolo di contenimento e sabbia polimerica."],
+      de: ["Betonpflaster — pro sq ft", "Standard-Betonpflaster, Randeinfassung und Polymer-Fugensand."],
+      uk: ["Бетонна бруківка — за кв. фут", "Стандартна бетонна бруківка, бордюрний обмежувач і полімерний пісок."],
+      tl: ["Concrete pavers — kada sq ft", "Standard na concrete pavers, edge restraint at polymeric sand."],
+    }, { measurementKey: "areaSqft" }),
+  ], null),
+
+  "fq.lawn_care.additional.irrigation_install": T("installation", n(
+    ["Installazione impianto di irrigazione", "Linee interrate, irrigatori e centralina installati e suddivisi in zone per annaffiare in modo uniforme."],
+    ["Bewässerungsanlage einbauen", "Unterirdische Leitungen, Regner und Steuerung eingebaut und in Zonen geteilt, für gleichmäßige Bewässerung."],
+    ["Встановлення поливної системи", "Підземні лінії, зрошувачі й контролер встановлено й поділено на зони для рівномірного поливу."],
+    ["Pagkabit ng irrigation system", "Ikinabit ang linya sa ilalim ng lupa, sprinkler at controller at hinati sa zone para pantay ang dilig."],
+  ), [
+    L.labour(1, "each", 650, {
+      en: ["Irrigation zone installation — per zone", "Trenching, pipe, heads and valve for one zone, tested for coverage."],
+      fr: ["Installation de zone d'irrigation — la zone", "Tranchée, tuyau, arroseurs et vanne pour une zone, couverture testée."],
+      es: ["Instalación de zona de riego — por zona", "Zanja, tubería, aspersores y válvula de una zona, cobertura probada."],
+      it: ["Installazione zona irrigua — per zona", "Scavo, tubo, irrigatori e valvola per una zona, copertura provata."],
+      de: ["Bewässerungszone — pro Zone", "Graben, Rohr, Regner und Ventil für eine Zone, Abdeckung getestet."],
+      uk: ["Монтаж зони поливу — за зону", "Траншея, труба, зрошувачі та клапан на одну зону, покриття перевірено."],
+      tl: ["Pagkabit ng irrigation zone — kada zone", "Kanal, tubo, sprinkler head at valve para sa isang zone, sinubukan ang abot."],
+    }, { measurementKey: "each" }),
+    L.material(1, "flat", 280, {
+      en: ["Controller and backflow parts", "Smart controller, wire and backflow connection fittings."],
+      fr: ["Contrôleur et pièces anti-refoulement", "Contrôleur intelligent, fil et raccords anti-refoulement."],
+      es: ["Controlador y piezas antirretorno", "Controlador inteligente, cable y conexiones antirretorno."],
+      it: ["Centralina e parti antiriflusso", "Centralina smart, cavo e raccordi antiriflusso."],
+      de: ["Steuerung und Rückflussteile", "Smarte Steuerung, Kabel und Rückflussverhinderer-Anschlüsse."],
+      uk: ["Контролер і деталі зворотного клапана", "Розумний контролер, дріт і фітинги зворотного клапана."],
+      tl: ["Controller at backflow parts", "Smart controller, wire at backflow fittings."],
+    }),
+  ], null),
+
+  // ── Repair ──
+  "fq.lawn_care.maintenance.irrigation_service": T("repair", n(
+    ["Assistenza e riparazione irrigazione", "Zone provate, irrigatori rotti e linee che perdono sostituiti, centralina riprogrammata."],
+    ["Bewässerung warten und reparieren", "Zonen getestet, defekte Regner und undichte Leitungen ersetzt, Steuerung neu programmiert."],
+    ["Обслуговування та ремонт поливу", "Зони перевірено, зламані зрошувачі й протікаючі лінії замінено, контролер перепрограмовано."],
+    ["Service at pag-ayos ng irrigation", "Sinubukan ang mga zone, pinalitan ang sirang head at tumutulong linya, ni-reprogram ang controller."],
+  ), [
+    SHARED.serviceCall(85),
+    SHARED.techHour(1, 85),
+    L.material(1, "each", 18, {
+      en: ["Replacement spray head — per head", "Pop-up spray or rotor head with nozzle."],
+      fr: ["Arroseur de remplacement — l'unité", "Arroseur escamotable ou rotor avec buse."],
+      es: ["Aspersor de repuesto — por pieza", "Aspersor emergente o rotor con boquilla."],
+      it: ["Irrigatore di ricambio — cadauno", "Irrigatore a scomparsa o rotore con ugello."],
+      de: ["Ersatzregner — pro Stück", "Versenk- oder Getrieberegner mit Düse."],
+      uk: ["Змінний зрошувач — за штуку", "Висувний зрошувач або ротор із соплом."],
+      tl: ["Kapalit na spray head — kada isa", "Pop-up spray o rotor head na may nozzle."],
+    }, { measurementKey: "each" }),
+  ], null),
+
+  "fq.lawn_care.additional.drainage_solutions": T("repair", n(
+    ["Soluzioni di drenaggio", "Ristagni e ruscellamento risolti con rimodellamento, drenaggi francesi o pozzetti."],
+    ["Entwässerungslösungen", "Staunässe und Abfluss durch Neuprofilierung, Sickerrohre oder Einläufe behoben."],
+    ["Дренажні рішення", "Застійну воду й стік усунено перепрофілюванням, французьким дренажем або дощоприймачами."],
+    ["Solusyon sa drainage", "Inayos ang nakatenggang tubig at agos sa regrading, French drain o catch basin."],
+  ), [
+    L.labour(1, "linear_ft", 28, {
+      en: ["French drain — per linear ft", "Trench dug to fall, fabric laid, perforated pipe set in gravel and backfilled."],
+      fr: ["Drain français — au pi lin.", "Tranchée creusée en pente, géotextile posé, tuyau perforé dans le gravier et remblayé."],
+      es: ["Drenaje francés — por pie lineal", "Zanja con pendiente, geotextil, tubo perforado en grava y relleno."],
+      it: ["Drenaggio francese — al piede lineare", "Scavo in pendenza, geotessuto, tubo forato nella ghiaia e rinterro."],
+      de: ["Sickerdrain — pro lfd. Fuß", "Graben mit Gefälle, Vlies, Drainrohr in Kies gebettet und verfüllt."],
+      uk: ["Французький дренаж — за пог. фут", "Траншею викопано з ухилом, укладено геотекстиль, перфоровану трубу в гравій і засипано."],
+      tl: ["French drain — kada linear ft", "Hinukay ang kanal na may slope, nilagyan ng tela, perforated pipe sa graba at tinabunan."],
+    }, { measurementKey: "linearFt" }),
+    hdMaterial(HD.gravel_trench, {
+      en: ["Drainage gravel — per bag", "0.5 cu ft bag of all-purpose rock; half a foot of a 12 × 12 in trench."],
+      fr: ["Gravier de drainage — le sac", "Sac de 0,5 pi³ de pierre tout usage."],
+      es: ["Grava de drenaje — por bolsa", "Bolsa de 0.5 pies³ de grava multiuso."],
+      it: ["Ghiaia drenante — al sacco", "Sacco da 0,5 piedi cubi di ghiaia multiuso."],
+      de: ["Drainagekies — pro Sack", "0,5-Kubikfuß-Sack Allzweckkies."],
+      uk: ["Дренажний гравій — за мішок", "Мішок універсального гравію 0,5 куб. фута."],
+      tl: ["Drainage gravel — kada sako", "0.5 cu ft na sako ng all-purpose na bato."],
+    }, { measurementKey: "linearFt" }),
+  ], null),
+
+  "fq.lawn_care.additional.repair_visit": T("repair", n(
+    ["Intervento di riparazione prato e giardino", "Visita prenotata di due ore per sistemare ciò che non va — una chiazza spoglia, un'aiuola dilavata, un vialetto ceduto."],
+    ["Reparatureinsatz Rasen und Garten", "Gebuchter Zwei-Stunden-Termin, um zu beheben, was nicht passt — eine kahle Stelle, ein ausgespültes Beet, ein abgesackter Weg."],
+    ["Ремонтний виїзд для газону й саду", "Запланований двогодинний візит, щоб виправити проблему — лисину, розмите клумбу, просілу доріжку."],
+    ["Repair visit sa damuhan at landscape", "Naka-book na dalawang oras na visit para ayusin ang sira — kalbong bahagi, nasirang taniman, lumubog na daanan."],
+  ), [
+    L.labour(2, "hour", 75, {
+      en: ["Landscape repair labour", "Patch seeding, bed rebuilding or path levelling, by the hour."],
+      fr: ["Main-d'œuvre — réparation paysagère", "Réensemencement localisé, reconstruction de plate-bande ou nivellement d'allée, à l'heure."],
+      es: ["Mano de obra — reparación de jardín", "Resiembra en parches, reconstrucción de canteros o nivelación de senderos, por hora."],
+      it: ["Manodopera — riparazione giardino", "Risemina a chiazze, ricostruzione aiuole o livellamento vialetti, a ore."],
+      de: ["Arbeit — Gartenreparatur", "Nachsaat, Beete neu anlegen oder Wege nivellieren, nach Stunden."],
+      uk: ["Робота — ремонт ландшафту", "Підсівання, відновлення клумб або вирівнювання доріжок, погодинно."],
+      tl: ["Labor — pag-ayos ng landscape", "Patch seeding, pag-ayos ng taniman o pagpatag ng daanan, kada oras."],
+    }),
+    hdMaterial(HD.grass_seed_20lb, {
+      en: ["Grass seed", "Grass seed mix; the quantity follows the labelled coverage of the bag the store sells."],
+      fr: ["Semences de gazon", "Mélange de semences; la quantité suit le rendement indiqué sur le sac vendu en magasin."],
+      es: ["Semilla de pasto", "Mezcla de semilla; la cantidad sigue la cobertura indicada en la bolsa de la tienda."],
+      it: ["Semi per prato", "Miscela di semi; la quantità segue la resa indicata sul sacco in vendita."],
+      de: ["Rasensamen", "Rasensamenmischung; die Menge folgt der auf dem Sack angegebenen Fläche."],
+      uk: ["Насіння газону", "Суміш насіння; кількість залежить від площі, вказаної на мішку з магазину."],
+      tl: ["Buto ng damo", "Halo ng buto ng damo; ang dami ay batay sa coverage na nakasulat sa sako ng tindahan."],
+    }, { measurementKey: "areaSqFt" }),
+  ], null),
+
+  // ── Inspection ──
+  "fq.lawn_care.maintenance.lawn_health_inspection": T("inspection", n(
+    ["Ispezione della salute del prato", "Prato percorso per verificare densità, terreno, chiazze e parassiti, con un piano scritto di cosa trattare."],
+    ["Rasen-Gesundheitscheck", "Rasen begangen, um Dichte, Boden, kahle Stellen und Schädlinge zu prüfen, mit schriftlichem Behandlungsplan."],
+    ["Огляд стану газону", "Газон обійдено для перевірки густоти, ґрунту, плям і шкідників, із письмовим планом обробки."],
+    ["Inspeksyon ng kalusugan ng damuhan", "Nilakaran ang damuhan para tingnan ang kapal, lupa, kalbo at peste, may nakasulat na plano."],
+  ), [
+    L.labour(1, "flat", 75, {
+      en: ["Lawn assessment and soil test", "Turf and soil checked, a soil sample pulled and a treatment plan written."],
+      fr: ["Évaluation de pelouse et analyse de sol", "Gazon et sol vérifiés, échantillon prélevé et plan de traitement rédigé."],
+      es: ["Evaluación del césped y análisis de suelo", "Pasto y suelo revisados, muestra tomada y plan de tratamiento escrito."],
+      it: ["Valutazione prato e analisi del terreno", "Manto e terreno controllati, campione prelevato e piano di trattamento redatto."],
+      de: ["Rasenbewertung und Bodenprobe", "Rasen und Boden geprüft, Probe gezogen und Behandlungsplan geschrieben."],
+      uk: ["Оцінка газону й аналіз ґрунту", "Дерн і ґрунт перевірено, взято пробу, складено план обробки."],
+      tl: ["Assessment ng damuhan at soil test", "Chineck ang damo at lupa, kumuha ng sample at isinulat ang plano."],
+    }),
+    L.material(1, "each", 25, {
+      en: ["Soil test kit", "Lab soil test for pH and nutrients."],
+      fr: ["Trousse d'analyse de sol", "Analyse de sol en laboratoire pour le pH et les nutriments."],
+      es: ["Kit de análisis de suelo", "Análisis de laboratorio de pH y nutrientes."],
+      it: ["Kit analisi del terreno", "Analisi di laboratorio di pH e nutrienti."],
+      de: ["Bodentest-Set", "Laboranalyse für pH-Wert und Nährstoffe."],
+      uk: ["Набір для аналізу ґрунту", "Лабораторний аналіз pH і поживних речовин."],
+      tl: ["Soil test kit", "Lab soil test para sa pH at nutrients."],
+    }),
+  ], null),
+
+  "fq.lawn_care.maintenance.inspection_visit": T("inspection", n(
+    ["Visita di ispezione prato e giardino", "Visita prenotata di due ore per esaminare tutta la proprietà e lasciare raccomandazioni chiare."],
+    ["Inspektionstermin Rasen und Garten", "Gebuchter Zwei-Stunden-Termin, um das ganze Grundstück anzusehen und klare Empfehlungen zu geben."],
+    ["Огляд газону та ландшафту", "Запланований двогодинний візит, щоб оглянути всю ділянку й залишити чіткі рекомендації."],
+    ["Inspection visit ng damuhan at landscape", "Naka-book na dalawang oras na visit para tingnan ang buong property at mag-iwan ng malinaw na rekomendasyon."],
+  ), [
+    L.labour(1, "flat", 95, {
+      en: ["Property walkthrough", "Lawn, beds, trees and drainage looked over and a written list of recommendations left."],
+      fr: ["Visite de la propriété", "Pelouse, plates-bandes, arbres et drainage examinés, liste écrite de recommandations laissée."],
+      es: ["Recorrido de la propiedad", "Césped, canteros, árboles y drenaje revisados y una lista escrita de recomendaciones."],
+      it: ["Giro della proprietà", "Prato, aiuole, alberi e drenaggio esaminati e lista scritta di raccomandazioni lasciata."],
+      de: ["Grundstücksbegehung", "Rasen, Beete, Bäume und Entwässerung angesehen, schriftliche Empfehlungsliste hinterlassen."],
+      uk: ["Обхід ділянки", "Газон, клумби, дерева й дренаж оглянуто, залишено письмові рекомендації."],
+      tl: ["Walkthrough ng property", "Tiningnan ang damuhan, taniman, puno at drainage at iniwan ang nakasulat na rekomendasyon."],
+    }),
+  ], null),
+
+  "fq.lawn_care.additional.landscape_design": T("inspection", n(
+    ["Progettazione del paesaggio", "Un progetto dello spazio esterno — aiuole, piante, percorsi e prato — su misura per l'uso della proprietà."],
+    ["Landschaftsplanung", "Ein Plan für den Außenbereich — Beete, Pflanzen, Wege und Rasen — passend zur Nutzung des Grundstücks."],
+    ["Ландшафтний дизайн", "План зовнішнього простору — клумби, рослини, доріжки й газон — під те, як використовується ділянка."],
+    ["Disenyo ng landscape", "Plano ng labas — taniman, halaman, daanan at damuhan — angkop sa gamit ng property."],
+  ), [
+    L.labour(1, "flat", 450, {
+      en: ["Design consultation and plan", "Site measured, needs discussed and a scaled planting and hardscape plan drawn."],
+      fr: ["Consultation et plan de conception", "Terrain mesuré, besoins discutés et plan à l'échelle des plantations et aménagements dessiné."],
+      es: ["Consulta y plano de diseño", "Terreno medido, necesidades conversadas y un plano a escala de plantas y pavimentos dibujado."],
+      it: ["Consulenza e progetto", "Area misurata, esigenze discusse e un progetto in scala di piante e pavimentazioni disegnato."],
+      de: ["Planungsgespräch und Plan", "Grundstück aufgemessen, Wünsche besprochen und ein maßstäblicher Pflanz- und Hardscape-Plan gezeichnet."],
+      uk: ["Консультація та план", "Ділянку виміряно, потреби обговорено, накреслено масштабний план насаджень і мощення."],
+      tl: ["Konsultasyon at plano", "Sinukat ang lote, pinag-usapan ang kailangan at ginuhit ang scaled na plano ng halaman at hardscape."],
+    }),
+  ], null),
+};
+
+withLanguages(SEED, I18N);
+withTemplates(SEED, TEMPLATES);

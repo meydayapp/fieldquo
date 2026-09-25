@@ -1,0 +1,233 @@
+[
+ {
+  "seedKey": "fq.gutter_services.install.regular",
+  "industry": "Gutters",
+  "sourceCategory": "Gutters > Installation > Gutters and downspouts",
+  "sourceService": "Installation - Regular gutters",
+  "taskCode": "DEFAULT_GUTTERS_SERVICE_1"
+ },
+ {
+  "seedKey": "fq.gutter_services.install.seamless",
+  "industry": "Gutters",
+  "sourceCategory": "Gutters > Installation > Gutters and downspouts",
+  "sourceService": "Installation - Seamless gutters",
+  "taskCode": "DEFAULT_GUTTERS_SERVICE_2"
+ },
+ {
+  "seedKey": "fq.gutter_services.install.downspouts",
+  "industry": "Gutters",
+  "sourceCategory": "Gutters > Installation > Gutters and downspouts",
+  "sourceService": "Installation - Downspouts",
+  "taskCode": "DEFAULT_GUTTERS_SERVICE_3"
+ },
+ {
+  "seedKey": "fq.gutter_services.install.box",
+  "industry": "Gutters",
+  "sourceCategory": "Gutters > Installation > Gutters and downspouts",
+  "sourceService": "Installation - Box gutter",
+  "taskCode": "DEFAULT_GUTTERS_SERVICE_4"
+ },
+ {
+  "seedKey": "fq.gutter_services.install.copper",
+  "industry": "Gutters",
+  "sourceCategory": "Gutters > Installation > Gutters and downspouts",
+  "sourceService": "Installation - Copper gutters",
+  "taskCode": "DEFAULT_GUTTERS_SERVICE_5"
+ },
+ {
+  "seedKey": "fq.gutter_services.install.guards",
+  "industry": "Gutters",
+  "sourceCategory": "Gutters > Installation > Gutters and downspouts",
+  "sourceService": "Installation - Guards",
+  "taskCode": "DEFAULT_GUTTERS_SERVICE_6"
+ },
+ {
+  "seedKey": "fq.gutter_services.install.half_round",
+  "industry": "Gutters",
+  "sourceCategory": "Gutters > Installation > Gutters and downspouts",
+  "sourceService": "Installation - Half round gutter",
+  "taskCode": "DEFAULT_GUTTERS_SERVICE_7"
+ },
+ {
+  "seedKey": "fq.gutter_services.install.k_style",
+  "industry": "Gutters",
+  "sourceCategory": "Gutters > Installation > Gutters and downspouts",
+  "sourceService": "Installation - K Gutter",
+  "taskCode": "DEFAULT_GUTTERS_SERVICE_8"
+ },
+ {
+  "seedKey": "fq.gutter_services.install.french_drain",
+  "industry": "Gutters",
+  "sourceCategory": "Gutters > Installation > Drainage",
+  "sourceService": "Installation - French drains",
+  "taskCode": "DEFAULT_GUTTERS_SERVICE_9"
+ },
+ {
+  "seedKey": "fq.gutter_services.install.other",
+  "industry": "Gutters",
+  "sourceCategory": "Gutters > Installation > Other",
+  "sourceService": "Installation - Something else / I don't know",
+  "taskCode": "DEFAULT_GUTTERS_SERVICE_10"
+ },
+ {
+  "seedKey": "fq.gutter_services.maintenance.regular",
+  "industry": "Gutters",
+  "sourceCategory": "Gutters > Maintenance > Gutters and downspouts",
+  "sourceService": "Maintenance - Regular gutters",
+  "taskCode": "DEFAULT_GUTTERS_SERVICE_11"
+ },
+ {
+  "seedKey": "fq.gutter_services.maintenance.seamless",
+  "industry": "Gutters",
+  "sourceCategory": "Gutters > Maintenance > Gutters and downspouts",
+  "sourceService": "Maintenance - Seamless gutters",
+  "taskCode": "DEFAULT_GUTTERS_SERVICE_12"
+ },
+ {
+  "seedKey": "fq.gutter_services.maintenance.downspouts",
+  "industry": "Gutters",
+  "sourceCategory": "Gutters > Maintenance > Gutters and downspouts",
+  "sourceService": "Maintenance - Downspouts",
+  "taskCode": "DEFAULT_GUTTERS_SERVICE_13"
+ },
+ {
+  "seedKey": "fq.gutter_services.maintenance.box",
+  "industry": "Gutters",
+  "sourceCategory": "Gutters > Maintenance > Gutters and downspouts",
+  "sourceService": "Maintenance - Box Gutter",
+  "taskCode": "DEFAULT_GUTTERS_SERVICE_14"
+ },
+ {
+  "seedKey": "fq.gutter_services.maintenance.copper",
+  "industry": "Gutters",
+  "sourceCategory": "Gutters > Maintenance > Gutters and downspouts",
+  "sourceService": "Maintenance - Copper Gutters",
+  "taskCode": "DEFAULT_GUTTERS_SERVICE_15"
+ },
+ {
+  "seedKey": "fq.gutter_services.maintenance.guards",
+  "industry": "Gutters",
+  "sourceCategory": "Gutters > Maintenance > Gutters and downspouts",
+  "sourceService": "Maintenance - Guards",
+  "taskCode": "DEFAULT_GUTTERS_SERVICE_16"
+ },
+ {
+  "seedKey": "fq.gutter_services.maintenance.half_round",
+  "industry": "Gutters",
+  "sourceCategory": "Gutters > Maintenance > Gutters and downspouts",
+  "sourceService": "Maintenance - Half round gutter",
+  "taskCode": "DEFAULT_GUTTERS_SERVICE_17"
+ },
+ {
+  "seedKey": "fq.gutter_services.maintenance.k_style",
+  "industry": "Gutters",
+  "sourceCategory": "Gutters > Maintenance > Gutters and downspouts",
+  "sourceService": "Maintenance - K gutter",
+  "taskCode": "DEFAULT_GUTTERS_SERVICE_18"
+ },
+ {
+  "seedKey": "fq.gutter_services.maintenance.painting",
+  "industry": "Gutters",
+  "sourceCategory": "Gutters > Maintenance > Gutters and downspouts",
+  "sourceService": "Maintenance - Painting",
+  "taskCode": "DEFAULT_GUTTERS_SERVICE_19"
+ },
+ {
+  "seedKey": "fq.gutter_services.maintenance.other",
+  "industry": "Gutters",
+  "sourceCategory": "Gutters > Maintenance > Other",
+  "sourceService": "Maintenance - Something else / I don't know",
+  "taskCode": "DEFAULT_GUTTERS_SERVICE_21"
+ },
+ {
+  "seedKey": "fq.gutter_services.repair.regular",
+  "industry": "Gutters",
+  "sourceCategory": "Gutters > Repair > Gutters and downspouts",
+  "sourceService": "Repair - Regular gutters",
+  "taskCode": "DEFAULT_GUTTERS_SERVICE_22"
+ },
+ {
+  "seedKey": "fq.gutter_services.repair.seamless",
+  "industry": "Gutters",
+  "sourceCategory": "Gutters > Repair > Gutters and downspouts",
+  "sourceService": "Repair - Seamless gutters",
+  "taskCode": "DEFAULT_GUTTERS_SERVICE_23"
+ },
+ {
+  "seedKey": "fq.gutter_services.repair.downspouts",
+  "industry": "Gutters",
+  "sourceCategory": "Gutters > Repair > Gutters and downspouts",
+  "sourceService": "Repair - Downspouts",
+  "taskCode": "DEFAULT_GUTTERS_SERVICE_24"
+ },
+ {
+  "seedKey": "fq.gutter_services.repair.box",
+  "industry": "Gutters",
+  "sourceCategory": "Gutters > Repair > Gutters and downspouts",
+  "sourceService": "Repair - Box Gutter",
+  "taskCode": "DEFAULT_GUTTERS_SERVICE_25"
+ },
+ {
+  "seedKey": "fq.gutter_services.repair.copper",
+  "industry": "Gutters",
+  "sourceCategory": "Gutters > Repair > Gutters and downspouts",
+  "sourceService": "Repair - Copper Gutters",
+  "taskCode": "DEFAULT_GUTTERS_SERVICE_26"
+ },
+ {
+  "seedKey": "fq.gutter_services.repair.guards",
+  "industry": "Gutters",
+  "sourceCategory": "Gutters > Repair > Gutters and downspouts",
+  "sourceService": "Repair - Guards",
+  "taskCode": "DEFAULT_GUTTERS_SERVICE_27"
+ },
+ {
+  "seedKey": "fq.gutter_services.repair.half_round",
+  "industry": "Gutters",
+  "sourceCategory": "Gutters > Repair > Gutters and downspouts",
+  "sourceService": "Repair - Half round gutter",
+  "taskCode": "DEFAULT_GUTTERS_SERVICE_28"
+ },
+ {
+  "seedKey": "fq.gutter_services.repair.k_style",
+  "industry": "Gutters",
+  "sourceCategory": "Gutters > Repair > Gutters and downspouts",
+  "sourceService": "Repair - K gutter",
+  "taskCode": "DEFAULT_GUTTERS_SERVICE_29"
+ },
+ {
+  "seedKey": "fq.gutter_services.repair.painting",
+  "industry": "Gutters",
+  "sourceCategory": "Gutters > Repair > Gutters and downspouts",
+  "sourceService": "Repair - Painting",
+  "taskCode": "DEFAULT_GUTTERS_SERVICE_30"
+ },
+ {
+  "seedKey": "fq.gutter_services.repair.french_drain",
+  "industry": "Gutters",
+  "sourceCategory": "Gutters > Repair > Drainage",
+  "sourceService": "Repair - French drains",
+  "taskCode": "DEFAULT_GUTTERS_SERVICE_32"
+ },
+ {
+  "seedKey": "fq.gutter_services.repair.other",
+  "industry": "Gutters",
+  "sourceCategory": "Gutters > Repair > Other",
+  "sourceService": "Repair - Something else / I don't know",
+  "taskCode": "DEFAULT_GUTTERS_SERVICE_33"
+ },
+ {
+  "seedKey": "fq.gutter_services.visits.inspection",
+  "industry": "Gutters",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Gutter and drainage inspection",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.gutter_services.visits.estimate_visit",
+  "industry": "Gutters",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Gutter replacement estimate",
+  "taskCode": null
+ }
+]

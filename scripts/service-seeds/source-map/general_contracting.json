@@ -754,5 +754,89 @@
   "sourceCategory": "Windows, Doors & Garage",
   "sourceService": "Installation of Residential Windows and Glass Units",
   "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_107"
+ },
+ {
+  "seedKey": "fq.general_contracting.consulting.diagnostic_visit",
+  "industry": "Construction & Remodeling",
+  "sourceCategory": "Estimate templates (Inspection)",
+  "sourceService": "Diagnostic visit",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.general_contracting.consulting.repair_visit",
+  "industry": "Construction & Remodeling",
+  "sourceCategory": "Estimate templates (Repair)",
+  "sourceService": "Repair",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.general_contracting.consulting.kitchen_design",
+  "industry": "Construction & Remodeling",
+  "sourceCategory": "Estimate templates (Kitchen Remodel)",
+  "sourceService": "Design & Planning Consultation",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.general_contracting.consulting.kitchen_project_management",
+  "industry": "Construction & Remodeling",
+  "sourceCategory": "Estimate templates (Kitchen Remodel)",
+  "sourceService": "Kitchen Remodel Project Management",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.general_contracting.renovation.whole_home_scope",
+  "industry": "Construction & Remodeling",
+  "sourceCategory": "Estimate templates (Whole-Home Renovation)",
+  "sourceService": "Whole-Home Design & Scope Development",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.general_contracting.renovation.whole_home_finish_labour",
+  "industry": "Construction & Remodeling",
+  "sourceCategory": "Estimate templates (Whole-Home Renovation)",
+  "sourceService": "Whole-Home Renovation Labor",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.general_contracting.renovation.whole_home_project_management",
+  "industry": "Construction & Remodeling",
+  "sourceCategory": "Estimate templates (Whole-Home Renovation)",
+  "sourceService": "Whole-Home Renovation Project Management",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.general_contracting.renovation.basement_moisture_prep",
+  "industry": "Construction & Remodeling",
+  "sourceCategory": "Estimate templates (Basement Finishing)",
+  "sourceService": "Basement Moisture & Structural Prep",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.general_contracting.renovation.basement_framing_rough_in",
+  "industry": "Construction & Remodeling",
+  "sourceCategory": "Estimate templates (Basement Finishing)",
+  "sourceService": "Basement Framing & Rough-In",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.general_contracting.renovation.basement_finish",
+  "industry": "Construction & Remodeling",
+  "sourceCategory": "Estimate templates (Basement Finishing)",
+  "sourceService": "Basement Finish Labor",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.general_contracting.renovation.egress_window",
+  "industry": "Construction & Remodeling",
+  "sourceCategory": "Estimate templates (Basement Finishing)",
+  "sourceService": "Basement Egress Window Addition",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.general_contracting.renovation.whole_home_demolition",
+  "industry": "Construction & Remodeling",
+  "sourceCategory": "Estimate templates (Whole-Home Renovation)",
+  "sourceService": "Whole-Home Demolition",
+  "taskCode": null
  }
 ]

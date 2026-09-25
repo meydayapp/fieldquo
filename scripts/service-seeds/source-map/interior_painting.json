@@ -250,5 +250,12 @@
   "sourceCategory": "Prep & Repair",
   "sourceService": "Removal and Painting of Popcorn Ceilings in Interior Spaces",
   "taskCode": "DEFAULT_PAINT_SERVICE_40"
+ },
+ {
+  "seedKey": "fq.interior_painting.prep.wallpaper_removal",
+  "industry": "Painting",
+  "sourceCategory": "Jobber painting signup seed",
+  "sourceService": "Wallpaper Removal",
+  "taskCode": null
  }
 ]

@@ -306,6 +306,32 @@ section("B — trade summaries and the index of keys");
   ok(benchmarkForSeedKey("nope") === null && benchmarkForSeedKey("") === null, "benchmarkForSeedKey unknown → null");
 }
 
+section("I — one row per shared service");
+{
+  // A service many trades sell lives once and is tagged (`categories`) for
+  // the others; two rows with the same name offered on the same quote type
+  // would put the same service in a company's list twice.
+  const norm = (t) => String(t || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const rows = [];
+  for (const [trade, seed] of Object.entries(loaded)) {
+    for (const s of seed.services || []) rows.push({ key: s.seedKey, name: norm(s.name?.en), cats: new Set([trade, ...(Array.isArray(s.categories) ? s.categories : [])]) });
+  }
+  const byName = new Map();
+  for (const r of rows) byName.set(r.name, [...(byName.get(r.name) || []), r]);
+  let pairs = 0;
+  for (const [name, group] of byName) {
+    for (let i = 0; i < group.length; i++) for (let j = i + 1; j < group.length; j++) {
+      pairs++;
+      const shared = [...group[i].cats].filter((c) => group[j].cats.has(c));
+      ok(shared.length === 0, `"${name}": ${group[i].key} and ${group[j].key} share quote types`, shared);
+    }
+  }
+  const tagged = rows.filter((r) => r.cats.size > 1).length;
+  ok(tagged > 0, "some shared services are tagged for more than one quote type", tagged);
+  // Every tag names a trade the catalogue ships.
+  for (const r of rows) for (const c of r.cats) ok(Object.hasOwn(TRADE_CATALOG, c), `${r.key}: tag "${c}" is a catalogue trade`);
+}
+
 section("H — the screens read what seeding writes");
 {
   const schema = read("prisma/schema.prisma");

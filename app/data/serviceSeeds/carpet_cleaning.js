@@ -3,6 +3,9 @@
 // The service list a carpet-cleaning company starts from — the benchmark's
 // carpet-cleaning book, then its two-row carpet-repair book and one-row rug
 // book, in that order. Read ./index.js for the format and the rules.
+import { L, SHARED, D, T, withTemplates, withLanguages } from "./_templateLines";
+import { I18N } from "./i18n/carpet_cleaning.js";
+
 const BM = (low, median, high) => ({ low, median, high, currency: "USD", source: "benchmark", asOf: "2026-09-21" });
 const S = (seedKey, category, unit, benchmark, [en, fr, es], [den, dfr, des], extra = {}) => ({
   seedKey, category, name: { en, fr, es }, description: { en: den, fr: dfr, es: des },
@@ -288,5 +291,304 @@ export const SEED = {
        "Travail sur tapis qui n'entre dans aucun service standard, chiffré après examen de la pièce.",
        "Trabajo de tapete que no encaja en un servicio estándar, cotizado después de ver la pieza."],
       { bookable: true }),
+    // ── Added 2026-09-24 with the estimate templates ──────────────────────
+    S("fq.carpet_cleaning.visits.assessment_visit", "visits", "flat", null,
+      ["Carpet and upholstery assessment", "Évaluation de tapis et de meubles rembourrés", "Evaluación de alfombras y tapicería"],
+      ["Fibre, stains and traffic wear looked at, the right cleaning method chosen and a written price left.",
+       "Fibre, taches et usure examinées, bonne méthode de nettoyage choisie et prix écrit laissé.",
+       "Fibra, manchas y desgaste revisados, el método de limpieza adecuado elegido y un precio por escrito."],
+      { durationMinutes: 30, bookable: true }),
   ],
 };
+
+// ── Estimate templates ───────────────────────────────────────────────────────
+//
+// Evidence: the carpet-cleaning capture under docs/research/ — five templates
+// priced per room with a pre-treatment material line and real costs: living
+// areas (living room $120/60, bedroom $80/40, pre-treatment $20/10, $15 off),
+// whole home (adds hallway and stairs $75/35, pre-treatment $25/12, $20 off),
+// deep clean with stain treatment (per room $150/75, spot treatment $75/35,
+// stain remover $35/18, $26 off), quarterly area-rug cleaning ($300/200, 4%
+// off) and one-time area-rug deep clean ($600/400, $50 off). Carried at the
+// captured prices and costs. Its booking form counts carpeted areas and
+// stair steps, so per-room lines are keyed `each` (the registry has no room count yet — a `roomCount` key is the follow-up) and stairs `treads`
+// (the stairs module's field), each at qty 1 until the form fills it.
+const PER_ROOM = (price, cost, deep) => L.labour(1, "each", price, deep ? {
+  en: ["Deep extraction — per room", "Pre-sprayed, agitated and hot-water extracted with extra passes on traffic lanes."],
+  fr: ["Extraction en profondeur — la pièce", "Prévaporisé, brossé et extrait à l'eau chaude avec passes supplémentaires dans les zones passantes."],
+  es: ["Extracción profunda — por habitación", "Prerociado, agitado y extraído con agua caliente, con pasadas extra en zonas de tránsito."],
+  it: ["Estrazione profonda — per stanza", "Pretrattato, spazzolato ed estratto ad acqua calda con passate in più sulle zone di passaggio."],
+  de: ["Tiefenextraktion — pro Raum", "Vorgesprüht, gebürstet und heiß extrahiert, mit zusätzlichen Durchgängen auf Laufstraßen."],
+  uk: ["Глибока екстракція — за кімнату", "Попередньо оброблено, збито щіткою та екстраговано гарячою водою з додатковими проходами на доріжках."],
+  tl: ["Deep extraction — kada kuwarto", "Pre-spray, kinuskos at hot-water extraction, may dagdag na pasada sa daanan."],
+} : {
+  en: ["Carpet cleaning — per room", "Hot-water extraction of one carpeted room, furniture edges worked around."],
+  fr: ["Nettoyage de tapis — la pièce", "Extraction à l'eau chaude d'une pièce tapissée, autour des meubles."],
+  es: ["Limpieza de alfombra — por habitación", "Extracción con agua caliente de una habitación alfombrada, alrededor de los muebles."],
+  it: ["Pulizia moquette — per stanza", "Estrazione ad acqua calda di una stanza con moquette, attorno ai mobili."],
+  de: ["Teppichreinigung — pro Raum", "Heißwasserextraktion eines Teppichraums, um die Möbel herum."],
+  uk: ["Чищення килимового покриття — за кімнату", "Екстракція гарячою водою однієї кімнати з покриттям, навколо меблів."],
+  tl: ["Paglilinis ng carpet — kada kuwarto", "Hot-water extraction ng isang kuwartong may carpet, iniikutan ang muwebles."],
+}, { cost, measurementKey: "each" });
+const LIVING_ROOM = () => L.labour(1, "flat", 120, {
+  en: ["Living room carpet", "The main living area extracted, heavy traffic lanes pre-treated."],
+  fr: ["Tapis du salon", "Aire de séjour principale extraite, zones passantes prétraitées."],
+  es: ["Alfombra de la sala", "Área principal extraída, zonas de mucho tránsito pretratadas."],
+  it: ["Moquette del soggiorno", "Zona giorno principale estratta, zone di passaggio pretrattate."],
+  de: ["Wohnzimmerteppich", "Hauptwohnbereich extrahiert, stark begangene Bereiche vorbehandelt."],
+  uk: ["Покриття у вітальні", "Основну житлову зону екстраговано, доріжки попередньо оброблено."],
+  tl: ["Carpet sa sala", "Na-extract ang pangunahing sala, pre-treated ang daanan."],
+}, { cost: 60 });
+const PRETREAT = (price, cost) => L.material(1, "flat", price, {
+  en: ["Pre-treatment solution", "Traffic-lane pre-spray matched to the fibre."],
+  fr: ["Solution de prétraitement", "Prévaporisateur pour zones passantes adapté à la fibre."],
+  es: ["Solución de pretratamiento", "Prerrociador para zonas de tránsito adecuado a la fibra."],
+  it: ["Soluzione di pretrattamento", "Prespray per zone di passaggio adatto alla fibra."],
+  de: ["Vorbehandlungsmittel", "Laufstraßen-Vorsprühmittel passend zur Faser."],
+  uk: ["Засіб попередньої обробки", "Спрей для доріжок, підібраний до волокна."],
+  tl: ["Pre-treatment solution", "Pre-spray para sa daanan na angkop sa fiber."],
+}, { cost });
+const STAIRS = (price = 5, cost = 2.5) => L.labour(1, "each", price, {
+  en: ["Stairs — per step", "Each carpeted tread and riser cleaned by hand tool."],
+  fr: ["Escalier — la marche", "Chaque marche et contremarche tapissée nettoyée à l'outil manuel."],
+  es: ["Escalera — por escalón", "Cada huella y contrahuella alfombrada limpiada con herramienta manual."],
+  it: ["Scale — per gradino", "Ogni pedata e alzata in moquette pulita con attrezzo manuale."],
+  de: ["Treppe — pro Stufe", "Jede Teppichstufe mit Handgerät gereinigt."],
+  uk: ["Сходи — за сходинку", "Кожну сходинку з покриттям очищено ручною насадкою."],
+  tl: ["Hagdan — kada baitang", "Nilinis gamit ang hand tool ang bawat baitang na may carpet."],
+}, { cost, measurementKey: "treads" });
+const RUG = (price, cost, deep) => L.labour(1, "each", price, deep ? {
+  en: ["Area rug deep cleaning", "Rug dusted, washed front and back, rinsed and dried flat."],
+  fr: ["Nettoyage en profondeur de carpette", "Carpette dépoussiérée, lavée des deux côtés, rincée et séchée à plat."],
+  es: ["Limpieza profunda de tapete", "Tapete desempolvado, lavado por ambos lados, enjuagado y secado plano."],
+  it: ["Pulizia profonda del tappeto", "Tappeto spolverato, lavato su entrambi i lati, risciacquato e asciugato in piano."],
+  de: ["Tiefenreinigung Teppich", "Teppich entstaubt, beidseitig gewaschen, gespült und flach getrocknet."],
+  uk: ["Глибоке чищення килима", "Килим вибито, вимито з обох боків, прополоскано й висушено рівно."],
+  tl: ["Deep cleaning ng area rug", "Pinagpag, hinugasan harap at likod, binanlawan at pinatuyo nang nakalatag."],
+} : {
+  en: ["Area rug cleaning", "Rug cleaned by the method its fibre allows and groomed."],
+  fr: ["Nettoyage de carpette", "Carpette nettoyée selon la méthode que permet sa fibre, puis peignée."],
+  es: ["Limpieza de tapete", "Tapete limpiado con el método que permite su fibra y peinado."],
+  it: ["Pulizia del tappeto", "Tappeto pulito con il metodo adatto alla fibra e pettinato."],
+  de: ["Teppichreinigung", "Teppich mit der für die Faser geeigneten Methode gereinigt und gebürstet."],
+  uk: ["Чищення килима", "Килим очищено методом, придатним для його волокна, і розчесано."],
+  tl: ["Paglilinis ng area rug", "Nilinis sa paraang angkop sa fiber at sinuklay."],
+}, { cost, measurementKey: "each" });
+const n = (it, de, uk, tl) => ({ it, de, uk, tl });
+
+const TEMPLATES = {
+  // ── Installation (first full cleans) ──
+  "fq.carpet_cleaning.visits.two_rooms": T("installation", n(
+    ["Pulizia moquette — 2 stanze, prenotata", "Due stanze con moquette pulite ad acqua calda in una visita prenotata."],
+    ["Teppichreinigung — 2 Räume, gebucht", "Zwei Teppichräume in einem gebuchten Termin heiß extrahiert."],
+    ["Чищення покриття — 2 кімнати, запис", "Дві кімнати з покриттям очищено гарячою водою за один запланований візит."],
+    ["Paglilinis ng carpet — 2 kuwarto, naka-book", "Dalawang kuwartong may carpet na nilinis sa isang naka-book na visit."],
+  ), [LIVING_ROOM(), PER_ROOM(80, 40), PRETREAT(20, 10)], D.newCustomer("fixed", 15)),
+
+  "fq.carpet_cleaning.visits.whole_home": T("installation", n(
+    ["Pulizia moquette di tutta la casa — prenotata", "Tutte le moquette della casa, corridoi e scale compresi, in una visita prenotata."],
+    ["Teppichreinigung ganzes Haus — gebucht", "Alle Teppiche im Haus samt Fluren und Treppen in einem gebuchten Termin."],
+    ["Чищення покриття в усьому будинку — запис", "Усі покриття в будинку, включно з коридорами й сходами, за один візит."],
+    ["Paglilinis ng carpet sa buong bahay — naka-book", "Lahat ng carpet sa bahay, kasama pasilyo at hagdan, sa isang naka-book na visit."],
+  ), [
+    LIVING_ROOM(), PER_ROOM(80, 40),
+    L.labour(1, "flat", 75, {
+      en: ["Hallway and stairs", "Hallway runs and the staircase cleaned."],
+      fr: ["Corridor et escalier", "Corridors et escalier nettoyés."],
+      es: ["Pasillo y escaleras", "Pasillos y escalera limpiados."],
+      it: ["Corridoio e scale", "Corridoi e scala puliti."],
+      de: ["Flur und Treppe", "Flure und Treppe gereinigt."],
+      uk: ["Коридор і сходи", "Коридори та сходи очищено."],
+      tl: ["Pasilyo at hagdan", "Nilinis ang pasilyo at hagdan."],
+    }, { cost: 35 }),
+    PRETREAT(25, 12),
+  ], D.newCustomer("fixed", 20)),
+
+  "fq.carpet_cleaning.carpet.vacant_unit_2br": T("installation", n(
+    ["Pulizia moquette — unità vuota, 2 camere e zone comuni", "Moquette di un'unità vuota con due camere e zone comuni pulite tra un inquilino e l'altro."],
+    ["Teppichreinigung — leere Wohnung, 2 Schlafzimmer und Gemeinschaftsflächen", "Teppiche einer leeren Wohnung mit zwei Schlafzimmern und Gemeinschaftsflächen zwischen zwei Mietern gereinigt."],
+    ["Чищення покриття — порожня квартира, 2 спальні та спільні зони", "Покриття порожньої квартири з двома спальнями та спільними зонами очищено між орендарями."],
+    ["Paglilinis ng carpet — bakanteng unit, 2 kuwarto at common area", "Nilinis ang carpet ng bakanteng unit na may dalawang kuwarto at common area sa pagitan ng umuupa."],
+  ), [PER_ROOM(70, 35), PRETREAT(20, 10)], null),
+
+  // ── Repair (restorative) ──
+  "fq.carpet_cleaning.visits.deep_cleaning": T("repair", n(
+    ["Pulizia profonda della moquette — prenotata", "Pulizia profonda con trattamento delle macchie per moquette molto sporche."],
+    ["Teppich-Tiefenreinigung — gebucht", "Tiefenreinigung mit Fleckbehandlung für stark verschmutzte Teppiche."],
+    ["Глибоке чищення покриття — запис", "Глибоке чищення з виведенням плям для дуже забруднених покриттів."],
+    ["Deep cleaning ng carpet — naka-book", "Deep clean na may pagtanggal ng mantsa para sa maruming carpet."],
+  ), [
+    PER_ROOM(150, 75, true),
+    L.labour(1, "flat", 75, {
+      en: ["Spot stain treatment", "Individual stains identified and treated with the right chemistry."],
+      fr: ["Traitement des taches", "Taches repérées une à une et traitées avec le bon produit."],
+      es: ["Tratamiento de manchas", "Manchas identificadas una por una y tratadas con el producto adecuado."],
+      it: ["Trattamento macchie", "Macchie individuate una per una e trattate con il prodotto giusto."],
+      de: ["Fleckbehandlung", "Einzelne Flecken erkannt und mit der passenden Chemie behandelt."],
+      uk: ["Виведення плям", "Кожну пляму визначено й оброблено відповідним засобом."],
+      tl: ["Spot stain treatment", "Tinukoy at tinrato ang bawat mantsa gamit ang tamang kemikal."],
+    }, { cost: 35 }),
+    L.material(1, "flat", 35, {
+      en: ["Heavy-duty stain remover", "Solvent and oxidiser spotters for set-in stains."],
+      fr: ["Détachant puissant", "Détachants solvant et oxydant pour les taches incrustées."],
+      es: ["Quitamanchas industrial", "Desmanchadores de solvente y oxidante para manchas incrustadas."],
+      it: ["Smacchiatore professionale", "Smacchiatori a solvente e ossidanti per macchie radicate."],
+      de: ["Starker Fleckentferner", "Lösungsmittel- und Oxidations-Detachur für eingezogene Flecken."],
+      uk: ["Потужний плямовивідник", "Сольвентні та окисні засоби для застарілих плям."],
+      tl: ["Heavy-duty stain remover", "Solvent at oxidizer spotter para sa matagal nang mantsa."],
+    }, { cost: 18 }),
+  ], D.newCustomer("fixed", 26)),
+
+  "fq.carpet_cleaning.add_ons.pet_treatment": T("repair", n(
+    ["Trattamento macchie e odori di animali — moquette e imbottiti", "Trattamento enzimatico sulle zone sporcate dagli animali per scomporre macchia e odore alla fonte."],
+    ["Tierflecken- und Geruchsbehandlung — Teppich und Polster", "Enzymbehandlung auf verschmutzten Stellen, die Fleck und Geruch an der Quelle abbaut."],
+    ["Обробка плям і запахів від тварин — покриття та меблі", "Ензимна обробка забруднених тваринами місць, що розщеплює пляму й запах у джерелі."],
+    ["Treatment ng mantsa at amoy ng alaga — carpet at upholstery", "Enzyme treatment sa maruming bahagi para sirain ang mantsa at amoy mula sa ugat."],
+  ), [
+    L.labour(1, "each", 45, {
+      en: ["Enzyme pet treatment — per room", "Affected areas located with UV, saturated with enzyme and extracted."],
+      fr: ["Traitement enzymatique — la pièce", "Zones touchées repérées aux UV, saturées d'enzyme et extraites."],
+      es: ["Tratamiento enzimático — por habitación", "Zonas afectadas localizadas con UV, saturadas de enzima y extraídas."],
+      it: ["Trattamento enzimatico — per stanza", "Zone colpite individuate con UV, saturate di enzimi ed estratte."],
+      de: ["Enzymbehandlung — pro Raum", "Betroffene Stellen mit UV gefunden, mit Enzym getränkt und extrahiert."],
+      uk: ["Ензимна обробка — за кімнату", "Уражені місця знайдено УФ-лампою, насичено ензимом та екстраговано."],
+      tl: ["Enzyme treatment — kada kuwarto", "Hinanap sa UV ang apektadong bahagi, binabad sa enzyme at in-extract."],
+    }, { measurementKey: "each" }),
+    L.material(1, "each", 15, {
+      en: ["Enzyme treatment — per room", "Bio-enzymatic urine and odour digester."],
+      fr: ["Enzyme — la pièce", "Digesteur bio-enzymatique d'urine et d'odeurs."],
+      es: ["Enzima — por habitación", "Digestor bioenzimático de orina y olores."],
+      it: ["Enzima — per stanza", "Digestore bioenzimatico di urina e odori."],
+      de: ["Enzym — pro Raum", "Bioenzymatischer Urin- und Geruchszersetzer."],
+      uk: ["Ензим — за кімнату", "Біоензимний засіб, що розщеплює сечу й запахи."],
+      tl: ["Enzyme — kada kuwarto", "Bio-enzymatic na pantunaw ng ihi at amoy."],
+    }, { measurementKey: "each" }),
+  ], null),
+
+  "fq.carpet_cleaning.specialty.stretching_repair": T("repair", n(
+    ["Ritensionamento e riparazione moquette", "Pieghe, onde e rigonfiamenti eliminati ritendendo la moquette e rifissandola."],
+    ["Teppich nachspannen und reparieren", "Falten, Wellen und Beulen durch Nachspannen und Neubefestigen beseitigt."],
+    ["Натягування та ремонт покриття", "Складки, хвилі й горби прибрано натягуванням і повторним закріпленням покриття."],
+    ["Pag-stretch at pag-ayos ng carpet", "Tinanggal ang kulubot, alon at umbok sa pag-stretch at pagkabit ulit ng carpet."],
+  ), [
+    L.labour(1, "each", 95, {
+      en: ["Power stretching — per room", "Carpet released, power-stretched wall to wall and re-hooked, seams checked."],
+      fr: ["Étirement à la machine — la pièce", "Tapis détaché, retendu d'un mur à l'autre et raccroché, joints vérifiés."],
+      es: ["Estirado con máquina — por habitación", "Alfombra soltada, estirada de pared a pared y reenganchada, uniones revisadas."],
+      it: ["Ritensionamento — per stanza", "Moquette liberata, ritesa da parete a parete e riagganciata, giunzioni controllate."],
+      de: ["Nachspannen — pro Raum", "Teppich gelöst, von Wand zu Wand nachgespannt und eingehängt, Nähte geprüft."],
+      uk: ["Натягування — за кімнату", "Покриття звільнено, натягнуто від стіни до стіни й зачеплено, шви перевірено."],
+      tl: ["Power stretching — kada kuwarto", "Tinanggal, ini-stretch mula pader hanggang pader at ikinabit ulit, chineck ang dugtungan."],
+    }, { measurementKey: "each" }),
+  ], null),
+
+  // ── Inspection ──
+  "fq.carpet_cleaning.visits.assessment_visit": T("inspection", n(
+    ["Valutazione moquette e imbottiti", "Fibra, macchie e usura esaminate, metodo di pulizia scelto e prezzo scritto lasciato."],
+    ["Begutachtung Teppich und Polster", "Faser, Flecken und Abnutzung begutachtet, die richtige Methode gewählt und ein schriftlicher Preis hinterlassen."],
+    ["Оцінка покриття та м'яких меблів", "Волокно, плями й знос оглянуто, обрано метод чищення, залишено письмову ціну."],
+    ["Assessment ng carpet at upholstery", "Tiningnan ang fiber, mantsa at pagkaluma, pinili ang tamang paraan at iniwan ang nakasulat na presyo."],
+  ), [
+    L.labour(1, "flat", 0, {
+      en: ["Assessment", "Fibre tested and stains assessed; free with a booked clean."],
+      fr: ["Évaluation", "Fibre testée et taches évaluées; gratuit avec un nettoyage réservé."],
+      es: ["Evaluación", "Fibra probada y manchas evaluadas; gratis al agendar la limpieza."],
+      it: ["Valutazione", "Fibra testata e macchie valutate; gratuita con una pulizia prenotata."],
+      de: ["Begutachtung", "Faser getestet und Flecken bewertet; kostenlos bei gebuchter Reinigung."],
+      uk: ["Оцінка", "Волокно перевірено, плями оцінено; безкоштовно за замовленого чищення."],
+      tl: ["Assessment", "Tinest ang fiber at tiningnan ang mantsa; libre kapag nag-book."],
+    }, { cost: 0 }),
+  ], null),
+
+  "fq.carpet_cleaning.specialty.custom_job": T("inspection", n(
+    ["Lavoro su misura — prezzo sul posto", "Lavoro che non rientra in un servizio standard, descritto dal cliente e quotato dopo averlo visto."],
+    ["Sonderauftrag — Preis vor Ort", "Arbeit außerhalb der Standardleistungen, vom Kunden beschrieben und nach Besichtigung angeboten."],
+    ["Нестандартна робота — ціна на місці", "Робота поза стандартними послугами, описана клієнтом і оцінена після огляду."],
+    ["Custom job — presyo sa lugar", "Trabahong hindi pasok sa standard na serbisyo, inilarawan ng kliyente at pinresyuhan pagkakita."],
+  ), [SHARED.serviceCall(49)], null),
+
+  "fq.carpet_cleaning.specialty.rug_custom_job": T("inspection", n(
+    ["Pulizia tappeti — lavoro su misura, prezzo sul posto", "Un tappeto che non rientra in un servizio standard, quotato dopo aver visto il pezzo."],
+    ["Teppichreinigung — Sonderauftrag, Preis vor Ort", "Ein Teppich außerhalb der Standardleistungen, nach Ansicht des Stücks angeboten."],
+    ["Чищення килимів — нестандартна робота, ціна на місці", "Килим поза стандартними послугами, оцінений після огляду виробу."],
+    ["Paglilinis ng rug — custom, presyo sa lugar", "Rug na hindi pasok sa standard, pinresyuhan pagkakita sa piraso."],
+  ), [
+    L.labour(1, "flat", 45, {
+      en: ["Rug inspection and fibre test", "Dye stability and fibre tested, size measured and a cleaning method priced."],
+      fr: ["Inspection et test de fibre", "Stabilité des teintures et fibre testées, dimensions mesurées et méthode chiffrée."],
+      es: ["Inspección y prueba de fibra", "Estabilidad del tinte y fibra probadas, tamaño medido y método cotizado."],
+      it: ["Ispezione e test della fibra", "Stabilità dei colori e fibra testate, misure prese e metodo quotato."],
+      de: ["Prüfung und Fasertest", "Farbechtheit und Faser getestet, Größe gemessen und Methode angeboten."],
+      uk: ["Огляд і тест волокна", "Стійкість барвника й волокно перевірено, розмір виміряно, метод оцінено."],
+      tl: ["Inspeksyon at fiber test", "Tinest ang kulay at fiber, sinukat ang laki at pinresyuhan ang paraan."],
+    }),
+  ], null),
+
+  // ── Maintenance ──
+  "fq.carpet_cleaning.carpet.recurring": T("maintenance", n(
+    ["Pulizia moquette ricorrente", "Pulizia programmata della moquette per mantenerla in buono stato tutto l'anno."],
+    ["Regelmäßige Teppichreinigung", "Geplante Teppichreinigung, damit der Teppich das ganze Jahr in gutem Zustand bleibt."],
+    ["Регулярне чищення покриття", "Планове чищення, щоб покриття було в доброму стані цілий рік."],
+    ["Regular na paglilinis ng carpet", "Naka-schedule na paglilinis para manatiling maayos ang carpet buong taon."],
+  ), [RUG(300, 200)], D.regular("percent", 4)),
+
+  "fq.carpet_cleaning.specialty.area_rug_various": T("maintenance", n(
+    ["Pulizia tappeti — varie misure e materiali", "Tappeti di varie misure e fibre puliti con il metodo che il materiale consente."],
+    ["Teppichreinigung — verschiedene Größen und Materialien", "Teppiche verschiedener Größen und Fasern mit der passenden Methode gereinigt."],
+    ["Чищення килимів — різні розміри й матеріали", "Килими різних розмірів і волокон очищено методом, придатним для матеріалу."],
+    ["Paglilinis ng area rug — iba't ibang laki at materyal", "Rug na iba-iba ang laki at fiber, nilinis sa paraang angkop sa materyal."],
+  ), [RUG(600, 400, true)], D.newCustomer("fixed", 50)),
+
+  "fq.carpet_cleaning.carpet.stairs_16_steps": T("maintenance", n(
+    ["Pulizia moquette — scale, fino a 16 gradini", "Scale con moquette fino a 16 gradini pretrattate e pulite gradino per gradino."],
+    ["Teppichreinigung — Treppe, bis 16 Stufen", "Teppichtreppe bis 16 Stufen vorbehandelt und Stufe für Stufe gereinigt."],
+    ["Чищення покриття — сходи, до 16 сходинок", "Сходи з покриттям до 16 сходинок попередньо оброблено й очищено по одній."],
+    ["Paglilinis ng carpet — hagdan, hanggang 16 baitang", "Pre-treated at nilinis isa-isa ang carpeted na hagdan hanggang 16 baitang."],
+  ), [STAIRS()], null),
+
+  "fq.carpet_cleaning.specialty.upholstery": T("maintenance", n(
+    ["Pulizia imbottiti — divano, poltrona o divanetto", "Divano, poltrona o divanetto imbottito pulito con estrazione adatta al tessuto."],
+    ["Polsterreinigung — Sofa, Sessel oder Zweisitzer", "Gepolstertes Sofa, Sessel oder Zweisitzer mit stoffschonender Extraktion gereinigt."],
+    ["Чищення м'яких меблів — диван, крісло чи канапа", "Диван, крісло чи канапу очищено екстракцією, безпечною для тканини."],
+    ["Paglilinis ng upholstery — sofa, silya o loveseat", "Nilinis ang upholstered na sofa, silya o loveseat gamit ang fabric-safe na extraction."],
+  ), [
+    L.labour(1, "each", 149, {
+      en: ["Upholstery cleaning — per piece", "Fabric tested, pre-sprayed and extracted with an upholstery tool."],
+      fr: ["Nettoyage de meuble rembourré — la pièce", "Tissu testé, prévaporisé et extrait à l'outil à rembourrage."],
+      es: ["Limpieza de tapicería — por pieza", "Tela probada, prerrociada y extraída con herramienta de tapicería."],
+      it: ["Pulizia imbottito — per pezzo", "Tessuto testato, pretrattato ed estratto con attrezzo per imbottiti."],
+      de: ["Polsterreinigung — pro Stück", "Stoff getestet, vorgesprüht und mit Polsterdüse extrahiert."],
+      uk: ["Чищення м'яких меблів — за предмет", "Тканину перевірено, попередньо оброблено й екстраговано насадкою для меблів."],
+      tl: ["Paglilinis ng upholstery — kada piraso", "Tinest ang tela, pre-spray at in-extract gamit ang upholstery tool."],
+    }, { measurementKey: "each" }),
+  ], null),
+
+  "fq.carpet_cleaning.add_ons.protector": T("maintenance", n(
+    ["Protettivo per moquette e tessuti", "Rivestimento protettivo applicato dopo la pulizia così che i liquidi restino in superficie."],
+    ["Teppich- und Stoffschutz", "Schutzbeschichtung nach der Reinigung, damit Verschüttetes abperlt statt einzuziehen."],
+    ["Захист для покриттів і тканин", "Захисне покриття після чищення, щоб рідина збиралася краплями, а не вбиралася."],
+    ["Protector para carpet at tela", "Protective coating pagkatapos maglinis para hindi sumipsip ang natapon."],
+  ), [
+    L.labour(1, "each", 25, {
+      en: ["Protector application — per room", "Fluorochemical-free protector sprayed and groomed in."],
+      fr: ["Application de protecteur — la pièce", "Protecteur sans fluorochimique pulvérisé et brossé."],
+      es: ["Aplicación de protector — por habitación", "Protector sin fluoroquímicos rociado y cepillado."],
+      it: ["Applicazione protettivo — per stanza", "Protettivo senza fluorochimici spruzzato e spazzolato."],
+      de: ["Schutzmittel auftragen — pro Raum", "Fluorfreies Schutzmittel gesprüht und eingebürstet."],
+      uk: ["Нанесення захисту — за кімнату", "Захист без фторхімії розпилено й втерто щіткою."],
+      tl: ["Paglagay ng protector — kada kuwarto", "Ini-spray at sinuklay ang protector na walang fluorochemical."],
+    }, { measurementKey: "each" }),
+    L.material(1, "each", 12, {
+      en: ["Carpet protector — per room", "Water-based carpet and fabric protector."],
+      fr: ["Protecteur à tapis — la pièce", "Protecteur à base d'eau pour tapis et tissus."],
+      es: ["Protector de alfombra — por habitación", "Protector base agua para alfombra y tela."],
+      it: ["Protettivo per moquette — per stanza", "Protettivo all'acqua per moquette e tessuti."],
+      de: ["Teppichschutz — pro Raum", "Wasserbasierter Teppich- und Stoffschutz."],
+      uk: ["Захист покриття — за кімнату", "Захист на водній основі для покриттів і тканин."],
+      tl: ["Carpet protector — kada kuwarto", "Water-based na protector para sa carpet at tela."],
+    }, { measurementKey: "each" }),
+  ], null),
+};
+
+withLanguages(SEED, I18N);
+withTemplates(SEED, TEMPLATES);

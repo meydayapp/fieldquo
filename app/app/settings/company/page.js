@@ -1619,6 +1619,13 @@ export default function CompanySettingsPage() {
                 "app.setCompany.benchmarkHint",
                 "Your numbers are pooled with other companies and never shown individually. You can turn this off any time.",
               )}
+              {" "}
+              {/* On by default since 2026-09-24 — Terms §7. The sentence is
+                  here so the box and the Terms say the same thing. */}
+              {t(
+                "app.setCompany.benchmarkDefaultNote",
+                "Sharing is on by default under the Terms (section 7); switching it off also hides the comparison from you.",
+              )}
             </span>
           </span>
         </label>

@@ -96,5 +96,26 @@
   "sourceCategory": "Tree Services > Treatment > Other",
   "sourceService": "Treatment - Something else / I don't know",
   "taskCode": "DEFAULT_TREE_SERVICES_SERVICE_14"
+ },
+ {
+  "seedKey": "fq.tree_care_service.tree_care.planting",
+  "industry": "Tree Services",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Tree planting",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.tree_care_service.tree_care.arborist_assessment",
+  "industry": "Tree Services",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Arborist tree assessment",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.tree_care_service.tree_care.storm_inspection",
+  "industry": "Tree Services",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Storm damage tree inspection",
+  "taskCode": null
  }
 ]

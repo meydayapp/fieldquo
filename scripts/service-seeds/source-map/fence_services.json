@@ -1,0 +1,450 @@
+[
+ {
+  "seedKey": "fq.fence_services.install.aluminum",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Installation > Fencing",
+  "sourceService": "Installation - Aluminum fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_1"
+ },
+ {
+  "seedKey": "fq.fence_services.install.barbed_wire",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Installation > Fencing",
+  "sourceService": "Installation - Barbed Wire",
+  "taskCode": "DEFAULT_FENCING_SERVICE_2"
+ },
+ {
+  "seedKey": "fq.fence_services.install.chain_link",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Installation > Fencing",
+  "sourceService": "Installation - Chain link fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_3"
+ },
+ {
+  "seedKey": "fq.fence_services.install.dog_kennel",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Installation > Fencing",
+  "sourceService": "Installation - Dog kennel fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_4"
+ },
+ {
+  "seedKey": "fq.fence_services.install.dog_park",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Installation > Fencing",
+  "sourceService": "Installation - Dog park fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_5"
+ },
+ {
+  "seedKey": "fq.fence_services.install.electric",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Installation > Fencing",
+  "sourceService": "Installation - Electric fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_6"
+ },
+ {
+  "seedKey": "fq.fence_services.install.guardrail",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Installation > Fencing",
+  "sourceService": "Installation - Guardrail fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_7"
+ },
+ {
+  "seedKey": "fq.fence_services.install.ornamental_aluminum",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Installation > Fencing",
+  "sourceService": "Installation - Ornamental aluminum estate fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_8"
+ },
+ {
+  "seedKey": "fq.fence_services.install.pvc",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Installation > Fencing",
+  "sourceService": "Installation - PVC fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_9"
+ },
+ {
+  "seedKey": "fq.fence_services.install.retainage",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Installation > Fencing",
+  "sourceService": "Installation - Retainage fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_10"
+ },
+ {
+  "seedKey": "fq.fence_services.install.solar_field",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Installation > Fencing",
+  "sourceService": "Installation - Solar field fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_11"
+ },
+ {
+  "seedKey": "fq.fence_services.install.split_rail",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Installation > Fencing",
+  "sourceService": "Installation - Split rail fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_12"
+ },
+ {
+  "seedKey": "fq.fence_services.install.steel",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Installation > Fencing",
+  "sourceService": "Installation - Steel fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_13"
+ },
+ {
+  "seedKey": "fq.fence_services.install.stockade",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Installation > Fencing",
+  "sourceService": "Installation - Stockade fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_14"
+ },
+ {
+  "seedKey": "fq.fence_services.install.temporary",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Installation > Fencing",
+  "sourceService": "Installation - Temporary fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_15"
+ },
+ {
+  "seedKey": "fq.fence_services.install.vinyl",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Installation > Fencing",
+  "sourceService": "Installation - Vinyl fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_16"
+ },
+ {
+  "seedKey": "fq.fence_services.install.water",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Installation > Fencing",
+  "sourceService": "Installation - Water fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_17"
+ },
+ {
+  "seedKey": "fq.fence_services.install.wood",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Installation > Fencing",
+  "sourceService": "Installation - Wood fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_18"
+ },
+ {
+  "seedKey": "fq.fence_services.install.pool_safety_mesh",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Installation > Pool Fencing",
+  "sourceService": "Installation - Orange fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_19"
+ },
+ {
+  "seedKey": "fq.fence_services.install.pool_temporary",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Installation > Pool Fencing",
+  "sourceService": "Installation - Temporary fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_20"
+ },
+ {
+  "seedKey": "fq.fence_services.install.composite_railing",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Installation > Railings",
+  "sourceService": "Installation - Composite railing",
+  "taskCode": "DEFAULT_FENCING_SERVICE_21"
+ },
+ {
+  "seedKey": "fq.fence_services.install.metal_railing",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Installation > Railings",
+  "sourceService": "Installation - Metal railing",
+  "taskCode": "DEFAULT_FENCING_SERVICE_22"
+ },
+ {
+  "seedKey": "fq.fence_services.install.pvc_railing",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Installation > Railings",
+  "sourceService": "Installation - PVC railings",
+  "taskCode": "DEFAULT_FENCING_SERVICE_23"
+ },
+ {
+  "seedKey": "fq.fence_services.install.glass_railing",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Installation > Railings",
+  "sourceService": "Installation - Glass panels",
+  "taskCode": "DEFAULT_FENCING_SERVICE_24"
+ },
+ {
+  "seedKey": "fq.fence_services.install.cable_railing",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Installation > Railings",
+  "sourceService": "Installation - Cable railing",
+  "taskCode": "DEFAULT_FENCING_SERVICE_25"
+ },
+ {
+  "seedKey": "fq.fence_services.install.wood_railing",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Installation > Railings",
+  "sourceService": "Installation - Wood railing",
+  "taskCode": "DEFAULT_FENCING_SERVICE_26"
+ },
+ {
+  "seedKey": "fq.fence_services.install.lamp_post",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Installation > Other",
+  "sourceService": "Installation - Lamp post",
+  "taskCode": "DEFAULT_FENCING_SERVICE_27"
+ },
+ {
+  "seedKey": "fq.fence_services.install.mailbox",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Installation > Other",
+  "sourceService": "Installation - Mailboxes",
+  "taskCode": "DEFAULT_FENCING_SERVICE_28"
+ },
+ {
+  "seedKey": "fq.fence_services.install.estate_gate",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Installation > Other",
+  "sourceService": "Installation - Aluminum estate gates",
+  "taskCode": "DEFAULT_FENCING_SERVICE_29"
+ },
+ {
+  "seedKey": "fq.fence_services.install.pergola",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Installation > Other",
+  "sourceService": "Installation - Pergolas & Arbors",
+  "taskCode": "DEFAULT_FENCING_SERVICE_30"
+ },
+ {
+  "seedKey": "fq.fence_services.install.other",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Installation > Other",
+  "sourceService": "Installation - Something else / I don't know",
+  "taskCode": "DEFAULT_FENCING_SERVICE_31"
+ },
+ {
+  "seedKey": "fq.fence_services.repair.aluminum",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Repair > Fencing",
+  "sourceService": "Repair - Aluminum fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_32"
+ },
+ {
+  "seedKey": "fq.fence_services.repair.barbed_wire",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Repair > Fencing",
+  "sourceService": "Repair - Barbed Wire",
+  "taskCode": "DEFAULT_FENCING_SERVICE_33"
+ },
+ {
+  "seedKey": "fq.fence_services.repair.chain_link",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Repair > Fencing",
+  "sourceService": "Repair - Chain link fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_34"
+ },
+ {
+  "seedKey": "fq.fence_services.repair.dog_kennel",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Repair > Fencing",
+  "sourceService": "Repair - Dog kennel fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_35"
+ },
+ {
+  "seedKey": "fq.fence_services.repair.dog_park",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Repair > Fencing",
+  "sourceService": "Repair - Dog park fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_36"
+ },
+ {
+  "seedKey": "fq.fence_services.repair.electric",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Repair > Fencing",
+  "sourceService": "Repair - Electric fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_37"
+ },
+ {
+  "seedKey": "fq.fence_services.repair.guardrail",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Repair > Fencing",
+  "sourceService": "Repair - Guardrail fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_38"
+ },
+ {
+  "seedKey": "fq.fence_services.repair.ornamental_aluminum",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Repair > Fencing",
+  "sourceService": "Repair - Ornamental aluminum estate fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_39"
+ },
+ {
+  "seedKey": "fq.fence_services.repair.pvc",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Repair > Fencing",
+  "sourceService": "Repair - PVC fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_40"
+ },
+ {
+  "seedKey": "fq.fence_services.repair.retainage",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Repair > Fencing",
+  "sourceService": "Repair - Retainage fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_41"
+ },
+ {
+  "seedKey": "fq.fence_services.repair.solar_field",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Repair > Fencing",
+  "sourceService": "Repair - Solar field fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_42"
+ },
+ {
+  "seedKey": "fq.fence_services.repair.split_rail",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Repair > Fencing",
+  "sourceService": "Repair - Split rail fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_43"
+ },
+ {
+  "seedKey": "fq.fence_services.repair.steel",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Repair > Fencing",
+  "sourceService": "Repair - Steel fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_44"
+ },
+ {
+  "seedKey": "fq.fence_services.repair.stockade",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Repair > Fencing",
+  "sourceService": "Repair - Stockade fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_45"
+ },
+ {
+  "seedKey": "fq.fence_services.repair.temporary",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Repair > Fencing",
+  "sourceService": "Repair - Temporary fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_46"
+ },
+ {
+  "seedKey": "fq.fence_services.repair.vinyl",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Repair > Fencing",
+  "sourceService": "Repair - Vinyl fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_47"
+ },
+ {
+  "seedKey": "fq.fence_services.repair.water",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Repair > Fencing",
+  "sourceService": "Repair - Water fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_48"
+ },
+ {
+  "seedKey": "fq.fence_services.repair.wood",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Repair > Fencing",
+  "sourceService": "Repair - Wood fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_49"
+ },
+ {
+  "seedKey": "fq.fence_services.repair.pool_safety_mesh",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Repair > Pool Fencing",
+  "sourceService": "Repair - Orange fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_50"
+ },
+ {
+  "seedKey": "fq.fence_services.repair.pool_temporary",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Repair > Pool Fencing",
+  "sourceService": "Repair - Temporary fence",
+  "taskCode": "DEFAULT_FENCING_SERVICE_51"
+ },
+ {
+  "seedKey": "fq.fence_services.repair.composite_railing",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Repair > Railings",
+  "sourceService": "Repair - Composite railing",
+  "taskCode": "DEFAULT_FENCING_SERVICE_52"
+ },
+ {
+  "seedKey": "fq.fence_services.repair.metal_railing",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Repair > Railings",
+  "sourceService": "Repair - Metal railing",
+  "taskCode": "DEFAULT_FENCING_SERVICE_53"
+ },
+ {
+  "seedKey": "fq.fence_services.repair.pvc_railing",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Repair > Railings",
+  "sourceService": "Repair - PVC railings",
+  "taskCode": "DEFAULT_FENCING_SERVICE_54"
+ },
+ {
+  "seedKey": "fq.fence_services.repair.glass_railing",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Repair > Railings",
+  "sourceService": "Repair - Glass panels",
+  "taskCode": "DEFAULT_FENCING_SERVICE_55"
+ },
+ {
+  "seedKey": "fq.fence_services.repair.cable_railing",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Repair > Railings",
+  "sourceService": "Repair - Cable railing",
+  "taskCode": "DEFAULT_FENCING_SERVICE_56"
+ },
+ {
+  "seedKey": "fq.fence_services.repair.wood_railing",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Repair > Railings",
+  "sourceService": "Repair - Wood railing",
+  "taskCode": "DEFAULT_FENCING_SERVICE_57"
+ },
+ {
+  "seedKey": "fq.fence_services.repair.lamp_post",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Repair > Other",
+  "sourceService": "Repair - Lamp post",
+  "taskCode": "DEFAULT_FENCING_SERVICE_58"
+ },
+ {
+  "seedKey": "fq.fence_services.repair.mailbox",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Repair > Other",
+  "sourceService": "Repair - Mailboxes",
+  "taskCode": "DEFAULT_FENCING_SERVICE_59"
+ },
+ {
+  "seedKey": "fq.fence_services.repair.estate_gate",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Repair > Other",
+  "sourceService": "Repair - Aluminum estate gates",
+  "taskCode": "DEFAULT_FENCING_SERVICE_60"
+ },
+ {
+  "seedKey": "fq.fence_services.repair.pergola",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Repair > Other",
+  "sourceService": "Repair - Pergolas & Arbors",
+  "taskCode": "DEFAULT_FENCING_SERVICE_61"
+ },
+ {
+  "seedKey": "fq.fence_services.repair.other",
+  "industry": "Fencing",
+  "sourceCategory": "Fencing > Repair > Other",
+  "sourceService": "Repair - Something else / I don't know",
+  "taskCode": "DEFAULT_FENCING_SERVICE_62"
+ },
+ {
+  "seedKey": "fq.fence_services.visits.estimate_visit",
+  "industry": "Fencing",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Fence estimate and line walk",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.fence_services.visits.gate_tune_up",
+  "industry": "Fencing",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Gate adjustment and fence tune-up",
+  "taskCode": null
+ }
+]

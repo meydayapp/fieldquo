@@ -10,6 +10,9 @@
 // Written in source order (two industries: the plumbing book, then the
 // water-heater book) so scripts/service-seeds/authoring/gen-source-map.mjs
 // can join each row back for the owner's validation.
+import { L, SHARED, D, T, withTemplates, hdMaterial } from "./_templateLines";
+import { HD } from "./_materialCosts";
+
 const BM = (low, median, high) => ({ low, median, high, currency: "USD", source: "benchmark", asOf: "2026-09-21" });
 const S = (seedKey, category, unit, benchmark, [en, fr, es], [den, dfr, des], extra = {}) => ({
   seedKey, category, name: { en, fr, es }, description: { en: den, fr: dfr, es: des },
@@ -572,5 +575,543 @@ export const SEED = {
        "Visite pour diagnostiquer un chauffe-eau qui ne produit plus d'eau chaude et le réparer sur place.",
        "Visita para diagnosticar un calentador que dejó de producir agua caliente y repararlo en el momento."],
       { bookable: true }),
+    // ── Added 2026-09-24: the plumbing template capture sells a toilet
+    //    replacement in two tiers; the premium tier is its own row. ──────
+    S("fq.plumbing.toilets.install_best", "toilets", "each", null,
+      ["Toilet replacement — premium dual-flush", "Remplacement de toilette — double chasse haut de gamme", "Reemplazo de inodoro — doble descarga premium"],
+      ["The old toilet removed and a premium dual-flush, comfort-height toilet set, connected and tested.",
+       "Ancienne toilette retirée et toilette haut de gamme à double chasse et hauteur confort posée, raccordée et testée.",
+       "Inodoro viejo retirado y un inodoro premium de doble descarga y altura confort instalado, conectado y probado."]),
   ],
 };
+
+// ── Estimate templates ───────────────────────────────────────────────────────
+//
+// Evidence: the benchmark quartiles already on each row (national USD medians
+// for the plumbing book — a $450 toilet install, a $286 main-line clearing, a
+// $2,250 fifty-gallon electric tank) set the totals; the split into labour and
+// material lines is trade knowledge — a 50-gallon electric tank is ~$700–900
+// at the supply house in 2026, a standard toilet ~$220, a closet-auger visit is
+// an hour of a plumber's time. Labour cost ≈ 50% of price, material ≈ 75%,
+// per the captured competitor pattern in electrical.js.
+//
+// Folded in 2026-09-24: the plumbing template capture under docs/research/ —
+// toilet replacement in two tiers (removal $100/100, install $200/100,
+// fixture $350/300 standard or $550/500 dual-flush, $50 off), clogged toilet
+// $200/100, leak diagnostic $97/50 and hydro-jet pipe cleaning $200/100 — at
+// its prices and costs. Fixtures and parts the capture does not price are
+// costed from the Home Depot table (_materialCosts.js): 50-gallon electric
+// tank $549, tankless $1,299, braided supply line $7.90, PEX $33.30 a 100 ft
+// coil — priced at cost × 1.25.
+const TEMPLATES = {
+  // ── Installation ──
+  "fq.plumbing.water_heaters.electric_50_gallon": T("installation", {
+    it: ["Installazione scaldabagno elettrico — 50 galloni e oltre", "Nuovo boiler elettrico da 50 galloni o più fornito e installato con raccordi nuovi, vaschetta e vaso di espansione dove richiesto."],
+    de: ["Installation Elektro-Warmwasserspeicher — ab 50 Gallonen", "Neuer Elektrospeicher ab 50 Gallonen geliefert und mit neuen Anschlüssen, Auffangwanne und Ausdehnungsgefäß eingebaut, wo vorgeschrieben."],
+    uk: ["Встановлення електричного бойлера — від 50 галонів", "Новий електричний бак на 50 галонів і більше поставлено та встановлено з новими підключеннями, піддоном і розширювальним баком, де потрібно."],
+    tl: ["Pagkabit ng electric water heater — 50 gallons pataas", "Bagong electric tank na 50 gallons o higit, dinala at ikinabit na may bagong koneksyon, pan at expansion tank kung kailangan."],
+  }, [
+    SHARED.removeOld(150),
+    L.labour(1, "flat", 550, {
+      en: ["Water heater installation labour", "The new tank set, plumbed with new flex connectors, wired and brought up to temperature."],
+      fr: ["Main-d'œuvre — installation du chauffe-eau", "Nouveau réservoir mis en place, raccordé avec des flexibles neufs, branché et monté en température."],
+      es: ["Mano de obra — instalación del calentador", "Tanque nuevo colocado, conectado con flexibles nuevos, cableado y puesto a temperatura."],
+      it: ["Manodopera — installazione scaldabagno", "Nuovo boiler posizionato, collegato con flessibili nuovi, cablato e portato a temperatura."],
+      de: ["Arbeit — Speicher einbauen", "Neuer Speicher gesetzt, mit neuen Flexschläuchen angeschlossen, verdrahtet und aufgeheizt."],
+      uk: ["Робота — встановлення бойлера", "Новий бак встановлено, підключено новими гнучкими підводками, під'єднано до мережі та нагріто."],
+      tl: ["Labor — pagkabit ng water heater", "Inilagay ang bagong tank, ikinabit sa bagong flex connector, kinablehan at pinainit."],
+    }),
+    L.material(1, "each", 686.25, {
+      en: ["50-gallon electric water heater", "Standard-efficiency 50-gallon electric tank, 4500 W elements, 6-year tank warranty."],
+      fr: ["Chauffe-eau électrique 50 gallons", "Réservoir électrique 50 gallons à efficacité standard, éléments 4500 W, garantie 6 ans sur le réservoir."],
+      es: ["Calentador eléctrico de 50 galones", "Tanque eléctrico de 50 galones de eficiencia estándar, resistencias de 4500 W, 6 años de garantía del tanque."],
+      it: ["Scaldabagno elettrico da 50 galloni", "Boiler elettrico da 50 galloni a efficienza standard, resistenze da 4500 W, garanzia 6 anni sul serbatoio."],
+      de: ["Elektro-Warmwasserspeicher 50 Gallonen", "50-Gallonen-Elektrospeicher in Standardeffizienz, 4500-W-Heizelemente, 6 Jahre Garantie auf den Behälter."],
+      uk: ["Електричний бойлер на 50 галонів", "Електричний бак на 50 галонів стандартної ефективності, ТЕНи 4500 Вт, гарантія на бак 6 років."],
+      tl: ["50-gallon electric water heater", "Standard-efficiency na 50-gallon electric tank, 4500 W elements, 6-taong warranty sa tank."],
+    }, { cost: 549, ref: HD.water_heater_50_elec }),
+    L.material(1, "each", 210, {
+      en: ["Drain pan, expansion tank and connectors", "Aluminium drain pan, thermal expansion tank and two stainless flex connectors."],
+      fr: ["Bac de rétention, vase d'expansion et raccords", "Bac de rétention en aluminium, vase d'expansion thermique et deux flexibles en inox."],
+      es: ["Charola, tanque de expansión y conectores", "Charola de aluminio, tanque de expansión térmica y dos flexibles de acero inoxidable."],
+      it: ["Vaschetta, vaso di espansione e raccordi", "Vaschetta in alluminio, vaso di espansione termica e due flessibili in acciaio inox."],
+      de: ["Auffangwanne, Ausdehnungsgefäß und Anschlüsse", "Aluminium-Auffangwanne, Ausdehnungsgefäß und zwei Edelstahl-Flexschläuche."],
+      uk: ["Піддон, розширювальний бак і підводки", "Алюмінієвий піддон, розширювальний бак і дві гнучкі підводки з нержавіючої сталі."],
+      tl: ["Drain pan, expansion tank at connector", "Aluminum drain pan, thermal expansion tank at dalawang stainless flex connector."],
+    }),
+  ], D.newCustomer("fixed", 50)),
+
+  "fq.plumbing.water_heaters.tankless_install": T("installation", {
+    it: ["Installazione scaldabagno istantaneo", "Scaldabagno a richiesta montato e collegato, con linea gas, scarico fumi e condensa che l'unità richiede."],
+    de: ["Installation Durchlauferhitzer", "Durchlauferhitzer montiert und angeschlossen, mit Gasleitung, Abgasführung und Kondensatablauf, wie das Gerät sie braucht."],
+    uk: ["Встановлення проточного водонагрівача", "Проточний нагрівач змонтовано та під'єднано, з газовою лінією, димоходом і відведенням конденсату, які потрібні приладу."],
+    tl: ["Pagkabit ng tankless water heater", "On-demand heater na ikinabit at ikinonekta, kasama ang gas line, venting at condensate na kailangan ng unit."],
+  }, [
+    SHARED.removeOld(150),
+    L.labour(1, "flat", 1400, {
+      en: ["Tankless installation labour", "The unit mounted, the gas line upsized where needed, venting and condensate run, and the system commissioned."],
+      fr: ["Main-d'œuvre — installation sans réservoir", "Appareil posé, conduite de gaz redimensionnée au besoin, évacuation et condensat installés, système mis en service."],
+      es: ["Mano de obra — instalación sin tanque", "Unidad montada, línea de gas ampliada si hace falta, venteo y condensado instalados y el sistema puesto en marcha."],
+      it: ["Manodopera — installazione istantaneo", "Unità montata, linea gas adeguata se necessario, scarico fumi e condensa realizzati, impianto messo in servizio."],
+      de: ["Arbeit — Durchlauferhitzer einbauen", "Gerät montiert, Gasleitung bei Bedarf vergrößert, Abgas und Kondensat verlegt und die Anlage in Betrieb genommen."],
+      uk: ["Робота — встановлення проточного нагрівача", "Прилад змонтовано, газову лінію за потреби збільшено, димохід і конденсат проведено, систему введено в експлуатацію."],
+      tl: ["Labor — pagkabit ng tankless", "Ikinabit ang unit, pinalaki ang gas line kung kailangan, ikinabit ang venting at condensate, at pinaandar ang sistema."],
+    }),
+    L.material(1, "each", 1623.75, {
+      en: ["Condensing tankless water heater — 199,000 BTU", "Condensing gas tankless unit, 199,000 BTU, with isolation valve kit."],
+      fr: ["Chauffe-eau sans réservoir à condensation — 199 000 BTU", "Appareil sans réservoir au gaz à condensation, 199 000 BTU, avec trousse de robinets d'isolement."],
+      es: ["Calentador sin tanque de condensación — 199,000 BTU", "Unidad de gas sin tanque de condensación, 199,000 BTU, con juego de válvulas de aislamiento."],
+      it: ["Scaldabagno istantaneo a condensazione — 199.000 BTU", "Unità a gas istantanea a condensazione, 199.000 BTU, con kit valvole di isolamento."],
+      de: ["Brennwert-Durchlauferhitzer — 199.000 BTU", "Gas-Brennwert-Durchlauferhitzer, 199.000 BTU, mit Absperrventil-Set."],
+      uk: ["Конденсаційний проточний нагрівач — 199 000 BTU", "Газовий конденсаційний проточний прилад, 199 000 BTU, з комплектом відсічних кранів."],
+      tl: ["Condensing tankless water heater — 199,000 BTU", "Condensing gas tankless unit, 199,000 BTU, may isolation valve kit."],
+    }, { cost: 1299, ref: HD.tankless_gas }),
+    L.material(1, "flat", 250, {
+      en: ["Venting, gas fittings and condensate kit", "PVC or polypropylene vent kit, gas fittings and the condensate neutraliser."],
+      fr: ["Évacuation, raccords de gaz et trousse de condensat", "Trousse d'évacuation en PVC ou polypropylène, raccords de gaz et neutraliseur de condensat."],
+      es: ["Venteo, conexiones de gas y kit de condensado", "Kit de venteo de PVC o polipropileno, conexiones de gas y neutralizador de condensado."],
+      it: ["Scarico fumi, raccordi gas e kit condensa", "Kit di scarico in PVC o polipropilene, raccordi gas e neutralizzatore di condensa."],
+      de: ["Abgas, Gasfittings und Kondensat-Set", "Abgasset aus PVC oder Polypropylen, Gasfittings und Kondensat-Neutralisator."],
+      uk: ["Димохід, газові фітинги та комплект конденсату", "Комплект димоходу з ПВХ або поліпропілену, газові фітинги та нейтралізатор конденсату."],
+      tl: ["Venting, gas fittings at condensate kit", "PVC o polypropylene vent kit, gas fittings at condensate neutralizer."],
+    }),
+  ], D.newCustomer("fixed", 100)),
+
+  "fq.plumbing.toilets.install": T("installation", {
+    it: ["Installazione WC", "Vecchio WC rimosso e portato via, il nuovo posato su una guarnizione di cera nuova, collegato e collaudato."],
+    de: ["WC-Installation", "Altes WC ausgebaut und entsorgt, das neue auf einen frischen Wachsring gesetzt, angeschlossen und geprüft."],
+    uk: ["Встановлення унітаза", "Старий унітаз знято та вивезено, новий встановлено на нове воскове кільце, під'єднано та перевірено."],
+    tl: ["Pagkabit ng inodoro", "Tinanggal at hinakot ang lumang inodoro, inilagay ang bago sa bagong wax ring, ikinonekta at sinubukan."],
+  }, [
+    L.labour(1, "flat", 100, {
+      en: ["Old toilet removal and disposal", "The old toilet disconnected, pulled and hauled away."],
+      fr: ["Dépose et mise au rebut de l'ancienne toilette", "Ancienne toilette débranchée, retirée et évacuée."],
+      es: ["Retiro y desecho del inodoro viejo", "Inodoro viejo desconectado, retirado y llevado."],
+      it: ["Rimozione e smaltimento del vecchio WC", "Vecchio WC scollegato, rimosso e portato via."],
+      de: ["Altes WC ausbauen und entsorgen", "Altes WC abgeklemmt, ausgebaut und abtransportiert."],
+      uk: ["Демонтаж і утилізація старого унітаза", "Старий унітаз від'єднано, знято й вивезено."],
+      tl: ["Pagtanggal at pagtapon ng lumang inodoro", "Tinanggal, binunot at hinakot ang lumang inodoro."],
+    }, { cost: 100 }),
+    L.labour(1, "flat", 200, {
+      en: ["New toilet installation", "The flange checked, the new toilet set on a fresh wax ring, connected and tested."],
+      fr: ["Pose de la nouvelle toilette", "Bride vérifiée, nouvelle toilette posée sur un anneau de cire neuf, raccordée et testée."],
+      es: ["Instalación del inodoro nuevo", "Brida revisada, inodoro nuevo asentado en sello de cera nuevo, conectado y probado."],
+      it: ["Installazione del nuovo WC", "Flangia controllata, nuovo WC posato su guarnizione di cera nuova, collegato e collaudato."],
+      de: ["Neues WC einbauen", "Flansch geprüft, neues WC auf frischen Wachsring gesetzt, angeschlossen und getestet."],
+      uk: ["Встановлення нового унітаза", "Фланець перевірено, новий унітаз встановлено на нове воскове кільце, під'єднано й перевірено."],
+      tl: ["Pagkabit ng bagong inodoro", "Chineck ang flange, inilagay ang bago sa bagong wax ring, ikinonekta at sinubukan."],
+    }, { cost: 100 }),
+    L.material(1, "each", 350, {
+      en: ["High-efficiency toilet — standard", "Elongated, comfort-height two-piece toilet, 1.28 gpf, slow-close seat."],
+      fr: ["Toilette haute efficacité — standard", "Toilette deux pièces allongée à hauteur confort, 1,28 gal par chasse, siège à fermeture lente."],
+      es: ["Inodoro de alta eficiencia — estándar", "Inodoro de dos piezas alargado de altura confort, 1.28 gal por descarga, asiento de cierre lento."],
+      it: ["WC ad alta efficienza — standard", "WC in due pezzi allungato ad altezza comfort, 1,28 gal per scarico, sedile a chiusura lenta."],
+      de: ["Wassersparendes WC — Standard", "Zweiteiliges, verlängertes Komfort-WC, 1,28 gal pro Spülung, Softclose-Sitz."],
+      uk: ["Економний унітаз — стандарт", "Двокомпонентний подовжений унітаз комфортної висоти, 1,28 гал на змив, сидіння з мікроліфтом."],
+      tl: ["High-efficiency na inodoro — standard", "Two-piece elongated comfort-height na inodoro, 1.28 gpf, slow-close na upuan."],
+    }, { cost: 300 }),
+  ], D.newCustomer("fixed", 50)),
+
+  "fq.plumbing.faucets.install_kitchen_faucet": T("installation", {
+    it: ["Installazione rubinetto cucina — fornito dal cliente", "Rubinetto da cucina comprato dal cliente montato al posto del vecchio, collegato e collaudato."],
+    de: ["Küchenarmatur montieren — vom Kunden gestellt", "Eine vom Kunden gekaufte Küchenarmatur anstelle der alten eingebaut, angeschlossen und geprüft."],
+    uk: ["Встановлення кухонного змішувача — наданий клієнтом", "Кухонний змішувач, куплений клієнтом, встановлено замість старого, під'єднано та перевірено."],
+    tl: ["Pagkabit ng gripo sa kusina — galing sa kliyente", "Gripo na binili ng kliyente ang ikinabit kapalit ng luma, ikinonekta at sinubukan."],
+  }, [
+    L.labour(1, "each", 250, {
+      en: ["Faucet replacement labour", "The old faucet removed, the deck cleaned, the customer's faucet mounted, connected and checked for leaks."],
+      fr: ["Main-d'œuvre — remplacement de robinet", "Ancien robinet retiré, surface nettoyée, robinet du client posé, raccordé et vérifié pour les fuites."],
+      es: ["Mano de obra — reemplazo de llave", "Llave vieja retirada, la cubierta limpia, la llave del cliente montada, conectada y revisada por fugas."],
+      it: ["Manodopera — sostituzione rubinetto", "Vecchio rubinetto rimosso, piano pulito, rubinetto del cliente montato, collegato e controllato per perdite."],
+      de: ["Arbeit — Armatur tauschen", "Alte Armatur ausgebaut, Fläche gereinigt, Kundenarmatur montiert, angeschlossen und auf Dichtheit geprüft."],
+      uk: ["Робота — заміна змішувача", "Старий змішувач знято, поверхню очищено, змішувач клієнта встановлено, під'єднано та перевірено на протікання."],
+      tl: ["Labor — palit ng gripo", "Tinanggal ang lumang gripo, nilinis ang deck, ikinabit ang gripo ng kliyente, ikinonekta at chineck kung tumutulo."],
+    }),
+    L.material(2, "each", 9.88, {
+      en: ["Braided supply line", "Stainless braided supply line, 20 in, hot or cold."],
+      fr: ["Flexible tressé", "Flexible tressé en inox, 20 po, chaud ou froid."],
+      es: ["Flexible trenzado", "Flexible trenzado de acero inoxidable, 20 pulg, caliente o fría."],
+      it: ["Flessibile intrecciato", "Flessibile intrecciato in acciaio inox, 20 pollici, caldo o freddo."],
+      de: ["Geflochtener Anschlussschlauch", "Edelstahl-Flexschlauch, 20 Zoll, warm oder kalt."],
+      uk: ["Обплетена підводка", "Підводка з обплетенням із нержавіючої сталі, 20 дюймів, гаряча або холодна."],
+      tl: ["Braided supply line", "Stainless braided supply line, 20 in, mainit o malamig."],
+    }, { cost: 7.9, ref: HD.supply_line }),
+  ], null),
+
+  // ── Repair ──
+  "fq.plumbing.drains.clean_main_line": T("repair", {
+    it: ["Pulizia della linea principale", "Linea fognaria principale liberata dal pozzetto d'ispezione fino alla strada, così ogni scarico della casa torna a funzionare."],
+    de: ["Reinigung der Hauptleitung", "Die Hauptabwasserleitung von der Reinigungsöffnung bis zur Straße freigemacht, damit jeder Abfluss im Haus wieder läuft."],
+    uk: ["Прочищення головної каналізаційної лінії", "Головну каналізаційну лінію прочищено від ревізії до вулиці, щоб кожен злив у будинку знову працював."],
+    tl: ["Paglilinis ng main line", "Nilinis ang main sewer line mula sa cleanout hanggang kalsada para gumana ulit ang bawat drain sa bahay."],
+  }, [
+    SHARED.serviceCall(65),
+    L.labour(1, "flat", 225, {
+      en: ["Main line cabling", "The main line cabled from the cleanout to the street with a drum machine until it runs free."],
+      fr: ["Débouchage du collecteur au câble", "Collecteur passé au câble du regard jusqu'à la rue avec une machine à tambour jusqu'à écoulement libre."],
+      es: ["Cableado de la línea principal", "Línea principal destapada con máquina de tambor desde el registro hasta la calle hasta que corra libre."],
+      it: ["Disostruzione della linea principale a molla", "Linea principale passata con macchina a tamburo dal pozzetto alla strada fino a scorrimento libero."],
+      de: ["Hauptleitung mit Spirale reinigen", "Hauptleitung von der Reinigungsöffnung bis zur Straße mit der Trommelmaschine gespült, bis sie frei läuft."],
+      uk: ["Прочищення головної лінії тросом", "Головну лінію прочищено барабанною машиною від ревізії до вулиці до вільного стоку."],
+      tl: ["Pag-cable ng main line", "Kinable ang main line mula sa cleanout hanggang kalsada gamit ang drum machine hanggang lumusot."],
+    }),
+  ], D.regular("fixed", 10)),
+
+  "fq.plumbing.toilets.tank_rebuild": T("repair", {
+    it: ["Revisione cassetta WC — galleggiante e valvola", "Guarnizione di scarico e valvola di carico sostituite insieme: le due parti dietro quasi ogni WC che perde."],
+    de: ["Spülkasten überholen — Ablaufventil und Füllventil", "Ablaufdichtung und Füllventil gemeinsam ersetzt — die beiden Teile hinter fast jedem laufenden WC."],
+    uk: ["Ремонт бачка унітаза — клапан і поплавок", "Зливний клапан і клапан наповнення замінено разом — дві деталі, через які тече майже кожен унітаз."],
+    tl: ["Pag-rebuild ng tangke ng inodoro — flapper at fill valve", "Sabay na pinalitan ang flapper at fill valve, ang dalawang parte na sanhi ng halos lahat ng tumatakbong inodoro."],
+  }, [
+    L.labour(1, "each", 175, {
+      en: ["Tank rebuild labour", "The tank drained, the flapper and fill valve swapped, the water level set and the flush tested."],
+      fr: ["Main-d'œuvre — remise à neuf du réservoir", "Réservoir vidé, clapet et robinet flotteur remplacés, niveau d'eau réglé et chasse testée."],
+      es: ["Mano de obra — reparación del tanque", "Tanque vaciado, sapo y válvula de llenado cambiados, nivel de agua ajustado y descarga probada."],
+      it: ["Manodopera — revisione cassetta", "Cassetta svuotata, guarnizione e valvola di carico sostituite, livello regolato e scarico collaudato."],
+      de: ["Arbeit — Spülkasten überholen", "Spülkasten entleert, Ablaufdichtung und Füllventil getauscht, Wasserstand eingestellt und Spülung geprüft."],
+      uk: ["Робота — ремонт бачка", "Бачок спорожнено, клапан і поплавок замінено, рівень води виставлено, змив перевірено."],
+      tl: ["Labor — pag-rebuild ng tangke", "Inalisan ng tubig ang tangke, pinalitan ang flapper at fill valve, inayos ang level ng tubig at sinubukan ang flush."],
+    }),
+    L.material(1, "each", 45, {
+      en: ["Fill valve and flapper kit", "Universal fill valve with adjustable height and a matching flapper."],
+      fr: ["Trousse robinet flotteur et clapet", "Robinet flotteur universel à hauteur réglable et clapet assorti."],
+      es: ["Kit de válvula de llenado y sapo", "Válvula de llenado universal de altura ajustable y sapo a juego."],
+      it: ["Kit valvola di carico e guarnizione", "Valvola di carico universale ad altezza regolabile e guarnizione abbinata."],
+      de: ["Füllventil- und Ablaufdichtungs-Set", "Universelles Füllventil mit verstellbarer Höhe und passende Ablaufdichtung."],
+      uk: ["Комплект клапана наповнення та зливного клапана", "Універсальний клапан наповнення з регульованою висотою та відповідний зливний клапан."],
+      tl: ["Fill valve at flapper kit", "Universal fill valve na adjustable ang taas at katernong flapper."],
+    }),
+  ], D.regular("fixed", 10)),
+
+  "fq.plumbing.lines.leak_repair": T("repair", {
+    it: ["Riparazione perdita", "Giunto, raccordo o breve tratto di tubo che perde riparato e linea collaudata."],
+    de: ["Leckreparatur", "Undichte Verbindung, Fitting oder kurzes Rohrstück repariert und die Leitung geprüft."],
+    uk: ["Усунення протікання", "Протікаюче з'єднання, фітинг або короткий відрізок труби відремонтовано, лінію перевірено."],
+    tl: ["Pag-ayos ng tagas", "Inayos ang tumatagas na dugtungan, fitting o maikling tubo at sinubukan ang linya."],
+  }, [
+    SHARED.diagnostic(89, { cost: 45 }),
+    L.labour(1, "flat", 150, {
+      en: ["Leak repair labour", "The leaking section cut out and replaced, or the fitting re-made, and the line pressure-tested."],
+      fr: ["Main-d'œuvre — réparation de fuite", "Section qui fuit coupée et remplacée, ou raccord refait, puis conduite testée sous pression."],
+      es: ["Mano de obra — reparación de fuga", "Tramo con fuga cortado y reemplazado, o la conexión rehecha, y la línea probada a presión."],
+      it: ["Manodopera — riparazione perdita", "Tratto che perde tagliato e sostituito, o raccordo rifatto, e linea provata in pressione."],
+      de: ["Arbeit — Leck reparieren", "Undichtes Stück herausgetrennt und ersetzt oder der Fitting neu gesetzt, dann die Leitung abgedrückt."],
+      uk: ["Робота — усунення протікання", "Протікаючу ділянку вирізано й замінено або фітинг перероблено, лінію перевірено під тиском."],
+      tl: ["Labor — pag-ayos ng tagas", "Pinutol at pinalitan ang tumatagas na parte, o inayos ang fitting, at sinubukan sa pressure ang linya."],
+    }),
+    L.material(1, "flat", 35, {
+      en: ["Pipe, fittings and solder", "Copper or PEX, fittings, solder or crimp rings for the repair."],
+      fr: ["Tuyau, raccords et soudure", "Cuivre ou PEX, raccords, soudure ou bagues à sertir pour la réparation."],
+      es: ["Tubo, conexiones y soldadura", "Cobre o PEX, conexiones, soldadura o anillos de engarce para la reparación."],
+      it: ["Tubo, raccordi e stagno", "Rame o PEX, raccordi, stagno o anelli a crimpare per la riparazione."],
+      de: ["Rohr, Fittings und Lot", "Kupfer oder PEX, Fittings, Lot oder Pressringe für die Reparatur."],
+      uk: ["Труба, фітинги та припій", "Мідь або PEX, фітинги, припій або обтискні кільця для ремонту."],
+      tl: ["Tubo, fittings at solder", "Copper o PEX, fittings, solder o crimp ring para sa pag-ayos."],
+    }),
+  ], D.regular("fixed", 10)),
+
+  // ── Inspection ──
+  "fq.plumbing.drains.camera_inspection": T("inspection", {
+    it: ["Videoispezione dello scarico", "Telecamera passata nella tubazione per mostrare dov'è il problema, cos'è e a che profondità, con il filmato conservato."],
+    de: ["Kamerainspektion der Abwasserleitung", "Eine Kamera durch die Leitung geführt, um zu zeigen, wo das Problem liegt, was es ist und wie tief — mit gespeicherter Aufnahme."],
+    uk: ["Відеоінспекція каналізації", "Камеру проведено по трубі, щоб показати, де проблема, яка вона та на якій глибині; запис збережено."],
+    tl: ["Camera inspection ng drain", "Pinadaan ang camera sa linya para makita kung saan, ano at gaano kalalim ang problema, at itinago ang footage."],
+  }, [
+    L.labour(1, "flat", 275, {
+      en: ["Camera inspection", "The line surveyed with a locating camera, the fault marked at the surface and the footage kept."],
+      fr: ["Inspection par caméra", "Conduite inspectée avec une caméra à localisateur, défaut marqué en surface et vidéo conservée."],
+      es: ["Inspección con cámara", "Línea inspeccionada con cámara localizadora, la falla marcada en superficie y el video guardado."],
+      it: ["Videoispezione", "Tubazione ispezionata con telecamera localizzatrice, difetto marcato in superficie e filmato conservato."],
+      de: ["Kamerainspektion", "Leitung mit Ortungskamera befahren, Schaden an der Oberfläche markiert und die Aufnahme gespeichert."],
+      uk: ["Відеоінспекція", "Лінію обстежено камерою з локатором, місце пошкодження позначено на поверхні, запис збережено."],
+      tl: ["Camera inspection", "Sinuri ang linya gamit ang locating camera, minarkahan sa ibabaw ang sira at itinago ang footage."],
+    }),
+    SHARED.report(45),
+  ], null),
+
+  "fq.plumbing.visits.diagnostic_residential": T("inspection", {
+    it: ["Visita diagnostica — residenziale", "Un idraulico viene a casa, trova cosa non va e dà un prezzo scritto prima di qualsiasi riparazione."],
+    de: ["Diagnosebesuch — privat", "Ein Klempner kommt ins Haus, findet den Fehler und nennt einen schriftlichen Preis, bevor repariert wird."],
+    uk: ["Діагностичний візит — житловий", "Сантехнік приїжджає додому, знаходить проблему та дає письмову ціну до початку ремонту."],
+    tl: ["Diagnostic visit — bahay", "Pupunta ang tubero sa bahay, hahanapin ang sira at magbibigay ng nakasulat na presyo bago mag-ayos."],
+  }, [
+    SHARED.diagnostic(99, { cost: 50 }),
+  ], null),
+
+  "fq.plumbing.visits.leak_detection_repair": T("inspection", {
+    it: ["Ricerca perdite e riparazione", "Rubinetti che gocciolano, tubi che perdono, WC che scorrono o una macchia umida inspiegabile: la fonte viene trovata e riparata nella stessa visita quando possibile."],
+    de: ["Lecksuche und Reparatur", "Tropfende Hähne, undichte Rohre, laufende WCs oder ein unerklärlicher Feuchtfleck: die Quelle wird gefunden und wenn möglich im selben Besuch behoben."],
+    uk: ["Пошук і усунення протікань", "Крапаючі крани, протікаючі труби, унітази, що течуть, або незрозуміла мокра пляма: джерело знаходять і за можливості усувають за той самий візит."],
+    tl: ["Paghanap at pag-ayos ng tagas", "Tumutulong gripo, tumatagas na tubo, tumatakbong inodoro o basang bahagi na walang paliwanag: hahanapin ang pinagmulan at aayusin sa parehong visit kung kaya."],
+  }, [
+    SHARED.diagnostic(97, { cost: 50 }),
+    L.labour(1.5, "hour", 150, {
+      en: ["Leak detection labour", "Pressure testing, acoustic or thermal tracing until the source is pinned down, billed by the hour."],
+      fr: ["Main-d'œuvre — détection de fuite", "Test de pression, écoute acoustique ou thermographie jusqu'à localiser la source, facturé à l'heure."],
+      es: ["Mano de obra — detección de fugas", "Prueba de presión, rastreo acústico o térmico hasta ubicar la fuente, cobrado por hora."],
+      it: ["Manodopera — ricerca perdite", "Prova in pressione, ricerca acustica o termica fino a individuare la fonte, fatturata a ore."],
+      de: ["Arbeit — Lecksuche", "Druckprüfung, akustische oder thermische Ortung, bis die Quelle gefunden ist, nach Stunden."],
+      uk: ["Робота — пошук протікання", "Перевірка тиску, акустичне або теплове трасування до виявлення джерела, погодинно."],
+      tl: ["Labor — paghanap ng tagas", "Pressure test, acoustic o thermal tracing hanggang makita ang pinagmulan, kada oras."],
+    }),
+  ], null),
+
+  // ── Maintenance ──
+  "fq.plumbing.water_heaters.service_burners": T("maintenance", {
+    it: ["Manutenzione bruciatore scaldabagno", "Gruppo bruciatore a gas pulito e regolato per una fiamma blu stabile e una pilota corretta."],
+    de: ["Brennerwartung Warmwasserspeicher", "Gasbrennereinheit gereinigt und eingestellt für eine ruhige blaue Flamme und eine saubere Zündflamme."],
+    uk: ["Обслуговування пальника бойлера", "Газовий пальник очищено та відрегульовано для рівного синього полум'я та правильного запальника."],
+    tl: ["Service ng burner ng water heater", "Nilinis at inayos ang gas burner para sa steady na asul na apoy at tamang pilot."],
+  }, [
+    L.labour(1, "flat", 200, {
+      en: ["Burner service and tank flush", "The burner assembly cleaned and adjusted, the tank flushed of sediment and the anode checked."],
+      fr: ["Entretien du brûleur et vidange du réservoir", "Brûleur nettoyé et réglé, réservoir vidangé de ses sédiments et anode vérifiée."],
+      es: ["Servicio del quemador y purga del tanque", "Quemador limpiado y ajustado, tanque purgado de sedimentos y ánodo revisado."],
+      it: ["Manutenzione bruciatore e lavaggio serbatoio", "Bruciatore pulito e regolato, serbatoio spurgato dai sedimenti e anodo controllato."],
+      de: ["Brennerwartung und Speicherspülung", "Brenner gereinigt und eingestellt, Speicher von Sediment gespült und die Anode geprüft."],
+      uk: ["Обслуговування пальника та промивання бака", "Пальник очищено та відрегульовано, бак промито від осаду, анод перевірено."],
+      tl: ["Service ng burner at flush ng tank", "Nilinis at inayos ang burner, ni-flush ang sediment sa tank at chineck ang anode."],
+    }),
+    L.material(1, "each", 25, {
+      en: ["Thermocouple", "Universal thermocouple, fitted if the pilot will not hold."],
+      fr: ["Thermocouple", "Thermocouple universel, posé si la veilleuse ne tient pas."],
+      es: ["Termopar", "Termopar universal, instalado si el piloto no se mantiene."],
+      it: ["Termocoppia", "Termocoppia universale, montata se la pilota non resta accesa."],
+      de: ["Thermoelement", "Universal-Thermoelement, eingebaut falls die Zündflamme nicht hält."],
+      uk: ["Термопара", "Універсальна термопара, встановлюється, якщо запальник не тримає."],
+      tl: ["Thermocouple", "Universal thermocouple, ikakabit kung hindi tumatagal ang pilot."],
+    }),
+  ], D.regular("fixed", 10)),
+
+  "fq.plumbing.drains.root_treatment": T("maintenance", {
+    it: ["Trattamento antiradici della linea principale", "Inibitore schiumogeno applicato alla linea principale dopo la pulizia, per rallentare la ricrescita tra un intervento e l'altro."],
+    de: ["Wurzelbehandlung der Hauptleitung", "Ein schäumender Wurzelhemmer nach der Reinigung in die Hauptleitung eingebracht, um das Nachwachsen zwischen zwei Reinigungen zu bremsen."],
+    uk: ["Обробка головної лінії від коренів", "Пінний інгібітор коренів внесено в головну лінію після прочищення, щоб сповільнити відростання між чистками."],
+    tl: ["Root treatment ng main line", "Foaming root inhibitor na inilagay sa main line pagkatapos linisin para bumagal ang pagtubo ulit ng ugat."],
+  }, [
+    L.labour(1, "flat", 150, {
+      en: ["Root treatment application", "Foaming root inhibitor applied through the cleanout after the line is cleared."],
+      fr: ["Application du traitement antiracines", "Inhibiteur de racines moussant appliqué par le regard une fois la conduite dégagée."],
+      es: ["Aplicación del tratamiento contra raíces", "Inhibidor de raíces espumante aplicado por el registro una vez destapada la línea."],
+      it: ["Applicazione del trattamento antiradici", "Inibitore schiumogeno applicato dal pozzetto una volta liberata la linea."],
+      de: ["Wurzelbehandlung ausbringen", "Schäumender Wurzelhemmer nach der Reinigung über die Reinigungsöffnung eingebracht."],
+      uk: ["Внесення засобу від коренів", "Пінний інгібітор внесено через ревізію після прочищення лінії."],
+      tl: ["Paglagay ng root treatment", "Foaming root inhibitor na inilagay sa cleanout matapos linisin ang linya."],
+    }),
+    L.material(1, "each", 120, {
+      en: ["Foaming root inhibitor", "One application of foaming root killer for a residential main line."],
+      fr: ["Inhibiteur de racines moussant", "Une application d'antiracines moussant pour un collecteur résidentiel."],
+      es: ["Inhibidor de raíces espumante", "Una aplicación de matarraíces espumante para una línea principal residencial."],
+      it: ["Inibitore radici schiumogeno", "Un'applicazione di antiradici schiumogeno per una linea principale residenziale."],
+      de: ["Schäumender Wurzelhemmer", "Eine Anwendung schäumendes Wurzelmittel für eine private Hauptleitung."],
+      uk: ["Пінний інгібітор коренів", "Одне застосування пінного засобу від коренів для житлової головної лінії."],
+      tl: ["Foaming root inhibitor", "Isang application ng foaming root killer para sa main line ng bahay."],
+    }),
+  ], D.regular("fixed", 15)),
+
+  "fq.plumbing.valves.water_purification": T("maintenance", {
+    it: ["Manutenzione impianto di depurazione acqua", "Filtri sostituiti e impianto controllato su un sistema ad acqua depurata o distillata."],
+    de: ["Wartung Wasseraufbereitungsanlage", "Filter gewechselt und die Anlage an einem System für gereinigtes oder destilliertes Wasser geprüft."],
+    uk: ["Обслуговування системи очищення води", "Фільтри замінено та систему перевірено на установці очищеної або дистильованої води."],
+    tl: ["Service ng water purification system", "Pinalitan ang filter at chineck ang sistema ng purified o distilled na tubig."],
+  }, [
+    L.labour(1, "flat", 95, {
+      en: ["Filter change and system check", "Every cartridge swapped, the housings sanitised, the system re-pressurised and checked for leaks."],
+      fr: ["Changement des filtres et vérification", "Chaque cartouche remplacée, boîtiers désinfectés, système remis en pression et vérifié pour les fuites."],
+      es: ["Cambio de filtros y revisión", "Cada cartucho cambiado, las carcasas sanitizadas, el sistema presurizado y revisado por fugas."],
+      it: ["Cambio filtri e controllo impianto", "Ogni cartuccia sostituita, contenitori sanificati, impianto rimesso in pressione e controllato per perdite."],
+      de: ["Filterwechsel und Anlagenprüfung", "Jede Kartusche getauscht, Gehäuse desinfiziert, die Anlage wieder unter Druck gesetzt und auf Dichtheit geprüft."],
+      uk: ["Заміна фільтрів та перевірка системи", "Кожен картридж замінено, корпуси продезінфіковано, систему заповнено та перевірено на протікання."],
+      tl: ["Palit ng filter at check ng sistema", "Pinalitan ang bawat cartridge, nilinis ang housing, ni-pressurize ulit at chineck kung tumutulo."],
+    }),
+    L.material(1, "flat", 85, {
+      en: ["Filter cartridge set", "Sediment, carbon and membrane cartridges for a standard under-sink system."],
+      fr: ["Ensemble de cartouches", "Cartouches sédiment, charbon et membrane pour un système sous évier standard."],
+      es: ["Juego de cartuchos", "Cartuchos de sedimento, carbón y membrana para un sistema estándar bajo el fregadero."],
+      it: ["Set di cartucce", "Cartucce sedimenti, carbone e membrana per un impianto sottolavello standard."],
+      de: ["Filterkartuschen-Set", "Sediment-, Kohle- und Membrankartuschen für eine Standard-Untertischanlage."],
+      uk: ["Комплект фільтрувальних картриджів", "Картриджі осадовий, вугільний і мембранний для стандартної системи під мийкою."],
+      tl: ["Set ng filter cartridge", "Sediment, carbon at membrane cartridge para sa standard under-sink system."],
+    }),
+  ], D.regular("fixed", 5)),
+
+  // ── Folded in from the plumbing template capture ──
+  "fq.plumbing.toilets.install_best": T("installation", {
+    it: ["Sostituzione WC — doppio scarico premium", "Vecchio WC rimosso e un WC premium a doppio scarico ad altezza comfort posato, collegato e collaudato."],
+    de: ["WC-Austausch — Premium mit Zweimengenspülung", "Altes WC ausgebaut und ein Premium-Komfort-WC mit Zweimengenspülung gesetzt, angeschlossen und getestet."],
+    uk: ["Заміна унітаза — преміум з подвійним змивом", "Старий унітаз знято, встановлено преміальний унітаз комфортної висоти з подвійним змивом, під'єднано й перевірено."],
+    tl: ["Palit ng inodoro — premium dual-flush", "Tinanggal ang luma at ikinabit ang premium dual-flush comfort-height na inodoro, ikinonekta at sinubukan."],
+  }, [
+    L.labour(1, "flat", 100, {
+      en: ["Old toilet removal and disposal", "The old toilet disconnected, pulled and hauled away."],
+      fr: ["Dépose et mise au rebut de l'ancienne toilette", "Ancienne toilette débranchée, retirée et évacuée."],
+      es: ["Retiro y desecho del inodoro viejo", "Inodoro viejo desconectado, retirado y llevado."],
+      it: ["Rimozione e smaltimento del vecchio WC", "Vecchio WC scollegato, rimosso e portato via."],
+      de: ["Altes WC ausbauen und entsorgen", "Altes WC abgeklemmt, ausgebaut und abtransportiert."],
+      uk: ["Демонтаж і утилізація старого унітаза", "Старий унітаз від'єднано, знято й вивезено."],
+      tl: ["Pagtanggal at pagtapon ng lumang inodoro", "Tinanggal, binunot at hinakot ang lumang inodoro."],
+    }, { cost: 100 }),
+    L.labour(1, "flat", 200, {
+      en: ["New toilet installation", "The flange checked, the new toilet set on a fresh wax ring, connected and tested."],
+      fr: ["Pose de la nouvelle toilette", "Bride vérifiée, nouvelle toilette posée sur un anneau de cire neuf, raccordée et testée."],
+      es: ["Instalación del inodoro nuevo", "Brida revisada, inodoro nuevo asentado en sello de cera nuevo, conectado y probado."],
+      it: ["Installazione del nuovo WC", "Flangia controllata, nuovo WC posato su guarnizione di cera nuova, collegato e collaudato."],
+      de: ["Neues WC einbauen", "Flansch geprüft, neues WC auf frischen Wachsring gesetzt, angeschlossen und getestet."],
+      uk: ["Встановлення нового унітаза", "Фланець перевірено, новий унітаз встановлено на нове воскове кільце, під'єднано й перевірено."],
+      tl: ["Pagkabit ng bagong inodoro", "Chineck ang flange, inilagay ang bago sa bagong wax ring, ikinonekta at sinubukan."],
+    }, { cost: 100 }),
+    L.material(1, "each", 550, {
+      en: ["Premium dual-flush toilet", "Dual-flush, comfort-height one-piece toilet with a soft-close seat."],
+      fr: ["Toilette haut de gamme à double chasse", "Toilette monobloc à double chasse et hauteur confort, siège à fermeture lente."],
+      es: ["Inodoro premium de doble descarga", "Inodoro de una pieza de doble descarga y altura confort, asiento de cierre lento."],
+      it: ["WC premium a doppio scarico", "WC monoblocco a doppio scarico ad altezza comfort, sedile a chiusura lenta."],
+      de: ["Premium-WC mit Zweimengenspülung", "Einteiliges Komfort-WC mit Zweimengenspülung und Softclose-Sitz."],
+      uk: ["Преміальний унітаз з подвійним змивом", "Моноблок комфортної висоти з подвійним змивом і сидінням з мікроліфтом."],
+      tl: ["Premium dual-flush na inodoro", "One-piece comfort-height na dual-flush na inodoro na may soft-close na upuan."],
+    }, { cost: 500 }),
+  ], D.newCustomer("fixed", 50)),
+
+  "fq.plumbing.drains.toilet_auger": T("repair", {
+    it: ["Disostruzione WC — sonda", "WC intasato liberato con la sonda senza smontarlo e scaricato per conferma."],
+    de: ["WC-Verstopfung — Spirale", "Verstopftes WC mit der WC-Spirale gelöst, ohne es auszubauen, und zur Kontrolle gespült."],
+    uk: ["Прочищення унітаза — трос", "Забитий унітаз прочищено тросом без демонтажу й перевірено змивом."],
+    tl: ["Pag-alis ng bara sa inodoro — closet auger", "Tinanggal ang bara gamit ang closet auger nang hindi binubunot at pinaflush para makumpirma."],
+  }, [
+    L.labour(1, "flat", 200, {
+      en: ["Unclog toilet", "The blockage cleared with a closet auger and the flush tested."],
+      fr: ["Débouchage de toilette", "Bouchon dégagé au furet de toilette et chasse testée."],
+      es: ["Destapar inodoro", "Obstrucción eliminada con sonda de inodoro y descarga probada."],
+      it: ["Disostruzione WC", "Ostruzione rimossa con sonda per WC e scarico provato."],
+      de: ["WC freimachen", "Verstopfung mit der WC-Spirale gelöst und Spülung getestet."],
+      uk: ["Прочищення унітаза", "Засмічення прибрано тросом, змив перевірено."],
+      tl: ["Pag-alis ng bara", "Tinanggal ang bara gamit ang closet auger at sinubukan ang flush."],
+    }, { cost: 100 }),
+  ], D.regular("percent", 3)),
+
+  "fq.plumbing.drains.cable_cleaning": T("maintenance", {
+    it: ["Pulizia scarico con sonda a molla", "Scarico liberato con una sonda a molla fino a quando l'acqua scorre di nuovo."],
+    de: ["Rohrreinigung mit Spirale", "Abfluss mit der Spirale freigemacht, bis das Wasser wieder läuft."],
+    uk: ["Прочищення каналізації тросом", "Злив прочищено тросом, доки вода знову не піде."],
+    tl: ["Paglinis ng drain gamit ang cable", "Nilinis ang drain gamit ang cable hanggang dumaloy ulit ang tubig."],
+  }, [
+    L.labour(1, "flat", 200, {
+      en: ["Pipe cleaning", "The line cleaned by hydro-jet or cable and flushed clear."],
+      fr: ["Nettoyage de conduite", "Conduite nettoyée à l'hydrojet ou au câble et rincée."],
+      es: ["Limpieza de tubería", "Línea limpiada con hidrojet o cable y enjuagada."],
+      it: ["Pulizia tubazione", "Tubazione pulita con idrogetto o sonda e risciacquata."],
+      de: ["Rohrreinigung", "Leitung per Hochdruck oder Spirale gereinigt und freigespült."],
+      uk: ["Чищення труби", "Лінію очищено гідроструменем або тросом і промито."],
+      tl: ["Paglilinis ng tubo", "Nilinis gamit ang hydro-jet o cable at binuhusan."],
+    }, { cost: 100 }),
+  ], D.regular("percent", 3)),
+
+  "fq.plumbing.lines.water_line_install": T("installation", {
+    it: ["Installazione linea dell'acqua", "Nuova linea dell'acqua posata dall'allacciamento al punto d'uso, collegata e provata in pressione."],
+    de: ["Wasserleitung verlegen", "Neue Wasserleitung vom Anschluss bis zur Entnahmestelle verlegt, angeschlossen und abgedrückt."],
+    uk: ["Прокладання водопроводу", "Нову водопровідну лінію прокладено від вводу до точки споживання, під'єднано й перевірено тиском."],
+    tl: ["Pagkabit ng water line", "Bagong water line mula sa supply hanggang gamit, ikinonekta at sinubukan sa pressure."],
+  }, [
+    L.labour(1, "linear_ft", 9, {
+      en: ["Water line installation — per linear ft", "PEX run, supported, connected at both ends and pressure-tested."],
+      fr: ["Pose de conduite d'eau — au pi lin.", "PEX tiré, supporté, raccordé aux deux bouts et testé sous pression."],
+      es: ["Instalación de línea de agua — por pie lineal", "PEX tendido, soportado, conectado en ambos extremos y probado a presión."],
+      it: ["Posa linea dell'acqua — al piede lineare", "PEX posato, staffato, collegato alle due estremità e provato in pressione."],
+      de: ["Wasserleitung verlegen — pro lfd. Fuß", "PEX verlegt, befestigt, beidseitig angeschlossen und abgedrückt."],
+      uk: ["Прокладання водопроводу — за пог. фут", "PEX прокладено, закріплено, під'єднано з обох кінців і перевірено тиском."],
+      tl: ["Pagkabit ng water line — kada linear ft", "Inilatag ang PEX, sinuportahan, ikinonekta sa dalawang dulo at pressure-test."],
+    }, { measurementKey: "linearFt" }),
+    hdMaterial(HD.pex_half_100, {
+      en: ["1/2 in PEX — per coil", "PEX-B tubing, 100 ft coil."],
+      fr: ["PEX 1/2 po — le rouleau", "Tube PEX-B, rouleau de 100 pi."],
+      es: ["PEX de 1/2 pulg — por rollo", "Tubo PEX-B, rollo de 100 pies."],
+      it: ["PEX da 1/2 pollice — per rotolo", "Tubo PEX-B, rotolo da 100 piedi."],
+      de: ["1/2-Zoll-PEX — pro Rolle", "PEX-B-Rohr, 100-Fuß-Rolle."],
+      uk: ["PEX 1/2 дюйма — за бухту", "Труба PEX-B, бухта 100 футів."],
+      tl: ["1/2 in PEX — kada rolyo", "PEX-B na tubo, 100 ft na rolyo."],
+    }, { measurementKey: "linearFt" }),
+    SHARED.consumables(45),
+  ], null),
+
+  // ── Taken from the schema agent's template draft (branch
+  //    agent/services-templates-seeds-wip) for rows this file had not
+  //    templated; prices and costs as drafted there. ──────────────────
+  "fq.plumbing.appliances.clean_dryer_vent": T("maintenance", {
+    it: ["Pulizia del condotto dell'asciugatrice", "Il condotto dell'asciugatrice spazzolato e aspirato dall'apparecchio allo sfiato esterno, e il flusso d'aria verificato alla fine."],
+    de: ["Reinigung des Trockner-Abluftkanals", "Der Abluftkanal des Trockners vom Gerät bis zur Außenklappe gebürstet und abgesaugt, der Luftstrom danach geprüft."],
+    uk: ["Чищення вентиляції сушильної машини", "Витяжний канал сушарки прочищено щіткою та пропилососено від приладу до вуличної решітки, потік повітря перевірено."],
+    tl: ["Paglilinis ng vent ng dryer", "Binrush at na-vacuum ang vent ng dryer mula sa makina hanggang sa labas, at sinuri ang daloy ng hangin pagkatapos."],
+  }, [
+    L.labour(1, "flat", 175, {
+      en: ["Dryer vent cleaning", "The full run brushed and vacuumed from the dryer to the exterior hood, and the airflow measured after."],
+      fr: ["Nettoyage du conduit de sécheuse", "Conduit brossé et aspiré sur toute sa longueur, de la sécheuse à la hotte extérieure, et débit d'air mesuré ensuite."],
+      es: ["Limpieza del ducto de la secadora", "Todo el recorrido cepillado y aspirado desde la secadora hasta la campana exterior, y el flujo de aire medido después."],
+      it: ["Pulizia del condotto dell'asciugatrice", "L'intero percorso spazzolato e aspirato dall'asciugatrice alla griglia esterna, e il flusso d'aria misurato dopo."],
+      de: ["Reinigung des Trockner-Abluftkanals", "Der gesamte Kanal vom Trockner bis zur Außenhaube gebürstet und abgesaugt, der Luftstrom danach gemessen."],
+      uk: ["Чищення вентиляції сушарки", "Увесь канал від сушарки до вуличного ковпака прочищено щіткою та пропилососено, потік повітря виміряно."],
+      tl: ["Paglilinis ng vent ng dryer", "Binrush at na-vacuum ang buong daan mula dryer hanggang sa hood sa labas, at sinukat ang daloy ng hangin pagkatapos."],
+    }, { cost: 85 }),
+    L.material(1, "each", 25, {
+      en: ["Foil transition duct and clamps", "A new transition duct behind the dryer when the old one is crushed or lint-packed."],
+      fr: ["Conduit de raccord en aluminium et colliers", "Conduit de raccord neuf derrière la sécheuse si l'ancien est écrasé ou bourré de charpie."],
+      es: ["Ducto de transición de aluminio y abrazaderas", "Ducto de transición nuevo detrás de la secadora cuando el anterior está aplastado o lleno de pelusa."],
+      it: ["Condotto di raccordo in alluminio e fascette", "Condotto di raccordo nuovo dietro l'asciugatrice quando il vecchio è schiacciato o pieno di lanugine."],
+      de: ["Alu-Übergangsschlauch und Schellen", "Neuer Übergangsschlauch hinter dem Trockner, wenn der alte gequetscht oder mit Flusen voll ist."],
+      uk: ["Алюмінієвий перехідний гофрорукав і хомути", "Новий перехідний рукав за сушаркою, якщо старий зім'ятий або забитий ворсом."],
+      tl: ["Foil transition duct at clamp", "Bagong transition duct sa likod ng dryer kapag sira o puno ng lint ang luma."],
+    }, { cost: 18 }),
+  ], null),
+
+  "fq.plumbing.drains.clean_drain": T("repair", {
+    it: ["Disostruzione di scarico — singolo apparecchio", "Un lavandino, una vasca o una doccia che scarica lentamente liberato con una sonda, e lo scarico provato a piena portata."],
+    de: ["Abflussreinigung — ein Ablauf", "Ein langsam laufendes Waschbecken, eine Wanne oder Dusche mit der Spirale freigemacht und der Abfluss bei vollem Durchfluss geprüft."],
+    uk: ["Прочищення зливу — один прилад", "Повільний злив умивальника, ванни чи душу прочищено тросом, злив перевірено на повний потік."],
+    tl: ["Paglilinis ng drain — isang fixture", "Lababo, bathtub o shower na mabagal umagos na nilinis gamit ang cable, at sinubok ang drain sa buong daloy."],
+  }, [
+    L.labour(1, "flat", 150, {
+      en: ["Single-fixture drain clearing", "The blockage cleared with a hand or small drum cable and the drain run to confirm full flow."],
+      fr: ["Débouchage d'un seul appareil", "Bouchon dégagé au câble manuel ou petit tambour et évacuation vérifiée à plein débit."],
+      es: ["Destape de un solo desagüe", "Obstrucción eliminada con cable manual o de tambor pequeño y desagüe probado a caudal completo."],
+      it: ["Disostruzione di un singolo scarico", "Ostruzione rimossa con sonda manuale o piccolo tamburo e scarico verificato a piena portata."],
+      de: ["Reinigung eines einzelnen Abflusses", "Verstopfung mit Hand- oder kleiner Trommelspirale gelöst und der Abfluss bei vollem Durchfluss geprüft."],
+      uk: ["Прочищення одного зливу", "Засмічення усунуто ручним або малим барабанним тросом, злив перевірено на повний потік."],
+      tl: ["Paglilinis ng isang drain", "Inalis ang bara gamit ang hand o maliit na drum cable at sinubok ang drain sa buong daloy."],
+    }, { cost: 75 }),
+    L.material(1, "each", 30, {
+      en: ["Trap and tailpiece washers", "Fresh washers where the trap is opened, so it goes back together without a drip."],
+      fr: ["Rondelles de siphon et de tube de sortie", "Rondelles neuves là où le siphon est ouvert, pour un remontage sans goutte."],
+      es: ["Empaques de sifón y tubo de descarga", "Empaques nuevos donde se abre el sifón, para que quede sin goteo al armarlo."],
+      it: ["Guarnizioni del sifone e del tubo di scarico", "Guarnizioni nuove dove il sifone viene aperto, così si rimonta senza gocciolare."],
+      de: ["Dichtungen für Siphon und Ablaufrohr", "Neue Dichtungen, wo der Siphon geöffnet wird, damit er ohne Tropfen wieder zusammengeht."],
+      uk: ["Прокладки сифона та зливної трубки", "Нові прокладки там, де розкривається сифон, щоб зібрати без краплі."],
+      tl: ["Mga washer ng trap at tailpiece", "Bagong washer kung saan binuksan ang trap para walang tulo sa pagkabit."],
+    }, { cost: 22 }),
+  ], null),
+
+  "fq.plumbing.toilets.repair": T("repair", {
+    it: ["Riparazione di WC", "Un WC che scorre, perde o non scarica: la causa trovata e le parti interne guaste sostituite nella stessa visita."],
+    de: ["WC-Reparatur", "Ein WC, das nachläuft, leckt oder nicht spült: die Ursache gefunden und die defekten Innenteile im selben Besuch ersetzt."],
+    uk: ["Ремонт унітаза", "Унітаз, що підтікає, тече або не змиває: причину знайдено, зіпсовані внутрішні деталі замінено за один візит."],
+    tl: ["Pag-aayos ng inidoro", "Inidorong tumatagas, tumutulo o hindi nag-flush: nahanap ang sanhi at pinalitan ang sirang bahagi sa loob sa iisang pagbisita."],
+  }, [
+    L.labour(1, "flat", 135, {
+      en: ["Toilet repair labour", "The running, leaking or weak flush diagnosed and the worn parts inside the tank replaced."],
+      fr: ["Main-d'œuvre — réparation de toilette", "Écoulement continu, fuite ou chasse faible diagnostiqués et pièces usées du réservoir remplacées."],
+      es: ["Mano de obra — reparación de inodoro", "Fuga, goteo o descarga débil diagnosticados y las piezas gastadas del tanque reemplazadas."],
+      it: ["Manodopera — riparazione del WC", "Scarico continuo, perdita o scarico debole diagnosticati e parti usurate della cassetta sostituite."],
+      de: ["Arbeitsleistung — WC-Reparatur", "Nachlaufen, Leck oder schwache Spülung diagnostiziert und verschlissene Teile im Spülkasten ersetzt."],
+      uk: ["Робота — ремонт унітаза", "Постійне протікання, теча або слабкий змив діагностовано, зношені деталі в бачку замінено."],
+      tl: ["Trabaho — pag-aayos ng inidoro", "Na-diagnose ang tumutulo, tumatagas o mahinang flush at pinalitan ang mga sirang bahagi sa loob ng tangke."],
+    }, { cost: 65 }),
+    L.material(1, "each", 45, {
+      en: ["Fill valve and flapper kit", "A universal fill valve and flapper, the two parts that fail most."],
+      fr: ["Ensemble soupape de remplissage et clapet", "Soupape de remplissage universelle et clapet, les deux pièces qui lâchent le plus souvent."],
+      es: ["Kit de válvula de llenado y flapper", "Válvula de llenado universal y flapper, las dos piezas que más fallan."],
+      it: ["Kit galleggiante e flapper", "Galleggiante universale e flapper, i due pezzi che si guastano più spesso."],
+      de: ["Füllventil- und Klappenset", "Universal-Füllventil und Klappe, die beiden Teile, die am häufigsten ausfallen."],
+      uk: ["Комплект заливного клапана та клапана-груші", "Універсальний заливний клапан і клапан-груша — дві деталі, що виходять з ладу найчастіше."],
+      tl: ["Fill valve at flapper kit", "Universal na fill valve at flapper, ang dalawang bahaging madalas masira."],
+    }, { cost: 30 }),
+  ], D.regular("fixed", 8)),
+};
+
+withTemplates(SEED, TEMPLATES);

@@ -6,6 +6,9 @@
 // without prices and a research benchmark beside each; where a seed matches
 // one of those, `existing` cites its key. Written in source order so
 // scripts/service-seeds/authoring/gen-source-map.mjs can join every row back.
+import { L, SHARED, D, T, withTemplates, hdMaterial } from "./_templateLines";
+import { HD } from "./_materialCosts";
+
 const BM = (low, median, high) => ({ low, median, high, currency: "USD", source: "benchmark", asOf: "2026-09-21" });
 const S = (seedKey, category, unit, benchmark, [en, fr, es], [den, dfr, des], extra = {}) => ({
   seedKey, category, name: { en, fr, es }, description: { en: den, fr: dfr, es: des },
@@ -445,5 +448,407 @@ export const SEED = {
       ["A scheduled check of the panel, connections and safety devices so small faults are caught before they fail.",
        "Vérification planifiée du panneau, des connexions et des dispositifs de sécurité pour repérer les petits défauts avant la panne.",
        "Revisión programada del tablero, las conexiones y los dispositivos de seguridad para detectar fallas pequeñas antes de que fallen."]),
+    // ── Added 2026-09-24 with the estimate templates: the captured template
+    //    set names a safety inspection and an annual maintenance that had no
+    //    row here, and a template has to hang on a service. ──────────────────
+    S("fq.electrical.visits.safety_inspection", "visits", "flat", null,
+      ["Electrical safety inspection", "Inspection de sécurité électrique", "Inspección de seguridad eléctrica"],
+      ["The panel, wiring, outlets, GFCI and AFCI devices and smoke detectors checked room by room, with a written list of what needs attention.",
+       "Panneau, câblage, prises, dispositifs DDFT et AFCI et détecteurs de fumée vérifiés pièce par pièce, avec une liste écrite de ce qui demande attention.",
+       "Tablero, cableado, tomacorrientes, dispositivos GFCI y AFCI y detectores de humo revisados cuarto por cuarto, con una lista escrita de lo que requiere atención."],
+      { durationMinutes: 90, bookable: true }),
+    S("fq.electrical.visits.annual_maintenance", "visits", "flat", null,
+      ["Annual panel and GFCI maintenance", "Entretien annuel du panneau et des DDFT", "Mantenimiento anual del tablero y los GFCI"],
+      ["A yearly visit: breaker connections tightened, the panel labelling checked, and every smoke, CO and GFCI device tested and logged.",
+       "Visite annuelle : connexions des disjoncteurs resserrées, étiquetage du panneau vérifié, et chaque détecteur de fumée, de CO et DDFT testé et consigné.",
+       "Visita anual: conexiones de los interruptores apretadas, el etiquetado del tablero revisado y cada detector de humo, de CO y GFCI probado y registrado."],
+      { durationMinutes: 60, bookable: true }),
   ],
 };
+
+// ── Estimate templates ───────────────────────────────────────────────────────
+//
+// Evidence: eleven templates captured on 2026-09-24 from a competitor's trial
+// account (the electrical estimate-template capture under docs/research/ —
+// its four headings Installation · Repair · Inspection · Maintenance, its labour lines
+// with unit price AND unit cost, its material lines and its default discount).
+// Those eleven are reproduced here in structure and price: same lines, same
+// quantities, same prices, same costs, same discounts; the wording is ours.
+// Two more (the power-problem visit and the smoke-detector replacement) are
+// authored to bring Inspection and Maintenance to three each, at the same
+// labour ≈ 50% / material ≈ 75% cost ratio the captured set uses.
+// See _templateLines.js for the shape and docs/research/service-template-glossary.md
+// for the seven-language vocabulary.
+const TEMPLATES = {
+  // ── Installation ──
+  "fq.electrical.panels.all_breakers_200a_30": T("installation", {
+    it: ["Sostituzione quadro e interruttori — 200 A, 30 circuiti", "Centralino da 200 A a 30 circuiti con interruttori nuovi installato, circuiti ricollegati ed etichettati."],
+    de: ["Verteiler- und Sicherungstausch — 200 A, 30 Stromkreise", "Ein 200-A-Verteiler mit 30 Stromkreisen und neuen Sicherungsautomaten eingebaut, Stromkreise wieder angeschlossen und beschriftet."],
+    uk: ["Заміна щита та автоматів — 200 А, 30 ліній", "Встановлено щит на 200 А на 30 ліній з новими автоматами, лінії під'єднано та промарковано."],
+    tl: ["Palit ng panel at breakers — 200 A, 30 circuits", "Bagong 200 A load center na may 30 circuits at bagong breakers, ikinabit at nilagyan ng label ang bawat circuit."],
+  }, [
+    L.labour(1, "flat", 200, {
+      en: ["Existing panel removal", "The old panel disconnected, removed and disposed of safely."],
+      fr: ["Dépose du panneau existant", "Ancien panneau débranché, retiré et mis au rebut de façon sécuritaire."],
+      es: ["Retiro del tablero existente", "Tablero viejo desconectado, retirado y desechado de forma segura."],
+      it: ["Rimozione del quadro esistente", "Vecchio quadro scollegato, rimosso e smaltito in sicurezza."],
+      de: ["Ausbau des alten Verteilers", "Alter Verteiler abgeklemmt, ausgebaut und fachgerecht entsorgt."],
+      uk: ["Демонтаж старого щита", "Старий щит від'єднано, демонтовано та безпечно утилізовано."],
+      tl: ["Pagtanggal ng lumang panel", "Tinanggal at itinapon nang ligtas ang lumang panel."],
+    }, { cost: 100 }),
+    L.labour(1, "flat", 500, {
+      en: ["200 A panel installation", "The new 200 A main panel mounted, every circuit reconnected and labelled, permit coordination included."],
+      fr: ["Installation du panneau 200 A", "Nouveau panneau principal 200 A posé, chaque circuit rebranché et étiqueté, coordination du permis comprise."],
+      es: ["Instalación del tablero de 200 A", "Tablero principal nuevo de 200 A montado, cada circuito reconectado y etiquetado, permiso incluido."],
+      it: ["Installazione del quadro da 200 A", "Nuovo quadro principale da 200 A montato, ogni circuito ricollegato ed etichettato, permesso incluso."],
+      de: ["Einbau des 200-A-Verteilers", "Neuer 200-A-Hauptverteiler montiert, jeder Stromkreis angeschlossen und beschriftet, Genehmigung inklusive."],
+      uk: ["Встановлення щита на 200 А", "Новий головний щит на 200 А змонтовано, кожну лінію під'єднано та промарковано, дозвіл включено."],
+      tl: ["Pagkabit ng 200 A panel", "Ikinabit ang bagong 200 A main panel, bawat circuit ikinonekta at nilagyan ng label, kasama ang permit."],
+    }, { cost: 250 }),
+    L.material(1, "each", 850, {
+      en: ["200 A main breaker panel", "200 A main-breaker load centre with 30 breaker spaces."],
+      fr: ["Panneau principal 200 A", "Centre de distribution 200 A avec disjoncteur principal et 30 espaces."],
+      es: ["Tablero principal de 200 A", "Centro de carga de 200 A con interruptor principal y 30 espacios."],
+      it: ["Quadro principale da 200 A", "Centralino da 200 A con interruttore generale e 30 posti."],
+      de: ["200-A-Hauptverteiler", "200-A-Verteiler mit Hauptschalter und 30 Steckplätzen."],
+      uk: ["Головний щит на 200 А", "Щит на 200 А з головним автоматом і 30 місцями."],
+      tl: ["200 A main breaker panel", "200 A load center na may main breaker at 30 breaker spaces."],
+    }, { cost: 650, taxable: false }),
+  ], D.newCustomer("fixed", 75)),
+
+  "fq.electrical.lighting.install_fixtures": T("installation", {
+    it: ["Installazione plafoniere — fornite dal cliente", "Sei plafoniere nuove montate al posto delle vecchie, cablate alle scatole esistenti; le vecchie smaltite."],
+    de: ["Leuchtenmontage — vom Kunden gestellt", "Sechs neue Leuchten anstelle der alten montiert und an die vorhandenen Dosen angeschlossen; die alten entsorgt."],
+    uk: ["Встановлення світильників — надані клієнтом", "Шість нових світильників змонтовано замість старих і під'єднано до наявних коробок; старі утилізовано."],
+    tl: ["Pagkabit ng ilaw — galing sa kliyente", "Anim na bagong light fixture ang ikinabit kapalit ng luma at ikinonekta sa existing na kahon; itinapon ang luma."],
+  }, [
+    L.labour(1, "flat", 200, {
+      en: ["Old fixtures removal", "The existing fixtures taken down and disposed of."],
+      fr: ["Dépose des anciens luminaires", "Luminaires existants démontés et mis au rebut."],
+      es: ["Retiro de las luminarias viejas", "Luminarias existentes desmontadas y desechadas."],
+      it: ["Rimozione delle vecchie plafoniere", "Plafoniere esistenti smontate e smaltite."],
+      de: ["Demontage der alten Leuchten", "Vorhandene Leuchten abgenommen und entsorgt."],
+      uk: ["Демонтаж старих світильників", "Наявні світильники знято та утилізовано."],
+      tl: ["Pagtanggal ng lumang ilaw", "Tinanggal at itinapon ang mga lumang fixture."],
+    }, { cost: 100 }),
+    L.labour(1, "flat", 600, {
+      en: ["Light fixture installation", "Six fixtures mounted, secured and wired to the existing connections."],
+      fr: ["Installation des luminaires", "Six luminaires posés, fixés et raccordés aux connexions existantes."],
+      es: ["Instalación de las luminarias", "Seis luminarias montadas, aseguradas y cableadas a las conexiones existentes."],
+      it: ["Installazione delle plafoniere", "Sei plafoniere montate, fissate e cablate ai collegamenti esistenti."],
+      de: ["Montage der Leuchten", "Sechs Leuchten montiert, befestigt und an die vorhandenen Anschlüsse angeschlossen."],
+      uk: ["Встановлення світильників", "Шість світильників змонтовано, закріплено та під'єднано до наявної проводки."],
+      tl: ["Pagkabit ng mga ilaw", "Anim na fixture ang ikinabit, sinigurado at ikinonekta sa existing na wiring."],
+    }, { cost: 300 }),
+    L.material(6, "each", 55, {
+      en: ["36 W LED flush mount — 12 in", "Energy-saving 36 W LED ceiling fixture, 12 in, gold finish."],
+      fr: ["Plafonnier DEL 36 W — 12 po", "Plafonnier DEL 36 W à faible consommation, 12 po, fini doré."],
+      es: ["Plafón LED de 36 W — 12 pulg", "Luminaria de techo LED de 36 W de bajo consumo, 12 pulg, acabado dorado."],
+      it: ["Plafoniera LED 36 W — 12 pollici", "Plafoniera LED da 36 W a basso consumo, 12 pollici, finitura oro."],
+      de: ["LED-Deckenleuchte 36 W — 12 Zoll", "Energiesparende 36-W-LED-Deckenleuchte, 12 Zoll, Gold."],
+      uk: ["Світлодіодний плафон 36 Вт — 12 дюймів", "Енергоощадний стельовий світильник 36 Вт, 12 дюймів, золотистий."],
+      tl: ["36 W LED flush mount — 12 in", "Matipid na 36 W LED ceiling light, 12 pulgada, gold."],
+    }, { cost: 50 }),
+  ], D.newCustomer("fixed", 100)),
+
+  "fq.electrical.specialty.ev_charger": T("installation", {
+    it: ["Installazione stazione di ricarica EV", "Circuito dedicato a 240 V dal quadro e stazione di ricarica montata e collegata, pronta per l'auto."],
+    de: ["Installation einer E-Auto-Ladestation", "Eigener 240-V-Stromkreis vom Verteiler und die Ladestation montiert und angeschlossen, bereit fürs Auto."],
+    uk: ["Встановлення зарядної станції для електромобіля", "Окрема лінія 240 В від щита, зарядна станція змонтована та під'єднана, готова для авто."],
+    tl: ["Pagkabit ng EV charger", "Dedicated 240 V circuit mula sa panel at ikinabit ang charger, handa na para sa sasakyan."],
+  }, [
+    L.labour(1, "flat", 300, {
+      en: ["EV charger installation labour", "A Level 2 charging station installed on its own dedicated circuit, permit coordination included."],
+      fr: ["Main-d'œuvre — borne de recharge", "Borne de niveau 2 installée sur son propre circuit dédié, coordination du permis comprise."],
+      es: ["Mano de obra — cargador EV", "Estación de carga nivel 2 instalada en su propio circuito dedicado, permiso incluido."],
+      it: ["Manodopera — stazione di ricarica", "Stazione di ricarica di livello 2 installata su circuito dedicato, permesso incluso."],
+      de: ["Arbeit — Ladestation", "Level-2-Ladestation auf eigenem Stromkreis installiert, Genehmigung inklusive."],
+      uk: ["Робота — зарядна станція", "Зарядна станція рівня 2 встановлена на окремій лінії, дозвіл включено."],
+      tl: ["Labor — EV charger", "Level 2 charger na ikinabit sa sariling dedicated circuit, kasama ang permit."],
+    }, { cost: 150 }),
+    L.material(1, "each", 400, {
+      en: ["Level 2 EV charger — 48 A", "240 V, 48 A Level 2 charger with NEMA 14-50 connection, works with every EV."],
+      fr: ["Borne de niveau 2 — 48 A", "Borne de niveau 2, 240 V, 48 A, raccord NEMA 14-50, compatible avec tous les VÉ."],
+      es: ["Cargador nivel 2 — 48 A", "Cargador nivel 2 de 240 V y 48 A con conexión NEMA 14-50, compatible con todo VE."],
+      it: ["Stazione di ricarica livello 2 — 48 A", "Caricatore livello 2 da 240 V, 48 A con presa NEMA 14-50, compatibile con ogni EV."],
+      de: ["Level-2-Ladestation — 48 A", "240-V-/48-A-Ladestation mit NEMA-14-50-Anschluss, für alle E-Autos."],
+      uk: ["Зарядна станція рівня 2 — 48 А", "Зарядна станція 240 В, 48 А з роз'ємом NEMA 14-50, сумісна з усіма електромобілями."],
+      tl: ["Level 2 EV charger — 48 A", "240 V, 48 A Level 2 charger na may NEMA 14-50, gumagana sa lahat ng EV."],
+    }, { cost: 250, taxable: false }),
+  ], D.newCustomer("fixed", 35)),
+
+  "fq.electrical.lighting.led_install": T("installation", {
+    it: ["Installazione illuminazione LED", "Plafoniere LED o lampade retrofit installate al posto dell'illuminazione vecchia, compatibilità con i dimmer verificata."],
+    de: ["Installation von LED-Beleuchtung", "LED-Leuchten oder Retrofit-Lampen anstelle der alten Beleuchtung eingebaut, Dimmerkompatibilität geprüft."],
+    uk: ["Встановлення світлодіодного освітлення", "Світлодіодні світильники або лампи встановлено замість старого освітлення, сумісність із димерами перевірено."],
+    tl: ["Pagkabit ng LED lighting", "LED fixture o retrofit na bombilya ang ikinabit kapalit ng lumang ilaw, chineck ang compatibility sa dimmer."],
+  }, [
+    L.labour(1, "flat", 200, {
+      en: ["Old fixtures removal", "The existing fixtures taken down and disposed of."],
+      fr: ["Dépose des anciens luminaires", "Luminaires existants démontés et mis au rebut."],
+      es: ["Retiro de las luminarias viejas", "Luminarias existentes desmontadas y desechadas."],
+      it: ["Rimozione delle vecchie plafoniere", "Plafoniere esistenti smontate e smaltite."],
+      de: ["Demontage der alten Leuchten", "Vorhandene Leuchten abgenommen und entsorgt."],
+      uk: ["Демонтаж старих світильників", "Наявні світильники знято та утилізовано."],
+      tl: ["Pagtanggal ng lumang ilaw", "Tinanggal at itinapon ang mga lumang fixture."],
+    }, { cost: 100 }),
+    L.labour(1, "flat", 600, {
+      en: ["Light fixture installation", "Six fixtures mounted, secured and wired to the existing connections."],
+      fr: ["Installation des luminaires", "Six luminaires posés, fixés et raccordés aux connexions existantes."],
+      es: ["Instalación de las luminarias", "Seis luminarias montadas, aseguradas y cableadas a las conexiones existentes."],
+      it: ["Installazione delle plafoniere", "Sei plafoniere montate, fissate e cablate ai collegamenti esistenti."],
+      de: ["Montage der Leuchten", "Sechs Leuchten montiert, befestigt und an die vorhandenen Anschlüsse angeschlossen."],
+      uk: ["Встановлення світильників", "Шість світильників змонтовано, закріплено та під'єднано до наявної проводки."],
+      tl: ["Pagkabit ng mga ilaw", "Anim na fixture ang ikinabit, sinigurado at ikinonekta sa existing na wiring."],
+    }, { cost: 300 }),
+    L.material(6, "each", 90, {
+      en: ["36 W LED flush mount — 14 in, premium", "Energy-saving 36 W LED ceiling fixture, 14 in, gold finish."],
+      fr: ["Plafonnier DEL 36 W — 14 po, haut de gamme", "Plafonnier DEL 36 W à faible consommation, 14 po, fini doré."],
+      es: ["Plafón LED de 36 W — 14 pulg, premium", "Luminaria de techo LED de 36 W de bajo consumo, 14 pulg, acabado dorado."],
+      it: ["Plafoniera LED 36 W — 14 pollici, premium", "Plafoniera LED da 36 W a basso consumo, 14 pollici, finitura oro."],
+      de: ["LED-Deckenleuchte 36 W — 14 Zoll, Premium", "Energiesparende 36-W-LED-Deckenleuchte, 14 Zoll, Gold."],
+      uk: ["Світлодіодний плафон 36 Вт — 14 дюймів, преміум", "Енергоощадний стельовий світильник 36 Вт, 14 дюймів, золотистий."],
+      tl: ["36 W LED flush mount — 14 in, premium", "Matipid na 36 W LED ceiling light, 14 pulgada, gold."],
+    }, { cost: 80 }),
+  ], D.newCustomer("fixed", 200)),
+
+  // ── Repair ──
+  "fq.electrical.visits.switch_outlet": T("repair", {
+    it: ["Intervento su interruttore o presa", "Interruttori e prese riparati, sostituiti o aggiunti — presa morta, spina lenta o GFCI che non si riarma compresi."],
+    de: ["Einsatz für Schalter oder Steckdose", "Schalter und Steckdosen repariert, ersetzt oder ergänzt — auch eine tote Steckdose, ein lockerer Stecker oder ein FI, der nicht zurückspringt."],
+    uk: ["Виклик для вимикача або розетки", "Вимикачі та розетки відремонтовано, замінено або додано — зокрема мертва розетка, хиткий штепсель або GFCI, що не скидається."],
+    tl: ["Visit para sa switch o outlet", "Inayos, pinalitan o dinagdagan ang switch at outlet — kasama ang patay na outlet, maluwag na saksakan o GFCI na ayaw mag-reset."],
+  }, [
+    L.labour(1, "flat", 150, {
+      en: ["Outlet or switch repair labour", "The faulty outlet or switch diagnosed and replaced."],
+      fr: ["Main-d'œuvre — réparation de prise ou d'interrupteur", "Prise ou interrupteur défectueux diagnostiqué et remplacé."],
+      es: ["Mano de obra — reparación de tomacorriente o interruptor", "Tomacorriente o interruptor defectuoso diagnosticado y reemplazado."],
+      it: ["Manodopera — riparazione presa o interruttore", "Presa o interruttore guasto diagnosticato e sostituito."],
+      de: ["Arbeit — Steckdosen- oder Schalterreparatur", "Defekte Steckdose oder Schalter diagnostiziert und ersetzt."],
+      uk: ["Робота — ремонт розетки або вимикача", "Несправну розетку або вимикач діагностовано та замінено."],
+      tl: ["Labor — pag-ayos ng outlet o switch", "Na-diagnose at pinalitan ang sirang outlet o switch."],
+    }, { cost: 75 }),
+    L.material(1, "each", 15, {
+      en: ["Duplex outlet or rocker switch", "Standard 15 A, 125 V duplex outlet or a matching rocker switch."],
+      fr: ["Prise double ou interrupteur à bascule", "Prise double standard 15 A, 125 V ou interrupteur à bascule assorti."],
+      es: ["Tomacorriente doble o interruptor tipo balancín", "Tomacorriente doble estándar de 15 A, 125 V o interruptor balancín a juego."],
+      it: ["Presa doppia o interruttore a bilanciere", "Presa doppia standard 15 A, 125 V o interruttore a bilanciere abbinato."],
+      de: ["Doppelsteckdose oder Wippschalter", "Standard-Doppelsteckdose 15 A, 125 V oder passender Wippschalter."],
+      uk: ["Подвійна розетка або клавішний вимикач", "Стандартна подвійна розетка 15 А, 125 В або відповідний клавішний вимикач."],
+      tl: ["Duplex outlet o rocker switch", "Standard 15 A, 125 V duplex outlet o katernong rocker switch."],
+    }, { cost: 5 }),
+  ], D.regular("fixed", 8)),
+
+  "fq.electrical.panels.replace_faulty_breakers": T("repair", {
+    it: ["Sostituzione interruttore difettoso", "Un interruttore che scatta senza guasto, non si riarma o scalda sostituito con il tipo e la portata corretti."],
+    de: ["Austausch eines defekten Sicherungsautomaten", "Ein Automat, der ohne Fehler auslöst, nicht zurückspringt oder heiß wird, durch den richtigen Typ und Nennwert ersetzt."],
+    uk: ["Заміна несправного автомата", "Автомат, що спрацьовує без причини, не вмикається або гріється, замінено на правильний тип і номінал."],
+    tl: ["Palit ng sirang breaker", "Breaker na nagti-trip nang walang dahilan, ayaw mag-reset o umiinit, pinalitan ng tamang uri at rating."],
+  }, [
+    L.labour(1, "flat", 175, {
+      en: ["Circuit breaker replacement labour", "The tripped or failed breaker replaced safely and the circuit re-tested."],
+      fr: ["Main-d'œuvre — remplacement de disjoncteur", "Disjoncteur déclenché ou défaillant remplacé en sécurité et circuit retesté."],
+      es: ["Mano de obra — reemplazo de interruptor", "Interruptor disparado o dañado reemplazado con seguridad y el circuito vuelto a probar."],
+      it: ["Manodopera — sostituzione interruttore", "Interruttore scattato o guasto sostituito in sicurezza e circuito ricollaudato."],
+      de: ["Arbeit — Sicherungsautomat tauschen", "Ausgelöster oder defekter Automat sicher ersetzt und der Stromkreis erneut geprüft."],
+      uk: ["Робота — заміна автомата", "Спрацьований або несправний автомат безпечно замінено, лінію перевірено."],
+      tl: ["Labor — palit ng breaker", "Ligtas na pinalitan ang nag-trip o sirang breaker at sinubukan ulit ang circuit."],
+    }, { cost: 85 }),
+    L.material(1, "each", 25, {
+      en: ["Single-pole circuit breaker", "15 A or 20 A single-pole breaker matched to the panel."],
+      fr: ["Disjoncteur unipolaire", "Disjoncteur unipolaire 15 A ou 20 A compatible avec le panneau."],
+      es: ["Interruptor unipolar", "Interruptor unipolar de 15 A o 20 A compatible con el tablero."],
+      it: ["Interruttore unipolare", "Interruttore unipolare da 15 A o 20 A compatibile con il quadro."],
+      de: ["Einpoliger Sicherungsautomat", "15-A- oder 20-A-Automat passend zum Verteiler."],
+      uk: ["Однополюсний автомат", "Автомат 15 А або 20 А, сумісний зі щитом."],
+      tl: ["Single-pole breaker", "15 A o 20 A single-pole breaker na tugma sa panel."],
+    }, { cost: 12 }),
+  ], D.regular("fixed", 10)),
+
+  "fq.electrical.visits.service_visit": T("repair", {
+    it: ["Intervento di riparazione", "Uscita per riparare qualcosa che ha smesso di funzionare, con la riparazione fatta sul posto quando possibile."],
+    de: ["Reparatureinsatz", "Einsatz, um etwas zu reparieren, das nicht mehr funktioniert — wenn möglich gleich vor Ort erledigt."],
+    uk: ["Сервісний виїзд", "Виїзд для ремонту того, що перестало працювати, з ремонтом на місці, коли це можливо."],
+    tl: ["Service visit", "Pagpunta para ayusin ang tumigil sa paggana, at inaayos agad sa lugar kung kaya."],
+  }, [
+    SHARED.diagnostic(95, { cost: 80 }),
+    L.labour(1, "flat", 300, {
+      en: ["Damaged GFCI outlet repair", "The outlet brought back to life — wires re-attached, damaged internal parts replaced or loose connections fixed."],
+      fr: ["Réparation de prise DDFT endommagée", "Prise remise en état — fils rebranchés, pièces internes abîmées remplacées ou connexions lâches corrigées."],
+      es: ["Reparación de tomacorriente GFCI dañado", "Tomacorriente restaurado: cables reconectados, partes internas dañadas reemplazadas o conexiones flojas corregidas."],
+      it: ["Riparazione presa GFCI danneggiata", "Presa rimessa in funzione — fili ricollegati, parti interne danneggiate sostituite o collegamenti lenti sistemati."],
+      de: ["Reparatur einer beschädigten FI-Steckdose", "Steckdose wieder funktionsfähig — Leiter neu angeschlossen, beschädigte Innenteile ersetzt oder lockere Verbindungen behoben."],
+      uk: ["Ремонт пошкодженої розетки GFCI", "Розетку відновлено — проводи під'єднано, пошкоджені внутрішні деталі замінено або послаблені з'єднання підтягнуто."],
+      tl: ["Pag-ayos ng sirang GFCI outlet", "Ibinalik ang outlet sa paggana — ikinabit ulit ang wire, pinalitan ang sirang parte o hinigpitan ang maluwag na koneksyon."],
+    }, { cost: 100 }),
+  ], D.regular("percent", 3)),
+
+  // ── Inspection ──
+  "fq.electrical.visits.safety_inspection": T("inspection", {
+    it: ["Ispezione di sicurezza elettrica", "Quadro, cablaggio, prese, dispositivi GFCI e AFCI e rilevatori di fumo controllati stanza per stanza, con un elenco scritto di ciò che richiede attenzione."],
+    de: ["Elektrische Sicherheitsinspektion", "Verteiler, Leitungen, Steckdosen, FI-/AFDD-Schutz und Rauchmelder Raum für Raum geprüft, mit einer schriftlichen Liste dessen, was Aufmerksamkeit braucht."],
+    uk: ["Перевірка електробезпеки", "Щит, проводку, розетки, пристрої GFCI та AFCI і димові датчики перевірено кімната за кімнатою, з письмовим переліком того, що потребує уваги."],
+    tl: ["Electrical safety inspection", "Chineck kuwarto-kuwarto ang panel, wiring, outlet, GFCI at AFCI at smoke detector, may nakasulat na listahan ng kailangang asikasuhin."],
+  }, [
+    L.labour(1, "flat", 125, {
+      en: ["Electrical safety inspection", "Full check of the panel, wiring, outlets, GFCI and AFCI devices and smoke detectors."],
+      fr: ["Inspection de sécurité électrique", "Vérification complète du panneau, du câblage, des prises, des dispositifs DDFT et AFCI et des détecteurs de fumée."],
+      es: ["Inspección de seguridad eléctrica", "Revisión completa del tablero, el cableado, los tomacorrientes, los dispositivos GFCI y AFCI y los detectores de humo."],
+      it: ["Ispezione di sicurezza elettrica", "Controllo completo di quadro, cablaggio, prese, dispositivi GFCI e AFCI e rilevatori di fumo."],
+      de: ["Elektrische Sicherheitsinspektion", "Vollständige Prüfung von Verteiler, Leitungen, Steckdosen, FI-/AFDD-Schutz und Rauchmeldern."],
+      uk: ["Перевірка електробезпеки", "Повна перевірка щита, проводки, розеток, пристроїв GFCI та AFCI і димових датчиків."],
+      tl: ["Electrical safety inspection", "Buong check ng panel, wiring, outlet, GFCI at AFCI at smoke detector."],
+    }, { cost: 60 }),
+  ], D.regular("fixed", 6)),
+
+  "fq.electrical.visits.diagnostic_visit": T("inspection", {
+    it: ["Visita diagnostica", "Un elettricista individua il guasto e consegna un prezzo scritto per la riparazione prima di iniziare."],
+    de: ["Diagnosebesuch", "Ein Elektriker findet, was defekt ist, und nennt einen schriftlichen Preis für die Reparatur, bevor gearbeitet wird."],
+    uk: ["Діагностичний візит", "Електрик знаходить несправність і дає письмову ціну ремонту до початку робіт."],
+    tl: ["Diagnostic visit", "Hahanapin ng electrician ang sira at magbibigay ng nakasulat na presyo bago magsimula."],
+  }, [
+    SHARED.diagnostic(95, { cost: 80 }),
+  ], D.regular("percent", 3)),
+
+  "fq.electrical.visits.power_issue": T("inspection", {
+    it: ["Intervento per problema di corrente", "Blackout in tutta la casa, una stanza senza corrente, luci che sfarfallano o un interruttore che continua a scattare: l'elettricista trova la causa e la risolve nella stessa visita quando possibile."],
+    de: ["Einsatz bei Stromproblem", "Stromausfall im ganzen Haus, ein toter Raum, flackernde Lichter oder ein Automat, der ständig auslöst: der Elektriker findet die Ursache und behebt sie wenn möglich im selben Besuch."],
+    uk: ["Виклик через проблему з електрикою", "Відключення в усьому будинку, кімната без струму, мерехтіння світла або автомат, що постійно вибиває: електрик знаходить причину й усуває її за той самий візит, коли можливо."],
+    tl: ["Visit para sa problema sa kuryente", "Walang kuryente sa buong bahay, patay na kuwarto, kumukurap na ilaw o breaker na laging nagti-trip: hahanapin ng electrician ang sanhi at aayusin sa parehong visit kung kaya."],
+  }, [
+    SHARED.diagnostic(95, { cost: 80 }),
+    L.labour(1, "hour", 125, {
+      en: ["Troubleshooting labour", "Circuits traced and tested until the fault is found, billed by the hour."],
+      fr: ["Main-d'œuvre — dépannage", "Circuits tracés et testés jusqu'à ce que le défaut soit trouvé, facturé à l'heure."],
+      es: ["Mano de obra — localización de fallas", "Circuitos rastreados y probados hasta encontrar la falla, cobrado por hora."],
+      it: ["Manodopera — ricerca guasto", "Circuiti tracciati e testati finché il guasto non è trovato, fatturato a ore."],
+      de: ["Arbeit — Fehlersuche", "Stromkreise verfolgt und geprüft, bis der Fehler gefunden ist, nach Stunden."],
+      uk: ["Робота — пошук несправності", "Лінії простежено й перевірено до виявлення несправності, погодинно."],
+      tl: ["Labor — troubleshooting", "Sinundan at sinubukan ang mga circuit hanggang makita ang sira, kada oras."],
+    }, { cost: 60 }),
+  ], null),
+
+  // ── Maintenance ──
+  "fq.electrical.visits.annual_maintenance": T("maintenance", {
+    it: ["Manutenzione annuale quadro e GFCI", "Visita annuale: connessioni degli interruttori serrate, etichettatura del quadro verificata e ogni rilevatore di fumo, di CO e GFCI testato e registrato."],
+    de: ["Jährliche Wartung von Verteiler und FI-Schutz", "Jahresbesuch: Anschlüsse der Automaten nachgezogen, Beschriftung geprüft und jeder Rauch-, CO- und FI-Schutz getestet und protokolliert."],
+    uk: ["Щорічне обслуговування щита та GFCI", "Щорічний візит: з'єднання автоматів підтягнуто, маркування щита перевірено, кожен димовий, CO- та GFCI-пристрій перевірено й записано."],
+    tl: ["Taunang maintenance ng panel at GFCI", "Taunang visit: hinigpitan ang koneksyon ng breaker, chineck ang label ng panel, at sinubukan at nirekord ang bawat smoke, CO at GFCI."],
+  }, [
+    L.labour(1, "flat", 100, {
+      en: ["Panel inspection and connection tightening", "Every breaker connection checked and tightened, and the panel labelling verified."],
+      fr: ["Inspection du panneau et resserrage des connexions", "Chaque connexion de disjoncteur vérifiée et resserrée, étiquetage du panneau confirmé."],
+      es: ["Inspección del tablero y ajuste de conexiones", "Cada conexión de los interruptores revisada y apretada, y el etiquetado del tablero verificado."],
+      it: ["Ispezione del quadro e serraggio connessioni", "Ogni connessione degli interruttori controllata e serrata, etichettatura del quadro verificata."],
+      de: ["Verteilerprüfung und Nachziehen der Anschlüsse", "Jeder Automatenanschluss geprüft und nachgezogen, die Beschriftung des Verteilers kontrolliert."],
+      uk: ["Огляд щита та підтягування з'єднань", "Кожне з'єднання автоматів перевірено й підтягнуто, маркування щита звірено."],
+      tl: ["Inspeksyon ng panel at paghigpit ng koneksyon", "Chineck at hinigpitan ang bawat koneksyon ng breaker, at kinumpirma ang label ng panel."],
+    }, { cost: 50 }),
+    L.labour(1, "flat", 50, {
+      en: ["Smoke detector and GFCI testing", "Every smoke detector, CO detector and GFCI or AFCI outlet tested and logged."],
+      fr: ["Test des détecteurs de fumée et des DDFT", "Chaque détecteur de fumée, détecteur de CO et prise DDFT ou AFCI testé et consigné."],
+      es: ["Prueba de detectores de humo y GFCI", "Cada detector de humo, detector de CO y tomacorriente GFCI o AFCI probado y registrado."],
+      it: ["Test rilevatori di fumo e GFCI", "Ogni rilevatore di fumo, rilevatore di CO e presa GFCI o AFCI testato e registrato."],
+      de: ["Prüfung der Rauchmelder und FI-Schutz", "Jeder Rauchmelder, CO-Melder und jede FI-/AFDD-Steckdose geprüft und protokolliert."],
+      uk: ["Перевірка димових датчиків і GFCI", "Кожен димовий датчик, датчик CO та розетку GFCI або AFCI перевірено й записано."],
+      tl: ["Testing ng smoke detector at GFCI", "Sinubukan at nirekord ang bawat smoke detector, CO detector at GFCI o AFCI outlet."],
+    }, { cost: 25 }),
+  ], D.regular("fixed", 8)),
+
+  "fq.electrical.visits.preventative_maintenance": T("maintenance", {
+    it: ["Manutenzione preventiva", "Controllo programmato di quadro, connessioni e dispositivi di sicurezza, così i piccoli difetti si trovano prima che diventino guasti."],
+    de: ["Vorbeugende Wartung", "Planmäßige Prüfung von Verteiler, Anschlüssen und Schutzeinrichtungen, damit kleine Mängel gefunden werden, bevor sie ausfallen."],
+    uk: ["Профілактичне обслуговування", "Плановий огляд щита, з'єднань і захисних пристроїв, щоб дрібні дефекти виявити до аварії."],
+    tl: ["Preventive maintenance", "Naka-schedule na check ng panel, koneksyon at safety device para mahuli ang maliit na sira bago pa sumabog."],
+  }, [
+    L.labour(1, "flat", 400, {
+      en: ["Routine electrical inspection and maintenance visit", "Panels cleaned, connections tightened and the whole system checked over on a scheduled visit."],
+      fr: ["Visite d'inspection et d'entretien électrique", "Panneaux nettoyés, connexions resserrées et système complet vérifié lors d'une visite planifiée."],
+      es: ["Visita de inspección y mantenimiento eléctrico", "Tableros limpiados, conexiones apretadas y todo el sistema revisado en una visita programada."],
+      it: ["Visita di ispezione e manutenzione elettrica", "Quadri puliti, connessioni serrate e tutto l'impianto controllato in una visita programmata."],
+      de: ["Elektrische Inspektions- und Wartungsbesuch", "Verteiler gereinigt, Anschlüsse nachgezogen und die gesamte Anlage bei einem planmäßigen Besuch geprüft."],
+      uk: ["Плановий огляд і обслуговування електрики", "Щити очищено, з'єднання підтягнуто, всю систему перевірено під час планового візиту."],
+      tl: ["Routine na inspeksyon at maintenance ng kuryente", "Nilinis ang panel, hinigpitan ang koneksyon at chineck ang buong sistema sa naka-schedule na visit."],
+    }, { cost: 100 }),
+  ], D.regular("percent", 3)),
+
+  "fq.electrical.detectors.smoke_hardwired_replace": T("maintenance", {
+    it: ["Rilevatore di fumo cablato con batteria — sostituzione", "Rilevatore di fumo cablato scaduto o guasto sostituito sul cablaggio esistente."],
+    de: ["Verkabelter Rauchmelder mit Batterie — Austausch", "Abgelaufener oder defekter verkabelter Rauchmelder auf der vorhandenen Verkabelung ersetzt."],
+    uk: ["Дротовий димовий датчик з батареєю — заміна", "Прострочений або несправний дротовий димовий датчик замінено на наявній проводці."],
+    tl: ["Hard-wired smoke detector na may battery — palit", "Expired o sirang hard-wired smoke detector na pinalitan sa existing na wiring."],
+  }, [
+    L.labour(1, "each", 90, {
+      en: ["Smoke detector replacement labour", "The expired detector taken down, the new one fitted on the existing base and the whole chain tested."],
+      fr: ["Main-d'œuvre — remplacement de détecteur de fumée", "Détecteur périmé retiré, nouveau posé sur la base existante et toute la chaîne testée."],
+      es: ["Mano de obra — reemplazo de detector de humo", "Detector vencido retirado, el nuevo montado en la base existente y toda la cadena probada."],
+      it: ["Manodopera — sostituzione rilevatore di fumo", "Rilevatore scaduto rimosso, il nuovo montato sulla base esistente e tutta la catena testata."],
+      de: ["Arbeit — Rauchmelder tauschen", "Abgelaufener Melder abgenommen, der neue auf dem vorhandenen Sockel montiert und die ganze Kette getestet."],
+      uk: ["Робота — заміна димового датчика", "Прострочений датчик знято, новий встановлено на наявну основу, весь ланцюг перевірено."],
+      tl: ["Labor — palit ng smoke detector", "Tinanggal ang expired na detector, ikinabit ang bago sa existing na base at sinubukan ang buong chain."],
+    }),
+    L.material(1, "each", 35.59, {
+      en: ["Hard-wired smoke detector with battery backup", "Interconnect-capable 120 V detector with a 10-year sealed battery."],
+      fr: ["Détecteur de fumée câblé avec pile de secours", "Détecteur 120 V interconnectable avec pile scellée de 10 ans."],
+      es: ["Detector de humo cableado con batería de respaldo", "Detector de 120 V interconectable con batería sellada de 10 años."],
+      it: ["Rilevatore di fumo cablato con batteria di riserva", "Rilevatore 120 V interconnettibile con batteria sigillata da 10 anni."],
+      de: ["Verkabelter Rauchmelder mit Batterie-Backup", "Vernetzbarer 120-V-Melder mit versiegelter 10-Jahres-Batterie."],
+      uk: ["Дротовий димовий датчик з резервною батареєю", "Датчик 120 В з можливістю з'єднання та герметичною батареєю на 10 років."],
+      tl: ["Hard-wired smoke detector na may backup battery", "120 V detector na pwedeng i-interconnect, may 10-taong sealed battery."],
+    }, { cost: 28.47, ref: HD.smoke_detector_hw }),
+  ], null),
+  // ── The two sample lines a Jobber electrical signup shows ──
+  "fq.electrical.receptacles.two_wire_to_gfci_indoor": T("repair", {
+    it: ["Presa a due poli sostituita con GFCI — interno", "Presa senza terra sostituita con un dispositivo GFCI, il modo ammesso di proteggere un circuito senza terra."],
+    de: ["Zweipolige Steckdose auf FI-Steckdose umgerüstet — innen", "Steckdose ohne Erdung durch eine FI-Schutzsteckdose ersetzt — der zulässige Schutz für einen Stromkreis ohne Erdung."],
+    uk: ["Заміна двополюсної розетки на GFCI — всередині", "Розетку без заземлення замінено пристроєм GFCI — дозволений спосіб захистити лінію без заземлення."],
+    tl: ["Two-prong na outlet ginawang GFCI — loob", "Pinalitan ng GFCI ang outlet na walang ground, ang tanggap na paraan para protektahan ang circuit na walang ground."],
+  }, [
+    L.labour(1, "each", 165, {
+      en: ["GFCI upgrade labour — per receptacle", "Old receptacle out, GFCI wired line and load, labelled 'no equipment ground' and tested."],
+      fr: ["Main-d'œuvre — prise DDFT, l'unité", "Ancienne prise retirée, DDFT câblé ligne et charge, étiqueté « sans mise à la terre » et testé."],
+      es: ["Mano de obra — GFCI, por tomacorriente", "Tomacorriente viejo fuera, GFCI cableado línea y carga, etiquetado «sin tierra» y probado."],
+      it: ["Manodopera — GFCI, per presa", "Vecchia presa tolta, GFCI cablato linea e carico, etichettato «senza terra» e provato."],
+      de: ["Arbeit — FI-Steckdose, pro Stück", "Alte Steckdose raus, FI-Steckdose Netz und Last verdrahtet, als ohne Schutzleiter gekennzeichnet und geprüft."],
+      uk: ["Робота — GFCI, за розетку", "Стару розетку знято, GFCI під'єднано лінія/навантаження, позначено «без заземлення» й перевірено."],
+      tl: ["Labor — GFCI upgrade, kada outlet", "Tinanggal ang luma, kinablehan ang GFCI line at load, nilagyan ng label na 'no equipment ground' at sinubukan."],
+    }, { measurementKey: "each" }),
+    hdMaterial(HD.gfci_15a, {
+      en: ["Self-test GFCI receptacle — 15 A", "Tamper-resistant self-test GFCI with wall plate and labels."],
+      fr: ["Prise DDFT autotest — 15 A", "DDFT autotest inviolable avec plaque et étiquettes."],
+      es: ["Tomacorriente GFCI autoprueba — 15 A", "GFCI autoprueba resistente a manipulación con placa y etiquetas."],
+      it: ["Presa GFCI autotest — 15 A", "GFCI autotest antimanomissione con placca ed etichette."],
+      de: ["FI-Steckdose mit Selbsttest — 15 A", "Kindersichere FI-Steckdose mit Selbsttest, Abdeckung und Aufklebern."],
+      uk: ["Розетка GFCI з самотестом — 15 А", "Захищена GFCI з самотестом, рамкою та наліпками."],
+      tl: ["Self-test na GFCI outlet — 15 A", "Tamper-resistant na self-test GFCI na may plate at label."],
+    }, { measurementKey: "each" }),
+  ], D.regular("fixed", 10)),
+
+  "fq.electrical.appliances.dryer_cord": T("repair", {
+    it: ["Cavo asciugatrice — 4 fili, fino a 6 piedi", "Cavo a quattro fili montato sull'asciugatrice e presa controllata perché sia messa a terra correttamente."],
+    de: ["Trocknerkabel — 4-adrig, bis 6 Fuß", "Vieradriges Kabel am Trockner montiert und die Steckdose geprüft, damit er korrekt geerdet ist."],
+    uk: ["Шнур сушарки — 4 жили, до 6 футів", "Чотирижильний шнур встановлено на сушарку, розетку перевірено для правильного заземлення."],
+    tl: ["Dryer cord — 4-wire, hanggang 6 ft", "Ikinabit ang 4-wire na cord sa dryer at chineck ang outlet para tama ang ground."],
+  }, [
+    L.labour(1, "each", 110, {
+      en: ["Dryer cord installation", "Ground strap removed, four-wire cord terminated and the receptacle checked."],
+      fr: ["Pose du cordon de sécheuse", "Pont de mise à la terre retiré, cordon à quatre fils raccordé et prise vérifiée."],
+      es: ["Instalación del cable de secadora", "Puente de tierra retirado, cable de cuatro hilos conectado y tomacorriente revisado."],
+      it: ["Montaggio cavo asciugatrice", "Ponticello di terra rimosso, cavo a quattro fili collegato e presa controllata."],
+      de: ["Trocknerkabel anschließen", "Erdungsbrücke entfernt, vieradriges Kabel angeschlossen und Steckdose geprüft."],
+      uk: ["Встановлення шнура сушарки", "Перемичку заземлення знято, чотирижильний шнур під'єднано, розетку перевірено."],
+      tl: ["Pagkabit ng dryer cord", "Tinanggal ang ground strap, ikinabit ang 4-wire cord at chineck ang outlet."],
+    }),
+    L.material(1, "each", 35, {
+      en: ["4-wire dryer cord — 6 ft", "30 A, 4-wire dryer cord with strain relief."],
+      fr: ["Cordon de sécheuse 4 fils — 6 pi", "Cordon de sécheuse 30 A, 4 fils, avec serre-câble."],
+      es: ["Cable de secadora 4 hilos — 6 pies", "Cable de 30 A y 4 hilos con sujetacables."],
+      it: ["Cavo asciugatrice 4 fili — 6 piedi", "Cavo da 30 A a 4 fili con pressacavo."],
+      de: ["Vieradriges Trocknerkabel — 6 Fuß", "30-A-Trocknerkabel, 4-adrig, mit Zugentlastung."],
+      uk: ["Чотирижильний шнур — 6 футів", "Шнур 30 А, 4 жили, з фіксатором."],
+      tl: ["4-wire dryer cord — 6 ft", "30 A na 4-wire na dryer cord na may strain relief."],
+    }),
+  ], null),
+};
+
+withTemplates(SEED, TEMPLATES);

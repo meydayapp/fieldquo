@@ -47,5 +47,47 @@
   "sourceCategory": "Cabinetry > Repair > Doors & Cabinets",
   "sourceService": "Repair - Something else / I don't know",
   "taskCode": "DEFAULT_CABINETRY_SERVICE_7"
+ },
+ {
+  "seedKey": "fq.carpentry.cabinet_install.countertop_install",
+  "industry": "Construction & Remodeling",
+  "sourceCategory": "Estimate templates (Kitchen Remodel)",
+  "sourceService": "Cabinetry & Countertop Install",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.carpentry.cabinet_install.measure_design",
+  "industry": "Cabinetry",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Cabinet measure and layout visit",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.carpentry.cabinet_repair.drawer_slides",
+  "industry": "Cabinetry",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Drawer slide and hinge replacement",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.carpentry.cabinet_repair.assessment_visit",
+  "industry": "Cabinetry",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Cabinet repair assessment",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.carpentry.cabinet_repair.adjustment_tune_up",
+  "industry": "Cabinetry",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Door and drawer adjustment tune-up",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.carpentry.cabinet_repair.reseal_touch_up",
+  "industry": "Cabinetry",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Cabinet touch-up and reseal",
+  "taskCode": null
  }
 ]

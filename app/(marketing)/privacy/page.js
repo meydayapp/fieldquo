@@ -228,9 +228,9 @@ export default function PrivacyPage() {
       <p>
         We do not sell personal information, and we do not share a company's
         client data with any other company on FieldQuo. The one exception is
-        described in Section 7: an <strong>opt-in</strong> feature that lets a
-        company share its own anonymised, aggregate figures (never its
-        client-level data) into a pooled industry benchmark.
+        described in Section 7: the pooled industry benchmark, on by default
+        and switchable off in Settings, which takes only a company's own
+        anonymised, aggregate figures (never its client-level data).
       </p>
       <p>
         <strong>Data residency:</strong> we have not established, and do not
@@ -305,14 +305,16 @@ export default function PrivacyPage() {
         lists what to include so we can act without a round trip.
       </p>
 
-      <h2>7. Aggregate industry benchmarking (opt-in)</h2>
+      <h2>7. Aggregate industry benchmarking (on by default, switch off in Settings)</h2>
       <p>
-        A company can choose, in its own settings, to share its anonymised
-        pricing and conversion figures into a pooled benchmark that shows
-        companies like them how their numbers compare — for example, a
-        median win rate across similar trades. This is <strong>off by
-        default</strong>, requires the company to turn it on, is never shown
-        broken out by individual company, and can be turned off at any time.
+        A company's anonymised pricing and conversion figures are pooled into
+        a benchmark that shows companies like them how their numbers compare
+        — for example, a median win rate across similar trades. This is
+        <strong>on by default</strong> under the Terms of Service (Section 7)
+        a company accepts when its account is created, is never shown broken
+        out by individual company, is only published where enough companies
+        contribute that no single company's figures can be worked out, and
+        can be switched off at any time in Settings &rsaquo; Company.
         No client-level data — no client name, address, or contact
         information — is included in this pool, only aggregate figures about
         the company's own business.

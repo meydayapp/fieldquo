@@ -509,5 +509,19 @@
   "sourceCategory": "Custom Services",
   "sourceService": "Preventative Maintenance",
   "taskCode": null
+ },
+ {
+  "seedKey": "fq.electrical.visits.safety_inspection",
+  "industry": "Electrical",
+  "sourceCategory": "Estimate templates (Inspection)",
+  "sourceService": "Electrical Safety Inspection",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.electrical.visits.annual_maintenance",
+  "industry": "Electrical",
+  "sourceCategory": "Estimate templates (Maintenance)",
+  "sourceService": "Annual Panel & GFCI Maintenance",
+  "taskCode": null
  }
 ]

@@ -1,0 +1,4 @@
+# HCP Landscaping & Lawn trial capture (2026-09-24)
+Thin: only the 2 generic templates (diagnostic $100/80, repair $200/100), NO pricing forms, NO checklists, NO materials, NO service plans.
+Services (20): Core — lawn mowing, fertilization, weed control, landscape maintenance, tree & shrub trimming, sod installation · Additional — seasonal yard cleanup, mulch installation, landscape design, irrigation installation, drainage solutions, hardscape installation · Maintenance & Inspection — irrigation service, lawn health inspection, seasonal lawn treatment, lawn pest control, landscape maintenance plan · Book Now (120 min) — repair, installation/upgrade, inspection.
+Our side is ahead: lawn trade already has lot-area measurement from the map (lib/measure/lotTakeoff.js, lotArea.js, tracedArea.js), lawnCare pricing, paver takeoff, and Home Depot material costs for mulch ($3.33/2 cu ft), sod ($599/500 sq ft), seed, fertilizer ($35.49/15,000 sq ft), edging.

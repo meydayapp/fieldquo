@@ -452,6 +452,19 @@ export const SCREENS = [
   { slug: "quote-fix-painter-doc-builder-cabinets-moderate", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", scene: "painter-pick-cabinets-moderate", height: 1500, chapter: "quote-fix", out: "docs/screens/quote-fix" },
   { slug: "quote-fix-purepainter-doc-builder-cabinets", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", scene: "painter-pick-cabinets", height: 1100, chapter: "quote-fix", out: "docs/screens/quote-fix" },
   { slug: "quote-fix-purepainter-doc-builder-staining", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", scene: "painter-pick-staining", height: 1100, chapter: "quote-fix", out: "docs/screens/quote-fix" },
+  // ── Estimate templates (2026-09-24) — docs/screens/services-templates/ ──
+  // Settings › Services with a service's template unfolded, and the preset
+  // library on /app/analytics/benchmark, on the cabinet maker (the owner's
+  // company shape) and on an electrical company carrying the eleven captured
+  // templates through the loader — desktop and 375.
+  { slug: "services-templates-cabinets", href: "/app/settings/services", page: "app/app/settings/services/page.js", settings: true, scene: "templates-open", height: 1500, out: "docs/screens/services-templates", chapter: "services-templates" },
+  { slug: "services-templates-cabinets-phone", href: "/app/settings/services", page: "app/app/settings/services/page.js", settings: true, scene: "templates-open", width: 375, height: 1900, out: "docs/screens/services-templates", chapter: "services-templates" },
+  { slug: "services-templates-electrical", href: "/app/settings/services", page: "app/app/settings/services/page.js", settings: true, scene: "templates-open", height: 1500, out: "docs/screens/services-templates", chapter: "services-templates" },
+  { slug: "services-templates-electrical-phone", href: "/app/settings/services", page: "app/app/settings/services/page.js", settings: true, scene: "templates-open", width: 375, height: 1900, out: "docs/screens/services-templates", chapter: "services-templates" },
+  { slug: "benchmark-library-cabinets", href: "/app/analytics/benchmark", page: "app/app/analytics/benchmark/page.js", scene: "library-ready", height: 1400, out: "docs/screens/services-templates", chapter: "services-templates" },
+  { slug: "benchmark-library-cabinets-phone", href: "/app/analytics/benchmark", page: "app/app/analytics/benchmark/page.js", scene: "library-ready", width: 375, height: 1600, out: "docs/screens/services-templates", chapter: "services-templates" },
+  { slug: "benchmark-library-electrical", href: "/app/analytics/benchmark", page: "app/app/analytics/benchmark/page.js", scene: "library-ready", height: 1400, out: "docs/screens/services-templates", chapter: "services-templates" },
+  { slug: "benchmark-library-electrical-phone", href: "/app/analytics/benchmark", page: "app/app/analytics/benchmark/page.js", scene: "library-ready", width: 375, height: 1600, out: "docs/screens/services-templates", chapter: "services-templates" },
   // ── Auto-translation on save (2026-09-24) ──────────────────────────────
   // The review page's "Your wording" rows (Auto / Reviewed / Pending /
   // Outdated) above the catalogue, and Company Settings after Save with

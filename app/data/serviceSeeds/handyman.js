@@ -3,6 +3,9 @@
 // The service list a handyman starts from — the benchmark's handyman book,
 // all ten headings. Read ./index.js for the format and the rules. Most rows
 // carried no pricing insight and seed unpriced.
+import { L, SHARED, D, T, withTemplates, hdMaterial } from "./_templateLines";
+import { HD } from "./_materialCosts";
+
 const BM = (low, median, high) => ({ low, median, high, currency: "USD", source: "benchmark", asOf: "2026-09-21" });
 const S = (seedKey, category, unit, benchmark, [en, fr, es], [den, dfr, des], extra = {}) => ({
   seedKey, category, name: { en, fr, es }, description: { en: den, fr: dfr, es: des },
@@ -439,5 +442,722 @@ export const SEED = {
       ["Labour for toilet repair, replacement or installation.",
        "Main-d'œuvre pour réparation, remplacement ou installation de toilette.",
        "Mano de obra para reparación, reemplazo o instalación de inodoro."]),
+    // ── Added 2026-09-24 with the estimate templates ──────────────────────
+    S("fq.handyman.electrical.light_fixture_replacement", "electrical", "each", null,
+      ["Light fixture replacement", "Remplacement de luminaire", "Reemplazo de luminaria"],
+      ["An old fixture taken down and the new one the client bought hung, wired at the existing box and tested.",
+       "Ancien luminaire décroché et nouveau luminaire acheté par le client suspendu, raccordé à la boîte existante et testé.",
+       "Luminaria vieja retirada y la nueva comprada por el cliente colgada, cableada en la caja existente y probada."]),
+    S("fq.handyman.labour.home_walkthrough", "labour", "flat", null,
+      ["Home maintenance walkthrough and punch list", "Tournée d'entretien de la maison et liste de travaux", "Recorrido de mantenimiento del hogar y lista de pendientes"],
+      ["Every room and the exterior walked with the client, the small faults noted and a priced list of fixes left behind.",
+       "Chaque pièce et l'extérieur parcourus avec le client, petits défauts notés et liste chiffrée des correctifs remise.",
+       "Cada habitación y el exterior recorridos con el cliente, las fallas menores anotadas y una lista con precios de arreglos entregada."],
+      { durationMinutes: 60, bookable: true }),
+    S("fq.handyman.labour.estimate_visit", "labour", "flat", null,
+      ["On-site estimate visit", "Visite d'estimation sur place", "Visita de presupuesto en sitio"],
+      ["A look at the job in person so the price is for what is actually there, not a guess from a photo.",
+       "Examen du travail en personne pour que le prix corresponde à ce qui est réellement là, pas à une supposition d'après une photo.",
+       "Revisión del trabajo en persona para que el precio corresponda a lo que realmente hay, no a una suposición por foto."],
+      { durationMinutes: 45, bookable: true }),
+    S("fq.handyman.labour.seasonal_checklist", "labour", "flat", null,
+      ["Seasonal home maintenance visit", "Visite d'entretien saisonnier de la maison", "Visita de mantenimiento estacional del hogar"],
+      ["The seasonal checklist done in one visit: gutters checked, exterior caulking touched up, filters swapped, detectors tested, hose bibs opened or closed.",
+       "Liste saisonnière faite en une visite : gouttières vérifiées, calfeutrage extérieur retouché, filtres changés, détecteurs testés, robinets extérieurs ouverts ou fermés.",
+       "Lista estacional hecha en una visita: canaletas revisadas, sellado exterior retocado, filtros cambiados, detectores probados, llaves exteriores abiertas o cerradas."],
+      { durationMinutes: 120, bookable: true }),
+    // ── Added 2026-09-24 from the handyman template capture ────────────────
+    S("fq.handyman.labour.diagnostic_visit", "labour", "flat", null,
+      ["Diagnostic visit", "Visite de diagnostic", "Visita de diagnóstico"],
+      ["A handyman comes out, looks at what is wrong and explains what the fix will take before any work starts.", "Un homme à tout faire se déplace, examine le problème et explique ce que la réparation demandera avant de commencer.", "Un técnico de mantenimiento acude, revisa qué falla y explica qué requerirá el arreglo antes de empezar."], { durationMinutes: 60, bookable: true }),
+    S("fq.handyman.labour.repair_visit", "labour", "flat", null,
+      ["Repair visit", "Visite de réparation", "Visita de reparación"],
+      ["A call-out to fix something around the house, diagnosed and repaired on the same visit where possible.", "Déplacement pour réparer quelque chose dans la maison, diagnostiqué et réparé pendant la même visite quand c'est possible.", "Salida para arreglar algo en la casa, diagnosticado y reparado en la misma visita cuando es posible."], { durationMinutes: 120, bookable: true }),
+    S("fq.handyman.doors_windows.glass_pane", "doors_windows", "each", null,
+      ["Glass pane replacement", "Remplacement de vitre", "Reemplazo de vidrio"],
+      ["A cracked or broken single pane cut out, a new pane set in fresh glazing and the sash cleaned up.", "Vitre simple fissurée ou brisée retirée, nouvelle vitre posée avec un mastic neuf et châssis nettoyé.", "Vidrio sencillo agrietado o roto retirado, vidrio nuevo colocado con masilla nueva y el marco limpiado."]),
+    S("fq.handyman.exterior.deck_board_replacement", "exterior", "each", null,
+      ["Deck board replacement — per board", "Remplacement de planche de terrasse — à la planche", "Reemplazo de tabla de terraza — por tabla"],
+      ["A rotten, split or loose deck board pulled and a new one cut, fastened and blended in.", "Planche de terrasse pourrie, fendue ou lâche retirée, nouvelle planche coupée, fixée et harmonisée.", "Tabla de terraza podrida, partida o suelta retirada y una nueva cortada, fijada e integrada."]),
+    S("fq.handyman.flooring.floor_patch", "flooring", "flat", null,
+      ["Flooring repair and patch", "Réparation et rapiéçage de plancher", "Reparación y parche de piso"],
+      ["A damaged patch of floor cut out, the subfloor underneath checked and new flooring pieced in.", "Section de plancher abîmée découpée, sous-plancher vérifié et nouveau revêtement inséré.", "Sección de piso dañada cortada, el subpiso revisado y piso nuevo insertado."]),
+    S("fq.handyman.flooring.tile_replacement", "flooring", "flat", null,
+      ["Tile replacement — small area", "Remplacement de carreaux — petite surface", "Reemplazo de azulejo — área pequeña"],
+      ["A few cracked or loose tiles chipped out and replaced, then grouted to match.", "Quelques carreaux fissurés ou décollés enlevés et remplacés, puis jointoyés pour s'agencer.", "Unos cuantos azulejos agrietados o sueltos retirados y reemplazados, con lechada a juego."]),
+    S("fq.handyman.exterior.gutter_repair", "exterior", "flat", null,
+      ["Gutter repair", "Réparation de gouttière", "Reparación de canaleta"],
+      ["A sagging, leaking or detached section of gutter reattached, resealed and pitched to drain.", "Section de gouttière affaissée, qui fuit ou décrochée refixée, rescellée et remise en pente.", "Tramo de canaleta caído, con fuga o suelto refijado, resellado y con pendiente para drenar."]),
   ],
 };
+
+// ── Estimate templates ───────────────────────────────────────────────────────
+//
+// Evidence: the benchmark medians on the rows that have one ($165 TV mount,
+// $250 interior door, $250 grab bar, $150 door repair, $189 fan repair) set
+// those totals; the rest are 2026 handyman figures — $85–110 an hour, a $65
+// trip charge, parts at the big-box price. The two Jobber sample names for a
+// handyman signup (TV mounting, light fixture replacement) both carry a
+// template. Labour cost ≈ 50% of price, material ≈ 75%. A second capture —
+// the handyman estimate templates under docs/research/ — is folded in at the
+// bottom of the list at its prices.
+const TEMPLATES = {
+  // ── Installation ──
+  "fq.handyman.doors_windows.tv_mount": T("installation", {
+    it: ["Montaggio staffa TV", "Staffa ancorata ai montanti e televisore appeso e messo in bolla."],
+    de: ["TV-Halterung montieren", "Halterung in den Ständern verankert, der Fernseher aufgehängt und ausgerichtet."],
+    uk: ["Встановлення кронштейна для телевізора", "Кронштейн закріплено в стійках, телевізор повішено та вирівняно."],
+    tl: ["Pagkabit ng TV mount", "Bracket na ikinabit sa stud at isinabit at nilevel ang TV."],
+  }, [
+    L.labour(1, "each", 140, {
+      en: ["TV mounting labour", "Studs located, the bracket lagged in, the TV hung, levelled and the cables dressed."],
+      fr: ["Main-d'œuvre — montage de téléviseur", "Montants localisés, support boulonné, téléviseur suspendu, mis de niveau et câbles rangés."],
+      es: ["Mano de obra — montaje de TV", "Montantes ubicados, soporte atornillado, TV colgada, nivelada y los cables ordenados."],
+      it: ["Manodopera — montaggio TV", "Montanti individuati, staffa fissata con tirafondi, TV appesa, livellata e cavi sistemati."],
+      de: ["Arbeit — TV-Montage", "Ständer geortet, Halterung verschraubt, Fernseher aufgehängt, ausgerichtet und Kabel verlegt."],
+      uk: ["Робота — монтаж телевізора", "Стійки знайдено, кронштейн прикручено, телевізор повішено, вирівняно, кабелі впорядковано."],
+      tl: ["Labor — pagkabit ng TV", "Hinanap ang stud, tinurnilyo ang bracket, isinabit at nilevel ang TV at inayos ang kable."],
+    }),
+    L.material(1, "each", 45, {
+      en: ["Tilting TV wall mount", "Tilting mount rated for 32–70 in screens, with lag bolts."],
+      fr: ["Support mural inclinable", "Support inclinable pour écrans de 32 à 70 po, avec tire-fonds."],
+      es: ["Soporte de pared inclinable", "Soporte inclinable para pantallas de 32 a 70 pulg, con tirafondos."],
+      it: ["Staffa TV inclinabile", "Staffa inclinabile per schermi da 32 a 70 pollici, con tirafondi."],
+      de: ["Neigbare TV-Wandhalterung", "Neigbare Halterung für 32–70-Zoll-Geräte, mit Schlüsselschrauben."],
+      uk: ["Нахильний настінний кронштейн", "Нахильний кронштейн для екранів 32–70 дюймів, з болтами."],
+      tl: ["Tilting TV wall mount", "Tilting mount para sa 32–70 in na screen, may lag bolt."],
+    }),
+  ], D.newCustomer("fixed", 15)),
+
+  "fq.handyman.electrical.light_fixture_replacement": T("installation", {
+    it: ["Sostituzione plafoniera", "Vecchia plafoniera smontata e quella nuova comprata dal cliente appesa, cablata alla scatola esistente e provata."],
+    de: ["Leuchte austauschen", "Alte Leuchte abgenommen und die vom Kunden gekaufte neue aufgehängt, an der vorhandenen Dose angeschlossen und getestet."],
+    uk: ["Заміна світильника", "Старий світильник знято, новий, куплений клієнтом, повішено, під'єднано до наявної коробки та перевірено."],
+    tl: ["Palit ng light fixture", "Tinanggal ang lumang ilaw at isinabit ang bagong binili ng kliyente, kinablehan sa existing na kahon at sinubukan."],
+  }, [
+    L.labour(1, "each", 110, {
+      en: ["Fixture swap labour", "Power off, the old fixture down, the new one wired, mounted and tested."],
+      fr: ["Main-d'œuvre — remplacement de luminaire", "Courant coupé, ancien luminaire décroché, nouveau câblé, fixé et testé."],
+      es: ["Mano de obra — cambio de luminaria", "Corriente cortada, luminaria vieja bajada, la nueva cableada, montada y probada."],
+      it: ["Manodopera — sostituzione plafoniera", "Corrente tolta, vecchia plafoniera smontata, nuova cablata, montata e provata."],
+      de: ["Arbeit — Leuchte tauschen", "Strom aus, alte Leuchte ab, neue angeschlossen, montiert und getestet."],
+      uk: ["Робота — заміна світильника", "Струм вимкнено, старий світильник знято, новий під'єднано, змонтовано та перевірено."],
+      tl: ["Labor — palit ng ilaw", "Pinatay ang kuryente, tinanggal ang luma, kinablehan, ikinabit at sinubukan ang bago."],
+    }),
+    L.material(1, "each", 8, {
+      en: ["Wire nuts, box strap and bulbs", "Connectors, a mounting strap and LED bulbs if the fixture ships without."],
+      fr: ["Marrettes, étrier et ampoules", "Connecteurs, étrier de fixation et ampoules DEL si le luminaire est livré sans."],
+      es: ["Conectores, soporte y focos", "Conectores, soporte de montaje y focos LED si la luminaria no los incluye."],
+      it: ["Cappucci, staffa e lampadine", "Connettori, staffa di fissaggio e lampadine LED se la plafoniera ne è priva."],
+      de: ["Verbinder, Tragbügel und Leuchtmittel", "Verbindungsklemmen, Tragbügel und LED-Leuchtmittel, falls nicht dabei."],
+      uk: ["Клеми, планка та лампи", "З'єднувачі, монтажна планка та світлодіодні лампи, якщо їх немає в комплекті."],
+      tl: ["Wire nut, strap at bombilya", "Connector, mounting strap at LED bulb kung wala sa fixture."],
+    }),
+  ], null),
+
+  "fq.handyman.doors_windows.interior_door_install": T("installation", {
+    it: ["Installazione porta interna", "Porta interna montata nel telaio, ferramenta installata e porta regolata per chiudere bene."],
+    de: ["Innentür einbauen", "Innentür in den Rahmen gehängt, Beschläge montiert und die Tür so eingestellt, dass sie sauber schließt."],
+    uk: ["Встановлення міжкімнатних дверей", "Двері навішено в коробку, фурнітуру встановлено, двері відрегульовано, щоб зачинялися чисто."],
+    tl: ["Pagkabit ng interior na pinto", "Isinabit ang pinto sa frame, ikinabit ang hardware at inayos para maayos ang sara."],
+  }, [
+    L.labour(1, "each", 210, {
+      en: ["Door installation labour", "The old door off, the new slab or pre-hung unit fitted, hinges and latch set and the reveal adjusted."],
+      fr: ["Main-d'œuvre — installation de porte", "Ancienne porte enlevée, nouvelle porte ou bloc-porte posé, charnières et gâche réglées et jeu ajusté."],
+      es: ["Mano de obra — instalación de puerta", "Puerta vieja fuera, hoja nueva o unidad premontada colocada, bisagras y cerradura ajustadas y la luz igualada."],
+      it: ["Manodopera — installazione porta", "Vecchia porta tolta, nuova anta o blocco porta montato, cerniere e scrocco regolati e luce uniformata."],
+      de: ["Arbeit — Tür einbauen", "Alte Tür raus, neues Türblatt oder Türelement eingebaut, Bänder und Falle eingestellt und die Fuge ausgerichtet."],
+      uk: ["Робота — встановлення дверей", "Старі двері знято, нове полотно або блок встановлено, завіси й защіпку виставлено, зазори відрегульовано."],
+      tl: ["Labor — pagkabit ng pinto", "Tinanggal ang luma, ikinabit ang bagong pinto o pre-hung unit, inayos ang bisagra at latch at ang gilid."],
+    }),
+    L.material(1, "each", 55, {
+      en: ["Lockset and hinges", "Passage or privacy lockset and three hinges in matching finish."],
+      fr: ["Serrure et charnières", "Serrure de passage ou d'intimité et trois charnières au fini assorti."],
+      es: ["Cerradura y bisagras", "Cerradura de paso o de privacidad y tres bisagras en acabado a juego."],
+      it: ["Serratura e cerniere", "Maniglia passante o con privacy e tre cerniere in finitura coordinata."],
+      de: ["Drückergarnitur und Bänder", "Durchgangs- oder WC-Garnitur und drei Bänder in passender Oberfläche."],
+      uk: ["Замок і завіси", "Прохідний або приватний замок і три завіси в тон."],
+      tl: ["Lockset at bisagra", "Passage o privacy lockset at tatlong bisagra na magkatugma ang finish."],
+    }),
+  ], null),
+
+  "fq.handyman.doors_windows.grab_bars": T("installation", {
+    it: ["Installazione maniglioni e ferramenta a muro", "Maniglioni ancorati a rinforzi o montanti così che reggano il peso di una persona."],
+    de: ["Haltegriffe und Wandbeschläge montieren", "Haltegriffe in Verstärkungen oder Ständern verankert, damit sie das Gewicht einer Person tragen."],
+    uk: ["Встановлення поручнів і настінної фурнітури", "Поручні закріплено в закладних або стійках, щоб витримували вагу людини."],
+    tl: ["Pagkabit ng grab bar at wall hardware", "Grab bar na ikinabit sa blocking o stud para kayanin ang bigat ng tao."],
+  }, [
+    L.labour(1, "each", 95, {
+      en: ["Grab bar installation labour — per bar", "Studs or blocking located, tile drilled with a diamond bit, the bar anchored and load-tested."],
+      fr: ["Main-d'œuvre — pose de barre d'appui, l'unité", "Montants ou renforts localisés, céramique percée au foret diamant, barre ancrée et testée en charge."],
+      es: ["Mano de obra — instalación de barra de apoyo, por barra", "Montantes o refuerzos ubicados, azulejo perforado con broca de diamante, barra anclada y probada con carga."],
+      it: ["Manodopera — installazione maniglione, cadauno", "Montanti o rinforzi individuati, piastrella forata con punta diamantata, maniglione ancorato e provato in carico."],
+      de: ["Arbeit — Haltegriff montieren, pro Griff", "Ständer oder Verstärkung geortet, Fliese mit Diamantbohrer gebohrt, Griff verankert und belastet geprüft."],
+      uk: ["Робота — встановлення поручня, за штуку", "Стійки або закладні знайдено, плитку просвердлено алмазним свердлом, поручень закріплено й перевірено навантаженням."],
+      tl: ["Labor — pagkabit ng grab bar, kada isa", "Hinanap ang stud o blocking, binutasan ang tile ng diamond bit, ikinabit at sinubukan sa bigat ang bar."],
+    }),
+    L.material(1, "each", 38, {
+      en: ["Stainless grab bar — 24 in", "ADA-rated 24 in stainless bar with concealed flanges and anchors."],
+      fr: ["Barre d'appui en inox — 24 po", "Barre de 24 po en inox conforme ADA avec brides dissimulées et ancrages."],
+      es: ["Barra de apoyo de acero inoxidable — 24 pulg", "Barra de 24 pulg de acero inoxidable certificada ADA con bridas ocultas y anclajes."],
+      it: ["Maniglione in acciaio inox — 24 pollici", "Maniglione da 24 pollici in inox a norma ADA con flange nascoste e ancoraggi."],
+      de: ["Edelstahl-Haltegriff — 24 Zoll", "24-Zoll-Edelstahlgriff nach ADA mit verdeckten Flanschen und Dübeln."],
+      uk: ["Поручень з нержавіючої сталі — 24 дюйми", "Поручень 24 дюйми з нержавіючої сталі за стандартом ADA з прихованими фланцями та анкерами."],
+      tl: ["Stainless grab bar — 24 in", "ADA-rated 24 in stainless bar na may nakatagong flange at anchor."],
+    }),
+  ], D.senior("percent", 5)),
+
+  // ── Repair ──
+  "fq.handyman.doors_windows.interior_door_repair": T("repair", {
+    it: ["Riparazione porta interna", "Porta interna che si incastra, cede o è danneggiata piallata, rimontata o stuccata."],
+    de: ["Innentürreparatur", "Klemmende, hängende oder beschädigte Innentür gehobelt, neu eingehängt oder ausgebessert."],
+    uk: ["Ремонт міжкімнатних дверей", "Двері, що заїдають, провисли або пошкоджені, підстругано, перевішано або зашпакльовано."],
+    tl: ["Pag-ayos ng interior na pinto", "Pinto na sumasabit, lumalaylay o sira na kinatam, ikinabit ulit o tinapalan."],
+  }, [
+    SHARED.serviceCall(65),
+    L.labour(1, "hour", 90, {
+      en: ["Door repair labour", "Hinges reset, the strike moved, the edge planed or the damage filled, by the hour."],
+      fr: ["Main-d'œuvre — réparation de porte", "Charnières reposées, gâche déplacée, chant raboté ou dommage comblé, à l'heure."],
+      es: ["Mano de obra — reparación de puerta", "Bisagras reajustadas, cerradero movido, canto cepillado o daño rellenado, por hora."],
+      it: ["Manodopera — riparazione porta", "Cerniere risistemate, riscontro spostato, bordo piallato o danno stuccato, a ore."],
+      de: ["Arbeit — Türreparatur", "Bänder neu gesetzt, Schließblech versetzt, Kante gehobelt oder Schaden gefüllt, nach Stunden."],
+      uk: ["Робота — ремонт дверей", "Завіси переставлено, відповідну планку зміщено, кромку підстругано або пошкодження заповнено, погодинно."],
+      tl: ["Labor — pag-ayos ng pinto", "Inayos ang bisagra, inilipat ang strike, kinatam ang gilid o tinapalan ang sira, kada oras."],
+    }),
+    SHARED.consumables(12),
+  ], null),
+
+  "fq.handyman.painting.drywall_patch": T("repair", {
+    it: ["Riparazione e rappezzo di cartongesso e pareti", "Buchi e crepe stuccati, nastrati, carteggiati e pronti per la pittura."],
+    de: ["Trockenbau- und Wandreparatur", "Löcher und Risse gespachtelt, verbandet, geschliffen und streichfertig."],
+    uk: ["Ремонт і латання гіпсокартону та стін", "Дірки й тріщини зашпакльовано, проклеєно, відшліфовано й підготовлено під фарбування."],
+    tl: ["Pag-ayos at patch ng drywall at pader", "Tinapalan, tinape, hinasa at inihanda para sa pintura ang butas at bitak."],
+  }, [
+    SHARED.serviceCall(65),
+    L.labour(1, "each", 75, {
+      en: ["Patch repair labour — per patch", "The hole squared, a backer and patch set, three coats of compound and a sand, ready for paint."],
+      fr: ["Main-d'œuvre — rapiéçage, la pièce", "Trou équarri, support et pièce posés, trois couches de composé et sablage, prêt pour la peinture."],
+      es: ["Mano de obra — parche, por parche", "Agujero escuadrado, respaldo y parche colocados, tres manos de pasta y lijado, listo para pintar."],
+      it: ["Manodopera — rappezzo, per rappezzo", "Buco squadrato, supporto e pezza posati, tre mani di stucco e carteggiatura, pronto per la pittura."],
+      de: ["Arbeit — Flicken, pro Stelle", "Loch rechtwinklig geschnitten, Hinterlegung und Flicken gesetzt, drei Lagen Spachtel und Schliff, streichfertig."],
+      uk: ["Робота — латання, за латку", "Дірку вирівняно, встановлено підкладку та латку, три шари шпаклівки та шліфування, готово під фарбу."],
+      tl: ["Labor — patch, kada patch", "Pinakuwadrado ang butas, nilagyan ng backer at patch, tatlong patong ng compound at hinasa, handa sa pintura."],
+    }, { measurementKey: "each" }),
+    L.material(1, "each", 9, {
+      en: ["Patch, compound and tape — per patch", "Drywall offcut or mesh patch, setting compound and tape."],
+      fr: ["Pièce, composé et ruban — la pièce", "Retaille de gypse ou pièce en treillis, composé à prise et ruban."],
+      es: ["Parche, pasta y cinta — por parche", "Recorte de panel o parche de malla, pasta de fraguado y cinta."],
+      it: ["Pezza, stucco e nastro — per rappezzo", "Ritaglio di cartongesso o pezza in rete, stucco a presa e nastro."],
+      de: ["Flicken, Spachtel und Band — pro Stelle", "Gipsplattenrest oder Gewebeflicken, Ansetzspachtel und Band."],
+      uk: ["Латка, шпаклівка та стрічка — за латку", "Обрізок гіпсокартону або сітчаста латка, шпаклівка та стрічка."],
+      tl: ["Patch, compound at tape — kada patch", "Tirang drywall o mesh patch, setting compound at tape."],
+    }, { measurementKey: "each" }),
+  ], null),
+
+  "fq.handyman.electrical.exhaust_fan_repair": T("repair", {
+    it: ["Riparazione aspiratore bagno", "Aspiratore rumoroso o fermo riparato o motore sostituito."],
+    de: ["Badlüfter reparieren", "Lauter oder toter Badlüfter repariert oder sein Motor ersetzt."],
+    uk: ["Ремонт витяжного вентилятора у ванній", "Шумний або мертвий вентилятор відремонтовано або замінено його двигун."],
+    tl: ["Pag-ayos ng exhaust fan sa banyo", "Maingay o patay na fan na inayos o pinalitan ang motor."],
+  }, [
+    SHARED.serviceCall(65),
+    L.labour(1, "each", 85, {
+      en: ["Fan motor replacement labour", "The grille and motor plate out, the new motor and wheel fitted, the duct connection checked."],
+      fr: ["Main-d'œuvre — remplacement du moteur de ventilateur", "Grille et plaque du moteur retirées, nouveau moteur et roue posés, raccord du conduit vérifié."],
+      es: ["Mano de obra — reemplazo del motor del extractor", "Rejilla y placa del motor fuera, motor y turbina nuevos montados, la conexión del ducto revisada."],
+      it: ["Manodopera — sostituzione motore aspiratore", "Griglia e piastra motore tolte, nuovo motore e girante montati, raccordo del condotto controllato."],
+      de: ["Arbeit — Lüftermotor tauschen", "Gitter und Motorplatte raus, neuer Motor und Rad eingesetzt, der Kanalanschluss geprüft."],
+      uk: ["Робота — заміна двигуна вентилятора", "Решітку та пластину двигуна знято, новий двигун і крильчатку встановлено, з'єднання з повітроводом перевірено."],
+      tl: ["Labor — palit ng motor ng fan", "Tinanggal ang grille at motor plate, ikinabit ang bagong motor at wheel, chineck ang koneksyon ng duct."],
+    }),
+    L.material(1, "each", 42, {
+      en: ["Replacement fan motor and wheel", "Universal bathroom fan motor with blower wheel, 50–80 CFM."],
+      fr: ["Moteur et roue de rechange", "Moteur universel de ventilateur de salle de bain avec roue, 50 à 80 pi³/min."],
+      es: ["Motor y turbina de repuesto", "Motor universal de extractor de baño con turbina, 50 a 80 CFM."],
+      it: ["Motore e girante di ricambio", "Motore universale per aspiratore bagno con girante, 50–80 CFM."],
+      de: ["Ersatzmotor und Lüfterrad", "Universal-Badlüftermotor mit Lüfterrad, 50–80 CFM."],
+      uk: ["Змінний двигун і крильчатка", "Універсальний двигун вентилятора для ванної з крильчаткою, 50–80 CFM."],
+      tl: ["Kapalit na motor at wheel ng fan", "Universal na motor ng bathroom fan na may blower wheel, 50–80 CFM."],
+    }),
+  ], null),
+
+  // ── Inspection ──
+  "fq.handyman.labour.home_walkthrough": T("inspection", {
+    it: ["Giro di manutenzione della casa e lista lavori", "Ogni stanza e l'esterno percorsi con il cliente, i piccoli difetti annotati e una lista di interventi con prezzo lasciata."],
+    de: ["Hausrundgang mit Mängelliste", "Jeder Raum und der Außenbereich mit dem Kunden begangen, kleine Mängel notiert und eine bepreiste Liste der Reparaturen hinterlassen."],
+    uk: ["Обхід будинку та список робіт", "Кожну кімнату та подвір'я обійдено з клієнтом, дрібні дефекти занотовано, залишено список ремонтів із цінами."],
+    tl: ["Walkthrough ng bahay at punch list", "Nilibot kasama ang kliyente ang bawat kuwarto at labas, isinulat ang maliliit na sira at iniwan ang listahan na may presyo."],
+  }, [
+    L.labour(1, "flat", 95, {
+      en: ["Walkthrough and punch list", "The whole house walked, faults photographed and a priced list of fixes written up."],
+      fr: ["Tournée et liste de travaux", "Toute la maison parcourue, défauts photographiés et liste chiffrée des correctifs rédigée."],
+      es: ["Recorrido y lista de pendientes", "Toda la casa recorrida, fallas fotografiadas y una lista con precios de arreglos redactada."],
+      it: ["Giro e lista lavori", "Tutta la casa percorsa, difetti fotografati e lista degli interventi con prezzo redatta."],
+      de: ["Rundgang und Mängelliste", "Das ganze Haus begangen, Mängel fotografiert und eine bepreiste Reparaturliste erstellt."],
+      uk: ["Обхід і список робіт", "Увесь будинок обійдено, дефекти сфотографовано, складено список ремонтів із цінами."],
+      tl: ["Walkthrough at punch list", "Nilibot ang buong bahay, kinunan ng litrato ang sira at isinulat ang listahan na may presyo."],
+    }),
+  ], null),
+
+  "fq.handyman.labour.estimate_visit": T("inspection", {
+    it: ["Sopralluogo per preventivo", "Il lavoro visto di persona così che il prezzo sia per ciò che c'è davvero, non un'ipotesi da una foto."],
+    de: ["Besichtigung für ein Angebot", "Die Arbeit persönlich angesehen, damit der Preis für das gilt, was tatsächlich da ist — nicht für eine Schätzung vom Foto."],
+    uk: ["Візит для оцінки на місці", "Роботу оглянуто особисто, щоб ціна була за те, що є насправді, а не здогадка з фото."],
+    tl: ["On-site estimate visit", "Tiningnan nang personal ang trabaho para ang presyo ay para sa totoong nandoon, hindi hula mula sa litrato."],
+  }, [
+    L.labour(1, "flat", 0, {
+      en: ["Estimate visit", "The job looked at on site and a written price left; free with a signed quote."],
+      fr: ["Visite d'estimation", "Travail examiné sur place et prix écrit remis; gratuit avec une soumission signée."],
+      es: ["Visita de presupuesto", "Trabajo revisado en sitio y precio por escrito entregado; gratis con un presupuesto firmado."],
+      it: ["Sopralluogo per preventivo", "Lavoro visto sul posto e prezzo scritto consegnato; gratuito con preventivo firmato."],
+      de: ["Angebotsbesichtigung", "Die Arbeit vor Ort angesehen und ein schriftlicher Preis hinterlassen; kostenlos bei unterschriebenem Angebot."],
+      uk: ["Візит для оцінки", "Роботу оглянуто на місці, залишено письмову ціну; безкоштовно за підписаного кошторису."],
+      tl: ["Estimate visit", "Tiningnan ang trabaho sa bahay at iniwan ang nakasulat na presyo; libre kapag pumirma sa quote."],
+    }, { cost: 0 }),
+    SHARED.serviceCall(45),
+  ], null),
+
+  "fq.handyman.exterior.fence_repair_labour": T("inspection", {
+    it: ["Manodopera diagnosi e riparazione recinzione", "Uscita per valutare un problema alla recinzione e la manodopera per ripararlo."],
+    de: ["Zaunprüfung und Reparaturarbeit", "Ein Einsatz, um ein Zaunproblem zu beurteilen, und die Arbeitszeit für die Reparatur."],
+    uk: ["Діагностика та ремонт паркану", "Виїзд для оцінки проблеми з парканом і робота з його ремонту."],
+    tl: ["Labor sa pagsuri at pag-ayos ng bakod", "Pagpunta para tingnan ang problema sa bakod at labor para ayusin ito."],
+  }, [
+    SHARED.diagnostic(75, { cost: 40 }),
+    L.labour(2, "hour", 85, {
+      en: ["Fence repair labour", "Posts reset, rails re-fastened and boards replaced, by the hour."],
+      fr: ["Main-d'œuvre — réparation de clôture", "Poteaux replantés, traverses refixées et planches remplacées, à l'heure."],
+      es: ["Mano de obra — reparación de cerca", "Postes reajustados, travesaños refijados y tablas reemplazadas, por hora."],
+      it: ["Manodopera — riparazione recinzione", "Pali risistemati, correnti rifissati e tavole sostituite, a ore."],
+      de: ["Arbeit — Zaunreparatur", "Pfosten neu gesetzt, Riegel neu befestigt und Bretter ersetzt, nach Stunden."],
+      uk: ["Робота — ремонт паркану", "Стовпи переставлено, перекладини закріплено, дошки замінено, погодинно."],
+      tl: ["Labor — pag-ayos ng bakod", "Inayos ang poste, ikinabit ulit ang rail at pinalitan ang tabla, kada oras."],
+    }),
+  ], null),
+
+  // ── Maintenance ──
+  "fq.handyman.labour.seasonal_checklist": T("maintenance", {
+    it: ["Visita di manutenzione stagionale della casa", "La lista stagionale fatta in una visita: grondaie controllate, sigillature esterne ritoccate, filtri cambiati, rilevatori provati, rubinetti esterni aperti o chiusi."],
+    de: ["Saisonaler Hauswartungsbesuch", "Die Saisonliste in einem Besuch: Dachrinnen geprüft, Außenfugen nachgezogen, Filter getauscht, Melder getestet, Außenhähne geöffnet oder geschlossen."],
+    uk: ["Сезонний візит з обслуговування будинку", "Сезонний перелік за один візит: водостоки перевірено, зовнішню герметизацію підправлено, фільтри замінено, датчики перевірено, вуличні крани відкрито або закрито."],
+    tl: ["Seasonal na maintenance visit ng bahay", "Tapos sa isang visit ang seasonal checklist: chineck ang gutter, inayos ang caulking sa labas, pinalitan ang filter, sinubukan ang detector, binuksan o sinara ang hose bib."],
+  }, [
+    L.labour(2.5, "hour", 90, {
+      en: ["Seasonal maintenance labour", "The checklist worked through room by room and outside, by the hour."],
+      fr: ["Main-d'œuvre — entretien saisonnier", "Liste faite pièce par pièce et à l'extérieur, à l'heure."],
+      es: ["Mano de obra — mantenimiento estacional", "Lista completada cuarto por cuarto y afuera, por hora."],
+      it: ["Manodopera — manutenzione stagionale", "Lista svolta stanza per stanza e all'esterno, a ore."],
+      de: ["Arbeit — Saisonwartung", "Die Liste Raum für Raum und draußen abgearbeitet, nach Stunden."],
+      uk: ["Робота — сезонне обслуговування", "Перелік пройдено кімната за кімнатою та надворі, погодинно."],
+      tl: ["Labor — seasonal maintenance", "Tinapos ang checklist kuwarto-kuwarto at sa labas, kada oras."],
+    }),
+    L.material(1, "flat", 45, {
+      en: ["Filters, batteries and caulk", "Furnace filter, detector batteries and a tube of exterior caulk."],
+      fr: ["Filtres, piles et calfeutrant", "Filtre de fournaise, piles de détecteurs et un tube de calfeutrant extérieur."],
+      es: ["Filtros, pilas y sellador", "Filtro de la caldera, pilas para detectores y un tubo de sellador exterior."],
+      it: ["Filtri, batterie e sigillante", "Filtro della caldaia, batterie per i rilevatori e un tubo di sigillante da esterno."],
+      de: ["Filter, Batterien und Dichtstoff", "Heizungsfilter, Melderbatterien und eine Kartusche Außendichtstoff."],
+      uk: ["Фільтри, батарейки та герметик", "Фільтр печі, батарейки для датчиків і туба зовнішнього герметика."],
+      tl: ["Filter, baterya at caulk", "Furnace filter, baterya ng detector at isang tubo ng panlabas na caulk."],
+    }),
+  ], D.seasonal("fixed", 25)),
+
+  "fq.handyman.hvac.dryer_vent": T("maintenance", {
+    it: ["Pulizia e manutenzione condotto asciugatrice", "Condotto dell'asciugatrice liberato dalla lanugine da un capo all'altro."],
+    de: ["Trocknerabluft reinigen und warten", "Die Trocknerabluft von Anfang bis Ende von Flusen befreit."],
+    uk: ["Чищення та обслуговування вентканалу сушарки", "Вентканал сушарки очищено від ворсу від початку до кінця."],
+    tl: ["Paglilinis at maintenance ng dryer vent", "Nilinis ang lint sa dryer vent mula dulo hanggang dulo."],
+  }, [
+    L.labour(1, "flat", 130, {
+      en: ["Dryer vent cleaning", "The duct brushed and vacuumed from the dryer to the exterior hood and the airflow checked."],
+      fr: ["Nettoyage du conduit de sécheuse", "Conduit brossé et aspiré de la sécheuse au capuchon extérieur, débit d'air vérifié."],
+      es: ["Limpieza del ducto de la secadora", "Ducto cepillado y aspirado desde la secadora hasta la campana exterior y el flujo de aire revisado."],
+      it: ["Pulizia condotto asciugatrice", "Condotto spazzolato e aspirato dall'asciugatrice alla griglia esterna, flusso d'aria controllato."],
+      de: ["Trocknerabluftreinigung", "Kanal vom Trockner bis zur Außenhaube gebürstet und abgesaugt, Luftstrom geprüft."],
+      uk: ["Чищення вентканалу сушарки", "Канал прочищено щіткою та пропилососено від сушарки до зовнішнього ковпака, потік перевірено."],
+      tl: ["Paglilinis ng dryer vent", "Binrush at binakyum ang duct mula dryer hanggang panlabas na hood at chineck ang hangin."],
+    }),
+    L.material(1, "each", 18, {
+      en: ["Semi-rigid transition duct", "4-in semi-rigid aluminium transition duct with clamps."],
+      fr: ["Conduit de transition semi-rigide", "Conduit de transition en aluminium semi-rigide de 4 po avec colliers."],
+      es: ["Ducto de transición semirrígido", "Ducto de transición de aluminio semirrígido de 4 pulg con abrazaderas."],
+      it: ["Condotto di transizione semirigido", "Condotto di transizione in alluminio semirigido da 4 pollici con fascette."],
+      de: ["Halbstarrer Übergangsschlauch", "4-Zoll-Aluminium-Übergangsschlauch, halbstarr, mit Schellen."],
+      uk: ["Напівжорсткий перехідний повітровід", "Алюмінієвий напівжорсткий перехідний повітровід 4 дюйми з хомутами."],
+      tl: ["Semi-rigid transition duct", "4-in semi-rigid aluminum transition duct na may clamp."],
+    }),
+  ], null),
+
+  "fq.handyman.painting.exterior_caulking": T("maintenance", {
+    it: ["Sigillatura esterna", "Sigillante applicato ai giunti esterni attorno a finestre, porte e rivestimento."],
+    de: ["Außenabdichtung", "Dichtstoff an den Außenfugen um Fenster, Türen und Fassadenverkleidung aufgebracht."],
+    uk: ["Зовнішня герметизація", "Герметик нанесено на зовнішні стики навколо вікон, дверей та сайдингу."],
+    tl: ["Panlabas na caulking at sealing", "Nilagyan ng caulk at sealant ang mga panlabas na dugtungan sa bintana, pinto at siding."],
+  }, [
+    L.labour(1, "linear_ft", 2.25, {
+      en: ["Caulk removal and re-caulking — per linear ft", "Failed caulk cut out, the joint cleaned and a fresh bead tooled in."],
+      fr: ["Enlèvement et recalfeutrage — au pi lin.", "Vieux calfeutrant enlevé, joint nettoyé et nouveau cordon lissé."],
+      es: ["Retiro y resellado — por pie lineal", "Sellador viejo cortado, la junta limpiada y un cordón nuevo aplicado y alisado."],
+      it: ["Rimozione e nuova sigillatura — al piede lineare", "Sigillante degradato rimosso, giunto pulito e nuovo cordone lisciato."],
+      de: ["Alte Fuge entfernen und neu abdichten — pro lfd. Fuß", "Alte Dichtmasse herausgeschnitten, die Fuge gereinigt und eine frische Raupe gezogen."],
+      uk: ["Видалення старого та нова герметизація — за пог. фут", "Старий герметик вирізано, стик очищено та нанесено новий шов."],
+      tl: ["Pagtanggal at bagong caulk — kada linear ft", "Tinanggal ang sirang caulk, nilinis ang dugtungan at nilagyan ng bagong linya."],
+    }, { measurementKey: "linearFt" }),
+    hdMaterial(HD.caulk_tube, {
+      en: ["Caulk — per tube", "Paintable elastomeric sealant; one tube runs about 40 linear ft."],
+      fr: ["Calfeutrant — le tube", "Scellant élastomère peinturable; un tube fait environ 40 pi lin."],
+      es: ["Sellador — por tubo", "Sellador elastomérico pintable; un tubo rinde unos 40 pies lineales."],
+      it: ["Sigillante — per cartuccia", "Sigillante elastomerico verniciabile; una cartuccia fa circa 40 piedi lineari."],
+      de: ["Dichtstoff — pro Kartusche", "Überstreichbarer elastischer Dichtstoff; eine Kartusche reicht für etwa 40 lfd. Fuß."],
+      uk: ["Герметик — за тубу", "Еластичний герметик під фарбування; туба на близько 40 пог. футів."],
+      tl: ["Caulk — kada tubo", "Paintable na elastomeric sealant; ang isang tubo ay para sa mga 40 linear ft."],
+    }, { measurementKey: "linearFt" }),
+  ], null),
+
+  // ── Folded in from the handyman template capture (docs/research/,
+  //    2026-09-24): 23 labour-only templates at flat prices with no cost.
+  //    Prices kept; costs ours at 50%; per-board, per-cabinet, per-item and
+  //    per-100-sq-ft prices carried as measured lines (each / areaSqFt). ──
+  "fq.handyman.labour.diagnostic_visit": T("inspection", {
+    it: ["Visita diagnostica", "Un tuttofare viene sul posto, guarda cosa non va e spiega cosa richiederà la riparazione prima di iniziare."],
+    de: ["Diagnosebesuch", "Ein Handwerker kommt vorbei, sieht sich das Problem an und erklärt vor Arbeitsbeginn, was die Reparatur braucht."],
+    uk: ["Діагностичний візит", "Майстер приїжджає, дивиться, що не так, і пояснює, що потрібно для ремонту, до початку робіт."],
+    tl: ["Diagnostic visit", "Pupunta ang handyman, titingnan ang problema at ipapaliwanag ang kailangan bago magsimula."],
+  }, [
+    SHARED.diagnostic(100, { cost: 80 }),
+  ], D.newCustomer("fixed", 10)),
+
+  "fq.handyman.labour.repair_visit": T("repair", {
+    it: ["Intervento di riparazione", "Uscita per sistemare qualcosa in casa, diagnosticato e riparato nella stessa visita quando possibile."],
+    de: ["Reparatureinsatz", "Einsatz, um etwas im Haus zu reparieren — wenn möglich im selben Besuch diagnostiziert und behoben."],
+    uk: ["Ремонтний виїзд", "Виїзд, щоб полагодити щось у будинку, з діагностикою й ремонтом за той самий візит, коли можливо."],
+    tl: ["Repair visit", "Pagpunta para ayusin ang sira sa bahay, na-diagnose at naayos sa parehong visit kung kaya."],
+  }, [
+    L.labour(1, "flat", 200, {
+      en: ["Repair", "The fault diagnosed and repaired on site."],
+      fr: ["Réparation", "Défaut diagnostiqué et réparé sur place."],
+      es: ["Reparación", "Falla diagnosticada y reparada en sitio."],
+      it: ["Riparazione", "Guasto diagnosticato e riparato sul posto."],
+      de: ["Reparatur", "Fehler vor Ort diagnostiziert und behoben."],
+      uk: ["Ремонт", "Несправність діагностовано та усунено на місці."],
+      tl: ["Pag-ayos", "Na-diagnose at naayos ang sira sa bahay."],
+    }, { cost: 100 }),
+  ], D.regular("percent", 3)),
+
+  "fq.handyman.labour.hourly": T("repair", {
+    it: ["Manodopera tuttofare — a ore", "Tuttofare prenotato a ore per una lista di piccoli lavori."],
+    de: ["Handwerkerarbeit — stundenweise", "Ein Handwerker stundenweise gebucht für eine Liste kleiner Arbeiten."],
+    uk: ["Робота майстра — погодинно", "Майстра замовлено погодинно на список дрібних робіт."],
+    tl: ["Handyman labor — kada oras", "Handyman na naka-book kada oras para sa listahan ng maliliit na trabaho."],
+  }, [
+    SHARED.serviceCall(89),
+    L.labour(1, "hour", 90, {
+      en: ["Handyman labour — per hour", "On-site work billed by the hour after the first visit."],
+      fr: ["Main-d'œuvre — à l'heure", "Travail sur place facturé à l'heure après la visite initiale."],
+      es: ["Mano de obra — por hora", "Trabajo en sitio cobrado por hora después de la primera visita."],
+      it: ["Manodopera — a ore", "Lavoro sul posto fatturato a ore dopo la prima visita."],
+      de: ["Arbeitszeit — pro Stunde", "Arbeit vor Ort nach dem ersten Besuch nach Stunden abgerechnet."],
+      uk: ["Робота — за годину", "Робота на місці з погодинною оплатою після першого візиту."],
+      tl: ["Labor — kada oras", "Trabaho sa lugar na sinisingil kada oras pagkatapos ng unang visit."],
+    }),
+  ], null),
+
+  "fq.handyman.doors_windows.screens": T("repair", {
+    it: ["Installazione e riparazione zanzariere", "Zanzariere di finestre e porte rimontate, ritese o sostituite."],
+    de: ["Fliegengitter montieren und reparieren", "Fenster- und Türgitter neu bespannt, repariert oder ersetzt."],
+    uk: ["Встановлення та ремонт москітних сіток", "Сітки на вікнах і дверях перетягнуто, відремонтовано або замінено."],
+    tl: ["Pagkabit at pag-ayos ng screen", "Pinalitan ang mesh, inayos o pinalitan ang screen ng bintana at pinto."],
+  }, [
+    L.labour(1, "each", 55, {
+      en: ["Window screen repair — per screen", "The screen re-meshed with new spline, squared and refitted."],
+      fr: ["Réparation de moustiquaire — l'unité", "Moustiquaire retendue avec un nouveau cordon, équerrée et reposée."],
+      es: ["Reparación de mosquitero — por pieza", "Mosquitero con malla y cordón nuevos, escuadrado y recolocado."],
+      it: ["Riparazione zanzariera — cadauna", "Zanzariera ritesa con nuovo cordino, squadrata e rimontata."],
+      de: ["Fliegengitterreparatur — pro Stück", "Gitter mit neuer Keder bespannt, ausgerichtet und wieder eingesetzt."],
+      uk: ["Ремонт москітної сітки — за штуку", "Сітку перетягнуто з новим шнуром, вирівняно й встановлено назад."],
+      tl: ["Pag-ayos ng screen — kada isa", "Pinalitan ang mesh at spline, inayos at ibinalik ang screen."],
+    }, { measurementKey: "each" }),
+  ], null),
+
+  "fq.handyman.doors_windows.glass_pane": T("repair", {
+    it: ["Sostituzione vetro", "Vetro singolo crepato o rotto tolto, vetro nuovo posato con stucco nuovo e telaio pulito."],
+    de: ["Glasscheibe ersetzen", "Gesprungene oder gebrochene Einfachscheibe herausgenommen, neue Scheibe mit frischem Kitt eingesetzt, Rahmen gesäubert."],
+    uk: ["Заміна скла", "Тріснуте або розбите одинарне скло знято, нове встановлено на свіжу замазку, раму очищено."],
+    tl: ["Palit ng salamin", "Tinanggal ang basag na salamin, ikinabit ang bago na may bagong glazing at nilinis ang sash."],
+  }, [
+    L.labour(1, "each", 130, {
+      en: ["Glass pane replacement — per pane", "The broken glass removed safely, a new pane cut to size and glazed in."],
+      fr: ["Remplacement de vitre — l'unité", "Verre brisé retiré en sécurité, nouvelle vitre coupée sur mesure et posée."],
+      es: ["Reemplazo de vidrio — por pieza", "Vidrio roto retirado con seguridad, uno nuevo cortado a la medida y colocado."],
+      it: ["Sostituzione vetro — cadauno", "Vetro rotto rimosso in sicurezza, nuovo vetro tagliato su misura e posato."],
+      de: ["Scheibentausch — pro Scheibe", "Bruchglas sicher entfernt, neue Scheibe zugeschnitten und eingekittet."],
+      uk: ["Заміна скла — за штуку", "Розбите скло безпечно знято, нове вирізано в розмір і встановлено."],
+      tl: ["Palit ng salamin — kada isa", "Ligtas na tinanggal ang basag, pinutol sa sukat at ikinabit ang bagong salamin."],
+    }, { measurementKey: "each" }),
+  ], null),
+
+  "fq.handyman.exterior.deck_board_replacement": T("repair", {
+    it: ["Sostituzione tavola del deck — per tavola", "Tavola marcia, spaccata o allentata tolta e una nuova tagliata, fissata e armonizzata."],
+    de: ["Terrassendiele ersetzen — pro Diele", "Morsche, gespaltene oder lose Diele entfernt, neue zugeschnitten, befestigt und angeglichen."],
+    uk: ["Заміна дошки тераси — за дошку", "Гнилу, розколоту або хитку дошку знято, нову вирізано, закріплено й підігнано."],
+    tl: ["Palit ng tabla ng deck — kada tabla", "Tinanggal ang bulok, biyak o maluwag na tabla at pinutol, ikinabit at tinugma ang bago."],
+  }, [
+    L.labour(1, "each", 75, {
+      en: ["Deck board replacement — per board", "Old board out, joist checked, new board cut and fastened."],
+      fr: ["Remplacement de planche — à la planche", "Ancienne planche retirée, solive vérifiée, nouvelle planche coupée et fixée."],
+      es: ["Reemplazo de tabla — por tabla", "Tabla vieja fuera, vigueta revisada, tabla nueva cortada y fijada."],
+      it: ["Sostituzione tavola — per tavola", "Vecchia tavola tolta, travetto controllato, nuova tavola tagliata e fissata."],
+      de: ["Diele ersetzen — pro Diele", "Alte Diele raus, Balken geprüft, neue Diele zugeschnitten und befestigt."],
+      uk: ["Заміна дошки — за дошку", "Стару дошку знято, лагу перевірено, нову вирізано й закріплено."],
+      tl: ["Palit ng tabla — kada tabla", "Tinanggal ang luma, chineck ang joist, pinutol at ikinabit ang bago."],
+    }, { measurementKey: "each" }),
+    L.material(1, "board", 9.73, {
+      en: ["Pressure-treated deck board — per board", "5/4 × 6 in pressure-treated board, 8 ft, with deck screws."],
+      fr: ["Planche de bois traité — à la planche", "Planche traitée 5/4 × 6 po, 8 pi, avec vis à terrasse."],
+      es: ["Tabla tratada — por tabla", "Tabla tratada de 5/4 × 6 pulg, 8 pies, con tornillos para terraza."],
+      it: ["Tavola impregnata — per tavola", "Tavola impregnata 5/4 × 6 pollici, 8 piedi, con viti da deck."],
+      de: ["Druckimprägnierte Diele — pro Diele", "Druckimprägnierte Diele 5/4 × 6 Zoll, 8 Fuß, mit Terrassenschrauben."],
+      uk: ["Просочена дошка — за дошку", "Просочена дошка 5/4 × 6 дюймів, 8 футів, із шурупами для тераси."],
+      tl: ["Pressure-treated na tabla — kada tabla", "5/4 × 6 in pressure-treated na tabla, 8 ft, may deck screw."],
+    }, { cost: 7.78, measurementKey: "each", ref: HD.deck_board_5_4x6x8 }),
+  ], null),
+
+  "fq.handyman.exterior.deck_work": T("repair", {
+    it: ["Costruzione, riparazione e sostituzione deck", "Deck costruiti, riparati o sostituiti, dalla struttura alle tavole."],
+    de: ["Terrassenbau, -reparatur und -austausch", "Terrassen gebaut, repariert oder ersetzt — vom Unterbau bis zu den Dielen."],
+    uk: ["Будівництво, ремонт і заміна терас", "Тераси збудовано, відремонтовано або замінено — від каркаса до дощок."],
+    tl: ["Paggawa, pag-ayos at palit ng deck", "Ginawa, inayos o pinalitan ang deck mula sa frame hanggang tabla."],
+  }, [
+    L.labour(1, "flat", 250, {
+      en: ["Deck structural repair", "Ledger board re-secured to the house with structural screws and the flashing redone."],
+      fr: ["Réparation structurale de terrasse", "Lambourde refixée à la maison avec des vis structurales et solin refait."],
+      es: ["Reparación estructural de terraza", "Viga de anclaje refijada a la casa con tornillos estructurales y el tapajuntas rehecho."],
+      it: ["Riparazione strutturale del deck", "Trave di bordo rifissata alla casa con viti strutturali e scossalina rifatta."],
+      de: ["Tragwerksreparatur der Terrasse", "Wandbalken mit Konstruktionsschrauben neu am Haus befestigt und das Anschlussblech erneuert."],
+      uk: ["Конструктивний ремонт тераси", "Опорну балку заново закріплено до будинку конструкційними шурупами, відлив перероблено."],
+      tl: ["Structural na pag-ayos ng deck", "Ikinabit ulit sa bahay ang ledger board gamit ang structural screw at inulit ang flashing."],
+    }),
+    SHARED.consumables(60),
+  ], null),
+
+  "fq.handyman.exterior.fence_gate_repair": T("repair", {
+    it: ["Riparazione e sostituzione recinzioni e cancelli", "Pannelli, pali e cancelli della recinzione riparati o sostituiti e rimessi in squadra."],
+    de: ["Zaun- und Torreparatur", "Zaunfelder, Pfosten und Tore repariert oder ersetzt und neu ausgerichtet."],
+    uk: ["Ремонт і заміна паркану та хвірток", "Секції, стовпи й хвіртки паркану відремонтовано або замінено та вирівняно."],
+    tl: ["Pag-ayos at palit ng bakod at gate", "Inayos o pinalitan ang panel, poste at gate ng bakod at itinuwid ulit."],
+  }, [
+    L.labour(1, "each", 175, {
+      en: ["Fence panel repair — per panel", "A damaged panel or section rebuilt or replaced and re-fastened to the posts."],
+      fr: ["Réparation de section de clôture — la section", "Section abîmée refaite ou remplacée et refixée aux poteaux."],
+      es: ["Reparación de panel de cerca — por panel", "Panel o tramo dañado rehecho o reemplazado y refijado a los postes."],
+      it: ["Riparazione pannello recinzione — per pannello", "Pannello o tratto danneggiato rifatto o sostituito e rifissato ai pali."],
+      de: ["Zaunfeld reparieren — pro Feld", "Beschädigtes Feld neu aufgebaut oder ersetzt und wieder an den Pfosten befestigt."],
+      uk: ["Ремонт секції паркану — за секцію", "Пошкоджену секцію відновлено або замінено й закріплено до стовпів."],
+      tl: ["Pag-ayos ng panel ng bakod — kada panel", "Inayos o pinalitan ang sirang panel at ikinabit ulit sa poste."],
+    }, { measurementKey: "each" }),
+    L.material(1, "panel", 83.73, {
+      en: ["Privacy fence panel — per panel", "6 × 8 ft pressure-treated privacy panel with galvanised fasteners."],
+      fr: ["Panneau de clôture intimité — la section", "Panneau d'intimité en bois traité 6 × 8 pi avec fixations galvanisées."],
+      es: ["Panel de cerca de privacidad — por panel", "Panel de privacidad de madera tratada de 6 × 8 pies con fijaciones galvanizadas."],
+      it: ["Pannello frangivista — per pannello", "Pannello frangivista in legno impregnato 6 × 8 piedi con fissaggi zincati."],
+      de: ["Sichtschutzelement — pro Feld", "Druckimprägniertes Sichtschutzelement 6 × 8 Fuß mit verzinkten Befestigern."],
+      uk: ["Глуха секція паркану — за секцію", "Просочена глуха секція 6 × 8 футів з оцинкованим кріпленням."],
+      tl: ["Privacy fence panel — kada panel", "6 × 8 ft pressure-treated na privacy panel na may galvanized na fastener."],
+    }, { cost: 66.98, measurementKey: "each", ref: HD.fence_panel_6x8 }),
+  ], null),
+
+  "fq.handyman.flooring.floor_patch": T("repair", {
+    it: ["Riparazione e rappezzo pavimento", "Tratto di pavimento danneggiato tagliato, sottofondo controllato e nuovo pavimento inserito."],
+    de: ["Bodenreparatur und Flicken", "Beschädigtes Bodenstück ausgeschnitten, Unterboden geprüft und neuer Belag eingesetzt."],
+    uk: ["Ремонт і латання підлоги", "Пошкоджену ділянку підлоги вирізано, чорнову підлогу перевірено, нове покриття вставлено."],
+    tl: ["Pag-ayos at patch ng sahig", "Pinutol ang sirang bahagi ng sahig, chineck ang subfloor at isiningit ang bagong sahig."],
+  }, [
+    L.labour(1, "flat", 175, {
+      en: ["Flooring patch repair", "The damaged area cut out, the subfloor checked and new flooring pieced in."],
+      fr: ["Rapiéçage de plancher", "Zone abîmée découpée, sous-plancher vérifié et nouveau revêtement inséré."],
+      es: ["Parche de piso", "Área dañada cortada, subpiso revisado y piso nuevo insertado."],
+      it: ["Rappezzo del pavimento", "Area danneggiata tagliata, sottofondo controllato e nuovo pavimento inserito."],
+      de: ["Bodenflicken", "Beschädigte Stelle ausgeschnitten, Unterboden geprüft und neuer Belag eingesetzt."],
+      uk: ["Латання підлоги", "Пошкоджену ділянку вирізано, чорнову підлогу перевірено, нове покриття вставлено."],
+      tl: ["Patch ng sahig", "Pinutol ang sirang bahagi, chineck ang subfloor at isiningit ang bagong sahig."],
+    }),
+    SHARED.materialsAllowance(60),
+  ], null),
+
+  "fq.handyman.flooring.tile_replacement": T("repair", {
+    it: ["Sostituzione piastrelle — piccola area", "Alcune piastrelle crepate o staccate rimosse e sostituite, poi stuccate in tinta."],
+    de: ["Fliesen ersetzen — kleine Fläche", "Einige gerissene oder lose Fliesen ausgestemmt und ersetzt, dann passend verfugt."],
+    uk: ["Заміна плитки — невелика площа", "Кілька тріснутих або відсталих плиток знято й замінено, потім зафуговано в тон."],
+    tl: ["Palit ng tile — maliit na lugar", "Tinanggal at pinalitan ang ilang basag o maluwag na tile at ginrout na tugma."],
+  }, [
+    L.labour(1, "flat", 160, {
+      en: ["Tile replacement", "Broken tiles chipped out, the bed cleaned and new tiles set and grouted."],
+      fr: ["Remplacement de carreaux", "Carreaux brisés enlevés, lit nettoyé, nouveaux carreaux posés et jointoyés."],
+      es: ["Reemplazo de azulejo", "Azulejos rotos retirados, la cama limpia y azulejos nuevos asentados y lechadeados."],
+      it: ["Sostituzione piastrelle", "Piastrelle rotte tolte, letto pulito, nuove piastrelle posate e stuccate."],
+      de: ["Fliesentausch", "Gebrochene Fliesen ausgestemmt, Bett gereinigt, neue Fliesen gesetzt und verfugt."],
+      uk: ["Заміна плитки", "Розбиту плитку вибито, основу очищено, нову викладено й зафуговано."],
+      tl: ["Palit ng tile", "Tinanggal ang basag na tile, nilinis ang base at inilagay at ginrout ang bago."],
+    }),
+    SHARED.consumables(25),
+  ], null),
+
+  "fq.handyman.exterior.gutter_repair": T("repair", {
+    it: ["Riparazione grondaia", "Tratto di grondaia cedente, che perde o staccato rifissato, risigillato e rimesso in pendenza."],
+    de: ["Dachrinnenreparatur", "Durchhängendes, undichtes oder gelöstes Rinnenstück neu befestigt, abgedichtet und ins Gefälle gebracht."],
+    uk: ["Ремонт ринви", "Провислу, протікаючу або від'єднану ділянку ринви закріплено, загерметизовано й виставлено з ухилом."],
+    tl: ["Pag-ayos ng gutter", "Ikinabit ulit, sinelyuhan at inayos ang slope ng lumulubog, tumutulo o nakahiwalay na gutter."],
+  }, [
+    L.labour(1, "flat", 115, {
+      en: ["Gutter section repair", "Hangers replaced, seams resealed and the section re-pitched."],
+      fr: ["Réparation de section de gouttière", "Crochets remplacés, joints rescellés et pente refaite."],
+      es: ["Reparación de tramo de canaleta", "Ganchos reemplazados, uniones reselladas y pendiente corregida."],
+      it: ["Riparazione tratto di grondaia", "Staffe sostituite, giunti risigillati e pendenza ripristinata."],
+      de: ["Rinnenstück reparieren", "Halter ersetzt, Nähte neu abgedichtet und das Gefälle korrigiert."],
+      uk: ["Ремонт ділянки ринви", "Гаки замінено, шви загерметизовано, ухил виправлено."],
+      tl: ["Pag-ayos ng seksyon ng gutter", "Pinalitan ang hanger, sinelyuhan ang dugtungan at inayos ang slope."],
+    }),
+    SHARED.consumables(20),
+  ], null),
+
+  "fq.handyman.carpentry.cabinet_install": T("installation", {
+    it: ["Installazione mobili", "Mobili posati in bolla e a piombo, fissati ai montanti e tra loro, ante e cassetti regolati."],
+    de: ["Schrankmontage", "Schränke waagrecht und lotrecht gesetzt, an Ständern und untereinander befestigt, Türen und Schubladen eingestellt."],
+    uk: ["Встановлення шаф", "Шафи виставлено по рівню й вертикалі, закріплено до стійок і між собою, дверцята й шухляди відрегульовано."],
+    tl: ["Pagkabit ng cabinet", "Nilevel at ni-plumb ang cabinet, ikinabit sa stud at sa isa't isa, at inayos ang pinto at drawer."],
+  }, [
+    L.labour(1, "each", 175, {
+      en: ["Cabinet installation — per cabinet", "One cabinet set level, fastened to the studs and its neighbour, doors adjusted."],
+      fr: ["Installation d'armoire — l'unité", "Une armoire posée de niveau, fixée aux montants et à la voisine, portes ajustées."],
+      es: ["Instalación de gabinete — por unidad", "Un gabinete nivelado, fijado a los montantes y al vecino, puertas ajustadas."],
+      it: ["Installazione mobile — cadauno", "Un mobile posato in bolla, fissato ai montanti e al vicino, ante regolate."],
+      de: ["Schrankmontage — pro Schrank", "Ein Schrank waagrecht gesetzt, an Ständern und Nachbarschrank befestigt, Türen eingestellt."],
+      uk: ["Встановлення шафи — за штуку", "Одну шафу виставлено по рівню, закріплено до стійок і сусідньої, дверцята відрегульовано."],
+      tl: ["Pagkabit ng cabinet — kada isa", "Isang cabinet na nilevel, ikinabit sa stud at katabi, at inayos ang pinto."],
+    }, { measurementKey: "each" }),
+  ], null),
+
+  "fq.handyman.carpentry.crown_molding": T("installation", {
+    it: ["Installazione cornici a soffitto", "Cornici tagliate con giunti a coda di rondine negli angoli interni, inchiodate, stuccate e pronte per la pittura."],
+    de: ["Stuckleisten montieren", "Deckenleisten an Innenecken ausgeklinkt, genagelt, verspachtelt und streichfertig."],
+    uk: ["Монтаж стельових карнизів", "Карнизи підрізано у внутрішніх кутах, прибито, зашпакльовано й підготовлено під фарбування."],
+    tl: ["Pagkabit ng crown molding", "Pinutol ang crown molding sa loob na kanto, ipinako, kinaulk at handa sa pintura."],
+  }, [
+    L.labour(1, "linear_ft", 9, {
+      en: ["Crown moulding installation — per linear ft", "Moulding coped, nailed to the plates and studs, joints filled and caulked."],
+      fr: ["Pose de moulure couronnée — au pi lin.", "Moulure contre-profilée, clouée aux sablières et montants, joints comblés et calfeutrés."],
+      es: ["Instalación de moldura de corona — por pie lineal", "Moldura acoplada, clavada a soleras y montantes, juntas rellenas y selladas."],
+      it: ["Posa cornice — al piede lineare", "Cornice sagomata, inchiodata a travi e montanti, giunti stuccati e sigillati."],
+      de: ["Stuckleiste montieren — pro lfd. Fuß", "Leiste ausgeklinkt, an Rähm und Ständern genagelt, Fugen gefüllt und versiegelt."],
+      uk: ["Монтаж карниза — за пог. фут", "Карниз підрізано, прибито до обв'язки та стійок, стики зашпакльовано й загерметизовано."],
+      tl: ["Pagkabit ng crown molding — kada linear ft", "Kinoped, ipinako sa plate at stud, tinapalan at kinaulk ang dugtungan."],
+    }, { measurementKey: "linearFt" }),
+    L.material(1, "linear_ft", 3.5, {
+      en: ["Primed MDF crown — per linear ft", "3-5/8 in primed MDF crown moulding, nails and caulk."],
+      fr: ["Moulure couronnée en MDF apprêté — au pi lin.", "Moulure couronnée en MDF apprêté de 3 5/8 po, clous et calfeutrant."],
+      es: ["Corona de MDF imprimado — por pie lineal", "Moldura de corona de MDF imprimado de 3-5/8 pulg, clavos y sellador."],
+      it: ["Cornice in MDF primerizzato — al piede lineare", "Cornice in MDF primerizzato da 3-5/8 pollici, chiodi e sigillante."],
+      de: ["Grundierte MDF-Stuckleiste — pro lfd. Fuß", "3-5/8-Zoll-Stuckleiste aus grundiertem MDF, Nägel und Acryl."],
+      uk: ["Ґрунтований МДФ-карниз — за пог. фут", "Карниз 3-5/8 дюйма з ґрунтованого МДФ, цвяхи та герметик."],
+      tl: ["Primed MDF crown — kada linear ft", "3-5/8 in primed MDF na crown molding, pako at caulk."],
+    }, { measurementKey: "linearFt" }),
+  ], null),
+
+  "fq.handyman.doors_windows.brackets_mounting": T("installation", {
+    it: ["Ferramenta, staffe e accessori di montaggio", "Mensole, specchi, quadri e accessori fissati a montanti o tasselli adatti al peso."],
+    de: ["Beschläge, Konsolen und Montagezubehör", "Regale, Spiegel, Bilder und Zubehör an Ständern oder passenden Dübeln befestigt."],
+    uk: ["Фурнітура, кронштейни та кріплення", "Полиці, дзеркала, картини й аксесуари закріплено на стійках або відповідних дюбелях."],
+    tl: ["Hardware, bracket at mounting accessory", "Ikinabit ang shelf, salamin, larawan at accessory sa stud o angkop na anchor."],
+  }, [
+    L.labour(1, "each", 75, {
+      en: ["Shelf or fixture mounting — per item", "The item located, levelled and fastened to studs or rated anchors."],
+      fr: ["Fixation de tablette ou d'accessoire — l'unité", "Élément positionné, mis de niveau et fixé aux montants ou à des ancrages homologués."],
+      es: ["Montaje de repisa o accesorio — por pieza", "Pieza ubicada, nivelada y fijada a montantes o anclajes certificados."],
+      it: ["Montaggio mensola o accessorio — cadauno", "Elemento posizionato, livellato e fissato a montanti o tasselli certificati."],
+      de: ["Regal- oder Zubehörmontage — pro Stück", "Teil ausgerichtet, gewasserwaagt und an Ständern oder zugelassenen Dübeln befestigt."],
+      uk: ["Монтаж полиці або аксесуара — за штуку", "Елемент розмічено, вирівняно й закріплено на стійках або сертифікованих анкерах."],
+      tl: ["Pagkabit ng shelf o fixture — kada isa", "Inilagay, nilevel at ikinabit sa stud o rated anchor."],
+    }, { measurementKey: "each" }),
+  ], null),
+
+  "fq.handyman.assembly.furniture": T("installation", {
+    it: ["Montaggio e installazione mobili", "Mobili in kit montati, messi in squadra e fissati al muro dove serve."],
+    de: ["Möbelmontage", "Bausatzmöbel aufgebaut, ausgerichtet und wo nötig an der Wand gesichert."],
+    uk: ["Збирання та встановлення меблів", "Меблі з комплектів зібрано, вирівняно та прикріплено до стіни, де потрібно."],
+    tl: ["Pag-assemble at pagkabit ng muwebles", "Inassemble, itinuwid at ikinabit sa pader kung kailangan ang flat-pack na muwebles."],
+  }, [
+    L.labour(1, "each", 85, {
+      en: ["Furniture assembly — per item", "One item assembled, squared and anchored to the wall where it can tip."],
+      fr: ["Assemblage de meuble — l'unité", "Un meuble assemblé, mis d'équerre et ancré au mur s'il peut basculer."],
+      es: ["Armado de mueble — por pieza", "Un mueble armado, escuadrado y anclado a la pared si puede volcarse."],
+      it: ["Montaggio mobile — cadauno", "Un mobile montato, messo in squadra e ancorato al muro se può ribaltarsi."],
+      de: ["Möbelaufbau — pro Stück", "Ein Möbel aufgebaut, ausgerichtet und kippsicher an der Wand befestigt."],
+      uk: ["Збирання меблів — за одиницю", "Один предмет зібрано, вирівняно й прикріплено до стіни, якщо може перекинутися."],
+      tl: ["Pag-assemble — kada isa", "Isang muwebles na inassemble, itinuwid at ikinabit sa pader kung puwedeng tumumba."],
+    }, { measurementKey: "each" }),
+  ], null),
+
+  "fq.handyman.painting.touch_up": T("maintenance", {
+    it: ["Ritocchi di pittura interni", "Segni, scheggiature e piccoli danni ritoccati con colore abbinato in una stanza o zona."],
+    de: ["Innenanstrich ausbessern", "Streifen, Abplatzer und kleine Schäden in einem Raum oder Bereich farbgleich ausgebessert."],
+    uk: ["Підфарбовування в інтер'єрі", "Потертості, сколи й дрібні пошкодження підфарбовано в тон в одній кімнаті чи зоні."],
+    tl: ["Touch-up ng pintura sa loob", "Tinakpan ng katugmang kulay ang gasgas, chip at maliit na sira sa isang kuwarto o lugar."],
+  }, [
+    L.labour(1, "flat", 95, {
+      en: ["Paint touch-up — one room or area", "Marks spot-primed and colour-matched paint feathered in."],
+      fr: ["Retouche de peinture — une pièce ou zone", "Marques apprêtées localement et peinture assortie fondue."],
+      es: ["Retoque de pintura — un cuarto o área", "Marcas imprimadas en puntos y pintura igualada difuminada."],
+      it: ["Ritocco pittura — una stanza o zona", "Segni primerizzati a punti e pittura abbinata sfumata."],
+      de: ["Ausbessern — ein Raum oder Bereich", "Stellen punktuell grundiert und farbgleiche Farbe eingearbeitet."],
+      uk: ["Підфарбовування — одна кімната чи зона", "Плями точково заґрунтовано, підібрану фарбу розтушовано."],
+      tl: ["Touch-up — isang kuwarto o lugar", "Nilagyan ng primer ang gasgas at pinahiran ng katugmang pintura."],
+    }),
+    SHARED.consumables(15),
+  ], null),
+
+  "fq.handyman.exterior.power_wash_deck_refinish": T("maintenance", {
+    it: ["Idropulizia e rinnovo del deck", "Deck lavato a pressione e trattato con impregnante o sigillante."],
+    de: ["Hochdruckreinigung und Terrassenpflege", "Terrasse mit Hochdruck gereinigt und neu gebeizt oder versiegelt."],
+    uk: ["Миття під тиском і оновлення тераси", "Терасу вимито під тиском і покрито морилкою або герметиком."],
+    tl: ["Power washing at refinishing ng deck", "Pinower-wash ang deck at nilagyan ulit ng stain o sealer."],
+  }, [
+    L.labour(1, "sqft", 2.25, {
+      en: ["Deck staining and sealing — per sq ft", "Deck washed, dried and stained or sealed."],
+      fr: ["Teinture et scellement de terrasse — au pi²", "Terrasse lavée, séchée, teinte ou scellée."],
+      es: ["Tinte y sellado de terraza — por pie²", "Terraza lavada, secada y teñida o sellada."],
+      it: ["Impregnazione e sigillatura deck — al piede quadro", "Deck lavato, asciugato e impregnato o sigillato."],
+      de: ["Terrasse beizen und versiegeln — pro sq ft", "Terrasse gewaschen, getrocknet und gebeizt oder versiegelt."],
+      uk: ["Морилка та герметизація тераси — за кв. фут", "Терасу вимито, висушено й покрито морилкою чи герметиком."],
+      tl: ["Stain at seal ng deck — kada sq ft", "Hinugasan, pinatuyo at nilagyan ng stain o sealer ang deck."],
+    }, { measurementKey: "areaSqFt" }),
+    hdMaterial(HD.deck_stain_gal, {
+      en: ["Deck stain — per gallon", "Semi-transparent penetrating stain; one gallon covers about 200 sq ft."],
+      fr: ["Teinture pour terrasse — au gallon", "Teinture pénétrante semi-transparente; un gallon couvre environ 200 pi²."],
+      es: ["Tinte para terraza — por galón", "Tinte penetrante semitransparente; un galón cubre unos 200 pies²."],
+      it: ["Impregnante per deck — al gallone", "Impregnante penetrante semitrasparente; un gallone copre circa 200 piedi quadri."],
+      de: ["Terrassenbeize — pro Gallone", "Halbtransparente, eindringende Beize; eine Gallone reicht für etwa 200 sq ft."],
+      uk: ["Морилка для тераси — за галон", "Напівпрозора проникна морилка; галон покриває близько 200 кв. футів."],
+      tl: ["Deck stain — kada galon", "Semi-transparent na penetrating stain; ang isang galon ay para sa mga 200 sq ft."],
+    }, { measurementKey: "areaSqFt" }),
+  ], null),
+
+  "fq.handyman.flooring.tile_install_grout": T("maintenance", {
+    it: ["Posa piastrelle, pulizia e sigillatura fughe", "Piastrelle posate o pulite a fondo e fughe riparate e sigillate."],
+    de: ["Fliesen verlegen, reinigen und Fugen versiegeln", "Fliesen verlegt oder tiefengereinigt und Fugen ausgebessert und versiegelt."],
+    uk: ["Укладання плитки, чищення й герметизація фуг", "Плитку укладено або глибоко очищено, фуги відремонтовано й загерметизовано."],
+    tl: ["Pag-tile, paglilinis at pagselyo ng grout", "Inilagay o nilinis nang malalim ang tile at inayos at sinelyuhan ang grout."],
+  }, [
+    L.labour(1, "flat", 140, {
+      en: ["Grout repair — per section", "Cracked grout raked out, regrouted and sealed in one section."],
+      fr: ["Réparation de coulis — la section", "Coulis fissuré gratté, rejointoyé et scellé sur une section."],
+      es: ["Reparación de lechada — por sección", "Lechada agrietada raspada, relechadeada y sellada en una sección."],
+      it: ["Riparazione fughe — per sezione", "Fughe crepate raschiate, ristuccate e sigillate in una sezione."],
+      de: ["Fugenreparatur — pro Abschnitt", "Gerissene Fugen ausgekratzt, neu verfugt und versiegelt in einem Abschnitt."],
+      uk: ["Ремонт фуг — за ділянку", "Тріснуту фугу вибрано, перефуговано й загерметизовано на одній ділянці."],
+      tl: ["Pag-ayos ng grout — kada seksyon", "Kinayod, ginrout ulit at sinelyuhan ang basag na grout sa isang seksyon."],
+    }),
+    SHARED.consumables(25),
+  ], null),
+};
+
+withTemplates(SEED, TEMPLATES);

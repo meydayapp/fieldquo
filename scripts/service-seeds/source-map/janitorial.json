@@ -1,0 +1,177 @@
+[
+ {
+  "seedKey": "fq.janitorial.recurring.office",
+  "industry": "Janitorial",
+  "sourceCategory": "Janitorial > Recurring > Office / buildings",
+  "sourceService": "Recurring - Office / commercial cleaning",
+  "taskCode": "DEFAULT_JANITORIAL_SERVICE_1"
+ },
+ {
+  "seedKey": "fq.janitorial.recurring.lobby",
+  "industry": "Janitorial",
+  "sourceCategory": "Janitorial > Recurring > Office / buildings",
+  "sourceService": "Recurring - Reception area / lobby cleaning",
+  "taskCode": "DEFAULT_JANITORIAL_SERVICE_2"
+ },
+ {
+  "seedKey": "fq.janitorial.recurring.kitchen_restroom",
+  "industry": "Janitorial",
+  "sourceCategory": "Janitorial > Recurring > Office / buildings",
+  "sourceService": "Recurring - Kitchen / restroom cleaning",
+  "taskCode": "DEFAULT_JANITORIAL_SERVICE_3"
+ },
+ {
+  "seedKey": "fq.janitorial.recurring.daytime",
+  "industry": "Janitorial",
+  "sourceCategory": "Janitorial > Recurring > Office / buildings",
+  "sourceService": "Recurring - Daytime cleaning",
+  "taskCode": "DEFAULT_JANITORIAL_SERVICE_4"
+ },
+ {
+  "seedKey": "fq.janitorial.recurring.dusting",
+  "industry": "Janitorial",
+  "sourceCategory": "Janitorial > Recurring > Office / buildings",
+  "sourceService": "Recurring - Dusting",
+  "taskCode": "DEFAULT_JANITORIAL_SERVICE_5"
+ },
+ {
+  "seedKey": "fq.janitorial.recurring.windows",
+  "industry": "Janitorial",
+  "sourceCategory": "Janitorial > Recurring > Office / buildings",
+  "sourceService": "Recurring - Window washing",
+  "taskCode": "DEFAULT_JANITORIAL_SERVICE_6"
+ },
+ {
+  "seedKey": "fq.janitorial.recurring.carpet",
+  "industry": "Janitorial",
+  "sourceCategory": "Janitorial > Recurring > Flooring",
+  "sourceService": "Recurring - Carpet cleaning",
+  "taskCode": "DEFAULT_JANITORIAL_SERVICE_7"
+ },
+ {
+  "seedKey": "fq.janitorial.recurring.hard_floor",
+  "industry": "Janitorial",
+  "sourceCategory": "Janitorial > Recurring > Flooring",
+  "sourceService": "Recurring - Hard-surface floor cleaning",
+  "taskCode": "DEFAULT_JANITORIAL_SERVICE_8"
+ },
+ {
+  "seedKey": "fq.janitorial.recurring.restocking",
+  "industry": "Janitorial",
+  "sourceCategory": "Janitorial > Recurring > Other",
+  "sourceService": "Recurring - Restocking",
+  "taskCode": "DEFAULT_JANITORIAL_SERVICE_9"
+ },
+ {
+  "seedKey": "fq.janitorial.recurring.waste",
+  "industry": "Janitorial",
+  "sourceCategory": "Janitorial > Recurring > Other",
+  "sourceService": "Recurring - Waste removal",
+  "taskCode": "DEFAULT_JANITORIAL_SERVICE_10"
+ },
+ {
+  "seedKey": "fq.janitorial.recurring.sanitation",
+  "industry": "Janitorial",
+  "sourceCategory": "Janitorial > Recurring > Other",
+  "sourceService": "Recurring - Sanitation",
+  "taskCode": "DEFAULT_JANITORIAL_SERVICE_11"
+ },
+ {
+  "seedKey": "fq.janitorial.recurring.other",
+  "industry": "Janitorial",
+  "sourceCategory": "Janitorial > Recurring > Other",
+  "sourceService": "Recurring - Something else / I don't know",
+  "taskCode": "DEFAULT_JANITORIAL_SERVICE_12"
+ },
+ {
+  "seedKey": "fq.janitorial.one_time.office",
+  "industry": "Janitorial",
+  "sourceCategory": "Janitorial > One time > Office / buildings",
+  "sourceService": "One time - Office / commercial cleaning",
+  "taskCode": "DEFAULT_JANITORIAL_SERVICE_13"
+ },
+ {
+  "seedKey": "fq.janitorial.one_time.lobby",
+  "industry": "Janitorial",
+  "sourceCategory": "Janitorial > One time > Office / buildings",
+  "sourceService": "One time - Reception area / lobby cleaning",
+  "taskCode": "DEFAULT_JANITORIAL_SERVICE_14"
+ },
+ {
+  "seedKey": "fq.janitorial.one_time.kitchen_restroom",
+  "industry": "Janitorial",
+  "sourceCategory": "Janitorial > One time > Office / buildings",
+  "sourceService": "One time - Kitchen / restroom cleaning",
+  "taskCode": "DEFAULT_JANITORIAL_SERVICE_15"
+ },
+ {
+  "seedKey": "fq.janitorial.one_time.daytime",
+  "industry": "Janitorial",
+  "sourceCategory": "Janitorial > One time > Office / buildings",
+  "sourceService": "One time - Daytime cleaning",
+  "taskCode": "DEFAULT_JANITORIAL_SERVICE_16"
+ },
+ {
+  "seedKey": "fq.janitorial.one_time.dusting",
+  "industry": "Janitorial",
+  "sourceCategory": "Janitorial > One time > Office / buildings",
+  "sourceService": "One time - Dusting",
+  "taskCode": "DEFAULT_JANITORIAL_SERVICE_17"
+ },
+ {
+  "seedKey": "fq.janitorial.one_time.windows",
+  "industry": "Janitorial",
+  "sourceCategory": "Janitorial > One time > Office / buildings",
+  "sourceService": "One time - Window washing",
+  "taskCode": "DEFAULT_JANITORIAL_SERVICE_18"
+ },
+ {
+  "seedKey": "fq.janitorial.one_time.carpet",
+  "industry": "Janitorial",
+  "sourceCategory": "Janitorial > One time > Flooring",
+  "sourceService": "One time - Carpet cleaning",
+  "taskCode": "DEFAULT_JANITORIAL_SERVICE_19"
+ },
+ {
+  "seedKey": "fq.janitorial.one_time.hard_floor",
+  "industry": "Janitorial",
+  "sourceCategory": "Janitorial > One time > Flooring",
+  "sourceService": "One time - Hard-surface floor cleaning",
+  "taskCode": "DEFAULT_JANITORIAL_SERVICE_20"
+ },
+ {
+  "seedKey": "fq.janitorial.one_time.restocking",
+  "industry": "Janitorial",
+  "sourceCategory": "Janitorial > One time > Other",
+  "sourceService": "One time - Restocking",
+  "taskCode": "DEFAULT_JANITORIAL_SERVICE_21"
+ },
+ {
+  "seedKey": "fq.janitorial.one_time.waste",
+  "industry": "Janitorial",
+  "sourceCategory": "Janitorial > One time > Other",
+  "sourceService": "One time - Waste removal",
+  "taskCode": "DEFAULT_JANITORIAL_SERVICE_22"
+ },
+ {
+  "seedKey": "fq.janitorial.one_time.sanitation",
+  "industry": "Janitorial",
+  "sourceCategory": "Janitorial > One time > Other",
+  "sourceService": "One time - Sanitation",
+  "taskCode": "DEFAULT_JANITORIAL_SERVICE_23"
+ },
+ {
+  "seedKey": "fq.janitorial.one_time.other",
+  "industry": "Janitorial",
+  "sourceCategory": "Janitorial > One time > Other",
+  "sourceService": "One time - Something else / I don't know",
+  "taskCode": "DEFAULT_JANITORIAL_SERVICE_24"
+ },
+ {
+  "seedKey": "fq.janitorial.visits.site_walkthrough",
+  "industry": "Janitorial",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Commercial cleaning walkthrough and bid",
+  "taskCode": null
+ }
+]
