@@ -29,11 +29,19 @@
 // against the owner's own reported scenario, and checks the catalogue and
 // the route source for the specific regressions this bug already was.
 import fs from "node:fs";
+import path from "node:path";
+import { rows, resetDbStub } from "./fixtures/dbStub.mjs";
 import {
   KITCHEN_DESIGN_KEY,
   KITCHEN_GROUP_LABEL,
+  KITCHEN_GRANTING_TRADE_KEYS,
   hasKitchenData,
   canUseKitchenDesignerPure,
+  canUseKitchenDesigner,
+  companyOffersKitchenDesign,
+  kitchenDesignerOnPure,
+  kitchenGrantingKeys,
+  kitchenCategoryRow,
 } from "@/lib/kitchen/access";
 import { TRADE_CATALOG, tradeKeys } from "@/lib/trades/catalog";
 
@@ -155,8 +163,8 @@ ok("enabledCategoryKeys isn't an array -> treated as empty, not a throw",
   canUseKitchenDesignerPure({ scopeGroups: [] }, "kitchen_design") === false);
 ok("enabledCategoryKeys is null -> treated as empty",
   canUseKitchenDesignerPure({ scopeGroups: [] }, null) === false);
-ok("a company with every OTHER trade enabled, but not kitchen_design, still gets nothing on a bare quote",
-  canUseKitchenDesignerPure({ scopeGroups: [] }, tradeKeys().filter((k) => k !== KITCHEN_DESIGN_KEY)) === false);
+ok("a company with every NON-granting trade enabled still gets nothing on a bare quote",
+  canUseKitchenDesignerPure({ scopeGroups: [] }, tradeKeys().filter((k) => !KITCHEN_GRANTING_TRADE_KEYS.includes(k))) === false);
 
 /* ══ 6. The regex is actually gone, not just unused ═════════════════════════ */
 //
@@ -185,25 +193,29 @@ const buttonPageSrc = stripComments(
 ok("app/app/quotes/[id]/page.js: no longer tests a quote's own categories against the old broad regex",
   !OLD_PATTERN.test(buttonPageSrc));
 
-// The other two files ARE allowed to still consult "cabinet-ish" categories
-// — but only as a fallback for which category to FILE an already-approved
-// design under, never as the thing that decides whether the request is
-// allowed at all. So the real assertion is ordering: the access check runs
-// and can refuse BEFORE the regex is ever reached.
+// The two routes used to each carry a copy of the "cabinet-ish" regex as a
+// FILING fallback (which category an allowed design lands under). Since
+// 2026-09-25 that lives once, in kitchenCategoryRow (lib/kitchen/access.js),
+// so the routes carry no regex at all — and the real assertion stays
+// ordering: the access check runs and can refuse BEFORE filing is reached.
+const LIVE_REGEX = OLD_PATTERN.source.replace(/\\\|/g, "|");
 const kitchenRouteSrc = stripComments(
   fs.readFileSync(new URL("../app/api/quotes/[id]/kitchen/route.js", import.meta.url), "utf8"),
 );
 ok("the save route checks canUseKitchenDesigner before doing anything else",
   /canUseKitchenDesigner\(/.test(kitchenRouteSrc));
-ok("…and that check runs BEFORE the file's one remaining (fallback-only) use of the old regex",
-  kitchenRouteSrc.indexOf("canUseKitchenDesigner(") < kitchenRouteSrc.indexOf(OLD_PATTERN.source.replace(/\\\|/g, "|")));
+ok("…files through the shared kitchenCategoryRow, with no regex copy of its own",
+  kitchenRouteSrc.includes("kitchenCategoryRow(") && !kitchenRouteSrc.includes(LIVE_REGEX));
+ok("…and the access check runs BEFORE filing",
+  kitchenRouteSrc.indexOf("canUseKitchenDesigner(") < kitchenRouteSrc.indexOf("kitchenCategoryRow("));
 
 const selfQuoteKitchenSrc = stripComments(
   fs.readFileSync(new URL("../app/api/self-quote/kitchen/route.js", import.meta.url), "utf8"),
 );
-ok("the public lead endpoint refuses (KITCHEN_DESIGN_KEY check) before its one remaining fallback use of the old regex",
-  selfQuoteKitchenSrc.indexOf("KITCHEN_DESIGN_KEY") <
-    selfQuoteKitchenSrc.indexOf(OLD_PATTERN.source.replace(/\\\|/g, "|")));
+ok("the public lead endpoint refuses through the gate before it files the lead",
+  selfQuoteKitchenSrc.includes("companyOffersKitchenDesign(") &&
+    selfQuoteKitchenSrc.indexOf("companyOffersKitchenDesign(") < selfQuoteKitchenSrc.indexOf("kitchenCategoryRow("));
+ok("…with no regex copy of its own", !selfQuoteKitchenSrc.includes(LIVE_REGEX));
 ok("the internal designer PAGE also checks it server-side, not just the button that links to it",
   stripComments(
     fs.readFileSync(new URL("../app/app/quotes/[id]/kitchen/page.js", import.meta.url), "utf8"),
@@ -213,9 +225,209 @@ ok("the public design-your-kitchen page checks companyOffersKitchenDesign before
     fs.readFileSync(new URL("../app/quote/[companySlug]/kitchen/page.js", import.meta.url), "utf8"),
   ).includes("companyOffersKitchenDesign("));
 ok("the public lead endpoint checks it too — a browser can POST here without ever loading the page above",
-  /KITCHEN_DESIGN_KEY/.test(
-    stripComments(fs.readFileSync(new URL("../app/api/self-quote/kitchen/route.js", import.meta.url), "utf8")),
-  ));
+  /companyOffersKitchenDesign\(company\.id\)/.test(selfQuoteKitchenSrc));
+
+/* ══ 7. The owner's 2026-09-25 decision: which trades grant it ═════════════ */
+//
+// "Those that have enabled kitchen remodel or construction should have access
+// to the kitchen designer — construction trades, remodeling, renovation —
+// maybe handyman if they enable that — and kitchen refacing could also do
+// it." There is no separate kitchen-remodel key: kitchen remodelling is a
+// service inside remodeling and general contracting.
+
+section("2026-09-25: every kitchen-building trade grants it on its own");
+
+const EXPECTED_GRANTING = [
+  "kitchen_design", "remodeling", "general_contracting_reno",
+  "general_contracting", "construction", "cabinet_refacing",
+];
+ok("the granting list is exactly the owner's list, nothing slipped in or out",
+  JSON.stringify([...KITCHEN_GRANTING_TRADE_KEYS].sort()) === JSON.stringify([...EXPECTED_GRANTING].sort()),
+  KITCHEN_GRANTING_TRADE_KEYS);
+ok("the list is frozen — no caller can push a trade into it at runtime",
+  Object.isFrozen(KITCHEN_GRANTING_TRADE_KEYS));
+for (const key of KITCHEN_GRANTING_TRADE_KEYS) {
+  ok(`${key} is a real catalogue trade (a typo here would grant nothing, silently)`, Boolean(TRADE_CATALOG[key]));
+  ok(`${key} alone → on, on a bare quote`, canUseKitchenDesignerPure({ scopeGroups: [] }, [key]) === true);
+  ok(`${key} alone, override null → on`, kitchenDesignerOnPure([key], null) === true);
+}
+
+section("…and the 08-30 trades still do NOT");
+
+for (const key of ["cabinet_refinishing", "countertop", "stairs", "interior_painting", "exterior_painting"]) {
+  ok(`${key} is a real catalogue trade`, Boolean(TRADE_CATALOG[key]));
+  ok(`${key} alone → off`, kitchenDesignerOnPure([key], null) === false);
+}
+ok("refinishing + countertop + stairs + both paintings together → still off",
+  kitchenDesignerOnPure(["cabinet_refinishing", "countertop", "stairs", "interior_painting", "exterior_painting"], null) === false);
+ok("the owner's 08-30 account (countertop, refinishing, exterior painting) → still off",
+  kitchenDesignerOnPure(hisEnabledKeys, null) === false &&
+    canUseKitchenDesignerPure(countertopQuote, hisEnabledKeys, null) === false);
+ok("…and the same account the day it adds cabinet_refacing → on",
+  kitchenDesignerOnPure([...hisEnabledKeys, "cabinet_refacing"], null) === true);
+
+section("Handyman: not automatic, but reachable");
+
+ok("handyman is a real catalogue trade", Boolean(TRADE_CATALOG.handyman));
+ok("handyman alone → off", kitchenDesignerOnPure(["handyman"], null) === false);
+ok("handyman + its preset neighbours (appliance repair, installation, property maintenance) → off",
+  kitchenDesignerOnPure(["handyman", "appliance_repair", "installation_services", "property_maintenance"], null) === false);
+ok("handyman + kitchen_design ticked → on", kitchenDesignerOnPure(["handyman", KITCHEN_DESIGN_KEY], null) === true);
+ok("handyman + override on → on", kitchenDesignerOnPure(["handyman"], true) === true);
+// The toggle a handyman needs must not be auto-enabled by its industry
+// preset — that would make it automatic by the back door. It stays out of
+// every preset and Settings › Services' Kitchen Designer card reveals it.
+ok("kitchen_design belongs to no industry preset (so no signup auto-ticks it for a handyman)",
+  Array.isArray(TRADE_CATALOG[KITCHEN_DESIGN_KEY].industries) && TRADE_CATALOG[KITCHEN_DESIGN_KEY].industries.length === 0);
+const editorSrc = fs.readFileSync(new URL("../app/app/settings/services/ServicesEditor.js", import.meta.url), "utf8");
+const cardSrc = fs.readFileSync(new URL("../app/app/settings/services/KitchenDesignerCard.js", import.meta.url), "utf8");
+ok("Settings › Services renders the Kitchen Designer card", /<KitchenDesignerCard[\s\S]*?\/>/.test(editorSrc));
+ok("…whose find button shows other trades and scrolls to the kitchen_design row",
+  /setShowAllTrades\(true\)/.test(editorSrc) && /service-\$\{KITCHEN_DESIGN_KEY\}/.test(editorSrc) && /id=\{`service-\$\{c\.key\}`\}/.test(editorSrc));
+ok("…and the card offers it whenever kitchen_design isn't ticked, with the handyman line",
+  /!kitchenDesignTicked && \(/.test(cardSrc) && /k\("handyman"\)/.test(cardSrc) && /onClick=\{onFindKitchenDesign\}/.test(cardSrc));
+
+/* ══ 8. The company override ══════════════════════════════════════════════ */
+
+section("Override: false beats a granting trade, true works for any trade");
+
+for (const key of KITCHEN_GRANTING_TRADE_KEYS) {
+  ok(`${key} + override false → off`, kitchenDesignerOnPure([key], false) === false);
+}
+ok("every granting trade at once + override false → off",
+  kitchenDesignerOnPure([...KITCHEN_GRANTING_TRADE_KEYS], false) === false);
+ok("override true on EVERY catalogue trade alone → on",
+  tradeKeys().every((key) => kitchenDesignerOnPure([key], true) === true),
+  tradeKeys().filter((key) => kitchenDesignerOnPure([key], true) !== true));
+ok("override true with no trades at all → on", kitchenDesignerOnPure([], true) === true);
+ok("override null follows the trades both ways",
+  kitchenDesignerOnPure(["remodeling"], null) === true && kitchenDesignerOnPure(["painting"], null) === false);
+ok("override undefined follows the trades (a row read before the column existed)",
+  kitchenDesignerOnPure(["remodeling"], undefined) === true && kitchenDesignerOnPure([], undefined) === false);
+// Only a real boolean is the company speaking.
+for (const junk of ["false", "true", 0, 1, "", "off", {}, []]) {
+  ok(`override ${JSON.stringify(junk)} is not a boolean → follows the trades`,
+    kitchenDesignerOnPure(["remodeling"], junk) === true && kitchenDesignerOnPure(["countertop"], junk) === false);
+}
+ok("override false does NOT lock a quote that already has a design — existing work is never taken away",
+  canUseKitchenDesignerPure(savedByQuoteType, [...KITCHEN_GRANTING_TRADE_KEYS], false) === true &&
+    canUseKitchenDesignerPure(savedByClientEdit, [], false) === true);
+ok("override false DOES refuse a fresh quote on a remodeler",
+  canUseKitchenDesignerPure({ scopeGroups: [] }, ["remodeling"], false) === false);
+
+section("kitchenGrantingKeys and hostile input to the new rule");
+
+ok("kitchenGrantingKeys returns grant order, not the company's order",
+  JSON.stringify(kitchenGrantingKeys(["cabinet_refacing", "handyman", "remodeling", KITCHEN_DESIGN_KEY])) ===
+    JSON.stringify([KITCHEN_DESIGN_KEY, "remodeling", "cabinet_refacing"]));
+ok("kitchenGrantingKeys(null / a string / an object) → []",
+  kitchenGrantingKeys(null).length === 0 && kitchenGrantingKeys("remodeling").length === 0 && kitchenGrantingKeys({ remodeling: true }).length === 0);
+ok("kitchenDesignerOnPure('remodeling' as a string, null) → off, not a substring match",
+  kitchenDesignerOnPure("remodeling", null) === false);
+ok("a near-miss key does not grant (remodeling_x, general_contracting_other, Remodeling)",
+  kitchenDesignerOnPure(["remodeling_x", "general_contracting_other", "Remodeling", " construction"], null) === false);
+
+/* ══ 9. Filing: which category an allowed design lands under ═══════════════ */
+
+section("kitchenCategoryRow — the one filing helper both routes use");
+
+const row = (key, id = `id_${key}`) => ({ category: { id, key } });
+ok("kitchen_design wins over every other enabled trade",
+  kitchenCategoryRow([row("cabinet_refacing"), row("remodeling"), row(KITCHEN_DESIGN_KEY)])?.category.key === KITCHEN_DESIGN_KEY);
+ok("without it, the first granting trade in grant order (remodeling before refacing)",
+  kitchenCategoryRow([row("cabinet_refacing"), row("remodeling")])?.category.key === "remodeling");
+ok("with no granting trade, the cabinetry-ish fallback (a quote that already carries a design)",
+  kitchenCategoryRow([row("flooring"), row("cabinet_refinishing")])?.category.key === "cabinet_refinishing");
+ok("nothing kitchen-ish at all → null (the lead lands uncategorised, never under unrelated work)",
+  kitchenCategoryRow([row("handyman"), row("plumbing")]) === null);
+ok("hostile rows: null list, null entries, missing category → no throw",
+  kitchenCategoryRow(null) === null &&
+    kitchenCategoryRow([null, {}, { category: null }, row("remodeling")])?.category.key === "remodeling");
+
+/* ══ 10. The DB wrapper reads the override — executed against a stub ══════ */
+
+section("companyOffersKitchenDesign reads the trades AND the override");
+
+const CO = "co_kitchen";
+function company({ keys = [], override = null } = {}) {
+  resetDbStub();
+  rows.company = [{ id: CO, kitchenDesignerOverride: override }];
+  rows.companyServiceCategory = keys.map((key) => ({ companyId: CO, enabled: true, rates: null, category: { key } }));
+}
+company({ keys: ["remodeling"] });
+ok("remodeler, never touched the setting → on", (await companyOffersKitchenDesign(CO)) === true);
+company({ keys: ["remodeling"], override: false });
+ok("remodeler who switched it off → off", (await companyOffersKitchenDesign(CO)) === false);
+ok("…a fresh quote is refused", (await canUseKitchenDesigner({ scopeGroups: [] }, CO)) === false);
+ok("…a quote that already carries a design still opens", (await canUseKitchenDesigner(savedByScopeDetails, CO)) === true);
+company({ keys: ["handyman"] });
+ok("handyman, never touched it → off", (await companyOffersKitchenDesign(CO)) === false);
+company({ keys: ["handyman"], override: true });
+ok("handyman who switched it on → on", (await companyOffersKitchenDesign(CO)) === true);
+company({ keys: ["handyman", KITCHEN_DESIGN_KEY] });
+ok("handyman who ticked Kitchen Design & New Installs → on", (await companyOffersKitchenDesign(CO)) === true);
+company({ keys: hisEnabledKeys });
+ok("the owner's 08-30 account through the DB wrapper → still off", (await companyOffersKitchenDesign(CO)) === false);
+resetDbStub();
+rows.company = [];
+rows.companyServiceCategory = [{ companyId: CO, enabled: true, rates: null, category: { key: "remodeling" } }];
+ok("a company row that can't be read → follows the trades, doesn't throw", (await companyOffersKitchenDesign(CO)) === true);
+ok("no companyId → off, no query", (await companyOffersKitchenDesign(null)) === false);
+
+/* ══ 11. Nothing else decides it ══════════════════════════════════════════ */
+//
+// "Every call site goes through the gate." Swept, not listed: every file
+// under app/ and lib/ that names the service key or the override column is
+// found here, and each must be on this list with its reason. A new file
+// that starts deciding kitchen visibility on its own fails this until
+// someone either routes it through the gate or writes down why not.
+
+section("No second answer: every reader of the key or the override is accounted for");
+
+function walk(dir, out = []) {
+  for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, ent.name);
+    if (ent.isDirectory()) {
+      if (ent.name === "node_modules" || ent.name.startsWith(".")) continue;
+      walk(p, out);
+    } else if (/\.(m?js|jsx)$/.test(ent.name)) out.push(p);
+  }
+  return out;
+}
+const ROOT = new URL("..", import.meta.url).pathname;
+const files = [...walk(path.join(ROOT, "app")), ...walk(path.join(ROOT, "lib"))];
+const rel = (p) => path.relative(ROOT, p);
+
+const KEY_USERS = {
+  "lib/kitchen/key.js": "defines it",
+  "lib/kitchen/access.js": "re-exports it",
+  "app/app/settings/services/ServicesEditor.js": "scroll target for the card's find button — not access",
+  "app/app/settings/services/KitchenDesignerCard.js": "whether to show the handyman hint — not access",
+};
+const keyUsers = files.filter((f) => /\bKITCHEN_DESIGN_KEY\b/.test(stripComments(fs.readFileSync(f, "utf8")))).map(rel).sort();
+ok("KITCHEN_DESIGN_KEY is used only where the list says",
+  JSON.stringify(keyUsers) === JSON.stringify(Object.keys(KEY_USERS).sort()), keyUsers);
+
+const OVERRIDE_READERS = {
+  "lib/kitchen/access.js": "the gate",
+  "lib/links/load.js": "bio-link row, via kitchenDesignerOnPure",
+  "app/api/self-quote/[companySlug]/route.js": "public form's link, via kitchenDesignerOnPure",
+  "lib/settings/tradeGate.js": "Cabinet Rates, via kitchenDesignerOnPure",
+  "app/api/settings/kitchen-designer/route.js": "the one writer",
+};
+const overrideUsers = files.filter((f) => /kitchenDesignerOverride/.test(stripComments(fs.readFileSync(f, "utf8")))).map(rel).sort();
+ok("kitchenDesignerOverride is touched only where the list says",
+  JSON.stringify(overrideUsers) === JSON.stringify(Object.keys(OVERRIDE_READERS).sort()), overrideUsers);
+for (const f of ["lib/links/load.js", "app/api/self-quote/[companySlug]/route.js", "lib/settings/tradeGate.js"]) {
+  ok(`${f} answers with the one rule (kitchenDesignerOnPure), not its own`,
+    /kitchenDesignerOnPure\(/.test(stripComments(fs.readFileSync(path.join(ROOT, f), "utf8"))));
+}
+ok("the override has exactly one writer, and it refuses anyone below owner/admin",
+  /\["owner", "admin"\]\.includes\(member\.role\)/.test(fs.readFileSync(path.join(ROOT, "app/api/settings/kitchen-designer/route.js"), "utf8")) &&
+    files.filter((f) => /kitchenDesignerOverride:\s*body\./.test(fs.readFileSync(f, "utf8"))).map(rel).join() ===
+      "app/api/settings/kitchen-designer/route.js");
+ok("…and it accepts exactly true, false or null",
+  /!\[true, false, null\]\.includes\(body\.override\)/.test(fs.readFileSync(path.join(ROOT, "app/api/settings/kitchen-designer/route.js"), "utf8")));
 
 console.log(
   failures === 0

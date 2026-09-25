@@ -312,13 +312,13 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Qui peut le voir",
         blocks: [
-          { p: "La ligne n'apparaît que lorsque votre entreprise a activé **Kitchen Design & New Installs** (conception de cuisine et installations neuves) sous Services et tarifs, ou a déjà enregistré ses propres tarifs. La lire et la modifier exige **user:manage** — les propriétaires, les administrateurs et les superviseurs (les niveaux Répartiteur et Gestionnaire). Le concepteur lui-même est décrit dans [[the-kitchen-designer|Le concepteur de cuisine]]." },
+          { p: "La ligne n'apparaît que lorsque votre entreprise a le **concepteur de cuisine** activé (Services et tarifs — tout seul pour Kitchen Design & New Installs, la rénovation, la rénovation générale, l'entreprise générale, la construction neuve et le remplacement de façades d'armoires), ou a déjà enregistré ses propres tarifs. La lire et la modifier exige **user:manage** — les propriétaires, les administrateurs et les superviseurs (les niveaux Répartiteur et Gestionnaire). Le concepteur lui-même est décrit dans [[the-kitchen-designer|Le concepteur de cuisine]]." },
         ],
       },
     ],
     faq: [
       { q: "J'ai changé mes tarifs — la soumission de cuisine envoyée hier change-t-elle?", a: "Non. Les designs sont tarifés au moment où ils sont faits; les nouveaux tarifs s'appliquent aux nouveaux designs." },
-      { q: "Pourquoi Tarifs des armoires n'est-il pas dans mon menu Paramètres?", a: "La ligne n'apparaît que pour les entreprises qui ont activé Kitchen Design & New Installs. Activez ce type de soumission sous Services et tarifs." },
+      { q: "Pourquoi Tarifs des armoires n'est-il pas dans mon menu Paramètres?", a: "La ligne n'apparaît que pour les entreprises dont le concepteur de cuisine est activé. Il s'active tout seul si vous offrez Kitchen Design & New Installs, la rénovation, la rénovation générale, l'entreprise générale, la construction neuve et le remplacement de façades d'armoires, et la carte Concepteur de cuisines sous Services et tarifs peut l'activer pour toute entreprise." },
     ],
   },
 

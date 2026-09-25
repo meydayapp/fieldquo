@@ -41,7 +41,7 @@ export const ARTICLES = {
             "**Request a quote** — “They describe the job and leave their details. Lands in your Leads pipeline. Best for people still comparing prices.”",
             "**Book a visit** — “They pick a time from your real availability. Best for people who've already decided and just want you there.”",
             "**Instant estimate** — “They enter their address and get a real starting price in seconds — roof measured from satellite, or an area they trace on a map. Every estimate lands in your review queue before it's binding.” Trades and rates live under **Settings → Instant Quotes**.",
-            "**Design your kitchen** — shown only when the **Kitchen Design & New Installs** service is switched on under Services. A homeowner lays out their own kitchen and sends it to you as an enquiry with the drawing attached. This card has a link and no embed, because no embeddable kitchen widget exists.",
+            "**Design your kitchen** — shown only when the **Kitchen Designer** is on under Services. A homeowner lays out their own kitchen and sends it to you as an enquiry with the drawing attached. This card has a link and no embed, because no embeddable kitchen widget exists.",
             "**One card per published funnel**, named as you named it — “A tap-through lead funnel — share the link on an ad, or put it on your site.” A draft funnel is not listed, because its link would not work yet.",
             "The closing line: the quote form only offers the services you enabled under **Settings → Services**, and never shows your prices.",
           ] },

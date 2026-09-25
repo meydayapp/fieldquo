@@ -9,8 +9,11 @@
 // Design & New Installs" on had a page a stranger could draw a kitchen on and
 // no screen in /app that told them its address. Three surfaces now offer it,
 // and each must offer it under EXACTLY the condition the page renders on
-// (companyOffersKitchenDesign: the kitchen_design service is enabled) — a link
-// that 404s on a bio page is the failure the bio-link module exists to stop.
+// (companyOffersKitchenDesign: since 2026-09-25 a kitchen-building trade is
+// enabled, unless the company's own override says otherwise — the rule is
+// kitchenDesignerOnPure in lib/kitchen/key.js, executed in
+// check-kitchen-access.mjs) — a link that 404s on a bio page is the failure
+// the bio-link module exists to stop.
 //
 //   1. the bio-link page (lib/links/candidates.js) — executed here
 //   2. Share your links (app/app/settings/lead-form) — source-checked
@@ -76,22 +79,32 @@ ok("lib/kitchen/key.js has no imports, so a client component can read it without
 const access = read("lib/kitchen/access.js");
 ok("lib/kitchen/access.js re-exports the same constant rather than restating it", /export \{ KITCHEN_DESIGN_KEY \} from "\.\/key"/.test(access) && !/KITCHEN_DESIGN_KEY = "kitchen_design"/.test(access));
 const load = read("lib/links/load.js");
-ok("the bio-link loader derives the row from the enabled service keys", /offersKitchenDesign: categoryKeys\.includes\(KITCHEN_DESIGN_KEY\)/.test(load));
+// Since 2026-09-25 the row follows the one rule (kitchenDesignerOnPure in
+// lib/kitchen/key.js — granting trades plus the company override), called
+// over the keys already read, not a second copy of "is kitchen_design on".
+ok("the bio-link loader derives the row from the one rule over the enabled keys and the override",
+  /offersKitchenDesign: kitchenDesignerOnPure\(categoryKeys, company\.kitchenDesignerOverride\)/.test(load) &&
+    /kitchenDesignerOverride: true/.test(load));
 ok("…read once and shared with the painting-scope rule (no second query for a stranger on a phone)", /priceableEstimators\(company, categoryKeys\)/.test(load) && (load.match(/companyEnabledCategoryKeys\(/g) || []).length === 1);
 const icons = read("app/components/links/linkIcons.js");
 ok("the row has an icon of its own", /kitchen: Ruler/.test(icons));
 
 section("Share your links");
 const leadForm = read("app/app/settings/lead-form/page.js");
-ok("reads the services list and looks for the kitchen_design service being enabled", /\/api\/settings\/service-categories/.test(leadForm) && /c\.key === KITCHEN_DESIGN_KEY && c\.enabled === true/.test(leadForm));
+ok("asks the server's gate (GET /api/settings/kitchen-designer) rather than re-deriving the rule",
+  /\/api\/settings\/kitchen-designer/.test(leadForm) && /state\?\.on === true/.test(leadForm) && !/KITCHEN_DESIGN_KEY/.test(leadForm));
 ok("the card renders only behind that flag", /\{kitchenOffered && \(/.test(leadForm));
 ok("the URL is built from the same slug the other three cards use", /const kitchenUrl = `\$\{origin\}\/quote\/\$\{slug\}\/kitchen`/.test(leadForm));
 ok("no embed snippet is promised for it (there is no embed widget)", !/embed=\{embed\("kitchen"\)\}/.test(leadForm));
-ok("imports the key from the client-safe module, not lib/kitchen/access", /from "@\/lib\/kitchen\/key"/.test(leadForm) && !/lib\/kitchen\/access/.test(leadForm));
+ok("a client page never imports lib/kitchen/access (it would drag lib/db into the browser)", !/lib\/kitchen\/access/.test(leadForm));
 
 section("The self-quote form's kitchen step");
 const flow = read("app/quote/[companySlug]/SelfQuoteFlow.js");
-ok("offers the designer only on the Kitchen Design service", /service\.key === KITCHEN_DESIGN_KEY && \(/.test(flow));
+ok("offers the designer only when the server says the page exists, and only on a kitchen-building service",
+  /data\.kitchenDesigner === true && KITCHEN_GRANTING_TRADE_KEYS\.includes\(service\.key\) && \(/.test(flow));
+const selfQuoteApi = read("app/api/self-quote/[companySlug]/route.js");
+ok("…where kitchenDesigner is the one rule over the same enabled keys and the override",
+  /kitchenDesigner: kitchenDesignerOnPure\(/.test(selfQuoteApi) && /kitchenDesignerOverride: true/.test(selfQuoteApi));
 ok("…linking to the public page under the slug the form was opened with", /href=\{`\/quote\/\$\{encodeURIComponent\(companySlug\)\}\/kitchen`\}/.test(flow));
 ok("…in the document's language via clientDocCopy", /copy\.designKitchen/.test(flow));
 
@@ -101,7 +114,7 @@ const api = read("app/api/self-quote/kitchen/route.js");
 ok("the page uses findBookingCompany (bookingSlug first, then slug)", /findBookingCompany\(companySlug/.test(page) && !/db\.company\.findUnique/.test(page));
 ok("the page still refuses a company without the service", /companyOffersKitchenDesign\(company\.id\)/.test(page));
 ok("the POST uses the same resolver", /findBookingCompany\(String\(companySlug\)/.test(api));
-ok("…and still refuses without the service", /e\.category\?\.key === KITCHEN_DESIGN_KEY/.test(api));
+ok("…and still refuses through the same gate as the page", /companyOffersKitchenDesign\(company\.id\)/.test(api));
 
 console.log(`\n${checks} checks, ${failures} failure(s).${failures ? "" : " The kitchen designer is reachable, and only where it works."}\n`);
 if (failures) process.exitCode = 1;

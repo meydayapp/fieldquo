@@ -32,7 +32,7 @@ import { resolveSender } from "@/lib/email/companySender";
 import { sendEmail } from "@/lib/email/resend";
 import { getAppOrigin } from "@/lib/appUrl";
 import { recordConsent, DISCLOSURE } from "@/lib/voice/outbound";
-import { KITCHEN_DESIGN_KEY } from "@/lib/kitchen/access";
+import { companyOffersKitchenDesign, kitchenCategoryRow } from "@/lib/kitchen/access";
 
 
 /** Elements this build understands, capped, with only the fields we draw. */
@@ -134,29 +134,26 @@ export async function POST(request) {
   });
   if (!company) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  // Same gate as the page that hosts this form (app/quote/[companySlug]/
+  // kitchen/page.js) — lib/kitchen/access.js, trades plus the company's own
+  // override: a company without the designer gets the same "Not found" a bad
+  // slug gets, not a lead accepted for work it never said it does. The POST
+  // is a second entry point into the same page and has to prove this on its
+  // own — a browser can reach this route directly without ever rendering the
+  // page that would have 404'd first.
+  if (!(await companyOffersKitchenDesign(company.id))) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   // The category a kitchen belongs to for THIS company. Null is fine — the lead
   // still lands, and forcing a category the company hasn't enabled would file it
-  // under work they don't do.
+  // under work they don't do. A company on the designer by its override alone
+  // (a handyman who switched it on) can have no kitchen-ish trade at all.
   const enabled = await db.companyServiceCategory.findMany({
     where: { companyId: company.id, enabled: true },
     include: { category: { select: { id: true, key: true } } },
   });
-
-  // Same rule as the page that hosts this form (app/quote/[companySlug]/
-  // kitchen/page.js): a company that never turned Kitchen Design on gets the
-  // same "Not found" a bad slug gets, not a lead accepted for work it never
-  // said it does. The POST is a second entry point into the same page and has
-  // to prove this on its own — a browser can reach this route directly
-  // without ever rendering the page that would have 404'd first.
-  if (!enabled.some((e) => e.category?.key === KITCHEN_DESIGN_KEY)) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-
-  const categoryId =
-    enabled.find((e) => e.category?.key === KITCHEN_DESIGN_KEY)?.category?.id ||
-    enabled.find((e) => /cabinet|kitchen|countertop|remodel/.test(e.category?.key || ""))
-      ?.category?.id ||
-    null;
+  const categoryId = kitchenCategoryRow(enabled)?.category?.id || null;
 
   const counts = design.elements.reduce((acc, el) => {
     const g = KINDS[el.kind]?.group || "other";

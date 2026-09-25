@@ -521,7 +521,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Overview",
         blocks: [
-          { p: "The **Kitchen designer** button appears on a quote when your company has **Kitchen Design & New Installs** switched on under **Settings → Services**, or when that quote already carries a design. Saving in the designer stores the drawing and reprices the quote in one step — there is deliberately no separate “save design” and “update quote”, because two buttons is how a quote goes out at a price that does not match the drawing stapled to it." },
+          { p: "The **Kitchen designer** button appears on a quote when your company has the **Kitchen Designer** on under **Settings → Services** — it turns on by itself for Kitchen Design & New Installs, Remodeling, Renovation, General Contracting, New Construction and Cabinet Refacing; a handyman or refinisher who installs kitchens can switch it on, and any company can switch it off — or when that quote already carries a design. Saving in the designer stores the drawing and reprices the quote in one step — there is deliberately no separate “save design” and “update quote”, because two buttons is how a quote goes out at a price that does not match the drawing stapled to it." },
           { note: "**Only in FieldQuo.** A kitchen and cabinet designer whose prices and floor plan go straight into the quote is not listed on the pricing pages of Jobber, Housecall Pro, Projul, QuoteIQ or ServiceTitan at any tier." },
         ],
       },
@@ -571,7 +571,7 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "I sell cabinet refinishing. Do I need Cabinet Pricing?", a: "No. Refinishing and refacing price from their own rate cards under Services and Instant Quotes; Cabinet Pricing feeds the kitchen designer only, and the screen stays hidden until Kitchen Design is on." },
-      { q: "Can a homeowner design a kitchen before I have quoted?", a: "Yes. With **Kitchen Design & New Installs** on under Services, a public **Design your kitchen** page exists: a card on Settings → Share your links, a row on your bio link, and a link on the quote form's Kitchen Design step. What they draw arrives as a lead with the drawing attached and no price — you quote it. The client link on a sent quote is different: it edits that quote's design." },
+      { q: "Can a homeowner design a kitchen before I have quoted?", a: "Yes. With the **Kitchen Designer** on under Services, a public **Design your kitchen** page exists: a card on Settings → Share your links, a row on your bio link, and a link on the quote form's step for any of those kitchen services. What they draw arrives as a lead with the drawing attached and no price — you quote it. The client link on a sent quote is different: it edits that quote's design." },
       { q: "Does the client's edit change my quote?", a: "Never on its own. It is a second version you can load; the quote only moves when you press Save & reprice quote." },
     ],
   },

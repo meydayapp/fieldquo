@@ -367,7 +367,7 @@ export const ARTICLES = {
             "**Demander une soumission** — « Ils décrivent le travail et laissent leurs coordonnées. Cela arrive dans votre liste de prospects. Idéal pour ceux qui comparent encore les prix. »",
             "**Réserver une visite** — « Ils choisissent une heure selon vos réelles disponibilités. Idéal pour ceux qui ont déjà décidé et veulent simplement votre présence. »",
             "**Estimation instantanée** — la page adresse-en-entrée, prix-en-sortie ; chaque estimation arrive dans votre file de révision avant d'être contraignante. Les métiers et les tarifs se règlent dans **Paramètres → Soumissions instantanées**.",
-            "**Concevez votre cuisine** — « Un propriétaire dessine lui-même sa cuisine — armoires, finis, tout — et vous l'envoie comme demande avec le plan joint. » Affichée seulement tant que **Kitchen Design & New Installs** est activé sous Services, et comme lien seulement : il n'y a pas de code à intégrer pour elle.",
+            "**Concevez votre cuisine** — « Un propriétaire dessine lui-même sa cuisine — armoires, finis, tout — et vous l'envoie comme demande avec le plan joint. » Affichée seulement tant que le **concepteur de cuisine** est activé sous Services (tout seul pour Kitchen Design & New Installs, la rénovation, la rénovation générale, l'entreprise générale, la construction neuve et le remplacement de façades d'armoires ; l'entreprise peut l'activer ou le désactiver là), et comme lien seulement : il n'y a pas de code à intégrer pour elle.",
             "**Une carte par entonnoir publié**, au nom que vous lui avez donné — « Un entonnoir de prospects à parcourir — partagez le lien dans une annonce ou placez-le sur votre site. » Les entonnoirs en brouillon ne sont pas listés, parce que leur lien ne fonctionnerait pas encore.",
             "Une ligne de clôture : le formulaire de soumission n'offre que les services activés dans Paramètres → Services, et n'affiche jamais vos prix.",
           ] },
@@ -498,7 +498,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Aperçu général",
         blocks: [
-          { p: "La page est dérivée de la fiche de votre entreprise, pas tapée de zéro. Une ligne apparaît parce que la chose derrière existe : le formulaire de soumission est toujours là ; **Prendre rendez-vous** apparaît dès que vous avez un type de rendez-vous actif ; **Obtenir un prix instantané** dès qu'un estimateur instantané est activé ; **Concevez votre cuisine** dès que Kitchen Design & New Installs est activé sous Services ; chaque entonnoir publié comme bouton distinct ; votre site web dès qu'il est publié ou dès que vous avez saisi un domaine dans le Profil de l'entreprise ; le lien d'avis dès qu'il est réglé dans Avis ; votre téléphone et votre courriel depuis le Profil de l'entreprise. Une ligne que vous désactivez reste désactivée ; une ligne que personne n'a touchée est activée au premier chargement de la page — y compris un entonnoir que vous publiez le mois prochain." },
+          { p: "La page est dérivée de la fiche de votre entreprise, pas tapée de zéro. Une ligne apparaît parce que la chose derrière existe : le formulaire de soumission est toujours là ; **Prendre rendez-vous** apparaît dès que vous avez un type de rendez-vous actif ; **Obtenir un prix instantané** dès qu'un estimateur instantané est activé ; **Concevez votre cuisine** dès que le concepteur de cuisine est activé sous Services ; chaque entonnoir publié comme bouton distinct ; votre site web dès qu'il est publié ou dès que vous avez saisi un domaine dans le Profil de l'entreprise ; le lien d'avis dès qu'il est réglé dans Avis ; votre téléphone et votre courriel depuis le Profil de l'entreprise. Une ligne que vous désactivez reste désactivée ; une ligne que personne n'a touchée est activée au premier chargement de la page — y compris un entonnoir que vous publiez le mois prochain." },
           { p: "La page suit d'elle-même le téléphone du visiteur entre clair et sombre ; la bascule clair / sombre de cet écran ne change que le cadre d'aperçu. Elle porte une petite ligne **Made by FieldQuo** tout en bas, sur chaque forfait — voir [[the-site-by-fieldquo-footer|Le pied de page « Site par FieldQuo »]]." },
         ],
       },
@@ -542,7 +542,7 @@ export const ARTICLES = {
             rows: [
               ["Obtenir un prix instantané", "Un estimateur instantané est activé dans Paramètres → Soumissions instantanées", "Oui"],
               ["Devis gratuit (le formulaire de soumission)", "Toujours — chaque entreprise l'a", "Oui"],
-              ["Concevez votre cuisine", "Kitchen Design & New Installs est activé sous Paramètres → Services", "Oui"],
+              ["Concevez votre cuisine", "Le concepteur de cuisine est activé sous Paramètres → Services", "Oui"],
               ["Prendre rendez-vous", "Au moins un type de rendez-vous actif dans Paramètres → Page de rendez-vous", "Oui"],
               ["Chaque entonnoir publié, par son nom", "L'entonnoir est publié", "Oui"],
               ["Voir notre site web", "Un domaine dans le Profil de l'entreprise, ou un site FieldQuo publié", "Oui"],

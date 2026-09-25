@@ -26,7 +26,7 @@
     "check:booking-modes": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-booking-modes.mjs",
     "check:change-texts": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-change-texts.mjs",
     "check:service-rate-inheritance": "node --import ./scripts/alias-loader.mjs scripts/check-service-rate-inheritance.mjs",
-    "check:kitchen-access": "node --import ./scripts/alias-loader.mjs scripts/check-kitchen-access.mjs",
+    "check:kitchen-access": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-kitchen-access.mjs",
     "check:quote-duplicate": "node --import ./scripts/alias-loader.mjs scripts/check-quote-duplicate.mjs",
     "check:lead-potential": "node --import ./scripts/alias-loader.mjs scripts/check-lead-potential.mjs",
     "check:custom-fields": "node --import ./scripts/alias-loader.mjs scripts/check-custom-fields.mjs",

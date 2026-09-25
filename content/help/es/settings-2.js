@@ -312,13 +312,13 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Quién puede verlo",
         blocks: [
-          { p: "La fila aparece solo cuando su empresa ha activado **Kitchen Design & New Installs** (diseño de cocinas e instalaciones nuevas) en Servicios y precios, o ya guardó sus propias tarifas. Leerla y cambiarla necesitan **user:manage** — propietarios, administradores y supervisores (los niveles Despachador y Gerente). El diseñador en sí se describe en [[the-kitchen-designer|El diseñador de cocinas]]." },
+          { p: "La fila aparece solo cuando su empresa tiene el **diseñador de cocinas** activado (Servicios y precios — solo, para Kitchen Design & New Installs, remodelación, renovación, contratación general, construcción nueva y renovación de frentes de gabinetes), o ya guardó sus propias tarifas. Leerla y cambiarla necesitan **user:manage** — propietarios, administradores y supervisores (los niveles Despachador y Gerente). El diseñador en sí se describe en [[the-kitchen-designer|El diseñador de cocinas]]." },
         ],
       },
     ],
     faq: [
       { q: "Cambié mis tarifas — ¿cambia el presupuesto de cocina que envié ayer?", a: "No. Los diseños se cotizan cuando se hacen; las tarifas nuevas se aplican a los diseños nuevos." },
-      { q: "¿Por qué Precios de gabinetes no está en mi menú Configuración?", a: "Solo aparece para las empresas con Kitchen Design & New Installs activado. Active ese tipo de presupuesto en Servicios y precios." },
+      { q: "¿Por qué Precios de gabinetes no está en mi menú Configuración?", a: "Solo aparece para las empresas con el diseñador de cocinas activado. Se activa solo si ofrece Kitchen Design & New Installs, remodelación, renovación, contratación general, construcción nueva y renovación de frentes de gabinetes, y la tarjeta Diseñador de cocinas en Servicios y precios puede activarlo para cualquier empresa." },
     ],
   },
 

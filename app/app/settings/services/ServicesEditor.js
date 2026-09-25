@@ -40,6 +40,8 @@ import CustomFactorLibraryCard from "./CustomFactorLibraryCard";
 import ServiceDocuments from "./ServiceDocuments";
 import ServiceSeedsCard from "./ServiceSeedsCard";
 import ServiceTemplatesCard from "./ServiceTemplatesCard";
+import KitchenDesignerCard from "./KitchenDesignerCard";
+import { KITCHEN_DESIGN_KEY } from "@/lib/kitchen/key";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { hasLevel } from "@/lib/permissions/enforce";
 import BackToHome from "@/app/components/BackToHome";
@@ -501,6 +503,29 @@ export default function ServicesEditor({ compact = false, focus = "services", on
               complexity the rows below describe. Same gate as the text-block
               library: the routes ask for quotes:view_create_edit. */}
           <CustomFactorLibraryCard canEdit={canEditLibrary} />
+
+          {/* Whether the company has the Kitchen Designer, why, and its own
+              override — see KitchenDesignerCard. Page only: the set-up
+              dialogs are about switching trades on, and a company-level
+              setting that saves on its own would be a second job there.
+              "Show Kitchen Design & New Installs" clears the search and the
+              trade preset so the row exists, then scrolls to it — a handyman
+              company's preset hides that row otherwise. */}
+          {!loading && !loadError && (
+            <KitchenDesignerCard
+              categories={categories}
+              canEdit={["owner", "admin"].includes(caller?.role)}
+              onFindKitchenDesign={() => {
+                setCategorySearch("");
+                setShowAllTrades(true);
+                setTimeout(() => {
+                  document
+                    .getElementById(`service-${KITCHEN_DESIGN_KEY}`)
+                    ?.scrollIntoView({ behavior: "smooth", block: "center" });
+                }, 50);
+              }}
+            />
+          )}
         </>
       )}
 
@@ -582,7 +607,7 @@ export default function ServicesEditor({ compact = false, focus = "services", on
             // other's inputs. They are full-width blocks under the row now,
             // inside the same card, so opening one pushes the next down
             // instead of across.
-            <div key={c.id} className="border rounded-lg p-4">
+            <div key={c.id} id={`service-${c.key}`} className="border rounded-lg p-4 scroll-mt-4">
               <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
                 <div className="flex items-start gap-4 flex-1 min-w-0">
                   {/* The wording dialog lists the switched-on trades to edit
