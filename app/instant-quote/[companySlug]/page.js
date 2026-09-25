@@ -10,6 +10,7 @@
 export const dynamic = "force-dynamic";
 
 import InstantQuoteFlow from "./InstantQuoteFlow";
+import { loadPublicFormLook } from "@/lib/estimate/publicFormLook";
 
 export async function generateMetadata({ params }) {
   const { companySlug } = await params;
@@ -23,5 +24,8 @@ export async function generateMetadata({ params }) {
 
 export default async function InstantQuotePage({ params }) {
   const { companySlug } = await params;
-  return <InstantQuoteFlow companySlug={companySlug} />;
+  // The company's chosen look, read here so it is in the server-rendered
+  // HTML (the font link before first paint) and never on the URL.
+  const look = await loadPublicFormLook(companySlug);
+  return <InstantQuoteFlow companySlug={companySlug} look={look} />;
 }

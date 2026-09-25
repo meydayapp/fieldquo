@@ -23,6 +23,18 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 // the home page's set-up dialog renders the same cards.
 import TradeCard from "./TradeCard";
 import AdTrackingCard from "./AdTrackingCard";
+import {
+  DEFAULT_FORM_APPEARANCE,
+  FIELD_STYLES,
+  RADII,
+  FONT_PRESET_KEYS,
+  DENSITIES,
+  BUTTON_STYLES,
+  SURFACES,
+  formPalette,
+  isDefaultAppearance,
+  normaliseFormAppearance,
+} from "@/lib/estimate/formAppearance";
 
 export default function InstantQuotesSettingsPage() {
   const { t } = useTranslation();
@@ -30,6 +42,10 @@ export default function InstantQuotesSettingsPage() {
   const [canEdit, setCanEdit] = useState(false);
   const [financing, setFinancing] = useState(null);
   const [reportWebsite, setReportWebsite] = useState(null);
+  // The form's look and the brand it is measured against; null until loaded.
+  const [appearance, setAppearance] = useState(null);
+  const [brandColor, setBrandColor] = useState(null);
+  const [serviceAreaConfigured, setServiceAreaConfigured] = useState(false);
   const [live, setLive] = useState({ count: 0, slug: null });
   const [mismatches, setMismatches] = useState(null);
   const [error, setError] = useState("");
@@ -42,6 +58,9 @@ export default function InstantQuotesSettingsPage() {
       setCanEdit(Boolean(data.canEdit));
       setFinancing(data.financing || { enabled: false });
       setReportWebsite(data.reportWebsite || null);
+      setAppearance(normaliseFormAppearance(data.formAppearance).appearance);
+      setBrandColor(data.brandColor || null);
+      setServiceAreaConfigured(Boolean(data.serviceAreaConfigured));
       setLive({
         count: data.liveTradeCount || 0,
         slug: data.companySlug || null,
@@ -170,10 +189,22 @@ export default function InstantQuotesSettingsPage() {
             "app.setInstantQuotes.embedHeading",
             "Put the instant estimate on your website",
           )}
-          note={t(
-            "app.setInstantQuotes.embedNote",
-            "Paste this where you want it to appear. It is an ordinary HTML element, so it works on Wix, Squarespace, WordPress and hand-written HTML alike. The small script only resizes the box as the homeowner answers; if your site strips scripts it still works at a fixed height.",
-          )}
+          note={[
+            t(
+              "app.setInstantQuotes.embedNote",
+              "Paste this where you want it to appear. It is an ordinary HTML element, so it works on Wix, Squarespace, WordPress and hand-written HTML alike. The small script only resizes the box as the homeowner answers; if your site strips scripts it still works at a fixed height.",
+            ),
+            // The look is served WITH the form, from the company row, so the
+            // snippet never changes and nothing on the pasted URL can alter
+            // it. Said here so "copy embed code" visibly reflects the choice.
+            appearance && !isDefaultAppearance(appearance)
+              ? t("app.setInstantQuotes.look.servedNote", "Your saved look is served with this embed: {summary}.", {
+                  summary: appearanceSummary(appearance, t),
+                })
+              : null,
+          ]
+            .filter(Boolean)
+            .join(" ")}
         />
       )}
 
@@ -298,6 +329,7 @@ export default function InstantQuotesSettingsPage() {
             trade={trade}
             canEdit={canEdit}
             onSaved={load}
+            serviceAreaConfigured={serviceAreaConfigured}
           />
         ))}
       </div>
@@ -323,6 +355,16 @@ export default function InstantQuotesSettingsPage() {
         </p>
       )}
 
+      {appearance && live.slug && (
+        <AppearanceCard
+          saved={appearance}
+          brandColor={brandColor}
+          slug={live.slug}
+          canEdit={canEdit}
+          onSaved={load}
+        />
+      )}
+
       {financing && (
         <FinancingCard financing={financing} canEdit={canEdit} onSaved={load} />
       )}
@@ -336,6 +378,258 @@ export default function InstantQuotesSettingsPage() {
           list must not hold it up. */}
       <AdTrackingCard />
     </div>
+  );
+}
+
+// The six choices, their option lists and the translated words for each.
+const LOOK_CHOICES = [
+  ["fieldStyle", FIELD_STYLES],
+  ["radius", RADII],
+  ["fontPreset", FONT_PRESET_KEYS],
+  ["density", DENSITIES],
+  ["buttonStyle", BUTTON_STYLES],
+  ["surface", SURFACES],
+];
+
+const LOOK_DEFAULT_WORDS = {
+  fieldStyle: { outlined: "Outlined", underlined: "Underlined", filled: "Filled", pill: "Pill" },
+  radius: { none: "Square", small: "Slightly rounded", medium: "Rounded", full: "Fully rounded" },
+  fontPreset: {
+    system: "Standard",
+    humanist: "Humanist sans (Manrope)",
+    classic_serif: "Classic serif (Lora)",
+    display_serif: "Display serif (Cormorant)",
+    geometric: "Geometric sans (Poppins)",
+  },
+  density: { comfortable: "Comfortable", compact: "Compact" },
+  buttonStyle: { solid: "Solid", outline: "Outline", pill: "Pill" },
+  surface: { light: "Light", dark: "Dark", "brand-wash": "Brand tint" },
+};
+
+const LOOK_GROUP_WORDS = {
+  fieldStyle: "Text boxes",
+  radius: "Corners",
+  fontPreset: "Type",
+  density: "Spacing",
+  buttonStyle: "Buttons",
+  surface: "Background",
+};
+
+// Keys built by concatenation, invisible to check-translations' literal scan:
+// "app.setInstantQuotes.look.fieldStyle.outlined" … ".surface.brand-wash",
+// "app.setInstantQuotes.look.group.fieldStyle" … ".group.surface",
+// "app.setInstantQuotes.look.check.text_card" … ".check.button_edge".
+function lookWord(group, value, t) {
+  return t(`app.setInstantQuotes.look.${group}.${value}`, LOOK_DEFAULT_WORDS[group]?.[value] || value);
+}
+
+/** "Filled text boxes · Square corners · Dark background" — only the non-defaults. */
+function appearanceSummary(appearance, t) {
+  return LOOK_CHOICES.filter(([group]) => appearance[group] !== DEFAULT_FORM_APPEARANCE[group])
+    .map(([group]) => `${t(`app.setInstantQuotes.look.group.${group}`, LOOK_GROUP_WORDS[group])}: ${lookWord(group, appearance[group], t)}`)
+    .join(" · ");
+}
+
+/**
+ * How the public form looks — the six presets, a live preview of the REAL
+ * form in the draft look at phone width, and the measured contrast of every
+ * text pairing on the company's own brand colour.
+ *
+ * Company-level, like financing: the instant-estimate page, the
+ * request-a-quote page and both embeds share one look the way they share one
+ * brand colour. The preview is an iframe on /form-preview/<slug> (a page only
+ * a member of this company can open) so the flow's own phone breakpoints
+ * apply; the draft rides on THAT url only — the public pages and the embed
+ * read the saved look from the company row and take nothing from the URL.
+ *
+ * A look whose text cannot reach 4.5:1 on this brand is shown with the
+ * failing pairs and cannot be saved; the route refuses it too.
+ */
+function AppearanceCard({ saved, brandColor, slug, canEdit, onSaved }) {
+  const { t } = useTranslation();
+  const [draft, setDraft] = useState(saved);
+  const [widget, setWidget] = useState("instant-quote");
+  const [wide, setWide] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [savedNote, setSavedNote] = useState(false);
+  // window.location.origin arrives on mount; the iframe waits for it rather
+  // than pointing at a relative URL that a tenant subdomain would rewrite.
+  const [origin, setOrigin] = useState("");
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
+  useEffect(() => {
+    setDraft(saved);
+  }, [saved]);
+
+  const palette = formPalette(brandColor, draft);
+  const dirty = JSON.stringify(draft) !== JSON.stringify(saved);
+  const previewUrl = origin
+    ? `${origin}/form-preview/${encodeURIComponent(slug)}?widget=${widget}&a=${encodeURIComponent(JSON.stringify(draft))}`
+    : "";
+
+  async function save() {
+    if (palette.failures.length) return;
+    setSaving(true);
+    setSavedNote(false);
+    try {
+      await fetchJson("/api/settings/instant-quote", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ formAppearance: draft }),
+      });
+      setSavedNote(true);
+      setTimeout(() => setSavedNote(false), 2000);
+      onSaved?.();
+    } catch (err) {
+      showError(err.message || t("app.setInstantQuotes.couldNotSave", "Could not save"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="mt-4 rounded-xl border border-border bg-card p-5">
+      <h3 className="text-base font-semibold text-foreground">
+        {t("app.setInstantQuotes.look.title", "How the form looks")}
+      </h3>
+      <p className="text-xs text-muted-foreground mt-1 max-w-md">
+        {t(
+          "app.setInstantQuotes.look.intro",
+          "Match the form to your website. This applies to your instant-estimate and request-a-quote pages and both embeds; the embed code stays the same, because the look is served with the form.",
+        )}
+      </p>
+
+      <div className="mt-4 grid gap-5 lg:grid-cols-[1fr_auto]">
+        <div className="space-y-4 min-w-0">
+          {LOOK_CHOICES.map(([group, options]) => (
+            <div key={group}>
+              <div className="text-xs font-medium text-muted-foreground mb-1.5">
+                {t(`app.setInstantQuotes.look.group.${group}`, LOOK_GROUP_WORDS[group])}
+              </div>
+              <div role="radiogroup" className="flex flex-wrap gap-1.5">
+                {options.map((value) => {
+                  const on = draft[group] === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      disabled={!canEdit}
+                      onClick={() => setDraft((d) => ({ ...d, [group]: value }))}
+                      className={`rounded-full border px-3 min-h-9 text-xs font-medium disabled:opacity-60 ${
+                        on ? "border-transparent bg-inverted text-inverted-foreground" : "border-border bg-card text-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {lookWord(group, value, t)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+          <p className="text-xs text-muted-foreground max-w-md">
+            {t(
+              "app.setInstantQuotes.look.fontsNote",
+              "Type presets other than Standard are loaded from Google Fonts on the public form only; nothing in the app changes.",
+            )}
+          </p>
+
+          {/* The measurement. Every text pairing, its ratio, and whether it
+              clears the bar — on THIS brand colour, not an assumed one. */}
+          <div className="rounded-lg border border-border bg-muted/40 px-3 py-3">
+            <div className="text-xs font-medium text-foreground">
+              {t("app.setInstantQuotes.look.contrast", "Measured contrast on your brand colour")}
+              {brandColor && <span className="font-mono text-muted-foreground"> {brandColor}</span>}
+            </div>
+            <p className={`text-xs mt-1 ${palette.failures.length ? "text-red-700 dark:text-red-400" : "text-muted-foreground"}`}>
+              {palette.failures.length
+                ? t(
+                    "app.setInstantQuotes.look.contrastFail",
+                    "This look can't be read on your brand colour — the pairs marked below are under 4.5:1. Pick another background or text-box style; it won't save until they pass.",
+                  )
+                : t("app.setInstantQuotes.look.contrastOk", "Every text pairing reads at 4.5:1 or better.")}
+            </p>
+            <ul className="mt-2 grid grid-cols-2 gap-x-3 gap-y-0.5">
+              {palette.checks.map((c) => (
+                <li key={c.key} className={`text-[11px] tabular-nums flex justify-between gap-2 ${c.ok ? "text-muted-foreground" : "text-red-700 dark:text-red-400 font-semibold"}`}>
+                  <span className="truncate">{t(`app.setInstantQuotes.look.check.${c.key}`, c.label)}</span>
+                  <span className="shrink-0">{c.ratio.toFixed(2)}:1{c.ok ? "" : ` < ${c.need}`}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {canEdit && (
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => save()}
+                disabled={saving || !dirty || palette.failures.length > 0}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-inverted text-inverted-foreground text-sm font-semibold disabled:opacity-50"
+              >
+                {saving ? <Loader2 size={14} className="animate-spin" /> : null}{" "}
+                {t("app.action.save")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setDraft({ ...DEFAULT_FORM_APPEARANCE })}
+                disabled={isDefaultAppearance(draft)}
+                className="text-xs underline text-muted-foreground disabled:opacity-50 disabled:no-underline"
+              >
+                {t("app.setInstantQuotes.look.reset", "Back to the standard look")}
+              </button>
+              {savedNote && (
+                <span className="text-sm text-emerald-600 dark:text-emerald-400">{t("app.action.saved")}</span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* The preview: the real form, in the draft look, at 390px unless
+            widened. Reloads on every change because the look is in the URL
+            of this authenticated page — see app/form-preview. */}
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-1.5 mb-2">
+            <span className="text-xs font-medium text-muted-foreground mr-1">
+              {t("app.setInstantQuotes.look.preview", "Live preview")}
+            </span>
+            {[
+              ["instant-quote", t("app.setInstantQuotes.look.previewInstant", "Instant estimate")],
+              ["quote", t("app.setInstantQuotes.look.previewQuote", "Request a quote")],
+            ].map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={widget === key}
+                onClick={() => setWidget(key)}
+                className={`rounded-full border px-2.5 min-h-8 text-xs ${widget === key ? "border-transparent bg-inverted text-inverted-foreground" : "border-border text-foreground"}`}
+              >
+                {label}
+              </button>
+            ))}
+            <button
+              type="button"
+              aria-pressed={wide}
+              onClick={() => setWide((v) => !v)}
+              className={`rounded-full border px-2.5 min-h-8 text-xs ${wide ? "border-transparent bg-inverted text-inverted-foreground" : "border-border text-foreground"}`}
+            >
+              {wide ? t("app.setInstantQuotes.look.previewWide", "Wide") : t("app.setInstantQuotes.look.previewPhone", "Phone")}
+            </button>
+          </div>
+          {previewUrl && (
+            <iframe
+              key={previewUrl}
+              src={previewUrl}
+              title={t("app.setInstantQuotes.look.preview", "Live preview")}
+              className="rounded-xl border border-border bg-white"
+              style={{ width: wide ? "100%" : 390, maxWidth: "100%", height: 720 }}
+            />
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
 
