@@ -64,7 +64,8 @@ import QuoteLanguageBar from "@/app/components/quotes/QuoteLanguageBar";
 import SuggestAddOns from "@/app/components/quotes/SuggestAddOns";
 import QuotePlanOffers from "@/app/components/quotes/QuotePlanOffers";
 import { applyActualsToDraft } from "@/lib/quotes/applyActuals";
-import ServiceTiles from "./ServiceTiles";
+import AddServicePicker from "./AddServicePicker";
+import { templatePreview, quoteTypeSummary } from "@/lib/quotes/servicePicker";
 import ScopeGroupCard from "./ScopeGroupCard";
 import TradeTakeoff, { hasTakeoff } from "./TradeTakeoff";
 import UnitPricingFields from "./UnitPricingFields";
@@ -1286,51 +1287,31 @@ export function QuoteBuilderForm({
     });
   }
 
-  function serviceCardDetails(category) {
-    const lang = quoteLanguage || companyLanguage;
+  // The quote type's own row in the Add service dialog (and, until
+  // 2026-09-25, its card at the foot of the quote): one sentence of the
+  // wording and a price. Its services and their templates are listed under it
+  // by the dialog itself (servicePicker below).
+  function quoteTypeInfo(category) {
     const money = (n) => formatAppMoney(n, companyCurrency, "en");
-    const own = (Array.isArray(products) ? products : []).filter(
-      (p) =>
-        p &&
-        p.active !== false &&
-        (p.type == null || p.type === "service") &&
-        Array.isArray(p.categories) &&
-        p.categories.some((c) => c?.id === category.id),
-    );
-    // One sentence of the paragraph the client reads under this service.
-    const para = resolveServiceContent(category.key, wordingOverrideFor(category.id), null, lang).description || "";
-    const description = (para.match(/^[^.!?。]*[.!?。]?/)?.[0] || para).trim();
-    // The price: the cheapest of the company's own services on this trade
-    // ("from"), else the trade's own rate, else — for a cabinet trade — the
-    // per-door figure a new group opens at. Never a benchmark of ours.
-    const priced = own.map((p) => ({ p, v: num(p.unitPrice) })).filter((x) => x.v > 0).sort((a, b) => a.v - b.v)[0];
-    const rate = category.defaultRate != null ? num(category.defaultRate) : num(defaultTradeRate(category.key)?.rate);
-    const perDoor = isUnitPriced(category.key) ? num(getPriceBook(category.key, rateOverridesFor(category.id))?.perDoor) : 0;
+    // The rule (which price, which sentence) is lib/quotes/servicePicker.js
+    // quoteTypeSummary — executed by scripts/check-service-picker.mjs; only
+    // the words and the money format are the screen's.
+    const { description, price, calc } = quoteTypeSummary({
+      category,
+      products,
+      wordingOverride: wordingOverrideFor(category.id),
+      rateOverrides: rateOverridesFor(category.id),
+      language: quoteLanguage || companyLanguage,
+    });
     const unitOf = (u) => (u && u !== "flat" ? ` / ${u}` : "");
-    const priceHint = priced
-      ? t("app.serviceTiles.priceFrom", "from {price}", { price: `${money(priced.v)}${unitOf(priced.p.unit)}` })
-      : rate > 0
-        ? `${money(rate)}${unitOf(category.unit)}`
-        : perDoor > 0
-          ? `${money(perDoor)} · ${t("app.setInstantQuotes.perDoor", "Per door")}`
-          : null;
-    // The units the new group's own calculator bills are held back from its
-    // template (keysPricedByGroup) — counted and named here as they will be
-    // added, so the card never offers "3 lines" and adds 1.
-    const pricedKeys = keysPricedByGroup({ categoryKey: category.key });
-    const templates = templatesFor({ products: own, categoryId: category.id, categoryKey: category.key })
-      .map((p) => {
-        const { summary } = expandServiceTemplate(p, { currency: companyCurrency, heading: false, pricedKeys });
-        return {
-          id: String(p.id),
-          name: serviceTextIn(p, lang, companyLanguage).name,
-          count: summary.lines,
-          note: templateSkipNote(summary, category.key),
-          onAdd: () => addScopeGroupWithTemplate(category, p),
-        };
-      })
-      .filter((x) => x.count > 0);
-    return { description, priceHint, templates };
+    const priceHint = !price
+      ? null
+      : price.from
+        ? t("app.serviceTiles.priceFrom", "from {price}", { price: `${money(price.amount)}${unitOf(price.unit)}` })
+        : price.perDoor
+          ? `${money(price.amount)} · ${t("app.setInstantQuotes.perDoor", "Per door")}`
+          : `${money(price.amount)}${unitOf(price.unit)}`;
+    return { description, priceHint, calc };
   }
 
   /**
@@ -1355,6 +1336,63 @@ export function QuoteBuilderForm({
     });
     setScopeGroups((prev) => [...prev, { ...group, lineItems: lines }]);
   }
+
+  /**
+   * "Add as one line" in the Add service dialog: the service as ONE line in a
+   * new group of its quote type — the line the library's plain Products &
+   * Services row writes (lineFromProduct, the same helper as
+   * addProductLineItem), and, as with the template add above, no seeded
+   * "{service} — $rate" line under it: that would be the same work twice.
+   */
+  function addScopeGroupWithProduct(category, product) {
+    const group = newScopeGroup(category, category.label, rateOverridesFor(category.id), {
+      tempId: crypto.randomUUID(),
+    });
+    const line = lineFromProduct(product, {
+      language: quoteLanguage || companyLanguage,
+      defaultLanguage: companyLanguage,
+    });
+    setScopeGroups((prev) => [...prev, { ...group, lineItems: [line] }]);
+  }
+
+  // ── "Add service" (owner, 2026-09-25) ────────────────────────────────────
+  //
+  // The foot of the quote is one control now — inline buttons for a company
+  // with a handful of things to offer, a dialog with a searchable list for
+  // everyone else (AddServicePicker.js, lib/quotes/servicePicker.js). What
+  // it adds is decided HERE, by the functions the old cards called: a quote
+  // type is addScopeGroup(category, label), exactly as before; a templated
+  // service is addScopeGroupWithTemplate. The dialog asks for a preview of
+  // a service's template only for the rows it draws, and gets the lines
+  // that press would add — measured, held back and priced by the same call.
+  function servicePreview(category, product) {
+    const pv = templatePreview({
+      category,
+      product,
+      groups: scopeGroups,
+      rateOverrides: category ? rateOverridesFor(category.id) : null,
+      language: quoteLanguage || companyLanguage,
+      companyLanguage,
+      currency: companyCurrency,
+    });
+    return pv && pv.summary ? { ...pv, note: templateSkipNote(pv.summary, category.key) } : pv;
+  }
+
+  const servicePicker = {
+    kind: "quote",
+    categories,
+    products,
+    onQuoteCategoryIds: scopeGroups.map((g) => g.categoryId),
+    language: quoteLanguage || companyLanguage,
+    companyLanguage,
+    currency: companyCurrency,
+    showPricing: caller ? hasToggle(caller, "showPricing") : true,
+    typeInfo: quoteTypeInfo,
+    preview: servicePreview,
+    addType: addScopeGroup,
+    addTemplate: addScopeGroupWithTemplate,
+    addLine: addScopeGroupWithProduct,
+  };
 
   /**
    * The painting company's first answer — "what kind of estimate is this?"
@@ -3070,7 +3108,7 @@ export function QuoteBuilderForm({
           showNewClient, setShowNewClient, newClient, setNewClient, handleCreateClient, creatingClient,
           siteAddress, setSiteAddress,
           categories, products, teamRoster, settingsAccess,
-          scopeGroups, setScopeGroups, addScopeGroup, addPaintingEstimate, paintingFirst, serviceCardDetails, removeScopeGroup, updateLineItem, removeLineItem,
+          scopeGroups, setScopeGroups, addScopeGroup, addPaintingEstimate, paintingFirst, servicePicker, removeScopeGroup, updateLineItem, removeLineItem,
           groupFromStored, groupTotal, rateOverridesFor, wordingOverrideFor, getProductsForCategory,
           notes, setNotes, reviewNotes, setReviewNotes, reviewNotesRef, processNotes, setProcessNotes,
           assignedToId, setAssignedToId, setAssignedToTouched,
@@ -3352,16 +3390,12 @@ export function QuoteBuilderForm({
         </p>
       )}
 
-      {/* Service picker. The tile grid, the section-preset expansion and the
-          per-trade accent all live in ServiceTiles — this component keeps the
-          state and the pricing rules. */}
+      {/* Service picker — the same control as the document layout's foot
+          (AddServicePicker.js): inline buttons for a handful of offerings,
+          "Add service" and its dialog for more. This component keeps the
+          state and the adds (servicePicker above). */}
       {canEditScope && !paintingFirst && (
-        <ServiceTiles
-          categories={categories}
-          onAdd={addScopeGroup}
-          documentLanguage={quoteLanguage}
-          details={serviceCardDetails}
-        />
+        <AddServicePicker picker={servicePicker} documentLanguage={quoteLanguage} variant="card" />
       )}
 
       {isEdit && scopeGroups.length === 0 && !canEditScope && (

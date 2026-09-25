@@ -778,6 +778,36 @@ export function InvoiceBuilderForm({ mode = "create", invoiceId = null, bootstra
 
   const showPricing = caller ? hasToggle(caller, "showPricing") : true;
 
+  // "Add service" under the lines — the quote's control and dialog
+  // (AddServicePicker.js), parity the owner asked for: "a new invoice should
+  // be the same as creating a new quote, except that it is an invoice". An
+  // invoice has no quote types, so it lists the services alone, and every add
+  // is one of the two this file already had: the template's lines
+  // (addProductTemplate, no heading, nothing measured) or the one line.
+  const servicePicker = {
+    kind: "invoice",
+    products,
+    onQuoteCategoryIds: [],
+    language: documentLanguage,
+    companyLanguage,
+    currency: companyCurrency,
+    showPricing,
+    preview: (_category, product) => {
+      if (!templateOffered(product, { invoice: true })) return null;
+      const { lines, summary } = expandServiceTemplate(product, {
+        measurements: null,
+        language: documentLanguage,
+        companyLanguage,
+        currency: companyCurrency,
+        runId: "preview",
+        heading: false,
+      });
+      return { offered: summary.lines > 0, count: summary.lines, lines, note: null, groups: null };
+    },
+    addTemplate: (_category, product) => addProductTemplate(product),
+    addLine: (_category, product) => addProductLine(product),
+  };
+
   /** The line table under the one card, with the clocked-hours line above it. */
   const renderGroupEditor = () => (
     <>
@@ -1100,6 +1130,7 @@ export function InvoiceBuilderForm({ mode = "create", invoiceId = null, bootstra
         scopeGroups: [linesGroup],
         setScopeGroups: noop,
         addScopeGroup: noop,
+        servicePicker,
         addPaintingEstimate: noop,
         paintingFirst: false,
         removeScopeGroup: noop,
