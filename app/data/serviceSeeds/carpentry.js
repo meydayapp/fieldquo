@@ -3,7 +3,8 @@
 // The cabinetry book of the benchmark, filed under carpentry: cabinet
 // installation, hardware and repair. Refinishing is priced per door by the
 // cabinet_refinishing price book and is kept here as a reference only.
-import { L, SHARED, D, T, withTemplates } from "./_templateLines";
+import { L, SHARED, D, T, withTemplates, withLanguages } from "./_templateLines";
+import { I18N } from "./i18n/carpentry.js";
 
 const BM = (low, median, high) => ({ low, median, high, currency: "USD", source: "benchmark", asOf: "2026-09-21" });
 const S = (seedKey, category, unit, benchmark, [en, fr, es], [den, dfr, des], extra = {}) => ({
@@ -369,4 +370,5 @@ const TEMPLATES = {
   ], null),
 };
 
+withLanguages(SEED, I18N);
 withTemplates(SEED, TEMPLATES);
