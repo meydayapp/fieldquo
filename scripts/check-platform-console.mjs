@@ -531,6 +531,9 @@ const HREFS_BEFORE_REGROUP = [
   "/platform/sms-health",
   // Added after the regroup, by the commit that added it (the AI payer switch).
   "/platform/ai-billing",
+  // 2026-09-25: where FieldQuo must register to charge VAT/GST on its own
+  // subscriptions (Earnings, beside the money it taxes).
+  "/platform/billing/tax",
 ];
 const allHrefs = [HOME?.[1], ...PLATFORM_ITEMS.map((i) => i.href)].filter(Boolean);
 const counts = new Map();
@@ -546,7 +549,7 @@ ok("the regroup added no row (a new row is appended to HREFS_BEFORE_REGROUP by t
 // ── Membership the owner named ─────────────────────────────────────────────
 const groupOf = (href) => PLATFORM_GROUPS.find((g) => g.items.some((i) => i.href === href))?.key;
 const MEMBERSHIP = {
-  earnings: ["/platform/billing/subscriptions", "/platform/billing/plans", "/platform/billing/promotions", "/platform/promo-codes", "/platform/growth", "/platform/reports"],
+  earnings: ["/platform/billing/subscriptions", "/platform/billing/plans", "/platform/billing/promotions", "/platform/promo-codes", "/platform/billing/tax", "/platform/growth", "/platform/reports"],
   spending: ["/platform/costs", "/platform/ai-usage", "/platform/ai-billing", "/platform/voice-economics", "/platform/voice-numbers", "/platform/crew-lines", "/platform/sales/payouts", "/platform/sales/plans"],
   companies: ["/platform/companies", "/platform/signups", "/platform/signup-origins", "/platform/migrations", "/platform/features", "/platform/demo", "/platform/demos", "/platform/demo-availability"],
   salesTeam: ["/platform/sales/reps", "/platform/sales/floor", "/platform/sales/performance", "/platform/sales/call-quality", "/platform/sales/funnel", "/platform/sales/notes", "/platform/sales/conversations", "/platform/sales/windows", "/platform/sales/review", "/platform/sales/retry-pool"],

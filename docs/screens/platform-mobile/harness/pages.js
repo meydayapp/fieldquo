@@ -14,6 +14,7 @@ import AuditLogPage from "@/app/platform/audit-log/page";
 import BillingPlansPage from "@/app/platform/billing/plans/page";
 import BillingPromotionsPage from "@/app/platform/billing/promotions/page";
 import BillingSubscriptionsPage from "@/app/platform/billing/subscriptions/page";
+import BillingTaxPage from "@/app/platform/billing/tax/page";
 import ChatPage from "@/app/platform/chat/page";
 import CompaniesPage from "@/app/platform/companies/page";
 import CompanyDetailPage from "@/app/platform/companies/[id]/page";
@@ -98,6 +99,7 @@ export const PAGES = {
   "/platform/billing/plans": { render: page(BillingPlansPage) },
   "/platform/billing/promotions": { render: page(BillingPromotionsPage) },
   "/platform/billing/subscriptions": { render: page(BillingSubscriptionsPage) },
+  "/platform/billing/tax": { render: page(BillingTaxPage) },
   "/platform/chat": { render: page(ChatPage) },
   "/platform/companies": { render: page(CompaniesPage) },
   [`/platform/companies/${COMPANY_ID}`]: { render: asyncPage(CompanyDetailPage, { id: COMPANY_ID }), params: { id: COMPANY_ID }, file: "companies/[id]" },

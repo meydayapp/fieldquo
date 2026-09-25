@@ -38,6 +38,7 @@ import { buildRevenueOutlook } from "@/lib/platform/revenueOutlook";
 import { assembleDisputeEvidence } from "@/lib/billing/disputeEvidence";
 import { FEATURES, FEATURE_STATES, resolveFeature, normaliseState } from "@/lib/features/registry";
 import { SIGNUP_FLAG_LABELS, SIGNUP_VIA_LABELS } from "@/lib/platform/signupFlags";
+import { registrationReport } from "@/lib/platform/taxRegistrations";
 
 // ── Time and randomness ─────────────────────────────────────────────────────
 const DAY = 86400000;
@@ -1546,6 +1547,38 @@ export default function answer({ method, path, url, body }) {
     if (m) return method === "DELETE" ? { ok: true } : { ...PLAN_BY_ID[m[1]], ...(body || {}) };
   }
   if (path === "/api/platform/billing/connect-fees") return CONNECT_FEES;
+  // Tax registrations: the real report function over a small fixture — a UK
+  // sale without a VAT number (register now), a reverse-charged German one,
+  // two Australians paying AUD, a UK trial.
+  if (path === "/api/platform/billing/tax-registrations") {
+    const soon = new Date(Date.now() + 20 * 86400000).toISOString();
+    const report = registrationReport({
+      invoices: [
+        { amount_paid: 9900, currency: "usd", customer_address: { country: "GB" }, customer_tax_ids: [] },
+        { amount_paid: 26900, currency: "usd", customer_address: { country: "DE" }, customer_tax_ids: [{ type: "eu_vat", value: "present" }] },
+        { amount_paid: 16900, currency: "aud", customer_address: { country: "AU" }, customer_tax_ids: [] },
+      ],
+      companies: [
+        { country: "GB", subscription: { status: "active", billingInterval: "month", plan: { priceMonthly: 99, priceAnnual: 990, currency: "USD" } } },
+        { country: "GB", subscription: null, trialEndsAt: soon },
+        { country: "DE", subscription: { status: "active", billingInterval: "month", plan: { priceMonthly: 269, priceAnnual: 2690, currency: "USD" } } },
+        { country: "AU", subscription: { status: "active", billingInterval: "month", plan: { priceMonthly: 169, priceAnnual: 1690, currency: "AUD" } } },
+        { country: "AU", subscription: { status: "active", billingInterval: "year", plan: { priceMonthly: 99, priceAnnual: 990, currency: "AUD" } } },
+        { country: "CA", subscription: { status: "active", billingInterval: "month", plan: { priceMonthly: 99, priceAnnual: 990, currency: "CAD" } } },
+        { country: "NZ", subscription: { status: "active", billingInterval: "month", plan: { priceMonthly: 99, priceAnnual: 990, currency: "USD" } } },
+      ],
+      registrations: [],
+    });
+    return {
+      ...report,
+      registrations: [],
+      settings: { status: "active", taxCode: "txcd_10103001", taxBehavior: "exclusive", headOfficeCountry: "CA", missingFields: [] },
+      errors: { invoices: null, registrations: null, settings: null },
+      invoiceCapped: false,
+      since: "2025-09-25T00:00:00.000Z",
+      generatedAt: "2026-09-25T12:00:00.000Z",
+    };
+  }
   if (path === "/api/platform/billing/promotions" && method === "GET") return PROMOTIONS;
   if (path === "/api/platform/billing/promotions" && method === "POST") return json({ id: `promo_new_${Date.now()}`, ...(body || {}) }, 201);
   {

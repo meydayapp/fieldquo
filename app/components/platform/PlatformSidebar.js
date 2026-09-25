@@ -249,6 +249,11 @@ const GROUPS = [
       // the screen where somebody changes a price intending to run a sale.
       { label: "Promotions", href: "/platform/billing/promotions", icon: Percent },
       { label: "Promo codes", href: "/platform/promo-codes", icon: Ticket },
+      // The tax ON the money above: where FieldQuo must register to charge
+      // UK/EU VAT and Australian GST on its own subscriptions (Stripe Tax
+      // collects only where a registration is added), and how close each
+      // place is. Read-only; nothing here changes a price or a registration.
+      { label: "Tax registrations", href: "/platform/billing/tax", icon: Globe },
       // The trend of the three rows above: MRR, churn, the growth model. Was
       // filed with the sales rows because reps drive it; it is filed with the
       // money it measures now, because that is what the owner opens it for.
