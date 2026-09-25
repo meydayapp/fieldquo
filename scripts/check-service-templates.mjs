@@ -428,17 +428,31 @@ section("I — every calculator's keys are real output names; trades that reuse 
   // Coverage: drywall sheets, fence posts, concrete yards, flooring waste.
   const room = derivedGeometry({ lengthFt: 12, widthFt: 10, heightFt: 8 });
   const cov = expandTemplate({ templateLines: [
-    { kind: "material", name: "Drywall sheet 4×8", qty: 1, unit: "each", unitPrice: 18, unitCost: 13, measurementKey: "wallSqft", coverage: 32, wastePct: 10 },
-    { kind: "material", name: "Fence post", qty: 1, unit: "each", unitPrice: 40, unitCost: 30, measurementKey: "edgingFt", coverage: 8 },
-    { kind: "material", name: "Concrete — 4 in", qty: 1, unit: "each", unitPrice: 180, unitCost: 140, measurementKey: "areaSqft", coverage: 81 },
+    { kind: "material", name: "Drywall sheet 4×8", qty: 1, unit: "each", unitPrice: 18, unitCost: 13, measurementKey: "wallSqft", coverage: { per: 32, unit: "sqft" }, wastePct: 10 },
+    { kind: "material", name: "Fence post", qty: 1, unit: "each", unitPrice: 40, unitCost: 30, measurementKey: "edgingFt", coverage: { per: 8, unit: "linft" } },
+    { kind: "material", name: "Concrete — 4 in", qty: 1, unit: "each", unitPrice: 180, unitCost: 140, measurementKey: "areaSqft", coverage: { per: 81, unit: "sqft" } },
     { kind: "material", name: "Laminate", qty: 1, unit: "sqft", unitPrice: 3, unitCost: 2.2, measurementKey: "floorSqft", wastePct: 10 },
     { kind: "labour", name: "Baseboard", qty: 1, unit: "linear_ft", unitPrice: 4, unitCost: 2, measurementKey: "linearFt" },
   ] }, { measurements: { ...room, edgingFt: 160, areaSqft: 810 }, currency: "CAD" });
-  ok(cov[0].quantity === 12.1 && cov[1].quantity === 20 && cov[2].quantity === 10, "coverage: 352 ÷ 32 × 1.10 = 12.1 sheets; 160 ÷ 8 = 20 posts; 810 ÷ 81 = 10 yd", cov.slice(0, 3).map((l) => l.quantity));
-  ok(cov[3].quantity === 132 && cov[4].quantity === 44, "flooring: 120 sq ft × 1.10 waste; baseboard = the room perimeter linearFt 44", [cov[3].quantity, cov[4].quantity]);
-  const bad = sanitiseTemplateLine({ kind: "material", name: "x", measurementKey: "wallSqft", coverage: -3 });
-  ok(!("coverage" in bad) && !("coverage" in sanitiseTemplateLine({ kind: "material", name: "x", measurementKey: "wallSqft", coverage: 1 })) && !("coverage" in sanitiseTemplateLine({ kind: "material", name: "x", coverage: 32 })), "coverage: negative, 1, or without a key → not stored");
-  ok(validateTemplateLines([{ kind: "material", name: "x", measurementKey: "wallSqft", coverage: 0 }, { kind: "material", name: "y", coverage: 32 }]).length === 2, "validate: zero coverage and coverage without a key are both problems");
+  ok(cov[0].quantity === 13 && cov[1].quantity === 20 && cov[2].quantity === 10, "coverage: ceil(352 × 1.10 ÷ 32) = 13 sheets; 160 ÷ 8 = 20 posts; 810 ÷ 81 = 10 yd", cov.slice(0, 3).map((l) => l.quantity));
+  ok(cov[3].quantity === 132 && cov[4].quantity === 44, "no coverage: the measurement as today — 120 sq ft × 1.10 waste; baseboard = the room perimeter linearFt 44", [cov[3].quantity, cov[4].quantity]);
+  ok(cov.every((l) => !l.needsReview) && cov[0].coverage.unit === "sqft", "valid coverage: no review flag, the coverage carried on the line");
+  const legacy = sanitiseTemplateLine({ kind: "material", name: "x", measurementKey: "wallSqft", coverage: 32 });
+  ok(legacy.coverage.per === 32 && legacy.coverage.unit === "each", "a bare-number coverage is read as { per, unit: each }", legacy.coverage);
+  ok(!("coverage" in sanitiseTemplateLine({ kind: "labour", name: "x", measurementKey: "wallSqft", coverage: { per: 32, unit: "sqft" } })), "coverage on a labour line is not stored");
+  ok(sanitiseTemplateLine({ kind: "material", name: "x", measurementKey: "wallSqft", coverage: { per: 4, unit: "furlong" } }).coverage.unit === "each" && !("coverage" in sanitiseTemplateLine({ kind: "material", name: "x", measurementKey: "wallSqft", coverage: { per: "abc" } })), "unknown unit → each; non-numeric per → not stored");
+  const hostile = expandTemplate({ templateLines: [
+    { kind: "material", name: "zero", qty: 3, unit: "each", unitPrice: 1, unitCost: 1, measurementKey: "wallSqft", coverage: { per: 0, unit: "sqft" } },
+    { kind: "material", name: "neg", qty: 3, unit: "each", unitPrice: 1, unitCost: 1, measurementKey: "wallSqft", coverage: { per: -32, unit: "sqft" }, wastePct: 10 },
+    { kind: "material", name: "no figure", qty: 3, unit: "each", unitPrice: 1, unitCost: 1, measurementKey: "floorSqft", coverage: { per: 32, unit: "sqft" } },
+  ] }, { measurements: { wallSqft: 352 }, currency: "CAD" });
+  ok(hostile[0].quantity === 352 && hostile[0].needsReview && hostile[0].warnings.includes("coverage"), "coverage 0 → ignored (the measurement as-is) and flagged needsReview", hostile[0]);
+  ok(hostile[1].quantity === 387.2 && hostile[1].needsReview, "negative coverage → ignored, waste still applied, needsReview", hostile[1]);
+  ok(hostile[2].quantity === 3 && hostile[2].needsMeasurement && !hostile[2].needsReview, "coverage with no figure: seed qty kept, asks for the measurement", hostile[2]);
+  const probs = validateTemplateLines([{ kind: "material", name: "x", measurementKey: "wallSqft", coverage: { per: 0, unit: "sqft" } }, { kind: "material", name: "y", coverage: { per: 32, unit: "sqft" } }, { kind: "labour", name: "z", measurementKey: "wallSqft", coverage: { per: 32, unit: "bogus" } }]);
+  ok(probs.length === 4, "validate: zero per, coverage without a key, labour coverage, unknown unit", probs);
+  const seeded = seedTemplateFor({ templateLines: [{ kind: "material", name: "Sheet", qty: 1, unit: "each", unitPrice: 18, unitCost: 13, measurementKey: "wallSqft", coverage: { per: 32, unit: "sqft" } }] }, { language: "en", currency: "USD" });
+  ok(seeded.templateLines[0].coverage?.per === 32 && seeded.templateLines[0].coverage.unit === "sqft", "the seed loader carries coverage onto the Product row", seeded.templateLines[0]);
 }
 
 section("J — the backfill for existing companies fills what is empty, never overwrites");

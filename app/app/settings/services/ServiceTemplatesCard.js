@@ -43,6 +43,7 @@ import {
   LINE_KINDS,
   ESTIMATE_TYPE_KEYS,
   sanitiseEstimateTypes,
+  COVERAGE_UNITS,
   expandTemplate,
   templateTotals,
   groupLinesByKind,
@@ -71,7 +72,8 @@ function draftFrom(product) {
     taxable: l.taxable !== false,
     measurementKey: l.measurementKey || "",
     wastePct: l.wastePct ?? "",
-    coverage: l.coverage ?? "",
+    coverage: l.coverage && typeof l.coverage === "object" ? l.coverage.per ?? "" : l.coverage ?? "",
+    coverageUnit: l.coverage && typeof l.coverage === "object" ? l.coverage.unit || "each" : "each",
     translations: l.translations,
   }));
   const d = product?.defaultDiscount;
@@ -86,7 +88,7 @@ function draftFrom(product) {
 /** What the PATCH sends: the sanitiser's view, so the box and the row agree. */
 function payloadFrom(draft) {
   return {
-    templateLines: sanitiseTemplateLines(draft.lines.map((l) => ({ ...l, measurementKey: l.measurementKey || undefined, wastePct: l.wastePct === "" ? undefined : l.wastePct, coverage: l.coverage === "" ? undefined : l.coverage }))),
+    templateLines: sanitiseTemplateLines(draft.lines.map((l) => ({ ...l, measurementKey: l.measurementKey || undefined, wastePct: l.wastePct === "" ? undefined : l.wastePct, coverage: l.coverage === "" ? undefined : { per: l.coverage, unit: l.coverageUnit || "each" }, coverageUnit: undefined }))),
     defaultDiscount: sanitiseDefaultDiscount(draft.discount),
     imageUrl: draft.imageUrl || null,
     estimateTypes: sanitiseEstimateTypes(draft.estimateTypes),
@@ -408,8 +410,17 @@ function TemplateEditor({ product, category, currency, language, canEdit, onSave
                         )}
                         {/* How much of the figure one unit covers — 32 sq ft per
                             drywall sheet, 8 ft per fence post. Blank = 1. */}
-                        {l.measurementKey && (
-                          <input className={`${num} w-20`} type="number" min="0" step="any" value={l.coverage} disabled={!canEdit} onChange={(e) => setLine(l._i, { coverage: e.target.value })} placeholder={t("app.serviceTemplates.coverage", "Per unit")} title={t("app.serviceTemplates.coverageHint", "How much of the measurement one unit covers, e.g. 32 sq ft per sheet. Blank = 1.")} />
+                        {l.measurementKey && l.kind === "material" && (
+                          <>
+                            <input className={`${num} w-20`} type="number" min="0" step="any" value={l.coverage} disabled={!canEdit} onChange={(e) => setLine(l._i, { coverage: e.target.value })} placeholder={t("app.serviceTemplates.coverage", "Per unit")} title={t("app.serviceTemplates.coverageHint", "How much of the measurement one unit covers, e.g. 32 sq ft per sheet. Blank = 1.")} />
+                            {l.coverage !== "" && (
+                              <select className={`${input} w-20`} value={l.coverageUnit} disabled={!canEdit} onChange={(e) => setLine(l._i, { coverageUnit: e.target.value })} aria-label={t("app.serviceTemplates.coverage", "Per unit")}>
+                                {COVERAGE_UNITS.map((u) => (
+                                  <option key={u} value={u}>{t(`app.serviceTemplates.coverageUnit_${u}`, u)}</option>
+                                ))}
+                              </select>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>
