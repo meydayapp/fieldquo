@@ -1167,15 +1167,23 @@ ok("a denied microphone takes the in-app button away rather than leaving it live
   return /mic !== "denied"/.test(src);
 })());
 
-ok("the floor board refuses anybody below a superadmin", (() => {
+// GET became a try/catch around floorResponse() in 863b2479 so a failed read
+// answers with a named 500; the gate and the read live in floorResponse now.
+// GET must still be nothing but that delegation, or a read could slip in
+// ahead of the gate.
+ok("GET answers only through floorResponse — nothing is read before it", (() => {
   const body = fnBody("app/api/platform/sales/floor/route.js", "export async function GET(");
+  return /return await floorResponse\(request\)/.test(body) && !/\b(db\.|floorBoard\()/.test(body);
+})());
+ok("the floor board refuses anybody below a superadmin", (() => {
+  const body = fnBody("app/api/platform/sales/floor/route.js", "async function floorResponse(");
   return /admin\.role !== "superadmin"/.test(body) && /status: 403/.test(body);
 })());
 ok("it refuses BEFORE it reads anybody's activity", (() => {
   // Ordering, not presence. A role check that runs after the query is not a
   // check — the same property scripts/check-demo-spend.mjs asserts about a
   // demo guard sitting before the spend.
-  const body = fnBody("app/api/platform/sales/floor/route.js", "export async function GET(");
+  const body = fnBody("app/api/platform/sales/floor/route.js", "async function floorResponse(");
   const gate = body.indexOf('admin.role !== "superadmin"');
   // The reads moved into lib/sales/calls/floorBoard.js on 2026-09-16 so the
   // agency's team board draws from the same function; the call is the read.
