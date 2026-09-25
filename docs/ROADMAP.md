@@ -5,6 +5,7 @@ Last updated: 24 September 2026 (the reactive signup panel: the panel beside the
 Last updated: 24 September 2026 (maintenance plans on quotes — `ServicePlanTemplate` + `QuotePlanOffer`, additive; Settings → Maintenance Plans with 23 starter plans in eight languages; included or optional on a quote, ids-only approval, a running ServicePlan invoiced per visit with the discount on each invoice — see its section)
 Last updated: 25 September 2026 ("How this was handled" on a conversation — AI team R1: a read-only timeline in /app/messages of the front desk's reading, assignments, hand-offs, ping-pong escalations, take-overs, replies with tools/model/confidence/cost, stop reasons and proposals with who decided, built from AiEmployeeRoutingEvent / AiEmployeeReply / AiEmployeeProposal with no schema change — see its section)
 Last updated: 25 September 2026 (the chat bubble on a company's OWN website: a one-line `<script src="…/embed/<slug>/chat.js" async>` loader replaces the fixed-size iframe snippet on Settings → AI employee — closed, the frame is the bubble and nothing else on their page is covered; open, it is the panel; on a phone, full screen with host scroll locked; disabled chat leaves nothing; the old iframe snippet still works — see "The chat bubble on a company's own website" below)
+Last updated: 25 September 2026 (SMS delivery receipts — every text sendSms() sends is tracked in `SmsDelivery` from send to carrier verdict: Twilio statusCallback at /api/sms/status (signature-verified, forward-only), an hourly reconcile cron for callbacks that never come, "Delivered / Not delivered — why" on SMS threads, the calendar and the client page, and /platform/sms-health; table SQL to apply by hand — see "SMS delivery receipts" below)
 Last updated: 24 September 2026 (a service's estimate template expands onto a quote and an invoice: "Add with its template lines" beside a templated service in the line library, lines in the document's language from the company's own Product row, measured quantities filled from the quote's own takeoffs with the source printed under the line, a missing figure at quantity 0 with the calculator named or linked, `ventCount` / `returnCount` registered — see "A service's template, expanded onto the quote" below)
 Last updated: 24 September 2026 (the estimate template inside a service — `Product.templateLines` / `defaultDiscount` / `imageUrl` / `estimateTypes` / `templateEnabled`, additive; templates attach by quote type (`categories` + painting estimate types) through `templatesFor()`; a closed measurement registry every trade's lines can take their qty from; the seed LOADER contract in `lib/services/seeds.js`; Settings › Services edits each service's template; `/app/analytics/benchmark` is the preset library with an editable Your price; benchmark sharing is on by default for new companies and Terms §7 / Privacy §7 say so. The seed CONTENT — templates on every trade in seven languages — is a separate pass landing against the same contract.; landed just before it on main: auto-translation on save — see its section.)
 Last updated: 24 September 2026 (tours re-pinned to the new shell: welcome-v2 walks the 17-row rail — Leads, Quotes, Quote reviews, Assign shifts, Marketing, Receptionist, FieldQuo AI, AI team, More, Create, Search, Settings at the foot — unfolding a folded People/Grow group through its header and folding it back, a new ai-team-v1 page tour, "Take the tour" on the dashboard's set-up card, the Help centre's replay fixed; every onboarding and set-up row shows a counted time estimate, the onboarding card says "n of 6 done" and the set-up card "n of 15 done · n hidden" — see "Tours on the new shell" below)
@@ -306,6 +307,138 @@ legacy iframe snippet still renders the bubble.
   page behind it; making the host `inert` is invasive on someone else's site.
 - A host page with a strict CSP must allow our origin in `script-src` and
   `frame-src`; the settings notes do not say so.
+## SMS delivery receipts: did the text ARRIVE? (25 September 2026)
+
+The owner: "did you fix the text issue from booking? And any other text
+messages?" The booking-email fix (f53665da) and the booking-text switch
+(2c2b632a) shipped on 2026-09-20 — but nobody could say whether a single text
+reached a phone. FieldQuo recorded that Twilio *accepted* a text (the 201) and
+nothing after it, and US carriers drop texts from a number not registered for
+A2P 10DLC (error 30034) after that 201. `lib/sms/usA2pStatus.js` already
+recorded the night this was seen (2026-09-19: every text to a US number
+undelivered, every Quebec one fine).
+
+**What shipped (branch `worktree-agent-a75d897ed6952a686`, not pushed):**
+
+- **One seam, every path tracked.** Every outbound text already went through
+  `lib/sms/twilioClient.js` `sendSms()` — no file outside it calls
+  `messages.create` (check:sales-sms enforces that). `sendSms()` now opens an
+  `SmsDelivery` row BEFORE the send, passes Twilio a `statusCallback` of
+  `/api/sms/status?d=<row id>`, and writes the SID (or Twilio's refusal code)
+  back. Tracking never blocks a text: a missing table or a DB blip sends the
+  text untracked. Demo tenants' simulated texts are not tracked (nothing was
+  sent). Callers now pass `purpose` / `ref` / `clientId` (labels only):
+  booking confirmation (ref = the appointment it became), appointment + visit
+  reminders, on-my-way, change orders, referral invites, STOP/START
+  confirmations, crew-line replies + test, photo mentions, conversation
+  replies (human and AI employee, via `lib/messaging/ownSend.js`), and
+  FieldQuo's own sales signup link + rep replies. The Twilio payload of every
+  path is byte-identical to before apart from `statusCallback` (md5 per path,
+  old vs new `sendSms`).
+- **`POST /api/sms/status`** — public, verified with X-Twilio-Signature through
+  the same `lib/sms/verifyTwilioWebhook.js` as the inbound routes (Twilio signs
+  the full URL, so `?d=` is covered). Status only moves forward
+  (`lib/sms/deliveryStatus.js` `canAdvance`): a late "sent" never un-delivers,
+  a failure is final, duplicates change nothing — enforced by a conditional
+  UPDATE, so two webhooks cannot both win. On a conversation reply it also
+  writes the thread's own `Message.deliveredAt` / `failedReason`
+  (`sms_30034: …`), scoped to the sending company, exactly as WhatsApp
+  receipts already did.
+- **`/api/cron/sms-delivery-reconcile`, hourly at :41.** Any text still in
+  flight 30 min after sending is fetched by SID from Twilio and settled (≤150
+  a run, each at most hourly, never after 72 h). Rows whose send died before
+  Twilio answered are closed as `unconfirmed`. The row records which mechanism
+  settled it (`lastCallbackAt` vs `reconciledAt`), so a misrouted webhook is a
+  number on a screen, not silence.
+- **What the owner sees.** Messages: under each outbound text on an SMS thread,
+  "Delivered", "Sent — no delivery receipt yet", or the bubble turns red with
+  "Not delivered — Carriers blocked it: this number isn't registered for
+  business texting yet." (14 common codes in plain words, generic fallback,
+  never a guessed cause). Calendar: the appointment/visit panel has a "Texts"
+  row — "Confirmation text: Delivered", "Reminder text: Not delivered — …".
+  Client page: a "Texts" list (last 20, number masked to the last four; only
+  for members who may see the client's phone). **/platform/sms-health**
+  (sidebar: FieldQuo's own systems → SMS delivery), read-only: 7/30-day
+  totals, the top error explained (30034 links to the A2P steps on Crew
+  lines), every code with its reason, per sending number, per company, per
+  kind of text, the latest 25 failures, and callback-vs-reconcile counts with
+  a warning when callbacks aren't arriving.
+- Strings in all 9 app languages (`app.sms.*`).
+- `npm run check:sms-delivery` — 112 assertions, executed offline: ordering
+  matrix, code→reason, reconcile selection (predicate and Prisma WHERE agree
+  on 280 rows), the store's races/duplicates/out-of-order/tenant scope,
+  `sendSms` over a stub Twilio (payload md5, refusal code, demo, missing
+  table), and the real route with real HMACs (unsigned, wrong token, other
+  `?d=`, tampered body, no auth token → 401; genuine → 204 and applied).
+
+**Schema — additive, NOT applied (this machine has no database credentials).
+Run this once before (or right after) deploying; until then texts still send,
+untracked, and /platform/sms-health says the table is missing:**
+
+```bash
+npx prisma db execute --stdin <<'SQL'
+CREATE TABLE "SmsDelivery" (
+    "id" TEXT NOT NULL,
+    "sid" TEXT,
+    "companyId" TEXT,
+    "purpose" TEXT NOT NULL,
+    "refType" TEXT,
+    "refId" TEXT,
+    "clientId" TEXT,
+    "toE164" TEXT NOT NULL,
+    "fromE164" TEXT,
+    "status" TEXT NOT NULL DEFAULT 'pending',
+    "errorCode" INTEGER,
+    "errorMessage" TEXT,
+    "sentAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "statusAt" TIMESTAMP(3),
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "lastCallbackAt" TIMESTAMP(3),
+    "callbackCount" INTEGER NOT NULL DEFAULT 0,
+    "reconciledAt" TIMESTAMP(3),
+    CONSTRAINT "SmsDelivery_pkey" PRIMARY KEY ("id")
+);
+CREATE UNIQUE INDEX "SmsDelivery_sid_key" ON "SmsDelivery"("sid");
+CREATE INDEX "SmsDelivery_companyId_sentAt_idx" ON "SmsDelivery"("companyId", "sentAt");
+CREATE INDEX "SmsDelivery_status_sentAt_idx" ON "SmsDelivery"("status", "sentAt");
+CREATE INDEX "SmsDelivery_refType_refId_idx" ON "SmsDelivery"("refType", "refId");
+CREATE INDEX "SmsDelivery_clientId_sentAt_idx" ON "SmsDelivery"("clientId", "sentAt");
+CREATE INDEX "SmsDelivery_sentAt_idx" ON "SmsDelivery"("sentAt");
+ALTER TABLE "SmsDelivery" ADD CONSTRAINT "SmsDelivery_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+SQL
+```
+
+(Generated with `prisma migrate diff --from-schema <HEAD schema> --to-schema
+prisma/schema.prisma --script` — schema-to-schema, so it contains only this
+table. Never `db push`.)
+
+### Still owed here
+
+- **The real fix for 30034 is not code:** register an A2P 10DLC brand +
+  campaign in Twilio and put every sending number in its Messaging Service
+  (steps on /platform/crew-lines). This work makes the failure visible per
+  number and per company; it cannot make carriers accept an unregistered
+  number.
+- **No new env var**, but the callback origin comes from `NEXT_PUBLIC_APP_URL`
+  (else `VERCEL_URL`). If that resolves to a `*.vercel.app` URL behind
+  Deployment Protection, every callback 401s — the reconcile still settles
+  every row within the hour and the platform page says callbacks are missing.
+  `TWILIO_AUTH_TOKEN` must be set to verify callbacks (an API key alone
+  can't).
+- Not checked live: Twilio credentials are Sensitive in Vercel, so no real
+  callback or fetch was exercised — only fixtures and the real HMAC. First
+  thing after deploy: send one booking confirmation to a US and a Canadian
+  phone and watch /platform/sms-health.
+- Quote/invoice links are not sent by SMS anywhere in the product today (only
+  by email, or pasted into a conversation reply — which is tracked).
+- Texts sent before this deploy have no receipt; screens show nothing for
+  them rather than "no text sent".
+- Pre-existing check failures seen while verifying, unchanged by this work
+  (identical at HEAD): check:sales-sms (4 — incl. "no NEW sendSms call site",
+  which lists finalizeBooking/changeOrderSend/ownSend that predate it),
+  check:consent-mechanisms (3), check:tenant-scope (2),
+  check:platform-console (2, `/platform/sales/outcomes`),
+  check:app-catalogue (de/zh/it/fr/es).
 
 ---
 

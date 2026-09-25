@@ -163,6 +163,10 @@
     {
       "path": "/api/cron/onboarding-next-steps",
       "schedule": "3,18,33,48 * * * *"
+    },
+    {
+      "path": "/api/cron/sms-delivery-reconcile",
+      "schedule": "41 * * * *"
     }
   ]
 }

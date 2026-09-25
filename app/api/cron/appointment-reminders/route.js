@@ -78,7 +78,7 @@ export async function GET(request) {
         // language: the text follows the client, the way the quote and the
         // covering email already do. timezone: the appointment is where the
         // company is, and formatting without a zone gave every client UTC.
-        client: { select: { phone: true, language: true } },
+        client: { select: { id: true, phone: true, language: true } },
         company: { select: COMPANY_SELECT },
       },
     }),
@@ -96,7 +96,7 @@ export async function GET(request) {
         job: {
           select: {
             siteAddress: true,
-            client: { select: { phone: true, language: true, address: true } },
+            client: { select: { id: true, phone: true, language: true, address: true } },
             company: { select: COMPANY_SELECT },
           },
         },
@@ -184,6 +184,11 @@ export async function GET(request) {
       // addresses — so this cron would have texted them for real. See
       // lib/sms/demoSms.js.
       companyId: row.company.id,
+      // The receipt's labels (model SmsDelivery): which calendar entry this
+      // reminder was for, so the calendar can say whether it arrived.
+      purpose: row.kind === "visit" ? "visit_reminder" : "appointment_reminder",
+      ref: { type: row.kind, id: row.id },
+      clientId: row.client?.id || null,
     });
 
     if (result.success) sent++;

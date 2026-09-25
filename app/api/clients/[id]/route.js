@@ -12,7 +12,9 @@ import {
   redactClient,
   redactQuotes,
   redactInvoices,
+  hasLevel,
 } from "@/lib/permissions/enforce";
+import { textsForClient } from "@/lib/sms/deliveryStore";
 import { isSupported } from "@/app/i18n/languages";
 import { normaliseCountry } from "@/lib/tax/jurisdictions";
 import { cleanAddressPart } from "@/lib/format/address";
@@ -62,10 +64,23 @@ export async function GET(request, { params }) {
   // spelled out per route — invoices mirror quotes (AGENTS.md on
   // lib/documentSections), and their redaction is not a lesser version of it.
   const full = await loadEnforceableMember(db, member.id);
+
+  // ── The texts this client was sent, and whether they arrived ────────────
+  //
+  // Booking confirmations, reminders, on-my-way and change-order texts
+  // (model SmsDelivery). Only for a member who may see the client's phone —
+  // the list is about that number, masked to its last four even so — and
+  // `null` (no panel) rather than [] for anyone else, because "no texts"
+  // would be a statement this member has no grounds to be shown.
+  const texts = hasLevel(full, "clientsProperties", "full_view")
+    ? await textsForClient(member.companyId, client.id).catch(() => null)
+    : null;
+
   return NextResponse.json({
     ...redactClient(full, client),
     quotes: redactQuotes(full, client.quotes),
     invoices: redactInvoices(full, client.invoices),
+    texts,
   });
 }
 

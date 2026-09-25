@@ -21,7 +21,9 @@ import {
   Briefcase,
   Plus,
   Languages,
+  MessageSquare,
 } from "lucide-react";
+import SmsReceiptLine from "@/app/components/sms/SmsReceiptLine";
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 import { formatPhoneInput } from "@/lib/validation";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -45,7 +47,7 @@ const inputClass =
 
 export default function ClientDetailPage() {
   const money = useCompanyMoney();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const { id } = useParams();
   const [client, setClient] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -444,6 +446,28 @@ export default function ClientDetailPage() {
           </Link>
         )}
       />
+
+      {/* The texts this client was sent and whether each one ARRIVED —
+          Twilio accepting a text is not the phone getting it (a carrier
+          drops texts from an unregistered number after the fact). `texts` is
+          null for a member who may not see the client's phone, and then
+          there is no panel at all. */}
+      {Array.isArray(client.texts) && (
+        <RelatedList
+          icon={MessageSquare}
+          title={t("app.sms.clientTexts.title")}
+          items={client.texts}
+          empty={t("app.sms.clientTexts.empty")}
+          render={(text) => (
+            <div key={text.id} className="px-5 py-3">
+              <SmsReceiptLine
+                text={text}
+                suffix={`${new Date(text.sentAt).toLocaleString(language)} · ${text.to}`}
+              />
+            </div>
+          )}
+        />
+      )}
 
       {/* Edit modal */}
       {editing && form && (

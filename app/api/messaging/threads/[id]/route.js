@@ -38,6 +38,7 @@ import {
   readStatus,
 } from "@/lib/messaging/outcomes";
 import { writeActivity } from "@/lib/messaging/activity";
+import { smsReceiptsBySid } from "@/lib/sms/deliveryStore";
 import { recordError, errorDetail } from "@/lib/platform/errorLog";
 
 /** The member with their grid attached — a scope decided without it widens. */
@@ -166,6 +167,9 @@ async function readThread({ id, member }) {
           readAt: true,
           failedReason: true,
           sentByUserId: true,
+          // Read server-side only, to find each text's delivery receipt below
+          // (the SMS externalId is Twilio's SID). Stripped before the response.
+          externalId: true,
         },
       },
     },
@@ -206,6 +210,21 @@ async function readThread({ id, member }) {
   // name on the button is the name that will answer.
   const ai = await aiState(thread, member.companyId).catch(() => null);
 
+  // ── Did each text ARRIVE? ───────────────────────────────────────────────
+  //
+  // Only on an SMS thread: Twilio's 201 is "queued", not "delivered", and a
+  // carrier can drop the text after it (30034, an unregistered number). The
+  // receipt is SmsDelivery's, written by /api/sms/status and the reconcile
+  // cron; the screen turns it into "Delivered" / "Not delivered — why".
+  // A read failure here costs the receipts, never the thread.
+  const receipts =
+    thread.channel?.platform === "sms"
+      ? await smsReceiptsBySid(
+          member.companyId,
+          thread.messages.filter((m) => m.direction === "out").map((m) => m.externalId),
+        ).catch(() => new Map())
+      : new Map();
+
   return NextResponse.json({
     connection,
     thread: {
@@ -227,9 +246,10 @@ async function readThread({ id, member }) {
       // — the Retry endpoint names an INDEX for exactly that reason). What
       // reaches the screen is the state, the type, and a Cloudinary URL or
       // null.
-      messages: thread.messages.map((m) => ({
+      messages: thread.messages.map(({ externalId, ...m }) => ({
         ...m,
         attachments: publicAttachments(m.attachments),
+        sms: m.direction === "out" ? receipts.get(externalId) || null : null,
       })),
       // Normalised on the way out so a row still carrying the pre-four-state
       // "closed" arrives at the screen as a status the chips actually draw.

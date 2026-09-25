@@ -111,6 +111,14 @@ const GLOBAL_BY_DESIGN = {
   // guarantee the declaration made (every write keys off an id from this run's
   // own findMany, never a caller-supplied one) is asserted where the code now
   // lives, in scripts/check-voice-task-claim.mjs.
+  "app/api/cron/sms-delivery-reconcile/route.js": {
+    smsDelivery:
+      "Same shape as appointment-reminders: a cron over every tenant's texts " +
+      "still in flight, authenticated by CRON_SECRET, no member and no company " +
+      "to scope by. The one update stamps reconciledAt on row.id from this " +
+      "run's own findMany when Twilio could not answer for that SID — never an " +
+      "id from a request, of which there is none.",
+  },
   "app/api/cron/renewal-reminders/route.js": {
     subscription:
       "Same shape again: a cron over every FieldQuo subscription, authenticated " +

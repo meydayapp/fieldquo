@@ -90,6 +90,7 @@ import {
   messageItem,
   lastReadInstant,
 } from "@/lib/messaging/rooms";
+import { reasonKey as smsReasonKey } from "@/lib/sms/deliveryStatus";
 // lucide ships no brand marks; the bio-link page already draws these three.
 import { SocialGlyph } from "@/app/components/links/linkIcons";
 // Hot / warm / cold, and the reasons behind it. The chip rides on the inbox
@@ -514,6 +515,29 @@ function MessagesScreen() {
         if (!sentence) continue;
         items.push({ ...item, body: sentence });
         continue;
+      }
+      // ── A text's carrier receipt, in the reader's language ────────────
+      //
+      // Only SMS replies carry one (lib/messaging/rooms.js `receipt`). A
+      // carrier failure replaces the stored English sentence with the plain
+      // reason for its code; "sent" says honestly that no receipt came back
+      // rather than implying one did; delivered says so.
+      if (item.receipt) {
+        const { verdict, errorCode } = item.receipt;
+        if (verdict === "failed") {
+          items.push({
+            ...item,
+            error: t("app.sms.notDeliveredBecause", { reason: t(smsReasonKey(errorCode)) }),
+          });
+          continue;
+        }
+        if (verdict === "delivered" || verdict === "sent") {
+          items.push({
+            ...item,
+            deliveryNote: verdict === "delivered" ? t("app.sms.delivered") : t("app.sms.sentNoReceipt"),
+          });
+          continue;
+        }
       }
       items.push(item);
     }

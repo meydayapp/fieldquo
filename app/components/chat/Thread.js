@@ -320,6 +320,14 @@ export default function Thread({
                     </p>
                   ) : null}
 
+                  {/* A carrier receipt for a text that went out — "Delivered",
+                      or "Sent — no delivery receipt yet". Optional: only a
+                      surface that knows the fate passes it, and a failure
+                      is drawn by the failed branch below, never here. */}
+                  {!failed && !pending && !inbound && m.deliveryNote ? (
+                    <p className="mt-0.5 text-xs text-muted-foreground">{m.deliveryNote}</p>
+                  ) : null}
+
                   {failed ? (
                     <div className="mt-1">
                       <p className="flex items-start gap-1.5 text-xs text-red-700 dark:text-red-300 break-words">

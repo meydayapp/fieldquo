@@ -76,7 +76,7 @@ async function settleCrewSpend({ line, to, from, reply }) {
       // sent (lib/sms/demoSms.js). The ledger charge below still runs on the
       // simulated SID, deliberately: a demo of crew texting that showed no
       // per-message cost would demonstrate a product FieldQuo does not sell.
-      const sent = await sendSms({ to: from, from: to, body: reply, companyId: line.companyId }).catch(() => null);
+      const sent = await sendSms({ to: from, from: to, body: reply, companyId: line.companyId, purpose: "crew_reply" }).catch(() => null);
       if (sent?.success && sent.sid) {
         await chargeOutboundCrewReply({
           companyId: line.companyId,
