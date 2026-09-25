@@ -579,6 +579,18 @@ async function runScene(scene) {
     window.scrollTo(0, 0);
     return;
   }
+  if (scene === "adtrack-expand") {
+    // The campaign table's own + buttons: the first campaign with ad sets,
+    // then its first ad set — pressed, never rendered open.
+    await until("[data-campaign-table] table");
+    for (let depth = 0; depth < 2; depth++) {
+      const btn = document.querySelector('[data-campaign-table] button[aria-expanded="false"]');
+      if (!btn) break;
+      btn.click();
+      await wait(300);
+    }
+    return;
+  }
   if (scene === "instant-pick") {
     // The estimator opens with nothing picked ("Pick a service"); picking a
     // trade is the first thing anyone does, and it reveals the intake.

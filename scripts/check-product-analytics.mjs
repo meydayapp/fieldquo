@@ -115,7 +115,7 @@ section("2. URL → pattern");
 // ── 3. The allow-list ─────────────────────────────────────────────────────
 section("3. sanitiseBatch");
 {
-  ok("browser events are exactly the four", JSON.stringify([...BROWSER_EVENTS].sort()) === JSON.stringify(["checkout_started", "help_search", "page_view", "signup_step"]));
+  ok("browser events are exactly the three (no checkout since the card-free signup)", JSON.stringify([...BROWSER_EVENTS].sort()) === JSON.stringify(["help_search", "page_view", "signup_step"]));
   ok("feature_used from a browser is refused", sanitiseEvent({ e: "feature_used", p: "quote_sent" }) === null);
   ok("an unknown event is refused", sanitiseEvent({ e: "purchase", p: "/pricing" }) === null && sanitiseEvent({ e: "__proto__", p: "/" }) === null);
   ok("a page_view with a foreign path is refused", sanitiseEvent({ e: "page_view", p: "/evil" }) === null);
@@ -136,8 +136,8 @@ section("3. sanitiseBatch");
   }
   ok("our own host is not a referrer", cleanReferrerHost("https://www.fieldquo.com/pricing") === null && cleanReferrerHost("sunset.fieldquo.com") === null && cleanReferrerHost("http://localhost:3000/") === null && cleanReferrerHost("x.vercel.app") === null);
   ok("a bare word is not a referrer host", cleanReferrerHost("google") === null && cleanReferrerHost("<script>") === null);
-  ok("a signup step must be one of the four", sanitiseEvent({ e: "signup_step", p: "trades" })?.path === "trades" && sanitiseEvent({ e: "signup_step", p: "completed" }) === null && sanitiseEvent({ e: "signup_step", p: "card" }) === null);
-  ok("checkout_started only for signup", sanitiseEvent({ e: "checkout_started", p: "signup" })?.surface === "marketing" && sanitiseEvent({ e: "checkout_started", p: "topup" }) === null);
+  ok("a signup step must be one of the five", ["team", "goals", "trades", "services", "finish"].every((p) => sanitiseEvent({ e: "signup_step", p })?.path === p) && ["completed", "card", "account", "plan", "trial_started"].every((p) => sanitiseEvent({ e: "signup_step", p }) === null));
+  ok("checkout_started is refused (no checkout in the card-free signup)", sanitiseEvent({ e: "checkout_started", p: "signup" }) === null);
   const hs = sanitiseEvent({ e: "help_search", p: "  Invoice   REMINDERS ", m: { results: 3 } });
   ok("a help query is trimmed, lower-cased, collapsed", hs && hs.path === "invoice reminders" && hs.meta.results === 3 && hs.surface === "help");
   ok("a help query is bounded", cleanHelpQuery("a".repeat(500)).length === 80 && cleanHelpQuery("<b>") === null && cleanHelpQuery("x") === null);
@@ -283,15 +283,18 @@ section("6. aggregate");
 const D = new Date("2026-09-10T00:00:00Z");
 const drow = (over = {}) => ({ date: D, surface: "app", event: "page_view", path: "/app/quotes", language: "en", companyId: "c1", isDemo: false, count: 1, uniqueVisitors: null, ...over });
 {
-  const f = signupFunnel({ visited: 200, account: 100, trades: 80, services: 80, plan: 50, checkout_started: 20, completed: 10 }, { visited: 100, account: 20, trades: 0, services: 30, plan: 30, checkout_started: 20, completed: 0 });
+  ok("the funnel is the card-free signup's seven steps", SIGNUP_FUNNEL.join(",") === "visited,account_submitted,team,goals,trades,services,trial_started");
+  const f = signupFunnel({ visited: 200, account_submitted: 100, team: 80, goals: 80, trades: 50, services: 20, trial_started: 10 }, { visited: 100, account_submitted: 20, team: 0, goals: 30, trades: 30, services: 20, trial_started: 10 });
   ok("the funnel keeps the step order", f.steps.map((s) => s.key).join(",") === SIGNUP_FUNNEL.join(","));
   ok("drop-off is against the step before", f.steps[1].dropPct === 50 && f.steps[1].dropFromPrevious === 100 && f.steps[3].dropPct === 0 && f.steps[5].dropPct === 60);
   ok("the first step has no drop", f.steps[0].dropPct === null && f.steps[0].dropFromPrevious === null);
   ok("of-first is the conversion from visited", f.steps[6].ofFirstPct === 5 && f.steps[0].ofFirstPct === 100);
-  ok("stopped-at is a share of everyone who stopped", f.stoppedAt.find((s) => s.key === "visited").pct === 50 && f.stoppedAt.every((s) => s.key !== "completed"));
+  ok("stopped-at is a share of everyone who stopped, and a trial did not stop", f.stoppedAt.find((s) => s.key === "visited").pct === 50 && f.stoppedAt.every((s) => s.key !== "trial_started"));
   const empty = signupFunnel({});
   ok("an empty funnel divides nothing", empty.steps.every((s) => s.count === 0 && s.dropPct === null && s.ofFirstPct === null) && empty.stoppedAt === null);
-  ok("a later step larger than the one before is a zero drop, not a negative", signupFunnel({ visited: 5, account: 9 }).steps[1].dropFromPrevious === 0);
+  ok("a later step larger than the one before is a zero drop, not a negative", signupFunnel({ visited: 5, account_submitted: 9 }).steps[1].dropFromPrevious === 0);
+  // Monotonicity itself — the rule the owner's screenshot broke — is
+  // executed against synthetic browsers in scripts/check-signup-funnel.mjs.
 
   const rows149 = Array.from({ length: 149 }, (_, i) => drow({ path: i % 2 ? "/app/jobs" : "/app/quotes", companyId: `c${i % 3}` }));
   ok("149 /app views: the sales card is held back", salesTopFeatures(rows149).eligible === false && salesTopFeatures(rows149).totalViews === 149 && salesTopFeatures(rows149).items.length === 0);
@@ -366,12 +369,13 @@ section("8. wiring");
   ok("…drops an impersonation session", /!member\.impersonation/.test(track));
   ok("…and never trusts the browser's surface", !/body\.s\b/.test(track.replace(/\/\/.*$/gm, "")));
   const signup = read("app/signup/page.js");
-  ok("the signup page emits each step and checkout_started at both handoffs", /trackSignupStep\(funnelStep\)/.test(signup) && (signup.match(/trackCheckoutStarted\(\);/g) || []).length === 2);
+  ok("the signup page emits each step shown and \"finish\" at Start my free trial, and no checkout beacon", /trackSignupStep\(funnelStep\)/.test(signup) && /trackSignupStep\("finish"\)/.test(signup) && !/trackCheckoutStarted/.test(signup));
   ok("the help search emits after the typing settles", /trackHelpSearch\(q, results\.length\)/.test(read("app/components/help-centre/HelpSearch.js")));
   const trackLib = read("lib/analytics/track.js");
   ok("only a page view schedules a flush; hide and pagehide flush", /if \(event === "page_view"\) scheduleFlush\(\);/.test(trackLib) && /addEventListener\("pagehide", flush\)/.test(trackLib) && /visibilitychange/.test(trackLib));
   ok("the tracker normalises before queueing and sends no cookie", /normalisePath\(/.test(trackLib) && !/document\.cookie/.test(trackLib));
   ok("localhost sends nothing unless opted in", /fieldquo:track-local/.test(trackLib));
+  ok("…for EVERY event, not only page views (steps from a laptop made Account > Visited)", /export function track\([^)]*\) \{\s*try \{[\s\S]{0,700}?isLocalDev\(window\.location\.host\)\) return;/.test(trackLib));
   const vercel = JSON.parse(read("vercel.json"));
   ok("the compaction cron is scheduled", vercel.crons.some((c) => c.path === "/api/cron/analytics-compact"));
   ok("the cron route requires the secret", /requireCronSecret\(request\)/.test(read("app/api/cron/analytics-compact/route.js")));

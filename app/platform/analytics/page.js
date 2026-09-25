@@ -6,9 +6,12 @@
 // Four sections, one date range and one demo toggle applied to all of them by
 // the same request (/api/platform/analytics/product):
 //
-//   Marketing site   views by page, language, referrer and campaign; the
-//                    signup funnel as a bar per step with the drop-off
-//                    between steps and where visitors stopped; the help
+//   Marketing site   views by page, language, referrer and source; the
+//                    signup funnel as a bar per step ("reached this step or
+//                    later", so it is monotone) with where visitors stopped;
+//                    FieldQuo's own ad campaigns as campaign ▸ ad set ▸ ad
+//                    with signups / trials / paying, and the URL-parameters
+//                    string to paste into Meta Ads Manager; the help
 //                    centre's most-read articles and the searches that
 //                    found nothing.
 //   Product (/app)   every screen ranked most → least by views, with how
@@ -27,7 +30,7 @@
 // figure the daily table does not know yet prints "—", never 0.
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 
@@ -40,15 +43,41 @@ const pct = (n) => (n === null || n === undefined ? "—" : `${n}%`);
 
 const RANGE_LABELS = { 1: "Today", 7: "Last 7 days", 30: "Last 30 days", 90: "Last 90 days", 365: "Last year" };
 
+// The card-free signup since 2026-09-24 (lib/analytics/product/events.js
+// SIGNUP_FUNNEL). Each label is a step COMPLETED; the hint says what proves it.
 const STEP_LABELS = {
   visited: "Visited /signup",
-  account: "Account & company",
+  account_submitted: "Account submitted",
+  team: "Team",
+  goals: "Goals",
   trades: "Trades",
   services: "Services",
-  plan: "Plan",
-  checkout_started: "Checkout started",
-  completed: "Completed (card entered)",
+  trial_started: "Trial started",
 };
+const STEP_HINTS = {
+  visited: "opened the signup page",
+  account_submitted: "login and company details accepted — the Team screen was shown",
+  team: "answered or skipped — the Goals screen was shown",
+  goals: "answered or skipped — the Trades screen was shown",
+  trades: "picked a trade — the Services screen was shown",
+  services: "picked services and pressed “Start my free trial”",
+  trial_started: "a company that finished signup (card-free trial or subscription), tied to this browser",
+};
+const STOPPED_LABELS = {
+  visited: "Left without submitting the account",
+  account_submitted: "Stopped on Team",
+  team: "Stopped on Goals",
+  goals: "Stopped on Trades",
+  trades: "Stopped on Services",
+  services: "Pressed Start, no company yet",
+};
+const CAMPAIGN_COLUMNS = [
+  ["views", "Views", "Landings on fieldquo.com carrying this campaign (the first page of each visit)."],
+  ["visitors", "Visitors", "Distinct browsers among those landings (raw window only)."],
+  ["signups", "Signups started", "Signups that got past the account step, attributed to their first ad touch."],
+  ["trials", "Trials started", "Of those, companies that finished signup — card-free trial or subscription."],
+  ["paying", "Paying", "Of those, companies on a paid, active subscription today."],
+];
 const ACTION_LABELS = {
   quote_sent: "Quote sent",
   invoice_sent: "Invoice sent",
@@ -131,34 +160,49 @@ function Funnel({ funnel, rangeLabel }) {
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
         {funnel.basis === "visitors"
-          ? `How many people reached each step, ${rangeLabel.toLowerCase()} — one browser counts once.`
-          : `How many times each step was shown, ${rangeLabel.toLowerCase()} — past 30 days only daily counts are kept, so a person who came back twice counts twice here.`}
-        {" "}&ldquo;Completed&rdquo; is companies with a subscription created in the range — the card was entered.
+          ? `How many browsers completed each step, ${rangeLabel.toLowerCase()} — one browser counts once, and a browser counts at every step up to the furthest one it proved ("reached this step or later"), so a resume link that lands on Services, or a step whose beacon was lost, can never make a later bar taller than an earlier one.`
+          : `Past 30 days only daily counts are kept, with no browser behind them: each bar is the largest count at that step or after it (a floor, kept monotone), a person who came back twice counts twice, and "Trial started" is the companies themselves.`}
+        {" "}Signup takes no card and has no plan step since 24 September 2026. Team and Goals sent no beacon before 25 September, so a browser that stopped on them before then counts only as &ldquo;Account submitted&rdquo;.
       </p>
       <div className="space-y-2">
         {funnel.steps.map((s) => (
-          <div key={s.key} className="grid grid-cols-[minmax(0,12rem)_1fr_auto] gap-3 items-center text-sm">
-            <span className="text-foreground truncate">{STEP_LABELS[s.key] || s.key}</span>
+          <div key={s.key} className="grid grid-cols-[minmax(0,9rem)_1fr_auto] sm:grid-cols-[minmax(0,14rem)_1fr_auto] gap-3 items-center text-sm">
+            <span className="min-w-0">
+              <span className="block text-foreground truncate">{STEP_LABELS[s.key] || s.key}</span>
+              <span className="block text-[11px] leading-tight text-muted-foreground">{STEP_HINTS[s.key] || ""}</span>
+            </span>
             <div className="h-5 rounded bg-muted overflow-hidden">
               <div className="h-full bg-primary/70" style={{ width: `${Math.max(1, Math.round((s.count / max) * 100))}%` }} />
             </div>
             <span className="tabular-nums text-right whitespace-nowrap">
               <span className="text-foreground font-medium">{num(s.count)}</span>
-              <span className="text-xs text-muted-foreground"> {s.count === 1 ? "person" : "people"}</span>
+              {s.dropPct !== null && s.dropPct > 0 ? <span className="text-xs text-muted-foreground"> −{s.dropPct}%</span> : null}
             </span>
           </div>
         ))}
       </div>
+      {/* The reconciliation the owner asked for: the funnel's last bar beside
+          the number every other console screen prints for "finished signup". */}
+      {funnel.companiesFinished !== undefined && funnel.companiesFinished !== null ? (
+        <p className="text-xs text-muted-foreground" data-funnel-reconcile>
+          <span className="text-foreground font-medium">{num(funnel.companiesFinished)}</span>{" "}
+          {funnel.companiesFinished === 1 ? "company" : "companies"} finished signup in this range (card-free trial or subscription — the same rule as Billing and Signups)
+          {funnel.companiesLinked !== null && funnel.companiesLinked !== undefined
+            ? `; ${num(funnel.companiesLinked)} of them ${funnel.companiesLinked === 1 ? "is" : "are"} tied to a browser above. The rest signed up with the browser's storage blocked, on another device than the one that browsed, or before the signup capture began (21 September 2026).`
+            : "."}
+          {funnel.excluded ? ` ${num(funnel.excluded)} ${funnel.excluded === 1 ? "browser" : "browsers"} sent signup steps with no page view at all — a developer's laptop before 25 September, when the beacon skipped views on localhost but not steps — and ${funnel.excluded === 1 ? "is" : "are"} left out.` : ""}
+        </p>
+      ) : null}
       {funnel.stoppedAt ? (
         <div>
           <p className="text-xs font-medium text-foreground mt-2">Stopped at</p>
           <p className="text-xs text-muted-foreground mb-1">
-            The last step each visitor reached{funnel.stoppedAtFrom ? ` (raw rows since ${funnel.stoppedAtFrom})` : ""}. &ldquo;Checkout started&rdquo; means they were handed to Stripe — whether they finished is the &ldquo;Completed&rdquo; bar above, which has no visitor behind it.
+            Where each browser that did not start a trial stopped — its furthest step{funnel.stoppedAtFrom ? ` (raw rows since ${funnel.stoppedAtFrom})` : ""}. Percentages are of those browsers.
           </p>
           <ul className="text-sm grid gap-1 sm:grid-cols-2">
             {funnel.stoppedAt.map((s) => (
               <li key={s.key} className="flex justify-between gap-3 border-t border-border py-1">
-                <span className="text-foreground">{STEP_LABELS[s.key] || s.key}</span>
+                <span className="text-foreground">{STOPPED_LABELS[s.key] || s.key}</span>
                 <span className="tabular-nums text-muted-foreground">{num(s.count)} · {pct(s.pct)}</span>
               </li>
             ))}
@@ -170,7 +214,12 @@ function Funnel({ funnel, rangeLabel }) {
           {funnel.signupLeads ? (
             <p className="text-xs text-muted-foreground mt-2" data-funnel-signup-leads>
               Behind the drop: <span className="text-foreground font-medium">{num(funnel.signupLeads.started)}</span>{" "}
-              {funnel.signupLeads.started === 1 ? "person" : "people"} typed a name, company or number and never finished
+              {funnel.signupLeads.started === 1 ? "person" : "people"} typed an email and a name, company or number in this range and never finished
+              {funnel.signupLeads.pastAccount !== undefined ? (
+                <>
+                  {" "}(<span className="text-foreground font-medium">{num(funnel.signupLeads.pastAccount)}</span> of them got past the account step)
+                </>
+              ) : null}
               {" · "}
               <span className="text-foreground font-medium">{num(funnel.signupLeads.withPhone)}</span> left a phone number
               {" · "}
@@ -185,6 +234,178 @@ function Funnel({ funnel, rangeLabel }) {
       ) : (
         <p className="text-xs text-muted-foreground">No raw rows in this range yet, so &ldquo;stopped at&rdquo; cannot be read.</p>
       )}
+    </div>
+  );
+}
+
+/**
+ * Copy with an honest answer. navigator.clipboard is missing on http, in
+ * some in-app browsers and when permission is refused; then the text is
+ * selected for a manual copy and the button says it did NOT copy.
+ */
+function CopyField({ value, label, rows = 3 }) {
+  const [state, setState] = useState("idle"); // idle | copied | failed
+  const ref = useRef(null);
+  async function copy() {
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("no clipboard");
+      await navigator.clipboard.writeText(value);
+      setState("copied");
+    } catch {
+      setState("failed");
+      try {
+        ref.current?.focus();
+        ref.current?.select();
+      } catch {
+        // selection is a courtesy; the message below still tells the truth
+      }
+    }
+    setTimeout(() => setState("idle"), 4000);
+  }
+  return (
+    <div className="space-y-1">
+      <label className="text-xs font-medium text-foreground">{label}</label>
+      <textarea
+        ref={ref}
+        readOnly
+        value={value}
+        rows={rows}
+        onFocus={(e) => e.target.select()}
+        className="w-full font-mono text-xs rounded-lg border border-border bg-muted/40 p-2 text-foreground break-all"
+      />
+      <div className="flex items-center gap-2">
+        <button type="button" onClick={copy} className={`${TAB} border border-border text-foreground hover:bg-muted`}>
+          Copy
+        </button>
+        <span className="text-xs" role="status" aria-live="polite">
+          {state === "copied" ? <span className="text-foreground">Copied to the clipboard.</span> : null}
+          {state === "failed" ? <span className="text-red-700 dark:text-red-400">Could not copy — the text is selected; press Ctrl/⌘+C.</span> : null}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/** "Campaign 1202… (name not sent)" rather than an invented name. */
+function adLabel(node, kind) {
+  if (node.name) return node.name;
+  if (node.id) return `${kind} ${node.id} (name not sent)`;
+  return kind === "Campaign" ? "(no campaign)" : `(${kind.toLowerCase()} not sent)`;
+}
+const MACRO_FOR = { Campaign: "{{campaign.name}}", "Ad set": "{{adset.name}}", Ad: "{{ad.name}}" };
+
+function CampaignRow({ node, kind, depth, open, onToggle }) {
+  const children = node.adsets || node.ads || null;
+  const expandable = Boolean(children?.length) && !(children.length === 1 && children[0].key === "none");
+  return (
+    <tr className="border-t border-border align-top">
+      <td className="py-1.5 pr-3" style={{ paddingLeft: `${depth * 1}rem` }}>
+        <div className="flex items-start gap-1.5 min-w-0">
+          {expandable ? (
+            <button
+              type="button"
+              onClick={onToggle}
+              aria-expanded={open}
+              aria-label={`${open ? "Collapse" : "Expand"} ${adLabel(node, kind)}`}
+              className="shrink-0 mt-0.5 h-5 w-5 rounded border border-border text-xs leading-none text-foreground hover:bg-muted"
+            >
+              {open ? "−" : "+"}
+            </button>
+          ) : (
+            <span className="shrink-0 w-5" aria-hidden="true" />
+          )}
+          <span className="min-w-0">
+            <span className="block text-xs text-muted-foreground">{kind}</span>
+            <span className="block text-sm text-foreground break-words">{adLabel(node, kind)}</span>
+            {node.nameMissing ? (
+              <span className="block text-[11px] text-muted-foreground">Name not sent — add {MACRO_FOR[kind]} to the URL parameters.</span>
+            ) : null}
+            {node.name && node.id ? <span className="block text-[11px] text-muted-foreground font-mono">id {node.id}</span> : null}
+          </span>
+        </div>
+      </td>
+      {CAMPAIGN_COLUMNS.map(([k]) => (
+        <td key={k} className="py-1.5 pr-3 text-right tabular-nums text-foreground whitespace-nowrap">
+          {k === "visitors" ? num(node.visitors) : num(node.metrics?.[k] ?? 0)}
+        </td>
+      ))}
+    </tr>
+  );
+}
+
+function CampaignTable({ report }) {
+  const [open, setOpen] = useState(() => new Set());
+  const toggle = (key) =>
+    setOpen((cur) => {
+      const next = new Set(cur);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  if (!report) return <p className="text-sm text-muted-foreground">The campaign table could not be read this time.</p>;
+  if (!report.campaigns.length) return <p className="text-sm text-muted-foreground">No landing in this range named a campaign, ad set or ad.</p>;
+  const body = [];
+  for (const c of report.campaigns) {
+    const ck = `c|${c.key}`;
+    body.push(<CampaignRow key={ck} node={c} kind="Campaign" depth={0} open={open.has(ck)} onToggle={() => toggle(ck)} />);
+    if (!open.has(ck)) continue;
+    for (const s of c.adsets) {
+      const sk = `${ck}|s|${s.key}`;
+      body.push(<CampaignRow key={sk} node={s} kind="Ad set" depth={1} open={open.has(sk)} onToggle={() => toggle(sk)} />);
+      if (!open.has(sk)) continue;
+      for (const a of s.ads) body.push(<CampaignRow key={`${sk}|a|${a.key}`} node={a} kind="Ad" depth={2} open={false} onToggle={() => {}} />);
+    }
+  }
+  const u = report.untagged;
+  return (
+    <div className="overflow-x-auto -mx-1 px-1">
+      <table className="w-full text-sm min-w-[36rem]">
+        <thead>
+          <tr className="text-left text-xs text-muted-foreground">
+            <th className="py-1 pr-3 font-medium">Campaign ▸ ad set ▸ ad</th>
+            {CAMPAIGN_COLUMNS.map(([k, label, title]) => (
+              <th key={k} className="py-1 pr-3 font-medium text-right" title={title}>{label}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {body}
+          <tr className="border-t-2 border-border text-muted-foreground">
+            <td className="py-1.5 pr-3 text-xs">No campaign on the landing (direct, organic, untagged links)</td>
+            {CAMPAIGN_COLUMNS.map(([k]) => (
+              <td key={k} className="py-1.5 pr-3 text-right tabular-nums text-xs">{k === "visitors" ? num(u.visitors) : num(u.metrics?.[k] ?? 0)}</td>
+            ))}
+          </tr>
+        </tbody>
+      </table>
+      {report.totalCampaigns > report.campaigns.length ? (
+        <p className="text-xs text-muted-foreground mt-1">Showing the top {report.campaigns.length} of {report.totalCampaigns} campaigns by views.</p>
+      ) : null}
+    </div>
+  );
+}
+
+const SITE_SOURCE_NAMES = { fb: "Facebook (fb)", ig: "Instagram (ig)", msg: "Messenger (msg)", an: "Audience Network (an)", th: "Threads (th)" };
+
+function MetaTemplate({ params, doc }) {
+  return (
+    <div className="space-y-3">
+      <CopyField value={params} label="URL parameters — paste into Meta Ads Manager" rows={4} />
+      <ol className="text-xs text-muted-foreground list-decimal pl-5 space-y-1">
+        <li>In Ads Manager, open the campaign and go to the <span className="text-foreground">Ad</span> level (the setting is per ad; set it when you create the campaign and every new ad in it starts with it).</li>
+        <li>Scroll to <span className="text-foreground">Tracking</span> → <span className="text-foreground">URL parameters</span> → &ldquo;Build a URL parameter&rdquo;, or paste the string above straight into the field. Leave the braces as they are — Meta fills them in per click.</li>
+        <li>Publish. Names are fixed when an ad is first published: renaming a campaign later does not change what arrives here.</li>
+      </ol>
+      <p className="text-xs text-muted-foreground">
+        <span className="text-foreground">utm_source stays &ldquo;facebook&rdquo;</span> for every placement on purpose. Where the ad actually ran is read from{" "}
+        <span className="font-mono">site_source_name</span> (fb, ig, msg, an, th) and the placement, so an Instagram Story counts as Instagram here even though
+        Meta also stamps its click id on it. Macro names are Meta&apos;s:{" "}
+        <a href={doc} target="_blank" rel="noopener noreferrer" className="underline text-foreground">Specifications for dynamic URL parameters</a>.
+      </p>
+      <p className="text-xs text-muted-foreground">
+        What FieldQuo keeps: the parameters above and whether a click id was present — never the click id itself, no cookie, no IP. Nothing is sent back
+        to Meta from here.
+      </p>
     </div>
   );
 }
@@ -225,7 +446,11 @@ export default function PlatformAnalyticsPage() {
   }, [load]);
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    // w-full min-w-0: the campaign table scrolls sideways inside its card.
+    // Under a flex parent, mx-auto alone sizes this page to its content's
+    // min-content (auto margins switch off stretch), and a phone got the
+    // whole console at 610px.
+    <div className="w-full max-w-6xl mx-auto space-y-6 min-w-0">
       <header className="space-y-2">
         <h1 className="text-2xl font-bold text-foreground">Analytics</h1>
         <p className="text-sm text-muted-foreground">
@@ -290,6 +515,68 @@ export default function PlatformAnalyticsPage() {
                 <h2 className="text-base font-semibold text-foreground">Signup funnel</h2>
                 <Funnel funnel={data.funnel} rangeLabel={RANGE_LABELS[data.range.days] || `Last ${data.range.days} days`} />
               </section>
+              <section className={CARD} data-campaign-table>
+                <h2 className="text-base font-semibold text-foreground">Ad campaigns</h2>
+                <p className="text-xs text-muted-foreground">
+                  Campaign ▸ ad set ▸ ad (tap + to open one). Views and visitors are landings on fieldquo.com
+                  {data.campaigns?.olderDaysFromDaily ? ` — ad sets and ads from ${data.campaigns.rawFrom}; days before that add campaign-level views from the daily counts, with no visitor figure` : ""}.
+                  Signups, trials and paying are signups that STARTED in the range, each credited to its first ad touch — the earliest landing
+                  of that browser that named a campaign — whenever it finished. Spellings are merged (&ldquo;new+traffic+campaign&rdquo; is
+                  &ldquo;new traffic campaign&rdquo;), and a campaign is grouped by its Meta id when any landing carried one.
+                </p>
+                <CampaignTable report={data.campaigns} />
+                {data.campaigns ? (
+                  <p className="text-xs text-muted-foreground">
+                    How each signup was credited: {num(data.campaigns.attributionBasis.stored)} from the first touch kept on the signup,{" "}
+                    {num(data.campaigns.attributionBasis.visitor)} read from the browser&apos;s landings, {num(data.campaigns.attributionBasis.link)} from
+                    the /signup link&apos;s own tags, {num(data.campaigns.attributionBasis.none)} with no campaign.
+                    {data.campaigns.truncated ? " The landing read hit its cap; views are a floor." : ""}
+                  </p>
+                ) : null}
+              </section>
+              <section className={CARD} data-meta-template>
+                <h2 className="text-base font-semibold text-foreground">Meta Ads: URL parameters for FieldQuo&apos;s own ads</h2>
+                <MetaTemplate params={data.campaigns?.urlParameters || ""} doc={data.campaigns?.urlParametersDoc || "https://www.facebook.com/business/help/2360940870872492"} />
+                {data.campaigns ? (
+                  <div className="grid gap-4 sm:grid-cols-3 pt-1">
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground">Where the ad ran (site_source_name)</h3>
+                      {data.campaigns.breakdowns.siteSources.length ? (
+                        <ul className="text-xs mt-1 space-y-0.5">
+                          {data.campaigns.breakdowns.siteSources.map((r) => (
+                            <li key={r.key} className="flex justify-between gap-2"><span className="text-foreground">{SITE_SOURCE_NAMES[r.key] || r.key}</span><span className="tabular-nums text-muted-foreground">{num(r.count)}</span></li>
+                          ))}
+                        </ul>
+                      ) : <p className="text-xs text-muted-foreground mt-1">Not sent yet — landings carry it once the string above is on the ads.</p>}
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground">Placement</h3>
+                      {data.campaigns.breakdowns.placements.length ? (
+                        <ul className="text-xs mt-1 space-y-0.5">
+                          {data.campaigns.breakdowns.placements.map((r) => (
+                            <li key={r.key} className="flex justify-between gap-2"><span className="text-foreground font-mono break-all">{r.key}</span><span className="tabular-nums text-muted-foreground">{num(r.count)}</span></li>
+                          ))}
+                        </ul>
+                      ) : <p className="text-xs text-muted-foreground mt-1">Not sent yet.</p>}
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground">Medium and click id</h3>
+                      <ul className="text-xs mt-1 space-y-0.5">
+                        {data.campaigns.breakdowns.mediums.map((r) => (
+                          <li key={r.key} className="flex justify-between gap-2"><span className="text-foreground font-mono break-all">utm_medium={r.key}</span><span className="tabular-nums text-muted-foreground">{num(r.count)}</span></li>
+                        ))}
+                        <li className="flex justify-between gap-2">
+                          <span className="text-foreground">Landings with an fbclid</span>
+                          <span className="tabular-nums text-muted-foreground">
+                            {data.campaigns.breakdowns.paramLandings ? `${num(data.campaigns.breakdowns.fbclidLandings)} of ${num(data.campaigns.breakdowns.paramLandings)}` : "—"}
+                          </span>
+                        </li>
+                      </ul>
+                      <p className="text-[11px] text-muted-foreground mt-1">Placement, site source and click-id presence are known only for landings since 25 September (the fbclid count is out of those); older landings kept utm_source / utm_medium / utm_campaign alone.</p>
+                    </div>
+                  </div>
+                ) : null}
+              </section>
               <div className="grid gap-6 lg:grid-cols-2">
                 <section className={CARD}>
                   <h2 className="text-base font-semibold text-foreground">Most viewed pages</h2>
@@ -299,15 +586,14 @@ export default function PlatformAnalyticsPage() {
                   <h2 className="text-base font-semibold text-foreground">By language</h2>
                   <RankTable rows={data.marketing.languages} label="Language" empty="No views yet." />
                   <h2 className="text-base font-semibold text-foreground pt-2">Where landings came from</h2>
-                  <p className="text-xs text-muted-foreground">Facebook, Instagram, Google… from the click id on the link, the UTM source, or the referrer — in that order. "direct" is a floor: a Facebook app link without an fbclid looks direct. AI assistants (chatgpt, claude, grok, perplexity, gemini, copilot) count when a person clicks a link they were given; the crawlers that read our pages never run the beacon.</p>
+                  <p className="text-xs text-muted-foreground">Facebook, Instagram, Google… from Meta&apos;s site_source_name / placement (or utm_source=ig), then the click id on the link, the UTM source, or the referrer — in that order. Before 25 September an Instagram ad click with an fbclid counted as facebook here. "direct" is a floor: a Facebook app link without an fbclid looks direct. AI assistants (chatgpt, claude, grok, perplexity, gemini, copilot) count when a person clicks a link they were given; the crawlers that read our pages never run the beacon.</p>
                   <RankTable rows={data.marketing.traffic} label="Source" empty="No landings recorded in this range." showUniques={false} />
                   <h2 className="text-base font-semibold text-foreground pt-2">By referrer</h2>
                   <RankTable rows={data.marketing.referrers} label="Referring site" empty="No outside referrers recorded — a direct visit or a link from our own pages carries none." showUniques={false} />
                 </section>
                 <section className={CARD}>
-                  <h2 className="text-base font-semibold text-foreground">By campaign (utm_campaign)</h2>
-                  <RankTable rows={data.marketing.campaigns} label="Campaign" empty="No UTM-tagged landings in this range." showUniques={false} />
-                  <h2 className="text-base font-semibold text-foreground pt-2">By source (utm_source)</h2>
+                  <h2 className="text-base font-semibold text-foreground">By source (utm_source)</h2>
+                  <p className="text-xs text-muted-foreground">The tag as the link carried it. The Meta template keeps this at &ldquo;facebook&rdquo; for every placement — &ldquo;Where landings came from&rdquo; beside it is the one that splits Instagram out.</p>
                   <RankTable rows={data.marketing.sources} label="Source" empty="No UTM-tagged landings in this range." showUniques={false} />
                 </section>
                 <section className={CARD}>

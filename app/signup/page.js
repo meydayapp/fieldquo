@@ -49,7 +49,7 @@ import { LANGUAGES } from "@/app/i18n/languages";
 import { COUNTRIES } from "@/lib/currency";
 import { isInternalPath } from "@/lib/appUrl";
 import { useTranslation } from "@/app/hooks/useTranslation";
-import { trackSignupStep, trackCheckoutStarted, visitorId } from "@/lib/analytics/track";
+import { trackSignupStep, visitorId } from "@/lib/analytics/track";
 import { CAPTURE_DEBOUNCE_MS, CAPTURE_ENDPOINT, captureBodyFor, captureFingerprint } from "@/lib/signup/leadCapture";
 import { readWebsiteAnswer } from "@/lib/signup/website";
 import { RESUME_ACTIONS, safeResumeTarget } from "@/lib/signup/resumeRoute";
@@ -1277,20 +1277,23 @@ export default function SignupPage() {
 
   // The public signup funnel on /platform/analytics — every visitor, not only
   // the ones a rep texted. One event per step SHOWN, after the draft has been
-  // restored so a resumed visit counts where it landed and not at "account".
-  // "visited" is the page view itself; "checkout started" fires at the
-  // handoff below; "completed" is the server's, from the billing sync
-  // (lib/analytics/product/events.js SIGNUP_FUNNEL). Anonymous: the beacon
-  // carries a route pattern and a step name, nothing typed into the form.
+  // restored so a resumed visit counts where it landed. Each screen proves
+  // the step BEFORE it was completed (lib/analytics/product/events.js
+  // SIGNUP_STEP_BAR): Team shown = account submitted, Goals shown = Team
+  // done, and so on; "finish" is sent when Start my free trial is pressed
+  // (handleFinish), and "Trial started" is the server's, from the Company
+  // row. "visited" is the page view itself.
+  //
+  // account/business send nothing: the account screen is shown to every
+  // visitor on arrival, which is what the page view already counts — the
+  // old "account" beacon was why that bar read higher than "visited". The
+  // plan step is only a resumed payment now, not a step of the signup.
+  // Anonymous: a route pattern and a step name, nothing typed into the form.
   useEffect(() => {
     if (!hydrated) return;
-    // team and goals are deliberately null: the platform funnel counts the
-    // four columns it has (lib/analytics/product/events.js SIGNUP_FUNNEL),
-    // and a beacon for a step it would drop on arrival is a write nothing
-    // reads. Reaching "trades" still says both were passed or skipped.
-    const funnelStep = { account: "account", business: "account", team: null, goals: null, industry: "trades", services: "services", plan: "plan" }[step];
-    if (funnelStep) trackSignupStep(funnelStep);
-  }, [hydrated, step]);
+    const funnelStep = { team: "team", goals: "goals", industry: "trades", services: "services" }[step];
+    if (funnelStep && !finishCheckout) trackSignupStep(funnelStep);
+  }, [hydrated, step, finishCheckout]);
   const draftStepRef = useRef(null);
 
   // ── The capture ─────────────────────────────────────────────────────────
@@ -2065,7 +2068,6 @@ export default function SignupPage() {
         // company that was created weeks ago, and handleFinish already removed
         // it on the run that created it. Clearing it again would be tidying
         // something that isn't there.
-        trackCheckoutStarted();
       // The furthest step, kept: "checkout" means they reached Stripe.
       if (!finishCheckout) {
         const handoff = captureBodyFor(form, "checkout", { selectedIndustries, selectedCategoryIds, salesCode, referralCode, utm, visitorId: visitorId() });
@@ -2149,6 +2151,10 @@ export default function SignupPage() {
     // checklists, the templates, the dashboard — each ticked off when the
     // server says it is done (runCreation below).
     if (withoutPlan) {
+      // The funnel's "Services" bar: Start my free trial was pressed. Whether
+      // a company came of it is "Trial started", which the server decides
+      // from the Company row — never this beacon.
+      if (!finishCheckout) trackSignupStep("finish");
       creationRef.current = { ...creationRef.current, postCompany, stages: null };
       await runCreation();
       return;
@@ -2177,8 +2183,6 @@ export default function SignupPage() {
         // Nothing to do about it, and nothing that should stop checkout.
       }
 
-      // The funnel's "checkout started" bar; flushed before the navigation.
-      trackCheckoutStarted();
       // The furthest step, kept: "checkout" means they reached Stripe.
       if (!finishCheckout) {
         const handoff = captureBodyFor(form, "checkout", { selectedIndustries, selectedCategoryIds, salesCode, referralCode, utm, visitorId: visitorId() });

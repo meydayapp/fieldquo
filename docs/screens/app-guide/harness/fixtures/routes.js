@@ -21,6 +21,7 @@ import { ROUTES_HELP } from "./routes-help.js";
 import { ROUTES_TEMPLATES } from "./routes-templates.js";
 import { ROUTES_FIELD } from "./routes-field.js";
 import { ROUTES_PICKER } from "./routes-picker.js";
+import { ROUTES_PLATFORM_ANALYTICS } from "./routes-platform-analytics.js";
 
 // Settings B before Grow: both answer /api/settings/document-templates,
 // and only the settings file's list carries the PDF layouts and the
@@ -30,6 +31,9 @@ import { ROUTES_PICKER } from "./routes-picker.js";
 // sidebar row reads, and it is where a page every group answers for the
 // owner is answered differently for the crew (see its header).
 export const ROUTES = [
+  // /platform/analytics for the "adtrack-platform" frames only; every other
+  // screen falls through (routes-platform-analytics.js).
+  ...ROUTES_PLATFORM_ANALYTICS,
   // The Add service frames (slug prefix "picker-"): their own company
   // shapes and a recorder on the save; everything else falls through.
   ...ROUTES_PICKER,

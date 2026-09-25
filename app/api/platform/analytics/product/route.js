@@ -25,10 +25,12 @@ import {
   rawUniquesByPath, clientConversions, companyDenominator, companyNames,
 } from "@/lib/analytics/product/queries";
 import {
-  excludeDemo, topPaths, byLanguage, dimension, signupFunnel, featureUsage,
+  excludeDemo, topPaths, byLanguage, dimension, signupFunnel, monotoneFromCounts, featureUsage,
   companyScreens, perDay, salesTopFeatures,
 } from "@/lib/analytics/product/aggregate";
-import { SIGNUP_FUNNEL, FEATURES } from "@/lib/analytics/product/events";
+import { SIGNUP_FUNNEL, SIGNUP_STEP_BAR, FEATURES } from "@/lib/analytics/product/events";
+import { loadCampaignReport, CAMPAIGN_METRICS } from "@/lib/analytics/product/campaigns";
+import { groupAdRows, META_URL_PARAMETERS, META_URL_PARAMETERS_DOC } from "@/lib/tracking/adParams";
 import { RAW_RETENTION_DAYS } from "@/lib/analytics/product/rollup";
 import { db } from "@/lib/db";
 import { countUnplacedSignups } from "@/lib/signup/salesFloor";
@@ -88,28 +90,64 @@ export async function GET(request) {
     // click ids folded in, because the Facebook app sends no referrer.
     traffic: dimension(rows, "source", { surface: "marketing" }),
     referrers: dimension(rows, "referrer", { surface: "marketing" }),
-    campaigns: dimension(rows, "utm_campaign", { surface: "marketing" }),
     sources: dimension(rows, "utm_source", { surface: "marketing" }),
     perDay: perDay(rows.filter((r) => r.surface === "marketing")),
   };
 
   // The funnel: distinct visitors when the raw window covers the range,
   // else daily counts (labelled as such — a count is a ceiling on visitors).
+  //
+  // Either way every bar is "reached this step or later", so no bar can read
+  // higher than the one before it (aggregate.js funnelFromVisitors) — the
+  // owner's screenshot had "Account & company 581" over "Visited 565".
   let funnel;
   if (funnelRaw && funnelRaw.from <= range.start) {
     funnel = signupFunnel(funnelRaw.counts, funnelRaw.stoppedAt, "visitors");
+    funnel.excluded = funnelRaw.excluded;
+    funnel.companiesFinished = funnelRaw.companiesFinished;
+    funnel.companiesLinked = funnelRaw.companiesLinked;
   } else {
     const counts = Object.fromEntries(SIGNUP_FUNNEL.map((k) => [k, 0]));
     for (const r of rows) {
       if (r.event === "page_view" && r.path === "/signup") counts.visited += r.count;
-      else if (r.event === "signup_step" && counts[r.path] !== undefined) counts[r.path] += r.count;
-      else if (r.event === "checkout_started") counts.checkout_started += r.count;
+      else if (r.event === "signup_step" && SIGNUP_STEP_BAR[r.path]) counts[SIGNUP_STEP_BAR[r.path]] += r.count;
     }
-    // Completed is a company on every basis — the Subscription row, never
-    // the daily event count (see signupsCompleted).
-    counts.completed = completedInRange;
-    funnel = signupFunnel(counts, funnelRaw ? funnelRaw.stoppedAt : null, "events");
+    // Trial started is a company on every basis — completedSignupWhere,
+    // never a beacon (see signupsCompleted). Past the raw window no browser
+    // can be tied to it, so the bar is the companies themselves.
+    counts.trial_started = completedInRange;
+    funnel = signupFunnel(monotoneFromCounts(counts), funnelRaw ? funnelRaw.stoppedAt : null, "events");
+    funnel.companiesFinished = completedInRange;
+    funnel.companiesLinked = null;
     if (funnelRaw) funnel.stoppedAtFrom = funnelRaw.from.toISOString().slice(0, 10);
+  }
+
+  // ── Campaigns: campaign ▸ ad set ▸ ad, with what they led to ───────────
+  //
+  // lib/analytics/product/campaigns.js says where each column comes from.
+  // A failure here costs the table, not the page.
+  let campaigns = null;
+  try {
+    // Marketing landings are never a demo company's and a demo has no
+    // SignupLead, so the demo toggle cannot move this table (campaigns.js
+    // leadOutcome says why no switch is threaded through).
+    const report = await loadCampaignReport({ start: range.start, end: range.end, daily: rows });
+    const grouped = groupAdRows(report.rows, CAMPAIGN_METRICS, { sortKey: "views" });
+    campaigns = {
+      metrics: CAMPAIGN_METRICS,
+      campaigns: grouped.campaigns.slice(0, 50),
+      totalCampaigns: grouped.campaigns.length,
+      untagged: grouped.untagged,
+      breakdowns: report.breakdowns,
+      attributionBasis: report.attributionBasis,
+      rawFrom: report.rawFrom,
+      olderDaysFromDaily: report.olderDaysFromDaily,
+      truncated: report.truncated,
+      urlParameters: META_URL_PARAMETERS,
+      urlParametersDoc: META_URL_PARAMETERS_DOC,
+    };
+  } catch (err) {
+    console.error("[platform/analytics] campaign report failed:", err?.message || err);
   }
 
   // ── The people behind the Trades drop ───────────────────────────────────
@@ -123,12 +161,16 @@ export async function GET(request) {
   let signupLeads = null;
   try {
     const now = new Date();
-    const [started, withPhone, hotWaiting] = await Promise.all([
-      db.signupLead.count({ where: { startedAt: { gte: range.start, lt: range.end }, completedCompanyId: null } }),
-      db.signupLead.count({ where: { startedAt: { gte: range.start, lt: range.end }, completedCompanyId: null, phoneE164: { not: null } } }),
+    const open = { startedAt: { gte: range.start, lt: range.end }, completedCompanyId: null };
+    const [started, pastAccount, withPhone, hotWaiting] = await Promise.all([
+      db.signupLead.count({ where: open }),
+      // Of those, how many got past the account step — the funnel's
+      // "Account submitted" bar, as people rather than browsers.
+      db.signupLead.count({ where: { ...open, stepReached: { in: ["team", "goals", "industry", "services", "plan", "checkout"] } } }),
+      db.signupLead.count({ where: { ...open, phoneE164: { not: null } } }),
       countUnplacedSignups({ client: db, now, hotOnly: true }),
     ]);
-    signupLeads = { started, withPhone, hotWaiting, reviewHref: "/platform/sales/review?signups=hot", signupsHref: "/platform/signups" };
+    signupLeads = { started, pastAccount, withPhone, hotWaiting, reviewHref: "/platform/sales/review?signups=hot", signupsHref: "/platform/signups" };
   } catch (err) {
     console.error("[platform/analytics] signup leads count failed:", err?.message || err);
   }
@@ -200,6 +242,7 @@ export async function GET(request) {
       ),
     },
     marketing,
+    campaigns,
     funnel,
     help,
     product,

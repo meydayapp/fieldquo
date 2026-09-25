@@ -12477,6 +12477,11 @@ model SignupLead {
   trades      String[] @default([])
   language    String?
   referrer    String?
+  /// { utm_source, utm_medium, utm_campaign } as the /signup link carried
+  /// them, and `ft`: the browser's first ad touch (campaign / ad set / ad,
+  /// placement, site source), set once on the server from its own landings —
+  /// lib/signup/leads.js utmWithFirstTouch. Read by /platform/analytics'
+  /// campaign table.
   utm         Json?
   visitorId   String?
   /// The street line of the BUSINESS address and the quote types ticked on
@@ -19688,12 +19693,18 @@ model AnalyticsEvent {
   utmCampaign  String?
   /// phone | tablet | desktop
   viewport String?
-  /// help_search: { results }. Nothing else writes it.
+  /// help_search: { results }. A landing page_view: { src } (the one-word
+  /// source) and, on marketing pages, { ad } — Meta's ad parameters in
+  /// lib/tracking/adParams.js compactAd form.
   meta Json?
 
   @@index([createdAt])
   @@index([surface, createdAt])
   @@index([companyId, createdAt])
+  /// One browser's landings: the signup capture's first-ad-touch read
+  /// (lib/analytics/product/campaigns.js firstTouchForVisitor) and the
+  /// campaign table's lookup for signups captured before it existed.
+  @@index([visitorId, createdAt])
 }
 
 model AnalyticsDaily {
