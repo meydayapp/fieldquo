@@ -58,6 +58,7 @@ import { visibleLineItems } from "@/lib/quotes/scopeGroupDisplay";
 import { lineShowsAmount, isTextLine } from "@/lib/quotes/textBlocks";
 import RichTextBody from "@/app/components/quotes/RichTextBody";
 import PreviewDecisionNote from "./PreviewDecisionNote";
+import StreetViewPeek from "@/app/components/StreetViewPeek";
 
 // ── Muted ink is /70, never lighter ──────────────────────────────────────────
 //
@@ -660,6 +661,18 @@ export default function QuoteApproval({ token }) {
               {labels.jobAddress} · <span className="text-[#2d2520]">{quote.siteAddress}</span>
             </p>
           )}
+          {/* "See the property" — the house the quote is for, from the street.
+              Only the token goes to the server; it resolves the address from
+              the quote itself and never sends one back. In the document's
+              language, in colours measured against this paper, and absent
+              when Google has no outdoor imagery there. Loads only on tap. */}
+          <StreetViewPeek
+            token={token}
+            variant="document"
+            theme={theme}
+            className="mt-3"
+            labels={copy.streetView}
+          />
 
           {quote.validUntil && (
             <p className="text-sm mt-2 text-[#2d2520]/70">

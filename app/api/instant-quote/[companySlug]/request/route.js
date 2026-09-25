@@ -27,6 +27,8 @@ import { measureErrorMessage } from "@/lib/estimate/measureErrorMessage";
 import { cleanTradeAnswers, tradeAnswerLines } from "@/lib/leads/tradeQuestions";
 import { checkServiceArea, serviceAreaConfigured, postalCodeFromAddress } from "@/lib/company/serviceArea";
 import { geocodeAddress } from "@/lib/measure/roofMeasurement";
+import { visitForSubmit, linkVisitToLead } from "@/lib/tracking/visits";
+import { estimateBucket, pixelParams } from "@/lib/tracking/attribution";
 
 export async function POST(request, { params }) {
   // The heaviest of the public intakes — it re-measures, re-prices, writes a
@@ -268,8 +270,18 @@ export async function POST(request, { params }) {
   // that lead a tier below a roofer's, for picking the highest option a cabinet
   // shop offers. See scoreKeyForBandIndex. Unanswered stays null: absence is
   // not a small budget.
-  await createScoredLead({
+  //
+  // The visit this estimate belongs to (lib/tracking/visits.js), by the token
+  // the page's step beacon was issued — so the lead says which ad or campaign
+  // it came from. Read from the server's own row, never from this body.
+  const { visit, attribution } = await visitForSubmit({
     companyId: company.id,
+    surface: "instant_quote",
+    token: body?.visitToken,
+  }).catch(() => ({ visit: null, attribution: null }));
+  const leadRow = await createScoredLead({
+    companyId: company.id,
+    attribution,
     name,
     email: email || null,
     phone: phone || null,
@@ -338,9 +350,19 @@ export async function POST(request, { params }) {
     .then((lead) =>
       db.leadRequest.update({ where: { id: lead.id }, data: { quoteId: draft.id } }),
     )
-    .catch((err) =>
-      console.error("[instant-quote/request] lead not recorded:", err?.message),
+    .catch((err) => {
+      console.error("[instant-quote/request] lead not recorded:", err?.message);
+      return null;
+    });
+
+  // The visit is finished: out of the partial-lead list, counted once as
+  // submitted. Only when a lead row exists — a visit linked to nothing would
+  // hide a partial whose details the company then has nowhere else.
+  if (leadRow?.id) {
+    await linkVisitToLead(visit, leadRow.id, { trade }).catch((err) =>
+      console.error("[instant-quote/request] visit not linked:", err?.message),
     );
+  }
 
   // They submitted a request that said someone would be in touch — record the
   // consent (attached to the draft quote) so a follow-up call is allowed.
@@ -410,6 +432,18 @@ export async function POST(request, { params }) {
     // words or their provider link, never a monthly figure from us.
     financing: financingOffer(company.financing, { language: emailLanguage }),
     message: shown ? null : gatedMessage(emailLanguage, "confirmed"),
+    // What the company's ad pixels may be told about this Lead, built here so
+    // the page forwards it untouched (lib/tracking/attribution.js
+    // pixelParams): the trade key, and a bucket name for the range ONLY when
+    // `shown` says the homeowner is seeing it. Never a figure. The lead id is
+    // the event id for de-duplication; null when the lead row did not write.
+    tracking: {
+      eventId: leadRow?.id || null,
+      params: pixelParams({
+        category: trade,
+        bucket: shown ? estimateBucket(shown.low, shown.high) : null,
+      }),
+    },
   });
 }
 

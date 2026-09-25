@@ -34,8 +34,11 @@ import { reportResponseError, showError } from "@/lib/clientErrors";
 import { formatAddress } from "@/lib/format/address";
 import { useHasLevel } from "@/app/providers/PermissionProvider";
 import ClientEquipment from "@/app/components/clients/ClientEquipment";
+import ClientPortalLink from "@/app/components/clients/ClientPortalLink";
+import OpenTicketsLink from "@/app/components/tickets/OpenTicketsLink";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 import { jobStatusLabel, jobStatusClasses } from "@/lib/jobs/statusLabels";
+import StreetViewPeek from "@/app/components/StreetViewPeek";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -264,6 +267,22 @@ export default function ClientDetailPage() {
             )}
           </div>
         )}
+        {/* The address above, from the street — checked for imagery on the
+            server from this client's own row and loaded only on tap. Renders
+            nothing when Google has no outdoor panorama there. */}
+        {client.address && (
+          <StreetViewPeek
+            kind="client"
+            id={client.id}
+            className="pt-1"
+            labels={{
+              see: t("app.streetView.see"),
+              hide: t("app.streetView.hide"),
+              openInMaps: t("app.streetView.openInMaps"),
+              frameTitle: t("app.streetView.frameTitle"),
+            }}
+          />
+        )}
         {/* Said, rather than left as an absence.
             GET /api/clients/[id] removes the phone, the email, the contact name
             and the private notes for a member on clientsProperties
@@ -340,6 +359,14 @@ export default function ClientDetailPage() {
           </Link>
         )}
       </div>
+
+      {/* The client's own portal link — copy it, or email it from the
+          company. Same level POST /api/clients/[id]/portal-link asks for
+          (full client record), which is also the level that sees the token
+          on the record at all; `canSeeEquipment` is that same check. */}
+      {canSeeEquipment && <ClientPortalLink clientId={client.id} hasEmail={Boolean(client.email)} />}
+      {/* Issues this client raised from the portal and nobody has closed. */}
+      <OpenTicketsLink clientId={client.id} />
 
       {/* What's installed at this property, and what's still covered.
           Placed above the document lists deliberately: on a service call the

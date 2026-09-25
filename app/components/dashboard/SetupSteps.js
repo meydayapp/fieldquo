@@ -39,17 +39,32 @@ import useStepDialog from "@/app/components/dashboard/useStepDialog";
 import { hasStepPanel } from "@/app/components/dashboard/stepPanels";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError } from "@/lib/clientErrors";
-import { remainingSteps } from "@/lib/setupSteps";
+import { remainingSteps, setupProgress } from "@/lib/setupSteps";
+import StepEstimate from "@/app/components/dashboard/StepEstimate";
 
 const COLLAPSE_BELOW = 3;
 
 /** The one step the card can finish itself, through the popup. */
 const INLINE_ADD_EMPLOYEE_KEY = "team";
 
-export default function SetupSteps() {
+// ══ Progress, hidden kept apart from done (2026-09-24) ═════════════════════
+//
+// "(4 left)" said what remained and nothing about what had been achieved, so
+// the header now also says "9 of 15 done · 2 hidden" (setupProgress in
+// lib/setupSteps.js). Hidden is its own count and never part of "done": the
+// "Done, hide" button records a preference, the database is what records a
+// thing done, and this card promised in its header comment never to claim
+// what it cannot verify. Rows stay removed, never ticked — the counts are
+// how the achievement shows without drawing rows the owner asked to lose.
+//
+// Each row also carries its time estimate (`minutes` on the step,
+// StepEstimate draws it). `footer` is the "Take the tour" row, passed by
+// page.js when this is the set-up card showing.
+export default function SetupSteps({ footer = null }) {
   const { t } = useTranslation();
   // null = not loaded yet; [] = loaded and nothing left (card renders nothing).
   const [steps, setSteps] = useState(null);
+  const [progress, setProgress] = useState(null);
   const [open, setOpen] = useState(null);
   const [error, setError] = useState("");
   const [hiding, setHiding] = useState("");
@@ -71,6 +86,7 @@ export default function SetupSteps() {
         if (isCancelled()) return;
         const remaining = remainingSteps(data?.steps);
         setSteps(remaining);
+        setProgress(setupProgress(data?.steps));
         // Decided once, from the first load — reopening on every dismissal
         // would fight the reader who just closed it.
         setOpen((prev) => (prev === null ? remaining.length >= COLLAPSE_BELOW : prev));
@@ -106,6 +122,7 @@ export default function SetupSteps() {
     if (!data) return remainingRef;
     const remaining = remainingSteps(data?.steps);
     setSteps(remaining);
+    setProgress(setupProgress(data?.steps));
     return remaining;
   }, [remainingRef]);
   const { open: openStep, dialog, nextStrip } = useStepDialog({
@@ -131,6 +148,9 @@ export default function SetupSteps() {
       // vanished on click and came back on the next load is the dead
       // control AGENTS.md warns about, one refresh later.
       setSteps((prev) => (prev || []).filter((s) => s.key !== key));
+      // The row was on the card, so it was applicable and not done: it moves
+      // from outstanding to hidden, and "done" does not move.
+      setProgress((p) => (p ? { ...p, hidden: p.hidden + 1 } : p));
     } finally {
       setHiding("");
     }
@@ -170,6 +190,17 @@ export default function SetupSteps() {
               "Each of these disappears on its own once it's done — or hide it yourself.",
             )}
           </span>
+          {progress && progress.total > 0 && (
+            <span className="block text-xs font-semibold text-foreground mt-1 tabular-nums" data-setup-progress>
+              {t("app.setup.progress", "{done} of {total} done", { done: progress.done, total: progress.total })}
+              {progress.hidden > 0 && (
+                <span className="font-normal text-muted-foreground">
+                  {" · "}
+                  {t("app.setup.hiddenCount", "{n} hidden", { n: progress.hidden })}
+                </span>
+              )}
+            </span>
+          )}
         </span>
         <ChevronDown
           size={18}
@@ -194,15 +225,18 @@ export default function SetupSteps() {
                 <button
                   type="button"
                   onClick={() => openStep(step)}
-                  className="flex items-center gap-2 min-w-0 flex-1 py-2 text-sm font-medium text-foreground min-h-9 text-left"
+                  className="flex flex-col justify-center min-w-0 flex-1 py-2 text-sm font-medium text-foreground min-h-9 text-left"
                 >
-                  <span className="truncate">{t(step.titleKey, step.title)}</span>
+                  <span className="truncate max-w-full">{t(step.titleKey, step.title)}</span>
+                  <StepEstimate minutes={step.minutes} variant="below" />
                 </button>
               ) : (
-                <span className="flex items-center gap-2 min-w-0 flex-1 py-2 text-sm font-medium text-foreground min-h-9">
-                  <span className="truncate">{t(step.titleKey, step.title)}</span>
+                <span className="flex flex-col justify-center min-w-0 flex-1 py-2 text-sm font-medium text-foreground min-h-9">
+                  <span className="truncate max-w-full">{t(step.titleKey, step.title)}</span>
+                  <StepEstimate minutes={step.minutes} variant="below" />
                 </span>
               )}
+              <StepEstimate minutes={step.minutes} variant="side" />
               <Link
                 href={step.href}
                 aria-label={`${t(step.titleKey, step.title)} — ${t("app.stepDialog.openInSettings", "Open in settings")}`}
@@ -232,6 +266,8 @@ export default function SetupSteps() {
           ))}
         </ul>
       )}
+
+      {footer && <div className="px-5 py-4 border-t border-foreground/15">{footer}</div>}
 
       {showAddEmployee && (
         <AddEmployeeModal

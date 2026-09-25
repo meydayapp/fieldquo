@@ -1,7 +1,7 @@
 // app/api/platform/onboarding-email/route.js
 //
 // The "next steps" letter's two tunables — on / off, and how many hours
-// after the card goes in it is sent — read by every platform admin, written
+// after signup it is sent — read by every platform admin, written
 // by a superadmin. lib/signup/nextSteps.js says what each does; the cron
 // (/api/cron/onboarding-next-steps) reads them on every run.
 //
@@ -22,7 +22,10 @@ import {
   validateNextStepsSettings,
 } from "@/lib/signup/nextSteps";
 import { firstQuoteMinutesForTrade, loadNextStepsSettings, saveNextStepsSettings } from "@/lib/signup/nextStepsStore";
-import { firstQuoteProof, nextStepsTradeKey } from "@/lib/signup/nextSteps";
+import { firstQuoteProof, nextStepsTradeKey, nextStepsTrialEndsAt } from "@/lib/signup/nextSteps";
+import { LANGUAGE_CODES } from "@/app/i18n/languages";
+import { loadSetupSnapshot } from "@/lib/setupStepsSnapshot";
+import { remainingSteps, stepsFor } from "@/lib/setupSteps";
 import { getOnboardingStatus } from "@/lib/onboarding";
 import { buildOnboardingNextStepsEmail } from "@/lib/email/onboardingNextStepsEmail";
 import { sendEmail } from "@/lib/email/resend";
@@ -34,8 +37,16 @@ const bad = (error, status = 400) => NextResponse.json({ error }, { status });
 
 async function payload() {
   // The count beside the switch: how many letters have gone out, read off
-  // the column the cron writes, never estimated.
-  const sentCount = await db.subscription.count({ where: { nextStepsEmailSentAt: { not: null } } }).catch(() => null);
+  // the columns the cron writes, never estimated. Company is where it writes
+  // since 2026-09-24; Subscription holds the letters sent before that. A
+  // company is stamped in one place or the other, never both (the cron never
+  // picks a company whose Subscription is stamped), so the sum counts each
+  // letter once. Either read failing is "unknown", not a smaller number.
+  const [onCompany, onSubscription] = await Promise.all([
+    db.company.count({ where: { nextStepsEmailSentAt: { not: null } } }).catch(() => null),
+    db.subscription.count({ where: { nextStepsEmailSentAt: { not: null } } }).catch(() => null),
+  ]);
+  const sentCount = onCompany === null || onSubscription === null ? null : onCompany + onSubscription;
   return {
     settings: await loadNextStepsSettings(),
     defaults: DEFAULT_NEXT_STEPS_SETTINGS,
@@ -94,20 +105,36 @@ export async function POST(request) {
   const to = me.email;
 
   const body = await request.json().catch(() => ({}));
-  const language = ["en", "fr", "es"].includes(body?.language) ? body.language : null;
+  // The letter's eight languages (nextStepsLanguage); anything else is "the
+  // company's own".
+  const language = LANGUAGE_CODES.includes(body?.language) ? body.language : null;
   const where = typeof body?.companyId === "string" && body.companyId.trim() ? { id: body.companyId.trim() } : { isDemo: true };
   const company = await db.company.findFirst({
     where,
     orderBy: { createdAt: "asc" },
-    select: { id: true, name: true, isDemo: true, defaultLanguage: true, industries: true, demoIndustry: true, signupLead: { select: { trades: true } } },
+    select: {
+      id: true,
+      name: true,
+      isDemo: true,
+      defaultLanguage: true,
+      industries: true,
+      demoIndustry: true,
+      trialEndsAt: true,
+      signupLead: { select: { trades: true } },
+      subscription: { select: { id: true } },
+    },
   });
   if (!company) return bad("No such company.", 404);
 
   let status;
+  let setupSteps;
   try {
     status = await getOnboardingStatus(company.id);
+    // The additional set-up steps exactly as the cron reads them, so the
+    // sample is the real letter and not a shorter one.
+    setupSteps = remainingSteps(stepsFor(await loadSetupSnapshot(company.id)));
   } catch (err) {
-    return bad(`Could not read that company's checklist: ${err?.message}`, 500);
+    return bad(`Could not read that company's checklist or set-up steps: ${err?.message}`, 500);
   }
   if (status.complete) {
     return bad(`${company.name} has finished every step, so there is no next-steps letter to build. Name a company with open steps.`, 409);
@@ -129,6 +156,8 @@ export async function POST(request) {
       language: language || company.defaultLanguage,
       tradeKey,
       steps: status.steps,
+      setupSteps,
+      trialEndsAt: nextStepsTrialEndsAt({ company, subscription: company.subscription ?? null }),
       origin: getAppOrigin(request),
       proof,
     });
@@ -159,6 +188,8 @@ export async function POST(request) {
     language: email.language,
     open: email.open,
     done: email.done,
+    more: email.more,
+    trialLine: email.trialLine,
     tradeKey,
     proof,
   });

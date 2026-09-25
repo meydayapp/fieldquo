@@ -169,8 +169,11 @@ export async function POST(request) {
   if (!tour) return NextResponse.json({ error: "Missing tour" }, { status: 400 });
 
   // seen:false RESETS a tour — removes it from the seen list so the walkthrough
-  // plays again next time its page loads. That's how "Replay the tour" in the
-  // Help Center works; default (seen omitted/true) marks it seen as before.
+  // plays again next time its page loads, in a browser with no local seen
+  // flag. "Replay the tour" in the Help Center used this until 2026-09-24; it
+  // now asks for the tour by name (/app?tour=welcome → startTour), because a
+  // browser that had finished the tour kept its own flag and replayed nothing.
+  // Default (seen omitted/true) marks it seen as before.
   const markSeen = body?.seen !== false;
 
   const user = await db.user.findUnique({

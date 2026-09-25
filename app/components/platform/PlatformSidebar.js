@@ -328,7 +328,7 @@ const GROUPS = [
       // though a rep is who calls them — the row IS a company record, and
       // the person looking for it is thinking "who signed up and didn't
       // finish", which is a question about the customer list.
-      { label: "Incomplete signups", href: "/platform/signups", icon: DoorOpen },
+      { label: "Signups", href: "/platform/signups", icon: DoorOpen },
       // Where each signup's request came from and the flag decided on it
       // (outside CA/US, stated-country mismatch, repeat IP). The badge is the
       // number waiting for review — the owner asked for a FIRST-level flag,

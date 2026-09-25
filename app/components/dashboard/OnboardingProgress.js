@@ -8,6 +8,7 @@ import CircularProgress from "./CircularProgress";
 import useStepDialog from "@/app/components/dashboard/useStepDialog";
 import { hasStepPanel } from "@/app/components/dashboard/stepPanels";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import StepEstimate from "@/app/components/dashboard/StepEstimate";
 
 // This card used to carry a "Not registered" button beside the tax step, and a
 // dismissTaxRegistration() posting to POST /api/onboarding-status. Neither ever
@@ -45,7 +46,19 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 // arrived and the step is still to do; `onOpenedStep` hands the key back so
 // a later re-render does not reopen it. A step that is already done, or one
 // this member may not save, opens nothing — the row is drawn as usual.
-export default function OnboardingProgress({ status, onRefresh, canOpenInPlace = false, openStepKey = null, onOpenedStep }) {
+//
+// ══ Progress in words, and a time on every row (2026-09-24) ═══════════════
+//
+// The ring said a percentage and nothing said how many; "2 of 6 done" is now
+// under the title. Every unfinished row carries its time estimate — the
+// figure lives on the step (lib/onboarding.js `minutes`), StepEstimate draws
+// it right-aligned from sm up and under the label on a phone. Nothing on
+// this list can be skipped (the tax row's "I don't have one" removes it), so
+// there is no skipped count to show here; the set-up card has one.
+//
+// `footer` is the "Take the tour" row (page.js passes TourLauncher while this
+// card is the one showing).
+export default function OnboardingProgress({ status, onRefresh, canOpenInPlace = false, openStepKey = null, onOpenedStep, footer = null }) {
   const { t } = useTranslation();
 
   // labelKey through t(), with the English the server sent as the fallback —
@@ -83,6 +96,13 @@ export default function OnboardingProgress({ status, onRefresh, canOpenInPlace =
 
   if (!status?.steps?.length || status.complete) return null;
 
+  // From the server when it sent them; counted here from the same list when
+  // it didn't (an older response) — the same `done` flags either way.
+  const total = Number.isFinite(status.total) ? status.total : status.steps.length;
+  const doneCount = Number.isFinite(status.doneCount)
+    ? status.doneCount
+    : status.steps.filter((s) => s.done).length;
+
   // A row is a button that opens the dialog, or the link it always was. A
   // function, not a component defined in render: a component created on
   // every render is a new type each time, and React would remount every row.
@@ -114,6 +134,9 @@ export default function OnboardingProgress({ status, onRefresh, canOpenInPlace =
           <p className="text-sm text-muted-foreground mt-0.5">
             {t("app.onboarding.stepsLeft")}
           </p>
+          <p className="text-xs font-semibold text-foreground mt-1 tabular-nums" data-onboarding-progress>
+            {t("app.onboarding.progress", "{done} of {total} done", { done: doneCount, total })}
+          </p>
         </div>
       </div>
 
@@ -144,13 +167,17 @@ export default function OnboardingProgress({ status, onRefresh, canOpenInPlace =
                       ) : (
                         <Circle size={18} className="text-muted-foreground shrink-0" />
                       )}
-                      <span
-                        className={`text-sm ${step.done ? "text-muted-foreground line-through" : "text-foreground font-medium"}`}
-                      >
-                        {t("app.onboarding.taxRegLabel", { name })}
+                      <span className="min-w-0">
+                        <span
+                          className={`block text-sm ${step.done ? "text-muted-foreground line-through" : "text-foreground font-medium"}`}
+                        >
+                          {t("app.onboarding.taxRegLabel", { name })}
+                        </span>
+                        {!step.done && <StepEstimate minutes={step.minutes} variant="below" />}
                       </span>
                     </>,
                   )}
+                  {!step.done && <StepEstimate minutes={step.minutes} variant="side" />}
                 </div>
                 {!step.done && (
                   <p className="text-xs text-muted-foreground mt-1 ml-[30px]">
@@ -170,15 +197,21 @@ export default function OnboardingProgress({ status, onRefresh, canOpenInPlace =
               ) : (
                 <Circle size={18} className="text-muted-foreground shrink-0" />
               )}
-              <span
-                className={`text-sm ${step.done ? "text-muted-foreground line-through" : "text-foreground font-medium"}`}
-              >
-                {stepLabel(step)}
+              <span className="min-w-0 flex-1">
+                <span
+                  className={`block text-sm ${step.done ? "text-muted-foreground line-through" : "text-foreground font-medium"}`}
+                >
+                  {stepLabel(step)}
+                </span>
+                {!step.done && <StepEstimate minutes={step.minutes} variant="below" />}
               </span>
+              {!step.done && <StepEstimate minutes={step.minutes} variant="side" />}
             </>,
           );
         })}
       </div>
+
+      {footer && <div className="mt-4 pt-4 border-t border-border">{footer}</div>}
 
       {dialog}
     </div>

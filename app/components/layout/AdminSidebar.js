@@ -121,8 +121,16 @@ import { useRovingRows } from "@/app/components/layout/rovingRows";
 // 'nav-estimate-reviews' and 'nav-ai', and OnboardingTour requires a target
 // that measures non-zero. A collapsed group unmounts its items, so a folded
 // Work is a walkthrough that silently never starts. `pinned` is that rule,
-// made explicit and enforced: check:sidebar fails if any group holding a
-// `tour` item is foldable.
+// made explicit.
+//
+// Since the 2026-09-24 tour refresh the walkthrough also visits rows in
+// People, Grow (Assign shifts, Marketing, Receptionist) — groups that DO fold.
+// Pinning them would have taken a control away from the reader to suit the
+// tour, so instead each such step names the group's header as an opener
+// (`data-tour-open="nav-group-<name>"`, groupTourHook below): the tour clicks
+// it only when the row is not on screen, and clicks it again on the way out
+// so the reader's fold is put back. check:sidebar enforces the pair — a
+// `tour` row in a foldable group must be reachable through that hook.
 export const NAV_GROUPS = [
   {
     key: "app.nav.group.work",
@@ -154,7 +162,7 @@ export const NAV_GROUPS = [
       // The dispatch board: who is on which site, when. Top-level on the
       // owner's word ("scheduling, dispatching"); the person's OWN schedule
       // and the team calendar VIEW of the same shifts are under More.
-      { key: "app.nav.scheduler", href: "/app/scheduler", icon: CalendarClock, helpArticle: "scheduler" },
+      { key: "app.nav.scheduler", href: "/app/scheduler", icon: CalendarClock, tour: "nav-scheduler", helpArticle: "scheduler" },
     ],
   },
   // Money RUNS money (payroll moves it); Insights READS it back. They share a
@@ -171,14 +179,14 @@ export const NAV_GROUPS = [
   {
     key: "app.nav.group.grow",
     items: [
-      { key: "app.nav.marketing", href: "/app/marketing", icon: Megaphone, helpArticle: "marketing" },
+      { key: "app.nav.marketing", href: "/app/marketing", icon: Megaphone, tour: "nav-marketing", helpArticle: "marketing" },
       // Facebook Page and Instagram business messages — a stranger who found
       // the company, i.e. a lead. The crew inbox (work coming in FROM the
       // van) is under More; the crew's own chat is under People.
       { key: "app.nav.messages", href: "/app/messages", icon: MessageCircle, helpArticle: "messages" },
       // The phone front desk — one of the AI employees, filed under Grow
       // because a stranger meets it, beside the inbox that stranger writes to.
-      { key: "app.nav.receptionist", href: "/app/receptionist", icon: Headset, helpArticle: "receptionist" },
+      { key: "app.nav.receptionist", href: "/app/receptionist", icon: Headset, tour: "nav-receptionist", helpArticle: "receptionist" },
     ],
   },
   // The AI employees, as their own shelf. FieldQuo AI is the estimator's
@@ -194,7 +202,7 @@ export const NAV_GROUPS = [
       // AI team is something the owner opens weekly, not something set up
       // once. Gated in lib/permissions/nav.js on the same roles its
       // SETTINGS_ROW_CAPABILITY (user:manage) resolves to.
-      { key: "app.nav.aiTeam", href: "/app/settings/ai-employee", icon: Bot, helpArticle: "settings-ai-employee" },
+      { key: "app.nav.aiTeam", href: "/app/settings/ai-employee", icon: Bot, tour: "nav-ai-team", helpArticle: "settings-ai-employee" },
     ],
   },
 ];
@@ -212,6 +220,10 @@ export const MORE_GROUPS = [
       // Recurring work sold as a package — a standing instruction to raise
       // an invoice.
       { key: "app.nav.plans", href: "/app/plans", icon: CalendarSync, helpArticle: "plans" },
+      // What clients raised from their portal — repairs, warranty claims,
+      // questions, reschedules, visits to book. Reached from here, from the
+      // notification a new one raises, and from the count on a client's page.
+      { key: "app.nav.clientTickets", href: "/app/tickets", icon: LifeBuoy, helpArticle: "the-client-portal-as-a-client" },
       // /app/tasks existed, worked, and was once reachable from NOTHING; it
       // stays a row so that never happens again.
       { key: "app.nav.tasks", href: "/app/tasks", icon: ListTodo, helpArticle: "tasks" },
@@ -300,7 +312,21 @@ export const BOTTOM_ITEMS = [
 ];
 
 export const HOME_ITEM = { key: "app.nav.home", href: "/app", icon: Home, helpArticle: "home" };
-export const MORE_ITEM = { key: "app.nav.more", href: "/app/more", icon: LayoutGrid, helpArticle: "home" };
+// `tour` rides on the rail's More row only — RailLink is the one renderer that
+// reads it; the phone tab bar and the More page draw this item their own way
+// and carry no anchor.
+export const MORE_ITEM = { key: "app.nav.more", href: "/app/more", icon: LayoutGrid, tour: "nav-more", helpArticle: "home" };
+
+/**
+ * The hook a foldable group's header carries so a tour step can unfold it:
+ * "app.nav.group.grow" -> "nav-group-grow". Exported so tours.js names the
+ * same string the header renders (it imports nothing from here — see its
+ * header — so it spells it out, and scripts/check-sidebar.mjs holds the two
+ * together).
+ */
+export function groupTourHook(groupKey) {
+  return `nav-group-${String(groupKey).split(".").pop()}`;
+}
 /** The AI row, for the help centre's list — the same object the AI group holds. */
 export const AI_ITEM = NAV_GROUPS.find((g) => g.key === "app.nav.group.ai").items[0];
 
@@ -490,6 +516,11 @@ export default function AdminSidebar() {
                     onClick={() => toggle(group.key)}
                     aria-expanded={open}
                     data-nav-row
+                    // How the welcome tour unfolds this group when a step
+                    // points at a row inside it and the reader had folded it
+                    // (tours.js `openWith`). The tour folds it back on the
+                    // way out — only if it was the one that opened it.
+                    data-tour-open={groupTourHook(group.key)}
                     className="w-full flex items-center gap-1.5 px-2 pt-1 pb-[3px] rounded-lg text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
                   >
                     <span className="truncate">{t(group.key)}</span>
@@ -587,6 +618,9 @@ export default function AdminSidebar() {
               aria-haspopup="menu"
               className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-[13px] font-semibold bg-sidebar-primary text-sidebar-primary-foreground hover:brightness-105"
               data-rail-create
+              // The welcome tour's Create step. On a phone this drawer copy is
+              // the one it rings — the floating + sits under the open drawer.
+              data-tour="shell-create"
             >
               <Plus size={16} strokeWidth={2.4} className="shrink-0" />
               <span className="truncate">{t("app.quickAdd.title")}</span>
@@ -596,6 +630,7 @@ export default function AdminSidebar() {
               onClick={() => shell.open("search")}
               className="w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs bg-white/[0.12] text-sidebar-muted-foreground hover:text-sidebar-foreground"
               data-rail-search
+              data-tour="shell-search"
             >
               <Search size={13} className="shrink-0" />
               <span className="truncate">{t("app.search.placeholderShort")}</span>

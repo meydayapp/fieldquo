@@ -31,6 +31,7 @@ import InstalledEquipment from "@/app/components/jobs/InstalledEquipment";
 import JobPhotoTimeline from "@/app/components/jobs/JobPhotoTimeline";
 import SuggestedTasks from "@/app/components/jobs/SuggestedTasks";
 import VisitChecklist from "@/app/components/jobs/VisitChecklist";
+import JobChecklist from "@/app/components/checklists/JobChecklist";
 import VisitStatus from "@/app/components/jobs/VisitStatus";
 import { visitStatusLabel, visitStatusClasses } from "@/lib/jobs/visitStatus";
 import { isVisitOutsideJobRange } from "@/lib/jobs/visitInRange";
@@ -58,11 +59,14 @@ import {
 } from "lucide-react";
 import { formatAddress } from "@/lib/format/address";
 import { formatDistanceM } from "@/lib/geo/distance";
+import DirectionsButtons from "@/app/components/jobs/DirectionsButtons";
+import StreetViewPeek from "@/app/components/StreetViewPeek";
 import { useRouter } from "next/navigation";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { hasLevel } from "@/lib/permissions/enforce";
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import PaymentScheduleCard from "./PaymentScheduleCard";
+import OpenTicketsLink from "@/app/components/tickets/OpenTicketsLink";
 
 // ── One STATUS_STYLES held two vocabularies, and lost a key doing it ───────
 //
@@ -273,6 +277,13 @@ export default function JobDetail({ jobId }) {
     (v) => v.status === "completed",
   ).length;
 
+  // Where the crew drives to: the site, else an individual's own address.
+  // The same rule the server applies to the Street View
+  // (lib/maps/streetView.js addressForRecord), so the two never point at
+  // different houses.
+  const workAddress =
+    job.siteAddress || (job.client?.type !== "company" ? formatAddress(job.client) : "");
+
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
       <Link
@@ -295,6 +306,9 @@ export default function JobDetail({ jobId }) {
             {/* Status and archived are different facts, so they get different
                 badges. A job can be Completed AND filed away, or Cancelled and
                 still sitting in the list. */}
+            {/* What the client raised about this job from their portal —
+                drawn only when something is open. */}
+            <OpenTicketsLink jobId={job.id} />
             {job.archivedAt && (
               <span className="text-xs px-2.5 py-1 rounded-full border border-border bg-muted text-muted-foreground">
                 {t("app.jobs.archived", "Archived")}
@@ -650,6 +664,27 @@ export default function JobDetail({ jobId }) {
             />
           )}
         </div>
+        {/* How to get there, and what it looks like when you do. Directions
+            go to where the WORK is: the site address, else the client's own
+            address only for an individual — a company client's address is an
+            office, and sending a crew there is the mistake Job.siteAddress
+            exists to prevent. The Street View resolves the same address on
+            the server (lib/maps/streetViewTarget.js) and loads only on tap. */}
+        {workAddress && (
+        <div className="mt-4 pt-3 border-t border-border space-y-3">
+          <DirectionsButtons t={t} address={workAddress} />
+          <StreetViewPeek
+            kind="job"
+            id={job.id}
+            labels={{
+              see: t("app.streetView.see"),
+              hide: t("app.streetView.hide"),
+              openInMaps: t("app.streetView.openInMaps"),
+              frameTitle: t("app.streetView.frameTitle"),
+            }}
+          />
+        </div>
+        )}
         {/* The company's own extra boxes (Settings > Custom fields), answered
             ones only. Renders nothing for a company that defined none. */}
         <CustomFieldsPanel
@@ -918,6 +953,12 @@ export default function JobDetail({ jobId }) {
           </div>
         )}
       </div>
+
+      {/* The job's own checklists — the trade's form attached when the job
+          was created, or added here. The office (anyone who can edit the job)
+          opens it read-only with the crew's answers; the crew opens it ready
+          to fill. See app/components/checklists/JobChecklist.js. */}
+      <JobChecklist job={job} onChanged={load} readOnlyByDefault={canEditJob} />
 
       {/* Turn what a human wrote about this job into office to-dos */}
       <SuggestedTasks jobId={jobId} onCreated={load} />

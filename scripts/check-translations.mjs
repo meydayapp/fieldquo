@@ -241,18 +241,25 @@ console.log("\nOnboarding tour anchors (data-tour attributes in app/)\n");
           );
           continue;
         }
-        const m = TARGET_RE.exec(selector);
-        if (!m) {
+        // A target may be a LIST — "[data-tour='a'], [data-tour='b']" — when
+        // the same step lives on two layouts of one page (new invoice:
+        // document builder and ?layout=classic); visibleTarget rings
+        // whichever is on screen. Every member of the list must exist.
+        const parts = selector.split(",").map((s) => s.trim());
+        const ms = parts.map((p) => TARGET_RE.exec(p));
+        if (ms.some((m) => !m)) {
           console.log(
             `     ${tour.key} step ${i + 1}: ${field} "${selector}" isn't a "[data-tour='...']" selector, so this check can't verify it`,
           );
           continue;
         }
-        if (!anchors.has(m[1])) {
-          console.log(
-            `     ${tour.key} step ${i + 1}: ${field} points at data-tour="${m[1]}", which nothing in app/ renders`,
-          );
-          missingAnchors++;
+        for (const m of ms) {
+          if (!anchors.has(m[1])) {
+            console.log(
+              `     ${tour.key} step ${i + 1}: ${field} points at data-tour="${m[1]}", which nothing in app/ renders`,
+            );
+            missingAnchors++;
+          }
         }
       }
     }

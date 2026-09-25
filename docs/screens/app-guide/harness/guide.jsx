@@ -498,6 +498,20 @@ async function runScene(scene) {
     await wait(400);
     return;
   }
+  if (scene === "scroll-checklist") {
+    const el = await until("[data-job-checklist]");
+    // Clear of the sticky top bar, which covered the card's heading at -16.
+    window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 72);
+    await wait(300);
+    return;
+  }
+  if (scene === "edit-first-checklist") {
+    const btn = await until('[data-edit-checklist="fq.cl.cabinet_refinishing.painting"]');
+    btn.click();
+    await wait(400);
+    window.scrollTo(0, 0);
+    return;
+  }
   if (scene === "scroll-visits") {
     const el = await until('[data-tour="job-visits"]');
     window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 16);
@@ -714,6 +728,17 @@ async function runScene(scene) {
     (await until("main button svg.lucide-mail")).closest("button").click();
     await until("main textarea, main input[type=text], .fixed textarea");
     await wait(300);
+    return;
+  }
+  if (scene === "website-client-login") {
+    // Fine-tune opens the builder's settings panel; the Client login switch
+    // is the card inside it (data-site-client-portal).
+    const buttons = [...document.querySelectorAll("button")];
+    const fine = buttons.find((b) => /Fine-tune|Ajuster|Ajustar/i.test(b.textContent || ""));
+    if (fine) fine.click();
+    const card = await until("[data-site-client-portal]");
+    card.scrollIntoView({ block: "center" });
+    await wait(400);
     return;
   }
   if (scene === "client-edit") {

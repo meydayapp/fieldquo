@@ -14,6 +14,8 @@ import { invoiceBalanceCents } from "@/lib/stripe";
 import { howToPayFor, onlineOptions, HOW_TO_PAY_COMPANY_SELECT } from "@/lib/payments/offlineMethods";
 import { orderPlan, planStatus } from "@/lib/jobs/plan";
 import { changeOrderLabel } from "@/lib/jobs/changeOrderAddendum";
+import { shapePlanForPortal, shapeVisits, changeRequestPrefix, isoDay, canRequestChange, HIDDEN_PHOTO_STAGES, PAST_PHOTOS_PER_VISIT } from "@/lib/portal/view";
+import { openChangeRequestKeys } from "@/lib/portal/changeRequest";
 
 export async function GET(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -31,8 +33,11 @@ export async function GET(request, { params }) {
     select: {
       // Only what this route itself reads (resolveClientLanguage,
       // taxStatement below) or hands straight back as `clientName`. Nothing
-      // else on Client — email, phone, address, notes, portalToken, type,
-      // contactName, city, createdAt — reaches this route at all now.
+      // else on Client — email, phone, notes, portalToken, contactName,
+      // createdAt — reaches this route at all now. (The visit cards need the
+      // client's address and type to say where a visit is; they are read by a
+      // separate narrow query in the plans/visits block below, so this
+      // select stays exactly as check:public-payload holds it.)
       // `id` is read by the signed-documents query below and never forwarded.
       id: true,
       name: true,
@@ -65,6 +70,14 @@ export async function GET(request, { params }) {
           // no frozen document language here — it's client.language → company
           // default → en, the same rule as any other correspondence.
           defaultLanguage: true,
+          // Visit times are instants: the portal prints them in the company's
+          // own timezone, not the homeowner's browser's guess. Forwarded.
+          timezone: true,
+          // The half-width of the arrival window promised to clients
+          // (lib/booking/arrivalWindow.js). Read by shapeVisits to turn a
+          // start time into "between 1:45 and 2:15"; stripped below — the
+          // client gets the window, not the setting.
+          arrivalWindowMinutes: true,
           // Whether the Pay button can actually do anything, and what to say
           // instead when it can't. Both are stripped from the payload below —
           // see the note on `onlinePayments`.
@@ -341,6 +354,7 @@ export async function GET(request, { params }) {
     taxMode: _taxMode,
     vatRegistered: _vatRegistered,
     usTaxOverrides: _usTaxOverrides,
+    arrivalWindowMinutes: _arrivalWindowMinutes,
     ...companyView
   } = client.company || {};
   const onlinePayments = Boolean(stripeAccountId && stripeChargesEnabled);
@@ -542,9 +556,158 @@ export async function GET(request, { params }) {
     console.error("[portal] documents failed:", err?.message);
   }
 
+  // ── Plans and visits ─────────────────────────────────────────────────────
+  //
+  // Separate queries rather than more relations on the client select above,
+  // each with its own allow-list and each scoped by BOTH the client and the
+  // client's company — the token names one client of one company, and a row
+  // of another household's can't reach this page even if a relation were
+  // ever mis-wired. lib/portal/view.js re-checks both ids per row and builds
+  // every item field by field.
+  //
+  // Best-effort as a block: a failure here drops the plan and visit cards and
+  // says so in the log, and the invoices — the thing a client most often
+  // opens this for — still render.
+  let plans = [];
+  let visits = { next: null, upcoming: [], past: [] };
+  try {
+    const yearAgo = new Date(now.getTime() - 365 * 86400000);
+    const scope = { clientId: client.id, companyId: client.companyId };
+    const [home, planRows, visitRows, apptRows, requested] = await Promise.all([
+      // Where a crew visit goes when its job has no site address of its own,
+      // and whether this is a company client (whose address is an office,
+      // never offered as a job site). Read here, never forwarded as fields —
+      // shapeVisits turns them into one "where" line on the client's own visit.
+      db.client.findUnique({
+        where: { id: client.id },
+        select: { type: true, address: true, city: true, province: true, postalCode: true },
+      }),
+      db.servicePlan.findMany({
+        where: { ...scope, status: "active" },
+        orderBy: { createdAt: "asc" },
+        take: 10,
+        // What the plan card shows (name, service, cadence, dates, per-visit
+        // price, member discount) plus the term columns the date walk needs.
+        // Not collectionMode, not the authorisation, not authToken, not the
+        // occurrences' charge ids or failure messages ("shown to the
+        // contractor, never to the client" — ServicePlanOccurrence).
+        select: {
+          id: true,
+          name: true,
+          serviceName: true,
+          status: true,
+          frequency: true,
+          startDate: true,
+          endMode: true,
+          occurrenceCount: true,
+          endDate: true,
+          amountPerOccurrence: true,
+          discountPct: true,
+          taxRatePct: true,
+          cancelledAt: true,
+          completedAt: true,
+        },
+      }),
+      db.jobVisit.findMany({
+        where: {
+          job: { ...scope, archivedAt: null },
+          status: { notIn: ["cancelled", "canceled"] },
+          scheduledAt: { gte: yearAgo },
+        },
+        orderBy: { scheduledAt: "asc" },
+        take: 60,
+        // Not notes, checklistItems, cancelReason, returnNotes (the client's
+        // own complaint in the office's words), the raw `photos` feed (no
+        // stage on it, so no way to keep an "issue" photo off this page) or
+        // the assignee's id. The assignee's NAME is read for a first name.
+        select: {
+          id: true,
+          scheduledAt: true,
+          status: true,
+          returnReason: true,
+          assignedTo: { select: { name: true } },
+          job: { select: { title: true, siteAddress: true, clientId: true, companyId: true } },
+        },
+      }),
+      db.appointment.findMany({
+        where: { ...scope, status: { not: "cancelled" }, scheduledAt: { gte: yearAgo } },
+        orderBy: { scheduledAt: "asc" },
+        take: 30,
+        // Not notes, cancelReason, requiresSupervisor, coordinates or the
+        // Meet link (a video call's link reaches the client in its own
+        // confirmation letter; this page is not where it is re-issued).
+        select: {
+          id: true,
+          clientId: true,
+          companyId: true,
+          scheduledAt: true,
+          status: true,
+          location: true,
+          assignedTo: { select: { name: true } },
+          job: { select: { title: true } },
+          booking: { select: { startTime: true, endTime: true, mode: true, status: true } },
+        },
+      }),
+      openChangeRequestKeys({ client }),
+    ]);
+
+    // Photos for visits that have happened: only JobPhoto rows (which carry
+    // a stage), never the "issue" stage, never one filed
+    // as safety-incident evidence, and never one filed against a plan step
+    // the office kept off the client's view (Task.clientVisible) — the same
+    // rule the job card above applies to step photos.
+    const pastIds = visitRows.filter((v) => v.status === "completed" || new Date(v.scheduledAt) < now).map((v) => v.id);
+    const photoRows = pastIds.length
+      ? await db.jobPhoto.findMany({
+          where: {
+            companyId: client.companyId,
+            jobVisitId: { in: pastIds },
+            job: { clientId: client.id },
+            stage: { notIn: HIDDEN_PHOTO_STAGES },
+            safetyIncidentId: null,
+            OR: [{ taskId: null }, { task: { clientVisible: true } }],
+          },
+          orderBy: { createdAt: "asc" },
+          take: pastIds.length * PAST_PHOTOS_PER_VISIT,
+          select: { id: true, url: true, jobVisitId: true },
+        })
+      : [];
+
+    visits = shapeVisits({
+      visits: visitRows,
+      appointments: apptRows,
+      photos: photoRows,
+      client: { id: client.id, companyId: client.companyId, ...(home || {}) },
+      company: client.company || {},
+      requested,
+      now,
+    });
+    plans = planRows
+      .map((p) => shapePlanForPortal(p, { now }))
+      .filter(Boolean)
+      .map((p) => ({
+        ...p,
+        // Per plan date: already asked about, and still far enough away to
+        // ask about by message at all.
+        dates: p.next.map((at) => {
+          const occurrence = isoDay(at);
+          return {
+            at,
+            occurrence,
+            requested: requested.has(changeRequestPrefix({ kind: "plan", id: p.id, occurrence })),
+            canRequest: canRequestChange(at, { now }),
+          };
+        }),
+      }));
+  } catch (err) {
+    console.error("[portal] plans/visits failed:", err?.message);
+  }
+
   return NextResponse.json({
     clientName: client.name,
     documents,
+    plans,
+    visits,
     // Resolved once, server-side, so both portal components read the same
     // language the client was written to elsewhere. client.language is
     // selected explicitly above for exactly this.

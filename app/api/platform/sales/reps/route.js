@@ -264,6 +264,7 @@ export async function GET(request) {
           createdAt: true,
           isDemo: true,
           subscription: { select: { id: true } },
+          trialEndsAt: true,
           quotes: { where: { sentAt: { not: null } }, orderBy: { sentAt: "asc" }, take: 1, select: { sentAt: true } },
         },
       },

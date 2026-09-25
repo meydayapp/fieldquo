@@ -44,6 +44,7 @@ import { isInternalPath } from "@/lib/appUrl";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { trackSignupStep, trackCheckoutStarted, visitorId } from "@/lib/analytics/track";
 import { CAPTURE_DEBOUNCE_MS, CAPTURE_ENDPOINT, captureBodyFor, captureFingerprint } from "@/lib/signup/leadCapture";
+import { readWebsiteAnswer } from "@/lib/signup/website";
 
 // "1 month free" / "3 months free". The banner hardcoded the plural and read
 // "1 months free" for the whole life of the current one-month offer. Same
@@ -107,6 +108,7 @@ function restoredFieldNames(fields, t) {
     country: () => t("app.signup.field.country", "Country"),
     language: () => t("app.signup.field.language", "Language"),
     trades: () => t("app.signup.resumed.field.trades", "your trades"),
+    website: () => t("app.signup.resumed.field.website", "your website answer"),
     services: () => t("app.signup.resumed.field.services", "your services"),
   };
   return (Array.isArray(fields) ? fields : [])
@@ -283,6 +285,11 @@ function validateCompanyFields(form, t = englishOnly) {
     errors.phone = t("app.signup.error.phone", "Format: 555-123-4567");
   if (!form.address.trim())
     errors.address = t("app.signup.error.address", "Start typing and select your address");
+  // "Do you have a website?" is optional — unanswered is allowed and stays
+  // unanswered. A "Yes" must come with an address that is one, through the
+  // same reader the capture and /api/companies use (lib/signup/website.js).
+  if (readWebsiteAnswer(form).error)
+    errors.website = t("app.signup.error.website", "Enter your website address, like yourcompany.com — or choose No");
   return errors;
 }
 
@@ -485,6 +492,62 @@ function CompanyFields({ form, setForm, fieldErrors, t = englishOnly }) {
           </p>
         </div>
       </div>
+
+      {/* ── Do you have a website? ─────────────────────────────────────────
+          Yes → the address (Company.website, the column the company's own
+          site already lived in); No → that answer, kept (Company.hasWebsite
+          false), which puts "Create your website" on their set-up steps.
+          Optional: unanswered stays null, never read as a no. Two buttons
+          rather than radios so a second press takes the answer back. */}
+      <div role="group" aria-labelledby="signup-hasWebsite-label">
+        <p id="signup-hasWebsite-label" className={FIELD_LABEL}>
+          {t("app.signup.field.hasWebsite", "Do you have a website?")}
+        </p>
+        <div className="flex gap-2">
+          {[
+            [true, t("app.signup.field.hasWebsiteYes", "Yes")],
+            [false, t("app.signup.field.hasWebsiteNo", "No")],
+          ].map(([value, label]) => (
+            <button
+              key={String(value)}
+              type="button"
+              aria-pressed={form.hasWebsite === value}
+              onClick={() =>
+                setForm((f) => ({ ...f, hasWebsite: f.hasWebsite === value ? null : value }))
+              }
+              className={`flex-1 text-sm border rounded-lg px-4 py-2 ${
+                form.hasWebsite === value ? "border-inverted bg-muted font-medium" : "border-border bg-card"
+              }`}
+              data-has-website={String(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {form.hasWebsite === false && (
+          <p className="text-xs text-muted-foreground mt-1">
+            {t("app.signup.field.websiteHint", "No problem — you can build one inside FieldQuo once you're in.")}
+          </p>
+        )}
+      </div>
+      {form.hasWebsite === true && (
+        <div>
+          <label htmlFor="signup-website" className={FIELD_LABEL}>
+            {t("app.signup.field.website", "Website address")}
+          </label>
+          <input
+            id="signup-website"
+            type="url"
+            inputMode="url"
+            autoComplete="url"
+            value={form.website || ""}
+            onChange={(e) => setForm({ ...form, website: e.target.value })}
+            placeholder="yourcompany.com"
+            className={fieldClass(Boolean(fieldErrors.website))}
+          />
+          {fieldErrors.website && <p className={FIELD_ERROR}>{fieldErrors.website}</p>}
+        </div>
+      )}
     </>
   );
 }
@@ -973,6 +1036,10 @@ export default function SignupPage() {
     // saw Canadian prices and got a Canadian company. Empty means unanswered,
     // and the plan step asks rather than guessing.
     country: "",
+    // "Do you have a website?" — true / false / null (unanswered), and the
+    // address when true. lib/signup/website.js reads both at every boundary.
+    hasWebsite: null,
+    website: "",
   });
 
   const [selectedIndustries, setSelectedIndustries] = useState([]);
@@ -1185,6 +1252,13 @@ export default function SignupPage() {
     if (p.language && p.language !== "en" && next.language === "en") {
       next.language = p.language;
       filled.push("language");
+    }
+    // The website answer, only while this form has none — a "no" is an
+    // answer worth putting back as much as a URL is.
+    if (next.hasWebsite == null && (p.hasWebsite === true || p.hasWebsite === false)) {
+      next.hasWebsite = p.hasWebsite;
+      if (p.hasWebsite && p.website && !next.website) next.website = p.website;
+      filled.push("website");
     }
     setForm(next);
     if (!industriesRef.current.length && Array.isArray(p.trades) && p.trades.length) {
@@ -1880,6 +1954,11 @@ export default function SignupPage() {
           country: form.country,
           language: form.language,
           industries: selectedIndustries,
+          // "Do you have a website?" — the answer and, for a yes, the
+          // address. Re-read by the route through lib/signup/website.js;
+          // the browser's own validation is a courtesy.
+          hasWebsite: form.hasWebsite,
+          website: form.hasWebsite === true ? form.website : undefined,
           planId: withoutPlan ? undefined : selectedPlanId,
           // What the link that brought them here asked for, kept on the
           // company so the trial banner opens Account & Billing on that card

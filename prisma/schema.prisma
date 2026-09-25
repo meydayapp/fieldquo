@@ -1143,7 +1143,11 @@ model Subscription {
   /// The "next steps" email — FieldQuo to a company whose card is in and
   /// whose onboarding checklist is still open, a couple of hours after the
   /// Subscription row appeared (lib/signup/nextSteps.js; the cron is
-  /// /api/cron/onboarding-next-steps). Claimed BEFORE the send by an
+  /// /api/cron/onboarding-next-steps). HISTORICAL since 2026-09-24: the
+  /// claim and record moved to Company.nextStepsEmailSentAt / Skipped, which
+  /// exist for a card-free trial company too. These two are still READ — a
+  /// company stamped here got its letter and is never picked again — and no
+  /// longer written. What follows is how they were written. Claimed BEFORE the send by an
   /// updateMany on `null`, the renewal reminder's trade: a claim that did not
   /// become a letter is reverted to null so a Resend hiccup cannot consume
   /// the one letter a company ever gets, and two overlapping runs cannot both
@@ -1272,6 +1276,14 @@ model Company {
   city         String?
   province     String?
   website      String?
+  /// The signup's "Do you have a website?" (2026-09-24). true = yes (the
+  /// URL is `website` above), false = they said no, null = never answered —
+  /// every company from before the question, and anyone who skipped it.
+  /// Three-valued on purpose: "no" is a statement, a blank is not
+  /// (AGENTS.md failure class 5). Read by lib/setupStepsSnapshot.js — the
+  /// "Create your website" set-up step applies unless this is true or a
+  /// website is on file.
+  hasWebsite   Boolean?
   logoUrl      String?
   // Cloudinary's own id for the logo asset, not just its URL.
   //
@@ -1459,6 +1471,21 @@ model Company {
   /// Company. Rows created before 2026-09-24 keep whatever they had; the
   /// default changed, no existing value did.
   shareAnonymizedPricing Boolean          @default(true)
+  /// The "finish setting up" letter (lib/signup/nextSteps.js, the cron
+  /// /api/cron/onboarding-next-steps) — the claim and the record, ONE per
+  /// company. Here rather than on Subscription because since 2026-09-24 a new
+  /// company has no Subscription row until it chooses a plan, and the letter
+  /// is for exactly those companies. It is the lock for every company, card
+  /// or no card, so a trial company that later subscribes can never be
+  /// written to a second time: both paths claim this row. Subscription's two
+  /// columns of the same name are the record of letters sent before this
+  /// existed and are still read (a company stamped there is never picked
+  /// again), no longer written.
+  nextStepsEmailSentAt   DateTime?
+  /// Why the letter was decided against, once: "onboarding_complete",
+  /// "no_recipient", "suppressed", "test_address". Null while undecided;
+  /// a decided company is never revisited.
+  nextStepsEmailSkipped  String?
 
   /// ── The abandoned-signup recovery nudge ──────────────────────────────────
   ///
@@ -1711,6 +1738,27 @@ model Company {
   shiftAttendance       ShiftAttendance[]
   eventTypes            EventType[]
   funnels               Funnel[]
+  funnelVisits          FunnelVisit[]
+
+  // ── Ad tracking on the company's public funnels (lib/tracking/) ─────────
+  //
+  // The company's OWN Meta Pixel, GA4/Google Ads tag and TikTok pixel ids,
+  // loaded on its instant-estimate page and on any lead funnel that has not
+  // set an id of its own (Funnel.metaPixelId etc. still win per funnel).
+  // Validated on write by validateTrackingIdsForWrite in lib/funnels/pixels.js
+  // — Meta 15-16 digits — so a pasted "fbq('init', ...)" line is refused with
+  // a reason rather than stored and silently never fired.
+  //
+  // `pixelConsentRequired`: when true, no pixel script is loaded until the
+  // visitor accepts a short notice drawn in the company's colours. Off by
+  // default because no client-facing surface has ever carried a consent layer
+  // and the funnel pixels shipped without one; the company in a consent
+  // jurisdiction switches it on. First-party step counts (FunnelVisit) set no
+  // cookie and are not gated by it.
+  metaPixelId          String?
+  tiktokPixelId        String?
+  ga4Id                String?
+  pixelConsentRequired Boolean @default(false)
   jobs                  Job[]
   satisfactionResponses SatisfactionResponse[]
   jobChecklistTemplates JobChecklistTemplate[]
@@ -2226,6 +2274,9 @@ model Company {
   /// Recurring work sold as a package — see the ServicePlan model.
   servicePlans ServicePlan[]
 
+  /// Issues and requests a client raised from the portal — see ClientTicket.
+  clientTickets ClientTicket[]
+
   /// The company's payment-schedule rule set, and every job's frozen copy of
   /// it. See the PaymentScheduleStage/JobPaymentStage models.
   paymentScheduleStages PaymentScheduleStage[]
@@ -2281,6 +2332,10 @@ model Company {
   /// The sales-floor row a self-serve signup became (welcome call / stalled
   /// trial) — lib/signup/salesFloor.js. Never on a rep-referred company.
   signupProspects  Prospect[]
+  /// FieldQuo's own "Remove from list" on /platform/signups — see
+  /// SignupDismissal. Not company data: the row lives in its own table and
+  /// nothing on Company changes when it is written.
+  signupDismissal  SignupDismissal?
   salesAttributionTouches SalesAttributionTouch[]
   salesCommissionEntries  SalesCommissionEntry[]
   /// Check-in texts a rep has DRAFTED about this company, sent or not. Nothing
@@ -2484,6 +2539,19 @@ model Member {
   /// keeps polling the old address and gets 404).
   calendarFeedToken String? @unique
 
+  /// When this person was last actually using /app — a visible tab with a
+  /// hand on it — stamped by POST /api/presence at most once per
+  /// ACTIVE_STAMP_REFRESH_MS (lib/company/memberActivity.js). Read by the
+  /// platform console's "Online now / Active 2 h ago" badge on
+  /// /platform/companies and the per-member list on the company page.
+  ///
+  /// Null means "never stamped", which is NOT "never signed in": the column
+  /// arrived on 2026-09-24, so everyone before that is null until they next
+  /// open the app, and the badge falls back to Session.createdAt and says
+  /// "Signed in" rather than claiming activity. A support session viewing
+  /// the account never writes it — see the route for how.
+  lastActiveAt DateTime?
+
   jobPhotoCommentsAuthored JobPhotoComment[]
   jobPhotoMentions         JobPhotoMention[]
 
@@ -2511,6 +2579,9 @@ model Member {
   callbackRulesAssigned CallbackRule[]
 
   @@unique([userId, companyId])
+  // The console's presence poll asks "latest stamp per company" every minute
+  // while the list is open; this makes that an index walk, not a table scan.
+  @@index([companyId, lastActiveAt])
 }
 
 model PendingTeamProfile {
@@ -2798,6 +2869,7 @@ model Client {
   pamphletStops         PamphletStop[]
   messageThreads        MessageThread[]
   servicePlans          ServicePlan[]
+  clientTickets         ClientTicket[]
   satisfactionResponses SatisfactionResponse[]
   equipment ClientEquipment[]
   callbackEntries CallbackEntry[]
@@ -5385,6 +5457,12 @@ model Job {
   /// When the AI material list was last built, by whom, and on which model —
   /// the banner over the list prints all three, so "Last built today 7:42 by
   /// Sam" is a fact read back rather than a sentence typed in.
+  /// A job-level checklist — the per-trade inspection form attached when the
+  /// job is created (JobChecklistTemplate.autoAddFor) or added by hand on the
+  /// job page. Same item shape as JobVisit.checklistItems
+  /// (lib/jobs/checklistItems.js); null = none, never an empty array.
+  checklistItems Json?
+
   materialListBuiltAt   DateTime?
   materialListBuiltById String?
   materialListModel     String?
@@ -5944,9 +6022,36 @@ model JobChecklistTemplate {
   /// honest answer: nobody stated a sign-off role for "mask the baseboards".
   meta Json?
 
+  /// Stable identity of a template installed from app/data/checklistSeeds
+  /// ("fq.cl.painting.cabinet"), so lib/checklists/seedTemplates.js can tell
+  /// "already installed" from "new" when a trade is switched on twice. Null
+  /// for every template a company wrote itself and for the system library,
+  /// which keys itself by `systemKey` instead. Never rewritten after install:
+  /// the row is the company's from the moment it exists.
+  seedKey String?
+
+  /// The job cannot be marked completed while any item this list put on it is
+  /// unanswered. Stamped onto each copied item as `required` at the moment the
+  /// list is applied (lib/checklists/typedItems.js), because the copy on a job
+  /// outlives the template — see JobVisit.checklistItems. Enforced by
+  /// PATCH /api/jobs/[id] with a message naming what is missing.
+  requiredToClose Boolean @default(false)
+
+  /// ServiceCategory keys ("interior_painting") whose jobs get this list
+  /// attached automatically when the job is created
+  /// (lib/checklists/autoAdd.js). Empty = offered only, which is what every
+  /// template written before this existed means.
+  autoAddFor String[] @default([])
+
+  /// The template's own name in other languages: { fr: { name }, … }. Item
+  /// wording in other languages rides on each item (`i18n`) so it moves with
+  /// the item when the list is reordered.
+  translations Json?
+
   createdAt DateTime @default(now())
 
   @@index([companyId])
+  @@unique([companyId, seedKey])
 }
 
 // ============================================================
@@ -6631,6 +6736,16 @@ model LeadRequest {
   metaCampaignId   String?
   metaCampaignName String?
 
+  /// Where the visitor came from, for a lead that arrived through a lead
+  /// funnel or the instant estimate: { source, utmSource, utmMedium,
+  /// utmCampaign, utmContent, utmTerm, clickNetwork, fbc, referrerHost,
+  /// landedAt }. Copied from the FunnelVisit row the SERVER holds for that
+  /// visit — never from the submit body — by lib/tracking/visits.js, and read
+  /// by the lead drawer's "Came from" line (lib/tracking/attribution.js
+  /// describeAttribution). Null when the lead did not come through a tracked
+  /// visit, which means "we do not know", never "direct".
+  attribution Json?
+
   @@unique([companyId, metaLeadId])
   @@index([companyId, metaFormId])
 }
@@ -6790,6 +6905,84 @@ model FunnelEvent {
 enum FunnelStatus {
   draft
   published
+}
+
+/// One visit to a company's public lead funnel (/f/<company>/<funnel>) or its
+/// instant estimate (/instant-quote/<company>), and how far it got.
+///
+/// ── Why one row per visit, not one per event ───────────────────────────────
+///
+/// The report the company reads is "how many came, how many started, where
+/// they stopped, by ad campaign" — every one of those is a count of VISITS at
+/// their furthest step. A row per visit that only ever moves forward
+/// (`stepRank`) answers all of them with a GROUP BY and stores one row per
+/// person-visit, where an event table stores six to ten and needs a
+/// compaction job. Contractor funnels run at tens to low thousands of visits a
+/// month, so this table stays small without any retention delete — which
+/// matters here, because the owner's rule is that nothing is deleted.
+///
+/// ── The partial lead ───────────────────────────────────────────────────────
+///
+/// `contactName/Email/Phone` hold what the visitor typed into the contact
+/// fields before submitting, under the notice printed beside those fields
+/// ("We save what you type so <Company> can follow up"). Shown to the company
+/// as "Started, didn't finish", NEVER a LeadRequest (so it is in no lead
+/// count, no score, no notification and no billing figure), never emailed or
+/// texted by the system. `partialExpiredAt` flags a partial older than
+/// PARTIAL_EXPIRE_DAYS; the screen hides it. Flagged, not deleted.
+///
+/// `token` is the browser's handle on its own row: 32 random bytes the server
+/// issued, so one visitor cannot advance or overwrite another's visit.
+model FunnelVisit {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// "funnel" | "instant_quote"
+  surface  String
+  /// The Funnel this visit is on, as a plain id — not a relation, so deleting
+  /// a funnel keeps the visits (and the partial leads) it collected.
+  funnelId String?
+  /// The instant-estimate trade chosen, once one is.
+  trade    String?
+
+  token     String  @unique
+  language  String?
+
+  /// The furthest step reached, and its position in the surface's order
+  /// (lib/tracking/funnelSteps.js). Never moves backwards.
+  stepKey   String  @default("landed")
+  stepRank  Int     @default(0)
+
+  /// The landing: tagged-link parameters and the referring host, as the
+  /// browser first arrived. `source` is the one-word answer the report
+  /// groups by (lib/analytics/product/events.js trafficSource).
+  source       String  @default("direct")
+  utmSource    String?
+  utmMedium    String?
+  utmCampaign  String?
+  utmContent   String?
+  utmTerm      String?
+  clickNetwork String?
+  /// Meta's click id in its _fbc cookie shape: fb.1.<landing ms>.<fbclid>.
+  fbc          String?
+  referrerHost String?
+
+  contactName  String?
+  contactEmail String?
+  contactPhone String?
+  contactAt    DateTime?
+  partialExpiredAt DateTime?
+
+  leadId      String?   @unique
+  completedAt DateTime?
+
+  startedAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+
+  @@index([companyId, surface, startedAt])
+  @@index([companyId, contactAt])
+  @@index([funnelId])
 }
 
 /// ── Written by nobody, read by nobody ──────────────────────────────────────
@@ -9523,6 +9716,16 @@ model CompanySite {
   // site's furniture is a static table (lib/site/siteCopy.js); this is the part
   // that is actually written per company.
   translations Json?
+
+  /// "Client login" on the public site — opt-in, off by default. When true the
+  /// site's header and footer carry a Client login link to /client, where a
+  /// client of THIS company enters their email and is sent their own portal
+  /// link (POST /api/portal-login). There is no password behind it: the
+  /// per-client Client.portalToken link is the credential, and this page only
+  /// re-delivers it to the address already on file. False means the link is
+  /// not drawn and /client answers not-found — a company that never switched
+  /// it on has no login page for anyone to probe.
+  clientPortalEnabled Boolean @default(false)
 }
 
 // Per-company, per-trade configuration for the public instant estimator.
@@ -10960,6 +11163,96 @@ model ServicePlan {
   @@index([clientId])
 }
 
+/// An issue or request a CLIENT raised with the company from the portal — a
+/// repair, a warranty claim, a question, a billing query, a reschedule, a
+/// maintenance visit to book — and the conversation that follows it.
+///
+/// ── Mirrors SupportTicket, and is the opposite of it ──────────────────────
+///
+/// SupportTicket is FieldQuo's record ABOUT a company, raised by a sales rep,
+/// handled by the platform. This is the company's OWN record, raised by its
+/// client, handled by its staff — tenant data, scoped by companyId and
+/// clientId on every read, reachable by the client only through their own
+/// Client.portalToken. Same shape (subject, body, status, priority, assignee,
+/// resolvedAt, one thread) so the two queues read alike; different table
+/// because the audiences can never mix.
+///
+/// The links (job, invoice, quote, plan, visit, assignee, converted job) are
+/// plain ids rather than relations on purpose: each is verified under the
+/// ticket's company at write time (lib/clientTickets/service.js), and a
+/// relation per link would add a back-relation to six busy models other work
+/// is editing. A link whose row is later archived simply renders without it.
+///
+/// type    repair | warranty | question | billing | reschedule | maintenance
+///         (TICKET_TYPES in lib/clientTickets/rules.js — the closed set)
+/// status  open | in_progress | waiting_on_client | resolved | closed
+model ClientTicket {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  clientId  String
+  client    Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  jobId         String?
+  jobVisitId    String?
+  invoiceId     String?
+  quoteId       String?
+  servicePlanId String?
+
+  type     String
+  subject  String
+  body     String
+  /// [{ url, kind, filename }] — only this company's own Cloudinary uploads
+  /// (lib/clientTickets/rules.js ownUploads), never a URL a browser chose.
+  photos   Json?
+  status   String  @default("open")
+  priority String  @default("normal")
+  /// The User (staff member) handling it. Null = unassigned, said as such.
+  assignedToId String?
+  /// The job a repair / warranty ticket was turned into, once it was.
+  convertedJobId String?
+  /// For a reschedule / skip filed from a visit or plan date: which one
+  /// (lib/portal/view.js changeRequestPrefix). The portal reads it back to
+  /// mark that row "Request sent" while the ticket is open, and it is the
+  /// duplicate guard — one open request per visit.
+  requestKey String?
+
+  /// First staff reply — the response time the queue is measured on.
+  firstResponseAt DateTime?
+  /// Stamped on resolved/closed, cleared on a reopen (SupportTicket's rule).
+  resolvedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  messages ClientTicketMessage[]
+
+  @@index([companyId, status, updatedAt])
+  @@index([clientId, createdAt])
+  @@index([companyId, jobId])
+  @@index([clientId, requestKey])
+}
+
+/// One message on a ClientTicket — the client's opening words are the
+/// ticket's own body; every reply after them, from either side, is a row here.
+model ClientTicketMessage {
+  id       String       @id @default(cuid())
+  ticketId String
+  ticket   ClientTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  /// "client" | "member". Stated, not inferred from memberId, the same
+  /// reasoning as SupportTicketNote.authorKind.
+  author   String
+  /// The Member who wrote it, for "member" rows. A plain id: a member who
+  /// leaves does not un-write a reply.
+  memberId String?
+  /// Their name as it was when they wrote it — the client sees a first name.
+  authorName String?
+  body     String
+  photos   Json?
+  createdAt DateTime @default(now())
+
+  @@index([ticketId, createdAt])
+}
+
 /// One dated instance of a plan: the visit that is due, the invoice it raised,
 /// and what happened when we tried to collect for it.
 ///
@@ -11566,6 +11859,12 @@ model SignupLead {
   /// 2026-09-21); with them the page lands them where they stopped.
   address            String?
   serviceCategoryIds String[] @default([])
+  /// "Do you have a website?" on the account/business step, kept so a
+  /// resumed signup does not lose it — true / false / null (never answered),
+  /// the same three values Company.hasWebsite takes at creation, and the URL
+  /// when they said yes (lib/signup/website.js normalises it).
+  hasWebsite Boolean?
+  website    String?
 
   /// The Better Auth user this address signed in as, set by a capture that
   /// arrived on a session whose email IS this row's (lib/signup/salesFloor.js
@@ -11605,11 +11904,57 @@ model SignupLead {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  /// FieldQuo's own "Remove from list" on /platform/signups — see SignupDismissal.
+  signupDismissal SignupDismissal?
+
   @@index([lastSeenAt])
   @@index([completedCompanyId])
   @@index([referredRepId])
   @@index([promotedAt])
   @@index([authUserId])
+}
+
+/// A row the owner took off /platform/signups with "Remove from list" — a
+/// test run, a duplicate, somebody who is plainly not a contractor. Keyed on
+/// exactly one of the two kinds of row that page lists: an unfinished
+/// SignupLead, or a Company (an incomplete signup or a new free trial).
+///
+/// ── Why a table of its own, and why nothing is ever deleted ────────────────
+///
+/// The owner's standing rule is no data deletion, and non-negotiable #3 is
+/// that the platform console edits nothing on a company's data — so the
+/// dismissal cannot be a DELETE, and it cannot be a column on Company either.
+/// It is FieldQuo's own note ABOUT a row, in FieldQuo's own table, and the
+/// row it is about is untouched. "Restore" stamps restoredAt rather than
+/// deleting this row, so the history of who hid what, and who put it back,
+/// is kept. A later "Remove" on the same row re-stamps dismissedAt and clears
+/// the restore; the unique keys keep it one row per signup.
+///
+/// ── Read by every reader of these rows, not just the screen ────────────────
+///
+/// Hiding a row the cron still mails would be a control that appears to work
+/// and doesn't. lib/signup/dismissal.js holds the fragments; the five-minute
+/// and 24-hour letters (app/api/cron/signup-recovery), the promotion of a
+/// quiet signup into a hot lead and the welcome-row backfill
+/// (lib/signup/salesFloor.js), the review folder's signup section
+/// (lib/signup/leads.js unplacedSignupWhere) and "Assign for callback" all
+/// refuse an active dismissal.
+model SignupDismissal {
+  id           String      @id @default(cuid())
+  signupLeadId String?     @unique
+  signupLead   SignupLead? @relation(fields: [signupLeadId], references: [id])
+  companyId    String?     @unique
+  company      Company?    @relation(fields: [companyId], references: [id])
+  /// The PlatformAdmin (superadmin — re-checked by the route) who removed it.
+  dismissedAt   DateTime
+  dismissedById String
+  /// Set by "Restore"; null while the row is hidden.
+  restoredAt   DateTime?
+  restoredById String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([restoredAt])
 }
 
 /// One follow-up email FieldQuo sent — or is sending — to somebody who

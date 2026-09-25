@@ -47,7 +47,10 @@ import {
   NUDGE_DELAY_HOURS,
   NUDGE_WINDOW_DAYS,
   NUDGE_IS_COMMERCIAL,
+  cardFreeTrialWhere,
   completedSignupWhere,
+  hasFinishedSignup,
+  isCardFreeTrial,
   decideSignupNudge,
   incompleteSignupWhere,
   isIncompleteSignup,
@@ -101,15 +104,17 @@ const ago = (ms) => new Date(NOW.getTime() - ms);
 // ── The fixtures the brief names, plus the ones the live data forced ───────
 //
 // Every one is modelled on a row that actually exists (or, for the completed
-// case, on one of the twelve that do). `subscription` is present on EVERY
-// fixture — a missing key is a different bug and section 1 tests it on its own.
+// case, on one of the twelve that do). `subscription` AND `trialEndsAt` are
+// present on EVERY fixture — a missing key is a different bug and section 1
+// tests it on its own. `trialEndsAt: null` is the shape of an unfinished
+// signup since 2026-09-24: a company with a trial date FINISHED signing up.
 const SUBSCRIBED = { id: "sub_1" };
 
 const FIXTURES = [
   {
     label: "no subscription, no quotes — the plain abandoned signup",
     company: {
-      id: "c_plain", isDemo: false, subscription: null, memberCount: 1,
+      id: "c_plain", isDemo: false, subscription: null, trialEndsAt: null, memberCount: 1,
       email: "coca@example.com", createdAt: ago(10 * DAY), signupNudgeSentAt: null,
       quotes: 0,
     },
@@ -118,7 +123,7 @@ const FIXTURES = [
   {
     label: "abandoned checkout, then USED the product (zan test inc)",
     company: {
-      id: "c_used", isDemo: false, subscription: null, memberCount: 1,
+      id: "c_used", isDemo: false, subscription: null, trialEndsAt: null, memberCount: 1,
       email: "work_test@example.com", createdAt: ago(5 * DAY), signupNudgeSentAt: null,
       quotes: 1,
     },
@@ -129,7 +134,7 @@ const FIXTURES = [
   {
     label: "completed checkout — must NEVER be nudged",
     company: {
-      id: "c_paid", isDemo: false, subscription: SUBSCRIBED, memberCount: 1,
+      id: "c_paid", isDemo: false, subscription: SUBSCRIBED, trialEndsAt: null, memberCount: 1,
       email: "paid@example.com", createdAt: ago(10 * DAY), signupNudgeSentAt: null,
       quotes: 4,
     },
@@ -138,7 +143,7 @@ const FIXTURES = [
   {
     label: "created two minutes ago — too early to nudge",
     company: {
-      id: "c_new", isDemo: false, subscription: null, memberCount: 1,
+      id: "c_new", isDemo: false, subscription: null, trialEndsAt: null, memberCount: 1,
       email: "localfy@example.com", createdAt: ago(2 * 60 * 1000), signupNudgeSentAt: null,
       quotes: 0,
     },
@@ -147,7 +152,7 @@ const FIXTURES = [
   {
     label: "already emailed — never a second letter",
     company: {
-      id: "c_done", isDemo: false, subscription: null, memberCount: 1,
+      id: "c_done", isDemo: false, subscription: null, trialEndsAt: null, memberCount: 1,
       email: "already@example.com", createdAt: ago(9 * DAY),
       signupNudgeSentAt: ago(8 * DAY), quotes: 0,
     },
@@ -156,7 +161,7 @@ const FIXTURES = [
   {
     label: "on FieldQuo's do-not-contact list",
     company: {
-      id: "c_stop", isDemo: false, subscription: null, memberCount: 1,
+      id: "c_stop", isDemo: false, subscription: null, trialEndsAt: null, memberCount: 1,
       email: "stop@example.com", createdAt: ago(4 * DAY), signupNudgeSentAt: null,
       quotes: 0,
     },
@@ -166,7 +171,7 @@ const FIXTURES = [
   {
     label: "seeded demo company — excluded",
     company: {
-      id: "c_demo", isDemo: true, subscription: null, memberCount: 0,
+      id: "c_demo", isDemo: true, subscription: null, trialEndsAt: null, memberCount: 0,
       email: "demo1@fieldquo.com", createdAt: ago(30 * DAY), signupNudgeSentAt: null,
       quotes: 4,
     },
@@ -175,7 +180,7 @@ const FIXTURES = [
   {
     label: "abandoned in July — outside the CASL-bounded window",
     company: {
-      id: "c_old", isDemo: false, subscription: null, memberCount: 1,
+      id: "c_old", isDemo: false, subscription: null, trialEndsAt: null, memberCount: 1,
       email: "sunset@example.com", createdAt: ago(56 * DAY), signupNudgeSentAt: null,
       quotes: 0,
     },
@@ -184,7 +189,7 @@ const FIXTURES = [
   {
     label: "console-created shell with no owner — nothing was abandoned",
     company: {
-      id: "c_shell", isDemo: false, subscription: null, memberCount: 0,
+      id: "c_shell", isDemo: false, subscription: null, trialEndsAt: null, memberCount: 0,
       email: "whiteglove@example.com", createdAt: ago(3 * DAY), signupNudgeSentAt: null,
       quotes: 0,
     },
@@ -193,7 +198,7 @@ const FIXTURES = [
   {
     label: "no email on the signup — nowhere to write",
     company: {
-      id: "c_noemail", isDemo: false, subscription: null, memberCount: 1,
+      id: "c_noemail", isDemo: false, subscription: null, trialEndsAt: null, memberCount: 1,
       email: null, createdAt: ago(3 * DAY), signupNudgeSentAt: null, quotes: 0,
     },
     expect: "no_recipient",
@@ -201,7 +206,7 @@ const FIXTURES = [
   {
     label: "no signup date on record — refused rather than guessed",
     company: {
-      id: "c_nodate", isDemo: false, subscription: null, memberCount: 1,
+      id: "c_nodate", isDemo: false, subscription: null, trialEndsAt: null, memberCount: 1,
       email: "nodate@example.com", createdAt: null, signupNudgeSentAt: null, quotes: 0,
     },
     expect: "no_created_at",
@@ -214,16 +219,32 @@ const decide = (f) =>
 // ══════════════════════════════════════════════════════════════════════════
 section("1. What an incomplete signup IS");
 
+// Since 38d3308d (signup takes no card) "finished" is a Subscription row OR
+// the card-free trial's date, so "incomplete" is the absence of BOTH.
 ok(
-  "incompleteSignupWhere asks for the ABSENCE of a subscription",
-  JSON.stringify(incompleteSignupWhere()) === JSON.stringify({ subscription: { is: null } }),
+  "incompleteSignupWhere asks for the ABSENCE of a subscription AND of a trial date",
+  JSON.stringify(incompleteSignupWhere()) === JSON.stringify({ subscription: { is: null }, trialEndsAt: null }),
   JSON.stringify(incompleteSignupWhere()),
 );
 ok(
-  "completedSignupWhere is its exact complement",
-  JSON.stringify(completedSignupWhere()) === JSON.stringify({ subscription: { isNot: null } }),
+  "completedSignupWhere is its exact complement — a subscription, or a trial date",
+  JSON.stringify(completedSignupWhere()) ===
+    JSON.stringify({ OR: [{ subscription: { isNot: null } }, { trialEndsAt: { not: null } }] }),
   JSON.stringify(completedSignupWhere()),
 );
+ok(
+  "cardFreeTrialWhere is the trial half alone: no subscription, a trial date",
+  JSON.stringify(cardFreeTrialWhere()) === JSON.stringify({ subscription: { is: null }, trialEndsAt: { not: null } }),
+  JSON.stringify(cardFreeTrialWhere()),
+);
+// completedSignupWhere is an OR, so a caller spreading it beside an OR of its
+// own would lose one silently. Every caller spreads it beside isDemo only.
+for (const [file, needle] of [
+  ["app/api/platform/analytics/overview/route.js", "...NOT_DEMO, ...completedSignupWhere() }"],
+  ["lib/analytics/tenantData.js", "{ isDemo: false, ...completedSignupWhere() }"],
+]) {
+  ok(`${file} spreads completedSignupWhere beside the demo filter alone`, read(file).includes(needle));
+}
 ok(
   "neither fragment bakes in the demo filter (the caller composes NOT_DEMO)",
   !JSON.stringify(incompleteSignupWhere()).includes("isDemo") &&
@@ -231,24 +252,53 @@ ok(
 );
 
 ok(
-  "a company with no subscription is an incomplete signup",
-  isIncompleteSignup({ isDemo: false, subscription: null }) === true,
+  "a company with no subscription and no trial date is an incomplete signup",
+  isIncompleteSignup({ isDemo: false, subscription: null, trialEndsAt: null }) === true,
 );
 ok(
   "a company WITH a subscription is not",
-  isIncompleteSignup({ isDemo: false, subscription: SUBSCRIBED }) === false,
+  isIncompleteSignup({ isDemo: false, subscription: SUBSCRIBED, trialEndsAt: null }) === false,
 );
 ok(
   "a demo is not, however subscriptionless",
-  isIncompleteSignup({ isDemo: true, subscription: null }) === false,
+  isIncompleteSignup({ isDemo: true, subscription: null, trialEndsAt: null }) === false,
 );
+// ── The card-free trial (38d3308d): finished, whatever the row says ────────
+const JASPEDO = { isDemo: false, subscription: null, trialEndsAt: new Date("2026-10-25T03:44:27Z") };
+ok("a card-free trial (no subscription, a trial date) is NOT an incomplete signup", isIncompleteSignup(JASPEDO) === false);
+ok("…it has finished signing up", hasFinishedSignup(JASPEDO) === true && isCardFreeTrial(JASPEDO) === true);
+ok("…and stays finished after the thirty days run out (a lapsed trial did not un-sign-up)",
+  hasFinishedSignup({ ...JASPEDO, trialEndsAt: new Date("2026-01-01T00:00:00Z") }) === true);
+ok("a card-backed company is finished but not a card-free trial",
+  hasFinishedSignup({ isDemo: false, subscription: SUBSCRIBED, trialEndsAt: null }) === true &&
+    isCardFreeTrial({ isDemo: false, subscription: SUBSCRIBED, trialEndsAt: new Date() }) === false);
+ok("a demo is neither finished nor a trial", hasFinishedSignup({ ...JASPEDO, isDemo: true }) === false && isCardFreeTrial({ ...JASPEDO, isDemo: true }) === false);
+ok("an unparseable trial date is not a statement — still incomplete",
+  isIncompleteSignup({ isDemo: false, subscription: null, trialEndsAt: "not a date" }) === true);
+{
+  // undefined is not null, for the trial date as for the relation: a query
+  // that forgot to SELECT trialEndsAt would read every new trial as "didn't
+  // finish" — exactly how jaspedo was mailed.
+  let t = false;
+  try { isIncompleteSignup({ isDemo: false, subscription: null }); } catch { t = true; }
+  ok("an UNSELECTED trialEndsAt throws rather than reading as 'no trial'", t);
+  let t2 = false;
+  try { decideSignupNudge({ company: { id: "x", isDemo: false, subscription: null, memberCount: 1, email: "x@y.co", createdAt: ago(2 * DAY) }, now: NOW }); } catch { t2 = true; }
+  ok("…and the 24-hour decision throws on it too, rather than mailing a trial", t2);
+}
+ok("the 24-hour note refuses a card-free trial, whatever its age",
+  decideSignupNudge({ company: { ...JASPEDO, id: "j", memberCount: 1, email: "ekanda@example.org", createdAt: ago(2 * DAY), signupNudgeSentAt: null }, now: NOW }).reason === "trial_no_plan");
+ok("a row the owner removed from /platform/signups is never mailed",
+  decideSignupNudge({ company: { id: "d", isDemo: false, subscription: null, trialEndsAt: null, memberCount: 1, email: "junk@example.org", createdAt: ago(2 * DAY), signupNudgeSentAt: null }, dismissed: true, now: NOW }).reason === "dismissed");
+ok("…and planSignupNudges carries the dismissal through",
+  planSignupNudges({ companies: [{ id: "d", isDemo: false, subscription: null, trialEndsAt: null, memberCount: 1, email: "junk@example.org", createdAt: ago(2 * DAY), signupNudgeSentAt: null }], dismissedCompanyIds: new Set(["d"]), now: NOW }).sends.length === 0);
 
 // The single most dangerous confusion available: a query that forgot to select
 // the relation would otherwise read every paying customer as an abandoned
 // signup and mail all of them.
 let threw = false;
 try {
-  isIncompleteSignup({ isDemo: false });
+  isIncompleteSignup({ isDemo: false, trialEndsAt: null });
 } catch {
   threw = true;
 }
@@ -280,7 +330,7 @@ ok(
 // Boundaries, exactly. The delay is a floor and the window is a ceiling, and
 // both are tested from both sides so an off-by-one in either direction shows.
 const boundary = (ms) => ({
-  id: "c_b", isDemo: false, subscription: null, memberCount: 1,
+  id: "c_b", isDemo: false, subscription: null, trialEndsAt: null, memberCount: 1,
   email: "b@example.com", createdAt: ago(ms), signupNudgeSentAt: null,
 });
 ok(
@@ -312,7 +362,7 @@ ok(
   "completed_checkout outranks every other refusal except demo",
   decideSignupNudge({
     company: {
-      id: "c_all", isDemo: false, subscription: SUBSCRIBED, memberCount: 0,
+      id: "c_all", isDemo: false, subscription: SUBSCRIBED, trialEndsAt: null, memberCount: 0,
       email: null, createdAt: null, signupNudgeSentAt: ago(DAY),
     },
     suppressed: true,
@@ -364,11 +414,11 @@ section("4. The batch — one letter per person, not per row");
 // Ordered oldest → newest, the way the live rows were created: s5 is the last
 // attempt of the five, which is the one the letter should name.
 const SUNSETS = [
-  { id: "s1", isDemo: false, subscription: null, memberCount: 1, email: "e.boves@example.com", createdAt: ago(5 * DAY + 80000), signupNudgeSentAt: null },
-  { id: "s2", isDemo: false, subscription: null, memberCount: 1, email: "e.boves.1@example.com", createdAt: ago(5 * DAY + 66000), signupNudgeSentAt: null },
-  { id: "s3", isDemo: false, subscription: null, memberCount: 1, email: "E.Boves.1@example.com", createdAt: ago(5 * DAY + 64000), signupNudgeSentAt: null },
-  { id: "s4", isDemo: false, subscription: null, memberCount: 1, email: "e.boves.1@example.com", createdAt: ago(5 * DAY + 62000), signupNudgeSentAt: null },
-  { id: "s5", isDemo: false, subscription: null, memberCount: 1, email: "e.boves.1@example.com", createdAt: ago(5 * DAY + 60000), signupNudgeSentAt: null },
+  { id: "s1", isDemo: false, subscription: null, trialEndsAt: null, memberCount: 1, email: "e.boves@example.com", createdAt: ago(5 * DAY + 80000), signupNudgeSentAt: null },
+  { id: "s2", isDemo: false, subscription: null, trialEndsAt: null, memberCount: 1, email: "e.boves.1@example.com", createdAt: ago(5 * DAY + 66000), signupNudgeSentAt: null },
+  { id: "s3", isDemo: false, subscription: null, trialEndsAt: null, memberCount: 1, email: "E.Boves.1@example.com", createdAt: ago(5 * DAY + 64000), signupNudgeSentAt: null },
+  { id: "s4", isDemo: false, subscription: null, trialEndsAt: null, memberCount: 1, email: "e.boves.1@example.com", createdAt: ago(5 * DAY + 62000), signupNudgeSentAt: null },
+  { id: "s5", isDemo: false, subscription: null, trialEndsAt: null, memberCount: 1, email: "e.boves.1@example.com", createdAt: ago(5 * DAY + 60000), signupNudgeSentAt: null },
 ];
 
 const sunsetPlan = planSignupNudges({ companies: SUNSETS, now: NOW });
@@ -419,10 +469,10 @@ ok(
 // an abandoned one must never be stamped, because the column would then claim a
 // recovery email covered a customer.
 const mixed = [
-  { id: "m_paid", isDemo: false, subscription: SUBSCRIBED, memberCount: 1, email: "shared@example.com", createdAt: ago(40 * DAY), signupNudgeSentAt: null },
-  { id: "m_demo", isDemo: true, subscription: null, memberCount: 0, email: "shared@example.com", createdAt: ago(40 * DAY), signupNudgeSentAt: null },
-  { id: "m_old", isDemo: false, subscription: null, memberCount: 1, email: "shared@example.com", createdAt: ago(90 * DAY), signupNudgeSentAt: null },
-  { id: "m_due", isDemo: false, subscription: null, memberCount: 1, email: "shared@example.com", createdAt: ago(3 * DAY), signupNudgeSentAt: null },
+  { id: "m_paid", isDemo: false, subscription: SUBSCRIBED, trialEndsAt: null, memberCount: 1, email: "shared@example.com", createdAt: ago(40 * DAY), signupNudgeSentAt: null },
+  { id: "m_demo", isDemo: true, subscription: null, trialEndsAt: null, memberCount: 0, email: "shared@example.com", createdAt: ago(40 * DAY), signupNudgeSentAt: null },
+  { id: "m_old", isDemo: false, subscription: null, trialEndsAt: null, memberCount: 1, email: "shared@example.com", createdAt: ago(90 * DAY), signupNudgeSentAt: null },
+  { id: "m_due", isDemo: false, subscription: null, trialEndsAt: null, memberCount: 1, email: "shared@example.com", createdAt: ago(3 * DAY), signupNudgeSentAt: null },
 ];
 const mixedPlan = planSignupNudges({ companies: mixed, now: NOW });
 const mixedStamped = new Set(mixedPlan.sends.flatMap((s) => s.stampCompanyIds));
@@ -558,10 +608,12 @@ ok(
     at("db.company.findUnique") < at("sendEmail("),
 );
 ok(
-  "the fresh read's refusal reverts rather than carrying on",
-  /fresh\.subscription\)\s*\{\s*await revert\(\)/.test(g.replace(/\s+/g, " ")) ||
-    /fresh\.subscription\s*\)\s*\{\s*await revert/.test(g),
+  "the fresh read's refusal reverts rather than carrying on — finished (a subscription OR a trial) or removed",
+  /hasFinishedSignup\(fresh\)[^{]*\)\s*\{\s*await revert\(\)/.test(g.replace(/\s+/g, " ")),
 );
+ok("the fresh read SELECTS the trial date the predicate needs", /findUnique\(\{[\s\S]{0,200}trialEndsAt: true[\s\S]{0,120}subscription/.test(g));
+ok("the 24-hour query selects trialEndsAt (38d3308d's refusal read an unselected column)",
+  /signupNudgeSentAt: true,[\s\S]{0,600}trialEndsAt: true/.test(g));
 ok(
   "sendEmail's three outcomes are all handled (no bare if (res.ok))",
   has("result?.error || result?.skipped"),
@@ -691,13 +743,19 @@ const T0 = new Date("2026-09-21T20:00:00Z");
 const leadPerson = (over = {}) =>
   earlyNudgePersonFromLead({ id: "l1", email: "A@x.com", firstName: "A", trades: ["painting"], stepReached: "industry", lastSeenAt: new Date(T0 - 6 * 60000), completedCompanyId: null, resumeToken: "t", ...over });
 const companyPerson = (over = {}) =>
-  earlyNudgePersonFromCompany({ id: "c", email: "b@x.com", createdAt: new Date(T0 - 600000), subscription: null, industries: ["cleaning"], ...over });
+  earlyNudgePersonFromCompany({ id: "c", email: "b@x.com", createdAt: new Date(T0 - 600000), subscription: null, trialEndsAt: null, industries: ["cleaning"], ...over });
 const EARLY_CASES = [
   ["six minutes of silence is due", leadPerson(), {}, "due"],
   ["four minutes is still active — not abandoned", leadPerson({ lastSeenAt: new Date(T0 - 4 * 60000) }), {}, "still_active"],
   ["exactly five minutes is due", leadPerson({ lastSeenAt: new Date(T0 - 5 * 60000) }), {}, "due"],
   ["a completed lead is a customer", leadPerson({ completedCompanyId: "c" }), {}, "completed"],
   ["a company with a subscription is a customer", companyPerson({ subscription: { id: "s" } }), {}, "completed"],
+  // jaspedo, 2026-09-25: finished on the card-free trial, mailed six minutes
+  // later because "completed" read the Subscription row alone.
+  ["a card-free trial (no subscription, a trial date) FINISHED — never mailed", companyPerson({ trialEndsAt: new Date(T0.getTime() + 30 * 86400000) }), {}, "completed"],
+  ["…nor once its trial has run out", companyPerson({ trialEndsAt: new Date(T0.getTime() - 86400000) }), {}, "completed"],
+  ["a lead the owner removed from the list", leadPerson({ signupDismissal: { dismissedAt: T0, restoredAt: null } }), {}, "dismissed"],
+  ["…restored, it is a person again", leadPerson({ signupDismissal: { dismissedAt: T0, restoredAt: T0 } }), {}, "due"],
   ["a company with no card, ten minutes on, is due", companyPerson(), {}, "due"],
   // jaspedo, 2026-09-25: a card-free trial FINISHED signing up and must never hear "you didn't finish".
   ["a card-free trial (trialEndsAt, no subscription) finished signing up", companyPerson({ trialEndsAt: new Date(T0 + 30 * 86400000) }), {}, "completed"],
@@ -720,8 +778,33 @@ ok("send=true implies every guard passed, over every fixture",
   }));
 {
   let threw = false;
-  try { earlyNudgePersonFromCompany({ id: "c", email: "b@x.com", createdAt: T0 }); } catch { threw = true; }
+  try { earlyNudgePersonFromCompany({ id: "c", email: "b@x.com", createdAt: T0, trialEndsAt: null }); } catch { threw = true; }
   ok("an UNSELECTED subscription throws rather than reading as 'no card'", threw);
+  let threw2 = false;
+  try { earlyNudgePersonFromCompany({ id: "c", email: "b@x.com", createdAt: T0, subscription: null }); } catch { threw2 = true; }
+  ok("an UNSELECTED trialEndsAt throws rather than reading as 'didn't finish'", threw2);
+  let threw3 = false;
+  try { earlyNudgePersonFromCompany({ id: "c", email: "b@x.com", createdAt: T0, subscription: undefined, trialEndsAt: new Date() }); } catch { threw3 = true; }
+  ok("subscription: undefined (not null) throws even beside a trial date", threw3);
+}
+{
+  // "Latest activity wins" must never resurrect a finished person. Two
+  // companies at one inbox: the finished trial, and an older unfinished
+  // attempt whose lead was seen LATER. Before 2026-09-25 the clock picked
+  // the unfinished one and mailed the address of somebody who had finished.
+  const finished = companyPerson({ id: "c_trial", email: "one@x.com", trialEndsAt: new Date(T0.getTime() + 29 * 86400000), createdAt: new Date(T0 - 20 * 60000) });
+  const stale = companyPerson({ id: "c_old", email: "ONE@x.com", createdAt: new Date(T0 - 40 * 60000), signupLead: { lastSeenAt: new Date(T0 - 10 * 60000), trades: [] } });
+  for (const order of [[finished, stale], [stale, finished]]) {
+    const plan = planEarlyNudges({ people: order, now: T0 });
+    ok(`a finished person closes the address whatever the order (${order[0].companyId} first)`, plan.sends.length === 0, JSON.stringify(plan.skipped.map((x) => x.reason)));
+  }
+  const withLead = planEarlyNudges({ people: [leadPerson({ email: "two@x.com", lastSeenAt: new Date(T0 - 6 * 60000) }), companyPerson({ email: "two@x.com", trialEndsAt: new Date(T0.getTime() + 86400000) })], now: T0 });
+  ok("a stray unfinished lead at a finished trial's address is not mailed", withLead.sends.length === 0);
+  const removed = planEarlyNudges({ people: [leadPerson({ email: "three@x.com", signupDismissal: { dismissedAt: T0, restoredAt: null } }), companyPerson({ email: "three@x.com" })], now: T0 });
+  ok("a removed person closes the address too", removed.sends.length === 0);
+  // Hostile shapes: none of them may send.
+  const demoTrial = companyPerson({ isDemo: true, trialEndsAt: new Date(T0.getTime() + 86400000) });
+  ok("a demo on a trial date is refused as a demo", decideEarlyNudge({ person: demoTrial, now: T0 }).reason === "demo");
 }
 {
   const plan = planEarlyNudges({ people: [leadPerson({ email: "same@x.com" }), companyPerson({ email: "SAME@x.com" })], now: T0 });
@@ -773,6 +856,8 @@ ok("the cron runs the early touch through the shared planner", earlyCron.include
 ok("the early claim is the unique on (emailKey, touch)", earlyCron.includes("db.signupNudge.create(") && earlyCron.includes('err?.code !== "P2002"'));
 ok("a lead is re-read for completion after the claim, before the send", /freshLead[\s\S]*completedCompanyId[\s\S]*buildSignupEarlyNudgeEmail/.test(earlyCron));
 ok("a company is re-read for a subscription after the claim, before the send", /freshCompany[\s\S]*subscription[\s\S]*buildSignupEarlyNudgeEmail/.test(earlyCron));
+ok("…and the re-read refuses a finished signup (subscription OR trial), not a bare subscription", /hasFinishedSignup\(freshCompany\)[\s\S]*buildSignupEarlyNudgeEmail/.test(earlyCron) && /freshCompany = await db\.company\.findUnique\(\{[^;]*trialEndsAt: true/.test(earlyCron));
+ok("the early touch's company read selects trialEndsAt and the dismissal", /OR: \[incompleteSignupWhere\(\), cardFreeTrialWhere\(\)\][\s\S]{0,400}trialEndsAt: true/.test(earlyCron) && earlyCron.includes("...DISMISSAL_SELECT"));
 ok("a failed send marks the claim failed rather than sent", earlyCron.includes("failedAt: now") && earlyCron.includes("sentAt: now, providerId"));
 ok("a lead's button carries its resume token; a company's goes to Account & Billing",
   earlyCron.includes("/signup?resume=${encodeURIComponent(person.resumeToken)}") && earlyCron.includes("/app/settings/account-billing"));
@@ -837,14 +922,38 @@ const MUTATIONS = [
   {
     file: "lib/signup/abandoned.js",
     label: "an unselected subscription relation reads as null instead of throwing",
-    from: '        "isIncompleteSignup: company.subscription was not selected — cannot " +',
-    to: '        "" + (() => { throw new Error("x"); })() + ',
-    // The throw is what the assertion tests; replacing the MESSAGE would not
-    // change behaviour, so this mutation replaces the guard instead.
-    replaceInstead: {
-      from: "  if (company.subscription === undefined) {",
-      to: "  if (false) {",
-    },
+    from: "  if (company.subscription === undefined) {",
+    to: "  if (false) {",
+  },
+  {
+    file: "lib/signup/abandoned.js",
+    label: "an unselected trialEndsAt reads as 'no trial' instead of throwing",
+    from: "  if (company.trialEndsAt === undefined) {",
+    to: "  if (false) {",
+  },
+  {
+    file: "lib/signup/abandoned.js",
+    label: "the card-free trial stops counting as finished (the jaspedo letter)",
+    from: "  return company.subscription !== null || hasTrialDate(company);",
+    to: "  return company.subscription !== null;",
+  },
+  {
+    file: "lib/signup/earlyNudge.js",
+    label: "the five-minute letter reads 'completed' off the subscription alone again",
+    from: "  const completed = company.isDemo ? false : hasFinishedSignup(company);",
+    to: "  const completed = company.subscription !== null;",
+  },
+  {
+    file: "lib/signup/earlyNudge.js",
+    label: "a finished person stops closing the address (latest activity resurrects it)",
+    from: '    if (person.completed) closedKeys.set(key, "completed");',
+    to: "    if (false) closedKeys.set(key, \"completed\");",
+  },
+  {
+    file: "lib/signup/abandoned.js",
+    label: "a removed row is mailed the 24-hour note anyway",
+    from: '  if (dismissed) return { send: false, reason: "dismissed" };',
+    to: '  if (false) return { send: false, reason: "dismissed" };',
   },
   {
     file: "lib/signup/abandoned.js",

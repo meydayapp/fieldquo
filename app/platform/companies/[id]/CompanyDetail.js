@@ -41,11 +41,16 @@ import CompanyActions from "./CompanyActions";
 import CompanyInfluencer from "./CompanyInfluencer";
 import CompanyBuilderLayout from "./CompanyBuilderLayout";
 import CompanyDisputeEvidence from "./CompanyDisputeEvidence";
+import CompanyPresence, { useCompanyPresence } from "./CompanyPresence";
+import PresenceBadge from "@/app/components/platform/PresenceBadge";
 import PlatformWriteGate, {
   usePlatformAdmin,
 } from "@/app/components/platform/PlatformWriteGate";
 
 const STATUS_STYLES = {
+  // lib/platform/companyStanding.js tones for a card-free trial.
+  trial: "bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-900",
+  warning: "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900",
   active: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900",
   pending: "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900",
   churned: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-900",
@@ -77,6 +82,10 @@ export default function CompanyDetail({ companyId }) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // Who's been in: one poll feeds both the header badge and the per-member
+  // list below it, so the two are always the same reading. Called up here,
+  // above the early returns, because it is a hook.
+  const presence = useCompanyPresence(companyId);
   // company:suspend, which is what the PATCH picks when onboardingStatus is
   // "churned" or "suspended" (see the `needed` ternary in
   // app/api/platform/companies/[id]/route.js). Admin and superadmin hold it;
@@ -203,14 +212,20 @@ export default function CompanyDetail({ companyId }) {
         <div>
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-2xl font-bold text-foreground">{company.name}</h1>
+            {/* Derived by the API (lib/platform/companyStanding.js): a
+                card-free trial reads "Trialing · no plan yet · N days left",
+                never onboardingStatus's "pending", which only moves at a
+                checkout this company never had. */}
             <span
               className={`text-xs px-2.5 py-1 rounded-full border ${
-                STATUS_STYLES[company.onboardingStatus] ||
+                STATUS_STYLES[company.standing?.tone || company.onboardingStatus] ||
                 "bg-muted text-muted-foreground border-border"
               }`}
+              data-company-standing={company.standing?.key || company.onboardingStatus}
             >
-              {company.onboardingStatus}
+              {company.standing?.label || company.onboardingStatus}
             </span>
+            <PresenceBadge badge={presence.badge} size="lg" />
             {/* Both columns, the same test lib/influencers makes. */}
             {company.influencerAt && company.influencerRepId ? (
               <span className="text-xs px-2.5 py-1 rounded-full border bg-muted text-muted-foreground border-border">
@@ -284,6 +299,11 @@ export default function CompanyDetail({ companyId }) {
         </div>
       )}
 
+      {/* Who's been in — per member, read-only. First on the page because
+          "is this new company actually using it?" is the question the owner
+          opens it with. */}
+      <CompanyPresence data={presence.data} error={presence.error} now={presence.now} />
+
       {/* Billing */}
       <div className="bg-card border border-border rounded-xl p-5">
         <h2 className="font-semibold text-foreground mb-4">Billing</h2>
@@ -345,27 +365,33 @@ export default function CompanyDetail({ companyId }) {
             recorded; a blank column with no reason is "not yet", and says
             so, because the letter is due on a timer this screen does not
             run. docs/ONBOARDING-EMAILS.md lists the whole sequence. */}
-        {sub && (
+        {(sub || company.trialEndsAt) && (
           <dl className="grid gap-4 sm:grid-cols-2 mt-4 pt-4 border-t border-border">
-            <Field
-              label="Subscription confirmation"
-              value={sub.welcomeEmailSentAt ? `Sent ${formatDateTime(sub.welcomeEmailSentAt)}` : "Not sent"}
-              muted={!sub.welcomeEmailSentAt}
-            />
+            {sub && (
+              <Field
+                label="Subscription confirmation"
+                value={sub.welcomeEmailSentAt ? `Sent ${formatDateTime(sub.welcomeEmailSentAt)}` : "Not sent"}
+                muted={!sub.welcomeEmailSentAt}
+              />
+            )}
+            {/* The "finish setting up" letter. Company carries the record
+                since 2026-09-24 (a card-free trial has no Subscription row);
+                a letter sent before that is stamped on the Subscription.
+                One or the other, never both — see lib/signup/nextSteps.js. */}
             <Field
               label="Next-steps email"
-              value={
-                sub.nextStepsEmailSentAt
-                  ? `Sent ${formatDateTime(sub.nextStepsEmailSentAt)}`
-                  : sub.nextStepsEmailSkipped === "onboarding_complete"
-                    ? "Not sent — setup was already complete when it came due"
-                    : sub.nextStepsEmailSkipped === "no_recipient"
-                      ? "Not sent — no address to send it to"
-                      : sub.nextStepsEmailSkipped
-                        ? `Not sent — ${sub.nextStepsEmailSkipped}`
-                        : "Not sent yet"
-              }
-              muted={!sub.nextStepsEmailSentAt}
+              value={(() => {
+                const sentAt = company.nextStepsEmailSentAt || sub?.nextStepsEmailSentAt || null;
+                const skipped = company.nextStepsEmailSkipped || sub?.nextStepsEmailSkipped || null;
+                if (sentAt) return `Sent ${formatDateTime(sentAt)}`;
+                if (skipped === "onboarding_complete") return "Not sent — setup was already complete when it came due";
+                if (skipped === "no_recipient") return "Not sent — no address to send it to";
+                if (skipped === "suppressed") return "Not sent — the address is on the do-not-contact list";
+                if (skipped === "test_address") return "Not sent — a reserved test address (example.com, .test)";
+                if (skipped) return `Not sent — ${skipped}`;
+                return "Not sent yet";
+              })()}
+              muted={!(company.nextStepsEmailSentAt || sub?.nextStepsEmailSentAt)}
             />
           </dl>
         )}

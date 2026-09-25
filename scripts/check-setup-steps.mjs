@@ -50,6 +50,7 @@ import {
   normaliseDismissed,
   withSetupParam,
   isUntouchedStandardAddOn,
+  setupProgress,
 } from "@/lib/setupSteps";
 import { APP_MESSAGES } from "@/app/i18n/appMessages";
 
@@ -89,9 +90,12 @@ const EXPECTED_KEYS = [
   "add_ons",
   "emails",
   "import_jobs",
+  // 2026-09-24: the signup asks "Do you have a website?" — a no (or no
+  // answer) puts this row on the card until the builder's site is published.
+  "website",
 ];
 ok(
-  "the team row, the ten in the owner's order, and the proposal's four after the payment schedule",
+  "the team row, the ten in the owner's order, the proposal's four after the payment schedule, and the website last",
   JSON.stringify(SETUP_STEP_KEYS) === JSON.stringify(EXPECTED_KEYS),
   SETUP_STEP_KEYS.join(","),
 );
@@ -126,8 +130,25 @@ const EMPTY = {
   clientDocuments: 0,
   googleReviewsConnected: false,
   approvedTestimonials: 0,
+  // The website row: no site of their own on record, nothing published.
+  hasOwnWebsite: false,
+  sitePublished: false,
 };
 const TOTAL = EXPECTED_KEYS.length;
+
+// ── "Create your website" — the one row the signup's answer decides ────────
+{
+  const row = (snap) => stepsFor({ ...EMPTY, ...snap }).find((s) => s.key === "website");
+  ok("website: said No (or never answered) → on the card", row({}).applies === true && row({}).done === false);
+  ok("website: said Yes / an address on file → the row does not apply", row({ hasOwnWebsite: true }).applies === false);
+  ok("website: published through the builder → done", row({ sitePublished: true }).done === true);
+  ok("website: only a real true publishes — 'true', 1, null do not", ["true", 1, null, undefined].every((v) => row({ sitePublished: v }).done === false));
+  ok("website: an absent or malformed answer APPLIES (never removes the row)", [undefined, null, "yes", 1].every((v) => row({ hasOwnWebsite: v }).applies === true));
+  const snap = source("lib/setupStepsSnapshot.js");
+  ok("website: the snapshot reads the signup's answer, the address and the builder's published flag",
+    /hasWebsite: true/.test(snap) && /website: true/.test(snap) && /site: \{ select: \{ published: true \} \}/.test(snap) &&
+      /hasOwnWebsite: company\.hasWebsite === true \|\| Boolean/.test(snap) && /sitePublished: company\.site\?\.published === true/.test(snap));
+}
 
 {
   const steps = stepsFor(EMPTY);
@@ -422,7 +443,9 @@ console.log("\n6. The dashboard draws the card behind the same gate\n");
 {
   const page = stripComments(source("app/app/page.js"));
   ok("the dashboard imports SetupSteps", /import SetupSteps from "@\/app\/components\/dashboard\/SetupSteps"/.test(page));
-  ok("…and gates it on can(role, \"user:manage\")", /const canManageSetup = can\(role, "user:manage"\);/.test(page) && /\{canManageSetup && <SetupSteps \/>\}/.test(page));
+  ok("…and gates it on can(role, \"user:manage\")", /const canManageSetup = can\(role, "user:manage"\);/.test(page) && /\{canManageSetup && \(?\s*<SetupSteps[\s/>]/.test(page));
+  // (Props allowed since 2026-09-24 — the card carries the "Take the tour"
+  // footer once onboarding is done. The gate, not the props, is the claim.)
   const onboardingAt = page.indexOf("<OnboardingProgress");
   const setupAt = page.indexOf("<SetupSteps");
   ok("…under the onboarding card", onboardingAt >= 0 && setupAt >= 0 && onboardingAt < setupAt, `${onboardingAt} then ${setupAt}`);
@@ -475,6 +498,73 @@ console.log("\n7. Every app.setup.* key exists in all nine languages\n");
     ok(`${s.key}: English catalogue entry matches the fallback`, APP_MESSAGES.en[s.titleKey] === s.title, APP_MESSAGES.en[s.titleKey]);
   }
   ok("{n} survives translation of app.setup.left", langs.every((code) => APP_MESSAGES[code]["app.setup.left"].includes("{n}")));
+  // The estimate and progress templates carry their placeholders in every
+  // language — a translator who wrote "1–3 min" literally would print the
+  // same figure on every row.
+  const PLACEHOLDERS = {
+    "app.setup.estimate": ["{min}", "{max}"],
+    "app.setup.estimateOne": ["{n}"],
+    "app.setup.progress": ["{done}", "{total}"],
+    "app.onboarding.progress": ["{done}", "{total}"],
+    "app.setup.hiddenCount": ["{n}"],
+  };
+  for (const [key, ph] of Object.entries(PLACEHOLDERS)) {
+    const bad = langs.filter((code) => !ph.every((p) => String(APP_MESSAGES[code]?.[key] || "").includes(p)));
+    ok(`${key} keeps ${ph.join(" ")} in all nine`, bad.length === 0, `bad: ${bad.join(",")}`);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+console.log("\n8. Time estimates and the progress line (2026-09-24)\n");
+
+{
+  // One place for the figure: the step. Every row has one, low <= high, in
+  // whole minutes, and stepsFor carries it to the card untouched.
+  for (const s of SETUP_STEPS) {
+    const m = s.minutes;
+    ok(
+      `${s.key}: minutes is [low, high] with 0 < low <= high <= 60`,
+      Array.isArray(m) && m.length === 2 && m.every(Number.isInteger) && m[0] > 0 && m[0] <= m[1] && m[1] <= 60,
+      JSON.stringify(m),
+    );
+  }
+  const carried = stepsFor({});
+  ok("stepsFor carries each step's minutes", carried.every((row, i) => row.minutes === SETUP_STEPS[i].minutes));
+
+  // Every onboarding step literal carries one too. lib/onboarding.js reads the
+  // database, so it is read as source: each `key: "…"` inside the steps must be
+  // followed by a `minutes: [a, b]` before the next key.
+  const onboarding = source("lib/onboarding.js");
+  const keys = [...onboarding.matchAll(/key: "([a-z_]+)",\n(?:\s*\/\/[^\n]*\n)*\s+labelKey:/g)].map((m) => m[1]);
+  ok("parsed the six onboarding steps", keys.length === 6, keys.join(","));
+  for (let i = 0; i < keys.length; i++) {
+    const from = onboarding.indexOf(`key: "${keys[i]}"`);
+    const to = i + 1 < keys.length ? onboarding.indexOf(`key: "${keys[i + 1]}"`) : onboarding.length;
+    const m = /minutes: \[(\d+), (\d+)\]/.exec(onboarding.slice(from, to));
+    ok(`onboarding ${keys[i]}: carries minutes`, m && Number(m[1]) > 0 && Number(m[1]) <= Number(m[2]), m?.[0]);
+  }
+
+  // Progress: done over APPLICABLE steps; hidden counted apart and never as done.
+  const rows = [
+    { key: "a", done: true, dismissed: false, applies: true },
+    { key: "b", done: false, dismissed: true, applies: true },
+    { key: "c", done: true, dismissed: true, applies: true },
+    { key: "d", done: false, dismissed: false, applies: false },
+    { key: "e", done: false, dismissed: false, applies: true },
+  ];
+  const p = setupProgress(rows);
+  ok("a hidden step is not counted as done", p.done === 2, JSON.stringify(p));
+  ok("hidden counts only the not-done hidden rows", p.hidden === 1, JSON.stringify(p));
+  ok("a step that does not apply is out of the total", p.total === 4, JSON.stringify(p));
+  ok("garbage in, zeros out", JSON.stringify(setupProgress(null)) === JSON.stringify({ done: 0, hidden: 0, total: 0 }));
+  // Against the real catalogue: nothing measured, one hidden.
+  const real = setupProgress(stepsFor({ dismissed: ["overhead"] }));
+  ok("fresh company: 0 done, 1 hidden, every step that applies in the total",
+    real.done === 0 && real.hidden === 1 && real.total === SETUP_STEPS.length, JSON.stringify(real));
+
+  const card = stripComments(source("app/components/dashboard/SetupSteps.js"));
+  ok("the card renders the estimate from the step, not a literal", /<StepEstimate minutes=\{step\.minutes\}/.test(card));
+  ok("the card reads setupProgress", /setupProgress\(data\?\.steps\)/.test(card));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

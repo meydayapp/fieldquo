@@ -6,6 +6,7 @@ import TopBar from "@/app/components/layout/TopBar";
 import MobileTabBar from "@/app/components/layout/MobileTabBar";
 import { NavShellProvider } from "@/app/components/layout/NavShell";
 import ImpersonationBanner from "@/app/components/ImpersonationBanner";
+import ActivityBeat from "@/app/components/layout/ActivityBeat";
 import BillingBanner from "@/app/components/layout/BillingBanner";
 import EmailVerifyBanner from "@/app/components/layout/EmailVerifyBanner";
 import SeatSharingBanner from "@/app/components/layout/SeatSharingBanner";
@@ -458,6 +459,13 @@ export default async function AppLayout({ children }) {
     <div className="min-h-screen bg-background fq-app-shell">
       {/* Renders nothing unless a read-only support session is active. */}
       <ImpersonationBanner />
+      {/* Renders nothing. Tells the platform console a person is using this
+          tab (Member.lastActiveAt, read by the "Online now" badge on
+          /platform/companies). Not mounted for a support session: a
+          superadmin viewing the account must never make the company look
+          active. The route refuses one regardless — this is the third of
+          three refusals, listed in app/api/presence/route.js, not the only. */}
+      <ActivityBeat enabled={!settingsShell.access?.impersonation} />
 
       {/* Renders nothing when the account is in good standing, which is the
           common case. Mounted here rather than on the billing page because

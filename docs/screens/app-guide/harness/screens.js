@@ -301,6 +301,17 @@ export const SCREENS = [
   ...INTRO_FRAMES,
   ...TRIAL_FRAMES,
 
+  // ── Typed per-trade checklists (docs/screens/checklists/) ──────────────
+  //
+  // Unnumbered, so the guide does not renumber. Settings with the installed
+  // starter lists, the cabinet painting editor open (sections, types,
+  // required, auto-add), the same form on the job at phone width for the crew
+  // (stop-light and signature pad), and the office's read-only view of it.
+  { slug: "checklists-settings", href: "/app/settings/checklists", page: "app/app/settings/checklists/page.js", settings: true, height: 1500, chapter: "checklists", out: "docs/screens/checklists" },
+  { slug: "checklists-settings-edit", href: "/app/settings/checklists", page: "app/app/settings/checklists/page.js", settings: true, scene: "edit-first-checklist", height: 2600, chapter: "checklists", out: "docs/screens/checklists" },
+  { slug: "checklists-job-crew-390", href: "/app/jobs", page: "app/app/jobs/[id]/JobDetail.js", props: { jobId: "j_318" }, member: "crew", width: 390, height: 2400, scene: "scroll-checklist", chapter: "checklists", out: "docs/screens/checklists" },
+  { slug: "checklists-job-office", href: "/app/jobs", page: "app/app/jobs/[id]/JobDetail.js", props: { jobId: "j_318" }, height: 1800, scene: "scroll-checklist", chapter: "checklists", out: "docs/screens/checklists" },
+
   // ── The booking page at phone width, one frame per mode ────────────────
   //
   // Unnumbered, under docs/screens/booking-modes/, so the guide's chapter
@@ -487,4 +498,13 @@ export const SCREENS = [
   { slug: "onelook-invoice-review-edit-doc-builder", href: "/app/invoices/inv_2069/edit", page: "app/app/invoices/[id]/edit/page.js", params: { id: "inv_2069" }, scene: "scroll-invoice-review", height: 1300, chapter: "one-look", out: "docs/screens/one-look" },
   { slug: "onelook-invoice-new-mobile-doc-builder", href: "/app/invoices/new", page: "app/app/invoices/new/page.js", width: 390, height: 1400, chapter: "one-look", out: "docs/screens/one-look" },
   { slug: "onelook-quote-new-mobile-doc-builder", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", width: 390, height: 1400, chapter: "one-look", out: "docs/screens/one-look" },
+  // ── Client portal: Client login switch + portal link (2026-09-24) ────────
+  // Settings → Website with Fine-tune open on the "Client login on your
+  // website" switch, and a client's page with Copy / Email portal link.
+  { slug: "client-portal-website-switch", nav: "app.settings.website", href: "/app/settings/website", page: "app/app/settings/website/page.js", settings: true, scene: "website-client-login", height: 1000, chapter: "client-portal", out: "docs/screens/client-portal" },
+  { slug: "client-portal-website-switch-375", nav: "app.settings.website", href: "/app/settings/website", page: "app/app/settings/website/page.js", settings: true, scene: "website-client-login", width: 375, height: 1400, chapter: "client-portal", out: "docs/screens/client-portal" },
+  { slug: "client-portal-client-page-link", href: "/app/clients", page: "app/app/clients/[id]/page.js", params: { id: "cl_dubois" }, height: 1100, chapter: "client-portal", out: "docs/screens/client-portal" },
+  { slug: "client-tickets-queue", nav: "app.nav.clientTickets", href: "/app/tickets", page: "app/app/tickets/page.js", height: 800, chapter: "client-portal", out: "docs/screens/client-portal" },
+  { slug: "client-tickets-detail", href: "/app/tickets", page: "app/app/tickets/[id]/page.js", params: { id: "tk_hinge" }, height: 1300, chapter: "client-portal", out: "docs/screens/client-portal" },
+  { slug: "client-tickets-detail-375", href: "/app/tickets", page: "app/app/tickets/[id]/page.js", params: { id: "tk_hinge" }, width: 375, height: 1700, chapter: "client-portal", out: "docs/screens/client-portal" },
 ];

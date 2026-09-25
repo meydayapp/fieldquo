@@ -15,6 +15,8 @@ import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
 import { offlinePaymentLines } from "@/lib/payments/offlinePaymentNote";
 import { jsonBody } from "@/lib/jsonBody";
 import JobProgressCard from "./JobProgressCard";
+import PlansAndVisits from "./PlansAndVisits";
+import TicketsAndRequests from "./TicketsAndRequests";
 import {
   Loader2,
   Building2,
@@ -36,6 +38,9 @@ export default function ClientPortal({ token }) {
   // two different sentences, because a bank debit is not received on
   // return: it clears in 3–5 business days.
   const [justPaid, setJustPaid] = useState(null);
+  // "Report an issue" pressed on a past visit: which visit, for the form in
+  // TicketsAndRequests to open about.
+  const [issueDraft, setIssueDraft] = useState(null);
 
   useEffect(() => {
     // Stripe sends the client back here with ?paid=true (card) or
@@ -212,6 +217,37 @@ export default function ClientPortal({ token }) {
       {(data.jobs || []).map((job) => (
         <JobProgressCard key={job.id} job={job} token={token} copy={copy} date={date} accent={accent} accentOn={accentOn} />
       ))}
+
+      {/* When somebody is next coming, the client's service plans with their
+          next dates, and the upcoming / past visit lists — with the one thing
+          a client can do about them: ask the office to move one. Renders
+          nothing when there is none of it, so a quotes-and-invoices client
+          sees the page exactly as before. */}
+      <PlansAndVisits
+        plans={data.plans || []}
+        visits={data.visits || {}}
+        token={token}
+        copy={copy}
+        locale={fmt.locale}
+        timeZone={c.timezone}
+        money={money}
+        date={date}
+        brandColor={c.brandColor}
+        companyName={c.name}
+        onReportIssue={setIssueDraft}
+      />
+
+      {/* Report an issue · Request work · the client's own tickets and their
+          conversations. Hidden until its own request answers. */}
+      <TicketsAndRequests
+        token={token}
+        copy={copy}
+        locale={fmt.locale}
+        brandColor={c.brandColor}
+        companyName={c.name}
+        issueDraft={issueDraft}
+        onIssueDraftUsed={() => setIssueDraft(null)}
+      />
 
       {/* Balance — it's the other thing most people open this for. */}
       <div className="bg-white border border-black/10 rounded-2xl p-6 mb-6">

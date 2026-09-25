@@ -5,7 +5,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { ensureDefaultFollowUps } from "@/lib/followUps/defaults";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
-import { incompleteSignupWhere } from "@/lib/signup/abandoned";
+import { cardFreeTrialWhere, incompleteSignupWhere } from "@/lib/signup/abandoned";
+import { companyStanding } from "@/lib/platform/companyStanding";
 
 /**
  * The status filter, which is TWO questions wearing one parameter.
@@ -30,7 +31,12 @@ function statusWhere(status) {
   // show — the same line /platform/signups and the analytics overview draw.
   if (status === "demo") return { isDemo: true };
   if (!status) return { isDemo: false };
+  // "Never finished signup": no Subscription row AND no trial date — since
+  // 38d3308d a new company has no row either, and it is NOT this.
   if (status === "incomplete") return { isDemo: false, ...incompleteSignupWhere() };
+  // Finished on the card-free trial, no plan chosen yet — what
+  // /platform/signups and /platform/billing/subscriptions link to.
+  if (status === "trial_no_plan") return { isDemo: false, ...cardFreeTrialWhere() };
   return { isDemo: false, onboardingStatus: status };
 }
 
@@ -55,7 +61,11 @@ export async function GET(request) {
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json(companies);
+  // `standing` — the status the screen prints, derived (lib/platform/
+  // companyStanding.js), so a card-free trial reads "Trialing · no plan yet"
+  // rather than onboardingStatus's "pending".
+  const now = new Date();
+  return NextResponse.json(companies.map((c) => ({ ...c, standing: companyStanding(c, now) })));
 }
 
 // Manual company creation — used before self-serve signup exists, or for

@@ -12,6 +12,8 @@
 // the bio-link candidate list), the fixture runs that library over fixture rows
 // rather than restating its output by hand, so the picture cannot drift from
 // what the real route would send.
+import { checklistSeedsForTrade } from "@/app/data/checklistSeeds";
+import { templateDataForSeed } from "@/lib/checklists/seedData";
 import { COMPANY, PEOPLE, CLIENT, QUOTE, JOB, INVOICE, day, iso, TODAY } from "./company.js";
 import {
   INSTANT_ESTIMATE_DEFAULTS,
@@ -139,6 +141,19 @@ const CHECKLISTS = [
     updatedAt: iso(day(-30)),
   },
 ];
+// The per-trade lists "Add the starter checklists for my trades" installs for
+// a cabinet refinisher (lib/checklists/seedTemplates.js): the cabinet painting
+// form, auto-added to cabinet refinishing jobs, plus the four generic lists.
+// Built with the installer's own pure half so the frame shows exactly the rows
+// a real install writes.
+const INSTALLED_CHECKLISTS = checklistSeedsForTrade("cabinet_refinishing").map((seed, i) => ({
+  id: `ck_seed_${i}`,
+  ...templateDataForSeed(seed, { companyId: COMPANY.id, categoryId: CATEGORY_REFINISH.id, language: "en" }),
+  category: seed.trades.includes("*") ? null : CATEGORY_REFINISH,
+  createdAt: iso(day(-1)),
+}));
+export { INSTALLED_CHECKLISTS };
+
 const SYSTEM_CHECKLISTS = [
   {
     id: "sys_refinish_pre",
@@ -891,6 +906,9 @@ export const WEBSITE = {
     companyId: COMPANY.id,
     subdomain: SLUG,
     published: true,
+    // "Client login" on the public site — on, so the Fine-tune panel's
+    // switch photographs in its on state (client-portal rows).
+    clientPortalEnabled: true,
     publishedAt: iso(day(-60)),
     styleKey: "warm",
     composition: "showcase",
@@ -1077,7 +1095,10 @@ export const ROUTES_SETTINGS_B = [
   {
     path: "/api/settings/checklists",
     method: "GET",
-    reply: ({ search }) => (search.get("includeSystem") === "1" ? [...CHECKLISTS, ...SYSTEM_CHECKLISTS] : CHECKLISTS),
+    reply: ({ search }) =>
+      search.get("includeSystem") === "1"
+        ? [...CHECKLISTS, ...INSTALLED_CHECKLISTS, ...SYSTEM_CHECKLISTS]
+        : [...CHECKLISTS, ...INSTALLED_CHECKLISTS],
   },
   { path: "/api/settings/service-categories", method: "GET", reply: () => SERVICE_CATEGORIES },
 

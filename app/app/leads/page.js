@@ -45,12 +45,16 @@ import {
   AlertTriangle,
   Trash2,
   MapPinOff,
+  BarChart3,
+  Megaphone,
 } from "lucide-react";
+import { describeAttribution, sourceName } from "@/lib/tracking/describe";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useHasLevel } from "@/app/providers/PermissionProvider";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 import ClientMediaTile from "@/app/components/ClientMediaTile";
+import StreetViewPeek from "@/app/components/StreetViewPeek";
 import { countMediaKinds } from "@/lib/media/validate";
 import { reportResponseError } from "@/lib/clientErrors";
 import { fetchArray } from "@/lib/loadState";
@@ -421,12 +425,23 @@ export default function LeadsPage() {
           <h1 className="text-2xl font-bold text-foreground">{t("app.leads.title")}</h1>
           <p className="text-sm text-muted-foreground mt-1">{t("app.leads.subtitle")}</p>
         </div>
-        <Link
-          href="/app/leads/import"
-          className="inline-flex items-center gap-1.5 border border-border px-3 py-2 rounded-full text-sm font-semibold text-foreground shrink-0"
-        >
-          <Upload size={15} /> {t("app.leads.import")}
-        </Link>
+        <div className="flex flex-wrap justify-end gap-2 shrink-0">
+          {/* Visits, sources and the people who typed their details and
+              stopped — lib/tracking/. Beside Import rather than in the
+              toolbar: it is a different screen, not a filter on this one. */}
+          <Link
+            href="/app/leads/traffic"
+            className="inline-flex items-center gap-1.5 border border-border px-3 py-2 rounded-full text-sm font-semibold text-foreground"
+          >
+            <BarChart3 size={15} /> {t("app.traffic.navLink")}
+          </Link>
+          <Link
+            href="/app/leads/import"
+            className="inline-flex items-center gap-1.5 border border-border px-3 py-2 rounded-full text-sm font-semibold text-foreground"
+          >
+            <Upload size={15} /> {t("app.leads.import")}
+          </Link>
+        </div>
       </div>
 
       {/* Toolbar */}
@@ -607,6 +622,34 @@ export default function LeadsPage() {
           t={t}
         />
       )}
+    </div>
+  );
+}
+
+// "Came from Facebook · ad click · campaign spring_roofs" — the landing the
+// visitor arrived with, copied onto the lead from the server's own visit row
+// when it came through a funnel or the instant estimate (lib/tracking/
+// visits.js). Absent for every other lead, and then nothing is printed:
+// no attribution means "we do not know", not "direct".
+function CameFrom({ attribution, t }) {
+  const a = describeAttribution(attribution);
+  if (!a) return null;
+  const source =
+    a.source === "direct"
+      ? t("app.traffic.source.direct")
+      : a.source === "website"
+        ? t("app.traffic.source.website")
+        : sourceName(a.source);
+  const parts = [source];
+  if (a.adClick) parts.push(t("app.traffic.adClick"));
+  if (a.campaign) parts.push(t("app.traffic.campaignNamed", { campaign: a.campaign }));
+  if (a.content) parts.push(a.content);
+  return (
+    <div className="mt-1 flex items-start gap-1.5 text-xs text-muted-foreground">
+      <Megaphone size={12} className="shrink-0 mt-0.5" />
+      <span>
+        {t("app.traffic.cameFrom")} {parts.join(" · ")}
+      </span>
     </div>
   );
 }
@@ -1100,6 +1143,7 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
                 {new Date(lead.createdAt).toLocaleString()}
                 {lead.source && ` · ${lead.source}`}
               </div>
+              <CameFrom attribution={lead.attribution} t={t} />
             </div>
 
             {/* Contact */}
@@ -1125,6 +1169,23 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
               )}
               {addressLine && (
                 <div className="text-muted-foreground">{addressLine}</div>
+              )}
+              {/* The house, before anyone drives out to quote it. The server
+                  resolves the address from this lead's own intake and checks
+                  for imagery for free; the panorama loads only on tap. The
+                  detail panel only — never on a board card. */}
+              {addressLine && (
+                <StreetViewPeek
+                  kind="lead"
+                  id={lead.id}
+                  className="pt-1"
+                  labels={{
+                    see: t("app.streetView.see"),
+                    hide: t("app.streetView.hide"),
+                    openInMaps: t("app.streetView.openInMaps"),
+                    frameTitle: t("app.streetView.frameTitle"),
+                  }}
+                />
               )}
               {/* Said, not left as a gap.
                   GET /api/leads removes the email, the phone and the stated

@@ -48,7 +48,7 @@ export async function GET(request) {
       orderBy: { createdAt: "desc" },
       take: 100,
       select: {
-        id: true, name: true, city: true, province: true, industries: true, defaultLanguage: true, createdAt: true, isDemo: true,
+        id: true, name: true, city: true, province: true, industries: true, defaultLanguage: true, createdAt: true, isDemo: true, trialEndsAt: true,
         subscription: { select: { id: true, status: true } },
         salesAttribution: { select: { salesRepId: true, capturedAt: true } },
         quotes: { where: { sentAt: { not: null } }, orderBy: { sentAt: "asc" }, take: 1, select: { sentAt: true } },

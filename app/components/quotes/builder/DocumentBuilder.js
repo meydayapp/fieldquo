@@ -1166,7 +1166,15 @@ export default function DocumentBuilder({ b, kind = "quote" }) {
                   ? storedAddOns.filter((a) => a.source === "takeoff" && lines.some((l) => a.areaLabel && String(l.description).startsWith(`${a.areaLabel} —`)))
                   : [];
                 return (
-                  <div key={group.tempId} ref={(el) => (groupRefs.current[group.tempId] = el)}>
+                  <div
+                    key={group.tempId}
+                    ref={(el) => (groupRefs.current[group.tempId] = el)}
+                    // The new-invoice tour's "List the work" step (tours.js
+                    // invoice-new-v1). An invoice is drawn with exactly one
+                    // lines group, present from the first render, so the
+                    // anchor is never absent on a blank invoice.
+                    data-tour={isInvoice && groupIndex === 0 ? "invoice-items" : undefined}
+                  >
                     <DocumentScopeGroup
                       label={group.label}
                       index={b.scopeGroups.length > 1 ? groupIndex : null}

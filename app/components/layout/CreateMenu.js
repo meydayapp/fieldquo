@@ -62,6 +62,10 @@ export function CreateButton() {
         aria-haspopup="menu"
         aria-expanded={open}
         data-create-button
+        // The welcome tour's Create step (app/components/tours.js). The rail's
+        // own Create row carries the same anchor; the tour rings whichever
+        // one is on screen — this one when the rail is folded to icons.
+        data-tour="shell-create"
         className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-semibold bg-inverted text-inverted-foreground hover:brightness-110"
       >
         <Plus size={16} className="shrink-0" />

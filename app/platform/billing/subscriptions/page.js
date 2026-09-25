@@ -88,6 +88,11 @@ export default function SubscriptionsPage() {
           <MetricCard
             label="Trialing"
             value={count(data.summary.trialing)}
+            note={
+              data.summary.trialingNoPlan
+                ? `${count(data.summary.trialingNoPlan)} with no card or plan yet`
+                : undefined
+            }
           />
           <MetricCard
             label="Trials ending"
@@ -102,6 +107,59 @@ export default function SubscriptionsPage() {
             tone={data.summary.unbillable > 0 ? "warning" : "default"}
           />
         </div>
+      )}
+
+      {/* ── Free trials without a plan ─────────────────────────────────────
+          Since 2026-09-24 a new company signs up with no card and has no
+          Subscription row until its owner picks a plan from the banner — so
+          "where are the new signups" is answered here, read-only, and each
+          row opens the company. The full list, searchable, is the companies
+          filter. They are also rows of the Trialing view below. */}
+      {data?.freeTrials && (
+        <section className="bg-card border border-border rounded-xl overflow-hidden" data-free-trials>
+          <div className="px-5 py-3 flex items-center justify-between gap-3 flex-wrap border-b border-border">
+            <h2 className="text-sm font-semibold text-foreground">
+              Free trials without a plan ({count(data.freeTrials.length)})
+            </h2>
+            <Link href="/platform/companies?status=trial_no_plan" className="text-xs text-muted-foreground underline">
+              Open in Companies →
+            </Link>
+          </div>
+          {data.freeTrials.length === 0 ? (
+            <p className="px-5 py-4 text-sm text-muted-foreground">
+              No company is on a free trial without a plan right now.
+            </p>
+          ) : (
+            <div className="divide-y divide-border">
+              {data.freeTrials.map((f) => (
+                <Link
+                  key={f.companyId}
+                  href={`/platform/companies/${f.companyId}`}
+                  className="flex items-center justify-between gap-4 px-5 py-3 hover:bg-muted"
+                >
+                  <div className="min-w-0">
+                    <div className="font-medium text-foreground truncate">{f.companyName}</div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {f.ownerName || "no owner name"}
+                      {f.ownerEmail ? ` · ${f.ownerEmail}` : ""}
+                      {f.country ? ` · ${f.country}` : ""}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0 text-xs">
+                    <div className="text-foreground">Signed up {formatDate(f.signedUpAt)}</div>
+                    <div className={f.level === "full" ? "text-muted-foreground" : "text-amber-700 dark:text-amber-300"}>
+                      {f.level === "full"
+                        ? `${f.daysLeft} ${f.daysLeft === 1 ? "day" : "days"} left`
+                        : f.level === "readonly"
+                          ? "Trial ended · read-only"
+                          : "Trial ended · locked"}
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
       )}
 
       <div className="flex gap-1.5 flex-wrap">
@@ -185,6 +243,11 @@ export default function SubscriptionsPage() {
                     >
                       {statusMeta(r.status).label}
                     </span>
+                    {r.noPlan && (
+                      <span className="text-xs px-2 py-0.5 rounded-full border bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-900">
+                        No card · no plan yet
+                      </span>
+                    )}
                     {urgent && (
                       <span className="text-xs px-2 py-0.5 rounded-full border bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900">
                         Trial ends in {r.trialDaysLeft}d
@@ -208,9 +271,12 @@ export default function SubscriptionsPage() {
                   <div className="text-sm font-medium text-foreground">
                     {r.planName}
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {money(r.priceMonthly, { compact: true })}/mo
-                  </div>
+                  {/* No plan, no price — "$0/mo" would read as a free plan. */}
+                  {!r.noPlan && (
+                    <div className="text-xs text-muted-foreground">
+                      {money(r.priceMonthly, { compact: true })}/mo
+                    </div>
+                  )}
                 </div>
               </Link>
             );
