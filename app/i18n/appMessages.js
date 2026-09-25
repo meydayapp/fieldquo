@@ -44,6 +44,13 @@ import { countedNoun, pluralForm } from "../../lib/i18n/plurals.js";
 // Flat, dot-namespaced keys, matching messages.js. Flat means `t("app.nav.jobs")`
 // is one lookup, and grepping the key finds both the use and every translation.
 const en = {
+  // ── See the property + Directions (2026-09-24) ──
+  "app.streetView.see": "See the property",
+  "app.streetView.hide": "Hide",
+  "app.streetView.openInMaps": "Open in Google Maps",
+  "app.streetView.frameTitle": "Street View of the property",
+  "app.job.directions": "Directions",
+  "app.job.directionsApple": "Apple Maps",
   // ── Auto-translation on save (2026-09-24): banner + review rows ──
   "app.autoTranslate.banner": "Translated automatically into {count} languages.",
   "app.autoTranslate.progress": "{done} of {count} ready",
@@ -13608,6 +13615,13 @@ const en = {
 // invoice are what a contractor in Gatineau writes on the document itself, and
 // the interface should use the same word as the paperwork.
 const fr = {
+  // ── See the property + Directions (2026-09-24) ──
+  "app.streetView.see": "Voir la propriété",
+  "app.streetView.hide": "Masquer",
+  "app.streetView.openInMaps": "Ouvrir dans Google Maps",
+  "app.streetView.frameTitle": "Vue Street View de la propriété",
+  "app.job.directions": "Itinéraire",
+  "app.job.directionsApple": "Plans d'Apple",
   // ── Auto-translation on save (2026-09-24): banner + review rows ──
   "app.autoTranslate.banner": "Traduit automatiquement en {count} langues.",
   "app.autoTranslate.progress": "{done} sur {count} prêtes",
@@ -26710,6 +26724,13 @@ const fr = {
 
 
 const es = {
+  // ── See the property + Directions (2026-09-24) ──
+  "app.streetView.see": "Ver la propiedad",
+  "app.streetView.hide": "Ocultar",
+  "app.streetView.openInMaps": "Abrir en Google Maps",
+  "app.streetView.frameTitle": "Vista de Street View de la propiedad",
+  "app.job.directions": "Cómo llegar",
+  "app.job.directionsApple": "Mapas de Apple",
   // ── Auto-translation on save (2026-09-24): banner + review rows ──
   "app.autoTranslate.banner": "Traducido automáticamente a {count} idiomas.",
   "app.autoTranslate.progress": "{done} de {count} listas",
@@ -40168,6 +40189,13 @@ const es = {
 };
 
 const uk = {
+  // ── See the property + Directions (2026-09-24) ──
+  "app.streetView.see": "Переглянути об'єкт",
+  "app.streetView.hide": "Сховати",
+  "app.streetView.openInMaps": "Відкрити в Google Картах",
+  "app.streetView.frameTitle": "Street View об'єкта",
+  "app.job.directions": "Маршрут",
+  "app.job.directionsApple": "Apple Карти",
   // ── Auto-translation on save (2026-09-24): banner + review rows ──
   "app.autoTranslate.banner": "Автоматично перекладено на {count} мов.",
   "app.autoTranslate.progress": "Готово {done} з {count}",
@@ -51454,6 +51482,13 @@ const uk = {
 };
 
 const pa = {
+  // ── See the property + Directions (2026-09-24) ──
+  "app.streetView.see": "ਜਾਇਦਾਦ ਵੇਖੋ",
+  "app.streetView.hide": "ਲੁਕਾਓ",
+  "app.streetView.openInMaps": "Google Maps ਵਿੱਚ ਖੋਲ੍ਹੋ",
+  "app.streetView.frameTitle": "ਜਾਇਦਾਦ ਦਾ Street View",
+  "app.job.directions": "ਰਸਤਾ",
+  "app.job.directionsApple": "Apple Maps",
   // ── Auto-translation on save (2026-09-24): banner + review rows ──
   "app.autoTranslate.banner": "{count} ਭਾਸ਼ਾਵਾਂ ਵਿੱਚ ਆਪਣੇ ਆਪ ਅਨੁਵਾਦ ਹੋ ਗਿਆ।",
   "app.autoTranslate.progress": "{count} ਵਿੱਚੋਂ {done} ਤਿਆਰ",
@@ -62672,6 +62707,13 @@ const pa = {
 };
 
 const tl = {
+  // ── See the property + Directions (2026-09-24) ──
+  "app.streetView.see": "Tingnan ang property",
+  "app.streetView.hide": "Itago",
+  "app.streetView.openInMaps": "Buksan sa Google Maps",
+  "app.streetView.frameTitle": "Street View ng property",
+  "app.job.directions": "Direksyon",
+  "app.job.directionsApple": "Apple Maps",
   // ── Auto-translation on save (2026-09-24): banner + review rows ──
   "app.autoTranslate.banner": "Awtomatikong naisalin sa {count} wika.",
   "app.autoTranslate.progress": "{done} sa {count} ang handa",
@@ -73897,6 +73939,13 @@ const tl = {
 };
 
 const de = {
+  // ── See the property + Directions (2026-09-24) ──
+  "app.streetView.see": "Immobilie ansehen",
+  "app.streetView.hide": "Ausblenden",
+  "app.streetView.openInMaps": "In Google Maps öffnen",
+  "app.streetView.frameTitle": "Street View der Immobilie",
+  "app.job.directions": "Route",
+  "app.job.directionsApple": "Apple Karten",
   // ── Auto-translation on save (2026-09-24): banner + review rows ──
   "app.autoTranslate.banner": "Automatisch in {count} Sprachen übersetzt.",
   "app.autoTranslate.progress": "{done} von {count} fertig",
@@ -86518,6 +86567,13 @@ const de = {
 };
 
 const zh = {
+  // ── See the property + Directions (2026-09-24) ──
+  "app.streetView.see": "查看房产",
+  "app.streetView.hide": "隐藏",
+  "app.streetView.openInMaps": "在 Google 地图中打开",
+  "app.streetView.frameTitle": "房产街景",
+  "app.job.directions": "路线",
+  "app.job.directionsApple": "Apple 地图",
   // ── Auto-translation on save (2026-09-24): banner + review rows ──
   "app.autoTranslate.banner": "已自动翻译成 {count} 种语言。",
   "app.autoTranslate.progress": "{count} 种中已就绪 {done} 种",
@@ -99132,6 +99188,13 @@ const zh = {
 };
 
 const it = {
+  // ── See the property + Directions (2026-09-24) ──
+  "app.streetView.see": "Vedi la proprietà",
+  "app.streetView.hide": "Nascondi",
+  "app.streetView.openInMaps": "Apri in Google Maps",
+  "app.streetView.frameTitle": "Street View della proprietà",
+  "app.job.directions": "Indicazioni",
+  "app.job.directionsApple": "Mappe di Apple",
   // ── Auto-translation on save (2026-09-24): banner + review rows ──
   "app.autoTranslate.banner": "Tradotto automaticamente in {count} lingue.",
   "app.autoTranslate.progress": "{done} su {count} pronte",
