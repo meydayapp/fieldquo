@@ -34,24 +34,16 @@ export async function GET(request, { params }) {
       // Only what this route itself reads (resolveClientLanguage,
       // taxStatement below) or hands straight back as `clientName`. Nothing
       // else on Client — email, phone, notes, portalToken, contactName,
-      // createdAt — reaches this route at all now. The address fields and
-      // `type` are read (see below) to say where a visit is, never forwarded
-      // as columns.
+      // createdAt — reaches this route at all now. (The visit cards need the
+      // client's address and type to say where a visit is; they are read by a
+      // separate narrow query in the plans/visits block below, so this
+      // select stays exactly as check:public-payload holds it.)
       // `id` is read by the signed-documents query below and never forwarded.
       id: true,
       name: true,
       language: true,
       country: true, // resolveDocumentTax's jurisdiction lookup
       province: true, // same
-      // The address a crew visit goes to when its job has no site address of
-      // its own — read by shapeVisits (lib/portal/view.js) and shown to this
-      // client only as the "where" of their own visit. `type` decides it: a
-      // company client's address is their office, never a job site, so it is
-      // not offered as one. None of these is forwarded as a field.
-      type: true,
-      address: true,
-      city: true,
-      postalCode: true,
       // Read by loadDocumentCustomFields below to find the company's own
       // definitions; the response builds its own object and never forwards it.
       companyId: true,
@@ -581,7 +573,15 @@ export async function GET(request, { params }) {
   try {
     const yearAgo = new Date(now.getTime() - 365 * 86400000);
     const scope = { clientId: client.id, companyId: client.companyId };
-    const [planRows, visitRows, apptRows, requested] = await Promise.all([
+    const [home, planRows, visitRows, apptRows, requested] = await Promise.all([
+      // Where a crew visit goes when its job has no site address of its own,
+      // and whether this is a company client (whose address is an office,
+      // never offered as a job site). Read here, never forwarded as fields —
+      // shapeVisits turns them into one "where" line on the client's own visit.
+      db.client.findUnique({
+        where: { id: client.id },
+        select: { type: true, address: true, city: true, province: true, postalCode: true },
+      }),
       db.servicePlan.findMany({
         where: { ...scope, status: "active" },
         orderBy: { createdAt: "asc" },
@@ -677,7 +677,7 @@ export async function GET(request, { params }) {
       visits: visitRows,
       appointments: apptRows,
       photos: photoRows,
-      client,
+      client: { id: client.id, companyId: client.companyId, ...(home || {}) },
       company: client.company || {},
       requested,
       now,
