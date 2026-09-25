@@ -168,7 +168,11 @@ for (const [page, html] of [
 // The proof panel carries a real screenshot of a real screen, the same one the
 // homepage hero opens on. A panel of adjectives would have been easier.
 ok("/login shows the product, not a gradient", loginHtml.includes("hero-quotes"));
-ok("/signup shows it too", signupHtml.includes("hero-quotes"));
+// Since 2026-09-24 the signup panel draws a LIVE picture in the app's own
+// look (AuthAside `preview` → SignupPreviews.js) instead of the hero
+// screenshot: the client's email with the company name in the From line on
+// the first step. The bare-panel render below still carries the photo.
+ok("/signup shows it too", signupHtml.includes("data-signup-aside") && signupHtml.includes("data-signup-preview"));
 
 // ══════════════════════════════════════════════════════════════════════════
 console.log("\nEvery field the account step collects, still bound to its key");
@@ -377,6 +381,11 @@ const EXPECTED_BODY = [
   // no honest headcount-to-tier mapping, so the parameter was removed rather
   // than guessed at. See docs/PRICING-CLEANUP.md.
   "serviceCategoryIds",
+  // The Team and Goals steps (2026-09-24): words picked, or null when skipped.
+  "teamSizeBand",
+  "yearsInBusinessBand",
+  "signupGoal",
+  "signupSource",
   "billingInterval",
   "referralCode",
   // Added 2026-09-01 with sales attribution. Its OWN key, deliberately not
@@ -440,7 +449,10 @@ console.log("\nThe step order, and the plan step still last");
 // plan step used to be FIRST, priced off a hardcoded "CA", so a contractor in
 // Texas was shown Canadian money before anybody asked where he was. Nothing
 // about a layout change may put it back.
-ok("STEPS is the five names it has always been", STEPS.join(",") === "account,business,industry,services,plan", STEPS.join(","));
+// Seven since 2026-09-24: the Team and Goals rungs sit between the entry
+// and Trades (lib/signup/funnel.js OPTIONAL_STEPS), both skippable, so
+// "Start my free trial" is still the last button of the funnel.
+ok("STEPS is the seven names, team and goals before trades", STEPS.join(",") === "account,business,team,goals,industry,services,plan", STEPS.join(","));
 ok("...and plan is last", STEPS[STEPS.length - 1] === "plan");
 for (const accountExists of [false, true]) {
   const who = accountExists ? "with a login" : "a stranger";
@@ -451,18 +463,18 @@ for (const accountExists of [false, true]) {
     if (!next) break;
     walked.push(next);
   }
-  ok(`${who} walks ${walked.join(" → ")}`, walked[walked.length - 1] === "plan" && walked.length === 4, walked.join(" → "));
+  ok(`${who} walks ${walked.join(" → ")}`, walked[walked.length - 1] === "plan" && walked.length === 6, walked.join(" → "));
   ok(`...and Back retraces it exactly`, walked.slice(1).every((step, i) => previousStep(step, { accountExists }) === walked[i]));
   ok(`...with nothing behind the first step`, previousStep(walked[0], { accountExists }) === null);
   // The rail is DERIVED from the funnel rather than restating it. A rail with
   // its own list of four names is the copy that rots — this one would still be
   // showing the plan step first.
-  ok(`...and the progress rail names the same four while the plan step is on screen`, rungsFor({ accountExists, current: "plan" }).join(",") === walked.join(","), rungsFor({ accountExists, current: "plan" }).join(","));
+  ok(`...and the progress rail names the same six while the plan step is on screen`, rungsFor({ accountExists, current: "plan" }).join(",") === walked.join(","), rungsFor({ accountExists, current: "plan" }).join(","));
   // Since 2026-09-24 a NEW signup ends at Services — no plan, no card (the
   // owner's decision; app/signup/page.js handleFinish withoutPlan). The rail
   // a new visitor sees counts three; the plan rung is drawn only for a
   // company created before that date finishing its checkout.
-  ok(`...and three, ending at services, for a new signup`, rungsFor({ accountExists, current: "services" }).join(",") === walked.slice(0, -1).join(","), rungsFor({ accountExists, current: "services" }).join(","));
+  ok(`...and five, ending at services, for a new signup`, rungsFor({ accountExists, current: "services" }).join(",") === walked.slice(0, -1).join(","), rungsFor({ accountExists, current: "services" }).join(","));
 }
 // Nothing past the account step is reachable without a login: an unauthenticated
 // visitor restored straight into "services" once reached checkout and got a bare
@@ -477,10 +489,12 @@ console.log("\n  …and the rail says so on screen");
 // the plan rung is drawn only while it is the step on screen — a company from
 // before that date finishing its checkout.
 for (const [step, expected] of [
-  ["account", "Step 1 of 3"],
-  ["industry", "Step 2 of 3"],
-  ["services", "Step 3 of 3"],
-  ["plan", "Step 4 of 4"],
+  ["account", "Step 1 of 5"],
+  ["team", "Step 2 of 5"],
+  ["goals", "Step 3 of 5"],
+  ["industry", "Step 4 of 5"],
+  ["services", "Step 5 of 5"],
+  ["plan", "Step 6 of 6"],
 ]) {
   const html = inEnglish(createElement(SignupSteps, { current: step, accountExists: false }));
   ok(`on "${step}" it reads ${expected}`, textOf(html).includes(expected), textOf(html));
@@ -532,7 +546,9 @@ ok(
 // four plan cards would be crushed into a 26rem column.
 ok(
   "the plan step is the one step with no aside beside it",
-  /aside=\{step === "plan" \? null : <AuthAside variant="signup" \/>\}/.test(signupSrc),
+  // The panel is handed the live form (`preview`) since 2026-09-24; the
+  // plan-step condition is what this asserts.
+  /aside=\{step === "plan" \? null : <AuthAside variant="signup" preview=\{asidePreview\} \/>\}/.test(signupSrc),
 );
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -759,7 +775,7 @@ const companiesSrc = code("app/api/companies/route.js");
 // Every step, not just the first: a resumed draft would otherwise render the
 // business step underneath the refusal panel.
 const guarded = (signupSrc.match(/entryChecked && !alreadyOnFieldquo && step ===/g) || []).length;
-ok("no signup step renders for a member", guarded >= 5, guarded);
+ok("no signup step renders for a member", guarded >= 7, guarded);
 ok("...nor the loading state that precedes them",
   /\{!entryChecked && !alreadyOnFieldquo && \(/.test(signupSrc));
 // app.signup.*, not auth.signup.*. The old prefix belonged to no catalogue at

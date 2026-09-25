@@ -25,7 +25,14 @@ import { categoryKeysForIndustries } from "@/app/data/industryCategories";
 import PricingCard from "@/app/components/marketing/PricingCard";
 import MarketingHeader from "@/app/components/marketing/MarketingHeader";
 import AuthShell from "@/app/components/auth/AuthShell";
-import AuthAside from "@/app/components/auth/AuthAside";
+import AuthAside, { SignupAsideStrip } from "@/app/components/auth/AuthAside";
+import { ChoiceChips } from "@/app/components/auth/SignupPreviews";
+import {
+  SIGNUP_GOALS,
+  SIGNUP_SOURCE_MAX,
+  TEAM_SIZE_BANDS,
+  YEARS_BANDS,
+} from "@/lib/signup/signupPreview";
 import SignupSteps from "@/app/components/auth/SignupSteps";
 import {
   fieldClass,
@@ -981,6 +988,23 @@ export default function SignupPage() {
   // When on, the services step shows only the quote types preset from the
   // chosen industries; toggled off to browse/add from the full catalog.
   const [showAllServices, setShowAllServices] = useState(false);
+  // ── The Team and Goals steps (2026-09-24) ─────────────────────────────
+  //
+  // Null until a chip is pressed, and null is what is posted when a step is
+  // skipped — the company row records the words picked or nothing, never a
+  // default (AGENTS.md failure class 5). The panel beside the form reads
+  // teamSizeBand to change the calendar's shape and signupGoal to pick its
+  // picture; /api/companies reads the band to start the trial banner on a
+  // rung when the pricing link named none.
+  const [teamSizeBand, setTeamSizeBand] = useState(null);
+  const [yearsBand, setYearsBand] = useState(null);
+  const [signupGoal, setSignupGoal] = useState(null);
+  const [signupSource, setSignupSource] = useState("");
+  // Two service names and descriptions for the sample quote beside the
+  // Trades step, per industry slug, from /api/signup/sample-services — the
+  // seeds stay on the server (lib/signup/sampleServices.js). Cached for the
+  // tab: the same trade is not fetched twice.
+  const [sampleServices, setSampleServices] = useState({});
 
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -1127,7 +1151,11 @@ export default function SignupPage() {
   // carries a route pattern and a step name, nothing typed into the form.
   useEffect(() => {
     if (!hydrated) return;
-    const funnelStep = { account: "account", business: "account", industry: "trades", services: "services", plan: "plan" }[step];
+    // team and goals are deliberately null: the platform funnel counts the
+    // four columns it has (lib/analytics/product/events.js SIGNUP_FUNNEL),
+    // and a beacon for a step it would drop on arrival is a write nothing
+    // reads. Reaching "trades" still says both were passed or skipped.
+    const funnelStep = { account: "account", business: "account", team: null, goals: null, industry: "trades", services: "services", plan: "plan" }[step];
     if (funnelStep) trackSignupStep(funnelStep);
   }, [hydrated, step]);
   const draftStepRef = useRef(null);
@@ -1272,6 +1300,12 @@ export default function SignupPage() {
           setSelectedCategoryIds(draft.selectedCategoryIds);
         if (typeof draft?.showAllServices === "boolean")
           setShowAllServices(draft.showAllServices);
+        // The two optional steps: a string restores, anything else stays
+        // unanswered. Validated again by the server (signupPreview.js).
+        if (typeof draft?.teamSizeBand === "string") setTeamSizeBand(draft.teamSizeBand);
+        if (typeof draft?.yearsBand === "string") setYearsBand(draft.yearsBand);
+        if (typeof draft?.signupGoal === "string") setSignupGoal(draft.signupGoal);
+        if (typeof draft?.signupSource === "string") setSignupSource(draft.signupSource);
         // Absent on any draft written before the interval existed, which is
         // every draft in flight the day this deploys. Absent means unanswered,
         // so it stays on the no-commitment default rather than being restored
@@ -1327,6 +1361,10 @@ export default function SignupPage() {
           selectedCategoryIds,
           showAllServices,
           billingInterval,
+          teamSizeBand,
+          yearsBand,
+          signupGoal,
+          signupSource,
           step,
           // Not personal data in the sense the header's password note is
           // about: these are the codes on the link that sent them here, not
@@ -1353,6 +1391,10 @@ export default function SignupPage() {
     selectedCategoryIds,
     showAllServices,
     billingInterval,
+    teamSizeBand,
+    yearsBand,
+    signupGoal,
+    signupSource,
     step,
     referralCode,
     salesCode,
@@ -1622,6 +1664,29 @@ export default function SignupPage() {
       .catch(() => setCategories([]));
   }, []);
 
+  // The sample quote's two lines for the first trade picked, in the form's
+  // language. Only while the panel that draws them is on screen; a miss
+  // (network, an industry with no seed) leaves the trade's quote-type
+  // labels standing in — the form is never blocked on a picture.
+  const firstIndustry = selectedIndustries[0] || null;
+  useEffect(() => {
+    if (!firstIndustry || (step !== "industry" && step !== "goals")) return;
+    const cacheKey = `${firstIndustry}|${form.language}`;
+    if (sampleServices[cacheKey]) return;
+    let cancelled = false;
+    fetch(`/api/signup/sample-services?industry=${encodeURIComponent(firstIndustry)}&lang=${encodeURIComponent(form.language)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled) return;
+        const services = Array.isArray(d?.services) ? d.services : [];
+        setSampleServices((prev) => ({ ...prev, [cacheKey]: services }));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [firstIndustry, form.language, step, sampleServices]);
+
   // ── One place decides what is selected ──────────────────────────────────
   //
   // This used to only NULL a selection that had fallen out of the visible list
@@ -1888,6 +1953,13 @@ export default function SignupPage() {
           wantedTier: withoutPlan ? wantedRef.current.tier || undefined : undefined,
           wantedPlanId: withoutPlan ? wantedRef.current.planId || undefined : undefined,
           serviceCategoryIds: selectedCategoryIds,
+          // The Team and Goals answers, or null for a skipped step — the
+          // server validates each against its closed list and stores the
+          // words picked, never a default.
+          teamSizeBand: teamSizeBand || null,
+          yearsInBusinessBand: yearsBand || null,
+          signupGoal: signupGoal || null,
+          signupSource: signupSource.trim() || null,
           // The CADENCE, never a price. The server reprices from its own Plan
           // row either way (non-negotiable #5) and refuses "year" outright for
           // a plan with no annual price rather than quietly billing monthly
@@ -1957,6 +2029,29 @@ export default function SignupPage() {
       setSubmitting(false);
     }
   }
+
+  // ── What the panel beside the form is told ──────────────────────────────
+  //
+  // Everything the reactive aside draws, in one object: the step, the form
+  // as typed, the two optional answers, and for the trades and services
+  // steps the words the picture needs — the trade's sample services (or its
+  // quote-type labels when there is no seed), the trade's name as the scope
+  // heading, the currency the address resolved to, the ticked quote types.
+  const presetLabelsForFirstTrade = firstIndustry
+    ? categories.filter((c) => categoryKeysForIndustries([firstIndustry]).includes(c.key)).map((c) => c.label)
+    : [];
+  const asidePreview = {
+    step,
+    form,
+    language: form.language,
+    teamSizeBand,
+    signupGoal,
+    sampleServices: sampleServices[`${firstIndustry}|${form.language}`] || [],
+    fallbackLines: presetLabelsForFirstTrade,
+    groupLabel: INDUSTRIES.find((i) => i.slug === firstIndustry)?.label || "",
+    currency: planCurrency,
+    serviceLabels: categories.filter((c) => selectedCategoryIds.includes(c.id)).map((c) => c.label),
+  };
 
   return (
     <>
@@ -2037,7 +2132,8 @@ export default function SignupPage() {
             <SignupSteps current={step} accountExists={accountExists} />
           ) : null
         }
-        aside={step === "plan" ? null : <AuthAside variant="signup" />}
+        aside={step === "plan" ? null : <AuthAside variant="signup" preview={asidePreview} />}
+        strip={step === "plan" ? null : <SignupAsideStrip preview={asidePreview} />}
       >
         {/* ── Already signed in with a business: the form does not render ──
             This used to show a banner explaining that carrying on would set up
@@ -2380,6 +2476,138 @@ export default function SignupPage() {
               {t("app.signup.continue", "Continue")}
             </button>
           </form>
+        )}
+        {/* ── Team (optional, 2026-09-24) ─────────────────────────────────
+            Two chip rows. Neither is required: Continue moves on with
+            whatever is picked, Skip moves on with nothing, and nothing is
+            defaulted — the panel beside the form is what the answer is for
+            right now, and the company row keeps the words for later. */}
+        {entryChecked && !alreadyOnFieldquo && step === "team" && (
+          <div className="bg-card border border-border rounded-xl shadow-sm p-6 sm:p-8">
+            <h2 className="text-lg font-semibold text-foreground mb-1">
+              {t("app.signup.team.title", "Your team")}
+            </h2>
+            <p className="text-sm text-muted-foreground mb-5">
+              {t(
+                "app.signup.team.body",
+                "Two quick questions so the calendar and the plan we suggest fit your size. You can skip this.",
+              )}
+            </p>
+            <div className="space-y-5">
+              <div>
+                <p className={`${FIELD_LABEL} mb-2`}>
+                  {t("app.signup.team.sizeQuestion", "How many people work with you, including you?")}
+                </p>
+                <ChoiceChips
+                  options={TEAM_SIZE_BANDS}
+                  value={teamSizeBand}
+                  onChange={setTeamSizeBand}
+                  name={t("app.signup.team.sizeQuestion", "How many people work with you, including you?")}
+                />
+              </div>
+              <div>
+                <p className={`${FIELD_LABEL} mb-2`}>
+                  {t("app.signup.team.yearsQuestion", "How long have you been in business?")}
+                </p>
+                <ChoiceChips
+                  options={YEARS_BANDS}
+                  value={yearsBand}
+                  onChange={setYearsBand}
+                  name={t("app.signup.team.yearsQuestion", "How long have you been in business?")}
+                />
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => goToStep(nextStep("team", { accountExists }))}
+              className={`${PRIMARY_BUTTON} mt-6`}
+            >
+              {t("app.signup.continue", "Continue")}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setTeamSizeBand(null);
+                setYearsBand(null);
+                goToStep(nextStep("team", { accountExists }));
+              }}
+              className="w-full mt-3 text-sm font-medium text-muted-foreground hover:text-foreground"
+              data-skip-step="team"
+            >
+              {t("app.signup.skip", "Skip this step")}
+            </button>
+            <button
+              type="button"
+              onClick={() => goBackToStep(previousStep("team", { accountExists }))}
+              className="w-full mt-3 text-sm text-muted-foreground hover:text-foreground"
+            >
+              ← {t("app.signup.back", "Back")}
+            </button>
+          </div>
+        )}
+        {/* ── Goals (optional, 2026-09-24) ────────────────────────────────
+            One goal and a free-text "how did you hear about us". Same
+            rules as the team step: optional, skippable, nothing defaulted. */}
+        {entryChecked && !alreadyOnFieldquo && step === "goals" && (
+          <div className="bg-card border border-border rounded-xl shadow-sm p-6 sm:p-8">
+            <h2 className="text-lg font-semibold text-foreground mb-1">
+              {t("app.signup.goals.title", "What's top of mind?")}
+            </h2>
+            <p className="text-sm text-muted-foreground mb-5">
+              {t(
+                "app.signup.goals.body",
+                "Pick one and we'll point you at the right part of the app first. Optional.",
+              )}
+            </p>
+            <ChoiceChips
+              options={SIGNUP_GOALS}
+              value={signupGoal}
+              onChange={setSignupGoal}
+              name={t("app.signup.goals.title", "What's top of mind?")}
+            />
+            <div className="mt-5">
+              <label className={FIELD_LABEL} htmlFor="signup-source">
+                {t("app.signup.goals.sourceLabel", "How did you hear about us?")}
+              </label>
+              <input
+                id="signup-source"
+                type="text"
+                value={signupSource}
+                maxLength={SIGNUP_SOURCE_MAX}
+                onChange={(e) => setSignupSource(e.target.value)}
+                placeholder={t("app.signup.goals.sourcePlaceholder", "A friend, a search, a Facebook group…")}
+                className={fieldClass(false)}
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => goToStep(nextStep("goals", { accountExists }))}
+              className={`${PRIMARY_BUTTON} mt-6`}
+            >
+              {t("app.signup.continue", "Continue")}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSignupGoal(null);
+                setSignupSource("");
+                goToStep(nextStep("goals", { accountExists }));
+              }}
+              className="w-full mt-3 text-sm font-medium text-muted-foreground hover:text-foreground"
+              data-skip-step="goals"
+            >
+              {t("app.signup.skip", "Skip this step")}
+            </button>
+            <button
+              type="button"
+              onClick={() => goBackToStep(previousStep("goals", { accountExists }))}
+              className="w-full mt-3 text-sm text-muted-foreground hover:text-foreground"
+            >
+              ← {t("app.signup.back", "Back")}
+            </button>
+          </div>
         )}
         {entryChecked && !alreadyOnFieldquo && step === "industry" && (
           <div className="bg-card border border-border rounded-xl shadow-sm p-6 sm:p-8">

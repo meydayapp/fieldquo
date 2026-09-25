@@ -1405,6 +1405,19 @@ model Company {
   /// plan" opens Account & Billing on that card. Null when the link named
   /// nothing; never a guess at what they would have picked.
   signupTierKey          String?
+  /// The signup's Team and Goals steps (2026-09-24), stored as the WORDS the
+  /// owner picked and only when they picked them — a skipped step stores null,
+  /// never a default. teamSizeBand is one of lib/signup/signupPreview.js
+  /// TEAM_SIZE_BANDS ("1", "2-5", "6-10", "11-15", "16+"); it seeds
+  /// signupTierKey when the pricing link named no rung, and nothing else ever
+  /// reads it as a headcount — the roster is the roster. yearsInBusinessBand is
+  /// YEARS_BANDS, signupGoal is SIGNUP_GOALS, signupSource is free text
+  /// ("how did you hear about us", capped). Read on the platform company
+  /// list so sales and support see who they are talking to.
+  teamSizeBand           String?
+  yearsInBusinessBand    String?
+  signupGoal             String?
+  signupSource           String?
   /// When each "your free trial ends in N days" letter went out — 15, 7 and 3
   /// days before trialEndsAt, to a company that has NOT chosen a plan (one
   /// with a Subscription row is told by lib/billing/renewalReminder.js

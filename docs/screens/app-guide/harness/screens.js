@@ -67,6 +67,51 @@ export const TRIAL_FRAMES = [
   out: "docs/screens/no-card-signup",
 }));
 
+// ── The reactive signup panel (2026-09-24) — docs/screens/signup-aside ────
+// The real /signup parked on each step (SignupAsideFrame.jsx seeds the draft
+// and answers the signup routes): the account step empty and typed, the
+// team step at all five bands, the goals step per goal, the trades step for
+// four trades, the services step — at 1280 and at 390 (the strip above the
+// form, closed and opened by the scene).
+const SA = (slug, props, width = 1280, extra = {}) => ({
+  slug,
+  href: "/signup",
+  page: "docs/screens/app-guide/harness/SignupAsideFrame.jsx",
+  props,
+  mode: "public",
+  width,
+  height: width < 768 ? 1500 : 1500,
+  chapter: "signup-aside",
+  out: "docs/screens/signup-aside",
+  ...extra,
+});
+export const SIGNUP_ASIDE_FRAMES = [
+  SA("account-empty", { step: "account", typed: false }),
+  SA("account-typed", { step: "account" }),
+  SA("account-typed-phone", { step: "account" }, 390),
+  SA("account-typed-phone-open", { step: "account" }, 390, { scene: "signup-strip-open" }),
+  SA("team-1", { step: "team", band: "1" }),
+  SA("team-2-5", { step: "team", band: "2-5" }),
+  SA("team-6-10", { step: "team", band: "6-10" }),
+  SA("team-11-15", { step: "team", band: "11-15" }),
+  SA("team-16-plus", { step: "team", band: "16+" }),
+  SA("team-6-10-phone", { step: "team", band: "6-10" }, 390),
+  SA("team-6-10-phone-open", { step: "team", band: "6-10" }, 390, { scene: "signup-strip-open" }),
+  SA("goals-none", { step: "goals" }),
+  SA("goals-look-professional", { step: "goals", goal: "look_professional" }),
+  SA("goals-feel-in-control", { step: "goals", goal: "feel_in_control" }),
+  SA("goals-win-more-jobs", { step: "goals", goal: "win_more_jobs" }),
+  SA("goals-phone", { step: "goals", goal: "win_more_jobs" }, 390),
+  SA("trades-painting", { step: "industry", trade: "painting" }, 1280, { height: 1900 }),
+  SA("trades-electrical", { step: "industry", trade: "electrical" }, 1280, { height: 1900 }),
+  SA("trades-roofing", { step: "industry", trade: "roofing" }, 1280, { height: 1900 }),
+  SA("trades-landscaping", { step: "industry", trade: "landscaping" }, 1280, { height: 1900 }),
+  SA("trades-painting-phone", { step: "industry", trade: "painting" }, 390),
+  SA("trades-painting-phone-open", { step: "industry", trade: "painting" }, 390, { scene: "signup-strip-open", height: 2600 }),
+  SA("services-painting", { step: "services", trade: "painting" }),
+  SA("services-painting-phone", { step: "services", trade: "painting" }, 390),
+];
+
 export const SCREENS = [
   // ── The main rail: Home, then the seventeen (2026-09-21 shell) ─────────
   { slug: "home", nav: "app.nav.home", href: "/app", page: "app/app/page.js" },
@@ -300,6 +345,7 @@ export const SCREENS = [
   { slug: "mobile-supplies", href: "/app/me/supplies", page: "app/app/me/supplies/page.js", member: "crew", width: 375, height: 1400, chapter: "help" },
   ...INTRO_FRAMES,
   ...TRIAL_FRAMES,
+  ...SIGNUP_ASIDE_FRAMES,
 
   // ── The booking page at phone width, one frame per mode ────────────────
   //

@@ -111,13 +111,14 @@ import P108 from "@/app/app/jobs/[id]/work-order/WorkOrderView.js";
 import P109 from "@/app/app/me/supplies/page.js";
 import P110 from "@/docs/screens/app-guide/harness/TakeoffFrame.jsx";
 import P111 from "@/docs/screens/app-guide/harness/TrialFrame.jsx";
-import P112 from "@/app/app/callbacks/page.js";
-import P113 from "@/app/app/settings/follow-ups/past-clients/page.js";
-import P114 from "@/app/app/daily-sheets/week/page.js";
-import P115 from "@/app/app/invoices/new/page.js";
-import P116 from "@/docs/screens/app-guide/harness/PaintRatesFrame.jsx";
-import P117 from "@/app/app/settings/presentation/page.js";
-import P118 from "@/app/co/[token]/ChangeOrderApproval.js";
+import P112 from "@/docs/screens/app-guide/harness/SignupAsideFrame.jsx";
+import P113 from "@/app/app/callbacks/page.js";
+import P114 from "@/app/app/settings/follow-ups/past-clients/page.js";
+import P115 from "@/app/app/daily-sheets/week/page.js";
+import P116 from "@/app/app/invoices/new/page.js";
+import P117 from "@/docs/screens/app-guide/harness/PaintRatesFrame.jsx";
+import P118 from "@/app/app/settings/presentation/page.js";
+import P119 from "@/app/co/[token]/ChangeOrderApproval.js";
 export const PAGES = {
   "app/app/page.js": P0,
   "app/app/leads/page.js": P1,
@@ -231,11 +232,12 @@ export const PAGES = {
   "app/app/me/supplies/page.js": P109,
   "docs/screens/app-guide/harness/TakeoffFrame.jsx": P110,
   "docs/screens/app-guide/harness/TrialFrame.jsx": P111,
-  "app/app/callbacks/page.js": P112,
-  "app/app/settings/follow-ups/past-clients/page.js": P113,
-  "app/app/daily-sheets/week/page.js": P114,
-  "app/app/invoices/new/page.js": P115,
-  "docs/screens/app-guide/harness/PaintRatesFrame.jsx": P116,
-  "app/app/settings/presentation/page.js": P117,
-  "app/co/[token]/ChangeOrderApproval.js": P118,
+  "docs/screens/app-guide/harness/SignupAsideFrame.jsx": P112,
+  "app/app/callbacks/page.js": P113,
+  "app/app/settings/follow-ups/past-clients/page.js": P114,
+  "app/app/daily-sheets/week/page.js": P115,
+  "app/app/invoices/new/page.js": P116,
+  "docs/screens/app-guide/harness/PaintRatesFrame.jsx": P117,
+  "app/app/settings/presentation/page.js": P118,
+  "app/co/[token]/ChangeOrderApproval.js": P119,
 };
