@@ -572,7 +572,10 @@ const bitsSrc = read("app/app/messages/ConversationBits.js");
 // proxy for it.
 ok(
   "the page computes the block from the channel and hands it down",
-  /const blockKey = composerBlock\(connection\)/.test(pageSrc) &&
+  // An email thread skips the Meta block (it answers as an email —
+  // lib/mailbox/reply.js); every other thread still takes it from the
+  // connection, in the same one expression.
+  /const blockKey = [^;\n]*composerBlock\(connection\)/.test(pageSrc) &&
     /disabledReplyKey=\{blockKey\}/.test(pageSrc),
 );
 ok(

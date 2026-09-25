@@ -148,6 +148,17 @@ const RESOLVES_ITS_OWN = {
     "attaching the first person's Google account to the second person's row. " +
     "Every OTHER app/api/calendar/google/* route is reached by fetch() and " +
     "uses memberOrRefusal.",
+  "app/api/mailbox/google/callback/route.js":
+    "Google's OAuth redirect target for Settings → Work email — the calendar " +
+    "callback's shape exactly: the browser lands here off accounts.google.com, " +
+    "a JSON 401 is unshowable, so every failed resolution is a 302 back to " +
+    "the card with a named reason. The signed state must verify against its " +
+    "cookie and name THIS member's id; a company-mailbox intent re-checks the " +
+    "role here. Every other app/api/mailbox/* route uses memberOrRefusal.",
+  "app/api/mailbox/microsoft/callback/route.js":
+    "Microsoft's OAuth redirect target for Settings → Work email — the same " +
+    "shape and the same checks as the Google mailbox callback above, off " +
+    "login.microsoftonline.com.",
   "app/api/track/route.js":
     "The page-view beacon: a public POST that a stranger on the pricing page " +
     "fires with no session, and that a signed-in member fires from /app in " +

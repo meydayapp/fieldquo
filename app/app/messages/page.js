@@ -465,7 +465,11 @@ function MessagesScreen() {
     await load(query.trim(), platformFilter);
   }, [activeId, loadThread, load, query, platformFilter]);
 
-  const blockKey = composerBlock(connection);
+  // An EMAIL conversation (filed from a connected mailbox, lib/mailbox/) does
+  // not answer over Meta, so a company with no Page connected can still reply
+  // to it — the reply route sends it as an email (lib/mailbox/reply.js). The
+  // demo company keeps its block: its threads are computed, not stored.
+  const blockKey = thread?.platform === "email" && !connection?.mock ? null : composerBlock(connection);
   const blurbKey = connectionBlurb(connection);
   const isDemo = Boolean(connection?.mock);
 

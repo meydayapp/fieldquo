@@ -435,6 +435,62 @@ export const ARTICLES = {
     ],
   },
 
+  "settings-work-email": {
+    title: "Courriel de travail",
+    summary:
+      "Connectez la boîte où vous recevez vos courriels de travail pour que chaque courriel avec un client soit classé dans son historique — Google, Microsoft 365 ou tout autre hébergeur avec adresse et mot de passe.",
+    updated: "2026-09-25",
+    intro: [
+      "**Paramètres → Courriel de travail** connecte la boîte que vous utilisez déjà. Toutes les dix minutes, FieldQuo lit les nouveaux messages reçus et envoyés, compare les adresses De, À et Cc à vos clients et prospects, et classe les courriels correspondants dans la conversation du client — visibles sur la fiche client, la fiche du travail et dans **Conversations**.",
+      "Seuls les courriels avec un client ou un prospect sont conservés. Le reste — courriel personnel, infolettres, fournisseurs — est reconnu par ses adresses et ignoré : son contenu n'est jamais téléchargé, seul un compteur est gardé.",
+    ],
+    sections: [
+      {
+        id: "connect",
+        heading: "Comment connecter",
+        blocks: [
+          { steps: [
+            "Ouvrez **Paramètres → Courriel de travail**. Un propriétaire ou administrateur choisit **La boîte de l'entreprise** ou **Ma propre boîte de travail**; les autres connectent la leur.",
+            "Choisissez **Google** (Gmail, Google Workspace), **Microsoft 365 / Outlook** (aussi Hotmail et le courriel Microsoft de GoDaddy) ou **Tout autre hébergeur**.",
+            "Pour Google ou Microsoft, connectez-vous sur leur page et autorisez la lecture du courriel. Pour un autre hébergeur, saisissez votre adresse — FieldQuo reconnaît le fournisseur et remplit les serveurs — puis votre mot de passe, et appuyez sur **Tester et connecter**. La connexion est testée avant tout enregistrement.",
+            "La première synchronisation lit les 90 derniers jours. Ensuite, les nouveaux courriels arrivent en une dizaine de minutes, ou appuyez sur **Synchroniser**.",
+          ] },
+          { note: "Namecheap Private Email : IMAP sur mail.privateemail.com, port 993, SSL/TLS. Certains fournisseurs (iCloud, Yahoo, AOL, Fastmail, Zoho avec validation en deux étapes) exigent un mot de passe d'application — le formulaire le précise." },
+          { warning: "Avant de connecter : les courriels échangés avec des clients depuis cette boîte font partie des dossiers de l'entreprise, et les collègues qui voient ce client ou ce travail peuvent les lire." },
+        ],
+      },
+      {
+        id: "where-it-files",
+        heading: "Où un courriel est classé",
+        blocks: [
+          { bullets: [
+            "**Quel client** — selon l'adresse, sans tenir compte des majuscules ni des +étiquettes. Une adresse présente sur deux fiches client n'est classée nulle part plutôt que devinée.",
+            "**Quel travail ou quelle soumission** — celui dont le numéro de soumission ou de facture figure dans l'objet (ou le texte); sinon le travail ouvert le plus récent du client, puis la soumission ouverte. Appuyez sur **modifier** pour le reclasser.",
+            "**Les réponses** rejoignent la même conversation, et chaque courriel n'est conservé qu'une fois.",
+            "**Les pièces jointes** jusqu'à 10 Mo sont copiées; les plus grosses sont nommées et restent dans la boîte.",
+          ] },
+        ],
+      },
+      {
+        id: "sending",
+        heading: "Envoyer les courriels aux clients depuis votre boîte",
+        blocks: [
+          { p: "Sur la boîte de l'entreprise, un propriétaire ou administrateur peut activer **Envoyer les courriels aux clients depuis cette boîte**. Soumissions, factures, demandes de paiement, confirmations de rendez-vous et réponses partent alors de cette adresse et apparaissent dans ses Éléments envoyés. Si la boîte refuse un message, FieldQuo l'envoie de la façon habituelle et la fiche l'indique avec la raison. Aucun courriel n'est perdu." },
+        ],
+      },
+      {
+        id: "disconnect",
+        heading: "Déconnecter",
+        blocks: [
+          { p: "**Déconnecter** arrête la synchronisation et supprime le mot de passe ou l'accès enregistré. Les courriels déjà classés restent dans l'historique des clients. FieldQuo ne supprime, ne déplace et ne marque jamais rien comme lu dans votre boîte." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "FieldQuo lit-il mon courriel personnel?", a: "Il voit les adresses de chaque message pour savoir s'il concerne un client. Le reste est ignoré sans que son contenu soit téléchargé, et rien n'en est conservé." },
+      { q: "Pourquoi Google dit-il que l'application n'est pas validée?", a: "La lecture de Gmail est une autorisation restreinte. Tant que FieldQuo n'a pas terminé la validation et l'évaluation de sécurité de Google, cet avertissement s'affiche et seuls les comptes approuvés comme testeurs peuvent se connecter." },
+    ],
+  },
   "settings-payments": {
     title: "Paiements",
     summary:

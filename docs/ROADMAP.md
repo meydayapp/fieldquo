@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 25 September 2026 (Settings → Work email: a company or a member connects the mailbox where work email arrives — Google (gmail.readonly, restricted), Microsoft 365 (Mail.Read, Graph delta) or any other host by IMAP address + password with MX-detected presets — and every email exchanged with a client or lead is filed into that client's conversation by address; everything else is skipped by its headers and never stored; opt-in "Send client emails from this mailbox" with a never-drop fallback; `MailboxConnection` + `EmailMessage`, additive; new env `MAIL_CREDENTIALS_KEY`, `MICROSOFT_OAUTH_*` — see "Work email" below)
 Last updated: 24 September 2026 (a service's estimate template expands onto a quote and an invoice: "Add with its template lines" beside a templated service in the line library, lines in the document's language from the company's own Product row, measured quantities filled from the quote's own takeoffs with the source printed under the line, a missing figure at quantity 0 with the calculator named or linked, `ventCount` / `returnCount` registered — see "A service's template, expanded onto the quote" below)
 Last updated: 24 September 2026 (the estimate template inside a service — `Product.templateLines` / `defaultDiscount` / `imageUrl` / `estimateTypes` / `templateEnabled`, additive; templates attach by quote type (`categories` + painting estimate types) through `templatesFor()`; a closed measurement registry every trade's lines can take their qty from; the seed LOADER contract in `lib/services/seeds.js`; Settings › Services edits each service's template; `/app/analytics/benchmark` is the preset library with an editable Your price; benchmark sharing is on by default for new companies and Terms §7 / Privacy §7 say so. The seed CONTENT — templates on every trade in seven languages — is a separate pass landing against the same contract.; landed just before it on main: auto-translation on save — see its section.)
 Last updated: 24 September 2026 (tours re-pinned to the new shell: welcome-v2 walks the 17-row rail — Leads, Quotes, Quote reviews, Assign shifts, Marketing, Receptionist, FieldQuo AI, AI team, More, Create, Search, Settings at the foot — unfolding a folded People/Grow group through its header and folding it back, a new ai-team-v1 page tour, "Take the tour" on the dashboard's set-up card, the Help centre's replay fixed; every onboarding and set-up row shows a counted time estimate, the onboarding card says "n of 6 done" and the set-up card "n of 15 done · n hidden" — see "Tours on the new shell" below)
@@ -22,6 +23,159 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## Work email: client email filed into history, and optionally sent from the real mailbox (25 September 2026)
+
+The owner: connect the mailbox where a company receives work email so FieldQuo
+files every email exchanged with a client into that client's job/history —
+Google, and "private domains … like I do for TrueFinish Cabinets and for
+FieldQuo" (both Namecheap Private Email), plus truefinish.ca on Microsoft 365.
+Then: optionally send FieldQuo's client emails through that mailbox; filed
+email must count as a conversation everywhere the analysis reads one.
+
+### What shipped
+
+- **Settings → Work email** (`/app/settings/work-email`, every member — crew
+  included — sees it: anyone may connect THEIR OWN work mailbox; the company
+  mailbox and its sending switch are owner/admin-only, enforced by the
+  routes). Three routes behind one "Connect your work email" card:
+  **Google** (OAuth on the calendar's client, `gmail.readonly`),
+  **Microsoft 365 / Outlook** (Entra v2, `Mail.Read` + `offline_access`, Graph
+  delta), **any other host** (IMAP address + password; presets with the
+  provider's published host/port/TLS and source URL in `lib/mailbox/presets.js`;
+  typing the address looks up the domain's MX and picks the preset or points a
+  Google/Microsoft-hosted domain at those options). The IMAP login is tested
+  on save (LOGIN + read-only EXAMINE INBOX) with a precise error. A route the
+  deployment has not configured says "Not set up yet (missing: …)" — no dead
+  button. The card says, before connecting, that client email becomes the
+  company's record and personal mail is never downloaded or stored.
+- **Presets** (each host/port/TLS checked on the provider's own page
+  2026-09-25, URL in the preset): Namecheap Private Email (IMAP AND SMTP are
+  both `mail.privateemail.com` — Namecheap documents no `smtp.privateemail.com`;
+  993/465 TLS; 500 sends/hour/mailbox), GoDaddy Workspace/Professional
+  (`imap.secureserver.net` / `smtpout.secureserver.net`; GoDaddy's Microsoft
+  365 mail → the Microsoft option by MX), Titan, Zoho (own domain `imappro`/
+  `smtppro`, @zohomail `imap`/`smtp`; US data centre only — other regions
+  "enter the servers"), Yahoo, AOL, Verizon.net (AOL), AT&T (secure mail key),
+  iCloud (app-specific password; IMAP login is the name before @), Fastmail,
+  Shaw, Bell, Cogeco (Ontario / Québec); Google- and Microsoft-hosted domains
+  (Gmail, Workspace incl. Wix/Squarespace mail, Outlook.com/Hotmail, M365)
+  routed to their OAuth options; Proton refused by name (Bridge only).
+  Detection: the address's own domain first, else its MX. NOT listed because
+  their own pages could not be confirmed: Comcast/Xfinity, Spectrum, TELUS
+  (now on Google — MX routes it), Rogers (Yahoo-hosted — MX suggests Yahoo),
+  Bluehost/HostGator/SiteGround/Hostinger/IONOS — "Other — enter the servers".
+- **Sync** (`/api/cron/mailbox-sync`, every 10 min, 200 s budget, 60 s per
+  mailbox, least-recently-synced first): INBOX + Sent (IMAP by UID with
+  UIDVALIDITY; Gmail backfill list → `history.list`; Graph delta links). Every
+  message is matched by its HEADERS first; only a match is downloaded
+  (BODY.PEEK / format=raw / `$value`), so non-client mail is only ever counted
+  (`skippedCount`). Matching: case, display names, +tags, Gmail dots and
+  googlemail; the company's own addresses (every mailbox, Company.email) are
+  never counterparts, so a test client carrying the office's address cannot
+  swallow the inbox; an address on two clients files nowhere. Filed as
+  MessageThread/Message on a platform **"email"** MessagingChannel (+ an
+  `EmailMessage` headers row, unique per company on the RFC Message-ID —
+  dedupe across folders, members' mailboxes and re-reads is a DB constraint).
+  Threading by References/In-Reply-To, else same subject + person within 60
+  days. Linked to the job/quote whose quote or invoice number is in the
+  subject (then body), else the client's most recent open job, then open
+  quote; "Filed to … — change" re-files through the inbox's own PATCH.
+  Attachments ≤ 10 MB (10 per email) to Cloudinary; larger named, "still in
+  the mailbox". HTML → text by a hardened converter; bodies store the TYPED
+  part (quoted history and `-- ` signature cut) so every reader sees each
+  message once. 90-day backfill on connect; backfill never touches unread.
+- **Everywhere a conversation is read**: "email" is in `MESSAGING_PLATFORMS`
+  (inbox chip "Email", glyph), `SOURCE_FOR_PLATFORM.email = "email"` is in
+  `CONVERSATION_SOURCES` (monthly review), threads are rescored on filing (free
+  temperature), backfilled threads are dated by their first email so the
+  month-end count is right, and the paid review's redaction runs over email
+  bodies unchanged (fixtures added to check:conversation-review/-score). None
+  of those readers filtered by channel; nothing else needed changing. Replying
+  to an email thread from Conversations sends a real email (`lib/mailbox/reply.js`,
+  Re: + In-Reply-To/References); `sendOnChannel` refuses "email" by name so the
+  AI employee can never answer email.
+- **Client page and job page**: an "Email" section (`FiledEmails`) — renders
+  nothing when nothing is filed; client page at clientsProperties ≥ full_view,
+  job page at jobs ≥ view_only within the member's job scope, with addresses
+  withheld below clientsProperties full_view.
+- **Send client emails from this mailbox** (opt-in, off, owner/admin, company
+  mailbox only, one at a time): `sendEmail({ clientMail: true })` — passed by
+  quote send, invoice send, request-payment, booking confirmation and inbox
+  replies — tries the mailbox first (SMTP with the stored password + append to
+  Sent; `gmail.send`; Graph `sendMail`); ANY failure (auth, rate limit,
+  timeout, our 80%-of-provider hourly throttle) sends that message the usual
+  way, logs `mailbox_send_fallback`, and the card shows "Sending from your
+  mailbox failed — sent from FieldQuo instead: {reason}". Nothing
+  FieldQuo-branded is added. Marketing campaigns never take this path.
+  Resend payload md5 identical before/after with the switch off (5 cases).
+- **/platform**: a "Connected work mailboxes" card — counts by provider and
+  status, sending count, recent sync errors (company + sentence, no address or
+  content), and the Gmail restricted-scope limit in words.
+- Schema (additive, applied by SQL — only the CREATE/ADD lines):
+  `MailboxConnection`, `EmailMessage`; back-relations on Company, Message,
+  MessagingChannel.
+
+### Security
+
+AES-256-GCM under a NEW key `MAIL_CREDENTIALS_KEY` (not the Meta key; one
+cipher implementation — `lib/meta/tokenCrypto.js`'s `sealWithKey/openWithKey`),
+ciphertext bound to the row id as AAD (a blob copied to another row does not
+open); no key → every option disabled with one line, no default key, no
+plaintext. No route selects `secretEnc` (asserted); imapflow's logger off;
+only the sync and the send decrypt, per session. IMAP reader is read-only
+(EXAMINE, BODY.PEEK, no write verbs — asserted on the wire). Custom IMAP hosts
+must be public DNS names (no IP literals/localhost: no SSRF into our network);
+unencrypted IMAP refused. Disconnect wipes the credential (revokes Google's),
+stops sync and sending, keeps filed email.
+
+### Checks
+
+`npm run check:mailbox` (170): crypto round-trip/tamper/wrong-row/wrong-key/
+no-key; matching (aliases, +tags, case, display names with commas, multiple
+recipients, the owner's own address, ambiguity); HTML against hostile input;
+typed-part cutting; filing targets; the sync against a fake DB and provider
+(only matches stored, skipped only counted, dedupe INBOX+Sent and re-read, a
+crash mid-sync resumes at the right page, backfill vs live unread, synthetic
+Message-ID); a REAL imapflow conversation with an in-process IMAP server
+(`scripts/fixtures/mockImapServer.mjs`: login ok/refused, EXAMINE only, no
+write verbs, bodies downloaded only for client mail, UIDVALIDITY change);
+sending (throttle, canSend, no FieldQuo in the composed message, failure →
+fallback recorded). Updated: check:whatsapp, check:ai-employee (platform list),
+check:messaging (block expression), check:settings-access (Crew's five rows),
+check:refusal-shape (two OAuth callbacks), conversation-review/-score fixtures.
+
+### Owner setup (in this order)
+
+1. **`MAIL_CREDENTIALS_KEY`** — `openssl rand -base64 32`, paste into Vercel
+   (Production + Preview), redeploy. Keep a copy in the password manager:
+   losing it means every mailbox must reconnect. IMAP (Namecheap etc.) works
+   from this alone.
+2. **Google** — Cloud Console on the FieldQuo project: enable the Gmail API;
+   add redirect URI `https://www.fieldquo.com/api/mailbox/google/callback`;
+   add scopes `gmail.readonly` + `gmail.send` to the consent screen; add
+   yourself (and each early contractor, 100 max) as **test users**. Restricted
+   scopes: until Google verification + the annual CASA assessment, only test
+   users can connect, through an "unverified app" screen, and in "Testing"
+   status their tokens expire after 7 days. `docs/GMAIL-MAILBOX.md`.
+3. **Microsoft** — Entra app registration (any org + personal accounts), Web
+   redirect `https://www.fieldquo.com/api/mailbox/microsoft/callback`,
+   delegated Graph `Mail.Read`, `Mail.Send`, `offline_access`, `User.Read`,
+   `openid`, `email`; client secret → `MICROSOFT_OAUTH_CLIENT_ID` /
+   `MICROSOFT_OAUTH_CLIENT_SECRET` (leave `MICROSOFT_OAUTH_TENANT` unset).
+   Then truefinish.ca connects with "Microsoft 365 / Outlook".
+4. Connect truefinishcabinets / fieldquo.com addresses with "Any other host"
+   → Namecheap Private Email (mail.privateemail.com:993 SSL/TLS).
+
+### Still owed here
+
+- A per-thread one-line AI summary was NOT built (optional in the ask; it
+  would add metered cost — say if you want it).
+- Gmail verification + CASA (owner, paid, annual) before more than 100
+  Google users.
+- Microsoft publisher verification (optional; removes "unverified" on consent).
+- Backfill window is a constant (`BACKFILL_DAYS = 90`, `lib/mailbox/connections.js`)
+  — a product decision if it should be per company.
 
 ## "Confirm what you quote" (24 September 2026)
 

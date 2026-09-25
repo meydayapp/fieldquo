@@ -347,6 +347,8 @@ export async function sendBookingConfirmationEmail({ to, company, attachments, .
 
   return sendEmail({
     ...(Array.isArray(attachments) && attachments.length && { attachments }),
+    // A client email — see lib/mailbox/send.js for the opt-in mailbox path.
+    clientMail: true,
     // The tenant, so a demo company's booking confirmation is simulated rather
     // than mailed to whoever booked. Every caller passes the full row (see
     // lib/booking/finalizeBooking.js and app/api/visit/[token]/*) — a partial

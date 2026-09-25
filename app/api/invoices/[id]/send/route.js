@@ -259,7 +259,7 @@ export async function POST(request, { params }) {
     }),
   });
 
-  const result = await sendEmail({ companyId: member.companyId, to, subject, html, text, from, replyTo });
+  const result = await sendEmail({ companyId: member.companyId, to, subject, html, text, from, replyTo, clientMail: true });
 
   if (result?.skipped) {
     return NextResponse.json(

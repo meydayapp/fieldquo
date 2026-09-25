@@ -182,6 +182,9 @@ export async function POST(request, { params }) {
   // reintroduced by the refactor that was meant to be mechanical.
   const result = await sendEmail({
     companyId: member.companyId,
+    // A client email: through the company's own mailbox when it has switched
+    // that on (lib/mailbox/send.js), else exactly as before.
+    clientMail: true,
     from,
     replyTo,
     to: invoice.client.email,

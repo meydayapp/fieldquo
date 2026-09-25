@@ -68,6 +68,7 @@ import {
   ScrollText,
   ClipboardList,
   AtSign,
+  Inbox,
   Globe,
   FileText,
   Bell,
@@ -173,6 +174,11 @@ export const GROUPS = [
       { key: "app.settings.followUps", href: "/app/settings/follow-ups", icon: Clock, helpArticle: "settings-follow-ups" },
       { key: "app.settings.notifications", href: "/app/settings/notifications", icon: Bell, helpArticle: "settings-notifications" },
       { key: "app.settings.emailDomain", href: "/app/settings/email-domain", icon: AtSign, helpArticle: "settings-email-domain" },
+      // A member's (or the company's) own mailbox, read so client email is
+      // filed into history — beside Email Domain because both are about the
+      // company's email, and every member sees it: connecting your OWN work
+      // mailbox is yours to do (lib/mailbox/connections.js).
+      { key: "app.settings.workEmail", href: "/app/settings/work-email", icon: Inbox, helpArticle: "settings-work-email" },
     ],
   },
   {

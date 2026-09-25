@@ -34,6 +34,7 @@ import { reportResponseError, showError } from "@/lib/clientErrors";
 import { formatAddress } from "@/lib/format/address";
 import { useHasLevel } from "@/app/providers/PermissionProvider";
 import ClientEquipment from "@/app/components/clients/ClientEquipment";
+import FiledEmails from "@/app/components/mailbox/FiledEmails";
 import ClientPortalLink from "@/app/components/clients/ClientPortalLink";
 import OpenTicketsLink from "@/app/components/tickets/OpenTicketsLink";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
@@ -373,6 +374,11 @@ export default function ClientDetailPage() {
           question is "what's in this house and is it under warranty", and the
           quotes and invoices are the paperwork that follows from it. */}
       {canSeeEquipment && <ClientEquipment clientId={client.id} jobs={jobs} />}
+
+      {/* Email exchanged with this client, filed from a connected work
+          mailbox (Settings → Work email). Same level as the record itself;
+          the component renders nothing when nothing has been filed. */}
+      {canSeeEquipment && <FiledEmails clientId={client.id} />}
 
       {/* Related records */}
       <RelatedList

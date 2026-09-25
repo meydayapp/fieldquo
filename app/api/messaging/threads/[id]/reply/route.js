@@ -54,6 +54,8 @@ import { writeActivity } from "@/lib/messaging/activity";
 import { rescoreThread } from "@/lib/messaging/rescoreThread";
 import { rateLimit } from "@/lib/rateLimit";
 import { humanTookOver } from "@/lib/aiEmployee/routing";
+import { sendEmailThreadReply } from "@/lib/mailbox/reply";
+import { formatAddressList } from "@/lib/mailbox/addresses";
 
 const MAX_LENGTH = 2000; // Meta's own limit for a text message.
 
@@ -286,7 +288,23 @@ export async function POST(request, { params }) {
     };
   }
 
-  const result = await sendOnChannel({
+  // ── An EMAIL conversation answers as an email ─────────────────────────
+  //
+  // A thread filed from a connected mailbox (lib/mailbox/) has no Meta
+  // channel behind it. Its reply goes out as a real email to the client —
+  // through the company's own mailbox when sending from it is switched on,
+  // else from the company's usual sender — see lib/mailbox/reply.js. Text
+  // only: the paperclip, the pin and the template picker are WhatsApp's and
+  // are never drawn on an email thread, and a crafted request for one is
+  // refused here rather than half-sent.
+  const isEmail = thread.channel?.platform === "email";
+  if (isEmail && kind !== "text") {
+    return NextResponse.json({ error: "Email replies are text only here.", reason: "email_text_only" }, { status: 400 });
+  }
+
+  const result = isEmail
+    ? await sendEmailThreadReply(db, { companyId: member.companyId, thread, text })
+    : await sendOnChannel({
     channel: thread.channel,
     recipientExternalId: thread.participantExternalId,
     text,
@@ -383,6 +401,32 @@ export async function POST(request, { params }) {
       sentByUserId: true,
     },
   });
+
+  // The email's headers beside it, so the next reply threads under this one
+  // and the Sent copy the mailbox sync reads back is recognised, not filed
+  // twice. Best effort: the email has already gone.
+  if (isEmail && result.ok) {
+    const mailbox = await db.mailboxConnection
+      .findFirst({ where: { companyId: member.companyId, channelId: thread.channelId }, select: { id: true } })
+      .catch(() => null);
+    await db.emailMessage
+      .create({
+        data: {
+          companyId: member.companyId,
+          messageId: message.id,
+          mailboxId: mailbox?.id || null,
+          rfcMessageId: result.rfcMessageId,
+          inReplyTo: result.inReplyTo,
+          references: result.references?.length ? result.references.join(" ") : null,
+          subject: result.subject,
+          fromAddress: String(result.from || "").slice(0, 400),
+          toAddresses: formatAddressList([{ name: null, address: result.to }]),
+          filedBy: "inbox_reply",
+          sentVia: result.sentVia,
+        },
+      })
+      .catch(() => null);
+  }
   // Shaped on the way out for the same reason the thread route shapes it:
   // `sourceUrl` and `mediaId` are fetcher-only fields and never reach a
   // browser. There are none on an outbound row today, and the shaping is what
@@ -444,7 +488,12 @@ export async function POST(request, { params }) {
     // out without the take-over stamp is a message the employee could talk
     // over. The owner's rule — the contractor takes over and the AI stops,
     // on that thread, without switching anything off.
-    await humanTookOver({ prisma: tx, companyId: member.companyId, thread, userId: member.userId || null, at: message.sentAt });
+    // Not on an email thread: no AI employee ever answers email, so there is
+    // nothing to take over — and a stamp here would draw a "Let {name}
+    // continue" button that could not do anything.
+    if (!isEmail) {
+      await humanTookOver({ prisma: tx, companyId: member.companyId, thread, userId: member.userId || null, at: message.sentAt });
+    }
   });
 
   // Our own reply changes what the conversation IS: two outbound messages

@@ -435,6 +435,62 @@ export const ARTICLES = {
     ],
   },
 
+  "settings-work-email": {
+    title: "Correo de trabajo",
+    summary:
+      "Conecta el buzón donde recibes el correo de trabajo para que cada correo con un cliente se archive en su historial: Google, Microsoft 365 o cualquier otro proveedor con dirección y contraseña.",
+    updated: "2026-09-25",
+    intro: [
+      "**Ajustes → Correo de trabajo** conecta el buzón que ya usas para trabajar. Cada diez minutos FieldQuo lee lo nuevo en la bandeja de entrada y en enviados, compara las direcciones De, Para y Cc con tus clientes y prospectos, y archiva los correos que coinciden en la conversación del cliente, visibles en la ficha del cliente, la del trabajo y en **Conversaciones**.",
+      "Solo se guarda el correo con un cliente o prospecto. Lo demás —correo personal, boletines, proveedores— se reconoce por sus direcciones y se omite: su contenido nunca se descarga y solo se guarda un contador.",
+    ],
+    sections: [
+      {
+        id: "connect",
+        heading: "Cómo conectar",
+        blocks: [
+          { steps: [
+            "Abre **Ajustes → Correo de trabajo**. Un propietario o administrador elige **El buzón de la empresa** o **Mi propio buzón de trabajo**; los demás conectan el suyo.",
+            "Elige **Google** (Gmail, Google Workspace), **Microsoft 365 / Outlook** (también Hotmail y el correo de GoDaddy en Microsoft) o **Cualquier otro proveedor**.",
+            "Con Google o Microsoft, inicia sesión en su página y permite leer el correo. Con otro proveedor, escribe tu dirección —FieldQuo reconoce el proveedor y rellena los servidores—, luego tu contraseña, y pulsa **Probar y conectar**. El acceso se prueba antes de guardar nada.",
+            "La primera sincronización lee los últimos 90 días. Después, el correo nuevo llega en unos diez minutos, o pulsa **Sincronizar ahora**.",
+          ] },
+          { note: "Namecheap Private Email: IMAP en mail.privateemail.com, puerto 993, SSL/TLS. Algunos proveedores (iCloud, Yahoo, AOL, Fastmail, Zoho con verificación en dos pasos) piden una contraseña de aplicación; el formulario lo indica." },
+          { warning: "Antes de conectar: los correos que intercambies con clientes desde este buzón pasan a formar parte de los registros de la empresa, y los compañeros que ven ese cliente o trabajo pueden leerlos." },
+        ],
+      },
+      {
+        id: "where-it-files",
+        heading: "Dónde se archiva un correo",
+        blocks: [
+          { bullets: [
+            "**Qué cliente**: por dirección, sin importar mayúsculas ni +etiquetas. Una dirección que está en dos fichas de cliente no se archiva en ninguna, en lugar de adivinar.",
+            "**Qué trabajo o presupuesto**: aquel cuyo número de presupuesto o factura aparece en el asunto (o el texto); si no, el trabajo abierto más reciente del cliente y luego el presupuesto abierto. Pulsa **cambiar** para archivarlo en otro sitio.",
+            "**Las respuestas** se unen a la misma conversación, y cada correo se guarda una sola vez.",
+            "**Los adjuntos** de hasta 10 MB se copian; los más grandes se nombran y siguen en el buzón.",
+          ] },
+        ],
+      },
+      {
+        id: "sending",
+        heading: "Enviar el correo a clientes desde tu buzón",
+        blocks: [
+          { p: "En el buzón de la empresa, un propietario o administrador puede activar **Enviar el correo a clientes desde este buzón**. Presupuestos, facturas, solicitudes de pago, confirmaciones de cita y respuestas salen entonces de esa dirección y aparecen en su carpeta Enviados. Si el buzón rechaza un mensaje, FieldQuo lo envía como siempre y la ficha lo indica con el motivo. Ningún correo se pierde." },
+        ],
+      },
+      {
+        id: "disconnect",
+        heading: "Desconectar",
+        blocks: [
+          { p: "**Desconectar** detiene la sincronización y elimina la contraseña o el acceso guardado. Los correos ya archivados siguen en el historial de los clientes. FieldQuo nunca borra, mueve ni marca nada como leído en tu buzón." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "¿FieldQuo lee mi correo personal?", a: "Ve las direcciones de cada mensaje para saber si es con un cliente. Lo que no lo es se omite sin descargar su contenido y no se guarda nada." },
+      { q: "¿Por qué Google dice que la app no está verificada?", a: "Leer Gmail es un permiso restringido. Hasta que FieldQuo complete la verificación y la evaluación de seguridad de Google, aparece ese aviso y solo pueden conectarse las cuentas aprobadas como probadores." },
+    ],
+  },
   "settings-payments": {
     title: "Pagos",
     summary:

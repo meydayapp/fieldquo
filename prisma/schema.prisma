@@ -1705,6 +1705,10 @@ model Company {
   // token, and a company can have several Pages while having one ad account.
   messagingChannels     MessagingChannel[]
   messageThreads        MessageThread[]
+  // Work mailboxes a member connected so client email is filed into history
+  // (lib/mailbox/). Not a Meta surface; see MailboxConnection.
+  mailboxConnections    MailboxConnection[]
+  emailMessages         EmailMessage[]
   // The WhatsApp message templates this company has had approved by Meta.
   // Kept per COMPANY and not per channel: a template is approved against the
   // WhatsApp Business Account, and a company that registers a second phone
@@ -17113,6 +17117,8 @@ model MessagingChannel {
   updatedAt  DateTime  @updatedAt
 
   threads MessageThread[]
+  /// The work mailbox behind a platform "email" channel, when this is one.
+  mailbox MailboxConnection?
 
   /// One row per Page per company. Two companies claiming the same Page id is
   /// refused by the second unique index — an inbound webhook must resolve to
@@ -17475,6 +17481,161 @@ model Message {
   /// picture is taken first — a homeowner who sent a photo five minutes ago
   /// has been waiting longer than one who sent one now.
   @@index([mediaPending, sentAt])
+
+  /// The email headers of a message filed from a connected mailbox, or sent
+  /// from the inbox as an email. Null on every chat message.
+  email EmailMessage?
+}
+
+/// A work mailbox a member connected so FieldQuo files every email exchanged
+/// with a client into that client's history — lib/mailbox/.
+///
+/// ══ What is stored, and what never is ═══════════════════════════════════
+///
+/// The credential (an IMAP password or an OAuth refresh token) in
+/// `secretEnc`, AES-256-GCM under MAIL_CREDENTIALS_KEY with this row's id as
+/// associated data (lib/mailbox/crypto.js) — a ciphertext copied onto another
+/// row does not open. Never selected into a response; Disconnect sets it to
+/// null. Mail that matches no client or lead is never downloaded past its
+/// headers and never stored: only the counters below remember it existed.
+///
+/// ══ Per member, filed to the company ════════════════════════════════════
+///
+/// `memberId` is who connected it and who may disconnect it (an owner or
+/// admin may too). `scope` is "company" (connected by an owner/admin as the
+/// business's own mailbox — the only kind that may send client email) or
+/// "member" (a person's own work mailbox). Either way what is filed belongs
+/// to the company's records, and the connect screen says so first.
+model MailboxConnection {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  memberId String
+  userId   String?
+  /// "company" | "member" — see the header.
+  scope    String  @default("member")
+
+  /// "google" | "microsoft" | "imap"
+  provider String
+  /// Lowercase. The address the mailbox answers to; "sent by us" is decided
+  /// against it.
+  address  String
+
+  // ── IMAP / SMTP only. Null on an OAuth row ─────────────────────────────
+  /// lib/mailbox/presets.js key ("namecheap", "zoho", …) or "custom".
+  preset       String?
+  imapHost     String?
+  imapPort     Int?
+  /// "tls" (implicit, 993) | "starttls" | "plain" (a local test server only).
+  imapSecurity String?
+  /// The login name when it is not the address (a few hosts differ).
+  loginName    String?
+  smtpHost     String?
+  smtpPort     Int?
+  smtpSecurity String?
+
+  /// The credential, sealed. Null once disconnected. See the header.
+  secretEnc     String? @db.Text
+  /// The OAuth scopes the provider GRANTED, space-separated — read to decide
+  /// whether sending is possible without asking again.
+  grantedScopes String? @db.Text
+
+  /// "connected" | "error" | "disconnected"
+  status      String    @default("connected")
+  lastError   String?
+  lastErrorAt DateTime?
+
+  /// The sync lock and its clock — a tick finding a fresh lock moves on.
+  syncingSince DateTime?
+  lastSyncAt   DateTime?
+  /// Mail older than this is not backfilled (connect time − 90 days).
+  backfillFrom DateTime
+  /// Provider cursors, one JSON column rather than eight nullable ones:
+  /// imap  { inbox: { uidValidity, lastUid }, sent: { folder, uidValidity, lastUid } }
+  /// google { historyId, backfillPageToken, backfillDone }
+  /// microsoft { inbox: { deltaLink | nextLink }, sent: { … } }
+  /// lib/mailbox/cursor.js owns the shape.
+  cursor       Json?
+
+  /// Counters only — never content. `skipped` is mail that matched no
+  /// client or lead and was not stored.
+  filedCount      Int  @default(0)
+  skippedCount    Int  @default(0)
+  lastSyncFiled   Int?
+  lastSyncSkipped Int?
+
+  // ── Sending client email through this mailbox (opt-in, company scope) ──
+  sendEnabled            Boolean   @default(false)
+  sendEnabledAt          DateTime?
+  sendEnabledById        String?
+  /// The rolling hour the throttle counts in — lib/mailbox/sendThrottle.js.
+  sendWindowStart        DateTime?
+  sendWindowCount        Int       @default(0)
+  lastSentAt             DateTime?
+  /// The last time a send through this mailbox failed and FieldQuo sent the
+  /// message itself instead, and why — printed on the settings card.
+  lastSendFallbackAt     DateTime?
+  lastSendFallbackReason String?
+
+  /// The platform "email" MessagingChannel threads from this mailbox hang
+  /// off. Kept after disconnect so the filed history keeps its channel.
+  channelId String?           @unique
+  channel   MessagingChannel? @relation(fields: [channelId], references: [id], onDelete: SetNull)
+
+  connectedAt    DateTime  @default(now())
+  disconnectedAt DateTime?
+  updatedAt      DateTime  @updatedAt
+
+  emails EmailMessage[]
+
+  /// One row per address per company: two members connecting the shared
+  /// info@ would otherwise file every message twice.
+  @@unique([companyId, address])
+  @@index([companyId, memberId])
+  @@index([status, lastSyncAt])
+}
+
+/// The email headers of one Message — a filed email, or a reply sent from
+/// the inbox as an email. 1:1 with Message; chat messages have none.
+///
+/// `rfcMessageId` is the dedupe key: the same email seen in INBOX and Sent,
+/// by two members' mailboxes, or again after a UIDVALIDITY reset is one row,
+/// enforced by the unique index rather than by a read-then-write race.
+model EmailMessage {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  messageId String  @unique
+  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  mailboxId String?
+  mailbox   MailboxConnection? @relation(fields: [mailboxId], references: [id], onDelete: SetNull)
+
+  /// RFC 5322 Message-ID, angle brackets off, case kept.
+  rfcMessageId String
+  inReplyTo    String?
+  references   String? @db.Text
+
+  subject     String
+  fromAddress String
+  toAddresses String  @db.Text
+  ccAddresses String? @db.Text
+
+  /// Where the sync found it: "INBOX" / the Sent folder / a Gmail or Graph id.
+  folder      String?
+  providerRef String?
+  /// "sync" | "inbox_reply"
+  filedBy     String  @default("sync")
+  /// "mailbox" | "fieldquo" — which sender carried an inbox reply; null on a
+  /// filed email.
+  sentVia     String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([companyId, rfcMessageId])
+  @@index([mailboxId, createdAt])
 }
 
 /// One WhatsApp message template Meta has a verdict on, mirrored locally.

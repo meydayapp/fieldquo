@@ -172,6 +172,7 @@ export const SCREENS = [
   { slug: "settings-follow-ups", nav: "app.settings.followUps", href: "/app/settings/follow-ups", page: "app/app/settings/follow-ups/page.js", settings: true },
   { slug: "settings-notifications", nav: "app.settings.notifications", href: "/app/settings/notifications", page: "app/app/settings/notifications/page.js", settings: true },
   { slug: "settings-email-domain", nav: "app.settings.emailDomain", href: "/app/settings/email-domain", page: "app/app/settings/email-domain/page.js", settings: true },
+  { slug: "settings-work-email", nav: "app.settings.workEmail", href: "/app/settings/work-email", page: "app/app/settings/work-email/page.js", settings: true },
   // Getting paid
   { slug: "settings-payments", nav: "app.settings.payments", href: "/app/settings/payments", page: "app/app/settings/payments/page.js", settings: true },
   { slug: "settings-meta-ads", nav: "app.settings.metaAds", href: "/app/settings/meta-ads", page: "app/app/settings/meta-ads/page.js", settings: true },
