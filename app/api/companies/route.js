@@ -37,6 +37,13 @@ import { isRetired, RETIRED_PLAN_ERROR } from "@/lib/platform/sellablePlans";
 import { recordSignupCompletion } from "@/lib/signup/salesFloor";
 import { SEAT_LADDER, customSeatsFromTierKey } from "@/lib/pricing/ladder";
 import { readWebsiteAnswer } from "@/lib/signup/website";
+import {
+  cleanSignupGoal,
+  cleanSignupSource,
+  cleanTeamSizeBand,
+  cleanYearsBand,
+  recommendedTierKeyForBand,
+} from "@/lib/signup/signupPreview";
 
 export async function POST(request) {
   const session = await auth.api.getSession({ headers: request.headers });
@@ -137,6 +144,18 @@ export async function POST(request) {
     // the set-up steps, lib/setupSteps.js).
     hasWebsite,
     website,
+    // ── The Team and Goals steps (2026-09-24) ───────────────────────────────
+    //
+    // The words picked on two skippable steps: a team-size band, years in
+    // business, one of four goals, and "how did you hear about us". Each is
+    // validated against the closed list in lib/signup/signupPreview.js and
+    // anything else — including an absent answer — is stored as null, never
+    // as a default. The band also starts the trial banner on a rung when the
+    // pricing link named none (see chosenTier below).
+    teamSizeBand,
+    yearsInBusinessBand,
+    signupGoal,
+    signupSource,
   } = await request.json();
 
   const websiteAnswer = readWebsiteAnswer({ hasWebsite, website });
@@ -146,6 +165,11 @@ export async function POST(request) {
       { status: 400 },
     );
   }
+
+  const teamBand = cleanTeamSizeBand(teamSizeBand);
+  const yearsBand = cleanYearsBand(yearsInBusinessBand);
+  const goal = cleanSignupGoal(signupGoal);
+  const source = cleanSignupSource(signupSource);
 
   // The company's default language, validated to a supported code (else English).
   const defaultLanguage = isSupported(language) ? language : DEFAULT_LANGUAGE;
@@ -244,7 +268,12 @@ export async function POST(request) {
       ? wantedTier
       : typeof wantedPlanId === "string" && wantedPlanId
         ? (await db.plan.findUnique({ where: { id: wantedPlanId }, select: { tierKey: true } }))?.tierKey || null
-        : null;
+        : // The link named nothing: the team-size band picks the rung the
+          // stated number of people fits (lib/signup/signupPreview.js), so the
+          // banner's "Choose a plan" opens on a card that matches the answer
+          // they just gave rather than the first one. Null when the step was
+          // skipped — the banner then recommends from the real roster.
+          recommendedTierKeyForBand(teamBand);
 
   // Resolve a real Plan row before we ever create a Stripe checkout session,
   // since Subscription.planId is required and the webhook can't invent one
@@ -368,6 +397,10 @@ export async function POST(request) {
         onboardingStatus: "pending",
         trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         signupTierKey: plan ? null : chosenTier,
+        teamSizeBand: teamBand,
+        yearsInBusinessBand: yearsBand,
+        signupGoal: goal,
+        signupSource: source,
       },
     });
 

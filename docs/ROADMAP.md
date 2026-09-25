@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 24 September 2026 (the reactive signup panel: the panel beside the signup form now draws a live preview for each step (the email with the typed company name as sender, the booking page with the province's tax line, a calendar that changes with team size, a sample quote with the trade's own services, the price book), plus two optional steps, Team and Goals, stored on four new `Company` columns — committed on `agent/signup-side-panel`, not pushed, per the owner).
 Last updated: 24 September 2026 (maintenance plans on quotes — `ServicePlanTemplate` + `QuotePlanOffer`, additive; Settings → Maintenance Plans with 23 starter plans in eight languages; included or optional on a quote, ids-only approval, a running ServicePlan invoiced per visit with the discount on each invoice — see its section)
 Last updated: 24 September 2026 (a service's estimate template expands onto a quote and an invoice: "Add with its template lines" beside a templated service in the line library, lines in the document's language from the company's own Product row, measured quantities filled from the quote's own takeoffs with the source printed under the line, a missing figure at quantity 0 with the calculator named or linked, `ventCount` / `returnCount` registered — see "A service's template, expanded onto the quote" below)
 Last updated: 24 September 2026 (the estimate template inside a service — `Product.templateLines` / `defaultDiscount` / `imageUrl` / `estimateTypes` / `templateEnabled`, additive; templates attach by quote type (`categories` + painting estimate types) through `templatesFor()`; a closed measurement registry every trade's lines can take their qty from; the seed LOADER contract in `lib/services/seeds.js`; Settings › Services edits each service's template; `/app/analytics/benchmark` is the preset library with an editable Your price; benchmark sharing is on by default for new companies and Terms §7 / Privacy §7 say so. The seed CONTENT — templates on every trade in seven languages — is a separate pass landing against the same contract.; landed just before it on main: auto-translation on save — see its section.)
@@ -23,6 +24,57 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## The reactive signup panel (24 September 2026) — landed 25 September on `land/stranded-0925`
+
+Built and committed on `agent/signup-side-panel` on the 24th, then stranded at a conversation
+compaction while main moved 123 commits on. Merged onto origin/main on the 25th beside the card-free
+signup and "Do you have a website?": `/api/companies` reads both the website answer and the four
+Team/Goals answers; the website question stays on the account/business step, Team and Goals follow it.
+
+
+The owner, on the Housecall Pro and Jobber signups: "when they ask how many employees the calendar
+changes to reflect that.. the type of trade it shows a sample of the invoice.. can we make our screens
+like that and explain how each feature helps them too".
+
+**Panel.** `AuthAside` takes a `preview` prop (the live form). Each step now shows a heading in the
+form "Feature | benefit", a picture drawn in our own look (`app/components/auth/SignupPreviews.js`),
+and two or three benefit bullets. The pictures by step:
+- **Account:** the client's email, with the typed company name as the sender, using the real `emailCopy` subject, intro and button.
+- **Business:** once the address resolves, the booking page plus the tax line from the real lookup (`taxPreviewFor` → `taxLineHeadline`, e.g. "HST 13% (Ontario)"). When the address doesn't resolve, nothing is shown.
+- **Team:** the calendar, whose view changes with the band:
+  - Just me → a week view
+  - 2–5 → a day view with a column per person
+  - 6–15 → the dispatch board, one row per person
+  - 16+ → the dispatch board grouped by crew
+
+  A clock in → hours → pay run line sits under every view.
+- **Trades:** a sample quote drawn with `QuoteDocument`'s own sections. It shows the trade's two services from the seeds, served words-only by `/api/signup/sample-services` (the seeds never reach the browser). It also shows Photos and "What happens next". The amounts are placeholders labelled as samples, and are figures no seed uses as a benchmark.
+- **Services:** the price book, with "Set your rate" and no figures.
+- **Goals:** the picture matching the goal picked (insights, the AI inbox, or the quote).
+
+`/login` and a panel with no `preview` render exactly as before. Below `lg`, `AuthShell`'s new `strip`
+slot shows a one-line summary above the form with "Show preview".
+
+**Steps.** `lib/signup/funnel.js` now reads account/business → **team** → **goals** → industry → services
+→ plan. Both new steps can be skipped and neither gates a later step; "Start my free trial" is still the
+last button. The four answers are stored as the words picked, or null when skipped: `Company.teamSizeBand`,
+`yearsInBusinessBand`, `signupGoal` and `signupSource`. These columns were added to the live DB by
+`ADD COLUMN` only, and the platform company list reads them. When the pricing link named no rung, the band
+sets `signupTierKey` via `recommendedTierKeyForBand` → `tierFor`:
+- Just me or 2–5 → Solo
+- 6–10 → Crew
+- 11–15 or 16+ → Shop
+
+`funnelStep` maps the two new steps to null, because the platform funnel has no column for them.
+119 new strings, in all nine languages.
+
+**Proof.** `check:signup-aside` (245) is in `check:all`. `check:auth-pages` and `check:signup-order` were
+updated for seven steps. Screenshots are in `docs/screens/signup-aside/en/` (24 frames, 1280 and 390).
+
+**Left out:** the guided tour after signup (the brief said to keep `/app?welcome=true` as it is). The
+trades step shows the FIRST trade picked. Pressure washing and landscaping have no seed, so their quote
+shows the page's own quote-type labels instead.
 
 ## Maintenance plans on quotes — templates, included or optional, a running plan on approval (24 September 2026)
 

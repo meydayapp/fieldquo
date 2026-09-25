@@ -37,6 +37,15 @@ const STATUS_FILTERS = [
   { value: "demo", label: "Demo" },
 ];
 
+// The four goals the signup offers (lib/signup/signupPreview.js SIGNUP_GOALS),
+// in the console's English — the platform is not translated.
+const SIGNUP_GOAL_WORDS = {
+  look_professional: "wants to look professional",
+  feel_in_control: "wants control of the business",
+  win_more_jobs: "wants more jobs",
+  exploring: "just exploring",
+};
+
 const STATUS_STYLES = {
   // lib/platform/companyStanding.js tones for a card-free trial.
   trial: "bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-900",
@@ -407,6 +416,27 @@ export default function PlatformCompaniesPage() {
                           started. Company.trialEndsAt is stamped at signup,
                           before checkout, so it is set on every abandoned
                           signup in the database. */}
+                      {/* What the signup's Team and Goals steps recorded
+                          (2026-09-24): the words picked, printed only when
+                          they were picked — a skipped step prints nothing.
+                          Read here so sales and support know who they are
+                          talking to before opening the company. */}
+                      {(c.teamSizeBand || c.yearsInBusinessBand || c.signupGoal || c.signupSource) && (
+                        <span
+                          className="text-xs px-2 py-0.5 rounded-full border bg-muted text-muted-foreground border-border"
+                          title="From the signup's Team and Goals steps"
+                          data-signup-answers
+                        >
+                          {[
+                            c.teamSizeBand && `Team ${c.teamSizeBand === "1" ? "just them" : c.teamSizeBand}`,
+                            c.yearsInBusinessBand && `${c.yearsInBusinessBand} yrs`,
+                            c.signupGoal && SIGNUP_GOAL_WORDS[c.signupGoal],
+                            c.signupSource && `via ${c.signupSource}`,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </span>
+                      )}
                       {c.subscription && daysLeft !== null && daysLeft >= 0 && daysLeft <= 7 && (
                         <span className="text-xs px-2 py-0.5 rounded-full border bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900">
                           Trial ends in {daysLeft}d
