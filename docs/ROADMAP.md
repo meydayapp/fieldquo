@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 25 September 2026 (the instant estimate: the company picks the visitor's languages — `Company.instantQuoteLanguages`, unset = all three — a one-line description under each service card, and the page after submit is the company's proposal with the RANGE in place of prices, drawn by the same section components as the quote; stairs inference left unwired as an owner decision — see "The instant estimate: the company's languages…" below)
 Last updated: 25 September 2026 (import, not export: the five bulk exports — price book, timesheets, pay run, subcontractor year-end list, bookkeeping ZIP — removed from /app with their routes refusing 403 through `lib/export/companyDataExport.js`; single documents and every import kept; a copy of a company's data stays available on written request; help centre, marketing, sales playbook and guide made honest)
 Last updated: 25 September 2026 (who pays for AI, the owner's decision: FieldQuo AI and translation on FieldQuo's own budget — the copilot keeps a per-company fair-use ceiling, translation the daily draft cap; the AI employee's replies and front desk charged in dollars from the company's AI credit at cost × 2 rounded up, gated on one reply's estimate, debited once per reply, NO_CREDIT → a person; a one-time grace on the old allowance until 1 October 2026; Settings › AI employee shows paused / the change and date / the balance; /platform/ai-billing shows dollars debited per company)
 Last updated: 25 September 2026 (the receipts book: photo AND PDF receipts captured from Expenses, a job page or the Create menu's "Snap receipt", read into lines / store / date + time / card last four / GST-PST-HST separately, checked against themselves, matched to the job the person was clocked in on (or overhead) by deterministic scoring with a reason for every point, split by line or amount, booked only on a tap as Expense rows carrying their tax; crew book to their own jobs or hand it to the office; /platform/ai-billing — the generic "who pays" switch, receipts on FieldQuo)
@@ -30,6 +31,74 @@ than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## The instant estimate: the company's languages, a line per service, and the presentation with the range (25 September 2026)
+
+Two owner asks that were lost: 2026-09-24 (the company picks the visitor's languages; each
+service card says what it is) and 2026-09-22 ("the same presentation but with the range").
+
+1. **Languages are the company's choice** — Settings › Instant quotes › "Languages on your
+   instant estimate". `Company.instantQuoteLanguages String[] @default([])` (additive, added
+   by `ALTER TABLE … ADD COLUMN IF NOT EXISTS` via `prisma db execute`), one rule in
+   `lib/estimate/instantQuoteLanguages.js` read by the public payload
+   (`loadCompanyInstantTrades` → `languages` + a `language` that is always one of them), the
+   form's pills, `/request` (a POST in a switched-off language is written in the company's)
+   and the settings GET/PUT (an empty choice is refused, never stored). **Unset = all three**,
+   deliberately, not "default language + English": every live form has offered EN/FR/ES since
+   the pills shipped and contractors link with `?lang=es`; narrowing on deploy would silently
+   take a language off live forms. The card says "you haven't chosen yet, so all of them are
+   offered"; the first save is the statement. One language offered → no pills at all.
+   `/measure` (the live preview's notes) still takes any of the three — preview-only, the
+   form only ever posts an offered one.
+2. **One line under each service card** when more than one is offered (the single-trade
+   auto-select at load is kept). **Decision to confirm with the owner:** the ask said "from the
+   company's Product/service seed description", and that source does not exist for the
+   instant trades — ten of fourteen have no seed file at all, and where one exists the
+   trade-level service is `pricedBy: "takeoff"` and never written as a Product, so no Product
+   row describes "Roofing" as a whole. The company's own texts (Products, the scope paragraph
+   in Settings › Services) are free text written for quotes, where "$45 a tread" is normal —
+   printed on this unauthenticated page it would be a rate card (#4). So the line is a closed
+   FieldQuo table, `instantTradeBlurb` in `lib/i18n/instantQuoteCopy.js` (every instant trade,
+   EN/FR/ES, no digits, checked). If the owner wants the company's own words, the safe shape
+   is a per-trade "card line" field in the instant config with a no-figures sanitiser.
+3. **The presentation with the range.** The page the form sends a homeowner to
+   (`/estimate-report/[token]`) is now the company's proposal: the quote page's sticky header
+   (logo · range · CTA), contents beside the document, "Your estimate" (masthead, ESTIMATE +
+   reference, the RANGE in a measured fill band labelled "Estimate — subject to a site visit",
+   the option cards, questions/call-back, measurement, property, notes), "What happens next"
+   (the report's next steps + the trade's numbered process steps with the company's
+   overrides), then About us / Before & after / documents / testimonials / services. The
+   sections are **shared, not copied**: `app/components/public/proposal/ProposalSections.js`
+   (`CompanySections`, `ProcessStepList`, `ProposalSection`, ids, labels) is imported by
+   `QuoteApproval.js` (whose inline copies were removed) and `ReportView.js`; the server
+   projection is one function, `projectProposal` in `lib/proposal/load.js`, used by
+   `/api/public/quotes/[token]` and `lib/estimate/report/presentation.js`. The range is
+   `estimateData.range` (what the homeowner was shown; never the stored point) through
+   `publicEstimate`, only while the owner's visibility still allows a figure. CTA = "Book your
+   site visit" when the company can take one, else "Talk to us" → the call-back form. **No
+   Accept button:** a range is not a price anyone can accept, and there is no action behind
+   one — if the owner wants "accept the estimate", it needs a product decision on what it
+   creates. Client copy `rangeProposal` in the eight document languages.
+4. **Stairs inference — not wired, on purpose.** `inferComplexity`
+   (`lib/pricing/complexity/instantStairs.js`) is finished and tested (`check:complexity` §9),
+   but the public stairs form asks three things (steps, shape, railing ft) and the function
+   reads eight; five questions (open sides, treads, railing type, desired finish, condition)
+   would have to be ADDED to the public form, and storing the result on the draft changes the
+   builder's price away from the range the homeowner was shown. Both are owner decisions
+   (form length vs. conversion; whether the instant range should move with complexity).
+
+Also: `/q/[token]`'s two `/60` muted lines (job address, pay-offline hint) raised to `/70`
+(4.12 → 5.65:1 — `check:client-proposal` was failing on them). Open, not fixed here: the
+quote page's inactive contents links are `inkMuted` on the `#f5f2ec` page, 4.33:1.
+
+Proof: `check:range-presentation` (new, in `check:all`, 116 assertions — renders the page
+from a fixture whose point estimate, line rate and line total are distinctive and asserts
+none reaches the HTML, every figure on the page is a range end or a starting-at card, the
+shared components, the copy in 8 languages, contrast on nine hostile brands);
+`check:instant-quote-copy` §6b (languages + blurbs + payload over the db stub);
+`check:client-proposal` 228/0; `check:estimate-report`; `npm run build` green.
 
 ---
 
