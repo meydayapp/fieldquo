@@ -14,8 +14,9 @@
 // No benchmark exists for any of these: the capture carried no pricing
 // insight for the trade. Every `benchmark` is null on purpose.
 
-import { L, SHARED, D, T, withTemplates, hdMaterial } from "./_templateLines";
+import { L, SHARED, D, T, withTemplates, hdMaterial, withLanguages } from "./_templateLines";
 import { HD } from "./_materialCosts";
+import { I18N } from "./i18n/lawn_care.js";
 
 export const SEED = {
   trade: "lawn_care",
@@ -754,4 +755,5 @@ const TEMPLATES = {
   ], null),
 };
 
+withLanguages(SEED, I18N);
 withTemplates(SEED, TEMPLATES);
