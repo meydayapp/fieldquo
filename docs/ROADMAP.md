@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 25 September 2026 (flooring, tile, drywall, siding, fencing and concrete measured on the quote with the calculators that already exist — rooms on paint's geometry with openings off the walls and a waste per material, drywall sheets 4 × 8 / 4 × 12, siding elevations into the siding box, the aerial tracer into the fence's Linear Feet and the slab's Square Footage, posts every 8 ft, cubic yards at the chosen thickness — feeding "Add with its template lines"; nothing new is priced by a takeoff, so nothing new is held back — see "Flooring, tile, drywall, siding, fencing, concrete: measured on the quote" below)
 Last updated: 25 September 2026 (leads: a "Linked documents" block — quote, jobs, invoices — with "Link an existing quote", and Won now needs an APPROVED quote or work behind it, refusing with a reason and "Link the quote that won it"; calendar: a Cards view on /app/appointments, each entry a card opening a side panel with open quote/job/invoice/client, call, directions and reschedule/cancel)
 Last updated: 25 September 2026 (Australia: GST 10% on an AU contractor's quotes and invoices as a VAT-table row named GST, gated on "Are you registered for GST?"; AUD plans at the same numbers and every other Stripe country on the USD rows, Checkout's currency now taken from the Plan row; tax on FieldQuo's own subscription stays Stripe Tax — new /platform/billing/tax shows per region the subscribers, 12-month taxable vs reverse-charged invoices, FieldQuo's thresholds (UK/EU from the first sale, AU A$75,000) and the Stripe registration checklist; owner to run `npm run seed:seat-ladder`)
 Last updated: 25 September 2026 (import, not export: the five bulk exports — price book, timesheets, pay run, subcontractor year-end list, bookkeeping ZIP — removed from /app with their routes refusing 403 through `lib/export/companyDataExport.js`; single documents and every import kept; a copy of a company's data stays available on written request; help centre, marketing, sales playbook and guide made honest)
@@ -32,6 +33,87 @@ than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## Flooring, tile, drywall, siding, fencing, concrete: measured on the quote (25 September 2026)
+
+The owner (2026-09-25): "for Flooring, tile, drywall, siding, fencing, concrete — no
+calculator yet… we could use the room takeoff… that measures the surface area and floor
+(ceiling)". Commit 160dfebc mapped the measurement keys and left "mounting the room
+takeoff and tracer on the six reuse trades' quotes" as builder wiring. This is that wiring.
+The rules live in `lib/measure/reuseTakeoffs.js`; the panels in
+`app/components/quotes/builder/ReuseTakeoff.js`.
+
+**What is mounted, per trade, and how the quantity flows**
+
+| Trade | Panel on the quote | Figures (registry names) → template lines |
+|---|---|---|
+| flooring_install | "Measure the rooms" — the painting room's own controls (Room / Surface, W × L × H, the strip you type over), ticks: Floor · Baseboard & transitions (perimeter) · Wall tile / backsplash | floorSqft, linearFt, wallSqft, areaSqFt (= the floor — the seeded flooring templates are keyed to it) |
+| tiling | same rooms; ticks Floor tile · Wall tile / backsplash · Trim (perimeter) | floorSqft, wallSqft, linearFt, areaSqFt (= everything tiled) |
+| drywall_install | same rooms; ticks Walls · Ceiling; sheet 4 × 8 (32) or 4 × 12 (48); sheet waste (10 % on a new takeoff) | wallSqft (net of openings), ceilingSqft, areaSqFt (board), **drywallSheets** = ceil(board × (1 + waste) ÷ sheet) — mud and tape per sheet read it too |
+| siding | "Measure the walls" inside the existing siding takeoff: elevations (run × height, + ½ run × gable rise), openings off | the net area fills the takeoff's own Wall area box — which the siding book prices, so `wallSqft` stays held back exactly as before |
+| fence_services | the aerial tracer (LotAreaMeasure / PolygonMeasure, the lawn's canvas) → Linear Feet, less "Not fenced (ft)" (the house wall) | edgingFt and perimeterLf (the run), **fencePosts** = ceil(run ÷ 8) + 1, **gateCount** / **driveGateCount** (the intake's own boxes) |
+| concrete | the tracer → Square Footage; the intake's Thickness and Waste Factor | areaSqft and areaSqFt (the slab), **concreteCuYd** = sq ft × in ÷ 12 ÷ 27 × (1 + waste), up to the quarter yard; no thickness → no yards (never an assumed 4 in) |
+
+Openings (door 3 × 7, window 3 × 5 on a new row, typed over) come off the walls of their
+room and never below zero; painting keeps pricing gross area — `areaGeometry` is called
+unchanged. **Waste per material:** a waste typed on the takeoff REPLACES the template
+line's own waste on material lines keyed to that figure (never both); blank keeps the
+template's; 0 is a statement. Sheets and yards carry their waste inside the count, so a
+line keyed to them adds none. Figures from every other calculator state no waste, so their
+lines expand exactly as before.
+
+**Why none of them joined `lib/pricing/takeoffTrades.js`.** That list means "the
+takeoff's output IS the group's lines"; these produce figures and the template lines
+supply price and cost, so they mount beside the intake (where the lawn tracer mounts) and
+price nothing. `keysPricedByGroup` therefore holds nothing back on them — a takeoff that
+prices a quantity still holds its lines back (siding, above). `CALCULATORS` gained
+`roomMeasure`, `fence`, `concrete`; a reuse calculator is listed after the one that
+already filled a key, so a quote with a painting group still names the room takeoff.
+`measureTracedArea` was read for a `kind: "wall"` / `"line"`: `kind` only colours the
+still, so the fence length is the canvas outline's perimeter (the figure lawn edging
+already uses) and no satellite source measures a wall. The fence and slab outlines are
+not printed on the client's document — `measureImages.js` would print them as "Lawn
+measured".
+
+**Shared, not copied.** The painting room's Room / Surface toggle, dimension boxes and
+"Calculated from measurements" strip moved into `AreaGeometry.js`; the painting card's
+HTML is byte-identical before and after (md5 `cd845c5ee8ed1f25c17cf1328b5d4246` over six
+renders, en/fr, asserted in the new check). `LotAreaMeasure` takes the boxes it fills as
+options defaulting to the lawn's (`traceIntakePatch` with no options IS `lotIntakePatch`).
+
+**Proof.** `npm run check:reuse-takeoffs` (new, 160): unit conversions, waste, openings,
+zero / junk / 1e308, sheets, posts, yards, the template lines filled per trade, the stated
+waste replacing (not stacking), refill, the double-billing guard, the panels rendering and
+mounted in the builder, nine languages. `check:service-template-lines` 82 → 91 (§K, one
+fixture per trade). Unchanged: `check:service-templates` 266, `check:quote-builder`,
+`check:doc-builder` 208, `check:paint-takeoff` 258, `check:takeoff-render` 71,
+`check:lawn-care`, `check:polygon-scale` (one assertion reworded to the new "neither box"
+rule; its one pre-existing failure, TradeTakeoff's siteAddress regex, is unchanged). md5 of
+every one of the 363 seeded templates expanded into twelve existing-trade groups (4,356
+expansions), their measurements, hold-backs and fresh-group payloads: identical before and
+after; the only differences are the calculator lists of the keys the reuse takeoffs now
+also fill. Walked in the app-guide harness (the real QuoteBuilderForm, both layouts, en
+and fr — no account, no data): a 12 × 15 floor at 12 % waste → Install $630, 10 boxes
+(not 9 at the template's 8 %), baseboard 54 ft; a 12 × 10 × 8 drywall room less a door →
+16 sheets, board and mud per sheet, 451 sq ft; a 160 ft fence → 21 posts, one gate; 810 sq
+ft at 4 in + 5 % → 10.5 yd; a 40 ft gable wall less a window → Wall area 545, the siding
+template adding only its permit.
+
+### Still owed here
+
+- **The tracer draws closed shapes only.** A fence along three sides is traced as the
+  yard and the fourth side typed into "Not fenced". An open polyline on the canvas is a
+  PolygonMeasure change of its own.
+- **Filled lines do not follow a later edit.** As for every template (refill touches
+  only lines still awaiting a figure): change the sheet size or a room after adding and
+  the quantities already on the quote stay — retype, or remove and add again.
+- `drywall` (the three-phase quote type) and `flooring` (refinishing) are not wired —
+  the ask named drywall_install; `drywall` is one line in `ROOM_MEASURE_TRADES` when
+  wanted. Paving and driveway sealing keep their own takeoffs.
+- Gate openings are not taken off the fence run (the run is what was traced or typed).
+- Instant estimates: none of these six has one; out of scope.
 
 ---
 
@@ -1779,9 +1861,10 @@ calculator to prove it. `TRADE_MEASUREMENTS` maps flooring (floorSqft, linearFt 
 the room perimeter), tile, drywall, siding (wallSqft of an exterior wall run),
 fencing (edgingFt, the traced outline length — `measureTracedArea` returns only an
 area) and concrete (traced areaSqft) onto the existing takeoffs; a line's `coverage`
-turns a figure into sheets / posts / cubic yards. **Not done:** mounting the room
-takeoff and tracer on those six trades' quotes (`lib/pricing/takeoffTrades.js` + a
-builder form) — builder wiring, next pass. Painting's payload is untouched
+turns a figure into sheets / posts / cubic yards. ~~**Not done:** mounting the room
+takeoff and tracer on those six trades' quotes~~ — done 25 September, see "Flooring,
+tile, drywall, siding, fencing, concrete: measured on the quote" (not through
+`takeoffTrades.js`: they measure, they do not price). Painting's payload is untouched
 (`builderPayload.js`, `paintTakeoff.js`, `takeoffTrades.js` have no diff).
 
 **Existing companies.** `lib/services/backfillTemplates.js` fills templateLines /
