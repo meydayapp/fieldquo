@@ -145,6 +145,12 @@ const SHARED_LITERALS = new Set([
   // the one market where Interac itself localises it, and the fr block
   // accordingly says "Virement Interac" rather than sitting on this list.
   "Interac e-Transfer",
+  // Block's payment app, a payment-method label beside "Zelle" and "Venmo"
+  // (which pass as one-word names). It ships as "Cash App" in every market
+  // it operates in, and the payer is looking for that name on their phone —
+  // translating it ("App de efectivo") would name something that doesn't
+  // exist. Flagged as an echo in all eight blocks before it was listed here.
+  "Cash App",
 ]);
 
 // ── The echo test ──────────────────────────────────────────────────────────
