@@ -14,6 +14,85 @@ here deviates from it.
 
 ---
 
+## 2026-09-24 — re-pinned to the reorganised shell
+
+The 2026-09-21 shell (17-row rail in five groups, More, Create and Search
+at the top of the rail and in a new top bar, Settings pinned at the foot)
+changed the chrome every welcome step points at. Page markup under the tours
+was untouched by the redesign except the quote builder (new document layout)
+and the new-invoice page; both were re-read and their anchors still sit on
+the described element in both layouts (`totals` is on `QuoteActionsDock`,
+which both builder layouts render).
+
+**Now: 34 tours, 79 steps, every anchor present** (checked by a throwaway
+script that loads `TOURS` and finds each `data-tour` in `app/`, plus
+`check:sidebar`, which now proves every tour row in a foldable group names
+that group's header as opener and closer).
+
+### welcome — `welcome-v1` (5 steps) → `welcome-v2` (12 steps), `/app`
+
+| # | Anchor | Where it renders | Status |
+|---|---|---|---|
+| 1 | `nav-requests` | rail › Work › Leads | ok |
+| 2 | `nav-quotes` | rail › Work › Quotes | ok |
+| 3 | `nav-estimate-reviews` | rail › Work › Quote reviews | **copy updated** — v1 titled it "Instant estimates to approve"; the row says "Quote reviews" |
+| 4 | `nav-scheduler` | rail › People › Assign shifts (foldable) | **new** |
+| 5 | `nav-marketing` | rail › Grow › Marketing (foldable) | **new** |
+| 6 | `nav-receptionist` | rail › Grow › Receptionist (foldable) | **new** |
+| 7 | `nav-ai` | rail › AI › FieldQuo AI | ok |
+| 8 | `nav-ai-team` | rail › AI › AI team | **new** |
+| 9 | `nav-more` | rail › More (names Service Plans, tasks, team, timesheets, expenses) | **new** |
+| 10 | `shell-create` | rail Create (wide rail, phone drawer) / top-bar Create (icon rail) | **new** |
+| 11 | `shell-search` | rail Search (wide rail, drawer) / top-bar box or icon | **new** |
+| 12 | `nav-settings` | rail foot › Settings | **copy updated** — says it is at the bottom of the menu and opens its own list |
+
+Hidden targets: on a phone every step opens the drawer (`[data-tour-open='nav']`
+on the hamburger). Steps 4–6 list a second opener,
+`[data-tour-open='nav-group-people|grow']`, rendered on the foldable group
+header by `groupTourHook()`. `OnboardingTour` clicks an opener only while the
+target is still off screen and folds back only what it opened, so a reader's
+fold is never changed on the way out. An icon-only desktop rail shows every
+row (navDisclosure guarantee 3), so no opener fires there; the rail's own
+Create/Search are not rendered in that state and the top bar's copies are
+ringed instead.
+
+### New page tour
+
+| Tour | Page | Anchor | Element |
+|---|---|---|---|
+| `ai-team-v1` | `/app/settings/ai-employee` | `ai-team-roster` | "Your AI team" card |
+| | | `ai-team-flow` | "How your AI team works" card |
+
+### Every other tour: ok, unchanged
+
+leads-v1 (3), funnels-v1 (1), funnel-builder-v1 (2), booking-fee-v1 (1),
+quotes-v1 (3), quote-new-v1 (3), estimate-reviews-v1 (1), jobs-v1 (3),
+job-builder-v2 (4), invoices-v1 (3), invoice-new-v1 (3), appointments-v1 (2),
+tasks-v1 (2), marketing-v1 (2), availability-v1 (2), scheduler-v1 (2),
+schedule-v1 (1), expense-tracking-v1 (3), payroll-v1 (2), time-off-v1 (1),
+timesheets-v1 (3), voice-v1 (3), payments-v1 (2), receptionist-v1 (2),
+ai-credit-v1 (2), marketing-designer-v1 (1), marketing-designer-editor-v1 (2),
+kpis-v1 (2), website-v1 (1), crew-inbox-v1 (1), plans-v1 (1), refer-v1 (1).
+
+### Anchors no tour uses
+
+`appts-map-tab`, `leads-potential`, `payments-instant`, `payments-methods`,
+`payments-fees`, `website-unpublish`, `custom-fields`, `setup-steps`,
+`designer-approve`, `job-change-orders`, `job-plan`, `job-plan-day`,
+`job-tasks`, `schedule-map`; and `app-chat` / `messages-inbox`, which wrap a
+whole page (a ring round the viewport says nothing, so no tour was built on
+them). Left in place — harmless, and some are read by checks.
+
+### Replaying
+
+"Take the tour" on the dashboard (`TourLauncher`, on whichever set-up card is
+showing) and the Help centre's "Replay the setup walkthrough" both call
+`startTour("welcome-v2")`, which runs the tour whatever the seen flags say.
+The Help button used to clear `welcome-v1` server-side only, which replayed
+nothing in a browser holding OnboardingTour's localStorage flag.
+
+---
+
 ## Every tour, after this session
 
 33 tours, 70 steps. 24 pre-existing (23 unchanged, 1 changed), 9 new.

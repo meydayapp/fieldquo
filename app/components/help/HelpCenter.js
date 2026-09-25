@@ -37,20 +37,17 @@ export default function HelpCenter({ audience, title, intro, above = null }) {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(null); // active article slug
 
-  // Replay the first-run walkthrough: clear its "seen" flag server-side, then go
-  // to the dashboard where it runs. Company audience only — the welcome tour is
-  // an in-app tour, not a platform one.
-  async function replayWelcome() {
-    try {
-      await fetch("/api/ui-state", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tour: "welcome-v1", seen: false }),
-      });
-    } catch {
-      /* best effort — navigate anyway */
-    }
-    router.push("/app");
+  // Replay the first-run walkthrough: go to the dashboard and ask for it by
+  // name (`?tour=welcome`, read in app/app/page.js). Company audience only —
+  // the welcome tour is an in-app tour, not a platform one.
+  //
+  // It used to clear "welcome-v1" from the server's seen-list and navigate.
+  // That replayed nothing in any browser that had finished the tour, because
+  // OnboardingTour also keeps a seen flag in localStorage — and after the
+  // 2026-09-24 key bump to welcome-v2 it would have cleared a tour nobody
+  // runs. Asking for the tour runs it whatever either flag says.
+  function replayWelcome() {
+    router.push("/app?tour=welcome");
   }
 
   const filtered = useMemo(() => {

@@ -580,6 +580,7 @@ export default function AiEmployeePage() {
 
       {/* ── The team ─────────────────────────────────────────────────────── */}
       <Card
+        tour="ai-team-roster"
         title={t("app.aiEmployee.teamTitle", "Your AI team")}
         icon={Bot}
         hint={t("app.aiEmployee.teamHint", "One employee per job. Each is switched on or off on its own, and each answers only the channels you give it.")}
@@ -633,6 +634,7 @@ export default function AiEmployeePage() {
       {/* ── How the team works ───────────────────────────────────────────── */}
       <Card
         id="team-flow"
+        tour="ai-team-flow"
         title={t("app.aiEmployee.flow.title", "How your AI team works")}
         icon={Workflow}
         hint={t("app.aiEmployee.flow.hint", "A message comes in on a channel, the front desk reads it once and hands it to one employee, and only that employee answers. Counts are this week's.")}

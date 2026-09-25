@@ -43,16 +43,79 @@
 //
 // The welcome tour points at the sidebar, which is on every /app page, so it's
 // reliable regardless of what the dashboard itself is showing.
+//
+// ── Rows inside a group the reader can fold ─────────────────────────────────
+// Work and AI never fold (AdminSidebar's `pinned`). People and Grow do, so a
+// step on one of their rows lists TWO openers — the drawer (phones), then the
+// group's header — and the matching closers. OnboardingTour clicks an opener
+// only while the target is still off screen, and undoes only what it clicked,
+// so a group the reader left open stays open. The header hook is
+// groupTourHook() in AdminSidebar.js: "app.nav.group.grow" -> "nav-group-grow".
+
+const DRAWER_OPEN = "[data-tour-open='nav']";
+const DRAWER_CLOSE = "[data-tour-close='nav']";
+/** Drawer first, then the group; closers pair by index (see OnboardingTour). */
+const inRail = (target, extra = {}) => ({
+  target,
+  openWith: DRAWER_OPEN,
+  closeWith: DRAWER_CLOSE,
+  ...extra,
+});
+const inFoldingGroup = (target, group, extra = {}) => ({
+  target,
+  openWith: [DRAWER_OPEN, `[data-tour-open='nav-group-${group}']`],
+  closeWith: [DRAWER_CLOSE, `[data-tour-open='nav-group-${group}']`],
+  ...extra,
+});
+
+/** The event "Take the tour" fires; AppTours listens for it. */
+export const START_TOUR_EVENT = "fieldquo:start-tour";
+
+// A request made before AppTours is listening — a page's own mount effect
+// runs before the layout's later siblings' do, so on a hard load of
+// /app?tour=welcome the event would fire into nothing. AppTours takes this
+// when it starts listening.
+let pendingTour = null;
+
+/**
+ * Run a tour now, even one this person has seen. The tour must match the
+ * page they are on — AppTours refuses one that doesn't rather than drawing a
+ * ring round nothing. No-op on the server.
+ */
+export function startTour(key) {
+  if (typeof window === "undefined") return;
+  pendingTour = { key };
+  window.dispatchEvent(new CustomEvent(START_TOUR_EVENT, { detail: pendingTour }));
+}
+
+/** The request nobody has picked up yet, handed over once. */
+export function takePendingTour() {
+  const p = pendingTour;
+  pendingTour = null;
+  return p;
+}
+
+/** The dashboard's walkthrough — what "Take the tour" starts. */
+export const WELCOME_TOUR_KEY = "welcome-v2";
 
 export const TOURS = [
+  // ── Welcome (v2, 2026-09-24) ─────────────────────────────────────────────
+  // v1 walked five rows of a forty-row rail. The shell was reorganised on
+  // 2026-09-21 (seventeen rows, a More row, Create and Search in the top bar
+  // and at the top of the rail, Settings at the foot) and v1 said nothing
+  // about any of it — and named "Quote reviews" by a title the menu no
+  // longer uses. Key bumped so everyone who dismissed v1 is walked round the
+  // new layout once. Order follows the rail top to bottom, then the two
+  // controls above it, then Settings at the foot, so the ring never jumps
+  // back up the screen and down again more than once.
   {
-    key: "welcome-v1",
+    key: WELCOME_TOUR_KEY,
     match: (p) => p === "/app",
     steps: [
       {
         target: "[data-tour='nav-requests']",
-        openWith: "[data-tour-open='nav']",
-        closeWith: "[data-tour-close='nav']",
+        openWith: DRAWER_OPEN,
+        closeWith: DRAWER_CLOSE,
         // "Leads", not "Requests". The nav item this points at is labelled
         // Leads on screen — in all six languages (app.nav.requests) — and the
         // tour was reading the internal message KEY instead. A tour that
@@ -67,34 +130,60 @@ export const TOURS = [
         titleKey: "app.tour.welcome.leadsTitle",
         bodyKey: "app.tour.welcome.leadsBody",
       },
-      {
-        target: "[data-tour='nav-quotes']",
-        openWith: "[data-tour-open='nav']",
-        closeWith: "[data-tour-close='nav']",
+      inRail("[data-tour='nav-quotes']", {
         titleKey: "app.tour.welcome.quotesTitle",
         bodyKey: "app.tour.welcome.quotesBody",
-      },
-      {
-        target: "[data-tour='nav-estimate-reviews']",
-        openWith: "[data-tour-open='nav']",
-        closeWith: "[data-tour-close='nav']",
-        titleKey: "app.tour.welcome.estimateReviewsTitle",
-        bodyKey: "app.tour.welcome.estimateReviewsBody",
-      },
-      {
-        target: "[data-tour='nav-ai']",
-        openWith: "[data-tour-open='nav']",
-        closeWith: "[data-tour-close='nav']",
+      }),
+      // Copy re-keyed (…reviewsNav*): the row reads "Quote reviews" now, and
+      // the old title, "Instant estimates to approve", named nothing on screen.
+      inRail("[data-tour='nav-estimate-reviews']", {
+        titleKey: "app.tour.welcome.reviewsNavTitle",
+        bodyKey: "app.tour.welcome.reviewsNavBody",
+      }),
+      // ── New in v2: the rows the owner named as first-class ──────────────
+      inFoldingGroup("[data-tour='nav-scheduler']", "people", {
+        titleKey: "app.tour.welcome.schedulerTitle",
+        bodyKey: "app.tour.welcome.schedulerBody",
+      }),
+      inFoldingGroup("[data-tour='nav-marketing']", "grow", {
+        titleKey: "app.tour.welcome.marketingTitle",
+        bodyKey: "app.tour.welcome.marketingBody",
+      }),
+      inFoldingGroup("[data-tour='nav-receptionist']", "grow", {
+        titleKey: "app.tour.welcome.receptionistTitle",
+        bodyKey: "app.tour.welcome.receptionistBody",
+      }),
+      inRail("[data-tour='nav-ai']", {
         titleKey: "app.tour.welcome.aiTitle",
         bodyKey: "app.tour.welcome.aiBody",
-      },
-      {
-        target: "[data-tour='nav-settings']",
-        openWith: "[data-tour-open='nav']",
-        closeWith: "[data-tour-close='nav']",
+      }),
+      inRail("[data-tour='nav-ai-team']", {
+        titleKey: "app.tour.welcome.aiTeamTitle",
+        bodyKey: "app.tour.welcome.aiTeamBody",
+      }),
+      // Service Plans, tasks, the team, expenses and the rest of what left
+      // the rail on 2026-09-21 — one row, not a step each.
+      inRail("[data-tour='nav-more']", {
+        titleKey: "app.tour.welcome.moreTitle",
+        bodyKey: "app.tour.welcome.moreBody",
+      }),
+      // Create and Search: the rail's copies on a wide rail and in the phone
+      // drawer, the top bar's when the rail is folded to icons. Whichever
+      // measures on screen is the one ringed.
+      inRail("[data-tour='shell-create']", {
+        titleKey: "app.tour.welcome.createTitle",
+        bodyKey: "app.tour.welcome.createBody",
+      }),
+      inRail("[data-tour='shell-search']", {
+        titleKey: "app.tour.welcome.searchTitle",
+        bodyKey: "app.tour.welcome.searchBody",
+      }),
+      // Settings is the pinned row at the FOOT of the rail now, and opens its
+      // own list in the same column — the body says where to look.
+      inRail("[data-tour='nav-settings']", {
         titleKey: "app.tour.welcome.settingsTitle",
-        bodyKey: "app.tour.welcome.settingsBody",
-      },
+        bodyKey: "app.tour.welcome.settingsFootBody",
+      }),
     ],
   },
 
@@ -454,6 +543,21 @@ export const TOURS = [
     match: (p) => p === "/app/settings/refer",
     steps: [
       { target: "[data-tour='refer-link']", titleKey: "app.tour.refer.linkTitle", bodyKey: "app.tour.refer.linkBody" },
+    ],
+  },
+
+  // ── AI team (2026-09-24) ─────────────────────────────────────────────────
+  // A top-level rail row since the shell reorganisation, and the one AI page
+  // with no walkthrough. Both anchors are the page's first two cards, which
+  // render for every company once the page has loaded — the roster lists the
+  // front desk even before anyone is hired. Nothing about faces, voices or
+  // limits: those cards appear only once an employee is selected.
+  {
+    key: "ai-team-v1",
+    match: (p) => p === "/app/settings/ai-employee",
+    steps: [
+      { target: "[data-tour='ai-team-roster']", titleKey: "app.tour.aiTeam.rosterTitle", bodyKey: "app.tour.aiTeam.rosterBody" },
+      { target: "[data-tour='ai-team-flow']", titleKey: "app.tour.aiTeam.flowTitle", bodyKey: "app.tour.aiTeam.flowBody" },
     ],
   },
 ];

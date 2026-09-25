@@ -10,6 +10,8 @@ import { Receipt, Calendar, TrendingUp, ArrowRight, Mail, Phone, MapPin } from "
 import { isInternalPath } from "@/lib/appUrl";
 import OnboardingProgress from "@/app/components/dashboard/OnboardingProgress";
 import SetupSteps from "@/app/components/dashboard/SetupSteps";
+import TourLauncher from "@/app/components/dashboard/TourLauncher";
+import { startTour, WELCOME_TOUR_KEY } from "@/app/components/tours";
 import RevenueGoalCard from "@/app/components/dashboard/RevenueGoalCard";
 import AwaitingPayment from "@/app/components/dashboard/AwaitingPayment";
 import NeedsToday from "@/app/components/dashboard/NeedsToday";
@@ -425,7 +427,14 @@ export default function DashboardPage() {
     const backFromStripe = Boolean(params?.get("connected"));
     const step = String(params?.get("step") || "").trim();
     if (/^[a-z_]{1,40}$/.test(step)) setOpenStepKey(step);
-    if (backFromStripe || step) {
+    // `?tour=welcome` — the Help centre's "Replay the setup walkthrough". It
+    // used to clear the server's seen flag and navigate here, which never
+    // replayed anything in a browser that had finished the tour: the
+    // browser's own seen flag (OnboardingTour's localStorage key) still said
+    // done. Asking for the tour by name runs it whatever either flag says.
+    const wantsTour = params?.get("tour") === "welcome";
+    if (wantsTour) startTour(WELCOME_TOUR_KEY);
+    if (backFromStripe || step || wantsTour) {
       window.history.replaceState({}, "", window.location.pathname);
     }
     if (backFromStripe) {
@@ -561,12 +570,27 @@ export default function DashboardPage() {
         canOpenInPlace={canManageSetup}
         openStepKey={openStepKey}
         onOpenedStep={() => setOpenStepKey(null)}
+        footer={<TourLauncher />}
       />
 
       {/* The eleven things worth doing after onboarding — each row removed the
           moment the database says it is done, or hidden by hand. Fetches and
-          gates itself; renders nothing when nothing is left. */}
-      {canManageSetup && <SetupSteps />}
+          gates itself; renders nothing when nothing is left.
+
+          "Take the tour" rides on exactly one card: the onboarding card while
+          it shows, this one once it has gone (complete, or failed to load).
+          Not both — two identical buttons a card apart read as two different
+          tours. Held back while onboarding is still loading so it does not
+          appear here and then jump up a card. */}
+      {canManageSetup && (
+        <SetupSteps
+          footer={
+            onboardingError || (onboarding && (onboarding.complete || !onboarding.steps?.length))
+              ? <TourLauncher />
+              : null
+          }
+        />
+      )}
 
       {/* The money figures failed to load — but were not refused. One
           rendering of a failed load for the whole app, reassurance sentence
