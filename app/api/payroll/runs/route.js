@@ -25,6 +25,7 @@ import {
 import { buildPayRun } from "@/lib/payroll/buildPayRun";
 import { recordActivity } from "@/lib/activity/log";
 import { syncStaleCommissions } from "@/lib/commissions/sync";
+import { claimRunItems } from "@/lib/payroll/runClaims";
 
 // Owners and admins always hold payroll; otherwise the granular grid decides.
 async function payrollAccess(member) {
@@ -234,38 +235,17 @@ export async function POST(request) {
     select: { id: true, periodStart: true, periodEnd: true, status: true },
   });
 
-  // The daily-sheet bonuses this run carries are now spoken for. Stamped
-  // after the run exists so a failed create leaves them free; a failed stamp
-  // is logged, not fatal — the run is real, and the next run's preview will
-  // show the bonus again, which a person will notice.
-  const bonusSheetIds = computed.meta?.bonusSheetIds || [];
-  if (bonusSheetIds.length) {
-    await db.dailyObjectiveSheet
-      .updateMany({ where: { id: { in: bonusSheetIds }, companyId: member.companyId, payRunId: null }, data: { payRunId: run.id } })
-      .catch((err) => console.error("[payroll] could not stamp bonus sheets:", err?.message));
-  }
-
-  // The commission ledger rows this run carries, the same way: stamped after
-  // the run exists, only rows still on no run (payRunId null), so two runs
-  // saved at once cannot both claim a row. A row freed by cancelling this run
-  // (app/api/payroll/runs/[id]/route.js) is offered again on the next one.
-  const commissionEntryIds = computed.meta?.commissionEntryIds || [];
-  if (commissionEntryIds.length) {
-    const stamped = await db.jobCommissionEntry
-      .updateMany({
-        where: { id: { in: commissionEntryIds }, companyId: member.companyId, payRunId: null },
-        data: { payRunId: run.id },
-      })
-      .catch((err) => {
-        console.error("[payroll] could not stamp commission rows:", err?.message);
-        return null;
-      });
-    if (stamped && stamped.count !== commissionEntryIds.length) {
-      console.error(
-        `[payroll] run ${run.id}: ${commissionEntryIds.length - stamped.count} commission row(s) were already on another run`,
-      );
-    }
-  }
+  // The daily-sheet bonuses and the ticked commission rows this run carries
+  // are now spoken for. Stamped after the run exists, only rows still on no
+  // run, so a failed create leaves them free and two runs saved at once cannot
+  // both claim one. Cancelling the run gives both back
+  // (lib/payroll/runClaims.js, app/api/payroll/runs/[id]/route.js).
+  await claimRunItems(db, {
+    runId: run.id,
+    companyId: member.companyId,
+    bonusSheetIds: computed.meta?.bonusSheetIds || [],
+    commissionEntryIds: computed.meta?.commissionEntryIds || [],
+  });
 
   // Hours the worker approved for themselves, carried into the audit trail.
   //

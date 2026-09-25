@@ -21,6 +21,7 @@ import {
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
 import { recordActivity } from "@/lib/activity/log";
+import { cancelPayRun } from "@/lib/payroll/runClaims";
 
 async function payrollAccess(member) {
   if (member.role === "owner" || member.role === "admin") {
@@ -181,7 +182,12 @@ export async function PATCH(request, { params }) {
   }
 
   if (action === "cancel") {
-    if (run.status === "paid") {
+    // The run's status, and everything it claimed — the daily-sheet bonuses
+    // AND the commission rows — go back in one transaction
+    // (lib/payroll/runClaims.js). Bonuses used to stay stamped here, so a
+    // cancelled run's bonuses were never offered again.
+    const result = await cancelPayRun(db, run, { companyId: member.companyId });
+    if (!result.ok) {
       return NextResponse.json(
         {
           error: "This run is already recorded as paid and can't be cancelled.",
@@ -189,24 +195,18 @@ export async function PATCH(request, { params }) {
         { status: 409 },
       );
     }
-    // The commission rows this run carried go back to "due", in the same
-    // transaction as the cancel: a cancelled run paid nobody, and a row left
-    // pointing at it would never be offered again. (The row keeps its
-    // history — the ledger is append-only; only the settlement is undone.)
-    await db.$transaction([
-      db.payRun.update({ where: { id }, data: { status: "cancelled" } }),
-      db.jobCommissionEntry.updateMany({
-        where: { payRunId: id, companyId: member.companyId },
-        data: { payRunId: null },
-      }),
-    ]);
-    await recordActivity(member, {
-      action: "payroll.run_cancelled",
-      entityType: "payrun",
-      entityId: id,
-      summary: `Cancelled the pay run for ${new Date(run.periodStart).toLocaleDateString()}`,
-    });
-    return NextResponse.json({ ok: true, status: "cancelled" });
+    // A repeat cancel is a no-op for the audit trail: the run was already
+    // cancelled, and a second "Cancelled the pay run" row would say otherwise.
+    if (!result.alreadyCancelled) {
+      await recordActivity(member, {
+        action: "payroll.run_cancelled",
+        entityType: "payrun",
+        entityId: id,
+        summary: `Cancelled the pay run for ${new Date(run.periodStart).toLocaleDateString()}`,
+        metadata: { released: result.released },
+      });
+    }
+    return NextResponse.json({ ok: true, status: "cancelled", released: result.released });
   }
 
   return NextResponse.json({ error: "Unknown action." }, { status: 400 });

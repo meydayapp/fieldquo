@@ -18,6 +18,7 @@ import { objectivesFromTasks, normaliseObjectives, normaliseUpsells, normaliseSc
 import { sheetScope, mayEditSheet, mayEvaluate, coordinatesSheets } from "../lib/dailySheets/access.js";
 import { weeklySummary } from "../lib/dailySheets/weekly.js";
 import { dateKeyToColumn, columnToDateKey, weekStartKey, weekKeys, dayInstants, todayKey } from "../lib/dailySheets/day.js";
+import { unclaimedBonusSheetsWhere, claimRunItems, cancelPayRun } from "../lib/payroll/runClaims.js";
 
 let failures = 0;
 let passes = 0;
@@ -133,8 +134,116 @@ section("4. Days in the company's zone, weeks from Monday");
   ok("no bonus figure on any sheet → bonus total is null, not 0; no score → avg null", noRule.totals.bonusCents === null && noRule.totals.avgScore === null);
 }
 
-// ── 5. Wiring ─────────────────────────────────────────────────────────────
-section("5. Wiring");
+// ── 5. A pay run's claims: stamp → cancel → free again ───────────────────
+//
+// Executed against an in-memory database whose where-matcher understands the
+// filters these functions actually send (equality, null, in, gt, gte, lte),
+// so "free again" means the next run's own query finds the sheet — not that
+// a route contains a string. Commission rows ride along: the cancel used to
+// release them and forget the bonuses, and one function now does both.
+section("5. Pay-run claims: a cancelled run gives its bonuses back");
+{
+  const matches = (row, where) =>
+    Object.entries(where).every(([k, cond]) => {
+      const v = row[k];
+      if (cond === null) return v === null || v === undefined;
+      if (cond && typeof cond === "object" && !(cond instanceof Date)) {
+        if ("in" in cond && !cond.in.includes(v)) return false;
+        if ("gt" in cond && !(v != null && v > cond.gt)) return false;
+        if ("gte" in cond && !(v != null && v >= cond.gte)) return false;
+        if ("lte" in cond && !(v != null && v <= cond.lte)) return false;
+        return true;
+      }
+      return v === cond;
+    });
+  const table = (rows) => ({
+    rows,
+    async findMany({ where }) { return rows.filter((r) => matches(r, where)); },
+    async updateMany({ where, data }) {
+      let count = 0;
+      for (const r of rows) if (matches(r, where)) { Object.assign(r, data); count++; }
+      return { count };
+    },
+    async update({ where, data }) {
+      const r = rows.find((x) => x.id === where.id);
+      if (!r) throw new Error("not found");
+      return Object.assign(r, data);
+    },
+  });
+  const d = (k) => new Date(`${k}T00:00:00Z`);
+  const fakeDb = () => ({
+    payRun: table([
+      { id: "runA", status: "draft" },
+      { id: "runB", status: "draft" },
+      { id: "runPaid", status: "paid" },
+    ]),
+    dailyObjectiveSheet: table([
+      { id: "s1", companyId: "co1", workerId: "w1", date: d("2026-09-21"), bonusCents: 2000, payRunId: null },
+      { id: "s2", companyId: "co1", workerId: "w1", date: d("2026-09-22"), bonusCents: 1500, payRunId: null },
+      // No rule that day: null, never offered, never stamped.
+      { id: "s3", companyId: "co1", workerId: "w2", date: d("2026-09-22"), bonusCents: null, payRunId: null },
+      // Another tenant's row carrying the same run id must survive a cancel scoped to co1.
+      { id: "sX", companyId: "co2", workerId: "w9", date: d("2026-09-22"), bonusCents: 900, payRunId: "runA" },
+      // Already on a paid run: never touched.
+      { id: "sP", companyId: "co1", workerId: "w1", date: d("2026-09-14"), bonusCents: 700, payRunId: "runPaid" },
+    ]),
+    jobCommissionEntry: table([
+      { id: "c1", companyId: "co1", payRunId: null },
+      { id: "c2", companyId: "co1", payRunId: null },
+    ]),
+    // Array form, as the route uses: every op is already a promise.
+    async $transaction(ops) { return Promise.all(ops); },
+  });
+  const period = { companyId: "co1", workerIds: ["w1", "w2"], start: d("2026-09-21"), end: d("2026-09-27") };
+  const free = async (db) =>
+    (await db.dailyObjectiveSheet.findMany({ where: unclaimedBonusSheetsWhere(period) })).map((s) => s.id).sort().join();
+  const row = (db, t, id) => db[t].rows.find((r) => r.id === id);
+
+  const db = fakeDb();
+  ok("before any run, the period offers both bonus sheets and not the no-rule one", (await free(db)) === "s1,s2");
+
+  const claimed = await claimRunItems(db, { runId: "runA", companyId: "co1", bonusSheetIds: ["s1", "s2"], commissionEntryIds: ["c1", "c2"] });
+  ok("saving run A stamps both sheets and both commission rows", claimed.bonusSheets === 2 && claimed.commissionEntries === 2, JSON.stringify(claimed));
+  ok("…and the next preview offers no bonus (no double pay)", (await free(db)) === "");
+
+  const raced = await claimRunItems(db, { runId: "runB", companyId: "co1", bonusSheetIds: ["s1", "s2"], commissionEntryIds: ["c1"] });
+  ok("a second run saved over the same rows claims none of them", raced.bonusSheets === 0 && raced.commissionEntries === 0 && row(db, "dailyObjectiveSheet", "s1").payRunId === "runA");
+
+  const cancelled = await cancelPayRun(db, row(db, "payRun", "runA"), { companyId: "co1" });
+  ok("cancelling run A marks it cancelled", cancelled.ok && !cancelled.alreadyCancelled && row(db, "payRun", "runA").status === "cancelled");
+  ok("…releases its two bonus sheets AND its two commission rows", cancelled.released?.bonusSheets === 2 && cancelled.released?.commissionEntries === 2, JSON.stringify(cancelled.released));
+  ok("…so the next run's own query offers both bonuses again", (await free(db)) === "s1,s2");
+  ok("…and the commission rows are due again", db.jobCommissionEntry.rows.every((r) => r.payRunId === null));
+  ok("…without touching another company's sheet that carries the same run id", row(db, "dailyObjectiveSheet", "sX").payRunId === "runA");
+  ok("…or a sheet on a different (paid) run", row(db, "dailyObjectiveSheet", "sP").payRunId === "runPaid");
+  ok("…and the bonus figure itself is kept (only the settlement is undone)", row(db, "dailyObjectiveSheet", "s1").bonusCents === 2000);
+
+  // The freed rows are picked up by the next run; then run A is cancelled AGAIN.
+  const next = await claimRunItems(db, { runId: "runB", companyId: "co1", bonusSheetIds: ["s1", "s2"], commissionEntryIds: ["c1", "c2"] });
+  ok("the next run claims the released bonuses and commissions", next.bonusSheets === 2 && next.commissionEntries === 2);
+  const again = await cancelPayRun(db, row(db, "payRun", "runA"), { companyId: "co1" });
+  ok("double-cancel: succeeds and reports it was already cancelled", again.ok && again.alreadyCancelled === true);
+  ok("double-cancel: releases nothing, so run B's claims survive run A's repeat cancel",
+    again.released.bonusSheets === 0 && again.released.commissionEntries === 0 &&
+    db.dailyObjectiveSheet.rows.filter((s) => s.companyId === "co1" && s.payRunId === "runB").length === 2 &&
+    db.jobCommissionEntry.rows.every((r) => r.payRunId === "runB"));
+  ok("double-cancel: run B still stands", row(db, "payRun", "runB").status === "draft");
+
+  const paid = await cancelPayRun(db, row(db, "payRun", "runPaid"), { companyId: "co1" });
+  ok("a paid run is refused, and its sheet stays claimed", !paid.ok && paid.refused === "paid" && row(db, "payRun", "runPaid").status === "paid" && row(db, "dailyObjectiveSheet", "sP").payRunId === "runPaid");
+
+  // A run cancelled before this fix still has its sheets stamped. The
+  // release runs on a repeat cancel too, which is what lets it heal.
+  const legacy = fakeDb();
+  row(legacy, "payRun", "runA").status = "cancelled";
+  row(legacy, "dailyObjectiveSheet", "s1").payRunId = "runA";
+  row(legacy, "dailyObjectiveSheet", "s2").payRunId = "runA";
+  const healed = await cancelPayRun(legacy, row(legacy, "payRun", "runA"), { companyId: "co1" });
+  ok("a run cancelled before bonuses were released gives them back on a repeat cancel", healed.ok && healed.alreadyCancelled && healed.released.bonusSheets === 2 && (await free(legacy)) === "s1,s2");
+}
+
+// ── 6. Wiring ─────────────────────────────────────────────────────────────
+section("6. Wiring");
 {
   const evaluate = readFileSync(new URL("../app/api/daily-sheets/evaluate/route.js", import.meta.url), "utf8");
   ok("the evaluate route is coordinator-only and computes the bonus from the company row", evaluate.includes("if (!mayEvaluate(full))") && evaluate.includes("computeBonus(company?.performancePayRule"));
@@ -142,9 +251,12 @@ section("5. Wiring");
   ok("the day route narrows through sheetScope and refuses a member with no scope", day.includes("sheetScope(full, mine?.id || null)") && day.includes("if (scope === null)"));
   ok("the PUT route refuses a sheet already on a pay run", day.includes("existing?.payRunId"));
   const pay = readFileSync(new URL("../lib/payroll/buildPayRun.js", import.meta.url), "utf8");
-  ok("the pay run reads only sheets with a bonus and no payRunId", pay.includes("payRunId: null") && pay.includes("bonusCents: { gt: 0 }") && pay.includes('source: "bonus"'));
+  ok("the pay run reads bonus sheets through the shared unclaimed filter", pay.includes("where: unclaimedBonusSheetsWhere({ companyId, workerIds, start, end })") && pay.includes('source: "bonus"'));
   const runs = readFileSync(new URL("../app/api/payroll/runs/route.js", import.meta.url), "utf8");
-  ok("committing a run stamps the sheets it took", runs.includes("data: { payRunId: run.id }"));
+  ok("committing a run stamps the sheets it took", /await claimRunItems\(db, \{[\s\S]*?bonusSheetIds: computed\.meta\?\.bonusSheetIds/.test(runs));
+  const runOne = readFileSync(new URL("../app/api/payroll/runs/[id]/route.js", import.meta.url), "utf8");
+  ok("cancelling a run goes through cancelPayRun, the one place that releases bonuses and commissions",
+    runOne.includes("await cancelPayRun(db, run, { companyId: member.companyId })") && !/updateMany\(/.test(runOne.slice(runOne.indexOf('action === "cancel"'))));
   const settings = readFileSync(new URL("../app/api/settings/field-work/route.js", import.meta.url), "utf8");
   ok("the rule is written through normalisePayRule (all-zero → null)", settings.includes("data.performancePayRule = normalisePayRule(body.performancePayRule)"));
   const schema = readFileSync(new URL("../prisma/schema.prisma", import.meta.url), "utf8");
