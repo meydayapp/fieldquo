@@ -17,7 +17,8 @@ import { isCallbackReason } from "@/lib/jobs/callbackReasons";
 import { recordStampIfPresent } from "@/lib/location/stamps";
 import { planOfficeMove, bracketStops, moveReasonMessage } from "@/lib/schedule/moveEntry";
 import { assigneeStopsAround } from "@/lib/schedule/entryNeighbours";
-import { notifyClientMoved, notifyClientCancelled } from "@/lib/schedule/clientNotice";
+import { notifyClientMoved, notifyClientCancelled, serviceName } from "@/lib/schedule/clientNotice";
+import { textClientOfChange } from "@/lib/schedule/changeText";
 import { travelMinutes, hasPoint } from "@/lib/booking/travel";
 import { serverMapsKey } from "@/lib/measure/roofMeasurement";
 import { scheduleSync } from "@/lib/calendar/googleSync";
@@ -315,7 +316,7 @@ export async function PATCH(request, { params }) {
   // company's. `notifyClient: false` is the dialog's tick for a change
   // already agreed by phone. Nothing is sent for "on my way" (that is the
   // text above) or for completing.
-  const notice = { sent: false, language: null };
+  const notice = { sent: false, language: null, texted: false };
   if (body.notifyClient !== false && (plan || cancelling)) {
     const common = {
       company: visit.job.company,
@@ -329,6 +330,24 @@ export async function PATCH(request, { params }) {
       : await notifyClientCancelled({ ...common, startTime: visit.scheduledAt });
     notice.sent = result.sent;
     notice.language = result.language;
+
+    // And by text to the client's phone, behind the booking-text switch —
+    // lib/schedule/changeText.js. A crew visit has no manage link, so the
+    // moved text points at the company's phone instead.
+    const texted = await textClientOfChange({
+      kind: plan ? "moved" : "cancelled",
+      company: visit.job.company,
+      phone: visit.job.client?.phone || null,
+      language: result.language,
+      startTime: plan ? plan.start : visit.scheduledAt,
+      previousStartTime: plan ? visit.scheduledAt : null,
+      location: common.location,
+      service: serviceName({ jobTitle: visit.job.title, language: result.language }),
+      ref: { type: "visit", id: visit.id },
+      clientId: visit.job.client?.id || null,
+      alreadyCancelled: !plan && ["cancelled", "canceled"].includes(visit.status),
+    });
+    notice.texted = texted.texted;
   }
 
   return NextResponse.json({ ...updated, notice });

@@ -6,10 +6,16 @@
 //
 // ── Only messages that actually send are here ──────────────────────────────
 //
-// Today that's two: "on my way" and the appointment reminder. The API returns only editable types,
+// Today that's five: "on my way", the appointment reminder, the booking
+// confirmation, and the moved / cancelled texts. The API returns only editable types,
 // so this page can't grow an editor for a message that never goes out — the
 // dead control this codebase keeps deleting. When another message gets a real
 // send path, it appears here automatically.
+//
+// The moved and cancelled texts have no switch of their own: the booking
+// confirmation's switch governs all three (lib/schedule/changeText.js), and
+// their cards say so and show its state rather than offering a second
+// toggle that could disagree with the first.
 //
 // ── The preview is the honesty ─────────────────────────────────────────────
 //
@@ -133,10 +139,11 @@ function MessageEditor({ type, onSaved }) {
 
   // ── The switch, for the one type that has one ──────────────────────────
   //
-  // The booking confirmation is off until the company says so — a text is
-  // billable, and a switch nobody flipped must not cost money. It sits here,
-  // beside the wording it governs, so nobody edits a message that isn't
-  // going out without seeing that it isn't. Optimistic, then reconciled from
+  // The booking confirmation is ON until the company turns it off
+  // (lib/booking/bookingText.js — off-by-default meant no booking ever
+  // texted), and the same switch governs the moved and cancelled texts. It
+  // sits here, beside the wording it governs, so nobody edits a message that
+  // isn't going out without seeing that it isn't. Optimistic, then reconciled from
   // the server's answer; a refused save puts the pill back and says why.
   const hasSwitch = typeof type.enabled === "boolean";
   const [enabled, setEnabled] = useState(Boolean(type.enabled));
@@ -204,6 +211,12 @@ function MessageEditor({ type, onSaved }) {
             </p>
           </div>
         </div>
+      )}
+
+      {type.followsSwitch && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          {type.switchOn ? t("app.setMessages.changeSmsOn") : t("app.setMessages.changeSmsOff")}
+        </p>
       )}
 
       <textarea
@@ -300,6 +313,9 @@ function sampleFor(token) {
       service: "on-site estimate",
       where: "On-site visit at 123 Oak St",
       fee: "No charge",
+      previous: "Mon, Aug 11 at 9:00 AM",
+      link: "https://app.fieldquo.com/visit/…",
+      phone: "555-0100",
     }[token] ?? ""
   );
 }
