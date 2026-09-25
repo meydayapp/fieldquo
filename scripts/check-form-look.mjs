@@ -238,7 +238,11 @@ console.log("\nWiring");
   ok("loader: reads the look from the company row", /publicFormAppearance: true/.test(loader) && /isDefaultAppearance\(appearance\)\) return null/.test(loader));
   ok("instant page: look is server-read and passed as a prop", /const look = await loadPublicFormLook\(companySlug\)/.test(instantPage) && /look=\{look\}/.test(instantPage));
   ok("quote page: same", /const look = await loadPublicFormLook\(companySlug\)/.test(quotePage) && /look=\{look\}/.test(quotePage));
-  ok("embed page: same, and never from the URL", /await loadPublicFormLook\(companySlug\)/.test(embed) && /<InstantQuoteFlow companySlug=\{companySlug\} embedded look=\{look\} \/>/.test(embed) && !/searchParams/.test(embed));
+  ok("embed page: same, and never from the URL", /await loadPublicFormLook\(companySlug\)/.test(embed) && /<InstantQuoteFlow companySlug=\{companySlug\} embedded look=\{look\} \/>/.test(embed) && !/(searchParams|\bsp)\??\.(a|look|appearance)\b/.test(embed));
+  // The chat widget on the same page reads ?host=/?side= (the chat.js loader,
+  // lib/embed/chatLoader.js) — layout of the frame, never the form's look. The
+  // guard is that no appearance field is read off the URL, not that the page
+  // has no query at all.
   ok("embed page: the booking flow is mounted exactly as before", /<BookingFlow companySlug=\{companySlug\} embedded \/>/.test(embed));
   ok("no public route reads an appearance off the request", ![request, embed, instantPage, quotePage, read("app/api/instant-quote/[companySlug]/route.js")].some((src) => /searchParams\.get\(["']a["']\)|body\??\.appearance|body\??\.look/.test(src)));
   ok("preview page: gated on a member of the owning company", /canPreviewCompanyDocument\(\{ headers: await headers\(\) \}, company\.id\)/.test(preview) && /notFound\(\)/.test(preview));
