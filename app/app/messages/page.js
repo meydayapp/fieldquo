@@ -105,6 +105,7 @@ import { composerBlock, connectionBlurb } from "@/lib/messaging/composerState";
 // callback routes, so the card below cannot point at a screen that moved.
 import { SOCIAL_SETTINGS_PATH } from "@/lib/social/settingsPath";
 import AiHolderBar from "@/app/components/messaging/AiHolderBar";
+import HandlingTimeline from "@/app/components/messaging/HandlingTimeline";
 // The one table that knows what WhatsApp will accept, and Meta's own size
 // limits with it. Read here so the file picker offers exactly what the send
 // path takes — a picker that offers more is a control that appears to work.
@@ -832,6 +833,14 @@ function MessagesScreen() {
           />
         )}
       />
+
+      {/* How the AI team handled it — read-only, collapsed, and absent on a
+          conversation it never touched. Above the holder bar, because the bar
+          says who has it NOW and this says how it got there. Not on a sample
+          conversation: nothing of one is stored, so there is nothing to show. */}
+      {thread && !isDemo ? (
+        <HandlingTimeline key={thread.id} threadId={thread.id} refreshKey={(thread.messages || []).length} formatDate={formatDate} />
+      ) : null}
 
       {thread ? <AiHolderBar thread={thread} canEdit={canEdit} onChanged={refresh} t={t} /> : null}
 

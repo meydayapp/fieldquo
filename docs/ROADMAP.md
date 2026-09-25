@@ -1,6 +1,7 @@
 # FieldQuo — current phase and what's left
 
 Last updated: 24 September 2026 (maintenance plans on quotes — `ServicePlanTemplate` + `QuotePlanOffer`, additive; Settings → Maintenance Plans with 23 starter plans in eight languages; included or optional on a quote, ids-only approval, a running ServicePlan invoiced per visit with the discount on each invoice — see its section)
+Last updated: 25 September 2026 ("How this was handled" on a conversation — AI team R1: a read-only timeline in /app/messages of the front desk's reading, assignments, hand-offs, ping-pong escalations, take-overs, replies with tools/model/confidence/cost, stop reasons and proposals with who decided, built from AiEmployeeRoutingEvent / AiEmployeeReply / AiEmployeeProposal with no schema change — see its section)
 Last updated: 24 September 2026 (a service's estimate template expands onto a quote and an invoice: "Add with its template lines" beside a templated service in the line library, lines in the document's language from the company's own Product row, measured quantities filled from the quote's own takeoffs with the source printed under the line, a missing figure at quantity 0 with the calculator named or linked, `ventCount` / `returnCount` registered — see "A service's template, expanded onto the quote" below)
 Last updated: 24 September 2026 (the estimate template inside a service — `Product.templateLines` / `defaultDiscount` / `imageUrl` / `estimateTypes` / `templateEnabled`, additive; templates attach by quote type (`categories` + painting estimate types) through `templatesFor()`; a closed measurement registry every trade's lines can take their qty from; the seed LOADER contract in `lib/services/seeds.js`; Settings › Services edits each service's template; `/app/analytics/benchmark` is the preset library with an editable Your price; benchmark sharing is on by default for new companies and Terms §7 / Privacy §7 say so. The seed CONTENT — templates on every trade in seven languages — is a separate pass landing against the same contract.; landed just before it on main: auto-translation on save — see its section.)
 Last updated: 24 September 2026 (tours re-pinned to the new shell: welcome-v2 walks the 17-row rail — Leads, Quotes, Quote reviews, Assign shifts, Marketing, Receptionist, FieldQuo AI, AI team, More, Create, Search, Settings at the foot — unfolding a folded People/Grow group through its header and folding it back, a new ai-team-v1 page tour, "Take the tour" on the dashboard's set-up card, the Help centre's replay fixed; every onboarding and set-up row shows a counted time estimate, the onboarding card says "n of 6 done" and the set-up card "n of 15 done · n hidden" — see "Tours on the new shell" below)
@@ -48,6 +49,59 @@ The owner: "discounts but we have that under recurring services.. a quote should
 - **A flat monthly or yearly fee** decoupled from visits (HCP's billing model) is not built and is deliberately not faked — it is a new charge schedule on the plan engine, if the owner wants it.
 - The quote **PDF** does not print plans (it does not print extras either); the web page, the owner's approval email and the plan are the record today.
 - The client portal's plan card says "What's included" over the plan's service name only; the benefit lines live on the quote's offer, not on `ServicePlan`.
+## "How this was handled" on a conversation — AI team release R1 (25 September 2026)
+
+R1 of the AI team design (orchestration doc §2.4, §7): a read-only timeline of what the AI team did
+on one conversation, built entirely from rows that already exist. No schema change, no model call,
+no write.
+
+**What it shows.** In `/app/messages`, a collapsed "How this was handled" line (with a step count)
+between the conversation and the "who is answering" bar; it opens into the steps in time order:
+the front desk's reading of the first message and who it went to ("Front desk read the first message
+as "Price" → sent to Nora (Sales closer)", with the front desk's one-line reason under it); each
+reply — sent, waiting as a draft, handed to a person, or why it stayed quiet (all 20 stop reasons
+decide.js / respond.js / the suggestions route can write have a sentence) — with the tools it ran
+("look up your price list ×2 · send the instant-quote link", failed and asked-first marked), the
+model, the model's confidence and, for owner/admin/supervisor, the cost; hand-offs with the
+reason; ping-pong escalations; "Emilio took over the conversation"; "handed back to Sam"; merged
+bursts; and every proposal with its outcome — waiting, expired (a pending row whose moment passed),
+approved / declined / approved too late / approved-but-failed by whom and when, with the booking
+slot time. Not drawn on a thread the AI team never touched, or on a sample conversation.
+
+**Where.** `lib/aiEmployee/handlingTimeline.js` — pure, no imports: rows → `{ key, params }` steps,
+the lib/messaging/activity.js shape; sorts by time across the three tables (bad dates last,
+same-millisecond ties in turn order), dedupes, folds consecutive identical stops and bursts into one
+line with a count (never one that spent money), and falls back to `routingIntent` /
+`humanTookOverAt` only when the log has no row for them (logRouting is best-effort). GET
+`/api/messaging/threads/[id]/handling` reads the rows (company-scoped on every table, 200 per table,
+"only the most recent steps are shown" when capped); `app/components/messaging/HandlingTimeline.js`
+renders them. 81 new `app.messages.handling.*` keys in all nine languages.
+
+**Access.** The route's gate is the thread GET's (requests ≥ view_only, thread under the member's
+company). Cost only for `user:manage` or a read-only support session — the rung the AI settings
+screen and credit top-up already print cost at — and absent, not $0, otherwise. A proposal's
+arguments below clientsProperties full_view pass an ALLOWLIST (trade, square feet, query, preferred
+day, visit/call, role) and the step says contact details are hidden; free-text reasons written by the
+model are scrubbed of emails and phone numbers for the same viewers. Employee and user ids never
+reach the browser; an employee deleted since reads "a former AI employee", a user no longer on the
+team "someone on the team".
+
+**Checked.** `npm run check:handling-timeline` — 25 checks on hostile fixtures: missing and deleted
+employees, respond.js's "unknown" employee, shuffled and unparseable timestamps, duplicate and junk
+rows, toolsUsed as a string/object/junk array, a 40-bounce ping-pong, contact details absent from the
+serialised steps for a restricted viewer, every proposal status, and coverage against
+ROUTING_EVENT_KINDS, SKIP_REASONS and every tool's argument names in all nine languages. Seven
+mutations of the builder (sort, dedupe, collapse, expiry, cost gate, client gate, phone scrub) each
+fail it. `npm run build` passes.
+
+### Still owed here
+
+- Not seen in a browser against a live thread with AI replies — needs a signed-in member on a company
+  with an AI employee that has answered something.
+- The front desk's own triage cost is metered per company (AiUsage, `ai_employee_front_desk`) but not
+  per thread, so it is not on the timeline; R4's `AiRunStep` is where it would land.
+- R2 onwards (payer switch, many employees per channel, case file, resumable waitpoint, crew
+  assistant, estimator) are unbuilt; each has owner decisions listed in the design doc §7.
 
 ## "Confirm what you quote" (24 September 2026)
 
