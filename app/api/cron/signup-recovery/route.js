@@ -227,8 +227,8 @@ async function runEarlyTouch({ now, origin, address, from }) {
       const freshLead = await db.signupLead.findUnique({ where: { id: person.signupLeadId }, select: { completedCompanyId: true } });
       if (!freshLead || freshLead.completedCompanyId) { await failed("completed_before_send"); continue; }
     } else {
-      const freshCompany = await db.company.findUnique({ where: { id: person.companyId }, select: { isDemo: true, subscription: { select: { id: true } } } });
-      if (!freshCompany || freshCompany.isDemo || freshCompany.subscription) { await failed("completed_before_send"); continue; }
+      const freshCompany = await db.company.findUnique({ where: { id: person.companyId }, select: { isDemo: true, trialEndsAt: true, subscription: { select: { id: true } } } });
+      if (!freshCompany || freshCompany.isDemo || freshCompany.subscription || freshCompany.trialEndsAt) { await failed("completed_before_send"); continue; }
     }
 
     let email;
