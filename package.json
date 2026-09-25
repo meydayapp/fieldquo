@@ -72,6 +72,8 @@
     "check:retention": "node --import ./scripts/alias-loader.mjs scripts/check-retention.mjs",
     "check:renewal-reminders": "node --import ./scripts/alias-loader.mjs scripts/check-renewal-reminders.mjs",
     "check:leads-drag": "node --import ./scripts/alias-loader.mjs scripts/check-leads-drag.mjs",
+    "check:lead-linking": "node --import ./scripts/alias-loader.mjs scripts/check-lead-linking.mjs",
+    "check:entry-card": "node --import ./scripts/alias-loader.mjs scripts/check-entry-card.mjs",
     "check:sales-attribution": "node --import ./scripts/alias-loader.mjs scripts/check-sales-attribution.mjs",
     "check:platform-errors": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-platform-errors.mjs",
     "check:signup-origin": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-signup-origin.mjs",

@@ -134,10 +134,20 @@ ok("canSetLeadStatus({ quoteId: null }, 'converted') refuses — quoteId explici
 ok("…the refusal names the reason, not just false",
   typeof canSetLeadStatus({}, "converted").reason === "string" &&
     canSetLeadStatus({}, "converted").reason.length > 0);
-ok("canSetLeadStatus({ quoteId: 'q_1' }, 'converted') is allowed — a quote exists",
-  canSetLeadStatus({ quoteId: "q_1" }, "converted").ok === true);
-ok("canSetLeadStatus({ quote: { id: 'q_1' } }, 'converted') is allowed — the nested include also counts",
-  canSetLeadStatus({ quote: { id: "q_1" } }, "converted").ok === true);
+// 2026-09-25: the rule is "the quote WON", not "a quote exists" — see
+// lib/leads/pipeline.js's header. A bare quoteId (no evidence loaded) is
+// refused as unverified; a draft/sent quote is refused as not approved; an
+// accepted quote, or one with work on it, is allowed. scripts/check-lead-
+// linking.mjs executes the rest of the hostile cases.
+ok("canSetLeadStatus({ quoteId: 'q_1' }, 'converted') REFUSES — an id with no evidence is not a win",
+  canSetLeadStatus({ quoteId: "q_1" }, "converted").ok === false &&
+    canSetLeadStatus({ quoteId: "q_1" }, "converted").code === "quote_unverified");
+ok("canSetLeadStatus({ quote: { id: 'q_1', status: 'sent' } }, 'converted') refuses — sent is not approved",
+  canSetLeadStatus({ quote: { id: "q_1", status: "sent" } }, "converted").ok === false);
+ok("canSetLeadStatus({ quote: { id: 'q_1', status: 'accepted' } }, 'converted') is allowed — the client said yes",
+  canSetLeadStatus({ quote: { id: "q_1", status: "accepted" } }, "converted").ok === true);
+ok("canSetLeadStatus with a sent quote that already has a job on it is allowed — the work started",
+  canSetLeadStatus({ quote: { id: "q_1", status: "sent", _count: { jobs: 1, invoices: 0 } } }, "converted").ok === true);
 ok("canSetLeadStatus({ quoteId: '', quote: null }, 'converted') refuses — an empty string is not an id",
   canSetLeadStatus({ quoteId: "", quote: null }, "converted").ok === false);
 
@@ -276,10 +286,16 @@ function resetFixtures() {
       // that set is caught here too, not just in the check that owns it.
       { id: "m_owner", userId: "u_owner", role: "owner", companyId: COMPANY, permissions: null },
     ],
+    // `quote` is what the routes' LEAD_QUOTE_EVIDENCE_SELECT include
+    // returns; the stub's findFirst ignores select/include and hands the row
+    // back whole, so the evidence rides on the fixture.
     leadRequest: [
-      { id: "lead_no_quote", companyId: COMPANY, status: "new", quoteId: null },
-      { id: "lead_with_quote", companyId: COMPANY, status: "new", quoteId: "q_1" },
-      { id: "lead_other_co", companyId: OTHER_COMPANY, status: "new", quoteId: null },
+      { id: "lead_no_quote", companyId: COMPANY, status: "new", quoteId: null, quote: null },
+      { id: "lead_with_quote", companyId: COMPANY, status: "new", quoteId: "q_1",
+        quote: { id: "q_1", quoteNumber: "Q-1", status: "accepted", _count: { jobs: 1, invoices: 0 } } },
+      { id: "lead_sent_quote", companyId: COMPANY, status: "contacted", quoteId: "q_2",
+        quote: { id: "q_2", quoteNumber: "Q-2", status: "sent", _count: { jobs: 0, invoices: 0 } } },
+      { id: "lead_other_co", companyId: OTHER_COMPANY, status: "new", quoteId: null, quote: null },
     ],
   };
 }
@@ -371,8 +387,16 @@ for (const [label, patch] of [
     globalThis.__FQ_ROWS.leadRequest.find((l) => l.id === "lead_no_quote").status === "new");
 
   resetFixtures();
+  res = await patch("m_edit", { id: "lead_sent_quote", status: "converted" });
+  ok(`${label}: a lead whose quote is only SENT is refused Won (409) — record the approval instead`,
+    res.status === 409 && res.body.code === "quote_not_approved", res);
+  ok(`${label}: …and nothing was written`,
+    !currentDb.writes.some((w) => w.model === "leadRequest" && w.action === "update"),
+    currentDb.writes);
+
+  resetFixtures();
   res = await patch("m_edit", { id: "lead_with_quote", status: "converted" });
-  ok(`${label}: a lead that DOES have a quote may move to Converted (200)`,
+  ok(`${label}: a lead whose quote was APPROVED may move (back) to Converted (200)`,
     res.status === 200, res.status);
   ok(`${label}: …and it was actually written`,
     currentDb.writes.some((w) => w.data?.status === "converted"), currentDb.writes);

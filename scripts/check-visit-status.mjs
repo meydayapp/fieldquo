@@ -88,7 +88,15 @@ const JOB_PAGE_VISIT = read("app/components/jobs/VisitStatus.js");
 const CALENDAR = read("app/app/appointments/page.js");
 ok(/EntryActions/.test(JOB_PAGE_VISIT), "the job page's visit control is the shared EntryActions");
 ok(/EntryActions/.test(CALENDAR) && /kind="visit"/.test(CALENDAR), "the calendar mounts EntryActions on visit rows");
-ok(/mayMoveVisit\(/.test(CALENDAR), "the calendar gates a visit's controls on the same mayMoveVisit the job page uses");
+// The calendar asks through lib/schedule/entryCard.js mayActOnEntry since the
+// Cards view's side panel (2026-09-25) needed the same answer for the same
+// row — one function for both surfaces. The visit branch of it IS mayMoveVisit.
+const ENTRY_CARD = read("lib/schedule/entryCard.js");
+ok(
+  /mayActOnEntry\(/.test(CALENDAR) &&
+    /entry\.kind === "visit"\)\s*\{\s*return mayMoveVisit\(/.test(ENTRY_CARD),
+  "the calendar gates a visit's controls on the same mayMoveVisit the job page uses (via mayActOnEntry)",
+);
 
 // ══ 2. Every status the UI can send is one the route knows ═════════════════
 

@@ -13,7 +13,13 @@ import {
   redactLead,
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
-import { isValidLeadStatus, canSetLeadStatus, isValidLostReason } from "@/lib/leads/pipeline";
+import {
+  isValidLeadStatus,
+  canSetLeadStatus,
+  isValidLostReason,
+  LEAD_QUOTE_EVIDENCE_SELECT,
+  quoteEvidence,
+} from "@/lib/leads/pipeline";
 
 // One lead, with everything the detail view shows.
 export async function GET(request, { params }) {
@@ -34,7 +40,9 @@ export async function GET(request, { params }) {
     include: {
       category: { select: { label: true } },
       assignedTo: { select: { id: true, name: true } },
-      quote: { select: { id: true, quoteNumber: true, status: true } },
+      // The Won rule's evidence (lib/leads/pipeline.js), so the drawer's
+      // status control can say WHY Won is refused before anyone clicks it.
+      quote: { select: LEAD_QUOTE_EVIDENCE_SELECT },
       notes: {
         include: { author: { select: { id: true, name: true } } },
         orderBy: { createdAt: "desc" },
@@ -58,7 +66,9 @@ export async function GET(request, { params }) {
   // board and pulling each detail is precisely how the client leak was
   // reached before it — see the note in app/api/clients/[id]/route.js — so the
   // detail door closes at the same time as the list.
-  return NextResponse.json(redactLead(full, { ...lead, doNotCall }));
+  return NextResponse.json(
+    redactLead(full, { ...lead, quote: quoteEvidence(lead.quote), doNotCall }),
+  );
 }
 
 // Update pipeline state, owner, or the qualifiers. Changing a qualifier
@@ -86,7 +96,16 @@ export async function PATCH(request, { params }) {
     // lostReason is here for the same function's "lost" branch — a re-drag
     // of an already-lost card carries no new reason in the request body, so
     // the existing value is what makes it a no-op rather than a refusal.
-    select: { id: true, budgetBand: true, timeline: true, quoteId: true, lostReason: true },
+    // `quote` carries the Won rule's evidence (approved? work on it?) — a
+    // bare quoteId is refused as unverified by design, see pipeline.js.
+    select: {
+      id: true,
+      budgetBand: true,
+      timeline: true,
+      quoteId: true,
+      lostReason: true,
+      quote: { select: LEAD_QUOTE_EVIDENCE_SELECT },
+    },
   });
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -106,7 +125,10 @@ export async function PATCH(request, { params }) {
     // Same file's "lost" branch requires a real reason, new or existing.
     const statusCheck = canSetLeadStatus(existing, body.status, { lostReason: body.lostReason });
     if (!statusCheck.ok)
-      return NextResponse.json({ error: statusCheck.reason }, { status: 409 });
+      return NextResponse.json(
+        { error: statusCheck.reason, code: statusCheck.code || null },
+        { status: 409 },
+      );
     data.status = body.status;
     // A reason only means something WHILE the lead is lost — moving it
     // anywhere else clears a value that would otherwise read as still true
@@ -157,8 +179,8 @@ export async function PATCH(request, { params }) {
     include: {
       category: { select: { label: true } },
       assignedTo: { select: { id: true, name: true } },
-      quote: { select: { id: true, quoteNumber: true, status: true } },
+      quote: { select: LEAD_QUOTE_EVIDENCE_SELECT },
     },
   });
-  return NextResponse.json(updated);
+  return NextResponse.json(updated ? { ...updated, quote: quoteEvidence(updated.quote) } : updated);
 }

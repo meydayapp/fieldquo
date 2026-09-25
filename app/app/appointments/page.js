@@ -17,6 +17,7 @@ import {
   ChevronDown,
   CalendarDays,
   Map as MapIcon,
+  LayoutGrid,
   Headset,
   Phone,
   Mail,
@@ -36,7 +37,7 @@ import { usePermissions } from "@/app/providers/PermissionProvider";
 import { can } from "@/lib/permissions";
 import { navRowAllowed } from "@/lib/permissions/nav";
 import { hasLevel } from "@/lib/permissions/enforce";
-import { mayMoveVisit } from "@/lib/jobs/visitStatus";
+import { mayActOnEntry } from "@/lib/schedule/entryCard";
 import {
   aboutLabel,
   aboutHref,
@@ -45,6 +46,7 @@ import {
 } from "@/lib/schedule/appointmentAbout";
 import EntryActions from "@/app/components/schedule/EntryActions";
 import DayMapView, { ymdOf } from "@/app/components/schedule/DayMapView";
+import EntryCardsWeek from "@/app/components/schedule/EntryCardsWeek";
 import { useSession } from "@/lib/auth-client";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -190,6 +192,18 @@ export default function AppointmentsPage() {
   // BOOK is gated above the address on their own work), and a link into a
   // screen that is hidden from them is the dead control AGENTS.md opens with.
   const canOpenClient = navRowAllowed("app.nav.clients", caller);
+  // Which pages a calendar card's panel may link to — each on the dial that
+  // guards the page it opens, so "Open invoice" is never offered to someone
+  // /app/invoices would refuse. See lib/schedule/entryCard.js.
+  const cardAccess = useMemo(
+    () => ({
+      quotes: hasLevel(caller, "quotes", "view_only"),
+      jobs: hasLevel(caller, "jobs", "view_only"),
+      invoices: hasLevel(caller, "invoices", "view_only"),
+      clients: canOpenClient,
+    }),
+    [caller, canOpenClient],
+  );
   // Claiming needs the caller's own USER id — Member.userId server-side, which
   // is the session user's id. Nothing else on this page knows it: the roster
   // from /api/settings/members does not say which row is you.
@@ -233,7 +247,12 @@ export default function AppointmentsPage() {
   // picked day when there is one, else today; changing it never touches the
   // month grid's own selection, because the two views are read at different
   // moments and a dispatcher flipping between them expects each to stay put.
-  const view = searchParams?.get("view") === "map" ? "map" : "calendar";
+  //
+  // `?view=cards` is the fourth: the week as a board of cards, each opening a
+  // side panel (app/components/schedule/EntryCardsWeek.js). Same feed, same
+  // status chips; only the rendering differs.
+  const rawView = searchParams?.get("view");
+  const view = rawView === "map" ? "map" : rawView === "cards" ? "cards" : "calendar";
   const [mapDay, setMapDay] = useState(() => landingDay || ymdOf(new Date()));
   const [monthAnchor, setMonthAnchor] = useState(() => {
     if (landingDay) {
@@ -496,6 +515,16 @@ export default function AppointmentsPage() {
         >
           <MapIcon size={14} /> {t("app.map.viewMap", "Map")}
         </Link>
+        <Link
+          href={`/app/appointments?view=cards${selectedDay ? `&day=${selectedDay}` : ""}`}
+          role="tab"
+          aria-selected={view === "cards"}
+          className={`inline-flex items-center gap-1.5 min-h-[40px] px-3 rounded-md text-sm font-medium ${
+            view === "cards" ? "bg-inverted text-inverted-foreground" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <LayoutGrid size={14} /> {t("app.map.viewCards", "Cards")}
+        </Link>
       </div>
 
       {view === "map" && (
@@ -559,6 +588,23 @@ export default function AppointmentsPage() {
         </div>
       )}
 
+      {view === "cards" ? (
+        <EntryCardsWeek
+          entries={filtered}
+          // null until the feed answers: the week must not print "Nothing
+          // booked" over a request that never came back.
+          ready={appointments !== null}
+          access={cardAccess}
+          caller={caller}
+          myUserId={myUserId}
+          serviceText={(card) => card.service || aboutText(card.about, t)}
+          initialDay={selectedDay}
+          weekStartsOn={weekStartsOn}
+          onChanged={load}
+          t={t}
+          language={language}
+        />
+      ) : (<>
       {/* ── The month ─────────────────────────────────────────────────────
           Rendered whether or not anything is booked. An empty month with its
           weekday columns and a highlighted today reads as "nothing scheduled";
@@ -1127,13 +1173,11 @@ export default function AppointmentsPage() {
                 that never became an appointment has no office editor behind
                 it and gets nothing, for the reason the assignee block above
                 gives. Hiding the buttons is not access control; the routes
-                re-ask and refuse with a sentence naming who to ask. */}
+                re-ask and refuse with a sentence naming who to ask.
+                Asked through mayActOnEntry (lib/schedule/entryCard.js) so the
+                Cards view's side panel gets the identical answer per row. */}
             {appt.kind === "visit"
-              ? mayMoveVisit({
-                  assignedToId: appt.assignedToId ?? null,
-                  userId: myUserId,
-                  hasEditAll: hasLevel(caller, "schedule", "edit_all"),
-                }) && (
+              ? mayActOnEntry(appt, { caller, myUserId }) && (
                   <EntryActions
                     kind="visit"
                     id={appt.id}
@@ -1149,9 +1193,7 @@ export default function AppointmentsPage() {
                 )
               : appt.kind === "booking"
                 ? null
-                : (!caller?.role ||
-                    (myUserId && appt.assignedToId === myUserId) ||
-                    hasLevel(caller, "schedule", "edit_all")) && (
+                : mayActOnEntry(appt, { caller, myUserId }) && (
                     <EntryActions
                       kind="appointment"
                       id={appt.id}
@@ -1181,6 +1223,8 @@ export default function AppointmentsPage() {
           );
         })}
       </div>
+
+      </>)}
 
       {/* List 2, and deliberately BELOW list 1 rather than merged into it.
           Your own day is what you came for; the crew is context. Merging them

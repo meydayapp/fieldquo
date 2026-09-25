@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 25 September 2026 (leads: a "Linked documents" block — quote, jobs, invoices — with "Link an existing quote", and Won now needs an APPROVED quote or work behind it, refusing with a reason and "Link the quote that won it"; calendar: a Cards view on /app/appointments, each entry a card opening a side panel with open quote/job/invoice/client, call, directions and reschedule/cancel)
 Last updated: 25 September 2026 (import, not export: the five bulk exports — price book, timesheets, pay run, subcontractor year-end list, bookkeeping ZIP — removed from /app with their routes refusing 403 through `lib/export/companyDataExport.js`; single documents and every import kept; a copy of a company's data stays available on written request; help centre, marketing, sales playbook and guide made honest)
 Last updated: 25 September 2026 (who pays for AI, the owner's decision: FieldQuo AI and translation on FieldQuo's own budget — the copilot keeps a per-company fair-use ceiling, translation the daily draft cap; the AI employee's replies and front desk charged in dollars from the company's AI credit at cost × 2 rounded up, gated on one reply's estimate, debited once per reply, NO_CREDIT → a person; a one-time grace on the old allowance until 1 October 2026; Settings › AI employee shows paused / the change and date / the balance; /platform/ai-billing shows dollars debited per company)
 Last updated: 25 September 2026 (the receipts book: photo AND PDF receipts captured from Expenses, a job page or the Create menu's "Snap receipt", read into lines / store / date + time / card last four / GST-PST-HST separately, checked against themselves, matched to the job the person was clocked in on (or overhead) by deterministic scoring with a reason for every point, split by line or amount, booked only on a tap as Expense rows carrying their tax; crew book to their own jobs or hand it to the office; /platform/ai-billing — the generic "who pays" switch, receipts on FieldQuo)
@@ -32,6 +33,54 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## Leads see their documents and can go back to Won; calendar entries as cards (25 September 2026)
+
+Owner asks of 24 September, lost at a compaction.
+
+**Leads.** "I moved to contacted but now not able to move back to won… leads should be able
+to see the jobs, invoice, quotes linked to it." The only link from a lead to anything is
+`LeadRequest.quoteId`; jobs and invoices hang off the quote. The owner's lead had its win on a
+quote nobody had linked, and no control could link one.
+
+- The lead drawer has a **Linked documents** block (`app/components/leads/LeadLinkedDocuments.js`,
+  `GET /api/leads/[id]/documents`, `lib/leads/linkedDocuments.js`): the quote, its jobs, its
+  invoices (one row per invoice family, latest version). Each section answers to its own dial
+  (quotes / jobs + `assignedJobWhere` / invoices) and comes back `restricted`, not empty, when
+  hidden; amounts only with `showPricing`, and not even selected without it.
+- **Create quote from this lead** (the existing convert path, now shown only with
+  quotes:view_create_edit) and **Link an existing quote** (`/api/leads/[id]/quote-link`: GET
+  candidates — this lead's client by email/phone first, then a typed search; POST link; DELETE
+  unlink, refused while Won). Link writes the lead only, never the quote; logged to the activity
+  log; another company's quote id is a 404.
+- **The Won rule changed — a deliberate tightening, named here.** `lib/leads/pipeline.js`
+  `wonCheck`: Won needs the linked quote APPROVED, or a live job / an invoice on it. Before, any
+  linked quote (even the $0 draft "Create quote" makes) allowed a hand-set Won. Refusals carry a
+  code — `no_quote`, `quote_declined`, `quote_not_approved`, `quote_unverified` — translated in
+  the drawer with the next step as a button ("Link the quote that won it", which links and moves
+  in one POST only if the rule agrees; "Open quote Q-…" to record the approval, which moves the
+  lead by itself through `syncLeadForQuoteStatus`). Leads already in Won are untouched.
+
+**Calendar.** "Calendar entries as cards like the leads board." `/app/appointments?view=cards`
+(`EntryCardsWeek`, `EntryCard`, `EntryPanel`, `lib/schedule/entryCard.js`): the week as day
+columns (stacked on a phone), each entry a card — time, status chip, client, what it's for,
+short address, assignee — opening a side panel with open quote/job/invoice/client (each only on
+the dial that guards that page), call, `DirectionsButtons`, and the list's own `EntryActions` on
+the list's own rule (`mayActOnEntry`, extracted and proven equal to the old inline test on 168
+combinations). The feed's scoping (crew see only their own) is untouched; cards carry no money.
+Visits now carry their job's `quoteId` for the Open-quote link. Month grid, list and map unchanged.
+
+Strings in all 9 app languages. Checks: `check:lead-linking` (81), `check:entry-card` (40),
+`check:leads-drag` updated for the new rule (101), `check:visit-status` follows the extraction.
+`npm run build` green.
+
+### Still owed here
+
+- Not walked in a browser: no signed-in session existed on the preview, and accounts are not
+  created or passwords entered by an agent. Worth a tap-through on the demo company: a Won lead
+  → Contacted → back to Won; a lead with no quote → "Link the quote that won it".
+- Product decision to confirm: the tighter Won rule (approved quote or work). If the owner wants
+  a hand-set Won on a merely SENT quote back, it is one branch in `wonCheck`.
 
 ## The quote builder's four 22-September asks (25 September 2026)
 

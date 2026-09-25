@@ -40,7 +40,6 @@ import {
   FileText,
   Loader2,
   Upload,
-  ArrowRight,
   GripVertical,
   AlertTriangle,
   Trash2,
@@ -73,6 +72,12 @@ import { serviceAreaCopy } from "@/lib/company/serviceArea";
 import { tradeQuestionCopy, whenNeededLabel } from "@/lib/leads/tradeQuestions";
 import { summarisePotential } from "@/lib/leads/potentialValue";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
+import {
+  LinkedDocuments,
+  QuoteLinkPicker,
+  WonBlockedNote,
+  wonReasonText,
+} from "@/app/components/leads/LeadLinkedDocuments";
 
 const COLUMNS = [
   { key: "new", labelKey: "app.status.new", tone: "border-blue-200 dark:border-blue-900" },
@@ -296,6 +301,10 @@ export default function LeadsPage() {
   // revert.
   const [pendingIds, setPendingIds] = useState(() => new Set());
   const [boardError, setBoardError] = useState("");
+  // The lead a refused Won drop was about. The drawer is where the fix lives
+  // (link the quote that won it), so the banner offers to open it rather than
+  // leaving the refusal as a dead end on the board.
+  const [wonFixLeadId, setWonFixLeadId] = useState("");
   // The lead awaiting a lost-reason pick, and the reason picked so far — a
   // drop onto Lost pauses HERE rather than moving the card and reverting it,
   // because canSetLeadStatus refuses the move without a reason anyway (see
@@ -353,7 +362,8 @@ export default function LeadsPage() {
     // the card simply stays put and the reason is shown.
     const check = canSetLeadStatus(lead, targetStatus);
     if (!check.ok) {
-      setBoardError(check.reason);
+      setBoardError(wonReasonText(check, t) || check.reason);
+      setWonFixLeadId(targetStatus === "converted" ? lead.id : "");
       return;
     }
 
@@ -488,8 +498,24 @@ export default function LeadsPage() {
         <div className="flex items-start gap-2 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-lg px-3 py-2 text-sm text-red-700 dark:text-red-300">
           <AlertTriangle size={15} className="shrink-0 mt-0.5" />
           <span className="flex-1">{boardError}</span>
+          {wonFixLeadId && (
+            <button
+              type="button"
+              onClick={() => {
+                setOpenId(wonFixLeadId);
+                setBoardError("");
+                setWonFixLeadId("");
+              }}
+              className="shrink-0 underline underline-offset-2 font-semibold"
+            >
+              {t("app.leads.won.openLead", "Open the lead")}
+            </button>
+          )}
           <button
-            onClick={() => setBoardError("")}
+            onClick={() => {
+              setBoardError("");
+              setWonFixLeadId("");
+            }}
             className="text-red-700 dark:text-red-300 hover:opacity-70 shrink-0"
             aria-label={t("app.action.close", "Close")}
           >
@@ -971,6 +997,16 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
   // enforce.js, Notes. Affordance only; the server refuses regardless.
   const canWriteNotes = useHasLevel("notes", "view_edit_all");
   const canDeleteNotes = useHasLevel("notes", "view_edit_delete_all");
+  // Linked documents (app/components/leads/LeadLinkedDocuments.js). Linking
+  // is a write on the lead (requests) by someone allowed to see quotes;
+  // creating one is the quotes dial's write, which the convert route asks.
+  const canEditLead = useHasLevel("requests", "view_create_edit");
+  const canSeeQuotes = useHasLevel("quotes", "view_only");
+  const canCreateQuotes = useHasLevel("quotes", "view_create_edit");
+  // null | { markWon } — the quote picker, plain or "Link the quote that won it".
+  const [picker, setPicker] = useState(null);
+  // Bumped after any link/unlink so the documents block re-reads.
+  const [docsKey, setDocsKey] = useState(0);
   const [converting, setConverting] = useState(false);
   const [busy, setBusy] = useState(false);
   // Same reason-before-move shape as the board's drag prompt above — a click
@@ -1052,6 +1088,15 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
     } finally {
       setDeletingNoteId(null);
     }
+  }
+
+  // After the quote-link route answered: the lead's new status/quote on both
+  // the drawer and the board card, and a fresh read of its documents.
+  function applyLinked(partial) {
+    if (!partial) return;
+    setLead((prev) => ({ ...prev, ...partial }));
+    onPatched(partial);
+    setDocsKey((k) => k + 1);
   }
 
   async function convert() {
@@ -1375,7 +1420,7 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
                         patch({ status: s });
                       }}
                       disabled={busy || lead.status === s || blocked}
-                      title={blocked ? statusCheck.reason : undefined}
+                      title={blocked ? wonReasonText(statusCheck, t) || statusCheck.reason : undefined}
                       className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
                         lead.status === s
                           ? "bg-inverted text-inverted-foreground border-transparent"
@@ -1389,10 +1434,17 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
                   );
                 })}
               </div>
-              {lead.status !== "converted" && !canSetLeadStatus(lead, "converted").ok && (
-                <p className="mt-1.5 text-[11px] text-muted-foreground italic">
-                  {t("app.leads.wonNeedsQuote", "Won follows the quote's own outcome — convert this lead first.")}
-                </p>
+              {/* Why Won is refused, and the way through — never a greyed-out
+                  button alone. The rule is lib/leads/pipeline.js wonCheck. */}
+              {lead.status !== "converted" && (
+                <WonBlockedNote
+                  check={canSetLeadStatus(lead, "converted")}
+                  lead={lead}
+                  canEdit={canEditLead}
+                  canQuotes={canSeeQuotes}
+                  onLinkWinning={() => setPicker({ markWon: true })}
+                  t={t}
+                />
               )}
               {lead.status === "lost" && lead.lostReason && (
                 <p className="mt-1.5 text-[11px] text-muted-foreground">
@@ -1442,23 +1494,31 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
               )}
             </div>
 
-            {/* Convert / view quote */}
-            {lead.quote ? (
-              <Link
-                href={`/app/quotes/${lead.quote.id}`}
-                className="flex items-center justify-center gap-1.5 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-sm font-semibold py-2.5 rounded-lg"
-              >
-                <FileText size={15} /> {t("app.leads.viewQuote")} {lead.quote.quoteNumber}
-              </Link>
-            ) : (
-              <button
-                onClick={convert}
-                disabled={converting}
-                className="w-full inline-flex items-center justify-center gap-1.5 bg-inverted text-inverted-foreground text-sm font-semibold py-2.5 rounded-lg disabled:opacity-60"
-              >
-                {converting ? <Loader2 size={15} className="animate-spin" /> : <ArrowRight size={15} />}
-                {converting ? t("app.leads.converting") : t("app.leads.convert")}
-              </button>
+            {/* What this lead became — the quote, its jobs, its invoices —
+                and the ways to put a quote on it: create one (the existing
+                convert path) or link one that already exists. */}
+            <LinkedDocuments
+              leadId={leadId}
+              lead={lead}
+              reloadKey={docsKey}
+              canEdit={canEditLead}
+              canQuotes={canSeeQuotes}
+              canCreateQuotes={canCreateQuotes}
+              converting={converting}
+              onConvert={convert}
+              onOpenPicker={(markWon) => setPicker({ markWon })}
+              onUnlinked={applyLinked}
+              t={t}
+            />
+            {picker && (
+              <QuoteLinkPicker
+                leadId={leadId}
+                markWon={picker.markWon}
+                hasLinkedQuote={Boolean(lead.quote?.id)}
+                onClose={() => setPicker(null)}
+                onLinked={applyLinked}
+                t={t}
+              />
             )}
 
             {/* Notes */}
