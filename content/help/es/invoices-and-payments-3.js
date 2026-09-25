@@ -260,7 +260,7 @@ export const ARTICLES = {
     title: "Planes de servicio (facturación recurrente)",
     summary:
       "Venda un trabajo repetido — primavera y otoño, mensual, trimestral — y deje que cada visita genere su propia factura, o cobre automáticamente la tarjeta o la cuenta bancaria guardada del cliente.",
-    updated: "2026-09-12",
+    updated: "2026-09-24",
     intro: [
       "Un plan de servicio es una instrucción permanente para facturarle a un cliente el mismo importe con la periodicidad que usted elija: limpieza de canaletas dos veces al año, una visita mensual al césped, un mantenimiento trimestral. Cada ocurrencia genera una factura real a su nombre. El cobro es o bien una factura con enlace de pago, que funciona con cualquier cliente, o bien un cargo automático a una tarjeta o cuenta bancaria canadiense que el cliente autorizó por escrito.",
       "Las condiciones económicas — importe, descuento, periodicidad, duración — quedan congeladas al guardar el plan, porque el cliente autoriza esas cifras exactas. Para cambiar el trato, cancele el plan y venda uno nuevo.",
@@ -322,6 +322,20 @@ export const ARTICLES = {
         heading: "El cobro automático, en pocas palabras",
         blocks: [
           { p: "Elegir **Cobrar automáticamente** todavía no cobra nada. Tras guardar, pulse **Pedirle al cliente que autorice los pagos**: el cliente recibe un enlace, lee el importe exacto, la periodicidad y las condiciones de cancelación, marca una casilla y guarda una tarjeta o cuenta bancaria en una página de Stripe. Desde entonces la página del plan dice **Cobrando Visa ···· 4242 automáticamente. El cliente lo autorizó el 12 sep 2026.** Una tarjeta rechazada o una forma de pago retirada vuelve a la factura con enlace de pago, y la página dice cuál de las dos. El recorrido completo, el texto y el mandato de débito bancario canadiense: [[service-plan-bank-debit-mandates|Planes pagados por débito bancario]]." },
+        ],
+      },
+      {
+        id: "maintenance-plans-on-quotes",
+        heading: "Planes de mantenimiento en una cotización",
+        blocks: [
+          { p: "**Ajustes → Planes de mantenimiento** guarda los planes que vende una y otra vez — «Limpieza profunda trimestral, 4 visitas, 10 % de descuento en cada visita». Cada uno tiene un nombre y una lista de lo que incluye en cada idioma de documento, una frecuencia, un número de visitas (o hasta que se cancele), un **Precio por visita, antes del descuento** y un **Descuento en cada visita %**. La pantalla muestra a cuánto equivale cada uno al mes y al año; esas cifras son la suma de las visitas, no un cargo aparte. Las empresas de limpieza, alfombras, ventanas, climatización, plomería, césped, control de plagas, piscinas, canalones, chimeneas, riego, puertas de garaje, limpieza comercial, mantenimiento de propiedades y lavado de casas reciben planes iniciales con su oficio; una empresa que factura en una moneda distinta de USD o CAD los recibe sin precio, y un plan sin precio no se puede añadir a una cotización." },
+          { steps: [
+            "Abra una cotización guardada en el editor, o su página, y pulse **Añadir un plan de mantenimiento**.",
+            "Elija el plan y cómo se ofrece: **Incluido** (aprobar la cotización lo inicia) u **Opcional** (el cliente puede marcarlo en su cotización, junto a los extras).",
+            "Si quiere, fije la **Primera visita** — en blanco significa un intervalo después de que el cliente apruebe — y el **Impuesto en cada visita %**, rellenado con la tasa de la cotización.",
+            "Pulse **Añadir a la cotización**. Las condiciones se copian en la cotización en su idioma, así que editar el plan después en Ajustes nunca cambia una cotización ya enviada.",
+          ] },
+          { note: "El plan no se suma al total de la cotización — la página del cliente lo dice. Cuando el cliente aprueba (o usted registra la aprobación), cada plan incluido y cada plan opcional marcado pasa a ser el plan de servicio de ese cliente aquí, facturado por visita con el descuento aplicado y escrito en cada factura. El cliente solo marca identificadores; el precio siempre sale del plan copiado en la cotización." },
         ],
       },
       {

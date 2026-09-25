@@ -9,6 +9,7 @@
 // raw "{price}".
 export const runtime = "nodejs";
 
+import { bookingTextOn } from "@/lib/booking/bookingText";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
@@ -34,7 +35,7 @@ export async function GET(request) {
 
   const company = await db.company.findUnique({
     where: { id: member.companyId },
-    select: { smsTemplates: true, name: true, phone: true, bookingSmsConfirmation: true },
+    select: { smsTemplates: true, name: true, phone: true, bookingSmsConfirmation: true, bookingSmsChosenAt: true },
   });
   const stored = company?.smsTemplates && typeof company.smsTemplates === "object"
     ? company.smsTemplates
@@ -59,10 +60,9 @@ export async function GET(request) {
         key,
         label: spec.label,
         // The switch that governs whether this type sends at all, when it has
-        // one. Only the booking confirmation does: it is off by default
-        // because a text is billable, and the switch sits beside the wording
-        // it governs rather than on another screen.
-        ...(key === "booking_confirmation" && { enabled: Boolean(company?.bookingSmsConfirmation) }),
+        // one. Only the booking confirmation does. Same rule as the send path
+        // (lib/booking/bookingText.js): on unless the company turned it off.
+        ...(key === "booking_confirmation" && { enabled: bookingTextOn(company) }),
         // The screen renders the KEY through t(); `label`/`hint` stay as the
         // English fallback for a language missing one.
         labelKey: spec.labelKey,
@@ -109,7 +109,7 @@ export async function PUT(request) {
   if (type === "booking_confirmation" && typeof body.enabled === "boolean") {
     await db.company.update({
       where: { id: member.companyId },
-      data: { bookingSmsConfirmation: body.enabled },
+      data: { bookingSmsConfirmation: body.enabled, bookingSmsChosenAt: new Date() },
     });
     await recordActivity(member, {
       action: "message_template.updated",

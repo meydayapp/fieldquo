@@ -49,7 +49,18 @@ export async function GET(request, { params }) {
   });
   if (!plan) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  return NextResponse.json(summarisePlan(plan, { member: full }));
+  // The quote this plan was sold on, when it came from one (a maintenance
+  // plan approved with a quote — lib/servicePlans/fromQuote.js). Null for a
+  // plan made by hand at /app/plans/new, and said as nothing.
+  const offer = await db.quotePlanOffer.findFirst({
+    where: { servicePlanId: plan.id, companyId: member.companyId },
+    select: { quote: { select: { id: true, quoteNumber: true } } },
+  });
+
+  return NextResponse.json({
+    ...summarisePlan(plan, { member: full }),
+    soldOnQuote: offer?.quote ? { id: offer.quote.id, quoteNumber: offer.quote.quoteNumber } : null,
+  });
 }
 
 export async function PATCH(request, { params }) {

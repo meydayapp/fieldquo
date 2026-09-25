@@ -28,6 +28,11 @@ import {
   readRate,
 } from "@/lib/estimate/instantRateFields";
 import { PAINTING_SCOPE_CATEGORY } from "@/lib/estimate/instantSeed";
+import {
+  FORM_FIELD_KEYS,
+  FORM_FIELD_STATES,
+  effectiveFormFields,
+} from "@/lib/estimate/formFields";
 import { categoryLabel } from "@/lib/trades/catalog";
 import LawnCareEditor from "./LawnCareEditor";
 
@@ -352,7 +357,107 @@ function PricedFromServices({ fields, serviceLabels, money, t }) {
   );
 }
 
-export default function TradeCard({ trade, canEdit, onSaved }) {
+// ── Which questions the public form asks ────────────────────────────────────
+//
+// One row per qualifier field, three states each (lib/estimate/formFields.js).
+// The row shows the EFFECTIVE state — the saved value with the two locks
+// applied — and says why a locked row is greyed, because a switch that can be
+// flipped and changes nothing is the thing this codebase is swept for.
+// Nothing here is a price; the same table gates the public request route.
+function FormFieldsEditor({ fields, measure, serviceAreaConfigured, canEdit, onChange, t }) {
+  const { fields: effective, locks } = effectiveFormFields(fields, { measure, serviceAreaConfigured });
+  const stateLabel = {
+    required: t("app.setInstantQuotes.fields.required", "Required"),
+    optional: t("app.setInstantQuotes.fields.optional", "Optional"),
+    hidden: t("app.setInstantQuotes.fields.hidden", "Hidden"),
+  };
+  const fieldLabel = {
+    photos: t("app.setInstantQuotes.fields.photos", "Photos"),
+    budget: t("app.setInstantQuotes.fields.budget", "Budget range"),
+    timeline: t("app.setInstantQuotes.fields.timeline", "When they need it done"),
+    notes: t("app.setInstantQuotes.fields.notes", "Note (free text)"),
+    phone: t("app.setInstantQuotes.fields.phone", "Phone"),
+    email: t("app.setInstantQuotes.fields.email", "Email"),
+    address: t("app.setInstantQuotes.fields.address", "Job address"),
+  };
+  const lockReason = (key) => {
+    if (key === "address" && locks.address === "measured") {
+      return t("app.setInstantQuotes.fields.addressMeasured", "Required — the estimate is measured from this address.");
+    }
+    if (key === "address" && locks.address === "service_area") {
+      return t(
+        "app.setInstantQuotes.fields.addressServiceArea",
+        "Required — you've set a service area, and it can't be checked without an address.",
+      );
+    }
+    if (key === locks.contact) {
+      return t(
+        "app.setInstantQuotes.fields.contactLocked",
+        "Required — the other contact field is hidden, so this is the one way to reach them.",
+      );
+    }
+    return null;
+  };
+  return (
+    <div>
+      <div className="text-sm font-medium text-foreground mb-1">
+        {t("app.setInstantQuotes.fields.title", "Form fields")}
+      </div>
+      <p className="text-xs text-muted-foreground mb-3 max-w-md">
+        {t(
+          "app.setInstantQuotes.fields.intro",
+          "Which questions this form asks, and which a homeowner must answer before they can submit. The server holds every request to the same rule, so nothing can be posted around it.",
+        )}
+      </p>
+      <div className="space-y-2">
+        {FORM_FIELD_KEYS.map((key) => {
+          const reason = lockReason(key);
+          const locked = Boolean(reason);
+          return (
+            <div key={key} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+              <div className="min-w-0">
+                <span className="text-sm text-foreground">{fieldLabel[key]}</span>
+                {reason && <p className="text-xs text-muted-foreground">{reason}</p>}
+              </div>
+              <div
+                role="radiogroup"
+                aria-label={fieldLabel[key]}
+                className={`inline-flex rounded-lg border border-border overflow-hidden ${locked ? "opacity-60" : ""}`}
+              >
+                {FORM_FIELD_STATES.map((state) => {
+                  const on = effective[key] === state;
+                  return (
+                    <button
+                      key={state}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      disabled={!canEdit || locked}
+                      onClick={() => onChange({ ...(fields || {}), [key]: state })}
+                      className={`px-3 min-h-9 text-xs font-medium border-r border-border last:border-r-0 disabled:cursor-not-allowed ${
+                        on ? "bg-inverted text-inverted-foreground" : "bg-card text-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {stateLabel[state]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-xs text-muted-foreground mt-2 max-w-md">
+        {t(
+          "app.setInstantQuotes.fields.contactRule",
+          "At least one of phone or email is always required; hiding one makes the other required.",
+        )}
+      </p>
+    </div>
+  );
+}
+
+export default function TradeCard({ trade, canEdit, onSaved, serviceAreaConfigured = false }) {
   const { t } = useTranslation();
   // Three money fields on this card are laid out by hand rather than through
   // NumField, and each carried its own literal "$". Same defect, same fix.
@@ -1232,6 +1337,18 @@ export default function TradeCard({ trade, canEdit, onSaved }) {
             <JunkGuidance />
           </div>
         )}
+
+        {/* Which questions the public form asks for this trade, and which
+            it insists on. Per trade because a roofer wants photos of the
+            roof and a lawn programme does not need any. */}
+        <FormFieldsEditor
+          fields={config.fields}
+          measure={trade.measure}
+          serviceAreaConfigured={serviceAreaConfigured}
+          canEdit={canEdit}
+          onChange={(fields) => patch({ fields })}
+          t={t}
+        />
 
         {/* Shared knobs */}
         <div className="flex flex-wrap gap-4 pt-1">

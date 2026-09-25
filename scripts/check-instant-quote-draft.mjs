@@ -552,7 +552,10 @@ section("The instant funnel's client carries the same address components as a ha
   const flow = fs.readFileSync("app/instant-quote/[companySlug]/InstantQuoteFlow.js", "utf8");
   ok("the public form posts the postal code and county it got from the pick", /const \{ city, province, country, postalCode, county \} = siteJurisdiction;/.test(flow) && /county: place\.county \|\| ""/.test(flow));
   const route = fs.readFileSync("app/api/instant-quote/[companySlug]/request/route.js", "utf8");
-  ok("…and the request route hands both to the draft", /postalCode: typeof postalCode === "string" \? postalCode : null/.test(route) && /county: typeof county === "string" \? county : null/.test(route));
+  // Since the per-trade field states (lib/estimate/formFields.js) the route
+  // also drops the components when the owner HID the job address — the
+  // `addressAsked && ` guard. The string-or-null rule is unchanged either way.
+  ok("…and the request route hands both to the draft", /postalCode: (addressAsked && )?typeof postalCode === "string" \? postalCode : null/.test(route) && /county: (addressAsked && )?typeof county === "string" \? county : null/.test(route));
   const clientsRoute = fs.readFileSync("app/api/clients/route.js", "utf8");
   ok("the hand-added client stores the same two through the same cleaner", /postalCode: cleanAddressPart\(postalCode\)/.test(clientsRoute) && /county: cleanAddressPart\(county\)/.test(clientsRoute));
   const schema = fs.readFileSync("prisma/schema.prisma", "utf8");

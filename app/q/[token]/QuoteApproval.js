@@ -52,6 +52,7 @@ import WaiverSign from "@/app/components/public/WaiverSign";
 import { documentLabels, documentFormatters } from "@/lib/i18n/documentLabels";
 import { documentCustomFacts } from "@/lib/documentSections/customFacts";
 import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
+import { planOfferCopy } from "@/lib/servicePlans/offerCopy";
 import { monthlyPayment } from "@/lib/financing/monthlyEstimate";
 import { jsonBody } from "@/lib/jsonBody";
 import { visibleLineItems } from "@/lib/quotes/scopeGroupDisplay";
@@ -108,6 +109,10 @@ export default function QuoteApproval({ token }) {
   // changes what you see and nothing else.
   const [picked, setPicked] = useState([]);
   const [settledTotal, setSettledTotal] = useState(null);
+  // Ids of the OPTIONAL maintenance plans ticked. Same rule as the extras:
+  // ids go to the server, the server prices the plan from its own frozen
+  // row. A plan never moves the total below — it is billed per visit.
+  const [pickedPlans, setPickedPlans] = useState([]);
 
   // Signature (the approval). Required before "accepted" can be submitted.
   const [sigName, setSigName] = useState("");
@@ -126,6 +131,8 @@ export default function QuoteApproval({ token }) {
   const language = quote?.language || "en";
   const labels = documentLabels(language);
   const copy = clientDocCopy(language);
+  // The maintenance-plan sentences, in the document's language.
+  const planCopy = planOfferCopy(language);
   // Currency stays the COMPANY's billing currency (falls back to CAD until
   // loaded / if unset); only the formatting locale shifts with the language.
   // quote is null on the first renders, but money()/date() are only called in
@@ -193,6 +200,9 @@ export default function QuoteApproval({ token }) {
         setPicked(
           (data.addOns || []).filter((a) => a.selected).map((a) => a.id),
         );
+        setPickedPlans(
+          (data.planOffers || []).filter((o) => o.selected).map((o) => o.id),
+        );
       }
       setLoading(false);
     })();
@@ -214,6 +224,9 @@ export default function QuoteApproval({ token }) {
         body: jsonBody({
           decision,
           addOnIds: decision === "accepted" ? picked : [],
+          // Optional plans ticked — ids only. Included plans need no id:
+          // approving the quote is approving them, and the server knows which.
+          planOfferIds: decision === "accepted" ? pickedPlans : [],
           payOffline: decision === "accepted" && payOffline && Boolean(quote?.offlineDiscount),
           ...(decision === "accepted"
             ? {
@@ -466,6 +479,11 @@ export default function QuoteApproval({ token }) {
     setPicked((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
+  const togglePlan = (id) =>
+    setPickedPlans((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  const planOffers = quote.planOffers || [];
 
   const waivers = proposal?.waivers || [];
   const pendingWaivers = waivers.filter((w) => w.status !== "signed" && !waiverSigned.has(w.token));
@@ -1077,6 +1095,139 @@ export default function QuoteApproval({ token }) {
                         )}
                       </span>
                     </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ── Maintenance plans ─────────────────────────────────────────
+              Included plans are part of what the signature approves; optional
+              ones are ticked like the extras, and post their ids only. Neither
+              moves the total below — each visit is billed on its own, which
+              the page says in so many words, because the obvious misreading
+              ("a $1,499 plan was added to today's price") is the costly one. */}
+          {/* Declined, or expired unanswered: nothing here was taken and none
+              of it is on offer any more, so the section is not drawn at all —
+              an "Included" plan under a declined quote would say the opposite
+              of what happened. */}
+          {planOffers.length > 0 && (!locked || decided === "accepted") && (
+            <div className="pt-4 border-t border-black/5" data-plan-offers>
+              <h2
+                className="text-sm font-bold uppercase tracking-wide pb-2 mb-1 border-b"
+                style={{ color: theme.accentText, borderColor: theme.accentRule }}
+              >
+                {planOffers.length === 1 ? planCopy.heading : planCopy.headingMany}
+              </h2>
+              {locked ? (
+                <p className="text-xs text-[#2d2520]/70 mt-2 mb-3">{planCopy.chosenHint}</p>
+              ) : (
+                <div className="mt-2 mb-3 space-y-1">
+                  {planOffers.some((o) => o.mode === "included") && (
+                    <p className="text-xs text-[#2d2520]/70">{planCopy.includedHint}</p>
+                  )}
+                  {planOffers.some((o) => o.mode === "optional") && (
+                    <p className="text-xs text-[#2d2520]/70">{planCopy.optionalHint}</p>
+                  )}
+                </div>
+              )}
+              <div className="space-y-2">
+                {planOffers.map((o) => {
+                  const optional = o.mode === "optional";
+                  const on = optional ? pickedPlans.includes(o.id) : true;
+                  // After a decision an unticked optional plan is not on offer
+                  // any more, so it is not drawn — the same rule as the extras.
+                  if (locked && optional && !on) return null;
+                  const cadence = [
+                    planCopy.freq[o.frequency] || "",
+                    o.visitCount ? planCopy.visits(o.visitCount) : planCopy.untilCancelled,
+                  ].filter(Boolean).join(" · ");
+                  const benefits = String(o.description || "")
+                    .split("\n")
+                    .map((l) => l.trim())
+                    .filter(Boolean);
+                  const Wrapper = optional && !locked ? "label" : "div";
+                  return (
+                    <Wrapper
+                      key={o.id}
+                      className={`flex gap-3 items-start rounded-xl border px-4 py-3 ${
+                        optional && !locked ? "cursor-pointer" : ""
+                      } ${on ? "bg-[#faf8f4] border-black/20" : "bg-white border-black/10 hover:border-black/25"}`}
+                    >
+                      {optional ? (
+                        <input
+                          type="checkbox"
+                          checked={on}
+                          disabled={locked}
+                          onChange={() => togglePlan(o.id)}
+                          className="mt-0.5 h-4 w-4 shrink-0"
+                          style={{ accentColor: fill.bg }}
+                        />
+                      ) : (
+                        <Check size={16} className="mt-0.5 shrink-0 text-[#2d2520]" aria-hidden="true" />
+                      )}
+                      <span className="flex-1 min-w-0">
+                        <span className="flex justify-between gap-3">
+                          <span className="text-sm font-semibold text-[#2d2520]">
+                            {o.name}
+                            <span className="ml-2 align-middle text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-black/5 text-[#2d2520]">
+                              {optional ? planCopy.optionalBadge : planCopy.includedBadge}
+                            </span>
+                          </span>
+                          <span className="text-sm tabular-nums shrink-0 text-right text-[#2d2520]">
+                            {o.perVisitSaving > 0 && (
+                              <span className="block text-xs line-through text-[#2d2520]/70">
+                                {money(o.perVisitGross)}
+                              </span>
+                            )}
+                            <span className="font-semibold">{planCopy.perVisit(money(o.perVisit))}</span>
+                          </span>
+                        </span>
+                        <span className="block text-xs text-[#2d2520]/70 mt-1">{cadence}</span>
+                        {o.discountPct > 0 && (
+                          <span className="block text-xs font-semibold mt-1" style={{ color: APPROVE_GREEN }}>
+                            {planCopy.discountEvery(percent(o.discountPct))} · {planCopy.youSave(money(o.perVisitSaving))}
+                          </span>
+                        )}
+                        {o.yearly !== null && o.monthly !== null ? (
+                          <span className="block text-xs text-[#2d2520]/70 mt-1">
+                            {planCopy.worksOut(money(o.monthly), money(o.yearly))}
+                          </span>
+                        ) : o.termTotal !== null && o.visitCount ? (
+                          <span className="block text-xs text-[#2d2520]/70 mt-1">
+                            {planCopy.termTotal(o.visitCount, money(o.termTotal))}
+                          </span>
+                        ) : null}
+                        {o.taxRatePct !== null && o.taxRatePct > 0 && (
+                          <span className="block text-xs text-[#2d2520]/70 mt-0.5">
+                            {planCopy.plusTax(percent(o.taxRatePct))}
+                          </span>
+                        )}
+                        <span className="block text-xs text-[#2d2520]/70 mt-0.5">
+                          {o.startDate ? planCopy.firstVisitOn(fmt.date(o.startDate)) : planCopy.firstVisitAfter[o.frequency]}
+                        </span>
+                        {(benefits.length > 0 || (o.serviceName && o.serviceName !== o.name)) && (
+                          <span className="block mt-2">
+                            <span className="block text-[10px] font-bold uppercase tracking-wide text-[#2d2520]/70">
+                              {planCopy.whatsIncluded}
+                            </span>
+                            {o.serviceName && o.serviceName !== o.name && (
+                              <span className="block text-xs text-[#2d2520]/80 mt-0.5">{o.serviceName}</span>
+                            )}
+                            {benefits.length > 0 && (
+                              <ul className="list-disc pl-4 mt-0.5 space-y-0.5">
+                                {benefits.map((b, i) => (
+                                  <li key={i} className="text-xs text-[#2d2520]/80">{b}</li>
+                                ))}
+                              </ul>
+                            )}
+                          </span>
+                        )}
+                        <span className="block text-[11px] text-[#2d2520]/70 mt-2 italic">
+                          {planCopy.notInTotal}
+                        </span>
+                      </span>
+                    </Wrapper>
                   );
                 })}
               </div>

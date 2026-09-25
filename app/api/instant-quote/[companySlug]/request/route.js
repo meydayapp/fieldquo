@@ -10,7 +10,10 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { rateLimit } from "@/lib/rateLimit";
-import { measureForTrade, priceOneMaterial } from "@/lib/estimate/instantQuoteServer";
+import { measureForTrade, priceOneMaterial, loadInstantFormFields } from "@/lib/estimate/instantQuoteServer";
+import { INSTANT_ESTIMATE_TRADES } from "@/lib/estimate/instantEstimate";
+import { effectiveFormFields, contactRule, contactSatisfied, ADDRESS_MEASURED } from "@/lib/estimate/formFields";
+import { normaliseMediaList } from "@/lib/media/validate";
 import { lawnPublicView } from "@/lib/estimate/lawnPublicView";
 import { publicEstimate, gatedMessage, effectiveVisibility } from "@/lib/estimate/visibility";
 import { bandForIndex, estimateExceedsBudget, scoreKeyForBandIndex } from "@/lib/estimate/budgetBands";
@@ -79,8 +82,8 @@ export async function POST(request, { params }) {
   }
 
   const {
-    trade, address, polygon, intake, materialKey, name, email, phone,
-    media, budgetBandIndex,
+    trade, polygon, intake, materialKey, name,
+    budgetBandIndex,
     // The structured halves of `address` when the homeowner picked a Places
     // suggestion. Not trusted — normaliseCountry drops anything that isn't ISO
     // alpha-2 — and absent when they typed the address by hand, which is the
@@ -108,15 +111,58 @@ export async function POST(request, { params }) {
   const t = instantQuoteCopy(language);
 
   if (!trade) return NextResponse.json({ error: t.missingService }, { status: 400 });
-  if (!name || (!email && !phone)) {
-    return NextResponse.json({ error: t.missingContact }, { status: 400 });
+
+  // ── Which fields this trade asks for, and which it insists on ────────────
+  //
+  // The owner's per-trade setting (lib/estimate/formFields.js), read fresh
+  // and resolved with the same two locks the public payload applied: an
+  // address the estimator measures from, or a service area to check, is
+  // required whatever was saved. The browser rendered the same table; this
+  // is the copy that decides. A field the owner HID is dropped here even
+  // when a hand-crafted POST carries it, so the lead records what the form
+  // asked and nothing a stranger chose to add.
+  const measureKind = INSTANT_ESTIMATE_TRADES[trade]?.measure;
+  const { fields } = effectiveFormFields(await loadInstantFormFields(company.id, trade), {
+    measure: measureKind,
+    serviceAreaConfigured: serviceAreaConfigured(company),
+  });
+  const email = fields.email === "hidden" ? null : body?.email;
+  const phone = fields.phone === "hidden" ? null : body?.phone;
+  const media = fields.photos === "hidden" ? [] : body?.media;
+  // The job address of a trade that does not measure from it. Hidden means
+  // absent; the measured trades' address is the measurement input and never
+  // passes through this switch.
+  const addressAsked = ADDRESS_MEASURED.has(measureKind) || fields.address !== "hidden";
+  const address = addressAsked ? body?.address : null;
+
+  if (!name) return NextResponse.json({ error: t.missingContact }, { status: 400 });
+  if (!contactSatisfied(fields, { phone, email })) {
+    const rule = contactRule(fields);
+    const error =
+      rule === "both" ? t.missingPhoneAndEmail : rule === "phone" ? t.missingPhone : rule === "email" ? t.missingEmail : t.missingContact;
+    return NextResponse.json({ error }, { status: 400 });
+  }
+  if (fields.address === "required" && !ADDRESS_MEASURED.has(measureKind) && !String(address || "").trim()) {
+    return NextResponse.json({ error: t.missingAddress }, { status: 400 });
+  }
+  // Counted the way the draft will count them — through the same normaliser,
+  // so a list of twenty junk strings is "no photos", not "twenty photos".
+  if (fields.photos === "required" && normaliseMediaList(media).length === 0) {
+    return NextResponse.json({ error: t.missingPhotos }, { status: 400 });
   }
 
-  // The "when" question is required on the form; a POST around the form
-  // gets the same refusal the form would have shown. Unknown answers to the
-  // trade questions are dropped, never stored (cleanTradeAnswers).
+  // The "when" question is required on the form unless the owner relaxed it;
+  // a POST around the form gets the same refusal the form would have shown.
+  // Unknown answers to the trade questions are dropped, never stored
+  // (cleanTradeAnswers). A hidden "when" or a hidden note is not recorded
+  // even when posted — see the field switch above.
   const homeowner = cleanTradeAnswers(trade, { whenNeeded, answers, notes });
-  if (!homeowner.whenNeeded) return NextResponse.json({ error: t.missingWhen }, { status: 400 });
+  if (fields.timeline === "hidden") {
+    homeowner.whenNeeded = null;
+    homeowner.timeline = null;
+  }
+  if (fields.notes === "hidden") homeowner.notes = null;
+  if (fields.timeline === "required" && !homeowner.whenNeeded) return NextResponse.json({ error: t.missingWhen }, { status: 400 });
 
   // The address a quote will be sent to. Manny Conto typed
   // `Macksab  1@hotmail.com`; the quote bounced and nobody was told. Refused
@@ -162,7 +208,14 @@ export async function POST(request, { params }) {
   // it also stops a lead scoring itself richer than it is. An index that isn't
   // one of the bands resolves to null, i.e. "didn't answer", rather than being
   // clamped to the nearest real band and recorded as something they never said.
-  const budgetBand = bandForIndex(priced.budgetThresholds, budgetBandIndex);
+  const budgetBand = fields.budget === "hidden" ? null : bandForIndex(priced.budgetThresholds, budgetBandIndex);
+  // Required means required: the form's own button stayed grey until a band
+  // was tapped, and a POST around the form is held to the same rule. Checked
+  // here rather than with the contact fields because the bands are the
+  // trade's own (priced.budgetThresholds) and only exist once it has priced.
+  if (fields.budget === "required" && !budgetBand) {
+    return NextResponse.json({ error: t.missingBudget }, { status: 400 });
+  }
   const budgetGap = estimateExceedsBudget(budgetBand, priced.estimate);
 
   // What was PRICED, not what was posted: priceOneMaterial settles painting's
@@ -205,11 +258,11 @@ export async function POST(request, { params }) {
     address: address || measured.measurement.formattedAddress || null,
     // The client this draft creates gets a jurisdiction, so the estimator
     // reviewing it sees a real tax rate instead of a silent 0%.
-    city: city || null,
-    province: province || null,
-    country: normaliseCountry(country),
-    postalCode: typeof postalCode === "string" ? postalCode : null,
-    county: typeof county === "string" ? county : null,
+    city: (addressAsked && city) || null,
+    province: (addressAsked && province) || null,
+    country: addressAsked ? normaliseCountry(country) : null,
+    postalCode: addressAsked && typeof postalCode === "string" ? postalCode : null,
+    county: addressAsked && typeof county === "string" ? county : null,
     language,
     // What the homeowner said about timing and the trade's own questions,
     // plus their note — kept on the draft and put in front of the reviewer
@@ -323,12 +376,12 @@ export async function POST(request, { params }) {
     // formatted string and no components — honestly has none.
     intake: buildLeadIntake({
       address: address || measured.measurement.formattedAddress,
-      city,
-      province,
+      city: addressAsked ? city : undefined,
+      province: addressAsked ? province : undefined,
       // Stored as it arrived, exactly like the self-quote form stores it.
       // normaliseCountry runs once, on the READ side in convertLead, so there
       // is one place that decides what a country code is.
-      country,
+      country: addressAsked ? country : undefined,
       details: {
         ...enteredDetails(intake, materialKey),
         // The option actually tapped (the lead card prints its label), the

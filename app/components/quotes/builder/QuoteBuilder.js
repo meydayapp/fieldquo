@@ -62,6 +62,7 @@ import { hasToggle } from "@/lib/permissions/enforce";
 
 import QuoteLanguageBar from "@/app/components/quotes/QuoteLanguageBar";
 import SuggestAddOns from "@/app/components/quotes/SuggestAddOns";
+import QuotePlanOffers from "@/app/components/quotes/QuotePlanOffers";
 import { applyActualsToDraft } from "@/lib/quotes/applyActuals";
 import ServiceTiles from "./ServiceTiles";
 import ScopeGroupCard from "./ScopeGroupCard";
@@ -2487,6 +2488,10 @@ export function QuoteBuilderForm({
         autoReview={autoReview}
       />
     )}
+
+    {/* A maintenance plan on the quote — included or for the client to tick.
+        Needs a saved quote for the same reason the extras above do. */}
+    {isEdit && quoteId && <QuotePlanOffers quoteId={quoteId} />}
 
     </>
   );

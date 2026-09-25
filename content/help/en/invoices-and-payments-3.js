@@ -262,7 +262,7 @@ export const ARTICLES = {
     title: "Service plans (recurring billing)",
     summary:
       "Sell a repeat — spring and fall, monthly, quarterly — and let each visit raise its own invoice, or charge the client's saved card or bank account automatically.",
-    updated: "2026-09-12",
+    updated: "2026-09-24",
     intro: [
       "A service plan is a standing instruction to bill one client the same amount on a cadence you choose: gutter cleaning twice a year, a monthly lawn visit, a quarterly maintenance call. Every occurrence raises a real invoice in your name. Collection is either an invoice with a pay link, which works for every client, or an automatic charge against a card or Canadian bank account the client authorised in writing.",
       "The money terms — amount, discount, cadence, length — are frozen when you save the plan, because the client authorises those exact figures. To change the deal, cancel the plan and sell a new one.",
@@ -324,6 +324,20 @@ export const ARTICLES = {
         heading: "Automatic collection, in brief",
         blocks: [
           { p: "Choosing **Charge automatically** does not charge anything yet. After saving, press **Ask the client to authorise payments**: the client receives a link, reads the exact amount, cadence and cancellation terms, ticks a box, and saves a card or bank account on a Stripe page. From then on the plan page reads **Charging Visa ···· 4242 automatically. The client authorised this on 12 Sep 2026.** A declined card or a removed method falls back to the invoice with a pay link, and the page says which. The full flow, the wording and the Canadian bank-debit mandate: [[service-plan-bank-debit-mandates|Service plans paid by bank debit]]." },
+        ],
+      },
+      {
+        id: "maintenance-plans-on-quotes",
+        heading: "Maintenance plans on a quote",
+        blocks: [
+          { p: "**Settings → Maintenance Plans** keeps the plans you sell again and again — “Quarterly Deep Clean, 4 visits, 10% off every visit”. Each has a name and a list of what is included in every document language, a cadence, a number of visits (or until cancelled), a **Price per visit, before discount** and a **Discount on every visit %**. The screen shows what each one works out to a month and a year; those figures are the visits added up, not a separate fee. Companies in cleaning, carpet, windows, HVAC, plumbing, lawn, pest control, pools, gutters, chimneys, irrigation, garage doors, janitorial, property care and house washing get starter plans with their trade; a company billing in a currency other than USD or CAD gets them without a price, and a plan with no price cannot be put on a quote." },
+          { steps: [
+            "Open a saved quote in the builder, or its quote page, and press **Add a maintenance plan**.",
+            "Pick the plan and how it is offered: **Included** (approving the quote starts it) or **Optional** (the client can tick it on their quote, beside the extras).",
+            "Optionally set the **First visit** — blank means one interval after the client approves — and the **Tax on each visit %**, filled in from the quote's own rate.",
+            "Press **Add to quote**. The terms are copied onto the quote in the quote's language, so editing the plan in Settings later never changes a quote already sent.",
+          ] },
+          { note: "The plan is not added to the quote's total — the client's page says so. When the client approves (or you record the approval), each included plan and each ticked optional plan becomes that client's service plan here, invoiced per visit with the discount applied and the discount written on every invoice. The client ticks ids only; the price always comes from the plan copied onto the quote." },
         ],
       },
       {

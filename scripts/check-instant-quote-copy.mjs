@@ -208,12 +208,14 @@ console.log("\nThe language is posted, validated, and becomes the document's");
     ok(`hardcoded English gone: ${s}`, !flow.includes(s));
   }
   ok("the 60-second headline is not on the page (owner dropped it)", !/60 second/.test(flow) && !/instantQuoteHeadline/.test(flow));
-  ok("the 'when' question is required in the missing list", /trade && !whenNeeded && t\.missing\.whenNeeded/.test(flow));
+  // Required by default, and the owner may relax it per trade
+  // (lib/estimate/formFields.js) — the missing list reads the field state.
+  ok("the 'when' question is required in the missing list", /trade && fields\.timeline === "required" && !whenNeeded && t\.missing\.whenNeeded/.test(flow));
   ok("a trade question the estimator already asks as an input is not asked twice", /questionsFor\(trade\.trade\)\.filter\(\(qq\) => !inputKeys\.has\(qq\.key\)\)/.test(flow));
   ok("the service-area line only ever prints an explicit outside", /verdict\.configured !== true \|\| verdict\.inside !== false\) return null/.test(flow));
   ok("area_polygon renders the same map as lawn_polygon", /const byTrace = \(measure\) => measure === "lawn_polygon" \|\| measure === "area_polygon"/.test(flow));
 
-  ok("/request requires whenNeeded and validates the answers", /cleanTradeAnswers\(trade, \{ whenNeeded, answers, notes \}\)/.test(request) && /if \(!homeowner\.whenNeeded\) return NextResponse\.json\(\{ error: t\.missingWhen \}/.test(request));
+  ok("/request requires whenNeeded and validates the answers", /cleanTradeAnswers\(trade, \{ whenNeeded, answers, notes \}\)/.test(request) && /if \(fields\.timeline === "required" && !homeowner\.whenNeeded\) return NextResponse\.json\(\{ error: t\.missingWhen \}/.test(request));
   ok("/request stores the answers on the draft and the lead", /homeowner: \{ \.\.\.homeowner, trade, outsideServiceArea \}/.test(request) && /timeline: homeowner\.timeline,/.test(request) && /whenNeeded: homeowner\.whenNeeded,/.test(request));
   ok("/request writes outsideServiceArea only when true", /\.\.\.\(outsideServiceArea && \{ outsideServiceArea: true \}\)/.test(request));
   ok("/request checks the area only for a configured company", /if \(serviceAreaConfigured\(company\) && jobAddress\)/.test(request));

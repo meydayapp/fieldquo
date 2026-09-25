@@ -47,6 +47,7 @@ import InstantQuoteFlow from "@/app/instant-quote/[companySlug]/InstantQuoteFlow
 import EmbedFrame from "../../EmbedFrame";
 import Reviews from "../../Reviews";
 import SiteChatMount from "@/app/components/chat/SiteChatMount";
+import { loadPublicFormLook } from "@/lib/estimate/publicFormLook";
 
 // ── The fourth widget: the instant estimate ────────────────────────────────
 //
@@ -89,7 +90,7 @@ async function loadEmbedLanguage(companyId) {
   return { language: row?.defaultLanguage || "en" };
 }
 
-export default async function EmbedPage({ params }) {
+export default async function EmbedPage({ params, searchParams }) {
   const { companySlug, widget } = await params;
 
   if (!WIDGETS.has(widget)) notFound();
@@ -108,10 +109,22 @@ export default async function EmbedPage({ params }) {
     // bottom-right (the snippet on Settings → AI employee). The widget's own
     // floating button sits in the frame's corner, so the host sees a button,
     // not a box. No employee on the web channel renders nothing at all.
+    //
+    // ?host=loader is the chat.js loader (lib/embed/chatLoader.js) asking for
+    // the sized mode: the widget fills whatever frame it is given and tells
+    // the loader, by postMessage, the size it needs. Without it — the old
+    // iframe snippet anyone may still have pasted — nothing changes.
     const { language } = await loadEmbedLanguage(company.id);
+    const sp = (await searchParams) || {};
+    const hosted = sp.host === "loader";
+    const side = sp.side === "left" ? "left" : "right";
     return (
       <EmbedFrame className="bg-transparent">
-        <SiteChatMount companySlug={companySlug} language={language} />
+        {/* The root layout paints <body> with the app's page grey. Inside a
+            frame floating over someone else's website that is a grey box
+            around the button, so this one page clears it. */}
+        <style>{"html,body{background:transparent!important}"}</style>
+        <SiteChatMount companySlug={companySlug} language={language} hosted={hosted} side={side} />
       </EmbedFrame>
     );
   }
@@ -135,14 +148,24 @@ export default async function EmbedPage({ params }) {
   // and a second logo two inches below the first reads as a widget somebody
   // else made — which is the one thing an embed must not look like. Brand
   // colour, buttons and copy are untouched; the header is the whole of it.
+  //
+  // ── The look travels in this HTML, not in the iframe's src ───────────────
+  //
+  // The company's saved appearance (Settings › Instant quotes › How the form
+  // looks) is read from the company row HERE and handed to the flow as a
+  // prop. Nothing about it comes from the request: the snippet a contractor
+  // pasted is a string on a website FieldQuo cannot see, and a look that a
+  // URL parameter could set is a look anyone framing the page could change.
+  // The booking flow does not take a look yet; it is mounted as before.
+  const look = widget === "book" ? null : await loadPublicFormLook(companySlug);
   return (
     <EmbedFrame>
       {widget === "book" ? (
         <BookingFlow companySlug={companySlug} embedded />
       ) : widget === "instant-quote" ? (
-        <InstantQuoteFlow companySlug={companySlug} embedded />
+        <InstantQuoteFlow companySlug={companySlug} embedded look={look} />
       ) : (
-        <SelfQuoteFlow companySlug={companySlug} embedded />
+        <SelfQuoteFlow companySlug={companySlug} embedded look={look} />
       )}
     </EmbedFrame>
   );
