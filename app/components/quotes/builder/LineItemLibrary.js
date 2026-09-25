@@ -106,6 +106,11 @@ export default function LineItemLibrary({
   onAddLine,
   onAddSuggested,
   onAddProduct,
+  // A service's estimate template — see LineItemsTable's props of the same
+  // names. The row itself still adds the ONE plain line it always did; the
+  // template is a second, labelled action beside it.
+  templateInfo = null,
+  onAddProductTemplate = null,
 }) {
   const { t, language } = useTranslation();
   const [query, setQuery] = useState("");
@@ -434,15 +439,40 @@ export default function LineItemLibrary({
 
               {productRows.length > 0 && onAddProduct && (
                 <Section title={t("app.lineItems.addFromProducts", "Add from Products & Services")}>
-                  {productRows.map((p) => (
-                    <RowButton
-                      key={p.id}
-                      onClick={() => { onAddProduct(p); onClose(); }}
-                      chip={p.unitPrice != null && showPricing ? money(p.unitPrice) : ""}
-                    >
-                      {p.name}
-                    </RowButton>
-                  ))}
+                  {productRows.map((p) => {
+                    const tpl = templateInfo && onAddProductTemplate ? templateInfo(p) : null;
+                    const row = (
+                      <RowButton
+                        key={p.id}
+                        onClick={() => { onAddProduct(p); onClose(); }}
+                        chip={p.unitPrice != null && showPricing ? money(p.unitPrice) : ""}
+                      >
+                        {p.name}
+                      </RowButton>
+                    );
+                    if (!tpl) return row;
+                    return (
+                      <div key={p.id} className="space-y-1" data-template-product>
+                        {row}
+                        <div className="flex items-center justify-between gap-2 flex-wrap pl-3">
+                          <span className="text-[11px] text-muted-foreground">
+                            {tpl.measured > 0
+                              ? t("app.templateLines.fillsPreview", "{filled} of {measured} measured lines fill from this quote", { filled: tpl.filled, measured: tpl.measured })
+                              : ""}
+                            {tpl.alreadyAdded ? `${tpl.measured > 0 ? " · " : ""}${t("app.templateLines.alreadyAdded", "already added here once")}` : ""}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => { onAddProductTemplate(p); onClose(); }}
+                            className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted"
+                            data-add-with-template
+                          >
+                            <Plus size={11} /> {t("app.templateLines.addWith", "Add with its {count} template lines", { count: tpl.count })}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </Section>
               )}
             </div>
