@@ -37,7 +37,7 @@ import { reportResponseError } from "@/lib/clientErrors";
 import { fetchJson } from "@/lib/fetchJson";
 import { formatMoney } from "@/lib/currency";
 import { benchmarkForSeedKey } from "@/lib/services/seeds";
-import { MEASUREMENT_KEYS as MEASUREMENT_REGISTRY, MEASUREMENT_KEY_LIST } from "@/lib/services/measurementKeys";
+import { MEASUREMENT_KEYS as MEASUREMENT_REGISTRY, measurementKeysForTrade } from "@/lib/services/measurementKeys";
 import { PAINT_TAKEOFF_CATEGORIES } from "@/lib/pricing/sanitiseRates";
 import {
   LINE_KINDS,
@@ -71,6 +71,7 @@ function draftFrom(product) {
     taxable: l.taxable !== false,
     measurementKey: l.measurementKey || "",
     wastePct: l.wastePct ?? "",
+    coverage: l.coverage ?? "",
     translations: l.translations,
   }));
   const d = product?.defaultDiscount;
@@ -85,7 +86,7 @@ function draftFrom(product) {
 /** What the PATCH sends: the sanitiser's view, so the box and the row agree. */
 function payloadFrom(draft) {
   return {
-    templateLines: sanitiseTemplateLines(draft.lines.map((l) => ({ ...l, measurementKey: l.measurementKey || undefined, wastePct: l.wastePct === "" ? undefined : l.wastePct }))),
+    templateLines: sanitiseTemplateLines(draft.lines.map((l) => ({ ...l, measurementKey: l.measurementKey || undefined, wastePct: l.wastePct === "" ? undefined : l.wastePct, coverage: l.coverage === "" ? undefined : l.coverage }))),
     defaultDiscount: sanitiseDefaultDiscount(draft.discount),
     imageUrl: draft.imageUrl || null,
     estimateTypes: sanitiseEstimateTypes(draft.estimateTypes),
@@ -235,6 +236,9 @@ function TemplateEditor({ product, category, currency, language, canEdit, onSave
   // builder's treads, a roofer's squares — so the picker is offered on every
   // line, from the one registry (lib/services/measurementKeys.js).
   const measureLabel = (k) => t(`app.serviceTemplates.measure_${k}`, MEASUREMENT_REGISTRY[k]?.label || k);
+  // The trade's own figures first (lib/services/measurementKeys.js
+  // TRADE_MEASUREMENTS), then every other registered key.
+  const measureKeys = useMemo(() => measurementKeysForTrade(category.key), [category.key]);
 
   // A fresh row from the server (after a save elsewhere) resets an untouched draft.
   const dirty = useMemo(() => JSON.stringify(payloadFrom(draft)) !== JSON.stringify(payloadFrom(draftFrom(product))), [draft, product]);
@@ -392,7 +396,7 @@ function TemplateEditor({ product, category, currency, language, canEdit, onSave
                       <div className="flex gap-1">
                         <select className={input} value={l.measurementKey} disabled={!canEdit} onChange={(e) => setLine(l._i, { measurementKey: e.target.value })}>
                           <option value="">{t("app.serviceTemplates.measurementNone", "Typed qty")}</option>
-                          {MEASUREMENT_KEY_LIST.map((k) => (
+                          {measureKeys.map((k) => (
                             <option key={k} value={k}>{measureLabel(k)}</option>
                           ))}
                         </select>
@@ -401,6 +405,11 @@ function TemplateEditor({ product, category, currency, language, canEdit, onSave
                             so the box is offered on material lines only. */}
                         {l.measurementKey && l.kind === "material" && (
                           <input className={`${num} w-20`} type="number" min="0" max="50" step="0.5" value={l.wastePct} disabled={!canEdit} onChange={(e) => setLine(l._i, { wastePct: e.target.value })} placeholder={t("app.serviceTemplates.wastePct", "Waste %")} title={t("app.serviceTemplates.wastePct", "Waste %")} />
+                        )}
+                        {/* How much of the figure one unit covers — 32 sq ft per
+                            drywall sheet, 8 ft per fence post. Blank = 1. */}
+                        {l.measurementKey && (
+                          <input className={`${num} w-20`} type="number" min="0" step="any" value={l.coverage} disabled={!canEdit} onChange={(e) => setLine(l._i, { coverage: e.target.value })} placeholder={t("app.serviceTemplates.coverage", "Per unit")} title={t("app.serviceTemplates.coverageHint", "How much of the measurement one unit covers, e.g. 32 sq ft per sheet. Blank = 1.")} />
                         )}
                       </div>
                     </div>

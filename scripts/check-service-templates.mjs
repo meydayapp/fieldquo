@@ -76,7 +76,13 @@ import {
   sanitiseEstimateTypes,
   ESTIMATE_TYPE_KEYS,
 } from "@/lib/services/templates";
-import { MEASUREMENT_KEYS as REGISTRY, MEASUREMENT_KEY_LIST, isMeasurementKey } from "@/lib/services/measurementKeys";
+import { MEASUREMENT_KEYS as REGISTRY, MEASUREMENT_KEY_LIST, isMeasurementKey, TRADE_MEASUREMENTS, measurementKeysForTrade } from "@/lib/services/measurementKeys";
+import { roofLabour } from "@/lib/pricing/roofLabour";
+import { deriveGutters } from "@/lib/measure/gutterMeasurement";
+import { baseMaterials } from "@/lib/pricing/paverTakeoff";
+import { LOT_AREA_FIELD, LOT_EDGE_FIELD } from "@/lib/measure/lotTakeoff";
+import { estimateOpenings, estimateCircuits, estimateWire, estimateLabourHours } from "@/lib/estimate/rewireTakeoff";
+import { measureTracedArea } from "@/lib/estimate/tracedArea";
 import { derivedGeometry } from "@/lib/pricing/paintTakeoff";
 import { stairsFromSteps } from "@/lib/estimate/stairsFromSteps";
 import { CAPTURE } from "../docs/screens/app-guide/harness/fixtures/estimate-templates-electrical.js";
@@ -384,6 +390,48 @@ section("G — the measurement registry, against the takeoffs that produce the k
   const hostile = expandTemplate(product, { measurements: { wallSqft: "abc", balusters: -3, doorCount: Infinity, squares: null }, currency: "CAD" });
   ok(hostile.every((l) => l.needsMeasurement), "non-numeric, negative, infinite and null figures all ask rather than fill", hostile.map((l) => l.quantity));
   ok(JSON.stringify(CAPTURE) === JSON.stringify(JSON.parse(read("docs/research/hcp-estimate-templates-electrical.json"))), "the harness's JS copy of the capture equals the research JSON");
+}
+
+section("I — every calculator's keys are real output names; trades that reuse a takeoff; coverage");
+{
+  const roof = { areaSqft: 2140, squares: 21.4, footprintSqft: 1620, lowSlopeShare: 0, linear: { eaveFt: 120, ridgeFt: 44, hipFt: 0, valleyFt: 18, rakeFt: 60, perimeterFt: 180 } };
+  const lab = roofLabour({ squares: 21.4, pitchRise: 6, footprintSqft: 1620 });
+  for (const k of ["hours", "onRoofHours", "fixedHours"]) ok(isMeasurementKey(k) && Number.isFinite(lab?.[k]), `roofLabour produces "${k}"`, lab?.[k]);
+  const g = deriveGutters(roof);
+  for (const k of ["gutterFt", "downspouts"]) ok(isMeasurementKey(k) && Number.isFinite(g?.[k]), `deriveGutters produces "${k}"`, g?.[k]);
+  const base = baseMaterials({ areaSqFt: 400 });
+  for (const k of ["gravelCuYd", "sandCuYd"]) ok(isMeasurementKey(k) && base && k in base, `baseMaterials produces "${k}"`, base?.[k]);
+  ok(isMeasurementKey(LOT_AREA_FIELD) && isMeasurementKey(LOT_EDGE_FIELD), "the lot takeoff's two intake fields are keys", [LOT_AREA_FIELD, LOT_EDGE_FIELD]);
+  const house = { sqft: 1800, bedrooms: 3, baths: 2, codeJurisdiction: "NEC" };
+  const op = estimateOpenings(house);
+  for (const k of ["openings", "receptaclesPractical", "switches", "lighting", "smokeCo", "dedicated", "counterReceptacles", "exteriorReceptacles", "garageReceptacles"]) ok(isMeasurementKey(k) && op && k in op, `estimateOpenings produces "${k}"`, op?.[k]);
+  const ci = estimateCircuits({ ...house, dedicated: op.dedicated, counterReceptacles: op.counterReceptacles });
+  ok(isMeasurementKey("circuits") && Number.isFinite(ci?.circuits), "estimateCircuits produces \"circuits\"", ci?.circuits);
+  const wi = estimateWire({ openings: op, circuits: ci, sqft: 1800 });
+  ok(isMeasurementKey("totalFt") && Number.isFinite(wi?.totalFt), "estimateWire produces \"totalFt\"", wi?.totalFt);
+  const lh = estimateLabourHours({ openings: op, circuits: ci, accessClass: "open_walls" });
+  for (const k of ["roughInHours", "trimOutHours", "panelHours", "totalHours"]) ok(isMeasurementKey(k) && lh && k in lh, `estimateLabourHours produces "${k}"`, lh?.[k]);
+  const tr = measureTracedArea([[45.4, -75.7], [45.4001, -75.7], [45.4001, -75.6999], [45.4, -75.6999]]);
+  ok(tr.ok === false || (isMeasurementKey("areaSqft") && tr.measurement.areaSqft > 0), "measureTracedArea's figure is areaSqft", tr);
+  for (const [trade, keys] of Object.entries(TRADE_MEASUREMENTS)) ok(keys.every(isMeasurementKey), `TRADE_MEASUREMENTS.${trade}: every key registered`, keys.filter((k) => !isMeasurementKey(k)));
+  ok(JSON.stringify(TRADE_MEASUREMENTS.flooring) === JSON.stringify(["floorSqft", "linearFt"]) && TRADE_MEASUREMENTS.tiling.includes("wallSqft") && TRADE_MEASUREMENTS.drywall.includes("ceilingSqft") && TRADE_MEASUREMENTS.siding[0] === "wallSqft" && TRADE_MEASUREMENTS.fence_services[0] === "edgingFt" && TRADE_MEASUREMENTS.concrete[0] === "areaSqft", "flooring, tile, drywall, siding, fencing, concrete reuse the existing takeoffs");
+  const fk = measurementKeysForTrade("flooring");
+  ok(fk[0] === "floorSqft" && fk[1] === "linearFt" && fk.length === MEASUREMENT_KEY_LIST.length && new Set(fk).size === fk.length, "a trade's picker: its own figures first, then every key once", fk.slice(0, 3));
+  ok(measurementKeysForTrade("constructor").length === MEASUREMENT_KEY_LIST.length, "unknown trade: every key, no crash");
+  // Coverage: drywall sheets, fence posts, concrete yards, flooring waste.
+  const room = derivedGeometry({ lengthFt: 12, widthFt: 10, heightFt: 8 });
+  const cov = expandTemplate({ templateLines: [
+    { kind: "material", name: "Drywall sheet 4×8", qty: 1, unit: "each", unitPrice: 18, unitCost: 13, measurementKey: "wallSqft", coverage: 32, wastePct: 10 },
+    { kind: "material", name: "Fence post", qty: 1, unit: "each", unitPrice: 40, unitCost: 30, measurementKey: "edgingFt", coverage: 8 },
+    { kind: "material", name: "Concrete — 4 in", qty: 1, unit: "each", unitPrice: 180, unitCost: 140, measurementKey: "areaSqft", coverage: 81 },
+    { kind: "material", name: "Laminate", qty: 1, unit: "sqft", unitPrice: 3, unitCost: 2.2, measurementKey: "floorSqft", wastePct: 10 },
+    { kind: "labour", name: "Baseboard", qty: 1, unit: "linear_ft", unitPrice: 4, unitCost: 2, measurementKey: "linearFt" },
+  ] }, { measurements: { ...room, edgingFt: 160, areaSqft: 810 }, currency: "CAD" });
+  ok(cov[0].quantity === 12.1 && cov[1].quantity === 20 && cov[2].quantity === 10, "coverage: 352 ÷ 32 × 1.10 = 12.1 sheets; 160 ÷ 8 = 20 posts; 810 ÷ 81 = 10 yd", cov.slice(0, 3).map((l) => l.quantity));
+  ok(cov[3].quantity === 132 && cov[4].quantity === 44, "flooring: 120 sq ft × 1.10 waste; baseboard = the room perimeter linearFt 44", [cov[3].quantity, cov[4].quantity]);
+  const bad = sanitiseTemplateLine({ kind: "material", name: "x", measurementKey: "wallSqft", coverage: -3 });
+  ok(!("coverage" in bad) && !("coverage" in sanitiseTemplateLine({ kind: "material", name: "x", measurementKey: "wallSqft", coverage: 1 })) && !("coverage" in sanitiseTemplateLine({ kind: "material", name: "x", coverage: 32 })), "coverage: negative, 1, or without a key → not stored");
+  ok(validateTemplateLines([{ kind: "material", name: "x", measurementKey: "wallSqft", coverage: 0 }, { kind: "material", name: "y", coverage: 32 }]).length === 2, "validate: zero coverage and coverage without a key are both problems");
 }
 
 section("H — where a template is offered: templatesFor and the seed's quote-type links");
