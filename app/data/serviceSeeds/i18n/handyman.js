@@ -76,6 +76,13 @@ export const I18N = {
    "uk": "Сантехніка",
    "pa": "ਪਲੰਬਿੰਗ",
    "tl": "Tubero"
+  },
+  "childproofing": {
+   "it": "Sicurezza bambini in casa",
+   "de": "Kindersicherung im Haus",
+   "uk": "Безпека дітей удома",
+   "pa": "ਘਰ ਵਿੱਚ ਬੱਚਿਆਂ ਦੀ ਸੁਰੱਖਿਆ",
+   "tl": "Childproofing at kaligtasan sa bahay"
   }
  },
  "services": {
@@ -1606,6 +1613,270 @@ export const I18N = {
     "ਪਰਨਾਲੇ ਦੀ ਮੁਰੰਮਤ",
     "ਝੁਕਿਆ, ਲੀਕ ਜਾਂ ਉੱਖੜਿਆ ਪਰਨਾਲਾ ਮੁੜ ਜੋੜਿਆ, ਸੀਲ ਅਤੇ ਨਿਕਾਸ ਲਈ ਢਲਾਣ।"
    ]
+  },
+  "fq.handyman.doors_windows.lock_rekey": {
+   "it": [
+    "Ricifratura serratura — per cilindro",
+    "Serratura ripinnata su una nuova chiave così le chiavi perse o vecchie non aprono più, senza cambiare la ferramenta."
+   ],
+   "de": [
+    "Schloss umstiften — pro Zylinder",
+    "Schloss auf einen neuen Schlüssel umgestiftet, damit verlorene oder alte Schlüssel nicht mehr sperren, ohne die Beschläge zu tauschen."
+   ],
+   "uk": [
+    "Перекодування замка — за циліндр",
+    "Замок перепіновано під новий ключ, щоб загублені чи старі ключі більше не відчиняли, без заміни фурнітури."
+   ],
+   "pa": [
+    "ਤਾਲੇ ਦੀ ਰੀਕੀਇੰਗ — ਪ੍ਰਤੀ ਸਿਲੰਡਰ",
+    "ਤਾਲੇ ਦੇ ਪਿੰਨ ਨਵੀਂ ਚਾਬੀ ਲਈ ਬਦਲੇ ਤਾਂ ਜੋ ਗੁੰਮ ਜਾਂ ਪੁਰਾਣੀਆਂ ਚਾਬੀਆਂ ਨਾ ਚੱਲਣ, ਹਾਰਡਵੇਅਰ ਬਦਲੇ ਬਿਨਾਂ।"
+   ],
+   "tl": [
+    "Rekey ng lock — kada cylinder",
+    "Pinalitan ang pin ng lock para sa bagong susi para hindi na gumana ang nawala o lumang susi, nang hindi pinapalitan ang hardware."
+   ]
+  },
+  "fq.handyman.doors_windows.deadbolt_install": {
+   "it": [
+    "Installazione catenaccio",
+    "Catenaccio aggiunto a una porta che non ne ha: porta forata, catenaccio montato e bocchetta rinforzata fino all'intelaiatura."
+   ],
+   "de": [
+    "Riegelschloss einbauen",
+    "Ein Riegelschloss an einer Tür ohne: Tür gebohrt, Riegel eingesetzt und das Schließblech bis in den Rahmen verstärkt."
+   ],
+   "uk": [
+    "Встановлення засувного замка",
+    "Засувний замок на двері, де його немає: двері просвердлено, засув встановлено, відповідну планку підсилено до каркаса."
+   ],
+   "pa": [
+    "ਡੈੱਡਬੋਲਟ ਲਾਉਣਾ",
+    "ਜਿਸ ਦਰਵਾਜ਼ੇ 'ਤੇ ਡੈੱਡਬੋਲਟ ਨਹੀਂ ਉੱਥੇ ਲਾਇਆ: ਦਰਵਾਜ਼ੇ ਵਿੱਚ ਛੇਕ, ਬੋਲਟ ਫ਼ਿੱਟ ਅਤੇ ਸਟ੍ਰਾਈਕ ਚੁਗਾਠ ਤੱਕ ਮਜ਼ਬੂਤ ਕੀਤੀ।"
+   ],
+   "tl": [
+    "Pagkabit ng deadbolt",
+    "Nagdagdag ng deadbolt sa pintong wala nito: binutasan ang pinto, ikinabit ang bolt at pinatibay ang strike hanggang sa frame."
+   ]
+  },
+  "fq.handyman.doors_windows.smart_lock_install": {
+   "it": [
+    "Installazione serratura smart",
+    "Catenaccio esistente sostituito con una serratura smart a tastierino o via app, abbinata e configurata con i codici della famiglia."
+   ],
+   "de": [
+    "Smart Lock montieren",
+    "Vorhandenes Riegelschloss gegen ein Smart Lock mit Tastatur oder App getauscht, gekoppelt und mit den Codes des Haushalts eingerichtet."
+   ],
+   "uk": [
+    "Встановлення розумного замка",
+    "Наявний засув замінено на розумний замок із клавіатурою чи керуванням через застосунок, спарено й налаштовано з кодами родини."
+   ],
+   "pa": [
+    "ਸਮਾਰਟ ਤਾਲਾ ਲਾਉਣਾ",
+    "ਮੌਜੂਦਾ ਡੈੱਡਬੋਲਟ ਦੀ ਥਾਂ ਕੀਪੈਡ ਜਾਂ ਐਪ ਨਾਲ ਚੱਲਣ ਵਾਲਾ ਸਮਾਰਟ ਤਾਲਾ, ਜੋੜਿਆ ਅਤੇ ਘਰ ਦੇ ਕੋਡਾਂ ਨਾਲ ਸੈੱਟ ਕੀਤਾ।"
+   ],
+   "tl": [
+    "Pagkabit ng smart lock",
+    "Pinalitan ang dating deadbolt ng smart lock na may keypad o app, pinair at in-set up sa mga code ng bahay."
+   ]
+  },
+  "fq.handyman.doors_windows.lockset_replacement": {
+   "it": [
+    "Sostituzione della serratura della porta",
+    "Serratura a pomolo o maniglia consumata o rotta sostituita e scrocco allineato perché la porta chiuda e si blocchi bene."
+   ],
+   "de": [
+    "Türschloss tauschen",
+    "Abgenutzte oder defekte Knauf- oder Drückergarnitur ersetzt und die Falle ausgerichtet, damit die Tür sauber schließt und sperrt."
+   ],
+   "uk": [
+    "Заміна дверного замка",
+    "Зношений чи зламаний замок із ручкою-кнопкою або натискною ручкою замінено, засувку вирівняно, щоб двері чисто зачинялися й замикалися."
+   ],
+   "pa": [
+    "ਦਰਵਾਜ਼ੇ ਦਾ ਲੌਕਸੈੱਟ ਬਦਲਣਾ",
+    "ਘਸਿਆ ਜਾਂ ਟੁੱਟਿਆ ਨੌਬ ਜਾਂ ਲੀਵਰ ਲੌਕਸੈੱਟ ਬਦਲਿਆ ਅਤੇ ਲੈਚ ਸਿੱਧੀ ਕੀਤੀ ਤਾਂ ਜੋ ਦਰਵਾਜ਼ਾ ਠੀਕ ਬੰਦ ਹੋਵੇ ਅਤੇ ਤਾਲਾ ਲੱਗੇ।"
+   ],
+   "tl": [
+    "Palit ng lockset ng pinto",
+    "Pinalitan ang pudpod o sirang knob o lever lockset at inayos ang latch para maayos magsara at mag-lock ang pinto."
+   ]
+  },
+  "fq.handyman.doors_windows.weatherstrip_sweep": {
+   "it": [
+    "Sostituzione guarnizioni e paraspifferi della porta",
+    "Guarnizioni consumate di una porta esterna sostituite e nuovo paraspifferi montato, così la porta sigilla quando si chiude."
+   ],
+   "de": [
+    "Türdichtungen und Bodendichtung erneuern",
+    "Verschlissene Dichtungen einer Außentür ersetzt und eine neue Bodendichtung gesetzt, damit die Tür geschlossen dicht ist."
+   ],
+   "uk": [
+    "Заміна ущільнювачів і нижньої щітки дверей",
+    "Зношений ущільнювач вхідних дверей замінено й встановлено нову нижню щітку, щоб зачинені двері не пропускали повітря."
+   ],
+   "pa": [
+    "ਦਰਵਾਜ਼ੇ ਦੀ ਵੈਦਰਸਟ੍ਰਿਪ ਅਤੇ ਸਵੀਪ ਬਦਲਣਾ",
+    "ਬਾਹਰੀ ਦਰਵਾਜ਼ੇ ਦੀ ਘਸੀ ਵੈਦਰਸਟ੍ਰਿਪ ਬਦਲੀ ਅਤੇ ਨਵੀਂ ਸਵੀਪ ਲਾਈ, ਤਾਂ ਜੋ ਬੰਦ ਹੋਣ 'ਤੇ ਦਰਵਾਜ਼ਾ ਸੀਲ ਹੋਵੇ।"
+   ],
+   "tl": [
+    "Palit ng weatherstrip at sweep ng pinto",
+    "Pinalitan ang pudpod na weatherstrip ng panlabas na pinto at nilagyan ng bagong sweep, para selyado ang pinto pag sarado."
+   ]
+  },
+  "fq.handyman.painting.tub_shower_recaulk": {
+   "it": [
+    "Nuova sigillatura di vasca e doccia",
+    "Vecchio sigillante ammuffito tolto attorno a vasca o doccia, giunto pulito e asciugato e nuovo cordone di silicone steso."
+   ],
+   "de": [
+    "Wanne und Dusche neu verfugen",
+    "Alte, verschimmelte Fuge rund um Wanne oder Dusche entfernt, gereinigt und getrocknet und eine frische Silikonfuge gezogen."
+   ],
+   "uk": [
+    "Повторна герметизація ванни та душу",
+    "Старий пліснявий герметик навколо ванни чи душу вирізано, шов очищено й висушено, нанесено новий силіконовий шов."
+   ],
+   "pa": [
+    "ਟੱਬ ਅਤੇ ਸ਼ਾਵਰ ਦੀ ਮੁੜ ਕੌਕਿੰਗ",
+    "ਟੱਬ ਜਾਂ ਸ਼ਾਵਰ ਦੁਆਲੇ ਪੁਰਾਣੀ, ਉੱਲੀ ਲੱਗੀ ਕੌਕ ਕੱਟੀ, ਜੋੜ ਸਾਫ਼ ਕਰਕੇ ਸੁਕਾਇਆ ਅਤੇ ਨਵੀਂ ਸਿਲੀਕੋਨ ਲਕੀਰ ਲਾਈ।"
+   ],
+   "tl": [
+    "Muling pag-caulk ng tub at shower",
+    "Tinanggal ang luma at inaamag na caulk sa paligid ng tub o shower, nilinis at pinatuyo ang dugtungan, at nilagyan ng bagong silicone."
+   ]
+  },
+  "fq.handyman.painting.window_door_weatherproofing": {
+   "it": [
+    "Sigillatura e impermeabilizzazione — per finestra o porta",
+    "Giunto esterno di una finestra o porta sigillato contro spifferi e acqua: vecchio sigillante tolto, fessure riempite e nuovo cordone lisciato."
+   ],
+   "de": [
+    "Abdichten gegen Wind und Wasser — pro Fenster oder Tür",
+    "Die Außenfuge eines Fensters oder einer Tür gegen Zugluft und Wasser abgedichtet: alte Fuge raus, Spalten hinterfüllt, neue Fuge gezogen."
+   ],
+   "uk": [
+    "Герметизація від протягів і води — за вікно чи двері",
+    "Зовнішній шов одного вікна чи дверей загерметизовано від протягів і води: старий герметик прибрано, щілини заповнено, новий шов вирівняно."
+   ],
+   "pa": [
+    "ਕੌਕਿੰਗ ਅਤੇ ਮੌਸਮ-ਰੋਕ — ਪ੍ਰਤੀ ਖਿੜਕੀ ਜਾਂ ਦਰਵਾਜ਼ਾ",
+    "ਇੱਕ ਖਿੜਕੀ ਜਾਂ ਦਰਵਾਜ਼ੇ ਦੁਆਲੇ ਬਾਹਰਲਾ ਜੋੜ ਹਵਾ ਅਤੇ ਪਾਣੀ ਤੋਂ ਸੀਲ: ਪੁਰਾਣੀ ਕੌਕ ਕੱਢੀ, ਵਿਰਲਾਂ ਭਰੀਆਂ ਅਤੇ ਨਵੀਂ ਲਕੀਰ ਲਾਈ।"
+   ],
+   "tl": [
+    "Caulking at weatherproofing — kada bintana o pinto",
+    "Sinelyuhan laban sa hangin at tubig ang labas na dugtungan ng isang bintana o pinto: tinanggal ang lumang caulk, pinunan ang puwang at nilagyan ng bagong caulk."
+   ]
+  },
+  "fq.handyman.childproofing.home_visit": {
+   "it": [
+    "Visita di messa in sicurezza per bambini — tutta la casa",
+    "Casa percorsa stanza per stanza all'altezza di un bambino, poi chiusure, copriprese, paraspigoli e ancoraggi montati dove servono."
+   ],
+   "de": [
+    "Kindersicherungs-Besuch — ganzes Haus",
+    "Das Haus Raum für Raum auf Kinderhöhe begangen, dann Sperren, Steckdosenschutz, Eckenschutz und Kippsicherungen angebracht, wo sie nötig sind."
+   ],
+   "uk": [
+    "Візит із захисту для малюка — увесь дім",
+    "Будинок обійдено кімната за кімнатою на рівні зросту дитини, потім встановлено блокувальники, заглушки розеток, захисні кути й кріплення там, де потрібно."
+   ],
+   "pa": [
+    "ਬੱਚਿਆਂ ਲਈ ਸੁਰੱਖਿਆ ਵਿਜ਼ਿਟ — ਸਾਰਾ ਘਰ",
+    "ਬੱਚੇ ਦੀ ਉਚਾਈ ਤੋਂ ਹਰ ਕਮਰਾ ਦੇਖਿਆ, ਫਿਰ ਜਿੱਥੇ ਲੋੜ ਹੋਵੇ ਲੈਚ, ਸਾਕਟ ਕਵਰ, ਕੋਨਾ ਗਾਰਡ ਅਤੇ ਐਂਕਰ ਲਾਏ।"
+   ],
+   "tl": [
+    "Baby-proofing visit — buong bahay",
+    "Nilibot ang bahay kuwarto-kuwarto sa taas ng bata, tapos ikinabit ang latch, takip ng outlet, corner guard at anchor kung saan kailangan."
+   ]
+  },
+  "fq.handyman.childproofing.safety_gate": {
+   "it": [
+    "Installazione cancelletto di sicurezza",
+    "Cancelletto fissato a vite in cima o in fondo alle scale o in un vano porta, con apertura dalla parte opposta ai gradini."
+   ],
+   "de": [
+    "Treppenschutzgitter montieren",
+    "Ein verschraubtes Schutzgitter oben oder unten an der Treppe oder in einer Türöffnung, das von den Stufen weg aufschwingt."
+   ],
+   "uk": [
+    "Встановлення захисних воріт для дитини",
+    "Захисні ворітця прикручено вгорі чи внизу сходів або в дверному отворі, відчиняються в бік від сходинок."
+   ],
+   "pa": [
+    "ਬੱਚਿਆਂ ਵਾਲਾ ਸੁਰੱਖਿਆ ਗੇਟ ਲਾਉਣਾ",
+    "ਪੌੜੀਆਂ ਦੇ ਉੱਪਰ ਜਾਂ ਹੇਠਾਂ ਜਾਂ ਦਰਵਾਜ਼ੇ ਵਿੱਚ ਪੇਚਾਂ ਨਾਲ ਲੱਗਿਆ ਸੁਰੱਖਿਆ ਗੇਟ, ਜੋ ਪੌੜੀਆਂ ਤੋਂ ਦੂਰ ਵੱਲ ਖੁੱਲ੍ਹਦਾ ਹੈ।"
+   ],
+   "tl": [
+    "Pagkabit ng baby gate",
+    "Safety gate na tinurnilyo sa itaas o ibaba ng hagdan o sa pintuan, na bumubukas palayo sa baitang."
+   ]
+  },
+  "fq.handyman.childproofing.cabinet_latches": {
+   "it": [
+    "Blocchi di sicurezza per ante e cassetti",
+    "Blocchi di sicurezza o serrature magnetiche montati su ante e cassetti con prodotti chimici, coltelli o medicinali."
+   ],
+   "de": [
+    "Kindersicherungen für Schränke und Schubladen",
+    "Sicherungsriegel oder Magnetschlösser an Schränken und Schubladen mit Chemikalien, Messern oder Medikamenten."
+   ],
+   "uk": [
+    "Блокувальники для шаф і шухляд",
+    "Дитячі блокувальники чи магнітні замки на шафах і шухлядах, де зберігаються хімія, ножі чи ліки."
+   ],
+   "pa": [
+    "ਕੈਬਨਿਟਾਂ ਅਤੇ ਦਰਾਜ਼ਾਂ ਲਈ ਸੁਰੱਖਿਆ ਲੈਚ",
+    "ਕੈਮੀਕਲ, ਚਾਕੂ ਜਾਂ ਦਵਾਈਆਂ ਵਾਲੀਆਂ ਕੈਬਨਿਟਾਂ ਅਤੇ ਦਰਾਜ਼ਾਂ 'ਤੇ ਬੱਚਿਆਂ ਤੋਂ ਸੁਰੱਖਿਆ ਲੈਚ ਜਾਂ ਚੁੰਬਕੀ ਤਾਲੇ।"
+   ],
+   "tl": [
+    "Safety latch sa cabinet at drawer",
+    "Child-safety latch o magnetic lock na ikinabit sa cabinet at drawer na may kemikal, kutsilyo o gamot."
+   ]
+  },
+  "fq.handyman.childproofing.furniture_anchoring": {
+   "it": [
+    "Ancoraggio antiribaltamento di mobili e TV",
+    "Cassettiere, librerie e TV fissati ai montanti del muro perché un bambino che si arrampica non li faccia cadere."
+   ],
+   "de": [
+    "Kippsicherung für Möbel und Fernseher",
+    "Kommoden, Regale und Fernseher an den Wandständern gesichert, damit ein kletterndes Kind sie nicht umreißen kann."
+   ],
+   "uk": [
+    "Кріплення меблів і телевізора від перекидання",
+    "Комоди, книжкові шафи й телевізори прикріплено до стійок стіни, щоб дитина, яка лізе, не перекинула їх."
+   ],
+   "pa": [
+    "ਫ਼ਰਨੀਚਰ ਅਤੇ ਟੀਵੀ ਨੂੰ ਡਿੱਗਣ ਤੋਂ ਰੋਕਣ ਵਾਲੇ ਐਂਕਰ",
+    "ਡ੍ਰੈੱਸਰ, ਕਿਤਾਬਾਂ ਵਾਲੀਆਂ ਅਲਮਾਰੀਆਂ ਅਤੇ ਟੀਵੀ ਕੰਧ ਦੇ ਸਟੱਡਾਂ ਨਾਲ ਬੰਨ੍ਹੇ ਤਾਂ ਜੋ ਚੜ੍ਹਦਾ ਬੱਚਾ ਉਹਨਾਂ ਨੂੰ ਨਾ ਸੁੱਟ ਸਕੇ।"
+   ],
+   "tl": [
+    "Anti-tip anchoring ng muwebles at TV",
+    "Itinali sa stud ng pader ang dresser, bookshelf at TV para hindi mahila pababa ng batang umaakyat."
+   ]
+  },
+  "fq.handyman.childproofing.window_safety": {
+   "it": [
+    "Fermi e grate per finestre",
+    "Fermi che limitano l'apertura a 4 pollici, o grate sull'anta inferiore, perché un bambino non possa cadere."
+   ],
+   "de": [
+    "Fensterstopper und Fenstergitter",
+    "Stopper, die ein Fenster auf 4 Zoll Öffnung begrenzen, oder Gitter vor dem unteren Flügel, damit kein Kind hinausfallen kann."
+   ],
+   "uk": [
+    "Обмежувачі та ґрати для вікон",
+    "Обмежувачі, що дають відчинити вікно лише на 4 дюйми, або ґрати на нижній стулці, щоб дитина не могла випасти."
+   ],
+   "pa": [
+    "ਖਿੜਕੀ ਸਟੌਪ ਅਤੇ ਗਾਰਡ",
+    "ਖਿੜਕੀ ਨੂੰ ਸਿਰਫ਼ 4 ਇੰਚ ਖੁੱਲ੍ਹਣ ਦੇਣ ਵਾਲੇ ਸਟੌਪ, ਜਾਂ ਹੇਠਲੇ ਸੈਸ਼ 'ਤੇ ਗਾਰਡ, ਤਾਂ ਜੋ ਬੱਚਾ ਡਿੱਗ ਨਾ ਸਕੇ।"
+   ],
+   "tl": [
+    "Window stop at guard",
+    "Stop na naglilimita sa bukas ng bintana sa 4 in, o guard sa ibabang sash, para hindi mahulog ang bata."
+   ]
   }
  },
  "lines": {
@@ -1889,6 +2160,786 @@ export const I18N = {
    "pa": [
     "ਪਰਨਾਲੇ ਦੇ ਹਿੱਸੇ ਦੀ ਮੁਰੰਮਤ",
     "ਹੈਂਗਰ ਬਦਲੇ, ਜੋੜ ਮੁੜ ਸੀਲ ਅਤੇ ਹਿੱਸੇ ਨੂੰ ਮੁੜ ਢਲਾਣ।"
+   ]
+  },
+  "Hot tub placement and levelling": {
+   "pa": [
+    "ਹੌਟ ਟੱਬ ਰੱਖਣਾ ਅਤੇ ਪੱਧਰਾ ਕਰਨਾ",
+    "ਟੱਬ ਡੌਲੀਆਂ ਜਾਂ ਰੋਲਰਾਂ 'ਤੇ ਉਸਦੇ ਪੈਡ ਤੱਕ ਲਿਆਂਦਾ, ਸ਼ਿਮ ਲਾ ਕੇ ਪੱਧਰਾ ਕੀਤਾ ਅਤੇ ਢੱਕਣ ਲਾਇਆ।"
+   ]
+  },
+  "Hookup, first fill and leak check": {
+   "pa": [
+    "ਕਨੈਕਸ਼ਨ, ਪਹਿਲੀ ਭਰਾਈ ਅਤੇ ਲੀਕ ਜਾਂਚ",
+    "ਟੱਬ ਇਲੈਕਟ੍ਰੀਸ਼ੀਅਨ ਦੇ ਛੱਡੇ ਡਿਸਕਨੈਕਟ ਨਾਲ ਜੋੜਿਆ, ਭਰਿਆ, ਚਾਲੂ ਕੀਤਾ ਅਤੇ ਲੀਕ ਅਤੇ ਗਰਮੀ ਲਈ ਜਾਂਚਿਆ।"
+   ]
+  },
+  "Siding and trim repair labour": {
+   "pa": [
+    "ਸਾਈਡਿੰਗ ਅਤੇ ਟ੍ਰਿਮ ਮੁਰੰਮਤ ਦੀ ਲੇਬਰ",
+    "ਗਲੇ ਤਖ਼ਤੇ ਅਤੇ ਟ੍ਰਿਮ ਕੱਟੇ, ਪਿਛਲਾ ਹਿੱਸਾ ਜਾਂਚਿਆ, ਨਵੇਂ ਟੁਕੜੇ ਕੱਟ ਕੇ ਲਾਏ, ਕਿੱਲਾਂ ਨਾਲ ਜੜੇ ਅਤੇ ਕੌਕ ਕੀਤੇ, ਘੰਟੇ ਦੇ ਹਿਸਾਬ ਨਾਲ।"
+   ]
+  },
+  "Siding boards and trim stock": {
+   "pa": [
+    "ਸਾਈਡਿੰਗ ਤਖ਼ਤੇ ਅਤੇ ਟ੍ਰਿਮ",
+    "ਘਰ 'ਤੇ ਲੱਗੇ ਪ੍ਰੋਫ਼ਾਈਲ ਵਰਗੇ ਬਦਲਵੇਂ ਸਾਈਡਿੰਗ ਟੁਕੜੇ, ਜਾਂ PVC ਜਾਂ ਪ੍ਰਾਈਮ ਕੀਤੀ ਲੱਕੜ ਦੀ ਟ੍ਰਿਮ।"
+   ]
+  },
+  "Closet door installation — per door": {
+   "pa": [
+    "ਅਲਮਾਰੀ ਦਾ ਦਰਵਾਜ਼ਾ ਲਾਉਣਾ — ਪ੍ਰਤੀ ਦਰਵਾਜ਼ਾ",
+    "ਬਾਈਫ਼ੋਲਡ ਜਾਂ ਬਾਈਪਾਸ ਦਰਵਾਜ਼ਾ ਟ੍ਰੈਕ 'ਤੇ ਟੰਗਿਆ, ਪਿਵਟ ਲਾਏ ਅਤੇ ਦਰਵਾਜ਼ੇ ਮਿਲਣ ਅਤੇ ਸਰਕਣ ਲਈ ਠੀਕ ਕੀਤੇ।"
+   ]
+  },
+  "Closet door track and hardware — per door": {
+   "pa": [
+    "ਅਲਮਾਰੀ ਦੇ ਦਰਵਾਜ਼ੇ ਦਾ ਟ੍ਰੈਕ ਅਤੇ ਹਾਰਡਵੇਅਰ — ਪ੍ਰਤੀ ਦਰਵਾਜ਼ਾ",
+    "ਇੱਕ ਬਾਈਫ਼ੋਲਡ ਜਾਂ ਬਾਈਪਾਸ ਦਰਵਾਜ਼ੇ ਲਈ ਟ੍ਰੈਕ, ਪਿਵਟ, ਗਾਈਡ ਅਤੇ ਹੈਂਡਲ।"
+   ]
+  },
+  "Closet shelving system": {
+   "pa": [
+    "ਅਲਮਾਰੀ ਸ਼ੈਲਫ਼ ਸਿਸਟਮ",
+    "ਇੱਕ ਆਮ ਅਲਮਾਰੀ ਲਈ ਟੰਗਣ ਵਾਲੀਆਂ ਰਾਡਾਂ, ਸਟੈਂਡਰਡ ਅਤੇ ਬ੍ਰੈਕਟਾਂ ਸਮੇਤ ਤਾਰ ਜਾਂ ਲੈਮੀਨੇਟ ਸ਼ੈਲਫ਼ਾਂ।"
+   ]
+  },
+  "Hinge, latch and strike adjustment": {
+   "pa": [
+    "ਕਬਜ਼ੇ, ਲੈਚ ਅਤੇ ਸਟ੍ਰਾਈਕ ਦੀ ਸੈਟਿੰਗ",
+    "ਕਬਜ਼ੇ ਕੱਸੇ ਜਾਂ ਸ਼ਿਮ ਕੀਤੇ, ਸਟ੍ਰਾਈਕ ਹਿਲਾਏ ਅਤੇ ਲੈਚ, ਹੈਂਡਲ ਅਤੇ ਸਲਾਈਡਾਂ ਠੀਕ ਕੀਤੀਆਂ ਜਦ ਤੱਕ ਦਰਵਾਜ਼ੇ ਅਤੇ ਦਰਾਜ਼ ਸਾਫ਼ ਬੰਦ ਨਾ ਹੋਣ, ਘੰਟੇ ਦੇ ਹਿਸਾਬ ਨਾਲ।"
+   ]
+  },
+  "Replacement hinges, strikes and pulls": {
+   "pa": [
+    "ਬਦਲਵੇਂ ਕਬਜ਼ੇ, ਸਟ੍ਰਾਈਕ ਅਤੇ ਹੈਂਡਲ",
+    "ਮੌਜੂਦਾ ਨਾਲ ਮੇਲ ਖਾਂਦੇ ਕਬਜ਼ੇ, ਸਟ੍ਰਾਈਕ ਪਲੇਟਾਂ, ਕੈਚ ਜਾਂ ਹੈਂਡਲ।"
+   ]
+  },
+  "Rot repair — door frame and trim": {
+   "pa": [
+    "ਗਲਣ ਦੀ ਮੁਰੰਮਤ — ਦਰਵਾਜ਼ੇ ਦੀ ਚੁਗਾਠ ਅਤੇ ਟ੍ਰਿਮ",
+    "ਨਰਮ ਲੱਕੜ ਪੱਕੇ ਰੇਸ਼ੇ ਤੱਕ ਕੱਢੀ, ਮਜ਼ਬੂਤ ਕਰਕੇ ਐਪੌਕਸੀ ਜਾਂ ਜੋੜੇ ਟੁਕੜੇ ਨਾਲ ਭਰੀ, ਅਤੇ ਟ੍ਰਿਮ PVC ਜਾਂ ਪ੍ਰਾਈਮ ਲੱਕੜ ਨਾਲ ਬਦਲੀ।"
+   ]
+  },
+  "Epoxy wood filler and trim stock": {
+   "pa": [
+    "ਐਪੌਕਸੀ ਲੱਕੜ ਫ਼ਿਲਰ ਅਤੇ ਟ੍ਰਿਮ",
+    "ਦੋ-ਹਿੱਸਿਆਂ ਵਾਲਾ ਲੱਕੜ ਐਪੌਕਸੀ, ਕੰਸੌਲੀਡੈਂਟ ਅਤੇ ਮੇਲ ਖਾਂਦੀ PVC ਜਾਂ ਪ੍ਰਾਈਮ ਟ੍ਰਿਮ।"
+   ]
+  },
+  "Blind installation — per window": {
+   "pa": [
+    "ਬਲਾਈਂਡ ਲਾਉਣਾ — ਪ੍ਰਤੀ ਖਿੜਕੀ",
+    "ਫ਼ਰੇਮ ਦੇ ਅੰਦਰ ਜਾਂ ਬਾਹਰ ਬ੍ਰੈਕਟ ਪੱਧਰੇ ਲਾਏ, ਬਲਾਈਂਡ ਟੰਗਿਆ, ਵੈਲੈਂਸ ਲਾਈ ਅਤੇ ਉੱਪਰ-ਹੇਠਾਂ ਜਾਂਚਿਆ।"
+   ]
+  },
+  "Cordless blind — per window": {
+   "pa": [
+    "ਬਿਨਾਂ ਡੋਰੀ ਬਲਾਈਂਡ — ਪ੍ਰਤੀ ਖਿੜਕੀ",
+    "ਖਿੜਕੀ ਦੇ ਨਾਪ ਦਾ ਬਿਨਾਂ ਡੋਰੀ ਫ਼ੌਕਸ-ਵੁੱਡ ਜਾਂ ਸੈਲੂਲਰ ਬਲਾਈਂਡ — ਬੱਚਿਆਂ ਲਈ ਸੁਰੱਖਿਅਤ, ਲਟਕਦੀ ਡੋਰੀ ਨਹੀਂ।"
+   ]
+  },
+  "Door sill replacement": {
+   "pa": [
+    "ਦਰਵਾਜ਼ੇ ਦੀ ਦਹਿਲੀਜ਼ ਬਦਲਣਾ",
+    "ਪੁਰਾਣੀ ਦਹਿਲੀਜ਼ ਕੱਟੀ, ਹੇਠਲਾ ਹਿੱਸਾ ਗਲਣ ਲਈ ਜਾਂਚਿਆ, ਨਵੀਂ ਦਹਿਲੀਜ਼ ਸੀਲੈਂਟ ਵਿੱਚ ਬਿਠਾਈ ਅਤੇ ਆਲੇ-ਦੁਆਲੇ ਦੀ ਟ੍ਰਿਮ ਬਦਲੀ।"
+   ]
+  },
+  "Sill and trim": {
+   "pa": [
+    "ਦਹਿਲੀਜ਼ ਅਤੇ ਟ੍ਰਿਮ",
+    "ਓਕ, ਐਲੂਮੀਨੀਅਮ ਜਾਂ ਕੰਪੋਜ਼ਿਟ ਦਹਿਲੀਜ਼ ਅਤੇ ਉਸਨੂੰ ਮੁਕੰਮਲ ਕਰਨ ਲਈ ਕੇਸਿੰਗ ਅਤੇ ਸਟੌਪ।"
+   ]
+  },
+  "Storm door installation": {
+   "pa": [
+    "ਸਟੌਰਮ ਡੋਰ ਲਾਉਣਾ",
+    "Z-ਬਾਰ ਕੱਟ ਕੇ ਦਰਵਾਜ਼ੇ ਦੀ ਥਾਂ ਨਾਲ ਫ਼ਿੱਟ ਕੀਤੀ, ਦਰਵਾਜ਼ਾ ਟੰਗਿਆ, ਕਲੋਜ਼ਰ ਅਤੇ ਲੈਚ ਸੈੱਟ ਅਤੇ ਸਵੀਪ ਠੀਕ ਕੀਤੀ।"
+   ]
+  },
+  "Full-view storm door": {
+   "pa": [
+    "ਫ਼ੁੱਲ-ਵਿਊ ਸਟੌਰਮ ਡੋਰ",
+    "ਬਦਲਣਯੋਗ ਸ਼ੀਸ਼ੇ ਅਤੇ ਜਾਲੀ, ਕਲੋਜ਼ਰ ਅਤੇ ਹੈਂਡਲ ਸਮੇਤ ਐਲੂਮੀਨੀਅਮ ਚੜ੍ਹਿਆ ਫ਼ੁੱਲ-ਵਿਊ ਸਟੌਰਮ ਡੋਰ।"
+   ]
+  },
+  "Weatherstrip and door sweep": {
+   "pa": [
+    "ਵੈਦਰਸਟ੍ਰਿਪ ਅਤੇ ਡੋਰ ਸਵੀਪ",
+    "ਚੁਗਾਠ ਲਈ ਫ਼ੋਮ ਜਾਂ ਵਿਨਾਇਲ ਵੈਦਰਸਟ੍ਰਿਪ ਅਤੇ ਦਰਵਾਜ਼ੇ ਦੇ ਥੱਲੇ ਲਈ ਨਵੀਂ ਸਵੀਪ।"
+   ]
+  },
+  "Opener control kit installation": {
+   "pa": [
+    "ਓਪਨਰ ਕੰਟਰੋਲ ਕਿੱਟ ਲਾਉਣਾ",
+    "ਕੀਪੈਡ, ਕੰਧ ਕੰਸੋਲ ਜਾਂ ਸਮਾਰਟ ਹੱਬ ਲਾਇਆ, ਓਪਨਰ ਨਾਲ ਤਾਰਾਂ ਜੋੜੀਆਂ ਅਤੇ ਰਿਮੋਟਾਂ ਅਤੇ ਫ਼ੋਨਾਂ ਨਾਲ ਜੋੜਿਆ।"
+   ]
+  },
+  "Keypad or smart opener kit": {
+   "pa": [
+    "ਕੀਪੈਡ ਜਾਂ ਸਮਾਰਟ ਓਪਨਰ ਕਿੱਟ",
+    "ਓਪਨਰ ਦੇ ਬ੍ਰਾਂਡ ਨਾਲ ਚੱਲਣ ਵਾਲਾ ਵਾਇਰਲੈੱਸ ਕੀਪੈਡ ਜਾਂ Wi-Fi ਹੱਬ।"
+   ]
+  },
+  "Cabinet door repair — per door": {
+   "pa": [
+    "ਕੈਬਨਿਟ ਦਰਵਾਜ਼ੇ ਦੀ ਮੁਰੰਮਤ — ਪ੍ਰਤੀ ਦਰਵਾਜ਼ਾ",
+    "ਘਸੇ ਕਬਜ਼ਿਆਂ ਦੇ ਛੇਕ ਭਰ ਕੇ ਮੁੜ ਡ੍ਰਿੱਲ ਕੀਤੇ, ਦਰਵਾਜ਼ਾ ਸਿੱਧਾ ਕੀਤਾ ਅਤੇ ਢਿੱਲੇ ਜੋੜ ਗੂੰਦ ਲਾ ਕੇ ਕੱਸੇ।"
+   ]
+  },
+  "Soft-close hinges — per door": {
+   "pa": [
+    "ਸੌਫ਼ਟ-ਕਲੋਜ਼ ਕਬਜ਼ੇ — ਪ੍ਰਤੀ ਦਰਵਾਜ਼ਾ",
+    "ਮੌਜੂਦਾ ਛੇਕਾਂ ਵਿੱਚ ਫ਼ਿੱਟ ਹੋਣ ਵਾਲੀ ਸੌਫ਼ਟ-ਕਲੋਜ਼ ਕਬਜ਼ਿਆਂ ਦੀ ਜੋੜੀ।"
+   ]
+  },
+  "Cabinet finish touch-up": {
+   "pa": [
+    "ਕੈਬਨਿਟ ਫ਼ਿਨਿਸ਼ ਦਾ ਟੱਚ-ਅੱਪ",
+    "ਘਸੇ ਕਿਨਾਰੇ ਅਤੇ ਝਰੀਟਾਂ ਮੇਲ ਖਾਂਦੇ ਸਟੇਨ, ਮਾਰਕਰ ਜਾਂ ਪੇਂਟ ਨਾਲ ਠੀਕ ਕੀਤੀਆਂ, ਫਿਰ ਸਾਫ਼ ਕੋਟ।"
+   ]
+  },
+  "Rekey — per lock cylinder": {
+   "pa": [
+    "ਰੀਕੀ — ਪ੍ਰਤੀ ਤਾਲਾ ਸਿਲੰਡਰ",
+    "ਸਿਲੰਡਰ ਕੱਢਿਆ, ਨਵੀਂ ਚਾਬੀ ਲਈ ਪਿੰਨ ਬਦਲੇ ਅਤੇ ਮੁੜ ਲਾਇਆ, ਤਾਂ ਜੋ ਪੁਰਾਣੀਆਂ ਚਾਬੀਆਂ ਨਾ ਚੱਲਣ।"
+   ]
+  },
+  "Rekey pins and keys — per cylinder": {
+   "pa": [
+    "ਰੀਕੀ ਪਿੰਨ ਅਤੇ ਚਾਬੀਆਂ — ਪ੍ਰਤੀ ਸਿਲੰਡਰ",
+    "ਇੱਕ ਸਿਲੰਡਰ ਲਈ ਪਿੰਨ ਕਿੱਟ ਅਤੇ ਦੋ ਨਵੀਆਂ ਕੱਟੀਆਂ ਚਾਬੀਆਂ।"
+   ]
+  },
+  "Garage door opener installation": {
+   "pa": [
+    "ਗੈਰਾਜ ਦਰਵਾਜ਼ੇ ਦਾ ਓਪਨਰ ਲਾਉਣਾ",
+    "ਰੇਲ ਅਤੇ ਮੋਟਰ ਟੰਗੀ, ਸੈਂਸਰ ਸਿੱਧੇ, ਲਿਮਿਟ ਅਤੇ ਫ਼ੋਰਸ ਸੈੱਟ, ਰਿਮੋਟ ਪ੍ਰੋਗਰਾਮ ਕੀਤੇ; ਓਪਨਰ ਆਪ ਵੱਖਰਾ ਆਉਂਦਾ ਹੈ।"
+   ]
+  },
+  "Roller replacement": {
+   "pa": [
+    "ਰੋਲਰ ਬਦਲਣਾ",
+    "ਦਰਵਾਜ਼ਾ ਜਾਂ ਜਾਲੀ ਟ੍ਰੈਕ ਤੋਂ ਚੁੱਕੀ, ਘਸੇ ਰੋਲਰ ਬਦਲੇ, ਟ੍ਰੈਕ ਸਾਫ਼ ਕੀਤਾ ਅਤੇ ਦਰਵਾਜ਼ਾ ਸਰਕਣ ਅਤੇ ਲੱਗਣ ਲਈ ਠੀਕ ਕੀਤਾ।"
+   ]
+  },
+  "Replacement rollers": {
+   "pa": [
+    "ਬਦਲਵੇਂ ਰੋਲਰ",
+    "ਦਰਵਾਜ਼ੇ ਨਾਲ ਮੇਲ ਖਾਂਦੇ ਸਟੀਲ ਜਾਂ ਨਾਈਲੋਨ ਰੋਲਰ, ਅਤੇ ਜਿੱਥੇ ਟ੍ਰੈਕ ਘਸਿਆ ਹੋਵੇ ਉੱਥੇ ਟ੍ਰੈਕ ਇਨਸਰਟ।"
+   ]
+  },
+  "New receptacle circuit — labour": {
+   "pa": [
+    "ਨਵਾਂ ਸਾਕਟ ਸਰਕਟ — ਲੇਬਰ",
+    "ਪੈਨਲ ਤੋਂ ਕੇਬਲ ਲਿਆਂਦੀ, ਬੌਕਸ ਲਾਇਆ, ਸਾਕਟ ਜੋੜਿਆ ਅਤੇ 20 A ਬ੍ਰੇਕਰ ਲਾ ਕੇ ਜਾਂਚਿਆ।"
+   ]
+  },
+  "Receptacle, box and cover plate": {
+   "pa": [
+    "ਸਾਕਟ, ਬੌਕਸ ਅਤੇ ਕਵਰ ਪਲੇਟ",
+    "20 A ਡੁਪਲੈਕਸ ਸਾਕਟ, ਓਲਡ-ਵਰਕ ਬੌਕਸ ਅਤੇ ਕਵਰ ਪਲੇਟ।"
+   ]
+  },
+  "20 A single-pole breaker": {
+   "pa": [
+    "20 A ਸਿੰਗਲ-ਪੋਲ ਬ੍ਰੇਕਰ",
+    "ਪੈਨਲ ਦੇ ਆਪਣੇ ਬ੍ਰਾਂਡ ਦਾ ਬ੍ਰੇਕਰ।"
+   ]
+  },
+  "Cable and connectors": {
+   "pa": [
+    "ਕੇਬਲ ਅਤੇ ਕਨੈਕਟਰ",
+    "ਲਾਈਨ ਲਈ 12/2 NM ਕੇਬਲ, ਸਟੈਪਲ ਅਤੇ ਕਨੈਕਟਰ।"
+   ]
+  },
+  "Outlet or switch replacement — per device": {
+   "pa": [
+    "ਸਾਕਟ ਜਾਂ ਸਵਿੱਚ ਬਦਲਣਾ — ਪ੍ਰਤੀ ਡਿਵਾਈਸ",
+    "ਬਿਜਲੀ ਬੰਦ, ਪੁਰਾਣਾ ਡਿਵਾਈਸ ਕੱਢਿਆ, ਨਵਾਂ ਜੋੜਿਆ, ਲਾਇਆ ਅਤੇ ਜਾਂਚਿਆ।"
+   ]
+  },
+  "Receptacle or switch and plate — per device": {
+   "pa": [
+    "ਸਾਕਟ ਜਾਂ ਸਵਿੱਚ ਅਤੇ ਪਲੇਟ — ਪ੍ਰਤੀ ਡਿਵਾਈਸ",
+    "ਆਮ ਸਾਕਟ ਜਾਂ ਸਵਿੱਚ ਅਤੇ ਨਵੀਂ ਕਵਰ ਪਲੇਟ।"
+   ]
+  },
+  "Burner part replacement": {
+   "pa": [
+    "ਬਰਨਰ ਦਾ ਪੁਰਜ਼ਾ ਬਦਲਣਾ",
+    "ਗੈਸ ਬੰਦ, ਥਰਮੋਕਪਲ, ਇਗਨਾਈਟਰ ਜਾਂ ਬਰਨਰ ਬਦਲਿਆ, ਫਿਰ ਮੁੜ ਬਾਲਿਆ ਅਤੇ ਡਿਟੈਕਟਰ ਨਾਲ ਲੀਕ ਜਾਂਚੀ।"
+   ]
+  },
+  "Thermocouple, igniter or burner part": {
+   "pa": [
+    "ਥਰਮੋਕਪਲ, ਇਗਨਾਈਟਰ ਜਾਂ ਬਰਨਰ ਪੁਰਜ਼ਾ",
+    "ਉਪਕਰਣ ਦੇ ਬ੍ਰਾਂਡ ਅਤੇ ਮਾਡਲ ਲਈ ਬਦਲਵਾਂ ਪੁਰਜ਼ਾ।"
+   ]
+  },
+  "LED bulbs": {
+   "pa": [
+    "LED ਬੱਲਬ",
+    "ਫ਼ਿਕਸਚਰਾਂ ਦੇ ਬੇਸ ਅਤੇ ਰੋਸ਼ਨੀ ਦੇ ਰੰਗ ਮੁਤਾਬਕ LED ਬੱਲਬ।"
+   ]
+  },
+  "Doorbell installation labour": {
+   "pa": [
+    "ਡੋਰਬੈੱਲ ਲਾਉਣ ਦੀ ਲੇਬਰ",
+    "ਪੁਰਾਣਾ ਬਟਨ ਅਤੇ ਘੰਟੀ ਲਾਹੀ, ਨਵੀਂ ਡੋਰਬੈੱਲ ਲਾ ਕੇ ਜੋੜੀ, ਟ੍ਰਾਂਸਫ਼ਾਰਮਰ ਜਾਂਚਿਆ ਅਤੇ ਘੰਟੀ ਜਾਂ ਐਪ ਸੈੱਟ ਕੀਤੀ।"
+   ]
+  },
+  "Doorbell transformer and wire": {
+   "pa": [
+    "ਡੋਰਬੈੱਲ ਟ੍ਰਾਂਸਫ਼ਾਰਮਰ ਅਤੇ ਤਾਰ",
+    "ਜੇ ਪੁਰਾਣਾ ਨਵੀਂ ਘੰਟੀ ਲਈ ਕਮਜ਼ੋਰ ਹੋਵੇ ਤਾਂ 16–24 V ਟ੍ਰਾਂਸਫ਼ਾਰਮਰ, ਅਤੇ ਘੰਟੀ ਦੀ ਤਾਰ।"
+   ]
+  },
+  "Popcorn removal and skim coat — per sq ft": {
+   "pa": [
+    "ਪੌਪਕੌਰਨ ਛੱਤ ਲਾਹੁਣਾ ਅਤੇ ਸਕਿਮ ਕੋਟ — ਪ੍ਰਤੀ ਵਰਗ ਫੁੱਟ",
+    "ਟੈਕਸਚਰ ਗਿੱਲਾ ਕਰਕੇ ਖੁਰਚਿਆ, ਛੱਤ 'ਤੇ ਸਕਿਮ ਕੋਟ, ਰਗੜਾਈ ਅਤੇ ਪ੍ਰਾਈਮਰ ਨਾਲ ਪੱਧਰੀ ਕੀਤੀ।"
+   ]
+  },
+  "Joint compound — per pail": {
+   "pa": [
+    "ਜੌਇੰਟ ਕੰਪਾਊਂਡ — ਪ੍ਰਤੀ ਬਾਲਟੀ",
+    "ਆਮ ਵਰਤੋਂ ਵਾਲਾ ਤਿਆਰ ਕੰਪਾਊਂਡ; ਇੱਕ ਬਾਲਟੀ ਲਗਭਗ 350 ਵਰਗ ਫੁੱਟ 'ਤੇ ਸਕਿਮ ਹੁੰਦੀ ਹੈ।"
+   ]
+  },
+  "Asbestos test — lab sample": {
+   "pa": [
+    "ਐਸਬੈਸਟਸ ਟੈਸਟ — ਲੈਬ ਨਮੂਨਾ",
+    "ਖੁਰਚਣ ਤੋਂ ਪਹਿਲਾਂ ਨਮੂਨਾ ਲੈਬ ਭੇਜਿਆ, 1980 ਦੇ ਦਹਾਕੇ ਦੇ ਅੱਧ ਤੋਂ ਪੁਰਾਣੀਆਂ ਛੱਤਾਂ ਲਈ ਲੋੜੀਂਦਾ।"
+   ]
+  },
+  "Doorbell repair labour": {
+   "pa": [
+    "ਡੋਰਬੈੱਲ ਮੁਰੰਮਤ ਦੀ ਲੇਬਰ",
+    "ਬਟਨ, ਘੰਟੀ, ਤਾਰਾਂ ਅਤੇ ਟ੍ਰਾਂਸਫ਼ਾਰਮਰ ਵਾਰੀ-ਵਾਰੀ ਜਾਂਚੇ ਅਤੇ ਖ਼ਰਾਬ ਪੁਰਜ਼ਾ ਬਦਲਿਆ।"
+   ]
+  },
+  "Button, chime or transformer": {
+   "pa": [
+    "ਬਟਨ, ਘੰਟੀ ਜਾਂ ਟ੍ਰਾਂਸਫ਼ਾਰਮਰ",
+    "ਜਾਂਚ ਜਿਸ ਪੁਰਜ਼ੇ ਵੱਲ ਇਸ਼ਾਰਾ ਕਰੇ, ਉਹ ਬਦਲਵਾਂ ਪੁਰਜ਼ਾ।"
+   ]
+  },
+  "Detector replacement — per unit": {
+   "pa": [
+    "ਡਿਟੈਕਟਰ ਬਦਲਣਾ — ਪ੍ਰਤੀ ਯੂਨਿਟ",
+    "ਪੁਰਾਣਾ ਡਿਟੈਕਟਰ ਲਾਹਿਆ, ਨਵਾਂ ਮੌਜੂਦਾ ਹਾਰਨੈੱਸ ਨਾਲ ਜੋੜਿਆ ਜਾਂ ਲਾਇਆ, ਜਾਂਚਿਆ ਅਤੇ ਤਾਰੀਖ਼ ਲਿਖੀ।"
+   ]
+  },
+  "Hardwired smoke detector — per unit": {
+   "pa": [
+    "ਤਾਰ ਵਾਲਾ ਧੂੰਆਂ ਡਿਟੈਕਟਰ — ਪ੍ਰਤੀ ਯੂਨਿਟ",
+    "ਬੈਕਅੱਪ ਬੈਟਰੀ ਵਾਲਾ ਤਾਰ ਨਾਲ ਜੁੜਿਆ ਧੂੰਆਂ ਡਿਟੈਕਟਰ।"
+   ]
+  },
+  "Window replacement — per window": {
+   "pa": [
+    "ਖਿੜਕੀ ਬਦਲਣਾ — ਪ੍ਰਤੀ ਖਿੜਕੀ",
+    "ਪੁਰਾਣਾ ਸੈਸ਼ ਅਤੇ ਸਟੌਪ ਕੱਢੇ, ਨਵੀਂ ਇਨਸਰਟ ਫ਼ਰੇਮ ਵਿੱਚ ਸਿੱਧੀ ਬਿਠਾਈ, ਇੰਸੂਲੇਟ, ਸੀਲ ਅਤੇ ਅੰਦਰ-ਬਾਹਰ ਟ੍ਰਿਮ ਕੀਤੀ।"
+   ]
+  },
+  "Vinyl replacement window — per window": {
+   "pa": [
+    "ਵਿਨਾਇਲ ਬਦਲਵੀਂ ਖਿੜਕੀ — ਪ੍ਰਤੀ ਖਿੜਕੀ",
+    "ਨਾਪੀ ਥਾਂ ਮੁਤਾਬਕ ਬਣੀ, low-E ਸ਼ੀਸ਼ੇ ਵਾਲੀ ਡਬਲ-ਹੰਗ ਵਿਨਾਇਲ ਇਨਸਰਟ ਖਿੜਕੀ।"
+   ]
+  },
+  "Recessed light installation — per light": {
+   "pa": [
+    "ਰੀਸੈੱਸਡ ਲਾਈਟ ਲਾਉਣਾ — ਪ੍ਰਤੀ ਲਾਈਟ",
+    "ਛੇਕ ਕੱਟਿਆ, ਸਵਿੱਚ ਤੋਂ ਕੇਬਲ ਲਿਆਂਦੀ, ਅਤੇ ਕੈਨਲੈੱਸ LED ਲਾਈਟ ਜੋੜ ਕੇ ਕਲਿੱਪ ਕੀਤੀ।"
+   ]
+  },
+  "Canless LED recessed light — per light": {
+   "pa": [
+    "ਕੈਨਲੈੱਸ LED ਰੀਸੈੱਸਡ ਲਾਈਟ — ਪ੍ਰਤੀ ਲਾਈਟ",
+    "ਜੰਕਸ਼ਨ ਬੌਕਸ ਸਮੇਤ 6 ਇੰਚ ਕੈਨਲੈੱਸ LED ਵੇਫ਼ਰ ਲਾਈਟ।"
+   ]
+  },
+  "Flooring installation labour — per sq ft": {
+   "pa": [
+    "ਫ਼ਰਸ਼ ਲਾਉਣ ਦੀ ਲੇਬਰ — ਪ੍ਰਤੀ ਵਰਗ ਫੁੱਟ",
+    "ਨਿਰਮਾਤਾ ਦੀਆਂ ਹਿਦਾਇਤਾਂ ਮੁਤਾਬਕ ਤਖ਼ਤੇ ਜਾਂ ਟਾਈਲ ਵਿਛਾਈ, ਦਰਵਾਜ਼ਿਆਂ ਅਤੇ ਫ਼ਿਕਸਚਰਾਂ ਦੁਆਲੇ ਕੱਟੀ ਅਤੇ ਕੰਧਾਂ ਕੋਲ ਮੁਕਾਈ।"
+   ]
+  },
+  "Flooring material allowance — per sq ft": {
+   "pa": [
+    "ਫ਼ਰਸ਼ ਦੇ ਸਮਾਨ ਲਈ ਅਲਾਊਂਸ — ਪ੍ਰਤੀ ਵਰਗ ਫੁੱਟ",
+    "ਗਾਹਕ ਦੇ ਚੁਣੇ ਫ਼ਰਸ਼ ਲਈ ਰਕਮ, ਇਨਵੌਇਸ 'ਤੇ ਰਸੀਦ ਮੁਤਾਬਕ ਠੀਕ ਕੀਤੀ ਜਾਂਦੀ ਹੈ।"
+   ]
+  },
+  "Quarter-round and transitions — per linear ft": {
+   "pa": [
+    "ਕੁਆਰਟਰ-ਰਾਊਂਡ ਅਤੇ ਟ੍ਰਾਂਜ਼ੀਸ਼ਨ — ਪ੍ਰਤੀ ਲੀਨੀਅਰ ਫੁੱਟ",
+    "ਕੰਧਾਂ ਕੋਲ ਕੁਆਰਟਰ-ਰਾਊਂਡ ਲਿਆ ਕੇ ਕਿੱਲਾਂ ਨਾਲ ਲਾਇਆ, ਅਤੇ ਦਰਵਾਜ਼ਿਆਂ 'ਤੇ ਟ੍ਰਾਂਜ਼ੀਸ਼ਨ ਪੱਟੀਆਂ ਲਾਈਆਂ।"
+   ]
+  },
+  "Luxury vinyl plank — per box": {
+   "pa": [
+    "ਲਗਜ਼ਰੀ ਵਿਨਾਇਲ ਪਲੈਂਕ — ਪ੍ਰਤੀ ਡੱਬਾ",
+    "ਜੁੜੇ ਪੈਡ ਵਾਲੇ ਰਿਜਿਡ-ਕੋਰ ਕਲਿੱਕ ਤਖ਼ਤੇ; ਇੱਕ ਡੱਬੇ ਵਿੱਚ ਲਗਭਗ 22 ਵਰਗ ਫੁੱਟ (ਉਤਪਾਦ ਦੇਖੋ)।"
+   ]
+  },
+  "Floor protection board — per sq ft": {
+   "pa": [
+    "ਫ਼ਰਸ਼ ਸੁਰੱਖਿਆ ਬੋਰਡ — ਪ੍ਰਤੀ ਵਰਗ ਫੁੱਟ",
+    "ਹੋਰ ਕਾਰੀਗਰਾਂ ਦਾ ਕੰਮ ਮੁੱਕਣ ਤੱਕ ਮੁਕੰਮਲ ਫ਼ਰਸ਼ 'ਤੇ ਟੇਪ ਨਾਲ ਲਾਇਆ ਮੋਟਾ ਸੁਰੱਖਿਆ ਬੋਰਡ।"
+   ]
+  },
+  "Subfloor prep — per sq ft": {
+   "pa": [
+    "ਸਬਫ਼ਲੋਰ ਦੀ ਤਿਆਰੀ — ਪ੍ਰਤੀ ਵਰਗ ਫੁੱਟ",
+    "ਉੱਚੀਆਂ ਥਾਵਾਂ ਘਸਾਈਆਂ, ਨੀਵੀਆਂ ਭਰੀਆਂ, ਢਿੱਲੇ ਤਖ਼ਤੇ ਪੇਚਾਂ ਨਾਲ ਕੱਸੇ ਅਤੇ ਤਖ਼ਤੇ ਵਿਛਾਉਣ ਤੋਂ ਪਹਿਲਾਂ ਫ਼ਰਸ਼ ਵੈਕਿਊਮ ਕੀਤਾ।"
+   ]
+  },
+  "Carpet and pad removal — per sq ft": {
+   "pa": [
+    "ਕਾਰਪੈੱਟ ਅਤੇ ਪੈਡ ਲਾਹੁਣਾ — ਪ੍ਰਤੀ ਵਰਗ ਫੁੱਟ",
+    "ਕਾਰਪੈੱਟ ਪੱਟੀਆਂ ਵਿੱਚ ਕੱਟ ਕੇ ਲਪੇਟਿਆ, ਪੈਡ ਅਤੇ ਸਟੈਪਲ ਕੱਢੇ, ਟੈਕ ਸਟ੍ਰਿਪ ਚੁੱਕੀ ਅਤੇ ਸਬਫ਼ਲੋਰ ਝਾੜਿਆ।"
+   ]
+  },
+  "Mortar repair labour": {
+   "pa": [
+    "ਮਸਾਲੇ ਨਾਲ ਮੁਰੰਮਤ ਦੀ ਲੇਬਰ",
+    "ਢਿੱਲੇ ਜੋੜ ਖੁਰਚ ਕੇ ਮੁੜ ਭਰੇ, ਜਾਂ ਚਿਣਾਈ ਜਾਂ ਟਾਈਲ ਦੀ ਮੁਰੰਮਤ ਲਈ ਮਸਾਲਾ ਰਲਾ ਕੇ ਲਾਇਆ, ਘੰਟੇ ਦੇ ਹਿਸਾਬ ਨਾਲ।"
+   ]
+  },
+  "Type S mortar — per bag": {
+   "pa": [
+    "ਟਾਈਪ S ਮਸਾਲਾ — ਪ੍ਰਤੀ ਬੋਰੀ",
+    "ਟਾਈਪ S ਜਾਂ ਪਹਿਲਾਂ ਤੋਂ ਰਲੇ ਮਸਾਲੇ ਦੀ 80 ਪੌਂਡ ਬੋਰੀ।"
+   ]
+  },
+  "Register and vent cleaning — per opening": {
+   "pa": [
+    "ਰਜਿਸਟਰ ਅਤੇ ਵੈਂਟ ਦੀ ਸਫ਼ਾਈ — ਪ੍ਰਤੀ ਮੂੰਹ",
+    "ਰਜਿਸਟਰ ਲਾਹਿਆ, ਬੂਟ ਅਤੇ ਪਹਿਲਾ ਹਿੱਸਾ ਬੁਰਸ਼ ਅਤੇ ਵੈਕਿਊਮ ਕੀਤਾ, ਜਾਲੀ ਧੋ ਕੇ ਮੁੜ ਲਾਈ।"
+   ]
+  },
+  "Furnace filter": {
+   "pa": [
+    "ਫ਼ਰਨੇਸ ਫ਼ਿਲਟਰ",
+    "ਸਿਸਟਮ ਦੇ ਨਾਪ ਦਾ MERV 11 ਪਲੀਟਿਡ ਫ਼ਿਲਟਰ।"
+   ]
+  },
+  "Baseboard installation — per linear ft": {
+   "pa": [
+    "ਬੇਸਬੋਰਡ ਲਾਉਣਾ — ਪ੍ਰਤੀ ਲੀਨੀਅਰ ਫੁੱਟ",
+    "ਕੋਨਿਆਂ 'ਤੇ ਬੇਸਬੋਰਡ ਕੋਪ ਜਾਂ ਮਾਈਟਰ ਕੀਤਾ, ਸਟੱਡਾਂ ਨਾਲ ਕਿੱਲਾਂ ਨਾਲ ਜੜਿਆ, ਛੇਕ ਭਰੇ ਅਤੇ ਉੱਪਰਲਾ ਕਿਨਾਰਾ ਕੌਕ ਕੀਤਾ।"
+   ]
+  },
+  "Primed MDF baseboard — per 8 ft length": {
+   "pa": [
+    "ਪ੍ਰਾਈਮ ਕੀਤਾ MDF ਬੇਸਬੋਰਡ — ਪ੍ਰਤੀ 8 ਫੁੱਟ",
+    "8 ਫੁੱਟ ਲੰਬਾਈ ਵਿੱਚ 3-1/4 ਇੰਚ ਪ੍ਰਾਈਮ ਕੀਤਾ MDF ਬੇਸਬੋਰਡ।"
+   ]
+  },
+  "Drywall and surface repair labour": {
+   "pa": [
+    "ਡਰਾਈਵਾਲ ਅਤੇ ਸਤ੍ਹਾ ਮੁਰੰਮਤ ਦੀ ਲੇਬਰ",
+    "ਖ਼ਰਾਬ ਹਿੱਸਾ ਕੱਟਿਆ, ਪਿੱਛੇ ਸਹਾਰਾ ਲਾਇਆ, ਪੈਚ ਜਾਂ ਸਕਿਮ ਕੀਤਾ, ਰਗੜਿਆ ਅਤੇ ਪ੍ਰਾਈਮ ਕੀਤਾ, ਘੰਟੇ ਦੇ ਹਿਸਾਬ ਨਾਲ।"
+   ]
+  },
+  "Drywall, compound and tape": {
+   "pa": [
+    "ਡਰਾਈਵਾਲ, ਕੰਪਾਊਂਡ ਅਤੇ ਟੇਪ",
+    "ਬੋਰਡ ਦੇ ਟੁਕੜੇ, ਸੈਟਿੰਗ ਅਤੇ ਟੌਪਿੰਗ ਕੰਪਾਊਂਡ, ਜਾਲੀ ਜਾਂ ਕਾਗ਼ਜ਼ ਟੇਪ ਅਤੇ ਪ੍ਰਾਈਮਰ।"
+   ]
+  },
+  "Interior wall paint — per gallon": {
+   "pa": [
+    "ਅੰਦਰੂਨੀ ਕੰਧ ਪੇਂਟ — ਪ੍ਰਤੀ ਗੈਲਨ",
+    "ਐੱਗਸ਼ੈੱਲ ਲੈਟੈਕਸ; ਦੋ ਕੋਟਾਂ ਵਿੱਚ ਇੱਕ ਗੈਲਨ ਲਗਭਗ 187 ਵਰਗ ਫੁੱਟ ਕੰਧ ਢਕਦਾ ਹੈ।"
+   ]
+  },
+  "Primer — per gallon": {
+   "pa": [
+    "ਪ੍ਰਾਈਮਰ — ਪ੍ਰਤੀ ਗੈਲਨ",
+    "ਪੈਚਾਂ ਅਤੇ ਨੰਗੇ ਬੋਰਡ ਲਈ ਦਾਗ਼ ਰੋਕਣ ਵਾਲਾ ਪ੍ਰਾਈਮਰ; ਇੱਕ ਗੈਲਨ ਲਗਭਗ 350 ਵਰਗ ਫੁੱਟ।"
+   ]
+  },
+  "Patch and paint — per repair": {
+   "pa": [
+    "ਪੈਚ ਅਤੇ ਪੇਂਟ — ਪ੍ਰਤੀ ਮੁਰੰਮਤ",
+    "ਛੇਕ, ਤਰੇੜ ਜਾਂ ਡੈਂਟ ਭਰਿਆ, ਰਗੜਿਆ, ਪ੍ਰਾਈਮ ਕੀਤਾ ਅਤੇ ਕੰਧ ਨਾਲ ਮੇਲ ਖਾਂਦਾ ਪੇਂਟ ਕੀਤਾ।"
+   ]
+  },
+  "Wall painting — per sq ft of wall": {
+   "pa": [
+    "ਕੰਧਾਂ ਦਾ ਪੇਂਟ — ਪ੍ਰਤੀ ਵਰਗ ਫੁੱਟ ਕੰਧ",
+    "ਪਹਿਲਾਂ ਛੋਟੇ ਛੇਕ ਭਰ ਕੇ, ਕੰਧਾਂ ਦੇ ਕਿਨਾਰੇ ਕੱਟ-ਇਨ ਅਤੇ ਰੋਲਰ ਨਾਲ ਦੋ ਕੋਟ।"
+   ]
+  },
+  "Ceiling painting — per sq ft": {
+   "pa": [
+    "ਛੱਤ ਦਾ ਪੇਂਟ — ਪ੍ਰਤੀ ਵਰਗ ਫੁੱਟ",
+    "ਕੰਧਾਂ ਕੋਲ ਛੱਤ ਕੱਟ-ਇਨ ਕੀਤੀ ਅਤੇ ਰੋਲਰ ਨਾਲ ਫ਼ਲੈਟ ਚਿੱਟੇ ਦੇ ਦੋ ਕੋਟ।"
+   ]
+  },
+  "Ceiling paint — per gallon": {
+   "pa": [
+    "ਛੱਤ ਵਾਲਾ ਪੇਂਟ — ਪ੍ਰਤੀ ਗੈਲਨ",
+    "ਫ਼ਲੈਟ ਸੀਲਿੰਗ ਵ੍ਹਾਈਟ; ਦੋ ਕੋਟਾਂ ਵਿੱਚ ਇੱਕ ਗੈਲਨ ਲਗਭਗ 187 ਵਰਗ ਫੁੱਟ ਢਕਦਾ ਹੈ।"
+   ]
+  },
+  "Angle stop replacement labour": {
+   "pa": [
+    "ਐਂਗਲ ਸਟੌਪ ਬਦਲਣ ਦੀ ਲੇਬਰ",
+    "ਮੇਨ ਤੋਂ ਪਾਣੀ ਬੰਦ, ਪੁਰਾਣਾ ਸਟੌਪ ਕੱਟਿਆ ਜਾਂ ਖੋਲ੍ਹਿਆ, ਨਵਾਂ ਕੁਆਰਟਰ-ਟਰਨ ਸਟੌਪ ਲਾਇਆ ਅਤੇ ਲੀਕ ਜਾਂਚੀ।"
+   ]
+  },
+  "Quarter-turn angle stop": {
+   "pa": [
+    "ਕੁਆਰਟਰ-ਟਰਨ ਐਂਗਲ ਸਟੌਪ",
+    "1/2 × 3/8 ਇੰਚ ਕੁਆਰਟਰ-ਟਰਨ ਕੰਪ੍ਰੈਸ਼ਨ ਸਟੌਪ।"
+   ]
+  },
+  "Braided supply line": {
+   "pa": [
+    "ਬ੍ਰੇਡਿਡ ਸਪਲਾਈ ਲਾਈਨ",
+    "3/8 ਇੰਚ ਬ੍ਰੇਡਿਡ ਸਟੇਨਲੈੱਸ ਸਪਲਾਈ ਲਾਈਨ, 20 ਇੰਚ ਲੰਬੀ।"
+   ]
+  },
+  "Wallpaper hanging — per sq ft of wall": {
+   "pa": [
+    "ਵਾਲਪੇਪਰ ਲਾਉਣਾ — ਪ੍ਰਤੀ ਵਰਗ ਫੁੱਟ ਕੰਧ",
+    "ਕੰਧਾਂ 'ਤੇ ਵਾਲਪੇਪਰ ਪ੍ਰਾਈਮਰ ਲਾਇਆ, ਕਾਗ਼ਜ਼ ਸਿੱਧਾ ਟੰਗਿਆ, ਜੋੜਾਂ 'ਤੇ ਮਿਲਾਇਆ ਅਤੇ ਕੱਟਿਆ।"
+   ]
+  },
+  "Fixture replacement — per fixture": {
+   "pa": [
+    "ਫ਼ਿਕਸਚਰ ਬਦਲਣਾ — ਪ੍ਰਤੀ ਫ਼ਿਕਸਚਰ",
+    "ਪੁਰਾਣੀ ਟੂਟੀ, ਟ੍ਰਿਮ, ਟਾਇਲਟ ਜਾਂ ਸਿੰਕ ਖੋਲ੍ਹਿਆ, ਅਤੇ ਨਵਾਂ ਲਾਇਆ, ਜੋੜਿਆ ਅਤੇ ਲੀਕ ਜਾਂਚੀ।"
+   ]
+  },
+  "Tub or shower drain clearing": {
+   "pa": [
+    "ਟੱਬ ਜਾਂ ਸ਼ਾਵਰ ਦੀ ਨਾਲੀ ਖੋਲ੍ਹਣਾ",
+    "ਸਟੌਪਰ ਕੱਢਿਆ, ਹੱਥ ਵਾਲੇ ਔਗਰ ਨਾਲ ਵਾਲ ਅਤੇ ਸਾਬਣ ਕੱਢਿਆ, ਨਾਲੀ ਧੋਤੀ ਅਤੇ ਸਟੌਪਰ ਮੁੜ ਲਾਇਆ।"
+   ]
+  },
+  "Stopper or strainer assembly": {
+   "pa": [
+    "ਸਟੌਪਰ ਜਾਂ ਸਟ੍ਰੇਨਰ",
+    "ਜਿੱਥੇ ਪੁਰਾਣਾ ਘਸਿਆ ਹੋਵੇ ਉੱਥੇ ਬਦਲਵਾਂ ਸਟੌਪਰ, ਸਟ੍ਰੇਨਰ ਜਾਂ ਓਵਰਫ਼ਲੋ ਗੈਸਕਟ।"
+   ]
+  },
+  "Ceiling fan installation — per fan": {
+   "pa": [
+    "ਛੱਤ ਵਾਲਾ ਪੱਖਾ ਲਾਉਣਾ — ਪ੍ਰਤੀ ਪੱਖਾ",
+    "ਬੌਕਸ ਪੱਖੇ ਲਈ ਜਾਂਚਿਆ ਜਾਂ ਬ੍ਰੇਸ ਨਾਲ ਬਦਲਿਆ, ਪੱਖਾ ਜੋੜਿਆ, ਟੰਗਿਆ, ਤਾਰਾਂ ਜੋੜੀਆਂ ਅਤੇ ਸੰਤੁਲਿਤ ਕੀਤਾ।"
+   ]
+  },
+  "52 in LED ceiling fan — per fan": {
+   "pa": [
+    "52 ਇੰਚ LED ਛੱਤ ਵਾਲਾ ਪੱਖਾ — ਪ੍ਰਤੀ ਪੱਖਾ",
+    "LED ਲਾਈਟ ਕਿੱਟ ਅਤੇ ਰਿਮੋਟ ਵਾਲਾ 52 ਇੰਚ ਪੱਖਾ, ਜੇ ਗਾਹਕ ਨੇ ਨਹੀਂ ਖਰੀਦਿਆ।"
+   ]
+  },
+  "Tub spout and shower trim replacement": {
+   "pa": [
+    "ਟੱਬ ਸਪਾਊਟ ਅਤੇ ਸ਼ਾਵਰ ਟ੍ਰਿਮ ਬਦਲਣਾ",
+    "ਪੁਰਾਣਾ ਸਪਾਊਟ, ਹੈਂਡਲ ਅਤੇ ਟ੍ਰਿਮ ਲਾਹੇ, ਨਵੇਂ ਮੌਜੂਦਾ ਵਾਲਵ 'ਤੇ ਲਾ ਕੇ ਸੀਲ ਕੀਤੇ।"
+   ]
+  },
+  "Chrome trim and ceramic accessories": {
+   "pa": [
+    "ਕ੍ਰੋਮ ਟ੍ਰਿਮ ਅਤੇ ਸਿਰੈਮਿਕ ਸਮਾਨ",
+    "ਮੌਜੂਦਾ ਨਾਲ ਮੇਲ ਖਾਂਦੇ ਕ੍ਰੋਮ ਐਸਕਚੀਅਨ, ਤੌਲੀਆ ਬਾਰ ਜਾਂ ਸਿਰੈਮਿਕ ਸਾਬਣਦਾਨੀਆਂ।"
+   ]
+  },
+  "Door replacement labour": {
+   "pa": [
+    "ਦਰਵਾਜ਼ਾ ਬਦਲਣ ਦੀ ਲੇਬਰ",
+    "ਲੋੜ ਹੋਵੇ ਤਾਂ ਪੁਰਾਣਾ ਦਰਵਾਜ਼ਾ ਅਤੇ ਚੁਗਾਠ ਕੱਢੇ, ਪ੍ਰੀ-ਹੰਗ ਯੂਨਿਟ ਸਿੱਧਾ ਬਿਠਾਇਆ, ਸ਼ਿਮ ਲਾ ਕੇ ਕੱਸਿਆ, ਕੇਸਿੰਗ ਅਤੇ ਹਾਰਡਵੇਅਰ ਲਾਏ।"
+   ]
+  },
+  "Pre-hung door": {
+   "pa": [
+    "ਪ੍ਰੀ-ਹੰਗ ਦਰਵਾਜ਼ਾ",
+    "ਥਾਂ ਦੇ ਨਾਪ ਦਾ ਪ੍ਰੀ-ਹੰਗ ਅੰਦਰੂਨੀ ਦਰਵਾਜ਼ਾ, ਜਾਂ ਚੁਗਾਠ ਸਮੇਤ ਸਟੀਲ ਦਾ ਬਾਹਰੀ ਦਰਵਾਜ਼ਾ।"
+   ]
+  },
+  "Drain clearing — per drain": {
+   "pa": [
+    "ਨਾਲੀ ਖੋਲ੍ਹਣਾ — ਪ੍ਰਤੀ ਨਾਲੀ",
+    "ਸਿੰਕ, ਟੱਬ ਜਾਂ ਫ਼ਰਸ਼ ਦੀ ਨਾਲੀ ਡਰੰਮ ਔਗਰ ਨਾਲ ਖੋਲ੍ਹੀ ਅਤੇ ਖੁੱਲ੍ਹਾ ਵਹਿਣ ਤੱਕ ਧੋਤੀ।"
+   ]
+  },
+  "Main line clearing": {
+   "pa": [
+    "ਮੁੱਖ ਲਾਈਨ ਖੋਲ੍ਹਣਾ",
+    "ਕਲੀਨ-ਆਊਟ ਤੋਂ ਸੈਕਸ਼ਨਲ ਮਸ਼ੀਨ ਨਾਲ ਸੀਵਰ ਲਾਈਨ ਖੋਲ੍ਹੀ, ਫਿਰ ਧੋਤੀ ਅਤੇ ਵਹਾਅ ਜਾਂਚਿਆ।"
+   ]
+  },
+  "Disposal installation labour": {
+   "pa": [
+    "ਡਿਸਪੋਜ਼ਲ ਲਾਉਣ ਦੀ ਲੇਬਰ",
+    "ਮਾਊਂਟ ਰਿੰਗ ਲਾਈ, ਯੂਨਿਟ ਟੰਗਿਆ, ਨਾਲੀ ਅਤੇ ਡਿਸ਼ਵਾਸ਼ਰ ਨੌਕਆਊਟ ਜੋੜੇ, ਤਾਰਾਂ ਜੋੜੀਆਂ ਅਤੇ ਲੀਕ ਜਾਂਚੀ।"
+   ]
+  },
+  "1/2 HP garbage disposal": {
+   "pa": [
+    "1/2 HP ਗਾਰਬੇਜ ਡਿਸਪੋਜ਼ਲ",
+    "ਪਾਵਰ ਕੋਰਡ ਸਮੇਤ ਅੱਧੇ ਹੌਰਸਪਾਵਰ ਦਾ ਲਗਾਤਾਰ ਚੱਲਣ ਵਾਲਾ ਡਿਸਪੋਜ਼ਲ।"
+   ]
+  },
+  "Water heater flush and anode check": {
+   "pa": [
+    "ਵਾਟਰ ਹੀਟਰ ਫ਼ਲੱਸ਼ ਅਤੇ ਐਨੋਡ ਜਾਂਚ",
+    "ਟੈਂਕ ਖ਼ਾਲੀ ਕਰਕੇ ਗਾਰ ਧੋਤੀ, ਐਨੋਡ ਰਾਡ ਦੇਖੀ, ਰਿਲੀਫ਼ ਵਾਲਵ ਜਾਂਚਿਆ ਅਤੇ ਟੈਂਕ ਮੁੜ ਭਰਿਆ।"
+   ]
+  },
+  "Furnace filter change and visual check": {
+   "pa": [
+    "ਫ਼ਰਨੇਸ ਫ਼ਿਲਟਰ ਬਦਲਣਾ ਅਤੇ ਨਜ਼ਰੀ ਜਾਂਚ",
+    "ਫ਼ਿਲਟਰ ਬਦਲਿਆ, ਬਰਨਰ ਅਤੇ ਫ਼ਲੂ ਦੇਖੇ ਅਤੇ ਥਰਮੋਸਟੈਟ ਇੱਕ ਚੱਕਰ ਚਲਾਇਆ।"
+   ]
+  },
+  "Valve and riser work labour": {
+   "pa": [
+    "ਵਾਲਵ ਅਤੇ ਰਾਈਜ਼ਰ ਕੰਮ ਦੀ ਲੇਬਰ",
+    "ਪਾਣੀ ਬੰਦ, ਰਾਈਜ਼ਰ ਕੱਟ ਕੇ PVC, PEX ਜਾਂ ਤਾਂਬੇ ਨਾਲ ਵਧਾਏ, ਨਵੇਂ ਸ਼ਟ-ਆਫ਼ ਵਾਲਵ ਲਾ ਕੇ ਜਾਂਚੇ, ਘੰਟੇ ਦੇ ਹਿਸਾਬ ਨਾਲ।"
+   ]
+  },
+  "Riser extensions and shut-off valves": {
+   "pa": [
+    "ਰਾਈਜ਼ਰ ਐਕਸਟੈਂਸ਼ਨ ਅਤੇ ਸ਼ਟ-ਆਫ਼ ਵਾਲਵ",
+    "ਫ਼ਿਕਸਚਰ ਲਈ ਐਕਸਟੈਂਸ਼ਨ ਨਿੱਪਲ, ਕਪਲਿੰਗ ਅਤੇ ਕੁਆਰਟਰ-ਟਰਨ ਵਾਲਵ।"
+   ]
+  },
+  "Faucet installation labour": {
+   "pa": [
+    "ਟੂਟੀ ਲਾਉਣ ਦੀ ਲੇਬਰ",
+    "ਪੁਰਾਣੀ ਟੂਟੀ ਲਾਹੀ, ਨਵੀਂ ਲਾ ਕੇ ਜੋੜੀ, ਸਪਲਾਈ ਲਾਈਨਾਂ ਬਦਲੀਆਂ ਅਤੇ ਏਅਰੇਟਰ ਧੋਇਆ।"
+   ]
+  },
+  "Mid-range faucet": {
+   "pa": [
+    "ਦਰਮਿਆਨੇ ਦਰਜੇ ਦੀ ਟੂਟੀ",
+    "ਰਸੋਈ ਦੀ ਪੁੱਲ-ਡਾਊਨ ਜਾਂ ਬਾਥਰੂਮ ਦੀ ਸੈਂਟਰਸੈੱਟ ਟੂਟੀ, ਜੇ ਗਾਹਕ ਨੇ ਨਹੀਂ ਖਰੀਦੀ।"
+   ]
+  },
+  "Sink installation labour": {
+   "pa": [
+    "ਸਿੰਕ ਲਾਉਣ ਦੀ ਲੇਬਰ",
+    "ਸਿੰਕ ਬਿਠਾ ਕੇ ਸੀਲ ਕੀਤਾ, ਟੂਟੀ ਅਤੇ ਨਾਲੀ ਜੋੜੀ, ਟ੍ਰੈਪ ਲਾਇਆ ਅਤੇ ਸਪਲਾਈ ਅਤੇ ਨਾਲੀ ਜਾਂਚੀ।"
+   ]
+  },
+  "Drain kit, P-trap and supply lines": {
+   "pa": [
+    "ਡ੍ਰੇਨ ਕਿੱਟ, P-ਟ੍ਰੈਪ ਅਤੇ ਸਪਲਾਈ ਲਾਈਨਾਂ",
+    "ਬਾਸਕਟ ਸਟ੍ਰੇਨਰ ਜਾਂ ਪੌਪ-ਅੱਪ, P-ਟ੍ਰੈਪ, ਟੇਲਪੀਸ ਅਤੇ ਬ੍ਰੇਡਿਡ ਸਪਲਾਈ ਲਾਈਨਾਂ।"
+   ]
+  },
+  "Silicone and small parts": {
+   "pa": [
+    "ਸਿਲੀਕੋਨ ਅਤੇ ਛੋਟੇ ਪੁਰਜ਼ੇ",
+    "ਰਸੋਈ-ਬਾਥਰੂਮ ਸਿਲੀਕੋਨ, ਵਾੱਸ਼ਰ, O-ਰਿੰਗ ਅਤੇ ਐਸਕਚੀਅਨ।"
+   ]
+  },
+  "Faucet or toilet repair labour": {
+   "pa": [
+    "ਟੂਟੀ ਜਾਂ ਟਾਇਲਟ ਮੁਰੰਮਤ ਦੀ ਲੇਬਰ",
+    "ਟਪਕਦੀ ਟੂਟੀ ਮੁੜ ਬਣਾਈ ਜਾਂ ਚੱਲਦਾ ਟਾਇਲਟ ਠੀਕ ਕੀਤਾ — ਕਾਰਟ੍ਰਿਜ, ਫ਼ਲੈਪਰ ਜਾਂ ਫ਼ਿੱਲ ਵਾਲਵ ਬਦਲ ਕੇ ਜਾਂਚਿਆ।"
+   ]
+  },
+  "Cartridge, flapper or fill valve": {
+   "pa": [
+    "ਕਾਰਟ੍ਰਿਜ, ਫ਼ਲੈਪਰ ਜਾਂ ਫ਼ਿੱਲ ਵਾਲਵ",
+    "ਫ਼ਿਕਸਚਰ ਦੇ ਬ੍ਰਾਂਡ ਨਾਲ ਮੇਲ ਖਾਂਦਾ ਮੁਰੰਮਤ ਪੁਰਜ਼ਾ।"
+   ]
+  },
+  "Pipe run installation — per linear ft": {
+   "pa": [
+    "ਪਾਈਪ ਲਾਈਨ ਵਿਛਾਉਣਾ — ਪ੍ਰਤੀ ਲੀਨੀਅਰ ਫੁੱਟ",
+    "ਸਪਲਾਈ ਜਾਂ ਨਾਲੀ ਦੀ ਪਾਈਪ ਵਿਛਾਈ, ਕਲੈਂਪ ਕੀਤੀ, ਫ਼ਿਟਿੰਗਾਂ ਨਾਲ ਜੋੜੀ ਅਤੇ ਦਬਾਅ ਜਾਂ ਵਹਾਅ ਨਾਲ ਜਾਂਚੀ।"
+   ]
+  },
+  "1/2 in PEX — per 100 ft coil": {
+   "pa": [
+    "1/2 ਇੰਚ PEX — ਪ੍ਰਤੀ 100 ਫੁੱਟ ਕੌਇਲ",
+    "ਸਪਲਾਈ ਲਾਈਨਾਂ ਲਈ PEX-B ਟਿਊਬਿੰਗ; ਇੱਕ ਕੌਇਲ 100 ਲੀਨੀਅਰ ਫੁੱਟ।"
+   ]
+  },
+  "Fittings, straps and valves": {
+   "pa": [
+    "ਫ਼ਿਟਿੰਗਾਂ, ਸਟ੍ਰੈਪ ਅਤੇ ਵਾਲਵ",
+    "ਕ੍ਰਿੰਪ ਰਿੰਗ, ਐਲਬੋ, ਟੀ, ਸਟ੍ਰੈਪ ਅਤੇ ਜਿੱਥੇ ਲਾਈਨ ਨੂੰ ਲੋੜ ਹੋਵੇ ਸ਼ਟ-ਆਫ਼।"
+   ]
+  },
+  "Toilet installation labour": {
+   "pa": [
+    "ਟਾਇਲਟ ਲਾਉਣ ਦੀ ਲੇਬਰ",
+    "ਫ਼ਲੈਂਜ ਜਾਂਚੀ, ਨਵੀਂ ਵੈਕਸ ਰਿੰਗ ਅਤੇ ਬੋਲਟ ਲਾਏ, ਟਾਇਲਟ ਬਿਠਾਇਆ, ਪੱਧਰਾ ਕੀਤਾ, ਜੋੜਿਆ ਅਤੇ ਫ਼ਲੱਸ਼ ਜਾਂਚੀ।"
+   ]
+  },
+  "Two-piece elongated toilet": {
+   "pa": [
+    "ਦੋ-ਹਿੱਸਿਆਂ ਵਾਲਾ ਲੰਮਾ ਟਾਇਲਟ",
+    "ਸੀਟ ਸਮੇਤ 1.28 gpf ਦੋ-ਹਿੱਸਿਆਂ ਵਾਲਾ ਲੰਮਾ ਟਾਇਲਟ।"
+   ]
+  },
+  "Wax ring and closet bolts": {
+   "pa": [
+    "ਵੈਕਸ ਰਿੰਗ ਅਤੇ ਕਲੋਜ਼ਿਟ ਬੋਲਟ",
+    "ਵੈਕਸ ਰਿੰਗ, ਜਾਂ ਬਿਨਾਂ ਵੈਕਸ ਸੀਲ, ਅਤੇ ਨਵੇਂ ਪਿੱਤਲ ਦੇ ਕਲੋਜ਼ਿਟ ਬੋਲਟ।"
+   ]
+  },
+  "Seat, fill valve, wax ring and bolts": {
+   "pa": [
+    "ਸੀਟ, ਫ਼ਿੱਲ ਵਾਲਵ, ਵੈਕਸ ਰਿੰਗ ਅਤੇ ਬੋਲਟ",
+    "ਹੌਲੀ ਬੰਦ ਹੋਣ ਵਾਲੀ ਸੀਟ, ਨਵਾਂ ਫ਼ਿੱਲ ਵਾਲਵ ਅਤੇ ਫ਼ਲੈਪਰ, ਵੈਕਸ ਰਿੰਗ ਅਤੇ ਕਲੋਜ਼ਿਟ ਬੋਲਟ।"
+   ]
+  },
+  "Toilet repair or reset labour": {
+   "pa": [
+    "ਟਾਇਲਟ ਮੁਰੰਮਤ ਜਾਂ ਮੁੜ ਬਿਠਾਉਣ ਦੀ ਲੇਬਰ",
+    "ਟਾਇਲਟ ਲਾਹਿਆ, ਫ਼ਲੈਂਜ ਠੀਕ ਕੀਤੀ ਜਾਂ ਟੈਂਕ ਮੁੜ ਬਣਾਇਆ, ਫਿਰ ਨਵੀਂ ਸੀਲ 'ਤੇ ਮੁੜ ਬਿਠਾ ਕੇ ਜਾਂਚਿਆ।"
+   ]
+  },
+  "Deadbolt installation — boring and fitting": {
+   "pa": [
+    "ਡੈੱਡਬੋਲਟ ਲਾਉਣਾ — ਛੇਕ ਅਤੇ ਫ਼ਿਟਿੰਗ",
+    "ਜਿਗ ਨਾਲ ਦਰਵਾਜ਼ੇ ਵਿੱਚ ਛੇਕ, ਲੈਚ ਅਤੇ ਸਟ੍ਰਾਈਕ ਲਈ ਖਾਂਚੇ, ਡੈੱਡਬੋਲਟ ਲਾਇਆ ਅਤੇ ਸਟ੍ਰਾਈਕ 3 ਇੰਚ ਪੇਚਾਂ ਨਾਲ ਚੁਗਾਠ ਵਿੱਚ ਕੱਸੀ।"
+   ]
+  },
+  "Grade 2 single-cylinder deadbolt": {
+   "pa": [
+    "ਗ੍ਰੇਡ 2 ਸਿੰਗਲ-ਸਿਲੰਡਰ ਡੈੱਡਬੋਲਟ",
+    "ANSI ਗ੍ਰੇਡ 2 ਡੈੱਡਬੋਲਟ, ਜਿੱਥੇ ਬ੍ਰਾਂਡ ਇਜਾਜ਼ਤ ਦੇਵੇ ਘਰ ਦੀ ਮੌਜੂਦਾ ਚਾਬੀ ਨਾਲ।"
+   ]
+  },
+  "Reinforced strike plate": {
+   "pa": [
+    "ਮਜ਼ਬੂਤ ਸਟ੍ਰਾਈਕ ਪਲੇਟ",
+    "ਮੋਟੀ ਸਟ੍ਰਾਈਕ ਪਲੇਟ ਅਤੇ 3 ਇੰਚ ਪੇਚ ਜੋ ਚੁਗਾਠ ਪਿੱਛੇ ਢਾਂਚੇ ਤੱਕ ਪਹੁੰਚਦੇ ਹਨ।"
+   ]
+  },
+  "Smart lock installation and setup": {
+   "pa": [
+    "ਸਮਾਰਟ ਤਾਲਾ ਲਾਉਣਾ ਅਤੇ ਸੈੱਟਅੱਪ",
+    "ਪੁਰਾਣਾ ਡੈੱਡਬੋਲਟ ਕੱਢਿਆ, ਸਮਾਰਟ ਤਾਲਾ ਲਾ ਕੇ ਕੈਲੀਬ੍ਰੇਟ ਕੀਤਾ, ਐਪ ਨਾਲ ਜੋੜਿਆ ਅਤੇ ਘਰ ਦੇ ਕੋਡ ਸੈੱਟ ਕੀਤੇ।"
+   ]
+  },
+  "Smart deadbolt": {
+   "pa": [
+    "ਸਮਾਰਟ ਡੈੱਡਬੋਲਟ",
+    "ਕੀਪੈਡ ਅਤੇ ਚਾਬੀ ਵਾਲੇ ਬਦਲ ਸਮੇਤ Wi-Fi ਜਾਂ ਬਲੂਟੁੱਥ ਡੈੱਡਬੋਲਟ।"
+   ]
+  },
+  "Lockset replacement labour": {
+   "pa": [
+    "ਲੌਕਸੈੱਟ ਬਦਲਣ ਦੀ ਲੇਬਰ",
+    "ਪੁਰਾਣਾ ਨੌਬ ਜਾਂ ਲੀਵਰ ਲਾਹਿਆ, ਨਵਾਂ ਲੌਕਸੈੱਟ ਲਾਇਆ ਅਤੇ ਲੈਚ ਅਤੇ ਸਟ੍ਰਾਈਕ ਸਿੱਧੇ ਕੀਤੇ ਤਾਂ ਜੋ ਦਰਵਾਜ਼ਾ ਠੀਕ ਬੰਦ ਹੋਵੇ ਅਤੇ ਤਾਲਾ ਲੱਗੇ।"
+   ]
+  },
+  "Entry knob or lever lockset": {
+   "pa": [
+    "ਐਂਟਰੀ ਨੌਬ ਜਾਂ ਲੀਵਰ ਲੌਕਸੈੱਟ",
+    "ਗਾਹਕ ਦੀ ਚੁਣੀ ਫ਼ਿਨਿਸ਼ ਵਿੱਚ ਚਾਬੀ ਵਾਲਾ ਐਂਟਰੀ ਨੌਬ ਜਾਂ ਲੀਵਰ ਸੈੱਟ।"
+   ]
+  },
+  "Old caulk removal and re-caulk — per tub or shower": {
+   "pa": [
+    "ਪੁਰਾਣੀ ਕੌਕ ਲਾਹੁਣਾ ਅਤੇ ਨਵੀਂ ਲਾਉਣਾ — ਪ੍ਰਤੀ ਟੱਬ ਜਾਂ ਸ਼ਾਵਰ",
+    "ਪੁਰਾਣੀ ਕੌਕ ਕੱਟ ਕੇ ਖੁਰਚੀ, ਉੱਲੀ ਸਾਫ਼ ਕੀਤੀ, ਜੋੜ ਸੁਕਾਇਆ ਅਤੇ ਨਵੀਂ ਸਿਲੀਕੋਨ ਲਕੀਰ ਲਾਈ।"
+   ]
+  },
+  "Mould-resistant silicone and caulk remover": {
+   "pa": [
+    "ਉੱਲੀ-ਰੋਧਕ ਸਿਲੀਕੋਨ ਅਤੇ ਕੌਕ ਰਿਮੂਵਰ",
+    "100% ਸਿਲੀਕੋਨ ਰਸੋਈ-ਬਾਥਰੂਮ ਸੀਲੈਂਟ, ਕੌਕ ਰਿਮੂਵਰ ਅਤੇ ਉੱਲੀ ਕਲੀਨਰ।"
+   ]
+  },
+  "Opening caulking labour — per window or door": {
+   "pa": [
+    "ਖੁੱਲ੍ਹ ਦੀ ਕੌਕਿੰਗ ਲੇਬਰ — ਪ੍ਰਤੀ ਖਿੜਕੀ ਜਾਂ ਦਰਵਾਜ਼ਾ",
+    "ਫ਼ਰੇਮ ਦੁਆਲੇ ਖ਼ਰਾਬ ਕੌਕ ਕੱਢੀ, 1/4 ਇੰਚ ਤੋਂ ਵੱਡੀਆਂ ਵਿਰਲਾਂ ਵਿੱਚ ਫ਼ੋਮ ਰਾਡ ਭਰੀ, ਅਤੇ ਬਾਹਰ ਨਵੀਂ ਲਕੀਰ ਲਾਈ।"
+   ]
+  },
+  "Exterior sealant and backer rod — per opening": {
+   "pa": [
+    "ਬਾਹਰੀ ਸੀਲੈਂਟ ਅਤੇ ਬੈਕਰ ਰਾਡ — ਪ੍ਰਤੀ ਖੁੱਲ੍ਹ",
+    "ਇੱਕ ਖਿੜਕੀ ਜਾਂ ਦਰਵਾਜ਼ੇ ਲਈ ਪੇਂਟ ਹੋਣ ਵਾਲਾ ਬਾਹਰੀ ਸੀਲੈਂਟ ਅਤੇ ਬੰਦ-ਸੈੱਲ ਬੈਕਰ ਰਾਡ।"
+   ]
+  },
+  "Weatherstrip and sweep replacement labour": {
+   "pa": [
+    "ਵੈਦਰਸਟ੍ਰਿਪ ਅਤੇ ਸਵੀਪ ਬਦਲਣ ਦੀ ਲੇਬਰ",
+    "ਪੁਰਾਣੀ ਵੈਦਰਸਟ੍ਰਿਪ ਲਾਹੀ, ਨਵੀਂ ਚੁਗਾਠ ਦੀ ਖਾਂਚ ਵਿੱਚ ਦਬਾਈ ਜਾਂ ਸਟੈਪਲ ਕੀਤੀ, ਅਤੇ ਨਵੀਂ ਸਵੀਪ ਲਾ ਕੇ ਦਹਿਲੀਜ਼ ਮੁਤਾਬਕ ਠੀਕ ਕੀਤੀ।"
+   ]
+  },
+  "Childproofing labour": {
+   "pa": [
+    "ਬੱਚਿਆਂ ਦੀ ਸੁਰੱਖਿਆ ਦੀ ਲੇਬਰ",
+    "ਬੱਚੇ ਦੀ ਉਚਾਈ ਤੋਂ ਘਰ ਵਿੱਚ ਖ਼ਤਰੇ ਦੇਖੇ, ਫਿਰ ਲੈਚ, ਤਾਲੇ, ਕਵਰ ਅਤੇ ਐਂਕਰ ਲਾਏ, ਘੰਟੇ ਦੇ ਹਿਸਾਬ ਨਾਲ।"
+   ]
+  },
+  "Childproofing kit": {
+   "pa": [
+    "ਬੱਚਿਆਂ ਦੀ ਸੁਰੱਖਿਆ ਕਿੱਟ",
+    "ਆਮ ਘਰ ਲਈ ਕੈਬਨਿਟ ਲੈਚ, ਸਾਕਟ ਕਵਰ, ਕੋਨਾ ਗਾਰਡ, ਦਰਵਾਜ਼ੇ ਦੇ ਨੌਬ ਕਵਰ ਅਤੇ ਟਾਇਲਟ ਲੌਕ।"
+   ]
+  },
+  "Safety gate installation — per gate": {
+   "pa": [
+    "ਸੁਰੱਖਿਆ ਗੇਟ ਲਾਉਣਾ — ਪ੍ਰਤੀ ਗੇਟ",
+    "ਗੇਟ ਸਟੱਡਾਂ ਵਿੱਚ ਜਾਂ ਬੈਨਿਸਟਰ ਅਡੈਪਟਰਾਂ ਨਾਲ ਲਾਇਆ, ਪੌੜੀਆਂ ਤੋਂ ਦੂਰ ਖੁੱਲ੍ਹਣ ਵਾਲਾ, ਅਤੇ ਲੈਚ ਜਾਂਚੀ।"
+   ]
+  },
+  "Hardware-mounted safety gate": {
+   "pa": [
+    "ਪੇਚਾਂ ਨਾਲ ਲੱਗਣ ਵਾਲਾ ਸੁਰੱਖਿਆ ਗੇਟ",
+    "ਪੌੜੀਆਂ ਦੇ ਉੱਪਰ ਲਈ ਮਨਜ਼ੂਰ ਗੇਟ ਜੋ ਕੰਧ ਨਾਲ ਪੇਚਾਂ ਨਾਲ ਲੱਗਦਾ ਹੈ, ਮਾਊਂਟਿੰਗ ਕਿੱਟ ਸਮੇਤ।"
+   ]
+  },
+  "Banister adapter kit": {
+   "pa": [
+    "ਬੈਨਿਸਟਰ ਅਡੈਪਟਰ ਕਿੱਟ",
+    "ਕਲੈਂਪ ਵਾਲੇ ਅਡੈਪਟਰ ਤਾਂ ਜੋ ਗੇਟ ਬੈਨਿਸਟਰ ਵਿੱਚ ਛੇਕ ਕੀਤੇ ਬਿਨਾਂ ਲੱਗ ਜਾਵੇ।"
+   ]
+  },
+  "Safety latch installation — per latch": {
+   "pa": [
+    "ਸੁਰੱਖਿਆ ਲੈਚ ਲਾਉਣਾ — ਪ੍ਰਤੀ ਲੈਚ",
+    "ਇੱਕ ਕੈਬਨਿਟ ਦਰਵਾਜ਼ੇ ਜਾਂ ਦਰਾਜ਼ 'ਤੇ ਲੈਚ ਜਾਂ ਚੁੰਬਕੀ ਤਾਲਾ ਲਾਇਆ ਅਤੇ ਜਾਂਚਿਆ।"
+   ]
+  },
+  "Safety latch — per latch": {
+   "pa": [
+    "ਸੁਰੱਖਿਆ ਲੈਚ — ਪ੍ਰਤੀ ਲੈਚ",
+    "ਚਿਪਕਣ ਵਾਲੀ ਜਾਂ ਪੇਚ ਵਾਲੀ ਲੈਚ, ਜਾਂ ਚਾਬੀ ਸਮੇਤ ਚੁੰਬਕੀ ਤਾਲਾ।"
+   ]
+  },
+  "Anti-tip anchoring — per piece": {
+   "pa": [
+    "ਡਿੱਗਣ-ਰੋਕ ਐਂਕਰ — ਪ੍ਰਤੀ ਚੀਜ਼",
+    "ਡ੍ਰੈੱਸਰ, ਕਿਤਾਬਾਂ ਵਾਲੀ ਅਲਮਾਰੀ ਜਾਂ ਟੀਵੀ ਸਟੱਡ ਨਾਲ ਬੰਨ੍ਹਿਆ ਤਾਂ ਜੋ ਚੜ੍ਹਦੇ ਬੱਚੇ 'ਤੇ ਨਾ ਡਿੱਗੇ।"
+   ]
+  },
+  "Anti-tip strap kit — per piece": {
+   "pa": [
+    "ਡਿੱਗਣ-ਰੋਕ ਸਟ੍ਰੈਪ ਕਿੱਟ — ਪ੍ਰਤੀ ਚੀਜ਼",
+    "ਕੰਧ ਅਤੇ ਫ਼ਰਨੀਚਰ ਬ੍ਰੈਕਟਾਂ ਸਮੇਤ ਸਟੀਲ ਕੇਬਲ ਜਾਂ ਸਟ੍ਰੈਪ ਕਿੱਟ।"
+   ]
+  },
+  "Window stop or guard installation — per window": {
+   "pa": [
+    "ਖਿੜਕੀ ਸਟੌਪ ਜਾਂ ਗਾਰਡ ਲਾਉਣਾ — ਪ੍ਰਤੀ ਖਿੜਕੀ",
+    "ਖੁੱਲ੍ਹ ਨੂੰ 4 ਇੰਚ ਤੱਕ ਸੀਮਤ ਕਰਨ ਲਈ ਸਟੌਪ ਲਾਇਆ, ਜਾਂ ਹੇਠਲੇ ਸੈਸ਼ 'ਤੇ ਗਾਰਡ ਲਾਇਆ।"
+   ]
+  },
+  "Window stop or guard — per window": {
+   "pa": [
+    "ਖਿੜਕੀ ਸਟੌਪ ਜਾਂ ਗਾਰਡ — ਪ੍ਰਤੀ ਖਿੜਕੀ",
+    "ਖਿੜਕੀ ਦੇ ਨਾਪ ਦਾ ਸੈਸ਼ ਸਟੌਪ ਜਾਂ ਲਾਹੁਣਯੋਗ ਖਿੜਕੀ ਗਾਰਡ।"
    ]
   }
  }
