@@ -11,7 +11,13 @@ import {
   redactLeads,
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
-import { isValidLeadStatus, canSetLeadStatus, isValidLostReason } from "@/lib/leads/pipeline";
+import {
+  isValidLeadStatus,
+  canSetLeadStatus,
+  isValidLostReason,
+  LEAD_QUOTE_EVIDENCE_SELECT,
+  quoteEvidence,
+} from "@/lib/leads/pipeline";
 import { canSeeMoney } from "@/lib/permissions/enforce";
 import { potentialValueForLead } from "@/lib/leads/potentialValue";
 import { loadWonAverages } from "@/lib/leads/wonAverages";
@@ -71,9 +77,10 @@ export async function GET(request) {
       assignedTo: { select: { id: true, name: true } },
       quote: {
         select: {
-          id: true,
-          quoteNumber: true,
-          status: true,
+          // id, quoteNumber, status and the Won rule's evidence — the board
+          // asks canSetLeadStatus before a drop, so it needs the same facts
+          // the PATCH below decides on (lib/leads/pipeline.js).
+          ...LEAD_QUOTE_EVIDENCE_SELECT,
           // What the quote is worth and whether a human has confirmed it —
           // read by potentialValueForLead below, and stripped again before
           // the response so the board never carries a quote's money to
@@ -109,8 +116,14 @@ export async function GET(request) {
     : {};
   const withPotential = leads.map((l) => {
     const { quote, ...rest } = l;
-    const publicQuote = quote
-      ? { id: quote.id, quoteNumber: quote.quoteNumber, status: quote.status }
+    const evidence = quoteEvidence(quote);
+    const publicQuote = evidence
+      ? {
+          id: evidence.id,
+          quoteNumber: evidence.quoteNumber,
+          status: evidence.status,
+          hasWork: evidence.hasWork,
+        }
       : quote;
     return {
       ...rest,
@@ -205,6 +218,8 @@ export async function PATCH(request) {
 
   const existing = await db.leadRequest.findFirst({
     where: { id, companyId: member.companyId },
+    // The Won rule's evidence — see the per-lead route's PATCH.
+    include: { quote: { select: LEAD_QUOTE_EVIDENCE_SELECT } },
   });
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -218,7 +233,10 @@ export async function PATCH(request) {
   // rather than accepting a bare status flip.
   const statusCheck = canSetLeadStatus(existing, status, { lostReason });
   if (!statusCheck.ok) {
-    return NextResponse.json({ error: statusCheck.reason }, { status: 409 });
+    return NextResponse.json(
+      { error: statusCheck.reason, code: statusCheck.code || null },
+      { status: 409 },
+    );
   }
 
   const updated = await db.leadRequest.update({
