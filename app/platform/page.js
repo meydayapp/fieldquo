@@ -814,9 +814,9 @@ export default function PlatformDashboardPage() {
                   and ask which companies it meant. */}
               <p className="text-sm text-amber-800 dark:text-amber-300 mt-1">
                 {count(data.trialBreakdown?.trialingSubscription ?? 0)} trialing in
-                Stripe · {count(data.trialBreakdown?.awaitingCheckout ?? 0)} signed up,
-                not through checkout yet. {trialShare}% of companies that finished
-                checkout — these are the ones worth calling.
+                Stripe · {count(data.trialBreakdown?.awaitingCheckout ?? 0)} on the
+                card-free trial, no plan chosen yet. {trialShare}% of companies that
+                finished signing up — these are the ones worth calling.
               </p>
             </div>
             <Link

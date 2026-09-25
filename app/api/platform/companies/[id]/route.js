@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { requirePlatformPermission } from "@/lib/platform/permissions";
 import { diagnoseNumber } from "@/lib/voice/diagnose";
+import { companyStanding } from "@/lib/platform/companyStanding";
 
 // Next 16: params is a Promise and must be awaited. Reading params.id
 // synchronously resolves to undefined, which turns every lookup on this route
@@ -91,7 +92,9 @@ export async function GET(request, { params }) {
     ? await diagnoseNumber(id).catch(() => null)
     : null;
 
-  return NextResponse.json({ ...company, voiceDiagnosis });
+  // The header's status, derived rather than read off onboardingStatus —
+  // lib/platform/companyStanding.js says why.
+  return NextResponse.json({ ...company, voiceDiagnosis, standing: companyStanding(company) });
 }
 
 export async function PATCH(request, { params }) {

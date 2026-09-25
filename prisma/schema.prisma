@@ -2237,6 +2237,10 @@ model Company {
   /// The sales-floor row a self-serve signup became (welcome call / stalled
   /// trial) — lib/signup/salesFloor.js. Never on a rep-referred company.
   signupProspects  Prospect[]
+  /// FieldQuo's own "Remove from list" on /platform/signups — see
+  /// SignupDismissal. Not company data: the row lives in its own table and
+  /// nothing on Company changes when it is written.
+  signupDismissal  SignupDismissal?
   salesAttributionTouches SalesAttributionTouch[]
   salesCommissionEntries  SalesCommissionEntry[]
   /// Check-in texts a rep has DRAFTED about this company, sent or not. Nothing
@@ -11561,11 +11565,57 @@ model SignupLead {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  /// FieldQuo's own "Remove from list" on /platform/signups — see SignupDismissal.
+  signupDismissal SignupDismissal?
+
   @@index([lastSeenAt])
   @@index([completedCompanyId])
   @@index([referredRepId])
   @@index([promotedAt])
   @@index([authUserId])
+}
+
+/// A row the owner took off /platform/signups with "Remove from list" — a
+/// test run, a duplicate, somebody who is plainly not a contractor. Keyed on
+/// exactly one of the two kinds of row that page lists: an unfinished
+/// SignupLead, or a Company (an incomplete signup or a new free trial).
+///
+/// ── Why a table of its own, and why nothing is ever deleted ────────────────
+///
+/// The owner's standing rule is no data deletion, and non-negotiable #3 is
+/// that the platform console edits nothing on a company's data — so the
+/// dismissal cannot be a DELETE, and it cannot be a column on Company either.
+/// It is FieldQuo's own note ABOUT a row, in FieldQuo's own table, and the
+/// row it is about is untouched. "Restore" stamps restoredAt rather than
+/// deleting this row, so the history of who hid what, and who put it back,
+/// is kept. A later "Remove" on the same row re-stamps dismissedAt and clears
+/// the restore; the unique keys keep it one row per signup.
+///
+/// ── Read by every reader of these rows, not just the screen ────────────────
+///
+/// Hiding a row the cron still mails would be a control that appears to work
+/// and doesn't. lib/signup/dismissal.js holds the fragments; the five-minute
+/// and 24-hour letters (app/api/cron/signup-recovery), the promotion of a
+/// quiet signup into a hot lead and the welcome-row backfill
+/// (lib/signup/salesFloor.js), the review folder's signup section
+/// (lib/signup/leads.js unplacedSignupWhere) and "Assign for callback" all
+/// refuse an active dismissal.
+model SignupDismissal {
+  id           String      @id @default(cuid())
+  signupLeadId String?     @unique
+  signupLead   SignupLead? @relation(fields: [signupLeadId], references: [id])
+  companyId    String?     @unique
+  company      Company?    @relation(fields: [companyId], references: [id])
+  /// The PlatformAdmin (superadmin — re-checked by the route) who removed it.
+  dismissedAt   DateTime
+  dismissedById String
+  /// Set by "Restore"; null while the row is hidden.
+  restoredAt   DateTime?
+  restoredById String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([restoredAt])
 }
 
 /// One follow-up email FieldQuo sent — or is sending — to somebody who

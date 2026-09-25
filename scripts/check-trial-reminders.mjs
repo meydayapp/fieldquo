@@ -126,7 +126,10 @@ ok(trialReminderDecision({ trialEndsAt: endIn(2), stamps: { trialReminder3At: NO
   const base = { isDemo: false, subscription: null, memberCount: 1, email: "o@x.com", createdAt: new Date(NOW.getTime() - 3 * DAY) };
   ok(decideSignupNudge({ company: { ...base, trialEndsAt: endIn(27) }, now: NOW }).reason === "trial_no_plan", "a company on its trial is not 'you didn't finish signing up'");
   ok(decideSignupNudge({ company: { ...base, trialEndsAt: endIn(-3) }, now: NOW }).reason === "trial_no_plan", "…nor after it ends (the trial letters and the banner own that)");
-  ok(decideSignupNudge({ company: base, now: NOW }).send === true, "a company with no trial date at all is still the old abandoned case");
+  ok(decideSignupNudge({ company: { ...base, trialEndsAt: null }, now: NOW }).send === true, "a company with no trial date at all is still the old abandoned case");
+  // undefined is not null: a query that forgot to select trialEndsAt must not
+  // read a trial as "no trial date" and mail it (lib/signup/abandoned.js).
+  ok((() => { try { decideSignupNudge({ company: base, now: NOW }); return false; } catch { return true; } })(), "an UNSELECTED trialEndsAt throws rather than mailing a trial");
 }
 
 // ── Wiring: the cron exists, is scheduled, and the columns are read ────────

@@ -65,6 +65,8 @@ export const rows = {
   // what /signup typed, the do-not-contact rows the promotion reads in the
   // request that writes, and the platform admin the assign names.
   signupLead: [],
+  // "Remove from list" on /platform/signups (lib/signup/dismissal.js).
+  signupDismissal: [],
   salesSuppression: [],
   platformAdmin: [],
   salesAttribution: [],
@@ -305,6 +307,7 @@ export function resetDbStub() {
   rows.salesPayoutBatch = [];
   rows.salesLead = [];
   rows.signupLead = [];
+  rows.signupDismissal = [];
   rows.salesSuppression = [];
   rows.platformAdmin = [];
   writes.length = 0;
@@ -732,6 +735,7 @@ export const db = new Proxy(
     // capture relies on; a second create for the same key is refused the way
     // Postgres refuses it.
     signupLead: uniqueCreateModel("signupLead", ["emailKey"]),
+    signupDismissal: model("signupDismissal"),
     salesSuppression: model("salesSuppression"),
     platformAdmin: model("platformAdmin"),
     // Prisma's interactive transaction, modelled as "run the callback with

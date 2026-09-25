@@ -1,6 +1,31 @@
 // app/api/platform/signups/route.js
 //
-// GET — the people who started a FieldQuo signup and never finished it.
+// GET — the people who started a FieldQuo signup and never finished it, and
+// — in a section of their own — the companies that finished on the card-free
+// trial and have not chosen a plan yet.
+//
+// ══ 2026-09-25: a finished trial is not an unfinished signup ═════════════
+//
+// Since 38d3308d signup ends at Services with no card, so a new company has
+// no Subscription row until the owner picks a plan from the banner. This
+// endpoint's query was "no Subscription row", so every new company landed in
+// the incomplete list as "got as far as Checkout" and, an hour in, as
+// "Stalled — unassigned" (jaspedo, 2026-09-25). The list now asks
+// lib/signup/abandoned.js: `signups` is incompleteSignupWhere (no row AND no
+// trial date), and the finished card-free trials come back as `trials`, a
+// separate array the page renders under "New companies on free trial" with
+// what they are — "Signed up · free trial, N days left · no plan chosen yet".
+// They stay on this page rather than moving wholly to /platform/companies
+// because the welcome call is placed from here ("Assign for callback" works
+// on them exactly as before); the page links to the companies list filtered
+// to the same population.
+//
+// ══ Removed rows ═══════════════════════════════════════════════════════════
+//
+// Every row carries `dismissed` (lib/signup/dismissal.js): null, or when and
+// by whom the owner removed it. Removed rows are RETURNED, flagged, so the
+// page can offer "Show removed (N)" and "Restore" — the write is
+// ./dismiss/route.js, superadmin only.
 //
 // ══ Why this is its own endpoint and not a filter on /api/platform/companies ═
 //
@@ -35,8 +60,9 @@
 //
 // No POST, no PATCH, no DELETE, and none should be added. Non-negotiable #3:
 // the platform console views everything on a company's data and edits nothing.
-// The one write in this whole feature is the cron's own `signupNudgeSentAt`
-// stamp, which is FieldQuo's record of what FieldQuo sent.
+// The writes this screen triggers live in their own files (./assign, ./dismiss)
+// and touch only FieldQuo's own rows — a Prospect, a claim, a SignupDismissal,
+// an audit line — never a Company or a SignupLead.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -47,10 +73,13 @@ import { checkSuppression } from "@/lib/sales/suppression";
 import {
   NUDGE_DELAY_HOURS,
   NUDGE_WINDOW_DAYS,
+  cardFreeTrialWhere,
   incompleteSignupWhere,
   nudgeRecipient,
   decideSignupNudge,
 } from "@/lib/signup/abandoned";
+import { DISMISSAL_SELECT, isDismissed } from "@/lib/signup/dismissal";
+import { trialAccessFor } from "@/lib/billing/access";
 import { PROMOTE_AFTER_MS, STEP_LABELS, emailKeyOf, tradeKeyForIndustries, unfinishedSignupLeadWhere } from "@/lib/signup/leads";
 import { EARLY_NUDGE_DELAY_MINUTES, EARLY_TOUCH, RECOVERY_TOUCH } from "@/lib/signup/earlyNudge";
 import { discoveryTradeKeys, discoveryTradeLabel, isDiscoveryTradeKey } from "@/lib/sales/discovery/trades";
@@ -88,40 +117,56 @@ export async function GET(request) {
   // Demos are excluded here rather than by incompleteSignupWhere(), the same
   // split lib/platform/trialCounting.js keeps: the fragment states one rule and
   // every caller spreads its own NOT_DEMO beside it.
-  const rows = await db.company.findMany({
-    where: { isDemo: false, ...incompleteSignupWhere() },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      phone: true,
-      city: true,
-      province: true,
-      country: true,
-      industries: true,
-      defaultLanguage: true,
-      createdAt: true,
-      trialEndsAt: true,
-      signupNudgeSentAt: true,
-      isDemo: true,
-      subscription: { select: { id: true } },
-      referredByCode: true,
-      salesAttribution: { select: { salesRepId: true } },
-      // The lead behind the company: where they got to and when they were
-      // last seen, which is the "last seen" the screen sorts on.
-      signupLead: { select: { id: true, stepReached: true, lastSeenAt: true, trades: true } },
-      _count: { select: { members: true, quotes: true, clients: true } },
-      // Who to ask for. The Company row carries the address the signup was made
-      // with; the owner's own name is on the User behind the Member, and it is
-      // the thing a rep actually opens a call with.
-      members: {
-        where: { role: "owner" },
-        select: { user: { select: { name: true, email: true } } },
-        take: 1,
-      },
+  const COMPANY_SELECT = {
+    id: true,
+    name: true,
+    email: true,
+    phone: true,
+    city: true,
+    province: true,
+    country: true,
+    industries: true,
+    defaultLanguage: true,
+    createdAt: true,
+    trialEndsAt: true,
+    signupNudgeSentAt: true,
+    isDemo: true,
+    subscription: { select: { id: true } },
+    referredByCode: true,
+    salesAttribution: { select: { salesRepId: true } },
+    // The lead behind the company: where they got to and when they were
+    // last seen, which is the "last seen" the screen sorts on.
+    signupLead: { select: { id: true, stepReached: true, lastSeenAt: true, trades: true } },
+    _count: { select: { members: true, quotes: true, clients: true } },
+    // Who to ask for. The Company row carries the address the signup was made
+    // with; the owner's own name is on the User behind the Member, and it is
+    // the thing a rep actually opens a call with.
+    members: {
+      where: { role: "owner" },
+      select: { user: { select: { name: true, email: true } } },
+      take: 1,
     },
-    orderBy: { createdAt: "desc" },
-  });
+    ...DISMISSAL_SELECT,
+  };
+  const [incompleteRows, trialRows] = await Promise.all([
+    db.company.findMany({
+      where: { isDemo: false, ...incompleteSignupWhere() },
+      select: COMPANY_SELECT,
+      orderBy: { createdAt: "desc" },
+    }),
+    // Newest first and bounded, like the started list: this is the "who
+    // signed up lately" section, and /platform/companies?status=trial_no_plan
+    // is the full list.
+    db.company.findMany({
+      where: { isDemo: false, ...cardFreeTrialWhere() },
+      select: COMPANY_SELECT,
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    }),
+  ]);
+  // Every company row, both sections, for the reads that are per address or
+  // per company (suppression, floor rows, follow-ups).
+  const rows = [...incompleteRows, ...trialRows];
 
   const now = new Date();
 
@@ -183,6 +228,7 @@ export async function GET(request) {
       authUserId: true, completedCompanyId: true,
       referredRep: { select: { id: true, name: true } },
       prospect: { select: { id: true, hot: true, signupKind: true, tradeKey: true, assignedRepId: true, assignedAt: true, claimExpiresAt: true, doNotContactAt: true } },
+      ...DISMISSAL_SELECT,
     },
   });
   const emailKeys = [...new Set([...rows.map((c) => emailKeyOf(c.email)), ...startedRows.map((r) => emailKeyOf(r.email))].filter(Boolean))];
@@ -198,7 +244,16 @@ export async function GET(request) {
     };
   };
 
-  const signups = rows.map((c) => {
+  // Who removed a row, by address — PlatformAdmin carries an email, no name.
+  const dismisserIds = [...new Set([...rows.map((c) => c.signupDismissal), ...startedRows.map((r) => r.signupDismissal)]
+    .filter((d) => d && !d.restoredAt).map((d) => d.dismissedById).filter(Boolean))];
+  const dismissers = dismisserIds.length
+    ? new Map((await db.platformAdmin.findMany({ where: { id: { in: dismisserIds } }, select: { id: true, email: true } })).map((a) => [a.id, a.email]))
+    : new Map();
+  const dismissalOf = (row) =>
+    isDismissed(row) ? { at: row.signupDismissal.dismissedAt, by: dismissers.get(row.signupDismissal.dismissedById) || null } : null;
+
+  const companyRow = (c, { finished }) => {
     const to = nudgeRecipient(c.email);
     const verdict = to ? suppressed.get(to) : null;
     const lead = floorByCompany.get(c.id) || null;
@@ -211,8 +266,13 @@ export async function GET(request) {
       company: { ...c, memberCount: c._count.members },
       suppressed: Boolean(verdict?.suppressed),
       heldByRep: Boolean(lead?.assignedTo),
+      dismissed: isDismissed(c),
       now,
     });
+    // The card-free trial's own state, from the same function that decides
+    // what the company can do (lib/billing/access.js) — so this row and the
+    // banner the owner of that company is looking at say the same thing.
+    const access = finished ? trialAccessFor(c, now) : null;
 
     return {
       id: c.id,
@@ -241,9 +301,18 @@ export async function GET(request) {
       // or one older than the floor).
       lead,
       // Where the person got to and when they were last seen — off the lead
-      // behind the company, else the company's own creation.
-      stepReached: c.signupLead?.stepReached || "checkout",
-      stepLabel: STEP_LABELS[c.signupLead?.stepReached] || "Checkout",
+      // behind the company, else the company's own creation. Only for an
+      // UNFINISHED company: a finished trial got to the end, and "got as far
+      // as Checkout" about it was the false sentence this change removes.
+      // (An unfinished company with no lead keeps the "Checkout" fallback:
+      // on the old flow a company was only ever created at the card step.)
+      finished,
+      stepReached: finished ? null : c.signupLead?.stepReached || "checkout",
+      stepLabel: finished ? null : STEP_LABELS[c.signupLead?.stepReached] || "Checkout",
+      trial: access
+        ? { level: access.level, daysLeft: access.daysLeft, endsAt: access.trialEndsAt }
+        : null,
+      dismissed: dismissalOf(c),
       lastSeenAt: c.signupLead?.lastSeenAt && c.signupLead.lastSeenAt > c.createdAt ? c.signupLead.lastSeenAt : c.createdAt,
       trade: tradeOf({ prospectTradeKey: lead?.tradeKey || null, slugs: c.industries?.length ? c.industries : c.signupLead?.trades || [] }),
       // A rep's own signup (their link attributed it): shown as theirs,
@@ -251,7 +320,9 @@ export async function GET(request) {
       referredTo: referredRepId ? { id: referredRepId, name: repName.get(referredRepId) || "a rep" } : c.referredByCode ? { id: null, name: null, code: c.referredByCode } : null,
       nudges: nudgesFor(c.email, c.signupNudgeSentAt),
     };
-  });
+  };
+  const signups = incompleteRows.map((c) => companyRow(c, { finished: false }));
+  const trials = trialRows.map((c) => companyRow(c, { finished: true }));
 
   // ── Started, never finished ─────────────────────────────────────────────
   //
@@ -294,11 +365,13 @@ export async function GET(request) {
       state,
       trade: tradeOf({ prospectTradeKey: p?.tradeKey || null, slugs: r.trades }),
       nudges: nudgesFor(r.email),
+      dismissed: dismissalOf(r),
     };
   });
 
   return NextResponse.json({
     signups,
+    trials,
     started,
     // The picker on the screen, and the trades a row's words may be set to.
     reps,

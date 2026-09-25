@@ -57,11 +57,14 @@ import { recordError } from "@/lib/platform/errorLog";
 import { checkSuppression } from "@/lib/sales/suppression";
 import { mailingAddress } from "@/lib/legal/mailingAddress";
 import {
+  cardFreeTrialWhere,
+  hasFinishedSignup,
   incompleteSignupWhere,
   isReservedTestAddress,
   nudgeRecipient,
   planSignupNudges,
 } from "@/lib/signup/abandoned";
+import { DISMISSAL_SELECT, isDismissed } from "@/lib/signup/dismissal";
 import { buildSignupEarlyNudgeEmail } from "@/lib/email/signupEarlyNudgeEmail";
 import {
   EARLY_TOUCH,
@@ -124,13 +127,20 @@ async function runEarlyTouch({ now, origin, address, from }) {
         id: true, email: true, firstName: true, companyName: true, language: true, trades: true, stepReached: true,
         lastSeenAt: true, completedCompanyId: true, resumeToken: true, promotedLeadId: true,
         prospect: { select: { assignedRepId: true, claimExpiresAt: true } },
+        ...DISMISSAL_SELECT,
       },
       orderBy: { lastSeenAt: "desc" },
       take: BATCH,
     }),
+    // The card-free trials are fetched TOO, and on purpose. They are never
+    // written to (earlyNudgePersonFromCompany marks them completed), but they
+    // must be in the batch: planEarlyNudges closes an address that holds a
+    // finished person, and a finished company left out of the query could
+    // not close its own address against an older unfinished row there.
     db.company.findMany({
-      where: { isDemo: false, ...incompleteSignupWhere() },
+      where: { isDemo: false, OR: [incompleteSignupWhere(), cardFreeTrialWhere()] },
       select: {
+        ...DISMISSAL_SELECT,
         id: true, name: true, email: true, isDemo: true, createdAt: true, defaultLanguage: true, industries: true, trialEndsAt: true,
         subscription: { select: { id: true } },
         salesAttribution: { select: { salesRepId: true } },
@@ -223,12 +233,19 @@ async function runEarlyTouch({ now, origin, address, from }) {
     //
     // A person can finish between the list and the send; "we wrote to a
     // paying customer to come back and pay" is the worst outcome here.
+    //
+    // "Finished" is hasFinishedSignup — a Subscription row OR the card-free
+    // trial — never a bare subscription read: that bare read is the one that
+    // let jaspedo's letter through. A row the owner removed from
+    // /platform/signups in the meantime is refused here too.
     if (person.kind === "lead") {
-      const freshLead = await db.signupLead.findUnique({ where: { id: person.signupLeadId }, select: { completedCompanyId: true } });
+      const freshLead = await db.signupLead.findUnique({ where: { id: person.signupLeadId }, select: { completedCompanyId: true, ...DISMISSAL_SELECT } });
       if (!freshLead || freshLead.completedCompanyId) { await failed("completed_before_send"); continue; }
+      if (isDismissed(freshLead)) { await failed("dismissed_before_send"); continue; }
     } else {
-      const freshCompany = await db.company.findUnique({ where: { id: person.companyId }, select: { isDemo: true, subscription: { select: { id: true } } } });
-      if (!freshCompany || freshCompany.isDemo || freshCompany.subscription) { await failed("completed_before_send"); continue; }
+      const freshCompany = await db.company.findUnique({ where: { id: person.companyId }, select: { isDemo: true, trialEndsAt: true, subscription: { select: { id: true } }, ...DISMISSAL_SELECT } });
+      if (!freshCompany || freshCompany.isDemo || hasFinishedSignup(freshCompany)) { await failed("completed_before_send"); continue; }
+      if (isDismissed(freshCompany)) { await failed("dismissed_before_send"); continue; }
     }
 
     let email;
@@ -300,7 +317,14 @@ export async function GET(request) {
       createdAt: true,
       defaultLanguage: true,
       signupNudgeSentAt: true,
+      // Selected so decideSignupNudge can refuse a card-free trial. It was
+      // NOT selected when 38d3308d added that refusal, so the bare
+      // `company.trialEndsAt` read saw undefined and the refusal never fired;
+      // the query's own fragment now leaves trials out as well, and the
+      // predicate throws on an unselected column instead of guessing.
+      trialEndsAt: true,
       subscription: { select: { id: true } },
+      ...DISMISSAL_SELECT,
       _count: { select: { members: true } },
     },
     orderBy: { createdAt: "desc" },
@@ -338,7 +362,10 @@ export async function GET(request) {
   });
   const heldCompanyIds = new Set(heldRows.map((r) => r.companyId));
 
-  const { sends, skipped } = planSignupNudges({ companies, suppressedAddresses, heldCompanyIds, now });
+  // Removed from /platform/signups by the owner — never written to.
+  const dismissedCompanyIds = new Set(companies.filter(isDismissed).map((c) => c.id));
+
+  const { sends, skipped } = planSignupNudges({ companies, suppressedAddresses, heldCompanyIds, dismissedCompanyIds, now });
 
   const counts = {};
   const note = (reason) => { counts[reason] = (counts[reason] || 0) + 1; };
@@ -405,13 +432,14 @@ export async function GET(request) {
     // ── The assertion, against a read taken after the claim ─────────────
     //
     // Not a re-statement of decideSignupNudge — a second, fresher answer to the
-    // only question that must never be wrong. Anything but "still no
-    // subscription, still not a demo" reverts and sends nothing.
+    // only question that must never be wrong. Anything but "still not
+    // finished (no subscription, no trial), still not a demo, still on the
+    // list" reverts and sends nothing.
     const fresh = await db.company.findUnique({
       where: { id: company.id },
-      select: { isDemo: true, subscription: { select: { id: true } } },
+      select: { isDemo: true, trialEndsAt: true, subscription: { select: { id: true } }, ...DISMISSAL_SELECT },
     });
-    if (!fresh || fresh.isDemo || fresh.subscription) {
+    if (!fresh || fresh.isDemo || hasFinishedSignup(fresh) || isDismissed(fresh)) {
       await revert();
       note("completed_before_send");
       continue;

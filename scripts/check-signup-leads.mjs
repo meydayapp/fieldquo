@@ -74,6 +74,14 @@ import { INTRO_VARIANTS, SIGNUP_INTRO_COPY, buildIntroEmail } from "@/lib/sales/
 import { APP_MESSAGES } from "@/app/i18n/appMessages";
 import { defaultScriptLanguage } from "@/lib/sales/intel/callScript";
 import { CHECKOUT_GRACE_MS } from "@/lib/signup/setupGate";
+import {
+  dismissSignupRow,
+  isDismissed,
+  notDismissedWhere,
+  prospectNotDismissedClauses,
+  readDismissTarget,
+  restoreSignupRow,
+} from "@/lib/signup/dismissal";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => readFileSync(join(ROOT, p), "utf8");
@@ -662,7 +670,7 @@ section("6b. Assign for callback from /platform/signups — the row is written t
   ok("the screen posts to the write route", page.includes("/api/platform/signups/assign"));
   ok("the screen has the four filters and sorts by last seen", /key: "phone"/.test(page) && /key: "unassigned"/.test(page) && /key: "assigned"/.test(page) && /new Date\(b\.lastSeenAt \|\| 0\) - new Date\(a\.lastSeenAt \|\| 0\)/.test(page));
   ok("the screen has the sticky bulk bar with a rep picker and a per-row assign", /data-bulk-bar/.test(page) && /data-bulk-rep/.test(page) && /data-assign-callback/.test(page) && /data-set-trade/.test(page));
-  ok("a referred or held row is never tickable", /const tickable = isSuperadmin && !r\.referred\?\.id && !r\.assignedTo && !r\.doNotContact;/.test(page));
+  ok("a referred, held or removed row is never tickable", /const tickable = isSuperadmin && !r\.referred\?\.id && !r\.assignedTo && !r\.doNotContact && !r\.dismissed;/.test(page));
   ok("the screen prints the follow-ups sent", /Follow-up sent/.test(page) && /data-followups/.test(page));
 }
 
@@ -737,10 +745,20 @@ section("9. The rep's facts, the opener and the intro email variant — en / fr 
   ok("the stalled fact names the reason", /Stalled: no quote sent in 7 days$/.test(stalled.text) && stalled.badge === "stalled" && stalled.textKey === "app.salesIntel.fact.signup.stalledNoQuote");
   ok("no kind → no fact", signupFact({ kind: null }) === null);
   ok("a card-less state throws rather than reads as 'no card'", (() => { try { stalledDecision({ company: { createdAt: daysAgo(1) }, now: NOW, checkoutGraceMs: CHECKOUT_GRACE_MS }); return false; } catch { return true; } })());
-  ok("no card after the grace → stalled (no_card)", stalledDecision({ company: { createdAt: minutesAgo(90), subscription: null, firstQuoteSentAt: null }, now: NOW, checkoutGraceMs: CHECKOUT_GRACE_MS }).reason === "no_card");
-  ok("no card inside the grace → not stalled", stalledDecision({ company: { createdAt: minutesAgo(10), subscription: null, firstQuoteSentAt: null }, now: NOW, checkoutGraceMs: CHECKOUT_GRACE_MS }).stalled === false);
-  ok("a card and no quote for 8 days → stalled (no_quote)", stalledDecision({ company: { createdAt: daysAgo(8), subscription: { id: "s" }, firstQuoteSentAt: null }, now: NOW, checkoutGraceMs: CHECKOUT_GRACE_MS }).reason === "no_quote");
-  ok("a card and a quote → clear", stalledDecision({ company: { createdAt: daysAgo(30), subscription: { id: "s" }, firstQuoteSentAt: daysAgo(20) }, now: NOW, checkoutGraceMs: CHECKOUT_GRACE_MS }).stalled === false);
+  ok("an unselected trialEndsAt throws rather than reads as 'no trial'", (() => { try { stalledDecision({ company: { createdAt: daysAgo(1), subscription: null }, now: NOW, checkoutGraceMs: CHECKOUT_GRACE_MS }); return false; } catch { return true; } })());
+  ok("no card and no trial date after the grace → stalled (no_card)", stalledDecision({ company: { createdAt: minutesAgo(90), subscription: null, trialEndsAt: null, firstQuoteSentAt: null }, now: NOW, checkoutGraceMs: CHECKOUT_GRACE_MS }).reason === "no_card");
+  ok("no card inside the grace → not stalled", stalledDecision({ company: { createdAt: minutesAgo(10), subscription: null, trialEndsAt: null, firstQuoteSentAt: null }, now: NOW, checkoutGraceMs: CHECKOUT_GRACE_MS }).stalled === false);
+  // jaspedo, 2026-09-25: a card-free trial (no Subscription row, a trial date)
+  // was flipped to "Stalled — no card" an hour in. Signup took no card; it
+  // finished. Only the no-quote leg may stall it.
+  const TRIAL_ENDS = new Date(NOW.getTime() + 29 * 86400000);
+  ok("a card-free trial after the grace is NOT stalled for lacking a card", stalledDecision({ company: { createdAt: minutesAgo(90), subscription: null, trialEndsAt: TRIAL_ENDS, firstQuoteSentAt: null }, now: NOW, checkoutGraceMs: CHECKOUT_GRACE_MS }).stalled === false);
+  ok("…but a card-free trial with no quote for 8 days IS stalled (no_quote)", stalledDecision({ company: { createdAt: daysAgo(8), subscription: null, trialEndsAt: TRIAL_ENDS, firstQuoteSentAt: null }, now: NOW, checkoutGraceMs: CHECKOUT_GRACE_MS }).reason === "no_quote");
+  ok("a card and no quote for 8 days → stalled (no_quote)", stalledDecision({ company: { createdAt: daysAgo(8), subscription: { id: "s" }, trialEndsAt: null, firstQuoteSentAt: null }, now: NOW, checkoutGraceMs: CHECKOUT_GRACE_MS }).reason === "no_quote");
+  ok("a card and a quote → clear", stalledDecision({ company: { createdAt: daysAgo(30), subscription: { id: "s" }, trialEndsAt: null, firstQuoteSentAt: daysAgo(20) }, now: NOW, checkoutGraceMs: CHECKOUT_GRACE_MS }).stalled === false);
+  ok("the floor's company read selects the trial date stalledDecision needs", /trialEndsAt: true/.test(read("lib/signup/salesFloor.js")) && /trialEndsAt: company\.trialEndsAt/.test(read("lib/signup/salesFloor.js")));
+  ok("…and so do the rep's list and the reps screen, the other two stalledDecision callers",
+    /trialEndsAt: true/.test(read("app/api/sales/signups/route.js")) && /trialEndsAt: true/.test(read("app/api/platform/sales/reps/route.js")));
   ok("STALLED_NO_QUOTE_DAYS is seven", STALLED_NO_QUOTE_DAYS === 7);
 
   // signupStateOf: the block every screen reads.
@@ -864,7 +882,7 @@ section("11. The sweep — stalled ⇄ new, and the 30-day welcome backfill");
   ok("…not for a customer older than 30 days, not for a referred one", !rows.prospect.some((p) => p.companyId === "c_old" || p.companyId === "c_ref"));
   // Stalled flips on the company facts, and clears.
   resetDbStub();
-  const co = { id: "c1", name: "Martin", createdAt: minutesAgo(120), isDemo: false, subscription: null, quotes: [], industries: [], city: "X", defaultLanguage: "en" };
+  const co = { id: "c1", name: "Martin", createdAt: minutesAgo(120), isDemo: false, subscription: null, trialEndsAt: null, quotes: [], industries: [], city: "X", defaultLanguage: "en" };
   rows.company.push({ ...co, referredByCode: null, _count: { signupProspects: 1 } });
   rows.prospect.push({ id: "p1", signupKind: "new", signupStateReason: "Signed up", companyId: "c1", company: co });
   out = await sweepSignupProspects({ client: db, now: NOW });
@@ -874,6 +892,13 @@ section("11. The sweep — stalled ⇄ new, and the 30-day welcome backfill");
   ok("a card and a quote → cleared back to new", out.cleared === 1 && rows.prospect[0].signupKind === "new");
   out = await sweepSignupProspects({ client: db, now: NOW });
   ok("unchanged when nothing moved", out.unchanged === 1 && out.flippedStalled === 0 && out.cleared === 0);
+  // A row the OLD rule flipped to stalled for a card-free trial flips back on
+  // the next sweep, by the fixed rule — no hand edit of the live rows.
+  rows.prospect[0].signupKind = "stalled";
+  rows.prospect[0].signupStateReason = "no_card";
+  rows.prospect[0].company = { ...co, trialEndsAt: new Date(NOW.getTime() + 29 * 86400000) };
+  out = await sweepSignupProspects({ client: db, now: NOW });
+  ok("an existing 'stalled — no card' row for a card-free trial is cleared back to new by the next sweep", out.cleared === 1 && rows.prospect[0].signupKind === "new");
   ok("the cron is registered every fifteen minutes", /"path": "\/api\/cron\/signup-leads",\s*"schedule": "7,22,37,52 \* \* \* \*"/.test(read("vercel.json")));
   const cron = read("app/api/cron/signup-leads/route.js");
   ok("the cron runs the promotion and the sweep behind the cron secret", /requireCronSecret\(request\)/.test(cron) && /promoteSignupLeads\(/.test(cron) && /sweepSignupProspects\(/.test(cron));
@@ -883,7 +908,7 @@ section("11. The sweep — stalled ⇄ new, and the 30-day welcome backfill");
 section("12. The recovery email skips a signup a rep holds");
 // ═══════════════════════════════════════════════════════════════════════════
 {
-  const company = { id: "c1", isDemo: false, createdAt: daysAgo(2), email: "dave@x.com", subscription: null, signupNudgeSentAt: null, memberCount: 1 };
+  const company = { id: "c1", isDemo: false, createdAt: daysAgo(2), email: "dave@x.com", subscription: null, trialEndsAt: null, signupNudgeSentAt: null, memberCount: 1 };
   ok("held by a rep → no letter, reason held_by_rep", decideSignupNudge({ company, heldByRep: true, now: NOW }).reason === "held_by_rep");
   ok("not held → due as before", decideSignupNudge({ company, heldByRep: false, now: NOW }).send === true);
   ok("a completed signup is still refused first, held or not", decideSignupNudge({ company: { ...company, subscription: { id: "s" } }, heldByRep: true, now: NOW }).reason === "completed_checkout");
@@ -891,7 +916,7 @@ section("12. The recovery email skips a signup a rep holds");
   ok("planSignupNudges drops the held company and keeps the other", plan.sends.length === 1 && plan.sends[0].company.id === "c2" && plan.skipped.some((s) => s.companyId === "c1" && s.reason === "held_by_rep"));
   ok("…and does not stamp the held one", !plan.sends[0].stampCompanyIds.includes("c1"));
   const cron = read("app/api/cron/signup-recovery/route.js");
-  ok("the recovery cron reads the held rows and passes them to the plan", /assignedRepId: \{ not: null \}/.test(cron) && /planSignupNudges\(\{ companies, suppressedAddresses, heldCompanyIds, now \}\)/.test(cron));
+  ok("the recovery cron reads the held rows and passes them to the plan", /assignedRepId: \{ not: null \}/.test(cron) && /planSignupNudges\(\{ companies, suppressedAddresses, heldCompanyIds, dismissedCompanyIds, now \}\)/.test(cron));
   ok("/platform/signups labels the held state", /held_by_rep:/.test(read("app/platform/signups/page.js")));
 }
 
@@ -918,6 +943,82 @@ section("13. What the owner sees");
   ok("/platform/sales/reps says 'referred by {rep}' with the state, never an assign", /referred by \{rep\.name\}/.test(reps) && !/assignSignup/.test(reps));
   ok("the privacy page says a started signup is kept so we can follow up", /If you start the signup form and do not finish it/.test(read("app/(marketing)/privacy/page.js")));
   ok("the Today screen has 'Your signups'", /<YourSignupsCard \/>/.test(read("app/sales/page.js")));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("14. Remove from list — hidden everywhere, deleted nowhere");
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  // The pure half, against hostile shapes.
+  ok("isDismissed: an active dismissal", isDismissed({ signupDismissal: { dismissedAt: NOW, restoredAt: null } }) === true);
+  ok("…a restored one is not", isDismissed({ signupDismissal: { dismissedAt: NOW, restoredAt: NOW } }) === false);
+  ok("…no row, a null relation, undefined, garbage — not", [{}, { signupDismissal: null }, null, undefined, "x", { signupDismissal: {} }].every((r) => isDismissed(r) === false));
+  ok("readDismissTarget takes exactly one id", JSON.stringify(readDismissTarget({ leadId: "l1" })) === '{"leadId":"l1"}' && JSON.stringify(readDismissTarget({ companyId: " c1 " })) === '{"companyId":"c1"}');
+  ok("…refuses both, neither, blanks and non-strings", [{ leadId: "l", companyId: "c" }, {}, { leadId: "" }, { companyId: 7 }, null, "l1"].every((t) => readDismissTarget(t) === null));
+  ok("notDismissedWhere is a NOT on the active dismissal (composes with a caller's OR)",
+    JSON.stringify(notDismissedWhere()) === JSON.stringify({ NOT: { signupDismissal: { is: { restoredAt: null } } } }));
+  const unplaced = unplacedSignupWhere(NOW);
+  ok("the review folder's WHERE refuses a removed lead's or company's row, in an AND beside the lease OR",
+    Array.isArray(unplaced.OR) && JSON.stringify(unplaced.AND) === JSON.stringify(prospectNotDismissedClauses()) &&
+      JSON.stringify(unplaced.AND).includes('"signupLead"') && JSON.stringify(unplaced.AND).includes('"company"'));
+
+  // The write, executed against the stub.
+  resetDbStub();
+  rows.signupLead.push({ id: "l1", emailKey: "junk@x.com", email: "junk@x.com" });
+  rows.company.push({ id: "c9", name: "Demo", isDemo: true });
+  rows.company.push({ id: "c1", name: "Test Test", isDemo: false });
+  const admin = { id: "a1", role: "superadmin" };
+  let r = await dismissSignupRow({ client: db, admin, target: { leadId: "l1" }, now: NOW });
+  ok("remove writes one SignupDismissal and an audit line", r.ok && rows.signupDismissal.length === 1 && rows.signupDismissal[0].signupLeadId === "l1" && rows.signupDismissal[0].dismissedById === "a1" && rows.platformAuditLog.some((a) => a.action === "signup_dismissed"));
+  r = await dismissSignupRow({ client: db, admin, target: { leadId: "l1" }, now: NOW });
+  ok("…removing it again is a no-op", r.already === true && rows.signupDismissal.length === 1);
+  r = await restoreSignupRow({ client: db, admin, target: { leadId: "l1" }, now: NOW });
+  ok("restore stamps restoredAt and KEEPS the row (history, not a delete)", r.ok && rows.signupDismissal.length === 1 && rows.signupDismissal[0].restoredAt === NOW && rows.signupDismissal[0].restoredById === "a1");
+  r = await dismissSignupRow({ client: db, admin, target: { leadId: "l1" }, now: NOW });
+  ok("…and a second remove re-stamps the same row, clearing the restore", r.ok && rows.signupDismissal.length === 1 && rows.signupDismissal[0].restoredAt === null);
+  ok("a demo company is refused", (await dismissSignupRow({ client: db, admin, target: { companyId: "c9" }, now: NOW })).error);
+  ok("an id nobody has is refused", (await dismissSignupRow({ client: db, admin, target: { leadId: "nope" }, now: NOW })).error);
+  const before = JSON.stringify(rows.company);
+  r = await dismissSignupRow({ client: db, admin, target: { companyId: "c1" }, now: NOW });
+  ok("removing a company writes nothing to the Company (non-negotiable #3)", r.ok && JSON.stringify(rows.company) === before && !writes.some((w) => w.model === "company" || w.model === "signupLead"));
+  ok("the writes never call delete", !writes.some((w) => /delete/i.test(w.action)));
+  ok("the write functions throw without a client or an admin", await (async () => { try { await dismissSignupRow({ admin, target: { leadId: "l1" } }); return false; } catch { return true; } })() && await (async () => { try { await restoreSignupRow({ client: db, target: { leadId: "l1" } }); return false; } catch { return true; } })());
+
+  // "Assign for callback" on a removed row is refused with the reason.
+  resetDbStub();
+  rows.signupLead.push({ id: "l2", emailKey: "x@x.com", email: "x@x.com", signupDismissal: { dismissedAt: NOW, restoredAt: null } });
+  const placed = await ensureSignupProspect({ client: db, leadId: "l2", now: NOW });
+  ok("ensureSignupProspect refuses a removed lead", placed.reason === "dismissed", JSON.stringify(placed));
+
+  // Every reader spreads it — written AND read (AGENTS.md failure class 1).
+  const floor = read("lib/signup/salesFloor.js");
+  ok("promoteSignupLeads never promotes a removed lead", /completedCompanyId: null, promotedAt: null, skipReason: null, phoneE164: \{ not: null \}, \.\.\.notDismissedWhere\(\)/.test(floor));
+  ok("the welcome backfill never writes a row for a removed company", /signupProspects: \{ none: \{\} \}, \.\.\.notDismissedWhere\(\)/.test(floor));
+  const cron = read("app/api/cron/signup-recovery/route.js");
+  ok("both letters read the dismissal (leads, companies, the 24-hour rows, both fresh re-reads)", (cron.match(/DISMISSAL_SELECT/g) || []).length >= 6 && /dismissedCompanyIds/.test(cron) && /isDismissed\(freshLead\)/.test(cron) && /isDismissed\(freshCompany\)/.test(cron) && /isDismissed\(fresh\)/.test(cron));
+  const route = read("app/api/platform/signups/dismiss/route.js");
+  ok("the dismiss route is superadmin-only, checked server-side", /admin\.role !== "superadmin"/.test(route) && /status: 403/.test(route));
+  ok("…and has no DELETE handler and no delete call", !/export async function DELETE/.test(route) && !/\.delete(Many)?\(/.test(route) && !/\.delete(Many)?\(/.test(read("lib/signup/dismissal.js")));
+  const api = read("app/api/platform/signups/route.js");
+  ok("the list returns removed rows flagged, for Show removed / Restore", (api.match(/dismissed: dismissalOf\(/g) || []).length === 2 && /\.\.\.DISMISSAL_SELECT/.test(api));
+  const page = read("app/platform/signups/page.js");
+  ok("the page hides removed rows unless asked, and offers Restore", /data-show-removed/.test(page) && /Show removed \(\$\{removedCount\}\)/.test(page) && /"Restore"/.test(page) && /"Remove from list"/.test(page) && /\/api\/platform\/signups\/dismiss/.test(page));
+  ok("the schema's dismissal is its own table keyed on the lead or the company", /model SignupDismissal \{[\s\S]*signupLeadId String\?\s+@unique[\s\S]*companyId\s+String\?\s+@unique/.test(read("prisma/schema.prisma")));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("15. A finished card-free trial on /platform/signups — what it is, never 'got as far as Checkout'");
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  const api = read("app/api/platform/signups/route.js");
+  ok("the incomplete list is incompleteSignupWhere (no row AND no trial date); trials come back as their own array",
+    /where: \{ isDemo: false, \.\.\.incompleteSignupWhere\(\) \}/.test(api) && /where: \{ isDemo: false, \.\.\.cardFreeTrialWhere\(\) \}/.test(api) && /\n    trials,\n/.test(api));
+  ok("a finished row carries no step and the trial state from trialAccessFor", /stepLabel: finished \? null/.test(api) && /trialAccessFor\(c, now\)/.test(api));
+  const page = read("app/platform/signups/page.js");
+  ok("the page splits 'Signed up — on free trial' from 'Incomplete signups — never finished'", /Signed up — on free trial/.test(page) && /Incomplete signups — never finished/.test(page));
+  ok("a trial row reads 'Signed up · free trial, N days left · no plan chosen yet'", /Signed up · free trial, \$\{days\} left · no plan chosen yet/.test(page));
+  ok("…and 'got as far as' is only printed for an unfinished row", /r\.section === "trial" \? ` · \$\{trialLine\(r\.trial\)\}` : r\.stepLabel \? ` · got as far as/.test(page));
+  ok("the trial section links to the companies list filtered to the same population", /\/platform\/companies\?status=trial_no_plan/.test(page) && /status === "trial_no_plan"/.test(read("app/api/platform/companies/route.js")));
 }
 
 console.log(`\n${checks} checks, ${failures} failed`);
