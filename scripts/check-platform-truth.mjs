@@ -818,11 +818,30 @@ function walk(dir, out = []) {
 const AUDIT_FILES = [...walk("app/api"), ...walk("lib")].filter(
   (f) => read(f).includes("platformAuditLog.create") || /export function \w+AuditRows\(/.test(read(f)),
 );
+// 5. (2026-09-25) A file that writes audit rows can also RETURN a verdict
+//    shaped `{ action: "skip" }` — lib/signup/salesFloor.js's promotion
+//    decisions ("wait", "skip", "link_company", "rep_lead", …) are the
+//    cron's own vocabulary and never reach platformAuditLog. An `action:`
+//    that opens a RETURNED object literal is that shape, and is not read.
+// 6. (2026-09-25) A route's local `audit(admin.id, "name", details)` helper
+//    writes the action as a shorthand, like sliceAudit below — its literal
+//    calls are read. The supervision route also builds the name from the
+//    supervisor's mode, `sales_call_${kind}`: a template is expanded from
+//    the vocabulary it is built from (TEMPLATE_VOCAB), and a template this
+//    check has no vocabulary for FAILS rather than being skipped, so a new
+//    computed action cannot hide from the loops below.
+const { SUPERVISION_MODES } = await import("../lib/sales/calls/supervision.js");
+const TEMPLATE_VOCAB = { sales_call_: SUPERVISION_MODES };
+const unexpandedTemplates = [];
 const written = new Set();
 for (const file of AUDIT_FILES) {
   const src = stripComments(read(file));
   let from = src.indexOf("action:");
   while (from !== -1) {
+    if (/return\s*\{\s*$/.test(src.slice(Math.max(0, from - 40), from))) {
+      from = src.indexOf("action:", from + 1);
+      continue;
+    }
     const slice = src.slice(from + "action:".length, from + 247);
     const stop = slice.search(/\n\s*(?:[a-zA-Z_$][\w$]*\s*:\s|\}|\))/);
     const seg = stop === -1 ? slice : slice.slice(0, stop);
@@ -834,7 +853,15 @@ for (const file of AUDIT_FILES) {
   // as an argument and writes it as the `action` shorthand, which the
   // `action:` scan above cannot see. The helper's calls are read too.
   for (const call of src.matchAll(/\w+Audit\(\s*db,\s*\w+,\s*"([a-z_]+)"/g)) written.add(call[1]);
+  for (const call of src.matchAll(/\baudit\(\s*[\w.]+,\s*"([a-z_]+)"/g)) written.add(call[1]);
+  for (const call of src.matchAll(/\baudit\(\s*[\w.]+,\s*`([a-z_]+)\$\{[^`]*\}`/g)) {
+    const vocab = TEMPLATE_VOCAB[call[1]];
+    if (vocab) for (const v of vocab) written.add(`${call[1]}${v}`);
+    else unexpandedTemplates.push(`${file}: ${call[0]}`);
+  }
 }
+ok("every audit action built from a template has a vocabulary to expand it from",
+  unexpandedTemplates.length === 0, unexpandedTemplates.join(" | "));
 const writeSites = AUDIT_FILES.length;
 
 // A scan that finds nothing passes every "is it described?" loop below without
