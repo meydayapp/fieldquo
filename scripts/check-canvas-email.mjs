@@ -30,6 +30,8 @@ import { templateBody, templateBodyWithWarnings, sentModeOf, SENT_MODES } from "
 import { renderTemplateSections } from "../lib/email/renderTemplateSections.js";
 import { contrastRatio } from "../lib/brand/colour.js";
 import { APP_MESSAGES } from "../app/i18n/appMessages.js";
+import { quoteTemplateLines, invoiceTemplateLines, sampleTemplateLines } from "../lib/email/templateLineItems.js";
+import { documentFormatters, documentLabels } from "../lib/i18n/documentLabels.js";
 
 process.env.NEXT_PUBLIC_APP_URL ||= "https://www.fieldquo.com";
 
@@ -199,9 +201,109 @@ console.log("\nThe mode is recorded; switching keeps both bodies\n");
   ok("the schema records sentMode with blocks as the default", /sentMode String @default\("blocks"\)/.test(read("prisma/schema.prisma")));
 }
 
+console.log("\nThe itemised block draws stored lines\n");
+
+// The "Itemized list" block read name/unitPrice/total — a shape no stored
+// quote or invoice line has ({ description, detail?, quantity, unit, rate,
+// amount }). Only the editor's preview and the test send ever fed it, and
+// the follow-up cron handed it Quote.lineItems, which the builder does not
+// write (a quote's lines live on its scope groups). These render the block
+// for a real-shape invoice and quote and require every line's amount.
+{
+  const block = { id: "li", type: "lineItems", title: "What's included", showQuantity: true, showUnitPrice: true, showSubtotals: true };
+  const tableOf = (html) => {
+    const at = html.indexOf("What's included");
+    return at === -1 ? "" : html.slice(at, html.indexOf("</table>", at));
+  };
+  const zeroCad = /(^|[^\d.,])\$0\.00(?!\d)/;
+
+  // An invoice raised from a two-trade quote: createInvoiceFromQuote writes
+  // "<group label>: <description>", and one line was added by hand.
+  const invoice = {
+    language: "en",
+    subtotal: 1270.5,
+    discount: 0,
+    tax: 165.17,
+    total: 1435.67,
+    lineItems: [
+      { description: "Painting: Walls — two coats", quantity: 2, unit: "room", rate: 450, amount: 900 },
+      { description: "Painting: Trim", detail: "Semi-gloss, **two** coats", quantity: 1, unit: "flat", rate: 275.5, amount: 275.5 },
+      { description: "Callout", quantity: 1, unit: "flat", rate: 95, amount: 95 },
+    ],
+  };
+  const invLines = invoiceTemplateLines({ invoice, scopeGroups: [{ id: "g1", label: "Painting", sortOrder: 0 }], company: { currency: "CAD" } });
+  const invHtml = renderTemplateSections([block], { lineItems: invLines }, { company });
+  const inv = tableOf(invHtml);
+  ok("invoice: the block renders at all", inv.length > 0);
+  const invAmounts = ["$900.00", "$275.50", "$95.00"].every((a) => inv.includes(`>${a}<`));
+  ok("invoice: every line's amount is printed in its own cell ($900.00, $275.50, $95.00)", invAmounts, invAmounts ? "" : inv.replace(/style="[^"]*"/g, "").slice(0, 600));
+  ok("invoice: no line prints $0.00", !zeroCad.test(inv));
+  ok("invoice: quantity × rate from the stored rate (2 × $450.00)", inv.includes("2 × $450.00"));
+  ok("invoice: grouped under its quote's trade, prefix stripped (documentGroups.js)", /Painting[\s\S]*Walls — two coats/.test(inv) && !inv.includes("Painting: Walls"));
+  ok("invoice: a hand-added line stays, ungrouped", inv.includes("Callout"));
+  ok("invoice: the line's detail is drawn through the rich-text subset", inv.includes("Semi-gloss, <strong>two</strong> coats"));
+  ok("invoice: the totals ladder is the document's (tax $165.17, total $1,435.67)", inv.includes("$165.17") && inv.includes("$1,435.67"));
+  ok("invoice: a zero discount is not a row", !/Discount/.test(inv));
+
+  // A French quote whose lines live on its scope groups, with an unpriced
+  // text block (lib/quotes/textBlocks.js) and a blended import line that
+  // repeats its group head word for word (scopeGroupDisplay.js).
+  const quote = { language: "fr", lineItems: null, subtotal: 12000, discount: 500, tax: 1725, total: 13225 };
+  const scopeGroups = [
+    { label: "Peinture", subtotal: 3000, lineItems: [
+      { description: "Murs", quantity: 3, unit: "room", rate: 800, amount: 2400 },
+      { description: "Plafonds", quantity: 1, unit: "flat", rate: 600, amount: 600 },
+    ] },
+    { label: "Travaux sous-traités", subtotal: 9000, lineItems: [
+      { description: "Travaux sous-traités", quantity: 1, unit: "flat", rate: 9000, amount: 9000 },
+    ] },
+    { label: "Exclusions", subtotal: 0, lineItems: [
+      { description: "Exclusions", detail: "Pas de plâtrage.", kind: "text", priceMode: "none", quantity: 1, amount: 0 },
+    ] },
+  ];
+  const fr = documentFormatters("fr", "CAD");
+  const frLabels = documentLabels("fr");
+  const qLines = quoteTemplateLines({ quote, scopeGroups, company: { currency: "CAD" } });
+  const q = tableOf(renderTemplateSections([block], { lineItems: qLines }, { company }));
+  ok("quote: the block renders from the scope groups (Quote.lineItems is null)", q.length > 0);
+  // `>…<`: the figure as a whole cell, so "0,00 $" cannot match the tail
+  // of "12 000,00 $".
+  const qAmounts = [2400, 600, 9000].every((a) => q.includes(`>${fr.money(a)}<`));
+  ok("quote: every priced line's amount, in the document's language and currency", qAmounts, qAmounts ? "" : q.replace(/style="[^"]*"/g, "").slice(0, 900));
+  ok("quote: the unpriced text block prints no amount (never 0,00 $)", !q.includes(`>${fr.money(0)}<`) && q.includes("Pas de plâtrage."));
+  ok("quote: the document's labels, not English (Sous-total / Rabais / Taxes)", q.includes(frLabels.subtotal) && q.includes(frLabels.discount) && q.includes(frLabels.tax) && !/>Subtotal</.test(q));
+  ok("quote: the blended line that repeats its head is drawn once", q.split("Travaux sous-traités").length - 1 === 1);
+  ok("quote: the unit code is never printed", !/\broom\b|\bflat\b/.test(q));
+
+  // Toggles and hostile input.
+  const noTotals = tableOf(renderTemplateSections([{ ...block, showSubtotals: false }], { lineItems: invLines }, { company }));
+  ok("line totals off: no line amount, the document total still stands", !noTotals.includes("$900.00") && noTotals.includes("$1,435.67"));
+  const hostile = invoiceTemplateLines({ invoice: { language: "en", total: 10, lineItems: [{ description: "<script>x</script>", detail: "[click](javascript:alert(1))", quantity: 1, rate: 10, amount: 10 }] }, company: { currency: "CAD" } });
+  const h = renderTemplateSections([block], { lineItems: hostile }, { company });
+  ok("a description is escaped; a javascript: link in a detail is not a link", h.includes("&lt;script&gt;x&lt;/script&gt;") && !/javascript:/.test(h));
+  const legacy = renderTemplateSections([block], { lineItems: [{ name: "Doors", quantity: 2, unitPrice: 100, total: 200 }] }, { company });
+  ok("the old array shape draws nothing, not an empty shell", !legacy.includes("What's included"));
+  ok("no document (a lead chase, a campaign) draws nothing", !renderTemplateSections([block], { lineItems: null }, { company }).includes("What's included"));
+
+  // The preview is the send's shape.
+  const sample = tableOf(renderTemplateSections([block], { lineItems: sampleTemplateLines({ language: "en", currency: "CAD" }) }, { company }));
+  ok("the editor's sample draws every sample amount and no $0.00", ["$3,000.00", "$750.00", "$150.00", "$4,250.00"].every((a) => sample.includes(a)) && !zeroCad.test(sample));
+
+  // Who feeds it.
+  const cron = code(read("app/api/cron/follow-ups/route.js"));
+  ok("the cron builds the block's input with the document helpers", /quoteTemplateLines\(/.test(cron) && /invoiceTemplateLines\(/.test(cron) && /lineItems: lineItemsFor\(entityType, entity\)/.test(cron));
+  ok("the cron loads a quote's scope groups and an invoice's quote's groups", /include: \{ client: true, company: true, scopeGroups: SCOPE_GROUPS_FOR_LINES \}/.test(cron) && /quote: \{ select: \{ scopeGroups: SCOPE_GROUPS_FOR_LINES \} \}/.test(cron));
+  for (const f of ["app/app/settings/email-templates/[id]/page.js", "app/api/settings/document-templates/[id]/test/route.js", "lib/email/documentEmailPreview.js", "lib/email/renderTemplateSections.js", "app/api/cron/follow-ups/route.js"]) {
+    ok(`${f} carries no name/unitPrice/total line shape`, !/unitPrice\s*:|item\.unitPrice|item\.total\b/.test(code(read(f))));
+  }
+  const editor = code(read("app/app/settings/email-templates/[id]/page.js"));
+  ok("the editor previews the shared sample", /sampleTemplateLines\(/.test(editor));
+  ok("the editor says which sends fill the block", /app\.emailEditor\.lineItemsWhereFilled/.test(editor) && !/app\.emailEditor\.lineItemsHelp/.test(editor));
+}
+
 console.log("\nNine languages for the chrome\n");
 
-for (const key of ["app.emailModes.blocks", "app.emailModes.canvas", "app.emailModes.canvasIsSent", "app.emailModes.blocksKept", "app.emailModes.canvasKept", "app.emailCanvas.linkTo", "app.emailCanvas.howItSends"]) {
+for (const key of ["app.emailModes.blocks", "app.emailModes.canvas", "app.emailModes.canvasIsSent", "app.emailModes.blocksKept", "app.emailModes.canvasKept", "app.emailCanvas.linkTo", "app.emailCanvas.howItSends", "app.emailEditor.lineItemsWhereFilled"]) {
   const missing = Object.keys(APP_MESSAGES).filter((l) => !APP_MESSAGES[l][key]);
   ok(`${key} in every language`, missing.length === 0, missing.join(","));
 }

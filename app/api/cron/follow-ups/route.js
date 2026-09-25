@@ -29,6 +29,7 @@ import { quoteChaseBlocker, gatherQuoteChaseFacts } from "@/lib/followUps/stopCo
 import { companyMaySend, quoteTaxReady } from "@/lib/followUps/readiness";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import { templateBody } from "@/lib/email/templateBody";
+import { quoteTemplateLines, invoiceTemplateLines } from "@/lib/email/templateLineItems";
 import { runCallbackRotation } from "@/lib/callbacks/build";
 
 function cutoffFor(rule) {
@@ -97,6 +98,24 @@ async function findLeadNoResponse(rule) {
   }));
 }
 
+// The scope groups a quote's lines live on, for the template's "Itemized
+// list" block (lib/email/templateLineItems.js). A quote built in the builder
+// stores its lines HERE, not on Quote.lineItems — reading only the quote row
+// is what left the block empty on every real quote chase. Label and category
+// for the group heading, lineItems and subtotal for the rows; nothing else
+// (takeoff holds supplier cost on some trades and is never needed here).
+const SCOPE_GROUPS_FOR_LINES = {
+  orderBy: { sortOrder: "asc" },
+  select: {
+    id: true,
+    label: true,
+    sortOrder: true,
+    subtotal: true,
+    lineItems: true,
+    category: { select: { key: true, label: true } },
+  },
+};
+
 async function findQuoteNoResponse(rule) {
   const excluded = await alreadySentEntityIds(rule.id);
   return db.quote.findMany({
@@ -107,7 +126,7 @@ async function findQuoteNoResponse(rule) {
       ...NOT_HISTORICAL,
       ...(excluded.length > 0 && { id: { notIn: excluded } }),
     },
-    include: { client: true, company: true },
+    include: { client: true, company: true, scopeGroups: SCOPE_GROUPS_FOR_LINES },
   });
 }
 
@@ -121,7 +140,15 @@ async function findInvoiceOverdue(rule) {
       ...NOT_HISTORICAL,
       ...(excluded.length > 0 && { id: { notIn: excluded } }),
     },
-    include: { client: true, company: true },
+    // The originating quote's groups give the invoice's flat lines their
+    // trades back (lib/invoices/documentGroups.js) — the same bridge the
+    // invoice document uses, so the chase groups the bill the way the bill
+    // groups itself.
+    include: {
+      client: true,
+      company: true,
+      quote: { select: { scopeGroups: SCOPE_GROUPS_FOR_LINES } },
+    },
   });
 }
 
@@ -148,32 +175,30 @@ function money(value) {
   })}`;
 }
 
-// Quote.lineItems / Invoice.lineItems are untyped `Json?` columns, so the key
-// names vary depending on which screen wrote them. Normalise to the shape the
-// "Itemized list" block expects, and drop anything unrecognisable rather than
-// rendering a row of blanks.
-function normalizeLineItems(raw) {
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .map((item) => {
-      if (!item || typeof item !== "object") return null;
-      const name = item.name || item.description || item.title || "";
-      if (!name) return null;
-      const quantity = Number(item.quantity ?? item.qty ?? 1);
-      const unitPrice = Number(item.unitPrice ?? item.price ?? item.rate);
-      const total = Number(
-        item.total ??
-          item.amount ??
-          (Number.isFinite(unitPrice) ? unitPrice * quantity : NaN),
-      );
-      return {
-        name,
-        quantity: Number.isFinite(quantity) ? quantity : null,
-        unitPrice: Number.isFinite(unitPrice) ? unitPrice : null,
-        total: Number.isFinite(total) ? total : null,
-      };
-    })
-    .filter(Boolean);
+// The "Itemized list" block's input, for the two entities that ARE a
+// document. It used to be a local normaliser over `entity.lineItems` that
+// renamed stored lines into a shape (name/unitPrice/total) nothing else uses:
+// on an invoice it printed "$"-and-English whatever the document's currency
+// and language; on a quote it read a column the builder does not write, so
+// the block was empty. Now the document's own grouping, language and
+// currency, via lib/email/templateLineItems.js.
+//
+// A lead and a completed job have no document of their own — a job has no
+// lines, and picking one of its quotes or invoices would be this function
+// deciding which paper the email is "about". They get nothing, and the block
+// renders nothing; the editor says which rules fill it.
+function lineItemsFor(entityType, entity) {
+  if (entityType === "quote") {
+    return quoteTemplateLines({ quote: entity, scopeGroups: entity.scopeGroups, company: entity.company });
+  }
+  if (entityType === "invoice") {
+    return invoiceTemplateLines({
+      invoice: entity,
+      scopeGroups: entity.quote?.scopeGroups || [],
+      company: entity.company,
+    });
+  }
+  return null;
 }
 
 // Which project-lifecycle stage a follow-up is sent at. Mirrors
@@ -202,7 +227,7 @@ function mergeDataFor(entityType, entity, request, portalToken) {
     companyPhone: entity.company?.phone || "",
     companyEmail: entity.company?.email || "",
     progressStage: stageFor(entityType, entity),
-    lineItems: normalizeLineItems(entity.lineItems),
+    lineItems: lineItemsFor(entityType, entity),
     subtotal: money(entity.subtotal),
     discount: money(entity.discount),
     tax: money(entity.tax),

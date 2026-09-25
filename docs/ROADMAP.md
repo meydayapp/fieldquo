@@ -54,6 +54,70 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Email templates: the "Itemized list" block draws the document's real lines (25 September 2026)
+
+The block (Settings › Email templates, block editor, every template type) read
+`name` / `unitPrice` / `total` — a line shape no stored document has. Stored
+lines are `{ description, detail?, quantity, unit, rate, amount }`.
+
+### What was true before
+
+- Only three send paths render templates: the follow-up cron, marketing
+  campaigns and the test send (all through `lib/email/templateBody.js`).
+- The cron built the block from `entity.lineItems`. For a quote that is
+  `Quote.lineItems`, which the builder does not write — lines live on
+  `QuoteScopeGroup.lineItems` — so a quote chase drew no table. For an
+  invoice it renamed stored lines into the old shape: amounts printed, but
+  with a hard-coded "$", English labels and no grouping.
+- Campaigns, lead chases and job chases carry no document: the block drew
+  nothing (never an empty shell), and still does.
+- The editor preview and the test send fed their own old-shape fixture, so
+  they showed a table no send produced. The Document emails preview's sample
+  quote had the same fixture and priced every line at 0.00.
+
+### What shipped
+
+- `lib/email/templateLineItems.js`: `quoteTemplateLines` (via `toGroups`,
+  now in `lib/quotes/scopeGroupDisplay.js`, re-exported from
+  `quoteSections.js`) and `invoiceTemplateLines` (via
+  `groupInvoiceLineItems`), plus the one sample the editor, the test send,
+  the Document emails preview and `scripts/preview-email-templates.mjs` use.
+- The renderer reads the stored shape, groups by trade, prints `detail`
+  through the rich-text subset, leaves unpriced text blocks without an amount
+  (`lineShowsAmount`), labels in the document's language
+  (`documentLabels`) and formats in the company's currency
+  (`documentFormatters`). `unit` is not printed — no client document prints
+  the code, and it is untranslated.
+- The cron loads a quote's scope groups and an invoice's quote's groups.
+- The editor's help text says which sends fill the block
+  (`app.emailEditor.lineItemsWhereFilled`, nine languages).
+
+### Production (read-only, 2026-09-25)
+
+Non-demo: 8 invoices, 11 quotes. Lines lacking `amount`: 0 on invoices, 0 on
+quote groups, 0 on `Quote.lineItems`; lines with `name`/`unitPrice`/`total`:
+0. So no legacy read was kept. No non-demo template carries the block yet.
+
+### Checks
+
+`check:canvas-email` (61 → 91 checks; 26 of the 30 new ones fail on the old
+renderer, cron and fixtures — the 4 that pass are "nothing drawn" cases) and
+`check:document-emails` (72 → 74; the sample preview pricing every line fails
+on the old code with "CAD 0.00" per line).
+
+### Still owed here
+
+- The block is offered on every template type. A template is not bound to a
+  trigger, so the same one can go on a quote chase (filled) or a lead chase or
+  campaign (left out). Refusing the block per rule is a product decision.
+- The cron's `{{quoteTotal}}` / `{{invoiceTotal}}` / `{{balanceDue}}` tokens
+  are still "$" + the server's locale, not the document's currency — a
+  separate fix in `app/api/cron/follow-ups/route.js` `money()`.
+- The "Quote/Invoice summary" block still prints "Quote" / "Invoice" in
+  English.
+
+---
+
 ## /platform counts one book: trialing, paying, companies (25 September 2026)
 
 The owner: /platform "says 2 trialing subscriptions but I think we have 4".

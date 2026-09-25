@@ -15,6 +15,7 @@ import { templateBody } from "@/lib/email/templateBody";
 import { sendEmail, SENDER_SELECT } from "@/lib/email/resend";
 import { resolveSender } from "@/lib/email/companySender";
 import { STAGE_INDEX } from "@/app/data/emailTemplateBlocks";
+import { sampleTemplateLines } from "@/lib/email/templateLineItems";
 
 // Sample values for the merge fields that don't exist until a real
 // quote/invoice/job is attached. Company-specific fields are overwritten
@@ -50,27 +51,11 @@ const SAMPLE_MERGE = {
   discount: "$150.00",
   tax: "$500.00",
   // progressStage is added per-template below, from STAGE_INDEX, so the test
-  // email shows the same stage the editor preview did.
-  lineItems: [
-    {
-      name: "Cabinet doors & drawer fronts — spray refinish",
-      quantity: 24,
-      unitPrice: 125,
-      total: 3000,
-    },
-    {
-      name: "Cabinet boxes — on-site refinish",
-      quantity: 1,
-      unitPrice: 750,
-      total: 750,
-    },
-    {
-      name: "Premium hardware replacement",
-      quantity: 24,
-      unitPrice: 6.25,
-      total: 150,
-    },
-  ],
+  // email shows the same stage the editor preview did. lineItems likewise:
+  // built below from lib/email/templateLineItems.js's sample, in the
+  // company's currency and language — the shape a real quote chase sends,
+  // not the name/unitPrice/total rows this fixture used to carry, which no
+  // stored document has.
 };
 
 export async function POST(request, { params }) {
@@ -113,6 +98,9 @@ export async function POST(request, { params }) {
       logoUrl: true,
       brandColor: true,
       brandColors: true,
+      // The itemised block's sample is formatted in these two.
+      currency: true,
+      defaultLanguage: true,
     },
   });
 
@@ -122,6 +110,13 @@ export async function POST(request, { params }) {
     companyEmail: company?.email || "info@yourcompany.com",
     companyPhone: company?.phone || "(555) 123-4567",
     progressStage: STAGE_INDEX[template.type] ?? 0,
+    // The company's default language stands in for "the document's": a test
+    // has no document, and a company that writes its quotes in French should
+    // see the French labels its real chases will carry.
+    lineItems: sampleTemplateLines({
+      language: company?.defaultLanguage || "en",
+      currency: company?.currency || null,
+    }),
   };
 
   // The body the template says is sent, so a test of a canvas template is a
