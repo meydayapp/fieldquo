@@ -176,7 +176,9 @@ section("4. The wiring");
   const sms = decomment(read("lib/sales/salesSms.js"));
   ok("deliverSignupLinkSms mints the row BEFORE the body is built and puts the token on the link", /const progress = await ensureSignupProgress\(/.test(sms) && /linkToken: progress\?\.token \|\| null/.test(sms) && sms.indexOf("ensureSignupProgress(") < sms.indexOf("salesSmsStatus({ rep, lead, origin, now, linkToken"));
   ok("…and marks 'link sent' only AFTER the carrier accepted (after the message row)", /markLinkSent\(\{ client: db, id: progress\.id/.test(sms) && sms.indexOf("markLinkSent(") > sms.indexOf("db.salesSmsMessage.create("));
-  ok("…the preview shows the bare link", /signupLinkFor\(origin, rep\?\.code, \{ linkToken \}\)/.test(sms));
+  // Built from the rep's opaque link token (lib/sales/repLink.js), never
+  // SalesRep.code — the legacy code is the rep's real name slugged.
+  ok("…the preview shows the bare link", /signupLinkFor\(origin, linkCode, \{ linkToken \}\)/.test(sms));
   const pub = decomment(read("app/api/signup/progress/route.js"));
   ok("the public endpoint takes a token and one of the browser steps, rate-limited, and answers 204 either way", /BROWSER_REPORTABLE_STEPS\.includes\(step\)/.test(pub) && /isLinkToken\(token\)/.test(pub) && /rateLimit\(request, "signup-progress"/.test(pub) && /status: 204/.test(pub) && !/findFirst|findMany/.test(pub));
   const companies = decomment(read("app/api/companies/route.js"));

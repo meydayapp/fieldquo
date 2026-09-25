@@ -273,7 +273,9 @@ section("1. A rep with no work mailbox cannot send, and is told why");
   ok("deliverOutreach exists as a named function", Boolean(deliver));
   ok(
     "the From header is built from the sending address",
-    /from:\s*\{\s*name:\s*sanitiseHeaderText\(rep\.name, 120\),\s*address:\s*sendingAddress\s*\}/.test(deliver),
+    // The display name is the rep's PUBLIC name — work name, else first
+    // name (lib/sales/repIdentity.js) — since 2026-09-25.
+    /from:\s*\{\s*name:\s*sanitiseHeaderText\(repPublicName\(rep\), 120\),\s*address:\s*sendingAddress\s*\}/.test(deliver),
     deliver?.match(/from:[^\n]*/)?.[0],
   );
   ok(
@@ -547,8 +549,8 @@ section("5. The rep's own link and facts are on the admin's screen");
     ok(`the reps GET returns ${field}`, new RegExp(`${field}:`).test(get), get);
   }
   ok(
-    "the link is built from the deployment's own origin, not a constant",
-    /signupLinkFor\(origin, r\.code\)/.test(get),
+    "the link is built from the deployment's own origin, not a constant — and from the opaque token, never the name slug",
+    /signupLinkFor\(origin, r\.referralToken\)/.test(get) && !/signupLinkFor\([^\n]*\.code\b/.test(get),
     get,
   );
 

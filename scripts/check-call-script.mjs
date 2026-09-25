@@ -773,7 +773,9 @@ const MODEL_OPENER =
       prospectEvidence: { async findMany({ where }) { asked.push(`evidence:${where.type}`); return pages; } },
     };
     const rows = await loadCallScriptInputs(prisma, "p1", { assemble: async () => ({ found: true, selection: { selected: null }, script: { stages: [] }, objections: [], unchecked: [] }) });
-    ok("the loader reads the rep's name by the prospect's assignedRepId", asked.includes("salesRep:rep-1") && rows.repName === "Dana Whitfield");
+    // The PUBLIC name (lib/sales/repIdentity.js): work name, else first name —
+    // the name the rep says on the phone, never the surname.
+    ok("the loader reads the rep's public name by the prospect's assignedRepId", asked.includes("salesRep:rep-1") && rows.repName === "Dana");
     ok("…the page_content evidence rows, chosen and capped", asked.includes("evidence:page_content") && rows.pages.length === 4 && rows.pages[0].url.endsWith("/about-us"));
     ok("…every inference row", rows.inferences.length === 1 && rows.inferences[0].kind === "trade");
     ok("…and the directory rating on the prospect", rows.prospect.googleRating === 4.8 && rows.prospect.googleReviewCount === 37);

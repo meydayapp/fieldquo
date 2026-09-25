@@ -20,7 +20,10 @@
 //
 // Name, sign-in email, work mailbox and signup code are set by FieldQuo when
 // the rep is added (app/platform/sales/reps); no rep-side route writes any
-// of them, and none is invented here. Showing them with "not here — say so
+// of them, and none is invented here. (The WORK name — what prospects see —
+// is the rep's own, and has its own card above: RepWorkNameChoice. The code
+// row shows the opaque referral token their links carry, not the legacy
+// name slug.) Showing them with "not here — say so
 // and it will be corrected" is honest; an editable box that saved nowhere
 // would be the dead control AGENTS.md's first rule exists for.
 //
@@ -33,6 +36,7 @@ import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import RepLanguageChoice from "@/app/components/sales/RepLanguageChoice";
 import RepSellsInChoice from "@/app/components/sales/RepSellsInChoice";
+import RepWorkNameChoice from "@/app/components/sales/RepWorkNameChoice";
 import BrowserNotifications from "@/app/components/notifications/BrowserNotifications";
 import RepDemoHours from "@/app/components/sales/RepDemoHours";
 import { fetchJson } from "@/lib/fetchJson";
@@ -85,6 +89,13 @@ export default function SalesSettingsPage() {
 
       <section>
         <RepLanguageChoice />
+      </section>
+
+      {/* The name prospects see (SalesRep.workName). The one profile field a
+          rep sets themselves — the owner asked for it, 2026-09-22. Their real
+          name stays in the read-only profile below and on every pay record. */}
+      <section className="border-t border-border pt-8">
+        <RepWorkNameChoice />
       </section>
 
       {/* Directly under the portal language, because it is the question a rep

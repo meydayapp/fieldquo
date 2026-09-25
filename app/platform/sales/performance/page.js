@@ -516,7 +516,7 @@ export default function SalesPerformancePage() {
                         <tr key={rep.id} className="border-t border-border">
                           <td className={TD}>
                             <div className="font-medium text-foreground">
-                              {rep.name}
+                              {rep.staffLabel || rep.name}
                               {rep.agency ? <span className="text-xs font-normal text-muted-foreground"> · {rep.agency.name}</span> : null}
                             </div>
                             <div className="text-xs text-muted-foreground font-mono">{rep.code}</div>

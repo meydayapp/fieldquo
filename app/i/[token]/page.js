@@ -30,8 +30,12 @@ export default async function IntroLinkPage({ params }) {
   const { token } = await params;
   const opened = openIntroLink(token);
   if (opened.ok && opened.kind === "demo") {
-    const rep = await db.salesRep.findUnique({ where: { id: opened.salesRepId }, select: { code: true } }).catch(() => null);
-    if (rep?.code) redirect(repDemoUrl("", rep.code, { token }));
+    const rep = await db.salesRep.findUnique({ where: { id: opened.salesRepId }, select: { code: true, referralToken: true } }).catch(() => null);
+    // The opaque token when the rep has one (the intro email that carried
+    // this link minted it); else the legacy slug, which still resolves. Not
+    // minted here: this forward must write nothing — a mail scanner follows it.
+    const linkCode = rep?.referralToken || rep?.code;
+    if (linkCode) redirect(repDemoUrl("", linkCode, { token }));
   }
   return <IntroLinkForm token={token} />;
 }

@@ -31,6 +31,8 @@ import { requireOutreachRep } from "@/lib/sales/outreachGate";
 import { agencyTeam, createAgencyRep, isAgency } from "@/lib/sales/agency";
 import { queueCountsFor } from "@/lib/sales/reassign";
 import { parseSellsIn } from "@/lib/sales/leadLanguage";
+import { signupLinkFor } from "@/lib/sales/repStats";
+import { ensureReferralToken } from "@/lib/sales/repLink";
 
 const NOT_AGENCY = { error: "Only an agency account has a team.", code: "not_agency" };
 
@@ -83,7 +85,10 @@ export async function POST(request) {
     {
       rep: {
         ...result.rep,
-        signupLink: result.rep.code ? `${getAppOrigin(request)}/signup?sales=${encodeURIComponent(result.rep.code)}` : null,
+        // Built from the new employee's opaque token, minted now — the first
+        // time their link is shown — and through the one link builder rather
+        // than a second copy of `/signup?sales=` (lib/sales/repLink.js).
+        signupLink: signupLinkFor(getAppOrigin(request), await ensureReferralToken(result.rep)),
       },
       invite: { sent: result.inviteSent, error: result.inviteError },
     },

@@ -350,7 +350,11 @@ const ADDRESS = "FieldQuo, 123 Rue Principale, Gatineau QC";
   ok("the CASL mailing address is in the html", built.html.includes("Gatineau QC"));
   ok("...and in the plain-text alternative", built.text.includes("Gatineau QC"));
   ok("an unsubscribe mechanism is in both parts", /unsubscribe/i.test(built.html) && /unsubscribe/i.test(built.text));
-  ok("the sender is identified by name and address", built.text.includes("Emilio Boves") && built.text.includes("emilio@fieldquo.com"));
+  // By the name the prospect knows — the work name, else the FIRST name
+  // (lib/sales/repIdentity.js) — never the full real name.
+  ok("the sender is identified by name and address", built.text.includes("Emilio ·") && !built.text.includes("Boves") && built.text.includes("emilio@fieldquo.com"));
+  const asDaniel = buildOutboundEmail({ rep: { ...rep, workName: "Daniel" }, subject: "Hi", body: "Hello", replyToken: token, mailingAddress: ADDRESS });
+  ok("…and by the work name when the rep has one", asDaniel.text.includes("Daniel · FieldQuo") && !asDaniel.text.includes("Emilio"));
   ok("the Ref: line carries the token (the plain-mode carrier)", built.text.includes(`Ref: ${token}`) && built.html.includes(token));
   ok("a reply quoting that footer re-finds the thread", extractReplyToken({ body: `> ${built.text}` }) === token);
 }

@@ -127,6 +127,8 @@ function shouldMaterialise(repId) {
 import { ruleDraft } from "@/lib/sales/checkin/draft";
 import { CHECKIN_REASONS, REASON_CODES, checkinHeadlineKey } from "@/lib/sales/checkin/signals";
 import { signupLinkFor } from "@/lib/sales/repStats";
+import { ensureReferralToken } from "@/lib/sales/repLink";
+import { repPublicName } from "@/lib/sales/repIdentity";
 import { markAgreedOnCall } from "@/lib/sales/agreedOnCall";
 import { threadTriage } from "@/lib/sales/messages/triage";
 import { lastReviewOf } from "@/lib/sales/conversationAudit";
@@ -157,16 +159,21 @@ import { resolveLeadTimeZone } from "@/lib/sales/leadTimeZone";
 /** The one shape of a rep's link (lib/sales/repStats.js signupLinkFor) — what marks a text as the link being sent. */
 const LINK_MARK = "/signup?sales=";
 
-function cannedFor({ rep, lead, origin }) {
+function cannedFor({ rep, lead, origin, linkCode = null }) {
   const facts = { companyName: lead?.businessName || null };
+  // Every canned text is read by the contractor, so every one is signed with
+  // the rep's public name — work name, else first name (repIdentity.js).
+  const repName = repPublicName(rep);
   const entries = REASON_CODES.map((code) => ({
     id: `checkin:${code}`,
     group: "checkin",
     titleKey: checkinHeadlineKey(code),
     title: CHECKIN_REASONS[code].headline,
-    text: ruleDraft({ primary: { code }, facts }, { repName: rep?.name }),
+    text: ruleDraft({ primary: { code }, facts }, { repName }),
   }));
-  const link = rep?.code ? signupLinkFor(origin, rep.code) : null;
+  // `linkCode` is the rep's opaque referralToken (lib/sales/repLink.js),
+  // resolved by the caller — never SalesRep.code, the legacy name slug.
+  const link = linkCode ? signupLinkFor(origin, linkCode) : null;
   // "As discussed" — the first-message option for a company that said
   // "text me instead" on the call: the rep's name, the business, and an
   // open sentence the rep finishes. Offered whether or not the rep has a
@@ -176,7 +183,7 @@ function cannedFor({ rep, lead, origin }) {
     group: "sales",
     titleKey: "app.salesText.cannedDiscussedTitle",
     title: "As discussed on the call",
-    text: `Hi${facts.companyName ? ` ${facts.companyName}` : ""}, it is ${String(rep?.name || "").trim() || "FieldQuo"} from FieldQuo — thanks for taking my call. As discussed, `,
+    text: `Hi${facts.companyName ? ` ${facts.companyName}` : ""}, it is ${String(repName || "").trim() || "FieldQuo"} from FieldQuo — thanks for taking my call. As discussed, `,
   });
   if (link) {
     entries.unshift({
@@ -186,7 +193,7 @@ function cannedFor({ rep, lead, origin }) {
       title: "Signup link",
       // Identification first, the same order signupLinkSmsBody keeps and for
       // the same reason: the name is what a stranger reads in the preview.
-      text: `Hi, it is ${String(rep?.name || "").trim() || "FieldQuo"} from FieldQuo. Here is the link to get started: ${link}`,
+      text: `Hi, it is ${String(repName || "").trim() || "FieldQuo"} from FieldQuo. Here is the link to get started: ${link}`,
     });
   }
   return entries;
@@ -528,7 +535,7 @@ export async function GET(request) {
         salesRepId: rep.id,
         company,
         timeZone,
-        repName: rep.name,
+        repName: repPublicName(rep),
       }));
     }
   } catch (err) {
@@ -662,7 +669,7 @@ export async function GET(request) {
         ? { kind: verdict.kind, reason: verdict.reason, overridden: verdict.overridden, at: verdict.at, open: verdict.open }
         : null;
     })(),
-    canned: cannedFor({ rep, lead, origin: getAppOrigin(request) }),
+    canned: cannedFor({ rep, lead, origin: getAppOrigin(request), linkCode: await ensureReferralToken(rep) }),
     // The override rode in on the readiness (salesSmsStatus resolved it);
     // the tag reads the same mode so header and composer cannot disagree.
     window: salesSmsWindowState(now, timeZone, {

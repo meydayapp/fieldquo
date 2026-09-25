@@ -113,7 +113,15 @@ function fakeClient() {
   const leads = [];
   const client = {
     reps, intro, events, leads,
-    salesRep: { findUnique: async ({ where }) => [...reps.values()].find((r) => (where.code ? r.code === where.code : r.id === where.id)) || null },
+    // The page resolves its path segment through lib/sales/repLink.js:
+    // the opaque token by findUnique, the legacy code by a case-insensitive
+    // findFirst.
+    salesRep: {
+      findUnique: async ({ where }) =>
+        [...reps.values()].find((r) => (where.referralToken ? r.referralToken === where.referralToken : where.code ? r.code === where.code : r.id === where.id)) || null,
+      findFirst: async ({ where }) =>
+        [...reps.values()].find((r) => where.code?.equals && String(r.code).toLowerCase() === String(where.code.equals).toLowerCase()) || null,
+    },
     salesIntroEmail: {
       findUnique: async ({ where }) => intro.get(where.id) || null,
       findMany: async ({ where }) => [...intro.values()].filter((r) => r.salesRepId === where.salesRepId && !r.handledAt && where.OR.some((o) => Object.keys(o).every((k) => r[k]))),
@@ -142,7 +150,7 @@ function fakeClient() {
 {
   const client = fakeClient();
   const expiresAt = new Date(now.getTime() + 30 * 86400000);
-  client.reps.set("rep_1", { id: "rep_1", code: "dan", name: "Daniel Ortega", email: "dan@login.example", workEmail: null, timeZone: "America/Toronto", demoHours: null, active: true, kind: "rep", language: "en", endedAt: null });
+  client.reps.set("rep_1", { id: "rep_1", code: "dan", referralToken: "k3m9x2pq", name: "Daniel Ortega", email: "dan@login.example", workEmail: null, timeZone: "America/Toronto", demoHours: null, active: true, kind: "rep", language: "en", endedAt: null });
   client.reps.set("rep_2", { id: "rep_2", code: "eve", name: "Eve", email: "eve@login.example", workEmail: null, timeZone: null, demoHours: [], active: true, kind: "rep", language: "en", endedAt: null });
   client.reps.set("rep_3", { id: "rep_3", code: "inf", name: "Influencer", email: "i@x.example", workEmail: null, timeZone: null, demoHours: null, active: true, kind: "influencer", language: "en", endedAt: null });
   const lead = { id: "lead_1", businessName: "Acme Roofing", contactName: "Dave Martin", phone: "+16135550199", email: "dave@acme.example", timeZone: "America/Toronto", country: "CA", province: "ON", prospect: { websiteUrl: "https://acme.example" } };
@@ -158,7 +166,15 @@ function fakeClient() {
   const state = await repDemoPageState({ repCode: "dan", token, client, now });
   ok("the token prefills the lead's name, address, phone and business", state.ok && state.prefill.name === "Dave Martin" && state.prefill.email === "dave@acme.example" && state.prefill.phone === "+16135550199" && state.prefill.business === "Acme Roofing", state.prefill);
   ok("…in the email's language, whatever ?lang says", state.language === "fr" && (await repDemoPageState({ repCode: "dan", token, lang: "es", client, now })).language === "fr");
-  ok("…with the rep's name and initials", state.repName === "Daniel Ortega" && state.initials === "DO");
+  // A stranger's page: the rep's PUBLIC name — work name, else first name —
+  // never the full real name (lib/sales/repIdentity.js).
+  ok("…with the rep's public name and initials, never the surname", state.repName === "Daniel" && state.initials === "DA" && !JSON.stringify(state).includes("Ortega"));
+  const byToken = await repDemoPageState({ repCode: "k3m9x2pq", token, client, now });
+  ok("the page opens on the opaque token as well as the legacy code", byToken.ok && byToken.repName === "Daniel");
+  client.reps.get("rep_1").workName = "Dan";
+  ok("a work name replaces the first name on the page", (await repDemoPageState({ repCode: "dan", token, client, now })).repName === "Dan");
+  client.reps.get("rep_1").workName = null;
+  ok("an unknown code is not found", (await repDemoPageState({ repCode: "zzzzzzzz", client, now })).ok === false);
   ok("…and the slots", state.slots.length > 10 && state.slots[0] === "2026-09-18T17:00:00.000Z");
   const bare = await repDemoPageState({ repCode: "dan", lang: "es", client, now });
   ok("the bare link has no prefill and speaks ?lang", bare.ok && bare.prefill.name === "" && bare.language === "es" && bare.fromEmail === false);

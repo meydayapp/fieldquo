@@ -211,13 +211,13 @@ export async function POST(request) {
     try {
       const row = await db.salesRep.findUnique({
         where: { id: rep.id },
-        select: { id: true, name: true, code: true, demoCompanyId: true },
+        select: { id: true, name: true, workName: true, code: true, demoCompanyId: true },
       });
       if (!row) return;
       await ensureRepDemo({ rep: row });
       const fresh = await db.salesRep.findUnique({
         where: { id: rep.id },
-        select: { id: true, name: true, code: true, demoCompanyId: true },
+        select: { id: true, name: true, workName: true, code: true, demoCompanyId: true },
       });
       await ensureRepDemoLogin({ rep: fresh, password });
       await materialiseDemoCheckIn({ salesRepId: rep.id });

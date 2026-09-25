@@ -941,7 +941,9 @@ section("7. STOP works, end to end");
 {
   // And the STOP actually blocks the next send. This is the whole point: the
   // list is read at the moment of the send, not remembered from the screen.
-  const rep = { id: "rep1", name: "Daniel", code: "DANIEL" };
+  // referralToken: the opaque half of the link (lib/sales/repLink.js); the
+  // link is built from it, never from `code`.
+  const rep = { id: "rep1", name: "Daniel", code: "DANIEL", referralToken: "DANIEL" };
   const lead = { id: "lead1", phone: "+16135550142", email: null, timeZone: "America/Toronto" };
   process.env.SALES_MAILING_ADDRESS = ADDRESS;
 
@@ -974,7 +976,9 @@ section("8. A demo rep cannot use this to text a stranger either, and a send tha
   store.numbers.push({ e164: "+15145550111", purpose: "sales", active: true, createdAt: new Date(0) });
   process.env.SALES_MAILING_ADDRESS = ADDRESS;
 
-  const rep = { id: "rep1", name: "Daniel", code: "DANIEL" };
+  // referralToken: the opaque half of the link (lib/sales/repLink.js); the
+  // link is built from it, never from `code`.
+  const rep = { id: "rep1", name: "Daniel", code: "DANIEL", referralToken: "DANIEL" };
   const lead = { id: "lead1", phone: "+16135550142", email: null, timeZone: "America/Toronto" };
 
   const result = await deliverSignupLinkSms({ rep, lead, origin: "https://fieldquo.com", now: MIDDAY });

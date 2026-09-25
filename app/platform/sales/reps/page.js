@@ -309,6 +309,8 @@ export default function PlatformSalesRepsPage() {
   const [agencyPick, setAgencyPick] = useState({});
   // rep id → the list being edited in that card's "Sells in" editor.
   const [sellsInDraft, setSellsInDraft] = useState({});
+  // rep id → the work name being typed in that card's "Work name" editor.
+  const [workNameDraft, setWorkNameDraft] = useState({});
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -988,6 +990,63 @@ export default function PlatformSalesRepsPage() {
    * checkbox is not a decision. The server validates against the same list
    * the rep's own settings screen uses (lib/sales/leadLanguage.js).
    */
+  /**
+   * The name prospects see (SalesRep.workName) — "Jesus… go as Daniel". The
+   * rep sets it on /sales/settings; a superadmin may set or override it here.
+   * Empty clears it, and prospects then see the rep's first name. The server
+   * validates (lib/sales/repIdentity.js validateWorkName) and audits.
+   */
+  async function saveWorkName(rep) {
+    const value = String(workNameDraft[rep.id] ?? "").trim();
+    setBusy(true);
+    clearBanners();
+    try {
+      const saved = await fetchJson(`/api/platform/sales/reps/${rep.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workName: value || null }),
+      });
+      setWorkNameDraft((d) => {
+        const next = { ...d };
+        delete next[rep.id];
+        return next;
+      });
+      setNotice(
+        saved.workName
+          ? `${rep.name} now works as ${saved.workName} — emails, texts, invites, the call script and their demo page say "${saved.workName}".`
+          : `${rep.name}'s work name is cleared — prospects see their first name, ${saved.publicName || "—"}.`,
+      );
+      await load();
+    } catch (err) {
+      setError(err.message || "Could not save the work name.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * Mint the rep's opaque link token now (lib/sales/repLink.js). A rep who
+   * predates the token gets one the first time their link is built; this is
+   * that first time, when a superadmin needs to hand the link out before the
+   * rep has opened their portal. One row, never a bulk backfill.
+   */
+  async function mintLink(rep) {
+    setBusy(true);
+    clearBanners();
+    try {
+      await fetchJson(`/api/platform/sales/reps/${rep.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mintLink: true }),
+      });
+      await load();
+    } catch (err) {
+      setError(err.message || "Could not create the link.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function saveSellsIn(rep) {
     const value = sellsInDraft[rep.id] ?? [];
     setBusy(true);
@@ -1317,15 +1376,15 @@ export default function PlatformSalesRepsPage() {
               className={FIELD}
             />
             <p className={HELP}>
-              This is the whole of how a signup gets credited to them: their link
-              is{" "}
+              The rep&apos;s internal code, generated from the name. Their link
+              does NOT carry it: every link is built from a random eight-character
+              token minted when the rep is created, so a prospect never reads the
+              rep&apos;s real name in a URL. The code still credits signups on
+              links handed out before the token existed —{" "}
               <span className="font-mono break-all">
                 /signup?sales={draft.code || "…"}
-              </span>
-              , and a company that signs up through it is theirs. Generated from
-              the name and already checked against the codes in use — change it
-              if you have a reason, but it is fixed once the rep exists, because
-              the link will be on a card by then.
+              </span>{" "}
+              keeps working — so it is fixed once the rep exists.
             </p>
             {draftCodeProblem ? (
               <p className="mt-1 text-xs text-red-700 dark:text-red-300">{draftCodeProblem}</p>
@@ -1536,7 +1595,9 @@ export default function PlatformSalesRepsPage() {
                     <span className="flex items-start justify-between gap-3 flex-wrap">
                       <span className="min-w-0">
                         <span className="block font-medium text-foreground">
-                          {rep.name}
+                          {/* Both names: the real one (payroll, commission)
+                              and the one prospects know them by. */}
+                          {rep.staffLabel || rep.name}
                           {isInfluencerRow ? (
                             <span className="ml-2 align-middle text-[11px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
                               influencer
@@ -1704,9 +1765,15 @@ export default function PlatformSalesRepsPage() {
                 <div className="grid gap-3 sm:grid-cols-2 text-sm">
                   <div>
                     <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                      Code
+                      Link code
                     </div>
-                    <div className="font-mono text-foreground break-all">{rep.code}</div>
+                    <div className="font-mono text-foreground break-all">{rep.referralToken || "—"}</div>
+                    {/* The legacy slug is the rep's real name; it still
+                        resolves on links handed out before 2026-09-25, and
+                        no new link is built from it. */}
+                    <div className="text-xs text-muted-foreground break-all">
+                      Legacy code (old links only): <span className="font-mono">{rep.code}</span>
+                    </div>
                   </div>
                   <div>
                     <div className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -1937,10 +2004,21 @@ export default function PlatformSalesRepsPage() {
                       {copied === rep.id ? <Check size={14} /> : <Copy size={14} />}
                       {copied === rep.id ? "Copied" : "Copy"}
                     </button>
+                    {/* A rep who predates the opaque token has no link until
+                        one is built for them (lib/sales/repLink.js). Minted
+                        here, one row, when a superadmin needs it first. */}
+                    {!isInfluencerRow && !rep.signupLink && isSuperadmin ? (
+                      <button onClick={() => mintLink(rep)} disabled={busy} className={BTN_QUIET} data-mint-link={rep.id}>
+                        Create link
+                      </button>
+                    ) : null}
                   </div>
                   <p className={HELP}>
                     A company that signs up through this link is credited to{" "}
                     {rep.name}, at signup, permanently.
+                    {!isInfluencerRow
+                      ? " The link carries a random code, not the rep's name; their old name-based link still credits them."
+                      : ""}
                   </p>
                 </div>
 
@@ -2238,6 +2316,60 @@ export default function PlatformSalesRepsPage() {
                     </div>
                   ) : null}
                 </div>
+                {!isInfluencerRow ? (
+                  <div data-rep-work-name={rep.id}>
+                    {/* The name prospects see (SalesRep.workName). The rep
+                        sets it on their own settings; a superadmin can set
+                        or override it here. The real name above stays on
+                        every pay record. */}
+                    <div className={LABEL}>Work name</div>
+                    {rep.id in workNameDraft && isSuperadmin ? (
+                      <div className="space-y-2">
+                        <input
+                          aria-label={`Work name for ${rep.name}`}
+                          value={workNameDraft[rep.id]}
+                          maxLength={60}
+                          placeholder="e.g. Daniel — empty uses their first name"
+                          onChange={(e) => setWorkNameDraft({ ...workNameDraft, [rep.id]: e.target.value })}
+                          className={FIELD}
+                        />
+                        <div className="flex flex-wrap gap-2">
+                          <button onClick={() => saveWorkName(rep)} disabled={busy} className={BTN_PRIMARY}>
+                            Save
+                          </button>
+                          <button
+                            onClick={() =>
+                              setWorkNameDraft((d) => {
+                                const next = { ...d };
+                                delete next[rep.id];
+                                return next;
+                              })
+                            }
+                            className={BTN_QUIET}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">2–30 letters, spaces or hyphens.</p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm text-foreground">
+                          {rep.workName ? rep.workName : `Not set — prospects see “${rep.publicName || "—"}”`}
+                        </span>
+                        {isSuperadmin ? (
+                          <button
+                            onClick={() => setWorkNameDraft({ ...workNameDraft, [rep.id]: rep.workName || "" })}
+                            className={BTN_QUIET}
+                          >
+                            {rep.workName ? "Change" : "Set"}
+                          </button>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+
                 <div>
                   {/* The owner's rule: Quebec leads go only to a rep whose
                       list carries French. The queue, the batch claim, Move

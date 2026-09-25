@@ -25,6 +25,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireOutreachRep } from "@/lib/sales/outreachGate";
 import { deliverOutreach, repSendingAddress } from "@/lib/sales/outreachSender";
+import { repPublicName } from "@/lib/sales/repIdentity";
 import { contactOptedOut } from "@/lib/sales/outreachInbound";
 import { buildIcs } from "@/lib/calendar/ics";
 import { NEXT_STEP_MINUTES } from "@/lib/sales/nextSteps";
@@ -78,7 +79,9 @@ export async function POST(request, { params }) {
   const end = event.endAt || new Date(event.startAt.getTime() + minutes * 60_000);
   const noun = event.type === "walkthrough" ? "walkthrough" : "demo";
   const when = whenLabel(event.startAt, lead.timeZone);
-  const repName = sanitiseHeaderText(rep.name, 120) || "FieldQuo";
+  // The invite a prospect keeps in their diary: the rep's public name — work
+  // name, else first name (lib/sales/repIdentity.js) — never the real one.
+  const repName = sanitiseHeaderText(repPublicName(rep), 120) || "FieldQuo";
   const business = sanitiseHeaderText(lead.businessName || event.businessName, 200) || "your business";
   const firstName = sanitiseHeaderText(lead.contactName || event.contactName, 120).split(/\s+/)[0] || "";
 

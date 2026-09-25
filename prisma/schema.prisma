@@ -11947,7 +11947,39 @@ model SalesRep {
   /// The slug in their link: /signup?sales=<code>. Its own namespace, because
   /// ?ref= and the referralCode POST field are already claimed by the promo and
   /// referral waterfall in app/api/companies/route.js.
+  ///
+  /// LEGACY as a link since 2026-09-25: it is derived from the rep's real
+  /// name (lib/sales/repCode.js codeFromName), so a link built from it told
+  /// every prospect who the rep really is and let anyone guess a colleague's
+  /// link. Links are now built from `referralToken` below. This column stays
+  /// because printed cards and old texts carry it, and attribution resolves
+  /// it as a fallback (lib/sales/repLink.js findRepByLinkCode) forever.
   code String @unique
+
+  /// The opaque half of a rep's link — /signup?sales=<token>, /demo/<token>.
+  /// Eight random Crockford base32 characters (lib/sales/repIdentity.js
+  /// mintReferralToken): short enough to read down a phone, not derived from
+  /// anything, not sequential, so it says nothing about who the rep is and a
+  /// colleague's cannot be guessed from your own.
+  ///
+  /// Nullable because every rep created before it existed has none, and the
+  /// owner's rule is no bulk backfill: lib/sales/repLink.js ensureReferralToken
+  /// mints one the first time a link is built for that rep. Never regenerated
+  /// once set — a link that has been texted to a prospect must keep working.
+  referralToken String? @unique
+
+  /// The name prospects, signups and client companies see — "Jesus… go as
+  /// Daniel" (the owner, 2026-09-22). Null means the rep has not chosen one,
+  /// and every outsider-facing surface then uses the first word of `name`,
+  /// never the whole of it (lib/sales/repIdentity.js repPublicName).
+  ///
+  /// `name` stays the legal/real name: /platform, payroll and commission
+  /// records show both ("Jesus Pérez — works as Daniel"), because a payout
+  /// made to "Daniel" is a payout nobody can reconcile. Written by the rep on
+  /// /sales/settings and by a superadmin on /platform/sales/reps, validated by
+  /// validateWorkName (letters, spaces, hyphens, 2–30) on both doors and
+  /// re-validated on read.
+  workName String?
 
   active     Boolean   @default(true)
   invitedAt  DateTime  @default(now())

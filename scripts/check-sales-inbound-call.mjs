@@ -134,6 +134,7 @@ const {
 } = await import("@/lib/sales/calls/store");
 
 const { REP_CALL_WRITES } = await import("@/lib/sales/calls/gate");
+const { repPublicName } = await import("@/lib/sales/repIdentity");
 const { matchInboundCaller } = await import("@/lib/sales/calls/inboundMatch");
 const { normalisePhone } = await import("@/lib/sales/suppressionRules");
 const { NOT_TRACKED_CALLS, campaignCallRows, repCallStats } = await import(
@@ -466,12 +467,21 @@ for (const [label, plan, expected] of [
 section("5. What the caller is told is true, and no callback is promised");
 
 {
-  const named = fallbackSayFor({ repName: "Daniel Okonkwo" });
+  // Since 2026-09-25 the callers hand fallbackSayFor the rep's PUBLIC name
+  // (lib/sales/repIdentity.js repPublicName: work name, else first name),
+  // and it speaks it as given — a two-word work name is not cut in half.
+  const named = fallbackSayFor({ repName: repPublicName({ name: "Daniel Okonkwo" }) });
   const bare = fallbackSayFor({});
   const all = [...named, ...bare].join(" ");
 
   ok("a rep who will actually see the row is named", named.join(" ").includes("Daniel"));
   ok("…by first name only", !named.join(" ").includes("Okonkwo"));
+  ok("…or by their work name, whole", fallbackSayFor({ repName: repPublicName({ name: "Jesus Pérez", workName: "Mary Ann" }) }).join(" ").includes("Mary Ann") && !fallbackSayFor({ repName: repPublicName({ name: "Jesus Pérez", workName: "Daniel" }) }).join(" ").includes("Jesus"));
+  ok(
+    "…and both callers resolve that name through repPublicName, never rep.name",
+    /fallbackSayFor\(\{ repName: base\.rep\?\.publicName/.test(read("lib/sales/calls/inboundRouting.js")) &&
+      /repName = repPublicName\(row\?\.salesRep\)/.test(read("app/api/rep-dial/inbound/route.js")),
+  );
   ok("no rep means no name, rather than an invented one", !/undefined|null/.test(bare.join(" ")));
   ok("both say the call was written down", named.some((l) => /logged/i.test(l)) && bare.some((l) => /logged/i.test(l)));
 

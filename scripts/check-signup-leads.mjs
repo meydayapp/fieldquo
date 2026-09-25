@@ -786,7 +786,7 @@ section("9. The rep's facts, the opener and the intro email variant — en / fr 
   ok("an unknown language falls back to English and says so", signupOpenerFor({ kind: "new", language: "de", business: "X", rep: "A" }).fallback === true);
   ok("an unknown kind is null", signupOpenerFor({ kind: "cold", language: "en" }) === null);
   ok("the call screen draws the opener above the script", /<SignupOpener signup=\{data\.prospect\.signup\}/.test(read("app/components/sales/CallPlaybook.js")));
-  ok("the playbook route sends the signup block and the rep's name", /signup,\n/.test(read("app/api/sales/playbook/route.js")) && /repName: rep\.name/.test(read("app/api/sales/playbook/route.js")));
+  ok("the playbook route sends the signup block and the rep's PUBLIC name (work name, else first name)", /signup,\n/.test(read("app/api/sales/playbook/route.js")) && /repName: repPublicName\(rep\)/.test(read("app/api/sales/playbook/route.js")));
   ok("SIGNUP_OPENERS has the three kinds in the three languages", ["en", "fr", "es"].every((l) => ["abandoned", "new", "stalled"].every((k) => SIGNUP_OPENERS[l][k]?.named && SIGNUP_OPENERS[l][k]?.plain)));
 
   // The intro email variants.
