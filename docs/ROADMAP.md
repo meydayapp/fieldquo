@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 25 September 2026 (the chat bubble on a company's OWN website: a one-line `<script src="…/embed/<slug>/chat.js" async>` loader replaces the fixed-size iframe snippet on Settings → AI employee — closed, the frame is the bubble and nothing else on their page is covered; open, it is the panel; on a phone, full screen with host scroll locked; disabled chat leaves nothing; the old iframe snippet still works — see "The chat bubble on a company's own website" below)
 Last updated: 24 September 2026 (a service's estimate template expands onto a quote and an invoice: "Add with its template lines" beside a templated service in the line library, lines in the document's language from the company's own Product row, measured quantities filled from the quote's own takeoffs with the source printed under the line, a missing figure at quantity 0 with the calculator named or linked, `ventCount` / `returnCount` registered — see "A service's template, expanded onto the quote" below)
 Last updated: 24 September 2026 (the estimate template inside a service — `Product.templateLines` / `defaultDiscount` / `imageUrl` / `estimateTypes` / `templateEnabled`, additive; templates attach by quote type (`categories` + painting estimate types) through `templatesFor()`; a closed measurement registry every trade's lines can take their qty from; the seed LOADER contract in `lib/services/seeds.js`; Settings › Services edits each service's template; `/app/analytics/benchmark` is the preset library with an editable Your price; benchmark sharing is on by default for new companies and Terms §7 / Privacy §7 say so. The seed CONTENT — templates on every trade in seven languages — is a separate pass landing against the same contract.; landed just before it on main: auto-translation on save — see its section.)
 Last updated: 24 September 2026 (tours re-pinned to the new shell: welcome-v2 walks the 17-row rail — Leads, Quotes, Quote reviews, Assign shifts, Marketing, Receptionist, FieldQuo AI, AI team, More, Create, Search, Settings at the foot — unfolding a folded People/Grow group through its header and folding it back, a new ai-team-v1 page tour, "Take the tour" on the dashboard's set-up card, the Help centre's replay fixed; every onboarding and set-up row shows a counted time estimate, the onboarding card says "n of 6 done" and the set-up card "n of 15 done · n hidden" — see "Tours on the new shell" below)
@@ -20,6 +21,76 @@ than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## The chat bubble on a company's own website (25 September 2026)
+
+The owner asked whether the AI employee's chat bubble appears on a contractor's
+own website (a custom domain, not our generated site). It did, through a pasted
+`<iframe>` — and a fixed-size iframe had two failures, both shipped. It was
+380×560, so with the chat CLOSED an invisible box sat over the bottom-right of
+the contractor's site and swallowed every click there. And the iframe's
+`<body>` carried the app's page grey (`bg-background`, #f6f8fb, measured in the
+browser), so the "invisible" box was a pale grey rectangle.
+
+**What shipped**
+
+- `lib/embed/chatLoader.js` + `app/embed/[companySlug]/chat.js/route.js` — the
+  loader, served at `/embed/<slug>/chat.js`. ES5, no eval/innerHTML, every
+  style set through `setProperty(…, "important")`, one global (`window.fqChat`,
+  so pasting it twice mounts one bubble). It injects one iframe of the existing
+  `/embed/<slug>/chat?host=loader` page, hidden until the frame speaks, then
+  sizes it to what the widget posts: bubble + 12px shadow pad closed, 384×544
+  open (clamped to the viewport), full screen on hosts under 640px wide with
+  host scroll locked and restored (position and inline styles) on close.
+  Messages are accepted only with `event.origin` = our origin AND
+  `event.source` = its own iframe. Options: `data-position="left"`, `data-z`.
+  Cache: 1h browser / 1d CDN + an ETag of the bytes (304 verified); the script
+  depends on origin + slug only, so nothing a company edits goes stale. Unknown
+  or malformed slug → 404; DB down → 503 no-store.
+- `SiteChatWidget` / `SiteChatMount` — `hosted` mode (only on `?host=loader`):
+  the widget fills its frame, posts `{type:"fq-chat", state, width, height,
+  title}` and accepts `{type:"fq-chat-host", layout|action}` from
+  `window.parent` only. No web-channel employee → `ChatDisabledSignal` posts
+  `state:"disabled"` and the loader removes its iframe. Focus: into the text
+  box on open (the dialog itself on a phone, so the keyboard does not cover
+  the conversation), back to the bubble on a visitor's close; Escape closes
+  from inside the frame or from the host page. The old iframe snippet gets
+  none of this and behaves exactly as before, minus the grey box.
+- Settings → AI employee shows the script line with Copy, a "recommended"
+  note, and "Where to paste it" for WordPress (WPCode → Header & Footer),
+  Wix (Settings → Custom Code, All pages, Body – end; connected domain),
+  Squarespace (Code Injection → Footer; Core plan+), Shopify
+  (theme.liquid), plain HTML — menu names from each platform's help pages,
+  25 Sep 2026 — and GoDaddy Website Builder stated honestly: it has no
+  site-wide code and its HTML section runs code in its own iframe, so the
+  bubble cannot float there. Nine languages. The web-chat row became a
+  `<div>` with a `<label htmlFor>` on the title: inside the old `<label>`, a
+  click on the snippet's text toggled the channel.
+- `scripts/check-ai-employee.mjs` +13: loader parses as ES5, no
+  eval/innerHTML, one global, both message checks, hostile slugs/origins
+  refused, FRAME_PAD equal on both sides, snippet is the loader.
+
+**Verified in the browser** on a throwaway host page (localhost:4273, hostile
+`iframe{width:100%!important}` CSS) against the dev server on :3217, demo
+company `demo-danielboves-roofing-5`: bubble 177×72 bottom-right, a click
+20px left of it reached the host's button underneath (inside the old
+snippet's 380×560 dead zone); open → 384×544 panel,
+focus in the text box; Escape inside and on the host both close; 375×812 →
+full-screen panel, body locked at scrollY 900 and restored to 900 with empty
+inline styles; `data-position="left" data-z="1000"` → left corner, z 1000;
+pasted twice → one iframe; `demo3` (no web employee) → zero iframes; the
+legacy iframe snippet still renders the bubble.
+
+### Still owed here
+
+- The Settings screen itself was not opened in a browser (it needs a signed-in
+  session); it is covered by the build and the check.
+- On a full-screen phone chat, Tab can still leave the iframe for the host
+  page behind it; making the host `inert` is invasive on someone else's site.
+- A host page with a strict CSP must allow our origin in `script-src` and
+  `frame-src`; the settings notes do not say so.
 
 ---
 
@@ -3321,7 +3392,8 @@ don't have access to other information, accounts, etc."
   approval carries the hash of the arguments the person read and a mismatch
   is refused; a booking past its slot is marked stale, never executed.
 - **Website chat**: `SiteChatWidget` on `/site/*` and `/embed/<slug>/chat`
-  (the snippet is on the settings page), white-label with the employee's face
+  (the snippet on the settings page is now the `chat.js` loader — see "The
+  chat bubble on a company's own website"), white-label with the employee's face
   and name and the brand fill at measured contrast. A visitor's message goes
   through `lib/messaging/ingest.js` on a per-company "web" `MessagingChannel`
   row (`lib/aiEmployee/ownChannel.js`), so it is in Conversations with a

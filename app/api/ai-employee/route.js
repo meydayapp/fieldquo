@@ -50,6 +50,7 @@ import { CHANNELS, channelConflicts } from "@/lib/aiEmployee/employees";
 import { FACES, defaultFaceFor } from "@/lib/aiEmployee/faces";
 import { READABLE_EXTENSIONS, SOURCE_KINDS } from "@/lib/aiEmployee/sources";
 import { withinBusinessHours } from "@/lib/aiEmployee/decide";
+import { isLoaderSlug } from "@/lib/embed/chatLoader";
 
 /** How long an instruction block may be. Long enough for a real policy, short
  *  enough that it cannot be used to push the role's own rules out of context. */
@@ -233,11 +234,15 @@ export async function GET(request) {
     sms: { available: Boolean(smsNumber), number: smsNumber || null },
     webChat: {
       slug: slug || null,
-      // The snippet is an iframe of the embed page, positioned by the page
-      // itself. No script, no cross-origin call: the widget talks to FieldQuo
-      // from inside FieldQuo's own frame.
-      snippet: slug
-        ? `<iframe src="${origin}/embed/${encodeURIComponent(slug)}/chat" title="Chat" style="position:fixed;right:16px;bottom:16px;width:380px;max-width:calc(100vw - 32px);height:560px;max-height:calc(100vh - 32px);border:0;z-index:2147483000;background:transparent" allow="clipboard-write"></iframe>`
+      // The snippet is the one-line loader (lib/embed/chatLoader.js), which
+      // owns an iframe of the embed page and sizes it to the bubble when
+      // closed and the panel when open. It used to be a fixed 380×560 iframe,
+      // which covered — and blocked clicks on — the bottom-right of the
+      // contractor's site even with the chat closed; anyone who pasted that
+      // one still has a working chat, since /embed/<slug>/chat is unchanged
+      // for it. The widget still talks to FieldQuo only from inside our frame.
+      snippet: slug && isLoaderSlug(slug)
+        ? `<script src="${origin}/embed/${slug}/chat.js" async></script>`
         : null,
       embedUrl: slug ? `${origin}/embed/${encodeURIComponent(slug)}/chat` : null,
     },

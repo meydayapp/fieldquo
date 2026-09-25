@@ -373,11 +373,39 @@ ok("modeOf refuses to invent a mode", modeOf({ mode: "sudo" }) === "ask" && mode
   ok("'talk to a person' is a message the employee hands off on", /copy\.personMessage/.test(widget));
   ok("nothing on the widget names FieldQuo", !/FieldQuo/i.test(widget));
   ok("the widget's copy covers nine languages", WEB_CHAT_LANGUAGES.length === 9 && WEB_CHAT_LANGUAGES.every((l) => /\S/.test(webChatCopy(l, "X").waiting)));
-  ok("the mount renders nothing when no employee answers the web channel", /if \(!config\?\.enabled\) return null/.test(code("app/components/chat/SiteChatMount.js")));
+  ok("the mount renders nothing when no employee answers the web channel", /if \(!config\?\.enabled\) return hosted \? <ChatDisabledSignal \/> : null;/.test(code("app/components/chat/SiteChatMount.js")));
+  ok("...and under the loader that nothing is SAID, so the loader removes its frame", /export function ChatDisabledSignal\(\)[\s\S]{0,200}postToHost\(\{ state: "disabled" \}\)[\s\S]{0,40}return null;/.test(widget));
   ok("the site page mounts it with the page's own language", /<SiteChatMount companySlug=\{company\.bookingSlug \|\| company\.slug\} language=\{language\}/.test(code("app/site/[subdomain]/page.js")));
   ok("the embed serves it as the 'chat' widget", /"chat"/.test(code("app/embed/[companySlug]/[widget]/page.js")));
   ok("the send router carries web and sms before the WhatsApp branch", /platform === "web" \|\| platform === "sms"/.test(code("lib/messaging/send.js")));
   ok("the web send never leaves the building", /web:\$\{crypto\.randomUUID\(\)\}/.test(code("lib/messaging/ownSend.js")));
+}
+
+// ── The chat.js loader: one line on a site we did not build ─────────────────
+// Executed, not grepped, where it can be: the loader is a string handed to
+// every browser that visits a contractor's site, with no build step between.
+{
+  const acorn = await import("acorn");
+  const { chatLoaderScript, isLoaderSlug, FRAME_PAD } = await import("../lib/embed/chatLoader.js");
+  const src = chatLoaderScript({ origin: "https://www.fieldquo.com", slug: "demo5" });
+  let es5 = true;
+  try {
+    acorn.parse(src, { ecmaVersion: 5 });
+  } catch {
+    es5 = false;
+  }
+  ok("the loader parses as ES5", es5);
+  ok("...uses no eval, innerHTML or document.write (CSP-friendly)", !/\beval\b|innerHTML|new Function|insertAdjacentHTML|document\.write|cssText/.test(src));
+  ok("...defines one global, window.fqChat", (src.match(/\bw\.[A-Za-z_$]+\s*=/g) || []).every((m) => /w\.fqChat/.test(m)));
+  ok("...checks BOTH the origin and its own frame on every message", /e\.origin !== ORIGIN \|\| e\.source !== frame\.contentWindow/.test(src));
+  ok("...names FieldQuo nowhere but the origin", !/fieldquo/i.test(src.replace("https://www.fieldquo.com", "")));
+  ok("...starts hidden and removes itself when the frame says disabled", /visibility: "hidden"/.test(src) && /m\.state === "disabled"[\s\S]{0,40}destroy\(\)/.test(src));
+  ok("...refuses a slug or origin that could break out of the string", ["a/b", 'x"y', "</script>", "", "é"].every((s) => !isLoaderSlug(s) && chatLoaderScript({ origin: "https://x.com", slug: s }) === "") && chatLoaderScript({ origin: "javascript:alert(1)", slug: "a" }) === "");
+  const widget = code("app/components/chat/SiteChatWidget.js");
+  ok("the widget's FRAME_PAD matches the loader's", new RegExp(`const FRAME_PAD = ${FRAME_PAD};`).test(widget));
+  ok("the widget posts sizes only when hosted, and hears only its parent", /if \(!hosted\) return undefined;[\s\S]{0,40}if \(open\) \{\s*postToHost/.test(widget) && /e\.source !== window\.parent/.test(widget));
+  ok("the embed asks for hosted mode only on ?host=loader", /const hosted = sp\.host === "loader";/.test(code("app/embed/[companySlug]/[widget]/page.js")));
+  ok("the settings snippet is the loader", /<script src="\$\{origin\}\/embed\/\$\{slug\}\/chat\.js" async><\/script>/.test(code("app/api/ai-employee/route.js")));
 }
 
 // ── SMS: greyed without a number, STOP untouched, from the system number ───

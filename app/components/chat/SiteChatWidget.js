@@ -28,6 +28,45 @@ import { useCallback, useEffect, useRef, useState } from "react";
 const TOKEN_KEY = "fq_chat_token";
 const POLL_MS = 5000;
 
+// ══ Hosted by the chat.js loader ═══════════════════════════════════════════
+//
+// On a website FieldQuo did not build, lib/embed/chatLoader.js owns the
+// iframe and sizes it from what this widget posts (`hosted`). The widget then
+// FILLS its frame rather than positioning itself in a corner of a big one:
+// closed, the frame is the bubble plus FRAME_PAD of room for its shadow, so
+// the contractor's page stays clickable everywhere else; open, it is the
+// panel. The loader decides "float" (a card) or "full" (a phone-sized host:
+// the whole screen) and says which — the frame cannot tell a phone from a
+// narrow card by its own width, since on a desktop it IS a narrow card.
+//
+// Messages to the parent carry sizes, a state and the frame's title (the
+// company's own "Chat with …"), nothing about the visitor — which is why
+// targetOrigin can be "*": the widget cannot know which domain framed it.
+// Messages FROM the parent are accepted only from window.parent, and can do
+// no more than close the panel or change its layout.
+const FRAME_PAD = 12; // keep equal to lib/embed/chatLoader.js FRAME_PAD
+const PANEL_W = 360;
+const PANEL_H = 520;
+
+function postToHost(msg) {
+  if (typeof window === "undefined" || window.parent === window) return;
+  try {
+    window.parent.postMessage({ type: "fq-chat", ...msg }, "*");
+  } catch {
+    // A parent that has gone away — nothing to tell.
+  }
+}
+
+/** Rendered by SiteChatMount when no employee answers the web channel and
+ *  the loader is hosting: nothing on screen, one message so the loader
+ *  removes its (still hidden) iframe instead of leaving it on the page. */
+export function ChatDisabledSignal() {
+  useEffect(() => {
+    postToHost({ state: "disabled" });
+  }, []);
+  return null;
+}
+
 function readToken(slug) {
   try {
     return window.localStorage.getItem(`${TOKEN_KEY}:${slug}`) || null;
@@ -77,9 +116,87 @@ function Avatar({ url, name, size = 36, fill }) {
  * @param copy         lib/aiEmployee/webChatCopy.js's words, already resolved
  * @param startOpen    the embed frame opens on the button too; a host page may
  *                     pass true to open at once
+ * @param hosted       the chat.js loader owns the frame (see FRAME_PAD above)
+ * @param side         "right" | "left" — the loader's corner
  */
-export default function SiteChatWidget({ companySlug, language, company, employee, fill, copy, startOpen = false }) {
+export default function SiteChatWidget({ companySlug, language, company, employee, fill, copy, startOpen = false, hosted = false, side = "right" }) {
   const [open, setOpen] = useState(startOpen);
+  // "float" | "full" — only the loader changes it (see FRAME_PAD above).
+  const [layout, setLayout] = useState("float");
+  const buttonRef = useRef(null);
+  const panelRef = useRef(null);
+  const inputRef = useRef(null);
+  // Focus moves on a visitor's open and close, never on a page load or on a
+  // close the host page asked for while its own page had focus.
+  const focusOnOpen = useRef(false);
+  const focusOnClose = useRef(false);
+
+  const openChat = () => {
+    focusOnOpen.current = true;
+    setOpen(true);
+  };
+  const closeChat = () => {
+    focusOnClose.current = true;
+    setOpen(false);
+  };
+
+  // What the loader is told: the size this state needs. Closed, the button
+  // is measured (its label is translated, so its width is not a constant) and
+  // re-measured if it changes — a web font arriving late widens it.
+  useEffect(() => {
+    if (!hosted) return undefined;
+    if (open) {
+      postToHost({ state: "open", width: PANEL_W + FRAME_PAD * 2, height: PANEL_H + FRAME_PAD * 2 });
+      return undefined;
+    }
+    const node = buttonRef.current;
+    if (!node) return undefined;
+    let last = "";
+    const report = () => {
+      const width = Math.ceil(node.offsetWidth) + FRAME_PAD * 2;
+      const height = Math.ceil(node.offsetHeight) + FRAME_PAD * 2;
+      const key = `${width}x${height}`;
+      if (key === last) return;
+      last = key;
+      postToHost({ state: "closed", width, height, title: copy.title });
+    };
+    report();
+    if (typeof ResizeObserver === "undefined") return undefined;
+    const observer = new ResizeObserver(report);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [hosted, open, copy.title]);
+
+  // What the loader may say back.
+  useEffect(() => {
+    if (!hosted) return undefined;
+    const onMessage = (e) => {
+      if (e.source !== window.parent) return;
+      const m = e.data;
+      if (!m || typeof m !== "object" || m.type !== "fq-chat-host") return;
+      if (m.layout === "full" || m.layout === "float") setLayout(m.layout);
+      if (m.action === "close") setOpen(false);
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [hosted]);
+
+  // Focus into the panel when a visitor opens it; back to the bubble when a
+  // visitor closes it. Full screen focuses the dialog itself rather than the
+  // text box, so a phone does not throw its keyboard over the conversation
+  // the moment it opens.
+  useEffect(() => {
+    if (open && focusOnOpen.current) {
+      focusOnOpen.current = false;
+      const phone = hosted
+        ? layout === "full"
+        : typeof window !== "undefined" && window.matchMedia?.("(max-width: 639px)").matches;
+      (phone ? panelRef.current : inputRef.current)?.focus();
+    } else if (!open && focusOnClose.current) {
+      focusOnClose.current = false;
+      buttonRef.current?.focus();
+    }
+  }, [open, hosted, layout]);
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const [state, setState] = useState(null); // null | "sending" | "replied" | "waiting" | "error" | "tooMany"
@@ -151,14 +268,21 @@ export default function SiteChatWidget({ companySlug, language, company, employe
   if (!open) {
     return (
       <button
+        ref={buttonRef}
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={openChat}
         aria-label={copy.open}
         style={{
-          position: "fixed", right: 16, bottom: 16, zIndex: 2147483000, display: "inline-flex", alignItems: "center",
+          position: "fixed", zIndex: 2147483000, display: "inline-flex", alignItems: "center",
           gap: 10, padding: "10px 16px 10px 10px", borderRadius: 999, border: 0, cursor: "pointer",
-          background: fill.bg, color: fill.fg, fontWeight: 600, fontSize: 15, boxShadow: "0 6px 24px rgba(0,0,0,.18)",
+          background: fill.bg, color: fill.fg, fontWeight: 600, fontSize: 15,
           minHeight: 48,
+          // Hosted: the frame is exactly the button plus FRAME_PAD, so the
+          // shadow is kept inside that pad, and the label may not wrap — the
+          // frame starts 1px wide and a wrapped label would measure tall.
+          ...(hosted
+            ? { bottom: FRAME_PAD, [side]: FRAME_PAD, whiteSpace: "nowrap", boxShadow: "0 3px 10px rgba(0,0,0,.2)" }
+            : { right: 16, bottom: 16, boxShadow: "0 6px 24px rgba(0,0,0,.18)" }),
         }}
       >
         <Avatar url={employee?.avatarUrl} name={name} size={28} fill={fill} />
@@ -169,13 +293,30 @@ export default function SiteChatWidget({ companySlug, language, company, employe
 
   return (
     <div
+      ref={panelRef}
       role="dialog"
       aria-label={copy.title}
+      tabIndex={-1}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          e.stopPropagation();
+          closeChat();
+        }
+      }}
       style={{
-        position: "fixed", right: 16, bottom: 16, zIndex: 2147483000, width: 360, maxWidth: "calc(100vw - 32px)",
-        height: 520, maxHeight: "calc(100vh - 32px)", display: "flex", flexDirection: "column", borderRadius: 16,
-        overflow: "hidden", background: "#ffffff", color: "#111827", boxShadow: "0 12px 40px rgba(0,0,0,.22)",
+        position: "fixed", zIndex: 2147483000, display: "flex", flexDirection: "column",
+        overflow: "hidden", background: "#ffffff", color: "#111827", outline: "none",
         fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
+        // Hosted: fill the frame the loader sized — inset by the shadow's pad
+        // as a card, edge to edge as a phone's full screen.
+        ...(hosted
+          ? layout === "full"
+            ? { inset: 0, borderRadius: 0 }
+            : { inset: FRAME_PAD, borderRadius: 16, boxShadow: "0 6px 16px rgba(0,0,0,.22)" }
+          : {
+              right: 16, bottom: 16, width: PANEL_W, maxWidth: "calc(100vw - 32px)", height: PANEL_H,
+              maxHeight: "calc(100vh - 32px)", borderRadius: 16, boxShadow: "0 12px 40px rgba(0,0,0,.22)",
+            }),
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 12px 12px 14px", background: fill.bg, color: fill.fg }}>
@@ -186,7 +327,7 @@ export default function SiteChatWidget({ companySlug, language, company, employe
         </div>
         <button
           type="button"
-          onClick={() => setOpen(false)}
+          onClick={closeChat}
           aria-label={copy.close}
           style={{ background: "transparent", border: 0, color: "inherit", fontSize: 22, lineHeight: 1, cursor: "pointer", minWidth: 44, minHeight: 44 }}
         >
@@ -226,6 +367,7 @@ export default function SiteChatWidget({ companySlug, language, company, employe
         style={{ display: "flex", gap: 8, padding: 10, borderTop: "1px solid #e5e7eb", background: "#ffffff" }}
       >
         <input
+          ref={inputRef}
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder={copy.placeholder}
