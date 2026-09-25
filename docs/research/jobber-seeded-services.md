@@ -15,22 +15,21 @@ descriptions only.
 
 | Jobber name | Jobber description (as captured) | FieldQuo seed row (with template) |
 |---|---|---|
-| Baseboard Painting | "Application of semi-gloss paint to baseboards, includes caulking and filling holes." | `fq.interior_painting.core.baseboards` |
-| Cabinet Painting | "Prep, prime, and paint kitchen and bathroom cabinets. Includes removal and reinstallation of hardware. Doors and drawers sprayed off-site for a smooth finish." | `fq.interior_painting.cabinets.*` (existing) |
-| Ceiling Repair and Painting | "Repairing any cracks or damage in ceilings, priming repaired areas, and application of 2 coats of paint." | `fq.interior_painting.core.ceiling_repair_paint` |
-| Deck Staining | "Application of 2 coats of high-quality stain after pressure washing deck and repairing any damaged wood." | `fq.exterior_painting.exterior.deck_fence` (existing) |
-| Drywall Repair | "Patch and mud drywall for repairs. Sand and prime repaired areas before painting." | `fq.interior_painting.prep.*` (existing drywall row) |
-| Exterior Painting | "Application of 2 coats of high-quality exterior paint after washing exterior, scraping loose paint, caulking cracks, and priming raw areas." | `fq.exterior_painting.exterior.surfaces_and_trim` (existing) |
-| Free Assessment | "Our experts will come to assess your needs and discuss solutions" | `fq.interior_painting.visits.*` estimate visit (existing) |
-| Interior Door Painting | "Prep and application of 2 coats of semi-gloss paint to interior doors, including both sides." | `fq.interior_painting.core.doors` |
-| Interior Trim and Window Painting | "Prepping and painting interior trim and window frames with a semi-gloss finish. Includes caulking and repairing any imperfections." | `fq.interior_painting.core.trim_windows` |
-| Popcorn Ceiling Removal | "Removal of popcorn texture from ceilings and repairing any imperfections." | `fq.interior_painting.prep.popcorn_removal` |
-| Wall Painting | "Application of 2 coats of high-quality paint to walls, including patching, sanding, priming, and protection of floors and furniture during work." | `fq.interior_painting.core.*` walls (existing) |
-| Wallpaper Removal | "Removal of wallpaper, scraping off glue, repairing any wall damage, and priming walls for painting." | `fq.interior_painting.prep.wallpaper_removal` |
+| Baseboard Painting | "Application of semi-gloss paint to baseboards, includes caulking and filling holes." | `fq.interior_painting.add_ons.trim_baseboard` |
+| Cabinet Painting | "Prep, prime, and paint kitchen and bathroom cabinets. Includes removal and reinstallation of hardware. Doors and drawers sprayed off-site for a smooth finish." | `fq.interior_painting.cabinets.cabinet_painting` |
+| Ceiling Repair and Painting | "Repairing any cracks or damage in ceilings, priming repaired areas, and application of 2 coats of paint." | `fq.interior_painting.core.ceilings` |
+| Deck Staining | "Application of 2 coats of high-quality stain after pressure washing deck and repairing any damaged wood." | `fq.exterior_painting.exterior.deck_fence` |
+| Drywall Repair | "Patch and mud drywall for repairs. Sand and prime repaired areas before painting." | `fq.interior_painting.prep.drywall_patch` |
+| Exterior Painting | "Application of 2 coats of high-quality exterior paint after washing exterior, scraping loose paint, caulking cracks, and priming raw areas." | `fq.exterior_painting.exterior.surfaces_and_trim` |
+| Free Assessment | "Our experts will come to assess your needs and discuss solutions" | `fq.interior_painting.visits.interior_service` |
+| Interior Door Painting | "Prep and application of 2 coats of semi-gloss paint to interior doors, including both sides." | `fq.interior_painting.add_ons.door_painting` |
+| Interior Trim and Window Painting | "Prepping and painting interior trim and window frames with a semi-gloss finish. Includes caulking and repairing any imperfections." | `fq.interior_painting.add_ons.trim_baseboard` |
+| Popcorn Ceiling Removal | "Removal of popcorn texture from ceilings and repairing any imperfections." | `fq.interior_painting.prep.popcorn_removal_paint` |
+| Wall Painting | "Application of 2 coats of high-quality paint to walls, including patching, sanding, priming, and protection of floors and furniture during work." | `fq.interior_painting.core.per_room` |
+| Wallpaper Removal | "Removal of wallpaper, scraping off glue, repairing any wall damage, and priming walls for painting." | `fq.interior_painting.prep.wallpaper_removal` (added) |
 
-The right-hand column is filled in as the painting seeds are worked; a row that
-says "existing" matched a row the seed already had, the others were added on
-2026-09-24 (the exact keys are in the seed file and the source map).
+Every row in the right-hand column carries an estimate template; only
+Wallpaper Removal was missing from the seed and was added on 2026-09-24.
 
 ## Jobber's painting quote template
 

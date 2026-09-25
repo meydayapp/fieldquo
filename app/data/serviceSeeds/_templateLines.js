@@ -36,13 +36,17 @@
 //                      measurementKey? }]  — English text; the other six
 //                   languages are under `translations`
 //   defaultDiscount { name, kind: "fixed"|"percent", amount } | null
+//                   coverage? { per, unit } on a material line bought in a
+//                   purchase unit (gallon, sheet, bundle…): qty =
+//                   ceil(measurement ÷ per); see _materialCosts.js
 //   imageUrl        null — a company adds its own photo; nothing is shipped
 //   range           { min, median, max } in USD — the preset price and its
 //                   guideline (see rangeFor for where the numbers come from);
 //                   null only when rangeBasis is "measured"
-//   rangeBasis      "benchmark" | "lines" | "measured" — where the range came
+//   rangeBasis      "benchmark" | "lines" | "measured" | "free" — where the range came
 //                   from; "measured" = a flat row with no benchmark whose
-//                   lines are all per-measurement, so there is no flat preset
+//                   lines are all per-measurement, so there is no flat preset;
+//                   "free" = a no-charge visit, range null
 //   categories      [ServiceCategory.key…] — the QUOTE TYPES this template
 //                   attaches to (the owner's decision of 2026-09-24:
 //                   "templates attach by quote type"). Defaults to the seed's
@@ -94,11 +98,16 @@
 // competitor templates the electrical file reproduces, and each trade file's
 // header names its own evidence.
 
+import { DEFAULT_MATERIAL_MARKUP } from "./_materialCosts";
+
 export const TEMPLATE_LANGUAGES = ["fr", "es", "it", "de", "uk", "tl"];
 const ALL_LANGUAGES = ["en", ...TEMPLATE_LANGUAGES];
 export const TEMPLATE_KINDS = ["installation", "repair", "inspection", "maintenance"];
 export const LINE_KINDS = ["labour", "material", "other"];
-export const LINE_UNITS = ["flat", "each", "hour", "sqft", "linear_ft", "square"];
+export const LINE_UNITS = ["flat", "each", "hour", "sqft", "linear_ft", "square",
+  // purchase units, for material lines costed from _materialCosts.js
+  "gallon", "pail", "sheet", "bundle", "roll", "box", "bag", "piece", "tube", "case", "panel", "board"];
+export const COVERAGE_UNITS = ["sqft", "linft", "cuft", "square", "each"];
 export const MEASUREMENT_KEYS = [
   // painting (lib/pricing/paintTakeoff.js)
   "wallSqft", "ceilingSqft", "floorSqft", "doorCount", "windowCount",
@@ -150,6 +159,11 @@ export function line(kind, qty, unit, unitPrice, unitCost, text, extra = {}) {
   if (typeof qty !== "number" || !Number.isFinite(qty) || qty < 0) fail(`${where}: qty ${qty}`);
   if (extra.measurementKey !== undefined && !MEASUREMENT_KEYS.includes(extra.measurementKey)) fail(`${where}: measurementKey ${extra.measurementKey}`);
   if (MEASURED_UNITS.includes(unit) && !extra.measurementKey) fail(`${where}: a per-${unit} line needs a measurementKey`);
+  if (extra.coverage !== undefined) {
+    const c = extra.coverage;
+    if (!(c && typeof c.per === "number" && c.per > 0 && COVERAGE_UNITS.includes(c.unit))) fail(`${where}: coverage must be { per > 0, unit in ${COVERAGE_UNITS.join("/")} }`);
+    if (!extra.measurementKey) fail(`${where}: a line with coverage needs the measurementKey it divides`);
+  }
   if (extra.measurementKey && qty !== 1) fail(`${where}: a measured line keeps qty 1 as the fallback, got ${qty}`);
   return {
     kind,
@@ -159,8 +173,22 @@ export function line(kind, qty, unit, unitPrice, unitCost, text, extra = {}) {
     unitCost: cost,
     taxable: extra.taxable === undefined ? true : Boolean(extra.taxable),
     measurementKey: extra.measurementKey,
+    coverage: extra.coverage,
     text: checkText(text, where),
   };
+}
+
+/**
+ * A material line costed from the Home Depot table (_materialCosts.js): unit
+ * = purchase unit, unitCost = shelf price, unitPrice = cost × markup (or the
+ * price given), coverage = how much measurement one unit covers.
+ */
+export function hdMaterial(item, text, { measurementKey, price, taxable } = {}) {
+  if (!item) fail(`hdMaterial: unknown item for "${text?.en?.[0]}"`);
+  const unitPrice = price ?? Math.round(item.cost * DEFAULT_MATERIAL_MARKUP * 100) / 100;
+  return line("material", 1, item.unit, unitPrice, item.cost, text, {
+    measurementKey, taxable, coverage: item.per_unit === "each" ? undefined : { per: item.per, unit: item.per_unit },
+  });
 }
 
 /** The default cost ratios — labour half, material three quarters. */
@@ -429,8 +457,11 @@ export function rangeFor(service, lines) {
   // A roof sold per sq ft is costed per SQUARE (100 sq ft): its square lines
   // count at a hundredth, and the waste line at the default 10% of that — the
   // qty the report fills is squares × waste factor, not squares.
+  const COVER_TO_UNIT = { sqft: "sqft", linft: "linear_ft", square: "square" };
   const lineRate = (l) =>
-    l.unit === service.unit ? l.unitPrice
+    l.coverage && COVER_TO_UNIT[l.coverage.unit] === service.unit ? l.unitPrice / l.coverage.per
+    : l.coverage && service.unit === "sqft" && l.coverage.unit === "square" ? l.unitPrice / l.coverage.per / 100 * (l.measurementKey === "wastePct" ? 0.1 : 1)
+    : l.unit === service.unit ? l.unitPrice
     : service.unit === "sqft" && l.unit === "square" ? (l.unitPrice / 100) * (l.measurementKey === "wastePct" ? 0.1 : 1)
     : 0;
   const perUnit = ["sqft", "linear_ft", "hour", "square"].includes(service.unit)
@@ -447,6 +478,9 @@ export function rangeFor(service, lines) {
   }
   const total = lines.reduce((s, l) => s + l.qty * l.unitPrice, 0);
   const base = perUnit > 0 ? perUnit : total;
+  // A free visit (every line priced 0) has no preset to suggest; saying $0
+  // would be a price, so the range is null and the basis says why.
+  if (!(base > 0) && lines.every((l) => l.unitPrice === 0)) return { basis: "free", range: null };
   if (!(base > 0)) fail(`${service.seedKey}: no benchmark and the lines total zero`);
   return { basis: "lines", range: ordered(roundPreset(base * 0.8), roundPreset(base), roundPreset(base * 1.25)) };
 }
@@ -483,6 +517,7 @@ export function withTemplates(seed, templates) {
         taxable: l.taxable,
       };
       if (l.measurementKey) row.measurementKey = l.measurementKey;
+      if (l.coverage) row.coverage = { per: l.coverage.per, unit: l.coverage.unit };
       return row;
     });
     const defaultDiscount = t.discount
