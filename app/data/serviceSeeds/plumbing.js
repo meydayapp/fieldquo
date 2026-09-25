@@ -10,8 +10,9 @@
 // Written in source order (two industries: the plumbing book, then the
 // water-heater book) so scripts/service-seeds/authoring/gen-source-map.mjs
 // can join each row back for the owner's validation.
-import { L, SHARED, D, T, withTemplates, hdMaterial } from "./_templateLines";
+import { L, SHARED, D, T, withTemplates, hdMaterial, withLanguages } from "./_templateLines";
 import { HD } from "./_materialCosts";
+import { I18N } from "./i18n/plumbing.js";
 
 const BM = (low, median, high) => ({ low, median, high, currency: "USD", source: "benchmark", asOf: "2026-09-21" });
 const S = (seedKey, category, unit, benchmark, [en, fr, es], [den, dfr, des], extra = {}) => ({
@@ -1114,4 +1115,5 @@ const TEMPLATES = {
   ], D.regular("fixed", 8)),
 };
 
+withLanguages(SEED, I18N);
 withTemplates(SEED, TEMPLATES);

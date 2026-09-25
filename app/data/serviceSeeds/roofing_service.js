@@ -10,20 +10,22 @@
 // so it is built from one table per material; rows are emitted in the
 // source's order for the join-back map.
 
-import { L, SHARED, D, T, withTemplates, hdMaterial } from "./_templateLines";
+import { L, SHARED, D, T, withTemplates, hdMaterial, withLanguages } from "./_templateLines";
 import { HD } from "./_materialCosts";
+import { I18N } from "./i18n/roofing_service.js";
 
-// [slug, name{en,fr,es}]
+// [slug, name{en,fr,es}] — the English is the material alone: the names
+// append "roof" themselves, so "Metal roof" here printed "Metal roof roof".
 const MAT = {
   asphalt: ["asphalt_shingle", { en: "Asphalt shingle", fr: "Bardeaux d'asphalte", es: "Teja asfáltica" }],
   clay: ["clay_tile", { en: "Clay tile", fr: "Tuiles d'argile", es: "Teja de arcilla" }],
   concrete: ["concrete_tile", { en: "Concrete tile", fr: "Tuiles de béton", es: "Teja de concreto" }],
-  metal: ["metal", { en: "Metal roof", fr: "Toiture métallique", es: "Techo metálico" }],
-  other: ["other_materials", { en: "Other roofing material", fr: "Autre matériau de toiture", es: "Otro material de techo" }],
-  flat: ["rolled_flat", { en: "Rolled or flat roof", fr: "Toit plat ou en rouleau", es: "Techo plano o rollado" }],
-  slate: ["slate", { en: "Slate roof", fr: "Toiture en ardoise", es: "Techo de pizarra" }],
+  metal: ["metal", { en: "Metal", fr: "Toiture métallique", es: "Techo metálico" }],
+  other: ["other_materials", { en: "Other-material", fr: "Autre matériau de toiture", es: "Otro material de techo" }],
+  flat: ["rolled_flat", { en: "Rolled or flat", fr: "Toit plat ou en rouleau", es: "Techo plano o rollado" }],
+  slate: ["slate", { en: "Slate", fr: "Toiture en ardoise", es: "Techo de pizarra" }],
   solar: ["solar_shingle", { en: "Solar shingle", fr: "Bardeaux solaires", es: "Teja solar" }],
-  vinyl: ["vinyl", { en: "Vinyl roofing", fr: "Toiture en vinyle", es: "Techo de vinilo" }],
+  vinyl: ["vinyl", { en: "Vinyl", fr: "Toiture en vinyle", es: "Techo de vinilo" }],
   shake: ["wood_shake", { en: "Wood shake", fr: "Bardeaux de cèdre", es: "Teja de madera" }],
 };
 
@@ -52,7 +54,7 @@ const repairMat = (m) => {
     `fq.roofing_service.repair.${slug}`,
     "repair",
     { en: `${n.en} roof repair`, fr: `Réparation de toiture — ${n.fr.toLowerCase()}`, es: `Reparación de techo — ${n.es.toLowerCase()}` },
-    { en: `Damaged or leaking sections of a ${n.en.toLowerCase()} roof repaired and sealed.`, fr: `Sections abîmées ou qui fuient d'une toiture (${n.fr.toLowerCase()}) réparées et scellées.`, es: `Secciones dañadas o con fugas de un techo (${n.es.toLowerCase()}) reparadas y selladas.` },
+    { en: `Damaged or leaking sections of ${/^[aeiou]/.test(n.en.toLowerCase()) ? "an" : "a"} ${n.en.toLowerCase()} roof repaired and sealed.`, fr: `Sections abîmées ou qui fuient d'une toiture (${n.fr.toLowerCase()}) réparées et scellées.`, es: `Secciones dañadas o con fugas de un techo (${n.es.toLowerCase()}) reparadas y selladas.` },
   );
 };
 const item = (kind, slug, name, description, extra) => base(`fq.roofing_service.${kind}.${slug}`, kind, name, description, extra);
@@ -552,4 +554,5 @@ const TEMPLATES = {
   ], null),
 };
 
+withLanguages(SEED, I18N);
 withTemplates(SEED, TEMPLATES);

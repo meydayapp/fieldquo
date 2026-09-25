@@ -10,8 +10,9 @@
 // lines up. Hardwood REFINISHING is the `flooring` trade's takeoff and is not
 // in this book at all.
 
-import { L as TL, SHARED, D, T, withTemplates, hdMaterial, tagRows } from "./_templateLines";
+import { L as TL, SHARED, D, T, withTemplates, hdMaterial, tagRows, withLanguages } from "./_templateLines";
 import { HD } from "./_materialCosts";
+import { I18N } from "./i18n/flooring_install.js";
 
 const L = {
   basement: { key: "basement", en: "basement", fr: "au sous-sol", es: "en el sótano" },
@@ -523,6 +524,7 @@ const TEMPLATES = {
   ], null),
 };
 
+withLanguages(SEED, I18N);
 withTemplates(SEED, TEMPLATES);
 
 // Shared services: one canonical row here, installed for these quote types too.
