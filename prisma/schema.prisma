@@ -1104,7 +1104,11 @@ model Subscription {
   /// The "next steps" email — FieldQuo to a company whose card is in and
   /// whose onboarding checklist is still open, a couple of hours after the
   /// Subscription row appeared (lib/signup/nextSteps.js; the cron is
-  /// /api/cron/onboarding-next-steps). Claimed BEFORE the send by an
+  /// /api/cron/onboarding-next-steps). HISTORICAL since 2026-09-24: the
+  /// claim and record moved to Company.nextStepsEmailSentAt / Skipped, which
+  /// exist for a card-free trial company too. These two are still READ — a
+  /// company stamped here got its letter and is never picked again — and no
+  /// longer written. What follows is how they were written. Claimed BEFORE the send by an
   /// updateMany on `null`, the renewal reminder's trade: a claim that did not
   /// become a letter is reverted to null so a Resend hiccup cannot consume
   /// the one letter a company ever gets, and two overlapping runs cannot both
@@ -1414,6 +1418,21 @@ model Company {
   trialReminder15At      DateTime?
   trialReminder7At       DateTime?
   trialReminder3At       DateTime?
+  /// The "finish setting up" letter (lib/signup/nextSteps.js, the cron
+  /// /api/cron/onboarding-next-steps) — the claim and the record, ONE per
+  /// company. Here rather than on Subscription because since 2026-09-24 a new
+  /// company has no Subscription row until it chooses a plan, and the letter
+  /// is for exactly those companies. It is the lock for every company, card
+  /// or no card, so a trial company that later subscribes can never be
+  /// written to a second time: both paths claim this row. Subscription's two
+  /// columns of the same name are the record of letters sent before this
+  /// existed and are still read (a company stamped there is never picked
+  /// again), no longer written.
+  nextStepsEmailSentAt   DateTime?
+  /// Why the letter was decided against, once: "onboarding_complete",
+  /// "no_recipient", "suppressed", "test_address". Null while undecided;
+  /// a decided company is never revisited.
+  nextStepsEmailSkipped  String?
   shareAnonymizedPricing Boolean          @default(false)
 
   /// ── The abandoned-signup recovery nudge ──────────────────────────────────

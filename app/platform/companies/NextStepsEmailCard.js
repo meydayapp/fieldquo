@@ -18,6 +18,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Loader2, Mail } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { usePlatformAdmin } from "@/app/components/platform/PlatformWriteGate";
+import { LANGUAGES } from "@/app/i18n/languages";
 
 export default function NextStepsEmailCard() {
   const { isSuperadmin } = usePlatformAdmin();
@@ -69,7 +70,7 @@ export default function NextStepsEmailCard() {
       setData(res);
       setEnabled(Boolean(res.settings?.enabled));
       setDelay(String(res.settings?.delayHours ?? 2));
-      setSaved(`Saved — ${res.settings.enabled ? `on, ${res.settings.delayHours} h after the card goes in` : "off"}.`);
+      setSaved(`Saved — ${res.settings.enabled ? `on, ${res.settings.delayHours} h after signup` : "off"}.`);
     } catch (err) {
       setError(err.message || "Could not save.");
     } finally {
@@ -105,10 +106,12 @@ export default function NextStepsEmailCard() {
         <div className="min-w-0 flex-1">
           <h2 className="font-semibold text-foreground">Next-steps email</h2>
           <p className="text-xs text-muted-foreground mt-1">
-            What a new company hears from FieldQuo after the card goes in: the subscription confirmation at once,
-            then — if the onboarding checklist is still open — one letter listing the steps left, in the
-            company&apos;s language, each a link that opens that step&apos;s window on their home page. Sent once per
-            company, never to a demo, and never once the delay is more than {bounds?.windowHours ?? 72} h behind.
+            What a new company hears from FieldQuo after it signs up — no card needed since 2026-09-24: if the
+            onboarding checklist is still open, one &ldquo;finish setting up&rdquo; letter listing the steps left and
+            the additional set-up steps still on their home page, in the company&apos;s language, each a link to that
+            step, with the date their free month ends. Card-free trials and card-backed signups alike. Sent once per
+            company, never to a demo or an address on the do-not-contact list, and never once the delay is more than{" "}
+            {bounds?.windowHours ?? 72} h behind.
           </p>
 
           {status === "loading" && (
@@ -129,7 +132,7 @@ export default function NextStepsEmailCard() {
             <>
               <p className="text-sm text-foreground mt-3">
                 Currently <strong>{s.enabled ? "on" : "off"}</strong>
-                {s.enabled ? `, ${s.delayHours} h after the subscription starts` : ""}.
+                {s.enabled ? `, ${s.delayHours} h after signup` : ""}.
                 {typeof data.sentCount === "number" ? ` ${data.sentCount} sent so far.` : ""}
               </p>
 
@@ -145,7 +148,7 @@ export default function NextStepsEmailCard() {
                     Send the next-steps email
                   </label>
                   <label className="text-sm text-foreground">
-                    <span className="block text-xs text-muted-foreground mb-1">Hours after the card goes in</span>
+                    <span className="block text-xs text-muted-foreground mb-1">Hours after signup</span>
                     <input
                       type="number"
                       inputMode="decimal"
@@ -198,9 +201,11 @@ export default function NextStepsEmailCard() {
                         className="border border-border rounded-lg px-3 py-2 bg-background text-foreground min-h-11"
                       >
                         <option value="">The company&apos;s own</option>
-                        <option value="en">English</option>
-                        <option value="fr">Français</option>
-                        <option value="es">Español</option>
+                        {LANGUAGES.map((l) => (
+                          <option key={l.code} value={l.code}>
+                            {l.nativeName}
+                          </option>
+                        ))}
                       </select>
                     </label>
                     <button
@@ -216,6 +221,8 @@ export default function NextStepsEmailCard() {
                       Sent to {sample.to} from {sample.from} — built from {sample.company?.name}
                       {sample.company?.isDemo ? " (demo)" : ""}, {sample.language.toUpperCase()}, subject &ldquo;{sample.subject}&rdquo;,
                       {" "}{sample.open?.length} open step{sample.open?.length === 1 ? "" : "s"}
+                      {`, ${sample.more?.length ?? 0} additional set-up step${sample.more?.length === 1 ? "" : "s"} listed`}
+                      {sample.trialLine ? ", with the trial line" : ", no trial line (not on a card-free trial)"}
                       {sample.proof ? `, social proof from ${sample.proof.companies} companies` : ", no social-proof sentence (sample too small)"}.
                     </p>
                   )}

@@ -345,27 +345,33 @@ export default function CompanyDetail({ companyId }) {
             recorded; a blank column with no reason is "not yet", and says
             so, because the letter is due on a timer this screen does not
             run. docs/ONBOARDING-EMAILS.md lists the whole sequence. */}
-        {sub && (
+        {(sub || company.trialEndsAt) && (
           <dl className="grid gap-4 sm:grid-cols-2 mt-4 pt-4 border-t border-border">
-            <Field
-              label="Subscription confirmation"
-              value={sub.welcomeEmailSentAt ? `Sent ${formatDateTime(sub.welcomeEmailSentAt)}` : "Not sent"}
-              muted={!sub.welcomeEmailSentAt}
-            />
+            {sub && (
+              <Field
+                label="Subscription confirmation"
+                value={sub.welcomeEmailSentAt ? `Sent ${formatDateTime(sub.welcomeEmailSentAt)}` : "Not sent"}
+                muted={!sub.welcomeEmailSentAt}
+              />
+            )}
+            {/* The "finish setting up" letter. Company carries the record
+                since 2026-09-24 (a card-free trial has no Subscription row);
+                a letter sent before that is stamped on the Subscription.
+                One or the other, never both — see lib/signup/nextSteps.js. */}
             <Field
               label="Next-steps email"
-              value={
-                sub.nextStepsEmailSentAt
-                  ? `Sent ${formatDateTime(sub.nextStepsEmailSentAt)}`
-                  : sub.nextStepsEmailSkipped === "onboarding_complete"
-                    ? "Not sent — setup was already complete when it came due"
-                    : sub.nextStepsEmailSkipped === "no_recipient"
-                      ? "Not sent — no address to send it to"
-                      : sub.nextStepsEmailSkipped
-                        ? `Not sent — ${sub.nextStepsEmailSkipped}`
-                        : "Not sent yet"
-              }
-              muted={!sub.nextStepsEmailSentAt}
+              value={(() => {
+                const sentAt = company.nextStepsEmailSentAt || sub?.nextStepsEmailSentAt || null;
+                const skipped = company.nextStepsEmailSkipped || sub?.nextStepsEmailSkipped || null;
+                if (sentAt) return `Sent ${formatDateTime(sentAt)}`;
+                if (skipped === "onboarding_complete") return "Not sent — setup was already complete when it came due";
+                if (skipped === "no_recipient") return "Not sent — no address to send it to";
+                if (skipped === "suppressed") return "Not sent — the address is on the do-not-contact list";
+                if (skipped === "test_address") return "Not sent — a reserved test address (example.com, .test)";
+                if (skipped) return `Not sent — ${skipped}`;
+                return "Not sent yet";
+              })()}
+              muted={!(company.nextStepsEmailSentAt || sub?.nextStepsEmailSentAt)}
             />
           </dl>
         )}

@@ -1,7 +1,9 @@
 // scripts/check-onboarding-next-steps.mjs
 //
-// The "next steps" letter — FieldQuo → a company whose card is in and whose
-// onboarding checklist is still open, about two hours after signup.
+// The "finish setting up" letter (still "next steps" in the identifiers) —
+// FieldQuo → a new company whose onboarding checklist is still open, about
+// two hours after signup: on its card-free trial (every signup since
+// 2026-09-24) or card-backed through the older checkout path.
 //
 // ══ What is executed ═══════════════════════════════════════════════════════
 //
@@ -11,12 +13,19 @@
 //                                   company that finished in ninety minutes,
 //                                   a row a week old, a delay of "abc", a
 //                                   step key with a slash in it, and a
-//                                   nine-company sample.
+//                                   nine-company sample; and, since the
+//                                   card-free trial: a trial company due, one
+//                                   already sent, one that then subscribed
+//                                   (no second letter), a demo, a suppressed
+//                                   address, and `subscription` undefined
+//                                   (must throw).
 //   lib/email/onboardingNextStepsEmail.js
-//                                   rendered in en / fr / es, with no trade,
+//                                   rendered in all eight languages, with
+//                                   the trial line and the additional set-up
+//                                   steps, with no trade,
 //                                   with a hostile company name, with every
 //                                   step done (must throw), with a language
-//                                   the catalogue lacks (English, flagged),
+//                                   the letter lacks (English, flagged),
 //                                   with a real proof and with none.
 //
 // The claims — "only the open steps, in the checklist's order", "the Stripe
@@ -30,7 +39,7 @@
 // That the cron is scheduled, claims before it sends and reverts on failure;
 // that the schema carries the two columns; that the dashboard reads ?step=
 // and the checklist card opens it; that the platform page prints the sent
-// date; that the catalogue has every key in all three languages. Structural,
+// date; that the catalogue has every key in all eight languages. Structural,
 // and said so.
 //
 // Run: node --import ./scripts/alias-loader.mjs scripts/check-onboarding-next-steps.mjs
@@ -45,8 +54,11 @@ import {
   decideNextStepsEmail,
   firstQuoteProof,
   industrySlugsForTrade,
+  NEXT_STEPS_MORE_MAX,
   nextStepHref,
   nextStepsDueRange,
+  nextStepsTrialEndsAt,
+  setupStepHref,
   nextStepsLanguage,
   nextStepsTradeKey,
   normaliseNextStepsSettings,
@@ -55,7 +67,9 @@ import {
 import { ONBOARDING_NEXT_STEPS_PAIRS, buildOnboardingNextStepsEmail } from "@/lib/email/onboardingNextStepsEmail";
 import { APP_MESSAGES } from "@/app/i18n/appMessages";
 import { contrastRatio } from "@/lib/brand/colour";
-import { tradeSellingPoints } from "@/lib/sales/tradeSellingPoints";
+import { POINTS, tradeSellingPoints } from "@/lib/sales/tradeSellingPoints";
+import { LANGUAGE_CODES } from "@/app/i18n/languages";
+import { remainingSteps, stepsFor } from "@/lib/setupSteps";
 
 let pass = 0;
 const fails = [];
@@ -112,29 +126,72 @@ section("2. The due range");
 // ═══════════════════════════════════════════════════════════════════════════
 section("3. The decision, on plain values");
 
-const company = { isDemo: false, email: "owner@example.com" };
+// A card-backed company (the older checkout path) and a card-free trial
+// company (every signup since 2026-09-24). Both are due from Company.createdAt.
+const company = (hoursAgo = 2.5, extra = {}) => ({
+  isDemo: false,
+  email: "owner@example.com",
+  createdAt: at(hoursAgo),
+  trialEndsAt: new Date(at(hoursAgo).getTime() + 30 * 24 * HOUR),
+  nextStepsEmailSentAt: null,
+  nextStepsEmailSkipped: null,
+  ...extra,
+});
 const incomplete = { complete: false, steps: STEPS };
 const complete = { complete: true, steps: allDone };
-const sub = (hoursAgo, extra = {}) => ({ createdAt: at(hoursAgo), status: "trialing", nextStepsEmailSentAt: null, nextStepsEmailSkipped: null, ...extra });
-const decide = (args) => decideNextStepsEmail({ subscription: sub(2.5), company, onboarding: incomplete, settings: {}, now, ...args });
+const sub = (extra = {}) => ({ status: "trialing", nextStepsEmailSentAt: null, nextStepsEmailSkipped: null, ...extra });
+const decide = (args) => decideNextStepsEmail({ subscription: sub(), company: company(), onboarding: incomplete, settings: {}, now, ...args });
+const decideTrial = (args) => decide({ subscription: null, ...args });
 
-ok("due: card 2.5 h ago, checklist open, not a demo → send", decide({}).send === true && decide({}).reason === "due");
-ok("not yet: card 90 min ago → wait, nothing recorded", (() => { const v = decide({ subscription: sub(1.5) }); return v.send === false && v.reason === "not_yet_due" && !v.skip; })());
-ok("too late: card a week ago → refused, nothing recorded", (() => { const v = decide({ subscription: sub(7 * 24) }); return v.send === false && v.reason === "too_late" && !v.skip; })());
-ok("a longer delay moves the due time: 4 h delay, card 3 h ago → not yet", decide({ settings: { delayHours: 4 }, subscription: sub(3) }).reason === "not_yet_due");
+ok("due: card-backed, signed up 2.5 h ago, checklist open, not a demo → send", decide({}).send === true && decide({}).reason === "due");
+ok("not yet: signed up 90 min ago → wait, nothing recorded", (() => { const v = decide({ company: company(1.5) }); return v.send === false && v.reason === "not_yet_due" && !v.skip; })());
+ok("too late: signed up a week ago → refused, nothing recorded", (() => { const v = decide({ company: company(7 * 24) }); return v.send === false && v.reason === "too_late" && !v.skip; })());
+ok("a longer delay moves the due time: 4 h delay, signed up 3 h ago → not yet", decide({ settings: { delayHours: 4 }, company: company(3) }).reason === "not_yet_due");
 ok("disabled → nothing, and no row is decided", (() => { const v = decide({ settings: { enabled: false } }); return v.send === false && v.reason === "disabled" && !v.skip; })());
-ok("a demo company never gets it", decide({ company: { ...company, isDemo: true } }).reason === "demo");
-ok("already sent → never again", decide({ subscription: sub(2.5, { nextStepsEmailSentAt: at(0.1) }) }).reason === "already_sent");
-ok("already decided against → never revisited", decide({ subscription: sub(2.5, { nextStepsEmailSkipped: "onboarding_complete" }) }).reason === "already_decided");
-ok("a cancelled subscription → refused", decide({ subscription: sub(2.5, { status: "canceled" }) }).reason === "status_canceled");
-ok("active (paid) is as good as trialing", decide({ subscription: sub(2.5, { status: "active" }) }).send === true);
+ok("a demo company never gets it", decide({ company: company(2.5, { isDemo: true }) }).reason === "demo");
+ok("already sent (on the company) → never again", decide({ company: company(2.5, { nextStepsEmailSentAt: at(0.1) }) }).reason === "already_sent");
+ok("already decided against (on the company) → never revisited", decide({ company: company(2.5, { nextStepsEmailSkipped: "onboarding_complete" }) }).reason === "already_decided");
+ok("sent under the OLD per-Subscription record → never again", decide({ subscription: sub({ nextStepsEmailSentAt: at(0.1) }) }).reason === "already_sent");
+ok("…and decided against under it → never revisited", decide({ subscription: sub({ nextStepsEmailSkipped: "no_recipient" }) }).reason === "already_decided");
+ok("a cancelled subscription → refused", decide({ subscription: sub({ status: "canceled" }) }).reason === "status_canceled");
+ok("active (paid) is as good as trialing", decide({ subscription: sub({ status: "active" }) }).send === true);
 ok("everything done at the due time → skip, RECORDED as onboarding_complete", (() => { const v = decide({ onboarding: complete }); return v.send === false && v.skip === "onboarding_complete"; })());
 ok("complete:false but every step done (defensive) → the same skip", decide({ onboarding: { complete: false, steps: allDone } }).skip === "onboarding_complete");
-ok("no address → skip, RECORDED as no_recipient", decide({ company: { isDemo: false, email: "  " } }).skip === "no_recipient");
+ok("no address → skip, RECORDED as no_recipient", decide({ company: company(2.5, { email: "  " }) }).skip === "no_recipient");
 ok("no onboarding status (read failed) → wait, nothing recorded", (() => { const v = decide({ onboarding: null }); return v.send === false && !v.skip; })());
-ok("no subscription → refused", decideNextStepsEmail({ subscription: null, company, onboarding: incomplete, now }).reason === "no_subscription");
-ok("createdAt junk → refused, nothing recorded", (() => { const v = decide({ subscription: sub(2.5, { createdAt: "yesterday" }) }); return v.send === false && v.reason === "no_created_at" && !v.skip; })());
+ok("createdAt junk → refused, nothing recorded", (() => { const v = decide({ company: company(2.5, { createdAt: "yesterday" }) }); return v.send === false && v.reason === "no_created_at" && !v.skip; })());
 ok("the checklist read fresh is what decides: same row, open then complete", decide({}).send === true && decide({ onboarding: complete }).send === false);
+
+section("3b. The card-free trial — no Subscription row");
+
+ok("TRIAL DUE: no Subscription, trial date, signed up 2.5 h ago, checklist open → send", (() => { const v = decideTrial({}); return v.send === true && v.reason === "due"; })());
+ok("trial, 90 min in → not yet", decideTrial({ company: company(1.5) }).reason === "not_yet_due");
+ok("trial ALREADY SENT (company stamped) → never again", decideTrial({ company: company(2.5, { nextStepsEmailSentAt: at(0.5) }) }).reason === "already_sent");
+ok("trial that THEN SUBSCRIBED: the company stamp refuses the new Subscription path — no second letter", (() => {
+  const v = decide({ company: company(2.5, { nextStepsEmailSentAt: at(1) }), subscription: sub({ status: "active" }) });
+  return v.send === false && v.reason === "already_sent";
+})());
+ok("…and a trial company that subscribes on day twenty is outside the window whatever its new Subscription says", decide({ company: company(20 * 24), subscription: sub({ status: "active" }) }).reason === "too_late");
+ok("trial DEMO → never", decideTrial({ company: company(2.5, { isDemo: true }) }).reason === "demo");
+ok("trial, SUPPRESSED address → skip, RECORDED as suppressed", (() => { const v = decideTrial({ suppressed: true }); return v.send === false && v.skip === "suppressed"; })());
+ok("card-backed, suppressed → the same refusal", decide({ suppressed: true }).skip === "suppressed");
+ok("a suppressed address with the checklist already complete stays onboarding_complete (the truer reason)", decideTrial({ suppressed: true, onboarding: complete }).skip === "onboarding_complete");
+ok("no Subscription and NO trial date (a console-made company) → outside, nothing recorded", (() => { const v = decideTrial({ company: company(2.5, { trialEndsAt: null }) }); return v.send === false && v.reason === "no_trial" && !v.skip; })());
+ok("a trial the console ended early → not written to, nothing recorded", (() => { const v = decideTrial({ company: company(2.5, { trialEndsAt: at(1) }) }); return v.send === false && v.reason === "trial_ended" && !v.skip; })());
+ok("SUBSCRIPTION UNDEFINED (not read) → throws, never read as 'no plan'", (() => {
+  try { decideNextStepsEmail({ company: company(), onboarding: incomplete, settings: {}, now }); return false; } catch (e) { return /not read/.test(e.message); }
+})());
+ok("…and it throws even with the letter disabled — a caller bug is not a setting", (() => {
+  try { decideNextStepsEmail({ company: company(), onboarding: incomplete, settings: { enabled: false }, now }); return false; } catch { return true; }
+})());
+ok("the trial date printed: only with no Subscription and a trial still running", (() => {
+  const c = company();
+  return nextStepsTrialEndsAt({ company: c, subscription: null, now })?.getTime() === c.trialEndsAt.getTime()
+    && nextStepsTrialEndsAt({ company: c, subscription: sub(), now }) === null
+    && nextStepsTrialEndsAt({ company: company(2.5, { trialEndsAt: at(1) }), subscription: null, now }) === null
+    && nextStepsTrialEndsAt({ company: company(2.5, { trialEndsAt: "junk" }), subscription: null, now }) === null
+    && nextStepsTrialEndsAt({ company: c, subscription: undefined, now }) === null;
+})());
 
 // ═══════════════════════════════════════════════════════════════════════════
 section("4. Where each row's button lands");
@@ -144,6 +201,9 @@ ok("pricing → /app?step=pricing", nextStepHref({ key: "pricing", href: "/app/s
 ok("payments keeps the payments page — its window is one button that hands off to Stripe", nextStepHref({ key: "payments", href: "/app/settings/payments" }, "https://www.fieldquo.com") === "https://www.fieldquo.com/app/settings/payments");
 ok("a hostile key (slash, angle bracket) → the home page, never interpolated", nextStepHref({ key: "../x<y" }, "https://www.fieldquo.com") === "https://www.fieldquo.com/app");
 ok("no step at all → the home page", nextStepHref(null, "https://www.fieldquo.com") === "https://www.fieldquo.com/app");
+ok("an additional step keeps its own page, ?from=setup before the #anchor", setupStepHref({ href: "/app/settings/overhead?from=setup#fixed-costs" }, "https://www.fieldquo.com/") === "https://www.fieldquo.com/app/settings/overhead?from=setup#fixed-costs");
+ok("…a hostile href (another host, a script, angle brackets) → the home page", ["//evil.com/app", "javascript:alert(1)", "/app/x<y", "/appevil", "https://evil.com/app", 42, null].every((href) => setupStepHref({ href }, "https://www.fieldquo.com") === "https://www.fieldquo.com/app"));
+ok("…every real set-up step's href survives it (none silently collapses to the home page)", stepsFor({}).every((st) => setupStepHref(st, "https://x.test") === `https://x.test${st.href}`));
 
 // ═══════════════════════════════════════════════════════════════════════════
 section("5. The trade behind a company");
@@ -154,6 +214,7 @@ ok("no industries → null, never a guess", nextStepsTradeKey([]) === null && ne
 ok("the social-proof query's slugs for painting include painting", industrySlugsForTrade("painting").includes("painting"));
 ok("…and an unknown trade has none", industrySlugsForTrade("nonsense").length === 0);
 ok("language: fr-CA → fr; xx → en; undefined → en", nextStepsLanguage("fr-CA") === "fr" && nextStepsLanguage("xx") === "en" && nextStepsLanguage() === "en");
+ok("language: every one of the eight document languages is its own; zh (not a document language) → en", LANGUAGE_CODES.every((l) => nextStepsLanguage(l) === l) && LANGUAGE_CODES.length === 8 && nextStepsLanguage("zh") === "en" && nextStepsLanguage("pa_IN") === "pa");
 
 // ═══════════════════════════════════════════════════════════════════════════
 section("6. Social proof is computed from real rows or not at all");
@@ -177,9 +238,13 @@ const en = buildOnboardingNextStepsEmail({ ...base, language: "en" });
 const fr = buildOnboardingNextStepsEmail({ ...base, language: "fr" });
 const es = buildOnboardingNextStepsEmail({ ...base, language: "es" });
 
-ok("EN subject carries the company and the trade", en.subject === "TrueFinish Cabinets: next steps for your painting business");
-ok("FR subject is French, Quebec colon spacing, trade phrase from the intro email's table", fr.subject === "TrueFinish Cabinets : prochaines étapes pour votre entreprise de peinture");
-ok("ES subject is Spanish", es.subject === "TrueFinish Cabinets: próximos pasos para su empresa de pintura");
+ok("EN subject carries the company and the trade, and says finish setting up", en.subject === "TrueFinish Cabinets: finish setting up FieldQuo for your painting business");
+ok("FR subject is French, Quebec colon spacing, trade phrase from the intro email's table", fr.subject === "TrueFinish Cabinets : terminez la configuration de FieldQuo pour votre entreprise de peinture");
+ok("ES subject is Spanish", es.subject === "TrueFinish Cabinets: termine de configurar FieldQuo para su empresa de pintura");
+ok("NOWHERE, in any language, 'you didn't finish signing up' — they did", LANGUAGE_CODES.every((l) => {
+  const e = buildOnboardingNextStepsEmail({ ...base, language: l });
+  return !/finish signing up|didn't finish|did not finish|terminé votre inscription|terminó su registro|sign(ed)? ?up (is|was) (not )?(finished|complete)/i.test(e.subject + e.text + e.html);
+}));
 ok("only the open steps are listed, in the checklist's order", JSON.stringify(en.open) === '["business_info","pricing","payments","tax_registration"]');
 ok("the done ones are ticked", JSON.stringify(en.done) === '["logo","services"]');
 ok("the numbered rows are numbered 1..4 in the text", /1\. Complete your business address/.test(en.text) && /4\. Add your GST\/HST number/.test(en.text));
@@ -197,10 +262,12 @@ ok("no English leaks into the ES letter's own sentences", !/Still to do|Already 
 
 section("7b. Transactional: no unsubscribe, no mailing address, no weekly-digest promise");
 
-for (const [name, e] of [["en", en], ["fr", fr], ["es", es]]) {
-  ok(`${name}: no unsubscribe / opt-out link`, !/unsubscribe|no-contact|Stop hearing|Ne plus recevoir|Dejar de recibir|désabonn|cancelar la suscripci/i.test(e.html) && !/no-contact/.test(e.text));
-  ok(`${name}: no "one email a week" control — no weekly digest exists`, !/week|semaine|semana|digest/i.test(e.html));
-  ok(`${name}: says it arrives once`, /once|une seule fois|una sola vez/.test(e.text));
+const ONCE = { en: /once/, fr: /une seule fois/, es: /una sola vez/, de: /einmalig/, it: /una sola volta/, uk: /один раз/, pa: /ਇੱਕ ਵਾਰ/, tl: /isang beses/ };
+for (const name of LANGUAGE_CODES) {
+  const e = buildOnboardingNextStepsEmail({ ...base, language: name, setupSteps: remainingSteps(stepsFor({})), trialEndsAt: new Date("2026-10-21T18:00:00Z") });
+  ok(`${name}: no unsubscribe / opt-out link`, !/unsubscribe|no-contact|Stop hearing|Ne plus recevoir|Dejar de recibir|désabonn|cancelar la suscripci|abmelden|disiscriv|відписат/i.test(e.html) && !/no-contact/.test(e.text));
+  ok(`${name}: no "one email a week" control — no weekly digest exists`, !/digest|a week\b|per week|weekly|par semaine|hebdo|por semana|semanal|pro Woche|wöchentlich|a settimana|settimanal|на тиждень|щотижн|kada linggo|lingguhan/i.test(e.html));
+  ok(`${name}: says it arrives once`, ONCE[name].test(e.text));
   ok(`${name}: never names the reference site`, !/homestars/i.test(e.html + e.text + e.subject));
 }
 
@@ -216,17 +283,17 @@ ok("a relative origin → throws", (() => { try { buildOnboardingNextStepsEmail(
   ok("no language → English, and not flagged as a fallback", e.language === "en" && e.fallback === false);
 }
 {
-  const e = buildOnboardingNextStepsEmail({ ...base, language: "de" });
-  ok("German (not in the letter's three) → English, FLAGGED", e.language === "en" && e.fallback === true && /Still to do/.test(e.text));
+  const e = buildOnboardingNextStepsEmail({ ...base, language: "zh" });
+  ok("Chinese (not one of the eight document languages) → English, FLAGGED", e.language === "en" && e.fallback === true && /Still to do/.test(e.text));
 }
 {
   const e = buildOnboardingNextStepsEmail({ ...base, tradeKey: null });
-  ok("no trade → the subject without a trade, never a guessed one", e.subject === "TrueFinish Cabinets: next steps" && !/home-service/.test(e.subject));
+  ok("no trade → the subject without a trade, never a guessed one", e.subject === "TrueFinish Cabinets: finish setting up FieldQuo" && !/home-service/.test(e.subject));
   ok("no trade → the pricing line is the generic quotes sentence, not trade-specific", e.tradeSpecific.length === 0 && /Build the quote from your own rates/.test(e.text));
 }
 {
   const e = buildOnboardingNextStepsEmail({ ...base, tradeKey: "not_a_trade" });
-  ok("an unknown trade key behaves as no trade", e.subject === "TrueFinish Cabinets: next steps");
+  ok("an unknown trade key behaves as no trade", e.subject === "TrueFinish Cabinets: finish setting up FieldQuo");
 }
 {
   const e = buildOnboardingNextStepsEmail({ ...base, firstName: null });
@@ -265,6 +332,70 @@ ok("no proof → no proof sentence", !/median|médiane|mediana/.test(en.text) &&
   ok("junk proof prints nothing", !/median/.test(junk.text));
 }
 
+section("7f. The trial line and the additional set-up steps");
+
+{
+  const trialEnd = new Date("2026-10-21T18:00:00Z");
+  // The card as a brand-new company sees it: nothing done, nothing hidden.
+  const fresh = remainingSteps(stepsFor({}));
+  const e = buildOnboardingNextStepsEmail({ ...base, setupSteps: fresh, trialEndsAt: trialEnd });
+  ok("the trial line: one honest sentence with the date", e.trialLine === "Your free month runs until Oct 21, 2026." && e.text.includes(e.trialLine) && e.html.includes(e.trialLine));
+  ok("no trial date → no trial line, never a guessed one", en.trialLine === null && !/free month/.test(en.text));
+  ok(`the additional steps: at most ${NEXT_STEPS_MORE_MAX} named, in the card's order`, JSON.stringify(e.more) === JSON.stringify(fresh.slice(0, NEXT_STEPS_MORE_MAX).map((st) => st.key)));
+  ok("…the rest counted, pointing at the home page", e.moreHidden === fresh.length - NEXT_STEPS_MORE_MAX && new RegExp(`and ${fresh.length - NEXT_STEPS_MORE_MAX} more on your home page`).test(e.text));
+  ok("…under the card's own title", /Additional set-up steps/.test(e.text) && /Additional set-up steps/.test(e.html));
+  ok("…each a link to its own page, ?from=setup kept", e.moreLinks.every((href, i) => href === `${origin}${fresh[i].href}`) && e.moreLinks.every((h) => /from=setup/.test(h)));
+  ok("…each link is in the HTML", e.moreLinks.every((h) => e.html.includes(`href="${h.replace(/&/g, "&amp;")}"`)));
+  // "overhead" is second on the card and has a selling point (job costing);
+  // with the painter's list lacking it, the generic sentence is printed.
+  const SETUP_POINT = { team: "scheduling", overhead: "job_costing", google_reviews: "review_requests", instant_quotes: "instant_quotes", availability: "booking_page", materials: "material_costs", add_ons: "add_on_upsell" };
+  const withPoint = e.more.find((k) => SETUP_POINT[k]);
+  ok(`…a listed step with a selling point carries it (${withPoint})`, Boolean(withPoint) && (
+    e.tradeSpecific.includes(`setup:${withPoint}`)
+      ? e.text.includes(tradeSellingPoints("painting", "en").points.find((p) => p.key === SETUP_POINT[withPoint]).proof)
+      : e.text.includes(POINTS[SETUP_POINT[withPoint]].oneLiner.en)
+  ));
+  const story = e.more.find((k) => !SETUP_POINT[k]);
+  ok(`…and one without a point (${story}) prints its title and link alone, no invented sentence`, Boolean(story) && (() => {
+    const lines = e.text.split("\n");
+    const at = lines.findIndex((l) => l.startsWith("- ") && l.includes("from=setup") && l.includes(APP_MESSAGES.en[`app.setup.step.${story}`]));
+    // An unlock line is indented two spaces under its row; none may follow.
+    return at >= 0 && !(lines[at + 1] || "").startsWith("  ");
+  })());
+  const dismissed = buildOnboardingNextStepsEmail({ ...base, setupSteps: fresh.map((st, i) => (i === 0 ? { ...st, dismissed: true } : st)) });
+  ok("a row the company hid is not listed (the card has taken it away)", !dismissed.more.includes(fresh[0].key));
+  const doneRow = buildOnboardingNextStepsEmail({ ...base, setupSteps: fresh.map((st, i) => (i === 0 ? { ...st, done: true } : st)) });
+  ok("…nor a row that is done", !doneRow.more.includes(fresh[0].key));
+  const none = buildOnboardingNextStepsEmail({ ...base, setupSteps: [] });
+  ok("no additional steps left → no section at all", none.more.length === 0 && !/Additional set-up steps/.test(none.text));
+  const junk = buildOnboardingNextStepsEmail({ ...base, setupSteps: "team" });
+  ok("setupSteps junk → no section, not a crash", junk.more.length === 0);
+  const hostile = buildOnboardingNextStepsEmail({ ...base, setupSteps: [{ key: "team", title: "<b>x</b>", titleKey: "nope.missing", href: "javascript:alert(1)" }] });
+  ok("a hostile title is escaped and a hostile href becomes the home page", !/<b>x<\/b>/.test(hostile.html) && hostile.moreLinks[0] === `${origin}/app`);
+}
+
+section("7g. Eight languages, and no English trade sentence in the other five");
+
+{
+  const trialEnd = new Date("2026-10-21T18:00:00Z");
+  const fresh = remainingSteps(stepsFor({}));
+  const EN_OWN = ["Still to do", "Already done", "Do this now", "Open my home page", "Your free month", "Additional set-up steps", "more on your home page"];
+  for (const l of LANGUAGE_CODES) {
+    const e = buildOnboardingNextStepsEmail({ ...base, language: l, setupSteps: fresh, trialEndsAt: trialEnd, proof: { companies: 12, medianMinutes: 45 } });
+    ok(`${l}: rendered in ${l}, not flagged`, e.language === l && e.fallback === false && new RegExp(`<html lang="${l}">`).test(e.html));
+    ok(`${l}: the trial line is there, with a date in ${l}`, typeof e.trialLine === "string" && e.trialLine.length > 0 && !/\{date\}/.test(e.trialLine));
+    ok(`${l}: no unfilled {placeholder}`, !/\{(company|trade|count|name|when|date)\}/.test(e.subject + e.text + e.html));
+    if (l !== "en") ok(`${l}: none of the letter's own English sentences leak`, EN_OWN.every((x) => !e.text.includes(x)));
+    if (!["en", "fr", "es"].includes(l)) {
+      const enPoints = Object.values(POINTS).flatMap((p) => [p.oneLiner.en, p.proof.en]);
+      const tradeEn = tradeSellingPoints("painting", "en").points.map((p) => p.proof);
+      ok(`${l}: no English trade sentence (the table is en/fr/es only)`, [...enPoints, ...tradeEn].every((x) => !e.text.includes(x)));
+      ok(`${l}: the subject is the one without a trade, and no social-proof sentence`, !/painting/.test(e.subject) && !/\b12\b/.test(e.text));
+      ok(`${l}: the pricing and Stripe rows carry the catalogue's ${l} sentence`, e.text.includes(APP_MESSAGES[l]["app.nextSteps.unlock.pricing"]) && e.text.includes(APP_MESSAGES[l]["app.nextSteps.unlock.payments"]));
+    }
+  }
+}
+
 section("7e. Contrast, measured");
 
 for (const pair of ONBOARDING_NEXT_STEPS_PAIRS) {
@@ -273,33 +404,47 @@ for (const pair of ONBOARDING_NEXT_STEPS_PAIRS) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-section("8. The catalogue has every key in the letter's three languages");
+section("8. The catalogue has every key in the letter's eight languages");
 
-const KEYS = ["subject", "subjectNoTrade", "heading", "greeting", "greetingNamed", "introOne", "introMany", "stepsIntro", "doneIntro", "openStep", "opensStripe", "unlock.logo", "unlock.business_info", "unlock.services", "proof", "homeCta", "footer"];
-for (const lang of ["en", "fr", "es"]) {
+const KEYS = ["subject", "subjectNoTrade", "heading", "greeting", "greetingNamed", "introOne", "introMany", "stepsIntro", "doneIntro", "openStep", "opensStripe", "unlock.logo", "unlock.business_info", "unlock.services", "unlock.pricing", "unlock.payments", "proof", "homeCta", "footer", "trialLine", "moreRemaining"];
+for (const lang of LANGUAGE_CODES) {
   const missing = KEYS.filter((k) => typeof APP_MESSAGES[lang][`app.nextSteps.${k}`] !== "string");
   ok(`${lang}: all ${KEYS.length} app.nextSteps.* keys present`, missing.length === 0);
 }
-ok("the FR and ES sentences are not the English ones", APP_MESSAGES.fr["app.nextSteps.heading"] !== APP_MESSAGES.en["app.nextSteps.heading"] && APP_MESSAGES.es["app.nextSteps.footer"] !== APP_MESSAGES.en["app.nextSteps.footer"]);
+ok("no language's sentences are the English ones", LANGUAGE_CODES.filter((l) => l !== "en").every((l) => KEYS.every((k) => APP_MESSAGES[l][`app.nextSteps.${k}`] !== APP_MESSAGES.en[`app.nextSteps.${k}`])));
+ok("every language keeps every placeholder its English carries", LANGUAGE_CODES.every((l) => KEYS.every((k) => {
+  const want = (APP_MESSAGES.en[`app.nextSteps.${k}`].match(/\{\w+\}/g) || []).sort().join();
+  const got = (APP_MESSAGES[l][`app.nextSteps.${k}`].match(/\{\w+\}/g) || []).sort().join();
+  return want === got;
+})));
 
 // ═══════════════════════════════════════════════════════════════════════════
 section("9. Structural — the wiring (read, not executed)");
 
 const schema = read("prisma/schema.prisma");
-const subBody = schema.slice(schema.indexOf("model Subscription {"));
-ok("Subscription carries nextStepsEmailSentAt", /nextStepsEmailSentAt\s+DateTime\?/.test(subBody.slice(0, subBody.indexOf("\n}"))));
-ok("…and nextStepsEmailSkipped", /nextStepsEmailSkipped\s+String\?/.test(subBody.slice(0, subBody.indexOf("\n}"))));
+const block = (model) => { const b = schema.slice(schema.indexOf(`model ${model} {`)); return b.slice(0, b.indexOf("\n}")); };
+ok("Company carries nextStepsEmailSentAt (the lock for every company)", /nextStepsEmailSentAt\s+DateTime\?/.test(block("Company")));
+ok("…and nextStepsEmailSkipped", /nextStepsEmailSkipped\s+String\?/.test(block("Company")));
+ok("Subscription keeps its two columns — the record of letters sent before the move", /nextStepsEmailSentAt\s+DateTime\?/.test(block("Subscription")) && /nextStepsEmailSkipped\s+String\?/.test(block("Subscription")));
 
 const cron = stripComments(read("app/api/cron/onboarding-next-steps/route.js"));
 ok("the cron is behind the cron secret", /requireCronSecret\(request\)/.test(cron));
 ok("the cron reads the platform setting on every run", /loadNextStepsSettings\(\)/.test(cron));
-ok("the cron excludes demos in the query", /company:\s*\{\s*isDemo:\s*false\s*\}/.test(cron));
-ok("the cron claims the row with both columns null BEFORE it reads the checklist", cron.indexOf("nextStepsEmailSentAt: null, nextStepsEmailSkipped: null },\n      data: { nextStepsEmailSentAt: now }") < cron.indexOf("getOnboardingStatus(sub.companyId)"));
-ok("the checklist is read fresh after the claim, not from the list query", /await getOnboardingStatus\(sub\.companyId\)/.test(cron));
-ok("a decision against is recorded on the row", /nextStepsEmailSkipped: skip/.test(cron));
+ok("the cron lists COMPANIES, demos excluded in the query", /db\.company\.findMany\(\{\s*where:\s*\{\s*isDemo:\s*false,/.test(cron));
+ok("…due from Company.createdAt", /createdAt:\s*\{\s*gte:\s*earliest,\s*lte:\s*latest\s*\}/.test(cron));
+ok("…both paths: the card-free trial (no Subscription, a trial date) and a live, unstamped Subscription", /\{ subscription: \{ is: null \}, trialEndsAt: \{ not: null \} \}/.test(cron) && /status: \{ in: \["active", "trialing"\] \},\s*nextStepsEmailSentAt: null,\s*nextStepsEmailSkipped: null/.test(cron));
+const claimAt = cron.indexOf("db.company.updateMany({\n      where: { id: companyId, nextStepsEmailSentAt: null, nextStepsEmailSkipped: null },\n      data: { nextStepsEmailSentAt: now }");
+ok("the cron claims the COMPANY with both columns null BEFORE any fresh read", claimAt > 0 && claimAt < cron.indexOf("getOnboardingStatus(companyId)") && claimAt < cron.indexOf("checkSuppression("));
+ok("no write to Subscription's old columns anywhere in the cron", !/subscription\.update/.test(cron));
+ok("the checklist, the set-up steps and the company are read fresh after the claim", /await getOnboardingStatus\(companyId\)/.test(cron) && /remainingSteps\(stepsFor\(await loadSetupSnapshot\(companyId\)\)\)/.test(cron) && /db\.company\.findUnique\(\{ where: \{ id: companyId \}, select: COMPANY_SELECT \}\)/.test(cron));
+ok("the Subscription is always selected, so the decision never sees undefined", /subscription: \{ select: \{ id: true, status: true, nextStepsEmailSentAt: true, nextStepsEmailSkipped: true \} \}/.test(cron) && /subscription: company\.subscription \?\? null/.test(cron));
+ok("the do-not-contact list is read in the request that sends, and a failed read reverts (fails closed)", /checkSuppression\(db, \{ channel: "email", email: to \}\)/.test(cron) && /await revert\(\);\s*\n\s*note\("suppression_read_failed"\)/.test(cron));
+ok("a reserved test address is refused at the point of sending", /isReservedTestAddress\(to\)/.test(cron));
+ok("a decision against is recorded on the company", /nextStepsEmailSkipped: skip/.test(cron));
+ok("the letter gets the set-up steps and the trial date", /setupSteps,\n/.test(cron) && /trialEndsAt: nextStepsTrialEndsAt\(/.test(cron));
 ok("a failed send reverts the claim", /result\?\.skipped \|\| result\?\.error/.test(cron) && /await revert\(\);\s*\n\s*note\(result\.error/.test(cron));
 ok("a failed build reverts the claim", /catch \(err\) \{\s*\n\s*await revert\(\);\s*\n\s*note\("build_failed"\)/.test(cron));
-ok("the send goes through the one Resend seam with the tenant on it", /sendEmail\(\{ companyId: sub\.companyId, from, to/.test(cron));
+ok("the send goes through the one Resend seam with the tenant on it", /sendEmail\(\{ companyId, from, to/.test(cron));
 ok("the sender is the discovered platform sender, never a hardcoded From", /getPlatformFrom\(\)/.test(cron) && !/resend\.dev/.test(cron));
 ok("the social proof is the real-rows helper, gated by the pure minimum", /firstQuoteProof\(await firstQuoteMinutesForTrade/.test(cron));
 
@@ -317,8 +462,9 @@ ok("the checklist card opens that step's dialog once the list has loaded", /if \
 ok("…and only for a member who may save inside it", /canOpenInPlace && hasStepPanel/.test(card));
 
 const detail = stripComments(read("app/platform/companies/[id]/CompanyDetail.js"));
-ok("the platform company page prints when the letter went out", /sub\.nextStepsEmailSentAt/.test(detail) && /Next-steps email/.test(detail));
-ok("…and why it did not", /onboarding_complete/.test(detail) && /no_recipient/.test(detail));
+ok("the platform company page prints when the letter went out — company record first, the old Subscription one after", /company\.nextStepsEmailSentAt \|\| sub\?\.nextStepsEmailSentAt/.test(detail) && /Next-steps email/.test(detail));
+ok("…and why it did not", /onboarding_complete/.test(detail) && /no_recipient/.test(detail) && /"suppressed"/.test(detail));
+ok("…for a card-free trial company too (no Subscription row)", /\(sub \|\| company\.trialEndsAt\) &&/.test(detail));
 
 const settingsRoute = stripComments(read("app/api/platform/onboarding-email/route.js"));
 ok("the settings route writes only for a superadmin, validated, audit-logged", /superadminOrRefusal\(request\)/.test(settingsRoute) && /validateNextStepsSettings\(body\)/.test(settingsRoute) && /onboarding_next_steps_email_updated/.test(settingsRoute));
@@ -326,12 +472,16 @@ ok("the audit catalogue knows the action", /onboarding_next_steps_email_updated:
 // The sample: the real path, to the superadmin's own row's address only.
 ok("the sample POST is superadmin-only", /export async function POST/.test(settingsRoute) && settingsRoute.indexOf("superadminOrRefusal(request)", settingsRoute.indexOf("export async function POST")) > 0);
 ok("…sent to the address on the admin's own row, read fresh, never one from the body", /platformAdmin\.findUnique\(\{ where: \{ id: admin\.id \}/.test(settingsRoute) && /sendEmail\(\{ from, to,/.test(settingsRoute) && !/to: body/.test(settingsRoute));
-ok("…marks nothing on the company (no subscription write in the sample path)", !/subscription\.update/.test(settingsRoute.slice(settingsRoute.indexOf("export async function POST"))));
+ok("…marks nothing on the company (no company or subscription write in the sample path)", !/(subscription|company)\.update/.test(settingsRoute.slice(settingsRoute.indexOf("export async function POST"))));
+ok("…and is the real letter: set-up steps and trial date read the way the cron reads them", /remainingSteps\(stepsFor\(await loadSetupSnapshot\(company\.id\)\)\)/.test(settingsRoute) && /nextStepsTrialEndsAt\(/.test(settingsRoute));
+ok("the sent count adds the company record and the old Subscription record", /db\.company\.count\(\{ where: \{ nextStepsEmailSentAt: \{ not: null \} \} \}\)/.test(settingsRoute) && /db\.subscription\.count/.test(settingsRoute));
 ok("…prefixes the subject so it cannot pass for the real letter", /\[sample\] \$\{email\.subject\}/.test(settingsRoute));
 ok("…is audit-logged under a catalogued action", /onboarding_next_steps_email_sampled/.test(settingsRoute) && /onboarding_next_steps_email_sampled:/.test(read("lib/platform/auditActions.js")));
 const settingsCard = stripComments(read("app/platform/companies/NextStepsEmailCard.js"));
 ok("the console card draws the editor from the shared gate's isSuperadmin", /usePlatformAdmin/.test(settingsCard) && /isSuperadmin \?/.test(settingsCard));
 ok("…and is mounted on /platform/companies", /<NextStepsEmailCard \/>/.test(read("app/platform/companies/page.js")));
+ok("…and no longer says the letter waits for a card", !/card goes in|subscription starts|after checkout/i.test(settingsCard));
+ok("…and offers the sample in all eight languages", /LANGUAGES\.map/.test(settingsCard));
 
 const pkg = JSON.parse(read("package.json"));
 ok("this check is wired into check:all", /check:onboarding-next-steps/.test(pkg.scripts["check:all"]) && Boolean(pkg.scripts["check:onboarding-next-steps"]));
