@@ -8,6 +8,7 @@ import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import { sanitiseFunnelSteps, funnelHasForm } from "@/app/data/funnelBlocks";
 import { slugifyFunnel, uniqueFunnelSlug } from "@/lib/funnels/slug";
+import { TRACKING_ID_FIELDS, validateTrackingIdsForWrite } from "@/lib/funnels/pixels";
 
 /**
  * @param read  the platform console's carve-out on GET only — see the fuller
@@ -74,17 +75,29 @@ export async function PATCH(request, { params }) {
   }
   if (body.theme !== undefined) data.theme = body.theme || null;
 
-  // Pixels — plain identifiers, trimmed. Empty string clears.
-  for (const [field, key] of [
-    ["metaPixelId", "metaPixelId"],
-    ["tiktokPixelId", "tiktokPixelId"],
-    ["ga4Id", "ga4Id"],
-  ]) {
-    if (body[key] !== undefined) {
-      const v = typeof body[key] === "string" ? body[key].trim().slice(0, 64) : "";
-      data[field] = v || null;
-    }
+  // Pixels — validated to the shape each platform issues, and refused with
+  // the field named when they are not (lib/funnels/pixels.js
+  // validateTrackingIdsForWrite). This used to trim and store anything, so a
+  // pasted `fbq('init', …)` line saved, said "Saved", and never loaded.
+  //
+  // Only a CHANGED id is validated. The builder posts all three on every
+  // save, and an id stored before this rule — one the read-side allow-list
+  // still fires — must not make the whole funnel unsaveable.
+  const pixelBody = {};
+  for (const key of TRACKING_ID_FIELDS) {
+    if (body[key] === undefined) continue;
+    const incoming = typeof body[key] === "string" ? body[key].trim() : body[key];
+    if ((incoming || null) === (existing[key] || null)) continue;
+    pixelBody[key] = incoming;
   }
+  const pixelCheck = validateTrackingIdsForWrite(pixelBody);
+  if (pixelCheck.errors.length) {
+    return NextResponse.json(
+      { error: "One of the pixel ids isn't in the shape the platform issues.", fields: pixelCheck.errors },
+      { status: 400 },
+    );
+  }
+  Object.assign(data, pixelCheck.data);
 
   // Rename requires a fresh slug (unique per company).
   if (data.name && data.name !== existing.name) {

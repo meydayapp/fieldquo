@@ -32,6 +32,8 @@ import {
 } from "@/app/data/funnelBlocks";
 import { funnelStatusLabel } from "@/lib/funnels/status";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import Link from "next/link";
+import TrackingLinkBuilder from "@/app/components/settings/TrackingLinkBuilder";
 
 // ── Where the line between UI and CONTENT falls on this screen ─────────────
 //
@@ -472,6 +474,17 @@ export default function FunnelBuilderPage() {
         </div>
       )}
 
+      {/* The same link, tagged for an ad — and the way to the report the
+          tagged visits land in (Leads › Visits & unfinished). */}
+      {funnel.status === "published" && publicUrl && (
+        <>
+          <TrackingLinkBuilder baseUrl={publicUrl} />
+          <Link href="/app/leads/traffic" className="inline-flex items-center gap-1.5 text-xs font-semibold text-foreground underline">
+            <BarChart3 size={13} /> {t("app.tracking.openReport")}
+          </Link>
+        </>
+      )}
+
       {funnel.status === "published" && embedCode && (
         <div className="bg-card border border-border rounded-lg px-3 py-2">
           <div className="flex items-center justify-between gap-2">
@@ -644,12 +657,19 @@ export default function FunnelBuilderPage() {
         </button>
         {showPixels && (
           <div className="px-4 pb-4 space-y-3">
-            {/* What the ids DO, now that they do something: base tag +
-                PageView on every step, a Lead event when the form is
-                accepted. And what FieldQuo does not add — a consent banner —
-                said here rather than discovered by a lawyer. */}
+            {/* What the ids DO: base tag + PageView, ViewContent once past
+                the first step, a Lead event when the form is accepted. And
+                where the consent question lives now — the company's "ask
+                first" switch — said here rather than discovered by a lawyer.
+                An empty field falls back to the company's own id. */}
             <p className="text-xs text-muted-foreground leading-relaxed">
-              {t("app.funnels.pixelsNote", "Each pixel loads on your public funnel page and records a page view; when a visitor sends the contact form it fires the platform's lead event (Meta “Lead”, GA4 “generate_lead”, TikTok “SubmitForm”) with no personal details attached. FieldQuo adds no cookie-consent banner — if your visitors are in a place that requires one, that is yours to provide.")}
+              {t("app.funnels.pixelsNote")}
+            </p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {t("app.funnels.pixelsCompanyNote")}{" "}
+              <Link href="/app/settings/instant-quotes#ad-tracking" className="underline font-medium text-foreground">
+                {t("app.tracking.settingsTitle")}
+              </Link>
             </p>
           <div className="grid gap-3 sm:grid-cols-3">
             {[
