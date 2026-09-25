@@ -557,7 +557,52 @@ section("7. Sending through the mailbox");
   db.tables.mailboxConnection[0].sendWindowCount = 10_000;
   db.tables.mailboxConnection[0].preset = "namecheap";
   const limited = await send.trySendThroughMailbox(db, { companyId: "co_1", mail: { to: "a@b.co", subject: "s", text: "t" } }, { transport: working, now: () => now });
-  ok("past the provider's hourly limit → 'failed' with hourly_limit (sent the usual way)", presets.hourlySendLimit(db.tables.mailboxConnection[0]) ? limited.failed && limited.code === "hourly_limit" : limited.sent, limited);
+  ok("past the provider's hourly limit → 'failed' with hourly_limit (sent the usual way)", presets.sendLimitFor(db.tables.mailboxConnection[0])?.per === "hour" ? limited.failed && limited.code === "hourly_limit" : limited.sent, limited);
+
+  // GoDaddy counts per DAY: a window opened 5 hours ago is still open.
+  const dayConn = { provider: "imap", preset: "godaddy" };
+  const dayLimit = presets.sendLimitFor(dayConn);
+  ok("GoDaddy's limit is 500 a DAY (help 31970), not hourly", dayLimit?.count === 500 && dayLimit?.per === "day" && dayLimit?.windowMs === 24 * 3600 * 1000, dayLimit);
+  const fiveHoursAgo = new Date(now.getTime() - 5 * 3600 * 1000);
+  ok("a daily window does not reset after an hour", !throttleVerdict({ sendWindowStart: fiveHoursAgo, sendWindowCount: 400 }, { now, limit: 500, windowMs: dayLimit.windowMs }).ok && throttleVerdict({ sendWindowStart: fiveHoursAgo, sendWindowCount: 400 }, { now, limit: 500 }).ok);
+  ok("…and does reset after a day", throttleVerdict({ sendWindowStart: new Date(now.getTime() - 25 * 3600 * 1000), sendWindowCount: 999 }, { now, limit: 500, windowMs: dayLimit.windowMs }).ok);
+  db.tables.mailboxConnection[0].preset = "godaddy";
+  db.tables.mailboxConnection[0].sendWindowStart = fiveHoursAgo;
+  db.tables.mailboxConnection[0].sendWindowCount = 400;
+  const dayLimited = await send.trySendThroughMailbox(db, { companyId: "co_1", mail: { to: "a@b.co", subject: "s", text: "t" } }, { transport: working, now: () => now });
+  ok("past GoDaddy's daily limit → 'failed' with daily_limit, and the card says 'today'", dayLimited.failed && dayLimited.code === "daily_limit" && /today/.test(db.tables.mailboxConnection[0].lastSendFallbackReason || ""), dayLimited);
+  ok("Fastmail: the lowest plan's daily figure (Basic 4,000/day)", presets.sendLimitFor({ provider: "imap", preset: "fastmail" })?.count === 4000 && presets.sendLimitFor({ provider: "imap", preset: "fastmail" })?.per === "day");
+  ok("Google / Microsoft keep their hourly figures", presets.sendLimitFor({ provider: "google" })?.count === 100 && presets.sendLimitFor({ provider: "microsoft" })?.count === 300);
+  ok("a custom host has no published limit", presets.sendLimitFor({ provider: "imap", preset: "custom" }) === null);
+
+  // Recipients a message: Namecheap 50, GoDaddy 100 — the whole message is refused past it.
+  ok("Namecheap takes 50 recipients a message, GoDaddy 100", presets.maxRecipientsFor({ provider: "imap", preset: "namecheap" }) === 50 && presets.maxRecipientsFor({ provider: "imap", preset: "godaddy" }) === 100);
+  db.tables.mailboxConnection[0].preset = "namecheap";
+  db.tables.mailboxConnection[0].sendWindowStart = null;
+  db.tables.mailboxConnection[0].sendWindowCount = 0;
+  const many = Array.from({ length: 51 }, (_, i) => `c${i}@client.ca`);
+  const sentBefore = sentTo.length;
+  const tooMany = await send.trySendThroughMailbox(db, { companyId: "co_1", mail: { to: many, subject: "s", text: "t", from: "N <q@send.n.ca>" } }, { transport: working, now: () => now, append: async () => null });
+  ok("51 recipients through Namecheap → 'failed' too_many_recipients, nothing sent through the mailbox", tooMany.failed && tooMany.code === "too_many_recipients" && sentTo.length === sentBefore, tooMany);
+
+  // The provider's own rate refusal: recorded, then the mailbox rests a full window.
+  const rateRefusing = { sendMail: async () => { throw Object.assign(new Error("451 4.7.1 Rate limit exceeded, try again later"), { responseCode: 451 }); }, close() {} };
+  const refused = await send.trySendThroughMailbox(db, { companyId: "co_1", mail: { to: "a@b.co", subject: "s", text: "t", from: "N <q@send.n.ca>" } }, { transport: rateRefusing, now: () => now });
+  const row = () => db.tables.mailboxConnection[0];
+  ok("a provider rate refusal (Namecheap trial at 20/h) is recorded as rate_limited", refused.failed && refused.code === "rate_limited" && String(row().lastSendFallbackReason).startsWith("rate_limited:"), refused);
+  const stampedAt = row().lastSendFallbackAt;
+  const tenMinLater = new Date(now.getTime() + 10 * 60000);
+  const sentBeforeRest = sentTo.length;
+  const resting = await send.trySendThroughMailbox(db, { companyId: "co_1", mail: { to: "a@b.co", subject: "s", text: "t", from: "N <q@send.n.ca>" } }, { transport: working, now: () => tenMinLater, append: async () => null });
+  ok("…then the mailbox rests: 'failed' provider_backoff, the mailbox is not tried", resting.failed && resting.code === "provider_backoff" && sentTo.length === sentBeforeRest, resting);
+  ok("…and resting does not re-stamp the row (the rest cannot extend itself)", row().lastSendFallbackAt === stampedAt && String(row().lastSendFallbackReason).startsWith("rate_limited:"));
+  const afterWindow = new Date(now.getTime() + 61 * 60000);
+  const resumed = await send.trySendThroughMailbox(db, { companyId: "co_1", mail: { to: "a@b.co", subject: "s", text: "t", from: "N <q@send.n.ca>" } }, { transport: working, now: () => afterWindow, append: async () => null });
+  ok("…and after the window the mailbox is tried again", resumed.sent === true, resumed);
+  const { backoffVerdict } = await import("../lib/mailbox/sendThrottle.js");
+  ok("a daily provider rests a day after a rate refusal", backoffVerdict({ lastSendFallbackAt: now, lastSendFallbackReason: "rate_limited: x" }, { now: new Date(now.getTime() + 5 * 3600 * 1000), windowMs: 24 * 3600 * 1000 }).resting);
+  ok("a non-rate failure (a wrong password) never rests the mailbox", !backoffVerdict({ lastSendFallbackAt: now, lastSendFallbackReason: "auth_failed: x" }, { now }).resting);
+  ok("a successful send after the refusal ends the rest", !backoffVerdict({ lastSendFallbackAt: now, lastSendFallbackReason: "rate_limited: x", lastSentAt: new Date(now.getTime() + 1000) }, { now: new Date(now.getTime() + 2000) }).resting);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -582,7 +627,46 @@ section("8. Presets and detection");
   ok("iCloud: IMAP signs in with the name before @, SMTP with the address (Apple's page)", loginFor({ preset: "icloud", address: "jo@icloud.com" }, "imap") === "jo" && loginFor({ preset: "icloud", address: "jo@icloud.com" }, "smtp") === "jo@icloud.com");
   ok("Shaw: both directions sign in without @shaw.ca", loginFor({ preset: "shaw", address: "bob@shaw.ca" }, "imap") === "bob" && loginFor({ preset: "shaw", address: "bob@shaw.ca" }, "smtp") === "bob");
   ok("an explicit login name wins", loginFor({ preset: "icloud", address: "jo@icloud.com", loginName: "custom" }, "imap") === "custom");
-  ok("Namecheap's hourly figure is its published 500/hour/mailbox", presets.hourlySendLimit({ provider: "imap", preset: "namecheap" }) === 500);
+  ok("Namecheap's figure is its published paid 500/hour/mailbox (trials back off on refusal)", presets.sendLimitFor({ provider: "imap", preset: "namecheap" })?.count === 500 && presets.sendLimitFor({ provider: "imap", preset: "namecheap" })?.per === "hour");
+
+  // ── The 2026-09-25 research, rule by rule ──────────────────────────────
+  const byKey = (k) => presets.presetByKey(k);
+  const resolved = (address, preset) => resolveImapSettings({ address, preset }).imap;
+  ok("Namecheap: IMAP and SMTP both mail.privateemail.com, 993/465 TLS", (({ imapHost, imapPort, smtpHost, smtpPort }) => imapHost === "mail.privateemail.com" && smtpHost === "mail.privateemail.com" && imapPort === 993 && smtpPort === 465)(resolved("o@shop.ca", "namecheap")));
+  ok("Verizon: IMAP is AOL's (imap.aol.com) but SMTP is smtp.verizon.net:465", presetForDomain("verizon.net")?.key === "verizon" && resolved("jo@verizon.net", "verizon").imapHost === "imap.aol.com" && resolved("jo@verizon.net", "verizon").smtpHost === "smtp.verizon.net" && resolved("jo@verizon.net", "verizon").smtpPort === 465);
+  ok("Shaw: username is the address WITHOUT @shaw.ca, detected by domain", presetForDomain("SHAW.CA")?.key === "shaw" && loginFor({ preset: "shaw", address: "bob.smith@shaw.ca" }, "imap") === "bob.smith" && loginFor({ preset: "shaw", address: "bob.smith@shaw.ca" }, "smtp") === "bob.smith" && resolved("bob@shaw.ca", "shaw").smtpHost === "mail.shaw.ca" && resolved("bob@shaw.ca", "shaw").smtpPort === 587);
+  ok("TELUS: @telus.net routes to the Google option (TELUS email is powered by Google)", presetForDomain("telus.net")?.route === "google");
+  ok("Microsoft 365 DNSSEC MX (*.mx.microsoft) → the Microsoft option", presetForMx(["contoso-com.o-v1.mx.microsoft"])?.route === "microsoft" && presetForMx(["contoso-com.mail.protection.outlook.com"])?.route === "microsoft");
+  ok("…and a look-alike (mx.microsoft.evil.example) does not", presetForMx(["mx.microsoft.evil.example"]) === null);
+  ok("Google: the new smtp.google.com MX, legacy aspmx and googlemail all → Google", presetForMx(["smtp.google.com"])?.route === "google" && presetForMx(["alt2.aspmx.l.google.com"])?.route === "google" && presetForMx(["aspmx2.googlemail.com"])?.route === "google");
+  ok("Squarespace is decided by MX: Google Workspace MX → Google, Titan MX → Titan", presetForMx(["smtp.google.com"])?.key === "google" && presetForMx(["mx1.titan.email", "mx2.titan.email"])?.key === "titan");
+  ok("GoDaddy's Microsoft 365 (outlook MX) → Microsoft, not the GoDaddy password preset", presetForMx(["yourdomain-com.mail.protection.outlook.com"])?.route === "microsoft");
+  const attFamily = ["att.net", "ameritech.net", "bellsouth.net", "currently.com", "flash.net", "nvbell.net", "pacbell.net", "prodigy.net", "sbcglobal.net", "snet.net", "swbell.net", "wans.net"];
+  ok("AT&T family domains (pacbell, prodigy, swbell, snet…) all → AT&T's hosts", attFamily.every((d) => presetForDomain(d)?.key === "att") && resolved("x@prodigy.net", "att").imapHost === "imap.mail.att.net" && resolved("x@prodigy.net", "att").smtpHost === "smtp.mail.att.net", attFamily.filter((d) => presetForDomain(d)?.key !== "att"));
+  const spectrum = (d) => { const p = presetForDomain(d); return p ? resolved(`x@${d}`, p.key).imapHost : null; };
+  ok("Spectrum host by domain: charter.net / spectrum.net / bresnan.net → mobile.charter.net", ["charter.net", "spectrum.net", "bresnan.net"].every((d) => spectrum(d) === "mobile.charter.net"));
+  ok("Spectrum host by domain: twc.com → mail.twc.com, brighthouse.com → mail.brighthouse.com", spectrum("twc.com") === "mail.twc.com" && spectrum("brighthouse.com") === "mail.brighthouse.com");
+  ok("Spectrum: IMAP 993 SSL, SMTP 587 STARTTLS", ["spectrum_charter", "spectrum_twc", "spectrum_brighthouse"].every((k) => byKey(k).imapPort === 993 && byKey(k).imapSecurity === "tls" && byKey(k).smtpPort === 587 && byKey(k).smtpSecurity === "starttls"));
+  const { domainHintFor, loginFallbackFor } = presets;
+  ok("@rr.com (and tampabay.rr.com) is Spectrum but NOT guessed: a hint naming both hosts' presets", presetForDomain("rr.com") === null && presetForDomain("tampabay.rr.com") === null && domainHintFor("rr.com")?.choices.join() === "spectrum_twc,spectrum_brighthouse" && domainHintFor("tampabay.rr.com")?.noteKey === "app.workEmail.note.spectrumRr");
+  ok("…and the hint does not catch look-alikes (notrr.com, rr.com.evil.example)", domainHintFor("notrr.com") === null && domainHintFor("rr.com.evil.example") === null);
+  ok("Rogers: refused as a password route with a forwarding note (app passwords can no longer be made)", presetForDomain("rogers.com")?.route === "unsupported" && presetForDomain("rogers.com")?.noteKey === "app.workEmail.note.rogers" && !resolveImapSettings({ address: "a@rogers.com", preset: "rogers" }).ok);
+  ok("Comcast: imap.comcast.net 993 / smtp.comcast.net 587 STARTTLS, with the Third Party Access note", presetForDomain("comcast.net")?.key === "comcast" && resolved("a@comcast.net", "comcast").smtpHost === "smtp.comcast.net" && resolved("a@comcast.net", "comcast").smtpPort === 587 && resolved("a@comcast.net", "comcast").smtpSecurity === "starttls" && byKey("comcast").noteKey === "app.workEmail.note.comcast");
+  ok("Zoho: paid imappro/smtppro, free imap/smtp; MX zoho.com suggests paid", byKey("zoho").imapHost === "imappro.zoho.com" && byKey("zoho").smtpHost === "smtppro.zoho.com" && byKey("zoho_personal").imapHost === "imap.zoho.com" && byKey("zoho_personal").smtpHost === "smtp.zoho.com" && presetForMx(["mx.zoho.com", "mx2.zoho.com", "mx3.zoho.com"])?.key === "zoho");
+  ok("Zoho EU/IN/AU/CA MX → enter the servers (unverified)", ["mx.zoho.eu", "mx.zoho.in", "mx.zoho.com.au", "mx.zohocloud.ca"].every((h) => presetForMx([h]) === null));
+  ok("AOL and Verizon carry the 'AOL may refuse an app password for several days' note", byKey("aol").noteKey === "app.workEmail.note.aol" && byKey("verizon").noteKey === "app.workEmail.note.aol");
+  ok("iCloud: IMAP tries the name before @, then the full address; SMTP the full address", loginFor({ preset: "icloud", address: "jo@icloud.com" }, "imap") === "jo" && loginFallbackFor({ preset: "icloud", address: "jo@icloud.com" }) === "jo@icloud.com" && loginFor({ preset: "icloud", address: "jo@icloud.com", loginName: "jo@icloud.com" }, "smtp") === "jo@icloud.com");
+  ok("…no fallback for a typed login name, or for a provider without one (Shaw)", loginFallbackFor({ preset: "icloud", address: "jo@icloud.com", loginName: "typed" }) === null && loginFallbackFor({ preset: "shaw", address: "b@shaw.ca" }) === null);
+  ok("Fastmail: 465 TLS, MX in1/in2-smtp.messagingengine.com", byKey("fastmail").smtpPort === 465 && presetForMx(["in2-smtp.messagingengine.com"])?.key === "fastmail");
+  ok("Bell: imap.bell.net 993, SMTP smtphm.sympatico.ca 587 STARTTLS; Cogeco Ontario/Québec", byKey("bell").smtpHost === "smtphm.sympatico.ca" && byKey("bell").smtpSecurity === "starttls" && presetForDomain("cgocable.ca")?.imapHost === "imap.cgocable.ca" && presetForDomain("cogeco.ca")?.smtpHost === "smtp.cogeco.ca");
+  ok("No preset for the unverified web hosts (Hostinger, IONOS, Bluehost, HostGator, SiteGround)", !PRESETS.some((p) => /hostinger|ionos|bluehost|hostgator|siteground/i.test(`${p.key} ${p.imapHost || ""} ${p.smtpHost || ""}`)));
+  ok("every extra source is an https URL", PRESETS.every((p) => !p.sources || p.sources.every((u) => /^https:\/\//.test(u))));
+  // Every noteKey a preset or hint can show has a string in every app language.
+  const { APP_MESSAGES } = await import("../app/i18n/appMessages.js");
+  const noteKeys = [...new Set([...PRESETS.map((p) => p.noteKey), domainHintFor("rr.com").noteKey].filter(Boolean))];
+  const langs = Object.keys(APP_MESSAGES);
+  const missingNotes = langs.flatMap((l) => noteKeys.filter((k) => !APP_MESSAGES[l]?.[k]).map((k) => `${l}:${k}`));
+  ok(`every preset note exists in all ${langs.length} app languages`, langs.length >= 9 && missingNotes.length === 0, missingNotes);
   ok("a custom host that is not a hostname is refused", !resolveImapSettings({ address: "a@b.ca", preset: "custom", imapHost: "http://evil", imapPort: 993, imapSecurity: "tls" }).ok);
   ok("a custom host on a private IP is refused (no SSRF into our network)", !resolveImapSettings({ address: "a@b.ca", preset: "custom", imapHost: "10.0.0.5", imapPort: 993, imapSecurity: "tls" }).ok && !resolveImapSettings({ address: "a@b.ca", preset: "custom", imapHost: "localhost", imapPort: 993, imapSecurity: "tls" }).ok);
   ok("a preset ignores a browser-sent host (the preset's own host is used)", resolveImapSettings({ address: "a@b.ca", preset: "namecheap", imapHost: "evil.example", imapPort: 1 }).imap?.imapHost === "mail.privateemail.com");

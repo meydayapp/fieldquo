@@ -552,6 +552,8 @@ function ImapForm({ initial, presets, scope, providers, t, onDone }) {
           </p>
         )}
         {route === "unsupported" && <p className="text-xs text-amber-900 dark:text-amber-200 mt-1">{t(detected.noteKey || "app.workEmail.form.unsupported")}</p>}
+        {/* A provider known by the address but not its server (@rr.com → Spectrum, one of two): the note asks which. */}
+        {route === "imap" && !detected?.preset && detected?.noteKey && <p className="text-xs text-muted-foreground mt-1">{t(detected.noteKey)}</p>}
       </div>
 
       <div>

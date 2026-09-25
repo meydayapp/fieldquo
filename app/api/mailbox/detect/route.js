@@ -15,7 +15,7 @@ import { promises as dns } from "node:dns";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { rateLimit } from "@/lib/rateLimit";
 import { bareAddress } from "@/lib/mailbox/addresses";
-import { presetForMx, presetForDomain } from "@/lib/mailbox/presets";
+import { presetForMx, presetForDomain, domainHintFor } from "@/lib/mailbox/presets";
 
 const TIMEOUT_MS = 4000;
 
@@ -35,6 +35,12 @@ export async function POST(request) {
   // A mailbox provider's own domain (gmail.com, icloud.com, shaw.ca) is
   // answered from the list; a company's own domain from its MX records.
   const byDomain = presetForDomain(domain);
+  // @rr.com: Spectrum, but one of two servers the address cannot choose
+  // between — name the provider and let the note ask, rather than guess.
+  const hint = byDomain ? null : domainHintFor(domain);
+  if (hint) {
+    return NextResponse.json({ domain, mx: [], preset: null, route: "imap", label: hint.label, noteKey: hint.noteKey, choices: hint.choices });
+  }
   let hosts = [];
   if (!byDomain) {
     try {

@@ -18149,12 +18149,15 @@ model MailboxConnection {
   sendEnabled            Boolean   @default(false)
   sendEnabledAt          DateTime?
   sendEnabledById        String?
-  /// The rolling hour the throttle counts in — lib/mailbox/sendThrottle.js.
+  /// The window the throttle counts in — an hour, or a day for a provider
+  /// that publishes a daily figure (GoDaddy, Fastmail) — lib/mailbox/sendThrottle.js.
   sendWindowStart        DateTime?
   sendWindowCount        Int       @default(0)
   lastSentAt             DateTime?
   /// The last time a send through this mailbox failed and FieldQuo sent the
-  /// message itself instead, and why — printed on the settings card.
+  /// message itself instead, and why — printed on the settings card. A
+  /// "rate_limited:" reason (the PROVIDER refused for volume) also rests the
+  /// mailbox for one window — sendThrottle.js's backoffVerdict.
   lastSendFallbackAt     DateTime?
   lastSendFallbackReason String?
 

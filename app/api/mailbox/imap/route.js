@@ -20,7 +20,7 @@ import { rateLimit } from "@/lib/rateLimit";
 import { recordActivity } from "@/lib/activity/log";
 import { providerAvailable } from "@/lib/mailbox/config";
 import { saveConnection } from "@/lib/mailbox/connections";
-import { resolveImapSettings } from "@/lib/mailbox/presets";
+import { resolveImapSettings, loginFallbackFor } from "@/lib/mailbox/presets";
 import { testImapLogin } from "@/lib/mailbox/providers/imap";
 import { bareAddress } from "@/lib/mailbox/addresses";
 import { syncMailbox } from "@/lib/mailbox/sync";
@@ -63,7 +63,19 @@ export async function POST(request) {
   });
   if (!settings.ok) return NextResponse.json({ error: settings.error, code: settings.code }, { status: 400 });
 
-  const test = await testImapLogin({ address, ...settings.imap }, password);
+  let imap = settings.imap;
+  let test = await testImapLogin({ address, ...imap }, password);
+  // iCloud: Apple documents the name before the @ for IMAP, but some accounts
+  // take only the full address. One retry with the address, and whichever
+  // worked is stored as the login — the sync and the send then use it.
+  const altLogin = !test.ok && test.code === "auth_failed" ? loginFallbackFor({ address, ...imap }) : null;
+  if (altLogin) {
+    const retry = await testImapLogin({ address, ...imap, loginName: altLogin }, password);
+    if (retry.ok) {
+      imap = { ...imap, loginName: altLogin };
+      test = retry;
+    }
+  }
   if (!test.ok) {
     return NextResponse.json({ error: test.error, code: test.code }, { status: 422 });
   }
@@ -74,7 +86,7 @@ export async function POST(request) {
     address,
     scope: body.scope === "company" ? "company" : "member",
     secret: password,
-    imap: settings.imap,
+    imap,
     cursorSeed: { sent: { folder: test.sentFolder || null, uidValidity: null, lastUid: 0 } },
   });
   if (!saved.ok) return NextResponse.json({ error: saved.error, code: saved.code }, { status: saved.status });

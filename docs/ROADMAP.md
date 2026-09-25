@@ -25,7 +25,7 @@ Last updated: 24 September 2026 (maintenance plans on quotes — `ServicePlanTem
 Last updated: 25 September 2026 ("How this was handled" on a conversation — AI team R1: a read-only timeline in /app/messages of the front desk's reading, assignments, hand-offs, ping-pong escalations, take-overs, replies with tools/model/confidence/cost, stop reasons and proposals with who decided, built from AiEmployeeRoutingEvent / AiEmployeeReply / AiEmployeeProposal with no schema change — see its section)
 Last updated: 25 September 2026 (the chat bubble on a company's OWN website: a one-line `<script src="…/embed/<slug>/chat.js" async>` loader replaces the fixed-size iframe snippet on Settings → AI employee — closed, the frame is the bubble and nothing else on their page is covered; open, it is the panel; on a phone, full screen with host scroll locked; disabled chat leaves nothing; the old iframe snippet still works — see "The chat bubble on a company's own website" below)
 Last updated: 25 September 2026 (moved / cancelled appointments now TEXT the client as well as email them — every office move/cancel (EntryActions → the appointment and job-visit PATCH) and the client's own manage-link reschedule/cancel, behind the booking-text switch, the phone and STOP, in the client's language, editable on Settings › Client messages as "Appointment moved" / "Appointment cancelled", tracked as `booking_moved` / `booking_cancelled` so the calendar's Texts line shows them — see "Moved and cancelled appointments text the client" below; before it, SMS delivery receipts — every text tracked in `SmsDelivery` from send to carrier verdict, table SQL to apply by hand — see "SMS delivery receipts")
-Last updated: 25 September 2026 (Settings → Work email: a company or a member connects the mailbox where work email arrives — Google (gmail.readonly, restricted), Microsoft 365 (Mail.Read, Graph delta) or any other host by IMAP address + password with MX-detected presets — and every email exchanged with a client or lead is filed into that client's conversation by address; everything else is skipped by its headers and never stored; opt-in "Send client emails from this mailbox" with a never-drop fallback; `MailboxConnection` + `EmailMessage`, additive; new env `MAIL_CREDENTIALS_KEY`, `MICROSOFT_OAUTH_*` — see "Work email" below)
+Last updated: 25 September 2026 (work-email provider presets re-checked against the providers' own pages — GoDaddy daily limit, recipient caps, back-off on a provider rate refusal, *.mx.microsoft, Titan/Squarespace by MX, TELUS → Google, Rogers refused, all 12 AT&T domains, Comcast, Spectrum by domain, iCloud login fallback, Zoho by plan — see "Provider settings re-checked" under Work email; before that: Settings → Work email: a company or a member connects the mailbox where work email arrives — Google (gmail.readonly, restricted), Microsoft 365 (Mail.Read, Graph delta) or any other host by IMAP address + password with MX-detected presets — and every email exchanged with a client or lead is filed into that client's conversation by address; everything else is skipped by its headers and never stored; opt-in "Send client emails from this mailbox" with a never-drop fallback; `MailboxConnection` + `EmailMessage`, additive; new env `MAIL_CREDENTIALS_KEY`, `MICROSOFT_OAUTH_*` — see "Work email" below)
 Last updated: 24 September 2026 (a service's estimate template expands onto a quote and an invoice: "Add with its template lines" beside a templated service in the line library, lines in the document's language from the company's own Product row, measured quantities filled from the quote's own takeoffs with the source printed under the line, a missing figure at quantity 0 with the calculator named or linked, `ventCount` / `returnCount` registered — see "A service's template, expanded onto the quote" below)
 Last updated: 24 September 2026 (the estimate template inside a service — `Product.templateLines` / `defaultDiscount` / `imageUrl` / `estimateTypes` / `templateEnabled`, additive; templates attach by quote type (`categories` + painting estimate types) through `templatesFor()`; a closed measurement registry every trade's lines can take their qty from; the seed LOADER contract in `lib/services/seeds.js`; Settings › Services edits each service's template; `/app/analytics/benchmark` is the preset library with an editable Your price; benchmark sharing is on by default for new companies and Terms §7 / Privacy §7 say so. The seed CONTENT — templates on every trade in seven languages — is a separate pass landing against the same contract.; landed just before it on main: auto-translation on save — see its section.)
 Last updated: 24 September 2026 (tours re-pinned to the new shell: welcome-v2 walks the 17-row rail — Leads, Quotes, Quote reviews, Assign shifts, Marketing, Receptionist, FieldQuo AI, AI team, More, Create, Search, Settings at the foot — unfolding a folded People/Grow group through its header and folding it back, a new ai-team-v1 page tour, "Take the tour" on the dashboard's set-up card, the Help centre's replay fixed; every onboarding and set-up row shows a counted time estimate, the onboarding card says "n of 6 done" and the set-up card "n of 15 done · n hidden" — see "Tours on the new shell" below)
@@ -2539,10 +2539,10 @@ email must count as a conversation everywhere the analysis reads one.
   Shaw, Bell, Cogeco (Ontario / Québec); Google- and Microsoft-hosted domains
   (Gmail, Workspace incl. Wix/Squarespace mail, Outlook.com/Hotmail, M365)
   routed to their OAuth options; Proton refused by name (Bridge only).
-  Detection: the address's own domain first, else its MX. NOT listed because
-  their own pages could not be confirmed: Comcast/Xfinity, Spectrum, TELUS
-  (now on Google — MX routes it), Rogers (Yahoo-hosted — MX suggests Yahoo),
-  Bluehost/HostGator/SiteGround/Hostinger/IONOS — "Other — enter the servers".
+  Detection: the address's own domain first, else its MX. (Comcast, Spectrum,
+  TELUS and Rogers were added or re-routed by the provider re-check below;
+  Bluehost/HostGator/SiteGround/Hostinger/IONOS remain "Other — enter the
+  servers".)
 - **Sync** (`/api/cron/mailbox-sync`, every 10 min, 200 s budget, 60 s per
   mailbox, least-recently-synced first): INBOX + Sent (IMAP by UID with
   UIDVALIDITY; Gmail backfill list → `history.list`; Graph delta links). Every
@@ -2622,6 +2622,73 @@ sending (throttle, canSend, no FieldQuo in the composed message, failure →
 fallback recorded). Updated: check:whatsapp, check:ai-employee (platform list),
 check:messaging (block expression), check:settings-access (Crew's five rows),
 check:refusal-shape (two OAuth callbacks), conversation-review/-score fixtures.
+
+### Provider settings re-checked against the providers' own pages (25 September 2026)
+
+A research pass re-read each provider's help pages; the shipped presets, MX
+routing and sending limits were diffed against it. Only page-verified values
+went in; values seen only in search snippets (Hostinger, IONOS) or not found
+(Bluehost, HostGator, SiteGround, Zoho's non-US data centres) stay "Other —
+enter the servers". Every preset keeps its `source`; the pages behind limits,
+MX and username rules are now in `sources`. Mismatches fixed:
+
+- **GoDaddy** had NO throttle (`hourlyLimit: null`). GoDaddy publishes 500 a
+  DAY per mailbox by SMTP (help 31970), so the throttle now takes a per-preset
+  window (`sendLimit: { count, per: "hour" | "day" }`, same two columns) and
+  GoDaddy counts per day; also 100 recipients a message. Relabelled
+  "Professional Email (or older Workspace Email)" — Workspace's help pages
+  404; same hosts.
+- **Namecheap**: hosts were right; the 50-recipients-a-message cap was not
+  enforced. Trials allow 20/hour, paid 500/hour, and nothing tells them apart:
+  the throttle keeps 500/hour and, NEW for every provider, a PROVIDER rate
+  refusal (`rate_limited` — SMTP 421/450/451/452 or "rate/limit", Gmail/Graph
+  429) is recorded on the row and the mailbox rests one full window
+  (`backoffVerdict` in `lib/mailbox/sendThrottle.js`), mail going out the usual
+  way meanwhile. The rest never re-stamps the row, so it cannot extend itself;
+  a successful send ends it. The Namecheap note tells a trial user about 20/h.
+- **Fastmail** had no limit: now the Basic plan's 4,000/day (plan unknown;
+  the hourly and 10-minute sub-limits are covered by the back-off).
+- **Recipients a message** (Namecheap 50, GoDaddy 100): a message over the
+  cap is not tried through the mailbox — `too_many_recipients` fallback.
+- **Microsoft**: the DNSSEC MX form `*.mx.microsoft` was not recognised (a
+  DNSSEC M365 tenant would have been offered "enter the servers"). Added.
+- **Squarespace/Titan**: Titan had no MX pattern, so a Squarespace domain on
+  Titan was undetected. `mx1/mx2.titan.email` → Titan; Google MX → Google —
+  decided by MX, never by "Squarespace".
+- **TELUS** (`@telus.net`) → the Google option by domain (TELUS email is
+  powered by Google) instead of relying on DNS.
+- **Rogers** (`@rogers.com`) was suggested Yahoo's servers by MX; Rogers says
+  app passwords can no longer be created. Now "unsupported" with a note:
+  forward instead (Yahoo stays pickable for anyone holding an old app password).
+- **AT&T** listed 3 of its 12 domains; now all 12 from AT&T's page (ameritech,
+  currently, flash, nvbell, pacbell, prodigy, snet, swbell, wans…).
+- **Comcast/Xfinity** added (imap.comcast.net 993 / smtp.comcast.net 587
+  STARTTLS) with the "Third Party Access Security" note.
+- **Spectrum** added as three presets by address domain (charter.net /
+  spectrum.net / bresnan.net → mobile.charter.net; twc.com → mail.twc.com;
+  brighthouse.com → mail.brighthouse.com; 993 SSL / 587 STARTTLS). `@rr.com`
+  (and `*.rr.com`) is split between TWC and Bright House by region, so it is a
+  hint that names Spectrum and asks — never a guessed host.
+- **iCloud**: IMAP username had no fallback. The connect route now retries
+  once with the full address when the name-before-@ is refused, and stores
+  the one that worked as the login.
+- **Zoho**: the hosts follow the PLAN (paid imappro/smtppro, free imap/smtp),
+  not the address — labels corrected ("paid plan" / "free plan"; keys
+  unchanged), MX still suggests paid, note says to try the other if refused.
+- **AOL / Verizon.net**: new note — AOL may not issue an app password until a
+  browser has signed in to AOL Mail several days running.
+- **Proton**: still refused; the note now mentions the send-only SMTP token
+  (smtp.protonmail.ch:587, paid, custom domains) — not built.
+- Unchanged and confirmed: Yahoo, Verizon's split hosts, Shaw (username
+  without @shaw.ca), Bell, Cogeco ON/QC, Fastmail hosts, Google MX set.
+
+Notes in 9 languages (5 new keys, 5 revised). `check:mailbox` 178 → 221:
+per-rule fixtures (Verizon SMTP host, Shaw username, TELUS → Google,
+`*.mx.microsoft` → Microsoft and a look-alike refused, Squarespace by MX, the
+12 AT&T domains, Spectrum host by domain, `@rr.com` hint and look-alikes,
+Rogers, Comcast, Zoho, iCloud fallback), the daily window, recipient cap,
+back-off (recorded, not re-stamped, lifted after the window), and every note
+key present in every language.
 
 ### Owner setup (in this order)
 
