@@ -41,6 +41,9 @@
 //                   coverage? { per, unit } on a material line bought in a
 //                   purchase unit (gallon, sheet, bundle…): qty =
 //                   ceil(measurement ÷ per); see _materialCosts.js
+//                   materialRef?, unitCostByCountry?, unitPriceByCountry?,
+//                   unitByCountry?, coverageByCountry? on a line bought from
+//                   the material reference — see _materialCosts.js
 //   imageUrl        null — a company adds its own photo; nothing is shipped
 //   range           { min, median, max } in USD — the preset price and its
 //                   guideline (see rangeFor for where the numbers come from);
@@ -195,6 +198,7 @@ export function line(kind, qty, unit, unitPrice, unitCost, text, extra = {}) {
     measurementKey: extra.measurementKey,
     coverage: extra.coverage,
     wastePct: extra.wastePct,
+    refFields: extra.ref ? refFields(extra.ref, unit, extra.coverage) : null,
     optional: extra.optional === true,
     text: checkText(text, where),
   };
@@ -209,8 +213,23 @@ export function hdMaterial(item, text, { measurementKey, price, taxable, wastePc
   if (!item) fail(`hdMaterial: unknown item for "${text?.en?.[0]}"`);
   const unitPrice = price ?? Math.round(item.cost * DEFAULT_MATERIAL_MARKUP * 100) / 100;
   return line("material", 1, item.unit, unitPrice, item.cost, text, {
-    measurementKey, taxable, wastePct, coverage: item.per_unit === "each" && item.per === 1 ? undefined : { per: item.per, unit: item.per_unit },
+    measurementKey, taxable, wastePct, ref: item,
+    coverage: item.per_unit === "each" && item.per === 1 ? undefined : { per: item.per, unit: item.per_unit },
   });
+}
+
+/** The reference fields a material line carries when it names a reference item. */
+function refFields(item, unit, coverage) {
+  if (!item) return {};
+  const out = { materialRef: item.ref };
+  if (item.ca) {
+    out.unitCostByCountry = { CA: item.ca.cost };
+    out.unitPriceByCountry = { CA: Math.round(item.ca.cost * DEFAULT_MATERIAL_MARKUP * 100) / 100 };
+    if (item.ca.unit && item.ca.unit !== unit) out.unitByCountry = { CA: item.ca.unit };
+    const cc = item.ca.coverage;
+    if (cc && coverage && (cc.per !== coverage.per || cc.unit !== coverage.unit)) out.coverageByCountry = { CA: { per: cc.per, unit: cc.unit } };
+  }
+  return out;
 }
 
 /** The default cost ratios — labour half, material three quarters. */
@@ -543,6 +562,7 @@ export function withTemplates(seed, templates) {
       if (l.measurementKey) row.measurementKey = l.measurementKey;
       if (l.coverage) row.coverage = { per: l.coverage.per, unit: l.coverage.unit };
       if (l.wastePct) row.wastePct = l.wastePct;
+      if (l.refFields) Object.assign(row, l.refFields);
       if (l.optional) row.optional = true;
       return row;
     });

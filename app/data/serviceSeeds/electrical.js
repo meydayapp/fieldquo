@@ -795,7 +795,7 @@ const TEMPLATES = {
       de: ["Verkabelter Rauchmelder mit Batterie-Backup", "Vernetzbarer 120-V-Melder mit versiegelter 10-Jahres-Batterie."],
       uk: ["Дротовий димовий датчик з резервною батареєю", "Датчик 120 В з можливістю з'єднання та герметичною батареєю на 10 років."],
       tl: ["Hard-wired smoke detector na may backup battery", "120 V detector na pwedeng i-interconnect, may 10-taong sealed battery."],
-    }, { cost: 28.47 }),
+    }, { cost: 28.47, ref: HD.smoke_detector_hw }),
   ], null),
   // ── The two sample lines a Jobber electrical signup shows ──
   "fq.electrical.receptacles.two_wire_to_gfci_indoor": T("repair", {

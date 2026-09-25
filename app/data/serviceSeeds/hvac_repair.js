@@ -1168,15 +1168,15 @@ const TEMPLATES = {
       uk: ["Візит з обслуговування печі", "Пальники очищено, датчик полум'я відполіровано, теплообмінник оглянуто, захисти й димохід перевірено, вентилятор очищено."],
       tl: ["Maintenance visit ng furnace", "Nilinis ang burner, pinakintab ang flame sensor, sinuri ang heat exchanger, chineck ang safeties at venting at nilinis ang blower."],
     }, { cost: 70 }),
-    L.material(1, "each", 20, {
-      en: ["Pleated air filter", "1-inch pleated filter, MERV 8, in the system's size."],
-      fr: ["Filtre à air plissé", "Filtre plissé de 1 po, MERV 8, à la dimension du système."],
-      es: ["Filtro de aire plisado", "Filtro plisado de 1 pulg, MERV 8, en la medida del sistema."],
-      it: ["Filtro aria pieghettato", "Filtro pieghettato da 1 pollice, MERV 8, nella misura dell'impianto."],
-      de: ["Faltenfilter", "1-Zoll-Faltenfilter, MERV 8, in der Größe der Anlage."],
-      uk: ["Гофрований повітряний фільтр", "Гофрований фільтр 1 дюйм, MERV 8, за розміром системи."],
-      tl: ["Pleated air filter", "1-inch pleated filter, MERV 8, sa size ng sistema."],
-    }, { cost: 8 }),
+    L.material(1, "each", 23.71, {
+      en: ["Pleated air filter", "1-inch pleated filter, MERV 11, in the system's size."],
+      fr: ["Filtre à air plissé", "Filtre plissé de 1 po, MERV 11, à la dimension du système."],
+      es: ["Filtro de aire plisado", "Filtro plisado de 1 pulg, MERV 11, en la medida del sistema."],
+      it: ["Filtro aria pieghettato", "Filtro pieghettato da 1 pollice, MERV 11, nella misura dell'impianto."],
+      de: ["Faltenfilter", "1-Zoll-Faltenfilter, MERV 11, in der Größe der Anlage."],
+      uk: ["Гофрований повітряний фільтр", "Гофрований фільтр 1 дюйм, MERV 11, за розміром системи."],
+      tl: ["Pleated air filter", "1-inch pleated filter, MERV 11, sa size ng sistema."],
+    }, { cost: 18.97, ref: HD.filter_16x25x1 }),
   ], D.regular("fixed", 10)),
 
   "fq.hvac_repair.coils.clean": T("maintenance", {

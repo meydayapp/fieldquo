@@ -922,7 +922,7 @@ const TEMPLATES = {
       de: ["Druckimprägnierte Diele — pro Diele", "Druckimprägnierte Diele 5/4 × 6 Zoll, 8 Fuß, mit Terrassenschrauben."],
       uk: ["Просочена дошка — за дошку", "Просочена дошка 5/4 × 6 дюймів, 8 футів, із шурупами для тераси."],
       tl: ["Pressure-treated na tabla — kada tabla", "5/4 × 6 in pressure-treated na tabla, 8 ft, may deck screw."],
-    }, { cost: 7.78, measurementKey: "each" }),
+    }, { cost: 7.78, measurementKey: "each", ref: HD.deck_board_5_4x6x8 }),
   ], null),
 
   "fq.handyman.exterior.deck_work": T("repair", {
@@ -966,7 +966,7 @@ const TEMPLATES = {
       de: ["Sichtschutzelement — pro Feld", "Druckimprägniertes Sichtschutzelement 6 × 8 Fuß mit verzinkten Befestigern."],
       uk: ["Глуха секція паркану — за секцію", "Просочена глуха секція 6 × 8 футів з оцинкованим кріпленням."],
       tl: ["Privacy fence panel — kada panel", "6 × 8 ft pressure-treated na privacy panel na may galvanized na fastener."],
-    }, { cost: 66.98, measurementKey: "each" }),
+    }, { cost: 66.98, measurementKey: "each", ref: HD.fence_panel_6x8 }),
   ], null),
 
   "fq.handyman.flooring.floor_patch": T("repair", {

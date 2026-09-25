@@ -1,71 +1,107 @@
 // app/data/serviceSeeds/_materialCosts.js
 //
-// Real shelf costs for the materials the templates buy, and how far one
-// purchase unit goes. Source: docs/research/material-costs-homedepot.md —
-// Home Depot, Massena NY store, USD, read 2026-09-24, first match per query;
-// where the capture gave a range the FIRST figure is used. Coverage is the
-// product label where it states one, else the trade rule of thumb the table
-// marks "rule" — a company should confirm those.
+// The materials the seed templates buy, keyed by the name the trade files use,
+// each pointing at a row of the per-country reference
+// (app/data/materialReference.js — Home Depot US and Canada, 2026-09-24).
 //
-// A template material line built from here carries:
-//   unit      the PURCHASE unit (gallon, sheet, bundle…), not the area unit
-//   unitCost  the shelf price
-//   unitPrice unitCost × DEFAULT_MATERIAL_MARKUP (1.25) — a starting markup
-//             the company changes; a line priced from a captured competitor
-//             template keeps its captured price instead
-//   coverage  { per, unit } — how much of the measurement one purchase unit
-//             covers, so qty = ceil(measurement ÷ per). `per` already folds
-//             in the coats a line applies (a gallon of wall paint at 375 sq
-//             ft a coat, two coats, covers 187.5 sq ft of wall).
-//             unit: "sqft" | "linft" | "cuft" | "each"
+// A template material line built from here (hdMaterial in _templateLines.js)
+// carries:
+//   unit        the PURCHASE unit (gallon, sheet, bundle…), not the area unit
+//   unitCost    the US shelf price (USD, the base every seed is written in)
+//   unitPrice   unitCost × DEFAULT_MATERIAL_MARKUP (1.25) — a starting markup
+//               the company changes; a line priced from a captured competitor
+//               template keeps its captured price instead
+//   coverage    { per, unit } — how much of the measurement one purchase unit
+//               covers, so qty = ceil(measurement × waste ÷ per). `per` folds
+//               in the coats a line applies (a gallon of wall paint at 375 sq
+//               ft a coat, two coats, covers 187.5 sq ft of wall).
+//   materialRef the reference row's key — scripts/check-material-prices.mjs
+//               compares every such line to the reference, per country
+//   unitCostByCountry / unitPriceByCountry  { CA } — the Canadian shelf
+//               price in CAD and its marked-up price, where homedepot.ca had
+//               the product; absent otherwise and the loader falls back to the
+//               US cost converted at the fixed benchmark rate, marked
+//               costSource "fx-estimate"
+//   unitByCountry / coverageByCountry  { CA } — only where the Canadian
+//               product comes in a different pack or size (7.58 L ceiling
+//               pails, 10-packs of baseboard, 7 lb grout)
 //
-// Canadian companies: these are US shelf prices. They are COSTS, and costs
-// are not converted between markets (see lib/pricing/benchmarkFx.js) — a .ca
-// pass is the follow-up, not a conversion here.
+// A seed's coverage may be the reference coverage re-stated for the line's
+// measurement (gravel per foot of 12 × 12 trench; a gallon of enamel per
+// linear foot of trim) — the check compares coverages only in the same unit.
+
+import { MATERIAL_REFERENCE } from "../materialReference.js";
 
 export const DEFAULT_MATERIAL_MARKUP = 1.25;
 
-export const HD = {
-  drywall_half_4x8: { cost: 16.98, unit: "sheet", per: 32, per_unit: "sqft" },
-  joint_compound: { cost: 26.35, unit: "pail", per: 350, per_unit: "sqft" },
-  drywall_tape: { cost: 9.67, unit: "roll", per: 416, per_unit: "sqft" },
-  paint_interior_gal_2coats: { cost: 37.98, unit: "gallon", per: 187.5, per_unit: "sqft" },
-  ceiling_paint_gal_2coats: { cost: 23.98, unit: "gallon", per: 187.5, per_unit: "sqft" },
-  primer_gal: { cost: 23.98, unit: "gallon", per: 350, per_unit: "sqft" },
-  paint_exterior_gal_2coats: { cost: 35.98, unit: "gallon", per: 162.5, per_unit: "sqft" },
-  deck_stain_gal: { cost: 41.48, unit: "gallon", per: 200, per_unit: "sqft" },
-  caulk_tube: { cost: 3.62, unit: "tube", per: 40, per_unit: "linft" },
-  lvp_box: { cost: 42.87, unit: "box", per: 22, per_unit: "sqft" }, // sq ft/box pending a product-page pass
-  underlayment_roll: { cost: 59, unit: "roll", per: 100, per_unit: "sqft" },
-  baseboard_mdf_8ft: { cost: 12.36, unit: "piece", per: 8, per_unit: "linft" },
-  tile_porcelain_case: { cost: 29.47, unit: "case", per: 15.6, per_unit: "sqft" },
-  thinset_50lb: { cost: 14.97, unit: "bag", per: 95, per_unit: "sqft" },
-  grout_25lb: { cost: 16.98, unit: "bag", per: 150, per_unit: "sqft" },
-  shingles_bundle: { cost: 45.97, unit: "bundle", per: 33.3, per_unit: "sqft" },
-  roof_underlayment_roll: { cost: 115.53, unit: "roll", per: 1000, per_unit: "sqft" },
-  deck_board_5_4x6x8: { cost: 7.78, unit: "board", per: 1, per_unit: "each" },
-  fence_panel_6x8: { cost: 66.98, unit: "panel", per: 1, per_unit: "each" },
-  // pass 2 (landscaping, HVAC, plumbing, paint) — same store and date
-  mulch_2cuft: { cost: 3.33, unit: "bag", per: 8, per_unit: "sqft" }, // 2 cu ft at 3 in deep
-  sod_pallet: { cost: 599, unit: "pallet", per: 500, per_unit: "sqft" },
-  grass_seed_20lb: { cost: 43.97, unit: "bag", per: 6660, per_unit: "sqft" },
-  fertilizer_15k: { cost: 35.49, unit: "bag", per: 15000, per_unit: "sqft" },
-  edging_20ft: { cost: 20.97, unit: "kit", per: 20, per_unit: "linft" },
-  paver_base_half_cuft: { cost: 6.25, unit: "bag", per: 1.5, per_unit: "sqft" }, // 0.5 cu ft at 4 in deep
-  gravel_trench: { cost: 6.97, unit: "bag", per: 0.5, per_unit: "linft" }, // 0.5 cu ft fills half a foot of 12 × 12 in trench
-  flex_duct_6: { cost: 68.48, unit: "roll", per: 25, per_unit: "linft" },
-  gutter_5k_10: { cost: 22.98, unit: "length", per: 10, per_unit: "linft" },
-  paint_trim_enamel_gal: { cost: 55.98, unit: "gallon", per: 500, per_unit: "linft" }, // 4 in trim, two coats
-  paint_trim_enamel_doors: { cost: 55.98, unit: "gallon", per: 4.5, per_unit: "each" }, // a door both sides, two coats
-  paint_trim_enamel_cabinet: { cost: 55.98, unit: "gallon", per: 15, per_unit: "each" }, // cabinet doors, both faces
-  wood_stain_qt_trim: { cost: 14.98, unit: "quart", per: 250, per_unit: "linft" },
-  water_heater_50_elec: { cost: 549, unit: "each", per: 1, per_unit: "each" },
-  tankless_gas: { cost: 1299, unit: "each", per: 1, per_unit: "each" },
-  toilet_2pc: { cost: 99, unit: "each", per: 1, per_unit: "each" },
-  supply_line: { cost: 7.9, unit: "each", per: 1, per_unit: "each" },
-  pex_half_100: { cost: 33.3, unit: "coil", per: 100, per_unit: "linft" },
-  mini_split_12k: { cost: 609.99, unit: "system", per: 1, per_unit: "each" },
-  gfci_15a: { cost: 18.98, unit: "each", per: 1, per_unit: "each" },
-  smoke_detector_hw: { cost: 28.47, unit: "each", per: 1, per_unit: "each" },
-  filter_16x25x1: { cost: 18.97, unit: "each", per: 1, per_unit: "each" },
+const ref = Object.fromEntries(MATERIAL_REFERENCE.map((r) => [r.key, r]));
+
+// name → [reference key, override of the seed's coverage { per, unit } or null for the reference's]
+const USES = {
+  drywall_half_4x8: ["drywall_half_4x8"],
+  joint_compound: ["joint_compound"],
+  drywall_tape: ["drywall_tape"],
+  paint_interior_gal_2coats: ["paint_interior_gal"],
+  ceiling_paint_gal_2coats: ["ceiling_paint_gal"],
+  primer_gal: ["primer_gal"],
+  paint_exterior_gal_2coats: ["paint_exterior_gal"],
+  deck_stain_gal: ["deck_stain_gal"],
+  caulk_tube: ["caulk"],
+  lvp_box: ["lvp"],
+  underlayment_roll: ["underlayment"],
+  baseboard_mdf_8ft: ["baseboard_mdf"],
+  tile_porcelain_case: ["tile_porcelain_12x24"],
+  thinset_50lb: ["thinset_50lb"],
+  grout_25lb: ["grout_25lb"],
+  shingles_bundle: ["shingles_bundle"],
+  roof_underlayment_roll: ["roof_underlayment"],
+  deck_board_5_4x6x8: ["deck_board_5_4x6x8"],
+  fence_panel_6x8: ["fence_panel"],
+  mulch_2cuft: ["mulch_2cuft"],
+  sod_pallet: ["sod_pallet"],
+  grass_seed_20lb: ["grass_seed"],
+  fertilizer_15k: ["fertilizer_15k"],
+  edging_20ft: ["edging_20ft"],
+  paver_base_half_cuft: ["paver_base"],
+  gravel_trench: ["gravel", { per: 0.5, unit: "linft" }], // 0.5 cu ft fills half a foot of 12 × 12 in trench
+  flex_duct_6: ["flex_duct_6"],
+  gutter_5k_10: ["gutter_5k_10"],
+  paint_trim_enamel_gal: ["paint_trim_enamel_gal"],
+  paint_trim_enamel_doors: ["paint_trim_enamel_doors"],
+  paint_trim_enamel_cabinet: ["paint_trim_enamel_cabinet"],
+  wood_stain_qt_trim: ["wood_stain_qt", { per: 250, unit: "linft" }], // 4 in trim, one coat
+  water_heater_50_elec: ["water_heater_50_elec"],
+  tankless_gas: ["tankless_gas"],
+  toilet_2pc: ["toilet"],
+  supply_line: ["supply_line"],
+  mini_split_12k: ["mini_split_12k"],
+  smoke_detector_hw: ["smoke_detector_hw"],
+  filter_16x25x1: ["filter_16x25x1"],
+  pex_half_100: ["pex_half_100"],
+  gfci_15a: ["gfci_15a"],
 };
+
+function build(name, [key, coverageOverride]) {
+  const r = ref[key];
+  if (!r || !r.prices.US) throw new Error(`_materialCosts: ${name} → reference ${key} has no US price`);
+  const coverage = coverageOverride || r.coverage;
+  const ca = r.prices.CA
+    ? {
+        cost: r.prices.CA.amount,
+        unit: r.prices.CA.unit || r.unit,
+        // A Canadian pack with its own coverage uses it; otherwise the line's
+        // coverage stands (the same product in a different currency).
+        coverage: r.prices.CA.coverage && (!coverageOverride || r.prices.CA.coverage.unit === coverage?.unit) ? r.prices.CA.coverage : coverage,
+      }
+    : null;
+  return {
+    ref: key,
+    cost: r.prices.US.amount,
+    unit: r.unit,
+    per: coverage ? coverage.per : 1,
+    per_unit: coverage ? coverage.unit : "each",
+    ca,
+  };
+}
+
+export const HD = Object.fromEntries(Object.entries(USES).map(([name, use]) => [name, build(name, use)]));

@@ -629,7 +629,7 @@ const TEMPLATES = {
       de: ["Elektro-Warmwasserspeicher 50 Gallonen", "50-Gallonen-Elektrospeicher in Standardeffizienz, 4500-W-Heizelemente, 6 Jahre Garantie auf den Behälter."],
       uk: ["Електричний бойлер на 50 галонів", "Електричний бак на 50 галонів стандартної ефективності, ТЕНи 4500 Вт, гарантія на бак 6 років."],
       tl: ["50-gallon electric water heater", "Standard-efficiency na 50-gallon electric tank, 4500 W elements, 6-taong warranty sa tank."],
-    }, { cost: 549 }),
+    }, { cost: 549, ref: HD.water_heater_50_elec }),
     L.material(1, "each", 210, {
       en: ["Drain pan, expansion tank and connectors", "Aluminium drain pan, thermal expansion tank and two stainless flex connectors."],
       fr: ["Bac de rétention, vase d'expansion et raccords", "Bac de rétention en aluminium, vase d'expansion thermique et deux flexibles en inox."],
@@ -665,7 +665,7 @@ const TEMPLATES = {
       de: ["Brennwert-Durchlauferhitzer — 199.000 BTU", "Gas-Brennwert-Durchlauferhitzer, 199.000 BTU, mit Absperrventil-Set."],
       uk: ["Конденсаційний проточний нагрівач — 199 000 BTU", "Газовий конденсаційний проточний прилад, 199 000 BTU, з комплектом відсічних кранів."],
       tl: ["Condensing tankless water heater — 199,000 BTU", "Condensing gas tankless unit, 199,000 BTU, may isolation valve kit."],
-    }, { cost: 1299 }),
+    }, { cost: 1299, ref: HD.tankless_gas }),
     L.material(1, "flat", 250, {
       en: ["Venting, gas fittings and condensate kit", "PVC or polypropylene vent kit, gas fittings and the condensate neutraliser."],
       fr: ["Évacuation, raccords de gaz et trousse de condensat", "Trousse d'évacuation en PVC ou polypropylène, raccords de gaz et neutraliseur de condensat."],
@@ -735,7 +735,7 @@ const TEMPLATES = {
       de: ["Geflochtener Anschlussschlauch", "Edelstahl-Flexschlauch, 20 Zoll, warm oder kalt."],
       uk: ["Обплетена підводка", "Підводка з обплетенням із нержавіючої сталі, 20 дюймів, гаряча або холодна."],
       tl: ["Braided supply line", "Stainless braided supply line, 20 in, mainit o malamig."],
-    }, { cost: 7.9 }),
+    }, { cost: 7.9, ref: HD.supply_line }),
   ], null),
 
   // ── Repair ──

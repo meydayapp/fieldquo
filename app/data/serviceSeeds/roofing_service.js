@@ -328,14 +328,14 @@ const TEMPLATES = {
       uk: ["Монтаж ринв — за пог. фут", "Безшовну ринву сформовано на місці, повішено на приховані гаки з ухилом до труб."],
       tl: ["Pagkabit ng gutter — kada linear ft", "Seamless gutter na hinubog sa lugar, isinabit sa hidden hanger at may slope papunta sa downspout."],
     }, { measurementKey: "eaveFt" }),
-    L.material(1, LF, 5.5, {
-      en: ["Seamless aluminium gutter — per linear ft", "5-in K-style aluminium coil, hidden hangers, end caps, outlets and downspouts."],
-      fr: ["Gouttière en aluminium sans joint — au pi lin.", "Aluminium en rouleau style K de 5 po, crochets dissimulés, embouts, sorties et descentes."],
-      es: ["Canaleta de aluminio sin costura — por pie lineal", "Aluminio en rollo estilo K de 5 pulg, ganchos ocultos, tapas, salidas y bajantes."],
-      it: ["Grondaia in alluminio senza giunture — al piede lineare", "Coil di alluminio stile K da 5 pollici, staffe nascoste, testate, bocchettoni e pluviali."],
-      de: ["Nahtlose Aluminiumrinne — pro lfd. Fuß", "5-Zoll-K-Profil aus Aluminiumcoil, verdeckte Halter, Endkappen, Stutzen und Fallrohre."],
-      uk: ["Безшовна алюмінієва ринва — за пог. фут", "Алюмінієвий рулон K-профілю 5 дюймів, приховані гаки, заглушки, воронки та труби."],
-      tl: ["Seamless aluminum gutter — kada linear ft", "5-in K-style aluminum coil, hidden hanger, end cap, outlet at downspout."],
+    hdMaterial(HD.gutter_5k_10, {
+      en: ["Aluminium gutter — per 10 ft length", "5 in K-style aluminium gutter; hangers, end caps and outlets with it."],
+      fr: ["Gouttière d'aluminium — la longueur de 10 pi", "Gouttière en aluminium style K de 5 po; crochets, embouts et sorties avec."],
+      es: ["Canaleta de aluminio — por tramo de 10 pies", "Canaleta de aluminio estilo K de 5 pulg; ganchos, tapas y salidas incluidos."],
+      it: ["Grondaia in alluminio — per barra da 10 piedi", "Grondaia in alluminio stile K da 5 pollici; staffe, testate e bocchettoni inclusi."],
+      de: ["Aluminiumrinne — pro 10-Fuß-Länge", "5-Zoll-K-Profil-Rinne aus Aluminium; Halter, Endkappen und Stutzen dazu."],
+      uk: ["Алюмінієва ринва — за 10-футову довжину", "Ринва K-профілю 5 дюймів з алюмінію; гаки, заглушки й воронки в комплекті."],
+      tl: ["Aluminum gutter — kada 10 ft na haba", "5 in K-style na aluminum gutter; kasama ang hanger, end cap at outlet."],
     }, { measurementKey: "eaveFt" }),
   ], null),
 
