@@ -32,7 +32,7 @@
 //
 // ── The page ────────────────────────────────────────────────────────────────
 //
-//   toolbar   Estimate · Presentation · Work order · Notes   [Save] [Send… ▾]
+//   toolbar   Estimate · Services · Presentation · Work order · Notes   [Save] [Send… ▾]
 //   document  masthead (company block, QUOTE, number, dates)
 //             prepared for · job address · date · valid until
 //             one card per service — rooms with their prices for a painting
@@ -107,6 +107,7 @@ import ClientPicker from "./ClientPicker";
 import JobAddressField from "./JobAddressField";
 import ServiceTiles from "./ServiceTiles";
 import TemplatePicker from "./TemplatePicker";
+import ServicesTab from "./ServicesTab";
 import EstimateTypeFirst from "./EstimateTypeFirst";
 import RichTextEditor from "./RichTextEditor";
 import QuoteLanguageBar from "@/app/components/quotes/QuoteLanguageBar";
@@ -148,7 +149,12 @@ import { fetchJson } from "@/lib/fetchJson";
 import { hasTakeoff } from "@/lib/pricing/takeoffTrades";
 import { defaultSiteAddressFor } from "@/lib/quotes/jobAddress";
 
-const TABS = ["estimate", "presentation", "workorder", "notes"];
+// "services" (2026-09-24, the owner: "a Services tab next to Estimate /
+// Presentation / Work order / Notes") sits beside the Estimate it summarises:
+// ServicesTab.js — measurements, production rates, crew hours and, for the
+// people allowed, cost and margin per service. Read-only; its actions open
+// the Estimate tab's own editors.
+const TABS = ["estimate", "services", "presentation", "workorder", "notes"];
 
 const isPaintAreas = (g) =>
   g?.takeoff && typeof g.takeoff === "object" && g.takeoff.model === "area_substrate";
@@ -835,6 +841,7 @@ export default function DocumentBuilder({ b, kind = "quote" }) {
 
   const tabLabel = {
     estimate: isInvoice ? t("app.invoiceBuilder.tab.invoice", "Invoice") : t("app.docBuilder.tab.estimate", "Estimate"),
+    services: t("app.docBuilder.tab.services", "Services"),
     presentation: t("app.docBuilder.tab.presentation", "Presentation"),
     workorder: t("app.docBuilder.tab.workorder", "Work order"),
     notes: t("app.docBuilder.tab.notes", "Notes"),
@@ -1554,6 +1561,31 @@ export default function DocumentBuilder({ b, kind = "quote" }) {
       )}
 
       {/* ══ Presentation ═══════════════════════════════════════════════════ */}
+      {tab === "services" && (
+        <ServicesTab
+          b={b}
+          t={t}
+          money={money}
+          isLocked={(tempId) => {
+            const g = b.scopeGroups.find((x) => x.tempId === tempId);
+            return !g || Boolean(g.imported) || !b.canEditScope;
+          }}
+          // Both land on the Estimate tab's own editors — the effects above
+          // (calcFocus, libraryFocus) scroll to and open them once the
+          // Estimate panel has rendered the group.
+          onOpenTakeoff={(tempId) => {
+            setTab("estimate");
+            setOpenGroup(tempId);
+            setCalcFocus(tempId);
+          }}
+          onAddTemplate={(tempId) => {
+            setTab("estimate");
+            setOpenGroup(tempId);
+            setLibraryFocus({ tempId });
+          }}
+        />
+      )}
+
       {tab === "presentation" && (
         <div className="space-y-4" data-tab-panel="presentation">
           {isEdit && quoteId ? (

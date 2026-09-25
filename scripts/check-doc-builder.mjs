@@ -52,6 +52,11 @@ import { paintingCategoryFor, paintingCategoriesOf } from "../app/components/quo
 import { createFabHiddenOn } from "../app/components/layout/CreateMenu.js";
 import { completenessChecks, effectiveProcessNotes } from "../lib/quotes/completeness.js";
 import { newScopeGroup, scopeGroupPayload, groupSubtotal } from "../lib/quotes/builderPayload.js";
+import ServicesTab from "../app/components/quotes/builder/ServicesTab.js";
+import ProductionRateField, { productionDraftFrom, productionFromDraft } from "../app/components/pricing/ProductionRateField.js";
+import { groupProduction, productionMapFrom } from "../lib/services/productionRates.js";
+import { estimateQuoteCost } from "../lib/costing/estimateJobCost.js";
+import { fixtureGroups } from "./productionRateFixtures.mjs";
 
 let pass = 0;
 const fails = [];
@@ -835,6 +840,73 @@ for (const [lang, tab, prepared] of [["fr", "Devis", "Préparé pour"], ["es", "
   const jen = src("app/components/jennifer/JenniferPanel.js");
   ok("the + sits above Jennifer's launcher, not on it", fab.includes("var(--fq-dock-height) + 5.5rem)") && jen.includes("var(--fq-dock-height)+1.25rem)") && jen.includes("h-14 w-14"));
   ok("the + returns null on a hidden route before rendering", /createFabHiddenOn\(pathname\)\) return null/.test(fab));
+}
+
+// ── The Services tab (ServicesTab.js) renders, and redacts ────────────────
+//
+// The tab is not the default, so section 3's renders never draw it. Here it
+// is rendered on its own over scripts/productionRateFixtures.mjs with one
+// rated service, for a member who may cost and see prices, and for one who
+// may do neither: the second render must carry no money at all. The model's
+// own redaction is executed in scripts/check-production-rates.mjs; this is
+// the markup's half — that the component draws only what it was given.
+{
+  const groups = fixtureGroups();
+  const map = productionMapFrom([{ id: "prod-siding", name: "Vinyl siding", production: { key: "wallSqft", amount: 40, basis: "per_hour" } }]);
+  const productionByGroup = new Map(groups.map((g) => [g.tempId, groupProduction(g, map)]));
+  const estimate = estimateQuoteCost({
+    scopeGroups: groups.map((g) => ({ ...g, ...(productionByGroup.get(g.tempId).hours !== null ? { productionHours: productionByGroup.get(g.tempId).hours } : {}) })),
+    labourRatePerHour: 35,
+    price: 20000,
+  });
+  const tt = (key, a, b2) => {
+    const vals = a && typeof a === "object" ? a : b2 || {};
+    const raw = APP_MESSAGES.en[key] ?? (typeof a === "string" ? a : key);
+    return String(raw).replace(/\{(\w+)\}/g, (m, k) => (vals[k] !== undefined ? String(vals[k]) : m));
+  };
+  const render = (over) =>
+    renderToStaticMarkup(
+      React.createElement(ServicesTab, {
+        b: {
+          scopeGroups: groups,
+          productionByGroup,
+          estimate,
+          tradeHoursFor: () => 0,
+          groupTotal: (g) => g.lineItems.reduce((s, l) => s + (Number(l.amount) || 0), 0),
+          caller: { role: "owner" },
+          canEditScope: true,
+          ...over,
+        },
+        t: tt,
+        money: (n) => `$${Number(n).toFixed(2)}`,
+        onOpenTakeoff: () => {},
+        onAddTemplate: () => {},
+        isLocked: () => false,
+      }),
+    );
+  const full = render({ mayCost: true, showPricing: true });
+  ok("services tab: one card per service", (full.match(/data-services-row=/g) || []).length === groups.length);
+  ok("services tab: the rated service's hours are drawn", full.includes("Vinyl siding") && full.includes("= 25 h"));
+  ok("services tab: no NaN", !/NaN/.test(full));
+  ok("services tab: cost, price and margin drawn for a member who may see them", full.includes("Labour cost") && full.includes("Price") && full.includes("Margin before overhead"));
+  ok("services tab: open measurements only where a calculator exists", (full.match(/data-services-open-takeoff/g) || []).length === groups.filter((g) => ["interior_painting", "siding", "cabinet_refinishing", "fence_services"].includes(g.categoryKey)).length);
+  const bare = render({ mayCost: false, showPricing: false });
+  ok("services tab: no money at all without jobCosting and showPricing", !bare.includes("$") && !bare.includes("Labour cost") && !bare.includes("Margin") && !bare.includes(">Price<"));
+  ok("services tab: hours still drawn without them", bare.includes("= 25 h"));
+  ok("services tab: an unrated service offers the owner the rate screen", full.includes('href="/app/settings/services"'));
+  ok("services tab: a crew member is not offered a screen they cannot change", !render({ mayCost: false, showPricing: false, caller: { role: "employee" } }).includes('href="/app/settings/services"'));
+
+  // The rate box on the two settings screens (ProductionRateField.js).
+  const field = (draft, extra = {}) => renderToStaticMarkup(React.createElement(ProductionRateField, { draft, onChange: () => {}, tradeKeys: ["cabinet_refinishing"], t: tt, ...extra }));
+  const empty = field(productionDraftFrom(null, "doorCount"));
+  ok("rate box: a suggestion is offered, greyed, with Use", empty.includes("data-production-suggestion") && empty.includes("12 per day") && empty.includes("data-production-use-suggestion"));
+  ok("rate box: the suggestion is not in the box's value", /data-production-amount/.test(empty) && !/value="12"/.test(empty));
+  const set = field(productionDraftFrom({ key: "doorCount", amount: 10, basis: "per_day" }));
+  ok("rate box: a stored rate reopens as typed", set.includes('value="10"') && !set.includes("data-production-suggestion"));
+  ok("rate box: read-only offers no Use and no Clear", !field(productionDraftFrom(null, "doorCount"), { disabled: true }).includes("data-production-use-suggestion") && !field(productionDraftFrom({ key: "doorCount", amount: 10, basis: "per_day" }), { disabled: true }).includes("data-production-clear"));
+  ok("rate box: no NaN", !/NaN/.test(empty + set));
+  eq("rate box: an empty draft saves as no rate", productionFromDraft(productionDraftFrom(null, "doorCount")), null);
+  eq("rate box: a typed draft saves sanitised", productionFromDraft({ key: "doorCount", amount: "12", basis: "per_day" }), { key: "doorCount", amount: 12, basis: "per_day" });
 }
 
 // ───────────────────────────────────────────────────────────────────────────

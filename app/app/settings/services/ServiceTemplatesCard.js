@@ -51,6 +51,13 @@ import {
   sanitiseDefaultDiscount,
 } from "@/lib/services/templates";
 import BenchmarkRange from "@/app/components/pricing/BenchmarkRange";
+import ProductionRateField, {
+  productionDraftFrom,
+  productionFromDraft,
+  formatProductionRate,
+  productionMeasureLabel,
+} from "@/app/components/pricing/ProductionRateField";
+import { defaultProductionKey, sanitiseProduction } from "@/lib/services/productionRates";
 
 const UNITS = ["flat", "each", "hour", "sqft", "linear_ft", "square"];
 
@@ -82,6 +89,9 @@ function draftFrom(product) {
     discount: d ? { name: d.name || "", kind: d.kind === "percent" ? "percent" : "fixed", amount: d.amount ?? "" } : { name: "", kind: "fixed", amount: "" },
     imageUrl: product?.imageUrl || null,
     estimateTypes: sanitiseEstimateTypes(product?.estimateTypes),
+    // The service's production rate (lib/services/productionRates.js). An
+    // empty box opens on the key the template's first labour line measures.
+    production: productionDraftFrom(product?.production, defaultProductionKey(product) || ""),
   };
 }
 
@@ -92,6 +102,7 @@ function payloadFrom(draft) {
     defaultDiscount: sanitiseDefaultDiscount(draft.discount),
     imageUrl: draft.imageUrl || null,
     estimateTypes: sanitiseEstimateTypes(draft.estimateTypes),
+    production: productionFromDraft(draft.production),
   };
 }
 
@@ -198,6 +209,14 @@ function TemplateRow({ product, category, currency, language, canEdit, expanded,
             </span>
             {benchmark && (
               <BenchmarkRange benchmark={benchmark} currency={currency} price={product.unitPrice} compact />
+            )}
+            {sanitiseProduction(product.production) && (
+              <span className="block text-[11px] text-muted-foreground" data-row-production>
+                {t("app.production.rowSummary", "Production: {measure} — {rate}", {
+                  measure: productionMeasureLabel(product.production.key, t),
+                  rate: formatProductionRate(product.production, t),
+                })}
+              </span>
             )}
           </span>
         </button>
@@ -457,6 +476,16 @@ function TemplateEditor({ product, category, currency, language, canEdit, onSave
           </div>
         </div>
       )}
+
+      {/* How fast the crew does this service — the quote's crew hours, its
+          labour cost and the job plan read it (lib/services/productionRates.js). */}
+      <ProductionRateField
+        draft={draft.production}
+        onChange={(production) => setDraft((d) => ({ ...d, production }))}
+        tradeKeys={[category.key]}
+        disabled={!canEdit}
+        t={t}
+      />
 
       {/* Default discount */}
       <div data-template-discount>

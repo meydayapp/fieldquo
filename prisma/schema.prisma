@@ -101,6 +101,18 @@ model Product {
   commissionable Boolean  @default(true)
   workedByPct    Decimal? @db.Decimal(5, 2)
   soldByPct      Decimal? @db.Decimal(5, 2)
+  /// The service's production rate: { key, amount, basis } — how much of a
+  /// measured quantity (a lib/services/measurementKeys.js key, whose unit IS
+  /// the rate's unit) one crew-hour does, stated per hour, per crew-day, or as
+  /// hours per unit ("250 sq ft/hr", "12 doors/day", "1.5 h per tread").
+  /// Written by Settings > Services and the Products & Services form (PATCH /
+  /// POST /api/products, sanitised by lib/services/productionRates.js);
+  /// read by that file's groupProduction, which turns a quote group's
+  /// measured quantities into crew hours for the Cost & margin panel
+  /// (app/api/quotes/costingWrite.js resolveCostingGroups, the builder), the
+  /// job plan (lib/jobs/buildPlan.js) and the builder's Services tab. Null =
+  /// no rate: the trade's own hours stand, exactly as before the column.
+  production Json?
 
   // Which quote types (ServiceCategory) this product/service can be added to
   // as a line item. Empty = available on every quote type (e.g. a generic

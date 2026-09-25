@@ -29,6 +29,7 @@ import { scheduleAutoTranslate } from "@/lib/i18n/autoTranslateSchedule";
 import { loadEnforceableMember, requireToggle } from "@/lib/permissions/enforce";
 import { productCommissionData } from "@/lib/commissions/compute";
 import { redactProductCommission } from "@/lib/commissions/access";
+import { sanitiseProduction } from "@/lib/services/productionRates";
 
 /** Owner/admin only. Mirrors the other settings routes. */
 function requireCatalogueWrite(member) {
@@ -111,8 +112,12 @@ export async function POST(request) {
   }
 
   const body = await request.json();
-  const { name, description, type, unitPrice, costPrice, unit, categoryIds } =
+  const { name, description, type, unitPrice, costPrice, unit, categoryIds, production } =
     body;
+  // The production rate, when the Add form set one (lib/services/
+  // productionRates.js). Absent or unusable = the column stays null, which
+  // is what every product created before it had.
+  const cleanProduction = sanitiseProduction(production);
 
   if (!name) {
     return NextResponse.json({ error: "name is required" }, { status: 400 });
@@ -155,6 +160,7 @@ export async function POST(request) {
       costPrice: costPrice ?? null,
       unit: unit || null,
       ...commission.data,
+      ...(cleanProduction ? { production: cleanProduction } : {}),
       ...(Array.isArray(categoryIds) && categoryIds.length > 0
         ? { categories: { connect: categoryIds.map((id) => ({ id })) } }
         : {}),

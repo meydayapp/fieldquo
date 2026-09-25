@@ -11,6 +11,7 @@ import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { sanitiseTemplateLines, sanitiseDefaultDiscount, sanitiseImageUrl, sanitiseEstimateTypes } from "@/lib/services/templates";
+import { sanitiseProduction } from "@/lib/services/productionRates";
 import { scheduleAutoTranslate } from "@/lib/i18n/autoTranslateSchedule";
 import { productCommissionData } from "@/lib/commissions/compute";
 
@@ -85,6 +86,10 @@ export async function PATCH(request, { params }) {
     // narrowed by estimate type) and whether it is offered at all.
     estimateTypes,
     templateEnabled,
+    // The service's production rate ({ key, amount, basis }, lib/services/
+    // productionRates.js). Sanitised: an unknown key or a non-positive
+    // amount stores nothing. `null` clears it; absent leaves it alone.
+    production,
   } = body;
 
   // The item's commission override (Settings › Products, shown only when the
@@ -121,6 +126,7 @@ export async function PATCH(request, { params }) {
       ...(estimateTypes !== undefined && { estimateTypes: sanitiseEstimateTypes(estimateTypes) }),
       ...(templateEnabled !== undefined && { templateEnabled: templateEnabled !== false }),
       ...commission.data,
+      ...(production !== undefined && { production: sanitiseProduction(production) ?? Prisma.DbNull }),
       // `set` fully replaces the linked quote types with this list (as
       // opposed to `connect`, which would only add) — matches how the
       // multi-select in the Products & Services edit modal works, where the

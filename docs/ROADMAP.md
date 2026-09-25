@@ -1,6 +1,7 @@
 # FieldQuo — current phase and what's left
 
 Last updated: 25 September 2026 (one cabinet scope, Refinish | Reface: a company selling both cabinet trades gets a switch inside an unsaved cabinet group's card that moves the group between the two price books while keeping every count and answer already entered; a still-default name follows the service, switching back restores the previous figures byte-for-byte, and only the chosen service reaches the saved quote — see "Refinish | Reface inside one cabinet card" below)
+Last updated: 25 September 2026 (production rates per service — `Product.production` { key, amount, basis } edited in Settings › Services and the Products & Services form, suggested rates for the takeoff trades shown greyed and never applied; a group whose template-run services carry a rate takes its crew hours from them ahead of the trade book and recipe hours on the saved costing, the live Cost & margin panel and the job plan; a read-only Services tab beside Estimate with measurements, rates, hours and — by jobCosting/showPricing — labour cost, materials, price and margin; md5 unchanged with no rate)
 Last updated: 25 September 2026 (the paid deep photo read now returns trade-specific evidence on the SAME one vision call — junk volume in pickup beds → cu yd / m³ with item categories and the fees they carry, roof pitch/layers/damage, paint condition/peeling/colour change, cabinet door and drawer counts/style/finish, current floor and transitions, stair tread/riser counts and shape, gutter run/downspouts/storeys/issues — each with a confidence and how it was judged, shown as an estimate BESIDE the quote's measured figure and never written over it; plus a non-blocking "these photos may not be of this job" warning when a clearly-read photo matches none of the quote's trades, on the quote panel, the invoice twin and the estimate-review queue — see "The deep read reads the trade" below)
 Last updated: 25 September 2026 (three lost items: the client auto-send policy written down in docs/CLIENT-MESSAGES.md with every automatic client sender audited — no path auto-sends a quote; Facebook/Instagram threads past Meta's 24-hour window show a closed state, disable Send and say why and what still works, and the AI employee no longer replies past it; check:prep-guide green again — sixteen trades had no prep guide — so check:all now runs on to the next of 86 checks that were already failing on main behind it)
 Last updated: 25 September 2026 (flooring, tile, drywall, siding, fencing and concrete measured on the quote with the calculators that already exist — rooms on paint's geometry with openings off the walls and a waste per material, drywall sheets 4 × 8 / 4 × 12, siding elevations into the siding box, the aerial tracer into the fence's Linear Feet and the slab's Square Footage, posts every 8 ft, cubic yards at the chosen thickness — feeding "Add with its template lines"; nothing new is priced by a takeoff, so nothing new is held back — see "Flooring, tile, drywall, siding, fencing, concrete: measured on the quote" below)
@@ -118,6 +119,86 @@ mind used to mean deleting the group and typing the kitchen in again.
   refacing quote's total, so it waits for the owner's yes.
 - The painter's "Cabinets & millwork" pick still opens refinishing first; the switch is how that
   estimate becomes refacing.
+## Production rates per service, and a Services tab in the builder (25 September 2026)
+
+The owner's 24 September asks, which had been lost: "production rates per service so that it can help
+the calculator", and "a Services tab next to Estimate / Presentation / Work order / Notes".
+
+### What shipped
+
+- **`Product.production`** (Json, additive — the ONE column added, by `ALTER TABLE "Product" ADD COLUMN
+  "production" JSONB`; the diff's DROPs of other branches' tables were not run): `{ key, amount, basis }`.
+  `key` is a `lib/services/measurementKeys.js` key and its unit IS the rate's unit (wallSqft → sq ft,
+  doorCount → each, gutterFt → linear ft); hour-unit keys are refused. `basis` is how the contractor says
+  it — `per_hour` (250 sq ft/hr), `per_day` (12 doors per 8-hour crew-day), `hours_per_unit` (1.5 h per
+  tread). Stored as typed; `lib/services/productionRates.js` sanitises and normalises.
+- **Editing**: Settings › Services (the template editor under each trade, ServiceTemplatesCard — and the row
+  summary reads "Production: Wall sq ft — 250 per hour") and Settings › Products & Services (the item
+  form, ProductFormModal, which sends `production` only when it changed, so an untouched save posts the
+  payload it always did). One shared field, `app/components/pricing/ProductionRateField.js`. PATCH and
+  POST `/api/products` sanitise it.
+- **Suggested rates** for the takeoff trades (painting walls 250/hr, ceilings 200/hr, trim 75 ft/hr,
+  exterior 150/hr & 40 ft/hr; flooring 50 sq ft/hr; drywall 12 sheets/day; stairs 1.5 h/tread; cabinet
+  doors 12/day; gutters 15 ft/hr; fence 5 ft/hr; concrete 25 sq ft/hr), with the sources and ranges in
+  `SUGGESTED_PRODUCTION`'s comment (PDCA / Craftsman painting tables, NWFA and makers' install guides,
+  RSMeans crews, and the owner's own examples). Shown greyed as the box's placeholder and a "Suggested: …
+  Use" line — never written unless a person presses Use and saves.
+- **The hours.** A group's services are its template runs (`meta.template.productId` on the lines a
+  service's template expanded to). Per rated run: quantity = the run's own non-material line keyed to the
+  rate's key (largest > 0 — a quantity the estimator typed over the takeoff wins), else the group's
+  measured figure (`groupMeasurements`), else none; hours = quantity ÷ units-per-hour, to the hundredth
+  (hours-per-unit multiplies, so 1.5 × 14 is exactly 21). Example: 1,000 sq ft of siding at 40 sq ft/hr
+  = 25 h; 24 cabinet doors at 12/day = 2 days × 8 h = 16 h.
+- **Precedence**: when a group's rated services resolve a quantity, the group's hours ARE theirs — the
+  trade book's takeoff hours (`tradeLabourHours`) and a recipe's labour for that group are not used
+  (siding: 25 h, not the book's 32, not 57). Materials stay the book's/recipe's. Applied identically in
+  the saved costing (`resolveCostingGroups` attaches `productionHours`, `quoteCostSummary` drops that
+  group's takeoff hours, `estimateQuoteCost` replaces the group's labour with one "Hours from service
+  production rates" row), the builder's live panel (same rule, rates from the new `GET
+  /api/products/production` — rates and names only, no price column, gated on quotes:view_create_edit,
+  so a member without showPricing gets the same hours the server saves), and the job plan
+  (`planFromQuote(quote, { productionById })`: the hours land on the service's own line, the takeoff's
+  per-line hours for that group are withheld, the painting dependency edges and material keys survive).
+  Labour cost follows at the crew's blended `laborCostPerHour` or the fallback. Labour calibration skips a
+  production-rated group (the book did not predict those hours). No rate → nothing changes.
+- **The Services tab** (`DocumentBuilder` TABS = estimate · services · presentation · workorder · notes;
+  `ServicesTab.js` over `lib/quotes/servicesTab.js`): one card per service — measured quantities, each
+  service's rate, the quantity it was applied to and its hours, the group's crew hours and where they came
+  from ("from production rates (the trade's rates said 32 h)"), labour cost, materials & line costs,
+  price and margin before overhead, and a totals row. Read-only; "Open measurements" and "Add from a
+  service template" open the Estimate tab's own editors; an unrated service offers owners/admins
+  Settings › Services. Redaction is in the model: no cost keys without jobCosting, no price/margin without
+  showPricing — absent, not null.
+- 43 strings × 9 app languages.
+
+### Checks
+
+- `npm run check:production-rates` — 188 checks: the sanitiser against hostile input (booleans, NaN,
+  hour-unit and prototype keys — a boolean amount WAS read as 1 until the check caught it), the hours
+  maths (units, zero, none, negative, rounding), quantity selection, precedence on the saved costing, the
+  builder's estimate, a recipe trade and the job plan (and `ensurePlanForJob` end to end: another
+  tenant's product id never prices a step; a failed rate read still builds the plan), the server path
+  against the db stub, the tab's redaction, and wiring/i18n. **md5 pinned on origin/main (ef759bb1)
+  before any of this existed**, unchanged with no map, an empty map and rates for other services only:
+  cost summary `e30e0cc4…`, with a crew `6065c44c…`, builder estimate `86af96ab…`, job plan `5a7e06e6…`,
+  save payload `9ae33337…`.
+- `check:doc-builder` (237, +16: the Services tab renders, draws no money for a member without the two
+  toggles, offers the rate screen only to owners; the rate box offers a suggestion without filling it
+  and reopens a stored rate as typed), `check:quote-builder`, `check:job-plan` (201),
+  `check:quote-costing`, `check:job-costing`, `check:service-template-lines`, `check:service-templates`,
+  `check:invoice-builder`, `check:builder-offers`, `check:route-callers`, `check:ungated-routes`,
+  `check:interconnections`, `check:app-messages-kit`, `check:app-screens-i18n` — all pass. `npm run
+  build` passes.
+
+### Still owed here
+
+- A plain one-line product add (`lineFromProduct`) carries no product id, so a rate applies only where
+  the service was added **with its template lines**. Recording the id on the plain path would change a
+  payload pinned byte for byte elsewhere — a decision for the owner, not taken here.
+- The homeowner proposal's day plan (`lib/proposal/load.js`) still reads the trade's takeoff detail, not
+  the service rates — client-facing, so left for an explicit ask.
+- Not yet seen in a browser on a real company: verified by the SSR render in `check:doc-builder` and the
+  build only.
 
 ---
 
