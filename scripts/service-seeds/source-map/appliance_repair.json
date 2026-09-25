@@ -145,5 +145,12 @@
   "sourceCategory": "Book Now",
   "sourceService": "Appliances Installation or Upgrade",
   "taskCode": "DEFAULT_APPLIANCES_SERVICE_20"
+ },
+ {
+  "seedKey": "fq.appliance_repair.additional.laundry_hookup",
+  "industry": "Appliances",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Washer and dryer hookup",
+  "taskCode": null
  }
 ]
