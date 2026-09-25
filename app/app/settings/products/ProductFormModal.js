@@ -21,6 +21,7 @@ import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import BenchmarkRange from "@/app/components/pricing/BenchmarkRange";
 import { benchmarkForSeedKey } from "@/lib/services/seeds";
+import { useCommissionSettings } from "@/app/components/commissions/useCommissionSettings";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -34,6 +35,9 @@ function emptyForm() {
     costPrice: "",
     unit: "",
     categoryIds: [],
+    commissionable: true,
+    workedByPct: "",
+    soldByPct: "",
   };
 }
 
@@ -49,6 +53,9 @@ function formFor(product) {
     categoryIds: Array.isArray(product.categories)
       ? product.categories.map((c) => c.id)
       : [],
+    commissionable: product.commissionable !== false,
+    workedByPct: product.workedByPct ?? "",
+    soldByPct: product.soldByPct ?? "",
   };
 }
 
@@ -72,6 +79,11 @@ export default function ProductFormModal({
   const { t } = useTranslation();
   const [form, setForm] = useState(() => formFor(editing));
   const [saving, setSaving] = useState(false);
+  // The commission override is offered only while the company pays
+  // commission and to someone who may set pay (the route is owner/admin
+  // either way). Off, the payload is exactly what it always was.
+  const commissions = useCommissionSettings();
+  const showCommission = Boolean(commissions?.enabled && commissions?.canEdit);
 
   function toggleCategory(id) {
     setForm((prev) => ({
@@ -94,6 +106,13 @@ export default function ProductFormModal({
         costPrice: form.costPrice ? Number(form.costPrice) : null,
         unit: form.unit || null,
         categoryIds: form.categoryIds,
+        ...(showCommission
+          ? {
+              commissionable: form.commissionable !== false,
+              workedByPct: form.workedByPct === "" ? null : Number(form.workedByPct),
+              soldByPct: form.soldByPct === "" ? null : Number(form.soldByPct),
+            }
+          : {}),
       };
       const res = await fetch(
         editing ? `/api/products/${editing.id}` : "/api/products",
@@ -248,6 +267,59 @@ export default function ProductFormModal({
               {t("app.setProducts.leaveUnchecked")}
             </p>
           </div>
+
+          {showCommission && (
+            <fieldset className="border border-border rounded-lg p-3 space-y-2" data-product-commission>
+              <legend className="text-xs font-semibold text-foreground px-1">
+                {t("app.commissions.product.title")}
+              </legend>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={form.commissionable !== false}
+                  onChange={(e) => setForm({ ...form, commissionable: e.target.checked })}
+                />
+                {t("app.commissions.product.commissionable")}
+              </label>
+              {form.commissionable !== false && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1">
+                      {t("app.commissions.product.workedBy")}
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={form.workedByPct}
+                      placeholder={t("app.commissions.product.memberRate")}
+                      onChange={(e) => setForm({ ...form, workedByPct: e.target.value })}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1">
+                      {t("app.commissions.product.soldBy")}
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={form.soldByPct}
+                      placeholder={t("app.commissions.product.memberRate")}
+                      onChange={(e) => setForm({ ...form, soldByPct: e.target.value })}
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+              )}
+              <p className="text-[11px] text-muted-foreground">
+                {t("app.commissions.product.hint")}
+              </p>
+            </fieldset>
+          )}
 
           <button
             type="submit"

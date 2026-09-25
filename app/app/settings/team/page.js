@@ -16,6 +16,7 @@ import AccessEditor, {
 } from "@/app/components/team/AccessEditor";
 import { describeAccess } from "@/lib/permissions/accessPresets";
 import { personTitle } from "@/lib/team/personLabel";
+import CommissionRates from "@/app/components/commissions/CommissionRates";
 import { PERMISSION_PRESETS, PRESET_TO_ROLE } from "@/lib/permissions";
 import {
   ROLE_LABELS,
@@ -1053,6 +1054,13 @@ export default function TeamOverviewPage() {
           )}
         </div>
       </div>
+
+      {/* ── Each person's commission rates ─────────────────────────────────
+          The owner's "Team › member pay settings" for commissions: worked-by
+          and sold-by percent per person. Renders itself away while the
+          company has commissions off and for anyone who may not set pay —
+          see app/components/commissions/CommissionRates.js. */}
+      <CommissionRates compact />
 
       {/* ── People on the books with no login ───────────────────────────────
           Worker and Member are separate rosters, and they drift: a worker

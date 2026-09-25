@@ -13,6 +13,7 @@ import {
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
 import { resolveInvoiceChaseTask } from "@/lib/tasks/autoCreate";
+import { syncCommissionsForInvoice } from "@/lib/commissions/hook";
 
 // Credit a paid booking/visit fee (the client already paid it at booking time,
 // via Stripe Connect) onto an invoice — the John-the-Plumber model, where the
@@ -112,6 +113,10 @@ async function recomputeInvoice(invoiceId) {
   // ticked off is their judgement and a recompute should not overrule it — the
   // banner on the invoice will say the balance is owed again either way.
   if (isPaid) await resolveInvoiceChaseTask(invoiceId);
+
+  // A credited visit fee is money the client paid toward this invoice, so it
+  // earns commission like any payment — and removing it takes that back.
+  await syncCommissionsForInvoice(db, inv.id);
 }
 
 export async function GET(request, { params }) {

@@ -100,7 +100,11 @@ const den = { label: "Den", lengthFt: 10, widthFt: 13, heightFt: 8 };
 section("A — the plain add path is unchanged");
 {
   const line = lineFromProduct(product, { language: "en", defaultLanguage: "en" });
-  ok(JSON.stringify(line) === JSON.stringify({ description: "Interior repaint", quantity: 1, unit: "flat", rate: 1800, amount: 1800, detail: "Walls and ceilings, two coats.", unitCost: 900 }), "a templated product added by the row click is the one line it always was", line);
+  // `productId` joined the line on 2026-09-25 — the one deliberate change to
+  // this shape, so a price-book item's commission override can find its line
+  // on the invoice (lib/commissions/compute.js#lineProductId). Office-only;
+  // nothing client-facing reads it. Everything else is byte for byte.
+  ok(JSON.stringify(line) === JSON.stringify({ description: "Interior repaint", quantity: 1, unit: "flat", rate: 1800, amount: 1800, detail: "Walls and ceilings, two coats.", unitCost: 900, productId: "p_walls" }), "a templated product added by the row click is the one line it always was, plus the item it came from", line);
   ok(!("meta" in line), "no template key on a plain line");
 }
 

@@ -5,6 +5,7 @@ Last updated: 25 September 2026 (three lost items: the client auto-send policy w
 Last updated: 25 September 2026 (flooring, tile, drywall, siding, fencing and concrete measured on the quote with the calculators that already exist — rooms on paint's geometry with openings off the walls and a waste per material, drywall sheets 4 × 8 / 4 × 12, siding elevations into the siding box, the aerial tracer into the fence's Linear Feet and the slab's Square Footage, posts every 8 ft, cubic yards at the chosen thickness — feeding "Add with its template lines"; nothing new is priced by a takeoff, so nothing new is held back — see "Flooring, tile, drywall, siding, fencing, concrete: measured on the quote" below)
 Last updated: 25 September 2026 ("Coach me on this conversation" on /app/messages threads: free likelihood + paid approach, red flags, slips to walk back and a draft reply in the client's language that only ever lands in the composer; metered as `conversation_coach` on the company's allowance, ~5,500 tokens / ~$0.003 a run on the standard tier, cached per thread)
 Last updated: 25 September 2026 (sales reps' WORK NAME and OPAQUE links: `SalesRep.workName` — the name prospects, signups and companies see, falling back to the real FIRST name — on outreach email From/footer, texts, the intro email, calendar invites, the demo page, the call script, voice prompts, check-in drafts and canned texts; the real name stays on /platform and payroll, shown as "Jesus Pérez — works as Daniel"; the rep sets it on /sales/settings, a superadmin on the rep card; `SalesRep.referralToken` — eight random Crockford base32 characters, minted lazily one row at a time — now carries every link, and attribution, the demo page and the signup floor resolve the token first and the legacy name slug second)
+Last updated: 25 September 2026 (commissions on the company's own jobs, Housecall Pro's model: worked-by / sold-by % per member, item overrides in the price book, revenue or gross-profit basis, earned on money COLLECTED with an append-only ledger synced after every payment / refund / dispute, a job Commissions card with splits, fixed overrides and per-line opt-outs, Reports › Commissions, and a tick-to-include line on the pay run — nothing added to pay unasked)
 Last updated: 25 September 2026 (leads: a "Linked documents" block — quote, jobs, invoices — with "Link an existing quote", and Won now needs an APPROVED quote or work behind it, refusing with a reason and "Link the quote that won it"; calendar: a Cards view on /app/appointments, each entry a card opening a side panel with open quote/job/invoice/client, call, directions and reschedule/cancel)
 Last updated: 25 September 2026 (Australia: GST 10% on an AU contractor's quotes and invoices as a VAT-table row named GST, gated on "Are you registered for GST?"; AUD plans at the same numbers and every other Stripe country on the USD rows, Checkout's currency now taken from the Plan row; tax on FieldQuo's own subscription stays Stripe Tax — new /platform/billing/tax shows per region the subscribers, 12-month taxable vs reverse-charged invoices, FieldQuo's thresholds (UK/EU from the first sale, AU A$75,000) and the Stripe registration checklist; owner to run `npm run seed:seat-ladder`)
 Last updated: 25 September 2026 (uploads go browser → Cloudinary on a server-issued signature and are verified against Cloudinary's Admin API before anything is saved — a normal phone photo uploads again; one helper `lib/media/uploadClient.js`, one progress bar, every `/api/upload` caller moved incl. the portal and the three public forms; limits are ours or the Cloudinary plan's if lower — Free: 10 MB)
@@ -461,6 +462,167 @@ green. Red on assertions identical on the base commit (not this change): `check:
   there would need translating first.
 
 ---
+## Commissions on the company's own jobs, Housecall Pro's model (25 September 2026)
+
+The owner's ask of 24 September, lost and picked back up: "commissions like Housecall Pro, I think
+we don't have that". We didn't: the only commission code was `SalesCommissionPlan` /
+`SalesCommissionEntry`, which pays FieldQuo's own reps and is untouched. This is the contractor
+paying ITS team. HCP's model (captured from their help articles 6649542, 15327130, 12657750,
+15350882, 6596775) rebuilt on FieldQuo's rows.
+
+### The model (additive schema, applied by the CREATE/ADD lines of `prisma migrate diff` only)
+
+- `Member.workedByPct`, `Member.soldByPct`: each person's rate. Null is "not on commission for
+  this role", which is different from 0%. Only people with a rate become earners by default.
+- `Company.commissionsEnabled` / `commissionsEnabledAt` / `commissionBasis` (`revenue` |
+  `gross_profit`). Off by default. `commissionsEnabledAt` is stamped the first time it is switched
+  on and never moves. An invoice family whose first payment is older than that earns nothing, so
+  switching the feature on does not put last year's jobs on this week's pay run.
+- `Product.commissionable`, `Product.workedByPct`, `Product.soldByPct`: the price-book override.
+  The item's rate beats the member's. `commissionable: false` pays nobody. A line finds its item
+  through `productId`, which `lib/quotes/lineDetail.js#lineFromProduct` now writes on the line
+  (a template line already carried `meta.template.productId`). A line typed by hand has no item
+  and takes the member's rate.
+- `JobCommission` (one per job): who earns and on what terms (`earners`, null = the defaults), the
+  last computation (`summary`, `syncedAt`), and `audit`, the card's own change history written in
+  the same write as the change.
+- `JobCommissionEntry`: the append-only ledger. One row per CHANGE in what a member has earned for
+  one role on one invoice family, with the running `total`. A payment writes +, a refund writes −,
+  and a replayed webhook writes nothing. Unique `(invoiceRootId, memberId, role, seq)` is the
+  idempotency guard: two concurrent syncs both try seq N+1, one wins, and the other retries and
+  finds nothing left to write. `payRunId` is set when a saved pay run INCLUDED the row and cleared
+  when that run is cancelled.
+
+### The maths (`lib/commissions/compute.js`, pure)
+
+```
+line net      = line amount × (invoice subtotal − invoice discount) ÷ subtotal   (tax never counts)
+line basis    = line net                                   on the revenue basis
+              = line net × job gross margin                on the gross-profit basis
+job margin    = clamp((revenue − gross cost) ÷ revenue, 0, 1)
+gross cost    = approved hours × pay rate (Worker.hourlyRate, else Member.laborCostPerHour, the same
+                effectiveWageRate payroll uses) + expenses and receipts tagged to the job
+                + subcontracts at the agreed amount. The job page's own actualJobCost, with
+                overhead left out, because gross profit is before overhead.
+rate          = item override if set (worked/sold), else the member's rate; 0 if not commissionable
+share         = earner's split ÷ Σ splits of the people in that role who did NOT opt out of the line
+potential     = Σ over lines of basis × rate × share       (fixed override: fixed × family's share of
+                the job's net)
+earned        = potential × paid fraction                  (amountPaid ÷ total, net of refunds and
+                lost disputes, 0–1)
+```
+
+Each (earner, role, invoice family) figure is rounded to the cent once; totals are sums of those
+integers, and the ledger writes their differences, so a deposit, a balance and a refund never leave
+a stray fraction of a cent.
+
+**Worked example** (executed in `scripts/check-commissions.mjs` §I): repaint line $2,000 at member
+rates, cabinet hardware $500 with an item worked-by override of 4%, invoice discount $250, tax 13%,
+total $2,542.50, a 50% deposit of $1,271.25 collected. Ana worked-by 10%, Ben worked-by 8%, split
+60/40; Sam sold-by 5%. Discount factor 2,250 ÷ 2,500 = 0.9, so repaint net $1,800 and hardware net
+$450. Ana: (1,800 × 10% + 450 × 4%) × 60% = $118.80 potential, **$59.40 earned**. Ben:
+(1,800 × 8% + 450 × 4%) × 40% = $64.80 potential, **$32.40 earned**. Sam: (1,800 + 450) × 5% =
+$112.50 potential, **$56.25 earned**. If Ben opts out of the hardware line, Ana takes all of it
+($126.00 potential) and Ben keeps only his repaint share ($57.60). Ben on a fixed $50 earns $25 on
+the deposit, and Ana's share doesn't change.
+
+### Who earns by default
+
+Worked-by: members with APPROVED time on the job (Worker.userId → Member) or assigned to a
+COMPLETED visit, split evenly (33.33 / 33.33 / 33.34, never 3 × 33.33). Sold-by: the quote's
+`assignedToId` (the salesperson), else its `createdById`. Only people with a rate for the role.
+Editing the job's Commissions card freezes the list as typed. "Reset to the defaults" goes back.
+
+### When it runs
+
+`lib/commissions/hook.js#syncCommissionsForInvoice` runs after every path that moves an invoice's
+money: `recordStripePayment` (checkout webhook, service plans), `settleChargeEvent` (Stripe refunds
+and disputes), `POST /api/payments` (manual), `POST /api/invoices/[id]/refund`, an amendment
+(`PATCH /api/invoices/[id]`), a visit-fee credit and a change-order bill. It is tiny, loads the sync
+only when the company has commissions on (the webhook never pulls in costing for anyone else), and
+never throws, because a payment is real whether or not a commission could be worked out. A missed
+sync heals on the next money movement, on "Recalculate" on the job card, and in the pay-run preview,
+which re-syncs every job whose invoices moved since its last sync before offering anything
+(`syncStaleCommissions`, bounded at 300 invoices). Sending an invoice changes nothing.
+
+### UI (all strings in the nine app languages: 107 keys)
+
+- **Job page › Commissions card** (`app/components/commissions/JobCommissions.js`, under costing
+  and subcontractors): each earner's earned (ledger), if-paid-in-full, and paid out / on a pay run.
+  Payroll view_all edits splits, fixed overrides and per-line opt-outs, add/remove, reset, with a
+  live "adds up to 100%" check, the change history, and Recalculate when the ledger is behind.
+  jobCosting reads everyone's; anyone else sees only their own row. The GET never writes, so a
+  read-only support session cannot move anyone's pay.
+- **Team** and **Settings › Commissions**: worked-by / sold-by % per member
+  (`CommissionRates.js`, payroll view_all). Settings also has the switch and the basis (owner/admin)
+  and says the rules out loud: earned on money collected; never added to pay on its own; the item
+  beats the person; the defaults.
+- **Settings › Products** item modal: "Earns commission" + worked/sold override, shown only while
+  commissions are on. The payload is byte-for-byte unchanged when they are off.
+- **Reports › Commissions** (`/app/analytics/commissions`, linked from Insights, Payroll and
+  Settings): by member and date range (the date a row was EARNED), with earned / paid out / on a
+  pay run / pending / not yet collected, plus the ledger. On screen only. No export (the owner's
+  decision). Own figures only without payroll view_all or jobCosting; the route filters.
+- **Payroll › New pay run**: "Commissions due", with each person's net commission earned by the
+  end of the period and on no run yet, and a tick box each. Ticking re-runs the preview with a
+  `commission` earning line, so the totals always say what is included. Nothing is added to
+  anyone's pay unless it is ticked. Someone with no payroll record, or a net clawback (refunds
+  larger than what is still unpaid), is listed with the reason and never offered. Saving stamps
+  exactly the included ledger rows; cancelling the run frees them.
+
+### RBAC (`lib/commissions/access.js`)
+
+See everyone's: payroll ≥ view_all OR jobCosting. Change rates, splits, overrides, recalculate:
+payroll ≥ view_all (the gate that already guards setting a labour rate). Include on a pay run:
+run_payroll (the pay-run route's own gate). Switch on / basis: owner or admin. Item commission
+rates are stripped from `GET /api/products` for anyone without payroll view_all. Checked per preset:
+Crew, Estimator and Dispatcher see their own; Manager (jobCosting on, payroll view_own) sees
+everyone's and changes nothing.
+
+### Checks
+
+- `npm run check:commissions`: 122 assertions. Revenue vs GP basis, a loss pays $0, item beats
+  member, not-commissionable, template-line item lookup, splits sum to 100 (33.33×3 refused),
+  hostile earner input refused, partial payment, refund reversal, full reversal, an earner removed is
+  reversed, cent rounding (7.5% of 333.33 × 3; a third paid), the discount spread, the worked
+  example, per-line opt-out, fixed override, defaults. The ledger runs against an in-memory db that
+  enforces the unique index: deposit, replayed webhook (0 rows), the hook (0 rows), balance, refund
+  (−$75, reason refund), two concurrent deliveries (written once), pre-switch-on payments earn
+  nothing, off → the hook skips, a draft earns nothing, GP via the loader with the member-cost
+  fallback, and a throwing db never reaches the payment path. The pay-run rule: nothing added unless
+  ticked, net clawback never offered, no worker named, the payslip line carries `commission`. RBAC
+  per preset, and the hooks are wired.
+- Still passing after the change: check:money-flow 162, check:processing-fee 275,
+  check:subscription-refunds 84, check:subcontractors 155 (its source assertion follows the
+  subcontract loader into `lib/costing/jobCostInputs.js`, now shared by job costing and the GP
+  basis), check:service-template-lines 82 (the plain product line now carries `productId`, the
+  one deliberate shape change), check:invoice-builder 133, payroll-rate / payroll-export /
+  payroll-salaried / daily-objectives / run-guards / pay-cycle, check:translations,
+  check:settings-access, check:sidebar, check:job-page-hooks. `npm run build` passes.
+- Failing on files this work does not touch (no diff against origin/main there): check:addon-descriptions (a LineItemsTable source
+  regex), check:rbac-supervisors ("GET /api/time-entries redacts"), check:help-centre
+  (paint_takeoff, ai_material_list, the client-tickets article).
+
+### Still owed here
+
+- **Not clicked through in a browser.** No test login was available to this session. The owner
+  should switch it on for a test company, set two rates, take a deposit and open the job card and a
+  pay-run preview.
+- Rates live on `Member`, as asked. A crew member with no login (a Worker with no Member) cannot
+  carry a rate, and a member with no Worker row cannot be paid on a pay run. The preview names them.
+- An OPEN dispute still counts as collected until Stripe rules. A lost dispute reverses through
+  the refund path.
+- Changing the basis re-works a job only when its money next moves or someone presses Recalculate.
+  There is no company-wide re-run button, on purpose: it would rewrite earned history across
+  every job at once.
+- Invoice lines raised before today carry no `productId`, so item overrides apply only to lines
+  added from the price book from now on (and to template lines, which already carried it).
+- Settings › Commissions borrows the payroll help article. It needs one of its own.
+- Cancelling a pay run frees its commission rows. It still does NOT free the daily-sheet bonus
+  rows it stamped. That's a gap in the existing bonus code, and it's flagged here, not fixed.
+
+---
+
 ## /platform/signups: holder, history, take back, Do Not Contact (25 September 2026)
 
 The owner's three asks of 24 September on FieldQuo's own signups screen.

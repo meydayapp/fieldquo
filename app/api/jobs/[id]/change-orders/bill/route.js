@@ -49,6 +49,7 @@ import { billChangeOrders, changeOrderSummary } from "@/lib/jobs/changeOrderValu
 import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
 import { familyPayments } from "@/lib/invoices/family";
 import { documentLabels, documentFormatters } from "@/lib/i18n/documentLabels";
+import { syncCommissionsForInvoice } from "@/lib/commissions/hook";
 
 const INVOICE_SELECT = {
   id: true,
@@ -270,6 +271,11 @@ export async function POST(request, { params }) {
 
   if (result.error)
     return NextResponse.json({ error: result.error }, { status: 409 });
+
+  // New lines on an invoice that already carries a payment change what that
+  // payment earns (the paid fraction falls as the total rises). Outside the
+  // transaction above, once it has committed — lib/commissions/hook.js.
+  if (result.invoice?.id) await syncCommissionsForInvoice(db, result.invoice.id);
 
   return NextResponse.json(result);
 }

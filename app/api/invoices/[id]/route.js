@@ -34,6 +34,7 @@ import { stripe } from "@/lib/stripe";
 import { formatMoney } from "@/lib/currency";
 import { recordActivity } from "@/lib/activity/log";
 import { invoiceChaseKey, resolveTaskBySource } from "@/lib/tasks/autoCreate";
+import { syncCommissionsForInvoice } from "@/lib/commissions/hook";
 
 // Next 16: params is a Promise — same fix as the quotes route.
 export async function GET(request, { params }) {
@@ -461,6 +462,11 @@ export async function PATCH(request, { params }) {
     },
     include: { client: true },
   });
+
+  // An amended total or amended lines change what the money already
+  // collected earns in commission — the new version is the current document.
+  // A no-op for an unpaid invoice. See lib/commissions/hook.js.
+  await syncCommissionsForInvoice(db, newVersion.id);
 
   return NextResponse.json(
     redactInvoice(full, newVersion),

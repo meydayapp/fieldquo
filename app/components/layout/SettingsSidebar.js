@@ -47,6 +47,7 @@ import {
   CreditCard,
   Receipt,
   Wallet,
+  Percent,
   Smartphone,
   Gift,
   Megaphone,
@@ -200,6 +201,11 @@ export const GROUPS = [
       // charged to a client, it's money moving the OTHER way — the same
       // shelf as Payments and Expense Tracking, not the price book.
       { key: "app.settings.payroll", href: "/app/settings/payroll", icon: Wallet, helpArticle: "settings-payroll" },
+      // Commission on the company's own jobs — money going to the team, the
+      // same direction as a deduction rate, so the same shelf. Owner/admin
+      // (lib/permissions/settingsAccess.js). Its help is the payroll article's
+      // until one of its own is written.
+      { key: "app.settings.commissions", href: "/app/settings/commissions", icon: Percent, helpArticle: "settings-payroll" },
     ],
   },
   {

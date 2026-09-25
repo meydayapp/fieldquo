@@ -224,7 +224,10 @@ section("3. actualJobCost — a sub is costed ONCE, at the agreed amount");
   ok("the two categories are different strings", SUBCONTRACT_PAYMENT_EXPENSE_CATEGORY !== SUBCONTRACT_IMPORT_EXPENSE_CATEGORY);
 
   const costingRoute = stripComments(read("app/api/jobs/[id]/costing/route.js"));
-  ok("the costing route hands JobSubcontractor rows to actualJobCost", /db\.jobSubcontractor\.findMany/.test(costingRoute) && /subcontracts,\s*\}\)/.test(costingRoute));
+  // The query moved to lib/costing/jobCostInputs.js when the gross-profit
+  // commission basis became its second caller; the route must still use it.
+  const costInputs = stripComments(read("lib/costing/jobCostInputs.js"));
+  ok("the costing route hands JobSubcontractor rows to actualJobCost", /loadJobSubcontracts\(db,/.test(costingRoute) && /db\.jobSubcontractor\.findMany/.test(costInputs) && /importExpenseId/.test(costInputs) && /subcontracts,\s*\}\)/.test(costingRoute));
   ok("…and selects expense ids so an adopted import can be dropped by id", /select:\s*\{\s*id:\s*true,\s*category:\s*true,\s*amount:\s*true\s*\}/.test(costingRoute));
   const importQuote = stripComments(read("lib/quotes/importQuote.js"));
   ok("importQuote.js writes the import category by the shared constant, not a literal", /category:\s*SUBCONTRACT_IMPORT_EXPENSE_CATEGORY/.test(importQuote) && !/category:\s*"Subcontractor"/.test(importQuote));

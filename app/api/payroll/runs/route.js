@@ -24,6 +24,7 @@ import {
 } from "@/lib/permissions/enforce";
 import { buildPayRun } from "@/lib/payroll/buildPayRun";
 import { recordActivity } from "@/lib/activity/log";
+import { syncStaleCommissions } from "@/lib/commissions/sync";
 
 // Owners and admins always hold payroll; otherwise the granular grid decides.
 async function payrollAccess(member) {
@@ -106,6 +107,7 @@ export async function POST(request) {
     frequency,
     otThresholdWeekly,
     adjustmentsByWorker,
+    includeCommissionWorkerIds,
     commit,
   } = body || {};
 
@@ -155,6 +157,18 @@ export async function POST(request) {
     );
   }
 
+  // ── Commissions are current before anyone is paid from them ─────────────
+  //
+  // Every money path syncs a job's commissions as it moves (lib/commissions/
+  // hook.js), and that hook never throws — so a sync that failed is healed
+  // here, the last moment before the figures become pay. Bounded, logged,
+  // and never allowed to stop payroll.
+  try {
+    await syncStaleCommissions(db, { companyId: member.companyId });
+  } catch (err) {
+    console.error("[payroll] commission re-sync failed:", err?.message);
+  }
+
   const computed = await buildPayRun({
     companyId: member.companyId,
     periodStart: start,
@@ -163,6 +177,12 @@ export async function POST(request) {
     frequency: frequency || "biweekly",
     otThresholdWeekly,
     adjustmentsByWorker: adjustmentsByWorker || {},
+    // The people whose commission the owner ticked. Strings only; anything
+    // else is dropped, and an id that is not one of this company's active
+    // workers matches nothing inside buildPayRun.
+    includeCommissionWorkerIds: Array.isArray(includeCommissionWorkerIds)
+      ? includeCommissionWorkerIds.filter((x) => typeof x === "string").slice(0, 500)
+      : [],
   });
 
   // Preview: compute and return, save nothing. The company sees the numbers
@@ -223,6 +243,28 @@ export async function POST(request) {
     await db.dailyObjectiveSheet
       .updateMany({ where: { id: { in: bonusSheetIds }, companyId: member.companyId, payRunId: null }, data: { payRunId: run.id } })
       .catch((err) => console.error("[payroll] could not stamp bonus sheets:", err?.message));
+  }
+
+  // The commission ledger rows this run carries, the same way: stamped after
+  // the run exists, only rows still on no run (payRunId null), so two runs
+  // saved at once cannot both claim a row. A row freed by cancelling this run
+  // (app/api/payroll/runs/[id]/route.js) is offered again on the next one.
+  const commissionEntryIds = computed.meta?.commissionEntryIds || [];
+  if (commissionEntryIds.length) {
+    const stamped = await db.jobCommissionEntry
+      .updateMany({
+        where: { id: { in: commissionEntryIds }, companyId: member.companyId, payRunId: null },
+        data: { payRunId: run.id },
+      })
+      .catch((err) => {
+        console.error("[payroll] could not stamp commission rows:", err?.message);
+        return null;
+      });
+    if (stamped && stamped.count !== commissionEntryIds.length) {
+      console.error(
+        `[payroll] run ${run.id}: ${commissionEntryIds.length - stamped.count} commission row(s) were already on another run`,
+      );
+    }
   }
 
   // Hours the worker approved for themselves, carried into the audit trail.

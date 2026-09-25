@@ -89,6 +89,19 @@ model Product {
   estimateTypes   String[] @default([])
   templateEnabled Boolean  @default(true)
 
+  /// Commission, per price-book item (Housecall Pro's "Price Book override").
+  /// `commissionable: false` means no line carrying this item earns anyone a
+  /// commission. `workedByPct` / `soldByPct` override the earner's own rate
+  /// (Member.workedByPct/soldByPct) on lines carrying this item — the item
+  /// beats the member; null means "use the member's rate". A line is tied to
+  /// its item by the `productId` lib/quotes/lineDetail.js#lineFromProduct
+  /// writes on it (or a template line's meta.template.productId); a line typed
+  /// by hand has no item and always takes the member's rate. Written by
+  /// Settings › Products (payroll view_all only); read by lib/commissions/.
+  commissionable Boolean  @default(true)
+  workedByPct    Decimal? @db.Decimal(5, 2)
+  soldByPct      Decimal? @db.Decimal(5, 2)
+
   // Which quote types (ServiceCategory) this product/service can be added to
   // as a line item. Empty = available on every quote type (e.g. a generic
   // "Rush Fee"); non-empty = only offered when building a quote in one of
@@ -1348,6 +1361,23 @@ model Company {
   /// Whole percent, 0–100; 0 asks on any overrun. Read by
   /// GET /api/jobs/[id]/costing, decided by lib/costing/costRevision.js.
   costRevisionThresholdPct Int @default(15)
+
+  /// Commissions on the company's own jobs (see Member.workedByPct). Off until
+  /// an owner or admin switches it on in Settings › Commissions; while off,
+  /// nothing is computed or written and no commission control is drawn.
+  /// `commissionsEnabledAt` is stamped the FIRST time it is switched on and
+  /// never moved: an invoice family whose first payment predates it earns no
+  /// commission, so switching the feature on does not put last year's jobs on
+  /// next week's pay run. `commissionBasis` is "revenue" (the line's price,
+  /// after the invoice discount, before tax) or "gross_profit" (the same,
+  /// times the job's gross margin from its actual costs — approved labour,
+  /// expenses and receipts tagged to the job, subcontracts; never overhead).
+  /// Read by lib/commissions/sync.js; written by PATCH /api/commissions/settings.
+  commissionsEnabled   Boolean   @default(false)
+  commissionsEnabledAt DateTime?
+  commissionBasis      String    @default("revenue")
+  jobCommissions       JobCommission[]
+  jobCommissionEntries JobCommissionEntry[]
   // Languages this company actually sends CLIENT documents in. Drives which
   // options the employee sees when setting a client's language, and which
   // translations get drafted when a service is added.
@@ -2643,6 +2673,19 @@ model Member {
   /// "Signed in" rather than claiming activity. A support session viewing
   /// the account never writes it — see the route for how.
   lastActiveAt DateTime?
+
+  /// Commission on the company's OWN jobs (Housecall Pro's model, the owner's
+  /// ask of 2026-09-24) — NOT SalesCommissionPlan, which pays FieldQuo's own
+  /// reps. Percent of a line's basis (revenue, or gross profit — see
+  /// Company.commissionBasis) this person earns when they WORKED the job and
+  /// when they SOLD it. Null is "not on commission for this role", which is
+  /// not the same statement as 0: a 0 member is still an earner and can earn
+  /// through a price-book item's own rate (Product.workedByPct/soldByPct),
+  /// while a null member is never made an earner by default. Written by
+  /// Team › Commission rates (PATCH /api/commissions/rates, payroll view_all);
+  /// read by lib/commissions/sync.js. The maths is lib/commissions/compute.js.
+  workedByPct Decimal? @db.Decimal(5, 2)
+  soldByPct   Decimal? @db.Decimal(5, 2)
 
   jobPhotoCommentsAuthored JobPhotoComment[]
   jobPhotoMentions         JobPhotoMention[]
@@ -5708,6 +5751,9 @@ model Job {
   /// cron, the job-completed follow-up rule and the completion tasks all
   /// skip rows with this set.
   historicalImportedAt DateTime?
+
+  /// Who earns commission on this job and how — see JobCommission.
+  commission JobCommission?
 
   @@index([warrantyEquipmentId])
 }
@@ -20247,4 +20293,89 @@ model CompanyTextTranslation {
 
   @@unique([companyId, key, language])
   @@index([companyId, language])
+}
+
+// ── Commissions on the company's own jobs ───────────────────────────────────
+//
+// Housecall Pro's model, rebuilt on FieldQuo's rows (owner's ask 2026-09-24).
+// Nothing here touches SalesCommissionPlan / SalesCommissionEntry, which pay
+// FieldQuo's OWN sales reps for signing companies — a different party, a
+// different direction of money.
+//
+// Commission is EARNED on money collected, never on an invoice being sent:
+// each invoice family's paid fraction (amountPaid ÷ total, net of refunds)
+// scales what a line would earn if fully paid. The maths is pure and lives in
+// lib/commissions/compute.js; lib/commissions/sync.js loads the inputs, and
+// every path that moves an invoice's money calls it afterwards.
+
+/// One per job: who earns on it and on what terms. Null `earners` means "the
+/// defaults" — worked-by from the members with approved time or a completed
+/// visit on the job, sold-by from the quote's salesperson (assignedTo, else
+/// its creator), each only when that member has a rate for the role, split
+/// evenly. Writing earners (the job page's Commissions card) freezes the list
+/// as typed. `summary` is the last computation, for the card and the report's
+/// "not yet collected"; `syncedAt` is when it was taken, so the pay-run
+/// preview can find jobs whose invoices moved since. `audit` is the card's own
+/// history — who changed a split or an override, from what to what — kept on
+/// the row, in the same write, because ActivityLog is best-effort by design.
+model JobCommission {
+  id        String    @id @default(cuid())
+  companyId String
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  jobId     String    @unique
+  job       Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  /// [{ memberId, role: "worked"|"sold", splitPct, fixedAmount|null, excludedLines: [lineKey] }]
+  earners   Json?
+  basis     String?
+  summary   Json?
+  syncedAt  DateTime?
+  audit     Json?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([companyId, syncedAt])
+}
+
+/// The commission ledger. Append-only: a row is never edited or deleted, only
+/// followed by another. Each row is the CHANGE in what one member has earned
+/// for one role on one invoice family, and `total` is the running figure after
+/// it — so a payment writes +, a refund writes −, and a replayed webhook that
+/// changes nothing writes nothing.
+///
+/// `seq` is the idempotency guard. Two concurrent syncs that both read seq 3
+/// both try to write seq 4; the unique index lets exactly one through and the
+/// other re-reads and finds nothing left to write — the same "the database
+/// settles the race" rule Payment.stripePaymentIntentId follows.
+///
+/// No foreign key to Job or Member on purpose: this is pay history, and a
+/// deleted job or a removed member must not take the record of what was
+/// earned and paid with it. `memberName` is frozen at write for the same
+/// reason PayRunLine.workerName is.
+///
+/// `payRunId` is set when a pay run the owner saved INCLUDED the row (the
+/// pay-run screen offers commissions as a line; nothing is added to anyone's
+/// pay unless it is ticked) and cleared if that run is cancelled.
+model JobCommissionEntry {
+  id            String   @id @default(cuid())
+  companyId     String
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  jobId         String
+  invoiceRootId String
+  memberId      String
+  memberName    String?
+  /// worked | sold
+  role          String
+  seq           Int
+  amount        Decimal  @db.Decimal(12, 2)
+  total         Decimal  @db.Decimal(12, 2)
+  /// payment | refund | recalculated
+  reason        String
+  detail        Json?
+  payRunId      String?
+  createdAt     DateTime @default(now())
+
+  @@unique([invoiceRootId, memberId, role, seq])
+  @@index([companyId, memberId, createdAt])
+  @@index([companyId, payRunId])
+  @@index([jobId])
 }
