@@ -1667,6 +1667,27 @@ model Company {
   shiftAttendance       ShiftAttendance[]
   eventTypes            EventType[]
   funnels               Funnel[]
+  funnelVisits          FunnelVisit[]
+
+  // ── Ad tracking on the company's public funnels (lib/tracking/) ─────────
+  //
+  // The company's OWN Meta Pixel, GA4/Google Ads tag and TikTok pixel ids,
+  // loaded on its instant-estimate page and on any lead funnel that has not
+  // set an id of its own (Funnel.metaPixelId etc. still win per funnel).
+  // Validated on write by validateTrackingIdsForWrite in lib/funnels/pixels.js
+  // — Meta 15-16 digits — so a pasted "fbq('init', ...)" line is refused with
+  // a reason rather than stored and silently never fired.
+  //
+  // `pixelConsentRequired`: when true, no pixel script is loaded until the
+  // visitor accepts a short notice drawn in the company's colours. Off by
+  // default because no client-facing surface has ever carried a consent layer
+  // and the funnel pixels shipped without one; the company in a consent
+  // jurisdiction switches it on. First-party step counts (FunnelVisit) set no
+  // cookie and are not gated by it.
+  metaPixelId          String?
+  tiktokPixelId        String?
+  ga4Id                String?
+  pixelConsentRequired Boolean @default(false)
   jobs                  Job[]
   satisfactionResponses SatisfactionResponse[]
   jobChecklistTemplates JobChecklistTemplate[]
@@ -6587,6 +6608,16 @@ model LeadRequest {
   metaCampaignId   String?
   metaCampaignName String?
 
+  /// Where the visitor came from, for a lead that arrived through a lead
+  /// funnel or the instant estimate: { source, utmSource, utmMedium,
+  /// utmCampaign, utmContent, utmTerm, clickNetwork, fbc, referrerHost,
+  /// landedAt }. Copied from the FunnelVisit row the SERVER holds for that
+  /// visit — never from the submit body — by lib/tracking/visits.js, and read
+  /// by the lead drawer's "Came from" line (lib/tracking/attribution.js
+  /// describeAttribution). Null when the lead did not come through a tracked
+  /// visit, which means "we do not know", never "direct".
+  attribution Json?
+
   @@unique([companyId, metaLeadId])
   @@index([companyId, metaFormId])
 }
@@ -6746,6 +6777,84 @@ model FunnelEvent {
 enum FunnelStatus {
   draft
   published
+}
+
+/// One visit to a company's public lead funnel (/f/<company>/<funnel>) or its
+/// instant estimate (/instant-quote/<company>), and how far it got.
+///
+/// ── Why one row per visit, not one per event ───────────────────────────────
+///
+/// The report the company reads is "how many came, how many started, where
+/// they stopped, by ad campaign" — every one of those is a count of VISITS at
+/// their furthest step. A row per visit that only ever moves forward
+/// (`stepRank`) answers all of them with a GROUP BY and stores one row per
+/// person-visit, where an event table stores six to ten and needs a
+/// compaction job. Contractor funnels run at tens to low thousands of visits a
+/// month, so this table stays small without any retention delete — which
+/// matters here, because the owner's rule is that nothing is deleted.
+///
+/// ── The partial lead ───────────────────────────────────────────────────────
+///
+/// `contactName/Email/Phone` hold what the visitor typed into the contact
+/// fields before submitting, under the notice printed beside those fields
+/// ("We save what you type so <Company> can follow up"). Shown to the company
+/// as "Started, didn't finish", NEVER a LeadRequest (so it is in no lead
+/// count, no score, no notification and no billing figure), never emailed or
+/// texted by the system. `partialExpiredAt` flags a partial older than
+/// PARTIAL_EXPIRE_DAYS; the screen hides it. Flagged, not deleted.
+///
+/// `token` is the browser's handle on its own row: 32 random bytes the server
+/// issued, so one visitor cannot advance or overwrite another's visit.
+model FunnelVisit {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// "funnel" | "instant_quote"
+  surface  String
+  /// The Funnel this visit is on, as a plain id — not a relation, so deleting
+  /// a funnel keeps the visits (and the partial leads) it collected.
+  funnelId String?
+  /// The instant-estimate trade chosen, once one is.
+  trade    String?
+
+  token     String  @unique
+  language  String?
+
+  /// The furthest step reached, and its position in the surface's order
+  /// (lib/tracking/funnelSteps.js). Never moves backwards.
+  stepKey   String  @default("landed")
+  stepRank  Int     @default(0)
+
+  /// The landing: tagged-link parameters and the referring host, as the
+  /// browser first arrived. `source` is the one-word answer the report
+  /// groups by (lib/analytics/product/events.js trafficSource).
+  source       String  @default("direct")
+  utmSource    String?
+  utmMedium    String?
+  utmCampaign  String?
+  utmContent   String?
+  utmTerm      String?
+  clickNetwork String?
+  /// Meta's click id in its _fbc cookie shape: fb.1.<landing ms>.<fbclid>.
+  fbc          String?
+  referrerHost String?
+
+  contactName  String?
+  contactEmail String?
+  contactPhone String?
+  contactAt    DateTime?
+  partialExpiredAt DateTime?
+
+  leadId      String?   @unique
+  completedAt DateTime?
+
+  startedAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+
+  @@index([companyId, surface, startedAt])
+  @@index([companyId, contactAt])
+  @@index([funnelId])
 }
 
 /// ── Written by nobody, read by nobody ──────────────────────────────────────

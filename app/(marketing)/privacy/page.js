@@ -101,6 +101,18 @@ export default function PrivacyPage() {
       <ul>
         <li>Name, address, phone number and email, when a company adds them as a client, or when they submit a self-quote form, a booking request, or call a company's AI receptionist.</li>
         <li>Photos of their property, when they or a company's staff attach them to a quote or job.</li>
+        <li>
+          On a company&rsquo;s instant-estimate page or lead funnel: how far the
+          visit got and which link or ad it arrived from (counted without a
+          cookie), and &mdash; under a notice beside the fields saying so &mdash;
+          the name, email and phone typed into the contact step even if the
+          request is never sent, kept for that company to follow up and hidden
+          after 30 days. If the company has added its own advertising pixel
+          (Meta, Google or TikTok), that platform receives page views and a
+          &ldquo;lead&rdquo; event from the visitor&rsquo;s browser, with no
+          name, email, phone or address; a company can require the visitor&rsquo;s
+          consent before any pixel loads.
+        </li>
         <li>Payment details, when they pay an invoice or a booking fee online — handled by Stripe; FieldQuo does not store card numbers.</li>
         <li>The content of quotes, invoices, and messages sent to them.</li>
         <li>

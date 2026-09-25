@@ -33,7 +33,7 @@ import { readFileSync } from "node:fs";
 
 import { isWebsiteAdmin } from "@/lib/site/access";
 import { SETTINGS_ROW_CAPABILITY } from "@/lib/permissions/settingsAccess";
-import { validPixelIds, pixelScripts, fireLeadEvents } from "@/lib/funnels/pixels";
+import { validPixelIds, pixelScripts, fireLeadEvents, effectivePixels } from "@/lib/funnels/pixels";
 import { campaignActions, canSetStatus, isArchived, SETTABLE_STATUSES, STATUS_LABEL_KEY } from "@/lib/marketing/campaignStatus";
 import { campaignBudgets, channelsWithBudgets, CAMPAIGN_TYPE_TO_PLATFORM } from "@/lib/analytics/campaignBudgets";
 import { siteGaps } from "@/lib/site/gaps";
@@ -158,18 +158,31 @@ console.log("\n3. Funnel pixels: injected when set, nothing when not, Lead on co
   const throwing = { fbq: () => { throw new Error("boom"); } };
   ok("a platform script that throws is swallowed", fireLeadEvents({ meta: "123456789012345" }, throwing).length === 0);
 
+  // Since 2026-09-24 the injection lives in one hook shared with the instant
+  // estimate (app/components/public/useAdTracking.js), and the DOM work in
+  // lib/funnels/pixels.js injectPixelScripts — asserted where it now is.
   const runner = stripComments(read("app/f/[companySlug]/[funnelSlug]/FunnelRunner.js"));
-  ok("FunnelRunner injects pixelScripts(...) into document.head",
-    /pixelScripts\(pixels\)/.test(runner) && /document\.head\.appendChild/.test(runner));
-  ok("…guarded against a second injection", /data-fq-pixel/.test(runner));
+  const hook = stripComments(read("app/components/public/useAdTracking.js"));
+  const pixelsSrc = stripComments(read("lib/funnels/pixels.js"));
+  ok("FunnelRunner loads its pixels through useAdTracking, which injects pixelScripts(...) into document.head",
+    /useAdTracking\(\{[\s\S]*pixels,/.test(runner) && /injectPixelScripts\(/.test(hook) &&
+    /pixelScripts\(pixels\)/.test(pixelsSrc) && /doc\.head\.appendChild/.test(pixelsSrc));
+  ok("…guarded against a second injection", /data-fq-pixel/.test(pixelsSrc));
   const submit = runner.slice(runner.indexOf("async function submit"));
   const okIdx = submit.indexOf("if (!res.ok) throw");
-  const fireIdx = submit.indexOf("fireLeadEvents(pixels)");
+  const fireIdx = submit.indexOf('tracking.fire("Lead"');
   ok("…and fires the Lead event only after the submit route accepted", okIdx > 0 && fireIdx > okIdx);
   const api = read("app/api/funnels/public/[companySlug]/[funnelSlug]/route.js");
-  ok("the public API still serves the ids under funnel.pixels", /pixels:\s*\{[\s\S]*meta:[\s\S]*tiktok:[\s\S]*ga4:/.test(api));
+  ok("the public API still serves the ids under funnel.pixels (funnel's own, else the company's)",
+    /pixels:\s*effectivePixels\(funnel,\s*company\)/.test(api));
+  const eff = effectivePixels(
+    { metaPixelId: null, tiktokPixelId: "CFUNNEL123456789", ga4Id: "" },
+    { metaPixelId: "123456789012345", tiktokPixelId: "CCOMPANY12345678", ga4Id: "G-COMPANY1" },
+  );
+  ok("…per platform: the funnel's id wins, an empty one falls back to the company's",
+    eff.meta === "123456789012345" && eff.tiktok === "CFUNNEL123456789" && eff.ga4 === "G-COMPANY1", eff);
   const builder = read("app/app/funnels/[id]/page.js");
-  ok("the builder's pixel panel says what the ids do and that no consent banner is added",
+  ok("the builder's pixel panel says what the ids do and where the consent switch is",
     /app\.funnels\.pixelsNote/.test(builder));
   ok("…in every language", LANGS.every((l) => typeof APP_MESSAGES[l]["app.funnels.pixelsNote"] === "string"));
 }

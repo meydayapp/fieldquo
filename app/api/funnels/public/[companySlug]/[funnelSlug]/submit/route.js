@@ -14,6 +14,8 @@ import { recordConsent } from "@/lib/voice/outbound";
 import { DISCLOSURE } from "@/lib/voice/disclosure";
 import { sanitiseFunnelSteps } from "@/app/data/funnelBlocks";
 import { confirmedFunnelEstimates } from "../../../funnelEstimate";
+import { visitForSubmit, linkVisitToLead } from "@/lib/tracking/visits";
+import { estimateBucket, pixelParams } from "@/lib/tracking/attribution";
 
 // Public — a completed funnel run becomes a scored LeadRequest in the normal
 // pipeline, plus a FunnelResponse for the funnel's own analytics. Same shape and
@@ -76,6 +78,18 @@ export async function POST(request, { params }) {
   });
 
   const media = normaliseMediaList(body.media);
+
+  // The visit this run belongs to, by the token the visit beacon issued —
+  // so the lead carries the ad campaign it came from. Read from the SERVER's
+  // row; nothing about a source is taken from this body. Best-effort: no
+  // visit (a blocked beacon, an old tab) is a lead with no attribution,
+  // never a refused one.
+  const { visit, attribution } = await visitForSubmit({
+    companyId: company.id,
+    surface: "funnel",
+    token: body.visitToken,
+  }).catch(() => ({ visit: null, attribution: null }));
+
   const lead = await createScoredLead({
     companyId: company.id,
     ...leadInput,
@@ -91,7 +105,12 @@ export async function POST(request, { params }) {
       details: { ...(leadInput.intake || {}), ...estimates.intake },
     }),
     clientPhotos: media,
+    attribution,
   });
+
+  await linkVisitToLead(visit, lead.id, { funnelSteps: cleanSteps }).catch((err) =>
+    console.error("[funnel] visit not linked:", err?.message),
+  );
 
   await db.funnelResponse.create({
     data: {
@@ -113,11 +132,29 @@ export async function POST(request, { params }) {
     }).catch((err) => console.error("[funnel] consent not recorded:", err?.message));
   }
 
+  // ── What the ad pixels may be told ────────────────────────────────────
+  //
+  // Built here so the browser forwards it untouched: the estimate step's
+  // trade key and, only when the visitor was SHOWN a range, a bucket name
+  // for it ("5k_10k"). Never a figure, never anything they typed. The lead's
+  // id is the event id, so a server-side send of the same Lead could
+  // de-duplicate against the browser's.
+  const estimateSteps = cleanSteps.filter((s) => s.kind === "instant_estimate");
+  const shownStep = estimateSteps.find((s) => estimates.byStep[s.id] && !estimates.byStep[s.id].gated);
+  const shownOption = shownStep ? estimates.byStep[shownStep.id]?.options?.[0] : null;
+  const tracking = {
+    eventId: lead.id,
+    params: pixelParams({
+      category: (shownStep || estimateSteps[0])?.trade || null,
+      bucket: shownOption ? estimateBucket(shownOption.low, shownOption.high) : null,
+    }),
+  };
+
   return NextResponse.json(
     // `estimates` is keyed by step id and is empty unless the funnel has an
     // estimate step the visitor answered. A details-first step reveals its
     // number from here, which is why the reveal cannot happen without a lead.
-    { success: true, leadId: lead.id, estimates: estimates.byStep },
+    { success: true, leadId: lead.id, estimates: estimates.byStep, tracking },
     { status: 201 },
   );
 }
