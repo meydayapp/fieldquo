@@ -21,6 +21,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Languages, Loader2 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { LANGUAGES } from "@/app/i18n/languages";
 
 /** How long after the save before the first status read. */
 const FIRST_POLL_MS = 4000;
@@ -31,12 +32,21 @@ function statusUrl(result) {
   const params = new URLSearchParams({ summary: "1" });
   if (result.model === "company") {
     params.set("keys", (result.keys || []).join(","));
+  } else if (result.model === "serviceContent") {
+    params.set("model", result.model);
+    params.set("ids", (result.ids || [result.id]).filter(Boolean).join(","));
   } else {
     params.set("model", result.model);
     params.set("id", result.id || "");
   }
   return `/api/settings/translations/company?${params}`;
 }
+
+// ── "Written in French" (2026-09-25) ────────────────────────────────────────
+// The drafting call detects the language each text is actually written in;
+// the status route reports it per text. The banner names it, so a company
+// whose story was typed in French at an English default sees that it was
+// understood as French — and translated into English, not "from English".
 
 /**
  * @param result  the `autoTranslate` object a save route answered, or null
@@ -63,7 +73,9 @@ export default function AutoTranslateBanner({ result, id = null, className = "" 
           const total = cells.length;
           const ready = cells.filter((s) => s === "drafted" || s === "reviewed").length;
           const pending = cells.filter((s) => s === "pending").length;
-          setState({ total, ready, pending, settled: ready + pending >= total });
+          const texts = Math.max(1, Object.keys(d.keys).length);
+          const written = [...new Set(Object.values(d.sourceLanguages || {}).filter(Boolean))];
+          setState({ total, ready, pending, texts, perText: Math.round(total / texts), written, settled: ready + pending >= total });
           if (ready + pending >= total || polls >= MAX_POLLS) return;
         } else if (polls >= MAX_POLLS) {
           return;
@@ -91,10 +103,17 @@ export default function AutoTranslateBanner({ result, id = null, className = "" 
     );
   }
 
-  const count = result.languages?.length || 0;
-  const perKey = result.model === "company" ? (result.keys?.length || 1) : 1;
+  // Languages per text: 7 of the 8 normally, all 8 for a text detected in
+  // none of them. Read off the status once it answers.
+  const count = state?.perText || result.languages?.length || 0;
+  const perKey = state?.texts || (result.model === "company" || result.model === "serviceContent" ? result.keys?.length || 1 : 1);
   const ready = state ? Math.floor(state.ready / perKey) : null;
   const pending = state ? Math.ceil(state.pending / perKey) : 0;
+  const nameOf = (code) =>
+    code === "other"
+      ? t("app.autoTranslate.otherLanguage", "Another language")
+      : LANGUAGES.find((l) => l.code === code)?.nativeName || code;
+  const written = state?.written?.length ? state.written.map(nameOf).join(", ") : null;
 
   return (
     <div
@@ -103,6 +122,11 @@ export default function AutoTranslateBanner({ result, id = null, className = "" 
       className={`flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/40 px-4 py-3 text-sm text-emerald-900 dark:text-emerald-200 ${className}`}
     >
       <Languages size={16} className="shrink-0" />
+      {written && (
+        <span className="font-medium" data-written-in>
+          {t("app.autoTranslate.writtenIn", "Written in {language} —", { language: written })}
+        </span>
+      )}
       <span className="font-medium">
         {t("app.autoTranslate.banner", "Translated automatically into {count} languages.", { count })}
       </span>

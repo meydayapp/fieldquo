@@ -33,6 +33,7 @@ import RateCard from "./RateCard";
 import PaintRateSets from "./PaintRateSets";
 import { PAINT_TAKEOFF_CATEGORIES } from "@/lib/pricing/sanitiseRates";
 import QuoteWording from "./QuoteWording";
+import AutoTranslateBanner from "@/app/components/settings/AutoTranslateBanner";
 import PrepGuideEditor from "./PrepGuideEditor";
 import PrepGuideCompanyCard from "./PrepGuideCompanyCard";
 import TextBlockLibraryCard from "./TextBlockLibraryCard";
@@ -91,6 +92,7 @@ export default function ServicesEditor({ compact = false, focus = "services", on
   // every contractor on every visit that they have nothing configured.
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [autoTranslate, setAutoTranslate] = useState(null);
 
   // The industries picked at signup drive which of the ~60 catalog categories
   // are shown by default — mirrors the signup services step so a plumber lands
@@ -315,7 +317,13 @@ export default function ServicesEditor({ compact = false, focus = "services", on
       // one, so a company could turn a service off, see "Saved", and have it
       // quietly revert. Surface the failure instead.
       if (!res.ok) await reportResponseError(res);
-      else onSaved?.();
+      else {
+        // The job-process wording a save changed is drafted into the other
+        // document languages; the banner says so and reports what landed.
+        const answer = await res.json().catch(() => null);
+        setAutoTranslate(answer?.autoTranslate || null);
+        onSaved?.();
+      }
     } catch (err) {
       await reportResponseError(err);
     } finally {
@@ -914,6 +922,9 @@ export default function ServicesEditor({ compact = false, focus = "services", on
       >
         {saving ? t("app.action.saving") : t("app.setServices.saveSettings")}
       </button>
+      {/* "Written in French — translated automatically into 7 languages —
+          Review", after a save that changed a trade's wording. */}
+      <AutoTranslateBanner result={autoTranslate} className="mt-3" />
 
       {showCustomModal && (
         <div

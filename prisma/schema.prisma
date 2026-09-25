@@ -4484,6 +4484,16 @@ model CompanyServiceCategory {
   // is the company's call to make, and the same trade-off includedItems has.
   scopeDescription String?
 
+  /// The three overrides above in the other document languages, drafted on
+  /// save (lib/i18n/autoTranslate.js, model "serviceContent") and read by
+  /// resolveServiceContent for a document in that language:
+  /// { [lang]: { scopeDescription?: { text }, includedItems?: { items },
+  ///   processSteps?: { steps }, each with sourceHash, from, auto,
+  ///   draftedAt | reviewedAt, or pending } }. Per field and hash-matched,
+  /// like CompanyTextTranslation: an entry drafted from wording the company
+  /// has since changed is ignored and the company's own words print.
+  translations Json?
+
   /// The company's own copy of the client preparation guide for this trade,
   /// keyed by language: { en: { checklist: string[], warning, dayOf: string[],
   /// afterCare, notes }, fr: {...}, es: {...} }. Null (or a missing language
@@ -20300,6 +20310,15 @@ model CompanyTextTranslation {
 
   text       String @default("")
   sourceHash String
+  /// The language the SOURCE text is written in, as the drafting call
+  /// detected it (lib/i18n/autoTranslate.js) — "en" … "it", or "other".
+  /// Not always Company.defaultLanguage: an English-default company can write
+  /// its story in French. A row whose `language` equals this is never
+  /// applied (the source is printed), and a row for the company's default
+  /// language exists only when the source was detected in another one.
+  /// Null on rows written before detection (2026-09-25) — re-detected on the
+  /// next save of that text.
+  sourceLanguage String?
   /// "drafted" | "reviewed" | "pending"
   status String  @default("drafted")
   auto   Boolean @default(true)

@@ -15,6 +15,8 @@ import { loadEnforceableMember, canSeeMoney } from "@/lib/permissions/enforce";
 import { builtInGuide, GUIDE_LANGUAGES } from "@/lib/prepGuide/content";
 import { withPrepGuideCopy } from "@/lib/prepGuide/resolve";
 import { seedServicesForTrade } from "@/lib/products/seedServices";
+import { scheduleAutoTranslate } from "@/lib/i18n/autoTranslateSchedule";
+import { serviceContentHash } from "@/lib/i18n/contentHash";
 
 // GET — system catalog + this company's own custom quote types, merged with
 // this company's settings (enabled/rate/unit). Custom categories are scoped
@@ -58,6 +60,15 @@ export async function GET(request) {
       companySettings: { where: { companyId: member.companyId } },
     },
   });
+
+  // The language the defaults are shown in: the one this company's quotes
+  // are written in by default, so the editor shows the wording its quotes
+  // actually print (the catalogue carries all eight since 2026-09-25).
+  const company = await db.company.findUnique({
+    where: { id: member.companyId },
+    select: { defaultLanguage: true },
+  });
+  const wordingLanguage = company?.defaultLanguage || "en";
 
   const merged = categories.map((c) => {
     const setting = c.companySettings[0] || null;
@@ -135,11 +146,25 @@ export async function GET(request) {
       // show what a quote would actually print. `contentOverrides` is the
       // sparse patch, so it can tell "customised" from "inherited" — the same
       // pair as priceBook / rateOverrides above, for the same reason.
-      content: resolveServiceContent(c.key, setting || null),
+      //
+      // The override goes in WITHOUT its drafted translations: this is the
+      // editor, and it must show the company's own words — not the English
+      // draft of a French original — or a save would write the draft back
+      // as the source.
+      content: resolveServiceContent(
+        c.key,
+        setting ? { ...setting, translations: null } : null,
+        null,
+        wordingLanguage,
+      ),
       contentOverrides: {
         includedItems: setting?.includedItems ?? null,
         processSteps: setting?.processSteps ?? null,
         scopeDescription: setting?.scopeDescription ?? null,
+        // Their drafts in the other document languages (read-only here —
+        // the save never sends it back), so the quote builder shows the
+        // paragraph a quote in another language will actually print.
+        translations: setting?.translations ?? null,
       },
       // The client preparation guide — lib/prepGuide. `originals` is the
       // built-in per language, read-only on the screen; `copies` is what
@@ -304,7 +329,9 @@ export async function PATCH(request) {
   // afterwards every row says "enabled" and the question has no answer.
   const before = await db.companyServiceCategory.findMany({
     where: { companyId: member.companyId, categoryId: { in: [...keyById.keys()] } },
-    select: { categoryId: true, enabled: true },
+    // The wording too: the auto-translate banner below speaks only for a
+    // trade whose wording this save actually changed.
+    select: { categoryId: true, enabled: true, includedItems: true, processSteps: true, scopeDescription: true },
   });
   const wasEnabled = new Set(before.filter((r) => r.enabled).map((r) => r.categoryId));
   const newlyEnabled = categories.filter(
@@ -368,6 +395,53 @@ export async function PATCH(request) {
     ),
   );
 
+  // ── The company's own job-process wording, drafted into every language ───
+  //
+  // The owner, 2026-09-25: "Do any changes and additions get translated?"
+  // They did not — an edited "How the job runs" printed only in the language
+  // it was typed in. Every row whose wording this save sent is handed to the
+  // same drafter the payment terms use (lib/i18n/autoTranslate.js, model
+  // "serviceContent"): per field, hash-matched, a person's reviewed wording
+  // never overwritten, detection of the language it was written in. An
+  // unchanged field costs nothing — the hash short-circuits before any call —
+  // so the round-tripped overrides on every save are free.
+  const wordingLanguage = (
+    await db.company.findUnique({ where: { id: member.companyId }, select: { defaultLanguage: true } })
+  )?.defaultLanguage || "en";
+  const beforeById = new Map(before.map((r) => [r.categoryId, r]));
+  const WORDING = ["scopeDescription", "includedItems", "processSteps"];
+  const scheduled = [];
+  categories.forEach((c, i) => {
+    const touched = c.includedItems !== undefined || c.processSteps !== undefined || c.scopeDescription !== undefined;
+    const row = results[i];
+    if (!touched || !row?.id) return;
+    const was = beforeById.get(c.categoryId);
+    const changed = WORDING.some((f) => serviceContentHash(f, row[f]) !== serviceContentHash(f, was?.[f]));
+    const summary = scheduleAutoTranslate({
+      companyId: member.companyId,
+      model: "serviceContent",
+      id: row.id,
+      fields: {
+        scopeDescription: row.scopeDescription,
+        includedItems: row.includedItems,
+        processSteps: row.processSteps,
+      },
+      sourceLanguage: wordingLanguage,
+    });
+    // Scheduled either way (an unchanged field is free, and wording saved
+    // before detection existed is detected once); announced only if changed.
+    if (summary && changed) scheduled.push({ id: row.id, summary });
+  });
+  // One banner for the save: which rows, which fields, how many languages.
+  const autoTranslate = scheduled.length
+    ? {
+        ...scheduled[0].summary,
+        model: "serviceContent",
+        ids: scheduled.map((s) => s.id),
+        keys: [...new Set(scheduled.flatMap((s) => s.summary.keys || []))],
+      }
+    : null;
+
   // ── Switching a trade on seeds its service list ─────────────────────────
   //
   // The same rows a new company gets at signup: the trade's services with the
@@ -402,7 +476,7 @@ export async function PATCH(request) {
     console.error("[settings/service-categories] couldn't refresh the receptionist:", err?.message),
   );
 
-  return NextResponse.json({ success: true, updated: results.length });
+  return NextResponse.json({ success: true, updated: results.length, autoTranslate });
 }
 
 // How much of either list a company may store. Not a style rule — this text is
