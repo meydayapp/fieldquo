@@ -440,7 +440,7 @@ export default function CampaignDetailPage() {
                           onClick={() =>
                             updateStop(stop.id, { status: "delivered" })
                           }
-                          className="flex items-center gap-1 text-xs border border-border rounded-full px-2.5 py-1 hover:bg-muted"
+                          className="flex min-h-[44px] lg:min-h-0 items-center gap-1 text-xs border border-border rounded-full px-2.5 py-1 hover:bg-muted"
                         >
                           <Check size={12} /> {t("app.mkStop.delivered")}
                         </button>
@@ -448,19 +448,19 @@ export default function CampaignDetailPage() {
                           onClick={() =>
                             updateStop(stop.id, { status: "not_home" })
                           }
-                          className="flex items-center gap-1 text-xs border border-border rounded-full px-2.5 py-1 hover:bg-muted"
+                          className="flex min-h-[44px] lg:min-h-0 items-center gap-1 text-xs border border-border rounded-full px-2.5 py-1 hover:bg-muted"
                         >
                           <UserX size={12} /> {t("app.mkStop.not_home")}
                         </button>
                         <button
                           onClick={() => openConvert(stop)}
-                          className="flex items-center gap-1 text-xs border border-border rounded-full px-2.5 py-1 hover:bg-muted"
+                          className="flex min-h-[44px] lg:min-h-0 items-center gap-1 text-xs border border-border rounded-full px-2.5 py-1 hover:bg-muted"
                         >
                           <MessageSquare size={12} /> {t("app.mkStop.spoke")}
                         </button>
                         <button
                           onClick={() => deleteStop(stop.id)}
-                          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-red-500 px-1.5 py-1"
+                          className="flex min-h-[44px] lg:min-h-0 items-center gap-1 text-xs text-muted-foreground hover:text-red-500 px-1.5 py-1"
                           aria-label={t("app.mkDetail.removeStop")}
                         >
                           <Trash2 size={12} />

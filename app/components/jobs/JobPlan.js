@@ -507,27 +507,27 @@ function StepRow({ t, step: s, index, formatDate, reordering, busy, canEdit, onM
         {!reordering && (
           <div className="mt-2 flex flex-wrap gap-2 items-center">
             {status !== "done" && status !== "cancelled" && status !== "in_progress" && (
-              <button type="button" disabled={busy || blockedByDeps} title={blockedByDeps ? t("app.jobPlan.blockedHint", "Waiting on another step") : undefined} onClick={onStart} className="inline-flex items-center gap-1 border border-border text-xs font-semibold px-2.5 py-1 rounded-md hover:bg-muted disabled:opacity-50">
+              <button type="button" disabled={busy || blockedByDeps} title={blockedByDeps ? t("app.jobPlan.blockedHint", "Waiting on another step") : undefined} onClick={onStart} className="inline-flex min-h-[44px] lg:min-h-0 items-center gap-1 border border-border text-xs font-semibold px-2.5 py-1 rounded-md hover:bg-muted disabled:opacity-50">
                 <Play size={12} /> {t("app.jobPlan.start", "Start")}
               </button>
             )}
             {status !== "done" && status !== "cancelled" && (
-              <button type="button" disabled={busy || blockedByDeps} onClick={onDone} className="inline-flex items-center gap-1 border border-border text-xs font-semibold px-2.5 py-1 rounded-md hover:bg-muted disabled:opacity-50">
+              <button type="button" disabled={busy || blockedByDeps} onClick={onDone} className="inline-flex min-h-[44px] lg:min-h-0 items-center gap-1 border border-border text-xs font-semibold px-2.5 py-1 rounded-md hover:bg-muted disabled:opacity-50">
                 <Check size={12} /> {t("app.job.taskMarkDone")}
               </button>
             )}
             {status === "done" && (
-              <button type="button" disabled={busy} onClick={onReopen} className="inline-flex items-center gap-1 border border-border text-xs font-semibold px-2.5 py-1 rounded-md hover:bg-muted disabled:opacity-50">
+              <button type="button" disabled={busy} onClick={onReopen} className="inline-flex min-h-[44px] lg:min-h-0 items-center gap-1 border border-border text-xs font-semibold px-2.5 py-1 rounded-md hover:bg-muted disabled:opacity-50">
                 <RotateCcw size={12} /> {t("app.job.taskReopen")}
               </button>
             )}
             {status !== "done" && status !== "cancelled" && !holding && !s.waitingReason && (
-              <button type="button" disabled={busy} onClick={onHold} className="inline-flex items-center gap-1 border border-border text-xs font-semibold px-2.5 py-1 rounded-md hover:bg-muted disabled:opacity-50">
+              <button type="button" disabled={busy} onClick={onHold} className="inline-flex min-h-[44px] lg:min-h-0 items-center gap-1 border border-border text-xs font-semibold px-2.5 py-1 rounded-md hover:bg-muted disabled:opacity-50">
                 <PauseCircle size={12} /> {t("app.jobPlan.hold", "Put on hold")}
               </button>
             )}
             {s.waitingReason && status !== "done" && (
-              <button type="button" disabled={busy} onClick={onHoldClear} className="inline-flex items-center gap-1 border border-border text-xs font-semibold px-2.5 py-1 rounded-md hover:bg-muted disabled:opacity-50">
+              <button type="button" disabled={busy} onClick={onHoldClear} className="inline-flex min-h-[44px] lg:min-h-0 items-center gap-1 border border-border text-xs font-semibold px-2.5 py-1 rounded-md hover:bg-muted disabled:opacity-50">
                 <X size={12} /> {t("app.jobPlan.holdClear", "Clear hold")}
               </button>
             )}

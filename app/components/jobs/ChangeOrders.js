@@ -298,30 +298,30 @@ export default function ChangeOrders({ jobId, changeOrders, onChanged }) {
                   <div className="mt-2 flex flex-wrap gap-2">
                     {status === "pending" && (
                       <>
-                        <button type="button" disabled={busyId === co.id} onClick={() => resend(co)} className="inline-flex items-center gap-1 border border-border text-xs font-semibold px-2.5 py-1 rounded-md hover:bg-muted disabled:opacity-60">
+                        <button type="button" disabled={busyId === co.id} onClick={() => resend(co)} className="inline-flex min-h-[44px] lg:min-h-0 items-center gap-1 border border-border text-xs font-semibold px-2.5 py-1 rounded-md hover:bg-muted disabled:opacity-60">
                           <Send size={12} />
                           {t("app.changeOrder.sendForApproval", "Send for approval")}
                         </button>
-                        <button type="button" disabled={busyId === co.id} onClick={() => decide(co, "approved")} className="inline-flex items-center gap-1 border border-border text-xs font-semibold px-2.5 py-1 rounded-md hover:bg-muted disabled:opacity-60">
+                        <button type="button" disabled={busyId === co.id} onClick={() => decide(co, "approved")} className="inline-flex min-h-[44px] lg:min-h-0 items-center gap-1 border border-border text-xs font-semibold px-2.5 py-1 rounded-md hover:bg-muted disabled:opacity-60">
                           <Check size={12} />
                           {t("app.changeOrder.approve", "Mark agreed")}
                         </button>
                       </>
                     )}
                     {status === "rejected" && (
-                      <button type="button" disabled={busyId === co.id} onClick={() => decide(co, "approved")} className="inline-flex items-center gap-1 border border-border text-xs font-semibold px-2.5 py-1 rounded-md hover:bg-muted disabled:opacity-60">
+                      <button type="button" disabled={busyId === co.id} onClick={() => decide(co, "approved")} className="inline-flex min-h-[44px] lg:min-h-0 items-center gap-1 border border-border text-xs font-semibold px-2.5 py-1 rounded-md hover:bg-muted disabled:opacity-60">
                         <Check size={12} />
                         {t("app.changeOrder.approve", "Mark agreed")}
                       </button>
                     )}
                     {status !== "rejected" && (
-                      <button type="button" disabled={busyId === co.id} onClick={() => decide(co, "rejected")} className="inline-flex items-center gap-1 border border-border text-xs font-semibold px-2.5 py-1 rounded-md hover:bg-muted disabled:opacity-60">
+                      <button type="button" disabled={busyId === co.id} onClick={() => decide(co, "rejected")} className="inline-flex min-h-[44px] lg:min-h-0 items-center gap-1 border border-border text-xs font-semibold px-2.5 py-1 rounded-md hover:bg-muted disabled:opacity-60">
                         <X size={12} />
                         {status === "waiting_client" ? t("app.changeOrder.withdraw", "Withdraw") : t("app.changeOrder.reject", "Reject")}
                       </button>
                     )}
                     {status !== "pending" && (
-                      <button type="button" disabled={busyId === co.id} onClick={() => decide(co, "pending")} className="inline-flex items-center gap-1 border border-border text-xs font-semibold px-2.5 py-1 rounded-md hover:bg-muted disabled:opacity-60">
+                      <button type="button" disabled={busyId === co.id} onClick={() => decide(co, "pending")} className="inline-flex min-h-[44px] lg:min-h-0 items-center gap-1 border border-border text-xs font-semibold px-2.5 py-1 rounded-md hover:bg-muted disabled:opacity-60">
                         <Undo2 size={12} />
                         {t("app.changeOrder.reopen", "Back to pending")}
                       </button>
