@@ -76,6 +76,7 @@ import { DEFAULT_IMAGE_STYLE, STYLE_KEYS } from "@/lib/ai/imageStyles";
 import { AlertTriangle, ImagePlus, Loader, X } from "lucide-react";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { uploadFile } from "@/lib/media/uploadClient";
 import { ToolSidebarClose } from "@/app/components/designer/ToolSidebarClose";
 import { ToolSidebarHeader } from "@/app/components/designer/ToolSidebarHeader";
 import {
@@ -141,17 +142,14 @@ export function AiSidebar({ editor, activeTool, onChangeActiveTool }) {
     setUploading(true);
     setError("");
     try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch("/api/upload", { method: "POST", body: form });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        setError(data?.error || t("app.aiImage.uploadFailed", "That photo wouldn't upload."));
-        return;
-      }
+      const data = await uploadFile(file, { purpose: "designer" });
       setReference(data.url);
-    } catch {
-      setError(t("app.aiImage.networkError"));
+    } catch (err) {
+      setError(
+        err?.code === "network"
+          ? t("app.aiImage.networkError")
+          : err?.serverMessage || err?.message || t("app.aiImage.uploadFailed", "That photo wouldn't upload."),
+      );
     } finally {
       setUploading(false);
     }

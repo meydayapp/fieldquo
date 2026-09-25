@@ -79,6 +79,7 @@ import {
 
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError } from "@/lib/clientErrors";
+import { uploadFile } from "@/lib/media/uploadClient";
 import { resizedUrl } from "@/lib/media/cloudinaryUrl";
 import { sanitiseAnnotationJson, ANNOTATOR_MAX_WIDTH } from "@/lib/jobs/photoAnnotation";
 import { TOOLS, BRUSHES, ANNOTATION_COLORS, DEFAULT_INK_COLOR, ARROW_DEFAULTS, TEXT_DEFAULTS, SHAPE_STROKE_WIDTH } from "@/lib/photoAnnotator/constants";
@@ -496,12 +497,11 @@ export default function PhotoAnnotatorEditor({ photo, jobId, onDone, onCancel })
       fit();
 
       const blob = await (await fetch(dataUrl)).blob();
-      const fd = new FormData();
-      fd.append("file", blob, "annotated.png");
-      const uploadRes = await fetch("/api/upload", { method: "POST", body: fd });
-      const uploadData = await uploadRes.json().catch(() => null);
-      if (!uploadRes.ok || !uploadData?.url) {
-        setError(uploadData?.error || t("app.photoAnnotator.uploadFailed", "Couldn't save the flattened image."));
+      let uploadData;
+      try {
+        uploadData = await uploadFile(blob, { purpose: "jobs", filename: "annotated.png" });
+      } catch (err) {
+        setError(err?.serverMessage || t("app.photoAnnotator.uploadFailed", "Couldn't save the flattened image."));
         return;
       }
 

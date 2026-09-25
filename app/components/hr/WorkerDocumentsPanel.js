@@ -19,7 +19,8 @@ import { useCallback, useEffect, useState } from "react";
 import { FileText, Plus, ShieldCheck, Archive } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
-import { reportResponseError } from "@/lib/clientErrors";
+import { showError } from "@/lib/clientErrors";
+import { uploadFile } from "@/lib/media/uploadClient";
 import { fetchList } from "@/lib/loadState";
 import { fetchJson, errorText } from "@/lib/fetchJson";
 import ListState from "@/app/components/ListState";
@@ -78,14 +79,14 @@ export default function WorkerDocumentsPanel({ mode = "manager", workerId = null
     setBusy(true);
     setFormError("");
     try {
-      const upload = new FormData();
-      upload.append("file", file);
-      const uploaded = await fetch("/api/upload", { method: "POST", body: upload });
-      if (!uploaded.ok) {
-        await reportResponseError(uploaded, t("app.hr.docs.uploadError"));
+      let uploaded;
+      try {
+        uploaded = await uploadFile(file, { purpose: "documents" });
+      } catch (err) {
+        showError(err?.message || t("app.hr.docs.uploadError"));
         return;
       }
-      const { url, filename } = await uploaded.json();
+      const { url, filename } = uploaded;
       await fetchJson(base, {
         method: "POST",
         body: {

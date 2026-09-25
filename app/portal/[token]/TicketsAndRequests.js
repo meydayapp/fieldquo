@@ -24,6 +24,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LifeBuoy, Plus, Wrench, Loader2, Check, Camera, X, ChevronDown, MessageSquare } from "lucide-react";
 import { documentTheme, fillPair } from "@/lib/documents/theme";
 import { jsonBody } from "@/lib/jsonBody";
+import { uploadFile } from "@/lib/media/uploadClient";
+import UploadProgress from "@/app/components/UploadProgress";
 
 const INK = "#2d2520";
 const MUTED = "text-[#2d2520]/[0.72]";
@@ -47,11 +49,15 @@ function usePhotoUpload(token, c) {
     setBusy(true);
     try {
       for (const file of Array.from(files || []).slice(0, 6 - photos.length)) {
-        const fd = new FormData();
-        fd.append("file", file);
-        const res = await fetch(`/api/portal/${token}/upload`, { method: "POST", body: fd });
-        const d = await res.json().catch(() => null);
-        if (!res.ok || !d?.url) {
+        // The shared helper, scoped to this portal: /sign and /verify under
+        // the portal's upload route, bytes straight to Cloudinary — so a
+        // phone photo over Vercel's 4.5 MB request cap still goes up. The
+        // folder is still the one ownUploads() accepts.
+        let d;
+        try {
+          d = await uploadFile(file, { endpoint: `/api/portal/${token}/upload` });
+        } catch {
+          // The client's own language, not the server's English sentence.
           setError(c.uploadFailed);
           continue;
         }
@@ -99,6 +105,8 @@ function PhotoPicker({ up, c }) {
         <input ref={input} type="file" accept="image/*" multiple className="hidden" onChange={(e) => up.add(e.target.files)} />
       </div>
       {up.error && <p className="text-xs text-red-700 mt-1">{up.error}</p>}
+      {/* The one progress bar (draws once however many pickers are open). */}
+      <UploadProgress />
     </div>
   );
 }

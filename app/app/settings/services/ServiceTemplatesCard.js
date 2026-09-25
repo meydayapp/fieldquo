@@ -34,7 +34,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, ImagePlus, Loader2, Plus, Ruler, X } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError } from "@/lib/clientErrors";
-import { fetchJson } from "@/lib/fetchJson";
+import { uploadFile } from "@/lib/media/uploadClient";
 import { formatMoney } from "@/lib/currency";
 import { benchmarkForSeedKey } from "@/lib/services/seeds";
 import { MEASUREMENT_KEYS as MEASUREMENT_REGISTRY, measurementKeysForTrade } from "@/lib/services/measurementKeys";
@@ -287,9 +287,7 @@ function TemplateEditor({ product, category, currency, language, canEdit, onSave
     setUploading(true);
     setMsg(null);
     try {
-      const form = new FormData();
-      form.append("file", file);
-      const data = await fetchJson("/api/upload", { method: "POST", body: form });
+      const data = await uploadFile(file, { purpose: "quotes" });
       setDraft((d) => ({ ...d, imageUrl: data.url }));
     } catch (err) {
       setMsg({ text: err.message, error: true });

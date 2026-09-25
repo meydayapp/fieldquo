@@ -26,6 +26,7 @@ import { useState } from "react";
 import { Plus } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError } from "@/lib/clientErrors";
+import { uploadFile } from "@/lib/media/uploadClient";
 import { CLIENT_MEDIA_ACCEPT } from "@/lib/media/validate";
 import { formatBytes } from "@/lib/jobs/documents";
 import {
@@ -82,19 +83,15 @@ export default function VehicleDocuments({
 
     setBusy(true);
     try {
-      // 1 — the existing uploader.
-      const upload = new FormData();
-      upload.append("file", file);
-      const uploaded = await fetch("/api/upload", { method: "POST", body: upload });
-      if (!uploaded.ok) {
-        const message = await reportResponseError(
-          uploaded,
-          t("app.fleet.docUploadFailed", "Couldn't upload that file."),
-        );
-        setError(message || t("app.fleet.docUploadFailed", "Couldn't upload that file."));
+      // 1 — the shared uploader.
+      let uploaded;
+      try {
+        uploaded = await uploadFile(file, { purpose: "documents" });
+      } catch (err) {
+        setError(err?.message || t("app.fleet.docUploadFailed", "Couldn't upload that file."));
         return;
       }
-      const { url, filename } = await uploaded.json();
+      const { url, filename } = uploaded;
 
       // 2 — file it.
       const res = await fetch(`/api/fleet/${vehicleId}/documents`, {

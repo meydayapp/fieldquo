@@ -25,7 +25,8 @@ import { createEstimateDraft } from "@/lib/estimate/createEstimateQuote";
 import { normaliseCountry } from "@/lib/tax/jurisdictions";
 import { publishEstimateReport } from "@/lib/estimate/report/publish";
 import { recordConsent, DISCLOSURE } from "@/lib/voice/outbound";
-import { instantQuoteCopy, instantQuoteLanguage } from "@/lib/i18n/instantQuoteCopy";
+import { instantQuoteCopy } from "@/lib/i18n/instantQuoteCopy";
+import { resolveInstantLanguage } from "@/lib/estimate/instantQuoteLanguages";
 import { measureErrorMessage } from "@/lib/estimate/measureErrorMessage";
 import { cleanTradeAnswers, tradeAnswerLines } from "@/lib/leads/tradeQuestions";
 import { checkServiceArea, serviceAreaConfigured, postalCodeFromAddress } from "@/lib/company/serviceArea";
@@ -70,6 +71,8 @@ export async function POST(request, { params }) {
       longitude: true,
       serviceRadiusKm: true,
       servicePostalPrefixes: true,
+      // Which languages the form offers — the posted language is held to it.
+      instantQuoteLanguages: true,
     },
   });
   if (!company) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -107,7 +110,13 @@ export async function POST(request, { params }) {
   // the page offers rather than trusted — `language || company.default…`
   // would have stored whatever string a hand-crafted POST sent — and the
   // company's language stands in when the browser sent nothing.
-  const language = instantQuoteLanguage(body?.language) || company.defaultLanguage || "en";
+  //
+  // And only among the languages the COMPANY offers on this form (Settings ›
+  // Instant quotes): a POST naming one it switched off gets the company's
+  // own language instead — the same resolution the page payload used, from
+  // one function (lib/estimate/instantQuoteLanguages.js), so the pills and
+  // the draft cannot disagree.
+  const language = resolveInstantLanguage(company, body?.language);
   const t = instantQuoteCopy(language);
 
   if (!trade) return NextResponse.json({ error: t.missingService }, { status: 400 });

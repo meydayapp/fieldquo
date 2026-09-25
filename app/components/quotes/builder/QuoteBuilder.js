@@ -111,12 +111,26 @@ import {
 // cent — the two screens once didn't, and reading them was how that was missed.
 import {
   groupSubtotal,
+  groupBaseSubtotal,
   scopeGroupPayload as buildScopeGroupPayload,
   lineItemsFromStored,
   applyLineItemEdit,
   newScopeGroup,
   billedUnitsOf,
 } from "@/lib/quotes/builderPayload";
+// The estimator's own complexity factors, on any trade — the model and its
+// composition order are in lib/pricing/customFactors.js.
+import CustomFactorsEditor from "@/app/components/pricing/CustomFactorsEditor";
+// "Often added with this" — the review's add-on suggestions and the
+// catalogue's extras, offered while the quote is being built.
+import OftenAddedRow from "./OftenAddedRow";
+import { builderOfferRows, offerKey } from "@/lib/quotes/builderOffers";
+import {
+  customFactorLines,
+  hasCustomFactors,
+  hourlyRateForFactors,
+  splitCustomFactorLines,
+} from "@/lib/pricing/customFactors";
 import { lineFromProduct, lineFromSuggestion } from "@/lib/quotes/lineDetail";
 import {
   expandServiceTemplate,
@@ -174,6 +188,12 @@ const OPEN_STATUSES = ["draft", "sent"];
  * edited as lines, and only groups added in THIS session derive.
  */
 function groupFromStored(g, importedIds, fallbackLabel) {
+  // The estimator's own complexity factors were saved as lines (see
+  // lib/pricing/customFactors.js). They come back as FACTORS, so the factor
+  // editor is the one place they are changed and the line table never offers
+  // a second, disconnected way to edit the same money. A group with none
+  // keeps exactly the lines, and exactly the shape, it always had.
+  const { lines, factors } = splitCustomFactorLines(lineItemsFromStored(g.lineItems));
   return {
     tempId: g.id || `stored-${Math.random().toString(36).slice(2)}`,
     id: g.id,
@@ -196,7 +216,8 @@ function groupFromStored(g, importedIds, fallbackLabel) {
     // it would have to reprice, and repricing a sent quote is the thing the
     // flatten-at-save exists to prevent.
     takeoff: g.takeoff ?? null,
-    lineItems: lineItemsFromStored(g.lineItems),
+    lineItems: lines,
+    ...(factors.length ? { customFactors: factors } : {}),
   };
 }
 
@@ -813,6 +834,87 @@ export function QuoteBuilderForm({
   // ── Scope ────────────────────────────────────────────────────────────────
   const [scopeGroups, setScopeGroups] = useState(start.groups || []);
   const [reasonsOpen, setReasonsOpen] = useState({});
+
+  // ── The company's saved complexity factors ──────────────────────────────
+  //
+  // Optional data, like the product catalogue: the factor editor works
+  // without it, and a failed read simply offers no "From your library" list
+  // rather than an error over a quote the estimator came here to write.
+  const [factorLibrary, setFactorLibrary] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/complexity-factors")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows) => alive && setFactorLibrary(Array.isArray(rows) ? rows : []))
+      .catch(() => alive && setFactorLibrary([]));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // ── "Often added with this" ──────────────────────────────────────────────
+  //
+  // The owner: "Add-ons offered when I review but not when I'm creating it."
+  // The same rule-based suggestions the review makes (lib/ai/quoteSuggestions
+  // .js — no model, no AI cost), fetched per service as services are added,
+  // and the catalogue extras the save would offer anyway. A click records a
+  // REFERENCE; the save route prices it (lib/quotes/suggestedAddOns.js).
+  const [pendingOffers, setPendingOffers] = useState([]);
+  const [offerHistory, setOfferHistory] = useState({});
+  const offerCategoryIds = [...new Set(scopeGroups.map((g) => g.categoryId).filter(Boolean))].sort();
+  const offerCategoryKey = offerCategoryIds.join(",");
+  useEffect(() => {
+    if (!offerCategoryIds.length) return;
+    let alive = true;
+    // Optional data: a failure offers nothing rather than an error over a
+    // quote the estimator came here to write.
+    fetch("/api/ai/quote-suggestions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        byCategory: true,
+        categoryIds: offerCategoryIds,
+        onQuote: offerCategoryIds,
+        // The trade name on the offered row is written in the DOCUMENT's
+        // language, so the chip says what the client will read.
+        language: quoteLanguage || companyLanguage,
+      }),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (alive && data?.byCategory && typeof data.byCategory === "object") setOfferHistory(data.byCategory);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+    // offerCategoryKey stands for offerCategoryIds: the array is rebuilt on
+    // every render, the key only changes when a service is added or removed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [offerCategoryKey, quoteLanguage, companyLanguage]);
+
+  /** "Save to library" beside a factor — the row the route returned joins the list. */
+  async function saveFactorToLibrary(factor) {
+    const row = await fetchJson("/api/complexity-factors", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: jsonBody(
+        {
+          label: factor.label,
+          mode: factor.mode,
+          value: factor.value,
+          // What the label was typed in: the quote's language, since that is
+          // the document it was written for.
+          language: quoteLanguage || companyLanguage,
+        },
+        "complexity factor",
+      ),
+    });
+    setFactorLibrary((prev) =>
+      (Array.isArray(prev) ? prev : []).some((p) => p.id === row.id) ? prev : [...(prev || []), row],
+    );
+    return row;
+  }
 
   // ── Terms & content ──────────────────────────────────────────────────────
   const [notes, setNotes] = useState(start.notes || "");
@@ -1602,6 +1704,38 @@ export function QuoteBuilderForm({
     return cat?.defaultRate != null ? num(cat.defaultRate) : null;
   }
 
+  /**
+   * The hourly SELL rate an "extra hours" custom factor is priced at, or null
+   * when this service is not sold by the hour. Stricter than hourlyRateFor
+   * above on purpose: that one opens a text block's box on the category's
+   * rate whatever its unit, which is fine for a box the estimator reads and
+   * edits, and wrong for a factor that multiplies it silently — a flooring
+   * service's per-sq-ft rate is not an hour.
+   */
+  function factorHourlyRateFor(group) {
+    const cat = categories.find((c) => c.id === group.categoryId);
+    return hourlyRateForFactors({
+      book: getPriceBook(group.categoryKey, rateOverridesFor(group.categoryId)),
+      category: cat ? { unit: cat.unit, defaultRate: cat.defaultRate } : null,
+      fallbackUnitRate: defaultTradeRate(group.categoryKey),
+    });
+  }
+
+  function updateCustomFactors(groupTempId, next) {
+    setScopeGroups((prev) =>
+      prev.map((g) => {
+        if (g.tempId !== groupTempId) return g;
+        // Empty goes back to ABSENT, not []: a group whose factors were all
+        // removed must save exactly as one that never had any.
+        if (!Array.isArray(next) || next.length === 0) {
+          const { customFactors, ...rest } = g;
+          return rest;
+        }
+        return { ...g, customFactors: next };
+      }),
+    );
+  }
+
   function removeLineItem(groupTempId, itemIndex) {
     setScopeGroups((prev) =>
       prev.map((g) =>
@@ -1667,6 +1801,40 @@ export function QuoteBuilderForm({
     return sum + (cost?.total || 0);
   }, 0);
 
+  // The estimator's own complexity factors, per group, as the save will write
+  // them — the lines they become (customFactorLines) are what the server
+  // reads the extra hours off (customFactorHoursOf), so the panel and the
+  // saved cost row count the same hours.
+  const customFactorRows = scopeGroups.flatMap((g) => {
+    if (!hasCustomFactors(g)) return [];
+    const base = groupBaseSubtotal(g, rateOverridesFor(g.categoryId));
+    return customFactorLines({ base, factors: g.customFactors }).map((line) => ({
+      group: g.label,
+      label: line.description,
+      amount: line.amount,
+      hours: line.meta.customFactor.mode === "hours" ? num(line.meta.customFactor.value) : 0,
+    }));
+  });
+  const customFactorHours = round2(customFactorRows.reduce((s, r) => s + r.hours, 0));
+
+  // What each service offers under it (lib/quotes/builderOffers.js). None on
+  // a decided quote — the offer is settled once the client has answered.
+  const offerRows = canEditScope
+    ? builderOfferRows({
+        groups: scopeGroups,
+        products,
+        history: offerHistory,
+        existing: isEdit && Array.isArray(start.quote?.addOns) ? start.quote.addOns : [],
+        pending: pendingOffers,
+        isEdit,
+      })
+    : { byGroup: {}, used: 0, room: 0 };
+  // Only the clicks still on screen are sent: an offer under a service that
+  // has since been removed from the quote goes with it.
+  const livePendingOffers = pendingOffers.filter((ref) =>
+    Object.values(offerRows.byGroup).some((b) => b.offers.some((o) => o.pending && o.key === offerKey(ref))),
+  );
+
   const estimate = estimateQuoteCost({
     // The company's rate overrides ride along with each group, so the cost side
     // reads the same book the priced lines were built from.
@@ -1679,7 +1847,9 @@ export function QuoteBuilderForm({
     // Hours the takeoffs imply, plus anything the estimator added by hand.
     // Both, not either: a recipe or a productivity rate is a prediction, and
     // the estimator standing on the site is allowed to know better.
-    manualLabourHours: takeoffLabourHours + num(manualLabourHours),
+    // And the hours a custom complexity factor sold: hours sold are hours
+    // worked. 0 when no factor sells hours.
+    manualLabourHours: takeoffLabourHours + num(manualLabourHours) + customFactorHours,
     manualMaterialCost: num(manualMaterialCost),
     // Post-discount. The server costs the saved row against subtotal − discount,
     // so passing the gross subtotal here would show a margin on screen that the
@@ -1927,6 +2097,9 @@ export function QuoteBuilderForm({
       // time. Null on an edit — an edit is not composition.
       composeSeconds: isEdit ? null : (composeTimer.current?.stop() ?? null),
       language: quoteLanguage || companyLanguage,
+      // References only — the route prices them. Empty on a save that
+      // clicked none, and then the body is exactly what it always was.
+      offerAddOns: livePendingOffers,
     });
 
     let quote = null;
@@ -1979,6 +2152,10 @@ export function QuoteBuilderForm({
     }
 
     const id = quote?.id || quoteId;
+    // The offers went with that save; a second save from this screen (a
+    // custom-field refusal below keeps the person here) must not send them
+    // again as though they were new clicks.
+    setPendingOffers([]);
 
     // The quote is saved; its extra boxes save against it. A refusal here is
     // named as the boxes' — the quote exists and the person stays on the
@@ -2302,13 +2479,50 @@ export function QuoteBuilderForm({
             </div>
           )}
 
+        {/* ── The estimator's own complexity factors ─────────────────────
+            Every trade, new group or saved one — the owner's "things that
+            are unforeseen". After the takeoff and its built-in complexity,
+            because a percentage here is a percentage of what those priced
+            (lib/pricing/customFactors.js). Not on a locked group: a decided
+            quote's money is settled, and an import's is another company's. */}
+        {!locked && (
+          <CustomFactorsEditor
+            factors={group.customFactors}
+            base={groupBaseSubtotal(group, rateOverridesFor(group.categoryId))}
+            hourlyRate={factorHourlyRateFor(group)}
+            money={(n) => formatAppMoney(n, companyCurrency, "en")}
+            onChange={(next) => updateCustomFactors(group.tempId, next)}
+            library={factorLibrary}
+            onSaveToLibrary={saveFactorToLibrary}
+            documentLanguageName={
+              LANGUAGES.find((l) => l.code === (quoteLanguage || companyLanguage))?.nativeName || ""
+            }
+            t={t}
+          />
+        )}
+
         {locked ? (
           <div className="space-y-1.5">
             {/* Not group.lineItems directly — ScopeGroupCard above already
                 shows this group's label and subtotal; a blended
                 subcontractor import's one line item repeats both, word
-                for word. See lib/quotes/scopeGroupDisplay.js. */}
-            {visibleLineItems(group).map((item, li) => (
+                for word. See lib/quotes/scopeGroupDisplay.js. The custom
+                factors' lines are put back for the reading: they were split
+                off for the editor, and a locked group has no editor. */}
+            {visibleLineItems(
+              hasCustomFactors(group)
+                ? {
+                    ...group,
+                    lineItems: [
+                      ...group.lineItems,
+                      ...customFactorLines({
+                        base: groupBaseSubtotal(group, rateOverridesFor(group.categoryId)),
+                        factors: group.customFactors,
+                      }),
+                    ],
+                  }
+                : group,
+            ).map((item, li) => (
               <div
                 key={li}
                 className="flex justify-between gap-3 text-sm text-muted-foreground"
@@ -2391,6 +2605,24 @@ export function QuoteBuilderForm({
             })()}
           />
         )}
+
+        {/* "Often added with this" — the extras this company sells beside
+            this service, offered to the client with one click while the
+            quote is still being written (lib/quotes/builderOffers.js). */}
+        {!locked && (
+          <OftenAddedRow
+            row={offerRows.byGroup[group.tempId]}
+            room={offerRows.room}
+            money={(n) => formatAppMoney(n, companyCurrency, "en")}
+            onOffer={(ref) =>
+              setPendingOffers((prev) =>
+                prev.some((r) => offerKey(r) === offerKey(ref)) ? prev : [...prev, ref],
+              )
+            }
+            onUndo={(key) => setPendingOffers((prev) => prev.filter((r) => offerKey(r) !== key))}
+            t={t}
+          />
+        )}
       </>
     );
   };
@@ -2414,6 +2646,11 @@ export function QuoteBuilderForm({
         overheadSource={boot.overheadSource || null}
         subtotal={taxableBase}
         totalGroupCount={scopeGroups.length}
+        // The estimator's own complexity factors — what each adds to the
+        // price, and the hours the "extra hours" ones put into the labour
+        // pool above. Omitted on invoices, where the panel renders nothing
+        // for them.
+        customFactors={customFactorRows}
         marginTarget={marginTarget}
         onMaterialOverride={updateMaterialOverride}
         // Which groups' bills can actually be typed over. The same test the
@@ -2489,7 +2726,7 @@ export function QuoteBuilderForm({
         {t("app.quoteDetail.clientMedia")}
       </h2>
       <MediaUploader
-        uploadUrl="/api/upload"
+        uploadUrl="/api/upload" purpose="quotes"
         value={clientPhotos}
         onChange={setClientPhotos}
         label={t("app.quoteNew.addPhotos")}

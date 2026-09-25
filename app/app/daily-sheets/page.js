@@ -23,6 +23,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, Loader2, Plus, X, Camera, Award, CalendarDays } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { uploadFile } from "@/lib/media/uploadClient";
 import { showError } from "@/lib/clientErrors";
 import { showToast } from "@/lib/toast";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -153,12 +154,12 @@ function SheetCard({ row, date, dayLabel, coordinator, hasRule, onSaved }) {
   };
 
   async function uploadPhoto(file) {
-    const fd = new FormData();
-    fd.append("file", file);
-    const res = await fetch("/api/upload", { method: "POST", body: fd });
-    const data = await res.json().catch(() => null);
-    if (!res.ok || !data?.url) throw new Error(data?.error || t("app.dailySheet.photoFailed"));
-    return data.url;
+    try {
+      const data = await uploadFile(file, { purpose: "jobs" });
+      return data.url;
+    } catch (err) {
+      throw new Error(err?.message || t("app.dailySheet.photoFailed"));
+    }
   }
 
   async function save() {

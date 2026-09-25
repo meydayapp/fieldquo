@@ -124,6 +124,7 @@ import {
   PlatformBadge, Attachments, NoteBody, OutcomePicker, StatusPicker, WaitingBadge,
   ComposerTabs, AssigneePicker, ServiceWindowNotice, TemplatePicker, AttachControl,
 } from "./ConversationBits";
+import { uploadFile } from "@/lib/media/uploadClient";
 
 const ACTION =
   "inline-flex items-center gap-1.5 min-h-[36px] whitespace-nowrap rounded-md border border-border bg-card px-2.5 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-60";
@@ -1396,19 +1397,17 @@ function ComposerArea({ thread, note, blockKey, isDemo, canEdit, windowNotice, w
     }
     setUploading(true);
     try {
-      const form = new FormData();
-      form.append("file", file);
-      // Widens the DOCUMENT allowlist from PDF-only to the eight formats
-      // WhatsApp itself accepts, at WhatsApp's own ceiling. An opt-in rather
-      // than a default — see MESSAGING_DOCUMENT_TYPES.
-      form.append("purpose", "messaging");
-      const res = await fetch("/api/upload", { method: "POST", body: form });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setAttachError(data.error || t("app.messages.media.uploadError"));
+      let data;
+      try {
+        // purpose "messaging" widens the DOCUMENT allowlist from PDF-only to
+        // the eight formats WhatsApp itself accepts, at WhatsApp's own
+        // ceiling. An opt-in rather than a default — see
+        // MESSAGING_DOCUMENT_TYPES and uploadScope in lib/media/directUpload.js.
+        data = await uploadFile(file, { endpoint: "/api/upload", purpose: "messaging" });
+      } catch (err) {
+        setAttachError(err?.serverMessage || err?.message || t("app.messages.media.uploadError"));
         return;
       }
-      const data = await res.json();
       setAttachment({
         url: data.url,
         publicId: data.publicId,

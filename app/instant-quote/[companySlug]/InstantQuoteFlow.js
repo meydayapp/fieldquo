@@ -18,7 +18,9 @@
 //
 // ── The language is the visitor's ──────────────────────────────────────────
 //
-// Three pills at the top of the form: English, Français, Español. Every string
+// Pills at the top of the form — English, Français, Español, or whichever of
+// them the company offers (Settings › Instant quotes; the payload's
+// `languages`, all three until the company chooses). Every string
 // on the page comes from lib/i18n/instantQuoteCopy.js (plus the lawn and
 // "doesn't look right" tables it defers to), so switching re-renders the whole
 // page — and re-fetches the payload, because the trade chips, the budget
@@ -537,8 +539,14 @@ export default function InstantQuoteFlow({ companySlug, embedded = false, look: 
     return () => ctl.abort();
   }, [companySlug, language]);
 
+  // The pills the company offers. Before the payload lands (the loading and
+  // error screens) all three are drawn: nothing is known yet, and the first
+  // fetch resolves whatever is picked to one the company offers anyway.
+  const offeredLanguages =
+    Array.isArray(data?.languages) && data.languages.length ? data.languages : INSTANT_QUOTE_LANGUAGES;
+
   function chooseLanguage(code) {
-    if (!instantQuoteLanguage(code) || code === language) return;
+    if (!instantQuoteLanguage(code) || code === language || !offeredLanguages.includes(code)) return;
     storeLanguage(companySlug, code);
     setLanguage(code);
   }
@@ -905,9 +913,12 @@ export default function InstantQuoteFlow({ companySlug, embedded = false, look: 
   // The pills. Drawn wherever the form is — above the trade chooser, and on
   // the load/error screens too, since a French speaker staring at an English
   // error has no other way to ask for French.
-  const languagePills = (
+  //
+  // One language offered is no choice at all, so no pills are drawn for it —
+  // a single lit pill is a control that does nothing.
+  const languagePills = offeredLanguages.length < 2 ? null : (
     <div className="flex items-center gap-1.5 flex-wrap" role="group" aria-label={t.languageLabel}>
-      {INSTANT_QUOTE_LANGUAGES.map((code) => {
+      {offeredLanguages.map((code) => {
         const on = code === lang;
         return (
           <button
@@ -1040,10 +1051,12 @@ export default function InstantQuoteFlow({ companySlug, embedded = false, look: 
           <div className="space-y-6">
             {/* The language, first: it is the one control that changes every
                 other word on the page, so it sits above the first question. */}
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <span className="text-xs text-muted-foreground">{t.languageLabel}</span>
-              {languagePills}
-            </div>
+            {languagePills && (
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <span className="text-xs text-muted-foreground">{t.languageLabel}</span>
+                {languagePills}
+              </div>
+            )}
 
             {result ? (
               <>
@@ -1101,7 +1114,22 @@ export default function InstantQuoteFlow({ companySlug, embedded = false, look: 
                             : undefined
                         }
                       >
-                        {tr.label}
+                        <span className="block">{tr.label}</span>
+                        {/* What the service IS, under its name — only when
+                            there is a choice to make (a single service is
+                            picked on load and needs no pitch). FieldQuo's
+                            one-line table in the page's language, never a
+                            price (lib/i18n/instantQuoteCopy.js). On the lit
+                            card it inherits the chip's measured foreground
+                            at full strength: an opacity on it would drop the
+                            pair under the 4.5:1 the chip was measured at. */}
+                        {data.trades.length > 1 && tr.description && (
+                          <span
+                            className={`block mt-1 text-xs font-normal leading-snug ${trade?.trade === tr.trade ? "" : "text-muted-foreground"}`}
+                          >
+                            {tr.description}
+                          </span>
+                        )}
                       </button>
                     ))}
                   </div>

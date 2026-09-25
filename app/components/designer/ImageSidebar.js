@@ -113,7 +113,7 @@ export function ImageSidebar({ editor, activeTool, onChangeActiveTool }) {
         <div className="overflow-y-auto">
           <div className="p-4">
             <MediaUploader
-              uploadUrl="/api/upload"
+              uploadUrl="/api/upload" purpose="designer"
               value={uploaded}
               onChange={onUploaderChange}
               max={20}

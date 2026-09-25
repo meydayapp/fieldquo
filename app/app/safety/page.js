@@ -83,7 +83,7 @@ function ReportForm({ t, jobs, onCreated, onCancel }) {
           {t("app.safety.form.success", "Filed. Add a photo of the scene if you have one — optional.")}
         </p>
         <MediaUploader
-          uploadUrl="/api/upload"
+          uploadUrl="/api/upload" purpose="safety"
           value={[]}
           max={6}
           onChange={async (added) => {

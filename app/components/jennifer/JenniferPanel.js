@@ -56,6 +56,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MessageCircle, X, Send, Loader2, Paperclip, WifiOff } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { uploadFile } from "@/lib/media/uploadClient";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 const MARKETING_OPENERS = [
@@ -161,13 +162,10 @@ export default function JenniferPanel({ variant = "marketing", role = null }) {
     setUploading(true);
     setError("");
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      // Not fetchJson: /api/upload takes multipart form data, not JSON, and
-      // returns { url } on success or { error } on failure — read directly.
-      const res = await fetch("/api/upload", { method: "POST", body: formData });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || "Upload failed.");
+      // The shared helper — signed by /api/upload, bytes straight to
+      // Cloudinary. It lands under this company's own folder, which is what
+      // companyOwnImageUrls in app/api/jennifer/route.js requires.
+      const data = await uploadFile(file, { purpose: "support" });
       setPendingImage({ url: data.url, name: file.name });
     } catch (err) {
       setError(err.message);

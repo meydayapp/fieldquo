@@ -201,7 +201,7 @@ function MeSupplies() {
               <img src={draft.photoUrl} alt="" className="h-14 w-16 rounded border border-border object-cover" />
             )}
             <MediaUploader
-              uploadUrl="/api/upload"
+              uploadUrl="/api/upload" purpose="jobs"
               value={[]}
               max={1}
               label={t("app.supplies.addPhoto", "+ add")}

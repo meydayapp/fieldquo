@@ -42,6 +42,12 @@ import { normaliseFormFields } from "@/lib/estimate/formFields";
 import { normaliseFormAppearance, isDefaultAppearance, formPalette } from "@/lib/estimate/formAppearance";
 import { serviceAreaConfigured } from "@/lib/company/serviceArea";
 import {
+  instantLanguagesForSave,
+  offeredInstantLanguages,
+  sanitiseInstantLanguages,
+} from "@/lib/estimate/instantQuoteLanguages";
+import { INSTANT_QUOTE_LANGUAGES } from "@/lib/i18n/instantQuoteCopy";
+import {
   reportWebsiteChoice,
   resolveReportWebsite,
   ownWebsiteUrl,
@@ -111,6 +117,10 @@ export async function GET(request) {
         site: {
           select: { subdomain: true, published: true, blocks: true, pages: true, handEditedAt: true, photoLibrary: true },
         },
+        // The languages the public form offers, and the company's own, so
+        // the card can say which one a visitor lands on.
+        instantQuoteLanguages: true,
+        defaultLanguage: true,
       },
     }),
     // What the company says it SELLS. This screen used to render every wired
@@ -361,6 +371,16 @@ export async function GET(request) {
     // choice (null = automatic), what the automatic rule would pick today,
     // and the two candidate URLs so the screen can say what each choice
     // means rather than offering "FieldQuo site" to a company with none.
+    // Which language pills the public form draws. `chosen` is what was
+    // saved ([] = never chosen), `offered` what a visitor actually sees —
+    // all three until the first save (lib/estimate/instantQuoteLanguages.js
+    // says why unset is not "the default language only").
+    languages: {
+      all: INSTANT_QUOTE_LANGUAGES,
+      chosen: sanitiseInstantLanguages(company?.instantQuoteLanguages),
+      offered: offeredInstantLanguages(company || {}),
+      companyLanguage: company?.defaultLanguage || "en",
+    },
     reportWebsite: {
       setting: reportWebsiteChoice(company?.instantReportWebsite),
       automatic: resolveReportWebsite({ company: { website: company?.website, instantReportWebsite: null }, site: company?.site }),
@@ -437,6 +457,28 @@ export async function PUT(request) {
       metadata: { choice },
     });
     return NextResponse.json({ ok: true, instantReportWebsite: choice });
+  }
+
+  // ── The languages the public form offers ─────────────────────────────────
+  //
+  // `{ instantQuoteLanguages: ["en", "fr"] }` — company-level, like the look.
+  // Cleaned to the instant languages in pill order; an empty choice is
+  // refused with a sentence rather than stored, because [] reads back as
+  // "never chosen" (all three) — the opposite of unticking every box.
+  if (body && body.instantQuoteLanguages !== undefined) {
+    const { languages, error } = instantLanguagesForSave(body.instantQuoteLanguages);
+    if (error) return NextResponse.json({ error }, { status: 400 });
+    await db.company.update({
+      where: { id: member.companyId },
+      data: { instantQuoteLanguages: languages },
+    });
+    await recordActivity(member, {
+      action: "settings.instant_quote_languages_updated",
+      entityType: "settings",
+      summary: `Instant estimate languages set to ${languages.join(", ")}`,
+      metadata: { languages },
+    });
+    return NextResponse.json({ ok: true, instantQuoteLanguages: languages });
   }
 
   // ── The form's look ──────────────────────────────────────────────────────

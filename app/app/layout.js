@@ -13,6 +13,7 @@ import SeatSharingBanner from "@/app/components/layout/SeatSharingBanner";
 import AccountLocked from "@/app/components/layout/AccountLocked";
 import SetupIncomplete from "@/app/components/layout/SetupIncomplete";
 import ToastLayer from "@/app/components/ToastLayer";
+import UploadProgress from "@/app/components/UploadProgress";
 import PlanRequiredPrompt from "@/app/components/PlanRequiredPrompt";
 import AppTours from "@/app/components/AppTours";
 import JenniferPanel from "@/app/components/jennifer/JenniferPanel";
@@ -559,6 +560,11 @@ export default async function AppLayout({ children }) {
           a portal at document.body, so its place in this tree is only "once
           per surface". */}
       <ToastLayer surface="app" />
+      {/* Renders nothing unless a file is uploading. Every upload goes
+          through lib/media/uploadClient.js and reports its progress here, so
+          no screen needs a bar of its own — one progress UI, same as the
+          toast is one error UI. */}
+      <UploadProgress />
       {/* Renders nothing unless a route refused a SEND because the company
           never finished checkout (lib/signup/planGate.js). Mounted beside the
           toast, for the same reason: the prompt has to be reachable from every

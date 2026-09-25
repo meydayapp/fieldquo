@@ -412,6 +412,74 @@ for (const [label, mode, id, initial] of CASES) {
   ok("stored: the imported group cannot be edited", /Subcontracted railing[\s\S]*?importedLocked|Subcontracted railing/.test(doc) && !/Subcontracted railing[\s\S]{0,400}data-doc-group-toggle/.test(doc));
 }
 
+// A stored draft carrying the estimator's own complexity factor (lib/pricing/
+// customFactors.js): saved as a LINE, reopened as a FACTOR in the editor,
+// drawn on the document as the reason line the client reads, and the same
+// total in both layouts.
+{
+  const factorLine = {
+    description: "Tight access — 3rd floor walk-up",
+    quantity: 1,
+    unit: "flat",
+    rate: 727.5,
+    amount: 727.5,
+    meta: { customFactor: { id: "cf1", mode: "percent", value: 15 } },
+  };
+  const q = {
+    ...STORED_QUOTE,
+    subtotal: 4970 + 727.5,
+    scopeGroups: [
+      { ...STORED_QUOTE.scopeGroups[0], lineItems: [...STORED_QUOTE.scopeGroups[0].lineItems, factorLine], subtotal: 4850 + 727.5 },
+      STORED_QUOTE.scopeGroups[1],
+    ],
+  };
+  const initial = { ...initialStateFromQuote(q), quote: q, costingLoaded: true };
+  const g1 = initial.groups[0];
+  ok("factor: reopened as a factor, not a line", g1.customFactors?.length === 1 && !g1.lineItems.some((l) => l.meta?.customFactor));
+  const classic = render("classic", "edit", "q1", initial);
+  const doc = render("document", "edit", "q1", initial);
+  ok("factor: the classic editor shows it in the factor editor", /data-custom-factors[\s\S]*?value="Tight access — 3rd floor walk-up"/.test(classic));
+  ok("factor: …with what it adds", /data-custom-factor-amount[^>]*>\+ \$727\.50/.test(classic), (classic.match(/data-custom-factor-amount[^>]*>[^<]*/) || [""])[0]);
+  ok("factor: the document draws the reason line", (doc.split("data-doc-editor")[1] || "").includes("Tight access — 3rd floor walk-up"));
+  ok("factor: both layouts show the same total", totalOf(doc) !== null && totalOf(doc) === totalOf(classic), `${totalOf(doc)} vs ${totalOf(classic)}`);
+  ok("factor: the cost panel lists it", /data-cost-custom-factors[\s\S]*?Tight access/.test(classic));
+  // A decided quote keeps it, read-only.
+  const acceptedInitial = { ...initialStateFromQuote({ ...q, status: "accepted" }), quote: { ...q, status: "accepted", jobs: [{ id: "j1" }] } };
+  const locked = render("classic", "edit", "q1", acceptedInitial);
+  ok("factor: a locked group prints it as a line and offers no editor", locked.includes("Tight access — 3rd floor walk-up") && !locked.includes("data-custom-factor-add"));
+}
+
+// "Often added with this" (lib/quotes/builderOffers.js): on a create the
+// catalogue extra the save will seed is shown as offered automatically; on
+// an edit an extra not yet offered is a button; an extra already offered is
+// not offered again; a decided quote offers nothing.
+{
+  const products = [
+    ...BOOTSTRAP.products,
+    { id: "p_ceil", name: "Ceiling refresh", unitPrice: 450, unit: "flat", active: true, categories: [{ id: "cat3" }] },
+    { id: "p_runner", name: "Runner removal", unitPrice: 150, unit: "flat", active: true, categories: [{ id: "cat1" }] },
+    { id: "p_two", name: "Two-tone finish", unitPrice: 600, unit: "flat", active: true, categories: [{ id: "cat1" }] },
+  ];
+  const withProducts = (layout, mode, id, initial) =>
+    renderToStaticMarkup(
+      <LanguageProvider initialLanguage="en">
+        <PermissionProvider role="owner" permissions={{}}>
+          <QuoteBuilderForm mode={mode} quoteId={id} bootstrap={{ ...BOOTSTRAP, layout, products }} initial={initial} />
+        </PermissionProvider>
+      </LanguageProvider>,
+    );
+  const create = withProducts("classic", "create", null, CASES[1][3]);
+  ok("offers: a create shows the seeded catalogue extra as automatic", /data-often-added-auto[\s\S]*?Ceiling refresh/.test(create));
+  ok("offers: …not as a button", !/data-often-added-offer[^>]*>[\s\S]{0,80}Ceiling refresh/.test(create));
+  const edit = withProducts("classic", "edit", "q1", CASES[2][3]);
+  ok("offers: an edit offers an extra not yet on the quote as a button", /data-often-added-offer[\s\S]*?Runner removal/.test(edit));
+  ok("offers: …and not one already offered (Two-tone finish)", !/data-often-added-offer[\s\S]{0,300}Two-tone finish/.test(edit));
+  const accepted = withProducts("classic", "edit", "q1", CASES[3][3]);
+  ok("offers: a decided quote offers nothing", !accepted.includes("data-often-added"));
+  const doc = withProducts("document", "edit", "q1", CASES[2][3]);
+  ok("offers: the document layout renders with offers wired", doc.includes('data-builder-layout="document"'));
+}
+
 // The cost gate, both directions, in the document layout: the drawer's
 // toggle is offered to a member who may cost and withheld from one who may
 // not — and the panel itself is never inside the document.

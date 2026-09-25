@@ -98,7 +98,7 @@ export default function ReceiptScanner({ materialId, draft, onApply, onClose }) 
 
       <div className="mt-2">
         <MediaUploader
-          uploadUrl="/api/upload"
+          uploadUrl="/api/upload" purpose="receipts"
           value={files}
           onChange={(next) => {
             setFiles(next.slice(-1));

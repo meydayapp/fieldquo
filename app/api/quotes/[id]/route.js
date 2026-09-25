@@ -33,6 +33,7 @@ import {
   requireCost,
 } from "../costingWrite";
 import { syncTakeoffAddOns } from "@/lib/quotes/takeoffAddOns";
+import { createOfferedAddOns } from "@/lib/quotes/suggestedAddOns";
 import { shareTokenData } from "@/lib/quotes/shareToken";
 import { withCapturedMeasureImages } from "@/lib/measure/measureImages";
 import { normaliseSiteAddress } from "@/lib/geo/geocodeJob";
@@ -292,6 +293,10 @@ export async function PATCH(request, { params }) {
     // was — a status-only PATCH (accept/decline/send) must not silently
     // unassign a quote a colleague is already carrying.
     assignedToId,
+    // The builder's "Often added with this" clicks — references only, priced
+    // after the write from this company's own rows (lib/quotes/
+    // suggestedAddOns.js). Absent from every save that clicked none.
+    offerAddOns,
   } = body;
 
   // The satellite still behind a measured group, captured to Cloudinary
@@ -613,6 +618,30 @@ export async function PATCH(request, { params }) {
       });
     } catch (err) {
       console.error("[quotes PATCH] takeoff add-ons:", err?.message);
+    }
+  }
+
+  // Extras offered from the builder's "Often added with this" on this save.
+  // Not on a decided quote — the offer is settled once the client has said
+  // yes or no, the same rule PUT /api/quotes/[id]/add-ons keeps. Best-effort
+  // on the same contract as the takeoff sync above.
+  if (
+    Array.isArray(offerAddOns) &&
+    offerAddOns.length &&
+    updated &&
+    updated.status !== "accepted" &&
+    updated.status !== "declined"
+  ) {
+    try {
+      await createOfferedAddOns(db, {
+        companyId: member.companyId,
+        quoteId: id,
+        refs: offerAddOns,
+        scopeGroups: updated.scopeGroups,
+        language: updated.language || "en",
+      });
+    } catch (err) {
+      console.error("[quotes PATCH] builder offers:", err?.message);
     }
   }
 

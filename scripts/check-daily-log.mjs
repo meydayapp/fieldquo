@@ -996,8 +996,10 @@ section("11. the screens exist, are mounted, and send what the routes need");
 
   const docs = src("app/components/jobs/JobDocuments.js");
   ok(
-    "the document panel uploads through the EXISTING /api/upload",
-    /fetch\("\/api\/upload"/.test(docs),
+    // Since 2026-09-25 the one shared helper (signed by /api/upload, bytes
+    // straight to Cloudinary) — still the existing uploader, not a new path.
+    "the document panel uploads through the EXISTING shared uploader",
+    /uploadFile\(file, \{ purpose: "documents" \}\)/.test(docs) && /from "@\/lib\/media\/uploadClient"/.test(docs),
   );
   ok(
     "and adds no second upload path",

@@ -34,7 +34,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { FileText, Plus, History, Upload } from "lucide-react";
-import { reportResponseError } from "@/lib/clientErrors";
+import { reportResponseError, showError } from "@/lib/clientErrors";
+import { uploadFile } from "@/lib/media/uploadClient";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { CLIENT_MEDIA_ACCEPT } from "@/lib/media/validate";
 import {
@@ -82,19 +83,17 @@ export default function JobDocuments({ jobId }) {
 
     setBusy(true);
     try {
-      // 1 — the existing uploader. Nothing about the file reaches this
+      // 1 — the shared uploader (signed by /api/upload, bytes straight to
+      // Cloudinary, verified). Nothing about the file reaches this
       // component's own route.
-      const upload = new FormData();
-      upload.append("file", file);
-      const uploaded = await fetch("/api/upload", { method: "POST", body: upload });
-      if (!uploaded.ok) {
-        await reportResponseError(
-          uploaded,
-          t("app.jobDocuments.uploadError", "Couldn't upload that file."),
-        );
+      let uploaded;
+      try {
+        uploaded = await uploadFile(file, { purpose: "documents" });
+      } catch (err) {
+        showError(err?.message || t("app.jobDocuments.uploadError", "Couldn't upload that file."));
         return;
       }
-      const { url, filename } = await uploaded.json();
+      const { url, filename } = uploaded;
 
       // 2 — file it. `sizeBytes` is the browser's own File.size, which is the
       // only byte count available here; the server refuses anything it cannot

@@ -96,7 +96,7 @@ export default function ReceiptCapture({ source = "expenses", contextJobId = nul
       </div>
 
       <MediaUploader
-        uploadUrl="/api/upload"
+        uploadUrl="/api/upload" purpose="receipts"
         value={files}
         onChange={(next) => setFiles(next.filter((f) => f.kind !== "video"))}
         max={12}

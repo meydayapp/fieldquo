@@ -1,7 +1,8 @@
 // app/components/settings/PairPhotoFields.js
 //
 // The three pieces a before/after pair editor is made of: a photo slot that
-// uploads through the shared /api/upload route, a text field that commits
+// uploads through the shared helper (lib/media/uploadClient.js — signed by
+// /api/upload, bytes straight to Cloudinary), a text field that commits
 // on blur, and the "new pair" draft that only becomes a pair once BOTH
 // photos exist. Shared by Settings › Quote Email and the company gallery
 // editor (app/components/settings/GalleryEditor.js) since the two write to
@@ -10,10 +11,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Loader2, Upload } from "lucide-react";
-import { fetchJson } from "@/lib/fetchJson";
+import { uploadFile } from "@/lib/media/uploadClient";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
-/** One "before" or "after" slot. Uploads through the shared /api/upload route. */
+/** One "before" or "after" slot. Uploads through the shared upload helper. */
 export function PhotoSlot({ url, label, disabled, onUploaded, onError }) {
   const { t } = useTranslation();
   const inputRef = useRef(null);
@@ -28,9 +29,7 @@ export function PhotoSlot({ url, label, disabled, onUploaded, onError }) {
     if (!file) return;
     setBusy(true);
     try {
-      const form = new FormData();
-      form.append("file", file);
-      const data = await fetchJson("/api/upload", { method: "POST", body: form });
+      const data = await uploadFile(file, { purpose: "website" });
       onUploaded({ url: data.url, publicId: data.publicId || "" });
     } catch (err) {
       onError(err.message);
