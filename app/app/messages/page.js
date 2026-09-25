@@ -57,7 +57,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   MessageCircle, Search, ArrowLeft, Loader2, BarChart3, Link2, Check, RotateCcw,
-  ExternalLink, UserRound, ChevronDown, Info, RefreshCw, AlertTriangle, CloudDownload,
+  ExternalLink, UserRound, ChevronDown, Info, RefreshCw, AlertTriangle, CloudDownload, Sparkles,
 } from "lucide-react";
 import { fetchList } from "@/lib/loadState";
 import { fetchJson } from "@/lib/fetchJson";
@@ -98,6 +98,10 @@ import { SocialGlyph } from "@/app/components/links/linkIcons";
 // "is this person going to buy" is the question you ask BEFORE you record what
 // happened.
 import ConversationTemperature, { TemperatureChip } from "@/app/components/messaging/ConversationTemperature";
+// "Coach me on this conversation" — its own tab in the same side panel, opened
+// from a button in the thread header. Paid, priced before the click, and its
+// draft reply only ever lands in the composer below (never sent from there).
+import ConversationCoach from "@/app/components/messaging/ConversationCoach";
 // Why the composer is off, and what the empty inbox says — ONE decision, pure,
 // and executed by scripts/check-messaging.mjs. See that file's header for why
 // it does not live in this component.
@@ -189,6 +193,12 @@ function MessagesScreen() {
   // behind a control that appeared to work. An unresolved provider falls
   // open, as everywhere else, because the server still refuses.
   const canEdit = useHasLevel("requests", "view_create_edit");
+  // Coaching reads this company's other conversations and its won/lost record,
+  // so it needs the client book as well as the inbox — the same two gates the
+  // coach route re-checks. Both hooks run unconditionally (rules of hooks).
+  const canReadRequests = useHasLevel("requests", "view_only");
+  const canReadClients = useHasLevel("clientsProperties", "full_view");
+  const canCoach = canReadRequests && canReadClients;
 
   // null, never []. An outage that rendered as "you have no conversations"
   // would tell a contractor their enquiries had vanished.
@@ -245,6 +255,16 @@ function MessagesScreen() {
   const [pane, setPane] = useState(wanted ? PANE_THREAD : PANE_LIST);
   const [showContext, setShowContext] = useState(true);
   const [contextTab, setContextTab] = useState("details");
+  // A coach draft on its way into the composer: { threadId, text, nonce }.
+  // The nonce makes pressing "Use this reply" twice insert twice, and the
+  // threadId stops a draft written for one homeowner landing in another's box.
+  const [draftInsert, setDraftInsert] = useState(null);
+  // Dropped the moment another conversation is opened: the composer unmounts
+  // while a thread loads, and a pending draft still sitting here would be
+  // pasted again when it remounts.
+  useEffect(() => {
+    setDraftInsert(null);
+  }, [activeId]);
   const [collapsed, setCollapsed] = useState([GROUP_DONE]);
   const [focusedRoom, setFocusedRoom] = useState(null);
   // The instant the reader had last looked BEFORE this opening — what the
@@ -589,6 +609,23 @@ function MessagesScreen() {
     if (wide) setShowContext((v) => !v);
     else setPane((p) => (p === PANE_CONTEXT ? PANE_THREAD : PANE_CONTEXT));
   };
+  // "Coach me": the side panel, on the Coach tab — a column from lg up, the
+  // sheet over the thread below it.
+  const openCoach = () => {
+    setContextTab("coach");
+    if (wide) setShowContext(true);
+    else setPane(PANE_CONTEXT);
+  };
+  // The reply box can take a draft only when a reply could actually be typed
+  // there — the same conditions that switch the box off. Otherwise the coach
+  // offers Copy instead of a button that inserts into a disabled box.
+  const canInsertDraft = canEdit && !isDemo && !blockKey && !windowClosed;
+  const insertCoachReply = (text) => {
+    if (!thread?.id || !text) return;
+    setDraftInsert({ threadId: thread.id, text, nonce: Date.now() });
+    // On a phone the panel covers the thread; go back to where the box is.
+    if (!wide) setPane(PANE_THREAD);
+  };
 
   // ── Panes ─────────────────────────────────────────────────────────────
   const listPane = (
@@ -821,6 +858,11 @@ function MessagesScreen() {
                 {thread.status === "resolved" ? t("app.messages.action.reopen") : t("app.messages.action.markDone")}
               </button>
             ) : null}
+            {canCoach ? (
+              <button type="button" onClick={openCoach} className={ACTION} data-coach-button>
+                <Sparkles size={13} aria-hidden="true" /> {t("app.messages.action.coach")}
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={toggleContext}
@@ -883,6 +925,7 @@ function MessagesScreen() {
           windowNotice={windowNotice}
           windowClosed={windowClosed}
           onChanged={refresh}
+          insert={draftInsert}
           t={t}
         />
       ) : null}
@@ -902,6 +945,7 @@ function MessagesScreen() {
           { key: "details", label: t("app.messages.tab.details") },
           { key: "outcome", label: t("app.messages.tab.outcome") },
           { key: "history", label: t("app.messages.tab.history") },
+          ...(canCoach ? [{ key: "coach", label: t("app.messages.tab.coach") }] : []),
         ]}
         activeTab={contextTab}
         onTab={setContextTab}
@@ -921,6 +965,20 @@ function MessagesScreen() {
           <ContextOutcome thread={thread} isDemo={isDemo} busy={busy} onPick={setOutcome} t={t} />
         ) : null}
         {contextTab === "history" ? <ContextHistory thread={thread} formatDate={formatDate} t={t} /> : null}
+        {contextTab === "coach" && canCoach ? (
+          <ConversationCoach
+            key={thread.id}
+            threadId={thread.id}
+            isDemo={isDemo}
+            canRun={canEdit}
+            canInsert={canInsertDraft}
+            onUseReply={insertCoachReply}
+            // Re-read when a message lands: the panel says "N messages since"
+            // instead of presenting advice about a shorter thread as current.
+            refreshKey={(thread.messages || []).length}
+            formatDate={formatDate}
+          />
+        ) : null}
       </ContextBar>
     ) : null;
 
@@ -1303,7 +1361,7 @@ async function saveLocationAsAddress(clientId, address, t) {
  * that there is nothing for them to do. The Note side is not gated by the
  * connection: a note goes nowhere near Meta.
  */
-function ComposerArea({ thread, note, blockKey, isDemo, canEdit, windowNotice, windowClosed, onChanged, t }) {
+function ComposerArea({ thread, note, blockKey, isDemo, canEdit, windowNotice, windowClosed, onChanged, insert, t }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState("");
@@ -1343,6 +1401,27 @@ function ComposerArea({ thread, note, blockKey, isDemo, canEdit, windowNotice, w
     setSendError("");
     setText("");
   }, [thread?.id]);
+
+  // A coach draft arriving ("Use this reply"). It goes into the REPLY box and
+  // nowhere else — nothing here sends it; the contractor edits and presses
+  // Send. Appended under anything already typed rather than replacing it: a
+  // half-written message is the contractor's work, and wiping it for a draft
+  // they asked to see is a destructive act dressed as a convenience.
+  //
+  // Applied ONCE per press (the nonce is remembered): without that, opening
+  // another conversation and coming back would re-fire this effect on the
+  // thread id and paste the same draft a second time.
+  const appliedInsert = useRef(null);
+  useEffect(() => {
+    if (!insert?.text || insert.threadId !== thread?.id) return;
+    if (appliedInsert.current === insert.nonce) return;
+    appliedInsert.current = insert.nonce;
+    setMode("reply");
+    setText((prev) => (prev.trim() ? `${prev.replace(/\s+$/, "")}\n\n${insert.text}` : insert.text));
+    const box = typeof document !== "undefined" ? document.getElementById("messages-reply") : null;
+    if (box) setTimeout(() => box.focus(), 0);
+    // A new `insert` object (fresh nonce) per press is the trigger.
+  }, [insert, thread?.id]);
 
   // ── Three reasons the Reply side can be off, and they stack ────────────
   //

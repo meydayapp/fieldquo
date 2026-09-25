@@ -3,6 +3,7 @@
 Last updated: 25 September 2026 (the paid deep photo read now returns trade-specific evidence on the SAME one vision call — junk volume in pickup beds → cu yd / m³ with item categories and the fees they carry, roof pitch/layers/damage, paint condition/peeling/colour change, cabinet door and drawer counts/style/finish, current floor and transitions, stair tread/riser counts and shape, gutter run/downspouts/storeys/issues — each with a confidence and how it was judged, shown as an estimate BESIDE the quote's measured figure and never written over it; plus a non-blocking "these photos may not be of this job" warning when a clearly-read photo matches none of the quote's trades, on the quote panel, the invoice twin and the estimate-review queue — see "The deep read reads the trade" below)
 Last updated: 25 September 2026 (three lost items: the client auto-send policy written down in docs/CLIENT-MESSAGES.md with every automatic client sender audited — no path auto-sends a quote; Facebook/Instagram threads past Meta's 24-hour window show a closed state, disable Send and say why and what still works, and the AI employee no longer replies past it; check:prep-guide green again — sixteen trades had no prep guide — so check:all now runs on to the next of 86 checks that were already failing on main behind it)
 Last updated: 25 September 2026 (flooring, tile, drywall, siding, fencing and concrete measured on the quote with the calculators that already exist — rooms on paint's geometry with openings off the walls and a waste per material, drywall sheets 4 × 8 / 4 × 12, siding elevations into the siding box, the aerial tracer into the fence's Linear Feet and the slab's Square Footage, posts every 8 ft, cubic yards at the chosen thickness — feeding "Add with its template lines"; nothing new is priced by a takeoff, so nothing new is held back — see "Flooring, tile, drywall, siding, fencing, concrete: measured on the quote" below)
+Last updated: 25 September 2026 ("Coach me on this conversation" on /app/messages threads: free likelihood + paid approach, red flags, slips to walk back and a draft reply in the client's language that only ever lands in the composer; metered as `conversation_coach` on the company's allowance, ~5,500 tokens / ~$0.003 a run on the standard tier, cached per thread)
 Last updated: 25 September 2026 (leads: a "Linked documents" block — quote, jobs, invoices — with "Link an existing quote", and Won now needs an APPROVED quote or work behind it, refusing with a reason and "Link the quote that won it"; calendar: a Cards view on /app/appointments, each entry a card opening a side panel with open quote/job/invoice/client, call, directions and reschedule/cancel)
 Last updated: 25 September 2026 (Australia: GST 10% on an AU contractor's quotes and invoices as a VAT-table row named GST, gated on "Are you registered for GST?"; AUD plans at the same numbers and every other Stripe country on the USD rows, Checkout's currency now taken from the Plan row; tax on FieldQuo's own subscription stays Stripe Tax — new /platform/billing/tax shows per region the subscribers, 12-month taxable vs reverse-charged invoices, FieldQuo's thresholds (UK/EU from the first sale, AU A$75,000) and the Stripe registration checklist; owner to run `npm run seed:seat-ladder`)
 Last updated: 25 September 2026 (uploads go browser → Cloudinary on a server-issued signature and are verified against Cloudinary's Admin API before anything is saved — a normal phone photo uploads again; one helper `lib/media/uploadClient.js`, one progress bar, every `/api/upload` caller moved incl. the portal and the three public forms; limits are ours or the Cloudinary plan's if lower — Free: 10 MB)
@@ -250,6 +251,99 @@ template adding only its permit.
 - Instant estimates: none of these six has one; out of scope.
 
 ---
+## "Coach me on this conversation" — paid coaching on an inbox thread (25 September 2026)
+
+The owner, 22 September (lost) and again 25 September: "can any work enquiry be analyzed to improve
+communication and improve conversion as a feature that uses the company's AI tokens?"
+
+**What the contractor sees.** On any conversation in `/app/messages` — SMS, site chat, Facebook,
+Instagram, WhatsApp and filed email threads alike — a **Coach me** button in the thread header opens
+the side panel on a new **Coach** tab (the sheet over the thread on a phone). It shows, in order:
+
+1. **Likelihood to buy** — the free rule score (`lib/messaging/conversationScore.js`) with any paid
+   temperature read re-applied (`applyAiRead`), its top reasons and the words they matched. Not asked
+   of the model; the same number as the inbox chip.
+2. After **Coach me on this conversation** (priced beside the button, before the click, in the
+   allowance tokens it will use and what is left — or "FieldQuo covers this" when a superadmin has
+   switched the payer): **Recommended approach** with up to three next steps; **Red flags** (price
+   shopping, scope creep, unrealistic budget, timeline mismatch, not the decision-maker, other) each
+   with the homeowner's own words quoted; **Worth walking back** — the contractor's own risky lines
+   (a date or price promised before a site visit, running down a competitor, over-committing), each
+   quoted with why and how to fix it; and a **Suggested reply** in the client's language
+   (`resolveClientLanguage`: client → company default), with placeholders like [day] / [price]
+   the contractor fills in. **Use this reply** puts it in the reply box (appended under anything
+   already typed, switched to Reply, focused); **Copy** is offered instead when the box can't take it
+   (demo, read-only member, no connection, closed WhatsApp window). Nothing is ever sent from the
+   panel.
+3. What it was grounded in: "Your record for Kitchens: won 5 of 12 judged enquiries" (the trade from
+   the thread's quote scope groups, else its lead; the whole company when the trade has fewer than 5
+   judged), how many of the company's own won / not-won conversations were used as examples (same
+   trade first), whether the latest monthly review's lessons were used, how many points were left
+   out for want of a quote, and that names/phones/emails/addresses are removed first.
+4. The result is cached per thread with the message count it was built on; "New messages since this
+   coaching: N" when the thread has moved. Re-running is on demand only; with nothing new, a plain
+   POST answers `unchanged` and spends nothing — the panel's "Coach me again anyway" sends `force`.
+
+**Cost per run.** Standard tier (`tier: "standard"`, reasoning effort medium) — the mini model unless
+`OPENAI_MODEL` overrides it. Measured by the estimator on a long thread with six examples and a
+review: ~2,900 prompt + a 2,600 completion budget ≈ **5,500 allowance tokens quoted, about $0.003 of
+vendor cost per run** (~$0.002 at a typical 1,800-token completion). The same run on gpt-5.4 would be
+~$0.046 and on the best tier ~$0.09 — not needed: grounding and restraint are enforced in code.
+
+**Where.** `lib/ai/conversationCoach.js` (pure; the model call through `provider.complete()`, a
+closed schema, `verifyQuote` against the redacted transcript's own US/THEM lines, `scrubFigures` with
+the rollup as the only allowlist — and NO figures at all in the draft), `lib/messaging/coachContext.js`
+(every query company-scoped, quote categories read through the quote's own company),
+`GET/POST /api/messaging/threads/[id]/coach`, `app/components/messaging/ConversationCoach.js`, the
+Coach tab and composer insert in `app/app/messages/page.js`. Reused, not re-implemented:
+`renderConversation`/`redactTranscript`/`assertOneTenant`/`scrubFigures` (conversationReview),
+`buildExamples` (conversationTemperature), and a new `scoreThreadFresh()` in
+`lib/messaging/rescoreThread.js` that the write path now also calls. 54 `app.messages.coach.*` /
+tab / action keys in all nine languages.
+
+**Payer.** New `conversation_coach` feature in `lib/ai/featurePayer.js`: default payer the company,
+from its monthly **allowance** (not the wallet), wired, so `/platform/ai-billing` can flip it. The
+route builds `meterFor("conversation_coach")`; GET prices with the same meter's `check()` the POST
+spends through; `record()` runs on every billed outcome including an off-schema answer. Spend is
+filed under "review" on the platform cost page.
+
+**Access.** Reading: requests ≥ view_only AND clientsProperties full_view (it is built from other
+clients' conversations and the won/lost record). Running: requests ≥ view_create_edit. Both
+re-checked on the server from a fresh grid; the button and tab are hidden below them.
+
+**Schema.** Additive only: new table `ConversationCoach` (one row per thread, plain `companyId` /
+`threadId` columns like ConversationReview), created on the live DB with `CREATE TABLE IF NOT
+EXISTS` via `prisma db execute` and checked against information_schema. No push, no drops.
+
+**Checked.** `npm run check:conversation-coach` — 110 checks with a stub model and stub meter: PII
+(name, surname in comma form, phone, email, street, postcode) absent from the exact prompt text;
+private notes, activity rows and an injected instruction kept out; fabricated %, $ and dates
+scrubbed from prose while our own "3 of 7" survives; zero digits in the draft; an invented red flag,
+an invented slip and a homeowner line attributed to the contractor all dropped and counted; a
+foreign thread / rollup row / example each throw before any model call; quota refusal calls nothing
+and records nothing (and the route 402s before the upsert); a billed failure is still recorded; no
+send path importable from the route, lib or panel, and the composer insert only fills the box;
+payer default, ledger and wiring; RBAC regexes; every key in nine languages with no English echoes.
+Mutation-tested: disabling `verifyQuote`, letting figures into the draft, and removing the subject's
+tenant fence each fail it. Every Prisma query and the upsert validated against the generated client
+(a negative control confirms invalid shapes are caught). `check:receipt-books`,
+`check:ai-wallet-meter`, `check:conversation-score`, `check:conversation-review`,
+`check:ai-structured-output`, `check:app-messages-kit`, `check:messaging`, `check:translations`,
+`check:language-completeness` pass; `npm run build` passes.
+
+### Still owed here
+
+- Not seen in a browser against a live thread — needs a signed-in member on a company with real
+  conversations (no credentials in this session), and no live model call was made (the key is
+  Sensitive). First real run: open a thread with a few inbound messages, press Coach me, confirm the
+  price line, the sections and that "Use this reply" fills the box without sending.
+- The draft's language is the client's saved language (else the company default). A homeowner who
+  writes in Spanish to a company whose default is English, with no client record, gets an English
+  draft — the panel says which language it used. Detecting the conversation's language would be a
+  product decision.
+- Pre-existing failures seen while checking, not from this change: `check:app-catalogue` (de/zh/it
+  marked complete with ~120 absent keys), `check:tenant-scope` (sales/platform prospect lookups),
+  `check:paid-refusals` (vision-pass price formatting).
 
 ## /platform/signups: holder, history, take back, Do Not Contact (25 September 2026)
 
