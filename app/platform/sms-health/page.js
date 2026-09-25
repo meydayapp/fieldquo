@@ -134,7 +134,7 @@ export default function SmsHealthPage() {
             type="button"
             onClick={() => setDays(d)}
             aria-pressed={days === d}
-            className={`min-h-[36px] px-3 text-sm rounded-md ${
+            className={`min-h-[44px] lg:min-h-[36px] px-3 text-sm rounded-md ${
               days === d ? "bg-foreground text-background font-semibold" : "text-muted-foreground"
             }`}
           >

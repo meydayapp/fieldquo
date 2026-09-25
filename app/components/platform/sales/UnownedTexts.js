@@ -126,7 +126,7 @@ export default function UnownedTexts({ onAssigned = null }) {
                   <select
                     value={choice[m.id] || ""}
                     onChange={(e) => setChoice((c) => ({ ...c, [m.id]: e.target.value }))}
-                    className="min-h-[36px] rounded-lg border border-border bg-card px-2 text-sm text-foreground"
+                    className="min-h-[44px] lg:min-h-[36px] rounded-lg border border-border bg-card px-2 text-sm text-foreground"
                     data-unowned-rep-picker
                   >
                     <option value="">Choose a rep…</option>
@@ -141,7 +141,7 @@ export default function UnownedTexts({ onAssigned = null }) {
                   type="button"
                   disabled={!choice[m.id] || busy === m.id}
                   onClick={() => assign(m.id)}
-                  className="min-h-[36px] rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-50"
+                  className="min-h-[44px] lg:min-h-[36px] rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-50"
                 >
                   {busy === m.id ? "Filing…" : "Assign"}
                 </button>
