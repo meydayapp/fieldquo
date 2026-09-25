@@ -388,7 +388,12 @@ const read = (p) => fs.readFileSync(path.join(ROOT, p), "utf8");
   ok("every dial count filters direction \"out\"", (measured.match(/salesCallAttempt\.count\(\{ where: (?:excludingTestDials|prospectDialsOnly)\(\{ direction: "out"/g) || []).length >= 4);
   ok("…and no dial count is unwrapped", !/salesCallAttempt\.count\(\{ where: \{/.test(measured));
   ok("demo companies are excluded from every signup and subscription measure", /isDemo: true/.test(measured) && (measured.match(/\.\.\.notDemo/g) || []).length >= 5);
-  ok("on-trial is billingStartedAt == null, per the schema's own rule", /billingStartedAt: null, status: "trialing"/.test(measured));
+  // Paying and trialing today are the dashboard's buckets (2026-09-25): the
+  // old trialing query saw Stripe trials only, so every card-free trial was
+  // missing from the forecast's pipeline, and the old paying query required
+  // billingStartedAt, so the one company Stripe was billing read as nobody.
+  ok("the starting stock is the dashboard's book, not a query of its own", /loadSubscriberBook\(db, \{ now \}\)/.test(measured) && /payingNow = book\.tally\.billed/.test(measured) && /trialingNow = book\.tally\.trialing\.total/.test(measured) && !/billingStartedAt: null, status: "trialing"/.test(measured));
+  ok("a card-free trial that ran out with no plan counts as an ended, unconverted trial", /of: trialsEnded \+ cardFreeEnded/.test(measured));
   ok("only FULL months are observed — never the current one", /for \(let i = MONTHS_BACK; i >= 1; i -= 1\)/.test(measured));
   ok("refill is measured from Prospect rows by UTC month, and the load month is not a refill", /date_trunc\('month', "createdAt" AT TIME ZONE 'UTC'\)/.test(measured) && /observed\.filter\(\(m\) => m\.label > listLoadMonth\)/.test(measured));
   ok("re-dial is measured on REPEAT attempts (row_number > 1 per prospect) followed by the prospect's lead converting", /row_number\(\) OVER \(PARTITION BY "prospectId"/.test(measured) && /WHERE n > 1/.test(measured) && /"convertedAt" >= d\."dialledAt"/.test(measured) && /"isDemo" = false/.test(measured));

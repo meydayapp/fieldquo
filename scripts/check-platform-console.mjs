@@ -58,12 +58,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+// trialCounting.js reads lib/billing/access.js, which imports the database,
+// so this check runs under the alias and db-stub loaders (package.json).
 import {
-  awaitingCheckoutWhere,
   classifyTrial,
   isOnTrial,
-  trialCompanyWhere,
-  trialingSubscriptionWhere,
 } from "../lib/platform/trialCounting.js";
 import {
   initialOpenKeys,
@@ -838,29 +837,13 @@ ok("the two trial branches are disjoint and sum to the total",
   branchA.length + branchB.length === newCount,
   `${branchA.length} + ${branchB.length} = ${newCount}`);
 
-// ── The Prisma clauses and the predicate describe the same rule ────────────
-
-console.log("\n The query and the predicate agree\n");
-
-const a = trialingSubscriptionWhere();
-const b = awaitingCheckoutWhere(NOW);
-const both = trialCompanyWhere(NOW);
-ok("trialingSubscriptionWhere filters on the subscription's status",
-  a.subscription?.status === "trialing", JSON.stringify(a));
-ok("awaitingCheckoutWhere requires the ABSENCE of a subscription",
-  b.subscription?.is === null && b.trialEndsAt?.gte === NOW, JSON.stringify(b));
-ok("trialCompanyWhere is exactly the two branches",
-  Array.isArray(both.OR) && both.OR.length === 2 &&
-    JSON.stringify(both.OR[0]) === JSON.stringify(a) &&
-    JSON.stringify(both.OR[1]) === JSON.stringify(b));
-ok("neither clause mentions onboardingStatus",
-  !JSON.stringify(both).includes("onboardingStatus"));
-// The disjointness the route's arithmetic rests on, asserted structurally too:
-// one branch demands a subscription, the other its absence.
-ok("branch A demands a subscription and branch B demands none",
-  a.subscription?.is !== null && b.subscription?.is === null);
-
 // ── The route and the screen actually use it ───────────────────────────────
+//
+// Since 2026-09-25 the route counts nothing with a where-clause of its own:
+// every company number is a bucket length from lib/platform/trialCounting.js
+// loadSubscriberBook. The bucket rule itself — every bucket, hostile
+// fixtures, every screen — is scripts/check-platform-buckets.mjs; what is
+// pinned here is that the dashboard's trial number is the book's.
 
 const routeSrc = read("app/api/platform/analytics/overview/route.js");
 const routeCode = stripComments(routeSrc);
@@ -869,18 +852,14 @@ const pageCode = stripComments(read("app/platform/page.js"));
 console.log("");
 ok("the overview route imports the shared rule",
   routeCode.includes("@/lib/platform/trialCounting"));
-ok("the route counts with the shared clauses, not an inline copy",
-  routeCode.includes("trialingSubscriptionWhere()") &&
-    routeCode.includes("awaitingCheckoutWhere(now)"));
+ok("the route counts from the classified book, not an inline copy",
+  routeCode.includes("loadSubscriberBook(db, { now })"));
 ok("no onboardingStatus survives in the route's trial counting",
   !/onboardingStatus:\s*"pending"/.test(routeCode));
-ok("the route still excludes demo companies from both trial counts",
-  (routeCode.match(/\.\.\.NOT_DEMO,\s*\.\.\.(?:trialingSubscriptionWhere|awaitingCheckoutWhere)/g)
-    || []).length === 2);
-ok("trialCompanies is the sum of the two branches",
-  /trialCompanies:\s*trialingSubscriptionCompanies\s*\+\s*awaitingCheckoutCompanies/
-    .test(routeCode));
-ok("the breakdown ships with the total", routeCode.includes("trialBreakdown"));
+ok("trialCompanies is the book's trialing total, both kinds",
+  /trialCompanies:\s*tally\.trialing\.total/.test(routeCode));
+ok("the breakdown ships with the total, split by plan chosen / no plan yet",
+  /trialBreakdown:\s*\{\s*withPlan:\s*tally\.trialing\.withPlan,\s*noPlan:\s*tally\.trialing\.noPlan/.test(routeCode));
 
 // Failure class #1: written and never read. activeCompanies was returned by
 // this route and consumed by nothing — and by the reasoning above its name was
@@ -892,8 +871,13 @@ ok("the screen reads the breakdown the route now writes",
   pageCode.includes("trialBreakdown"));
 ok("the banner no longer says 'companies on trial' over a narrower number",
   !pageCode.includes("companies on trial"));
-ok("the subscription tile says it counts subscriptions",
-  pageCode.includes("Trialing subscriptions") && !/label="In trial"/.test(pageCode));
+// The tile was "Trialing subscriptions" — Stripe's trialing rows, 2 — while
+// five companies were trialing (owner, 2026-09-25: "I think we have 4").
+// It counts COMPANIES in a free month now, both kinds, from the same tally
+// as the banner.
+ok("the Trialing tile counts companies in a free month, not subscription rows",
+  /label="Trialing"\s*\n\s*value=\{count\(data\.trialCompanies\)\}/.test(pageCode) &&
+    !pageCode.includes('label="Trialing subscriptions"') && !/label="In trial"/.test(pageCode));
 
 console.log(`\n${checks} checks, ${failures} failure(s).`);
 process.exit(failures ? 1 : 0);

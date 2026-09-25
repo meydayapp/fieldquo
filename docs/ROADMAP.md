@@ -49,6 +49,89 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## /platform counts one book: trialing, paying, companies (25 September 2026)
+
+The owner: /platform "says 2 trialing subscriptions but I think we have 4".
+Five companies were trialing. The tile counted Stripe's `trialing`
+Subscription rows, and since 38d3308d a new company trials with no card and
+NO Subscription row. The same question had six answers across the console:
+the tile (2), the banner under it (5), the subscriptions page (5 on "All",
+0 on "Active"), the companies list's "Trial / pending" chip (3, it was
+onboardingStatus), the growth forecast's starting stock (2), and the plans
+page (0 companies on every plan — it looked up `planMix[plan.name]` after the
+keys became "Solo (CAD)").
+
+### What shipped
+
+- **One classifier, one book.** `lib/platform/trialCounting.js`
+  `subscriberBucket` puts every company in exactly one bucket — paying,
+  past_due, trial_with_plan, trial_no_plan, trial_ended (no plan, read-only),
+  locked, cancelled, incomplete, unknown, demo (names and groups in the pure
+  `lib/platform/subscriberBuckets.js`). `loadSubscriberBook` loads and
+  classifies the whole book live on each request; `tallySubscribers` is what
+  every tile prints; `outlookSubscriptions` is the only feed the revenue
+  outlook prices (Paying + Trialing-with-a-plan — a card-free trial never
+  reaches MRR). The grace windows are `lib/billing/access.js`'s, so the
+  console and the company's own banner agree on the day a trial ends.
+- **Home (/platform):** "Trialing subscriptions: 2" → **"Trialing: 5 — 2 with
+  a plan chosen · 3 no plan yet"**; "Paying companies" is the Paying bucket
+  (note says how many can be charged, past due, cancelling at period end);
+  "Churned this month" is the Cancelled bucket by `canceledAt` (was
+  onboardingStatus "churned" + `updatedAt`); the growth series count finished
+  signups only; quote/payment series exclude demos. New **"Who these numbers
+  count"** list under the tiles names every company in every bucket.
+- **Subscriptions page:** the tiles are the book's, whatever tab is open (the
+  tab filters the table); "MRR" is the home page's Collectable MRR; demo rows
+  left out; prints when it was counted and how fresh Stripe's mirror is.
+- **Companies list:** the chips are the buckets (plus "Trialing" and
+  "No-plan free trials, any day" = `card_free`); onboardingStatus chips gone;
+  an unknown filter is a 400. Row/header words (`companyStanding`) come from
+  the bucket — TrueFinish read "active" while trialing; now "Trialing · Solo ·
+  20 days left". The per-country tally reads the bucket.
+- **Tax registrations, growth forecast, plans page, analytics, CSV:** the tax
+  tally and the forecast's paying/trialing stock use the book; a card-free
+  trial that ran out with no plan is an ended, unconverted trial in the
+  conversion rate; the plans page counts by plan id (`overview.planUsage`);
+  `/platform/analytics` "Completed" and the company denominator use the
+  finished-signup rule; the companies export has a "Standing" column.
+- **Freshness:** nothing on /platform was a cached rollup (AnalyticsDaily is
+  incremented in the same transaction as the event; `platform_sender`/audit
+  settings are separate). The one mirror is the Subscription rows (Stripe),
+  so `app/api/cron/billing-sync` now stamps `billing_sync_last_run` and the
+  home and subscriptions pages print "last billing webhook … · last full
+  reconcile …" (`lib/platform/webhookHealth.js stripeMirrorFreshness`).
+
+### Live counts (read-only, 2026-09-25)
+
+Companies 6 · Trialing 5 (plan chosen: TrueFinish Cabinets Inc., Sunset
+Space; no plan yet: Luma Painting, jaspedo, Emilio The Painter) · Paying 1
+(Test Inc., $1 "Live test" plan, cancelling 14 Oct) · incomplete 0 · demo 26 ·
+Collectable MRR $1 · Stripe-trial pipeline $198/mo.
+
+### Checks
+
+`npm run check:platform-buckets` (new, in check:all): every bucket from a
+fixture, hostile shapes (unselected relation, bad date, unknown status, terms
+lock on a cancelled row, the 7-day grace boundary), the tally arithmetic, MRR
+excluding card-free trials, the loader's select held to schema.prisma, the
+live shapes by name, and every screen/route reading the book. Mutation-tested
+(9/9 caught). Updated: check:platform-console (now runs with the loaders),
+check:abandoned-signup, check:tax-registrations, check:growth-model,
+check:signup-leads.
+
+### Still owed here
+
+- **FieldQuo's own test companies have no marker.** Only `isDemo` exists.
+  "Test Inc." (the owner's $1 live-mode test) counts as Paying. Marking it
+  needs either `isDemo` on that row (a data write) or a new flag — owner's call.
+- **Sales funnel "Signup completed with card"** (`lib/sales/funnelStages.js`)
+  still requires a Subscription row, so since 38d3308d every rep-attributed
+  signup reads as "abandoned" and the card-trial quota can only be met by a
+  plan pick. Whether a card-free trial counts toward a rep's quota is a
+  product decision (it feeds rep targets), so it was left as is.
+- MRR sums plan prices across currencies (CAD + USD) as one number — true of
+  the old tiles too.
+
 ## Pay-run cancel, the schema stripper, the booking follow-up (25 September 2026)
 
 Three follow-ups earlier agents found. One commit each; nothing touches the

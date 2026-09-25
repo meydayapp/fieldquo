@@ -21,6 +21,10 @@ import {
   REGISTRATION_REGIONS,
   EU_COUNTRIES,
 } from "@/lib/platform/taxRegistrations";
+// The tally reads the dashboard's bucket off each row (it is attached by the
+// route from the one classifier), so the fixtures are classified by the same
+// function rather than labelled by hand.
+import { subscriberBucket } from "@/lib/platform/trialCounting";
 
 let checks = 0;
 let failures = 0;
@@ -74,18 +78,30 @@ const NOW = new Date("2026-09-25T12:00:00Z");
 const future = "2026-10-20T00:00:00Z";
 const past = "2026-09-01T00:00:00Z";
 const CO = [
-  { country: "AU", subscription: { status: "active", billingInterval: "month", plan: { priceMonthly: 99, priceAnnual: 990, currency: "AUD" } } },
-  { country: "AU", subscription: { status: "active", billingInterval: "year", plan: { priceMonthly: 369, priceAnnual: 3690, currency: "AUD" } } },
-  { country: "AU", subscription: { status: "trialing", plan: { priceMonthly: 99, currency: "AUD" } } },
+  { country: "AU", trialEndsAt: null, subscription: { status: "active", billingInterval: "month", plan: { priceMonthly: 99, priceAnnual: 990, currency: "AUD" } } },
+  { country: "AU", trialEndsAt: null, subscription: { status: "active", billingInterval: "year", plan: { priceMonthly: 369, priceAnnual: 3690, currency: "AUD" } } },
+  { country: "AU", trialEndsAt: null, subscription: { status: "trialing", plan: { priceMonthly: 99, currency: "AUD" } } },
   { country: "AU", subscription: null, trialEndsAt: future },
   { country: "AU", subscription: null, trialEndsAt: past },
-  { country: "AU", isDemo: true, subscription: { status: "active", plan: { priceMonthly: 99, currency: "AUD" } } },
+  { country: "AU", isDemo: true, trialEndsAt: null, subscription: { status: "active", plan: { priceMonthly: 99, currency: "AUD" } } },
   { country: "GB", subscription: null, trialEndsAt: future },
-  { country: "NZ", subscription: { status: "active", plan: { priceMonthly: 99, currency: "USD" } } },
-  { country: null, subscription: { status: "active", plan: { priceMonthly: 99, currency: "CAD" } } },
-  { country: "IE", subscription: { status: "canceled", plan: { priceMonthly: 99, currency: "USD" } } },
-];
+  { country: "NZ", trialEndsAt: null, subscription: { status: "active", plan: { priceMonthly: 99, currency: "USD" } } },
+  { country: null, trialEndsAt: null, subscription: { status: "active", plan: { priceMonthly: 99, currency: "CAD" } } },
+  { country: "IE", trialEndsAt: null, subscription: { status: "canceled", plan: { priceMonthly: 99, currency: "USD" } } },
+  // A failed payment still inside its grace window is billed; one whose grace
+  // ran out is locked and in neither column.
+  { country: "CA", trialEndsAt: null, subscription: { status: "past_due", pastDueSince: "2026-09-23T00:00:00Z", plan: { priceMonthly: 99, currency: "CAD" } } },
+  { country: "DE", trialEndsAt: null, subscription: { status: "past_due", pastDueSince: "2026-08-01T00:00:00Z", plan: { priceMonthly: 99, currency: "EUR" } } },
+].map((c) => ({ ...c, bucket: subscriberBucket(c, NOW) }));
 const { regions: co, unplaced } = tallyCompanies(CO, NOW);
+let unclassified = null;
+try {
+  tallyCompanies([{ country: "AU", subscription: null, trialEndsAt: future }], NOW);
+} catch (err) {
+  unclassified = err;
+}
+ok("a row with no bucket is refused by name, not guessed at", /bucket is missing/.test(String(unclassified?.message)));
+ok("a past-due company inside its grace is paying; one past it is not counted", co.CA?.paying === 1 && !co.EU, { CA: co.CA, EU: co.EU });
 ok("AU: two paying, two trialling (demo and an ended trial left out)", co.AU.paying === 2 && co.AU.trialling === 2, co.AU);
 ok("AU run-rate: 99×12 + the annual 3,690", co.AU.annualRunRate.AUD === 99 * 12 + 3690, co.AU.annualRunRate);
 ok("GB: one card-free trial", co.GB.trialling === 1 && co.GB.paying === 0);

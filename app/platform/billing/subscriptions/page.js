@@ -40,6 +40,16 @@ function formatDate(value) {
   });
 }
 
+function formatDateTime(value) {
+  if (!value) return "—";
+  return new Date(value).toLocaleString("en-CA", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 export default function SubscriptionsPage() {
   const [data, setData] = useState(null);
   const [status, setStatus] = useState("");
@@ -78,35 +88,64 @@ export default function SubscriptionsPage() {
         </p>
       </div>
 
+      {/* The tiles are the whole book, whatever tab is open (the tab filters
+          the table below), and the same numbers the /platform home prints:
+          Collectable MRR, Paying, Trialing split by plan chosen / no plan
+          yet. They were computed from the open tab's rows, so "Active"
+          turned "Trialing: 5" into "Trialing: 0". */}
       {data && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard
-            label="MRR"
+            label="Collectable MRR"
             value={money(data.summary.mrr, { compact: true })}
-            note={`${count(data.summary.active)} active`}
+            note={[
+              `${count(data.summary.active)} paying`,
+              data.summary.collectableCount !== data.summary.active
+                ? `${count(data.summary.collectableCount)} can be charged`
+                : null,
+              data.summary.mrrOnPaper !== data.summary.mrr
+                ? `${money(data.summary.mrrOnPaper, { compact: true })} on paper`
+                : null,
+              data.summary.pastDue ? `+${count(data.summary.pastDue)} past due` : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
           />
           <MetricCard
             label="Trialing"
             value={count(data.summary.trialing)}
-            note={
-              data.summary.trialingNoPlan
-                ? `${count(data.summary.trialingNoPlan)} with no card or plan yet`
-                : undefined
-            }
+            note={`${count(data.summary.trialingWithPlan)} with a plan chosen · ${count(data.summary.trialingNoPlan)} no plan yet`}
           />
           <MetricCard
             label="Trials ending"
             value={count(data.summary.expiringSoon)}
-            note="Within 7 days"
+            note="Within 7 days, either kind of trial"
             tone={data.summary.expiringSoon > 0 ? "warning" : "default"}
           />
           <MetricCard
             label="Not billable"
             value={count(data.summary.unbillable)}
-            note="Active but no Stripe subscription"
+            note="Paying but no Stripe subscription"
             tone={data.summary.unbillable > 0 ? "warning" : "default"}
           />
         </div>
+      )}
+      {/* The one cached input on this screen: every status here is Stripe's,
+          mirrored into the Subscription rows by the billing webhook and the
+          six-hourly billing-sync. Everything else is counted on this request. */}
+      {data && (
+        <p className="text-xs text-muted-foreground" data-stripe-mirror>
+          Counted live at {new Date(data.countedAt).toLocaleTimeString()}.{" "}
+          {data.stripeMirror
+            ? `Statuses mirror Stripe — last billing webhook ${
+                data.stripeMirror.lastWebhookAt ? formatDateTime(data.stripeMirror.lastWebhookAt) : "never"
+              }; last full reconcile ${
+                data.stripeMirror.lastReconcile
+                  ? `${formatDateTime(data.stripeMirror.lastReconcile.at)} (${count(data.stripeMirror.lastReconcile.checked)} checked, ${count(data.stripeMirror.lastReconcile.drifted)} corrected)`
+                  : "not recorded yet (the billing-sync runs every 6 h)"
+              }.`
+            : "How fresh the Stripe mirror is could not be read."}
+        </p>
       )}
 
       {/* ── Free trials without a plan ─────────────────────────────────────
@@ -121,7 +160,7 @@ export default function SubscriptionsPage() {
             <h2 className="text-sm font-semibold text-foreground">
               Free trials without a plan ({count(data.freeTrials.length)})
             </h2>
-            <Link href="/platform/companies?status=trial_no_plan" className="text-xs text-muted-foreground underline">
+            <Link href="/platform/companies?status=card_free" className="text-xs text-muted-foreground underline">
               Open in Companies →
             </Link>
           </div>

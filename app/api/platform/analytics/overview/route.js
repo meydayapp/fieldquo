@@ -40,13 +40,11 @@ import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { requirePlatformPermission } from "@/lib/platform/permissions";
 import { buildRevenueOutlook } from "@/lib/platform/revenueOutlook";
 import {
-  awaitingCheckoutWhere,
-  trialingSubscriptionWhere,
+  loadSubscriberBook,
+  outlookSubscriptions,
 } from "@/lib/platform/trialCounting";
-import {
-  completedSignupWhere,
-  incompleteSignupWhere,
-} from "@/lib/signup/abandoned";
+import { ON_PLAN_BUCKETS, isCustomerBucket } from "@/lib/platform/subscriberBuckets";
+import { stripeMirrorFreshness } from "@/lib/platform/webhookHealth";
 
 /** Sales demo companies are not customers. See lib/demo/seedDemo.js. */
 const NOT_DEMO = { isDemo: false };
@@ -125,18 +123,12 @@ export async function GET(request) {
   twelveMonthsAgo.setUTCDate(1);
 
   const [
-    totalCompanies,
-    incompleteSignups,
-    trialingSubscriptionCompanies,
-    awaitingCheckoutCompanies,
-    churnedThisMonth,
-    activeSubscriptions,
+    book,
+    stripeMirror,
     quotesThisMonth,
     jobsThisMonth,
-    recentCompanies,
     recentQuotes,
     recentPayments,
-    yearCompanies,
     yearQuotes,
     yearPayments,
     paymentTotal,
@@ -164,81 +156,51 @@ export async function GET(request) {
     // it is and gets its own screen (/platform/signups). See
     // lib/signup/abandoned.js for why the Subscription row is the whole test
     // and onboardingStatus cannot be.
-    db.company.count({ where: { ...NOT_DEMO, ...completedSignupWhere() } }),
-    db.company.count({ where: { ...NOT_DEMO, ...incompleteSignupWhere() } }),
-    // ── "On trial" is two populations, counted separately ──────────────────
     //
-    // The rule and the reasoning live in lib/platform/trialCounting.js; the
-    // short version is that the previous query keyed on `onboardingStatus`,
-    // which flips to "active" at trial START, so it excluded the companies it
-    // existed to find and returned 1 where the honest answer was 6.
+    // ── Every company number on this page is one book ──────────────────────
     //
-    // Two counts rather than one because the SPLIT is what makes the number
-    // readable: "in a Stripe trial" and "signed up, not through checkout yet"
-    // are different phone calls. The branches are disjoint (one requires a
-    // subscription row, the other its absence), so the total is their sum and
-    // no third query is needed.
+    // "Companies", "incomplete signups", "trialing", "paying", "churned this
+    // month", the plan mix and the revenue outlook's subscriptions used to be
+    // five separate queries with five separate where-clauses. On 2026-09-25
+    // the tile read "Trialing subscriptions: 2" while the banner under it
+    // said 5 and the owner counted 4 — each query right about its own rule,
+    // none about the question. Now every company is classified ONCE into one
+    // bucket (lib/platform/trialCounting.js subscriberBucket; the names in
+    // lib/platform/subscriberBuckets.js) and each number below is the length
+    // of a bucket's list. Demos are their own bucket, so the demo exclusion
+    // the comment above argues for is applied by construction.
     //
-    // `activeCompanies` used to sit on this line, counting
-    // onboardingStatus === "active". It is gone rather than fixed: nothing in
-    // the repo ever read it — the dashboard's "Paying companies" tile comes
-    // from outlook.collectableCount — and by the reasoning above its name was
-    // a claim the query could not support, since every trialing company is
-    // "active" too. A dead field asserting something false is worse than no
-    // field.
-    db.company.count({ where: { ...NOT_DEMO, ...trialingSubscriptionWhere() } }),
-    db.company.count({ where: { ...NOT_DEMO, ...awaitingCheckoutWhere(now) } }),
-    // Approximate — see the note on Company.updatedAt. Any edit to a churned
-    // company pulls it back into this window.
-    db.company.count({
-      where: { ...NOT_DEMO, onboardingStatus: "churned", updatedAt: { gte: startOfMonth } },
-    }),
-    // Widened from active-only to every live subscription, and from the plan's
-    // name+price to the fields that decide whether it can actually be
-    // CHARGED. The old shape could only produce a nominal MRR — it had no way
-    // to know that none of these can raise a payment.
-    db.subscription.findMany({
-      where: { status: { in: ["active", "trialing"] }, company: NOT_DEMO },
-      select: {
-        status: true,
-        trialEndsAt: true,
-        stripeSubscriptionId: true,
-        company: { select: { name: true } },
-        plan: {
-          // currency is selected because the plan mix keys on it — two rows
-          // are both called "Solo" and merging them hides the split.
-          select: { name: true, currency: true, priceMonthly: true, stripePriceId: true },
-        },
-      },
+    // Live on every request: nothing here is a rollup or a snapshot. The one
+    // thing that can be stale is the Subscription mirror of Stripe, so how
+    // fresh it is ships beside the numbers (stripeMirror).
+    loadSubscriberBook(db, { now }),
+    stripeMirrorFreshness().catch((err) => {
+      console.error("[platform/overview] mirror freshness unavailable:", err?.message);
+      return null;
     }),
     db.quote.count({ where: { createdAt: { gte: startOfMonth } } }),
     db.job.count({ where: { createdAt: { gte: startOfMonth } } }),
 
-    // Daily series inputs — 30 days.
-    db.company.findMany({
-      where: { ...NOT_DEMO, createdAt: { gte: thirtyDaysAgo } },
-      select: { createdAt: true },
-    }),
+    // Daily and monthly series inputs. The company series come from the book
+    // below, not a query: "New companies" counted every Company row created,
+    // an abandoned signup included, beside a "companies" total that excludes
+    // them. The quote and payment series now leave out demo companies too —
+    // a rep seeding a demo wrote a burst of fixture quotes into "Quotes
+    // created" every time.
     db.quote.findMany({
-      where: { createdAt: { gte: thirtyDaysAgo } },
+      where: { createdAt: { gte: thirtyDaysAgo }, company: NOT_DEMO },
       select: { createdAt: true, total: true },
     }),
     db.payment.findMany({
-      where: { createdAt: { gte: thirtyDaysAgo } },
+      where: { createdAt: { gte: thirtyDaysAgo }, invoice: { company: NOT_DEMO } },
       select: { createdAt: true, amount: true },
     }),
-
-    // Monthly series inputs — 12 months.
-    db.company.findMany({
-      where: { ...NOT_DEMO, createdAt: { gte: twelveMonthsAgo } },
-      select: { createdAt: true },
-    }),
     db.quote.findMany({
-      where: { createdAt: { gte: twelveMonthsAgo } },
+      where: { createdAt: { gte: twelveMonthsAgo }, company: NOT_DEMO },
       select: { createdAt: true, total: true },
     }),
     db.payment.findMany({
-      where: { createdAt: { gte: twelveMonthsAgo } },
+      where: { createdAt: { gte: twelveMonthsAgo }, invoice: { company: NOT_DEMO } },
       select: { createdAt: true, amount: true },
     }),
 
@@ -274,18 +236,58 @@ export async function GET(request) {
     }),
   ]);
 
-  // `activeSubscriptions` now also carries trialing rows, so anything that
-  // means "currently paying" has to say so.
-  const activeOnly = activeSubscriptions.filter((s) => s.status === "active");
+  const { tally } = book;
+  const inBucket = (...buckets) => book.companies.filter((c) => buckets.includes(c.bucket));
+  // Companies that finished signing up — the population "companies" means on
+  // every tile — dated by their own creation, for the growth series.
+  const customers = book.companies.filter((c) => isCustomerBucket(c.bucket));
+  const recentCompanies = customers.filter((c) => new Date(c.createdAt) >= thirtyDaysAgo);
+  const yearCompanies = customers.filter((c) => new Date(c.createdAt) >= twelveMonthsAgo);
+
+  // The subscriptions the outlook prices: the Paying and Trialing-with-a-plan
+  // buckets only. A card-free trial has no plan and no price, so it can never
+  // reach MRR — it is counted in `trialing`, never in money.
+  const priced = outlookSubscriptions(book.companies);
+  const activeOnly = priced.filter((s) => s.status === "active");
 
   const mrr = activeOnly.reduce(
-    (sum, s) => sum + Number(s.plan.priceMonthly),
+    (sum, s) => sum + Number(s.plan?.priceMonthly || 0),
     0,
   );
 
   // The same subscriptions, asked the harder question: which of these can
   // actually raise a charge next cycle?
-  const revenueOutlook = buildRevenueOutlook(activeSubscriptions);
+  const revenueOutlook = buildRevenueOutlook(priced, now);
+
+  // Churned this month: the Cancelled bucket, dated by the subscription's own
+  // canceledAt. It was onboardingStatus "churned" + Company.updatedAt, which
+  // any edit to a churned company moved into the window (and which the
+  // console's own suspend button writes without anyone leaving).
+  const monthStartMs = startOfMonth.getTime();
+  const churned = inBucket("cancelled").filter(
+    (c) => c.subscription?.canceledAt && new Date(c.subscription.canceledAt).getTime() >= monthStartMs,
+  );
+  // Still paying, already booked to leave — Stripe's cancel_at_period_end.
+  // Not churn yet; named so the Paying tile does not read as a promise.
+  const cancelling = inBucket("paying").filter((c) => c.subscription?.cancelAtPeriodEnd);
+
+  // Who is on each plan, by plan ID — the plans page's subscriber counts.
+  // It looked these up by plan NAME in `planMix`, whose keys became
+  // "Solo (CAD)" when the currency split landed, so every plan card read
+  // "0 companies" (and a price-change warning never fired) while two
+  // companies were trialing on Solo. Counted over every bucket holding a
+  // live plan — paying, past due and trialing with a plan — because a price
+  // change touches all three.
+  const planUsage = {};
+  for (const c of inBucket(...ON_PLAN_BUCKETS)) {
+    const id = c.subscription?.planId;
+    if (!id) continue;
+    const row = (planUsage[id] ||= { paying: 0, pastDue: 0, trialing: 0, total: 0 });
+    if (c.bucket === "paying") row.paying++;
+    else if (c.bucket === "past_due") row.pastDue++;
+    else row.trialing++;
+    row.total++;
+  }
 
   // Plan mix — which plans people actually buy.
   const planMix = {};
@@ -308,23 +310,35 @@ export async function GET(request) {
     quotedValue: Number(quoteTotal._sum.total || 0),
     invoicedValue: Number(invoiceTotal._sum.total || 0),
 
-    // Counts
+    // Counts — every one a bucket length from the same book.
     activeSubscriptionCount: activeOnly.length,
-    // Companies that finished checkout. NOT every Company row — see the count
-    // above. `incompleteSignups` ships beside it rather than being subtracted
-    // silently, so a reader can take the number apart, which is the discipline
-    // trialBreakdown already established below.
-    totalCompanies,
-    incompleteSignups,
-    // Companies inside an unpaid free month, and the two ways to be in one.
-    // The breakdown ships with the total so the banner can state what it
-    // counted — see lib/platform/trialCounting.js.
-    trialCompanies: trialingSubscriptionCompanies + awaitingCheckoutCompanies,
+    // Companies that finished signing up (a subscription, or the card-free
+    // trial). NOT every Company row: `incompleteSignups` ships beside it
+    // rather than being subtracted silently, so a reader can take the number
+    // apart.
+    totalCompanies: tally.customers,
+    incompleteSignups: tally.counts.incomplete,
+    // The Paying bucket: a subscription Stripe calls active. How many of
+    // those can actually be CHARGED is outlook.collectableCount, printed
+    // beside it rather than instead of it.
+    payingCompanies: tally.counts.paying,
+    pastDueCompanies: tally.counts.past_due,
+    cancellingAtPeriodEnd: cancelling.map((c) => c.name),
+    // Companies inside a free month, and the two ways to be in one: a Stripe
+    // trial on a chosen plan, or the card-free trial with no plan yet.
+    trialCompanies: tally.trialing.total,
     trialBreakdown: {
-      trialingSubscription: trialingSubscriptionCompanies,
-      awaitingCheckout: awaitingCheckoutCompanies,
+      withPlan: tally.trialing.withPlan,
+      noPlan: tally.trialing.noPlan,
     },
-    churnedThisMonth,
+    churnedThisMonth: churned.length,
+    // The whole book: every bucket's count AND the companies in it, so the
+    // page can print the names under each number and nobody has to take a
+    // tile on trust. Demos are listed as their own bucket and counted nowhere.
+    book: { at: tally.at, counts: tally.counts, members: tally.members },
+    // How fresh the Subscription rows (Stripe's mirror) are.
+    stripeMirror,
+    planUsage,
     quotesThisMonth,
     jobsThisMonth,
     totalQuotes: quoteTotal._count,

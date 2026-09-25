@@ -12,6 +12,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { requirePlatformPermission } from "@/lib/platform/permissions";
+import { subscriberBucket } from "@/lib/platform/trialCounting";
+import { BUCKETS } from "@/lib/platform/subscriberBuckets";
 
 /**
  * Minimal RFC-4180 escaping. Company names contain commas and apostrophes
@@ -70,6 +72,7 @@ export async function GET(request) {
     });
 
     filename = "fieldquo-companies";
+    const standingAt = new Date();
     headers = [
       "Company",
       "Slug",
@@ -82,6 +85,11 @@ export async function GET(request) {
       // which ones would be the copy somebody totals up and gets a different
       // answer from the dashboard.
       "Finished checkout",
+      // The dashboard's bucket (lib/platform/trialCounting.js), so an export
+      // totalled by this column gives the /platform tiles' numbers exactly —
+      // "Status" beside it is onboardingStatus, which says "active" about a
+      // Stripe trial and "pending" about every card-free one.
+      "Standing",
       "Signed up",
       "Plan",
       "Subscription status",
@@ -100,6 +108,7 @@ export async function GET(request) {
       c.email,
       c.onboardingStatus,
       c.subscription ? "yes" : "no",
+      BUCKETS[subscriberBucket(c, standingAt)]?.label || "",
       isoDate(c.createdAt),
       c.subscription?.plan?.name || "",
       c.subscription?.status || "",
