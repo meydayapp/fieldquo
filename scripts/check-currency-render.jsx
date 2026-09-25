@@ -58,7 +58,10 @@ const gutters = (
 const paint = (
   <PaintAreas
     takeoff={{ model: "area_substrate", areas: [{ areaType: "den", label: "Den", measurement: "room", lengthFt: 12, widthFt: 14, heightFt: 8, substrates: [{ key: "walls", coats: 2 }] }] }}
-    book={getPriceBook("interior_painting")}
+    // The TAKEOFF slice, as TradeTakeoff hands it (book?.takeoff) — that is
+    // where areaTypes live. The whole book was passed here before, which only
+    // rendered while AreaCard never read areaTypes.
+    book={getPriceBook("interior_painting")?.takeoff}
     onChange={() => {}}
   />
 );

@@ -116,12 +116,15 @@ export default function MediaUploader({
             // the language a public form was opened in. Otherwise the
             // server's own reason first — it inspected the file: the
             // classifyMedia verdict, an upload it could not confirm. The
-            // labels are the fallbacks.
+            // labels are the fallbacks — and nothing sits between them and
+            // the server's reason: err.message is uploadClient's English
+            // sentence, and ahead of rejectedLabel it put English on the
+            // public self-quote form a client opened in French.
             setError(
               err?.code === "too_large" && err?.maxBytes
                 ? tooLargeLabel(megabytes(file.size), megabytes(err.maxBytes))
                 : err?.serverMessage ||
-                    (err?.code === "signed_out" ? signedOutLabel : err?.message || rejectedLabel),
+                    (err?.code === "signed_out" ? signedOutLabel : rejectedLabel),
             );
             continue;
           }

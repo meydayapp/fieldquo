@@ -719,7 +719,10 @@ const SELL_PATHS = [
   {
     file: "app/api/companies/route.js",
     what: "signup refuses a retired plan with 409 before any company row exists",
-    guard: /if \(isRetired\(plan\)\)[\s\S]{0,200}RETIRED_PLAN_ERROR[\s\S]{0,80}status: 409/,
+    // `plan &&`: signup no longer needs a plan at all (the owner's 2026-09-24
+    // decision — the plan is chosen later, from the banner), so the guard
+    // tests the plan only when one was named. A named retired plan still 409s.
+    guard: /if \((?:plan && )?isRetired\(plan\)\)[\s\S]{0,200}RETIRED_PLAN_ERROR[\s\S]{0,80}status: 409/,
     // Must come BEFORE the transaction that creates the company.
     before: "$transaction",
   },
