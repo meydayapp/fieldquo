@@ -42,6 +42,7 @@ import {
   Building2,
   Users,
   Package,
+  Repeat,
   ListPlus,
   CreditCard,
   Receipt,
@@ -141,6 +142,10 @@ export const GROUPS = [
     items: [
       { key: "app.settings.products", href: "/app/settings/products", icon: Package, helpArticle: "settings-products" },
       { key: "app.settings.services", href: "/app/settings/services", icon: Tags, helpArticle: "settings-services" },
+      // The recurring plans a quote can carry — priced like the rest of the
+      // price book, so it sits beside it. Its help is the service-plans
+      // article (alsoScreens), which covers the plans these templates become.
+      { key: "app.settings.planTemplates", href: "/app/settings/maintenance-plans", icon: Repeat, helpArticle: "settings-maintenance-plans" },
       { key: "app.settings.materialCosts", href: "/app/settings/material-costs", icon: Droplet, helpArticle: "settings-material-costs" },
       { key: "app.settings.cabinetRates", href: "/app/settings/cabinet-rates", icon: Ruler, helpArticle: "settings-cabinet-rates" },
       { key: "app.settings.overhead", href: "/app/settings/overhead", icon: TrendingUp, helpArticle: "settings-overhead" },

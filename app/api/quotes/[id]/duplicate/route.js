@@ -76,6 +76,7 @@ export async function POST(request, { params }) {
     include: {
       scopeGroups: { orderBy: { sortOrder: "asc" } },
       addOns: { orderBy: { sortOrder: "asc" } },
+      planOffers: { orderBy: { sortOrder: "asc" } },
       costing: true,
     },
   });

@@ -22,6 +22,9 @@ export const rows = {
   serviceCategory: [],
   client: [],
   quote: [],
+  // Maintenance plans on a quote (check-plan-templates' route half).
+  servicePlanTemplate: [],
+  quotePlanOffer: [],
   // The outbound-call queue and the consent ledger. Added so the quote-callback
   // checks can execute enqueueOutbound itself rather than assert about it — the
   // "one call per quote, ever" rule is a property of a de-dupe QUERY, and there
@@ -256,6 +259,8 @@ export function resetDbStub() {
   rows.serviceCategory = [];
   rows.client = [];
   rows.quote = [];
+  rows.servicePlanTemplate = [];
+  rows.quotePlanOffer = [];
   rows.voiceCallTask = [];
   rows.callConsent = [];
   rows.company = [];
@@ -612,6 +617,15 @@ function model(name) {
       for (const row of hits) Object.assign(row, data);
       return { count: hits.length };
     },
+    // Applied, like updateMany, so a scoped delete that matches nothing is
+    // seen to delete nothing — the count is the assertion.
+    deleteMany: async ({ where } = {}) => {
+      writes.push({ model: name, action: "deleteMany", where });
+      const keep = rows[name].filter((r) => !matches(r, where));
+      const count = rows[name].length - keep.length;
+      rows[name].splice(0, rows[name].length, ...keep);
+      return { count };
+    },
     delete: async ({ where } = {}) => {
       const idx = rows[name].findIndex((r) => matches(r, where));
       const removed = idx === -1 ? null : rows[name].splice(idx, 1)[0];
@@ -680,6 +694,8 @@ export const db = new Proxy(
     pendingTeamProfile: model("pendingTeamProfile"),
     product: model("product"),
     quoteAddOn: model("quoteAddOn"),
+    servicePlanTemplate: model("servicePlanTemplate"),
+    quotePlanOffer: model("quotePlanOffer"),
     helpFeedback: model("helpFeedback"),
     subscription: model("subscription"),
     plan: model("plan"),

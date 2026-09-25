@@ -174,6 +174,11 @@ export default function ServicePlanPage() {
           <p className="text-sm text-muted-foreground mt-1">
             {plan.client?.name} · {plan.serviceName} · {t(`app.plans.freq.${plan.frequency}`)}
           </p>
+          {plan.soldOnQuote && (
+            <Link href={`/app/quotes/${plan.soldOnQuote.id}`} className="inline-block text-sm text-foreground underline mt-1">
+              {t("app.plans.soldOnQuote", { number: plan.soldOnQuote.quoteNumber })}
+            </Link>
+          )}
         </div>
         {plan.status === "active" && (
           <button
