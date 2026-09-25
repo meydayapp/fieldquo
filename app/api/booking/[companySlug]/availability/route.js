@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { computeAvailableSlots } from "@/lib/booking/computeAvailability";
 import { findBookingCompany } from "@/lib/booking/findBookingCompany";
-import { geocodeAddress } from "@/lib/measure/roofMeasurement";
+import { geocodeAddress, serverMapsKey } from "@/lib/measure/roofMeasurement";
 import { resolveMode, eventTypeForMode } from "@/lib/booking/bookingModes";
 
 // Public — open slots for a given event type over a date range
@@ -61,14 +61,36 @@ export async function GET(request, { params }) {
   const address = searchParams.get("address");
   let destination = null;
   let resolvedAddress = null;
+  // WHY the filter did not engage, when it didn't. Three different facts that
+  // used to share one answer, `applied: false`, which the page rendered as
+  // "we couldn't place that address — double-check it":
+  //
+  //   "off"        the company switched travel checking off. Their address
+  //                is fine; nothing was looked up.
+  //   "no_lookup"  no server Maps key. A deployment problem, not theirs.
+  //   "not_found"  Google was asked and could not place it. The only one
+  //                where "double-check your address" is the true sentence.
+  //
+  // Telling a homeowner their correct address is wrong — on every company
+  // with the check off — is the glitch the owner saw as "it doesn't take my
+  // new address".
+  let travelReason = null;
 
   // Travel only for a visit. An address on a call books nobody's drive, and
   // filtering call slots by a journey nobody makes would hide real times.
-  if (address && mode === "visit" && company.travelCheckEnabled) {
-    const hit = await geocodeAddress(address);
-    if (hit) {
-      destination = { lat: hit.lat, lng: hit.lng };
-      resolvedAddress = hit.formattedAddress;
+  if (address && mode === "visit") {
+    if (!company.travelCheckEnabled) {
+      travelReason = "off";
+    } else if (!serverMapsKey()) {
+      travelReason = "no_lookup";
+    } else {
+      const hit = await geocodeAddress(address);
+      if (hit) {
+        destination = { lat: hit.lat, lng: hit.lng };
+        resolvedAddress = hit.formattedAddress;
+      } else {
+        travelReason = "not_found";
+      }
     }
   }
 
@@ -107,6 +129,7 @@ export async function GET(request, { params }) {
       ? {
           applied: Boolean(destination),
           address: resolvedAddress,
+          ...(travelReason && { reason: travelReason }),
           ...(destination || {}),
         }
       : null,
