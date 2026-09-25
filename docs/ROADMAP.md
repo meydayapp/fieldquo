@@ -10396,6 +10396,21 @@ centre screenshots one.
 - **Proved** — `check:demo-content` (149, in check:all) seeds all ten trades
   into `scripts/fixtures/memoryPrisma.mjs` (served as `@/lib/db` by
   `memory-db-loader.mjs`) and reads every table back.
+- **Demo lines fixed (25 September 2026)** — every seeded quote and invoice
+  line was `{ name, unitPrice, total }`; the documents read `{ description,
+  rate, amount }`, so every demo line printed $0.00 under a correct total
+  (the service-plan invoices, the deposit, the whole pipeline). The seed now
+  writes the real shape through one `line()` helper; §2c of
+  `check:demo-content` asserts the keys, rate × qty = amount, subtotal = Σ
+  lines and what `groupInvoiceLineItems` prints, over every document of all
+  ten trades. **Owed (owner):** rows already in production keep the old
+  shape — 319 invoice lines and 652 quote lines across all 26 demo companies
+  (10 pool, 8 live rep demos, 8 retired). A pool demo's Reset
+  (`resetDemo` → `wipeContent` → reseed) rewrites them; re-running
+  `seed-demo-content.mjs` does NOT (idempotent — existing rows are kept);
+  a rep demo's reset retires the old company and seeds a new one, so the
+  retired rows stay as they are. Not done here because every route to it
+  deletes data.
 
 ## The company's own crew chat (12 September 2026)
 

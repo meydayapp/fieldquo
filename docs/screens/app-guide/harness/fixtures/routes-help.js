@@ -175,7 +175,10 @@ const portal = (ctx) => ({
   invoices: [
     {
       id: INVOICE.id, invoiceNumber: INVOICE.invoiceNumber, total: INVOICE.total, amountPaid: 0, dueDate: INVOICE.dueDate,
-      lineItems: INVOICE.items, notes: null, subtotal: INVOICE.subtotal, discount: 0, tax: INVOICE.taxTotal,
+      // INVOICE.items is the harness's list-row shape ({ name, unitPrice,
+      // total }); the portal reads Invoice.lineItems ({ description, amount }),
+      // so passed through raw it printed a blank line at $0.00.
+      lineItems: INVOICE.items.map((it) => ({ description: it.name, quantity: it.quantity, rate: it.unitPrice, amount: it.total })), notes: null, subtotal: INVOICE.subtotal, discount: 0, tax: INVOICE.taxTotal,
       jobPaymentStages: [], taxKind: "charged", taxAssumedRegion: null,
     },
   ],
