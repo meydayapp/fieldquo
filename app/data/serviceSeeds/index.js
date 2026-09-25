@@ -60,6 +60,7 @@ import { SEED as carpentry } from "./carpentry";
 import { SEED as carpet_cleaning } from "./carpet_cleaning";
 import { SEED as electrical } from "./electrical";
 import { SEED as exterior_painting } from "./exterior_painting";
+import { SEED as fence_services } from "./fence_services";
 import { SEED as flooring_install } from "./flooring_install";
 import { SEED as garage_door } from "./garage_door";
 import { SEED as general_contracting } from "./general_contracting";
@@ -84,6 +85,7 @@ export const SERVICE_SEEDS = {
   carpet_cleaning,
   electrical,
   exterior_painting,
+  fence_services,
   flooring_install,
   garage_door,
   general_contracting,

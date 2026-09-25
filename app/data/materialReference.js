@@ -98,7 +98,7 @@ export const MATERIAL_REFERENCE = [
   R("paver_base", "Paver base, 0.5 cu ft", "bag", cov(1.5, "sqft"), "rule", { US: US(6.25), CA: CA(10.84, { note: "limestone screenings 30 kg" }) }),
   R("gravel", "All-purpose gravel, 0.5 cu ft", "bag", cov(0.5, "cuft"), "label", { US: US(6.97) }),
   R("fence_picket", "Pressure-treated dog-ear picket", "each", null, "rule", { US: US(2.38) }),
-  R("fence_panel", "6 × 8 privacy fence panel", "panel", null, "label", { US: US(66.98) }),
+  R("fence_panel", "6 × 8 privacy fence panel", "panel", cov(8, "linft"), "label", { US: US(66.98) }),
   R("vinyl_siding", "Vinyl siding, double 4 in", "piece", cov(8.3, "sqft"), "rule", { US: US(9.48), CA: CA(10.94) }),
   R("house_wrap", "House wrap", "roll", cov(1350, "sqft"), "label", { US: US(118), CA: CA(137, { coverage: cov(900, "sqft") }) }),
   R("insulation_r13", "R-13 faced batt roll", "roll", cov(40, "sqft"), "label", { US: US(27.97) }),
