@@ -38,6 +38,7 @@ import {
   instantTradeOffered,
 } from "@/lib/trades/catalog";
 import { normaliseFinancing } from "@/lib/estimate/financing";
+import { schedulePhrases, companyWritingLanguage } from "@/lib/i18n/autoTranslateSchedule";
 import { normaliseFormFields } from "@/lib/estimate/formFields";
 import { normaliseFormAppearance, isDefaultAppearance, formPalette } from "@/lib/estimate/formAppearance";
 import { serviceAreaConfigured } from "@/lib/company/serviceArea";
@@ -417,10 +418,27 @@ export async function PUT(request) {
   // it's stored.
   if (body && body.financing !== undefined) {
     const financing = normaliseFinancing(body.financing);
+    const before = await db.company.findUnique({ where: { id: member.companyId }, select: { financing: true } });
     await db.company.update({
       where: { id: member.companyId },
       data: { financing },
     });
+    // The note is the company's own words on the instant-quote form, its
+    // confirmation and the quote approval page, each read in the homeowner's
+    // language: drafted into the other languages now (lib/i18n/phrases.js)
+    // and looked up by financingOffer's callers. Every save with a note
+    // queues it (an unchanged note costs nothing — its key is its hash); the
+    // banner speaks only when the words changed.
+    const scheduled = financing.note
+      ? schedulePhrases({
+          companyId: member.companyId,
+          ns: "financingNote",
+          texts: [financing.note],
+          sourceLanguage: await companyWritingLanguage(member.companyId),
+        })
+      : null;
+    const autoTranslate =
+      financing.note && financing.note !== normaliseFinancing(before?.financing).note ? scheduled : null;
     await recordActivity(member, {
       action: "settings.financing_updated",
       entityType: "settings",
@@ -435,7 +453,7 @@ export async function PUT(request) {
         termMonths: financing.termMonths,
       },
     });
-    return NextResponse.json({ ok: true, financing });
+    return NextResponse.json({ ok: true, financing, autoTranslate });
   }
 
   // ── The report's website link ────────────────────────────────────────────
@@ -592,6 +610,10 @@ export async function PUT(request) {
     }
   }
 
+  const previous = await db.instantQuoteConfig.findUnique({
+    where: { companyId_trade: { companyId: member.companyId, trade } },
+    select: { config: true },
+  });
   const saved = await db.instantQuoteConfig.upsert({
     where: { companyId_trade: { companyId: member.companyId, trade } },
     update: { enabled: Boolean(enabled), config: config ?? null },
@@ -602,6 +624,26 @@ export async function PUT(request) {
       config: config ?? null,
     },
   });
+
+  // The option names ("Architectural shingles", or whatever the company
+  // renamed them to) are what a homeowner picks from on the public form and
+  // reads on the estimate and its report, in the form's language. Drafted
+  // into the other languages now (lib/i18n/phrases.js, namespace
+  // materialLabel) and looked up where the public payload and the estimate
+  // are built (lib/estimate/instantQuoteServer.js). Every save queues all of
+  // this trade's names — unchanged ones cost nothing; the banner speaks only
+  // for a name that is new.
+  const optionLabels = materialLabels(config);
+  const scheduledLabels = optionLabels.length
+    ? schedulePhrases({
+        companyId: member.companyId,
+        ns: "materialLabel",
+        texts: optionLabels,
+        sourceLanguage: await companyWritingLanguage(member.companyId),
+      })
+    : null;
+  const previousLabels = new Set(materialLabels(previous?.config));
+  const autoTranslate = optionLabels.some((l) => !previousLabels.has(l)) ? scheduledLabels : null;
 
   await recordActivity(member, {
     action: "settings.instant_quote_updated",
@@ -625,5 +667,13 @@ export async function PUT(request) {
     console.error("[settings/instant-quote] couldn't refresh the receptionist:", err?.message),
   );
 
-  return NextResponse.json({ ok: true, trade: saved.trade, enabled: saved.enabled });
+  return NextResponse.json({ ok: true, trade: saved.trade, enabled: saved.enabled, autoTranslate });
+}
+
+/** The trimmed, non-empty material/option names a saved trade config carries. */
+function materialLabels(config) {
+  const materials = config && typeof config === "object" && Array.isArray(config.materials) ? config.materials : [];
+  return materials
+    .map((m) => (m && typeof m.label === "string" ? m.label.trim() : ""))
+    .filter(Boolean);
 }

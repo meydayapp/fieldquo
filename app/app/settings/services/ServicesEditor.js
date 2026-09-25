@@ -395,8 +395,11 @@ export default function ServicesEditor({ compact = false, focus = "services", on
         }),
       });
       if (res.ok) {
-        const created = await res.json();
+        // The new service's name is drafted into the other languages; the
+        // banner reports it, and the summary stays off the category row.
+        const { autoTranslate: queued, ...created } = await res.json();
         setCategories((prev) => [...prev, created]);
+        setAutoTranslate(queued || null);
         setCustomForm(emptyCustomForm());
         setFieldSearch("");
         setShowCustomModal(false);

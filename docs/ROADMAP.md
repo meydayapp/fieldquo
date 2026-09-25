@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 25 September 2026 (the owner's four set-up questions: an unfinished before & after pair is a stored draft you can finish later or discard, never stuck and never shown to clients; auto-translation detects the language a text is actually written in; the job-process presets exist in all eight document languages; a company's edited presets and every other company-written client text — captions, stage labels, appointment types, document titles, custom-field labels, the AI greeting, financing note, option labels, service names, template lines — are drafted on save and printed in the reader's language — see "Before & after drafts, language detection, presets in eight languages" below)
 Last updated: 25 September 2026 (three follow-ups: cancelling a pay run now gives back its daily-sheet bonuses as well as its commissions; the checks read prisma/schema.prisma through one Prisma-aware stripper, and only four ever stripped it; check:call-to-client now runs the booking follow-up it was skipping, and the phone agent promises a confirmation only when the follow-up reports one — see "Pay-run cancel, the schema stripper, the booking follow-up" below)
 Last updated: 25 September 2026 (phone menus and the Create sheet: every row of the phone's Create sheet was dead, because the hidden desktop pill's outside-press listener closed it before the tap landed; the quote's More… opened off the left of the screen; one ActionMenu now — a bottom sheet below 640px, a flip-and-shift dropdown above — plus a launcher clearance so the + and Jennifer never cover a list's last row, dialog cards capped at the screen, and 44px settings/crew controls; every harness screen audited at 375 and 390 — see "Phone menus, the Create sheet and a mobile audit" below)
 Last updated: 25 September 2026 (one cabinet scope, Refinish | Reface: a company selling both cabinet trades gets a switch inside an unsaved cabinet group's card that moves the group between the two price books while keeping every count and answer already entered; a still-default name follows the service, switching back restores the previous figures byte-for-byte, and only the chosen service reaches the saved quote — see "Refinish | Reface inside one cabinet card" below)
@@ -48,6 +49,80 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## Before & after drafts, language detection, presets in eight languages, every client text translated (25 September 2026)
+
+Four questions from the owner, asked from the home page's set-up dialogs.
+
+### A. "I cannot delete the new pair and I think I'm stuck like that" (real bug)
+
+Root cause: `NewPair` (app/components/settings/PairPhotoFields.js) held the first photo of a new pair in React state only, with no remove control. A before with no after to hand sat there with no way out, and closing the dialog silently threw it away.
+
+- The half pair is now the company's ONE gallery draft, stored in `Company.galleryDraftPair` (additive column, applied by SQL) — deliberately not a `CompanyGalleryPair` row: the website, quote email and proposal read that table, and a half pair must never reach a client.
+- `GET /api/settings/gallery` answers `draft`; `PUT` takes `draft` alone or with `pairs`. Completing a pair sends both in one request, pairs written first, so a failed save keeps the draft ("Save this pair" retries).
+- Labelled in words ("Unfinished pair — draft · clients don't see it until both photos are in") with a confirmed Discard; saved pairs keep their remove control, now 44px. Settings › Quote Email uses the same component; the website pairer gained "Start over" while it waits for the after.
+
+### B. "Does the AI understand what language it is (auto-detect)?"
+
+It did not: every caller passed `Company.defaultLanguage` as the source. An English-default company's French story was labelled English, "translated" from English, and printed in French on every English document (the default language was assumed to need nothing).
+
+- Detection rides in the drafting call (lib/i18n/autoTranslate.js): each prompt asks for a first line `LANGUAGE: xx` (the 8 document languages or "other"), biased to the assumed language so a short phrase keeps its label. The first call for a text is the probe; a different answer re-plans the rest — the company default IS drafted, the detected language is not, "other" drafts all eight. **No extra call on new or changed text.** Text saved unchanged whose rows predate detection costs one ~60-token detection-only call, once. Same meter (translation, FieldQuo-paid), same daily cap. No detector library was in the dependencies.
+- Stored where readers look: `CompanyTextTranslation.sourceLanguage` (additive), `from` on JSON entries, `QuoteTextBlock.language` corrected.
+- Readers: `localisedCompany` now reads the default language too (a default-language row exists only when the source was detected elsewhere — one indexed read); a row in its own source language is never printed; SMS gives a French reader the company's own French and an English reader the English draft; a product detected in French prints its English draft on English quotes.
+- Shown: the save banner and each customised trade read "Written in Français — Translated automatically into 7 languages — Review". /app/settings/translations lists each text under its own source language and shows the default-language drafts of texts written elsewhere.
+- Found on the way: the "moved" / "cancelled" SMS wordings were never drafted — the drafter's field list was a copy holding 7 of the 9 keys. It now reads the closed list.
+
+### C. "Are the presets already translated in the job process on your quotes?"
+
+English and French only, and French covered 8 of the 64 trades. Every preset string — generic block and all 64 trades: descriptions, door and gutter variants, inclusions, steps with timelines, "what could change this price", glossaries — now exists in all eight document languages (`lib/documents/serviceContent.{fr,es,it,de,uk,pa,tl}.js`), looked up per language with English under any gap. The glossary and the quote email's scope section were never told the document language; now they are. The six new catalogues and 56 new French trades were written by model in contractor register per language; a native read of the Punjabi, Tagalog and Ukrainian is still worth doing before they carry a lot of quotes.
+
+### D. "Do any changes and additions get translated?"
+
+The company's edits to those presets were not. Each trade's `scopeDescription` / `includedItems` / `processSteps` is now drafted on save (model `serviceContent`): per field, hash-matched with a browser-safe hash (lib/i18n/contentHash.js), reviewed wording never overwritten, lists refused unless the count, timelines and [placeholders] survive. Stored in `CompanyServiceCategory.translations` (additive); `resolveServiceContent` prints the draft for the document's language only while it matches the company's current wording. Reviewable on /app/settings/translations.
+
+Then the audit of every company-authored client-facing text. The missing ones go through one new mechanism, `lib/i18n/phrases.js`: short texts on rows of their own, keyed by namespace + hash of the TEXT (so a job's snapshot of a stage label finds its translation too, and a renamed text can never print a stale one), stored as `CompanyTextTranslation` rows and drafted by the same drafter (model `phrase`). Phrases are drafted and printed but not yet listed on the Translations page; their banner says so by omitting the Review link.
+
+| Text | Before | After |
+|---|---|---|
+| Payment terms, what happens next, story + headline | auto, source assumed = default | auto + detection |
+| SMS: on my way, reminder, booking confirmation | auto, source assumed | auto + detection; French reader gets the company's own French |
+| SMS: moved, cancelled | **not drafted** (field list out of date) | auto + detection |
+| Quote text blocks, products (name, description) | auto, source assumed | auto + detection (block language corrected; product default-language draft used) |
+| Job-process edits (scope, included, steps) | **no** | auto, per field, reviewable |
+| Gallery captions (website, quote email, proposal) | no | phrase |
+| Quote-email reference notes | no | phrase |
+| Company document title + summary (proposal) | no | phrase (waivers stay as signed) |
+| Payment stage labels (portal, stage request, invoice email) | no (only the generated terms sentence) | phrase — job snapshots included |
+| Custom-field labels printed on documents | no | phrase (showOnDocuments only) |
+| Appointment type names (/book, confirmation, manage page, move/cancel letters and texts) | no | phrase; /book gets per-language names |
+| AI employee greeting (first reply) | no | phrase, in the reply language |
+| Financing note (instant estimate, /q) | no | phrase (buildEstimateEmail has no caller, so not wired) |
+| Instant-quote option labels (public picker, priced cards, draft-quote lines) | no | phrase — only where a language is passed; the phone/AI estimate paths keep the typed name |
+| Custom service names (proposal, website, portal tickets, prep guide) | no (labelTranslations never filled) | phrase via lib/i18n/serviceName.js — not yet in the /book payload or the voice paths |
+| Service template line name/description | no (only seeded lines carried translations) | phrase |
+| Prep guide copies, document-email wording copies, maintenance plan templates, lawn-care programs, the website's language copies | per language by design (typed per language) | unchanged — each language is the company's own; drafting their edits into the other languages is owed below |
+| Waiver body | shown as written, hashed on signing | unchanged, deliberately |
+| Voice agent greeting | spoken before the caller's language is known | unchanged — product decision |
+| Link page, funnels | no reader language | unchanged — product decision |
+| Custom follow-up / marketing email templates (canvas) | no | unchanged — owed: the fabric canvas is not text a drafter can carry safely |
+| Dropdown answer options of custom fields | no | unchanged — owed (a separate namespace) |
+| Stripe Checkout booking-fee label | English | unchanged — mixed-language line if only the name were translated; product decision |
+
+### Checks
+
+`check:gallery-draft` (26), `check:service-content-languages` (29,257), `check:service-content-fr` (187), `check:auto-translate` (169), `check:phrases-labels` (60), `check:phrases-booking` (82), `check:phrases-catalogue` (140), `check:language-completeness`, `check:translations`, and the existing checks over every touched file; `npm run build` passes.
+
+### Still owed here
+
+- Texts saved before today (captions, stage labels, appointment types, custom fields…) have no drafts until they are saved again; a backfill would be a DB write and was out of scope.
+- Phrases are not listed on /app/settings/translations for review.
+- The per-language-by-design stores (prep guide, document-email copies, plan templates, lawn-care, website languages) could draft a missing language from the one the company edited.
+- A native read of the Punjabi, Tagalog and Ukrainian preset catalogues.
+- Custom follow-up/marketing email templates, custom-field dropdown options, the booking-fee Checkout label, the voice greeting — see the table.
+- The instant estimator's sentence frames are English FieldQuo copy, so a translated option name now sits in an English frame ("22 squares of Bardeaux architecturaux").
+- A template line renamed before today keeps its stale seed translation until its words change again.
+- New bookable members' auto-created "Consultation with {name}" types are drafted too (source English) — a small FieldQuo-paid call per new member; drop the block in lib/booking/bookableMembers.js if unwanted.
+- The AI employee screen autosaves the greeting after 800 ms, so a greeting typed with pauses can queue a draft per version (bounded by the daily cap).
 
 ## Pay-run cancel, the schema stripper, the booking follow-up (25 September 2026)
 

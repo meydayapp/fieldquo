@@ -146,6 +146,13 @@ export default function BookingFlow({
   // you skip.
   const { t, language } = useTranslation();
   const { changeLanguage } = useLanguageContext();
+  // An appointment type's name in the language this page is showing: the
+  // draft stored when the company saved it (the payload carries every
+  // language's, because only this browser knows which one the visitor
+  // reads), else the name exactly as they typed it. Only a string is a draft:
+  // a key like "constructor" answers a function off the prototype, and React
+  // cannot render one.
+  const typeName = (et) => (typeof et?.nameTranslations?.[language] === "string" && et.nameTranslations[language]) || et?.name || "";
   const [company, setCompany] = useState(null);
 
   // ── The booker's language ────────────────────────────────────────────
@@ -962,7 +969,7 @@ export default function BookingFlow({
                       backgroundColor: theme.paper,
                     }}
                   >
-                    <div className="font-medium" style={{ color: theme.ink }}>{et.name}</div>
+                    <div className="font-medium" style={{ color: theme.ink }}>{typeName(et)}</div>
                     <div className="text-xs mt-1 flex gap-3 flex-wrap" style={{ color: theme.inkMuted }}>
                       <span className="inline-flex items-center gap-1">
                         <Clock size={11} /> {minutesFor(et, mode)} min
@@ -1027,7 +1034,7 @@ export default function BookingFlow({
                 <ArrowLeft size={11} /> Change service
               </button>
             )}
-            <h2 className="font-semibold" style={{ color: theme.ink }}>{eventType.name}</h2>
+            <h2 className="font-semibold" style={{ color: theme.ink }}>{typeName(eventType)}</h2>
             {minutesFor(eventType, mode) && (
               <p className="text-xs mt-0.5" style={{ color: theme.inkMuted }} data-mode-minutes={minutesFor(eventType, mode)}>
                 {minutesFor(eventType, mode)} min
@@ -1215,7 +1222,7 @@ export default function BookingFlow({
             })}
           </h2>
           <p className="text-xs mb-4" style={{ color: theme.inkMuted }}>
-            {eventType.name} · {bookingModeLabel(mode, language)} · {minutesFor(eventType, mode)} min
+            {typeName(eventType)} · {bookingModeLabel(mode, language)} · {minutesFor(eventType, mode)} min
           </p>
 
           {/* The CHOSEN mode's fee — a paid visit and a free call are the

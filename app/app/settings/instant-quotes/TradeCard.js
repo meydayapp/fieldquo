@@ -15,6 +15,7 @@ import { Loader2, Plus, Trash2 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { showError } from "@/lib/clientErrors";
 import JunkGuidance from "@/app/components/settings/JunkGuidance";
+import AutoTranslateBanner from "@/app/components/settings/AutoTranslateBanner";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import {
@@ -466,6 +467,9 @@ export default function TradeCard({ trade, canEdit, onSaved, serviceAreaConfigur
   const [config, setConfig] = useState(trade.config || {});
   const [saving, setSaving] = useState(false);
   const [savedNote, setSavedNote] = useState("");
+  // The option names are drafted into the other languages on save; the route
+  // answers what it queued only when a name is new.
+  const [autoTranslate, setAutoTranslate] = useState(null);
 
   // Server-computed, and it describes the SAVED row — not the unsaved edits in
   // this form. Refreshed by onSaved(), which reloads the page data.
@@ -510,11 +514,12 @@ export default function TradeCard({ trade, canEdit, onSaved, serviceAreaConfigur
     setSaving(true);
     setSavedNote("");
     try {
-      await fetchJson("/api/settings/instant-quote", {
+      const answer = await fetchJson("/api/settings/instant-quote", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ trade: trade.trade, enabled, config: configToSave }),
       });
+      setAutoTranslate(answer?.autoTranslate || null);
       setSavedNote(t("app.action.saved"));
       onSaved?.();
     } catch (err) {
@@ -1414,6 +1419,7 @@ export default function TradeCard({ trade, canEdit, onSaved, serviceAreaConfigur
           </span>
         )}
       </div>
+      <AutoTranslateBanner result={autoTranslate} className="mt-3" />
     </div>
   );
 }

@@ -15,7 +15,7 @@ import { loadEnforceableMember, canSeeMoney } from "@/lib/permissions/enforce";
 import { builtInGuide, GUIDE_LANGUAGES } from "@/lib/prepGuide/content";
 import { withPrepGuideCopy } from "@/lib/prepGuide/resolve";
 import { seedServicesForTrade } from "@/lib/products/seedServices";
-import { scheduleAutoTranslate } from "@/lib/i18n/autoTranslateSchedule";
+import { scheduleAutoTranslate, schedulePhrases, companyWritingLanguage } from "@/lib/i18n/autoTranslateSchedule";
 import { serviceContentHash } from "@/lib/i18n/contentHash";
 
 // GET — system catalog + this company's own custom quote types, merged with
@@ -223,6 +223,19 @@ export async function POST(request) {
     },
   });
 
+  // The name prints to clients — the proposal's services, the website, the
+  // portal's ticket form, the prep guide — in THEIR language. A catalogue
+  // category carries FieldQuo's translations in labelTranslations; this one
+  // has none, so its name is drafted now as a phrase (lib/i18n/phrases.js,
+  // namespace categoryLabel) and looked up by those readers through
+  // lib/i18n/serviceName.js. A new name, so the banner always speaks.
+  const autoTranslate = schedulePhrases({
+    companyId: member.companyId,
+    ns: "categoryLabel",
+    texts: [category.label],
+    sourceLanguage: await companyWritingLanguage(member.companyId),
+  });
+
   return NextResponse.json(
     {
       id: category.id,
@@ -234,6 +247,7 @@ export async function POST(request) {
       enabled: true,
       defaultRate: null,
       unit: null,
+      autoTranslate,
     },
     { status: 201 },
   );

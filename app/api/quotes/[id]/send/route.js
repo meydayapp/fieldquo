@@ -278,10 +278,6 @@ export async function POST(request, { params }) {
     }),
   );
 
-  // The company's own boxes flagged for the document, on the email and the
-  // attached PDF alike — the two must never disagree about a PO number.
-  const customFields = await loadDocumentCustomFields(db, member.companyId, "quote", quote.id);
-
   // The quote's own language wins — the covering note must match the
   // document it's carrying. See lib/i18n/clientLanguage.js.
   const language = resolveClientLanguage({
@@ -289,6 +285,11 @@ export async function POST(request, { params }) {
     client: quote.client,
     company,
   });
+
+  // The company's own boxes flagged for the document, on the email and the
+  // attached PDF alike — the two must never disagree about a PO number.
+  // Labels in the document's language, so loaded after it is resolved.
+  const customFields = await loadDocumentCustomFields(db, member.companyId, "quote", quote.id, { language });
   // The company's client-facing texts in the document's language — payment
   // terms, "what happens next" — when a translation of the current wording
   // exists; the source text otherwise. Never an empty string.

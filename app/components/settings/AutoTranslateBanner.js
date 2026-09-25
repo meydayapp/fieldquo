@@ -30,7 +30,7 @@ const MAX_POLLS = 6;
 
 function statusUrl(result) {
   const params = new URLSearchParams({ summary: "1" });
-  if (result.model === "company") {
+  if (result.model === "company" || result.model === "phrase") {
     params.set("keys", (result.keys || []).join(","));
   } else if (result.model === "serviceContent") {
     params.set("model", result.model);
@@ -106,7 +106,7 @@ export default function AutoTranslateBanner({ result, id = null, className = "" 
   // Languages per text: 7 of the 8 normally, all 8 for a text detected in
   // none of them. Read off the status once it answers.
   const count = state?.perText || result.languages?.length || 0;
-  const perKey = state?.texts || (result.model === "company" || result.model === "serviceContent" ? result.keys?.length || 1 : 1);
+  const perKey = state?.texts || (result.model === "company" || result.model === "serviceContent" || result.model === "phrase" ? result.keys?.length || 1 : 1);
   const ready = state ? Math.floor(state.ready / perKey) : null;
   const pending = state ? Math.ceil(state.pending / perKey) : 0;
   const nameOf = (code) =>
@@ -140,9 +140,14 @@ export default function AutoTranslateBanner({ result, id = null, className = "" 
           <Loader2 size={12} className="animate-spin" /> {t("app.autoTranslate.drafting", "Drafting…")}
         </span>
       )}
+      {/* A phrase save (captions, stage labels, appointment types) is drafted
+          and printed but not listed on the Translations page: no link to a
+          page that would not show it. */}
+      {result.reviewable !== false && (
       <Link href="/app/settings/translations" className="font-semibold underline underline-offset-2">
         {t("app.autoTranslate.review", "Review")}
       </Link>
+      )}
     </div>
   );
 }

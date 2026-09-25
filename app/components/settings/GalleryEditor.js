@@ -19,6 +19,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import { ReadOnlyNotice } from "@/app/components/settings/PermissionNotice";
 import { PhotoSlot, Field, NewPair } from "@/app/components/settings/PairPhotoFields";
+import AutoTranslateBanner from "@/app/components/settings/AutoTranslateBanner";
 
 const CAPABILITY = "user:manage";
 
@@ -28,6 +29,7 @@ export default function GalleryEditor({ compact = false, onChanged }) {
   const canEdit = access.canChange(CAPABILITY);
   const [pairs, setPairs] = useState(null);
   const [draft, setDraft] = useState(undefined);
+  const [autoTranslate, setAutoTranslate] = useState(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -54,6 +56,8 @@ export default function GalleryEditor({ compact = false, onChanged }) {
           body: JSON.stringify({ pairs: next, ...extra }),
         });
         setPairs(d.pairs || []);
+        // A new caption is drafted into the other document languages.
+        setAutoTranslate(d.autoTranslate || null);
         onChanged?.();
         return true;
       } catch (err) {
@@ -124,6 +128,7 @@ export default function GalleryEditor({ compact = false, onChanged }) {
         />
       )}
       {error && <p className="text-sm text-red-600">{error}</p>}
+      <AutoTranslateBanner result={autoTranslate} />
       {saving && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 size={14} className="animate-spin" />

@@ -79,6 +79,7 @@ import { CREDIT_CURRENCY } from "@/lib/voice/creditCurrency";
 import { formatCalendarDay } from "@/lib/format/localeDate";
 import BackToHome from "@/app/components/BackToHome";
 import TeamFlow from "@/app/components/aiEmployee/TeamFlow";
+import AutoTranslateBanner from "@/app/components/settings/AutoTranslateBanner";
 
 const money = (cents) => formatAppMoney(Number(cents || 0) / 100, CREDIT_CURRENCY, "en");
 
@@ -248,6 +249,10 @@ export default function AiEmployeePage() {
   // Keyed by EMPLOYEE as well as field, so switching to another employee
   // never shows the first one's "Saved" — or hides its "Couldn't save".
   const [fieldState, setFieldState] = useState({});
+  // The opening line's drafting, as the save answered it: { id, result } —
+  // keyed by employee for the same reason as fieldState. Shown under the
+  // field by AutoTranslateBanner, which then reads the real status.
+  const [greetingTranslate, setGreetingTranslate] = useState(null);
   // A move to MORE autonomy waits here for a second click. Auto-save must
   // not turn one stray tap on a radio into "it books on its own now".
   const [modeAsk, setModeAsk] = useState(null);
@@ -426,8 +431,12 @@ export default function AiEmployeePage() {
         fail(message || t("app.aiEmployee.saveError", "Couldn't save."));
         return;
       }
-      const { employee } = await res.json().catch(() => ({}));
+      const { employee, autoTranslate } = await res.json().catch(() => ({}));
       if (latest.current[key] !== seq) return;
+      // Only a greeting save speaks about translation; the route answers
+      // null for a greeting that did not change or was cleared, which hides
+      // a banner about words that are no longer there.
+      if (job.field === "greeting") setGreetingTranslate({ id: job.id, result: autoTranslate || null });
       if (employee?.id) {
         // Merge the field this request saved — not the whole row, which may
         // predate a neighbouring field's save that finished first.
@@ -1128,6 +1137,7 @@ export default function AiEmployeePage() {
                     {t("app.aiEmployee.greetingHint", "Word for word, at the start of its first reply in a conversation. Leave it empty and it simply answers.")}
                   </span>
                 </label>
+                {greetingTranslate?.id === form.id && <AutoTranslateBanner result={greetingTranslate.result} />}
 
                 <label className="block">
                   <FieldHead label={t("app.aiEmployee.instructionsLabel", "Your instructions")} note={savedNote("instructions")} />

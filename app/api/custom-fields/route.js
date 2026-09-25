@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
+import { schedulePhrases, companyWritingLanguage } from "@/lib/i18n/autoTranslateSchedule";
 
 import {
   ENTITY_TYPES as ALL_ENTITY_TYPES,
@@ -79,5 +80,20 @@ export async function POST(request) {
     },
   });
 
-  return NextResponse.json(field, { status: 201 });
+  // A label flagged for documents is printed on the client's PDF, email,
+  // /q page and portal in the document's language — drafted now, as a
+  // phrase keyed by its text (lib/i18n/phrases.js), read back by
+  // loadDocumentCustomFields. A staff-only box ("Gate code") stays in the
+  // office and in the company's own words: nothing to translate.
+  const autoTranslate = field.showOnDocuments
+    ? schedulePhrases({
+        companyId: member.companyId,
+        ns: "customFieldLabel",
+        texts: [field.label],
+        sourceLanguage: await companyWritingLanguage(member.companyId),
+      })
+    : null;
+
+  // The definition as before, plus the summary for the settings banner.
+  return NextResponse.json({ ...field, autoTranslate }, { status: 201 });
 }

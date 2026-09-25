@@ -10,9 +10,9 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
-import { sanitiseTemplateLines, sanitiseDefaultDiscount, sanitiseImageUrl, sanitiseEstimateTypes } from "@/lib/services/templates";
+import { sanitiseTemplateLines, sanitiseDefaultDiscount, sanitiseImageUrl, sanitiseEstimateTypes, authoredTemplateText } from "@/lib/services/templates";
 import { sanitiseProduction } from "@/lib/services/productionRates";
-import { scheduleAutoTranslate } from "@/lib/i18n/autoTranslateSchedule";
+import { scheduleAutoTranslate, schedulePhraseGroups, companyWritingLanguage } from "@/lib/i18n/autoTranslateSchedule";
 import { productCommissionData } from "@/lib/commissions/compute";
 
 /** Owner/admin only, matching every other company-wide settings route. */
@@ -150,6 +150,28 @@ export async function PATCH(request, { params }) {
       fields: { name: updated.name, description: updated.description || "" },
       sourceLanguage: company?.defaultLanguage || "en",
     });
+  }
+
+  // The template's lines print on the estimate in the DOCUMENT's language.
+  // Seeded lines carry the catalogue's translations; words the company typed
+  // or renamed do not, so they are drafted now as phrases
+  // (lib/services/templates.js authoredTemplateText says which lines, and
+  // why an unchanged seeded line is never re-drafted). Every template save
+  // queues a typed line's words again — unchanged ones cost nothing, and a
+  // draft left pending is retried; a renamed seeded line's new words are
+  // queued by the save that renamed them. The banner speaks only for words
+  // new to this row.
+  if (templateLines !== undefined) {
+    const authored = authoredTemplateText(updated.templateLines, existing.templateLines);
+    const lines = schedulePhraseGroups({
+      companyId: member.companyId,
+      groups: [
+        { ns: "templateLineName", texts: authored.names },
+        { ns: "templateLineDescription", texts: authored.descriptions },
+      ],
+      sourceLanguage: await companyWritingLanguage(member.companyId),
+    });
+    if (authored.fresh && !autoTranslate) autoTranslate = lines;
   }
 
   return NextResponse.json({ ...updated, autoTranslate });

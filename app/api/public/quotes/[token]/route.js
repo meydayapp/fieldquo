@@ -26,7 +26,8 @@ import { offlineDiscountLine, offlineDiscountAmount } from "@/lib/payments/offli
 import { taxStatement } from "@/lib/tax/documentTax";
 import { documentTaxSentence } from "@/lib/tax/documentSentence";
 import { usableSections } from "@/lib/documents/templateKind";
-import { financingOffer } from "@/lib/estimate/financing";
+import { financingOffer, financingPhrases } from "@/lib/estimate/financing";
+import { loadPhrases } from "@/lib/i18n/phrases";
 import { financingTerms } from "@/lib/financing/monthlyEstimate";
 import { HOW_TO_PAY_COMPANY_SELECT, depositHowToPay } from "@/lib/payments/offlineMethods";
 // The proposal beside the quote — story, gallery, documents, reviews,
@@ -148,8 +149,11 @@ async function loadQuote(token) {
   );
   // The company's own boxes flagged for the document. Attached here for the
   // same reason as the scope wording above: present() and the approved PDF
-  // read the same object, so the page and the attachment agree.
-  quote.customFields = await loadDocumentCustomFields(db, quote.companyId, "quote", quote.id);
+  // read the same object, so the page and the attachment agree. Labels in
+  // the document's language, resolved exactly as present() resolves it.
+  quote.customFields = await loadDocumentCustomFields(db, quote.companyId, "quote", quote.id, {
+    language: resolveClientLanguage({ document: quote, client: quote.client, company: quote.company }),
+  });
 
   return quote;
 }
@@ -229,7 +233,11 @@ function priceWithAddOns(quote, selectedIds, { payOffline = false } = {}) {
 // pre-extras figure would be a wrong number on the one line they'll act on. The
 // page recomputes with the same pure module the check script exercises. Nothing
 // numeric is ever sent back — see priceWithAddOns.
-function financingBlock(quote) {
+//
+// `tr` is the phrase lookup for the company's own note in the document's
+// language (lib/i18n/phrases.js), loaded by GET before present() — the note
+// is drafted when it is saved, never translated here.
+function financingBlock(quote, tr = null) {
   const raw = quote.company?.financing;
   const offer = financingOffer(raw, {
     language: resolveClientLanguage({
@@ -237,6 +245,7 @@ function financingBlock(quote) {
       client: quote.client,
       company: quote.company,
     }),
+    tr,
   });
   if (!offer) return null;
   return { ...offer, terms: financingTerms(raw) };
@@ -283,7 +292,7 @@ function publicPlanOffer(o, quote) {
   };
 }
 
-function present(quote) {
+function present(quote, { financingTr = null } = {}) {
   // financing is company-level configuration, not something a stranger with a
   // link should receive verbatim; `company` below is returned wholesale, so it
   // is peeled off here and re-published only in the shape financingBlock allows.
@@ -414,7 +423,7 @@ function present(quote) {
     // a figure the page could edit); the server reprices at approval.
     offlineDiscount: offlineDiscountLine(quote, { language: docLanguage }),
     company: companyPublic,
-    financing: financingBlock(quote),
+    financing: financingBlock(quote, financingTr),
     scopeGroups: quote.scopeGroups.map((g) => {
       // Resolved server-side rather than sent as a category key for the page
       // to look up. The client bundle then carries no copy of the trade
@@ -566,7 +575,15 @@ export async function GET(request, { params }) {
     companyId: quote.companyId,
     language: resolveClientLanguage({ document: quote, client: quote.client, company: quote.company }),
   });
-  const presented = present(quote);
+  // The financing note is a phrase of its own (drafted on save), in the same
+  // resolved language.
+  const financingTr = await loadPhrases(
+    db,
+    quote.companyId,
+    resolveClientLanguage({ document: quote, client: quote.client, company: quote.company }),
+    financingPhrases(quote.company?.financing),
+  );
+  const presented = present(quote, { financingTr });
   // Read by app/q/[token]/QuoteApproval.js, which drops Approve and Decline
   // for it — in a preview they would be two controls that cannot work, since
   // the POST refuses a draft outright.

@@ -24,6 +24,8 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import { loadCompanyGallery, replaceCompanyGallery, loadGalleryDraft, saveGalleryDraft } from "@/lib/company/gallery";
+import { db } from "@/lib/db";
+import { schedulePhrases } from "@/lib/i18n/autoTranslateSchedule";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -57,8 +59,18 @@ export async function PUT(request) {
   }
 
   let pairs = null;
+  let autoTranslate = null;
   if (hasPairs) {
+    const beforeCaptions = new Set((await loadCompanyGallery(member.companyId)).map((p) => p.caption).filter(Boolean));
     pairs = await replaceCompanyGallery(member.companyId, body.pairs, { source: "manual" });
+    // Captions print on the website, the quote email and the proposal in the
+    // reader's language: drafted on save (lib/i18n/phrases.js). Every save
+    // queues them (an unchanged caption costs nothing); the banner speaks
+    // only when a caption is new.
+    const captions = pairs.map((p) => p.caption).filter(Boolean);
+    const company = await db.company.findUnique({ where: { id: member.companyId }, select: { defaultLanguage: true } });
+    const summary = schedulePhrases({ companyId: member.companyId, ns: "galleryCaption", texts: captions, sourceLanguage: company?.defaultLanguage || "en" });
+    if (captions.some((c) => !beforeCaptions.has(c))) autoTranslate = summary;
     await recordActivity(member, {
       action: "settings.gallery_updated",
       entityType: "company",
@@ -71,5 +83,5 @@ export async function PUT(request) {
     ? await saveGalleryDraft(member.companyId, body.draft)
     : await loadGalleryDraft(member.companyId);
   if (!pairs) pairs = await loadCompanyGallery(member.companyId);
-  return NextResponse.json({ pairs, draft });
+  return NextResponse.json({ pairs, draft, autoTranslate });
 }

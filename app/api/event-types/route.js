@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
+import { schedulePhrases, companyWritingLanguage } from "@/lib/i18n/autoTranslateSchedule";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -85,5 +86,17 @@ export async function POST(request) {
     },
   });
 
-  return NextResponse.json(eventType, { status: 201 });
+  // The name is what a homeowner picks on /book and reads in the confirmation
+  // letter, the text and the manage page — in THEIR language. Drafted into
+  // the other document languages now, on save, and stored (lib/i18n/
+  // phrases.js); every reader prints the stored draft, nothing is translated
+  // at send time. A new type is always a new name, so the banner may speak.
+  const autoTranslate = schedulePhrases({
+    companyId: member.companyId,
+    ns: "eventTypeName",
+    texts: [eventType.name],
+    sourceLanguage: await companyWritingLanguage(member.companyId),
+  });
+
+  return NextResponse.json({ ...eventType, autoTranslate }, { status: 201 });
 }

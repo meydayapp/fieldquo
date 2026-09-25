@@ -42,6 +42,7 @@ import { translationEntry } from "@/lib/quotes/textBlocks";
 import { Prisma } from "@prisma/client";
 import { targetLanguages, OTHER_LANGUAGE, acceptDraft } from "@/lib/i18n/autoTranslate";
 import { serviceContentHash } from "@/lib/i18n/contentHash";
+import { isPhraseKey, parsePhraseKey } from "@/lib/i18n/phrases";
 
 const COMPANY_SELECT = {
   defaultLanguage: true,
@@ -143,7 +144,9 @@ async function summary(member, searchParams) {
   }
 
   const fields = companyTextFields(company || {});
-  const keys = (wantKeys.length ? wantKeys : Object.keys(fields)).filter((k) => companyTextKey(k));
+  // Company texts, and phrases (lib/i18n/phrases.js) — a phrase key carries
+  // the hash of its text, so it needs no source to be checked against.
+  const keys = (wantKeys.length ? wantKeys : Object.keys(fields)).filter((k) => companyTextKey(k) || isPhraseKey(k)).slice(0, 80);
   const rows = keys.length
     ? await db.companyTextTranslation.findMany({
         where: { companyId: member.companyId, key: { in: keys } },
@@ -153,8 +156,9 @@ async function summary(member, searchParams) {
   const out = {};
   const sources = {};
   for (const key of keys) {
-    const text = fields[key] || "";
-    const hash = sourceHash(text);
+    const phrase = parsePhraseKey(key);
+    const text = phrase ? key : fields[key] || "";
+    const hash = phrase ? phrase.hash : sourceHash(text);
     const keySource = sourceLanguageOf(rows, key, hash, source);
     sources[key] = keySource;
     out[key] = {};

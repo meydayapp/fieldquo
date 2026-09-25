@@ -32,6 +32,7 @@ import {
 // website block, the quote email and the client proposal never disagree.
 // The quoteEmailBeforeAfter column is left as it was; it is not the store.
 import { withCompanyGallery, replaceCompanyGallery } from "@/lib/company/gallery";
+import { schedulePhrases } from "@/lib/i18n/autoTranslateSchedule";
 
 /**
  * The stored values, cleaned on the way out as well as on the way in.
@@ -149,5 +150,19 @@ export async function PATCH(request) {
     metadata: { changed },
   });
 
-  return NextResponse.json(present(await withCompanyGallery(updated || {}, member.companyId)));
+  const withGallery = await withCompanyGallery(updated || {}, member.companyId);
+
+  // The two short texts these sections print — gallery captions and
+  // reference notes — are drafted into the other document languages
+  // (lib/i18n/phrases.js), read back by localisedCompany on every email.
+  // Unchanged texts cost nothing; each save queues what is there now.
+  const lang = (await db.company.findUnique({ where: { id: member.companyId }, select: { defaultLanguage: true } }))?.defaultLanguage || "en";
+  if (changed.includes("gallery")) {
+    schedulePhrases({ companyId: member.companyId, ns: "galleryCaption", texts: (withGallery.quoteEmailBeforeAfter || []).map((p) => p.caption), sourceLanguage: lang });
+  }
+  if (changed.includes("quoteEmailReferences")) {
+    schedulePhrases({ companyId: member.companyId, ns: "referenceNote", texts: (withGallery.quoteEmailReferences || []).map((r) => r.note), sourceLanguage: lang });
+  }
+
+  return NextResponse.json(present(withGallery));
 }

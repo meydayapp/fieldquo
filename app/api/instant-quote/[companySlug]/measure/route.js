@@ -17,7 +17,8 @@ import {
   gatedMessage,
   effectiveVisibility,
 } from "@/lib/estimate/visibility";
-import { financingOffer } from "@/lib/estimate/financing";
+import { financingOffer, financingPhrases } from "@/lib/estimate/financing";
+import { loadPhrases } from "@/lib/i18n/phrases";
 import { gutterEstimateCopy } from "@/lib/i18n/gutterEstimateCopy";
 import { lawnEstimateCopy } from "@/lib/i18n/lawnEstimateCopy";
 import { measureErrorMessage } from "@/lib/estimate/measureErrorMessage";
@@ -135,7 +136,10 @@ export async function POST(request, { params }) {
   // behind the same gate as every other figure.
   if (trade === "lawn_care") measurementView.lawn = lawnPublicView(m, language);
 
-  const financing = financingOffer(company.financing, { language });
+  // The company's own financing note in the form's language — drafted when
+  // it was saved (lib/i18n/phrases.js); no draft yet prints it as written.
+  const trFinancing = await loadPhrases(db, company.id, language, financingPhrases(company.financing));
+  const financing = financingOffer(company.financing, { language, tr: trFinancing });
 
   // ── The visibility gate ───────────────────────────────────────────────────
   //

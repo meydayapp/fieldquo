@@ -38,11 +38,12 @@ import { openingHoursSpecification, hasBusinessHours } from "@/lib/company/busin
 import SiteBlocks from "./SiteBlocks";
 import { recentJobPhotos, jobPhotoPairs } from "@/lib/site/jobPhotos";
 import { loadCompanyGallery, galleryAsSitePairs } from "@/lib/company/gallery";
+import { loadPhrases } from "@/lib/i18n/phrases";
 import { resolveSiteStyle } from "@/lib/site/siteStyles";
 import { resolvePages, findPage, navPages, HOME_SLUG, CLIENT_LOGIN_SLUG } from "@/lib/site/pages";
 import { siteCopy } from "@/lib/site/siteCopy";
 import ClientLoginForm from "./ClientLoginForm";
-import { categoryLabel } from "@/lib/i18n/translateContent";
+import { serviceName, customCategoryPhrases } from "@/lib/i18n/serviceName";
 import SiteChatMount from "@/app/components/chat/SiteChatMount";
 
 async function loadSite(subdomain, { preview = false } = {}) {
@@ -312,7 +313,11 @@ export default async function CompanySitePage({ params, searchParams, language: 
   // more work without anyone opening the builder again.
   const hasPairBlock = blocks.some((b) => b.type === "beforeafter" && b.visible !== false);
   if (hasPairBlock) {
-    const gallery = galleryAsSitePairs(await loadCompanyGallery(site.companyId).catch(() => []));
+    const rawGallery = galleryAsSitePairs(await loadCompanyGallery(site.companyId).catch(() => []));
+    // Captions in the page's language — drafted on save as phrases
+    // (lib/i18n/phrases.js); a caption with no draft yet prints as written.
+    const trCaption = await loadPhrases(db, site.companyId, language, rawGallery.map((p) => ({ ns: "galleryCaption", text: p.caption })));
+    const gallery = rawGallery.map((p) => (p.caption ? { ...p, caption: trCaption("galleryCaption", p.caption) } : p));
     if (gallery.length) {
       blocks = blocks.map((b) =>
         b.type === "beforeafter" ? { ...b, content: { ...b.content, pairs: gallery.slice(0, 12) } } : b,
@@ -353,12 +358,14 @@ export default async function CompanySitePage({ params, searchParams, language: 
   if (servicesBlock) {
     const enabled = await db.companyServiceCategory.findMany({
       where: { companyId: site.companyId, enabled: true },
-      select: { category: { select: { label: true, labelTranslations: true } } },
+      select: { category: { select: { label: true, labelTranslations: true, companyId: true } } },
     });
-    const current = enabled
-      .map((e) => e.category)
-      .filter(Boolean)
-      .map((c) => ({ name: categoryLabel(c, language), fallback: c.label }))
+    const categories = enabled.map((e) => e.category).filter(Boolean);
+    // A service the company created itself has no catalogue translation; its
+    // name is drafted as a phrase when it is created (lib/i18n/serviceName.js).
+    const trService = await loadPhrases(db, site.companyId, language, customCategoryPhrases(categories));
+    const current = categories
+      .map((c) => ({ name: serviceName(c, language, trService), fallback: c.label }))
       .filter((c) => c.name);
     if (current.length) {
       const key = (s) => String(s || "").trim().toLowerCase();

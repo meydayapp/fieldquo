@@ -210,7 +210,8 @@ export async function POST(request, { params }) {
 
   // METHOD:CANCEL with the confirmation's own UID — what makes the event
   // drop off the client's calendar rather than sit there cancelled.
-  const cancelLanguage = visitView(visit, now).language;
+  const cancelView = visitView(visit, now);
+  const cancelLanguage = cancelView.language;
   const invite = await bookingInviteAttachment({
     booking: after.booking,
     company,
@@ -225,7 +226,11 @@ export async function POST(request, { params }) {
     company,
     clientName: booking.clientName,
     clientEmail: booking.clientEmail,
-    eventTypeName: eventType.name,
+    // The client's copy names the appointment in the page's language (the
+    // stored draft, via visitView); the office's copy keeps the company's own
+    // words — it is read by the people who typed them.
+    eventTypeName: cancelView.eventTypeName,
+    officeEventTypeName: eventType.name,
     startTime: booking.startTime,
     where: visitFacts(visit.booking),
     timezone: company.timezone,
@@ -254,7 +259,7 @@ export async function POST(request, { params }) {
     language: cancelLanguage,
     startTime: booking.startTime,
     where: visitFacts(visit.booking),
-    service: eventType.name,
+    service: cancelView.eventTypeName,
     ref: target.ref,
     clientId: target.clientId,
   });

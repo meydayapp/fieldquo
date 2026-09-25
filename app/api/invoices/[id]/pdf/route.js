@@ -98,7 +98,8 @@ export async function POST(request, { params }) {
 
   // The company's own boxes flagged for the document — the PO-number case.
   // Keyed by the invoice family, so an amended version prints the same one.
-  const customFields = await loadDocumentCustomFields(db, member.companyId, "invoice", invoice.id);
+  // Labels in the document's language (drafted on save).
+  const customFields = await loadDocumentCustomFields(db, member.companyId, "invoice", invoice.id, { language: documentLanguage });
 
   const pdfBuffer = await renderDocumentPdfBuffer({
     sections,

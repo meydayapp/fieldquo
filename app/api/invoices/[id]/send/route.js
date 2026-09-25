@@ -31,6 +31,7 @@ import { ensurePortalToken, portalInvoiceUrl } from "@/lib/clientPortal";
 import { buildInvoiceEmail } from "@/lib/email/invoiceEmail";
 import { loadDocumentCustomFields } from "@/lib/customFields/values";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
+import { loadPhrases } from "@/lib/i18n/phrases";
 import { taxStatement, taxSendRefusal } from "@/lib/tax/documentTax";
 import { attachUsTaxRate } from "@/lib/tax/usRates";
 import { taskForSentInvoice } from "@/lib/tasks/autoCreate";
@@ -199,14 +200,20 @@ export async function POST(request, { params }) {
   );
 
   const { from, replyTo } = await resolveSender(company || {}, member.companyId);
-  // The company's own boxes flagged for the document (a PO number), the same
-  // line the PDF and the portal print.
-  const customFields = await loadDocumentCustomFields(db, member.companyId, "invoice", invoice.id);
   const invoiceLanguage = resolveClientLanguage({
     document: invoice,
     client: invoice.client,
     company,
   });
+  // The company's own boxes flagged for the document (a PO number), the same
+  // line the PDF and the portal print — labels in the invoice's language.
+  const customFields = await loadDocumentCustomFields(db, member.companyId, "invoice", invoice.id, { language: invoiceLanguage });
+  // The stage's name ("Deposit", "Halfway") heads the email as its note. It
+  // is the company's schedule wording copied onto the job, drafted on save
+  // (app/api/settings/payment-schedule, lib/i18n/phrases.js) and found here
+  // by its text. The activity log below keeps the name as the company wrote
+  // it — that line is read by staff, not the client.
+  const trStage = await loadPhrases(db, member.companyId, invoiceLanguage, ask.stage?.label ? [{ ns: "paymentStage", text: ask.stage.label }] : []);
   // Payment terms in the invoice's language when the company's current
   // wording has a translation; the source text otherwise.
   const companyText = await localisedCompany(db, company, { companyId: member.companyId, language: invoiceLanguage });
@@ -248,7 +255,7 @@ export async function POST(request, { params }) {
     canTakeCard,
     howToPay,
     requestAmount: ask.requestCents / 100,
-    note: ask.stage ? ask.stage.label : null,
+    note: ask.stage ? trStage("paymentStage", ask.stage.label) : null,
     language: invoiceLanguage,
     // A stage ask is the "deposit" wording; a whole-balance send the
     // "invoice" one — the two the settings page lets a company customise.

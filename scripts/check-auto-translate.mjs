@@ -38,6 +38,7 @@ import {
   sourceHash,
 } from "../lib/i18n/companyText.js";
 import { serviceContentHash } from "../lib/i18n/contentHash.js";
+import { phraseFields, phraseLookup, isPhraseKey, loadPhrases, loadPhraseTranslations } from "../lib/i18n/phrases.js";
 import { resolveServiceContent } from "../lib/documents/serviceContent.js";
 import { resolveTextBlockText } from "../lib/quotes/textBlocks.js";
 import { resolveProductText } from "../lib/i18n/translateContent.js";
@@ -526,6 +527,31 @@ console.log("\nEdited job-process wording\n");
     acceptDraft({ model: "serviceContent", field: "processSteps", text: JSON.stringify([{ title: "A", body: "b" }, { title: "B", body: "c" }]), value: steps }) === null);
 }
 
+// ── Phrases: short texts on rows of their own (lib/i18n/phrases.js) ────────
+console.log("\nPhrases\n");
+{
+  const db = fakeDb();
+  const fields = phraseFields("galleryCaption", ["Kitchen respray — Aylmer", "  ", "Kitchen respray — Aylmer", "Basement stairs"]);
+  ok("phraseFields: one key per distinct non-empty text, keyed by namespace and hash", Object.keys(fields).length === 2 && Object.keys(fields).every((k) => isPhraseKey(k) && k.startsWith("phrase:galleryCaption:")));
+  ok("…an unknown namespace yields nothing", Object.keys(phraseFields("nope", ["x"])).length === 0 && !isPhraseKey("phrase:nope:0123456789abcdef0123"));
+  const model = stubModel();
+  const r = await autoTranslateOnSave({ companyId: C, model: "phrase", fields, sourceLanguage: "en" }, { db, complete: model.complete, isAiConfigured: () => true, log: quiet });
+  ok("two captions × seven languages = 14 calls, all drafted, prompted as titles", r.calls === 14 && r.drafted === 14 && model.calls.every((c) => c.prompt.includes("short line-item or block title")));
+  const trFr = phraseLookup(db.tables.companyTextTranslation.filter((x) => x.language === "fr"));
+  ok("a French reader gets the French caption", trFr("galleryCaption", "Kitchen respray — Aylmer") === "[French] Kitchen respray — Aylmer");
+  ok("…a renamed caption (no draft yet) prints the company's own words", trFr("galleryCaption", "Kitchen respray — Hull") === "Kitchen respray — Hull");
+  ok("…the same text in another namespace is not confused with it", trFr("documentTitle", "Kitchen respray — Aylmer") === "Kitchen respray — Aylmer");
+  const tr = await loadPhrases(db, C, "fr", [{ ns: "galleryCaption", text: "Basement stairs" }]);
+  ok("loadPhrases reads one language in one query", tr("galleryCaption", "Basement stairs") === "[French] Basement stairs");
+  ok("…no language → the company's own text, no query", (await loadPhrases(db, C, "", [{ ns: "galleryCaption", text: "Basement stairs" }]))("galleryCaption", "Basement stairs") === "Basement stairs");
+  const again = await autoTranslateOnSave({ companyId: C, model: "phrase", fields, sourceLanguage: "en" }, { db, complete: model.complete, isAiConfigured: () => true, log: quiet });
+  ok("the same captions saved again make no call", again.calls === 0);
+  const all = await loadPhraseTranslations(db, C, "galleryCaption", ["Basement stairs"]);
+  ok("loadPhraseTranslations: every language's text for a browser-side reader", Object.keys(all["Basement stairs"] || {}).length === 7 && all["Basement stairs"].de === "[German] Basement stairs");
+  const summary = autoTranslateSummary({ model: "phrase", fields }, { isAiConfigured: () => true });
+  ok("a phrase save's banner says it is not on the review page", summary.queued && summary.reviewable === false && summary.keys.length === 2);
+}
+
 // ── The readers ────────────────────────────────────────────────────────────
 console.log("\nThe readers\n");
 {
@@ -634,6 +660,28 @@ console.log("\nThe wiring\n");
   ok("…refuses a review in the language a text is WRITTEN in, not merely the default", /keySource === language/.test(reviewRoute) && !/\(company\?\.defaultLanguage \|\| "en"\) === language/.test(reviewRoute));
   ok("…and the status route reports the detected language per text", /sourceLanguages: sources/.test(reviewRoute));
   ok("the banner says \"Written in …\" from that report", /app\.autoTranslate\.writtenIn/.test(code(read("app/components/settings/AutoTranslateBanner.js"))) && /d\.sourceLanguages/.test(code(read("app/components/settings/AutoTranslateBanner.js"))));
+
+  // Phrases: gallery captions, reference notes, company documents.
+  ok("every gallery writer queues its captions", ["app/api/settings/gallery/route.js", "app/api/settings/quote-email/route.js", "app/api/settings/website/photos/route.js"].every((f) => /schedulePhrases\(\{[^}]*ns: "galleryCaption"/.test(code(read(f)))));
+  ok("…the quote email's reference notes too", /ns: "referenceNote"/.test(code(read("app/api/settings/quote-email/route.js"))));
+  ok("…and a document's title and summary (a waiver excepted)", ["app/api/settings/company-documents/route.js", "app/api/settings/company-documents/[id]/route.js"].every((f) => /ns: "documentTitle"/.test(code(read(f))) && /ns: "documentSummary"/.test(code(read(f))) && /type === "waiver"/.test(code(read(f)))));
+  const proposal = code(read("lib/proposal/load.js"));
+  ok("the proposal prints captions, document titles and summaries in its language", /loadPhrases\(db, companyId, language/.test(proposal) && /tr\("galleryCaption"/.test(proposal) && /tr\("documentTitle"/.test(proposal) && /tr\("documentSummary"/.test(proposal));
+  ok("the website's before & after block prints captions in the page's language", /loadPhrases\(db, site\.companyId, language/.test(code(read("app/site/[subdomain]/page.js"))));
+  ok("every email path that localises the company localises captions and reference notes with it", /ns: "galleryCaption", text: p\?\.caption/.test(code(read("lib/i18n/companyText.js"))) && /ns: "referenceNote", text: r\?\.note/.test(code(read("lib/i18n/companyText.js"))));
+  {
+    const company = { id: C, quoteEmailBeforeAfter: [{ beforeUrl: "https://x/b.jpg", afterUrl: "https://x/a.jpg", caption: "Kitchen respray" }], quoteEmailReferences: [{ name: "Ann", phone: "555", note: "Did our kitchen" }] };
+    const db = fakeDb();
+    const rows = [["galleryCaption", "Kitchen respray", "Cuisine repeinte"], ["referenceNote", "Did our kitchen", "A fait notre cuisine"]];
+    for (const [ns, text, fr] of rows) {
+      const key = Object.keys(phraseFields(ns, [text]))[0];
+      db.tables.companyTextTranslation.push({ id: key, companyId: C, key, language: "fr", text: fr, sourceHash: key.split(":")[2], status: "drafted", auto: true, sourceLanguage: "en" });
+    }
+    const fr = await localisedCompany(db, company, { companyId: C, language: "fr" });
+    ok("…executed: a French email gets the French caption and reference note, the input untouched", fr.quoteEmailBeforeAfter[0].caption === "Cuisine repeinte" && fr.quoteEmailReferences[0].note === "A fait notre cuisine" && company.quoteEmailBeforeAfter[0].caption === "Kitchen respray");
+    const es = await localisedCompany(db, company, { companyId: C, language: "es" });
+    ok("…and a language with no draft keeps the company's own words", es.quoteEmailBeforeAfter[0].caption === "Kitchen respray");
+  }
 
   const banner = code(read("app/components/settings/AutoTranslateBanner.js"));
   ok("the banner asks the status route for what actually landed", /summary: "1"/.test(banner) && /pending/.test(banner) && /\/app\/settings\/translations/.test(banner));

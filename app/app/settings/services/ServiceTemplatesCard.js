@@ -51,6 +51,7 @@ import {
   sanitiseDefaultDiscount,
 } from "@/lib/services/templates";
 import BenchmarkRange from "@/app/components/pricing/BenchmarkRange";
+import AutoTranslateBanner from "@/app/components/settings/AutoTranslateBanner";
 import ProductionRateField, {
   productionDraftFrom,
   productionFromDraft,
@@ -252,6 +253,9 @@ function TemplateEditor({ product, category, currency, language, canEdit, onSave
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [msg, setMsg] = useState(null);
+  // Line names and descriptions the company typed are drafted into the other
+  // languages on save; the route answers what it queued only for new words.
+  const [autoTranslate, setAutoTranslate] = useState(null);
   const fileRef = useRef(null);
   // Every trade measures something — a painter's wall sq ft, a stair
   // builder's treads, a roofer's squares — so the picker is offered on every
@@ -292,6 +296,8 @@ function TemplateEditor({ product, category, currency, language, canEdit, onSave
         setMsg({ text: await reportResponseError(res), error: true });
         return;
       }
+      const answer = await res.json().catch(() => null);
+      setAutoTranslate(answer?.autoTranslate || null);
       setMsg({ text: t("app.serviceTemplates.saved", "Template saved.") });
       await onSaved?.();
     } catch (err) {
@@ -535,6 +541,7 @@ function TemplateEditor({ product, category, currency, language, canEdit, onSave
           {msg && <span className={`text-xs ${msg.error ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"}`}>{msg.text}</span>}
         </div>
       )}
+      <AutoTranslateBanner result={autoTranslate} id={autoTranslate?.id} />
     </div>
   );
 }
