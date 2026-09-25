@@ -51,6 +51,7 @@ import {
   withSetupParam,
   isUntouchedStandardAddOn,
   setupProgress,
+  QUOTE_COVERAGE_MIN,
 } from "@/lib/setupSteps";
 import { APP_MESSAGES } from "@/app/i18n/appMessages";
 
@@ -74,6 +75,10 @@ console.log("\n1. stepsFor(), executed\n");
 
 const EXPECTED_KEYS = [
   "team",
+  // 2026-09-24: "Confirm what you quote", for a company whose trade FieldQuo
+  // has no full service list for — second, because every quote is built from
+  // its answer.
+  "confirm_services",
   "overhead",
   "payment_schedule",
   // The client proposal's four (2026-09-21, client mockup §2), in the
@@ -95,7 +100,7 @@ const EXPECTED_KEYS = [
   "website",
 ];
 ok(
-  "the team row, the ten in the owner's order, the proposal's four after the payment schedule, and the website last",
+  "the team row, confirm-services, the ten in the owner's order, the proposal's four after the payment schedule, and the website last",
   JSON.stringify(SETUP_STEP_KEYS) === JSON.stringify(EXPECTED_KEYS),
   SETUP_STEP_KEYS.join(","),
 );
@@ -133,6 +138,10 @@ const EMPTY = {
   // The website row: no site of their own on record, nothing published.
   hasOwnWebsite: false,
   sitePublished: false,
+  // "Confirm what you quote": no catalogue trade switched on (so nothing
+  // seeded to quote from — the row applies), and never confirmed.
+  quoteCoverage: [],
+  servicesConfirmed: false,
 };
 const TOTAL = EXPECTED_KEYS.length;
 
@@ -148,6 +157,38 @@ const TOTAL = EXPECTED_KEYS.length;
   ok("website: the snapshot reads the signup's answer, the address and the builder's published flag",
     /hasWebsite: true/.test(snap) && /website: true/.test(snap) && /site: \{ select: \{ published: true \} \}/.test(snap) &&
       /hasOwnWebsite: company\.hasWebsite === true \|\| Boolean/.test(snap) && /sitePublished: company\.site\?\.published === true/.test(snap));
+}
+
+// ── "Confirm what you quote" — applies to a thin trade, done when confirmed ─
+{
+  const row = (snap) => stepsFor({ ...EMPTY, ...snap }).find((s) => s.key === "confirm_services");
+  const rich = { key: "plumbing", ownSeed: true, installed: 101 };
+  ok("confirm: QUOTE_COVERAGE_MIN is ten (the smallest hand-authored seed, snow_removal)", QUOTE_COVERAGE_MIN === 10);
+  ok("confirm: a trade fully seeded → the row does not apply", row({ quoteCoverage: [rich] }).applies === false);
+  ok("confirm: exactly QUOTE_COVERAGE_MIN installed is enough", row({ quoteCoverage: [{ key: "snow_removal", ownSeed: true, installed: 10 }] }).applies === false);
+  ok("confirm: one short of it applies (a seeded trade whose seeding half-failed)", row({ quoteCoverage: [{ key: "snow_removal", ownSeed: true, installed: 9 }] }).applies === true);
+  ok("confirm: a trade with NO seed file applies however many tagged rows it holds", row({ quoteCoverage: [{ key: "commercial_cleaning", ownSeed: false, installed: 25 }] }).applies === true);
+  ok("confirm: one thin trade among rich ones applies", row({ quoteCoverage: [rich, { key: "well_water", ownSeed: false, installed: 0 }] }).applies === true);
+  ok("confirm: no catalogue trade at all (the 'Other' signup) applies", row({ quoteCoverage: [] }).applies === true);
+  ok("confirm: an absent or malformed coverage APPLIES (never removes the row)", [undefined, null, "lots", 3, {}].every((v) => row({ quoteCoverage: v }).applies === true));
+  ok("confirm: garbage inside the list applies", row({ quoteCoverage: [null] }).applies === true && row({ quoteCoverage: [{ key: "plumbing", ownSeed: "yes", installed: 101 }] }).applies === true && row({ quoteCoverage: [{ key: "plumbing", ownSeed: true, installed: "many" }] }).applies === true);
+  ok("confirm: done only on a real true", row({ servicesConfirmed: true }).done === true && ["true", 1, null, undefined, new Date()].every((v) => row({ servicesConfirmed: v }).done === false));
+  ok("confirm: a confirmed company is off the card even while its trade stays thin", !remainingSteps(stepsFor({ ...EMPTY, servicesConfirmed: true })).some((x) => x.key === "confirm_services"));
+  ok("confirm: a rich company is off the card without confirming, and out of the progress total", !remainingSteps(stepsFor({ ...EMPTY, quoteCoverage: [rich] })).some((x) => x.key === "confirm_services") && setupProgress(stepsFor({ ...EMPTY, quoteCoverage: [rich] })).total === TOTAL - 1);
+  const snap = stripComments(source("lib/setupStepsSnapshot.js"));
+  ok("confirm: the snapshot reads the stamp, the enabled trades and the held seed keys",
+    /servicesConfirmedAt: true/.test(snap) && /servicesConfirmed: company\.servicesConfirmedAt instanceof Date/.test(snap) &&
+      /seedKey: true/.test(snap) && /tradeCoverage\(key, products\.map\(\(p\) => p\.seedKey\)/.test(snap) && /tradeEntry\(k\)/.test(snap));
+  const route = stripComments(source("app/api/settings/products/confirm-services/route.js"));
+  ok("confirm: the route stamps the column once (only where it is still null)", /servicesConfirmedAt: null \}, data: \{ servicesConfirmedAt: new Date\(\) \}/.test(route.replace(/\s+/g, " ")));
+  ok("confirm: the route writes through the seeder's own createSeededServices", /createSeededServices\(\{/.test(route) && !/db\.product\.create/.test(route));
+  ok("confirm: POST requires user:manage unconditionally; GET lets impersonation look", (route.match(/requirePermission\(member\.role, "user:manage"\)/g) || []).length === 2 && (route.match(/if \(!member\.impersonation\)/g) || []).length === 1);
+  ok("confirm: POST refuses unknown keys BEFORE writing", route.indexOf("plan.unknown.length") > 0 && route.indexOf("plan.unknown.length") < route.indexOf("createSeededServices({"));
+  ok("confirm: the browser sends keys, never a price", !/unitPrice|price:/.test(stripComments(source("app/app/settings/services/ConfirmServices.js")).match(/body: \{[^}]*\}/)?.[0] || "x") && /body: \{ seedKeys: \[\.\.\.selected\] \}/.test(stripComments(source("app/app/settings/services/ConfirmServices.js"))));
+  ok("confirm: the dialog renders the page's own screen", /confirm_services: \{[\s\S]{0,200}<ConfirmServices compact onChanged=\{onChanged\} \/>/.test(source("app/components/dashboard/stepPanels.js")));
+  ok("confirm: 'Add my own service' is the catalogue's own form", /import ProductFormModal from "@\/app\/app\/settings\/products\/ProductFormModal"/.test(source("app/app/settings/services/ConfirmServices.js")) && /<ProductFormModal/.test(source("app/app/settings/products/ProductCatalogue.js")));
+  const schema = source("prisma/schema.prisma");
+  ok("confirm: Company.servicesConfirmedAt DateTime? exists in the schema", /^\s*servicesConfirmedAt\s+DateTime\?/m.test(schema));
 }
 
 {
@@ -188,6 +229,7 @@ const FLIPS = [
   ["clientDocuments", 1, "documents"],
   ["googleReviewsConnected", true, "google_reviews"],
   ["approvedTestimonials", 2, "google_reviews"],
+  ["servicesConfirmed", true, "confirm_services"],
 ];
 for (const [field, value, expectKey] of FLIPS) {
   const steps = stepsFor({ ...EMPTY, [field]: value });
@@ -342,6 +384,8 @@ const PAGE_BODY = {
   "app/app/settings/email-templates/page.js": "app/app/settings/email-templates/EmailTemplatesManager.js",
   "app/app/jobs/import/page.js": "app/app/jobs/import/PastJobsEntry.js",
   "app/app/settings/ai-credit/page.js": "app/app/settings/ai-credit/AiCreditCard.js",
+  // "Confirm what you quote" — the screen beside the page frame.
+  "app/app/settings/services/confirm/page.js": "app/app/settings/services/ConfirmServices.js",
 };
 
 function pageFileFor(href) {

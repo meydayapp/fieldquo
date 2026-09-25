@@ -2321,6 +2321,18 @@ model Company {
   /// same thing.
   setupStepsDismissed Json?
 
+  /// When the company confirmed which services it quotes — the "Confirm what
+  /// you quote" set-up step (lib/setupSteps.js), offered to a company whose
+  /// trade FieldQuo ships too short a service list for. Written once, by POST
+  /// /api/settings/services/confirm (the "Add selected" button, which may be
+  /// pressed with nothing ticked — "none of these, I've added my own" is an
+  /// answer); read by lib/setupStepsSnapshot.js, where it is the step's only
+  /// way to done, and by the confirm screen, which says when it was answered.
+  /// A dated column rather than a key in setupStepsDismissed above because it
+  /// is a statement about the business, not a preference about the card —
+  /// the same division worksAloneAt makes. Null = never confirmed.
+  servicesConfirmedAt DateTime?
+
   salesAttribution SalesAttribution?
   salesRepDemo     SalesRep?
   /// Where the signup request came from — FieldQuo's own record, see SignupOrigin.

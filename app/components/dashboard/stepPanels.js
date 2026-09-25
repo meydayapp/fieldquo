@@ -2,8 +2,9 @@
 //
 // Which component each set-up step opens in its dialog on the home page —
 // the onboarding checklist's five (lib/onboarding.js) and the "Additional
-// set-up steps" card's fourteen (lib/setupSteps.js; the fifteenth, "Invite your
-// team", has had its own popup since 2026-09-18 and keeps it).
+// set-up steps" card's rows (lib/setupSteps.js) — all but "Invite your team",
+// which has had its own popup since 2026-09-18 and keeps it, and "Create your
+// website", a page too big for a dialog.
 //
 // ══ The rule ═══════════════════════════════════════════════════════════════
 //
@@ -71,6 +72,9 @@ const TaxRegistrationPanel = lazy(() => import("@/app/components/dashboard/panel
 
 // ── Additional set-up steps (lib/setupSteps.js) ──────────────────────────
 
+// "Confirm what you quote" (2026-09-24) — the screen /app/settings/services/
+// confirm renders, with the catalogue's own Add Item form inside it.
+const ConfirmServices = lazy(() => import("@/app/app/settings/services/ConfirmServices"));
 const FixedCostsEditor = lazy(() => import("@/app/app/settings/overhead/FixedCostsEditor"));
 const PaymentScheduleEditor = lazy(() => import("@/app/app/settings/company/PaymentScheduleEditor"));
 const AiCreditPanel = lazy(() => import("@/app/components/dashboard/panels/AiCreditPanel"));
@@ -129,6 +133,13 @@ export const STEP_PANELS = {
     render: ({ onSaved }) => <TaxRegistrationPanel onSaved={onSaved} />,
   },
 
+  // A list with its own confirm button: adding a service of your own keeps
+  // the dialog open, and so does confirming — the row leaves the card when
+  // the re-read says so, and Done offers the next step.
+  confirm_services: {
+    finish: "list",
+    render: ({ onChanged }) => <ConfirmServices compact onChanged={onChanged} />,
+  },
   overhead: {
     finish: "list",
     introKey: "app.stepDialog.overheadIntro",

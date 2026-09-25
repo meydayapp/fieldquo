@@ -381,7 +381,11 @@ section("7g. Eight languages, and no English trade sentence in the other five");
   const fresh = remainingSteps(stepsFor({}));
   const EN_OWN = ["Still to do", "Already done", "Do this now", "Open my home page", "Your free month", "Additional set-up steps", "more on your home page"];
   for (const l of LANGUAGE_CODES) {
-    const e = buildOnboardingNextStepsEmail({ ...base, language: l, setupSteps: fresh, trialEndsAt: trialEnd, proof: { companies: 12, medianMinutes: 45 } });
+    // 4817, not 12: the proof's company count must be a number nothing else
+    // in the letter can print. It was 12 until "Confirm what you quote" made
+    // seventeen set-up steps — five shown and "12 more" — and the absence
+    // check below then matched the step count, not a proof sentence.
+    const e = buildOnboardingNextStepsEmail({ ...base, language: l, setupSteps: fresh, trialEndsAt: trialEnd, proof: { companies: 4817, medianMinutes: 45 } });
     ok(`${l}: rendered in ${l}, not flagged`, e.language === l && e.fallback === false && new RegExp(`<html lang="${l}">`).test(e.html));
     ok(`${l}: the trial line is there, with a date in ${l}`, typeof e.trialLine === "string" && e.trialLine.length > 0 && !/\{date\}/.test(e.trialLine));
     ok(`${l}: no unfilled {placeholder}`, !/\{(company|trade|count|name|when|date)\}/.test(e.subject + e.text + e.html));
@@ -390,7 +394,7 @@ section("7g. Eight languages, and no English trade sentence in the other five");
       const enPoints = Object.values(POINTS).flatMap((p) => [p.oneLiner.en, p.proof.en]);
       const tradeEn = tradeSellingPoints("painting", "en").points.map((p) => p.proof);
       ok(`${l}: no English trade sentence (the table is en/fr/es only)`, [...enPoints, ...tradeEn].every((x) => !e.text.includes(x)));
-      ok(`${l}: the subject is the one without a trade, and no social-proof sentence`, !/painting/.test(e.subject) && !/\b12\b/.test(e.text));
+      ok(`${l}: the subject is the one without a trade, and no social-proof sentence`, !/painting/.test(e.subject) && !/\b4817\b/.test(e.text));
       ok(`${l}: the pricing and Stripe rows carry the catalogue's ${l} sentence`, e.text.includes(APP_MESSAGES[l]["app.nextSteps.unlock.pricing"]) && e.text.includes(APP_MESSAGES[l]["app.nextSteps.unlock.payments"]));
     }
   }
