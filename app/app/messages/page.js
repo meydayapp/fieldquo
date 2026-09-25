@@ -546,11 +546,11 @@ function MessagesScreen() {
       items.push(item);
     }
     if (windowClosed) {
-      // WhatsApp's 24-hour window, closed, as a row in the story — undated on
+      // The 24-hour window, closed, as a row in the story — undated on
       // purpose: it is a statement about now, not an event at a time, so it
-      // sorts last and gets no day heading. Only where the send path enforces
-      // a window (lib/messaging/platforms.js: WhatsApp); nothing is invented
-      // for Facebook or Instagram, whose window Meta enforces on its own side.
+      // sorts last and gets no day heading. Wherever the send path enforces a
+      // window (lib/messaging/platforms.js: WhatsApp, Facebook, Instagram),
+      // with that platform's own sentence.
       items.push({ id: "window:closed", kind: "system", direction: "in", at: null, body: t(windowNotice.blockKey) });
     }
     return layoutThread(items, { lastReadAt: openedReadAt });
@@ -1346,15 +1346,19 @@ function ComposerArea({ thread, note, blockKey, isDemo, canEdit, windowNotice, w
   // ── Three reasons the Reply side can be off, and they stack ────────────
   //
   // `blockKey` is the connection ("Meta has not approved us yet"). The window
-  // is a separate, TEMPORARY one, and it is the only one with a way through —
-  // so it does not merely disable the box, it swaps it for the template
-  // picker. A demo's threads are computed rather than stored, so nothing
-  // typed into either side would survive a refresh; said on the tab, not
-  // discovered.
+  // is a separate, TEMPORARY one. On WhatsApp it has a way through, so it
+  // does not merely disable the box, it swaps it for the template picker. On
+  // Facebook and Instagram it has none inside FieldQuo (no template, no
+  // HUMAN_AGENT permission — lib/messaging/platforms.js), so the box AND Send
+  // are off and the notice says why and what still works; the server decides
+  // which via `wayThrough`, the page does not test the platform name. A
+  // demo's threads are computed rather than stored, so nothing typed into
+  // either side would survive a refresh; said on the tab, not discovered.
   const composerBlocked = mode === "reply" && (Boolean(blockKey) || windowClosed);
   const demoBlocked = isDemo;
+  const templatesOffered = windowClosed && windowNotice?.wayThrough === "template";
   // What Send is about to do. A template only, and only on the Reply side.
-  const sendingTemplate = mode === "reply" && windowClosed && Boolean(templateId);
+  const sendingTemplate = mode === "reply" && templatesOffered && Boolean(templateId);
   // ── Where the paperclip appears, and where it must not ─────────────────
   //
   // WhatsApp only, on the Reply side, with the composer actually usable.
@@ -1497,7 +1501,7 @@ function ComposerArea({ thread, note, blockKey, isDemo, canEdit, windowNotice, w
   // side: a private note has no window.
   const windowHint =
     mode === "reply" && windowNotice && (windowNotice.blockKey || windowNotice.warnKey) ? (
-      <ServiceWindowNotice notice={windowNotice} t={t} />
+      <ServiceWindowNotice notice={windowNotice} client={thread?.client} t={t} />
     ) : null;
   // The demo reason already rides beside the Reply tab (ComposerTabs prints
   // `disabledReplyKey`); it is repeated here only on the Note side, where
@@ -1525,7 +1529,7 @@ function ComposerArea({ thread, note, blockKey, isDemo, canEdit, windowNotice, w
           t={t}
         />
         {/* The way through, offered exactly when it is the answer. */}
-        {mode === "reply" && windowClosed && !blockKey && (
+        {mode === "reply" && templatesOffered && !blockKey && (
           <TemplatePicker
             templates={thread?.templates}
             value={templateId}

@@ -27,6 +27,7 @@
 // So they sit under app/app, where the mobile rules apply to them.
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   AlertTriangle, Clock, EyeOff, MessageSquare, StickyNote,
   Paperclip, Film, Mic, FileText, Loader2, X, MapPin, User, Phone, Mail,
@@ -982,7 +983,8 @@ export function ComposerTabs({ mode, onPick, note, disabledReplyKey, t }) {
 }
 
 /**
- * WhatsApp's 24-hour customer service window, said out loud.
+ * The 24-hour customer service window, said out loud — WhatsApp's, and
+ * (since 2026-09-22) Facebook's and Instagram's.
  *
  * ── Why this is a banner and not only a disabled box ──────────────────────
  *
@@ -997,8 +999,14 @@ export function ComposerTabs({ mode, onPick, note, disabledReplyKey, t }) {
  *   closing soon  open, under an hour left. A warning, not a block — the state
  *                 in which a contractor most needs to be told BEFORE they
  *                 start typing a long answer.
- *   closed        24 hours have passed. Free text is refused; a template is
- *                 offered.
+ *   closed        24 hours have passed. Free text is refused. On WhatsApp a
+ *                 template is offered; on Facebook and Instagram there is no
+ *                 template and no HUMAN_AGENT permission, so the sentence
+ *                 says why (the platform only lets businesses reply within
+ *                 24 hours of the customer's last message) and what still
+ *                 works — they write again, or a call or an email — and the
+ *                 client record is linked when the thread has one, because
+ *                 that is where the phone number and the address are.
  *   never opened  this person has never written. Same refusal, different
  *                 sentence, because "wait for them to reply" is not the advice
  *                 in a conversation that has not started.
@@ -1008,12 +1016,16 @@ export function ComposerTabs({ mode, onPick, note, disabledReplyKey, t }) {
  * computing it would be a second answer, in a second clock, and the one that
  * disagrees with the refusal the send is about to get.
  */
-export function ServiceWindowNotice({ notice, t }) {
+export function ServiceWindowNotice({ notice, client = null, t }) {
   if (!notice) return null;
   const key = notice.blockKey || notice.warnKey;
   if (!key) return null;
 
   const blocked = Boolean(notice.blockKey);
+  // `client` is the thread's linked client, which the thread route only sends
+  // to somebody who may edit clients — so the link is drawn only for a person
+  // who can open what it points at.
+  const contact = blocked && notice.wayThrough === "contact" && client?.id ? client : null;
   return (
     <p
       // Neither tone uses colour alone to carry the difference: the icon and
@@ -1035,7 +1047,21 @@ export function ServiceWindowNotice({ notice, t }) {
           (serviceWindowNotice sets it at hours < 1), so "less than an hour" is
           the whole sentence — a "{hours} hours left" that could only ever say
           "0" would be worse than the words. */}
-      <span>{t(key)}</span>
+      <span>
+        {t(key)}
+        {contact && (
+          <>
+            {" "}
+            <Link
+              href={`/app/clients/${encodeURIComponent(contact.id)}`}
+              className="font-medium underline underline-offset-2"
+              data-window-client-link
+            >
+              {t("app.messages.window.clientLink", { name: contact.name || t("app.messages.unknownPerson") })}
+            </Link>
+          </>
+        )}
+      </span>
     </p>
   );
 }

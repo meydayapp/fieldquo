@@ -27,6 +27,7 @@ import {
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 import { messagingConnection } from "@/lib/messaging/channels";
 import { serviceWindowNotice, needsServiceWindow } from "@/lib/messaging/serviceWindow";
+import { offersTemplates } from "@/lib/messaging/platforms";
 import { publicTemplateShape } from "@/lib/messaging/templates";
 import { publicAttachments } from "@/lib/messaging/attachments";
 import { demoThreads } from "@/lib/messaging/demoThreads";
@@ -190,7 +191,12 @@ async function readThread({ id, member }) {
   // for a company whose address was typed rather than picked from the
   // autocomplete. No control, no dead button, and the reply route refuses the
   // same case with a sentence naming the fix.
-  const company = needsServiceWindow(thread.channel?.platform)
+  //
+  // WhatsApp only — the only platform with a location message. This used to
+  // be keyed on needsServiceWindow, which meant "is WhatsApp" until Facebook
+  // and Instagram joined the window list on 2026-09-22; tested by name now so
+  // a Page thread is not handed a pin control the send path refuses.
+  const company = thread.channel?.platform === "whatsapp"
     ? await db.company
         .findUnique({
           where: { id: member.companyId },
@@ -256,9 +262,12 @@ async function readThread({ id, member }) {
       status: readStatus(thread.status),
       platform: thread.channel?.platform || null,
       channelName: thread.channel?.name || null,
-      // Null on Facebook and Instagram — they have no window of ours, and a
-      // notice object on every thread would make the composer test which
-      // platform it was drawing rather than "is there a notice".
+      // On all three of Meta's platforms (Facebook and Instagram since
+      // 2026-09-22); null on web chat, SMS and email, which have no window —
+      // a notice object on every thread would make the composer test which
+      // platform it was drawing rather than "is there a notice". The notice
+      // carries `wayThrough`, so the composer knows whether a closed window
+      // offers a template or only a call or an email.
       serviceWindow: needsServiceWindow(thread.channel?.platform)
         ? serviceWindowNotice({
             platform: thread.channel.platform,
@@ -269,7 +278,7 @@ async function readThread({ id, member }) {
       // makes the closed-window message something a contractor can act on
       // instead of a dead end — a composer that said "the window has closed"
       // and offered nothing would be honest and useless.
-      templates: needsServiceWindow(thread.channel?.platform)
+      templates: offersTemplates(thread.channel?.platform)
         ? (
             await db.whatsAppTemplate
               .findMany({
