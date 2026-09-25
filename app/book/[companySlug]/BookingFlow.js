@@ -16,7 +16,7 @@
 // at 2.1:1 on the weekday headers.
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   documentTheme,
   fillPair,
@@ -296,6 +296,19 @@ export default function BookingFlow({
   // than showing times that ignore travel until they touch the field.
   const [geoAddress, setGeoAddress] = useState(prefill?.address || "");
   const [travelInfo, setTravelInfo] = useState(null);
+  // The newest slot answer, tagged with the address and mode it was asked
+  // for — read by step 3 to notice that a time picked BEFORE an address was
+  // given can't be reached from the address given after it.
+  const [offered, setOffered] = useState(null);
+  // Which slot query is the newest. SlotCalendar drops a stale answer's
+  // slots itself; this guards the two things loadSlots writes HERE, so an
+  // old address's answer can't relabel the note under the field.
+  const slotQuery = useRef(0);
+  // Step 3 asks for the address when it was skipped on the calendar. Decided
+  // once, when the time is picked — not re-derived from `address` on every
+  // render, which unmounted the field on its first keystroke (the visitor
+  // typed "1", the box vanished, and "1" became the visit address).
+  const [askAddressLate, setAskAddressLate] = useState(false);
   // The last "outside the area" verdict, tagged with the address it was for:
   // { address, radiusKm, city }. Rendered only while `geoAddress` still IS
   // that address and this is a visit, so a corrected address drops the line
@@ -449,6 +462,48 @@ export default function BookingFlow({
     email: form.email,
   });
 
+  // ── A time picked before the address, that the address rules out ────────
+  //
+  // Picking a time with no address shows every time, unfiltered. The address
+  // typed on step 3 then re-runs the slot query (the calendar is hidden, not
+  // unmounted), and if the drive filter engaged and the picked time is no
+  // longer among the answers, the estimator can't get there on schedule.
+  // Said in words with a way back, and Book waits — the alternative is the
+  // 5:00-east-end, 5:30-across-town promise this whole check exists to stop.
+  //
+  // Only on a positive answer for THIS address and mode: a pending, failed or
+  // unfiltered load says nothing, because unknown never hides a slot.
+  const chosenUnreachable = Boolean(
+    chosen &&
+      mode === "visit" &&
+      travelInfo?.applied &&
+      offered &&
+      offered.mode === mode &&
+      offered.address === geoAddress &&
+      !Object.values(offered.slots).some((times) => times.includes(chosen)),
+  );
+
+  // The line under the address field, on step 2 and again under step 3's
+  // late field. Five states, and they must not look alike. Only "not_found"
+  // asks the visitor to check their address: the check being switched off,
+  // or no server Maps key, is not their mistake — and saying it was told
+  // people with a correct address that it was wrong.
+  const travelState = travelInfo?.pending
+    ? "pending"
+    : travelInfo?.applied
+      ? "applied"
+      : travelInfo?.reason || "none";
+  const travelNote =
+    travelState === "pending"
+      ? t("booking.mode.travelChecking")
+      : travelState === "applied"
+        ? t("booking.mode.travelApplied", { address: travelInfo.address || address.trim() })
+        : travelState === "not_found"
+          ? t("booking.mode.travelNotFound")
+          : travelState === "none"
+            ? t("booking.mode.addressHint")
+            : t("booking.mode.addressHintPlain");
+
   useEffect(() => {
     // Not `t`: this component now takes `t` from useTranslation(), and a local
     // of that name shadows it into a render-time crash (scripts/check-t-shadow).
@@ -503,6 +558,12 @@ export default function BookingFlow({
       // The address is only relevant to an in-person visit. Sending it for a
       // phone consult would filter times by a drive nobody is making.
       const forVisit = mode === "visit" && geoAddress.length > 5;
+      const mine = ++slotQuery.current;
+      const latest = () => mine === slotQuery.current;
+      // Say "checking" at once. Until the new answer is in, the old line
+      // ("showing times we can reach <the previous address>") would be a
+      // claim about times that are about to be replaced.
+      setTravelInfo(forVisit ? { pending: true } : null);
       try {
         // `mode` goes with the query because it decides the slot length: a
         // phone call is offered at the call's twenty minutes, a visit at the
@@ -514,13 +575,19 @@ export default function BookingFlow({
           )}&from=${from}&to=${to}&mode=${encodeURIComponent(mode || "")}` +
             (forVisit ? `&address=${encodeURIComponent(geoAddress)}` : ""),
         );
-        setTravelInfo(data?.travel || null);
+        if (latest()) {
+          setTravelInfo(data?.travel || null);
+          setOffered({ mode, address: geoAddress, slots: data?.slots || {} });
+        }
         return data?.slots || {};
       } catch (err) {
         // A load that failed says nothing about the drive. Leaving the previous
         // note standing would claim we'd checked the address against times we
         // never got.
-        setTravelInfo(null);
+        if (latest()) {
+          setTravelInfo(null);
+          setOffered(null);
+        }
         throw err;
       }
     },
@@ -1090,13 +1157,9 @@ export default function BookingFlow({
                 />
               </div>
 
-              {/* Three states, and they must not look alike. */}
-              <p className="text-xs mt-1.5" style={{ color: theme.inkMuted }}>
-                {travelInfo?.applied
-                  ? `Showing times we can reach ${travelInfo.address || "you"} on schedule.`
-                  : travelInfo
-                    ? "We couldn't place that address, so all times are shown. Double-check it before you book."
-                    : t("booking.mode.addressHint")}
+              {/* See travelNote — five states that must not look alike. */}
+              <p className="text-xs mt-1.5" style={{ color: theme.inkMuted }} data-travel-state={travelState}>
+                {travelNote}
               </p>
               {/* One honest line, in the visitor's language, and no gate: the
                   request still goes through and the company answers it. */}
@@ -1121,7 +1184,10 @@ export default function BookingFlow({
             wash={wash}
             copy={CALENDAR_COPY}
             loadSlots={loadSlots}
-            onPick={setChosen}
+            onPick={(iso) => {
+              setChosen(iso);
+              setAskAddressLate(mode === "visit" && !address.trim());
+            }}
             selected={chosen}
           />
         </div>
@@ -1226,8 +1292,10 @@ export default function BookingFlow({
             {/* The visit address, asked again HERE when they skipped it on
                 the calendar step — a visit cannot be booked without one, and
                 sending them back a step to find out why is the kind of thing
-                that loses the booking. Same field, same state. */}
-            {mode === "visit" && !address.trim() && (
+                that loses the booking. Same field, same state. Kept on screen
+                once shown (askAddressLate), so it survives its own first
+                keystroke; the line under it is the reachability check below. */}
+            {mode === "visit" && askAddressLate && (
               <div>
                 <label
                   htmlFor="visit-address-late"
@@ -1252,6 +1320,30 @@ export default function BookingFlow({
                   placeholder="123 Main St, Montreal"
                   className="w-full px-3 min-h-11 rounded-lg border text-sm focus:outline-none border-[var(--bd)] focus:border-[var(--bd-focus)] bg-[var(--paper)] text-[var(--ink)] placeholder:text-[var(--ink-faint)]"
                 />
+                <p className="text-xs mt-1" style={{ color: theme.inkMuted }} data-travel-state={travelState}>
+                  {travelNote}
+                </p>
+              </div>
+            )}
+            {chosenUnreachable && (
+              <div
+                className="rounded-lg px-3 py-2 flex items-start gap-2 text-sm border"
+                style={{ color: theme.ink, borderColor: theme.border, backgroundColor: theme.paper }}
+                role="alert"
+                data-chosen-unreachable
+              >
+                <AlertCircle size={15} className="shrink-0 mt-0.5" style={{ color: theme.inkMuted }} />
+                <span>
+                  {t("booking.mode.timeUnreachable")}{" "}
+                  <button
+                    type="button"
+                    onClick={() => setChosen(null)}
+                    className="font-semibold underline"
+                    style={{ color: theme.accentText }}
+                  >
+                    {t("booking.mode.pickAnotherTime")}
+                  </button>
+                </span>
               </div>
             )}
 
@@ -1427,7 +1519,7 @@ export default function BookingFlow({
 
           <button
             type="submit"
-            disabled={submitting || !form.name.trim() || !form.email.trim() || !whenNeeded || Boolean(missingField)}
+            disabled={submitting || !form.name.trim() || !form.email.trim() || !whenNeeded || Boolean(missingField) || chosenUnreachable || Boolean(askAddressLate && travelInfo?.pending)}
             className="mt-5 w-full inline-flex items-center justify-center gap-2 min-h-12 rounded-full text-sm font-bold disabled:opacity-50"
             style={{ backgroundColor: solid.bg, color: solid.fg }}
           >

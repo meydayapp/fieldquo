@@ -108,6 +108,65 @@ ai-credit, ai-allowance, credit-pools, image-economics, `npm run build`.
 
 ---
 
+## Booking: a new address no longer glitches the times, and the distance rule is written down (25 September 2026)
+
+The owner (2026-09-24): auto-booking "glitches when we enter a new address …
+on the website", and how does distance to other visits pick the slots?
+Reproduced in the browser on `demo-danielboves-painting`'s booking page and
+its `/embed/…/book` widget (the website's Booking block renders the same
+`BookingFlow`). Five faults, all fixed:
+
+- **Stale answer wins.** Pause while typing, then pick a suggestion: two
+  queries went out, and whichever came back LAST set the grid and the note.
+  With the half-typed one delayed, the field read "350 5th Ave, Brooklyn"
+  while the page said "Showing times we can reach Empire State Building".
+  Now the newest request wins (`SlotCalendar` `requestSeq`, `BookingFlow`
+  `slotQuery`).
+- **Calendar collapsed** to a spinner on each change, which made a website
+  jump mid-page. Now the grid stays on screen, dimmed and `inert`, with
+  "Finding times…". The note says "Checking…", and a chosen day with no
+  times left goes back to "pick a day".
+- **Step 3's late address field unmounted on its first keystroke** (it was
+  shown only while the address was empty, so "1" became the visit address).
+  It's now decided when the time is picked. If that late address rules out
+  the picked time, the page says so with "Pick another time", and Book waits.
+- **"We couldn't place that address"** was shown for companies with the
+  travel check OFF and when there was no server Maps key. The route now
+  returns `travel.reason` (`off` / `no_lookup` / `not_found`), and only
+  `not_found` asks the visitor to check their address. There are six new
+  `booking.mode.*` lines, in all nine catalogue languages.
+- **The last day of every range read no busy time.** `to=2026-09-30` is
+  midnight at the start of the 30th, so visits on the last day of each
+  calendar month were invisible. Their hours were offered as free (on the
+  demo: 4:00 PM offered over a booked 4 PM visit) and no drive was checked.
+  `computeAvailableSlots` now reads busy time a day wider on both sides.
+  Mutation-tested: reverting it fails 3 checks.
+
+The rule is written down in plain words in `docs/BOOKING.md` and in the
+header of `lib/booking/computeAvailability.js`. Distance only removes times
+and never ranks them. Only the visits just before and just after a time count,
+and each gap must be at least the drive time plus "Extra time between jobs".
+Unknown (no address, no coordinates, Google can't find it, phone or video)
+never removes a time.
+
+Checks: `check:booking-modes` section 8 runs the route, the engine and the
+service-area route against typed-not-picked, near → far → near, outside the
+area, missing coordinates, off / no-key / not-found, and the last day. It
+also checks the client guards at source. 477 pass.
+
+### Still owed here
+
+- The confirm route doesn't re-run the travel test (overlap with bookings
+  only, not office-made appointments). See `docs/BOOKING.md` → "Not covered
+  yet".
+- Each 700 ms typing pause sends one paid geocode, and the service-area check
+  sends another. Fewer lookups (for example, only on pick or blur) changes
+  how a hand-typed address behaves, so the owner should decide.
+- The Booking block on a live published website was not opened: the demo
+  company's site is unpublished. The embed is the same component.
+
+---
+
 ## The receipts book, and who pays for AI (25 September 2026)
 
 The owner: "Those receipts should be linked by job or overhead and also be kept as
