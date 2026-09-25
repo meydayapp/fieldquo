@@ -1083,6 +1083,48 @@ section("12. The action bar never covers the total");
 }
 
 // ───────────────────────────────────────────────────────────────────────────
+section("13. A scope group can be renamed, and every reader prints the name");
+
+// The owner: a group called "vanity refinishing". The name is the group's
+// `label`: the builder writes it, the save sends it, PATCH reconciles it, and
+// every client-facing reader prints it before the category's own name.
+{
+  const builderSrc = read("app/components/quotes/builder/QuoteBuilder.js");
+  ok("13a: the group editor has a name box writing the group's label",
+    /data-group-name-input/.test(builderSrc) && /updatePricing\(group\.tempId, \{ label: e\.target\.value \}\)/.test(builderSrc), "");
+  ok("13b: blank goes back to the service's own name on blur",
+    /const next = typed \|\| fallback;/.test(builderSrc), "");
+  ok("13c: a group the screen may not edit shows no name box",
+    /\{!locked && \(\s*<label className="block" data-group-name>/.test(builderSrc), "");
+
+  const cab = newScopeGroup({ id: "c", key: "cabinet_refinishing", label: "Cabinet Refinishing" }, "Cabinet Refinishing", null, { tempId: "c" });
+  const renamed = { ...cab, label: "Vanity refinishing", intakeValues: { doorCount: 4, drawerCount: 2 } };
+  const p = scopeGroupPayload(renamed, null, "en");
+  eq("13d: the renamed label is what the save sends", p.label, "Vanity refinishing");
+  eq("13e: …and the cabinet base line is described by it", p.lineItems[0].description, "Vanity refinishing");
+  eq("13f: renaming moves no money",
+    [p.subtotal, p.lineItems.map((l) => l.amount)],
+    [scopeGroupPayload({ ...renamed, label: "Cabinet Refinishing" }, null, "en").subtotal,
+      scopeGroupPayload({ ...renamed, label: "Cabinet Refinishing" }, null, "en").lineItems.map((l) => l.amount)]);
+  // The readers — the PDF / document route, the client's page, the email,
+  // the staff quote page, the crew's work order — name the group's own label
+  // first. A reader that went to the category first would print "Cabinet
+  // Refinishing" over a group the estimator called "Vanity refinishing".
+  for (const [file, re] of [
+    ["app/api/quotes/[id]/document/route.js", /label: g\.label \|\| g\.category\?\.label/],
+    ["app/api/public/quotes/[token]/route.js", /label: g\.label \|\| g\.category\?\.label/],
+    ["lib/email/quoteSections.js", /g\.label \|\| g\.category\?\.label/],
+    ["app/app/quotes/[id]/page.js", /label=\{group\.label \|\| group\.category\?\.label\}/],
+    ["lib/workOrder/build.js", /g\?\.label \|\| g\?\.category\?\.label/],
+    ["lib/quotes/importQuote.js", /label: g\.label \|\| null/],
+  ]) ok(`13g: ${file} prints the group's own name first`, re.test(read(file)), file);
+  const missing = Object.keys(APP_MESSAGES).filter(
+    (l) => !APP_MESSAGES[l]["app.quoteNew.groupNameLabel"] || !/\{name\}/.test(APP_MESSAGES[l]["app.quoteNew.groupNameHint"] || ""),
+  );
+  eq("13h: the name box's words are in every app language", missing, []);
+}
+
+// ───────────────────────────────────────────────────────────────────────────
 
 console.log(
   fail

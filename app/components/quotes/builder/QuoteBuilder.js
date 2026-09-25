@@ -2011,6 +2011,46 @@ export function QuoteBuilderForm({
         {/* Where "Open room takeoff" under a template line lands in the
             classic layout (openCalculator). Renders nothing. */}
         <span data-scope-group-anchor={group.tempId} aria-hidden="true" />
+
+        {/* ── The group's own name ─────────────────────────────────────
+            The owner: a scope called "vanity refinishing", not "Cabinet
+            Refinishing". `label` is already what every reader prints — the
+            PDF, the client's page, the email, the work order all read
+            `g.label || g.category.label` — and already what the save sends
+            and PATCH reconciles, so this box is the only thing that was
+            missing. Printed exactly as typed, in whatever language it is
+            typed in: nothing translates it (non-negotiable #6). Blank goes
+            back to the service's own name on blur, so no heading — and no
+            cabinet base line, which is described by the same label — is
+            ever saved empty. */}
+        {!locked && (
+          <label className="block" data-group-name>
+            <span className="block text-xs font-medium text-muted-foreground mb-1">
+              {t("app.quoteNew.groupNameLabel", "Name on the quote")}
+            </span>
+            <input
+              value={group.label || ""}
+              onChange={(e) => updatePricing(group.tempId, { label: e.target.value })}
+              onBlur={(e) => {
+                const typed = e.target.value.trim();
+                const fallback =
+                  categories.find((c) => c.id === group.categoryId)?.label ||
+                  t("app.quoteEdit.scopeFallback");
+                const next = typed || fallback;
+                if (next !== group.label) updatePricing(group.tempId, { label: next });
+              }}
+              className="w-full border border-border rounded px-2 py-1.5 text-sm font-medium bg-background text-foreground"
+              data-group-name-input
+            />
+            <span className="block text-[11px] text-muted-foreground mt-1">
+              {t(
+                "app.quoteNew.groupNameHint",
+                "The heading on the quote, the PDF and the client's page, exactly as typed. Left blank, it goes back to {name}.",
+                { name: categories.find((c) => c.id === group.categoryId)?.label || t("app.quoteEdit.scopeFallback") },
+              )}
+            </span>
+          </label>
+        )}
         {!group.persisted && isUnitPriced(group.categoryKey) && (
           <UnitPricingFields
             book={getPriceBook(
