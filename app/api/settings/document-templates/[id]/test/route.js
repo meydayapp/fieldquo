@@ -15,48 +15,19 @@ import { templateBody } from "@/lib/email/templateBody";
 import { sendEmail, SENDER_SELECT } from "@/lib/email/resend";
 import { resolveSender } from "@/lib/email/companySender";
 import { STAGE_INDEX } from "@/app/data/emailTemplateBlocks";
-import { sampleTemplateLines } from "@/lib/email/templateLineItems";
+import { sampleMergeData } from "@/lib/email/templateMergeFields";
 
 // Sample values for the merge fields that don't exist until a real
-// quote/invoice/job is attached. Company-specific fields are overwritten
-// below with the real company record.
-const SAMPLE_MERGE = {
-  clientName: "Jane Doe",
-  clientAddress: "123 Maple Street, Toronto, ON",
-  clientPhone: "(416) 555-0142",
-  quoteNumber: "Q-1042",
-  quoteTotal: "$4,250.00",
-  quoteUrl: "https://example.com/quote/preview",
-  invoiceNumber: "INV-1042",
-  invoiceTotal: "$4,250.00",
-  invoiceUrl: "https://example.com/invoice/preview",
-  dueDate: "Aug 1, 2026",
-  balanceDue: "$1,250.00",
-  projectStartDate: "Jul 28, 2026",
-  projectEndDate: "Jul 30, 2026",
-  jobTitle: "Kitchen Cabinet Refinishing",
-  // depositAmount was here, with a convincing "$1,275.00". Removed 2026-08-31
-  // along with its chip in MERGE_FIELDS: no send path has ever supplied it,
-  // because FieldQuo has no deposit concept to derive one from — staged
-  // billing is 0% built (docs/PAYMENT-SCHEDULE.md; only the cosmetic
-  // free-text-to-cards display exists).
-  //
-  // A sample value here was worse than the chip. Someone who types the token
-  // by hand saw $1,275.00 in the preview and got an empty string in the real
-  // email, so the preview was actively vouching for a token that never works.
-  // check-follow-up-flow.mjs now asserts this fixture carries nothing a send
-  // path cannot fill, so the sample cannot come back before the feature does.
-  amountPaid: "$3,000.00",
-  subtotal: "$3,900.00",
-  discount: "$150.00",
-  tax: "$500.00",
-  // progressStage is added per-template below, from STAGE_INDEX, so the test
-  // email shows the same stage the editor preview did. lineItems likewise:
-  // built below from lib/email/templateLineItems.js's sample, in the
-  // company's currency and language — the shape a real quote chase sends,
-  // not the name/unitPrice/total rows this fixture used to carry, which no
-  // stored document has.
-};
+// quote/invoice/job is attached come from lib/email/templateMergeFields.js —
+// the same sample the editor previews, formatted in the company's currency
+// and language. This file used to carry its own copy with "$4,250.00"
+// written into it, so a company billing in euros was sent a test showing
+// dollars. The company fields are overwritten below with the real record.
+//
+// depositAmount is deliberately absent (removed 2026-08-31 with its chip):
+// no send path has ever supplied it, because FieldQuo has no deposit concept
+// to derive one from. check-follow-up-flow.mjs asserts the shared sample
+// carries nothing a send path cannot fill.
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -104,24 +75,22 @@ export async function POST(request, { params }) {
     },
   });
 
+  // The company's default language stands in for "the document's": a test
+  // has no document, and a company that writes its quotes in French should
+  // see the French labels and the French-formatted totals its real chases
+  // will carry — in its own currency, never a hard-coded "$".
+  const language = company?.defaultLanguage || "en";
   const mergeData = {
-    ...SAMPLE_MERGE,
+    ...sampleMergeData({ language, currency: company?.currency || null }),
     companyName: company?.name || "Your Company",
     companyEmail: company?.email || "info@yourcompany.com",
     companyPhone: company?.phone || "(555) 123-4567",
     progressStage: STAGE_INDEX[template.type] ?? 0,
-    // The company's default language stands in for "the document's": a test
-    // has no document, and a company that writes its quotes in French should
-    // see the French labels its real chases will carry.
-    lineItems: sampleTemplateLines({
-      language: company?.defaultLanguage || "en",
-      currency: company?.currency || null,
-    }),
   };
 
   // The body the template says is sent, so a test of a canvas template is a
   // test of the canvas and not of blocks nobody will receive.
-  const html = templateBody(template, mergeData, { company: company || {} });
+  const html = templateBody(template, mergeData, { company: company || {}, language });
   if (!html) {
     return NextResponse.json(
       { error: "This template's canvas is empty — draw something, or switch it back to blocks, before sending a test." },

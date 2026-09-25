@@ -56,6 +56,75 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Email templates: money tokens in the company's currency, FieldQuo's words in the document's language (25 September 2026)
+
+Client-facing. A company's email template (Settings › Email templates) is
+sent by the follow-up cron, marketing campaigns and the test send.
+
+### What was true before
+
+- `{{quoteTotal}}`, `{{invoiceTotal}}`, `{{balanceDue}}`, `{{amountPaid}}`,
+  `{{subtotal}}`, `{{discount}}`, `{{tax}}` went through the cron's own
+  `money()`: `"$" + toLocaleString(undefined)`. A EUR company's Spanish
+  invoice chase said "$1,210.00"; a French CAD quote said "$4,250.00" under a
+  document reading "4 250,00 $"; GBP/AUD companies got "$".
+- `{{dueDate}}` / `{{projectStartDate}}` / `{{projectEndDate}}` used
+  `toLocaleDateString()` with no arguments — server locale and zone. Run
+  here (EDT), a due date of 1 October printed "9/30/2026".
+- The editor preview, the test send and `scripts/preview-email-templates.mjs`
+  each carried their own `"$4,250.00"` literals, whatever the currency.
+- Words FieldQuo prints on its own were English on every send: the summary
+  block's "Quote #" / "Invoice #", the progress block's "Done" / "Pending"
+  and default stage names, the itemised block's default title, and the
+  marketing unsubscribe line (CASL's required sentence).
+
+### What shipped
+
+- `lib/followUps/mergeData.js` — the cron's token builder, moved out so it
+  can be executed; `followUpLanguage()` = `resolveClientLanguage` (the
+  document's language for a quote/invoice, else the client's — a lead's is
+  `LeadRequest.language`, now carried by the finder). Money and dates go
+  through `documentFormatters` (the quote/invoice emails' helper) with the
+  company's currency. Zero stays blank, as before.
+- `lib/email/templateMergeFields.js` — `mergeFormatters` and the ONE sample
+  (`sampleMergeData`) the editor preview, the test send and the preview script
+  draw, formatted in the company's currency and the preview language.
+- `renderTemplateSections` takes `options.language`: summary uses
+  `documentLabels` ("Devis Q-2026-0042" — the "#" went, as on the approval
+  page); progress uses `emailCopy().templateBlocks` (8 languages) for
+  Done/Pending and for stage names that are still FieldQuo's defaults; the
+  itemised block's default "What's included" title prints the document's
+  own; the unsubscribe line is translated (`unsubscribeFooterRow` takes
+  `language`, canvas mode included).
+- The cron, the test send (company default language) and campaigns (each
+  recipient's client language, one read) pass the language.
+- Company-typed text — headings, paragraphs, button labels, renamed stages,
+  a typed itemised title — is sent exactly as written.
+
+### Checks
+
+`check:canvas-email` 91 → 145 (a CAD French quote, a EUR Spanish invoice, a
+USD English quote, GBP/AUD/EUR-de, job/lead languages, the unsubscribe line,
+all 8 languages, company text untouched, the shared sample): 42 of them fail
+against the old code with the old cron builder executed. `check:follow-up-flow`
+86 → 91 (6 fail on the old code), `check:follow-up-defaults` executes
+`followUpLanguage`.
+
+### Still owed here
+
+- The STARTER templates' own text (headings, paragraphs, button labels like
+  "View your quote") is English written into the company's row on creation.
+  It is company-owned, editable text, so it is not translated at send time;
+  drafting it per language belongs with `lib/i18n/phrases.js`
+  (company-text translation) — a product decision.
+- `es` formats EUR as "EUR 1,210.00" (the es-419 locale
+  `documentFormatters` uses for Spanish) — the same string the invoice
+  document and email print; changing the Spanish locale is its own change.
+- `lib/reviews/reviewEmail.js`'s unsubscribe footnote
+  (`unsubscribeFooterHtml`) is still English — not a template block.
+
+---
+
 ## Email templates: the "Itemized list" block draws the document's real lines (25 September 2026)
 
 The block (Settings › Email templates, block editor, every template type) read
@@ -112,11 +181,9 @@ on the old code with "CAD 0.00" per line).
 - The block is offered on every template type. A template is not bound to a
   trigger, so the same one can go on a quote chase (filled) or a lead chase or
   campaign (left out). Refusing the block per rule is a product decision.
-- The cron's `{{quoteTotal}}` / `{{invoiceTotal}}` / `{{balanceDue}}` tokens
-  are still "$" + the server's locale, not the document's currency — a
-  separate fix in `app/api/cron/follow-ups/route.js` `money()`.
-- The "Quote/Invoice summary" block still prints "Quote" / "Invoice" in
-  English.
+- ~~The cron's money tokens were "$" + the server's locale~~ and ~~the
+  summary block printed "Quote" / "Invoice" in English~~ — both fixed the
+  same day, see the section above.
 
 ---
 

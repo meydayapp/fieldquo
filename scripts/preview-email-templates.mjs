@@ -26,7 +26,7 @@ import {
   renderTemplateSections,
   renderSubject,
 } from "../lib/email/renderTemplateSections.js";
-import { sampleTemplateLines } from "../lib/email/templateLineItems.js";
+import { sampleMergeData } from "../lib/email/templateMergeFields.js";
 
 const OUT = path.join(process.cwd(), ".preview-emails");
 
@@ -44,33 +44,16 @@ const COMPANY = {
   brandColor: "#bd9d60",
 };
 
+// The shared sample (lib/email/templateMergeFields.js) — the one the editor
+// preview and the test send draw — so this script cannot drift into a
+// fixture of its own. It used to carry "$" literals and a depositAmount no
+// send path fills.
 const MERGE = {
-  clientName: "Jane Doe",
-  clientAddress: "123 Maple Street, Toronto, ON",
-  clientPhone: "(416) 555-0142",
+  ...sampleMergeData({ language: "en", currency: "CAD" }),
   companyName: COMPANY.name,
   companyPhone: COMPANY.phone,
   companyEmail: COMPANY.email,
-  quoteNumber: "Q-1042",
-  quoteTotal: "$4,250.00",
-  quoteUrl: "https://example.com/quote/preview",
-  invoiceNumber: "INV-1042",
-  invoiceTotal: "$4,250.00",
-  invoiceUrl: "https://example.com/invoice/preview",
-  dueDate: "Aug 1, 2026",
-  balanceDue: "$1,250.00",
-  amountPaid: "$3,000.00",
-  depositAmount: "$1,275.00",
-  subtotal: "$3,900.00",
-  discount: "$150.00",
-  tax: "$500.00",
-  projectStartDate: "Jul 28, 2026",
-  projectEndDate: "Jul 30, 2026",
-  jobTitle: "Kitchen Cabinet Refinishing",
   // progressStage is set per-template in the loop below, from STAGE_INDEX.
-  // The same sample the editor preview and the test send draw — stored-shape
-  // lines through the builder a real quote chase uses.
-  lineItems: sampleTemplateLines({ language: "en", currency: "CAD" }),
 };
 
 // Cheap smoke tests. These catch the failure modes that are easy to introduce

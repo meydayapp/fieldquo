@@ -210,9 +210,13 @@ ok("it stops the way the metadata says: lead_answered has a stop sentence and a 
   ok("…and never the same lead twice for one rule", /notIn: excluded/.test(finder));
   ok("the lead is shaped into the `client` slot the shared send code reads",
     /client: \{\s*name: lead\.name,\s*email: lead\.email/.test(finder));
+  // mergeDataFor lives in lib/followUps/mergeData.js since it became
+  // executable (scripts/check-canvas-email.mjs runs it); the cron calls it.
+  const builder = read("lib/followUps/mergeData.js");
   ok("mergeDataFor has a lead branch that supplies no quote token",
-    /if \(entityType === "lead"\) \{[\s\S]{0,400}?jobTitle: entity\.category\?\.label/.test(cron)
-      && !/if \(entityType === "lead"\) \{[\s\S]{0,400}?quoteUrl/.test(cron));
+    /if \(entityType === "lead"\) \{[\s\S]{0,400}?jobTitle: entity\.category\?\.label/.test(builder)
+      && !/if \(entityType === "lead"\) \{[\s\S]{0,400}?quoteUrl/.test(builder)
+      && /from "@\/lib\/followUps\/mergeData"/.test(cron));
 }
 ok("the settings page prints translated trigger labels, never TRIGGER_META.label raw",
   !/meta\.label/.test(page) && /t\(TRIGGER_LABEL_KEYS\[/.test(page));
@@ -278,6 +282,8 @@ ok(
 // without teaching something to fill it fails here.
 const MERGE_SOURCES = [
   "app/api/cron/follow-ups/route.js",
+  // The cron's token builder, moved out of the route so it can be executed.
+  "lib/followUps/mergeData.js",
   "app/api/marketing/campaigns/[id]/send/route.js",
 ];
 const supplied = new Set();
@@ -312,6 +318,25 @@ const PREVIEW_FIXTURES = [
   "app/app/settings/email-templates/[id]/page.js",
   "app/api/settings/document-templates/[id]/test/route.js",
 ];
+
+// The editor and the test send now draw ONE sample
+// (lib/email/templateMergeFields.js), formatted per language and currency
+// rather than carrying "$" literals. It is held to the same rule — by its
+// exported token list, executed, not by reading an object literal whose
+// figures are now computed.
+{
+  const shared = await import("../lib/email/templateMergeFields.js").catch(() => null);
+  ok("the editor and the test send have one shared sample module", Boolean(shared?.sampleMergeData));
+  const SAMPLE_TOKENS = shared?.SAMPLE_TOKENS || [];
+  const orphans = SAMPLE_TOKENS.filter((k) => !supplied.has(k));
+  ok("the shared sample previews nothing a send path can't fill", Boolean(shared) && orphans.length === 0,
+    orphans.length ? `sample values for ${orphans.join(", ")}` : "");
+  const drawn = shared ? Object.keys(shared.sampleMergeData({ language: "fr", currency: "EUR" })).filter((k) => k !== "lineItems") : [];
+  ok("…and its token list is what it actually fills", drawn.length > 0 && drawn.length === SAMPLE_TOKENS.length && drawn.every((k) => SAMPLE_TOKENS.includes(k)));
+  for (const rel of PREVIEW_FIXTURES) {
+    ok(`${rel.split("/").slice(-2).join("/")} draws the shared sample`, /sampleMergeData\(/.test(read(rel)));
+  }
+}
 for (const rel of PREVIEW_FIXTURES) {
   const src = fs
     .readFileSync(path.join(ROOT, rel), "utf8")
