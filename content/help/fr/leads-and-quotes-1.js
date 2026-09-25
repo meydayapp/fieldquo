@@ -1135,4 +1135,86 @@ export const ARTICLES = {
       { q: "Où vont les photos de chantier prises par l'équipe ?", a: "Sur le chantier, pas sur la soumission — voir [[job-photos-and-tags|Photos de chantier et étiquettes]]. Le jeu de la soumission concerne l'estimation ; celui du chantier concerne le travail." },
     ],
   },
+  "painting-by-production-rate": {
+    title: "La peinture chiffrée au rendement",
+    summary:
+      "Mesurez la pièce ou la façade, dites ce qui s'y peint, et la soumission calcule les heures à partir de vos rendements et les gallons à partir du pouvoir couvrant — avec une grille de tarifs par type d'estimation que vous tenez dans les Paramètres.",
+    updated: "2026-09-25",
+    intro: [
+      "Dans FieldQuo, la peinture ne se chiffre pas au pied carré. Vous mesurez la pièce ou la face de la maison, vous dites ce qui s'y peint — murs, plafond, boiseries, portes — et la soumission calcule le temps que cela prend à partir de vos rendements, et la quantité de peinture à partir du pouvoir couvrant. Les heures multipliées par votre taux horaire de vente donnent la main-d'œuvre; les gallons multipliés par ce que vous payez la peinture donnent les matériaux.",
+      "Les tarifs sont à vous, une grille par type d'estimation, et aucun ne quitte votre côté : le client lit une ligne et un montant, jamais le tarif qui est derrière.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "Aperçu",
+        blocks: [
+          { p: "Ajoutez un service **Peinture intérieure** ou **Peinture extérieure** à une soumission et son relevé s'ouvre sur **Quel type d'estimation est-ce ?** — **Intérieur**, **Extérieur**, **Armoires et boiseries**, **Teinture** ou **Commercial**. Ce choix décide des zones, des surfaces et des tarifs que vous voyez ensuite, et de la grille de tarifs sur laquelle le groupe se chiffre. **Commercial** offre les surfaces intérieures et extérieures sous une grille qui lui est propre." },
+          { figure: "harness:quote-new-painter-doc-builder-rooms", caption: "Une nouvelle soumission de peinture — le groupe de peinture intérieure demande Quel type d'estimation est-ce ?, avec Intérieur, Extérieur, Armoires et boiseries, Teinture et Commercial." },
+        ],
+      },
+      {
+        id: "how-a-line-is-priced",
+        heading: "Comment une ligne se chiffre",
+        blocks: [
+          { table: {
+            head: ["Chiffre", "Comment il se calcule"],
+            rows: [
+              ["Quantité", "Tirée des mesures de la zone — les murs d'une pièce font 2 × (longueur + largeur) × hauteur, en surface brute : les portes et fenêtres ne sont pas déduites, parce que les rendements ont été établis sur la surface brute. Tapez par-dessus n'importe quel chiffre pour le remplacer."],
+              ["Heures", "La quantité divisée par le rendement du tarif — 414 pi² de murs à 100 pi² l'heure, c'est 4,14 heures — plus les heures de préparation de la ligne. Une surface comptée à la pièce, comme une porte, utilise plutôt des heures par pièce."],
+              ["Main-d'œuvre", "Les heures multipliées par le **Taux horaire de vente** de la grille. Un tarif à prix fixe par unité vend plutôt la quantité à ce prix, et ses heures de préparation au taux horaire."],
+              ["Peinture", "La quantité multipliée par les couches, divisée par le pouvoir couvrant du produit, multipliée par ce que vous payez le gallon. Le montant utilise les gallons que la ligne consomme réellement, pas les contenants que vous achèterez."],
+            ],
+          } },
+          { note: "Vos tarifs couvrent déjà deux couches. Une **Couche supplémentaire** offerte au client ajoute une couche de peinture de plus et une part des heures de la ligne, fixée dans la grille." },
+        ],
+      },
+      {
+        id: "pick-a-rate",
+        heading: "Choisir un tarif dans une soumission",
+        blocks: [
+          { steps: [
+            "Appuyez sur **Ajouter une zone**, nommez-la et donnez-lui ses mesures.",
+            "Ajoutez les surfaces qui s'y peignent. Chacune part du tarif par défaut de la grille pour cette surface.",
+            "Pour en utiliser un autre, ouvrez le sélecteur de tarifs et cherchez — **Rechercher un tarif… (murs, plafond, découpe, papier peint)**. Chaque tarif porte le nom de la situation devant le peintre, comme **16 ft walls** ou **8 ft walls, lots of cutting**, et affiche son chiffre. Appuyez sur **Utiliser ce tarif**.",
+            "Rien ne convient ? Appuyez sur **Créer un tarif personnalisé** : un nom, la situation, la façon de le chiffrer et son chiffre. Cochez **Enregistrer dans mes tarifs Intérieur** — le nom suit le type d'estimation — pour le garder à la prochaine soumission; sinon il reste sur cette ligne seulement.",
+          ] },
+          { note: "Enregistrer un tarif dans la grille demande un propriétaire ou un administrateur. Pour toute autre personne, le tarif reste sur la ligne, et le relevé le dit : **Impossible de l'enregistrer dans la grille — il reste sur cette ligne seulement. Un propriétaire ou un admin peut l'ajouter dans Paramètres › Services.**" },
+        ],
+      },
+      {
+        id: "painting-rates-in-settings",
+        heading: "Vos tarifs de peinture dans les Paramètres",
+        blocks: [
+          { p: "Les grilles se trouvent dans **Paramètres › Services et tarifs**, dans la carte **Tarifs de peinture**, affichée sur le premier service de peinture que vous avez activé. Elle s'affiche aux personnes qui voient les prix, et un tarif enregistré depuis une soumission y arrive aussi. Rien sur cette carte n'atteint un client." },
+          { bullets: [
+            "Une grille par type d'estimation, chacune avec son propre **Taux horaire de vente** — et, sur les grilles qui chiffrent aussi des zones extérieures, **Taux horaire de vente — zones extérieures**.",
+            "Pour chaque tarif, son nom, la situation à laquelle il sert, sa façon de le chiffrer — un rendement ou des heures par pièce multipliés par votre taux horaire, ou un prix fixe par unité — et son chiffre. Un chiffre que vous changez est mis en évidence avec un bouton pour le rétablir.",
+            "Un tarif par défaut ne peut pas être supprimé, mais **Masquer dans le sélecteur** le retire de la liste dans les soumissions; un tarif que vous avez ajouté peut être retiré. Des étiquettes près des tarifs par défaut disent d'où ils viennent : **✓ recalculé** pour les chiffres déduits de chantiers terminés; **analogue** et **exemple** pour des positions de départ à vérifier avant de soumissionner avec.",
+            "**Produits de peinture — ce que vous payez** : le coût au gallon de chaque produit. Un produit sans prix est compté en gallons et non chiffré — jamais comme de la peinture gratuite.",
+            "**Couche supplémentaire — main-d'œuvre, en part des heures de la ligne** : ce qu'une couche de plus ajoute en main-d'œuvre, en plus de sa peinture.",
+          ] },
+        ],
+      },
+      {
+        id: "paint-to-buy",
+        heading: "La peinture à acheter",
+        blocks: [
+          { p: "Sous les zones, **Peinture à acheter** additionne les gallons par produit. Deux produits ne se mettent jamais en commun — le mat de plafond et l'émail de boiseries sont des contenants distincts. Par défaut, les surfaces s'additionnent avant que le total soit arrondi au gallon, ce qui est juste quand les pièces partagent une couleur. Quand chaque pièce a sa couleur, cochez **Arrondir les gallons à la hausse dans cette zone**, ou **Arrondir les gallons à la hausse** sur une seule surface, pour que chacune ait son propre contenant. La liste sert au bon de travail et au magasin; le prix de la soumission utilise la peinture que chaque ligne consomme." },
+        ],
+      },
+      {
+        id: "what-the-client-sees",
+        heading: "Ce que voit le client",
+        blocks: [
+          { p: "Chaque surface devient une ligne comme « Living room — Walls (414 sqft) » avec son montant, sous le groupe de peinture. Le rendement, le taux horaire, les heures et les gallons restent dans l'outil de soumission — la formule derrière une ligne ne s'affiche qu'à votre personnel — et il en va de même pour le courriel et le PDF. Voir [[group-a-quote-by-room-or-scope|Regrouper une soumission par pièce ou par portée]] pour la disposition des zones et des surfaces." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "Les portes et fenêtres sont-elles déduites de la surface des murs ?", a: "Non. La surface des murs est brute, comme les rendements ont été mesurés : découper autour d'une ouverture coûte à peu près ce que sa surface manquante économise. Tapez par-dessus le chiffre quand un mur est surtout vitré." },
+      { q: "Qu'arrive-t-il à une soumission de peinture rédigée avant l'existence des types d'estimation ?", a: "Elle se calcule exactement comme avant tant que vous ne choisissez pas un type, et le relevé le dit : Ce relevé a été rédigé avant l'existence des types d'estimation. Il se calcule comme avant tant que vous n'en choisissez pas un." },
+      { q: "Le client peut-il choisir une couche de plus ou une meilleure peinture ?", a: "Oui. Ajoutez **Couche supplémentaire** ou **Peinture haut de gamme** sous **Options que le client peut cocher**, et le client la coche dans la soumission — voir [[upsell-add-ons|Suppléments optionnels que le client peut accepter]]." },
+    ],
+  },
 };

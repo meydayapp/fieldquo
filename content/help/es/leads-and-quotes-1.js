@@ -1135,4 +1135,86 @@ export const ARTICLES = {
       { q: "¿Adónde van las fotos de obra que toma la cuadrilla?", a: "Al trabajo, no al presupuesto; vea [[job-photos-and-tags|Fotos de trabajo y etiquetas]]. El conjunto del presupuesto trata de la estimación; el del trabajo, de la obra." },
     ],
   },
+  "painting-by-production-rate": {
+    title: "Pintura cotizada por rendimiento",
+    summary:
+      "Mida la habitación o la fachada, diga qué se pinta en ella, y el presupuesto calcula las horas a partir de sus rendimientos y los galones a partir de la cobertura, con un conjunto de tarifas por tipo de estimación que usted mantiene en Configuración.",
+    updated: "2026-09-25",
+    intro: [
+      "En FieldQuo la pintura no se cotiza por pie cuadrado. Usted mide la habitación o la cara de la casa, dice qué se va a pintar — paredes, techo, molduras, puertas — y el presupuesto calcula cuánto tiempo lleva a partir de sus rendimientos y cuánta pintura necesita a partir de la cobertura. Las horas por su tarifa de venta por hora son la mano de obra; los galones por lo que usted paga por la pintura son el material.",
+      "Las tarifas las fija usted, un conjunto por tipo de estimación, y ninguna sale de su lado: el cliente lee una línea y un monto, nunca la tarifa que hay detrás.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "Resumen",
+        blocks: [
+          { p: "Agregue un servicio de **Pintura interior** o **Pintura exterior** a un presupuesto y su cómputo se abre en **¿Qué tipo de estimación es esta?** — **Interior**, **Exterior**, **Gabinetes y carpintería**, **Tinte** o **Comercial**. Esa elección decide qué áreas, superficies y tarifas ve a continuación, y con qué conjunto de tarifas se cotiza el grupo. **Comercial** ofrece las superficies interiores y exteriores con un conjunto de tarifas propio." },
+          { figure: "harness:quote-new-painter-doc-builder-rooms", caption: "Un presupuesto de pintura nuevo: el grupo de pintura interior pregunta ¿Qué tipo de estimación es esta?, con Interior, Exterior, Gabinetes y carpintería, Tinte y Comercial." },
+        ],
+      },
+      {
+        id: "how-a-line-is-priced",
+        heading: "Cómo se cotiza una línea",
+        blocks: [
+          { table: {
+            head: ["Cifra", "Cómo se calcula"],
+            rows: [
+              ["Cantidad", "Sale de las medidas del área: las paredes de una habitación son 2 × (largo + ancho) × alto, en área bruta; no se descuentan puertas ni ventanas, porque los rendimientos se fijaron sobre el área bruta. Escriba encima de cualquier cifra para reemplazarla."],
+              ["Horas", "La cantidad dividida por el rendimiento de la tarifa — 414 pies² de pared a 100 pies² por hora son 4,14 horas — más las horas de preparación de la línea. Una superficie que se cuenta por pieza, como una puerta, usa horas por pieza."],
+              ["Mano de obra", "Las horas por la **Tarifa de venta por hora** del conjunto. Una tarifa con precio fijo por unidad vende la cantidad a ese precio, y sus horas de preparación a la tarifa por hora."],
+              ["Pintura", "La cantidad por las manos, dividida por la cobertura del producto, por lo que usted paga por galón. El monto usa los galones que la línea consume de verdad, no los envases que va a comprar."],
+            ],
+          } },
+          { note: "Sus tarifas ya cubren dos manos. Una **Capa extra** ofrecida al cliente agrega una mano más de pintura y una parte de las horas de la línea, fijada en la tarjeta de tarifas." },
+        ],
+      },
+      {
+        id: "pick-a-rate",
+        heading: "Cómo elegir una tarifa en un presupuesto",
+        blocks: [
+          { steps: [
+            "Pulse **Agregar un área**, póngale nombre y sus medidas.",
+            "Agregue las superficies que se pintan en ella. Cada una empieza con la tarifa predeterminada del conjunto para esa superficie.",
+            "Para usar otra, abra el selector de tarifas y busque: **Buscar tarifas… (paredes, techo, recortes, papel tapiz)**. Cada tarifa lleva el nombre de la situación que tiene delante el pintor, como **16 ft walls** u **8 ft walls, lots of cutting**, y muestra su cifra. Pulse **Usar esta tarifa**.",
+            "¿Ninguna sirve? Pulse **Crear tarifa personalizada**: un nombre, la situación, cómo se cotiza y su cifra. Marque **Guardar en mis tarifas de Interior** — el nombre sigue el tipo de estimación — para conservarla en el próximo presupuesto; sin marcar, se queda solo en esta línea.",
+          ] },
+          { note: "Guardar una tarifa en el conjunto requiere un dueño o un administrador. Para cualquier otra persona la tarifa se queda en la línea, y el cómputo lo dice: **No se pudo guardar en la tarjeta de tarifas — se queda solo en esta línea. Un propietario o admin puede agregarla en Configuración › Servicios.**" },
+        ],
+      },
+      {
+        id: "painting-rates-in-settings",
+        heading: "Sus tarifas de pintura en Configuración",
+        blocks: [
+          { p: "Los conjuntos de tarifas están en **Configuración › Servicios y precios**, en la tarjeta **Tarifas de pintura**, que aparece en el primer servicio de pintura que usted tenga activado. Se muestra a quienes pueden ver precios, y una tarifa guardada desde un presupuesto también llega aquí. Nada de esta tarjeta llega a un cliente." },
+          { bullets: [
+            "Un conjunto por tipo de estimación, cada uno con su propia **Tarifa de venta por hora** y, en los conjuntos que también cotizan áreas exteriores, **Tarifa de venta por hora — áreas exteriores**.",
+            "De cada tarifa, su nombre, la situación para la que sirve, cómo se cotiza — un rendimiento u horas por pieza por su tarifa por hora, o un precio fijo por unidad — y su cifra. Una cifra que usted cambia se resalta con un botón para restablecerla.",
+            "Una tarifa predeterminada no se puede borrar, pero **Ocultar del selector** la quita de la lista en los presupuestos; una tarifa que usted agregó sí se puede quitar. Las etiquetas junto a las predeterminadas dicen de dónde vienen: **✓ recuperado** son cifras deducidas de trabajos terminados; **análogo** y **ejemplo** son posiciones iniciales que conviene revisar antes de cotizar con ellas.",
+            "**Productos de pintura — lo que pagas**: el costo por galón de cada producto. Un producto sin precio se cuenta en galones y no se costea — nunca como pintura gratis.",
+            "**Capa extra — mano de obra, como parte de las horas de la línea**: lo que una mano más agrega en mano de obra, además de su pintura.",
+          ] },
+        ],
+      },
+      {
+        id: "paint-to-buy",
+        heading: "La pintura por comprar",
+        blocks: [
+          { p: "Debajo de las áreas, **Pintura por comprar** suma los galones por producto. Dos productos nunca se juntan: el mate de techo y el esmalte de molduras son envases distintos. Por defecto las superficies se suman antes de redondear el total a galones enteros, lo que es correcto cuando las habitaciones comparten color. Cuando cada habitación tiene su color, marque **Redondear los galones hacia arriba en esta área**, o **Redondear los galones hacia arriba** en una sola superficie, para que cada una tenga su propio envase. La lista es para la orden de trabajo y la tienda; el precio del presupuesto usa la pintura que consume cada línea." },
+        ],
+      },
+      {
+        id: "what-the-client-sees",
+        heading: "Lo que ve el cliente",
+        blocks: [
+          { p: "Cada superficie se convierte en una línea como «Living room — Walls (414 sqft)» con su monto, bajo el grupo de pintura. El rendimiento, la tarifa por hora, las horas y los galones se quedan en el editor del presupuesto — la fórmula detrás de una línea solo se muestra a su personal — y lo mismo vale para el correo y el PDF. Vea [[group-a-quote-by-room-or-scope|Agrupar un presupuesto por habitación o por alcance]] para ver cómo se ordenan las áreas y las superficies." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "¿Se descuentan puertas y ventanas del área de las paredes?", a: "No. El área de las paredes es bruta, como se midieron los rendimientos: recortar alrededor de una abertura cuesta más o menos lo que ahorra el área que falta. Escriba encima de la cifra cuando una pared es casi toda vidrio." },
+      { q: "¿Qué pasa con un presupuesto de pintura escrito antes de que existieran los tipos de estimación?", a: "Se calcula exactamente como antes hasta que usted elija un tipo, y el cómputo lo dice: Este despiece se escribió antes de que existieran los tipos de estimación. Se calcula como siempre hasta que elijas uno." },
+      { q: "¿Puede el cliente elegir una mano más o una pintura mejor?", a: "Sí. Agregue **Capa extra** o **Mejora a pintura premium** en **Opciones que el cliente puede marcar**, y el cliente la marca en el presupuesto; vea [[upsell-add-ons|Extras opcionales que el cliente puede aceptar]]." },
+    ],
+  },
 };

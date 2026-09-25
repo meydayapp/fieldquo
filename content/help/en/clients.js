@@ -957,4 +957,103 @@ export const ARTICLES = {
     ],
     "updated": "2026-09-21"
   },
+  "client-tickets": {
+    title: "Client tickets",
+    summary:
+      "What your clients raise from their portal — a repair, a warranty claim, a question, a billing query, a date to change, a maintenance visit to book — and how the office answers, assigns and turns them into jobs.",
+    updated: "2026-09-25",
+    intro: [
+      "A client with your portal link can ask you for something without picking up the phone. **Report an issue** files a ticket; so do **Request to reschedule** on an upcoming visit, **Skip this visit** on a plan date, and a maintenance visit booked against a plan. Every one lands in **Client tickets**, under **More › Work & sales**, as a conversation: the client's words and photos, your replies, and a status both of you can see.",
+      "A ticket asks; it never does. Nothing a client files books, moves or charges anything — the office decides what happens next.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "Overview",
+        blocks: [
+          { p: "Tickets are raised only from the client portal, and only by the client that portal link belongs to. Each one has a type, a short summary, what the client wrote, up to six photos and — when it was raised from a visit, a job or a plan — the thing it is about, which the ticket page links to." },
+          { table: {
+            head: ["Where the client starts", "The ticket it files"],
+            rows: [
+              ["**Report an issue**, in the portal's **Your requests** card or on a past visit's row", "**Repair**, **Warranty**, **Question** or **Billing** — the client picks which"],
+              ["**Request to reschedule** on an upcoming visit, or **Skip this visit** on a service-plan date", "**Reschedule**"],
+              ["**Request work › A maintenance visit**, on a plan that still has included visits", "**Maintenance visit**"],
+            ],
+          } },
+          { note: "**Request work › A new job or quote** — and a maintenance request from a client who has no plan — is not a ticket. It is new work, so it arrives on the **Leads** board as a lead, with the service, the description and the photos." },
+        ],
+      },
+      {
+        id: "the-queue",
+        heading: "The queue",
+        blocks: [
+          { p: "**Client tickets** opens on **Open**, which holds every ticket still being worked — open, in progress or waiting on the client — most recently updated first. The other tabs are **In progress**, **Waiting on client**, **Resolved**, **Closed** and **All**, each with its count." },
+          { bullets: [
+            "Each row shows the status, the type, **High** or **Urgent** in red when you set that priority, the summary, the client, who it is assigned to (or **Unassigned**), the date of the last activity and the number of replies.",
+            "With nothing in the tab, the page says **Nothing waiting**.",
+            "A client's page and a job's page show a link such as **2 open client tickets** while there are any, and it opens this queue.",
+            "A new ticket, and every reply a client writes, also reaches you as a notification that opens the ticket.",
+          ] },
+        ],
+      },
+      {
+        id: "answer-a-ticket",
+        heading: "How to answer a ticket",
+        blocks: [
+          { steps: [
+            "Open the ticket from the queue, from the notification or from the link on the client's or the job's page.",
+            "Set **Status**, **Priority** and **Assigned to** at the top. Each change is saved as soon as you pick it.",
+            "Write in the reply box and press **Send reply**. The reply joins the thread and is emailed to the client from your company, in the client's language, with a button back to their portal.",
+            "When it is dealt with, set the status to **Resolved** — or to **Closed** to end the conversation.",
+          ] },
+          { p: "Two status changes happen on their own. Your first reply moves an **Open** ticket to **In progress**. A client who replies to a ticket that is **Waiting on client** or **Resolved** reopens it to **Open** — they have either answered you or it is not fixed. A **Closed** ticket takes no more replies from the client; the portal asks them to report a new issue instead." },
+          { note: "When a reply cannot be emailed — no email address on the client's record, or your company's email not set up — it is still saved and the client can read it in the portal, and the page says so: **Reply saved — the client can read it in their portal, but it was not emailed to them.**" },
+        ],
+      },
+      {
+        id: "turn-into-a-job",
+        heading: "Turn a repair or a warranty claim into a job",
+        blocks: [
+          { p: "A **Repair** or **Warranty** ticket that needs a crew can become a job: press **Turn into a job** on the ticket." },
+          { bullets: [
+            "The job is created for the same client through the same path as **New Job**, unscheduled and with nothing priced. Plan it and price it like any other job.",
+            "Its title is **Repair — …** or **Warranty — …**, followed by the original job's title, or by the ticket's summary when the ticket is not about a job.",
+            "When the ticket is about a job, the new job takes that job's site address and is linked to it as a callback — **Warranty — covered work** for a warranty ticket, **Rework — we missed something** for a repair. The ticket then shows **Turned into a job:** with a link, and cannot make a second one.",
+          ] },
+        ],
+      },
+      {
+        id: "what-the-client-sees",
+        heading: "What the client sees",
+        blocks: [
+          { bullets: [
+            "Under **Your requests** in the portal, every ticket they raised, with its status in their words: **Received**, **In progress**, **Waiting on you**, **Resolved** or **Closed**.",
+            "The thread, your replies signed with the first name of whoever wrote them, and a reply box while the ticket is not closed.",
+            "Never the priority and never who it is assigned to — those are the office's business.",
+            "Your replies by email as well, on your letterhead, from your company, in their language.",
+          ] },
+        ],
+      },
+      {
+        id: "who-is-told-and-who-can-see-it",
+        heading: "Who is told, and who can see it",
+        blocks: [
+          { p: "A new ticket and a client's reply notify, in the app and by push, the person the ticket is assigned to — or, while it is unassigned, everyone who can see client requests. One email also goes to the assignee, or to the owner while nobody is assigned. The row and the screen follow the **Requests** area of the access grid, so the Crew preset (**Requests: none**) does not see them." },
+          { table: {
+            head: ["To", "You need"],
+            rows: [
+              ["See **Client tickets** and read a ticket", "**Requests** at view only or above"],
+              ["Reply, change the status or the priority, assign", "**Requests** at view, create and edit"],
+              ["**Turn into a job**", "That, and **Jobs** at view, create and edit"],
+            ],
+          } },
+        ],
+      },
+    ],
+    faq: [
+      { q: "Can a client close or resolve a ticket?", a: "No. Only the office changes a ticket's status. A client's reply can reopen a ticket that was waiting on them or marked resolved; a closed ticket takes no more replies." },
+      { q: "Does a reschedule ticket move the visit?", a: "No. The client names the visit and says what would suit them better; the date moves only when someone in the office moves it on the calendar." },
+      { q: "Where does a request for new work go?", a: "To the Leads board, as a lead. New work is something to quote, not a ticket to answer — see [[the-leads-board|The Leads board]]." },
+    ],
+  },
 };
