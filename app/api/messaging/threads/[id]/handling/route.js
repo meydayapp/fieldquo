@@ -99,6 +99,9 @@ export async function GET(request, { params }) {
           employeeId: true,
           model: true,
           costCents: true,
+          // What the AI credit was debited, when it was — the timeline
+          // shows the charge in preference to the vendor cost.
+          chargedCents: true,
           toolsUsed: true,
           confidence: true,
           sentAt: true,

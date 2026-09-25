@@ -75,20 +75,30 @@ console.log("\nMetering\n");
 
 ok("no vendor client outside lib/ai/provider.js", !/from "openai"|new OpenAI\(/.test(lib + route));
 ok("the draft path goes through complete()", /from "@\/lib\/ai\/provider"/.test(lib));
-ok("quota is checked BEFORE the run", /checkAiQuota\(member\.companyId\)/.test(route));
+// Since the owner's 2026-09-25 decision translation is FieldQuo's to pay:
+// the route meters through meterFor("translation") (lib/ai/featurePayer.js),
+// whose default ledger is FieldQuo's own budget, and on that ledger the
+// per-company ceiling is the daily draft cap auto-translation keeps.
+ok("the meter is checked BEFORE the run", /meterFor\("translation", \{ companyId: member\.companyId/.test(route) && /await meter\.check\(\)/.test(route));
 
-const quotaIndex = route.indexOf("checkAiQuota");
+const quotaIndex = route.indexOf("meter.check()");
 const draftIndex = route.indexOf("draftProductTranslations(");
 ok("…and the check precedes the call, not follows it", quotaIndex > -1 && quotaIndex < draftIndex);
 
-ok("usage is recorded AFTER, per call", /recordAiUsage\(/.test(route) && /onUsage/.test(route));
+ok("usage is recorded AFTER, per call, on the meter's ledger", /onUsage: \(u\) => meter\.record\(u\)/.test(route));
 ok(
-  'the spend is attributed to a feature the schema knows ("translation")',
-  /feature: "translation"/.test(route) &&
-    /"translation"/.test(read("prisma/schema.prisma")),
+  'the spend is attributed to a feature the payer switch knows ("translation")',
+  /meterFor\("translation"/.test(route) &&
+    /feature: "translation"/.test(read("lib/ai/featurePayer.js")),
+);
+ok("…and it no longer spends the company's allowance directly", !/checkAiQuota|recordAiUsage/.test(code(route)));
+ok(
+  "on FieldQuo's card the daily draft cap bounds it, before the run and between batches",
+  route.indexOf("underDailyDraftCap(") > -1 && route.indexOf("underDailyDraftCap(") < draftIndex &&
+    /shouldContinue: async \(\) =>[\s\S]{0,160}underDailyDraftCap\(/.test(route),
 );
 ok(
-  "quota is re-checked between batches, so a long run can't overrun the cap",
+  "the meter is re-checked between batches, so a long run can't overrun the ceiling",
   /shouldContinue/.test(route) && /shouldContinue/.test(lib),
 );
 
@@ -100,7 +110,7 @@ ok("the page hides the button when it isn't", /data\?\.aiAvailable && data\?\.ca
 ok("…and says why instead of rendering a dead button", /draftUnavailable/.test(page));
 ok("the route refuses with 503 and a sentence when the key is missing", /aiUnavailable: true/.test(route) && /503/.test(route));
 ok("the route refuses with 429 and the quota's own reason", /quotaExceeded: true/.test(route) && /429/.test(route));
-ok("drafting is owner/admin only — it spends the company's allowance", /isAdmin\(member\.role\)/.test(route));
+ok("drafting is owner/admin only — it spends against an AI ceiling", /isAdmin\(member\.role\)/.test(route));
 ok("partial failure is counted and shown, not swallowed", /draftFailedSome/.test(page) && /failed:/.test(route));
 ok("running out of allowance mid-run is shown separately", /draftStopped/.test(page) && /stopped:/.test(route));
 ok("machine-filled boxes are marked until saved", /machineFilled/.test(page) && /machineDraft/.test(page));

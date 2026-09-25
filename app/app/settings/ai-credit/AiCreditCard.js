@@ -110,6 +110,10 @@ export default function AiCreditCard({ ai }) {
         // rewrite of the one above, so the eight translations of that sentence
         // stay untouched; the price is passed in, never typed in.
         ai.priceCents.material_list ? ` ${t("app.setAiCredit.materialListHint", "The AI material list on a job costs {mat}¢ per build.", { mat: ai.priceCents.material_list })}` : ""
+      }${
+        // The fourth, since 2026-09-25: the AI employee's replies. An
+        // estimate per reply, from the same figure the reply gate uses.
+        ai.priceCents.ai_employee_reply ? ` ${t("app.setAiCredit.aiEmployeeHint", "Your AI employee's replies are paid from this credit too — about {reply} a reply, taken as each one is written.", { reply: money(ai.priceCents.ai_employee_reply) })}` : ""
       }`}
     >
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">

@@ -1,7 +1,8 @@
 // app/platform/ai-billing/page.js
 //
 // Who pays for each AI feature — FieldQuo or the company — with what each cost
-// last month and this month on both ledgers, and receipt reading per company.
+// last month and this month on both ledgers, receipt reading per company, and
+// the AI employee's dollars debited from each company's AI credit.
 //
 // The switch is drawn ONLY for features whose code actually routes through it
 // (lib/ai/featurePayer.js's `wired`). The rest are listed with the payer they
@@ -12,7 +13,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { AlertCircle, Loader2, Receipt, Wallet } from "lucide-react";
+import { AlertCircle, Bot, Loader2, Receipt, Wallet } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import PlatformWriteGate, { usePlatformAdmin } from "@/app/components/platform/PlatformWriteGate";
 
@@ -25,6 +26,13 @@ const money = (micros) => {
 };
 
 const PAYER_LABEL = { fieldquo: "FieldQuo pays", company: "Company's AI allowance" };
+// A feature whose company ledger is the AI credit (the AI employee) is paid
+// by the company in dollars, not from its token allowance.
+const payerLabel = (f, p) => (p === "company" && f.companyLedger === "wallet" ? "Company's AI credit ($)" : PAYER_LABEL[p]);
+const cents = (c) => {
+  const v = Number(c);
+  return Number.isFinite(v) ? `$${(v / 100).toFixed(2)}` : "—";
+};
 
 export default function AiBillingPage() {
   const [data, setData] = useState(null);
@@ -69,8 +77,9 @@ export default function AiBillingPage() {
       <div>
         <h1 className="text-2xl font-bold text-foreground">AI billing — who pays</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          For each AI feature: FieldQuo pays (its own AI budget, not the company&apos;s allowance), or it
-          counts against the company&apos;s monthly AI allowance. A change reaches every server within{" "}
+          For each AI feature: FieldQuo pays (its own AI budget, not the company&apos;s allowance), or the
+          company does — from its monthly AI allowance, or, for the AI employee, in dollars from its AI
+          credit. A change reaches every server within{" "}
           {data?.cacheSeconds ?? 60} seconds.
         </p>
       </div>
@@ -114,11 +123,18 @@ export default function AiBillingPage() {
                       This month: {money(now.fieldquo.costMicros)} FieldQuo ({now.fieldquo.calls}) ·{" "}
                       {money(now.company.costMicros)} company ({now.company.calls})
                     </p>
+                    {f.companyLedger === "wallet" && last.wallet && now.wallet && (
+                      <p className="text-xs text-muted-foreground mt-1 tabular-nums">
+                        Debited from companies&apos; AI credit — last month {cents(last.wallet.cents)} ({last.wallet.debits}{" "}
+                        charges) · this month {cents(now.wallet.cents)} ({now.wallet.debits}). The &quot;company&quot; cost
+                        above is what those calls cost us.
+                      </p>
+                    )}
                     {!f.wired && (
                       <p className="text-xs text-amber-700 dark:text-amber-300 mt-1.5">
                         Not routed through this switch yet — today this feature still counts against the
                         company&apos;s allowance, whatever is set here. Set to{" "}
-                        {PAYER_LABEL[f.defaultPayer].toLowerCase()} once it is moved onto the switch.
+                        {payerLabel(f, f.defaultPayer).toLowerCase()} once it is moved onto the switch.
                       </p>
                     )}
                   </div>
@@ -140,14 +156,14 @@ export default function AiBillingPage() {
                             {saving === f.feature && f.payer !== p ? (
                               <Loader2 size={11} className="animate-spin inline" />
                             ) : (
-                              PAYER_LABEL[p]
+                              payerLabel(f, p)
                             )}
                           </button>
                         ))}
                       </div>
                     ) : (
                       <span className="text-sm text-muted-foreground">
-                        {f.wired ? PAYER_LABEL[f.payer] : `Planned: ${PAYER_LABEL[f.defaultPayer]}`}
+                        {f.wired ? payerLabel(f, f.payer) : `Planned: ${payerLabel(f, f.defaultPayer)}`}
                       </span>
                     )}
                     <div className="text-[11px] text-muted-foreground mt-1">
@@ -197,6 +213,43 @@ export default function AiBillingPage() {
             <p className="px-5 py-3 text-xs text-amber-700 dark:text-amber-300 border-t border-border">
               Only the most recent 20,000 FieldQuo-paid reads are counted here.
             </p>
+          )}
+        </div>
+      )}
+
+      {data && (
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-border">
+            <h2 className="font-semibold text-foreground flex items-center gap-2">
+              <Bot size={16} className="text-muted-foreground" />
+              AI employee — debited from each company&apos;s AI credit
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Charged per reply at the model&apos;s cost × {data.walletMultiplier ?? 2}, rounded up to the cent
+              (lib/ai/walletMeter.js). &quot;Cost&quot; is the vendor estimate from the token counts. Until{" "}
+              {data.aiEmployeeGraceEndsOn}, a company whose credit can&apos;t cover a reply runs on its monthly
+              allowance instead and is debited nothing.
+            </p>
+          </div>
+          {(data.aiEmployeeCharges || []).length === 0 ? (
+            <p className="px-5 py-8 text-sm text-muted-foreground text-center">
+              No AI employee spend this month or last.
+            </p>
+          ) : (
+            <div className="divide-y divide-border">
+              {data.aiEmployeeCharges.map((r) => (
+                <div key={r.companyId} className="px-5 py-3 flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <Link href={`/platform/companies/${r.companyId}`} className="font-medium text-foreground hover:underline">
+                    {r.name}
+                  </Link>
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    This month {cents(r.thisMonth.chargedCents)} debited · {r.thisMonth.replies} replies · cost{" "}
+                    {money(r.thisMonth.costMicros)} — last month {cents(r.lastMonth.chargedCents)} ·{" "}
+                    {r.lastMonth.replies} replies · cost {money(r.lastMonth.costMicros)}
+                  </span>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       )}

@@ -101,6 +101,11 @@ function fakeDb() {
     platformAiUsage: table("platformAiUsage"),
     quoteTextBlock: table("quoteTextBlock"),
     product: table("product"),
+    // The drafter meters through meterFor("translation") since 2026-09-25:
+    // the payer switch's row (none → the registry default, FieldQuo) and
+    // FieldQuo's own AI budget (none set → allowed, uncapped) are read first.
+    aiFeaturePayer: { findUnique: async () => null },
+    platformAiBudget: { findMany: async () => [] },
     $transaction: async (fn) => fn(db),
   };
   return db;
@@ -372,7 +377,12 @@ console.log("\nThe wiring\n");
 {
   const lib = code(read("lib/i18n/autoTranslate.js"));
   ok("the drafter never touches the company's AI wallet", !/checkAiQuota|recordAiUsage\b/.test(lib));
-  ok("…every call is recorded to the platform ledger", /recordPlatformAiUsage\(db, \{[\s\S]*?area: USAGE_AREA/.test(lib));
+  // Through the payer switch since 2026-09-25 — meterFor("translation"), whose
+  // default ledger is FieldQuo's (the executed runs above prove every call
+  // landed on platformAiUsage with area "translation" and the company).
+  ok("…every call is recorded through the translation meter", /\(USAGE_AREA, \{ companyId, prisma: db/.test(lib) && /onUsage: \(u\) => meter\.record\(u,/.test(lib) && USAGE_AREA === "translation");
+  ok("…which is checked before a single call", lib.indexOf("await meter.check()") > -1 && lib.indexOf("await meter.check()") < lib.indexOf("mapLimit(jobs"));
+  ok("…and translation defaults to FieldQuo paying", /feature: "translation",[\s\S]{0,400}?defaultPayer: "fieldquo"/.test(read("lib/ai/featurePayer.js")));
   ok("…and the daily cap is checked before any call", lib.indexOf("draftsToday(") < lib.indexOf("mapLimit(jobs"));
   ok("…on the model the provider names, never a vendor client of its own", !/new OpenAI|openai\(/i.test(lib));
   ok("the drafter never reads or writes a quote, invoice or PDF", !/db\.(quote|invoice)\b|pdf/i.test(lib));
