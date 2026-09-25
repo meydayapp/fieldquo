@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 25 September 2026 (/platform/analytics: the signup funnel is the card-free flow counted "reached this step or later" — monotone, trial started tied to a finished company — and the laptop leak that put "Account & company 581" over "Visited 565" is closed; FieldQuo's own Meta campaigns as campaign ▸ ad set ▸ ad with signups / trials / paying, "+"/%20 merged, id-only campaigns labelled, Instagram read from site_source_name; the Ads Manager URL-parameters string with a how-to — see "/platform/analytics: an honest signup funnel, and FieldQuo's own Meta campaigns" below)
 Last updated: 25 September 2026 (Create › Request opens a hand-entered lead form at /app/leads/new — the owner's six fields, posted through createScoredLead as source "manual", gated at requests:view_create_edit on page and route, landing on the board with the new lead's drawer open; the board's ?lead= deep link now also works after an in-app navigation — see "Still owed here" under "Phone menus, the Create sheet and a mobile audit" below)
 Last updated: 25 September 2026 (Kitchen Designer on by itself for the trades that build kitchens — kitchen_design, remodeling, renovation, general contracting, new construction, cabinet refacing; refinishing/countertop/stairs/painting stay off; a handyman opts in — plus `Company.kitchenDesignerOverride` (follow / always on / always off) on Settings › Services, read by the one gate in lib/kitchen/access.js that every surface and Cabinet Rates now ask — see "Kitchen Designer: on for the trades that build kitchens" below)
 Last updated: 25 September 2026 (Confirm what you quote, round two: untick a service already in the list to REMOVE it — archived through the existing `Product.active`, never deleted, restored as the same row when ticked again — with every picker, builder and settings list that read the whole book now filtering through `lib/products/offered.js`; All / Selected (N) tabs; the "0 of 0 selected" count fixed; "Added for you" on seeded rows the company never renamed or repriced, in the dialog and in Products & Services, which gains Remove and a Removed tab with Add back; "Review the services we added for you (N)" on the home card for EVERY company signup seeded, not only thin trades (the owner's decision) — see "Confirm what you quote: untick to remove" below)
@@ -4154,6 +4155,80 @@ DB still holds unlanded tables, so no push): 4 Company columns,
   has gone) is not fired.
 - Counting began on deploy; the funnel builder's older Performance panel
   (FunnelEvent) is left as it was, beside a link to the new report.
+
+## /platform/analytics: an honest signup funnel, and FieldQuo's own Meta campaigns (25 September 2026)
+
+The owner, on the Marketing site tab: it "doesn't reflect the proper analytics" —
+Visited /signup 565 · Account & company 581 · Trades 8 · Services 13 · Plan 5 ·
+Checkout started 3 · Completed (card entered) 6, a campaign called
+"120254631999170581", and "new+traffic+campaign" beside "new traffic campaign".
+
+**Why the bars were wrong.** (1) `lib/analytics/track.js` skipped page views on
+localhost (`trackPageView` → `isLocalDev`) but not signup steps
+(`trackSignupStep` → `track`, ungated): a laptop or the screenshot harness
+walking /signup against the production database wrote steps with no page view
+— 16 browsers in 30 days, all "account" and most "services" with no "trades".
+(2) The "account" beacon (`app/signup/page.js` step map) fired when the account
+screen was SHOWN — to every visitor on arrival — so it was "visited" again,
+plus those 16. (3) `lib/analytics/product/queries.js signupVisitors` counted
+each step's own event, so a resume link that lands on Services counted there
+and not at Trades. (4) Plan / checkout / "card entered" describe the flow
+before 2026-09-24.
+
+**Built.**
+- `track()` applies the localhost rule to every event.
+- The funnel is the card-free signup: Visited /signup → Account submitted (the
+  Team screen shown) → Team → Goals → Trades → Services ("Start my free
+  trial" pressed — new `finish` beacon) → Trial started (a company that
+  finished signup by `completedSignupWhere`, non-demo, tied to the browser
+  through the existing `SignupLead.visitorId → completedCompanyId`; never a
+  beacon). Every bar is "reached this step or later"
+  (`aggregate.js funnelFromVisitors`), so it is monotone; browsers with steps
+  and no page view are excluded and counted; past the raw window the daily
+  counts are a running max, labelled. A reconciliation line prints the
+  companies that finished signup in the range and how many are tied to a
+  browser. `checkout_started` is no longer accepted; old rows are not read.
+- Ad campaigns (`lib/analytics/product/campaigns.js`, `lib/tracking/adParams.js`):
+  on marketing pages only, the beacon forwards Meta's parameters (campaign /
+  ad set / ad names and ids, placement, site_source_name, utm_content/term,
+  fbclid presence) into `AnalyticsEvent.meta.ad`. Values are decoded (+, %20,
+  double encoding), bounded and markup-stripped; campaigns group by Meta id
+  when any landing carried one, else by the case-folded name with the most
+  common spelling shown; an id-only campaign reads "Campaign <id> (name not
+  sent — add {{campaign.name}}…)". Instagram / Messenger / Audience Network /
+  Threads come from site_source_name, the placement or utm_source=ig — over
+  the fbclid Meta stamps on every click (540 Instagram landings had been
+  filed under facebook). Table: campaign ▸ ad set ▸ ad with views, visitors,
+  signups started, trials started, paying; conversions are SignupLeads started
+  in the range, credited to their first ad touch — `SignupLead.utm.ft`, set
+  once by the capture on the server from the browser's own landings (never
+  from the body), else read from the raw window, else the /signup link's tags.
+- The Ads Manager "URL parameters" string (a superset of the one the owner
+  pasted on 2026-09-25), with a how-to and a copy button that says when it
+  did not copy. Macros verified against Meta's "Specifications for dynamic URL
+  parameters" (facebook.com/business/help/2360940870872492).
+- Checks: `check:signup-funnel`, `check:platform-campaigns` (in check:all);
+  `check:product-analytics`, `check:signup-aside` updated. Harness frames
+  `adtrack-platform-analytics-1280/-390`.
+
+**Schema (not applied — for the owner):** one index, `CREATE INDEX
+"AnalyticsEvent_visitorId_createdAt_idx" ON "AnalyticsEvent"("visitorId",
+"createdAt");`. The code runs without it (the first-touch read is a bounded
+scan of the 30-day window until it exists). `migrate diff` also lists DROPs of
+the unlanded Community* tables — not ours, never apply them.
+
+### Still owed here
+- `lib/platform/stripeBilling.js` still writes a `signup_step/completed`
+  analytics row per first subscription that nothing reads (it was already
+  unread before this change — the funnel counted Company rows). Left for a
+  separate tidy.
+- `SignupOrigin.utm*` (the growth model's ad-trial test) still reads only the
+  /signup link's three tags, not the first ad touch.
+- A "+" in a campaign name reads as a space — the owner's rule, because that
+  is how "new traffic campaign" arrived; a campaign genuinely named "35+"
+  reads "35".
+- Team and Goals sent no beacon before this deploy: a browser that stopped on
+  them earlier counts only as Visited.
 
 ## Auto-translation on save (24 September 2026)
 
