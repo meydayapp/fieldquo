@@ -6,7 +6,8 @@
 // without prices and a research benchmark beside each; where a seed matches
 // one of those, `existing` cites its key. Written in source order so
 // scripts/service-seeds/authoring/gen-source-map.mjs can join every row back.
-import { L, SHARED, D, T, withTemplates } from "./_templateLines";
+import { L, SHARED, D, T, withTemplates, hdMaterial } from "./_templateLines";
+import { HD } from "./_materialCosts";
 
 const BM = (low, median, high) => ({ low, median, high, currency: "USD", source: "benchmark", asOf: "2026-09-21" });
 const S = (seedKey, category, unit, benchmark, [en, fr, es], [den, dfr, des], extra = {}) => ({
@@ -786,7 +787,7 @@ const TEMPLATES = {
       uk: ["Робота — заміна димового датчика", "Прострочений датчик знято, новий встановлено на наявну основу, весь ланцюг перевірено."],
       tl: ["Labor — palit ng smoke detector", "Tinanggal ang expired na detector, ikinabit ang bago sa existing na base at sinubukan ang buong chain."],
     }),
-    L.material(1, "each", 45, {
+    L.material(1, "each", 35.59, {
       en: ["Hard-wired smoke detector with battery backup", "Interconnect-capable 120 V detector with a 10-year sealed battery."],
       fr: ["Détecteur de fumée câblé avec pile de secours", "Détecteur 120 V interconnectable avec pile scellée de 10 ans."],
       es: ["Detector de humo cableado con batería de respaldo", "Detector de 120 V interconectable con batería sellada de 10 años."],
@@ -794,6 +795,58 @@ const TEMPLATES = {
       de: ["Verkabelter Rauchmelder mit Batterie-Backup", "Vernetzbarer 120-V-Melder mit versiegelter 10-Jahres-Batterie."],
       uk: ["Дротовий димовий датчик з резервною батареєю", "Датчик 120 В з можливістю з'єднання та герметичною батареєю на 10 років."],
       tl: ["Hard-wired smoke detector na may backup battery", "120 V detector na pwedeng i-interconnect, may 10-taong sealed battery."],
+    }, { cost: 28.47 }),
+  ], null),
+  // ── The two sample lines a Jobber electrical signup shows ──
+  "fq.electrical.receptacles.two_wire_to_gfci_indoor": T("repair", {
+    it: ["Presa a due poli sostituita con GFCI — interno", "Presa senza terra sostituita con un dispositivo GFCI, il modo ammesso di proteggere un circuito senza terra."],
+    de: ["Zweipolige Steckdose auf FI-Steckdose umgerüstet — innen", "Steckdose ohne Erdung durch eine FI-Schutzsteckdose ersetzt — der zulässige Schutz für einen Stromkreis ohne Erdung."],
+    uk: ["Заміна двополюсної розетки на GFCI — всередині", "Розетку без заземлення замінено пристроєм GFCI — дозволений спосіб захистити лінію без заземлення."],
+    tl: ["Two-prong na outlet ginawang GFCI — loob", "Pinalitan ng GFCI ang outlet na walang ground, ang tanggap na paraan para protektahan ang circuit na walang ground."],
+  }, [
+    L.labour(1, "each", 165, {
+      en: ["GFCI upgrade labour — per receptacle", "Old receptacle out, GFCI wired line and load, labelled 'no equipment ground' and tested."],
+      fr: ["Main-d'œuvre — prise DDFT, l'unité", "Ancienne prise retirée, DDFT câblé ligne et charge, étiqueté « sans mise à la terre » et testé."],
+      es: ["Mano de obra — GFCI, por tomacorriente", "Tomacorriente viejo fuera, GFCI cableado línea y carga, etiquetado «sin tierra» y probado."],
+      it: ["Manodopera — GFCI, per presa", "Vecchia presa tolta, GFCI cablato linea e carico, etichettato «senza terra» e provato."],
+      de: ["Arbeit — FI-Steckdose, pro Stück", "Alte Steckdose raus, FI-Steckdose Netz und Last verdrahtet, als ohne Schutzleiter gekennzeichnet und geprüft."],
+      uk: ["Робота — GFCI, за розетку", "Стару розетку знято, GFCI під'єднано лінія/навантаження, позначено «без заземлення» й перевірено."],
+      tl: ["Labor — GFCI upgrade, kada outlet", "Tinanggal ang luma, kinablehan ang GFCI line at load, nilagyan ng label na 'no equipment ground' at sinubukan."],
+    }, { measurementKey: "each" }),
+    hdMaterial(HD.gfci_15a, {
+      en: ["Self-test GFCI receptacle — 15 A", "Tamper-resistant self-test GFCI with wall plate and labels."],
+      fr: ["Prise DDFT autotest — 15 A", "DDFT autotest inviolable avec plaque et étiquettes."],
+      es: ["Tomacorriente GFCI autoprueba — 15 A", "GFCI autoprueba resistente a manipulación con placa y etiquetas."],
+      it: ["Presa GFCI autotest — 15 A", "GFCI autotest antimanomissione con placca ed etichette."],
+      de: ["FI-Steckdose mit Selbsttest — 15 A", "Kindersichere FI-Steckdose mit Selbsttest, Abdeckung und Aufklebern."],
+      uk: ["Розетка GFCI з самотестом — 15 А", "Захищена GFCI з самотестом, рамкою та наліпками."],
+      tl: ["Self-test na GFCI outlet — 15 A", "Tamper-resistant na self-test GFCI na may plate at label."],
+    }, { measurementKey: "each" }),
+  ], D.regular("fixed", 10)),
+
+  "fq.electrical.appliances.dryer_cord": T("repair", {
+    it: ["Cavo asciugatrice — 4 fili, fino a 6 piedi", "Cavo a quattro fili montato sull'asciugatrice e presa controllata perché sia messa a terra correttamente."],
+    de: ["Trocknerkabel — 4-adrig, bis 6 Fuß", "Vieradriges Kabel am Trockner montiert und die Steckdose geprüft, damit er korrekt geerdet ist."],
+    uk: ["Шнур сушарки — 4 жили, до 6 футів", "Чотирижильний шнур встановлено на сушарку, розетку перевірено для правильного заземлення."],
+    tl: ["Dryer cord — 4-wire, hanggang 6 ft", "Ikinabit ang 4-wire na cord sa dryer at chineck ang outlet para tama ang ground."],
+  }, [
+    L.labour(1, "each", 110, {
+      en: ["Dryer cord installation", "Ground strap removed, four-wire cord terminated and the receptacle checked."],
+      fr: ["Pose du cordon de sécheuse", "Pont de mise à la terre retiré, cordon à quatre fils raccordé et prise vérifiée."],
+      es: ["Instalación del cable de secadora", "Puente de tierra retirado, cable de cuatro hilos conectado y tomacorriente revisado."],
+      it: ["Montaggio cavo asciugatrice", "Ponticello di terra rimosso, cavo a quattro fili collegato e presa controllata."],
+      de: ["Trocknerkabel anschließen", "Erdungsbrücke entfernt, vieradriges Kabel angeschlossen und Steckdose geprüft."],
+      uk: ["Встановлення шнура сушарки", "Перемичку заземлення знято, чотирижильний шнур під'єднано, розетку перевірено."],
+      tl: ["Pagkabit ng dryer cord", "Tinanggal ang ground strap, ikinabit ang 4-wire cord at chineck ang outlet."],
+    }),
+    L.material(1, "each", 35, {
+      en: ["4-wire dryer cord — 6 ft", "30 A, 4-wire dryer cord with strain relief."],
+      fr: ["Cordon de sécheuse 4 fils — 6 pi", "Cordon de sécheuse 30 A, 4 fils, avec serre-câble."],
+      es: ["Cable de secadora 4 hilos — 6 pies", "Cable de 30 A y 4 hilos con sujetacables."],
+      it: ["Cavo asciugatrice 4 fili — 6 piedi", "Cavo da 30 A a 4 fili con pressacavo."],
+      de: ["Vieradriges Trocknerkabel — 6 Fuß", "30-A-Trocknerkabel, 4-adrig, mit Zugentlastung."],
+      uk: ["Чотирижильний шнур — 6 футів", "Шнур 30 А, 4 жили, з фіксатором."],
+      tl: ["4-wire dryer cord — 6 ft", "30 A na 4-wire na dryer cord na may strain relief."],
     }),
   ], null),
 };
