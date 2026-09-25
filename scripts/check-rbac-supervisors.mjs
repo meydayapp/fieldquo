@@ -161,8 +161,11 @@ t("GET /api/settings/members redacts laborCostPerHour",
   src("../app/api/settings/members/route.js", 'fields: \\["laborCostPerHour"\\]'));
 t("GET /api/settings/members/pending redacts it as well",
   src("../app/api/settings/members/pending/route.js", 'fields: \\["laborCostPerHour"\\]'));
+// The rows now pass through attachAttendance() on their way out (2026-09-13,
+// the crew rota's lateness), which adds attendance and keeps `worker` — the
+// redaction still wraps the list the response is built from.
 t("GET /api/time-entries redacts",
-  src("../app/api/time-entries/route.js", "redactPayList\\(full, entries"));
+  src("../app/api/time-entries/route.js", "redactPayList\\(full, (?:await attachAttendance\\()?entries"));
 
 // ═══════════════════════════════════════════════════════════════════════════
 console.log("\n1b. Payroll — the WRITE side, which is the worse half\n");

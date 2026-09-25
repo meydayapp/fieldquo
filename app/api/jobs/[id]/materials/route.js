@@ -14,6 +14,7 @@ import {
   requireLevel,
   permissionErrorResponse,
   hasToggle,
+  hasLevel,
   assignedJobWhere,
 } from "@/lib/permissions/enforce";
 import { requireCost } from "@/app/api/invoices/costingWrite";
@@ -215,7 +216,17 @@ export async function GET(request, { params }) {
 
   if (!(await ownJob(id, member.companyId, full)))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
-  const [list, spend] = await Promise.all([listFor(id, full), spendFor(member.companyId)]);
+  // The spend verdict carries the company's AI-credit balance. It exists for
+  // the build banner, which only someone who may build (view_create_edit,
+  // the level POST /materials/build takes the money at) is shown — so a
+  // view-only reader, typically Crew on their own job, is not handed the
+  // wallet through the API either. null is what the panel already reads as
+  // "no verdict".
+  const canBuild = hasLevel(full, "jobs", "view_create_edit");
+  const [list, spend] = await Promise.all([
+    listFor(id, full),
+    canBuild ? spendFor(member.companyId) : null,
+  ]);
   return NextResponse.json({ ...list, spend });
 }
 

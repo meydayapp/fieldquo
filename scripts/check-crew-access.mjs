@@ -426,6 +426,18 @@ for (const dir of API_DIRS) {
     const src = readFileSync(file, "utf8");
     const rel = file.slice(join(ROOT, "app/api/").length);
     const marks = [...src.matchAll(HANDLER)];
+    // A file-local helper that asks the grid itself counts when the handler
+    // calls it — quotes/[id]/plan-offers (2026-09-24) puts requireLevel +
+    // requireToggle in one `gate(member, level, action)` so its three
+    // handlers cannot disagree. Read from THIS file's own function bodies, so
+    // a helper that stops asking stops counting.
+    const gridHelpers = [];
+    for (const f of src.matchAll(/(?:^|\n)(?:async\s+)?function\s+(\w+)\s*\(/g)) {
+      const from = f.index + f[0].length;
+      const next = src.slice(from).search(/\n(?:export\s+)?(?:async\s+)?function\s/);
+      const fnBody = src.slice(from, next === -1 ? src.length : from + next);
+      if (/requireLevel\(|hasLevel\(|levelOrRefusal\(/.test(fnBody)) gridHelpers.push(f[1]);
+    }
     for (let i = 0; i < marks.length; i += 1) {
       const start = marks[i].index;
       const end = i + 1 < marks.length ? marks[i + 1].index : src.length;
@@ -448,7 +460,8 @@ for (const dir of API_DIRS) {
         // gate the client page's equipment routes use, so a crew member at
         // name_address_only is refused on both doors. The assertion below
         // reads that file, so this exemption cannot outlive the gate.
-        /requireEquipment(Read|Write)\(/.test(body);
+        /requireEquipment(Read|Write)\(/.test(body) ||
+        gridHelpers.some((h) => new RegExp(`\\b${h}\\(`).test(body));
       ok(`${label} asks the grid`, asks);
     }
   }
@@ -1031,6 +1044,13 @@ ok(
   myMaterials.body?.materials?.[0]?.qty === 4 &&
     myMaterials.body.materials[0].unit === "gal",
 );
+// The AI build's spend verdict carries the company's credit balance, and only
+// someone who may build is shown the banner it feeds. Crew read at view_only.
+ok(
+  "…and no AI-credit wallet rides along to a reader who cannot build",
+  "spend" in (myMaterials.body || {}) && myMaterials.body.spend === null,
+  myMaterials.body?.spend,
+);
 
 // ═══════════════════════════════════════════════════════════════════════════
 console.log("\n12. Every job read applies the scope\n");
@@ -1040,13 +1060,23 @@ console.log("\n12. Every job read applies the scope\n");
 // job and never mentions assignedJobWhere is the copy that rots.
 
 const JOBS_API = join(ROOT, "app/api/jobs");
+const SCOPED_JOB_LOADERS = { loadWorkOrder: "lib/workOrder/load.js" };
 for (const file of routeFiles(JOBS_API)) {
   const src = readFileSync(file, "utf8");
   const rel = file.slice(join(ROOT, "app/api/").length);
   // Reads a job (or a row hanging off one) at all?
   const touchesJob = /db\.job\b|db\.jobMaterial\b|db\.jobPhoto\b/.test(src);
   if (!touchesJob) continue;
-  ok(`${rel} spreads assignedJobWhere`, /assignedJobWhere\(/.test(src));
+  // The crew work order (2026-09-21) loads its job through ONE lib loader so
+  // the GET, the PATCH and the areas POST cannot disagree about scope. It
+  // counts only while that loader's own source still spreads the scope into
+  // its job read — the file is read here, so the exemption cannot outlive it.
+  const viaScopedLoader = Object.entries(SCOPED_JOB_LOADERS).some(
+    ([fn, lib]) =>
+      new RegExp(`\\b${fn}\\(`).test(src) &&
+      /\.\.\.assignedJobWhere\(/.test(readFileSync(join(ROOT, lib), "utf8")),
+  );
+  ok(`${rel} spreads assignedJobWhere`, /assignedJobWhere\(/.test(src) || viaScopedLoader);
 }
 
 // The copilot is the fourth door onto the same rows, and it is the one that

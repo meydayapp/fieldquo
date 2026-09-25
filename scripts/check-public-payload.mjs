@@ -75,9 +75,13 @@ const ok = (name, cond, got) => {
 };
 
 const files = routeFiles();
+// A platform admin is a caller identity too. /api/platform/costs/fixed-bills
+// (2026-09-19) is where that stopped being academic: a superadmin types in
+// what FieldQuo itself was billed (`body.amount`), which is FieldQuo's own
+// ledger behind a 401/403 gate, not a browser pricing a customer's document.
 const publicRoutes = files.filter((f) => {
   const src = decomment(readFileSync(join(ROOT, f), "utf8"));
-  return !/memberOrRefusal|getCurrentMember/.test(src);
+  return !/memberOrRefusal|getCurrentMember|getCurrentPlatformAdmin/.test(src);
 });
 
 console.log(`\n${publicRoutes.length} of ${files.length} routes resolve no member — treated as public`);
