@@ -15,6 +15,7 @@ import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { hasToggle, assignedJobWhere } from "@/lib/permissions/enforce";
 import { actualJobCost, compareJobCost } from "@/lib/costing/actualJobCost";
 import { equipmentCostForJob } from "@/lib/costing/equipmentUsage";
+import { loadJobSubcontracts } from "@/lib/costing/jobCostInputs";
 import { calculateMinimumPrice } from "@/lib/analytics/minimumPrice";
 import { unattributedLabourForJob } from "@/lib/costing/unattributedHours";
 import { contractValue } from "@/lib/jobs/changeOrderValue";
@@ -83,7 +84,7 @@ export async function GET(request, { params }) {
   });
   if (!job) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const [expenses, timeEntries, assetUseLogs, jobSubcontractors] = await Promise.all([
+  const [expenses, timeEntries, assetUseLogs, subcontracts] = await Promise.all([
     db.expense.findMany({
       where: { projectId: job.id, companyId: member.companyId },
       // `id` so a row a JobSubcontractor adopted (an imported quote's
@@ -127,38 +128,13 @@ export async function GET(request, { params }) {
         },
       },
     }),
-    // The companies hired for a fixed price on this job. companyId on the
-    // row as well as on the job, the same tenant-scope discipline as the use
-    // logs above.
-    db.jobSubcontractor.findMany({
-      where: { jobId: job.id, companyId: member.companyId },
-      select: { agreedAmount: true, status: true, quoteImportId: true },
-    }),
+    // The companies hired for a fixed price on this job, with the expense an
+    // imported sub quote was materialised into looked up by id so it is not
+    // counted twice. Shared with the gross-profit commission basis
+    // (lib/commissions/sync.js) — see lib/costing/jobCostInputs.js for why
+    // there is one loader and not two.
+    loadJobSubcontracts(db, { companyId: member.companyId, jobId: job.id }),
   ]);
-
-  // ── Subcontractors adopted from an imported quote ────────────────────────
-  //
-  // A JobSubcontractor with quoteImportId came from a sub's FieldQuo quote,
-  // and that import was materialised into an Expense (category
-  // "Subcontractor") when this job was created — before this row existed.
-  // Both describe the same $5,000. The pure function counts the row's agreed
-  // amount and drops the import's expense BY ID, so the id is looked up here.
-  // quoteImportId is not a relation (see the schema comment), hence the
-  // second query rather than an include.
-  const importIds = jobSubcontractors.map((r) => r.quoteImportId).filter(Boolean);
-  const importExpense = new Map();
-  if (importIds.length) {
-    const imports = await db.quoteImport.findMany({
-      where: { id: { in: importIds }, targetCompanyId: member.companyId },
-      select: { id: true, expenseId: true },
-    });
-    for (const imp of imports) if (imp.expenseId) importExpense.set(imp.id, imp.expenseId);
-  }
-  const subcontracts = jobSubcontractors.map((r) => ({
-    agreedAmount: r.agreedAmount,
-    status: r.status,
-    importExpenseId: r.quoteImportId ? importExpense.get(r.quoteImportId) || null : null,
-  }));
 
   // ── Overhead, so the two margins on this screen mean the same thing ──────
   //

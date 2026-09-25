@@ -16,6 +16,7 @@ import { formatAppMoney } from "@/lib/format/money";
 import { resolveInvoiceChaseTask } from "@/lib/tasks/autoCreate";
 import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
 import { latestInFamily, familyPayments } from "@/lib/invoices/family";
+import { syncCommissionsForInvoice } from "@/lib/commissions/hook";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -230,6 +231,10 @@ export async function POST(request) {
   // rest, and closing it early would take the invoice off the to-do list while
   // most of the money was still outstanding.
   if (after.isPaid) await resolveInvoiceChaseTask(invoice.id);
+
+  // After the transaction above has committed — the sync reads the invoice
+  // the payment just changed. See lib/commissions/hook.js.
+  await syncCommissionsForInvoice(db, invoice.id);
 
   // Usage count — see lib/analytics/product/server.js.
   await recordFeatureUse("payment_collected", { companyId: member.companyId, memberId: member.id });

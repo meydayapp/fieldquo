@@ -485,6 +485,7 @@
     "check:sales-calendar": "node scripts/check-sales-calendar.mjs",
     "check:quote-number": "node scripts/check-quote-number.mjs",
     "check:service-content-fr": "node --import ./scripts/alias-loader.mjs scripts/check-service-content-fr.mjs",
+    "check:commissions": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-commissions.mjs",
     "check:addon-descriptions": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-addon-descriptions.mjs",
     "check:job-cost-review": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-job-cost-review.mjs",
     "check:material-calibration": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-material-calibration.mjs",
