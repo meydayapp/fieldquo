@@ -243,6 +243,10 @@ const STRICT_FILES = [
   "app/app/clients/page.js",
   "app/app/clients/new/page.js",
   "app/app/clients/[id]/page.js",
+  // Create › Request (2026-09-25). Written for the phone first — somebody in
+  // a driveway taking a neighbour's number — so strict from day one.
+  "app/app/leads/new/page.js",
+  "app/app/leads/new/NewLeadForm.js",
   // app/app/layout.js — the shell all of the above render inside — passes
   // strict today and is deliberately NOT listed. It is being rewritten by
   // another agent as this lands (122 lines changed while this file was being
