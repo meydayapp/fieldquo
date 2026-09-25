@@ -133,6 +133,10 @@ export default function BookingFlow({
   prefill = null,
   quoteId = null,
   embedded = false,
+  // Called once when a visit is confirmed on this page (a free booking).
+  // Only BookVisitPanel passes it, for the instant estimate's Schedule
+  // pixel event; nothing here depends on it.
+  onBooked = null,
 }) {
   // The visitor's own language, not the company's. Everything else on this page
   // is still English literals — see CALENDAR_COPY above — so the two fields
@@ -599,6 +603,11 @@ export default function BookingFlow({
         return;
       }
       setConfirmed({ startTime: chosen, ...data });
+      try {
+        onBooked?.();
+      } catch {
+        /* a caller's measurement must never undo a confirmed booking */
+      }
     } catch (err) {
       setSubmitError(err.message);
       setSubmitting(false);

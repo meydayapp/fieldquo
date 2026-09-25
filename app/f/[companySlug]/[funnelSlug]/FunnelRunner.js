@@ -14,8 +14,10 @@ import { Loader2, Check, ArrowLeft, Building2, AlertCircle, Lock } from "lucide-
 import { readableForeground, ensureContrast } from "@/lib/brand/colour";
 import { documentTheme, fillPair } from "@/lib/documents/theme";
 import { estimateRange } from "@/lib/estimate/estimateMoney";
-import { pixelScripts, fireLeadEvents } from "@/lib/funnels/pixels";
 import MediaUploader from "@/app/components/MediaUploader";
+import { useAdTracking } from "@/app/components/public/useAdTracking";
+import AdConsentNotice from "@/app/components/public/AdConsentNotice";
+import { trackingCopy } from "@/lib/i18n/trackingCopy";
 
 const FALLBACK_ACCENT = "#06356b";
 
@@ -81,28 +83,29 @@ export default function FunnelRunner({ companySlug, funnelSlug, embedded = false
   const steps = data?.funnel?.steps || [];
   const step = steps[idx] || null;
 
-  // ── Ad-platform pixels ────────────────────────────────────────────────────
+  // ── Ad-platform pixels, step counts, the partial lead ─────────────────────
   //
   // The public API has returned `funnel.pixels` since the builder grew its
-  // Pixels panel, and nothing here read it — three saved ids, no tag on the
-  // page. Injected once the funnel has loaded, only for ids that are set and
-  // shaped like the platform issues them (lib/funnels/pixels.js), and never
-  // twice: React Strict Mode double-runs effects in development, and a
-  // second fbq init is a double PageView on the ad account. The `data-fq-
-  // pixel` marker is what makes the guard survive that.
+  // Pixels panel, and for a while nothing here read it — three saved ids, no
+  // tag on the page. The injection moved into useAdTracking (with the
+  // instant estimate as its second caller) when the company-level ids and
+  // the "ask first" setting arrived: the pixels load once the funnel has
+  // loaded, only for ids that are set and shaped like the platform issues
+  // them (lib/funnels/pixels.js injectPixelScripts, which keeps the
+  // once-only guard), and — when the company asks for it — only after the
+  // visitor accepts. The same hook opens this visit's FunnelVisit row and
+  // keeps what is typed into the contact step.
   const pixels = data?.funnel?.pixels || null;
-  useEffect(() => {
-    if (!pixels || typeof document === "undefined") return;
-    for (const tag of pixelScripts(pixels)) {
-      if (document.querySelector(`script[data-fq-pixel="${tag.key}"]`)) continue;
-      const el = document.createElement("script");
-      el.setAttribute("data-fq-pixel", tag.key);
-      el.async = true;
-      if (tag.src) el.src = tag.src;
-      else el.text = tag.inline;
-      document.head.appendChild(el);
-    }
-  }, [pixels]);
+  const pageLanguage = data?.company?.language || "en";
+  const tracking = useAdTracking({
+    ready: Boolean(data),
+    companySlug,
+    surface: "funnel",
+    funnelSlug,
+    pixels,
+    consentRequired: Boolean(data?.company?.pixelConsentRequired),
+    language: pageLanguage,
+  });
 
   // Fire a view beacon whenever a new step is shown (best-effort).
   const beacon = useCallback(
@@ -120,10 +123,20 @@ export default function FunnelRunner({ companySlug, funnelSlug, embedded = false
 
   useEffect(() => {
     if (step?.id) beacon("view", step.id);
+    // The visit's furthest step, for the company's report. The thank-you
+    // step is not reported: only submitting reaches it, and the submit
+    // route records that itself.
+    if (step?.id && step.kind !== "thankyou") tracking.reportStep(step.id);
+    // Past the first screen is "started" — the ad platforms' ViewContent.
+    if (idx >= 1 && step?.kind !== "thankyou") tracking.markStarted();
     // One `error` serves every step, so it has to be cleared when the step
     // changes — otherwise a failed estimate follows the visitor onto the
     // contact form and reads as the form being broken.
     setError("");
+    // Keyed on the step only, as before: `tracking` is a fresh object every
+    // render, and the view beacon above must not re-fire on each of them.
+    // reportStep and markStarted de-duplicate on their own.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step?.id, beacon]);
 
   const accent = data?.company?.brandColor || FALLBACK_ACCENT;
@@ -221,6 +234,15 @@ export default function FunnelRunner({ companySlug, funnelSlug, embedded = false
     }
   }
 
+  // Every keystroke in the contact step also goes to the partial-lead
+  // capture, which waits for a pause and for an email or a phone before it
+  // posts anything (useAdTracking captureContact).
+  function editContact(field, value) {
+    const next = { ...contact, [field]: value };
+    setContact(next);
+    tracking.captureContact(next);
+  }
+
   async function submit() {
     setError("");
     if (!contact.name.trim()) return setError("Please tell us your name.");
@@ -228,6 +250,9 @@ export default function FunnelRunner({ companySlug, funnelSlug, embedded = false
       return setError("Add an email or phone so we can reply.");
     setSubmitting(true);
     try {
+      // The landing beacon may still be in flight on a fast tap-through; its
+      // token is what lets the lead carry the campaign it came from.
+      await tracking.settled();
       const res = await fetch(`/api/funnels/public/${companySlug}/${funnelSlug}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -237,6 +262,7 @@ export default function FunnelRunner({ companySlug, funnelSlug, embedded = false
           email: contact.email.trim() || null,
           phone: contact.phone.trim() || null,
           media,
+          visitToken: tracking.visitToken(),
         }),
       });
       const d = await res.json().catch(() => null);
@@ -245,8 +271,9 @@ export default function FunnelRunner({ companySlug, funnelSlug, embedded = false
       // The lead is saved; tell the ad platforms so the campaign can optimise
       // toward this rather than toward clicks. After the server answered, not
       // before — an event for a submission the server refused is a lead that
-      // does not exist.
-      fireLeadEvents(pixels);
+      // does not exist. The params and the event id are the server's
+      // (`d.tracking`), forwarded untouched; a no-op when no pixel loaded.
+      tracking.fire("Lead", { params: d?.tracking?.params || {}, eventId: d?.tracking?.eventId || null });
       setSubmitted(true);
       setEstimates((p) => ({ ...p, ...(d?.estimates || {}) }));
 
@@ -291,6 +318,16 @@ export default function FunnelRunner({ companySlug, funnelSlug, embedded = false
   return (
     <Shell accent={accent} embedded={embedded}>
       <div className="w-full max-w-md">
+        {tracking.askConsent && (
+          <AdConsentNotice
+            companyName={c.name}
+            brandColor={accent}
+            language={pageLanguage}
+            onAccept={tracking.accept}
+            onDecline={tracking.decline}
+            embedded={embedded}
+          />
+        )}
         {/* Progress */}
         <div className="flex items-center gap-1.5 mb-5">
           {steps.map((s, i) => (
@@ -448,18 +485,22 @@ export default function FunnelRunner({ companySlug, funnelSlug, embedded = false
               {step.subhead && <p className="text-sm text-[#2d2520]/60 mt-1">{step.subhead}</p>}
               <div className="mt-4 space-y-3">
                 {(step.fields || ["name", "email", "phone"]).includes("name") && (
-                  <input value={contact.name} onChange={(e) => setContact((p) => ({ ...p, name: e.target.value }))}
+                  <input value={contact.name} onChange={(e) => editContact("name", e.target.value)}
                     placeholder="Your name" className="w-full border border-black/15 rounded-lg px-3 py-2.5 text-sm" />
                 )}
                 {(step.fields || ["name", "email", "phone"]).includes("email") && (
-                  <input type="email" value={contact.email} onChange={(e) => setContact((p) => ({ ...p, email: e.target.value }))}
+                  <input type="email" value={contact.email} onChange={(e) => editContact("email", e.target.value)}
                     placeholder="Email" className="w-full border border-black/15 rounded-lg px-3 py-2.5 text-sm" />
                 )}
                 {(step.fields || ["name", "email", "phone"]).includes("phone") && (
-                  <input type="tel" value={contact.phone} onChange={(e) => setContact((p) => ({ ...p, phone: e.target.value }))}
+                  <input type="tel" value={contact.phone} onChange={(e) => editContact("phone", e.target.value)}
                     placeholder="Phone" className="w-full border border-black/15 rounded-lg px-3 py-2.5 text-sm" />
                 )}
               </div>
+              {/* The notice the partial-lead capture depends on — what is
+                  typed here is kept even if they stop, and this says so
+                  before they type (lib/tracking/partial.js). */}
+              <p className="text-[11px] text-[#2d2520]/70 mt-2">{trackingCopy(pageLanguage).saveNotice(c.name)}</p>
               {error && (
                 <div className="mt-3 flex items-start gap-2 text-sm text-red-700">
                   <AlertCircle size={15} className="shrink-0 mt-0.5" />

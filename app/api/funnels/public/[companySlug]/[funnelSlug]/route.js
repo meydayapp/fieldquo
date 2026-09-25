@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { findBookingCompany } from "@/lib/booking/findBookingCompany";
 import { sanitiseFunnelSteps } from "@/app/data/funnelBlocks";
 import { serveFunnelSteps } from "../../funnelEstimate";
+import { effectivePixels } from "@/lib/funnels/pixels";
 
 // Public — the funnel a stranger taps through. Branding + steps only. No prices,
 // no response data, no admin fields. Pixel IDs are returned because the pixel
@@ -26,6 +27,13 @@ export async function GET(request, { params }) {
     phone: true,
     currency: true,
     defaultLanguage: true,
+    // The company's own ad pixels, used for any platform this funnel has
+    // not set its own id for (lib/funnels/pixels.js effectivePixels), and
+    // whether the visitor must accept before any of them loads.
+    metaPixelId: true,
+    tiktokPixelId: true,
+    ga4Id: true,
+    pixelConsentRequired: true,
   });
   if (!company)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -75,6 +83,10 @@ export async function GET(request, { params }) {
       // The estimate step renders money, and a Michigan contractor quoting in
       // CA$ is a page that looks like it belongs to someone else.
       currency: company.currency,
+      // The page's language for the two tracking sentences (the save notice
+      // and the ad-cookie question); the funnel's own copy is the company's.
+      language: company.defaultLanguage || "en",
+      pixelConsentRequired: Boolean(company.pixelConsentRequired),
     },
     funnel: {
       id: funnel.id,
@@ -82,11 +94,7 @@ export async function GET(request, { params }) {
       slug: funnel.slug,
       steps,
       theme: funnel.theme || null,
-      pixels: {
-        meta: funnel.metaPixelId || null,
-        tiktok: funnel.tiktokPixelId || null,
-        ga4: funnel.ga4Id || null,
-      },
+      pixels: effectivePixels(funnel, company),
     },
   });
 }

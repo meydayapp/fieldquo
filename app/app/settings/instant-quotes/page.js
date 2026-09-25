@@ -22,6 +22,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 // The per-trade card and its field helpers live in ./TradeCard.js, because
 // the home page's set-up dialog renders the same cards.
 import TradeCard from "./TradeCard";
+import AdTrackingCard from "./AdTrackingCard";
 
 export default function InstantQuotesSettingsPage() {
   const { t } = useTranslation();
@@ -329,6 +330,11 @@ export default function InstantQuotesSettingsPage() {
       {reportWebsite && (
         <ReportWebsiteCard reportWebsite={reportWebsite} canEdit={canEdit} onSaved={load} />
       )}
+
+      {/* The company's ad pixels, "ask first", and the tracking link. Its own
+          loader and route: it is read by the funnels too, and a slow trade
+          list must not hold it up. */}
+      <AdTrackingCard />
     </div>
   );
 }

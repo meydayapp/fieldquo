@@ -8,6 +8,8 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { loadCompanyInstantTrades } from "@/lib/estimate/instantQuoteServer";
+import { db } from "@/lib/db";
+import { effectivePixels } from "@/lib/funnels/pixels";
 
 export async function GET(request, { params }) {
   const { companySlug } = await params;
@@ -19,6 +21,18 @@ export async function GET(request, { params }) {
   if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const { company, trades, booking, language } = data;
+
+  // The company's own ad pixels (Settings → Instant quotes → Ad tracking).
+  // Public identifiers — the platforms put them in page source everywhere —
+  // and only this company's. Read apart from loadCompanyInstantTrades so the
+  // pricing loader's select stays about pricing.
+  const tracking = await db.company
+    .findUnique({
+      where: { slug: company.slug },
+      select: { metaPixelId: true, tiktokPixelId: true, ga4Id: true, pixelConsentRequired: true },
+    })
+    .catch(() => null);
+
   return NextResponse.json({
     company: {
       name: company.name,
@@ -55,5 +69,7 @@ export async function GET(request, { params }) {
     currency: company.currency,
     trades,
     booking,
+    pixels: effectivePixels({}, tracking || {}),
+    pixelConsentRequired: Boolean(tracking?.pixelConsentRequired),
   });
 }

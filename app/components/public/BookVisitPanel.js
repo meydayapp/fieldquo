@@ -44,8 +44,12 @@ import BookingFlow from "@/app/book/[companySlug]/BookingFlow";
  *                 documentTheme; the instant estimate is an app-styled page and
  *                 passes nothing, taking the neutral surface instead.
  * @param fill     optional { bg, fg } measured pair for the button.
+ * @param onBooked optional; called once a visit is CONFIRMED (a free visit —
+ *                 a paid one confirms on Stripe's webhook, after this page
+ *                 has gone). The instant estimate fires the company's
+ *                 Schedule pixel event from it.
  */
-export default function BookVisitPanel({ slug, contact, copy, theme = null, fill = null, quoteId = null }) {
+export default function BookVisitPanel({ slug, contact, copy, theme = null, fill = null, quoteId = null, onBooked = null }) {
   const [open, setOpen] = useState(false);
 
   if (open) {
@@ -54,6 +58,7 @@ export default function BookVisitPanel({ slug, contact, copy, theme = null, fill
         <BookingFlow
           companySlug={slug}
           quoteId={quoteId}
+          onBooked={onBooked}
           prefill={{
             name: contact?.name || "",
             email: contact?.email || "",

@@ -55,6 +55,9 @@ import {
 } from "@/lib/i18n/instantQuoteCopy";
 import { questionsFor, timelineOptionsFor, tradeQuestionCopy } from "@/lib/leads/tradeQuestions";
 import { serviceAreaCopy } from "@/lib/company/serviceArea";
+import { useAdTracking } from "@/app/components/public/useAdTracking";
+import AdConsentNotice from "@/app/components/public/AdConsentNotice";
+import { trackingCopy } from "@/lib/i18n/trackingCopy";
 
 // ── The way out ──────────────────────────────────────────────────────────────
 //
@@ -426,6 +429,9 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
   // request-a-quote form is a real alternative.
   const [loadErrStatus, setLoadErrStatus] = useState(0);
   const [trade, setTrade] = useState(null);
+  // Whether the visitor TAPPED a trade chip, as opposed to the page picking
+  // the only one on offer — see "How far this visit got" below.
+  const [tradeTapped, setTradeTapped] = useState(false);
 
   // The visitor's language. Null until the first effect resolves it (see
   // initialLanguage) — the payload's own `language` fills it in when the
@@ -559,7 +565,30 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
   // is rendered before then anyway.
   const currency = data?.currency;
 
+  // ── Ad tracking, step counts, the partial lead ────────────────────────────
+  //
+  // The same hook the lead funnels use (app/components/public/
+  // useAdTracking.js): the company's own pixels when it set any, behind its
+  // "ask first" notice when it switched that on; one FunnelVisit for this
+  // visit, moved through lib/tracking/funnelSteps.js INSTANT_QUOTE_STEPS by
+  // the effects below; and the contact boxes kept as they are typed, under
+  // the sentence that says so.
+  const tracking = useAdTracking({
+    ready: Boolean(data),
+    companySlug,
+    surface: "instant_quote",
+    pixels: data?.pixels || null,
+    consentRequired: Boolean(data?.pixelConsentRequired),
+    language: lang,
+  });
+
+  function editContact(next) {
+    setContact(next);
+    tracking.captureContact(next);
+  }
+
   function pickTrade(next) {
+    setTradeTapped(true);
     setTrade(next);
     setIntake({});
     setAddress("");
@@ -592,6 +621,40 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
     (trade.measure !== "item_picker" || itemQtyTotal > 0) &&
     inputs.filter((f) => f.required).every((f) => Number(intake[f.key]) > 0),
   );
+
+  // ── How far this visit got ────────────────────────────────────────────────
+  //
+  // Reported as each threshold is first crossed; the server keeps the
+  // furthest and never moves it back. "service" is also the moment the ad
+  // platforms hear ViewContent, with the trade KEY as its only parameter.
+  //
+  // A company offering ONE trade has it picked on load, before the visitor
+  // has done anything — counting that as "chose a service" would mark every
+  // visit started. So "service" is reported only for a trade the visitor
+  // tapped (`tradeTapped`); for a one-trade page the first real step is
+  // "details", and the report's reached-this-or-further arithmetic still
+  // counts them past "service".
+  const tradeKey = trade?.trade || null;
+  const contactTyped = Boolean(contact.name.trim() || contact.email.trim() || contact.phone.trim());
+  const began = Boolean(tradeKey && (tradeTapped || jobDescribed || contactTyped));
+  useEffect(() => {
+    if (tradeKey && tradeTapped) tracking.reportStep("service", { trade: tradeKey });
+    // `tracking` is a fresh object each render; its calls de-duplicate.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tradeKey, tradeTapped]);
+  useEffect(() => {
+    if (began) tracking.markStarted({ content_category: tradeKey });
+    // Re-run when the pixels come live after a late consent.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [began, tradeKey, tracking.pixelsLive]);
+  useEffect(() => {
+    if (tradeKey && jobDescribed) tracking.reportStep("details", { trade: tradeKey });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tradeKey, jobDescribed]);
+  useEffect(() => {
+    if (tradeKey && contactTyped) tracking.reportStep("contact", { trade: tradeKey });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tradeKey, contactTyped]);
 
   // The trade's own questions — minus any whose key the estimator already
   // asks as an INPUT (painting's scope is priced, so it is asked once, in
@@ -730,16 +793,32 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
       // The index only. The server owns the dollars behind it — a form that
       // posted "budget: 10000" could be edited to say anything (#5).
       if (budgetIndex !== null) payload.budgetBandIndex = budgetIndex;
+      // The visit's token, so the lead carries the campaign it came from —
+      // after any beacon still in flight has landed (bounded wait).
+      await tracking.settled();
+      const visitToken = tracking.visitToken();
+      if (visitToken) payload.visitToken = visitToken;
       const res = await fetchJson(`/api/instant-quote/${companySlug}/request`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
+      });
+      // The request is accepted: the company's pixels hear Lead, with the
+      // server's own params (trade key, a bucket name only when a range is
+      // shown) and the lead's id as the event id. A no-op with no pixel.
+      const fired = tracking.fire("Lead", {
+        params: res?.tracking?.params || {},
+        eventId: res?.tracking?.eventId || null,
       });
       // The full report — the page the estimate becomes once the price is
       // out (app/estimate-report/[token]). When the server made one, the
       // homeowner goes there; the confirmation below is the fallback for a
       // draft with no report.
       if (res?.reportUrl && typeof window !== "undefined") {
+        // A pixel's request is queued, not sent, when fbq() returns; leaving
+        // the page in the same tick can cancel it. A short pause only when
+        // something actually fired.
+        if (fired.length) await new Promise((r) => setTimeout(r, 400));
         window.location.assign(res.reportUrl);
         return;
       }
@@ -857,6 +936,16 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
     // min-h-0 lets the embed report what it actually is.
     <div className={embedded ? "min-h-0 bg-muted/30" : "min-h-screen bg-muted/30"} lang={lang}>
       <div className="max-w-5xl mx-auto px-4 py-8">
+        {tracking.askConsent && (
+          <AdConsentNotice
+            companyName={data.company.name}
+            brandColor={brand}
+            language={lang}
+            onAccept={tracking.accept}
+            onDecline={tracking.decline}
+            embedded={embedded}
+          />
+        )}
         {/* Header. Not drawn when embedded: the iframe sits inside the
             company's own website, under the company's own logo, and a second
             one here reads as somebody else's widget. */}
@@ -931,6 +1020,9 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
                     quoteId={result.quoteId}
                     contact={{ ...contact, address: jobAddress }}
                     copy={{ title: t.bookTitle, body: t.bookBody, cta: t.bookCta }}
+                    // A confirmed visit is the ad platforms' Schedule. The
+                    // trade key only — no time, no address.
+                    onBooked={() => tracking.fire("Schedule", { params: { content_category: tradeKey || "" } })}
                   />
                 )}
               </>
@@ -1257,14 +1349,14 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
                       <input
                         placeholder={t.namePlaceholder}
                         value={contact.name}
-                        onChange={(e) => setContact({ ...contact, name: e.target.value })}
+                        onChange={(e) => editContact({ ...contact, name: e.target.value })}
                         className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
                       />
                       <input
                         placeholder={t.emailPlaceholder}
                         type="email"
                         value={contact.email}
-                        onChange={(e) => setContact({ ...contact, email: e.target.value })}
+                        onChange={(e) => editContact({ ...contact, email: e.target.value })}
                         className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
                       />
                       {/* Same formatter as the back office (lib/validation.js),
@@ -1276,10 +1368,16 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
                         inputMode="tel"
                         autoComplete="tel"
                         value={contact.phone}
-                        onChange={(e) => setContact({ ...contact, phone: formatPhoneInput(e.target.value) })}
+                        onChange={(e) => editContact({ ...contact, phone: formatPhoneInput(e.target.value) })}
                         className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
                       />
                     </div>
+                    {/* Said before they type, because it is true before they
+                        submit: what goes in these boxes is kept for the
+                        company even if they stop (lib/tracking/partial.js). */}
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {trackingCopy(lang).saveNotice(data.company.name)}
+                    </p>
                   </Section>
                 )}
 
