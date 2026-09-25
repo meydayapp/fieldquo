@@ -314,6 +314,38 @@ for (const [label, key, kind] of EXPECTED) {
   }
 }
 
+// ── "Do you have a website?" — two buttons, then a field on Yes ────────────
+//
+// Not in the eleven above: with no answer (BASE_FORM has none) the address
+// field is not rendered at all, so the table's count is unchanged. The
+// buttons and the field are walked here instead, the same way — fired, and
+// the key of `form` they move read back.
+{
+  const answered = [];
+  walk(createElement(AccountFields, { form: BASE_FORM, setForm: spyForm, fieldErrors: {} }), answered);
+  const buttons = answered.filter((n) => n.host && n.tag === "button" && n.props["data-has-website"] !== undefined);
+  ok("the account step asks 'Do you have a website?' with a Yes and a No", buttons.length === 2);
+  for (const b of buttons) {
+    writtenKeys = null;
+    b.props.onClick();
+    ok(`the ${b.props["data-has-website"] === "true" ? "Yes" : "No"} button writes form.hasWebsite`, JSON.stringify(writtenKeys) === '["hasWebsite"]', JSON.stringify(writtenKeys));
+  }
+  ok("with no answer, no address field is rendered", !answered.some((n) => n.host && n.tag === "input" && n.props.id === "signup-website"));
+  const YES_FORM = { ...BASE_FORM, hasWebsite: true, website: "shop.example.ca" };
+  let yesWritten = null;
+  const yesSpy = (arg) => {
+    const next = typeof arg === "function" ? arg(YES_FORM) : arg;
+    yesWritten = Object.keys(next).filter((k) => next[k] !== YES_FORM[k]);
+  };
+  const yes = [];
+  walk(createElement(AccountFields, { form: YES_FORM, setForm: yesSpy, fieldErrors: {} }), yes);
+  const field = yes.find((n) => n.host && n.tag === "input" && n.props.id === "signup-website");
+  ok("on Yes, the address field appears and READS form.website", field?.props.value === "shop.example.ca");
+  field?.props.onChange({ target: { value: "other.example.ca" } });
+  ok("…and WRITES form.website", JSON.stringify(yesWritten) === '["website"]', JSON.stringify(yesWritten));
+  ok("…with the same label/field pairing as the rest (htmlFor → id)", yes.some((n) => n.host && n.tag === "label" && n.props.htmlFor === "signup-website"));
+}
+
 // The password is the one field the draft must never carry — sessionStorage
 // lives on a van's shared laptop. Asserted here because the field moved files.
 ok(
@@ -364,6 +396,12 @@ const EXPECTED_BODY = [
   "country",
   "language",
   "industries",
+  // Added 2026-09-24: "Do you have a website?" — the answer (true / false /
+  // null) and, for a yes, the address. An answer and a URL, never money;
+  // /api/companies re-reads both through lib/signup/website.js and puts the
+  // URL on Company.website, the column the company's own site lived in.
+  "hasWebsite",
+  "website",
   "planId",
   // Added 2026-09-24 with the card-free signup: what the /pricing link named
   // (?tier= / ?plan=), kept on Company.signupTierKey so the trial banner's

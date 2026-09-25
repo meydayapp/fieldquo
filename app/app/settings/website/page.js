@@ -31,6 +31,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Loader2, AlertCircle } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import BackToHome from "@/app/components/BackToHome";
 import Builder from "./Builder";
 
 export default function WebsiteSettingsPage() {
@@ -68,5 +69,15 @@ export default function WebsiteSettingsPage() {
     );
   }
 
-  return <Builder data={data} onReload={load} />;
+  // "Create your website" on the home page's set-up steps links here with
+  // ?from=setup; BackToHome renders only then, so the builder is unchanged
+  // for everyone who came from the nav.
+  return (
+    <>
+      <div className="px-4 sm:px-6">
+        <BackToHome />
+      </div>
+      <Builder data={data} onReload={load} />
+    </>
+  );
 }

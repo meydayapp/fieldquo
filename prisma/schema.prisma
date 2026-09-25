@@ -1233,6 +1233,14 @@ model Company {
   city         String?
   province     String?
   website      String?
+  /// The signup's "Do you have a website?" (2026-09-24). true = yes (the
+  /// URL is `website` above), false = they said no, null = never answered —
+  /// every company from before the question, and anyone who skipped it.
+  /// Three-valued on purpose: "no" is a statement, a blank is not
+  /// (AGENTS.md failure class 5). Read by lib/setupStepsSnapshot.js — the
+  /// "Create your website" set-up step applies unless this is true or a
+  /// website is on file.
+  hasWebsite   Boolean?
   logoUrl      String?
   // Cloudinary's own id for the logo asset, not just its URL.
   //
@@ -11526,6 +11534,12 @@ model SignupLead {
   /// 2026-09-21); with them the page lands them where they stopped.
   address            String?
   serviceCategoryIds String[] @default([])
+  /// "Do you have a website?" on the account/business step, kept so a
+  /// resumed signup does not lose it — true / false / null (never answered),
+  /// the same three values Company.hasWebsite takes at creation, and the URL
+  /// when they said yes (lib/signup/website.js normalises it).
+  hasWebsite Boolean?
+  website    String?
 
   /// The Better Auth user this address signed in as, set by a capture that
   /// arrived on a session whose email IS this row's (lib/signup/salesFloor.js

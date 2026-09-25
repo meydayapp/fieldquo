@@ -89,9 +89,12 @@ const EXPECTED_KEYS = [
   "add_ons",
   "emails",
   "import_jobs",
+  // 2026-09-24: the signup asks "Do you have a website?" — a no (or no
+  // answer) puts this row on the card until the builder's site is published.
+  "website",
 ];
 ok(
-  "the team row, the ten in the owner's order, and the proposal's four after the payment schedule",
+  "the team row, the ten in the owner's order, the proposal's four after the payment schedule, and the website last",
   JSON.stringify(SETUP_STEP_KEYS) === JSON.stringify(EXPECTED_KEYS),
   SETUP_STEP_KEYS.join(","),
 );
@@ -126,8 +129,25 @@ const EMPTY = {
   clientDocuments: 0,
   googleReviewsConnected: false,
   approvedTestimonials: 0,
+  // The website row: no site of their own on record, nothing published.
+  hasOwnWebsite: false,
+  sitePublished: false,
 };
 const TOTAL = EXPECTED_KEYS.length;
+
+// ── "Create your website" — the one row the signup's answer decides ────────
+{
+  const row = (snap) => stepsFor({ ...EMPTY, ...snap }).find((s) => s.key === "website");
+  ok("website: said No (or never answered) → on the card", row({}).applies === true && row({}).done === false);
+  ok("website: said Yes / an address on file → the row does not apply", row({ hasOwnWebsite: true }).applies === false);
+  ok("website: published through the builder → done", row({ sitePublished: true }).done === true);
+  ok("website: only a real true publishes — 'true', 1, null do not", ["true", 1, null, undefined].every((v) => row({ sitePublished: v }).done === false));
+  ok("website: an absent or malformed answer APPLIES (never removes the row)", [undefined, null, "yes", 1].every((v) => row({ hasOwnWebsite: v }).applies === true));
+  const snap = source("lib/setupStepsSnapshot.js");
+  ok("website: the snapshot reads the signup's answer, the address and the builder's published flag",
+    /hasWebsite: true/.test(snap) && /website: true/.test(snap) && /site: \{ select: \{ published: true \} \}/.test(snap) &&
+      /hasOwnWebsite: company\.hasWebsite === true \|\| Boolean/.test(snap) && /sitePublished: company\.site\?\.published === true/.test(snap));
+}
 
 {
   const steps = stepsFor(EMPTY);

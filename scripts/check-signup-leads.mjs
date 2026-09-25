@@ -53,6 +53,7 @@ import {
   worthCapturing,
 } from "@/lib/signup/leads";
 import { captureBodyFor } from "@/lib/signup/leadCapture";
+import { normaliseWebsiteUrl, readWebsiteAnswer } from "@/lib/signup/website";
 import {
   assignSignupToRep,
   assignSignupForCallback,
@@ -1019,6 +1020,52 @@ section("15. A finished card-free trial on /platform/signups — what it is, nev
   ok("a trial row reads 'Signed up · free trial, N days left · no plan chosen yet'", /Signed up · free trial, \$\{days\} left · no plan chosen yet/.test(page));
   ok("…and 'got as far as' is only printed for an unfinished row", /r\.section === "trial" \? ` · \$\{trialLine\(r\.trial\)\}` : r\.stepLabel \? ` · got as far as/.test(page));
   ok("the trial section links to the companies list filtered to the same population", /\/platform\/companies\?status=trial_no_plan/.test(page) && /status === "trial_no_plan"/.test(read("app/api/platform/companies/route.js")));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("16. \"Do you have a website?\" — kept on the draft row, put back on resume");
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  // The reader, against hostile input.
+  ok("a bare domain gains https://", normaliseWebsiteUrl(" Shop.Example.ca ") === "https://shop.example.ca");
+  ok("javascript:, data:, mailto:, localhost, an IP, credentials, spaces — all refused",
+    ["javascript:alert(1)", "data:text/html,x", "mailto:a@b.co", "localhost:3000", "10.0.0.1", "https://u:p@x.com", "not a site", "x", "", null, 7].every((v) => normaliseWebsiteUrl(v) === null));
+  ok("readWebsiteAnswer: yes + an address", JSON.stringify(readWebsiteAnswer({ hasWebsite: true, website: "abc.ca" })) === '{"hasWebsite":true,"website":"https://abc.ca"}');
+  ok("…yes + garbage is an error, never a repaired guess", readWebsiteAnswer({ hasWebsite: true, website: "nope" }).error === "website");
+  ok("…no drops whatever was typed", JSON.stringify(readWebsiteAnswer({ hasWebsite: false, website: "abc.ca" })) === '{"hasWebsite":false,"website":null}');
+  ok("…'true', 1, 'yes' and absence are unanswered, not a yes", ["true", 1, "yes", undefined].every((v) => readWebsiteAnswer({ hasWebsite: v, website: "abc.ca" }).hasWebsite === null));
+
+  // The capture: the page's body carries it, the normaliser keeps it.
+  const base = { email: "w@x.com", firstName: "W", companyName: "W Co", password: "secret" };
+  const bodyNo = captureBodyFor({ ...base, hasWebsite: false, website: "leftover.com" }, "account");
+  ok("the capture body carries a No, and no address with it", bodyNo.hasWebsite === false && bodyNo.website === null);
+  const bodyYes = captureBodyFor({ ...base, hasWebsite: true, website: "shop.example.ca" }, "account");
+  ok("…and a Yes with its address", bodyYes.hasWebsite === true && bodyYes.website === "shop.example.ca");
+  ok("…and an unanswered question as null", captureBodyFor(base, "account").hasWebsite === null);
+  ok("the password is still never in the body", !JSON.stringify(bodyYes).includes("secret"));
+  const readYes = normaliseCapture(bodyYes);
+  ok("normaliseCapture keeps the yes and the normalised address", readYes.lead.hasWebsite === true && readYes.lead.website === "https://shop.example.ca");
+  const half = normaliseCapture({ ...bodyYes, website: "shop" });
+  ok("…a half-typed address keeps the yes and drops the address (a draft, not a refusal)", half.lead.hasWebsite === true && half.lead.website === null && !half.error);
+  ok("…a hostile hasWebsite is unanswered", normaliseCapture({ ...bodyYes, hasWebsite: "true" }).lead.hasWebsite === null);
+
+  // The write: a later "no" clears the address; an unanswered capture keeps the answer.
+  const existing = { stepReached: "account", hasWebsite: true, website: "https://shop.example.ca", trades: [], serviceCategoryIds: [] };
+  const toNo = planCaptureWrite({ existing, incoming: normaliseCapture(bodyNo).lead, now: NOW });
+  ok("a later No clears the stored address", toNo.data.hasWebsite === false && toNo.data.website === null);
+  const silent = planCaptureWrite({ existing, incoming: normaliseCapture(captureBodyFor(base, "account")).lead, now: NOW });
+  ok("a capture that does not answer keeps the stored answer and address", silent.data.hasWebsite === true && silent.data.website === "https://shop.example.ca");
+
+  // The resume puts it back.
+  resetDbStub();
+  rows.signupLead.push({ id: "lw", emailKey: "w@x.com", email: "w@x.com", resumeToken: "tok-w", stepReached: "industry", hasWebsite: false, website: null, trades: [], serviceCategoryIds: [] });
+  const prefill = await signupLeadForResume({ client: db, token: "tok-w" });
+  ok("the resume prefill carries the No", prefill?.hasWebsite === false);
+  const page = read("app/signup/page.js");
+  ok("the page puts a stored answer back only while its own is empty", /if \(next\.hasWebsite == null && \(p\.hasWebsite === true \|\| p\.hasWebsite === false\)\)/.test(page));
+  ok("the tab's draft keeps it (the whole form is saved, minus the password)", /hasWebsite: null,\n\s+website: "",/.test(page) && /const \{ password, \.\.\.safeForm \} = form;/.test(page));
+  ok("the company is created with it, re-read server-side", /readWebsiteAnswer\(\{ hasWebsite, website \}\)/.test(read("app/api/companies/route.js")) && /website: websiteAnswer\.website,\n\s+hasWebsite: websiteAnswer\.hasWebsite,/.test(read("app/api/companies/route.js")));
+  ok("the schema carries the answer on the company and the draft row", /hasWebsite\s+Boolean\?/.test(read("prisma/schema.prisma")) && /model SignupLead \{[\s\S]*hasWebsite Boolean\?\n\s+website\s+String\?/.test(read("prisma/schema.prisma")));
 }
 
 console.log(`\n${checks} checks, ${failures} failed`);
