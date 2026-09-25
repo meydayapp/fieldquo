@@ -470,6 +470,13 @@ export default function LineItemLibrary({
                             <Plus size={11} /> {t("app.templateLines.addWith", "Add with its {count} template lines", { count: tpl.count })}
                           </button>
                         </div>
+                        {/* The template's lines this group's own calculator
+                            already bills, left out and said so. */}
+                        {tpl.skippedNote ? (
+                          <p className="pl-3 text-[11px] text-muted-foreground" data-template-skipped>
+                            {tpl.skippedNote}
+                          </p>
+                        ) : null}
                       </div>
                     );
                   })}

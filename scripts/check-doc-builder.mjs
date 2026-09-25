@@ -567,7 +567,10 @@ for (const [lang, tab, prepared] of [["fr", "Devis", "Préparé pour"], ["es", "
     </LanguageProvider>,
   );
   const stairsCard = cardsDoc.split('data-service-card="stairs"')[1]?.split("data-service-card=")[0] || "";
-  ok("a templated service's card offers it with its template lines", /data-service-card-template="p2"/.test(stairsCard) && /Add with its template lines \(2\)/.test(stairsCard), stairsCard.slice(0, 400));
+  // Two template lines; the tread line prices what the stair takeoff already
+  // prices, so the card offers ONE and says why (keysPricedByGroup).
+  ok("a templated service's card offers it with its template lines", /data-service-card-template="p2"/.test(stairsCard) && /Add with its template lines \(1\)/.test(stairsCard), stairsCard.slice(0, 400));
+  ok("…holding back the tread line the stair takeoff already bills, and saying so", /data-service-card-template-skipped[^>]*>Treads — already priced by the stair takeoff, so not added again\./.test(stairsCard), stairsCard.slice(0, 600));
   ok("…priced from the company's own service", /from \$95\.00 \/ tread/.test(stairsCard), stairsCard.slice(0, 400));
   const cabCard = cardsDoc.split('data-service-card="cabinet_refinishing"')[1]?.split("data-service-card=")[0] || "";
   ok("a service with no template offers no template action", !/data-service-card-template/.test(cabCard));

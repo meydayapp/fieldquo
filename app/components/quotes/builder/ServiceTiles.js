@@ -410,6 +410,11 @@ export default function ServiceTiles({ categories = [], onAdd, documentLanguage,
                   {/* The library's own words for the same action, so the
                       card and the dialog name it identically. */}
                   {t("app.templateLines.addWith", "Add with its template lines ({count})", { count: tpl.count })}
+                  {tpl.note ? (
+                    <span className="block font-normal text-muted-foreground" data-service-card-template-skipped>
+                      {tpl.note}
+                    </span>
+                  ) : null}
                 </span>
               </button>
             ))}

@@ -123,6 +123,8 @@ import {
   measurementsFromGroups,
   refillTemplateRun,
   serviceTextIn,
+  keysPricedByGroup,
+  calculatorOfTrade,
   templateOffered,
   templateRunOf,
 } from "@/lib/quotes/serviceTemplateLines";
@@ -1148,6 +1150,18 @@ export function QuoteBuilderForm({
   // the company already has — its wording (Settings › Services), its own
   // services' prices (Products & Services), its rate — and a field with no
   // source is left off the card rather than filled with a guess.
+  // "Treads, Risers — already priced by the stair takeoff, so not added
+  // again." Under a template action whose lines were held back.
+  function templateSkipNote(summary, categoryKey) {
+    const skipped = Array.isArray(summary?.skipped) ? summary.skipped : [];
+    if (!skipped.length) return null;
+    const calc = calculatorOfTrade(categoryKey);
+    return t("app.templateLines.pricedByCalculator", "{lines} — already priced by the {calc}, so not added again.", {
+      lines: skipped.map((x) => x.description).join(", "),
+      calc: t(`app.templateLines.calc_${calc || "intake"}`),
+    });
+  }
+
   function serviceCardDetails(category) {
     const lang = quoteLanguage || companyLanguage;
     const money = (n) => formatAppMoney(n, companyCurrency, "en");
@@ -1176,13 +1190,21 @@ export function QuoteBuilderForm({
         : perDoor > 0
           ? `${money(perDoor)} · ${t("app.setInstantQuotes.perDoor", "Per door")}`
           : null;
+    // The units the new group's own calculator bills are held back from its
+    // template (keysPricedByGroup) — counted and named here as they will be
+    // added, so the card never offers "3 lines" and adds 1.
+    const pricedKeys = keysPricedByGroup({ categoryKey: category.key });
     const templates = templatesFor({ products: own, categoryId: category.id, categoryKey: category.key })
-      .map((p) => ({
-        id: String(p.id),
-        name: serviceTextIn(p, lang, companyLanguage).name,
-        count: expandServiceTemplate(p, { currency: companyCurrency, heading: false }).summary.lines,
-        onAdd: () => addScopeGroupWithTemplate(category, p),
-      }))
+      .map((p) => {
+        const { summary } = expandServiceTemplate(p, { currency: companyCurrency, heading: false, pricedKeys });
+        return {
+          id: String(p.id),
+          name: serviceTextIn(p, lang, companyLanguage).name,
+          count: summary.lines,
+          note: templateSkipNote(summary, category.key),
+          onAdd: () => addScopeGroupWithTemplate(category, p),
+        };
+      })
       .filter((x) => x.count > 0);
     return { description, priceHint, templates };
   }
@@ -1205,6 +1227,7 @@ export function QuoteBuilderForm({
       companyLanguage,
       currency: companyCurrency,
       runId: crypto.randomUUID(),
+      pricedKeys: keysPricedByGroup(group),
     });
     setScopeGroups((prev) => [...prev, { ...group, lineItems: lines }]);
   }
@@ -1529,6 +1552,10 @@ export function QuoteBuilderForm({
       companyLanguage,
       currency: companyCurrency,
       runId: crypto.randomUUID(),
+      // Not the units this group's own calculator already bills (the stair
+      // takeoff's treads, a cabinet group's doors…) — they would be billed
+      // twice. See keysPricedByGroup.
+      pricedKeys: keysPricedByGroup(scopeGroups.find((g) => g.tempId === groupTempId)),
     });
     if (!lines.length) return;
     setScopeGroups((prev) =>
@@ -2328,13 +2355,17 @@ export function QuoteBuilderForm({
                 measurements: templateMeasurements(group.tempId),
                 currency: companyCurrency,
                 heading: false,
+                pricedKeys: keysPricedByGroup(group),
               });
+              // Every line prices what this group's calculator already
+              // prices: nothing to add, so no action is offered.
               if (!summary.lines) return null;
               return {
                 count: summary.lines,
                 measured: summary.measured,
                 filled: summary.filled,
                 alreadyAdded: group.lineItems.some((l) => templateRunOf(l)?.productId === String(product.id)),
+                skippedNote: templateSkipNote(summary, group.categoryKey),
               };
             }}
             onAddProductTemplate={(product) => addProductTemplate(group.tempId, product)}

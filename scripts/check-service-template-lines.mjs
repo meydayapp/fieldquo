@@ -35,7 +35,11 @@ import {
   calculatorFor,
   unfinishedTemplateLines,
   serviceTextIn,
+  keysPricedByGroup,
 } from "@/lib/quotes/serviceTemplateLines";
+import { readFileSync } from "node:fs";
+import { groupSubtotal, newScopeGroup } from "@/lib/quotes/builderPayload";
+import { stairsFromSteps } from "@/lib/estimate/stairsFromSteps";
 import { lineFromProduct } from "@/lib/quotes/lineDetail";
 import { applyLineItemEdit, scopeGroupPayload } from "@/lib/quotes/builderPayload";
 import { completenessChecks } from "@/lib/quotes/completeness";
@@ -264,6 +268,93 @@ section("I — ventCount / returnCount registered");
   const expanded = expandServiceTemplate({ id: "d", name: "Duct", templateLines: stored }, { currency: "USD", runId: "v", heading: false });
   const vent = expanded.lines.find((l) => l.meta.template.measurementKey === "ventCount");
   ok(vent && vent.quantity === 0 && vent.meta.template.awaiting && calculatorFor("ventCount", []) === null, "a vent line waits for the count, and names no calculator (counted on site)", vent);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("J — a template never bills the units its group's own calculator already bills");
+// A stair service whose template prices per tread / riser plus a flat
+// containment fee, added to a stairs group whose takeoff already prices 14
+// treads — from the library (into the filled group) and from the service card
+// (a fresh group whose takeoff is filled afterwards). The total must be the
+// takeoff PLUS the containment fee, never the treads twice.
+{
+  const stairProduct = {
+    id: "p_stair", name: "Stair refinish", description: "Sand and stain.", unitPrice: 95, unit: "tread",
+    templateEnabled: true, estimateTypes: [], categories: [{ id: "cat_st", label: "Stairs" }],
+    templateLines: [
+      { kind: "labour", name: "Treads", qty: 1, unit: "each", unitPrice: 95, measurementKey: "treads" },
+      { kind: "labour", name: "Risers", qty: 1, unit: "each", unitPrice: 40, measurementKey: "risers" },
+      { kind: "other", name: "Dust containment", qty: 1, unit: "flat", unitPrice: 120 },
+    ],
+  };
+  const d = stairsFromSteps({ steps: 14, shape: "L" });
+  const stairs = newScopeGroup({ id: "cat_st", key: "stairs", label: "Stairs" }, "Stairs", null, { tempId: "st" });
+  const s0 = stairs.takeoff.sections[0];
+  const filled = {
+    ...stairs,
+    takeoff: { ...stairs.takeoff, sections: [{ ...s0, treads: d.treads, risers: d.risers, paintRisers: true }] },
+  };
+  const takeoffOnly = groupSubtotal(filled, null);
+  ok(takeoffOnly > 0, "the stair takeoff prices the treads on its own", takeoffOnly);
+
+  // The library path, guarded as QuoteBuilder calls it.
+  const guarded = expandServiceTemplate(stairProduct, {
+    measurements: measurementsFromGroups([filled], { targetTempId: "st" }),
+    currency: "USD", runId: "g", heading: false, pricedKeys: keysPricedByGroup(filled),
+  });
+  const withTemplate = groupSubtotal({ ...filled, lineItems: [...filled.lineItems, ...guarded.lines] }, null);
+  ok(withTemplate === Math.round((takeoffOnly + 120) * 100) / 100, "library: takeoff + the flat fee — the treads are NOT billed twice", { takeoffOnly, withTemplate });
+  ok(!guarded.lines.some((l) => ["treads", "risers"].includes(l.meta.template.measurementKey)), "…no tread or riser line was added");
+  ok(guarded.summary.lines === 1 && guarded.summary.skipped?.map((x) => x.measurementKey).join() === "treads,risers", "…and the summary names what was held back", guarded.summary);
+
+  // Without the guard — what shipped before — the same add doubles them.
+  const unguarded = expandServiceTemplate(stairProduct, {
+    measurements: measurementsFromGroups([filled], { targetTempId: "st" }), currency: "USD", runId: "u", heading: false,
+  });
+  const doubled = groupSubtotal({ ...filled, lineItems: [...filled.lineItems, ...unguarded.lines] }, null);
+  ok(doubled > withTemplate + 14 * 95 - 0.01, "(the unguarded add is the double-billing this closes)", { doubled, withTemplate });
+
+  // The card path: a FRESH group (empty takeoff) — the rule is static per
+  // trade, so filling the takeoff afterwards still does not double.
+  const fresh = newScopeGroup({ id: "cat_st", key: "stairs", label: "Stairs" }, "Stairs", null, { tempId: "st2" });
+  const card = expandServiceTemplate(stairProduct, {
+    measurements: measurementsFromGroups([fresh], { targetTempId: "st2" }), currency: "USD", runId: "c", pricedKeys: keysPricedByGroup(fresh),
+  });
+  const cardFilled = { ...fresh, lineItems: card.lines, takeoff: filled.takeoff };
+  ok(groupSubtotal(cardFilled, null) === withTemplate, "card: filling the takeoff after the add gives the same total, not double", groupSubtotal(cardFilled, null));
+
+  // Cabinets: the base line bills every door and drawer front.
+  const cab = { ...newScopeGroup({ id: "cat_cab", key: "cabinet_refinishing", label: "Cabinets" }, "Cabinets", null, { tempId: "cb" }), intakeValues: { doorCount: 20, drawerCount: 4 } };
+  const perDoor = { id: "p_cab", name: "Refinish", templateEnabled: true, categories: [{ id: "cat_cab" }], templateLines: [
+    { kind: "labour", name: "Door refinishing", qty: 1, unit: "each", unitPrice: 150, measurementKey: "doorCount" },
+    { kind: "other", name: "Masking", qty: 1, unit: "flat", unitPrice: 80 },
+  ] };
+  const cabAdd = expandServiceTemplate(perDoor, { measurements: measurementsFromGroups([cab]), currency: "USD", runId: "k", heading: false, pricedKeys: keysPricedByGroup(cab) });
+  ok(groupSubtotal({ ...cab, lineItems: cabAdd.lines }, null) === Math.round((groupSubtotal(cab, null) + 80) * 100) / 100, "cabinets: the doors the unit price bills are not billed again by a per-door template line");
+
+  // The other takeoff-priced trades, and painting read from its own areas.
+  ok(keysPricedByGroup({ categoryKey: "roofing_service" }).includes("squares") && keysPricedByGroup({ categoryKey: "flooring" }).join() === "floorSqft"
+    && keysPricedByGroup({ categoryKey: "gutter_services" }).includes("gutterFt") && keysPricedByGroup({ categoryKey: "siding" }).join() === "wallSqft",
+    "roofing, flooring, gutters and siding hold back what their takeoffs price");
+  const paintNoSubstrate = { categoryKey: "interior_painting", takeoff: { model: "area_substrate", areas: [{ lengthFt: 10, widthFt: 12, heightFt: 8, substrates: [] }] } };
+  const paintWalls = { categoryKey: "interior_painting", takeoff: { model: "area_substrate", areas: [{ lengthFt: 10, widthFt: 12, heightFt: 8, substrates: [{ key: "walls", driver: "wallSqft" }] }, { optional: true, substrates: [{ key: "ceiling", driver: "ceilingSqft" }] }] } };
+  ok(keysPricedByGroup(paintNoSubstrate).length === 0, "painting: rooms measured but not priced leave the template everything (the design it was built on)");
+  ok(keysPricedByGroup(paintWalls).join() === "wallSqft", "painting: a walls substrate holds back wall sq ft — and an OPTIONAL room's ceiling does not", keysPricedByGroup(paintWalls));
+  ok(keysPricedByGroup({ categoryKey: "electrical" }).length === 0 && keysPricedByGroup(null).length === 0 && keysPricedByGroup({ categoryKey: "__proto__" }).length === 0,
+    "a trade with no calculator (and junk) holds nothing back");
+
+  // Every template line held back → nothing to add, not a heading over nothing.
+  const onlyTreads = { ...stairProduct, templateLines: stairProduct.templateLines.slice(0, 2) };
+  const none = expandServiceTemplate(onlyTreads, { currency: "USD", runId: "n", pricedKeys: keysPricedByGroup(filled) });
+  ok(none.lines.length === 0 && none.summary.lines === 0, "a template that ONLY prices the calculator's units adds nothing (and the builder offers no action)", none);
+  // An add with nothing held back reads exactly as before.
+  ok(JSON.stringify(expandServiceTemplate(stairProduct, { currency: "USD", runId: "x", pricedKeys: [] })) === JSON.stringify(expandServiceTemplate(stairProduct, { currency: "USD", runId: "x" })),
+    "no priced keys → byte-identical to the unguarded add (every other trade unchanged)");
+
+  // Every add path in the builder passes the guard.
+  const builder = readFileSync(new URL("../app/components/quotes/builder/QuoteBuilder.js", import.meta.url), "utf8");
+  ok((builder.match(/pricedKeys: keysPricedByGroup\(|const pricedKeys = keysPricedByGroup\(/g) || []).length === 4,
+    "the library add, the library preview, the card preview and the card add all hold the calculator's units back", (builder.match(/keysPricedByGroup\(/g) || []).length);
 }
 
 console.log(`\n${passed} passed, ${fail} failed`);
