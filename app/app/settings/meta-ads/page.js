@@ -194,6 +194,17 @@ function MetaAdsPageScreen() {
             "Connect your own Meta (Facebook/Instagram) ad account to bring spend and campaign performance into your marketing numbers.",
           )}
         </p>
+        {/* The other half of Meta ads, which needs no connection at all: the
+            link and URL parameters an ad points at, and what those clicks
+            became on the company's own pages. Shown in every state. */}
+        <p className="text-xs text-muted-foreground mt-2 flex flex-wrap gap-x-3 gap-y-1">
+          <Link href="/app/settings/instant-quotes#ad-tracking" className="underline text-foreground">
+            {t("app.setMetaAds.adLinkLink")}
+          </Link>
+          <Link href="/app/leads/traffic#campaigns" className="underline text-foreground">
+            {t("app.setMetaAds.trafficLink")}
+          </Link>
+        </p>
       </div>
 
       {banner && (

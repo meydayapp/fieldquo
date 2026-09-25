@@ -7,8 +7,10 @@
 // malformed id with the field named; this card puts the refusal beside that
 // field rather than in a toast that disappears.
 //
-// Below the form: the tracking link builder for the instant estimate, and the
-// way to the report the whole thing feeds (Leads › Visits & unfinished).
+// Below the form: the ad-link builder for every page an ad can open — the
+// instant estimate, each published funnel, the booking page and the website
+// (app/api/leads/traffic/landings) — and the way to the report the whole
+// thing feeds (Leads › Visits & unfinished, campaign ▸ ad set ▸ ad).
 "use client";
 
 import { useEffect, useState } from "react";
@@ -79,6 +81,32 @@ export default function AdTrackingCard() {
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const baseUrl = publicSlug && origin ? `${origin}/instant-quote/${publicSlug}` : null;
+
+  // Every page an ad can open whose visits are counted
+  // (app/api/leads/traffic/landings). A failed load falls back to the
+  // instant estimate alone — the one page this card always offered — and
+  // says so.
+  const [landingRows, setLandingRows] = useState(null);
+  const [landingsError, setLandingsError] = useState("");
+  useEffect(() => {
+    fetchJson("/api/leads/traffic/landings")
+      .then((d) => setLandingRows(Array.isArray(d?.landings) ? d.landings : []))
+      .catch(() => setLandingsError(t("app.adLinks.loadFailed")));
+  }, [t]);
+  const landingLabel = (l) => {
+    if (l.kind === "instant_quote") return t("app.traffic.instantEstimate");
+    if (l.kind === "funnel") return `${t("app.traffic.funnel")} · ${l.name}`;
+    if (l.kind === "booking") return t("app.adLinks.bookingPage");
+    if (l.kind === "booking_type") return `${t("app.adLinks.bookingPage")} · ${l.name}`;
+    if (l.kind === "website") return t("app.traffic.source.website");
+    return l.key;
+  };
+  const landings =
+    landingRows && origin
+      ? landingRows
+          .map((l) => ({ key: l.key, label: landingLabel(l), url: l.url || (l.path ? `${origin}${l.path}` : null) }))
+          .filter((l) => l.url)
+      : null;
 
   return (
     <section id="ad-tracking" className="mt-8 rounded-xl border border-border bg-card p-4 sm:p-5 scroll-mt-4">
@@ -159,7 +187,8 @@ export default function AdTrackingCard() {
         </>
       )}
 
-      <TrackingLinkBuilder baseUrl={baseUrl} className="mt-5" />
+      {landingsError && <p className="mt-5 text-xs text-red-700 dark:text-red-400">{landingsError}</p>}
+      <TrackingLinkBuilder baseUrl={baseUrl} landings={landings?.length ? landings : null} className="mt-5" />
 
       <Link href="/app/leads/traffic" className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-foreground underline">
         <BarChart3 size={14} /> {t("app.tracking.openReport")}
