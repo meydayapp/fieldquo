@@ -321,7 +321,11 @@ ok("the no-recipient branch reverts the claim too",
 ok("the cron formats decision.lockAt for the email (not left for the email module to invent)",
   /formatDateOnly\(decision\.lockAt\)/.test(cron));
 
-const schema = stripComments(readFileSync("prisma/schema.prisma", "utf8"));
+// Line comments only: Prisma has no block comments, so a `/*` in a schema
+// doc comment (a glob like `app/data/serviceSeeds/*`) is literal text, and
+// the JS stripper above paired it with a later `*/` and deleted thousands of
+// lines — Subscription among them.
+const schema = readFileSync("prisma/schema.prisma", "utf8").replace(/(^|[^:])\/\/.*$/gm, "$1");
 const subModel = schema.slice(schema.indexOf("model Subscription {"));
 const subBody = subModel.slice(0, subModel.indexOf("\n}"));
 ok("Subscription carries the first-notice marker",
