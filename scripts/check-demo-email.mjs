@@ -276,9 +276,11 @@ const COVERAGE = [
     needle: "companyId: company.id",
   },
   {
-    file: "app/api/instant-quote/[companySlug]/request/route.js",
-    fn: "POST",
-    what: "the instant-quote confirmation",
+    // The plain confirmation email became the estimate REPORT (a4789c739):
+    // the request route now calls publishEstimateReport, which does the send.
+    file: "lib/estimate/report/publish.js",
+    fn: "publishEstimateReport",
+    what: "the instant-quote estimate report — emailed to the homeowner on submit",
     needle: "companyId: company.id",
   },
   {
