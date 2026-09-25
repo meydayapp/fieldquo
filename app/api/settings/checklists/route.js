@@ -23,6 +23,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import {
   normalizeChecklistItems,
   normalizePhase,
+  ITEM_LANGUAGES,
 } from "@/lib/jobs/checklistItems";
 
 // Items are stored as objects, not bare strings, because a visit's copy needs
@@ -32,8 +33,30 @@ import {
 // forcePhase: a template is single-phase, so every item in it takes the
 // template's phase — otherwise moving a list from "during" to "post" would
 // leave its items claiming the old one.
+// keepI18n: a template carries its items' wording in every language, and the
+// copy onto a job or visit carries it on so each crew member reads their own
+// (lib/checklists/typedItems.js itemsFromTemplate / localizeItem).
 function normalizeItems(items, phase) {
-  return normalizeChecklistItems(items, { phase, forcePhase: true });
+  return normalizeChecklistItems(items, { phase, forcePhase: true, keepI18n: true });
+}
+
+// ServiceCategory keys, the vocabulary Quote.quoteType and scope groups use.
+// Shape-checked rather than looked up: a key for a trade the company later
+// switches on is a legitimate thing to have ticked, and an unknown key simply
+// never matches a job (lib/checklists/autoAdd.js).
+function cleanAutoAddFor(value) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.map((v) => String(v || "").trim()).filter((v) => /^[a-z0-9_]{1,64}$/.test(v)))].slice(0, 40);
+}
+
+function cleanTranslations(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const out = {};
+  for (const lang of ITEM_LANGUAGES) {
+    const name = typeof value[lang]?.name === "string" ? value[lang].name.trim().slice(0, 200) : "";
+    if (name) out[lang] = { name };
+  }
+  return Object.keys(out).length ? out : null;
 }
 
 function requireManage(member) {
@@ -133,7 +156,7 @@ export async function POST(request) {
     return NextResponse.json(body, { status });
   }
 
-  const { name, items, categoryId, phase } = await request
+  const { name, items, categoryId, phase, requiredToClose, autoAddFor, translations } = await request
     .json()
     .catch(() => ({}));
 
@@ -177,6 +200,9 @@ export async function POST(request) {
       items: normalized,
       phase: resolvedPhase,
       categoryId: categoryId || null,
+      requiredToClose: requiredToClose === true,
+      autoAddFor: cleanAutoAddFor(autoAddFor),
+      translations: cleanTranslations(translations) ?? undefined,
     },
     include: { category: { select: { id: true, label: true } } },
   });
@@ -195,7 +221,7 @@ export async function PATCH(request) {
     return NextResponse.json(body, { status });
   }
 
-  const { id, name, items, categoryId, phase } = await request
+  const { id, name, items, categoryId, phase, requiredToClose, autoAddFor, translations } = await request
     .json()
     .catch(() => ({}));
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
@@ -232,6 +258,12 @@ export async function PATCH(request) {
         ),
       }),
       ...(categoryId !== undefined && { categoryId: categoryId || null }),
+      ...(requiredToClose !== undefined && { requiredToClose: requiredToClose === true }),
+      ...(autoAddFor !== undefined && { autoAddFor: cleanAutoAddFor(autoAddFor) }),
+      // Emptied translations are stored as {} rather than SQL NULL — writing
+      // NULL to a Json column needs Prisma.DbNull, and {} reads identically
+      // ("no other-language name") everywhere translations are read.
+      ...(translations !== undefined && { translations: cleanTranslations(translations) ?? {} }),
     },
     include: { category: { select: { id: true, label: true } } },
   });
