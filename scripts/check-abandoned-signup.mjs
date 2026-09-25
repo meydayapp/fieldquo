@@ -757,6 +757,8 @@ const EARLY_CASES = [
   ["a lead the owner removed from the list", leadPerson({ signupDismissal: { dismissedAt: T0, restoredAt: null } }), {}, "dismissed"],
   ["…restored, it is a person again", leadPerson({ signupDismissal: { dismissedAt: T0, restoredAt: T0 } }), {}, "due"],
   ["a company with no card, ten minutes on, is due", companyPerson(), {}, "due"],
+  // jaspedo, 2026-09-25: a card-free trial FINISHED signing up and must never hear "you didn't finish".
+  ["a card-free trial (trialEndsAt, no subscription) finished signing up", companyPerson({ trialEndsAt: new Date(T0 + 30 * 86400000) }), {}, "completed"],
   ["a company whose lead was seen a minute ago is still moving", companyPerson({ signupLead: { lastSeenAt: new Date(T0 - 60000), trades: [] } }), {}, "still_active"],
   ["suppressed", leadPerson(), { suppressed: true }, "suppressed"],
   ["already sent — exactly once", leadPerson(), { alreadySent: true }, "already_sent"],
