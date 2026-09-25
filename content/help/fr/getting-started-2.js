@@ -673,7 +673,7 @@ export const ARTICLES = {
         blocks: [
           { bullets: [
             "**Je peux importer mes anciens clients et chantiers ?** Oui — des imports CSV pour les clients, les anciens chantiers et les soumissions, ou le service de migration payant où FieldQuo s'en charge. Voir [[import-clients-from-a-csv|Importer des clients depuis un CSV]] et [[the-data-migration-service|Le service de migration de données]].",
-            "**Est-ce synchronisé avec QuickBooks ou Xero ?** Non. Il y a un export comptable CSV conçu pour être importé dans les deux. Voir [[quickbooks-xero-and-your-bookkeeper|QuickBooks, Xero et votre comptable]].",
+            "**Est-ce synchronisé avec QuickBooks ou Xero ?** Non, et FieldQuo n'exporte pas non plus votre comptabilité en fichiers; votre comptable travaille à partir des PDF et des états financiers à l'écran. Voir [[quickbooks-xero-and-your-bookkeeper|QuickBooks, Xero et votre comptable]].",
             "**Y a-t-il une API, ou Zapier ?** Pas encore. Voir [[no-public-api-or-zapier|Pas d'API publique ni de Zapier, pour l'instant]].",
             "**Je peux récupérer mes données, ou les faire supprimer ?** Oui. Voir [[data-and-privacy|Vos données, celles de vos clients, et la suppression]].",
           ] },

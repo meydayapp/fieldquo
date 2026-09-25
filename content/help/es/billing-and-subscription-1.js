@@ -529,7 +529,7 @@ export const ARTICLES = {
         heading: "Resumen",
         blocks: [
           { p: "FieldQuo le cobra a través de Stripe Billing, en su propia moneda: dólares canadienses para una dirección en Canadá, dólares estadounidenses para una en Estados Unidos. Cada período, Stripe emite una factura, cobra la tarjeta registrada y marca la factura como pagada; la factura pagada es el recibo. No hay un correo de recibo separado con la marca de FieldQuo por cada cobro." },
-          { p: "Estas van en la dirección opuesta a las facturas de su pantalla **Facturas**, que son las suyas para sus clientes y pasan por su propia cuenta de Stripe conectada. Las dos nunca se mezclan: su factura de suscripción no está en su exportación contable, y el pago de un cliente nunca está en su cliente de Stripe." },
+          { p: "Estas van en la dirección opuesta a las facturas de su pantalla **Facturas**, que son las suyas para sus clientes y pasan por su propia cuenta de Stripe conectada. Las dos nunca se mezclan: su factura de suscripción nunca aparece entre sus facturas a clientes, y el pago de un cliente nunca está en su cliente de Stripe." },
         ],
       },
       {
@@ -582,7 +582,7 @@ export const ARTICLES = {
     faq: [
       { q: "¿FieldQuo puede enviarme la factura por correo cada mes?", a: "No desde la aplicación. La factura está en el portal de Stripe desde **Gestionar facturación y método de pago**, descargable en PDF." },
       { q: "¿Por qué la factura muestra impuesto cuando mis propias facturas a clientes no?", a: "Son dos ventas distintas. Stripe agrega el impuesto que aplica a FieldQuo vendiéndole a usted, según su dirección de facturación. El impuesto de sus facturas a clientes sale de su propia configuración de impuestos." },
-      { q: "¿Mi suscripción está en la exportación contable?", a: "No. La exportación cubre los pagos de sus clientes y sus gastos. Registre la factura de FieldQuo como gasto de software a partir del PDF." },
+      { q: "¿Mi suscripción aparece en mis gastos?", a: "No, a menos que la agregue. FieldQuo no registra su propio cobro como uno de sus gastos. Registre la factura de FieldQuo como gasto de software a partir del PDF — en sus propios libros, o con Agregar gasto en Gastos." },
     ],
   },
 };

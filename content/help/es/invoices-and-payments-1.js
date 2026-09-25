@@ -82,7 +82,7 @@ export const ARTICLES = {
     faq: [
       { q: "¿Por qué una fila muestra menos que el total de la factura?", a: "La cifra de la derecha es lo que aún se debe, con **Pagado …** debajo cuando se recibió una parte. La tarjeta Pendiente suma exactamente esas cifras, así que la columna y la tarjeta siempre coinciden." },
       { q: "¿Por qué no hay línea roja en una factura que sé que está atrasada?", a: "No tiene vencimiento, o sigue siendo un borrador. Fije un vencimiento al crear o editar la factura; un borrador no está atrasado porque nunca se envió." },
-      { q: "¿Puedo exportar esta lista?", a: "No desde esta pantalla. La exportación contable bajo **Gastos** produce archivos CSV para un rango de fechas — ver [[the-accounting-export|La exportación contable]]." },
+      { q: "¿Puedo exportar esta lista?", a: "No. FieldQuo importa listas, pero no las exporta. Cada factura se descarga por separado en PDF — ver [[the-accounting-export|Qué entregarle a su contador]]." },
     ],
   },
 
@@ -380,7 +380,7 @@ export const ARTICLES = {
             "**El estado** — **Pagada** cuando no se debe nada y se recibió algo; la fecha de pago se estampa entonces.",
             "**La tarea de seguimiento** — «Follow up payment for INV-…» se resuelve una vez saldado el saldo.",
             "**El registro de actividad** — «Recorded a cash payment of 500 on invoice INV-…».",
-            "**Sin comisión** — un pago manual no muestra comisión de procesamiento ni neto depositado; la exportación deja esas celdas vacías en lugar de escribir 0.00. Ver [[payment-processing-fees-and-payouts|Comisiones de procesamiento de pagos y transferencias]].",
+            "**Sin comisión** — un pago manual no muestra comisión de procesamiento ni neto depositado, en lugar de 0.00. Ver [[payment-processing-fees-and-payouts|Comisiones de procesamiento de pagos y transferencias]].",
           ] },
           { warning: "No hay deshacer para un pago registrado desde esta pantalla. Escriba el monto desde el estado de cuenta bancario, no de memoria, y use el campo de notas para la referencia." },
         ],

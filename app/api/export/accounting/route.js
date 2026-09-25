@@ -53,6 +53,16 @@
 // package.json and adding one for ~70 lines of a format that has not changed
 // since 1993 is a worse trade. `unzip -t` on the real bytes is part of
 // scripts/check-accounting-route.mjs, so this is asserted rather than assumed.
+//
+// ══ Off, by decision ═══════════════════════════════════════════════════════
+//
+// Companies can import but not export (owner, 2026-09-24, paying customers
+// included). The first statement of GET refuses with 403 before the session
+// or the database is read — lib/export/companyDataExport.js says why this is
+// a guard and not a deletion. The Expenses screen no longer carries the
+// "Bookkeeping export" card. lib/export/accountingExport.js is untouched: its
+// helpers (dayKey, invoiceFamilies, csvCell, money) are shared by analytics,
+// statements and payroll.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -67,6 +77,7 @@ import {
 } from "@/lib/permissions/enforce";
 import { recordActivity } from "@/lib/activity/log";
 import { buildAccountingExport } from "@/lib/export/accountingExport";
+import { companyDataExportRefusal } from "@/lib/export/companyDataExport";
 
 // ── The range ──────────────────────────────────────────────────────────────
 
@@ -285,6 +296,9 @@ function csvBytes(csv) {
 // ── The handler ────────────────────────────────────────────────────────────
 
 export async function GET(request) {
+  const exportOff = companyDataExportRefusal(NextResponse);
+  if (exportOff) return exportOff;
+
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 

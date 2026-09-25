@@ -895,7 +895,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Overview",
         blocks: [
-          { p: "The screen reads **Products & Services — Add and update your products & services to stay organized when creating quotes, quote templates, jobs, and invoices.** A table of **Name**, **Description** and **Type**, with search, **Add Item**, edit and delete on each row, and two cards for CSV import and export." },
+          { p: "The screen reads **Products & Services — Add and update your products & services to stay organized when creating quotes, quote templates, jobs, and invoices.** A table of **Name**, **Description** and **Type**, with search, **Add Item**, edit and delete on each row, and a card for CSV import." },
           { p: "An item can be limited to certain quote types. In the builder, a service card's **+ Add from Products & Services…** menu lists only the items linked to that type — a flooring group does not offer cabinet hardware — or every item, if the item was left unlinked." },
         ],
       },
@@ -921,11 +921,10 @@ export const ARTICLES = {
           { bullets: [
             "**Search** and **Add Item**.",
             "The table — **Name**, **Description**, **Type** (**Service** or **Product**) — with **Edit** and **Delete** on each row, paged when the list is long.",
-            "**Costs** — **Record what your products and services cost you — set a Cost Price alongside the sale price when you add or edit an item above. It is kept on the item and included in the CSV export; no quote, job-costing or margin figure reads it yet.**",
+            "**Costs** — **Record what your products and services cost you — set a Cost Price alongside the sale price when you add or edit an item above. It is kept on the item; no quote, job-costing or margin figure reads it yet.**",
             "**Import products & services** — **Import CSV** and **Download sample file**. Columns: **name, description, type, unitPrice, costPrice, unit**.",
-            "**Export products & services** — **Export CSV** downloads the whole list.",
           ] },
-          { figure: "live:app-settings-products", caption: "Settings → Products & Services — the table, the Costs card, and the import and export cards." },
+          { figure: "live:app-settings-products", caption: "Settings → Products & Services — the table, the Costs card and the import card." },
         ],
       },
       {
@@ -958,14 +957,14 @@ export const ARTICLES = {
         ],
       },
       {
-        id: "import-and-export",
-        heading: "Import and export",
+        id: "import",
+        heading: "Import",
         blocks: [
-          { p: "**Import CSV** takes a file exported from Excel, Google Sheets or Numbers with the columns **name, description, type, unitPrice, costPrice, unit**; **Download sample file** gives you the shape. **Export CSV** writes the whole list back out in the same shape, so you can edit in a spreadsheet and re-import." },
+          { p: "**Import CSV** takes a file exported from Excel, Google Sheets or Numbers with the columns **name, description, type, unitPrice, costPrice, unit**; **Download sample file** gives you the shape. The list does not go back out as a file, so if you like to edit prices in a spreadsheet, keep that spreadsheet as your master copy." },
           { bullets: [
             "The result reads **Imported … items.** Imported items are unlinked to any quote type — available everywhere — until you edit them.",
             "A row with no name is skipped; a type other than **product** is stored as **Service**. An item added by hand with **Add Item** also gets its description drafted into the other languages your company sends in; an imported item does not.",
-            "The importer is simple: a name with a comma in it must be quoted the way the export writes it.",
+            "The importer is simple: it splits every line at each comma and does not read quotes, so a name or description with a comma in it lands in the wrong columns. Leave commas out of those cells.",
           ] },
           { warning: "Importing does not replace or de-duplicate. Importing the same file twice gives you every item twice." },
         ],
@@ -979,10 +978,10 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "Does Cost price feed the margin on a quote?", a: "Not yet. The screen says so: it is kept on the item and exported, and no quote, job-costing or margin figure reads it. Cost & margin on a quote works from the materials recipes and labour under Settings → Material Costs." },
+      { q: "Does Cost price feed the margin on a quote?", a: "Not yet. The screen says so: it is kept on the item, and no quote, job-costing or margin figure reads it. Cost & margin on a quote works from the materials recipes and labour under Settings → Material Costs." },
       { q: "Why is my item missing from the menu on a quote?", a: "It is linked to other quote types. Edit the item and either tick the type you are quoting or untick everything to make it available on every type." },
       { q: "Can the client see the price book?", a: "No. Only the line you add — its description and amount — reaches the client's page, email and PDF." },
-      { q: "What is the difference between a Service and a Product?", a: "A label on the item, shown in the Type column and kept on the export. Both price the same way on a quote." },
+      { q: "What is the difference between a Service and a Product?", a: "A label on the item, shown in the Type column. Both price the same way on a quote." },
     ],
   },
 

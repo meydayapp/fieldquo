@@ -45,14 +45,34 @@ reader would look for it rather than pretending.
 | Payments · Saving and charging cards | service-plan-bank-debit-mandates (the only stored authorisation), instant-payouts, refunds. **n/a:** saved cards on file, automatic card payments, card reader |
 | Payments · Account and security | what-stripe-asks-for-and-why, payouts-held-or-under-review. **n/a:** 1099-K (Stripe issues it), changing provider, card-changed banner |
 | Payments · Credit and risk | disputes-and-chargebacks, payouts-held-or-under-review. **n/a:** processing limits, underwriting, reserves as a FieldQuo feature (Stripe's, explained in payouts-held-or-under-review) |
-| Business Health (21 reports) | `reports-and-insights` — one article per KPI card the product has (kpi-sales … kpi-customer), the-dashboard-in-detail, how-you-compare, financial-statements, won-and-lost, estimate-accuracy, the-metrics-fieldquo-refuses-to-invent. **n/a:** GPS waypoint, client re-engagement, projected income, taxation report (the accounting export carries tax per code) |
+| Business Health (21 reports) | `reports-and-insights` — one article per KPI card the product has (kpi-sales … kpi-customer), the-dashboard-in-detail, how-you-compare, financial-statements, won-and-lost, estimate-accuracy, the-metrics-fieldquo-refuses-to-invent. **n/a:** GPS waypoint, client re-engagement, projected income, taxation report (financial-statements has a sales-tax-charged summary, on screen only) |
 | Account · ownership, two-step, labs, support access, franchising, close account | administrators, closing-your-account, troubleshooting (read-only support session). **n/a:** two-step verification, labs, franchising / Central, account transfer, "unusual login" notice |
 | Account · Your subscription | the whole `billing-and-subscription` category |
 | Account · Central (multi-location) | n/a |
 | Account · Personal settings, passwords | choose-your-language, troubleshooting (password reset) |
 | App Marketplace (30+ partners) | `integrations`: stripe, facebook-and-instagram, whatsapp, phone-and-texts, google-maps-and-solar, photos-and-files, email-delivery, quickbooks-xero-and-your-bookkeeper, stock-photos-on-your-website, no-public-api-or-zapier. **n/a:** every named partner integration |
-| QuickBooks (new and legacy) | the-accounting-export, quickbooks-xero-and-your-bookkeeper, payment-processing-fees-and-payouts → accounting-export (the model article). **n/a:** a live sync — it is a CSV export |
+| QuickBooks (new and legacy) | the-accounting-export (now “What to hand your accountant”), quickbooks-xero-and-your-bookkeeper, payment-processing-fees-and-payouts → in-your-books (the model article's accounting section). **n/a:** a live sync, and any file export — see below |
 | Videos | the virtual `videos` category, fed by content/help/videos.json |
+
+## Import, not export (owner, 2026-09-24)
+
+“Can import but not export… just hide them even for paying customers.” The
+five bulk exports are gone from /app and their routes answer 403
+(`lib/export/companyDataExport.js`): the products & services CSV, the
+timesheet CSV, a pay run's CSV, the subcontractor year-end CSV and the
+bookkeeping ZIP. Every article now says so plainly where a reader would look
+for one, and `scripts/check-help-centre.mjs` refuses any help text that
+names one of those controls as available. Single documents stay and are still
+described: quote, invoice, work-order, photo-report and prep-guide PDFs,
+payslips and HR tax forms, calendar invites and the feed, review QR codes,
+Designer images, and the two sample/template CSVs an import starts from.
+
+Slugs kept, articles rewritten rather than deleted (a slug is a URL):
+`the-accounting-export` is now “What to hand your accountant”, and
+`the-t5018-year-end-list` is “The T5018 year-end figures” — the totals on the
+Subcontractors screen. The screenshots `live:app-settings-expense-tracking`
+and `harness:subcontractors` predate the change and still show the removed
+card and button until they are recaptured.
 
 ## Only in FieldQuo
 
@@ -208,7 +228,7 @@ _Generated 2026-09-25 — 327 articles in the tree; written: en 327, fr 327, es 
 | `service-plans` — Service plans (recurring billing) | ✓ | ✓ | ✓ | plans | service_plans | ✓ |
 | `service-plan-bank-debit-mandates` — Service plans paid by bank debit: the mandate | ✓ | ✓ | ✓ |  | service_plans | ✓ |
 | `the-client-portal` — The client portal | ✓ | ✓ | ✓ |  | client_portal |  |
-| `the-accounting-export` — The accounting export (CSV for QuickBooks, Xero or your bookkeeper) | ✓ | ✓ | ✓ | expenses | expenses |  |
+| `the-accounting-export` — What to hand your accountant | ✓ | ✓ | ✓ |  | expenses |  |
 | `booking-fees-and-visit-deposits` — Booking fees and visit deposits | ✓ | ✓ | ✓ | settings-booking-page | booking_deposit |  |
 | `money-owed-and-receivables-aging` — Money owed and receivables aging | ✓ | ✓ | ✓ | home | dashboard |  |
 
@@ -251,7 +271,7 @@ _Generated 2026-09-25 — 327 articles in the tree; written: en 327, fr 327, es 
 | `payroll-settings` — Payroll settings | ✓ | ✓ | ✓ | settings-payroll | payroll |  |
 | `payslips` — Payslips | ✓ | ✓ | ✓ |  | payroll |  |
 | `subcontractors-and-insurance` — Subcontractors and their insurance | ✓ | ✓ | ✓ | subcontractors | contractor_payouts |  |
-| `the-t5018-year-end-list` — The T5018 year-end list | ✓ | ✓ | ✓ | subcontractors | contractor_payouts |  |
+| `the-t5018-year-end-list` — The T5018 year-end figures | ✓ | ✓ | ✓ | subcontractors | contractor_payouts |  |
 | `vehicles-and-fleet` — Vehicles and fleet | ✓ | ✓ | ✓ | fleet | proof | ✓ |
 | `purchasing-orders-stock-and-suppliers` — Purchasing: orders, stock and suppliers | ✓ | ✓ | ✓ | purchasing | proof | ✓ |
 | `the-activity-log` — The Activity Log | ✓ | ✓ | ✓ | settings-activity | activity_log |  |

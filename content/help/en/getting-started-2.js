@@ -678,7 +678,7 @@ export const ARTICLES = {
         blocks: [
           { bullets: [
             "**Can I bring my old clients and jobs in?** Yes — CSV imports for clients, past jobs and quotes, or the paid migration service where FieldQuo does it. See [[import-clients-from-a-csv|Import clients from a CSV]] and [[the-data-migration-service|The data migration service]].",
-            "**Does it sync with QuickBooks or Xero?** No. There is a CSV bookkeeping export built to import into both. See [[quickbooks-xero-and-your-bookkeeper|QuickBooks, Xero and your bookkeeper]].",
+            "**Does it sync with QuickBooks or Xero?** No, and FieldQuo does not export your books as files either; your accountant works from the PDFs and the on-screen statements. See [[quickbooks-xero-and-your-bookkeeper|QuickBooks, Xero and your bookkeeper]].",
             "**Is there an API, or Zapier?** Not yet. See [[no-public-api-or-zapier|No public API or Zapier, yet]].",
             "**Can I get my data out, or deleted?** Yes. See [[data-and-privacy|Your data, your clients' data, and deletion]].",
           ] },

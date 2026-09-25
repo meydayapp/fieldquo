@@ -572,79 +572,67 @@ const PART_1 = {
   "quickbooks-xero-and-your-bookkeeper": {
     title: "QuickBooks, Xero et votre comptable",
     summary:
-      "Il n'y a pas de synchronisation en direct avec QuickBooks ni Xero. Ce qui existe est un export comptable — quatre fichiers CSV pour une période — et cet article dit exactement ce qu'il contient et ce qu'il ne contient pas.",
-    updated: "2026-09-12",
+      "Il n'y a pas de synchronisation en direct avec QuickBooks ni Xero, et FieldQuo n'exporte pas votre comptabilité en fichiers. Cet article dit à partir de quoi votre comptable travaille à la place, et ce que FieldQuo n'enregistre pas.",
+    updated: "2026-09-25",
     intro: [
-      "« Est-ce que ça marche avec QuickBooks ? » La réponse honnête : vos chiffres peuvent sortir de FieldQuo sous forme de fichiers propres que votre comptable importe, et rien n'est synchronisé en direct. L'**Export comptable** dans **Dépenses** produit un ZIP de quatre fichiers CSV pour n'importe quelle période — une feuille de synthèse, les factures, les paiements et les dépenses — et tous les comptables de la terre importent un CSV.",
-      "Cet article, c'est cet export : comment le lancer, ce que chaque fichier contient, comment les frais de traitement et les remboursements y paraissent, et les sept choses qu'il ne contient pas, imprimées devant le bouton et encore dans le ZIP pour qu'elles voyagent avec les chiffres.",
+      "« Est-ce que ça marche avec QuickBooks ? » La réponse honnête est non : rien n'est synchronisé, et FieldQuo ne produit pas de fichiers à importer dans QuickBooks ou Xero. FieldQuo fait entrer vos données — clients, prospects, anciens chantiers, un relevé bancaire — mais il ne les fait pas ressortir en fichiers.",
+      "Ce que votre comptable peut avoir, ce sont les documents, chacun en PDF, et les chiffres que FieldQuo additionne à l'écran. Cet article explique comment travailler à partir de ceux-ci, et ce que FieldQuo n'enregistre pas, pour que personne ne le cherche.",
     ],
     sections: [
       {
         id: "overview",
         heading: "Vue d'ensemble",
         blocks: [
-          { p: "Une synchronisation bidirectionnelle avec QuickBooks en ligne ou Xero n'est pas construite. Les propres pages de comparaison de FieldQuo le concèdent : les mots quickbooks, zapier et xero n'apparaissent dans aucun code d'intégration. QuickBooks Desktop est refusé d'emblée, parce qu'il exige un connecteur Windows. Ce qui est construit, c'est l'export, et c'est le même que décrivent l'article sur les frais et les pages sur les comptes à recevoir." },
-          { p: "La carte se trouve au bas de **Dépenses** (le même écran que **Paramètres → Suivi des dépenses**) : **Export comptable — Une période de factures, paiements et dépenses en quatre fichiers CSV dans un seul ZIP — une feuille de synthèse plus un fichier chacun — à remettre à un comptable ou à importer dans son logiciel.** Les montants sont dans la devise de facturation de votre entreprise, définie dans le Profil de l'entreprise ; sans devise, l'export refuse plutôt que de deviner." },
-          { figure: "live:app-settings-expense-tracking", caption: "Suivi des dépenses — les cartes du mois et la carte Export comptable au bas, avec Du, Au et Télécharger la période." },
+          { p: "Une synchronisation bidirectionnelle avec QuickBooks en ligne ou Xero n'est pas construite. Les propres pages de comparaison de FieldQuo le concèdent : les mots quickbooks, zapier et xero n'apparaissent dans aucun code d'intégration. QuickBooks Desktop est refusé d'emblée, parce qu'il exige un connecteur Windows." },
+          { p: "Il n'y a pas non plus de fichier comptable — aucun CSV ni ZIP de factures, de paiements ou de dépenses. Votre comptable saisit les chiffres dans son propre logiciel à partir des PDF et des écrans ci-dessous, ou consulte ces écrans avec son propre accès." },
         ],
       },
       {
-        id: "how-to-run-it",
-        heading: "Comment le lancer",
+        id: "how-your-bookkeeper-works",
+        heading: "Comment votre comptable travaille à partir de FieldQuo",
         blocks: [
           { steps: [
-            "Ouvrez **Dépenses** et descendez jusqu'à **Export comptable**. La période proposée par défaut est le mois dernier.",
-            "Réglez **Du** et **Au**, puis lisez **Ce que ce fichier ne contient pas** en dessous — c'est la liste dont votre comptable a besoin avant d'importer.",
-            "Appuyez sur **Télécharger la période**. Le ZIP s'appelle bookkeeping-… et contient les CSV summary, invoices, payments et expenses.",
-            "Remettez le ZIP à votre comptable, ou importez chaque fichier dans QuickBooks en ligne ou Xero avec leur import CSV, en associant les colonnes une seule fois.",
+            "Ouvrez les **États financiers** de la période, selon la comptabilité que votre comptable utilise pour ses déclarations — état des résultats, flux de trésorerie, taxes facturées. Voir [[financial-statements|États financiers]].",
+            "Téléchargez chaque facture avec **Télécharger le PDF** sur la facture. C'est le document que le client a reçu.",
+            "Lisez le montant, les frais de traitement et le net déposé de chaque paiement en ligne sur la facture; pour voir quels paiements composent un dépôt bancaire, ouvrez **Paramètres → Paiements → Gérer dans Stripe**, où Stripe liste chaque virement.",
+            "Lisez les dépenses du mois dans **Dépenses**, et les reçus photographiés qui les appuient sous **Reçus**.",
           ] },
         ],
       },
       {
-        id: "what-each-file-carries",
-        heading: "Ce que chaque fichier contient",
+        id: "recording-the-figures",
+        heading: "Inscrire les chiffres",
         blocks: [
-          { table: {
-            head: ["Fichier", "Une ligne par", "Colonnes d'argent"],
-            rows: [
-              ["summary", "export — entreprise, période, puis une ligne par devise", "Facturé, dont taxe, Paiements reçus, Remboursements, Frais de traitement, Frais de compte Stripe, Dépenses"],
-              ["invoices", "facture — la dernière version d'une facture modifiée, datée de l'originale", "Sous-total, Rabais, Taxe, si la taxe était activée, Total, Payé, Reçu dans la période, Dû"],
-              ["payments", "paiement — à la date propre du paiement, pas celle de la facture", "Montant (brut), Frais de traitement, Net déposé, Taux des frais, Frais de compte Stripe"],
-              ["expenses", "dépense", "Montant, avec Catégorie, Frais généraux oui/non, Récurrent, Fréquence et Chantier"],
-            ],
-          } },
-          { p: "Passez le brut aux revenus et les frais de traitement à une dépense de frais bancaires à partir de la même ligne de paiement ; le relevé bancaire correspond alors au **net déposé**. Un remboursement émis depuis FieldQuo est sa propre ligne négative dans le fichier des paiements, avec la méthode refund et la raison dans les notes, et il est totalisé sous Remboursements dans la synthèse. Un remboursement fait directement dans Stripe figure dans le montant remboursé du paiement d'origine, pas comme une ligne." },
-          { p: "Chaque cellule de texte qu'une personne a tapée — un nom de client, une catégorie, une note — est protégée pour ne pas s'exécuter comme une formule quand le fichier s'ouvre dans Excel ou Sheets." },
+          { p: "Comptabilisez le brut d'un paiement en revenu et ses frais de traitement en dépense de frais marchands; le dépôt bancaire correspond alors au net déposé. Les frais sont une dépense, pas une vente plus petite — voir [[payment-processing-fees-and-payouts|Frais de traitement des paiements et virements]]." },
+          { p: "Un remboursement fait depuis FieldQuo est une rangée de remboursement à part sous le paiement, avec son motif; le paiement d'origine garde son montant et ses frais. Voir [[refunds|Remboursements]]." },
         ],
       },
       {
         id: "what-it-does-not-contain",
-        heading: "Ce qu'il ne contient pas",
+        heading: "Ce que FieldQuo n'enregistre pas",
         blocks: [
           { bullets: [
-            "C'est un export, pas une déclaration. Rien n'a été transmis à une administration fiscale.",
-            "Il ne peut pas produire de déclaration de taxes. La taxe est un montant unique par facture, sans codes ni détail par ligne — une facture québécoise avec TPS et TVQ a deux taux et un seul chiffre.",
-            "Les dépenses ne portent ni taxe ni fournisseur : les crédits de taxe sur intrants n'y sont pas.",
-            "Les notes de crédit n'existent pas. Les remboursements apparaissent comme leurs propres lignes négatives.",
-            "Il n'y a pas de plan comptable. Rien n'est associé à un compte — votre comptable le fait une fois, à l'import.",
-            "Les colonnes de frais ne sont remplies que pour les paiements en ligne encaissés après que les frais ont commencé à être inscrits sur le paiement (septembre 2026) ; les paiements par carte plus anciens et tous les paiements manuels les laissent vides plutôt que d'écrire 0,00.",
-            "Les jours sont regroupés en UTC, et il n'y a pas de date d'émission de facture — chaque facture indique de quelle colonne vient sa date.",
+            "Une déclaration. Rien dans FieldQuo n'a été versé à une autorité fiscale.",
+            "Une déclaration de taxes de vente. La taxe d'une facture est un seul montant, sans code de taxe et sans taxe par ligne — une facture québécoise avec TPS et TVQ a deux taux et un seul chiffre.",
+            "Les crédits de taxe sur les intrants. Les dépenses ne portent ni taxe ni fournisseur, donc la taxe récupérable sur vos achats n'est pas suivie.",
+            "Les notes de crédit. Les remboursements sont des rangées sous le paiement qu'ils rendent.",
+            "Un plan comptable. Rien n'est associé à un compte du grand livre — votre comptable s'en charge dans son propre logiciel.",
           ] },
-          { warning: "Dites à votre comptable que c'est un jeu de relevés propre, pas un grand livre ni une synchronisation QuickBooks. Un comptable qui l'importe en s'attendant à un grand livre et découvre que ce n'en est pas un blâme le logiciel ; la liste ci-dessus est imprimée devant le bouton pour l'éviter." },
+          { warning: "Dites d'emblée à votre comptable que FieldQuo n'est pas un grand livre et ne se synchronise pas. Un comptable qui s'attend à un grand livre et n'en trouve pas blâme le logiciel; le dire d'abord évite ça." },
         ],
       },
       {
         id: "who-can-see-it",
-        heading: "Qui peut le voir",
+        heading: "Qui peut voir les chiffres",
         blocks: [
-          { p: "L'écran Dépenses lui-même exige l'accès aux dépenses de **tout le monde** dans la grille d'accès — le propriétaire, les administrateurs et le niveau Gestionnaire ; un estimateur ou un répartiteur inscrit ses propres reçus mais ne voit pas le cumul de l'entreprise. Sur cet écran, la carte n'apparaît que pour une personne dont l'accès a aussi **Voir les prix** activé et les factures en **lecture seule** ou mieux. La route pose les mêmes questions à la même grille, alors une personne sans ces droits n'a pas de carte plutôt qu'une carte qui échoue." },
+          { p: "Les états financiers exigent l'interrupteur **Job costing**, **See prices**, l'accès aux **Dépenses** de toute l'entreprise et le droit de gérer les utilisateurs — le niveau **Manager**, les administrateurs et le propriétaire. Un Manager voit les factures, les paiements, les dépenses et les états financiers, mais pas la paie de tout le monde; un administrateur voit aussi la paie et la facturation." },
         ],
       },
     ],
     faq: [
-      { q: "Y aura-t-il une synchronisation QuickBooks ?", a: "Pas aujourd'hui, et FieldQuo ne l'inscrit pas sur ses pages de comparaison. L'export est la porte qui existe ; une synchronisation en direct serait une application approuvée par Intuit avec son propre examen de sécurité, et c'est pourquoi ce n'est pas un ajout rapide." },
-      { q: "Mon comptable peut-il se connecter à la place ?", a: "Oui — invitez-le depuis Gérer l'équipe. Nommez-le administrateur s'il doit voir la facturation ; sinon, un niveau Gestionnaire voit les factures, les paiements et les dépenses et peut lancer l'export." },
-      { q: "Pourquoi les colonnes de frais sont-elles vides sur certains paiements ?", a: "Un paiement manuel ne porte aucuns frais, et un paiement en ligne encaissé avant que les frais soient inscrits sur le paiement n'a pas de frais connus. Une cellule vide dit « aucuns frais connus » ; un 0,00 dirait « aucuns frais », ce qui est une autre affirmation." },
+      { q: "Y aura-t-il une synchronisation QuickBooks ?", a: "Pas aujourd'hui, et FieldQuo ne l'annonce pas sur ses pages de comparaison. Une synchronisation en direct serait une application approuvée par Intuit, avec son propre examen de sécurité, ce qui explique qu'elle ne s'ajoute pas rapidement." },
+      { q: "Mon comptable peut-il plutôt se connecter ?", a: "Oui — invitez-le depuis Gérer l'équipe. Le niveau Manager voit les factures, les paiements, les dépenses et les états financiers; n'en faites un administrateur que s'il doit aussi voir la paie et la facturation." },
+      { q: "Puis-je exporter un CSV pour mon comptable ?", a: "Non. FieldQuo importe des listes, mais ne les exporte pas. Chaque facture et chaque soumission se télécharge en PDF; voir [[the-accounting-export|Ce que vous pouvez remettre à votre comptable]]." },
     ],
   },
 
@@ -710,7 +698,7 @@ const PART_1 = {
   "data-and-privacy": {
     title: "Vos données, celles de vos clients, et la suppression",
     summary:
-      "Qui contrôle quoi, quels services externes voient quelles données, ce que l'IA reçoit et ne reçoit pas, ce que vous pouvez exporter, et le fait tout simple que rien n'est supprimé selon un calendrier — votre compte compris.",
+      "Qui contrôle quoi, quels services externes voient quelles données, ce que l'IA reçoit et ne reçoit pas, ce que vous pouvez télécharger, et le fait tout simple que rien n'est supprimé selon un calendrier — votre compte compris.",
     updated: "2026-09-12",
     intro: [
       "Deux sortes de données vivent dans votre compte FieldQuo. Les données de votre **entreprise** — vos comptes de personnel, votre forfait, votre carte — c'est à FieldQuo d'en prendre soin. Les données de vos **clients** — leurs noms, adresses, soumissions, photos, appels — sont à vous : vous êtes le responsable du traitement et FieldQuo est votre sous-traitant, et c'est pourquoi un propriétaire qui veut faire changer ou retirer ses données est invité à s'adresser à vous d'abord.",
@@ -762,12 +750,10 @@ const PART_1 = {
         heading: "Ce que vous pouvez sortir",
         blocks: [
           { bullets: [
-            "**Export comptable** — un ZIP de quatre CSV (synthèse, factures, paiements, dépenses) pour n'importe quelle période, depuis Dépenses. Voir [[the-accounting-export|L'export comptable]].",
-            "**Liste de prix** — Exporter un CSV dans Paramètres → Produits et services, prix coûtants compris.",
-            "**Liste de fin d'année (CSV)** des sous-traitants et le **CSV de chaque cycle de paie**.",
-            "**PDF** — chaque soumission, facture, bulletin de paie et rapport photo de chantier.",
+            "**Des documents, un à la fois** — chaque soumission et chaque facture en PDF, chaque bulletin de paie, et le rapport photo d'un chantier.",
+            "**Rien en bloc.** FieldQuo fait entrer des listes, mais ne les fait pas ressortir en fichiers : il n'y a aucun export des clients, des chantiers, des prospects, des factures, des paiements, des dépenses, de la liste de prix, des feuilles de temps, des paies ni des photos, et pas de « tout télécharger ».",
           ] },
-          { warning: "Il n'y a pas d'export des clients, des chantiers, des prospects ni des photos, et pas de « tout télécharger ». Avant de demander la suppression d'un compte, prenez les exports ci-dessus et sauvegardez les PDF que vous voulez ; la suppression n'est pas réversible et FieldQuo n'en garde aucune copie pour vous ensuite." },
+          { warning: "Avant de demander la suppression d'un compte, sauvegardez les PDF que vous voulez ; la suppression n'est pas réversible et FieldQuo n'en garde aucune copie pour vous ensuite." },
         ],
       },
       {
@@ -788,7 +774,7 @@ const PART_1 = {
         id: "who-can-see-it",
         heading: "Qui peut agir là-dessus",
         blocks: [
-          { p: "Annuler le forfait et demander une migration sont réservés au **propriétaire et aux administrateurs**. Une demande de suppression de tout le compte doit venir de l'adresse du propriétaire. Les exports suivent l'accès de leurs propres écrans : l'export comptable exige Voir les prix et l'accès en lecture aux factures, l'export de la liste de prix exige Voir les prix, et la liste des sous-traitants exige le coût de revient." },
+          { p: "Annuler le forfait et demander une migration sont réservés au **propriétaire et aux administrateurs**. Une demande de suppression de tout le compte doit venir de l'adresse du propriétaire." },
         ],
       },
     ],
@@ -803,18 +789,18 @@ const PART_1 = {
   "no-public-api-or-zapier": {
     title: "Pas d'API publique ni de Zapier, pour l'instant",
     summary:
-      "FieldQuo n'a ni clés d'API, ni application Zapier, ni webhooks sortants, ni flux de calendrier. Cet article le dit clairement et liste les portes qui existent — intégrations, liens publics, CSV entrants et sortants, l'import Meta et le service de migration.",
+      "FieldQuo n'a ni clés d'API, ni application Zapier, ni webhooks sortants, ni flux de calendrier. Cet article le dit clairement et liste les portes qui existent — intégrations, liens publics, imports CSV, l'import Meta et le service de migration.",
     updated: "2026-09-12",
     intro: [
       "Si vous cherchez une clé d'API à coller quelque part, il n'y en a pas. FieldQuo n'a **pas d'API publique**, **pas d'application Zapier ni Make**, **pas de webhooks à pointer vers votre propre système**, et **pas de flux de calendrier** pour Google ni Outlook. Chaque route du produit authentifie une personne connectée, et les webhooks qui existent sont des fournisseurs — Stripe, Meta, Twilio, Retell — qui appellent FieldQuo, pas FieldQuo qui vous appelle.",
-      "C'est toute la première moitié. La seconde, c'est ce qui existe, parce que « comment je fais entrer et sortir des données » a de vraies réponses même sans API.",
+      "C'est toute la première moitié. La seconde, c'est ce qui existe, parce que « comment je fais entrer des données, et qu'est-ce que je peux en sortir » a de vraies réponses même sans API.",
     ],
     sections: [
       {
         id: "overview",
         heading: "Vue d'ensemble",
         blocks: [
-          { p: "Les propres pages de comparaison de FieldQuo concèdent ces points à la concurrence plutôt que de les laisser entendre : les mots QuickBooks, Zapier et Xero n'apparaissent dans aucun code d'intégration, seulement dans du texte. Le plan inscrit, dans l'ordre, est l'export comptable (construit), puis un webhook sortant signé par événement (pas construit), puis un envoi QuickBooks à sens unique (reporté) ; une application Zapier publiée et une synchronisation comptable bidirectionnelle sont refusées pour l'instant. Rien sur cette page ne doit se lire comme une date." },
+          { p: "Les propres pages de comparaison de FieldQuo concèdent ces points à la concurrence plutôt que de les laisser entendre : les mots QuickBooks, Zapier et Xero n'apparaissent dans aucun code d'intégration, seulement dans du texte. Le plan inscrit, dans l'ordre, est un webhook sortant signé par événement (pas construit), puis un envoi QuickBooks à sens unique (reporté) ; une application Zapier publiée et une synchronisation comptable bidirectionnelle sont refusées pour l'instant. Rien sur cette page ne doit se lire comme une date." },
         ],
       },
       {
@@ -824,14 +810,10 @@ const PART_1 = {
           { table: {
             head: ["Porte", "Ce qui en sort", "Où"],
             rows: [
-              ["**Export comptable**", "Quatre CSV — synthèse, factures, paiements, dépenses — pour une période, dans un seul ZIP", "Dépenses → Télécharger la période. Voir [[quickbooks-xero-and-your-bookkeeper|QuickBooks, Xero et votre comptable]]."],
-              ["**Exporter un CSV**", "Votre liste de prix, prix coûtants compris", "Paramètres → Produits et services"],
-              ["**Liste de fin d'année (CSV)**", "Ce que chaque sous-traitant a reçu dans l'année", "Sous-traitants"],
-              ["**Exporter CSV** sur un cycle de paie", "Les lignes d'un cycle de paie", "Paie"],
-              ["PDF", "Chaque soumission, facture, bulletin de paie et rapport photo de chantier", "Leurs propres écrans, et le courriel du client"],
+              ["PDF", "Chaque soumission, facture, bulletin de paie et rapport photo de chantier, un document à la fois", "Leurs propres écrans, et le courriel du client"],
             ],
           } },
-          { p: "Il n'y a pas d'export des clients, des chantiers, des prospects, des rendez-vous ni des photos. Si vous partez, prenez ces fichiers et les PDF ; voir [[data-and-privacy|Vos données, celles de vos clients, et la suppression]]." },
+          { p: "Il n'y a aucun export des clients, des chantiers, des prospects, des factures, des paiements, des dépenses, de la liste de prix, des feuilles de temps, des paies, des rendez-vous ni des photos : FieldQuo fait entrer des listes, mais ne les fait pas ressortir en fichiers. Si vous partez, sauvegardez d'abord les PDF que vous voulez ; voir [[data-and-privacy|Vos données, celles de vos clients, et la suppression]]." },
         ],
       },
       {
@@ -873,7 +855,7 @@ const PART_1 = {
       },
     ],
     faq: [
-      { q: "Puis-je relier FieldQuo à mon CRM ou à mon tableur ?", a: "Seulement par fichier : les exports CSV vers la sortie et les imports CSV vers l'entrée. Il n'y a pas de lien en direct." },
+      { q: "Puis-je relier FieldQuo à mon CRM ou à mon tableur ?", a: "Non. Il n'y a pas de lien en direct, et le fichier ne va que dans un sens : les listes entrent par import CSV, et rien ne ressort en CSV." },
       { q: "Mon site web peut-il envoyer son propre formulaire dans FieldQuo ?", a: "Utilisez l'extrait d'intégration ou un lien vers la page publique de demande de soumission — c'est la façon prise en charge pour qu'un formulaire sur votre site crée un prospect. Il n'y a pas de point d'entrée pour un formulaire que vous avez construit vous-même." },
       { q: "Serai-je averti quand une API arrivera ?", a: "Paramètres → Nouveautés porte chaque changement ; rien n'est promis ici." },
     ],

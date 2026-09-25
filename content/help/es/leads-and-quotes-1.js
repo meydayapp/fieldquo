@@ -891,7 +891,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Resumen",
         blocks: [
-          { p: "La pantalla dice **Productos y servicios — Agrega y actualiza tus productos y servicios para mantenerte organizado al crear presupuestos, plantillas de presupuesto, trabajos y facturas.** Una tabla con **Name**, **Description** y **Type**, búsqueda, **Agregar artículo**, editar y eliminar en cada fila, y dos tarjetas para importar y exportar CSV." },
+          { p: "La pantalla dice **Productos y servicios — Agrega y actualiza tus productos y servicios para mantenerte organizado al crear presupuestos, plantillas de presupuesto, trabajos y facturas.** Una tabla con **Name**, **Description** y **Type**, búsqueda, **Agregar artículo**, editar y eliminar en cada fila, y una tarjeta para importar CSV." },
           { p: "Un artículo puede limitarse a ciertos tipos de presupuesto. En el generador, el menú «+ Add from Products & Services…» de una tarjeta de servicio lista solo los artículos vinculados a ese tipo — un grupo de pisos no ofrece herrajes de gabinetes — o todos los artículos, si el artículo quedó sin vincular." },
         ],
       },
@@ -917,11 +917,10 @@ export const ARTICLES = {
           { bullets: [
             "La búsqueda y **Agregar artículo**.",
             "La tabla — **Name**, **Description**, **Type** (**Servicio** o **Producto**) — con **Editar artículo** y eliminar en cada fila, paginada cuando la lista es larga.",
-            "**Costos** — **Registra lo que te cuestan tus productos y servicios: define un precio de costo junto al precio de venta cuando agregues o edites un artículo arriba. Se guarda en el artículo y se incluye en la exportación CSV; todavía no hay ningún presupuesto, cálculo de costos ni margen que lo lea.**",
+            "**Costos** — **Registra lo que te cuestan tus productos y servicios: define un precio de costo junto al precio de venta cuando agregues o edites un artículo arriba. Se guarda en el artículo; todavía no hay ningún presupuesto, cálculo de costos ni margen que lo lea.**",
             "**Importar productos y servicios** — **Importar CSV** y **Descargar archivo de ejemplo**. Columnas: **name, description, type, unitPrice, costPrice, unit**.",
-            "**Exportar productos y servicios** — **Exportar CSV** descarga toda la lista.",
           ] },
-          { figure: "live:app-settings-products", caption: "Configuración → Productos y servicios — la tabla, la tarjeta Costos, y las tarjetas de importación y exportación." },
+          { figure: "live:app-settings-products", caption: "Configuración → Productos y servicios — la tabla, la tarjeta Costos y la tarjeta de importación." },
         ],
       },
       {
@@ -954,14 +953,14 @@ export const ARTICLES = {
         ],
       },
       {
-        id: "import-and-export",
-        heading: "Importar y exportar",
+        id: "import",
+        heading: "Importar",
         blocks: [
-          { p: "**Importar CSV** toma un archivo exportado de Excel, Google Sheets o Numbers con las columnas **name, description, type, unitPrice, costPrice, unit**; **Descargar archivo de ejemplo** le da el formato. **Exportar CSV** vuelve a escribir toda la lista con el mismo formato, para que pueda editar en una hoja de cálculo y reimportar." },
+          { p: "**Importar CSV** toma un archivo exportado de Excel, Google Sheets o Numbers con las columnas **name, description, type, unitPrice, costPrice, unit**; **Descargar archivo de ejemplo** le da el formato. La lista no vuelve a salir como archivo: si prefiere editar precios en una hoja de cálculo, conserve esa hoja como su copia de referencia." },
           { bullets: [
             "El resultado dice **Se importaron … artículos.** Los artículos importados quedan sin vincular a ningún tipo de presupuesto — disponibles en todos — hasta que usted los edite.",
             "Una fila sin nombre se omite; un tipo distinto de **product** se guarda como **Servicio**. A un artículo añadido a mano con **Agregar artículo** también se le redacta la descripción en los demás idiomas en que envía su empresa; a uno importado, no.",
-            "El importador es simple: un nombre con una coma debe ir entre comillas, como lo escribe la exportación.",
+            "El importador es simple: corta cada línea en cada coma y no lee comillas, así que un nombre o una descripción con una coma termina en las columnas equivocadas. No ponga comas en esas celdas.",
           ] },
           { warning: "Importar no reemplaza ni elimina duplicados. Importar dos veces el mismo archivo le da cada artículo dos veces." },
         ],
@@ -975,10 +974,10 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "¿El Precio de costo alimenta el margen de un presupuesto?", a: "Todavía no. La pantalla lo dice: se guarda en el artículo y se exporta, y ningún presupuesto, cálculo de costos ni margen lo lee. El costo y el margen de un presupuesto se calculan con las recetas de materiales y la mano de obra en Configuración → Costos de materiales." },
+      { q: "¿El Precio de costo alimenta el margen de un presupuesto?", a: "Todavía no. La pantalla lo dice: se guarda en el artículo, y ningún presupuesto, cálculo de costos ni margen lo lee. El costo y el margen de un presupuesto se calculan con las recetas de materiales y la mano de obra en Configuración → Costos de materiales." },
       { q: "¿Por qué mi artículo no aparece en el menú de un presupuesto?", a: "Está vinculado a otros tipos de presupuesto. Edite el artículo y marque el tipo que está cotizando, o desmarque todo para que esté disponible en todos los tipos." },
       { q: "¿El cliente puede ver la lista de precios?", a: "No. Solo la línea que usted añade — su descripción y su monto — llega a la página, el correo y el PDF del cliente." },
-      { q: "¿Cuál es la diferencia entre un Servicio y un Producto?", a: "Una etiqueta en el artículo, mostrada en la columna Type y conservada en la exportación. Ambos tienen precio de la misma manera en un presupuesto." },
+      { q: "¿Cuál es la diferencia entre un Servicio y un Producto?", a: "Una etiqueta en el artículo, mostrada en la columna Type. Ambos tienen precio de la misma manera en un presupuesto." },
     ],
   },
 

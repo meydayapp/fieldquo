@@ -183,14 +183,11 @@ export default function PayRunPage() {
               {t("app.payrollRun.recordAsPaid", "Record as paid")}
             </button>
           )}
-          {/* A plain link, not a fetch: the browser handles the download and
-              Content-Disposition, and a 403 shows the API's own message. */}
-          <a
-            href={`/api/payroll/runs/${run.id}/export`}
-            className="inline-flex items-center gap-2 border border-border rounded-full px-4 py-2 text-sm font-semibold"
-          >
-            <Download size={14} /> {t("app.payrollRun.exportCsv", "Export CSV")}
-          </a>
+          {/* No "Export CSV" of the whole run here: a company can import but
+              not export (owner, 2026-09-24, paying customers included), and
+              app/api/payroll/runs/[id]/export/route.js answers 403 — see
+              lib/export/companyDataExport.js. Each worker's payslip PDF,
+              below, stays: it is the one document a worker is owed. */}
         </div>
       )}
 

@@ -195,7 +195,7 @@ export const ARTICLES = {
     updated: "2026-09-12",
     intro: [
       "La pantalla **Nómina** calcula lo que debe cobrar cada persona en un periodo, a partir de las horas que un encargado aprobó en Hojas de tiempo y de las tarifas guardadas en su ficha, y genera un recibo de pago por persona. La frase al inicio de la pantalla es todo el contrato: «Pagas a través de tu propio banco o proveedor de nómina: FieldQuo no mueve el dinero.»",
-      "La matriz de funciones marca la nómina como parcial, y el límite es exactamente ese: FieldQuo calcula el bruto, genera los recibos y exporta la nómina. No paga a los empleados ni presenta sus impuestos de nómina — las deducciones son las que usted o su contador cargan en la [[payroll-settings|Configuración de nómina]].",
+      "La matriz de funciones marca la nómina como parcial, y el límite es exactamente ese: FieldQuo calcula el bruto y genera los recibos. No paga a los empleados ni presenta sus impuestos de nómina — las deducciones son las que usted o su contador cargan en la [[payroll-settings|Configuración de nómina]].",
     ],
     sections: [
       {
@@ -214,7 +214,7 @@ export const ARTICLES = {
           { bullets: [
             "**Mis ingresos** — **Periodo actual** con sus fechas y día de pago, sus horas aprobadas × su tarifa (o «No hay una tarifa por hora en tu ficha, así que todavía no se puede calcular.»), una barra de avance del periodo, luego **Bruto**, **Deducciones** y **Neto** del año, y después sus recibos.",
             "**Nuevo ciclo de pago** — «Solo se incluyen las horas aprobadas. Aprueba primero los partes de horas o esas horas no se pagarán.» Cuatro campos: **Inicio del periodo**, **Fin del periodo**, **Frecuencia** (Cada semana, Cada 2 semanas, Dos veces al mes, Una vez al mes) y **Etiquetas del recibo de pago** (Canadá, Estados Unidos, Reino Unido), luego **Calcular**.",
-            "**Ciclos de pago** — una fila por nómina: el periodo, cuántas personas y la región de las etiquetas («5 personas · CA»), el total neto y una insignia de estado. Abrir una fila muestra cada línea y los botones **Aprobar nómina** / **Registrar como pagada** / **Exportar CSV**.",
+            "**Ciclos de pago** — una fila por nómina: el periodo, cuántas personas y la región de las etiquetas («5 personas · CA»), el total neto y una insignia de estado. Abrir una fila muestra cada línea, un **Recibo de pago PDF** por persona una vez aprobada la nómina, y los botones **Aprobar nómina** / **Registrar como pagada**.",
           ] },
         ],
       },
@@ -268,16 +268,16 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Quién puede verlo",
         blocks: [
-          { p: "La fila **Nómina** está en el menú de todos, porque todos tienen recibos de pago. Procesar la nómina — Calcular, Guardar como borrador, Aprobar nómina, Registrar como pagada, Exportar CSV — requiere el área «Payroll & Payslips» en «View everyone's and run payroll», que los propietarios y administradores tienen de forma automática. «View everyone's payslips» abre cada nómina en solo lectura." },
+          { p: "La fila **Nómina** está en el menú de todos, porque todos tienen recibos de pago. Procesar la nómina — Calcular, Guardar como borrador, Aprobar nómina, Registrar como pagada — requiere el área «Payroll & Payslips» en «View everyone's and run payroll», que los propietarios y administradores tienen de forma automática. «View everyone's payslips» abre cada nómina en solo lectura." },
           { p: "Cada preajuste — Crew, Estimator, Dispatcher, Manager — empieza en «View their own payslips». La descripción del Manager dice «no la nómina» y lo dice en serio; un propietario que quiera que un encargado procese la nómina se lo concede a propósito en el [[the-custom-access-editor|editor de acceso personalizado]]." },
         ],
       },
     ],
     faq: [
-      { q: "¿FieldQuo transfiere los sueldos?", a: "No. Calcula las cifras y genera recibos y un CSV. Usted paga por su banco o proveedor de nómina y luego pulsa Registrar como pagada para que los recibos puedan decir cuándo." },
+      { q: "¿FieldQuo transfiere los sueldos?", a: "No. Calcula las cifras y genera recibos. Usted paga por su banco o proveedor de nómina y luego pulsa Registrar como pagada para que los recibos puedan decir cuándo." },
       { q: "¿Por qué alguien aparece en $0 o sin pago?", a: "No hay tarifa por hora ni costo de mano de obra guardado en su ficha, o sus horas del periodo siguen pendientes. La vista previa dice cuál de las dos." },
       { q: "¿Puedo corregir una nómina después de aprobarla?", a: "Cancélela y vuelva a procesar el periodo, siempre que no se haya registrado como pagada. Una nómina pagada es final; una corrección es una segunda nómina sobre el mismo periodo, guardada como borrador — la aprobación solo se niega mientras una nómina aprobada o pagada se solape." },
-      { q: "¿Qué contiene Exportar CSV?", a: "Una fila por persona con horas, bruto, una columna por cada deducción o ingreso nombrado en la nómina, y neto — la entrega para el contador o el proveedor de nómina que realmente paga. Una celda se deja vacía, no en 0.00, cuando esa persona no tenía esa línea." },
+      { q: "¿Cómo le paso una nómina a mi contador o a mi proveedor de nómina?", a: "Abra la nómina: las horas, el bruto, las deducciones y el neto de cada persona están en pantalla, y el **Recibo de pago PDF** de cada una se descarga una vez aprobada la nómina. FieldQuo no exporta una nómina como archivo." },
     ],
   },
 
@@ -455,7 +455,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Visión general",
         blocks: [
-          { p: "La pantalla lleva el título **Subcontratistas** — «Las empresas que contratas por trabajo — el electricista, el techador. Sus fechas de seguro y constancia, lo que acordaste con ellos en cada trabajo y lo que les has pagado este año.» Cada subcontratista tiene una ficha con documentos, los trabajos en los que está y los pagos registrados a su nombre; el total del año es lo que se convierte en la [[the-t5018-year-end-list|lista de fin de año T5018]]." },
+          { p: "La pantalla lleva el título **Subcontratistas** — «Las empresas que contratas por trabajo — el electricista, el techador. Sus fechas de seguro y constancia, lo que acordaste con ellos en cada trabajo y lo que les has pagado este año.» Cada subcontratista tiene una ficha con documentos, los trabajos en los que está y los pagos registrados a su nombre; el total del año es la cifra detrás de las [[the-t5018-year-end-list|cifras de fin de año para el T5018]]." },
           { note: "Lo que se le debe y se le pagó a un subcontratista es costo del trabajo. El costeo de trabajos toma el **monto acordado** como el costo de ese subcontratista en el trabajo — un subcontratista de $5,000 al que se le pagaron $2,000 le ha costado $5,000 al trabajo — y los pagos son cómo se va liquidando. Vea [[job-costing|Costeo de trabajos]]." },
         ],
       },
@@ -465,7 +465,7 @@ export const ARTICLES = {
         blocks: [
           { bullets: [
             "**Seguro o constancia por vencer** — cada subcontratista cuyo seguro o constancia está **Por vencer** (dentro de 30 días) o **Vencido**, el peor primero, cada uno indicando cuál de los dos.",
-            "**Pagado en** con un selector de año, y **Lista de fin de año (CSV)** — solo se muestran a quien puede ver dinero.",
+            "**Pagado en** con un selector de año — este año y los dos anteriores — solo se muestra a quien puede ver dinero.",
             "**Una tarjeta por subcontratista** — el nombre de la empresa, **Inactivo** cuando corresponde, luego oficio, contacto y teléfono, una insignia por la peor de las dos fechas, y, para quien puede ver dinero, «$6,840.00 pagados en 2026 (3 pagos)» con «Sin formulario fiscal» cuando el subcontratista está excluido del formulario anual.",
             "**Agregar** — abre el formulario de nuevo subcontratista.",
           ] },
@@ -484,7 +484,7 @@ export const ARTICLES = {
             "En la ficha del subcontratista, suba los certificados bajo **Documentos** — un **Certificado de seguro** o una **Constancia WSIB / WCB** con su fecha de vencimiento fija la fecha del subcontratista al mismo tiempo.",
           ] },
           { figure: "create:app-subcontractors-create", caption: "Subcontratistas → Agregar — el formulario de nuevo subcontratista: empresa, oficio, contacto, las dos fechas de vencimiento y la casilla del formulario anual." },
-          { tip: "Un subcontratista que ya no usa recibe **Marcar inactivo** en lugar de un borrado: sale del selector «agregar un subcontratista a un trabajo», conserva sus trabajos y pagos, y sigue apareciendo en la lista de fin de año de los años en que le pagó." },
+          { tip: "Un subcontratista que ya no usa recibe **Marcar inactivo** en lugar de un borrado: sale del selector «agregar un subcontratista a un trabajo», conserva sus trabajos y pagos, y sigue apareciendo con su total en los años en que le pagó." },
         ],
       },
       {
@@ -522,7 +522,7 @@ export const ARTICLES = {
         heading: "Quién puede verlo",
         blocks: [
           { p: "Abrir la lista, agregar un subcontratista, editarlo y subir documentos requieren el permiso de gestión de equipo — propietarios, administradores, Managers y Dispatchers. El nombre de un subcontratista y si su seguro está vigente son operaciones: el despachador que pone al electricista en la visita del jueves necesita saber que su constancia venció. Crew y Estimator no ven la fila." },
-          { p: "El dinero en la pantalla — montos acordados, pagos, totales del año, **Pagado en** y el CSV — requiere además el interruptor «Job costing». Un Dispatcher abre la lista, ve el seguro vencido y no ve cifras; un Manager ve ambas cosas. Vea [[the-custom-access-editor|El editor de acceso personalizado]]." },
+          { p: "El dinero en la pantalla — montos acordados, pagos, totales del año y **Pagado en** — requiere además el interruptor «Job costing». Un Dispatcher abre la lista, ve el seguro vencido y no ve cifras; un Manager ve ambas cosas. Vea [[the-custom-access-editor|El editor de acceso personalizado]]." },
         ],
       },
     ],
@@ -534,49 +534,48 @@ export const ARTICLES = {
   },
 
   "the-t5018-year-end-list": {
-    title: "La lista de fin de año T5018",
+    title: "Las cifras de fin de año para el T5018",
     summary:
-      "Un CSV por año calendario que lista a cada subcontratista, si va en el formulario de contratistas, lo que le pagó y cuántos pagos — la cifra que el contador venía reconstruyendo a partir de talones de cheques.",
-    updated: "2026-09-12",
+      "Dónde leer lo que se le pagó a cada subcontratista en un año calendario, y en cuántos pagos — las cifras con las que se llena un T5018 o un 1099-NEC, en pantalla en lugar de reconstruidas a partir de talones de cheques.",
+    updated: "2026-09-25",
     intro: [
-      "En Canadá, un contratista que le pagó más de $500 en el año a un subcontratista de construcción presenta un T5018 por él; en Estados Unidos es un 1099-NEC por encima de $600. Ambos son una lista de empresa y monto. FieldQuo construye esa lista a partir de los pagos que registró para cada subcontratista en cada trabajo, de modo que el número en la ficha del subcontratista, el número en el archivo y el número en el [[job-costing|Costeo de trabajos]] son las mismas filas sumadas una sola vez.",
+      "En Canadá, un contratista que le pagó más de $500 en el año a un subcontratista de construcción presenta un T5018 por él; en Estados Unidos es un 1099-NEC por encima de $600. Ambos son una lista de empresa y monto. FieldQuo suma ese monto a partir de los pagos que registró para cada subcontratista en cada trabajo, de modo que la cifra de la lista, la de la ficha del subcontratista y la del [[job-costing|Costeo de trabajos]] son las mismas filas sumadas una sola vez.",
     ],
     sections: [
       {
         id: "overview",
         heading: "Visión general",
         blocks: [
-          { p: "La lista es el botón **Lista de fin de año (CSV)** en la pantalla **Subcontratistas**, junto al selector de año **Pagado en**. La misma cifra se muestra en la ficha de cada subcontratista como «Pagado en 2026 — la cifra del formulario anual de contratistas» con el número de pagos, y en la tarjeta de la lista como «$6,840.00 pagados en 2026 (3 pagos)»." },
-          { p: "El umbral no se aplica a propósito. Se lista a cada subcontratista, incluidos los que recibieron $0 y los marcados **Sin formulario fiscal**, porque el contador decide quién presenta y FieldQuo no sabe qué regla de qué jurisdicción aplica. Una fila en cero dice «revisamos, nada»; una fila ausente no dice nada." },
+          { p: "Las cifras están en la pantalla **Subcontratistas**. Elija el año bajo **Pagado en** y cada tarjeta muestra, por ejemplo, «$6,840.00 pagados en 2026 (3 pagos)». La misma cifra aparece en la ficha de cada subcontratista como «Pagado en 2026 — la cifra del formulario anual de contratistas»." },
+          { p: "FieldQuo muestra estas cifras; no las descarga en un archivo. Tómelas de la pantalla para su contador, o dele a su contador un acceso que pueda verlas — vea [[the-accounting-export|Qué entregarle a su contador]]." },
         ],
       },
       {
-        id: "download-the-list",
-        heading: "Cómo descargar la lista",
+        id: "read-the-figures",
+        heading: "Cómo tomar las cifras para su contador",
         blocks: [
           { steps: [
             "Abra **Subcontratistas** (bajo Personas).",
-            "Elija el año bajo **Pagado en** — el selector cambia los totales en cada tarjeta.",
-            "Pulse **Lista de fin de año (CSV)**. El archivo se llama subcontractors-2026.csv.",
-            "Entrégueselo a su contador. La descarga queda anotada en el [[the-activity-log|Registro de actividad]].",
+            "Elija el año bajo **Pagado en** — este año o uno de los dos anteriores. El selector cambia el total en cada tarjeta.",
+            "Lea cada tarjeta: la empresa, lo que se le pagó ese año y en cuántos pagos, y **Sin formulario fiscal** cuando el subcontratista queda fuera del formulario anual.",
+            "Entréguele a su contador cada empresa con su monto. Él decide quién recibe un formulario.",
           ] },
-          { figure: "harness:subcontractors", caption: "Subcontratistas — el selector de año Pagado en y el botón Lista de fin de año (CSV) sobre la lista, cada tarjeta con su total pagado en el año." },
-          { note: "El archivo indica su moneda según la Configuración de la empresa y termina con «Recorded in FieldQuo; no form has been filed through this system.» FieldQuo genera la lista; no presenta nada." },
+          { figure: "harness:subcontractors", caption: "Subcontratistas — el selector de año Pagado en sobre la lista, cada tarjeta con su total pagado en el año." },
+          { note: "FieldQuo suma los pagos; no prepara ni presenta nada." },
         ],
       },
       {
-        id: "what-is-in-the-file",
-        heading: "Qué hay en el archivo",
+        id: "what-each-card-shows",
+        heading: "Qué muestra cada tarjeta",
         blocks: [
           { table: {
-            head: ["Columna", "Qué contiene"],
+            head: ["En la tarjeta", "Qué significa"],
             rows: [
-              ["Subcontractor", "El nombre de la empresa, en orden alfabético."],
-              ["Trade", "El oficio de su ficha, o vacío."],
-              ["Tax form", "yes o no — la casilla **Va en el formulario anual de contratistas (T5018 / 1099-NEC)** de su ficha."],
-              ["Paid in year", "La suma de los pagos con fecha dentro de ese año calendario, al centavo."],
-              ["Payments", "Cuántos pagos componen ese total."],
-              ["Active", "yes o no — un subcontratista inactivo al que le pagó antes en el año igual aparece."],
+              ["El nombre de la empresa", "Primero los subcontratistas activos y después los inactivos, cada grupo en orden alfabético. Un subcontratista inactivo al que le pagó antes en el año sigue en la lista, marcado **Inactivo**."],
+              ["Oficio, contacto y teléfono", "Lo que hay en su ficha, o **Sin detalles todavía**."],
+              ["«… pagados en 2026»", "La suma de los pagos con fecha dentro de ese año calendario, al centavo. Un subcontratista al que no le pagó ese año muestra $0.00 en lugar de desaparecer."],
+              ["«(3 pagos)»", "Cuántos pagos componen ese total."],
+              ["Sin formulario fiscal", "La casilla **Va en el formulario anual de contratistas (T5018 / 1099-NEC)** está desmarcada en su ficha."],
             ],
           } },
         ],
@@ -588,8 +587,8 @@ export const ARTICLES = {
           { bullets: [
             "Un pago cuenta en el año de su fecha **Pagado el**, no en el año del trabajo ni del monto acordado.",
             "Solo cuentan los pagos registrados con **Registrar un pago** en un trabajo. Un monto acordado que no se ha pagado no está en el total.",
-            "Una fila **TOTAL** al final suma a cada subcontratista y cada pago del año.",
-            "**Sin formulario fiscal** en un subcontratista no lo quita del archivo — pone su columna Tax form en no, para que su contador vea la decisión y no una ausencia.",
+            "El umbral no se aplica a propósito: cada subcontratista aparece con su total, por pequeño que sea, porque el contador decide quién presenta y FieldQuo no sabe qué regla de qué jurisdicción aplica.",
+            "**Sin formulario fiscal** en un subcontratista no lo oculta — la tarjeta sigue mostrando el total, con la marca al lado, para que su contador vea la decisión y no una ausencia.",
           ] },
         ],
       },
@@ -597,14 +596,14 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Quién puede verlo",
         blocks: [
-          { p: "El botón, el selector **Pagado en** y cada cifra de dinero requieren tanto el permiso de gestión de equipo como el interruptor «Job costing» — propietarios, administradores y un Manager con el costeo de trabajos activado. Un Dispatcher ve la lista y las insignias de seguro, pero ni totales ni botón. A una sesión de soporte en solo lectura se le niega el archivo por completo." },
+          { p: "El selector **Pagado en** y cada cifra de dinero requieren tanto el permiso de gestión de equipo como el interruptor «Job costing» — propietarios, administradores y un Manager con el costeo de trabajos activado. Un Dispatcher ve la lista y las insignias de seguro, pero ningún total." },
         ],
       },
     ],
     faq: [
-      { q: "¿FieldQuo presenta el T5018 o el 1099-NEC?", a: "No. Genera la lista de empresas y montos; el formulario lo prepara y presenta usted o su contador." },
-      { q: "¿Por qué un subcontratista al que le pagué en diciembre pasado está en el archivo de este año?", a: "Porque la fecha Pagado el del pago cae en este año. Edite la fecha en el pago si se registró mal; el total sigue la fecha." },
-      { q: "¿Puedo obtener la lista de un año anterior?", a: "Sí — elija el año bajo Pagado en y pulse el botón. Cualquier año con pagos registrados funciona." },
+      { q: "¿FieldQuo presenta el T5018 o el 1099-NEC?", a: "No. Suma lo que le pagó a cada empresa; el formulario lo prepara y presenta usted o su contador." },
+      { q: "¿Por qué un subcontratista al que le pagué en diciembre pasado está en el total de este año?", a: "Porque la fecha Pagado el del pago cae en este año. Edite la fecha en el pago si se registró mal; el total sigue la fecha." },
+      { q: "¿Puedo descargar la lista en CSV?", a: "No. FieldQuo importa listas, pero no las exporta. Las cifras están en pantalla, para este año y los dos anteriores." },
     ],
   },
 
@@ -845,7 +844,7 @@ export const ARTICLES = {
         blocks: [
           { bullets: [
             "**Presupuestos, facturas y trabajos** — creados, enviados, con seguimiento, aceptados, marcados como pagados, programados.",
-            "**Dinero** — pagos registrados, gastos, un pago a un subcontratista, una nómina guardada, aprobada, registrada como pagada o cancelada, un componente de nómina agregado o quitado, la lista de fin de año descargada.",
+            "**Dinero** — pagos registrados, gastos, un pago a un subcontratista, una nómina guardada, aprobada, registrada como pagada o cancelada, un componente de nómina agregado o quitado.",
             "**Horas** — entradas de tiempo agregadas, editadas y aprobadas, incluida una persona que aprueba las suyas.",
             "**Equipo** — invitaciones, un nivel de acceso cambiado, un miembro desactivado, horarios de trabajo o políticas de ausencias cambiados, un año de ausencias trasladado.",
             "**Clientes** — un cliente agregado o sus datos de contacto editados.",

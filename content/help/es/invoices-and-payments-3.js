@@ -3,7 +3,7 @@
 // Parte 3 de la categoría «invoices-and-payments» en español (ver el
 // compositor, invoices-and-payments.js): condiciones de pago, impuestos en
 // las facturas, pago a plazos, planes de servicio y su mandato de débito
-// bancario, el portal del cliente, la exportación contable, las tarifas de
+// bancario, el portal del cliente, qué entregarle al contador, las tarifas de
 // visita y el panel «Dinero que te deben».
 //
 // Misma estructura que la versión en inglés, sección por sección; las
@@ -99,7 +99,7 @@ export const ARTICLES = {
         heading: "Resumen",
         blocks: [
           { p: "Tres cosas deciden la línea de impuesto: las tasas de la tarjeta **Configuración de impuestos**, el ajuste **Aplicar automáticamente la tasa de impuesto local del cliente**, y la casilla **Aplicar impuesto** en el propio documento. Su número de registro, si lo introduce, se imprime al pie de cada presupuesto y factura para que un cliente empresarial pueda deducir el impuesto." },
-          { note: "El impuesto es un solo importe por factura. Una empresa de Quebec que cobra GST y QST introduce una tasa combinada (14,975 %) y la factura muestra una sola línea de impuesto. No hay códigos de impuesto ni impuesto por línea, así que la exportación contable no puede producir una declaración de impuestos sobre las ventas; vea [[the-accounting-export|La exportación contable]]." },
+          { note: "El impuesto es un solo importe por factura. Una empresa de Quebec que cobra GST y QST introduce una tasa combinada (14,975 %) y la factura muestra una sola línea de impuesto. No hay códigos de impuesto ni impuesto por línea, así que FieldQuo no puede producir una declaración de impuestos sobre las ventas; vea [[the-accounting-export|Qué entregarle a su contador]]." },
         ],
       },
       {
@@ -533,94 +533,72 @@ export const ARTICLES = {
   },
 
   "the-accounting-export": {
-    title: "La exportación contable (CSV para QuickBooks, Xero o su contador)",
+    title: "Qué entregarle a su contador",
     summary:
-      "Un ZIP, cuatro archivos CSV, un periodo: qué contiene cada archivo, las reglas detrás de las cifras y lo que la exportación se niega a contener.",
-    updated: "2026-09-12",
+      "FieldQuo no exporta su contabilidad en archivos ni se sincroniza con QuickBooks o Xero. Lo que su contador puede tener en su lugar: los documentos en PDF, las cifras en pantalla o su propio acceso.",
+    updated: "2026-09-25",
     intro: [
-      "FieldQuo no se sincroniza con QuickBooks ni con Xero. Lo que hace en su lugar es dejar que los números salgan limpiamente: elija un periodo en **Gastos**, pulse **Descargar el periodo**, y recibe un ZIP con una hoja resumen y tres archivos de datos — facturas, pagos, gastos — que cualquier contador puede abrir y cualquier programa contable puede importar.",
+      "FieldQuo recibe sus datos — clientes, prospectos, trabajos anteriores, su lista de precios, un estado de cuenta del banco — pero no los devuelve en archivos. No hay ningún CSV ni ZIP de facturas, pagos o gastos para descargar, y nada se sincroniza con QuickBooks ni con Xero. Este artículo explica lo que su contador puede tener en su lugar, y lo que FieldQuo no registra en absoluto, para que ninguno de los dos lo busque.",
     ],
     sections: [
       {
         id: "overview",
         heading: "Resumen",
         blocks: [
-          { p: "La tarjeta **Exportación contable** está al final de **Gastos** (la misma pantalla que Configuración → Control de gastos). Tiene fechas **Desde** y **Hasta** y un solo botón. Los importes están en la moneda de facturación de su empresa, definida en la Configuración de la empresa; sin ella, la exportación se niega en lugar de adivinar." },
-          { figure: "live:app-settings-expense-tracking", caption: "Control de gastos: la tarjeta Exportación contable al final, con un periodo, Descargar el periodo y la lista de lo que el archivo no contiene." },
+          { p: "Tres cosas llegan a un contador desde FieldQuo: los documentos — cada uno en PDF, descargado desde su propia pantalla —, las cifras que FieldQuo suma en pantalla y, si prefiere leerlas por su cuenta, un acceso propio." },
+          { note: "Un documento que necesita para operar el negocio se sigue pudiendo descargar: un presupuesto, una factura, un recibo de pago. Lo que no se ofrece es un archivo con todos sus registros." },
         ],
       },
       {
-        id: "download-a-range",
-        heading: "Cómo descargar un periodo",
-        blocks: [
-          { steps: [
-            "Abra **Gastos** y baje hasta **Exportación contable**.",
-            "Ajuste **Desde** y **Hasta**: un mes, un trimestre, el año.",
-            "Pulse **Descargar el periodo**. El ZIP se llama bookkeeping-2026-01-01-to-2026-03-31.zip y contiene el resumen, las facturas, los pagos y los gastos en CSV.",
-          ] },
-          { tip: "Envíe el ZIP completo, no un solo archivo sacado de él. La hoja resumen repite la lista de lo que los datos no pueden decir — una declaración de impuestos, por ejemplo — para que la advertencia viaje con las cifras." },
-        ],
-      },
-      {
-        id: "the-four-files",
-        heading: "Los cuatro archivos",
-        blocks: [
-          { table: {
-            head: ["Archivo", "Una fila por", "Columnas"],
-            rows: [
-              ["summary", "periodo", "Empresa, periodo, fecha de generación, moneda de facturación; luego por moneda: Facturado, del cual impuesto, Pagos recibidos, Reembolsos, Comisiones de procesamiento, Comisiones de cuenta de Stripe, Gastos; luego las limitaciones y las notas sobre el periodo."],
-              ["invoices", "factura", "Número de factura, Emitida, Fecha tomada de, Vencimiento, Cliente, Estado, Versión, Moneda, Subtotal, Descuento, Impuesto, Impuesto aplicado, Total, Pagado hasta la fecha, Recibido en el periodo, Saldo."],
-              ["payments", "pago o reembolso", "Fecha, Número de factura, Cliente, Forma de pago, Moneda, Importe, Comisión de procesamiento, Neto depositado, Tarifa de comisión, Comisiones de cuenta de Stripe, Referencia, Notas. Un reembolso emitido desde FieldQuo es su propia línea: forma de pago **refund**, un Importe negativo, el identificador de reembolso de Stripe como Referencia y el motivo como Notas."],
-              ["expenses", "gasto", "Fecha, Categoría, Moneda, Importe, Gastos generales, Recurrente, Frecuencia, Trabajo, Notas."],
-            ],
-          } },
-        ],
-      },
-      {
-        id: "the-rules-behind-the-numbers",
-        heading: "Las reglas detrás de las cifras",
+        id: "the-documents",
+        heading: "Los documentos que puede descargar",
         blocks: [
           { bullets: [
-            "Una factura editada después de enviarse es una versión nueva con el mismo número. La exportación emite **una fila por factura**, con el dinero de la última versión, fechada desde la original: una modificación en marzo nunca duplica una factura de enero.",
-            "No hay un campo de fecha de emisión, así que cada fila dice de qué columna salió su fecha: **sentAt (emailed)**, **createdAt (raised)**, o las fechas propias de un trabajo pasado.",
-            "Los pagos se filtran por la **fecha del propio pago**, no la de la factura: una factura de diciembre pagada en enero es efectivo de enero. **Importe** es el bruto; **Comisión de procesamiento** y **Neto depositado** son lo que Stripe tomó y lo que llegó al banco, en blanco — no 0.00 — para pagos manuales y pagos en línea antiguos.",
-            "Los días se agrupan por día natural UTC. Un periodo con dos monedas se reporta por moneda y nunca se suma en un solo total.",
-            "Los nombres de clientes, categorías y notas están protegidos contra fórmulas de hoja de cálculo: un cliente llamado =cmd… se abre como texto.",
+            "**Facturas** — **Descargar PDF** en cada factura. Es el mismo documento que recibió el cliente.",
+            "**Presupuestos** — **Descargar PDF** en la página del presupuesto, en el idioma del propio presupuesto.",
+            "**Recibos de pago** — **Recibo de pago PDF** debajo de cada persona en una nómina aprobada. Vea [[payslips|Recibos de pago]].",
+            "**Las facturas de FieldQuo a su empresa** — en el portal de Stripe detrás de **Gestionar facturación y método de pago**. Vea [[invoices-and-receipts-from-fieldquo|Facturas y recibos de FieldQuo]].",
+          ] },
+        ],
+      },
+      {
+        id: "the-figures-on-screen",
+        heading: "Las cifras en pantalla",
+        blocks: [
+          { bullets: [
+            "**Estados financieros** — estado de resultados, flujo de efectivo, impuestos cobrados y un balance parcial, para cualquier periodo, en base de caja o de devengo. Vea [[financial-statements|Estados financieros]].",
+            "**Gastos** — el gasto del mes por categoría, por trabajo y en gastos generales, y los recibos recientes. Vea [[expense-tracking-and-burn-rate|Control de gastos y su ritmo de gasto]].",
+            "**Facturas** — lo que está pendiente y lo que está vencido, factura por factura. Vea [[the-invoices-list|La lista de facturas]].",
+            "**Subcontratistas** — lo que se le pagó a cada subcontratista en un año y en cuántos pagos, la cifra con la que se llena un T5018 o un 1099-NEC. Vea [[the-t5018-year-end-list|Las cifras de fin de año para el T5018]].",
+            "**Nómina** — las horas, el bruto, las deducciones y el neto de cada nómina, persona por persona. Vea [[payroll-runs|Ciclos de pago]].",
           ] },
         ],
       },
       {
         id: "what-it-does-not-contain",
-        heading: "Qué no contiene",
+        heading: "Lo que FieldQuo no registra",
         blocks: [
           { bullets: [
-            "Una declaración. Nada de esto se ha remitido a ninguna autoridad fiscal.",
-            "Una declaración de impuestos sobre las ventas. El impuesto de una factura es un solo importe, sin códigos de impuesto ni impuesto por línea.",
-            "Créditos fiscales por compras. Los gastos no llevan impuesto ni proveedor, así que el impuesto recuperable de lo que compró no se registra.",
-            "Notas de crédito. Un reembolso emitido desde la factura en FieldQuo es una línea negativa del archivo de pagos y se totaliza bajo Reembolsos; un reembolso hecho directamente en su panel de Stripe no es una línea — solo se ve en el importe reembolsado del pago original.",
-            "Un plan de cuentas. Nada está asignado a una cuenta contable: su contador lo hace una vez, al importar.",
+            "Una declaración. Nada en FieldQuo se ha pagado a ninguna autoridad fiscal.",
+            "Una declaración de impuestos sobre las ventas. El impuesto de una factura es un solo importe, sin códigos de impuesto y sin impuesto por línea.",
+            "Los créditos fiscales por compras. Los gastos no llevan impuesto ni proveedor, así que el impuesto recuperable de lo que compró no se registra.",
+            "Las notas de crédito. Un reembolso hecho desde una factura en FieldQuo es una línea de reembolso bajo el pago; vea [[refunds|Reembolsos]].",
+            "Un catálogo de cuentas. Nada se asigna a una cuenta contable — su contador lo hace en su propio programa.",
           ] },
         ],
       },
       {
-        id: "importing-it",
-        heading: "Importar en QuickBooks o Xero",
+        id: "a-login-for-your-accountant",
+        heading: "Un acceso para su contador",
         blocks: [
-          { p: "Asigne el **Importe** del archivo de pagos a ingresos, la **Comisión de procesamiento** a un gasto de comisiones bancarias y el **Neto depositado** al depósito bancario; el extracto bancario cuadra entonces línea por línea. Una línea **refund** es un Importe negativo contra la misma cuenta de ingresos, sin comisión propia. Las facturas entran por el **Total** con **Impuesto** como importe del impuesto. La guía por programa está en [[quickbooks-xero-and-your-bookkeeper|QuickBooks, Xero y su contador]]; las columnas de comisiones se explican en [[payment-processing-fees-and-payouts|Comisiones de procesamiento de pagos y transferencias]]." },
-        ],
-      },
-      {
-        id: "who-can-download-it",
-        heading: "Quién puede descargarla",
-        blocks: [
-          { p: "La exportación nombra a cada cliente y lo que pagó, así que está protegida como la lista de precios: **Show Pricing** más el nivel de Facturas **View only** o superior. Un estimador puede descargarla; un miembro de la cuadrilla no. Una sesión de soporte de solo lectura es rechazada: la consola de FieldQuo puede ver sus datos, pero nunca genera su cierre de año como archivo." },
+          { p: "Si su contador prefiere leer las cifras por su cuenta, invítelo desde [[manage-team|Gestionar equipo]]. El nivel **Manager** ve las facturas, los pagos, los gastos y los estados financieros — sin la nómina de todos. Hágalo administrador solo si también debe ver la nómina y la facturación." },
         ],
       },
     ],
     faq: [
-      { q: "¿Es una integración con QuickBooks?", a: "No. Es una exportación CSV que cualquier programa importa. Una sincronización en vivo necesitaría el proceso de aprobación de Intuit y una correspondencia de modelos de impuestos que todavía no existe, y el producto lo dice en lugar de fingir." },
-      { q: "¿Por qué la celda de comisión está vacía en algunos pagos?", a: "Ese pago se registró a mano, o en línea antes de que las comisiones se guardaran en el pago. Una celda vacía significa «no se conoce comisión»; un cero afirmaría «sin comisión»." },
-      { q: "¿Por qué falta un pago de enero en mi exportación de diciembre?", a: "Los pagos se fechan por cuándo se recibieron. Exporte enero para el efectivo de enero; la factura en sí está en el archivo de diciembre con su saldo." },
+      { q: "¿Hay una integración con QuickBooks o Xero?", a: "No. Nada se sincroniza, y FieldQuo no genera archivos para ninguno de los dos. Su contador pasa las cifras a su propio programa a partir de los PDF y de los estados financieros." },
+      { q: "¿Puedo descargar mis facturas, pagos o gastos en CSV?", a: "No. FieldQuo importa listas, pero no las exporta. Cada factura y cada presupuesto se descarga en PDF desde su propia pantalla." },
+      { q: "¿Dónde veo la comisión de procesamiento de un pago con tarjeta?", a: "En el pago, dentro de la factura: el importe, la comisión de procesamiento y el neto depositado. Vea [[payment-processing-fees-and-payouts|Comisiones de procesamiento de pagos y transferencias]]." },
     ],
   },
 

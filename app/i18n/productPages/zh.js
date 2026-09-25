@@ -20,9 +20,9 @@ const zh = {
   "productPage.quoting.bullet.4": "改一张已发出的账单，旧的照样保留——当初谈好的是什么，从来不会说不清",
   "productPage.quoting.section.pricebook.heading": "你的服务、你的价格，设一次就好",
   "productPage.quoting.section.pricebook.body":
-    "你做的每项服务都有自己的价目表——按平方、按延英尺、按小时，工种怎么算就怎么定。设一次，每张报价单自动填好。产品清单可以从表格导入，也能导出回去。",
+    "你做的每项服务都有自己的价目表——按平方、按延英尺、按小时，工种怎么算就怎么定。设一次，每张报价单自动填好。产品清单可以从表格导入，不用重新敲。",
   "productPage.quoting.section.pricebook.bullet.1": "每项服务一张价目表，用的是你这个工种真正在用的单位",
-  "productPage.quoting.section.pricebook.bullet.2": "产品和服务从 CSV 导入，同样导出",
+  "productPage.quoting.section.pricebook.bullet.2": "产品和服务从 CSV 导入，不用重新敲",
   "productPage.quoting.section.pricebook.bullet.3": "价格背后的材料成本和配方，永远不给客户看",
   "productPage.quoting.section.pricebook.alt":
     "“服务与价格”页面：屋顶、外墙板和天沟，各有各的价目表和计价用的材料",
@@ -69,7 +69,7 @@ const zh = {
     "不会。报价单、账单、批准页面、邮件和 PDF 上都是你的 logo、你的颜色，发件人是你的名字。我们的名字只出现在两个很小的地方：你的公司还没用付费方案时，网站页脚有一行“Site by FieldQuo”——一付费就没了；还有个人链接页底部一行“Made by FieldQuo”。",
   "productPage.quoting.faq.own-prices.q": "我能用自己的价格吗？",
   "productPage.quoting.faq.own-prices.a":
-    "只能用你自己的。每项服务从你这个工种的常见价格起步，明确标为起点，由你按自己的市场改；报价单编辑器填的是你的数字，绝不是我们的。价目表也可以从表格导入，再导出回去。",
+    "只能用你自己的。每项服务从你这个工种的常见价格起步，明确标为起点，由你按自己的市场改；报价单编辑器填的是你的数字，绝不是我们的。价目表也可以从表格导入，直接从你手上现有的那份开始。",
   "productPage.quoting.faq.after-approval.q": "客户批准之后会怎样？",
   "productPage.quoting.faq.after-approval.a":
     "报价单变成一个活儿，范围、地址和文件都已经在上面，再一键就变成一张跟报价单一致的账单。如果你要了定金，批准时就会去收。",
@@ -200,15 +200,15 @@ const zh = {
     "调度员视角的当天排班板：排定的工时、超过四十小时的加班、“迟到”和“准时”标签，以及一句说明：人工成本只给能看工资标准的人看",
   "productPage.team.section.payroll.heading": "从批准的工时生成工资批次和工资单",
   "productPage.team.section.payroll.body":
-    "批准的工时乘以每个人的工资标准，就是你选定周期的一个工资批次，每人一张工资单，再导出给会计。FieldQuo 算的是应发工资；它不给员工发钱，也不申报工资税。花名册上标为承包工的人，可以按打卡的工时通过真实转账付到他的银行账户。",
-  "productPage.team.section.payroll.bullet.1": "按你的周期发薪，工资单是 PDF，批次可导出",
+    "批准的工时乘以每个人的工资标准，就是你选定周期的一个工资批次，每人一张 PDF 工资单。FieldQuo 算的是应发工资；它不给员工发钱，也不申报工资税。花名册上标为承包工的人，可以按打卡的工时通过真实转账付到他的银行账户。",
+  "productPage.team.section.payroll.bullet.1": "按你的周期发薪，每人一张 PDF 工资单",
   "productPage.team.section.payroll.bullet.2": "花名册上的承包工按打卡工时、按你定的标准付款",
-  "productPage.team.section.payroll.bullet.3": "分包公司存档，带保险信息和年末 T5018 清单",
+  "productPage.team.section.payroll.bullet.3": "分包公司存档，带保险、清算证明日期，以及你今年付给他们的总额",
   "productPage.team.section.payroll.alt":
     "工资：本期批准的工时、应发、扣除和实发，以及正在设置的新工资批次",
   "productPage.team.faq.taxes.q": "FieldQuo 会申报工资税吗？",
   "productPage.team.faq.taxes.a":
-    "不会。它从批准的工时算出应发工资，生成工资单并导出批次。扣除项由你或你的会计提供，不会向任何税务机关申报。",
+    "不会。它从批准的工时算出应发工资并生成工资单。扣除项由你或你的会计提供，不会向任何税务机关申报。",
   "productPage.team.faq.crew-free.q": "工人登录免费吗？",
   "productPage.team.faq.crew-free.a":
     "免费。工人登录能看自己的排班、打卡上下班、归档照片——不占你的席位。席位是给创建和修改报价单、活儿和账单的人的。",

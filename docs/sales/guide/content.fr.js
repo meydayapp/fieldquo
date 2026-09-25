@@ -439,7 +439,7 @@ export const SCREENS_CHAPTER = {
     ] },
     subcontractors: { body: [
       "Les entreprises embauchées par chantier — l'électricien, le fabricant de comptoirs — avec le métier, le contact, et si leur assurance ou leur attestation est à jour, bientôt due ou expirée ; celles qui expirent remontent dans un panneau en haut pour que personne ne mette le pied sur le chantier sans couverture.",
-      "Un sélecteur d'année « Payé en » totalise ce que chaque sous-traitant a reçu, et « Liste de fin d'année (CSV) » exporte la liste T5018.",
+      "Un sélecteur d'année « Payé en » totalise à l'écran ce que chaque sous-traitant a reçu. Il n'y a pas de CSV de fin d'année : FieldQuo importe mais n'exporte pas (décision du propriétaire, 2026-09-24).",
     ] },
     scheduler: { body: [
       "« Horaire » — la semaine de l'équipe en sept cartes-jours. « Ajouter un quart » place une personne sur un chantier avec des heures et une note (« Charger le camion, livrer les armoires ») ; les quarts restent en brouillon, invisibles pour l'équipe, jusqu'à « Publier la semaine ».",
@@ -509,7 +509,7 @@ export const SCREENS_CHAPTER = {
     ] },
     expenses: { body: [
       "« Suivi des dépenses » — où va l'argent, par chantier, frais généraux et catégorie, plus le taux de dépense mensuel. Un sélecteur de mois au-dessus de quatre cartes : les dépenses suivies du mois, le taux de dépense mensuel (frais généraux + salaires + dettes), la marge de manœuvre et les dépenses liées aux chantiers.",
-      "En dessous : une carte « Résumé IA », la répartition mensuelle et les dépenses par catégorie en barres, la tendance sur 6 mois, et les dépenses récentes avec chaque reçu étiqueté frais généraux ou lié à un chantier. « Ajouter une dépense », « Importer depuis un CSV bancaire », et une carte « Export comptable » qui télécharge une plage de dates en CSV pour le comptable.",
+      "En dessous : une carte « Résumé IA », la répartition mensuelle et les dépenses par catégorie en barres, la tendance sur 6 mois, et les dépenses récentes avec chaque reçu étiqueté frais généraux ou lié à un chantier. « Ajouter une dépense » et « Importer depuis un CSV bancaire ». Il n'y a pas d'export comptable — FieldQuo importe mais n'exporte pas (décision du propriétaire, 2026-09-24); ne promettez pas de fichier au comptable.",
     ] },
     purchasing: { body: [
       "« Achats » — chez qui on achète, ce qui est en commande, et ce qu'il y a sur l'étagère. Trois onglets : « Commandes », « Stock », « Fournisseurs ». Commandes liste chaque bon de commande avec son fournisseur, combien de lignes sont reçues, son statut et son total ; « Nouvelle commande » en crée un.",
@@ -662,7 +662,7 @@ export const SCREENS_CHAPTER = {
       "Une seule connexion alimente trois choses : les dépenses publicitaires dans les indicateurs, les formulaires dans Prospects, et les messages de la page, d'Instagram et de WhatsApp dans Messages.",
     ] },
     "settings-expense-tracking": { body: [
-      "Le même écran « Suivi des dépenses » que « Dépenses » dans le menu principal : les cartes du mois, la répartition, la tendance, les reçus récents et l'export comptable.",
+      "Le même écran « Suivi des dépenses » que « Dépenses » dans le menu principal : les cartes du mois, la répartition, la tendance et les reçus récents.",
     ] },
     "settings-ai-credit": { body: [
       "« Crédit IA » — tout ce qui dépense du crédit IA, au même endroit. Le solde de crédit téléphonique avec « Ajouter du crédit téléphonique » et où le crédit est allé ; le solde de crédit d'images IA avec des recharges ; et la carte du plan de crédit IA mensuel.",

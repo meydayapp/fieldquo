@@ -409,7 +409,7 @@ export const SCREENS_CHAPTER = {
     ] },
     subcontractors: { body: [
       "The companies hired per job — the electrician, the countertop fabricator — with trade, contact, and whether their insurance or clearance is “In date”, “Due soon” or “Expired”; the expiring ones are pulled into a panel at the top so nobody steps on site uncovered.",
-      "A “Paid in” year picker totals what each sub was paid, and “Year-end list (CSV)” exports the T5018 list.",
+      "A “Paid in” year picker totals what each sub was paid, on screen. There is no year-end CSV: FieldQuo imports but does not export (owner's decision, 2026-09-24).",
     ] },
     scheduler: { body: [
       "“Scheduling” — the crew's week as seven day cards. “Add shift” puts a person on a job with hours and a note (“Load the van, deliver cabinets”); shifts stay “Draft” and invisible to the crew until “Publish week”.",
@@ -479,7 +479,7 @@ export const SCREENS_CHAPTER = {
     ] },
     expenses: { body: [
       "“Expense Tracking — Where your money goes — by job, overhead, and category — plus your monthly burn rate.” A month stepper over four cards: “Tracked expenses this month”, “Monthly burn rate” (overhead + salaries + debt), “Runway” and “Job-related spend”.",
-      "Below: an “AI Summary” card, “Monthly Burn Breakdown” and “Spend by Category” bars, the “6-Month Trend”, and “Recent Expenses” with each receipt tagged “Overhead” or “Job-linked”. “Add Expense”, “Import from bank CSV”, and a “Bookkeeping export” card that downloads a date range as CSVs for the accountant.",
+      "Below: an “AI Summary” card, “Monthly Burn Breakdown” and “Spend by Category” bars, the “6-Month Trend”, and “Recent Expenses” with each receipt tagged “Overhead” or “Job-linked”. “Add Expense” and “Import from bank CSV”. There is no bookkeeping export — FieldQuo imports but does not export (owner's decision, 2026-09-24); don't promise the accountant a file.",
     ] },
     purchasing: { body: [
       "“Purchasing — Who you buy from, what you have on order, and what is on the shelf.” Three tabs: “Orders”, “Stock”, “Suppliers”. Orders lists each purchase order with its supplier, how many lines are in (“0 of 2 lines fully in”, “All in”), status and total; “New order” raises one.",
@@ -632,7 +632,7 @@ export const SCREENS_CHAPTER = {
       "One connection feeds three things: ad spend into KPIs, lead forms into Leads, and Page / Instagram / WhatsApp messages into Messages.",
     ] },
     "settings-expense-tracking": { body: [
-      "The same “Expense Tracking” screen as “Expenses” in the main sidebar: the month's cards, the burn breakdown, the trend, the recent receipts and the bookkeeping export.",
+      "The same “Expense Tracking” screen as “Expenses” in the main sidebar: the month's cards, the burn breakdown, the trend and the recent receipts.",
     ] },
     "settings-ai-credit": { body: [
       "“AI credit — Everything that spends AI credit, in one place.” The phone credit balance with “Add phone credit” and “Where the credit went”; the AI image credit balance with top-ups; and the monthly “AI credit plan” card.",

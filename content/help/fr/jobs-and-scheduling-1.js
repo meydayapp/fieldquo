@@ -89,7 +89,7 @@ export const ARTICLES = {
     faq: [
       { q: "Pourquoi un chantier manque-t-il à mon employé?", a: "Un membre de l'équipe ne voit que les chantiers où une visite lui est assignée. Planifiez une visite sur le chantier avec son nom et il apparaît aussitôt dans sa liste." },
       { q: "Le bouton Archivés veut-il dire annulé?", a: "Non. Annulé est un statut ; archivé, c'est si vous voulez encore voir le chantier. Un chantier fini que vous classez reste Terminé, et Restaurer sur sa page le ramène dans la liste active." },
-      { q: "Puis-je trier ou exporter la liste?", a: "Pas depuis cet écran. L'ordre est fixe, du plus récent au plus ancien, et il n'y a pas d'exportation ici — l'historique des anciens chantiers voyage dans l'autre sens, vers FieldQuo, par Anciens chantiers." },
+      { q: "Puis-je trier ou exporter la liste?", a: "Non. L'ordre est fixe, du plus récent au plus ancien, et FieldQuo n'exporte pas de listes — l'historique des anciens chantiers voyage dans l'autre sens, vers FieldQuo, par Anciens chantiers." },
     ],
   },
 

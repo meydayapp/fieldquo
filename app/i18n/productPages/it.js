@@ -26,9 +26,9 @@ const it = {
     "Modifichi una fattura inviata e la precedente viene conservata — mai un dubbio su cosa fosse stato concordato",
   "productPage.quoting.section.pricebook.heading": "I Suoi servizi e le Sue tariffe, impostati una volta",
   "productPage.quoting.section.pricebook.body":
-    "Ogni servizio che offre ha il proprio listino — al quadrato, al piede lineare, all'ora, come fattura il mestiere. Lo imposta una volta e riempie ogni preventivo. La lista dei prodotti si importa da un foglio di calcolo e si esporta di nuovo.",
+    "Ogni servizio che offre ha il proprio listino — al quadrato, al piede lineare, all'ora, come fattura il mestiere. Lo imposta una volta e riempie ogni preventivo. La lista dei prodotti si importa da un foglio di calcolo, senza ribattere nulla.",
   "productPage.quoting.section.pricebook.bullet.1": "Un listino per servizio, nelle unità che il Suo mestiere usa davvero",
-  "productPage.quoting.section.pricebook.bullet.2": "Prodotti e servizi importati da un CSV, esportati allo stesso modo",
+  "productPage.quoting.section.pricebook.bullet.2": "Prodotti e servizi importati da un CSV, senza ribatterli",
   "productPage.quoting.section.pricebook.bullet.3": "Costi dei materiali e ricette dietro il prezzo, mai mostrati al cliente",
   "productPage.quoting.section.pricebook.alt":
     "La schermata Servizi e prezzi: tetti, rivestimenti e grondaie, ciascuno con il proprio listino e i materiali con cui viene quotato",
@@ -75,7 +75,7 @@ const it = {
     "No. Preventivo, fattura, pagina di approvazione, email e PDF portano il Suo logo, il Suo colore e il Suo nome come mittente. Il nostro nome compare solo in due piccoli punti: una riga \"Site by FieldQuo\" nel piè di pagina del Suo sito finché l'azienda non è su un piano a pagamento — sparisce non appena lo è — e una riga \"Made by FieldQuo\" in fondo alla pagina del link in bio.",
   "productPage.quoting.faq.own-prices.q": "Posso usare i miei prezzi?",
   "productPage.quoting.faq.own-prices.a":
-    "È l'unico modo in cui funziona. Ogni servizio parte da tariffe tipiche del Suo mestiere, indicate come punto di partenza, e Lei le adatta al Suo mercato; l'editor dei preventivi si compila dai Suoi numeri, mai dai nostri. Un listino si importa anche da un foglio di calcolo e si esporta di nuovo.",
+    "È l'unico modo in cui funziona. Ogni servizio parte da tariffe tipiche del Suo mestiere, indicate come punto di partenza, e Lei le adatta al Suo mercato; l'editor dei preventivi si compila dai Suoi numeri, mai dai nostri. Un listino si importa anche da un foglio di calcolo, così può partire da quello che tiene già.",
   "productPage.quoting.faq.after-approval.q": "Cosa succede quando il cliente approva?",
   "productPage.quoting.faq.after-approval.a":
     "Il preventivo diventa un lavoro con ambito, indirizzo e documenti già a bordo, e un clic lo trasforma in una fattura che rispecchia il preventivo. Se ha chiesto un acconto, viene richiesto all'approvazione.",
@@ -207,15 +207,15 @@ const it = {
     "Il tabellone del giorno visto da un pianificatore: ore programmate, straordinari oltre le quaranta, etichette In ritardo e Puntuale, e una nota che il costo della manodopera si mostra solo a chi può vedere le tariffe di paga",
   "productPage.team.section.payroll.heading": "Cicli paga e buste paga dalle ore approvate",
   "productPage.team.section.payroll.body":
-    "Le ore approvate e la tariffa di ciascuno diventano un ciclo paga per il periodo che sceglie, con una busta paga per persona e un'esportazione per il Suo commercialista. FieldQuo calcola il lordo; non paga i dipendenti e non presenta le ritenute. Chi nel Suo organico è segnato come collaboratore esterno può essere pagato per le ore timbrate con un bonifico reale sul suo conto.",
-  "productPage.team.section.payroll.bullet.1": "Periodi paga secondo il Suo ciclo, buste paga in PDF, il ciclo esportato",
+    "Le ore approvate e la tariffa di ciascuno diventano un ciclo paga per il periodo che sceglie, con una busta paga in PDF per persona. FieldQuo calcola il lordo; non paga i dipendenti e non presenta le ritenute. Chi nel Suo organico è segnato come collaboratore esterno può essere pagato per le ore timbrate con un bonifico reale sul suo conto.",
+  "productPage.team.section.payroll.bullet.1": "Periodi paga secondo il Suo ciclo, una busta paga in PDF per persona",
   "productPage.team.section.payroll.bullet.2": "Collaboratori esterni del Suo organico pagati per le ore timbrate alla tariffa che stabilisce Lei",
-  "productPage.team.section.payroll.bullet.3": "Aziende subappaltatrici in archivio con la loro assicurazione e la lista T5018 di fine anno",
+  "productPage.team.section.payroll.bullet.3": "Aziende subappaltatrici in archivio con la loro assicurazione, i loro certificati e quanto ha pagato loro quest'anno",
   "productPage.team.section.payroll.alt":
     "Paghe: le ore approvate del periodo, lordo, trattenute e netto, e un nuovo ciclo paga in preparazione",
   "productPage.team.faq.taxes.q": "FieldQuo presenta le ritenute sulle paghe?",
   "productPage.team.faq.taxes.a":
-    "No. Calcola il lordo dalle ore approvate, produce le buste paga ed esporta il ciclo. Le trattenute sono quelle che fornisce Lei o il Suo commercialista, e nulla viene trasmesso ad alcuna autorità fiscale.",
+    "No. Calcola il lordo dalle ore approvate e produce le buste paga. Le trattenute sono quelle che fornisce Lei o il Suo commercialista, e nulla viene trasmesso ad alcuna autorità fiscale.",
   "productPage.team.faq.crew-free.q": "Gli accessi Operaio sono gratuiti?",
   "productPage.team.faq.crew-free.a":
     "Sì. Un accesso Operaio vede il proprio orario, timbra entrata e uscita e archivia foto — non conta sui Suoi posti. I posti sono per le persone che creano e modificano preventivi, lavori e fatture.",

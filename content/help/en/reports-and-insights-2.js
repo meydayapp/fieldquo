@@ -372,7 +372,7 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "Can I download or print the statements?", a: "Not from this page — there is no PDF or export button. For files to hand an accountant, use the Bookkeeping export on Expense Tracking, which produces CSVs of invoices, payments and expenses for a date range. See [[the-accounting-export|The accounting export]]." },
+      { q: "Can I download or print the statements?", a: "No — there is no PDF or export button, and FieldQuo does not export your books as files. Your accountant can read the page with a login of their own, or work from each invoice's PDF. See [[the-accounting-export|What to hand your accountant]]." },
       { q: "Why does my March statement show no rent?", a: "A recurring overhead cost is stored as one row, dated once, and appears only in the period that row is dated in. FieldQuo does not synthesise twelve rent rows nobody entered. The warning at the foot of the page says how many recurring commitments are on file and how many fall in the period." },
       { q: "Why does the balance sheet not balance?", a: "Because it is partial and says so. FieldQuo does not know your bank balance, your fixed assets or your supplier bills, so total assets, total liabilities and equity are shown as Unavailable rather than as zero." },
       { q: "Why is a loan's interest Unavailable?", a: "The loan has no interest rate recorded on Settings → Overhead. A zero rate cannot be told apart from a rate nobody typed, so the line says which loan is missing one instead of booking $0 of interest." },
@@ -548,8 +548,8 @@ export const ARTICLES = {
       "The Expense Tracking screen: the month's four cards, what monthly burn rate is built from, why Runway shows a dash, the AI Summary, the breakdowns and the trend, how to add an expense and what each field changes, and who can see the company roll-up.",
     updated: "2026-09-12",
     intro: [
-      "**Expense Tracking** is “Where your money goes — by job, overhead, and category — plus your monthly burn rate.” It is the same screen whether you open **Expenses** under Money in the sidebar or **Expense Tracking** under Getting paid in Settings: one month at a time, four cards across the top, then the breakdowns, the six-month trend, the recent receipts and the bookkeeping export.",
-      "This article is that screen and the **Add Expense** form. The bank-statement importer has its own article, [[import-expenses-from-a-bank-csv|Import expenses from a bank CSV]], and the export its own, [[the-accounting-export|The accounting export]].",
+      "**Expense Tracking** is “Where your money goes — by job, overhead, and category — plus your monthly burn rate.” It is the same screen whether you open **Expenses** under Money in the sidebar or **Expense Tracking** under Getting paid in Settings: one month at a time, four cards across the top, then the breakdowns, the six-month trend and the recent receipts.",
+      "This article is that screen and the **Add Expense** form. The bank-statement importer has its own article, [[import-expenses-from-a-bank-csv|Import expenses from a bank CSV]]. There is no export of expenses; for what an accountant can have, see [[the-accounting-export|What to hand your accountant]].",
     ],
     sections: [
       {
@@ -557,7 +557,7 @@ export const ARTICLES = {
         heading: "Overview",
         blocks: [
           { p: "An expense in FieldQuo is one dated amount with a category, optionally tied to a job, flagged as overhead, marked recurring, or attached to a vehicle. Those four choices decide where it shows up: on the job's costing and in estimate accuracy, in the burn rate, on the vehicle's running cost, or simply in the month's total. The screen is a month's worth of those rows, added up in the ways a contractor asks about them." },
-          { figure: "live:app-settings-expense-tracking", caption: "Settings → Expense Tracking — the month stepper, the four cards, AI Summary, the two breakdowns, the 6-Month Trend, Recent Expenses and the Bookkeeping export." },
+          { figure: "live:app-settings-expense-tracking", caption: "Settings → Expense Tracking — the month stepper, the four cards, AI Summary, the two breakdowns, the 6-Month Trend and Recent Expenses." },
         ],
       },
       {
@@ -565,7 +565,7 @@ export const ARTICLES = {
         heading: "What is on the screen",
         blocks: [
           { bullets: [
-            "**Import from bank CSV** and **Add Expense** at the top right, and a month stepper (**Previous month** / **Next month**).",
+            "**Receipts**, **Scan receipt**, **Import from bank CSV** and **Add Expense** at the top right, and a month stepper (**Previous month** / **Next month**).",
             "**Tracked expenses this month** — every expense dated in the month, whatever its category or association.",
             "**Monthly burn rate** — “Overhead + salaries + debt”: what the business costs to run for a month, from the registers on **Settings → Overhead**. It does not change with the month you are viewing.",
             "**Runway** — months of cash at that burn rate. It reads **—** with **Add cash on hand to estimate**: today there is nowhere in FieldQuo to enter cash on hand, so the card stays a dash. FieldQuo holds no bank balance and no bank feed.",
@@ -575,7 +575,6 @@ export const ARTICLES = {
             "**Spend by Category** — this month's categories, largest first, with each one's share.",
             "**6-Month Trend** — a bar per month, this month last.",
             "**Recent Expenses** — the twenty newest rows across all months, each tagged **Overhead** or **Job-linked**, with a delete icon.",
-            "**Bookkeeping export** — a date range as CSVs for your accountant.",
           ] },
         ],
       },

@@ -83,7 +83,7 @@ export const ARTICLES = {
     faq: [
       { q: "Why does a row show less than the invoice total?", a: "The right-hand figure is what is still owed, with **Paid …** underneath when part has been received. The Outstanding tile adds up exactly those figures, so the column and the tile always agree." },
       { q: "Why is there no red line on an invoice I know is late?", a: "It has no due date, or it is still a draft. Set a due date when you create or edit the invoice; a draft is not late because it was never sent." },
-      { q: "Can I export this list?", a: "Not from this screen. The bookkeeping export under **Expenses** produces CSV files for a date range — see [[the-accounting-export|The accounting export]]." },
+      { q: "Can I export this list?", a: "No. FieldQuo imports lists but does not export them. Each invoice downloads on its own as a PDF — see [[the-accounting-export|What to hand your accountant]]." },
     ],
   },
 
@@ -381,7 +381,7 @@ export const ARTICLES = {
             "**The status** — **Paid** when nothing is owed and something was received; the paid date is stamped then.",
             "**The follow-up task** — “Follow up payment for INV-…” is resolved once the balance is settled.",
             "**The Activity Log** — “Recorded a cash payment of 500 on invoice INV-…”.",
-            "**No fee** — a manual payment shows no processing fee and no net deposited; the export leaves those cells blank rather than writing 0.00. See [[payment-processing-fees-and-payouts|Payment processing fees and payouts]].",
+            "**No fee** — a manual payment shows no processing fee and no net deposited, rather than 0.00. See [[payment-processing-fees-and-payouts|Payment processing fees and payouts]].",
           ] },
           { warning: "There is no undo on a recorded payment from this screen. Type the amount from the bank statement, not from memory, and use the notes field for the reference." },
         ],

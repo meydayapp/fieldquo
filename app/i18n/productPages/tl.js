@@ -19,9 +19,9 @@ const tl = {
     "Baguhin ang naipadalang invoice at naka-save pa rin ang dati — walang pagtatalo kung ano ang napagkasunduan",
   "productPage.quoting.section.pricebook.heading": "Ang mga serbisyo at presyo mo, isang beses lang i-set",
   "productPage.quoting.section.pricebook.body":
-    "Bawat serbisyong inaalok mo ay may sariling rate card — per square, per linear foot, per hour, kung paano man magpresyo ang trade. I-set nang isang beses at pupunuin nito ang bawat quote. Pwedeng i-import ang listahan ng produkto mula sa spreadsheet at i-export pabalik.",
+    "Bawat serbisyong inaalok mo ay may sariling rate card — per square, per linear foot, per hour, kung paano man magpresyo ang trade. I-set nang isang beses at pupunuin nito ang bawat quote. Pwedeng i-import ang listahan ng produkto mula sa spreadsheet, kaya walang kailangang i-type ulit.",
   "productPage.quoting.section.pricebook.bullet.1": "Isang rate card bawat serbisyo, sa mga unit na talagang ginagamit ng trade mo",
-  "productPage.quoting.section.pricebook.bullet.2": "Mga produkto at serbisyo na na-import mula sa CSV, na-export sa parehong paraan",
+  "productPage.quoting.section.pricebook.bullet.2": "Mga produkto at serbisyo na na-import mula sa CSV, hindi na tinipa ulit",
   "productPage.quoting.section.pricebook.bullet.3": "Gastos sa materyales at recipe sa likod ng presyo, hindi kailanman ipinapakita sa kliyente",
   "productPage.quoting.section.pricebook.alt":
     "Ang screen ng Services & Pricing: roofing, siding at gutters, bawat isa may sariling rate card at ang mga materyales na batayan ng presyo",
@@ -68,7 +68,7 @@ const tl = {
     "Hindi. Ang quote, ang invoice, ang approval page, ang mga email at ang PDF ay may logo mo, kulay mo at pangalan mo bilang sender. Dalawang maliit na lugar lang lumalabas ang pangalan namin: isang linyang \"Site by FieldQuo\" sa footer ng website mo habang wala pa sa bayad na plan ang kumpanya — nawawala sa oras na nasa plan na — at isang linyang \"Made by FieldQuo\" sa dulo ng bio link page.",
   "productPage.quoting.faq.own-prices.q": "Pwede ko bang gamitin ang sarili kong presyo?",
   "productPage.quoting.faq.own-prices.a":
-    "Iyon lang ang paraan. Bawat serbisyo ay nagsisimula sa karaniwang rate para sa trade mo, minarkahang panimula lang, at ikaw ang mag-a-adjust sa merkado mo; pinupunan ng quote builder mula sa mga numero mo, hindi kailanman sa amin. Pwede ring i-import ang price list mula sa spreadsheet at i-export pabalik.",
+    "Iyon lang ang paraan. Bawat serbisyo ay nagsisimula sa karaniwang rate para sa trade mo, minarkahang panimula lang, at ikaw ang mag-a-adjust sa merkado mo; pinupunan ng quote builder mula sa mga numero mo, hindi kailanman sa amin. Pwede ring i-import ang price list mula sa spreadsheet, kaya makakapagsimula ka sa listahang hawak mo na.",
   "productPage.quoting.faq.after-approval.q": "Ano ang nangyayari kapag nag-approve ang kliyente?",
   "productPage.quoting.faq.after-approval.a":
     "Nagiging job ang quote na may saklaw, address at papeles na nakalagay na, at isang click ang gagawa nitong invoice na kapareho ng quote. Kung humingi ka ng deposito, hihingin iyon sa pag-approve.",
@@ -199,15 +199,15 @@ const tl = {
     "Ang day board sa paningin ng dispatcher: naka-schedule na oras, overtime na lampas apatnapu, Late at On time chips, at paalalang ipinapakita lang ang labour cost sa mga makakakita ng pay rate",
   "productPage.team.section.payroll.heading": "Pay run at payslip mula sa mga approved na oras",
   "productPage.team.section.payroll.body":
-    "Nagiging pay run ang mga approved na oras at rate ng bawat tao para sa period na pipiliin mo, may payslip bawat tao at export para sa accountant mo. Kinukwenta ng FieldQuo ang gross pay; hindi nito binabayaran ang mga empleyado at hindi nagpa-file ng payroll tax. Ang nasa roster mo na minarkahang contractor ay pwedeng bayaran para sa naka-clock nilang oras sa pamamagitan ng tunay na transfer sa bangko nila.",
-  "productPage.team.section.payroll.bullet.1": "Pay period sa cycle mo, payslip bilang PDF, na-export ang run",
+    "Nagiging pay run ang mga approved na oras at rate ng bawat tao para sa period na pipiliin mo, may PDF na payslip bawat tao. Kinukwenta ng FieldQuo ang gross pay; hindi nito binabayaran ang mga empleyado at hindi nagpa-file ng payroll tax. Ang nasa roster mo na minarkahang contractor ay pwedeng bayaran para sa naka-clock nilang oras sa pamamagitan ng tunay na transfer sa bangko nila.",
+  "productPage.team.section.payroll.bullet.1": "Pay period sa cycle mo, PDF na payslip para sa bawat tao",
   "productPage.team.section.payroll.bullet.2": "Mga contractor sa roster mo na binabayaran para sa naka-clock na oras sa rate na itinakda mo",
-  "productPage.team.section.payroll.bullet.3": "Mga subcontracting company na nasa file kasama ang insurance nila at ang year-end T5018 list",
+  "productPage.team.section.payroll.bullet.3": "Mga subcontracting company na nasa file kasama ang insurance, clearance at kung magkano na ang naibayad mo sa kanila ngayong taon",
   "productPage.team.section.payroll.alt":
     "Payroll: ang approved na oras ngayong period, gross, deductions at net, at bagong pay run na sine-set up",
   "productPage.team.faq.taxes.q": "Nagpa-file ba ang FieldQuo ng payroll tax?",
   "productPage.team.faq.taxes.a":
-    "Hindi. Kinukwenta nito ang gross pay mula sa approved na oras, gumagawa ng payslip at nag-e-export ng run. Ang mga deduction ay ang ibinibigay mo o ng accountant mo, at walang ipina-file sa kahit anong tax authority.",
+    "Hindi. Kinukwenta nito ang gross pay mula sa approved na oras at gumagawa ng payslip. Ang mga deduction ay ang ibinibigay mo o ng accountant mo, at walang ipina-file sa kahit anong tax authority.",
   "productPage.team.faq.crew-free.q": "Libre ba ang crew login?",
   "productPage.team.faq.crew-free.a":
     "Oo. Nakikita ng Crew login ang sarili nilang schedule, nagki-clock in at out, at nagfa-file ng litrato — hindi ito binibilang sa mga seat mo. Ang mga seat ay para sa mga taong gumagawa at nagbabago ng quote, trabaho at invoice.",

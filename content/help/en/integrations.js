@@ -575,79 +575,67 @@ const PART_1 = {
   "quickbooks-xero-and-your-bookkeeper": {
     title: "QuickBooks, Xero and your bookkeeper",
     summary:
-      "There is no live sync with QuickBooks or Xero. What exists is a bookkeeping export — four CSV files for a date range — and this article says exactly what is in it and what is not.",
-    updated: "2026-09-12",
+      "There is no live sync with QuickBooks or Xero, and FieldQuo does not export your books as files. This article says what your bookkeeper works from instead, and what FieldQuo does not record.",
+    updated: "2026-09-25",
     intro: [
-      "“Do you work with QuickBooks?” The honest answer is: your numbers can leave FieldQuo as clean files your accountant imports, and nothing is synced live. The **Bookkeeping export** on **Expenses** produces a ZIP of four CSV files for any date range — a summary sheet, invoices, payments and expenses — and every accountant on earth imports a CSV.",
-      "This article is that export: how to run it, what each file carries, how the processing fees and refunds appear, and the seven things it does not contain, which are printed in front of the button and again inside the ZIP so they travel with the numbers.",
+      "“Do you work with QuickBooks?” The honest answer is no: nothing is synced, and FieldQuo does not produce files for QuickBooks or Xero to import. FieldQuo takes your records in — clients, leads, past jobs, a bank statement — but it does not send them back out as files.",
+      "What your bookkeeper can have is the documents, each one a PDF, and the figures FieldQuo adds up on screen. This article is how they work from those, and the things FieldQuo does not record, so nobody goes looking for them.",
     ],
     sections: [
       {
         id: "overview",
         heading: "Overview",
         blocks: [
-          { p: "A two-way sync with QuickBooks Online or Xero is not built. FieldQuo's own comparison pages concede it: the strings quickbooks, zapier and xero appear in no integration code. QuickBooks Desktop is refused outright, because it needs a Windows connector. What is built is the export, and it is the same one the fees article and the receivables pages describe." },
-          { p: "The card sits at the bottom of **Expenses** (the same screen as **Settings → Expense Tracking**): **Bookkeeping export — A date range of invoices, payments and expenses as four CSV files in one ZIP — a summary sheet plus one file each — for handing to an accountant or importing into their software.** Amounts are in your company's billing currency from Company Settings; without one the export refuses rather than guessing." },
-          { figure: "live:app-settings-expense-tracking", caption: "Expense Tracking — the month's cards and the Bookkeeping export card at the bottom, with From, To and Download the range." },
+          { p: "A two-way sync with QuickBooks Online or Xero is not built. FieldQuo's own comparison pages concede it: the strings quickbooks, zapier and xero appear in no integration code. QuickBooks Desktop is refused outright, because it needs a Windows connector." },
+          { p: "There is no bookkeeping file either — no CSV or ZIP of invoices, payments or expenses. Your bookkeeper enters the figures in their own software, from the PDFs and the screens below, or reads the screens with a login of their own." },
         ],
       },
       {
-        id: "how-to-run-it",
-        heading: "How to run it",
+        id: "how-your-bookkeeper-works",
+        heading: "How your bookkeeper works from FieldQuo",
         blocks: [
           { steps: [
-            "Open **Expenses** and scroll to **Bookkeeping export**. The range defaults to last month.",
-            "Set **From** and **To**, then read **What this file does not contain** underneath — that list is the one your bookkeeper needs before they import.",
-            "Press **Download the range**. The ZIP is named bookkeeping-… and holds summary, invoices, payments and expenses CSVs.",
-            "Hand the ZIP to your bookkeeper, or import each file into QuickBooks Online or Xero with their CSV import, mapping the columns once.",
+            "Open **Financial statements** for the period, on the basis your accountant files on — profit and loss, cash flow, sales tax charged. See [[financial-statements|Financial statements]].",
+            "Download each invoice with **Download PDF** on the invoice. It is the document the client received.",
+            "Read each online payment's amount, processing fee and net deposited on the invoice; to see which payments made up a bank deposit, open **Settings → Payments → Manage in Stripe**, where Stripe lists every payout.",
+            "Read the month's spending on **Expenses**, and the photographed receipts behind it under **Receipts**.",
           ] },
         ],
       },
       {
-        id: "what-each-file-carries",
-        heading: "What each file carries",
+        id: "recording-the-figures",
+        heading: "Recording the figures",
         blocks: [
-          { table: {
-            head: ["File", "One line per", "Money columns"],
-            rows: [
-              ["summary", "the export — company, range, then one row per currency", "Invoiced, of which tax, Payments received, Refunds, Processing fees, Stripe account fees, Expenses"],
-              ["invoices", "invoice — the latest version of an amended invoice, dated from the original", "Subtotal, Discount, Tax, whether tax was enabled, Total, Paid, Received in range, Due"],
-              ["payments", "payment — on the payment's own date, not the invoice's", "Amount (gross), Processing fee, Net deposited, Fee rate, Stripe account fees"],
-              ["expenses", "expense", "Amount, with Category, Overhead yes/no, Recurring, Frequency and Job"],
-            ],
-          } },
-          { p: "Post the gross to income and the processing fee to a merchant-fees expense from the same payment line; the bank feed then matches **Net deposited**. A refund issued from FieldQuo is its own negative line in the payments file, with method refund and the reason in Notes, and is totalled under Refunds in the summary. A refund made directly in Stripe shows on the original payment's refunded amount, not as a line." },
-          { p: "Every text cell a person typed — a client name, a category, a note — is guarded so it cannot run as a formula when the file is opened in Excel or Sheets." },
+          { p: "Post a payment's gross to income and its processing fee to a merchant-fees expense; the bank deposit then matches the net deposited. The fee is an expense, not a smaller sale — see [[payment-processing-fees-and-payouts|Payment processing fees and payouts]]." },
+          { p: "A refund issued from FieldQuo is a refund row of its own under the payment, with the reason; the original payment keeps its amount and fee. See [[refunds|Refunds]]." },
         ],
       },
       {
         id: "what-it-does-not-contain",
-        heading: "What it does not contain",
+        heading: "What FieldQuo does not record",
         blocks: [
           { bullets: [
-            "It is an export, not a filing. Nothing in it has been remitted to any tax authority.",
-            "It cannot produce a sales-tax return. Invoice tax is one amount per invoice, with no tax codes and no per-line tax — a Quebec invoice with GST and QST has two rates and one number.",
-            "Expenses carry no tax and no supplier, so input tax credits and recoverable VAT are not in it.",
-            "Credit notes do not exist. Refunds appear as their own negative lines.",
-            "There is no chart of accounts. Nothing is mapped to a GL account — your bookkeeper does that once, on import.",
-            "Fee columns are filled only for online payments taken after fees began to be recorded on the payment (September 2026); older card payments and every manual payment leave them blank rather than writing 0.00.",
-            "Days are grouped in UTC, and there is no invoice issue-date field — every invoice states which column its date came from.",
+            "A filing. Nothing in FieldQuo has been remitted to any tax authority.",
+            "A sales-tax return. Invoice tax is one amount per invoice, with no tax codes and no per-line tax — a Quebec invoice with GST and QST has two rates and one number.",
+            "Input tax credits. Expenses carry no tax and no supplier, so recoverable tax on what you bought is not tracked.",
+            "Credit notes. Refunds are rows under the payment they return.",
+            "A chart of accounts. Nothing is mapped to a GL account — your bookkeeper does that in their own software.",
           ] },
-          { warning: "Tell your bookkeeper it is a clean set of records, not a general ledger and not a QuickBooks sync. A bookkeeper who imports it expecting a ledger and finds it is not one blames the software; the list above is printed in front of the button to stop that." },
+          { warning: "Tell your bookkeeper up front that FieldQuo is not a general ledger and does not sync. A bookkeeper who expects a ledger and finds it is not one blames the software; saying so first prevents that." },
         ],
       },
       {
         id: "who-can-see-it",
-        heading: "Who can see it",
+        heading: "Who can see the figures",
         blocks: [
-          { p: "The Expenses screen itself needs access to **everyone's** expenses in the access grid — the owner, administrators and the Manager level; an Estimator or Dispatcher records their own receipts but does not see the company roll-up. On that screen the card appears only for a person whose access also has **See prices** on and invoices at **view only** or better. The route asks the same questions of the same grid, so a person without them gets no card rather than a card that fails." },
+          { p: "Financial statements need the **Job costing** toggle, **See prices**, company-wide **Expenses** access and the ability to manage users — the **Manager** level, administrators and the owner. A Manager sees invoices, payments, expenses and the statements, but not everyone's pay; an administrator also sees payroll and billing." },
         ],
       },
     ],
     faq: [
-      { q: "Will there be a QuickBooks sync?", a: "Not today, and FieldQuo does not list it on its comparison pages. The export is the door that exists; a live sync would be an Intuit-approved app with its own security review, which is why it is not a quick addition." },
-      { q: "Can my accountant log in instead?", a: "Yes — invite them from Manage Team. Make administrator if they must see billing; otherwise a Manager level sees invoices, payments and expenses and can run the export." },
-      { q: "Why are the fee columns blank on some payments?", a: "A manual payment carries no fee, and an online payment taken before fees were recorded on the payment has no known fee. A blank says “no fee is known”; a 0.00 would say “no fee”, which is a different statement." },
+      { q: "Will there be a QuickBooks sync?", a: "Not today, and FieldQuo does not list it on its comparison pages. A live sync would be an Intuit-approved app with its own security review, which is why it is not a quick addition." },
+      { q: "Can my accountant log in instead?", a: "Yes — invite them from Manage Team. The Manager level sees invoices, payments, expenses and the financial statements; make them an administrator only if they must also see payroll and billing." },
+      { q: "Can I export a CSV for my bookkeeper?", a: "No. FieldQuo imports lists but does not export them. Each invoice and quote downloads as a PDF; see [[the-accounting-export|What to hand your accountant]]." },
     ],
   },
 
@@ -713,7 +701,7 @@ const PART_1 = {
   "data-and-privacy": {
     title: "Your data, your clients' data, and deletion",
     summary:
-      "Who controls what, which outside services see which data, what the AI is and is not given, what you can export, and the plain fact that nothing is deleted on a schedule — including your account.",
+      "Who controls what, which outside services see which data, what the AI is and is not given, what you can download, and the plain fact that nothing is deleted on a schedule — including your account.",
     updated: "2026-09-12",
     intro: [
       "Two kinds of data live in your FieldQuo account. Your **company's** data — your staff accounts, your plan, your card — is FieldQuo's to look after. Your **clients'** data — their names, addresses, quotes, photos, calls — is yours: you are the data controller and FieldQuo is your processor, which is why a homeowner who wants their data changed or removed is asked to come to you first.",
@@ -765,12 +753,10 @@ const PART_1 = {
         heading: "What you can take out",
         blocks: [
           { bullets: [
-            "**Bookkeeping export** — a ZIP of four CSVs (summary, invoices, payments, expenses) for any date range, from Expenses. See [[the-accounting-export|The accounting export]].",
-            "**Price book** — Export CSV on Settings → Products & Services, cost prices included.",
-            "**Year-end subcontractor list (CSV)** and each **pay run's CSV**.",
-            "**PDFs** — every quote, invoice, payslip and job photo report.",
+            "**Documents, one at a time** — each quote and invoice as a PDF, each payslip, and a job's photo report.",
+            "**Nothing in bulk.** FieldQuo takes lists in but does not send them out as files: there is no export of clients, jobs, leads, invoices, payments, expenses, the price book, timesheets, pay runs or photos, and no “download everything”.",
           ] },
-          { warning: "There is no export of clients, jobs, leads or photos, and no “download everything”. Before asking for an account deletion, take the exports above and save the PDFs you want; deletion is not reversible and FieldQuo keeps no copy for you afterwards." },
+          { warning: "Before asking for an account deletion, save the PDFs you want; deletion is not reversible and FieldQuo keeps no copy for you afterwards." },
         ],
       },
       {
@@ -791,7 +777,7 @@ const PART_1 = {
         id: "who-can-see-it",
         heading: "Who can act on this",
         blocks: [
-          { p: "Cancelling the plan and requesting a migration are for the **owner and administrators**. A deletion request for the whole account must come from the owner's address. The exports follow their own screens' access: the bookkeeping export needs See prices and view access to invoices, the price book export needs See prices, and the subcontractor list needs job costing." },
+          { p: "Cancelling the plan and requesting a migration are for the **owner and administrators**. A deletion request for the whole account must come from the owner's address." },
         ],
       },
     ],
@@ -806,18 +792,18 @@ const PART_1 = {
   "no-public-api-or-zapier": {
     title: "No public API or Zapier, yet",
     summary:
-      "FieldQuo has no API keys, no Zapier app, no outgoing webhooks and no calendar feed. This article says so plainly and lists the doors that do exist — embeds, public links, CSV in and out, the Meta import and the migration service.",
+      "FieldQuo has no API keys, no Zapier app, no outgoing webhooks and no calendar feed. This article says so plainly and lists the doors that do exist — embeds, public links, CSV imports, the Meta import and the migration service.",
     updated: "2026-09-12",
     intro: [
       "If you are looking for an API key to paste somewhere, there is none to find. FieldQuo has **no public API**, **no Zapier or Make app**, **no webhooks you can point at your own system**, and **no calendar feed** for Google or Outlook. Every route in the product authenticates a signed-in person, and the webhooks that exist are vendors — Stripe, Meta, Twilio, Retell — calling FieldQuo, not FieldQuo calling you.",
-      "That is the whole of the first half. The second half is what does exist, because “how do I get data in and out” has real answers even without an API.",
+      "That is the whole of the first half. The second half is what does exist, because “how do I get data in, and what can I take out” has real answers even without an API.",
     ],
     sections: [
       {
         id: "overview",
         heading: "Overview",
         blocks: [
-          { p: "FieldQuo's own comparison pages concede these to the competition rather than imply them: the words QuickBooks, Zapier and Xero appear in no integration code, only in prose. The recorded plan, in order, is the bookkeeping export (built), then one signed outgoing webhook per event (not built), then a one-way QuickBooks push (deferred); a published Zapier app and a two-way accounting sync are refused for now. Nothing on this page should be read as a date." },
+          { p: "FieldQuo's own comparison pages concede these to the competition rather than imply them: the words QuickBooks, Zapier and Xero appear in no integration code, only in prose. The recorded plan, in order, is one signed outgoing webhook per event (not built), then a one-way QuickBooks push (deferred); a published Zapier app and a two-way accounting sync are refused for now. Nothing on this page should be read as a date." },
         ],
       },
       {
@@ -827,14 +813,10 @@ const PART_1 = {
           { table: {
             head: ["Door", "What comes out", "Where"],
             rows: [
-              ["**Bookkeeping export**", "Four CSVs — summary, invoices, payments, expenses — for a date range, in one ZIP", "Expenses → Download the range. See [[quickbooks-xero-and-your-bookkeeper|QuickBooks, Xero and your bookkeeper]]."],
-              ["**Export CSV**", "Your price book, cost prices included", "Settings → Products & Services"],
-              ["**Year-end list (CSV)**", "What each subcontractor was paid in a year", "Subcontractors"],
-              ["**Export CSV** on a pay run", "One pay run's lines", "Payroll"],
-              ["PDFs", "Every quote, invoice, payslip and job photo report", "Their own screens, and the client's email"],
+              ["PDFs", "Each quote, invoice, payslip and job photo report, one document at a time", "Their own screens, and the client's email"],
             ],
           } },
-          { p: "There is no export of clients, jobs, leads, appointments or photos. If you leave, take these files and the PDFs; see [[data-and-privacy|Your data, your clients' data, and deletion]]." },
+          { p: "There is no export of clients, jobs, leads, invoices, payments, expenses, the price book, timesheets, pay runs, appointments or photos: FieldQuo takes lists in but does not send them out as files. If you leave, save the PDFs you want first; see [[data-and-privacy|Your data, your clients' data, and deletion]]." },
         ],
       },
       {
@@ -876,7 +858,7 @@ const PART_1 = {
       },
     ],
     faq: [
-      { q: "Can I connect FieldQuo to my CRM or spreadsheet?", a: "Only by file: the CSV exports out and the CSV imports in. There is no live link." },
+      { q: "Can I connect FieldQuo to my CRM or spreadsheet?", a: "No. There is no live link, and it only goes one way by file: lists come in by CSV import, and nothing goes out as a CSV." },
       { q: "Can my website send its own form into FieldQuo?", a: "Use the embed snippet or link to the public quote request page — that is the supported way for a form on your site to create a lead. There is no endpoint for a form you built yourself." },
       { q: "Will I be told when an API arrives?", a: "Settings → Product Updates carries every change; nothing is promised here." },
     ],

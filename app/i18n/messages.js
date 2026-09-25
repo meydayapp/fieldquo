@@ -441,7 +441,7 @@ const en = {
     "A single branded page for your Instagram or truck decal that points at everything you offer.",
   "feature.subcontractor_bids.name": "Subcontractors",
   "feature.subcontractor_bids.summary":
-    "Keep the companies you hire on file, put one on a job at an agreed price, record what you pay them, and track their insurance and year-end tax forms.",
+    "Keep the companies you hire on file, put one on a job at an agreed price, record what you pay them with a total for the year, and track their insurance and clearance dates.",
   "feature.jobs.name": "Jobs",
   "feature.jobs.summary":
     "An approved quote becomes a job with the scope, the address and the paperwork already on it.",
@@ -551,13 +551,13 @@ const en = {
     "Per-campaign cost per lead covers leads that arrived through a Meta lead form. Every other channel — and a homeowner who saw the ad and phoned — is still blended across everything, because nothing links that spend to that lead.",
   "feature.payroll.name": "Payroll",
   "feature.payroll.summary":
-    "Approved hours become a pay run with payslips you can hand over or export for your accountant.",
+    "Approved hours become a pay run with a PDF payslip per person you can hand over.",
   "feature.contractor_payouts.name": "Pay contractors from the app",
   "feature.contractor_payouts.summary":
     "Approved hours for someone on your roster marked as a contractor go out as a real transfer to their bank.",
   "feature.price_book.name": "Your price book",
   "feature.price_book.summary":
-    "Your services and rates in one place, importable from a spreadsheet and exportable back out.",
+    "Your services and rates in one place, imported from a spreadsheet instead of retyped.",
   "feature.material_costs.name": "Material costs and recipes",
   "feature.material_costs.summary":
     "What a litre of paint or a sheet of ply costs you, and how much of it a job of this size eats.",
@@ -992,7 +992,7 @@ const fr = {
     "Une page à votre image, pour votre Instagram ou le lettrage du camion, qui mène à tout ce que vous offrez.",
   "feature.subcontractor_bids.name": "Sous-traitants",
   "feature.subcontractor_bids.summary":
-    "Gardez les entreprises que vous engagez au dossier, mettez-en une sur un chantier à un prix convenu, inscrivez ce que vous leur payez, et suivez leurs assurances et leurs relevés fiscaux de fin d'année.",
+    "Gardez les entreprises que vous engagez au dossier, mettez-en une sur un chantier à un prix convenu, inscrivez ce que vous leur payez avec le total de l'année, et suivez leurs dates d'assurance et d'attestation.",
   "feature.jobs.name": "Chantiers",
   "feature.jobs.summary":
     "Une soumission approuvée devient un chantier avec la description, l'adresse et les documents déjà dessus.",
@@ -1102,13 +1102,13 @@ const fr = {
     "Le coût par prospect par campagne couvre les prospects arrivés par un formulaire Meta. Tout autre canal — et le propriétaire qui a vu l'annonce et téléphoné — reste calculé en moyenne sur l'ensemble, parce que rien ne relie cette dépense à ce prospect.",
   "feature.payroll.name": "Paie",
   "feature.payroll.summary":
-    "Les heures approuvées deviennent une paie avec des bulletins à remettre ou à exporter pour votre comptable.",
+    "Les heures approuvées deviennent une paie avec un bulletin PDF par personne, prêt à remettre.",
   "feature.contractor_payouts.name": "Payer les sous-traitants dans l'appli",
   "feature.contractor_payouts.summary":
     "Les heures approuvées d'une personne de votre équipe marquée sous-traitant partent en virement réel vers sa banque.",
   "feature.price_book.name": "Votre grille de prix",
   "feature.price_book.summary":
-    "Vos services et vos tarifs au même endroit, importables d'un tableur et exportables à nouveau.",
+    "Vos services et vos tarifs au même endroit, importés d'un tableur au lieu d'être retapés.",
   "feature.material_costs.name": "Coûts des matériaux et dosages",
   "feature.material_costs.summary":
     "Ce que vous coûte un litre de peinture ou une feuille de contreplaqué, et combien un chantier de cette taille en avale.",
@@ -1526,7 +1526,7 @@ const es = {
     "Una página con tu marca, para tu Instagram o la calcomanía de la camioneta, que lleva a todo lo que ofreces.",
   "feature.subcontractor_bids.name": "Subcontratistas",
   "feature.subcontractor_bids.summary":
-    "Ten a las empresas que contratas en tu lista, pon una en un trabajo a un precio acordado, registra lo que les pagas y sigue sus seguros y sus formularios fiscales de fin de año.",
+    "Ten a las empresas que contratas en tu lista, pon una en un trabajo a un precio acordado, registra lo que les pagas con el total del año y sigue las fechas de sus seguros y constancias.",
   "feature.jobs.name": "Trabajos",
   "feature.jobs.summary":
     "Un presupuesto aprobado se convierte en un trabajo que ya trae el alcance, la dirección y los papeles.",
@@ -1636,13 +1636,13 @@ const es = {
     "El costo por cliente potencial por campaña cubre los clientes potenciales que llegaron por un formulario de Meta. Cualquier otro canal — y el propietario que vio el anuncio y llamó — sigue siendo un promedio combinado de todo, porque nada vincula ese gasto con ese cliente potencial.",
   "feature.payroll.name": "Nómina",
   "feature.payroll.summary":
-    "Las horas aprobadas se vuelven una corrida de pago con recibos que puedes entregar o exportar a tu contador.",
+    "Las horas aprobadas se vuelven una corrida de pago con un recibo en PDF por persona, listo para entregar.",
   "feature.contractor_payouts.name": "Paga a contratistas desde la app",
   "feature.contractor_payouts.summary":
     "Las horas aprobadas de alguien de tu plantilla marcado como contratista salen como transferencia real a su banco.",
   "feature.price_book.name": "Tu catálogo de precios",
   "feature.price_book.summary":
-    "Tus servicios y tarifas en un solo lugar, que se importan desde una hoja de cálculo y se exportan de vuelta.",
+    "Tus servicios y tarifas en un solo lugar, importados desde una hoja de cálculo en vez de teclearlos de nuevo.",
   "feature.material_costs.name": "Costos de materiales y recetas",
   "feature.material_costs.summary":
     "Lo que te cuesta un litro de pintura o una hoja de triplay, y cuánto se traga un trabajo de este tamaño.",
@@ -2061,7 +2061,7 @@ const uk = {
     "Одна фірмова сторінка для Instagram чи наклейки на авто, що веде до всього, що ви пропонуєте.",
   "feature.subcontractor_bids.name": "Субпідрядники",
   "feature.subcontractor_bids.summary":
-    "Тримайте компанії, які ви наймаєте, в обліку, ставте їх на роботу за погодженою ціною, записуйте, скільки ви їм платите, і стежте за їхніми страховками та річними податковими формами.",
+    "Тримайте компанії, які ви наймаєте, в обліку, ставте їх на роботу за погодженою ціною, записуйте, скільки ви їм платите, з підсумком за рік, і стежте за датами їхніх страховок і довідок.",
   "feature.jobs.name": "Роботи",
   "feature.jobs.summary":
     "Погоджений кошторис стає роботою, на якій уже є обсяг, адреса й документи.",
@@ -2171,13 +2171,13 @@ const uk = {
     "Вартість ліда по кампаніях охоплює лідів, що прийшли через лід-форму Meta. Усі інші канали — і власник, який побачив рекламу й зателефонував, — і далі усереднюються по всьому, бо ніщо не пов'язує ті витрати з тим лідом.",
   "feature.payroll.name": "Зарплата",
   "feature.payroll.summary":
-    "Затверджені години стають нарахуванням із розрахунковими листками, які можна віддати або вивантажити бухгалтеру.",
+    "Затверджені години стають нарахуванням із розрахунковим листком у PDF на кожну людину, який можна віддати.",
   "feature.contractor_payouts.name": "Виплати підрядникам із застосунку",
   "feature.contractor_payouts.summary":
     "Затверджені години людини з вашого складу, позначеної підрядником, ідуть реальним переказом на її банківський рахунок.",
   "feature.price_book.name": "Ваш прайс-лист",
   "feature.price_book.summary":
-    "Ваші послуги та розцінки в одному місці, з імпортом із таблиці та експортом назад.",
+    "Ваші послуги та розцінки в одному місці, імпортовані з таблиці замість повторного набору.",
   "feature.material_costs.name": "Вартість матеріалів і норми витрат",
   "feature.material_costs.summary":
     "Скільки вам коштує літр фарби чи лист фанери, і скільки з'їдає робота такого розміру.",
@@ -2595,7 +2595,7 @@ const pa = {
     "ਤੁਹਾਡੇ Instagram ਜਾਂ ਟਰੱਕ ਦੇ ਸਟਿੱਕਰ ਲਈ ਇੱਕ ਹੀ ਪੰਨਾ, ਜੋ ਤੁਹਾਡੀਆਂ ਸਾਰੀਆਂ ਸੇਵਾਵਾਂ ਵੱਲ ਲੈ ਜਾਂਦਾ ਹੈ।",
   "feature.subcontractor_bids.name": "ਸਬ-ਠੇਕੇਦਾਰ",
   "feature.subcontractor_bids.summary":
-    "ਜਿਹੜੀਆਂ ਕੰਪਨੀਆਂ ਤੁਸੀਂ ਰੱਖਦੇ ਹੋ ਉਨ੍ਹਾਂ ਦਾ ਰਿਕਾਰਡ ਰੱਖੋ, ਕਿਸੇ ਨੂੰ ਤੈਅ ਕੀਮਤ 'ਤੇ ਜੌਬ 'ਤੇ ਲਾਓ, ਜੋ ਤੁਸੀਂ ਉਨ੍ਹਾਂ ਨੂੰ ਦਿੰਦੇ ਹੋ ਉਹ ਦਰਜ ਕਰੋ, ਅਤੇ ਉਨ੍ਹਾਂ ਦੇ ਬੀਮੇ ਤੇ ਸਾਲ ਦੇ ਅੰਤ ਵਾਲੇ ਟੈਕਸ ਫਾਰਮਾਂ 'ਤੇ ਨਜ਼ਰ ਰੱਖੋ।",
+    "ਜਿਹੜੀਆਂ ਕੰਪਨੀਆਂ ਤੁਸੀਂ ਰੱਖਦੇ ਹੋ ਉਨ੍ਹਾਂ ਦਾ ਰਿਕਾਰਡ ਰੱਖੋ, ਕਿਸੇ ਨੂੰ ਤੈਅ ਕੀਮਤ 'ਤੇ ਜੌਬ 'ਤੇ ਲਾਓ, ਜੋ ਤੁਸੀਂ ਉਨ੍ਹਾਂ ਨੂੰ ਦਿੰਦੇ ਹੋ ਉਹ ਸਾਲ ਦੇ ਜੋੜ ਸਮੇਤ ਦਰਜ ਕਰੋ, ਅਤੇ ਉਨ੍ਹਾਂ ਦੇ ਬੀਮੇ ਤੇ ਕਲੀਅਰੈਂਸ ਦੀਆਂ ਤਾਰੀਖ਼ਾਂ 'ਤੇ ਨਜ਼ਰ ਰੱਖੋ।",
   "feature.jobs.name": "ਜੌਬਾਂ",
   "feature.jobs.summary":
     "ਮਨਜ਼ੂਰ ਹੋਇਆ ਕੋਟ ਜੌਬ ਬਣ ਜਾਂਦਾ ਹੈ, ਜਿਸ 'ਤੇ ਕੰਮ ਦਾ ਵੇਰਵਾ, ਪਤਾ ਅਤੇ ਕਾਗਜ਼ ਪਹਿਲਾਂ ਹੀ ਹੁੰਦੇ ਹਨ।",
@@ -2705,13 +2705,13 @@ const pa = {
     "ਪ੍ਰਤੀ ਮੁਹਿੰਮ ਲੀਡ ਲਾਗਤ ਉਨ੍ਹਾਂ ਲੀਡਾਂ ਨੂੰ ਕਵਰ ਕਰਦੀ ਹੈ ਜੋ Meta ਲੀਡ-ਫਾਰਮ ਰਾਹੀਂ ਆਈਆਂ। ਹਰ ਹੋਰ ਚੈਨਲ — ਅਤੇ ਉਹ ਮਕਾਨ-ਮਾਲਕ ਜਿਸਨੇ ਇਸ਼ਤਿਹਾਰ ਦੇਖ ਕੇ ਫ਼ੋਨ ਕੀਤਾ — ਹਾਲੇ ਵੀ ਸਭ ਕੁਝ ਮਿਲਾ ਕੇ ਗਿਣਿਆ ਜਾਂਦਾ ਹੈ, ਕਿਉਂਕਿ ਕੁਝ ਵੀ ਉਸ ਖਰਚੇ ਨੂੰ ਉਸ ਲੀਡ ਨਾਲ ਨਹੀਂ ਜੋੜਦਾ।",
   "feature.payroll.name": "ਪੇਰੋਲ",
   "feature.payroll.summary":
-    "ਮਨਜ਼ੂਰ ਘੰਟੇ ਤਨਖਾਹ ਦੀ ਰਨ ਬਣ ਜਾਂਦੇ ਹਨ, ਨਾਲ ਪੇਅ-ਸਲਿੱਪਾਂ ਜੋ ਦੇ ਸਕਦੇ ਹੋ ਜਾਂ ਅਕਾਊਂਟੈਂਟ ਲਈ ਕੱਢ ਸਕਦੇ ਹੋ।",
+    "ਮਨਜ਼ੂਰ ਘੰਟੇ ਤਨਖਾਹ ਦੀ ਰਨ ਬਣ ਜਾਂਦੇ ਹਨ, ਨਾਲ ਹਰ ਬੰਦੇ ਦੀ PDF ਪੇਅ-ਸਲਿੱਪ ਜੋ ਤੁਸੀਂ ਹੱਥ ਵਿੱਚ ਦੇ ਸਕਦੇ ਹੋ।",
   "feature.contractor_payouts.name": "ਐਪ ਤੋਂ ਠੇਕੇਦਾਰਾਂ ਨੂੰ ਭੁਗਤਾਨ",
   "feature.contractor_payouts.summary":
     "ਤੁਹਾਡੀ ਸੂਚੀ ਵਿੱਚ ਠੇਕੇਦਾਰ ਵਜੋਂ ਲੱਗੇ ਬੰਦੇ ਦੇ ਮਨਜ਼ੂਰ ਘੰਟੇ ਅਸਲ ਟ੍ਰਾਂਸਫਰ ਬਣ ਕੇ ਉਸ ਦੇ ਬੈਂਕ ਜਾਂਦੇ ਹਨ।",
   "feature.price_book.name": "ਤੁਹਾਡੀ ਪ੍ਰਾਈਸ ਬੁੱਕ",
   "feature.price_book.summary":
-    "ਤੁਹਾਡੀਆਂ ਸੇਵਾਵਾਂ ਤੇ ਰੇਟ ਇੱਕੋ ਥਾਂ, ਸਪਰੈੱਡਸ਼ੀਟ ਤੋਂ ਲਿਆਏ ਜਾ ਸਕਦੇ ਹਨ ਅਤੇ ਵਾਪਸ ਕੱਢੇ ਵੀ।",
+    "ਤੁਹਾਡੀਆਂ ਸੇਵਾਵਾਂ ਤੇ ਰੇਟ ਇੱਕੋ ਥਾਂ, ਸਪਰੈੱਡਸ਼ੀਟ ਤੋਂ ਲਿਆਏ ਹੋਏ, ਦੁਬਾਰਾ ਟਾਈਪ ਕੀਤੇ ਬਿਨਾਂ।",
   "feature.material_costs.name": "ਮਟੀਰੀਅਲ ਦੀ ਲਾਗਤ ਅਤੇ ਖਪਤ",
   "feature.material_costs.summary":
     "ਇੱਕ ਲੀਟਰ ਪੇਂਟ ਜਾਂ ਪਲਾਈ ਦੀ ਸ਼ੀਟ ਤੁਹਾਨੂੰ ਕਿੰਨੇ ਦੀ ਪੈਂਦੀ ਹੈ, ਅਤੇ ਇਸ ਆਕਾਰ ਦੀ ਜੌਬ ਕਿੰਨਾ ਖਾਂਦੀ ਹੈ।",
@@ -3134,7 +3134,7 @@ const tl = {
     "Isang pahinang may pangalan mo, para sa Instagram o sa sticker ng trak, na nagtuturo sa lahat ng alok mo.",
   "feature.subcontractor_bids.name": "Mga subcontractor",
   "feature.subcontractor_bids.summary":
-    "Itago sa file ang mga kumpanyang kinukuha mo, ilagay ang isa sa isang trabaho sa napagkasunduang presyo, itala ang ibinabayad mo sa kanila, at subaybayan ang kanilang insurance at mga tax form sa katapusan ng taon.",
+    "Itago sa file ang mga kumpanyang kinukuha mo, ilagay ang isa sa isang trabaho sa napagkasunduang presyo, itala ang ibinabayad mo sa kanila kasama ang kabuuan para sa taon, at subaybayan ang mga petsa ng kanilang insurance at clearance.",
   "feature.jobs.name": "Mga trabaho",
   "feature.jobs.summary":
     "Ang aprubadong quote ay nagiging trabaho na may saklaw, address at papeles na kasama na.",
@@ -3244,13 +3244,13 @@ const tl = {
     "Sakop ng gastos kada lead kada campaign ang mga lead na dumating sa pamamagitan ng Meta lead form. Ang bawat ibang channel — at ang may-ari ng bahay na nakakita ng ad at tumawag — ay pinagsama-sama pa rin sa lahat, dahil walang nag-uugnay sa gastos na iyon sa lead na iyon.",
   "feature.payroll.name": "Payroll",
   "feature.payroll.summary":
-    "Ang aprubadong oras ay nagiging pay run na may payslip na pwede mong iabot o i-export para sa accountant mo.",
+    "Ang aprubadong oras ay nagiging pay run na may PDF na payslip para sa bawat tao na pwede mong iabot.",
   "feature.contractor_payouts.name": "Bayaran ang contractor mula sa app",
   "feature.contractor_payouts.summary":
     "Ang aprubadong oras ng taong nasa roster mo na nakamarkang contractor ay lumalabas bilang tunay na transfer sa bangko niya.",
   "feature.price_book.name": "Iyong price book",
   "feature.price_book.summary":
-    "Ang mga serbisyo at presyo mo sa isang lugar, puwedeng i-import mula sa spreadsheet at i-export pabalik.",
+    "Ang mga serbisyo at presyo mo sa isang lugar, na-import mula sa spreadsheet sa halip na tipain ulit.",
   "feature.material_costs.name": "Halaga ng materyales at rasyon",
   "feature.material_costs.summary":
     "Kung magkano sa iyo ang isang litrong pintura o isang playwud, at gaano karami ang nauubos sa ganitong laki ng trabaho.",
@@ -3591,7 +3591,7 @@ const de = {
   "feature.bio_link.summary": "Eine einzige Seite in Ihrem Design für Instagram oder die Aufschrift am Transporter, die auf alles verweist, was Sie anbieten.",
   "feature.subcontractor_bids.name": "Nachunternehmer",
   "feature.subcontractor_bids.summary":
-    "Führen Sie die Betriebe, die Sie beauftragen, in einer Liste, setzen Sie einen zum vereinbarten Preis auf einen Auftrag, erfassen Sie, was Sie ihm zahlen, und behalten Sie Versicherung und Jahressteuermeldung im Blick.",
+    "Führen Sie die Betriebe, die Sie beauftragen, in einer Liste, setzen Sie einen zum vereinbarten Preis auf einen Auftrag, erfassen Sie, was Sie ihm zahlen, samt Jahressumme, und behalten Sie Versicherungs- und Bescheinigungsdaten im Blick.",
   "feature.jobs.name": "Aufträge",
   "feature.jobs.summary": "Aus einem angenommenen Angebot wird ein Auftrag, an dem Leistungsumfang, Adresse und Papiere schon hängen.",
   "feature.scheduling.name": "Einsatzplanung und Disposition",
@@ -3667,11 +3667,11 @@ const de = {
   "feature.marketing_spend.limits":
     "Die Kosten je Anfrage pro Kampagne erfassen Anfragen, die über ein Meta-Lead-Formular eingegangen sind. Jeder andere Kanal — und der Hausbesitzer, der die Anzeige gesehen und angerufen hat — bleibt über alles gemischt, weil nichts diese Ausgabe mit dieser Anfrage verknüpft.",
   "feature.payroll.name": "Lohnabrechnung",
-  "feature.payroll.summary": "Freigegebene Stunden werden zu einem Lohnlauf mit Abrechnungen, die Sie aushändigen oder für Ihre Buchhaltung exportieren können.",
+  "feature.payroll.summary": "Freigegebene Stunden werden zu einem Lohnlauf mit einer PDF-Abrechnung je Person, die Sie aushändigen können.",
   "feature.contractor_payouts.name": "Nachunternehmer aus der App bezahlen",
   "feature.contractor_payouts.summary": "Freigegebene Stunden für jemanden auf Ihrer Liste, der als Nachunternehmer geführt wird, gehen als echte Überweisung auf dessen Bankkonto.",
   "feature.price_book.name": "Ihre Preisliste",
-  "feature.price_book.summary": "Ihre Leistungen und Sätze an einem Ort, importierbar aus einer Tabelle und wieder exportierbar.",
+  "feature.price_book.summary": "Ihre Leistungen und Sätze an einem Ort, aus einer Tabelle importiert statt abgetippt.",
   "feature.material_costs.name": "Materialkosten und Verbrauchssätze",
   "feature.material_costs.summary": "Was Sie ein Liter Farbe oder eine Platte Sperrholz kostet und wie viel davon ein Auftrag dieser Größe frisst.",
   "feature.team_access.name": "Rollen und Zugriff im Team",
@@ -3988,7 +3988,7 @@ const zh = {
   "feature.bio_link.summary": "为你的 Instagram 或车身贴做的一张品牌页，指向你提供的全部服务。",
   "feature.subcontractor_bids.name": "分包商",
   "feature.subcontractor_bids.summary":
-    "把你雇用的公司记录在案，按约定价格把它放到某个工程上，记录付给它的款项，并跟踪它的保险和年末税表。",
+    "把你雇用的公司记录在案，按约定价格把它放到某个工程上，记录付给它的款项并汇总全年金额，并跟踪它的保险和清算证明日期。",
   "feature.jobs.name": "工程",
   "feature.jobs.summary": "报价单一被批准就变成工程，施工范围、地址和相关文件都已经带上了。",
   "feature.scheduling.name": "排期与派工",
@@ -4062,11 +4062,11 @@ const zh = {
   "feature.marketing_spend.name": "你的广告值不值",
   "feature.marketing_spend.summary": "按渠道记录花了多少——包括从 Meta Ads 自动导入——看到你为接活所做的一切合起来平均每个潜在客户花了多少钱。",
   "feature.payroll.name": "工资发放",
-  "feature.payroll.summary": "审批过的工时变成一个发薪批次，工资单可以直接给人，也能导出给会计。",
+  "feature.payroll.summary": "审批过的工时变成一个发薪批次，每人一张 PDF 工资单，可以直接交给本人。",
   "feature.contractor_payouts.name": "在应用里给承包工打款",
   "feature.contractor_payouts.summary": "人员名单里标记为承包工的人，审批过的工时会作为一笔真实的银行转账打出去。",
   "feature.price_book.name": "你的价目表",
-  "feature.price_book.summary": "你的服务和单价集中在一处，可以从表格导入，也能导出回去。",
+  "feature.price_book.summary": "你的服务和单价集中在一处，从表格导入，不用重新敲。",
   "feature.material_costs.name": "材料成本与用量配比",
   "feature.material_costs.summary": "一升漆或一张夹板对你来说多少钱，这么大的活会吃掉多少。",
   "feature.team_access.name": "团队角色与权限",
@@ -4480,7 +4480,7 @@ const it = {
     "Una sola pagina personalizzata per il suo Instagram o per l'adesivo sul furgone, che rimanda a tutto ciò che offre.",
   "feature.subcontractor_bids.name": "Subappaltatori",
   "feature.subcontractor_bids.summary":
-    "Tenga in archivio le imprese che ingaggia, ne metta una su un lavoro a un prezzo concordato, registri quanto le paga e tenga d'occhio assicurazioni e moduli fiscali di fine anno.",
+    "Tenga in archivio le imprese che ingaggia, ne metta una su un lavoro a un prezzo concordato, registri quanto le paga con il totale dell'anno e tenga d'occhio le scadenze di assicurazioni e certificati.",
   "feature.jobs.name": "Lavori",
   "feature.jobs.summary":
     "Un preventivo approvato diventa un lavoro che porta già con sé l'ambito, l'indirizzo e i documenti.",
@@ -4590,13 +4590,13 @@ const it = {
     "Il costo per lead per campagna copre i lead arrivati tramite un modulo Meta. Ogni altro canale — e il proprietario che ha visto l'annuncio e ha telefonato — resta aggregato su tutto, perché nulla collega quella spesa a quel lead.",
   "feature.payroll.name": "Buste paga",
   "feature.payroll.summary":
-    "Le ore approvate diventano un'elaborazione paghe con buste paga da consegnare o da esportare per il suo commercialista.",
+    "Le ore approvate diventano un'elaborazione paghe con una busta paga in PDF per persona, da consegnare.",
   "feature.contractor_payouts.name": "Paghi i collaboratori dall'applicazione",
   "feature.contractor_payouts.summary":
     "Le ore approvate di una persona in organico registrata come collaboratore autonomo partono come bonifico reale sul suo conto.",
   "feature.price_book.name": "Il suo listino prezzi",
   "feature.price_book.summary":
-    "I suoi servizi e le sue tariffe in un unico posto, importabili da un foglio di calcolo ed esportabili di nuovo.",
+    "I suoi servizi e le sue tariffe in un unico posto, importati da un foglio di calcolo invece che ribattuti.",
   "feature.material_costs.name": "Costi dei materiali e ricette",
   "feature.material_costs.summary":
     "Quanto le costa un litro di vernice o un pannello di compensato, e quanto ne consuma un lavoro di queste dimensioni.",

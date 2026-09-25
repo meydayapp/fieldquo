@@ -14,7 +14,7 @@ import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { hasLevel } from "@/lib/permissions/enforce";
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
-import { AlertTriangle, Download, MapPin } from "lucide-react";
+import { AlertTriangle, MapPin } from "lucide-react";
 import { stampVerdict, formatDistanceM } from "@/lib/geo/distance";
 import AttendanceChip from "@/app/components/team/AttendanceChip";
 
@@ -101,20 +101,11 @@ function TimesheetsPageScreen() {
   // Time Tracking ladder now names as including delete.
   const caller = usePermissions();
   const canDeleteEntry = hasLevel(caller, "timeTracking", "view_record_edit_all");
-  // ── The raw CSV ─────────────────────────────────────────────────────────
-  //
-  // A date range and an optional person, then a plain link to
-  // GET /api/time-entries/export — the browser downloads the file the route
-  // names (timesheet_<from>_<to>.csv). Same level as this page (the route
-  // refuses below it), so the panel is offered only to those it will answer.
-  const [exportRange, setExportRange] = useState(() => {
-    const to = new Date();
-    const from = new Date(to.getTime() - 13 * 86_400_000);
-    const iso = (d) => d.toISOString().slice(0, 10);
-    return { from: iso(from), to: iso(to), workerId: "" };
-  });
-  const exportHref = `/api/time-entries/export?from=${encodeURIComponent(exportRange.from)}&to=${encodeURIComponent(exportRange.to)}${exportRange.workerId ? `&workerId=${encodeURIComponent(exportRange.workerId)}` : ""}`;
-  const exportValid = /^\d{4}-\d{2}-\d{2}$/.test(exportRange.from) && /^\d{4}-\d{2}-\d{2}$/.test(exportRange.to) && exportRange.to >= exportRange.from;
+  // There is no "download the raw CSV" panel on this screen any more. A
+  // company can import but not export — the owner's decision of 2026-09-24,
+  // paying customers included — so GET /api/time-entries/export answers 403
+  // (lib/export/companyDataExport.js) and a date-range form pointing at it
+  // would be a control that appears to work and doesn't.
 
   useEffect(() => {
     // Both lists load in parallel; the form's worker picker needs the roster,
@@ -294,59 +285,6 @@ function TimesheetsPageScreen() {
         <p className="text-sm text-muted-foreground bg-card border border-border rounded-xl px-5 py-4">
           {t("app.timesheets.noWorkers")}
         </p>
-      )}
-
-      {canDeleteEntry && entries.length > 0 && (
-        <div className="bg-card border border-border rounded-xl px-4 py-3 flex flex-wrap items-end gap-3">
-          <div className="text-sm font-semibold text-foreground w-full sm:w-auto sm:mr-1">
-            {t("app.timesheets.exportTitle")}
-          </div>
-          <label className="block">
-            <span className="text-[11px] text-muted-foreground">{t("app.timesheets.exportFrom")}</span>
-            <input
-              type="date"
-              value={exportRange.from}
-              onChange={(e) => setExportRange((r) => ({ ...r, from: e.target.value }))}
-              className="mt-0.5 block rounded-lg border border-border bg-background px-2 py-1.5 text-sm"
-            />
-          </label>
-          <label className="block">
-            <span className="text-[11px] text-muted-foreground">{t("app.timesheets.exportTo")}</span>
-            <input
-              type="date"
-              value={exportRange.to}
-              onChange={(e) => setExportRange((r) => ({ ...r, to: e.target.value }))}
-              className="mt-0.5 block rounded-lg border border-border bg-background px-2 py-1.5 text-sm"
-            />
-          </label>
-          <label className="block min-w-[10rem]">
-            <span className="text-[11px] text-muted-foreground">{t("app.timesheets.exportWho")}</span>
-            <select
-              value={exportRange.workerId}
-              onChange={(e) => setExportRange((r) => ({ ...r, workerId: e.target.value }))}
-              className="mt-0.5 block w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm"
-            >
-              <option value="">{t("app.timesheets.exportEveryone")}</option>
-              {workers.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          {exportValid ? (
-            <a
-              href={exportHref}
-              download
-              className="inline-flex items-center gap-1.5 rounded-full bg-inverted text-inverted-foreground px-4 py-2 text-sm font-medium"
-            >
-              <Download size={14} /> {t("app.timesheets.exportCsv")}
-            </a>
-          ) : (
-            <span className="text-xs text-red-700 dark:text-red-300">{t("app.timesheets.exportBadRange")}</span>
-          )}
-          <p className="w-full text-[11px] text-muted-foreground">{t("app.timesheets.exportNote")}</p>
-        </div>
       )}
 
       {showForm && workers.length > 0 && (

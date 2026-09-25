@@ -416,7 +416,37 @@ function parseCsv(text) {
   return rows;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+console.log("\n1b. Off by decision: the route refuses before it reads anything\n");
+//
+// Companies can import but not export (owner, 2026-09-24, paying customers
+// included). The Payroll screen no longer links here, and the route answers
+// 403 from lib/export/companyDataExport.js as the FIRST thing it does — so an
+// owner, who clears every other gate below, is the member to ask with. The
+// database is watched so "refused" cannot mean "refused after reading every
+// line of everyone's pay".
+//
+// Everything after this section keeps proving the CSV is right, with the
+// switch opened in THIS process only: the code is kept so the decision can be
+// reversed without rebuilding it, and kept code that nothing checks is the
+// copy that rots.
+
+const { companyDataExport } = await import("@/lib/export/companyDataExport");
+ok("the switch ships closed", companyDataExport.available === false, companyDataExport.available);
 setCompany();
+{
+  const touched = [];
+  const realDb = globalThis.__FQ_DB;
+  globalThis.__FQ_DB = new Proxy({}, { get: (_t, p) => (touched.push(String(p)), realDb[p]) });
+  const off = await exportRun({ as: OWNER });
+  globalThis.__FQ_DB = realDb;
+  ok("an owner is refused with 403", off.status === 403, off.status);
+  ok("...saying exactly why", off.body?.error === "Export isn't available", off.body);
+  ok("...before a single database read", touched.length === 0, touched);
+  ok("...and nothing is logged as exported", globalThis.__FQ_ACTIVITY.length === 0, globalThis.__FQ_ACTIVITY);
+}
+companyDataExport.available = true;
+
 const res = await exportRun();
 const csvText = await (async () => res.body)();
 const grid = parseCsv(csvText);
@@ -682,6 +712,8 @@ const MUTATIONS = [
     "defaults a missing currency to CAD",
     (s) => s.replace('currency ?? "not recorded — set it in Settings → Company"', 'currency ?? "CAD"'),
   ],
+  // The owner's decision: no bulk export (section 1b).
+  ["drops the export-off guard", (s) => s.replace("if (exportOff) return exportOff;", "")],
   // The gate.
   [
     "waves everyone past the permission gate",

@@ -261,7 +261,7 @@ export default function BillingBanner() {
                     ? t("app.billingBanner.cancelledOneDay", "Your plan is cancelled — 1 day of read-only left.")
                     : t("app.billingBanner.cancelledDays", "Your plan is cancelled — {days} days of read-only left.", { days: state.daysLeft })}
                 </strong>{" "}
-                {t("app.billingBanner.cancelledBody", "You can still look at everything and download what you need. Resume any time.")}
+                {t("app.billingBanner.cancelledBody", "You can still look at everything and download any quote or invoice as a PDF. Resume any time.")}
               </>
             )
           ) : trialOver ? (

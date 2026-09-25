@@ -9,16 +9,20 @@
 // carries one the tree does not.
 //
 // Every number in the fees article is read from lib/stripe/processingFee.js,
-// lib/stripe/disputeRecovery.js, lib/stripe/connectFees.js and
-// lib/export/accountingExport.js — the same constants the charges use — and
-// scripts/check-help-centre.mjs executes those constants against the
-// sentences below, so the article cannot quietly drift from what is
-// deducted.
+// lib/stripe/disputeRecovery.js and lib/stripe/connectFees.js — the same
+// constants the charges use — and scripts/check-help-centre.mjs executes
+// those constants against the sentences below, so the article cannot quietly
+// drift from what is deducted.
+//
+// The fees article's last section used to walk through the bookkeeping
+// export's columns. That export is gone (owner, 2026-09-24: a company can
+// import but not export — lib/export/companyDataExport.js), so the section now
+// says where the three figures are read instead: on the payment itself.
 export const ARTICLES = {
   "payment-processing-fees-and-payouts": {
     title: "Payment processing fees and payouts",
     summary:
-      "What a card or bank-debit payment costs you, how the fee shows on each payment, when the money reaches your bank, and how it all appears in your accounting export.",
+      "What a card or bank-debit payment costs you, how the fee shows on each payment, when the money reaches your bank, and how your bookkeeper records it.",
     updated: "2026-09-12",
     intro: [
       "When a client pays an invoice online, the payment goes through the company's own Stripe account and lands in the company's bank. A processing fee is taken off each payment before it gets there — never billed separately, and with no monthly fee for taking payments. This article is the whole story of that fee: the rates, where you see them, what happens on a refund or a dispute, and how your bookkeeper reconciles it.",
@@ -30,7 +34,7 @@ export const ARTICLES = {
         heading: "Overview",
         blocks: [
           { p: "Every online payment a client makes is a Stripe charge created in your company's name and paid out to your bank account. FieldQuo never holds the money. The processing fee is deducted from the payment itself — the client pays the invoice total, the fee comes off, and the **net** is what Stripe deposits." },
-          { p: "You will see three amounts for every online payment: the **amount** (what the client paid and what the invoice was reduced by), the **processing fee**, and the **net deposited**. They appear on the invoice, on the payment record, and as three columns in the accounting export." },
+          { p: "You will see three amounts for every online payment: the **amount** (what the client paid and what the invoice was reduced by), the **processing fee**, and the **net deposited**. They appear on the invoice and on the payment record." },
           { note: "There is no tipping and no capital or lending product in FieldQuo. If you are used to Jobber's help pages, those two sections have no counterpart here — a client pays exactly the invoice, and the only money that moves is the invoice's." },
         ],
       },
@@ -97,7 +101,7 @@ export const ARTICLES = {
               ["Dispute (chargeback)", "$15 per dispute, not returned if you win", "CAD and USD"],
             ],
           } },
-          { p: "The card rate is one number whatever the card: a business or Amex card costs the same 3% + 30¢ as a consumer Visa. It is 2.9% + 30¢ to Stripe plus a 0.1% FieldQuo margin, and you see the single combined rate everywhere — on the settings page, the payment record and the export." },
+          { p: "The card rate is one number whatever the card: a business or Amex card costs the same 3% + 30¢ as a consumer Visa. It is 2.9% + 30¢ to Stripe plus a 0.1% FieldQuo margin, and you see the single combined rate everywhere — on the settings page and the payment record." },
           { p: "Two surcharges apply only when they apply, because the card is unknown until it is charged: **+0.8%** on a card issued outside Canada, and **+2%** when the payment needs a currency conversion. They are passed through at Stripe's cost on that payment only. Bank debit carries no surcharge." },
           { p: "A **$5,000 invoice paid by bank debit costs $5** — the cap — where the same invoice by card costs $150.30. For large invoices from Canadian clients, offering bank debit is the single biggest saving on this page." },
           { p: "Stripe also bills a small account fee: a **monthly active-account fee** in months you take payments and **0.25% + 25¢ per payout** to your bank. These are passed through at cost and appear as their own line on your next payment — “Stripe account fees $2.25 (2026-09)” — never folded into the processing fee." },
@@ -138,27 +142,26 @@ export const ARTICLES = {
           { bullets: [
             "**“Stripe is holding your money”** on Settings → Payments — Stripe still needs something from you (a document, a bank account, a director's name). Open **Manage in Stripe** and finish what it asks for; clients' payments keep going through in the meantime.",
             "**“Stripe is reviewing your account”** — you have sent everything and Stripe is checking it, usually a day, sometimes two or three. Nothing to do.",
-            "**A payment with no fee shown** — it is a manual payment, or an online payment recorded before fees began to be recorded on the payment. The export leaves those fee cells blank rather than writing 0.00, because “no fee is known” and “no fee” are different statements.",
+            "**A payment with no fee shown** — it is a manual payment, or an online payment recorded before fees began to be recorded on the payment. The payment shows no fee rather than $0.00, because “no fee is known” and “no fee” are different statements.",
             "**The Pay button is missing from an invoice** — Stripe has not enabled charges yet. Settings → Payments shows what it is waiting for.",
           ] },
         ],
       },
       {
-        id: "accounting-export",
-        heading: "How it appears in your accounting export",
+        id: "in-your-books",
+        heading: "Recording it in your books",
         blocks: [
-          { p: "The bookkeeping export (**Expenses → Bookkeeping export**) produces CSV files for a date range, and the payments file carries one line per payment with three money columns: **Amount** (gross — what the client paid and what the invoice was reduced by), **Processing fee**, and **Net deposited**, plus a **Fee rate** column naming the method the fee was taken at (“card”, “acss_debit”)." },
-          { figure: "live:app-settings-expense-tracking", caption: "Expense Tracking — the Bookkeeping export card at the bottom downloads the date range as CSVs." },
-          { p: "Post the gross to income and the fee to a merchant-fees expense from the same line; the bank feed then matches **Net deposited**. The totals file sums processing fees per tax code separately from income, so the fee is an expense in your books, not a smaller sale." },
-          { p: "Payments are filtered on the **payment's own date**, not the invoice's — a December invoice paid in January is January's cash. Fee columns are blank for manual payments and for online payments taken before fees were recorded on the payment." },
-          { tip: "Importing into QuickBooks Online or Xero: map Amount → income, Processing fee → merchant fees, Net deposited → the bank deposit. See [[the-accounting-export|The accounting export]] and [[quickbooks-xero-and-your-bookkeeper|QuickBooks, Xero and your bookkeeper]]." },
+          { p: "Each online payment on an invoice carries its three figures side by side — the **amount** (gross — what the client paid and what the invoice was reduced by), the **processing fee** and the **net deposited** — and that is where your bookkeeper reads them. FieldQuo does not export payments as a file and does not sync with QuickBooks or Xero." },
+          { p: "Post the gross to income and the fee to a merchant-fees expense from the same payment; the bank deposit then matches the net deposited. The fee is an expense in your books, not a smaller sale." },
+          { p: "A payment belongs to the day it was received, not the invoice's date — a December invoice paid in January is January's cash. A manual payment, and an online payment taken before fees were recorded on the payment, shows no fee." },
+          { tip: "To match a bank deposit to its payments, open **Settings → Payments → Manage in Stripe**: Stripe's Express dashboard lists every payout with the payments it contains. For what else an accountant can have, see [[the-accounting-export|What to hand your accountant]] and [[quickbooks-xero-and-your-bookkeeper|QuickBooks, Xero and your bookkeeper]]." },
         ],
       },
     ],
     faq: [
       { q: "Can I pass the fee on to the client?", a: "Not as a separate surcharge — the invoice total is what the client pays and the fee comes off your side. Price the job with the fee in mind, or offer bank debit to Canadian clients, which is capped at $5." },
       { q: "Is there a monthly fee for taking payments?", a: "No. Stripe bills a small active-account fee only in months you take payments, and it is shown as its own line on your next payment." },
-      { q: "Why does my bank statement not match the invoice amount?", a: "The bank receives the net deposited — the amount minus the processing fee. The invoice and the export show both figures." },
+      { q: "Why does my bank statement not match the invoice amount?", a: "The bank receives the net deposited — the amount minus the processing fee. The payment on the invoice shows both figures." },
       { q: "Does FieldQuo hold my money?", a: "Never. The charge is created in your company's name and Stripe pays your bank directly." },
     ],
   },
@@ -169,7 +172,7 @@ export const ARTICLES = {
     updated: "2026-09-12",
     intro: [
       "A Canadian client can pay an invoice, a deposit, a payment-schedule instalment or a service plan by pre-authorized debit straight from their bank account instead of a card. The fee is **1% + $0.40, capped at $5.00** per payment — so a $5,000 debit costs you $5, where the same amount by card costs $150.30. Bank debit is passed through at Stripe's cost; FieldQuo adds nothing to it.",
-      "This article says exactly where bank debit is offered (the **Pay … from bank account** button on the client portal for invoices, deposits and instalments, and service plans with automatic collection — for a company billing in Canadian dollars), what the client agrees to, how long a debit takes to clear, and how the fee shows on the invoice and in your accounting export.",
+      "This article says exactly where bank debit is offered (the **Pay … from bank account** button on the client portal for invoices, deposits and instalments, and service plans with automatic collection — for a company billing in Canadian dollars), what the client agrees to, how long a debit takes to clear, and how the fee shows on the invoice.",
     ],
     sections: [
       {
@@ -208,7 +211,7 @@ export const ARTICLES = {
               ["$5,000", "$5.00 (the cap)", "$150.30"],
             ],
           } },
-          { p: "The fee is deducted from the debit before the money reaches your bank, the same way a card fee is. The invoice's payment row reads, for example, **“bank debit processing $5.00 · deposited $4,995.00”**, and the accounting export writes the method as “acss_debit” in its **Fee rate** column. There is no international or currency-conversion surcharge on bank debit, and the fee is the same whether the debit came from the portal button or from a plan." },
+          { p: "The fee is deducted from the debit before the money reaches your bank, the same way a card fee is. The invoice's payment row reads, for example, **“bank debit processing $5.00 · deposited $4,995.00”**. There is no international or currency-conversion surcharge on bank debit, and the fee is the same whether the debit came from the portal button or from a plan." },
           { tip: "The cap is reached at $460. Above that, every extra dollar a client pays by bank debit is free of fees — which is why a quarterly or annual maintenance plan is the place to offer it." },
         ],
       },
@@ -475,7 +478,6 @@ export const ARTICLES = {
             "**A refund row** of its own under the payment: a negative amount, the method, the reason and who issued it. The original payment keeps its amount and fee. A second partial refund is a second row, and together they can never exceed what the payment still holds.",
             "The invoice's paid figure drops by the refund and its balance rises by it. A fully refunded invoice reads **Refunded**; a partly refunded one reads **Partially refunded**, with a banner such as “Partly refunded — $500.00 was returned to the client.”",
             "Owners and administrators get a notification once Stripe confirms the refund: “Money taken back on invoice INV-1042 — Jane Tremblay”, marked **Refunded**. The Manager level does not — see [[disputes-and-chargebacks|Disputes and chargebacks]] for who is told.",
-            "In the accounting export the payment keeps its gross, fee and net, and the refund is a line of its own in the payments file — method **refund**, a negative amount, Stripe's refund id as the reference and your reason as the note — with a **Refunds** total in the summary beside **Payments received**. A refund made directly in your Stripe dashboard is recorded on the original payment's refunded amount instead, not as a line.",
           ] },
           { p: "A refund on an older version of an amended invoice is applied to the latest version, because the family of versions shares one running balance." },
         ],

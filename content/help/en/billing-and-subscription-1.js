@@ -535,7 +535,7 @@ export const ARTICLES = {
         heading: "Overview",
         blocks: [
           { p: "FieldQuo bills you through Stripe Billing, in your own currency — Canadian dollars for a Canadian address, US dollars for a US one. Each period Stripe issues an invoice, charges the card on file, and marks the invoice paid; the paid invoice is the receipt. There is no separate FieldQuo-branded receipt email per charge." },
-          { p: "These are the opposite direction from the invoices on your **Invoices** screen, which are yours to your clients and go through your own connected Stripe account. The two never mix: your subscription invoice is not in your accounting export, and a client's payment is never on your Stripe customer." },
+          { p: "These are the opposite direction from the invoices on your **Invoices** screen, which are yours to your clients and go through your own connected Stripe account. The two never mix: your subscription invoice is never among your invoices to clients, and a client's payment is never on your Stripe customer." },
         ],
       },
       {
@@ -588,7 +588,7 @@ export const ARTICLES = {
     faq: [
       { q: "Can FieldQuo email me the invoice every month?", a: "Not from the app. The invoice is in the Stripe portal from **Manage billing & payment method**, downloadable as PDF." },
       { q: "Why does the invoice show tax when my own invoices to clients do not?", a: "They are two different sales. Stripe adds the tax that applies to FieldQuo selling to you, from your billing address. The tax on your invoices to clients comes from your own tax settings." },
-      { q: "Is my subscription in the bookkeeping export?", a: "No. The export covers your clients' payments and your expenses. Record the FieldQuo invoice as a software expense from the PDF." },
+      { q: "Is my subscription in my expenses?", a: "Not unless you add it. FieldQuo does not record its own charge as one of your expenses. Record the FieldQuo invoice as a software expense from the PDF — in your own books, or with Add Expense on Expenses." },
     ],
   },
 };

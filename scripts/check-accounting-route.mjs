@@ -39,15 +39,12 @@
 // which knows nothing about this codebase. A ZIP writer that agrees only with
 // itself is a ZIP writer nobody has tested.
 //
-// One thing is NOT executed, and this file says so rather than implying
-// otherwise: the settings card is JSX, and nothing in an alias-loader run can
-// parse JSX. So the CARD's gate is lifted out of the source as data — the
-// toggle name and the category/level it asks for — and evaluated against the
-// same permission helpers the route uses, then compared with what the route
-// actually answered the same member. Deleting the guard, or pointing it at a
-// different permission, fails. Only the placement of the guard is matched as
-// text.
-import { readFileSync, writeFileSync, mkdtempSync } from "node:fs";
+// The export is OFF by the owner's decision of 2026-09-24 (companies can
+// import but not export). Section 0 proves the route refuses an owner before
+// reading anything; sections 1–7 open the switch in this process only and keep
+// proving the kept code is right; section 8 proves the Expenses screen no
+// longer offers the export at all.
+import { readFileSync, writeFileSync, mkdtempSync, readdirSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
@@ -56,7 +53,6 @@ import { register } from "node:module";
 import { inflateRawSync } from "node:zlib";
 
 import { PERMISSION_PRESETS } from "@/lib/permissions";
-import { hasLevel, hasToggle } from "@/lib/permissions/enforce";
 import { buildAccountingExport } from "@/lib/export/accountingExport";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -554,6 +550,48 @@ const stripBom = (buf) =>
     : buf.toString("utf8");
 
 // ═══════════════════════════════════════════════════════════════════════════
+console.log("\n0. Off by decision — refused before anything is read\n");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Companies can import but not export (owner, 2026-09-24, paying customers
+// included). The route answers 403 from lib/export/companyDataExport.js as
+// its first statement, so the owner — who clears every gate in section 1 — is
+// the person to ask with, and the queries are watched so "refused" cannot mean
+// "refused after reading every invoice in the company".
+//
+// Sections 1–7 keep proving the archive is right with the switch opened in
+// THIS process only. The code is kept so the decision can be reversed without
+// rebuilding it, and kept code that nothing checks is the copy that rots.
+
+{
+  const { companyDataExport } = await import("@/lib/export/companyDataExport");
+  ok("the switch ships closed", companyDataExport.available === false, String(companyDataExport.available));
+  const off = await call("owner");
+  ok("an owner is refused with 403", off.status === 403, off.status);
+  ok("…saying exactly why", off.body?.error === "Export isn't available", JSON.stringify(off.body));
+  ok("…before a single query", globalThis.__FQ_QUERIES.length === 0, JSON.stringify(globalThis.__FQ_QUERIES));
+  ok("…and nothing is logged as an export", globalThis.__FQ_ROWS.activityLog.length === 0);
+
+  // The switch is an object only so checks like this one can open it in
+  // their own process. Product code must never write it — an assignment in
+  // app/ or lib/ would be a way round the owner's decision that no review of
+  // lib/export/companyDataExport.js would see.
+  const writers = [];
+  const walkJs = (dir) => {
+    for (const name of readdirSync(dir)) {
+      if (name === "node_modules" || name.startsWith(".")) continue;
+      const full = join(dir, name);
+      if (statSync(full).isDirectory()) walkJs(full);
+      else if (/\.(m?js|jsx)$/.test(name) && /companyDataExport\s*\.\s*available\s*=[^=]/.test(readFileSync(full, "utf8"))) writers.push(full.slice(ROOT.length + 1));
+    }
+  };
+  walkJs(join(ROOT, "app"));
+  walkJs(join(ROOT, "lib"));
+  ok("nothing in app/ or lib/ writes the switch", writers.length === 0, writers.join(", "));
+  companyDataExport.available = true;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 console.log("\n1. The gate — this file names every client and every total\n");
 // ═══════════════════════════════════════════════════════════════════════════
 //
@@ -1003,99 +1041,29 @@ console.log("\n7. The activity trail\n");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-console.log("\n8. The card is hidden from exactly the people the route refuses\n");
+console.log("\n8. No card — the Expenses screen offers no export\n");
 // ═══════════════════════════════════════════════════════════════════════════
 //
-// The card is JSX and cannot be rendered in this run, so its guard is lifted
-// out of the source AS DATA — which toggle, which category, which level — and
-// evaluated with the same helpers the route uses. Then the two answers are
-// compared per person. Pointing the card at a different permission, or
-// deleting the guard, changes what this computes and fails.
-//
-// Hiding the card is not the access control; the route is, and section 1 is
-// what proves it. This is the other half of the same rule: a control that
-// 403s for the person looking at it is the failure AGENTS.md names first.
+// This section used to lift the "Bookkeeping export" card's gate out of
+// app/app/settings/expense-tracking/page.js and prove it hid the card from
+// exactly the people the route refused. The card is gone on the owner's
+// decision of 2026-09-24, so the question it answered — "is there a control
+// that 403s for the person looking at it?" — now has a simpler answer that
+// must stay true: there is no control at all. A card that came back pointing
+// at a route that refuses everyone is that same dead control.
 
-const cardSrc = readFileSync(CARD, "utf8");
-
-// Scoped to the CARD's own source, not the page's. The screen it sits on
-// already fetches, already reports its own errors and already reads the grid
-// for other reasons — asserting against the whole file would let a guard
-// deleted from the card pass on the strength of a line four hundred lines
-// away. Every "the card does X" below is a statement about these lines.
-const cardStart = cardSrc.indexOf("function BookkeepingExportCard()");
-const cardEnd = cardSrc.indexOf("export default function ExpenseTrackingPage");
-ok(
-  "the card is a component in this file",
-  cardStart > -1 && cardEnd > cardStart,
-  `${cardStart}..${cardEnd}`,
-);
-const cardBody = cardSrc.slice(cardStart, cardEnd);
-
-const toggleArg = cardBody.match(/useHasToggle\("([^"]+)"\)/)?.[1];
-const levelArgs = cardBody.match(/useHasLevel\("([^"]+)",\s*"([^"]+)"\)/);
-
-ok("the card asks the grid for a toggle", !!toggleArg, String(toggleArg));
-ok("…and for a category level", !!levelArgs, String(levelArgs));
-ok(
-  "the guard returns null before any markup",
-  /if \(!canSeePricing \|\| !canReadInvoices\) return null;/.test(cardBody),
-);
-ok(
-  "the card is rendered on the page, not merely defined",
-  /<BookkeepingExportCard \/>/.test(cardSrc.slice(cardEnd)),
-);
-ok(
-  "the download goes to the route this file executes",
-  /\/api\/export\/accounting\?from=/.test(cardBody),
-);
-// A dead `if (res.ok)` is the second failure class in AGENTS.md, and it is the
-// one that makes a broken export look like a button that does nothing. Matched
-// as the refusal BRANCH rather than as a mention of the helper: the page has
-// three other call sites, and any of them would satisfy a bare name match
-// while this button failed in silence.
-ok(
-  "a failed download is reported, not swallowed",
-  /if \(!res\.ok\) \{[\s\S]{0,400}?await reportResponseError\(/.test(cardBody),
-);
-
-const cardVisibleTo = (member) =>
-  /if \(!canSeePricing \|\| !canReadInvoices\) return null;/.test(cardBody) &&
-  !!toggleArg &&
-  !!levelArgs &&
-  hasToggle(member, toggleArg) &&
-  hasLevel(member, levelArgs[1], levelArgs[2]);
-
-for (const [name, member] of Object.entries(PEOPLE)) {
-  // Everyone is asked against the same company, so the only variable is the
-  // grid — the tenant question is section 4's.
-  const res = await call(name, `from=${FROM}&to=${TO}`);
-  const allowed = res.status !== 403;
-  ok(
-    `${name}: the card is ${allowed ? "shown" : "hidden"}, matching the route`,
-    cardVisibleTo(member) === allowed,
-    `card=${cardVisibleTo(member)} route=${res.status}`,
-  );
-}
-
-// And the limits are stated in front of the button, not only inside the file.
-// A bookkeeper who imports this expecting a ledger blames us; the honest place
-// to prevent that is before the download.
-for (const [what, needle] of [
-  ["it is not a filing", /not a filing/i],
-  ["no sales-tax return", /sales-tax return/i],
-  ["no expense tax or supplier", /no tax and no supplier/i],
-  ["refunds are negative lines, no credit notes", /negative lines[^\n]*Credit notes do not exist/i],
-  ["no chart of accounts", /chart of accounts/i],
-  ["Stripe's fee has its own columns, blank on older and manual payments", /Stripe's fee/i],
-  ["UTC days and no issue-date column", /issue-date field/i],
-]) {
-  ok(`the card says: ${what}`, needle.test(cardBody));
-}
-ok(
-  "…and does not sell itself as a QuickBooks export",
-  !/QuickBooks export/i.test(cardBody),
-);
+const pageSrc = readFileSync(CARD, "utf8");
+const pageCode = pageSrc
+  .split("\n")
+  .filter((l) => !/^\s*(\/\/|\*|\{\/\*)/.test(l))
+  .join("\n");
+ok("no BookkeepingExportCard component", !/BookkeepingExportCard/.test(pageCode));
+ok("nothing on the page calls the export route", !/\/api\/export\/accounting/.test(pageCode));
+ok("no blob download of a bookkeeping ZIP", !/bookkeeping-.*\.zip/.test(pageCode) && !/createObjectURL/.test(pageCode));
+// The card's strings were removed from every language with it; a key left
+// behind is copy that still describes an export to a translator.
+const messages = readFileSync(join(ROOT, "app/i18n/appMessages.js"), "utf8");
+ok("no app.setExpenses.export* message is left in any language", !/"app\.setExpenses\.export/.test(messages));
 
 console.log(
   fails.length

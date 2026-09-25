@@ -212,7 +212,7 @@ export const ARTICLES = {
         heading: "Ce qui se passe après votre confirmation",
         blocks: [
           { bullets: [
-            "**Lecture seule pendant 30 jours.** Tout le monde peut encore ouvrir FieldQuo et tout lire — téléchargez ce qu'il faut pour votre comptable — mais personne ne peut rien changer. Une bannière en haut compte les jours.",
+            "**Lecture seule pendant 30 jours.** Tout le monde peut encore ouvrir FieldQuo, tout consulter et télécharger n'importe quelle soumission ou facture en PDF, mais personne ne peut rien changer. Une bannière en haut compte les jours.",
             "**Puis verrouillé.** Après les 30 jours, le compte reste fermé jusqu'à ce que le forfait soit redémarré. Rien n'est supprimé à aucun moment; redémarrer redonne tout.",
             "**Vos clients gardent chaque lien.** Les soumissions, le portail client et les pages de paiement de facture s'ouvrent toujours, et tout ce qu'ils paient arrive toujours dans votre propre compte Stripe.",
             "**Aucun remboursement, aucune perte.** Une période payée court jusqu'à sa date et vous gardez l'accès complet jusque-là; l'écran indique cette date avant que vous confirmiez.",
@@ -617,7 +617,7 @@ export const ARTICLES = {
         heading: "Comment demander la suppression",
         blocks: [
           { steps: [
-            "Téléchargez d'abord ce dont vous avez besoin — l'export comptable et toutes les factures — pendant que le compte est encore ouvert. Une fois supprimé, rien ne peut être récupéré.",
+            "Téléchargez d'abord ce dont vous avez besoin — les PDF des soumissions et des factures que vous voulez garder — pendant que le compte est encore ouvert. FieldQuo n'exporte pas vos données en bloc. Une fois supprimé, rien ne peut être récupéré.",
             "Écrivez à **hello@fieldquo.com** avec l'objet **Data deletion request**, depuis l'adresse courriel avec laquelle vous vous êtes inscrit, ou utilisez le formulaire de la page **Data Deletion** du site web de FieldQuo, qui enregistre la même demande et vous envoie une référence par courriel tout de suite.",
             "Dites quelle entreprise FieldQuo la demande concerne (votre entreprise), que vous êtes le titulaire du compte, le courriel sous lequel le compte est, et si vous voulez tout supprimer ou quelque chose de précis.",
             "Gardez la référence que vous recevez — elle ressemble à **FQ-DEL-7K3M9Q**. La taper dans la page Data Deletion montre si la demande est reçue ou terminée, avec les dates, et rien d'autre.",
@@ -665,7 +665,7 @@ export const ARTICLES = {
     faq: [
       { q: "Y a-t-il un bouton pour supprimer mon compte?", a: "Non. La suppression est une demande écrite, exécutée à la main dans les 30 jours ouvrables, et confirmée par courriel. Annuler le forfait est en libre-service; supprimer les données ne l'est pas." },
       { q: "Si j'annule et ne reviens jamais, mes données finissent-elles par être supprimées?", a: "Non. Rien n'expire selon un calendrier. Le compte devient inaccessible après la fenêtre de lecture seule de 30 jours, mais les dossiers restent jusqu'à ce que quelqu'un demande leur suppression." },
-      { q: "Puis-je obtenir une copie de tout avant que ce soit supprimé?", a: "Téléchargez l'export comptable et vos factures pendant que le compte est ouvert; après la fenêtre de lecture seule, le compte est verrouillé, et après la suppression, rien ne peut être récupéré. Redémarrer le forfait pendant la fenêtre le rouvre." },
+      { q: "Puis-je obtenir une copie de tout avant que ce soit supprimé?", a: "Pas par un téléchargement — FieldQuo n'exporte pas vos données en bloc. Vous pouvez demander une copie de vos données par écrit, de la même façon qu'une demande de suppression, et une personne vous l'envoie. Téléchargez les PDF des soumissions et des factures que vous voulez pendant que le compte est ouvert; après la fenêtre de lecture seule, le compte est verrouillé, et après la suppression, rien ne peut être récupéré. Redémarrer le forfait pendant la fenêtre le rouvre." },
     ],
   },
 };

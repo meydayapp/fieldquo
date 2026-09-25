@@ -42,6 +42,15 @@
 // there rather than moving to a neutrally-named lib/export/csv.js. Two
 // consumers, one implementation, one place to fix it: that is the point, and
 // the file it lives in is a detail the pinned check owns.
+//
+// ── Off, by decision ─────────────────────────────────────────────────────────
+//
+// Companies can import but not export (owner, 2026-09-24, paying customers
+// included). A whole run as a file is a bulk export of everyone's pay, so the
+// first statement of GET refuses with 403 before the session or the database
+// is read — lib/export/companyDataExport.js says why this is a guard and not
+// a deletion. Each worker's payslip PDF (../payslip/[lineId]) is a different
+// thing — the one document a worker is owed — and stays.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -57,6 +66,7 @@ import { recordActivity } from "@/lib/activity/log";
 // and importing the cell escaper beside it would invite a future edit to
 // hand-roll a row again.
 import { money, toCsv, dayKey } from "@/lib/export/accountingExport";
+import { companyDataExportRefusal } from "@/lib/export/companyDataExport";
 
 /** YYYY-MM-DD, UTC, or "" — dayKey's rule, not a fourth copy of it. */
 function iso(d) {
@@ -64,6 +74,9 @@ function iso(d) {
 }
 
 export async function GET(request, { params }) {
+  const exportOff = companyDataExportRefusal(NextResponse);
+  if (exportOff) return exportOff;
+
   const { id } = await params;
 
   const { member, response } = await memberOrRefusal(request);

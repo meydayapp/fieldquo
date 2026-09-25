@@ -70,7 +70,7 @@ export const ARTICLES = {
   "settings-products": {
     title: "Produits et services (la liste de prix)",
     summary:
-      "Le catalogue des articles que vous déposez sur une soumission — nom, prix de vente, coût, unité et les types de soumission auxquels il appartient — avec un import et un export CSV.",
+      "Le catalogue des articles que vous déposez sur une soumission — nom, prix de vente, coût, unité et les types de soumission auxquels il appartient — avec un import CSV.",
     updated: "2026-09-12",
     intro: [
       "**Paramètres → Services et tarifs → Produits et services** est votre liste de prix : les articles ponctuels que vous ajoutez à une soumission par leur nom plutôt qu'en les tarifant à partir de zéro — des frais d'urgence, un jeu de poignées, une couche d'apprêt sur les moulures. La portée principale d'un métier (par porte, par pied carré) se tarife à partir de la grille tarifaire sous [[settings-services|Services et tarifs]]; cet écran contient tout le reste.",
@@ -82,8 +82,8 @@ export const ARTICLES = {
         heading: "Ce qu'il y a à l'écran",
         blocks: [
           { p: "En haut : une case **Rechercher** et le bouton **Ajouter un article**. En dessous, la liste, chaque ligne montrant le nom, la description, une pastille **Service** ou **Produit** et les types de soumission auxquels elle est liée, avec une icône de modification et une de suppression. La liste est paginée — choisissez 6, 10, 25 ou 50 par page au bas — et la recherche parcourt tout le catalogue, pas seulement la page où vous êtes." },
-          { figure: "live:app-settings-products", caption: "Paramètres → Produits et services — la liste avec recherche et Ajouter un article, puis les cartes Coûts, Importer et Exporter." },
-          { p: "Sous la liste se trouvent trois cartes : **Coûts**, **Importer des produits et services** et **Exporter des produits et services**." },
+          { figure: "live:app-settings-products", caption: "Paramètres → Produits et services — la liste avec recherche et Ajouter un article, puis les cartes Coûts et Importer." },
+          { p: "Sous la liste se trouvent deux cartes : **Coûts** et **Importer des produits et services**. Il n'y a pas d'export : la liste de prix entre depuis un fichier, mais n'en ressort pas." },
         ],
       },
       {
@@ -109,20 +109,20 @@ export const ARTICLES = {
             head: ["Champ", "Ce qu'il fait aujourd'hui"],
             rows: [
               ["Prix unitaire", "Le tarif avec lequel la ligne atterrit quand vous ajoutez l'article à une soumission. Vous pouvez encore le changer sur cette soumission."],
-              ["Prix de revient", "Conservé sur l'article et inclus dans l'export CSV. Aucune soumission, aucun calcul de coûts de chantier ni aucune marge ne le lit encore — la carte Coûts de l'écran le dit."],
+              ["Prix de revient", "Conservé sur l'article. Aucune soumission, aucun calcul de coûts de chantier ni aucune marge ne le lit encore — la carte Coûts de l'écran le dit."],
               ["Unité", "Imprimée sur la ligne de la soumission (pi², porte, heure). Texte libre."],
               ["Disponible sur ces types de soumission", "Filtre où l'article est offert dans le générateur de soumissions. Aucune coche signifie partout."],
-              ["Type (Service / Produit)", "Une pastille dans la liste et une colonne dans l'export. Il ne change pas la tarification."],
+              ["Type (Service / Produit)", "Une pastille dans la liste. Il ne change pas la tarification."],
             ],
           } },
           { p: "Les articles d'ici apparaissent dans le tableau des lignes du générateur de soumissions pour le type de soumission correspondant, et la soumission prend le nom et la description de l'article dans sa propre langue quand une traduction existe — voir [[lines-from-your-price-book|Lignes tirées de votre liste de prix]] et [[settings-translations|Traductions]]." },
         ],
       },
       {
-        id: "import-and-export",
-        heading: "Import et export",
+        id: "import",
+        heading: "Import",
         blocks: [
-          { p: "**Importer un CSV** accepte un fichier .csv exporté d'Excel, de Google Sheets ou de Numbers avec les colonnes name, description, type, unitPrice, costPrice et unit; **Télécharger un fichier exemple** vous donne un exemple d'une ligne pour partir. Les articles importés gardent la langue dans laquelle ils ont été écrits — rien n'est traduit au téléversement. **Exporter un CSV** télécharge toute la liste, prix de revient compris." },
+          { p: "**Importer un CSV** accepte un fichier .csv exporté d'Excel, de Google Sheets ou de Numbers avec les colonnes name, description, type, unitPrice, costPrice et unit; **Télécharger un fichier exemple** vous donne un exemple d'une ligne pour partir. Les articles importés gardent la langue dans laquelle ils ont été écrits — rien n'est traduit au téléversement. Rien ne ressort en sens inverse : gardez votre propre tableur si vous voulez une copie de la liste en fichier." },
           { tip: "**Ajouter des articles standards aux Produits et services**, sur l'écran Services et tarifs, verse dans cette liste les options habituelles d'un métier (charnières, poignées, coulisses de tiroir pour l'ébénisterie), déjà liées à ce type de soumission. Modifiez leurs prix ici ensuite." },
         ],
       },
@@ -136,7 +136,7 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "Où est-ce que je règle le tarif par porte ou par pied carré de mon métier?", a: "Sur Services et tarifs, dans la grille tarifaire du métier. Cet écran sert aux extras que vous ajoutez par-dessus." },
-      { q: "Le prix de revient alimente-t-il ma marge sur une soumission?", a: "Pas encore. Il est stocké et exporté, et l'écran dit que rien ne le lit. La marge d'une soumission vient de Coût des matériaux et de Frais généraux." },
+      { q: "Le prix de revient alimente-t-il ma marge sur une soumission?", a: "Pas encore. Il est stocké sur l'article, et l'écran dit que rien ne le lit. La marge d'une soumission vient de Coût des matériaux et de Frais généraux." },
       { q: "Si je supprime un article, une vieille soumission perd-elle la ligne?", a: "Non. La soumission garde la description et le prix avec lesquels elle a été établie." },
     ],
   },

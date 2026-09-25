@@ -35,6 +35,8 @@
 //      swapLang, parseFigureRef.
 //  10. The fees article's numbers are the constants in
 //      lib/stripe/processingFee.js and lib/stripe/disputeRecovery.js.
+//  11. No article, in any language, offers a bulk export while
+//      lib/export/companyDataExport.js says exports are off.
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { dirname, join } from "node:path";
@@ -52,6 +54,7 @@ import { FEATURE_KEYS } from "@/lib/features/registry";
 import { SCREENS } from "../docs/screens/app-guide/harness/screens.js";
 import { PROCESSING_RATES, INSTANT_PAYOUT_RATE, CARD_SURCHARGES, processingFeeCents, formatFeeCents } from "@/lib/stripe/processingFee";
 import { DISPUTE_FEE_CENTS } from "@/lib/stripe/disputeRecovery";
+import { companyDataExport } from "@/lib/export/companyDataExport";
 import { resolveFigure } from "./help-figure-sources.mjs";
 import { rows, writes, resetDbStub as reset } from "./fixtures/dbStub.mjs";
 
@@ -446,11 +449,82 @@ section("10. The fees article and the fee constants");
     ok(`the same by card is ${formatFeeCents(bigCard)}`, text.includes(formatFeeCents(bigCard)));
     ok("the surcharges match CARD_SURCHARGES.ca", text.includes(`**${CARD_SURCHARGES.ca.international.formula}**`) && text.includes(`**${CARD_SURCHARGES.ca.conversion.formula}**`));
     const ids = a.sections.map((s) => s.id);
-    ok("the outline mirrors the model article", JSON.stringify(ids) === JSON.stringify(["overview", "settings", "payouts", "payments", "instant-payouts", "fees", "refunds", "disputes", "negative-balances", "errors", "accounting-export"]), ids.join(","));
+    // The model article's last section is its accounting export. FieldQuo's
+    // counterpart was the bookkeeping export's columns until that export was
+    // withdrawn (owner, 2026-09-24); it is now where the same three figures
+    // are read — on the payment — hence `in-your-books`.
+    ok("the outline mirrors the model article", JSON.stringify(ids) === JSON.stringify(["overview", "settings", "payouts", "payments", "instant-payouts", "fees", "refunds", "disputes", "negative-balances", "errors", "in-your-books"]), ids.join(","));
     ok("Tips and Capital are named as not applicable rather than omitted silently", /no tipping and no capital/i.test(text));
-    const cols = read("lib/export/accountingExport.js");
-    ok("the export columns named in the article exist in the export", ["Processing fee", "Net deposited", "Fee rate"].every((c) => cols.includes(`"${c}"`) && text.includes(c)));
+    ok("the three per-payment figures are named where the bookkeeper reads them", ["**amount**", "**processing fee**", "**net deposited**"].every((c) => JSON.stringify(a.sections.find((s) => s.id === "in-your-books") || {}).includes(c)));
   }
+}
+
+// ── 11. No article offers an export that does not exist ────────────────────
+//
+// Owner, 2026-09-24: a company can import but not export. The five bulk
+// exports were taken out of /app and their routes answer 403 through
+// lib/export/companyDataExport.js. An article that still says "press Export
+// CSV" is the dead control AGENTS.md names first — the button is gone and the
+// URL refuses — so every string of every article in every language is
+// scanned for the removed controls' own labels and for the prose names the
+// articles used for them. Single documents (quote, invoice and payslip PDFs,
+// the import sample files) are not on the list: they stay.
+//
+// Gated on the switch itself, so turning exports back on is one reviewed
+// change to companyDataExport.js that this check then stops refusing — the
+// articles still have to be written back, but nothing here needs editing.
+section("11. No article offers a removed export");
+{
+  const REMOVED = [
+    // en — the controls' labels (app/i18n/appMessages.js) and article prose
+    "Bookkeeping export", "accounting export", "Download the range", "Year-end list (CSV)", "Export CSV",
+    "Download CSV", "Export products & services", "raw CSV", "exports the run", "CSV export",
+    "/api/export/accounting", "/api/products/export", "/api/time-entries/export", "/api/subcontractors/export",
+    // fr
+    "Export comptable", "Télécharger la période", "Liste de fin d'année (CSV)", "Exporter CSV", "Exporter un CSV",
+    "Télécharger le CSV", "Exporter des produits et services", "CSV brut", "exporte la paie", "export CSV",
+    // es
+    "Exportación contable", "Descargar el periodo", "Lista de fin de año (CSV)", "Exportar CSV", "Descargar CSV",
+    "Exportar productos y servicios", "CSV en bruto", "exporta la nómina", "exportación CSV",
+  ];
+  // Whole phrases only: "CSV export" must not fire on "a CSV exported from
+  // your bank", which is another product's export coming IN and is exactly
+  // what the import articles should say.
+  const escape = (p) => p.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
+  const patterns = REMOVED.map((p) => ({ p, re: new RegExp(`(?<![\\p{L}])${escape(p)}(?![\\p{L}])`, "iu") }));
+  const allStrings = (x, out = []) => {
+    if (typeof x === "string") out.push(x);
+    else if (Array.isArray(x)) x.forEach((v) => allStrings(v, out));
+    else if (x && typeof x === "object") Object.values(x).forEach((v) => allStrings(v, out));
+    return out;
+  };
+  // A FAQ QUESTION may name the thing a reader is looking for ("Can I export
+  // a CSV for my bookkeeper?") — that is how they find the answer that says
+  // no. Everything else, the answers included, is scanned.
+  const scanned = (art) => allStrings({ ...art, faq: (art.faq || []).map((f) => f.a) });
+  const offers = [];
+  if (companyDataExport.available !== true) {
+    for (const lang of HELP_LANGS) {
+      for (const a of ARTS) {
+        const art = written(lang, a);
+        if (!art) continue;
+        for (const s of scanned(art)) {
+          const hit = patterns.find(({ re }) => re.test(s));
+          if (hit) offers.push(`${lang}/${a.slug}: “${hit.p}” in “${s.slice(0, 80)}…”`);
+        }
+      }
+    }
+  }
+  ok(
+    companyDataExport.available === true
+      ? "exports are on in lib/export/companyDataExport.js — the removed-export scan is skipped"
+      : "no article in en, fr or es names a removed export",
+    offers.length === 0,
+    offers.slice(0, 10).join("\n       "),
+  );
+  // The tree's own working titles are what TREE.md and the fallback page
+  // show; the two rewritten slugs must not carry their old export titles.
+  ok("the tree titles no longer promise an export", !/export|csv/i.test(articleMeta("the-accounting-export")?.title || "export") && !/csv/i.test(articleMeta("the-t5018-year-end-list")?.title || "csv"));
 }
 
 // ── Done ───────────────────────────────────────────────────────────────────

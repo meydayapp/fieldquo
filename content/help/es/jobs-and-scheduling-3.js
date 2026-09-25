@@ -26,10 +26,10 @@ export const ARTICLES = {
     ],
     sections: [
       {
-        id: "export-and-attendance",
-        heading: 'El CSV en bruto y la etiqueta de asistencia',
+        id: "attendance-and-where-hours-go",
+        heading: "La etiqueta de asistencia y a dónde van las horas",
         blocks: [
-          { p: "**Exportar** arriba de Hojas de horas descarga la hoja en bruto como CSV: elige el primer y último día y, si quieres, una persona, y pulsa **Descargar CSV**. Una fila por entrada — trabajador, título, fecha, entrada, salida, minutos de descanso no pagados y pagados, horas netas, trabajo, estado, quién aprobó, distancia al sitio al fichar cuando el teléfono respondió, y el veredicto de asistencia. El archivo lleva el nombre del rango (**timesheet_2026-09-01_2026-09-14.csv**). Horas, nunca salario: la tarifa por hora queda tras su propia puerta." },
+          { p: "Hojas de horas no tiene descarga: las horas no se exportan como archivo. Las horas aprobadas van a donde se usan — a las nóminas, cuyos recibos se descargan en PDF, y al costo de mano de obra de cada trabajo." },
           { p: "Una etiqueta junto a un nombre — **A tiempo**, **12 min tarde**, **Salió 20 min antes**, **No se presentó** — es el veredicto del horario para el turno publicado al que pertenece ese fichaje, el mismo que el [[the-scheduler-and-crew-shifts|tablero del día]] muestra en el bloque. Un fichaje sin turno publicado alrededor no tiene etiqueta." },
         ],
       },

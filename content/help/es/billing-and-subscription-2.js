@@ -212,7 +212,7 @@ export const ARTICLES = {
         heading: "Qué pasa después de confirmar",
         blocks: [
           { bullets: [
-            "**Solo lectura durante 30 días.** Todos pueden seguir abriendo FieldQuo y leer todo — descargue lo que necesite para su contador — pero nadie puede cambiar nada. Un aviso en la parte superior cuenta los días.",
+            "**Solo lectura durante 30 días.** Todos pueden seguir abriendo FieldQuo, verlo todo y descargar cualquier presupuesto o factura en PDF, pero nadie puede cambiar nada. Un aviso en la parte superior cuenta los días.",
             "**Luego bloqueada.** Pasados los 30 días la cuenta queda cerrada hasta que se vuelva a iniciar el plan. Nada se borra en ningún momento; volver a empezar lo devuelve todo.",
             "**Sus clientes conservan cada enlace.** Los presupuestos, el portal del cliente y las páginas de pago de factura siguen abriéndose, y cualquier cosa que paguen sigue llegando a su propia cuenta de Stripe.",
             "**Sin reembolso, sin pérdida.** Un período pagado corre hasta su fecha y conserva el acceso completo hasta entonces; la pantalla indica esa fecha antes de que confirme.",
@@ -617,7 +617,7 @@ export const ARTICLES = {
         heading: "Cómo solicitar el borrado",
         blocks: [
           { steps: [
-            "Descargue primero lo que necesite — la exportación contable y cualquier factura — mientras la cuenta sigue abierta. Una vez borrado, nada se puede recuperar.",
+            "Descargue primero lo que necesite — los PDF de los presupuestos y facturas que quiera conservar — mientras la cuenta sigue abierta. FieldQuo no exporta sus registros en bloque. Una vez borrado, nada se puede recuperar.",
             "Escriba a **hello@fieldquo.com** con el asunto **Data deletion request**, desde la dirección de correo con la que se registró, o use el formulario de la página **Data Deletion** del sitio web de FieldQuo, que registra la misma solicitud y le envía una referencia por correo de inmediato.",
             "Diga a qué empresa de FieldQuo se refiere la solicitud (su negocio de contratista), que usted es el titular de la cuenta, el correo bajo el que está la cuenta, y si quiere borrar todo o algo en concreto.",
             "Guarde la referencia que recibe; se parece a **FQ-DEL-7K3M9Q**. Escribirla en la página Data Deletion muestra si la solicitud está recibida o completada, con las fechas, y nada más.",
@@ -665,7 +665,7 @@ export const ARTICLES = {
     faq: [
       { q: "¿Hay un botón para borrar mi cuenta?", a: "No. El borrado es una solicitud por escrito, ejecutada a mano en un plazo de 30 días hábiles, y confirmada por correo. Cancelar el plan es autoservicio; borrar los datos no." },
       { q: "Si cancelo y nunca vuelvo, ¿mis datos se borran en algún momento?", a: "No. Nada vence según un calendario. La cuenta se vuelve inaccesible tras la ventana de solo lectura de 30 días, pero los registros se quedan hasta que alguien pide que se borren." },
-      { q: "¿Puedo obtener una copia de todo antes de que se borre?", a: "Descargue la exportación contable y sus facturas mientras la cuenta está abierta; tras la ventana de solo lectura la cuenta queda bloqueada y tras el borrado nada se puede recuperar. Volver a iniciar el plan durante la ventana la reabre." },
+      { q: "¿Puedo obtener una copia de todo antes de que se borre?", a: "No como una descarga — FieldQuo no exporta sus registros en bloque. Puede pedir una copia de sus datos por escrito, igual que una solicitud de borrado, y una persona se la envía. Descargue los PDF de los presupuestos y facturas que quiera mientras la cuenta está abierta; tras la ventana de solo lectura la cuenta queda bloqueada y tras el borrado nada se puede recuperar. Volver a iniciar el plan durante la ventana la reabre." },
     ],
   },
 };

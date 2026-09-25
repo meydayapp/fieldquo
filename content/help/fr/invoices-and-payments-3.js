@@ -3,7 +3,7 @@
 // Partie 3 de la catégorie « invoices-and-payments » en français (voir le
 // composeur, invoices-and-payments.js) : conditions de paiement, taxes sur
 // les factures, paiement échelonné, forfaits de service et leur mandat de
-// prélèvement bancaire, le portail client, l'export comptable, les frais de
+// prélèvement bancaire, le portail client, ce qu'on remet au comptable, les frais de
 // visite et le panneau « Argent dû ».
 //
 // Même structure que la version anglaise, section pour section ; les mots
@@ -99,7 +99,7 @@ export const ARTICLES = {
         heading: "Vue d'ensemble",
         blocks: [
           { p: "Trois choses décident de la ligne de taxe : les taux de la carte **Paramètres de taxes**, le réglage **Appliquer automatiquement le taux de taxe local du client**, et la case **Appliquer la taxe** sur le document lui-même. Votre numéro d'inscription, si vous en saisissez un, s'imprime au bas de chaque soumission et facture pour qu'un client d'affaires puisse récupérer la taxe." },
-          { note: "La taxe est un montant unique par facture. Une entreprise du Québec qui facture la TPS et la TVQ saisit un taux combiné (14,975 %) et la facture affiche une seule ligne de taxe. Il n'y a ni codes de taxe ni taxe par ligne, donc l'export comptable ne peut pas produire une déclaration de taxes — voir [[the-accounting-export|L'export comptable]]." },
+          { note: "La taxe est un montant unique par facture. Une entreprise du Québec qui facture la TPS et la TVQ saisit un taux combiné (14,975 %) et la facture affiche une seule ligne de taxe. Il n'y a ni codes de taxe ni taxe par ligne, donc FieldQuo ne peut pas produire une déclaration de taxes — voir [[the-accounting-export|Ce que vous pouvez remettre à votre comptable]]." },
         ],
       },
       {
@@ -533,94 +533,72 @@ export const ARTICLES = {
   },
 
   "the-accounting-export": {
-    title: "L'export comptable (CSV pour QuickBooks, Xero ou votre comptable)",
+    title: "Ce que vous pouvez remettre à votre comptable",
     summary:
-      "Un ZIP, quatre fichiers CSV, une période : ce que contient chaque fichier, les règles derrière les chiffres, et ce que l'export refuse de contenir.",
-    updated: "2026-09-12",
+      "FieldQuo n'exporte pas votre comptabilité en fichiers et ne se synchronise ni avec QuickBooks ni avec Xero. Ce que votre comptable peut avoir à la place : les documents en PDF, les chiffres à l'écran, ou son propre accès.",
+    updated: "2026-09-25",
     intro: [
-      "FieldQuo ne se synchronise pas avec QuickBooks ni Xero. Ce qu'il fait à la place, c'est laisser les chiffres sortir proprement : choisissez une période dans **Dépenses**, appuyez sur **Télécharger la période**, et vous obtenez un ZIP avec une feuille de synthèse et trois fichiers de données — factures, paiements, dépenses — que n'importe quel comptable peut ouvrir et que n'importe quel logiciel comptable peut importer.",
+      "FieldQuo fait entrer vos données — clients, prospects, anciens chantiers, votre liste de prix, un relevé bancaire — mais il ne les fait pas ressortir en fichiers. Il n'y a aucun CSV ni ZIP de factures, de paiements ou de dépenses à télécharger, et rien ne se synchronise avec QuickBooks ou Xero. Cet article dit ce que votre comptable peut obtenir à la place, et ce que FieldQuo n'enregistre pas du tout, pour que ni vous ni lui ne le cherchiez.",
     ],
     sections: [
       {
         id: "overview",
         heading: "Vue d'ensemble",
         blocks: [
-          { p: "La carte **Export comptable** se trouve au bas de **Dépenses** (le même écran que Paramètres → Suivi des dépenses). Elle a des dates **Du** et **Au** et un seul bouton. Les montants sont dans la devise de facturation de votre entreprise, définie dans le Profil de l'entreprise ; sans devise, l'export refuse plutôt que de deviner." },
-          { figure: "live:app-settings-expense-tracking", caption: "Suivi des dépenses — la carte Export comptable au bas : une période, Télécharger la période, et la liste de ce que le fichier ne contient pas." },
+          { p: "Trois choses parviennent à un comptable depuis FieldQuo : les documents — chacun en PDF, téléchargé depuis son propre écran —, les chiffres que FieldQuo additionne à l'écran et, s'il préfère les lire lui-même, un accès à son nom." },
+          { note: "Un document dont vous avez besoin pour faire tourner l'entreprise reste téléchargeable : une soumission, une facture, un bulletin de paie. Ce qui n'est pas offert, c'est un fichier de l'ensemble de vos données." },
         ],
       },
       {
-        id: "download-a-range",
-        heading: "Comment télécharger une période",
-        blocks: [
-          { steps: [
-            "Ouvrez **Dépenses** et descendez jusqu'à **Export comptable**.",
-            "Réglez **Du** et **Au** — un mois, un trimestre, l'année.",
-            "Appuyez sur **Télécharger la période**. Le ZIP se nomme bookkeeping-2026-01-01-to-2026-03-31.zip et contient la synthèse, les factures, les paiements et les dépenses en CSV.",
-          ] },
-          { tip: "Envoyez le ZIP au complet, pas un seul fichier tiré de celui-ci. La feuille de synthèse répète la liste de ce que les données ne peuvent pas dire — une déclaration de taxes, entre autres — pour que la mise en garde voyage avec les chiffres." },
-        ],
-      },
-      {
-        id: "the-four-files",
-        heading: "Les quatre fichiers",
-        blocks: [
-          { table: {
-            head: ["Fichier", "Une ligne par", "Colonnes"],
-            rows: [
-              ["summary", "période", "Entreprise, période, date de génération, devise de facturation ; puis par devise : Facturé, dont taxes, Paiements reçus, Remboursements, Frais de traitement, Frais de compte Stripe, Dépenses ; puis les limites et les notes sur la période."],
-              ["invoices", "facture", "Numéro de facture, Émise, Date tirée de, Échéance, Client, Statut, Version, Devise, Sous-total, Rabais, Taxe, Taxe appliquée, Total, Payé à ce jour, Reçu dans la période, Solde."],
-              ["payments", "paiement ou remboursement", "Date, Numéro de facture, Client, Moyen, Devise, Montant, Frais de traitement, Net déposé, Taux de frais, Frais de compte Stripe, Référence, Notes. Un remboursement émis depuis FieldQuo est sa propre ligne : moyen **refund**, un Montant négatif, l'identifiant de remboursement Stripe comme Référence et le motif comme Notes."],
-              ["expenses", "dépense", "Date, Catégorie, Devise, Montant, Frais généraux, Récurrente, Fréquence, Chantier, Notes."],
-            ],
-          } },
-        ],
-      },
-      {
-        id: "the-rules-behind-the-numbers",
-        heading: "Les règles derrière les chiffres",
+        id: "the-documents",
+        heading: "Les documents que vous pouvez télécharger",
         blocks: [
           { bullets: [
-            "Une facture modifiée après envoi est une nouvelle version sous le même numéro. L'export produit **une ligne par facture**, aux montants de la dernière version, datée de l'original — une modification en mars ne double jamais une facture de janvier.",
-            "Il n'y a pas de champ de date d'émission, alors chaque ligne dit de quelle colonne vient sa date : **sentAt (emailed)**, **createdAt (raised)**, ou les dates propres d'un chantier passé.",
-            "Les paiements sont filtrés sur la **date du paiement lui-même**, pas celle de la facture : une facture de décembre payée en janvier est de l'argent de janvier. **Montant** est le brut ; **Frais de traitement** et **Net déposé** sont ce que Stripe a pris et ce qui est arrivé à la banque, vides — et non 0,00 — pour les paiements manuels et les paiements en ligne plus anciens.",
-            "Les jours sont regroupés par jour civil UTC. Une période avec deux devises est rapportée par devise et jamais additionnée en un seul total.",
-            "Les noms de clients, catégories et notes sont protégés contre les formules de tableur — un client nommé =cmd… s'ouvre comme du texte.",
+            "**Factures** — **Télécharger le PDF** sur chaque facture. C'est le document même que le client a reçu.",
+            "**Soumissions** — **Télécharger le PDF** sur la page de la soumission, dans la langue de la soumission.",
+            "**Bulletins de paie** — **Bulletin de paie PDF** sous chaque personne d'une période de paie approuvée. Voir [[payslips|Bulletins de paie]].",
+            "**Les factures de FieldQuo à votre entreprise** — dans le portail Stripe derrière **Gérer la facturation et le mode de paiement**. Voir [[invoices-and-receipts-from-fieldquo|Factures et reçus de FieldQuo]].",
+          ] },
+        ],
+      },
+      {
+        id: "the-figures-on-screen",
+        heading: "Les chiffres à l'écran",
+        blocks: [
+          { bullets: [
+            "**États financiers** — état des résultats, flux de trésorerie, taxes facturées et bilan partiel, pour n'importe quelle période, selon la comptabilité de caisse ou d'exercice. Voir [[financial-statements|États financiers]].",
+            "**Dépenses** — les dépenses du mois par catégorie, par chantier et en frais généraux, et les reçus récents. Voir [[expense-tracking-and-burn-rate|Suivi des dépenses et rythme de dépenses]].",
+            "**Factures** — ce qui reste dû et ce qui est en retard, facture par facture. Voir [[the-invoices-list|La liste des factures]].",
+            "**Sous-traitants** — ce que chaque sous-traitant a reçu dans l'année et en combien de paiements, le montant qui sert à remplir un T5018 ou un 1099-NEC. Voir [[the-t5018-year-end-list|Les montants de fin d'année pour le T5018]].",
+            "**Paie** — les heures, le brut, les retenues et le net de chaque période de paie, personne par personne. Voir [[payroll-runs|Périodes de paie]].",
           ] },
         ],
       },
       {
         id: "what-it-does-not-contain",
-        heading: "Ce qu'il ne contient pas",
+        heading: "Ce que FieldQuo n'enregistre pas",
         blocks: [
           { bullets: [
-            "Une déclaration. Rien ici n'a été remis à une administration fiscale.",
-            "Une déclaration de taxes de vente. La taxe d'une facture est un montant unique, sans codes de taxe ni taxe par ligne.",
-            "Les crédits de taxe sur intrants. Les dépenses ne portent ni taxe ni fournisseur, donc la taxe récupérable sur vos achats n'est pas suivie.",
-            "Les notes de crédit. Un remboursement émis depuis la facture dans FieldQuo est une ligne négative du fichier des paiements et se totalise sous Remboursements ; un remboursement fait directement dans votre tableau de bord Stripe n'est pas une ligne — il n'apparaît que sur le montant remboursé du paiement d'origine.",
-            "Un plan comptable. Rien n'est associé à un compte du grand livre — votre comptable le fait une fois, à l'import.",
+            "Une déclaration. Rien dans FieldQuo n'a été versé à une autorité fiscale.",
+            "Une déclaration de taxes de vente. La taxe d'une facture est un seul montant, sans code de taxe et sans taxe par ligne.",
+            "Les crédits de taxe sur les intrants. Les dépenses ne portent ni taxe ni fournisseur, donc la taxe récupérable sur vos achats n'est pas suivie.",
+            "Les notes de crédit. Un remboursement fait depuis une facture dans FieldQuo est une ligne de remboursement sous le paiement ; voir [[refunds|Remboursements]].",
+            "Un plan comptable. Rien n'est associé à un compte du grand livre — votre comptable s'en charge dans son propre logiciel.",
           ] },
         ],
       },
       {
-        id: "importing-it",
-        heading: "Importer dans QuickBooks ou Xero",
+        id: "a-login-for-your-accountant",
+        heading: "Un accès pour votre comptable",
         blocks: [
-          { p: "Associez le **Montant** du fichier des paiements aux revenus, les **Frais de traitement** à une dépense de frais marchands et le **Net déposé** au dépôt bancaire ; le flux bancaire concorde alors ligne pour ligne. Une ligne **refund** est un Montant négatif sur le même compte de revenus, sans frais propres. Les factures entrent au **Total** avec **Taxe** comme montant de taxe. La marche à suivre par logiciel est dans [[quickbooks-xero-and-your-bookkeeper|QuickBooks, Xero et votre comptable]] ; les colonnes de frais sont expliquées dans [[payment-processing-fees-and-payouts|Frais de traitement des paiements et versements]]." },
-        ],
-      },
-      {
-        id: "who-can-download-it",
-        heading: "Qui peut le télécharger",
-        blocks: [
-          { p: "L'export nomme chaque client et ce qu'il a payé, alors il est protégé comme la liste de prix : **Show Pricing** plus le niveau Factures **View only** ou plus. Un estimateur peut le télécharger ; un membre de l'équipe de terrain non. Une session de soutien en lecture seule est refusée — la console de FieldQuo peut consulter vos données mais ne génère jamais votre fin d'année sous forme de fichier." },
+          { p: "Si votre comptable préfère lire les chiffres lui-même, invitez-le depuis [[manage-team|Gérer l'équipe]]. Le niveau **Manager** voit les factures, les paiements, les dépenses et les états financiers — sans la paie de tout le monde. N'en faites un administrateur que s'il doit aussi voir la paie et la facturation." },
         ],
       },
     ],
     faq: [
-      { q: "Est-ce une intégration QuickBooks ?", a: "Non. C'est un export CSV que n'importe quel logiciel importe. Une synchronisation en direct exigerait le processus d'approbation d'Intuit et une correspondance de modèles de taxes qui n'existe pas encore, et le produit le dit plutôt que de faire semblant." },
-      { q: "Pourquoi la cellule des frais est-elle vide sur certains paiements ?", a: "Ce paiement a été consigné à la main, ou en ligne avant que les frais soient enregistrés sur le paiement. Une cellule vide veut dire « aucuns frais connus » ; un zéro affirmerait « aucuns frais »." },
-      { q: "Pourquoi un paiement de janvier manque-t-il dans mon export de décembre ?", a: "Les paiements sont datés du moment où ils ont été reçus. Exportez janvier pour l'argent de janvier ; la facture elle-même est dans le fichier de décembre avec son solde." },
+      { q: "Y a-t-il une intégration QuickBooks ou Xero ?", a: "Non. Rien ne se synchronise, et FieldQuo ne produit de fichier pour ni l'un ni l'autre. Votre comptable saisit les chiffres dans son propre logiciel à partir des PDF et des états financiers." },
+      { q: "Puis-je télécharger mes factures, paiements ou dépenses en CSV ?", a: "Non. FieldQuo importe des listes, mais ne les exporte pas. Chaque facture et chaque soumission se télécharge en PDF depuis son propre écran." },
+      { q: "Où vois-je les frais de traitement d'un paiement par carte ?", a: "Sur le paiement, dans la facture : le montant, les frais de traitement et le net déposé. Voir [[payment-processing-fees-and-payouts|Frais de traitement des paiements et virements]]." },
     ],
   },
 

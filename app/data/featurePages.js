@@ -972,7 +972,7 @@ const PAGES = [
       {
         step: "The sub stays on the job after the bid",
         body:
-          "Once the job is yours, the same company goes on it at the price you agreed. Their insurance and clearance dates sit on their record, what you pay them lands on the job's cost, and the year-end list for your accountant comes out of the same figures.",
+          "Once the job is yours, the same company goes on it at the price you agreed. Their insurance and clearance dates sit on their record, what you pay them lands on the job's cost, and what you have paid each one this year is totalled on screen for when your accountant asks.",
       },
     ],
     features: ["subcontractor_bids", "contractor_payouts"],
@@ -2527,16 +2527,20 @@ const PAGES = [
           "An overlapping run, and a period that does not match your pay cycle, are both reported before you approve and refused at approval — while a correction run is still deliberately allowed.",
       },
       {
-        label: "An empty cell is not a zero",
+        // Used to describe the run's CSV export ("an empty cell is not a
+        // zero"). Bulk export is off — companies can import but not export
+        // (owner, 2026-09-24) — so the point is made about the payslip, which
+        // is the document a customer can still download.
+        label: "Not deducted is not the same as zero",
         body:
-          "A worker with no value for a deduction column gets a blank, because we did not deduct this and we deducted nothing are different sentences.",
+          "A payslip lists the deductions worked out for that person and nothing else. With none set up it says so and shows gross figures, because we did not deduct this and we deducted nothing are different sentences.",
       },
     ],
     headline: "Approved hours become a pay run",
     oneLine:
-      "Timesheets you have approved turn into gross pay, payslips and an export — and a roster contractor can be paid to their bank.",
+      "Timesheets you have approved turn into gross pay and a payslip per person — and a roster contractor can be paid to their bank.",
     description:
-      "Payroll from approved timesheets: gross pay, payslips and an export for your accountant, plus bank transfers to roster contractors — limits stated.",
+      "Payroll from approved timesheets: gross pay and a PDF payslip per person, plus bank transfers to roster contractors — limits stated.",
     pains: [
       {
         pain:
@@ -2566,7 +2570,7 @@ const PAGES = [
       {
         step: "Payslips come out of the run",
         body:
-          "The run produces payslips you can hand over, and an export your accountant can work from.",
+          "The run produces a payslip for each person, as a PDF you can download and hand over.",
       },
       {
         step: "Read what this does not do",
@@ -2616,9 +2620,9 @@ const PAGES = [
     ],
     headline: "Your prices in one place, so every quote uses the same ones",
     oneLine:
-      "Services, rates, material costs and how much of each a job eats — imported from a spreadsheet and exportable back out.",
+      "Services, rates, material costs and how much of each a job eats — imported from a spreadsheet, not retyped.",
     description:
-      "A price book for contractors: services and rates, material costs and recipes, spreadsheet import and export, and tax that follows the address.",
+      "A price book for contractors: services and rates, material costs and recipes, spreadsheet import, and tax that follows the address.",
     pains: [
       {
         pain:
@@ -2636,7 +2640,7 @@ const PAGES = [
         pain:
           "Your prices are in a spreadsheet you do not want to retype and are not sure you want to give away.",
         fix:
-          "Import it, and export it back out whenever you want. It stays yours.",
+          "Import it in one go instead of retyping it. Your rates price your quotes and nobody else's.",
       },
     ],
     how: [

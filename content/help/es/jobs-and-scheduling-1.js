@@ -89,7 +89,7 @@ export const ARTICLES = {
     faq: [
       { q: "¿Por qué a mi empleado le falta un trabajo?", a: "Un miembro de la cuadrilla solo ve los trabajos con una visita asignada a él. Programe una visita en el trabajo con su nombre y aparece de inmediato en su lista." },
       { q: "¿Archivados significa cancelado?", a: "No. Cancelado es un estado; archivado es si usted todavía quiere ver el trabajo. Un trabajo terminado que guarda en el archivo sigue Completado, y Restaurar en su página lo devuelve a la lista activa." },
-      { q: "¿Puedo ordenar o exportar la lista?", a: "No desde esta pantalla. El orden es fijo, del más reciente al más antiguo, y aquí no hay exportación — el historial de trabajos anteriores viaja en sentido contrario, hacia FieldQuo, por Trabajos anteriores." },
+      { q: "¿Puedo ordenar o exportar la lista?", a: "No. El orden es fijo, del más reciente al más antiguo, y FieldQuo no exporta listas — el historial de trabajos anteriores viaja en sentido contrario, hacia FieldQuo, por Trabajos anteriores." },
     ],
   },
 

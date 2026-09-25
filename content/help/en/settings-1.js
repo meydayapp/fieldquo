@@ -596,7 +596,7 @@ export const ARTICLES = {
             head: ["Family", "Examples"],
             rows: [
               ["Quotes and leads", "Quote created, sent, duplicated, approved by a reviewer; lead converted"],
-              ["Invoices and money", "Invoice sent, chased, paid; visit fee credited; accounting export run"],
+              ["Invoices and money", "Invoice sent, chased, paid; visit fee credited"],
               ["Jobs and time", "Job completed or deleted; a time entry approved — flagged when someone approved their own"],
               ["People", "Member invited, access changed, deactivated; a leave policy retired"],
               ["Clients", "Client added, updated, deleted"],

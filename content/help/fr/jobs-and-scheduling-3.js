@@ -25,10 +25,10 @@ export const ARTICLES = {
     ],
     sections: [
       {
-        id: "export-and-attendance",
-        heading: "Le CSV brut, et la pastille d'assiduité",
+        id: "attendance-and-where-hours-go",
+        heading: "La pastille d'assiduité, et où vont les heures",
         blocks: [
-          { p: "**Exporter** en haut des Feuilles de temps télécharge la feuille brute en CSV : choisissez le premier et le dernier jour et, au besoin, une personne, puis **Télécharger le CSV**. Une ligne par entrée — travailleur, titre, date, arrivée, départ, minutes de pause non payées et payées, heures nettes, travail, statut, qui a approuvé, distance du site au pointage quand le téléphone a répondu, et le verdict d'assiduité. Le fichier porte le nom de la période (**timesheet_2026-09-01_2026-09-14.csv**). Des heures, jamais la paie : le taux horaire reste derrière sa propre barrière." },
+          { p: "Les Feuilles de temps n'ont pas de téléchargement : les heures ne sont pas exportées en fichier. Les heures approuvées vont là où elles servent — dans les périodes de paie, dont les bulletins se téléchargent en PDF, et dans le coût de main-d'œuvre de chaque chantier." },
           { p: "Une pastille à côté d'un nom — **À l'heure**, **12 min de retard**, **Parti 20 min plus tôt**, **Absent** — est le verdict de l'horaire pour le quart publié auquel ce pointage appartient, le même que le [[the-scheduler-and-crew-shifts|tableau du jour]] affiche sur le bloc. Un pointage sans quart publié autour de lui n'a pas de pastille." },
         ],
       },

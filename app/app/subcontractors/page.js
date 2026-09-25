@@ -22,7 +22,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { HardHat, Plus, Download } from "lucide-react";
+import { HardHat, Plus } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 import { fetchList } from "@/lib/loadState";
@@ -117,8 +117,13 @@ export default function SubcontractorsPage() {
         </div>
       )}
 
-      {/* The year the paid column and the export refer to. Money only —
-          without jobCosting there is no column and no export to pick a year for. */}
+      {/* The year the paid column refers to. Money only — without jobCosting
+          there is no column to pick a year for.
+          The "Year-end list (CSV)" link that sat beside this picker is gone:
+          a company can import but not export (owner, 2026-09-24, paying
+          customers included), and app/api/subcontractors/export/route.js now
+          answers 403 — see lib/export/companyDataExport.js. The per-sub totals are
+          still on screen below, which is what a year-end filing reads from. */}
       {data?.canSeeMoney && (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <label className="text-sm text-muted-foreground flex items-center gap-2">
@@ -135,12 +140,6 @@ export default function SubcontractorsPage() {
               ))}
             </select>
           </label>
-          <a
-            href={`/api/subcontractors/export?year=${year}`}
-            className="inline-flex items-center gap-1.5 border border-border rounded-full px-4 py-2 text-sm font-semibold min-h-[44px]"
-          >
-            <Download size={14} /> {t("app.subcontractors.exportYear", "Year-end list (CSV)")}
-          </a>
         </div>
       )}
 
