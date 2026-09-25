@@ -227,6 +227,12 @@ export const rows = {
   companyGalleryPair: [],
   companyDocument: [],
   documentSignature: [],
+  // The moved / cancelled texts (scripts/check-change-texts.mjs): a crew
+  // visit the office moves, and the delivery row every real send opens —
+  // "the calendar's Texts line shows it" is a row with a purpose and a ref,
+  // so it has to be written, not assumed.
+  jobVisit: [],
+  smsDelivery: [],
 };
 
 /** Every write the product attempted, in order: { model, action, data }. */
@@ -315,6 +321,8 @@ export function resetDbStub() {
   rows.signupDismissal = [];
   rows.salesSuppression = [];
   rows.platformAdmin = [];
+  rows.jobVisit = [];
+  rows.smsDelivery = [];
   writes.length = 0;
   reads.length = 0;
   failNext.model = null;
@@ -678,6 +686,8 @@ export const db = new Proxy(
     companyGalleryPair: model("companyGalleryPair"),
     companyDocument: model("companyDocument"),
     documentSignature: model("documentSignature"),
+    jobVisit: model("jobVisit"),
+    smsDelivery: model("smsDelivery"),
     serviceCategory: model("serviceCategory"),
     client: model("client"),
     quote: model("quote"),

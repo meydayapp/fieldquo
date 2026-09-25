@@ -171,38 +171,63 @@ export default function EntryActions({ kind, id, jobId, status, scheduledAt, cli
   );
 }
 
-/** The "email the client" tick, or the honest sentence about why there is none. */
+/**
+ * Whether the dialog should start ticked: yes unless this screen KNOWS there
+ * is neither an email nor a phone to tell. The moved / cancelled text goes
+ * to the phone (lib/schedule/changeText.js), so a client with a phone and no
+ * email is still told — the tick used to default off for them, which would
+ * have silently dropped the text too.
+ */
+function notifyByDefault(client) {
+  if (!client || !("email" in client)) return true;
+  return Boolean(client.email || client.phone || client.restricted);
+}
+
+/**
+ * The "tell the client" tick, or the honest sentence about why there is none.
+ *
+ * The tick governs the letter AND the text: `notifyClient: false` is "we
+ * already agreed this by phone", and that is true of both. Whether a text
+ * actually goes also depends on the company's booking-text switch and the
+ * client's STOP — neither of which this screen knows — so the text is named
+ * with that condition beside it, and the toast afterwards says what was
+ * actually sent.
+ */
 function NotifyRow({ t, client, notify, setNotify }) {
-  if (client?.restricted) {
-    return (
+  const tick = (label, withTextHint) => (
+    <div>
       <label className="flex items-start gap-2.5 text-sm text-foreground">
         <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} className="mt-0.5" />
-        <span>{t("app.visitAction.emailRestricted")}</span>
+        <span>{label}</span>
       </label>
-    );
-  }
+      {withTextHint && <p className="text-xs text-muted-foreground mt-1 ml-6">{t("app.visitAction.textHint")}</p>}
+    </div>
+  );
+  if (client?.restricted) return tick(t("app.visitAction.emailRestricted"), true);
   // The calendar's visit rows carry a name and an address and no email key at
   // all (lib/schedule/jobVisits.js narrows to what name_address_only allows).
   // "No email on file" would be a claim about a field this screen never
   // loaded, so an unknown address gets the tick with the honest wording and
-  // the route sends only if there is one.
-  if (!client || !("email" in client)) {
-    return (
-      <label className="flex items-start gap-2.5 text-sm text-foreground">
-        <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} className="mt-0.5" />
-        <span>{t("app.visitAction.emailClientUnknown")}</span>
-      </label>
-    );
-  }
-  if (!client.email) {
+  // the route sends only to what there is.
+  if (!client || !("email" in client)) return tick(t("app.visitAction.emailClientUnknown"), true);
+  if (!client.email && !client.phone) {
     return <p className="text-xs text-muted-foreground">{t("app.visitAction.noEmail")}</p>;
   }
-  return (
-    <label className="flex items-start gap-2.5 text-sm text-foreground">
-      <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} className="mt-0.5" />
-      <span>{t("app.visitAction.emailClient", { email: client.email })}</span>
-    </label>
-  );
+  if (client.email && client.phone) {
+    return tick(t("app.visitAction.tellBoth", { email: client.email, phone: client.phone }), true);
+  }
+  if (client.phone) return tick(t("app.visitAction.textClient", { phone: client.phone }), true);
+  return tick(t("app.visitAction.emailClient", { email: client.email }), false);
+}
+
+/** What was actually sent, for the toast after a move or a cancel. */
+function noticeToast(t, notice) {
+  if (!notice?.language) return null;
+  const language = languageMeta(notice.language).nativeName;
+  if (notice.sent && notice.texted) return t("app.visitAction.emailedAndTexted", { language });
+  if (notice.sent) return t("app.visitAction.emailed", { language });
+  if (notice.texted) return t("app.visitAction.texted", { language });
+  return null;
 }
 
 function Shell({ t, title, onClose, children }) {
@@ -251,7 +276,7 @@ function refusal(t, data) {
 
 function MoveDialog({ t, scheduledAt, client, patch, onClose, onDone }) {
   const [when, setWhen] = useState(toLocalInput(scheduledAt));
-  const [notify, setNotify] = useState(!client || !("email" in client) || Boolean(client.email || client.restricted));
+  const [notify, setNotify] = useState(notifyByDefault(client));
   const [saving, setSaving] = useState(false);
   const [warning, setWarning] = useState(null); // { text, canForce }
 
@@ -267,12 +292,8 @@ function MoveDialog({ t, scheduledAt, client, patch, onClose, onDone }) {
       });
       if (res.ok) {
         const data = await res.json().catch(() => ({}));
-        if (data?.notice?.sent && data.notice.language) {
-          showToast({
-            message: t("app.visitAction.emailed", { language: languageMeta(data.notice.language).nativeName }),
-            tone: "info",
-          });
-        }
+        const told = noticeToast(t, data?.notice);
+        if (told) showToast({ message: told, tone: "info" });
         onDone();
         return;
       }
@@ -342,7 +363,7 @@ function MoveDialog({ t, scheduledAt, client, patch, onClose, onDone }) {
 
 function CancelDialog({ t, client, patch, onClose, onDone }) {
   const [reason, setReason] = useState("");
-  const [notify, setNotify] = useState(!client || !("email" in client) || Boolean(client.email || client.restricted));
+  const [notify, setNotify] = useState(notifyByDefault(client));
   const [saving, setSaving] = useState(false);
 
   async function submit(e) {
@@ -355,12 +376,8 @@ function CancelDialog({ t, client, patch, onClose, onDone }) {
         return;
       }
       const data = await res.json().catch(() => ({}));
-      if (data?.notice?.sent && data.notice.language) {
-        showToast({
-          message: t("app.visitAction.emailed", { language: languageMeta(data.notice.language).nativeName }),
-          tone: "info",
-        });
-      }
+      const told = noticeToast(t, data?.notice);
+      if (told) showToast({ message: told, tone: "info" });
       onDone();
     } catch {
       showError(t("app.visitAction.failedNetwork", "Couldn't update the visit. Check your connection."));

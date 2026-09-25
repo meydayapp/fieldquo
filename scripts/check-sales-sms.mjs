@@ -542,6 +542,9 @@ section("3. Every tenant-scoped SMS path passes companyId");
     ["app/api/crew/inbound/route.js", "settleCrewSpend"],
     ["app/api/crew/line/route.js", "POST"],
     ["app/api/sms/inbound/route.js", "POST"],
+    // The moved / cancelled text to a client (2026-09-25) — every office and
+    // manage-link move or cancel sends through this one function.
+    ["lib/schedule/changeText.js", "textClientOfChange"],
   ];
 
   for (const [file, fn] of SITES) {

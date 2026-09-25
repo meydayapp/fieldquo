@@ -15,6 +15,7 @@ import {
 import { sendVisitCancelledEmails } from "@/app/admin/lib/email/templates";
 import { bookingInviteAttachment, nextSequence } from "@/lib/booking/bookingInvite";
 import { scheduleSync } from "@/lib/calendar/googleSync";
+import { textClientOfChange, bookingTextTarget } from "@/lib/schedule/changeText";
 
 // Public, token-only — the homeowner's own copy of the visit they booked.
 //
@@ -241,6 +242,22 @@ export async function POST(request, { params }) {
       reason: plan.refundReason,
     },
   }).catch((err) => console.error("[visit] cancellation emails failed:", err?.message));
+
+  // And the text, when they booked with a phone — lib/schedule/changeText.js.
+  // Only on the first cancel: the already-cancelled retry returned above
+  // without sending anything, so a double tap is one text, not two.
+  const target = await bookingTextTarget(booking);
+  await textClientOfChange({
+    kind: "cancelled",
+    company,
+    phone: booking.clientPhone,
+    language: cancelLanguage,
+    startTime: booking.startTime,
+    where: visitFacts(visit.booking),
+    service: eventType.name,
+    ref: target.ref,
+    clientId: target.clientId,
+  });
 
   return NextResponse.json({
     ...visitView(after, now),

@@ -17,6 +17,8 @@ import { deliveryVerdict, reasonKey } from "@/lib/sms/deliveryStatus";
 
 const PURPOSE_KEYS = {
   booking_confirmation: "app.sms.purpose.bookingConfirmation",
+  booking_moved: "app.sms.purpose.bookingMoved",
+  booking_cancelled: "app.sms.purpose.bookingCancelled",
   appointment_reminder: "app.sms.purpose.reminder",
   visit_reminder: "app.sms.purpose.reminder",
   on_my_way: "app.sms.purpose.onMyWay",

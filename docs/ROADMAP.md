@@ -5,7 +5,7 @@ Last updated: 24 September 2026 (the reactive signup panel: the panel beside the
 Last updated: 24 September 2026 (maintenance plans on quotes — `ServicePlanTemplate` + `QuotePlanOffer`, additive; Settings → Maintenance Plans with 23 starter plans in eight languages; included or optional on a quote, ids-only approval, a running ServicePlan invoiced per visit with the discount on each invoice — see its section)
 Last updated: 25 September 2026 ("How this was handled" on a conversation — AI team R1: a read-only timeline in /app/messages of the front desk's reading, assignments, hand-offs, ping-pong escalations, take-overs, replies with tools/model/confidence/cost, stop reasons and proposals with who decided, built from AiEmployeeRoutingEvent / AiEmployeeReply / AiEmployeeProposal with no schema change — see its section)
 Last updated: 25 September 2026 (the chat bubble on a company's OWN website: a one-line `<script src="…/embed/<slug>/chat.js" async>` loader replaces the fixed-size iframe snippet on Settings → AI employee — closed, the frame is the bubble and nothing else on their page is covered; open, it is the panel; on a phone, full screen with host scroll locked; disabled chat leaves nothing; the old iframe snippet still works — see "The chat bubble on a company's own website" below)
-Last updated: 25 September 2026 (SMS delivery receipts — every text sendSms() sends is tracked in `SmsDelivery` from send to carrier verdict: Twilio statusCallback at /api/sms/status (signature-verified, forward-only), an hourly reconcile cron for callbacks that never come, "Delivered / Not delivered — why" on SMS threads, the calendar and the client page, and /platform/sms-health; table SQL to apply by hand — see "SMS delivery receipts" below)
+Last updated: 25 September 2026 (moved / cancelled appointments now TEXT the client as well as email them — every office move/cancel (EntryActions → the appointment and job-visit PATCH) and the client's own manage-link reschedule/cancel, behind the booking-text switch, the phone and STOP, in the client's language, editable on Settings › Client messages as "Appointment moved" / "Appointment cancelled", tracked as `booking_moved` / `booking_cancelled` so the calendar's Texts line shows them — see "Moved and cancelled appointments text the client" below; before it, SMS delivery receipts — every text tracked in `SmsDelivery` from send to carrier verdict, table SQL to apply by hand — see "SMS delivery receipts")
 Last updated: 24 September 2026 (a service's estimate template expands onto a quote and an invoice: "Add with its template lines" beside a templated service in the line library, lines in the document's language from the company's own Product row, measured quantities filled from the quote's own takeoffs with the source printed under the line, a missing figure at quantity 0 with the calculator named or linked, `ventCount` / `returnCount` registered — see "A service's template, expanded onto the quote" below)
 Last updated: 24 September 2026 (the estimate template inside a service — `Product.templateLines` / `defaultDiscount` / `imageUrl` / `estimateTypes` / `templateEnabled`, additive; templates attach by quote type (`categories` + painting estimate types) through `templatesFor()`; a closed measurement registry every trade's lines can take their qty from; the seed LOADER contract in `lib/services/seeds.js`; Settings › Services edits each service's template; `/app/analytics/benchmark` is the preset library with an editable Your price; benchmark sharing is on by default for new companies and Terms §7 / Privacy §7 say so. The seed CONTENT — templates on every trade in seven languages — is a separate pass landing against the same contract.; landed just before it on main: auto-translation on save — see its section.)
 Last updated: 24 September 2026 (tours re-pinned to the new shell: welcome-v2 walks the 17-row rail — Leads, Quotes, Quote reviews, Assign shifts, Marketing, Receptionist, FieldQuo AI, AI team, More, Create, Search, Settings at the foot — unfolding a folded People/Grow group through its header and folding it back, a new ai-team-v1 page tour, "Take the tour" on the dashboard's set-up card, the Help centre's replay fixed; every onboarding and set-up row shows a counted time estimate, the onboarding card says "n of 6 done" and the set-up card "n of 15 done · n hidden" — see "Tours on the new shell" below)
@@ -307,6 +307,99 @@ legacy iframe snippet still renders the bubble.
   page behind it; making the host `inert` is invasive on someone else's site.
 - A host page with a strict CSP must allow our origin in `script-src` and
   `frame-src`; the settings notes do not say so.
+## Moved and cancelled appointments text the client (25 September 2026)
+
+The owner (2026-09-20, lost at a compaction, re-confirmed today): "I just
+booked an appointment with TrueFinish Cabinets and didn't get an email
+confirmation... or a text confirmation... I'm sure that if TrueFinish
+reschedules the client won't get an update text nor email." The confirmation
+text was fixed (on unless the company turns it off — 0e57b313) and every text
+is delivery-tracked (1f173900), but a MOVE or a CANCEL still sent the letter
+only. Now it texts too.
+
+**What shipped (branch `worktree-agent-adbdfefc360a60415`, not pushed):**
+
+- **One sender, `lib/schedule/changeText.js` `textClientOfChange()`**, called
+  by every path that moves or cancels a client's appointment or visit:
+  - the office's dialog (`app/components/schedule/EntryActions.js`) →
+    `PATCH /api/appointments/[id]` (moves through `planOfficeMove`, cancels
+    with a reason) and `PATCH /api/jobs/[id]/visits/[visitId]` (same);
+  - the client's own manage link → `POST /api/visit/[token]/reschedule` and
+    `POST /api/visit/[token]` (cancel).
+  - Looked for and not found: a calendar drag (the calendar moves through
+    EntryActions; the scheduler's drag is staff shifts), an AI or voice
+    reschedule (the phone agent only books — `book_visit`; copilot tools are
+    read-only). The portal's "request to reschedule" files a ticket for the
+    office, whose move then texts. Deleting an appointment sends nothing, as
+    before (no letter either).
+- **The confirmation's gates, called not copied:** `bookingTextVerdict` —
+  the company's booking-text switch (`bookingTextOn`; ONE switch governs the
+  confirmation, moved and cancelled texts), a dialable phone, `maySms` (STOP
+  or a call opt-out wins); `clientSmsFrom` for the company's own line;
+  demo tenants simulate (`lib/sms/demoSms.js`). The office's
+  "tell the client" tick (`notifyClient: false`) stops the text too.
+- **The number:** the booking's `clientPhone` (what they typed when they
+  booked), else the client record's phone. A client with a phone and no
+  email is now told — the dialog's tick used to default OFF for them.
+- **No double texts:** each action has exactly one sending path (the office
+  PATCH writes the booking itself, the manage link writes the appointment
+  itself — neither calls the other). A "move" to the instant it already had
+  and a cancel of an already-cancelled row send no text; the client's
+  double-tapped cancel was already answered before any send. The letters
+  have no "under N minutes doesn't count" rule, so none was invented.
+- **Wording:** two new editable types in `lib/sms/renderTemplate.js` —
+  `booking_moved` (tokens company, service, when, previous, where, link,
+  phone) and `booking_cancelled` (company, service, when, where, phone) —
+  built in the 8 document languages in `lib/sms/templates.js`, rendered with
+  the company's wording and its save-time drafts (auto-translate picks them
+  up: 9 company texts now). Default English:
+  - moved: "TrueFinish Cabinets: Your appointment has moved. On-site visit at
+    12 Elm St, Thu, Oct 8, 2:30 p.m. Change or cancel: https://…/visit/… Reply
+    STOP to opt out." (no manage link → "Questions? Call {phone}."; neither
+    → nothing)
+  - cancelled: "TrueFinish Cabinets: Your appointment is cancelled. On-site
+    visit at 12 Elm St, Tue, Oct 6, 10:00 a.m. To rebook, call 819-555-0100.
+    Reply STOP to opt out."
+  The mode line is the confirmation's (`bookingModeLine`); a row with no
+  booking is a visit at its location; with neither, the clause is dropped.
+- **Settings › Client messages** shows both, with "On/Off — follows the
+  booking confirmation switch" instead of a second toggle; the switch's own
+  wording now says it covers moves and cancellations.
+- **Tracking:** purposes `booking_moved` / `booking_cancelled` (registered in
+  `SMS_PURPOSES`, labelled on the calendar/client page and
+  /platform/sms-health), ref = the appointment (booking → the appointment it
+  became, else the booking) or the visit, with the clientId.
+- **Toast:** "The client was emailed and texted in French." /
+  "…texted in …" from the route's `notice.texted`.
+- **Emails unchanged:** md5 of all nine moved/cancelled letters (office
+  booking / hand-booked / visit / fee, client move + cancel with both copies)
+  identical before and after (`b51ebf16fec4b9bf7ceb2add0eb83b11`). The letter
+  code is untouched; the only line in the office route's read is `phone` on
+  the client select, which no letter reads.
+- **Checks:** new `check:change-texts` (66 — the gates matrix, languages,
+  custom wording, tracking rows, and the four routes executed end to end);
+  `check:booking-modes` asserts the client's move and cancel each record one
+  text; `check:sms-template` the wording in every language;
+  `check:sales-sms` knows the new call site; `check:auto-translate` 9 texts.
+  `scripts/fixtures/dbStub.mjs` gained `jobVisit` and `smsDelivery`.
+
+### Still owed here
+
+- Not sent live: Twilio is Sensitive in Vercel. First thing after deploy:
+  move a TrueFinish test booking from the calendar and watch its Texts line
+  and /platform/sms-health.
+- The dialog names the client record's phone; an appointment whose booking
+  carries a different number texts the booking's (the toast says what was
+  sent).
+- Pre-existing check failures, identical at HEAD (compared line by line):
+  check:sales-sms (4), help-centre, app-catalogue, lead-intake, sales-agency,
+  trade-suggestions, browser-notifications, rbac-supervisors,
+  sales-intro-email, rep-demo-page, booking-language, sales-brief,
+  signup-gate, schedule-map, addon-descriptions, call-qa, call-script,
+  rbq-provider, client-proposal, gutter-instant.
+
+---
+
 ## SMS delivery receipts: did the text ARRIVE? (25 September 2026)
 
 The owner: "did you fix the text issue from booking? And any other text
