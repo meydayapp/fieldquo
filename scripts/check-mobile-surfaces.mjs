@@ -257,6 +257,12 @@ const STRICT_FILES = [
   "app/components/mobile/AppBar.js",
   "app/components/mobile/BottomSheet.js",
   "app/components/mobile/TouchFeedback.js",
+  // "Confirm what you quote" and the price book it hands off to — the home
+  // page opens both in its set-up dialog, which is the whole screen on a
+  // phone. Rebuilt 2026-09-25 with tabs, Undo and Add back at 44px, and held
+  // to strict from that day.
+  "app/app/settings/services/ConfirmServices.js",
+  "app/app/settings/products/ProductCatalogue.js",
 ];
 
 /**

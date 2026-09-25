@@ -179,8 +179,43 @@ const TOTAL = EXPECTED_KEYS.length;
   ok("confirm: the route stamps the column once (only where it is still null)", /servicesConfirmedAt: null \}, data: \{ servicesConfirmedAt: new Date\(\) \}/.test(route.replace(/\s+/g, " ")));
   ok("confirm: the route writes through the seeder's own createSeededServices", /createSeededServices\(\{/.test(route) && !/db\.product\.create/.test(route));
   ok("confirm: POST requires user:manage unconditionally; GET lets impersonation look", (route.match(/requirePermission\(member\.role, "user:manage"\)/g) || []).length === 2 && (route.match(/if \(!member\.impersonation\)/g) || []).length === 1);
-  ok("confirm: POST refuses unknown keys BEFORE writing", route.indexOf("plan.unknown.length") > 0 && route.indexOf("plan.unknown.length") < route.indexOf("createSeededServices({"));
-  ok("confirm: the browser sends keys, never a price", !/unitPrice|price:/.test(stripComments(source("app/app/settings/services/ConfirmServices.js")).match(/body: \{[^}]*\}/)?.[0] || "x") && /body: \{ seedKeys: \[\.\.\.selected\] \}/.test(stripComments(source("app/app/settings/services/ConfirmServices.js"))));
+  ok("confirm: POST refuses unknown keys BEFORE writing (restore, create or archive)", route.indexOf("plan.unknown.length") > 0 && ["createSeededServices({", "data: { active: true }", "data: { active: false }"].every((w) => route.indexOf(w) > route.indexOf("plan.unknown.length")));
+  ok("confirm: the browser sends keys, never a price", !/unitPrice|price:/.test(stripComments(source("app/app/settings/services/ConfirmServices.js")).match(/body: \{[^}]*\}/)?.[0] || "x") && /body: \{ seedKeys: add, removeSeedKeys: remove \}/.test(stripComments(source("app/app/settings/services/ConfirmServices.js"))));
+  // "Review the services we added for you (N)" — the owner, 2026-09-25: "they
+  // might not do it — it is loaded by default, so if it is loaded by default
+  // it should say so." Every company signup seeded, full list or not.
+  {
+    const plumber = { quoteCoverage: [rich], signupSeededServices: 101 };
+    const r = row(plumber);
+    ok("confirm: a seeded plumber (101 services, full list) now sees the step", r.applies === true && r.done === false &&
+      remainingSteps(stepsFor({ ...EMPTY, ...plumber })).some((x) => x.key === "confirm_services"));
+    ok("confirm: …titled 'Review the services we added for you (101)'",
+      r.titleKey === "app.setup.step.confirm_services_seeded" && r.titleParams?.n === 101 && r.title === "Review the services we added for you ({n})");
+    ok("confirm: …and counted in the progress total", setupProgress(stepsFor({ ...EMPTY, ...plumber })).total === TOTAL);
+    ok("confirm: the seeded plumber, confirmed → done and off the card", row({ ...plumber, servicesConfirmed: true }).done === true &&
+      !remainingSteps(stepsFor({ ...EMPTY, ...plumber, servicesConfirmed: true })).some((x) => x.key === "confirm_services"));
+    ok("confirm: the seeded plumber, 'Done, hide' → off the card, not counted done",
+      !remainingSteps(stepsFor({ ...EMPTY, ...plumber, dismissed: ["confirm_services"] })).some((x) => x.key === "confirm_services") &&
+      row({ ...plumber, dismissed: ["confirm_services"] }).done === false);
+    ok("confirm: a full list with NO seeded rows → the step does not apply",
+      [0, undefined, null, -3, 2.5, "42", {}].every((v) => row({ quoteCoverage: [rich], signupSeededServices: v }).applies === false));
+    ok("confirm: a thin or missing list keeps 'Confirm what you quote', seeded rows or not",
+      [0, 1, 40, undefined].every((v) => {
+        const t = row({ quoteCoverage: [{ key: "caulking_sealants", ownSeed: false, installed: 1 }], signupSeededServices: v });
+        return t.applies === true && t.titleKey === "app.setup.step.confirm_services" && t.titleParams === null;
+      }) && row({ signupSeededServices: 12 }).titleKey === "app.setup.step.confirm_services");
+  }
+  ok("confirm: every other step has no title params", stepsFor({ ...EMPTY, signupSeededServices: 9 }).filter((s) => s.key !== "confirm_services").every((s) => s.titleParams === null));
+  ok("confirm: the snapshot counts signup's rows from the company's and the rows' creation times",
+    /createdAt: true,\s*\},/.test(snap) && /seedKey: true, createdAt: true/.test(snap) && /signupSeededServices: signupSeededRows\(products, company\.createdAt\)\.length/.test(snap));
+  ok("confirm: the card, the dialog title and the email pass the figures", (source("app/components/dashboard/SetupSteps.js").match(/t\(step\.titleKey, step\.title, step\.titleParams \|\| undefined\)/g) || []).length === 4 &&
+    /fill\(t\(step\.titleKey \|\| `app\.setup\.step\.\$\{step\.key\}`, step\.title \|\| step\.key\), step\.titleParams \|\| \{\}\)/.test(source("lib/email/onboardingNextStepsEmail.js")));
+  {
+    const langs = Object.keys(APP_MESSAGES);
+    const bad = langs.filter((code) => !String(APP_MESSAGES[code]?.["app.setup.step.confirm_services_seeded"] || "").includes("{n}"));
+    ok("confirm: the reworded title is in all nine languages with its {n}", bad.length === 0, bad.join(","));
+    ok("confirm: its English matches the step's fallback", APP_MESSAGES.en["app.setup.step.confirm_services_seeded"] === "Review the services we added for you ({n})");
+  }
   ok("confirm: the dialog renders the page's own screen", /confirm_services: \{[\s\S]{0,200}<ConfirmServices compact onChanged=\{onChanged\} \/>/.test(source("app/components/dashboard/stepPanels.js")));
   ok("confirm: 'Add my own service' is the catalogue's own form", /import ProductFormModal from "@\/app\/app\/settings\/products\/ProductFormModal"/.test(source("app/app/settings/services/ConfirmServices.js")) && /<ProductFormModal/.test(source("app/app/settings/products/ProductCatalogue.js")));
   const schema = source("prisma/schema.prisma");

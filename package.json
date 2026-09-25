@@ -15,7 +15,7 @@
     "check:supply-requests": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-supply-requests.mjs",
     "check:trade-catalog": "node --import ./scripts/alias-loader.mjs scripts/check-trade-catalog.mjs",
     "check:service-seeds": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-service-seeds.mjs",
-    "check:confirm-services": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-confirm-services.mjs",
+    "check:confirm-services": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs --import ./scripts/member-stub-loader.mjs scripts/check-confirm-services.mjs",
     "check:checklist-templates": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-checklist-templates.mjs",
     "check:service-templates": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-service-templates.mjs",
     "check:service-template-lines": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-service-template-lines.mjs",

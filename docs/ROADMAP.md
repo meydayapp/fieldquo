@@ -2,6 +2,7 @@
 
 Last updated: 25 September 2026 (Create › Request opens a hand-entered lead form at /app/leads/new — the owner's six fields, posted through createScoredLead as source "manual", gated at requests:view_create_edit on page and route, landing on the board with the new lead's drawer open; the board's ?lead= deep link now also works after an in-app navigation — see "Still owed here" under "Phone menus, the Create sheet and a mobile audit" below)
 Last updated: 25 September 2026 (Kitchen Designer on by itself for the trades that build kitchens — kitchen_design, remodeling, renovation, general contracting, new construction, cabinet refacing; refinishing/countertop/stairs/painting stay off; a handyman opts in — plus `Company.kitchenDesignerOverride` (follow / always on / always off) on Settings › Services, read by the one gate in lib/kitchen/access.js that every surface and Cabinet Rates now ask — see "Kitchen Designer: on for the trades that build kitchens" below)
+Last updated: 25 September 2026 (Confirm what you quote, round two: untick a service already in the list to REMOVE it — archived through the existing `Product.active`, never deleted, restored as the same row when ticked again — with every picker, builder and settings list that read the whole book now filtering through `lib/products/offered.js`; All / Selected (N) tabs; the "0 of 0 selected" count fixed; "Added for you" on seeded rows the company never renamed or repriced, in the dialog and in Products & Services, which gains Remove and a Removed tab with Add back; "Review the services we added for you (N)" on the home card for EVERY company signup seeded, not only thin trades (the owner's decision) — see "Confirm what you quote: untick to remove" below)
 Last updated: 25 September 2026 (three follow-ups: cancelling a pay run now gives back its daily-sheet bonuses as well as its commissions; the checks read prisma/schema.prisma through one Prisma-aware stripper, and only four ever stripped it; check:call-to-client now runs the booking follow-up it was skipping, and the phone agent promises a confirmation only when the follow-up reports one — see "Pay-run cancel, the schema stripper, the booking follow-up" below)
 Last updated: 25 September 2026 (phone menus and the Create sheet: every row of the phone's Create sheet was dead, because the hidden desktop pill's outside-press listener closed it before the tap landed; the quote's More… opened off the left of the screen; one ActionMenu now — a bottom sheet below 640px, a flip-and-shift dropdown above — plus a launcher clearance so the + and Jennifer never cover a list's last row, dialog cards capped at the screen, and 44px settings/crew controls; every harness screen audited at 375 and 390 — see "Phone menus, the Create sheet and a mobile audit" below)
 Last updated: 25 September 2026 (one cabinet scope, Refinish | Reface: a company selling both cabinet trades gets a switch inside an unsaved cabinet group's card that moves the group between the two price books while keeping every count and answer already entered; a still-default name follows the service, switching back restores the previous figures byte-for-byte, and only the chosen service reaches the saved quote — see "Refinish | Reface inside one cabinet card" below)
@@ -208,6 +209,109 @@ rule. `npm run build` passes.
   count — not done, because it risks signup auto-enabling it.
 
 ---
+## Confirm what you quote: untick to remove, a Selected tab, "Added for you" (25 September 2026)
+
+The owner, from a screenshot of the step: "Shouldn't they be able to uncheck
+something if they don't need it?", "an additional tab where it says
+Selected", and then "it is loaded by default, so if it is loaded by default it
+should say so" and "they might offer it in the future, so they can always add
+it back."
+
+### The archive is `Product.active` — no schema change
+
+The column already existed and the server-side readers already filtered on it
+(AI employee, FieldQuo AI's call-to-quote draft, Jennifer, the voice agent,
+the add-on offers, plan-template picker, translations, the benchmark). What did
+not respect it were the screens that load the whole book through
+`GET /api/products` and filter in the browser. One helper,
+`lib/products/offered.js` (`offeredOnly` / `removedOnly`), and every one of
+them now uses it: the quote builder (line library, service cards, add-on
+offers, templates — filtered once at the source), the invoice builder,
+Settings › Services' seed card (count excludes removed, "· N removed" beside
+it) and template card, and the benchmark page. By-id readers of rows already
+written (costing, commissions, the job plan, production rates, plan offers)
+deliberately do not filter. The instant quote and self-quote read no Product
+rows at all — asserted, so a future read is seen. The seeders SEE removed
+rows on purpose, so "Add missing services" never re-creates one.
+
+### What shipped
+
+- **Untick a service already in the list** (the dialog and the page): the row
+  reads "Removed from your list — Undo" until the confirm button; the POST
+  (`{ seedKeys, removeSeedKeys }` — keys only) archives it. Re-ticking a
+  removed row restores the SAME row (price, template lines) instead of the
+  seeder skipping it or creating a copy. `planServiceChanges` in
+  `lib/services/confirmServices.js` decides every key before any write: a
+  removal must be a key this company holds, so another company's key — or
+  garbage — refuses the whole request. One line above the button says what an
+  untick does: stays on past quotes, not offered for new ones, not deleted.
+- **Tabs: All / Selected (N)** — Selected is everything in the list after the
+  button (held − unticked + ticked), flat, each with its group name,
+  untickable, same filter box; unticked held rows sit under "Coming off your
+  list" with Undo. Removed rows stay listed under their group, "Removed —
+  tick to add back", and are not on the Selected tab.
+- **The "0 of 0 selected" bug**: counts were over rows the browser could still
+  add, so an all-held group read 0 of 0 over a column of ticks. Counted over
+  every row now (`lib/services/confirmSelection.js#groupCount`), and Select
+  all / Clear act on held rows too.
+- **"Added for you"**: `lib/services/addedForYou.js`. Product has no
+  `updatedAt` (and one would lie — auto-translate, backfills and the archive
+  flag all write rows), so "untouched" = seedKey names a live seed, the NAME
+  is the seed's name in any language it carries, and the PRICE is exactly
+  what the seeder writes today in the company's currency. Anything else reads
+  "In your list" — erring towards not claiming authorship. Shown in the
+  dialog, as a badge in Settings › Products & Services (via
+  `GET /api/products`), with a one-time, per-user dismissible line at the top
+  of the list (`/api/ui-state` notice `products:added-for-you`).
+- **"We added N services for {trades} when you signed up"** at the top of the
+  dialog — N is seeded rows created within an hour of the company row
+  (signup seeds inside `POST /api/companies`); later trade switch-ons don't
+  count. **The home step now applies to every company signup seeded** (the
+  owner's decision, same day: "they might not do it — it is loaded by
+  default, so if it is loaded by default it should say so") — a plumber with
+  101 seeded rows sees "Review the services we added for you (101)". A
+  company with a thin or missing list keeps "Confirm what you quote"; one
+  with a full list and nothing seeded does not see the step. Done
+  (`servicesConfirmedAt`) and "Done, hide" work as before. `titleWhen` /
+  `appliesWhen` in `lib/setupSteps.js`; the card, the dialog title, the
+  next-steps email and the sales check-in signal all fill the figure.
+- **Settings › Products & Services**: "Your list (N)" / "Removed (N)" tabs;
+  a Remove (archive) button beside Edit on every row; Add back on the Removed
+  tab — `PATCH /api/products/[id] { active }`, which now refuses a
+  non-boolean instead of 500ing. The existing Delete (a hard delete behind a
+  confirm) is untouched.
+- Strings in all nine languages; the dialog and the catalogue are on
+  `check:mobile`'s strict list (44px tabs, rows, Undo, Add back; the
+  catalogue's 28px pager buttons fixed on the way).
+
+### Checks
+
+- `check:confirm-services` (now also loads the member stub) EXECUTES the
+  confirm route and the product PATCH against the db stub: untick → the row
+  still exists with `active: false` and no delete was attempted; re-tick → the
+  same row, same price and template lines, no second copy; removed in
+  Products and added back from the dialog → restored, not duplicated; another
+  company's key → 400 and nothing written in either company; conflicting and
+  malformed lists → 400; an employee → 403. Plus the selection model (counts,
+  Selected contents, Undo, Select all/Clear, the POST lists), the planner,
+  the badge rule and the signup window against hostile input, and a
+  source-level sweep that every reader named above filters removed services.
+- `check:service-seeds`: the seeder skips a removed key, never re-creates or
+  re-activates it.
+- `check:setup-steps`: a seeded plumber (101, full list) sees the step titled
+  with 101 and counted in progress; confirmed → done; "Done, hide" → off the
+  card; a full list with nothing seeded → not shown; a thin list keeps
+  "Confirm what you quote"; the nine translations; the card/email pass the
+  figure.
+
+### Still owed here
+
+- A maintenance-plan template that already includes a service later removed
+  still offers that service inside the plan on new quotes
+  (`app/api/quotes/[id]/plan-offers` reads the template's product ids
+  unfiltered, deliberately — dropping it would silently change a plan's price).
+- "Added for you" is not shown in the quote builder's line library; the
+  picker shows no badges today, so none was added.
 
 ## Pay-run cancel, the schema stripper, the booking follow-up (25 September 2026)
 

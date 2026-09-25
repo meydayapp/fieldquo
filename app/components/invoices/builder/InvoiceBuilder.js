@@ -89,6 +89,7 @@ import { lineItemCostOf } from "@/lib/costing/lineItemCost";
 import { invoiceCreateBody, invoicePatchBody, invoiceOfflinePayload } from "@/lib/invoices/builderRequest";
 import { invoiceStatusPresentation, invoiceStatusClasses } from "@/lib/invoices/statusPresentation";
 import { downloadInvoicePdf } from "@/lib/invoices/clientActions";
+import { offeredOnly } from "@/lib/products/offered";
 
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 // Same target the classic cost card scored against. A job is not scored
@@ -319,7 +320,9 @@ export function InvoiceBuilderForm({ mode = "create", invoiceId = null, bootstra
 
   const boot = bootstrap || {};
   const start = initial || initialStateFromInvoice(null);
-  const products = Array.isArray(boot.products) ? boot.products : [];
+  // Only what the company still offers (lib/products/offered.js) — the
+  // same rule as the quote builder's library.
+  const products = useMemo(() => offeredOnly(boot.products), [boot.products]);
   const companyCurrency = boot.companyCurrency ?? null;
   const companyLanguage = boot.companyLanguage || "en";
   // A saved invoice's own language (fixed at creation, non-negotiable #6);
