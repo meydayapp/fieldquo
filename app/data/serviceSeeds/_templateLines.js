@@ -43,6 +43,15 @@
 //   rangeBasis      "benchmark" | "lines" | "measured" — where the range came
 //                   from; "measured" = a flat row with no benchmark whose
 //                   lines are all per-measurement, so there is no flat preset
+//   categories      [ServiceCategory.key…] — the QUOTE TYPES this template
+//                   attaches to (the owner's decision of 2026-09-24:
+//                   "templates attach by quote type"). Defaults to the seed's
+//                   own trade; a template names others when the same job is
+//                   quoted under several (commercial painting under interior
+//                   and exterior; cabinet painting under cabinet_refinishing)
+//   estimateTypes   painting only — keys of PAINT_ESTIMATE_TYPES in
+//                   lib/pricing/paintTakeoff.js (interior · exterior ·
+//                   cabinets · staining · commercial); [] = every sub-type
 //   translations    { fr, es, it, de, uk, tl } → { name, description,
 //                   templateLines: [{ name, description }] in the same order
 //                   as `templateLines`, defaultDiscount: { name } | null }
@@ -363,14 +372,19 @@ export const D = {
  * description] for the SERVICE (its en/fr/es already sit on the row); `lines`
  * from L.* / SHARED.*; `discount` from D.* or null.
  */
-export function T(kind, names, lines, discount = null) {
+export const PAINT_ESTIMATE_TYPE_KEYS = ["interior", "exterior", "cabinets", "staining", "commercial"];
+const SLUG = /^[a-z][a-z0-9_]*$/;
+
+export function T(kind, names, lines, discount = null, { categories, estimateTypes } = {}) {
   if (!TEMPLATE_KINDS.includes(kind)) fail(`kind ${kind}`);
   if (!Array.isArray(lines) || lines.length === 0) fail("a template needs at least one line");
   for (const lang of ["it", "de", "uk", "tl"]) {
     const t = names?.[lang];
     if (!Array.isArray(t) || t.length !== 2 || !t[0] || typeof t[1] !== "string") fail(`service ${lang} must be [name, description]`);
   }
-  return { kind, names, lines, discount };
+  if (categories !== undefined && !(Array.isArray(categories) && categories.length && categories.every((c) => SLUG.test(c)))) fail("categories must be a non-empty list of ServiceCategory keys");
+  if (estimateTypes !== undefined && !(Array.isArray(estimateTypes) && estimateTypes.every((e) => PAINT_ESTIMATE_TYPE_KEYS.includes(e)))) fail(`estimateTypes must be from ${PAINT_ESTIMATE_TYPE_KEYS.join("/")}`);
+  return { kind, names, lines, discount, categories, estimateTypes };
 }
 
 /**
@@ -484,6 +498,8 @@ export function withTemplates(seed, templates) {
       templateKind: t.kind,
       templateLines,
       defaultDiscount,
+      categories: t.categories || [seed.trade],
+      estimateTypes: t.estimateTypes || [],
       imageUrl: null,
       range,
       rangeBasis: basis,
