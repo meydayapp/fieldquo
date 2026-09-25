@@ -2,7 +2,8 @@
 //
 // The service list a window and exterior cleaning company starts from. Read
 // ./index.js for the format and the rules. Written in source order.
-import { L, SHARED, D, T, withTemplates, tagRows } from "./_templateLines";
+import { L, SHARED, D, T, withTemplates, tagRows, withLanguages } from "./_templateLines";
+import { I18N } from "./i18n/window_cleaning.js";
 
 const BM = (low, median, high) => ({ low, median, high, currency: "USD", source: "benchmark", asOf: "2026-09-21" });
 const S = (seedKey, category, unit, benchmark, [en, fr, es], [den, dfr, des], extra = {}) => ({
@@ -538,6 +539,7 @@ const TEMPLATES = {
   ), [IN_OUT(9, 4.5)], D.regular("percent", 5)),
 };
 
+withLanguages(SEED, I18N);
 withTemplates(SEED, TEMPLATES);
 
 // Shared services: one canonical row here, installed for these quote types too.

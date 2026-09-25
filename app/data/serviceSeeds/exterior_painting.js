@@ -4,8 +4,9 @@
 // ./index.js. Exterior siding, trim, fascia, decks and fences are priced per
 // sq ft by the painting takeoff and the exterior_painting price book; those
 // rows are kept as references with `pricedBy: "takeoff"`.
-import { L, SHARED, D, T, withTemplates, tagRows } from "./_templateLines";
+import { L, SHARED, D, T, withTemplates, tagRows, withLanguages } from "./_templateLines";
 import { PAINT } from "./_paintLines";
+import { I18N } from "./i18n/exterior_painting.js";
 
 const BM = (low, median, high) => ({ low, median, high, currency: "USD", source: "benchmark", asOf: "2026-09-21" });
 const S = (seedKey, category, unit, benchmark, [en, fr, es], [den, dfr, des], extra = {}) => ({
@@ -283,6 +284,7 @@ const TEMPLATES = {
   ], null, EXT),
 };
 
+withLanguages(SEED, I18N);
 withTemplates(SEED, TEMPLATES);
 
 // Shared services: one canonical row here, installed for these quote types too.

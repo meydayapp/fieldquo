@@ -12,7 +12,8 @@
 // for the trade. Every `benchmark` is null on purpose, and the UI says "set
 // your rate" rather than inventing a number.
 
-import { L, SHARED, D, T, withTemplates } from "./_templateLines";
+import { L, SHARED, D, T, withTemplates, withLanguages } from "./_templateLines";
+import { I18N } from "./i18n/snow_removal.js";
 
 export const SEED = {
   trade: "snow_removal",
@@ -378,4 +379,5 @@ const TEMPLATES = {
   ), [SHARED.serviceCall(45)], null),
 };
 
+withLanguages(SEED, I18N);
 withTemplates(SEED, TEMPLATES);
