@@ -82726,7 +82726,7 @@ const tl = {
   "app.salesToday.checkinsOpen": "Buksan",
   "app.salesToday.checkinsNone": "Walang check-in text na naghihintay. May isinusulat kinabukasan pagkatapos mag-sign up ang isang kumpanya sa iyong link, isa pa sa ika-7 araw, at isa bago ang milestone.",
   "app.salesToday.checkinsLine": "{count} ang naghihintay na maipadala.",
-  "app.salesToday.checkinsCount": countedNoun("tl", { one: "check-in text", other: "check-in text" }),
+  "app.salesToday.checkinsCount": countedNoun("tl", { one: "text na pangkumusta", other: "text na pangkumusta" }),
   "app.salesToday.checkinsTitle": "Mga check-in text na naghihintay",
   "app.salesText.filterNoDrafts": "Walang usapan na may draft ngayon.",
   "app.salesText.waitingShowDrafts": "Ipakita lang ang mga draft",
