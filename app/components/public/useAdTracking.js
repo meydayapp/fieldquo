@@ -14,6 +14,16 @@
 //      only that company's ids, and, when the company switched "ask first"
 //      on, only after the visitor accepts. The choice is remembered per
 //      company in localStorage; nothing else is.
+//   4. First touch — every visit token this tab is issued is added to
+//      sessionStorage "fq.touch" (lib/tracking/touches.js), and posted with
+//      the next page's landing, so the booking page or instant estimate a
+//      visitor reaches from the company's website inherits the ad that
+//      brought them there. Same storage, same lifetime as the token itself.
+//
+// The booking page and the website use this hook for 1 and 4 only: they
+// pass no pixels and render no "we save what you type" notice, so nothing
+// else happens on them (pixel events there stay exactly as they were:
+// none).
 //
 // ── Not on a developer's laptop ────────────────────────────────────────────
 //
@@ -30,9 +40,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { readLanding } from "@/lib/tracking/landing";
 import { validPixelIds, injectPixelScripts, firePixelEvent } from "@/lib/funnels/pixels";
 import { PARTIAL_DEBOUNCE_MS } from "@/lib/tracking/partial";
+import { readTouches, rememberTouch } from "@/lib/tracking/touches";
 
 const consentKey = (slug) => `fq.adConsent.${slug}`;
 const tokenKey = (surface, slug, funnelSlug) => `fq.visit.${surface}.${slug}.${funnelSlug || ""}`;
+
+// Two tracked surfaces can be on one page — the website and its booking
+// block. The second one's landing must wait for the first one's token to
+// be in "fq.touch", or it would read an empty list and count the same
+// arrival twice. One gate per page load, bounded so a slow beacon never
+// holds another page's count hostage.
+let landingGate = Promise.resolve();
+const LANDING_WAIT_MS = 2000;
 
 function isLocalDev() {
   try {
@@ -70,13 +89,19 @@ function worthCapturing(c) {
  * @param ready            false until the page has its payload; nothing is
  *                         posted or loaded before then.
  * @param companySlug      the slug the page was reached on.
- * @param surface          "funnel" | "instant_quote"
+ * @param surface          "funnel" | "instant_quote" | "booking" | "website"
+ *                         (for the website, companySlug is its subdomain)
  * @param funnelSlug       the funnel's slug (funnel surface only).
  * @param pixels           { meta, ga4, tiktok } from the public payload.
  * @param consentRequired  the company's "ask before loading ad pixels".
  * @param language         the page's language, stored on the visit.
+ * @param ownLanding       false when this surface is a PART of another
+ *                         tracked page (the website's booking block): its
+ *                         URL is that page's URL, already counted as the
+ *                         landing, so it posts none and inherits that visit's
+ *                         instead.
  */
-export function useAdTracking({ ready, companySlug, surface, funnelSlug = null, pixels = null, consentRequired = false, language = null }) {
+export function useAdTracking({ ready, companySlug, surface, funnelSlug = null, pixels = null, consentRequired = false, language = null, ownLanding = true }) {
   const tokenRef = useRef(null);
   const chainRef = useRef(Promise.resolve());
   const stepsSentRef = useRef(new Set());
@@ -98,12 +123,15 @@ export function useAdTracking({ ready, companySlug, surface, funnelSlug = null, 
   };
 
   // Every beacon goes through one chain, so the token the first answer
-  // carries is known before the second is sent.
+  // carries is known before the second is sent. A payload may be a
+  // function, evaluated when its turn comes — the landing's `touches` must
+  // be read after the gate above opens, not when the effect ran.
   const post = useCallback(
-    (payload) => {
+    (payloadOrFn) => {
       if (typeof window === "undefined" || local()) return;
       chainRef.current = chainRef.current
         .then(async () => {
+          const payload = typeof payloadOrFn === "function" ? payloadOrFn() : payloadOrFn;
           const res = await fetch(`/api/funnel-visit/${encodeURIComponent(companySlug)}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -120,6 +148,7 @@ export function useAdTracking({ ready, companySlug, surface, funnelSlug = null, 
           if (d?.token && d.token !== tokenRef.current) {
             tokenRef.current = d.token;
             writeStore(window.sessionStorage, tokenKey(surface, companySlug, funnelSlug), d.token);
+            rememberTouch(d.token);
           }
         })
         // Measurement is never the visitor's problem.
@@ -136,8 +165,26 @@ export function useAdTracking({ ready, companySlug, surface, funnelSlug = null, 
     if (stored && /^[A-Za-z0-9_-]{32}$/.test(stored)) tokenRef.current = stored;
     if (stepsSentRef.current.has("landed")) return;
     stepsSentRef.current.add("landed");
-    post({ step: "landed", landing: readLanding(window.location.search, document.referrer) });
-  }, [ready, companySlug, surface, funnelSlug, post]);
+    if (local()) return;
+    const prior = landingGate;
+    let release = () => {};
+    landingGate = new Promise((resolve) => {
+      release = resolve;
+    });
+    chainRef.current = chainRef.current.then(() =>
+      Promise.race([prior, new Promise((resolve) => setTimeout(resolve, LANDING_WAIT_MS))]),
+    );
+    post(() => ({
+      step: "landed",
+      landing: ownLanding ? readLanding(window.location.search, document.referrer) : {},
+      // Read when the gate opens, before this visit's own token joins the
+      // list. Only used by the server when the visit is new and its landing
+      // carries nothing of its own.
+      touches: readTouches(),
+    }));
+    chainRef.current = chainRef.current.then(release, release);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, companySlug, surface, funnelSlug, post, ownLanding]);
 
   // ── Consent, then the pixels ───────────────────────────────────────────
   useEffect(() => {
