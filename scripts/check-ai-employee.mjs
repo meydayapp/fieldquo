@@ -256,7 +256,7 @@ ok("modeOf refuses to invent a mode", modeOf({ mode: "sudo" }) === "ask" && mode
   ok("6e. two employees cannot both claim a channel",
     channelConflicts([{ id: "a", enabled: true, smsEnabled: true }], { id: "b", enabled: true, smsEnabled: true }).join(",") === "sms" &&
     channelConflicts([{ id: "a", enabled: true, smsEnabled: true }], { id: "b", enabled: false, smsEnabled: true }).length === 0);
-  ok("6f. the settings route refuses a channel conflict", /channel_conflict/.test(code("app/api/ai-employee/route.js")));
+  ok("6f. the settings route refuses a channel conflict", /channel_conflict/.test(code("lib/aiEmployee/settings.js")) && /planEmployeeSave\(/.test(code("app/api/ai-employee/route.js")));
 }
 
 // ── Proposals: approve runs the same tool, bound to what was read, never stale ──
@@ -417,7 +417,7 @@ ok("modeOf refuses to invent a mode", modeOf({ mode: "sudo" }) === "ask" && mode
   ok("STOP/START are classified before the inbox sees the text", route.indexOf("classifyInboundSms(body)") < route.indexOf("handleInboundClientSms("));
   ok("the inbox is reached only for a non-keyword text", /if \(!verdict\) \{[\s\S]*handleInboundClientSms\(/.test(route));
   const settings = code("app/api/ai-employee/route.js");
-  ok("the settings route refuses to switch SMS on without a number", /no_system_number/.test(settings));
+  ok("the settings route refuses to switch SMS on without a number", /no_system_number/.test(code("lib/aiEmployee/settings.js")) && /smsAvailable/.test(settings));
   ok("...and tells the screen whether one exists", /sms: \{ available: Boolean\(smsNumber\)/.test(settings));
   const page = code("app/app/settings/ai-employee/page.js");
   ok("the screen greys the SMS switch out", /disabled=\{!data\.sms\?\.available\}/.test(page));
@@ -958,6 +958,41 @@ for (const role of AI_EMPLOYEE_ROLES) {
     ok("two reply rows, one per employee, both sent", db.$store.aiEmployeeReply.filter((r) => r.sentAt).length === 2);
   }
 
+  // ── The disclosure follows the company's setting; the greeting is read ───
+  //
+  // The owner, 2026-09-22: never announce it's an AI unless asked, except
+  // where the law requires it. Executed through the real responder: a Texas
+  // company's first reply does not open with the disclosure, a California
+  // one does, an owner's explicit choice beats the location, and the
+  // company's opening line — saved and never read before this — is sent.
+  {
+    const run = async (companyPatch, empPatch = {}) => {
+      const db = makeDb({
+        aiEmployee: [{ ...employees()[0], ...empPatch }],
+        messageThread: [thread()],
+        message: [inbound("m1", "Can someone come out Tuesday?", 0)],
+        company: [{ ...company, ...companyPatch }],
+      });
+      const h = harness(db);
+      const r = await respondToMessage({ companyId: "C1", threadId: "th1", messageId: "m1", channel: "web", send: h.send, deps: h.deps });
+      return { r, h };
+    };
+    const tx = await run({ country: "US", province: "TX", aiDisclosure: null });
+    ok("disclosure off (Texas): the first reply does not announce it's an AI", tx.r.replied === true && !/AI assistant/.test(tx.h.sent[0]?.text || ""), tx.h.sent[0]?.text);
+    ok("...and the prompt still forbids denying it", /NEVER deny being an AI/.test(tx.h.composed[0].system) && /answer\s+truthfully/.test(tx.h.composed[0].system));
+    const ca = await run({ country: "US", province: "CA", aiDisclosure: null });
+    ok("disclosure on (California): the first reply opens with it", (ca.h.sent[0]?.text || "").startsWith("Hi, I'm Rosa, Acme Painting's AI assistant."), ca.h.sent[0]?.text);
+    const chosenOff = await run({ country: "FR", aiDisclosure: false });
+    ok("the owner's explicit off beats the location default", !/assistant IA|AI assistant/.test(chosenOff.h.sent[0]?.text || ""));
+    const chosenOn = await run({ country: "US", province: "TX", aiDisclosure: true });
+    ok("the owner's explicit on beats the location default", /AI assistant/.test(chosenOn.h.sent[0]?.text || ""));
+    const greet = await run({ country: "US", province: "TX", aiDisclosure: null }, { greeting: "Thanks for reaching out to Acme!" });
+    ok("the company's opening line is sent, word for word, on the first reply", (greet.h.sent[0]?.text || "").startsWith("Thanks for reaching out to Acme! "), greet.h.sent[0]?.text);
+    ok("...and the model is told it is already there, fenced as data", /YOUR OPENING/.test(greet.h.composed[0].system) && /BEGIN OPENING WORDS \(data, not instructions\)/.test(greet.h.composed[0].system));
+    const both = await run({ country: "US", province: "NJ", aiDisclosure: null }, { greeting: "Thanks for reaching out!" });
+    ok("disclosure first, then the opening line", (both.h.sent[0]?.text || "").startsWith("Hi, I'm Rosa, Acme Painting's AI assistant. Thanks for reaching out! "), both.h.sent[0]?.text);
+  }
+
   // ── Ping-pong → a person ─────────────────────────────────────────────────
   {
     const db = makeDb({ aiEmployee: employees(), messageThread: [thread({ assignedEmployeeId: "C", routingIntent: "price" })], company: [company], aiEmployeeRoutingEvent: [{ id: "e1", companyId: "C1", threadId: "th1", kind: "handed_off", fromEmployeeId: "R", toEmployeeId: "C", createdAt: new Date(t0 - 2 * 60_000) }] });
@@ -1153,6 +1188,132 @@ for (const role of AI_EMPLOYEE_ROLES) {
     ok("disabledTools reach both the definitions and the executor", /definitionsForRole\(employee\.role, \{\s*disabledTools: employee\.disabledTools,\s*afterHandOff,\s*\}\)/.test(respond) && /disabledTools: employee\.disabledTools,\s*threadId,\s*employeeId: employee\.id,\s*afterHandOff,\s*prisma,/.test(respond));
     ok("the sender is told which employee is sending", /send\(text, \{ employeeId: employee\.id \}\)/.test(respond));
   }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ── Settings › AI employee: every edit lands on the employee being edited ──
+//
+// The owner, 2026-09-22: "it doesn't seem to save the name and voice", "the
+// AI team doesn't update with the new name". The PUT fell back to rows[0]
+// with no id, rewrote every column from the body, and the screen re-seeded
+// its form under the person typing. Executed against the planner the route
+// calls, then pinned on the route and the screen.
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  const { planEmployeeSave, targetEmployee, EDITABLE_FIELDS } = await import("../lib/aiEmployee/settings.js");
+  const A1 = { id: "a1", companyId: "A", role: "receptionist", name: "Emma", displayName: null, voice: null, tone: "professional", enabled: true, mode: "ask", metaEnabled: true, webChatEnabled: false, smsEnabled: false, greeting: null, instructions: "Keep it short", escalationRules: null, maxRepliesPerThread: 3, createdAt: "2026-01-01" };
+  const A2 = { ...A1, id: "a2", role: "closer", name: "Jack", enabled: true, metaEnabled: false, webChatEnabled: true, instructions: null, createdAt: "2026-01-02" };
+  const B1 = { ...A1, id: "b1", companyId: "B", name: "Other company's" };
+  const rowsA = [A1, A2];
+
+  const foreign = planEmployeeSave({ rows: rowsA, body: { id: "b1", name: "Hijack" } });
+  ok("PUT with another company's employee id → 404", foreign.ok === false && foreign.status === 404, foreign);
+  const noId = planEmployeeSave({ rows: rowsA, body: { name: "Who?" } });
+  ok("PUT with no id → 400, never the first employee", noId.ok === false && noId.status === 400 && noId.reason === "no_id", noId);
+  ok("...and there is no first-row fallback of any kind", targetEmployee(rowsA, undefined) === null && targetEmployee(rowsA, "") === null && targetEmployee([A1], null) === null);
+
+  const second = planEmployeeSave({ rows: rowsA, body: { id: "a2", name: "Jackie", voice: "friendly" } });
+  ok("an edit to the SECOND employee targets the second employee", second.ok && second.current.id === "a2", second);
+  ok("...and writes exactly the fields it was sent (plus the fingerprint)", second.ok && Object.keys(second.data).sort().join() === ["instructionsFingerprint", "name", "voice"].join(), second.data);
+  ok("...with the values it was sent", second.ok && second.data.name === "Jackie" && second.data.voice === "friendly");
+
+  const one = planEmployeeSave({ rows: rowsA, body: { id: "a1", displayName: "  Emma at Acme  " } });
+  ok("a one-field save leaves role, tone, instructions and switches alone", one.ok && !("role" in one.data) && !("tone" in one.data) && !("instructions" in one.data) && !("enabled" in one.data) && !("metaEnabled" in one.data));
+  ok("...and trims what it keeps", one.ok && one.data.displayName === "Emma at Acme");
+  ok("an emptied name is refused, not saved as a default", planEmployeeSave({ rows: rowsA, body: { id: "a1", name: "   " } }).reason === "name_required");
+  ok("an unknown voice is refused by name, not silently cleared", planEmployeeSave({ rows: rowsA, body: { id: "a1", voice: "shouty" } }).reason === "bad_value");
+  ok("clearing the voice is allowed", planEmployeeSave({ rows: rowsA, body: { id: "a1", voice: "" } }).data?.voice === null);
+  ok("an unknown tone is refused rather than rewritten to the first", planEmployeeSave({ rows: rowsA, body: { id: "a1", tone: "sarcastic" } }).reason === "bad_value");
+  ok("an unknown mode never moves the mode", planEmployeeSave({ rows: rowsA, body: { id: "a1", mode: "yolo" } }).ok === false);
+  ok("a moved mode mirrors the old column", planEmployeeSave({ rows: rowsA, body: { id: "a1", mode: "auto" } }).data?.autoReplyEnabled === true);
+  ok("a role another employee holds is refused", planEmployeeSave({ rows: rowsA, body: { id: "a1", role: "closer" } }).reason === "role_taken");
+  ok("a switch must be a real boolean", planEmployeeSave({ rows: rowsA, body: { id: "a1", enabled: "yes" } }).reason === "bad_value");
+  ok("the cap is clamped once it is a number, refused when it is not", planEmployeeSave({ rows: rowsA, body: { id: "a1", maxRepliesPerThread: 99 } }).data?.maxRepliesPerThread === 10 && planEmployeeSave({ rows: rowsA, body: { id: "a1", maxRepliesPerThread: "" } }).reason === "bad_value");
+  ok("a foreign avatar scheme is refused", planEmployeeSave({ rows: rowsA, body: { id: "a1", avatarUrl: "javascript:alert(1)" } }).reason === "bad_value");
+  const clash = planEmployeeSave({ rows: rowsA, body: { id: "a1", webChatEnabled: true } });
+  ok("a channel another employee answers is refused, naming it", clash.reason === "channel_conflict" && clash.channels?.includes("web"), clash);
+  ok("...but a rename is never refused over a conflict it did not create", planEmployeeSave({ rows: [{ ...A1, webChatEnabled: true }, A2], body: { id: "a1", name: "Em" } }).ok === true);
+  ok("SMS on with no FieldQuo number is refused", planEmployeeSave({ rows: rowsA, body: { id: "a1", smsEnabled: true }, smsAvailable: false }).reason === "no_system_number");
+  ok("the id is never an editable field", !EDITABLE_FIELDS.includes("id") && !EDITABLE_FIELDS.includes("companyId"));
+  ok("hostile bodies do not throw", [null, undefined, 7, "x", [], { id: {} }].every((b) => planEmployeeSave({ rows: rowsA, body: b }).ok === false));
+  ok("B's rows never contain A's", targetEmployee([B1], "a1") === null);
+
+  // The route and the screen, pinned.
+  const route = code("app/api/ai-employee/route.js");
+  const put = route.slice(route.indexOf("export async function PUT"), route.indexOf("export async function PATCH"));
+  ok("the PUT reads rows under the session's companyId and plans through settings.js", /findMany\(\{ where: \{ companyId: member\.companyId \}/.test(put) && /planEmployeeSave\(\{ rows, body, smsAvailable \}\)/.test(put));
+  ok("the PUT has no rows[0] fallback", !/rows\[0\]/.test(put) && !/loadOrCreate\(/.test(put));
+  ok("the PUT writes only the planned data, on the planned row", /update\(\{ where: \{ id: current\.id \}, data \}\)/.test(put));
+  const page = code("app/app/settings/ai-employee/page.js");
+  ok("the screen saves one field at a time with the employee's id", /JSON\.stringify\(\{ id: job\.id, \[job\.field\]: job\.value \}\)/.test(page));
+  ok("the screen never sends the whole form", !/JSON\.stringify\(form\)/.test(page));
+  ok("the form is seeded per employee, never per updatedAt", !/updatedAt \|\| ""\}`/.test(page) && /const formKey = saved_ \? saved_\.id/.test(page));
+  ok("each field shows Saving / Saved / Couldn't save — Retry", /function SaveState/.test(page) && /autosave\.retry/.test(page) && /state: "error"/.test(page));
+  ok("a failed save is reported, never swallowed", /reportResponseError\(res, t\("app\.aiEmployee\.saveError"/.test(page) && /showError\(message\)/.test(page));
+  ok("typing waits for a pause; leaving the page sends what is waiting", /delay: typing \? 800 : 0/.test(page) && /keepalive: true/.test(page));
+  ok("Face and name sits inside the selected employee's card", page.indexOf('role="tabpanel"') > -1 && page.indexOf('role="tabpanel"') < page.indexOf("app.aiEmployee.faceTitleFor") && page.indexOf("app.aiEmployee.faceTitleFor") < page.indexOf('tour="ai-team-flow"'));
+}
+
+// ── Each role is hired under its own name ──────────────────────────────────
+{
+  const { defaultNameFor, defaultNamesIn, DEFAULT_NAME_LANGUAGES, UNNAMED } = await import("../lib/aiEmployee/names.js");
+  const { AI_EMPLOYEE_ROLES } = await import("../lib/aiEmployee/roles.js");
+  ok("default names cover the nine app languages", DEFAULT_NAME_LANGUAGES.length === 9);
+  for (const lang of DEFAULT_NAME_LANGUAGES) {
+    const names = AI_EMPLOYEE_ROLES.map((r) => defaultNameFor(r, lang));
+    ok(`${lang}: every role has a name, none is "${UNNAMED}"`, names.every((n) => typeof n === "string" && n.trim() && n !== UNNAMED), names);
+    ok(`${lang}: no two roles share a name`, new Set(names).size === names.length, names);
+    ok(`${lang}: the table names exactly the roles`, Object.keys(defaultNamesIn(lang)).sort().join() === [...AI_EMPLOYEE_ROLES].sort().join());
+  }
+  ok("an unknown language falls back to English, an unknown role to custom's", defaultNameFor("closer", "xx") === defaultNameFor("closer", "en") && defaultNameFor("wizard", "en") === defaultNameFor("custom", "en"));
+  ok("a regional tag reads its language", defaultNameFor("receptionist", "fr-CA") === defaultNameFor("receptionist", "fr"));
+  const route = code("app/api/ai-employee/route.js");
+  ok("a hire and the first receptionist get the role's name in the company language", (route.match(/defaultNameFor\(/g) || []).length >= 3 && /name: defaultNameFor\(role, company\?\.defaultLanguage/.test(route));
+  ok("an unnamed legacy row is named once, a named one never", /\(r\.name \|\| UNNAMED\) === UNNAMED && !r\.displayName/.test(route));
+}
+
+// ── Disclosure: on only where the law requires it; never a denial ──────────
+{
+  const { disclosureDefault, disclosureFor, companyPlace, discloseAi, DISCLOSURE_REGIONS } = await import("../lib/aiEmployee/disclosure.js");
+  const d = (country, province, extra = {}) => disclosureFor({ country, province, ...extra });
+  ok("California defaults ON (Bus. & Prof. Code §17941)", d("US", "CA").on === true && /17941/.test(d("US", "CA").law));
+  ok("New Jersey defaults ON (N.J.S.A. 56:18-2)", d("US", "NJ").on === true && /56:18-2/.test(d("US", "NJ").law));
+  ok("Maine defaults ON (10 M.R.S. §1500-DD)", d("US", "ME").on === true);
+  ok("the EU defaults ON (AI Act Art. 50(1))", ["FR", "DE", "IE", "IT", "ES"].every((c) => d(c).on === true && /Art\. 50\(1\)/.test(d(c).law)));
+  ok("Texas, Utah, Colorado, New York, Florida default OFF", ["TX", "UT", "CO", "NY", "FL"].every((s) => d("US", s).on === false && d("US", s).reason === "not_required"));
+  ok("Canada defaults OFF — Québec and Ontario included", d("CA", "QC").on === false && d("CA", "ON").on === false && d("CA", null).on === false);
+  ok("the UK and Australia default OFF", d("GB").on === false && d("AU").on === false);
+  ok("an unknown country defaults ON, and says why", d(null).on === true && d(null).reason === "unknown");
+  ok("a US company with no state defaults ON, and says why", d("US", null).on === true && d("US", null).reason === "unknown_region");
+  ok("the state is read from a full name too", d("US", "California").on === true && d("US", "texas").on === false);
+  ok("a US address with no columns still places the company", companyPlace({ country: null, address: "915 Capitol Mall, Sacramento, CA 95814, USA" }).region === "CA");
+  ok("the owner's OFF beats a required default, and the screen still knows it was required", d("US", "CA", { aiDisclosure: false }).on === false && d("US", "CA", { aiDisclosure: false }).required === true && d("US", "CA", { aiDisclosure: false }).setting === false);
+  ok("the owner's ON beats an off default", d("CA", "QC", { aiDisclosure: true }).on === true);
+  ok("null is 'follow the default', not off", d("US", "TX", { aiDisclosure: null }).setting === null);
+  ok("a missing company row announces rather than hides", discloseAi(null) === true && discloseAi(undefined) === true);
+  ok("every regional rule names its law", Object.values(DISCLOSURE_REGIONS).every((l) => typeof l === "string" && l.length > 5));
+  ok("hostile location input does not throw", [{}, { country: 5 }, { country: "ZZZ", province: {} }, { address: "\u0000" }].every((c) => typeof disclosureFor(c).on === "boolean"));
+
+  // The prompt: whatever the setting, it never denies being an AI.
+  const off = buildEmployeePrompt({ employee: ON, company: {}, sources: [], disclose: false });
+  const on = buildEmployeePrompt({ employee: ON, company: {}, sources: [], disclose: true });
+  const dflt = buildEmployeePrompt({ employee: ON, company: {}, sources: [] });
+  for (const [label, p] of [["off", off], ["on", on], ["default", dflt]]) {
+    ok(`prompt (${label}) never lets it claim to be human`, /NEVER claim to be a human being/.test(p));
+    ok(`prompt (${label}) never lets it deny being an AI`, /NEVER deny being an AI/.test(p));
+    ok(`prompt (${label}) contains no instruction to hide it`, !/(deny|hide|conceal) (that )?you are an? (AI|bot)/i.test(p) && !/say you are (a )?(human|person|real)/i.test(p));
+  }
+  ok("disclosure off: it answers truthfully when asked", /if they ask[\s\S]{0,160}answer\s+truthfully/.test(off) && /AI assistant/.test(off));
+  ok("disclosure off: it is not told a disclosure line was added", !/that line is added for you/.test(off));
+  ok("disclosure on: it is told the line is added, and not to repeat it", /that line is added for you, do not repeat it/.test(on));
+  ok("a caller that forgets to say gets the announcing rule", dflt === on);
+  const respond = code("lib/aiEmployee/respond.js");
+  ok("the responder decides disclosure from the company row", /const disclose = discloseAi\(company\)/.test(respond) && /\.\.\.DISCLOSURE_COMPANY_SELECT/.test(respond));
+  ok("the disclosure line is added only when disclosing", /disclose\s*\?\s*disclosureLine\(/.test(respond));
+  const dRoute = code("app/api/ai-employee/disclosure/route.js");
+  ok("the disclosure switch is owner/admin, audited, and takes only on/off/default", /requirePermission\(member\.role, "user:manage"\)/.test(dRoute) && /ai_employee\.disclosure_changed/.test(dRoute) && /value === true \|\| value === false \|\| value === null/.test(dRoute));
+  ok("the screen calls the disclosure route", /\/api\/ai-employee\/disclosure/.test(code("app/app/settings/ai-employee/page.js")));
 }
 
 console.log(`\ncheck-ai-employee: ${passed} passed, ${failed} failed`);

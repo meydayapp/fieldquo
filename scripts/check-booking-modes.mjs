@@ -567,6 +567,11 @@ ok("…the row's SEQUENCE is now 1, written with the move", writes.some((w) => w
 ok("…and it kept its mode and phone, in the booker's language (fr)", j.mode === "call" && j.where === "Appel téléphonique — nous vous appellerons au 819-238-7263", j.where);
 mails = writes.filter((w) => w.model === "activityLog" && w.data?.action === "email.simulated");
 ok("…the moved letter to the client carried booking.ics, the office's copy none", mails.length === 2 && mails.filter((m) => m.data.metadata.attachments.length).length === 1 && mails.find((m) => m.data.metadata.attachments.length).data.metadata.to[0] === "d@x.test", mails.map((m) => [m.data.metadata.to, m.data.metadata.attachments]));
+// The text beside the letter (lib/schedule/changeText.js) — simulated for
+// this demo tenant, so it is a row, not a guess. scripts/check-change-texts.mjs
+// runs the full matrix and the office's routes.
+let texts = writes.filter((w) => w.model === "activityLog" && w.data?.action === "sms.simulated");
+ok("…and ONE moved text, in French, with the new time's link to manage it", texts.length === 1 && /déplacé/.test(texts[0].data.metadata.body) && texts[0].data.metadata.body.includes(`/visit/${row.manageToken}`) && texts[0].data.metadata.to === "+18192387263", texts.map((t) => t.data.metadata));
 writes.length = 0;
 r = await cancelRoute(tokenReq("", { action: "cancel" }), { params: Promise.resolve({ token: row.manageToken }) });
 j = await r.json();
@@ -574,6 +579,8 @@ ok("the client cancels it", r.status === 200 && j.cancelled === true, j);
 ok("…the row's SEQUENCE is now 2, written with the cancel", writes.some((w) => w.model === "booking" && w.action === "update" && w.data.calendarSequence === 2 && w.data.status === "cancelled"), writes.filter((w) => w.model === "booking"));
 mails = writes.filter((w) => w.model === "activityLog" && w.data?.action === "email.simulated");
 ok("…the cancelled letter to the client carried cancelled.ics (METHOD:CANCEL)", mails.some((m) => m.data.metadata.attachments.join() === "cancelled.ics" && m.data.metadata.to[0] === "d@x.test"), mails.map((m) => [m.data.metadata.to, m.data.metadata.attachments]));
+texts = writes.filter((w) => w.model === "activityLog" && w.data?.action === "sms.simulated");
+ok("…and ONE cancelled text, in French, naming the call", texts.length === 1 && /annulé/.test(texts[0].data.metadata.body) && /Appel téléphonique/.test(texts[0].data.metadata.body), texts.map((t) => t.data.metadata.body));
 const cancelSrc = read("app/api/visit/[token]/route.js");
 const moveSrc = read("app/api/visit/[token]/reschedule/route.js");
 const officeSrc = read("app/api/appointments/[id]/route.js");

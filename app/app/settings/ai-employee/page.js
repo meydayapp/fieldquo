@@ -12,7 +12,15 @@
 //    lib/aiEmployee/permission.js pins (the check asserts the English here
 //    equals the file's), and the floor — what NO mode may do alone — printed
 //    in words underneath. Moving to a more permissive mode shows a warning
-//    before Save, and the save writes an audit row with the mover's name.
+//    and waits for a second click — the screen auto-saves everything else,
+//    but not that — and the save writes an audit row with the mover's name.
+//
+// 1b. EVERY FIELD SAVES ITSELF, FOR ONE EMPLOYEE. The selected employee's
+//    settings sit inside that employee's own card under the team tabs; each
+//    field saves on its own (text after a pause in typing) with the
+//    employee's id, and says Saving… / Saved / Couldn't save — Retry beside
+//    itself. The server refuses a save with no id, and one naming another
+//    company's employee (lib/aiEmployee/settings.js).
 //
 // 2. THE ON/OFF SWITCH SAYS ITS CONSEQUENCE. Off means no channel routes to
 //    this employee, nothing is proposed, nothing is metered; the widget and
@@ -140,6 +148,62 @@ function Face({ url, name, size = 48 }) {
   );
 }
 
+/**
+ * One field's save state, beside the field. Nothing before the first edit —
+ * "Saved" on a field nobody touched would be a claim about nothing.
+ */
+function SaveState({ s, onRetry, t }) {
+  if (!s) return null;
+  if (s.state === "saving") {
+    return (
+      <span role="status" className="text-xs text-muted-foreground">
+        {t("app.common.saving", "Saving…")}
+      </span>
+    );
+  }
+  if (s.state === "saved") {
+    return (
+      <span role="status" className="text-xs text-emerald-700 dark:text-emerald-400 inline-flex items-center gap-1">
+        <Check size={12} /> {t("app.common.saved", "Saved")}
+      </span>
+    );
+  }
+  return (
+    <span role="alert" className="text-xs text-red-700 dark:text-red-300 inline-flex flex-wrap items-center gap-1">
+      {s.message || t("app.aiEmployee.autosave.failed", "Couldn't save")}
+      {s.job && (
+        <button type="button" onClick={onRetry} className="underline font-medium min-h-[44px] px-1">
+          {t("app.aiEmployee.autosave.retry", "Retry")}
+        </button>
+      )}
+    </span>
+  );
+}
+
+/** A labelled field with its save state on the label line. */
+function FieldHead({ label, note }) {
+  return (
+    <span className="flex items-center justify-between gap-2">
+      <span className="text-sm text-foreground">{label}</span>
+      {note}
+    </span>
+  );
+}
+
+/** A section INSIDE the selected employee's card. */
+function Part({ id, title, icon: Icon, hint, children }) {
+  return (
+    <section id={id} className="border-t border-border pt-5 mt-5 scroll-mt-4">
+      <div className="flex items-center gap-2">
+        {Icon && <Icon size={16} className="text-muted-foreground" />}
+        <h3 className="font-semibold text-foreground text-sm">{title}</h3>
+      </div>
+      {hint && <p className="text-sm text-muted-foreground mt-1">{hint}</p>}
+      <div className="mt-3">{children}</div>
+    </section>
+  );
+}
+
 /** A chat bubble, per channel, for the test box and the proposals. */
 function ChannelFrame({ channel, children, t }) {
   const label =
@@ -177,10 +241,16 @@ export default function AiEmployeePage() {
   const [proposals, setProposals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
-  const [saving, setSaving] = useState(false);
   const [confirmFire, setConfirmFire] = useState(false);
   const [firing, setFiring] = useState(false);
-  const [saved, setSaved] = useState(false);
+  // `${employeeId}:${field}` → { state: "saving" | "saved" | "error", message?, job? }.
+  // Keyed by EMPLOYEE as well as field, so switching to another employee
+  // never shows the first one's "Saved" — or hides its "Couldn't save".
+  const [fieldState, setFieldState] = useState({});
+  // A move to MORE autonomy waits here for a second click. Auto-save must
+  // not turn one stray tap on a radio into "it books on its own now".
+  const [modeAsk, setModeAsk] = useState(null);
+  const [disclosureBusy, setDisclosureBusy] = useState(false);
   const [testText, setTestText] = useState("");
   const [testChannel, setTestChannel] = useState("meta");
   const [testing, setTesting] = useState(false);
@@ -271,40 +341,190 @@ export default function AiEmployeePage() {
 
   const saved_ = useMemo(() => data?.employees.find((e) => e.id === selectedId) || null, [data, selectedId]);
 
-  // The form follows the selected employee. Switching employees discards an
-  // unsaved edit — deliberately: two half-edited employees is how a mode
-  // change ends up on the wrong one. Derived during render (React's
-  // "adjusting state when a prop changes" shape) rather than in an effect,
-  // so the first frame after a switch already shows the right employee.
+  // ── The form follows the selected employee — and ONLY the selection ──────
+  //
+  // It used to be re-seeded whenever the selected row's updatedAt moved. The
+  // flow view's tool switch is a PATCH that moves updatedAt, so a name typed
+  // and not yet saved was silently replaced by the server's old one — one of
+  // the reasons the owner saw "it doesn't save the name and voice". Now the
+  // form is seeded when a different employee is selected and never again
+  // under the person typing; every edit is saved on its own (below), so
+  // there is nothing unsaved for a re-seed to protect. Derived during render
+  // (React's "adjusting state when a prop changes" shape) so the first frame
+  // after a switch already shows the right employee.
   const [formFor, setFormFor] = useState(null);
-  const formKey = saved_ ? `${saved_.id}:${saved_.updatedAt || ""}` : null;
+  const formKey = saved_ ? saved_.id || "unsaved" : null;
   if (formKey !== formFor) {
     setFormFor(formKey);
     setForm(saved_ ? { ...saved_ } : null);
-    setSaved(false);
+    setModeAsk(null);
   }
   const role = useMemo(() => (data?.roles || []).find((r) => r.key === form?.role) || null, [data, form]);
 
-  const set = (patch) => {
+  // ── Auto-save, one field at a time ──────────────────────────────────────
+  //
+  // The owner, 2026-09-22: "it should have auto save". One Save button at the
+  // foot of six cards was the other half of "it doesn't save": the name is
+  // typed in the first card and the button is a long scroll away, past
+  // anything that might re-seed the form. Now each field saves itself —
+  // text after a short pause in typing, switches and pickers at once — with
+  // its OWN state beside it: Saving… / Saved / Couldn't save — Retry. The
+  // request carries the employee's id and that field only, so two fields in
+  // flight cannot overwrite each other and an edit can only ever land on the
+  // employee it was typed into, even if the selection has moved since.
+  const timers = useRef({});
+  const queued = useRef({});
+  const latest = useRef({});
+
+  const markField = useCallback((key, next) => {
+    setFieldState((s) => ({ ...s, [key]: next }));
+  }, []);
+
+  const sendField = useCallback(
+    async (key, { keepalive = false } = {}) => {
+      const job = queued.current[key];
+      if (!job) return;
+      delete queued.current[key];
+      clearTimeout(timers.current[key]);
+      delete timers.current[key];
+      const seq = (latest.current[key] || 0) + 1;
+      latest.current[key] = seq;
+      markField(key, { state: "saving" });
+
+      const fail = (message) => {
+        // A later edit of the same field supersedes this failure.
+        if (latest.current[key] !== seq) return;
+        markField(key, { state: "error", message, job });
+        job.revert?.();
+      };
+
+      let res;
+      try {
+        res = await fetch("/api/ai-employee", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: job.id, [job.field]: job.value }),
+          keepalive,
+        });
+      } catch {
+        const message = t("app.aiEmployee.autosave.offline", "Couldn't reach the server — check your connection, then retry.");
+        showError(message);
+        fail(message);
+        return;
+      }
+      if (!res.ok) {
+        const refusal = await res.clone().json().catch(() => ({}));
+        const known = refusal?.reason ? t(`app.aiEmployee.saveRefused.${refusal.reason}`, "") : "";
+        let message;
+        if (known) {
+          message = known;
+          showError(known);
+        } else {
+          message = await reportResponseError(res, t("app.aiEmployee.saveError", "Couldn't save."));
+        }
+        fail(message || t("app.aiEmployee.saveError", "Couldn't save."));
+        return;
+      }
+      const { employee } = await res.json().catch(() => ({}));
+      if (latest.current[key] !== seq) return;
+      if (employee?.id) {
+        // Merge the field this request saved — not the whole row, which may
+        // predate a neighbouring field's save that finished first.
+        setData((d) => ({
+          ...d,
+          employees: d.employees.map((e) =>
+            e.id === employee.id ? { ...e, [job.field]: employee[job.field], updatedAt: employee.updatedAt } : e,
+          ),
+        }));
+      }
+      markField(key, { state: "saved" });
+    },
+    [markField, t],
+  );
+
+  /** Queue one field of the selected employee. `delay` is the typing pause. */
+  const saveField = useCallback(
+    (id, field, value, { delay = 0, revert = null } = {}) => {
+      // The support session's unsaved preview row has no id: nothing to save.
+      if (!id) return;
+      const key = `${id}:${field}`;
+      queued.current[key] = { id, field, value, revert };
+      markField(key, { state: "saving" });
+      clearTimeout(timers.current[key]);
+      timers.current[key] = setTimeout(() => sendField(key), delay);
+    },
+    [markField, sendField],
+  );
+
+  /** Write to the form AND save. Text waits for a pause; switches don't. */
+  const edit = (patch, { typing = false } = {}) => {
+    if (!form?.id) return;
+    const id = form.id;
     setForm((f) => ({ ...f, ...patch }));
-    setSaved(false);
+    for (const [field, value] of Object.entries(patch)) {
+      const before = form[field];
+      saveField(id, field, value, {
+        delay: typing ? 800 : 0,
+        // A refused switch goes back to what the server holds, so the screen
+        // never shows a channel "on" that is off. Typed text is kept — losing
+        // what somebody wrote is worse than an error beside it.
+        revert: typing ? null : () => setForm((f) => (f && f.id === id ? { ...f, [field]: before } : f)),
+      });
+    }
   };
 
-  async function save() {
-    setSaving(true);
-    const res = await fetch("/api/ai-employee", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
-    setSaving(false);
-    if (!res.ok) {
-      await reportResponseError(res, t("app.aiEmployee.saveError", "Couldn't save."));
-      return;
+  const retryField = (key) => {
+    const job = fieldState[key]?.job;
+    if (!job) return;
+    saveField(job.id, job.field, job.value);
+  };
+
+  /** Send everything still waiting for its typing pause — now. */
+  const flushAll = useCallback(
+    (opts) => {
+      for (const key of Object.keys(queued.current)) sendField(key, opts);
+    },
+    [sendField],
+  );
+
+  // Leaving the page mid-pause must not lose the last few letters.
+  useEffect(() => {
+    const onLeave = () => flushAll({ keepalive: true });
+    window.addEventListener("pagehide", onLeave);
+    return () => {
+      window.removeEventListener("pagehide", onLeave);
+      onLeave();
+    };
+  }, [flushAll]);
+
+  function selectEmployee(id) {
+    flushAll();
+    setSelectedId(id);
+  }
+
+  const stateOf = (field) => (form?.id ? fieldState[`${form.id}:${field}`] : null);
+  const savedNote = (field) => <SaveState s={stateOf(field)} onRetry={() => retryField(`${form.id}:${field}`)} t={t} />;
+
+  // ── Telling clients it's an AI (company-wide) ────────────────────────────
+  async function setDisclosure(value) {
+    setDisclosureBusy(true);
+    try {
+      const res = await fetch("/api/ai-employee/disclosure", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aiDisclosure: value }),
+      });
+      if (!res.ok) {
+        await reportResponseError(res, t("app.aiEmployee.saveError", "Couldn't save."));
+        return;
+      }
+      const { disclosure } = await res.json();
+      setData((d) => ({ ...d, disclosure }));
+    } catch {
+      showError(t("app.aiEmployee.autosave.offline", "Couldn't reach the server — check your connection, then retry."));
+    } finally {
+      setDisclosureBusy(false);
     }
-    const { employee } = await res.json();
-    setData((d) => ({ ...d, employees: d.employees.map((e) => (e.id === employee.id ? employee : e)) }));
-    setSaved(true);
   }
 
   async function hire(roleKey) {
@@ -321,7 +541,7 @@ export default function AiEmployeePage() {
     }
     const { employee } = await res.json();
     setData((d) => ({ ...d, employees: [...d.employees, employee] }));
-    setSelectedId(employee.id);
+    selectEmployee(employee.id);
   }
 
   async function fire() {
@@ -360,7 +580,7 @@ export default function AiEmployeePage() {
       return;
     }
     const d = await res.json();
-    if (d.url) set({ avatarUrl: d.url });
+    if (d.url) edit({ avatarUrl: d.url });
   }
 
   async function upload(file) {
@@ -538,15 +758,91 @@ export default function AiEmployeePage() {
 
   const channelBlocked = !data.channel?.connected;
   const rolesLeft = (data.roles || []).filter((r) => !data.employees.some((e) => e.role === r.key));
-  const modeMovesUp = form && saved_ && MODE_RANK[form.mode] > MODE_RANK[saved_.mode];
+  // A move towards MORE autonomy is held in `modeAsk` until confirmed; this
+  // is the warning's condition.
+  const modeMovesUp = Boolean(form && modeAsk && MODE_RANK[modeAsk] > MODE_RANK[form.mode]);
+  const shownName = form ? form.displayName || form.name || t("app.aiEmployee.unnamed", "the assistant") : "";
+  const disclosureOn = data.disclosure?.on === true;
   const disclosure = form
     ? t("app.aiEmployee.disclosurePreview", "Hi, I'm {name}, {company}'s AI assistant.", {
-        name: form.displayName || form.name || t("app.aiEmployee.unnamed", "the assistant"),
+        name: shownName,
         company: t("app.aiEmployee.yourCompany", "your company"),
       })
     : "";
   const toolLabel = (k) => t(`app.aiEmployee.tool.${k}`, k);
   const riskLabel = (k) => t(`app.aiEmployee.risk.${k}`, k);
+
+  // The employee card's one-line summary of every field's state.
+  const mine = form?.id ? Object.entries(fieldState).filter(([k]) => k.startsWith(`${form.id}:`)).map(([, v]) => v) : [];
+  const panelState = mine.some((s) => s.state === "error")
+    ? "error"
+    : mine.some((s) => s.state === "saving")
+      ? "saving"
+      : mine.some((s) => s.state === "saved")
+        ? "saved"
+        : "idle";
+
+  // "QC, Canada" / "CA, United States" — the country named in the reader's
+  // own language by the browser (Intl.DisplayNames), the region as its code.
+  const place = data.disclosure?.place || null;
+  let countryName = place?.country || "";
+  try {
+    if (place?.country) countryName = new Intl.DisplayNames([language || "en"], { type: "region" }).of(place.country) || place.country;
+  } catch {
+    /* an old browser: the code itself is still true */
+  }
+  const placeLabel = place ? [place.region, countryName].filter(Boolean).join(", ") : "";
+
+  // ── Paid from the AI credit (owner, 2026-09-25) ────────────────────────
+  //
+  // Every state is the verdict the server's meter gave — the same one a
+  // customer's next message would get (lib/ai/walletMeter.js). One notice at
+  // most; the states are exclusive. The button goes to the AI credit page,
+  // where the top-ups and the monthly bundles live: both fill the wallet these
+  // replies draw on. The wallet is the COMPANY's, so the same notice shows in
+  // whichever employee's card is open.
+  const topUpButton = (
+    <Link href="/app/settings/ai-credit" className={`${BTN_PRIMARY} mt-2`}>
+      {t("app.aiEmployee.topUpOrBundle", "Top up or add a monthly bundle")}
+    </Link>
+  );
+  const billingNotice = !data.ai?.configured ? null : data.ai.billing === "paused" ? (
+    <Notice tone="warn">
+      <p className="font-semibold">
+        {t("app.aiEmployee.pausedTitle", "Your AI employee is paused — AI credit is empty")}
+      </p>
+      <p className="mt-1 opacity-90">
+        {t("app.aiEmployee.pausedBody", "Every employee now tells customers someone will reply shortly and leaves each conversation to you. Add credit and it starts answering again — a reply costs about {amount}.", { amount: money(data.ai.typicalConversationCents) })}
+      </p>
+      {topUpButton}
+    </Notice>
+  ) : data.ai.billing === "grace" ? (
+    <Notice tone="warn">
+      <p>
+        {t("app.aiEmployee.graceBanner", "What's changing: from {date}, your AI employee's replies are paid from your AI credit, not your monthly AI allowance. Until then it keeps running on the allowance as it does today. A reply costs about {amount}; your AI credit is {balance}.", {
+          date: formatCalendarDay(data.ai.graceEndsOn, language),
+          amount: money(data.ai.typicalConversationCents),
+          balance: money(data.ai.walletCents),
+        })}
+      </p>
+      {!data.ai.allowed && data.ai.reason && <p className="mt-1">{data.ai.reason}</p>}
+      {topUpButton}
+    </Notice>
+  ) : !data.ai.allowed ? (
+    <Notice tone="warn">
+      {data.ai.reason}
+      <p className="mt-1 opacity-90">
+        {t("app.aiEmployee.overQuotaBehaviour", "Until then, every employee tells customers someone will reply shortly and leaves each conversation to you — it never answers with a cheaper model and never goes quiet without telling you.")}
+      </p>
+    </Notice>
+  ) : data.ai.billing === "wallet" && data.ai.inGrace ? (
+    <Notice>
+      {t("app.aiEmployee.walletBanner", "Your AI employee's replies are now paid from your AI credit instead of your monthly AI allowance — about {amount} a reply, taken as each one is written. Your balance is {balance}.", {
+        amount: money(data.ai.typicalConversationCents),
+        balance: money(data.ai.walletCents),
+      })}
+    </Notice>
+  ) : null;
 
   return (
     <div className="p-4 md:p-6 space-y-5 max-w-3xl">
@@ -567,73 +863,32 @@ export default function AiEmployeePage() {
         </Notice>
       )}
 
-      {/* ── Paid from the AI credit (owner, 2026-09-25) ──────────────────
-          Every state below is the verdict the server's meter gave — the same
-          one a customer's next message would get (lib/ai/walletMeter.js).
-          The button goes to the AI credit page, where the top-ups and the
-          monthly bundles live: both fill the wallet these replies draw on. */}
-      {data.ai?.configured && data.ai?.billing === "paused" && (
-        <Notice tone="warn">
-          <p className="font-semibold">
-            {t("app.aiEmployee.pausedTitle", "Your AI employee is paused — AI credit is empty")}
-          </p>
-          <p className="mt-1 opacity-90">
-            {t("app.aiEmployee.pausedBody", "Every employee now tells customers someone will reply shortly and leaves each conversation to you. Add credit and it starts answering again — a reply costs about {amount}.", { amount: money(data.ai.typicalConversationCents) })}
-          </p>
-          <Link href="/app/settings/ai-credit" className={`${BTN_PRIMARY} mt-2`}>
-            {t("app.aiEmployee.topUpOrBundle", "Top up or add a monthly bundle")}
-          </Link>
-        </Notice>
-      )}
+      {/* The AI-credit notice sits inside the selected employee's card; with
+          no employee selected it stands here, so an empty wallet is never
+          out of sight. */}
+      {!form && billingNotice}
 
-      {data.ai?.configured && data.ai?.billing === "grace" && (
-        <Notice tone="warn">
-          <p>
-            {t("app.aiEmployee.graceBanner", "What's changing: from {date}, your AI employee's replies are paid from your AI credit, not your monthly AI allowance. Until then it keeps running on the allowance as it does today. A reply costs about {amount}; your AI credit is {balance}.", {
-              date: formatCalendarDay(data.ai.graceEndsOn, language),
-              amount: money(data.ai.typicalConversationCents),
-              balance: money(data.ai.walletCents),
-            })}
-          </p>
-          {!data.ai.allowed && data.ai.reason && <p className="mt-1">{data.ai.reason}</p>}
-          <Link href="/app/settings/ai-credit" className={`${BTN_PRIMARY} mt-2`}>
-            {t("app.aiEmployee.topUpOrBundle", "Top up or add a monthly bundle")}
-          </Link>
-        </Notice>
-      )}
-
-      {data.ai?.configured && data.ai?.billing === "wallet" && data.ai?.inGrace && (
-        <Notice>
-          {t("app.aiEmployee.walletBanner", "Your AI employee's replies are now paid from your AI credit instead of your monthly AI allowance — about {amount} a reply, taken as each one is written. Your balance is {balance}.", {
-            amount: money(data.ai.typicalConversationCents),
-            balance: money(data.ai.walletCents),
-          })}
-        </Notice>
-      )}
-
-      {data.ai?.configured && !data.ai?.allowed && data.ai?.billing !== "paused" && data.ai?.billing !== "grace" && (
-        <Notice tone="warn">
-          {data.ai.reason}
-          <p className="mt-1 opacity-90">
-            {t("app.aiEmployee.overQuotaBehaviour", "Until then, every employee tells customers someone will reply shortly and leaves each conversation to you — it never answers with a cheaper model and never goes quiet without telling you.")}
-          </p>
-        </Notice>
-      )}
-
-      {/* ── The team ─────────────────────────────────────────────────────── */}
+      {/* ── The team, and the selected employee's own card ───────────────── */}
+      {/* The roster is a tab list and the card under it belongs to the tab
+          that is selected: its face, its name and every setting below are
+          THAT employee's, and the card says so in its header. The owner read
+          the old free-standing "Face and name" card as a company-wide
+          setting — it never was, but nothing on the screen said otherwise. */}
       <Card
         tour="ai-team-roster"
         title={t("app.aiEmployee.teamTitle", "Your AI team")}
         icon={Bot}
-        hint={t("app.aiEmployee.teamHint", "One employee per job. Each is switched on or off on its own, and each answers only the channels you give it.")}
+        hint={t("app.aiEmployee.teamHintPerEmployee", "One employee per job. Pick one to set it up — its face, name, voice and everything else below belong to that employee alone, and every change saves as you make it.")}
       >
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label={t("app.aiEmployee.teamTitle", "Your AI team")}>
           {data.employees.map((e) => (
             <button
-              key={e.id}
+              key={e.id || "unsaved"}
               type="button"
-              onClick={() => setSelectedId(e.id)}
-              className={`flex items-center gap-3 rounded-lg border p-2 pr-3 min-h-[44px] text-left ${
+              role="tab"
+              aria-selected={selectedId === e.id}
+              onClick={() => selectEmployee(e.id)}
+              className={`flex items-center gap-3 rounded-lg border-2 p-2 pr-3 min-h-[44px] text-left ${
                 selectedId === e.id ? "border-primary bg-muted" : "border-border"
               }`}
             >
@@ -671,43 +926,53 @@ export default function AiEmployeePage() {
             </div>
           )}
         </div>
-      </Card>
 
-      {/* ── How the team works ───────────────────────────────────────────── */}
-      <Card
-        id="team-flow"
-        tour="ai-team-flow"
-        title={t("app.aiEmployee.flow.title", "How your AI team works")}
-        icon={Workflow}
-        hint={t("app.aiEmployee.flow.hint", "A message comes in on a channel, the front desk reads it once and hands it to one employee, and only that employee answers. Counts are this week's.")}
-      >
-        <TeamFlow
-          data={data}
-          proposals={proposals}
-          onEmployees={(employees) => setData((d) => ({ ...d, employees }))}
-          t={t}
-        />
-      </Card>
+        {form && (
+          <div role="tabpanel" className="mt-4 rounded-xl border-2 border-primary p-4 sm:p-5" data-tour="ai-employee-card">
+            {/* ── Whose card this is ─────────────────────────────────────── */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <Face url={form.avatarUrl} name={shownName} size={56} />
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-foreground break-words">{shownName}</p>
+                <p className="text-xs text-muted-foreground">
+                  {t(`app.aiEmployee.role.${form.role}`, form.role)}
+                  {" · "}
+                  {form.enabled ? t("app.aiEmployee.on", "on") : t("app.aiEmployee.off", "off")}
+                </p>
+              </div>
+              <p
+                role="status"
+                className={`text-xs ${panelState === "error" ? "text-red-700 dark:text-red-300" : panelState === "saved" ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground"}`}
+              >
+                {panelState === "error"
+                  ? t("app.aiEmployee.autosave.someFailed", "Some changes didn't save — see the note in red.")
+                  : panelState === "saving"
+                    ? t("app.common.saving", "Saving…")
+                    : panelState === "saved"
+                      ? t("app.aiEmployee.autosave.allSaved", "All changes saved")
+                      : t("app.aiEmployee.autosave.idle", "Changes save as you make them")}
+              </p>
+            </div>
 
-      {form && (
-        <>
-          {/* ── Face and name ────────────────────────────────────────────── */}
-          <Card
-            title={t("app.aiEmployee.faceTitle", "Face and name")}
-            icon={Pencil}
-            hint={t("app.aiEmployee.faceHint", "What a customer sees at the top of the chat and on the first line of every conversation.")}
-          >
-            <div className="flex items-start gap-4">
-              <Face url={form.avatarUrl} name={form.displayName || form.name} size={72} />
-              <div className="flex-1 space-y-3">
-                <div className="flex flex-wrap gap-2">
+            {/* ── Who pays for this employee's replies ─────────────────── */}
+            {billingNotice && <div className="mt-4">{billingNotice}</div>}
+
+            {/* ── Face and name ────────────────────────────────────────── */}
+            <Part
+              title={t("app.aiEmployee.faceTitleFor", "{name}'s face and name", { name: shownName })}
+              icon={Pencil}
+              hint={t("app.aiEmployee.faceHintPerEmployee", "This employee only. What a customer sees at the top of the chat, and the name it goes by in your team list and when it hands a conversation on.")}
+            >
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-2 items-center">
                   {data.faces.map((f) => (
                     <button
                       key={f.key}
                       type="button"
-                      onClick={() => set({ avatarUrl: f.url })}
+                      onClick={() => edit({ avatarUrl: f.url })}
                       className={`rounded-full border-2 ${form.avatarUrl === f.url ? "border-primary" : "border-transparent"}`}
                       aria-label={t("app.aiEmployee.chooseFace", "Choose this face")}
+                      aria-pressed={form.avatarUrl === f.url}
                     >
                       <Face url={f.url} name="" size={44} />
                     </button>
@@ -726,18 +991,39 @@ export default function AiEmployeePage() {
                     <Upload size={15} /> {t("app.aiEmployee.uploadFace", "Upload your own")}
                   </button>
                   {form.avatarUrl && (
-                    <button type="button" className={BTN_QUIET} onClick={() => set({ avatarUrl: null })}>
+                    <button type="button" className={BTN_QUIET} onClick={() => edit({ avatarUrl: null })}>
                       {t("app.aiEmployee.noFace", "Initials only")}
                     </button>
                   )}
+                  {savedNote("avatarUrl")}
                 </div>
                 <label className="block">
-                  <span className="text-sm text-foreground">{t("app.aiEmployee.displayNameLabel", "Name customers see")}</span>
-                  <input className={FIELD} value={form.displayName || ""} maxLength={60} onChange={(e) => set({ displayName: e.target.value })} />
+                  <FieldHead label={t("app.aiEmployee.nameLabelPerEmployee", "Name")} note={savedNote("name")} />
+                  <input
+                    className={FIELD}
+                    value={form.name || ""}
+                    maxLength={60}
+                    onChange={(e) => edit({ name: e.target.value }, { typing: true })}
+                    onBlur={() => flushAll()}
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    {t("app.aiEmployee.nameHintPerEmployee", "It starts with a name of its own for this job. Change it to anything — customers see it unless you fill in the box below.")}
+                  </span>
                 </label>
                 <label className="block">
-                  <span className="text-sm text-foreground">{t("app.aiEmployee.voiceLabel", "Voice")}</span>
-                  <select className={FIELD} value={form.voice || ""} onChange={(e) => set({ voice: e.target.value || null })}>
+                  <FieldHead label={t("app.aiEmployee.displayNameOptional", "A different name for customers (optional)")} note={savedNote("displayName")} />
+                  <input
+                    className={FIELD}
+                    value={form.displayName || ""}
+                    maxLength={60}
+                    placeholder={form.name || ""}
+                    onChange={(e) => edit({ displayName: e.target.value }, { typing: true })}
+                    onBlur={() => flushAll()}
+                  />
+                </label>
+                <label className="block">
+                  <FieldHead label={t("app.aiEmployee.voiceLabel", "Voice")} note={savedNote("voice")} />
+                  <select className={FIELD} value={form.voice || ""} onChange={(e) => edit({ voice: e.target.value || null })}>
                     <option value="">{t("app.aiEmployee.voice.none", "Default")}</option>
                     {data.voices.map((v) => (
                       <option key={v} value={v}>
@@ -750,305 +1036,415 @@ export default function AiEmployeePage() {
                   </span>
                 </label>
                 <p className="text-xs text-muted-foreground">
-                  {t("app.aiEmployee.disclosureHint", "The first message of every conversation always opens with:")}{" "}
-                  <span className="text-foreground">“{disclosure}”</span>
+                  {disclosureOn ? (
+                    <>
+                      {t("app.aiEmployee.disclosureHint", "The first message of every conversation always opens with:")}{" "}
+                      <span className="text-foreground">“{disclosure}”</span>
+                    </>
+                  ) : (
+                    t("app.aiEmployee.disclosureOffHint", "It introduces itself by name without announcing that it's an AI. If a customer asks whether they're talking to a person, it says truthfully that it's the AI assistant.")
+                  )}{" "}
+                  <a href="#disclosure" className="underline">
+                    {t("app.aiEmployee.disclosure.change", "Change this")}
+                  </a>
                 </p>
               </div>
-            </div>
-          </Card>
+            </Part>
 
-          {/* ── The job ──────────────────────────────────────────────────── */}
-          <Card
-            title={t("app.aiEmployee.roleTitle", "What job does it do?")}
-            icon={Bot}
-            hint={t("app.aiEmployee.roleHint", "The job decides what it's allowed to do, not just how it sounds. A receptionist has no way to look up a price — that's the point of picking one.")}
-          >
-            <div className="grid gap-3 sm:grid-cols-2">
-              {data.roles.map((r) => {
-                const taken = data.employees.some((e) => e.role === r.key && e.id !== form.id);
-                return (
-                  <button
-                    key={r.key}
-                    type="button"
-                    disabled={taken}
-                    onClick={() => set({ role: r.key })}
-                    className={`text-left rounded-lg border p-3 min-h-[44px] disabled:opacity-50 ${form.role === r.key ? "border-primary bg-muted" : "border-border"}`}
-                  >
-                    <span className="font-medium text-foreground text-sm">{t(r.labelKey, r.key)}</span>
-                    <p className="text-xs text-muted-foreground mt-1">{t(r.blurbKey, "")}</p>
-                    {taken && <p className="text-xs text-muted-foreground mt-1">{t("app.aiEmployee.roleTaken", "Already hired")}</p>}
-                  </button>
-                );
-              })}
-            </div>
+            {/* ── The job ──────────────────────────────────────────────── */}
+            <Part
+              title={t("app.aiEmployee.roleTitle", "What job does it do?")}
+              icon={Bot}
+              hint={t("app.aiEmployee.roleHint", "The job decides what it's allowed to do, not just how it sounds. A receptionist has no way to look up a price — that's the point of picking one.")}
+            >
+              <div className="flex justify-end">{savedNote("role")}</div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {data.roles.map((r) => {
+                  const taken = data.employees.some((e) => e.role === r.key && e.id !== form.id);
+                  return (
+                    <button
+                      key={r.key}
+                      type="button"
+                      disabled={taken}
+                      onClick={() => r.key !== form.role && edit({ role: r.key })}
+                      aria-pressed={form.role === r.key}
+                      className={`text-left rounded-lg border p-3 min-h-[44px] disabled:opacity-50 ${form.role === r.key ? "border-primary bg-muted" : "border-border"}`}
+                    >
+                      <span className="font-medium text-foreground text-sm">{t(r.labelKey, r.key)}</span>
+                      <p className="text-xs text-muted-foreground mt-1">{t(r.blurbKey, "")}</p>
+                      {taken && <p className="text-xs text-muted-foreground mt-1">{t("app.aiEmployee.roleTaken", "Already hired")}</p>}
+                    </button>
+                  );
+                })}
+              </div>
 
-            {role && (
-              <div className="mt-4 space-y-2 text-xs">
-                <p className="text-muted-foreground">
-                  {t("app.aiEmployee.roleCan", "It can:")}{" "}
-                  <span className="text-foreground">
-                    {role.allowed.map((k) => `${toolLabel(k)} (${riskLabel(data.toolRisk?.[k])})`).join(", ")}
-                  </span>
-                </p>
-                {role.forbidden.length > 0 && (
+              {role && (
+                <div className="mt-4 space-y-2 text-xs">
                   <p className="text-muted-foreground">
-                    {t("app.aiEmployee.roleCannot", "It cannot:")}{" "}
-                    <span className="text-foreground">{role.forbidden.map(toolLabel).join(", ")}</span>
+                    {t("app.aiEmployee.roleCan", "It can:")}{" "}
+                    <span className="text-foreground">
+                      {role.allowed.map((k) => `${toolLabel(k)} (${riskLabel(data.toolRisk?.[k])})`).join(", ")}
+                    </span>
                   </p>
-                )}
-                <p className="text-muted-foreground">
-                  {t("app.aiEmployee.neverRule", "No matter what you write below, it can never invent a price, a date or a policy. If it isn't in your own data or your own material, it hands the conversation to a person.")}
-                </p>
-              </div>
-            )}
-          </Card>
+                  {role.forbidden.length > 0 && (
+                    <p className="text-muted-foreground">
+                      {t("app.aiEmployee.roleCannot", "It cannot:")}{" "}
+                      <span className="text-foreground">{role.forbidden.map(toolLabel).join(", ")}</span>
+                    </p>
+                  )}
+                  <p className="text-muted-foreground">
+                    {t("app.aiEmployee.neverRule", "No matter what you write below, it can never invent a price, a date or a policy. If it isn't in your own data or your own material, it hands the conversation to a person.")}
+                  </p>
+                </div>
+              )}
+            </Part>
 
-          {/* ── Voice ────────────────────────────────────────────────────── */}
-          <Card title={t("app.aiEmployee.voiceTitle", "How it writes")} icon={FileText}>
-            <div className="space-y-4">
-              <label className="block">
-                <span className="text-sm text-foreground">{t("app.aiEmployee.nameLabel", "What you call it")}</span>
-                <input className={FIELD} value={form.name || ""} maxLength={60} onChange={(e) => set({ name: e.target.value })} />
-                <span className="text-xs text-muted-foreground">
-                  {t("app.aiEmployee.nameHintPrivate", "For you, on this screen. Customers see the name above.")}
-                </span>
-              </label>
+            {/* ── How it writes ────────────────────────────────────────── */}
+            <Part title={t("app.aiEmployee.voiceTitle", "How it writes")} icon={FileText}>
+              <div className="space-y-4">
+                <label className="block">
+                  <FieldHead label={t("app.aiEmployee.toneLabel", "Tone")} note={savedNote("tone")} />
+                  <select className={FIELD} value={form.tone || ""} onChange={(e) => edit({ tone: e.target.value })}>
+                    {data.tones.map((tone) => (
+                      <option key={tone} value={tone}>
+                        {t(`app.aiEmployee.tone.${tone}`, tone)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-              <label className="block">
-                <span className="text-sm text-foreground">{t("app.aiEmployee.toneLabel", "Tone")}</span>
-                <select className={FIELD} value={form.tone || ""} onChange={(e) => set({ tone: e.target.value })}>
-                  {data.tones.map((tone) => (
-                    <option key={tone} value={tone}>
-                      {t(`app.aiEmployee.tone.${tone}`, tone)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="block">
-                <span className="text-sm text-foreground">{t("app.aiEmployee.greetingLabel", "Opening line (optional)")}</span>
-                <input className={FIELD} value={form.greeting || ""} maxLength={300} onChange={(e) => set({ greeting: e.target.value })} />
-              </label>
-
-              <label className="block">
-                <span className="text-sm text-foreground">{t("app.aiEmployee.instructionsLabel", "Your instructions")}</span>
-                <textarea
-                  className={`${FIELD} min-h-[140px]`}
-                  value={form.instructions || ""}
-                  maxLength={4000}
-                  onChange={(e) => set({ instructions: e.target.value })}
-                  placeholder={t("app.aiEmployee.instructionsPlaceholder", "Facts about your business it should know. Areas you cover, what you don't do, how you like things worded.")}
-                />
-              </label>
-
-              <label className="block">
-                <span className="text-sm text-foreground">{t("app.aiEmployee.escalationLabel", "When it should fetch a person")}</span>
-                <textarea
-                  className={`${FIELD} min-h-[100px]`}
-                  value={form.escalationRules || ""}
-                  maxLength={4000}
-                  onChange={(e) => set({ escalationRules: e.target.value })}
-                  placeholder={t("app.aiEmployee.escalationPlaceholder", "Anything about a leak. Anyone asking for the owner. Anything over a certain size.")}
-                />
-              </label>
-            </div>
-          </Card>
-
-          {/* ── Permission mode ──────────────────────────────────────────── */}
-          <Card
-            id="mode"
-            title={t("app.aiEmployee.modesTitle", "What may it do on its own?")}
-            icon={Shield}
-            hint={t("app.aiEmployee.modesHint", "Three settings. Each sentence is exactly what happens. Whatever you pick, the list at the bottom never happens without you.")}
-          >
-            <div className="space-y-3">
-              {data.modes.map((m) => (
-                <label key={m.key} className="flex gap-3 items-start rounded-lg border border-border p-3">
-                  <input type="radio" name="mode" className="mt-1" checked={form.mode === m.key} onChange={() => set({ mode: m.key })} />
-                  <span>
-                    <span className="text-sm font-medium text-foreground">{t(`app.aiEmployee.mode.${m.key}`, m.key)}</span>
-                    <span className="block text-xs text-muted-foreground mt-1">{t(m.sentenceKey, m.key)}</span>
+                <label className="block">
+                  <FieldHead label={t("app.aiEmployee.greetingLabel", "Opening line (optional)")} note={savedNote("greeting")} />
+                  <input
+                    className={FIELD}
+                    value={form.greeting || ""}
+                    maxLength={300}
+                    onChange={(e) => edit({ greeting: e.target.value }, { typing: true })}
+                    onBlur={() => flushAll()}
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    {t("app.aiEmployee.greetingHint", "Word for word, at the start of its first reply in a conversation. Leave it empty and it simply answers.")}
                   </span>
                 </label>
-              ))}
-            </div>
-            {modeMovesUp && (
-              <div className="mt-3">
-                <Notice tone="warn">
-                  {t("app.aiEmployee.modeWarn", "You're giving it more room to act without you. It takes effect when you press Save, and the change is recorded with your name.")}
-                </Notice>
+
+                <label className="block">
+                  <FieldHead label={t("app.aiEmployee.instructionsLabel", "Your instructions")} note={savedNote("instructions")} />
+                  <textarea
+                    className={`${FIELD} min-h-[140px]`}
+                    value={form.instructions || ""}
+                    maxLength={4000}
+                    onChange={(e) => edit({ instructions: e.target.value }, { typing: true })}
+                    onBlur={() => flushAll()}
+                    placeholder={t("app.aiEmployee.instructionsPlaceholder", "Facts about your business it should know. Areas you cover, what you don't do, how you like things worded.")}
+                  />
+                </label>
+
+                <label className="block">
+                  <FieldHead label={t("app.aiEmployee.escalationLabel", "When it should fetch a person")} note={savedNote("escalationRules")} />
+                  <textarea
+                    className={`${FIELD} min-h-[100px]`}
+                    value={form.escalationRules || ""}
+                    maxLength={4000}
+                    onChange={(e) => edit({ escalationRules: e.target.value }, { typing: true })}
+                    onBlur={() => flushAll()}
+                    placeholder={t("app.aiEmployee.escalationPlaceholder", "Anything about a leak. Anyone asking for the owner. Anything over a certain size.")}
+                  />
+                </label>
               </div>
-            )}
-            <div className="mt-4 text-xs">
-              <p className="text-muted-foreground">{t("app.aiEmployee.floorTitle", "Never without you, in any setting:")}</p>
-              <ul className="list-disc pl-5 text-foreground mt-1 space-y-0.5">
-                {data.floorKeys.map((k) => (
-                  <li key={k}>{t(k, k)}</li>
-                ))}
-              </ul>
-            </div>
-          </Card>
+            </Part>
 
-          {/* ── Channels ─────────────────────────────────────────────────── */}
-          <Card
-            id="channels"
-            title={t("app.aiEmployee.channelsTitle", "Where it answers")}
-            icon={MessageSquare}
-            hint={t("app.aiEmployee.channelsHint", "One employee per channel. Switch a channel off here before giving it to another employee.")}
-          >
-            <div className="space-y-4">
-              <label className="flex gap-3 items-start">
-                <input type="checkbox" className="mt-1" checked={form.metaEnabled === true} onChange={(e) => set({ metaEnabled: e.target.checked })} />
-                <span>
-                  <span className="text-sm text-foreground flex items-center gap-1">
-                    <MessageSquare size={14} /> {t("app.aiEmployee.channel.meta", "Facebook / Instagram / WhatsApp")}
-                  </span>
-                  {channelBlocked && (
-                    <span className="block text-xs text-muted-foreground mt-1">
-                      {t("app.aiEmployee.channelBlocked", "Replies can't leave the building yet. The AI employee answers your Facebook and Instagram messages, and Meta hasn't approved messaging for FieldQuo. Everything here works — it drafts, and the drafts wait below for you to send.")}
-                    </span>
-                  )}
-                </span>
-              </label>
-
-              {/* A div, not a <label>: the snippet, its notes and the Copy
-                  button live in here, and inside a label a click on any of
-                  their text toggled the channel off. Only the title labels
-                  the checkbox. */}
-              <div className="flex gap-3 items-start">
-                <input id="ai-web-chat" type="checkbox" className="mt-1" checked={form.webChatEnabled === true} onChange={(e) => set({ webChatEnabled: e.target.checked })} />
-                <span className="min-w-0 flex-1">
-                  <label htmlFor="ai-web-chat" className="text-sm text-foreground flex items-center gap-1 cursor-pointer">
-                    <Globe size={14} /> {t("app.aiEmployee.channel.web", "Website chat")}
-                  </label>
-                  <span className="block text-xs text-muted-foreground mt-1">
-                    {t("app.aiEmployee.webHint", "A chat button on your FieldQuo website, and on any other site with the snippet below. Visitors get an instant-quote link or a booked slot in the chat; “Talk to a person” lands in Conversations.")}
-                  </span>
-                  {data.webChat?.snippet && (
-                    <span className="block mt-2">
-                      <span className="text-xs text-muted-foreground">{t("app.aiEmployee.snippetLabel", "Paste this before </body> on any other website:")}</span>
-                      <textarea readOnly className={`${FIELD} text-xs font-mono mt-1 min-h-[56px]`} value={data.webChat.snippet} onFocus={(e) => e.target.select()} />
-                      <button
-                        type="button"
-                        className={`${BTN_QUIET} mt-2`}
-                        onClick={async () => {
-                          try {
-                            await navigator.clipboard.writeText(data.webChat.snippet);
-                            setCopied(true);
-                            setTimeout(() => setCopied(false), 2000);
-                          } catch {
-                            showError(t("app.aiEmployee.copyFailed", "Couldn't copy — select the text and copy it by hand."));
-                          }
-                        }}
-                      >
-                        <ClipboardCheck size={14} /> {copied ? t("app.aiEmployee.copied", "Copied") : t("app.aiEmployee.copySnippet", "Copy snippet")}
-                      </button>
-                      <span className="block text-xs text-muted-foreground mt-1">
-                        {t("app.aiEmployee.snippetRecommended", "Recommended: one line on every page. Closed, the chat covers only its button, so the rest of your page stays clickable. If you pasted the older <iframe> code, it still works — swap it for this line to free up that corner.")}
-                      </span>
-                      <details className="mt-2 text-xs">
-                        <summary className="cursor-pointer text-foreground min-h-[44px] flex items-center">{t("app.aiEmployee.where.title", "Where to paste it")}</summary>
-                        <ul className="list-disc pl-5 mt-1 space-y-1 text-muted-foreground">
-                          <li>{t("app.aiEmployee.where.wordpress", "WordPress: install the free WPCode plugin, then Code Snippets → Header & Footer, paste into Footer and Save Changes. WordPress.com needs a plan that allows plugins.")}</li>
-                          <li>{t("app.aiEmployee.where.wix", "Wix: Settings → Custom Code → + Add Custom Code, choose All pages and Body – end, then Apply. Wix only runs it on a site with a connected domain.")}</li>
-                          <li>{t("app.aiEmployee.where.squarespace", "Squarespace: open Code Injection (under Website Tools), paste into Footer and Save. Needs the Core plan or above.")}</li>
-                          <li>{t("app.aiEmployee.where.shopify", "Shopify: Online Store → ⋯ → Edit code, open layout/theme.liquid, paste just above </body> and Save.")}</li>
-                          <li>{t("app.aiEmployee.where.godaddy", "GoDaddy Website Builder: it can't add code to every page — its HTML section runs code inside its own box, so the button can't float over your site there. Link to your booking page instead.")}</li>
-                          <li>{t("app.aiEmployee.where.html", "Any other site or plain HTML: paste it just above </body> on every page, or once in a shared footer.")}</li>
-                          <li>{t("app.aiEmployee.where.options", "Options: add data-position=\"left\" to the tag for the bottom-left corner, or data-z=\"1000\" if something on your site covers the button.")}</li>
-                        </ul>
-                      </details>
-                    </span>
-                  )}
-                </span>
-              </div>
-
-              <label className={`flex gap-3 items-start ${data.sms?.available ? "" : "opacity-60"}`}>
-                <input
-                  type="checkbox"
-                  className="mt-1"
-                  disabled={!data.sms?.available}
-                  checked={form.smsEnabled === true && data.sms?.available}
-                  onChange={(e) => set({ smsEnabled: e.target.checked })}
-                />
-                <span>
-                  <span className="text-sm text-foreground flex items-center gap-1">
-                    <Smartphone size={14} /> {t("app.aiEmployee.channel.sms", "Text message")}
-                  </span>
-                  <span className="block text-xs text-muted-foreground mt-1">
-                    {data.sms?.available
-                      ? t("app.aiEmployee.smsHint", "A text from a customer already on your client list, sent to {number}, comes to this employee; replies go out from the same number. STOP always stops it.", { number: data.sms.number })
-                      : t("app.aiEmployee.smsUnavailable", "FieldQuo doesn't have a text-message number yet, so this channel can't be switched on.")}
-                  </span>
-                </span>
-              </label>
-            </div>
-          </Card>
-
-          {/* ── Limits and the switch ────────────────────────────────────── */}
-          <Card title={t("app.aiEmployee.limitsTitle", "Limits")} icon={AlertTriangle}>
-            <div className="space-y-4">
-              <label className="flex gap-3 items-start">
-                <input type="checkbox" className="mt-1" checked={form.businessHoursOnly === true} onChange={(e) => set({ businessHoursOnly: e.target.checked })} />
-                <span>
-                  <span className="text-sm text-foreground">{t("app.aiEmployee.hoursOnly", "Only answer during business hours")}</span>
-                  <span className="block text-xs text-muted-foreground mt-1">
-                    {data.hasBusinessHours
-                      ? t("app.aiEmployee.hoursOnlyHint", "Your opening hours, from Company Settings. Outside them the message waits for you.")
-                      : t("app.aiEmployee.hoursOnlyNoHours", "You haven't saved any opening hours, so this does nothing yet — it won't guess a Monday-to-Friday for you. Set them under Company Settings.")}
-                  </span>
-                </span>
-              </label>
-
-              <label className="block">
-                <span className="text-sm text-foreground">{t("app.aiEmployee.capLabel", "Most replies in one conversation")}</span>
-                <input type="number" min={0} max={10} className={FIELD} value={form.maxRepliesPerThread} onChange={(e) => set({ maxRepliesPerThread: Number(e.target.value) })} />
-                <span className="text-xs text-muted-foreground">
-                  {t("app.aiEmployee.capHint", "After this it stops and leaves the conversation to you. Zero pauses it without losing anything you've set up.")}
-                </span>
-              </label>
-
-              <label className="flex gap-3 items-start rounded-lg border border-border p-3">
-                <input type="checkbox" className="mt-1" checked={form.enabled === true} onChange={(e) => set({ enabled: e.target.checked })} />
-                <span>
-                  <span className="text-sm font-medium text-foreground">{t("app.aiEmployee.enabledOne", "Switch this employee on")}</span>
-                  <span className="block text-xs text-muted-foreground mt-1">
-                    {form.enabled
-                      ? t("app.aiEmployee.enabledOnSentence", "On: it answers the channels ticked above, under the setting you chose. Switching it off is recorded with your name.")
-                      : t("app.aiEmployee.enabledOffSentence", "Off: nothing routes to it, nothing is proposed, nothing is charged. The website chat and the text line tell customers someone will reply shortly, and the message lands in Conversations for you. Switching it on is recorded with your name.")}
-                  </span>
-                </span>
-              </label>
-            </div>
-          </Card>
-
-          <div className="flex items-center gap-3">
-            <button type="button" className={BTN_PRIMARY} onClick={save} disabled={saving}>
-              {saving ? t("app.common.saving", "Saving…") : t("app.common.save", "Save")}
-            </button>
-            {saved && (
-              <span className="text-sm text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
-                <Check size={14} /> {t("app.common.saved", "Saved")}
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={() => setConfirmFire(true)}
-              className="ml-auto inline-flex items-center gap-1.5 min-h-[44px] px-3 rounded-lg border border-border text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/30"
+            {/* ── Permission mode ──────────────────────────────────────── */}
+            <Part
+              id="mode"
+              title={t("app.aiEmployee.modesTitle", "What may it do on its own?")}
+              icon={Shield}
+              hint={t("app.aiEmployee.modesHint", "Three settings. Each sentence is exactly what happens. Whatever you pick, the list at the bottom never happens without you.")}
             >
-              <Trash2 size={14} /> {t("app.aiEmployee.fire", "Fire")}
-            </button>
+              <div className="flex justify-end">{savedNote("mode")}</div>
+              <div className="space-y-3">
+                {data.modes.map((m) => (
+                  <label key={m.key} className="flex gap-3 items-start rounded-lg border border-border p-3">
+                    <input
+                      type="radio"
+                      name={`mode-${form.id || "unsaved"}`}
+                      className="mt-1"
+                      checked={(modeAsk || form.mode) === m.key}
+                      onChange={() => {
+                        if (MODE_RANK[m.key] > MODE_RANK[form.mode]) {
+                          setModeAsk(m.key);
+                        } else {
+                          setModeAsk(null);
+                          if (m.key !== form.mode) edit({ mode: m.key });
+                        }
+                      }}
+                    />
+                    <span>
+                      <span className="text-sm font-medium text-foreground">{t(`app.aiEmployee.mode.${m.key}`, m.key)}</span>
+                      <span className="block text-xs text-muted-foreground mt-1">{t(m.sentenceKey, m.key)}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+              {modeMovesUp && (
+                <div className="mt-3 space-y-2">
+                  <Notice tone="warn">
+                    {t("app.aiEmployee.modeWarnConfirm", "You're giving it more room to act without you. Nothing changes until you confirm, and the change is recorded with your name.")}
+                  </Notice>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className={BTN_PRIMARY}
+                      onClick={() => {
+                        const next = modeAsk;
+                        setModeAsk(null);
+                        edit({ mode: next });
+                      }}
+                    >
+                      {t("app.aiEmployee.modeConfirm", "Yes, give it this room")}
+                    </button>
+                    <button type="button" className={BTN_QUIET} onClick={() => setModeAsk(null)}>
+                      {t("app.common.cancel", "Cancel")}
+                    </button>
+                  </div>
+                </div>
+              )}
+              <div className="mt-4 text-xs">
+                <p className="text-muted-foreground">{t("app.aiEmployee.floorTitle", "Never without you, in any setting:")}</p>
+                <ul className="list-disc pl-5 text-foreground mt-1 space-y-0.5">
+                  {data.floorKeys.map((k) => (
+                    <li key={k}>{t(k, k)}</li>
+                  ))}
+                </ul>
+              </div>
+            </Part>
+
+            {/* ── Channels ─────────────────────────────────────────────────── */}
+            <Part
+              id="channels"
+              title={t("app.aiEmployee.channelsTitle", "Where it answers")}
+              icon={MessageSquare}
+              hint={t("app.aiEmployee.channelsHint", "One employee per channel. Switch a channel off here before giving it to another employee.")}
+            >
+              <div className="space-y-4">
+                <label className="flex gap-3 items-start">
+                  <input type="checkbox" className="mt-1" checked={form.metaEnabled === true} onChange={(e) => edit({ metaEnabled: e.target.checked })} />
+                  <span>
+                    <span className="text-sm text-foreground flex items-center gap-1">
+                      <MessageSquare size={14} /> {t("app.aiEmployee.channel.meta", "Facebook / Instagram / WhatsApp")} {savedNote("metaEnabled")}
+                    </span>
+                    {channelBlocked && (
+                      <span className="block text-xs text-muted-foreground mt-1">
+                        {t("app.aiEmployee.channelBlocked", "Replies can't leave the building yet. The AI employee answers your Facebook and Instagram messages, and Meta hasn't approved messaging for FieldQuo. Everything here works — it drafts, and the drafts wait below for you to send.")}
+                      </span>
+                    )}
+                  </span>
+                </label>
+
+                {/* A div, not a <label>: the snippet, its notes and the Copy
+                    button live in here, and inside a label a click on any of
+                    their text toggled the channel off. Only the title labels
+                    the checkbox. */}
+                <div className="flex gap-3 items-start">
+                  <input id="ai-web-chat" type="checkbox" className="mt-1" checked={form.webChatEnabled === true} onChange={(e) => edit({ webChatEnabled: e.target.checked })} />
+                  <span className="min-w-0 flex-1">
+                    <label htmlFor="ai-web-chat" className="text-sm text-foreground flex items-center gap-1 cursor-pointer">
+                      <Globe size={14} /> {t("app.aiEmployee.channel.web", "Website chat")} {savedNote("webChatEnabled")}
+                    </label>
+                    <span className="block text-xs text-muted-foreground mt-1">
+                      {t("app.aiEmployee.webHint", "A chat button on your FieldQuo website, and on any other site with the snippet below. Visitors get an instant-quote link or a booked slot in the chat; “Talk to a person” lands in Conversations.")}
+                    </span>
+                    {data.webChat?.snippet && (
+                      <span className="block mt-2">
+                        <span className="text-xs text-muted-foreground">{t("app.aiEmployee.snippetLabel", "Paste this before </body> on any other website:")}</span>
+                        <textarea readOnly className={`${FIELD} text-xs font-mono mt-1 min-h-[56px]`} value={data.webChat.snippet} onFocus={(e) => e.target.select()} />
+                        <button
+                          type="button"
+                          className={`${BTN_QUIET} mt-2`}
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(data.webChat.snippet);
+                              setCopied(true);
+                              setTimeout(() => setCopied(false), 2000);
+                            } catch {
+                              showError(t("app.aiEmployee.copyFailed", "Couldn't copy — select the text and copy it by hand."));
+                            }
+                          }}
+                        >
+                          <ClipboardCheck size={14} /> {copied ? t("app.aiEmployee.copied", "Copied") : t("app.aiEmployee.copySnippet", "Copy snippet")}
+                        </button>
+                        <span className="block text-xs text-muted-foreground mt-1">
+                          {t("app.aiEmployee.snippetRecommended", "Recommended: one line on every page. Closed, the chat covers only its button, so the rest of your page stays clickable. If you pasted the older <iframe> code, it still works — swap it for this line to free up that corner.")}
+                        </span>
+                        <details className="mt-2 text-xs">
+                          <summary className="cursor-pointer text-foreground min-h-[44px] flex items-center">{t("app.aiEmployee.where.title", "Where to paste it")}</summary>
+                          <ul className="list-disc pl-5 mt-1 space-y-1 text-muted-foreground">
+                            <li>{t("app.aiEmployee.where.wordpress", "WordPress: install the free WPCode plugin, then Code Snippets → Header & Footer, paste into Footer and Save Changes. WordPress.com needs a plan that allows plugins.")}</li>
+                            <li>{t("app.aiEmployee.where.wix", "Wix: Settings → Custom Code → + Add Custom Code, choose All pages and Body – end, then Apply. Wix only runs it on a site with a connected domain.")}</li>
+                            <li>{t("app.aiEmployee.where.squarespace", "Squarespace: open Code Injection (under Website Tools), paste into Footer and Save. Needs the Core plan or above.")}</li>
+                            <li>{t("app.aiEmployee.where.shopify", "Shopify: Online Store → ⋯ → Edit code, open layout/theme.liquid, paste just above </body> and Save.")}</li>
+                            <li>{t("app.aiEmployee.where.godaddy", "GoDaddy Website Builder: it can't add code to every page — its HTML section runs code inside its own box, so the button can't float over your site there. Link to your booking page instead.")}</li>
+                            <li>{t("app.aiEmployee.where.html", "Any other site or plain HTML: paste it just above </body> on every page, or once in a shared footer.")}</li>
+                            <li>{t("app.aiEmployee.where.options", "Options: add data-position=\"left\" to the tag for the bottom-left corner, or data-z=\"1000\" if something on your site covers the button.")}</li>
+                          </ul>
+                        </details>
+                      </span>
+                    )}
+                  </span>
+                </div>
+
+                <label className={`flex gap-3 items-start ${data.sms?.available ? "" : "opacity-60"}`}>
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    disabled={!data.sms?.available}
+                    checked={form.smsEnabled === true && data.sms?.available}
+                    onChange={(e) => edit({ smsEnabled: e.target.checked })}
+                  />
+                  <span>
+                    <span className="text-sm text-foreground flex items-center gap-1">
+                      <Smartphone size={14} /> {t("app.aiEmployee.channel.sms", "Text message")} {savedNote("smsEnabled")}
+                    </span>
+                    <span className="block text-xs text-muted-foreground mt-1">
+                      {data.sms?.available
+                        ? t("app.aiEmployee.smsHint", "A text from a customer already on your client list, sent to {number}, comes to this employee; replies go out from the same number. STOP always stops it.", { number: data.sms.number })
+                        : t("app.aiEmployee.smsUnavailable", "FieldQuo doesn't have a text-message number yet, so this channel can't be switched on.")}
+                    </span>
+                  </span>
+                </label>
+              </div>
+            </Part>
+
+            {/* ── Limits and the switch ────────────────────────────────────── */}
+            <Part title={t("app.aiEmployee.limitsTitle", "Limits")} icon={AlertTriangle}>
+              <div className="space-y-4">
+                <label className="flex gap-3 items-start">
+                  <input type="checkbox" className="mt-1" checked={form.businessHoursOnly === true} onChange={(e) => edit({ businessHoursOnly: e.target.checked })} />
+                  <span>
+                    <FieldHead label={t("app.aiEmployee.hoursOnly", "Only answer during business hours")} note={savedNote("businessHoursOnly")} />
+                    <span className="block text-xs text-muted-foreground mt-1">
+                      {data.hasBusinessHours
+                        ? t("app.aiEmployee.hoursOnlyHint", "Your opening hours, from Company Settings. Outside them the message waits for you.")
+                        : t("app.aiEmployee.hoursOnlyNoHours", "You haven't saved any opening hours, so this does nothing yet — it won't guess a Monday-to-Friday for you. Set them under Company Settings.")}
+                    </span>
+                  </span>
+                </label>
+
+                <label className="block">
+                  <FieldHead label={t("app.aiEmployee.capLabel", "Most replies in one conversation")} note={savedNote("maxRepliesPerThread")} />
+                  <input type="number" min={0} max={10} className={FIELD} value={form.maxRepliesPerThread} onChange={(e) => edit({ maxRepliesPerThread: e.target.value }, { typing: true })} onBlur={() => flushAll()} />
+                  <span className="text-xs text-muted-foreground">
+                    {t("app.aiEmployee.capHint", "After this it stops and leaves the conversation to you. Zero pauses it without losing anything you've set up.")}
+                  </span>
+                </label>
+
+                <label className="flex gap-3 items-start rounded-lg border border-border p-3">
+                  <input type="checkbox" className="mt-1" checked={form.enabled === true} onChange={(e) => edit({ enabled: e.target.checked })} />
+                  <span>
+                    <FieldHead label={<span className="font-medium">{t("app.aiEmployee.enabledOne", "Switch this employee on")}</span>} note={savedNote("enabled")} />
+                    <span className="block text-xs text-muted-foreground mt-1">
+                      {form.enabled
+                        ? t("app.aiEmployee.enabledOnSentence", "On: it answers the channels ticked above, under the setting you chose. Switching it off is recorded with your name.")
+                        : t("app.aiEmployee.enabledOffSentence", "Off: nothing routes to it, nothing is proposed, nothing is charged. The website chat and the text line tell customers someone will reply shortly, and the message lands in Conversations for you. Switching it on is recorded with your name.")}
+                    </span>
+                  </span>
+                </label>
+              </div>
+            </Part>
+
+            <div className="flex items-center gap-3 border-t border-border pt-5 mt-5">
+              <p className="text-xs text-muted-foreground">
+                {t("app.aiEmployee.autosave.note", "Every change on this card saves on its own, for this employee only.")}
+              </p>
+              <button
+                type="button"
+                onClick={() => setConfirmFire(true)}
+                className="ml-auto inline-flex items-center gap-1.5 min-h-[44px] px-3 rounded-lg border border-border text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/30"
+              >
+                <Trash2 size={14} /> {t("app.aiEmployee.fire", "Fire")}
+              </button>
+            </div>
+            <DeleteConfirmModal
+              isOpen={confirmFire}
+              onClose={() => setConfirmFire(false)}
+              onConfirm={fire}
+              title={t("app.aiEmployee.fire", "Fire")}
+              message={t("app.aiEmployee.fireConfirm", "Fire {name}? Its proposals and replies are removed and its channels go back to your inbox. This cannot be undone.", { name: saved_?.displayName || saved_?.name || "" })}
+              itemName={saved_?.displayName || saved_?.name || ""}
+              busy={firing}
+            />
           </div>
-          <DeleteConfirmModal
-            isOpen={confirmFire}
-            onClose={() => setConfirmFire(false)}
-            onConfirm={fire}
-            title={t("app.aiEmployee.fire", "Fire")}
-            message={t("app.aiEmployee.fireConfirm", "Fire {name}? Its proposals and replies are removed and its channels go back to your inbox. This cannot be undone.", { name: saved_?.displayName || saved_?.name || "" })}
-            itemName={saved_?.displayName || saved_?.name || ""}
-            busy={firing}
-          />
-        </>
+        )}
+      </Card>
+
+      {/* ── How the team works ───────────────────────────────────────────── */}
+      <Card
+        id="team-flow"
+        tour="ai-team-flow"
+        title={t("app.aiEmployee.flow.title", "How your AI team works")}
+        icon={Workflow}
+        hint={t("app.aiEmployee.flow.hint", "A message comes in on a channel, the front desk reads it once and hands it to one employee, and only that employee answers. Counts are this week's.")}
+      >
+        <TeamFlow
+          data={data}
+          proposals={proposals}
+          onEmployees={(employees) => setData((d) => ({ ...d, employees }))}
+          t={t}
+        />
+      </Card>
+
+      {/* ── Telling clients it's an AI — company-wide ────────────────────── */}
+      {data.disclosure && (
+        <Card
+          id="disclosure"
+          title={t("app.aiEmployee.disclosure.title", "Telling clients it's an AI")}
+          icon={Info}
+          hint={t("app.aiEmployee.disclosure.hint", "One setting for your whole AI team.")}
+        >
+          <label className="flex gap-3 items-start">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={disclosureOn}
+              disabled={disclosureBusy}
+              onChange={(e) => setDisclosure(e.target.checked)}
+            />
+            <span>
+              <span className="text-sm font-medium text-foreground">
+                {t("app.aiEmployee.disclosure.label", "Tell clients it's an AI assistant")}
+              </span>
+              <span className="block text-xs text-muted-foreground mt-1">
+                {disclosureOn
+                  ? t("app.aiEmployee.disclosure.onSentence", "On: the first reply in every conversation opens with “Hi, I'm {name}, {company}'s AI assistant.”", { name: shownName || "…", company: t("app.aiEmployee.yourCompany", "your company") })
+                  : t("app.aiEmployee.disclosure.offSentence", "Off: it doesn't volunteer that it's an AI. It never claims to be a person, and if a client asks whether it's a bot or an AI it always says so truthfully.")}
+              </span>
+            </span>
+          </label>
+          <p className="text-xs text-muted-foreground mt-3">
+            {data.disclosure.setting === null
+              ? t(`app.aiEmployee.disclosure.why.${data.disclosure.reason}`, "", { place: placeLabel, law: data.disclosure.law || "" })
+              : t("app.aiEmployee.disclosure.why.chosen", "You set this yourself. For where your business is, the default would be {state}.", {
+                  state: data.disclosure.required ? t("app.aiEmployee.on", "on") : t("app.aiEmployee.off", "off"),
+                })}
+          </p>
+          {data.disclosure.setting !== null && (
+            <button type="button" className={`${BTN_QUIET} mt-2`} disabled={disclosureBusy} onClick={() => setDisclosure(null)}>
+              {t("app.aiEmployee.disclosure.reset", "Use the default for my location")}
+            </button>
+          )}
+          {data.disclosure.required && !disclosureOn && (
+            <div className="mt-3">
+              <Notice tone="warn">
+                {t("app.aiEmployee.disclosure.requiredOffWarn", "Where your business is, the law expects clients to be told they're talking to an AI ({law}). Switching it off is your decision, and it's recorded with your name.", { law: data.disclosure.law || "" })}
+              </Notice>
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground mt-2">
+            {t("app.aiEmployee.disclosure.location", "Your location comes from Company Settings.")}{" "}
+            <Link href="/app/settings/company" className="underline">
+              {t("app.aiEmployee.disclosure.fixLocation", "Change it there")}
+            </Link>
+          </p>
+        </Card>
       )}
 
       {/* ── The model and what it costs ──────────────────────────────────── */}
