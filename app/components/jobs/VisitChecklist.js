@@ -38,20 +38,29 @@ import {
   PHASE_LABELS,
 } from "@/lib/jobs/checklistItems";
 import { reportResponseError, showError } from "@/lib/clientErrors";
+import { useTranslation } from "@/app/hooks/useTranslation";
+import ChecklistItemControl, { TYPED_RESPONSES } from "@/app/components/checklists/ChecklistItemControl";
+import { itemsFromTemplate, localizeItem, templateName, isAnswered } from "@/lib/checklists/typedItems";
 
 // Cheap structural compare, enough to answer "has the server caught up with
-// what we drew optimistically?". Label/phase/done is the whole item.
+// what we drew optimistically?". Label/phase/done was the whole item until
+// typed answers existed; the answer and the photo count are compared too, so
+// moving a stop-light from green to amber (done either way) still counts as a
+// change the server has to catch up with.
 function sameItems(a, b) {
   if (a.length !== b.length) return false;
   return a.every(
     (item, i) =>
       item.label === b[i].label &&
       item.done === b[i].done &&
-      item.phase === b[i].phase,
+      item.phase === b[i].phase &&
+      JSON.stringify(item.response ?? null) === JSON.stringify(b[i].response ?? null) &&
+      (item.media || []).length === (b[i].media || []).length,
   );
 }
 
 export default function VisitChecklist({ jobId, visit, onChanged }) {
+  const { language } = useTranslation();
   const serverItems = useMemo(
     () => normalizeChecklistItems(visit.checklistItems, { keepDone: true }),
     [visit.checklistItems],
@@ -107,17 +116,27 @@ export default function VisitChecklist({ jobId, visit, onChanged }) {
     );
   }
 
+  // A typed answer (text, number, stop-light, photo, signature…) replaces the
+  // item whole — ChecklistItemControl has already recomputed `done` from it.
+  function answer(index, next) {
+    const { index: _drop, ...clean } = next;
+    save(items.map((item, i) => (i === index ? clean : item)));
+  }
+
   async function applyTemplate(template) {
-    const added = normalizeChecklistItems(template.items, {
-      phase: template.phase,
-    });
+    // itemsFromTemplate: the same copy the job-level form and the automatic
+    // attach take — every language carried, the list's name and required
+    // flags stamped. For a plain list it is the same labels as before.
+    const added = itemsFromTemplate(template, language);
     // Appended, not replaced. A visit often needs two lists — the trade's and
     // the company's own — and replacing would silently drop whatever the crew
-    // had already ticked.
-    const existing = new Set(items.map((i) => i.label.toLowerCase()));
+    // had already ticked. Deduped per LIST as well as per label, so two forms
+    // that both end in "Client signature" each keep theirs.
+    const key = (i) => `${i.checklist || ""}|${i.label.toLowerCase()}`;
+    const existing = new Set(items.map(key));
     const merged = [
       ...items,
-      ...added.filter((item) => !existing.has(item.label.toLowerCase())),
+      ...added.filter((item) => !existing.has(key(item))),
     ];
     const ok = await save(merged);
     if (ok) setPicking(false);
@@ -144,6 +163,7 @@ export default function VisitChecklist({ jobId, visit, onChanged }) {
                 <ChecklistItems
                   items={group.items}
                   onToggle={toggle}
+                  onAnswer={answer}
                   disabled={saving}
                 />
               </div>
@@ -174,7 +194,7 @@ export default function VisitChecklist({ jobId, visit, onChanged }) {
 // The picker loads templates on open, not with the page — a job with six
 // visits would otherwise fetch the same list six times to render six buttons
 // nobody pressed.
-function ChecklistPicker({ onPick, busy, onClose }) {
+export function ChecklistPicker({ onPick, busy, onClose }) {
   const [templates, setTemplates] = useState(null);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
@@ -302,6 +322,7 @@ function ChecklistPicker({ onPick, busy, onClose }) {
 }
 
 function PickerGroup({ heading, note, templates, onPick, busy }) {
+  const { language } = useTranslation();
   return (
     <div>
       <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -318,7 +339,7 @@ function PickerGroup({ heading, note, templates, onPick, busy }) {
               disabled={busy}
               className="w-full text-left border border-border rounded-lg px-3 py-2 hover:bg-muted disabled:opacity-60"
             >
-              <div className="text-sm font-medium text-foreground">{tpl.name}</div>
+              <div className="text-sm font-medium text-foreground">{templateName(tpl, language)}</div>
               <div className="text-[11px] text-muted-foreground">
                 {PHASE_LABELS[tpl.phase] || PHASE_LABELS.during} · {count} step
                 {count === 1 ? "" : "s"}
@@ -352,7 +373,8 @@ function PickerGroup({ heading, note, templates, onPick, busy }) {
 // the order is the order the work happens in. Flattening 33 items into one
 // undifferentiated column loses the only structure that makes a long list
 // workable on a phone.
-function ChecklistItems({ items, onToggle, disabled }) {
+function ChecklistItems({ items, onToggle, onAnswer, disabled }) {
+  const { language } = useTranslation();
   const sections = groupChecklistBySection(items);
 
   return (
@@ -361,7 +383,7 @@ function ChecklistItems({ items, onToggle, disabled }) {
         <div key={section.section || `unsectioned-${i}`}>
           {section.section && (
             <div className="text-[11px] font-medium text-muted-foreground/80 mt-1.5">
-              {section.section}
+              {localizeItem(section.items[0], language).section || section.section}
             </div>
           )}
           <ul className="mt-1 space-y-1.5">
@@ -370,6 +392,7 @@ function ChecklistItems({ items, onToggle, disabled }) {
                 key={item.index}
                 item={item}
                 onToggle={onToggle}
+                onAnswer={onAnswer}
                 disabled={disabled}
               />
             ))}
@@ -396,8 +419,42 @@ function formatRange({ expectedMin, expectedMax, unit }) {
   return unit || null;
 }
 
-function ChecklistRow({ item, onToggle, disabled }) {
+function ChecklistRow({ item, onToggle, onAnswer, disabled }) {
+  const { t, language } = useTranslation();
   const range = formatRange(item);
+  const label = localizeItem(item, language).label || item.label;
+
+  // A typed item answers with its own control; a tick stays the tick row
+  // below, unchanged. The label and the "Required" flag sit above the control
+  // so a crew scanning the list reads what is asked before what to press.
+  if (TYPED_RESPONSES.includes(item.responseType)) {
+    const answered = isAnswered(item);
+    return (
+      <li className="text-sm">
+        <div className="flex items-start gap-2">
+          {answered ? (
+            <CheckCircle2 size={14} className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+          ) : (
+            <Circle size={14} className="text-muted-foreground shrink-0 mt-0.5" />
+          )}
+          <span className="min-w-0 text-foreground">
+            {label}
+            {item.required && !answered && (
+              <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-red-700 dark:text-red-400">
+                {t("app.checklists.required")}
+              </span>
+            )}
+            {item.criteria && (
+              <span className="block text-[11px] text-muted-foreground mt-0.5">{item.criteria}</span>
+            )}
+          </span>
+        </div>
+        <div className="mt-1.5 pl-[22px]">
+          <ChecklistItemControl item={item} disabled={disabled} onAnswer={(next) => onAnswer(item.index, next)} />
+        </div>
+      </li>
+    );
+  }
 
   return (
     <li>
@@ -420,8 +477,13 @@ function ChecklistRow({ item, onToggle, disabled }) {
               item.done ? "text-muted-foreground line-through" : "text-foreground"
             }
           >
-            {item.label}
+            {label}
           </span>
+          {item.required && !item.done && (
+            <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-red-700 dark:text-red-400">
+              {t("app.checklists.required")}
+            </span>
+          )}
 
           {/* The acceptance criterion is the whole value of an inspection item:
               "verify compaction" is not actionable, "95% of maximum dry density

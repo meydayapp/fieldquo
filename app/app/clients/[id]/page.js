@@ -36,6 +36,7 @@ import { useHasLevel } from "@/app/providers/PermissionProvider";
 import ClientEquipment from "@/app/components/clients/ClientEquipment";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 import { jobStatusLabel, jobStatusClasses } from "@/lib/jobs/statusLabels";
+import StreetViewPeek from "@/app/components/StreetViewPeek";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -263,6 +264,22 @@ export default function ClientDetailPage() {
               <span className="text-muted-foreground">· {t("app.clientDetail.office")}</span>
             )}
           </div>
+        )}
+        {/* The address above, from the street — checked for imagery on the
+            server from this client's own row and loaded only on tap. Renders
+            nothing when Google has no outdoor panorama there. */}
+        {client.address && (
+          <StreetViewPeek
+            kind="client"
+            id={client.id}
+            className="pt-1"
+            labels={{
+              see: t("app.streetView.see"),
+              hide: t("app.streetView.hide"),
+              openInMaps: t("app.streetView.openInMaps"),
+              frameTitle: t("app.streetView.frameTitle"),
+            }}
+          />
         )}
         {/* Said, rather than left as an absence.
             GET /api/clients/[id] removes the phone, the email, the contact name

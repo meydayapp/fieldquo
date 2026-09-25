@@ -139,6 +139,7 @@ import EmailSectionsPanel from "./EmailSectionsPanel";
 import PresentationPanel from "./PresentationPanel";
 import EmailSectionsBlockedModal from "./EmailSectionsBlockedModal";
 import ImportedCostsPanel from "./ImportedCostsPanel";
+import StreetViewPeek from "@/app/components/StreetViewPeek";
 import SiteVisitPanel from "@/app/components/quotes/SiteVisitPanel";
 import LinkedJobDocuments from "@/app/components/jobs/LinkedJobDocuments";
 import { visibleLineItems } from "@/lib/quotes/scopeGroupDisplay";
@@ -1460,6 +1461,22 @@ export default function QuoteDetailPage() {
         currency={quote.company?.currency}
         editable={["draft", "sent"].includes(quote.status)}
         onTotalChange={(total) => setQuote((q) => ({ ...q, total }))}
+      />
+
+      {/* The property this quote is for, from the street — the job address,
+          else an individual client's own (the rule lib/quotes/jobAddress.js
+          states). Outside the document on purpose: it is the estimator's
+          look at the house, not part of what the client receives. Renders
+          nothing without imagery; the panorama loads only on tap. */}
+      <StreetViewPeek
+        kind="quote"
+        id={id}
+        labels={{
+          see: t("app.streetView.see"),
+          hide: t("app.streetView.hide"),
+          openInMaps: t("app.streetView.openInMaps"),
+          frameTitle: t("app.streetView.frameTitle"),
+        }}
       />
 
       {/* ── The document ──────────────────────────────────────────────────

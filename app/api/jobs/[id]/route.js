@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { unansweredRequired, describeMissing } from "@/lib/checklists/typedItems";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import {
@@ -285,6 +286,35 @@ export async function PATCH(request, { params }) {
   // Cleared if the job comes back out of completed, because a job that isn't
   // finished has no finish time.
   const completing = status === "completed" && existing.status !== "completed";
+
+  // ── Required checklist items gate the close ─────────────────────────────
+  //
+  // An item marked required (or on a list set to "must be complete to close
+  // the job") that is still empty refuses the close, naming what is missing —
+  // the job's own list and every visit that was not cancelled. Checked only on
+  // the flip INTO completed, so a job already closed before a list was made
+  // required is never trapped in an unsaveable state by an unrelated edit.
+  // See lib/checklists/typedItems.js for what counts as answered.
+  if (completing) {
+    const visits = await db.jobVisit.findMany({
+      where: { jobId: id, status: { notIn: ["cancelled", "canceled"] } },
+      select: { checklistItems: true },
+    });
+    const missing = unansweredRequired(
+      existing.checklistItems,
+      ...visits.map((v) => v.checklistItems),
+    );
+    if (missing.length) {
+      return NextResponse.json(
+        {
+          error: `This job can't be closed yet — ${missing.length} required checklist item${missing.length === 1 ? " is" : "s are"} still empty: ${describeMissing(missing)}.`,
+          code: "checklist_incomplete",
+          missing,
+        },
+        { status: 409 },
+      );
+    }
+  }
   const reopening = status !== undefined && status !== "completed" && existing.completedAt;
 
   // Giving the job a start date IS scheduling it — the same rule

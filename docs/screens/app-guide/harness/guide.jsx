@@ -462,6 +462,20 @@ async function runScene(scene) {
     await wait(400);
     return;
   }
+  if (scene === "scroll-checklist") {
+    const el = await until("[data-job-checklist]");
+    // Clear of the sticky top bar, which covered the card's heading at -16.
+    window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 72);
+    await wait(300);
+    return;
+  }
+  if (scene === "edit-first-checklist") {
+    const btn = await until('[data-edit-checklist="fq.cl.cabinet_refinishing.painting"]');
+    btn.click();
+    await wait(400);
+    window.scrollTo(0, 0);
+    return;
+  }
   if (scene === "scroll-visits") {
     const el = await until('[data-tour="job-visits"]');
     window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 16);

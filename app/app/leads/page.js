@@ -51,6 +51,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { useHasLevel } from "@/app/providers/PermissionProvider";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 import ClientMediaTile from "@/app/components/ClientMediaTile";
+import StreetViewPeek from "@/app/components/StreetViewPeek";
 import { countMediaKinds } from "@/lib/media/validate";
 import { reportResponseError } from "@/lib/clientErrors";
 import { fetchArray } from "@/lib/loadState";
@@ -1125,6 +1126,23 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
               )}
               {addressLine && (
                 <div className="text-muted-foreground">{addressLine}</div>
+              )}
+              {/* The house, before anyone drives out to quote it. The server
+                  resolves the address from this lead's own intake and checks
+                  for imagery for free; the panorama loads only on tap. The
+                  detail panel only — never on a board card. */}
+              {addressLine && (
+                <StreetViewPeek
+                  kind="lead"
+                  id={lead.id}
+                  className="pt-1"
+                  labels={{
+                    see: t("app.streetView.see"),
+                    hide: t("app.streetView.hide"),
+                    openInMaps: t("app.streetView.openInMaps"),
+                    frameTitle: t("app.streetView.frameTitle"),
+                  }}
+                />
               )}
               {/* Said, not left as a gap.
                   GET /api/leads removes the email, the phone and the stated

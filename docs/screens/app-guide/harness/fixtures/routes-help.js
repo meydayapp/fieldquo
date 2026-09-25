@@ -27,6 +27,8 @@ import { seedRowsFor } from "@/lib/quotes/textBlockDefaults";
 import { presentTextBlock } from "@/lib/quotes/textBlocks";
 import { GUTTER_MEASUREMENT, ROOF_MEASUREMENT } from "./takeoffs.js";
 import { JOB_PHOTOS as JOB_PHOTO_URLS } from "./public.js";
+import { INSTALLED_CHECKLISTS } from "./routes-settings-b.js";
+import { itemsFromTemplate, answerItem } from "@/lib/checklists/typedItems";
 
 const [MARC, JULIE, SAM, , LEO, ANA] = PEOPLE;
 const who = (m) => ({ id: m.userId, name: m.name });
@@ -824,8 +826,33 @@ const CHECKLIST = [
   { label: "Walk the client through hinge adjustment", done: false, phase: "post" },
   { label: "Finished photos, every elevation", done: false, phase: "post", photoRequired: true },
 ];
+// The cabinet painting form, auto-attached when the job was created from the
+// cabinet refinishing quote (lib/checklists/autoAdd.js), part-way through day
+// one: prep and safety answered, the finish-quality stop-light and the
+// client's signature still to come.
+const CABINET_FORM = (() => {
+  const tpl = INSTALLED_CHECKLISTS.find((t) => t.seedKey === "fq.cl.cabinet_refinishing.painting");
+  const answers = [
+    { response: 24 },
+    { done: true },
+    { media: [{ url: JOB_PHOTO_URLS[0], kind: "photo", caption: null }] },
+    { response: "Two chipped edges on the sink base doors — photographed, not in scope" },
+    { done: true },
+    { done: true },
+    { done: true },
+    { done: true },
+    { done: true },
+    { response: "HVLP spray, 1.3 tip" },
+    { response: 2 },
+    { response: "amber" },
+  ];
+  return itemsFromTemplate({ ...tpl, id: "ck_seed_0" }, "en").map((item, i) =>
+    answers[i] ? answerItem(item, answers[i].done ? { ...answers[i] } : answers[i]) : item,
+  ).map((item, i) => (answers[i]?.done ? { ...item, done: true } : item));
+})();
 const JOB_DETAIL = {
   ...J_318,
+  checklistItems: CABINET_FORM,
   siteAddress: `${CLIENT.address}, ${CLIENT.city}, ${CLIENT.province} ${CLIENT.postalCode}`,
   latitude: 45.5901,
   longitude: -73.7175,
