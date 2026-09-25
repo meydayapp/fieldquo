@@ -100,11 +100,11 @@ function Sparkline({ series, label }) {
 /**
  * @param hero           lib/dashboard/rank.js's `hero`
  * @param trendSentence  the month-on-month sentence as a rendered element,
- *                       built in app/app/page.js — the key and its English
- *                       fallback live there because that is the file the
+ *                       from trendSentenceFor (./trendSentence.js) — the
+ *                       key and its English fallback live there, and the
  *                       panel's own guard (scripts/check-dashboard.mjs
- *                       section 6) reads. Null when there is no honest
- *                       comparison, and null renders nothing.
+ *                       section 6) reads that file. Null when there is no
+ *                       honest comparison, and null renders nothing.
  * @param monthLabels    [firstMonth, lastMonth] as short labels, for the axis
  */
 export default function HeroRevenue({ hero, trendSentence, monthLabels, t }) {

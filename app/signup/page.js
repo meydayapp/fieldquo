@@ -284,7 +284,7 @@ const PASSWORD_MAX = 128;
 // validator that throws "t is not a function" the moment a field is empty
 // took the whole funnel down on 2026-09-13 — every visitor saw "This page
 // couldn't load". A message nobody reads may be English; a crash may not.
-function validateCompanyFields(form, t = englishOnly) {
+export function validateCompanyFields(form, t = englishOnly) {
   const errors = {};
   if (!form.companyName.trim())
     errors.companyName = t("app.signup.error.companyName", "Company name is required");
@@ -542,9 +542,15 @@ function CompanyFields({ form, setForm, fieldErrors, t = englishOnly }) {
           <label htmlFor="signup-website" className={FIELD_LABEL}>
             {t("app.signup.field.website", "Website address")}
           </label>
+          {/* type="text", not "url": the browser's URL validator refuses
+              "www.truefinishcabinets.com" (no scheme) with its own "Please
+              enter a URL." and blocks Continue — and owners type www.
+              without https. inputMode keeps the URL keyboard on a phone;
+              lib/signup/website.js adds https:// and refuses junk, and the
+              refusal is OUR inline error, in the signup's language. */}
           <input
             id="signup-website"
-            type="url"
+            type="text"
             inputMode="url"
             autoComplete="url"
             value={form.website || ""}
@@ -1067,10 +1073,12 @@ export default function SignupPage() {
   const [yearsBand, setYearsBand] = useState(null);
   const [signupGoal, setSignupGoal] = useState(null);
   const [signupSource, setSignupSource] = useState("");
-  // Two service names and descriptions for the sample quote beside the
-  // Trades step, per industry slug, from /api/signup/sample-services — the
-  // seeds stay on the server (lib/signup/sampleServices.js). Cached for the
-  // tab: the same trade is not fetched twice.
+  // The sample quote beside the Trades step, per industry slug, language and
+  // currency, from /api/signup/sample-services: two of the trade's seed
+  // services with the price a company in that trade starts with, and the
+  // trade's scope wording and steps — the seeds stay on the server
+  // (lib/signup/sampleServices.js). Cached for the tab: the same trade is not
+  // fetched twice.
   const [sampleServices, setSampleServices] = useState({});
 
   const [error, setError] = useState("");
@@ -1745,23 +1753,32 @@ export default function SignupPage() {
   // (network, an industry with no seed) leaves the trade's quote-type
   // labels standing in — the form is never blocked on a picture.
   const firstIndustry = selectedIndustries[0] || null;
+  const sampleKey = `${firstIndustry}|${form.language}|${planCurrency}`;
   useEffect(() => {
     if (!firstIndustry || (step !== "industry" && step !== "goals")) return;
-    const cacheKey = `${firstIndustry}|${form.language}`;
-    if (sampleServices[cacheKey]) return;
+    if (sampleServices[sampleKey]) return;
     let cancelled = false;
-    fetch(`/api/signup/sample-services?industry=${encodeURIComponent(firstIndustry)}&lang=${encodeURIComponent(form.language)}`)
+    fetch(`/api/signup/sample-services?industry=${encodeURIComponent(firstIndustry)}&lang=${encodeURIComponent(form.language)}&currency=${encodeURIComponent(planCurrency || "")}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (cancelled) return;
-        const services = Array.isArray(d?.services) ? d.services : [];
-        setSampleServices((prev) => ({ ...prev, [cacheKey]: services }));
+        setSampleServices((prev) => ({
+          ...prev,
+          [sampleKey]: {
+            services: Array.isArray(d?.services) ? d.services : [],
+            categoryKey: typeof d?.categoryKey === "string" ? d.categoryKey : null,
+            currency: typeof d?.currency === "string" ? d.currency : null,
+            group: d?.group && typeof d.group === "object" ? d.group : null,
+            processSteps: Array.isArray(d?.processSteps) ? d.processSteps : [],
+            glossary: Array.isArray(d?.glossary) ? d.glossary : [],
+          },
+        }));
       })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, [firstIndustry, form.language, step, sampleServices]);
+  }, [firstIndustry, form.language, planCurrency, sampleKey, step, sampleServices]);
 
   // ── One place decides what is selected ──────────────────────────────────
   //
@@ -2127,7 +2144,8 @@ export default function SignupPage() {
     language: form.language,
     teamSizeBand,
     signupGoal,
-    sampleServices: sampleServices[`${firstIndustry}|${form.language}`] || [],
+    sampleServices: sampleServices[sampleKey]?.services || [],
+    sampleTrade: sampleServices[sampleKey] || null,
     fallbackLines: presetLabelsForFirstTrade,
     groupLabel: INDUSTRIES.find((i) => i.slug === firstIndustry)?.label || "",
     currency: planCurrency,

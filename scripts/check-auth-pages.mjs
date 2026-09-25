@@ -70,7 +70,7 @@ import {
   furthestStep,
 } from "@/lib/signup/funnel";
 import LoginPage from "@/app/login/page";
-import SignupPage, { AccountFields } from "@/app/signup/page";
+import SignupPage, { AccountFields, validateCompanyFields } from "@/app/signup/page";
 import AuthShell from "@/app/components/auth/AuthShell";
 import AuthAside from "@/app/components/auth/AuthAside";
 import SignupSteps, { rungsFor } from "@/app/components/auth/SignupSteps";
@@ -168,11 +168,12 @@ for (const [page, html] of [
 // The proof panel carries a real screenshot of a real screen, the same one the
 // homepage hero opens on. A panel of adjectives would have been easier.
 ok("/login shows the product, not a gradient", loginHtml.includes("hero-quotes"));
-// Since 2026-09-24 the signup panel draws a LIVE picture in the app's own
-// look (AuthAside `preview` → SignupPreviews.js) instead of the hero
-// screenshot: the client's email with the company name in the From line on
-// the first step. The bare-panel render below still carries the photo.
-ok("/signup shows it too", signupHtml.includes("data-signup-aside") && signupHtml.includes("data-signup-preview"));
+// Since 2026-09-24 the signup panel draws a LIVE sample instead of the hero
+// screenshot, and since 2026-09-25 the sample is the product itself (AuthAside
+// `preview` → app/components/auth/samples/): on the first step, the quote
+// email as buildQuoteEmail writes it, with the company name in the From
+// line. The bare-panel render below still carries the photo.
+ok("/signup shows it too — the real quote email sample on the first step", signupHtml.includes("data-signup-aside") && signupHtml.includes('data-sample-kind="email"'));
 
 // ══════════════════════════════════════════════════════════════════════════
 console.log("\nEvery field the account step collects, still bound to its key");
@@ -348,6 +349,19 @@ for (const [label, key, kind] of EXPECTED) {
   field?.props.onChange({ target: { value: "other.example.ca" } });
   ok("…and WRITES form.website", JSON.stringify(yesWritten) === '["website"]', JSON.stringify(yesWritten));
   ok("…with the same label/field pairing as the rest (htmlFor → id)", yes.some((n) => n.host && n.tag === "label" && n.props.htmlFor === "signup-website"));
+  // 2026-09-25: the owner typed "www.truefinishcabinets.com" and the
+  // browser's own "Please enter a URL." blocked Continue — type="url"
+  // refuses anything without a scheme. The field is plain text with the URL
+  // keyboard; lib/signup/website.js is the only judge, and its refusal is
+  // the page's own inline error in the signup language.
+  ok("…typed as text with the URL keyboard, so the browser never refuses a bare www. address", field?.props.type === "text" && field?.props.inputMode === "url" && field?.props.autoComplete === "url", JSON.stringify({ type: field?.props.type, inputMode: field?.props.inputMode }));
+  for (const typed of ["www.truefinishcabinets.com", "truefinishcabinets.com", "http://truefinishcabinets.com", "https://truefinishcabinets.com/kitchens"]) {
+    ok(`…"${typed}" passes the page's own validator`, !validateCompanyFields({ ...BASE_FORM, companyName: "X", address: "1 Main St", hasWebsite: true, website: typed }).website);
+  }
+  for (const typed of ["not a site", "javascript:alert(1)", "localhost:3000", "www", ""]) {
+    const errs = validateCompanyFields({ ...BASE_FORM, companyName: "X", address: "1 Main St", hasWebsite: true, website: typed }, (k, f) => `${k}|${f}`);
+    ok(`…"${typed}" is refused with OUR message (app.signup.error.website), not the browser's`, String(errs.website || "").startsWith("app.signup.error.website|"), errs.website);
+  }
 }
 
 // The password is the one field the draft must never carry — sessionStorage

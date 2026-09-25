@@ -30,12 +30,33 @@
 // With a `preview` prop the signup variant stops being a static panel and
 // becomes the side screen the owner pointed at in Housecall Pro's and
 // Jobber's signups: a headline per step ("Feature | one-line benefit"), a
-// live picture drawn from what has been typed (SignupPreviews.js), and two
-// or three benefit lines. The account step shows the client's email with
-// their company name in the From line; an address adds the booking page
-// with the tax line their province carries; the team step's chips change
-// the calendar's shape; the trades step shows a sample quote whose two lines
-// are the trade's own services; the services step shows the price book.
+// live sample from what has been typed, and two or three benefit lines.
+//
+// ══ The samples are the product (2026-09-25) ═══════════════════════════════
+//
+// The owner reviewed the first version and said its pictures did not look
+// like real samples — "make it FACTUAL, not some fake render". Every picture
+// is now a REAL component or template rendered with the app-guide harness's
+// data, scaled into the panel (app/components/auth/samples/):
+//
+//   account     the quote email, from buildQuoteEmail — their company in the
+//               From line and on the brand band
+//   + address   the booking page's SlotCalendar, and the tax line the
+//               province carries
+//   team        the scheduler's WeekGrid (1–5 people) or DayBoard, the
+//               dispatch board (6+) — the two views /app/scheduler has
+//   goals       look professional → the client quote page (QuoteApproval);
+//               feel in control → the dashboard's HeroRevenue,
+//               SecondaryMetrics and goal card; win more jobs → the inbox
+//               list and the AI team's TeamFlow; just exploring (or nothing
+//               picked) → the collage of real cards (ExploreCollage)
+//   industry    the client quote page with the trade's two seed services at
+//               the price a company in that trade starts with
+//   services    the price book of the quote types ticked (still drawn — see
+//               SignupPreviews.js for why)
+//
+// Each sample is its own lazily-loaded chunk (samples/index.js), so none of
+// it weighs on the form's first load.
 //
 // Without `preview` — /login, and check:auth-pages' bare render — the panel
 // is exactly what it was. Nothing static was replaced; the three rules above
@@ -50,14 +71,8 @@ import { Check, ChevronDown, ChevronUp } from "lucide-react";
 import { INDUSTRIES } from "@/app/data/industries";
 import { trialLabel } from "@/lib/pricing";
 import { useTranslation } from "@/app/hooks/useTranslation";
-import {
-  BookingPreview,
-  CalendarPreview,
-  EmailPreview,
-  GoalPreview,
-  PriceBookPreview,
-  QuoteSamplePreview,
-} from "@/app/components/auth/SignupPreviews";
+import { PriceBookPreview } from "@/app/components/auth/SignupPreviews";
+import { Sample } from "@/app/components/auth/samples";
 import { taxPreviewFor } from "@/lib/signup/signupPreview";
 
 // Keys and English fallbacks, not finished sentences, so the copy can be
@@ -110,12 +125,13 @@ const PANELS = {
 
 /**
  * What the reactive panel says and shows on each step. Keys and English
- * fallbacks like PANELS above; the picture is a SignupPreviews component fed
- * the form. Pure apart from t(), so the check renders every branch.
+ * fallbacks like PANELS above; the picture is a <Sample kind=…> (the real
+ * component, loaded on demand) fed the form. Pure apart from t(), so the
+ * check renders every branch and reads each picture's kind and props.
  *
  * @param preview  { step, form, language, teamSizeBand, signupGoal,
- *                   sampleServices, fallbackLines, groupLabel, currency,
- *                   serviceLabels }
+ *                   sampleServices, sampleTrade, fallbackLines, groupLabel,
+ *                   currency, serviceLabels }
  */
 export function signupPanelFor(preview, t) {
   const { step, form, language = "en" } = preview || {};
@@ -124,13 +140,13 @@ export function signupPanelFor(preview, t) {
     case "team":
       return {
         feature: t("app.signup.aside.team.headline", "Multi-view scheduling"),
-        benefit: t("app.signup.aside.team.benefit", "A calendar that fits a crew of one or twenty — day, week or dispatch board."),
+        benefit: t("app.signup.aside.team.benefitViews", "A schedule that fits a crew of one or twenty — the week at a glance, or the day as a dispatch board."),
         points: [
           point("app.signup.aside.team.point1", "Every visit, shift and job on one calendar, per person."),
           point("app.signup.aside.team.point2", "Hours clock in from the field and land on the pay run."),
           point("app.signup.aside.team.point3", "Breaks, time off and who is on site, at a glance."),
         ],
-        picture: <CalendarPreview form={form} band={preview.teamSizeBand || null} />,
+        picture: <Sample kind="schedule" band={preview.teamSizeBand || null} form={form} language={language} />,
       };
     case "goals": {
       const goal = preview.signupGoal || null;
@@ -160,11 +176,24 @@ export function signupPanelFor(preview, t) {
         point("app.signup.aside.goals.default.point2", "Start with what you need today; the rest is there when you do."),
       ];
       const headlineKey = { look_professional: "look", feel_in_control: "control", win_more_jobs: "win" }[goal] || "default";
+      // The part of the product that answers the goal. "Just exploring" and
+      // no answer at all get the collage of the whole product, not a
+      // favourite.
+      const picture =
+        goal === "look_professional" ? (
+          <Sample kind="quote" {...quotePropsOf(preview)} />
+        ) : goal === "feel_in_control" ? (
+          <Sample kind="dashboard" />
+        ) : goal === "win_more_jobs" ? (
+          <Sample kind="inbox" />
+        ) : (
+          <Sample kind="collage" form={form} language={language} />
+        );
       return {
         feature: t(`app.signup.aside.goals.${headlineKey}.headline`, copy[0]),
         benefit: t(`app.signup.aside.goals.${headlineKey}.benefit`, copy[1]),
         points: [copy[2], copy[3]],
-        picture: <GoalPreview goal={goal} quoteProps={quotePropsOf(preview)} />,
+        picture,
       };
     }
     case "industry":
@@ -176,7 +205,7 @@ export function signupPanelFor(preview, t) {
           point("app.signup.aside.industry.point2", "Photos, your story and your reviews beside the price."),
           point("app.signup.aside.industry.point3", "The same quote comes off your website as an instant estimate."),
         ],
-        picture: <QuoteSamplePreview {...quotePropsOf(preview)} />,
+        picture: <Sample kind="quote" {...quotePropsOf(preview)} />,
       };
     case "services":
       return {
@@ -202,9 +231,18 @@ export function signupPanelFor(preview, t) {
           point("app.signup.aside.account.point3", "Online booking into the same calendar, with the right tax for where you are."),
         ],
         picture: (
-          <div className="space-y-3">
-            <EmailPreview form={form} language={language} />
-            {tax ? <BookingPreview form={form} language={language} /> : null}
+          <div className="space-y-4">
+            <Sample kind="email" form={form} language={language} trade={preview.sampleTrade || null} groupLabel={preview.groupLabel || ""} currency={preview.currency || null} taxRatePct={tax?.rate ?? null} />
+            {tax ? (
+              <>
+                <Sample
+                  kind="booking"
+                  language={language}
+                  title={t("app.signup.aside.booking.title", "Book a visit with {company}", { company: String(form?.companyName || "").trim() || t("app.signup.aside.email.yourCompany", "Your company name") })}
+                />
+                <TaxLine tax={tax} t={t} />
+              </>
+            ) : null}
           </div>
         ),
       };
@@ -213,14 +251,35 @@ export function signupPanelFor(preview, t) {
 }
 
 function quotePropsOf(preview) {
+  const form = preview?.form;
   return {
-    form: preview?.form,
+    form,
     language: preview?.language || "en",
-    services: preview?.sampleServices || [],
-    fallbackLines: preview?.fallbackLines || [],
+    trade: preview?.sampleTrade || null,
     groupLabel: preview?.groupLabel || "",
-    currency: preview?.currency || "",
+    currency: preview?.currency || null,
+    tax: taxPreviewFor({ country: form?.country, province: form?.province }, preview?.language || "en"),
   };
+}
+
+/**
+ * The tax line the address resolved to — the panel's own sentence about
+ * the visitor's quotes, under the booking sample, not a part of any screen.
+ * Only for an address the tax table knows (taxPreviewFor), never a guess.
+ */
+function TaxLine({ tax, t }) {
+  return (
+    <div className="rounded-lg border border-border bg-card px-3 py-2" data-tax-line>
+      <p className="text-[13px] text-foreground">
+        {t("app.signup.aside.booking.taxLine", "Tax on your quotes: {line}", { line: t(tax.key, tax.params) })}
+      </p>
+      <p className="mt-0.5 text-[11px] text-muted-foreground">
+        {tax.cautionKey
+          ? t(tax.cautionKey)
+          : t("app.signup.aside.booking.taxSource", "Worked out from your address — change it any time in Settings.")}
+      </p>
+    </div>
+  );
 }
 
 /** The reactive signup panel — see the header. */

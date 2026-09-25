@@ -72,7 +72,9 @@ export const TRIAL_FRAMES = [
 // and answers the signup routes): the account step empty and typed, the
 // team step at all five bands, the goals step per goal, the trades step for
 // four trades, the services step — at 1280 and at 390 (the strip above the
-// form, closed and opened by the scene).
+// form, closed and opened by the scene). Since 2026-09-25 every sample is a
+// real component in a lazily-loaded chunk, so each frame's scene waits for
+// the samples on screen to be measured in their frames ("signup-samples").
 const SA = (slug, props, width = 1280, extra = {}) => ({
   slug,
   href: "/signup",
@@ -83,6 +85,7 @@ const SA = (slug, props, width = 1280, extra = {}) => ({
   height: width < 768 ? 1500 : 1500,
   chapter: "signup-aside",
   out: "docs/screens/signup-aside",
+  scene: "signup-samples",
   ...extra,
 });
 export const SIGNUP_ASIDE_FRAMES = [
@@ -100,9 +103,12 @@ export const SIGNUP_ASIDE_FRAMES = [
   SA("goals-none", { step: "goals" }),
   SA("goals-look-professional", { step: "goals", goal: "look_professional" }),
   SA("goals-feel-in-control", { step: "goals", goal: "feel_in_control" }),
-  SA("goals-win-more-jobs", { step: "goals", goal: "win_more_jobs" }),
+  SA("goals-win-more-jobs", { step: "goals", goal: "win_more_jobs" }, 1280, { height: 1900 }),
+  SA("goals-exploring", { step: "goals", goal: "exploring" }, 1280, { height: 1700 }),
+  SA("goals-exploring-phone-open", { step: "goals", goal: "exploring" }, 390, { scene: "signup-strip-open", height: 2600 }),
   SA("goals-phone", { step: "goals", goal: "win_more_jobs" }, 390),
   SA("trades-painting", { step: "industry", trade: "painting" }, 1280, { height: 1900 }),
+  SA("trades-hvac", { step: "industry", trade: "hvac" }, 1280, { height: 1900 }),
   SA("trades-electrical", { step: "industry", trade: "electrical" }, 1280, { height: 1900 }),
   SA("trades-roofing", { step: "industry", trade: "roofing" }, 1280, { height: 1900 }),
   SA("trades-landscaping", { step: "industry", trade: "landscaping" }, 1280, { height: 1900 }),

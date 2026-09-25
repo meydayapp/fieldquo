@@ -86,7 +86,12 @@ function orderedInSource(source, a, b) {
   return ia >= 0 && ib > ia;
 }
 
-const page = read("app/app/messages/page.js");
+// The list rows moved into app/app/messages/threadRooms.js on 2026-09-25 (the
+// /signup inbox sample renders them too); the page is the page plus that
+// file, and the page must still draw its list through it.
+const pageOnly = read("app/app/messages/page.js");
+const page = pageOnly + "\n" + read("app/app/messages/threadRooms.js");
+ok("the page draws its list rows through threadRoomGroups", /import \{ threadRoomGroups \} from "\.\/threadRooms";/.test(pageOnly) && /useMemo\(\(\) => threadRoomGroups\(threads, \{ t, now \}\), \[threads, now, t\]\)/.test(pageOnly));
 const bits = read("app/app/messages/ConversationBits.js");
 const listRoute = read("app/api/messaging/threads/route.js");
 const LANGS = ["en", "fr", "es", "uk", "pa", "tl", "de", "zh", "it"];

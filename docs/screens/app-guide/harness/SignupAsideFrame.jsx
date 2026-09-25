@@ -12,11 +12,11 @@
 // answers it with a login that has no company yet, which is the state the
 // page resumes a draft from. The fixture API answers every other route;
 // this frame answers only the signup routes, and the sample services come
-// from the REAL lib/signup/sampleServices.js — the same words production
-// serves — never a fixture of them.
+// from the REAL lib/signup/sampleServices.js — the same words and starting
+// prices production serves — never a fixture of them.
 import React, { useState } from "react";
 import SignupPage from "@/app/signup/page";
-import { sampleServicesForIndustry } from "@/lib/signup/sampleServices";
+import { sampleQuoteForIndustry } from "@/lib/signup/sampleServices";
 
 const FORM = {
   firstName: "Marc",
@@ -82,15 +82,20 @@ function install({ step, band = null, goal = null, trade = "painting", typed = t
     if (url.includes("/api/marketing/plans")) return json({ plans: [], unavailable: null });
     if (url.includes("/api/signup/progress")) return json({ ok: true });
     if (url.includes("/api/signup/sample-services")) {
+      // The route's own answer, from the same module the route calls: the
+      // trade's two seed services at their starting prices in the plan's
+      // currency, and the trade's page wording.
       const q = new URL(url, "https://app.fieldquo.com").searchParams;
-      return json({ services: sampleServicesForIndustry(q.get("industry"), q.get("lang") || "en") });
+      const s = sampleQuoteForIndustry(q.get("industry"), q.get("lang") || "en", q.get("currency"));
+      return json({ services: s?.services || [], categoryKey: s?.categoryKey || null, currency: s?.currency || null, group: s?.group || null, processSteps: s?.processSteps || [], glossary: s?.glossary || [] });
     }
     return prior(input, init);
   };
   const draft = {
     form: typed ? FORM : { ...FORM, firstName: "", lastName: "", email: "", companyName: "", phone: "", address: "", city: "", province: "", postalCode: "", country: "" },
     selectedPlanId: "",
-    selectedIndustries: step === "industry" || step === "services" || step === "goals" ? [trade] : [],
+    // Goals comes BEFORE Trades, so a visitor on it has picked no trade yet.
+    selectedIndustries: step === "industry" || step === "services" ? [trade] : [],
     selectedCategoryIds: step === "services" ? PRESET_IDS[trade] || [] : [],
     showAllServices: false,
     billingInterval: "month",
