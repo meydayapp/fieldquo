@@ -3,10 +3,11 @@
 // The funnel builder — step list on the left, the selected step's editor in the
 // middle, a live branded preview of that step on the right. Publish is blocked
 // (server-side too) unless there's a contact step, and the public link + pixels
-// + drop-off analytics all live here. English-first, like the funnel itself.
+// + drop-off analytics all live here. The editor chrome follows the
+// contractor's interface language; the funnel's own copy does not (below).
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -154,10 +155,18 @@ export default function FunnelBuilderPage() {
   const [iqTrades, setIqTrades] = useState(null);
   const [iqError, setIqError] = useState(false);
 
+  // load() reads t through a ref rather than listing it as a dependency: t
+  // changes identity with the interface language, and a language switch that
+  // re-ran load() would replace the steps state and throw away unsaved edits.
+  const tRef = useRef(t);
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
+
   const load = useCallback(async () => {
     const res = await fetch(`/api/funnels/${id}`);
     if (!res.ok) {
-      reportResponseError(res, setError, "Couldn't load that funnel.");
+      reportResponseError(res, setError, tRef.current("app.funnels.loadFailed"));
       setLoading(false);
       return;
     }
@@ -256,7 +265,7 @@ export default function FunnelBuilderPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, steps, ...pixels, ...extra }),
       });
-      if (!res.ok) return reportResponseError(res, setError, "Couldn't save.");
+      if (!res.ok) return reportResponseError(res, setError, t("app.funnels.saveFailed"));
       const updated = await res.json();
       setFunnel((f) => ({ ...f, ...updated }));
       setSteps(Array.isArray(updated.steps) ? updated.steps : steps);
@@ -279,23 +288,27 @@ export default function FunnelBuilderPage() {
   // Availability is only judged when it is known: a failed lookup leaves the
   // list null and blocks nothing, because "we couldn't check" is not "you
   // haven't got one".
+  //
+  // The sentences are keyed by the issue's CODE rather than read off
+  // `issue.message`: that English stays in funnelBlocks.js as the fallback for
+  // a code the catalogue hasn't caught up with, but a French office reads
+  // French here. The step's headline is the contractor's copy, shown as typed.
   const estimateBlockers = useMemo(() => {
     const out = [];
+    const line = (step, problem) => t("app.funnels.blockerLine", { step, problem });
     for (const s of funnelEstimateSteps(steps)) {
-      const name = s.headline || "Instant estimate";
+      const name = s.headline || t("app.funnels.step.instantEstimate");
       for (const issue of estimateStepIssues(s)) {
         if (issue.code === "no_trade" || issue.code === "no_bands") {
-          out.push(`${name}: ${issue.message}`);
+          out.push(line(name, t(`app.funnels.issue.${issue.code}`, issue.message)));
         }
       }
-      if (s.trade && iqTrades && !iqTrades.some((t) => t.trade === s.trade)) {
-        out.push(
-          `${name}: that service isn't switched on for instant quotes, so the step can't price anything. Turn it on in Settings → Instant quotes.`,
-        );
+      if (s.trade && iqTrades && !iqTrades.some((trade) => trade.trade === s.trade)) {
+        out.push(line(name, t("app.funnels.issue.notSwitchedOn", { path: t("app.funnels.instantQuotesLink") })));
       }
     }
     return out;
-  }, [steps, iqTrades]);
+  }, [steps, iqTrades, t]);
 
   async function togglePublish() {
     const next = funnel.status === "published" ? "draft" : "published";
@@ -363,6 +376,8 @@ export default function FunnelBuilderPage() {
         <button
           onClick={() => router.push("/app/funnels")}
           className="text-muted-foreground hover:text-foreground"
+          aria-label={t("app.funnels.backToList")}
+          title={t("app.funnels.backToList")}
         >
           <ArrowLeft size={18} />
         </button>
@@ -372,6 +387,7 @@ export default function FunnelBuilderPage() {
             setName(e.target.value);
             setDirty(true);
           }}
+          aria-label={t("app.funnels.nameLabel")}
           className="text-lg font-bold text-foreground bg-transparent border-b border-transparent hover:border-border focus:border-foreground outline-none flex-1 min-w-[160px]"
         />
         <span
@@ -385,8 +401,11 @@ export default function FunnelBuilderPage() {
               list page for why "draft" is the database's word, not one written
               for a contractor. Imported rather than copied: two screens
               showing the same badge is how the invoices list ended up with a
-              status map that had stopped matching its enum. */}
-          {funnelStatusLabel(funnel.status)}
+              status map that had stopped matching its enum.
+              funnelStatusLabel() returns a catalogue KEY, not a word, so it
+              goes through t() like the list page — rendered bare, the pill
+              printed "app.funnels.status.published" in every language. */}
+          {t(funnelStatusLabel(funnel.status))}
         </span>
         <button
           onClick={() => save()}
@@ -520,7 +539,15 @@ export default function FunnelBuilderPage() {
             {analytics.steps.map((s) => (
               <div key={s.id} className="flex items-center gap-2 text-xs">
                 <span className="w-32 truncate text-muted-foreground">
-                  {s.label}
+                  {/* The analytics route falls back to the raw kind
+                      ("photo_upload") for a step with no question or
+                      headline; that token is named the way the step list
+                      names it rather than printed. */}
+                  {(() => {
+                    if (s.label && s.label !== s.kind) return s.label;
+                    const kind = STEP_KINDS.find((k) => k.kind === s.kind);
+                    return kind ? t(kind.labelKey) : s.label;
+                  })()}
                 </span>
                 <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
                   <div
@@ -598,7 +625,7 @@ export default function FunnelBuilderPage() {
         {/* Preview */}
         <div>
           <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-            Preview
+            {t("app.funnels.preview")}
           </div>
           <StepPreview step={step} accent={accent} company={company} />
         </div>
@@ -736,7 +763,7 @@ function StepEditor({ step, onChange, iqTrades, iqError }) {
         step.kind === "instant_estimate" ||
         step.kind === "form") && (
         <Field
-          label="Headline"
+          label={t("app.funnels.field.headline")}
           value={step.headline}
           onChange={(v) => onChange({ headline: v })}
         />
@@ -747,7 +774,7 @@ function StepEditor({ step, onChange, iqTrades, iqError }) {
         step.kind === "instant_estimate" ||
         step.kind === "form") && (
         <Field
-          label="Subtext"
+          label={t("app.funnels.field.subtext")}
           value={step.subhead}
           onChange={(v) => onChange({ subhead: v })}
           textarea
@@ -834,6 +861,8 @@ function StepEditor({ step, onChange, iqTrades, iqError }) {
                   <button
                     onClick={() => removeAnswer(i)}
                     className="text-muted-foreground hover:text-red-600"
+                    aria-label={t("app.funnels.removeAnswer")}
+                    title={t("app.funnels.removeAnswer")}
                   >
                     <Trash2 size={13} />
                   </button>
@@ -885,13 +914,16 @@ function StepEditor({ step, onChange, iqTrades, iqError }) {
                       : [...(step.fields || []), f];
                     onChange({ fields });
                   }}
-                  className={`px-3 py-1 rounded-full text-xs font-semibold border capitalize ${
+                  aria-pressed={on}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold border ${
                     on
                       ? "bg-inverted text-inverted-foreground border-transparent"
                       : "border-border text-muted-foreground"
                   }`}
                 >
-                  {f}
+                  {/* Was the stored token capitalised by CSS — "Email" in
+                      every language. The token is still what gets saved. */}
+                  {t(`app.funnels.formField.${f}`)}
                 </button>
               );
             })}
@@ -1050,7 +1082,11 @@ function EstimateStepEditor({ step, onChange, iqTrades, iqError }) {
           <div className="grid gap-2 sm:grid-cols-2">
             {choices.map((c) => (
               <label key={c.key} className="block text-xs">
-                <span className="text-muted-foreground">{c.label}</span>
+                {/* Keyed by the assumption's intake key; funnelBlocks.js keeps
+                    the English as the fallback for a key added there first. */}
+                <span className="text-muted-foreground">
+                  {t(`app.funnels.choice.${c.key}`, c.label)}
+                </span>
                 <select
                   value={step.assumptions?.[c.key] || ""}
                   onChange={(e) =>
@@ -1061,9 +1097,11 @@ function EstimateStepEditor({ step, onChange, iqTrades, iqError }) {
                   className="w-full mt-1 border border-border rounded-lg px-2 py-1.5 text-sm bg-card"
                 >
                   <option value="">{t("app.funnels.assumeDefault")}</option>
+                  {/* The VALUE stays the surcharge-map token the estimator
+                      matches on; only the words shown are translated. */}
                   {c.options.map((o) => (
                     <option key={o} value={o}>
-                      {o.replace(/_/g, " ")}
+                      {t(`app.funnels.choiceOption.${o}`, o.replace(/_/g, " "))}
                     </option>
                   ))}
                 </select>
@@ -1102,6 +1140,8 @@ function EstimateStepEditor({ step, onChange, iqTrades, iqError }) {
                       onChange({ bands: bands.filter((_, idx) => idx !== i) })
                     }
                     className="text-muted-foreground hover:text-red-600"
+                    aria-label={t("app.funnels.removeSizeOption")}
+                    title={t("app.funnels.removeSizeOption")}
                   >
                     <Trash2 size={13} />
                   </button>
@@ -1109,7 +1149,7 @@ function EstimateStepEditor({ step, onChange, iqTrades, iqError }) {
                 <div className="grid grid-cols-2 gap-1.5">
                   {fields.map((f) => (
                     <label key={f.key} className="text-[11px] text-muted-foreground">
-                      {f.label}
+                      {t(`app.funnels.bandField.${f.key}`, f.label)}
                       <input
                         type="number"
                         min="0"
@@ -1138,7 +1178,7 @@ function EstimateStepEditor({ step, onChange, iqTrades, iqError }) {
       {issues.length > 0 && (
         <ul className="text-[11px] text-amber-600 dark:text-amber-400 list-disc ml-4 space-y-0.5">
           {issues.map((i) => (
-            <li key={i.code}>{i.message}</li>
+            <li key={i.code}>{t(`app.funnels.issue.${i.code}`, i.message)}</li>
           ))}
         </ul>
       )}

@@ -115,7 +115,10 @@ export default function StepPreview({ step, accent, company }) {
                     key={b.id}
                     className="border border-black/15 rounded-lg px-3 py-2 text-sm text-[#2d2520]"
                   >
-                    {b.label || "Untitled option"}
+                    {/* Editor annotation: an unlabelled band never reaches a
+                        homeowner (estimateStepIssues flags it), so the
+                        placeholder speaks the contractor's language. */}
+                    {b.label || t("app.funnels.previewUntitledOption")}
                   </div>
                 ))
               )}

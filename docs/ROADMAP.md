@@ -136,9 +136,26 @@ Settings › Company stores a bare www. address as https://.
   extraction. `check:marketing-controls` §6 now parses STEP_KINDS, requires
   every labelKey in every language, and fails on any `.label` read off an
   entry in page.js or FunnelStepListItem.js. Harness funnel-builder frame
-  shows INTRO / INTRODUCTION / INTRODUCCIÓN. Seen in the same frame, not
-  fixed: the status pill prints the raw key `app.funnels.status.published`,
-  and the editor's Headline / Subtext / PREVIEW stay English in fr/es.
+  shows INTRO / INTRODUCTION / INTRODUCCIÓN.
+- ~~Seen in the same frame: the status pill prints the raw key
+  `app.funnels.status.published`, and the editor's Headline / Subtext /
+  PREVIEW stay English in fr/es.~~ Fixed: the builder's pill is
+  `t(funnelStatusLabel(…))` like the list page (the only two callers in the
+  repo). The editor's remaining English chrome moved to 50 `app.funnels.*`
+  keys in all nine languages: Headline / Subtext / Preview, the load and save
+  error fallbacks, the publish blockers (keyed by `estimateStepIssues` code,
+  not its English `message`), the Name / Email / Phone chips (were the stored
+  token capitalised by CSS), the band-field and assumption labels and their
+  option words (the stored surcharge tokens are unchanged), the preview's
+  "Untitled option", the analytics bar's raw-kind fallback, and aria-labels on
+  the six icon-only buttons. The funnel's own seeded copy (newStep, "Option",
+  the embed title) stays literal on purpose. `check:marketing-controls` §6
+  finds every `funnelStatusLabel(` call in app/components/lib and requires
+  t(), bans the moved literals, and enumerates the dynamic keys from
+  funnelBlocks.js; 20 of its assertions fail on the old code. Not changed:
+  the PUBLIC runner (`/f/…` FunnelRunner.js) still hard-codes "Your name" /
+  "Email" / "Phone" placeholders in English whatever the visitor's language —
+  a client-facing i18n decision, not app chrome.
 - AUD visitors see no seed prices (benchmarkFx converts USD/CAD only) and so
   get the fixture quote; the same gap means AUD companies are seeded unpriced.
 - Samples render the fixture's dates (Sept 2026) and its CAD dashboard.

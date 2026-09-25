@@ -84,6 +84,11 @@ export const FUNNEL_ESTIMATE_TRADES = Object.entries(INSTANT_ESTIMATE_TRADES)
 // names measureForTrade() reads out of a request body — so the estimate route
 // hands `{ intake: band.values }` straight to the shipped measurement code
 // instead of growing a second copy of it.
+//
+// The `label`s here, and CHOICE_LABELS below, are the English FALLBACK. The
+// builder names a field by t(`app.funnels.bandField.<key>`) and an assumption
+// by t(`app.funnels.choice.<key>`) — keyed by the intake key, which never
+// changes — so a key added here also needs its catalogue entry.
 const BAND_FIELDS = {
   manual_area: [{ key: "squareFootage", label: "Area (sq ft)", primary: true }],
   manual_units: [
@@ -388,7 +393,10 @@ export function funnelEstimateSteps(steps) {
  * public route answers by running the real pricer.
  *
  * Returned as codes plus contractor-facing sentences: this is builder copy, and
- * a homeowner never reads why a company's funnel isn't configured (#4).
+ * a homeowner never reads why a company's funnel isn't configured (#4). The
+ * builder shows t(`app.funnels.issue.<code>`) and keeps `message` only as the
+ * English fallback, so a new code needs its key in app/i18n/appMessages.js
+ * (check:marketing-controls §6 holds every code to that).
  */
 export function estimateStepIssues(step) {
   const issues = [];
