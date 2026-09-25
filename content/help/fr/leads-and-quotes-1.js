@@ -891,7 +891,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Aperçu",
         blocks: [
-          { p: "L'écran dit **Produits et services — Ajoutez et mettez à jour vos produits et services pour rester organisé lors de la création de soumissions, de modèles de soumission, de chantiers et de factures.** Un tableau avec **Name**, **Description** et **Type**, une recherche, **Ajouter un article**, modifier et supprimer sur chaque ligne, et deux cartes pour l'import et l'export CSV." },
+          { p: "L'écran dit **Produits et services — Ajoutez et mettez à jour vos produits et services pour rester organisé lors de la création de soumissions, de modèles de soumission, de chantiers et de factures.** Un tableau avec **Name**, **Description** et **Type**, une recherche, **Ajouter un article**, modifier et supprimer sur chaque ligne, et une carte pour l'import CSV." },
           { p: "Un article peut être limité à certains types de soumission. Dans le générateur, le menu « + Add from Products & Services… » d'une carte de service ne liste que les articles liés à ce type — un groupe de planchers n'offre pas de quincaillerie d'armoires — ou tous les articles, si l'article n'a été lié à rien." },
         ],
       },
@@ -917,11 +917,10 @@ export const ARTICLES = {
           { bullets: [
             "La recherche et **Ajouter un article**.",
             "Le tableau — **Name**, **Description**, **Type** (**Service** ou **Produit**) — avec **Modifier l'article** et la suppression sur chaque ligne, paginé quand la liste est longue.",
-            "**Coûts** — **Notez ce que vos produits et services vous coûtent — indiquez un prix de revient à côté du prix de vente lorsque vous ajoutez ou modifiez un article ci-dessus. Il est conservé sur l'article et inclus dans l'export CSV; aucune soumission, aucun calcul de coûts de chantier ni aucune marge ne le lit pour l'instant.**",
+            "**Coûts** — **Notez ce que vos produits et services vous coûtent — indiquez un prix de revient à côté du prix de vente lorsque vous ajoutez ou modifiez un article ci-dessus. Il est conservé sur l'article; aucune soumission, aucun calcul de coûts de chantier ni aucune marge ne le lit pour l'instant.**",
             "**Importer des produits et services** — **Importer un CSV** et **Télécharger un fichier exemple**. Colonnes : **name, description, type, unitPrice, costPrice, unit**.",
-            "**Exporter des produits et services** — **Exporter un CSV** télécharge toute la liste.",
           ] },
-          { figure: "live:app-settings-products", caption: "Réglages → Produits et services — le tableau, la carte Coûts, et les cartes d'import et d'export." },
+          { figure: "live:app-settings-products", caption: "Réglages → Produits et services — le tableau, la carte Coûts et la carte d'import." },
         ],
       },
       {
@@ -954,14 +953,14 @@ export const ARTICLES = {
         ],
       },
       {
-        id: "import-and-export",
-        heading: "Import et export",
+        id: "import",
+        heading: "Import",
         blocks: [
-          { p: "**Importer un CSV** prend un fichier exporté d'Excel, de Google Sheets ou de Numbers avec les colonnes **name, description, type, unitPrice, costPrice, unit** ; **Télécharger un fichier exemple** vous donne le format. **Exporter un CSV** réécrit toute la liste dans le même format, pour que vous puissiez modifier dans un tableur et réimporter." },
+          { p: "**Importer un CSV** prend un fichier exporté d'Excel, de Google Sheets ou de Numbers avec les colonnes **name, description, type, unitPrice, costPrice, unit** ; **Télécharger un fichier exemple** vous donne le format. La liste ne ressort pas en fichier : si vous aimez modifier vos prix dans un tableur, gardez ce tableur comme copie de référence." },
           { bullets: [
             "Le résultat dit **… articles importés.** Les articles importés ne sont liés à aucun type de soumission — disponibles partout — jusqu'à ce que vous les modifiiez.",
             "Une ligne sans nom est ignorée ; un type autre que **product** est enregistré comme **Service**. Un article ajouté à la main avec **Ajouter un article** voit aussi sa description rédigée dans les autres langues d'envoi de votre entreprise ; un article importé, non.",
-            "L'importateur est simple : un nom contenant une virgule doit être entre guillemets, comme l'export l'écrit.",
+            "L'importateur est simple : il coupe chaque ligne à chaque virgule et ne lit pas les guillemets, donc un nom ou une description contenant une virgule se retrouve dans les mauvaises colonnes. Évitez les virgules dans ces cellules.",
           ] },
           { warning: "Importer ne remplace ni ne dédoublonne. Importer deux fois le même fichier vous donne chaque article en double." },
         ],
@@ -975,10 +974,10 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "Le prix de revient alimente-t-il la marge d'une soumission ?", a: "Pas encore. L'écran le dit : il est conservé sur l'article et exporté, et aucune soumission, aucun calcul de coûts de chantier ni aucune marge ne le lit. Le coût et la marge d'une soumission se calculent à partir des recettes de matériaux et de la main-d'œuvre dans Réglages → Coûts des matériaux." },
+      { q: "Le prix de revient alimente-t-il la marge d'une soumission ?", a: "Pas encore. L'écran le dit : il est conservé sur l'article, et aucune soumission, aucun calcul de coûts de chantier ni aucune marge ne le lit. Le coût et la marge d'une soumission se calculent à partir des recettes de matériaux et de la main-d'œuvre dans Réglages → Coûts des matériaux." },
       { q: "Pourquoi mon article manque-t-il dans le menu d'une soumission ?", a: "Il est lié à d'autres types de soumission. Modifiez l'article et cochez le type que vous chiffrez, ou décochez tout pour le rendre disponible sur tous les types." },
       { q: "Le client peut-il voir le catalogue de prix ?", a: "Non. Seule la ligne que vous ajoutez — sa description et son montant — atteint la page, le courriel et le PDF du client." },
-      { q: "Quelle est la différence entre un Service et un Produit ?", a: "Une étiquette sur l'article, affichée dans la colonne Type et conservée dans l'export. Les deux se chiffrent de la même façon sur une soumission." },
+      { q: "Quelle est la différence entre un Service et un Produit ?", a: "Une étiquette sur l'article, affichée dans la colonne Type. Les deux se chiffrent de la même façon sur une soumission." },
     ],
   },
 

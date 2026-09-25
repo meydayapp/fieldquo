@@ -19,7 +19,6 @@ import {
   Plus,
   Pencil,
   Trash2,
-  Download,
   Upload,
 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
@@ -248,7 +247,7 @@ export default function ProductCatalogue({ compact = false, onChanged } = {}) {
 
       {/* ── Everything below is the catalogue ─────────────────────────────
           When the price book is refused, this whole block goes: the search,
-          the Add / Import / Export controls, and the table. QA saw the refusal
+          the Add / Import controls, and the table. QA saw the refusal
           banner sitting ABOVE a live "Add Item" form (with a Cost price
           field), Import CSV, Export CSV and an empty table reading "No
           products or services yet" — which says the catalogue is empty, not
@@ -442,7 +441,7 @@ export default function ProductCatalogue({ compact = false, onChanged } = {}) {
         </p>
       </div>
 
-      <div className="grid sm:grid-cols-2 gap-4">
+      <div className="grid gap-4">
         <div className="bg-card border border-border rounded-xl p-5">
           <h2 className="text-base font-semibold text-foreground mb-1">
             {t("app.setProducts.importHeading")}
@@ -494,21 +493,12 @@ export default function ProductCatalogue({ compact = false, onChanged } = {}) {
             </button>
           </div>
         </div>
-
-        <div className="bg-card border border-border rounded-xl p-5">
-          <h2 className="text-base font-semibold text-foreground mb-1">
-            {t("app.setProducts.exportHeading")}
-          </h2>
-          <p className="text-sm text-muted-foreground mb-3">
-            {t("app.setProducts.exportBody")}
-          </p>
-          <a
-            href="/api/products/export"
-            className="flex items-center gap-2 w-fit text-sm font-medium border border-border rounded-full px-4 py-2 hover:bg-muted"
-          >
-            <Download size={14} /> {t("app.setProducts.exportCsv")}
-          </a>
-        </div>
+        {/* No Export card beside it. A company can bring its price book in
+            but not take it out as a file — the owner's decision of
+            2026-09-24, paying customers included. The route
+            (app/api/products/export/route.js) still exists and answers 403
+            (lib/export/companyDataExport.js);
+            a link to it here would be a button that downloads an error. */}
       </div>
       </>
       )}

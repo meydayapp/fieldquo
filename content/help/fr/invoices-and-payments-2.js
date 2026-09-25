@@ -9,7 +9,7 @@ export const ARTICLES = {
   "payment-processing-fees-and-payouts": {
     title: "Frais de traitement des paiements et virements",
     summary:
-      "Ce qu'un paiement par carte ou par débit bancaire vous coûte, comment les frais apparaissent sur chaque paiement, quand l'argent arrive dans votre banque et comment tout cela figure dans votre export comptable.",
+      "Ce qu'un paiement par carte ou par débit bancaire vous coûte, comment les frais apparaissent sur chaque paiement, quand l'argent arrive dans votre banque et comment votre comptable l'inscrit.",
     updated: "2026-09-12",
     intro: [
       "Quand un client paie une facture en ligne, le paiement passe par le compte Stripe de votre entreprise et atterrit dans votre compte bancaire. Des frais de traitement sont retenus sur chaque paiement avant d'y arriver — jamais facturés à part, et sans frais mensuel pour encaisser. Cet article raconte toute l'histoire de ces frais : les taux, où vous les voyez, ce qui se passe lors d'un remboursement ou d'un litige, et comment votre comptable les concilie.",
@@ -21,7 +21,7 @@ export const ARTICLES = {
         heading: "Vue d'ensemble",
         blocks: [
           { p: "Chaque paiement en ligne d'un client est une transaction Stripe créée au nom de votre entreprise et versée dans votre compte bancaire. FieldQuo ne détient jamais l'argent. Les frais de traitement sont déduits du paiement lui-même : le client paie le total de la facture, les frais sont retenus, et le **net** est ce que Stripe dépose." },
-          { p: "Vous verrez trois montants pour chaque paiement en ligne : le **montant** (ce que le client a payé et ce qui a été soustrait de la facture), les **frais de traitement**, et le **net déposé**. Ils figurent sur la facture, sur la fiche du paiement, et dans trois colonnes de l'export comptable." },
+          { p: "Vous verrez trois montants pour chaque paiement en ligne : le **montant** (ce que le client a payé et ce qui a été soustrait de la facture), les **frais de traitement**, et le **net déposé**. Ils figurent sur la facture et sur la fiche du paiement." },
           { note: "Il n'y a ni pourboire ni produit de crédit ou de prêt dans FieldQuo. Si vous connaissez les pages d'aide de Jobber, ces deux sections n'ont pas d'équivalent ici : un client paie exactement la facture, et le seul argent qui bouge est celui de la facture." },
         ],
       },
@@ -88,7 +88,7 @@ export const ARTICLES = {
               ["Litige (rétrofacturation)", "15 $ par litige, non remboursés si vous gagnez", "CAD et USD"],
             ],
           } },
-          { p: "Le taux carte est un seul chiffre quelle que soit la carte : une carte d'entreprise ou une Amex coûte les mêmes 3 % + 0,30 $ qu'une Visa de particulier. C'est 2,9 % + 0,30 $ pour Stripe plus une marge FieldQuo de 0,1 %, et vous voyez partout un seul taux combiné — sur la page des paramètres, sur la fiche du paiement et dans l'export." },
+          { p: "Le taux carte est un seul chiffre quelle que soit la carte : une carte d'entreprise ou une Amex coûte les mêmes 3 % + 0,30 $ qu'une Visa de particulier. C'est 2,9 % + 0,30 $ pour Stripe plus une marge FieldQuo de 0,1 %, et vous voyez partout un seul taux combiné — sur la page des paramètres et sur la fiche du paiement." },
           { p: "Deux suppléments ne s'appliquent que lorsqu'ils s'appliquent, parce que la carte est inconnue tant qu'elle n'est pas débitée : **+0,8 %** sur une carte émise hors du Canada, et **+2 %** quand le paiement exige une conversion de devise. Ils sont refacturés au coût de Stripe sur ce paiement seulement. Le débit bancaire n'a aucun supplément." },
           { p: "Une **facture de 5 000 $ payée par débit bancaire coûte 5 $** — le plafond — là où la même facture par carte coûte 150,30 $. Pour les grosses factures de clients canadiens, offrir le débit bancaire est la plus grande économie de cette page." },
           { p: "Stripe facture aussi de petits frais de compte : des **frais mensuels de compte actif** les mois où vous encaissez, et **0,25 % + 0,25 $ par virement** vers votre banque. Ils sont refacturés au coût et apparaissent sur leur propre ligne lors de votre prochain paiement — « Frais de compte Stripe 2,25 $ (2026-09) » — jamais fondus dans les frais de traitement." },
@@ -129,27 +129,26 @@ export const ARTICLES = {
           { bullets: [
             "**« Stripe retient votre argent »** dans Paramètres → Paiements — Stripe a encore besoin de quelque chose de vous (un document, un compte bancaire, le nom d'un administrateur). Ouvrez **Gérer dans Stripe** et complétez ce qui est demandé; les paiements de vos clients continuent d'aboutir entre-temps.",
             "**« Stripe vérifie votre compte »** — vous avez tout envoyé et Stripe vérifie, en général un jour, parfois deux ou trois. Rien à faire.",
-            "**Un paiement sans frais affichés** — c'est un paiement manuel, ou un paiement en ligne enregistré avant que les frais soient notés sur le paiement. L'export laisse ces cellules vides plutôt que d'écrire 0,00, parce que « frais inconnus » et « aucuns frais » sont deux affirmations différentes.",
+            "**Un paiement sans frais affichés** — c'est un paiement manuel, ou un paiement en ligne enregistré avant que les frais soient notés sur le paiement. Le paiement n'affiche aucuns frais plutôt que 0,00 $, parce que « frais inconnus » et « aucuns frais » sont deux affirmations différentes.",
             "**Le bouton Payer manque sur une facture** — Stripe n'a pas encore activé les encaissements. Paramètres → Paiements indique ce qu'il attend.",
           ] },
         ],
       },
       {
-        id: "accounting-export",
-        heading: "Comment cela figure dans votre export comptable",
+        id: "in-your-books",
+        heading: "L'inscrire dans vos livres",
         blocks: [
-          { p: "L'export comptable (**Dépenses → Export comptable**) produit des fichiers CSV pour une période, et le fichier des paiements contient une ligne par paiement avec trois colonnes d'argent : **Amount** (le brut — ce que le client a payé et ce qui a été soustrait de la facture), **Processing fee** et **Net deposited**, plus une colonne **Fee rate** qui nomme le mode selon lequel les frais ont été pris (« card », « acss_debit »)." },
-          { figure: "live:app-settings-expense-tracking", caption: "Suivi des dépenses — la carte Export comptable, au bas de la page, télécharge la période en fichiers CSV." },
-          { p: "Comptabilisez le brut en revenu et les frais en dépense de frais marchands à partir de la même ligne; le flux bancaire correspond alors au **Net deposited**. Le fichier des totaux additionne les frais de traitement par code de taxe séparément du revenu, de sorte que les frais sont une dépense dans vos livres, pas une vente plus petite." },
-          { p: "Les paiements sont filtrés sur la **date du paiement lui-même**, pas celle de la facture — une facture de décembre payée en janvier est de l'argent de janvier. Les colonnes de frais sont vides pour les paiements manuels et pour les paiements en ligne encaissés avant que les frais soient notés sur le paiement." },
-          { tip: "Pour importer dans QuickBooks en ligne ou Xero : associez Amount → revenu, Processing fee → frais marchands, Net deposited → le dépôt bancaire. Voir [[the-accounting-export|L'export comptable]] et [[quickbooks-xero-and-your-bookkeeper|QuickBooks, Xero et votre comptable]]." },
+          { p: "Chaque paiement en ligne d'une facture porte ses trois chiffres côte à côte — le **montant** (le brut — ce que le client a payé et ce qui a été soustrait de la facture), les **frais de traitement** et le **net déposé** — et c'est là que votre comptable les lit. FieldQuo n'exporte pas les paiements en fichier et ne se synchronise ni avec QuickBooks ni avec Xero." },
+          { p: "Comptabilisez le brut en revenu et les frais en dépense de frais marchands à partir du même paiement; le dépôt bancaire correspond alors au net déposé. Les frais sont une dépense dans vos livres, pas une vente plus petite." },
+          { p: "Un paiement appartient au jour où il a été reçu, pas à la date de la facture — une facture de décembre payée en janvier est de l'argent de janvier. Un paiement manuel, et un paiement en ligne encaissé avant que les frais soient notés sur le paiement, n'affiche aucuns frais." },
+          { tip: "Pour rapprocher un dépôt bancaire de ses paiements, ouvrez **Paramètres → Paiements → Gérer dans Stripe** : le tableau de bord Express de Stripe liste chaque virement avec les paiements qu'il contient. Pour le reste de ce qu'un comptable peut obtenir, voir [[the-accounting-export|Ce que vous pouvez remettre à votre comptable]] et [[quickbooks-xero-and-your-bookkeeper|QuickBooks, Xero et votre comptable]]." },
         ],
       },
     ],
     faq: [
       { q: "Puis-je refiler les frais au client?", a: "Pas sous forme de supplément distinct — le total de la facture est ce que le client paie et les frais sont retenus de votre côté. Fixez le prix du chantier en tenant compte des frais, ou offrez le débit bancaire aux clients canadiens, plafonné à 5 $." },
       { q: "Y a-t-il des frais mensuels pour encaisser des paiements?", a: "Non. Stripe facture de petits frais de compte actif seulement les mois où vous encaissez, et ils apparaissent sur leur propre ligne lors de votre prochain paiement." },
-      { q: "Pourquoi mon relevé bancaire ne correspond-il pas au montant de la facture?", a: "La banque reçoit le net déposé — le montant moins les frais de traitement. La facture et l'export affichent les deux chiffres." },
+      { q: "Pourquoi mon relevé bancaire ne correspond-il pas au montant de la facture?", a: "La banque reçoit le net déposé — le montant moins les frais de traitement. Le paiement, sur la facture, affiche les deux chiffres." },
       { q: "FieldQuo détient-il mon argent?", a: "Jamais. La transaction est créée au nom de votre entreprise et Stripe vire directement dans votre banque." },
     ],
   },
@@ -161,7 +160,7 @@ export const ARTICLES = {
     updated: "2026-09-12",
     intro: [
       "Un client canadien peut payer une facture, un acompte, un versement d'un calendrier de paiement ou un forfait de service par débit préautorisé directement depuis son compte bancaire plutôt que par carte. Les frais sont de **1 % + 0,40 $, plafonnés à 5,00 $** par paiement — un débit de 5 000 $ vous coûte donc 5 $, là où le même montant par carte coûte 150,30 $. Le débit bancaire est refacturé au coût de Stripe; FieldQuo n'y ajoute rien.",
-      "Cet article dit exactement où le débit bancaire est offert (le bouton **Payer … depuis un compte bancaire** de l'espace client pour les factures, les acomptes et les versements, et les forfaits de service avec prélèvement automatique — pour une entreprise qui facture en dollars canadiens), ce que le client accepte, combien de temps un débit met à passer, et comment les frais figurent sur la facture et dans votre export comptable.",
+      "Cet article dit exactement où le débit bancaire est offert (le bouton **Payer … depuis un compte bancaire** de l'espace client pour les factures, les acomptes et les versements, et les forfaits de service avec prélèvement automatique — pour une entreprise qui facture en dollars canadiens), ce que le client accepte, combien de temps un débit met à passer, et comment les frais figurent sur la facture.",
     ],
     sections: [
       {
@@ -200,7 +199,7 @@ export const ARTICLES = {
               ["5 000 $", "5,00 $ (le plafond)", "150,30 $"],
             ],
           } },
-          { p: "Les frais sont déduits du prélèvement avant que l'argent atteigne votre banque, comme pour une carte. La ligne du paiement sur la facture se lit, par exemple, **« frais débit bancaire 5,00 $ · déposé 4 995,00 $ »**, et l'export comptable inscrit le mode « acss_debit » dans sa colonne **Fee rate**. Il n'y a aucun supplément international ni de conversion de devise sur le débit bancaire, et les frais sont les mêmes que le débit vienne du bouton de l'espace client ou d'un forfait." },
+          { p: "Les frais sont déduits du prélèvement avant que l'argent atteigne votre banque, comme pour une carte. La ligne du paiement sur la facture se lit, par exemple, **« frais débit bancaire 5,00 $ · déposé 4 995,00 $ »**. Il n'y a aucun supplément international ni de conversion de devise sur le débit bancaire, et les frais sont les mêmes que le débit vienne du bouton de l'espace client ou d'un forfait." },
           { tip: "Le plafond est atteint à 460 $. Au-delà, chaque dollar de plus qu'un client paie par débit bancaire est sans frais — c'est pourquoi un forfait d'entretien trimestriel ou annuel est l'endroit où l'offrir." },
         ],
       },
@@ -467,7 +466,6 @@ export const ARTICLES = {
             "**Une ligne de remboursement** à part sous le paiement : un montant négatif, le mode, le motif et qui l'a émis. Le paiement d'origine garde son montant et ses frais. Un deuxième remboursement partiel est une deuxième ligne, et ensemble ils ne peuvent jamais dépasser ce que le paiement retient encore.",
             "Le montant payé de la facture baisse du remboursement et son solde remonte d'autant. Une facture entièrement remboursée se lit **Remboursé**; une facture remboursée en partie se lit **Remboursé en partie**, avec une bannière du genre « Partiellement remboursée — 500,00 $ ont été retournés au client. »",
             "Les propriétaires et les administrateurs reçoivent une notification une fois que Stripe confirme le remboursement : « Somme reprise sur la facture INV-1042 — Jane Tremblay », marquée **Remboursé**. Le niveau Gestionnaire ne la reçoit pas — voir [[disputes-and-chargebacks|Litiges et rétrofacturations]] pour savoir qui est averti.",
-            "Dans l'export comptable, le paiement garde son brut, ses frais et son net, et le remboursement est une ligne à part dans le fichier des paiements — mode **refund**, un montant négatif, l'identifiant de remboursement Stripe comme référence et votre motif comme note — avec un total **Refunds** dans le sommaire à côté de **Payments received**. Un remboursement fait directement dans votre tableau de bord Stripe est plutôt inscrit sur le montant remboursé du paiement d'origine, pas comme une ligne.",
           ] },
           { p: "Un remboursement sur une version antérieure d'une facture modifiée est appliqué à la dernière version, parce que la famille de versions partage un seul solde courant." },
         ],

@@ -390,8 +390,17 @@ export default async function DataDeletionPage({ searchParams }) {
         We will confirm it is you, tell you what will be removed and what must
         be retained under Section 6, and carry it out by hand.
       </p>
+      {/* This used to say "export anything you still want first". There is
+          no bulk export — a company can import but not export (owner,
+          2026-09-24) — so the honest instruction is the documents that DO
+          download one at a time, plus the copy a person sends on written
+          request, which privacy law (Law 25, PIPEDA, GDPR) entitles a
+          company to and which is not a self-serve export. */}
       <p>
-        Before you ask: <strong>export anything you still want first.</strong>{" "}
+        Before you ask:{" "}
+        <strong>download any quote, invoice or payslip PDFs you still want first,</strong>{" "}
+        or ask in the same request for a copy of your data and we will send it
+        before anything is removed.{" "}
         Deletion is not reversible, and FieldQuo does not keep a copy for you
         afterwards.
       </p>

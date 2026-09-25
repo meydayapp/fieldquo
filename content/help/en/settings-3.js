@@ -613,7 +613,7 @@ export const ARTICLES = {
   "settings-expense-tracking": {
     title: "Expense Tracking",
     summary:
-      "The same Expense Tracking screen as Expenses in the main sidebar — the month's cards, the burn breakdown, the trend, recent receipts and the bookkeeping export — reached from Settings.",
+      "The same Expense Tracking screen as Expenses in the main sidebar — the month's cards, the burn breakdown, the trend and recent receipts — reached from Settings.",
     updated: "2026-09-12",
     intro: [
       "**Settings → Expense Tracking** opens the very same page as **Expenses** in the main sidebar. It is listed under Settings because the burn-rate numbers on it — salaries, overhead, debt — are company settings as much as they are a report. Everything about the page itself is in [[expense-tracking-and-burn-rate|Expense tracking and your burn rate]]; this article only says what is on it and who sees it.",
@@ -623,8 +623,8 @@ export const ARTICLES = {
         id: "overview",
         heading: "Overview",
         blocks: [
-          { p: "**Expense Tracking — Where your money goes — by job, overhead, and category — plus your monthly burn rate.** The page is one month at a time, with **Add Expense** and **Import from bank CSV** at the top, four cards, an AI summary of the month, the breakdown and trend, the recent receipts, and the **Bookkeeping export** at the bottom." },
-          { figure: "live:app-settings-expense-tracking", caption: "Expense Tracking — the month's four cards, the Monthly Burn Breakdown and, at the bottom, the Bookkeeping export." },
+          { p: "**Expense Tracking — Where your money goes — by job, overhead, and category — plus your monthly burn rate.** The page is one month at a time, with **Receipts**, **Scan receipt**, **Import from bank CSV** and **Add Expense** at the top, four cards, an AI summary of the month, the breakdown and trend, and the recent receipts." },
+          { figure: "live:app-settings-expense-tracking", caption: "Expense Tracking — the month's four cards and the Monthly Burn Breakdown." },
         ],
       },
       {
@@ -636,7 +636,7 @@ export const ARTICLES = {
             "**AI Summary** — a written read of the month you generate on demand.",
             "**Monthly Burn Breakdown** with **Manage salaries & debt**, **Spend by Category**, and the **6-Month Trend**.",
             "**Recent Expenses** — each receipt with its date, category, amount, the job it is linked to, and delete.",
-            "**Bookkeeping export** — a date range and a download of CSV files for your accountant. See [[the-accounting-export|The accounting export]] and [[import-expenses-from-a-bank-csv|Import expenses from a bank CSV]].",
+            "**Import from bank CSV** — bring a bank statement in as expenses. See [[import-expenses-from-a-bank-csv|Import expenses from a bank CSV]]. Nothing on the screen exports; for what an accountant can have, see [[the-accounting-export|What to hand your accountant]].",
           ] },
         ],
       },
@@ -754,7 +754,7 @@ export const ARTICLES = {
         heading: "Overview",
         blocks: [
           { p: "FieldQuo does the arithmetic with the rates you save here. It does not file or remit anything, and it does not update rates when they change — the regional templates are published figures for the year shown, offered as a starting point, and they become your numbers the moment you seed them. Review them each tax year with your accountant." },
-          { note: "FieldQuo works out gross pay, produces the payslips and exports the run. It does not pay employees or file your payroll taxes — deductions are the ones you or your accountant supply. Running payroll itself is in [[payroll-runs|Payroll runs]]." },
+          { note: "FieldQuo works out gross pay and produces the payslips. It does not pay employees or file your payroll taxes — deductions are the ones you or your accountant supply. Running payroll itself is in [[payroll-runs|Payroll runs]]." },
         ],
       },
       {

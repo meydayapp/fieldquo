@@ -17,6 +17,17 @@ what to do next to it.
 
 **Read `docs/ROADMAP.md` for where this sits against everything else.**
 
+> **Superseded in part — owner decision, 24 September 2026:** companies "can
+> import but not export… just hide them even for paying customers." Rank 1
+> below was built and is now OFF: `GET /api/export/accounting` answers 403
+> through `lib/export/companyDataExport.js` and the Expenses screen no longer
+> carries the card (the module and route are kept, and still checked). Rank 2
+> (outbound webhooks) and rank 4 (a QuickBooks Online push) would both move a
+> company's records out of FieldQuo, so they conflict with the decision too.
+> Neither was queued as planned work, so nothing was removed from a queue; do
+> not start either without asking the owner first. See ROADMAP, "Import, not
+> export".
+
 ---
 
 ## The recommendation, first

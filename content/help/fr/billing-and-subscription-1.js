@@ -528,7 +528,7 @@ export const ARTICLES = {
         heading: "Vue d'ensemble",
         blocks: [
           { p: "FieldQuo vous facture par Stripe Billing, dans votre propre devise — dollars canadiens pour une adresse au Canada, dollars américains pour une adresse aux États-Unis. À chaque période, Stripe émet une facture, prélève la carte au dossier et marque la facture payée; la facture payée est le reçu. Il n'y a pas de courriel de reçu distinct aux couleurs de FieldQuo par prélèvement." },
-          { p: "C'est la direction opposée aux factures de votre écran **Factures**, qui sont les vôtres envoyées à vos clients et qui passent par votre propre compte Stripe connecté. Les deux ne se mélangent jamais : votre facture d'abonnement n'est pas dans votre export comptable, et le paiement d'un client n'est jamais sur votre client Stripe." },
+          { p: "C'est la direction opposée aux factures de votre écran **Factures**, qui sont les vôtres envoyées à vos clients et qui passent par votre propre compte Stripe connecté. Les deux ne se mélangent jamais : votre facture d'abonnement ne figure jamais parmi vos factures aux clients, et le paiement d'un client n'est jamais sur votre client Stripe." },
         ],
       },
       {
@@ -581,7 +581,7 @@ export const ARTICLES = {
     faq: [
       { q: "FieldQuo peut-il m'envoyer la facture par courriel chaque mois?", a: "Pas depuis l'application. La facture est dans le portail Stripe par **Gérer la facturation et le mode de paiement**, téléchargeable en PDF." },
       { q: "Pourquoi la facture montre-t-elle des taxes alors que mes propres factures à mes clients n'en montrent pas?", a: "Ce sont deux ventes différentes. Stripe ajoute la taxe qui s'applique à FieldQuo qui vous vend, d'après votre adresse de facturation. La taxe sur vos factures à vos clients vient de vos propres réglages de taxes." },
-      { q: "Mon abonnement est-il dans l'export comptable?", a: "Non. L'export couvre les paiements de vos clients et vos dépenses. Enregistrez la facture FieldQuo comme dépense logicielle à partir du PDF." },
+      { q: "Mon abonnement figure-t-il dans mes dépenses?", a: "Pas à moins que vous l'ajoutiez. FieldQuo n'inscrit pas son propre prélèvement parmi vos dépenses. Enregistrez la facture FieldQuo comme dépense logicielle à partir du PDF — dans vos propres livres, ou avec Ajouter une dépense dans Dépenses." },
     ],
   },
 };

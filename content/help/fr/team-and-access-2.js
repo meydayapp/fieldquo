@@ -195,7 +195,7 @@ export const ARTICLES = {
     updated: "2026-09-12",
     intro: [
       "L'écran **Paie** calcule ce que chaque personne doit recevoir pour une période, à partir des heures qu'un gestionnaire a approuvées dans les Feuilles de temps et des taux enregistrés sur sa fiche, et produit un bulletin par personne. La phrase en haut de l'écran est tout le contrat : « Vous payez par votre propre banque ou votre fournisseur de paie — FieldQuo ne déplace pas l'argent. »",
-      "La matrice des fonctionnalités marque la paie comme partielle, et la limite est exactement celle-là : FieldQuo calcule le brut, produit les bulletins et exporte la paie. Il ne paie pas les employés et ne produit pas vos déclarations de retenues — les retenues sont celles que vous ou votre comptable fournissez dans les [[payroll-settings|Paramètres de paie]].",
+      "La matrice des fonctionnalités marque la paie comme partielle, et la limite est exactement celle-là : FieldQuo calcule le brut et produit les bulletins. Il ne paie pas les employés et ne produit pas vos déclarations de retenues — les retenues sont celles que vous ou votre comptable fournissez dans les [[payroll-settings|Paramètres de paie]].",
     ],
     sections: [
       {
@@ -214,7 +214,7 @@ export const ARTICLES = {
           { bullets: [
             "**Ma rémunération** — **Période en cours** avec ses dates et son jour de paie, vos heures approuvées × votre taux (ou « Aucun taux horaire n'est enregistré sur votre fiche, ce montant ne peut donc pas encore être calculé. »), une barre de progression dans la période, puis **Brut**, **Retenues** et **Net** pour l'année, puis vos bulletins.",
             "**Nouvelle période de paie** — « Seules les heures approuvées sont incluses. Approuvez d'abord les feuilles de temps, sinon ces heures ne seront pas payées. » Quatre champs : **Début de la période**, **Fin de la période**, **Fréquence** (Chaque semaine, Toutes les 2 semaines, Deux fois par mois, Une fois par mois) et **Libellés du bulletin** (Canada, États-Unis, Royaume-Uni), puis **Calculer**.",
-            "**Périodes de paie** — une rangée par paie : la période, combien de personnes et la région des libellés (« 5 personnes · CA »), le total net et un badge d'état. Ouvrir une rangée montre chaque ligne et les boutons **Approuver la paie** / **Enregistrer comme payée** / **Exporter CSV**.",
+            "**Périodes de paie** — une rangée par paie : la période, combien de personnes et la région des libellés (« 5 personnes · CA »), le total net et un badge d'état. Ouvrir une rangée montre chaque ligne, un **Bulletin de paie PDF** par personne une fois la paie approuvée, et les boutons **Approuver la paie** / **Enregistrer comme payée**.",
           ] },
         ],
       },
@@ -268,16 +268,16 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Qui peut le voir",
         blocks: [
-          { p: "La ligne **Paie** est dans le menu de tout le monde, parce que tout le monde a des bulletins. Faire la paie — Calculer, Enregistrer comme brouillon, Approuver la paie, Enregistrer comme payée, Exporter CSV — exige le domaine « Payroll & Payslips » réglé à « View everyone's and run payroll », que les propriétaires et administrateurs détiennent d'office. « View everyone's payslips » ouvre chaque paie en lecture seule." },
+          { p: "La ligne **Paie** est dans le menu de tout le monde, parce que tout le monde a des bulletins. Faire la paie — Calculer, Enregistrer comme brouillon, Approuver la paie, Enregistrer comme payée — exige le domaine « Payroll & Payslips » réglé à « View everyone's and run payroll », que les propriétaires et administrateurs détiennent d'office. « View everyone's payslips » ouvre chaque paie en lecture seule." },
           { p: "Chaque préréglage — Crew, Estimator, Dispatcher, Manager — commence à « View their own payslips ». La description du Manager dit « pas la paie » et le pense; un propriétaire qui veut qu'un gestionnaire fasse la paie l'accorde délibérément dans l'[[the-custom-access-editor|éditeur d'accès personnalisé]]." },
         ],
       },
     ],
     faq: [
-      { q: "FieldQuo vire-t-il les salaires?", a: "Non. Il calcule les chiffres et produit des bulletins et un CSV. Vous payez par votre banque ou votre fournisseur de paie, puis vous appuyez sur Enregistrer comme payée pour que les bulletins puissent dire quand." },
+      { q: "FieldQuo vire-t-il les salaires?", a: "Non. Il calcule les chiffres et produit des bulletins. Vous payez par votre banque ou votre fournisseur de paie, puis vous appuyez sur Enregistrer comme payée pour que les bulletins puissent dire quand." },
       { q: "Pourquoi quelqu'un apparaît-il à 0 $ ou sans paie?", a: "Aucun taux horaire ni coût de main-d'œuvre n'est enregistré sur sa fiche, ou ses heures de la période sont encore en attente. L'aperçu dit lequel." },
       { q: "Puis-je corriger une paie après son approbation?", a: "Annulez-la et refaites la période, tant qu'elle n'a pas été enregistrée comme payée. Une paie payée est finale; une correction est une seconde paie sur la même période, enregistrée comme brouillon — l'approbation ne refuse que tant qu'une paie approuvée ou payée chevauche." },
-      { q: "Que contient Exporter CSV?", a: "Une rangée par personne avec les heures, le brut, une colonne par retenue ou gain nommé dans la paie, et le net — la passation au comptable ou au fournisseur de paie qui paie réellement. Une cellule est laissée vide, pas à 0,00, quand cette personne n'avait pas cette ligne." },
+      { q: "Comment transmettre une paie à mon comptable ou à mon fournisseur de paie?", a: "Ouvrez la paie : les heures, le brut, les retenues et le net de chaque personne sont à l'écran, et le **Bulletin de paie PDF** de chacun se télécharge une fois la paie approuvée. FieldQuo n'exporte pas une paie en fichier." },
     ],
   },
 
@@ -455,7 +455,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Vue d'ensemble",
         blocks: [
-          { p: "L'écran est coiffé de **Sous-traitants** — « Les entreprises que vous engagez par chantier — l'électricien, le couvreur. Leurs dates d'assurance et d'attestation, ce que vous avez convenu avec eux sur chaque chantier, et ce que vous leur avez payé cette année. » Chaque sous-traitant a une fiche avec des documents, les chantiers où il est et les paiements inscrits à son nom; le total de l'année est ce qui devient la [[the-t5018-year-end-list|liste de fin d'année T5018]]." },
+          { p: "L'écran est coiffé de **Sous-traitants** — « Les entreprises que vous engagez par chantier — l'électricien, le couvreur. Leurs dates d'assurance et d'attestation, ce que vous avez convenu avec eux sur chaque chantier, et ce que vous leur avez payé cette année. » Chaque sous-traitant a une fiche avec des documents, les chantiers où il est et les paiements inscrits à son nom; le total de l'année est le chiffre derrière les [[the-t5018-year-end-list|montants de fin d'année pour le T5018]]." },
           { note: "Ce qu'un sous-traitant est dû et a reçu, c'est du coût de chantier. Les coûts de chantier prennent le **montant convenu** comme coût de ce sous-traitant sur le chantier — un sous-traitant à 5 000 $ qui a reçu 2 000 $ a coûté 5 000 $ au chantier — et les paiements sont la façon de le régler. Voir [[job-costing|Coûts de chantier]]." },
         ],
       },
@@ -465,7 +465,7 @@ export const ARTICLES = {
         blocks: [
           { bullets: [
             "**Assurance ou attestation qui expire** — chaque sous-traitant dont l'assurance ou l'attestation est **Bientôt échue** (d'ici 30 jours) ou **Expirée**, le pire d'abord, chacun nommant laquelle des deux.",
-            "**Payé en** avec un sélecteur d'année, et **Liste de fin d'année (CSV)** — affichés seulement à quelqu'un qui peut voir l'argent.",
+            "**Payé en** avec un sélecteur d'année — l'année en cours et les deux précédentes — affiché seulement à quelqu'un qui peut voir l'argent.",
             "**Une carte par sous-traitant** — le nom de l'entreprise, **Inactif** le cas échéant, puis le métier, la personne-ressource et le téléphone, un badge pour la pire des deux échéances, et, pour qui peut voir l'argent, « 6 840,00 $ payé en 2026 (3 paiements) » avec « Pas de relevé fiscal » quand le sous-traitant est exclu du relevé de fin d'année.",
             "**Ajouter** — ouvre le formulaire de nouveau sous-traitant.",
           ] },
@@ -484,7 +484,7 @@ export const ARTICLES = {
             "Sur la fiche du sous-traitant, téléversez les certificats sous **Documents** — une **Attestation d'assurance** ou une **Attestation CNESST / WSIB / WCB** avec sa date d'expiration règle la date du sous-traitant du même coup.",
           ] },
           { figure: "create:app-subcontractors-create", caption: "Sous-traitants → Ajouter — le formulaire de nouveau sous-traitant : entreprise, métier, contact, les deux dates d'expiration et la case du relevé de fin d'année." },
-          { tip: "Un sous-traitant que vous n'utilisez plus reçoit **Marquer inactif** plutôt qu'une suppression : il sort du sélecteur « ajouter un sous-traitant à un chantier », garde ses chantiers et ses paiements, et figure toujours sur la liste de fin d'année pour les années où vous l'avez payé." },
+          { tip: "Un sous-traitant que vous n'utilisez plus reçoit **Marquer inactif** plutôt qu'une suppression : il sort du sélecteur « ajouter un sous-traitant à un chantier », garde ses chantiers et ses paiements, et figure toujours avec son total pour les années où vous l'avez payé." },
         ],
       },
       {
@@ -522,7 +522,7 @@ export const ARTICLES = {
         heading: "Qui peut le voir",
         blocks: [
           { p: "Ouvrir la liste, ajouter un sous-traitant, en modifier un et déposer des documents exigent la permission de gestion d'équipe — propriétaires, administrateurs, Managers et Dispatchers. Le nom d'un sous-traitant et la validité de son assurance, c'est de l'exploitation : le répartiteur qui met l'électricien sur la visite de jeudi doit savoir que son attestation est échue. Crew et Estimator ne voient pas la ligne." },
-          { p: "L'argent sur l'écran — montants convenus, paiements, totaux annuels, **Payé en** et le CSV — exige en plus l'interrupteur « Job costing ». Un Dispatcher ouvre la liste, voit l'assurance échue, et ne voit aucun chiffre; un Manager voit les deux. Voir [[the-custom-access-editor|L'éditeur d'accès personnalisé]]." },
+          { p: "L'argent sur l'écran — montants convenus, paiements, totaux annuels et **Payé en** — exige en plus l'interrupteur « Job costing ». Un Dispatcher ouvre la liste, voit l'assurance échue, et ne voit aucun chiffre; un Manager voit les deux. Voir [[the-custom-access-editor|L'éditeur d'accès personnalisé]]." },
         ],
       },
     ],
@@ -534,49 +534,48 @@ export const ARTICLES = {
   },
 
   "the-t5018-year-end-list": {
-    title: "La liste de fin d'année T5018",
+    title: "Les montants de fin d'année pour le T5018",
     summary:
-      "Un CSV par année civile listant chaque sous-traitant, s'il figure sur le relevé des sous-traitants, ce que vous lui avez payé et combien de paiements — le chiffre que le comptable reconstituait à partir des talons de chèques.",
-    updated: "2026-09-12",
+      "Où lire ce que chaque sous-traitant a reçu dans une année civile, et en combien de paiements — les montants qui servent à remplir un T5018 ou un 1099-NEC, à l'écran plutôt que reconstitués à partir des talons de chèques.",
+    updated: "2026-09-25",
     intro: [
-      "Au Canada, un entrepreneur qui a payé plus de 500 $ dans l'année à un sous-traitant en construction produit un T5018 à son nom; aux États-Unis, c'est un 1099-NEC au-delà de 600 $. Les deux sont une liste d'entreprises et de montants. FieldQuo bâtit cette liste à partir des paiements que vous avez inscrits pour chaque sous-traitant sur chaque chantier, si bien que le chiffre sur la fiche du sous-traitant, le chiffre dans le fichier et le chiffre dans les [[job-costing|Coûts de chantier]] sont les mêmes lignes additionnées une seule fois.",
+      "Au Canada, un entrepreneur qui a payé plus de 500 $ dans l'année à un sous-traitant en construction produit un T5018 à son nom; aux États-Unis, c'est un 1099-NEC au-delà de 600 $. Les deux sont une liste d'entreprises et de montants. FieldQuo additionne ce montant à partir des paiements que vous avez inscrits pour chaque sous-traitant sur chaque chantier, si bien que le chiffre de la liste, celui de la fiche du sous-traitant et celui des [[job-costing|Coûts de chantier]] sont les mêmes lignes additionnées une seule fois.",
     ],
     sections: [
       {
         id: "overview",
         heading: "Vue d'ensemble",
         blocks: [
-          { p: "La liste, c'est le bouton **Liste de fin d'année (CSV)** sur l'écran **Sous-traitants**, à côté du sélecteur d'année **Payé en**. Le même chiffre s'affiche sur la fiche de chaque sous-traitant comme « Payé en 2026 — le montant du relevé de fin d'année » avec le nombre de paiements, et sur la carte de la liste comme « 6 840,00 $ payé en 2026 (3 paiements) »." },
-          { p: "Le seuil n'est volontairement pas appliqué. Chaque sous-traitant est listé, y compris ceux payés 0 $ et ceux marqués **Pas de relevé fiscal**, parce que c'est le comptable qui décide qui produit un relevé et FieldQuo ne sait pas quelle règle s'applique chez vous. Une rangée à zéro dit « on a vérifié, rien »; une rangée absente ne dit rien." },
+          { p: "Les montants sont sur l'écran **Sous-traitants**. Choisissez l'année sous **Payé en** et chaque carte affiche, par exemple, « 6 840,00 $ payé en 2026 (3 paiements) ». Le même chiffre apparaît sur la fiche de chaque sous-traitant comme « Payé en 2026 — le montant du relevé de fin d'année »." },
+          { p: "FieldQuo affiche ces montants; il ne les télécharge pas en fichier. Relevez-les à l'écran pour votre comptable, ou donnez à votre comptable un accès qui les voit — voir [[the-accounting-export|Ce que vous pouvez remettre à votre comptable]]." },
         ],
       },
       {
-        id: "download-the-list",
-        heading: "Comment télécharger la liste",
+        id: "read-the-figures",
+        heading: "Comment relever les montants pour votre comptable",
         blocks: [
           { steps: [
             "Ouvrez **Sous-traitants** (sous Personnes).",
-            "Choisissez l'année sous **Payé en** — le sélecteur change les totaux sur chaque carte.",
-            "Appuyez sur **Liste de fin d'année (CSV)**. Le fichier se nomme subcontractors-2026.csv.",
-            "Remettez-le à votre comptable. Le téléchargement est inscrit au [[the-activity-log|Journal d'activité]].",
+            "Choisissez l'année sous **Payé en** — l'année en cours ou l'une des deux précédentes. Le sélecteur change le total sur chaque carte.",
+            "Lisez chaque carte : l'entreprise, ce qu'elle a reçu cette année-là et en combien de paiements, et **Pas de relevé fiscal** quand le sous-traitant est exclu du relevé de fin d'année.",
+            "Remettez à votre comptable chaque entreprise et son montant. C'est lui qui décide qui reçoit un relevé.",
           ] },
-          { figure: "harness:subcontractors", caption: "Sous-traitants — le sélecteur d'année Payé en et le bouton Liste de fin d'année (CSV) au-dessus de la liste, chaque carte avec son total payé dans l'année." },
-          { note: "Le fichier indique sa devise d'après le Profil de l'entreprise et se termine par « Recorded in FieldQuo; no form has been filed through this system. » FieldQuo produit la liste; il ne produit aucune déclaration." },
+          { figure: "harness:subcontractors", caption: "Sous-traitants — le sélecteur d'année Payé en au-dessus de la liste, chaque carte avec son total payé dans l'année." },
+          { note: "FieldQuo additionne les paiements; il ne prépare et ne produit aucune déclaration." },
         ],
       },
       {
-        id: "what-is-in-the-file",
-        heading: "Ce qu'il y a dans le fichier",
+        id: "what-each-card-shows",
+        heading: "Ce qu'affiche chaque carte",
         blocks: [
           { table: {
-            head: ["Colonne", "Ce qu'elle contient"],
+            head: ["Sur la carte", "Ce que ça veut dire"],
             rows: [
-              ["Subcontractor", "Le nom de l'entreprise, en ordre alphabétique."],
-              ["Trade", "Le métier sur sa fiche, ou vide."],
-              ["Tax form", "yes ou no — la case **Figure sur le relevé de fin d'année des sous-traitants (T5018 / 1099-NEC)** de sa fiche."],
-              ["Paid in year", "La somme des paiements datés dans cette année civile, au cent près."],
-              ["Payments", "Combien de paiements composent ce total."],
-              ["Active", "yes ou no — un sous-traitant inactif que vous avez payé plus tôt dans l'année est quand même listé."],
+              ["Le nom de l'entreprise", "Les sous-traitants actifs d'abord, puis les inactifs, chaque groupe en ordre alphabétique. Un sous-traitant inactif payé plus tôt dans l'année reste dans la liste, marqué **Inactif**."],
+              ["Métier, contact et téléphone", "Ce qui figure sur sa fiche, ou **Aucun détail pour l'instant**."],
+              ["« … payé en 2026 »", "La somme des paiements datés dans cette année civile, au cent près. Un sous-traitant que vous n'avez pas payé cette année-là affiche 0,00 $ au lieu de disparaître."],
+              ["« (3 paiements) »", "Combien de paiements composent ce total."],
+              ["Pas de relevé fiscal", "La case **Figure sur le relevé de fin d'année des sous-traitants (T5018 / 1099-NEC)** est décochée sur sa fiche."],
             ],
           } },
         ],
@@ -588,8 +587,8 @@ export const ARTICLES = {
           { bullets: [
             "Un paiement compte dans l'année de sa date **Payé le**, pas dans l'année du chantier ni du montant convenu.",
             "Seuls les paiements inscrits avec **Enregistrer un paiement** sur un chantier comptent. Un montant convenu qui n'a pas été payé n'est pas dans le total.",
-            "Une rangée **TOTAL** au bas additionne chaque sous-traitant et chaque paiement de l'année.",
-            "**Pas de relevé fiscal** sur un sous-traitant ne le retire pas du fichier — ça met sa colonne Tax form à no, pour que votre comptable voie la décision plutôt qu'une absence.",
+            "Le seuil n'est volontairement pas appliqué : chaque sous-traitant s'affiche avec son total, aussi petit soit-il, parce que c'est le comptable qui décide qui produit un relevé et FieldQuo ne sait pas quelle règle s'applique chez vous.",
+            "**Pas de relevé fiscal** sur un sous-traitant ne le cache pas — la carte montre quand même le total, avec la mention à côté, pour que votre comptable voie la décision plutôt qu'une absence.",
           ] },
         ],
       },
@@ -597,14 +596,14 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Qui peut le voir",
         blocks: [
-          { p: "Le bouton, le sélecteur **Payé en** et chaque chiffre d'argent exigent à la fois la permission de gestion d'équipe et l'interrupteur « Job costing » — propriétaires, administrateurs, et un Manager avec les coûts de chantier activés. Un Dispatcher voit la liste et les badges d'assurance, mais ni totaux ni bouton. Une session d'assistance en lecture seule se voit refuser le fichier carrément." },
+          { p: "Le sélecteur **Payé en** et chaque chiffre d'argent exigent à la fois la permission de gestion d'équipe et l'interrupteur « Job costing » — propriétaires, administrateurs, et un Manager avec les coûts de chantier activés. Un Dispatcher voit la liste et les badges d'assurance, mais aucun total." },
         ],
       },
     ],
     faq: [
-      { q: "FieldQuo produit-il le T5018 ou le 1099-NEC?", a: "Non. Il produit la liste des entreprises et des montants; le formulaire est préparé et transmis par vous ou votre comptable." },
-      { q: "Pourquoi un sous-traitant payé en décembre dernier est-il dans le fichier de cette année?", a: "Parce que la date Payé le du paiement tombe cette année. Modifiez la date sur le paiement si elle a été mal inscrite; le total suit la date." },
-      { q: "Puis-je obtenir la liste d'une année antérieure?", a: "Oui — choisissez l'année sous Payé en et appuyez sur le bouton. Toute année avec des paiements inscrits fonctionne." },
+      { q: "FieldQuo produit-il le T5018 ou le 1099-NEC?", a: "Non. Il additionne ce que vous avez payé à chaque entreprise; le formulaire est préparé et transmis par vous ou votre comptable." },
+      { q: "Pourquoi un sous-traitant payé en décembre dernier est-il dans le total de cette année?", a: "Parce que la date Payé le du paiement tombe cette année. Modifiez la date sur le paiement si elle a été mal inscrite; le total suit la date." },
+      { q: "Puis-je télécharger la liste en CSV?", a: "Non. FieldQuo importe des listes, mais ne les exporte pas. Les montants sont à l'écran, pour l'année en cours et les deux précédentes." },
     ],
   },
 
@@ -845,7 +844,7 @@ export const ARTICLES = {
         blocks: [
           { bullets: [
             "**Soumissions, factures et chantiers** — créés, envoyés, relancés, acceptés, marqués payés, planifiés.",
-            "**Argent** — paiements inscrits, dépenses, un paiement à un sous-traitant, une paie enregistrée, approuvée, enregistrée comme payée ou annulée, une composante de paie ajoutée ou retirée, la liste de fin d'année téléchargée.",
+            "**Argent** — paiements inscrits, dépenses, un paiement à un sous-traitant, une paie enregistrée, approuvée, enregistrée comme payée ou annulée, une composante de paie ajoutée ou retirée.",
             "**Heures** — entrées de temps ajoutées, modifiées et approuvées, y compris une personne qui approuve les siennes.",
             "**Équipe** — invitations, un niveau d'accès changé, un membre désactivé, des heures de travail ou des politiques de congés changées, une année de congés reportée.",
             "**Clients** — un client ajouté ou ses coordonnées modifiées.",

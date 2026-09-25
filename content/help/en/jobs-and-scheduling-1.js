@@ -90,7 +90,7 @@ export const ARTICLES = {
     faq: [
       { q: "Why is a job missing for my crew member?", a: "A crew member only sees jobs with a visit assigned to them. Book a visit on the job with their name on it and it appears in their list immediately." },
       { q: "Does the Archived toggle mean cancelled?", a: "No. Cancelled is a status; archived is whether you still want to see the job. A finished job you file away stays Completed, and Restore on the job page brings it back to the live list." },
-      { q: "Can I sort or export the list?", a: "Not from this screen. The order is fixed, newest first, and there is no export here — past-job history goes the other way, into FieldQuo, through Past jobs." },
+      { q: "Can I sort or export the list?", a: "No. The order is fixed, newest first, and FieldQuo does not export lists — past-job history goes the other way, into FieldQuo, through Past jobs." },
     ],
   },
 

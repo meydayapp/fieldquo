@@ -439,7 +439,7 @@ export const SCREENS_CHAPTER = {
     ] },
     subcontractors: { body: [
       "Las empresas contratadas por trabajo — el electricista, el fabricante de encimeras — con oficio, contacto, y si su seguro o su certificado está al día, por vencer o vencido; los que vencen suben a un panel arriba para que nadie pise la obra sin cobertura.",
-      "Un selector de año totaliza lo pagado a cada subcontratista, y « Lista de fin de año (CSV) » exporta la lista T5018.",
+      "Un selector de año totaliza en pantalla lo pagado a cada subcontratista. No hay CSV de fin de año: FieldQuo importa pero no exporta (decisión del propietario, 2026-09-24).",
     ] },
     scheduler: { body: [
       "« Programación » — la semana de la cuadrilla en siete tarjetas de día. « Agregar turno » pone a una persona en un trabajo con horas y una nota (cargar la furgoneta, entregar los gabinetes); los turnos quedan en borrador, invisibles para la cuadrilla, hasta « Publicar semana ».",
@@ -509,7 +509,7 @@ export const SCREENS_CHAPTER = {
     ] },
     expenses: { body: [
       "« Seguimiento de gastos » — a dónde va el dinero, por trabajo, gastos generales y categoría, más la tasa de gasto mensual. Un selector de mes sobre cuatro tarjetas: los gastos registrados del mes, la tasa de gasto mensual (generales + salarios + deudas), el margen de maniobra y el gasto ligado a trabajos.",
-      "Debajo: una tarjeta « Resumen de IA », el desglose mensual y el gasto por categoría en barras, la tendencia de 6 meses, y los gastos recientes con cada recibo etiquetado como general o ligado a un trabajo. « Agregar gasto », « Importar desde un CSV del banco », y una tarjeta « Exportación contable » que descarga un rango de fechas en CSV para el contador.",
+      "Debajo: una tarjeta « Resumen de IA », el desglose mensual y el gasto por categoría en barras, la tendencia de 6 meses, y los gastos recientes con cada recibo etiquetado como general o ligado a un trabajo. « Agregar gasto » e « Importar desde un CSV del banco ». No hay exportación contable — FieldQuo importa pero no exporta (decisión del propietario, 2026-09-24); no le prometas un archivo al contador.",
     ] },
     purchasing: { body: [
       "« Compras » — a quién se le compra, qué hay pedido y qué hay en el estante. Tres pestañas: « Pedidos », « Existencias », « Proveedores ». Pedidos lista cada orden de compra con su proveedor, cuántas líneas se recibieron, su estado y su total; « Nuevo pedido » crea una.",
@@ -662,7 +662,7 @@ export const SCREENS_CHAPTER = {
       "Una sola conexión alimenta tres cosas: el gasto publicitario en los KPI, los formularios en Prospectos, y los mensajes de la página, de Instagram y de WhatsApp en Mensajes.",
     ] },
     "settings-expense-tracking": { body: [
-      "La misma pantalla « Seguimiento de gastos » que « Gastos » en el menú principal: las tarjetas del mes, el desglose, la tendencia, los recibos recientes y la exportación contable.",
+      "La misma pantalla « Seguimiento de gastos » que « Gastos » en el menú principal: las tarjetas del mes, el desglose, la tendencia y los recibos recientes.",
     ] },
     "settings-ai-credit": { body: [
       "« Crédito de IA » — todo lo que gasta crédito de IA, en un solo lugar. El saldo de crédito telefónico con « Agregar crédito telefónico » y a dónde fue el crédito; el saldo de crédito de imágenes de IA con recargas; y la tarjeta del plan mensual de crédito de IA.",

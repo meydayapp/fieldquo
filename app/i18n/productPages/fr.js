@@ -27,9 +27,9 @@ const fr = {
     "Modifiez une facture envoyée : l'ancienne est conservée — jamais de doute sur ce qui a été entendu",
   "productPage.quoting.section.pricebook.heading": "Vos services et vos tarifs, réglés une fois",
   "productPage.quoting.section.pricebook.body":
-    "Chaque service que vous offrez a sa propre grille de tarifs — au carré, au pied linéaire, à l'heure, selon ce que le métier facture. Réglez-la une fois et elle remplit chaque soumission. Votre liste de produits s'importe d'un chiffrier et s'exporte de la même façon.",
+    "Chaque service que vous offrez a sa propre grille de tarifs — au carré, au pied linéaire, à l'heure, selon ce que le métier facture. Réglez-la une fois et elle remplit chaque soumission. Votre liste de produits s'importe d'un chiffrier, sans rien retaper.",
   "productPage.quoting.section.pricebook.bullet.1": "Une grille de tarifs par service, dans les unités que votre métier utilise vraiment",
-  "productPage.quoting.section.pricebook.bullet.2": "Produits et services importés d'un CSV, exportés de la même façon",
+  "productPage.quoting.section.pricebook.bullet.2": "Produits et services importés d'un CSV, sans rien retaper",
   "productPage.quoting.section.pricebook.bullet.3": "Coûts des matériaux et recettes derrière le prix, jamais montrés au client",
   "productPage.quoting.section.pricebook.alt":
     "L'écran Services et tarifs : toiture, revêtement et gouttières, chacun avec sa grille de tarifs et les matériaux qui servent à le tarifer",
@@ -76,7 +76,7 @@ const fr = {
     "Non. La soumission, la facture, la page d'approbation, les courriels et le PDF portent votre logo, votre couleur et votre nom comme expéditeur. Notre nom n'apparaît qu'à deux petits endroits : une mention « Site par FieldQuo » dans le pied de votre site web tant que votre entreprise n'est pas sur un forfait payant — elle disparaît dès que c'est le cas — et une mention « Fait par FieldQuo » au bas de la page de lien bio.",
   "productPage.quoting.faq.own-prices.q": "Puis-je utiliser mes propres prix ?",
   "productPage.quoting.faq.own-prices.a":
-    "C'est la seule façon dont ça fonctionne. Chaque service part de tarifs typiques pour votre métier, indiqués comme points de départ, et vous les ajustez à votre marché ; le monteur de soumissions se remplit à partir de vos chiffres, jamais des nôtres. Une liste de prix s'importe aussi d'un chiffrier et s'exporte de la même façon.",
+    "C'est la seule façon dont ça fonctionne. Chaque service part de tarifs typiques pour votre métier, indiqués comme points de départ, et vous les ajustez à votre marché ; le monteur de soumissions se remplit à partir de vos chiffres, jamais des nôtres. Une liste de prix s'importe aussi d'un chiffrier, pour partir de celle que vous tenez déjà.",
   "productPage.quoting.faq.after-approval.q": "Que se passe-t-il quand le client approuve ?",
   "productPage.quoting.faq.after-approval.a":
     "La soumission devient un chantier avec la portée, l'adresse et la paperasse déjà dessus, et un clic la transforme en facture qui reflète la soumission. Si vous aviez demandé un acompte, il est réclamé à l'approbation.",
@@ -208,15 +208,15 @@ const fr = {
     "Le tableau de la journée vu par un répartiteur : heures planifiées, heures supplémentaires au-delà de quarante, pastilles En retard et À l'heure, et une note disant que le coût de main-d'œuvre n'est montré qu'à ceux qui voient les taux de paie",
   "productPage.team.section.payroll.heading": "Cycles de paie et fiches de paie à partir des heures approuvées",
   "productPage.team.section.payroll.body":
-    "Les heures approuvées et le taux de chaque personne deviennent un cycle de paie pour la période que vous choisissez, avec une fiche de paie par personne et un export pour votre comptable. FieldQuo calcule le salaire brut ; il ne paie pas les employés et ne produit pas les déclarations de retenues. Quelqu'un de votre effectif marqué comme contractuel peut être payé pour ses heures pointées par un vrai virement à sa banque.",
-  "productPage.team.section.payroll.bullet.1": "Périodes de paie selon votre cycle, fiches de paie en PDF, le cycle exporté",
+    "Les heures approuvées et le taux de chaque personne deviennent un cycle de paie pour la période que vous choisissez, avec une fiche de paie PDF par personne. FieldQuo calcule le salaire brut ; il ne paie pas les employés et ne produit pas les déclarations de retenues. Quelqu'un de votre effectif marqué comme contractuel peut être payé pour ses heures pointées par un vrai virement à sa banque.",
+  "productPage.team.section.payroll.bullet.1": "Périodes de paie selon votre cycle, une fiche de paie PDF par personne",
   "productPage.team.section.payroll.bullet.2": "Les contractuels de votre effectif payés pour leurs heures pointées au taux que vous fixez",
-  "productPage.team.section.payroll.bullet.3": "Les entreprises sous-traitantes au dossier avec leurs assurances et la liste T5018 de fin d'année",
+  "productPage.team.section.payroll.bullet.3": "Les entreprises sous-traitantes au dossier avec leurs assurances, leurs attestations et ce que vous leur avez payé cette année",
   "productPage.team.section.payroll.alt":
     "Paie : les heures approuvées de la période, brut, retenues et net, et un nouveau cycle de paie en préparation",
   "productPage.team.faq.taxes.q": "FieldQuo produit-il les déclarations de retenues à la source ?",
   "productPage.team.faq.taxes.a":
-    "Non. Il calcule le salaire brut à partir des heures approuvées, produit les fiches de paie et exporte le cycle. Les retenues sont celles que vous ou votre comptable fournissez, et rien n'est transmis à une autorité fiscale.",
+    "Non. Il calcule le salaire brut à partir des heures approuvées et produit les fiches de paie. Les retenues sont celles que vous ou votre comptable fournissez, et rien n'est transmis à une autorité fiscale.",
   "productPage.team.faq.crew-free.q": "Les accès d'équipe sont-ils gratuits ?",
   "productPage.team.faq.crew-free.a":
     "Oui. Un accès Équipe voit son propre horaire, pointe et dépointe, et classe des photos — il ne compte pas dans vos sièges. Les sièges sont pour les personnes qui créent et modifient soumissions, chantiers et factures.",

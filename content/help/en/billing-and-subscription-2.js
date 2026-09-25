@@ -217,7 +217,7 @@ export const ARTICLES = {
         heading: "What happens after you confirm",
         blocks: [
           { bullets: [
-            "**Read-only for 30 days.** Everyone can still open FieldQuo and read everything — download what you need for your accountant — but nobody can change anything. A banner across the top counts the days.",
+            "**Read-only for 30 days.** Everyone can still open FieldQuo, read everything and download any quote or invoice as a PDF, but nobody can change anything. A banner across the top counts the days.",
             "**Then locked.** After the 30 days the account stays shut until the plan is started again. Nothing is deleted at any point; starting again gives all of it back.",
             "**Your clients keep every link.** Quotes, the client portal and invoice pay pages still open, and anything they pay still reaches your own Stripe account.",
             "**No refund, no loss.** A paid period runs to its date and you keep full access until then; the screen states that date before you confirm.",
@@ -622,7 +622,7 @@ export const ARTICLES = {
         heading: "How to request deletion",
         blocks: [
           { steps: [
-            "Download what you need first — the accounting export and any invoices — while the account is still open. Once deleted, nothing can be recovered.",
+            "Download what you need first — the quote and invoice PDFs you want to keep — while the account is still open. FieldQuo does not export your records in bulk. Once deleted, nothing can be recovered.",
             "Write to **hello@fieldquo.com** with the subject **Data deletion request**, from the email address you signed up with, or use the form on the **Data Deletion** page of the FieldQuo website, which records the same request and emails you a reference straight away.",
             "Say which FieldQuo company the request concerns (your contracting business), that you are the account holder, the email the account is under, and whether you want everything deleted or something specific.",
             "Keep the reference you receive — it looks like **FQ-DEL-7K3M9Q**. Typing it into the Data Deletion page shows whether the request is received or completed, with the dates, and nothing else.",
@@ -670,7 +670,7 @@ export const ARTICLES = {
     faq: [
       { q: "Is there a button to delete my account?", a: "No. Deletion is a written request, carried out by hand within 30 business days, and confirmed by email. Cancelling the plan is self-serve; deleting the data is not." },
       { q: "If I cancel and never come back, is my data deleted eventually?", a: "No. Nothing expires on a schedule. The account becomes inaccessible after the 30-day read-only window, but the records stay until someone asks for them to be deleted." },
-      { q: "Can I get a copy of everything before it is deleted?", a: "Download the accounting export and your invoices while the account is open; after the read-only window the account is locked and after deletion nothing can be recovered. Starting the plan again during the window reopens it." },
+      { q: "Can I get a copy of everything before it is deleted?", a: "Not as a download — FieldQuo does not export your records in bulk. You can ask for a copy of your data in writing, the same way as a deletion request, and a person sends it to you. Download the quote and invoice PDFs you want while the account is open; after the read-only window the account is locked and after deletion nothing can be recovered. Starting the plan again during the window reopens it." },
     ],
   },
 };

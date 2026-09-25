@@ -82,7 +82,7 @@ export const ARTICLES = {
     faq: [
       { q: "Pourquoi une ligne affiche-t-elle moins que le total de la facture?", a: "Le chiffre de droite est ce qui reste dû, avec **Payé …** en dessous quand une partie a été reçue. La tuile Impayé additionne exactement ces chiffres, alors la colonne et la tuile concordent toujours." },
       { q: "Pourquoi n'y a-t-il pas de ligne rouge sur une facture que je sais en retard?", a: "Elle n'a pas d'échéance, ou c'est encore un brouillon. Fixez une échéance à la création ou à la modification de la facture; un brouillon n'est pas en retard parce qu'il n'a jamais été envoyé." },
-      { q: "Puis-je exporter cette liste?", a: "Pas depuis cet écran. L'export comptable sous **Dépenses** produit des fichiers CSV pour une période — voir [[the-accounting-export|L'export comptable]]." },
+      { q: "Puis-je exporter cette liste?", a: "Non. FieldQuo importe des listes, mais ne les exporte pas. Chaque facture se télécharge à l'unité en PDF — voir [[the-accounting-export|Ce que vous pouvez remettre à votre comptable]]." },
     ],
   },
 
@@ -380,7 +380,7 @@ export const ARTICLES = {
             "**Le statut** — **Payée** quand plus rien n'est dû et que quelque chose a été reçu; la date de paiement est apposée à ce moment.",
             "**La tâche de relance** — « Follow up payment for INV-… » est résolue une fois le solde réglé.",
             "**Le journal d'activité** — « Recorded a cash payment of 500 on invoice INV-… ».",
-            "**Aucuns frais** — un paiement manuel ne montre ni frais de traitement ni net déposé; l'export laisse ces cellules vides plutôt que d'écrire 0,00. Voir [[payment-processing-fees-and-payouts|Frais de traitement des paiements et versements]].",
+            "**Aucuns frais** — un paiement manuel ne montre ni frais de traitement ni net déposé, plutôt que 0,00. Voir [[payment-processing-fees-and-payouts|Frais de traitement des paiements et versements]].",
           ] },
           { warning: "Il n'y a pas d'annulation d'un paiement enregistré depuis cet écran. Tapez le montant depuis le relevé bancaire, pas de mémoire, et servez-vous du champ de notes pour la référence." },
         ],

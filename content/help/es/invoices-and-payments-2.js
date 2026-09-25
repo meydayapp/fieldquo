@@ -10,7 +10,7 @@ export const ARTICLES = {
   "payment-processing-fees-and-payouts": {
     title: "Comisiones de procesamiento de pagos y transferencias",
     summary:
-      "Lo que le cuesta un pago con tarjeta o por débito bancario, cómo aparece la comisión en cada pago, cuándo llega el dinero a su banco y cómo figura todo en su exportación contable.",
+      "Lo que le cuesta un pago con tarjeta o por débito bancario, cómo aparece la comisión en cada pago, cuándo llega el dinero a su banco y cómo lo registra su contador.",
     updated: "2026-09-12",
     intro: [
       "Cuando un cliente paga una factura en línea, el pago pasa por la cuenta de Stripe de su empresa y llega a su cuenta bancaria. Antes de llegar, se descuenta una comisión de procesamiento de cada pago; nunca se factura aparte y no hay cuota mensual por cobrar. Este artículo cuenta toda la historia de esa comisión: las tarifas, dónde las ve, qué pasa con un reembolso o una disputa, y cómo la concilia su contador.",
@@ -22,7 +22,7 @@ export const ARTICLES = {
         heading: "Resumen",
         blocks: [
           { p: "Cada pago en línea de un cliente es un cobro de Stripe creado a nombre de su empresa y transferido a su cuenta bancaria. FieldQuo nunca retiene el dinero. La comisión de procesamiento se descuenta del propio pago: el cliente paga el total de la factura, la comisión se resta, y el **neto** es lo que Stripe deposita." },
-          { p: "Verá tres cifras en cada pago en línea: el **importe** (lo que el cliente pagó y lo que se restó de la factura), la **comisión de procesamiento** y el **neto depositado**. Aparecen en la factura, en el registro del pago y en tres columnas de la exportación contable." },
+          { p: "Verá tres cifras en cada pago en línea: el **importe** (lo que el cliente pagó y lo que se restó de la factura), la **comisión de procesamiento** y el **neto depositado**. Aparecen en la factura y en el registro del pago." },
           { note: "En FieldQuo no hay propinas ni ningún producto de capital o préstamo. Si conoce las páginas de ayuda de Jobber, esas dos secciones no tienen equivalente aquí: un cliente paga exactamente la factura, y el único dinero que se mueve es el de la factura." },
         ],
       },
@@ -89,7 +89,7 @@ export const ARTICLES = {
               ["Disputa (contracargo)", "$15 por disputa, no se devuelve si usted gana", "CAD y USD"],
             ],
           } },
-          { p: "La tarifa de tarjeta es una sola cifra sea cual sea la tarjeta: una tarjeta de empresa o una Amex cuesta el mismo 3% + $0.30 que una Visa de particular. Son 2.9% + $0.30 para Stripe más un margen de FieldQuo del 0.1%, y en todas partes ve una única tarifa combinada: en la página de configuración, en el registro del pago y en la exportación." },
+          { p: "La tarifa de tarjeta es una sola cifra sea cual sea la tarjeta: una tarjeta de empresa o una Amex cuesta el mismo 3% + $0.30 que una Visa de particular. Son 2.9% + $0.30 para Stripe más un margen de FieldQuo del 0.1%, y en todas partes ve una única tarifa combinada: en la página de configuración y en el registro del pago." },
           { p: "Dos recargos aplican solo cuando aplican, porque la tarjeta no se conoce hasta que se cobra: **+0.8%** en una tarjeta emitida fuera de Canadá, y **+2%** cuando el pago necesita una conversión de moneda. Se trasladan al costo de Stripe solo en ese pago. El débito bancario no tiene recargo." },
           { p: "Una **factura de $5,000 pagada por débito bancario cuesta $5** — el tope — mientras que la misma factura con tarjeta cuesta $150.30. Para facturas grandes de clientes canadienses, ofrecer el débito bancario es el mayor ahorro de esta página." },
           { p: "Stripe también cobra unas pequeñas comisiones de cuenta: una **cuota mensual de cuenta activa** en los meses en que cobra, y **0.25% + $0.25 por transferencia** a su banco. Se trasladan al costo y aparecen como su propia línea en su siguiente pago — “Comisiones de cuenta de Stripe $2.25 (2026-09)” — nunca mezcladas con la comisión de procesamiento." },
@@ -130,27 +130,26 @@ export const ARTICLES = {
           { bullets: [
             "**“Stripe está reteniendo su dinero”** en Configuración → Pagos — Stripe todavía necesita algo de usted (un documento, una cuenta bancaria, el nombre de un director). Abra **Gestionar en Stripe** y complete lo que pide; mientras tanto, los pagos de sus clientes siguen procesándose.",
             "**“Stripe está revisando su cuenta”** — ya envió todo y Stripe lo está comprobando, normalmente un día, a veces dos o tres. No hay nada que hacer.",
-            "**Un pago sin comisión** — es un pago manual, o un pago en línea registrado antes de que las comisiones empezaran a anotarse en el pago. La exportación deja esas celdas vacías en lugar de escribir 0.00, porque “no se conoce la comisión” y “sin comisión” son afirmaciones distintas.",
+            "**Un pago sin comisión** — es un pago manual, o un pago en línea registrado antes de que las comisiones empezaran a anotarse en el pago. El pago no muestra comisión en lugar de $0.00, porque “no se conoce la comisión” y “sin comisión” son afirmaciones distintas.",
             "**Falta el botón Pagar en una factura** — Stripe todavía no ha habilitado los cobros. Configuración → Pagos muestra qué está esperando.",
           ] },
         ],
       },
       {
-        id: "accounting-export",
-        heading: "Cómo figura en su exportación contable",
+        id: "in-your-books",
+        heading: "Cómo registrarlo en sus libros",
         blocks: [
-          { p: "La exportación contable (**Gastos → Exportación contable**) genera archivos CSV para un rango de fechas, y el archivo de pagos lleva una línea por pago con tres columnas de dinero: **Amount** (el bruto: lo que el cliente pagó y lo que se restó de la factura), **Processing fee** y **Net deposited**, más una columna **Fee rate** que nombra el método con el que se cobró la comisión (“card”, “acss_debit”)." },
-          { figure: "live:app-settings-expense-tracking", caption: "Control de gastos — la tarjeta Exportación contable, al final de la página, descarga el rango de fechas en archivos CSV." },
-          { p: "Contabilice el bruto como ingreso y la comisión como gasto de comisiones bancarias a partir de la misma línea; el extracto bancario coincide entonces con **Net deposited**. El archivo de totales suma las comisiones de procesamiento por código de impuesto aparte del ingreso, de modo que la comisión es un gasto en sus libros, no una venta más pequeña." },
-          { p: "Los pagos se filtran por la **fecha del propio pago**, no la de la factura: una factura de diciembre pagada en enero es dinero de enero. Las columnas de comisión quedan vacías para los pagos manuales y para los pagos en línea cobrados antes de que las comisiones se anotaran en el pago." },
-          { tip: "Para importar en QuickBooks Online o Xero: asigne Amount → ingreso, Processing fee → comisiones bancarias, Net deposited → el depósito bancario. Vea [[the-accounting-export|La exportación contable]] y [[quickbooks-xero-and-your-bookkeeper|QuickBooks, Xero y su contador]]." },
+          { p: "Cada pago en línea de una factura lleva sus tres cifras una al lado de la otra — el **importe** (el bruto: lo que el cliente pagó y lo que se restó de la factura), la **comisión de procesamiento** y el **neto depositado** — y ahí es donde su contador las lee. FieldQuo no exporta los pagos como archivo ni se sincroniza con QuickBooks o Xero." },
+          { p: "Contabilice el bruto como ingreso y la comisión como gasto de comisiones bancarias a partir del mismo pago; el depósito bancario coincide entonces con el neto depositado. La comisión es un gasto en sus libros, no una venta más pequeña." },
+          { p: "Un pago pertenece al día en que se recibió, no a la fecha de la factura: una factura de diciembre pagada en enero es dinero de enero. Un pago manual, y un pago en línea cobrado antes de que las comisiones se anotaran en el pago, no muestra comisión." },
+          { tip: "Para conciliar un depósito bancario con sus pagos, abra **Configuración → Pagos → Gestionar en Stripe**: el panel Express de Stripe lista cada transferencia con los pagos que contiene. Para lo demás que un contador puede tener, vea [[the-accounting-export|Qué entregarle a su contador]] y [[quickbooks-xero-and-your-bookkeeper|QuickBooks, Xero y su contador]]." },
         ],
       },
     ],
     faq: [
       { q: "¿Puedo trasladar la comisión al cliente?", a: "No como un recargo aparte: el total de la factura es lo que el cliente paga y la comisión se descuenta de su lado. Ponga precio al trabajo teniendo en cuenta la comisión, u ofrezca el débito bancario a los clientes canadienses, que tiene tope de $5." },
       { q: "¿Hay una cuota mensual por cobrar pagos?", a: "No. Stripe cobra una pequeña cuota de cuenta activa solo en los meses en que usted cobra, y se muestra como su propia línea en su siguiente pago." },
-      { q: "¿Por qué mi estado de cuenta no coincide con el importe de la factura?", a: "El banco recibe el neto depositado: el importe menos la comisión de procesamiento. La factura y la exportación muestran ambas cifras." },
+      { q: "¿Por qué mi estado de cuenta no coincide con el importe de la factura?", a: "El banco recibe el neto depositado: el importe menos la comisión de procesamiento. El pago, en la factura, muestra ambas cifras." },
       { q: "¿FieldQuo retiene mi dinero?", a: "Nunca. El cobro se crea a nombre de su empresa y Stripe transfiere directamente a su banco." },
     ],
   },
@@ -162,7 +161,7 @@ export const ARTICLES = {
     updated: "2026-09-12",
     intro: [
       "Un cliente canadiense puede pagar una factura, un depósito, una cuota de un calendario de pagos o un plan de servicio por débito preautorizado directamente desde su cuenta bancaria en lugar de con tarjeta. La comisión es de **1% + $0.40, con tope de $5.00** por pago, así que un débito de $5,000 le cuesta $5, mientras que el mismo importe con tarjeta cuesta $150.30. El débito bancario se traslada al costo de Stripe; FieldQuo no le añade nada.",
-      "Este artículo dice exactamente dónde se ofrece el débito bancario (el botón **Pagar … desde una cuenta bancaria** del portal de cliente para facturas, depósitos y cuotas, y los planes de servicio con cobro automático — para una empresa que factura en dólares canadienses), qué acepta el cliente, cuánto tarda un débito en liquidarse y cómo figura la comisión en la factura y en su exportación contable.",
+      "Este artículo dice exactamente dónde se ofrece el débito bancario (el botón **Pagar … desde una cuenta bancaria** del portal de cliente para facturas, depósitos y cuotas, y los planes de servicio con cobro automático — para una empresa que factura en dólares canadienses), qué acepta el cliente, cuánto tarda un débito en liquidarse y cómo figura la comisión en la factura.",
     ],
     sections: [
       {
@@ -201,7 +200,7 @@ export const ARTICLES = {
               ["$5,000", "$5.00 (el tope)", "$150.30"],
             ],
           } },
-          { p: "La comisión se descuenta del débito antes de que el dinero llegue a su banco, igual que la de tarjeta. La línea del pago en la factura dice, por ejemplo, **“comisión de débito bancario $5.00 · depositado $4,995.00”**, y la exportación contable escribe el método como “acss_debit” en su columna **Fee rate**. No hay recargo internacional ni de conversión de moneda en el débito bancario, y la comisión es la misma tanto si el débito vino del botón del portal como de un plan." },
+          { p: "La comisión se descuenta del débito antes de que el dinero llegue a su banco, igual que la de tarjeta. La línea del pago en la factura dice, por ejemplo, **“comisión de débito bancario $5.00 · depositado $4,995.00”**. No hay recargo internacional ni de conversión de moneda en el débito bancario, y la comisión es la misma tanto si el débito vino del botón del portal como de un plan." },
           { tip: "El tope se alcanza en $460. Por encima, cada dólar adicional que un cliente paga por débito bancario está libre de comisión, y por eso un plan de mantenimiento trimestral o anual es el lugar para ofrecerlo." },
         ],
       },
@@ -468,7 +467,6 @@ export const ARTICLES = {
             "**Una fila de reembolso** propia debajo del pago: un importe negativo, el método, el motivo y quién lo emitió. El pago original conserva su importe y su comisión. Un segundo reembolso parcial es una segunda fila, y juntas nunca pueden superar lo que el pago todavía retiene.",
             "La cifra pagada de la factura baja en el reembolso y su saldo sube en la misma cantidad. Una factura reembolsada por completo dice **Reembolsada**; una reembolsada en parte dice **Reembolso parcial**, con un aviso como “Reembolsada en parte — se le devolvieron $500.00 al cliente.”",
             "Propietarios y administradores reciben una notificación cuando Stripe confirma el reembolso: “Se retiró dinero de la factura INV-1042 — Jane Tremblay”, marcada **Reembolsado**. El nivel Gerente no la recibe — vea [[disputes-and-chargebacks|Disputas y contracargos]] para saber a quién se avisa.",
-            "En la exportación contable, el pago conserva su bruto, su comisión y su neto, y el reembolso es una línea propia en el archivo de pagos — método **refund**, un importe negativo, el identificador de reembolso de Stripe como referencia y su motivo como nota — con un total **Refunds** en el resumen junto a **Payments received**. Un reembolso hecho directamente en su panel de Stripe se registra en cambio sobre el importe reembolsado del pago original, no como una línea.",
           ] },
           { p: "Un reembolso sobre una versión anterior de una factura modificada se aplica a la versión más reciente, porque la familia de versiones comparte un único saldo acumulado." },
         ],

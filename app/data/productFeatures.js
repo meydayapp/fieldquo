@@ -97,10 +97,10 @@ export const PRODUCT_FEATURES = {
         id: "pricebook",
         heading: "Your services and your rates, set once",
         body:
-          "Every service you offer has its own rate card — per square, per linear foot, per hour, whatever the trade prices by. Set it once and it fills every quote. Your product list imports from a spreadsheet and exports back out.",
+          "Every service you offer has its own rate card — per square, per linear foot, per hour, whatever the trade prices by. Set it once and it fills every quote. Your product list imports from a spreadsheet, so nothing has to be retyped.",
         bullets: [
           "A rate card per service, in the units your trade actually uses",
-          "Products and services imported from a CSV, exported the same way",
+          "Products and services imported from a CSV, not retyped",
           "Material costs and recipes behind the price, never shown to the client",
         ],
         image: { name: "services", localized: true, width: 1280, height: 1000,
@@ -197,7 +197,7 @@ export const PRODUCT_FEATURES = {
       {
         id: "own-prices",
         q: "Can I use my own prices?",
-        a: "That is the only way it works. Each service starts from typical rates for your trade, marked as starting points, and you edit them to your market; the quote builder fills in from your numbers, never ours. A price list also imports from a spreadsheet and exports back out.",
+        a: "That is the only way it works. Each service starts from typical rates for your trade, marked as starting points, and you edit them to your market; the quote builder fills in from your numbers, never ours. A price list also imports from a spreadsheet, so you can start from the one you already keep.",
       },
       {
         id: "after-approval",
@@ -438,11 +438,11 @@ export const PRODUCT_FEATURES = {
         id: "payroll",
         heading: "Pay runs and payslips from approved hours",
         body:
-          "Approved hours and each person's rate become a pay run for the period you choose, with a payslip per person and an export for your accountant. FieldQuo works out gross pay; it does not pay employees or file payroll taxes. Someone on your roster marked as a contractor can be paid for their clocked hours by a real transfer to their bank.",
+          "Approved hours and each person's rate become a pay run for the period you choose, with a PDF payslip per person. FieldQuo works out gross pay; it does not pay employees or file payroll taxes. Someone on your roster marked as a contractor can be paid for their clocked hours by a real transfer to their bank.",
         bullets: [
-          "Pay periods on your cycle, payslips as PDF, the run exported",
+          "Pay periods on your cycle, a PDF payslip for each person",
           "Contractors on your roster paid for clocked hours at the rate you set",
-          "Subcontracting companies kept on file with their insurance and the year-end T5018 list",
+          "Subcontracting companies kept on file with their insurance, clearance dates and what you have paid them this year",
         ],
         image: { name: "payroll", localized: true, width: 1280, height: 1000,
           alt: "Payroll: this period's approved hours, gross, deductions and net, and a new pay run being set up" },
@@ -459,7 +459,7 @@ export const PRODUCT_FEATURES = {
       {
         id: "taxes",
         q: "Does FieldQuo file payroll taxes?",
-        a: "No. It works out gross pay from approved hours, produces the payslips and exports the run. Deductions are the ones you or your accountant supply, and nothing is filed with any tax authority.",
+        a: "No. It works out gross pay from approved hours and produces the payslips. Deductions are the ones you or your accountant supply, and nothing is filed with any tax authority.",
       },
       {
         id: "crew-free",

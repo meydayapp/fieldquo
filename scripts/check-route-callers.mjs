@@ -230,6 +230,26 @@ const EXTERNAL_CALLERS = {
  * route, never editing this list to match reality.
  */
 const NO_FRONT_DOOR = {
+  // Bulk exports, OFF by the owner's decision of 2026-09-24: companies can
+  // import but not export, paying customers included. Each route is kept and
+  // answers 403 as the first statement of GET (lib/export/companyDataExport.js
+  // says why a guard and not a deletion), and its screen entry point was
+  // removed so nothing offers a button that downloads an error. The payroll
+  // run export is the fifth; it is not listed because its prefix,
+  // /api/payroll/runs, is reached by the payroll screens. Remove these entries
+  // only if the decision is reversed and the controls come back.
+  "/api/products/export":
+    "Price-book CSV. Off by decision (2026-09-24); Settings › Products & " +
+    "Services keeps its import and no longer offers the export.",
+  "/api/time-entries/export":
+    "Timesheet CSV. Off by decision (2026-09-24); the Timesheets screen no " +
+    "longer carries the date-range download.",
+  "/api/subcontractors/export":
+    "Subcontractor year-end CSV. Off by decision (2026-09-24); the " +
+    "Subcontractors screen keeps each sub's paid-in-year total on screen.",
+  "/api/export/accounting":
+    "Bookkeeping ZIP. Off by decision (2026-09-24); the Expenses screen no " +
+    "longer carries the Bookkeeping export card.",
   "/api/quotes/versions":
     "Good/Better/Best trio, read side. No screen creates or shows a trio — " +
     "see docs/TODO.md. Blocked on a product decision about how three quotes " +

@@ -28,9 +28,9 @@ const es = {
     "Modifica una factura enviada y la anterior se conserva — nunca hay duda sobre lo acordado",
   "productPage.quoting.section.pricebook.heading": "Tus servicios y tus tarifas, configurados una vez",
   "productPage.quoting.section.pricebook.body":
-    "Cada servicio que ofreces tiene su propia tarifa — por cuadrado, por pie lineal, por hora, lo que cobre tu oficio. Configúrala una vez y rellena cada presupuesto. Tu lista de productos se importa desde una hoja de cálculo y se exporta de vuelta.",
+    "Cada servicio que ofreces tiene su propia tarifa — por cuadrado, por pie lineal, por hora, lo que cobre tu oficio. Configúrala una vez y rellena cada presupuesto. Tu lista de productos se importa desde una hoja de cálculo, sin volver a teclear nada.",
   "productPage.quoting.section.pricebook.bullet.1": "Una tarifa por servicio, en las unidades que tu oficio usa de verdad",
-  "productPage.quoting.section.pricebook.bullet.2": "Productos y servicios importados desde un CSV, exportados igual",
+  "productPage.quoting.section.pricebook.bullet.2": "Productos y servicios importados desde un CSV, sin volver a teclearlos",
   "productPage.quoting.section.pricebook.bullet.3": "Costos de materiales y recetas detrás del precio, nunca visibles para el cliente",
   "productPage.quoting.section.pricebook.alt":
     "La pantalla de Servicios y precios: techos, revestimiento y canaletas, cada uno con su tarifa y los materiales con los que se cotiza",
@@ -77,7 +77,7 @@ const es = {
     "No. El presupuesto, la factura, la página de aprobación, los correos y el PDF llevan tu logo, tu color y tu nombre como remitente. Nuestro nombre aparece solo en dos sitios pequeños: una línea \"Sitio por FieldQuo\" en el pie de tu sitio web mientras tu empresa no esté en un plan de pago — desaparece en cuanto lo está — y una línea \"Hecho por FieldQuo\" al pie de la página de enlace de biografía.",
   "productPage.quoting.faq.own-prices.q": "¿Puedo usar mis propios precios?",
   "productPage.quoting.faq.own-prices.a":
-    "Es la única forma en que funciona. Cada servicio parte de tarifas típicas de tu oficio, marcadas como punto de partida, y tú las ajustas a tu mercado; el editor de presupuestos se rellena con tus números, nunca con los nuestros. Una lista de precios también se importa desde una hoja de cálculo y se exporta de vuelta.",
+    "Es la única forma en que funciona. Cada servicio parte de tarifas típicas de tu oficio, marcadas como punto de partida, y tú las ajustas a tu mercado; el editor de presupuestos se rellena con tus números, nunca con los nuestros. Una lista de precios también se importa desde una hoja de cálculo, así que puedes partir de la que ya llevas.",
   "productPage.quoting.faq.after-approval.q": "¿Qué pasa cuando el cliente aprueba?",
   "productPage.quoting.faq.after-approval.a":
     "El presupuesto se convierte en un trabajo con el alcance, la dirección y el papeleo ya puestos, y un clic lo convierte en una factura que refleja el presupuesto. Si pediste un depósito, se solicita en la aprobación.",
@@ -209,15 +209,15 @@ const es = {
     "El tablero del día como lo ve un despachador: horas programadas, horas extra por encima de cuarenta, etiquetas Tarde y A tiempo, y una nota de que el costo de mano de obra solo se muestra a quien puede ver las tarifas de pago",
   "productPage.team.section.payroll.heading": "Ciclos de nómina y recibos de pago a partir de las horas aprobadas",
   "productPage.team.section.payroll.body":
-    "Las horas aprobadas y la tarifa de cada persona se convierten en un ciclo de nómina para el periodo que elijas, con un recibo por persona y una exportación para tu contador. FieldQuo calcula el salario bruto; no paga a los empleados ni presenta impuestos de nómina. Alguien de tu plantilla marcado como contratista puede cobrar sus horas fichadas mediante una transferencia real a su banco.",
-  "productPage.team.section.payroll.bullet.1": "Periodos de pago según tu ciclo, recibos en PDF, el ciclo exportado",
+    "Las horas aprobadas y la tarifa de cada persona se convierten en un ciclo de nómina para el periodo que elijas, con un recibo en PDF por persona. FieldQuo calcula el salario bruto; no paga a los empleados ni presenta impuestos de nómina. Alguien de tu plantilla marcado como contratista puede cobrar sus horas fichadas mediante una transferencia real a su banco.",
+  "productPage.team.section.payroll.bullet.1": "Periodos de pago según tu ciclo, un recibo en PDF por persona",
   "productPage.team.section.payroll.bullet.2": "Contratistas de tu plantilla pagados por sus horas fichadas a la tarifa que fijes",
-  "productPage.team.section.payroll.bullet.3": "Empresas subcontratistas en el expediente con su seguro y la lista T5018 de fin de año",
+  "productPage.team.section.payroll.bullet.3": "Empresas subcontratistas en el expediente con su seguro, sus constancias y lo que les has pagado este año",
   "productPage.team.section.payroll.alt":
     "Nómina: las horas aprobadas de este periodo, bruto, deducciones y neto, y un nuevo ciclo de nómina en preparación",
   "productPage.team.faq.taxes.q": "¿FieldQuo presenta los impuestos de nómina?",
   "productPage.team.faq.taxes.a":
-    "No. Calcula el salario bruto a partir de las horas aprobadas, genera los recibos y exporta el ciclo. Las deducciones son las que aportas tú o tu contador, y no se presenta nada ante ninguna autoridad fiscal.",
+    "No. Calcula el salario bruto a partir de las horas aprobadas y genera los recibos. Las deducciones son las que aportas tú o tu contador, y no se presenta nada ante ninguna autoridad fiscal.",
   "productPage.team.faq.crew-free.q": "¿Los accesos de cuadrilla son gratis?",
   "productPage.team.faq.crew-free.a":
     "Sí. Un acceso de Cuadrilla ve su propio horario, ficha entrada y salida y archiva fotos — no cuenta contra tus asientos. Los asientos son para las personas que crean y modifican presupuestos, trabajos y facturas.",

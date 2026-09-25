@@ -68,7 +68,7 @@ export const ARTICLES = {
   "settings-products": {
     title: "Products & Services (the price book)",
     summary:
-      "The catalogue of items you drop onto a quote — name, sale price, cost, unit and the quote types it belongs to — with a CSV import and export.",
+      "The catalogue of items you drop onto a quote — name, sale price, cost, unit and the quote types it belongs to — with a CSV import.",
     updated: "2026-09-12",
     intro: [
       "**Settings → Services & pricing → Products & Services** is your price book: the one-off items you add to a quote by name rather than pricing from scratch — a rush fee, a set of handles, a coat of primer on trim. The main scope of a trade (per door, per square foot) is priced from the rate card under [[settings-services|Services & Pricing]]; this screen holds everything else.",
@@ -80,8 +80,8 @@ export const ARTICLES = {
         heading: "What is on the screen",
         blocks: [
           { p: "At the top: a **Search** box and the **Add Item** button. Below it the list, each row showing the name, description, a **Service** or **Product** badge and the quote types it is linked to, with an edit and a delete icon. The list is paged — pick 6, 10, 25 or 50 per page at the bottom — and the search runs against the whole catalogue, not just the page you are on." },
-          { figure: "live:app-settings-products", caption: "Settings → Products & Services — the searchable list with Add Item, then the Costs, Import and Export cards." },
-          { p: "Under the list sit three cards: **Costs**, **Import products & services** and **Export products & services**." },
+          { figure: "live:app-settings-products", caption: "Settings → Products & Services — the searchable list with Add Item, then the Costs and Import cards." },
+          { p: "Under the list sit two cards: **Costs** and **Import products & services**. There is no export: the price book comes in from a file but does not go back out as one." },
         ],
       },
       {
@@ -107,20 +107,20 @@ export const ARTICLES = {
             head: ["Field", "What it does today"],
             rows: [
               ["Unit price", "The rate the line lands with when you add the item to a quote. You can still change it on that quote."],
-              ["Cost price", "Kept on the item and included in the CSV export. No quote, job-costing or margin figure reads it yet — the Costs card on the screen says so."],
+              ["Cost price", "Kept on the item. No quote, job-costing or margin figure reads it yet — the Costs card on the screen says so."],
               ["Unit", "Printed on the quote line (sqft, door, hour). Free text."],
               ["Available on these quote types", "Filters where the item is offered in the quote builder. No ticks means everywhere."],
-              ["Type (Service / Product)", "A badge on the list and a column in the export. It does not change pricing."],
+              ["Type (Service / Product)", "A badge on the list. It does not change pricing."],
             ],
           } },
           { p: "Items from here appear in the quote builder's line-item table for the matching quote type, and the quote takes the item's name and description in the quote's own language when a translation exists — see [[lines-from-your-price-book|Lines from your price book]] and [[settings-translations|Translations]]." },
         ],
       },
       {
-        id: "import-and-export",
-        heading: "Import and export",
+        id: "import",
+        heading: "Import",
         blocks: [
-          { p: "**Import CSV** takes a .csv exported from Excel, Google Sheets or Numbers with the columns name, description, type, unitPrice, costPrice and unit; **Download sample file** gives you a one-line example to start from. Imported items keep the language they were written in — nothing is translated on upload. **Export CSV** downloads the whole list, cost prices included." },
+          { p: "**Import CSV** takes a .csv exported from Excel, Google Sheets or Numbers with the columns name, description, type, unitPrice, costPrice and unit; **Download sample file** gives you a one-line example to start from. Imported items keep the language they were written in — nothing is translated on upload. There is no export back out: keep your own spreadsheet if you want a copy of the list as a file." },
           { tip: "**Add standard items to Products & Services** on the Services & Pricing screen seeds a trade's usual add-ons (hinges, handles, drawer slides for cabinet work) into this list, already linked to that quote type. Edit their prices here afterwards." },
         ],
       },
@@ -134,7 +134,7 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "Where do I set the per-door or per-square-foot rate for my trade?", a: "On Services & Pricing, in the trade's rate card. This screen is for the extras you add on top." },
-      { q: "Does the cost price feed my margin on a quote?", a: "Not yet. It is stored and exported, and the screen says nothing reads it. The margin on a quote comes from Material Costs and Overhead." },
+      { q: "Does the cost price feed my margin on a quote?", a: "Not yet. It is stored on the item, and the screen says nothing reads it. The margin on a quote comes from Material Costs and Overhead." },
       { q: "If I delete an item, does an old quote lose the line?", a: "No. The quote keeps the description and price it was built with." },
     ],
   },

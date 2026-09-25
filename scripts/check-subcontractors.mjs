@@ -417,6 +417,17 @@ section("8. The sidebar row and the API share one permission");
   ok("the T5018 export is behind the money gate", /requireSubcontractorMoney\(full\)/.test(exportRoute));
   ok("the roster and the export pick the year by the same function", /requestedYear\(searchParams\)/.test(listRoute) && /requestedYear\(searchParams\)/.test(exportRoute));
   ok("the export and the roster total by the same function", /yearToDatePaidBySubcontractor\(/.test(listRoute) && /yearToDatePaidBySubcontractor\(/.test(exportRoute));
+  // The year-end CSV is OFF by the owner's decision of 2026-09-24 (companies
+  // can import but not export). The route is kept, and refuses as the very
+  // first thing GET does — before memberOrRefusal, so before the session or
+  // the database is read. The screen no longer links to it.
+  const getBody = exportRoute.slice(exportRoute.indexOf("export async function GET"));
+  ok(
+    "the export refuses before anything else runs",
+    /^export async function GET\(request\) \{\s*const exportOff = companyDataExportRefusal\(NextResponse\);\s*if \(exportOff\) return exportOff;/.test(getBody),
+  );
+  const screen = stripComments(read("app/app/subcontractors/page.js"));
+  ok("the Subcontractors screen no longer links to the export", !/\/api\/subcontractors\/export/.test(screen) && !/exportYear/.test(screen));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -474,9 +485,18 @@ section("10. The matrix says shipped, and the caveat is gone");
   ok("limits is null", entry?.limits === null);
   ok("the name no longer describes only the bid", entry?.name === "Subcontractors", entry?.name);
   const proofPaths = (entry?.proof || []).map((p) => p.path);
-  for (const p of ["lib/subcontractors/money.js", "app/api/subcontractors/[id]/payments/route.js", "app/api/subcontractors/export/route.js", "app/components/jobs/JobSubcontractors.js"]) {
+  // The year-end totals are proven by the roster route that shows them on
+  // screen, not by the CSV route: that one is off by decision (2026-09-24,
+  // import yes, export no), and a route that answers 403 to everyone is not
+  // evidence that a customer can use a feature.
+  for (const p of ["lib/subcontractors/money.js", "app/api/subcontractors/[id]/payments/route.js", "app/api/subcontractors/route.js", "app/components/jobs/JobSubcontractors.js"]) {
     ok(`proof names ${p}`, proofPaths.includes(p));
   }
+  ok(
+    "…and the year-end totals are proven by the roster route's yearToDatePaidBySubcontractor",
+    (entry?.proof || []).some((p) => p.path === "app/api/subcontractors/route.js" && (p.holds || []).includes("yearToDatePaidBySubcontractor")),
+  );
+  ok("no proof cites the refused export route", !proofPaths.includes("app/api/subcontractors/export/route.js"));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

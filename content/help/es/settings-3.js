@@ -614,7 +614,7 @@ export const ARTICLES = {
   "settings-expense-tracking": {
     title: "Control de gastos",
     summary:
-      "La misma pantalla de Seguimiento de gastos que Gastos en la barra lateral principal — las tarjetas del mes, el desglose del gasto, la tendencia, los recibos recientes y la exportación contable — a la que se llega desde Configuración.",
+      "La misma pantalla de Seguimiento de gastos que Gastos en la barra lateral principal — las tarjetas del mes, el desglose del gasto, la tendencia y los recibos recientes — a la que se llega desde Configuración.",
     updated: "2026-09-12",
     intro: [
       "**Configuración → Control de gastos** abre exactamente la misma página que **Gastos** en la barra lateral principal. Está listada en Configuración porque los números de ritmo de gasto que contiene — salarios, gastos generales, deuda — son tanto ajustes de la empresa como un informe. Todo lo relativo a la página en sí está en [[expense-tracking-and-burn-rate|Seguimiento de gastos y su ritmo de gasto]]; este artículo solo dice qué hay en ella y quién la ve.",
@@ -624,8 +624,8 @@ export const ARTICLES = {
         id: "overview",
         heading: "Resumen",
         blocks: [
-          { p: "**Seguimiento de gastos — A dónde va tu dinero — por trabajo, gastos generales y categoría — más tu ritmo de gasto mensual.** La página va un mes a la vez, con **Agregar gasto** e **Importar desde un CSV del banco** arriba, cuatro tarjetas, un resumen de IA del mes, el desglose y la tendencia, los recibos recientes, y la **Exportación contable** al final." },
-          { figure: "live:app-settings-expense-tracking", caption: "Seguimiento de gastos — las cuatro tarjetas del mes, el Desglose del gasto mensual y, al final, la Exportación contable." },
+          { p: "**Seguimiento de gastos — A dónde va tu dinero — por trabajo, gastos generales y categoría — más tu ritmo de gasto mensual.** La página va un mes a la vez, con **Recibos**, **Escanear recibo**, **Importar desde un CSV del banco** y **Agregar gasto** arriba, cuatro tarjetas, un resumen de IA del mes, el desglose y la tendencia, y los recibos recientes." },
+          { figure: "live:app-settings-expense-tracking", caption: "Seguimiento de gastos — las cuatro tarjetas del mes y el Desglose del gasto mensual." },
         ],
       },
       {
@@ -637,7 +637,7 @@ export const ARTICLES = {
             "**Resumen de IA** — una lectura escrita del mes que usted genera bajo demanda.",
             "**Desglose del gasto mensual** con **Gestionar salarios y deuda**, **Gasto por categoría**, y la **Tendencia de 6 meses**.",
             "**Gastos recientes** — cada recibo con su fecha, categoría, monto, el trabajo al que está vinculado, y eliminar.",
-            "**Exportación contable** — un rango de fechas y una descarga de archivos CSV para su contador. Vea [[the-accounting-export|La exportación contable]] e [[import-expenses-from-a-bank-csv|Importar gastos desde un CSV del banco]].",
+            "**Importar desde un CSV del banco** — traer un estado de cuenta como gastos. Vea [[import-expenses-from-a-bank-csv|Importar gastos desde un CSV del banco]]. Nada en la pantalla se exporta; para lo que un contador puede tener, vea [[the-accounting-export|Qué entregarle a su contador]].",
           ] },
         ],
       },
@@ -755,7 +755,7 @@ export const ARTICLES = {
         heading: "Resumen",
         blocks: [
           { p: "FieldQuo hace la aritmética con las tasas que guarda aquí. No presenta ni remite nada, y no actualiza las tasas cuando cambian — las plantillas regionales son cifras publicadas para el año indicado, ofrecidas como punto de partida, y se convierten en sus cifras en el momento en que las carga. Revíselas cada año fiscal con su contador." },
-          { note: "FieldQuo calcula el salario bruto, produce los recibos de pago y exporta el proceso. No paga a los empleados ni presenta sus impuestos de nómina — las deducciones son las que usted o su contador proporcionan. Procesar la nómina en sí está en [[payroll-runs|Procesos de nómina]]." },
+          { note: "FieldQuo calcula el salario bruto y produce los recibos de pago. No paga a los empleados ni presenta sus impuestos de nómina — las deducciones son las que usted o su contador proporcionan. Procesar la nómina en sí está en [[payroll-runs|Procesos de nómina]]." },
         ],
       },
       {

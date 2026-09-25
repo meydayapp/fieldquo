@@ -12,12 +12,21 @@
 // endpoint is not a boundary — it is a detour.
 //
 // Same gate as the read it exports, deliberately: requireToggle("showPricing").
+//
+// ── Off, by decision ───────────────────────────────────────────────────────
+//
+// Companies can import but not export (owner, 2026-09-24, paying customers
+// included). The first statement of GET refuses with 403 before the session
+// or the database is read — lib/export/companyDataExport.js says why this is
+// a guard and not a deletion. The Settings › Services screen no longer links
+// here; the import beside it stays.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { loadEnforceableMember, requireToggle } from "@/lib/permissions/enforce";
+import { companyDataExportRefusal } from "@/lib/export/companyDataExport";
 
 function csvEscape(value) {
   const s = String(value ?? "");
@@ -25,6 +34,9 @@ function csvEscape(value) {
 }
 
 export async function GET(request) {
+  const exportOff = companyDataExportRefusal(NextResponse);
+  if (exportOff) return exportOff;
+
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 

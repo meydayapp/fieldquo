@@ -614,7 +614,7 @@ export const ARTICLES = {
   "settings-expense-tracking": {
     title: "Suivi des dépenses",
     summary:
-      "Le même écran Suivi des dépenses que Dépenses dans la barre latérale principale — les cartes du mois, la répartition des dépenses, la tendance, les reçus récents et l'export comptable — atteint depuis Paramètres.",
+      "Le même écran Suivi des dépenses que Dépenses dans la barre latérale principale — les cartes du mois, la répartition des dépenses, la tendance et les reçus récents — atteint depuis Paramètres.",
     updated: "2026-09-12",
     intro: [
       "**Paramètres → Suivi des dépenses** ouvre exactement la même page que **Dépenses** dans la barre latérale principale. Elle est listée sous Paramètres parce que les chiffres de rythme de dépenses qu'elle porte — salaires, frais généraux, dette — sont autant des paramètres d'entreprise qu'un rapport. Tout ce qui concerne la page elle-même est dans [[expense-tracking-and-burn-rate|Suivi des dépenses et rythme de dépenses]]; cet article ne dit que ce qu'elle contient et qui la voit.",
@@ -624,8 +624,8 @@ export const ARTICLES = {
         id: "overview",
         heading: "Vue d'ensemble",
         blocks: [
-          { p: "**Suivi des dépenses — Où va votre argent — par chantier, frais généraux et catégorie — plus votre rythme de dépenses mensuel.** La page se lit un mois à la fois, avec **Ajouter une dépense** et **Importer depuis un CSV bancaire** en haut, quatre cartes, un résumé IA du mois, la répartition et la tendance, les reçus récents, et l'**Export comptable** en bas." },
-          { figure: "live:app-settings-expense-tracking", caption: "Suivi des dépenses — les quatre cartes du mois, la Répartition des dépenses mensuelles et, en bas, l'Export comptable." },
+          { p: "**Suivi des dépenses — Où va votre argent — par chantier, frais généraux et catégorie — plus votre rythme de dépenses mensuel.** La page se lit un mois à la fois, avec **Reçus**, **Numériser un reçu**, **Importer depuis un CSV bancaire** et **Ajouter une dépense** en haut, quatre cartes, un résumé IA du mois, la répartition et la tendance, et les reçus récents." },
+          { figure: "live:app-settings-expense-tracking", caption: "Suivi des dépenses — les quatre cartes du mois et la Répartition des dépenses mensuelles." },
         ],
       },
       {
@@ -637,7 +637,7 @@ export const ARTICLES = {
             "**Résumé IA** — une lecture écrite du mois que vous générez à la demande.",
             "**Répartition des dépenses mensuelles** avec **Gérer salaires et dette**, **Dépenses par catégorie**, et la **Tendance sur 6 mois**.",
             "**Dépenses récentes** — chaque reçu avec sa date, sa catégorie, son montant, le chantier auquel il est lié, et la suppression.",
-            "**Export comptable** — une plage de dates et un téléchargement de fichiers CSV pour votre comptable. Voir [[the-accounting-export|L'export comptable]] et [[import-expenses-from-a-bank-csv|Importer des dépenses depuis un CSV bancaire]].",
+            "**Importer depuis un CSV bancaire** — faire entrer un relevé bancaire comme dépenses. Voir [[import-expenses-from-a-bank-csv|Importer des dépenses depuis un CSV bancaire]]. Rien sur l'écran ne s'exporte ; pour ce qu'un comptable peut obtenir, voir [[the-accounting-export|Ce que vous pouvez remettre à votre comptable]].",
           ] },
         ],
       },
@@ -755,7 +755,7 @@ export const ARTICLES = {
         heading: "Vue d'ensemble",
         blocks: [
           { p: "FieldQuo effectue les calculs avec les taux que vous enregistrez ici. Il ne produit ni ne remet aucune déclaration, et il ne met pas à jour les taux lorsqu'ils changent — les gabarits régionaux sont des chiffres publiés pour l'année indiquée, offerts comme point de départ, et ils deviennent vos chiffres dès que vous les importez. Révisez-les chaque année d'imposition avec votre comptable." },
-          { note: "FieldQuo calcule le salaire brut, produit les bulletins de paie et exporte le cycle. Il ne paie pas les employés et ne produit pas vos déclarations de retenues — les retenues sont celles que vous ou votre comptable fournissez. L'exécution de la paie elle-même est dans [[payroll-runs|Cycles de paie]]." },
+          { note: "FieldQuo calcule le salaire brut et produit les bulletins de paie. Il ne paie pas les employés et ne produit pas vos déclarations de retenues — les retenues sont celles que vous ou votre comptable fournissez. L'exécution de la paie elle-même est dans [[payroll-runs|Cycles de paie]]." },
         ],
       },
       {

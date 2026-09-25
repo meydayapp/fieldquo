@@ -70,7 +70,7 @@ export const ARTICLES = {
   "settings-products": {
     title: "Productos y servicios (el catálogo de precios)",
     summary:
-      "El catálogo de artículos que suelta en un presupuesto — nombre, precio de venta, costo, unidad y los tipos de presupuesto a los que pertenece — con una importación y una exportación CSV.",
+      "El catálogo de artículos que suelta en un presupuesto — nombre, precio de venta, costo, unidad y los tipos de presupuesto a los que pertenece — con una importación CSV.",
     updated: "2026-09-12",
     intro: [
       "**Configuración → Servicios y precios → Productos y servicios** es su catálogo de precios: los artículos puntuales que agrega a un presupuesto por su nombre en lugar de cotizarlos desde cero — un cargo por urgencia, un juego de manijas, una mano de imprimación en las molduras. El alcance principal de un oficio (por puerta, por pie cuadrado) se cotiza desde el tarifario en [[settings-services|Servicios y precios]]; esta pantalla contiene todo lo demás.",
@@ -82,8 +82,8 @@ export const ARTICLES = {
         heading: "Qué hay en la pantalla",
         blocks: [
           { p: "Arriba: una casilla **Buscar** y el botón **Agregar artículo**. Debajo, la lista, cada fila con el nombre, la descripción, una insignia **Servicio** o **Producto** y los tipos de presupuesto a los que está vinculada, con un icono de editar y otro de eliminar. La lista está paginada — elija 6, 10, 25 o 50 por página al pie — y la búsqueda recorre todo el catálogo, no solo la página en la que está." },
-          { figure: "live:app-settings-products", caption: "Configuración → Productos y servicios — la lista con búsqueda y Agregar artículo, luego las tarjetas Costos, Importar y Exportar." },
-          { p: "Bajo la lista hay tres tarjetas: **Costos**, **Importar productos y servicios** y **Exportar productos y servicios**." },
+          { figure: "live:app-settings-products", caption: "Configuración → Productos y servicios — la lista con búsqueda y Agregar artículo, luego las tarjetas Costos e Importar." },
+          { p: "Bajo la lista hay dos tarjetas: **Costos** e **Importar productos y servicios**. No hay exportación: la lista de precios entra desde un archivo, pero no vuelve a salir como uno." },
         ],
       },
       {
@@ -109,20 +109,20 @@ export const ARTICLES = {
             head: ["Campo", "Qué hace hoy"],
             rows: [
               ["Precio unitario", "La tarifa con la que aterriza la línea cuando agrega el artículo a un presupuesto. Aun así puede cambiarla en ese presupuesto."],
-              ["Precio de costo", "Se guarda en el artículo y se incluye en la exportación CSV. Todavía no hay ningún presupuesto, cálculo de costos ni cifra de margen que lo lea — la tarjeta Costos de la pantalla lo dice."],
+              ["Precio de costo", "Se guarda en el artículo. Todavía no hay ningún presupuesto, cálculo de costos ni cifra de margen que lo lea — la tarjeta Costos de la pantalla lo dice."],
               ["Unidad", "Se imprime en la línea del presupuesto (pie², puerta, hora). Texto libre."],
               ["Disponible en estos tipos de presupuesto", "Filtra dónde se ofrece el artículo en el generador de presupuestos. Sin marcas significa en todas partes."],
-              ["Tipo (Servicio / Producto)", "Una insignia en la lista y una columna en la exportación. No cambia el precio."],
+              ["Tipo (Servicio / Producto)", "Una insignia en la lista. No cambia el precio."],
             ],
           } },
           { p: "Los artículos de aquí aparecen en la tabla de partidas del generador de presupuestos para el tipo de presupuesto correspondiente, y el presupuesto toma el nombre y la descripción del artículo en su propio idioma cuando existe una traducción — ver [[lines-from-your-price-book|Líneas de su catálogo de precios]] y [[settings-translations|Traducciones]]." },
         ],
       },
       {
-        id: "import-and-export",
-        heading: "Importar y exportar",
+        id: "import",
+        heading: "Importar",
         blocks: [
-          { p: "**Importar CSV** acepta un .csv exportado de Excel, Google Sheets o Numbers con las columnas name, description, type, unitPrice, costPrice y unit; **Descargar archivo de ejemplo** le da un ejemplo de una línea para empezar. Los artículos importados conservan el idioma en que se escribieron — nada se traduce al subir. **Exportar CSV** descarga toda la lista, precios de costo incluidos." },
+          { p: "**Importar CSV** acepta un .csv exportado de Excel, Google Sheets o Numbers con las columnas name, description, type, unitPrice, costPrice y unit; **Descargar archivo de ejemplo** le da un ejemplo de una línea para empezar. Los artículos importados conservan el idioma en que se escribieron — nada se traduce al subir. No hay exportación de vuelta: conserve su propia hoja de cálculo si quiere una copia de la lista en un archivo." },
           { tip: "**Agregar artículos estándar a Productos y servicios**, en la pantalla Servicios y precios, vuelca en esta lista los complementos habituales de un oficio (bisagras, manijas, correderas de cajón para la ebanistería), ya vinculados a ese tipo de presupuesto. Edite sus precios aquí después." },
         ],
       },
@@ -136,7 +136,7 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "¿Dónde defino la tarifa por puerta o por pie cuadrado de mi oficio?", a: "En Servicios y precios, en el tarifario del oficio. Esta pantalla es para los extras que agrega encima." },
-      { q: "¿El precio de costo alimenta mi margen en un presupuesto?", a: "Todavía no. Se almacena y se exporta, y la pantalla dice que nada lo lee. El margen de un presupuesto sale de Costos de materiales y Gastos generales." },
+      { q: "¿El precio de costo alimenta mi margen en un presupuesto?", a: "Todavía no. Se guarda en el artículo, y la pantalla dice que nada lo lee. El margen de un presupuesto sale de Costos de materiales y Gastos generales." },
       { q: "Si elimino un artículo, ¿un presupuesto antiguo pierde la línea?", a: "No. El presupuesto conserva la descripción y el precio con los que se hizo." },
     ],
   },

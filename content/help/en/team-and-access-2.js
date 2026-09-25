@@ -196,7 +196,7 @@ export const ARTICLES = {
     updated: "2026-09-12",
     intro: [
       "The **Payroll** screen works out what each person should be paid for a period, from the hours a manager approved on Timesheets and the rates saved on their record, and produces a payslip per person. The sentence at the top of the screen is the whole contract: “You pay through your own bank or payroll provider — FieldQuo doesn't move the money.”",
-      "The feature matrix marks payroll as partial, and the limit is exactly that: FieldQuo works out gross pay, produces the payslips and exports the run. It does not pay employees or file your payroll taxes — deductions are the ones you or your accountant supply on [[payroll-settings|Payroll settings]].",
+      "The feature matrix marks payroll as partial, and the limit is exactly that: FieldQuo works out gross pay and produces the payslips. It does not pay employees or file your payroll taxes — deductions are the ones you or your accountant supply on [[payroll-settings|Payroll settings]].",
     ],
     sections: [
       {
@@ -215,7 +215,7 @@ export const ARTICLES = {
           { bullets: [
             "**My earnings** — **This period** with its dates and payday, your approved hours × your rate (or “No hourly rate is set on your record, so this can't be worked out yet.”), a progress bar through the period, then **Gross**, **Deductions** and **Net** for the year, then your payslips.",
             "**New pay run** — “Only approved time is included. Approve timesheets first, or those hours won't be paid.” Four fields: **Period start**, **Period end**, **Frequency** (Every week, Every 2 weeks, Twice a month, Once a month) and **Payslip labels** (Canada, United States, United Kingdom), then **Calculate**.",
-            "**Pay runs** — one row per run: the period, how many people and the label region (“5 people · CA”), the net total and a status badge. Opening a row shows every line and the **Approve run** / **Record as paid** / **Export CSV** buttons.",
+            "**Pay runs** — one row per run: the period, how many people and the label region (“5 people · CA”), the net total and a status badge. Opening a row shows every line, a **Payslip PDF** per person once the run is approved, and the **Approve run** / **Record as paid** buttons.",
           ] },
         ],
       },
@@ -269,16 +269,16 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Who can see it",
         blocks: [
-          { p: "The **Payroll** row is in everyone's sidebar, because everyone has payslips. Running payroll — Calculate, Save as draft run, Approve run, Record as paid, Export CSV — needs the **Payroll & Payslips** area set to **View everyone's and run payroll**, which owners and administrators hold automatically. **View everyone's payslips** opens every run read-only." },
+          { p: "The **Payroll** row is in everyone's sidebar, because everyone has payslips. Running payroll — Calculate, Save as draft run, Approve run, Record as paid — needs the **Payroll & Payslips** area set to **View everyone's and run payroll**, which owners and administrators hold automatically. **View everyone's payslips** opens every run read-only." },
           { p: "Every preset — Crew, Estimator, Dispatcher, Manager — starts at **View their own payslips**. The Manager description says “Not payroll” and means it; an owner who wants a manager running payroll grants it deliberately in the [[the-custom-access-editor|Custom access editor]]." },
         ],
       },
     ],
     faq: [
-      { q: "Does FieldQuo transfer the wages?", a: "No. It works out the figures and produces payslips and a CSV. You pay through your bank or payroll provider and then press Record as paid so the payslips can say when." },
+      { q: "Does FieldQuo transfer the wages?", a: "No. It works out the figures and produces payslips. You pay through your bank or payroll provider and then press Record as paid so the payslips can say when." },
       { q: "Why is somebody showing at $0 or with no pay?", a: "No hourly rate or labour cost is saved on their record, or their hours for the period are still pending. The preview says which." },
       { q: "Can I correct a run after it is approved?", a: "Cancel it and run the period again, as long as it has not been recorded as paid. A paid run is final; a correction is a second run over the same period, saved as a draft — approval refuses only while an approved or paid run overlaps." },
-      { q: "What does Export CSV contain?", a: "One row per person with hours, gross, one column per deduction or earning named in the run, and net — the handoff for the bookkeeper or payroll provider who actually pays it. A cell is left empty, not 0.00, when that person had no such line." },
+      { q: "How do I hand a run to my bookkeeper or payroll provider?", a: "Open the run: every person's hours, gross, deductions and net are on screen, and each person's **Payslip PDF** downloads once the run is approved. FieldQuo does not export a run as a file." },
     ],
   },
 
@@ -456,7 +456,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Overview",
         blocks: [
-          { p: "The screen is headed **Subcontractors** — “The companies you hire per job — the electrician, the roofer. Their insurance and clearance dates, what you've agreed with them on each job, and what you've paid them this year.” Each sub has a record with documents, the jobs they are on and the payments recorded against them; the year total is what becomes the [[the-t5018-year-end-list|T5018 year-end list]]." },
+          { p: "The screen is headed **Subcontractors** — “The companies you hire per job — the electrician, the roofer. Their insurance and clearance dates, what you've agreed with them on each job, and what you've paid them this year.” Each sub has a record with documents, the jobs they are on and the payments recorded against them; the year total is the figure behind the [[the-t5018-year-end-list|T5018 year-end figures]]." },
           { note: "What a sub is owed and was paid is job cost. Job costing takes the **agreed amount** as the cost of that sub on the job — a $5,000 sub who has been paid $2,000 has cost the job $5,000 — and the payments are how it gets settled. See [[job-costing|Job costing]]." },
         ],
       },
@@ -466,7 +466,7 @@ export const ARTICLES = {
         blocks: [
           { bullets: [
             "**Insurance or clearance expiring** — every sub whose insurance or clearance is **Due soon** (within 30 days) or **Expired**, worst first, each naming which of the two.",
-            "**Paid in** with a year picker, and **Year-end list (CSV)** — shown only to someone who may see money.",
+            "**Paid in** with a year picker — this year and the two before it — shown only to someone who may see money.",
             "**One card per sub** — the company name, **Inactive** where it applies, then trade, contact and phone, a badge for the worse of the two expiries, and, for someone who may see money, “$6,840.00 paid in 2026 (3 payments)” with “No tax form” where the sub is excluded from the year-end form.",
             "**Add** — opens the new-subcontractor form.",
           ] },
@@ -485,7 +485,7 @@ export const ARTICLES = {
             "On the sub's page, upload the certificates under **Documents** — a **Certificate of insurance** or **WSIB / WCB clearance** with its expiry date sets the sub's date at the same time.",
           ] },
           { figure: "create:app-subcontractors-create", caption: "Subcontractors → Add — the new-subcontractor form: company, trade, contact, the two expiry dates and the year-end form checkbox." },
-          { tip: "A sub you no longer use gets **Mark inactive** rather than a delete: they drop out of the “add a sub to a job” picker, keep their jobs and payments, and still appear on the year-end list for the years you paid them." },
+          { tip: "A sub you no longer use gets **Mark inactive** rather than a delete: they drop out of the “add a sub to a job” picker, keep their jobs and payments, and still appear with their total for the years you paid them." },
         ],
       },
       {
@@ -523,7 +523,7 @@ export const ARTICLES = {
         heading: "Who can see it",
         blocks: [
           { p: "Opening the roster, adding a sub, editing one and filing documents need the team-management permission — owners, administrators, Managers and Dispatchers. A sub's name and whether their insurance is in date are operations: the dispatcher putting the electrician on Thursday's visit needs to know their clearance lapsed. Crew and Estimators do not see the row." },
-          { p: "The money on the screen — agreed amounts, payments, the year totals, **Paid in** and the CSV — needs the **Job costing** switch as well. A Dispatcher opens the roster, sees the lapsed insurance, and sees no figures; a Manager sees both. See [[the-custom-access-editor|The Custom access editor]]." },
+          { p: "The money on the screen — agreed amounts, payments, the year totals and **Paid in** — needs the **Job costing** switch as well. A Dispatcher opens the roster, sees the lapsed insurance, and sees no figures; a Manager sees both. See [[the-custom-access-editor|The Custom access editor]]." },
         ],
       },
     ],
@@ -535,49 +535,48 @@ export const ARTICLES = {
   },
 
   "the-t5018-year-end-list": {
-    title: "The T5018 year-end list",
+    title: "The T5018 year-end figures",
     summary:
-      "One CSV per calendar year listing every subcontractor, whether they go on the contractor form, what you paid them and how many payments — the figure the accountant has been rebuilding from cheque stubs.",
-    updated: "2026-09-12",
+      "Where to read what each subcontractor was paid in a calendar year, and in how many payments — the figures a T5018 or 1099-NEC is filled from, on screen rather than rebuilt from cheque stubs.",
+    updated: "2026-09-25",
     intro: [
-      "In Canada, a contractor who paid a construction subcontractor more than $500 in a year files a T5018 for them; in the United States it is a 1099-NEC over $600. Both are a list of company and amount. FieldQuo builds that list from the payments you recorded against each sub on each job, so the number on the sub's page, the number in the file and the number in [[job-costing|Job costing]] are the same rows added up once.",
+      "In Canada, a contractor who paid a construction subcontractor more than $500 in a year files a T5018 for them; in the United States it is a 1099-NEC over $600. Both are a list of company and amount. FieldQuo adds that amount up from the payments you recorded against each sub on each job, so the figure on the roster, the figure on the sub's page and the figure in [[job-costing|Job costing]] are the same rows added up once.",
     ],
     sections: [
       {
         id: "overview",
         heading: "Overview",
         blocks: [
-          { p: "The list is the **Year-end list (CSV)** button on the **Subcontractors** screen, next to the **Paid in** year picker. The same figure shows on each sub's own page as “Paid in 2026 — the year-end contractor form figure” with the payment count, and on the roster card as “$6,840.00 paid in 2026 (3 payments)”." },
-          { p: "The threshold is deliberately not applied. Every sub is listed, including the ones paid $0 and the ones marked **No tax form**, because the accountant decides who files and FieldQuo does not know which jurisdiction's rule applies. A zero row says “we checked, nothing”; a missing row says nothing." },
+          { p: "The figures are on the **Subcontractors** screen. Pick the year under **Paid in** and every card reads, for example, “$6,840.00 paid in 2026 (3 payments)”. The same figure shows on each sub's own page as “Paid in 2026 — the year-end contractor form figure”." },
+          { p: "FieldQuo shows these figures; it does not download them as a file. Read them off the screen for your accountant, or give your accountant a login that can see them — see [[the-accounting-export|What to hand your accountant]]." },
         ],
       },
       {
-        id: "download-the-list",
-        heading: "How to download the list",
+        id: "read-the-figures",
+        heading: "How to read the figures for your accountant",
         blocks: [
           { steps: [
             "Open **Subcontractors** (under People).",
-            "Choose the year under **Paid in** — the picker changes the totals on every card.",
-            "Press **Year-end list (CSV)**. The file is named subcontractors-2026.csv.",
-            "Hand it to your accountant. The download is recorded in the [[the-activity-log|Activity Log]].",
+            "Choose the year under **Paid in** — this year or one of the two before it. The picker changes the total on every card.",
+            "Read each card: the company, what it was paid that year and in how many payments, and **No tax form** where the sub is excluded from the year-end form.",
+            "Give your accountant each company and its amount. They decide who gets a form.",
           ] },
-          { figure: "harness:subcontractors", caption: "Subcontractors — the Paid in year picker and the Year-end list (CSV) button above the roster, each card with its paid-in-year total." },
-          { note: "The file states its currency from Company Settings and ends with “Recorded in FieldQuo; no form has been filed through this system.” FieldQuo produces the list; it files nothing." },
+          { figure: "harness:subcontractors", caption: "Subcontractors — the Paid in year picker above the roster, each card with its paid-in-year total." },
+          { note: "FieldQuo adds up the payments; it prepares and files nothing." },
         ],
       },
       {
-        id: "what-is-in-the-file",
-        heading: "What is in the file",
+        id: "what-each-card-shows",
+        heading: "What each card shows",
         blocks: [
           { table: {
-            head: ["Column", "What it holds"],
+            head: ["On the card", "What it means"],
             rows: [
-              ["Subcontractor", "The company name, alphabetically."],
-              ["Trade", "The trade on their record, or empty."],
-              ["Tax form", "yes or no — the **Goes on the year-end contractor form (T5018 / 1099-NEC)** checkbox on their record."],
-              ["Paid in year", "The sum of payments dated inside that calendar year, to the cent."],
-              ["Payments", "How many payments made that total."],
-              ["Active", "yes or no — an inactive sub you paid earlier in the year is still listed."],
+              ["The company name", "Active subs first, then inactive ones, each group alphabetical. An inactive sub you paid earlier in the year is still listed, marked **Inactive**."],
+              ["Trade, contact and phone", "What is on their record, or **No details yet**."],
+              ["“… paid in 2026”", "The sum of payments dated inside that calendar year, to the cent. A sub you did not pay that year shows $0.00 rather than disappearing."],
+              ["“(3 payments)”", "How many payments make up that total."],
+              ["No tax form", "The **Goes on the year-end contractor form (T5018 / 1099-NEC)** checkbox is unticked on their record."],
             ],
           } },
         ],
@@ -589,8 +588,8 @@ export const ARTICLES = {
           { bullets: [
             "A payment counts in the year of its **Paid on** date, not the year of the job or the agreed amount.",
             "Only payments recorded with **Record a payment** on a job count. An agreed amount that has not been paid is not in the total.",
-            "A **TOTAL** row at the bottom sums every sub and every payment for the year.",
-            "**No tax form** on a sub does not remove them from the file — it sets their Tax form column to no, so your accountant sees the decision rather than an absence.",
+            "The threshold is deliberately not applied: every sub is shown with their total, however small, because the accountant decides who files and FieldQuo does not know which jurisdiction's rule applies.",
+            "**No tax form** on a sub does not hide them — the card still shows the total, with the flag beside it, so your accountant sees the decision rather than an absence.",
           ] },
         ],
       },
@@ -598,14 +597,14 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Who can see it",
         blocks: [
-          { p: "The button, the **Paid in** picker and every money figure need both the team-management permission and the **Job costing** switch — owners, administrators, and a Manager with job costing on. A Dispatcher sees the roster and the insurance badges but no totals and no button. A read-only support session is refused the file outright." },
+          { p: "The **Paid in** picker and every money figure need both the team-management permission and the **Job costing** switch — owners, administrators, and a Manager with job costing on. A Dispatcher sees the roster and the insurance badges but no totals." },
         ],
       },
     ],
     faq: [
-      { q: "Does FieldQuo file the T5018 or the 1099-NEC?", a: "No. It produces the list of company and amount; the form is prepared and filed by you or your accountant." },
-      { q: "Why is a sub I paid last December in this year's file?", a: "Because the payment's Paid on date falls in this year. Edit the date on the payment if it was recorded wrong; the total follows the date." },
-      { q: "Can I get the list for an earlier year?", a: "Yes — pick the year under Paid in and press the button. Any year with recorded payments works." },
+      { q: "Does FieldQuo file the T5018 or the 1099-NEC?", a: "No. It adds up what you paid each company; the form is prepared and filed by you or your accountant." },
+      { q: "Why is a sub I paid last December in this year's total?", a: "Because the payment's Paid on date falls in this year. Edit the date on the payment if it was recorded wrong; the total follows the date." },
+      { q: "Can I download the list as a CSV?", a: "No. FieldQuo imports lists but does not export them. The figures are on screen, for this year and the two before it." },
     ],
   },
 
@@ -846,7 +845,7 @@ export const ARTICLES = {
         blocks: [
           { bullets: [
             "**Quotes, invoices and jobs** — created, sent, followed up, accepted, marked paid, scheduled.",
-            "**Money** — payments recorded, expenses, a subcontractor payment, a pay run saved, approved, recorded as paid or cancelled, a payroll component added or removed, the year-end list downloaded.",
+            "**Money** — payments recorded, expenses, a subcontractor payment, a pay run saved, approved, recorded as paid or cancelled, a payroll component added or removed.",
             "**Hours** — time entries added, edited and approved, including a person approving their own.",
             "**Team** — invitations, an access level changed, a member deactivated, working hours or leave policies changed, a leave year rolled.",
             "**Clients** — a client added or their contact details edited.",

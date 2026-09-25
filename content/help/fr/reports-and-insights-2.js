@@ -370,7 +370,7 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "Puis-je télécharger ou imprimer les états ?", a: "Pas depuis cette page — il n'y a ni PDF ni bouton d'export. Pour des fichiers à remettre à un comptable, utilisez l'Export comptable du Suivi des dépenses, qui produit des CSV de factures, de paiements et de dépenses pour une plage de dates. Voir [[the-accounting-export|L'export comptable]]." },
+      { q: "Puis-je télécharger ou imprimer les états ?", a: "Non — il n'y a ni PDF ni bouton d'export, et FieldQuo n'exporte pas votre comptabilité en fichiers. Votre comptable peut consulter la page avec son propre accès, ou travailler à partir du PDF de chaque facture. Voir [[the-accounting-export|Ce que vous pouvez remettre à votre comptable]]." },
       { q: "Pourquoi mon état de mars ne montre-t-il aucun loyer ?", a: "Un coût général récurrent est stocké comme une seule ligne, datée une fois, et n'apparaît que dans la période où cette ligne est datée. FieldQuo ne fabrique pas douze lignes de loyer que personne n'a saisies. L'avertissement au pied de la page dit combien d'engagements récurrents sont au dossier et combien tombent dans la période." },
       { q: "Pourquoi le bilan n'est-il pas équilibré ?", a: "Parce qu'il est partiel et le dit. FieldQuo ne connaît ni votre solde bancaire, ni vos immobilisations, ni vos factures fournisseurs, alors le total de l'actif, le total du passif et les capitaux propres sont affichés Indisponible plutôt qu'à zéro." },
       { q: "Pourquoi les intérêts d'un prêt sont-ils Indisponible ?", a: "Le prêt n'a pas de taux d'intérêt consigné dans Paramètres → Frais généraux. Un taux à zéro ne se distingue pas d'un taux que personne n'a tapé, alors la ligne dit quel prêt en manque un au lieu de comptabiliser 0 $ d'intérêts." },
@@ -546,8 +546,8 @@ export const ARTICLES = {
       "L'écran Suivi des dépenses : les quatre cartes du mois, de quoi est fait le rythme de dépenses mensuel, pourquoi Autonomie affiche un tiret, le Résumé IA, les répartitions et la tendance, comment ajouter une dépense et ce que change chaque champ, et qui peut voir le cumul de l'entreprise.",
     updated: "2026-09-12",
     intro: [
-      "**Suivi des dépenses**, c'est « Où va votre argent — par chantier, frais généraux et catégorie — plus votre rythme de dépenses mensuel. » C'est le même écran que vous ouvriez **Dépenses** sous Finances dans la barre latérale ou **Suivi des dépenses** sous Encaissement dans les Paramètres : un mois à la fois, quatre cartes en haut, puis les répartitions, la tendance sur six mois, les reçus récents et l'export comptable.",
-      "Cet article porte sur cet écran et sur le formulaire **Ajouter une dépense**. L'importateur de relevé bancaire a son propre article, [[import-expenses-from-a-bank-csv|Importer des dépenses depuis un CSV bancaire]], et l'export le sien, [[the-accounting-export|L'export comptable]].",
+      "**Suivi des dépenses**, c'est « Où va votre argent — par chantier, frais généraux et catégorie — plus votre rythme de dépenses mensuel. » C'est le même écran que vous ouvriez **Dépenses** sous Finances dans la barre latérale ou **Suivi des dépenses** sous Encaissement dans les Paramètres : un mois à la fois, quatre cartes en haut, puis les répartitions, la tendance sur six mois et les reçus récents.",
+      "Cet article porte sur cet écran et sur le formulaire **Ajouter une dépense**. L'importateur de relevé bancaire a son propre article, [[import-expenses-from-a-bank-csv|Importer des dépenses depuis un CSV bancaire]]. Les dépenses ne s'exportent pas ; pour ce qu'un comptable peut obtenir, voir [[the-accounting-export|Ce que vous pouvez remettre à votre comptable]].",
     ],
     sections: [
       {
@@ -555,7 +555,7 @@ export const ARTICLES = {
         heading: "Vue d'ensemble",
         blocks: [
           { p: "Une dépense dans FieldQuo est un montant daté avec une catégorie, éventuellement lié à un chantier, marqué frais généraux, marqué récurrent, ou rattaché à un véhicule. Ces quatre choix décident où elle apparaît : dans le coût de revient du chantier et dans la justesse des estimations, dans le rythme de dépenses, dans le coût d'exploitation du véhicule, ou simplement dans le total du mois. L'écran est un mois de ces lignes, additionnées de toutes les façons dont un entrepreneur s'en informe." },
-          { figure: "live:app-settings-expense-tracking", caption: "Paramètres → Suivi des dépenses — le sélecteur de mois, les quatre cartes, Résumé IA, les deux répartitions, la Tendance sur 6 mois, Dépenses récentes et l'Export comptable." },
+          { figure: "live:app-settings-expense-tracking", caption: "Paramètres → Suivi des dépenses — le sélecteur de mois, les quatre cartes, Résumé IA, les deux répartitions, la Tendance sur 6 mois et Dépenses récentes." },
         ],
       },
       {
@@ -563,7 +563,7 @@ export const ARTICLES = {
         heading: "Ce qu'il y a à l'écran",
         blocks: [
           { bullets: [
-            "**Importer depuis un CSV bancaire** et **Ajouter une dépense** en haut à droite, et un sélecteur de mois (**Mois précédent** / **Mois suivant**).",
+            "**Reçus**, **Numériser un reçu**, **Importer depuis un CSV bancaire** et **Ajouter une dépense** en haut à droite, et un sélecteur de mois (**Mois précédent** / **Mois suivant**).",
             "**Dépenses suivies ce mois-ci** — chaque dépense datée dans le mois, quelle que soit sa catégorie ou son association.",
             "**Rythme de dépenses mensuel** — « Frais généraux + salaires + dette » : ce que l'entreprise coûte à faire tourner pendant un mois, à partir des registres de **Paramètres → Frais généraux**. Il ne change pas avec le mois que vous consultez.",
             "**Autonomie** — des mois de trésorerie à ce rythme. Elle se lit **—** avec **Ajoutez l'encaisse pour estimer** : aujourd'hui, il n'y a nulle part dans FieldQuo où saisir l'encaisse, alors la carte reste un tiret. FieldQuo ne détient ni solde bancaire ni flux bancaire.",
@@ -573,7 +573,6 @@ export const ARTICLES = {
             "**Dépenses par catégorie** — les catégories de ce mois-ci, de la plus grosse à la plus petite, avec la part de chacune.",
             "**Tendance sur 6 mois** — une barre par mois, ce mois-ci en dernier.",
             "**Dépenses récentes** — les vingt lignes les plus récentes tous mois confondus, chacune étiquetée **Frais généraux** ou **Lié au chantier**, avec une icône de suppression.",
-            "**Export comptable** — une plage de dates en CSV pour votre comptable.",
           ] },
         ],
       },

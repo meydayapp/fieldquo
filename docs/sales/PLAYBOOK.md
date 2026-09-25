@@ -641,13 +641,13 @@ disposition.
 
 *You will hear it as:* my data, who owns, is it safe, customer list, security, privacy, gdpr
 
-> So the thing you want settled first is where your customer list ends up. That's the right question to ask first, and most people ask it last. Your clients, your prices and your quotes are yours. They're not pooled, they're not shown to another contractor, and nothing you put in is used to price somebody else's job. The one place your own history gets read is the review that runs on your own quotes, and it reads only yours. If you want it all back, or gone, that's a written request we act on, not a button that quietly does half of it. Tell me what you'd need to see in writing and I'll send exactly that.
+> So the thing you want settled first is where your customer list ends up. That's the right question to ask first, and most people ask it last. Your clients, your prices and your quotes are yours. They're not pooled, they're not shown to another contractor, and nothing you put in is used to price somebody else's job. The one place your own history gets read is the review that runs on your own quotes, and it reads only yours. You should hear this from me now: your list comes in easily, but there's no button that exports it all back out. Quotes, invoices and payslips download as PDFs, one at a time. If you want a copy of your data, or want it gone, that's a written request we act on, not a button that quietly does half of it. Tell me what you'd need to see in writing and I'll send exactly that.
 
 ### 20. My bookkeeper uses QuickBooks / Sage / Xero
 
 *You will hear it as:* quickbooks, my accountant, bookkeeper, sage, xero, does the books
 
-> So the person who does your books has a system already, and you're not about to move them off it. Agreed, and you shouldn't — that's their tool, not yours. Here's the limit before you find it yourself: there's no live link that pushes invoices into it as they go out. What there is, is an export of the invoices and the job costs in a shape a bookkeeper can take. So month end stops being you reading numbers down a phone. Send me one month you've already closed and I'll show you exactly what they'd receive. Then they can tell you whether that's useful or not.
+> So the person who does your books has a system already, and you're not about to move them off it. Agreed, and you shouldn't — that's their tool, not yours. Here's the limit before you find it yourself: there's no link that pushes invoices into it, and there's no export file to hand them either. What they can have is each invoice as a PDF, one at a time. If a monthly file for your bookkeeper is a must, you should know that now, not after you've signed. Tell me how they get the numbers today and I'll tell you straight whether this changes that.
 
 ### 21. I'm busy / I'm on a job right now
 

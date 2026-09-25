@@ -598,7 +598,7 @@ export const ARTICLES = {
             head: ["Familia", "Ejemplos"],
             rows: [
               ["Presupuestos y prospectos", "Presupuesto creado, enviado, duplicado, aprobado por un revisor; prospecto convertido"],
-              ["Facturas y dinero", "Factura enviada, reclamada, pagada; tarifa de visita acreditada; exportación contable ejecutada"],
+              ["Facturas y dinero", "Factura enviada, reclamada, pagada; tarifa de visita acreditada"],
               ["Trabajos y tiempo", "Trabajo completado o eliminado; una entrada de tiempo aprobada — marcada cuando alguien aprobó la suya"],
               ["Personas", "Miembro invitado, acceso cambiado, desactivado; una política de ausencias retirada"],
               ["Clientes", "Cliente añadido, actualizado, eliminado"],

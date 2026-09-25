@@ -27,9 +27,9 @@ const de = {
     "Ändern Sie eine verschickte Rechnung — die frühere bleibt erhalten, und es gibt nie Streit darüber, was vereinbart war",
   "productPage.quoting.section.pricebook.heading": "Ihre Leistungen und Ihre Preise, einmal eingerichtet",
   "productPage.quoting.section.pricebook.body":
-    "Jede Leistung, die Sie anbieten, hat ihre eigene Preisliste — pro Quadrat, pro laufenden Fuß, pro Stunde, wie das Gewerk eben abrechnet. Einmal einrichten, und sie füllt jedes Angebot. Ihre Produktliste lässt sich aus einer Tabelle importieren und wieder exportieren.",
+    "Jede Leistung, die Sie anbieten, hat ihre eigene Preisliste — pro Quadrat, pro laufenden Fuß, pro Stunde, wie das Gewerk eben abrechnet. Einmal einrichten, und sie füllt jedes Angebot. Ihre Produktliste lässt sich aus einer Tabelle importieren, ohne etwas abzutippen.",
   "productPage.quoting.section.pricebook.bullet.1": "Eine Preisliste je Leistung, in den Einheiten, die Ihr Gewerk wirklich benutzt",
-  "productPage.quoting.section.pricebook.bullet.2": "Produkte und Leistungen aus einer CSV importiert, genauso exportiert",
+  "productPage.quoting.section.pricebook.bullet.2": "Produkte und Leistungen aus einer CSV importiert, nicht abgetippt",
   "productPage.quoting.section.pricebook.bullet.3": "Materialkosten und Rezepturen hinter dem Preis, dem Kunden nie gezeigt",
   "productPage.quoting.section.pricebook.alt":
     "Der Bildschirm Leistungen und Preise: Dach, Fassade und Dachrinnen, jeweils mit eigener Preisliste und den Materialien, nach denen kalkuliert wird",
@@ -76,7 +76,7 @@ const de = {
     "Nein. Angebot, Rechnung, Annahmeseite, E-Mails und PDF tragen Ihr Logo, Ihre Farbe und Ihren Namen als Absender. Unser Name erscheint nur an zwei kleinen Stellen: als Zeile „Site by FieldQuo“ in der Fußzeile Ihrer Website, solange Ihr Betrieb keinen bezahlten Tarif hat — weg, sobald er einen hat — und als Zeile „Made by FieldQuo“ am Fuß der Bio-Link-Seite.",
   "productPage.quoting.faq.own-prices.q": "Kann ich meine eigenen Preise benutzen?",
   "productPage.quoting.faq.own-prices.a":
-    "Nur so funktioniert es. Jede Leistung startet mit typischen Sätzen Ihres Gewerks, als Ausgangspunkt gekennzeichnet, und Sie passen sie an Ihren Markt an; der Angebotseditor füllt sich aus Ihren Zahlen, nie aus unseren. Eine Preisliste lässt sich außerdem aus einer Tabelle importieren und wieder exportieren.",
+    "Nur so funktioniert es. Jede Leistung startet mit typischen Sätzen Ihres Gewerks, als Ausgangspunkt gekennzeichnet, und Sie passen sie an Ihren Markt an; der Angebotseditor füllt sich aus Ihren Zahlen, nie aus unseren. Eine Preisliste lässt sich außerdem aus einer Tabelle importieren, sodass Sie mit der beginnen können, die Sie schon führen.",
   "productPage.quoting.faq.after-approval.q": "Was passiert, wenn der Kunde annimmt?",
   "productPage.quoting.faq.after-approval.a":
     "Das Angebot wird zu einem Auftrag mit Umfang, Adresse und Unterlagen schon dran, und ein Klick macht daraus eine Rechnung, die das Angebot spiegelt. Wenn Sie eine Anzahlung verlangt haben, wird sie bei der Annahme angefordert.",
@@ -208,15 +208,15 @@ const de = {
     "Der Tagesplan aus Sicht eines Disponenten: geplante Stunden, Überstunden über vierzig, Marken Verspätet und Pünktlich, und ein Hinweis, dass Lohnkosten nur sehen, wer Lohnsätze sehen darf",
   "productPage.team.section.payroll.heading": "Lohnläufe und Lohnabrechnungen aus genehmigten Stunden",
   "productPage.team.section.payroll.body":
-    "Genehmigte Stunden und der Satz jeder Person werden zu einem Lohnlauf für den gewählten Zeitraum, mit einer Abrechnung je Person und einem Export für Ihren Steuerberater. FieldQuo berechnet den Bruttolohn; es zahlt keine Mitarbeiter aus und reicht keine Lohnsteuer ein. Wer auf Ihrer Liste als Auftragnehmer geführt ist, kann für gestempelte Stunden per echter Überweisung auf sein Konto bezahlt werden.",
-  "productPage.team.section.payroll.bullet.1": "Lohnperioden in Ihrem Rhythmus, Abrechnungen als PDF, der Lauf exportiert",
+    "Genehmigte Stunden und der Satz jeder Person werden zu einem Lohnlauf für den gewählten Zeitraum, mit einer PDF-Abrechnung je Person. FieldQuo berechnet den Bruttolohn; es zahlt keine Mitarbeiter aus und reicht keine Lohnsteuer ein. Wer auf Ihrer Liste als Auftragnehmer geführt ist, kann für gestempelte Stunden per echter Überweisung auf sein Konto bezahlt werden.",
+  "productPage.team.section.payroll.bullet.1": "Lohnperioden in Ihrem Rhythmus, eine PDF-Abrechnung je Person",
   "productPage.team.section.payroll.bullet.2": "Auftragnehmer auf Ihrer Liste, bezahlt für gestempelte Stunden zum Satz, den Sie festlegen",
-  "productPage.team.section.payroll.bullet.3": "Nachunternehmer-Firmen in der Akte mit ihrer Versicherung und der T5018-Jahresliste",
+  "productPage.team.section.payroll.bullet.3": "Nachunternehmer-Firmen in der Akte mit ihrer Versicherung, ihren Bescheinigungen und dem, was Sie ihnen dieses Jahr gezahlt haben",
   "productPage.team.section.payroll.alt":
     "Lohnabrechnung: die genehmigten Stunden dieser Periode, Brutto, Abzüge und Netto, und ein neuer Lohnlauf in Vorbereitung",
   "productPage.team.faq.taxes.q": "Reicht FieldQuo Lohnsteuer ein?",
   "productPage.team.faq.taxes.a":
-    "Nein. Es berechnet den Bruttolohn aus genehmigten Stunden, erstellt die Abrechnungen und exportiert den Lauf. Die Abzüge liefern Sie oder Ihr Steuerberater, und nichts wird bei einer Steuerbehörde eingereicht.",
+    "Nein. Es berechnet den Bruttolohn aus genehmigten Stunden und erstellt die Abrechnungen. Die Abzüge liefern Sie oder Ihr Steuerberater, und nichts wird bei einer Steuerbehörde eingereicht.",
   "productPage.team.faq.crew-free.q": "Sind Monteur-Zugänge kostenlos?",
   "productPage.team.faq.crew-free.a":
     "Ja. Ein Monteur-Zugang sieht den eigenen Plan, stempelt ein und aus und legt Fotos ab — er zählt nicht gegen Ihre Plätze. Plätze sind für die Personen, die Angebote, Aufträge und Rechnungen anlegen und ändern.",

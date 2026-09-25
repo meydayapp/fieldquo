@@ -27,10 +27,10 @@ export const ARTICLES = {
     ],
     sections: [
       {
-        id: "export-and-attendance",
-        heading: 'The raw CSV, and the attendance chip',
+        id: "attendance-and-where-hours-go",
+        heading: "The attendance chip, and where the hours go",
         blocks: [
-          { p: "**Export** at the top of Timesheets downloads the raw timesheet as a CSV: pick the first and last day and, optionally, one person, then **Download CSV**. One row per entry — worker, title, date, clock-in, clock-out, unpaid and paid break minutes, net hours, job, status, who approved it, how far from the site the phone was at clock-in when it answered, and the attendance verdict. The file is named for the range (**timesheet_2026-09-01_2026-09-14.csv**). Hours, never pay: the hourly rate stays behind its own gate." },
+          { p: "Timesheets has no download: the hours are not exported as a file. Approved hours go where they are used — into pay runs, whose payslips download as PDFs, and into each job's labour cost." },
           { p: "A chip beside a name — **On time**, **Late 12 min**, **Left 20 min early**, **No-show** — is the rota's verdict for the published shift that punch belongs to, the same one the [[the-scheduler-and-crew-shifts|day board]] shows on the block. A punch with no published shift around it has no chip." },
         ],
       },

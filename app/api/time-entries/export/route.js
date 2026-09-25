@@ -25,6 +25,14 @@
 // Cells go through lib/export/accountingExport.js's csvCell: RFC 4180
 // quoting plus the formula guard, because a job title typed as "=HYPERLINK"
 // is a job title, not a formula.
+//
+// ── Off, by decision ─────────────────────────────────────────────────────────
+//
+// Companies can import but not export (owner, 2026-09-24, paying customers
+// included). The first statement of GET refuses with 403 before the session
+// or the database is read — lib/export/companyDataExport.js says why this is
+// a guard and not a deletion. The Timesheets screen no longer offers the
+// date-range download.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -34,6 +42,7 @@ import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
 import { csvCell } from "@/lib/export/accountingExport";
 import { unpaidBreakMs } from "@/lib/timeclock/entryHours";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
+import { companyDataExportRefusal } from "@/lib/export/companyDataExport";
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_ROWS = 20_000;
@@ -91,6 +100,9 @@ function paidBreakMinutes(breaks, clockIn, clockOut) {
 }
 
 export async function GET(request) {
+  const exportOff = companyDataExportRefusal(NextResponse);
+  if (exportOff) return exportOff;
+
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 

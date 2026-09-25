@@ -23,6 +23,15 @@
 // money. Same shape as the payroll export: a read-only support session is
 // refused, because loadEnforceableMember returns null for an impersonated
 // member and the gate denies null.
+//
+// ══ Off, by decision ═══════════════════════════════════════════════════════
+//
+// Companies can import but not export (owner, 2026-09-24, paying customers
+// included). This is a list of every sub and what each was paid — a bulk
+// export of company records, not the T5018 / 1099 itself — so the first
+// statement of GET refuses with 403 before the session or the database is
+// read. lib/export/companyDataExport.js says why this is a guard and not a
+// deletion. /app/subcontractors still shows each sub's paid-in-year total.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -33,8 +42,12 @@ import { requireSubcontractorMoney } from "@/lib/subcontractors/access";
 import { yearToDatePaidBySubcontractor, requestedYear } from "@/lib/subcontractors/money";
 import { money, toCsv } from "@/lib/export/accountingExport";
 import { recordActivity } from "@/lib/activity/log";
+import { companyDataExportRefusal } from "@/lib/export/companyDataExport";
 
 export async function GET(request) {
+  const exportOff = companyDataExportRefusal(NextResponse);
+  if (exportOff) return exportOff;
+
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 

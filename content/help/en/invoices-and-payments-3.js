@@ -3,13 +3,21 @@
 // Part 3 of the “invoices-and-payments” category in English (see the
 // composer, invoices-and-payments.js): payment terms, sales tax on invoices,
 // pay-over-time, service plans and their bank-debit mandate, the client
-// portal, the accounting export, booking fees, and the money-owed panel.
+// portal, what to hand your accountant, booking fees, and the money-owed
+// panel.
 //
 // Every sentence is read from the code it describes — the Company Settings
 // page and lib/documents/paymentSchedule.js, lib/tax/*, lib/financing/*,
-// lib/servicePlans/*, app/portal/*, lib/export/accountingExport.js,
-// lib/booking/* and lib/analytics/receivables.js — and the words on the
-// screen are the `en` strings of app/i18n/appMessages.js.
+// lib/servicePlans/*, app/portal/*, lib/booking/* and
+// lib/analytics/receivables.js — and the words on the screen are the `en`
+// strings of app/i18n/appMessages.js.
+//
+// The slug `the-accounting-export` is kept although the export it was named
+// for is gone (owner, 2026-09-24: a company can import but not export — see
+// lib/export/companyDataExport.js). A slug is a URL forever; renaming it
+// would be a redirect, and the question a reader arrives with — "what do I
+// give my accountant?" — still has an honest answer, which is what the
+// article now is.
 export const ARTICLES = {
   "payment-terms": {
     title: "Payment terms",
@@ -101,7 +109,7 @@ export const ARTICLES = {
         heading: "Overview",
         blocks: [
           { p: "Three things decide the tax line: the rates on the **Tax Settings** card, the **Automatically apply the local tax rate of the client** setting, and the **Apply tax** checkbox on the document itself. Your registration number, if you enter one, prints at the foot of every quote and invoice so a business client can claim the tax back." },
-          { note: "Tax is one amount per invoice. A Quebec company charging GST and QST enters one combined rate (14.975%) and the invoice shows one tax line. There are no tax codes and no per-line tax, so the accounting export cannot produce a sales-tax return — see [[the-accounting-export|The accounting export]]." },
+          { note: "Tax is one amount per invoice. A Quebec company charging GST and QST enters one combined rate (14.975%) and the invoice shows one tax line. There are no tax codes and no per-line tax, so FieldQuo cannot produce a sales-tax return — see [[the-accounting-export|What to hand your accountant]]." },
         ],
       },
       {
@@ -535,94 +543,72 @@ export const ARTICLES = {
   },
 
   "the-accounting-export": {
-    title: "The accounting export (CSV for QuickBooks, Xero or your bookkeeper)",
+    title: "What to hand your accountant",
     summary:
-      "One ZIP, four CSV files, one date range: what each file holds, the rules behind the numbers, and what the export refuses to contain.",
-    updated: "2026-09-12",
+      "FieldQuo does not export your books as files and does not sync with QuickBooks or Xero. What your accountant can have instead: the documents as PDFs, the figures on screen, or a login of their own.",
+    updated: "2026-09-25",
     intro: [
-      "FieldQuo does not sync to QuickBooks or Xero. What it does instead is let the numbers leave cleanly: pick a date range on **Expenses**, press **Download the range**, and you get a ZIP with a summary sheet and three data files — invoices, payments, expenses — that any bookkeeper can open and any accounting package can import.",
+      "FieldQuo takes records in — clients, leads, past jobs, your price book, a bank statement — but it does not send lists back out as files. There is no CSV or ZIP of invoices, payments or expenses to download, and nothing syncs with QuickBooks or Xero. This article is what your accountant can have instead, and what FieldQuo does not record at all, so neither of you goes looking for it.",
     ],
     sections: [
       {
         id: "overview",
         heading: "Overview",
         blocks: [
-          { p: "The **Bookkeeping export** card sits at the bottom of **Expenses** (the same screen as Settings → Expense Tracking). It has **From** and **To** dates and one button. Amounts are in your company's billing currency, set on Company Settings; without one the export refuses rather than guess." },
-          { figure: "live:app-settings-expense-tracking", caption: "Expense Tracking — the Bookkeeping export card at the bottom: a date range, Download the range, and the list of what the file does not contain." },
+          { p: "Three things reach an accountant from FieldQuo: the documents — each one a PDF you download from its own screen — the figures FieldQuo adds up on screen, and, if they want to read those figures themselves, a login of their own." },
+          { note: "A single document you need to run the business stays downloadable: a quote, an invoice, a payslip. What is not offered is a bulk file of your records." },
         ],
       },
       {
-        id: "download-a-range",
-        heading: "How to download a range",
-        blocks: [
-          { steps: [
-            "Open **Expenses** and scroll to **Bookkeeping export**.",
-            "Set **From** and **To** — a month, a quarter, the year.",
-            "Press **Download the range**. The ZIP is named bookkeeping-2026-01-01-to-2026-03-31.zip and holds summary, invoices, payments and expenses as CSV.",
-          ] },
-          { tip: "Send the whole ZIP, not one file out of it. The summary sheet repeats the list of what the data cannot tell — a sales-tax return, for one — so the caveat travels with the numbers." },
-        ],
-      },
-      {
-        id: "the-four-files",
-        heading: "The four files",
-        blocks: [
-          { table: {
-            head: ["File", "One row per", "Columns"],
-            rows: [
-              ["summary", "the range", "Company, range, generated date, billing currency; then per currency: Invoiced, of which tax, Payments received, Refunds, Processing fees, Stripe account fees, Expenses; then the limitations and any notes on the range."],
-              ["invoices", "invoice", "Invoice number, Issued, Date taken from, Due, Client, Status, Version, Currency, Subtotal, Discount, Tax, Tax applied, Total, Paid to date, Received in range, Balance."],
-              ["payments", "payment or refund", "Date, Invoice number, Client, Method, Currency, Amount, Processing fee, Net deposited, Fee rate, Stripe account fees, Reference, Notes. A refund issued from FieldQuo is its own line: method **refund**, a negative Amount, Stripe's refund id as the Reference and the reason as the Notes."],
-              ["expenses", "expense", "Date, Category, Currency, Amount, Overhead, Recurring, Frequency, Job, Notes."],
-            ],
-          } },
-        ],
-      },
-      {
-        id: "the-rules-behind-the-numbers",
-        heading: "The rules behind the numbers",
+        id: "the-documents",
+        heading: "The documents you can download",
         blocks: [
           { bullets: [
-            "An invoice edited after sending is a new version under the same number. The export emits **one row per invoice**, at the latest version's money, dated from the original — so an amendment in March never doubles a January invoice.",
-            "There is no invoice issue-date field, so each row says which column its date came from: **sentAt (emailed)**, **createdAt (raised)**, or a past job's own dates.",
-            "Payments are filtered on the **payment's own date**, not the invoice's: a December invoice paid in January is January's cash. **Amount** is gross; **Processing fee** and **Net deposited** are what Stripe took and what reached the bank, blank — not 0.00 — for manual payments and older online ones.",
-            "Days are grouped by UTC calendar day. A range with two currencies is reported per currency and never summed into one total.",
-            "Client names, categories and notes are guarded against spreadsheet formulas — a client named =cmd… opens as text.",
+            "**Invoices** — **Download PDF** on each invoice. It is the same document the client received.",
+            "**Quotes** — **Download PDF** on the quote page, in the quote's own language.",
+            "**Payslips** — **Payslip PDF** under each person on an approved pay run. See [[payslips|Payslips]].",
+            "**FieldQuo's own invoices to you** — in the Stripe portal behind **Manage billing & payment method**. See [[invoices-and-receipts-from-fieldquo|Invoices and receipts from FieldQuo]].",
+          ] },
+        ],
+      },
+      {
+        id: "the-figures-on-screen",
+        heading: "The figures on screen",
+        blocks: [
+          { bullets: [
+            "**Financial statements** — profit and loss, cash flow, sales tax charged and a partial balance sheet, for any range, on a cash or accrual basis. See [[financial-statements|Financial statements]].",
+            "**Expenses** — the month's spending by category, job and overhead, and the recent receipts. See [[expense-tracking-and-burn-rate|Expense tracking and your burn rate]].",
+            "**Invoices** — what is outstanding and past due, invoice by invoice. See [[the-invoices-list|The Invoices list]].",
+            "**Subcontractors** — what each sub was paid in a year and in how many payments, the figure a T5018 or 1099-NEC is filled from. See [[the-t5018-year-end-list|The T5018 year-end figures]].",
+            "**Payroll** — each pay run's hours, gross, deductions and net, person by person. See [[payroll-runs|Payroll runs]].",
           ] },
         ],
       },
       {
         id: "what-it-does-not-contain",
-        heading: "What it does not contain",
+        heading: "What FieldQuo does not record",
         blocks: [
           { bullets: [
-            "A filing. Nothing here has been remitted to any tax authority.",
+            "A filing. Nothing in FieldQuo has been remitted to any tax authority.",
             "A sales-tax return. Invoice tax is one amount per invoice, with no tax codes and no per-line tax.",
             "Input tax credits. Expenses carry no tax and no supplier, so recoverable tax on what you bought is not tracked.",
-            "Credit notes. A refund issued from the invoice in FieldQuo is a negative line in the payments file and is totalled under Refunds; a refund made directly in your Stripe dashboard is not a line — it shows on the original payment's refunded amount only.",
-            "A chart of accounts. Nothing is mapped to a GL account — your bookkeeper does that once, on import.",
+            "Credit notes. A refund issued from an invoice in FieldQuo is a refund line under the payment; see [[refunds|Refunds]].",
+            "A chart of accounts. Nothing is mapped to a GL account — your bookkeeper does that in their own software.",
           ] },
         ],
       },
       {
-        id: "importing-it",
-        heading: "Importing into QuickBooks or Xero",
+        id: "a-login-for-your-accountant",
+        heading: "A login for your accountant",
         blocks: [
-          { p: "Map the payments file's **Amount** to income, **Processing fee** to a merchant-fees expense and **Net deposited** to the bank deposit; the bank feed then matches line for line. A **refund** line is a negative Amount against the same income account, with no fee of its own. Invoices go in at **Total** with **Tax** as the tax amount. The walk-through per package is in [[quickbooks-xero-and-your-bookkeeper|QuickBooks, Xero and your bookkeeper]]; the fee columns are explained in [[payment-processing-fees-and-payouts|Payment processing fees and payouts]]." },
-        ],
-      },
-      {
-        id: "who-can-download-it",
-        heading: "Who can download it",
-        blocks: [
-          { p: "The export names every client and what they paid, so it is gated like the price book: **Show Pricing** plus the Invoices level **View only** or higher. An Estimator can download it; a Crew member cannot. A read-only support session is refused — FieldQuo's console may view your data but never generates your year-end as a file." },
+          { p: "If your accountant would rather read the figures themselves, invite them from [[manage-team|Manage Team]]. The **Manager** level sees invoices, payments, expenses and the financial statements — without everyone's pay. Make them an administrator only if they must also see payroll and billing." },
         ],
       },
     ],
     faq: [
-      { q: "Is this a QuickBooks integration?", a: "No. It is a CSV export any package imports. A live sync would need Intuit's approval process and a tax-model mapping that does not exist yet, and the product says so rather than pretend." },
-      { q: "Why is the fee cell empty on some payments?", a: "That payment was recorded by hand, or online before fees were recorded on the payment. An empty cell means “no fee is known”; a zero would claim “no fee”." },
-      { q: "Why is a January payment missing from my December export?", a: "Payments are dated by when they were received. Export January for January's cash; the invoice itself is in December's file with its balance." },
+      { q: "Is there a QuickBooks or Xero integration?", a: "No. Nothing syncs, and FieldQuo does not produce files for either. Your bookkeeper enters the figures in their own software from the PDFs and the statements." },
+      { q: "Can I download my invoices, payments or expenses as a CSV?", a: "No. FieldQuo imports lists but does not export them. Each invoice and quote downloads as a PDF on its own screen." },
+      { q: "Where do I see the processing fee on a card payment?", a: "On the payment, on the invoice: the amount, the processing fee and the net deposited. See [[payment-processing-fees-and-payouts|Payment processing fees and payouts]]." },
     ],
   },
 

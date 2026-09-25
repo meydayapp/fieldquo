@@ -370,7 +370,7 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "¿Puedo descargar o imprimir los estados?", a: "No desde esta página — no hay PDF ni botón de exportación. Para archivos que entregar a un contador, use la Exportación contable de Control de gastos, que produce CSV de facturas, pagos y gastos para un rango de fechas. Vea [[the-accounting-export|La exportación contable]]." },
+      { q: "¿Puedo descargar o imprimir los estados?", a: "No — no hay PDF ni botón de exportación, y FieldQuo no exporta su contabilidad en archivos. Su contador puede ver la página con su propio acceso, o trabajar con el PDF de cada factura. Vea [[the-accounting-export|Qué entregarle a su contador]]." },
       { q: "¿Por qué mi estado de marzo no muestra renta?", a: "Un gasto general recurrente se guarda como una sola fila, fechada una vez, y aparece solo en el periodo en que está fechada esa fila. FieldQuo no fabrica doce filas de renta que nadie ingresó. El aviso al pie de la página dice cuántos compromisos recurrentes hay registrados y cuántos caen en el periodo." },
       { q: "¿Por qué el balance no cuadra?", a: "Porque es parcial y lo dice. FieldQuo no conoce su saldo bancario, sus activos fijos ni sus facturas de proveedores, así que el total de activos, el total de pasivos y el patrimonio se muestran como No disponible en lugar de como cero." },
       { q: "¿Por qué el interés de un préstamo está No disponible?", a: "El préstamo no tiene tasa de interés registrada en Configuración → Gastos generales. Una tasa de cero no se distingue de una tasa que nadie tecleó, así que la línea dice a qué préstamo le falta una en lugar de contabilizar $0 de interés." },
@@ -546,8 +546,8 @@ export const ARTICLES = {
       "La pantalla Control de gastos: las cuatro tarjetas del mes, de qué se construye el ritmo de gasto mensual, por qué Autonomía muestra un guion, el Resumen de IA, los desgloses y la tendencia, cómo agregar un gasto y qué cambia cada campo, y quién puede ver el consolidado de la empresa.",
     updated: "2026-09-12",
     intro: [
-      "**Control de gastos** es «A dónde va tu dinero — por trabajo, gastos generales y categoría — más tu ritmo de gasto mensual.» Es la misma pantalla tanto si abre **Gastos** bajo Finanzas en la barra lateral como **Control de gastos** bajo Cobros en Configuración: un mes a la vez, cuatro tarjetas arriba, luego los desgloses, la tendencia de seis meses, los recibos recientes y la exportación contable.",
-      "Este artículo es esa pantalla y el formulario **Agregar gasto**. El importador de estados de cuenta tiene su propio artículo, [[import-expenses-from-a-bank-csv|Importar gastos desde un CSV del banco]], y la exportación el suyo, [[the-accounting-export|La exportación contable]].",
+      "**Control de gastos** es «A dónde va tu dinero — por trabajo, gastos generales y categoría — más tu ritmo de gasto mensual.» Es la misma pantalla tanto si abre **Gastos** bajo Finanzas en la barra lateral como **Control de gastos** bajo Cobros en Configuración: un mes a la vez, cuatro tarjetas arriba, luego los desgloses, la tendencia de seis meses y los recibos recientes.",
+      "Este artículo es esa pantalla y el formulario **Agregar gasto**. El importador de estados de cuenta tiene su propio artículo, [[import-expenses-from-a-bank-csv|Importar gastos desde un CSV del banco]]. Los gastos no se exportan; para lo que un contador puede tener, vea [[the-accounting-export|Qué entregarle a su contador]].",
     ],
     sections: [
       {
@@ -555,7 +555,7 @@ export const ARTICLES = {
         heading: "Resumen",
         blocks: [
           { p: "Un gasto en FieldQuo es un monto con fecha y una categoría, opcionalmente ligado a un trabajo, marcado como gasto general, marcado como recurrente, o asociado a un vehículo. Esas cuatro decisiones deciden dónde aparece: en el costeo del trabajo y en la precisión de las estimaciones, en el ritmo de gasto, en el costo de operación del vehículo, o simplemente en el total del mes. La pantalla es un mes de esas filas, sumadas de las formas en que un contratista pregunta por ellas." },
-          { figure: "live:app-settings-expense-tracking", caption: "Configuración → Control de gastos — el selector de mes, las cuatro tarjetas, Resumen de IA, los dos desgloses, la Tendencia de 6 meses, Gastos recientes y la Exportación contable." },
+          { figure: "live:app-settings-expense-tracking", caption: "Configuración → Control de gastos — el selector de mes, las cuatro tarjetas, Resumen de IA, los dos desgloses, la Tendencia de 6 meses y Gastos recientes." },
         ],
       },
       {
@@ -563,7 +563,7 @@ export const ARTICLES = {
         heading: "Qué hay en la pantalla",
         blocks: [
           { bullets: [
-            "**Importar desde un CSV del banco** y **Agregar gasto** arriba a la derecha, y un selector de mes (**Mes anterior** / **Mes siguiente**).",
+            "**Recibos**, **Escanear recibo**, **Importar desde un CSV del banco** y **Agregar gasto** arriba a la derecha, y un selector de mes (**Mes anterior** / **Mes siguiente**).",
             "**Gastos registrados este mes** — cada gasto fechado en el mes, sea cual sea su categoría o asociación.",
             "**Ritmo de gasto mensual** — «Gastos generales + salarios + deuda»: lo que cuesta mantener el negocio funcionando un mes, a partir de los registros de **Configuración → Gastos generales**. No cambia con el mes que esté viendo.",
             "**Autonomía** — meses de efectivo a ese ritmo. Dice **—** con **Agrega el efectivo disponible para estimar**: hoy no hay ningún lugar en FieldQuo donde ingresar el efectivo disponible, así que la tarjeta se queda en un guion. FieldQuo no guarda saldo bancario ni conexión bancaria.",
@@ -573,7 +573,6 @@ export const ARTICLES = {
             "**Gasto por categoría** — las categorías de este mes, la mayor primero, con la parte de cada una.",
             "**Tendencia de 6 meses** — una barra por mes, este mes el último.",
             "**Gastos recientes** — las veinte filas más nuevas de todos los meses, cada una etiquetada **Gastos generales** o **Vinculado a trabajo**, con un icono de eliminar.",
-            "**Exportación contable** — un rango de fechas como CSV para su contador.",
           ] },
         ],
       },
