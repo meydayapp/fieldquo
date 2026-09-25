@@ -815,7 +815,8 @@ const companiesSrc = code("app/api/companies/route.js");
 const guarded = (signupSrc.match(/entryChecked && !alreadyOnFieldquo && step ===/g) || []).length;
 ok("no signup step renders for a member", guarded >= 7, guarded);
 ok("...nor the loading state that precedes them",
-  /\{!entryChecked && !alreadyOnFieldquo && \(/.test(signupSrc));
+  // (A resume link held for the two-account choice hides it too.)
+  /\{!entryChecked && !alreadyOnFieldquo && (!resumeElsewhere && )?\(/.test(signupSrc));
 // app.signup.*, not auth.signup.*. The old prefix belonged to no catalogue at
 // all: check-translations.mjs gates "app.*" and messages.js gates the marketing
 // keys, and "auth.signup.alreadyIn" was neither — so every one of these t()

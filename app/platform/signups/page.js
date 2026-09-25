@@ -94,6 +94,9 @@ const SKIP_LABELS = {
   suppressed: "On the do-not-contact list — never promoted",
   company_exists: "Matches a company already on the books (same email or phone) — not promoted; the signup itself is unfinished",
   completed: "Completed the signup",
+  // lib/signup/leads.js FINISHED_SAME_VISITOR — stamped when the same browser
+  // finished the same business under another address.
+  finished_same_visitor: "Same browser finished this business under another address — not promoted, not mailed",
 };
 
 const FILTERS = [

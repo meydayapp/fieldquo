@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 25 September 2026 (the owner's own signup test, four faults: account-email pages now render in the account's language from the first byte — server wrappers on /verify-email and /reset-password, a layout on /accept-invitation, the link carries ?lang=; the confirmation link lands on the page, which names the address it confirmed and asks when another account is signed in; a ?resume= link for an address that already has a login goes to sign-in (or the app) instead of the account step; the five-minute letter skips any address whose login owns a finished signup and any half-typed address the same browser finished under another — check:auth-link-routing)
 Last updated: 25 September 2026 (Create › Request opens a hand-entered lead form at /app/leads/new — the owner's six fields, posted through createScoredLead as source "manual", gated at requests:view_create_edit on page and route, landing on the board with the new lead's drawer open; the board's ?lead= deep link now also works after an in-app navigation — see "Still owed here" under "Phone menus, the Create sheet and a mobile audit" below)
 Last updated: 25 September 2026 (Kitchen Designer on by itself for the trades that build kitchens — kitchen_design, remodeling, renovation, general contracting, new construction, cabinet refacing; refinishing/countertop/stairs/painting stay off; a handyman opts in — plus `Company.kitchenDesignerOverride` (follow / always on / always off) on Settings › Services, read by the one gate in lib/kitchen/access.js that every surface and Cabinet Rates now ask — see "Kitchen Designer: on for the trades that build kitchens" below)
 Last updated: 25 September 2026 (Confirm what you quote, round two: untick a service already in the list to REMOVE it — archived through the existing `Product.active`, never deleted, restored as the same row when ticked again — with every picker, builder and settings list that read the whole book now filtering through `lib/products/offered.js`; All / Selected (N) tabs; the "0 of 0 selected" count fixed; "Added for you" on seeded rows the company never renamed or repriced, in the dialog and in Products & Services, which gains Remove and a Removed tab with Add back; "Review the services we added for you (N)" on the home card for EVERY company signup seeded, not only thin trades (the owner's decision) — see "Confirm what you quote: untick to remove" below)
@@ -51,6 +52,65 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## The owner's signup test: language, the wrong account, the resume link, the letter (25 September 2026)
+
+Four linked faults from the owner signing up with his own addresses. Each has
+an executed check in `npm run check:auth-link-routing` (in check:all).
+
+1. **Wrong language on the confirmation page.** `/verify-email` sat under the
+   root LanguageProvider, which is told nothing and guesses from the browser
+   (`localStorage["fieldquo-language"]`, then `navigator.language`), so an
+   English email opened a Spanish page on a Spanish-leaning browser, and the
+   next click could differ. Now `app/verify-email/page.js` and
+   `app/reset-password/page.js` are server wrappers that decide the language
+   from the account behind the link's token, then the link's `?lang=`, then the
+   signed-in session (`lib/authLinkLanguage.js`), and render inside
+   `LinkLanguage` (a nested provider with `fromAccount`). The invitation page
+   gets the invitation email's language from a layout. Both account emails put
+   `lang` on the link (`lib/authLinks.js`); the email and the page share one
+   lookup (`lib/i18n/accountLanguage.js`). No magic-link flow exists.
+2. **Confirmation link opened while signed in as someone else.** Better Auth
+   confirmed the address and left the other session in place; the page could
+   not say whose address it was and offered "Continue" into the other
+   account's company. The link now lands on `/verify-email?token=…`, which posts
+   to `app/api/verify-email` (Better Auth still does the confirming, with no
+   headers, so no session is touched; change-of-address tokens are refused).
+   The page names the confirmed address and, when a different account is signed
+   in, offers "Continue as <confirmed>" (signs the other out, sign-in with the
+   address filled) or "Stay signed in as <other>".
+3. **Resume link for an address that already has a login.** The page guessed
+   "has a login" from the SignupLead's `stepReached`, and the owner's row was
+   stuck on the account step BECAUSE the account step had refused a second
+   login. `GET /api/signup/lead?token=` now reads the User table and answers a
+   `route` (`lib/signup/resumeRoute.js`): signed in as that user → the app if
+   signup finished, else the first unfinished step; signed out → `/login?resume=`
+   with the address filled, "You already created your login — sign in to finish
+   setting up <company>", a resend button if the address is unconfirmed, and a
+   return to the right place; signed in as someone else → both addresses named
+   and a choice. The token never signs anyone in.
+4. **Why the letter went out.** Production, read-only: the address's login had
+   existed since 2026-09-13 with a PAYING company (Test Inc., active
+   Subscription). On 09-25 at 19:45 a new signup for "Emilio The Painter" on
+   that address stopped on the account step (login exists); the same business
+   was then finished at 19:53 under a different address from another browser.
+   The 19:55 cron run mailed the stopped row, because the early touch's company
+   query only holds unfinished companies and card-free trials — a paying
+   company could never close its own address. The same run mailed an address
+   half-typed on the way to the finished one. The cron now closes any address
+   that owns a finished signup (company address or a member's login,
+   `completedSignupWhere`, re-checked right before sending) and any row whose
+   browser finished the same business under another address;
+   `recordSignupCompletion` stamps such rows `finished_same_visitor` so the
+   promotion floor skips them too.
+
+### Still owed here
+
+- Links sent before this deploy still point at Better Auth's endpoint and land
+  bare (they live 24 hours): the page cannot name the address for those, and
+  now says which account is signed in instead.
+- The 24-hour recovery note is company-based and was not changed; one login
+  owns one business, so the same gap does not arise there today.
 
 ## /platform counts one book: trialing, paying, companies (25 September 2026)
 
