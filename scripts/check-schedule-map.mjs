@@ -542,7 +542,15 @@ const auto = read("app/components/AddressAutocomplete.js");
 const feed = read("lib/schedule/feed.js");
 const schema = read("prisma/schema.prisma");
 
-ok("the calendar reads ?view=map and renders the map view for it", /searchParams\?\.get\("view"\) === "map"/.test(page) && /<DayMapView day=\{mapDay\}/.test(page));
+// `?view=` gained a fourth value ("cards", the week as a board of cards),
+// so the param is read once into rawView and mapped; "map" still selects
+// the map and nothing else does.
+ok(
+  "the calendar reads ?view=map and renders the map view for it",
+  /const rawView = searchParams\?\.get\("view"\);/.test(page) &&
+    /const view = rawView === "map" \? "map" :/.test(page) &&
+    /\{view === "map" && \(\s*<DayMapView day=\{mapDay\}/.test(page),
+);
 ok("…the month grid and list are NOT rendered under the map view", /view === "map" \? null : \(<>/.test(page));
 ok("the map chunk is a dynamic import with ssr:false — it loads only on the map view", /dynamic\(\(\) => import\("@\/app\/components\/schedule\/ScheduleMap"\), \{\s*ssr: false/.test(view));
 ok("…and the calendar page itself never imports the map statically", !/from "@\/app\/components\/schedule\/ScheduleMap"/.test(page));
@@ -564,7 +572,14 @@ ok("…colours the day by work area", /groupOf=\{groupOf\}/.test(wa) && /legend=
 ok("…and says the polygon is only a picture for now", /app\.setWorkAreas\.mapExplain/.test(wa));
 ok("the schema says nothing else reads the polygon yet", /polygon\s+Json\?/.test(schema) && /Read ONLY by\s*\/\/\/ the Settings → Work areas map today/.test(schema));
 ok("the feed is the calendar's queries with a range and nothing else new", /within && \{ scheduledAt: within \}/.test(feed) && /within && \{ startTime: within \}/.test(feed) && (feed.match(/ownFilter\(/g) || []).length === 3);
-ok("GET /api/appointments passes no range — it gets what it always got", /loadScheduleFeed\(db, member, full\)\)/.test(read("app/api/appointments/route.js")));
+// The GET now decorates the feed with SMS delivery receipts before
+// answering (attachCalendarTexts), so the call is assigned rather than
+// returned inline. Still three arguments: no range.
+ok(
+  "GET /api/appointments passes no range — it gets what it always got",
+  /const feed = await loadScheduleFeed\(db, member, full\);/.test(read("app/api/appointments/route.js")) &&
+    !/loadScheduleFeed\(db, member, full,/.test(read("app/api/appointments/route.js")),
+);
 ok("the appointment POST geocodes through the shared wrapper", /geocodeAppointment\(db, appointment\)/.test(read("app/api/appointments/route.js")));
 ok("…and the PATCH only on a location CHANGE", /locationChanged\(existing\.location, body\.location\)/.test(read("app/api/appointments/[id]/route.js")));
 
