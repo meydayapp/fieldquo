@@ -370,7 +370,17 @@ ok("an unsupported period falls back rather than throwing", buildRevenueTrend({ 
 // opportunities". The number is worth having; the advice is a template that
 // fires whatever the figure, and one sentence of it makes the whole panel less
 // believable. This asserts the advice is not in the source at all.
-const page = readFileSync("app/app/page.js", "utf8");
+// The trend sentence moved into app/components/dashboard/trendSentence.js on
+// 2026-09-25 (the /signup dashboard sample renders it too), so the page's
+// copy is the page PLUS that file — the advice scan and the key assertion
+// read both, and the page must still be the one using it.
+const trendFile = readFileSync("app/components/dashboard/trendSentence.js", "utf8");
+const page = readFileSync("app/app/page.js", "utf8") + "\n" + trendFile;
+ok(
+  "the dashboard renders its trend sentence through trendSentenceFor",
+  /import \{[^}]*trendSentenceFor[^}]*\} from "@\/app\/components\/dashboard\/trendSentence"/.test(readFileSync("app/app/page.js", "utf8")) &&
+    /trendSentenceFor\(money, t\)/.test(readFileSync("app/app/page.js", "utf8")),
+);
 // Comments stripped first: the file explains at length why this advice is not
 // there, and a scan that read its own explanation as the offence would fail
 // forever and teach the next person to delete the explanation.

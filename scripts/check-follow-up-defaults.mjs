@@ -205,7 +205,16 @@ ok("cron reports why quotes were left alone", /stopped\[reason\]/.test(cron) && 
 
 console.log("\nSeeding hooks (read)\n");
 
-ok("self-serve signup seeds the defaults", /ensureDefaultFollowUps\(db, company\.id\)/.test(code(read("app/api/companies/route.js"))));
+// Since 2026-09-25 signup seeds through the stages in lib/signup/setupStages.js
+// — inline from /api/companies (runSetupInline) or streamed from
+// /api/signup/setup (runSetupStage) — and the templates stage is where the
+// rules are ensured, with the client each route passes.
+ok(
+  "self-serve signup seeds the defaults",
+  /runSetupInline\(\{[\s\S]*?client: db,/.test(code(read("app/api/companies/route.js"))) &&
+    /runSetupStage\(stage, \{ companyId, client: db \}\)/.test(code(read("app/api/signup/setup/route.js"))) &&
+    /stage\?\.kind === "templates"[\s\S]*?ensureDefaultFollowUps, client, companyId/.test(code(read("lib/signup/setupStages.js"))),
+);
 ok("platform-created companies get them too", /ensureDefaultFollowUps\(db, company\.id\)/.test(code(read("app/api/platform/companies/route.js"))));
 ok("the rules page self-heals a company that missed them", /ensureDefaultFollowUps\(db, member\.companyId\)/.test(code(read("app/api/settings/follow-up-rules/route.js"))));
 ok("a backfill script exists and dry-runs first", /--dry-run/.test(read("scripts/backfill-follow-up-defaults.mjs")));

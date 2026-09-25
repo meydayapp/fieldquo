@@ -35,6 +35,18 @@
 // paragraphs and the estimator's text blocks — the same words, not a second
 // copy) and How the work runs (the process steps, plus a day-by-day plan
 // derived from the takeoff's hours and the crew size when BOTH exist).
+//
+// ── `sample` (2026-09-25) ───────────────────────────────────────────────────
+//
+// The /signup side panel shows a stranger what their client will open, and
+// the owner's rule is that it must be THIS page, not a drawing of it. So the
+// component also takes `sample`: a payload in exactly the shape
+// GET /api/public/quotes/[token] answers (lib/signup/sampleWorld.js builds
+// it from the harness fixture and the trade's seed). With it, the page
+// renders from that object and never touches the network — no GET, and
+// submit() refuses before any POST — because a sample has no token and no
+// quote behind it. The panel mounts it inert, so nothing is pressable
+// either; the refusal is there so the code does not depend on that.
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -87,10 +99,10 @@ import {
 // measures 5.02:1. Decline stays #4b5563 (7.56:1), which already cleared.
 const APPROVE_GREEN = "#15803d";
 
-export default function QuoteApproval({ token }) {
-  const [quote, setQuote] = useState(null);
+export default function QuoteApproval({ token, sample = null }) {
+  const [quote, setQuote] = useState(sample);
   const [loadError, setLoadError] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!sample);
 
   const [confirming, setConfirming] = useState(null); // "accepted" | "declined"
   const [submitting, setSubmitting] = useState(false);
@@ -165,6 +177,12 @@ export default function QuoteApproval({ token }) {
   };
 
   useEffect(() => {
+    // A sample was handed its payload and has no token to fetch — see the
+    // header. It follows its prop, so the panel can reprice it in place.
+    if (sample) {
+      setQuote(sample);
+      return undefined;
+    }
     let cancelled = false;
     (async () => {
       setLoading(true);
@@ -220,9 +238,10 @@ export default function QuoteApproval({ token }) {
     return () => {
       cancelled = true;
     };
-  }, [token, attempt]);
+  }, [token, attempt, sample]);
 
   async function submit(decision) {
+    if (sample) return;
     setSubmitting(true);
     setActionError("");
     try {
@@ -685,7 +704,9 @@ export default function QuoteApproval({ token }) {
               language, in colours measured against this paper, and absent
               when Google has no outdoor imagery there. Loads only on tap. */}
           <StreetViewPeek
-            token={token}
+            // A sample has no quote behind it to look up — no token, no
+            // request (see `sample` in the header).
+            token={sample ? null : token}
             variant="document"
             theme={theme}
             className="mt-3"

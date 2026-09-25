@@ -121,7 +121,7 @@ const DESIGNS = [
 // ── Funnels ────────────────────────────────────────────────────────────────
 // app/api/funnels GET: bare array of { id, name, slug, status, channel,
 // updatedAt, _count.responses }.
-const FUNNELS = [
+export const FUNNELS = [
   { id: "fn_kitchen", name: "Kitchen quote — landing page", slug: "kitchen-quote", status: "published", channel: "web", updatedAt: iso(day(-3, 15)), _count: { responses: 14 } },
   { id: "fn_island", name: "Instagram — island reel offer", slug: "island-reel", status: "draft", channel: "instagram", updatedAt: iso(day(-1, 10)), _count: { responses: 0 } },
 ];
@@ -152,7 +152,7 @@ const call = (over) => ({
   leadRecovered: false,
   ...over,
 });
-const CALLS = [
+export const CALLS = [
   call({
     id: "vc_leak",
     from: "+1 450 555 0199",
@@ -378,7 +378,7 @@ function thread(id, platform, name, messages, extra = {}) {
   };
 }
 
-const THREADS = [
+export const THREADS = [
   thread("t_fb_lavoie", "facebook", "Nathalie Lavoie", [
     msg("in", "Hi — do you build walk-in pantries? We're in Vimont.", 3 * 24 * 60 + 40),
     msg("out", "We do! Happy to come by and take a look. Are mornings or afternoons better this week?", 3 * 24 * 60 + 29),
@@ -405,7 +405,7 @@ const THREADS = [
   ], { threadNumber: 43, clientId: CLIENT.id, quoteId: QUOTE.id, jobId: JOB.id }),
 ];
 
-const summary = (t) => {
+export const summary = (t) => {
   const spoken = t.messages.filter((m) => m.direction === "in" || m.direction === "out");
   const last = spoken[spoken.length - 1] || null;
   return {

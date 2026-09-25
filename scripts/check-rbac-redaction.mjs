@@ -428,8 +428,9 @@ check("the importer's cost/markup/price view is gated",
   /hasToggle\(full, "showPricing"\)/.test(src("app/api/quotes/[id]/imports/route.js")));
 
 console.log("\nThe screens do not render the absence as a number\n");
+// The total is printed by the list's row component, not by page.js.
 check("the quotes list prints a dash, not Number(undefined)",
-  /pricingHidden \?/.test(src("app/app/quotes/page.js")));
+  /pricingHidden \?/.test(src("app/app/quotes/QuoteListRow.js")));
 check("the invoices list too", /pricingHidden \?/.test(src("app/app/invoices/page.js")));
 check("the invoices list does not sum absent totals into $0.00",
   /!pricingHidden/.test(src("app/app/invoices/page.js")));

@@ -2,6 +2,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { normaliseWebsiteUrl } from "@/lib/signup/website";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
@@ -516,7 +517,15 @@ export async function PATCH(request) {
       ...(country !== undefined && { country }),
       ...(latitude !== undefined && { latitude }),
       ...(longitude !== undefined && { longitude }),
-      ...(website !== undefined && { website }),
+      // A bare "www.x.com" is stored as the https:// address the signup
+      // stores (lib/signup/website.js), so the column holds one shape
+      // whichever form wrote it — a scheme-less value renders as a relative
+      // link wherever Company.website is an href. Anything the reader
+      // refuses is kept as typed, as before: a legacy value must not start
+      // blocking saves of unrelated fields on this form.
+      ...(website !== undefined && {
+        website: typeof website === "string" && website.trim() ? normaliseWebsiteUrl(website) || website : website,
+      }),
       ...(logoUrl !== undefined && { logoUrl }),
       ...(logoPublicId !== undefined && { logoPublicId }),
       ...(brandColor !== undefined && { brandColor }),

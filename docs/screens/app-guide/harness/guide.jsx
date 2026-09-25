@@ -239,10 +239,30 @@ async function runScene(scene) {
   // ── The signup panel's phone strip (2026-09-24) ──────────────────────────
   // Opened by pressing the shipped "Show preview" button, never by rendering
   // the picture on its own.
+  // Since 2026-09-25 the panel's samples are real components loaded on
+  // demand and measured inside their frames; a frame is photographed once
+  // every sample on screen has been measured (data-sample-ready), or once
+  // the drawn price book is up.
+  const samplesReady = async (scope) => {
+    // A phone keeps the full panel hidden and loads nothing into it (the
+    // samples load only when on screen); only the strip is waited for there.
+    const box = await until(scope);
+    if (!box.getClientRects().length) return;
+    await until(`${scope} [data-sample-frame], ${scope} [data-signup-preview]`);
+    for (let i = 0; i < 80; i++) {
+      const frames = [...document.querySelectorAll(`${scope} [data-sample-frame]`)];
+      if (frames.every((f) => f.getAttribute("data-sample-ready") === "1")) break;
+      await wait(100);
+    }
+    await wait(500);
+  };
+  if (scene === "signup-samples") {
+    await samplesReady("[data-signup-aside]");
+    return;
+  }
   if (scene === "signup-strip-open") {
     (await until("[data-signup-aside-strip] button[aria-expanded]")).click();
-    await until("[data-signup-aside-strip] [data-signup-preview]");
-    await wait(400);
+    await samplesReady("[data-signup-aside-strip]");
     return;
   }
   if (scene === "rail-collapse") {

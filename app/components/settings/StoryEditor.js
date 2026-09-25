@@ -162,7 +162,12 @@ export default function StoryEditor({ compact = false, onSaved }) {
           </label>
           <input
             id="story-video"
-            type="url"
+            // Text with the URL keyboard, not type="url": this field is in a
+            // <form>, and the browser's validator refuses "youtu.be/..."
+            // pasted without https:// before our save ever runs. The route
+            // adds the scheme (lib/signup/website.js) and refuses junk.
+            type="text"
+            inputMode="url"
             value={data.storyVideoUrl}
             disabled={!canEdit}
             onChange={(e) => setData({ ...data, storyVideoUrl: e.target.value })}
