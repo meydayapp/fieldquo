@@ -13,6 +13,8 @@ import { Search, Loader2, Building2, AlertCircle } from "lucide-react";
 import { count, money } from "@/app/components/platform/MetricCard";
 import { statusMeta } from "@/lib/platform/subscriptionStatus";
 import NextStepsEmailCard from "./NextStepsEmailCard";
+import PresenceBadge, { usePresencePoll } from "@/app/components/platform/PresenceBadge";
+import { countOnline, presenceBadge, presenceSortKey } from "@/lib/platform/companyPresence";
 
 const STATUS_FILTERS = [
   { value: "", label: "All" },
@@ -99,6 +101,57 @@ export default function PlatformCompaniesPage() {
   const [error, setError] = useState("");
   const byCountry = useMemo(() => tallyByCountry(companies), [companies]);
 
+  // ── Who is signed in ────────────────────────────────────────────────────
+  //
+  // Polled on its own, every minute while this tab is visible, from a route
+  // that returns timestamps only (app/api/platform/companies/presence) — the
+  // list itself is not re-downloaded to keep a badge fresh. The words come
+  // from lib/platform/companyPresence.js, the same function the company page
+  // uses, so the two screens cannot disagree about one company.
+  const { data: presenceData, error: presenceError, now } = usePresencePoll(
+    "/api/platform/companies/presence",
+  );
+  const presenceById = useMemo(() => {
+    const map = new Map();
+    for (const p of presenceData?.companies || []) map.set(p.id, p);
+    return map;
+  }, [presenceData]);
+  // Across every customer company, not just the rows under the current
+  // filter — "3 companies online now" is a statement about FieldQuo, and the
+  // presence route already covers every company. Demos are left out, the same
+  // line the list's own filters draw.
+  const onlineNow = useMemo(
+    () => (presenceData ? countOnline(presenceData.companies, now) : null),
+    [presenceData, now],
+  );
+  // "Online now" narrows the rows ALREADY loaded under the status filter and
+  // search. Client-side, unlike those two (see the note at the top of this
+  // file), because it is a different kind of question: it changes minute to
+  // minute, and deciding it here with the same presenceBadge() that draws the
+  // pill means a row is listed if and only if its badge says "Online now".
+  // The list is not paged, so there is no "12 companies" over a page of 3.
+  const [onlineOnly, setOnlineOnly] = useState(false);
+  const [sortBy, setSortBy] = useState("newest");
+  const badgeFor = useCallback(
+    (c) => {
+      const p = presenceById.get(c.id);
+      return p ? presenceBadge({ ...p, now }) : null;
+    },
+    [presenceById, now],
+  );
+  const shown = useMemo(() => {
+    if (!Array.isArray(companies)) return companies;
+    let rows = companies;
+    if (onlineOnly && presenceData) rows = rows.filter((c) => badgeFor(c)?.code === "online");
+    if (sortBy === "recent" && presenceData) {
+      rows = [...rows].sort(
+        (a, b) =>
+          presenceSortKey(presenceById.get(b.id), now) - presenceSortKey(presenceById.get(a.id), now),
+      );
+    }
+    return rows;
+  }, [companies, onlineOnly, sortBy, presenceData, presenceById, badgeFor, now]);
+
   const load = useCallback(async (q, s) => {
     setLoading(true);
     setError("");
@@ -131,6 +184,27 @@ export default function PlatformCompaniesPage() {
         <p className="text-sm text-muted-foreground mt-1">
           Every company on FieldQuo.
         </p>
+        {/* The headline the owner asked for: is anybody in the product right
+            now. Emerald only when the answer is yes, the reps page's "live"
+            tone; a zero is said plainly in grey rather than hidden. */}
+        {onlineNow !== null && (
+          <p
+            className={`text-sm mt-2 font-medium ${
+              onlineNow > 0 ? "text-emerald-700 dark:text-emerald-300" : "text-muted-foreground"
+            }`}
+          >
+            {onlineNow === 0
+              ? "No companies online now."
+              : `${count(onlineNow)} ${onlineNow === 1 ? "company" : "companies"} online now.`}
+          </p>
+        )}
+        {presenceError && (
+          <p className="text-xs text-muted-foreground mt-1">
+            {presenceData
+              ? `Who's signed in didn't refresh (${presenceError}); the badges show the last reading.`
+              : `Who's signed in couldn't be loaded (${presenceError}), so no badges are shown.`}
+          </p>
+        )}
       </div>
 
       {/* The one letter FieldQuo writes to a new company after the
@@ -166,6 +240,34 @@ export default function PlatformCompaniesPage() {
               {f.label}
             </button>
           ))}
+          {/* A toggle, not a sixth status: it narrows whichever status is
+              chosen. Disabled until presence has loaded, so it can never
+              answer "none of these is online" about data it does not have. */}
+          <button
+            onClick={() => setOnlineOnly((v) => !v)}
+            disabled={!presenceData}
+            aria-pressed={onlineOnly}
+            className={`min-h-[44px] min-w-[44px] lg:min-h-0 px-3 py-2 rounded-lg text-sm font-medium border disabled:opacity-50 ${
+              onlineOnly
+                ? "bg-emerald-700 text-white border-emerald-700"
+                : "border-border text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            Online now{onlineNow ? ` (${count(onlineNow)})` : ""}
+          </button>
+          <label className="sr-only" htmlFor="company-sort">
+            Sort
+          </label>
+          <select
+            id="company-sort"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            disabled={!presenceData}
+            className="min-h-[44px] lg:min-h-0 px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground disabled:opacity-50"
+          >
+            <option value="newest">Newest signup first</option>
+            <option value="recent">Most recently active first</option>
+          </select>
         </div>
       </div>
 
@@ -188,6 +290,14 @@ export default function PlatformCompaniesPage() {
             removed. Reload, or try the search again.
           </p>
         </div>
+      ) : shown.length === 0 && onlineOnly && companies.length > 0 ? (
+        <div className="bg-card border border-border rounded-xl p-10 text-center">
+          <Building2 size={28} className="text-muted-foreground mx-auto" />
+          <p className="mt-3 text-sm text-muted-foreground">
+            None of these companies is online right now. Turn off &quot;Online
+            now&quot; to see them all.
+          </p>
+        </div>
       ) : companies.length === 0 ? (
         <div className="bg-card border border-border rounded-xl p-10 text-center">
           <Building2 size={28} className="text-muted-foreground mx-auto" />
@@ -200,8 +310,9 @@ export default function PlatformCompaniesPage() {
       ) : (
         <>
           <p className="text-xs text-muted-foreground">
-            {count(companies.length)}{" "}
-            {companies.length === 1 ? "company" : "companies"}
+            {count(shown.length)}{" "}
+            {shown.length === 1 ? "company" : "companies"}
+            {onlineOnly ? " online now" : ""}
           </p>
           {/* Where the customers are — trialling + paying, per country, so
               the owner can see which tax registrations are coming. Of the
@@ -221,9 +332,10 @@ export default function PlatformCompaniesPage() {
           )}
 
           <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
-            {companies.map((c) => {
+            {shown.map((c) => {
               const daysLeft = trialDaysLeft(c.trialEndsAt);
               const plan = c.subscription?.plan?.name;
+              const presence = badgeFor(c);
 
               return (
                 <Link
@@ -236,6 +348,10 @@ export default function PlatformCompaniesPage() {
                       <span className="font-medium text-foreground truncate">
                         {c.name}
                       </span>
+                      {/* Right beside the name: the first thing the owner
+                          wants to know about a new company is whether anyone
+                          is actually in it. */}
+                      <PresenceBadge badge={presence} />
                       {c.isDemo ? (
                         /* A demo has no onboarding and no checkout to finish;
                            printing "pending" on it is a lie about a company
