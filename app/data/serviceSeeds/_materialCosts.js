@@ -63,6 +63,7 @@ export const HD = {
   tankless_gas: { cost: 1299, unit: "each", per: 1, per_unit: "each" },
   toilet_2pc: { cost: 99, unit: "each", per: 1, per_unit: "each" },
   supply_line: { cost: 7.9, unit: "each", per: 1, per_unit: "each" },
+  pex_half_100: { cost: 33.3, unit: "coil", per: 100, per_unit: "linft" },
   mini_split_12k: { cost: 609.99, unit: "system", per: 1, per_unit: "each" },
   smoke_detector_hw: { cost: 28.47, unit: "each", per: 1, per_unit: "each" },
   filter_16x25x1: { cost: 18.97, unit: "each", per: 1, per_unit: "each" },

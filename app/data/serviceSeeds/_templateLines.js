@@ -112,7 +112,7 @@ export const TEMPLATE_KINDS = ["installation", "repair", "inspection", "maintena
 export const LINE_KINDS = ["labour", "material", "other"];
 export const LINE_UNITS = ["flat", "each", "hour", "sqft", "linear_ft", "square",
   // purchase units, for material lines costed from _materialCosts.js
-  "gallon", "quart", "pail", "sheet", "bundle", "roll", "box", "bag", "piece", "tube", "case", "panel", "board", "pallet", "kit", "length", "system"];
+  "gallon", "quart", "pail", "sheet", "bundle", "roll", "box", "bag", "piece", "tube", "case", "panel", "board", "pallet", "kit", "length", "system", "coil"];
 export const COVERAGE_UNITS = ["sqft", "linft", "cuft", "each"];
 // The keys, EXACTLY as lib/services/measurementKeys.js registers them (the
 // loader's closed registry — an unknown key fails validateTemplateLines).

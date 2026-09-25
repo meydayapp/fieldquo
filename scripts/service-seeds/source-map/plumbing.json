@@ -698,5 +698,12 @@
   "sourceCategory": "Water Heater",
   "sourceService": "No hot water",
   "taskCode": null
+ },
+ {
+  "seedKey": "fq.plumbing.toilets.install_best",
+  "industry": "Plumbing",
+  "sourceCategory": "Estimate templates (Installation)",
+  "sourceService": "Toilet Replacement – Best",
+  "taskCode": null
  }
 ]
