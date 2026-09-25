@@ -158,6 +158,10 @@ export default function TopBar() {
             onClick={() => shell.open("search")}
             className="hidden xl:flex w-80 items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-background text-sm text-muted-foreground hover:text-foreground"
             data-search-button
+            // The welcome tour's Search step. Both desktop copies (this box
+            // from xl, the icon below it) and the rail's search row carry it;
+            // the tour rings the one that measures on screen.
+            data-tour="shell-search"
           >
             <Search size={14} className="shrink-0" />
             <span className="truncate">{t("app.search.placeholder")}</span>
@@ -167,6 +171,7 @@ export default function TopBar() {
             type="button"
             onClick={() => shell.open("search")}
             aria-label={t("app.search.title")}
+            data-tour="shell-search"
             className="xl:hidden flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             <Search size={20} />

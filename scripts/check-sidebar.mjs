@@ -37,6 +37,8 @@ import {
   visibleItems,
 } from "../app/components/layout/navDisclosure.js";
 import { APP_MESSAGES } from "../app/i18n/appMessages.js";
+// Plain data, no imports — safe under bare node (see its own header).
+import { TOURS } from "../app/components/tours.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => fs.readFileSync(path.join(ROOT, p), "utf8");
@@ -397,12 +399,43 @@ ok("rail: the 76px icon rail shows every item regardless of disclosure",
 // ── The tour coupling, made enforceable ────────────────────────────────────
 //
 // OnboardingTour needs a target that measures non-zero, and a collapsed group
-// unmounts its items. Any group holding a tour anchor must therefore be pinned.
-for (const [name, groups] of [["rail", NAV], ["more", MORE], ["panel", SETTINGS]]) {
-  const bad = groups.filter((g) => g.items.some((i) => i.tour) && !g.pinned);
-  ok(`${name}: groups holding a data-tour anchor are pinned`, bad.length === 0,
-    bad.map((g) => g.key).join(" "));
+// unmounts its items. So a group holding a tour anchor is either pinned, or
+// (since 2026-09-24) EVERY tour step aimed at one of its rows names the
+// group's header as an opener — `[data-tour-open='nav-group-<name>']` — and
+// the header renders that hook. The tour then unfolds the group itself and
+// folds it back; see OnboardingTour's `owed` closers. What this still refuses
+// is the original failure: a foldable group with a tour row and no way for
+// the tour to open it.
+const hookFor = (groupKey) => `nav-group-${groupKey.split(".").pop()}`;
+const stepsByAnchor = new Map();
+for (const tour of TOURS) {
+  for (const step of tour.steps) {
+    const anchor = /data-tour='([^']+)'/.exec(step.target || "")?.[1];
+    if (!anchor) continue;
+    if (!stepsByAnchor.has(anchor)) stepsByAnchor.set(anchor, []);
+    stepsByAnchor.get(anchor).push({ tour: tour.key, step });
+  }
 }
+const asList = (v) => (Array.isArray(v) ? v : v ? [v] : []);
+for (const [name, groups] of [["rail", NAV], ["more", MORE], ["panel", SETTINGS]]) {
+  const bad = [];
+  for (const g of groups.filter((x) => !x.pinned)) {
+    for (const item of g.items.filter((i) => i.tour)) {
+      const opener = `[data-tour-open='${hookFor(g.key)}']`;
+      for (const { tour, step } of stepsByAnchor.get(item.tour) || []) {
+        if (!asList(step.openWith).includes(opener) || !asList(step.closeWith).includes(opener)) {
+          bad.push(`${tour}:${item.tour} (needs ${opener})`);
+        }
+      }
+    }
+  }
+  ok(`${name}: a tour row in a foldable group is opened (and closed) through its header`,
+    bad.length === 0, bad.join(" "));
+}
+// The header really carries the hook, computed the way the check computes it.
+ok("the foldable group header renders data-tour-open={groupTourHook(group.key)}",
+  /data-tour-open=\{groupTourHook\(group\.key\)\}/.test(adminSrc)
+    && /return `nav-group-\$\{String\(groupKey\)\.split\("\."\)\.pop\(\)\}`/.test(adminSrc));
 const anchors = [...read("app/components/tours.js").matchAll(/data-tour='(nav-[^']+)'/g)]
   .map((m) => m[1]);
 const rendered = new Set([...adminSrc.matchAll(/tour:\s*"([^"]+)"/g)].map((m) => m[1]));

@@ -310,7 +310,7 @@ ok("…every fifteen minutes, so 'about two hours' is two-to-two-and-a-quarter",
 
 const page = stripComments(read("app/app/page.js"));
 ok("the dashboard reads ?step= on mount", /params\?\.get\("step"\)/.test(page));
-ok("…strips it from the URL so a refresh does not reopen it", /if \(backFromStripe \|\| step\) \{\s*\n\s*window\.history\.replaceState/.test(page));
+ok("…strips it from the URL so a refresh does not reopen it", /if \(backFromStripe \|\| step(?: \|\| wantsTour)?\) \{\s*\n\s*window\.history\.replaceState/.test(page));
 ok("…and hands it to the checklist card", /openStepKey=\{openStepKey\}/.test(page));
 const card = stripComments(read("app/components/dashboard/OnboardingProgress.js"));
 ok("the checklist card opens that step's dialog once the list has loaded", /if \(step && !step\.done && canOpenInPlace && hasStepPanel\(step\.key\)\) open\(step\);/.test(card));
