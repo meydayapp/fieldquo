@@ -21,6 +21,9 @@ import {
 import { canSeeMoney } from "@/lib/permissions/enforce";
 import { potentialValueForLead } from "@/lib/leads/potentialValue";
 import { loadWonAverages } from "@/lib/leads/wonAverages";
+import { createScoredLead } from "@/lib/leads/createLead";
+import { buildLeadIntake } from "@/lib/leads/intakeShape";
+import { emailRefusal } from "@/lib/validation";
 
 // Authed — the pipeline view for staff
 export async function GET(request) {
@@ -249,4 +252,135 @@ export async function PATCH(request) {
     },
   });
   return NextResponse.json(updated);
+}
+
+// ── A lead typed in by staff (Create › Request, /app/leads/new) ─────────────
+//
+// Somebody rang the office, stopped the van in a driveway, or was handed a
+// number at a trade show. The board had search, filters, Traffic and Import
+// and no way to write that one person down, so the Create menu's Request row
+// landed on the board and created nothing.
+//
+// Through createScoredLead, the creator every inbound path already uses — the
+// self-quote form, the embed form, the portal, the phone assistant, Meta, the
+// CSV import. A second hand-rolled create here would be the copy that rots:
+// unscored, un-notified, and one more intake layout. Same rules as that
+// path, too: a name and at least one of phone/email (the self-quote and embed
+// routes' own rule); an email that could never be delivered to is refused
+// while the person is still on the form; and no dedupe — createScoredLead
+// writes one row per call on every channel, and a second enquiry from the
+// same household is a second enquiry until a person decides otherwise.
+//
+// `source: "manual"` is not a new word. lib/analytics/kpis.js already names it
+// ("a staff member typing in a walk-in customer") and keeps it out of the
+// blended cost-per-lead, which is right: no ad spend caused this row.
+//
+// What it deliberately does NOT do, unlike the public routes beside it:
+//   - email the homeowner a confirmation. They filled in nothing — a staff
+//     member did — and a surprise "we received your request" is not theirs;
+//   - record call consent or queue the outbound follow-up call. A public form
+//     is the person asking to be rung; a number a staff member typed is not
+//     evidence of that, and no consent only means a human dials instead,
+//     which is the safe direction (app/api/leads/public/route.js says so).
+export async function POST(request) {
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
+
+  // The level the Create row is shown at ("app.quickAdd.request" in
+  // lib/permissions/nav.js) and the level the board's own PATCH asks. The
+  // page asks the same pair; this is the one that decides. A read-only
+  // support session never gets this far — middleware refuses the POST, and
+  // its stand-in member has no row for loadEnforceableMember to find.
+  const { response: denied } = await levelOrRefusal(
+    member,
+    "requests",
+    "view_create_edit",
+    "add a request",
+  );
+  if (denied) return denied;
+
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== "object") {
+    return NextResponse.json(
+      { error: "We couldn't read that request. Please try again." },
+      { status: 400 },
+    );
+  }
+
+  const text = (v, max) => (typeof v === "string" ? v.trim().slice(0, max) : "");
+  const name = text(body.name, 200);
+  const email = text(body.email, 320);
+  const phone = text(body.phone, 40);
+  const address = text(body.address, 500);
+  const note = text(body.note, 4000);
+
+  if (!name) {
+    return NextResponse.json(
+      { error: "A name is required.", code: "name_required" },
+      { status: 400 },
+    );
+  }
+  if (!email && !phone) {
+    return NextResponse.json(
+      { error: "Provide at least an email or phone number.", code: "contact_required" },
+      { status: 400 },
+    );
+  }
+  const badEmail = emailRefusal(email);
+  if (badEmail) return NextResponse.json(badEmail, { status: 400 });
+
+  // A service must be one this company has switched on — the portal request
+  // route's rule, and the list the form was drawn from
+  // (CompanyServiceCategory.enabled). Absent is fine: "they want something
+  // done, I didn't catch what" is still a lead.
+  let categoryId = null;
+  if (body.categoryId) {
+    const enabled = await db.companyServiceCategory.findFirst({
+      where: { companyId: member.companyId, enabled: true, categoryId: String(body.categoryId) },
+      select: { categoryId: true },
+    });
+    if (!enabled) {
+      return NextResponse.json(
+        { error: "That service isn't one this company offers.", code: "bad_categoryId" },
+        { status: 400 },
+      );
+    }
+    categoryId = enabled.categoryId;
+  }
+
+  const lead = await createScoredLead({
+    companyId: member.companyId,
+    name,
+    email: email || null,
+    phone: phone || null,
+    categoryId,
+    // The note is the staff member's own words about the enquiry, and the
+    // drawer prints `message` as the lead's one free-text block. The address
+    // is NOT copied in as the self-quote does: it rides in intake, where the
+    // card's address line and convertLead both read it, and printing it twice
+    // says nothing new.
+    message: note || null,
+    source: "manual",
+    // city/province/country arrive only from a Places pick — the structured
+    // halves of the one address field, not fields of their own — so a
+    // converted client gets a tax jurisdiction. A typed address sends none,
+    // and buildLeadIntake stores none rather than blanks.
+    intake: buildLeadIntake({
+      address,
+      city: text(body.city, 120),
+      province: text(body.province, 120),
+      country: text(body.country, 8),
+    }),
+    // No `language`: the household was never asked which one they want, and
+    // null is the column's "fall back to the company default" (see
+    // LeadRequest.language). Stamping the staff member's screen language on
+    // it would fix a document language nobody chose.
+    //
+    // The person who typed it, so the "New enquiry" feed does not tell them
+    // about the lead they just entered — lib/notifications/recipients.js never
+    // tells the actor.
+    actorUserId: member.userId || null,
+  });
+
+  return NextResponse.json({ id: lead.id }, { status: 201 });
 }

@@ -514,6 +514,9 @@ ok(!wasAsked("self_quote_kitchen", "budget") && !wasAsked("self_quote_kitchen", 
 ok(!wasAsked("client_portal", "timeline"), "the portal asks neither");
 ok(wasAsked("funnel:facebook", "timeline"), "a funnel's questions are the contractor's own — we cannot claim they were not asked");
 ok(wasAsked("imported", "budget"), "…nor can we, of a CSV somebody exported");
+ok(!wasAsked("manual", "budget") && !wasAsked("manual", "timeline"),
+  "the hand-entered lead form (/app/leads/new) asks neither — its six fields are the owner's list");
+ok(!UNASKABLE_BY_SOURCE.manual, "…and that is display only: the scorer is not re-weighted for it");
 ok(wasAsked(undefined, "budget"), "an unknown source claims nothing");
 
 // The relationship that must hold between the two maps, or the screen and the

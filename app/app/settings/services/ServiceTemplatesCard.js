@@ -37,6 +37,7 @@ import { reportResponseError } from "@/lib/clientErrors";
 import { uploadFile } from "@/lib/media/uploadClient";
 import { formatMoney } from "@/lib/currency";
 import { benchmarkForSeedKey } from "@/lib/services/seeds";
+import { offeredOnly } from "@/lib/products/offered";
 import { MEASUREMENT_KEYS as MEASUREMENT_REGISTRY, measurementKeysForTrade } from "@/lib/services/measurementKeys";
 import { PAINT_TAKEOFF_CATEGORIES } from "@/lib/pricing/sanitiseRates";
 import {
@@ -113,7 +114,9 @@ export default function ServiceTemplatesCard({ category, currency, canEdit, prod
 
   const mine = useMemo(() => {
     const prefix = `fq.${category.key}.`;
-    return (products || [])
+    // Removed services (lib/products/offered.js) are not offered on a quote,
+    // so their templates are not listed here; Add back restores both.
+    return offeredOnly(products)
       .filter((p) => (p.categories || []).some((c) => c.id === category.id) || (typeof p.seedKey === "string" && p.seedKey.startsWith(prefix)))
       .sort((a, b) => String(a.name).localeCompare(String(b.name)));
   }, [products, category.id, category.key]);

@@ -38,7 +38,6 @@ import {
   Megaphone,
   Ruler,
 } from "lucide-react";
-import { KITCHEN_DESIGN_KEY } from "@/lib/kitchen/key";
 import { fetchJson } from "@/lib/fetchJson";
 import { embedSnippet } from "@/lib/embed/snippet";
 import { reportResponseError } from "@/lib/clientErrors";
@@ -139,25 +138,24 @@ export default function LeadFormPage() {
   // ── The kitchen designer link ────────────────────────────────────────────
   //
   // /quote/<slug>/kitchen existed, worked, and was handed out by nothing: a
-  // company that switched "Kitchen Design & New Installs" on had a public
-  // page a stranger could draw their kitchen on and no screen that told them
-  // its address. The block below appears only when that service is on —
-  // the exact condition the page checks before it renders, so this never
-  // offers a link that 404s. Read from the services list rather than a new
-  // field on business-info: it is the row the switch lives on.
+  // company with the designer had a public page a stranger could draw their
+  // kitchen on and no screen that told them its address. The block below
+  // appears only when the designer is on — asked of the server's one gate
+  // (GET /api/settings/kitchen-designer → the kitchen access gate), the exact
+  // answer the page checks before it renders, so this never offers a link
+  // that 404s. It used to re-derive "kitchen_design is ticked" from the
+  // services list; since 2026-09-25 five more trades grant it and a company
+  // override can refuse it, and a second copy of that rule here is the copy
+  // that would rot.
   const [kitchenOffered, setKitchenOffered] = useState(false);
 
   useEffect(() => {
     let live = true;
     (async () => {
       try {
-        const list = await fetchJson("/api/settings/service-categories");
+        const state = await fetchJson("/api/settings/kitchen-designer");
         if (!live) return;
-        setKitchenOffered(
-          (Array.isArray(list) ? list : []).some(
-            (c) => c.key === KITCHEN_DESIGN_KEY && c.enabled === true,
-          ),
-        );
+        setKitchenOffered(state?.on === true);
       } catch {
         // Silent on purpose: this only decides whether ONE more card shows.
         // Failing to read the services list must not paint an error above
@@ -309,7 +307,7 @@ export default function LeadFormPage() {
           title={t("app.setLeadForm.kitchenTitle", "Design your kitchen")}
           description={t(
             "app.setLeadForm.kitchenDesc",
-            "A homeowner lays out their own kitchen — cabinets, finishes, the lot — and sends it to you as an enquiry with the drawing attached. Shown because Kitchen Design & New Installs is switched on under Services.",
+            "A homeowner lays out their own kitchen — cabinets, finishes, the lot — and sends it to you as an enquiry with the drawing attached. Shown because the Kitchen Designer is on — see Services.",
           )}
           url={kitchenUrl}
         />

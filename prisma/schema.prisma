@@ -1366,6 +1366,19 @@ model Company {
   // partially-filled card can't leave a field undefined and price at NaN.
   cabinetRates Json?
 
+  /// The company's own word on the Kitchen Designer, over what its trades say.
+  /// null = follow the trades (on for kitchen_design, remodeling, renovation,
+  /// general contracting, new construction and cabinet refacing — the owner's
+  /// 2026-09-25 decision); true = on whatever the trades; false = off even
+  /// when a trade grants it. Read in ONE place, lib/kitchen/access.js — every
+  /// surface (quote button, internal designer, public design page, bio link,
+  /// Cabinet Rates) asks that file, never this column. Written by
+  /// PATCH /api/settings/kitchen-designer, owner/admin only. Nullable rather
+  /// than a false default because "never said" and "said off" must stay
+  /// distinguishable: a company that adds Remodeling later should get the
+  /// designer unless it deliberately turned it off.
+  kitchenDesignerOverride Boolean?
+
   /// The owner's "15 or 20% over": when a completed job's actual cost comes
   /// in this many percent OVER its estimate, the close-out asks whether to
   /// revise the company's costing from what the job really cost. Over only —
@@ -18149,12 +18162,15 @@ model MailboxConnection {
   sendEnabled            Boolean   @default(false)
   sendEnabledAt          DateTime?
   sendEnabledById        String?
-  /// The rolling hour the throttle counts in — lib/mailbox/sendThrottle.js.
+  /// The window the throttle counts in — an hour, or a day for a provider
+  /// that publishes a daily figure (GoDaddy, Fastmail) — lib/mailbox/sendThrottle.js.
   sendWindowStart        DateTime?
   sendWindowCount        Int       @default(0)
   lastSentAt             DateTime?
   /// The last time a send through this mailbox failed and FieldQuo sent the
-  /// message itself instead, and why — printed on the settings card.
+  /// message itself instead, and why — printed on the settings card. A
+  /// "rate_limited:" reason (the PROVIDER refused for volume) also rests the
+  /// mailbox for one window — sendThrottle.js's backoffVerdict.
   lastSendFallbackAt     DateTime?
   lastSendFallbackReason String?
 

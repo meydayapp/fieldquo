@@ -11,6 +11,21 @@
 // is "review your add-ons", and the table with its Add and edit controls is
 // that. `onChanged` fires after an item is added, edited or deleted so the
 // checklist can re-read itself; the page passes neither.
+//
+// ── Removed, and Added for you (2026-09-25) ────────────────────────────────
+//
+// Two tabs: the list (every row still offered) and "Removed (N)" — rows set
+// `active: false` by Remove here or by unticking in "Confirm what you
+// quote". A removed row is never deleted (lib/products/offered.js says who
+// stops offering it); "Add back" is PATCH { active: true } on the SAME row, so
+// its price and template lines come back exactly as they were. The owner:
+// "they might offer it in the future, so they can always add it back."
+//
+// A seeded row the company has not renamed or repriced carries an "Added for
+// you" badge (the rule is lib/services/addedForYou.js, computed by GET
+// /api/products), and the first time a user sees one, a line at the top says
+// where those rows came from — dismissed per user through /api/ui-state, the
+// same store the tours use.
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -20,13 +35,20 @@ import {
   Pencil,
   Trash2,
   Upload,
+  Archive,
+  RotateCcw,
+  X,
 } from "lucide-react";
-import { reportResponseError } from "@/lib/clientErrors";
+import { reportResponseError, showError } from "@/lib/clientErrors";
 import AutoTranslateBanner from "@/app/components/settings/AutoTranslateBanner";
 import Link from "next/link";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import BackToHome from "@/app/components/BackToHome";
+import { offeredOnly, removedOnly } from "@/lib/products/offered";
 import ProductFormModal from "./ProductFormModal";
+
+/** The per-user notice key for the "Added for you" explanation line. */
+const ADDED_FOR_YOU_NOTICE = "products:added-for-you";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -48,6 +70,30 @@ export default function ProductCatalogue({ compact = false, onChanged } = {}) {
   const [quoteTypesError, setQuoteTypesError] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(6);
+  // "list" = still offered; "removed" = archived (Product.active false).
+  const [tab, setTab] = useState("list");
+  // The row whose Remove / Add back is in flight, so its button can't be
+  // pressed twice.
+  const [busyId, setBusyId] = useState(null);
+  // The "Added for you" explanation: hidden until /api/ui-state answers, so a
+  // user who dismissed it never sees it flash back while the read is out.
+  const [noticeSeen, setNoticeSeen] = useState(true);
+  useEffect(() => {
+    let live = true;
+    fetch("/api/ui-state")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!live || !data) return;
+        const dismissed = Array.isArray(data.dismissedNotices) ? data.dismissedNotices : [];
+        setNoticeSeen(dismissed.includes(ADDED_FOR_YOU_NOTICE));
+      })
+      .catch(() => {
+        /* the line stays hidden — a nudge, never a blocker */
+      });
+    return () => {
+      live = false;
+    };
+  }, []);
 
   // Enabled quote types — the pool of categories a product can be linked to.
   // Same source as quotes/new/page.js so "which quote types can use this
@@ -113,7 +159,7 @@ export default function ProductCatalogue({ compact = false, onChanged } = {}) {
     return () => clearTimeout(timer);
   }, [load]);
 
-  useEffect(() => setPage(1), [search, pageSize]);
+  useEffect(() => setPage(1), [search, pageSize, tab]);
 
   useEffect(() => {
     // No res.ok, no catch, and `useState([])` — so a 500 rendered
@@ -177,6 +223,40 @@ export default function ProductCatalogue({ compact = false, onChanged } = {}) {
     }
   }
 
+  // Remove (active: false) and Add back (active: true) — one PATCH of one
+  // column on the same row. Nothing else is sent, so nothing else changes.
+  async function setActive(product, active) {
+    setBusyId(product.id);
+    try {
+      const res = await fetch(`/api/products/${product.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active }),
+      });
+      if (!res.ok) {
+        await reportResponseError(res);
+        return;
+      }
+      await load();
+      await onChanged?.();
+    } catch {
+      showError(t("app.load.network"));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  function dismissNotice() {
+    // Optimistic, like the seat-sharing banner: gone now, and the write is
+    // what keeps it gone on the user's other devices.
+    setNoticeSeen(true);
+    fetch("/api/ui-state", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dismiss: ADDED_FOR_YOU_NOTICE }),
+    }).catch(() => {});
+  }
+
   async function handleImport(e) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -215,10 +295,54 @@ export default function ProductCatalogue({ compact = false, onChanged } = {}) {
     URL.revokeObjectURL(url);
   }
 
-  const totalPages = Math.max(1, Math.ceil(products.length / pageSize));
-  const pageItems = products.slice((page - 1) * pageSize, page * pageSize);
-  const startIdx = products.length === 0 ? 0 : (page - 1) * pageSize + 1;
-  const endIdx = Math.min(page * pageSize, products.length);
+  const offered = offeredOnly(products);
+  const removed = removedOnly(products);
+  const shown = tab === "removed" ? removed : offered;
+  const anyAddedForYou = offered.some((p) => p.addedForYou === true);
+  const totalPages = Math.max(1, Math.ceil(shown.length / pageSize));
+  const pageItems = shown.slice((page - 1) * pageSize, page * pageSize);
+  const startIdx = shown.length === 0 ? 0 : (page - 1) * pageSize + 1;
+  const endIdx = Math.min(page * pageSize, shown.length);
+
+  // The row's actions, rendered twice (beside the name below `sm`, in the
+  // grid's fourth column above it). One definition so the two cannot drift.
+  const rowActions = (p) =>
+    tab === "removed" ? (
+      <button
+        onClick={() => setActive(p, true)}
+        disabled={busyId === p.id}
+        className="min-h-[44px] px-3 flex items-center gap-1.5 text-sm font-semibold text-foreground border border-border rounded-full hover:bg-muted disabled:opacity-50"
+      >
+        <RotateCcw size={14} aria-hidden="true" />
+        {t("app.setProducts.addBack", "Add back")}
+      </button>
+    ) : (
+      <>
+        <button
+          onClick={() => openEdit(p)}
+          aria-label={t("app.action.edit", "Edit")}
+          className="min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-foreground"
+        >
+          <Pencil size={14} />
+        </button>
+        <button
+          onClick={() => setActive(p, false)}
+          disabled={busyId === p.id}
+          aria-label={t("app.setProducts.removeFromList", "Remove from your list")}
+          title={t("app.setProducts.removeFromList", "Remove from your list")}
+          className="min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-50"
+        >
+          <Archive size={14} />
+        </button>
+        <button
+          onClick={() => handleDelete(p.id, p.name)}
+          aria-label={t("app.action.delete", "Delete")}
+          className="min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-red-500"
+        >
+          <Trash2 size={14} />
+        </button>
+      </>
+    );
 
   return (
     <div className={compact ? "space-y-6" : "p-4 sm:p-6 max-w-4xl mx-auto space-y-6"}>
@@ -278,6 +402,50 @@ export default function ProductCatalogue({ compact = false, onChanged } = {}) {
         </button>
       </div>
 
+      {/* Where the seeded rows came from — once per user, dismissible. Only
+          when a row actually carries the badge, so the sentence is never
+          about rows the company doesn't have. */}
+      {!noticeSeen && anyAddedForYou && (
+        <div className="flex items-start gap-2 rounded-lg border border-border bg-muted px-4 py-2 text-sm text-foreground" data-added-for-you-notice>
+          <p className="flex-1 py-1.5">
+            {t(
+              "app.setProducts.addedForYouNotice",
+              "These were added for your trade at signup — edit prices or remove what you don't offer. Removed services aren't deleted — add them back any time.",
+            )}
+          </p>
+          <button
+            type="button"
+            onClick={dismissNotice}
+            aria-label={t("app.toast.dismiss", "Dismiss")}
+            className="shrink-0 -mr-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-foreground"
+          >
+            <X size={16} aria-hidden="true" />
+          </button>
+        </div>
+      )}
+
+      {/* The list, and what was removed from it. "Removed" is where the way
+          back lives — the owner: "they can always add it back". */}
+      <div role="tablist" aria-label={t("app.settings.products")} className="flex gap-2">
+        {[
+          ["list", t("app.setProducts.tabList", "Your list ({n})", { n: offered.length })],
+          ["removed", t("app.setProducts.tabRemoved", "Removed ({n})", { n: removed.length })],
+        ].map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={tab === key}
+            onClick={() => setTab(key)}
+            className={`min-h-[44px] px-4 rounded-full text-sm font-semibold border ${
+              tab === key ? "bg-inverted text-inverted-foreground border-transparent" : "text-foreground border-border hover:bg-muted"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       {/* Below `sm` this was a 4-column CSS grid (1fr/1.5fr/auto/auto) inside
           a parent with `overflow-hidden`, not `overflow-x-auto` — a grid
           item's default min-width is its content's min-content size, not 0,
@@ -311,7 +479,9 @@ export default function ProductCatalogue({ compact = false, onChanged } = {}) {
             <p className="px-5 py-8 text-sm text-muted-foreground text-center">
               {search.trim()
                 ? t("app.setProducts.noSearchMatch", "Nothing matches that search.")
-                : t("app.setProducts.emptyList")}
+                : tab === "removed"
+                  ? t("app.setProducts.removedEmpty", "Nothing removed. Services you remove from your list show here, ready to add back.")
+                  : t("app.setProducts.emptyList")}
             </p>
           )}
           {!loading &&
@@ -341,20 +511,7 @@ export default function ProductCatalogue({ compact = false, onChanged } = {}) {
                       4th column (below) takes over instead of nesting one
                       grid cell inside another. */}
                   <div className="flex items-center gap-1 shrink-0 sm:hidden">
-                    <button
-                      onClick={() => openEdit(p)}
-                      aria-label={t("app.action.edit", "Edit")}
-                      className="min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-foreground"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(p.id, p.name)}
-                      aria-label={t("app.action.delete", "Delete")}
-                      className="min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-red-500"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    {rowActions(p)}
                   </div>
                 </div>
                 {p.description && (
@@ -362,36 +519,30 @@ export default function ProductCatalogue({ compact = false, onChanged } = {}) {
                     {p.description}
                   </span>
                 )}
-                <span className="text-xs bg-muted px-2.5 py-1 rounded-full capitalize w-fit">
-                  {p.type}
+                <span className="flex flex-wrap items-center gap-1">
+                  <span className="text-xs bg-muted px-2.5 py-1 rounded-full capitalize w-fit">
+                    {p.type}
+                  </span>
+                  {tab === "list" && p.addedForYou === true && (
+                    <span className="text-xs border border-border text-foreground px-2.5 py-1 rounded-full w-fit" data-added-for-you>
+                      {t("app.setProducts.addedForYou", "Added for you")}
+                    </span>
+                  )}
                 </span>
                 <div className="hidden sm:flex items-center gap-2">
-                  <button
-                    onClick={() => openEdit(p)}
-                    aria-label={t("app.action.edit", "Edit")}
-                    className="min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-foreground"
-                  >
-                    <Pencil size={14} />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(p.id, p.name)}
-                    aria-label={t("app.action.delete", "Delete")}
-                    className="min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-red-500"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  {rowActions(p)}
                 </div>
               </div>
             ))}
         </div>
 
-        {!loading && products.length > 0 && (
-          <div className="flex items-center justify-between px-5 py-3 border-t border-border text-xs text-muted-foreground">
+        {!loading && shown.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 border-t border-border text-xs text-muted-foreground">
             <span>
               {t("app.setProducts.showingRange", {
                 start: startIdx,
                 end: endIdx,
-                total: products.length,
+                total: shown.length,
               })}
             </span>
             <div className="flex items-center gap-3">
@@ -410,7 +561,7 @@ export default function ProductCatalogue({ compact = false, onChanged } = {}) {
                 <button
                   disabled={page <= 1}
                   onClick={() => setPage((p) => p - 1)}
-                  className="px-2 py-1 border border-border rounded disabled:opacity-40"
+                  className="min-h-[44px] px-3 border border-border rounded disabled:opacity-40"
                 >
                   {t("app.setProducts.prev")}
                 </button>
@@ -420,7 +571,7 @@ export default function ProductCatalogue({ compact = false, onChanged } = {}) {
                 <button
                   disabled={page >= totalPages}
                   onClick={() => setPage((p) => p + 1)}
-                  className="px-2 py-1 border border-border rounded disabled:opacity-40"
+                  className="min-h-[44px] px-3 border border-border rounded disabled:opacity-40"
                 >
                   {t("app.action.next")}
                 </button>

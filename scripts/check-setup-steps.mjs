@@ -93,7 +93,6 @@ const EXPECTED_KEYS = [
   "availability",
   "materials",
   "add_ons",
-  "emails",
   "import_jobs",
   // 2026-09-24: the signup asks "Do you have a website?" — a no (or no
   // answer) puts this row on the card until the builder's site is published.
@@ -119,9 +118,6 @@ const EMPTY = {
   bookableScheduleRows: 0,
   materialRecipeSettings: 0,
   products: [],
-  emailDomainVerified: false,
-  editedEmailTemplates: 0,
-  quoteEmailSectionsOn: false,
   historicalImports: 0,
   // The owner alone on the roster, nothing pending, an ordinary plan, no
   // "it's just me" claim: the team row is undone and applies.
@@ -183,8 +179,43 @@ const TOTAL = EXPECTED_KEYS.length;
   ok("confirm: the route stamps the column once (only where it is still null)", /servicesConfirmedAt: null \}, data: \{ servicesConfirmedAt: new Date\(\) \}/.test(route.replace(/\s+/g, " ")));
   ok("confirm: the route writes through the seeder's own createSeededServices", /createSeededServices\(\{/.test(route) && !/db\.product\.create/.test(route));
   ok("confirm: POST requires user:manage unconditionally; GET lets impersonation look", (route.match(/requirePermission\(member\.role, "user:manage"\)/g) || []).length === 2 && (route.match(/if \(!member\.impersonation\)/g) || []).length === 1);
-  ok("confirm: POST refuses unknown keys BEFORE writing", route.indexOf("plan.unknown.length") > 0 && route.indexOf("plan.unknown.length") < route.indexOf("createSeededServices({"));
-  ok("confirm: the browser sends keys, never a price", !/unitPrice|price:/.test(stripComments(source("app/app/settings/services/ConfirmServices.js")).match(/body: \{[^}]*\}/)?.[0] || "x") && /body: \{ seedKeys: \[\.\.\.selected\] \}/.test(stripComments(source("app/app/settings/services/ConfirmServices.js"))));
+  ok("confirm: POST refuses unknown keys BEFORE writing (restore, create or archive)", route.indexOf("plan.unknown.length") > 0 && ["createSeededServices({", "data: { active: true }", "data: { active: false }"].every((w) => route.indexOf(w) > route.indexOf("plan.unknown.length")));
+  ok("confirm: the browser sends keys, never a price", !/unitPrice|price:/.test(stripComments(source("app/app/settings/services/ConfirmServices.js")).match(/body: \{[^}]*\}/)?.[0] || "x") && /body: \{ seedKeys: add, removeSeedKeys: remove \}/.test(stripComments(source("app/app/settings/services/ConfirmServices.js"))));
+  // "Review the services we added for you (N)" — the owner, 2026-09-25: "they
+  // might not do it — it is loaded by default, so if it is loaded by default
+  // it should say so." Every company signup seeded, full list or not.
+  {
+    const plumber = { quoteCoverage: [rich], signupSeededServices: 101 };
+    const r = row(plumber);
+    ok("confirm: a seeded plumber (101 services, full list) now sees the step", r.applies === true && r.done === false &&
+      remainingSteps(stepsFor({ ...EMPTY, ...plumber })).some((x) => x.key === "confirm_services"));
+    ok("confirm: …titled 'Review the services we added for you (101)'",
+      r.titleKey === "app.setup.step.confirm_services_seeded" && r.titleParams?.n === 101 && r.title === "Review the services we added for you ({n})");
+    ok("confirm: …and counted in the progress total", setupProgress(stepsFor({ ...EMPTY, ...plumber })).total === TOTAL);
+    ok("confirm: the seeded plumber, confirmed → done and off the card", row({ ...plumber, servicesConfirmed: true }).done === true &&
+      !remainingSteps(stepsFor({ ...EMPTY, ...plumber, servicesConfirmed: true })).some((x) => x.key === "confirm_services"));
+    ok("confirm: the seeded plumber, 'Done, hide' → off the card, not counted done",
+      !remainingSteps(stepsFor({ ...EMPTY, ...plumber, dismissed: ["confirm_services"] })).some((x) => x.key === "confirm_services") &&
+      row({ ...plumber, dismissed: ["confirm_services"] }).done === false);
+    ok("confirm: a full list with NO seeded rows → the step does not apply",
+      [0, undefined, null, -3, 2.5, "42", {}].every((v) => row({ quoteCoverage: [rich], signupSeededServices: v }).applies === false));
+    ok("confirm: a thin or missing list keeps 'Confirm what you quote', seeded rows or not",
+      [0, 1, 40, undefined].every((v) => {
+        const t = row({ quoteCoverage: [{ key: "caulking_sealants", ownSeed: false, installed: 1 }], signupSeededServices: v });
+        return t.applies === true && t.titleKey === "app.setup.step.confirm_services" && t.titleParams === null;
+      }) && row({ signupSeededServices: 12 }).titleKey === "app.setup.step.confirm_services");
+  }
+  ok("confirm: every other step has no title params", stepsFor({ ...EMPTY, signupSeededServices: 9 }).filter((s) => s.key !== "confirm_services").every((s) => s.titleParams === null));
+  ok("confirm: the snapshot counts signup's rows from the company's and the rows' creation times",
+    /createdAt: true,\s*\},/.test(snap) && /seedKey: true, createdAt: true/.test(snap) && /signupSeededServices: signupSeededRows\(products, company\.createdAt\)\.length/.test(snap));
+  ok("confirm: the card, the dialog title and the email pass the figures", (source("app/components/dashboard/SetupSteps.js").match(/t\(step\.titleKey, step\.title, step\.titleParams \|\| undefined\)/g) || []).length === 4 &&
+    /fill\(t\(step\.titleKey \|\| `app\.setup\.step\.\$\{step\.key\}`, step\.title \|\| step\.key\), step\.titleParams \|\| \{\}\)/.test(source("lib/email/onboardingNextStepsEmail.js")));
+  {
+    const langs = Object.keys(APP_MESSAGES);
+    const bad = langs.filter((code) => !String(APP_MESSAGES[code]?.["app.setup.step.confirm_services_seeded"] || "").includes("{n}"));
+    ok("confirm: the reworded title is in all nine languages with its {n}", bad.length === 0, bad.join(","));
+    ok("confirm: its English matches the step's fallback", APP_MESSAGES.en["app.setup.step.confirm_services_seeded"] === "Review the services we added for you ({n})");
+  }
   ok("confirm: the dialog renders the page's own screen", /confirm_services: \{[\s\S]{0,200}<ConfirmServices compact onChanged=\{onChanged\} \/>/.test(source("app/components/dashboard/stepPanels.js")));
   ok("confirm: 'Add my own service' is the catalogue's own form", /import ProductFormModal from "@\/app\/app\/settings\/products\/ProductFormModal"/.test(source("app/app/settings/services/ConfirmServices.js")) && /<ProductFormModal/.test(source("app/app/settings/products/ProductCatalogue.js")));
   const schema = source("prisma/schema.prisma");
@@ -218,9 +249,6 @@ const FLIPS = [
   ["materialRecipeSettings", 1, "materials"],
   ["enabledCategories", [{ rates: { perDoor: 120 } }], "materials"],
   ["products", [{ name: "Site clean-up", unitPrice: 150, active: true }], "add_ons"],
-  ["emailDomainVerified", true, "emails"],
-  ["editedEmailTemplates", 1, "emails"],
-  ["quoteEmailSectionsOn", true, "emails"],
   ["historicalImports", 3, "import_jobs"],
   ["activeMembers", 2, "team"],
   ["pendingInvites", 1, "team"],
@@ -291,16 +319,16 @@ for (const [field, value, expectKey] of FLIPS) {
 
 // Dismissed hides; done removes; both are reported.
 {
-  const steps = stepsFor({ ...EMPTY, dismissed: ["emails", "bogus", "emails"], overheadAssets: 2 });
-  const emails = steps.find((s) => s.key === "emails");
+  const steps = stepsFor({ ...EMPTY, dismissed: ["import_jobs", "bogus", "import_jobs"], overheadAssets: 2 });
+  const importJobs = steps.find((s) => s.key === "import_jobs");
   const overhead = steps.find((s) => s.key === "overhead");
-  ok("a dismissed step is still returned, flagged dismissed", emails && emails.dismissed === true && emails.done === false);
+  ok("a dismissed step is still returned, flagged dismissed", importJobs && importJobs.dismissed === true && importJobs.done === false);
   ok("a done step is still returned, flagged done", overhead && overhead.done === true);
   const shown = remainingSteps(steps).map((s) => s.key);
-  ok("the card shows neither the dismissed nor the done step", !shown.includes("emails") && !shown.includes("overhead"));
+  ok("the card shows neither the dismissed nor the done step", !shown.includes("import_jobs") && !shown.includes("overhead"));
   ok("…and shows all the others", shown.length === TOTAL - 2, shown.length);
-  ok("normaliseDismissed drops unknown keys and duplicates", JSON.stringify(normaliseDismissed(["emails", "bogus", "emails", 7, null])) === JSON.stringify(["emails"]));
-  ok("normaliseDismissed of garbage is []", normaliseDismissed("emails").length === 0 && normaliseDismissed(null).length === 0);
+  ok("normaliseDismissed drops unknown keys and duplicates", JSON.stringify(normaliseDismissed(["import_jobs", "bogus", "import_jobs", 7, null])) === JSON.stringify(["import_jobs"]));
+  ok("normaliseDismissed of garbage is []", normaliseDismissed("import_jobs").length === 0 && normaliseDismissed(null).length === 0);
   ok("done beats dismissed: a step both done and dismissed is simply gone", remainingSteps(stepsFor({ ...EMPTY, dismissed: ["overhead"], overheadDebts: 1 })).length === TOTAL - 1);
   ok("…and \"team\" is a key the dismiss route accepts", normaliseDismissed(["team"]).length === 1);
 }

@@ -380,7 +380,10 @@ ok(
 // about the search. A company with 400 products was told it had none yet.
 ok(
   "products distinguishes an empty search from an empty catalogue",
-  /search\.trim\(\)[\s\S]{0,200}app\.setProducts\.emptyList/.test(src.products),
+  // 400, not 200: the Removed tab's own empty sentence (2026-09-25) sits
+  // between the search branch and the catalogue's, and the search branch
+  // still comes first.
+  /search\.trim\(\)[\s\S]{0,400}app\.setProducts\.emptyList/.test(src.products),
 );
 
 // ── 9. Refer: a money figure for a reward that is not money ───────────────

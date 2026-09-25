@@ -1,6 +1,9 @@
 # FieldQuo — current phase and what's left
 
 Last updated: 25 September 2026 (the signup panel's samples are the product: the quote email from buildQuoteEmail, the booking SlotCalendar, the scheduler's WeekGrid/DayBoard (the only two views — the old "column per person" day and the crew-grouped board did not exist), the client quote page QuoteApproval with the trade's seed prices, the dashboard tiles, the inbox rows and TeamFlow, and a "Just exploring" collage of real cards — all with the app-guide harness's data in scaled, inert frames; the website field takes www. without https — see "The signup panel's samples are the product" below)
+Last updated: 25 September 2026 (Create › Request opens a hand-entered lead form at /app/leads/new — the owner's six fields, posted through createScoredLead as source "manual", gated at requests:view_create_edit on page and route, landing on the board with the new lead's drawer open; the board's ?lead= deep link now also works after an in-app navigation — see "Still owed here" under "Phone menus, the Create sheet and a mobile audit" below)
+Last updated: 25 September 2026 (Kitchen Designer on by itself for the trades that build kitchens — kitchen_design, remodeling, renovation, general contracting, new construction, cabinet refacing; refinishing/countertop/stairs/painting stay off; a handyman opts in — plus `Company.kitchenDesignerOverride` (follow / always on / always off) on Settings › Services, read by the one gate in lib/kitchen/access.js that every surface and Cabinet Rates now ask — see "Kitchen Designer: on for the trades that build kitchens" below)
+Last updated: 25 September 2026 (Confirm what you quote, round two: untick a service already in the list to REMOVE it — archived through the existing `Product.active`, never deleted, restored as the same row when ticked again — with every picker, builder and settings list that read the whole book now filtering through `lib/products/offered.js`; All / Selected (N) tabs; the "0 of 0 selected" count fixed; "Added for you" on seeded rows the company never renamed or repriced, in the dialog and in Products & Services, which gains Remove and a Removed tab with Add back; "Review the services we added for you (N)" on the home card for EVERY company signup seeded, not only thin trades (the owner's decision) — see "Confirm what you quote: untick to remove" below)
 Last updated: 25 September 2026 (three follow-ups: cancelling a pay run now gives back its daily-sheet bonuses as well as its commissions; the checks read prisma/schema.prisma through one Prisma-aware stripper, and only four ever stripped it; check:call-to-client now runs the booking follow-up it was skipping, and the phone agent promises a confirmation only when the follow-up reports one — see "Pay-run cancel, the schema stripper, the booking follow-up" below)
 Last updated: 25 September 2026 (phone menus and the Create sheet: every row of the phone's Create sheet was dead, because the hidden desktop pill's outside-press listener closed it before the tap landed; the quote's More… opened off the left of the screen; one ActionMenu now — a bottom sheet below 640px, a flip-and-shift dropdown above — plus a launcher clearance so the + and Jennifer never cover a list's last row, dialog cards capped at the screen, and 44px settings/crew controls; every harness screen audited at 375 and 390 — see "Phone menus, the Create sheet and a mobile audit" below)
 Last updated: 25 September 2026 (one cabinet scope, Refinish | Reface: a company selling both cabinet trades gets a switch inside an unsaved cabinet group's card that moves the group between the two price books while keeping every count and answer already entered; a still-default name follows the service, switching back restores the previous figures byte-for-byte, and only the chosen service reaches the saved quote — see "Refinish | Reface inside one cabinet card" below)
@@ -26,7 +29,7 @@ Last updated: 24 September 2026 (maintenance plans on quotes — `ServicePlanTem
 Last updated: 25 September 2026 ("How this was handled" on a conversation — AI team R1: a read-only timeline in /app/messages of the front desk's reading, assignments, hand-offs, ping-pong escalations, take-overs, replies with tools/model/confidence/cost, stop reasons and proposals with who decided, built from AiEmployeeRoutingEvent / AiEmployeeReply / AiEmployeeProposal with no schema change — see its section)
 Last updated: 25 September 2026 (the chat bubble on a company's OWN website: a one-line `<script src="…/embed/<slug>/chat.js" async>` loader replaces the fixed-size iframe snippet on Settings → AI employee — closed, the frame is the bubble and nothing else on their page is covered; open, it is the panel; on a phone, full screen with host scroll locked; disabled chat leaves nothing; the old iframe snippet still works — see "The chat bubble on a company's own website" below)
 Last updated: 25 September 2026 (moved / cancelled appointments now TEXT the client as well as email them — every office move/cancel (EntryActions → the appointment and job-visit PATCH) and the client's own manage-link reschedule/cancel, behind the booking-text switch, the phone and STOP, in the client's language, editable on Settings › Client messages as "Appointment moved" / "Appointment cancelled", tracked as `booking_moved` / `booking_cancelled` so the calendar's Texts line shows them — see "Moved and cancelled appointments text the client" below; before it, SMS delivery receipts — every text tracked in `SmsDelivery` from send to carrier verdict, table SQL to apply by hand — see "SMS delivery receipts")
-Last updated: 25 September 2026 (Settings → Work email: a company or a member connects the mailbox where work email arrives — Google (gmail.readonly, restricted), Microsoft 365 (Mail.Read, Graph delta) or any other host by IMAP address + password with MX-detected presets — and every email exchanged with a client or lead is filed into that client's conversation by address; everything else is skipped by its headers and never stored; opt-in "Send client emails from this mailbox" with a never-drop fallback; `MailboxConnection` + `EmailMessage`, additive; new env `MAIL_CREDENTIALS_KEY`, `MICROSOFT_OAUTH_*` — see "Work email" below)
+Last updated: 25 September 2026 (work-email provider presets re-checked against the providers' own pages — GoDaddy daily limit, recipient caps, back-off on a provider rate refusal, *.mx.microsoft, Titan/Squarespace by MX, TELUS → Google, Rogers refused, all 12 AT&T domains, Comcast, Spectrum by domain, iCloud login fallback, Zoho by plan — see "Provider settings re-checked" under Work email; before that: Settings → Work email: a company or a member connects the mailbox where work email arrives — Google (gmail.readonly, restricted), Microsoft 365 (Mail.Read, Graph delta) or any other host by IMAP address + password with MX-detected presets — and every email exchanged with a client or lead is filed into that client's conversation by address; everything else is skipped by its headers and never stored; opt-in "Send client emails from this mailbox" with a never-drop fallback; `MailboxConnection` + `EmailMessage`, additive; new env `MAIL_CREDENTIALS_KEY`, `MICROSOFT_OAUTH_*` — see "Work email" below)
 Last updated: 24 September 2026 (a service's estimate template expands onto a quote and an invoice: "Add with its template lines" beside a templated service in the line library, lines in the document's language from the company's own Product row, measured quantities filled from the quote's own takeoffs with the source printed under the line, a missing figure at quantity 0 with the calculator named or linked, `ventCount` / `returnCount` registered — see "A service's template, expanded onto the quote" below)
 Last updated: 24 September 2026 (the estimate template inside a service — `Product.templateLines` / `defaultDiscount` / `imageUrl` / `estimateTypes` / `templateEnabled`, additive; templates attach by quote type (`categories` + painting estimate types) through `templatesFor()`; a closed measurement registry every trade's lines can take their qty from; the seed LOADER contract in `lib/services/seeds.js`; Settings › Services edits each service's template; `/app/analytics/benchmark` is the preset library with an editable Your price; benchmark sharing is on by default for new companies and Terms §7 / Privacy §7 say so. The seed CONTENT — templates on every trade in seven languages — is a separate pass landing against the same contract.; landed just before it on main: auto-translation on save — see its section.)
 Last updated: 24 September 2026 (tours re-pinned to the new shell: welcome-v2 walks the 17-row rail — Leads, Quotes, Quote reviews, Assign shifts, Marketing, Receptionist, FieldQuo AI, AI team, More, Create, Search, Settings at the foot — unfolding a folded People/Grow group through its header and folding it back, a new ai-team-v1 page tour, "Take the tour" on the dashboard's set-up card, the Help centre's replay fixed; every onboarding and set-up row shows a counted time estimate, the onboarding card says "n of 6 done" and the set-up card "n of 15 done · n hidden" — see "Tours on the new shell" below)
@@ -262,6 +265,267 @@ check-service-seeds were re-pointed at the stages lib.
 - Vercel-side timings are an assumption (2 ms RTT); a real signup with
   server timing logs would settle it.
 
+## /platform counts one book: trialing, paying, companies (25 September 2026)
+
+The owner: /platform "says 2 trialing subscriptions but I think we have 4".
+Five companies were trialing. The tile counted Stripe's `trialing`
+Subscription rows, and since 38d3308d a new company trials with no card and
+NO Subscription row. The same question had six answers across the console:
+the tile (2), the banner under it (5), the subscriptions page (5 on "All",
+0 on "Active"), the companies list's "Trial / pending" chip (3, it was
+onboardingStatus), the growth forecast's starting stock (2), and the plans
+page (0 companies on every plan — it looked up `planMix[plan.name]` after the
+keys became "Solo (CAD)").
+
+### What shipped
+
+- **One classifier, one book.** `lib/platform/trialCounting.js`
+  `subscriberBucket` puts every company in exactly one bucket — paying,
+  past_due, trial_with_plan, trial_no_plan, trial_ended (no plan, read-only),
+  locked, cancelled, incomplete, unknown, demo (names and groups in the pure
+  `lib/platform/subscriberBuckets.js`). `loadSubscriberBook` loads and
+  classifies the whole book live on each request; `tallySubscribers` is what
+  every tile prints; `outlookSubscriptions` is the only feed the revenue
+  outlook prices (Paying + Trialing-with-a-plan — a card-free trial never
+  reaches MRR). The grace windows are `lib/billing/access.js`'s, so the
+  console and the company's own banner agree on the day a trial ends.
+- **Home (/platform):** "Trialing subscriptions: 2" → **"Trialing: 5 — 2 with
+  a plan chosen · 3 no plan yet"**; "Paying companies" is the Paying bucket
+  (note says how many can be charged, past due, cancelling at period end);
+  "Churned this month" is the Cancelled bucket by `canceledAt` (was
+  onboardingStatus "churned" + `updatedAt`); the growth series count finished
+  signups only; quote/payment series exclude demos. New **"Who these numbers
+  count"** list under the tiles names every company in every bucket.
+- **Subscriptions page:** the tiles are the book's, whatever tab is open (the
+  tab filters the table); "MRR" is the home page's Collectable MRR; demo rows
+  left out; prints when it was counted and how fresh Stripe's mirror is.
+- **Companies list:** the chips are the buckets (plus "Trialing" and
+  "No-plan free trials, any day" = `card_free`); onboardingStatus chips gone;
+  an unknown filter is a 400. Row/header words (`companyStanding`) come from
+  the bucket — TrueFinish read "active" while trialing; now "Trialing · Solo ·
+  20 days left". The per-country tally reads the bucket.
+- **Tax registrations, growth forecast, plans page, analytics, CSV:** the tax
+  tally and the forecast's paying/trialing stock use the book; a card-free
+  trial that ran out with no plan is an ended, unconverted trial in the
+  conversion rate; the plans page counts by plan id (`overview.planUsage`);
+  `/platform/analytics` "Completed" and the company denominator use the
+  finished-signup rule; the companies export has a "Standing" column.
+- **Freshness:** nothing on /platform was a cached rollup (AnalyticsDaily is
+  incremented in the same transaction as the event; `platform_sender`/audit
+  settings are separate). The one mirror is the Subscription rows (Stripe),
+  so `app/api/cron/billing-sync` now stamps `billing_sync_last_run` and the
+  home and subscriptions pages print "last billing webhook … · last full
+  reconcile …" (`lib/platform/webhookHealth.js stripeMirrorFreshness`).
+
+### Live counts (read-only, 2026-09-25)
+
+Companies 6 · Trialing 5 (plan chosen: TrueFinish Cabinets Inc., Sunset
+Space; no plan yet: Luma Painting, jaspedo, Emilio The Painter) · Paying 1
+(Test Inc., $1 "Live test" plan, cancelling 14 Oct) · incomplete 0 · demo 26 ·
+Collectable MRR $1 · Stripe-trial pipeline $198/mo.
+
+### Checks
+
+`npm run check:platform-buckets` (new, in check:all): every bucket from a
+fixture, hostile shapes (unselected relation, bad date, unknown status, terms
+lock on a cancelled row, the 7-day grace boundary), the tally arithmetic, MRR
+excluding card-free trials, the loader's select held to schema.prisma, the
+live shapes by name, and every screen/route reading the book. Mutation-tested
+(9/9 caught). Updated: check:platform-console (now runs with the loaders),
+check:abandoned-signup, check:tax-registrations, check:growth-model,
+check:signup-leads.
+
+### Still owed here
+
+- **FieldQuo's own test companies have no marker.** Only `isDemo` exists.
+  "Test Inc." (the owner's $1 live-mode test) counts as Paying. Marking it
+  needs either `isDemo` on that row (a data write) or a new flag — owner's call.
+- **Sales funnel "Signup completed with card"** (`lib/sales/funnelStages.js`)
+  still requires a Subscription row, so since 38d3308d every rep-attributed
+  signup reads as "abandoned" and the card-trial quota can only be met by a
+  plan pick. Whether a card-free trial counts toward a rep's quota is a
+  product decision (it feeds rep targets), so it was left as is.
+- MRR sums plan prices across currencies (CAD + USD) as one number — true of
+  the old tiles too.
+## Kitchen Designer: on for the trades that build kitchens, with a company override (25 September 2026)
+
+The owner, 2026-09-25: "those that have enabled kitchen remodel or
+construction should have access to the kitchen designer — construction
+trades, remodeling, renovation — maybe handyman if they enable that — and
+kitchen refacing could also do it." Until now only `kitchen_design` opened it
+(the 2026-08-30 fix).
+
+### The rule (one place: `lib/kitchen/key.js` → `kitchenDesignerOnPure`)
+
+| Company has enabled | Designer |
+|---|---|
+| `kitchen_design`, `remodeling`, `general_contracting_reno`, `general_contracting`, `construction`, `cabinet_refacing` | **on** by itself |
+| `cabinet_refinishing`, `countertop`, `stairs`, interior/exterior painting | off (the 08-30 rule stands) |
+| `handyman` | off — on only if it ticks Kitchen Design & New Installs or sets the override on |
+| anything, override **off** | off (the company's word beats its trade) |
+| anything, override **on** | on |
+
+There is no separate "kitchen remodel" key in the catalogue — kitchen
+remodelling is a service inside Remodeling and General Contracting, so those
+are how it arrives. A quote that already carries a design keeps its designer
+whatever the override (`hasKitchenData`, unchanged): off stops new designs,
+it never locks a drawn one.
+
+### What shipped
+
+- `Company.kitchenDesignerOverride Boolean?` — additive; null = follow the
+  trades. Applied as the one `ALTER TABLE … ADD COLUMN` line via
+  `prisma db execute`, nothing else from the diff.
+- `lib/kitchen/access.js` — the gate reads trades + override
+  (`companyKitchenDesignerState`), and a shared `kitchenCategoryRow` replaced
+  the two routes' copies of the cabinet-ish filing regex (design/lead filed
+  under kitchen_design, then the granting trades in order).
+- Every surface now asks the gate: quote button + internal designer + save
+  route (unchanged callers), the public page and its POST, the self-quote
+  form's "design it yourself" link (server sends `kitchenDesigner`; the link
+  shows on any granting service, not only Kitchen Design), the bio link, Share
+  your links (now asks `GET /api/settings/kitchen-designer` instead of
+  re-deriving "kitchen_design is ticked"), and **Cabinet Rates**, which prices
+  only the designer and so follows it (a remodeler gets the rate card; a
+  refinisher still doesn't).
+- `PATCH /api/settings/kitchen-designer` — owner/admin only, exactly
+  true/false/null, activity-logged. Settings › Services has a Kitchen
+  Designer card: status and why ("On — because you offer Remodeling"),
+  Follow my services / Always on / Always off, and for a company without
+  Kitchen Design ticked a handyman line plus a button that reveals and
+  scrolls to that switch (it belongs to no industry preset, so a handyman's
+  list hides it otherwise — deliberately, so signup never auto-ticks it).
+- Strings: 13 new app keys in all 9 app languages; Share your links' kitchen
+  card copy updated in all 9; help articles in en/fr/es (5 articles) no
+  longer say "only when Kitchen Design & New Installs is on". No public-page
+  (document-language) string changed.
+
+### Checks
+
+`check:kitchen-access` (now with the db stub) — 123 assertions: each granting
+trade → on and is a real catalogue key; refinishing/countertop/stairs/painting
+→ off; handyman → off unless kitchen_design or override on; override false
+beats every granting trade; override true works for every catalogue trade;
+non-boolean overrides follow the trades; the 08-30 account still off; the DB
+wrapper executed against the stub; and a sweep of app/ + lib/ proving
+`KITCHEN_DESIGN_KEY` and `kitchenDesignerOverride` are used only where listed
+(every reader goes through `kitchenDesignerOnPure`, one writer). Two
+mutations (drop the override-false branch; add handyman to the list) each
+fail it. `check:trade-gate` and `check:kitchen-link` updated for the new
+rule. `npm run build` passes.
+
+### Still owed here
+
+- Nothing on the rule. If the owner wants a handyman preset to *offer* (not
+  tick) Kitchen Design & New Installs in its list, that is an industry-preset
+  change in `lib/trades/catalog.js` and `check-trade-catalog.mjs`'s pinned
+  count — not done, because it risks signup auto-enabling it.
+
+---
+## Confirm what you quote: untick to remove, a Selected tab, "Added for you" (25 September 2026)
+
+The owner, from a screenshot of the step: "Shouldn't they be able to uncheck
+something if they don't need it?", "an additional tab where it says
+Selected", and then "it is loaded by default, so if it is loaded by default it
+should say so" and "they might offer it in the future, so they can always add
+it back."
+
+### The archive is `Product.active` — no schema change
+
+The column already existed and the server-side readers already filtered on it
+(AI employee, FieldQuo AI's call-to-quote draft, Jennifer, the voice agent,
+the add-on offers, plan-template picker, translations, the benchmark). What did
+not respect it were the screens that load the whole book through
+`GET /api/products` and filter in the browser. One helper,
+`lib/products/offered.js` (`offeredOnly` / `removedOnly`), and every one of
+them now uses it: the quote builder (line library, service cards, add-on
+offers, templates — filtered once at the source), the invoice builder,
+Settings › Services' seed card (count excludes removed, "· N removed" beside
+it) and template card, and the benchmark page. By-id readers of rows already
+written (costing, commissions, the job plan, production rates, plan offers)
+deliberately do not filter. The instant quote and self-quote read no Product
+rows at all — asserted, so a future read is seen. The seeders SEE removed
+rows on purpose, so "Add missing services" never re-creates one.
+
+### What shipped
+
+- **Untick a service already in the list** (the dialog and the page): the row
+  reads "Removed from your list — Undo" until the confirm button; the POST
+  (`{ seedKeys, removeSeedKeys }` — keys only) archives it. Re-ticking a
+  removed row restores the SAME row (price, template lines) instead of the
+  seeder skipping it or creating a copy. `planServiceChanges` in
+  `lib/services/confirmServices.js` decides every key before any write: a
+  removal must be a key this company holds, so another company's key — or
+  garbage — refuses the whole request. One line above the button says what an
+  untick does: stays on past quotes, not offered for new ones, not deleted.
+- **Tabs: All / Selected (N)** — Selected is everything in the list after the
+  button (held − unticked + ticked), flat, each with its group name,
+  untickable, same filter box; unticked held rows sit under "Coming off your
+  list" with Undo. Removed rows stay listed under their group, "Removed —
+  tick to add back", and are not on the Selected tab.
+- **The "0 of 0 selected" bug**: counts were over rows the browser could still
+  add, so an all-held group read 0 of 0 over a column of ticks. Counted over
+  every row now (`lib/services/confirmSelection.js#groupCount`), and Select
+  all / Clear act on held rows too.
+- **"Added for you"**: `lib/services/addedForYou.js`. Product has no
+  `updatedAt` (and one would lie — auto-translate, backfills and the archive
+  flag all write rows), so "untouched" = seedKey names a live seed, the NAME
+  is the seed's name in any language it carries, and the PRICE is exactly
+  what the seeder writes today in the company's currency. Anything else reads
+  "In your list" — erring towards not claiming authorship. Shown in the
+  dialog, as a badge in Settings › Products & Services (via
+  `GET /api/products`), with a one-time, per-user dismissible line at the top
+  of the list (`/api/ui-state` notice `products:added-for-you`).
+- **"We added N services for {trades} when you signed up"** at the top of the
+  dialog — N is seeded rows created within an hour of the company row
+  (signup seeds inside `POST /api/companies`); later trade switch-ons don't
+  count. **The home step now applies to every company signup seeded** (the
+  owner's decision, same day: "they might not do it — it is loaded by
+  default, so if it is loaded by default it should say so") — a plumber with
+  101 seeded rows sees "Review the services we added for you (101)". A
+  company with a thin or missing list keeps "Confirm what you quote"; one
+  with a full list and nothing seeded does not see the step. Done
+  (`servicesConfirmedAt`) and "Done, hide" work as before. `titleWhen` /
+  `appliesWhen` in `lib/setupSteps.js`; the card, the dialog title, the
+  next-steps email and the sales check-in signal all fill the figure.
+- **Settings › Products & Services**: "Your list (N)" / "Removed (N)" tabs;
+  a Remove (archive) button beside Edit on every row; Add back on the Removed
+  tab — `PATCH /api/products/[id] { active }`, which now refuses a
+  non-boolean instead of 500ing. The existing Delete (a hard delete behind a
+  confirm) is untouched.
+- Strings in all nine languages; the dialog and the catalogue are on
+  `check:mobile`'s strict list (44px tabs, rows, Undo, Add back; the
+  catalogue's 28px pager buttons fixed on the way).
+
+### Checks
+
+- `check:confirm-services` (now also loads the member stub) EXECUTES the
+  confirm route and the product PATCH against the db stub: untick → the row
+  still exists with `active: false` and no delete was attempted; re-tick → the
+  same row, same price and template lines, no second copy; removed in
+  Products and added back from the dialog → restored, not duplicated; another
+  company's key → 400 and nothing written in either company; conflicting and
+  malformed lists → 400; an employee → 403. Plus the selection model (counts,
+  Selected contents, Undo, Select all/Clear, the POST lists), the planner,
+  the badge rule and the signup window against hostile input, and a
+  source-level sweep that every reader named above filters removed services.
+- `check:service-seeds`: the seeder skips a removed key, never re-creates or
+  re-activates it.
+- `check:setup-steps`: a seeded plumber (101, full list) sees the step titled
+  with 101 and counted in progress; confirmed → done; "Done, hide" → off the
+  card; a full list with nothing seeded → not shown; a thin list keeps
+  "Confirm what you quote"; the nine translations; the card/email pass the
+  figure.
+
+### Still owed here
+
+- A maintenance-plan template that already includes a service later removed
+  still offers that service inside the plan on new quotes
+  (`app/api/quotes/[id]/plan-offers` reads the template's product ids
+  unfiltered, deliberately — dropping it would silently change a plan's price).
+- "Added for you" is not shown in the quote builder's line library; the
+  picker shows no badges today, so none was added.
+
 ## Pay-run cancel, the schema stripper, the booking follow-up (25 September 2026)
 
 Three follow-ups earlier agents found. One commit each; nothing touches the
@@ -423,9 +687,28 @@ edge outside a scrolling/clipping ancestor, and visible controls under 36px.
 
 ### Still owed here
 
-- **Create › Request has no form to open.** The leads board has no
-  hand-entered lead form, so the row lands on the board. A product gap, not
-  a bug in this change — needs a "new request" form (or the row removed).
+- ~~**Create › Request has no form to open.**~~ Done 2026-09-25: the row
+  opens `/app/leads/new` — name, phone, email, address (Places, typing still
+  works), service (the company's enabled services), note; nothing else until
+  the owner asks. It posts to `POST /api/leads`, which hands the lead to
+  `createScoredLead` (scored, `lead.created` feed, shared intake shape) with
+  `source: "manual"` — the word kpis.js already excludes from blended CPL.
+  Name plus a phone or an email; an undeliverable email and a service the
+  company does not offer are refused; no dedupe, same as every channel.
+  Gated at requests:view_create_edit on the page (server shell, enforceable
+  member) and the route (`levelOrRefusal`); a support session is refused by
+  both. After the save the board opens with the new lead's drawer, which
+  needed a fix of its own: `?lead=<id>` was read only in a `useState`
+  initializer, which on a client-side `router.push` reads the page being
+  LEFT (measured: initializer empty, mount effect correct), so it never
+  opened after an in-app navigation. `npm run check:manual-lead` executes the
+  route's refusals and its hand-off to createScoredLead. Deliberately NOT
+  done, for the owner: no confirmation email to the household and no call
+  consent recorded (a number staff typed is not the person asking to be
+  rung); the scorer still counts the unasked budget against a manual lead
+  (the screen says "Nobody asked", NOT_ASKED_BY_SOURCE; UNASKABLE_BY_SOURCE
+  untouched); and the board itself has no "New" button beside Import —
+  Create › Request is the one entry.
 - **~1,900 sub-36px controls remain**, mostly inline text links (exempt) and
   dense editor rows: the quote builder's cost toggles and line delete buttons,
   job detail's 34px pills and 24px Edit links, the daily-log day stepper
@@ -2752,10 +3035,10 @@ email must count as a conversation everywhere the analysis reads one.
   Shaw, Bell, Cogeco (Ontario / Québec); Google- and Microsoft-hosted domains
   (Gmail, Workspace incl. Wix/Squarespace mail, Outlook.com/Hotmail, M365)
   routed to their OAuth options; Proton refused by name (Bridge only).
-  Detection: the address's own domain first, else its MX. NOT listed because
-  their own pages could not be confirmed: Comcast/Xfinity, Spectrum, TELUS
-  (now on Google — MX routes it), Rogers (Yahoo-hosted — MX suggests Yahoo),
-  Bluehost/HostGator/SiteGround/Hostinger/IONOS — "Other — enter the servers".
+  Detection: the address's own domain first, else its MX. (Comcast, Spectrum,
+  TELUS and Rogers were added or re-routed by the provider re-check below;
+  Bluehost/HostGator/SiteGround/Hostinger/IONOS remain "Other — enter the
+  servers".)
 - **Sync** (`/api/cron/mailbox-sync`, every 10 min, 200 s budget, 60 s per
   mailbox, least-recently-synced first): INBOX + Sent (IMAP by UID with
   UIDVALIDITY; Gmail backfill list → `history.list`; Graph delta links). Every
@@ -2835,6 +3118,73 @@ sending (throttle, canSend, no FieldQuo in the composed message, failure →
 fallback recorded). Updated: check:whatsapp, check:ai-employee (platform list),
 check:messaging (block expression), check:settings-access (Crew's five rows),
 check:refusal-shape (two OAuth callbacks), conversation-review/-score fixtures.
+
+### Provider settings re-checked against the providers' own pages (25 September 2026)
+
+A research pass re-read each provider's help pages; the shipped presets, MX
+routing and sending limits were diffed against it. Only page-verified values
+went in; values seen only in search snippets (Hostinger, IONOS) or not found
+(Bluehost, HostGator, SiteGround, Zoho's non-US data centres) stay "Other —
+enter the servers". Every preset keeps its `source`; the pages behind limits,
+MX and username rules are now in `sources`. Mismatches fixed:
+
+- **GoDaddy** had NO throttle (`hourlyLimit: null`). GoDaddy publishes 500 a
+  DAY per mailbox by SMTP (help 31970), so the throttle now takes a per-preset
+  window (`sendLimit: { count, per: "hour" | "day" }`, same two columns) and
+  GoDaddy counts per day; also 100 recipients a message. Relabelled
+  "Professional Email (or older Workspace Email)" — Workspace's help pages
+  404; same hosts.
+- **Namecheap**: hosts were right; the 50-recipients-a-message cap was not
+  enforced. Trials allow 20/hour, paid 500/hour, and nothing tells them apart:
+  the throttle keeps 500/hour and, NEW for every provider, a PROVIDER rate
+  refusal (`rate_limited` — SMTP 421/450/451/452 or "rate/limit", Gmail/Graph
+  429) is recorded on the row and the mailbox rests one full window
+  (`backoffVerdict` in `lib/mailbox/sendThrottle.js`), mail going out the usual
+  way meanwhile. The rest never re-stamps the row, so it cannot extend itself;
+  a successful send ends it. The Namecheap note tells a trial user about 20/h.
+- **Fastmail** had no limit: now the Basic plan's 4,000/day (plan unknown;
+  the hourly and 10-minute sub-limits are covered by the back-off).
+- **Recipients a message** (Namecheap 50, GoDaddy 100): a message over the
+  cap is not tried through the mailbox — `too_many_recipients` fallback.
+- **Microsoft**: the DNSSEC MX form `*.mx.microsoft` was not recognised (a
+  DNSSEC M365 tenant would have been offered "enter the servers"). Added.
+- **Squarespace/Titan**: Titan had no MX pattern, so a Squarespace domain on
+  Titan was undetected. `mx1/mx2.titan.email` → Titan; Google MX → Google —
+  decided by MX, never by "Squarespace".
+- **TELUS** (`@telus.net`) → the Google option by domain (TELUS email is
+  powered by Google) instead of relying on DNS.
+- **Rogers** (`@rogers.com`) was suggested Yahoo's servers by MX; Rogers says
+  app passwords can no longer be created. Now "unsupported" with a note:
+  forward instead (Yahoo stays pickable for anyone holding an old app password).
+- **AT&T** listed 3 of its 12 domains; now all 12 from AT&T's page (ameritech,
+  currently, flash, nvbell, pacbell, prodigy, snet, swbell, wans…).
+- **Comcast/Xfinity** added (imap.comcast.net 993 / smtp.comcast.net 587
+  STARTTLS) with the "Third Party Access Security" note.
+- **Spectrum** added as three presets by address domain (charter.net /
+  spectrum.net / bresnan.net → mobile.charter.net; twc.com → mail.twc.com;
+  brighthouse.com → mail.brighthouse.com; 993 SSL / 587 STARTTLS). `@rr.com`
+  (and `*.rr.com`) is split between TWC and Bright House by region, so it is a
+  hint that names Spectrum and asks — never a guessed host.
+- **iCloud**: IMAP username had no fallback. The connect route now retries
+  once with the full address when the name-before-@ is refused, and stores
+  the one that worked as the login.
+- **Zoho**: the hosts follow the PLAN (paid imappro/smtppro, free imap/smtp),
+  not the address — labels corrected ("paid plan" / "free plan"; keys
+  unchanged), MX still suggests paid, note says to try the other if refused.
+- **AOL / Verizon.net**: new note — AOL may not issue an app password until a
+  browser has signed in to AOL Mail several days running.
+- **Proton**: still refused; the note now mentions the send-only SMTP token
+  (smtp.protonmail.ch:587, paid, custom domains) — not built.
+- Unchanged and confirmed: Yahoo, Verizon's split hosts, Shaw (username
+  without @shaw.ca), Bell, Cogeco ON/QC, Fastmail hosts, Google MX set.
+
+Notes in 9 languages (5 new keys, 5 revised). `check:mailbox` 178 → 221:
+per-rule fixtures (Verizon SMTP host, Shaw username, TELUS → Google,
+`*.mx.microsoft` → Microsoft and a look-alike refused, Squarespace by MX, the
+12 AT&T domains, Spectrum host by domain, `@rr.com` hint and look-alikes,
+Rogers, Comcast, Zoho, iCloud fallback), the daily window, recipient cap,
+back-off (recorded, not re-stamped, lifted after the window), and every note
+key present in every language.
 
 ### Owner setup (in this order)
 

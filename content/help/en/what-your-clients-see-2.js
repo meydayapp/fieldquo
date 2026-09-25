@@ -382,7 +382,7 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Who can see it",
         blocks: [
-          { p: "The client page is public to anyone holding the link. The **Kitchen designer** button appears on a quote when your company has **Kitchen Design & New Installs** switched on under Services, or when the quote already carries a design; opening it needs edit access to quotes. A separate public designer — **Design your kitchen** on Share your links — lets a stranger draw a kitchen and send it as a lead; see [[the-kitchen-designer|The kitchen designer]]." },
+          { p: "The client page is public to anyone holding the link. The **Kitchen designer** button appears on a quote when your company has the **Kitchen Designer** on under Services — by itself for Kitchen Design & New Installs, Remodeling, Renovation, General Contracting, New Construction and Cabinet Refacing, or by the company's own switch there — or when the quote already carries a design; opening it needs edit access to quotes. A separate public designer — **Design your kitchen** on Share your links — lets a stranger draw a kitchen and send it as a lead; see [[the-kitchen-designer|The kitchen designer]]." },
         ],
       },
     ],
@@ -433,7 +433,7 @@ export const ARTICLES = {
             rows: [
               ["Get an instant price", "At least one trade is on under Settings → Instant Quotes."],
               ["Get a free quote", "Always — your self-quote form."],
-              ["Design your kitchen", "Kitchen Design & New Installs is on under Services."],
+              ["Design your kitchen", "The Kitchen Designer is on under Services."],
               ["Book a visit", "You have at least one active event type on the Booking Page."],
               ["One button per published funnel", "The funnel's status is Published; the label is the funnel's name."],
               ["Visit our website", "You entered a website in Company Settings, or your FieldQuo site is published — your own domain wins."],

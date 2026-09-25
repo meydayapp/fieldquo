@@ -28,6 +28,7 @@ import { serviceSeedsFor, tradeBenchmarkSummary, benchmarkForSeedKey } from "@/l
 import { benchmarkIn } from "@/lib/pricing/benchmarkFx";
 import { formatMoney } from "@/lib/currency";
 import BenchmarkRange from "@/app/components/pricing/BenchmarkRange";
+import { offeredOnly } from "@/lib/products/offered";
 
 const whole = (n, currency, language) =>
   n == null ? "" : formatMoney(n, currency, language).replace(/[.,]00(?=\D*$)/, "");
@@ -47,7 +48,14 @@ export default function ServiceSeedsCard({ category, currency, canEdit, products
   if (!seed) return null;
 
   const prefix = `fq.${category.key}.`;
-  const mine = (products || []).filter((p) => typeof p.seedKey === "string" && p.seedKey.startsWith(prefix));
+  const seededHere = (products || []).filter((p) => typeof p.seedKey === "string" && p.seedKey.startsWith(prefix));
+  // Removed rows (lib/products/offered.js) are not in the price book the
+  // count describes. They are named beside it, because "Add missing
+  // services" deliberately leaves them removed — the seeder counts a
+  // removed key as held — and a count that silently dropped them would
+  // make that button look broken. The way back is Products & Services › Removed.
+  const mine = offeredOnly(seededHere);
+  const removedHere = seededHere.length - mine.length;
   const typical = summary?.medianOfMedians != null ? benchmarkIn({ median: summary.medianOfMedians, low: null, high: null, currency: "USD", source: "benchmark" }, currency) : null;
 
   async function addMissing() {
@@ -100,6 +108,7 @@ export default function ServiceSeedsCard({ category, currency, canEdit, products
           {t("app.serviceSeeds.title")}
           <span className="ml-2 text-xs font-normal text-muted-foreground">
             {t("app.serviceSeeds.count", { have: mine.length, total: summary?.seedable ?? 0 })}
+            {removedHere > 0 && <> · {t("app.serviceSeeds.removedCount", "{n} removed", { n: removedHere })}</>}
           </span>
         </button>
         {canEdit && (

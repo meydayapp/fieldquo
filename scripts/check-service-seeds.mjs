@@ -385,5 +385,31 @@ section("H — the screens read what seeding writes");
   ok(hits === "", "no client-facing route imports the seeds or the benchmark", hits);
 }
 
+// ── A removed service stays removed (2026-09-25) ────────────────────────────
+//
+// "Confirm what you quote" and Settings › Products & Services remove a service
+// by setting Product.active = false (lib/products/offered.js). The seeder must
+// count that row as HELD — or "Add missing services" and a trade switched
+// back on would quietly put back what the owner took out, as a second copy.
+// Executed against the db stub: the write path, not a reading of it.
+{
+  const { rows, writes, resetDbStub } = await import("@/lib/db");
+  const { createSeededServices } = await import("@/lib/products/seedServices");
+  resetDbStub();
+  const plumbing = seedableServices(serviceSeedsFor("plumbing"));
+  const [gone, kept] = plumbing;
+  rows.company.push({ id: "co_s", defaultLanguage: "en", currency: "USD", country: "US" });
+  rows.product.push(
+    { id: "p_gone", companyId: "co_s", seedKey: gone.seedKey, name: "Mine", unitPrice: 1, active: false },
+    { id: "p_kept", companyId: "co_s", seedKey: kept.seedKey, name: "Mine too", unitPrice: 2, active: true },
+  );
+  const r = await createSeededServices({ companyId: "co_s", categoryId: "cat_plumbing", categoryKey: "plumbing", services: plumbing.slice(0, 5) });
+  ok(r.created === 3 && r.skipped === 2, "the seeder skips a removed key exactly as it skips a kept one", JSON.stringify(r));
+  ok(rows.product.filter((p) => p.seedKey === gone.seedKey).length === 1, "…never a second copy of the removed service");
+  ok(rows.product.find((p) => p.id === "p_gone").active === false, "…and never switches it back on");
+  ok(!writes.some((w) => w.model === "product" && w.action !== "create"), "…and writes nothing but creates");
+  resetDbStub();
+}
+
 console.log(`\n${passed} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

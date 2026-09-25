@@ -32,6 +32,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyMoney, useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { formatMoney } from "@/lib/currency";
 import { libraryTrades, libraryForTrade, positionInRange } from "@/lib/services/presetLibrary";
+import { offeredOnly } from "@/lib/products/offered";
 
 const whole = (n, currency, language) =>
   n == null ? null : formatMoney(n, currency, language).replace(/[.,]00(?=\D*$)/, "");
@@ -285,7 +286,9 @@ function PresetLibrary({ currency: providerCurrency, language, t }) {
         setProducts([]);
         return;
       }
-      setProducts(Array.isArray(body) ? body : []);
+      // A removed service (lib/products/offered.js) is not the company's
+      // price any more; its row reads "not in your catalogue".
+      setProducts(offeredOnly(body));
       setProductsError("");
     } catch {
       setProductsError(t("app.load.network"));

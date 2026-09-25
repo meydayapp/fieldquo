@@ -25,6 +25,7 @@ import Sparkline from "@/app/components/platform/Sparkline";
 import TenantBoard from "./TenantBoard";
 import MailboxHealthCard from "@/app/components/platform/MailboxHealthCard";
 import { refusedPhrase } from "@/lib/voice/webhookAttention";
+import { BUCKETS, BUCKET_ORDER } from "@/lib/platform/subscriberBuckets";
 
 /** "4 min ago" / "3 h ago" / "2 d ago" — coarse on purpose; a timestamp is
  *  a fact, "ago" is the question the line answers. */
@@ -669,36 +670,55 @@ export default function PlatformDashboardPage() {
             value={money(data.outlook?.annualRunRate ?? data.arr, { compact: true })}
             note="Collectable MRR × 12"
           />
+          {/* The Paying bucket (lib/platform/trialCounting.js) — the same
+              number the companies list's "Paying" chip shows. It used to be
+              outlook.collectableCount, a narrower question with its own
+              answer; that one is the note now, beside the count it narrows. */}
           <MetricCard
             label="Paying companies"
-            value={count(data.outlook?.collectableCount ?? data.activeSubscriptionCount)}
-            // "companies" now means companies that finished checkout. The ten
-            // that never did are counted on their own below and on
-            // /platform/signups, not folded into this denominator.
-            note={`of ${count(data.totalCompanies)} companies`}
+            value={count(data.payingCompanies)}
+            note={[
+              `of ${count(data.totalCompanies)} companies`,
+              data.outlook && data.outlook.collectableCount !== data.payingCompanies
+                ? `${count(data.outlook.collectableCount)} can be charged`
+                : null,
+              data.pastDueCompanies ? `+${count(data.pastDueCompanies)} past due` : null,
+              data.cancellingAtPeriodEnd?.length
+                ? `${count(data.cancellingAtPeriodEnd.length)} cancelling at period end`
+                : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
           />
-          {/* "Trialing subscriptions", not "In trial". This tile counts
-              SUBSCRIPTION rows Stripe calls trialing; the banner lower down
-              counts COMPANIES in a free month, which also includes the ones
-              that never reached checkout and so have no subscription row at
-              all. The two are different numbers on purpose and used to be
-              labelled as if they were the same one. */}
+          {/* "Trialing" is COMPANIES in a free month, both kinds: a Stripe
+              trial on a chosen plan, and — since 38d3308d — the card-free
+              trial with no Subscription row at all. This tile counted only
+              the first ("Trialing subscriptions: 2") while five companies
+              were trialing; the owner counted four and was closer than the
+              tile. The split is printed because the two are different phone
+              calls. A card-free trial has no price, so neither the pipeline
+              figure nor MRR ever includes it. */}
           <MetricCard
-            label="Trialing subscriptions"
-            value={count(data.outlook?.trials?.count ?? 0)}
-            note={
+            label="Trialing"
+            value={count(data.trialCompanies)}
+            note={[
+              `${count(data.trialBreakdown?.withPlan ?? 0)} with a plan chosen · ${count(data.trialBreakdown?.noPlan ?? 0)} no plan yet`,
               data.outlook?.trials?.lapsed
-                ? `${count(data.outlook.trials.lapsed)} already lapsed — nothing transitioned them`
-                : `${money(data.outlook?.trials?.nominalValue ?? 0, { compact: true })}/mo in pipeline`
-            }
+                ? `${count(data.outlook.trials.lapsed)} Stripe trial(s) past their end date — nothing transitioned them`
+                : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
             tone={data.outlook?.trials?.lapsed > 0 ? "warning" : "default"}
           />
           <MetricCard
             label="Churned this month"
             value={count(data.churnedThisMonth)}
+            note="Subscriptions cancelled since the 1st"
             tone={data.churnedThisMonth > 0 ? "warning" : "default"}
           />
         </div>
+        <BookLedger book={data.book} stripeMirror={data.stripeMirror} />
       </section>
 
       </>
@@ -816,10 +836,11 @@ export default function PlatformDashboardPage() {
               {/* The split is printed, not just the total. This number was
                   wrong for months behind the label "companies on trial" and
                   nobody could tell, because there was no way to take it apart
-                  and ask which companies it meant. */}
+                  and ask which companies it meant. Same tally as the Trialing
+                  tile above — one book, so the two cannot disagree again. */}
               <p className="text-sm text-amber-800 dark:text-amber-300 mt-1">
-                {count(data.trialBreakdown?.trialingSubscription ?? 0)} trialing in
-                Stripe · {count(data.trialBreakdown?.awaitingCheckout ?? 0)} on the
+                {count(data.trialBreakdown?.withPlan ?? 0)} with a plan chosen
+                (trialing in Stripe) · {count(data.trialBreakdown?.noPlan ?? 0)} on the
                 card-free trial, no plan chosen yet. {trialShare}% of companies that
                 finished signing up — these are the ones worth calling.
               </p>
@@ -868,6 +889,81 @@ export default function PlatformDashboardPage() {
       </>
       )}
     </div>
+  );
+}
+
+/**
+ * The names behind every company number on this board.
+ *
+ * The owner's "it says 2 trialing but I think we have 4" could not be
+ * settled from this screen: a tile gave a number and nothing said which
+ * companies it meant. Every company is in exactly one bucket
+ * (lib/platform/trialCounting.js), the tiles above are lengths of these
+ * lists, and the lists are printed here so a number can be checked by
+ * reading it. Each heading opens the companies list on the same bucket.
+ *
+ * Also says how fresh the one cached input is: the Subscription rows mirror
+ * Stripe, refreshed by each billing webhook and by the six-hourly
+ * billing-sync. Everything else is counted live on this request.
+ */
+function BookLedger({ book, stripeMirror }) {
+  if (!book?.counts) return null;
+  const rows = BUCKET_ORDER.filter((b) => (book.counts[b] || 0) > 0);
+  return (
+    <details className="mt-4 bg-card border border-border rounded-xl" data-book-ledger>
+      <summary className="cursor-pointer px-5 py-3 text-sm font-semibold text-foreground min-h-[44px] lg:min-h-0 flex items-center">
+        Who these numbers count
+      </summary>
+      <div className="px-5 pb-4 space-y-3">
+        <p className="text-xs text-muted-foreground">
+          Counted live at {new Date(book.at).toLocaleTimeString()} — every company in exactly one
+          bucket; demos are listed and counted nowhere.{" "}
+          {stripeMirror
+            ? `Subscription statuses mirror Stripe: last billing webhook ${
+                stripeMirror.lastWebhookAt ? relativeTime(stripeMirror.lastWebhookAt) : "never"
+              } · last full reconcile ${
+                stripeMirror.lastReconcile
+                  ? `${relativeTime(stripeMirror.lastReconcile.at)} (${count(stripeMirror.lastReconcile.checked)} checked, ${count(stripeMirror.lastReconcile.drifted)} corrected)`
+                  : "not recorded yet (runs every 6 h)"
+              }.`
+            : "How fresh the Stripe mirror is could not be read."}
+        </p>
+        <ul className="space-y-2">
+          {rows.map((b) => (
+            <li key={b} className="text-sm" data-bucket={b}>
+              {/* "unknown" has no chip on the companies list (it should
+                  never hold anyone), so it is not a link to one. */}
+              {b === "unknown" ? (
+                <span className="font-semibold text-foreground">
+                  {BUCKETS[b].label} ({count(book.counts[b])})
+                </span>
+              ) : (
+                <Link
+                  href={`/platform/companies?status=${b}`}
+                  className="font-semibold text-foreground underline"
+                >
+                  {BUCKETS[b]?.label || b} ({count(book.counts[b])})
+                </Link>
+              )}
+              <span className="text-muted-foreground">
+                {" — "}
+                {/* Twenty-odd sales fixtures by name would bury the real
+                    companies; the chip opens them for anyone who asks. */}
+                {b === "demo" ? "FieldQuo's own sales fixtures, in no count above." : null}
+                {(b === "demo" ? [] : book.members?.[b] || []).map((m, i) => (
+                  <span key={m.id}>
+                    {i > 0 ? ", " : ""}
+                    <Link href={`/platform/companies/${m.id}`} className="underline">
+                      {m.name?.trim() || "(no name)"}
+                    </Link>
+                  </span>
+                ))}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </details>
   );
 }
 

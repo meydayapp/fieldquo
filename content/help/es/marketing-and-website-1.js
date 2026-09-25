@@ -367,7 +367,7 @@ export const ARTICLES = {
             "**Solicitar una cotización** — «Describen el trabajo y dejan sus datos. Llega a tu lista de prospectos. Ideal para quienes todavía comparan precios.»",
             "**Reservar una visita** — «Eligen una hora según tu disponibilidad real. Ideal para quienes ya decidieron y solo quieren que vayas.»",
             "**Estimación instantánea** — la página de dirección de entrada y precio de salida; cada estimación llega a su cola de revisión antes de ser vinculante. Los oficios y las tarifas se configuran en **Configuración → Cotizaciones instantáneas**.",
-            "**Diseña tu cocina** — «Un propietario diseña su propia cocina — gabinetes, acabados, todo — y te la envía como consulta con el plano adjunto.» Se muestra solo mientras **Kitchen Design & New Installs** está activado en Servicios, y solo como enlace: no tiene código para incrustar.",
+            "**Diseña tu cocina** — «Un propietario diseña su propia cocina — gabinetes, acabados, todo — y te la envía como consulta con el plano adjunto.» Se muestra solo mientras el **diseñador de cocinas** está activado en Servicios (solo, para Kitchen Design & New Installs, remodelación, renovación, contratación general, construcción nueva y renovación de frentes de gabinetes; la empresa puede activarlo o desactivarlo ahí), y solo como enlace: no tiene código para incrustar.",
             "**Una tarjeta por embudo publicado**, con el nombre que usted le dio — «Un embudo de clientes potenciales paso a paso — comparte el enlace en un anuncio o ponlo en tu web.» Los embudos en borrador no se listan, porque su enlace todavía no funcionaría.",
             "Una línea de cierre: el formulario de cotización solo ofrece los servicios activados en Configuración → Servicios, y nunca muestra sus precios.",
           ] },
@@ -498,7 +498,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Resumen",
         blocks: [
-          { p: "La página se deriva del registro de su empresa, no se escribe desde cero. Una fila aparece porque lo que hay detrás existe: el formulario de presupuesto siempre está; **Reservar una visita** aparece en cuanto tiene un tipo de cita activo; **Obtener un precio al instante** en cuanto hay un estimador instantáneo activado; **Diseña tu cocina** en cuanto Kitchen Design & New Installs está activado en Servicios; cada embudo publicado como botón propio; su sitio web en cuanto está publicado o en cuanto ingresó un dominio en Configuración de la empresa; el enlace de reseñas en cuanto está configurado en Reseñas; su teléfono y su correo desde Configuración de la empresa. Una fila que usted apaga se queda apagada; una fila que nadie tocó está encendida la primera vez que se carga la página — incluido un embudo que publique el mes que viene." },
+          { p: "La página se deriva del registro de su empresa, no se escribe desde cero. Una fila aparece porque lo que hay detrás existe: el formulario de presupuesto siempre está; **Reservar una visita** aparece en cuanto tiene un tipo de cita activo; **Obtener un precio al instante** en cuanto hay un estimador instantáneo activado; **Diseña tu cocina** en cuanto el diseñador de cocinas está activado en Servicios; cada embudo publicado como botón propio; su sitio web en cuanto está publicado o en cuanto ingresó un dominio en Configuración de la empresa; el enlace de reseñas en cuanto está configurado en Reseñas; su teléfono y su correo desde Configuración de la empresa. Una fila que usted apaga se queda apagada; una fila que nadie tocó está encendida la primera vez que se carga la página — incluido un embudo que publique el mes que viene." },
           { p: "La página sigue por sí sola el teléfono del visitante entre claro y oscuro; el selector claro / oscuro de esta pantalla solo cambia el marco de la vista previa. Lleva una pequeña línea **Made by FieldQuo** al final, en todos los planes — vea [[the-site-by-fieldquo-footer|El pie de página «Sitio por FieldQuo»]]." },
         ],
       },
@@ -542,7 +542,7 @@ export const ARTICLES = {
             rows: [
               ["Obtener un precio al instante", "Un estimador instantáneo está activado en Configuración → Cotizaciones instantáneas", "Sí"],
               ["Presupuesto gratis (el formulario de presupuesto)", "Siempre — toda empresa lo tiene", "Sí"],
-              ["Diseña tu cocina", "Kitchen Design & New Installs está activado en Configuración → Servicios", "Sí"],
+              ["Diseña tu cocina", "El diseñador de cocinas está activado en Configuración → Servicios", "Sí"],
               ["Reservar una visita", "Al menos un tipo de cita activo en Configuración → Página de reservas", "Sí"],
               ["Cada embudo publicado, por su nombre", "El embudo está publicado", "Sí"],
               ["Visita nuestro sitio web", "Un dominio en Configuración de la empresa, o un sitio FieldQuo publicado", "Sí"],

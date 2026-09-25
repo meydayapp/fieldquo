@@ -55,6 +55,7 @@ import { db } from "@/lib/db";
 import { recordError } from "@/lib/platform/errorLog";
 import { syncSubscriptionFromStripe } from "@/lib/platform/stripeSync";
 import { auditDestinations } from "@/lib/platform/stripeDestinations";
+import { stampBillingSync } from "@/lib/platform/webhookHealth";
 
 const BILLING_SYNC_AREA = "billing";
 const DRIFT_CODE = "billing_drift";
@@ -144,6 +145,12 @@ export async function GET(request) {
   // files the error row). Never throws; a Stripe outage is `error` in the
   // answer, and the drift loop above has already run regardless.
   const destinations = await auditDestinations({ force: true, flag: true });
+
+  // When the backstop last finished, for the screens that count paying and
+  // trialing companies off these rows — "last reconciled with Stripe 2 h
+  // ago" is what tells a reader whether a status on /platform can be stale.
+  // Stamped after the loop, so a run that died half-way does not claim it.
+  await stampBillingSync(summary);
 
   return NextResponse.json({ ok: true, ...summary, destinations });
 }

@@ -180,7 +180,7 @@ export async function GET(request) {
       orderBy: { createdAt: "desc" },
     }),
     // Newest first and bounded, like the started list: this is the "who
-    // signed up lately" section, and /platform/companies?status=trial_no_plan
+    // signed up lately" section, and /platform/companies?status=card_free
     // is the full list.
     db.company.findMany({
       where: { isDemo: false, ...cardFreeTrialWhere() },

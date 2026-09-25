@@ -99,6 +99,15 @@ export async function PATCH(request, { params }) {
   const commission = productCommissionData(body);
   if (!commission.ok) return NextResponse.json({ error: commission.error }, { status: 400 });
 
+  // `active` is the archive (lib/products/offered.js): false = removed from
+  // the company's list — Settings › Products & Services' Remove — and true =
+  // Add back. The same row either way, so its price, template lines and
+  // every quote that used it are untouched. A boolean or nothing: a string
+  // "false" reaching Prisma was a 500, and coercing it would be a guess.
+  if (active !== undefined && typeof active !== "boolean") {
+    return NextResponse.json({ error: "active must be true or false." }, { status: 400 });
+  }
+
   if (Array.isArray(categoryIds) && categoryIds.length) {
     const usable = await usableCategoryIds(member.companyId, categoryIds);
     if (categoryIds.some((id) => !usable.has(id)))

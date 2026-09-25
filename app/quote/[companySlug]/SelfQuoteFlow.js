@@ -57,7 +57,7 @@ import { documentTheme, fillPair, ruleColor } from "@/lib/documents/theme";
 import { themeUnderLook } from "@/lib/estimate/formAppearance";
 import FormLook, { useFormLook } from "@/app/components/public/FormLook";
 import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
-import { KITCHEN_DESIGN_KEY } from "@/lib/kitchen/key";
+import { KITCHEN_GRANTING_TRADE_KEYS } from "@/lib/kitchen/key";
 import { LANGUAGES } from "@/app/i18n/languages";
 import { formatPhoneInput } from "@/lib/validation";
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
@@ -414,13 +414,18 @@ export default function SelfQuoteFlow({ companySlug, embedded = false, look: loo
                 {copy.step2Hint}
               </p>
 
-              {/* The homeowner picked Kitchen Design, and this company has a
-                  page where they can draw it themselves — the service being
-                  in this list IS the condition that page renders on
-                  (lib/kitchen/access.js), so the link cannot 404. A plain
-                  anchor, not the embed: the designer is a full page and
-                  belongs in a new tab, especially inside an iframe. */}
-              {service.key === KITCHEN_DESIGN_KEY && (
+              {/* The homeowner picked a service a kitchen is built under
+                  (Kitchen Design, Remodeling, Renovation, General
+                  Contracting, New Construction, Cabinet Refacing) and this
+                  company has the page where they can draw it themselves.
+                  `data.kitchenDesigner` is the server's answer from the same
+                  rule the page applies before rendering (lib/kitchen/key.js
+                  via lib/kitchen/access.js), so the link cannot 404 — and a
+                  company that switched the designer off gets no link even on
+                  its Remodeling card. A plain anchor, not the embed: the
+                  designer is a full page and belongs in a new tab, especially
+                  inside an iframe. */}
+              {data.kitchenDesigner === true && KITCHEN_GRANTING_TRADE_KEYS.includes(service.key) && (
                 <p className="text-sm mb-4">
                   <a
                     href={`/quote/${encodeURIComponent(companySlug)}/kitchen`}

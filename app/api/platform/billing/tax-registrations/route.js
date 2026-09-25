@@ -15,6 +15,7 @@ import { stripe } from "@/lib/stripe";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { requirePlatformPermission } from "@/lib/platform/permissions";
 import { registrationReport } from "@/lib/platform/taxRegistrations";
+import { loadSubscriberBook } from "@/lib/platform/trialCounting";
 
 // Enough for years at FieldQuo's size; a cap so a runaway list cannot hold the
 // request open. Reaching it is reported, never silently truncated.
@@ -33,21 +34,13 @@ export async function GET(request) {
   const since = Math.floor(now.getTime() / 1000) - 365 * 24 * 60 * 60;
 
   // ── FieldQuo's own rows: who is paying or trialling, and where ───────────
-  const companies = await db.company.findMany({
-    where: { isDemo: false },
-    select: {
-      country: true,
-      isDemo: true,
-      trialEndsAt: true,
-      subscription: {
-        select: {
-          status: true,
-          billingInterval: true,
-          plan: { select: { priceMonthly: true, priceAnnual: true, currency: true } },
-        },
-      },
-    },
-  });
+  //
+  // The same classified book every /platform number counts with
+  // (lib/platform/trialCounting.js), so "3 trialling in CA" here and
+  // "Trialing" on the dashboard are one population. Demos are their own
+  // bucket and fall out of the tally by construction.
+  const { companies: book } = await loadSubscriberBook(db, { now });
+  const companies = book.filter((c) => c.bucket !== "demo");
 
   // ── Stripe: paid subscription invoices, last 12 months ───────────────────
   //

@@ -310,13 +310,13 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Who can see it",
         blocks: [
-          { p: "The row appears only when your company has switched on **Kitchen Design & New Installs** under Services & Pricing, or already saved its own rates. Reading and changing it need **user:manage** — owners, admins and supervisors (the Dispatcher and Manager levels). The designer itself is described in [[the-kitchen-designer|The kitchen designer]]." },
+          { p: "The row appears only when your company has the **Kitchen Designer** on (Services & Pricing — on by itself for Kitchen Design & New Installs, Remodeling, Renovation, General Contracting, New Construction and Cabinet Refacing), or already saved its own rates. Reading and changing it need **user:manage** — owners, admins and supervisors (the Dispatcher and Manager levels). The designer itself is described in [[the-kitchen-designer|The kitchen designer]]." },
         ],
       },
     ],
     faq: [
       { q: "I changed my rates — does the kitchen quote I sent yesterday change?", a: "No. Designs are priced when they are made; the new rates apply to new designs." },
-      { q: "Why is Cabinet Pricing not in my Settings menu?", a: "It only appears for companies with Kitchen Design & New Installs switched on. Turn that quote type on under Services & Pricing." },
+      { q: "Why is Cabinet Pricing not in my Settings menu?", a: "It only appears for companies with the Kitchen Designer on. That happens by itself when you offer Kitchen Design & New Installs, Remodeling, Renovation, General Contracting, New Construction and Cabinet Refacing, and the Kitchen Designer card under Services & Pricing can switch it on for any company." },
     ],
   },
 
