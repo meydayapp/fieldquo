@@ -10,8 +10,13 @@
 //          channel CAN work (does FieldQuo hold a system number), and the
 //          web-chat embed snippet.
 //   POST → hire one: { role }. One per role — the schema's unique.
-//   PUT  → save one: { id, ...fields }. A mode change and an on/off change
-//          each write an audit row naming who did it and what it was before.
+//   PUT  → save one: { id, ...only the fields that changed }. The screen
+//          auto-saves one field at a time, so a key absent from the body is
+//          left alone — never blanked. No id is a 400 and an id that is not
+//          this company's is a 404: there is no "first employee" fallback
+//          (lib/aiEmployee/settings.js says why). A mode change and an on/off
+//          change each write an audit row naming who did it and what it was
+//          before.
 //   PATCH → the flow view's two edits: { id, intents?, disabledTools? }.
 //          An intent moves to this employee and off every other; a
 //          disabled tool must be one the role allows and the company may
@@ -37,25 +42,21 @@ import {
   AI_EMPLOYEE_ROLES,
   AI_EMPLOYEE_TONES,
   AI_EMPLOYEE_VOICES,
-  CLOSED_ROLE,
   roleFor,
-  instructionsFingerprint,
   switchableToolsForRole,
   cleanDisabledTools,
 } from "@/lib/aiEmployee/roles";
+import { planEmployeeSave, targetEmployee } from "@/lib/aiEmployee/settings";
+import { defaultNameFor, UNNAMED } from "@/lib/aiEmployee/names";
+import { disclosureFor, DISCLOSURE_COMPANY_SELECT } from "@/lib/aiEmployee/disclosure";
 import { INTENTS, ROLE_FOR_INTENT, isIntent, routingCounts } from "@/lib/aiEmployee/routing";
 import { TOOL_RISK } from "@/lib/aiEmployee/tools";
 import { MODES, MODE_SENTENCE_KEY, FLOOR_LIST_KEYS, modeOf } from "@/lib/aiEmployee/permission";
-import { CHANNELS, channelConflicts } from "@/lib/aiEmployee/employees";
+import { CHANNELS } from "@/lib/aiEmployee/employees";
 import { FACES, defaultFaceFor } from "@/lib/aiEmployee/faces";
 import { READABLE_EXTENSIONS, SOURCE_KINDS } from "@/lib/aiEmployee/sources";
 import { withinBusinessHours } from "@/lib/aiEmployee/decide";
 import { isLoaderSlug } from "@/lib/embed/chatLoader";
-
-/** How long an instruction block may be. Long enough for a real policy, short
- *  enough that it cannot be used to push the role's own rules out of context. */
-const MAX_INSTRUCTIONS = 4000;
-const MAX_SHORT = 300;
 
 async function admin(request, { allowSupportToLook = false } = {}) {
   const { member, response } = await memberOrRefusal(request);
@@ -84,22 +85,42 @@ async function admin(request, { allowSupportToLook = false } = {}) {
  *
  * Lazily rather than at signup: a company that never opens this screen should
  * not carry a row for a feature they have not used. Created DISABLED in `ask`
- * — the schema's defaults, restated nowhere.
+ * — the schema's defaults, restated nowhere — under the role's own default
+ * name in the company's language (lib/aiEmployee/names.js).
  */
-async function loadOrCreate(companyId, { mayCreate = true } = {}) {
+async function loadOrCreate(companyId, { mayCreate = true, language = "en" } = {}) {
   const rows = await db.aiEmployee.findMany({ where: { companyId }, orderBy: { createdAt: "asc" } });
   if (rows.length) {
+    if (!mayCreate) return rows;
     // A row hired before its role had a portrait (the receptionist rows
     // created on 2026-09-19 predate lib/aiEmployee/faces.js) shows initials
     // for ever unless somebody picks a face. Give it the role's default once,
     // here, so the team list looks the way a fresh hire does. A role with no
     // portrait (troubleshooter) keeps initials — nothing is invented.
-    const faceless = rows.filter((r) => !r.avatarUrl && defaultFaceFor(r.role));
-    if (faceless.length && mayCreate) {
+    //
+    // The same for the NAME: every row hired before 2026-09-25 was born
+    // "Assistant" (the schema default) with no customer-facing name, so two
+    // employees were both "Assistant" on the team list and in every hand-off
+    // line. A row still in exactly that state — nobody ever named it — gets
+    // its role's default name once. A row somebody named, or gave a
+    // customer-facing name, is never touched.
+    const fixes = rows
+      .map((r) => {
+        const data = {};
+        if (!r.avatarUrl && defaultFaceFor(r.role)) data.avatarUrl = defaultFaceFor(r.role);
+        if ((r.name || UNNAMED) === UNNAMED && !r.displayName) data.name = defaultNameFor(r.role, language);
+        return Object.keys(data).length ? { r, data } : null;
+      })
+      .filter(Boolean);
+    if (fixes.length) {
       await Promise.all(
-        faceless.map((r) => db.aiEmployee.update({ where: { id: r.id }, data: { avatarUrl: defaultFaceFor(r.role) } }).catch(() => null)),
+        fixes.map(({ r, data }) =>
+          db.aiEmployee
+            .update({ where: { id: r.id }, data })
+            .then(() => Object.assign(r, data))
+            .catch(() => null),
+        ),
       );
-      for (const r of faceless) r.avatarUrl = defaultFaceFor(r.role);
     }
     return rows;
   }
@@ -109,15 +130,21 @@ async function loadOrCreate(companyId, { mayCreate = true } = {}) {
   if (!mayCreate) {
     return [
       {
-        id: null, companyId, role: "receptionist", name: "Assistant", displayName: null, avatarUrl: null,
-        voice: null, enabled: false, mode: "ask", metaEnabled: true, webChatEnabled: false, smsEnabled: false,
-        tone: null, greeting: null, instructions: null, escalationRules: null, handoffPhrase: null,
-        businessHoursOnly: false, maxRepliesPerThread: 3, updatedAt: null, createdAt: null,
+        id: null, companyId, role: "receptionist", name: defaultNameFor("receptionist", language), displayName: null,
+        avatarUrl: defaultFaceFor("receptionist"), voice: null, enabled: false, mode: "ask", metaEnabled: true,
+        webChatEnabled: false, smsEnabled: false, tone: null, greeting: null, instructions: null,
+        escalationRules: null, handoffPhrase: null, businessHoursOnly: false, maxRepliesPerThread: 3,
+        updatedAt: null, createdAt: null,
       },
     ];
   }
   const created = await db.aiEmployee.create({
-    data: { companyId, role: "receptionist", avatarUrl: defaultFaceFor("receptionist") },
+    data: {
+      companyId,
+      role: "receptionist",
+      name: defaultNameFor("receptionist", language),
+      avatarUrl: defaultFaceFor("receptionist"),
+    },
   });
   return [created];
 }
@@ -158,13 +185,19 @@ export async function GET(request) {
   const { member, response } = await admin(request, { allowSupportToLook: true });
   if (response) return response;
 
-  const employees = await loadOrCreate(member.companyId, { mayCreate: !member.impersonation });
+  const company = await db.company.findUnique({
+    where: { id: member.companyId },
+    select: {
+      businessHours: true, timezone: true, slug: true, bookingSlug: true, defaultLanguage: true,
+      ...DISCLOSURE_COMPANY_SELECT,
+    },
+  });
+  const employees = await loadOrCreate(member.companyId, {
+    mayCreate: !member.impersonation,
+    language: company?.defaultLanguage || "en",
+  });
 
-  const [company, quota, connection, smsNumber, counts] = await Promise.all([
-    db.company.findUnique({
-      where: { id: member.companyId },
-      select: { businessHours: true, timezone: true, slug: true, bookingSlug: true },
-    }),
+  const [quota, connection, smsNumber, counts] = await Promise.all([
     checkAiQuota(member.companyId),
     // The Meta inbox is waiting on Meta. The screen says so rather than
     // offering a switch for a channel nothing can leave through.
@@ -226,6 +259,9 @@ export async function GET(request) {
       typicalConversationCents: typicalConversationCostCents(AI_BEST_MODEL),
       pricing: pricingFor(AI_BEST_MODEL),
     },
+    // Company-wide: does the first reply announce it's an AI, and why that
+    // is the default here (lib/aiEmployee/disclosure.js cites the laws).
+    disclosure: disclosureFor(company || {}),
     businessHoursOpenNow: withinBusinessHours(company),
     hasBusinessHours: withinBusinessHours(company) !== null,
     channel: connection
@@ -249,20 +285,6 @@ export async function GET(request) {
   });
 }
 
-const clean = (v, max) => {
-  const s = typeof v === "string" ? v.trim() : "";
-  return s ? s.slice(0, max) : null;
-};
-
-/** A face is one of ours, or an https URL an upload produced. Never a data
- *  URI, never a foreign scheme. */
-function cleanAvatar(v) {
-  const s = typeof v === "string" ? v.trim() : "";
-  if (!s) return null;
-  if (FACES.some((f) => f.url === s)) return s;
-  return /^https:\/\/[^\s"'<>]{1,500}$/.test(s) ? s : null;
-}
-
 export async function POST(request) {
   const { member, response } = await admin(request);
   if (response) return response;
@@ -274,10 +296,14 @@ export async function POST(request) {
   if (existing) {
     return NextResponse.json({ error: "You already have an employee in that role.", reason: "role_taken" }, { status: 409 });
   }
+  const company = await db.company.findUnique({ where: { id: member.companyId }, select: { defaultLanguage: true } });
   const created = await db.aiEmployee.create({
     data: {
       companyId: member.companyId,
       role,
+      // Its own name, distinct from every other role's, in the company's
+      // language — the company renames it on the screen like any field.
+      name: defaultNameFor(role, company?.defaultLanguage || "en"),
       avatarUrl: defaultFaceFor(role),
       // A second hire must not silently claim the Meta inbox from the first.
       metaEnabled: false,
@@ -299,76 +325,26 @@ export async function PUT(request) {
   if (response) return response;
 
   const body = await request.json().catch(() => ({}));
-  const rows = await loadOrCreate(member.companyId);
+  // The company's own rows, read under the session's companyId — never
+  // created here: a save names a row that exists, and one that does not is
+  // a 404, not a fresh receptionist.
+  const rows = await db.aiEmployee.findMany({ where: { companyId: member.companyId }, orderBy: { createdAt: "asc" } });
 
-  // The row being saved — by id, under companyId. An id from another company
-  // is not in `rows`, and "not found" is the answer.
-  const current = body.id ? rows.find((r) => r.id === body.id) : rows[0];
-  if (!current) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  // The number is only looked up when this save switches the text channel on.
+  const smsAvailable = body?.smsEnabled === true ? Boolean(await systemSmsNumber().catch(() => null)) : false;
 
-  // Unknown role and tone values resolve to the closed preset and the first
-  // tone rather than being written through. The role may not move onto one
-  // another employee already holds.
-  const role = AI_EMPLOYEE_ROLES.includes(body.role) ? body.role : CLOSED_ROLE;
-  if (role !== current.role && rows.some((r) => r.id !== current.id && r.role === role)) {
-    return NextResponse.json({ error: "You already have an employee in that role.", reason: "role_taken" }, { status: 409 });
-  }
-  const tone = AI_EMPLOYEE_TONES.includes(body.tone) ? body.tone : AI_EMPLOYEE_TONES[0];
-  const voice = AI_EMPLOYEE_VOICES.includes(body.voice) ? body.voice : null;
-  const mode = MODES.includes(body.mode) ? body.mode : modeOf(current);
-
-  const cap = Number(body.maxRepliesPerThread);
-  const data = {
-    role,
-    tone,
-    voice,
-    name: clean(body.name, 60) || "Assistant",
-    displayName: clean(body.displayName, 60),
-    avatarUrl: cleanAvatar(body.avatarUrl),
-    enabled: body.enabled === true,
-    // ── The mode cannot move by accident ─────────────────────────────────
-    //
-    // Only a value from the closed list is written; anything else keeps the
-    // current mode. lib/aiEmployee/permission.js reads it the same way at
-    // reply time. Two independent checks of the same rule, deliberately.
-    mode,
-    // Mirrored for any reader of the old column. Nothing reads it.
-    autoReplyEnabled: mode === "auto",
-    metaEnabled: body.metaEnabled !== false,
-    webChatEnabled: body.webChatEnabled === true,
-    smsEnabled: body.smsEnabled === true,
-    greeting: clean(body.greeting, MAX_SHORT),
-    instructions: clean(body.instructions, MAX_INSTRUCTIONS),
-    escalationRules: clean(body.escalationRules, MAX_INSTRUCTIONS),
-    handoffPhrase: clean(body.handoffPhrase, MAX_SHORT),
-    businessHoursOnly: body.businessHoursOnly === true,
-    // Clamped rather than rejected: 0 is a legitimate pause and 10 is already
-    // more of one conversation than anybody wants an agent holding alone.
-    maxRepliesPerThread: Number.isFinite(cap) ? Math.max(0, Math.min(10, Math.floor(cap))) : 3,
-  };
-
-  // ── SMS needs a number FieldQuo holds ───────────────────────────────────
-  if (data.smsEnabled && !(await systemSmsNumber().catch(() => null))) {
+  // One employee, by id, among THIS company's rows; only the fields present
+  // in the body. lib/aiEmployee/settings.js holds every rule — the id, the
+  // closed lists, SMS needs a number, one employee per channel.
+  const plan = planEmployeeSave({ rows, body, smsAvailable });
+  if (!plan.ok) {
     return NextResponse.json(
-      { error: "FieldQuo has no SMS number yet, so the text channel can't be switched on.", reason: "no_system_number" },
-      { status: 409 },
+      { error: plan.error, reason: plan.reason, field: plan.field || null, ...(plan.channels ? { channels: plan.channels } : {}) },
+      { status: plan.status },
     );
   }
-
-  // ── One employee per channel ────────────────────────────────────────────
-  const conflicts = channelConflicts(rows, { ...data, id: current.id });
-  if (conflicts.length) {
-    return NextResponse.json(
-      {
-        error: "Another employee already answers that channel. Switch it off there first.",
-        reason: "channel_conflict",
-        channels: conflicts,
-      },
-      { status: 409 },
-    );
-  }
-
-  data.instructionsFingerprint = instructionsFingerprint(data);
+  const { current, data } = plan;
+  const mode = data.mode ?? modeOf(current);
 
   const saved = await db.aiEmployee.update({ where: { id: current.id }, data });
 
@@ -415,8 +391,8 @@ export async function PATCH(request) {
   const id = typeof body?.id === "string" ? body.id : null;
   if (!id) return NextResponse.json({ error: "Say which employee." }, { status: 400 });
 
-  const rows = await loadOrCreate(member.companyId);
-  const current = rows.find((r) => r.id === id);
+  const rows = await db.aiEmployee.findMany({ where: { companyId: member.companyId }, orderBy: { createdAt: "asc" } });
+  const current = targetEmployee(rows, id);
   if (!current) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const data = {};

@@ -1795,6 +1795,15 @@ model Company {
 
   postalCode   String?
   country      String?  @default("CA")
+  /// Does the AI team tell clients it's an AI? null = nobody chose, and the
+  /// default follows the company's location — on only where a law requires
+  /// the disclosure (lib/aiEmployee/disclosure.js cites each one). true /
+  /// false = the owner chose on Settings › AI employee, and that choice
+  /// stands whatever the location. Read by lib/aiEmployee/respond.js, which
+  /// prepends "Hi, I'm {name}, {Company}'s AI assistant" to the first reply
+  /// when it is on. Off, the employee still never claims to be a person and
+  /// answers truthfully when asked (lib/aiEmployee/roles.js rule 5).
+  aiDisclosure Boolean?
   latitude     Decimal? @db.Decimal(9, 6)
   longitude    Decimal? @db.Decimal(9, 6)
   /// The company's service area — where they will drive to. A radius in km
@@ -17873,10 +17882,11 @@ model AiEmployee {
   /// lib/features/registry.js's CLOSED_STATE.
   role String @default("receptionist")
 
-  /// What the contractor calls it. Shown to nobody outside the company: a
-  /// homeowner reading a Page message sees the business, never a bot's name
-  /// (white-label by default). It exists so a two-person office can say "the
-  /// closer" and mean something.
+  /// Its name. Every reader shows `displayName || name`, so this is also what
+  /// a customer sees unless displayName is set. A hire gets its ROLE's own
+  /// default name in the company's language (lib/aiEmployee/names.js); the
+  /// schema default "Assistant" is only what a row carried before that, and
+  /// the settings GET renames such a row once if nobody ever named it.
   name String @default("Assistant")
 
   /// Off until somebody switches it on. Same reasoning as VoiceAgent.enabled —
@@ -17918,9 +17928,9 @@ model AiEmployee {
 
   /// ── The face and the name a customer sees ───────────────────────────────
   ///
-  /// displayName is what the disclosure line introduces ("Hi, I'm Sam,
-  /// Northline Painting's AI assistant"); `name` above is what the CONTRACTOR
-  /// calls it on the settings screen and stays private. avatarUrl is one of
+  /// displayName is an optional different name for customers; when null the
+  /// disclosure line, the chat header and the hand-off line all use `name`
+  /// ("Hi, I'm Sam, Northline Painting's AI assistant"). avatarUrl is one of
   /// the preset portraits under public/ai-employees or a Cloudinary upload
   /// through /api/upload; null shows initials. Both front the web-chat widget
   /// header and the signature on outgoing texts.
