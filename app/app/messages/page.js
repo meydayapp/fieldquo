@@ -64,6 +64,7 @@ import { fetchJson } from "@/lib/fetchJson";
 import { reportResponseError } from "@/lib/clientErrors";
 import { notify } from "@/lib/notify/browser";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import ActionMenu from "@/app/components/mobile/ActionMenu";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { useHasLevel } from "@/app/providers/PermissionProvider";
 import {
@@ -1143,24 +1144,6 @@ function RowBadges({ row, now, t }) {
  * the answer is still readable.
  */
 function OutcomeChip({ value, onPick, busy, t }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-  useEffect(() => {
-    if (!open) return undefined;
-    const onDown = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-    };
-    const onKey = (e) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
   const label = value ? t(outcomeLabelKey(value)) : t("app.messages.outcome.open");
   const tone = value === "won"
     ? "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-100"
@@ -1168,66 +1151,47 @@ function OutcomeChip({ value, onPick, busy, t }) {
       ? "bg-muted text-foreground"
       : "bg-muted text-muted-foreground";
 
+  // ActionMenu (2026-09-25): this was an `absolute left-0 w-56` panel under
+  // a chip in a row — a bottom sheet on a phone now, a dropdown kept inside
+  // the viewport above that. Outside-press and Escape come with it.
   return (
-    <span ref={ref} className="relative inline-flex">
-      <button
-        type="button"
-        disabled={busy}
-        onClick={() => setOpen((v) => !v)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label={t("app.messages.outcome.setOutcome")}
-        className={`${TAG} min-h-[28px] ${tone} disabled:opacity-60`}
-        data-outcome-chip
-        data-outcome={value || "open"}
-      >
-        {label}
-        <ChevronDown size={11} aria-hidden="true" />
-      </button>
-      {open ? (
-        <div
-          role="menu"
-          data-outcome-menu
-          className="absolute left-0 top-full z-30 mt-1 w-56 rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-lg"
-        >
-          {THREAD_OUTCOMES.map((o) => (
-            <button
-              key={o}
-              type="button"
-              role="menuitemradio"
-              aria-checked={value === o}
-              onClick={() => {
-                setOpen(false);
-                onPick(o);
-              }}
-              className={`flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-2 text-left text-sm min-h-[40px] ${
-                value === o ? "bg-muted font-semibold" : "hover:bg-muted/60"
-              }`}
-            >
-              <span>{t(outcomeLabelKey(o))}</span>
-              {value === o ? <Check size={13} aria-hidden="true" /> : null}
-            </button>
-          ))}
-          {/* Back to "nobody has said" — never to "lost". An outcome set by
-              mistake must be removable, and the review counts a cleared one
-              as unjudged. */}
-          <button
-            type="button"
-            role="menuitemradio"
-            aria-checked={!value}
-            onClick={() => {
-              setOpen(false);
-              onPick(null);
-            }}
-            className={`mt-1 flex w-full items-center justify-between gap-2 rounded-md border-t border-border px-2.5 py-2 text-left text-sm min-h-[40px] ${
-              !value ? "bg-muted font-semibold" : "hover:bg-muted/60"
-            }`}
-          >
-            <span>{t("app.messages.outcome.open")}</span>
-            {!value ? <Check size={13} aria-hidden="true" /> : null}
-          </button>
-        </div>
-      ) : null}
+    <span className="relative inline-flex">
+      <ActionMenu
+        title={t("app.messages.outcome.setOutcome")}
+        align="start"
+        triggerClassName={`${TAG} min-h-[28px] ${tone} disabled:opacity-60`}
+        triggerProps={{
+          disabled: busy,
+          "aria-label": t("app.messages.outcome.setOutcome"),
+          "data-outcome-chip": true,
+          "data-outcome": value || "open",
+        }}
+        popupProps={{ "data-outcome-menu": true }}
+        trigger={
+          <>
+            {label}
+            <ChevronDown size={11} aria-hidden="true" />
+          </>
+        }
+        items={[
+          ...THREAD_OUTCOMES.map((o) => ({
+            key: o,
+            label: t(outcomeLabelKey(o)),
+            checked: value === o,
+            onSelect: () => onPick(o),
+          })),
+          // Back to "nobody has said" — never to "lost". An outcome set by
+          // mistake must be removable, and the review counts a cleared one
+          // as unjudged.
+          {
+            key: "open",
+            label: t("app.messages.outcome.open"),
+            checked: !value,
+            divider: true,
+            onSelect: () => onPick(null),
+          },
+        ]}
+      />
     </span>
   );
 }

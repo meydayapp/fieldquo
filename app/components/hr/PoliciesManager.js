@@ -16,6 +16,7 @@ import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvide
 import { fetchList } from "@/lib/loadState";
 import { fetchJson, errorText } from "@/lib/fetchJson";
 import ListState from "@/app/components/ListState";
+import ActionMenu from "@/app/components/mobile/ActionMenu";
 import PolicyBody from "@/app/components/hr/PolicyBody";
 
 const inputClass = "border border-border rounded-lg px-3 py-2 bg-card min-h-[44px] text-sm w-full";
@@ -297,28 +298,32 @@ export default function PoliciesManager() {
 }
 
 function StarterMenu({ t, loadTemplates, onPick }) {
-  const [open, setOpen] = useState(false);
+  // Loaded once, up front, rather than on the first press: ActionMenu opens
+  // on the press itself (a bottom sheet on a phone, a clamped dropdown above
+  // that — 2026-09-25; this was an `absolute min-w-[260px]` list with no
+  // outside-close and no Escape). No templates, or a failed load, draws no
+  // button: a "From a template" that opens an empty list is a dead control.
   const [list, setList] = useState(null);
-  async function toggle() {
-    if (!open) setList(await loadTemplates().catch(() => []));
-    setOpen(!open);
-  }
+  useEffect(() => {
+    let live = true;
+    loadTemplates()
+      .then((l) => live && setList(Array.isArray(l) ? l : []))
+      .catch(() => live && setList([]));
+    return () => {
+      live = false;
+    };
+    // loadTemplates is a fresh closure every render and caches on its own.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  if (!list || list.length === 0) return null;
   return (
-    <div className="relative">
-      <button type="button" onClick={toggle} className="border border-border rounded-full px-4 py-2 text-sm font-semibold min-h-[44px]" data-hr-starters>
-        {t("app.hr.policies.fromTemplate")}
-      </button>
-      {open && list && (
-        <ul className="absolute z-10 mt-1 bg-card border border-border rounded-xl shadow-lg min-w-[260px] p-1" role="menu">
-          {list.map((tpl) => (
-            <li key={tpl.key}>
-              <button type="button" role="menuitem" onClick={() => { setOpen(false); onPick(tpl); }} className="w-full text-left text-sm px-3 py-2.5 rounded-lg hover:bg-muted min-h-[44px]">
-                {tpl.title}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+    <ActionMenu
+      title={t("app.hr.policies.fromTemplate")}
+      align="start"
+      triggerClassName="border border-border rounded-full px-4 py-2 text-sm font-semibold min-h-[44px]"
+      triggerProps={{ "data-hr-starters": true }}
+      trigger={t("app.hr.policies.fromTemplate")}
+      items={list.map((tpl) => ({ key: tpl.key, label: tpl.title, onSelect: () => onPick(tpl) }))}
+    />
   );
 }

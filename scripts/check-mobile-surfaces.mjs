@@ -951,6 +951,85 @@ function createMenuReachable() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Menus: one component, and nothing hand-positioned under a button
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * The owner, 2026-09-25, on an iPhone: a quote's "More…" opened its list off
+ * the LEFT edge of the screen. SendMenu drew it `absolute right-0 w-72` under
+ * the toggle; on a phone the toggle wraps to the left of its row and the
+ * 288px list started 181px left of the viewport (measured in the harness:
+ * list at -181..107 on a 375px screen, and still -173 at 640 and 700). Every
+ * hand-rolled dropdown in /app had the same shape and only escaped because
+ * its trigger happened to sit at the matching edge.
+ *
+ * The rule, as a NEGATIVE: no string in these trees may describe a floating
+ * panel positioned by hand — `absolute`, hung off its trigger (`top-full`,
+ * `bottom-full`, `mt-1`, `mt-2`), at a fixed width a phone does not have
+ * room to spare for (w-40 and up, or an arbitrary px/rem width or min-width),
+ * with a shadow. Menus go through app/components/mobile/ActionMenu.js — a
+ * bottom sheet below 640px, a collision-avoiding dropdown above. The few
+ * that legitimately stay are listed with the reason, and a stale entry fails
+ * (these are this check's own entries, not somebody else's gap list).
+ *
+ * And positively, scoped to the one file: ActionMenu itself chooses the sheet
+ * below 640px and gives its dropdown collision avoidance and a viewport cap.
+ */
+const MENU_TREES = ["app/app", "app/components", "app/q", "app/quote", "app/book", "app/portal", "app/instant-quote", "app/site", "app/sales"];
+const HAND_POSITIONED_ALLOWED = new Map([
+  ["app/components/layout/CreateMenu.js", "the desktop pill's popover: CreateButton is drawn only in the `hidden lg:flex` header, at its right end, so right-0 has 1024px of room; the phone gets the sheet in the same file"],
+  ["app/components/layout/TopBar.js", "AvatarMenu, likewise inside the lg-only header at its far right end"],
+  ["app/components/quotes/builder/LineItemsTable.js", "the cost & markup FORM (three inputs), not a menu; it hangs right-0 off the line's price cell, the rightmost column, and the harness measures it on screen at 375"],
+  ["app/site/[subdomain]/SiteBlocks.js", "a server-rendered <details> with no client JS; its summary is always the last item of the header, so right-0 is the screen's right edge"],
+  ["app/components/sales/RepStatus.js", "the rep's status picker: the floating form is the lg-only header's (SalesShell), at its right end; below lg the drawer draws it inline, and it must stay open on a refused pick to show the sentence why — a behaviour ActionMenu does not have"],
+  ["app/sales/threads/EmailComposer.js", "the sales composer's address suggestions: full-width inputs at the left of the pane, 288px from a 16px gutter fits 375"],
+]);
+const FLOATING_PANEL =
+  /(?=[^"`]*\babsolute\b)(?=[^"`]*\b(?:top-full|bottom-full|mt-1|mt-2)\b)(?=[^"`]*(?:\bw-(?:4[048]|5[26]|6[04]|72|80|96)\b|\bw-\[\d+(?:px|rem)\]|\bmin-w-\[\d+px\]))(?=[^"`]*\bshadow)[^"`]*/;
+
+function floatingMenus() {
+  section("Menus — no hand-positioned dropdowns; ActionMenu picks sheet or clamped list");
+  const seenAllowed = new Set();
+  for (const tree of MENU_TREES) {
+    for (const file of walk(tree)) {
+      const src = stripComments(readFileSync(join(ROOT, file), "utf8"));
+      const hits = [];
+      for (const m of src.matchAll(/"([^"\n]*)"|`([^`]*)`/g)) {
+        const str = m[1] ?? m[2] ?? "";
+        if (FLOATING_PANEL.test(str)) hits.push(str.trim().slice(0, 80));
+      }
+      if (!hits.length) continue;
+      if (HAND_POSITIONED_ALLOWED.has(file)) {
+        seenAllowed.add(file);
+        continue;
+      }
+      ok(`${file} — no hand-positioned dropdown`, false, `${hits[0]} — use ActionMenu (app/components/mobile/ActionMenu.js)`);
+    }
+  }
+  for (const file of HAND_POSITIONED_ALLOWED.keys()) {
+    ok(`allow-list entry ${file} still has the panel it excuses`, seenAllowed.has(file));
+  }
+  ok("no hand-positioned dropdown anywhere else in /app, its components or the client pages", true);
+
+  const am = stripComments(readFileSync(join(ROOT, "app/components/mobile/ActionMenu.js"), "utf8"));
+  ok("ActionMenu's phone query is below 640px", /ACTION_MENU_PHONE_QUERY = "\(max-width: 639\.98px\)"/.test(am));
+  const phoneBranch = am.slice(am.indexOf("if (isPhone) {"), am.indexOf("<Menu.Root"));
+  ok("…and on a phone it renders the BottomSheet (focus trap, Escape, backdrop, safe area)", /<BottomSheet\b/.test(phoneBranch));
+  ok("…returning focus to the trigger (iOS does not focus a tapped button)", /finalFocus=\{triggerRef\}/.test(phoneBranch));
+  const deskBranch = am.slice(am.indexOf("<Menu.Root"));
+  // align "flip" is flip-then-shift in @base-ui (useAnchorPositioning pushes
+  // flip() before shift() unless an axis is "shift" or "none") — "none"
+  // here would switch the clamping off entirely.
+  ok("…above it the dropdown flips its side and its alignment, then shifts", /collisionAvoidance=\{\{\s*side:\s*"flip",\s*align:\s*"flip"/.test(deskBranch));
+  ok("…and is capped at the viewport's available width and height", /max-w-\[var\(--available-width\)\]/.test(deskBranch) && /max-h-\[var\(--available-height\)\]/.test(deskBranch));
+  ok("…with rows at least 44px tall", /min-h-\[44px\]/.test(am));
+
+  // The owner's screen: SendMenu must draw through ActionMenu, not beside it.
+  const send = stripComments(readFileSync(join(ROOT, "app/components/quotes/SendMenu.js"), "utf8"));
+  ok("SendMenu (the quote's More… / Send…) draws its list with ActionMenu", /<ActionMenu\b/.test(send) && !/role="menu"/.test(send));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Run
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -960,6 +1039,7 @@ console.log("a layout is usable at 375px. See the header before quoting it.\n");
 
 iosZoomFix();
 createMenuReachable();
+floatingMenus();
 
 const strict = new Set(STRICT_FILES);
 const seen = new Set();
