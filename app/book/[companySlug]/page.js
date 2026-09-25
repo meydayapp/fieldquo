@@ -66,7 +66,7 @@ export default async function BookingPage({ params }) {
 
   return (
     <div className="min-h-dvh" style={{ backgroundColor: theme.page }}>
-      <BookingFlow companySlug={companySlug} />
+      <BookingFlow companySlug={companySlug} trackVisit />
     </div>
   );
 }

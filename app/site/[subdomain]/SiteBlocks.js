@@ -90,7 +90,7 @@ function eyebrowInk(accent2, theme) {
 // a block, so there is no browser-supplied URL here for sanitiseBlocks to
 // have to police. `children` is the /client page's own content, rendered
 // inside <main> after the (empty) block list.
-export default function SiteBlocks({ blocks, company, theme, fill: fillPairIn, subdomain, style, language, languages = [], menu = [], currentPage, linkBase = "", linkSuffix = "", showFieldquoCredit = false, clientLoginHref = null, children = null }) {
+export default function SiteBlocks({ blocks, company, theme, fill: fillPairIn, subdomain, style, language, languages = [], menu = [], currentPage, linkBase = "", linkSuffix = "", showFieldquoCredit = false, clientLoginHref = null, trackVisits = false, children = null }) {
   // `t` is the copy table for THIS site's language. Threaded to every block
   // rather than imported inside each, so one page always renders in one language
   // and a block can't accidentally read a different one.
@@ -112,7 +112,7 @@ export default function SiteBlocks({ blocks, company, theme, fill: fillPairIn, s
           // block that formats a date or a weekday needs the page's language,
           // and reading a global would let one block render in a different one
           // from its own heading.
-          const props = { block, company, theme, fill, subdomain, accent2, S, t, language };
+          const props = { block, company, theme, fill, subdomain, accent2, S, t, language, trackVisits };
           let el = null;
           switch (block.type) {
             case "hero": el = <Hero {...props} />; break;
@@ -1217,7 +1217,7 @@ function QuoteForm({ block, company, theme, accent2, S, t }) {
   );
 }
 
-function BookingBlock({ block, company, theme, accent2, S, t }) {
+function BookingBlock({ block, company, theme, accent2, S, t, trackVisits = false }) {
   const { heading, intro } = block.content;
   // Works off the company slug even without a custom bookingSlug — findBooking
   // Company resolves either. The BookingFlow degrades to a friendly message if
@@ -1229,7 +1229,7 @@ function BookingBlock({ block, company, theme, accent2, S, t }) {
       <Heading theme={theme} center eyebrow={t.eyebrowBook} accent2={accent2} S={S}>{heading}</Heading>
       <Intro theme={theme} center>{intro}</Intro>
       <div className="rounded-3xl border overflow-hidden shadow-xl" style={{ borderColor: theme.border, backgroundColor: theme.paper || "#fff" }}>
-        <BookingFlow companySlug={slug} />
+        <BookingFlow companySlug={slug} trackVisit={trackVisits ? "inherit" : false} />
       </div>
       <noscript>
         <p className="text-sm mt-4 text-center" style={{ color: theme.inkMuted }}>

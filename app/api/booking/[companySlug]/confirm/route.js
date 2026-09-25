@@ -26,12 +26,27 @@ import {
   bookingDurationMinutes,
   bookingModeNoun,
 } from "@/lib/booking/bookingModes";
+import { findVisit, linkVisitToBooking } from "@/lib/tracking/visits";
 
 // The one refusal this route makes in the visitor's own language: the "when
 // do you need this done?" question is required, and a homeowner reading the
 // page in French should not be told so in English. Three languages, the same
 // three lib/leads/tradeQuestions.js carries; anything else falls back to
 // English, which is what the rest of the page is in.
+/**
+ * The booking page's visit made this booking. Best-effort by construction:
+ * a visit that cannot be found or written costs the report one row, never
+ * the visitor their booking.
+ */
+async function linkBookingVisit(companyId, visitToken, bookingId) {
+  try {
+    const visit = await findVisit({ companyId, surface: "booking", token: visitToken });
+    await linkVisitToBooking(visit, bookingId);
+  } catch (err) {
+    console.error("[booking] visit not linked:", err?.message);
+  }
+}
+
 const WHEN_REQUIRED = {
   en: "Please tell us when you need this done.",
   fr: "Veuillez nous dire quand vous en avez besoin.",
@@ -82,6 +97,10 @@ export async function POST(request, { params }) {
     // the manage page (lib/i18n/bookingLanguages.js).
     language: postedLanguage,
     city, province, country,
+    // The booking page's visit (lib/tracking/visits.js), so the booking is
+    // credited to the ad that brought the visitor. Looked up inside this
+    // company and the "booking" surface only; anything else links nothing.
+    visitToken,
   } =
     body;
 
@@ -426,6 +445,8 @@ export async function POST(request, { params }) {
         status: "pending_payment",
       },
     });
+    // Linked while it is a hold; the report counts it only once confirmed.
+    await linkBookingVisit(company.id, visitToken, held.id);
 
     const origin = getAppOrigin(request);
     try {
@@ -526,6 +547,8 @@ export async function POST(request, { params }) {
       appointmentId: appointment.id,
     },
   });
+
+  await linkBookingVisit(company.id, visitToken, booking.id);
 
   // The confirmation email, consent record and reminder — shared with the paid
   // path so the two can't drift. Best-effort: the booking already exists.

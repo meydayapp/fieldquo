@@ -17,6 +17,7 @@ import { resolveSender } from "@/lib/email/companySender";
 
 import { recordConsent } from "@/lib/voice/outbound";
 import { DISCLOSURE } from "@/lib/voice/disclosure";
+import { attributionFromTouches } from "@/lib/tracking/visits";
 // Public — a website visitor requesting a quote through an embeddable widget,
 // identified by companySlug. This is functionally very close to /api/leads/public
 // (both create a LeadRequest); the distinction from TrueFinish is that self-quote
@@ -99,6 +100,12 @@ export async function POST(request) {
     language,
     // Photos/videos attached in the browser. Re-normalised below, never trusted.
     media,
+    // The tokens of the visits this browser tab opened on the company's own
+    // pages (lib/tracking/touches.js) — so a request made on the form the
+    // company's website links to or embeds is credited to the ad that
+    // brought the visitor to the website. Resolved against this company's
+    // rows only; never a source read from the body.
+    visitTouches,
   } = body;
 
   if (!companySlug || !name || (!email && !phone)) {
@@ -154,8 +161,13 @@ export async function POST(request) {
   // and losing the address entirely.
   const intake = buildLeadIntake({ address, city, province, country, details });
 
+  // First touch (lib/tracking/visits.js attributionFromTouches). Best-effort:
+  // no visit is a lead with no attribution, never a refused one.
+  const attribution = await attributionFromTouches({ companyId: company.id, touches: visitTouches }).catch(() => null);
+
   const lead = await createScoredLead({
     companyId: company.id,
+    attribution,
     name,
     email,
     phone,
