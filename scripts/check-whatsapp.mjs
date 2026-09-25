@@ -642,15 +642,70 @@ ok(
   serviceWindowRefusal({ platform: "whatsapp", lastInboundAt: null, kind: "template", now: NOW }) === null,
 );
 
-// The other two platforms have no window of OURS, and must not be silenced.
+// ── Facebook and Instagram: the same window, no way through (2026-09-22) ──
+//
+// These two used to be asserted as having NO window of ours, on the reasoning
+// that Meta enforces Messenger's rule itself. The owner overruled that on
+// 2026-09-22: a Messenger thread past the window must show a closed state,
+// say why and what still works, and refuse the send rather than let Meta
+// bounce it. So the window is now executed for them at the same boundaries —
+// and the thing that differs (no template, so the notice offers a call or an
+// email) is asserted as its own fact.
 for (const platform of ["facebook", "instagram"]) {
+  const name = platform === "facebook" ? "Facebook" : "Instagram";
+  ok(`${platform} reports a service window`, needsServiceWindow(platform) === true);
+  const expired = serviceWindowRefusal({ platform, lastInboundAt: ago(25 * 3600000), now: NOW });
+  ok(`${platform}: free text 25 hours on is refused by name`, expired?.reason === "service_window_closed");
   ok(
-    `${platform} is not refused by the WhatsApp window`,
-    serviceWindowRefusal({ platform, lastInboundAt: null, now: NOW }) === null,
+    `${platform}: …with the owner's why, naming the platform`,
+    expired?.message.startsWith(`${name} only lets businesses reply within 24 hours of the customer's last message`),
+    expired?.message,
   );
-  ok(`${platform} reports no service window`, needsServiceWindow(platform) === false);
+  ok(`${platform}: …and what still works (call or email), never a template`, /call or email/.test(expired?.message || "") && !/template/i.test(expired?.message || ""));
+  ok(`${platform}: never wrote is refused too`, serviceWindowRefusal({ platform, lastInboundAt: null, now: NOW })?.reason === "service_window_closed");
+  ok(`${platform}: one hour in is NOT refused`, serviceWindowRefusal({ platform, lastInboundAt: ago(3600000), now: NOW }) === null);
+  ok(`${platform}: exactly 24:00:00 is still open`, serviceWindowRefusal({ platform, lastInboundAt: ago(SERVICE_WINDOW_MS), now: NOW }) === null);
+  ok(
+    `${platform}: one millisecond past is closed`,
+    serviceWindowRefusal({ platform, lastInboundAt: new Date(NOW.getTime() - SERVICE_WINDOW_MS - 1), now: NOW })?.reason === "service_window_closed",
+  );
+
+  const closedNotice = serviceWindowNotice({ platform, lastInboundAt: ago(25 * 3600000), now: NOW });
+  ok(`${platform}: the closed notice is its OWN key`, closedNotice.blockKey === `app.messages.window.${platform}.closed`, closedNotice.blockKey);
+  ok(`${platform}: …and offers contact, not a template`, closedNotice.wayThrough === "contact");
+  ok(
+    `${platform}: never opened has its own key`,
+    serviceWindowNotice({ platform, lastInboundAt: null, now: NOW }).blockKey === `app.messages.window.${platform}.neverOpened`,
+  );
+  ok(
+    `${platform}: 30 minutes left warns with its own key and blocks nothing`,
+    (() => {
+      const n = serviceWindowNotice({ platform, lastInboundAt: ago(23.5 * 3600000), now: NOW });
+      return !n.blockKey && n.warnKey === `app.messages.window.${platform}.closingSoon`;
+    })(),
+  );
 }
 ok("whatsapp reports a service window", needsServiceWindow("whatsapp") === true);
+ok(
+  "whatsapp's closed notice offers the template picker",
+  serviceWindowNotice({ platform: "whatsapp", lastInboundAt: null, now: NOW }).wayThrough === "template",
+);
+for (const platform of ["web", "sms", "email"]) {
+  ok(`${platform} has no window and is never refused by it`, !needsServiceWindow(platform) && serviceWindowRefusal({ platform, lastInboundAt: null, now: NOW }) === null);
+}
+
+// The English sentences carry the owner's words for the why. The other eight
+// languages are key-for-key in section 13.
+for (const platform of ["facebook", "instagram"]) {
+  const name = platform === "facebook" ? "Facebook" : "Instagram";
+  for (const which of ["closed", "neverOpened", "closingSoon"]) {
+    const s = APP_MESSAGES.en[`app.messages.window.${platform}.${which}`] || "";
+    ok(`en ${platform}.${which} says why`, s.includes(`${name} only lets businesses reply within 24 hours of the customer's last message`), s);
+  }
+  for (const which of ["closed", "neverOpened"]) {
+    ok(`en ${platform}.${which} says what still works`, /call or email/.test(APP_MESSAGES.en[`app.messages.window.${platform}.${which}`] || ""));
+  }
+}
 
 // The notice the screen renders.
 const notice = serviceWindowNotice({ platform: "whatsapp", lastInboundAt: ago(25 * 3600000), now: NOW });
@@ -829,6 +884,68 @@ ok(
   routedWhatsApp.reason === "service_window_closed",
 );
 
+// ── A Page thread past the window is refused BEFORE Meta (2026-09-22) ─────
+//
+// The composer is disabled in this state; this is the guard for every caller
+// that is not the composer — the AI employee above all. No fetch can happen
+// in either case below: the closed one returns before the token is touched,
+// and the open one stops at the token (a fixture blob), which is the proof it
+// got PAST the window check.
+for (const platform of ["facebook", "instagram"]) {
+  const pageChannel = { ...liveChannel, platform, externalId: "PAGE_1" };
+  const closedSend = await sendOnChannel({
+    channel: pageChannel,
+    recipientExternalId: "PSID_1",
+    text: "Are you still interested?",
+    lastInboundAt: ago(25 * 3600000),
+    now: NOW,
+  });
+  ok(`${platform}: a typed reply 25 hours on is refused as service_window_closed`, closedSend.ok === false && closedSend.reason === "service_window_closed", closedSend.reason);
+  const neverSend = await sendOnChannel({ channel: pageChannel, recipientExternalId: "PSID_1", text: "Hi", lastInboundAt: null, now: NOW });
+  ok(`${platform}: a typed message to somebody who never wrote is refused too`, neverSend.reason === "service_window_closed");
+  const openSend = await sendOnChannel({ channel: pageChannel, recipientExternalId: "PSID_1", text: "Hi", lastInboundAt: ago(3600000), now: NOW });
+  ok(`${platform}: inside the window the send goes past the window check (to the token)`, openSend.reason === "token_unreadable", openSend.reason);
+}
+ok(
+  "metaSend runs the window check above the token decrypt",
+  (() => {
+    const s = read("lib/messaging/metaSend.js");
+    const w = s.indexOf("serviceWindowRefusal({");
+    return w > -1 && w < s.indexOf("decryptedChannelToken(channel)") && w < s.indexOf('reason: "empty"');
+  })(),
+);
+ok(
+  "send.js hands the window's input to the Meta send",
+  /return sendMetaMessage\(\{[\s\S]{0,200}lastInboundAt,[\s\S]{0,40}now,/.test(read("lib/messaging/send.js")),
+);
+ok(
+  "the AI employee computes the window for Facebook and Instagram too (not WhatsApp alone)",
+  /serviceWindowOpen: needsServiceWindow\(thread\?\.channel\?\.platform\)/.test(read("lib/aiEmployee/respond.js")) &&
+    needsServiceWindow("facebook") && needsServiceWindow("instagram"),
+);
+{
+  const page = read("app/app/messages/page.js");
+  const bits = read("app/app/messages/ConversationBits.js");
+  const threadRoute = read("app/api/messaging/threads/[id]/route.js");
+  ok(
+    "the template picker is drawn only when the server says the way through is a template",
+    /templatesOffered = windowClosed && windowNotice\?\.wayThrough === "template"/.test(page) &&
+      /mode === "reply" && templatesOffered && !blockKey && \(\s*<TemplatePicker/.test(page),
+  );
+  ok("templates are loaded only where a platform offers them", /templates: offersTemplates\(thread\.channel\?\.platform\)/.test(threadRoute));
+  ok("the pin control stays WhatsApp-only", /const company = thread\.channel\?\.platform === "whatsapp"/.test(threadRoute));
+  ok(
+    "a closed Page window links the client record for a call or an email",
+    /notice\.wayThrough === "contact" && client\?\.id/.test(bits) && /app\.messages\.window\.clientLink/.test(bits) &&
+      /<ServiceWindowNotice notice=\{windowNotice\} client=\{thread\?\.client\}/.test(page),
+  );
+  ok(
+    "Send is off when the window is closed and nothing else can be sent",
+    /disabled=\{demoBlocked \|\| !canEdit \|\| \(composerBlocked && !allowEmpty\)\}/.test(page) &&
+      /const composerBlocked = mode === "reply" && \(Boolean\(blockKey\) \|\| windowClosed\)/.test(page),
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 section("6. Templates — what may be sent once the window has closed");
 // ═══════════════════════════════════════════════════════════════════════════
@@ -932,7 +1049,7 @@ const refused = shouldReply({ ...baseVerdict, serviceWindowOpen: false });
 ok("with the window CLOSED the employee does NOT reply", refused.reply === false);
 ok("…for the named reason", refused.reason === SKIP.OUTSIDE_SERVICE_WINDOW);
 ok(
-  "a thread with NO window computed (Facebook, Instagram) is not silenced",
+  "a thread with NO window computed (web chat, SMS) is not silenced",
   shouldReply({ ...baseVerdict }).reply === true &&
     shouldReply({ ...baseVerdict, serviceWindowOpen: null }).reply === true,
 );
@@ -2176,6 +2293,13 @@ const NEW_KEYS = [
   "app.messages.window.closed",
   "app.messages.window.neverOpened",
   "app.messages.window.closingSoon",
+  "app.messages.window.facebook.closed",
+  "app.messages.window.facebook.neverOpened",
+  "app.messages.window.facebook.closingSoon",
+  "app.messages.window.instagram.closed",
+  "app.messages.window.instagram.neverOpened",
+  "app.messages.window.instagram.closingSoon",
+  "app.messages.window.clientLink",
   "app.messages.template.label",
   "app.messages.template.choose",
   "app.messages.template.none",

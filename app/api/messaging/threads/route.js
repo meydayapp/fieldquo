@@ -196,7 +196,8 @@ export async function GET(request) {
     // reached the homeowner is the thing a contractor most needs to see
     // without opening anything.
     lastFailed: Boolean(t.messages[0]?.failedReason),
-    // Null on Facebook and Instagram. Decided here, by the same pure function
+    // Null on web chat, SMS and email (no window); computed on WhatsApp,
+    // Facebook and Instagram. Decided here, by the same pure function
     // the send path calls, so the list, the composer and the refusal cannot
     // disagree about whether a window is open.
     serviceWindow: needsServiceWindow(t.channel?.platform)
