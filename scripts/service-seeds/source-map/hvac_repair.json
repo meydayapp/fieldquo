@@ -607,5 +607,33 @@
   "sourceCategory": "Repair Services",
   "sourceService": "Diagnostic Service (Out of Range)",
   "taskCode": "DEFAULT_HVAC_SERVICE_86"
+ },
+ {
+  "seedKey": "fq.hvac_repair.diagnostics.system_inspection",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Estimate templates (Inspection)",
+  "sourceService": "HVAC System Inspection",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.hvac_repair.diagnostics.diagnostic_visit",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Custom Services",
+  "sourceService": "Diagnostic Visit",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.hvac_repair.diagnostics.service_visit",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Custom Services",
+  "sourceService": "Service Visit",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.hvac_repair.maintenance.preventative_maintenance",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Custom Services",
+  "sourceService": "Preventative Maintenance",
+  "taskCode": null
  }
 ]

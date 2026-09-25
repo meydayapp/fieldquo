@@ -1,0 +1,2468 @@
+{
+ "captured": "2026-09-24",
+ "source": "HCP trial, signup industry HVAC",
+ "industries": [
+  "Heating & Air Conditioning"
+ ],
+ "formsCount": 0,
+ "templates": [
+  {
+   "name": "Installation",
+   "templates": [
+    {
+     "template_name": "A/C Installation \u2013 Economy (with New customer discount)",
+     "option_name": "Economy",
+     "description": "\u2013 14 SEER single stage air conditioner\n\u2013 5 year manufacturer\u2019s warranty\n\u2013 Powerful and reliable cooling performance\n\u2013 Sleek and compact design\n\u2013 Quiet operation for a peaceful environment\n\u2013 Utilizes eco-friendly refrigerants with low ozone depletion potential",
+     "total": 12500,
+     "labor": [
+      {
+       "name": "Old Unit Replacement",
+       "description": "Our technicians will remove and dispose of an old equipment.",
+       "qty": 1,
+       "unit_price": 200,
+       "unit_cost": 100
+      },
+      {
+       "name": "A/C Installation",
+       "description": "Our technicians will install a new unit to existing electrical connections.",
+       "qty": 1,
+       "unit_price": 200,
+       "unit_cost": 100
+      }
+     ],
+     "materials": [
+      {
+       "name": "14 SEER A/C Unit (Economy)",
+       "description": "14 SEER single stage air conditioner. 5 year manufacturer\u2019s warranty included.",
+       "qty": 1,
+       "unit_price": 12500,
+       "unit_cost": 12000
+      }
+     ],
+     "discounts": [
+      {
+       "name": "New customer discount",
+       "kind": "fixed discount",
+       "amount": 400
+      }
+     ]
+    },
+    {
+     "template_name": "A/C Installation \u2013 Top Shelf (with New customer discount)",
+     "option_name": "Top Shelf",
+     "description": "\u2013 16 SEER communicating air conditioner\n\u2013 5 year manufacturer\u2019s warranty\n\u2013 Extended labor warranty (10 years)\n\u2013 Enhanced cooling performance for superior comfort\n\u2013 Touch screen programmable thermostat\n\u2013 Advanced features include smart sensing technology, allowing the A/C unit to automatically adjust settings based on ambient conditions\n\u2013 Sleek and compact design",
+     "total": 14600,
+     "labor": [
+      {
+       "name": "Old Unit Replacement",
+       "description": "Our technicians will remove and dispose of an old equipment.",
+       "qty": 1,
+       "unit_price": 200,
+       "unit_cost": 100
+      },
+      {
+       "name": "A/C Installation",
+       "description": "Our technicians will install a new unit to existing electrical connections.",
+       "qty": 1,
+       "unit_price": 200,
+       "unit_cost": 100
+      }
+     ],
+     "materials": [
+      {
+       "name": "16 SEER A/C Unit (Top Shelf)",
+       "description": "16 SEER communicating air conditioner. 5 year manufacturer\u2019s warranty included.",
+       "qty": 1,
+       "unit_price": 14000,
+       "unit_cost": 13500
+      },
+      {
+       "name": "Digital Touch Screen Thermostat",
+       "description": "Touch screen programmable thermostat.",
+       "qty": 1,
+       "unit_price": 600,
+       "unit_cost": 550
+      }
+     ],
+     "discounts": [
+      {
+       "name": "New customer discount",
+       "kind": "fixed discount",
+       "amount": 400
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Repair",
+   "templates": [
+    {
+     "template_name": "Furnace Repair (with Regular customer discount)",
+     "option_name": "Furnace Repair",
+     "description": "\u2013 Thorough diagnostic assessment to identify furnace issues\n\u2013 Skilled technicians perform expert repairs using quality parts\n\u2013 Timely and efficient repair process to restore heating functionality\n\u2013 Final testing and inspection to ensure optimal furnace performance",
+     "total": 577.15,
+     "labor": [
+      {
+       "name": "Diagnostic Visit",
+       "description": "Our technician will come to your home to diagnose your problem.",
+       "qty": 1,
+       "unit_price": 95,
+       "unit_cost": 80
+      },
+      {
+       "name": "Furnace Repair",
+       "description": "Our technician will resolve your furnace issue.",
+       "qty": 1,
+       "unit_price": 500,
+       "unit_cost": 300
+      }
+     ],
+     "materials": [],
+     "discounts": [
+      {
+       "name": "Regular customer discount",
+       "kind": "percent discount",
+       "amount": 3
+      }
+     ]
+    },
+    {
+     "template_name": "A/C Repair \u2013 Capacitor Replacement (with Regular customer discount)",
+     "option_name": "Capacitor Replacement",
+     "description": "Fast capacitor swap to restore cooling performance. Includes labor and OEM-compatible part.",
+     "total": 213,
+     "labor": [
+      {
+       "name": "Capacitor Replacement Labor",
+       "description": "Diagnose and replace the failed run or start capacitor.",
+       "qty": 1,
+       "unit_price": 150,
+       "unit_cost": 75
+      }
+     ],
+     "materials": [
+      {
+       "name": "Dual Run Capacitor",
+       "description": "OEM-compatible dual run capacitor for AC condenser units.",
+       "qty": 1,
+       "unit_price": 75,
+       "unit_cost": 35
+      }
+     ],
+     "discounts": [
+      {
+       "name": "Regular customer discount",
+       "kind": "fixed discount",
+       "amount": 12
+      }
+     ]
+    },
+    {
+     "template_name": "A/C Repair \u2013 Refrigerant Recharge (with Regular customer discount)",
+     "option_name": "Refrigerant Recharge",
+     "description": "Full leak test and refrigerant recharge to restore proper cooling capacity.",
+     "total": 440,
+     "labor": [
+      {
+       "name": "Refrigerant Recharge Labor",
+       "description": "Technician will test for leaks, evacuate, and recharge system to manufacturer spec.",
+       "qty": 1,
+       "unit_price": 200,
+       "unit_cost": 100
+      }
+     ],
+     "materials": [
+      {
+       "name": "R-410A Refrigerant (per lb)",
+       "description": "R-410A refrigerant. Industry standard for residential AC systems.",
+       "qty": 3,
+       "unit_price": 85,
+       "unit_cost": 45
+      }
+     ],
+     "discounts": [
+      {
+       "name": "Regular customer discount",
+       "kind": "fixed discount",
+       "amount": 15
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Inspection",
+   "templates": [
+    {
+     "template_name": "No Cooling \u2013 Diagnostic visit (with Regular customer discount)",
+     "option_name": "No Cooling \u2013 Diagnostic visit",
+     "description": "Your A/C unit is malfunctioning? Worry not, one of our skilled technicians will come to your house and investigate the issue.",
+     "total": 92.15,
+     "labor": [
+      {
+       "name": "No Cooling \u2013 Diagnostic Visit",
+       "description": "Our technician will come to your home to diagnose your problem.",
+       "qty": 1,
+       "unit_price": 95,
+       "unit_cost": 80
+      }
+     ],
+     "materials": [],
+     "discounts": [
+      {
+       "name": "Regular customer discount",
+       "kind": "percent discount",
+       "amount": 3
+      }
+     ]
+    },
+    {
+     "template_name": "HVAC System Inspection (with Regular customer discount)",
+     "option_name": "System Inspection",
+     "description": "Comprehensive safety and performance inspection of your full HVAC system.",
+     "total": 94,
+     "labor": [
+      {
+       "name": "Full HVAC System Inspection",
+       "description": "Complete inspection of coils, filters, refrigerant levels, electrical connections, and thermostat.",
+       "qty": 1,
+       "unit_price": 99,
+       "unit_cost": 50
+      }
+     ],
+     "materials": [],
+     "discounts": [
+      {
+       "name": "Regular customer discount",
+       "kind": "fixed discount",
+       "amount": 5
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Maintenance",
+   "templates": [
+    {
+     "template_name": "Coil Cleaning (with Regular customer discount)",
+     "option_name": "Evaporator Coil Cleaning",
+     "description": "Service includes:\n\u2013 Preparation and protection of surrounding components\n\u2013 Application of specialized cleaning solution\n\u2013 Gentle agitation and thorough rinsing of coils\n\u2013 Cleaning of drain pan\n\u2013 Straightening of coil fins if needed\n\u2013 Inspection and testing of system performance\n\u2013 Reassembly and cleanup of work area",
+     "total": 485,
+     "labor": [
+      {
+       "name": "Coil Cleaning",
+       "description": "Our technician will perform a thorough cleaning, inspection, and maintenance of the coils.",
+       "qty": 1,
+       "unit_price": 500,
+       "unit_cost": 200
+      }
+     ],
+     "materials": [],
+     "discounts": [
+      {
+       "name": "Regular customer discount",
+       "kind": "percent discount",
+       "amount": 3
+      }
+     ]
+    },
+    {
+     "template_name": "HVAC Seasonal Tune-Up (with Regular customer discount)",
+     "option_name": "Seasonal Tune-Up",
+     "description": "Complete seasonal tune-up to maximize efficiency and prevent breakdowns.",
+     "total": 142,
+     "labor": [
+      {
+       "name": "Seasonal Tune-Up",
+       "description": "Coil cleaning, belt inspection, thermostat calibration, drain flush, and safety check.",
+       "qty": 1,
+       "unit_price": 129,
+       "unit_cost": 65
+      }
+     ],
+     "materials": [
+      {
+       "name": "Standard Air Filter (1-inch)",
+       "description": "MERV-8 pleated air filter replacement.",
+       "qty": 1,
+       "unit_price": 20,
+       "unit_cost": 8
+      }
+     ],
+     "discounts": [
+      {
+       "name": "Regular customer discount",
+       "kind": "fixed discount",
+       "amount": 7
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "services": [
+  {
+   "category": "Blower Motors",
+   "name": "Replace Blower Motor",
+   "task": "DEFAULT_HVAC_SERVICE_0",
+   "description": "Restore your HVAC system's functionality with our blower motor replacement service. If the motor is beyond repair, our technicians can replace it with a new one. Our technicians will ensure the new motor is installed correctly, restoring proper airflow and system performance. With our blower motor r",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Blower Motors",
+   "name": "Replace Blower Motor Module",
+   "task": "DEFAULT_HVAC_SERVICE_1",
+   "description": "Ensure proper airflow control in your HVAC system with our blower motor module replacement service. Our technicians will remove the old module that controls the fan speed and install a new one. With our blower motor module replacement service, you can restore proper airflow control, ensuring your ho",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Blower Motors",
+   "name": "Replace Blower Wheel",
+   "task": "DEFAULT_HVAC_SERVICE_2",
+   "description": "Improve airflow and system performance in your HVAC system with our blower wheel replacement service. Our technicians will remove the old blower wheel, which helps circulate air, and install a new one. With our blower wheel replacement service, you can ensure proper airflow and system performance, k",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Blower Motors",
+   "name": "Clean Blower Motor",
+   "task": "DEFAULT_HVAC_SERVICE_3",
+   "description": "Keep your HVAC system running smoothly with our blower motor cleaning service. Our technicians will carefully clean the blower motor and its components, removing dirt, debris, and dust that can affect its performance. With our blower motor cleaning service, you can improve airflow and energy efficie",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Blower Motors",
+   "name": "Replace Or Install Hvac Evaporator Motor",
+   "task": "DEFAULT_HVAC_SERVICE_4",
+   "description": "Replace or install evaporator motor to improve system efficiency and airflow.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Book Now",
+   "name": "Heating Repair",
+   "task": "DEFAULT_HVAC_SERVICE_7",
+   "description": "Is your home experiencing any of these heating issues?\n\nNo heat\nInconsistent temperatures\nStrange noises from the heater\nUnexpectedly high energy bills\nIf your heating system isn\u2019t working properly, book with us today! Our skilled technicians will diagnose and fix the problem quickly, ensuring your ",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": 120,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Book Now",
+   "name": "Cooling Repair",
+   "task": "DEFAULT_HVAC_SERVICE_8",
+   "description": "Is your home experiencing any of these cooling issues?\n\nNo cooling\nInconsistent temperatures\nStrange noises from the AC\nUnexpectedly high energy bills\nIf your cooling system isn\u2019t working properly, book with us today! Our skilled technicians will diagnose and fix the problem quickly, ensuring your h",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": 120,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Book Now",
+   "name": "Thermostat",
+   "task": "DEFAULT_HVAC_SERVICE_9",
+   "description": "Is your thermostat causing any of these issues?\n\nInaccurate temperature readings\nFailure to maintain set temperatures\nDisplay not functioning\nNo response to adjustments\nIf your thermostat isn\u2019t working correctly, book with us today! Our expert technicians will diagnose and repair the issue or instal",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": 120,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Book Now",
+   "name": "Air Quality Improvement",
+   "task": "DEFAULT_HVAC_SERVICE_5",
+   "description": "Experiencing any of these air quality issues?\n\nDust\nAllergens\nHumidity\nVentilation\nFilter Issues\nOur expert technicians can help you breathe easier by addressing these common problems. Improve your home's air quality for a healthier and more comfortable living environment.\n\nBook our Air Quality Impr",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": 120,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Book Now",
+   "name": "Duct Cleaning",
+   "task": "DEFAULT_HVAC_SERVICE_6",
+   "description": "If you haven't had your ducts cleaned recently, it's time to book with us! Our expert technicians will remove dust, allergens, and contaminants from your air ducts, improving your home's air quality and HVAC efficiency.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": 120,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Coils",
+   "name": "Inspect Coils",
+   "task": "DEFAULT_HVAC_SERVICE_10",
+   "description": "Ensure your HVAC system is in top condition with our thorough coil inspection service. Our technicians will inspect your coils for any signs of damage, corrosion, or leaks that could lead to issues with your system. With our detailed inspection, you can catch potential problems early and avoid costl",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Coils",
+   "name": "Clean Coils",
+   "task": "DEFAULT_HVAC_SERVICE_11",
+   "description": "Keep your HVAC system running smoothly with our coil cleaning service. Over time, dirt, dust, and debris can build up on your evaporator and condenser coils, reducing efficiency. Our technicians will carefully clean these coils, ensuring optimal performance and energy efficiency for your system. Bre",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Coils",
+   "name": "Chemical Coil Cleaning",
+   "task": "DEFAULT_HVAC_SERVICE_12",
+   "description": "When your coils are heavily soiled, our chemical cleaning service is the solution. Our technicians use specialized cleaning agents to break down and remove stubborn dirt and grime, restoring your coils to like-new condition. With our chemical cleaning service, you can improve the efficiency of your ",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Coils",
+   "name": "Replace Coils",
+   "task": "DEFAULT_HVAC_SERVICE_13",
+   "description": "If your coils are severely damaged or corroded, they may need to be replaced. Our expert technicians can assess the condition of your coils and recommend the best course of action. With our coil replacement service, you can restore your HVAC system's efficiency and performance, ensuring your home st",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Coils",
+   "name": "Apply Coil Protection",
+   "task": "DEFAULT_HVAC_SERVICE_14",
+   "description": "Extend the life of your coils with our coil protection service. Our technicians will apply protective coatings to your coils, preventing dirt buildup and corrosion. With our coil protection service, you can enjoy peace of mind knowing that your coils are protected against damage, helping your HVAC s",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Coils",
+   "name": "Repair Coils",
+   "task": "DEFAULT_HVAC_SERVICE_15",
+   "description": "Restore your HVAC system's efficiency with our expert coil repair service. Our technicians are trained to repair coils that have leaks, damage, or corrosion, ensuring they function properly. By repairing your coils, you can avoid the cost of replacing them and keep your HVAC system running smoothly.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Coils",
+   "name": "Evaporator Clean",
+   "task": "DEFAULT_HVAC_SERVICE_16",
+   "description": "Clean the evaporator to ensure optimal performance",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Coils",
+   "name": "Evaporator Coil Install",
+   "task": "DEFAULT_HVAC_SERVICE_17",
+   "description": "Install a new evaporator coil including necessary components and system checks",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Compressors",
+   "name": "Replace Compressor",
+   "task": "DEFAULT_HVAC_SERVICE_18",
+   "description": "Keep your HVAC system running smoothly with our compressor replacement service. When your compressor is beyond repair or not functioning properly, our technicians will replace it with a new unit. With our compressor replacement service, you can restore your HVAC system's performance and efficiency, ",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Compressors",
+   "name": "Repair Compressor",
+   "task": "DEFAULT_HVAC_SERVICE_19",
+   "description": "Restore your HVAC system's functionality with our compressor repair service. Our technicians will repair compressors that are malfunctioning or have failed, including replacing damaged components, fixing leaks, and recharging refrigerant. With our compressor repair service, you can avoid the cost of",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Compressors",
+   "name": "Test Acidity Levels",
+   "task": "DEFAULT_HVAC_SERVICE_20",
+   "description": "Protect your HVAC system from damage with our acidity testing service. Our technicians will test the refrigerant sample for acidity using a pH test or other chemical analysis method. A high acidity level indicates the presence of acids that can damage the compressor and other system components. With",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Compressors",
+   "name": "Compressor Replacement",
+   "task": "DEFAULT_HVAC_SERVICE_21",
+   "description": "Replace the old compressor with a new one while ensuring proper system operation",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Compressors",
+   "name": "Install Hard Start Kit",
+   "task": "DEFAULT_HVAC_SERVICE_22",
+   "description": "Install a hard start kit to enhance compressor startup efficiency and prolong its lifespan",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Condensate Drain",
+   "name": "Clean Condensate Pump",
+   "task": "DEFAULT_HVAC_SERVICE_24",
+   "description": "Maintain your condensate pump's efficiency with our pump cleaning service. Our technicians will clean the condensate pump to remove dirt and debris, ensuring it operates efficiently. With our pump cleaning service, you can prevent pump failure and maintain proper drainage from your HVAC system.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Condensate Drain",
+   "name": "Clear & Flush Condensate Drain Line",
+   "task": "DEFAULT_HVAC_SERVICE_25",
+   "description": "Prevent water damage with our drain line clearing and flushing service. Our technicians will remove obstructions and flush the condensate drain line to restore proper drainage. With our drain line service, you can avoid backups and ensure your HVAC system operates efficiently.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Condensate Drain",
+   "name": "Replace Condensate Pump",
+   "task": "DEFAULT_HVAC_SERVICE_26",
+   "description": "Restore proper drainage with our condensate pump replacement service. If your pump is malfunctioning or damaged, our technicians will install a new one. With our pump replacement service, you can avoid water damage and ensure your HVAC system operates efficiently.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Condensate Drain",
+   "name": "Replace Condensate Drain Line",
+   "task": "DEFAULT_HVAC_SERVICE_27",
+   "description": "Ensure proper drainage from your HVAC system with our drain line replacement service. Our technicians will install a new drain line to replace a damaged or clogged line. With our drain line replacement service, you can prevent backups and water damage, keeping your home safe and comfortable.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Condensate Drain",
+   "name": "Maintain Drainage Systems",
+   "task": "DEFAULT_HVAC_SERVICE_28",
+   "description": "Maintain and clean HVAC drainage systems to prevent clogs and ensure proper water flow.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Condensate Drain",
+   "name": "Install Drain Pan Switch",
+   "task": "DEFAULT_HVAC_SERVICE_29",
+   "description": "Install a new drain pan switch to prevent overflow of water",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Condensate Drain",
+   "name": "Clean Drain Pan",
+   "task": "DEFAULT_HVAC_SERVICE_23",
+   "description": "Ensure your HVAC system runs smoothly with our drain pan cleaning service. Our technicians will remove dirt, debris, and buildup from the drain pan to prevent clogs and ensure proper drainage. With our drain pan cleaning service, you can avoid water damage and keep your HVAC system functioning prope",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Condenser",
+   "name": "Clean Condenser Coil",
+   "task": "DEFAULT_HVAC_SERVICE_30",
+   "description": "Keep your HVAC system running efficiently with our condenser coil cleaning service. Our technicians will remove dirt, debris, and buildup from the condenser coil, improving heat transfer and system efficiency. With our condenser coil cleaning service, you can enjoy a cooler home and lower energy bil",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Condenser",
+   "name": "Level and Adjust Condenser with Risers",
+   "task": "DEFAULT_HVAC_SERVICE_31",
+   "description": "Ensure your condenser unit operates properly with our condenser leveling service. Using risers, our technicians will adjust and level the condenser unit for proper operation and drainage. With our condenser leveling service, you can prevent issues caused by improper unit placement and ensure your HV",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Condenser",
+   "name": "Perform Leak Check",
+   "task": "DEFAULT_HVAC_SERVICE_32",
+   "description": "Protect your HVAC system from refrigerant leaks with our leak check service. Our technicians will inspect the condenser unit for leaks to prevent loss of refrigerant and ensure system efficiency. With our leak check service, you can avoid costly repairs and keep your HVAC system running efficiently.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Condenser",
+   "name": "Replace Liquid/Suction Valve",
+   "task": "DEFAULT_HVAC_SERVICE_33",
+   "description": "Maintain proper refrigerant flow and system function with our valve replacement service. Our technicians will replace the liquid or suction valve in the condenser unit to ensure optimal performance. With our valve replacement service, you can avoid issues caused by a faulty valve and keep your HVAC ",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Condenser",
+   "name": "Service Condenser Fan Motor",
+   "task": "DEFAULT_HVAC_SERVICE_34",
+   "description": "Ensure proper airflow and cooling of the refrigerant with our fan motor repair or replacement service. Our technicians will repair or replace the condenser fan motor to ensure optimal performance. With our fan motor service, you can avoid overheating issues and keep your HVAC system running efficien",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Condenser",
+   "name": "Service Condenser Fan Motor and Blade",
+   "task": "DEFAULT_HVAC_SERVICE_35",
+   "description": "Enhance your HVAC system's performance with our fan motor and fan blade replacement service. Our technicians will replace both the condenser fan motor and fan blade, ensuring optimal airflow and performance. With our replacement service, you can enjoy improved cooling and efficiency in your HVAC sys",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Condenser",
+   "name": "Replace Condenser Fan Blade",
+   "task": "DEFAULT_HVAC_SERVICE_36",
+   "description": "Improve airflow and cooling efficiency with our fan blade repair or replacement service. Our technicians will repair or replace the condenser fan blade to ensure proper airflow and cooling of the refrigerant. With our fan blade service, you can prevent issues caused by a damaged blade and keep your ",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Condenser",
+   "name": "Remount/Realign Condenser Fan Blade",
+   "task": "DEFAULT_HVAC_SERVICE_37",
+   "description": "Ensure your condenser unit operates smoothly with our fan blade remounting and realignment service. Our technicians will adjust the position of the fan blade and remount it to ensure proper alignment and airflow. With our service, you can prevent issues caused by improper fan blade alignment and kee",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Condenser",
+   "name": "Install Condenser Fan Motor",
+   "task": "DEFAULT_HVAC_SERVICE_38",
+   "description": "Install a condenser fan motor with specified horsepower and RPM",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Condenser",
+   "name": "Install Condensers",
+   "task": "DEFAULT_HVAC_SERVICE_39",
+   "description": "Install HVAC condenser units with proper mounting and system integration.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Fan Belts",
+   "name": "Adjust Belt and Pulley",
+   "task": "DEFAULT_HVAC_SERVICE_40",
+   "description": "Keep your HVAC system running smoothly with our belt and pulley adjustment service. Our technicians will adjust the tension or alignment of the belt and pulley system to ensure proper operation and reduce wear. With our adjustment service, you can avoid belt slipping and premature wear, ensuring you",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Fan Belts",
+   "name": "Replace Belt",
+   "task": "DEFAULT_HVAC_SERVICE_41",
+   "description": "Ensure your HVAC system operates efficiently with our belt replacement service. Our technicians will install a new belt to replace a worn or damaged belt, ensuring proper operation. With our belt replacement service, you can avoid belt failure and maintain optimal performance in your HVAC system.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Fan Belts",
+   "name": "Replace Blower Pulley",
+   "task": "DEFAULT_HVAC_SERVICE_42",
+   "description": "Maintain proper operation of your HVAC system with our blower pulley replacement service. Our technicians will install a new blower pulley to replace a worn or damaged pulley, ensuring proper operation of the blower motor. With our pulley replacement service, you can avoid blower motor issues and ke",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Filters",
+   "name": "Install UV Air Purification System",
+   "task": "DEFAULT_HVAC_SERVICE_46",
+   "description": "Improve your indoor air quality with our UV air purification installation service. Our technicians will install ultraviolet (UV) light systems in your HVAC system, killing mold, bacteria, and viruses in the air. With our UV air purification installation service, you can breathe easier knowing that y",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Filters",
+   "name": "Seal and Insulate Ducts",
+   "task": "DEFAULT_HVAC_SERVICE_47",
+   "description": "Improve your energy efficiency and indoor air quality with our duct sealing and insulation service. Our technicians will seal and insulate your ductwork, preventing air leaks and ensuring that only clean, conditioned air is circulated throughout your home. With our duct sealing and insulation servic",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Filters",
+   "name": "Replace Hvac Uv Bulbs",
+   "task": "DEFAULT_HVAC_SERVICE_48",
+   "description": "Install and replace UV bulbs in HVAC systems to improve air purification.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Filters",
+   "name": "Replace Air Filter",
+   "task": "DEFAULT_HVAC_SERVICE_43",
+   "description": "Ensure your indoor air is clean and your HVAC system runs efficiently with our air filter replacement service. Our technicians will replace your air filters, removing dust, pollen, and other particles from the air. Regular air filter replacement helps maintain clean indoor air and optimizes your HVA",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Filters",
+   "name": "Clean Air Ducts",
+   "task": "DEFAULT_HVAC_SERVICE_44",
+   "description": "Improve your indoor air quality and HVAC system efficiency with our air duct cleaning service. Our technicians will remove dust, debris, and contaminants from your air ducts, ensuring that only clean air is circulated throughout your home. With our air duct cleaning service, you can breathe easier a",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Filters",
+   "name": "Perform IAQ Testing",
+   "task": "DEFAULT_HVAC_SERVICE_45",
+   "description": "Curious about your indoor air quality? Our indoor air quality testing service can provide you with answers. Our technicians will conduct tests to assess the levels of pollutants and contaminants in your home, helping you identify potential issues. With our indoor air quality testing service, you can",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "General Maintenance & Controls",
+   "name": "Thermostat Wiring Service",
+   "task": "DEFAULT_HVAC_SERVICE_57",
+   "description": "Inspect or replace thermostat wiring to ensure accurate temperature control and system reliability.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "General Maintenance & Controls",
+   "name": "Furnace Maintenance",
+   "task": "DEFAULT_HVAC_SERVICE_65",
+   "description": "Perform regular maintenance on the furnace to ensure optimal operation and safety",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "General Maintenance & Controls",
+   "name": "Repair Control Boards",
+   "task": "DEFAULT_HVAC_SERVICE_64",
+   "description": "Repair HVAC control boards for reliable system operation.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "General Maintenance & Controls",
+   "name": "Thermostat Repair",
+   "task": "DEFAULT_HVAC_SERVICE_63",
+   "description": "Repair thermostat issues to ensure accurate temperature control.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "General Maintenance & Controls",
+   "name": "Maintain Hvac Generators",
+   "task": "DEFAULT_HVAC_SERVICE_62",
+   "description": "Maintain generators to provide backup power for HVAC systems.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "General Maintenance & Controls",
+   "name": "Repair Hvac Insulation",
+   "task": "DEFAULT_HVAC_SERVICE_61",
+   "description": "Inspect and repair damaged insulation to improve HVAC system efficiency and reduce energy loss.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "General Maintenance & Controls",
+   "name": "Install  Hvac Surge Protectors",
+   "task": "DEFAULT_HVAC_SERVICE_60",
+   "description": "Install protection devices to safeguard HVAC systems from power surges.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "General Maintenance & Controls",
+   "name": "Replace And Install Fuses",
+   "task": "DEFAULT_HVAC_SERVICE_59",
+   "description": "Replace and install HVAC fuses with warranty coverage for safe electrical protection.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "General Maintenance & Controls",
+   "name": "Install Control Board",
+   "task": "DEFAULT_HVAC_SERVICE_58",
+   "description": "Install the control board for optimal appliance functionality",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "General Maintenance & Controls",
+   "name": "Furnace cleaning",
+   "task": "DEFAULT_HVAC_SERVICE_49",
+   "description": "Clean the furnace and its vents",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "General Maintenance & Controls",
+   "name": "Ac Tune Up",
+   "task": "DEFAULT_HVAC_SERVICE_56",
+   "description": "Perform an AC tune up to ensure the system is operating properly",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "General Maintenance & Controls",
+   "name": "Install Blown-In Insulation",
+   "task": "DEFAULT_HVAC_SERVICE_55",
+   "description": "Install new blown-in fiberglass insulation to achieve specified R-values in the attic area",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "General Maintenance & Controls",
+   "name": "Replace Hvac Contactors",
+   "task": "DEFAULT_HVAC_SERVICE_54",
+   "description": "Replace electrical contactors to restore reliable HVAC system operation.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "General Maintenance & Controls",
+   "name": "Capacitor Replacement",
+   "task": "DEFAULT_HVAC_SERVICE_53",
+   "description": "Replace the bad capacitor to restore proper cooling functionality",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "General Maintenance & Controls",
+   "name": "Seal Attic And Crawlspace",
+   "task": "DEFAULT_HVAC_SERVICE_52",
+   "description": "Seal all potential entry points in the attic and crawlspace to prevent air leakage and rodent entry",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "General Maintenance & Controls",
+   "name": "Repair Hvac Defrost Boards",
+   "task": "DEFAULT_HVAC_SERVICE_51",
+   "description": "Diagnose and repair faulty defrost boards in HVAC units.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "General Maintenance & Controls",
+   "name": "Maintain Hvac Capacitors",
+   "task": "DEFAULT_HVAC_SERVICE_50",
+   "description": "Maintain HVAC capacitors to ensure proper motor start-up and operation.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Heat Exchangers",
+   "name": "Replace Heat Exchanger",
+   "task": "DEFAULT_HVAC_SERVICE_67",
+   "description": "Ensure safe and efficient operation of your furnace with our heat exchanger replacement service. Our technicians will install a new heat exchanger to replace a damaged or malfunctioning one. With our replacement service, you can avoid the risk of carbon monoxide leaks and maintain a warm and safe ho",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Heat Exchangers",
+   "name": "Replace Face Plate",
+   "task": "DEFAULT_HVAC_SERVICE_68",
+   "description": "Improve heat transfer and sealing with our face plate replacement service. Our technicians will install a new face plate on the heat exchanger to replace a damaged or corroded one, ensuring proper sealing and heat transfer. With our replacement service, you can improve the efficiency of your furnace",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Heat Exchangers",
+   "name": "Replace Or Install Hvac Flue Pipe",
+   "task": "DEFAULT_HVAC_SERVICE_69",
+   "description": "Replace or install flue pipe to ensure proper ventilation and exhaust flow.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Heat Exchangers",
+   "name": "Clean and Check Burner Exchanger",
+   "task": "DEFAULT_HVAC_SERVICE_66",
+   "description": "Keep your furnace running efficiently with our burner cleaning and checking service. Our technicians will clean the burner of the heat exchanger and check it for proper operation to ensure efficient heating. With our service, you can avoid issues caused by a dirty or malfunctioning burner and enjoy ",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Refrigerant",
+   "name": "Check Refrigerant Levels",
+   "task": "DEFAULT_HVAC_SERVICE_70",
+   "description": "Ensure your HVAC system operates efficiently with our refrigerant level check service. Our technicians will check the refrigerant levels to ensure they are at the correct level for optimal performance. With our refrigerant level check service, you can avoid potential issues and maintain a comfortabl",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Refrigerant",
+   "name": "Add 410-A Refrigerant (per pound)",
+   "task": "DEFAULT_HVAC_SERVICE_71",
+   "description": "Maintain your HVAC system with our R-410A refrigerant charging service. Our technicians will charge the system with R-410A refrigerant at a specified rate per pound. With our R-410A refrigerant charging service, you can ensure your HVAC system operates at peak performance.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Refrigerant",
+   "name": "Add Additional 410-A Refrigerant (per pound)",
+   "task": "DEFAULT_HVAC_SERVICE_72",
+   "description": "Keep your HVAC system running smoothly with our additional R-410A refrigerant service. If your system requires extra refrigerant beyond the initial charge, our technicians will add it at a specified rate per pound. With our additional R-410A refrigerant service, you can maintain optimal performance ",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Refrigerant",
+   "name": "Add R-22 Refrigerant (per pound)",
+   "task": "DEFAULT_HVAC_SERVICE_73",
+   "description": "Maintain your HVAC system with our R-22 refrigerant charging service. Our technicians will charge the system with R-22 refrigerant at a specified rate per pound. With our R-22 refrigerant charging service, you can ensure your HVAC system operates at peak performance.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Refrigerant",
+   "name": "Add Additional R-22 Refrigerant (per pound)",
+   "task": "DEFAULT_HVAC_SERVICE_74",
+   "description": "Keep your HVAC system running smoothly with our additional R-22 refrigerant service. If your system requires extra refrigerant beyond the initial charge, our technicians will add it at a specified rate per pound. With our additional R-22 refrigerant service, you can maintain optimal performance and ",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Refrigerant",
+   "name": "Perform Leak Search",
+   "task": "DEFAULT_HVAC_SERVICE_75",
+   "description": "Protect your HVAC system from leaks with our leak check service. Our technicians will inspect the system for refrigerant leaks using specialized tools and techniques. With our leak check service, you can identify and address potential leaks before they cause significant damage to your system.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Refrigerant",
+   "name": "Repair Leaks",
+   "task": "DEFAULT_HVAC_SERVICE_76",
+   "description": "Ensure your HVAC system remains leak-free with our detailed leak search service. Our technicians will conduct a thorough search to locate and identify any refrigerant leaks in the system. With our leak search service, you can rest assured that your HVAC system is free from leaks and operating effici",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Refrigerant",
+   "name": "Leak Repair",
+   "task": "DEFAULT_HVAC_SERVICE_77",
+   "description": "Prevent further loss of refrigerant with our leak repair service. If any leaks are identified in your HVAC system, our technicians will repair them to ensure your system remains leak-free. With our leak repair service, you can maintain optimal performance and efficiency in your HVAC system.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Refrigerant",
+   "name": "Leak Search Service",
+   "task": "DEFAULT_HVAC_SERVICE_78",
+   "description": "Conduct a leak search using electronic leak detectors",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Refrigerant",
+   "name": "Walk-In Freezer Reversing Valve Replacement",
+   "task": "DEFAULT_HVAC_SERVICE_79",
+   "description": "Replace reversing valve and perform diagnostics on walk-in freezer, including defrost control and sensor replacement.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Refrigerant",
+   "name": "Repair Hvac Lineset",
+   "task": "DEFAULT_HVAC_SERVICE_80",
+   "description": "Repair line sets, and ensure proper system operation and ductwork modifications.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Refrigerant",
+   "name": "Flush Hvac Lineset",
+   "task": "DEFAULT_HVAC_SERVICE_81",
+   "description": "Flush HVAC lineset",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Refrigerant",
+   "name": "Txv Replacement Service",
+   "task": "DEFAULT_HVAC_SERVICE_82",
+   "description": "Remove the existing thermal expansion valve and installation of a new one to ensure proper refrigerant flow",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Repair Services",
+   "name": "Diagnostic Service (Emergency)",
+   "task": "DEFAULT_HVAC_SERVICE_85",
+   "description": "Facing an HVAC emergency after hours? Don't worry, our on-call technician is ready to assist! They will swiftly diagnose your system and identify the issue, providing you with clear, understandable explanations and options for repair. Rest assured, we'll work efficiently to restore your comfort and ",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Repair Services",
+   "name": "Diagnostic Service (Out of Range)",
+   "task": "DEFAULT_HVAC_SERVICE_86",
+   "description": "If you're located outside our service area, don't worry! Our diagnostic service is available to you as well. When you can't find someone in your area to address your HVAC system issues, our experienced technicians are here to help. We can remotely diagnose the problem with your HVAC system and provi",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Repair Services",
+   "name": "Diagnostic Service (Residential)",
+   "task": "DEFAULT_HVAC_SERVICE_83",
+   "description": "With our diagnostic service, we'll thoroughly inspect your system to pinpoint the issue. This includes checking your thermostat, inspecting the air filters, testing the electrical connections, and evaluating the overall performance of your HVAC system. Once we identify the problem, we'll provide you",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Repair Services",
+   "name": "Diagnostic Service (Commercial)",
+   "task": "DEFAULT_HVAC_SERVICE_84",
+   "description": "Our technicians will quickly assess your system to identify any problems. If you approve the estimate for repairs or replacements during the same visit, we'll waive the diagnostic fee. Stay focused on your business while we ensure your HVAC keeps your customers and employees comfortable. Schedule yo",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "System Installation",
+   "name": "Install 3.5-Ton Split HVAC System",
+   "task": "DEFAULT_HVAC_SERVICE_87",
+   "description": "Install 3.5-ton air handler, condenser, and heat kit with duct sealing and warranties.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "System Installation",
+   "name": "Install 4-Ton Split Ac System",
+   "task": "DEFAULT_HVAC_SERVICE_88",
+   "description": "Complete installation of a 4-ton split AC unit with removal of old equipment and connection to existing systems.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "System Installation",
+   "name": "Install 2.5 Ton Heat Pump System",
+   "task": "DEFAULT_HVAC_SERVICE_89",
+   "description": "Remove old HVAC system and install a 2.5-ton heat pump for heating and cooling.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "System Installation",
+   "name": "Install And Service Hvac Dehumidifiers",
+   "task": "DEFAULT_HVAC_SERVICE_90",
+   "description": "Install multiple dehumidifiers with ducting, ensure proper sealing, and perform diagnostics on HVAC systems.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "System Installation",
+   "name": "Install Hvac Ductwork",
+   "task": "DEFAULT_HVAC_SERVICE_91",
+   "description": "Install ductwork for proper air distribution.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "System Installation",
+   "name": "Install Air Handler",
+   "task": "DEFAULT_HVAC_SERVICE_92",
+   "description": "Install HVAC air handler units with proper connections and setup.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "System Installation",
+   "name": "Repair Heat Pump",
+   "task": "DEFAULT_HVAC_SERVICE_93",
+   "description": "Repair heat pump systems to restore efficiency.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "System Installation",
+   "name": "Install Ductless Mini Split System",
+   "task": "DEFAULT_HVAC_SERVICE_94",
+   "description": "Install and configure ductless mini split system with necessary components and warranties for optimal performance.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "System Installation",
+   "name": "Install 2-3.5 Ton Hvac System",
+   "task": "DEFAULT_HVAC_SERVICE_95",
+   "description": "Install and configure 2-3.5 ton HVAC system with necessary components and accessories.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "System Installation",
+   "name": "Boiler Installation And Zone Valve Replacement",
+   "task": "DEFAULT_HVAC_SERVICE_96",
+   "description": "Install customer-supplied boiler, replace zone valves, rerun gas pipe, and ensure compliance with inspection standards.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "System Installation",
+   "name": "Install Cold-Climate Hyper-Heat Systems",
+   "task": "DEFAULT_HVAC_SERVICE_97",
+   "description": "Install cold-climate mini-split heat pump systems for high-efficiency heating in low temperatures.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "System Installation",
+   "name": "Install Hvac Generators",
+   "task": "DEFAULT_HVAC_SERVICE_98",
+   "description": "Install generators to provide backup power for HVAC systems.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "System Installation",
+   "name": "Install 5 Ton Hvac System",
+   "task": "DEFAULT_HVAC_SERVICE_99",
+   "description": "Install and configure a 5-ton HVAC system with air handler, condenser, and furnace including necessary modifications.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "System Installation",
+   "name": "Install Multi-Zone Mini Split System",
+   "task": "DEFAULT_HVAC_SERVICE_100",
+   "description": "Install and configure a multi-zone mini split system with all necessary components and warranties.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "System Installation",
+   "name": "Relocate Hvac Systems",
+   "task": "DEFAULT_HVAC_SERVICE_101",
+   "description": "Relocate HVAC systems , install components, and perform precision tune-up for optimal performance.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "System Installation",
+   "name": "Install Mini Split Condenser System",
+   "task": "DEFAULT_HVAC_SERVICE_102",
+   "description": "Install and test mini split condenser, including wiring, copper lineset connection, and leak verification.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Custom Services",
+   "name": "Standard Install",
+   "task": null,
+   "description": "Install new equipment/fixtures.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Custom Services",
+   "name": "Diagnostic Visit",
+   "task": null,
+   "description": "Something in your home malfunctioning? One of our skilled technicians will come to your house and investigate the issue.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Custom Services",
+   "name": "Service Visit",
+   "task": null,
+   "description": "Something in your home malfunctioning? One of our skilled technicians will come to your house and investigate the issue.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  },
+  {
+   "category": "Custom Services",
+   "name": "Preventative Maintenance",
+   "task": null,
+   "description": "Keep your equipment running smoothly with regular maintenance.",
+   "price": 0,
+   "cost": 0,
+   "unit": null,
+   "duration": null,
+   "materials": [],
+   "labor": 0
+  }
+ ],
+ "checklists": [
+  {
+   "title": "HVAC System Installation - Residential Replacement",
+   "sections": [
+    {
+     "name": "Pre-Install Verification (Before Removal)",
+     "items": [
+      {
+       "subject": "Customer name and address confirmed",
+       "type": "boolean",
+       "required": true
+      },
+      {
+       "subject": "Correct equipment on truck (model numbers match proposal)",
+       "type": "boolean",
+       "required": true
+      },
+      {
+       "subject": "Verify scope of work with customer",
+       "type": "boolean",
+       "required": true
+      },
+      {
+       "subject": "Take \"before\" photos of: Existing equipment, Duct connections, Electrical connections, Flue/venting, Drain lines",
+       "type": "upload_photo",
+       "required": true
+      },
+      {
+       "subject": "Verify power is shut off and locked out",
+       "type": "boolean",
+       "required": true
+      },
+      {
+       "subject": "Gas shut off and confirmed safe (if applicable)",
+       "type": "boolean",
+       "required": true
+      }
+     ]
+    },
+    {
+     "name": "Equipment Installation",
+     "items": [
+      {
+       "subject": "New equipment model and serial numbers recorded",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Equipment set level and secured properly",
+       "type": "boolean",
+       "required": true
+      },
+      {
+       "subject": "Correct clearances maintained per manufacturer specs",
+       "type": "boolean",
+       "required": true
+      },
+      {
+       "subject": "Electrical: Proper breaker size confirmed, Disconnect installed (if required), Low voltage wiring secured",
+       "type": "boolean",
+       "required": true
+      },
+      {
+       "subject": "Gas line connected, leak tested (if applicable)",
+       "type": "boolean",
+       "required": true
+      },
+      {
+       "subject": "Refrigerant lines properly brazed and insulated",
+       "type": "boolean",
+       "required": true
+      },
+      {
+       "subject": "System evacuated to proper micron level",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Refrigerant charge verified per manufacturer specs",
+       "type": "boolean",
+       "required": true
+      },
+      {
+       "subject": "Condensate drain properly trapped and tested",
+       "type": "boolean",
+       "required": true
+      },
+      {
+       "subject": "Flue/venting installed and sloped correctly (if applicable)",
+       "type": "boolean",
+       "required": true
+      }
+     ]
+    },
+    {
+     "name": "Ductwork & Airflow",
+     "items": [
+      {
+       "subject": "Supply and return transitions sealed",
+       "type": "boolean",
+       "required": true
+      },
+      {
+       "subject": "Duct connections tight and sealed (mastic/tape applied)",
+       "type": "boolean",
+       "required": true
+      },
+      {
+       "subject": "Filter installed and correct size recorded",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Static pressure checked",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Airflow adjusted if necessary",
+       "type": "boolean",
+       "required": true
+      }
+     ]
+    },
+    {
+     "name": "System Operation Check",
+     "items": [
+      {
+       "subject": "Thermostat installed/programmed correctly",
+       "type": "boolean",
+       "required": true
+      },
+      {
+       "subject": "System cycles properly in heating mode",
+       "type": "boolean",
+       "required": true
+      },
+      {
+       "subject": "System cycles properly in cooling mode",
+       "type": "boolean",
+       "required": true
+      },
+      {
+       "subject": "Record: Supply temperature, Return temperature",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Verify delta T within acceptable range",
+       "type": "boolean",
+       "required": true
+      },
+      {
+       "subject": "No unusual noises, vibration, or airflow restrictions",
+       "type": "boolean",
+       "required": true
+      }
+     ]
+    },
+    {
+     "name": "Safety & Code Compliance",
+     "items": [
+      {
+       "subject": "High limit and safety switches operational",
+       "type": "boolean",
+       "required": true
+      },
+      {
+       "subject": "Carbon monoxide reading (if gas appliance)",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "GFCI/AFCI compliance (if required)",
+       "type": "boolean",
+       "required": true
+      },
+      {
+       "subject": "Equipment properly grounded",
+       "type": "boolean",
+       "required": true
+      }
+     ]
+    },
+    {
+     "name": "Finalization & Customer Handoff",
+     "items": [
+      {
+       "subject": "Take \"after\" photos of: Installed equipment, Electrical, Drain line, Duct connections, Outdoor unit pad/level",
+       "type": "upload_photo",
+       "required": true
+      },
+      {
+       "subject": "Work area cleaned and debris removed",
+       "type": "boolean",
+       "required": true
+      },
+      {
+       "subject": "Old equipment removed from property",
+       "type": "boolean",
+       "required": true
+      },
+      {
+       "subject": "Warranty registered",
+       "type": "boolean",
+       "required": true
+      },
+      {
+       "subject": "Customer educated on: Thermostat operation, Filter replacement, Maintenance schedule",
+       "type": "boolean",
+       "required": true
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Service / Maintenance Inspection (Mini Split)",
+   "sections": [
+    {
+     "name": "Mini Split System",
+     "items": [
+      {
+       "subject": "Is system currently operational before starting work?",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Indoor Unit 1 Model Number",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Indoor Unit 1 Serial Number",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Indoor Unit 2 Model Number",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Indoor Unit 2 Serial Number",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Indoor Unit 3 Model Number",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Indoor Unit 3 Serial Number",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Indoor Unit 4 Model Number",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Indoor Unit 4 Serial Number",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Indoor Unit 5 Model Number",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Indoor Unit 5 Serial Number",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Outdoor Unit Model Number",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Outdoor Unit Serial Number",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Turn system up or down to make system run using the remote",
+       "type": "boolean",
+       "required": true
+      },
+      {
+       "subject": "Is remote operational?",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Check and record running amps of compressor",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Check and record running amps of outdoor fan motor",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Check and record running amps of indoor fan motor",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Check indoor coil condition (recommend a cleaning if needed)",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Check outdoor coil condition (recommend a cleaning if needed)",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Document supply temperature reading",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Document return temperature reading",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Check and record delta T",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Check and record super heat",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Check and record subcooling",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Check and record refrigerant pressures",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Check and record incoming high voltage",
+       "type": "text",
+       "required": true
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Service / Maintenance Inspection (AC / Heat Pump)",
+   "sections": [
+    {
+     "name": "Heat Pump and AC Inspection",
+     "items": [
+      {
+       "subject": "Is system currently operational before starting work?",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Is this a heat check or AC check?",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Indoor Unit Model Number",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Indoor Unit Serial Number",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Outdoor Unit Model Number",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Outdoor Unit Serial Number",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Is this a heat pump or AC only?",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Turn system up or down to make system run at the thermostat",
+       "type": "boolean",
+       "required": true
+      },
+      {
+       "subject": "Is thermostat operational?",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Test defrost controls and record findings",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Check defrost settings",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Check back up heat and record what type of back up heat is in the home",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "If system is electric record amp draw",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Check and record running amps of compressor",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Check and record running amps of outdoor fan motor",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Check and record running amps of indoor fan motor",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Check indoor coil condition (recommend a cleaning if needed)",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Check outdoor coil condition (recommend a cleaning if needed)",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Check condition of dual capacitor",
+       "type": "stop_light",
+       "required": true
+      },
+      {
+       "subject": "Record mfd (dual capacitor)",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Check run capacitor",
+       "type": "stop_light",
+       "required": true
+      },
+      {
+       "subject": "Record mfd (run capacitor)",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Check contactors",
+       "type": "stop_light",
+       "required": true
+      },
+      {
+       "subject": "Document supply temperature reading",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Document return temperature reading",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Check and record delta T",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Check and record super heat",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Check and record subcooling",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Check and record refrigerant pressures",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Check and record incoming low voltage",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Check and record incoming high voltage",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Check air filter and record filter size",
+       "type": "text",
+       "required": true
+      },
+      {
+       "subject": "Check for proper CFM airflow and record findings",
+       "type": "text",
+       "required": true
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Installation",
+   "sections": [
+    {
+     "name": "Prep",
+     "items": [
+      {
+       "subject": "Review installation instructions or guidelines provided by the manufacturer.",
+       "type": "boolean",
+       "required": false
+      },
+      {
+       "subject": "Verify that all required components and materials are present.",
+       "type": "boolean",
+       "required": false
+      },
+      {
+       "subject": "Evaluate the installation site for suitability (e.g., wall structure, access to power outlets).",
+       "type": "stop_light",
+       "required": false
+      },
+      {
+       "subject": "Take before photos.",
+       "type": "upload_photo",
+       "required": false
+      }
+     ]
+    },
+    {
+     "name": "Installation",
+     "items": [
+      {
+       "subject": "Assemble equipment according to manufacturer instructions.",
+       "type": "boolean",
+       "required": false
+      },
+      {
+       "subject": "Conduct preliminary tests to verify equipment functionality.",
+       "type": "stop_light",
+       "required": false
+      },
+      {
+       "subject": "Troubleshoot any issues encountered during installation, addressing them promptly.",
+       "type": "boolean",
+       "required": false
+      },
+      {
+       "subject": "Document installation details, including equipment serial numbers and configuration settings.",
+       "type": "text",
+       "required": false
+      },
+      {
+       "subject": "Take after photos.",
+       "type": "upload_photo",
+       "required": false
+      }
+     ]
+    },
+    {
+     "name": "Post Install",
+     "items": [
+      {
+       "subject": "Provide relevant documentation and user manuals to the homeowner.",
+       "type": "boolean",
+       "required": false
+      },
+      {
+       "subject": "Clean up installation area, removing any debris or packaging materials.",
+       "type": "boolean",
+       "required": false
+      },
+      {
+       "subject": "Obtain homeowner's approval and signature for the completed installation.",
+       "type": "boolean",
+       "required": false
+      },
+      {
+       "subject": "Provide contact information for technical support or assistance.",
+       "type": "text",
+       "required": false
+      },
+      {
+       "subject": "Offer warranties or service agreements if applicable.",
+       "type": "boolean",
+       "required": false
+      },
+      {
+       "subject": "Schedule follow-up visits for maintenance or additional services if necessary.",
+       "type": "boolean",
+       "required": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Repair",
+   "sections": [
+    {
+     "name": "Prep",
+     "items": [
+      {
+       "subject": "Gather necessary tools, equipment, and replacement parts based on the reported issue.",
+       "type": "boolean",
+       "required": false
+      },
+      {
+       "subject": "Review any previous service history or notes related to the repair.",
+       "type": "boolean",
+       "required": false
+      },
+      {
+       "subject": "Shut off power or utilities to the area if necessary before starting the repair.",
+       "type": "boolean",
+       "required": false
+      },
+      {
+       "subject": "Take before photos.",
+       "type": "upload_photo",
+       "required": false
+      }
+     ]
+    },
+    {
+     "name": "Run Diagnostic",
+     "items": [
+      {
+       "subject": "Inspect the malfunctioning equipment or area to identify the root cause of the issue.",
+       "type": "text",
+       "required": false
+      },
+      {
+       "subject": "Use diagnostic tools or tests to pinpoint the problem accurately.",
+       "type": "boolean",
+       "required": false
+      },
+      {
+       "subject": "Follow manufacturer guidelines or repair protocols to address the identified issue.",
+       "type": "boolean",
+       "required": false
+      },
+      {
+       "subject": "Ensure all repairs are performed to industry standards and comply with safety regulations.",
+       "type": "boolean",
+       "required": false
+      },
+      {
+       "subject": "Test the repaired equipment or system to verify that the issue has been resolved.",
+       "type": "stop_light",
+       "required": false
+      },
+      {
+       "subject": "Document the repair process, including details of the problem, actions taken, and replacement parts used.",
+       "type": "text",
+       "required": false
+      },
+      {
+       "subject": "Take after photos.",
+       "type": "upload_photo",
+       "required": false
+      }
+     ]
+    },
+    {
+     "name": "Post Repair",
+     "items": [
+      {
+       "subject": "Provide a summary of the repair to the homeowner, explaining what was done and any recommendations for future maintenance.",
+       "type": "text",
+       "required": false
+      },
+      {
+       "subject": "Obtain the homeowner's signature or approval for the completed repair.",
+       "type": "boolean",
+       "required": false
+      },
+      {
+       "subject": "Provide contact information for follow-up questions or concerns.",
+       "type": "text",
+       "required": false
+      },
+      {
+       "subject": "Offer warranties or guarantees on the repair work if applicable.",
+       "type": "boolean",
+       "required": false
+      },
+      {
+       "subject": "Schedule follow-up visits for maintenance or additional services if necessary.",
+       "type": "boolean",
+       "required": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Diagnostic",
+   "sections": [
+    {
+     "name": "Prep",
+     "items": [
+      {
+       "subject": "Gather necessary tools, equipment, and inspection forms.",
+       "type": "boolean",
+       "required": false
+      },
+      {
+       "subject": "Review any relevant documentation or service history for the home.",
+       "type": "boolean",
+       "required": false
+      }
+     ]
+    },
+    {
+     "name": "Diagnostic",
+     "items": [
+      {
+       "subject": "Inspect HVAC systems, including furnaces, air conditioners, and heat pumps, for signs of damage or malfunction.",
+       "type": "stop_light",
+       "required": false
+      },
+      {
+       "subject": "Test thermostat operation and temperature control.",
+       "type": "stop_light",
+       "required": false
+      },
+      {
+       "subject": "Check air filters and recommend replacement if necessary.",
+       "type": "stop_light",
+       "required": false
+      },
+      {
+       "subject": "Document findings from the inspection, including any issues or recommendations for repairs.",
+       "type": "text",
+       "required": false
+      },
+      {
+       "subject": "Include photos.",
+       "type": "upload_photo",
+       "required": false
+      }
+     ]
+    },
+    {
+     "name": "Post Inspection",
+     "items": [
+      {
+       "subject": "Provide a summary report to the homeowner, outlining the results of the inspection and any recommended actions.",
+       "type": "text",
+       "required": false
+      },
+      {
+       "subject": "Offer additional services or referrals for specialized inspections or repairs as needed.",
+       "type": "text",
+       "required": false
+      },
+      {
+       "subject": "Schedule a follow-up inspection if necessary to verify completion of recommended repairs.",
+       "type": "boolean",
+       "required": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Maintenance",
+   "sections": [
+    {
+     "name": "Prep",
+     "items": [
+      {
+       "subject": "Gather necessary tools, equipment, and maintenance checklists.",
+       "type": "boolean",
+       "required": false
+      },
+      {
+       "subject": "Review any previous maintenance records or notes for the home.",
+       "type": "boolean",
+       "required": false
+      }
+     ]
+    },
+    {
+     "name": "Maintenance Check",
+     "items": [
+      {
+       "subject": "Inspect air filters and replace or clean as needed.",
+       "type": "stop_light",
+       "required": false
+      },
+      {
+       "subject": "Check thermostat settings and functionality.",
+       "type": "stop_light",
+       "required": false
+      },
+      {
+       "subject": "Test heating and cooling systems for proper operation.",
+       "type": "stop_light",
+       "required": false
+      },
+      {
+       "subject": "Document any maintenance performed, including repairs or replacements made.",
+       "type": "text",
+       "required": false
+      },
+      {
+       "subject": "Take photos.",
+       "type": "upload_photo",
+       "required": false
+      }
+     ]
+    },
+    {
+     "name": "Wrap-Up",
+     "items": [
+      {
+       "subject": "Provide a summary report to the homeowner, outlining the results of the maintenance check and any recommended actions.",
+       "type": "text",
+       "required": false
+      },
+      {
+       "subject": "Offer guidance on maintenance tasks and schedules to help the homeowner maintain their home in good condition.",
+       "type": "text",
+       "required": false
+      },
+      {
+       "subject": "Offer additional services or referrals for specialized maintenance or repairs as needed.",
+       "type": "text",
+       "required": false
+      },
+      {
+       "subject": "Schedule a follow-up maintenance check if necessary to ensure ongoing maintenance needs are met.",
+       "type": "boolean",
+       "required": false
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
