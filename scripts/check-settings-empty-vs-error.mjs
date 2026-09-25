@@ -87,6 +87,10 @@ const PAGES = {
   leave: "app/app/settings/leave/page.js",
   photoTags: "app/app/settings/job-photo-tags/page.js",
   products: "app/app/settings/products/ProductCatalogue.js",
+  // The Add / Edit Item form moved beside the catalogue on 2026-09-24 (the
+  // "Confirm what you quote" screen opens the same form); its quote-type
+  // list and the refusal beside it are asserted against that file.
+  productForm: "app/app/settings/products/ProductFormModal.js",
   quoteEmail: "app/app/settings/quote-email/page.js",
   messages: "app/app/settings/messages/page.js",
   metaAds: "app/app/settings/meta-ads/page.js",
@@ -183,7 +187,7 @@ const CLAIMS = [
   ["followUps", /!loadError && eligibleTemplates\.length === 0/, "the follow-ups no-template banner"],
   ["followUps", /loadError \? null : rules\.length === 0/, "the follow-ups empty sentence"],
   ["photoTags", /failed \|\| starter === null \? null :/, "the starter-tag block"],
-  ["products", /quoteTypesError \?[\s\S]{0,300}app\.setProducts\.noQuoteTypes/, "the products no-quote-types line"],
+  ["productForm", /quoteTypesError \?[\s\S]{0,300}app\.setProducts\.noQuoteTypes/, "the products no-quote-types line"],
   ["messages", /\{loadError && \(/, "the messages error block"],
   ["metaAds", /\{status && !status\.appConfigured && \(/, "the Meta not-configured card"],
   ["overhead", /assetsError \?[\s\S]{0,200}assets === null/, "the asset register"],

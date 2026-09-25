@@ -9,9 +9,9 @@
 // `categories`, so a duct company is seeded with them once.
 //
 // The trade prices by the number of supply vents and returns, not by area;
-// those lines are keyed `ventCount` / `returnCount`, keys the measurement
-// registry does not carry yet — the loader flags them for the estimator to
-// type until it does.
+// those lines are keyed `ventCount` / `returnCount`, registered in
+// lib/services/measurementKeys.js as counts typed on the estimate — no
+// calculator produces them, so the quote builder asks for the count.
 import { L, SHARED, D, T, withTemplates, hdMaterial, withLanguages } from "./_templateLines";
 import { HD } from "./_materialCosts";
 import { I18N } from "./i18n/air_duct_cleaning.js";

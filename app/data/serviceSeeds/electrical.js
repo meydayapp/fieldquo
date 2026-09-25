@@ -6,8 +6,9 @@
 // without prices and a research benchmark beside each; where a seed matches
 // one of those, `existing` cites its key. Written in source order so
 // scripts/service-seeds/authoring/gen-source-map.mjs can join every row back.
-import { L, SHARED, D, T, withTemplates, hdMaterial } from "./_templateLines";
+import { L, SHARED, D, T, withTemplates, hdMaterial, withLanguages } from "./_templateLines";
 import { HD } from "./_materialCosts";
+import { I18N } from "./i18n/electrical.js";
 
 const BM = (low, median, high) => ({ low, median, high, currency: "USD", source: "benchmark", asOf: "2026-09-21" });
 const S = (seedKey, category, unit, benchmark, [en, fr, es], [den, dfr, des], extra = {}) => ({
@@ -851,4 +852,5 @@ const TEMPLATES = {
   ], null),
 };
 
+withLanguages(SEED, I18N);
 withTemplates(SEED, TEMPLATES);

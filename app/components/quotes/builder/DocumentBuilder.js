@@ -553,6 +553,32 @@ export default function DocumentBuilder({ b, kind = "quote" }) {
     setOpenNext(true);
   };
 
+  // "Open room takeoff" under a template line still waiting for its figure
+  // (templateLineNotes.js): the builder asks this layout to unfold the group
+  // that measures it, then brings it into view. Registered on the ref the
+  // builder handed over; an invoice hands none and has no calculators.
+  const calculatorOpenerRef = b.calculatorOpenerRef;
+  const [calcFocus, setCalcFocus] = useState(null);
+  useEffect(() => {
+    if (!calculatorOpenerRef) return undefined;
+    calculatorOpenerRef.current = (tempId) => {
+      setOpenGroup(tempId);
+      setCalcFocus(tempId);
+    };
+    return () => {
+      calculatorOpenerRef.current = null;
+    };
+  }, [calculatorOpenerRef]);
+  // After the unfold has rendered: land on the editor (where the takeoff
+  // is), not the top of the card, which is the document's lines.
+  useEffect(() => {
+    if (!calcFocus || openGroup !== calcFocus) return;
+    const root = groupRefs.current[calcFocus];
+    const el = root?.querySelector?.("[data-doc-group-editor]") || root;
+    el?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    setCalcFocus(null);
+  }, [calcFocus, openGroup]);
+
   // A room click opens the group's takeoff and lands on that room's card.
   useEffect(() => {
     if (focusArea === null || !openGroup) return;

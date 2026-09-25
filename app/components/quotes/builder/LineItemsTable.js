@@ -26,7 +26,7 @@
 // when it carries no price, shows no rate or amount boxes.
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Plus, X, Percent } from "lucide-react";
 import { getBenchmark } from "@/lib/pricing/benchmarkGuidance";
 import { formatAppMoney } from "@/lib/format/money";
@@ -168,6 +168,17 @@ export default function LineItemsTable({
   // The takeoff's areas, when the trade has some to offer (see the dialog).
   areas = null,
   onAddArea = null,
+  // A service's estimate template, expanded as lines — see
+  // lib/quotes/serviceTemplateLines.js. `templateInfo(product)` says whether
+  // the product's template is offered here (null = not offered) and what it
+  // would fill; `onAddProductTemplate(product)` adds it. Both absent → the
+  // library shows the products exactly as before.
+  templateInfo = null,
+  onAddProductTemplate = null,
+  // (item, index, items) → { bar, note } for a line that came from a
+  // template (templateLineNotes.js): the run's bar over its first line and
+  // where the line's quantity came from — or which measurement would fill it.
+  describeLine = null,
 }) {
   const { t, language } = useTranslation();
   const detailPlaceholder = t("app.lineItems.detailPlaceholder");
@@ -202,9 +213,23 @@ export default function LineItemsTable({
       )}
 
       <div className="space-y-2">
-        {items.map((item, i) => (
+        {items.map((item, i) => {
+          const described = describeLine ? describeLine(item, i, items) : null;
+          return (
+          // A Fragment, not a wrapper: the rows must stay direct children of
+          // the space-y list, or every line's spacing changes.
+          <Fragment key={i}>
+          {described?.bar && (
+            <div className="flex items-center justify-between gap-2 flex-wrap rounded-md bg-muted/60 px-2 py-1 text-[11px] text-muted-foreground" data-template-run-bar>
+              <span className="min-w-0">{described.bar.text}</span>
+              {described.bar.action && (
+                <button type="button" onClick={described.bar.action.onClick} className="font-semibold text-foreground underline underline-offset-2" data-template-refill>
+                  {described.bar.action.label}
+                </button>
+              )}
+            </div>
+          )}
           <div
-            key={i}
             // Mobile: a bordered card, description on its own line, then the
             // numbers in a row. Desktop: the original twelve-column row,
             // unchanged. `sm:contents` on the inner wrapper makes it vanish at
@@ -342,8 +367,26 @@ export default function LineItemsTable({
               </p>
             )}
             <BenchmarkHint item={item} categoryKey={categoryKey} />
+            {described?.note && (
+              <p
+                className={`sm:col-span-12 text-[11px] leading-snug ${described.note.tone === "warn" ? "text-amber-700 dark:text-amber-500" : "text-muted-foreground"}`}
+                data-template-line-note={described.note.tone}
+              >
+                {described.note.text}
+                {described.note.action && (
+                  <>
+                    {" "}
+                    <button type="button" onClick={described.note.action.onClick} className="font-semibold underline underline-offset-2" data-template-open-calculator>
+                      {described.note.action.label}
+                    </button>
+                  </>
+                )}
+              </p>
+            )}
           </div>
-        ))}
+          </Fragment>
+          );
+        })}
       </div>
 
       <div className="flex items-center gap-3 mt-3 flex-wrap">
@@ -385,6 +428,8 @@ export default function LineItemsTable({
         onAddLine={onAddLine}
         onAddSuggested={onAddSuggested}
         onAddProduct={onAddProduct}
+        templateInfo={templateInfo}
+        onAddProductTemplate={onAddProductTemplate}
       />
     </div>
   );

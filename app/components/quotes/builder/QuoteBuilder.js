@@ -116,6 +116,14 @@ import {
   billedUnitsOf,
 } from "@/lib/quotes/builderPayload";
 import { lineFromProduct, lineFromSuggestion } from "@/lib/quotes/lineDetail";
+import {
+  expandServiceTemplate,
+  measurementsFromGroups,
+  refillTemplateRun,
+  templateOffered,
+  templateRunOf,
+} from "@/lib/quotes/serviceTemplateLines";
+import { describeTemplateLine } from "./templateLineNotes";
 import { explainTaxSource, renderTaxNote } from "@/lib/tax/resolveTaxRate";
 import { jsonBody } from "@/lib/jsonBody";
 import { resolveDocumentTax } from "@/lib/tax/documentTax";
@@ -1423,6 +1431,64 @@ export function QuoteBuilderForm({
     );
   }
 
+  // ── A service's estimate template, expanded ─────────────────────────────
+  //
+  // "Add with its template lines" beside a service in the library. The lines
+  // are built by lib/quotes/serviceTemplateLines.js from the company's own
+  // Product row, in the quote's language, with every measured quantity the
+  // quote's groups already hold filled in and said so. The plain row click
+  // (addProductLineItem above) is untouched.
+  function templateMeasurements(groupTempId) {
+    return measurementsFromGroups(scopeGroups, { targetTempId: groupTempId });
+  }
+
+  function templateOfferedOn(group, product) {
+    return templateOffered(product, {
+      categoryId: group.categoryId,
+      categoryKey: group.categoryKey,
+      estimateType: group.takeoff?.estimateType || null,
+    });
+  }
+
+  function addProductTemplate(groupTempId, product) {
+    const { lines } = expandServiceTemplate(product, {
+      measurements: templateMeasurements(groupTempId),
+      language: quoteLanguage || companyLanguage,
+      companyLanguage,
+      currency: companyCurrency,
+      runId: crypto.randomUUID(),
+    });
+    if (!lines.length) return;
+    setScopeGroups((prev) =>
+      prev.map((g) =>
+        g.tempId === groupTempId ? { ...g, lineItems: [...g.lineItems, ...lines] } : g,
+      ),
+    );
+  }
+
+  function refillTemplate(groupTempId, runId) {
+    const m = templateMeasurements(groupTempId);
+    setScopeGroups((prev) =>
+      prev.map((g) =>
+        g.tempId === groupTempId ? { ...g, lineItems: refillTemplateRun(g.lineItems, runId, m) } : g,
+      ),
+    );
+  }
+
+  // "Open room takeoff" under a line still waiting for its figure. The
+  // document layout registers how it opens a group (it folds them); the
+  // classic layout has every group open already, so it scrolls.
+  const calculatorOpenerRef = useRef(null);
+  function openCalculator(tempId) {
+    if (calculatorOpenerRef.current) {
+      calculatorOpenerRef.current(tempId);
+      return;
+    }
+    if (typeof document === "undefined") return;
+    const el = document.querySelector(`[data-scope-group-anchor="${CSS.escape(String(tempId))}"]`);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   /**
    * The rate an hourly text block opens on: the trade's hourly sell rate
    * from its price book where it has one (painting's hourlySellRate), else
@@ -1942,6 +2008,9 @@ export function QuoteBuilderForm({
     const locked = group.imported || !canEditScope;
     return (
       <>
+        {/* Where "Open room takeoff" under a template line lands in the
+            classic layout (openCalculator). Renders nothing. */}
+        <span data-scope-group-anchor={group.tempId} aria-hidden="true" />
         {!group.persisted && isUnitPriced(group.categoryKey) && (
           <UnitPricingFields
             book={getPriceBook(
@@ -2141,6 +2210,42 @@ export function QuoteBuilderForm({
             documentLanguage={quoteLanguage || companyLanguage}
             hourlyRate={hourlyRateFor(group)}
             showPricing={caller ? hasToggle(caller, "showPricing") : true}
+            templateInfo={(product) => {
+              if (!templateOfferedOn(group, product)) return null;
+              const { summary } = expandServiceTemplate(product, {
+                measurements: templateMeasurements(group.tempId),
+                currency: companyCurrency,
+                heading: false,
+              });
+              if (!summary.lines) return null;
+              return {
+                count: summary.lines,
+                measured: summary.measured,
+                filled: summary.filled,
+                alreadyAdded: group.lineItems.some((l) => templateRunOf(l)?.productId === String(product.id)),
+              };
+            }}
+            onAddProductTemplate={(product) => addProductTemplate(group.tempId, product)}
+            describeLine={(() => {
+              // Read the quote's figures once per render of this table, and
+              // only when it holds a template line at all.
+              let measured = null;
+              return (item, i, items) => {
+                if (!templateRunOf(item)) return null;
+                if (!measured) measured = templateMeasurements(group.tempId);
+                return describeTemplateLine({
+                  t,
+                  language: lang,
+                  item,
+                  index: i,
+                  items,
+                  groups: scopeGroups,
+                  measurements: measured,
+                  onOpenCalculator: openCalculator,
+                  onRefill: (runId) => refillTemplate(group.tempId, runId),
+                });
+              };
+            })()}
           />
         )}
       </>
@@ -2467,6 +2572,7 @@ export function QuoteBuilderForm({
           cf, readiness, readinessItems, OPEN_STATUSES, TOUR_STEPS, showTour, setShowTour,
           renderGroupEditor, renderCostMarginPanel, renderNotesBox, renderReviewNotesBox,
           renderPhotosBox, renderProcessNotes, renderSuggestAddOns, renderSendConfirm,
+          calculatorOpenerRef,
         }}
       />
     );

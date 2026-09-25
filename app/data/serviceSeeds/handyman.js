@@ -3,8 +3,9 @@
 // The service list a handyman starts from — the benchmark's handyman book,
 // all ten headings. Read ./index.js for the format and the rules. Most rows
 // carried no pricing insight and seed unpriced.
-import { L, SHARED, D, T, withTemplates, hdMaterial } from "./_templateLines";
+import { L, SHARED, D, T, withTemplates, hdMaterial, withLanguages } from "./_templateLines";
 import { HD } from "./_materialCosts";
+import { I18N } from "./i18n/handyman.js";
 
 const BM = (low, median, high) => ({ low, median, high, currency: "USD", source: "benchmark", asOf: "2026-09-21" });
 const S = (seedKey, category, unit, benchmark, [en, fr, es], [den, dfr, des], extra = {}) => ({
@@ -1160,4 +1161,5 @@ const TEMPLATES = {
   ], null),
 };
 
+withLanguages(SEED, I18N);
 withTemplates(SEED, TEMPLATES);
