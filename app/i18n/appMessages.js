@@ -89405,7 +89405,7 @@ const tl = {
   // (lib/services/productionRates.js, lib/quotes/servicesTab.js) ──
   "app.docBuilder.tab.services": "Mga serbisyo",
   "app.cost.productionRates": "Mga oras mula sa production rate ng mga serbisyo",
-  "app.production.title": "Production rate",
+  "app.production.title": "Bilis ng trabaho",
   "app.production.amount": "Rate",
   "app.production.basis": "Nakasaad bilang",
   "app.production.basis_per_hour": "bawat oras ng crew",

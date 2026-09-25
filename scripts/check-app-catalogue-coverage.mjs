@@ -124,9 +124,9 @@ import { APP_MESSAGES } from "../app/i18n/appMessages.js";
 const FLOORS = {
   fr: { keys: 4965, complete: true },
   es: { keys: 4965, complete: true },
-  uk: { keys: 5636, complete: false },
-  pa: { keys: 5633, complete: false },
-  tl: { keys: 5559, complete: false },
+  uk: { keys: 5636, complete: true }, // completed 2026-09-25: every English key translated
+  pa: { keys: 5633, complete: true }, // completed 2026-09-25: every English key translated
+  tl: { keys: 5559, complete: true }, // completed 2026-09-25: every English key translated
   de: { keys: 4965, complete: true },
   zh: { keys: 4965, complete: true },
   it: { keys: 4965, complete: true },
