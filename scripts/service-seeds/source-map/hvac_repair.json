@@ -635,5 +635,110 @@
   "sourceCategory": "Custom Services",
   "sourceService": "Preventative Maintenance",
   "taskCode": null
+ },
+ {
+  "seedKey": "fq.hvac_repair.air_duct.dryer_vent",
+  "industry": "Air Duct Cleaning",
+  "sourceCategory": "Air duct capture",
+  "sourceService": "Dryer vent cleaning",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.hvac_repair.air_duct.system_cleaning",
+  "industry": "Air Duct Cleaning",
+  "sourceCategory": "Air duct capture",
+  "sourceService": "HVAC system cleaning",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.hvac_repair.air_duct.vent_cleaning",
+  "industry": "Air Duct Cleaning",
+  "sourceCategory": "Air duct capture",
+  "sourceService": "Vent and register cleaning",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.hvac_repair.air_duct.return_cleaning",
+  "industry": "Air Duct Cleaning",
+  "sourceCategory": "Air duct capture",
+  "sourceService": "Return air cleaning",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.hvac_repair.air_duct.sanitization",
+  "industry": "Air Duct Cleaning",
+  "sourceCategory": "Air duct capture",
+  "sourceService": "Duct sanitization",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.hvac_repair.air_duct.deodorization",
+  "industry": "Air Duct Cleaning",
+  "sourceCategory": "Air duct capture",
+  "sourceService": "Duct deodorization",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.hvac_repair.air_duct.mold_treatment",
+  "industry": "Air Duct Cleaning",
+  "sourceCategory": "Air duct capture",
+  "sourceService": "Duct mould treatment",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.hvac_repair.air_duct.air_purification_addon",
+  "industry": "Air Duct Cleaning",
+  "sourceCategory": "Air duct capture",
+  "sourceService": "Air purification add-on",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.hvac_repair.air_duct.airflow_inspection",
+  "industry": "Air Duct Cleaning",
+  "sourceCategory": "Air duct capture",
+  "sourceService": "Airflow inspection",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.hvac_repair.air_duct.duct_inspection",
+  "industry": "Air Duct Cleaning",
+  "sourceCategory": "Air duct capture",
+  "sourceService": "Duct inspection",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.hvac_repair.air_duct.efficiency_check",
+  "industry": "Air Duct Cleaning",
+  "sourceCategory": "Air duct capture",
+  "sourceService": "System efficiency check",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.hvac_repair.air_duct.maintenance_cleaning",
+  "industry": "Air Duct Cleaning",
+  "sourceCategory": "Air duct capture",
+  "sourceService": "Maintenance duct cleaning",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.hvac_repair.air_duct.booked_inspection",
+  "industry": "Air Duct Cleaning",
+  "sourceCategory": "Air duct capture",
+  "sourceService": "Air duct inspection — booked visit",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.hvac_repair.air_duct.booked_repair",
+  "industry": "Air Duct Cleaning",
+  "sourceCategory": "Air duct capture",
+  "sourceService": "Air duct repair — booked visit",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.hvac_repair.air_duct.booked_install",
+  "industry": "Air Duct Cleaning",
+  "sourceCategory": "Air duct capture",
+  "sourceService": "Duct installation or upgrade — booked visit",
+  "taskCode": null
  }
 ]

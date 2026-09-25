@@ -1,0 +1,5 @@
+# HCP Air Duct Cleaning trial capture (2026-09-24) — thin
+Templates (2): Recurring yearly = $355.20 — air duct cleaning $300 (cost 200) + vent & register cleaning $70 (50), −4% · One-time = $390 — duct cleaning $320 (200) + vents & registers $90 (50), −$20.
+Services (19): Core — air duct cleaning, dryer vent cleaning, HVAC system cleaning, vent cleaning, return air cleaning · Additional — sanitization, deodorization, mold treatment, filter replacement, duct sealing, air purification add-on · Maintenance & Inspection — airflow inspection, indoor air quality inspection, duct inspection, system efficiency check, maintenance cleaning · Book Now (120 min) — inspection, repair, installation/upgrade.
+No pricing forms, checklists, materials or service plans. We have NO air duct cleaning trade — nearest is hvac_repair; Jobber's signup sample lines: "Basic Air Duct Cleaning / Dryer Vent Cleaning".
+Typical pricing driver in the trade: number of vents/registers + returns + system count (not sq ft).

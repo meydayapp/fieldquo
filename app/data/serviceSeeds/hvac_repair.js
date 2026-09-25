@@ -19,7 +19,8 @@
 
 // Compact constructors — this file imports nothing (see index.js), so they are
 // declared here. Every entry below is the same shape as the long-hand ones.
-import { L, SHARED, D, T, withTemplates } from "./_templateLines";
+import { L, SHARED, D, T, withTemplates, hdMaterial } from "./_templateLines";
+import { HD } from "./_materialCosts";
 
 const BM = (low, median, high) => ({ low, median, high, currency: "USD", source: "benchmark", asOf: "2026-09-21" });
 const S = (seedKey, category, unit, benchmark, [en, fr, es], [den, dfr, des], extra = {}) => ({
@@ -37,6 +38,9 @@ export const SEED = {
     { key: "condenser", name: { en: "Condenser", fr: "Condenseur", es: "Condensador" } },
     { key: "belts", name: { en: "Fan belts and pulleys", fr: "Courroies et poulies", es: "Bandas y poleas" } },
     { key: "air_quality", name: { en: "Filters and air quality", fr: "Filtres et qualité de l'air", es: "Filtros y calidad del aire" } },
+    // Added 2026-09-24: the air-duct-cleaning industry has no trade of its own
+    // yet; its services sit here until the owner decides on one.
+    { key: "air_duct", name: { en: "Air duct and vent cleaning", fr: "Nettoyage de conduits et de bouches d'aération", es: "Limpieza de ductos y rejillas" } },
     { key: "controls", name: { en: "Electrical and controls", fr: "Électricité et commandes", es: "Eléctrico y controles" } },
     { key: "maintenance", name: { en: "Maintenance and tune-ups", fr: "Entretien et mises au point", es: "Mantenimiento y afinación" } },
     { key: "heat_exchanger", name: { en: "Heat exchangers and venting", fr: "Échangeurs de chaleur et évacuation", es: "Intercambiadores de calor y ventilación" } },
@@ -852,6 +856,52 @@ export const SEED = {
       ["A scheduled visit to clean, adjust and test the system before the season, so small faults are caught before they become a no-heat call.",
        "Visite planifiée pour nettoyer, régler et tester le système avant la saison, afin de repérer les petits défauts avant la panne.",
        "Visita programada para limpiar, ajustar y probar el sistema antes de la temporada y detectar fallas pequeñas antes de una avería."]),
+    // ── Added 2026-09-24 from the air duct cleaning capture ────────────────
+    S("fq.hvac_repair.air_duct.dryer_vent", "air_duct", "each", null,
+      ["Dryer vent cleaning", "Nettoyage du conduit de sécheuse", "Limpieza del ducto de la secadora"],
+      ["The dryer duct brushed and vacuumed from the machine to the outside hood so lint stops building up.", "Conduit de sécheuse brossé et aspiré de l'appareil au capuchon extérieur pour que la charpie ne s'accumule plus.", "Ducto de la secadora cepillado y aspirado del aparato a la campana exterior para que la pelusa no se acumule."]),
+    S("fq.hvac_repair.air_duct.system_cleaning", "air_duct", "flat", null,
+      ["HVAC system cleaning", "Nettoyage du système de chauffage et climatisation", "Limpieza del sistema de climatización"],
+      ["Blower, coil, plenums and ducts cleaned together so the whole system moves clean air.", "Ventilateur, serpentin, plénums et conduits nettoyés ensemble pour que tout le système souffle de l'air propre.", "Ventilador, serpentín, plenos y ductos limpiados juntos para que todo el sistema mueva aire limpio."]),
+    S("fq.hvac_repair.air_duct.vent_cleaning", "air_duct", "flat", null,
+      ["Vent and register cleaning", "Nettoyage des bouches et grilles", "Limpieza de rejillas y difusores"],
+      ["Supply vents and registers taken off, washed and the branch behind each one vacuumed.", "Bouches et grilles d'alimentation retirées, lavées et branche derrière chacune aspirée.", "Rejillas y difusores de suministro retirados, lavados y el ramal detrás de cada uno aspirado."]),
+    S("fq.hvac_repair.air_duct.return_cleaning", "air_duct", "flat", null,
+      ["Return air cleaning", "Nettoyage des retours d'air", "Limpieza de retornos de aire"],
+      ["Return grilles and return ducts cleaned so dust is not pulled back into the system.", "Grilles et conduits de retour nettoyés pour que la poussière ne soit pas réaspirée dans le système.", "Rejillas y ductos de retorno limpiados para que el polvo no regrese al sistema."]),
+    S("fq.hvac_repair.air_duct.sanitization", "air_duct", "flat", null,
+      ["Duct sanitization", "Assainissement des conduits", "Sanitización de ductos"],
+      ["An EPA-registered sanitizer fogged through the cleaned ducts to cut bacteria and odour.", "Assainissant homologué nébulisé dans les conduits nettoyés pour réduire bactéries et odeurs.", "Sanitizante registrado nebulizado en los ductos limpios para reducir bacterias y olores."]),
+    S("fq.hvac_repair.air_duct.deodorization", "air_duct", "flat", null,
+      ["Duct deodorization", "Désodorisation des conduits", "Desodorización de ductos"],
+      ["Lingering smoke, pet or musty odours in the ductwork neutralised after cleaning.", "Odeurs persistantes de fumée, d'animaux ou de moisi dans les conduits neutralisées après le nettoyage.", "Olores persistentes de humo, mascotas o humedad en los ductos neutralizados después de la limpieza."]),
+    S("fq.hvac_repair.air_duct.mold_treatment", "air_duct", "flat", null,
+      ["Duct mould treatment", "Traitement des moisissures dans les conduits", "Tratamiento de moho en ductos"],
+      ["Visible mould in ducts or the air handler cleaned out and treated with a mould inhibitor.", "Moisissure visible dans les conduits ou l'appareil de traitement d'air nettoyée et traitée avec un inhibiteur.", "Moho visible en ductos o manejadora limpiado y tratado con un inhibidor de moho."]),
+    S("fq.hvac_repair.air_duct.air_purification_addon", "air_duct", "flat", null,
+      ["Air purification add-on", "Option de purification de l'air", "Complemento de purificación de aire"],
+      ["A purification device added to the system after cleaning to keep the air cleaner between visits.", "Appareil de purification ajouté au système après le nettoyage pour garder l'air plus propre entre les visites.", "Dispositivo de purificación añadido al sistema tras la limpieza para mantener el aire más limpio entre visitas."]),
+    S("fq.hvac_repair.air_duct.airflow_inspection", "air_duct", "flat", null,
+      ["Airflow inspection", "Inspection du débit d'air", "Inspección del flujo de aire"],
+      ["Airflow measured at each vent and weak rooms traced to kinks, leaks or closed dampers.", "Débit mesuré à chaque bouche et pièces faibles expliquées par des plis, fuites ou registres fermés.", "Flujo medido en cada rejilla y cuartos débiles rastreados a dobleces, fugas o compuertas cerradas."]),
+    S("fq.hvac_repair.air_duct.duct_inspection", "air_duct", "flat", null,
+      ["Duct inspection", "Inspection des conduits", "Inspección de ductos"],
+      ["The ductwork viewed with a camera at several points to show how dirty it is before cleaning is quoted.", "Conduits examinés à la caméra à plusieurs endroits pour montrer leur état avant de chiffrer le nettoyage.", "Ductos revisados con cámara en varios puntos para mostrar qué tan sucios están antes de cotizar."]),
+    S("fq.hvac_repair.air_duct.efficiency_check", "air_duct", "flat", null,
+      ["System efficiency check", "Vérification de l'efficacité du système", "Revisión de eficiencia del sistema"],
+      ["Static pressure, temperature split and filter condition checked to see how hard the system is working.", "Pression statique, écart de température et état du filtre vérifiés pour voir l'effort du système.", "Presión estática, diferencia de temperatura y estado del filtro revisados para ver cuánto trabaja el sistema."]),
+    S("fq.hvac_repair.air_duct.maintenance_cleaning", "air_duct", "flat", null,
+      ["Maintenance duct cleaning", "Nettoyage d'entretien des conduits", "Limpieza de mantenimiento de ductos"],
+      ["A lighter yearly cleaning of vents, returns and the main trunk to keep a cleaned system clean.", "Nettoyage annuel léger des bouches, retours et du conduit principal pour garder propre un système déjà nettoyé.", "Limpieza anual ligera de rejillas, retornos y el ducto principal para mantener limpio un sistema ya limpiado."]),
+    S("fq.hvac_repair.air_duct.booked_inspection", "air_duct", "flat", null,
+      ["Air duct inspection — booked visit", "Inspection des conduits — visite réservée", "Inspección de ductos — visita agendada"],
+      ["A booked two-hour visit to look over the ducts and vents and leave a written price.", "Visite réservée de deux heures pour examiner les conduits et bouches et laisser un prix écrit.", "Visita agendada de dos horas para revisar ductos y rejillas y dejar un precio por escrito."], { durationMinutes: 120, bookable: true }),
+    S("fq.hvac_repair.air_duct.booked_repair", "air_duct", "flat", null,
+      ["Air duct repair — booked visit", "Réparation de conduits — visite réservée", "Reparación de ductos — visita agendada"],
+      ["A booked visit to reconnect, reseal or replace damaged duct runs and vents.", "Visite réservée pour rebrancher, rescellér ou remplacer des conduits et bouches endommagés.", "Visita agendada para reconectar, resellar o reemplazar tramos y rejillas dañados."], { durationMinutes: 120, bookable: true }),
+    S("fq.hvac_repair.air_duct.booked_install", "air_duct", "flat", null,
+      ["Duct installation or upgrade — booked visit", "Installation ou amélioration de conduits — visite réservée", "Instalación o mejora de ductos — visita agendada"],
+      ["A booked visit to add a run, a vent or a return, or upgrade registers.", "Visite réservée pour ajouter un conduit, une bouche ou un retour, ou remplacer les grilles.", "Visita agendada para agregar un tramo, una rejilla o un retorno, o mejorar difusores."], { durationMinutes: 120, bookable: true }),
   ],
 };
 
@@ -1262,6 +1312,185 @@ const TEMPLATES = {
       tl: ["Pleated air filter", "1-inch pleated filter, MERV 8, sa size ng sistema."],
     }, { cost: 8 }),
   ], D.regular("fixed", 7)),
+
+  // ── Air duct and vent cleaning — the air-duct capture under docs/research/
+  //    (duct cleaning $300–320 at $200 cost, vents and registers $70–90 at
+  //    $50, 4% or $20 off). The trade prices by vents and returns, so the
+  //    per-unit lines are keyed `ventCount` / `returnCount`. ─────────────
+  "fq.hvac_repair.air_quality.clean_ducts": T("installation", {
+    it: ["Pulizia dei condotti d'aria", "Condotti di mandata e ripresa puliti con aspirazione a pressione negativa e spazzole rotanti."],
+    de: ["Luftkanalreinigung", "Zu- und Abluftkanäle mit Unterdruckabsaugung und rotierenden Bürsten gereinigt."],
+    uk: ["Чищення повітроводів", "Припливні та зворотні повітроводи очищено негативним тиском і обертовими щітками."],
+    tl: ["Paglilinis ng air duct", "Nilinis ang supply at return duct gamit ang negative-pressure vacuum at umiikot na brush."],
+  }, [
+    L.labour(1, "flat", 320, {
+      en: ["Air duct cleaning", "Trunk and branch ducts cleaned under negative pressure with rotary brushes."],
+      fr: ["Nettoyage des conduits", "Conduits principaux et secondaires nettoyés sous pression négative avec brosses rotatives."],
+      es: ["Limpieza de ductos", "Ductos troncales y ramales limpiados con presión negativa y cepillos rotativos."],
+      it: ["Pulizia dei condotti", "Condotti principali e diramazioni puliti in depressione con spazzole rotanti."],
+      de: ["Kanalreinigung", "Haupt- und Abzweigkanäle im Unterdruck mit rotierenden Bürsten gereinigt."],
+      uk: ["Чищення повітроводів", "Магістральні й відгалужені повітроводи очищено під негативним тиском обертовими щітками."],
+      tl: ["Paglilinis ng duct", "Nilinis ang trunk at branch duct sa negative pressure gamit ang rotary brush."],
+    }, { cost: 200 }),
+    L.labour(1, "flat", 90, {
+      en: ["Vent and register cleaning", "Every vent and register removed, washed and refitted."],
+      fr: ["Nettoyage des bouches et grilles", "Chaque bouche et grille retirée, lavée et reposée."],
+      es: ["Limpieza de rejillas y difusores", "Cada rejilla y difusor retirado, lavado y recolocado."],
+      it: ["Pulizia bocchette e griglie", "Ogni bocchetta e griglia tolta, lavata e rimontata."],
+      de: ["Auslässe und Gitter reinigen", "Jeder Auslass und jedes Gitter abgenommen, gewaschen und wieder angebracht."],
+      uk: ["Чищення решіток і дифузорів", "Кожну решітку й дифузор знято, вимито й встановлено назад."],
+      tl: ["Paglilinis ng vent at register", "Tinanggal, hinugasan at ibinalik ang bawat vent at register."],
+    }, { cost: 50 }),
+  ], D.newCustomer("fixed", 20)),
+
+  "fq.hvac_repair.air_duct.maintenance_cleaning": T("maintenance", {
+    it: ["Pulizia di manutenzione dei condotti", "Pulizia annuale leggera di bocchette, riprese e condotto principale per mantenere pulito un impianto già pulito."],
+    de: ["Wartungsreinigung der Kanäle", "Leichtere jährliche Reinigung von Auslässen, Rückluft und Hauptkanal, damit ein gereinigtes System sauber bleibt."],
+    uk: ["Підтримувальне чищення повітроводів", "Легше щорічне чищення решіток, повернень і магістралі, щоб очищена система лишалася чистою."],
+    tl: ["Maintenance na paglilinis ng duct", "Mas magaan na taunang paglilinis ng vent, return at main trunk para manatiling malinis ang sistema."],
+  }, [
+    L.labour(1, "flat", 300, {
+      en: ["Yearly duct cleaning", "Main trunk and branches cleaned on the yearly visit."],
+      fr: ["Nettoyage annuel des conduits", "Conduit principal et branches nettoyés lors de la visite annuelle."],
+      es: ["Limpieza anual de ductos", "Ducto principal y ramales limpiados en la visita anual."],
+      it: ["Pulizia annuale dei condotti", "Condotto principale e diramazioni puliti nella visita annuale."],
+      de: ["Jährliche Kanalreinigung", "Hauptkanal und Abzweige beim Jahrestermin gereinigt."],
+      uk: ["Щорічне чищення повітроводів", "Магістраль і відгалуження очищено під час щорічного візиту."],
+      tl: ["Taunang paglilinis ng duct", "Nilinis ang main trunk at branch sa taunang visit."],
+    }, { cost: 200 }),
+    L.labour(1, "flat", 70, {
+      en: ["Vent and register cleaning", "Every vent and register removed, washed and refitted."],
+      fr: ["Nettoyage des bouches et grilles", "Chaque bouche et grille retirée, lavée et reposée."],
+      es: ["Limpieza de rejillas y difusores", "Cada rejilla y difusor retirado, lavado y recolocado."],
+      it: ["Pulizia bocchette e griglie", "Ogni bocchetta e griglia tolta, lavata e rimontata."],
+      de: ["Auslässe und Gitter reinigen", "Jeder Auslass und jedes Gitter abgenommen, gewaschen und wieder angebracht."],
+      uk: ["Чищення решіток і дифузорів", "Кожну решітку й дифузор знято, вимито й встановлено назад."],
+      tl: ["Paglilinis ng vent at register", "Tinanggal, hinugasan at ibinalik ang bawat vent at register."],
+    }, { cost: 50 }),
+  ], D.regular("percent", 4)),
+
+  "fq.hvac_repair.air_duct.vent_cleaning": T("maintenance", {
+    it: ["Pulizia bocchette e griglie", "Bocchette e griglie di mandata tolte, lavate e il ramo dietro ciascuna aspirato."],
+    de: ["Auslässe und Gitter reinigen", "Zuluftauslässe und Gitter abgenommen, gewaschen und der Abzweig dahinter gesaugt."],
+    uk: ["Чищення решіток і дифузорів", "Припливні решітки знято, вимито, відгалуження за кожною пропилососено."],
+    tl: ["Paglilinis ng vent at register", "Tinanggal at hinugasan ang supply vent at register at binakyum ang branch sa likod."],
+  }, [
+    L.labour(1, "each", 15, {
+      en: ["Supply vent — per vent", "Register off and washed, branch vacuumed to the trunk."],
+      fr: ["Bouche d'alimentation — l'unité", "Grille retirée et lavée, branche aspirée jusqu'au conduit principal."],
+      es: ["Rejilla de suministro — por rejilla", "Difusor retirado y lavado, ramal aspirado hasta el troncal."],
+      it: ["Bocchetta di mandata — cadauna", "Griglia tolta e lavata, diramazione aspirata fino al condotto principale."],
+      de: ["Zuluftauslass — pro Stück", "Gitter ab und gewaschen, Abzweig bis zum Hauptkanal gesaugt."],
+      uk: ["Припливна решітка — за штуку", "Решітку знято й вимито, відгалуження пропилососено до магістралі."],
+      tl: ["Supply vent — kada isa", "Tinanggal at hinugasan ang register at binakyum ang branch hanggang trunk."],
+    }, { cost: 8, measurementKey: "ventCount" }),
+    L.labour(1, "each", 25, {
+      en: ["Return — per return", "Return grille off and washed, the return duct vacuumed."],
+      fr: ["Retour d'air — l'unité", "Grille de retour retirée et lavée, conduit de retour aspiré."],
+      es: ["Retorno — por retorno", "Rejilla de retorno retirada y lavada, ducto de retorno aspirado."],
+      it: ["Ripresa — cadauna", "Griglia di ripresa tolta e lavata, condotto di ripresa aspirato."],
+      de: ["Rückluft — pro Stück", "Rückluftgitter ab und gewaschen, Rückluftkanal gesaugt."],
+      uk: ["Зворотна решітка — за штуку", "Зворотну решітку знято й вимито, зворотний повітровід пропилососено."],
+      tl: ["Return — kada isa", "Tinanggal at hinugasan ang return grille at binakyum ang return duct."],
+    }, { cost: 13, measurementKey: "returnCount" }),
+  ], null),
+
+  "fq.hvac_repair.air_duct.dryer_vent": T("maintenance", {
+    it: ["Pulizia condotto dell'asciugatrice", "Condotto dell'asciugatrice spazzolato e aspirato dalla macchina alla griglia esterna."],
+    de: ["Trocknerabluft reinigen", "Trocknerkanal vom Gerät bis zur Außenhaube gebürstet und gesaugt."],
+    uk: ["Чищення вентканалу сушарки", "Канал сушарки прочищено щіткою й пропилососено від машини до зовнішнього ковпака."],
+    tl: ["Paglilinis ng dryer vent", "Binrush at binakyum ang dryer duct mula makina hanggang panlabas na hood."],
+  }, [
+    L.labour(1, "each", 129, {
+      en: ["Dryer vent cleaning — per dryer", "Duct brushed end to end, lint removed and the hood damper checked."],
+      fr: ["Nettoyage du conduit de sécheuse — la sécheuse", "Conduit brossé d'un bout à l'autre, charpie retirée et clapet du capuchon vérifié."],
+      es: ["Limpieza del ducto de secadora — por secadora", "Ducto cepillado de extremo a extremo, pelusa retirada y compuerta de la campana revisada."],
+      it: ["Pulizia condotto asciugatrice — per asciugatrice", "Condotto spazzolato da un capo all'altro, lanugine rimossa e serranda della griglia controllata."],
+      de: ["Trocknerabluft — pro Trockner", "Kanal durchgehend gebürstet, Flusen entfernt und Klappe der Haube geprüft."],
+      uk: ["Вентканал сушарки — за сушарку", "Канал прочищено від кінця до кінця, ворс вибрано, заслінку ковпака перевірено."],
+      tl: ["Paglilinis ng dryer vent — kada dryer", "Binrush mula dulo hanggang dulo, inalis ang lint at chineck ang damper ng hood."],
+    }, { measurementKey: "each" }),
+  ], null),
+
+  "fq.hvac_repair.air_duct.sanitization": T("maintenance", {
+    it: ["Sanificazione dei condotti", "Sanificante registrato nebulizzato nei condotti puliti per ridurre batteri e odori."],
+    de: ["Kanaldesinfektion", "Zugelassenes Desinfektionsmittel in die gereinigten Kanäle vernebelt, gegen Bakterien und Gerüche."],
+    uk: ["Дезінфекція повітроводів", "Зареєстрований дезінфектант розпилено в очищені повітроводи проти бактерій і запахів."],
+    tl: ["Sanitization ng duct", "Ini-fog ang rehistradong sanitizer sa malinis na duct para bawasan ang bacteria at amoy."],
+  }, [
+    L.labour(1, "flat", 95, {
+      en: ["Duct fogging", "Sanitizer fogged through supply and return with the blower running."],
+      fr: ["Nébulisation des conduits", "Assainissant nébulisé dans l'alimentation et le retour, ventilateur en marche."],
+      es: ["Nebulización de ductos", "Sanitizante nebulizado en suministro y retorno con el ventilador encendido."],
+      it: ["Nebulizzazione dei condotti", "Sanificante nebulizzato in mandata e ripresa con il ventilatore acceso."],
+      de: ["Kanalvernebelung", "Desinfektionsmittel bei laufendem Gebläse durch Zu- und Rückluft vernebelt."],
+      uk: ["Розпилення в повітроводах", "Дезінфектант розпилено в приплив і повернення при увімкненому вентиляторі."],
+      tl: ["Pag-fog ng duct", "Ini-fog ang sanitizer sa supply at return habang tumatakbo ang blower."],
+    }),
+    L.material(1, "flat", 35, {
+      en: ["EPA-registered sanitizer", "Duct-rated sanitizer, one system."],
+      fr: ["Assainissant homologué", "Assainissant pour conduits, un système."],
+      es: ["Sanitizante registrado", "Sanitizante apto para ductos, un sistema."],
+      it: ["Sanificante registrato", "Sanificante per condotti, un impianto."],
+      de: ["Zugelassenes Desinfektionsmittel", "Für Kanäle zugelassenes Mittel, ein System."],
+      uk: ["Зареєстрований дезінфектант", "Дезінфектант для повітроводів, одна система."],
+      tl: ["EPA-registered na sanitizer", "Sanitizer para sa duct, isang sistema."],
+    }),
+  ], null),
+
+  "fq.hvac_repair.air_duct.duct_inspection": T("inspection", {
+    it: ["Ispezione dei condotti", "Condotti esaminati con telecamera in più punti per mostrarne lo stato prima di quotare la pulizia."],
+    de: ["Kanalinspektion", "Kanäle an mehreren Stellen per Kamera geprüft, um den Zustand vor dem Angebot zu zeigen."],
+    uk: ["Огляд повітроводів", "Повітроводи оглянуто камерою в кількох точках, щоб показати стан перед оцінкою чищення."],
+    tl: ["Inspeksyon ng duct", "Tiningnan ng camera ang duct sa ilang lugar para ipakita ang dumi bago i-quote."],
+  }, [
+    L.labour(1, "flat", 89, {
+      en: ["Camera duct inspection", "Camera run into the trunk and branches, photos shared with the client."],
+      fr: ["Inspection des conduits par caméra", "Caméra passée dans le conduit principal et les branches, photos remises au client."],
+      es: ["Inspección de ductos con cámara", "Cámara pasada por troncal y ramales, fotos compartidas con el cliente."],
+      it: ["Ispezione con telecamera", "Telecamera nel condotto principale e nelle diramazioni, foto condivise con il cliente."],
+      de: ["Kamerainspektion der Kanäle", "Kamera in Haupt- und Abzweigkanäle geführt, Fotos an den Kunden."],
+      uk: ["Огляд повітроводів камерою", "Камеру проведено магістраллю й відгалуженнями, фото передано клієнту."],
+      tl: ["Camera inspection ng duct", "Pinadaan ang camera sa trunk at branch at ibinahagi ang litrato sa kliyente."],
+    }),
+  ], null),
+
+  "fq.hvac_repair.air_duct.airflow_inspection": T("inspection", {
+    it: ["Ispezione del flusso d'aria", "Portata misurata a ogni bocchetta e stanze deboli ricondotte a pieghe, perdite o serrande chiuse."],
+    de: ["Luftstromprüfung", "Luftmenge an jedem Auslass gemessen, schwache Räume auf Knicke, Lecks oder geschlossene Klappen zurückgeführt."],
+    uk: ["Перевірка потоку повітря", "Потік виміряно на кожній решітці, слабкі кімнати пов'язано з перегинами, витоками чи закритими заслінками."],
+    tl: ["Inspeksyon ng airflow", "Sinukat ang hangin sa bawat vent at hinanap ang dahilan ng mahinang kuwarto."],
+  }, [
+    L.labour(1, "flat", 125, {
+      en: ["Airflow measurement", "CFM read at each vent with a flow hood and the weak runs traced."],
+      fr: ["Mesure du débit", "Débit lu à chaque bouche avec une hotte de mesure et conduits faibles retracés."],
+      es: ["Medición de flujo", "CFM medido en cada rejilla con campana de flujo y tramos débiles rastreados."],
+      it: ["Misura della portata", "CFM letti a ogni bocchetta con cappa di misura e tratti deboli tracciati."],
+      de: ["Luftmengenmessung", "CFM an jedem Auslass mit Messhaube gemessen und schwache Strecken verfolgt."],
+      uk: ["Вимірювання потоку", "CFM зчитано на кожній решітці вимірювальним ковпаком, слабкі ділянки простежено."],
+      tl: ["Pagsukat ng airflow", "Binasa ang CFM sa bawat vent gamit ang flow hood at sinundan ang mahinang linya."],
+    }),
+    SHARED.report(35),
+  ], null),
+
+  "fq.hvac_repair.air_duct.booked_repair": T("repair", {
+    it: ["Riparazione condotti — visita prenotata", "Visita prenotata per ricollegare, risigillare o sostituire tratti e bocchette danneggiati."],
+    de: ["Kanalreparatur — gebuchter Termin", "Gebuchter Termin, um beschädigte Kanäle und Auslässe neu zu verbinden, abzudichten oder zu ersetzen."],
+    uk: ["Ремонт повітроводів — запланований візит", "Запланований візит, щоб з'єднати, загерметизувати чи замінити пошкоджені ділянки й решітки."],
+    tl: ["Pag-ayos ng duct — naka-book", "Naka-book na visit para ikonekta, selyuhan o palitan ang sirang duct at vent."],
+  }, [
+    SHARED.serviceCall(89),
+    SHARED.techHour(1.5, 120),
+    hdMaterial(HD.flex_duct_6, {
+      en: ["Insulated flex duct — per roll", "6 in R6 insulated flex duct, 25 ft roll."],
+      fr: ["Conduit flexible isolé — le rouleau", "Conduit flexible isolé R6 de 6 po, rouleau de 25 pi."],
+      es: ["Ducto flexible aislado — por rollo", "Ducto flexible aislado R6 de 6 pulg, rollo de 25 pies."],
+      it: ["Condotto flessibile isolato — per rotolo", "Condotto flessibile isolato R6 da 6 pollici, rotolo da 25 piedi."],
+      de: ["Isolierter Flexkanal — pro Rolle", "6-Zoll-Flexkanal R6, 25-Fuß-Rolle."],
+      uk: ["Утеплений гнучкий повітровід — за рулон", "Гнучкий повітровід 6 дюймів R6, рулон 25 футів."],
+      tl: ["Insulated flex duct — kada rolyo", "6 in R6 insulated flex duct, 25 ft na rolyo."],
+    }, { measurementKey: "linearFt" }),
+  ], null),
 };
 
 withTemplates(SEED, TEMPLATES);
