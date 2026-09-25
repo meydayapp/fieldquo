@@ -148,6 +148,7 @@ import { offlineDiscountLine } from "@/lib/payments/offlineDiscount";
 import { quoteStatusLabel, quoteStatusClasses } from "@/lib/quotes/statusLabels";
 import { formatAddress } from "@/lib/format/address";
 import { planRequiredFrom } from "@/lib/signup/planRequired";
+import QuotePlanOffers from "@/app/components/quotes/QuotePlanOffers";
 import {
   COMPLEXITY_LEVELS,
   COMPLEXITY_REASONS,
@@ -2018,6 +2019,11 @@ export default function QuoteDetailPage() {
             </div>
           </Block>
         )}
+
+        {/* Maintenance plans on this quote, and — once approved — the running
+            service plan each one became. Hides itself for a member who can't
+            see prices. */}
+        <QuotePlanOffers quoteId={quote.id} />
 
         {quote.processNotes && (
           <Block title={t("app.quoteEdit.whatHappensNext")}>

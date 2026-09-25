@@ -2273,6 +2273,8 @@ model Company {
 
   /// Recurring work sold as a package — see the ServicePlan model.
   servicePlans ServicePlan[]
+  /// The company's reusable maintenance-plan offers — see ServicePlanTemplate.
+  servicePlanTemplates ServicePlanTemplate[]
 
   /// Issues and requests a client raised from the portal — see ClientTicket.
   clientTickets ClientTicket[]
@@ -3016,6 +3018,10 @@ model Quote {
 
   // ── Optional extras the client can add at approval time ────────────────
   addOns QuoteAddOn[]
+
+  // A maintenance plan attached to this quote — included in the deal, or
+  // offered for the client to tick. See QuotePlanOffer.
+  planOffers QuotePlanOffer[]
 
   // What this quote was estimated to cost when it was priced. A separate row,
   // never a column — see model QuoteCosting for why that is structural here.
@@ -11364,6 +11370,158 @@ model ServicePlanAuthorisation {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+/// A maintenance plan a company sells again and again — "Quarterly Deep Clean,
+/// 4 visits a year, 10% off every visit" — kept once and attached to quotes.
+///
+/// ── A template is an OFFER, never a plan ────────────────────────────────────
+///
+/// Nothing here bills anybody. A ServicePlan is still created for exactly one
+/// client, from a quote they approved (lib/servicePlans/fromQuote.js) or by
+/// hand at /app/plans/new, and its money terms are frozen on THAT row. Editing
+/// a template next spring changes what the next quote offers; it cannot reach
+/// a sent quote (QuotePlanOffer freezes its own copy) or a running plan.
+///
+/// ── Priced per visit, because that is what the engine bills ──────────────────
+///
+/// Housecall Pro sells these as "$50/month or $599/year". FieldQuo's plan engine
+/// (lib/servicePlans/run.js) raises one invoice per VISIT at a per-visit price
+/// less the plan discount; there is no flat monthly fee decoupled from visits,
+/// and inventing one here would be a price the product cannot collect. So the
+/// template stores the per-visit price and the discount, and the monthly and
+/// yearly figures are DERIVED for display (lib/servicePlans/templates.js
+/// offerPricing) — the same arithmetic the invoices use, never a second number
+/// that could disagree with them.
+model ServicePlanTemplate {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// "fq.plan.<trade>.<slug>" for a row installed from app/data/planTemplateSeeds,
+  /// null for one the company wrote. Unique per company, which is what makes the
+  /// trade seed idempotent: a row the company renamed or repriced is never
+  /// touched and never duplicated.
+  seedKey String?
+
+  /// { en: "Quarterly Deep Clean", fr: "…", … } — the plan's name in every
+  /// document language the company (or the seed) wrote it in. A quote freezes
+  /// the entry for ITS language (or the company's own, when that one is absent)
+  /// onto QuotePlanOffer.name — never a machine translation (non-negotiable #6).
+  name Json
+  /// Same shape: what the plan includes, one benefit per line.
+  description Json?
+
+  /// The trade this plan belongs to — provenance and grouping only, a plain id
+  /// like ServicePlan.categoryId.
+  categoryId String?
+  /// The company's own services (Product ids) each visit covers. Resolved to
+  /// NAMES when the plan is put on a quote, and frozen there.
+  includedProductIds String[] @default([])
+
+  /// weekly · monthly · quarterly · semiannual · annual — PLAN_FREQUENCIES in
+  /// lib/servicePlans/schedule.js, the same closed set a plan uses.
+  frequency  String
+  /// How many visits the plan sells; null = runs until cancelled.
+  visitCount Int?
+
+  /// One visit, before the plan discount and before tax, in the company's
+  /// currency. Null = not priced yet: a seeded template whose price could not
+  /// be converted into this company's currency, which the settings screen says
+  /// and which cannot be put on a quote until somebody sets it. Never a
+  /// placeholder figure.
+  pricePerVisit Decimal? @db.Decimal(12, 2)
+  /// The recurring discount — "15% off every visit". Applied per visit exactly
+  /// like ServicePlan.discountPct (lib/servicePlans/pricing.js).
+  discountPct   Decimal  @default(0) @db.Decimal(6, 3)
+
+  /// Retired templates stay on the settings screen and stop being offered.
+  /// Never deleted: sent quotes and running plans point back here.
+  active    Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  offers QuotePlanOffer[]
+
+  @@unique([companyId, seedKey])
+  @@index([companyId, active])
+}
+
+/// A maintenance plan on ONE quote, with its terms frozen as the client read them.
+///
+/// ── Two modes ───────────────────────────────────────────────────────────────
+///
+///   included  staff put it on the quote as part of the deal. Approving the
+///             quote approves the plan; the page says so above the signature.
+///   optional  offered beside the extras. The client ticks it on /q/[token]
+///             and posts only this row's id — the server prices it from these
+///             columns (non-negotiable #5), never from anything the page sent.
+///
+/// ── Frozen, like a QuoteAddOn's amount ─────────────────────────────────────
+///
+/// name, description, services, cadence, length, price, discount and tax are
+/// COPIED from the template when the plan is attached, in the quote's language.
+/// A sent quote keeps offering what it offered (non-negotiable #6) however the
+/// template changes, and the ServicePlan created on approval is built from
+/// these columns — so the plan a client is billed on is the plan they read.
+///
+/// ── The plan on approval ───────────────────────────────────────────────────
+///
+/// servicePlanId is the ServicePlan created from this offer when the quote was
+/// accepted (lib/servicePlans/fromQuote.js). Unique, and claimed with a
+/// conditional update inside the same transaction as the create, so a doubled
+/// approval, a retried webhook and the back-office door together still make
+/// ONE plan. A plain id rather than a relation: the plan outranks the offer
+/// and nothing here may cascade into it.
+model QuotePlanOffer {
+  id        String @id @default(cuid())
+  quoteId   String
+  quote     Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  companyId String
+
+  templateId String?
+  template   ServicePlanTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  /// included · optional
+  mode String
+
+  /// The language the words below were frozen in — the quote's resolved one.
+  language    String
+  name        String
+  /// One benefit per line.
+  description String?
+  /// The included services, as text — becomes ServicePlan.serviceName.
+  serviceName String
+  categoryId  String?
+
+  frequency  String
+  visitCount Int?
+  /// The first visit, when staff stated one. Null = one cadence step after the
+  /// client approves (a quarterly plan's first visit three months on), which
+  /// is what the page tells the client.
+  startDate  DateTime?
+
+  pricePerVisit Decimal  @db.Decimal(12, 2)
+  discountPct   Decimal  @default(0) @db.Decimal(6, 3)
+  /// Tax on each visit's invoice. Null = no tax on this plan, stated — the same
+  /// meaning as ServicePlan.taxRatePct, never a gap to fill.
+  taxRatePct    Decimal? @db.Decimal(6, 3)
+
+  sortOrder Int @default(0)
+
+  /// An optional plan the client ticked (always false for `included`, which
+  /// needs no tick). Written only by the public approval route.
+  selected   Boolean   @default(false)
+  selectedAt DateTime?
+
+  servicePlanId String? @unique
+
+  createdAt DateTime @default(now())
+
+  @@index([quoteId])
+  @@index([companyId])
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

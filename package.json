@@ -285,6 +285,8 @@
     "check:document-lists": "node --import ./scripts/alias-loader.mjs scripts/check-document-lists.mjs",
     "check:appointment-status": "node --import ./scripts/alias-loader.mjs scripts/check-appointment-status.mjs",
     "check:service-plans": "node --import ./scripts/alias-loader.mjs scripts/check-service-plans.mjs",
+    "check:plan-templates": "node --import ./scripts/alias-loader.mjs scripts/check-plan-templates.mjs",
+    "check:plan-offer-routes": "node --import ./scripts/alias-loader.mjs --import ./scripts/route-stub-loader.mjs scripts/check-plan-offer-routes.mjs",
     "check:client-portal": "node --import ./scripts/alias-loader.mjs scripts/check-client-portal.mjs",
     "check:client-tickets": "node --import ./scripts/alias-loader.mjs scripts/check-client-tickets.mjs",
     "check:new-seed-notice": "node --import ./scripts/alias-loader.mjs scripts/check-new-seed-notice.mjs",

@@ -61,6 +61,7 @@ import { parsePaymentSchedule } from "@/lib/documents/paymentSchedule";
 import { measureEvidence } from "@/lib/measure/measureImages";
 import { traceOutline } from "@/lib/documentSections/traceOutline";
 import { localisedCompany } from "@/lib/i18n/companyText";
+import { offerPricing, offersTaken, planStartDate } from "@/lib/servicePlans/templates";
 
 const num = (v) => Number(v ?? 0);
 
@@ -127,6 +128,10 @@ async function loadQuote(token) {
         include: { category: { select: { key: true, label: true } } },
       },
       addOns: { orderBy: { sortOrder: "asc" } },
+      // Maintenance plans on the quote, with their frozen terms. Projected
+      // field by field in present() — the template id, the company id and
+      // the plan an approval created never leave this file.
+      planOffers: { orderBy: { sortOrder: "asc" } },
     },
   });
 
@@ -235,6 +240,47 @@ function financingBlock(quote) {
   });
   if (!offer) return null;
   return { ...offer, terms: financingTerms(raw) };
+}
+
+/**
+ * One plan offer as a stranger holding the link may see it. Named fields only:
+ * no template id, no company id, no ServicePlan id.
+ */
+function publicPlanOffer(o, quote) {
+  const terms = {
+    pricePerVisit: num(o.pricePerVisit),
+    discountPct: num(o.discountPct),
+    taxRatePct: o.taxRatePct === null ? null : num(o.taxRatePct),
+    frequency: o.frequency,
+    visitCount: o.visitCount,
+  };
+  const p = offerPricing(terms);
+  return {
+    id: o.id,
+    mode: o.mode,
+    name: o.name,
+    description: o.description || "",
+    serviceName: o.serviceName,
+    frequency: o.frequency,
+    visitCount: o.visitCount ?? null,
+    // Once approved, the first visit is a DATE — the one the plan was created
+    // with (planStartDate, the same rule lib/servicePlans/fromQuote.js used) —
+    // rather than "one month after you approve", which is a promise about a
+    // moment that has now happened.
+    startDate:
+      quote?.status === "accepted" && quote.acceptedAt && (o.mode === "included" || o.selected)
+        ? planStartDate(o, new Date(quote.acceptedAt))
+        : o.startDate || null,
+    discountPct: terms.discountPct,
+    taxRatePct: terms.taxRatePct,
+    perVisitGross: p.perVisit.gross,
+    perVisitSaving: p.perVisit.discount,
+    perVisit: p.perVisit.subtotal,
+    monthly: p.monthly,
+    yearly: p.yearly,
+    termTotal: p.term ? p.term.subtotal : null,
+    selected: o.mode === "optional" ? o.selected === true : false,
+  };
 }
 
 function present(quote) {
@@ -350,6 +396,14 @@ function present(quote) {
       // the estimator wrote, never a rate — see QuoteAddOn.areaLabel.
       areaLabel: a.areaLabel ?? null,
     })),
+    // Maintenance plans offered on this quote — included in the deal, or for
+    // the client to tick. The figures are THIS quote's frozen terms run
+    // through the plan engine's own arithmetic (offerPricing →
+    // occurrenceAmounts), so "$148.50 a visit" here is what each visit's
+    // invoice will say. Display only: the approval posts ids, never a figure,
+    // and a plan never changes the one-time total above (it is billed per
+    // visit, which the page says).
+    planOffers: (quote.planOffers || []).map((o) => publicPlanOffer(o, quote)),
     client: { name: quote.client?.name || "" },
     // Where the work is — the quote's own job address, or nothing. A
     // homeowner's own address is not repeated here; the PDF's "Prepared for"
@@ -640,6 +694,14 @@ export async function POST(request, { params }) {
 
   const accepted = decision === "accepted";
 
+  // Maintenance plans: every `included` one, plus the `optional` ones the
+  // client ticked — ids only, intersected with THIS quote's own offers
+  // (offersTaken), so an id from another quote or an invented one takes
+  // nothing. No figure is read from the body: the plan's price, discount and
+  // tax are the columns frozen on the offer. They do not touch `priced`
+  // above — a plan is billed per visit, never added to the one-time total.
+  const plansTaken = accepted ? offersTaken(quote.planOffers, body?.planOfferIds) : [];
+
   // The signature IS the approval. On acceptance, require it and capture a
   // tamper-evident audit record: the client supplies their name, drawn mark and
   // consent; the server adds IP, device, timestamp and a hash of the exact
@@ -663,6 +725,18 @@ export async function POST(request, { params }) {
         id: a.id,
         price: a.price,
         selected: selectedIds.includes(a.id),
+      })),
+      // The plans signed for, with the terms they were signed on — so the
+      // document hash covers the recurring commitment as well as the total.
+      planOffers: plansTaken.map((o) => ({
+        id: o.id,
+        mode: o.mode,
+        name: o.name,
+        frequency: o.frequency,
+        visitCount: o.visitCount ?? null,
+        pricePerVisit: num(o.pricePerVisit),
+        discountPct: num(o.discountPct),
+        taxRatePct: o.taxRatePct === null ? null : num(o.taxRatePct),
       })),
     };
     signatureRecord = buildSignatureRecord({
@@ -719,6 +793,17 @@ export async function POST(request, { params }) {
     });
   }
 
+  // The optional plans they ticked, recorded BEFORE onQuoteAccepted below —
+  // that is what turns each taken plan into the client's ServicePlan
+  // (lib/servicePlans/fromQuote.js), and it reads this flag.
+  const optionalTaken = plansTaken.filter((o) => o.mode === "optional").map((o) => o.id);
+  if (accepted && optionalTaken.length) {
+    await db.quotePlanOffer.updateMany({
+      where: { id: { in: optionalTaken }, quoteId: quote.id },
+      data: { selected: true, selectedAt: new Date() },
+    });
+  }
+
   // Tell the people who need to act on it, and — on acceptance — send the
   // signed quote PDF to the client too, so both sides keep the same document.
   // Best-effort: a mail failure must not make the client think their approval
@@ -727,7 +812,7 @@ export async function POST(request, { params }) {
   // document that was emailed, without rendering it a second time.
   let signedPdf = null;
   try {
-    signedPdf = await dispatchDecisionEmails(updated, quote, decision, priced, signatureRecord);
+    signedPdf = await dispatchDecisionEmails(updated, quote, decision, priced, signatureRecord, plansTaken);
   } catch (err) {
     console.error("[public quote] notification failed:", err);
   }
@@ -831,7 +916,7 @@ export async function POST(request, { params }) {
 // The PDF engine (@react-pdf/renderer) is imported lazily here, never at module
 // top: the far commoner path through this file is a stranger's GET, which has
 // no business loading a rendering engine to format a percentage.
-async function dispatchDecisionEmails(updated, quote, decision, priced, signatureRecord) {
+async function dispatchDecisionEmails(updated, quote, decision, priced, signatureRecord, plansTaken = []) {
   const { sendEmail, SENDER_SELECT } = await import("@/lib/email/resend");
   const { resolveSender } = await import("@/lib/email/companySender");
 
@@ -928,6 +1013,17 @@ async function dispatchDecisionEmails(updated, quote, decision, priced, signatur
         ? `<p><strong>Approved total: ${fmt(priced.total)}</strong></p>`
         : "";
 
+    // The maintenance plans that came with it — the recurring half of the
+    // win, which the one-time total above does not include.
+    const plansBlock = accepted && plansTaken.length
+      ? `<p style="margin-top:16px"><strong>Maintenance plan${plansTaken.length === 1 ? "" : "s"} they signed up for (billed per visit, not in the total):</strong></p>
+         <ul style="padding-left:18px">
+           ${plansTaken
+             .map((o) => `<li>${escapeHtml(o.name)} — ${fmt(Number(o.pricePerVisit))} per visit${Number(o.discountPct) > 0 ? `, ${Number(o.discountPct)}% off every visit` : ""}</li>`)
+             .join("")}
+         </ul>`
+      : "";
+
     await sendEmail({
       // updated.companyId, not a value carried in from the request: this route
       // is reached by a stranger holding a share token, and the tenant is
@@ -941,6 +1037,7 @@ async function dispatchDecisionEmails(updated, quote, decision, priced, signatur
         <p><strong>${escapeHtml(quote.client?.name || "A client")}</strong> ${verb} quote
         <strong>${updated.quoteNumber}</strong>.</p>
         ${extrasBlock}
+        ${plansBlock}
         <p><a href="${base}/app/quotes/${updated.id}">Open the quote →</a></p>
       </div>`,
     });

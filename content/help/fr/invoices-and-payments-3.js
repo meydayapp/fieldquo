@@ -260,7 +260,7 @@ export const ARTICLES = {
     title: "Forfaits de service (facturation récurrente)",
     summary:
       "Vendez un service récurrent — printemps et automne, chaque mois, chaque trimestre — et laissez chaque visite produire sa propre facture, ou prélevez automatiquement la carte ou le compte bancaire enregistré du client.",
-    updated: "2026-09-12",
+    updated: "2026-09-24",
     intro: [
       "Un forfait de service est une instruction permanente de facturer le même montant à un client, à la fréquence de votre choix : nettoyage de gouttières deux fois par an, visite de pelouse mensuelle, entretien trimestriel. Chaque échéance produit une vraie facture à votre nom. L'encaissement se fait soit par une facture avec lien de paiement, qui fonctionne pour tous les clients, soit par un prélèvement automatique sur une carte ou un compte bancaire canadien que le client a autorisé par écrit.",
       "Les conditions financières — montant, rabais, fréquence, durée — sont figées à l'enregistrement du forfait, parce que le client autorise ces chiffres exacts. Pour changer l'entente, annulez le forfait et vendez-en un nouveau.",
@@ -322,6 +322,20 @@ export const ARTICLES = {
         heading: "Le prélèvement automatique, en bref",
         blocks: [
           { p: "Choisir **Prélever automatiquement** ne prélève encore rien. Après l'enregistrement, appuyez sur **Demander au client d’autoriser les paiements** : le client reçoit un lien, lit le montant exact, la fréquence et les conditions d'annulation, coche une case et enregistre une carte ou un compte bancaire sur une page Stripe. À partir de là, la page du forfait indique **Prélèvement automatique sur Visa ···· 4242. Le client l’a autorisé le 12 sept. 2026.** Une carte refusée ou un moyen retiré retombe sur la facture avec lien de paiement, et la page dit lequel. Le parcours complet, le libellé et le mandat de prélèvement bancaire canadien : [[service-plan-bank-debit-mandates|Forfaits payés par prélèvement bancaire]]." },
+        ],
+      },
+      {
+        id: "maintenance-plans-on-quotes",
+        heading: "Les forfaits d'entretien sur une soumission",
+        blocks: [
+          { p: "**Paramètres → Forfaits d'entretien** conserve les forfaits que vous vendez encore et encore — « Grand ménage trimestriel, 4 visites, 10 % de rabais sur chaque visite ». Chacun a un nom et une liste de ce qui est inclus dans chaque langue de document, une fréquence, un nombre de visites (ou jusqu'à annulation), un **Prix par visite, avant rabais** et un **Rabais sur chaque visite %**. L'écran montre ce que chacun représente par mois et par année ; ces montants sont la somme des visites, pas des frais distincts. Les entreprises de ménage, de tapis, de vitres, de CVC, de plomberie, de pelouse, d'extermination, de piscines, de gouttières, de cheminées, d'irrigation, de portes de garage, d'entretien commercial, d'entretien de propriétés et de lavage de maisons reçoivent des forfaits de départ avec leur métier ; une entreprise qui facture dans une autre devise que l'USD ou le CAD les reçoit sans prix, et un forfait sans prix ne peut pas être ajouté à une soumission." },
+          { steps: [
+            "Ouvrez une soumission enregistrée dans le générateur, ou sa page, et appuyez sur **Ajouter un forfait d'entretien**.",
+            "Choisissez le forfait et la façon de l'offrir : **Inclus** (approuver la soumission le démarre) ou **Facultatif** (le client peut le cocher sur sa soumission, à côté des options).",
+            "Au besoin, fixez la **Première visite** — vide veut dire un intervalle après l'approbation du client — et la **Taxe sur chaque visite %**, remplie avec le taux de la soumission.",
+            "Appuyez sur **Ajouter à la soumission**. Les conditions sont copiées sur la soumission dans sa langue ; modifier le forfait plus tard dans les Paramètres ne change jamais une soumission déjà envoyée.",
+          ] },
+          { note: "Le forfait n'est pas ajouté au total de la soumission — la page du client le dit. Quand le client approuve (ou que vous consignez l'approbation), chaque forfait inclus et chaque forfait facultatif coché devient le forfait de service de ce client ici, facturé à chaque visite avec le rabais appliqué et indiqué sur chaque facture. Le client ne coche que des identifiants ; le prix vient toujours du forfait copié sur la soumission." },
         ],
       },
       {
