@@ -344,7 +344,10 @@ section("H — the screens read what seeding writes");
   ok(card.includes("benchmarkIn(") && card.includes("tradeBenchmarkSummary("), "Settings > Services card reads the range and the trade summary");
   ok(card.includes("app.serviceSeeds.rangeNote"), "the card carries the 'set your own rate' wording key");
   ok(card.includes("/api/settings/products/seed-services"), "the card's 'Add missing services' posts to the seed route");
-  const editor = read("app/app/settings/products/ProductCatalogue.js");
+  // The price editor is the catalogue's Add / Edit Item form, which lives
+  // beside it since 2026-09-24 (ProductFormModal.js — shared with the
+  // "Confirm what you quote" screen); both files are the editor.
+  const editor = read("app/app/settings/products/ProductCatalogue.js") + read("app/app/settings/products/ProductFormModal.js");
   ok(editor.includes("BenchmarkRange") && editor.includes("seedKey"), "the price editor shows the range for a seeded product");
   const shared = read("app/components/pricing/BenchmarkRange.js");
   ok(shared.includes("app.serviceSeeds.useTypical"), "one shared range component carries the 'Use typical' button");
