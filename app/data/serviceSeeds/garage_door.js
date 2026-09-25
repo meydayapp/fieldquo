@@ -600,3 +600,76 @@ const TEMPLATES = {
 
 withLanguages(SEED, I18N);
 withTemplates(SEED, TEMPLATES);
+
+// ── Added 2026-09-25: the last three rows without a template ───────────────
+//
+// The booked spring visit and the two opener rows. Figures are the capture's
+// (service call $79, torsion pair $225, opener diagnostic $95) and the
+// benchmark medians on the opener rows ($125 service call, $99 adjustment);
+// a matched pair of oil-tempered springs is $90–120 at the door distributor,
+// costed like the other spring lines above. A second withTemplates pass, so
+// the templates above stay byte-for-byte what they were. The service names in
+// the other languages are read from ./i18n, which already carries every row —
+// writing them a second time here would be the copy that rots.
+const namesOf = (key) => {
+  const s = I18N.services[key];
+  return { it: s.it, de: s.de, uk: s.uk, tl: s.tl };
+};
+const ADDED = {
+  "fq.garage_door.repair.spring_visit": T("repair", namesOf("fq.garage_door.repair.spring_visit"), [
+    CALL(),
+    L.labour(1, "flat", 225, {
+      en: ["Torsion spring pair replacement — booked visit", "Door clamped, tension let off, both springs swapped as a pair, wound to the door's weight and the balance tested."],
+      fr: ["Remplacement de la paire de ressorts de torsion — visite réservée", "Porte bloquée, tension relâchée, les deux ressorts changés en paire, remontés selon le poids de la porte et équilibre vérifié."],
+      es: ["Cambio del par de resortes de torsión — visita agendada", "Puerta asegurada, tensión liberada, ambos resortes cambiados en par, tensados según el peso de la puerta y el balance probado."],
+      it: ["Sostituzione coppia molle di torsione — visita prenotata", "Porta bloccata, tensione scaricata, entrambe le molle cambiate in coppia, caricate sul peso della porta e bilanciamento provato."],
+      de: ["Torsionsfederpaar tauschen — gebuchter Termin", "Tor gesichert, Spannung abgelassen, beide Federn paarweise getauscht, auf das Torgewicht gespannt und die Balance geprüft."],
+      uk: ["Заміна пари торсіонних пружин — запланований візит", "Ворота зафіксовано, натяг знято, обидві пружини замінено парою, закручено під вагу воріт і перевірено баланс."],
+      tl: ["Palit ng pares ng torsion spring — naka-book na visit", "Kinlamp ang pinto, binitawan ang tension, pinalitan nang pares ang spring, pinaikot ayon sa bigat ng pinto at sinubukan ang balanse."],
+    }),
+    L.material(1, "each", 130, {
+      en: ["Oil-tempered torsion springs — matched pair", "Two springs sized to the door's weight and height, with new winding cones where needed."],
+      fr: ["Ressorts de torsion trempés à l'huile — paire assortie", "Deux ressorts dimensionnés selon le poids et la hauteur de la porte, avec cônes neufs au besoin."],
+      es: ["Resortes de torsión templados en aceite — par a juego", "Dos resortes calculados para el peso y la altura de la puerta, con conos nuevos donde haga falta."],
+      it: ["Molle di torsione temprate in olio — coppia abbinata", "Due molle dimensionate su peso e altezza della porta, con coni di carica nuovi dove serve."],
+      de: ["Ölgehärtete Torsionsfedern — passendes Paar", "Zwei Federn passend zu Gewicht und Höhe des Tors, bei Bedarf mit neuen Spannkonen."],
+      uk: ["Загартовані в олії торсіонні пружини — пара", "Дві пружини під вагу й висоту воріт, за потреби з новими конусами."],
+      tl: ["Oil-tempered na torsion spring — pares", "Dalawang spring na sukat sa bigat at taas ng pinto, may bagong winding cone kung kailangan."],
+    }, { cost: 100 }),
+  ], null),
+
+  "fq.garage_door.opener.repair_service_call": T("repair", namesOf("fq.garage_door.opener.repair_service_call"), [
+    L.labour(1, "flat", 95, {
+      en: ["Opener diagnosis on site", "Power, logic board, gear, sensors and remotes checked until the fault is found, then explained before any part is fitted."],
+      fr: ["Diagnostic de l'ouvre-porte sur place", "Alimentation, carte logique, engrenage, capteurs et télécommandes vérifiés jusqu'à trouver la panne, expliquée avant de poser une pièce."],
+      es: ["Diagnóstico del abridor en sitio", "Corriente, tarjeta, engrane, sensores y controles revisados hasta encontrar la falla, que se explica antes de poner cualquier pieza."],
+      it: ["Diagnosi della motorizzazione sul posto", "Alimentazione, scheda, ingranaggio, fotocellule e telecomandi controllati fino a trovare il guasto, spiegato prima di montare qualsiasi pezzo."],
+      de: ["Antriebsdiagnose vor Ort", "Strom, Steuerplatine, Zahnrad, Lichtschranke und Sender geprüft, bis der Fehler gefunden ist, und erklärt, bevor ein Teil eingebaut wird."],
+      uk: ["Діагностика приводу на місці", "Живлення, плату, шестерню, датчики й пульти перевірено до виявлення несправності, яку пояснено до встановлення будь-якої деталі."],
+      tl: ["Diagnosis ng opener sa bahay", "Chineck ang kuryente, logic board, gear, sensor at remote hanggang makita ang sira, at ipinaliwanag bago magkabit ng piyesa."],
+    }),
+    L.material(1, "flat", 30, {
+      en: ["Small opener parts", "A sensor bracket, remote battery, wire connectors or travel-module screws used on the visit."],
+      fr: ["Petites pièces d'ouvre-porte", "Support de capteur, pile de télécommande, connecteurs ou vis de module de course utilisés pendant la visite."],
+      es: ["Piezas menores del abridor", "Soporte de sensor, pila del control, conectores o tornillos del módulo de recorrido usados en la visita."],
+      it: ["Piccoli ricambi della motorizzazione", "Staffa della fotocellula, batteria del telecomando, morsetti o viti del modulo di corsa usati durante la visita."],
+      de: ["Kleinteile für den Antrieb", "Lichtschrankenhalter, Senderbatterie, Klemmen oder Schrauben des Endlagenmoduls, beim Termin verbraucht."],
+      uk: ["Дрібні деталі приводу", "Кронштейн датчика, батарейка пульта, клеми чи гвинти модуля ходу, використані під час візиту."],
+      tl: ["Maliit na piyesa ng opener", "Sensor bracket, baterya ng remote, wire connector o turnilyo ng travel module na nagamit sa visit."],
+    }),
+  ], null),
+
+  "fq.garage_door.opener.repair_adjustment": T("repair", namesOf("fq.garage_door.opener.repair_adjustment"), [
+    L.labour(1, "flat", 85, {
+      en: ["Opener limit and force adjustment", "Up and down travel limits reset, closing force set, sensors realigned and the auto-reverse tested against an obstruction."],
+      fr: ["Réglage des limites et de la force de l'ouvre-porte", "Limites de course haut et bas refaites, force de fermeture réglée, capteurs réalignés et inversion automatique testée contre un obstacle."],
+      es: ["Ajuste de límites y fuerza del abridor", "Límites de subida y bajada reajustados, fuerza de cierre calibrada, sensores realineados y la reversa automática probada contra un obstáculo."],
+      it: ["Regolazione finecorsa e forza della motorizzazione", "Finecorsa di apertura e chiusura reimpostati, forza di chiusura regolata, fotocellule riallineate e inversione automatica provata contro un ostacolo."],
+      de: ["Endlagen- und Krafteinstellung am Antrieb", "Endlagen oben und unten neu gesetzt, Schließkraft eingestellt, Lichtschranke ausgerichtet und die Reversierung an einem Hindernis geprüft."],
+      uk: ["Налаштування меж ходу та зусилля приводу", "Верхню й нижню межі ходу скинуто, зусилля закриття налаштовано, датчики вирівняно, автореверс перевірено на перешкоді."],
+      tl: ["Pag-adjust ng limit at force ng opener", "Inayos ulit ang taas at baba ng travel limit, ang closing force, inayos ang sensor at sinubukan ang auto-reverse sa harang."],
+    }),
+    SHARED.consumables(15),
+  ], null),
+};
+withTemplates(SEED, ADDED);
