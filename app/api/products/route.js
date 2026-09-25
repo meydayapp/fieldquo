@@ -20,6 +20,12 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { translateFields } from "@/lib/i18n/translateContent";
+// The languages OUTSIDE sendLanguages are drafted after the response, on
+// FieldQuo's budget, so a client in any supported language gets the
+// company's own name for the service (lib/i18n/autoTranslate.js). The
+// awaited translateFields above it is left as it was: the response still
+// carries the send-language drafts for the review screen.
+import { scheduleAutoTranslate } from "@/lib/i18n/autoTranslateSchedule";
 import { loadEnforceableMember, requireToggle } from "@/lib/permissions/enforce";
 
 /** Owner/admin only. Mirrors the other settings routes. */
@@ -146,5 +152,12 @@ export async function POST(request) {
     include: { categories: { select: { id: true, label: true } } },
   });
 
-  return NextResponse.json(product, { status: 201 });
+  const autoTranslate = scheduleAutoTranslate({
+    companyId: member.companyId,
+    model: "product",
+    id: product.id,
+    fields: { name: product.name, description: product.description || "" },
+    sourceLanguage: source,
+  });
+  return NextResponse.json({ ...product, autoTranslate }, { status: 201 });
 }

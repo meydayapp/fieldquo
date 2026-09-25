@@ -20,6 +20,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { MessageSquare, Loader2, Check, RotateCcw } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
+import AutoTranslateBanner from "@/app/components/settings/AutoTranslateBanner";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function ClientMessagesPage() {
@@ -92,6 +93,7 @@ function MessageEditor({ type, onSaved }) {
   const [text, setText] = useState(type.custom || "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [autoTranslate, setAutoTranslate] = useState(null);
   const [error, setError] = useState("");
 
   // Local live preview: substitute the sample values the same way the server
@@ -117,6 +119,8 @@ function MessageEditor({ type, onSaved }) {
         setError(d?.error || t("app.setMessages.saveError"));
         return;
       }
+      const answer = await res.json().catch(() => null);
+      setAutoTranslate(answer?.autoTranslate || null);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
       onSaved?.();
@@ -267,6 +271,7 @@ function MessageEditor({ type, onSaved }) {
       </div>
 
       {error && <p className="text-xs text-red-600 dark:text-red-400 mt-2">{error}</p>}
+      <AutoTranslateBanner result={autoTranslate} className="mt-3" />
     </section>
   );
 }

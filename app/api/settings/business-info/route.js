@@ -18,6 +18,10 @@ import { normaliseUsOverrides, parseUsOverridesInput } from "@/lib/tax/usOverrid
 // The geocode-if-missing rule moved to lib/company/coordinates.js so the day
 // map could centre on the same address without a second copy of it.
 import { ensureCompanyCoordinates } from "@/lib/company/coordinates";
+// Payment terms and "what happens next" are printed to clients in the
+// document's language: a save drafts the other languages after the response
+// (lib/i18n/autoTranslate.js). The browser shows the banner off the summary.
+import { scheduleAutoTranslate } from "@/lib/i18n/autoTranslateSchedule";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -674,5 +678,21 @@ export async function PATCH(request) {
     metadata: { fields: changed },
   });
 
-  return NextResponse.json(withCoords);
+  // Only the two client-facing texts, only when this request carried them:
+  // an unchanged value costs nothing (the drafter hashes it), a cleared one
+  // simply stops its old translations applying.
+  const autoTranslate =
+    paymentTerms !== undefined || defaultProcessNotes !== undefined
+      ? scheduleAutoTranslate({
+          companyId: member.companyId,
+          model: "company",
+          fields: {
+            ...(paymentTerms !== undefined && { paymentTerms: updated.paymentTerms || "" }),
+            ...(defaultProcessNotes !== undefined && { defaultProcessNotes: updated.defaultProcessNotes || "" }),
+          },
+          sourceLanguage: updated.defaultLanguage || "en",
+        })
+      : null;
+
+  return NextResponse.json({ ...withCoords, autoTranslate });
 }

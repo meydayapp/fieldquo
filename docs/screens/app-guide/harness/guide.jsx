@@ -722,6 +722,26 @@ async function runScene(scene) {
     await wait(400);
     return;
   }
+  if (scene === "company-save") {
+    // Company Settings: press Save; the PATCH fixture answers a queued
+    // auto-translation, and the banner it draws is what the frame shows.
+    const button = await until("[data-save-business-info]");
+    button.click();
+    const banner = await until("[data-auto-translate-banner]");
+    banner.scrollIntoView({ block: "center" });
+    await wait(400);
+    return;
+  }
+  if (scene === "company-save-ready") {
+    // The same Save, held until the banner has asked the status route and
+    // rewritten itself from what actually landed ("7 of 7 ready").
+    (await until("[data-save-business-info]")).click();
+    const banner = await until("[data-auto-translate-banner]");
+    banner.scrollIntoView({ block: "center" });
+    for (let i = 0; i < 40 && /Drafting|Rédaction|Redactando/.test(banner.textContent); i++) await wait(250);
+    await wait(300);
+    return;
+  }
   if (scene === "quote-presentation") {
     // The quote page's Email / Presentation strip: open the Presentation tab
     // (app/app/quotes/[id]/PresentationPanel.js).

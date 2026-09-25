@@ -62,6 +62,7 @@ import {
 // email builder expect — the same pairs the website and the proposal show.
 import { withCompanyGallery } from "@/lib/company/gallery";
 import { loadDocumentWording } from "@/lib/email/documentEmailCopies";
+import { localisedCompany } from "@/lib/i18n/companyText";
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -288,11 +289,15 @@ export async function POST(request, { params }) {
     client: quote.client,
     company,
   });
+  // The company's client-facing texts in the document's language — payment
+  // terms, "what happens next" — when a translation of the current wording
+  // exists; the source text otherwise. Never an empty string.
+  const companyText = await localisedCompany(db, company, { companyId: member.companyId, language });
 
   const { subject, html, text } = buildQuoteEmail({
     quote: { ...quote, customFields },
     client: quote.client,
-    company: company || {},
+    company: companyText || {},
     url,
     scopeGroups,
     kind: isFollowUp ? "follow_up" : "quote",
@@ -329,7 +334,7 @@ export async function POST(request, { params }) {
         company: fullCompany,
       }),
       data: { ...quote, client: quote.client, scopeGroups, customFields },
-      company: fullCompany,
+      company: await localisedCompany(db, fullCompany, { companyId: member.companyId, language }),
     });
     if (pdfBuffer?.length) {
       attachments = [{ filename: `Quote-${quote.quoteNumber}.pdf`, content: pdfBuffer }];

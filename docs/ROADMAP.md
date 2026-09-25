@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 24 September 2026 (the estimate template inside a service — `Product.templateLines` / `defaultDiscount` / `imageUrl` / `estimateTypes` / `templateEnabled`, additive; templates attach by quote type (`categories` + painting estimate types) through `templatesFor()`; a closed measurement registry every trade's lines can take their qty from; the seed LOADER contract in `lib/services/seeds.js`; Settings › Services edits each service's template; `/app/analytics/benchmark` is the preset library with an editable Your price; benchmark sharing is on by default for new companies and Terms §7 / Privacy §7 say so. The seed CONTENT — templates on every trade in seven languages — is a separate pass landing against the same contract.)
+Last updated: 24 September 2026 (the estimate template inside a service — `Product.templateLines` / `defaultDiscount` / `imageUrl` / `estimateTypes` / `templateEnabled`, additive; templates attach by quote type (`categories` + painting estimate types) through `templatesFor()`; a closed measurement registry every trade's lines can take their qty from; the seed LOADER contract in `lib/services/seeds.js`; Settings › Services edits each service's template; `/app/analytics/benchmark` is the preset library with an editable Your price; benchmark sharing is on by default for new companies and Terms §7 / Privacy §7 say so. The seed CONTENT — templates on every trade in seven languages — is a separate pass landing against the same contract.; landed just before it on main: auto-translation on save — see its section.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -93,6 +93,62 @@ quote, a roofing line over the satellite report), the "Like me" cohort (the
 FieldQuo median across companies that share), and the seed content itself.
 
 ---
+
+## Auto-translation on save (24 September 2026)
+
+The owner: "if a company enters any custom text in their terms and services policies, anything
+used in external communication, we use [OpenAI] to auto translate them into the other languages so
+that we don't have something being sent to the client in a different language. When they save,
+the banner should say it has been translated automatically." And the same day: drafts are paid
+by FieldQuo, not the company's AI credit — "so that we don't penalize companies that offer
+bilingual services as mandatory".
+
+**What is drafted, and where it lands.** `lib/i18n/companyText.js` holds the closed list of
+Company-level texts a client reads — `paymentTerms`, `defaultProcessNotes`, `story`,
+`storyHeadline`, `smsTemplates.<type>` for the three editable SMS wordings — and their drafts are
+rows of the new `CompanyTextTranslation` table (one per company × key × language, additive; a
+table rather than a JSON column because seven unrelated texts saved from four routes seconds
+apart would lose each other in a read-merge-write). `QuoteTextBlock` (name + body) and `Product`
+(name + description) keep their existing `translations` JSON, each auto entry carrying
+`{ auto: true, draftedAt, sourceHash }`. Every save route — business-info, payment-schedule,
+presentation, message-templates, quote-text-blocks POST/PATCH, products POST/PATCH — calls
+`scheduleAutoTranslate()` and answers an `autoTranslate` summary; the drafting itself runs inside
+Next's `after()` so the save answers at once.
+
+**The hash rule.** A row applies only when its `sourceHash` equals the hash of the text the
+company has NOW (`localisedCompany`). Edit the terms and every old row stops applying in the
+same instant; until the fresh draft lands the client reads the source language — never an empty
+string, never a translation of a sentence the company no longer says. An unchanged save costs
+nothing (the hash short-circuits before any model is named). A person's reviewed row for the
+same source is never redrafted; when the source changes, their wording is retired to
+`previousText` / `previousReviewed` (kept, shown on the review page) and a fresh draft replaces
+it. A failed draft, no key, or the daily cap leaves the row `pending`.
+
+**Readers.** Quote PDF, invoice PDF, quote / invoice / reminder / service-plan emails, the
+public quote page (terms and the proposal story), the staff document previews, the quote's
+seeded "what happens next" (copied in the QUOTE's language at creation), and the three SMS sends
+through `renderMessage`'s new `translatedTemplates`. Non-negotiable 6 holds: nothing translates a
+document; the translation is picked where the company record was already being read.
+
+**Cost.** One mini-model completion per (field, target language): 7 targets, ~$0.002 per save of
+a terms sentence, ~$0.02 for a 4,000-character story. Recorded to `PlatformAiUsage` (area
+`translation`, `meta.companyId`); the per-company daily cap (`DAILY_DRAFT_CAP` = 200) is read off
+those rows and logs one line when hit.
+
+**UI.** `AutoTranslateBanner` on Company Settings, Presentation (story), Client messages and
+Products — "Translated automatically into 7 languages — Review", then "7 of 7 ready" or
+"5 of 7 ready · 2 still pending" from `GET /api/settings/translations/company?summary=1`.
+`/app/settings/translations` gains "Your wording" (`CompanyTextReview`) above the catalogue with
+Auto / Reviewed / Pending / Outdated badges and "Mark reviewed" (PATCH, `user:manage`). Strings
+in all nine app languages. Screens: `docs/screens/translate-on-save/{en,fr}/`.
+
+**Left out, on purpose.** The website (generated per language by `lib/site/generateSite.js`,
+not translated); the document-email copies (already one human-written copy per language);
+`QuoteTemplate.processNotes` (a template has its own language, like a document); the voice
+receptionist's knowledge note (read by a model that speaks the caller's language, not printed to
+anyone); review-request emails (built-in wording, no company text). The text-block library card
+and the builder are other agents' files this week, so their screens carry no banner yet — the
+routes behind them do draft, and the review page lists the blocks.
 
 ## The card-free signup (24 September 2026)
 

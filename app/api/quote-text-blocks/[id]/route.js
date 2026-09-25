@@ -18,6 +18,7 @@ import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { hasToggle } from "@/lib/permissions/enforce";
 import { LANGUAGE_CODES, isSupported } from "@/app/i18n/languages";
 import { normaliseTextBlockInput, translationEntry, presentTextBlock } from "@/lib/quotes/textBlocks";
+import { scheduleAutoTranslate } from "@/lib/i18n/autoTranslateSchedule";
 
 async function ownedBlock(id, companyId) {
   return db.quoteTextBlock.findFirst({ where: { id, companyId } });
@@ -62,7 +63,18 @@ export async function PATCH(request, { params }) {
   if (Number.isInteger(body?.sortOrder)) data.sortOrder = body.sortOrder;
 
   const row = await db.quoteTextBlock.update({ where: { id }, data });
-  return NextResponse.json(presentTextBlock(row, { showPricing }));
+  // Only when the words changed: a reorder or a price edit costs nothing.
+  const wordsChanged = row.name !== existing.name || (row.body || "") !== (existing.body || "");
+  const autoTranslate = wordsChanged
+    ? scheduleAutoTranslate({
+        companyId: member.companyId,
+        model: "quoteTextBlock",
+        id: row.id,
+        fields: { name: row.name, body: row.body || "" },
+        sourceLanguage: row.language || "en",
+      })
+    : null;
+  return NextResponse.json({ ...presentTextBlock(row, { showPricing }), autoTranslate });
 }
 
 export async function DELETE(request, { params }) {

@@ -11,6 +11,7 @@ import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { sanitiseTemplateLines, sanitiseDefaultDiscount, sanitiseImageUrl, sanitiseEstimateTypes } from "@/lib/services/templates";
+import { scheduleAutoTranslate } from "@/lib/i18n/autoTranslateSchedule";
 
 /** Owner/admin only, matching every other company-wide settings route. */
 function requireCatalogueWrite(member) {
@@ -122,7 +123,21 @@ export async function PATCH(request, { params }) {
     include: { categories: { select: { id: true, label: true } } },
   });
 
-  return NextResponse.json(updated);
+  // A renamed or re-described service is re-drafted into the other
+  // languages after the response; a price edit alone costs nothing.
+  let autoTranslate = null;
+  if ((name !== undefined && name !== existing.name) || (description !== undefined && (description || "") !== (existing.description || ""))) {
+    const company = await db.company.findUnique({ where: { id: member.companyId }, select: { defaultLanguage: true } });
+    autoTranslate = scheduleAutoTranslate({
+      companyId: member.companyId,
+      model: "product",
+      id: updated.id,
+      fields: { name: updated.name, description: updated.description || "" },
+      sourceLanguage: company?.defaultLanguage || "en",
+    });
+  }
+
+  return NextResponse.json({ ...updated, autoTranslate });
 }
 
 export async function DELETE(request, { params }) {

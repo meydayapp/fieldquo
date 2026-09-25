@@ -18,17 +18,22 @@ import { recordActivity } from "@/lib/activity/log";
 import { PROPOSAL_SECTION_KEYS, PROPOSAL_SECTIONS, sanitisePresentation } from "@/lib/proposal/sections";
 import { PROPOSAL_COMPANY_SELECT, loadProposalContent, loadWorkPlan } from "@/lib/proposal/load";
 import { listDocuments } from "@/lib/company/documentLibrary";
+import { localisedCompany } from "@/lib/i18n/companyText";
 
 async function present(member, quote) {
-  const company = await db.company.findUnique({
+  const loaded = await db.company.findUnique({
     where: { id: member.companyId },
     select: { ...PROPOSAL_COMPANY_SELECT, defaultLanguage: true },
   });
+  const language = quote.language || loaded?.defaultLanguage || "en";
+  // The story in the quote's language when its translation exists — what
+  // the client page shows (app/api/public/quotes/[token]).
+  const company = await localisedCompany(db, loaded, { companyId: member.companyId, language });
   const [{ content, sections }, plan, documents, waivers] = await Promise.all([
     loadProposalContent({
       companyId: member.companyId,
       company: company || {},
-      language: quote.language || company?.defaultLanguage || "en",
+      language,
       presentation: quote.presentation,
     }),
     loadWorkPlan({ quote, companyId: member.companyId }),

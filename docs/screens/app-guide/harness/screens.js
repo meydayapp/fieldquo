@@ -454,4 +454,14 @@ export const SCREENS = [
   { slug: "benchmark-library-cabinets-phone", href: "/app/analytics/benchmark", page: "app/app/analytics/benchmark/page.js", scene: "library-ready", width: 375, height: 1600, out: "docs/screens/services-templates", chapter: "services-templates" },
   { slug: "benchmark-library-electrical", href: "/app/analytics/benchmark", page: "app/app/analytics/benchmark/page.js", scene: "library-ready", height: 1400, out: "docs/screens/services-templates", chapter: "services-templates" },
   { slug: "benchmark-library-electrical-phone", href: "/app/analytics/benchmark", page: "app/app/analytics/benchmark/page.js", scene: "library-ready", width: 375, height: 1600, out: "docs/screens/services-templates", chapter: "services-templates" },
+  // ── Auto-translation on save (2026-09-24) ──────────────────────────────
+  // The review page's "Your wording" rows (Auto / Reviewed / Pending /
+  // Outdated) above the catalogue, and Company Settings after Save with
+  // the "Translated automatically into 7 languages — Review" banner.
+  { slug: "translate-review", nav: "app.settings.translations", href: "/app/settings/translations", page: "app/app/settings/translations/page.js", settings: true, height: 2000, chapter: "translate", out: "docs/screens/translate-on-save" },
+  { slug: "translate-review-375", nav: "app.settings.translations", href: "/app/settings/translations", page: "app/app/settings/translations/page.js", settings: true, width: 375, height: 2600, chapter: "translate", out: "docs/screens/translate-on-save" },
+  { slug: "translate-banner", nav: "app.settings.company", href: "/app/settings/company", page: "app/app/settings/company/page.js", settings: true, scene: "company-save", height: 900, chapter: "translate", out: "docs/screens/translate-on-save" },
+  { slug: "translate-banner-375", nav: "app.settings.company", href: "/app/settings/company", page: "app/app/settings/company/page.js", settings: true, scene: "company-save", width: 375, height: 1000, chapter: "translate", out: "docs/screens/translate-on-save" },
+  { slug: "translate-client-quote-fr", href: "/q/qt_8f2c1a7d4e", page: "app/q/[token]/QuoteApproval.js", props: { token: "qt_8f2c1a7d4e" }, mode: "public", height: 3600, chapter: "translate", out: "docs/screens/translate-on-save" },
+  { slug: "translate-banner-ready", nav: "app.settings.company", href: "/app/settings/company", page: "app/app/settings/company/page.js", settings: true, scene: "company-save-ready", height: 900, chapter: "translate", out: "docs/screens/translate-on-save" },
 ];

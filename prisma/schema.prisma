@@ -1554,6 +1554,7 @@ model Company {
   galleryMergedAt DateTime?
 
   galleryPairs       CompanyGalleryPair[]
+  textTranslations   CompanyTextTranslation[]
   companyDocuments   CompanyDocument[]
   documentSignatures DocumentSignature[]
 
@@ -19064,4 +19065,56 @@ model DocumentSignature {
   @@index([jobId])
   @@index([invoiceId])
   @@index([clientId, status])
+}
+
+/// One language's rendering of ONE Company-level client-facing text — the
+/// payment terms, "what happens next", the proposal story and its headline,
+/// and each custom SMS wording — drafted automatically when the company saves
+/// the source (lib/i18n/autoTranslate.js) and reviewed, when someone gets to
+/// it, on /app/settings/translations.
+///
+/// ── Why a table and not a `translations Json?` on Company ────────────────
+///
+/// Product, QuoteTextBlock and CompanySite each carry a JSON column because
+/// each row IS one item. Company carries seven unrelated texts whose drafts
+/// land seconds apart from different routes; a JSON read-merge-write from two
+/// `after()` callbacks would drop one of them. A row per (key, language) is
+/// an atomic upsert with no merge to lose, and the reviewed guard is a WHERE
+/// clause instead of a code path.
+///
+/// ── `sourceHash` is the reader's contract ─────────────────────────────────
+///
+/// A row is used only when its hash matches the hash of the text the company
+/// has NOW (lib/i18n/companyText.js). Change the terms and every old row is
+/// silently ignored until a fresh draft lands — the client gets the source
+/// language, never a translation of a sentence the company no longer says.
+/// `status`: "drafted" (machine, unread) | "reviewed" (a person saved it) |
+/// "pending" (the draft failed or AI was unavailable; no text). `previousText`
+/// keeps a person's reviewed wording when the source changed and a fresh draft
+/// replaced it — nothing a human typed is ever destroyed, it is only retired.
+model CompanyTextTranslation {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// "paymentTerms" | "defaultProcessNotes" | "story" | "storyHeadline" |
+  /// "smsTemplates.<type>" — the closed list in lib/i18n/companyText.js.
+  key      String
+  language String
+
+  text       String @default("")
+  sourceHash String
+  /// "drafted" | "reviewed" | "pending"
+  status String  @default("drafted")
+  auto   Boolean @default(true)
+
+  draftedAt    DateTime?
+  reviewedAt   DateTime?
+  previousText String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, key, language])
+  @@index([companyId, language])
 }

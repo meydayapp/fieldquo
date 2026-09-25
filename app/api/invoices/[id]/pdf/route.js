@@ -12,6 +12,7 @@ import { getDefaultSections } from "@/app/admin/lib/pdf/defaultSections";
 import { usableSections } from "@/lib/documents/templateKind";
 import { resolveDocumentLanguage } from "@/lib/i18n/resolveLanguage";
 import { uploadBuffer } from "@/lib/cloudinary";
+import { localisedCompany } from "@/lib/i18n/companyText";
 import {
   requireMoney,
   permissionErrorResponse,
@@ -76,6 +77,12 @@ export async function POST(request, { params }) {
   const company = await db.company.findUnique({
     where: { id: member.companyId },
   });
+  // Written-in language, fixed at creation. Falls back to the company
+  // default for records created before this existed.
+  const documentLanguage = resolveDocumentLanguage(invoice, invoice.client, company);
+  // Payment terms in that language when a translation of the current
+  // wording exists; the source text otherwise (lib/i18n/companyText.js).
+  const companyText = await localisedCompany(db, company, { companyId: member.companyId, language: documentLanguage });
 
   const template = await db.documentTemplate.findFirst({
     where: {
@@ -95,9 +102,7 @@ export async function POST(request, { params }) {
 
   const pdfBuffer = await renderDocumentPdfBuffer({
     sections,
-    // Written-in language, fixed at creation. Falls back to the
-    // company default for records created before this existed.
-    language: resolveDocumentLanguage(invoice, invoice.client, company),
+    language: documentLanguage,
     // scopeGroups was [], so ScopeGroupsSection fell to the flat lineItems
     // path and rendered an unlabelled card. Invoices genuinely are one flat
     // list — they're not grouped by service — so give that list a heading
@@ -117,7 +122,7 @@ export async function POST(request, { params }) {
             ]
           : [],
     },
-    company,
+    company: companyText,
   });
 
   // ── The archive copy must never cost you the download ────────────────────
