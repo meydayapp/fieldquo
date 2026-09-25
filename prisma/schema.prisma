@@ -2440,6 +2440,19 @@ model Member {
   /// keeps polling the old address and gets 404).
   calendarFeedToken String? @unique
 
+  /// When this person was last actually using /app — a visible tab with a
+  /// hand on it — stamped by POST /api/presence at most once per
+  /// ACTIVE_STAMP_REFRESH_MS (lib/company/memberActivity.js). Read by the
+  /// platform console's "Online now / Active 2 h ago" badge on
+  /// /platform/companies and the per-member list on the company page.
+  ///
+  /// Null means "never stamped", which is NOT "never signed in": the column
+  /// arrived on 2026-09-24, so everyone before that is null until they next
+  /// open the app, and the badge falls back to Session.createdAt and says
+  /// "Signed in" rather than claiming activity. A support session viewing
+  /// the account never writes it — see the route for how.
+  lastActiveAt DateTime?
+
   jobPhotoCommentsAuthored JobPhotoComment[]
   jobPhotoMentions         JobPhotoMention[]
 
@@ -2467,6 +2480,9 @@ model Member {
   callbackRulesAssigned CallbackRule[]
 
   @@unique([userId, companyId])
+  // The console's presence poll asks "latest stamp per company" every minute
+  // while the list is open; this makes that an index walk, not a table scan.
+  @@index([companyId, lastActiveAt])
 }
 
 model PendingTeamProfile {

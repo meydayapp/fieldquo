@@ -41,6 +41,8 @@ import CompanyActions from "./CompanyActions";
 import CompanyInfluencer from "./CompanyInfluencer";
 import CompanyBuilderLayout from "./CompanyBuilderLayout";
 import CompanyDisputeEvidence from "./CompanyDisputeEvidence";
+import CompanyPresence, { useCompanyPresence } from "./CompanyPresence";
+import PresenceBadge from "@/app/components/platform/PresenceBadge";
 import PlatformWriteGate, {
   usePlatformAdmin,
 } from "@/app/components/platform/PlatformWriteGate";
@@ -77,6 +79,10 @@ export default function CompanyDetail({ companyId }) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // Who's been in: one poll feeds both the header badge and the per-member
+  // list below it, so the two are always the same reading. Called up here,
+  // above the early returns, because it is a hook.
+  const presence = useCompanyPresence(companyId);
   // company:suspend, which is what the PATCH picks when onboardingStatus is
   // "churned" or "suspended" (see the `needed` ternary in
   // app/api/platform/companies/[id]/route.js). Admin and superadmin hold it;
@@ -211,6 +217,7 @@ export default function CompanyDetail({ companyId }) {
             >
               {company.onboardingStatus}
             </span>
+            <PresenceBadge badge={presence.badge} size="lg" />
             {/* Both columns, the same test lib/influencers makes. */}
             {company.influencerAt && company.influencerRepId ? (
               <span className="text-xs px-2.5 py-1 rounded-full border bg-muted text-muted-foreground border-border">
@@ -283,6 +290,11 @@ export default function CompanyDetail({ companyId }) {
           {error}
         </div>
       )}
+
+      {/* Who's been in — per member, read-only. First on the page because
+          "is this new company actually using it?" is the question the owner
+          opens it with. */}
+      <CompanyPresence data={presence.data} error={presence.error} now={presence.now} />
 
       {/* Billing */}
       <div className="bg-card border border-border rounded-xl p-5">
