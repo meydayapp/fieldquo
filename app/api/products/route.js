@@ -30,6 +30,7 @@ import { loadEnforceableMember, requireToggle } from "@/lib/permissions/enforce"
 import { productCommissionData } from "@/lib/commissions/compute";
 import { redactProductCommission } from "@/lib/commissions/access";
 import { sanitiseProduction } from "@/lib/services/productionRates";
+import { isAddedForYou } from "@/lib/services/addedForYou";
 
 /** Owner/admin only. Mirrors the other settings routes. */
 function requireCatalogueWrite(member) {
@@ -79,26 +80,38 @@ export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q");
 
-  const products = await db.product.findMany({
-    where: {
-      companyId: member.companyId,
-      ...(q && {
-        OR: [
-          { name: { contains: q, mode: "insensitive" } },
-          { description: { contains: q, mode: "insensitive" } },
-        ],
-      }),
-    },
-    orderBy: { name: "asc" },
-    // Which quote types this item is linked to — empty means available on
-    // every quote type. See quotes/new/page.js for where this filters what
-    // shows up as an addable line item for a given category.
-    include: { categories: { select: { id: true, label: true } } },
-  });
+  // Every row, removed ones (`active: false`) included: Settings › Products &
+  // Services lists them under "Removed" with an Add back button. The
+  // builders and pickers that read this route filter them out themselves —
+  // lib/products/offered.js names each one.
+  const [products, company] = await Promise.all([
+    db.product.findMany({
+      where: {
+        companyId: member.companyId,
+        ...(q && {
+          OR: [
+            { name: { contains: q, mode: "insensitive" } },
+            { description: { contains: q, mode: "insensitive" } },
+          ],
+        }),
+      },
+      orderBy: { name: "asc" },
+      // Which quote types this item is linked to — empty means available on
+      // every quote type. See quotes/new/page.js for where this filters what
+      // shows up as an addable line item for a given category.
+      include: { categories: { select: { id: true, label: true } } },
+    }),
+    db.company.findUnique({ where: { id: member.companyId }, select: { currency: true } }),
+  ]);
+  const currency = company?.currency || "CAD";
 
   // An item's commission rate is what a worker earns on it — pay, which
   // showPricing does not open. Stripped for anyone without payroll view_all.
-  return NextResponse.json(products.map((p) => redactProductCommission(full, p)));
+  // `addedForYou`: a seeded row the company has not renamed or repriced —
+  // the "Added for you" badge (lib/services/addedForYou.js has the rule).
+  return NextResponse.json(
+    products.map((p) => ({ ...redactProductCommission(full, p), addedForYou: isAddedForYou(p, { currency }) })),
+  );
 }
 
 export async function POST(request) {

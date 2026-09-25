@@ -166,6 +166,7 @@ import { splitLawnLines } from "@/lib/quotes/lawnLines";
 import { planRequiredFrom } from "@/lib/signup/planRequired";
 import { LANGUAGES } from "@/app/i18n/languages";
 import { useHasLevel, useHasToggle } from "@/app/providers/PermissionProvider";
+import { offeredOnly } from "@/lib/products/offered";
 
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
@@ -768,7 +769,11 @@ export function QuoteBuilderForm({
   const cf = useCustomFields("quote", quoteId);
 
   const categories = Array.isArray(boot.categories) ? boot.categories : [];
-  const products = Array.isArray(boot.products) ? boot.products : [];
+  // Only what the company still offers: a service removed from its list
+  // (Product.active false — lib/products/offered.js) is never offered on a
+  // new line, a service card or an add-on. Lines already on a quote carry
+  // their own name and price and never needed the row.
+  const products = useMemo(() => offeredOnly(boot.products), [boot.products]);
   // Product id → production rate, for the groups' template runs. Empty on a
   // boot without rates (every check fixture, every company that set none).
   const productionById = useMemo(() => productionMapFrom(boot.productionRates), [boot.productionRates]);

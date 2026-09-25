@@ -128,7 +128,7 @@ export default function SetupSteps({ footer = null }) {
   const { open: openStep, dialog, nextStrip } = useStepDialog({
     id: "setup",
     refresh,
-    labelOf: (step) => t(step.titleKey, step.title),
+    labelOf: (step) => t(step.titleKey, step.title, step.titleParams || undefined),
     hrefOf: (step) => step.href,
   });
 
@@ -227,19 +227,19 @@ export default function SetupSteps({ footer = null }) {
                   onClick={() => openStep(step)}
                   className="flex flex-col justify-center min-w-0 flex-1 py-2 text-sm font-medium text-foreground min-h-9 text-left"
                 >
-                  <span className="truncate max-w-full">{t(step.titleKey, step.title)}</span>
+                  <span className="truncate max-w-full">{t(step.titleKey, step.title, step.titleParams || undefined)}</span>
                   <StepEstimate minutes={step.minutes} variant="below" />
                 </button>
               ) : (
                 <span className="flex flex-col justify-center min-w-0 flex-1 py-2 text-sm font-medium text-foreground min-h-9">
-                  <span className="truncate max-w-full">{t(step.titleKey, step.title)}</span>
+                  <span className="truncate max-w-full">{t(step.titleKey, step.title, step.titleParams || undefined)}</span>
                   <StepEstimate minutes={step.minutes} variant="below" />
                 </span>
               )}
               <StepEstimate minutes={step.minutes} variant="side" />
               <Link
                 href={step.href}
-                aria-label={`${t(step.titleKey, step.title)} — ${t("app.stepDialog.openInSettings", "Open in settings")}`}
+                aria-label={`${t(step.titleKey, step.title, step.titleParams || undefined)} — ${t("app.stepDialog.openInSettings", "Open in settings")}`}
                 className="shrink-0 flex items-center justify-center min-h-9 min-w-9 text-muted-foreground hover:text-foreground"
               >
                 <ArrowRight size={14} aria-hidden="true" />

@@ -183,8 +183,29 @@ const TOTAL = EXPECTED_KEYS.length;
   ok("confirm: the route stamps the column once (only where it is still null)", /servicesConfirmedAt: null \}, data: \{ servicesConfirmedAt: new Date\(\) \}/.test(route.replace(/\s+/g, " ")));
   ok("confirm: the route writes through the seeder's own createSeededServices", /createSeededServices\(\{/.test(route) && !/db\.product\.create/.test(route));
   ok("confirm: POST requires user:manage unconditionally; GET lets impersonation look", (route.match(/requirePermission\(member\.role, "user:manage"\)/g) || []).length === 2 && (route.match(/if \(!member\.impersonation\)/g) || []).length === 1);
-  ok("confirm: POST refuses unknown keys BEFORE writing", route.indexOf("plan.unknown.length") > 0 && route.indexOf("plan.unknown.length") < route.indexOf("createSeededServices({"));
-  ok("confirm: the browser sends keys, never a price", !/unitPrice|price:/.test(stripComments(source("app/app/settings/services/ConfirmServices.js")).match(/body: \{[^}]*\}/)?.[0] || "x") && /body: \{ seedKeys: \[\.\.\.selected\] \}/.test(stripComments(source("app/app/settings/services/ConfirmServices.js"))));
+  ok("confirm: POST refuses unknown keys BEFORE writing (restore, create or archive)", route.indexOf("plan.unknown.length") > 0 && ["createSeededServices({", "data: { active: true }", "data: { active: false }"].every((w) => route.indexOf(w) > route.indexOf("plan.unknown.length")));
+  ok("confirm: the browser sends keys, never a price", !/unitPrice|price:/.test(stripComments(source("app/app/settings/services/ConfirmServices.js")).match(/body: \{[^}]*\}/)?.[0] || "x") && /body: \{ seedKeys: add, removeSeedKeys: remove \}/.test(stripComments(source("app/app/settings/services/ConfirmServices.js"))));
+  // "Review the services we added for you (N)" — the owner, 2026-09-25: "if
+  // it is loaded by default it should say so."
+  ok("confirm: a company signup seeded reads 'Review the services we added for you (N)'", (() => {
+    const r = row({ signupSeededServices: 42 });
+    return r.titleKey === "app.setup.step.confirm_services_seeded" && r.titleParams?.n === 42 && r.title === "Review the services we added for you ({n})";
+  })());
+  ok("confirm: nothing seeded (or an unmeasured count) keeps 'Confirm what you quote'", [0, undefined, null, -3, 2.5, "42", {}].every((v) => {
+    const r = row({ signupSeededServices: v });
+    return r.titleKey === "app.setup.step.confirm_services" && r.titleParams === null;
+  }));
+  ok("confirm: every other step has no title params", stepsFor({ ...EMPTY, signupSeededServices: 9 }).filter((s) => s.key !== "confirm_services").every((s) => s.titleParams === null));
+  ok("confirm: the snapshot counts signup's rows from the company's and the rows' creation times",
+    /createdAt: true,\s*\},/.test(snap) && /seedKey: true, createdAt: true/.test(snap) && /signupSeededServices: signupSeededRows\(products, company\.createdAt\)\.length/.test(snap));
+  ok("confirm: the card, the dialog title and the email pass the figures", (source("app/components/dashboard/SetupSteps.js").match(/t\(step\.titleKey, step\.title, step\.titleParams \|\| undefined\)/g) || []).length === 4 &&
+    /fill\(t\(step\.titleKey \|\| `app\.setup\.step\.\$\{step\.key\}`, step\.title \|\| step\.key\), step\.titleParams \|\| \{\}\)/.test(source("lib/email/onboardingNextStepsEmail.js")));
+  {
+    const langs = Object.keys(APP_MESSAGES);
+    const bad = langs.filter((code) => !String(APP_MESSAGES[code]?.["app.setup.step.confirm_services_seeded"] || "").includes("{n}"));
+    ok("confirm: the reworded title is in all nine languages with its {n}", bad.length === 0, bad.join(","));
+    ok("confirm: its English matches the step's fallback", APP_MESSAGES.en["app.setup.step.confirm_services_seeded"] === "Review the services we added for you ({n})");
+  }
   ok("confirm: the dialog renders the page's own screen", /confirm_services: \{[\s\S]{0,200}<ConfirmServices compact onChanged=\{onChanged\} \/>/.test(source("app/components/dashboard/stepPanels.js")));
   ok("confirm: 'Add my own service' is the catalogue's own form", /import ProductFormModal from "@\/app\/app\/settings\/products\/ProductFormModal"/.test(source("app/app/settings/services/ConfirmServices.js")) && /<ProductFormModal/.test(source("app/app/settings/products/ProductCatalogue.js")));
   const schema = source("prisma/schema.prisma");
