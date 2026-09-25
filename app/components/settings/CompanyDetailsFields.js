@@ -98,6 +98,9 @@ export default function CompanyDetailsFields({
           </label>
           <input
             className={inputClass}
+            type="text"
+            inputMode="url"
+            autoComplete="url"
             placeholder={WEBSITE_PLACEHOLDER}
             value={form.website}
             onChange={(e) => set("website", e.target.value)}
