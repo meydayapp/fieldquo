@@ -545,6 +545,13 @@ section("3. Every tenant-scoped SMS path passes companyId");
     // The moved / cancelled text to a client (2026-09-25) — every office and
     // manage-link move or cancel sends through this one function.
     ["lib/schedule/changeText.js", "textClientOfChange"],
+    // Three senders that arrived after this ledger was written, each read and
+    // each passing its tenant: the booking confirmation text (3bbe6781), the
+    // change-order text to a client, and the Conversations reply on the
+    // shared text line (40737a41).
+    ["lib/booking/finalizeBooking.js", "textConfirmation"],
+    ["lib/jobs/changeOrderSend.js", "sendChangeOrderToClient"],
+    ["lib/messaging/ownSend.js", "sendSmsChatMessage"],
   ];
 
   for (const [file, fn] of SITES) {
@@ -563,7 +570,9 @@ section("3. Every tenant-scoped SMS path passes companyId");
       const args = open === -1 ? "" : (functionSourceFromBrace(body, open) ?? "");
       ok(
         `${file}: the sendSms( call at ${at} passes companyId`,
-        /\bcompanyId\s*:/.test(args),
+        // `companyId: x` or the shorthand `companyId,` — both pass the key.
+        // A top-level property only: preceded by the object's "{" or a comma.
+        /[{,]\s*companyId\s*[:,}]/.test(args),
         args.slice(0, 120),
       );
     }
@@ -1294,6 +1303,14 @@ section("12. Whose text is it — the attribution ladder, on hostile rows");
   );
   const resolved = await resolveInboundSmsAttribution({ fromE164: "+19149357510", toE164: LINE, body: "Hi, this is Charlotte at Advance Appliance and I received your Voicemail.", now: T });
   ok("resolveInboundSmsAttribution reads the calls from the line and the prospect on them", resolved.salesRepId === "favor" && resolved.prospectId === "P-adv" && resolved.matchedBy === "line_business_name", resolved);
+  // The webhook takes no `now` — it files against the wall clock, as it must
+  // in production. So the same two dials are re-dated against the real clock
+  // before it runs. Dated against T they fell outside the 24-hour line window
+  // one day after this check was written (2026-09-18), and every webhook
+  // assertion below quietly became a test of the line_owner rung instead.
+  const W = Date.now();
+  store.callAttempts.find((c) => c.id === "c1").dialledAt = new Date(W - 2 * 60_000);
+  store.callAttempts.find((c) => c.id === "c2").dialledAt = new Date(W - 0.15 * 60_000);
   const stored = await handleSalesInboundSms({ to: LINE, from: "+1 (914) 935-7510", body: "Hi, this is Charlotte at Advance Appliance and I received your Voicemail." });
   const row = store.smsMessages.find((m) => m.id === stored.messageId);
   ok("…and the webhook STORES the row filed to Favor, to Advance Appliance, with the rule on it", stored.action === "stored" && row?.salesRepId === "favor" && row?.prospectId === "P-adv" && row?.leadId === null && row?.matchedBy === "line_business_name", row);

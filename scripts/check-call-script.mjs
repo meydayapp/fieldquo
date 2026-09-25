@@ -916,7 +916,10 @@ section("8. Three languages — English, French, Spanish");
   {
     const route = decomment(read("app/api/sales/playbook/route.js"));
     ok("the route reads ?language and refuses one that is not en/fr/es", /searchParams\.get\("language"\)/.test(route) && /normalizeScriptLanguage\(rawLanguage\)/.test(route) && /status: 400/.test(route));
-    ok("…decides the default from the lead and the rep, through the one function", /defaultScriptLanguage\(\{ prospect: mine, rep: repRow \}\)/.test(route));
+    // The prospect carries the language a signup form stated since c50b293f
+    // (defaultScriptLanguage ranks it under Quebec's French and above the
+    // rep's own preference) — still the one function, still this lead.
+    ok("…decides the default from the lead and the rep, through the one function", /defaultScriptLanguage\(\{ prospect: \{ \.\.\.mine, statedLanguage: signup\?\.language \|\| null \}, rep: repRow \}\)/.test(route));
     ok("…generates on demand ONLY for a language other than the default, and only when stale", /language !== defaultLanguage && scriptRowStale\(shown/.test(route));
     ok("…through the shared generateCallScript, trigger on_demand, this rep, an on_demand ref", /generateCallScript\(\{[\s\S]*?trigger: "on_demand",[\s\S]*?salesRepId: rep\.id,[\s\S]*?ref: `\$\{ON_DEMAND_REF_PREFIX\}\$\{rep\.id\}/.test(route) && ON_DEMAND_REF_PREFIX === "on_demand:");
     ok(`…rate-limited at ${ON_DEMAND_PER_HOUR} an hour per rep, counted off the ledger's on_demand rows`, ON_DEMAND_PER_HOUR === 60 && /platformAiUsage\.count\(\{[\s\S]*?salesRepId: rep\.id[\s\S]*?ref: \{ startsWith: ON_DEMAND_REF_PREFIX \}/.test(route) && /recent >= ON_DEMAND_PER_HOUR/.test(route));

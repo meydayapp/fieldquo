@@ -326,11 +326,16 @@ function stubDb(fixture = {}) {
   const writes = [];
   const record = (model, action, args) => writes.push({ model, action, ...args });
 
+  // A column a fixture row leaves out is NULL, as it is in Postgres. Without
+  // that, `mergedIntoId: null` and `tradeKey: null` (promoteToResearch's
+  // where, since merges and the trade-first ordering landed) matched no
+  // fixture row at all, and "promoted nothing" looked like a finding.
   const match = (row, where = {}) =>
     Object.entries(where).every(([k, v]) => {
+      if (v === null) return row[k] == null;
       if (v && typeof v === "object" && !(v instanceof Date)) {
         if ("in" in v) return v.in.includes(row[k]);
-        if ("not" in v) return row[k] !== v.not;
+        if ("not" in v) return (row[k] ?? null) !== v.not;
         if ("gte" in v) return new Date(row[k]) >= new Date(v.gte);
         return true;
       }

@@ -757,9 +757,13 @@ section("Country and region come from what the files actually cover");
   // is a destructive way to press refresh.
   const detail = read("app/platform/sales/campaigns/[id]/page.js");
   ok("the detail screen polls", /setInterval\(\(\) => load\(true\)/.test(detail));
+  // Widened on purpose in c1b4a8de3: discovery finishing is not the pipeline
+  // finishing, so the poll also runs while any stage has work outstanding.
+  // It must still stop when neither is true.
   ok(
-    "…only while the campaign is running, so a finished one is not polled for ever",
-    /if \(!isRunning\) return undefined;/.test(detail),
+    "…only while the campaign is running or a stage still has work queued, so a finished one is not polled for ever",
+    /const shouldPoll = isRunning \|\| outstanding > 0;/.test(detail) &&
+      /if \(!shouldPoll\) return undefined;/.test(detail),
   );
   ok(
     "…and the poll is quiet, so the screen does not flash a spinner every ten seconds",

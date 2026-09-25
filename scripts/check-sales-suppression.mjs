@@ -839,12 +839,18 @@ section("8. Every outbound path re-reads the list at the moment it sends");
   const deliver = functionBody(sender, "deliverOutreach");
   ok("deliverOutreach exists to be scoped", Boolean(deliver));
   ok("deliverOutreach checks the suppression list", deliver.includes("checkSuppression(db,"));
-  ok("...BEFORE it calls sendEmail",
-     deliver.indexOf("checkSuppression(db,") < deliver.indexOf("sendEmail("),
-     { check: deliver.indexOf("checkSuppression(db,"), send: deliver.indexOf("sendEmail(") });
+  // The send left sendEmail for the rep's own connected mailbox in a250a7cd5
+  // (lib/sales/mailbox/send.js). Either spelling counts as "the send", and a
+  // body with neither fails rather than comparing against -1.
+  const sendAt = deliver.search(/\b(sendFromMailbox|sendEmail)\(/);
+  ok("...BEFORE it sends (sendFromMailbox, the rep's own mailbox)",
+     sendAt !== -1 && deliver.indexOf("checkSuppression(db,") < sendAt,
+     { check: deliver.indexOf("checkSuppression(db,"), send: sendAt });
   ok("...before it even builds the email", deliver.indexOf("checkSuppression(db,") < deliver.indexOf("buildOutboundEmail"));
+  // `lead?.phone` since the same commit: a thread with no lead row still
+  // reaches the guard, and the phone is still passed.
   ok("...passing the lead's PHONE as well as the email, so a phone opt-out reaches the mail path",
-     /checkSuppression\(db,\s*\{[^}]*phone:\s*lead\.phone/.test(deliver));
+     /checkSuppression\(db,\s*\{[^}]*phone:\s*lead\??\.phone/.test(deliver));
   ok("...on the email channel", /channel:\s*"email"/.test(deliver));
   ok("a suppressed contact returns without sending",
      /suppression\.suppressed[\s\S]{0,200}return \{[\s\S]{0,120}ok: false/.test(deliver));
@@ -933,7 +939,13 @@ section("9. The opt-out binds FieldQuo, not a rep's copy of a row");
   ok("the derived per-lead signal is superseded, not deleted — leadOptedOut is still used",
      contact.includes("leadOptedOut(inbound)"));
 
-  const file = functionBody(inbound, "fileInboundMessage");
+  // The filing itself moved out of fileInboundMessage into writeInbound in
+  // a250a7cd5, so the token path and the new sender fallback share one
+  // transaction. fileInboundMessage must still reach it on both paths.
+  const entry = functionBody(inbound, "fileInboundMessage");
+  ok("fileInboundMessage files through writeInbound on both paths",
+     (entry.match(/return writeInbound\(db, parsed,/g) || []).length === 2, entry);
+  const file = functionBody(inbound, "writeInbound");
   ok("filing a reply writes the suppression", file.includes("suppressWithin(tx,"));
   ok("...inside the SAME transaction as the message",
      file.indexOf("$transaction") < file.indexOf("suppressWithin(tx,") &&

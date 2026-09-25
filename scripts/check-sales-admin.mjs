@@ -280,7 +280,8 @@ section("1. A rep with no work mailbox cannot send, and is told why");
   );
   ok(
     "the mail leaves through the rep's own connected mailbox, never a platform sender",
-    /sendFromMailbox\(mailbox,/.test(deliver) && !/sendEmail\(/.test(deliver),
+    // \s*: the call spans lines since 8389104f added the appendLater option.
+    /sendFromMailbox\(\s*mailbox,/.test(deliver) && !/sendEmail\(/.test(deliver),
     deliver?.match(/sendFromMailbox\([^\n]*/)?.[0],
   );
   ok(

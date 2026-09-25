@@ -430,7 +430,10 @@ const MOUNT = "app/components/sales/PlaybookMount.js";
   // ── The script without the dial ────────────────────────────────────
   const region = decomment(read("app/components/sales/DialRegion.js"));
   ok("DialRegion mounts the playbook in the non-ready branch — same component, same fetch path", /import PlaybookMount from "\.\/PlaybookMount"/.test(region) && /\{playbookWithoutDial \? \(\s*<PlaybookMount/.test(region) && (region.match(/<PlaybookMount/g) || []).length === 1);
-  ok("…never beside a dial (READY is CallPanel's), never without a prospect, never on a do-not-contact", /const dialRendered = space\.state === DIAL_READY && space\.href && target;/.test(region) && /!dialRendered &&\s*Boolean\(target\) &&\s*space\.state !== DIAL_NO_PROSPECT &&\s*space\.state !== DIAL_DO_NOT_CONTACT/.test(region));
+  // `|| Boolean(liveTarget)` since d2f99b2b: a live call keeps its panel after
+  // the window shuts, so the dial counts as rendered then too — which keeps
+  // the script-only mount away from a live call, the property this guards.
+  ok("…never beside a dial (READY is CallPanel's), never without a prospect, never on a do-not-contact", /const dialRendered = \(space\.state === DIAL_READY && space\.href && target\) \|\| Boolean\(liveTarget\);/.test(region) && /!dialRendered &&\s*Boolean\(target\) &&\s*space\.state !== DIAL_NO_PROSPECT &&\s*space\.state !== DIAL_DO_NOT_CONTACT/.test(region));
   ok("…with the same slot CallPanel portals into, so the Script tab is filled either way", /slot=\{slots\?\.script \|\| null\}/.test(region.slice(region.indexOf("{playbookWithoutDial ? ("))));
   ok("…and the closed-window note names the opening instant WindowLines prints — only for a shut window", /space\.state === DIAL_REFUSED && space\.showWindow && compliance\?\.opensAtText/.test(region) && /t\("app\.salesDial\.window\.readAhead", \{ opensAt: compliance\.opensAtText \}\)/.test(region));
   ok("…the note is drawn above the script, muted", /\{note \? \(\s*<p className="text-xs text-muted-foreground break-words" data-playbook-note>/.test(decomment(src)));

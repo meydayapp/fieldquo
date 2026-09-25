@@ -269,19 +269,31 @@ ok(
     const notesTrees = ["app/api/sales/notes", "app/api/platform/sales/notes", "app/sales/notes", "app/platform/sales/notes"];
     if (notesTrees.some((dir) => mentions(join(ROOT, dir)).length > 0)) return false;
     // The writers: any file under lib/ or app/ that assigns managerId in a
-    // Prisma data block must be one of the declared two.
+    // Prisma data block must be one of the declared ones. A one-line
+    // `where: { managerId: … }` is a READ (the agency's own roster, the SMS
+    // ladder's agency rung, the platform rep card) and is not a writer; a
+    // where clause spread over lines is still counted, which errs towards
+    // failing.
+    const assigns = (text) =>
+      text.split("\n").some((line) =>
+        /\bmanagerId:(?!\s*true\b)[^,}\n]+/.test(line) && !/\bwhere:\s*\{[^}]*\bmanagerId:/.test(line));
     const writers = [];
     const scanWriters = (abs) => {
       if (!existsSync(abs)) return;
       for (const entry of readdirSync(abs, { withFileTypes: true })) {
         const child = join(abs, entry.name);
         if (entry.isDirectory()) scanWriters(child);
-        else if (/\.jsx?$/.test(entry.name) && /\bmanagerId:(?!\s*true\b)[^,}\n]+/.test(decomment(readFileSync(child, "utf8")))) writers.push(child.slice(ROOT.length + 1));
+        else if (/\.jsx?$/.test(entry.name) && assigns(decomment(readFileSync(child, "utf8")))) writers.push(child.slice(ROOT.length + 1));
       }
     };
     for (const dir of ["lib/sales", "app/api/sales", "app/api/platform/sales", "app/sales", "app/platform/sales"]) scanWriters(join(ROOT, dir));
-    const allowed = new Set(["lib/sales/agency.js"]);
-    return writers.every((w) => allowed.has(w));
+    // repEngagement.js (dec0c26d, the owner's 2026-09-17 ask) links an
+    // existing rep to an agency and back from the rep card: the same PAYEE
+    // line agency.js writes, still not a notes line.
+    const allowed = new Set(["lib/sales/agency.js", "lib/sales/repEngagement.js"]);
+    const stray = writers.filter((w) => !allowed.has(w));
+    if (stray.length) console.log("    managerId writers outside the agency tier:", stray);
+    return stray.length === 0;
   })(),
 );
 ok(
