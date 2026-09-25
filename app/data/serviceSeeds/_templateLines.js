@@ -121,6 +121,9 @@ export const MEASUREMENT_KEYS = [
   "squares", "ridgeFt", "hipFt", "valleyFt", "eaveFt", "rakeFt", "stepFlashingFt", "wastePct",
   // cleaning — room counts from the booking form (bedrooms, bathrooms, half baths)
   "bedroomCount", "bathroomCount", "halfBathCount",
+  // carpet cleaning — rooms (areas up to ~200 sq ft) from the booking form;
+  // stairs use `treads` above
+  "roomCount",
   // generic
   "areaSqFt", "linearFt", "each",
 ];

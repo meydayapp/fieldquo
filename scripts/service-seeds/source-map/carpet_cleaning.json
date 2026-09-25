@@ -369,5 +369,12 @@
   "sourceCategory": "Custom Services",
   "sourceService": "Custom job",
   "taskCode": null
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.visits.assessment_visit",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Carpet and upholstery assessment",
+  "taskCode": null
  }
 ]
