@@ -489,8 +489,16 @@ section("8. The payer switch is real");
       const src = read(p);
       return src.includes("meterFor(") && (src.includes(`meterFor("${f.feature}"`) || new RegExp(`AI_FEATURE\\s*=\\s*"${f.feature}"`).test(src));
     });
-    ok(`${f.feature} is marked wired AND routes through meterFor (${callers.length} call sites)`, callers.length >= 2, callers);
+    // At least one call site. Receipts have two (scan and read); the copilot
+    // and each AI-employee feature genuinely have one each — the claim being
+    // guarded is "a wired feature is routed", not "routed twice".
+    ok(`${f.feature} is marked wired AND routes through meterFor (${callers.length} call sites)`, callers.length >= 1, callers);
   }
+  // The owner's 2026-09-25 decision: FieldQuo pays for the copilot and for
+  // translation; the company pays for its AI employee — from its AI CREDIT.
+  ok("every registered feature is wired now (none left on the allowance by omission)", PAYER_FEATURES.every((f) => f.wired));
+  ok("the AI employee's two features are paid from the company's AI credit, not its allowance", ["ai_employee_reply", "ai_employee_front_desk"].every((k) => PAYER_FEATURES.find((f) => f.feature === k)?.companyLedger === "wallet"));
+  ok("…and nothing FieldQuo pays for is marked as a wallet feature", PAYER_FEATURES.filter((f) => f.defaultPayer === "fieldquo").every((f) => !f.companyLedger));
   const billing = read("app/api/platform/ai-billing/route.js");
   ok("the switch refuses to save an unwired feature", /if \(!f\.wired\)/.test(billing));
   ok("...and only a superadmin may change it", /admin\.role !== "superadmin"/.test(billing));

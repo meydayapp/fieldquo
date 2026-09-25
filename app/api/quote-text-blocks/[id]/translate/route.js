@@ -14,9 +14,12 @@
 // the "translate once" rule the owner asked for, and why a busy painter pays
 // for "Exclusions" in French exactly once.
 //
-// Metered like every model call: checkAiQuota before, recordAiUsage after,
-// feature "text_block_translation". Cost: one short call per block per new
-// language — a few hundred tokens.
+// Metered like every model call — checked before, recorded after — through
+// meterFor("translation") (lib/ai/featurePayer.js). Translation drafting is
+// FieldQuo's cost since the owner's 2026-09-25 decision, so this lands on
+// FieldQuo's own budget under the translation feature, not the company's
+// allowance (it was the allowance's "text_block_translation" before). Cost:
+// one short call per block per new language — a few hundred tokens.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -25,7 +28,8 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { isSupported } from "@/app/i18n/languages";
 import { isAiConfigured } from "@/lib/ai/provider";
-import { checkAiQuota, recordAiUsage } from "@/lib/ai/usage";
+import { meterFor } from "@/lib/ai/featurePayer";
+import { underDailyDraftCap, DAILY_CAP_REFUSAL } from "@/lib/i18n/autoTranslate";
 import { translateFields } from "@/lib/i18n/translateContent";
 import { resolveTextBlockText } from "@/lib/quotes/textBlocks";
 
@@ -56,9 +60,15 @@ export async function POST(request, { params }) {
     );
   }
 
-  const quota = await checkAiQuota(member.companyId);
+  const meter = await meterFor("translation", { companyId: member.companyId, userId: member.userId || null });
+  const quota = await meter.check();
   if (!quota.allowed) {
     return NextResponse.json({ error: quota.reason, quotaExceeded: true }, { status: 429 });
+  }
+  // On FieldQuo's card the per-company ceiling is the daily draft cap shared
+  // with auto-translation — see lib/i18n/autoTranslate.js.
+  if (meter.payer === "fieldquo" && !(await underDailyDraftCap(db, member.companyId))) {
+    return NextResponse.json({ error: DAILY_CAP_REFUSAL, quotaExceeded: true }, { status: 429 });
   }
 
   const drafts = await translateFields(
@@ -66,13 +76,7 @@ export async function POST(request, { params }) {
     block.language || "en",
     [language],
     {
-      onUsage: (u) =>
-        recordAiUsage({
-          companyId: member.companyId,
-          feature: "text_block_translation",
-          userId: member.userId,
-          ...u,
-        }),
+      onUsage: (u) => meter.record(u, { meta: { source: "text_block", id: block.id, language } }),
     },
   );
   const draft = drafts?.[language];

@@ -35,6 +35,7 @@ import {
   TOPUP_OPTIONS,
 } from "@/lib/voice/credits";
 import { aiCreditBundleFor, publicAiBundle, BUNDLE_ROLLOVER_NOTICE, bundleAvailability } from "@/lib/ai/creditBundle";
+import { estimateChargeCents } from "@/lib/ai/walletMeter";
 
 export async function GET(request) {
   const { member, refusal } = await memberOrRefusalPlain(request);
@@ -101,6 +102,10 @@ export async function GET(request) {
         image_generation: IMAGE_GENERATION_CENTS,
         image_vision: VISION_PASS_CENTS,
         material_list: MATERIAL_LIST_CENTS,
+        // Not a flat price: the AI employee is charged per reply from its
+        // token counts (lib/ai/walletMeter.js). This is the same estimate the
+        // pre-reply gate uses, so the card and the gate agree.
+        ai_employee_reply: estimateChargeCents("ai_employee_reply"),
       },
       topups: TOPUP_OPTIONS,
       bundles: BUNDLES,

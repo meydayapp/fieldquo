@@ -67,6 +67,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError, showError } from "@/lib/clientErrors";
 import { formatAppMoney } from "@/lib/format/money";
 import { CREDIT_CURRENCY } from "@/lib/voice/creditCurrency";
+import { formatCalendarDay } from "@/lib/format/localeDate";
 import BackToHome from "@/app/components/BackToHome";
 import TeamFlow from "@/app/components/aiEmployee/TeamFlow";
 
@@ -167,7 +168,7 @@ function ChannelFrame({ channel, children, t }) {
 }
 
 export default function AiEmployeePage() {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [data, setData] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
   const [form, setForm] = useState(null);
@@ -566,12 +567,53 @@ export default function AiEmployeePage() {
         </Notice>
       )}
 
-      {data.ai?.configured && !data.ai?.allowed && (
+      {/* ── Paid from the AI credit (owner, 2026-09-25) ──────────────────
+          Every state below is the verdict the server's meter gave — the same
+          one a customer's next message would get (lib/ai/walletMeter.js).
+          The button goes to the AI credit page, where the top-ups and the
+          monthly bundles live: both fill the wallet these replies draw on. */}
+      {data.ai?.configured && data.ai?.billing === "paused" && (
         <Notice tone="warn">
-          {data.ai.reason}{" "}
-          <Link href="/app/settings/ai-credit" className="underline">
-            {t("app.aiEmployee.topUp", "Top up AI credit")}
+          <p className="font-semibold">
+            {t("app.aiEmployee.pausedTitle", "Your AI employee is paused — AI credit is empty")}
+          </p>
+          <p className="mt-1 opacity-90">
+            {t("app.aiEmployee.pausedBody", "Every employee now tells customers someone will reply shortly and leaves each conversation to you. Add credit and it starts answering again — a reply costs about {amount}.", { amount: money(data.ai.typicalConversationCents) })}
+          </p>
+          <Link href="/app/settings/ai-credit" className={`${BTN_PRIMARY} mt-2`}>
+            {t("app.aiEmployee.topUpOrBundle", "Top up or add a monthly bundle")}
           </Link>
+        </Notice>
+      )}
+
+      {data.ai?.configured && data.ai?.billing === "grace" && (
+        <Notice tone="warn">
+          <p>
+            {t("app.aiEmployee.graceBanner", "What's changing: from {date}, your AI employee's replies are paid from your AI credit, not your monthly AI allowance. Until then it keeps running on the allowance as it does today. A reply costs about {amount}; your AI credit is {balance}.", {
+              date: formatCalendarDay(data.ai.graceEndsOn, language),
+              amount: money(data.ai.typicalConversationCents),
+              balance: money(data.ai.walletCents),
+            })}
+          </p>
+          {!data.ai.allowed && data.ai.reason && <p className="mt-1">{data.ai.reason}</p>}
+          <Link href="/app/settings/ai-credit" className={`${BTN_PRIMARY} mt-2`}>
+            {t("app.aiEmployee.topUpOrBundle", "Top up or add a monthly bundle")}
+          </Link>
+        </Notice>
+      )}
+
+      {data.ai?.configured && data.ai?.billing === "wallet" && data.ai?.inGrace && (
+        <Notice>
+          {t("app.aiEmployee.walletBanner", "Your AI employee's replies are now paid from your AI credit instead of your monthly AI allowance — about {amount} a reply, taken as each one is written. Your balance is {balance}.", {
+            amount: money(data.ai.typicalConversationCents),
+            balance: money(data.ai.walletCents),
+          })}
+        </Notice>
+      )}
+
+      {data.ai?.configured && !data.ai?.allowed && data.ai?.billing !== "paused" && data.ai?.billing !== "grace" && (
+        <Notice tone="warn">
+          {data.ai.reason}
           <p className="mt-1 opacity-90">
             {t("app.aiEmployee.overQuotaBehaviour", "Until then, every employee tells customers someone will reply shortly and leaves each conversation to you — it never answers with a cheaper model and never goes quiet without telling you.")}
           </p>
@@ -1023,7 +1065,17 @@ export default function AiEmployeePage() {
             ? t("app.aiEmployee.typicalCost", "A typical conversation costs about {amount} of your AI credit. That's an estimate from a stated average — the real figure is on every reply below.", { amount: money(data.ai.typicalConversationCents) })
             : t("app.aiEmployee.typicalCostUnknown", "We don't have a rate for this model yet, so we can't estimate a conversation's cost.")}
         </p>
-        {data.ai?.cap !== null && data.ai?.cap !== undefined && (
+        {/* Which meter pays is the server's answer (data.ai.billing). The
+            token line is shown only while the ALLOWANCE pays — the grace, or
+            the /platform switch moving the feature back onto it; on the
+            wallet, tokens are not what the company is charged for. */}
+        {(data.ai?.billing === "wallet" || data.ai?.billing === "paused") && (
+          <p className="text-sm text-muted-foreground mt-1">
+            {t("app.aiEmployee.walletBalance", "Paid from your AI credit — balance {balance}.", { balance: money(data.ai.walletCents) })}{" "}
+            <Link href="/app/settings/ai-credit" className="underline">{t("app.aiEmployee.topUpOrBundle", "Top up or add a monthly bundle")}</Link>
+          </p>
+        )}
+        {(data.ai?.billing === "grace" || data.ai?.billing === "allowance") && data.ai?.cap !== null && data.ai?.cap !== undefined && (
           <p className="text-sm text-muted-foreground mt-1">
             {t("app.aiEmployee.balance", "This month: {used} of {cap} tokens used.", {
               used: Number(data.ai.usedTokens || 0).toLocaleString(),
@@ -1032,8 +1084,15 @@ export default function AiEmployeePage() {
             <Link href="/app/settings/ai-credit" className="underline">{t("app.aiEmployee.topUp", "Top up AI credit")}</Link>
           </p>
         )}
+        {data.ai?.billing === "fieldquo" && (
+          <p className="text-sm text-muted-foreground mt-1">
+            {t("app.aiEmployee.fieldquoPays", "FieldQuo is covering your AI employee's replies at the moment — nothing is taken from your AI credit.")}
+          </p>
+        )}
         <p className="text-xs text-muted-foreground mt-2">
-          {t("app.aiEmployee.lowBalance", "When the allowance runs out, every employee stops, tells the customer someone will reply shortly, and leaves the conversation to you with the reason on it. It never answers with a cheaper model.")}
+          {data.ai?.billing === "grace" || data.ai?.billing === "allowance"
+            ? t("app.aiEmployee.lowBalance", "When the allowance runs out, every employee stops, tells the customer someone will reply shortly, and leaves the conversation to you with the reason on it. It never answers with a cheaper model.")
+            : t("app.aiEmployee.walletRunsOut", "When your AI credit can't cover the next reply, every employee stops, tells the customer someone will reply shortly, and leaves the conversation to you with the reason on it. It never answers with a cheaper model.")}
         </p>
       </Card>
 
@@ -1177,7 +1236,11 @@ export default function AiEmployeePage() {
                   </p>
                 )}
                 <p className="text-xs text-muted-foreground">
-                  {t("app.aiEmployee.testCostModel", "This test cost {amount} on {model}.", { amount: money(testResult.costCents), model: testResult.model || data.ai?.model || "—" })}
+                  {/* What the AI credit was actually debited when it was; the
+                      model's cost otherwise (the allowance paid, or FieldQuo). */}
+                  {testResult.chargedCents
+                    ? t("app.aiEmployee.testCharged", "This test took {amount} from your AI credit ({model}).", { amount: money(testResult.chargedCents), model: testResult.model || data.ai?.model || "—" })
+                    : t("app.aiEmployee.testCostModel", "This test cost {amount} on {model}.", { amount: money(testResult.costCents), model: testResult.model || data.ai?.model || "—" })}
                 </p>
               </>
             )}

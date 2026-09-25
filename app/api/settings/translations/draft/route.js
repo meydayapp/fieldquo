@@ -53,6 +53,14 @@
 // cannot decline, ramble, or return prose instead of JSON. That is handled by
 // treating a malformed batch as a failed batch and saying so, rather than by
 // picking the vendor that can't fail in that particular way.
+//
+// ── Who pays: FieldQuo (owner, 2026-09-25) ─────────────────────────────────
+//
+// Translation drafting is FieldQuo's cost, like auto-translation on save —
+// meterFor("translation") (lib/ai/featurePayer.js) routes it to FieldQuo's own
+// budget, and it no longer spends the company's allowance. What stops a loop
+// is the per-company DAILY draft cap auto-translation already keeps
+// (lib/i18n/autoTranslate.js), counted off the same FieldQuo ledger rows.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -60,7 +68,8 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { isSupported } from "@/app/i18n/languages";
 import { isAiConfigured } from "@/lib/ai/provider";
-import { checkAiQuota, recordAiUsage } from "@/lib/ai/usage";
+import { meterFor } from "@/lib/ai/featurePayer";
+import { underDailyDraftCap, DAILY_CAP_REFUSAL } from "@/lib/i18n/autoTranslate";
 import { draftProductTranslations } from "@/lib/i18n/translateContent";
 
 function isAdmin(role) {
@@ -71,8 +80,8 @@ export async function POST(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
-  // Same bar as editing the catalogue itself. This one also spends the
-  // company's AI allowance, so it is not a read.
+  // Same bar as editing the catalogue itself. This one also spends against a
+  // monthly AI ceiling (FieldQuo's, by default), so it is not a read.
   if (!isAdmin(member.role)) {
     return NextResponse.json(
       { error: "Only an owner or admin can draft translations." },
@@ -135,12 +144,19 @@ export async function POST(request) {
     return NextResponse.json({ language, drafts: {}, drafted: 0, failed: 0, stopped: false });
   }
 
-  const quota = await checkAiQuota(member.companyId);
+  const meter = await meterFor("translation", { companyId: member.companyId, userId: member.userId || null });
+  const quota = await meter.check();
   if (!quota.allowed) {
     return NextResponse.json(
       { error: quota.reason, quotaExceeded: true },
       { status: 429 },
     );
+  }
+  // FieldQuo's card: the daily draft cap is the per-company ceiling. (On the
+  // company's allowance, the allowance above is.)
+  const fieldquoPays = meter.payer === "fieldquo";
+  if (fieldquoPays && !(await underDailyDraftCap(db, member.companyId))) {
+    return NextResponse.json({ error: DAILY_CAP_REFUSAL, quotaExceeded: true }, { status: 429 });
   }
 
   const result = await draftProductTranslations(
@@ -148,18 +164,14 @@ export async function POST(request) {
     sourceLanguage,
     language,
     {
-      onUsage: (u) =>
-        recordAiUsage({
-          companyId: member.companyId,
-          feature: "translation",
-          userId: member.userId,
-          ...u,
-        }),
+      // Recorded per call, on whichever ledger the switch named.
+      onUsage: (u) => meter.record(u),
       // Re-checked between batches rather than once at the start. A big
-      // catalogue can cross the monthly cap halfway through, and stopping there
-      // with 40 drafts and an honest message beats either blowing through the
-      // cap or refusing the whole run because it might.
-      shouldContinue: async () => (await checkAiQuota(member.companyId)).allowed,
+      // catalogue can cross the monthly ceiling halfway through, and stopping
+      // there with 40 drafts and an honest message beats either blowing
+      // through it or refusing the whole run because it might.
+      shouldContinue: async () =>
+        (await meter.check()).allowed && (!fieldquoPays || (await underDailyDraftCap(db, member.companyId))),
     },
   );
 

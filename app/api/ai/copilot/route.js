@@ -1,4 +1,15 @@
 // app/api/ai/copilot/route.js
+//
+// ── Who pays: FieldQuo (owner, 2026-09-25) ──────────────────────────────────
+//
+// "FieldQuo AI is okay if it's us." Metered through meterFor("copilot")
+// (lib/ai/featurePayer.js): FieldQuo's own AI budget and ledger by default, so
+// a question asked here no longer spends the company's monthly AI allowance.
+// The per-company ceiling stays — the same size as the allowance, counted on
+// FieldQuo's ledger for the copilot alone — because the reason it existed (a
+// scripted loop against this route) did not move when the bill did. The
+// /platform/ai-billing switch can put it back on the company's allowance
+// without a deploy; the route does not care which.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -9,7 +20,7 @@ import { askCopilot } from "@/lib/ai/copilotClient";
 import { askerFirstName } from "@/lib/ai/askerName";
 import { readerLanguage } from "@/lib/i18n/readerLanguage";
 import { isAiConfigured, AI_MODEL } from "@/lib/ai/provider";
-import { checkAiQuota, recordAiUsage } from "@/lib/ai/usage";
+import { meterFor } from "@/lib/ai/featurePayer";
 
 export async function POST(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -40,12 +51,15 @@ export async function POST(request) {
   // Checked BEFORE the call, not after. Recording after only tells you what
   // you already spent — this is the part that stops a scripted loop turning
   // into an unbounded bill on FieldQuo's card.
-  const quota = await checkAiQuota(member.companyId);
+  const meter = await meterFor("copilot", { companyId: member.companyId, userId: member.userId || null });
+  const quota = await meter.check();
   if (!quota.allowed) {
-    return NextResponse.json(
-      { error: quota.reason, quotaExceeded: true },
-      { status: 429 },
-    );
+    // `quota` is the monthly ceiling (the page shows "resets on …" and
+    // disables the composer); anything else — FieldQuo's own budget pausing —
+    // is a transient refusal the page shows as an error worth retrying.
+    return quota.code === "quota"
+      ? NextResponse.json({ error: quota.reason, quotaExceeded: true }, { status: 429 })
+      : NextResponse.json({ error: quota.reason }, { status: 429 });
   }
 
   // WHO is asking, not just which company they're in.
@@ -91,13 +105,8 @@ export async function POST(request) {
       }),
       // For the one greeting by name — see voiceRule in copilotClient.js.
       firstName: await askerFirstName({ userId: member.userId }),
-      onUsage: (u) =>
-        recordAiUsage({
-          companyId: member.companyId,
-          feature: "copilot",
-          userId: member.userId,
-          ...u,
-        }),
+      // Every round of the tool loop, on whichever ledger the switch named.
+      onUsage: (u) => meter.record(u),
     });
 
     return NextResponse.json({

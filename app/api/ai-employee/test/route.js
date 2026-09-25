@@ -17,7 +17,10 @@
 // rule describes with a demo attached.
 //
 // It still costs AI credit, because it really does call the model. The screen
-// says so beside the button, and checkAiQuota runs first like everywhere else.
+// says so beside the button, and the same meter the real replies use runs
+// first (lib/ai/walletMeter.js): an AI credit that cannot cover a reply
+// refuses the test exactly as it would refuse a customer's message, and a test
+// that runs is debited like one — `chargedCents` below is what it took.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -95,5 +98,8 @@ export async function POST(request) {
     tools: result.tools || [],
     handedOff: Boolean(result.handedOff),
     costCents: result.costCents || 0,
+    // What the AI credit was debited — null when nothing was taken from it
+    // (the allowance grace, or FieldQuo paying), so the screen can say which.
+    chargedCents: Number(result.chargedCents) > 0 ? result.chargedCents : null,
   });
 }

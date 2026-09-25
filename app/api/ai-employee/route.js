@@ -4,9 +4,9 @@
 //
 //   GET  → every employee the company has hired (a default receptionist is
 //          created on first read so the screen is never empty), the role
-//          presets, the tools' risk table, the faces, the company's AI
-//          allowance and what a conversation costs on the model the employee
-//          runs on, whether the Meta channel is connected, whether the SMS
+//          presets, the tools' risk table, the faces, how the employee is
+//          paid for (the AI credit, the switch-over grace, or paused) and
+//          what a reply costs on the model the employee runs on, whether the Meta channel is connected, whether the SMS
 //          channel CAN work (does FieldQuo hold a system number), and the
 //          web-chat embed snippet.
 //   POST → hire one: { role }. One per role — the schema's unique.
@@ -20,7 +20,7 @@
 // Owner/admin only, the same rung as the AI credit plan and the phone
 // receptionist: this decides what gets said to customers in the company's
 // name — and now what gets BOOKED in it — and it spends the company's AI
-// allowance to do it.
+// credit to do it (lib/ai/walletMeter.js — the owner's 2026-09-25 decision).
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -28,7 +28,11 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { isAiConfigured, AI_BEST_MODEL } from "@/lib/ai/provider";
-import { checkAiQuota, typicalConversationCostCents, pricingFor } from "@/lib/ai/usage";
+import { pricingFor } from "@/lib/ai/usage";
+import { meterFor } from "@/lib/ai/featurePayer";
+import { estimateChargeCents, AI_EMPLOYEE_GRACE_ENDS_ON, inAiEmployeeGrace } from "@/lib/ai/walletMeter";
+import { balanceFor, POOLS } from "@/lib/voice/credits";
+import { AI_EMPLOYEE_FEATURE } from "@/lib/aiEmployee/respond";
 import { messagingConnection } from "@/lib/messaging/channels";
 import { systemSmsNumber } from "@/lib/sms/systemNumber";
 import { recordActivity } from "@/lib/activity/log";
@@ -160,12 +164,17 @@ export async function GET(request) {
 
   const employees = await loadOrCreate(member.companyId, { mayCreate: !member.impersonation });
 
-  const [company, quota, connection, smsNumber, counts] = await Promise.all([
+  // The same meter a reply goes through, asked the same question — so the
+  // screen's "paused" is the verdict a customer's next message would get,
+  // not a second opinion computed here.
+  const meter = await meterFor(AI_EMPLOYEE_FEATURE, { companyId: member.companyId });
+  const [company, quota, walletCents, connection, smsNumber, counts] = await Promise.all([
     db.company.findUnique({
       where: { id: member.companyId },
       select: { businessHours: true, timezone: true, slug: true, bookingSlug: true },
     }),
-    checkAiQuota(member.companyId),
+    meter.check(),
+    balanceFor(member.companyId, db, POOLS.AI),
     // The Meta inbox is waiting on Meta. The screen says so rather than
     // offering a switch for a channel nothing can leave through.
     messagingConnection(member.companyId).catch(() => null),
@@ -214,16 +223,40 @@ export async function GET(request) {
       configured: isAiConfigured(),
       allowed: quota.allowed,
       reason: quota.allowed ? null : quota.reason,
-      remaining: quota.remaining,
-      cap: quota.cap,
-      usedTokens: quota.usage?.tokens ?? null,
-      nearLimit: quota.nearLimit,
-      // The model the employee runs on, and what a conversation typically
-      // costs on it — an estimate, and labelled as one on the screen. Null
-      // cost means the price table has no row, which the check refuses.
+      // ── Who pays, and from what ────────────────────────────────────────
+      //
+      //   "wallet"    the AI credit covers a reply; each one is debited.
+      //   "grace"     it does not, and the switch-over grace is running:
+      //               replies still spend the monthly allowance until
+      //               graceEndsOn. The screen shows the change and the date.
+      //   "paused"    it does not, and the grace is over — "Your AI employee
+      //               is paused — AI credit is empty", with the top-up.
+      //   "allowance" / "fieldquo"  the /platform switch moved the feature
+      //               off the wallet; nothing is taken from the AI credit.
+      billing:
+        meter.ledger === "wallet"
+          ? quota.billing === "wallet" || quota.billing === "grace"
+            ? quota.billing
+            : quota.code === "no_credit"
+              ? "paused"
+              : "wallet"
+          : meter.ledger,
+      graceEndsOn: AI_EMPLOYEE_GRACE_ENDS_ON,
+      inGrace: inAiEmployeeGrace(),
+      walletCents,
+      // The allowance's figures, only while the allowance is what pays.
+      remaining: quota.quota?.remaining ?? quota.remaining ?? null,
+      cap: quota.quota?.cap ?? quota.cap ?? null,
+      usedTokens: quota.quota?.usage?.tokens ?? quota.usage?.tokens ?? null,
+      nearLimit: quota.quota?.nearLimit ?? quota.nearLimit ?? false,
+      // The model the employee runs on, and what a reply typically costs the
+      // AI credit on it — the same estimate the pre-call gate uses, priced by
+      // the same formula as the debit, and labelled as an estimate on the
+      // screen. Null pricing means the price table has no row, which the
+      // check refuses.
       model: AI_BEST_MODEL,
       tier: "best",
-      typicalConversationCents: typicalConversationCostCents(AI_BEST_MODEL),
+      typicalConversationCents: estimateChargeCents(AI_EMPLOYEE_FEATURE, { model: AI_BEST_MODEL }),
       pricing: pricingFor(AI_BEST_MODEL),
     },
     businessHoursOpenNow: withinBusinessHours(company),

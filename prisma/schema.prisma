@@ -9886,6 +9886,15 @@ model AiUsage {
   // triggered, so "who is generating all this" is answerable.
   userId String?
 
+  // True when this call was paid for in DOLLARS from the company's AI credit
+  // (the "ai" pool of VoiceCreditEntry) — today the AI employee's replies and
+  // its front desk, per the owner's 2026-09-25 decision (lib/ai/walletMeter.js).
+  // Such a row is kept for the usage screens and the platform cost report, and
+  // is EXCLUDED from the monthly token allowance checkAiQuota enforces: the
+  // company already paid for it once, and counting it against the allowance
+  // too would charge the same call twice. False on every row written before.
+  paidFromWallet Boolean @default(false)
+
   createdAt DateTime @default(now())
 
   // Every read is "this company, this month", so the index matches.
@@ -18360,6 +18369,15 @@ model AiEmployeeReply {
   /// Cents, rounded UP from the micros lib/ai/usage.js computes, so a page of
   /// per-reply costs never sums to less than the month's bill.
   costCents        Int    @default(0)
+  /// What the company's AI credit was actually DEBITED for this reply, in
+  /// cents — lib/ai/walletMeter.js: the vendor cost × the pay-as-you-go
+  /// multiplier, rounded up. Written only after the ledger entry
+  /// (VoiceCreditEntry ref "ai_employee_reply:<this id>") exists. Null when
+  /// nothing was taken from the wallet: a reply paid from the monthly
+  /// allowance during the switch-over grace, one FieldQuo paid for, or a
+  /// refusal that never called the model. costCents above stays the vendor
+  /// cost; this is the price.
+  chargedCents     Int?
 
   /// [{ name, ok, summary }] — every tool the loop actually ran, in order.
   /// Stored because "it booked a callback" is a claim about a side effect, and

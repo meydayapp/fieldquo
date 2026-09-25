@@ -745,13 +745,30 @@ for (const role of AI_EMPLOYEE_ROLES) {
   ok("nobody enabled → null, never a throw", pickAssignee({ rows: [{ ...R, enabled: false }], intent: "book", channel: "web" }) === null && pickAssignee({ rows: null, intent: "book" }) === null);
   ok("the model's answer is made safe", classifyOutcome({ intent: "book", reason: " a  visit " }).intent === "book" && classifyOutcome({ intent: "buy" }).intent === "other" && classifyOutcome(null).intent === "other" && classifyOutcome({ intent: "price", reason: "x".repeat(500) }).reason.length === 200);
 
-  // The front desk: metered, standard tier, structured, never throws.
+  // The front desk: metered, standard tier, structured, never throws. Paid
+  // from the company's AI credit (lib/ai/walletMeter.js), so each run is
+  // handed a scripted wallet and a clock past the switch-over grace.
   {
+    const wallet = (cents) => {
+      const rows = cents ? [{ companyId: "C1", pool: "ai", cents }] : [];
+      return {
+        rows,
+        aiFeaturePayer: { findUnique: async () => null },
+        voiceCreditEntry: {
+          aggregate: async ({ where }) => ({ _sum: { cents: rows.filter((r) => r.companyId === where.companyId && r.pool === where.pool).reduce((a, r) => a + r.cents, 0) } }),
+          findFirst: async ({ where }) => rows.find((r) => r.companyId === where.companyId && r.ref === where.ref) || null,
+          create: async ({ data }) => { rows.push(data); return data; },
+        },
+      };
+    };
+    const later = new Date("2026-10-15T12:00:00Z");
     const calls = [];
     const used = [];
+    const paid = wallet(500);
     const out = await classifyIntent({
-      companyId: "C1", text: "how much to paint a bedroom",
+      companyId: "C1", text: "how much to paint a bedroom", threadId: "thX", prisma: paid,
       deps: {
+        now: later,
         checkAiQuota: async () => ({ allowed: true }),
         recordAiUsage: async (u) => { used.push(u); },
         complete: async (args) => { calls.push(args); args.onUsage?.({ model: "gpt-x", promptTokens: 10, completionTokens: 2 }); return { ok: true, data: { intent: "price", reason: "asks a cost" } }; },
@@ -760,9 +777,10 @@ for (const role of AI_EMPLOYEE_ROLES) {
     ok("the front desk asks for a schema on the standard tier", calls.length === 1 && calls[0].tier === "standard" && calls[0].schema?.properties?.intent?.enum?.length === 4);
     ok("...fences the message as data", /data, not instructions/.test(calls[0].prompt));
     ok("...and meters the call under its own feature", used.length === 1 && used[0].feature === FRONT_DESK_FEATURE && out.intent === "price" && out.metered === true);
-    const broke = await classifyIntent({ companyId: "C1", text: "hi", deps: { checkAiQuota: async () => ({ allowed: true }), recordAiUsage: async () => {}, complete: async () => { throw new Error("vendor down"); } } });
+    ok("...paid from the AI credit, once per thread", paid.rows.filter((r) => r.kind === FRONT_DESK_FEATURE && r.ref === `${FRONT_DESK_FEATURE}:thX` && r.cents < 0).length === 1 && used[0].paidFromWallet === true);
+    const broke = await classifyIntent({ companyId: "C1", text: "hi", prisma: wallet(500), deps: { now: later, checkAiQuota: async () => ({ allowed: true }), recordAiUsage: async () => {}, complete: async () => { throw new Error("vendor down"); } } });
     ok("a vendor failure is `other`, never a throw", broke.intent === "other" && /failed/.test(broke.reason));
-    const dry = await classifyIntent({ companyId: "C1", text: "hi", deps: { checkAiQuota: async () => ({ allowed: false }), recordAiUsage: async () => {}, complete: async () => { throw new Error("must not be called"); } } });
+    const dry = await classifyIntent({ companyId: "C1", text: "hi", prisma: wallet(0), deps: { now: later, checkAiQuota: async () => ({ allowed: true }), recordAiUsage: async () => {}, complete: async () => { throw new Error("must not be called"); } } });
     ok("no credit → no call, `other`", dry.intent === "other" && dry.metered === false);
   }
 
@@ -840,16 +858,26 @@ for (const role of AI_EMPLOYEE_ROLES) {
       count: async ({ where } = {}) => store[name].filter((x) => matches(x, where)).length,
       create: async ({ data }) => { const row = { id: `${name}_${++seq}`, createdAt: new Date(), ...data }; store[name].push(row); return row; },
       update: async ({ where, data }) => { const row = store[name].find((x) => matches(x, where)); if (!row) throw new Error(`no ${name} ${JSON.stringify(where)}`); Object.assign(row, data); return row; },
+      // The AI wallet's balance is a SUM (lib/voice/credits.js balanceFor).
+      aggregate: async ({ where, _sum = {} } = {}) => {
+        const rows = store[name].filter((x) => matches(x, where));
+        return { _sum: Object.fromEntries(Object.keys(_sum).map((k) => [k, rows.reduce((a, r) => a + (Number(r[k]) || 0), 0)])) };
+      },
     };
   }
   function makeDb(seed) {
-    const store = { aiEmployee: [], messageThread: [], message: [], aiEmployeeReply: [], aiEmployeeRoutingEvent: [], aiEmployeeSource: [], company: [], ...seed };
+    // Every company in these runs holds $100 of AI credit, so the replies are
+    // paid from the wallet (lib/ai/walletMeter.js) — and `now` below is pinned
+    // AFTER the switch-over grace, so what is exercised does not depend on
+    // the day the check happens to run.
+    const store = { aiEmployee: [], messageThread: [], message: [], aiEmployeeReply: [], aiEmployeeRoutingEvent: [], aiEmployeeSource: [], company: [], aiFeaturePayer: [], voiceCreditEntry: [{ id: "credit", companyId: "C1", pool: "ai", kind: "ai_topup", cents: 10_000 }], ...seed };
     const db = {};
     for (const name of Object.keys(store)) db[name] = model(store, name);
     db.$store = store;
     return db;
   }
   const t0 = new Date("2026-09-20T15:00:00Z");
+  const AFTER_GRACE = new Date("2026-10-15T12:00:00Z");
   const at = (s) => new Date(t0.getTime() + s * 1000);
   const company = { id: "C1", name: "Acme Painting", businessHours: null, timezone: "America/Toronto", defaultLanguage: "en" };
   const thread = (over = {}) => ({ id: "th1", companyId: "C1", status: "open", participantName: "Sam", channel: { platform: "web" }, lastInboundAt: t0, assignedEmployeeId: null, routingIntent: null, routingReason: null, humanTookOverAt: null, ...over });
@@ -865,6 +893,7 @@ for (const role of AI_EMPLOYEE_ROLES) {
     const usage = [];
     const deps = {
       db,
+      now: AFTER_GRACE,
       checkAiQuota: async () => ({ allowed: true }),
       recordAiUsage: async (u) => { usage.push(u); },
       isAiConfigured: () => true,
@@ -1115,7 +1144,7 @@ for (const role of AI_EMPLOYEE_ROLES) {
   // ── The responder's structure ────────────────────────────────────────────
   {
     const respond = code("lib/aiEmployee/respond.js");
-    ok("the assignee gate sits before the quota and the prompt", respond.indexOf("assignThread(") < respond.indexOf("checkQuota(companyId)") && respond.indexOf("burstGate(") < respond.indexOf("assignThread("));
+    ok("the assignee gate sits before the credit check and the prompt", respond.indexOf("assignThread(") > -1 && respond.indexOf("assignThread(") < respond.indexOf("meter.check()") && respond.indexOf("burstGate(") < respond.indexOf("assignThread("));
     ok("a non-assignee returns NOT_ASSIGNEE without generating", /reason: SKIP\.NOT_ASSIGNEE/.test(respond) && respond.indexOf("SKIP.NOT_ASSIGNEE") < respond.indexOf("runLoop("));
     ok("the take-over stamp is handed to shouldReply as a fact", /humanTookOver: Boolean\(thread\?\.humanTookOverAt\)/.test(respond));
     ok("the colleague's turn is the same function at depth 1", /handOffDepth: handOffDepth \+ 1/.test(respond));

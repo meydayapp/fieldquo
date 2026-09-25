@@ -10910,6 +10910,17 @@ const en = {
   "app.salesText.putAway": "Put away",
   "app.salesText.sendNow": "Send it now",
 
+  // ── The AI employee is paid from the AI credit (owner, 2026-09-25) ──────
+  "app.aiEmployee.pausedTitle": "Your AI employee is paused — AI credit is empty",
+  "app.aiEmployee.pausedBody": "Every employee now tells customers someone will reply shortly and leaves each conversation to you. Add credit and it starts answering again — a reply costs about {amount}.",
+  "app.aiEmployee.topUpOrBundle": "Top up or add a monthly bundle",
+  "app.aiEmployee.graceBanner": "What's changing: from {date}, your AI employee's replies are paid from your AI credit, not your monthly AI allowance. Until then it keeps running on the allowance as it does today. A reply costs about {amount}; your AI credit is {balance}.",
+  "app.aiEmployee.walletBanner": "Your AI employee's replies are now paid from your AI credit instead of your monthly AI allowance — about {amount} a reply, taken as each one is written. Your balance is {balance}.",
+  "app.aiEmployee.walletBalance": "Paid from your AI credit — balance {balance}.",
+  "app.aiEmployee.walletRunsOut": "When your AI credit can't cover the next reply, every employee stops, tells the customer someone will reply shortly, and leaves the conversation to you with the reason on it. It never answers with a cheaper model.",
+  "app.aiEmployee.fieldquoPays": "FieldQuo is covering your AI employee's replies at the moment — nothing is taken from your AI credit.",
+  "app.aiEmployee.testCharged": "This test took {amount} from your AI credit ({model}).",
+  "app.setAiCredit.aiEmployeeHint": "Your AI employee's replies are paid from this credit too — about {reply} a reply, taken as each one is written.",
   // ══ Sentences the SERVER composes, which a rep reads ══════════════════
   //
   // Commit cf099363 translated every /sales screen. What it could not reach
@@ -25041,6 +25052,17 @@ const fr = {
   "app.salesText.putAway": "Ranger",
   "app.salesText.sendNow": "Envoyer maintenant",
 
+  // ── The AI employee is paid from the AI credit (owner, 2026-09-25) ──────
+  "app.aiEmployee.pausedTitle": "Votre employé IA est en pause — le crédit IA est épuisé",
+  "app.aiEmployee.pausedBody": "Chaque employé dit maintenant aux clients que quelqu'un répondra sous peu et vous laisse chaque conversation. Ajoutez du crédit et il recommence à répondre — une réponse coûte environ {amount}.",
+  "app.aiEmployee.topUpOrBundle": "Recharger ou ajouter un forfait mensuel",
+  "app.aiEmployee.graceBanner": "Ce qui change : à partir du {date}, les réponses de votre employé IA sont payées avec votre crédit IA, et non plus avec votre allocation IA mensuelle. D'ici là, il continue de fonctionner sur l'allocation comme aujourd'hui. Une réponse coûte environ {amount} ; votre crédit IA est de {balance}.",
+  "app.aiEmployee.walletBanner": "Les réponses de votre employé IA sont maintenant payées avec votre crédit IA au lieu de votre allocation IA mensuelle — environ {amount} par réponse, prélevé à mesure que chacune est rédigée. Votre solde est de {balance}.",
+  "app.aiEmployee.walletBalance": "Payé avec votre crédit IA — solde {balance}.",
+  "app.aiEmployee.walletRunsOut": "Quand votre crédit IA ne couvre plus la prochaine réponse, chaque employé s'arrête, dit au client que quelqu'un répondra sous peu et vous laisse la conversation avec la raison indiquée. Il ne répond jamais avec un modèle moins cher.",
+  "app.aiEmployee.fieldquoPays": "FieldQuo prend en charge les réponses de votre employé IA pour le moment — rien n'est prélevé sur votre crédit IA.",
+  "app.aiEmployee.testCharged": "Ce test a coûté {amount} de votre crédit IA ({model}).",
+  "app.setAiCredit.aiEmployeeHint": "Les réponses de votre employé IA sont aussi payées avec ce crédit — environ {reply} par réponse, prélevé à mesure que chacune est rédigée.",
   // ══ Sentences the SERVER composes, which a rep reads ══════════════════
   //
   // Commit cf099363 translated every /sales screen. What it could not reach
@@ -39520,6 +39542,17 @@ const es = {
   "app.salesText.putAway": "Guardar",
   "app.salesText.sendNow": "Enviarlo ahora",
 
+  // ── The AI employee is paid from the AI credit (owner, 2026-09-25) ──────
+  "app.aiEmployee.pausedTitle": "Su empleado de IA está en pausa: el crédito de IA se agotó",
+  "app.aiEmployee.pausedBody": "Cada empleado ahora dice a los clientes que alguien responderá en breve y le deja cada conversación. Añada crédito y volverá a responder; una respuesta cuesta unos {amount}.",
+  "app.aiEmployee.topUpOrBundle": "Recargar o añadir un paquete mensual",
+  "app.aiEmployee.graceBanner": "Qué cambia: desde el {date}, las respuestas de su empleado de IA se pagan con su crédito de IA, no con su asignación mensual de IA. Hasta entonces sigue funcionando con la asignación como hoy. Una respuesta cuesta unos {amount}; su crédito de IA es de {balance}.",
+  "app.aiEmployee.walletBanner": "Las respuestas de su empleado de IA ahora se pagan con su crédito de IA en lugar de su asignación mensual de IA: unos {amount} por respuesta, descontados a medida que se escribe cada una. Su saldo es de {balance}.",
+  "app.aiEmployee.walletBalance": "Se paga con su crédito de IA: saldo {balance}.",
+  "app.aiEmployee.walletRunsOut": "Cuando su crédito de IA no alcanza para la siguiente respuesta, cada empleado se detiene, le dice al cliente que alguien responderá en breve y le deja la conversación con el motivo. Nunca responde con un modelo más barato.",
+  "app.aiEmployee.fieldquoPays": "Por ahora FieldQuo cubre las respuestas de su empleado de IA: no se descuenta nada de su crédito de IA.",
+  "app.aiEmployee.testCharged": "Esta prueba costó {amount} de su crédito de IA ({model}).",
+  "app.setAiCredit.aiEmployeeHint": "Las respuestas de su empleado de IA también se pagan con este crédito: unos {reply} por respuesta, descontados a medida que se escribe cada una.",
   // ══ Sentences the SERVER composes, which a rep reads ══════════════════
   //
   // Commit cf099363 translated every /sales screen. What it could not reach
@@ -51980,6 +52013,17 @@ const uk = {
   "app.salesTour.playbookTitle": "Слова, і що казати, коли називають когось іншого",
   "app.salesTour.playbookBody": "Скрипти, двадцять заперечень із відповіддю на кожне і картка на кожного конкурента, якого може назвати підрядник. Картки будуються з тих самих цифр, що їх використовують публічні сторінки порівняння, тож ціна, яку ви тут прочитали, — це ціна, за яку ми ручаємось, а та, що застаріла, зникає з обох одного дня.",
 
+  // ── The AI employee is paid from the AI credit (owner, 2026-09-25) ──────
+  "app.aiEmployee.pausedTitle": "Вашого ШІ-працівника призупинено — ШІ-кредит вичерпано",
+  "app.aiEmployee.pausedBody": "Тепер кожен працівник каже клієнтам, що хтось незабаром відповість, і залишає кожну розмову вам. Поповніть кредит — і він знову почне відповідати; одна відповідь коштує близько {amount}.",
+  "app.aiEmployee.topUpOrBundle": "Поповнити або додати місячний пакет",
+  "app.aiEmployee.graceBanner": "Що змінюється: з {date} відповіді вашого ШІ-працівника оплачуються з вашого ШІ-кредиту, а не з місячного ліміту ШІ. До того часу він працює на ліміті, як і сьогодні. Одна відповідь коштує близько {amount}; ваш ШІ-кредит — {balance}.",
+  "app.aiEmployee.walletBanner": "Відповіді вашого ШІ-працівника тепер оплачуються з вашого ШІ-кредиту замість місячного ліміту ШІ — близько {amount} за відповідь, списується, щойно кожну написано. Ваш баланс — {balance}.",
+  "app.aiEmployee.walletBalance": "Оплачується з вашого ШІ-кредиту — баланс {balance}.",
+  "app.aiEmployee.walletRunsOut": "Коли вашого ШІ-кредиту не вистачає на наступну відповідь, кожен працівник зупиняється, каже клієнтові, що хтось незабаром відповість, і залишає розмову вам із зазначеною причиною. Він ніколи не відповідає дешевшою моделлю.",
+  "app.aiEmployee.fieldquoPays": "Наразі FieldQuo оплачує відповіді вашого ШІ-працівника — з вашого ШІ-кредиту нічого не списується.",
+  "app.aiEmployee.testCharged": "Цей тест коштував {amount} з вашого ШІ-кредиту ({model}).",
+  "app.setAiCredit.aiEmployeeHint": "Відповіді вашого ШІ-працівника також оплачуються з цього кредиту — близько {reply} за відповідь, списується, щойно кожну написано.",
   // ══ Sentences the SERVER composes, which a rep reads ══════════════════
   //
   // Commit cf099363 translated every /sales screen. What it could not reach
@@ -64242,6 +64286,17 @@ const pa = {
   "app.salesTour.playbookTitle": "ਬੋਲ, ਅਤੇ ਜਦੋਂ ਉਹ ਕਿਸੇ ਹੋਰ ਦਾ ਨਾਂ ਲੈਣ ਤਾਂ ਕੀ ਕਹਿਣਾ ਹੈ",
   "app.salesTour.playbookBody": "ਸਕ੍ਰਿਪਟਾਂ, ਵੀਹ ਇਤਰਾਜ਼ ਅਤੇ ਹਰ ਇੱਕ ਦਾ ਜਵਾਬ, ਅਤੇ ਹਰ ਉਸ ਮੁਕਾਬਲੇਬਾਜ਼ ਲਈ ਇੱਕ ਕਾਰਡ ਜਿਸਦਾ ਨਾਂ ਕੋਈ ਠੇਕੇਦਾਰ ਲੈ ਸਕਦਾ ਹੈ। ਇਹ ਕਾਰਡ ਉਨ੍ਹਾਂ ਹੀ ਅੰਕੜਿਆਂ ਤੋਂ ਬਣਦੇ ਹਨ ਜੋ ਜਨਤਕ ਤੁਲਨਾ ਵਾਲੇ ਸਫ਼ੇ ਵਰਤਦੇ ਹਨ, ਸੋ ਜਿਹੜੀ ਕੀਮਤ ਤੁਸੀਂ ਇੱਥੇ ਪੜ੍ਹਦੇ ਹੋ ਉਹ ਕੀਮਤ ਹੈ ਜਿਸ ਉੱਤੇ ਅਸੀਂ ਕਾਇਮ ਰਹਾਂਗੇ — ਅਤੇ ਜਿਹੜੀ ਪੁਰਾਣੀ ਪੈ ਜਾਂਦੀ ਹੈ ਉਹ ਦੋਵਾਂ ਥਾਵਾਂ ਤੋਂ ਉਸੇ ਦਿਨ ਗਾਇਬ ਹੋ ਜਾਂਦੀ ਹੈ।",
 
+  // ── The AI employee is paid from the AI credit (owner, 2026-09-25) ──────
+  "app.aiEmployee.pausedTitle": "ਤੁਹਾਡਾ AI ਕਰਮਚਾਰੀ ਰੁਕਿਆ ਹੋਇਆ ਹੈ — AI ਕ੍ਰੈਡਿਟ ਖਤਮ ਹੋ ਗਿਆ ਹੈ",
+  "app.aiEmployee.pausedBody": "ਹੁਣ ਹਰ ਕਰਮਚਾਰੀ ਗਾਹਕਾਂ ਨੂੰ ਦੱਸਦਾ ਹੈ ਕਿ ਕੋਈ ਜਲਦੀ ਜਵਾਬ ਦੇਵੇਗਾ ਅਤੇ ਹਰ ਗੱਲਬਾਤ ਤੁਹਾਡੇ ਲਈ ਛੱਡ ਦਿੰਦਾ ਹੈ। ਕ੍ਰੈਡਿਟ ਜੋੜੋ ਅਤੇ ਇਹ ਫਿਰ ਜਵਾਬ ਦੇਣ ਲੱਗੇਗਾ — ਇੱਕ ਜਵਾਬ ਦੀ ਲਾਗਤ ਲਗਭਗ {amount} ਹੈ।",
+  "app.aiEmployee.topUpOrBundle": "ਟੌਪ ਅੱਪ ਕਰੋ ਜਾਂ ਮਹੀਨਾਵਾਰ ਬੰਡਲ ਜੋੜੋ",
+  "app.aiEmployee.graceBanner": "ਕੀ ਬਦਲ ਰਿਹਾ ਹੈ: {date} ਤੋਂ, ਤੁਹਾਡੇ AI ਕਰਮਚਾਰੀ ਦੇ ਜਵਾਬਾਂ ਦਾ ਭੁਗਤਾਨ ਤੁਹਾਡੇ AI ਕ੍ਰੈਡਿਟ ਤੋਂ ਹੁੰਦਾ ਹੈ, ਮਹੀਨਾਵਾਰ AI ਭੱਤੇ ਤੋਂ ਨਹੀਂ। ਉਦੋਂ ਤੱਕ ਇਹ ਅੱਜ ਵਾਂਗ ਭੱਤੇ 'ਤੇ ਚੱਲਦਾ ਰਹੇਗਾ। ਇੱਕ ਜਵਾਬ ਦੀ ਲਾਗਤ ਲਗਭਗ {amount} ਹੈ; ਤੁਹਾਡਾ AI ਕ੍ਰੈਡਿਟ {balance} ਹੈ।",
+  "app.aiEmployee.walletBanner": "ਤੁਹਾਡੇ AI ਕਰਮਚਾਰੀ ਦੇ ਜਵਾਬਾਂ ਦਾ ਭੁਗਤਾਨ ਹੁਣ ਮਹੀਨਾਵਾਰ AI ਭੱਤੇ ਦੀ ਥਾਂ ਤੁਹਾਡੇ AI ਕ੍ਰੈਡਿਟ ਤੋਂ ਹੁੰਦਾ ਹੈ — ਹਰ ਜਵਾਬ ਲਈ ਲਗਭਗ {amount}, ਜੋ ਹਰ ਜਵਾਬ ਲਿਖੇ ਜਾਣ 'ਤੇ ਕੱਟਿਆ ਜਾਂਦਾ ਹੈ। ਤੁਹਾਡਾ ਬਕਾਇਆ {balance} ਹੈ।",
+  "app.aiEmployee.walletBalance": "ਤੁਹਾਡੇ AI ਕ੍ਰੈਡਿਟ ਤੋਂ ਭੁਗਤਾਨ — ਬਕਾਇਆ {balance}।",
+  "app.aiEmployee.walletRunsOut": "ਜਦੋਂ ਤੁਹਾਡਾ AI ਕ੍ਰੈਡਿਟ ਅਗਲੇ ਜਵਾਬ ਲਈ ਕਾਫ਼ੀ ਨਹੀਂ ਹੁੰਦਾ, ਹਰ ਕਰਮਚਾਰੀ ਰੁਕ ਜਾਂਦਾ ਹੈ, ਗਾਹਕ ਨੂੰ ਦੱਸਦਾ ਹੈ ਕਿ ਕੋਈ ਜਲਦੀ ਜਵਾਬ ਦੇਵੇਗਾ, ਅਤੇ ਕਾਰਨ ਸਮੇਤ ਗੱਲਬਾਤ ਤੁਹਾਡੇ ਲਈ ਛੱਡ ਦਿੰਦਾ ਹੈ। ਇਹ ਕਦੇ ਸਸਤੇ ਮਾਡਲ ਨਾਲ ਜਵਾਬ ਨਹੀਂ ਦਿੰਦਾ।",
+  "app.aiEmployee.fieldquoPays": "ਇਸ ਵੇਲੇ FieldQuo ਤੁਹਾਡੇ AI ਕਰਮਚਾਰੀ ਦੇ ਜਵਾਬਾਂ ਦਾ ਖਰਚਾ ਚੁੱਕ ਰਿਹਾ ਹੈ — ਤੁਹਾਡੇ AI ਕ੍ਰੈਡਿਟ ਤੋਂ ਕੁਝ ਨਹੀਂ ਕੱਟਿਆ ਜਾਂਦਾ।",
+  "app.aiEmployee.testCharged": "ਇਸ ਟੈਸਟ ਨੇ ਤੁਹਾਡੇ AI ਕ੍ਰੈਡਿਟ ਤੋਂ {amount} ਲਏ ({model})।",
+  "app.setAiCredit.aiEmployeeHint": "ਤੁਹਾਡੇ AI ਕਰਮਚਾਰੀ ਦੇ ਜਵਾਬਾਂ ਦਾ ਭੁਗਤਾਨ ਵੀ ਇਸੇ ਕ੍ਰੈਡਿਟ ਤੋਂ ਹੁੰਦਾ ਹੈ — ਹਰ ਜਵਾਬ ਲਈ ਲਗਭਗ {reply}, ਜੋ ਹਰ ਜਵਾਬ ਲਿਖੇ ਜਾਣ 'ਤੇ ਕੱਟਿਆ ਜਾਂਦਾ ਹੈ।",
   // ══ Sentences the SERVER composes, which a rep reads ══════════════════
   //
   // Commit cf099363 translated every /sales screen. What it could not reach
@@ -76511,6 +76566,17 @@ const tl = {
   "app.salesTour.playbookTitle": "Ang mga salita, at ang sasabihin kapag may ibang pangalan silang binanggit",
   "app.salesTour.playbookBody": "Ang mga script, ang dalawampung tutol na may sagot sa bawat isa, at isang card para sa bawat kakumpitensyang maaaring banggitin ng isang kontratista. Ang mga card ay binubuo mula sa parehong mga bilang na ginagamit ng mga pampublikong pahina ng paghahambing, kaya ang presyong nababasa mo dito ay presyong tatayuan namin — at ang naluma nang presyo ay nawawala sa dalawa sa iisang araw.",
 
+  // ── The AI employee is paid from the AI credit (owner, 2026-09-25) ──────
+  "app.aiEmployee.pausedTitle": "Naka-pause ang iyong AI employee — ubos na ang AI credit",
+  "app.aiEmployee.pausedBody": "Sinasabi na ngayon ng bawat empleyado sa mga customer na may sasagot sa lalong madaling panahon at iniiwan sa iyo ang bawat usapan. Magdagdag ng credit at sasagot ulit ito — humigit-kumulang {amount} ang isang sagot.",
+  "app.aiEmployee.topUpOrBundle": "Mag-top up o magdagdag ng buwanang bundle",
+  "app.aiEmployee.graceBanner": "Ang nagbabago: simula {date}, ang mga sagot ng iyong AI employee ay binabayaran mula sa iyong AI credit, hindi sa buwanang AI allowance. Hanggang doon, patuloy itong tumatakbo sa allowance gaya ngayon. Humigit-kumulang {amount} ang isang sagot; {balance} ang iyong AI credit.",
+  "app.aiEmployee.walletBanner": "Ang mga sagot ng iyong AI employee ay binabayaran na ngayon mula sa iyong AI credit sa halip na sa buwanang AI allowance — humigit-kumulang {amount} bawat sagot, kinukuha habang isinusulat ang bawat isa. {balance} ang iyong balanse.",
+  "app.aiEmployee.walletBalance": "Binabayaran mula sa iyong AI credit — balanse {balance}.",
+  "app.aiEmployee.walletRunsOut": "Kapag hindi na kaya ng iyong AI credit ang susunod na sagot, humihinto ang bawat empleyado, sinasabi sa customer na may sasagot sa lalong madaling panahon, at iniiwan sa iyo ang usapan kasama ang dahilan. Hindi ito kailanman sumasagot gamit ang mas murang modelo.",
+  "app.aiEmployee.fieldquoPays": "Sa ngayon, sagot ng FieldQuo ang mga sagot ng iyong AI employee — walang kinukuha sa iyong AI credit.",
+  "app.aiEmployee.testCharged": "Kumuha ang test na ito ng {amount} mula sa iyong AI credit ({model}).",
+  "app.setAiCredit.aiEmployeeHint": "Binabayaran din mula sa credit na ito ang mga sagot ng iyong AI employee — humigit-kumulang {reply} bawat sagot, kinukuha habang isinusulat ang bawat isa.",
   // ══ Sentences the SERVER composes, which a rep reads ══════════════════
   //
   // Commit cf099363 translated every /sales screen. What it could not reach
@@ -90166,6 +90232,17 @@ const de = {
   "app.salesText.putAway": "Weglegen",
   "app.salesText.sendNow": "Jetzt senden",
 
+  // ── The AI employee is paid from the AI credit (owner, 2026-09-25) ──────
+  "app.aiEmployee.pausedTitle": "Ihr KI-Mitarbeiter ist pausiert — das KI-Guthaben ist aufgebraucht",
+  "app.aiEmployee.pausedBody": "Jeder Mitarbeiter sagt Kunden jetzt, dass sich in Kürze jemand meldet, und überlässt Ihnen jedes Gespräch. Laden Sie Guthaben auf, dann antwortet er wieder — eine Antwort kostet etwa {amount}.",
+  "app.aiEmployee.topUpOrBundle": "Aufladen oder ein Monatspaket hinzufügen",
+  "app.aiEmployee.graceBanner": "Was sich ändert: Ab dem {date} werden die Antworten Ihres KI-Mitarbeiters aus Ihrem KI-Guthaben bezahlt, nicht mehr aus Ihrem monatlichen KI-Kontingent. Bis dahin läuft er wie heute über das Kontingent. Eine Antwort kostet etwa {amount}; Ihr KI-Guthaben beträgt {balance}.",
+  "app.aiEmployee.walletBanner": "Die Antworten Ihres KI-Mitarbeiters werden jetzt aus Ihrem KI-Guthaben statt aus Ihrem monatlichen KI-Kontingent bezahlt — etwa {amount} pro Antwort, abgebucht, sobald sie geschrieben ist. Ihr Guthaben beträgt {balance}.",
+  "app.aiEmployee.walletBalance": "Aus Ihrem KI-Guthaben bezahlt — Guthaben {balance}.",
+  "app.aiEmployee.walletRunsOut": "Wenn Ihr KI-Guthaben die nächste Antwort nicht mehr deckt, hält jeder Mitarbeiter an, sagt dem Kunden, dass sich in Kürze jemand meldet, und überlässt Ihnen das Gespräch mit dem Grund. Er antwortet nie mit einem billigeren Modell.",
+  "app.aiEmployee.fieldquoPays": "FieldQuo übernimmt derzeit die Antworten Ihres KI-Mitarbeiters — von Ihrem KI-Guthaben wird nichts abgebucht.",
+  "app.aiEmployee.testCharged": "Dieser Test hat {amount} von Ihrem KI-Guthaben gekostet ({model}).",
+  "app.setAiCredit.aiEmployeeHint": "Die Antworten Ihres KI-Mitarbeiters werden ebenfalls aus diesem Guthaben bezahlt — etwa {reply} pro Antwort, abgebucht, sobald sie geschrieben ist.",
   // ══ Sentences the SERVER composes, which a rep reads ══════════════════
   //
   // Commit cf099363 translated every /sales screen. What it could not reach
@@ -103796,6 +103873,17 @@ const zh = {
   "app.salesText.putAway": "收起",
   "app.salesText.sendNow": "立即发送",
 
+  // ── The AI employee is paid from the AI credit (owner, 2026-09-25) ──────
+  "app.aiEmployee.pausedTitle": "您的 AI 员工已暂停——AI 额度已用完",
+  "app.aiEmployee.pausedBody": "现在每位员工都会告诉客户稍后有人回复，并把每段对话留给您。充值后它会重新开始回复——每条回复约 {amount}。",
+  "app.aiEmployee.topUpOrBundle": "充值或添加月度套餐",
+  "app.aiEmployee.graceBanner": "变更说明：自 {date} 起，您的 AI 员工的回复将从您的 AI 额度中支付，而不再使用每月 AI 配额。在此之前，它仍像现在一样使用配额运行。每条回复约 {amount}；您的 AI 额度为 {balance}。",
+  "app.aiEmployee.walletBanner": "您的 AI 员工的回复现在从您的 AI 额度中支付，而不再使用每月 AI 配额——每条回复约 {amount}，在每条写好时扣除。您的余额为 {balance}。",
+  "app.aiEmployee.walletBalance": "从您的 AI 额度中支付——余额 {balance}。",
+  "app.aiEmployee.walletRunsOut": "当您的 AI 额度不足以支付下一条回复时，每位员工都会停止，告诉客户稍后有人回复，并把对话连同原因留给您。它绝不会改用更便宜的模型回复。",
+  "app.aiEmployee.fieldquoPays": "目前由 FieldQuo 承担您的 AI 员工的回复费用——不会从您的 AI 额度中扣除任何费用。",
+  "app.aiEmployee.testCharged": "此次测试从您的 AI 额度中扣除了 {amount}（{model}）。",
+  "app.setAiCredit.aiEmployeeHint": "您的 AI 员工的回复也从此额度中支付——每条回复约 {reply}，在每条写好时扣除。",
   // ══ Sentences the SERVER composes, which a rep reads ══════════════════
   //
   // Commit cf099363 translated every /sales screen. What it could not reach
@@ -117750,6 +117838,17 @@ const it = {
   "app.salesText.putAway": "Riponi",
   "app.salesText.sendNow": "Invialo adesso",
 
+  // ── The AI employee is paid from the AI credit (owner, 2026-09-25) ──────
+  "app.aiEmployee.pausedTitle": "Il tuo dipendente IA è in pausa — il credito IA è esaurito",
+  "app.aiEmployee.pausedBody": "Ora ogni dipendente dice ai clienti che qualcuno risponderà a breve e ti lascia ogni conversazione. Aggiungi credito e ricomincia a rispondere — una risposta costa circa {amount}.",
+  "app.aiEmployee.topUpOrBundle": "Ricarica o aggiungi un pacchetto mensile",
+  "app.aiEmployee.graceBanner": "Cosa cambia: dal {date}, le risposte del tuo dipendente IA sono pagate con il tuo credito IA, non con la tua quota IA mensile. Fino ad allora continua a funzionare con la quota come oggi. Una risposta costa circa {amount}; il tuo credito IA è di {balance}.",
+  "app.aiEmployee.walletBanner": "Le risposte del tuo dipendente IA ora sono pagate con il tuo credito IA invece che con la quota IA mensile — circa {amount} a risposta, addebitati man mano che ciascuna viene scritta. Il tuo saldo è di {balance}.",
+  "app.aiEmployee.walletBalance": "Pagato con il tuo credito IA — saldo {balance}.",
+  "app.aiEmployee.walletRunsOut": "Quando il tuo credito IA non copre la risposta successiva, ogni dipendente si ferma, dice al cliente che qualcuno risponderà a breve e ti lascia la conversazione con il motivo. Non risponde mai con un modello più economico.",
+  "app.aiEmployee.fieldquoPays": "Al momento FieldQuo copre le risposte del tuo dipendente IA — nulla viene addebitato sul tuo credito IA.",
+  "app.aiEmployee.testCharged": "Questo test è costato {amount} del tuo credito IA ({model}).",
+  "app.setAiCredit.aiEmployeeHint": "Anche le risposte del tuo dipendente IA sono pagate con questo credito — circa {reply} a risposta, addebitati man mano che ciascuna viene scritta.",
   // ══ Sentences the SERVER composes, which a rep reads ══════════════════
   //
   // Commit cf099363 translated every /sales screen. What it could not reach
