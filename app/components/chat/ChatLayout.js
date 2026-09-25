@@ -90,6 +90,7 @@ export default function ChatLayout({
   // page scrolls instead of the panes losing their composer.
   return (
     <div
+      data-fills-screen
       className={`relative flex ${height} min-h-[360px] overflow-hidden rounded-xl border border-border bg-card ${className}`}
       data-chat-layout
       data-pane={pane}

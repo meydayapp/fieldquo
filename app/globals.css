@@ -339,6 +339,39 @@
     --fq-tab-bar-height: 0px;
   }
 }
+/* ── The launcher column's clearance ────────────────────────────────────────
+ *
+ * The owner, 2026-09-25, on the Quotes list at 390px: the + and Jennifer's
+ * bubble sat over the right-hand column and cut the last quote's amount
+ * ("$6,780.0"). <main> padded for the tab bar and the dock but not for the
+ * two circles riding above them, so the last rows of any list could never be
+ * scrolled clear of the launchers — at the very bottom of the page they
+ * stayed under them for good.
+ *
+ * Below lg the stack is Jennifer (+1.25rem, 3.5rem tall) and the + above her
+ * (CreateMenu.js, +5.5rem, 3rem tall): its top edge is 8.5rem above the dock,
+ * plus 0.5rem of air. From lg up the + is gone and Jennifer's 4.75rem is the
+ * column. Rows still pass UNDER the circles while scrolling — every phone app
+ * with a floating button does that — but the last one can always be lifted
+ * clear. Rejected: a right-hand gutter on every list row. 76px of a 375px
+ * screen given up permanently for a problem that only exists at the bottom
+ * of the scroll.
+ *
+ * A screen that sizes itself to the viewport and scrolls INSIDE (the chat
+ * frames, the assistant, the website builder) marks its root
+ * `data-fills-screen` and takes no clearance: padding under a frame that
+ * already fits would only give the page a second, empty scroll. */
+.fq-app-shell {
+  --fq-launcher-clearance: 9rem;
+}
+@media (min-width: 64rem) {
+  .fq-app-shell {
+    --fq-launcher-clearance: 5.25rem;
+  }
+}
+.fq-app-shell main:has([data-fills-screen]) {
+  --fq-launcher-clearance: 0px;
+}
 /* The sales portal's shell (app/sales/SalesShell.js) carries the same bar —
    app/components/sales/SalesMobileTabBar.js — at the same row height and the
    same breakpoint, so it declares the same footprint under its own class.

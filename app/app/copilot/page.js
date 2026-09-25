@@ -112,7 +112,7 @@ export default function CopilotPage() {
       : null;
 
   return (
-    <div className="max-w-3xl mx-auto flex flex-col h-[calc(100vh-6rem)]">
+    <div data-fills-screen className="max-w-3xl mx-auto flex flex-col h-[calc(100vh-6rem)]">
       <div className="mb-4">
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <Sparkles size={20} className="text-muted-foreground" />

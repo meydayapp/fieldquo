@@ -597,7 +597,7 @@ export default function Builder({ data, onReload }) {
   // behind the tab bar instead of above it. lg:h-[100dvh] drops both
   // subtractions once neither bar renders.
   return (
-    <div className="h-[calc(100dvh-3.5rem-4rem-env(safe-area-inset-bottom))] lg:h-[100dvh] flex flex-col">
+    <div data-fills-screen className="h-[calc(100dvh-3.5rem-4rem-env(safe-area-inset-bottom))] lg:h-[100dvh] flex flex-col">
       {/* One slim bar. Everything that isn't the conversation or the site lives
           here or behind Fine-tune. */}
       <div className="shrink-0 flex items-center gap-2 px-4 sm:px-5 h-14 border-b border-border bg-card">

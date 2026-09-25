@@ -897,6 +897,60 @@ function iosZoomFix() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// The Create menu: every row goes somewhere, and a hidden twin cannot eat it
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * The owner, 2026-09-25, on his iPhone: the + opened the Create sheet and
+ * every row in it did nothing. The desktop pill (CreateButton) is mounted
+ * inside a `hidden lg:flex` header at every width and shares the sheet's
+ * overlay flag; its outside-press listener read the finger's emulated
+ * mousedown on a sheet row as "outside me", closed the flag, and the sheet
+ * unmounted before the click arrived. Proven in the harness by synthesized
+ * taps (6 of 6 rows dead before, 6 of 6 landing after) — this section guards
+ * the two source facts that fix rests on, and the hrefs themselves.
+ *
+ *   1. Every QUICK_ADD_ITEMS href resolves to a real page file under app/.
+ *      A row whose href 404s is the dead control by another route.
+ *   2. Both renderers draw a row as <Link href={item.href}> — navigation that
+ *      survives the menu closing — never a <button> whose onClick is the
+ *      only thing standing between the tap and nothing.
+ *   3. CreateMenu's outside-press handler stands down when its own element is
+ *      not drawn (getClientRects().length === 0), asserted INSIDE that one
+ *      function, not anywhere in the file.
+ */
+function createMenuReachable() {
+  section("The Create menu — every row navigates, on a phone as on a desk");
+  const sidebar = stripComments(readFileSync(join(ROOT, "app/components/layout/AdminSidebar.js"), "utf8"));
+  const start = sidebar.indexOf("export const QUICK_ADD_ITEMS = [");
+  if (!ok("QUICK_ADD_ITEMS is still declared in AdminSidebar.js", start !== -1)) return;
+  const list = sidebar.slice(start, sidebar.indexOf("];", start));
+  const rows = [...list.matchAll(/key:\s*"([^"]+)",\s*href:\s*"([^"]+)"/g)].map((m) => ({ key: m[1], href: m[2] }));
+  ok("…and has rows", rows.length >= 5, `${rows.length} found`);
+  for (const { key, href } of rows) {
+    const path = href.split("?")[0];
+    const file = join(ROOT, "app", path.replace(/^\//, ""), "page.js");
+    ok(`${key} → ${href} is a real page`, path.startsWith("/app/") && existsSync(file), relative(ROOT, file));
+  }
+
+  const menu = stripComments(readFileSync(join(ROOT, "app/components/layout/CreateMenu.js"), "utf8"));
+  const links = menu.match(/<Link\s+key=\{item\.key\}\s+href=\{item\.href\}/g) || [];
+  ok("both renderers (pill popover, phone sheet) draw each row as <Link href={item.href}>", links.length === 2, `${links.length} found`);
+  ok(
+    "…and no row is a <button> — a menu row that only sets state is the dead tap",
+    !/items\.map\([\s\S]{0,400}?<button/.test(menu),
+  );
+
+  const fnAt = menu.indexOf("function useCloseOnOutside(");
+  if (!ok("useCloseOnOutside is still the pill's outside-press handler", fnAt !== -1)) return;
+  const fnBody = menu.slice(fnAt, menu.indexOf("\n}\n", fnAt));
+  ok(
+    "…and stands down when its element is not drawn (the hidden desktop twin on a phone)",
+    /getClientRects\(\)\.length\s*===\s*0\)\s*return/.test(fnBody),
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Run
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -905,6 +959,7 @@ console.log("This proves the ABSENCE of seven specific mistakes. It does not pro
 console.log("a layout is usable at 375px. See the header before quoting it.\n");
 
 iosZoomFix();
+createMenuReachable();
 
 const strict = new Set(STRICT_FILES);
 const seen = new Set();

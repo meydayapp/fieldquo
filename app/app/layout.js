@@ -539,8 +539,11 @@ export default async function AppLayout({ children }) {
                 current page has mounted through useBottomDock. Both come from
                 the variables app/globals.css declares, so the last field on a
                 page is never under either — and no page needs its own pb-24
-                guess at how tall its bar turned out to be. */}
-            <main className="flex-1 min-w-0 pb-[calc(var(--fq-tab-bar-height)+var(--fq-dock-height))]">
+                guess at how tall its bar turned out to be. The third term is
+                the floating launchers' column (the + and Jennifer), so the
+                last row of a list can be scrolled out from under them — see
+                "launcher column's clearance" in app/globals.css. */}
+            <main className="flex-1 min-w-0 pb-[calc(var(--fq-tab-bar-height)+var(--fq-dock-height)+var(--fq-launcher-clearance))]">
               {children}
             </main>
           </div>

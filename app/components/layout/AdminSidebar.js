@@ -294,11 +294,19 @@ export function dropInfluencerRows(groups, isInfluencer) {
 }
 
 // The Create menu — top bar on desktop, floating + on a phone (CreateMenu.js).
+//
+// Every row lands on the FORM that creates the thing, not on the list it
+// joins: a Create row for Client that opened the client list looked like it
+// worked and created nothing (fixed 2026-09-25 alongside the phone sheet's
+// dead taps). Request is the one exception, honest only for now: there is no
+// hand-entered lead form yet, so it opens the board where requests arrive —
+// named in docs/ROADMAP.md rather than faked. scripts/check-mobile-surfaces.mjs
+// holds every href here to a real page file.
 export const QUICK_ADD_ITEMS = [
-  { key: "app.quickAdd.client", href: "/app/clients", icon: Users },
+  { key: "app.quickAdd.client", href: "/app/clients/new", icon: Users },
   { key: "app.quickAdd.request", href: "/app/leads", icon: ClipboardList },
   { key: "app.quickAdd.quote", href: "/app/quotes/new", icon: FileText },
-  { key: "app.quickAdd.job", href: "/app/jobs", icon: Briefcase },
+  { key: "app.quickAdd.job", href: "/app/jobs/new", icon: Briefcase },
   { key: "app.quickAdd.invoice", href: "/app/invoices/new", icon: Receipt },
   // Snap a receipt at the till: opens the receipts book with the camera
   // capture already open (app/app/receipts/page.js reads ?snap=1). The one

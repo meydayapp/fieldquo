@@ -108,7 +108,7 @@ function Shell({ children }) {
                 <AdminSidebar />
                 <div className="flex-1 min-w-0 flex flex-col min-h-screen">
                   <TopBar />
-                  <main className="flex-1 min-w-0 pb-[calc(var(--fq-tab-bar-height)+var(--fq-dock-height))]">
+                  <main className="flex-1 min-w-0 pb-[calc(var(--fq-tab-bar-height)+var(--fq-dock-height)+var(--fq-launcher-clearance))]">
                     {children}
                   </main>
                 </div>

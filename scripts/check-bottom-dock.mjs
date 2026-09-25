@@ -386,9 +386,46 @@ ok(
 const layout = stripComments(read("app/app/layout.js"));
 ok("app/app/layout.js wraps the shell in .fq-app-shell", /className="[^"]*\bfq-app-shell\b/.test(layout));
 ok(
-  "<main> pads by tab bar + dock",
-  /<main className="[^"]*pb-\[calc\(var\(--fq-tab-bar-height\)\+var\(--fq-dock-height\)\)\]/.test(layout),
+  "<main> pads by tab bar + dock + the launcher column's clearance",
+  /<main className="[^"]*pb-\[calc\(var\(--fq-tab-bar-height\)\+var\(--fq-dock-height\)\+var\(--fq-launcher-clearance\)\)\]/.test(layout),
 );
+
+// ── The launcher clearance covers the launchers, computed not compared ─────
+//
+// The owner, 2026-09-25: the + and Jennifer covered the last quote's amount
+// on a 390px Quotes list, because <main> reserved the tab bar and the dock
+// and nothing for the circles above them. The clearance is only right while
+// it is at least as tall as the stack, so the stack's top is computed from
+// the two launchers' own class lists (bottom offset + height) and compared.
+{
+  const rem = (s) => Number(String(s).replace("rem", ""));
+  const phoneClear = css.match(/\.fq-app-shell\s*\{\s*--fq-launcher-clearance:\s*([\d.]+)rem;/);
+  const deskClear = css.match(/@media \(min-width: 64rem\)\s*\{\s*\.fq-app-shell\s*\{\s*--fq-launcher-clearance:\s*([\d.]+)rem;/);
+  const fab = stripComments(read("app/components/layout/CreateMenu.js"));
+  const fabBottom = fab.match(/bottom:\s*"calc\(var\(--fq-tab-bar-height\) \+ var\(--fq-dock-height\) \+ ([\d.]+)rem\)"/);
+  const fabH = fab.match(/data-create-fab[\s\S]{0,200}?\bh-(\d+)\b/);
+  const jen = stripComments(read("app/components/jennifer/JenniferPanel.js"));
+  const jenLauncher = jen.match(/fixed bottom-\[calc\(var\(--fq-tab-bar-height\)\+var\(--fq-dock-height\)\+([\d.]+)rem\)\][^"`]*?\bh-(\d+)\b/);
+  if (
+    ok("globals.css declares the launcher clearance below lg and from lg up", Boolean(phoneClear && deskClear)) &&
+    ok("the + and Jennifer's launcher positions are readable", Boolean(fabBottom && fabH && jenLauncher))
+  ) {
+    const fabTop = rem(fabBottom[1]) + Number(fabH[1]) / 4;
+    const jenTop = rem(jenLauncher[1]) + Number(jenLauncher[2]) / 4;
+    ok(
+      `below lg the clearance (${phoneClear[1]}rem) clears the whole stack (top at ${Math.max(fabTop, jenTop)}rem)`,
+      rem(phoneClear[1]) >= Math.max(fabTop, jenTop),
+    );
+    ok(
+      `from lg the clearance (${deskClear[1]}rem) clears Jennifer (top at ${jenTop}rem)`,
+      rem(deskClear[1]) >= jenTop,
+    );
+  }
+  ok(
+    "a screen that fills the viewport can opt out (main:has([data-fills-screen]))",
+    /\.fq-app-shell main:has\(\[data-fills-screen\]\)\s*\{\s*--fq-launcher-clearance:\s*0px;/.test(css),
+  );
+}
 
 const tabBar = stripComments(read("app/components/layout/MobileTabBar.js"));
 ok("MobileTabBar's row height comes from --fq-tab-bar-row", /h-\[var\(--fq-tab-bar-row\)\]/.test(tabBar));

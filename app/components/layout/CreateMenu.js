@@ -27,11 +27,31 @@ import { useNavShell } from "@/app/components/layout/NavShell";
 
 const OVERLAY = "create";
 
+// ── Why the outside-press test first asks "am I drawn at all?" ──────────────
+//
+// The pill (CreateButton) and the phone's + (CreateFab) share ONE overlay
+// flag in NavShell, and BOTH are mounted at every width — the pill inside the
+// `hidden lg:flex` desktop header, the + and its sheet behind `lg:hidden`. On
+// a phone the pill is display:none but its effect still ran whenever the flag
+// was on. A finger on a sheet row fires the emulated mousedown before the
+// click; that mousedown was "outside" the invisible pill, so it closed the
+// overlay, React unmounted the sheet in the same microtask, and the click that
+// followed landed on the page underneath. Every row in the owner's Create
+// sheet did nothing, on every phone, reproduced in the harness with a
+// synthesized tap (6 of 6 rows: click reached an SVG path, never the link).
+//
+// A control that is not drawn cannot own the outside press — getClientRects()
+// is empty for a display:none subtree, so the pill stands down and the sheet
+// keeps its own backdrop and Escape. Rejected: moving CreateButton's
+// listener onto the popover only. It would still be the wrong listener on the
+// day somebody mounts a second consumer of the same flag.
 function useCloseOnOutside(ref, active, close) {
   useEffect(() => {
     if (!active) return undefined;
     function onDown(e) {
-      if (ref.current && !ref.current.contains(e.target)) close();
+      const el = ref.current;
+      if (!el || el.getClientRects().length === 0) return;
+      if (!el.contains(e.target)) close();
     }
     function onKey(e) {
       if (e.key === "Escape") close();
