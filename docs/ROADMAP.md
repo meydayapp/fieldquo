@@ -1,10 +1,12 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 25 September 2026 (the owner's own signup test, four faults: account-email pages now render in the account's language from the first byte — server wrappers on /verify-email and /reset-password, a layout on /accept-invitation, the link carries ?lang=; the confirmation link lands on the page, which names the address it confirmed and asks when another account is signed in; a ?resume= link for an address that already has a login goes to sign-in (or the app) instead of the account step; the five-minute letter skips any address whose login owns a finished signup and any half-typed address the same browser finished under another — check:auth-link-routing)
 Last updated: 25 September 2026 (Create › Request opens a hand-entered lead form at /app/leads/new — the owner's six fields, posted through createScoredLead as source "manual", gated at requests:view_create_edit on page and route, landing on the board with the new lead's drawer open; the board's ?lead= deep link now also works after an in-app navigation — see "Still owed here" under "Phone menus, the Create sheet and a mobile audit" below)
 Last updated: 25 September 2026 (Kitchen Designer on by itself for the trades that build kitchens — kitchen_design, remodeling, renovation, general contracting, new construction, cabinet refacing; refinishing/countertop/stairs/painting stay off; a handyman opts in — plus `Company.kitchenDesignerOverride` (follow / always on / always off) on Settings › Services, read by the one gate in lib/kitchen/access.js that every surface and Cabinet Rates now ask — see "Kitchen Designer: on for the trades that build kitchens" below)
 Last updated: 25 September 2026 (Confirm what you quote, round two: untick a service already in the list to REMOVE it — archived through the existing `Product.active`, never deleted, restored as the same row when ticked again — with every picker, builder and settings list that read the whole book now filtering through `lib/products/offered.js`; All / Selected (N) tabs; the "0 of 0 selected" count fixed; "Added for you" on seeded rows the company never renamed or repriced, in the dialog and in Products & Services, which gains Remove and a Removed tab with Add back; "Review the services we added for you (N)" on the home card for EVERY company signup seeded, not only thin trades (the owner's decision) — see "Confirm what you quote: untick to remove" below)
 Last updated: 25 September 2026 (the signup panel's samples are the product: the quote email from buildQuoteEmail, the booking SlotCalendar, the scheduler's WeekGrid/DayBoard (the only two views — the old "column per person" day and the crew-grouped board did not exist), the client quote page QuoteApproval with the trade's seed prices, the dashboard tiles, the inbox rows and TeamFlow, and a "Just exploring" collage of real cards — all with the app-guide harness's data in scaled, inert frames; the website field takes www. without https — see "The signup panel's samples are the product" below)
 Last updated: 25 September 2026 (the owner's four set-up questions: an unfinished before & after pair is a stored draft you can finish later or discard, never stuck and never shown to clients; auto-translation detects the language a text is actually written in; the job-process presets exist in all eight document languages; a company's edited presets and every other company-written client text — captions, stage labels, appointment types, document titles, custom-field labels, the AI greeting, financing note, option labels, service names, template lines — are drafted on save and printed in the reader's language — see "Before & after drafts, language detection, presets in eight languages" below)
+Last updated: 25 September 2026 (the foot of the quote is ONE "Add service" control: up to 4 quote types and services stay inline buttons, more open a searchable dialog of the company's quote types with their active services and each service's template lines — the quote types added by the same call as before, 24/24 saved-payload md5s identical to origin/main; and 673 seeded services got HCP-modelled template lines in eight languages — see "Add service" below)
 Last updated: 25 September 2026 (three follow-ups: cancelling a pay run now gives back its daily-sheet bonuses as well as its commissions; the checks read prisma/schema.prisma through one Prisma-aware stripper, and only four ever stripped it; check:call-to-client now runs the booking follow-up it was skipping, and the phone agent promises a confirmation only when the follow-up reports one — see "Pay-run cancel, the schema stripper, the booking follow-up" below)
 Last updated: 25 September 2026 (phone menus and the Create sheet: every row of the phone's Create sheet was dead, because the hidden desktop pill's outside-press listener closed it before the tap landed; the quote's More… opened off the left of the screen; one ActionMenu now — a bottom sheet below 640px, a flip-and-shift dropdown above — plus a launcher clearance so the + and Jennifer never cover a list's last row, dialog cards capped at the screen, and 44px settings/crew controls; every harness screen audited at 375 and 390 — see "Phone menus, the Create sheet and a mobile audit" below)
 Last updated: 25 September 2026 (one cabinet scope, Refinish | Reface: a company selling both cabinet trades gets a switch inside an unsaved cabinet group's card that moves the group between the two price books while keeping every count and answer already entered; a still-default name follows the service, switching back restores the previous figures byte-for-byte, and only the chosen service reaches the saved quote — see "Refinish | Reface inside one cabinet card" below)
@@ -117,6 +119,65 @@ on the old code with "CAD 0.00" per line).
   English.
 
 ---
+
+## The owner's signup test: language, the wrong account, the resume link, the letter (25 September 2026)
+
+Four linked faults from the owner signing up with his own addresses. Each has
+an executed check in `npm run check:auth-link-routing` (in check:all).
+
+1. **Wrong language on the confirmation page.** `/verify-email` sat under the
+   root LanguageProvider, which is told nothing and guesses from the browser
+   (`localStorage["fieldquo-language"]`, then `navigator.language`), so an
+   English email opened a Spanish page on a Spanish-leaning browser, and the
+   next click could differ. Now `app/verify-email/page.js` and
+   `app/reset-password/page.js` are server wrappers that decide the language
+   from the account behind the link's token, then the link's `?lang=`, then the
+   signed-in session (`lib/authLinkLanguage.js`), and render inside
+   `LinkLanguage` (a nested provider with `fromAccount`). The invitation page
+   gets the invitation email's language from a layout. Both account emails put
+   `lang` on the link (`lib/authLinks.js`); the email and the page share one
+   lookup (`lib/i18n/accountLanguage.js`). No magic-link flow exists.
+2. **Confirmation link opened while signed in as someone else.** Better Auth
+   confirmed the address and left the other session in place; the page could
+   not say whose address it was and offered "Continue" into the other
+   account's company. The link now lands on `/verify-email?token=…`, which posts
+   to `app/api/verify-email` (Better Auth still does the confirming, with no
+   headers, so no session is touched; change-of-address tokens are refused).
+   The page names the confirmed address and, when a different account is signed
+   in, offers "Continue as <confirmed>" (signs the other out, sign-in with the
+   address filled) or "Stay signed in as <other>".
+3. **Resume link for an address that already has a login.** The page guessed
+   "has a login" from the SignupLead's `stepReached`, and the owner's row was
+   stuck on the account step BECAUSE the account step had refused a second
+   login. `GET /api/signup/lead?token=` now reads the User table and answers a
+   `route` (`lib/signup/resumeRoute.js`): signed in as that user → the app if
+   signup finished, else the first unfinished step; signed out → `/login?resume=`
+   with the address filled, "You already created your login — sign in to finish
+   setting up <company>", a resend button if the address is unconfirmed, and a
+   return to the right place; signed in as someone else → both addresses named
+   and a choice. The token never signs anyone in.
+4. **Why the letter went out.** Production, read-only: the address's login had
+   existed since 2026-09-13 with a PAYING company (Test Inc., active
+   Subscription). On 09-25 at 19:45 a new signup for "Emilio The Painter" on
+   that address stopped on the account step (login exists); the same business
+   was then finished at 19:53 under a different address from another browser.
+   The 19:55 cron run mailed the stopped row, because the early touch's company
+   query only holds unfinished companies and card-free trials — a paying
+   company could never close its own address. The same run mailed an address
+   half-typed on the way to the finished one. The cron now closes any address
+   that owns a finished signup (company address or a member's login,
+   `completedSignupWhere`, re-checked right before sending) and any row whose
+   browser finished the same business under another address;
+   `recordSignupCompletion` stamps such rows `finished_same_visitor` so the
+   promotion floor skips them too.
+
+### Still owed here
+
+- Links sent before this deploy still point at Better Auth's endpoint and land
+  bare (they live 24 hours): the page cannot name the address for those, and
+  now says which account is signed in instead.
+- The 24-hour recovery note is company-based and was not changed; one login
+  owns one business, so the same gap does not arise there today.
 
 ## /platform counts one book: trialing, paying, companies (25 September 2026)
 
@@ -655,6 +716,152 @@ Then the audit of every company-authored client-facing text. The missing ones go
 - A template line renamed before today keeps its stale seed translation until its words change again.
 - New bookable members' auto-created "Consultation with {name}" types are drafted too (source English) — a small FieldQuo-paid call per new member; drop the block in lib/booking/bookableMembers.js if unwanted.
 - The AI employee screen autosaves the greeting after 800 ms, so a greeting typed with pauses can queue a draft per version (bounded by the daily cap).
+## "Add service" — one control at the foot of the quote, and template lines for the HCP-modelled services (25 September 2026)
+
+The owner, on the grid of fifteen trade cards at the foot of the quote (610bdcb8): "This seems very
+busy. Maybe it should be a button 'Add service' and then a popup, the same way as the additional
+set-up dialogs, but using what they have selected, with a list. Those services, based on yesterday's
+templates from HCP, should have a few line items as part of the service. Make sure it's nice and user
+friendly." Then: "if there are more than 4 it makes a pop-up with the list so it's easier to read",
+and the quote types (cabinet refinishing / refacing, interior / exterior painting…) "were finessed and
+perfected" — frozen, the new control only a new way in.
+
+### What shipped
+
+- **One control, two shapes** (`app/components/quotes/builder/AddServicePicker.js`,
+  `lib/quotes/servicePicker.js`). Up to `INLINE_PICKER_MAX = 4` offerings (quote types + services):
+  inline buttons — ServiceTiles' own pill row for the quote types (section presets and all) and one
+  pill per service with its "Template lines (n)". More: ONE "Add service" button (filled on an empty
+  quote, dashed after the last service, "15 quote types · 108 services" under it) opening the dialog —
+  `StepDialog` from 640px (the home page's set-up frame), the shared `BottomSheet` on a phone.
+- **The dialog.** Sticky search (name, description, trade; accents folded; every word must match);
+  one collapsible group per enabled quote type, the quote's own trades first and open (else the first);
+  each group leads with its **quote type** row — the scope group with its calculator, "Priced by the
+  stair takeoff", its price, its section presets — then the company's **active services** linked to it
+  (never archived rows, never products, never a service linked to no quote type). A service row: name
+  and description in the quote's language, the company's own price, **Template lines (n)** unfolding
+  each line with its kind and how its quantity is found ("Wall sq ft × $1.20 — from the room takeoff",
+  "— you type it (the roof takeoff isn't on this quote)", the held-back sentence for units the
+  calculator already bills), **Add** (with the template, the default) and **Add as one line**. Tick
+  boxes + "Add n selected" in the footer; arrow keys walk the list; 44px targets; focus lands in the
+  search box (not on a phone, where it would raise the keyboard over the list). Empty company →
+  "Confirm what you quote" / Settings › Services instead of an empty dialog.
+- **Nothing it adds is decided in it.** Quote type: `b.addScopeGroup(category, label)` via `addAndOpen`
+  — the call the tiles made. Templated service: `addScopeGroupWithTemplate`. The row's count and
+  preview come from `templatePreview`, which builds the add's own group/measurements/held-back keys, so
+  "3 lines" is never a press that adds 1. New: `addScopeGroupWithProduct` ("Add as one line": the
+  library's `lineFromProduct` line in a new group, no seeded rate line under it).
+- **Both layouts** (the classic layout's top-of-quote card grid is the same control now) and **the
+  invoice** (same control and dialog under its lines; services only, through its own
+  `addProductTemplate` / `addProductLine`).
+- **No benchmark "typical" range in the dialog, deliberately:** it lives in the seed files (2.7 MB of
+  source), and pulling them into the quote builder's bundle for a greyed hint is a cost every phone on
+  a bad connection pays. The company's own price is shown; the benchmark stays in Settings › Services.
+- 26 strings × 9 languages. `ServiceTiles` lost the `details` card machinery (no caller left).
+
+### Proof
+
+- `check:service-picker` (new, 122): the rules against hostile input, the preview md5 = the add's
+  expansion md5 (`ca66df84…`), the list rendered (rows, prices, counts, preview words, held-back
+  sentence, showPricing off, French), the three shapes (0 / ≤4 / 5+), nine languages with matching
+  placeholders, the wiring read from source.
+- **Saved payloads, origin/main's cards vs this dialog** — the app-guide harness
+  (`fixtures/routes-picker.js`, scene `picker-md5:<type|tpl>:<key>`) adds one thing through whichever
+  foot the build has, presses Save and records the PATCH body; run on d7f72374 and on this branch,
+  deterministic `crypto.randomUUID`. 24/24 identical:
+
+  | added | md5 (document = classic) |
+  |---|---|
+  | Kitchen cabinets (custom) | 62f7b64fa9542f26a6f7f638054d87b9 |
+  | Bathroom vanities (custom) | 94399d6cd0827b4df69d1802569b8a49 |
+  | Built-ins & closets (custom) | 25ed1cb559840503254be7ab20e0d128 |
+  | Cabinet Refinishing | 2d7af767234f5702fe9683fdb9712a19 |
+  | Cabinet Refacing | feb90528a46490f67ade3db39e29f661 |
+  | Countertop Installation | c6e47ca50f381b291cb310737b609a4c |
+  | Flooring | 42c47ba71d3a1c5b63e06fba7df66822 |
+  | Stairs | ca0e0ee2da4f27f1bad922f9374a94bc |
+  | Interior Painting | 95890db3cb0815429c9df0163b1ccfac |
+  | Exterior Painting | 999122fe3249becc09542b47f135bc05 |
+  | Stair refinish, with its template | 1cdf53a4c6de8e9a964f82d5715d13c5 |
+  | Cabinet spray, with its template | fc725a87417095c96d99ecc02733c8b7 |
+
+- `check:doc-builder` 260, `check:invoice-builder` 133, `check:service-template-lines` 91 (the
+  held-back guard counted across the builder and the picker lib), `check:quote-builder`,
+  `check:mobile` 3065, `check:builder-offers` 74, `check:custom-factors` 169.
+- Frames: `docs/screens/service-picker/en/` — 3 quote types inline (1280, 375); the 15-type handyman
+  company: the button, the dialog, a service's lines unfolded, a search, a service added with its
+  lines (1280), and the button, dialog and lines at 375 as the bottom sheet; the invoice's dialog.
+
+### Template lines for the seeded services (HCP-modelled)
+
+691 of 1,038 seedable services had no template, so "Add" on them was one bare line. Five seed passes
+(one per trade group, each in its own worktree, merged here) authored 2–5 lines per commonly quoted
+service — labour, typical materials (Home Depot reference costs where the reference has the part),
+fees — modelled on the Housecall Pro estimate templates captured 2026-09-24, measurement keys only
+from the closed registry (no new keys), all eight document languages. Each file adds its templates in
+a second `withTemplates` pass that throws if a row already has one, so nothing existing can be
+replaced.
+
+| Trade | Newly templated | Still without (why) |
+|---|---|---|
+| electrical | 60 | 0 |
+| hvac_repair | 69 | 0 |
+| hvac_install | 10 | 0 |
+| air_duct_cleaning | 8 | 0 |
+| appliance_repair | 5 | 0 |
+| plumbing | 77 | 4 (catch-all; three single-fee visits) |
+| roofing_service | 26 | 4 (catch-alls) |
+| gutter_services | 23 | 4 (three catch-alls; the free estimate visit) |
+| general_contracting | 98 | 0 |
+| deck_patio | 16 | 2 (catch-alls) |
+| fence_services | 56 | 2 (catch-alls) |
+| carpentry | 0 | 2 (catch-alls) |
+| handyman | 59 + 12 new rows | 2 (EPA-608 AC recharge, licensed HVAC install — point at the HVAC seeds) |
+| flooring_install | 61 | 2 (catch-alls) |
+| garage_door | 3 | 0 |
+| carpet_cleaning | 39 | 1 (catch-all) |
+| residential_cleaning | 29 | 0 |
+| janitorial | 17 | 2 (catch-alls) |
+| lawn_care | 3 | 4 (treatments priced by lawn-size band — owner decision) |
+| tree_care_service | 2 | 1 (catch-all) |
+
+Total: 673 services newly templated (661 existing rows + 12 new handyman rows); 30 of 1,050 seedable
+services remain without a template, each for the reason above.
+
+- **The quote types in the owner's screenshot now open with templated services**, through `categories`
+  tags on the rows that are their work (own trade first): locksmith 6, installation_services 18,
+  doors_windows 13, caulking_sealants 4, baby_proofing 5, smart_home 7. The 12 new handyman rows
+  (lock rekey, deadbolt, smart lock, lockset; tub/shower re-caulk, window/door caulking, weatherstrip;
+  the baby-proofing visit, gate, cabinet latches, furniture anchoring, window stops) were needed
+  because baby-proofing had no row and locksmith one; they are new seed keys (source map updated), so
+  they appear in the next "new services" notice — `NEW_SEEDS_RELEASE` was not bumped.
+- Other tags: lighting, security_systems, solar_energy, mechanical_contracting, sewer_septic, siding,
+  insulation, chimney_sweep, property_maintenance, concrete, masonry, paving, excavation, demolition,
+  junk_removal, restoration, epoxy, tiling, countertop, remodeling, glass, furniture_upholstery,
+  deep_cleaning, landscaping_design, lawn_mowing, driveway_sealing.
+- **Proof nothing existing changed:** an md5 of every already-templated seed row (whole row JSON)
+  before and after — 363 before, 1,036 after, 0 of the 363 missing or changed.
+- **Existing companies:** unchanged by this commit — they get the new lines only through
+  `backfillTemplates` (fills empty rows, never prices), which the owner runs.
+- check:service-seeds 39,583 · check:seed-languages 65,512 · check:service-templates 268 ·
+  check:confirm-services 276 · check:new-seed-notice 55 · check:material-prices 1,088 — all 0 failed.
+
+### Still owed here
+
+- A service linked to no quote type is not offered in the quote's dialog (a new scope group needs a
+  quote type); it is one press away inside any service ("Add line item"). If the owner wants an
+  "Other services" group on quotes, it needs a rule for which quote type such a group opens as.
+- Existing companies get new template lines only through `lib/services/backfillTemplates.js`
+  (`scripts/backfill-service-templates.mjs --apply`), which fills EMPTY rows only and connects a new
+  quote-type tag only to a row with no category — so the new `locksmith` / `baby_proofing` / …
+  tags reach new companies at seed time, not existing rows that already have a category. No DB
+  write was made this session; the owner runs the backfill (dry run first).
+- `_materialCosts.js` `USES` should absorb the local reference items the seed agents defined in their
+  trade files (angle stop, wax ring, vinyl siding, house wrap, R-19 batts, concrete mix, rebar, posts,
+  pickets…) — a shared-file follow-up.
+- Two owner decisions left open by the seed pass: the four lawn treatment rows priced by lawn-size
+  band (a template line cannot express "base + step per 1,000 sq ft", so they stay untemplated), and
+  tagging the water softener for `well_water` (it breaks an assertion in check-confirm-services).
 
 ## Pay-run cancel, the schema stripper, the booking follow-up (25 September 2026)
 
@@ -10313,6 +10520,21 @@ centre screenshots one.
 - **Proved** — `check:demo-content` (149, in check:all) seeds all ten trades
   into `scripts/fixtures/memoryPrisma.mjs` (served as `@/lib/db` by
   `memory-db-loader.mjs`) and reads every table back.
+- **Demo lines fixed (25 September 2026)** — every seeded quote and invoice
+  line was `{ name, unitPrice, total }`; the documents read `{ description,
+  rate, amount }`, so every demo line printed $0.00 under a correct total
+  (the service-plan invoices, the deposit, the whole pipeline). The seed now
+  writes the real shape through one `line()` helper; §2c of
+  `check:demo-content` asserts the keys, rate × qty = amount, subtotal = Σ
+  lines and what `groupInvoiceLineItems` prints, over every document of all
+  ten trades. **Owed (owner):** rows already in production keep the old
+  shape — 319 invoice lines and 652 quote lines across all 26 demo companies
+  (10 pool, 8 live rep demos, 8 retired). A pool demo's Reset
+  (`resetDemo` → `wipeContent` → reseed) rewrites them; re-running
+  `seed-demo-content.mjs` does NOT (idempotent — existing rows are kept);
+  a rep demo's reset retires the old company and seeds a new one, so the
+  retired rows stay as they are. Not done here because every route to it
+  deletes data.
 
 ## The company's own crew chat (12 September 2026)
 

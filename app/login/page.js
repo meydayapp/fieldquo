@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { signIn } from "@/lib/auth-client";
+import { signIn, sendVerificationEmail } from "@/lib/auth-client";
 import MarketingHeader from "@/app/components/marketing/MarketingHeader";
 import AuthShell from "@/app/components/auth/AuthShell";
 import AuthAside from "@/app/components/auth/AuthAside";
@@ -16,6 +16,8 @@ import {
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { isInternalPath } from "@/lib/appUrl";
 import { signInErrorText } from "@/lib/authErrors";
+import { CAPTURE_ENDPOINT } from "@/lib/signup/leadCapture";
+import { RESUME_ACTIONS, safeResumeTarget } from "@/lib/signup/resumeRoute";
 
 // Only ever an internal path. Guards against `?next=//evil.com`, `?next=/\evil.com`
 // and absolute URLs turning the login form into an open redirect. The rule
@@ -26,7 +28,7 @@ function safeNext(raw) {
 
 export default function LoginPage() {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, changeLanguage } = useTranslation();
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -35,6 +37,58 @@ export default function LoginPage() {
   // Read from window rather than useSearchParams to avoid forcing a Suspense
   // boundary on this route — the same pattern the quote pages use.
   const [next, setNext] = useState("/app");
+  // ── Arrived from a resume link whose address already has a login ────────
+  //
+  // /signup sends ?resume=<token> here instead of showing the account step
+  // (lib/signup/resumeRoute.js). The token names the address and the
+  // business they were setting up, so the box is filled and the sentence
+  // says why they are signing in rather than signing up — and, when the
+  // address was never confirmed, offers the confirmation link again. The
+  // token signs nobody in: the password below is still the only key.
+  const [resumeNote, setResumeNote] = useState(null);
+  const [verifySend, setVerifySend] = useState("idle"); // idle | sending | sent | failed | mismatch
+  useEffect(() => {
+    const token = new URLSearchParams(window.location.search).get("resume");
+    if (!token) return;
+    let cancelled = false;
+    fetch(`${CAPTURE_ENDPOINT}?token=${encodeURIComponent(token)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled || !d?.prefill?.email || !d.route) return;
+        if (d.prefill.language) changeLanguage(d.prefill.language);
+        const after = safeResumeTarget(d.route.next);
+        if (after) setNext(after);
+        if (d.route.action !== RESUME_ACTIONS.SIGN_IN && d.route.action !== RESUME_ACTIONS.SWITCH) return;
+        setForm((f) => (f.email ? f : { ...f, email: d.prefill.email }));
+        setResumeNote({
+          email: d.prefill.email,
+          company: d.prefill.companyName || "",
+          finished: Boolean(d.route.finished),
+          verified: d.route.verified !== false,
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // Once, on arrival. changeLanguage is the provider's stable callback.
+  }, []);
+
+  const resendVerification = async () => {
+    if (!resumeNote?.email || verifySend === "sending") return;
+    setVerifySend("sending");
+    // No callbackURL: lib/auth.js owns the landing page and its language.
+    const { error: sendError } = await sendVerificationEmail({ email: resumeNote.email });
+    if (!sendError) return setVerifySend("sent");
+    // Confirmed since the page loaded: nothing was sent, so "Sent" would be a
+    // lie — the unconfirmed line simply goes away.
+    if (sendError.code === "EMAIL_ALREADY_VERIFIED") {
+      setResumeNote((n) => (n ? { ...n, verified: true } : n));
+      return setVerifySend("idle");
+    }
+    setVerifySend(sendError.code === "EMAIL_MISMATCH" ? "mismatch" : "failed");
+  };
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     setNext(safeNext(params.get("next")));
@@ -87,6 +141,46 @@ export default function LoginPage() {
           onSubmit={handleSubmit}
           className="bg-card border border-border rounded-xl shadow-sm p-6 sm:p-8 space-y-5"
         >
+          {resumeNote && (
+            <div
+              className="bg-muted border border-border text-foreground text-sm rounded-lg px-4 py-3 space-y-2 break-words"
+              data-login-resume-note
+            >
+              <p>
+                {resumeNote.finished
+                  ? t("app.auth.login.resumeFinished")
+                  : resumeNote.company
+                    ? t("app.auth.login.resumeUnfinished", { company: resumeNote.company })
+                    : t("app.auth.login.resumeUnfinishedNoName")}
+              </p>
+              {!resumeNote.verified && (
+                <div>
+                  <p className="text-muted-foreground">
+                    {t("app.auth.login.unverified", { email: resumeNote.email })}
+                  </p>
+                  {verifySend === "sent" ? (
+                    <p className="mt-1 font-medium">{t("app.auth.login.resentVerify", { email: resumeNote.email })}</p>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={resendVerification}
+                      disabled={verifySend === "sending"}
+                      className="mt-1 font-medium underline"
+                    >
+                      {verifySend === "sending" ? t("app.auth.verify.resending") : t("app.auth.login.resendVerify")}
+                    </button>
+                  )}
+                  {verifySend === "mismatch" && (
+                    <p className="mt-1 text-red-700 dark:text-red-300">{t("app.auth.verify.mismatch")}</p>
+                  )}
+                  {verifySend === "failed" && (
+                    <p className="mt-1 text-red-700 dark:text-red-300">{t("app.auth.sendFailed")}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {error && (
             <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
               {error}

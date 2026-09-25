@@ -469,6 +469,109 @@ const TEMPLATES = {
 withLanguages(SEED, I18N);
 withTemplates(SEED, TEMPLATES);
 
+// ── Templates added 2026-09-25 ───────────────────────────────────────────────
+//
+// The owner (2026-09-25): a service added to a quote should arrive with a few
+// lines, not as one bare line. The templates above cover seventeen rows;
+// these cover the last five — the generic repair and repair visit, parts
+// replacement, cleaning and performance optimisation — on the same footing:
+// the capture's two generic templates (diagnostic $100 on $80, repair $200
+// on $100), the $89 diagnostic and pass-through parts line above, and 2026
+// appliance-repair rates. None carries a benchmark, so each range comes from
+// its own lines.
+//
+// Kept apart from TEMPLATES and applied in a second pass, so every template
+// above stays exactly as it was — a key that already has a template throws
+// instead of being overwritten. Punjabi sits inline beside the other seven
+// languages (the shared diagnostic and parts lines carry theirs already); the
+// service's own name in every language is the row's (./i18n/appliance_repair.js).
+
+/** [name, description] in the eight languages, in this order. */
+const X = (en, fr, es, it, de, uk, pa, tl) => ({ en, fr, es, it, de, uk, pa, tl });
+const GENERAL_REPAIR = () => REPAIR(175, X(
+  ["Appliance repair labour", "The failed part replaced and the appliance run through a full cycle to confirm the fix."],
+  ["Main-d'œuvre — réparation d'appareil", "Pièce défectueuse remplacée et appareil testé sur un cycle complet pour confirmer la réparation."],
+  ["Mano de obra — reparación de electrodoméstico", "Pieza dañada reemplazada y el aparato probado en un ciclo completo para confirmar el arreglo."],
+  ["Manodopera — riparazione elettrodomestico", "Pezzo guasto sostituito e apparecchio provato in un ciclo completo per confermare la riparazione."],
+  ["Arbeit — Gerätereparatur", "Defektes Teil ersetzt und das Gerät einen vollen Zyklus betrieben, um die Reparatur zu bestätigen."],
+  ["Робота — ремонт техніки", "Несправну деталь замінено, прилад перевірено повним циклом для підтвердження ремонту."],
+  ["ਉਪਕਰਣ ਮੁਰੰਮਤ ਦੀ ਲੇਬਰ", "ਖ਼ਰਾਬ ਪੁਰਜ਼ਾ ਬਦਲਿਆ ਅਤੇ ਠੀਕ ਹੋਣ ਦੀ ਪੁਸ਼ਟੀ ਲਈ ਉਪਕਰਣ ਪੂਰਾ ਚੱਕਰ ਚਲਾਇਆ।"],
+  ["Labor — pag-ayos ng appliance", "Pinalitan ang sirang piyesa at pinatakbo ang appliance sa buong cycle para matiyak ang ayos."],
+));
+
+const ADDED = {
+  "fq.appliance_repair.repair.general": { kind: "repair", lines: [DIAG(), GENERAL_REPAIR(), PARTS(100)] },
+  "fq.appliance_repair.repair.repair_visit": { kind: "repair", lines: [DIAG(), GENERAL_REPAIR(), PARTS(100)] },
+
+  "fq.appliance_repair.additional.parts_replacement": { kind: "repair", lines: [
+    REPAIR(125, X(
+      ["Part replacement labour", "The worn or damaged part removed, the new one fitted and the appliance tested."],
+      ["Main-d'œuvre — remplacement de pièce", "Pièce usée ou abîmée retirée, la neuve posée et appareil testé."],
+      ["Mano de obra — cambio de pieza", "Pieza gastada o dañada retirada, la nueva colocada y el aparato probado."],
+      ["Manodopera — sostituzione pezzo", "Pezzo usurato o danneggiato tolto, il nuovo montato e apparecchio provato."],
+      ["Arbeit — Teiletausch", "Verschlissenes oder beschädigtes Teil ausgebaut, das neue eingebaut und das Gerät getestet."],
+      ["Робота — заміна деталі", "Зношену чи пошкоджену деталь знято, нову встановлено, прилад перевірено."],
+      ["ਪੁਰਜ਼ਾ ਬਦਲਣ ਦੀ ਲੇਬਰ", "ਘਸਿਆ ਜਾਂ ਖ਼ਰਾਬ ਪੁਰਜ਼ਾ ਕੱਢਿਆ, ਨਵਾਂ ਲਾਇਆ ਅਤੇ ਉਪਕਰਣ ਟੈਸਟ ਕੀਤਾ।"],
+      ["Labor — palit ng piyesa", "Tinanggal ang luma o sirang piyesa, ikinabit ang bago at sinubukan ang appliance."],
+    )),
+    PARTS(120),
+  ] },
+
+  "fq.appliance_repair.additional.cleaning": { kind: "maintenance", lines: [
+    L.labour(1, "flat", 129, X(
+      ["Appliance deep clean", "Grease, scale and residue removed from the interior, seals, filters and vents, and the appliance run to check it."],
+      ["Nettoyage en profondeur de l'appareil", "Graisse, tartre et résidus retirés de l'intérieur, des joints, des filtres et des évents, appareil testé ensuite."],
+      ["Limpieza profunda del electrodoméstico", "Grasa, sarro y residuos retirados del interior, sellos, filtros y ventilas, y el aparato probado."],
+      ["Pulizia a fondo dell'elettrodomestico", "Grasso, calcare e residui tolti da interno, guarnizioni, filtri e prese d'aria, poi apparecchio provato."],
+      ["Gründliche Gerätereinigung", "Fett, Kalk und Rückstände aus Innenraum, Dichtungen, Filtern und Lüftungen entfernt, danach Probelauf."],
+      ["Глибоке чищення приладу", "Жир, накип і залишки прибрано з середини, ущільнювачів, фільтрів і вентиляції, прилад перевірено."],
+      ["ਉਪਕਰਣ ਦੀ ਡੂੰਘੀ ਸਫ਼ਾਈ", "ਅੰਦਰੋਂ, ਸੀਲਾਂ, ਫ਼ਿਲਟਰਾਂ ਅਤੇ ਵੈਂਟਾਂ ਤੋਂ ਚਿਕਨਾਈ, ਚੂਨਾ ਅਤੇ ਰਹਿੰਦ-ਖੂੰਹਦ ਹਟਾਈ, ਫਿਰ ਚਲਾ ਕੇ ਦੇਖਿਆ।"],
+      ["Deep clean ng appliance", "Tinanggal ang grasa, kaliskis at dumi sa loob, seal, filter at vent, at pinaandar para i-check."],
+    ), { cost: 65 }),
+    L.material(1, "flat", 25, X(
+      ["Descaler, degreaser and cleaning supplies", "Appliance-safe descaler, degreaser and cloths for one appliance."],
+      ["Détartrant, dégraissant et fournitures", "Détartrant et dégraissant sans danger pour l'appareil, et chiffons, pour un appareil."],
+      ["Descalcificador, desengrasante y material", "Descalcificador y desengrasante seguros para el aparato, y paños, para un aparato."],
+      ["Anticalcare, sgrassante e materiale", "Anticalcare e sgrassante sicuri per l'apparecchio, e panni, per un apparecchio."],
+      ["Entkalker, Entfetter und Reinigungsmaterial", "Gerätesicherer Entkalker und Entfetter sowie Tücher für ein Gerät."],
+      ["Засіб від накипу, знежирювач і матеріали", "Безпечні для приладу засоби від накипу й жиру та серветки на один прилад."],
+      ["ਡੀਸਕੇਲਰ, ਡੀਗ੍ਰੀਜ਼ਰ ਅਤੇ ਸਫ਼ਾਈ ਸਮਾਨ", "ਇੱਕ ਉਪਕਰਣ ਲਈ ਸੁਰੱਖਿਅਤ ਡੀਸਕੇਲਰ, ਡੀਗ੍ਰੀਜ਼ਰ ਅਤੇ ਕੱਪੜੇ।"],
+      ["Descaler, degreaser at panlinis", "Ligtas sa appliance na descaler, degreaser at basahan para sa isang appliance."],
+    ), { cost: 12 }),
+  ] },
+
+  "fq.appliance_repair.maintenance.performance_optimization": { kind: "maintenance", lines: [
+    L.labour(1, "flat", 139, X(
+      ["Tune-up and adjustment", "Temperatures, water levels, belts and door seals checked and set to the manufacturer's figures, and settings adjusted for efficiency."],
+      ["Mise au point et réglage", "Températures, niveaux d'eau, courroies et joints de porte vérifiés et réglés selon le fabricant, réglages ajustés pour l'efficacité."],
+      ["Afinación y ajuste", "Temperaturas, niveles de agua, bandas y sellos de puerta revisados y ajustados a los valores del fabricante, y la configuración afinada para eficiencia."],
+      ["Messa a punto e regolazione", "Temperature, livelli d'acqua, cinghie e guarnizioni verificati e regolati sui valori del costruttore, impostazioni ottimizzate."],
+      ["Wartung und Einstellung", "Temperaturen, Wasserstände, Riemen und Türdichtungen geprüft und auf Herstellerwerte eingestellt, Einstellungen auf Effizienz angepasst."],
+      ["Налаштування й регулювання", "Температури, рівні води, паси й ущільнювачі дверей перевірено й виставлено за виробником, налаштування оптимізовано."],
+      ["ਟਿਊਨ-ਅੱਪ ਅਤੇ ਐਡਜਸਟਮੈਂਟ", "ਤਾਪਮਾਨ, ਪਾਣੀ ਦਾ ਪੱਧਰ, ਬੈਲਟਾਂ ਅਤੇ ਦਰਵਾਜ਼ੇ ਦੀਆਂ ਸੀਲਾਂ ਜਾਂਚ ਕੇ ਕੰਪਨੀ ਮੁਤਾਬਕ ਸੈੱਟ, ਅਤੇ ਬੱਚਤ ਲਈ ਸੈਟਿੰਗਾਂ ਠੀਕ।"],
+      ["Tune-up at adjustment", "Chineck at in-set ayon sa manufacturer ang temperatura, lebel ng tubig, belt at seal ng pinto, at inayos ang setting para makatipid."],
+    ), { cost: 70 }),
+    L.material(1, "flat", 25, X(
+      ["Gaskets, filters and small parts", "Small wear parts found during the tune-up — a filter, a gasket, a clip."],
+      ["Joints, filtres et petites pièces", "Petites pièces d'usure repérées pendant la mise au point — un filtre, un joint, une attache."],
+      ["Empaques, filtros y piezas menores", "Piezas menores de desgaste halladas en la afinación: un filtro, un empaque, un clip."],
+      ["Guarnizioni, filtri e minuteria", "Piccoli pezzi d'usura trovati durante la messa a punto — un filtro, una guarnizione, una clip."],
+      ["Dichtungen, Filter und Kleinteile", "Kleine Verschleißteile, die bei der Wartung auffallen — ein Filter, eine Dichtung, ein Clip."],
+      ["Ущільнювачі, фільтри й дрібні деталі", "Дрібні зношувані деталі, знайдені під час налаштування, — фільтр, прокладка, затискач."],
+      ["ਗੈਸਕਟ, ਫ਼ਿਲਟਰ ਅਤੇ ਛੋਟੇ ਪੁਰਜ਼ੇ", "ਟਿਊਨ-ਅੱਪ ਦੌਰਾਨ ਮਿਲੇ ਛੋਟੇ ਘਸਣ ਵਾਲੇ ਪੁਰਜ਼ੇ — ਫ਼ਿਲਟਰ, ਗੈਸਕਟ, ਕਲਿੱਪ।"],
+      ["Gasket, filter at maliliit na piyesa", "Maliliit na piyesang pudpod na nakita sa tune-up — filter, gasket, clip."],
+    ), { cost: 15 }),
+  ] },
+};
+
+for (const key of Object.keys(ADDED)) {
+  if (SEED.services.find((s) => s.seedKey === key)?.templateLines) throw new Error(`appliance_repair: ${key} already has a template — this pass only adds`);
+}
+withTemplates(SEED, Object.fromEntries(Object.entries(ADDED).map(([key, a]) => {
+  const s = I18N.services[key];
+  return [key, T(a.kind, { it: s.it, de: s.de, uk: s.uk, pa: s.pa, tl: s.tl }, a.lines, null)];
+})));
+
 // Shared services: one canonical row here, installed for these quote types too.
 tagRows(SEED, {
   "fq.appliance_repair.additional.dryer_vent_cleaning": ["air_duct_cleaning", "hvac_repair"],

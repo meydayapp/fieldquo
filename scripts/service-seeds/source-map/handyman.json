@@ -642,5 +642,89 @@
   "sourceCategory": "Estimate templates (handyman capture)",
   "sourceService": "Gutter repair",
   "taskCode": null
+ },
+ {
+  "seedKey": "fq.handyman.doors_windows.lock_rekey",
+  "industry": "Handyman",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Lock rekeying — per cylinder",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.handyman.doors_windows.deadbolt_install",
+  "industry": "Handyman",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Deadbolt installation",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.handyman.doors_windows.smart_lock_install",
+  "industry": "Handyman",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Smart lock installation",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.handyman.doors_windows.lockset_replacement",
+  "industry": "Handyman",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Door lockset replacement",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.handyman.doors_windows.weatherstrip_sweep",
+  "industry": "Handyman",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Door weatherstripping and sweep replacement",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.handyman.painting.tub_shower_recaulk",
+  "industry": "Handyman",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Tub and shower re-caulking",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.handyman.painting.window_door_weatherproofing",
+  "industry": "Handyman",
+  "sourceCategory": "Estimate templates (handyman capture)",
+  "sourceService": "Caulking and weatherproofing — per window or door",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.handyman.childproofing.home_visit",
+  "industry": "Handyman",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Baby-proofing visit — whole home",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.handyman.childproofing.safety_gate",
+  "industry": "Handyman",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Baby gate installation",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.handyman.childproofing.cabinet_latches",
+  "industry": "Handyman",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Cabinet and drawer safety latches",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.handyman.childproofing.furniture_anchoring",
+  "industry": "Handyman",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Furniture and TV anti-tip anchoring",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.handyman.childproofing.window_safety",
+  "industry": "Handyman",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Window stops and guards",
+  "taskCode": null
  }
 ]

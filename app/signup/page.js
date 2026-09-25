@@ -52,6 +52,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { trackSignupStep, trackCheckoutStarted, visitorId } from "@/lib/analytics/track";
 import { CAPTURE_DEBOUNCE_MS, CAPTURE_ENDPOINT, captureBodyFor, captureFingerprint } from "@/lib/signup/leadCapture";
 import { readWebsiteAnswer } from "@/lib/signup/website";
+import { RESUME_ACTIONS, safeResumeTarget } from "@/lib/signup/resumeRoute";
 import SignupCreating from "@/app/components/auth/SignupCreating";
 import { CREATING_TIMEOUTS, initialStages, runSignupCreation } from "@/lib/signup/creatingProgress";
 
@@ -767,7 +768,7 @@ export default function SignupPage() {
   // fallback (app.signup.* in appMessages.js). It was English-only for a long
   // time on the reasoning that converting it belonged to its own change; this
   // is that change. What stays fixed is number formatting — see money().
-  const { t } = useTranslation();
+  const { t, changeLanguage } = useTranslation();
 
   // Signed-out is the common case, so the funnel opens on "account". A visitor
   // who turns out to have a login is moved to "business" by the resume effect
@@ -851,12 +852,57 @@ export default function SignupPage() {
   // guessing "signed out" and then correcting would flash the account step at
   // someone who already has an account.
   const [entryChecked, setEntryChecked] = useState(false);
+  // A ?resume= link for one address, opened in a browser signed in as a
+  // DIFFERENT account (lib/signup/resumeRoute.js SWITCH). Holds both
+  // addresses and where "continue" goes; while set, no step renders.
+  const [resumeElsewhere, setResumeElsewhere] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
+    // Set when this visit is leaving (or waiting on a choice) — the steps
+    // must not flash up behind it, so entryChecked stays false.
+    let held = false;
 
     (async () => {
       try {
+        // ── A resume link is routed before anything else is asked ─────────
+        //
+        // The owner's own link, 2026-09-25: an address that had had a login
+        // for twelve days opened on the ACCOUNT step, and only a typed
+        // password found out. The server now says, from the User table and
+        // this browser's session, where the link belongs
+        // (app/api/signup/lead GET → lib/signup/resumeRoute.js). Nothing here
+        // signs anyone in: a login path always ends at /login.
+        const resumeToken = new URLSearchParams(window.location.search).get("resume");
+        if (resumeToken) {
+          const found = await fetch(`${CAPTURE_ENDPOINT}?token=${encodeURIComponent(resumeToken)}`)
+            .then((r) => (r.ok ? r.json() : null))
+            .catch(() => null);
+          if (cancelled) return;
+          // The language the follow-up email was written in — the page it
+          // opened should not answer in a browser guess.
+          if (found?.prefill?.language) changeLanguage(found.prefill.language);
+          const route = found?.route;
+          const to = safeResumeTarget(route?.to);
+          if ((route?.action === RESUME_ACTIONS.APP || route?.action === RESUME_ACTIONS.SIGN_IN) && to) {
+            held = true;
+            window.location.replace(to);
+            return;
+          }
+          if (route?.action === RESUME_ACTIONS.SWITCH && to) {
+            held = true;
+            setResumeElsewhere({
+              email: found.prefill.email,
+              other: route.sessionEmail || "",
+              to,
+            });
+            return;
+          }
+          // SIGNUP / CONTINUE, or no answer: the checks below, as before —
+          // CONTINUE is a signed-in owner, whom they land on the first
+          // unfinished step.
+        }
+
         // ── Asked FIRST, because it is the only unambiguous question ──────
         //
         // "Is this a company that was created and never paid for, and may this
@@ -941,13 +987,14 @@ export default function SignupPage() {
         // Offline or blocked: fall through as a signed-out visitor, which is
         // the flow that asks for everything rather than assuming it has it.
       } finally {
-        if (!cancelled) setEntryChecked(true);
+        if (!cancelled && !held) setEntryChecked(true);
       }
     })();
 
     return () => {
       cancelled = true;
     };
+    // Once, on arrival. changeLanguage is the provider's stable callback.
   }, []);
 
   useEffect(() => {
@@ -2561,7 +2608,41 @@ export default function SignupPage() {
             create-a-password form at somebody who is already signed in, which
             reads as the product having forgotten them — the same complaint the
             resumed-signup banner below exists to answer. */}
-        {!entryChecked && !alreadyOnFieldquo && (
+        {/* ── A resume link for one account, opened while signed in as
+            another. Both addresses on screen and the choice theirs: carrying
+            on here would either write this signup into the signed-in
+            account or sign it out without asking. "Continue" signs the other
+            account out (with its draft, handleSignOut) and goes to sign-in or
+            the account step for the link's address. */}
+        {resumeElsewhere && (
+          <div
+            className="max-w-md mx-auto bg-card border border-border rounded-2xl px-6 py-8 text-center"
+            data-signup-resume-switch
+          >
+            <h1 className="text-xl font-bold text-foreground break-words">
+              {t("app.signup.resumeSwitch.title", { email: resumeElsewhere.email })}
+            </h1>
+            <p className="mt-3 text-sm text-muted-foreground break-words">
+              {t("app.signup.resumeSwitch.body", { other: resumeElsewhere.other })}
+            </p>
+            <div className="mt-6 flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={() => handleSignOut(resumeElsewhere.to)}
+                className="bg-inverted text-inverted-foreground rounded-full px-6 py-3 text-sm font-semibold break-words"
+              >
+                {t("app.auth.switch.continueAs", { email: resumeElsewhere.email })}
+              </button>
+              <a
+                href="/app"
+                className="text-sm font-medium text-muted-foreground hover:text-foreground break-words"
+              >
+                {t("app.auth.switch.stayAs", { other: resumeElsewhere.other })}
+              </a>
+            </div>
+          </div>
+        )}
+        {!entryChecked && !alreadyOnFieldquo && !resumeElsewhere && (
           <div className="bg-card border border-border rounded-xl shadow-sm p-8 text-center text-sm text-muted-foreground">
             {t("app.signup.gettingReady", "Getting things ready...")}
           </div>

@@ -32,8 +32,8 @@ const code = (r) =>
 const AUTH = read("../lib/auth.js");
 const CLIENT = read("../lib/auth-client.js");
 const FORGOT = code("../app/forgot-password/page.js");
-const RESET = code("../app/reset-password/page.js");
-const VERIFY = code("../app/verify-email/page.js");
+const RESET = code("../app/reset-password/ResetPassword.js");
+const VERIFY = code("../app/verify-email/VerifyEmail.js");
 const LOGIN = read("../app/login/page.js");
 
 console.log("\nThe three capabilities are actually configured");

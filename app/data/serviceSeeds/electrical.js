@@ -8,6 +8,7 @@
 // scripts/service-seeds/authoring/gen-source-map.mjs can join every row back.
 import { L, SHARED, D, T, withTemplates, hdMaterial, withLanguages } from "./_templateLines";
 import { HD } from "./_materialCosts";
+import { materialRef } from "../materialReference.js";
 import { I18N } from "./i18n/electrical.js";
 
 const BM = (low, median, high) => ({ low, median, high, currency: "USD", source: "benchmark", asOf: "2026-09-21" });
@@ -854,3 +855,1269 @@ const TEMPLATES = {
 
 withLanguages(SEED, I18N);
 withTemplates(SEED, TEMPLATES);
+
+// ── Templates added 2026-09-25 ───────────────────────────────────────────────
+//
+// The owner (2026-09-25): a service added to a quote should arrive with a few
+// lines, not as one bare line. The templates above cover fifteen rows; these
+// cover every other row on the list. Evidence: the captured set's shape (a
+// labour line, the part, the odd fee; labour cost 50% of price, a part at
+// ≈ 75% or at the Home Depot shelf price where the reference carries it) and
+// each row's benchmark for the level.
+//
+// Device rows (switches, dimmers, receptacles, recessed lights, ballasts,
+// detectors, fans) are priced per device, so their per-device lines carry
+// the `each` key and take the count typed on the estimate — as the GFCI
+// template above does. No call-out fee is added to a per-device row: the
+// captured outlet-or-switch template carries none, and on a ten-dimmer job a
+// per-device fee would be charged ten times.
+//
+// Where a row's benchmark median reads too low for the work (the 150 A panel
+// at $933, the single 8 ft ballast at $125) the lines are priced at 2026
+// trade figures rather than bent to it; the median stays the preset price.
+//
+// Kept apart from TEMPLATES and applied in a second pass, so every template
+// above stays exactly as it was — a key that already has a template throws
+// instead of being overwritten. Punjabi sits inline beside the other seven
+// languages; the service's own name in every language is the row's
+// (./i18n/electrical.js), not repeated here.
+
+/** [name, description] in the eight languages, in this order. */
+const X = (en, fr, es, it, de, uk, pa, tl) => ({ en, fr, es, it, de, uk, pa, tl });
+const A = (kind, lines, opts = {}) => ({ kind, lines, opts });
+const EACH = { measurementKey: "each" };
+// A per-item row of the Home Depot reference that _materialCosts.js does not
+// list (that file is shared and being edited by every trade at once — hoisting
+// these keys into its USES is the follow-up). Same shape its build() returns,
+// Canadian cost included where the reference has one.
+const REF = (key) => {
+  const r = materialRef(key);
+  if (!r?.prices?.US || r.coverage) throw new Error(`electrical: ${key} is not a per-item reference row`);
+  return { ref: key, cost: r.prices.US.amount, unit: r.unit, per: 1, per_unit: "each", ca: r.prices.CA ? { cost: r.prices.CA.amount, unit: r.prices.CA.unit || r.unit, coverage: null } : null };
+};
+
+// ── Lines several rows share ──
+const PANEL_OUT = (price) => L.labour(1, "flat", price, X(
+  ["Existing panel removal", "Power cut at the meter, the old panel disconnected, taken out and disposed of."],
+  ["Dépose du panneau existant", "Courant coupé au compteur, ancien panneau débranché, retiré et mis au rebut."],
+  ["Retiro del tablero existente", "Corriente cortada en el medidor, tablero viejo desconectado, retirado y desechado."],
+  ["Rimozione del quadro esistente", "Corrente staccata al contatore, vecchio quadro scollegato, rimosso e smaltito."],
+  ["Ausbau des alten Verteilers", "Strom am Zähler abgeschaltet, alter Verteiler abgeklemmt, ausgebaut und entsorgt."],
+  ["Демонтаж старого щита", "Живлення вимкнено на лічильнику, старий щит від'єднано, знято й утилізовано."],
+  ["ਪੁਰਾਣਾ ਪੈਨਲ ਹਟਾਉਣਾ", "ਮੀਟਰ 'ਤੇ ਬਿਜਲੀ ਬੰਦ, ਪੁਰਾਣਾ ਪੈਨਲ ਖੋਲ੍ਹ ਕੇ ਹਟਾਇਆ ਅਤੇ ਨਿਪਟਾਇਆ।"],
+  ["Pagtanggal ng lumang panel", "Pinatay ang kuryente sa metro, tinanggal at itinapon ang lumang panel."],
+));
+const PANEL_IN = (price) => L.labour(1, "flat", price, X(
+  ["Panel installation labour", "The new panel mounted, every circuit moved over, torqued and labelled, and power restored after inspection."],
+  ["Main-d'œuvre — installation du panneau", "Nouveau panneau posé, chaque circuit transféré, serré au couple et identifié, courant rétabli après l'inspection."],
+  ["Mano de obra — instalación del tablero", "Tablero nuevo montado, cada circuito pasado, apretado al torque y rotulado, y la corriente restablecida tras la inspección."],
+  ["Manodopera — installazione del quadro", "Nuovo quadro montato, ogni circuito spostato, serrato a coppia ed etichettato, corrente ridata dopo il collaudo."],
+  ["Arbeit — Verteilermontage", "Neuer Verteiler montiert, jeder Stromkreis umgeklemmt, mit Drehmoment angezogen und beschriftet, Strom nach der Abnahme wieder eingeschaltet."],
+  ["Робота — монтаж щита", "Новий щит змонтовано, кожну лінію перенесено, затягнуто з моментом і промарковано, живлення відновлено після перевірки."],
+  ["ਪੈਨਲ ਲਾਉਣ ਦੀ ਲੇਬਰ", "ਨਵਾਂ ਪੈਨਲ ਲਾਇਆ, ਹਰ ਸਰਕਟ ਤਬਦੀਲ ਕਰਕੇ ਕੱਸਿਆ ਅਤੇ ਲੇਬਲ ਕੀਤਾ, ਇੰਸਪੈਕਸ਼ਨ ਮਗਰੋਂ ਬਿਜਲੀ ਚਾਲੂ।"],
+  ["Labor — pagkabit ng panel", "Ikinabit ang bagong panel, inilipat ang bawat circuit, hinigpitan sa tamang torque at nilagyan ng label, at ibinalik ang kuryente pagkatapos ng inspeksyon."],
+));
+const BREAKER_SET = (price, cost) => L.material(1, "flat", price, X(
+  ["Circuit breakers — full set", "New breakers for every circuit, including the AFCI and GFCI breakers current code calls for."],
+  ["Disjoncteurs — jeu complet", "Disjoncteurs neufs pour chaque circuit, y compris les disjoncteurs AFCI et DDFT exigés par le code actuel."],
+  ["Interruptores — juego completo", "Interruptores nuevos para cada circuito, incluidos los AFCI y GFCI que exige el código vigente."],
+  ["Interruttori — set completo", "Interruttori nuovi per ogni circuito, compresi gli AFCI e GFCI richiesti dalla normativa attuale."],
+  ["Sicherungsautomaten — kompletter Satz", "Neue Automaten für jeden Stromkreis, einschließlich der AFDD- und FI-Schutzschalter, die die Norm heute verlangt."],
+  ["Автомати — повний комплект", "Нові автомати для кожної лінії, зокрема AFCI та GFCI, яких вимагають чинні норми."],
+  ["ਸਰਕਟ ਬ੍ਰੇਕਰ — ਪੂਰਾ ਸੈੱਟ", "ਹਰ ਸਰਕਟ ਲਈ ਨਵੇਂ ਬ੍ਰੇਕਰ, ਮੌਜੂਦਾ ਕੋਡ ਮੁਤਾਬਕ AFCI ਅਤੇ GFCI ਬ੍ਰੇਕਰਾਂ ਸਮੇਤ।"],
+  ["Circuit breakers — buong set", "Bagong breaker para sa bawat circuit, kasama ang AFCI at GFCI breaker na hinihingi ng code ngayon."],
+), { cost });
+const FEEDER = (price, cost) => L.material(1, "flat", price, X(
+  ["Feeder cable and connectors", "Feeder conductors, lugs and connectors from the upstream main disconnect to the new panel."],
+  ["Câble d'alimentation et connecteurs", "Conducteurs d'alimentation, cosses et connecteurs du sectionneur principal en amont au nouveau panneau."],
+  ["Cable alimentador y conectores", "Conductores alimentadores, zapatas y conectores desde el desconectador principal hasta el tablero nuevo."],
+  ["Cavo di alimentazione e connettori", "Conduttori di alimentazione, morsetti e connettori dal sezionatore generale a monte al nuovo quadro."],
+  ["Zuleitung und Anschlussteile", "Zuleitungsadern, Klemmen und Verbinder vom vorgeschalteten Hauptschalter zum neuen Verteiler."],
+  ["Живильний кабель і з'єднувачі", "Живильні жили, наконечники та з'єднувачі від головного вимикача до нового щита."],
+  ["ਫ਼ੀਡਰ ਕੇਬਲ ਅਤੇ ਕਨੈਕਟਰ", "ਉੱਪਰਲੇ ਮੇਨ ਡਿਸਕਨੈਕਟ ਤੋਂ ਨਵੇਂ ਪੈਨਲ ਤੱਕ ਫ਼ੀਡਰ ਤਾਰਾਂ, ਲੱਗ ਅਤੇ ਕਨੈਕਟਰ।"],
+  ["Feeder cable at connector", "Feeder na wire, lug at connector mula sa main disconnect hanggang sa bagong panel."],
+), { cost });
+const PANEL = (price, cost, text) => L.material(1, "each", price, text, { cost, taxable: false });
+
+const DIMMER_LABOUR = (price) => L.labour(1, "each", price, X(
+  ["Dimmer installation — per dimmer", "Old switch out, the dimmer wired and grounded, and the lights run through the full range to check for flicker."],
+  ["Pose de gradateur — l'unité", "Ancien interrupteur retiré, gradateur câblé et mis à la terre, éclairage testé sur toute la plage pour déceler le scintillement."],
+  ["Instalación de atenuador — por unidad", "Interruptor viejo fuera, atenuador cableado y aterrizado, y las luces probadas en todo el rango para descartar parpadeo."],
+  ["Posa dimmer — cadauno", "Vecchio interruttore tolto, dimmer cablato e messo a terra, luci provate su tutta la gamma per escludere sfarfallii."],
+  ["Dimmermontage — pro Stück", "Alter Schalter raus, Dimmer angeschlossen und geerdet, Licht über den ganzen Bereich auf Flackern geprüft."],
+  ["Встановлення димера — за штуку", "Старий вимикач знято, димер під'єднано й заземлено, світло перевірено на всьому діапазоні на мерехтіння."],
+  ["ਡਿਮਰ ਲਾਉਣਾ — ਪ੍ਰਤੀ ਡਿਮਰ", "ਪੁਰਾਣਾ ਸਵਿੱਚ ਹਟਾਇਆ, ਡਿਮਰ ਜੋੜ ਕੇ ਅਰਥ ਕੀਤਾ, ਅਤੇ ਟਿਮਟਿਮਾਹਟ ਲਈ ਪੂਰੀ ਰੇਂਜ 'ਤੇ ਲਾਈਟਾਂ ਜਾਂਚੀਆਂ।"],
+  ["Pagkabit ng dimmer — kada isa", "Tinanggal ang lumang switch, kinablehan at ini-ground ang dimmer, at sinubukan ang ilaw sa buong range kung kumukurap."],
+), EACH);
+
+const SWITCH_LABOUR = (price) => L.labour(1, "each", price, X(
+  ["Switch replacement — per switch", "Power off, the old switch out, the new one wired to the same travellers or leg, grounded and tested."],
+  ["Remplacement d'interrupteur — l'unité", "Courant coupé, ancien interrupteur retiré, le neuf raccordé aux mêmes fils, mis à la terre et testé."],
+  ["Reemplazo de interruptor — por unidad", "Corriente cortada, interruptor viejo fuera, el nuevo conectado a los mismos conductores, aterrizado y probado."],
+  ["Sostituzione interruttore — cadauno", "Corrente staccata, vecchio interruttore tolto, il nuovo collegato agli stessi conduttori, messo a terra e provato."],
+  ["Schaltertausch — pro Stück", "Strom aus, alter Schalter raus, der neue an dieselben Adern angeschlossen, geerdet und geprüft."],
+  ["Заміна вимикача — за штуку", "Живлення вимкнено, старий вимикач знято, новий під'єднано до тих самих жил, заземлено й перевірено."],
+  ["ਸਵਿੱਚ ਬਦਲਣਾ — ਪ੍ਰਤੀ ਸਵਿੱਚ", "ਬਿਜਲੀ ਬੰਦ, ਪੁਰਾਣਾ ਸਵਿੱਚ ਹਟਾਇਆ, ਨਵਾਂ ਉਨ੍ਹਾਂ ਹੀ ਤਾਰਾਂ ਨਾਲ ਜੋੜਿਆ, ਅਰਥ ਅਤੇ ਟੈਸਟ ਕੀਤਾ।"],
+  ["Palit ng switch — kada isa", "Pinatay ang kuryente, tinanggal ang lumang switch, ikinabit ang bago sa parehong wire, ini-ground at sinubukan."],
+), EACH);
+
+const RECEPTACLE_LABOUR = (price) => L.labour(1, "each", price, X(
+  ["Receptacle replacement — per receptacle", "Power off, the old device out, the new one terminated on its screws rather than back-stabbed, and polarity tested."],
+  ["Remplacement de prise — l'unité", "Courant coupé, ancien dispositif retiré, le neuf raccordé aux vis plutôt qu'aux trous arrière, polarité testée."],
+  ["Reemplazo de tomacorriente — por unidad", "Corriente cortada, dispositivo viejo fuera, el nuevo conectado en los tornillos y no por detrás, y la polaridad probada."],
+  ["Sostituzione presa — cadauna", "Corrente staccata, vecchio dispositivo tolto, il nuovo collegato sulle viti e non a innesto, polarità provata."],
+  ["Steckdosentausch — pro Stück", "Strom aus, altes Gerät raus, das neue an den Schrauben statt an Steckklemmen angeschlossen, Polarität geprüft."],
+  ["Заміна розетки — за штуку", "Живлення вимкнено, стару розетку знято, нову під'єднано під гвинти, а не вставкою, полярність перевірено."],
+  ["ਸਾਕਟ ਬਦਲਣਾ — ਪ੍ਰਤੀ ਸਾਕਟ", "ਬਿਜਲੀ ਬੰਦ, ਪੁਰਾਣਾ ਸਾਕਟ ਹਟਾਇਆ, ਨਵਾਂ ਪੇਚਾਂ 'ਤੇ ਜੋੜਿਆ ਅਤੇ ਪੋਲੈਰਿਟੀ ਟੈਸਟ ਕੀਤੀ।"],
+  ["Palit ng outlet — kada isa", "Pinatay ang kuryente, tinanggal ang luma, ikinabit ang bago sa turnilyo at hindi sa back-stab, at sinubukan ang polarity."],
+), EACH);
+const RECEPTACLE = (price, cost, extra = {}) => L.material(1, "each", price, X(
+  ["Tamper-resistant receptacle and plate", "15 or 20 A, 125 V tamper-resistant duplex receptacle with a matching wall plate."],
+  ["Prise inviolable et plaque", "Prise double inviolable 15 ou 20 A, 125 V, avec plaque assortie."],
+  ["Tomacorriente a prueba de manipulación y placa", "Tomacorriente doble de 15 o 20 A, 125 V, a prueba de manipulación, con placa a juego."],
+  ["Presa antimanomissione e placca", "Presa doppia antimanomissione da 15 o 20 A, 125 V, con placca abbinata."],
+  ["Kindersichere Steckdose mit Abdeckung", "Kindersichere Doppelsteckdose 15 oder 20 A, 125 V, mit passender Abdeckung."],
+  ["Захищена розетка з рамкою", "Подвійна захищена розетка 15 або 20 А, 125 В, з відповідною рамкою."],
+  ["ਟੈਂਪਰ-ਰੋਧਕ ਸਾਕਟ ਅਤੇ ਪਲੇਟ", "15 ਜਾਂ 20 A, 125 V ਟੈਂਪਰ-ਰੋਧਕ ਡੁਪਲੈਕਸ ਸਾਕਟ, ਮਿਲਦੀ ਪਲੇਟ ਸਮੇਤ।"],
+  ["Tamper-resistant na outlet at plate", "15 o 20 A, 125 V na tamper-resistant duplex outlet na may katernong plate."],
+), { cost, measurementKey: "each", ...extra });
+
+const BALLAST_LABOUR = (price) => L.labour(1, "each", price, X(
+  ["Ballast replacement — per fixture", "Fixture opened, the failed ballast cut out, the new one wired to the lamp holders and the tubes lit and checked."],
+  ["Remplacement de ballast — par luminaire", "Luminaire ouvert, ballast défectueux retiré, le neuf raccordé aux douilles, tubes allumés et vérifiés."],
+  ["Reemplazo de balastro — por luminaria", "Luminaria abierta, balastro dañado retirado, el nuevo cableado a los portalámparas y los tubos encendidos y revisados."],
+  ["Sostituzione reattore — per plafoniera", "Plafoniera aperta, reattore guasto tolto, il nuovo cablato ai portalampada, tubi accesi e verificati."],
+  ["Vorschaltgerät tauschen — pro Leuchte", "Leuchte geöffnet, defektes Vorschaltgerät ausgebaut, das neue an die Fassungen angeschlossen, Röhren eingeschaltet und geprüft."],
+  ["Заміна баласту — за світильник", "Світильник відкрито, несправний баласт знято, новий під'єднано до патронів, лампи ввімкнено й перевірено."],
+  ["ਬੈਲਾਸਟ ਬਦਲਣਾ — ਪ੍ਰਤੀ ਲਾਈਟ", "ਲਾਈਟ ਖੋਲ੍ਹੀ, ਖ਼ਰਾਬ ਬੈਲਾਸਟ ਕੱਢਿਆ, ਨਵਾਂ ਹੋਲਡਰਾਂ ਨਾਲ ਜੋੜਿਆ ਅਤੇ ਟਿਊਬਾਂ ਜਗਾ ਕੇ ਜਾਂਚੀਆਂ।"],
+  ["Palit ng ballast — kada fixture", "Binuksan ang fixture, tinanggal ang sirang ballast, kinablehan ang bago sa lamp holder at sinindihan at chineck ang tubo."],
+), EACH);
+const BALLAST = (price, cost, lamps, feet) => L.material(1, "each", price, X(
+  [`Electronic ballast — ${lamps}-lamp ${feet} ft`, `Instant-start electronic ballast for ${lamps} ${feet} ft lamp${lamps > 1 ? "s" : ""}, 120–277 V.`],
+  [`Ballast électronique — ${lamps} tube${lamps > 1 ? "s" : ""} de ${feet} pi`, `Ballast électronique à allumage instantané pour ${lamps} tube${lamps > 1 ? "s" : ""} de ${feet} pi, 120–277 V.`],
+  [`Balastro electrónico — ${lamps} tubo${lamps > 1 ? "s" : ""} de ${feet} pies`, `Balastro electrónico de arranque instantáneo para ${lamps} tubo${lamps > 1 ? "s" : ""} de ${feet} pies, 120–277 V.`],
+  [`Reattore elettronico — ${lamps} tub${lamps > 1 ? "i" : "o"} da ${feet} piedi`, `Reattore elettronico ad accensione istantanea per ${lamps} tub${lamps > 1 ? "i" : "o"} da ${feet} piedi, 120–277 V.`],
+  [`Elektronisches Vorschaltgerät — ${lamps} × ${feet} Fuß`, `Elektronisches Sofortstart-Vorschaltgerät für ${lamps} Röhre${lamps > 1 ? "n" : ""} à ${feet} Fuß, 120–277 V.`],
+  [`Електронний баласт — ${lamps} × ${feet} фт`, `Електронний баласт миттєвого запуску на ${lamps} ламп${lamps > 1 ? "и" : "у"} ${feet} фт, 120–277 В.`],
+  [`ਇਲੈਕਟ੍ਰਾਨਿਕ ਬੈਲਾਸਟ — ${lamps} × ${feet} ਫੁੱਟ`, `${lamps} ਟਿਊਬਾਂ, ${feet} ਫੁੱਟ ਲਈ ਇੰਸਟੈਂਟ-ਸਟਾਰਟ ਇਲੈਕਟ੍ਰਾਨਿਕ ਬੈਲਾਸਟ, 120–277 V।`],
+  [`Electronic ballast — ${lamps}-lamp ${feet} ft`, `Instant-start na electronic ballast para sa ${lamps} tubo na ${feet} ft, 120–277 V.`],
+), { cost, measurementKey: "each" });
+
+const CANLESS_LABOUR = (price) => L.labour(1, "each", price, X(
+  ["Recessed light — cut in and wire, per light", "Hole cut to the template, cable fished from the switch or the last light, and the light clipped in and tested."],
+  ["Encastré — découpe et câblage, l'unité", "Trou découpé au gabarit, câble passé depuis l'interrupteur ou le dernier encastré, luminaire fixé et testé."],
+  ["Luz empotrada — corte y cableado, por luz", "Hueco cortado con la plantilla, cable pasado desde el interruptor o la luz anterior, y la luz fijada y probada."],
+  ["Faretto incasso — foro e cablaggio, cadauno", "Foro tagliato su dima, cavo infilato dall'interruttore o dal faretto precedente, faretto fissato e provato."],
+  ["Einbauleuchte — Ausschnitt und Verdrahtung, pro Stück", "Loch nach Schablone gesägt, Kabel vom Schalter oder der letzten Leuchte eingezogen, Leuchte eingeklipst und geprüft."],
+  ["Точковий світильник — виріз і проводка, за штуку", "Отвір вирізано за шаблоном, кабель протягнуто від вимикача чи попереднього світильника, світильник закріплено й перевірено."],
+  ["ਰੀਸੈੱਸਡ ਲਾਈਟ — ਕੱਟ ਕੇ ਵਾਇਰਿੰਗ, ਪ੍ਰਤੀ ਲਾਈਟ", "ਟੈਂਪਲੇਟ ਮੁਤਾਬਕ ਛੇਕ ਕੱਟਿਆ, ਸਵਿੱਚ ਜਾਂ ਪਿਛਲੀ ਲਾਈਟ ਤੋਂ ਕੇਬਲ ਖਿੱਚੀ, ਲਾਈਟ ਫਿੱਟ ਕਰਕੇ ਟੈਸਟ ਕੀਤੀ।"],
+  ["Recessed light — butas at wiring, kada ilaw", "Hiniwa ang butas ayon sa template, hinila ang cable mula sa switch o huling ilaw, ikinabit at sinubukan ang ilaw."],
+), EACH);
+const CANLESS = (price, cost, size) => L.material(1, "each", price, X(
+  [`${size} in canless LED light`, `Slim ${size} in LED wafer light with junction box, selectable colour temperature, dimmable.`],
+  [`Encastré DEL sans boîtier ${size} po`, `Encastré DEL mince de ${size} po avec boîte de jonction, température de couleur réglable, gradable.`],
+  [`Luz LED sin bote de ${size} pulg`, `Luz LED delgada de ${size} pulg con caja de conexión, temperatura de color seleccionable, regulable.`],
+  [`Faretto LED senza cassaforma ${size} pollici`, `Faretto LED sottile da ${size} pollici con scatola di derivazione, temperatura colore selezionabile, dimmerabile.`],
+  [`LED-Einbauleuchte ohne Gehäuse ${size} Zoll`, `Flache ${size}-Zoll-LED-Leuchte mit Anschlussdose, wählbarer Lichtfarbe, dimmbar.`],
+  [`Безкорпусний LED-світильник ${size} дюймів`, `Тонкий LED-світильник ${size} дюймів з розподільчою коробкою, вибір кольорової температури, з регулюванням.`],
+  [`${size} ਇੰਚ ਕੈਨਲੈੱਸ LED ਲਾਈਟ`, `ਜੰਕਸ਼ਨ ਬਾਕਸ ਵਾਲੀ ਪਤਲੀ ${size} ਇੰਚ LED ਲਾਈਟ, ਰੰਗ ਤਾਪਮਾਨ ਚੁਣਨਯੋਗ, ਡਿਮ ਹੋਣ ਵਾਲੀ।`],
+  [`${size} in canless LED light`, `Manipis na ${size} in LED wafer light na may junction box, napipiling kulay ng ilaw, dimmable.`],
+), { cost, measurementKey: "each" });
+const RECESSED_CABLE = () => L.material(1, "each", 12, X(
+  ["Cable and connectors — per light", "14/2 NM cable and push-in connectors for one light's run."],
+  ["Câble et connecteurs — par luminaire", "Câble NMD 14/2 et connecteurs à pousser pour le tirage d'un luminaire."],
+  ["Cable y conectores — por luz", "Cable NM 14/2 y conectores de empuje para el tramo de una luz."],
+  ["Cavo e connettori — per faretto", "Cavo NM 14/2 e connettori a innesto per la tratta di un faretto."],
+  ["Kabel und Verbinder — pro Leuchte", "NM-Kabel 14/2 und Steckverbinder für die Strecke einer Leuchte."],
+  ["Кабель і з'єднувачі — на світильник", "Кабель NM 14/2 і швидкознімні з'єднувачі на одну ділянку світильника."],
+  ["ਕੇਬਲ ਅਤੇ ਕਨੈਕਟਰ — ਪ੍ਰਤੀ ਲਾਈਟ", "ਇੱਕ ਲਾਈਟ ਦੀ ਲਾਈਨ ਲਈ 14/2 NM ਕੇਬਲ ਅਤੇ ਪੁਸ਼-ਇਨ ਕਨੈਕਟਰ।"],
+  ["Cable at connector — kada ilaw", "14/2 NM cable at push-in connector para sa linya ng isang ilaw."],
+), { cost: 7, measurementKey: "each" });
+
+const DETECTOR_LABOUR = (price) => L.labour(1, "each", price, X(
+  ["New detector location — per detector", "Box cut in, cable fished from the nearest detector or circuit, interconnect wired and the whole chain tested."],
+  ["Nouvel emplacement de détecteur — l'unité", "Boîte encastrée, câble passé depuis le détecteur ou le circuit le plus proche, interconnexion câblée et chaîne entière testée."],
+  ["Nueva ubicación de detector — por unidad", "Caja empotrada, cable pasado desde el detector o circuito más cercano, interconexión cableada y toda la cadena probada."],
+  ["Nuovo punto rilevatore — cadauno", "Scatola incassata, cavo infilato dal rilevatore o circuito più vicino, interconnessione cablata e intera catena provata."],
+  ["Neuer Melderstandort — pro Melder", "Dose eingesetzt, Kabel vom nächsten Melder oder Stromkreis eingezogen, Vernetzung verdrahtet und die ganze Kette geprüft."],
+  ["Нове місце датчика — за штуку", "Коробку врізано, кабель протягнуто від найближчого датчика чи лінії, з'єднання під'єднано й увесь ланцюг перевірено."],
+  ["ਨਵੀਂ ਡਿਟੈਕਟਰ ਥਾਂ — ਪ੍ਰਤੀ ਡਿਟੈਕਟਰ", "ਬਾਕਸ ਲਾਇਆ, ਨੇੜਲੇ ਡਿਟੈਕਟਰ ਜਾਂ ਸਰਕਟ ਤੋਂ ਕੇਬਲ ਖਿੱਚੀ, ਇੰਟਰਕਨੈਕਟ ਜੋੜਿਆ ਅਤੇ ਪੂਰੀ ਲੜੀ ਟੈਸਟ ਕੀਤੀ।"],
+  ["Bagong puwesto ng detector — kada isa", "Ikinabit ang box, hinila ang cable mula sa pinakamalapit na detector o circuit, kinablehan ang interconnect at sinubukan ang buong chain."],
+), EACH);
+const BOX_AND_CABLE = (price, cost) => L.material(1, "each", price, X(
+  ["Box, cable and connectors", "Old-work box, 14/3 or 14/2 cable and connectors for one new location."],
+  ["Boîte, câble et connecteurs", "Boîte de rénovation, câble 14/3 ou 14/2 et connecteurs pour un nouvel emplacement."],
+  ["Caja, cable y conectores", "Caja de remodelación, cable 14/3 o 14/2 y conectores para una ubicación nueva."],
+  ["Scatola, cavo e connettori", "Scatola da ristrutturazione, cavo 14/3 o 14/2 e connettori per un nuovo punto."],
+  ["Dose, Kabel und Verbinder", "Hohlwanddose, Kabel 14/3 oder 14/2 und Verbinder für einen neuen Standort."],
+  ["Коробка, кабель і з'єднувачі", "Коробка для ремонту, кабель 14/3 або 14/2 та з'єднувачі на одне нове місце."],
+  ["ਬਾਕਸ, ਕੇਬਲ ਅਤੇ ਕਨੈਕਟਰ", "ਇੱਕ ਨਵੀਂ ਥਾਂ ਲਈ ਓਲਡ-ਵਰਕ ਬਾਕਸ, 14/3 ਜਾਂ 14/2 ਕੇਬਲ ਅਤੇ ਕਨੈਕਟਰ।"],
+  ["Box, cable at connector", "Old-work box, 14/3 o 14/2 na cable at connector para sa isang bagong puwesto."],
+), { cost, measurementKey: "each" });
+
+const OLD_FIXTURE_OUT = (price) => L.labour(1, "each", price, X(
+  ["Old fixture removal", "The existing light or fan taken down, the box checked for fan rating, and the old unit disposed of."],
+  ["Dépose de l'ancien luminaire", "Luminaire ou ventilateur existant démonté, boîte vérifiée pour la charge d'un ventilateur, ancien appareil mis au rebut."],
+  ["Retiro de la luminaria vieja", "Luz o ventilador existente desmontado, la caja revisada para carga de ventilador y lo viejo desechado."],
+  ["Rimozione della vecchia plafoniera", "Luce o ventilatore esistente smontato, scatola verificata per il carico del ventilatore, il vecchio smaltito."],
+  ["Demontage der alten Leuchte", "Vorhandene Leuchte oder Ventilator abgenommen, Dose auf Ventilatortauglichkeit geprüft, Altgerät entsorgt."],
+  ["Демонтаж старого світильника", "Наявний світильник чи вентилятор знято, коробку перевірено на навантаження вентилятора, старе утилізовано."],
+  ["ਪੁਰਾਣੀ ਲਾਈਟ ਹਟਾਉਣਾ", "ਮੌਜੂਦਾ ਲਾਈਟ ਜਾਂ ਪੱਖਾ ਉਤਾਰਿਆ, ਬਾਕਸ ਪੱਖੇ ਦੇ ਭਾਰ ਲਈ ਜਾਂਚਿਆ ਅਤੇ ਪੁਰਾਣਾ ਨਿਪਟਾਇਆ।"],
+  ["Pagtanggal ng lumang ilaw", "Ibinaba ang lumang ilaw o bentilador, chineck kung fan-rated ang kahon, at itinapon ang luma."],
+), EACH);
+const FAN_HANG = (price) => L.labour(1, "each", price, X(
+  ["Ceiling fan installation — per fan", "Fan assembled, hung on the fan-rated box, wired to the switch leg, balanced and run at every speed."],
+  ["Pose de ventilateur de plafond — l'unité", "Ventilateur assemblé, suspendu à la boîte homologuée, raccordé à l'interrupteur, équilibré et testé à chaque vitesse."],
+  ["Instalación de ventilador de techo — por unidad", "Ventilador armado, colgado en la caja apta, conectado al interruptor, balanceado y probado en cada velocidad."],
+  ["Posa ventilatore a soffitto — cadauno", "Ventilatore assemblato, appeso alla scatola idonea, collegato all'interruttore, bilanciato e provato a ogni velocità."],
+  ["Deckenventilator montieren — pro Stück", "Ventilator zusammengebaut, an der tragfähigen Dose aufgehängt, an den Schalter angeschlossen, ausgewuchtet und in jeder Stufe getestet."],
+  ["Монтаж стельового вентилятора — за штуку", "Вентилятор зібрано, підвішено на коробку для вентилятора, під'єднано до вимикача, збалансовано й перевірено на кожній швидкості."],
+  ["ਛੱਤ ਦਾ ਪੱਖਾ ਲਾਉਣਾ — ਪ੍ਰਤੀ ਪੱਖਾ", "ਪੱਖਾ ਜੋੜ ਕੇ ਪੱਖੇ ਵਾਲੇ ਬਾਕਸ 'ਤੇ ਟੰਗਿਆ, ਸਵਿੱਚ ਨਾਲ ਜੋੜਿਆ, ਸੰਤੁਲਿਤ ਕੀਤਾ ਅਤੇ ਹਰ ਰਫ਼ਤਾਰ 'ਤੇ ਚਲਾਇਆ।"],
+  ["Pagkabit ng ceiling fan — kada isa", "Binuo ang bentilador, isinabit sa fan-rated na kahon, ikinonekta sa switch, binalanse at pinaandar sa bawat bilis."],
+), EACH);
+const FAN_BOX = () => L.material(1, "each", 35, X(
+  ["Fan-rated box and brace", "Retrofit fan brace and rated box, where the existing box is not rated for a fan."],
+  ["Boîte et support homologués pour ventilateur", "Support de rénovation et boîte homologuée, si la boîte existante n'est pas conçue pour un ventilateur."],
+  ["Caja y soporte aptos para ventilador", "Soporte de remodelación y caja apta, cuando la caja existente no sirve para ventilador."],
+  ["Scatola e staffa per ventilatore", "Staffa da ristrutturazione e scatola idonea, se quella esistente non regge un ventilatore."],
+  ["Ventilatortaugliche Dose mit Traverse", "Nachrüst-Traverse und tragfähige Dose, falls die vorhandene Dose nicht für Ventilatoren zugelassen ist."],
+  ["Коробка й кріплення для вентилятора", "Ремонтне кріплення й коробка для вентилятора, якщо наявна коробка не розрахована на вентилятор."],
+  ["ਪੱਖੇ ਵਾਲਾ ਬਾਕਸ ਅਤੇ ਬ੍ਰੇਸ", "ਜੇ ਮੌਜੂਦਾ ਬਾਕਸ ਪੱਖੇ ਲਈ ਨਹੀਂ ਤਾਂ ਰੀਟ੍ਰੋਫ਼ਿਟ ਬ੍ਰੇਸ ਅਤੇ ਪੱਖੇ ਵਾਲਾ ਬਾਕਸ।"],
+  ["Fan-rated na kahon at brace", "Retrofit na brace at fan-rated na kahon, kung hindi pang-bentilador ang kasalukuyang kahon."],
+), { cost: 22, measurementKey: "each", optional: true });
+
+// The quote types a row is also sold under (NEAREST_TRADES in
+// lib/services/confirmServices.js — each borrows electrical's list and has no
+// seed of its own): a lighting company sells ballasts, recessed and outdoor
+// lights; a security company motion and flood lights and hard-wired alarms; a
+// smart-home installer dimmers and timers; an installation-services company
+// the cord-and-plug appliance hook-ups and customer-supplied fans; a solar
+// company the 200 A panel upgrade an interconnection so often needs.
+const Q = {
+  lighting: { categories: ["electrical", "lighting"] },
+  lightingSecurity: { categories: ["electrical", "lighting", "security_systems"] },
+  security: { categories: ["electrical", "security_systems"] },
+  smart: { categories: ["electrical", "lighting", "smart_home"] },
+  smartOnly: { categories: ["electrical", "smart_home"] },
+  install: { categories: ["electrical", "installation_services"] },
+  solar: { categories: ["electrical", "solar_energy"] },
+};
+
+const ADDED = {
+  // ── Appliance circuits and connections ──
+  "fq.electrical.appliances.install_contactor": A("installation", [
+    SHARED.serviceCall(89),
+    L.labour(1, "each", 260, X(
+      ["Contactor installation labour", "The contactor mounted in its enclosure, line, load and coil wired, and the load switched on and off under power."],
+      ["Main-d'œuvre — pose du contacteur", "Contacteur fixé dans son boîtier, ligne, charge et bobine câblées, charge commutée sous tension."],
+      ["Mano de obra — instalación del contactor", "Contactor montado en su gabinete, línea, carga y bobina cableadas, y la carga encendida y apagada con tensión."],
+      ["Manodopera — posa del contattore", "Contattore montato nel suo quadretto, linea, carico e bobina cablati, carico commutato sotto tensione."],
+      ["Arbeit — Schützeinbau", "Schütz im Gehäuse montiert, Netz, Last und Spule verdrahtet und die Last unter Spannung geschaltet."],
+      ["Робота — монтаж контактора", "Контактор закріплено в корпусі, лінію, навантаження й котушку під'єднано, навантаження ввімкнено й вимкнено під напругою."],
+      ["ਕੌਂਟੈਕਟਰ ਲਾਉਣ ਦੀ ਲੇਬਰ", "ਕੌਂਟੈਕਟਰ ਡੱਬੇ ਵਿੱਚ ਲਾਇਆ, ਲਾਈਨ, ਲੋਡ ਅਤੇ ਕੋਇਲ ਜੋੜੇ, ਅਤੇ ਬਿਜਲੀ ਨਾਲ ਲੋਡ ਚਾਲੂ-ਬੰਦ ਕਰਕੇ ਦੇਖਿਆ।"],
+      ["Labor — pagkabit ng contactor", "Ikinabit ang contactor sa enclosure, kinablehan ang line, load at coil, at sinubukang i-on at i-off ang load."],
+    ), EACH),
+    hdMaterial(REF("contactor_30a"), X(
+      ["Definite-purpose contactor — 30 A", "30 A contactor with a coil to suit the control voltage."],
+      ["Contacteur à usage défini — 30 A", "Contacteur 30 A, bobine adaptée à la tension de commande."],
+      ["Contactor de propósito definido — 30 A", "Contactor de 30 A con bobina según el voltaje de control."],
+      ["Contattore — 30 A", "Contattore da 30 A con bobina adatta alla tensione di comando."],
+      ["Schütz — 30 A", "30-A-Schütz mit Spule passend zur Steuerspannung."],
+      ["Контактор — 30 А", "Контактор 30 А з котушкою під напругу керування."],
+      ["ਕੌਂਟੈਕਟਰ — 30 A", "ਕੰਟਰੋਲ ਵੋਲਟੇਜ ਮੁਤਾਬਕ ਕੋਇਲ ਵਾਲਾ 30 A ਕੌਂਟੈਕਟਰ।"],
+      ["Contactor — 30 A", "30 A na contactor na may coil na tugma sa control voltage."],
+    ), { price: 45, measurementKey: "each" }),
+  ]),
+
+  "fq.electrical.appliances.install_pressure_switch": A("installation", [
+    L.labour(1, "each", 85, X(
+      ["Pressure switch installation labour", "The old switch out, the new one threaded on, wired, and the cut-in and cut-out set and watched through a cycle."],
+      ["Main-d'œuvre — pose du pressostat", "Ancien pressostat retiré, le neuf vissé et câblé, seuils de démarrage et d'arrêt réglés et vérifiés sur un cycle."],
+      ["Mano de obra — instalación del presostato", "Interruptor viejo fuera, el nuevo roscado y cableado, y los puntos de arranque y paro ajustados y observados en un ciclo."],
+      ["Manodopera — posa del pressostato", "Vecchio pressostato tolto, il nuovo avvitato e cablato, soglie di avvio e arresto regolate e controllate per un ciclo."],
+      ["Arbeit — Druckschalter einbauen", "Alter Schalter raus, der neue eingeschraubt und verdrahtet, Ein- und Ausschaltdruck eingestellt und über einen Zyklus beobachtet."],
+      ["Робота — встановлення реле тиску", "Старе реле знято, нове вкручено й під'єднано, тиск увімкнення й вимкнення налаштовано й перевірено за цикл."],
+      ["ਪ੍ਰੈਸ਼ਰ ਸਵਿੱਚ ਲਾਉਣ ਦੀ ਲੇਬਰ", "ਪੁਰਾਣਾ ਸਵਿੱਚ ਹਟਾਇਆ, ਨਵਾਂ ਕੱਸ ਕੇ ਜੋੜਿਆ, ਅਤੇ ਚਾਲੂ-ਬੰਦ ਦਬਾਅ ਸੈੱਟ ਕਰਕੇ ਇੱਕ ਚੱਕਰ ਦੇਖਿਆ।"],
+      ["Labor — pagkabit ng pressure switch", "Tinanggal ang luma, ikinabit at kinablehan ang bago, at in-set ang cut-in at cut-out at binantayan sa isang cycle."],
+    ), EACH),
+    L.material(1, "each", 30, X(
+      ["Pressure switch", "Well-pump or compressor pressure switch, 30/50 or 40/60 psi."],
+      ["Pressostat", "Pressostat de pompe de puits ou de compresseur, 30/50 ou 40/60 psi."],
+      ["Presostato", "Presostato para bomba de pozo o compresor, 30/50 o 40/60 psi."],
+      ["Pressostato", "Pressostato per pompa da pozzo o compressore, 30/50 o 40/60 psi."],
+      ["Druckschalter", "Druckschalter für Brunnenpumpe oder Kompressor, 30/50 oder 40/60 psi."],
+      ["Реле тиску", "Реле тиску для свердловинного насоса чи компресора, 30/50 або 40/60 psi."],
+      ["ਪ੍ਰੈਸ਼ਰ ਸਵਿੱਚ", "ਖੂਹ ਪੰਪ ਜਾਂ ਕੰਪ੍ਰੈਸਰ ਲਈ ਪ੍ਰੈਸ਼ਰ ਸਵਿੱਚ, 30/50 ਜਾਂ 40/60 psi।"],
+      ["Pressure switch", "Pressure switch para sa well pump o compressor, 30/50 o 40/60 psi."],
+    ), { cost: 22, measurementKey: "each" }),
+  ]),
+
+  "fq.electrical.appliances.water_softener_outlet": A("installation", [
+    L.labour(1, "flat", 320, X(
+      ["GFCI outlet from an existing circuit", "A nearby circuit checked for spare capacity, cable run to a new box beside the softener, and the GFCI wired and tested."],
+      ["Prise DDFT sur circuit existant", "Circuit voisin vérifié pour la capacité, câble tiré jusqu'à une nouvelle boîte près de l'adoucisseur, DDFT câblé et testé."],
+      ["Tomacorriente GFCI desde circuito existente", "Circuito cercano revisado por capacidad, cable tendido a una caja nueva junto al suavizador y el GFCI cableado y probado."],
+      ["Presa GFCI da circuito esistente", "Circuito vicino verificato per la capacità, cavo steso fino a una nuova scatola accanto all'addolcitore, GFCI cablato e provato."],
+      ["FI-Steckdose vom vorhandenen Stromkreis", "Nahen Stromkreis auf Reserve geprüft, Kabel zu einer neuen Dose am Enthärter gezogen, FI-Steckdose angeschlossen und getestet."],
+      ["Розетка GFCI від наявної лінії", "Сусідню лінію перевірено на запас, кабель протягнуто до нової коробки біля пом'якшувача, GFCI під'єднано й перевірено."],
+      ["ਮੌਜੂਦਾ ਸਰਕਟ ਤੋਂ GFCI ਸਾਕਟ", "ਨੇੜਲੇ ਸਰਕਟ ਦੀ ਸਮਰੱਥਾ ਜਾਂਚੀ, ਸੌਫ਼ਨਰ ਕੋਲ ਨਵੇਂ ਬਾਕਸ ਤੱਕ ਕੇਬਲ, ਅਤੇ GFCI ਜੋੜ ਕੇ ਟੈਸਟ ਕੀਤਾ।"],
+      ["GFCI outlet mula sa existing na circuit", "Chineck ang kapasidad ng malapit na circuit, hinila ang cable sa bagong kahon sa tabi ng softener, at kinablehan at sinubukan ang GFCI."],
+    )),
+    hdMaterial(HD.gfci_15a, X(
+      ["Self-test GFCI receptacle — 15 A", "Tamper-resistant self-test GFCI with wall plate."],
+      ["Prise DDFT autotest — 15 A", "DDFT autotest inviolable avec plaque."],
+      ["Tomacorriente GFCI autoprueba — 15 A", "GFCI autoprueba a prueba de manipulación con placa."],
+      ["Presa GFCI autotest — 15 A", "GFCI autotest antimanomissione con placca."],
+      ["FI-Steckdose mit Selbsttest — 15 A", "Kindersichere FI-Steckdose mit Selbsttest und Abdeckung."],
+      ["Розетка GFCI з самотестом — 15 А", "Захищена розетка GFCI з самотестом і рамкою."],
+      ["ਸੈਲਫ਼-ਟੈਸਟ GFCI ਸਾਕਟ — 15 A", "ਪਲੇਟ ਸਮੇਤ ਟੈਂਪਰ-ਰੋਧਕ ਸੈਲਫ਼-ਟੈਸਟ GFCI।"],
+      ["Self-test na GFCI outlet — 15 A", "Tamper-resistant na self-test GFCI na may plate."],
+    ), { price: 35 }),
+    L.material(1, "flat", 60, X(
+      ["Box, cable and fittings", "Box, up to 25 ft of NM cable, staples and connectors for the new outlet."],
+      ["Boîte, câble et raccords", "Boîte, jusqu'à 25 pi de câble NMD, attaches et connecteurs pour la nouvelle prise."],
+      ["Caja, cable y accesorios", "Caja, hasta 25 pies de cable NM, grapas y conectores para el tomacorriente nuevo."],
+      ["Scatola, cavo e raccordi", "Scatola, fino a 25 piedi di cavo NM, graffette e connettori per la nuova presa."],
+      ["Dose, Kabel und Zubehör", "Dose, bis zu 25 Fuß NM-Kabel, Schellen und Verbinder für die neue Steckdose."],
+      ["Коробка, кабель і фурнітура", "Коробка, до 25 футів кабелю NM, скоби та з'єднувачі для нової розетки."],
+      ["ਬਾਕਸ, ਕੇਬਲ ਅਤੇ ਫ਼ਿਟਿੰਗ", "ਨਵੇਂ ਸਾਕਟ ਲਈ ਬਾਕਸ, 25 ਫੁੱਟ ਤੱਕ NM ਕੇਬਲ, ਸਟੇਪਲ ਅਤੇ ਕਨੈਕਟਰ।"],
+      ["Box, cable at fittings", "Box, hanggang 25 ft na NM cable, staple at connector para sa bagong outlet."],
+    ), { cost: 45 }),
+  ]),
+
+  "fq.electrical.appliances.dishwasher_hardwire": A("installation", [
+    L.labour(1, "each", 195, X(
+      ["Dishwasher hard-wire labour", "Power off, the whip run to the dishwasher's junction box, the disconnect fitted under the sink and the machine run through a fill."],
+      ["Main-d'œuvre — raccordement du lave-vaisselle", "Courant coupé, câble raccordé à la boîte de jonction du lave-vaisselle, sectionneur posé sous l'évier et appareil testé sur un remplissage."],
+      ["Mano de obra — conexión del lavavajillas", "Corriente cortada, cable conectado a la caja del lavavajillas, desconectador colocado bajo el fregadero y la máquina probada en un llenado."],
+      ["Manodopera — collegamento lavastoviglie", "Corrente staccata, cavo collegato alla scatola della lavastoviglie, sezionatore sotto il lavello e macchina provata in un carico d'acqua."],
+      ["Arbeit — Geschirrspüler fest anschließen", "Strom aus, Anschlussleitung an die Klemmdose des Spülers, Trennschalter unter der Spüle gesetzt und ein Wassereinlauf getestet."],
+      ["Робота — пряме підключення посудомийки", "Живлення вимкнено, кабель під'єднано до коробки посудомийки, вимикач встановлено під мийкою, перевірено набір води."],
+      ["ਡਿਸ਼ਵਾਸ਼ਰ ਸਿੱਧਾ ਜੋੜਨ ਦੀ ਲੇਬਰ", "ਬਿਜਲੀ ਬੰਦ, ਡਿਸ਼ਵਾਸ਼ਰ ਦੇ ਜੰਕਸ਼ਨ ਬਾਕਸ ਨਾਲ ਤਾਰ ਜੋੜੀ, ਸਿੰਕ ਹੇਠ ਡਿਸਕਨੈਕਟ ਲਾਇਆ ਅਤੇ ਪਾਣੀ ਭਰ ਕੇ ਚਲਾਇਆ।"],
+      ["Labor — hard-wire ng dishwasher", "Pinatay ang kuryente, ikinonekta ang wire sa junction box ng dishwasher, ikinabit ang disconnect sa ilalim ng lababo at pinaandar sa isang fill."],
+    ), EACH),
+    L.material(1, "each", 45, X(
+      ["Disconnect switch and appliance whip", "Under-sink disconnect switch with a 6 ft appliance whip and connectors."],
+      ["Sectionneur et câble d'appareil", "Sectionneur sous évier avec câble d'appareil de 6 pi et connecteurs."],
+      ["Desconectador y cable de aparato", "Desconectador bajo fregadero con cable de aparato de 6 pies y conectores."],
+      ["Sezionatore e cavo per elettrodomestico", "Sezionatore sotto lavello con cavo da 6 piedi e connettori."],
+      ["Trennschalter und Geräteleitung", "Trennschalter unter der Spüle mit 6-Fuß-Geräteleitung und Verbindern."],
+      ["Вимикач і кабель приладу", "Вимикач під мийку з кабелем приладу 6 футів і з'єднувачами."],
+      ["ਡਿਸਕਨੈਕਟ ਸਵਿੱਚ ਅਤੇ ਉਪਕਰਣ ਤਾਰ", "ਸਿੰਕ ਹੇਠ ਡਿਸਕਨੈਕਟ ਸਵਿੱਚ, 6 ਫੁੱਟ ਉਪਕਰਣ ਤਾਰ ਅਤੇ ਕਨੈਕਟਰ।"],
+      ["Disconnect switch at appliance whip", "Disconnect switch sa ilalim ng lababo na may 6 ft na appliance whip at connector."],
+    ), { cost: 34, measurementKey: "each" }),
+    SHARED.consumables(15),
+  ], Q.install),
+
+  "fq.electrical.appliances.disposal_cord": A("installation", [
+    L.labour(1, "each", 210, X(
+      ["Disposal cord connection labour", "The cord fitted to the disposal with a strain relief, plugged in under the sink and the wall switch checked."],
+      ["Main-d'œuvre — raccordement du broyeur", "Cordon posé sur le broyeur avec serre-câble, branché sous l'évier et interrupteur mural vérifié."],
+      ["Mano de obra — conexión del triturador", "Cable instalado en el triturador con sujetacables, enchufado bajo el fregadero y el interruptor de pared revisado."],
+      ["Manodopera — collegamento del tritarifiuti", "Cavo montato sul tritarifiuti con pressacavo, collegato sotto il lavello e interruttore a muro verificato."],
+      ["Arbeit — Anschluss des Müllzerkleinerers", "Kabel mit Zugentlastung am Zerkleinerer montiert, unter der Spüle eingesteckt und der Wandschalter geprüft."],
+      ["Робота — підключення подрібнювача", "Шнур встановлено на подрібнювач із фіксатором, увімкнено під мийкою, настінний вимикач перевірено."],
+      ["ਡਿਸਪੋਜ਼ਲ ਕੋਰਡ ਜੋੜਨ ਦੀ ਲੇਬਰ", "ਸਟ੍ਰੇਨ ਰਿਲੀਫ਼ ਨਾਲ ਡਿਸਪੋਜ਼ਲ 'ਤੇ ਕੋਰਡ ਲਾਈ, ਸਿੰਕ ਹੇਠ ਪਲੱਗ ਲਾਇਆ ਅਤੇ ਕੰਧ ਦਾ ਸਵਿੱਚ ਜਾਂਚਿਆ।"],
+      ["Labor — pagkonekta ng cord ng disposal", "Ikinabit ang cord sa disposal na may strain relief, isinaksak sa ilalim ng lababo at chineck ang switch sa pader."],
+    ), EACH),
+    L.material(1, "each", 35, X(
+      ["Disposal power cord kit — 3 ft", "Three-wire disposal cord with plug and strain relief."],
+      ["Cordon de broyeur — 3 pi", "Cordon à trois fils pour broyeur avec fiche et serre-câble."],
+      ["Kit de cable para triturador — 3 pies", "Cable de tres hilos para triturador con clavija y sujetacables."],
+      ["Kit cavo per tritarifiuti — 3 piedi", "Cavo a tre fili per tritarifiuti con spina e pressacavo."],
+      ["Anschlusskabel für Zerkleinerer — 3 Fuß", "Dreiadriges Kabel mit Stecker und Zugentlastung."],
+      ["Шнур для подрібнювача — 3 фути", "Трижильний шнур із вилкою та фіксатором."],
+      ["ਡਿਸਪੋਜ਼ਲ ਕੋਰਡ ਕਿੱਟ — 3 ਫੁੱਟ", "ਪਲੱਗ ਅਤੇ ਸਟ੍ਰੇਨ ਰਿਲੀਫ਼ ਵਾਲੀ ਤਿੰਨ-ਤਾਰ ਕੋਰਡ।"],
+      ["Disposal cord kit — 3 ft", "Three-wire na cord para sa disposal na may plug at strain relief."],
+    ), { cost: 15, measurementKey: "each" }),
+    SHARED.consumables(15),
+  ], Q.install),
+
+  "fq.electrical.appliances.range_cord": A("installation", [
+    L.labour(1, "each", 150, X(
+      ["Range cord installation", "The bonding strap removed, the four-wire cord terminated at the range block and the receptacle checked for a sound ground."],
+      ["Pose du cordon de cuisinière", "Barrette de mise à la masse retirée, cordon à quatre fils raccordé au bornier et prise vérifiée pour une bonne mise à la terre."],
+      ["Instalación del cable de estufa", "Puente de tierra retirado, cable de cuatro hilos conectado a la bornera y el tomacorriente revisado para una tierra firme."],
+      ["Montaggio cavo cucina", "Ponticello di massa rimosso, cavo a quattro fili collegato alla morsettiera e presa verificata per una buona terra."],
+      ["Herdkabel anschließen", "Erdungsbrücke entfernt, vieradriges Kabel an der Herdklemme angeschlossen und Steckdose auf sichere Erdung geprüft."],
+      ["Встановлення шнура плити", "Перемичку знято, чотирижильний шнур під'єднано до клемника плити, розетку перевірено на надійне заземлення."],
+      ["ਰੇਂਜ ਕੋਰਡ ਲਾਉਣਾ", "ਬੌਂਡਿੰਗ ਸਟ੍ਰੈਪ ਹਟਾਇਆ, ਚਾਰ-ਤਾਰ ਕੋਰਡ ਰੇਂਜ ਬਲਾਕ ਨਾਲ ਜੋੜੀ ਅਤੇ ਸਾਕਟ ਦਾ ਅਰਥ ਜਾਂਚਿਆ।"],
+      ["Pagkabit ng range cord", "Tinanggal ang bonding strap, ikinabit ang 4-wire cord sa terminal block ng kalan at chineck ang ground ng outlet."],
+    ), EACH),
+    L.material(1, "each", 45, X(
+      ["4-wire range cord — 40/50 A, 6 ft", "Four-wire range cord with strain relief."],
+      ["Cordon de cuisinière 4 fils — 40/50 A, 6 pi", "Cordon de cuisinière à quatre fils avec serre-câble."],
+      ["Cable de estufa 4 hilos — 40/50 A, 6 pies", "Cable de estufa de cuatro hilos con sujetacables."],
+      ["Cavo cucina 4 fili — 40/50 A, 6 piedi", "Cavo a quattro fili per cucina con pressacavo."],
+      ["Vieradriges Herdkabel — 40/50 A, 6 Fuß", "Vieradriges Herdanschlusskabel mit Zugentlastung."],
+      ["Чотирижильний шнур плити — 40/50 А, 6 футів", "Чотирижильний шнур для плити з фіксатором."],
+      ["4-ਤਾਰ ਰੇਂਜ ਕੋਰਡ — 40/50 A, 6 ਫੁੱਟ", "ਸਟ੍ਰੇਨ ਰਿਲੀਫ਼ ਵਾਲੀ ਚਾਰ-ਤਾਰ ਰੇਂਜ ਕੋਰਡ।"],
+      ["4-wire range cord — 40/50 A, 6 ft", "Four-wire na range cord na may strain relief."],
+    ), { cost: 30, measurementKey: "each" }),
+    L.material(1, "flat", 120, X(
+      ["Receptacle upgrade to 4-wire", "Where the wall still has a three-wire outlet: a 50 A four-wire receptacle fitted and the ground brought to it."],
+      ["Mise à niveau de la prise à 4 fils", "Si le mur a encore une prise à trois fils : prise 50 A à quatre fils posée et mise à la terre amenée."],
+      ["Cambio de tomacorriente a 4 hilos", "Si la pared aún tiene un tomacorriente de tres hilos: se coloca uno de 50 A de cuatro hilos y se lleva la tierra."],
+      ["Adeguamento presa a 4 fili", "Se a muro c'è ancora una presa a tre fili: presa da 50 A a quattro fili montata e terra portata fino a essa."],
+      ["Steckdose auf 4-adrig umrüsten", "Wo noch eine dreiadrige Dose sitzt: eine vieradrige 50-A-Steckdose gesetzt und der Schutzleiter herangeführt."],
+      ["Заміна розетки на 4-провідну", "Якщо в стіні ще трипровідна розетка: встановлено чотирипровідну на 50 А й підведено заземлення."],
+      ["ਸਾਕਟ 4-ਤਾਰ ਵਿੱਚ ਬਦਲਣਾ", "ਜੇ ਕੰਧ ਵਿੱਚ ਅਜੇ ਤਿੰਨ-ਤਾਰ ਸਾਕਟ ਹੈ: 50 A ਚਾਰ-ਤਾਰ ਸਾਕਟ ਲਾਇਆ ਅਤੇ ਅਰਥ ਲਿਆਂਦਾ।"],
+      ["Upgrade ng outlet sa 4-wire", "Kung 3-wire pa ang outlet sa pader: ikinabit ang 50 A na 4-wire na outlet at dinala ang ground."],
+    ), { cost: 75, optional: true }),
+  ], Q.install),
+
+  "fq.electrical.appliances.microwave_circuit": A("installation", [
+    L.labour(1, "flat", 450, X(
+      ["New 20 A circuit — run and terminate", "Cable run from the panel to the microwave location through an accessible route, the breaker landed and the outlet wired and tested."],
+      ["Nouveau circuit 20 A — tirage et raccordement", "Câble tiré du panneau à l'emplacement du micro-ondes par un parcours accessible, disjoncteur installé, prise câblée et testée."],
+      ["Circuito nuevo de 20 A — tendido y conexión", "Cable tendido del tablero al lugar del microondas por una ruta accesible, el interruptor instalado y el tomacorriente cableado y probado."],
+      ["Nuovo circuito 20 A — posa e collegamento", "Cavo steso dal quadro al punto del microonde lungo un percorso accessibile, interruttore montato, presa cablata e provata."],
+      ["Neuer 20-A-Stromkreis — verlegen und anschließen", "Kabel auf zugänglichem Weg vom Verteiler zur Mikrowelle gezogen, Automat gesetzt, Steckdose angeschlossen und geprüft."],
+      ["Нова лінія 20 А — прокладання й під'єднання", "Кабель прокладено від щита до місця мікрохвильовки доступним шляхом, автомат встановлено, розетку під'єднано й перевірено."],
+      ["ਨਵਾਂ 20 A ਸਰਕਟ — ਕੇਬਲ ਅਤੇ ਜੋੜ", "ਪੈਨਲ ਤੋਂ ਮਾਈਕ੍ਰੋਵੇਵ ਦੀ ਥਾਂ ਤੱਕ ਖੁੱਲ੍ਹੇ ਰਸਤੇ ਕੇਬਲ, ਬ੍ਰੇਕਰ ਲਾਇਆ ਅਤੇ ਸਾਕਟ ਜੋੜ ਕੇ ਟੈਸਟ ਕੀਤਾ।"],
+      ["Bagong 20 A circuit — hila at konekta", "Hinila ang cable mula sa panel hanggang sa puwesto ng microwave sa bukas na daanan, ikinabit ang breaker at kinablehan at sinubukan ang outlet."],
+    )),
+    hdMaterial(REF("breaker_20a"), X(
+      ["Single-pole breaker — 20 A", "20 A single-pole breaker matched to the panel."],
+      ["Disjoncteur unipolaire — 20 A", "Disjoncteur unipolaire 20 A compatible avec le panneau."],
+      ["Interruptor unipolar — 20 A", "Interruptor unipolar de 20 A compatible con el tablero."],
+      ["Interruttore unipolare — 20 A", "Interruttore unipolare da 20 A compatibile con il quadro."],
+      ["Einpoliger Sicherungsautomat — 20 A", "20-A-Automat passend zum Verteiler."],
+      ["Однополюсний автомат — 20 А", "Автомат 20 А, сумісний зі щитом."],
+      ["ਸਿੰਗਲ-ਪੋਲ ਬ੍ਰੇਕਰ — 20 A", "ਪੈਨਲ ਨਾਲ ਮਿਲਦਾ 20 A ਸਿੰਗਲ-ਪੋਲ ਬ੍ਰੇਕਰ।"],
+      ["Single-pole breaker — 20 A", "20 A na single-pole breaker na tugma sa panel."],
+    ), { price: 25 }),
+    L.material(1, "flat", 85, X(
+      ["12/2 cable, box and receptacle", "Up to 40 ft of 12/2 NM cable, a box, a 20 A receptacle and plate."],
+      ["Câble 12/2, boîte et prise", "Jusqu'à 40 pi de câble NMD 12/2, une boîte, une prise 20 A et sa plaque."],
+      ["Cable 12/2, caja y tomacorriente", "Hasta 40 pies de cable NM 12/2, una caja, un tomacorriente de 20 A y placa."],
+      ["Cavo 12/2, scatola e presa", "Fino a 40 piedi di cavo NM 12/2, una scatola, una presa da 20 A e placca."],
+      ["Kabel 12/2, Dose und Steckdose", "Bis zu 40 Fuß NM-Kabel 12/2, eine Dose, eine 20-A-Steckdose mit Abdeckung."],
+      ["Кабель 12/2, коробка й розетка", "До 40 футів кабелю NM 12/2, коробка, розетка 20 А з рамкою."],
+      ["12/2 ਕੇਬਲ, ਬਾਕਸ ਅਤੇ ਸਾਕਟ", "40 ਫੁੱਟ ਤੱਕ 12/2 NM ਕੇਬਲ, ਬਾਕਸ, 20 A ਸਾਕਟ ਅਤੇ ਪਲੇਟ।"],
+      ["12/2 cable, box at outlet", "Hanggang 40 ft na 12/2 NM cable, box, 20 A na outlet at plate."],
+    ), { cost: 60 }),
+    SHARED.permit(150),
+  ]),
+
+  // ── Ballasts ──
+  "fq.electrical.ballasts.two_8ft": A("repair", [BALLAST_LABOUR(220), BALLAST(110, 80, 2, 8)], Q.lighting),
+  "fq.electrical.ballasts.single_4ft": A("repair", [BALLAST_LABOUR(140), BALLAST(55, 38, 1, 4)], Q.lighting),
+  "fq.electrical.ballasts.two_4ft": A("repair", [BALLAST_LABOUR(150), BALLAST(60, 42, 2, 4)], Q.lighting),
+  "fq.electrical.ballasts.single_8ft": A("repair", [BALLAST_LABOUR(150), BALLAST(75, 55, 1, 8)], Q.lighting),
+
+  // ── Visits ──
+  "fq.electrical.visits.fixtures": A("installation", [
+    SHARED.serviceCall(89),
+    L.labour(1, "flat", 125, X(
+      ["Fixture install or repair — first fixture", "One fixture hung, repaired or moved and wired; any more are quoted on the same visit."],
+      ["Pose ou réparation de luminaire — premier luminaire", "Un luminaire posé, réparé ou déplacé et raccordé; les suivants sont chiffrés pendant la même visite."],
+      ["Instalación o reparación de luminaria — la primera", "Una luminaria colgada, reparada o movida y cableada; las demás se cotizan en la misma visita."],
+      ["Posa o riparazione plafoniera — la prima", "Una plafoniera montata, riparata o spostata e cablata; le altre si quotano nella stessa visita."],
+      ["Leuchte montieren oder reparieren — die erste", "Eine Leuchte montiert, repariert oder versetzt und angeschlossen; weitere werden beim selben Termin angeboten."],
+      ["Монтаж або ремонт світильника — перший", "Один світильник змонтовано, відремонтовано чи перенесено й під'єднано; решту оцінюють за той самий візит."],
+      ["ਲਾਈਟ ਲਾਉਣਾ ਜਾਂ ਮੁਰੰਮਤ — ਪਹਿਲੀ ਲਾਈਟ", "ਇੱਕ ਲਾਈਟ ਟੰਗੀ, ਠੀਕ ਕੀਤੀ ਜਾਂ ਥਾਂ ਬਦਲ ਕੇ ਜੋੜੀ; ਹੋਰਾਂ ਦਾ ਰੇਟ ਉਸੇ ਵਿਜ਼ਿਟ ਵਿੱਚ।"],
+      ["Pagkabit o pag-ayos ng ilaw — unang ilaw", "Isang ilaw ang ikinabit, inayos o inilipat at kinablehan; ang iba ay iku-quote sa parehong visit."],
+    )),
+    SHARED.consumables(15),
+  ], Q.lighting),
+
+  "fq.electrical.visits.panel": A("inspection", [
+    SHARED.diagnostic(95, { cost: 80 }),
+    L.labour(1, "flat", 135, X(
+      ["Panel inspection — breakers, connections and load", "Cover off, every breaker and lug checked for heat and tightness, the load measured against the service size and the repair or upgrade priced."],
+      ["Inspection du panneau — disjoncteurs, connexions et charge", "Couvercle retiré, chaque disjoncteur et cosse vérifié pour la chaleur et le serrage, charge mesurée par rapport à l'entrée, réparation ou mise à niveau chiffrée."],
+      ["Inspección del tablero — interruptores, conexiones y carga", "Tapa fuera, cada interruptor y zapata revisados por calor y apriete, la carga medida contra la acometida y la reparación o ampliación cotizada."],
+      ["Ispezione del quadro — interruttori, connessioni e carico", "Coperchio tolto, ogni interruttore e morsetto controllato per calore e serraggio, carico misurato rispetto alla fornitura, riparazione o potenziamento quotati."],
+      ["Verteilerprüfung — Automaten, Anschlüsse und Last", "Abdeckung ab, jeder Automat und jede Klemme auf Wärme und festen Sitz geprüft, Last gegen den Hausanschluss gemessen, Reparatur oder Erweiterung angeboten."],
+      ["Огляд щита — автомати, з'єднання й навантаження", "Кришку знято, кожен автомат і клему перевірено на нагрів і затяжку, навантаження виміряно відносно вводу, ремонт чи модернізацію оцінено."],
+      ["ਪੈਨਲ ਜਾਂਚ — ਬ੍ਰੇਕਰ, ਕਨੈਕਸ਼ਨ ਅਤੇ ਲੋਡ", "ਢੱਕਣ ਉਤਾਰ ਕੇ ਹਰ ਬ੍ਰੇਕਰ ਅਤੇ ਲੱਗ ਦੀ ਗਰਮੀ ਅਤੇ ਕਸਾਵਟ ਜਾਂਚੀ, ਲੋਡ ਮਾਪਿਆ ਅਤੇ ਮੁਰੰਮਤ ਜਾਂ ਅੱਪਗ੍ਰੇਡ ਦਾ ਰੇਟ ਦਿੱਤਾ।"],
+      ["Inspeksyon ng panel — breaker, koneksyon at load", "Tinanggal ang takip, chineck ang init at higpit ng bawat breaker at lug, sinukat ang load laban sa service, at in-quote ang ayos o upgrade."],
+    ), { cost: 60 }),
+  ]),
+
+  "fq.electrical.visits.standard_install": A("installation", [
+    SHARED.serviceCall(89),
+    SHARED.techHour(2, 125),
+    SHARED.consumables(25),
+  ]),
+
+  // ── Fans ──
+  "fq.electrical.fans.bathroom_exhaust": A("installation", [
+    L.labour(1, "each", 300, X(
+      ["Exhaust fan installation labour", "Ceiling opening cut or enlarged, the customer's fan mounted to the joist, wired to the switch and ducted to a roof or wall cap."],
+      ["Main-d'œuvre — pose du ventilateur d'extraction", "Ouverture au plafond découpée ou agrandie, ventilateur du client fixé à la solive, raccordé à l'interrupteur et relié à une sortie de toit ou murale."],
+      ["Mano de obra — instalación del extractor", "Hueco en el techo cortado o agrandado, extractor del cliente fijado a la vigueta, conectado al interruptor y ductado a una salida de techo o pared."],
+      ["Manodopera — posa aspiratore", "Foro a soffitto tagliato o allargato, aspiratore del cliente fissato al travetto, collegato all'interruttore e canalizzato a un terminale a tetto o a parete."],
+      ["Arbeit — Abluftventilator einbauen", "Deckenöffnung geschnitten oder erweitert, Ventilator des Kunden am Balken befestigt, an den Schalter angeschlossen und zu einer Dach- oder Wandhaube geführt."],
+      ["Робота — монтаж витяжного вентилятора", "Отвір у стелі вирізано чи розширено, вентилятор клієнта закріплено до балки, під'єднано до вимикача й виведено до даху чи стіни."],
+      ["ਐਗਜ਼ੌਸਟ ਪੱਖਾ ਲਾਉਣ ਦੀ ਲੇਬਰ", "ਛੱਤ ਵਿੱਚ ਛੇਕ ਕੱਟਿਆ ਜਾਂ ਵੱਡਾ ਕੀਤਾ, ਗਾਹਕ ਦਾ ਪੱਖਾ ਸ਼ਤੀਰ ਨਾਲ ਲਾਇਆ, ਸਵਿੱਚ ਨਾਲ ਜੋੜਿਆ ਅਤੇ ਛੱਤ ਜਾਂ ਕੰਧ ਕੈਪ ਤੱਕ ਡਕਟ।"],
+      ["Labor — pagkabit ng exhaust fan", "Hiniwa o pinalaki ang butas sa kisame, ikinabit sa joist ang fan ng kliyente, kinablehan sa switch at dinaanan ng duct papunta sa roof o wall cap."],
+    ), EACH),
+    L.material(1, "each", 45, X(
+      ["Duct kit — 4 in foil duct and cap", "4 in insulated foil duct, clamps and a roof or wall cap with damper."],
+      ["Ensemble de conduit — 4 po et sortie", "Conduit isolé de 4 po, colliers et sortie de toit ou murale avec clapet."],
+      ["Kit de ducto — 4 pulg y salida", "Ducto aislado de 4 pulg, abrazaderas y salida de techo o pared con compuerta."],
+      ["Kit condotto — 4 pollici e terminale", "Condotto isolato da 4 pollici, fascette e terminale a tetto o parete con serranda."],
+      ["Kanalset — 4 Zoll mit Haube", "Isolierter 4-Zoll-Kanal, Schellen und Dach- oder Wandhaube mit Rückstauklappe."],
+      ["Комплект повітроводу — 4 дюйми й решітка", "Утеплений повітровід 4 дюйми, хомути й дахова чи стінова решітка з клапаном."],
+      ["ਡਕਟ ਕਿੱਟ — 4 ਇੰਚ ਡਕਟ ਅਤੇ ਕੈਪ", "4 ਇੰਚ ਇੰਸੂਲੇਟਿਡ ਡਕਟ, ਕਲੈਂਪ ਅਤੇ ਡੈਂਪਰ ਵਾਲੀ ਛੱਤ ਜਾਂ ਕੰਧ ਕੈਪ।"],
+      ["Duct kit — 4 in na duct at cap", "4 in insulated na duct, clamp at roof o wall cap na may damper."],
+    ), { cost: 30, measurementKey: "each" }),
+    SHARED.consumables(15),
+  ]),
+
+  "fq.electrical.fans.supply_install_fan": A("installation", [
+    FAN_HANG(165),
+    L.material(1, "each", 145, X(
+      ["52 in ceiling fan", "Standard 52 in ceiling fan with downrod and pull-chain speeds."],
+      ["Ventilateur de plafond 52 po", "Ventilateur de plafond standard de 52 po avec tige et vitesses à chaînette."],
+      ["Ventilador de techo de 52 pulg", "Ventilador de techo estándar de 52 pulg con tubo y velocidades de cadena."],
+      ["Ventilatore a soffitto 52 pollici", "Ventilatore a soffitto standard da 52 pollici con asta e velocità a catenella."],
+      ["Deckenventilator 52 Zoll", "Standard-Deckenventilator 52 Zoll mit Stange und Zugkettenstufen."],
+      ["Стельовий вентилятор 52 дюйми", "Стандартний стельовий вентилятор 52 дюйми зі штангою й ланцюжком швидкостей."],
+      ["52 ਇੰਚ ਛੱਤ ਦਾ ਪੱਖਾ", "ਡਾਊਨਰੌਡ ਅਤੇ ਚੇਨ ਰਫ਼ਤਾਰਾਂ ਵਾਲਾ ਆਮ 52 ਇੰਚ ਪੱਖਾ।"],
+      ["52 in ceiling fan", "Standard na 52 in ceiling fan na may downrod at pull-chain na bilis."],
+    ), { cost: 99, measurementKey: "each" }),
+    FAN_BOX(),
+  ]),
+
+  "fq.electrical.fans.supply_install_fan_light": A("installation", [
+    FAN_HANG(185),
+    hdMaterial(REF("ceiling_fan_52"), X(
+      ["52 in LED ceiling fan with light", "52 in ceiling fan with an integrated LED light kit."],
+      ["Ventilateur de plafond DEL 52 po avec luminaire", "Ventilateur de plafond de 52 po avec luminaire DEL intégré."],
+      ["Ventilador de techo LED de 52 pulg con luz", "Ventilador de techo de 52 pulg con kit de luz LED integrado."],
+      ["Ventilatore a soffitto LED 52 pollici con luce", "Ventilatore a soffitto da 52 pollici con kit luce LED integrato."],
+      ["LED-Deckenventilator 52 Zoll mit Licht", "Deckenventilator 52 Zoll mit integriertem LED-Lichtset."],
+      ["Стельовий LED-вентилятор 52 дюйми зі світлом", "Стельовий вентилятор 52 дюйми з вбудованим LED-світильником."],
+      ["ਲਾਈਟ ਵਾਲਾ 52 ਇੰਚ LED ਛੱਤ ਦਾ ਪੱਖਾ", "ਅੰਦਰ ਬਣੀ LED ਲਾਈਟ ਵਾਲਾ 52 ਇੰਚ ਛੱਤ ਦਾ ਪੱਖਾ।"],
+      ["52 in LED ceiling fan na may ilaw", "52 in ceiling fan na may kasamang LED light kit."],
+    ), { price: 175, measurementKey: "each" }),
+    FAN_BOX(),
+  ]),
+
+  "fq.electrical.fans.fan_control_switch": A("installation", [
+    L.labour(1, "each", 175, X(
+      ["Fan control installation labour", "Wall box checked for the extra conductor, the speed and light control wired, and the fan's pull chains set to full so the wall control rules."],
+      ["Main-d'œuvre — pose de la commande", "Boîte murale vérifiée pour le conducteur supplémentaire, commande de vitesse et d'éclairage câblée, chaînettes réglées au maximum pour que la commande murale décide."],
+      ["Mano de obra — instalación del control", "Caja de pared revisada por el conductor extra, control de velocidad y luz cableado, y las cadenas del ventilador al máximo para que mande el control de pared."],
+      ["Manodopera — posa del comando", "Scatola a muro verificata per il conduttore in più, comando velocità e luce cablato, catenelle al massimo così comanda il comando a muro."],
+      ["Arbeit — Ventilatorsteuerung einbauen", "Wanddose auf die zusätzliche Ader geprüft, Drehzahl- und Lichtsteuerung angeschlossen, Zugketten auf voll, damit die Wandsteuerung regelt."],
+      ["Робота — монтаж регулятора", "Настінну коробку перевірено на додаткову жилу, регулятор швидкості й світла під'єднано, ланцюжки на максимум, щоб керував настінний регулятор."],
+      ["ਪੱਖਾ ਕੰਟਰੋਲ ਲਾਉਣ ਦੀ ਲੇਬਰ", "ਵਾਧੂ ਤਾਰ ਲਈ ਕੰਧ ਬਾਕਸ ਜਾਂਚਿਆ, ਰਫ਼ਤਾਰ ਅਤੇ ਲਾਈਟ ਕੰਟਰੋਲ ਜੋੜਿਆ, ਅਤੇ ਚੇਨਾਂ ਪੂਰੀਆਂ ਤਾਂ ਜੋ ਕੰਧ ਕੰਟਰੋਲ ਚੱਲੇ।"],
+      ["Labor — pagkabit ng fan control", "Chineck ang wall box kung may extra na wire, kinablehan ang speed at light control, at tinodo ang pull chain para ang wall control ang masunod."],
+    ), EACH),
+    L.material(1, "each", 60, X(
+      ["Fan speed and light control", "Wall-mount three-speed fan control with separate light dimmer."],
+      ["Commande de vitesse et d'éclairage", "Commande murale à trois vitesses avec gradateur d'éclairage séparé."],
+      ["Control de velocidad y luz", "Control de pared de tres velocidades con atenuador de luz aparte."],
+      ["Comando velocità e luce", "Comando a muro a tre velocità con dimmer luce separato."],
+      ["Drehzahl- und Lichtsteuerung", "Wandsteuerung mit drei Stufen und separatem Lichtdimmer."],
+      ["Регулятор швидкості й світла", "Настінний триступеневий регулятор з окремим диммером світла."],
+      ["ਪੱਖਾ ਰਫ਼ਤਾਰ ਅਤੇ ਲਾਈਟ ਕੰਟਰੋਲ", "ਵੱਖਰੇ ਲਾਈਟ ਡਿਮਰ ਵਾਲਾ ਕੰਧ 'ਤੇ ਤਿੰਨ-ਰਫ਼ਤਾਰ ਪੱਖਾ ਕੰਟਰੋਲ।"],
+      ["Fan speed at light control", "Three-speed na fan control sa pader na may hiwalay na dimmer ng ilaw."],
+    ), { cost: 40, measurementKey: "each" }),
+  ]),
+
+  "fq.electrical.fans.customer_fan_existing_box": A("installation", [OLD_FIXTURE_OUT(50), FAN_HANG(225), SHARED.consumables(15)], Q.install),
+  "fq.electrical.fans.customer_fan_light_existing_box": A("installation", [OLD_FIXTURE_OUT(50), FAN_HANG(260), SHARED.consumables(15)], Q.install),
+
+  // ── Panels and breakers ──
+  "fq.electrical.panels.whole_house_surge": A("installation", [
+    L.labour(1, "each", 275, X(
+      ["Surge protector installation labour", "The protector mounted beside the panel on a dedicated two-pole breaker, leads kept short and the status lights checked."],
+      ["Main-d'œuvre — pose du parasurtenseur", "Parasurtenseur fixé à côté du panneau sur un disjoncteur bipolaire dédié, fils courts, voyants vérifiés."],
+      ["Mano de obra — instalación del protector", "Protector montado junto al tablero en un interruptor bipolar dedicado, con cables cortos y las luces de estado revisadas."],
+      ["Manodopera — posa dello scaricatore", "Scaricatore montato accanto al quadro su un interruttore bipolare dedicato, cavi corti e spie verificate."],
+      ["Arbeit — Überspannungsschutz einbauen", "Schutzgerät neben dem Verteiler an einem eigenen zweipoligen Automaten montiert, Leitungen kurz, Statusanzeigen geprüft."],
+      ["Робота — монтаж захисту від перенапруги", "Пристрій встановлено біля щита на окремий двополюсний автомат, дроти короткі, індикатори перевірено."],
+      ["ਸਰਜ ਪ੍ਰੋਟੈਕਟਰ ਲਾਉਣ ਦੀ ਲੇਬਰ", "ਪੈਨਲ ਕੋਲ ਖ਼ਾਸ ਦੋ-ਪੋਲ ਬ੍ਰੇਕਰ 'ਤੇ ਪ੍ਰੋਟੈਕਟਰ ਲਾਇਆ, ਤਾਰਾਂ ਛੋਟੀਆਂ ਅਤੇ ਸਟੇਟਸ ਲਾਈਟਾਂ ਜਾਂਚੀਆਂ।"],
+      ["Labor — pagkabit ng surge protector", "Ikinabit ang protector sa tabi ng panel sa sariling two-pole breaker, maiikli ang wire at chineck ang status light."],
+    ), EACH),
+    L.material(1, "each", 220, X(
+      ["Whole-house surge protector — Type 2", "Type 2 surge protective device for a 120/240 V residential panel."],
+      ["Parasurtenseur résidentiel — type 2", "Parasurtenseur de type 2 pour panneau résidentiel 120/240 V."],
+      ["Protector contra sobretensiones — tipo 2", "Dispositivo de protección tipo 2 para tablero residencial de 120/240 V."],
+      ["Scaricatore di sovratensione — tipo 2", "Dispositivo di protezione di tipo 2 per quadro residenziale 120/240 V."],
+      ["Überspannungsschutz — Typ 2", "Überspannungsschutzgerät Typ 2 für einen 120/240-V-Hausverteiler."],
+      ["Захист від перенапруги — тип 2", "Пристрій захисту типу 2 для житлового щита 120/240 В."],
+      ["ਪੂਰੇ ਘਰ ਦਾ ਸਰਜ ਪ੍ਰੋਟੈਕਟਰ — ਟਾਈਪ 2", "120/240 V ਘਰੇਲੂ ਪੈਨਲ ਲਈ ਟਾਈਪ 2 ਸਰਜ ਸੁਰੱਖਿਆ ਯੰਤਰ।"],
+      ["Whole-house surge protector — Type 2", "Type 2 na surge protective device para sa 120/240 V na panel ng bahay."],
+    ), { cost: 110, measurementKey: "each" }),
+    L.material(1, "each", 35, X(
+      ["Two-pole breaker for the protector", "Dedicated two-pole breaker the surge protector lands on."],
+      ["Disjoncteur bipolaire du parasurtenseur", "Disjoncteur bipolaire dédié sur lequel se branche le parasurtenseur."],
+      ["Interruptor bipolar para el protector", "Interruptor bipolar dedicado donde se conecta el protector."],
+      ["Interruttore bipolare per lo scaricatore", "Interruttore bipolare dedicato a cui si collega lo scaricatore."],
+      ["Zweipoliger Automat für den Schutz", "Eigener zweipoliger Automat, an dem der Überspannungsschutz hängt."],
+      ["Двополюсний автомат для захисту", "Окремий двополюсний автомат, до якого під'єднано захист."],
+      ["ਪ੍ਰੋਟੈਕਟਰ ਲਈ ਦੋ-ਪੋਲ ਬ੍ਰੇਕਰ", "ਖ਼ਾਸ ਦੋ-ਪੋਲ ਬ੍ਰੇਕਰ ਜਿਸ 'ਤੇ ਸਰਜ ਪ੍ਰੋਟੈਕਟਰ ਲੱਗਦਾ ਹੈ।"],
+      ["Two-pole breaker para sa protector", "Sariling two-pole breaker na pagkakabitan ng surge protector."],
+    ), { cost: 18, measurementKey: "each" }),
+  ]),
+
+  "fq.electrical.panels.install_breakers": A("installation", [
+    SHARED.serviceCall(89),
+    L.labour(1, "each", 150, X(
+      ["Breaker installation — per breaker", "Breaker landed in a free space, the circuit terminated, torqued and labelled on the panel directory."],
+      ["Pose de disjoncteur — l'unité", "Disjoncteur installé dans un espace libre, circuit raccordé, serré au couple et identifié au répertoire."],
+      ["Instalación de interruptor — por unidad", "Interruptor colocado en un espacio libre, el circuito conectado, apretado al torque y rotulado en el directorio."],
+      ["Posa interruttore — cadauno", "Interruttore inserito in un posto libero, circuito collegato, serrato a coppia ed etichettato sul quadro."],
+      ["Automat setzen — pro Stück", "Automat in einen freien Platz gesetzt, Stromkreis angeschlossen, mit Drehmoment angezogen und im Verzeichnis beschriftet."],
+      ["Встановлення автомата — за штуку", "Автомат встановлено на вільне місце, лінію під'єднано, затягнуто з моментом і підписано в переліку."],
+      ["ਬ੍ਰੇਕਰ ਲਾਉਣਾ — ਪ੍ਰਤੀ ਬ੍ਰੇਕਰ", "ਖ਼ਾਲੀ ਥਾਂ ਵਿੱਚ ਬ੍ਰੇਕਰ ਲਾਇਆ, ਸਰਕਟ ਜੋੜ ਕੇ ਕੱਸਿਆ ਅਤੇ ਪੈਨਲ ਸੂਚੀ 'ਤੇ ਲੇਬਲ ਕੀਤਾ।"],
+      ["Pagkabit ng breaker — kada isa", "Ikinabit ang breaker sa bakanteng puwesto, ikinonekta at hinigpitan ang circuit at nilagyan ng label sa directory."],
+    ), EACH),
+    hdMaterial(REF("breaker_20a"), X(
+      ["Single-pole breaker", "15 or 20 A single-pole breaker matched to the panel's make."],
+      ["Disjoncteur unipolaire", "Disjoncteur unipolaire 15 ou 20 A de la marque du panneau."],
+      ["Interruptor unipolar", "Interruptor unipolar de 15 o 20 A de la marca del tablero."],
+      ["Interruttore unipolare", "Interruttore unipolare da 15 o 20 A della marca del quadro."],
+      ["Einpoliger Automat", "15- oder 20-A-Automat passend zum Fabrikat des Verteilers."],
+      ["Однополюсний автомат", "Автомат 15 або 20 А під марку щита."],
+      ["ਸਿੰਗਲ-ਪੋਲ ਬ੍ਰੇਕਰ", "ਪੈਨਲ ਦੀ ਕੰਪਨੀ ਨਾਲ ਮਿਲਦਾ 15 ਜਾਂ 20 A ਬ੍ਰੇਕਰ।"],
+      ["Single-pole breaker", "15 o 20 A na breaker na tugma sa brand ng panel."],
+    ), { price: 25, measurementKey: "each" }),
+  ]),
+
+  "fq.electrical.panels.mc_cable_connectors": A("repair", [
+    L.labour(1, "each", 60, X(
+      ["MC connector installation — per connector", "Cable end trimmed, anti-short bushing fitted, the connector set in the knockout and the armour bonded."],
+      ["Pose de connecteur pour câble armé — l'unité", "Bout du câble coupé, manchon anti-court-circuit posé, connecteur fixé dans la débouchure et armure mise à la masse."],
+      ["Instalación de conector para cable armado — por unidad", "Punta del cable recortada, casquillo antichoque colocado, conector fijado en el troquel y la armadura aterrizada."],
+      ["Posa connettore per cavo armato — cadauno", "Estremità del cavo rifilata, boccola antitaglio montata, connettore fissato nel foro e armatura collegata a terra."],
+      ["MC-Verschraubung setzen — pro Stück", "Kabelende gekürzt, Schutztülle eingesetzt, Verschraubung in die Ausbrechöffnung gesetzt und die Bewehrung verbunden."],
+      ["Встановлення з'єднувача броньованого кабелю — за штуку", "Кінець кабелю обрізано, втулку встановлено, з'єднувач закріплено в отворі, броню заземлено."],
+      ["MC ਕਨੈਕਟਰ ਲਾਉਣਾ — ਪ੍ਰਤੀ ਕਨੈਕਟਰ", "ਕੇਬਲ ਦਾ ਸਿਰਾ ਕੱਟਿਆ, ਬੁਸ਼ਿੰਗ ਲਾਈ, ਕਨੈਕਟਰ ਨੌਕਆਊਟ ਵਿੱਚ ਕੱਸਿਆ ਅਤੇ ਆਰਮਰ ਅਰਥ ਕੀਤਾ।"],
+      ["Pagkabit ng MC connector — kada isa", "Tinabas ang dulo ng cable, ikinabit ang bushing, isinuot ang connector sa knockout at ini-bond ang armor."],
+    ), EACH),
+    L.material(1, "each", 8, X(
+      ["MC cable connector", "Snap-in or screw-type connector with anti-short bushing."],
+      ["Connecteur pour câble armé", "Connecteur à encliqueter ou à vis avec manchon anti-court-circuit."],
+      ["Conector para cable armado", "Conector de presión o de tornillo con casquillo antichoque."],
+      ["Connettore per cavo armato", "Connettore a scatto o a vite con boccola antitaglio."],
+      ["MC-Kabelverschraubung", "Steck- oder Schraubverschraubung mit Schutztülle."],
+      ["З'єднувач броньованого кабелю", "Защіпний або гвинтовий з'єднувач із захисною втулкою."],
+      ["MC ਕੇਬਲ ਕਨੈਕਟਰ", "ਬੁਸ਼ਿੰਗ ਵਾਲਾ ਸਨੈਪ-ਇਨ ਜਾਂ ਪੇਚ ਵਾਲਾ ਕਨੈਕਟਰ।"],
+      ["MC cable connector", "Snap-in o screw-type na connector na may anti-short bushing."],
+    ), { cost: 3, measurementKey: "each" }),
+  ]),
+
+  "fq.electrical.panels.outdoor_main_200a_40": A("installation", [
+    PANEL_OUT(250), PANEL_IN(1400),
+    PANEL(650, 480, X(
+      ["200 A outdoor main-breaker panel — 40 spaces", "Weatherproof 200 A load centre with main breaker and 40 spaces."],
+      ["Panneau extérieur 200 A à disjoncteur principal — 40 espaces", "Centre de distribution étanche 200 A avec disjoncteur principal et 40 espaces."],
+      ["Tablero exterior de 200 A con principal — 40 espacios", "Centro de carga a prueba de intemperie de 200 A con interruptor principal y 40 espacios."],
+      ["Quadro esterno 200 A con generale — 40 posti", "Centralino stagno da 200 A con interruttore generale e 40 posti."],
+      ["200-A-Außenverteiler mit Hauptschalter — 40 Plätze", "Wetterfester 200-A-Verteiler mit Hauptschalter und 40 Plätzen."],
+      ["Зовнішній щит 200 А з головним автоматом — 40 місць", "Вологозахищений щит 200 А з головним автоматом і 40 місцями."],
+      ["200 A ਬਾਹਰੀ ਮੇਨ-ਬ੍ਰੇਕਰ ਪੈਨਲ — 40 ਥਾਵਾਂ", "ਮੀਂਹ-ਰੋਧਕ 200 A ਲੋਡ ਸੈਂਟਰ, ਮੇਨ ਬ੍ਰੇਕਰ ਅਤੇ 40 ਥਾਵਾਂ।"],
+      ["200 A outdoor main-breaker panel — 40 spaces", "Weatherproof na 200 A load center na may main breaker at 40 spaces."],
+    )),
+    BREAKER_SET(600, 450), SHARED.permit(350),
+  ], Q.solar),
+
+  "fq.electrical.panels.all_breakers_200a_40": A("installation", [
+    PANEL_OUT(250), PANEL_IN(1300),
+    PANEL(550, 400, X(
+      ["200 A main-breaker panel — 40 spaces", "Indoor 200 A load centre with main breaker and 40 spaces."],
+      ["Panneau 200 A à disjoncteur principal — 40 espaces", "Centre de distribution intérieur 200 A avec disjoncteur principal et 40 espaces."],
+      ["Tablero de 200 A con principal — 40 espacios", "Centro de carga interior de 200 A con interruptor principal y 40 espacios."],
+      ["Quadro 200 A con generale — 40 posti", "Centralino da interno da 200 A con interruttore generale e 40 posti."],
+      ["200-A-Verteiler mit Hauptschalter — 40 Plätze", "Innen-Verteiler 200 A mit Hauptschalter und 40 Plätzen."],
+      ["Щит 200 А з головним автоматом — 40 місць", "Внутрішній щит 200 А з головним автоматом і 40 місцями."],
+      ["200 A ਮੇਨ-ਬ੍ਰੇਕਰ ਪੈਨਲ — 40 ਥਾਵਾਂ", "ਅੰਦਰਲਾ 200 A ਲੋਡ ਸੈਂਟਰ, ਮੇਨ ਬ੍ਰੇਕਰ ਅਤੇ 40 ਥਾਵਾਂ।"],
+      ["200 A main-breaker panel — 40 spaces", "Indoor na 200 A load center na may main breaker at 40 spaces."],
+    )),
+    BREAKER_SET(600, 450), SHARED.permit(350),
+  ], Q.solar),
+
+  "fq.electrical.panels.main_lug_125a_20": A("installation", [
+    PANEL_OUT(200), PANEL_IN(900),
+    PANEL(220, 160, X(
+      ["125 A main-lug panel — 20 spaces", "125 A main-lug load centre with 20 spaces, fed from an upstream disconnect."],
+      ["Panneau à cosses principales 125 A — 20 espaces", "Centre de distribution à cosses principales 125 A, 20 espaces, alimenté par un sectionneur en amont."],
+      ["Tablero de barras principales de 125 A — 20 espacios", "Centro de carga de barras principales de 125 A con 20 espacios, alimentado desde un desconectador."],
+      ["Quadro a morsetti principali 125 A — 20 posti", "Centralino a morsetti principali da 125 A con 20 posti, alimentato da un sezionatore a monte."],
+      ["125-A-Verteiler ohne Hauptschalter — 20 Plätze", "125-A-Verteiler mit Hauptklemmen und 20 Plätzen, gespeist von einem vorgeschalteten Trennschalter."],
+      ["Щит на клемах 125 А — 20 місць", "Щит 125 А з головними клемами на 20 місць, живлення від вимикача вище."],
+      ["125 A ਮੇਨ-ਲੱਗ ਪੈਨਲ — 20 ਥਾਵਾਂ", "20 ਥਾਵਾਂ ਵਾਲਾ 125 A ਮੇਨ-ਲੱਗ ਲੋਡ ਸੈਂਟਰ, ਉੱਪਰਲੇ ਡਿਸਕਨੈਕਟ ਤੋਂ ਸਪਲਾਈ।"],
+      ["125 A main-lug panel — 20 spaces", "125 A main-lug load center na may 20 spaces, galing sa upstream disconnect."],
+    )),
+    BREAKER_SET(350, 260), FEEDER(250, 190),
+  ]),
+
+  "fq.electrical.panels.all_breakers_150a_30": A("installation", [
+    PANEL_OUT(200), PANEL_IN(700),
+    PANEL(380, 280, X(
+      ["150 A main-breaker panel — 30 spaces", "150 A load centre with main breaker and 30 spaces."],
+      ["Panneau 150 A à disjoncteur principal — 30 espaces", "Centre de distribution 150 A avec disjoncteur principal et 30 espaces."],
+      ["Tablero de 150 A con principal — 30 espacios", "Centro de carga de 150 A con interruptor principal y 30 espacios."],
+      ["Quadro 150 A con generale — 30 posti", "Centralino da 150 A con interruttore generale e 30 posti."],
+      ["150-A-Verteiler mit Hauptschalter — 30 Plätze", "150-A-Verteiler mit Hauptschalter und 30 Plätzen."],
+      ["Щит 150 А з головним автоматом — 30 місць", "Щит 150 А з головним автоматом і 30 місцями."],
+      ["150 A ਮੇਨ-ਬ੍ਰੇਕਰ ਪੈਨਲ — 30 ਥਾਵਾਂ", "ਮੇਨ ਬ੍ਰੇਕਰ ਅਤੇ 30 ਥਾਵਾਂ ਵਾਲਾ 150 A ਲੋਡ ਸੈਂਟਰ।"],
+      ["150 A main-breaker panel — 30 spaces", "150 A load center na may main breaker at 30 spaces."],
+    )),
+    BREAKER_SET(400, 300), SHARED.permit(300),
+  ]),
+
+  "fq.electrical.panels.main_lug_200a_30": A("installation", [
+    PANEL_OUT(200), PANEL_IN(1100),
+    PANEL(320, 230, X(
+      ["200 A main-lug panel — 30 spaces", "200 A main-lug load centre with 30 spaces, fed from an upstream disconnect."],
+      ["Panneau à cosses principales 200 A — 30 espaces", "Centre de distribution à cosses principales 200 A, 30 espaces, alimenté par un sectionneur en amont."],
+      ["Tablero de barras principales de 200 A — 30 espacios", "Centro de carga de barras principales de 200 A con 30 espacios, alimentado desde un desconectador."],
+      ["Quadro a morsetti principali 200 A — 30 posti", "Centralino a morsetti principali da 200 A con 30 posti, alimentato da un sezionatore a monte."],
+      ["200-A-Verteiler ohne Hauptschalter — 30 Plätze", "200-A-Verteiler mit Hauptklemmen und 30 Plätzen, gespeist von einem vorgeschalteten Trennschalter."],
+      ["Щит на клемах 200 А — 30 місць", "Щит 200 А з головними клемами на 30 місць, живлення від вимикача вище."],
+      ["200 A ਮੇਨ-ਲੱਗ ਪੈਨਲ — 30 ਥਾਵਾਂ", "30 ਥਾਵਾਂ ਵਾਲਾ 200 A ਮੇਨ-ਲੱਗ ਲੋਡ ਸੈਂਟਰ, ਉੱਪਰਲੇ ਡਿਸਕਨੈਕਟ ਤੋਂ ਸਪਲਾਈ।"],
+      ["200 A main-lug panel — 30 spaces", "200 A main-lug load center na may 30 spaces, galing sa upstream disconnect."],
+    )),
+    BREAKER_SET(450, 340), FEEDER(300, 225),
+  ]),
+
+  "fq.electrical.panels.all_breakers_100a_20": A("installation", [
+    PANEL_OUT(200), PANEL_IN(1200),
+    PANEL(260, 190, X(
+      ["100 A main-breaker panel — 20 spaces", "100 A load centre with main breaker and 20 spaces."],
+      ["Panneau 100 A à disjoncteur principal — 20 espaces", "Centre de distribution 100 A avec disjoncteur principal et 20 espaces."],
+      ["Tablero de 100 A con principal — 20 espacios", "Centro de carga de 100 A con interruptor principal y 20 espacios."],
+      ["Quadro 100 A con generale — 20 posti", "Centralino da 100 A con interruttore generale e 20 posti."],
+      ["100-A-Verteiler mit Hauptschalter — 20 Plätze", "100-A-Verteiler mit Hauptschalter und 20 Plätzen."],
+      ["Щит 100 А з головним автоматом — 20 місць", "Щит 100 А з головним автоматом і 20 місцями."],
+      ["100 A ਮੇਨ-ਬ੍ਰੇਕਰ ਪੈਨਲ — 20 ਥਾਵਾਂ", "ਮੇਨ ਬ੍ਰੇਕਰ ਅਤੇ 20 ਥਾਵਾਂ ਵਾਲਾ 100 A ਲੋਡ ਸੈਂਟਰ।"],
+      ["100 A main-breaker panel — 20 spaces", "100 A load center na may main breaker at 20 spaces."],
+    )),
+    BREAKER_SET(300, 225), SHARED.permit(300),
+  ]),
+
+  // ── Dimmers ──
+  "fq.electrical.dimmers.three_way_1000w": A("installation", [
+    DIMMER_LABOUR(130),
+    L.material(1, "each", 90, X(
+      ["Dimmer — 1000 W, 3-way", "1000 W three-way dimmer rated for incandescent and halogen loads, with plate."],
+      ["Gradateur — 1000 W, 3 voies", "Gradateur 1000 W à trois voies pour charges incandescentes et halogènes, avec plaque."],
+      ["Atenuador — 1000 W, 3 vías", "Atenuador de 1000 W de tres vías para cargas incandescentes y halógenas, con placa."],
+      ["Dimmer — 1000 W, deviato", "Dimmer deviato da 1000 W per carichi a incandescenza e alogeni, con placca."],
+      ["Dimmer — 1000 W, Wechselschaltung", "1000-W-Wechseldimmer für Glüh- und Halogenlast, mit Abdeckung."],
+      ["Димер — 1000 Вт, прохідний", "Прохідний димер 1000 Вт для ламп розжарювання й галогенних, з рамкою."],
+      ["ਡਿਮਰ — 1000 W, 3-ਵੇਅ", "ਇੰਕੈਂਡੈਸੈਂਟ ਅਤੇ ਹੈਲੋਜਨ ਲੋਡ ਲਈ 1000 W ਤਿੰਨ-ਵੇਅ ਡਿਮਰ, ਪਲੇਟ ਸਮੇਤ।"],
+      ["Dimmer — 1000 W, 3-way", "1000 W na 3-way dimmer para sa incandescent at halogen, may plate."],
+    ), { cost: 65, measurementKey: "each" }),
+  ], Q.smart),
+
+  "fq.electrical.dimmers.single_pole_600w_slide": A("installation", [
+    DIMMER_LABOUR(110),
+    hdMaterial(REF("dimmer_led"), X(
+      ["Dimmer — 600 W, single pole, slide", "LED-compatible single-pole slide dimmer, 600 W incandescent rating, with plate."],
+      ["Gradateur — 600 W, unipolaire, à glissière", "Gradateur à glissière unipolaire compatible DEL, 600 W en incandescent, avec plaque."],
+      ["Atenuador — 600 W, unipolar, deslizante", "Atenuador deslizante unipolar compatible con LED, 600 W incandescente, con placa."],
+      ["Dimmer — 600 W, unipolare, a cursore", "Dimmer a cursore unipolare compatibile LED, 600 W a incandescenza, con placca."],
+      ["Dimmer — 600 W, einpolig, Schieber", "LED-tauglicher einpoliger Schiebedimmer, 600 W Glühlast, mit Abdeckung."],
+      ["Димер — 600 Вт, однополюсний, повзунковий", "Сумісний з LED однополюсний повзунковий димер, 600 Вт для ламп розжарювання, з рамкою."],
+      ["ਡਿਮਰ — 600 W, ਸਿੰਗਲ ਪੋਲ, ਸਲਾਈਡ", "LED ਨਾਲ ਚੱਲਣ ਵਾਲਾ ਸਿੰਗਲ-ਪੋਲ ਸਲਾਈਡ ਡਿਮਰ, 600 W, ਪਲੇਟ ਸਮੇਤ।"],
+      ["Dimmer — 600 W, single pole, slide", "LED-compatible na single-pole slide dimmer, 600 W, may plate."],
+    ), { price: 45, measurementKey: "each" }),
+  ], Q.smart),
+
+  "fq.electrical.dimmers.three_way_600w_toggle": A("installation", [
+    DIMMER_LABOUR(120),
+    hdMaterial(REF("dimmer_led"), X(
+      ["Dimmer — 600 W, 3-way, toggle", "LED-compatible three-way toggle dimmer, 600 W incandescent rating, with plate."],
+      ["Gradateur — 600 W, 3 voies, à bascule", "Gradateur à bascule à trois voies compatible DEL, 600 W en incandescent, avec plaque."],
+      ["Atenuador — 600 W, 3 vías, de palanca", "Atenuador de palanca de tres vías compatible con LED, 600 W incandescente, con placa."],
+      ["Dimmer — 600 W, deviato, a levetta", "Dimmer deviato a levetta compatibile LED, 600 W a incandescenza, con placca."],
+      ["Dimmer — 600 W, Wechselschaltung, Kippschalter", "LED-tauglicher Wechsel-Kippdimmer, 600 W Glühlast, mit Abdeckung."],
+      ["Димер — 600 Вт, прохідний, клавішний", "Сумісний з LED прохідний клавішний димер, 600 Вт для ламп розжарювання, з рамкою."],
+      ["ਡਿਮਰ — 600 W, 3-ਵੇਅ, ਟੌਗਲ", "LED ਨਾਲ ਚੱਲਣ ਵਾਲਾ ਤਿੰਨ-ਵੇਅ ਟੌਗਲ ਡਿਮਰ, 600 W, ਪਲੇਟ ਸਮੇਤ।"],
+      ["Dimmer — 600 W, 3-way, toggle", "LED-compatible na 3-way toggle dimmer, 600 W, may plate."],
+    ), { price: 45, measurementKey: "each" }),
+  ], Q.smart),
+
+  "fq.electrical.dimmers.single_pole_600w_toggle": A("installation", [
+    DIMMER_LABOUR(130),
+    hdMaterial(REF("dimmer_led"), X(
+      ["Dimmer — 600 W, single pole, toggle", "LED-compatible single-pole toggle dimmer, 600 W incandescent rating, with plate."],
+      ["Gradateur — 600 W, unipolaire, à bascule", "Gradateur à bascule unipolaire compatible DEL, 600 W en incandescent, avec plaque."],
+      ["Atenuador — 600 W, unipolar, de palanca", "Atenuador de palanca unipolar compatible con LED, 600 W incandescente, con placa."],
+      ["Dimmer — 600 W, unipolare, a levetta", "Dimmer a levetta unipolare compatibile LED, 600 W a incandescenza, con placca."],
+      ["Dimmer — 600 W, einpolig, Kippschalter", "LED-tauglicher einpoliger Kippdimmer, 600 W Glühlast, mit Abdeckung."],
+      ["Димер — 600 Вт, однополюсний, клавішний", "Сумісний з LED однополюсний клавішний димер, 600 Вт для ламп розжарювання, з рамкою."],
+      ["ਡਿਮਰ — 600 W, ਸਿੰਗਲ ਪੋਲ, ਟੌਗਲ", "LED ਨਾਲ ਚੱਲਣ ਵਾਲਾ ਸਿੰਗਲ-ਪੋਲ ਟੌਗਲ ਡਿਮਰ, 600 W, ਪਲੇਟ ਸਮੇਤ।"],
+      ["Dimmer — 600 W, single pole, toggle", "LED-compatible na single-pole toggle dimmer, 600 W, may plate."],
+    ), { price: 45, measurementKey: "each" }),
+  ], Q.smart),
+
+  "fq.electrical.dimmers.single_pole_1000w_slide": A("installation", [
+    DIMMER_LABOUR(110),
+    L.material(1, "each", 65, X(
+      ["Dimmer — 1000 W, single pole, slide", "1000 W single-pole slide dimmer for a larger lighting load, with plate."],
+      ["Gradateur — 1000 W, unipolaire, à glissière", "Gradateur à glissière unipolaire 1000 W pour une charge d'éclairage plus forte, avec plaque."],
+      ["Atenuador — 1000 W, unipolar, deslizante", "Atenuador deslizante unipolar de 1000 W para una carga mayor, con placa."],
+      ["Dimmer — 1000 W, unipolare, a cursore", "Dimmer a cursore unipolare da 1000 W per un carico luce maggiore, con placca."],
+      ["Dimmer — 1000 W, einpolig, Schieber", "Einpoliger 1000-W-Schiebedimmer für größere Lichtlast, mit Abdeckung."],
+      ["Димер — 1000 Вт, однополюсний, повзунковий", "Однополюсний повзунковий димер 1000 Вт для більшого навантаження, з рамкою."],
+      ["ਡਿਮਰ — 1000 W, ਸਿੰਗਲ ਪੋਲ, ਸਲਾਈਡ", "ਵੱਡੇ ਲਾਈਟ ਲੋਡ ਲਈ 1000 W ਸਿੰਗਲ-ਪੋਲ ਸਲਾਈਡ ਡਿਮਰ, ਪਲੇਟ ਸਮੇਤ।"],
+      ["Dimmer — 1000 W, single pole, slide", "1000 W na single-pole slide dimmer para sa mas malaking load, may plate."],
+    ), { cost: 45, measurementKey: "each" }),
+  ], Q.smart),
+
+  // ── Outdoor lighting ──
+  "fq.electrical.outdoor.exterior_prewire": A("installation", [
+    L.labour(1, "each", 260, X(
+      ["Exterior pre-wire — box, feed and switch", "Cable fished from a switch location to the outside wall, a weatherproof box set and sealed, and the switch finished inside."],
+      ["Pré-câblage extérieur — boîte, alimentation et interrupteur", "Câble passé de l'interrupteur au mur extérieur, boîte étanche posée et scellée, interrupteur fini à l'intérieur."],
+      ["Precableado exterior — caja, alimentación e interruptor", "Cable pasado del interruptor al muro exterior, caja a prueba de intemperie colocada y sellada, e interruptor terminado adentro."],
+      ["Precablaggio esterno — scatola, linea e interruttore", "Cavo infilato dall'interruttore al muro esterno, scatola stagna posata e sigillata, interruttore finito all'interno."],
+      ["Außen-Vorverkabelung — Dose, Zuleitung und Schalter", "Kabel vom Schalter zur Außenwand gezogen, wetterfeste Dose gesetzt und abgedichtet, Schalter innen fertig montiert."],
+      ["Зовнішня підготовка — коробка, лінія й вимикач", "Кабель протягнуто від вимикача до зовнішньої стіни, вологозахищену коробку встановлено й загерметизовано, вимикач змонтовано всередині."],
+      ["ਬਾਹਰੀ ਪ੍ਰੀ-ਵਾਇਰ — ਬਾਕਸ, ਤਾਰ ਅਤੇ ਸਵਿੱਚ", "ਸਵਿੱਚ ਤੋਂ ਬਾਹਰੀ ਕੰਧ ਤੱਕ ਕੇਬਲ, ਮੀਂਹ-ਰੋਧਕ ਬਾਕਸ ਲਾ ਕੇ ਸੀਲ ਕੀਤਾ, ਅਤੇ ਅੰਦਰ ਸਵਿੱਚ ਪੂਰਾ ਕੀਤਾ।"],
+      ["Exterior pre-wire — box, linya at switch", "Hinila ang cable mula sa switch hanggang sa labas na pader, ikinabit at sinelyuhan ang weatherproof na kahon, at tinapos ang switch sa loob."],
+    ), EACH),
+    L.material(1, "each", 55, X(
+      ["Exterior box, cable and switch", "Weatherproof round box, up to 25 ft of 14/2 cable, a switch and plate."],
+      ["Boîte extérieure, câble et interrupteur", "Boîte ronde étanche, jusqu'à 25 pi de câble 14/2, un interrupteur et sa plaque."],
+      ["Caja exterior, cable e interruptor", "Caja redonda a prueba de intemperie, hasta 25 pies de cable 14/2, un interruptor y placa."],
+      ["Scatola esterna, cavo e interruttore", "Scatola tonda stagna, fino a 25 piedi di cavo 14/2, un interruttore e placca."],
+      ["Außendose, Kabel und Schalter", "Wetterfeste Runddose, bis zu 25 Fuß Kabel 14/2, ein Schalter mit Abdeckung."],
+      ["Зовнішня коробка, кабель і вимикач", "Кругла вологозахищена коробка, до 25 футів кабелю 14/2, вимикач із рамкою."],
+      ["ਬਾਹਰੀ ਬਾਕਸ, ਕੇਬਲ ਅਤੇ ਸਵਿੱਚ", "ਮੀਂਹ-ਰੋਧਕ ਗੋਲ ਬਾਕਸ, 25 ਫੁੱਟ ਤੱਕ 14/2 ਕੇਬਲ, ਸਵਿੱਚ ਅਤੇ ਪਲੇਟ।"],
+      ["Exterior box, cable at switch", "Weatherproof na bilog na box, hanggang 25 ft na 14/2 cable, switch at plate."],
+    ), { cost: 40, measurementKey: "each" }),
+  ], Q.lighting),
+
+  "fq.electrical.outdoor.porch_light_existing": A("installation", [
+    L.labour(1, "each", 175, X(
+      ["Porch light installation", "The old lantern off, the new one mounted to the box, wired, and sealed along the top and sides against the weather."],
+      ["Pose d'applique de porche", "Ancienne applique retirée, la nouvelle fixée à la boîte, câblée et scellée en haut et sur les côtés contre les intempéries."],
+      ["Instalación de luz de porche", "Farol viejo fuera, el nuevo montado en la caja, cableado y sellado arriba y a los lados contra el clima."],
+      ["Posa applique da esterno", "Vecchia applique tolta, la nuova fissata alla scatola, cablata e sigillata sopra e ai lati contro le intemperie."],
+      ["Außenleuchte montieren", "Alte Laterne ab, die neue an der Dose montiert, angeschlossen und oben und seitlich gegen Witterung abgedichtet."],
+      ["Монтаж ґанкового світильника", "Старий ліхтар знято, новий закріплено на коробці, під'єднано й загерметизовано зверху та з боків від негоди."],
+      ["ਪੋਰਚ ਲਾਈਟ ਲਾਉਣਾ", "ਪੁਰਾਣੀ ਲਾਲਟੈਣ ਉਤਾਰੀ, ਨਵੀਂ ਬਾਕਸ 'ਤੇ ਲਾ ਕੇ ਜੋੜੀ ਅਤੇ ਮੌਸਮ ਤੋਂ ਬਚਾਅ ਲਈ ਉੱਪਰ ਅਤੇ ਪਾਸਿਆਂ ਤੋਂ ਸੀਲ ਕੀਤੀ।"],
+      ["Pagkabit ng porch light", "Tinanggal ang lumang lantern, ikinabit at kinablehan ang bago sa kahon, at sinelyuhan sa taas at gilid laban sa panahon."],
+    ), EACH),
+    L.material(1, "each", 120, X(
+      ["Outdoor wall lantern", "Wet-rated outdoor wall lantern, black or bronze, LED-ready."],
+      ["Applique extérieure", "Applique murale extérieure pour endroits mouillés, noire ou bronze, compatible DEL."],
+      ["Farol de pared exterior", "Farol de pared para exterior apto para lugares mojados, negro o bronce, listo para LED."],
+      ["Applique da esterno", "Applique da parete per esterni, adatta a luoghi bagnati, nera o bronzo, pronta per LED."],
+      ["Außenwandlaterne", "Nassraumtaugliche Außenwandlaterne, schwarz oder bronze, LED-geeignet."],
+      ["Зовнішній настінний ліхтар", "Настінний ліхтар для вологих місць, чорний або бронзовий, під LED."],
+      ["ਬਾਹਰੀ ਕੰਧ ਲਾਲਟੈਣ", "ਗਿੱਲੀ ਥਾਂ ਲਈ ਬਾਹਰੀ ਕੰਧ ਲਾਲਟੈਣ, ਕਾਲੀ ਜਾਂ ਕਾਂਸੀ ਰੰਗੀ, LED ਲਈ ਤਿਆਰ।"],
+      ["Outdoor wall lantern", "Wet-rated na outdoor wall lantern, itim o bronze, LED-ready."],
+    ), { cost: 85, measurementKey: "each" }),
+    SHARED.consumables(15),
+  ], Q.lighting),
+
+  "fq.electrical.outdoor.motion_detector_existing": A("installation", [
+    L.labour(1, "each", 140, X(
+      ["Motion sensor installation", "Sensor mounted to the fixture or its box, wired in, aimed at the approach and the timer and sensitivity set."],
+      ["Pose du détecteur de mouvement", "Détecteur fixé au luminaire ou à sa boîte, câblé, orienté vers l'accès, minuterie et sensibilité réglées."],
+      ["Instalación del sensor de movimiento", "Sensor montado en la luminaria o su caja, cableado, orientado hacia el acceso y el temporizador y la sensibilidad ajustados."],
+      ["Posa del sensore di movimento", "Sensore montato sulla lampada o sulla sua scatola, cablato, puntato sull'accesso, timer e sensibilità regolati."],
+      ["Bewegungsmelder montieren", "Melder an der Leuchte oder Dose montiert, angeschlossen, auf den Zugang ausgerichtet, Zeit und Empfindlichkeit eingestellt."],
+      ["Монтаж датчика руху", "Датчик закріплено на світильнику чи коробці, під'єднано, спрямовано на підхід, час і чутливість налаштовано."],
+      ["ਮੋਸ਼ਨ ਸੈਂਸਰ ਲਾਉਣਾ", "ਸੈਂਸਰ ਲਾਈਟ ਜਾਂ ਬਾਕਸ 'ਤੇ ਲਾਇਆ, ਜੋੜਿਆ, ਆਉਣ ਵਾਲੇ ਰਸਤੇ ਵੱਲ ਕੀਤਾ ਅਤੇ ਟਾਈਮਰ ਤੇ ਸੰਵੇਦਨਸ਼ੀਲਤਾ ਸੈੱਟ ਕੀਤੀ।"],
+      ["Pagkabit ng motion sensor", "Ikinabit ang sensor sa ilaw o sa kahon nito, kinablehan, itinutok sa daanan at in-set ang timer at sensitivity."],
+    ), EACH),
+    L.material(1, "each", 55, X(
+      ["Outdoor motion sensor control", "Weatherproof 180° motion sensor with adjustable time and range."],
+      ["Détecteur de mouvement extérieur", "Détecteur de mouvement étanche 180° avec durée et portée réglables."],
+      ["Control de sensor de movimiento exterior", "Sensor de movimiento de 180° a prueba de intemperie con tiempo y alcance ajustables."],
+      ["Sensore di movimento da esterno", "Sensore di movimento stagno a 180° con tempo e portata regolabili."],
+      ["Außen-Bewegungsmelder", "Wetterfester 180°-Bewegungsmelder mit einstellbarer Zeit und Reichweite."],
+      ["Зовнішній датчик руху", "Вологозахищений датчик руху 180° з регульованим часом і дальністю."],
+      ["ਬਾਹਰੀ ਮੋਸ਼ਨ ਸੈਂਸਰ", "ਬਦਲਣਯੋਗ ਸਮੇਂ ਅਤੇ ਦੂਰੀ ਵਾਲਾ ਮੀਂਹ-ਰੋਧਕ 180° ਮੋਸ਼ਨ ਸੈਂਸਰ।"],
+      ["Outdoor motion sensor", "Weatherproof na 180° motion sensor na naa-adjust ang oras at abot."],
+    ), { cost: 35, measurementKey: "each" }),
+  ], Q.lightingSecurity),
+
+  "fq.electrical.outdoor.quartz_flood_500w": A("installation", [
+    L.labour(1, "each", 150, X(
+      ["Flood light installation", "The old fixture off, the flood mounted to the existing box, wired, sealed and aimed at the area to light."],
+      ["Pose du projecteur", "Ancien luminaire retiré, projecteur fixé à la boîte existante, câblé, scellé et orienté vers la zone à éclairer."],
+      ["Instalación del reflector", "Luminaria vieja fuera, reflector montado en la caja existente, cableado, sellado y orientado al área a iluminar."],
+      ["Posa del proiettore", "Vecchia lampada tolta, proiettore fissato alla scatola esistente, cablato, sigillato e puntato sulla zona da illuminare."],
+      ["Strahler montieren", "Alte Leuchte ab, Strahler an der vorhandenen Dose montiert, angeschlossen, abgedichtet und auf die Fläche ausgerichtet."],
+      ["Монтаж прожектора", "Старий світильник знято, прожектор закріплено на наявній коробці, під'єднано, загерметизовано й спрямовано на ділянку."],
+      ["ਫ਼ਲੱਡ ਲਾਈਟ ਲਾਉਣਾ", "ਪੁਰਾਣੀ ਲਾਈਟ ਉਤਾਰੀ, ਫ਼ਲੱਡ ਮੌਜੂਦਾ ਬਾਕਸ 'ਤੇ ਲਾਈ, ਜੋੜੀ, ਸੀਲ ਕੀਤੀ ਅਤੇ ਰੌਸ਼ਨ ਕਰਨ ਵਾਲੀ ਥਾਂ ਵੱਲ ਕੀਤੀ।"],
+      ["Pagkabit ng flood light", "Tinanggal ang lumang ilaw, ikinabit ang flood light sa existing na kahon, kinablehan, sinelyuhan at itinutok sa lugar na iilawan."],
+    ), EACH),
+    L.material(1, "each", 45, X(
+      ["Quartz flood light — 500 W", "Surface-mount 500 W quartz halogen flood with lamp and guard."],
+      ["Projecteur quartz — 500 W", "Projecteur halogène quartz 500 W en saillie, avec lampe et grille."],
+      ["Reflector de cuarzo — 500 W", "Reflector halógeno de cuarzo de 500 W de superficie, con lámpara y rejilla."],
+      ["Proiettore al quarzo — 500 W", "Proiettore alogeno al quarzo da 500 W a vista, con lampada e griglia."],
+      ["Quarz-Strahler — 500 W", "Aufbau-Halogenstrahler 500 W mit Leuchtmittel und Schutzgitter."],
+      ["Кварцовий прожектор — 500 Вт", "Накладний галогенний прожектор 500 Вт з лампою й решіткою."],
+      ["ਕੁਆਰਟਜ਼ ਫ਼ਲੱਡ ਲਾਈਟ — 500 W", "ਲੈਂਪ ਅਤੇ ਜਾਲੀ ਵਾਲੀ ਸਤ੍ਹਾ 'ਤੇ ਲੱਗਣ ਵਾਲੀ 500 W ਹੈਲੋਜਨ ਫ਼ਲੱਡ।"],
+      ["Quartz flood light — 500 W", "Surface-mount na 500 W quartz halogen flood na may lamp at guard."],
+    ), { cost: 30, measurementKey: "each" }),
+    SHARED.consumables(15),
+  ], Q.lightingSecurity),
+
+  "fq.electrical.outdoor.post_light_25ft": A("installation", [
+    L.labour(1, "flat", 450, X(
+      ["Trench, conduit and post set — up to 25 ft", "Utilities located, an 18 in trench dug from the house, conduit laid, the post set plumb in concrete and the fixture wired."],
+      ["Tranchée, conduit et pose du lampadaire — jusqu'à 25 pi", "Services localisés, tranchée de 18 po creusée depuis la maison, conduit posé, lampadaire planté d'aplomb dans le béton et tête câblée."],
+      ["Zanja, tubo y poste — hasta 25 pies", "Servicios localizados, zanja de 18 pulg desde la casa, tubo tendido, poste aplomado en concreto y la luminaria cableada."],
+      ["Scavo, tubo e palo — fino a 25 piedi", "Sottoservizi individuati, scavo di 18 pollici dalla casa, tubo posato, palo messo a piombo nel calcestruzzo e lampada cablata."],
+      ["Graben, Rohr und Mast — bis 25 Fuß", "Leitungen geortet, 18-Zoll-Graben vom Haus gezogen, Rohr verlegt, Mast lotrecht einbetoniert und die Leuchte angeschlossen."],
+      ["Траншея, труба й стовп — до 25 футів", "Комунікації визначено, траншею 18 дюймів викопано від будинку, трубу прокладено, стовп вертикально забетоновано й світильник під'єднано."],
+      ["ਖਾਈ, ਕੰਡਿਊਟ ਅਤੇ ਖੰਭਾ — 25 ਫੁੱਟ ਤੱਕ", "ਜ਼ਮੀਨਦੋਜ਼ ਲਾਈਨਾਂ ਲੱਭੀਆਂ, ਘਰ ਤੋਂ 18 ਇੰਚ ਖਾਈ, ਕੰਡਿਊਟ ਪਾਇਆ, ਖੰਭਾ ਕੰਕਰੀਟ ਵਿੱਚ ਸਿੱਧਾ ਲਾਇਆ ਅਤੇ ਲਾਈਟ ਜੋੜੀ।"],
+      ["Trench, conduit at poste — hanggang 25 ft", "Hinanap ang mga linya sa ilalim, naghukay ng 18 in na trench mula sa bahay, inilatag ang conduit, itinayo nang tuwid ang poste sa semento at kinablehan ang ilaw."],
+    )),
+    L.material(1, "each", 220, X(
+      ["Lamp post and 100 W head", "7 ft black or white lamp post with a 100 W-equivalent LED lantern head."],
+      ["Lampadaire et tête 100 W", "Lampadaire noir ou blanc de 7 pi avec tête lanterne DEL équivalant à 100 W."],
+      ["Poste de luz y cabezal de 100 W", "Poste de 7 pies negro o blanco con cabezal de farol LED equivalente a 100 W."],
+      ["Lampione e testa da 100 W", "Palo da 7 piedi nero o bianco con testa a lanterna LED equivalente a 100 W."],
+      ["Mastleuchte mit 100-W-Kopf", "7-Fuß-Mast in Schwarz oder Weiß mit LED-Laternenkopf, 100 W gleichwertig."],
+      ["Ліхтарний стовп і голова 100 Вт", "Стовп 7 футів чорний або білий з LED-ліхтарем, еквівалент 100 Вт."],
+      ["ਲੈਂਪ ਖੰਭਾ ਅਤੇ 100 W ਹੈੱਡ", "100 W ਬਰਾਬਰ LED ਲਾਲਟੈਣ ਵਾਲਾ 7 ਫੁੱਟ ਕਾਲਾ ਜਾਂ ਚਿੱਟਾ ਖੰਭਾ।"],
+      ["Lamp post at 100 W na ulo", "7 ft na itim o puting poste na may LED lantern head na katumbas ng 100 W."],
+    ), { cost: 160 }),
+    L.material(1, "flat", 85, X(
+      ["UF cable, conduit and concrete — 25 ft", "Direct-burial UF cable, PVC conduit and fittings for 25 ft, and concrete for the post base."],
+      ["Câble souterrain, conduit et béton — 25 pi", "Câble à enfouissement direct, conduit PVC et raccords pour 25 pi, et béton pour la base du lampadaire."],
+      ["Cable UF, tubo y concreto — 25 pies", "Cable UF de enterramiento directo, tubo PVC y accesorios para 25 pies, y concreto para la base del poste."],
+      ["Cavo interrato, tubo e calcestruzzo — 25 piedi", "Cavo da interramento diretto, tubo in PVC e raccordi per 25 piedi, e calcestruzzo per la base del palo."],
+      ["Erdkabel, Rohr und Beton — 25 Fuß", "Erdkabel, PVC-Rohr und Formstücke für 25 Fuß sowie Beton für den Mastfuß."],
+      ["Кабель UF, труба й бетон — 25 футів", "Кабель для прокладання в землі, труба ПВХ і фітинги на 25 футів, бетон для основи стовпа."],
+      ["UF ਕੇਬਲ, ਕੰਡਿਊਟ ਅਤੇ ਕੰਕਰੀਟ — 25 ਫੁੱਟ", "25 ਫੁੱਟ ਲਈ ਜ਼ਮੀਨ ਵਿੱਚ ਦੱਬਣ ਵਾਲੀ UF ਕੇਬਲ, PVC ਕੰਡਿਊਟ ਅਤੇ ਫ਼ਿਟਿੰਗ, ਅਤੇ ਖੰਭੇ ਦੇ ਅਧਾਰ ਲਈ ਕੰਕਰੀਟ।"],
+      ["UF cable, conduit at semento — 25 ft", "Direct-burial na UF cable, PVC conduit at fittings para sa 25 ft, at semento para sa base ng poste."],
+    ), { cost: 60 }),
+  ], Q.lighting),
+
+  "fq.electrical.outdoor.new_feed_box": A("installation", [
+    L.labour(1, "each", 330, X(
+      ["New feed and weatherproof box", "A circuit with spare capacity found, cable run through the wall to a new weatherproof box, sealed and made ready for the fixture."],
+      ["Nouvelle alimentation et boîte étanche", "Circuit avec réserve trouvé, câble passé dans le mur jusqu'à une nouvelle boîte étanche, scellée et prête pour le luminaire."],
+      ["Nueva alimentación y caja a prueba de intemperie", "Circuito con capacidad localizado, cable pasado por el muro hasta una caja nueva a prueba de intemperie, sellada y lista para la luminaria."],
+      ["Nuova linea e scatola stagna", "Circuito con capacità trovato, cavo passato nel muro fino a una nuova scatola stagna, sigillata e pronta per la lampada."],
+      ["Neue Zuleitung und wetterfeste Dose", "Stromkreis mit Reserve gefunden, Kabel durch die Wand zu einer neuen wetterfesten Dose gezogen, abgedichtet und für die Leuchte vorbereitet."],
+      ["Нова лінія й вологозахищена коробка", "Знайдено лінію із запасом, кабель проведено крізь стіну до нової вологозахищеної коробки, загерметизовано й підготовлено під світильник."],
+      ["ਨਵੀਂ ਤਾਰ ਅਤੇ ਮੀਂਹ-ਰੋਧਕ ਬਾਕਸ", "ਵਾਧੂ ਸਮਰੱਥਾ ਵਾਲਾ ਸਰਕਟ ਲੱਭਿਆ, ਕੰਧ ਵਿੱਚੋਂ ਨਵੇਂ ਮੀਂਹ-ਰੋਧਕ ਬਾਕਸ ਤੱਕ ਕੇਬਲ, ਸੀਲ ਕਰਕੇ ਲਾਈਟ ਲਈ ਤਿਆਰ।"],
+      ["Bagong linya at weatherproof na kahon", "Hinanap ang circuit na may sobrang kapasidad, hinila ang cable sa pader papunta sa bagong weatherproof na kahon, sinelyuhan at inihanda para sa ilaw."],
+    ), EACH),
+    L.material(1, "each", 65, X(
+      ["Weatherproof box, cable and fittings", "Weatherproof box with cover, up to 25 ft of 14/2 cable and connectors."],
+      ["Boîte étanche, câble et raccords", "Boîte étanche avec couvercle, jusqu'à 25 pi de câble 14/2 et connecteurs."],
+      ["Caja a prueba de intemperie, cable y accesorios", "Caja a prueba de intemperie con tapa, hasta 25 pies de cable 14/2 y conectores."],
+      ["Scatola stagna, cavo e raccordi", "Scatola stagna con coperchio, fino a 25 piedi di cavo 14/2 e connettori."],
+      ["Wetterfeste Dose, Kabel und Zubehör", "Wetterfeste Dose mit Deckel, bis zu 25 Fuß Kabel 14/2 und Verbinder."],
+      ["Вологозахищена коробка, кабель і фурнітура", "Вологозахищена коробка з кришкою, до 25 футів кабелю 14/2 та з'єднувачі."],
+      ["ਮੀਂਹ-ਰੋਧਕ ਬਾਕਸ, ਕੇਬਲ ਅਤੇ ਫ਼ਿਟਿੰਗ", "ਢੱਕਣ ਵਾਲਾ ਮੀਂਹ-ਰੋਧਕ ਬਾਕਸ, 25 ਫੁੱਟ ਤੱਕ 14/2 ਕੇਬਲ ਅਤੇ ਕਨੈਕਟਰ।"],
+      ["Weatherproof na box, cable at fittings", "Weatherproof na box na may takip, hanggang 25 ft na 14/2 cable at connector."],
+    ), { cost: 45, measurementKey: "each" }),
+    SHARED.consumables(15),
+  ], Q.lighting),
+
+  // ── Receptacles ──
+  "fq.electrical.receptacles.install_outlets": A("installation", [
+    L.labour(1, "each", 220, X(
+      ["New outlet — cut in and fed", "A box cut into the finished wall, cable fished from a nearby circuit with spare capacity, and the receptacle wired and tested."],
+      ["Nouvelle prise — encastrée et alimentée", "Boîte encastrée dans le mur fini, câble passé depuis un circuit voisin avec réserve, prise câblée et testée."],
+      ["Tomacorriente nuevo — empotrado y alimentado", "Caja empotrada en la pared terminada, cable pasado desde un circuito cercano con capacidad, y el tomacorriente cableado y probado."],
+      ["Nuova presa — incassata e alimentata", "Scatola incassata nel muro finito, cavo infilato da un circuito vicino con capacità, presa cablata e provata."],
+      ["Neue Steckdose — eingesetzt und angeschlossen", "Dose in die fertige Wand gesetzt, Kabel von einem nahen Stromkreis mit Reserve eingezogen, Steckdose angeschlossen und geprüft."],
+      ["Нова розетка — врізана й підживлена", "Коробку врізано в готову стіну, кабель протягнуто від сусідньої лінії із запасом, розетку під'єднано й перевірено."],
+      ["ਨਵਾਂ ਸਾਕਟ — ਕੱਟ ਕੇ ਜੋੜਿਆ", "ਤਿਆਰ ਕੰਧ ਵਿੱਚ ਬਾਕਸ ਲਾਇਆ, ਵਾਧੂ ਸਮਰੱਥਾ ਵਾਲੇ ਨੇੜਲੇ ਸਰਕਟ ਤੋਂ ਕੇਬਲ ਖਿੱਚੀ, ਅਤੇ ਸਾਕਟ ਜੋੜ ਕੇ ਟੈਸਟ ਕੀਤਾ।"],
+      ["Bagong outlet — butas at linya", "Ikinabit ang kahon sa tapos na pader, hinila ang cable mula sa malapit na circuit na may kapasidad, at kinablehan at sinubukan ang outlet."],
+    ), EACH),
+    BOX_AND_CABLE(30, 20),
+    RECEPTACLE(12, 5),
+  ]),
+
+  "fq.electrical.receptacles.whole_house_outlets": A("installation", [
+    SHARED.serviceCall(89),
+    L.labour(1, "each", 45, X(
+      ["Receptacle replacement — per receptacle, whole house", "Each device swapped on its screws, the box and wiring checked, and polarity and ground tested with a plug-in tester."],
+      ["Remplacement de prise — l'unité, toute la maison", "Chaque dispositif remplacé sur ses vis, boîte et câblage vérifiés, polarité et mise à la terre testées."],
+      ["Reemplazo de tomacorriente — por unidad, toda la casa", "Cada dispositivo cambiado en sus tornillos, caja y cableado revisados, y polaridad y tierra probadas con probador."],
+      ["Sostituzione presa — cadauna, tutta la casa", "Ogni dispositivo sostituito sulle viti, scatola e cablaggio controllati, polarità e terra provate con tester."],
+      ["Steckdosentausch — pro Stück, ganzes Haus", "Jedes Gerät an den Schrauben getauscht, Dose und Leitung geprüft, Polarität und Erdung mit Prüfstecker getestet."],
+      ["Заміна розетки — за штуку, увесь будинок", "Кожну розетку замінено під гвинти, коробку й проводку перевірено, полярність і заземлення перевірено тестером."],
+      ["ਸਾਕਟ ਬਦਲਣਾ — ਪ੍ਰਤੀ ਸਾਕਟ, ਪੂਰਾ ਘਰ", "ਹਰ ਸਾਕਟ ਪੇਚਾਂ 'ਤੇ ਬਦਲਿਆ, ਬਾਕਸ ਅਤੇ ਤਾਰਾਂ ਜਾਂਚੀਆਂ, ਅਤੇ ਟੈਸਟਰ ਨਾਲ ਪੋਲੈਰਿਟੀ ਅਤੇ ਅਰਥ ਟੈਸਟ।"],
+      ["Palit ng outlet — kada isa, buong bahay", "Pinalitan ang bawat device sa turnilyo, chineck ang kahon at wiring, at sinubukan ang polarity at ground gamit ang tester."],
+    ), { measurementKey: "receptaclesPractical" }),
+    RECEPTACLE(9, 4, { measurementKey: "receptaclesPractical" }),
+  ]),
+
+  "fq.electrical.receptacles.whole_house_old_work_boxes": A("repair", [
+    L.labour(1, "each", 35, X(
+      ["Old-work box replacement — per box", "Device out, the cracked or undersized box cut free, a new old-work box clamped in and the device refitted flush."],
+      ["Remplacement de boîte de rénovation — l'unité", "Dispositif retiré, boîte fissurée ou trop petite dégagée, nouvelle boîte de rénovation fixée et dispositif reposé à fleur."],
+      ["Reemplazo de caja de remodelación — por unidad", "Dispositivo fuera, caja agrietada o chica retirada, caja de remodelación nueva fijada y el dispositivo reinstalado a ras."],
+      ["Sostituzione scatola — cadauna", "Dispositivo tolto, scatola crepata o piccola liberata, nuova scatola da ristrutturazione fissata e dispositivo rimontato a filo."],
+      ["Hohlwanddose tauschen — pro Stück", "Gerät raus, gerissene oder zu kleine Dose herausgelöst, neue Hohlwanddose verklemmt und das Gerät bündig wieder eingesetzt."],
+      ["Заміна монтажної коробки — за штуку", "Пристрій знято, тріснуту чи замалу коробку вийнято, нову закріплено, пристрій встановлено врівень."],
+      ["ਓਲਡ-ਵਰਕ ਬਾਕਸ ਬਦਲਣਾ — ਪ੍ਰਤੀ ਬਾਕਸ", "ਡਿਵਾਈਸ ਕੱਢੀ, ਟੁੱਟਿਆ ਜਾਂ ਛੋਟਾ ਬਾਕਸ ਕੱਢਿਆ, ਨਵਾਂ ਬਾਕਸ ਕੱਸਿਆ ਅਤੇ ਡਿਵਾਈਸ ਬਰਾਬਰ ਲਾਈ।"],
+      ["Palit ng old-work box — kada isa", "Tinanggal ang device, inalis ang basag o maliit na kahon, ikinabit ang bagong old-work box at ibinalik nang pantay ang device."],
+    ), { measurementKey: "openings" }),
+    L.material(1, "each", 4, X(
+      ["Old-work box", "Single-gang remodel box with swing clamps."],
+      ["Boîte de rénovation", "Boîte de rénovation simple avec pattes de fixation."],
+      ["Caja de remodelación", "Caja sencilla de remodelación con orejas de sujeción."],
+      ["Scatola da ristrutturazione", "Scatola singola da ristrutturazione con alette di fissaggio."],
+      ["Hohlwanddose", "Einfach-Hohlwanddose mit Spreizkrallen."],
+      ["Монтажна коробка для ремонту", "Одномісна коробка з поворотними лапками."],
+      ["ਓਲਡ-ਵਰਕ ਬਾਕਸ", "ਘੁੰਮਣ ਵਾਲੇ ਕਲੈਂਪਾਂ ਵਾਲਾ ਸਿੰਗਲ-ਗੈਂਗ ਬਾਕਸ।"],
+      ["Old-work box", "Single-gang na remodel box na may swing clamp."],
+    ), { cost: 1.5, measurementKey: "openings" }),
+    SHARED.consumables(15),
+  ]),
+
+  "fq.electrical.receptacles.replace_15_20a": A("repair", [RECEPTACLE_LABOUR(150), RECEPTACLE(12, 5)]),
+
+  "fq.electrical.receptacles.two_wire_to_three_wire": A("repair", [
+    L.labour(1, "each", 185, X(
+      ["Three-prong upgrade — per receptacle", "The circuit checked for a usable ground; a ground conductor brought to the box where one can be, and the three-prong receptacle fitted and tested."],
+      ["Mise à niveau à trois fiches — l'unité", "Circuit vérifié pour une mise à la terre utilisable; conducteur de terre amené à la boîte quand c'est possible, prise à trois fiches posée et testée."],
+      ["Cambio a tres ranuras — por unidad", "Circuito revisado por una tierra utilizable; conductor de tierra llevado a la caja donde se pueda, y el tomacorriente de tres ranuras colocado y probado."],
+      ["Adeguamento a presa con terra — cadauna", "Circuito controllato per una terra utilizzabile; conduttore di terra portato alla scatola dove possibile, presa a tre poli montata e provata."],
+      ["Umrüstung auf Schutzkontakt — pro Stück", "Stromkreis auf nutzbare Erdung geprüft; Schutzleiter zur Dose geführt, wo möglich, dreipolige Steckdose gesetzt und geprüft."],
+      ["Заміна на розетку з заземленням — за штуку", "Лінію перевірено на придатне заземлення; провід заземлення підведено до коробки, де можливо, триполюсну розетку встановлено й перевірено."],
+      ["ਤਿੰਨ-ਪਿੰਨ ਅੱਪਗ੍ਰੇਡ — ਪ੍ਰਤੀ ਸਾਕਟ", "ਸਰਕਟ ਵਿੱਚ ਵਰਤਣਯੋਗ ਅਰਥ ਜਾਂਚਿਆ; ਜਿੱਥੇ ਹੋ ਸਕੇ ਅਰਥ ਤਾਰ ਬਾਕਸ ਤੱਕ ਲਿਆਂਦੀ, ਅਤੇ ਤਿੰਨ-ਪਿੰਨ ਸਾਕਟ ਲਾ ਕੇ ਟੈਸਟ ਕੀਤਾ।"],
+      ["Upgrade sa three-prong — kada outlet", "Chineck kung may magagamit na ground ang circuit; dinala ang ground wire sa kahon kung kaya, at ikinabit at sinubukan ang three-prong na outlet."],
+    ), EACH),
+    RECEPTACLE(12, 5),
+    L.material(1, "each", 10, X(
+      ["Ground wire and pigtail", "Bare or green ground conductor, pigtail and ground screw for one box."],
+      ["Fil de terre et raccord", "Conducteur de terre nu ou vert, raccord et vis de mise à la terre pour une boîte."],
+      ["Cable de tierra y puente", "Conductor de tierra desnudo o verde, puente y tornillo de tierra para una caja."],
+      ["Filo di terra e cavallotto", "Conduttore di terra nudo o verde, cavallotto e vite di terra per una scatola."],
+      ["Schutzleiter und Brücke", "Blanker oder grüner Schutzleiter, Brücke und Erdungsschraube für eine Dose."],
+      ["Провід заземлення й перемичка", "Голий або зелений провід заземлення, перемичка й гвинт заземлення на одну коробку."],
+      ["ਅਰਥ ਤਾਰ ਅਤੇ ਪਿਗਟੇਲ", "ਇੱਕ ਬਾਕਸ ਲਈ ਨੰਗੀ ਜਾਂ ਹਰੀ ਅਰਥ ਤਾਰ, ਪਿਗਟੇਲ ਅਤੇ ਅਰਥ ਪੇਚ।"],
+      ["Ground wire at pigtail", "Hubad o berdeng ground wire, pigtail at ground screw para sa isang kahon."],
+    ), { cost: 5, measurementKey: "each" }),
+  ]),
+
+  "fq.electrical.receptacles.reverse_polarity": A("repair", [
+    L.labour(1, "flat", 45, X(
+      ["Polarity test of the circuit", "Every outlet on the circuit tested with a plug-in tester, so each reversed one is found in one pass."],
+      ["Test de polarité du circuit", "Chaque prise du circuit testée au vérificateur, pour trouver toutes les prises inversées d'un coup."],
+      ["Prueba de polaridad del circuito", "Cada tomacorriente del circuito probado con probador, para encontrar de una vez todos los invertidos."],
+      ["Test di polarità del circuito", "Ogni presa del circuito provata con tester, così ogni presa invertita si trova in un solo giro."],
+      ["Polaritätsprüfung des Stromkreises", "Jede Steckdose des Stromkreises mit Prüfstecker getestet, damit jede vertauschte in einem Durchgang gefunden wird."],
+      ["Перевірка полярності лінії", "Кожну розетку на лінії перевірено тестером, щоб знайти всі переплутані за один раз."],
+      ["ਸਰਕਟ ਦੀ ਪੋਲੈਰਿਟੀ ਟੈਸਟ", "ਸਰਕਟ ਦਾ ਹਰ ਸਾਕਟ ਟੈਸਟਰ ਨਾਲ ਜਾਂਚਿਆ ਤਾਂ ਜੋ ਹਰ ਉਲਟਾ ਸਾਕਟ ਇੱਕੋ ਵਾਰ ਵਿੱਚ ਲੱਭੇ।"],
+      ["Polarity test ng circuit", "Sinubukan gamit ang tester ang bawat outlet sa circuit para makita agad ang lahat ng baliktad."],
+    )),
+    L.labour(1, "each", 125, X(
+      ["Polarity correction — per receptacle", "Hot and neutral found and landed on the right terminals, at the outlet or upstream where the swap was made."],
+      ["Correction de polarité — l'unité", "Phase et neutre repérés et raccordés aux bonnes bornes, à la prise ou en amont là où l'inversion a été faite."],
+      ["Corrección de polaridad — por unidad", "Fase y neutro identificados y conectados en los bornes correctos, en el tomacorriente o antes, donde se hizo el cambio."],
+      ["Correzione polarità — cadauna", "Fase e neutro individuati e collegati ai morsetti giusti, alla presa o a monte dove è avvenuto lo scambio."],
+      ["Polarität korrigieren — pro Stück", "Außen- und Neutralleiter gefunden und richtig angeklemmt, an der Steckdose oder vorgelagert, wo vertauscht wurde."],
+      ["Виправлення полярності — за штуку", "Фазу й нуль знайдено й під'єднано до правильних клем, на розетці або вище, де їх переплутали."],
+      ["ਪੋਲੈਰਿਟੀ ਠੀਕ ਕਰਨਾ — ਪ੍ਰਤੀ ਸਾਕਟ", "ਹੌਟ ਅਤੇ ਨਿਊਟ੍ਰਲ ਲੱਭ ਕੇ ਸਹੀ ਟਰਮੀਨਲਾਂ 'ਤੇ ਜੋੜੇ, ਸਾਕਟ 'ਤੇ ਜਾਂ ਪਿੱਛੇ ਜਿੱਥੇ ਉਲਟੇ ਸਨ।"],
+      ["Pag-ayos ng polarity — kada outlet", "Hinanap at ikinabit sa tamang terminal ang hot at neutral, sa outlet o bago nito kung saan nagkapalit."],
+    ), EACH),
+    RECEPTACLE(12, 5, { optional: true }),
+  ]),
+
+  "fq.electrical.receptacles.gfci_outdoor_cover": A("repair", [
+    RECEPTACLE_LABOUR(150),
+    hdMaterial(HD.gfci_15a, X(
+      ["Weather-resistant GFCI receptacle — 15 A", "Self-test, weather-resistant GFCI rated for outdoor use."],
+      ["Prise DDFT résistante aux intempéries — 15 A", "DDFT autotest résistant aux intempéries, homologué pour l'extérieur."],
+      ["Tomacorriente GFCI resistente a la intemperie — 15 A", "GFCI autoprueba resistente a la intemperie, apto para exterior."],
+      ["Presa GFCI per esterni — 15 A", "GFCI autotest resistente alle intemperie, adatto all'esterno."],
+      ["Wetterfeste FI-Steckdose — 15 A", "Wetterfeste FI-Steckdose mit Selbsttest für den Außenbereich."],
+      ["Вологостійка розетка GFCI — 15 А", "Розетка GFCI з самотестом, стійка до негоди, для зовнішнього використання."],
+      ["ਮੌਸਮ-ਰੋਧਕ GFCI ਸਾਕਟ — 15 A", "ਬਾਹਰ ਵਰਤਣ ਲਈ ਮੌਸਮ-ਰੋਧਕ ਸੈਲਫ਼-ਟੈਸਟ GFCI।"],
+      ["Weather-resistant na GFCI outlet — 15 A", "Self-test at weather-resistant na GFCI para sa labas."],
+    ), { price: 35, measurementKey: "each" }),
+    L.material(1, "each", 25, X(
+      ["In-use weatherproof cover", "Extra-duty bubble cover that stays weatherproof with a cord plugged in."],
+      ["Couvercle étanche utilisable branché", "Couvercle robuste en bulle qui reste étanche avec un cordon branché."],
+      ["Tapa a prueba de intemperie en uso", "Tapa tipo burbuja de uso rudo que sigue sellada con un cable conectado."],
+      ["Coperchio stagno in uso", "Coperchio a bolla rinforzato che resta stagno con una spina inserita."],
+      ["Wetterschutzdeckel für den Betrieb", "Robuster Klappdeckel, der auch mit eingestecktem Kabel dicht bleibt."],
+      ["Вологозахисна кришка для роботи", "Посилена кришка-ковпак, що лишається герметичною з увімкненим шнуром."],
+      ["ਵਰਤੋਂ ਦੌਰਾਨ ਮੀਂਹ-ਰੋਧਕ ਢੱਕਣ", "ਮਜ਼ਬੂਤ ਬੱਬਲ ਢੱਕਣ ਜੋ ਪਲੱਗ ਲੱਗੇ ਹੋਏ ਵੀ ਪਾਣੀ ਅੰਦਰ ਨਹੀਂ ਜਾਣ ਦਿੰਦਾ।"],
+      ["In-use na weatherproof cover", "Extra-duty na bubble cover na selyado pa rin kahit may nakasaksak."],
+    ), { cost: 15, measurementKey: "each" }),
+  ]),
+
+  // ── Recessed lighting ──
+  "fq.electrical.recessed.six_inch_access_above": A("installation", [CANLESS_LABOUR(125), CANLESS(35, 15, 6), RECESSED_CABLE()], Q.lighting),
+  "fq.electrical.recessed.four_inch_no_access": A("installation", [CANLESS_LABOUR(175), CANLESS(30, 14, 4), RECESSED_CABLE()], Q.lighting),
+  "fq.electrical.recessed.five_inch_no_access": A("installation", [CANLESS_LABOUR(175), CANLESS(32, 15, 5), RECESSED_CABLE()], Q.lighting),
+  "fq.electrical.recessed.six_inch_no_access": A("installation", [CANLESS_LABOUR(175), CANLESS(35, 15, 6), RECESSED_CABLE()], Q.lighting),
+  "fq.electrical.recessed.wall_washer_no_access": A("installation", [
+    CANLESS_LABOUR(200),
+    L.material(1, "each", 180, X(
+      ["Recessed wall-washer fixture", "Remodel housing with an adjustable wall-wash LED trim, dimmable."],
+      ["Encastré lèche-mur", "Boîtier de rénovation avec garniture DEL lèche-mur orientable, gradable."],
+      ["Luminaria empotrada bañadora de pared", "Carcasa de remodelación con moldura LED bañadora orientable, regulable."],
+      ["Faretto incasso radente", "Corpo da ristrutturazione con cornice LED radente orientabile, dimmerabile."],
+      ["Wandfluter-Einbauleuchte", "Nachrüstgehäuse mit schwenkbarem LED-Wandfluter-Einsatz, dimmbar."],
+      ["Вбудований світильник-заливач стін", "Корпус для ремонту з поворотною LED-рамкою для підсвічування стіни, з регулюванням."],
+      ["ਰੀਸੈੱਸਡ ਵਾਲ-ਵਾਸ਼ਰ ਲਾਈਟ", "ਘੁੰਮਣ ਵਾਲੀ LED ਵਾਲ-ਵਾਸ਼ ਟ੍ਰਿਮ ਵਾਲਾ ਰੀਮਾਡਲ ਹਾਊਸਿੰਗ, ਡਿਮ ਹੋਣ ਵਾਲਾ।"],
+      ["Recessed wall-washer fixture", "Remodel housing na may adjustable na LED wall-wash trim, dimmable."],
+    ), { cost: 130, measurementKey: "each" }),
+    RECESSED_CABLE(),
+  ], Q.lighting),
+
+  // ── Detectors ──
+  "fq.electrical.detectors.co_hardwired": A("installation", [
+    DETECTOR_LABOUR(225),
+    L.material(1, "each", 55, X(
+      ["Hard-wired CO alarm with battery backup", "120 V interconnectable carbon monoxide alarm with battery backup."],
+      ["Avertisseur de CO câblé avec pile de secours", "Avertisseur de monoxyde de carbone 120 V interconnectable avec pile de secours."],
+      ["Alarma de CO cableada con batería de respaldo", "Alarma de monóxido de carbono de 120 V interconectable con batería de respaldo."],
+      ["Rilevatore CO cablato con batteria di riserva", "Rilevatore di monossido di carbonio 120 V interconnettibile con batteria di riserva."],
+      ["Verkabelter CO-Melder mit Batterie-Backup", "Vernetzbarer 120-V-Kohlenmonoxidmelder mit Batterie-Backup."],
+      ["Дротовий датчик CO з резервною батареєю", "Датчик чадного газу 120 В з можливістю з'єднання та резервною батареєю."],
+      ["ਬੈਟਰੀ ਬੈਕਅੱਪ ਵਾਲਾ ਹਾਰਡ-ਵਾਇਰਡ CO ਅਲਾਰਮ", "ਬੈਟਰੀ ਬੈਕਅੱਪ ਵਾਲਾ 120 V ਆਪਸ ਵਿੱਚ ਜੁੜਨ ਵਾਲਾ ਕਾਰਬਨ ਮੋਨੋਆਕਸਾਈਡ ਅਲਾਰਮ।"],
+      ["Hard-wired na CO alarm na may backup battery", "120 V na carbon monoxide alarm na pwedeng i-interconnect, may backup battery."],
+    ), { cost: 38, measurementKey: "each" }),
+    BOX_AND_CABLE(25, 15),
+  ], Q.security),
+
+  "fq.electrical.detectors.smoke_hardwired_new": A("installation", [
+    DETECTOR_LABOUR(225),
+    hdMaterial(HD.smoke_detector_hw, X(
+      ["Hard-wired smoke alarm with battery backup", "Interconnect-capable 120 V smoke alarm with a sealed backup battery."],
+      ["Avertisseur de fumée câblé avec pile de secours", "Avertisseur de fumée 120 V interconnectable avec pile de secours scellée."],
+      ["Alarma de humo cableada con batería de respaldo", "Alarma de humo de 120 V interconectable con batería de respaldo sellada."],
+      ["Rilevatore di fumo cablato con batteria di riserva", "Rilevatore di fumo 120 V interconnettibile con batteria sigillata."],
+      ["Verkabelter Rauchmelder mit Batterie-Backup", "Vernetzbarer 120-V-Rauchmelder mit versiegelter Pufferbatterie."],
+      ["Дротовий димовий датчик з резервною батареєю", "Димовий датчик 120 В з можливістю з'єднання та герметичною резервною батареєю."],
+      ["ਬੈਟਰੀ ਬੈਕਅੱਪ ਵਾਲਾ ਹਾਰਡ-ਵਾਇਰਡ ਧੂੰਆਂ ਅਲਾਰਮ", "ਸੀਲਬੰਦ ਬੈਕਅੱਪ ਬੈਟਰੀ ਵਾਲਾ 120 V ਆਪਸ ਵਿੱਚ ਜੁੜਨ ਵਾਲਾ ਧੂੰਆਂ ਅਲਾਰਮ।"],
+      ["Hard-wired na smoke alarm na may backup battery", "120 V na smoke alarm na pwedeng i-interconnect, may sealed na backup battery."],
+    ), { price: 45, measurementKey: "each" }),
+    BOX_AND_CABLE(25, 15),
+  ], Q.security),
+
+  // ── Generator ──
+  "fq.electrical.specialty.generator": A("installation", [
+    L.labour(1, "flat", 650, X(
+      ["Inlet and interlock installation", "Power inlet mounted outside, cable run to the panel, the interlock fitted and the back-fed breaker landed and labelled."],
+      ["Pose de la prise d'entrée et du verrouillage", "Prise d'entrée posée à l'extérieur, câble tiré au panneau, verrouillage installé et disjoncteur d'alimentation posé et identifié."],
+      ["Instalación de entrada y enclavamiento", "Entrada de energía montada afuera, cable tendido al tablero, enclavamiento colocado y el interruptor de alimentación instalado y rotulado."],
+      ["Posa di presa d'ingresso e interblocco", "Presa d'ingresso montata all'esterno, cavo steso al quadro, interblocco montato e interruttore di alimentazione inserito ed etichettato."],
+      ["Einspeisedose und Verriegelung montieren", "Einspeisedose außen montiert, Kabel zum Verteiler gezogen, Verriegelung eingebaut und der Einspeiseautomat gesetzt und beschriftet."],
+      ["Монтаж вводу й блокування", "Вхідну розетку встановлено ззовні, кабель прокладено до щита, блокування встановлено, автомат живлення під'єднано й підписано."],
+      ["ਇਨਲੈੱਟ ਅਤੇ ਇੰਟਰਲਾਕ ਲਾਉਣਾ", "ਬਾਹਰ ਪਾਵਰ ਇਨਲੈੱਟ ਲਾਇਆ, ਪੈਨਲ ਤੱਕ ਕੇਬਲ, ਇੰਟਰਲਾਕ ਲਾਇਆ ਅਤੇ ਜਨਰੇਟਰ ਬ੍ਰੇਕਰ ਲਾ ਕੇ ਲੇਬਲ ਕੀਤਾ।"],
+      ["Pagkabit ng inlet at interlock", "Ikinabit sa labas ang power inlet, hinila ang cable sa panel, ikinabit ang interlock at ang back-fed breaker at nilagyan ng label."],
+    )),
+    L.material(1, "each", 120, X(
+      ["Generator power inlet box — 30 A", "Weatherproof 30 A, 240 V inlet box for the generator cord."],
+      ["Boîte d'entrée pour génératrice — 30 A", "Boîte d'entrée étanche 30 A, 240 V pour le cordon de la génératrice."],
+      ["Caja de entrada para generador — 30 A", "Caja de entrada de 30 A, 240 V a prueba de intemperie para el cable del generador."],
+      ["Presa d'ingresso generatore — 30 A", "Presa d'ingresso stagna da 30 A, 240 V per il cavo del generatore."],
+      ["Generator-Einspeisedose — 30 A", "Wetterfeste 30-A-/240-V-Einspeisedose für das Generatorkabel."],
+      ["Вхідна коробка генератора — 30 А", "Вологозахищена вхідна коробка 30 А, 240 В для шнура генератора."],
+      ["ਜਨਰੇਟਰ ਇਨਲੈੱਟ ਬਾਕਸ — 30 A", "ਜਨਰੇਟਰ ਦੀ ਤਾਰ ਲਈ ਮੀਂਹ-ਰੋਧਕ 30 A, 240 V ਇਨਲੈੱਟ ਬਾਕਸ।"],
+      ["Generator inlet box — 30 A", "Weatherproof na 30 A, 240 V na inlet box para sa cord ng generator."],
+    ), { cost: 85 }),
+    L.material(1, "each", 95, X(
+      ["Panel interlock kit", "Interlock plate listed for the panel, so the main and the generator breaker can never be on together."],
+      ["Ensemble de verrouillage du panneau", "Plaque de verrouillage homologuée pour le panneau, pour que le principal et le disjoncteur de génératrice ne soient jamais fermés ensemble."],
+      ["Kit de enclavamiento del tablero", "Placa de enclavamiento certificada para el tablero, para que el principal y el del generador nunca estén encendidos a la vez."],
+      ["Kit interblocco del quadro", "Piastra di interblocco omologata per il quadro, così generale e interruttore del generatore non sono mai chiusi insieme."],
+      ["Verriegelungssatz für den Verteiler", "Für den Verteiler zugelassene Verriegelung, damit Hauptschalter und Generatorautomat nie gleichzeitig eingeschaltet sind."],
+      ["Комплект блокування щита", "Сертифікована для щита пластина блокування: головний автомат і автомат генератора ніколи не ввімкнуться разом."],
+      ["ਪੈਨਲ ਇੰਟਰਲਾਕ ਕਿੱਟ", "ਪੈਨਲ ਲਈ ਮਨਜ਼ੂਰ ਇੰਟਰਲਾਕ ਪਲੇਟ ਤਾਂ ਜੋ ਮੇਨ ਅਤੇ ਜਨਰੇਟਰ ਬ੍ਰੇਕਰ ਕਦੇ ਇਕੱਠੇ ਚਾਲੂ ਨਾ ਹੋਣ।"],
+      ["Panel interlock kit", "Listed na interlock plate para sa panel para hindi kailanman sabay na naka-on ang main at ang breaker ng generator."],
+    ), { cost: 60 }),
+    L.material(1, "flat", 60, X(
+      ["Generator breaker and cable", "Two-pole back-feed breaker and 10/3 cable from the inlet to the panel."],
+      ["Disjoncteur et câble de génératrice", "Disjoncteur bipolaire d'alimentation et câble 10/3 de la prise d'entrée au panneau."],
+      ["Interruptor y cable del generador", "Interruptor bipolar de alimentación y cable 10/3 desde la entrada al tablero."],
+      ["Interruttore e cavo del generatore", "Interruttore bipolare di alimentazione e cavo 10/3 dalla presa d'ingresso al quadro."],
+      ["Generatorautomat und Kabel", "Zweipoliger Einspeiseautomat und Kabel 10/3 von der Einspeisedose zum Verteiler."],
+      ["Автомат і кабель генератора", "Двополюсний автомат живлення й кабель 10/3 від вводу до щита."],
+      ["ਜਨਰੇਟਰ ਬ੍ਰੇਕਰ ਅਤੇ ਕੇਬਲ", "ਦੋ-ਪੋਲ ਬ੍ਰੇਕਰ ਅਤੇ ਇਨਲੈੱਟ ਤੋਂ ਪੈਨਲ ਤੱਕ 10/3 ਕੇਬਲ।"],
+      ["Breaker at cable ng generator", "Two-pole na back-feed breaker at 10/3 na cable mula inlet hanggang panel."],
+    ), { cost: 40 }),
+    SHARED.permit(150),
+  ]),
+
+  // ── Switches ──
+  "fq.electrical.switches.four_way": A("repair", [
+    SWITCH_LABOUR(125),
+    L.material(1, "each", 25, X(
+      ["4-way switch", "15 A four-way switch with plate."],
+      ["Interrupteur à 4 voies", "Interrupteur à quatre voies 15 A avec plaque."],
+      ["Interruptor de 4 vías", "Interruptor de cuatro vías de 15 A con placa."],
+      ["Invertitore", "Invertitore da 15 A con placca."],
+      ["Kreuzschalter", "15-A-Kreuzschalter mit Abdeckung."],
+      ["Перехресний вимикач", "Перехресний вимикач 15 А з рамкою."],
+      ["4-ਵੇਅ ਸਵਿੱਚ", "ਪਲੇਟ ਸਮੇਤ 15 A ਚਾਰ-ਵੇਅ ਸਵਿੱਚ।"],
+      ["4-way switch", "15 A na 4-way switch na may plate."],
+    ), { cost: 12, measurementKey: "each" }),
+  ]),
+
+  "fq.electrical.switches.three_way": A("repair", [
+    SWITCH_LABOUR(115),
+    L.material(1, "each", 15, X(
+      ["3-way switch", "15 A three-way switch with plate."],
+      ["Interrupteur à 3 voies", "Interrupteur à trois voies 15 A avec plaque."],
+      ["Interruptor de 3 vías", "Interruptor de tres vías de 15 A con placa."],
+      ["Deviatore", "Deviatore da 15 A con placca."],
+      ["Wechselschalter", "15-A-Wechselschalter mit Abdeckung."],
+      ["Прохідний вимикач", "Прохідний вимикач 15 А з рамкою."],
+      ["3-ਵੇਅ ਸਵਿੱਚ", "ਪਲੇਟ ਸਮੇਤ 15 A ਤਿੰਨ-ਵੇਅ ਸਵਿੱਚ।"],
+      ["3-way switch", "15 A na 3-way switch na may plate."],
+    ), { cost: 6, measurementKey: "each" }),
+  ]),
+
+  "fq.electrical.switches.double_pole": A("repair", [
+    SWITCH_LABOUR(125),
+    L.material(1, "each", 35, X(
+      ["Double-pole switch — 30 A", "30 A, 240 V double-pole switch rated for a heater or water-heater load."],
+      ["Interrupteur bipolaire — 30 A", "Interrupteur bipolaire 30 A, 240 V pour une charge de chauffage ou de chauffe-eau."],
+      ["Interruptor bipolar — 30 A", "Interruptor bipolar de 30 A, 240 V para carga de calefactor o calentador de agua."],
+      ["Interruttore bipolare — 30 A", "Interruttore bipolare da 30 A, 240 V per carico di stufa o scaldabagno."],
+      ["Zweipoliger Schalter — 30 A", "Zweipoliger 30-A-/240-V-Schalter für Heiz- oder Warmwasserlast."],
+      ["Двополюсний вимикач — 30 А", "Двополюсний вимикач 30 А, 240 В для обігрівача чи бойлера."],
+      ["ਡਬਲ-ਪੋਲ ਸਵਿੱਚ — 30 A", "ਹੀਟਰ ਜਾਂ ਵਾਟਰ ਹੀਟਰ ਲੋਡ ਲਈ 30 A, 240 V ਡਬਲ-ਪੋਲ ਸਵਿੱਚ।"],
+      ["Double-pole switch — 30 A", "30 A, 240 V na double-pole switch para sa heater o water heater."],
+    ), { cost: 20, measurementKey: "each" }),
+  ]),
+
+  "fq.electrical.switches.single_pole": A("repair", [
+    SWITCH_LABOUR(95),
+    L.material(1, "each", 8, X(
+      ["Single-pole switch and plate", "15 A single-pole rocker or toggle switch with plate."],
+      ["Interrupteur unipolaire et plaque", "Interrupteur unipolaire 15 A à bascule ou à levier avec plaque."],
+      ["Interruptor unipolar y placa", "Interruptor unipolar de 15 A tipo balancín o palanca con placa."],
+      ["Interruttore unipolare e placca", "Interruttore unipolare da 15 A a bilanciere o a levetta con placca."],
+      ["Ausschalter mit Abdeckung", "15-A-Aus-Wippschalter oder Kippschalter mit Abdeckung."],
+      ["Однополюсний вимикач і рамка", "Однополюсний клавішний вимикач 15 А з рамкою."],
+      ["ਸਿੰਗਲ-ਪੋਲ ਸਵਿੱਚ ਅਤੇ ਪਲੇਟ", "ਪਲੇਟ ਸਮੇਤ 15 A ਸਿੰਗਲ-ਪੋਲ ਰੌਕਰ ਜਾਂ ਟੌਗਲ ਸਵਿੱਚ।"],
+      ["Single-pole switch at plate", "15 A na single-pole rocker o toggle switch na may plate."],
+    ), { cost: 3, measurementKey: "each" }),
+  ]),
+
+  "fq.electrical.switches.digital_timer": A("installation", [
+    SWITCH_LABOUR(110),
+    L.material(1, "each", 55, X(
+      ["24-hour digital timer switch", "Programmable in-wall timer, single pole, with astronomic and random settings, neutral required."],
+      ["Minuterie numérique 24 h", "Minuterie murale programmable unipolaire, réglages astronomique et aléatoire, neutre requis."],
+      ["Temporizador digital de 24 h", "Temporizador de pared programable unipolar, con modo astronómico y aleatorio, requiere neutro."],
+      ["Timer digitale 24 ore", "Timer da incasso programmabile unipolare, con programma astronomico e casuale, richiede il neutro."],
+      ["Digitale 24-h-Zeitschaltuhr", "Programmierbare Unterputz-Zeitschaltuhr, einpolig, mit Astro- und Zufallsfunktion, Neutralleiter nötig."],
+      ["Цифровий таймер на 24 год", "Програмований вбудований таймер, однополюсний, з астрономічним і випадковим режимами, потрібен нуль."],
+      ["24-ਘੰਟੇ ਡਿਜੀਟਲ ਟਾਈਮਰ ਸਵਿੱਚ", "ਕੰਧ ਵਿੱਚ ਲੱਗਣ ਵਾਲਾ ਪ੍ਰੋਗਰਾਮੇਬਲ ਸਿੰਗਲ-ਪੋਲ ਟਾਈਮਰ, ਐਸਟ੍ਰੋਨੋਮਿਕ ਅਤੇ ਰੈਂਡਮ ਸੈਟਿੰਗ, ਨਿਊਟ੍ਰਲ ਲੋੜੀਂਦਾ।"],
+      ["24-hour digital timer switch", "Programmable na in-wall timer, single pole, may astronomic at random na setting, kailangan ng neutral."],
+    ), { cost: 35, measurementKey: "each" }),
+  ], Q.smartOnly),
+};
+
+for (const key of Object.keys(ADDED)) {
+  if (SEED.services.find((s) => s.seedKey === key)?.templateLines) throw new Error(`electrical: ${key} already has a template — this pass only adds`);
+}
+withTemplates(SEED, Object.fromEntries(Object.entries(ADDED).map(([key, a]) => {
+  const s = I18N.services[key];
+  return [key, T(a.kind, { it: s.it, de: s.de, uk: s.uk, pa: s.pa, tl: s.tl }, a.lines, null, a.opts.categories ? { categories: a.opts.categories } : {})];
+})));

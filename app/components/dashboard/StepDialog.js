@@ -54,8 +54,11 @@ import { useTranslation } from "@/app/hooks/useTranslation";
  * @param {() => void} props.onClose
  * @param {import("react").ReactNode} [props.footer] — a Done button for a
  *   list panel; a form panel closes itself on save and passes nothing
+ * @param {import("react").RefObject} [props.initialFocusRef] — focused on
+ *   open instead of the close button (the quote's Add service dialog puts
+ *   the reader in its search box); absent = AlertDialog's first control
  */
-export default function StepDialog({ open, id, title, intro, href, onClose, footer, children }) {
+export default function StepDialog({ open, id, title, intro, href, onClose, footer, initialFocusRef, children }) {
   const { t } = useTranslation();
   const titleId = `${id}-title`;
   const introId = intro ? `${id}-intro` : undefined;
@@ -66,6 +69,7 @@ export default function StepDialog({ open, id, title, intro, href, onClose, foot
       role="dialog"
       labelledBy={titleId}
       describedBy={introId}
+      initialFocusRef={initialFocusRef}
       onEscape={onClose}
       onScrim={onClose}
       scrimLabel={t("app.action.close")}

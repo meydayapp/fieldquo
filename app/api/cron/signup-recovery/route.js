@@ -58,6 +58,7 @@ import { checkSuppression } from "@/lib/sales/suppression";
 import { mailingAddress } from "@/lib/legal/mailingAddress";
 import {
   cardFreeTrialWhere,
+  completedSignupWhere,
   hasFinishedSignup,
   incompleteSignupWhere,
   isReservedTestAddress,
@@ -72,8 +73,9 @@ import {
   earlyNudgePersonFromCompany,
   earlyNudgePersonFromLead,
   planEarlyNudges,
+  visitorCompanyKey,
 } from "@/lib/signup/earlyNudge";
-import { emailKeyOf } from "@/lib/signup/leads";
+import { FINISHED_SAME_VISITOR, emailKeyOf, signupLeadFinished } from "@/lib/signup/leads";
 
 /**
  * A claim on the early touch that never turned into a letter is retried
@@ -108,6 +110,55 @@ async function logTouch({ emailKey, email, touch, person = {}, sentAt, providerI
     .catch((err) => console.error("[signup-recovery] log failed:", err?.message || err));
 }
 
+/**
+ * The addresses (emailKeys) among `emails` that already own a FINISHED signup:
+ * a non-demo company on that address, or a company whose active member signs
+ * in with it, that has a Subscription row or the card-free trial
+ * (completedSignupWhere — hasFinishedSignup's query twin).
+ *
+ * Asked separately because the early touch's company query only ever holds
+ * UNFINISHED companies and card-free trials. A paying company is in neither,
+ * so it could never close its own address — and on 2026-09-25 the owner's
+ * address, whose login had a paying company since 09-13, was mailed "your free
+ * month is waiting" off the row he left when the account step refused to make
+ * that address a second login.
+ */
+async function finishedAddressKeys(emails) {
+  const list = [...new Set(emails.filter(Boolean).map((e) => String(e).trim()).filter(Boolean))];
+  if (!list.length) return new Set();
+  const rows = await db.company.findMany({
+    where: {
+      isDemo: false,
+      // completedSignupWhere is an OR of its own, so it goes in an AND
+      // beside this one rather than being spread (the second OR would
+      // silently replace the first).
+      AND: [
+        completedSignupWhere(),
+        {
+          OR: [
+            { email: { in: list, mode: "insensitive" } },
+            { members: { some: { active: true, user: { email: { in: list, mode: "insensitive" } } } } },
+          ],
+        },
+      ],
+    },
+    select: {
+      email: true,
+      members: { where: { active: true, user: { email: { in: list, mode: "insensitive" } } }, select: { user: { select: { email: true } } } },
+    },
+    take: BATCH,
+  });
+  const wanted = new Set(list.map((e) => emailKeyOf(e)).filter(Boolean));
+  const keys = new Set();
+  for (const c of rows) {
+    for (const addr of [c.email, ...c.members.map((m) => m.user?.email)]) {
+      const key = emailKeyOf(addr);
+      if (key && wanted.has(key)) keys.add(key);
+    }
+  }
+  return keys;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // The early touch
 // ═══════════════════════════════════════════════════════════════════════════
@@ -126,6 +177,9 @@ async function runEarlyTouch({ now, origin, address, from }) {
       select: {
         id: true, email: true, firstName: true, companyName: true, language: true, trades: true, stepReached: true,
         lastSeenAt: true, completedCompanyId: true, resumeToken: true, promotedLeadId: true,
+        // The same-browser rule: which browser typed the row, and whether
+        // recordSignupCompletion already stamped it finished_same_visitor.
+        visitorId: true, skipReason: true,
         prospect: { select: { assignedRepId: true, claimExpiresAt: true } },
         ...DISMISSAL_SELECT,
       },
@@ -184,7 +238,25 @@ async function runEarlyTouch({ now, origin, address, from }) {
     : [];
   const sentKeys = new Set(sentRows.map((r) => r.emailKey));
 
-  const { sends, skipped } = planEarlyNudges({ people, suppressedAddresses, sentKeys, heldKeys, now });
+  // ── Finishes the batch cannot see ────────────────────────────────────────
+  //
+  // An address that already owns a finished signup (a paying company is not
+  // in `companies` above), and a browser that already finished the same
+  // business under another address. Both close an address in
+  // planEarlyNudges, whatever its own row says.
+  const finishedKeys = await finishedAddressKeys(people.map((p) => p?.email));
+  const visitorIds = [...new Set(leads.map((l) => l.visitorId).filter(Boolean))];
+  const finishedSiblings = visitorIds.length
+    ? await db.signupLead.findMany({
+        where: { visitorId: { in: visitorIds }, completedCompanyId: { not: null } },
+        select: { visitorId: true, companyName: true, completedCompanyId: true, skipReason: true },
+      })
+    : [];
+  const finishedVisitorKeys = new Set(
+    finishedSiblings.filter(signupLeadFinished).map((l) => visitorCompanyKey(l.visitorId, l.companyName)).filter(Boolean),
+  );
+
+  const { sends, skipped } = planEarlyNudges({ people, suppressedAddresses, sentKeys, heldKeys, finishedAddressKeys: finishedKeys, finishedVisitorKeys, now });
   for (const sk of skipped) note(sk.reason);
 
   if (sends.length && !address) {
@@ -239,9 +311,12 @@ async function runEarlyTouch({ now, origin, address, from }) {
     // let jaspedo's letter through. A row the owner removed from
     // /platform/signups in the meantime is refused here too.
     if (person.kind === "lead") {
-      const freshLead = await db.signupLead.findUnique({ where: { id: person.signupLeadId }, select: { completedCompanyId: true, ...DISMISSAL_SELECT } });
-      if (!freshLead || freshLead.completedCompanyId) { await failed("completed_before_send"); continue; }
+      const freshLead = await db.signupLead.findUnique({ where: { id: person.signupLeadId }, select: { completedCompanyId: true, skipReason: true, ...DISMISSAL_SELECT } });
+      if (!freshLead || freshLead.completedCompanyId || freshLead.skipReason === FINISHED_SAME_VISITOR) { await failed("completed_before_send"); continue; }
       if (isDismissed(freshLead)) { await failed("dismissed_before_send"); continue; }
+      // The address may have finished somewhere this row knows nothing about
+      // — a login with a paying company — since the batch was read.
+      if ((await finishedAddressKeys([person.email])).size) { await failed("completed_before_send"); continue; }
     } else {
       const freshCompany = await db.company.findUnique({ where: { id: person.companyId }, select: { isDemo: true, trialEndsAt: true, subscription: { select: { id: true } }, ...DISMISSAL_SELECT } });
       if (!freshCompany || freshCompany.isDemo || hasFinishedSignup(freshCompany)) { await failed("completed_before_send"); continue; }

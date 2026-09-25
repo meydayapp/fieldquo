@@ -50,6 +50,7 @@ import { auth } from "@/lib/auth";
 import { rateLimit } from "@/lib/rateLimit";
 import { isResumeToken } from "@/lib/signup/leads";
 import { captureSignupLead, signupLeadForResume } from "@/lib/signup/salesFloor";
+import { decideResumeRoute, loginFromUser } from "@/lib/signup/resumeRoute";
 
 /** A step's worth of typing is a handful of posts; a hundred in ten minutes is not a person. */
 const CAPTURE_LIMIT = { limit: 120, windowMs: 10 * 60 * 1000 };
@@ -107,5 +108,44 @@ export async function GET(request) {
     if (userId) console.info("[signup/lead] signed-in return with no SignupLead", { userId });
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  return NextResponse.json({ prefill }, { headers: { "Cache-Control": "no-store" } });
+  if (!token) return NextResponse.json({ prefill }, { headers: { "Cache-Control": "no-store" } });
+
+  // ── A token: is there a login behind this address, and who is here? ────
+  const [userRow, session] = await Promise.all([
+    db.user
+      .findFirst({
+        where: { email: { equals: prefill.email, mode: "insensitive" } },
+        select: {
+          id: true,
+          emailVerified: true,
+          memberships: {
+            where: { active: true },
+            // Both columns hasFinishedSignup needs, selected — it throws on
+            // either being absent rather than reading a customer as unfinished.
+            select: { company: { select: { isDemo: true, trialEndsAt: true, subscription: { select: { id: true } } } } },
+          },
+        },
+      })
+      .catch((err) => {
+        console.error("[signup/lead] login read failed:", err?.message || err);
+        return undefined;
+      }),
+    auth.api.getSession({ headers: request.headers }).catch(() => null),
+  ]);
+  // A failed read is NOT "no login": answering "signup" would put the account
+  // step back in front of somebody who has one — the exact bug. No route, and
+  // the page falls back to what it did before.
+  if (userRow === undefined) return NextResponse.json({ prefill }, { headers: { "Cache-Control": "no-store" } });
+
+  const login = loginFromUser(userRow);
+  const route = decideResumeRoute({
+    prefill,
+    login,
+    session: session?.user?.id ? { userId: session.user.id, email: session.user.email || null } : null,
+    token,
+  });
+  // The row's own guess, corrected by the fact: the account step's "sign in
+  // instead" line reads this too.
+  const corrected = login && !prefill.accountExists ? { ...prefill, accountExists: true } : prefill;
+  return NextResponse.json({ prefill: corrected, route }, { headers: { "Cache-Control": "no-store" } });
 }

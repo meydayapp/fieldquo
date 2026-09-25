@@ -590,5 +590,504 @@ const TEMPLATES = {
   ], null),
 };
 
+// ── Templates added 2026-09-25 ───────────────────────────────────────────────
+//
+// The owner (2026-09-25): a service added to a quote opens WITH its lines, so
+// every commonly quoted row gets two to five. Same evidence as above — per
+// room $80 (cost $40), living room $120, deep extraction $150, pre-treatment
+// $15–25, hallway and stairs $75 — with the per-room rate tapering $80 → $60
+// across the 1-to-5-room rows, the way room bundles are sold; and 2026 rates
+// for the rest: tile and grout $0.85 a sq ft or $80–95 a room, leather $65 a
+// chair to $250 a sectional, mattresses $90–120, the on-site 8×10 rug at the
+// benchmark's $140.
+//
+// A row that NAMES its size ("3 rooms", "2 rooms and hallway") carries that
+// size as a plain quantity, not a measurement: a measured line opens at 0 on
+// the quote until something fills it (lib/quotes/serviceTemplateLines.js),
+// and "3 rooms" is already the answer. A row that does not name its size (a
+// tiled floor, a flight of stone stairs, a sectional) is measured —
+// `floorSqft` for a floor, `treads` for steps, `each` for pieces and rooms.
+//
+// Punjabi is written inline beside the other seven (the line builder reads
+// `text.pa` before the language file), so each new line's eight languages sit
+// together. Lines the templates above already sell are reused by their text,
+// not retyped, so a French estimator sees one wording for one job.
+//
+// Not templated: specialty.other — "describe what you need" has no typical
+// lines; custom_job above already carries the priced-on-site visit.
+//
+// The sectional and leather rows are also the furniture_upholstery quote
+// type's work (it has no seed file; lib/services/confirmServices.js borrows
+// this one first), so their templates name it.
+const t8 = (en, fr, es, it, de, uk, tl, pa) => ({ en, fr, es, it, de, uk, tl, pa });
+const namesOf = (key) => {
+  const s = I18N.services?.[key];
+  if (!s?.it || !s?.de || !s?.uk || !s?.tl) throw new Error(`carpet_cleaning: ${key} has no it/de/uk/tl name in i18n/carpet_cleaning.js`);
+  return { it: s.it, de: s.de, uk: s.uk, tl: s.tl, pa: s.pa };
+};
+const sameText = (key, en) => {
+  const l = TEMPLATES[key]?.lines.find((x) => x.text.en[0] === en);
+  if (!l) throw new Error(`carpet_cleaning: no line "${en}" on ${key}`);
+  return l.text;
+};
+const ROOM_TXT = PER_ROOM(1, 0).text;
+const ROOMS = (qty, price, cost) => L.labour(qty, "each", price, ROOM_TXT, { cost });
+const HALL_STAIRS = () => L.labour(1, "flat", 75, sameText("fq.carpet_cleaning.visits.whole_home", "Hallway and stairs"), { cost: 35 });
+const SPOT = () => L.labour(1, "flat", 75, sameText("fq.carpet_cleaning.visits.deep_cleaning", "Spot stain treatment"), { cost: 35 });
+const STAIN_REMOVER = () => L.material(1, "flat", 35, sameText("fq.carpet_cleaning.visits.deep_cleaning", "Heavy-duty stain remover"), { cost: 18 });
+const ENZYME = () => [
+  L.labour(1, "each", 45, sameText("fq.carpet_cleaning.add_ons.pet_treatment", "Enzyme pet treatment — per room"), { measurementKey: "each" }),
+  L.material(1, "each", 15, sameText("fq.carpet_cleaning.add_ons.pet_treatment", "Enzyme treatment — per room"), { measurementKey: "each" }),
+];
+const SETUP = (price = 49) => L.labour(1, "flat", price, t8(
+  ["Truck-mount setup and travel", "The truck-mounted unit brought to the door, hoses run and the entry protected; covers the trip."],
+  ["Installation de l'unité et déplacement", "Unité montée sur camion amenée à la porte, boyaux déroulés et entrée protégée; couvre le déplacement."],
+  ["Instalación del equipo y traslado", "Equipo montado en camioneta llevado a la puerta, mangueras tendidas y entrada protegida; cubre el traslado."],
+  ["Allestimento impianto e trasferta", "Impianto su furgone portato alla porta, tubi stesi e ingresso protetto; copre il viaggio."],
+  ["Anfahrt und Aufbau der Reinigungsanlage", "Fahrzeuganlage vor die Tür gebracht, Schläuche verlegt und Eingang geschützt; deckt die Anfahrt ab."],
+  ["Виїзд і розгортання обладнання", "Установку на авто підігнано до дверей, шланги прокладено, вхід захищено; включає дорогу."],
+  ["Setup ng truck-mount at biyahe", "Dinala ang truck-mounted unit sa pinto, inilatag ang hose at pinrotektahan ang entrance; kasama ang biyahe."],
+  ["ਟਰੱਕ-ਮਾਊਂਟ ਸੈੱਟਅੱਪ ਅਤੇ ਆਉਣ-ਜਾਣ", "ਟਰੱਕ ਵਾਲੀ ਮਸ਼ੀਨ ਦਰਵਾਜ਼ੇ ਤੱਕ, ਪਾਈਪਾਂ ਵਿਛਾਈਆਂ ਅਤੇ ਦਾਖ਼ਲਾ ਢੱਕਿਆ; ਆਉਣ-ਜਾਣ ਸ਼ਾਮਲ।"],
+));
+const PRESPRAY_AREA = () => L.material(1, "each", 8, t8(
+  ["Pre-spray — per room or area", "Traffic-lane pre-spray matched to the fibre, for one room or area."],
+  ["Prévaporisateur — la pièce ou zone", "Prévaporisateur pour zones passantes adapté à la fibre, pour une pièce ou une zone."],
+  ["Prerrociador — por cuarto o área", "Prerrociador para zonas de tránsito adecuado a la fibra, para un cuarto o área."],
+  ["Prespray — per stanza o zona", "Prespray per zone di passaggio adatto alla fibra, per una stanza o zona."],
+  ["Vorsprühmittel — pro Raum oder Fläche", "Laufstraßen-Vorsprühmittel passend zur Faser, für einen Raum oder eine Fläche."],
+  ["Попередня обробка — за кімнату чи зону", "Спрей для доріжок, підібраний до волокна, на одну кімнату чи зону."],
+  ["Pre-spray — kada kuwarto o area", "Pre-spray para sa daanan na angkop sa fiber, para sa isang kuwarto o area."],
+  ["ਪ੍ਰੀ-ਸਪਰੇਅ — ਪ੍ਰਤੀ ਕਮਰਾ ਜਾਂ ਹਿੱਸਾ", "ਫ਼ਾਈਬਰ ਮੁਤਾਬਕ ਆਵਾਜਾਈ ਵਾਲੇ ਰਾਹ ਲਈ ਪ੍ਰੀ-ਸਪਰੇਅ, ਇੱਕ ਕਮਰੇ ਜਾਂ ਹਿੱਸੇ ਲਈ।"],
+), { measurementKey: "each" });
+const HALLWAY = (measured) => L.labour(1, "each", 40, t8(
+  ["Hallway — per hallway", "A carpeted hallway extracted wall to wall, with extra passes on the traffic lane."],
+  ["Corridor — le corridor", "Corridor tapissé extrait d'un mur à l'autre, passes supplémentaires dans la zone passante."],
+  ["Pasillo — por pasillo", "Pasillo alfombrado extraído de pared a pared, con pasadas extra en el carril de tránsito."],
+  ["Corridoio — per corridoio", "Corridoio con moquette estratto da parete a parete, con passate in più sulla zona di passaggio."],
+  ["Flur — pro Flur", "Teppichflur von Wand zu Wand extrahiert, mit zusätzlichen Durchgängen auf der Laufstraße."],
+  ["Коридор — за коридор", "Коридор із покриттям екстраговано від стіни до стіни з додатковими проходами на доріжці."],
+  ["Pasilyo — kada pasilyo", "In-extract ang carpeted na pasilyo mula pader hanggang pader, may dagdag na pasada sa daanan."],
+  ["ਹਾਲਵੇਅ — ਪ੍ਰਤੀ ਹਾਲਵੇਅ", "ਕਾਰਪੈੱਟ ਵਾਲਾ ਹਾਲਵੇਅ ਕੰਧ ਤੋਂ ਕੰਧ ਤੱਕ ਐਕਸਟ੍ਰੈਕਟ, ਆਵਾਜਾਈ ਵਾਲੇ ਰਾਹ 'ਤੇ ਵਾਧੂ ਗੇੜੇ।"],
+), { cost: 20, ...(measured ? { measurementKey: "each" } : {}) });
+const TG_SOLUTION = (price) => L.material(1, "flat", price, t8(
+  ["Grout cleaning solution", "Alkaline tile and grout cleaner, diluted for the floor's condition."],
+  ["Solution de nettoyage des joints", "Nettoyant alcalin pour carrelage et joints, dilué selon l'état du plancher."],
+  ["Solución limpiadora de lechada", "Limpiador alcalino de azulejo y lechada, diluido según el estado del piso."],
+  ["Soluzione detergente per fughe", "Detergente alcalino per piastrelle e fughe, diluito secondo lo stato del pavimento."],
+  ["Fugenreiniger", "Alkalischer Fliesen- und Fugenreiniger, je nach Bodenzustand verdünnt."],
+  ["Засіб для чищення швів", "Лужний засіб для плитки й швів, розведений відповідно до стану підлоги."],
+  ["Grout cleaning solution", "Alkaline na panlinis ng tile at grout, tinimpla ayon sa kondisyon ng sahig."],
+  ["ਗ੍ਰਾਊਟ ਸਫ਼ਾਈ ਘੋਲ", "ਟਾਈਲ ਅਤੇ ਗ੍ਰਾਊਟ ਲਈ ਖਾਰਾ ਕਲੀਨਰ, ਫ਼ਰਸ਼ ਦੀ ਹਾਲਤ ਮੁਤਾਬਕ ਪਤਲਾ।"],
+));
+const TG_AREA = (qty, price, measured) => L.labour(qty, "each", price, t8(
+  ["Tile and grout cleaning — per room or area", "One room or hallway of tile: grout pre-treated and brushed, rinsed and extracted under pressure."],
+  ["Nettoyage de carrelage et joints — la pièce ou zone", "Une pièce ou un corridor carrelé : joints prétraités et brossés, rincés et extraits sous pression."],
+  ["Limpieza de azulejo y lechada — por cuarto o área", "Un cuarto o pasillo de azulejo: lechada pretratada y cepillada, enjuagada y extraída a presión."],
+  ["Pulizia piastrelle e fughe — per stanza o zona", "Una stanza o un corridoio piastrellato: fughe pretrattate e spazzolate, risciacquate ed estratte a pressione."],
+  ["Fliesen- und Fugenreinigung — pro Raum oder Fläche", "Ein gefliester Raum oder Flur: Fugen vorbehandelt und gebürstet, unter Druck gespült und abgesaugt."],
+  ["Чищення плитки та швів — за кімнату чи зону", "Одна кімната чи коридор із плиткою: шви оброблено й почищено щіткою, промито й екстраговано під тиском."],
+  ["Paglilinis ng tile at grout — kada kuwarto o area", "Isang kuwarto o pasilyong may tile: pre-treated at binrush ang grout, binanlawan at in-extract nang may pressure."],
+  ["ਟਾਈਲ ਅਤੇ ਗ੍ਰਾਊਟ ਸਫ਼ਾਈ — ਪ੍ਰਤੀ ਕਮਰਾ ਜਾਂ ਹਿੱਸਾ", "ਟਾਈਲ ਵਾਲਾ ਇੱਕ ਕਮਰਾ ਜਾਂ ਹਾਲਵੇਅ: ਗ੍ਰਾਊਟ ਪ੍ਰੀ-ਟ੍ਰੀਟ ਅਤੇ ਬੁਰਸ਼, ਦਬਾਅ ਨਾਲ ਧੋ ਕੇ ਐਕਸਟ੍ਰੈਕਟ।"],
+), measured ? { measurementKey: "each" } : {});
+const TG_SEAL = (qty) => L.labour(qty, "each", 45, t8(
+  ["Add-on: grout sealing — per room or area", "Clear penetrating sealer applied to clean, dry grout lines so they resist stains."],
+  ["Option : scellant à joints — la pièce ou zone", "Scellant pénétrant transparent appliqué sur les joints propres et secs pour résister aux taches."],
+  ["Extra: sellado de lechada — por cuarto o área", "Sellador penetrante transparente aplicado a la lechada limpia y seca para que resista manchas."],
+  ["Extra: sigillatura fughe — per stanza o zona", "Sigillante penetrante trasparente applicato sulle fughe pulite e asciutte contro le macchie."],
+  ["Zusatz: Fugenimprägnierung — pro Raum oder Fläche", "Farblose Tiefenimprägnierung auf saubere, trockene Fugen gegen Flecken aufgetragen."],
+  ["Додатково: герметизація швів — за кімнату чи зону", "Прозорий проникний герметик на чисті сухі шви, щоб не вбирали плям."],
+  ["Add-on: grout sealing — kada kuwarto o area", "Clear na penetrating sealer sa malinis at tuyong grout para hindi mamantsahan."],
+  ["ਵਾਧੂ: ਗ੍ਰਾਊਟ ਸੀਲਿੰਗ — ਪ੍ਰਤੀ ਕਮਰਾ ਜਾਂ ਹਿੱਸਾ", "ਸਾਫ਼ ਅਤੇ ਸੁੱਕੇ ਗ੍ਰਾਊਟ 'ਤੇ ਪਾਰਦਰਸ਼ੀ ਸੀਲਰ ਤਾਂ ਜੋ ਦਾਗ਼ ਨਾ ਲੱਗਣ।"],
+), { optional: true });
+const STONE_CLEANER = (price) => L.material(1, "flat", price, t8(
+  ["Stone-safe neutral cleaner", "pH-neutral cleaner that will not etch marble, limestone or travertine."],
+  ["Nettoyant neutre pour pierre", "Nettoyant au pH neutre qui ne marque pas le marbre, le calcaire ni le travertin."],
+  ["Limpiador neutro para piedra", "Limpiador de pH neutro que no daña mármol, caliza ni travertino."],
+  ["Detergente neutro per pietra", "Detergente a pH neutro che non intacca marmo, calcare o travertino."],
+  ["Steinschonender Neutralreiniger", "pH-neutraler Reiniger, der Marmor, Kalkstein und Travertin nicht angreift."],
+  ["Нейтральний засіб для каменю", "pH-нейтральний засіб, що не роз'їдає мармур, вапняк чи травертин."],
+  ["Neutral cleaner para sa bato", "pH-neutral na cleaner na hindi sisira sa marble, limestone o travertine."],
+  ["ਪੱਥਰ ਲਈ ਸੁਰੱਖਿਅਤ ਨਿਊਟ੍ਰਲ ਕਲੀਨਰ", "pH-ਨਿਊਟ੍ਰਲ ਕਲੀਨਰ ਜੋ ਮਾਰਬਲ, ਚੂਨਾ-ਪੱਥਰ ਜਾਂ ਟ੍ਰੈਵਰਟਾਈਨ ਨੂੰ ਖ਼ਰਾਬ ਨਹੀਂ ਕਰਦਾ।"],
+));
+const LEATHER = (price) => L.labour(1, "each", price, t8(
+  ["Leather cleaning and conditioning — per piece", "Leather tested, cleaned with a pH-balanced cleaner and soft brush, then conditioned."],
+  ["Nettoyage et nourrissage du cuir — la pièce", "Cuir testé, nettoyé au nettoyant équilibré et à la brosse douce, puis nourri."],
+  ["Limpieza y acondicionado de cuero — por pieza", "Cuero probado, limpiado con limpiador de pH balanceado y cepillo suave, luego acondicionado."],
+  ["Pulizia e nutrimento della pelle — per pezzo", "Pelle testata, pulita con detergente a pH bilanciato e spazzola morbida, poi nutrita."],
+  ["Lederreinigung und -pflege — pro Stück", "Leder getestet, mit pH-ausgeglichenem Reiniger und weicher Bürste gereinigt, dann gepflegt."],
+  ["Чищення й догляд за шкірою — за предмет", "Шкіру перевірено, очищено pH-збалансованим засобом і м'якою щіткою, потім оброблено кондиціонером."],
+  ["Paglilinis at conditioning ng leather — kada piraso", "Tinest ang leather, nilinis gamit ang pH-balanced na cleaner at malambot na brush, saka kinondisyon."],
+  ["ਚਮੜੇ ਦੀ ਸਫ਼ਾਈ ਅਤੇ ਕੰਡੀਸ਼ਨਿੰਗ — ਪ੍ਰਤੀ ਪੀਸ", "ਚਮੜਾ ਟੈਸਟ ਕਰਕੇ pH-ਸੰਤੁਲਿਤ ਕਲੀਨਰ ਅਤੇ ਨਰਮ ਬੁਰਸ਼ ਨਾਲ ਸਾਫ਼, ਫਿਰ ਕੰਡੀਸ਼ਨ ਕੀਤਾ।"],
+), { measurementKey: "each" });
+const LEATHER_KIT = (price) => L.material(1, "flat", price, t8(
+  ["Leather cleaner and conditioner", "Professional leather cleaner and a conditioner that keeps the hide supple."],
+  ["Nettoyant et revitalisant à cuir", "Nettoyant professionnel pour cuir et revitalisant qui garde la peau souple."],
+  ["Limpiador y acondicionador de cuero", "Limpiador profesional de cuero y acondicionador que mantiene la piel flexible."],
+  ["Detergente e nutriente per pelle", "Detergente professionale per pelle e nutriente che la mantiene morbida."],
+  ["Lederreiniger und Lederpflege", "Profi-Lederreiniger und eine Pflege, die das Leder geschmeidig hält."],
+  ["Засіб і кондиціонер для шкіри", "Професійний засіб для шкіри та кондиціонер, що зберігає її м'якою."],
+  ["Leather cleaner at conditioner", "Pang-propesyonal na leather cleaner at conditioner na nagpapanatiling malambot ang balat."],
+  ["ਚਮੜਾ ਕਲੀਨਰ ਅਤੇ ਕੰਡੀਸ਼ਨਰ", "ਪੇਸ਼ੇਵਰ ਚਮੜਾ ਕਲੀਨਰ ਅਤੇ ਕੰਡੀਸ਼ਨਰ ਜੋ ਚਮੜੇ ਨੂੰ ਨਰਮ ਰੱਖਦਾ ਹੈ।"],
+));
+const MATTRESS = (price) => [
+  L.labour(1, "each", price, t8(
+    ["Mattress cleaning — per mattress", "Both sides vacuumed with a HEPA tool, stains treated and the top low-moisture extracted."],
+    ["Nettoyage de matelas — le matelas", "Deux faces aspirées à l'outil HEPA, taches traitées et dessus extrait à faible humidité."],
+    ["Limpieza de colchón — por colchón", "Ambos lados aspirados con herramienta HEPA, manchas tratadas y la cara superior extraída con poca humedad."],
+    ["Pulizia materasso — per materasso", "Entrambi i lati aspirati con filtro HEPA, macchie trattate e lato superiore estratto a bassa umidità."],
+    ["Matratzenreinigung — pro Matratze", "Beide Seiten mit HEPA-Düse gesaugt, Flecken behandelt und die Oberseite feuchtigkeitsarm extrahiert."],
+    ["Чищення матраца — за матрац", "Обидва боки пропилососено HEPA-насадкою, плями оброблено, верх екстраговано з мінімумом вологи."],
+    ["Paglilinis ng kutson — kada kutson", "Binakyum ang dalawang side gamit ang HEPA tool, tinrato ang mantsa at in-extract ang ibabaw nang kaunting tubig."],
+    ["ਗੱਦੇ ਦੀ ਸਫ਼ਾਈ — ਪ੍ਰਤੀ ਗੱਦਾ", "ਦੋਵੇਂ ਪਾਸੇ HEPA ਟੂਲ ਨਾਲ ਵੈਕਿਊਮ, ਦਾਗ਼ ਸਾਫ਼ ਅਤੇ ਉੱਪਰਲਾ ਪਾਸਾ ਘੱਟ ਨਮੀ ਨਾਲ ਐਕਸਟ੍ਰੈਕਟ।"],
+  ), { measurementKey: "each" }),
+  L.material(1, "flat", 10, t8(
+    ["Mattress sanitiser and deodoriser", "Allergen and odour treatment safe for bedding."],
+    ["Désinfectant et désodorisant à matelas", "Traitement des allergènes et des odeurs sans danger pour la literie."],
+    ["Sanitizante y desodorante para colchón", "Tratamiento de alérgenos y olores seguro para la ropa de cama."],
+    ["Igienizzante e deodorante per materassi", "Trattamento contro allergeni e odori sicuro per la biancheria da letto."],
+    ["Matratzen-Hygiene- und Geruchsmittel", "Allergen- und Geruchsbehandlung, unbedenklich für Bettwaren."],
+    ["Санітайзер і дезодорант для матраца", "Обробка від алергенів і запахів, безпечна для постелі."],
+    ["Sanitiser at deodoriser ng kutson", "Treatment sa allergen at amoy na ligtas sa higaan."],
+    ["ਗੱਦੇ ਲਈ ਸੈਨੀਟਾਈਜ਼ਰ ਅਤੇ ਡੀਓਡੋਰਾਈਜ਼ਰ", "ਬਿਸਤਰੇ ਲਈ ਸੁਰੱਖਿਅਤ ਐਲਰਜਨ ਅਤੇ ਬਦਬੂ ਇਲਾਜ।"],
+  )),
+];
+const KB_CLEAN = (price, cost) => L.labour(1, "flat", price, t8(
+  ["Kitchen and bathroom clean", "Counters, sink, stovetop and appliance fronts, tub or shower, toilet and mirror cleaned and sanitised."],
+  ["Ménage de la cuisine et de la salle de bain", "Comptoirs, évier, cuisinière et façades d'appareils, bain ou douche, toilette et miroir nettoyés et désinfectés."],
+  ["Limpieza de cocina y baño", "Cubiertas, fregadero, estufa y frentes de electrodomésticos, tina o regadera, inodoro y espejo limpios y desinfectados."],
+  ["Pulizia cucina e bagno", "Piani, lavello, piano cottura e frontali, vasca o doccia, WC e specchio puliti e igienizzati."],
+  ["Küchen- und Badreinigung", "Arbeitsflächen, Spüle, Kochfeld und Gerätefronten, Wanne oder Dusche, WC und Spiegel gereinigt und desinfiziert."],
+  ["Прибирання кухні та ванної", "Стільниці, мийку, плиту й фасади техніки, ванну чи душ, унітаз і дзеркало очищено й продезінфіковано."],
+  ["Paglilinis ng kusina at banyo", "Nilinis at dinisinfect ang counter, lababo, kalan, harap ng appliance, tub o shower, inodoro at salamin."],
+  ["ਰਸੋਈ ਅਤੇ ਬਾਥਰੂਮ ਦੀ ਸਫ਼ਾਈ", "ਕਾਊਂਟਰ, ਸਿੰਕ, ਚੁੱਲ੍ਹਾ, ਉਪਕਰਣਾਂ ਦੇ ਮੂਹਰੇ, ਟੱਬ ਜਾਂ ਸ਼ਾਵਰ, ਟਾਇਲਟ ਅਤੇ ਸ਼ੀਸ਼ਾ ਸਾਫ਼ ਅਤੇ ਕੀਟਾਣੂ-ਰਹਿਤ।"],
+), { cost });
+const BL_CLEAN = (price, cost) => L.labour(1, "flat", price, t8(
+  ["Bedroom and living area clean", "Surfaces dusted and wiped, floors vacuumed and mopped."],
+  ["Ménage de la chambre et du séjour", "Surfaces époussetées et essuyées, planchers aspirés et lavés."],
+  ["Limpieza de recámara y sala", "Superficies sacudidas y limpias, pisos aspirados y trapeados."],
+  ["Pulizia camera e soggiorno", "Superfici spolverate e pulite, pavimenti aspirati e lavati."],
+  ["Schlaf- und Wohnbereichsreinigung", "Flächen abgestaubt und gewischt, Böden gesaugt und gewischt."],
+  ["Прибирання спальні й вітальні", "Пил витерто, поверхні протерто, підлогу пропилососено й вимито."],
+  ["Paglilinis ng kuwarto at sala", "Pinunasan ang alikabok at ibabaw, binakyum at minap ang sahig."],
+  ["ਬੈੱਡਰੂਮ ਅਤੇ ਬੈਠਕ ਦੀ ਸਫ਼ਾਈ", "ਸਤਹਾਂ ਦੀ ਧੂੜ ਝਾੜੀ ਅਤੇ ਪੂੰਝੀਆਂ, ਫ਼ਰਸ਼ ਵੈਕਿਊਮ ਅਤੇ ਪੋਚਾ।"],
+), { cost });
+
+const ROOM_BAND = (qty, perRoom, pretreatPrice, pretreatCost) => [ROOMS(qty, perRoom, perRoom / 2), PRETREAT(pretreatPrice, pretreatCost)];
+const UPHOLSTERY = { categories: ["carpet_cleaning", "furniture_upholstery"] };
+
+const ADDED = {
+  // ── Installation (first full cleans, by size) ──
+  "fq.carpet_cleaning.visits.one_room": T("installation", namesOf("fq.carpet_cleaning.visits.one_room"),
+    [SETUP(), ROOMS(1, 80, 40), PRETREAT(15, 8)], null),
+  "fq.carpet_cleaning.carpet.one_room": T("installation", namesOf("fq.carpet_cleaning.carpet.one_room"),
+    [SETUP(), ROOMS(1, 80, 40), PRETREAT(15, 8)], null),
+  // The captured "living areas" template, line for line.
+  "fq.carpet_cleaning.visits.three_rooms": T("installation", namesOf("fq.carpet_cleaning.visits.three_rooms"),
+    [LIVING_ROOM(), ROOMS(2, 80, 40), PRETREAT(20, 10)], D.newCustomer("fixed", 15)),
+  "fq.carpet_cleaning.carpet.two_rooms": T("installation", namesOf("fq.carpet_cleaning.carpet.two_rooms"), ROOM_BAND(2, 75, 20, 10), null),
+  "fq.carpet_cleaning.carpet.three_rooms": T("installation", namesOf("fq.carpet_cleaning.carpet.three_rooms"), ROOM_BAND(3, 70, 20, 10), null),
+  "fq.carpet_cleaning.carpet.up_to_3_areas": T("installation", namesOf("fq.carpet_cleaning.carpet.up_to_3_areas"), ROOM_BAND(3, 70, 20, 10), null),
+  "fq.carpet_cleaning.carpet.four_rooms": T("installation", namesOf("fq.carpet_cleaning.carpet.four_rooms"), ROOM_BAND(4, 65, 25, 12), null),
+  "fq.carpet_cleaning.carpet.five_plus_rooms": T("installation", namesOf("fq.carpet_cleaning.carpet.five_plus_rooms"), ROOM_BAND(5, 60, 25, 12), null),
+  "fq.carpet_cleaning.carpet.bundle_2_rooms_hallway": T("installation", namesOf("fq.carpet_cleaning.carpet.bundle_2_rooms_hallway"),
+    [ROOMS(2, 80, 40), HALLWAY(false), PRETREAT(20, 10)], D.bundle("fixed", 20)),
+  // The captured "whole home" template, with its three bedrooms as a count.
+  "fq.carpet_cleaning.carpet.whole_house": T("installation", namesOf("fq.carpet_cleaning.carpet.whole_house"),
+    [LIVING_ROOM(), ROOMS(3, 80, 40), HALL_STAIRS(), PRETREAT(25, 12)], D.newCustomer("fixed", 20)),
+  "fq.carpet_cleaning.carpet.up_to_250_sqft": T("installation", namesOf("fq.carpet_cleaning.carpet.up_to_250_sqft"), [
+    SETUP(),
+    L.labour(1, "flat", 70, t8(
+      ["Hot-water extraction — up to 250 sq ft", "Pre-sprayed, agitated and extracted across a carpeted area up to 250 sq ft."],
+      ["Extraction à l'eau chaude — jusqu'à 250 pi²", "Prévaporisé, brossé et extrait sur une surface tapissée jusqu'à 250 pi²."],
+      ["Extracción con agua caliente — hasta 250 pies²", "Prerrociado, agitado y extraído en un área alfombrada de hasta 250 pies²."],
+      ["Estrazione ad acqua calda — fino a 250 piedi quadri", "Pretrattato, spazzolato ed estratto su una superficie in moquette fino a 250 piedi quadri."],
+      ["Heißwasserextraktion — bis 250 sq ft", "Vorgesprüht, gebürstet und extrahiert auf einer Teppichfläche bis 250 sq ft."],
+      ["Екстракція гарячою водою — до 250 кв. футів", "Попередньо оброблено, збито щіткою та екстраговано на площі з покриттям до 250 кв. футів."],
+      ["Hot-water extraction — hanggang 250 sq ft", "Pre-spray, kinuskos at in-extract ang carpeted na area hanggang 250 sq ft."],
+      ["ਗਰਮ ਪਾਣੀ ਐਕਸਟ੍ਰੈਕਸ਼ਨ — 250 ਵਰਗ ਫੁੱਟ ਤੱਕ", "250 ਵਰਗ ਫੁੱਟ ਤੱਕ ਕਾਰਪੈੱਟ ਵਾਲੇ ਹਿੱਸੇ 'ਤੇ ਪ੍ਰੀ-ਸਪਰੇਅ, ਰਗੜ ਅਤੇ ਐਕਸਟ੍ਰੈਕਸ਼ਨ।"],
+    )),
+    PRETREAT(15, 8),
+  ], null),
+  "fq.carpet_cleaning.carpet.per_room_standard": T("installation", namesOf("fq.carpet_cleaning.carpet.per_room_standard"),
+    [PER_ROOM(80, 40), PRESPRAY_AREA()], null),
+  "fq.carpet_cleaning.carpet.hallway": T("installation", namesOf("fq.carpet_cleaning.carpet.hallway"),
+    [HALLWAY(true), PRESPRAY_AREA()], null),
+  // The carpet book's two home-cleaning rows (a carpet company that also
+  // cleans the unit at turnover), in this file's own wording.
+  "fq.carpet_cleaning.specialty.one_time_1_1": T("installation", namesOf("fq.carpet_cleaning.specialty.one_time_1_1"), [
+    KB_CLEAN(95, 60), BL_CLEAN(60, 38),
+    L.labour(1, "flat", 20, t8(
+      ["Carpet vacuum and spot treatment", "Carpeted floors vacuumed edge to edge and visible spots treated."],
+      ["Aspiration et détachage du tapis", "Tapis aspirés d'un bord à l'autre et taches visibles traitées."],
+      ["Aspirado y desmanchado de alfombra", "Alfombras aspiradas de orilla a orilla y manchas visibles tratadas."],
+      ["Aspirazione e smacchiatura moquette", "Moquette aspirata da bordo a bordo e macchie visibili trattate."],
+      ["Teppich saugen und Fleckbehandlung", "Teppichböden von Kante zu Kante gesaugt und sichtbare Flecken behandelt."],
+      ["Пилососіння покриття й виведення плям", "Покриття пропилососено від краю до краю, видимі плями оброблено."],
+      ["Pag-vacuum ng carpet at spot treatment", "Binakyum ang carpet mula gilid hanggang gilid at tinrato ang kitang mantsa."],
+      ["ਕਾਰਪੈੱਟ ਵੈਕਿਊਮ ਅਤੇ ਦਾਗ਼ ਇਲਾਜ", "ਕਾਰਪੈੱਟ ਕਿਨਾਰੇ ਤੋਂ ਕਿਨਾਰੇ ਵੈਕਿਊਮ ਅਤੇ ਦਿਸਦੇ ਦਾਗ਼ ਸਾਫ਼।"],
+    )),
+  ], null),
+  "fq.carpet_cleaning.specialty.move_in_out_1_1": T("installation", namesOf("fq.carpet_cleaning.specialty.move_in_out_1_1"), [
+    KB_CLEAN(110, 70), BL_CLEAN(70, 45),
+    L.labour(1, "flat", 80, t8(
+      ["Inside cabinets, drawers and appliances", "Cabinets and drawers wiped out; fridge, oven and microwave cleaned inside."],
+      ["Intérieur des armoires, tiroirs et appareils", "Armoires et tiroirs essuyés; réfrigérateur, four et micro-ondes nettoyés à l'intérieur."],
+      ["Interior de gabinetes, cajones y electrodomésticos", "Gabinetes y cajones limpios por dentro; refrigerador, horno y microondas limpiados por dentro."],
+      ["Interno di pensili, cassetti ed elettrodomestici", "Pensili e cassetti puliti dentro; frigo, forno e microonde puliti all'interno."],
+      ["Schränke, Schubladen und Geräte innen", "Schränke und Schubladen ausgewischt; Kühlschrank, Backofen und Mikrowelle innen gereinigt."],
+      ["Шафи, шухляди й техніка всередині", "Шафи й шухляди протерто; холодильник, духовку й мікрохвильовку вимито всередині."],
+      ["Loob ng cabinet, drawer at appliance", "Pinunasan ang loob ng cabinet at drawer; nilinis ang loob ng ref, oven at microwave."],
+      ["ਅਲਮਾਰੀਆਂ, ਦਰਾਜ਼ਾਂ ਅਤੇ ਉਪਕਰਣਾਂ ਦੇ ਅੰਦਰ", "ਅਲਮਾਰੀਆਂ ਅਤੇ ਦਰਾਜ਼ਾਂ ਅੰਦਰੋਂ ਪੂੰਝੀਆਂ; ਫ਼ਰਿੱਜ, ਓਵਨ ਅਤੇ ਮਾਈਕ੍ਰੋਵੇਵ ਅੰਦਰੋਂ ਸਾਫ਼।"],
+    ), { cost: 48 }),
+    L.labour(1, "flat", 40, t8(
+      ["Baseboards, doors and switch plates", "Baseboards, door faces, frames and switch plates hand-wiped."],
+      ["Plinthes, portes et plaques d'interrupteurs", "Plinthes, faces de portes, cadres et plaques d'interrupteurs essuyés à la main."],
+      ["Zoclos, puertas y tapas de apagadores", "Zoclos, caras de puertas, marcos y tapas de apagadores limpiados a mano."],
+      ["Battiscopa, porte e placche", "Battiscopa, ante delle porte, telai e placche degli interruttori puliti a mano."],
+      ["Sockelleisten, Türen und Schalterabdeckungen", "Sockelleisten, Türblätter, Zargen und Schalterabdeckungen von Hand gewischt."],
+      ["Плінтуси, двері й накладки вимикачів", "Плінтуси, полотна й коробки дверей, накладки вимикачів протерто вручну."],
+      ["Baseboard, pinto at switch plate", "Pinunasan sa kamay ang baseboard, mukha at frame ng pinto at switch plate."],
+      ["ਬੇਸਬੋਰਡ, ਦਰਵਾਜ਼ੇ ਅਤੇ ਸਵਿੱਚ ਪਲੇਟਾਂ", "ਬੇਸਬੋਰਡ, ਦਰਵਾਜ਼ਿਆਂ ਦੇ ਮੂੰਹ, ਚੁਗਾਠਾਂ ਅਤੇ ਸਵਿੱਚ ਪਲੇਟਾਂ ਹੱਥ ਨਾਲ ਪੂੰਝੀਆਂ।"],
+    ), { cost: 25 }),
+  ], null),
+
+  // ── Repair (restorative) ──
+  "fq.carpet_cleaning.carpet.whole_home_stain_removal": T("repair", namesOf("fq.carpet_cleaning.carpet.whole_home_stain_removal"),
+    [LIVING_ROOM(), ROOMS(3, 80, 40), HALL_STAIRS(), SPOT(), STAIN_REMOVER()], null),
+  "fq.carpet_cleaning.visits.pet_treatment": T("repair", namesOf("fq.carpet_cleaning.visits.pet_treatment"), [SETUP(), ...ENZYME()], null),
+  "fq.carpet_cleaning.visits.pet_treatment_enzyme": T("repair", namesOf("fq.carpet_cleaning.visits.pet_treatment_enzyme"), [SETUP(), ...ENZYME()], null),
+  "fq.carpet_cleaning.add_ons.odor_neutralization": T("repair", namesOf("fq.carpet_cleaning.add_ons.odor_neutralization"), [
+    L.labour(1, "flat", 25, t8(
+      ["Odour neutraliser application", "Neutraliser sprayed over the whole area and worked into the pile so it reaches the backing."],
+      ["Application de neutralisant d'odeurs", "Neutralisant pulvérisé sur toute la zone et brossé dans le velours jusqu'à l'endos."],
+      ["Aplicación de neutralizador de olores", "Neutralizador rociado en toda el área y trabajado en el pelo hasta llegar al respaldo."],
+      ["Applicazione di neutralizzatore di odori", "Neutralizzatore spruzzato su tutta la zona e lavorato nel vello fino al supporto."],
+      ["Geruchsneutralisierer auftragen", "Neutralisierer auf die ganze Fläche gesprüht und bis zum Rücken in den Flor eingearbeitet."],
+      ["Нанесення нейтралізатора запахів", "Нейтралізатор розпилено на всю зону й втерто у ворс до основи."],
+      ["Paglagay ng odour neutraliser", "Ini-spray sa buong area at ipinasok sa pile hanggang umabot sa backing."],
+      ["ਬਦਬੂ ਨਿਊਟ੍ਰਲਾਈਜ਼ਰ ਲਗਾਉਣਾ", "ਪੂਰੇ ਹਿੱਸੇ 'ਤੇ ਨਿਊਟ੍ਰਲਾਈਜ਼ਰ ਛਿੜਕ ਕੇ ਰੇਸ਼ਿਆਂ ਵਿੱਚ ਹੇਠਾਂ ਤੱਕ ਰਚਾਇਆ।"],
+    )),
+    L.material(1, "flat", 15, t8(
+      ["Odour neutraliser", "Professional odour counteractant for smoke, pets and mustiness."],
+      ["Neutralisant d'odeurs", "Neutralisant professionnel pour fumée, animaux et odeur de renfermé."],
+      ["Neutralizador de olores", "Contrarrestante profesional para humo, mascotas y humedad."],
+      ["Neutralizzatore di odori", "Neutralizzante professionale per fumo, animali e odore di chiuso."],
+      ["Geruchsneutralisierer", "Profi-Geruchsneutralisierer gegen Rauch, Tier- und Muffgeruch."],
+      ["Нейтралізатор запахів", "Професійний засіб проти запаху диму, тварин і затхлості."],
+      ["Odour neutraliser", "Pang-propesyonal na pantanggal ng amoy ng usok, alaga at kulob."],
+      ["ਬਦਬੂ ਨਿਊਟ੍ਰਲਾਈਜ਼ਰ", "ਧੂੰਏਂ, ਪਾਲਤੂ ਜਾਨਵਰਾਂ ਅਤੇ ਸਿੱਲ੍ਹ ਦੀ ਬਦਬੂ ਲਈ ਪੇਸ਼ੇਵਰ ਘੋਲ।"],
+    )),
+  ], null),
+  "fq.carpet_cleaning.specialty.stretching": T("repair", namesOf("fq.carpet_cleaning.specialty.stretching"), [
+    L.labour(1, "each", 95, sameText("fq.carpet_cleaning.specialty.stretching_repair", "Power stretching — per room"), { measurementKey: "each" }),
+    L.material(1, "flat", 20, t8(
+      ["Tack strip and seam tape", "Replacement tack strip, nails and hot-melt seam tape where the old ones have failed."],
+      ["Bande à clous et ruban de joint", "Bande à clous, clous et ruban thermocollant de remplacement là où les anciens ont lâché."],
+      ["Tira de clavos y cinta de unión", "Tira de clavos, clavos y cinta termoadhesiva de reemplazo donde las viejas fallaron."],
+      ["Listello chiodato e nastro per giunzioni", "Listello chiodato, chiodi e nastro termoadesivo sostitutivi dove i vecchi hanno ceduto."],
+      ["Nagelleiste und Nahtband", "Ersatz-Nagelleiste, Nägel und Heißklebe-Nahtband, wo die alten nachgegeben haben."],
+      ["Рейка з гвіздками та стрічка для швів", "Нова рейка, цвяхи й термострічка для швів там, де старі не тримають."],
+      ["Tack strip at seam tape", "Pamalit na tack strip, pako at hot-melt seam tape kung saan bumigay ang luma."],
+      ["ਟੈਕ ਸਟ੍ਰਿਪ ਅਤੇ ਸੀਮ ਟੇਪ", "ਜਿੱਥੇ ਪੁਰਾਣੇ ਢਿੱਲੇ ਹੋਏ ਉੱਥੇ ਨਵੀਂ ਟੈਕ ਸਟ੍ਰਿਪ, ਕਿੱਲ ਅਤੇ ਗਰਮ-ਚਿਪਕਣ ਵਾਲੀ ਸੀਮ ਟੇਪ।"],
+    ), { cost: 12 }),
+  ], null),
+  "fq.carpet_cleaning.specialty.tile_grout": T("repair", namesOf("fq.carpet_cleaning.specialty.tile_grout"), [
+    L.labour(1, "sqft", 0.85, t8(
+      ["Tile and grout cleaning — per sq ft", "Grout lines pre-treated and brushed, then the floor rinsed and extracted under pressure."],
+      ["Nettoyage de carrelage et joints — au pi²", "Joints prétraités et brossés, puis plancher rincé et extrait sous pression."],
+      ["Limpieza de azulejo y lechada — por pie²", "Lechada pretratada y cepillada, luego el piso enjuagado y extraído a presión."],
+      ["Pulizia piastrelle e fughe — al piede quadro", "Fughe pretrattate e spazzolate, poi pavimento risciacquato ed estratto a pressione."],
+      ["Fliesen- und Fugenreinigung — pro sq ft", "Fugen vorbehandelt und gebürstet, dann der Boden unter Druck gespült und abgesaugt."],
+      ["Чищення плитки та швів — за кв. фут", "Шви попередньо оброблено й почищено щіткою, підлогу промито й екстраговано під тиском."],
+      ["Paglilinis ng tile at grout — kada sq ft", "Pre-treated at binrush ang grout, saka binanlawan at in-extract ang sahig nang may pressure."],
+      ["ਟਾਈਲ ਅਤੇ ਗ੍ਰਾਊਟ ਸਫ਼ਾਈ — ਪ੍ਰਤੀ ਵਰਗ ਫੁੱਟ", "ਗ੍ਰਾਊਟ ਦੀਆਂ ਲਾਈਨਾਂ ਪ੍ਰੀ-ਟ੍ਰੀਟ ਕਰਕੇ ਬੁਰਸ਼, ਫਿਰ ਫ਼ਰਸ਼ ਦਬਾਅ ਨਾਲ ਧੋ ਕੇ ਐਕਸਟ੍ਰੈਕਟ।"],
+    ), { measurementKey: "floorSqft" }),
+    TG_SOLUTION(20),
+  ], null),
+  "fq.carpet_cleaning.specialty.tile_grout_hallway": T("repair", namesOf("fq.carpet_cleaning.specialty.tile_grout_hallway"),
+    [TG_AREA(1, 65, true), TG_SOLUTION(10)], null),
+  "fq.carpet_cleaning.specialty.tile_grout_2_rooms": T("repair", namesOf("fq.carpet_cleaning.specialty.tile_grout_2_rooms"),
+    [TG_AREA(2, 95), TG_SOLUTION(15), TG_SEAL(2)], null),
+  "fq.carpet_cleaning.specialty.tile_grout_3_rooms": T("repair", namesOf("fq.carpet_cleaning.specialty.tile_grout_3_rooms"),
+    [TG_AREA(3, 90), TG_SOLUTION(20), TG_SEAL(3)], null),
+  "fq.carpet_cleaning.specialty.tile_grout_4_rooms": T("repair", namesOf("fq.carpet_cleaning.specialty.tile_grout_4_rooms"),
+    [TG_AREA(4, 85), TG_SOLUTION(25), TG_SEAL(4)], null),
+  "fq.carpet_cleaning.specialty.tile_grout_5_rooms": T("repair", namesOf("fq.carpet_cleaning.specialty.tile_grout_5_rooms"),
+    [TG_AREA(5, 80), TG_SOLUTION(30), TG_SEAL(5)], null),
+  "fq.carpet_cleaning.specialty.tile_grout_stairs": T("repair", namesOf("fq.carpet_cleaning.specialty.tile_grout_stairs"), [
+    L.labour(1, "each", 8, t8(
+      ["Tiled stairs — per step", "Each tiled tread and riser scrubbed by hand, grout brushed and the step rinsed."],
+      ["Escalier carrelé — la marche", "Chaque marche et contremarche carrelée frottée à la main, joints brossés et marche rincée."],
+      ["Escalera de azulejo — por escalón", "Cada huella y contrahuella de azulejo tallada a mano, lechada cepillada y escalón enjuagado."],
+      ["Scale piastrellate — per gradino", "Ogni pedata e alzata piastrellata strofinata a mano, fughe spazzolate e gradino risciacquato."],
+      ["Geflieste Treppe — pro Stufe", "Jede geflieste Tritt- und Setzstufe von Hand geschrubbt, Fugen gebürstet und gespült."],
+      ["Сходи з плиткою — за сходинку", "Кожну сходинку й підступень із плиткою відтерто вручну, шви почищено, сходинку промито."],
+      ["Hagdang may tile — kada baitang", "Kinuskos sa kamay ang bawat baitang na may tile, binrush ang grout at binanlawan."],
+      ["ਟਾਈਲ ਵਾਲੀਆਂ ਪੌੜੀਆਂ — ਪ੍ਰਤੀ ਪੌਡਾ", "ਹਰ ਟਾਈਲ ਵਾਲਾ ਪੌਡਾ ਹੱਥ ਨਾਲ ਰਗੜਿਆ, ਗ੍ਰਾਊਟ ਬੁਰਸ਼ ਕੀਤਾ ਅਤੇ ਧੋਤਾ।"],
+    ), { measurementKey: "treads" }),
+    TG_SOLUTION(10),
+  ], null),
+
+  // ── Maintenance ──
+  "fq.carpet_cleaning.visits.high_traffic_refresh": T("maintenance", namesOf("fq.carpet_cleaning.visits.high_traffic_refresh"), [
+    L.labour(1, "flat", 99, t8(
+      ["Traffic-lane cleaning", "Walkways, entries and the lanes in front of seating pre-sprayed, agitated and extracted."],
+      ["Nettoyage des zones passantes", "Allées, entrées et passages devant les sièges prévaporisés, brossés et extraits."],
+      ["Limpieza de zonas de tránsito", "Pasillos, entradas y el paso frente a los asientos prerrociados, agitados y extraídos."],
+      ["Pulizia delle zone di passaggio", "Passaggi, ingressi e corsie davanti alle sedute pretrattati, spazzolati ed estratti."],
+      ["Laufstraßenreinigung", "Gehwege, Eingänge und die Bahnen vor den Sitzplätzen vorgesprüht, gebürstet und extrahiert."],
+      ["Чищення прохідних доріжок", "Проходи, входи й доріжки перед місцями для сидіння попередньо оброблено, збито щіткою та екстраговано."],
+      ["Paglilinis ng daanan", "Pre-spray, kinuskos at in-extract ang daanan, entrance at harap ng upuan."],
+      ["ਆਵਾਜਾਈ ਵਾਲੇ ਰਾਹਾਂ ਦੀ ਸਫ਼ਾਈ", "ਰਾਹ, ਦਾਖ਼ਲੇ ਅਤੇ ਬੈਠਣ ਵਾਲੀ ਥਾਂ ਦੇ ਮੂਹਰੇ ਪ੍ਰੀ-ਸਪਰੇਅ, ਰਗੜ ਕੇ ਐਕਸਟ੍ਰੈਕਟ।"],
+    )),
+    PRETREAT(20, 10),
+    L.labour(1, "flat", 20, t8(
+      ["Carpet grooming", "Pile raked upright after extraction so it dries evenly and the lanes stop matting."],
+      ["Peignage du tapis", "Velours redressé au râteau après l'extraction pour un séchage égal et moins d'écrasement."],
+      ["Peinado de alfombra", "Pelo levantado con rastrillo después de la extracción para que seque parejo y no se aplaste."],
+      ["Pettinatura della moquette", "Vello rialzato col rastrello dopo l'estrazione per un'asciugatura uniforme e meno schiacciamento."],
+      ["Florpflege", "Flor nach der Extraktion aufgerichtet, damit er gleichmäßig trocknet und nicht verfilzt."],
+      ["Розчісування ворсу", "Ворс піднято граблями після екстракції, щоб рівно висох і не зминався."],
+      ["Pag-groom ng carpet", "Sinuklay pataas ang pile pagkatapos ng extraction para pantay matuyo at hindi madapa."],
+      ["ਕਾਰਪੈੱਟ ਗਰੂਮਿੰਗ", "ਐਕਸਟ੍ਰੈਕਸ਼ਨ ਤੋਂ ਬਾਅਦ ਰੇਸ਼ੇ ਸਿੱਧੇ ਕੀਤੇ ਤਾਂ ਜੋ ਬਰਾਬਰ ਸੁੱਕਣ ਅਤੇ ਦੱਬਣ ਨਾ।"],
+    )),
+  ], null),
+  "fq.carpet_cleaning.specialty.recurring_hard_floor": T("maintenance", namesOf("fq.carpet_cleaning.specialty.recurring_hard_floor"), [
+    L.labour(1, "sqft", 0.3, t8(
+      ["Hard-floor cleaning — per sq ft", "Tile, stone or sealed floors machine-scrubbed with a neutral cleaner and rinsed."],
+      ["Nettoyage de planchers durs — au pi²", "Carrelage, pierre ou planchers scellés récurés à la machine au nettoyant neutre et rincés."],
+      ["Limpieza de pisos duros — por pie²", "Azulejo, piedra o pisos sellados tallados a máquina con limpiador neutro y enjuagados."],
+      ["Pulizia pavimenti duri — al piede quadro", "Piastrelle, pietra o pavimenti sigillati lavati a macchina con detergente neutro e risciacquati."],
+      ["Hartbodenreinigung — pro sq ft", "Fliesen, Stein oder versiegelte Böden maschinell mit Neutralreiniger geschrubbt und gespült."],
+      ["Чищення твердої підлоги — за кв. фут", "Плитку, камінь чи покриту підлогу вимито машиною нейтральним засобом і прополоскано."],
+      ["Paglilinis ng matigas na sahig — kada sq ft", "Kinuskos ng makina gamit ang neutral cleaner at binanlawan ang tile, bato o sealed na sahig."],
+      ["ਸਖ਼ਤ ਫ਼ਰਸ਼ ਦੀ ਸਫ਼ਾਈ — ਪ੍ਰਤੀ ਵਰਗ ਫੁੱਟ", "ਟਾਈਲ, ਪੱਥਰ ਜਾਂ ਸੀਲ ਕੀਤੇ ਫ਼ਰਸ਼ ਮਸ਼ੀਨ ਨਾਲ ਨਿਊਟ੍ਰਲ ਕਲੀਨਰ ਨਾਲ ਰਗੜ ਕੇ ਧੋਤੇ।"],
+    ), { measurementKey: "floorSqft" }),
+    STONE_CLEANER(10),
+  ], D.regular("percent", 5)),
+  "fq.carpet_cleaning.specialty.stone_stairs": T("maintenance", namesOf("fq.carpet_cleaning.specialty.stone_stairs"), [
+    L.labour(1, "each", 10, t8(
+      ["Stone stairs — per step", "Each stone tread and riser cleaned with a pH-neutral cleaner and soft pads, never acid."],
+      ["Escalier en pierre — la marche", "Chaque marche et contremarche en pierre nettoyée au nettoyant neutre et aux tampons doux, jamais à l'acide."],
+      ["Escalera de piedra — por escalón", "Cada huella y contrahuella de piedra limpiada con limpiador neutro y fibras suaves, nunca ácido."],
+      ["Scale in pietra — per gradino", "Ogni pedata e alzata in pietra pulita con detergente neutro e dischi morbidi, mai acidi."],
+      ["Steintreppe — pro Stufe", "Jede Steinstufe mit pH-neutralem Reiniger und weichen Pads gereinigt, niemals mit Säure."],
+      ["Кам'яні сходи — за сходинку", "Кожну кам'яну сходинку очищено pH-нейтральним засобом і м'якими падами, без кислоти."],
+      ["Hagdang bato — kada baitang", "Nilinis ang bawat baitang na bato gamit ang pH-neutral na cleaner at malambot na pad, walang acid."],
+      ["ਪੱਥਰ ਦੀਆਂ ਪੌੜੀਆਂ — ਪ੍ਰਤੀ ਪੌਡਾ", "ਹਰ ਪੱਥਰ ਵਾਲਾ ਪੌਡਾ pH-ਨਿਊਟ੍ਰਲ ਕਲੀਨਰ ਅਤੇ ਨਰਮ ਪੈਡਾਂ ਨਾਲ ਸਾਫ਼, ਤੇਜ਼ਾਬ ਕਦੇ ਨਹੀਂ।"],
+    ), { measurementKey: "treads" }),
+    STONE_CLEANER(15),
+  ], null),
+  "fq.carpet_cleaning.specialty.stone_backsplash": T("maintenance", namesOf("fq.carpet_cleaning.specialty.stone_backsplash"), [
+    L.labour(1, "flat", 95, t8(
+      ["Stone backsplash cleaning", "Grease and splatter lifted from the stone and grout by hand, then rinsed and buffed dry."],
+      ["Nettoyage du dosseret en pierre", "Graisse et éclaboussures retirées à la main de la pierre et des joints, puis rincé et essuyé."],
+      ["Limpieza de salpicadero de piedra", "Grasa y salpicaduras retiradas a mano de la piedra y la lechada, luego enjuagado y secado."],
+      ["Pulizia alzatina in pietra", "Grasso e schizzi tolti a mano da pietra e fughe, poi risciacquata e asciugata."],
+      ["Reinigung Steinrückwand", "Fett und Spritzer von Stein und Fugen von Hand gelöst, dann gespült und trocken poliert."],
+      ["Чищення кам'яного фартуха", "Жир і бризки вручну знято з каменю й швів, потім промито й витерто досуха."],
+      ["Paglilinis ng stone backsplash", "Tinanggal sa kamay ang mantika at talsik sa bato at grout, saka binanlawan at pinunasang tuyo."],
+      ["ਪੱਥਰ ਦੇ ਬੈਕਸਪਲੈਸ਼ ਦੀ ਸਫ਼ਾਈ", "ਪੱਥਰ ਅਤੇ ਗ੍ਰਾਊਟ ਤੋਂ ਚਿਕਨਾਈ ਅਤੇ ਛਿੱਟੇ ਹੱਥ ਨਾਲ ਹਟਾਏ, ਫਿਰ ਧੋ ਕੇ ਸੁਕਾਇਆ।"],
+    )),
+    STONE_CLEANER(15),
+    L.labour(1, "flat", 60, t8(
+      ["Add-on: stone sealer application", "Penetrating sealer applied so oil and sauce wipe off instead of staining."],
+      ["Option : application de scellant à pierre", "Scellant pénétrant appliqué pour que l'huile et les sauces s'essuient au lieu de tacher."],
+      ["Extra: aplicación de sellador para piedra", "Sellador penetrante aplicado para que el aceite y las salsas se limpien sin manchar."],
+      ["Extra: applicazione di sigillante per pietra", "Sigillante penetrante applicato perché olio e sughi si puliscano senza macchiare."],
+      ["Zusatz: Steinimprägnierung", "Tiefenimprägnierung aufgetragen, damit Öl und Soßen abwischbar bleiben statt Flecken zu hinterlassen."],
+      ["Додатково: просочення каменю", "Проникне просочення, щоб олія й соуси витиралися, а не лишали плям."],
+      ["Add-on: paglagay ng stone sealer", "Penetrating sealer para mapunasan ang mantika at sarsa sa halip na mamantsa."],
+      ["ਵਾਧੂ: ਪੱਥਰ ਸੀਲਰ ਲਗਾਉਣਾ", "ਅੰਦਰ ਰਚਣ ਵਾਲਾ ਸੀਲਰ ਤਾਂ ਜੋ ਤੇਲ ਅਤੇ ਸਾਸ ਦਾਗ਼ ਦੀ ਥਾਂ ਪੂੰਝੇ ਜਾਣ।"],
+    ), { optional: true }),
+  ], null),
+  "fq.carpet_cleaning.specialty.sectional": T("maintenance", namesOf("fq.carpet_cleaning.specialty.sectional"), [
+    L.labour(1, "each", 225, t8(
+      ["Sectional cleaning — per sectional", "Every seat, back and arm tested, pre-sprayed and extracted with an upholstery tool."],
+      ["Nettoyage de sectionnel — le sectionnel", "Chaque siège, dossier et accoudoir testé, prévaporisé et extrait à l'outil à rembourrage."],
+      ["Limpieza de seccional — por seccional", "Cada asiento, respaldo y brazo probado, prerrociado y extraído con herramienta de tapicería."],
+      ["Pulizia divano angolare — per divano", "Ogni seduta, schienale e bracciolo testato, pretrattato ed estratto con attrezzo per imbottiti."],
+      ["Ecksofareinigung — pro Ecksofa", "Jeder Sitz, jede Lehne und Armlehne getestet, vorgesprüht und mit Polsterdüse extrahiert."],
+      ["Чищення кутового дивана — за диван", "Кожне сидіння, спинку й підлокітник перевірено, оброблено й екстраговано насадкою для меблів."],
+      ["Paglilinis ng sectional — kada sectional", "Tinest, pre-spray at in-extract gamit ang upholstery tool ang bawat upuan, sandalan at armrest."],
+      ["ਸੈਕਸ਼ਨਲ ਸੋਫ਼ੇ ਦੀ ਸਫ਼ਾਈ — ਪ੍ਰਤੀ ਸੈਕਸ਼ਨਲ", "ਹਰ ਸੀਟ, ਢੋਅ ਅਤੇ ਬਾਂਹ ਟੈਸਟ ਕਰਕੇ ਪ੍ਰੀ-ਸਪਰੇਅ ਅਤੇ ਅਪਹੋਲਸਟਰੀ ਟੂਲ ਨਾਲ ਐਕਸਟ੍ਰੈਕਟ।"],
+    ), { measurementKey: "each" }),
+    L.material(1, "flat", 12, t8(
+      ["Fabric pre-spray and rinse agent", "Fibre-safe pre-spray and acidic rinse that leaves the fabric soft and residue-free."],
+      ["Prévaporisateur et rinçage pour tissus", "Prévaporisateur doux pour les fibres et rinçage acide qui laisse le tissu souple et sans résidu."],
+      ["Prerrociador y enjuague para telas", "Prerrociador seguro para fibras y enjuague ácido que deja la tela suave y sin residuos."],
+      ["Prespray e risciacquo per tessuti", "Prespray delicato sulle fibre e risciacquo acido che lascia il tessuto morbido e senza residui."],
+      ["Stoff-Vorsprühmittel und Spülmittel", "Faserschonendes Vorsprühmittel und saure Spülung, die den Stoff weich und rückstandsfrei lässt."],
+      ["Засіб для тканин і ополіскувач", "Безпечний для волокон спрей і кислотний ополіскувач, після яких тканина м'яка й без залишків."],
+      ["Fabric pre-spray at rinse agent", "Fiber-safe na pre-spray at acidic rinse na nag-iiwan ng malambot na tela at walang residue."],
+      ["ਕੱਪੜੇ ਲਈ ਪ੍ਰੀ-ਸਪਰੇਅ ਅਤੇ ਰਿੰਸ", "ਰੇਸ਼ਿਆਂ ਲਈ ਸੁਰੱਖਿਅਤ ਪ੍ਰੀ-ਸਪਰੇਅ ਅਤੇ ਤੇਜ਼ਾਬੀ ਰਿੰਸ, ਕੱਪੜਾ ਨਰਮ ਅਤੇ ਬਿਨਾਂ ਰਹਿੰਦ-ਖੂੰਹਦ।"],
+    )),
+    L.labour(1, "each", 45, t8(
+      ["Add-on: fabric protector — per piece", "Water-based protector sprayed on after cleaning so spills bead up."],
+      ["Option : protecteur à tissu — la pièce", "Protecteur à base d'eau pulvérisé après le nettoyage pour que les dégâts perlent."],
+      ["Extra: protector de tela — por pieza", "Protector base agua rociado después de limpiar para que los derrames no se absorban."],
+      ["Extra: protettivo per tessuti — per pezzo", "Protettivo all'acqua spruzzato dopo la pulizia perché i liquidi restino in superficie."],
+      ["Zusatz: Stoffschutz — pro Stück", "Wasserbasierter Schutz nach der Reinigung aufgesprüht, damit Verschüttetes abperlt."],
+      ["Додатково: захист тканини — за предмет", "Захист на водній основі після чищення, щоб рідина збиралася краплями."],
+      ["Add-on: fabric protector — kada piraso", "Water-based na protector na ini-spray pagkatapos maglinis para hindi sumipsip ang natapon."],
+      ["ਵਾਧੂ: ਫ਼ੈਬਰਿਕ ਪ੍ਰੋਟੈਕਟਰ — ਪ੍ਰਤੀ ਪੀਸ", "ਸਫ਼ਾਈ ਤੋਂ ਬਾਅਦ ਪਾਣੀ-ਅਧਾਰਿਤ ਪ੍ਰੋਟੈਕਟਰ ਤਾਂ ਜੋ ਡੁੱਲ੍ਹਿਆ ਤਰਲ ਨਾ ਰਚੇ।"],
+    ), { measurementKey: "each", optional: true }),
+  ], null, UPHOLSTERY),
+  "fq.carpet_cleaning.specialty.leather_chairs": T("maintenance", namesOf("fq.carpet_cleaning.specialty.leather_chairs"), [LEATHER(65), LEATHER_KIT(12)], null, UPHOLSTERY),
+  "fq.carpet_cleaning.specialty.leather_sofa": T("maintenance", namesOf("fq.carpet_cleaning.specialty.leather_sofa"), [LEATHER(150), LEATHER_KIT(18)], null, UPHOLSTERY),
+  "fq.carpet_cleaning.specialty.leather_sectional": T("maintenance", namesOf("fq.carpet_cleaning.specialty.leather_sectional"), [LEATHER(250), LEATHER_KIT(25)], null, UPHOLSTERY),
+  "fq.carpet_cleaning.specialty.mattress_full": T("maintenance", namesOf("fq.carpet_cleaning.specialty.mattress_full"), MATTRESS(90), null),
+  "fq.carpet_cleaning.specialty.mattress_cal_king": T("maintenance", namesOf("fq.carpet_cleaning.specialty.mattress_cal_king"), MATTRESS(120), null),
+  // The benchmark's median ($140) split into the visit and its shampoo.
+  "fq.carpet_cleaning.specialty.area_rug_8x10": T("maintenance", namesOf("fq.carpet_cleaning.specialty.area_rug_8x10"), [
+    L.labour(1, "each", 125, t8(
+      ["Area rug cleaning — on site", "Rug dusted, shampooed in place with a low-moisture method, rinsed and groomed."],
+      ["Nettoyage de carpette — sur place", "Carpette dépoussiérée, shampouinée sur place à faible humidité, rincée et peignée."],
+      ["Limpieza de tapete — en sitio", "Tapete desempolvado, lavado en sitio con poca humedad, enjuagado y peinado."],
+      ["Pulizia tappeto — sul posto", "Tappeto spolverato, lavato sul posto a bassa umidità, risciacquato e pettinato."],
+      ["Teppichreinigung — vor Ort", "Teppich entstaubt, vor Ort feuchtigkeitsarm shampooniert, gespült und gebürstet."],
+      ["Чищення килима — на місці", "Килим вибито, вимито на місці з мінімумом вологи, прополоскано й розчесано."],
+      ["Paglilinis ng area rug — on site", "Pinagpag, shinampoo sa lugar nang kaunting tubig, binanlawan at sinuklay."],
+      ["ਏਰੀਆ ਰੱਗ ਸਫ਼ਾਈ — ਮੌਕੇ 'ਤੇ", "ਰੱਗ ਝਾੜਿਆ, ਉੱਥੇ ਹੀ ਘੱਟ ਨਮੀ ਨਾਲ ਸ਼ੈਂਪੂ, ਧੋਤਾ ਅਤੇ ਸੰਵਾਰਿਆ।"],
+    ), { measurementKey: "each" }),
+    L.material(1, "flat", 15, t8(
+      ["Rug shampoo and rinse", "Wool-safe rug shampoo and a neutralising rinse."],
+      ["Shampooing et rinçage à carpette", "Shampooing sans danger pour la laine et rinçage neutralisant."],
+      ["Champú y enjuague para tapete", "Champú seguro para lana y un enjuague neutralizante."],
+      ["Shampoo e risciacquo per tappeti", "Shampoo sicuro per la lana e risciacquo neutralizzante."],
+      ["Teppichshampoo und Spülung", "Wollschonendes Teppichshampoo und eine neutralisierende Spülung."],
+      ["Шампунь і ополіскувач для килимів", "Безпечний для вовни шампунь і нейтралізуючий ополіскувач."],
+      ["Rug shampoo at rinse", "Wool-safe na shampoo at neutralising rinse."],
+      ["ਰੱਗ ਸ਼ੈਂਪੂ ਅਤੇ ਰਿੰਸ", "ਉੱਨ ਲਈ ਸੁਰੱਖਿਅਤ ਰੱਗ ਸ਼ੈਂਪੂ ਅਤੇ ਨਿਊਟ੍ਰਲ ਕਰਨ ਵਾਲਾ ਰਿੰਸ।"],
+    )),
+  ], null),
+  // The benchmark's median ($81) split into its two halves.
+  "fq.carpet_cleaning.specialty.stairs_glass_detail": T("maintenance", namesOf("fq.carpet_cleaning.specialty.stairs_glass_detail"), [
+    L.labour(1, "flat", 55, t8(
+      ["Stair cleaning and dusting", "Main-floor stairs vacuumed or wiped; spindles, rails and skirting dusted."],
+      ["Nettoyage et époussetage de l'escalier", "Escalier principal aspiré ou essuyé; barreaux, main courante et plinthes époussetés."],
+      ["Limpieza y sacudido de escaleras", "Escalera principal aspirada o limpiada; balaustres, pasamanos y zoclos sacudidos."],
+      ["Pulizia e spolveratura delle scale", "Scala principale aspirata o pulita; colonnine, corrimano e zoccolini spolverati."],
+      ["Treppenreinigung und Abstauben", "Haupttreppe gesaugt oder gewischt; Stäbe, Handlauf und Sockelleisten abgestaubt."],
+      ["Прибирання сходів і витирання пилу", "Основні сходи пропилососено чи протерто; балясини, поручні й плінтуси очищено від пилу."],
+      ["Paglilinis at pagpupunas ng hagdan", "Binakyum o pinunasan ang pangunahing hagdan; pinunasan ang baluster, hawakan at skirting."],
+      ["ਪੌੜੀਆਂ ਦੀ ਸਫ਼ਾਈ ਅਤੇ ਧੂੜ", "ਮੁੱਖ ਪੌੜੀਆਂ ਵੈਕਿਊਮ ਜਾਂ ਪੂੰਝੀਆਂ; ਜੰਗਲੇ, ਹੱਥ-ਫੜ ਅਤੇ ਸਕਰਟਿੰਗ ਦੀ ਧੂੜ ਸਾਫ਼।"],
+    )),
+    L.labour(1, "flat", 26, t8(
+      ["Glass and railing detail", "Glass panels, doors and railings cleaned streak-free, fingerprints and smudges removed."],
+      ["Détail des vitres et rampes", "Panneaux vitrés, portes et rampes nettoyés sans traces, empreintes et marques enlevées."],
+      ["Detallado de vidrio y barandales", "Paneles de vidrio, puertas y barandales limpios sin marcas, huellas y manchas retiradas."],
+      ["Dettaglio vetri e ringhiere", "Pannelli in vetro, porte e ringhiere puliti senza aloni, impronte e segni rimossi."],
+      ["Glas- und Geländerdetail", "Glasflächen, Türen und Geländer streifenfrei gereinigt, Fingerabdrücke und Schlieren entfernt."],
+      ["Детальне чищення скла й поручнів", "Скляні панелі, двері й поручні вимито без розводів, відбитки й плями прибрано."],
+      ["Detalye ng salamin at railing", "Nilinis nang walang guhit ang salamin, pinto at railing, tinanggal ang fingerprint at mantsa."],
+      ["ਸ਼ੀਸ਼ੇ ਅਤੇ ਜੰਗਲੇ ਦੀ ਬਾਰੀਕ ਸਫ਼ਾਈ", "ਸ਼ੀਸ਼ੇ ਦੇ ਪੈਨਲ, ਦਰਵਾਜ਼ੇ ਅਤੇ ਜੰਗਲੇ ਬਿਨਾਂ ਧਾਰੀਆਂ ਸਾਫ਼, ਉਂਗਲਾਂ ਦੇ ਨਿਸ਼ਾਨ ਹਟਾਏ।"],
+    )),
+  ], null),
+};
+// This pass only adds: a row that already has a template keeps it untouched.
+for (const key of Object.keys(ADDED)) if (TEMPLATES[key]) throw new Error(`carpet_cleaning: ${key} is already templated above`);
+
 withLanguages(SEED, I18N);
 withTemplates(SEED, TEMPLATES);
+withTemplates(SEED, ADDED);

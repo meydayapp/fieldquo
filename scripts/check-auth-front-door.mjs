@@ -67,8 +67,8 @@ const ACCEPT = code("app/accept-invitation/[id]/page.js");
 const ACCEPT_ROUTE = code("app/api/invitations/[id]/accept/route.js");
 const INVITE_ROUTE = code("app/api/invitations/[id]/route.js");
 const FORGOT = code("app/forgot-password/page.js");
-const RESET = code("app/reset-password/page.js");
-const VERIFY = code("app/verify-email/page.js");
+const RESET = code("app/reset-password/ResetPassword.js");
+const VERIFY = code("app/verify-email/VerifyEmail.js");
 const SIGNUP = code("app/signup/page.js");
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -280,8 +280,8 @@ const PAGES = [
   ["app/login/page.js", LOGIN],
   ["app/signup/page.js", SIGNUP],
   ["app/forgot-password/page.js", FORGOT],
-  ["app/reset-password/page.js", RESET],
-  ["app/verify-email/page.js", VERIFY],
+  ["app/reset-password/ResetPassword.js", RESET],
+  ["app/verify-email/VerifyEmail.js", VERIFY],
   ["app/accept-invitation/[id]/page.js", ACCEPT],
 ];
 for (const [name, src] of PAGES) {

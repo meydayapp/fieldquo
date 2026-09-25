@@ -20,6 +20,7 @@ import { ROUTES_CHAT } from "./routes-chat.js";
 import { ROUTES_HELP } from "./routes-help.js";
 import { ROUTES_TEMPLATES } from "./routes-templates.js";
 import { ROUTES_FIELD } from "./routes-field.js";
+import { ROUTES_PICKER } from "./routes-picker.js";
 
 // Settings B before Grow: both answer /api/settings/document-templates,
 // and only the settings file's list carries the PDF layouts and the
@@ -29,6 +30,9 @@ import { ROUTES_FIELD } from "./routes-field.js";
 // sidebar row reads, and it is where a page every group answers for the
 // owner is answered differently for the crew (see its header).
 export const ROUTES = [
+  // The Add service frames (slug prefix "picker-"): their own company
+  // shapes and a recorder on the save; everything else falls through.
+  ...ROUTES_PICKER,
   // The estimate-template screens first: slug-scoped, every other screen
   // falls through (routes-templates.js).
   ...ROUTES_TEMPLATES,
