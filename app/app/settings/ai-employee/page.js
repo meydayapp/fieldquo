@@ -869,19 +869,23 @@ export default function AiEmployeePage() {
                 </span>
               </label>
 
-              <label className="flex gap-3 items-start">
-                <input type="checkbox" className="mt-1" checked={form.webChatEnabled === true} onChange={(e) => set({ webChatEnabled: e.target.checked })} />
+              {/* A div, not a <label>: the snippet, its notes and the Copy
+                  button live in here, and inside a label a click on any of
+                  their text toggled the channel off. Only the title labels
+                  the checkbox. */}
+              <div className="flex gap-3 items-start">
+                <input id="ai-web-chat" type="checkbox" className="mt-1" checked={form.webChatEnabled === true} onChange={(e) => set({ webChatEnabled: e.target.checked })} />
                 <span className="min-w-0 flex-1">
-                  <span className="text-sm text-foreground flex items-center gap-1">
+                  <label htmlFor="ai-web-chat" className="text-sm text-foreground flex items-center gap-1 cursor-pointer">
                     <Globe size={14} /> {t("app.aiEmployee.channel.web", "Website chat")}
-                  </span>
+                  </label>
                   <span className="block text-xs text-muted-foreground mt-1">
                     {t("app.aiEmployee.webHint", "A chat button on your FieldQuo website, and on any other site with the snippet below. Visitors get an instant-quote link or a booked slot in the chat; “Talk to a person” lands in Conversations.")}
                   </span>
                   {data.webChat?.snippet && (
                     <span className="block mt-2">
                       <span className="text-xs text-muted-foreground">{t("app.aiEmployee.snippetLabel", "Paste this before </body> on any other website:")}</span>
-                      <textarea readOnly className={`${FIELD} text-xs font-mono mt-1 min-h-[72px]`} value={data.webChat.snippet} onFocus={(e) => e.target.select()} />
+                      <textarea readOnly className={`${FIELD} text-xs font-mono mt-1 min-h-[56px]`} value={data.webChat.snippet} onFocus={(e) => e.target.select()} />
                       <button
                         type="button"
                         className={`${BTN_QUIET} mt-2`}
@@ -897,10 +901,25 @@ export default function AiEmployeePage() {
                       >
                         <ClipboardCheck size={14} /> {copied ? t("app.aiEmployee.copied", "Copied") : t("app.aiEmployee.copySnippet", "Copy snippet")}
                       </button>
+                      <span className="block text-xs text-muted-foreground mt-1">
+                        {t("app.aiEmployee.snippetRecommended", "Recommended: one line on every page. Closed, the chat covers only its button, so the rest of your page stays clickable. If you pasted the older <iframe> code, it still works — swap it for this line to free up that corner.")}
+                      </span>
+                      <details className="mt-2 text-xs">
+                        <summary className="cursor-pointer text-foreground min-h-[44px] flex items-center">{t("app.aiEmployee.where.title", "Where to paste it")}</summary>
+                        <ul className="list-disc pl-5 mt-1 space-y-1 text-muted-foreground">
+                          <li>{t("app.aiEmployee.where.wordpress", "WordPress: install the free WPCode plugin, then Code Snippets → Header & Footer, paste into Footer and Save Changes. WordPress.com needs a plan that allows plugins.")}</li>
+                          <li>{t("app.aiEmployee.where.wix", "Wix: Settings → Custom Code → + Add Custom Code, choose All pages and Body – end, then Apply. Wix only runs it on a site with a connected domain.")}</li>
+                          <li>{t("app.aiEmployee.where.squarespace", "Squarespace: open Code Injection (under Website Tools), paste into Footer and Save. Needs the Core plan or above.")}</li>
+                          <li>{t("app.aiEmployee.where.shopify", "Shopify: Online Store → ⋯ → Edit code, open layout/theme.liquid, paste just above </body> and Save.")}</li>
+                          <li>{t("app.aiEmployee.where.godaddy", "GoDaddy Website Builder: it can't add code to every page — its HTML section runs code inside its own box, so the button can't float over your site there. Link to your booking page instead.")}</li>
+                          <li>{t("app.aiEmployee.where.html", "Any other site or plain HTML: paste it just above </body> on every page, or once in a shared footer.")}</li>
+                          <li>{t("app.aiEmployee.where.options", "Options: add data-position=\"left\" to the tag for the bottom-left corner, or data-z=\"1000\" if something on your site covers the button.")}</li>
+                        </ul>
+                      </details>
                     </span>
                   )}
                 </span>
-              </label>
+              </div>
 
               <label className={`flex gap-3 items-start ${data.sms?.available ? "" : "opacity-60"}`}>
                 <input

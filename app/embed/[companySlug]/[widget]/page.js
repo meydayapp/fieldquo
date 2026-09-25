@@ -89,7 +89,7 @@ async function loadEmbedLanguage(companyId) {
   return { language: row?.defaultLanguage || "en" };
 }
 
-export default async function EmbedPage({ params }) {
+export default async function EmbedPage({ params, searchParams }) {
   const { companySlug, widget } = await params;
 
   if (!WIDGETS.has(widget)) notFound();
@@ -108,10 +108,22 @@ export default async function EmbedPage({ params }) {
     // bottom-right (the snippet on Settings → AI employee). The widget's own
     // floating button sits in the frame's corner, so the host sees a button,
     // not a box. No employee on the web channel renders nothing at all.
+    //
+    // ?host=loader is the chat.js loader (lib/embed/chatLoader.js) asking for
+    // the sized mode: the widget fills whatever frame it is given and tells
+    // the loader, by postMessage, the size it needs. Without it — the old
+    // iframe snippet anyone may still have pasted — nothing changes.
     const { language } = await loadEmbedLanguage(company.id);
+    const sp = (await searchParams) || {};
+    const hosted = sp.host === "loader";
+    const side = sp.side === "left" ? "left" : "right";
     return (
       <EmbedFrame className="bg-transparent">
-        <SiteChatMount companySlug={companySlug} language={language} />
+        {/* The root layout paints <body> with the app's page grey. Inside a
+            frame floating over someone else's website that is a grey box
+            around the button, so this one page clears it. */}
+        <style>{"html,body{background:transparent!important}"}</style>
+        <SiteChatMount companySlug={companySlug} language={language} hosted={hosted} side={side} />
       </EmbedFrame>
     );
   }
