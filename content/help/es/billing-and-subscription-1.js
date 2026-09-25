@@ -64,7 +64,7 @@ export const ARTICLES = {
         heading: "La cuadrícula Planes",
         blocks: [
           { p: "Bajo **Planes**, un selector **Mensual** / **Compromiso de 1 año** y una tarjeta por nivel, cada una con su precio, su línea de licencias y cuadrilla, **FieldQuo AI incluido**, y un botón. La tarjeta en la que está dice **Plan actual** y aparece atenuada; las demás dicen **Elegir plan**. Con el selector en el año, el botón de su propio nivel dice **Cambiar a anual** en su lugar, porque tomar el compromiso es un cambio real aunque el nivel sea el mismo." },
-          { p: "El selector arranca en la frecuencia con la que ya se le cobra, y cambiarlo solo vuelve a poner precio a las tarjetas: la línea del plan de arriba no se mueve hasta que confirma realmente un cambio. La cuadrícula muestra la escalera solo en su moneda: dólares canadienses para una dirección en Canadá, dólares estadounidenses para una en Estados Unidos. Una empresa cuya dirección no tiene país ve una invitación a agregarlo en lugar de una lista de precios." },
+          { p: "El selector arranca en la frecuencia con la que ya se le cobra, y cambiarlo solo vuelve a poner precio a las tarjetas: la línea del plan de arriba no se mueve hasta que confirma realmente un cambio. La cuadrícula muestra la escalera solo en su moneda: dólares canadienses para una dirección en Canadá, dólares australianos para una en Australia, dólares estadounidenses para cualquier otro lugar. Una empresa cuya dirección no tiene país ve una invitación a agregarlo en lugar de una lista de precios." },
           { tip: "Cada tarjeta lleva las palabras **1 puesto · 5 miembros de cuadrilla incluidos gratis**, **3 puestos · 8 miembros de cuadrilla incluidos gratis**, y así sucesivamente. Compárelas con la línea **licencias usadas** de **Gestionar equipo** antes de subir de plan: la cuadrilla que ya tiene quizá cabe en el plan en el que está." },
         ],
       },
@@ -108,7 +108,7 @@ export const ARTICLES = {
               ["Scale", "$369", "$3,690", "10", "15"],
             ],
           } },
-          { p: "El mismo número en cualquiera de las dos monedas: una empresa canadiense paga estas cifras en dólares canadienses, una estadounidense las paga en dólares estadounidenses. La moneda en la que se le cobra la decide la dirección de su negocio, nunca un selector — vea [[taxes-and-currency-on-your-subscription|Impuestos y moneda de su suscripción]]. El precio anual son diez meses por doce; vea [[monthly-or-a-year-commitment|Mensual, o un compromiso de un año]]." },
+          { p: "El mismo número en cualquiera de las dos monedas: una empresa canadiense paga estas cifras en dólares canadienses, una australiana en dólares australianos y todas las demás en dólares estadounidenses. La moneda en la que se le cobra la decide la dirección de su negocio, nunca un selector — vea [[taxes-and-currency-on-your-subscription|Impuestos y moneda de su suscripción]]. El precio anual son diez meses por doce; vea [[monthly-or-a-year-commitment|Mensual, o un compromiso de un año]]." },
           { figure: "harness:plan", caption: "Cuenta y facturación — las cuatro tarjetas de plan, cada una con su línea de licencias y cuadrilla, FieldQuo AI incluido, y Elegir plan o Plan actual." },
         ],
       },
@@ -528,7 +528,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Resumen",
         blocks: [
-          { p: "FieldQuo le cobra a través de Stripe Billing, en su propia moneda: dólares canadienses para una dirección en Canadá, dólares estadounidenses para una en Estados Unidos. Cada período, Stripe emite una factura, cobra la tarjeta registrada y marca la factura como pagada; la factura pagada es el recibo. No hay un correo de recibo separado con la marca de FieldQuo por cada cobro." },
+          { p: "FieldQuo le cobra a través de Stripe Billing, en su propia moneda: dólares canadienses para una dirección en Canadá, dólares australianos para una en Australia, dólares estadounidenses para cualquier otro lugar. Cada período, Stripe emite una factura, cobra la tarjeta registrada y marca la factura como pagada; la factura pagada es el recibo. No hay un correo de recibo separado con la marca de FieldQuo por cada cobro." },
           { p: "Estas van en la dirección opuesta a las facturas de su pantalla **Facturas**, que son las suyas para sus clientes y pasan por su propia cuenta de Stripe conectada. Las dos nunca se mezclan: su factura de suscripción nunca aparece entre sus facturas a clientes, y el pago de un cliente nunca está en su cliente de Stripe." },
         ],
       },

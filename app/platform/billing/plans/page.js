@@ -583,7 +583,7 @@ export default function PlatformPlansPage() {
         <div className="space-y-8">
           <Group
             title="The seat ladder"
-            note="One row per tier per currency. Same number in CAD and USD on purpose — a conversion would make a Canadian pay their sticker plus FX."
+            note="One row per tier per currency. Same number in CAD, USD and AUD on purpose — a conversion would make a Canadian pay their sticker plus FX."
             plans={ladder}
             usage={usage}
             usageKnown={!usageError}
@@ -605,7 +605,7 @@ export default function PlatformPlansPage() {
           />
           <Group
             title="Custom sizes"
-            note={`The fifth card: Scale plus $${CUSTOM_SEAT_PRICE} a seat a month (the same number in CAD and USD, like every rung), ${CUSTOM_MIN_SEATS} to ${CUSTOM_MAX_SEATS} seats, crew = seats + 5, never more than ${MAX_COMPANY_PEOPLE} people. A row appears the first time a company picks that size and is repriced from this currency's Scale row every time one is bought — so reprice Scale, not these. At Stripe each is two items: Scale's price and "Extra seat" × the seats past ten.`}
+            note={`The fifth card: Scale plus $${CUSTOM_SEAT_PRICE} a seat a month (the same number in CAD, USD and AUD, like every rung), ${CUSTOM_MIN_SEATS} to ${CUSTOM_MAX_SEATS} seats, crew = seats + 5, never more than ${MAX_COMPANY_PEOPLE} people. A row appears the first time a company picks that size and is repriced from this currency's Scale row every time one is bought — so reprice Scale, not these. At Stripe each is two items: Scale's price and "Extra seat" × the seats past ten.`}
             plans={custom}
             usage={usage}
             usageKnown={!usageError}

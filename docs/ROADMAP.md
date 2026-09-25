@@ -1,6 +1,7 @@
 # FieldQuo — current phase and what's left
 
 Last updated: 25 September 2026 (leads: a "Linked documents" block — quote, jobs, invoices — with "Link an existing quote", and Won now needs an APPROVED quote or work behind it, refusing with a reason and "Link the quote that won it"; calendar: a Cards view on /app/appointments, each entry a card opening a side panel with open quote/job/invoice/client, call, directions and reschedule/cancel)
+Last updated: 25 September 2026 (Australia: GST 10% on an AU contractor's quotes and invoices as a VAT-table row named GST, gated on "Are you registered for GST?"; AUD plans at the same numbers and every other Stripe country on the USD rows, Checkout's currency now taken from the Plan row; tax on FieldQuo's own subscription stays Stripe Tax — new /platform/billing/tax shows per region the subscribers, 12-month taxable vs reverse-charged invoices, FieldQuo's thresholds (UK/EU from the first sale, AU A$75,000) and the Stripe registration checklist; owner to run `npm run seed:seat-ladder`)
 Last updated: 25 September 2026 (import, not export: the five bulk exports — price book, timesheets, pay run, subcontractor year-end list, bookkeeping ZIP — removed from /app with their routes refusing 403 through `lib/export/companyDataExport.js`; single documents and every import kept; a copy of a company's data stays available on written request; help centre, marketing, sales playbook and guide made honest)
 Last updated: 25 September 2026 (who pays for AI, the owner's decision: FieldQuo AI and translation on FieldQuo's own budget — the copilot keeps a per-company fair-use ceiling, translation the daily draft cap; the AI employee's replies and front desk charged in dollars from the company's AI credit at cost × 2 rounded up, gated on one reply's estimate, debited once per reply, NO_CREDIT → a person; a one-time grace on the old allowance until 1 October 2026; Settings › AI employee shows paused / the change and date / the balance; /platform/ai-billing shows dollars debited per company)
 Last updated: 25 September 2026 (the receipts book: photo AND PDF receipts captured from Expenses, a job page or the Create menu's "Snap receipt", read into lines / store / date + time / card last four / GST-PST-HST separately, checked against themselves, matched to the job the person was clocked in on (or overhead) by deterministic scoring with a reason for every point, split by line or amount, booked only on a tap as Expense rows carrying their tax; crew book to their own jobs or hand it to the office; /platform/ai-billing — the generic "who pays" switch, receipts on FieldQuo)
@@ -156,6 +157,104 @@ Strings in all 9 app languages. Checks: `check:lead-linking` (81), `check:entry-
   → Contacted → back to Won; a lead with no quote → "Link the quote that won it".
 - Product decision to confirm: the tighter Won rule (approved quote or work). If the owner wants
   a hand-set Won on a merely SENT quote back, it is one branch in `wonCheck`.
+## Australia: GST on contractors' documents, AUD plans, and tax on FieldQuo's own subscription (25 September 2026)
+
+The owner's decisions of 2026-09-24: plans abroad — Australia the same numbers in
+AUD (99/169/269/369), any other Stripe-capable country the USD ladder, no GBP or EUR
+rows; tax on FieldQuo's own subscription charged in-system — UK 20% VAT (reverse
+charge only with a VAT number), EU the buyer's country rate (reverse charge with a VAT
+ID), Australia 10% GST, USA none for now, Canada as today.
+
+### What shipped
+
+- **GST on an Australian contractor's quotes and invoices.** `AU` is a row of
+  `VAT_RATES` in `lib/tax/jurisdictions.js` — a value-added tax by another name:
+  10% (A New Tax System (GST) Act 1999 s 9-70, from 1 Jul 2000), keyed on the
+  company's country, gated on the same `Company.vatRegistered` answer (asked as
+  "Are you registered for GST?" — registering is compulsory at A$75,000, and an
+  unregistered business must not charge GST, so unanswered stays unknown), no
+  reduced rate. `taxName: "GST"` and `consumptionTaxName()` carry the name: the tax
+  line reads "GST 10% (Australia)", the notes, the unresolved hint, the not-registered
+  caution and the Settings question all have GST twins in all nine languages. Exclusive
+  like every jurisdiction here (tax on top of the ex-GST subtotal; the product has no
+  prices-include-tax entry mode anywhere) — the GST inside the total is total ÷ 11 to
+  the cent, asserted. The document's Tax row, the send gate and the sales-tax summary
+  read it unchanged: an AU invoice with GST is "charged", not "Not worked out".
+- **AUD plans.** `SUPPORTED_CURRENCIES` is `CAD, USD, AUD`; `currencyForCountry` gives
+  AU → AUD and every other country Stripe serves (stripe.com/global's 44) → USD, still
+  null for anywhere else. Account & Billing and the change-plan checkout read the
+  country through the new `billingCountry()` (the column when it names a Stripe
+  country), because `resolveCountry` only hears CA and US. Checkout already builds
+  `price_data` inline, so no Stripe Price is created by hand — the one reusable Price,
+  the custom plan's "extra seat", is minted per currency by lookup key on first use.
+  The pricing page still prints a bare "$" and its sentence now says Canadian,
+  Australian and "everywhere else US dollars" (nine languages).
+- **A fix found on the way:** both subscription Checkouts built their Stripe currency
+  from `Company.currency` — what the contractor quotes clients in. A British company
+  (GBP) sold the USD ladder would have been charged £99 for a row that says US$99; a
+  Canadian company serving abroad in USD was already charged the CAD numbers in US
+  dollars. `planStripeCurrency()` now takes the currency from the Plan row (legacy rows
+  with no tierKey keep the old rule), and a plan change uses the live Stripe
+  subscription's own currency.
+- **Tax on FieldQuo's own subscription: Stripe Tax is the mechanism — no parallel
+  engine.** Every subscription Checkout already sends `automatic_tax`, a required
+  billing address and tax-ID collection. Per Stripe's docs (read 2026-09-25) that
+  charges UK VAT with no tax on customers giving a UK VAT number, EU VAT at the
+  customer's rate with the reverse charge on a VAT ID, and 10% GST in Australia with
+  none for a customer giving an ABN — but only where a registration has been added in
+  Stripe. New **/platform/billing/tax** ("Tax registrations", Earnings): per region,
+  paying and trialling companies, the 12-month paid subscription invoices split into
+  taxable (no tax ID) and reverse-charged (read from each invoice's own address and tax
+  IDs), the AUD run-rate, FieldQuo's threshold, the live Stripe registration and Stripe
+  Tax settings (head office, preset tax code, default tax behaviour), a verdict and —
+  when due — the checklist. Read-only; an unreadable Stripe source shows "unknown",
+  never zero. `lib/platform/taxRegistrations.js` (pure) holds the rules and citations.
+- **The thresholds, for FieldQuo (a Canadian seller) — not the local ones:** UK — none,
+  "regardless of taxable turnover" for a business based outside the UK (HMRC, When to
+  register for VAT; £90,000 is for UK-based businesses); EU — none for a seller outside
+  the EU (the €10,000 applies only to a supplier established in one member state —
+  European Commission, VAT One Stop Shop; register once under non-Union OSS); Australia
+  — A$75,000 of sales in the past or next 12 months, not counting sales to
+  GST-registered businesses (ATO; Stripe's Australia page).
+
+### Checks
+
+`check:tax-jurisdictions` 1011 (AU: 10%, named GST, gated, pre-2000 unknown, headline,
+notes, stored record, rounding and ÷11 on nine amounts, document statements, every GST
+key in nine languages with no "VAT" in it); `check:tax-registrations` 56 (new);
+`check:seat-ladder` 114, `check:pricing-page` 152, `check:signup-order` 96,
+`check:competitors`, `check:leave-templates` follow the new currency rule;
+`check:platform-console` carries the new row. Unchanged and green: tax-auto, us-tax,
+tax-send, statements, invoice-builder, quote-preview, quote-totals, plan-change,
+billing-interval/sync/resume, compare-pages, fx. `npm run build` passes.
+
+### Owner to do
+
+1. **`npm run seed:seat-ladder`** once (additive: creates the four AUD Plan rows,
+   changes nothing that exists). Until then an Australian company sees AUD as its
+   currency and no plans to choose from.
+2. **Stripe → Tax → Settings:** preset product tax code "Software as a service (SaaS) —
+   business use" (`txcd_10103001`) and the default tax behaviour — exclusive means an
+   Australian without an ABN pays A$99 + GST; inclusive means A$99 includes it. The new
+   page shows what is set today.
+3. **Register when /platform/billing/tax says so, then add it in Stripe → Tax →
+   Locations:** UK Standard (HMRC, non-established); EU One Stop Shop non-Union scheme
+   in one member state; Australia Simplified (ATO). Confirm with an accountant first —
+   the page counts, it does not advise.
+
+### Still owed here
+
+- The owner's "Australia 10% GST" is 10% for customers **without** an ABN: an
+  Australian business that gives its ABN at checkout pays none (the law, applied by
+  Stripe). Named, not decided around.
+- AI credit top-ups (one-off Checkout, not subscription invoices) are not counted on the
+  tax page.
+- `check:platform-mobile` fails before and after for five other pages and an esbuild
+  `crypto` import; `check:platform-console` for `/platform/sales/outcomes`;
+  `check:app-currency`, `check:credit-currency`, `check:quote-approval`,
+  `check:signup-gate`, `check:platform-truth`, `check:help-centre` have their own failures — none touched here. Help: the subscription currency table and tax bullets (en, fr, es) now name AUD, the USD rest-of-world rule and UK/EU/AU VAT-GST with the reverse charge.
+
+---
 
 ## The quote builder's four 22-September asks (25 September 2026)
 

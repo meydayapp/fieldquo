@@ -20,8 +20,13 @@ import {
   lookupJurisdictionRate,
   normaliseCountry,
   supportedCountryOptions,
+  consumptionTaxName,
 } from "@/lib/tax/jurisdictions";
 import { resolveTaxRate, explainTaxSource } from "@/lib/tax/resolveTaxRate";
+import { taxLineHeadline, taxLineUnresolvedHint } from "@/lib/tax/taxLine";
+import { recordTaxResolution } from "@/lib/tax/taxResolution";
+import { taxStatement } from "@/lib/tax/documentTax";
+import { quoteTotals } from "@/lib/quotes/totals";
 import { APP_MESSAGES } from "@/app/i18n/appMessages.js";
 
 let failures = 0;
@@ -585,6 +590,100 @@ ok(
   "the picker is sorted by name",
   options.every((o, i) => i === 0 || options[i - 1].label.localeCompare(o.label) <= 0),
 );
+
+/* ── 9. Australia: GST, a VAT by another name ───────────────────────────── */
+
+section("Australia — GST 10%, named GST, gated on registration");
+
+{
+  const au = lookupVatRate({ country: "AU", vatRegistered: true });
+  ok("AU resolves when registered", au.status === "known", au.reason);
+  ok("AU GST is 10%", au.rate === 10, au.rate);
+  ok("AU is named GST, not VAT", au.taxName === "GST" && consumptionTaxName("AU") === "GST");
+  ok("...and every other VAT row stays VAT", consumptionTaxName("NL") === "VAT" && consumptionTaxName("GB") === "VAT");
+  ok("consumptionTaxName outside the table is null", consumptionTaxName("CA") === null && consumptionTaxName("__proto__") === null && consumptionTaxName(null) === null);
+  ok("no reduced rate is invented for renovation work", lookupVatRate({ country: "AU", vatRegistered: true, workType: "renovation" }).rate === 10);
+  ok("AU is a supported country with a display name", countryIsSupportedLike("AU"));
+  ok("GST did not exist before 1 Jul 2000", lookupVatRate({ country: "AU", vatRegistered: true, asOf: "2000-06-30" }).status === "unknown");
+  ok("...and did from that day", lookupVatRate({ country: "AU", vatRegistered: true, asOf: "2000-07-01" }).rate === 10);
+
+  // Registration gates it, as VAT: not registered is a stated zero, never
+  // asked is unknown — not 10%, and not 0%.
+  const notReg = lookupVatRate({ country: "AU", vatRegistered: false });
+  ok("not registered → no GST, stated", notReg.status === "not_registered" && notReg.rate === 0);
+  ok("...with the GST caution, not the VAT one", notReg.cautionKey === "app.tax.caution.gstNotRegistered", notReg.cautionKey);
+  const never = lookupVatRate({ country: "AU", vatRegistered: null });
+  ok("never asked → unknown", never.status === "unknown" && never.reason === "vat_status_unknown");
+
+  // Supplier-keyed like VAT: an AU contractor's client in AU with no state.
+  const auCompany = { autoApplyLocalTax: true, taxMode: "auto", taxRate: 0, country: "AU", province: "NSW", vatRegistered: true };
+  const res = resolveTaxRate({ company: auCompany, taxRates: [], client: { name: "Kylie", country: "AU", province: "VIC" } });
+  ok("an AU company's quote resolves GST from the table", res.source === "jurisdiction_vat" && res.rate === 10, JSON.stringify(res));
+  const headline = taxLineHeadline(res, "en");
+  ok("the tax line says GST 10% (Australia)", headline?.key === "app.tax.headline.gst" && headline.params.rate === "10%" && headline.params.country === "Australia", JSON.stringify(headline));
+  ok("...and that key renders it", APP_MESSAGES.en[headline.key].replace("{rate}", headline.params.rate).replace("{country}", headline.params.country) === "GST 10% (Australia)");
+  const note = explainTaxSource(res, { name: "Kylie" });
+  ok("the note is the GST sentence", note?.key === "app.tax.note.gstStandard", note?.key);
+
+  // The stored record explains a sent quote without today's rows.
+  const stored = recordTaxResolution({ ...res, place: { source: "client" } });
+  ok("the stored record keeps AU", stored.country === "AU" && stored.rate === 10);
+  ok("...and a sent quote still says GST from it", taxLineHeadline(stored, "en")?.key === "app.tax.headline.gst");
+
+  const notRegRes = resolveTaxRate({ company: { ...auCompany, vatRegistered: false }, taxRates: [], client: { country: "AU" } });
+  ok("not registered: rate 0, stated zero", notRegRes.rate === 0 && notRegRes.source === "vat_not_registered");
+  ok("...explained in GST words", explainTaxSource(notRegRes, {})?.key === "app.tax.note.gstNotRegistered");
+  const unknownRes = resolveTaxRate({ company: { ...auCompany, vatRegistered: null }, taxRates: [], client: { country: "AU" } });
+  ok("unanswered: the company default, flagged", unknownRes.source === "unknown_vat_status_unknown");
+  ok("...and the hint asks about GST", taxLineUnresolvedHint(unknownRes)?.key === "app.tax.line.answerGst");
+  ok("...as does the note", explainTaxSource(unknownRes, {})?.key === "app.tax.note.gstStatusUnknown");
+
+  // Money: exclusive, rounded to the cent, and the GST inside the total is
+  // total ÷ 11 to the cent — the figure an Australian bookkeeper checks.
+  const cases = [
+    [1000, 0],
+    [0.05, 0],
+    [0.15, 0],
+    [1234.56, 0],
+    [999.99, 99.99],
+    [5250, 250],
+    [33.33, 0],
+    [0.01, 0],
+    [7777.77, 0.07],
+  ];
+  for (const [subtotal, discount] of cases) {
+    const tot = quoteTotals({ subtotal, discount, taxRate: 10, taxEnabled: true });
+    const expectTax = Math.round((subtotal - discount) * 10) / 100;
+    ok(`A$${subtotal} − ${discount}: GST is 10% to the cent`, Math.abs(tot.tax - expectTax) < 0.0051, `${tot.tax} vs ${expectTax}`);
+    ok(`A$${subtotal} − ${discount}: total = base + GST`, Math.abs(tot.total - (tot.taxableBase + tot.tax)) < 1e-9);
+    ok(`A$${subtotal} − ${discount}: GST = total ÷ 11 within a cent`, Math.abs(tot.total / 11 - tot.tax) <= 0.01 + 1e-9, `${tot.total / 11} vs ${tot.tax}`);
+  }
+
+  // The document: an AU invoice with GST is "charged", not "Not worked out".
+  const st = taxStatement({ taxEnabled: true, tax: 100, company: auCompany, taxRates: [], client: { country: "AU" } });
+  ok("an AU invoice with GST is a charged line", st.kind === "charged");
+  const zero = taxStatement({ taxEnabled: true, tax: 0, taxableBase: 1000, company: auCompany, taxRates: [], client: { country: "AU" } });
+  ok("an AU invoice registered with $0 GST on $1000 is unresolved, not a silent $0", zero.kind === "unresolved");
+  const unreg = taxStatement({ taxEnabled: true, tax: 0, taxableBase: 1000, company: { ...auCompany, vatRegistered: false }, taxRates: [], client: { country: "AU" } });
+  ok("an unregistered AU contractor's $0 is a stated none", unreg.kind === "none");
+
+  // Every new key in every language the app ships.
+  const GST_KEYS = [
+    "app.tax.headline.gst", "app.tax.line.answerGst", "app.tax.note.gstStandard",
+    "app.tax.note.gstNotRegistered", "app.tax.note.gstStatusUnknown", "app.tax.caution.gstNotRegistered",
+    "app.setCompany.gstRegisteredTitle", "app.setCompany.gstRegisteredHint", "app.setCompany.gstRegisteredYes",
+    "app.setCompany.gstRegisteredNo", "app.setCompany.gstRegisteredUnset",
+  ];
+  for (const lang of Object.keys(APP_MESSAGES)) {
+    for (const key of GST_KEYS) ok(`${key} in ${lang}`, typeof APP_MESSAGES[lang][key] === "string" && APP_MESSAGES[lang][key].length > 0);
+    // A GST string that says VAT is the bug this section exists for.
+    ok(`${lang}: no GST string says VAT`, GST_KEYS.every((k) => !/\bVAT\b|TVA|IVA|ПДВ|增值税|Umsatzsteuer/.test(APP_MESSAGES[lang][k] || "")));
+  }
+}
+
+function countryIsSupportedLike(code) {
+  return supportedCountryOptions().some((o) => o.code === code && o.label === "Australia");
+}
 
 /* ── Report ─────────────────────────────────────────────────────────────── */
 

@@ -24,7 +24,7 @@ import {
   currencyMeta,
 } from "@/lib/currency";
 import { taxRegistrationFor } from "@/lib/compliance/taxRegistration";
-import { isVatJurisdiction } from "@/lib/tax/jurisdictions";
+import { isVatJurisdiction, consumptionTaxName } from "@/lib/tax/jurisdictions";
 import { resolveDocumentTax } from "@/lib/tax/documentTax";
 import { taxLineHeadline } from "@/lib/tax/taxLine";
 import { reportResponseError } from "@/lib/clientErrors";
@@ -772,6 +772,25 @@ export default function CompanySettingsPage() {
   // `taxReg` above, so changing the country shows or hides the VAT question in
   // the same keystroke that relabels the tax-number field.
   const isVatCountry = isVatJurisdiction(form?.country);
+  // Australia is in the VAT table under its own name. The question is the
+  // same one — is the business registered? — asked about the tax an
+  // Australian actually registers for, so it reads "GST", never "VAT".
+  const regKeys =
+    consumptionTaxName(form?.country) === "GST"
+      ? {
+          title: "app.setCompany.gstRegisteredTitle",
+          hint: "app.setCompany.gstRegisteredHint",
+          yes: "app.setCompany.gstRegisteredYes",
+          no: "app.setCompany.gstRegisteredNo",
+          unset: "app.setCompany.gstRegisteredUnset",
+        }
+      : {
+          title: "app.setCompany.vatRegisteredTitle",
+          hint: "app.setCompany.vatRegisteredHint",
+          yes: "app.setCompany.vatRegisteredYes",
+          no: "app.setCompany.vatRegisteredNo",
+          unset: "app.setCompany.vatRegisteredUnset",
+        };
 
   // ── What a quote for a job at the company's own address would carry ─────
   //
@@ -1554,15 +1573,15 @@ export default function CompanySettingsPage() {
         {isVatCountry && (
           <div className="space-y-2">
             <p className="text-sm font-medium text-foreground">
-              {t("app.setCompany.vatRegisteredTitle")}
+              {t(regKeys.title)}
             </p>
             <p className="text-xs text-muted-foreground">
-              {t("app.setCompany.vatRegisteredHint")}
+              {t(regKeys.hint)}
             </p>
             {[
-              [true, "app.setCompany.vatRegisteredYes"],
-              [false, "app.setCompany.vatRegisteredNo"],
-              [null, "app.setCompany.vatRegisteredUnset"],
+              [true, regKeys.yes],
+              [false, regKeys.no],
+              [null, regKeys.unset],
             ].map(([value, key]) => (
               <label
                 key={String(value)}

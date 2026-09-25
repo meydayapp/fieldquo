@@ -260,6 +260,7 @@
     "check:plan-sellability": "node --import ./scripts/alias-loader.mjs scripts/check-plan-sellability.mjs",
     "check:plan-change": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs --import ./scripts/billing-stub-loader.mjs scripts/check-plan-change.mjs",
     "check:billing-sync": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs --import ./scripts/billing-stub-loader.mjs scripts/check-billing-sync.mjs",
+    "check:tax-registrations": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs --import ./scripts/billing-stub-loader.mjs scripts/check-tax-registrations.mjs",
     "check:billing-resume": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs --import ./scripts/billing-stub-loader.mjs scripts/check-billing-resume.mjs",
     "check:stripe-destinations": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-stripe-destinations.mjs",
     "check:pay-cycle": "node --import ./scripts/alias-loader.mjs scripts/check-pay-cycle.mjs",

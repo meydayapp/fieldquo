@@ -63,7 +63,7 @@ export const ARTICLES = {
         heading: "La grille Forfaits",
         blocks: [
           { p: "Sous **Forfaits**, un sélecteur **Mensuel** / **Engagement d'un an** et une carte par palier, chacune avec son prix, sa ligne de sièges et d'équipiers, **FieldQuo AI inclus**, et un bouton. La carte où vous êtes indique **Forfait actuel** et est grisée; les autres indiquent **Choisir ce forfait**. Avec le sélecteur sur l'année, le bouton de votre propre palier indique plutôt **Passer à l'année**, parce que prendre l'engagement est un vrai changement même si le palier ne bouge pas." },
-          { p: "Le sélecteur démarre sur la fréquence à laquelle vous êtes déjà facturé, et le basculer ne fait que retarifer les cartes — la ligne du forfait au-dessus ne bouge pas tant que vous n'avez pas vraiment confirmé un changement. La grille montre l'échelle dans votre devise seulement : dollars canadiens pour une adresse au Canada, dollars américains pour une adresse aux États-Unis. Une entreprise dont l'adresse n'a pas de pays voit une invitation à l'ajouter au lieu d'une liste de prix." },
+          { p: "Le sélecteur démarre sur la fréquence à laquelle vous êtes déjà facturé, et le basculer ne fait que retarifer les cartes — la ligne du forfait au-dessus ne bouge pas tant que vous n'avez pas vraiment confirmé un changement. La grille montre l'échelle dans votre devise seulement : dollars canadiens pour une adresse au Canada, dollars australiens pour une adresse en Australie, dollars américains partout ailleurs. Une entreprise dont l'adresse n'a pas de pays voit une invitation à l'ajouter au lieu d'une liste de prix." },
           { tip: "Chaque carte porte les mots **1 siège · 5 équipiers inclus gratuitement**, **3 sièges · 8 équipiers inclus gratuitement**, et ainsi de suite. Comparez-les à la ligne **sièges utilisés** de **Gérer l'équipe** avant de monter de forfait — les équipiers que vous avez déjà entrent peut-être dans le forfait actuel." },
         ],
       },
@@ -527,7 +527,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Vue d'ensemble",
         blocks: [
-          { p: "FieldQuo vous facture par Stripe Billing, dans votre propre devise — dollars canadiens pour une adresse au Canada, dollars américains pour une adresse aux États-Unis. À chaque période, Stripe émet une facture, prélève la carte au dossier et marque la facture payée; la facture payée est le reçu. Il n'y a pas de courriel de reçu distinct aux couleurs de FieldQuo par prélèvement." },
+          { p: "FieldQuo vous facture par Stripe Billing, dans votre propre devise — dollars canadiens pour une adresse au Canada, dollars australiens pour une adresse en Australie, dollars américains partout ailleurs. À chaque période, Stripe émet une facture, prélève la carte au dossier et marque la facture payée; la facture payée est le reçu. Il n'y a pas de courriel de reçu distinct aux couleurs de FieldQuo par prélèvement." },
           { p: "C'est la direction opposée aux factures de votre écran **Factures**, qui sont les vôtres envoyées à vos clients et qui passent par votre propre compte Stripe connecté. Les deux ne se mélangent jamais : votre facture d'abonnement ne figure jamais parmi vos factures aux clients, et le paiement d'un client n'est jamais sur votre client Stripe." },
         ],
       },

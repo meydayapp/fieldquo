@@ -1129,7 +1129,9 @@ export default function SignupPage() {
       ? "Canadian dollars"
       : planCurrency === "USD"
         ? "US dollars"
-        : null;
+        : planCurrency === "AUD"
+          ? "Australian dollars"
+          : null;
   const countryName =
     COUNTRIES.find((c) => c.code === basis.country)?.name || basis.country;
 
