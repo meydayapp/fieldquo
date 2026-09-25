@@ -1488,7 +1488,7 @@ export default function InvoiceDetailPage() {
 
       {showPayment && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-card rounded-xl w-full max-w-sm p-6">
+          <div className="fq-dialog-card bg-card rounded-xl w-full max-w-sm p-6">
             <h2 className="font-semibold mb-4">
               {t("app.invoiceDetail.recordPayment")}
             </h2>
@@ -1557,7 +1557,7 @@ export default function InvoiceDetailPage() {
           the route has always accepted one and no screen ever offered it. */}
       {showChase && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-card rounded-xl w-full max-w-md p-6">
+          <div className="fq-dialog-card bg-card rounded-xl w-full max-w-md p-6">
             <h2 className="font-semibold mb-1 flex items-center gap-2">
               <FileText size={16} /> {t("app.invoiceChase.title")}
             </h2>

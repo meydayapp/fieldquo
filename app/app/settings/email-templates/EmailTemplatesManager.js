@@ -315,7 +315,7 @@ export default function EmailTemplatesManager({ compact = false, onChanged } = {
           onClick={() => setCreatingType(null)}
         >
           <div
-            className="bg-card rounded-2xl w-full max-w-sm p-6"
+            className="fq-dialog-card bg-card rounded-2xl w-full max-w-sm p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-lg font-semibold text-foreground mb-4">

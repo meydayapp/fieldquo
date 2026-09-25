@@ -343,7 +343,7 @@ export default function ServicePlanPage() {
 
       {confirmCancel && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-card rounded-xl p-6 max-w-md w-full space-y-4">
+          <div className="fq-dialog-card bg-card rounded-xl p-6 max-w-md w-full space-y-4">
             <h3 className="text-lg font-semibold text-foreground">
               {t("app.plans.cancelTitle")}
             </h3>

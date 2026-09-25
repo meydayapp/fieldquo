@@ -58,7 +58,7 @@ export default function SendConfirmModal({
       aria-modal="true"
     >
       <div
-        className="bg-card rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm p-6"
+        className="fq-dialog-card bg-card rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">

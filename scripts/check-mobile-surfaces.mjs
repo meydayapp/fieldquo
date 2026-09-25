@@ -760,6 +760,43 @@ const RULES = [
   },
 
   {
+    // 2026-09-25: 24 dialogs centred a card with no height limit and no
+    // scroll. Taller than a landscape phone or a screen with the keyboard up,
+    // such a card loses its title AND its buttons off both edges and nothing
+    // scrolls to them. Scoped to ONE element: the first card-looking class
+    // list (bg-card) after a centring overlay — not "somewhere in the file".
+    id: "dialog-card-bounded",
+    tier: "baseline",
+    title: "a centred dialog's card is capped at the screen and scrolls",
+    run(src, { skip }) {
+      const bad = [];
+      const classRe = /className=(?:"([^"]*)"|\{`([^`]*)`\})/g;
+      for (const m of src.matchAll(classRe)) {
+        const cls = m[1] ?? m[2] ?? "";
+        if (!/\bfixed\b/.test(cls) || !/\binset-0\b/.test(cls) || !/\bjustify-center\b/.test(cls)) continue;
+        if (!/\bitems-(center|end)\b/.test(cls) || /\b(overflow-y-auto|overflow-auto)\b/.test(cls)) continue;
+        const after = src.slice(m.index + m[0].length, m.index + m[0].length + 1500);
+        let card = null;
+        for (const n of after.matchAll(classRe)) {
+          const c = n[1] ?? n[2] ?? "";
+          if (/\bbg-card\b/.test(c)) {
+            card = c;
+            break;
+          }
+        }
+        if (card === null) {
+          skip();
+          continue;
+        }
+        if (!/\b(fq-dialog-card|max-h-\S+|overflow-y-auto|overflow-auto)\b/.test(card)) {
+          bad.push(`dialog card "${card.trim().slice(0, 60)}" — add fq-dialog-card (app/globals.css)`);
+        }
+      }
+      return bad;
+    },
+  },
+
+  {
     id: "token-on-wrong-surface",
     tier: "baseline",
     title: "no text token measured under 4.5:1 on its own background",

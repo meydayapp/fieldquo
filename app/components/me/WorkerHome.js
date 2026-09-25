@@ -343,7 +343,7 @@ function ShoutOutSheet({ onClose, onDone }) {
   }
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
-      <div role="dialog" aria-modal="true" className="w-full max-w-md rounded-t-2xl bg-card p-5 shadow-2xl sm:rounded-2xl pb-[calc(1.25rem+env(safe-area-inset-bottom))]" onClick={(e) => e.stopPropagation()}>
+      <div role="dialog" aria-modal="true" className="fq-dialog-card w-full max-w-md rounded-t-2xl bg-card p-5 shadow-2xl sm:rounded-2xl pb-[calc(1.25rem+env(safe-area-inset-bottom))]" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-lg font-bold text-foreground">{t("app.me.shoutouts.send")}</h2>
         <label className="mt-3 block">
           <span className="text-sm font-medium text-foreground">{t("app.me.shoutouts.to")}</span>

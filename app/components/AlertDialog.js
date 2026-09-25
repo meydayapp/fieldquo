@@ -170,7 +170,9 @@ export default function AlertDialog({
         aria-modal="true"
         aria-labelledby={labelledBy}
         aria-describedby={describedBy}
-        className={`relative w-full ${widthClass} ${shapeClass} bg-card text-foreground shadow-xl ${cardClass}`}
+        // fq-dialog-card (app/globals.css) caps the card at the visible
+        // height and scrolls inside it, unless the caller bounded it already.
+        className={`relative w-full ${widthClass} ${/\bmax-h-/.test(cardClass || "") ? "" : "fq-dialog-card"} ${shapeClass} bg-card text-foreground shadow-xl ${cardClass}`}
         {...cardProps}
       >
         {children}

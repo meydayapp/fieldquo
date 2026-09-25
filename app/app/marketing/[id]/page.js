@@ -496,7 +496,7 @@ export default function CampaignDetailPage() {
           onClick={() => setConvertStop(null)}
         >
           <div
-            className="bg-card rounded-2xl w-full max-w-md p-6"
+            className="fq-dialog-card bg-card rounded-2xl w-full max-w-md p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-1">

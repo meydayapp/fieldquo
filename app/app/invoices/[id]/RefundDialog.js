@@ -57,7 +57,7 @@ export default function RefundDialog({ invoiceId, payment, refundRows, money, on
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-card rounded-xl w-full max-w-sm p-6">
+      <div className="fq-dialog-card bg-card rounded-xl w-full max-w-sm p-6">
         <h2 className="font-semibold mb-1">{t("app.invoiceDetail.refundTitle")}</h2>
         <p className="text-sm text-muted-foreground mb-4">
           {t("app.invoiceDetail.refundIntro", { amount: money(limitCents / 100) })}

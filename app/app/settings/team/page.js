@@ -1213,7 +1213,7 @@ export default function TeamOverviewPage() {
 
       {confirmRevoke && (
         <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-          <div className="bg-card rounded-t-2xl sm:rounded-xl w-full sm:max-w-sm p-6 space-y-4">
+          <div className="fq-dialog-card bg-card rounded-t-2xl sm:rounded-xl w-full sm:max-w-sm p-6 space-y-4">
             <h2 className="font-semibold text-foreground">
               {t("app.setTeam.cancelInviteTitle", "Cancel this invitation?")}
             </h2>

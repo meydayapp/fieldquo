@@ -36,7 +36,7 @@ export default function DeleteConfirmModal({
       onClick={onClose}
     >
       <div
-        className="bg-card rounded-2xl w-full max-w-sm p-6"
+        className="fq-dialog-card bg-card rounded-2xl w-full max-w-sm p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="w-14 h-14 rounded-full bg-red-50 dark:bg-red-950/40 flex items-center justify-center mx-auto mb-4">

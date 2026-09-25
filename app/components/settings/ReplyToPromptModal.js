@@ -73,7 +73,7 @@ export default function ReplyToPromptModal({
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-card rounded-2xl w-full max-w-md p-6">
+      <div className="fq-dialog-card bg-card rounded-2xl w-full max-w-md p-6">
         <div className="flex items-start justify-between gap-3 mb-1">
           <div className="flex items-center gap-2">
             <span className="w-9 h-9 rounded-full bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center shrink-0">

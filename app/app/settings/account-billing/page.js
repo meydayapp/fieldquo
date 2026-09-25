@@ -968,7 +968,7 @@ function AccountBillingScreen() {
           sentence and the action cannot come apart. */}
       {confirming && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4">
-          <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-xl">
+          <div className="fq-dialog-card w-full max-w-md bg-card border border-border rounded-2xl shadow-xl">
             <div className="flex items-center gap-2 px-5 py-4 border-b border-border">
               <h2 className="font-bold text-foreground">
                 {t("app.billing.confirmChangeTitle", "Change your plan")}

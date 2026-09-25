@@ -352,7 +352,7 @@ export default function CustomFieldsPage() {
           onClick={() => setModalEntityType(null)}
         >
           <div
-            className="bg-card rounded-2xl w-full max-w-sm p-6"
+            className="fq-dialog-card bg-card rounded-2xl w-full max-w-sm p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">

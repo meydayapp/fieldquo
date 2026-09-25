@@ -646,7 +646,7 @@ export default function MarketingSpendPage() {
           <form
             onSubmit={handleSubmit}
             onClick={(e) => e.stopPropagation()}
-            className="bg-card border border-border rounded-xl shadow-lg w-full max-w-md p-5 space-y-3"
+            className="fq-dialog-card bg-card border border-border rounded-xl shadow-lg w-full max-w-md p-5 space-y-3"
           >
             <div className="flex items-center justify-between">
               <h2 className="font-semibold text-foreground">
