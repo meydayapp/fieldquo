@@ -19,7 +19,8 @@ import { goalProgress } from "@/lib/analytics/goal";
 
 // ── People, as the API returns them on a row ────────────────────────────────
 export const who = (m) => ({ id: m.userId, name: m.name });
-export const [MARC, JULIE, SAM, DAN, LEO, ANA] = PEOPLE;
+const [MARC, JULIE, SAM, DAN, LEO, ANA] = PEOPLE;
+export { MARC, JULIE, SAM, DAN, LEO, ANA };
 
 // ── The other clients ───────────────────────────────────────────────────────
 // Sophie Dubois is company.js's. These are the rest of a small shop's month.

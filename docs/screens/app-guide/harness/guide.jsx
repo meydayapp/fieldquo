@@ -244,6 +244,10 @@ async function runScene(scene) {
   // every sample on screen has been measured (data-sample-ready), or once
   // the drawn price book is up.
   const samplesReady = async (scope) => {
+    // A phone keeps the full panel hidden and loads nothing into it (the
+    // samples load only when on screen); only the strip is waited for there.
+    const box = await until(scope);
+    if (!box.getClientRects().length) return;
     await until(`${scope} [data-sample-frame], ${scope} [data-signup-preview]`);
     for (let i = 0; i < 80; i++) {
       const frames = [...document.querySelectorAll(`${scope} [data-sample-frame]`)];

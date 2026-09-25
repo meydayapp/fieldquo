@@ -93,26 +93,39 @@ export default function SampleFrame({ width = 390, crop = null, maxHeight = 720,
   const [scale, setScale] = useState(null);
   const [contentHeight, setContentHeight] = useState(null);
   const [mount, setMount] = useState(null);
+  // What the content's height is read from, once the frame has loaded.
+  const readHeight = useRef(null);
 
-  // The panel's width decides the scale. Never above 1: a sample is never
-  // drawn bigger than the product draws it. Measurements land on the next
-  // frame: the frame's height follows the scale, and setting state inside
-  // the observer's own callback is the "ResizeObserver loop" the browser
-  // reports.
+  // ── Measuring, without a ResizeObserver ─────────────────────────────────
+  //
+  // Two numbers decide the frame: the panel's width (the scale — never above
+  // 1: a sample is never drawn bigger than the product draws it) and the
+  // content's height (the frame is exactly as tall as the slice it shows).
+  // Each depends on the other through the page's layout, and watching them
+  // with ResizeObservers — one of them on a node inside the iframe — tripped
+  // "ResizeObserver loop completed with undelivered notifications" on every
+  // heavy sample. They are read instead: on mount, on window resize, and a
+  // few times a second while the frame is on screen (content keeps arriving
+  // after mount — a month of slots, a lazy image), setting state only when
+  // a number actually changed. Two reads of a laid-out page per tick.
   useIsoLayoutEffect(() => {
     const el = outerRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return undefined;
-    const measure = () => setScale(Math.min(1, el.clientWidth / shownWidth) || 1);
-    measure();
-    let raf = 0;
-    const ro = new ResizeObserver(() => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(measure);
-    });
-    ro.observe(el);
+    if (!el) return undefined;
+    const tick = () => {
+      const nextScale = Math.min(1, el.clientWidth / shownWidth) || 1;
+      setScale((prev) => (prev != null && Math.abs(prev - nextScale) < 0.001 ? prev : nextScale));
+      const read = readHeight.current;
+      if (read) {
+        const h = read();
+        if (h > 0) setContentHeight((prev) => (prev === h ? prev : h));
+      }
+    };
+    tick();
+    const id = setInterval(tick, 250);
+    window.addEventListener("resize", tick);
     return () => {
-      cancelAnimationFrame(raf);
-      ro.disconnect();
+      clearInterval(id);
+      window.removeEventListener("resize", tick);
     };
   }, [shownWidth]);
 
@@ -130,20 +143,18 @@ export default function SampleFrame({ width = 390, crop = null, maxHeight = 720,
       if (!doc?.body) return;
       doc.body.setAttribute("inert", "");
       doc.body.style.margin = "0";
+      // The frame is always exactly as tall as its content, so it never
+      // scrolls — and a scrollbar that came and went as the height settled
+      // would change the width, reflow the content and change the height
+      // again: the resize loop the browser reports.
+      doc.documentElement.style.overflow = "hidden";
+      doc.body.style.overflow = "hidden";
       doc.body.style.background = background;
-      let raf = 0;
-      const later = (read) => () => {
-        cancelAnimationFrame(raf);
-        raf = requestAnimationFrame(() => setContentHeight(read()));
-      };
       if (html) {
-        const read = () => doc.documentElement.scrollHeight;
-        const ro = new ResizeObserver(later(read));
-        ro.observe(doc.body);
-        setContentHeight(read());
+        readHeight.current = () => doc.documentElement.scrollHeight;
+        setContentHeight(readHeight.current());
         cleanup = () => {
-          cancelAnimationFrame(raf);
-          ro.disconnect();
+          readHeight.current = null;
         };
         return;
       }
@@ -156,18 +167,18 @@ export default function SampleFrame({ width = 390, crop = null, maxHeight = 720,
         const v = document.documentElement.getAttribute(attr);
         if (v != null) doc.documentElement.setAttribute(attr, v);
       }
+      // After the copy above, which replaces the style attribute wholesale.
       doc.documentElement.style.height = "auto";
+      doc.documentElement.style.overflow = "hidden";
       doc.body.className = "text-foreground antialiased";
       const stopStyles = mirrorStyles(doc);
       const node = doc.createElement("div");
       node.setAttribute("data-sample-root", "");
       doc.body.appendChild(node);
-      const ro = new ResizeObserver(later(() => node.scrollHeight));
-      ro.observe(node);
+      readHeight.current = () => node.scrollHeight;
       setMount(node);
       cleanup = () => {
-        cancelAnimationFrame(raf);
-        ro.disconnect();
+        readHeight.current = null;
         stopStyles();
         setMount(null);
       };

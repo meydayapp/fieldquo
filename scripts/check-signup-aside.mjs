@@ -301,9 +301,13 @@ console.log("\nThe quote email is the real template's HTML");
   ok("the subject shown is the template's own subject", html.includes(built.subject.replace(/&/g, "&amp;")) && built.subject === "Your quote from Maple Painting Co. — Q-1042");
   ok("the frame shows the template's HTML itself (srcdoc), at a mail client's width", /data-sample-frame="html"/.test(html) && /data-sample-width="600"/.test(html) && /<iframe[^>]*srcDoc="|<iframe[^>]*srcdoc="/i.test(html));
   ok("the email's brand is the neutral one: the company chose no colour", args.company.brandColor === null && args.company.logoUrl === null);
-  ok("no trade yet: the lines are the fixture's own quote (Q-1042), not placeholders", JSON.stringify(args.quote.lineItems.map((l) => l.total)) === JSON.stringify(FIXTURE_QUOTE.items.map((i) => i.total)));
+  // The first cut passed {name, total} rows — the shape the Settings preview's
+  // own sample uses — and the template, which reads QuoteLineItem's
+  // description/amount, printed every line at $0.00.
+  ok("the lines are QuoteLineItem's own fields, so every line prints its amount (no $0.00)", args.quote.lineItems.every((l) => "description" in l && "amount" in l) && !/\$0\.00/.test(built.html) && built.html.includes("5,100.00"));
+  ok("no trade yet: the lines are the fixture's own quote (Q-1042), not placeholders", JSON.stringify(args.quote.lineItems.map((l) => l.amount)) === JSON.stringify(FIXTURE_QUOTE.items.map((i) => i.total)) && args.scopeGroups.length === 2);
   const tradeArgs = sampleEmailArgs({ form: FORM, language: "en", trade: TRADE_HVAC, currency: "CAD", taxRatePct: 13 });
-  ok("with a priced trade: the lines are the trade's seed prices, and the total carries 13% tax", JSON.stringify(tradeArgs.quote.lineItems.map((l) => l.total)) === JSON.stringify(TRADE_HVAC.services.map((s) => s.price)) && Math.abs(tradeArgs.quote.total - Math.round(TRADE_HVAC.services.reduce((a, s) => a + s.price, 0) * 113) / 100) < 0.01);
+  ok("with a priced trade: the lines are the trade's seed prices, and the total carries 13% tax", JSON.stringify(tradeArgs.quote.lineItems.map((l) => l.amount)) === JSON.stringify(TRADE_HVAC.services.map((s) => s.price)) && tradeArgs.scopeGroups[0].category?.key === TRADE_HVAC.categoryKey && Math.abs(tradeArgs.quote.total - Math.round(TRADE_HVAC.services.reduce((a, s) => a + s.price, 0) * 113) / 100) < 0.01);
   const visible = built.html.replace(/<[^>]*>/g, " ").replace(/https?:\/\/\S+/g, " ");
   ok("white-label: nothing in the email a homeowner reads says FieldQuo (the link is the only address it carries)", !/fieldquo/i.test(visible));
   const fr = buildQuoteEmail(sampleEmailArgs({ form: FORM, language: "fr", currency: "CAD" }));
@@ -429,6 +433,9 @@ console.log("\nJust exploring: the collage of real cards");
   ok("the frame is inert: no pointer, no tab stop, hidden from AT, a sandbox with no scripts, body inert", /pointerEvents: "none"/.test(frame) && /tabIndex=\{-1\}/.test(frame) && /aria-hidden="true"/.test(frame) && /sandbox="allow-same-origin"/.test(frame) && !/allow-scripts/.test(frame) && /setAttribute\("inert", ""\)/.test(frame));
   ok("…and is an image with a 'Sample:' label", /role="img"/.test(frame) && /\$\{sampleWord\}: \$\{label\}/.test(frame));
   ok("the samples call no API: no fetch in any sample file", sampleFiles.every((f) => !/\bfetch\(/.test(code(f))));
+  const index = code("app/components/auth/samples/index.js");
+  ok("each sample is its own lazy chunk, never server-rendered", (index.match(/dynamic\(\(\) => import\("\.\/\w+"\), \{ ssr: false, loading: Placeholder \}\)/g) || []).length === SAMPLE_KINDS.length);
+  ok("…loaded only once it is on screen (the phone's hidden panel loads nothing)", /new IntersectionObserver\(/.test(index) && /\{shown \? <Component \{\.\.\.props\} \/> : <Placeholder \/>\}/.test(index));
 }
 
 // ══ 4. The wiring ══════════════════════════════════════════════════════════

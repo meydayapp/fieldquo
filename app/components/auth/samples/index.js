@@ -15,6 +15,7 @@
 // fails, next/dynamic renders nothing and the panel's words still stand.
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 
 function Placeholder() {
@@ -49,10 +50,31 @@ export const SAMPLE_KINDS = Object.freeze(Object.keys(SAMPLES));
  */
 export function Sample({ kind, ...props }) {
   const Component = SAMPLES[kind];
+  const ref = useRef(null);
+  const [shown, setShown] = useState(false);
+  // Loaded only once it is actually on screen. On a phone the full panel is
+  // mounted but hidden (AuthShell draws it `hidden lg:block` beside the
+  // strip), and a hidden panel must not fetch a chunk and build an iframe
+  // nobody can see; an element with display:none never intersects, so the
+  // sample waits until the panel is shown — the strip's "Show preview", or
+  // a window widened past lg — and until it is scrolled near.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || shown) return undefined;
+    if (typeof IntersectionObserver === "undefined") {
+      setShown(true);
+      return undefined;
+    }
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) setShown(true);
+    }, { rootMargin: "200px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [shown]);
   if (!Component) return null;
   return (
-    <div data-sample-kind={kind}>
-      <Component {...props} />
+    <div ref={ref} data-sample-kind={kind}>
+      {shown ? <Component {...props} /> : <Placeholder />}
     </div>
   );
 }
