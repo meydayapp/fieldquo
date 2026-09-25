@@ -49,6 +49,124 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Signup progress screen: "Start free trial" → dashboard, with a real bar (25 September 2026)
+
+The owner: "there was a small delay between when I clicked Start free trial
+and the dashboard. If something needs time because of seeding etc., make sure
+we have a loading progression bar." All of the wait was one request —
+POST /api/companies created the company AND seeded it before answering — and
+the page showed "Setting up..." on a disabled button meanwhile.
+
+### What was measured (no accounts created, no writes)
+
+The real POST handler was executed against a counting Prisma stand-in (every
+call logged by caller, an estimated SQL-statement count per call — a nested
+`connect` write is BEGIN + INSERT + join INSERT + read-back + COMMIT — and a
+5-connection pool like lib/db.js). Neon round trip, measured read-only with
+`SELECT 1` from the owner's Mac: **~30 ms** (p50 30.3, us-east-1). From Vercel
+(iad1, same region) it could not be measured here; **~2 ms is assumed**.
+
+| Painter (7 trades) | Prisma calls | SQL stmts | @2 ms RTT | @30 ms RTT |
+|---|---|---|---|---|
+| Before: the one POST | 123 | 420 | 636 ms | 8.2 s |
+| After: company POST | 14 | 22 | 60 ms | 0.68 s |
+| After: seeding (route + 9 streamed stages) | 112 | 405 | ~386 ms | ~5.1 s |
+| After: total | | 427 | 446 ms | 5.8 s |
+
+Other trades at 2 ms (before → after, total): handyman (11 trades, 173
+products, 979 stmts) 707 → 714 ms; plumbing 364 → 375 ms; landscaping 273 →
+274 ms. Almost every statement is a Product row (a painter gets 61, a
+handyman 173). The painter win is lib/products/seedStandardAddOns.js: it
+created add-ons one `await` at a time and now writes in batches of ten, like
+seedServices.js already did. Not measurable here and not changed: the Vercel
+cold start of the route, Better Auth's org calls (counted at an estimated 4 +
+2 statements), and a Neon compute waking from idle. After the POST the page
+did a full navigation to /app?welcome=true: the layout's seven parallel
+lookups, then the dashboard's six panel fetches, each with its own loading
+state — nothing there waits on the seeding once it has finished.
+
+### What moved to after(), and what did not
+
+- **Moved** (app/api/companies/route.js): `recordSignupCompletion` (the sales
+  floor's SignupLead / welcome row) and `stampSignupPlanByToken` (the rep's
+  panel). FieldQuo bookkeeping nothing in /app reads; still after the org,
+  still recorded to /platform/errors on failure. Saves ~2–4 statements — small,
+  and said so.
+- **Not moved**: `recordSignupOrigin` + `captureSalesAttribution` (the origin
+  row must exist before createOrganization so a rolled-back company takes it
+  with it — scripts/check-signup-origin.mjs); the promo/referral pair (it
+  moves trialEndsAt, which the first screen's trial banner reads); the
+  seeding (the set-up steps, Settings › Services and the quote builder read
+  it on the first screens — it is shown instead, below).
+
+### What the screen does
+
+- The no-plan finish posts `/api/companies` with `stagedSetup: true`; the
+  route creates the company + trades and answers `setup: "staged"`. Every
+  other caller (the plan step on its way to Stripe, an older page) still
+  seeds inline through the same stages (`runSetupInline`) — a deploy between
+  page load and press seeds inline and the page, seeing no "staged", goes
+  straight to the app.
+- POST /api/signup/setup streams NDJSON: the plan, then `active` / `done` /
+  `failed` per stage, then `complete`. Stages (lib/signup/setupStages.js):
+  one per trade ("Adding your services for {trade}": add-ons + service list),
+  then checklists + maintenance plans for every trade (after all services, so
+  plan links resolve), then email templates + follow-up rules. Trades come
+  from the company's CompanyServiceCategory rows, never the body. Owner only,
+  within 2 h of creation (re-seeding an established company would bring back
+  seeded services the owner deleted).
+- app/components/auth/SignupCreating.js: named steps with ✓ / spinner /
+  pending / failed icons, a determinate bar = completed ÷ total stages
+  (role="progressbar", aria-valuenow, aria-valuetext "3 of 7 steps done"), a
+  polite live region naming the current step, role="alert" for problems,
+  reduced-motion stops the slide and the spinner. Tokens only; checked at 390
+  px in en and fr (no horizontal scroll). The last step, "Preparing your
+  dashboard", stays active until the browser leaves; after 15 s a link offers
+  it by hand. Nothing advances on a timer.
+- **Timeouts**: company POST 30 s; the seeding stream 30 s without an event,
+  120 s overall; a stream that ends without `complete` is a failure.
+- **Retry never makes a second company**: the company POST is only re-sent
+  when the first outcome is unknown (timeout / network), and a 409
+  `already_has_company` on that resend means it landed — the run carries on.
+  The route now takes `pg_advisory_xact_lock` on the user inside the
+  create transaction and re-checks membership under it, so two concurrent
+  POSTs from one login can no longer both pass the pre-check. The seeding
+  holds `pg_try_advisory_xact_lock` per company; a Retry arriving while the
+  first run is still going is told `busy` and asks again in 2 s. Every
+  seeder is create-only and keyed, so a re-run creates nothing that exists
+  (proved in the check against the real seeders).
+- A failed stage says which, and offers **Retry** (finishes what is left) or
+  **Go to my dashboard anyway** (add them later from Settings); before the
+  company exists, **Back to the form** instead. Each failure is on
+  /platform/errors (`setup_stage_failed`).
+
+### Checks
+
+`npm run check:signup-creating` (new, in check:all, 168 assertions): stage
+plan from hostile input; each stage against throwing / sync-throwing /
+missing seeders; the gate; the lock; the REAL /api/signup/setup with the REAL
+seeders on an in-memory db (scripts/fixtures/signupSetupDb.mjs) — event order,
+a failed stage recorded, `busy`, refusals, and a second run creating nothing;
+the browser run against a hanging POST, the Retry after it (one company), a
+first-attempt 409, a stalled / cut-short stream, busy-then-done, a failed
+stage and its Retry (bar never dips); the component's bar value, live region,
+messages and buttons; page/route wiring; the 21 strings in all nine
+languages. check-auth-pages (payload key list), check-follow-up-defaults and
+check-service-seeds were re-pointed at the stages lib.
+
+### Still owed here
+
+- If the owner closes the tab between the company and the end of seeding,
+  the company exists with part of its catalogue; nothing re-runs it
+  automatically (Settings › Services "Add missing services" and the follow-up
+  rules page self-heal cover it by hand). A durable "setup finished" marker
+  would need a column — not added (no schema change in this task).
+- Product rows are still one nested `create` each (~5 statements); a
+  `createMany` plus a join-table insert would cut the handyman case several
+  fold but needs raw SQL for the implicit many-to-many — not done.
+- Vercel-side timings are an assumption (2 ms RTT); a real signup with
+  server timing logs would settle it.
+
 ## Pay-run cancel, the schema stripper, the booking follow-up (25 September 2026)
 
 Three follow-ups earlier agents found. One commit each; nothing touches the

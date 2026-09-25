@@ -442,6 +442,11 @@ const EXPECTED_BODY = [
   // when a rep TEXTED the link, so the completion stamps the right row.
   "signupLinkToken",
   "next",
+  // Added 2026-09-25 with the signup progress screen: true on the no-plan
+  // finish, asking the route to create the company and leave the seeding to
+  // POST /api/signup/setup, which the screen streams stage by stage. A flag
+  // about HOW to answer, never money and never a company fact.
+  "stagedSetup",
 ];
 // 2026-09-13: the funnel crashed for every visitor because one caller ran
 // validateCompanyFields(form) without `t` and the validator called it on the

@@ -9,16 +9,13 @@
 // org creation, service category setup — is unchanged.
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { createTrialCheckoutSession } from "@/lib/platform/stripeBilling";
 import { trialDaysAllowed } from "@/lib/billing/trialOnce";
 import { TRIAL_PRICE } from "@/lib/pricing";
-import { seedStandardAddOns } from "@/lib/products/seedStandardAddOns";
-import { seedServicesForTrade } from "@/lib/products/seedServices";
-import { seedDefaultTemplates } from "@/lib/email/seedDefaultTemplates";
-import { ensureDefaultFollowUps } from "@/lib/followUps/defaults";
+import { runSetupInline } from "@/lib/signup/setupStages";
 import { getAppOrigin, isInternalPath } from "@/lib/appUrl";
 import { applySignupReferral, REFEREE_BONUS_MONTHS } from "@/lib/referrals";
 import { redeemPromoCode } from "@/lib/platform/promoCodes";
@@ -156,6 +153,14 @@ export async function POST(request) {
     yearsInBusinessBand,
     signupGoal,
     signupSource,
+    // ── The signup progress screen (2026-09-25) ─────────────────────────────
+    //
+    // true from a page that shows the seeding as named steps: this request
+    // then creates the company and its trades and answers, and the page runs
+    // the seeding through POST /api/signup/setup, one streamed event per
+    // stage (lib/signup/setupStages.js). Absent — an older page, or the plan
+    // step on its way to Stripe — seeds inline exactly as before.
+    stagedSetup,
   } = await request.json();
 
   const websiteAnswer = readWebsiteAnswer({ hasWebsite, website });
@@ -371,7 +376,25 @@ export async function POST(request) {
   // one over, so a retry doesn't recover it — it silently mints a second
   // orphan next to the first. A transaction makes the pair atomic instead:
   // either both rows exist, or neither does and the request failed cleanly.
+  //
+  // ── …and the one-business guard is made atomic here ─────────────────────
+  //
+  // The findFirst at the top is a check and this is the act, and two requests
+  // from one login could both pass the check before either commits — which is
+  // exactly what the progress screen's Retry does after a timeout while the
+  // first request is still running. So the transaction takes an advisory lock
+  // on the USER and re-asks the membership question under it: the second
+  // request waits for the first to commit its Member, sees it, and gets the
+  // same 409 — never a second company. The check at the top stays as the
+  // cheap answer for the common case.
   const company = await db.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`signup-company:${session.user.id}`}))`;
+    const raced = await tx.member.findFirst({
+      where: { userId: session.user.id },
+      select: { companyId: true },
+    });
+    if (raced) return null;
+
     const c = await tx.company.create({
       data: {
         name,
@@ -410,6 +433,17 @@ export async function POST(request) {
 
     return c;
   });
+  if (!company) {
+    return NextResponse.json(
+      {
+        error:
+          "You're already signed in to a business on FieldQuo. " +
+          "Sign out first if you're setting up a different business on a separate login.",
+        code: "already_has_company",
+      },
+      { status: 409 },
+    );
+  }
 
   // The code the signup carried is EITHER a platform promo code (influencer /
   // tester — "FQ-XXXX", extra free months, no referrer) OR a company referral
@@ -508,18 +542,6 @@ export async function POST(request) {
     }).catch(() => {});
   }
 
-  // ── The rep's panel: "Plan chosen" ──────────────────────────────────────
-  //
-  // The company exists and the card page is next — the server's own fact,
-  // stamped once on the progress row the texted link's token names. Best-
-  // effort like the attribution above: a failed stamp is a quieter panel,
-  // never a failed signup.
-  if (typeof signupLinkToken === "string" && signupLinkToken) {
-    await stampSignupPlanByToken({ client: db, token: signupLinkToken, companyId: company.id, now: new Date() }).catch((err) => {
-      console.error("[companies] signup progress plan stamp failed:", err?.message || err);
-    });
-  }
-
   // ── Where the request came from ─────────────────────────────────────────
   //
   // The IP and Vercel's geo headers, the browser, and which door this signup
@@ -600,21 +622,54 @@ export async function POST(request) {
   // A company that arrived on a rep's link, or through a referral, is that
   // rep's or that referrer's already and gets no row. Never throws; a failure
   // is on /platform/errors, not in the contractor's way.
-  const completion = await recordSignupCompletion({
-    client: db,
-    company,
-    ownerEmail: session.user.email || null,
-    ownerName: session.user.name || null,
-    referred: Boolean(attributedRepId) || Boolean(referral),
+  //
+  // ── After the response (2026-09-25) ─────────────────────────────────────
+  //
+  // This and the rep-panel stamp below are FieldQuo's own bookkeeping —
+  // nothing the new owner's first screen, their set-up steps or anything in
+  // /app reads — so they run in Next's after() instead of in front of the
+  // dashboard. Still after the org exists (the reason above), still inside
+  // this invocation (after() runs within the route's max duration), and still
+  // loud on failure: recordSignupCompletion never throws, and its "failed" is
+  // written to /platform/errors exactly as before.
+  //
+  // What did NOT move, and why: captureSalesAttribution and
+  // recordSignupOrigin stay in front of the org, because the origin row must
+  // exist before createOrganization so a rolled-back company takes it with
+  // it (scripts/check-signup-origin.mjs), and the origin row carries the
+  // attributed rep. The referral / promo pair stays because it moves
+  // trialEndsAt — the trial banner on the first screen reads it, and the
+  // response carries it.
+  after(async () => {
+    const completion = await recordSignupCompletion({
+      client: db,
+      company,
+      ownerEmail: session.user.email || null,
+      ownerName: session.user.name || null,
+      referred: Boolean(attributedRepId) || Boolean(referral),
+    });
+    if (completion.reason === "failed") {
+      await recordError({
+        area: "signup",
+        code: "signup_completion_not_recorded",
+        message: `The sales floor was not told about this signup: ${completion.error}`,
+        companyId: company.id,
+      }).catch(() => {});
+    }
+
+    // ── The rep's panel: "Plan chosen" ────────────────────────────────────
+    //
+    // The company exists and the card page is next — the server's own fact,
+    // stamped once on the progress row the texted link's token names. Best-
+    // effort like the attribution above: a failed stamp is a quieter panel,
+    // never a failed signup. Now after the org, so a company that a failed
+    // createOrganization rolled back is no longer stamped "plan chosen".
+    if (typeof signupLinkToken === "string" && signupLinkToken) {
+      await stampSignupPlanByToken({ client: db, token: signupLinkToken, companyId: company.id, now: new Date() }).catch((err) => {
+        console.error("[companies] signup progress plan stamp failed:", err?.message || err);
+      });
+    }
   });
-  if (completion.reason === "failed") {
-    await recordError({
-      area: "signup",
-      code: "signup_completion_not_recorded",
-      message: `The sales floor was not told about this signup: ${completion.error}`,
-      companyId: company.id,
-    }).catch(() => {});
-  }
 
 
   // Without this, activeOrganizationId stays null on the session, and every
@@ -647,66 +702,45 @@ export async function POST(request) {
         enabled: true,
       })),
     });
-
-    // Seed standard add-on products for any selected category that has a
-    // starter set (e.g. cabinet refinishing → New Handles, Soft-Close Hinges,
-    // Two-Tone, Glass Inserts). Best-effort: a seeding hiccup must never block
-    // signup/checkout, so failures are logged, not thrown.
-    try {
-      const selected = await db.serviceCategory.findMany({
-        where: { id: { in: serviceCategoryIds } },
-        select: { id: true, key: true },
-      });
-      for (const cat of selected) {
-        await seedStandardAddOns({
-          companyId: company.id,
-          categoryId: cat.id,
-          categoryKey: cat.key,
-        });
-      }
-    } catch (err) {
-      console.error("[companies POST] standard add-on seeding failed", err);
-    }
-
-    // And the trade's service list — every service the trade habitually
-    // sells, with the benchmark median as the starting price where one
-    // exists (app/data/serviceSeeds, lib/products/seedServices.js). Its own
-    // try: a seed file with a problem must not cost the add-ons above, and
-    // "Add missing services" on Settings > Services re-runs it on demand.
-    try {
-      const selected = await db.serviceCategory.findMany({
-        where: { id: { in: serviceCategoryIds } },
-        select: { id: true, key: true },
-      });
-      for (const cat of selected) {
-        await seedServicesForTrade({
-          companyId: company.id,
-          categoryId: cat.id,
-          categoryKey: cat.key,
-        });
-      }
-    } catch (err) {
-      console.error("[companies POST] trade service seeding failed", err);
-    }
   }
 
-  // Every company gets one Active starter template per automated email type
-  // (quote/instructions/receipt/follow-up) — not tied to which service
-  // categories were picked, so this runs unconditionally. Same best-effort
-  // rule as above: never block signup over a seeding hiccup.
-  try {
-    await seedDefaultTemplates(company.id);
-  } catch (err) {
-    console.error("[companies POST] default template seeding failed", err);
-  }
-
-  // And the three follow-up rules — 1, 7 and 14 days after a quote is sent —
-  // switched on, in the client's language. Best-effort for the same reason;
-  // GET /api/settings/follow-up-rules re-seeds on first open if this failed.
-  try {
-    await ensureDefaultFollowUps(db, company.id);
-  } catch (err) {
-    console.error("[companies POST] default follow-up seeding failed", err);
+  // ── The seeding: here, or one streamed stage at a time ──────────────────
+  //
+  // What a new company is given — each trade's standard add-ons (cabinet
+  // refinishing → New Handles, Soft-Close Hinges…) and its service list at the
+  // benchmark median, the trade's checklists and maintenance plans, one
+  // starter email template per automated type and the 1/7/14-day follow-up
+  // rules — is defined once, as stages, in lib/signup/setupStages.js.
+  //
+  // The progress screen asks for `stagedSetup` on the no-plan path and runs
+  // those stages itself through POST /api/signup/setup, so it can show each
+  // one as it really happens; the CompanyServiceCategory rows above are what
+  // that route reads the trades from. Every other caller — the plan step on
+  // its way to Stripe, a page older than the screen — gets them here, inline
+  // and best-effort as before: a failed stage never blocks the signup, and
+  // each one is on /platform/errors rather than only in a console.
+  const staged = stagedSetup === true && !plan;
+  if (!staged) {
+    const trades =
+      Array.isArray(serviceCategoryIds) && serviceCategoryIds.length > 0
+        ? await db.serviceCategory.findMany({
+            where: { id: { in: serviceCategoryIds } },
+            select: { id: true, key: true },
+          })
+        : [];
+    await runSetupInline({
+      companyId: company.id,
+      categories: trades,
+      client: db,
+      onFailure: (stage, message) =>
+        recordError({
+          area: "signup",
+          code: "setup_stage_failed",
+          message: `Signup seeding stage ${stage.key} failed: ${message}`,
+          companyId: company.id,
+          detail: { stage: stage.key, inline: true },
+        }).catch(() => {}),
+    });
   }
 
   const baseUrl = getAppOrigin(request);
@@ -721,6 +755,10 @@ export async function POST(request) {
   if (!plan) {
     return NextResponse.json({
       appUrl: isInternalPath(next) ? next : "/app?welcome=true",
+      // Says the seeding is still to run. A page that asked for staging but
+      // reaches a server without it (a deploy in between) reads its absence
+      // as "all done here" and goes straight to the app.
+      setup: staged ? "staged" : "done",
       referral: referral
         ? { referrerName: referral.referrer.name, trialEndsAt: referral.trialEndsAt, months: REFEREE_BONUS_MONTHS }
         : null,
