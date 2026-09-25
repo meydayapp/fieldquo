@@ -395,7 +395,10 @@ section("7. Shared component: PaverDesigner and LotAreaMeasure both use PolygonM
   ok("LotAreaMeasure owns no <svg> of its own", !/<svg/.test(lot));
   ok("LotAreaMeasure writes through lotIntakePatch", /lotIntakePatch\(/.test(lot));
   ok("…and keeps the drawing under intakeValues.lotDrawing", /LOT_DRAWING_KEY\s*=\s*"lotDrawing"/.test(lot));
-  ok("…and renders nothing when the form has no area box", /if \(!hasAreaField\) return null/.test(lot));
+  // Since 2026-09-25 the same tracer fills a fence's Linear Feet (an edge box
+  // and no area box), so "no box for its answer" is now "neither box" — a lot
+  // trade always has lotSize, so for the lawn trades nothing changed.
+  ok("…and renders nothing when the form has neither box", /if \(!hasAreaField && !hasEdgeField\) return null/.test(lot));
 
   ok("QuoteBuilder renders LotAreaMeasure for the landscaping trades", /isLotMeasureTrade\(group\.categoryKey\)\s*&&\s*\(\s*<LotAreaMeasure/.test(builder));
   ok("…above the intake form whose boxes it fills", builder.indexOf("<LotAreaMeasure") < builder.indexOf("<IntakeFields"));

@@ -143,6 +143,9 @@ export const MEASUREMENT_KEYS = [
   // Air duct cleaning, where the price driver is the number of supply vents
   // and returns — registered 2026-09-24 as counts typed on the estimate.
   "ventCount", "returnCount",
+  // The reuse takeoffs' purchase counts and the fence intake's gates —
+  // registered 2026-09-25 with lib/measure/reuseTakeoffs.js.
+  "drywallSheets", "fencePosts", "concreteCuYd", "gateCount", "driveGateCount",
 ];
 /** Line units that are a measurement — such a line must carry a key. */
 export const MEASURED_UNITS = ["sqft", "linear_ft", "square"];
