@@ -191,7 +191,19 @@ console.log("\nThe cron (read)\n");
 const cron = code(read("app/api/cron/follow-ups/route.js"));
 ok("cron skips tombstoned rules", /where: \{ active: true, deletedAt: null \}/.test(cron));
 ok("cron renders built-in wording when a default has no template", /buildBuiltInFollowUpEmail\(/.test(cron) && /const builtIn = Boolean\(rule\.builtInKey\) && !rule\.template/.test(cron));
-ok("cron resolves the CLIENT's language for the built-in", /resolveClientLanguage\(\{\s*document: entity,\s*client: entity\.client,\s*company: entity\.company,?\s*\}\)/.test(cron));
+// The language is resolved once per email (lib/followUps/mergeData.js's
+// followUpLanguage — resolveClientLanguage, document first) and shared by the
+// built-in wording, the template's tokens and the blocks' own words. Executed
+// here: a French quote for an English-speaking client is written in French.
+{
+  const { followUpLanguage } = await import("../lib/followUps/mergeData.js");
+  ok("cron resolves the CLIENT's language for the built-in",
+    /const language = followUpLanguage\(finder\.entityType, entity\);/.test(cron)
+      && cron.indexOf("const language = followUpLanguage(") < cron.indexOf("buildBuiltInFollowUpEmail(")
+      && /buildBuiltInFollowUpEmail\(\{[\s\S]{0,300}?\blanguage,/.test(cron)
+      && followUpLanguage("quote", { language: "fr", client: { language: "en" }, company: { defaultLanguage: "es" } }) === "fr"
+      && followUpLanguage("quote", { language: null, client: { language: "uk" }, company: { defaultLanguage: "es" } }) === "uk");
+}
 {
   const blockerAt = cron.indexOf("quoteChaseBlocker(");
   const claimAt = cron.indexOf("followUpLog.create");

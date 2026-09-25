@@ -211,8 +211,11 @@ console.log("\nThe itemised block draws stored lines\n");
 // for a real-shape invoice and quote and require every line's amount.
 {
   const block = { id: "li", type: "lineItems", title: "What's included", showQuantity: true, showUnitPrice: true, showSubtotals: true };
+  // Found by the title's own style rather than its words: the default title
+  // is printed in the document's language now ("Ce qui est inclus" on a
+  // French quote), so "What's included" only marks an English table.
   const tableOf = (html) => {
-    const at = html.indexOf("What's included");
+    const at = html.search(/letter-spacing:0\.08em;text-transform:uppercase/);
     return at === -1 ? "" : html.slice(at, html.indexOf("</table>", at));
   };
   const zeroCad = /(^|[^\d.,])\$0\.00(?!\d)/;
@@ -274,6 +277,9 @@ console.log("\nThe itemised block draws stored lines\n");
   ok("quote: the document's labels, not English (Sous-total / Rabais / Taxes)", q.includes(frLabels.subtotal) && q.includes(frLabels.discount) && q.includes(frLabels.tax) && !/>Subtotal</.test(q));
   ok("quote: the blended line that repeats its head is drawn once", q.split("Travaux sous-traités").length - 1 === 1);
   ok("quote: the unit code is never printed", !/\broom\b|\bflat\b/.test(q));
+  ok("quote: the block's default title is the document's own words (Ce qui est inclus), not English", q.includes(frLabels.whatsIncluded) && !q.includes("What's included"));
+  const typed = tableOf(renderTemplateSections([{ ...block, title: "Votre soumission" }], { lineItems: qLines }, { company }));
+  ok("…a title the company typed is printed exactly as written", typed.includes("Votre soumission"));
 
   // Toggles and hostile input.
   const noTotals = tableOf(renderTemplateSections([{ ...block, showSubtotals: false }], { lineItems: invLines }, { company }));
@@ -291,14 +297,179 @@ console.log("\nThe itemised block draws stored lines\n");
 
   // Who feeds it.
   const cron = code(read("app/api/cron/follow-ups/route.js"));
-  ok("the cron builds the block's input with the document helpers", /quoteTemplateLines\(/.test(cron) && /invoiceTemplateLines\(/.test(cron) && /lineItems: lineItemsFor\(entityType, entity\)/.test(cron));
+  // The builder moved to lib/followUps/mergeData.js so it can be executed
+  // (the section below runs it); the cron imports it.
+  const builder = code(read("lib/followUps/mergeData.js"));
+  ok("the cron builds the block's input with the document helpers", /quoteTemplateLines\(/.test(builder) && /invoiceTemplateLines\(/.test(builder) && /lineItems: lineItemsFor\(entityType, entity\)/.test(builder) && /mergeDataFor\(finder\.entityType, entity, request, portalToken, language\)/.test(cron));
   ok("the cron loads a quote's scope groups and an invoice's quote's groups", /include: \{ client: true, company: true, scopeGroups: SCOPE_GROUPS_FOR_LINES \}/.test(cron) && /quote: \{ select: \{ scopeGroups: SCOPE_GROUPS_FOR_LINES \} \}/.test(cron));
-  for (const f of ["app/app/settings/email-templates/[id]/page.js", "app/api/settings/document-templates/[id]/test/route.js", "lib/email/documentEmailPreview.js", "lib/email/renderTemplateSections.js", "app/api/cron/follow-ups/route.js"]) {
+  for (const f of ["app/app/settings/email-templates/[id]/page.js", "app/api/settings/document-templates/[id]/test/route.js", "lib/email/documentEmailPreview.js", "lib/email/renderTemplateSections.js", "app/api/cron/follow-ups/route.js", "lib/followUps/mergeData.js"]) {
     ok(`${f} carries no name/unitPrice/total line shape`, !/unitPrice\s*:|item\.unitPrice|item\.total\b/.test(code(read(f))));
   }
   const editor = code(read("app/app/settings/email-templates/[id]/page.js"));
-  ok("the editor previews the shared sample", /sampleTemplateLines\(/.test(editor));
+  ok("the editor previews the shared sample", /sampleMergeData\(/.test(editor));
   ok("the editor says which sends fill the block", /app\.emailEditor\.lineItemsWhereFilled/.test(editor) && !/app\.emailEditor\.lineItemsHelp/.test(editor));
+}
+
+console.log("\nThe tokens and the blocks' own words follow the document\n");
+
+// {{quoteTotal}}, {{invoiceTotal}}, {{balanceDue}} and every other money token
+// went through the cron's local money(): "$" + toLocaleString(undefined), so a
+// EUR company's Spanish invoice chase said "$1,210.00" and a French quote's
+// said "$4,250.00" under a document reading "4 250,00 $". The summary block
+// printed "Quote #" / "Invoice #", the progress block "Done" / "Pending" and
+// the unsubscribe line was English, whatever the document said.
+//
+// Executed, not read: the cron's own builder (lib/followUps/mergeData.js)
+// against three documents, poured through templateBody exactly as the cron
+// does. Imported defensively so that code missing the builder FAILS these
+// assertions rather than crashing the whole check.
+{
+  const mergeMod = await import("../lib/followUps/mergeData.js").catch(() => null);
+  const mergeFieldsMod = await import("../lib/email/templateMergeFields.js").catch(() => null);
+  const { emailCopy } = await import("../lib/i18n/emailCopy.js");
+  const { defaultSectionsFor } = await import("../app/data/emailTemplateBlocks.js");
+  ok("the cron's merge builder is a module a check can execute", Boolean(mergeMod?.mergeDataFor && mergeMod?.followUpLanguage));
+
+  const build = (type, entity, portalToken = null) => {
+    if (!mergeMod) return { language: "en", data: {} };
+    const language = mergeMod.followUpLanguage(type, entity);
+    return { language, data: mergeMod.mergeDataFor(type, entity, null, portalToken, language) };
+  };
+  // The cron's call, verbatim: company, the resolved language, no unsubscribe
+  // on a transactional chase.
+  const send = (sections, data, language, co) => templateBody({ sections, sentMode: "blocks" }, data, { company: co, language });
+  const norm = (x) => String(x).replace(/\s+/g, " ");
+  const plain = (html) => html.replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/&#39;/g, "'").replace(/\s+/g, " ");
+
+  // Every block the editor offers that prints words of its own, plus text
+  // that carries every money token and date token.
+  const tokensText = { id: "t", type: "text", text: "QT[{{quoteTotal}}] IT[{{invoiceTotal}}] BD[{{balanceDue}}] AP[{{amountPaid}}] ST[{{subtotal}}] DC[{{discount}}] TX[{{tax}}] DD[{{dueDate}}]" };
+  const blocks = [
+    tokensText,
+    { id: "s", type: "summary" },
+    { id: "p", type: "progress", stages: ["Quote", "Deposit & scheduling", "Project start", "Project complete"], activeStage: 0, useMergeField: true },
+    { id: "l", type: "lineItems", title: "What's included", showQuantity: true, showUnitPrice: true, showSubtotals: true },
+  ];
+
+  // ── 1. A CAD company's French quote, for an English-speaking client ──────
+  // The DOCUMENT's language wins over the client's (clientLanguage.js).
+  const caCo = { name: "Rénovations Tremblay", currency: "CAD", defaultLanguage: "en", brandColor: "#06356b" };
+  const frQuote = {
+    id: "q1", language: "fr", quoteNumber: "Q-2026-0042", shareToken: "sharetok", quoteType: "Peinture",
+    subtotal: 3900, discount: 150, tax: 500, total: 4250,
+    client: { name: "Jane Doe", language: "en" }, company: caCo,
+    scopeGroups: [{ label: "Peinture", subtotal: 3900, lineItems: [{ description: "Murs", quantity: 3, unit: "room", rate: 1300, amount: 3900 }] }],
+  };
+  const fq = build("quote", frQuote);
+  const frF = documentFormatters("fr", "CAD");
+  const frL = documentLabels("fr");
+  const frW = emailCopy("fr").templateBlocks || {};
+  ok("CAD French quote: the email's language is the document's (fr), not the client's (en)", fq.language === "fr");
+  ok("CAD French quote: {{quoteTotal}} is the document's figure, French-formatted (4 250,00 $)", fq.data.quoteTotal === frF.money(4250) && /^4\s250,00\s\$$/u.test(fq.data.quoteTotal || ""), JSON.stringify(fq.data.quoteTotal));
+  ok("CAD French quote: {{subtotal}}/{{tax}}/{{discount}} likewise", fq.data.subtotal === frF.money(3900) && fq.data.tax === frF.money(500) && fq.data.discount === frF.money(150));
+  const fqHtml = send([...blocks, ...defaultSectionsFor("follow_up_email")], fq.data, fq.language, caCo);
+  const fqText = plain(fqHtml);
+  ok("CAD French quote: no \"$4,250.00\" anywhere in the email", !fqHtml.includes("$4,250.00") && !fqHtml.includes("$3,900.00"));
+  ok("CAD French quote: the token prints the French figure inside the text block", fqText.includes(`QT[${norm(frF.money(4250))}]`), fqText.slice(0, 200));
+  ok("CAD French quote: the summary says \"Devis Q-2026-0042\", not \"Quote #\"", fqText.includes(`${frL.quote} Q-2026-0042`) && !/Quote #/.test(fqText));
+  ok("CAD French quote: the progress tracker's words are French (Terminé / En attente)", fqText.includes(frW.done) && fqText.includes(frW.pending) && !/\bDone\b|\bPending\b/.test(fqText));
+  ok("CAD French quote: the default stage names are French (Devis, Début du projet)", fqText.includes(frW.stageStart) && fqText.includes(frW.stageComplete) && !/Project start|Project complete|Deposit & scheduling/.test(fqText));
+  ok("CAD French quote: the itemised block is French under its default title", fqText.includes(frL.whatsIncluded) && fqText.includes(frL.subtotal) && !/What's included/.test(fqText));
+  ok("CAD French quote: the company's own starter text is sent exactly as written (not translated)", fqText.includes("Still thinking it over?") && fqText.includes("View your quote"));
+
+  // ── 2. A EUR company's Spanish invoice ──────────────────────────────────
+  const euCo = { name: "Reformas Sol", currency: "EUR", defaultLanguage: "es" };
+  const esInvoice = {
+    id: "inv1", language: "es", invoiceNumber: "F-0007", total: 1210, amountPaid: 200, subtotal: 1000, tax: 210, discount: 0,
+    dueDate: "2026-10-01T00:00:00Z",
+    lineItems: [{ description: "Alicatado baño", quantity: 1, unit: "flat", rate: 1000, amount: 1000 }],
+    client: { name: "Lucía", language: "en" }, company: euCo, quote: null,
+  };
+  const ei = build("invoice", esInvoice, "ptok");
+  const esF = documentFormatters("es", "EUR");
+  const esL = documentLabels("es");
+  const esW = emailCopy("es").templateBlocks || {};
+  ok("EUR Spanish invoice: the email's language is the invoice's (es)", ei.language === "es");
+  ok("EUR Spanish invoice: {{invoiceTotal}} is in euros, formatted for Spanish", ei.data.invoiceTotal === esF.money(1210) && /EUR|€/.test(ei.data.invoiceTotal || "") && !/\$/.test(ei.data.invoiceTotal || ""), JSON.stringify(ei.data.invoiceTotal));
+  ok("EUR Spanish invoice: {{balanceDue}} is total − paid, in euros", ei.data.balanceDue === esF.money(1010));
+  ok("EUR Spanish invoice: {{amountPaid}} in euros", ei.data.amountPaid === esF.money(200));
+  ok("EUR Spanish invoice: {{dueDate}} is the Spanish calendar date, read as UTC (1 de octubre de 2026)", ei.data.dueDate === esF.date("2026-10-01T00:00:00Z") && /octubre/.test(ei.data.dueDate || ""), JSON.stringify(ei.data.dueDate));
+  ok("EUR Spanish invoice: a nil discount stays blank, as it always did", ei.data.discount === "");
+  const eiText = plain(send(blocks, ei.data, ei.language, euCo));
+  ok("EUR Spanish invoice: no dollar sign anywhere in the email", !/\$/.test(eiText), eiText.slice(0, 240));
+  ok("EUR Spanish invoice: the summary says \"Factura F-0007\" with its euro total", eiText.includes(`${esL.invoice} F-0007`) && eiText.includes(norm(esF.money(1210))));
+  ok("EUR Spanish invoice: progress words in Spanish (Completado / Pendiente)", eiText.includes(esW.done) && eiText.includes(esW.pending) && !/\bDone\b|\bPending\b/.test(eiText));
+
+  // ── 3. A USD company's English quote ────────────────────────────────────
+  const usCo = { name: "Lone Star Painting", currency: "USD", defaultLanguage: "en" };
+  const enQuote = { id: "q2", language: "en", quoteNumber: "Q-7", total: 4250, subtotal: 4250, tax: 0, discount: 0, client: { name: "Sam" }, company: usCo, scopeGroups: [] };
+  const eq = build("quote", enQuote);
+  const usF = documentFormatters("en", "USD");
+  ok("USD English quote: {{quoteTotal}} is the quote email's own figure (US$4,250.00)", eq.data.quoteTotal === usF.money(4250) && eq.data.quoteTotal.includes("4,250.00"), JSON.stringify(eq.data.quoteTotal));
+  const eqText = plain(send(blocks, eq.data, eq.language, usCo));
+  ok("USD English quote: the summary reads \"Quote Q-7\" and the tracker \"Done\"", eqText.includes("Quote Q-7") && /\bDone\b/.test(eqText));
+
+  // ── 4. GBP / AUD: the company's currency, never "$" by default ──────────
+  for (const [cur, lang, sign] of [["GBP", "en", "£"], ["AUD", "en", "A$"], ["EUR", "de", "€"]]) {
+    const d = build("quote", { language: lang, total: 99.5, client: {}, company: { currency: cur }, scopeGroups: [] }).data;
+    ok(`${cur} ${lang} quote: {{quoteTotal}} carries ${sign}`, (d.quoteTotal || "").includes(sign) && d.quoteTotal === documentFormatters(lang, cur).money(99.5), JSON.stringify(d.quoteTotal));
+  }
+
+  // ── 5. Sends with no document: the client's language ───────────────────
+  const job = build("job", { title: "Deck", status: "completed", client: { name: "Ana", language: "es" }, company: { currency: "CAD", defaultLanguage: "en" } });
+  ok("a completed-job chase is written in the client's language (es)", job.language === "es");
+  const lead = build("lead", { client: { name: "Olena", language: "uk" }, company: { defaultLanguage: "en" }, category: { label: "Roof" } });
+  ok("an enquiry chase is written in the language the form was filled in (uk)", lead.language === "uk");
+  const cron = code(read("app/api/cron/follow-ups/route.js"));
+  ok("…and the cron's lead finder carries LeadRequest.language into the client slot", /language: lead\.language/.test(cron));
+  ok("the cron hands the resolved language to the blocks", /templateBody\(rule\.template, mergeData, \{[\s\S]{0,300}?language,/.test(cron));
+  ok("the cron has no money formatter of its own any more", !/function money\(/.test(cron) && !/`\$\$\{/.test(cron));
+
+  // ── 6. The unsubscribe line (campaigns, job-completed chases) ───────────
+  const unsub = (language) => plain(renderTemplateSections([{ id: "h", type: "heading", text: "Hola" }], {}, { company: { name: "Acme" }, language, unsubscribe: { token: "tok" } }));
+  ok("the unsubscribe line is French on a French email", unsub("fr").includes("Se désabonner") && !unsub("fr").includes("Unsubscribe"), unsub("fr").slice(-200));
+  ok("the unsubscribe line stays English on an English email", unsub("en").includes("Unsubscribe") && unsub("en").includes("customer of Acme"));
+  const campaign = code(read("app/api/marketing/campaigns/[id]/send/route.js"));
+  ok("the campaign send resolves each recipient's language and passes it", /resolveClientLanguage\(/.test(campaign) && /templateBody\(campaign\.template, mergeData, \{[\s\S]{0,200}?language:/.test(campaign));
+  const canvasFr = plain(templateBody({ sentMode: "canvas", canvas: { objects: [ws, text({ text: "Bonjour" })] } }, {}, { company: { name: "Acme" }, language: "fr", unsubscribe: { token: "tok" } }));
+  ok("a canvas email's unsubscribe line follows the same language", canvasFr.includes("Se désabonner"), canvasFr.slice(-200));
+
+  // ── 7. Every client language, and company text left alone ──────────────
+  for (const lang of ["en", "fr", "es", "it", "de", "uk", "pa", "tl"]) {
+    const w = emailCopy(lang).templateBlocks || {};
+    const L = documentLabels(lang);
+    const html = plain(renderTemplateSections(
+      [{ id: "s", type: "summary" }, { id: "p", type: "progress", stages: ["Quote", "Invoice & scheduling", "Project start", "Project complete"], activeStage: 1, useMergeField: false }],
+      { quoteNumber: "Q-1", quoteTotal: "x" },
+      { language: lang, company: { name: "Acme" }, unsubscribe: { token: "t" } },
+    ));
+    const complete = w && w.done && w.pending && w.stageQuote && w.stageInvoice && w.stageStart && w.stageComplete && typeof w.marketingFooter === "function";
+    ok(`${lang}: summary, tracker and unsubscribe line in ${lang}`,
+      complete && html.includes(`${L.quote} Q-1`) && html.includes(w.done) && html.includes(w.pending) && html.includes(w.stageInvoice)
+        && (lang === "en" || !/\bDone\b|\bPending\b|Project start|Unsubscribe\b/.test(html)),
+      html.slice(0, 260));
+  }
+  const renamed = plain(renderTemplateSections([{ id: "p", type: "progress", stages: ["Site visit", "Quote", "Build"], activeStage: 0, useMergeField: false }], {}, { language: "fr" }));
+  ok("a stage the company renamed is its own text and is printed as written", renamed.includes("Site visit") && renamed.includes("Build") && renamed.includes(frW.stageQuote));
+  const noLang = plain(renderTemplateSections([{ id: "s", type: "summary" }], { quoteNumber: "Q-1", quoteTotal: "t", lineItems: { language: "de", groups: [] } }, {}));
+  ok("with no language given, the itemised block's document language is used (Angebot)", noLang.includes("Angebot Q-1"));
+
+  // ── 8. The preview and the test send: the same sample, in the company's currency
+  ok("the shared sample exists (lib/email/templateMergeFields.js)", Boolean(mergeFieldsMod?.sampleMergeData));
+  if (mergeFieldsMod?.sampleMergeData) {
+    const eur = mergeFieldsMod.sampleMergeData({ language: "fr", currency: "EUR" });
+    const expected = { quoteTotal: 4250, invoiceTotal: 4250, balanceDue: 1250, amountPaid: 3000, subtotal: 3900, discount: 150, tax: 500 };
+    const frEur = documentFormatters("fr", "EUR");
+    ok("sample in fr/EUR: every money token is euros, French-formatted", Object.entries(expected).every(([k, v]) => eur[k] === frEur.money(v) && /€/.test(eur[k])), JSON.stringify(eur.quoteTotal));
+    ok("sample in fr/EUR: the dates are French", eur.dueDate === frEur.date("2026-08-01T00:00:00Z") && /août/.test(eur.dueDate));
+    ok("sample in fr/EUR: the itemised sample is in the same pair", eur.lineItems?.language === "fr" && eur.lineItems?.currency === "EUR");
+    const cad = mergeFieldsMod.sampleMergeData({ language: "en", currency: "CAD" });
+    ok("sample in en/CAD reads as it always did ($4,250.00 / $1,250.00)", cad.quoteTotal === "$4,250.00" && cad.balanceDue === "$1,250.00" && cad.amountPaid === "$3,000.00");
+  }
+  for (const f of ["app/app/settings/email-templates/[id]/page.js", "app/api/settings/document-templates/[id]/test/route.js"]) {
+    const src = code(read(f));
+    ok(`${f.split("/").slice(-2).join("/")} carries no "$" figure of its own and draws the shared sample`, !/"\$\d/.test(src) && /sampleMergeData\(/.test(src) && /language/.test(src));
+  }
 }
 
 console.log("\nNine languages for the chrome\n");

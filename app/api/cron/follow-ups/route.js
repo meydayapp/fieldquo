@@ -20,16 +20,14 @@ import { sendEmail } from "@/lib/email/resend";
 import { sendOutcome, reportQuoteNotDelivered } from "@/lib/email/sendFailure";
 import { resolveSender } from "@/lib/email/companySender";
 import { renderSubject } from "@/lib/email/renderTemplateSections";
-import { getAppOrigin } from "@/lib/appUrl";
-import { ensurePortalToken, portalInvoiceUrl } from "@/lib/clientPortal";
+import { ensurePortalToken } from "@/lib/clientPortal";
 import { ensureSubscriber, unsubscribeHeaders } from "@/lib/marketing/unsubscribe";
 import { TRIGGER_META } from "@/lib/followUps/triggers";
 import { buildBuiltInFollowUpEmail } from "@/lib/followUps/defaults";
 import { quoteChaseBlocker, gatherQuoteChaseFacts } from "@/lib/followUps/stopConditions";
 import { companyMaySend, quoteTaxReady } from "@/lib/followUps/readiness";
-import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import { templateBody } from "@/lib/email/templateBody";
-import { quoteTemplateLines, invoiceTemplateLines } from "@/lib/email/templateLineItems";
+import { mergeDataFor, followUpLanguage } from "@/lib/followUps/mergeData";
 import { runCallbackRotation } from "@/lib/callbacks/build";
 
 function cutoffFor(rule) {
@@ -94,6 +92,9 @@ async function findLeadNoResponse(rule) {
       // Where the job is lives inside the intake blob when the form asked
       // (lib/leads/intakeShape.js); the lead row has no address column.
       address: lead.intake?.address || "",
+      // The language the homeowner filled the form in — the only language
+      // this person has ever stated to the company (lib/followUps/mergeData.js).
+      language: lead.language || null,
     },
   }));
 }
@@ -166,121 +167,11 @@ async function findJobCompleted(rule) {
   });
 }
 
-function money(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n) || n === 0) return "";
-  return `$${n.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
-
-// The "Itemized list" block's input, for the two entities that ARE a
-// document. It used to be a local normaliser over `entity.lineItems` that
-// renamed stored lines into a shape (name/unitPrice/total) nothing else uses:
-// on an invoice it printed "$"-and-English whatever the document's currency
-// and language; on a quote it read a column the builder does not write, so
-// the block was empty. Now the document's own grouping, language and
-// currency, via lib/email/templateLineItems.js.
-//
-// A lead and a completed job have no document of their own — a job has no
-// lines, and picking one of its quotes or invoices would be this function
-// deciding which paper the email is "about". They get nothing, and the block
-// renders nothing; the editor says which rules fill it.
-function lineItemsFor(entityType, entity) {
-  if (entityType === "quote") {
-    return quoteTemplateLines({ quote: entity, scopeGroups: entity.scopeGroups, company: entity.company });
-  }
-  if (entityType === "invoice") {
-    return invoiceTemplateLines({
-      invoice: entity,
-      scopeGroups: entity.quote?.scopeGroups || [],
-      company: entity.company,
-    });
-  }
-  return null;
-}
-
-// Which project-lifecycle stage a follow-up is sent at. Mirrors
-// LIFECYCLE_STAGES in app/data/emailTemplateBlocks.js:
-//   0 Quote · 1 Deposit & scheduling · 2 Project start · 3 Project complete
-function stageFor(entityType, entity) {
-  if (entityType === "quote") return 0;
-  if (entityType === "invoice") {
-    return Number(entity.amountPaid || 0) > 0 ? 1 : 0;
-  }
-  if (entityType === "job") {
-    return entity.status === "completed" ? 3 : 2;
-  }
-  return 0;
-}
-
-// `portalToken` is resolved by the caller, not looked up here, so this stays
-// synchronous and pure. It is the client's portal token — minting one is a
-// WRITE, and a write does not belong inside a formatter.
-function mergeDataFor(entityType, entity, request, portalToken) {
-  const base = {
-    clientName: entity.client?.contactName || entity.client?.name || "",
-    clientAddress: entity.client?.address || "",
-    clientPhone: entity.client?.phone || "",
-    companyName: entity.company?.name || "",
-    companyPhone: entity.company?.phone || "",
-    companyEmail: entity.company?.email || "",
-    progressStage: stageFor(entityType, entity),
-    lineItems: lineItemsFor(entityType, entity),
-    subtotal: money(entity.subtotal),
-    discount: money(entity.discount),
-    tax: money(entity.tax),
-  };
-  if (entityType === "quote") {
-    return {
-      ...base,
-      quoteNumber: entity.quoteNumber,
-      quoteTotal: money(entity.total),
-      jobTitle: entity.quoteType || "",
-      quoteUrl: entity.shareToken
-        ? `${getAppOrigin(request)}/q/${entity.shareToken}`
-        : "",
-    };
-  }
-  if (entityType === "invoice") {
-    const balanceDue = Number(entity.total || 0) - Number(entity.amountPaid || 0);
-    return {
-      ...base,
-      invoiceNumber: entity.invoiceNumber,
-      invoiceTotal: money(entity.total),
-      amountPaid: money(entity.amountPaid),
-      balanceDue: money(balanceDue),
-      dueDate: entity.dueDate
-        ? new Date(entity.dueDate).toLocaleDateString()
-        : "",
-      // The default "Payment received" template ships a "View your invoice"
-      // button whose url is {{invoiceUrl}}, and nothing had ever supplied it.
-      // mergeIntoAttr resolves an unknown token to "", so that button rendered
-      // with an EMPTY href — a link to nowhere, in a homeowner's inbox, under
-      // the contractor's brand. Deep-linked to the invoice rather than the
-      // portal home for the reason portalInvoiceUrl's own comment gives: a
-      // client landing on a list has to hunt for the thing they came to pay.
-      invoiceUrl: portalToken ? portalInvoiceUrl(portalToken, entity.id, request) : "",
-      projectStartDate: entity.startDate
-        ? new Date(entity.startDate).toLocaleDateString()
-        : "",
-      projectEndDate: entity.endDate
-        ? new Date(entity.endDate).toLocaleDateString()
-        : "",
-    };
-  }
-  if (entityType === "job") {
-    return { ...base, jobTitle: entity.title };
-  }
-  if (entityType === "lead") {
-    // No quote tokens: there is no quote yet, and a template that prints
-    // the quote link on an enquiry renders an empty href. The settings page
-    // says which fields a lead can fill (app.followFlow.leadFields).
-    return { ...base, jobTitle: entity.category?.label || "" };
-  }
-  return base;
-}
+// The {{token}} values, the itemised block's lines and the progress stage
+// live in lib/followUps/mergeData.js — pure, so a check can execute them
+// against a CAD French quote and a EUR Spanish invoice rather than read this
+// file. The local money() that printed "$" for every company in every
+// language was there; it is gone, not wrapped.
 
 const FINDERS = {
   lead_no_response: { entityType: "lead", find: findLeadNoResponse },
@@ -429,19 +320,19 @@ export async function GET(request) {
           () => null,
         );
       }
-      const mergeData = mergeDataFor(finder.entityType, entity, request, portalToken);
+      // One language for the whole email — the tokens, the blocks' own words
+      // and the built-in wording: the document's, else the client's
+      // (lib/i18n/clientLanguage.js, through followUpLanguage).
+      const language = followUpLanguage(finder.entityType, entity);
+      const mergeData = mergeDataFor(finder.entityType, entity, request, portalToken, language);
 
       let subject;
       let html;
       let text;
       if (builtIn) {
-        // The client's language, resolved exactly as the quote email's was:
-        // the quote's own language first. Not the company's, not English.
-        const language = resolveClientLanguage({
-          document: entity,
-          client: entity.client,
-          company: entity.company,
-        });
+        // `language` above is the client's language resolved exactly as the
+        // quote email's was: the quote's own language first. Not the
+        // company's, not English.
         const built = buildBuiltInFollowUpEmail({
           key: rule.builtInKey,
           quote: entity,
@@ -458,6 +349,9 @@ export async function GET(request) {
         // its blocks or its canvas — and nothing else reads that column.
         html = templateBody(rule.template, mergeData, {
           company: entity.company || {},
+          // The words FieldQuo prints inside the blocks ("Quote", "Done",
+          // the unsubscribe line) — company-typed text stays as written.
+          language,
           ...(unsubscribeToken && { unsubscribe: { token: unsubscribeToken, request } }),
         });
         // template.name is the internal label ("Quote follow-up (default)") —

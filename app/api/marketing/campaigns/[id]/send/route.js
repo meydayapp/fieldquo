@@ -39,6 +39,7 @@ import { resolveSender } from "@/lib/email/companySender";
 import { renderSubject } from "@/lib/email/renderTemplateSections";
 import { templateBody } from "@/lib/email/templateBody";
 import { ensureSubscriberToken, unsubscribeHeaders } from "@/lib/marketing/unsubscribe";
+import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -76,6 +77,9 @@ export async function POST(request, { params }) {
           logoUrl: true,
           brandColor: true,
           brandColors: true,
+          // The fallback language for a subscriber who is not a client, or a
+          // client who never said (lib/i18n/clientLanguage.js).
+          defaultLanguage: true,
         },
       },
     },
@@ -141,6 +145,25 @@ export async function sendCampaignEmails({ campaign, companyId, request }) {
   // recipient in a campaign.
   const sender = await resolveSender(campaign.company || {}, campaign.companyId);
 
+  // Each recipient's language, for the words FieldQuo prints inside the
+  // template — the unsubscribe line CASL requires and the blocks' own labels.
+  // The company's text is sent as written. A campaign has no document, so the
+  // client's saved language decides (lib/i18n/clientLanguage.js), and a
+  // subscriber who is not a client gets the company default. One read for
+  // the whole campaign; a failed read degrades to the company default rather
+  // than stopping the send.
+  const clientIds = [...new Set(pending.map((s) => s.clientId).filter(Boolean))];
+  const clientLanguages = new Map();
+  if (clientIds.length > 0) {
+    const clients = await db.client
+      .findMany({ where: { companyId, id: { in: clientIds } }, select: { id: true, language: true } })
+      .catch((err) => {
+        console.error("[campaign send] could not read client languages:", err?.message);
+        return [];
+      });
+    for (const c of clients || []) clientLanguages.set(c.id, c);
+  }
+
   for (const sub of pending) {
     // The claim. A unique-constraint failure here means someone else (an
     // earlier attempt, or a request racing this one) already has this
@@ -181,6 +204,10 @@ export async function sendCampaignEmails({ campaign, companyId, request }) {
       // campaign cannot leave it out (lib/email/canvasEmail.js).
       const html = templateBody(campaign.template, mergeData, {
         company: campaign.company || {},
+        language: resolveClientLanguage({
+          client: clientLanguages.get(sub.clientId) || null,
+          company: campaign.company,
+        }),
         unsubscribe: { token: unsubscribeToken, request },
       });
       // The campaign name is an internal label; prefer the template's

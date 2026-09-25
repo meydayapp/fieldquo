@@ -52,55 +52,29 @@ import {
   newBlock,
 } from "@/app/data/emailTemplateBlocks";
 import { renderTemplateSections } from "@/lib/email/renderTemplateSections";
-import { sampleTemplateLines } from "@/lib/email/templateLineItems";
+import { sampleMergeData } from "@/lib/email/templateMergeFields";
 import { compileCanvasEmail } from "@/lib/email/canvasEmail";
 import EmailCanvasEditor from "@/app/components/emailCanvas/EmailCanvasEditor";
 import ReplyToPromptModal from "@/app/components/settings/ReplyToPromptModal";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
-const PREVIEW_MERGE_DATA = {
-  clientName: "Jane Doe",
-  clientAddress: "123 Maple Street, Toronto, ON",
-  clientPhone: "(416) 555-0142",
+// The sample document's tokens (quote number, totals, dates, the itemised
+// lines) come from lib/email/templateMergeFields.js's sampleMergeData — the
+// same sample the test send uses, formatted in the company's currency and the
+// preview language. This page used to hold its own copy with "$4,250.00"
+// typed into it, so a company billing in euros previewed dollars, and a
+// French preview printed English-style figures under French labels.
+//
+// Only the company placeholders live here, for the moment before the
+// company record has loaded. progressStage is set per template type below
+// (see previewMergeData) so a quote template previews at "Quote" instead of
+// showing the invoice stage as already done. depositAmount is deliberately
+// absent — see the note on MERGE_FIELDS in app/data/emailTemplateBlocks.js.
+const PREVIEW_COMPANY_FIELDS = {
   companyName: "Your Company",
   companyPhone: "(555) 123-4567",
   companyEmail: "info@yourcompany.com",
-  quoteNumber: "Q-1042",
-  quoteTotal: "$4,250.00",
-  quoteUrl: "https://example.com/quote/preview",
-  invoiceNumber: "INV-1042",
-  invoiceTotal: "$4,250.00",
-  invoiceUrl: "https://example.com/invoice/preview",
-  dueDate: "Aug 1, 2026",
-  balanceDue: "$1,250.00",
-  projectStartDate: "Jul 28, 2026",
-  projectEndDate: "Jul 30, 2026",
-  jobTitle: "Kitchen Cabinet Refinishing",
-  // depositAmount was here, with a convincing "$1,275.00". Removed 2026-08-31
-  // along with its chip in MERGE_FIELDS: no send path has ever supplied it,
-  // because FieldQuo has no deposit concept to derive one from — staged
-  // billing is 0% built (docs/PAYMENT-SCHEDULE.md; only the cosmetic
-  // free-text-to-cards display exists).
-  //
-  // A sample value here was worse than the chip. Someone who types the token
-  // by hand saw $1,275.00 in the preview and got an empty string in the real
-  // email, so the preview was actively vouching for a token that never works.
-  // check-follow-up-flow.mjs now asserts this fixture carries nothing a send
-  // path cannot fill, so the sample cannot come back before the feature does.
-  amountPaid: "$3,000.00",
-  subtotal: "$3,900.00",
-  discount: "$150.00",
-  tax: "$500.00",
-  // NOTE: progressStage is deliberately NOT set here. It's derived from the
-  // template's type below (see previewMergeData) so a quote template previews
-  // at "Quote" instead of showing the invoice stage as already done.
-  //
-  // lineItems is not set here either. It is built in previewMergeData from
-  // lib/email/templateLineItems.js's sample — stored-shape lines run through
-  // the same builder a real quote chase uses — in the company's currency.
-  // This fixture used to carry its own name/unitPrice/total rows, a shape no
-  // stored document has, so the preview drew a table no send could.
 };
 
 // Sensible per-template theme defaults shown in the editor controls. `null`
@@ -576,15 +550,15 @@ export default function EmailTemplateEditorPage() {
   // back to the first stage.
   const previewStage = STAGE_INDEX[template?.type] ?? 0;
 
-  // A template has no document, so the itemised sample is labelled in the
-  // language this person works in — the closest stand-in for the language
+  // A template has no document, so the sample is labelled and formatted in
+  // the language this person works in — the closest stand-in for the language
   // their documents are written in — and priced in the company's currency.
-  // A real send labels it in the document's own language (non-negotiable 6).
+  // A real send uses the document's own language (non-negotiable 6).
   const previewMergeData = useMemo(
     () => ({
-      ...PREVIEW_MERGE_DATA,
+      ...sampleMergeData({ language, currency: company?.currency || null }),
+      ...PREVIEW_COMPANY_FIELDS,
       progressStage: previewStage,
-      lineItems: sampleTemplateLines({ language, currency: company?.currency || null }),
     }),
     [previewStage, language, company?.currency],
   );
@@ -596,7 +570,7 @@ export default function EmailTemplateEditorPage() {
   // from blocks nobody will receive.
   const previewHtml = useMemo(() => {
     if (sentMode === "canvas") {
-      const out = compileCanvasEmail(canvas, previewMergeData, { preview: true, company, theme });
+      const out = compileCanvasEmail(canvas, previewMergeData, { preview: true, company, theme, language });
       // Deferred: setState inside useMemo is a render-phase update.
       queueMicrotask(() => setCanvasWarnings(out.warnings || []));
       return out.html;
@@ -606,8 +580,9 @@ export default function EmailTemplateEditorPage() {
       preview: true,
       company,
       theme,
+      language,
     });
-  }, [sections, previewMergeData, company, theme, sentMode, canvas]);
+  }, [sections, previewMergeData, company, theme, sentMode, canvas, language]);
 
   // Merge one key into the theme override object, creating it on first edit.
   function updateTheme(key, value) {
