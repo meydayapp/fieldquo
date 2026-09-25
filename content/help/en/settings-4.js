@@ -478,7 +478,7 @@ export const ARTICLES = {
     title: "Product Updates",
     summary:
       "The Settings row that lists what changed in FieldQuo — a dated changelog with a summary per entry and, where one exists, a full write-up — with nothing to configure and visible to every member.",
-    updated: "2026-09-12",
+    updated: "2026-09-24",
     intro: [
       "**Settings → Account → Product Updates** — “What's new in FieldQuo.” It is a dated changelog, newest first, written by FieldQuo and identical for every company. Nothing on it is a setting; it is where you see what changed since you last looked.",
     ],
@@ -488,7 +488,7 @@ export const ARTICLES = {
         heading: "Overview",
         blocks: [
           { p: "Each entry is a card with the date, a title and a short summary that stands on its own. Where a longer write-up exists, the card carries **Read the full update**; the full page opens in place with **Back to Product Updates** at the top. An entry without a write-up shows no link rather than one that goes nowhere." },
-          { p: "The entries are written in English whatever language you read the app in. The page's own words — the title, **Read the full update**, **Back to Product Updates** — follow your language; the changelog itself does not, because a half-translated changelog is worse than an honest English one." },
+          { p: "An entry is shown in your language when FieldQuo has written it in your language — the title, the summary and the full write-up together — and in English otherwise; never half of one and half of the other. Entries from 24 September 2026 on are written in every language the app offers; the older ones are in English. The page's own words — the title, **Read the full update**, **Back to Product Updates** — always follow your language." },
         ],
       },
       {
@@ -514,7 +514,7 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "Can I turn the updates off, or subscribe to them?", a: "Neither. There is no notification and no setting — the page simply lists what shipped." },
-      { q: "Why is an entry not in my language?", a: "The changelog is English-only on purpose. The page chrome follows your language; the entries do not." },
+      { q: "Why is an entry not in my language?", a: "Entries before 24 September 2026 were written in English only. Newer entries are written in every language the app offers, and one that is not complete in your language is shown in English whole rather than half-translated." },
     ],
   },
 

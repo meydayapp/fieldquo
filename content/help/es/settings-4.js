@@ -475,7 +475,7 @@ export const ARTICLES = {
     title: "Novedades del producto",
     summary:
       "La fila de Configuración que lista lo que cambió en FieldQuo — un registro de cambios con fecha, un resumen por entrada y, cuando existe, un artículo completo — sin nada que configurar y visible para todos los miembros.",
-    updated: "2026-09-12",
+    updated: "2026-09-24",
     intro: [
       "**Configuración → Cuenta → Novedades del producto** — «Novedades en FieldQuo.» Es un registro de cambios con fecha, de más reciente a más antiguo, escrito por FieldQuo e idéntico para todas las empresas. Nada en él es un ajuste; es donde ve lo que cambió desde la última vez que miró.",
     ],
@@ -485,7 +485,7 @@ export const ARTICLES = {
         heading: "Resumen",
         blocks: [
           { p: "Cada entrada es una tarjeta con la fecha, un título y un resumen corto que se sostiene solo. Cuando existe un artículo más largo, la tarjeta lleva **Leer la novedad completa**; la página completa se abre en su lugar con **Volver a Novedades del producto** arriba. Una entrada sin artículo no muestra ningún enlace, en lugar de uno que no lleva a ninguna parte." },
-          { p: "Las entradas están escritas en inglés sea cual sea el idioma en que lea la aplicación. Las palabras propias de la página — el título, **Leer la novedad completa**, **Volver a Novedades del producto** — siguen su idioma; el registro de cambios en sí no, porque un registro a medio traducir es peor que uno honesto en inglés." },
+          { p: "Una entrada se muestra en su idioma cuando FieldQuo la ha escrito en su idioma — el título, el resumen y el artículo completo juntos — y en inglés en caso contrario; nunca mitad en uno y mitad en otro. Las entradas desde el 24 de septiembre de 2026 están escritas en todos los idiomas de la aplicación; las anteriores están en inglés. Las palabras propias de la página — el título, **Leer la novedad completa**, **Volver a Novedades del producto** — siempre siguen su idioma." },
         ],
       },
       {
@@ -511,7 +511,7 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "¿Puedo desactivar las novedades, o suscribirme a ellas?", a: "Ninguna de las dos. No hay notificación ni ajuste — la página simplemente lista lo que se lanzó." },
-      { q: "¿Por qué una entrada no está en mi idioma?", a: "El registro de cambios es solo en inglés a propósito. La interfaz de la página sigue su idioma; las entradas no." },
+      { q: "¿Por qué una entrada no está en mi idioma?", a: "Las entradas anteriores al 24 de septiembre de 2026 se escribieron solo en inglés. Las nuevas están escritas en todos los idiomas de la aplicación, y una que no está completa en su idioma se muestra entera en inglés en lugar de a medio traducir." },
     ],
   },
 

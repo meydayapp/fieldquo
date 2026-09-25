@@ -12,6 +12,7 @@ import {
   PRODUCT_UPDATES,
   formatUpdateDate,
   hasPost,
+  localizedUpdate,
 } from "@/lib/data/productUpdates";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
@@ -25,9 +26,9 @@ export default function ProductUpdatesPage() {
       </div>
 
       <div className="space-y-4">
-        {PRODUCT_UPDATES.map((update) => (
+        {PRODUCT_UPDATES.map((entry) => localizedUpdate(entry, language)).map((update) => (
           <div
-            key={update.date + update.title}
+            key={update.slug || update.date + update.title}
             className="bg-card border border-border rounded-xl p-5"
           >
             <div className="text-xs text-muted-foreground mb-1">

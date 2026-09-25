@@ -475,7 +475,7 @@ export const ARTICLES = {
     title: "Nouveautés",
     summary:
       "La ligne des Paramètres qui liste ce qui a changé dans FieldQuo — un journal daté avec un résumé par entrée et, quand il existe, un article complet — sans rien à configurer et visible par chaque membre.",
-    updated: "2026-09-12",
+    updated: "2026-09-24",
     intro: [
       "**Paramètres → Compte → Nouveautés** — « Les nouveautés de FieldQuo. » C'est un journal des changements daté, du plus récent au plus ancien, écrit par FieldQuo et identique pour chaque entreprise. Rien n'y est un paramètre; c'est là que vous voyez ce qui a changé depuis votre dernière visite.",
     ],
@@ -485,7 +485,7 @@ export const ARTICLES = {
         heading: "Vue d'ensemble",
         blocks: [
           { p: "Chaque entrée est une carte avec la date, un titre et un court résumé qui se suffit à lui-même. Quand un article plus long existe, la carte porte **Lire la nouveauté complète**; la page complète s'ouvre à la place avec **Retour aux nouveautés** en haut. Une entrée sans article n'affiche aucun lien plutôt qu'un lien qui ne mène nulle part." },
-          { p: "Les entrées sont écrites en anglais quelle que soit la langue dans laquelle vous lisez l'application. Les mots de la page elle-même — le titre, **Lire la nouveauté complète**, **Retour aux nouveautés** — suivent votre langue; le journal lui-même non, parce qu'un journal à moitié traduit vaut moins qu'un journal honnêtement en anglais." },
+          { p: "Une entrée s'affiche dans votre langue quand FieldQuo l'a rédigée dans votre langue — le titre, le résumé et l'article complet ensemble — et en anglais sinon; jamais moitié l'un, moitié l'autre. Les entrées à partir du 24 septembre 2026 sont rédigées dans toutes les langues de l'application; les plus anciennes sont en anglais. Les mots de la page elle-même — le titre, **Lire la nouveauté complète**, **Retour aux nouveautés** — suivent toujours votre langue." },
         ],
       },
       {
@@ -511,7 +511,7 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "Puis-je désactiver les nouveautés, ou m'y abonner?", a: "Ni l'un ni l'autre. Il n'y a ni notification ni paramètre — la page liste simplement ce qui a été livré." },
-      { q: "Pourquoi une entrée n'est-elle pas dans ma langue?", a: "Le journal est volontairement en anglais seulement. L'habillage de la page suit votre langue; les entrées non." },
+      { q: "Pourquoi une entrée n'est-elle pas dans ma langue?", a: "Les entrées d'avant le 24 septembre 2026 ont été rédigées en anglais seulement. Les nouvelles sont rédigées dans toutes les langues de l'application, et une entrée incomplète dans votre langue s'affiche entièrement en anglais plutôt qu'à moitié traduite." },
     ],
   },
 
