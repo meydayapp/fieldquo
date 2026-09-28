@@ -42,6 +42,7 @@ const GBP_OUTCOME_KEYS = {
   bad_state: "app.setReviews.gbpOutcome.badState",
   session: "app.setReviews.gbpOutcome.session",
   not_configured: "app.setReviews.gbpOutcome.notConfigured",
+  not_approved: "app.setReviews.gbpAwaitingApproval",
   exchange_failed: "app.setReviews.gbpOutcome.exchangeFailed",
   no_refresh_token: "app.setReviews.gbpOutcome.noRefreshToken",
   scope_missing: "app.setReviews.gbpOutcome.scopeMissing",

@@ -372,6 +372,22 @@ section("7f. The trial line and the additional set-up steps");
   ok("setupSteps junk → no section, not a crash", junk.more.length === 0);
   const hostile = buildOnboardingNextStepsEmail({ ...base, setupSteps: [{ key: "team", title: "<b>x</b>", titleKey: "nope.missing", href: "javascript:alert(1)" }] });
   ok("a hostile title is escaped and a hostile href becomes the home page", !/<b>x<\/b>/.test(hostile.html) && hostile.moreLinks[0] === `${origin}/app`);
+
+  // 2026-09-28: "Connect Google reviews" is listed only while Google's
+  // Business Profile API approval is in (googleReviewsAvailable — the
+  // snapshot's answer from lib/reviews/googleBusiness/availability.js). The
+  // seven rows before it are hidden so it would be FIRST in the letter.
+  const before = ["team", "confirm_services", "overhead", "payment_schedule", "story", "gallery", "documents"];
+  const letterFor = (available) =>
+    buildOnboardingNextStepsEmail({ ...base, setupSteps: remainingSteps(stepsFor({ dismissed: before, googleReviewsAvailable: available })) });
+  const off = letterFor(false);
+  const on = letterFor(true);
+  const connectTitle = APP_MESSAGES.en["app.setup.step.google_reviews"];
+  ok("google flag off: the letter does not list \"Connect Google reviews\"",
+    !off.more.includes("google_reviews") && !off.text.includes(connectTitle) && !off.html.includes(connectTitle) && !/settings\/reviews/.test(off.text));
+  ok("…and its \"N more\" count leaves it out too", off.more.length + off.moreHidden === on.more.length + on.moreHidden - 1);
+  ok("google flag on: it is back, first, linking to the Google Business card",
+    on.more[0] === "google_reviews" && on.text.includes(connectTitle) && /settings\/reviews\?from=setup#google-business/.test(on.moreLinks[0]));
 }
 
 section("7g. Eight languages, and no English trade sentence in the other five");
