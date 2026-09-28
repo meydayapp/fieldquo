@@ -673,23 +673,32 @@ export const SCREENS = [
   // on the "services-templates-electrical" prefix): name, one line of the
   // service's wording, its price, and "Add with its template lines (n)".
   { slug: "services-templates-electrical-quote-cards", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", height: 1400, out: "docs/screens/quote-cards", chapter: "quote-cards" },
-  // ── Add service (2026-09-25) — docs/screens/service-picker/ ─────────────
+  // ── Add service (2026-09-25; the tiles 2026-09-28) — docs/screens/service-picker/
   // The foot of the quote as ONE control (fixtures/routes-picker.js): three
   // quote types stay inline buttons; fifteen (the owner's handyman
-  // screenshot) are one "Add service" button and a dialog — opened, a
-  // service's template lines unfolded, searched, and a service added with
-  // its lines; the same at 375 as the phone's bottom sheet; and the invoice.
+  // screenshot) are one solid "Add service" button and a dialog of tiles —
+  // opened, searched, and a service added with its lines; the same at 375
+  // as the phone's bottom sheet; the invoice; and a one-trade plumber, whose
+  // tiles sit under the seed's own categories with no trade heading.
   { slug: "picker-3types-inline", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", height: 1100, out: "docs/screens/service-picker", chapter: "service-picker" },
   { slug: "picker-3types-inline-phone", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", width: 375, height: 1500, out: "docs/screens/service-picker", chapter: "service-picker" },
   { slug: "picker-15types-button", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "picker-scroll-foot", height: 900, out: "docs/screens/service-picker", chapter: "service-picker" },
   { slug: "picker-15types-dialog", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "picker-open", height: 900, out: "docs/screens/service-picker", chapter: "service-picker" },
-  { slug: "picker-15types-dialog-lines", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "picker-open-lines", height: 900, out: "docs/screens/service-picker", chapter: "service-picker" },
   { slug: "picker-15types-dialog-search", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "picker-search", height: 900, out: "docs/screens/service-picker", chapter: "service-picker" },
   { slug: "picker-15types-added", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "picker-add-first-template", height: 1100, out: "docs/screens/service-picker", chapter: "service-picker" },
   { slug: "picker-15types-button-phone", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "picker-scroll-foot", width: 375, height: 812, out: "docs/screens/service-picker", chapter: "service-picker" },
   { slug: "picker-15types-dialog-phone", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "picker-open", width: 375, height: 812, out: "docs/screens/service-picker", chapter: "service-picker" },
-  { slug: "picker-15types-dialog-lines-phone", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "picker-open-lines", width: 375, height: 812, out: "docs/screens/service-picker", chapter: "service-picker" },
+  // The keyboard on the real dialog (scene picker-keys): Escape closes it,
+  // the arrows walk the grid — the focus path is the row's result in the
+  // shoot report; the frames are not kept (a scripted key press does not
+  // light :focus-visible), as with the md5 rows below.
+  { slug: "picker-15types-keys", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "picker-keys", height: 900, out: "docs/screens/service-picker/keys", chapter: "service-picker-keys" },
+  { slug: "picker-15types-keys-phone", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "picker-keys", width: 375, height: 812, out: "docs/screens/service-picker/keys", chapter: "service-picker-keys" },
+  { slug: "picker-15types-dialog-search-phone", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "picker-search", width: 375, height: 812, out: "docs/screens/service-picker", chapter: "service-picker" },
   { slug: "picker-invoice-dialog", href: "/app/invoices/new", page: "app/app/invoices/new/page.js", scene: "picker-open", height: 900, out: "docs/screens/service-picker", chapter: "service-picker" },
+  { slug: "picker-invoice-dialog-phone", href: "/app/invoices/new", page: "app/app/invoices/new/page.js", scene: "picker-open", width: 375, height: 812, out: "docs/screens/service-picker", chapter: "service-picker" },
+  { slug: "picker-plumber-dialog", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "picker-open", height: 900, out: "docs/screens/service-picker", chapter: "service-picker" },
+  { slug: "picker-plumber-dialog-phone", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "picker-open", width: 375, height: 812, out: "docs/screens/service-picker", chapter: "service-picker" },
   // The md5 frames: one quote type (or one templated service) added through
   // the foot and saved, in both layouts, on every fixture quote type. Run on
   // this tree and on origin/main; the recorded PATCH bodies must be equal.

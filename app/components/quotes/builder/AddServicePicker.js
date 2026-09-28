@@ -21,45 +21,114 @@
 //     shared BottomSheet on a phone, where a sheet rising from the thumb is
 //     the app's own idiom (app/components/mobile/BottomSheet.js).
 //
+// ── The dialog is a grid of names (2026-09-28) ─────────────────────────────
+//
+// The first dialog was a list with collapsible trades, tick boxes, an "Add"
+// and an "Add as one line" per row, a price, a description and a "Template
+// lines (3)" preview under each service. The owner showed another field-
+// service app's "Create Line Item" window — a search box, then a two-column
+// grid of plain tiles, each only the service's name, and a Cancel — and
+// said: "this is how a company should be able to select from a list of
+// services". So the dialog is that now:
+//
+//   - a search box (the same accent-folded search on name, description and
+//     trade, lib/quotes/servicePicker.js filterPicker);
+//   - small uppercase labels, not accordions — every tile is visible
+//     without a tap first. Inside a trade the services sit under the
+//     headings their seed was written under ("Drain cleaning", "Faucets and
+//     fixtures", "Water heaters" — the Housecall Pro grouping the owner
+//     asked for, lib/quotes/servicePicker.js pickerSections), a row the
+//     company wrote itself under "Other". A company with more than one
+//     trade gets each trade's name above its block, its own trades first;
+//     with one, the headings are the whole structure. The seed data those
+//     headings come from is ~6 MB (1.3 MB gzipped), so it is its own chunk,
+//     never in the builder's bundle: fetched once the browser is idle after
+//     the button appears, or at the first hover, focus or press; if it
+//     cannot load, the tiles are drawn under their trades alone;
+//   - tiles: the NAME, one line, a thin border and the app's primary colour
+//     as a bar down the left edge. The whole tile is the button and one tap
+//     adds it — a quote type with its calculator, a service with its
+//     template lines (the old row's default "Add"), then the dialog closes.
+//     A quote type carries a small "Quote type" tag; nothing else does;
+//   - Cancel.
+//
+// What went, deliberately, because the reference has none of it: the tick
+// boxes and "Add n selected" (one tap adds one thing), "Add as one line"
+// (a service's lines can be removed inside it afterwards; the builder's own
+// addLine is still what a service WITHOUT a template adds), and the template
+// preview, prices and descriptions (the lines still come in — the preview
+// was a promise about them, not the mechanism). No price is drawn at all
+// now, so a member without showPricing sees exactly what anyone else does.
+//
+// A quote type with section presets (plumbing: Groundworks, Drainage,
+// Waterlines…) still asks which section, under its trade's tiles — the one press that is
+// not immediate, kept because it is the tile's own load-bearing behaviour
+// (ServiceTiles.js explains why); the press adds exactly what it did.
+//
+// "Create custom item" from the reference is NOT here: a quote's section
+// must belong to a quote type (QuoteScopeGroup.categoryId is required) and
+// the builder has no quote-level custom item to hand this control — the
+// custom item lives in each service's "Add line item" library. Drawing the
+// button without a real add behind it is the dead control AGENTS.md forbids.
+//
 // ── Nothing it adds is decided here ────────────────────────────────────────
 //
 // Every press calls a function the builder handed over (`picker`): a quote
 // type is QuoteBuilder's addScopeGroup(category, label) — the call the old
 // tile made, same arguments, so the scope group, its calculator and its save
-// are the ones the owner "finessed and perfected"; a templated service is
-// addScopeGroupWithTemplate; "Add as one line" is the plain product line. The
-// invoice hands its own addProductTemplate / addProductLine. The template
-// preview under a row is `picker.preview(category, product)` — the lines
-// THAT press would add, measured, held back and priced by the same call — so
-// the dialog can never promise three lines and add one.
-//
-// ── What the list is ───────────────────────────────────────────────────────
-//
-// lib/quotes/servicePicker.js: the company's enabled quote types, each with
-// its own active services under it, the quote's own trades first and open;
-// searchable by name, description and trade, accents folded.
+// are the ones the owner "finessed and perfected"; a service whose template
+// `picker.preview(category, product)` says is offered here is
+// addScopeGroupWithTemplate, any other service the plain product line
+// (addLine). The invoice hands its own addProductTemplate / addProductLine.
+// The choice is made at the press, from the document as it stands then —
+// the same state the old row's "Add" read.
 "use client";
 
-import { useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronRight, Plus, Search, Check, Settings2 } from "lucide-react";
+import { Plus, Search, Settings2 } from "lucide-react";
 import StepDialog from "@/app/components/dashboard/StepDialog";
 import BottomSheet from "@/app/components/mobile/BottomSheet";
-import ServiceTiles, { iconFor } from "./ServiceTiles";
-import { measureLabel, calcLabel } from "./templateLineNotes";
+import ServiceTiles from "./ServiceTiles";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { getSectionPresets } from "@/app/data/sectionPresets";
-import { resolveServiceContent } from "@/lib/documents/serviceContent";
-import { formatAppMoney } from "@/lib/format/money";
-import { serviceTextIn, calculatorFor } from "@/lib/quotes/serviceTemplateLines";
+import { serviceTextIn } from "@/lib/quotes/serviceTemplateLines";
 import {
   pickerGroups,
   pickerCount,
   uniqueServiceCount,
   pickerShape,
   filterPicker,
-  initiallyOpen,
+  pickerSections,
+  seedCategoryOf,
 } from "@/lib/quotes/servicePicker";
+
+// The seed files' category headings, loaded once per page: a separate chunk
+// (import()), so the seeds are never part of the builder's own bundle and a
+// quote with no Add service dialog (four offerings or fewer) never fetches
+// them. Resolves to the three things seedCategoryOf reads, or null when the
+// chunk cannot load (offline) — the dialog then draws the trades without
+// headings rather than waiting.
+let seedDeps = null;
+function loadSeedDeps() {
+  if (!seedDeps) {
+    seedDeps = Promise.all([
+      import("@/lib/services/seeds"),
+      import("@/lib/services/confirmServices"),
+      import("@/app/data/serviceSeeds"),
+    ])
+      .then(([seeds, confirm, data]) => ({
+        seedServiceByKey: seeds.seedServiceByKey,
+        seedCategoryName: confirm.seedCategoryName,
+        SERVICE_SEEDS: data.SERVICE_SEEDS,
+      }))
+      .catch(() => {
+        seedDeps = null; // a later open may try again
+        return null;
+      });
+  }
+  return seedDeps;
+}
 
 const SERVICES_HREF = "/app/settings/services";
 const CONFIRM_HREF = "/app/settings/services/confirm";
@@ -93,7 +162,7 @@ function textsOf(p, language, companyLanguage) {
 /**
  * @param picker  { kind: "quote"|"invoice", categories, products,
  *                  onQuoteCategoryIds, language, companyLanguage, currency,
- *                  showPricing?, typeInfo?(cat), preview(cat|null, product),
+ *                  showPricing?, preview(cat|null, product),
  *                  addType?(cat, label), addTemplate(cat|null, product),
  *                  addLine(cat|null, product) }
  * @param documentLanguage the quote's language — a section preset becomes a
@@ -115,7 +184,18 @@ export default function AddServicePicker({ picker, documentLanguage }) {
   );
   const count = pickerCount(groups, { invoice });
   const shape = pickerShape(count);
-  const emptyQuote = !invoice && !(picker?.onQuoteCategoryIds || []).length;
+
+  // The dialog's headings, fetched while the browser is idle once the button
+  // is on the page — by the time anyone presses it they are usually here.
+  useEffect(() => {
+    if (shape !== "dialog" || typeof window === "undefined") return undefined;
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(() => loadSeedDeps(), { timeout: 4000 });
+      return () => window.cancelIdleCallback?.(id);
+    }
+    const id = setTimeout(() => loadSeedDeps(), 2000);
+    return () => clearTimeout(id);
+  }, [shape]);
 
   if (shape === "empty") {
     // An invoice with no services has nothing to offer here and draws
@@ -142,16 +222,26 @@ export default function AddServicePicker({ picker, documentLanguage }) {
 
   return (
     <div data-tour="service-picker" data-service-picker="dialog">
+      {/* One solid button, on every quote — "Add service button nice and
+          visible" (owner, 2026-09-28). It was a dashed outline once a
+          service was on the quote, which read as a placeholder.
+
+          Ink, not the brand: in the document layout this sits inside the
+          company's data-brand region, where bg-primary IS the brand — and
+          measured, a mid-grey brand (#808080) puts its label at 4.43:1 and
+          a white, yellow or cyan one makes the button's edge vanish into
+          the card (1.0–1.4:1). The foreground/background pair of the same
+          tokens stays above 14:1 for label and edge on every brand we tried,
+          light and dark (scripts/check-service-picker.mjs H). */}
       <button
         type="button"
         onClick={() => setOpen(true)}
+        onPointerEnter={loadSeedDeps}
+        onPointerDown={loadSeedDeps}
+        onFocus={loadSeedDeps}
         aria-haspopup="dialog"
         data-add-service-open
-        className={
-          emptyQuote
-            ? "flex w-full min-h-12 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:opacity-90"
-            : "flex w-full min-h-12 items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border px-4 py-3 text-sm font-semibold text-foreground hover:border-foreground/40 hover:bg-muted/40"
-        }
+        className="flex w-full min-h-12 items-center justify-center gap-2 rounded-xl bg-foreground px-4 py-3 text-sm font-semibold text-background shadow-sm hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         <Plus size={16} aria-hidden="true" />
         {t("app.servicePicker.button", "Add service")}
@@ -231,48 +321,62 @@ function InlinePicker({ picker, groups, invoice, documentLanguage }) {
 
 // ── The dialog ──────────────────────────────────────────────────────────────
 
+/**
+ * What one press adds, decided at the press. A service's template is used
+ * when the builder's own preview says it is offered for a NEW group of that
+ * quote type — the rule the old row's default "Add" followed — and
+ * otherwise the service goes on as the one line addLine writes.
+ */
+export function runPickerEntry(picker, entry) {
+  if (entry.kind === "type") return picker.addType(entry.category, entry.label);
+  const pv = picker.preview ? picker.preview(entry.category, entry.product) : null;
+  if (pv?.offered) return picker.addTemplate(entry.category, entry.product);
+  return picker.addLine(entry.category, entry.product);
+}
+
 function ServicePickerDialog({ picker, groups, invoice, documentLanguage, onClose }) {
   const { t } = useTranslation();
   const wide = useWide();
   const searchRef = useRef(null);
-  const [selected, setSelected] = useState([]);
-  const entries = useRef(new Map());
+  // undefined while the seed headings load; null when they could not, or
+  // are slow — after a moment the tiles are drawn under their trades alone
+  // and the headings join them if they arrive, so a bad connection never
+  // holds up the list itself.
+  const [deps, setDeps] = useState(undefined);
+  useEffect(() => {
+    let live = true;
+    const slow = setTimeout(() => {
+      if (live) setDeps((d) => (d === undefined ? null : d));
+    }, 1500);
+    loadSeedDeps().then((d) => {
+      if (live) setDeps((prev) => d || prev || null);
+    });
+    return () => {
+      live = false;
+      clearTimeout(slow);
+    };
+  }, []);
+  const lang = picker.language;
+  const categoryOf = useMemo(() => (deps ? (p) => seedCategoryOf(p, lang, deps) : deps), [deps, lang]);
 
-  // Adds in the order the list shows them, then closes: the document scrolls
-  // to the last one added (DocumentBuilder's addAndOpen).
-  const run = (entry) => {
-    if (entry.kind === "type") picker.addType(entry.category, entry.label);
-    else if (entry.withTemplate) picker.addTemplate(entry.category, entry.product);
-    else picker.addLine(entry.category, entry.product);
-  };
+  // Adds, then closes: the document scrolls to what was added
+  // (DocumentBuilder's addAndOpen).
   const addNow = (entry) => {
-    run(entry);
+    runPickerEntry(picker, entry);
     onClose();
   };
-  const addSelected = () => {
-    for (const key of selected) {
-      const e = entries.current.get(key);
-      if (e) run(e);
-    }
-    onClose();
-  };
-  const toggle = (key) => setSelected((s) => (s.includes(key) ? s.filter((k) => k !== key) : [...s, key]));
 
   const title = t("app.servicePicker.title", "Add a service");
-  const intro = invoice
-    ? t("app.servicePicker.introInvoice", "Adds the service to this invoice — with its template lines when it has them.")
-    : t("app.servicePicker.intro", "Each one becomes its own section of this quote. A service with template lines brings them along — change anything after.");
-  const footerButton = selected.length ? (
+  const cancel = (
     <button
       type="button"
-      onClick={addSelected}
-      className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90 w-full sm:w-auto"
-      data-add-service-selected
+      onClick={onClose}
+      className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-border px-4 text-sm font-semibold uppercase tracking-wide text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-auto sm:border-transparent"
+      data-service-picker-cancel
     >
-      <Plus size={15} aria-hidden="true" />
-      {t("app.servicePicker.addSelected", "Add {count} selected", { count: selected.length })}
+      {t("app.action.cancel", "Cancel")}
     </button>
-  ) : null;
+  );
 
   const list = (
     <ServicePickerList
@@ -282,11 +386,10 @@ function ServicePickerDialog({ picker, groups, invoice, documentLanguage, onClos
       documentLanguage={documentLanguage}
       searchRef={searchRef}
       stickyClass={wide ? "-top-4 pt-4 -mt-4" : "-top-3 pt-3 -mt-3"}
-      selected={selected}
-      onToggle={toggle}
       onAdd={addNow}
-      register={(key, entry) => entries.current.set(key, entry)}
       showManage={!wide}
+      categoryOf={categoryOf || null}
+      loading={deps === undefined}
     />
   );
 
@@ -296,10 +399,9 @@ function ServicePickerDialog({ picker, groups, invoice, documentLanguage, onClos
         open
         id="add-service"
         title={title}
-        intro={intro}
         href={SERVICES_HREF}
         onClose={onClose}
-        footer={footerButton}
+        footer={cancel}
         initialFocusRef={searchRef}
       >
         {list}
@@ -313,8 +415,7 @@ function ServicePickerDialog({ picker, groups, invoice, documentLanguage, onClos
         if (!next) onClose();
       }}
       title={title}
-      description={intro}
-      footer={footerButton}
+      footer={cancel}
     >
       {list}
     </BottomSheet>
@@ -322,8 +423,53 @@ function ServicePickerDialog({ picker, groups, invoice, documentLanguage, onClos
 }
 
 /**
- * The list inside the dialog — search, groups, rows. Exported so
- * scripts/check-service-picker-ui.mjs can render it without a portal.
+ * Where an arrow key goes from `from` among the dialog's controls: Left and
+ * Right step through them in reading order; Up and Down go to the nearest
+ * control in the row above or below, by position on screen — so the keys
+ * follow the grid whether it is drawn in two columns or, on a phone, one.
+ * Up from the first row reaches the search box.
+ */
+function arrowTarget(nav, from, key) {
+  const i = nav.indexOf(from);
+  if (i < 0) return key === "ArrowDown" ? nav[0] || null : null;
+  if (key === "ArrowRight") return nav[i + 1] || null;
+  if (key === "ArrowLeft") return i > 0 && nav[i - 1]?.tagName !== "INPUT" ? nav[i - 1] : null;
+  const r = from.getBoundingClientRect();
+  const cx = r.left + r.width / 2;
+  const down = key === "ArrowDown";
+  const rows = nav
+    .filter((el) => el !== from)
+    .map((el) => ({ el, q: el.getBoundingClientRect() }))
+    .filter(({ q }) => (down ? q.top >= r.bottom - 1 : q.bottom <= r.top + 1));
+  if (!rows.length) return null;
+  const edge = down ? Math.min(...rows.map(({ q }) => q.top)) : Math.max(...rows.map(({ q }) => q.bottom));
+  const row = rows.filter(({ q }) => Math.abs((down ? q.top : q.bottom) - edge) < 4);
+  row.sort((a, b) => Math.abs(a.q.left + a.q.width / 2 - cx) - Math.abs(b.q.left + b.q.width / 2 - cx));
+  return row[0].el;
+}
+
+const TILE_CLASS =
+  "relative flex w-full min-h-12 items-center gap-2 overflow-hidden rounded-lg border border-border bg-card py-2.5 pl-4 pr-3 text-left text-sm font-medium text-foreground shadow-sm transition-shadow hover:border-foreground/30 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
+/** One tile: the name, the bar down its left edge, the whole of it the button. */
+function Tile({ name, tag = null, onClick, ...rest }) {
+  return (
+    <button type="button" onClick={onClick} className={TILE_CLASS} title={name} data-picker-nav data-service-picker-tile {...rest}>
+      <span className="absolute inset-y-0 left-0 w-1 bg-primary" aria-hidden="true" />
+      <span className="min-w-0 flex-1 truncate">{name}</span>
+      {tag}
+    </button>
+  );
+}
+
+
+/**
+ * The list inside the dialog — search, headings, tiles. Exported so
+ * scripts/check-service-picker.mjs can render it without a portal.
+ *
+ * @param categoryOf(product) → the seed heading (seedCategoryOf), or null to
+ *        draw each trade's services without headings
+ * @param loading the headings are still on their way
  */
 export function ServicePickerList({
   picker,
@@ -332,53 +478,70 @@ export function ServicePickerList({
   documentLanguage,
   searchRef = null,
   stickyClass = "top-0",
-  selected = [],
-  onToggle = () => {},
   onAdd = () => {},
-  register = () => {},
   showManage = false,
   initialQuery = "",
-  initialLinesOpen = null,
+  initialPresetsFor = null,
+  categoryOf = null,
+  loading = false,
 }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState(initialQuery);
-  const [openGroups, setOpenGroups] = useState(() => initiallyOpen(groups));
-  const [presetsFor, setPresetsFor] = useState(null);
-  const [linesFor, setLinesFor] = useState(initialLinesOpen);
+  const [presetsFor, setPresetsFor] = useState(initialPresetsFor);
   const lang = picker.language;
-  const money = (n) => formatAppMoney(n, picker.currency, "en");
-  const showPricing = picker.showPricing !== false;
+  // "grouped under each trade only when the company has more than one trade"
+  // (owner) — counted on the whole list, so a search that narrows to one
+  // trade does not change the page's structure under the reader.
+  const multiTrade = groups.length > 1;
 
-  // Alphabetical by the name the row PRINTS — the document's language — so a
-  // French quote's list reads in French order, not in the catalogue's.
+  // Alphabetical by the name the tile PRINTS — the document's language — so
+  // a French quote's list reads in French order, not in the catalogue's.
   const shown = useMemo(() => {
     const nameOf = (p) => serviceTextIn(p, lang, picker.companyLanguage).name;
-    return filterPicker(groups, query, (p) => textsOf(p, lang, picker.companyLanguage)).map((g) => ({
-      ...g,
-      services: [...g.services].sort((a, b) => nameOf(a).localeCompare(nameOf(b), lang || undefined)),
-    }));
-  }, [groups, query, lang, picker.companyLanguage]);
+    return filterPicker(groups, query, (p) => textsOf(p, lang, picker.companyLanguage)).map((g) => {
+      const sorted = { ...g, services: [...g.services].sort((a, b) => nameOf(a).localeCompare(nameOf(b), lang || undefined)) };
+      return { ...sorted, sections: pickerSections(sorted, categoryOf) };
+    });
+  }, [groups, query, lang, picker.companyLanguage, categoryOf]);
   const searching = query.trim().length > 0;
-  const isOpen = (id) => searching || openGroups.includes(id);
 
-  // Arrow keys walk the controls a row offers, top to bottom, from the
-  // search box through every group header and every Add — Tab still visits
-  // everything, this is the quick way down a long list.
   const rootRef = useRef(null);
   const onKeyDown = (e) => {
-    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    if (!["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight"].includes(e.key)) return;
+    // In the search box the side arrows move the caret, as in any text box.
+    if (e.target?.tagName === "INPUT" && e.key !== "ArrowDown") return;
     const nav = [...(rootRef.current?.querySelectorAll("[data-picker-nav]") || [])];
-    const i = nav.indexOf(document.activeElement);
-    if (i < 0 && e.key === "ArrowUp") return;
-    const next = e.key === "ArrowDown" ? nav[Math.min(nav.length - 1, i + 1)] : nav[Math.max(0, i - 1)];
+    const next = arrowTarget(nav, document.activeElement, e.key);
     if (next) {
       e.preventDefault();
       next.focus();
     }
   };
 
+  // A trade's sections open under its tile; the first one takes the focus,
+  // so the keyboard lands where the next choice is.
+  useEffect(() => {
+    if (!presetsFor) return;
+    rootRef.current?.querySelector(`[data-service-presets="${presetsFor}"] button`)?.focus();
+  }, [presetsFor]);
+
+  const Heading = multiTrade ? "h4" : "h3";
+  const tiles = (g, services) =>
+    services.map((p) => (
+      <li key={p.id} data-service-picker-service={String(p.id)}>
+        <Tile
+          name={serviceTextIn(p, lang, picker.companyLanguage).name}
+          onClick={() => onAdd({ kind: "service", category: g.category, product: p })}
+          data-service-picker-add={String(p.id)}
+        />
+      </li>
+    ));
+
   return (
     <div ref={rootRef} onKeyDown={onKeyDown} className="sm:min-h-[65vh]" data-service-picker-list>
+      {/* The search, and — a follow-up — a row of kind chips (Installation,
+          Repair, Removal, Maintenance, Inspection) under it, inside this
+          sticky block so both stay put while the grid scrolls. */}
       <div className={`sticky ${stickyClass} z-10 bg-card pb-3`}>
         <label className="relative block">
           <span className="sr-only">{t("app.servicePicker.search", "Search services")}</span>
@@ -396,317 +559,114 @@ export function ServicePickerList({
         </label>
       </div>
 
-      {shown.length === 0 ? (
+      {loading ? (
+        <p className="py-8 text-center text-sm text-muted-foreground" role="status" data-service-picker-loading>
+          {t("app.action.loading", "Loading…")}
+        </p>
+      ) : shown.length === 0 ? (
         <p className="py-8 text-center text-sm text-muted-foreground" data-service-picker-nomatch>
           {t("app.servicePicker.noMatch", "Nothing matches “{query}”.", { query: query.trim() })}
         </p>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-6">
           {shown.map((g) => {
             const cat = g.category;
-            const accent = cat ? resolveServiceContent(cat.key).accent : "var(--muted-foreground)";
-            const Icon = cat ? iconFor(cat) : null;
-            const expanded = isOpen(g.id);
-            const typeRow = !invoice && cat && (g.typeMatch || !searching);
-            const n = g.services.length + (typeRow ? 1 : 0);
+            const typeTile = !invoice && cat && (g.typeMatch || !searching);
+            const presets = typeTile ? getSectionPresets(cat.key, documentLanguage) : null;
+            const presetsOpen = Boolean(presets) && presetsFor === g.id;
             const label = g.label || t("app.servicePicker.otherGroup", "Other services");
+            const headingId = `service-picker-group-${g.id}`;
             return (
-              <section key={g.id} className="rounded-xl border border-border" data-service-picker-group={cat?.key || g.id}>
-                <h3>
-                  <button
-                    type="button"
-                    onClick={() => setOpenGroups((o) => (o.includes(g.id) ? o.filter((x) => x !== g.id) : [...o, g.id]))}
-                    aria-expanded={expanded}
-                    className="flex w-full min-h-12 items-center gap-2.5 px-3 py-2 text-left"
-                    data-picker-nav
-                  >
-                    {Icon ? (
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md" style={{ backgroundColor: `${accent}1f`, color: accent }}>
-                        <Icon size={15} aria-hidden="true" />
+              <section
+                key={g.id}
+                aria-labelledby={multiTrade ? headingId : undefined}
+                className="space-y-3"
+                data-service-picker-group={cat?.key || g.id}
+              >
+                {multiTrade && (
+                  <h3 id={headingId} className="border-b border-border pb-1.5 text-xs font-bold uppercase tracking-wider text-foreground" data-service-picker-trade>
+                    {label}
+                    {g.onQuote ? (
+                      <span className="font-semibold text-muted-foreground" data-service-picker-onquote>
+                        {" · "}
+                        {t("app.servicePicker.onQuote", "On this quote")}
                       </span>
                     ) : null}
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold text-foreground">{label}</span>
-                      {g.onQuote && <span className="block text-[11px] text-muted-foreground">{t("app.servicePicker.onQuote", "On this quote")}</span>}
-                    </span>
-                    <span className="text-xs tabular-nums text-muted-foreground">{n}</span>
-                    {expanded ? <ChevronDown size={16} className="text-muted-foreground" aria-hidden="true" /> : <ChevronRight size={16} className="text-muted-foreground" aria-hidden="true" />}
-                  </button>
-                </h3>
-                {expanded && (
-                  <ul className="divide-y divide-border border-t border-border">
-                    {typeRow && (
-                      <TypeRow
-                        cat={cat}
-                        accent={accent}
-                        picker={picker}
-                        documentLanguage={documentLanguage}
-                        showPricing={showPricing}
-                        presetsOpen={presetsFor === g.id}
-                        onPresets={() => setPresetsFor((v) => (v === g.id ? null : g.id))}
-                        selected={selected}
-                        onToggle={onToggle}
-                        onAdd={onAdd}
-                        register={register}
+                  </h3>
+                )}
+                {typeTile && (
+                  <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <li data-service-picker-type={cat.key || cat.id}>
+                      <Tile
+                        name={cat.label}
+                        onClick={() =>
+                          presets
+                            ? setPresetsFor((v) => (v === g.id ? null : g.id))
+                            : onAdd({ kind: "type", category: cat, label: cat.label })
+                        }
+                        aria-expanded={presets ? presetsOpen : undefined}
+                        data-service-picker-type-add={cat.key || cat.id}
+                        tag={
+                          <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground" data-service-picker-type-tag>
+                            {t("app.servicePicker.quoteType", "Quote type")}
+                          </span>
+                        }
                       />
-                    )}
-                    {g.services.map((p) => (
-                      <ServiceRow
-                        key={p.id}
-                        g={g}
-                        p={p}
-                        accent={accent}
-                        picker={picker}
-                        money={money}
-                        showPricing={showPricing}
-                        linesOpen={linesFor === `${g.id}:${p.id}`}
-                        onLines={() => setLinesFor((v) => (v === `${g.id}:${p.id}` ? null : `${g.id}:${p.id}`))}
-                        selected={selected}
-                        onToggle={onToggle}
-                        onAdd={onAdd}
-                        register={register}
-                      />
-                    ))}
+                    </li>
                   </ul>
                 )}
+                {presetsOpen && (
+                  // A trade with section presets (Main staircase, Upper…) is
+                  // added through them, one at a time, as the tile always did.
+                  <div className="flex flex-wrap gap-2 rounded-lg border border-border p-3" data-service-presets={g.id}>
+                    <p className="w-full text-xs font-medium text-muted-foreground">{t("app.serviceTiles.pickSection", { label: cat.label })}</p>
+                    {presets.map((sectionLabel) => (
+                      <button
+                        key={sectionLabel}
+                        type="button"
+                        onClick={() => onAdd({ kind: "type", category: cat, label: sectionLabel })}
+                        className="inline-flex min-h-11 items-center gap-1 rounded-full border border-border bg-card px-3 text-sm text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        data-picker-nav
+                      >
+                        <Plus size={13} aria-hidden="true" />
+                        {sectionLabel}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => onAdd({ kind: "type", category: cat, label: cat.label })}
+                      className="inline-flex min-h-11 items-center gap-1 rounded-full px-3 text-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      data-picker-nav
+                    >
+                      <Plus size={13} aria-hidden="true" />
+                      {t("app.serviceTiles.somethingElse")}
+                    </button>
+                  </div>
+                )}
+                {g.sections.map((s) => {
+                  const heading = s.other ? t("app.servicePicker.otherGroup", "Other services") : s.label;
+                  return (
+                    <div key={s.key} data-service-picker-section={s.key}>
+                      {heading && (
+                        <Heading className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground" data-service-picker-section-label>
+                          {heading}
+                        </Heading>
+                      )}
+                      <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">{tiles(g, s.services)}</ul>
+                    </div>
+                  );
+                })}
               </section>
             );
           })}
         </div>
       )}
       {showManage && (
-        <Link href={SERVICES_HREF} className="mt-3 inline-flex min-h-11 items-center gap-1.5 text-sm text-muted-foreground underline underline-offset-2">
+        <Link href={SERVICES_HREF} className="mt-4 inline-flex min-h-11 items-center gap-1.5 text-sm text-muted-foreground underline underline-offset-2">
           <Settings2 size={14} aria-hidden="true" />
           {t("app.servicePicker.manage", "Manage services")}
         </Link>
       )}
-    </div>
-  );
-}
-
-// A 44px tick box, labelled for a screen reader by the row's name.
-function SelectBox({ checked, onChange, label }) {
-  return (
-    <label className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center -ml-2">
-      <input type="checkbox" className="peer sr-only" checked={checked} onChange={onChange} aria-label={label} />
-      <span className="flex h-5 w-5 items-center justify-center rounded border border-border bg-background peer-checked:border-primary peer-checked:bg-primary peer-focus-visible:ring-2 peer-focus-visible:ring-ring text-primary-foreground">
-        {checked && <Check size={13} aria-hidden="true" />}
-      </span>
-    </label>
-  );
-}
-
-function AddButton({ onClick, children, ...rest }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="inline-flex min-h-11 min-w-16 shrink-0 items-center justify-center gap-1 rounded-lg border border-border bg-card px-3 text-sm font-semibold text-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      data-picker-nav
-      {...rest}
-    >
-      {children}
-    </button>
-  );
-}
-
-/** The quote type itself: its scope group and calculator, as the old tile added it. */
-function TypeRow({ cat, accent, picker, documentLanguage, showPricing, presetsOpen, onPresets, selected, onToggle, onAdd, register }) {
-  const { t } = useTranslation();
-  const info = picker.typeInfo ? picker.typeInfo(cat) || {} : {};
-  const presets = getSectionPresets(cat.key, documentLanguage);
-  const key = `type:${cat.id}`;
-  const entry = { kind: "type", category: cat, label: cat.label };
-  register(key, entry);
-  return (
-    <li className="px-3 py-2.5" data-service-picker-type={cat.key || cat.id}>
-      <div className="flex items-start gap-2">
-        {presets ? (
-          // A trade with section presets (Main staircase, Upper…) is added
-          // through them, one at a time, as the tile always did.
-          <span className="h-11 w-11 shrink-0 -ml-2" aria-hidden="true" />
-        ) : (
-          <SelectBox checked={selected.includes(key)} onChange={() => onToggle(key)} label={t("app.servicePicker.select", "Select {name}", { name: cat.label })} />
-        )}
-        <div className="min-w-0 flex-1 pt-1">
-          <p className="text-sm font-medium text-foreground">
-            {cat.label}{" "}
-            <span className="ml-1 inline-block rounded px-1.5 py-0.5 align-middle text-[10px] font-semibold uppercase tracking-wide" style={{ backgroundColor: `${accent}1a`, color: "var(--foreground)" }}>
-              {t("app.servicePicker.quoteType", "Quote type")}
-            </span>
-          </p>
-          {info.description ? <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">{info.description}</p> : null}
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {showPricing && info.priceHint ? <span className="font-medium tabular-nums text-foreground">{info.priceHint}</span> : null}
-            {showPricing && info.priceHint && info.calc ? " · " : null}
-            {info.calc ? t("app.servicePicker.pricedBy", "Priced by the {calc}", { calc: calcLabel(t, info.calc) }) : null}
-          </p>
-        </div>
-        {presets ? (
-          <button
-            type="button"
-            onClick={onPresets}
-            aria-expanded={presetsOpen}
-            className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-lg border border-border px-3 text-sm font-semibold text-foreground hover:bg-muted"
-            data-picker-nav
-            data-service-picker-type-add={cat.key || cat.id}
-          >
-            {t("app.action.add", "Add")}
-            {presetsOpen ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
-          </button>
-        ) : (
-          <AddButton onClick={() => onAdd(entry)} data-service-picker-type-add={cat.key || cat.id}>
-            {t("app.action.add", "Add")}
-          </AddButton>
-        )}
-      </div>
-      {presets && presetsOpen && (
-        <div className="mt-2 ml-9 flex flex-wrap gap-2" data-service-presets>
-          <p className="w-full text-xs font-medium text-muted-foreground">{t("app.serviceTiles.pickSection", { label: cat.label })}</p>
-          {presets.map((sectionLabel) => (
-            <button
-              key={sectionLabel}
-              type="button"
-              onClick={() => onAdd({ kind: "type", category: cat, label: sectionLabel })}
-              className="inline-flex min-h-11 items-center gap-1 rounded-full border border-border bg-card px-3 text-sm text-foreground hover:bg-muted"
-              data-picker-nav
-            >
-              <Plus size={13} style={{ color: accent }} aria-hidden="true" />
-              {sectionLabel}
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => onAdd({ kind: "type", category: cat, label: cat.label })}
-            className="inline-flex min-h-11 items-center gap-1 rounded-full px-3 text-sm text-muted-foreground hover:text-foreground"
-            data-picker-nav
-          >
-            <Plus size={13} aria-hidden="true" />
-            {t("app.serviceTiles.somethingElse")}
-          </button>
-        </div>
-      )}
-    </li>
-  );
-}
-
-/** One of the company's services — with its template lines by default. */
-function ServiceRow({ g, p, accent, picker, money, showPricing, linesOpen, onLines, selected, onToggle, onAdd, register }) {
-  const { t } = useTranslation();
-  const lang = picker.language;
-  const text = serviceTextIn(p, lang, picker.companyLanguage);
-  const pv = picker.preview(g.category, p);
-  const withTemplate = Boolean(pv?.offered);
-  const key = `svc:${g.id}:${p.id}`;
-  const entry = { kind: "service", category: g.category, product: p, withTemplate };
-  register(key, entry);
-  const price = Number(p.unitPrice);
-  const unit = p.unit && p.unit !== "flat" ? ` / ${p.unit}` : "";
-  const description = String(text.description || "").split(/\n/)[0];
-  return (
-    <li className="px-3 py-2.5" data-service-picker-service={String(p.id)}>
-      <div className="flex items-start gap-2">
-        <SelectBox checked={selected.includes(key)} onChange={() => onToggle(key)} label={t("app.servicePicker.select", "Select {name}", { name: text.name })} />
-        <div className="min-w-0 flex-1 pt-1">
-          <p className="text-sm font-medium text-foreground">{text.name}</p>
-          {description ? <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">{description}</p> : null}
-          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-            {showPricing && price > 0 ? (
-              <span className="font-medium tabular-nums text-foreground" data-service-picker-price>
-                {money(price)}
-                {unit}
-              </span>
-            ) : null}
-            {withTemplate ? (
-              <button
-                type="button"
-                onClick={onLines}
-                aria-expanded={linesOpen}
-                className="inline-flex min-h-9 items-center gap-0.5 underline underline-offset-2 hover:text-foreground"
-                data-service-picker-lines-toggle
-              >
-                {t("app.servicePicker.templateLines", "Template lines ({count})", { count: pv.count })}
-                {linesOpen ? <ChevronDown size={12} aria-hidden="true" /> : <ChevronRight size={12} aria-hidden="true" />}
-              </button>
-            ) : pv && pv.offered === false ? (
-              <span>{t("app.servicePicker.templateInside", "Its template lines come with a painting estimate of its type — here it adds as one line.")}</span>
-            ) : null}
-          </div>
-        </div>
-        <div className="flex shrink-0 flex-col items-end gap-1">
-          <AddButton onClick={() => onAdd(entry)} data-service-picker-add={String(p.id)}>
-            {t("app.action.add", "Add")}
-          </AddButton>
-          {withTemplate && (
-            <button
-              type="button"
-              onClick={() => onAdd({ ...entry, withTemplate: false })}
-              className="min-h-9 px-1 text-right text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
-              data-service-picker-add-line={String(p.id)}
-            >
-              {t("app.servicePicker.addAsLine", "Add as one line")}
-            </button>
-          )}
-        </div>
-      </div>
-      {/* Full width under the row, not in the text column beside Add: at
-          375px that column is two words wide. */}
-      {withTemplate && linesOpen && (
-        <div className="ml-9">
-          <TemplatePreview pv={pv} money={money} showPricing={showPricing} accent={accent} />
-        </div>
-      )}
-    </li>
-  );
-}
-
-const KIND_FALLBACK = { labour: "Labour", material: "Material", other: "Other" };
-
-/** The lines the Add would write, each with how its quantity is found. */
-function TemplatePreview({ pv, money, showPricing, accent }) {
-  const { t } = useTranslation();
-  const fmt = (n) => Number(n).toLocaleString("en", { maximumFractionDigits: 2 });
-  const rateOf = (l) => (l.meta?.template?.unpriced ? t("app.servicePicker.noRate", "no price yet") : showPricing ? money(l.rate) : "—");
-  const ruleOf = (l) => {
-    const m = l.meta?.template || {};
-    const rate = rateOf(l);
-    if (m.measurementKey) {
-      const measure = measureLabel(t, m.measurementKey);
-      if (m.filled) {
-        return t("app.servicePicker.ruleFilled", "{measure}: {value} × {rate} — from the {calc}", { measure, value: fmt(m.filled.value), rate, calc: calcLabel(t, m.filled.calc) });
-      }
-      // `groups` is the quote as it will be after this add (the new group
-      // included), so a calculator found there is one the estimator can
-      // open; an invoice passes none — nothing on it measures.
-      const where = Array.isArray(pv.groups) ? calculatorFor(m.measurementKey, pv.groups) : null;
-      if (where?.groupTempId) {
-        return t("app.servicePicker.ruleMeasured", "{measure} × {rate} — from the {calc}", { measure, rate, calc: calcLabel(t, where.calc) });
-      }
-      if (where) {
-        return t("app.servicePicker.ruleNotOnQuote", "{measure} × {rate} — you type it (the {calc} isn't on this quote)", { measure, rate, calc: calcLabel(t, where.calc) });
-      }
-      return t("app.servicePicker.ruleTyped", "{measure} × {rate} — you type the quantity", { measure, rate });
-    }
-    const unit = l.unit && !["flat", "each"].includes(l.unit) ? ` ${l.unit}` : "";
-    return `${fmt(l.quantity)}${unit} × ${rate}`;
-  };
-  return (
-    <div className="mt-2 rounded-lg border px-3 py-2" style={{ borderColor: `${accent}40` }} data-service-picker-preview>
-      <ul className="space-y-1.5">
-        {(pv.lines || []).map((l, i) => {
-          const kind = l.meta?.template?.lineKind || "other";
-          return (
-            <li key={i} className="text-xs">
-              <span className="mr-1.5 inline-block min-w-14 rounded bg-muted px-1 py-0.5 text-center text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                {t(`app.serviceTemplates.kind_${kind}`, KIND_FALLBACK[kind] || kind)}
-              </span>
-              <span className="font-medium text-foreground">{l.description}</span>
-              <span className="block pl-0.5 text-muted-foreground sm:inline sm:pl-0"> — {ruleOf(l)}</span>
-            </li>
-          );
-        })}
-      </ul>
-      {pv.note ? <p className="mt-2 text-xs text-muted-foreground" data-service-picker-held>{pv.note}</p> : null}
     </div>
   );
 }
