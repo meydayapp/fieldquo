@@ -64,7 +64,6 @@ import { SOCIAL_SETTINGS_PATH } from "@/lib/social/settingsPath";
 // for a lookalike icon that isn't actually either brand's mark.
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError } from "@/lib/clientErrors";
-import { SOCIAL_SETTINGS_PATH } from "@/lib/social/settingsPath";
 import {
   validateCaption,
   validateImageForInstagram,
@@ -678,6 +677,7 @@ export default function PublishModal({ isOpen, onClose, design, preparePublishAs
                 t={t}
                 submitting={submitting}
                 onRetry={() => handlePublish(platform)}
+                canConnect={canConnect}
               />
             ))}
             {submitError && (
@@ -729,7 +729,11 @@ function metaReplyLine(meta) {
   return [text, numbers ? `(${numbers})` : ""].filter(Boolean).join(" ");
 }
 
-function ResultRow({ platform, result, t, submitting, onRetry }) {
+function ResultRow({ platform, result, t, submitting, onRetry, canConnect }) {
+  // The settings link follows the not-connected panel's rule: only for someone
+  // that screen would let in (canConnect, above). Everyone else still reads the
+  // sentence, which says what has to be fixed.
+  const settingsLink = canConnect && SETTINGS_FIX_CODES.has(result.code);
   const platformLabel = platform === "instagram" ? "Instagram" : "Facebook";
 
   if (result.status === "published") {
@@ -797,7 +801,7 @@ function ResultRow({ platform, result, t, submitting, onRetry }) {
           )}
         </div>
       </div>
-      {(result.retryable || SETTINGS_FIX_CODES.has(result.code)) && (
+      {(result.retryable || settingsLink) && (
         <div className="flex flex-wrap gap-2 pl-6">
           {result.retryable && (
             <button
@@ -810,13 +814,13 @@ function ResultRow({ platform, result, t, submitting, onRetry }) {
               {t("app.marketingDesigner.publishModal.retryPlatform", "Try {platform} again", { platform: platformLabel })}
             </button>
           )}
-          {SETTINGS_FIX_CODES.has(result.code) && (
-            <a
+          {settingsLink && (
+            <Link
               href={SOCIAL_SETTINGS_PATH}
               className="inline-flex items-center rounded-full border border-current px-3 py-1.5 text-xs font-semibold"
             >
               {t("app.marketingDesigner.publishModal.openConnectionSettings", "Open connection settings")}
-            </a>
+            </Link>
           )}
         </div>
       )}

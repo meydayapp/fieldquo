@@ -47,8 +47,13 @@ const ok = (cond, msg, detail) => {
 };
 const section = (t) => console.log(`\n${t}\n`);
 
+// Whole-line `//` comments go FIRST. The other order let a line comment that
+// merely mentions a glob — PublishModal.js's "app/api/settings/social/*" —
+// open a phantom block comment that ran to the next real `*/` two hundred
+// lines down and silently deleted handlePublish() from what every assertion
+// below reads (positive ones failed; negative ones would have passed blind).
 function stripComments(src) {
-  return src.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/^\s*\/\/.*$/gm, "");
+  return src.replace(/^\s*\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, " ");
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
