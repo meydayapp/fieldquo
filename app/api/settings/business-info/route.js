@@ -145,7 +145,8 @@ export async function GET(request) {
   });
 
   // One-time geocode so the map works for an address that came from signup.
-  const withCoords = await ensureCompanyCoordinates(db, member.companyId, company);
+  // Not for a read-only support session: the geocode writes the company row.
+  const withCoords = member.impersonationMode === "read_only" ? company : await ensureCompanyCoordinates(db, member.companyId, company);
 
   // Whether Settings → Tax shows the US card at all: a company in the US, or
   // with a US client on file, or that has already said something per state.

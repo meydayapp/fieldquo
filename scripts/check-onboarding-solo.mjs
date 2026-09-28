@@ -328,7 +328,7 @@ section("The control is in Settings, and it is wired to something — on the set
     /s\.storySet === true/.test(SETUP) && /count\(s\.galleryPairs\) > 0/.test(SETUP) &&
       /count\(s\.clientDocuments\) > 0/.test(SETUP) && /s\.googleReviewsConnected === true/.test(SETUP));
   ok("...and the snapshot reads those rows",
-    /loadCompanyGallery\(companyId\)/.test(SNAPSHOT) && /companyDocument\.count/.test(SNAPSHOT) &&
+    /loadCompanyGallery\(companyId[,)]/.test(SNAPSHOT) && /companyDocument\.count/.test(SNAPSHOT) &&
       /companyGoogleBusiness\.findUnique/.test(SNAPSHOT) && /story: true/.test(SNAPSHOT));
 }
 

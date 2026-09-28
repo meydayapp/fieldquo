@@ -60,7 +60,8 @@ export async function GET(request) {
   // the row healed through the shared mapping, and the page below renders
   // "cancelled on <date>" from what Stripe holds. A Stripe failure here is
   // not the page's failure: the row's word stands and nothing is said.
-  const wantsLive = new URL(request.url).searchParams.get("live") === "1";
+  // Not for a read-only support session: the sync writes the row.
+  const wantsLive = new URL(request.url).searchParams.get("live") === "1" && member.impersonationMode !== "read_only";
   let liveSync = null;
   if (wantsLive && seesPlan) {
     liveSync = await syncSubscriptionFromStripe(member.companyId).catch(() => null);

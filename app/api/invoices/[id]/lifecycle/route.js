@@ -135,7 +135,8 @@ export async function GET(request, { params }) {
   // not the cached columns, which on an invoice amended before the family
   // ledger existed said "paid 0, settled" about a version with a deposit
   // behind it. Same rule as request-payment; see lib/invoices/family.js.
-  const ledger = await refreshFamilyLedger(db, invoice.id);
+  // Not for a read-only support session: the refresh writes the invoice.
+  const ledger = member.impersonationMode === "read_only" ? null : await refreshFamilyLedger(db, invoice.id);
   if (ledger) {
     invoice.amountPaid = ledger.state.amountPaid;
     invoice.amountDue = ledger.state.amountDue;

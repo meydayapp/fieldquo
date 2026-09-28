@@ -718,12 +718,11 @@ const IMPERSONATION_STILL_REFUSED = [
   // The balance and statement the console needs to SEE already travel on
   // /api/settings/ai/credit, whose read does admit an impersonation session.
   "app/api/settings/ai/topup/route.js",
-  // Its GET does double duty — a plain status read AND settling a
-  // subscription-checkout session — and the second half must never run under
-  // impersonation, same reasoning as auto-topup above. Costs the console
-  // nothing: the bundle's status is also carried on /api/settings/ai/credit's
-  // response (`ai.bundle`), which is the one that opens for support.
-  "app/api/settings/ai/bundle/route.js",
+  // app/api/settings/ai/bundle/route.js left this list on 2026-09-28: its GET
+  // does double duty (status read + settling a checkout session), and now that
+  // a superadmin's support session reads as the owner, the read opens while
+  // the settle half is skipped for impersonationMode "read_only" —
+  // scripts/check-impersonation-view-all.mjs drives both halves.
   "app/api/settings/leave-policies/route.js",
   "app/api/debt/route.js",
   "app/api/salaries/route.js", // gated on the payroll grid, which "viewer" fails

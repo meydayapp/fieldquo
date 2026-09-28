@@ -25,10 +25,10 @@ import { scheduleAutoTranslate } from "@/lib/i18n/autoTranslateSchedule";
 const HTTP_URL = /^https?:\/\//i;
 const str = (v) => (typeof v === "string" ? v.trim() : "");
 
-async function present(companyId, company) {
+async function present(companyId, company, readOnly = false) {
   // What each section currently has behind it, so the settings page can grey
   // a switch that would change nothing — the same rule the quote panel uses.
-  const { content, sections } = await loadProposalContent({ companyId, company, language: company.defaultLanguage || "en" });
+  const { content, sections } = await loadProposalContent({ companyId, company, language: company.defaultLanguage || "en", readOnly });
   return {
     story: company.story || "",
     storyHeadline: company.storyHeadline || "",
@@ -55,7 +55,7 @@ export async function GET(request) {
     where: { id: member.companyId },
     select: { ...PROPOSAL_COMPANY_SELECT, defaultLanguage: true },
   });
-  return NextResponse.json(await present(member.companyId, company || {}));
+  return NextResponse.json(await present(member.companyId, company || {}, member.impersonationMode === "read_only"));
 }
 
 export async function PATCH(request) {

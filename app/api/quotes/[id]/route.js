@@ -134,7 +134,8 @@ export async function GET(request, { params }) {
   // when something changed. Idempotent, drafts only, see the module.
   if (quote.autoEstimated) {
     try {
-      const linked = await linkInstantVisits(db, quote);
+      // Not for a read-only support session: linking writes the visits.
+      const linked = member.impersonationMode === "read_only" ? 0 : await linkInstantVisits(db, quote);
       if (linked > 0) {
         quote.appointments = await db.appointment.findMany({
           where: { quoteId: quote.id },

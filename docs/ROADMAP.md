@@ -1,6 +1,9 @@
 # FieldQuo — current phase and what's left
 
 Last updated: 28 September 2026 (annual-first plan pickers and live promotions — the 1-year tab by default on every picker, PlatformPromotion wired end to end through lib/billing/promotions.js into /pricing, the in-app picker, signup and Stripe Checkout as a coupon; schema SQL owed before deploy — see the section of that name below)
+Last updated: 28 September 2026 ("View as company" follow-up: the heal-on-read writes that live in the route itself now skip for the read-only session — company / appointment geocode on schedule/map and business-info, the voice number-repair GET heal, the Business Profile locations stamps; and, through a `readOnly` flag the shared libs now take, shift-request expiry + crew notifications, the onboarding stamp, the gallery merge on seven reads, the voice readiness heal and the Google busy stamps; see "View as company" reads everything)
+Last updated: 28 September 2026 ("View as company": an active superadmin's read-only session reads as the company's real OWNER membership — quotes, client contact details, equipment, invoices, payroll, insights all load; writes still refused by method in middleware + assertReadOnly, plus the OAuth/Stripe-return GETs now listed in lib/platform/impersonationToken.js; the GETs that write on read skip for the session; `npm run check:impersonation`)
+Last updated: 28 September 2026 (the platform "Cancel the subscription" panel works for every company: a card-free trial can be ended at the trial's end, now, or locked for a terms breach — three additive Company columns the owner must add first — with checkout/Resume refusing a company FieldQuo ended, no trial letters to it, and /platform counting it locked/cancelled — see "The platform cancel / lock panel works for every company")
 Last updated: 25 September 2026 (FieldQuo's own language no longer follows the last page you visited: the permanent origin-wide localStorage key is gone (removed on load), a signed-in account's language wins on public pages too (GET /api/me/language, only for a browser that has signed in), the header switcher lasts one tab session, booking pages / prefills / email-link landings set their page only — see "FieldQuo's language follows the person, not the last page")
 Last updated: 25 September 2026 (/platform/analytics: the signup funnel is the card-free flow counted "reached this step or later" — monotone, trial started tied to a finished company — and the laptop leak that put "Account & company 581" over "Visited 565" is closed; FieldQuo's own Meta campaigns as campaign ▸ ad set ▸ ad with signups / trials / paying, "+"/%20 merged, id-only campaigns labelled, Instagram read from site_source_name; the Ads Manager URL-parameters string with a how-to — see "/platform/analytics: an honest signup funnel, and FieldQuo's own Meta campaigns" below)
 Last updated: 25 September 2026 (Create › Request opens a hand-entered lead form at /app/leads/new — the owner's six fields, posted through createScoredLead as source "manual", gated at requests:view_create_edit on page and route, landing on the board with the new lead's drawer open; the board's ?lead= deep link now also works after an in-app navigation — see "Still owed here" under "Phone menus, the Create sheet and a mobile audit" below)
@@ -189,6 +192,95 @@ empty `platformPromotion` table. Screenshots (1280 + 375): harness
   may give one extra discounted month (Stripe counts coupon months from
   application); (4) a sale checkout opened before the end date and paid after
   it keeps the sale (no `redeem_by` on the coupon).
+## "View as company" reads everything, as the owner, and still writes nothing (28 September 2026)
+
+The owner, auditing a customer: "Hidden by your access level" on a client's
+contact details, 403 on the quotes list and on Equipment & warranties. Cause:
+`getImpersonatedMember`'s read-only branch resolved to `{ id: null, role:
+"viewer" }`, and `loadEnforceableMember(db, null)` returns null, so every grid
+gate refused. It was the auditor's session, never the company's restriction.
+
+### What shipped (narrow; an earlier 253-file attempt was rejected)
+
+- `lib/currentMember.js`: for an ACTIVE superadmin (re-read from
+  `PlatformAdmin` every request) the session borrows the company's earliest
+  active `role: "owner"` Member row — id, userId, role — with
+  `impersonation: true, impersonationMode: "read_only"` intact. Every existing
+  `loadEnforceableMember(db, member.id)` answers with owner-level reads,
+  unchanged. Admin/support/deactivated superadmin, or a company with no active
+  owner, keep the old stub.
+- Writes: unchanged mechanism — middleware and `assertReadOnly` refuse by the
+  token's mode and the method, never by id/role. Added to both: the GETs that
+  act rather than read (Google Calendar / Business Profile, Facebook page,
+  WhatsApp, Meta ads OAuth connect/callback, Stripe onboarding refresh, voice
+  top-up returns) — `isWriteShapedGet` in `lib/platform/impersonationToken.js`.
+  They used to be refused only by role checks the "viewer" stub failed.
+- Nothing attributed to the owner: `recordActivity` returns for the read-only
+  session; `/api/calendar/feed` neither mints nor reveals the owner's feed
+  token; `/api/leave` never creates the owner a Worker; HR onboarding reconcile
+  (`actorUserId` = owner) skipped.
+- The GETs that write on read skip the write and still answer: ai-employee
+  sources, stripe/connect/status, settings/subscription `?live=1`,
+  subscription/retention, settings/voice heal, settings/ai/bundle
+  `?session_id=`, follow-up-rules and quote-text-blocks seeding, HR templates,
+  invoice lifecycle ledger refresh, job photo/document backfill, instant-visit
+  linking on a quote.
+
+### Checks
+
+`npm run check:impersonation` (in check:all): 164 assertions — resolver,
+grid, middleware over every non-GET handler, assertReadOnly, every tenant
+write handler direct, every GET (auditor vs owner: 0 refusals, 0 writes), a
+24-endpoint persona matrix, and 17 side-effect GETs driven down their write
+path (owner writes, auditor writes nothing). 91 fail on the old tree; real
+members' 1,248 response hashes identical (9 cells nondeterministic run to run).
+
+### Owed / owner decisions
+
+- **Owner decision:** "my" endpoints (`/api/availability`, `/api/me/earnings`
+  and `/api/me/home`, `/api/notifications`, `/api/leave`) now show the OWNER's
+  personal data to the auditor. Acceptable for a superadmin audit? Nothing
+  extra built (the calendar feed token is the one exception — a bearer link).
+- Pre-existing heal-on-read writes reachable by ANY support session (they ran
+  for the old stub too; not widened here).
+  - **Fixed (28 Sep, follow-up, branch `fix/impersonation-heal-guards`)** — the
+    write sits in the route, so the route skips it for
+    `impersonationMode === "read_only"` and still answers: company geocode
+    (`schedule/map` centre, `settings/business-info`), the day map's appointment
+    coordinate backfill, `settings/voice/number/repair` GET's status heal, and
+    all four `lastError`/`lastSyncAt` stamps in `reviews/google/locations` GET.
+    Section 7 of `npm run check:impersonation` drives each down its write path
+    (owner writes, auditor 0 writes, same read less the skipped write's own
+    fields); 11 of those assertions fail against the routes before the skips.
+  - **Fixed (same branch, second pass) — the write lives in a shared lib, so
+    the lib skips it when its caller says so; every other caller passes
+    nothing and behaves as before:** `/api/shift-requests` (`listFor(member)`
+    skips `expireStale` — no expiry, no notification to the crew — for the
+    read-only member; `lib/shiftRequests/store.js`); onboarding-status
+    (`getOnboardingStatus(companyId, { readOnly })`, `lib/onboarding.js`);
+    gallery merge (`loadCompanyGallery` / `withCompanyGallery` `{ readOnly }`
+    in `lib/company/gallery.js`, passed through `lib/proposal/load.js` and
+    `lib/setupStepsSnapshot.js` from settings/gallery, settings/website,
+    settings/quote-email, quote email-sections, both presentation routes and
+    setup-steps — the auditor sees the gallery as stored, unmerged); voice
+    readiness (`checkReadiness(…, { readOnly })` diagnoses without healing,
+    `lib/voice/readiness.js`); `/api/calendar/google/busy`
+    (`googleBusyRanges({ …, readOnly })` skips both `lastError` stamps,
+    `lib/calendar/googleBusy.js`). 13 more section-7 assertions (incl. "the
+    owner's request notifies, the auditor's notifies nobody"), all failing
+    against the libs before the skips.
+  - Four source-text assertions that pinned the old call spellings
+    (`check:onboarding-solo`, `check:setup-steps`, two in
+    `check:client-proposal`) now accept a trailing option — `\)` widened to
+    `[,)]`, the first argument still pinned.
+  - The other two `googleBusyRanges` callers need no flag:
+    `lib/schedule/entryNeighbours.js` is reached only from the PATCH handlers
+    of `appointments/[id]` and `jobs/[id]/visits/[visitId]`, which middleware
+    and `assertReadOnly` refuse for the session; `lib/booking/computeAvailability.js`
+    serves the public booking / reschedule pages and the voice + AI-employee
+    tools (POST), never an impersonated `/app` GET.
+- `/api/migrations/[id]/documents` GET still refuses support (its loader is
+  shared with the upload POST) — pre-existing.
 
 ## The platform cancel / lock panel works for every company, not only a Stripe-subscribed one (28 September 2026)
 

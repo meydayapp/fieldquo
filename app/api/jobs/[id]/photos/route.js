@@ -81,7 +81,7 @@ export async function GET(request, { params }) {
   // that, the first view of its Photos catches it up here — idempotent on
   // (job, url), and never a reason for the list to fail. See
   // lib/jobs/photoAutofile.js.
-  if (job.quoteId) {
+  if (job.quoteId && member.impersonationMode !== "read_only") {
     try {
       await fileQuotePhotosOnJob({ quoteId: job.quoteId, jobId: job.id });
     } catch (err) {

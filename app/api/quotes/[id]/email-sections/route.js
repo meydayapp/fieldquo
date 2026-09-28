@@ -58,7 +58,7 @@ async function load(member, id) {
       select: QUOTE_EMAIL_COMPANY_SELECT,
     }),
   ]);
-  return { quote, company: await withCompanyGallery(company || {}, member.companyId) };
+  return { quote, company: await withCompanyGallery(company || {}, member.companyId, { readOnly: member.impersonationMode === "read_only" }) };
 }
 
 /**

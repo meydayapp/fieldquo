@@ -165,7 +165,7 @@ export async function GET(request) {
   // The company's one gallery (lib/company/gallery.js) — what the public
   // page renders, the quote email prints and the proposal shows. The block's
   // own pairs are only the copy that was merged into it.
-  const confirmedPairs = galleryAsSitePairs(await loadCompanyGallery(member.companyId).catch(() => []));
+  const confirmedPairs = galleryAsSitePairs(await loadCompanyGallery(member.companyId, { readOnly: member.impersonationMode === "read_only" }).catch(() => []));
 
   return NextResponse.json({
     // Only what's actually absent — see lib/site/gaps.js. The builder asks about

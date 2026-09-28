@@ -19,7 +19,8 @@ export async function GET(request, { params }) {
   const worker = await ownWorker(db, member, workerId);
   if (!worker) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  await reconcileRunsForWorker(db, { companyId: member.companyId, workerId: worker.id, actorUserId: member.userId });
+  // Not for a read-only support session: reconciling writes, as the owner.
+  if (member.impersonationMode !== "read_only") await reconcileRunsForWorker(db, { companyId: member.companyId, workerId: worker.id, actorUserId: member.userId });
   const runs = await db.onboardingRun.findMany({
     where: { companyId: member.companyId, workerId: worker.id },
     select: RUN_SELECT,

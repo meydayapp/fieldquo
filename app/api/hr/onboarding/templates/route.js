@@ -21,7 +21,10 @@ async function policyIdsFor(companyId) {
 export async function GET(request) {
   const { member, response } = await hrManagerOrRefusal(request);
   if (response) return response;
-  const templates = await ensureTemplates(db, member.companyId);
+  // A read-only support session reads what is stored; ensureTemplates seeds.
+  const templates = member.impersonationMode === "read_only"
+    ? await db.onboardingTemplate.findMany({ where: { companyId: member.companyId }, orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }] })
+    : await ensureTemplates(db, member.companyId);
   const { policies } = await policyIdsFor(member.companyId);
   return NextResponse.json({ templates: templates.filter((t) => !t.archivedAt), policies });
 }

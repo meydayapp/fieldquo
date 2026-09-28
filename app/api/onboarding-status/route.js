@@ -16,7 +16,7 @@ export async function GET(request) {
     const { member, response } = await memberOrRefusal(request);
     if (response) return response;
 
-    const status = await getOnboardingStatus(member.companyId);
+    const status = await getOnboardingStatus(member.companyId, { readOnly: member.impersonationMode === "read_only" });
     return NextResponse.json(status);
   } catch (error) {
     console.error("[onboarding-status]", error);

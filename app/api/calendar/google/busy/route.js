@@ -50,7 +50,7 @@ export async function GET(request) {
 
   const blocks = [];
   for (const c of connections) {
-    const ranges = await googleBusyRanges({ userId: c.member.userId, companyId: member.companyId, from, to });
+    const ranges = await googleBusyRanges({ userId: c.member.userId, companyId: member.companyId, from, to, readOnly: member.impersonationMode === "read_only" });
     for (const r of ranges) {
       if (r.memberId !== c.memberId) continue;
       blocks.push({

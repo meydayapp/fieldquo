@@ -51,7 +51,9 @@ export async function GET(request) {
 
   const sessionId = new URL(request.url).searchParams.get("session_id");
 
-  if (sessionId) {
+  // Settling a checkout return writes the company's AI bundle; a read-only
+  // support session gets the plain read below instead.
+  if (sessionId && member.impersonationMode !== "read_only") {
     let session;
     try {
       session = await stripe.checkout.sessions.retrieve(sessionId, { expand: ["subscription"] });

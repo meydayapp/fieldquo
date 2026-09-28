@@ -80,7 +80,8 @@ export async function GET(request) {
   // a crew member's map load never geocodes a stranger's appointment on
   // their behalf — the row is not theirs to touch, even invisibly.
   const waiting = entries.filter((e) => e.kind === "appointment" && needsGeocode(e));
-  const batch = waiting.slice(0, GEOCODE_BACKFILL_CAP);
+  // Not for a read-only support session: the backfill writes the appointment.
+  const batch = member.impersonationMode === "read_only" ? [] : waiting.slice(0, GEOCODE_BACKFILL_CAP);
   let placed = 0;
   if (batch.length) {
     const results = await Promise.all(batch.map((e) => geocodeAppointment(db, e)));
@@ -93,7 +94,8 @@ export async function GET(request) {
     });
   }
 
-  const centred = await ensureCompanyCoordinates(db, member.companyId, company);
+  // Not for a read-only support session: the geocode writes the company row.
+  const centred = member.impersonationMode === "read_only" ? company : await ensureCompanyCoordinates(db, member.companyId, company);
   const centre =
     centred.latitude != null && centred.longitude != null
       ? { lat: Number(centred.latitude), lng: Number(centred.longitude) }

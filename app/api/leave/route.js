@@ -43,7 +43,9 @@ async function myWorker(member) {
     where: { companyId: member.companyId, userId: member.userId },
     select: { id: true, name: true, hourlyRate: true },
   });
-  if (existing) return existing;
+  // A read-only support session is the owner's membership borrowed: never
+  // create the owner a Worker row by looking.
+  if (existing || member.impersonationMode === "read_only") return existing;
 
   const { worker } = await ensureWorkerForMember({
     companyId: member.companyId,
@@ -85,7 +87,7 @@ export async function GET(request) {
   // Bring accruals up to date before reading them. refreshAccruals SETS rather
   // than increments, so doing this on read is safe and means nobody has to
   // remember to run a nightly job for the numbers to be right.
-  if (policies.length && year === YEAR()) {
+  if (policies.length && year === YEAR() && member.impersonationMode !== "read_only") {
     await refreshAccruals({ companyId: member.companyId, year }).catch((err) =>
       console.error("[leave] accrual refresh failed:", err?.message),
     );

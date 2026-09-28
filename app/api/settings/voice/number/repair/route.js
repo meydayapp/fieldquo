@@ -59,7 +59,8 @@ export async function GET(request) {
   // card on the page gates on the stale column — so the page told the owner
   // "you switched it off, turn it on below" above three cards saying "email us,
   // this needs a person", with the switch locked behind them.
-  if (result.statusStale) result = await diagnoseAndHeal(member.companyId);
+  // Not for a read-only support session: the heal writes the number's row.
+  if (result.statusStale && member.impersonationMode !== "read_only") result = await diagnoseAndHeal(member.companyId);
   // Told once per look rather than once per page render: a stuck number is
   // money leaving on something the tenant cannot use, and until now the only
   // way FieldQuo learned about one was the contractor emailing.
