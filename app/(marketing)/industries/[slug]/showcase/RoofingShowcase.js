@@ -62,14 +62,29 @@ function Step({ n, title, body, children, headingRef = null, id }) {
   );
 }
 
-/** A labelled surface around a real screen — the "Sample" tag is the honest part. */
-function Surface({ label, sampleTag, children, className = "" }) {
+/**
+ * A labelled surface around a real screen — the "Sample" tag is the honest part.
+ *
+ * The tag is IN the surface's flow, on its own row above the screen, not
+ * pinned half over the top border. It used to be `absolute -top-3`, and step
+ * 1's surface is `overflow-hidden` (the homeowner's page has full-bleed
+ * edges that must follow the rounded corners): the clip cut the tag in half,
+ * leaving the bottom of its letters under the caption above (owner's
+ * screenshot, 2026-09-28). A tag that sits on the border only works on a
+ * surface that never clips, and whether a surface clips is decided by what it
+ * holds — so the tag no longer depends on it. scripts/check-roofing-example*
+ * assert both halves: no negative offset in the markup, and in Chrome every
+ * tag wholly inside the box that clips it.
+ */
+function Surface({ label, sampleTag, children, className = "", bodyClassName = "" }) {
   return (
-    <div className={`relative rounded-2xl border border-border bg-background ${className}`}>
-      <span className="absolute -top-3 left-4 z-10 rounded-full border border-border bg-card px-2.5 py-0.5 text-xs font-semibold text-foreground">
-        {sampleTag} · {label}
-      </span>
-      {children}
+    <div className={`rounded-2xl border border-border bg-background ${className}`} data-showcase-surface>
+      <div className="px-4 pt-3">
+        <span className="inline-block max-w-full rounded-full border border-border bg-card px-2.5 py-0.5 text-xs font-semibold text-foreground" data-showcase-pill>
+          {sampleTag} · {label}
+        </span>
+      </div>
+      <div className={bodyClassName}>{children}</div>
     </div>
   );
 }
@@ -183,7 +198,7 @@ export default function RoofingShowcase({ fixture, anchor }) {
             {copy.roofIllustration}
             {flowLang !== language ? ` ${copy.formLanguageNote}` : ""}
           </p>
-          <Surface label={copy.homeownerSees} sampleTag={copy.sampleTag} className="overflow-hidden pt-3">
+          <Surface label={copy.homeownerSees} sampleTag={copy.sampleTag} className="overflow-hidden" bodyClassName="pt-2">
             <InstantQuoteFlow key={`${flowLang}-${formRound}`} companySlug={fixture.company.slug} sample={flowSample} />
           </Surface>
 
@@ -218,13 +233,13 @@ export default function RoofingShowcase({ fixture, anchor }) {
         </p>
 
         <Step n={2} id={`${anchor}-step-2`} title={copy.step2Title} body={copy.step2Body}>
-          <Surface label={copy.contractorSees} sampleTag={copy.sampleTag} className="p-4 pt-6 max-w-md">
+          <Surface label={copy.contractorSees} sampleTag={copy.sampleTag} className="max-w-md" bodyClassName="p-4 pt-3">
             <LeadsRoute key={`leads-${round}`} sample={leadsSample} />
           </Surface>
         </Step>
 
         <Step n={3} id={`${anchor}-step-3`} title={copy.step3Title} body={copy.step3Body}>
-          <Surface label={copy.contractorSees} sampleTag={copy.sampleTag} className="pt-2">
+          <Surface label={copy.contractorSees} sampleTag={copy.sampleTag} bodyClassName="pt-2">
             <EstimateReviewsPage key={`review-${round}`} sample={reviewSample} />
           </Surface>
         </Step>

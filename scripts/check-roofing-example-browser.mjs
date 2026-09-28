@@ -84,6 +84,28 @@ try {
     await page.waitForTimeout(400);
     ok("…it lands on the anchor with step 1 focused", (await page.evaluate(() => window.location.hash)) === "#instant-quote-example" && (await page.evaluate(() => document.activeElement?.id)) === "instant-quote-example-step-1");
 
+    // Every Sample tag whole and on top. Hit-testing is the measure: a point
+    // a clipping ancestor cuts away, or one the caption above lies over, hits
+    // something other than the tag. The points are a 3x3 grid inside the
+    // pill's rounded ends — the corners of its box lie outside a rounded-full
+    // pill, and hit-testing honours the radius. (Owner's screenshot,
+    // 2026-09-28: step 1's tag showed only its bottom half.)
+    const tags = showcase.locator("[data-showcase-pill], [data-sample-frame] > span[aria-hidden='true']");
+    const tagCount = await tags.count();
+    const cut = [];
+    for (let i = 0; i < tagCount; i += 1) {
+      const miss = await tags.nth(i).evaluate(async (el) => {
+        el.scrollIntoView({ block: "center", behavior: "instant" });
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        const r = el.getBoundingClientRect();
+        const k = r.height / 2;
+        const pts = [r.left + k, (r.left + r.right) / 2, r.right - k].flatMap((x) => [r.top + 2, (r.top + r.bottom) / 2, r.bottom - 2].map((y) => [x, y]));
+        return pts.filter(([x, y]) => !el.contains(document.elementFromPoint(x, y))).length;
+      });
+      if (miss) cut.push({ tag: (await tags.nth(i).textContent()).trim(), pointsHidden: miss });
+    }
+    ok(`all ${tagCount} Sample tags (3 surfaces, 2 previews) are whole — nothing clips or covers them`, tagCount === 5 && cut.length === 0, { tagCount, cut });
+
     const flowHeader = showcase.locator("h1", { hasText: "Summit Ridge Roofing" }).first();
     ok("the homeowner's page carries the company's name and logo on a white header", (await flowHeader.isVisible()) && (await showcase.locator('img[src="/demo/summit-ridge/logo-mark.webp"]').first().isVisible()));
     await flowHeader.scrollIntoViewIfNeeded();

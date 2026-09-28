@@ -127,12 +127,18 @@ export function showcaseQuotePayload(fixture, run) {
 // height) inside a phone-screen-tall box the visitor scrolls. The frame stays
 // inert; the box around it is what scrolls, and it takes keyboard focus so
 // the arrow keys scroll it too.
+//
+// The box scrolls, so it clips — and SampleFrame's "Sample" tag sits 10px
+// above the frame, on its top border. The box's top padding (pt-5, 20px) is
+// what keeps that tag inside the clip, clear of the rounded corner; at pt-3
+// it had 2px to spare. scripts/check-roofing-example-render.mjs holds the
+// padding above the tag's offset.
 const WHOLE_PAGE = 20000;
 
 function PhoneScroll({ label, children }) {
   return (
     <div
-      className="max-h-[44rem] overflow-y-auto overscroll-contain rounded-2xl border border-border bg-card pt-3"
+      className="max-h-[44rem] overflow-y-auto overscroll-contain rounded-2xl border border-border bg-card pt-5"
       tabIndex={0}
       role="region"
       aria-label={label}

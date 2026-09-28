@@ -118,5 +118,38 @@ section("3. The hero link is data-driven");
   ok("…and in French it reads the French label", fr.includes(esc(industryChromeFor("fr").seeItInAction)));
 }
 
+section("4. Every Sample tag is whole — none pinned half outside a box that clips it");
+// Owner's screenshot, 2026-09-28: step 1's "Sample · What the homeowner
+// sees" tag was `absolute -top-3` on a surface that is overflow-hidden, so
+// the clip showed only the bottom half of its letters, under the caption.
+// The Surface tags are now in the flow; SampleFrame's own tag still sits on
+// its frame's top border, so the scrolling (clipping) box around each
+// preview must pad above it by more than it sticks out. Part three measures
+// the same thing in Chrome; this holds the structure without a browser.
+for (const lang of LANGUAGE_CODES) {
+  const html = render(createElement(RoofingShowcase, { fixture, anchor: ANCHOR }), lang);
+  const copy = industryShowcaseFor(lang);
+  const classOf = (tag) => tag.match(/class="([^"]*)"/)?.[1] || "";
+  const NEG = /(^|\s)-(top|mt|inset|inset-y|translate-y)-/;
+
+  const pills = [...html.matchAll(/<span[^>]*data-showcase-pill[^>]*>([^<]*)<\/span>/g)];
+  ok(`${lang}: three Surface tags (steps 1, 2 and 3), each saying "${copy.sampleTag} · …"`, pills.length === 3 && pills.every((m) => m[1].startsWith(esc(copy.sampleTag))), pills.map((m) => m[1]));
+  ok(`${lang}: …none positioned out of the flow or offset upward`, pills.every((m) => !/(^|\s)(absolute|fixed|sticky)(\s|$)/.test(classOf(m[0])) && !NEG.test(classOf(m[0]))), pills.map((m) => classOf(m[0])));
+  const surfaces = html.split("data-showcase-surface").length - 1;
+  const leading = [...html.matchAll(/data-showcase-surface[^>]*><div[^>]*><span[^>]*data-showcase-pill/g)].length;
+  ok(`${lang}: …and each is the first thing inside its surface, above the screen`, surfaces === 3 && leading === 3, { surfaces, leading });
+
+  const frameTags = [...html.matchAll(/data-sample-frame="[^"]*"[^>]*><span aria-hidden="true" class="([^"]*)"/g)];
+  ok(`${lang}: both previews wear SampleFrame's tag`, frameTags.length === 2, frameTags.length);
+  for (const m of frameTags) {
+    const offset = Number(classOf(`class="${m[1]}"`).match(/(?:^|\s)-top-([\d.]+)/)?.[1] || 0) * 4;
+    const scrollAt = html.lastIndexOf("data-showcase-scroll", m.index);
+    const scrollDiv = scrollAt < 0 ? "" : html.slice(html.lastIndexOf("<div", scrollAt), scrollAt);
+    const pad = Number(classOf(scrollDiv).match(/(?:^|\s)pt-([\d.]+)(\s|$)/)?.[1] || 0) * 4;
+    const between = scrollAt < 0 ? "" : html.slice(scrollAt, m.index);
+    ok(`${lang}: SampleFrame's tag (${offset}px above its frame) clears the top of the scroll box that clips it (${pad}px padding, 8px to spare)`, scrollAt >= 0 && pad - offset >= 8 && (between.match(/<div/g) || []).length === 1, { offset, pad });
+  }
+}
+
 console.log(`\n${pass} passed, ${fails.length} failed`);
 if (fails.length) process.exit(1);
