@@ -38,6 +38,9 @@ import {
   ANNUAL_FREE_MONTHS,
   defaultAnnualPrice,
   annualComparison,
+  annualDeal,
+  annualDealText,
+  planMoney,
   customTier,
   customTierFor,
   customPlanSplit,
@@ -52,6 +55,7 @@ import {
   MAX_COMPANY_PEOPLE,
 } from "@/lib/pricing/ladder";
 import { PERMISSION_PRESETS, PRESET_TO_ROLE } from "@/lib/permissions";
+import { MESSAGES } from "@/app/i18n/messages";
 
 let pass = 0;
 const fails = [];
@@ -234,6 +238,117 @@ ok("no annual price means no annual option", none.available === false && none.sa
 // And a badge must never print "Save $0".
 const same = annualComparison({ priceMonthly: 99, priceAnnual: 1188 });
 ok("an annual price equal to twelve months saves nothing, and says so", same.saves === 0);
+
+console.log("\nThe year is SAID as a deal, from the row's own numbers");
+// The owner read "CA$99.00/mo" over "CA$990.00/yr" on /platform/billing/plans
+// as a mistake — "did you not know that a year has 12 months". annualDeal()
+// is the one wording every surface prints under a yearly figure; these run
+// it against rows the console can hold, not just the seeded default.
+{
+  const cad = (n) => planMoney(n, "CAD");
+  const say = (m, a) => annualDealText(annualDeal({ priceMonthly: m, priceAnnual: a }), { money: cad });
+
+  // Whole months — the ladder's own deal on every rung.
+  for (const tier of SEAT_LADDER) {
+    const d = annualDeal({ priceMonthly: tier.price, priceAnnual: defaultAnnualPrice(tier.price) });
+    ok(`${tier.label}: pay ${12 - ANNUAL_FREE_MONTHS} months, get 12`,
+      d.kind === "months" && d.monthsPaid === 12 - ANNUAL_FREE_MONTHS && d.saves === tier.price * 2 && !d.warning,
+      JSON.stringify(d));
+  }
+  ok("Solo CAD reads exactly as the owner was promised",
+    say(99, 990) === "pay 10 months, get 12 (saves CA$198.00 vs monthly)", say(99, 990));
+  {
+    const crew = annualDeal({ priceMonthly: 169, priceAnnual: 1690 });
+    const usd = annualDealText(crew, { money: (n) => planMoney(n, "USD") });
+    const aud = annualDealText(crew, { money: (n) => planMoney(n, "AUD") });
+    ok("USD and AUD rows say it in their own money",
+      usd.includes(planMoney(338, "USD")) && aud.includes(planMoney(338, "AUD")) && usd !== aud, `${usd} / ${aud}`);
+  }
+  // The effective monthly price the customer redesign will show large.
+  ok("perMonth is the year over twelve, to the cent",
+    annualDeal({ priceMonthly: 99, priceAnnual: 990 }).perMonth === 82.5 &&
+    annualDeal({ priceMonthly: 99, priceAnnual: 1039.5 }).perMonth === 86.63 &&
+    annualDeal({ priceMonthly: 0, priceAnnual: 990 }).perMonth === 82.5 &&
+    annualDeal({ priceMonthly: 99, priceAnnual: null }).perMonth === undefined);
+  // Never the default: a row edited to nine months says nine.
+  ok("an edited row's months are divided out, not assumed", annualDeal({ priceMonthly: 99, priceAnnual: 891 }).monthsPaid === 9);
+  ok("one month is singular", say(99, 99) === "pay 1 month, get 12 (saves CA$1,089.00 vs monthly)", say(99, 99));
+  // Prisma Decimals arrive as strings.
+  ok("Decimal strings read the same as numbers",
+    JSON.stringify(annualDeal({ priceMonthly: "99.00", priceAnnual: "990.00" })) === JSON.stringify(annualDeal({ priceMonthly: 99, priceAnnual: 990 })));
+  // Whole-ness is decided in cents, so float noise cannot make it fractional.
+  ok("cents that divide exactly are whole months", annualDeal({ priceMonthly: 33.33, priceAnnual: 333.3 }).monthsPaid === 10);
+
+  // Fractional — money and a percentage, never "pay 10.5 months".
+  const frac = annualDeal({ priceMonthly: 99, priceAnnual: 1039.5 });
+  ok("10.5 months is a fraction, not a month count",
+    frac.kind === "fraction" && frac.monthsEquivalent === 10.5 && frac.monthsPaid === undefined, JSON.stringify(frac));
+  ok("...saving CA$148.50, 12.5%", frac.saves === 148.5 && frac.percent === 12.5, `${frac.saves} ${frac.percent}`);
+  ok("...said as money and percent", say(99, 1039.5) === "saves CA$148.50 (12.5%) vs 12 × monthly", say(99, 1039.5));
+  ok("a percentage keeps one decimal", annualDeal({ priceMonthly: 100, priceAnnual: 1000.01 }).percent === 16.7);
+
+  // No discount — exactly twelve months.
+  const flat = annualDeal({ priceMonthly: 99, priceAnnual: 1188 });
+  ok("twelve months is no discount, flagged",
+    flat.kind === "noDiscount" && flat.warning === true && flat.extra === 0 && flat.saves === 0, JSON.stringify(flat));
+  ok("...and says so", say(99, 1188) === "no annual discount — same as 12 × monthly", say(99, 1188));
+
+  // More expensive than monthly — a typo until proven otherwise.
+  const dear = annualDeal({ priceMonthly: 99, priceAnnual: 1200 });
+  ok("a year dearer than twelve months is flagged, never a negative saving",
+    dear.kind === "noDiscount" && dear.warning === true && dear.saves === 0 && dear.extra === 12, JSON.stringify(dear));
+  ok("...and says by how much", say(99, 1200) === "no annual discount — costs CA$12.00 more than 12 × monthly", say(99, 1200));
+
+  // Null — and every other shape of "no annual price" annualPriceOf refuses.
+  for (const a of [null, undefined, "", 0, -990, "abc", NaN]) {
+    const d = annualDeal({ priceMonthly: 99, priceAnnual: a });
+    ok(`annual ${String(a)} is no annual option`, d.kind === "none" && !d.warning, JSON.stringify(d));
+  }
+  ok("...said as a sentence", say(99, null) === "No annual option", say(99, null));
+  ok("a missing deal object is no annual option, not a crash", annualDealText(undefined) === "No annual option");
+
+  // Zero monthly — nothing to compare against: not invented as "no discount",
+  // and no division by zero.
+  for (const m of [0, null, "", -5]) {
+    const d = annualDeal({ priceMonthly: m, priceAnnual: 990 });
+    ok(`monthly ${JSON.stringify(m)} with a year: nothing to compare`,
+      d.kind === "noMonthly" && !d.warning && d.annual === 990, JSON.stringify(d));
+  }
+  ok("...said plainly", say(0, 990) === "annual only — no monthly price to compare", say(0, 990));
+  ok("zero monthly and no year is simply no annual option", annualDeal({ priceMonthly: 0, priceAnnual: null }).kind === "none");
+
+  // Every kind goes through the caller's t() with its own key.
+  const keys = [];
+  const spy = (k) => (keys.push(k), k);
+  for (const [m, a] of [[99, 990], [99, 99], [99, 1039.5], [99, 1188], [99, 1200], [0, 990], [99, null]]) {
+    annualDealText(annualDeal({ priceMonthly: m, priceAnnual: a }), { t: spy, money: cad });
+  }
+  ok("every kind has its own translation key",
+    JSON.stringify(keys) === JSON.stringify([
+      "pricing.annualDeal.payMonths", "pricing.annualDeal.payOneMonth", "pricing.annualDeal.saves",
+      "pricing.annualDeal.noDiscount", "pricing.annualDeal.costsMore", "pricing.annualDeal.noMonthly",
+      "pricing.annualDeal.none",
+    ]), JSON.stringify(keys));
+  // The symbol path keeps cents only when there are cents.
+  ok("symbol formatting: whole units when whole",
+    annualDealText(annualDeal({ priceMonthly: 99, priceAnnual: 990 }), { symbol: "CA$" }) === "pay 10 months, get 12 (saves CA$198 vs monthly)");
+  ok("...cents when not",
+    annualDealText(annualDeal({ priceMonthly: 99, priceAnnual: 1039.5 }), { symbol: "CA$" }) === "saves CA$148.50 (12.5%) vs 12 × monthly");
+  ok("the percentage is formatted in the reader's locale",
+    annualDealText(annualDeal({ priceMonthly: 99, priceAnnual: 1039.5 }), { symbol: "$", locale: "fr-CA" }).includes("12,5"));
+
+  // Every language carries every key with the SAME placeholders as English —
+  // a translation that drops {saves} prints a deal with no number in it.
+  const holes = (str) => JSON.stringify([...String(str).matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort());
+  const bad = [];
+  for (const [lang, dict] of Object.entries(MESSAGES)) {
+    for (const k of keys) {
+      if (typeof dict[k] !== "string") bad.push(`${lang}:${k} missing`);
+      else if (holes(dict[k]) !== holes(MESSAGES.en[k])) bad.push(`${lang}:${k} placeholders`);
+    }
+  }
+  ok(`every language has all ${keys.length} deal keys with English's placeholders`, bad.length === 0, bad.join(", "));
+}
 
 console.log("\nThe fifth rung — derived from the four, as the owner asked (2026-09-18)");
 {
