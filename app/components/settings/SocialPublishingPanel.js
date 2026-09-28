@@ -58,6 +58,13 @@ const ERROR_KEYS = {
   network: "app.setSocial.errorUnknown",
 };
 
+/** The names of lib/meta/pageConnect.js's FEATURE_PERMISSIONS rows. */
+const FEATURE_LABEL_KEYS = {
+  facebookMessages: "app.setSocial.feature.facebookMessages",
+  instagramMessages: "app.setSocial.feature.instagramMessages",
+  leadForms: "app.setSocial.feature.leadForms",
+};
+
 export default function SocialPublishingPanel() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -401,6 +408,27 @@ export default function SocialPublishingPanel() {
               <span>
                 {t("app.setSocial.missingScopes", { scopes: connection.missingScopes.join(", ") })}
               </span>
+            </div>
+          )}
+
+          {/* The same honesty for the features that ride on this connection —
+              Facebook messages, Instagram messages, lead-ad forms. One line
+              per feature, drawn only when the server names a permission Meta
+              did not grant for a feature this deployment has switched on. */}
+          {Array.isArray(connection.missingFeaturePermissions) && connection.missingFeaturePermissions.length > 0 && (
+            <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-lg px-3 py-2 text-sm text-amber-800 dark:text-amber-300" data-feature-permissions>
+              <AlertTriangle size={15} className="shrink-0 mt-0.5" />
+              <div className="min-w-0 space-y-1">
+                {connection.missingFeaturePermissions.filter((row) => FEATURE_LABEL_KEYS[row.feature]).map((row) => (
+                  <p key={row.feature} className="break-words">
+                    {t("app.setSocial.featureMissing", {
+                      feature: t(FEATURE_LABEL_KEYS[row.feature]),
+                      scopes: row.missing.join(", "),
+                    })}
+                  </p>
+                ))}
+                <p className="opacity-90">{t("app.setSocial.featureMissingFix")}</p>
+              </div>
             </div>
           )}
 

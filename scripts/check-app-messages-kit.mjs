@@ -63,6 +63,7 @@ import { THREAD_STATUSES, THREAD_OUTCOMES, statusLabelKey, outcomeLabelKey } fro
 import { MESSAGING_PLATFORMS, platformLabelKey } from "@/lib/messaging/platforms";
 import { ACTIVITY_TYPES, LINK_KINDS, activityLabel } from "@/lib/messaging/activity";
 import { waitedLabel } from "@/lib/messaging/waiting";
+import { INBOX_POLL_MS, inboxPollPlan } from "@/lib/messaging/inboxPoll";
 import { APP_MESSAGES } from "../app/i18n/appMessages.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -180,7 +181,9 @@ ok("one unread → the line sits above their last message", unreadAbove(rowsFor(
 ok("nothing unread → no line", unreadAbove(rowsFor(0)) === null);
 ok("a count larger than the inbound rows reads as never read", lastReadInstant(msgs, 99) === null);
 ok("a hostile count is not a crash", lastReadInstant(msgs, "lots") instanceof Date && lastReadInstant(null, 2) instanceof Date);
-ok("the instant is captured BEFORE the read is recorded", orderedInSource(page, "setOpenedReadAt(lastReadInstant(data.messages, data.unread))", 'JSON.stringify({ read: true })'));
+// The read is recorded by markRead (shared with the poll since 2026-09-28),
+// so the order that matters is capture → markRead(data) inside the open.
+ok("the instant is captured BEFORE the read is recorded", orderedInSource(page, "setOpenedReadAt(lastReadInstant(data.messages, data.unread))", "markRead(data);") && /const markRead = useCallback\(\(data\) => \{[\s\S]{0,400}JSON\.stringify\(\{ read: true \}\)/.test(page));
 ok("…and frozen per thread", /if \(openedFor\.current !== activeId\) \{/.test(page));
 ok("a demo thread is never marked read (nothing is stored)", /String\(data\.id\)\.startsWith\("demo_"\)\) return;/.test(page));
 
@@ -332,6 +335,36 @@ ok("Composer takes inputDisabled, off by default, and disabled still wins", /inp
 ok("Composer takes textareaStyle", /textareaStyle = undefined,/.test(composer) && /style=\{textareaStyle\}/.test(composer));
 ok("the page uses the badge for the three brand marks the kit has no glyph for", /channelBadge: row\.platform \? <SocialGlyph platform=\{row\.platform\}/.test(page));
 ok("the page renders notes and attachments through renderBody", /renderBody=\{\(m\) => \(\s*<MessageBody/.test(page) && /if \(item\.kind === "note"\) return <NoteBody/.test(page));
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("8b. Live without a Sync press");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// 2026-09-28: "it doesn't work as a stream". The list was re-read once a
+// minute and the OPEN conversation never, so a delivered message sat unseen
+// in the thread in front of the owner until he pressed Sync. The per-tick
+// decision is lib/messaging/inboxPoll.js — executed here on every case —
+// and the page is pinned to calling it on an interval and on visibility.
+{
+  const hiddenPlan = inboxPollPlan({ hidden: true, activeId: "t1", wide: true, threadPaneShown: true });
+  ok("a hidden tab asks nothing — not the list, not the thread", !hiddenPlan.list && !hiddenPlan.thread && !hiddenPlan.markRead, JSON.stringify(hiddenPlan));
+  const noThread = inboxPollPlan({ hidden: false, activeId: null, wide: true, threadPaneShown: false });
+  ok("visible with nothing open → the list only", noThread.list && !noThread.thread && !noThread.markRead, JSON.stringify(noThread));
+  const desk = inboxPollPlan({ hidden: false, activeId: "t1", wide: true, threadPaneShown: false });
+  ok("visible from lg up with a conversation open → list AND thread, and the new message is read (it is on screen)", desk.list && desk.thread && desk.markRead, JSON.stringify(desk));
+  const phoneList = inboxPollPlan({ hidden: false, activeId: "t1", wide: false, threadPaneShown: false });
+  ok("a phone on the LIST pane re-reads the thread but does NOT mark it read — the badge is the point", phoneList.thread && !phoneList.markRead, JSON.stringify(phoneList));
+  const phoneThread = inboxPollPlan({ hidden: false, activeId: "t1", wide: false, threadPaneShown: true });
+  ok("a phone on the THREAD pane marks it read", phoneThread.markRead, JSON.stringify(phoneThread));
+  ok("the cadence is 15s or faster (was 60s)", INBOX_POLL_MS > 0 && INBOX_POLL_MS <= 15000, INBOX_POLL_MS);
+
+  ok("the page polls on INBOX_POLL_MS through inboxPollPlan", /const LIST_POLL_MS = INBOX_POLL_MS;/.test(pageOnly) && /const plan = inboxPollPlan\(\{/.test(pageOnly) && /setInterval\(tick, LIST_POLL_MS\)/.test(pageOnly));
+  ok("…re-reads the OPEN conversation quietly on each tick", /if \(!plan\.thread\) return;\s*const data = await loadThread\(id, \{ quiet: true \}\);/.test(pageOnly));
+  ok("…marks it read only when the plan says it is on screen", /if \(data && plan\.markRead\) markRead\(data\);/.test(pageOnly));
+  ok("…and ticks at once when the tab becomes visible, removing the listener on unmount", /addEventListener\("visibilitychange", onVisible\)/.test(pageOnly) && /removeEventListener\("visibilitychange", onVisible\)/.test(pageOnly) && /clearInterval\(timer\)/.test(pageOnly));
+  ok("a polled read for a conversation the reader has since left is dropped", /if \(quiet && activeRef\.current !== id\) return null;/.test(pageOnly));
+  ok("the manual 'Refresh from Facebook' stays as the fallback", /data-import-button/.test(pageOnly) && /fetchJson\("\/api\/messaging\/import", \{ method: "POST" \}\)/.test(pageOnly));
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 section("9. Wired into check:all");

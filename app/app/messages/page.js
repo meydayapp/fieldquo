@@ -128,15 +128,22 @@ import {
 } from "./ConversationBits";
 import { uploadFile } from "@/lib/media/uploadClient";
 import { threadRoomGroups } from "./threadRooms";
+import { INBOX_POLL_MS, inboxPollPlan } from "@/lib/messaging/inboxPoll";
 
 const ACTION =
   "inline-flex items-center gap-1.5 min-h-[36px] whitespace-nowrap rounded-md border border-border bg-card px-2.5 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-60";
 const TAG = "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold";
 
-/** How often the list is re-read while the tab is visible. 60s, the bell's
- *  cadence: a homeowner's reply is worth a minute, and the request is the
- *  same list read the screen already makes. */
-const LIST_POLL_MS = 60 * 1000;
+/** How often the list — and the open conversation — are re-read while the
+ *  tab is visible. It was 60s, the bell's cadence, and the list alone: on
+ *  2026-09-28 the owner read that as "it doesn't work as a stream". A chat
+ *  screen someone is looking at is not a badge. Both reads are requests the
+ *  screen already makes, quiet (no spinner), skipped while the tab is hidden,
+ *  and run at once when it comes back; lib/messaging/inboxPoll.js holds the
+ *  per-tick decision so the check script can execute it. No socket, no
+ *  realtime vendor: the webhook writes the row, and this is how the screen
+ *  finds out. */
+const LIST_POLL_MS = INBOX_POLL_MS;
 const CHIP =
   "min-h-[36px] shrink-0 whitespace-nowrap rounded-full border px-3 text-xs font-medium";
 
@@ -330,21 +337,6 @@ function MessagesScreen() {
     setLoading(false);
   }, [announceUnread]);
 
-  // The list re-read once a minute while the tab is visible — the same
-  // gate the bell uses. There was no list polling before 2026-09-12: a
-  // homeowner's reply appeared on the next navigation or on reload, and
-  // the in-tab notification above has nothing to compare without it.
-  // Quiet: no spinner, no error banner over a list that is already drawn
-  // (a dropped poll in a driveway is corrected by the next one).
-  useEffect(() => {
-    const tick = () => {
-      if (typeof document !== "undefined" && document.hidden) return;
-      load(query.trim(), platformFilter, { quiet: true });
-    };
-    const id = setInterval(tick, LIST_POLL_MS);
-    return () => clearInterval(id);
-  }, [load, query, platformFilter]);
-
   useEffect(() => {
     // A failure here leaves the assignee list empty, which renders as "nobody"
     // and no names — honest, and not worth an error banner over the inbox
@@ -372,6 +364,11 @@ function MessagesScreen() {
     }
     const result = await fetchList("/api/messaging/threads/" + encodeURIComponent(id));
     if (result.aborted) return null;
+    // A quiet (polled) read that comes back after the reader has opened a
+    // DIFFERENT conversation is dropped: painting it would put one
+    // homeowner's messages under another's name — and the composer, keyed
+    // on thread.id, would reset what they were typing.
+    if (quiet && activeRef.current !== id) return null;
     if (result.ok) {
       const data = result.data?.thread || null;
       setThread(data);
@@ -435,6 +432,27 @@ function MessagesScreen() {
   // the read. Marking read is a WRITE, so it goes through the same PATCH
   // everything else does rather than a second endpoint. A demo's threads are
   // computed, not stored, so nothing is written for one.
+  //
+  // One function for the two moments a conversation is read: opening it, and
+  // the poll below finding a new message in the one already open in front of
+  // the reader.
+  const markRead = useCallback((data) => {
+    if (!data?.id || !data.unread || String(data.id).startsWith("demo_")) return;
+    const id = data.id;
+    fetch("/api/messaging/threads/" + encodeURIComponent(id), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ read: true }),
+    })
+      .then((res) => {
+        if (!res.ok) return;
+        setThreads((rows) => (rows ? rows.map((r) => (r.id === id ? { ...r, unread: 0 } : r)) : rows));
+      })
+      // A failed "mark read" is not worth a message on screen: the badge
+      // stays up, which is the honest outcome, and the next open tries again.
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (!activeId) return undefined;
     let cancelled = false;
@@ -445,24 +463,12 @@ function MessagesScreen() {
         openedFor.current = activeId;
         setOpenedReadAt(lastReadInstant(data.messages, data.unread));
       }
-      if (!data.unread || String(data.id).startsWith("demo_")) return;
-      fetch("/api/messaging/threads/" + encodeURIComponent(activeId), {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ read: true }),
-      })
-        .then((res) => {
-          if (!res.ok) return;
-          setThreads((rows) => (rows ? rows.map((r) => (r.id === activeId ? { ...r, unread: 0 } : r)) : rows));
-        })
-        // A failed "mark read" is not worth a message on screen: the badge
-        // stays up, which is the honest outcome, and the next open tries again.
-        .catch(() => {});
+      markRead(data);
     })();
     return () => {
       cancelled = true;
     };
-  }, [activeId, loadThread]);
+  }, [activeId, loadThread, markRead]);
 
   // The URL carries the open thread, so a link from the review — or a reload
   // — lands in the conversation rather than on the list.
@@ -584,6 +590,49 @@ function MessagesScreen() {
   const busy = saving || isDemo || !canEdit;
 
   const wide = useWide();
+
+  // ── Live without a Sync press ─────────────────────────────────────────
+  //
+  // The list AND the open conversation, re-read every LIST_POLL_MS while the
+  // tab is visible, and at once when it becomes visible again — a message
+  // that arrived while the reader was in another tab is on screen the moment
+  // they come back, not up to 15s later. Hidden, nothing is asked: a
+  // background tab polling all day is load for nobody. Quiet: no spinner,
+  // no error banner over a screen already drawn (a dropped poll in a
+  // driveway is corrected by the next one).
+  //
+  // The open conversation is marked read on a poll only when it is actually
+  // IN FRONT of the reader — the thread pane on a phone, always from lg up.
+  // On a phone looking at the list, the badge is the whole point.
+  //
+  // This reads what the webhook (or the quarter-hour import) already wrote;
+  // it asks Meta nothing, so "Refresh from Facebook" stays what it was — the
+  // manual pull for when Meta has not delivered.
+  useEffect(() => {
+    const tick = async () => {
+      const id = activeRef.current;
+      const plan = inboxPollPlan({
+        hidden: typeof document !== "undefined" && document.hidden,
+        activeId: id,
+        wide,
+        threadPaneShown: pane === PANE_THREAD,
+      });
+      if (plan.list) load(query.trim(), platformFilter, { quiet: true });
+      if (!plan.thread) return;
+      const data = await loadThread(id, { quiet: true });
+      if (data && plan.markRead) markRead(data);
+    };
+    const onVisible = () => {
+      if (!document.hidden) tick();
+    };
+    const timer = setInterval(tick, LIST_POLL_MS);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [load, loadThread, markRead, query, platformFilter, wide, pane]);
+
   const toggleContext = () => {
     if (wide) setShowContext((v) => !v);
     else setPane((p) => (p === PANE_CONTEXT ? PANE_THREAD : PANE_CONTEXT));

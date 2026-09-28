@@ -124,6 +124,15 @@ Login for Business page says it outright: "config_id has replaced scope
   `pages_read_engagement`, `pages_manage_metadata`, `instagram_basic`,
   `instagram_content_publish`; add `pages_messaging`,
   `instagram_manage_messages`, `pages_manage_ads` when their review lands.
+  With `META_LEADS_ENABLED=1` also `leads_retrieval`. **This configuration,
+  not META_MESSAGING_SCOPE / META_LEADS_SCOPE, decides what every company
+  is granted** — `scope` is not sent when `config_id` is. Since 2026-09-28
+  Settings › Meta Ads prints one amber line per feature (Facebook messages,
+  Instagram messages, lead-ad forms) naming any permission the grant lacks,
+  so a permission missing here shows up there instead of as silence.
+  `ads_management` is listed by Meta's lead-ads pages and deliberately NOT
+  requested by FieldQuo (see META_LEADS_SCOPE) — adding it widens App
+  Review and is the owner's decision.
 - Save, copy the **Configuration ID** → `META_PAGES_CONFIG_ID` in Vercel,
   redeploy.
 
@@ -226,6 +235,28 @@ sign-up button. `META_WHATSAPP_CONFIG_ID` is *not* required for this door.
 > The 84 Facebook conversations now in /app/messages came from the
 > 15-minute import cron reading the inbox, not from webhooks.
 
+> **Checked again 2026-09-28 — still NOT configured.** The owner wrote to
+> the TrueFinish Page from Facebook and to @truefinishcabinets from
+> Instagram (18:56–19:10 UTC). Production logs hold **zero** requests to
+> `/api/meta/messaging/webhook`, `/api/meta/leads/webhook` or
+> `/api/meta/whatsapp/webhook` — not a GET verification, not a POST — in
+> every retained log line, and every Facebook/Instagram message in the
+> database arrived through the import (the `created − sent` lag is the
+> 15-minute cron or a Sync press, never seconds). Meta's Lead Ads Testing
+> Tool says the same thing in its own words: "App does not have a webhook
+> subscription". Meta delivers a Page field only when it is subscribed "at
+> both the page and app levels" (developers.facebook.com/docs/graph-api/
+> reference/page/subscribed_apps); FieldQuo does the Page level at connect,
+> and this dashboard form is the app level. Until it is saved, nothing can
+> be live, and the inbox is only as fresh as the last import.
+>
+> Two further findings the same day: the Page-level call never included
+> `leadgen` (fixed — it now rides on the same `subscribed_apps` POST when
+> `leads_retrieval` is granted, and falls back to the messaging fields alone
+> if Meta refuses it), and the TrueFinish Page was left **disconnected** at
+> 19:12:57 UTC (Settings › Meta Ads → Disconnect), so even a delivered
+> webhook would be answered `channel_disconnected` until it is reconnected.
+
 An object holds ONE callback URL, so the Page object cannot point `messages`
 at one route and `leadgen` at another. Point everything at the messaging
 webhook — it hands `leadgen` changes to the same import the leads route runs
@@ -239,7 +270,18 @@ webhook — it hands `leadgen` changes to the same import the leads route runs
   `messaging_postbacks`, and `leadgen`.
 - Object **Instagram**: same Callback URL and Verify token, **Verify and
   save**, then Subscribe on `messages`, `messaging_postbacks`,
-  `messaging_seen`, `message_reactions`.
+  `messaging_seen`, `message_reactions`. `messages` is the one that
+  matters: Instagram has no `message_echoes` field — "the message echo
+  notifications are included with the message webhook field"
+  (developers.facebook.com/docs/messenger-platform/webhooks) — and Instagram
+  fields can ONLY be chosen here: "You cannot use the subscribed_fields
+  parameter to configure or subscribe to Webhooks for Instagram. You must
+  use your app dashboard" (…/graph-api/reference/page/subscribed_apps).
+- On the **Instagram account itself** (the phone app, logged in as
+  @truefinishcabinets): Settings → Messages and story replies → Message
+  controls → Connected tools → **Allow access to messages** ON. Meta's
+  Instagram get-started page lists it as a requirement; without it the
+  webhook stays silent for DMs even with everything above done.
 - The red banner on both objects reads: *"Apps will only be able to receive
   test webhooks sent from the dashboard while the app is unpublished. No
   production data, including from app admins, developers or testers, will be

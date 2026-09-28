@@ -29,6 +29,9 @@ import {
   unsubscribePageWebhook,
   missingWebhookPermissions,
   inboxPlatformsGranted,
+  pageWebhookFields,
+  missingFeaturePermissions,
+  FEATURE_PERMISSIONS,
 } from "../lib/meta/pageConnect.js";
 import {
   PAGE_MESSAGING_WEBHOOK_FIELDS,
@@ -393,6 +396,109 @@ function stubFetch(reply) {
     missingWebhookPermissions(null).length === 2 && missingWebhookPermissions("").length === 2);
   ok("...and a fully granted list leaves nothing missing",
     missingWebhookPermissions(GRANTED).length === 0);
+}
+
+// ── `leadgen` rides on the same subscribe, and never at the inbox's cost ───
+//
+// 2026-09-28: Meta's Lead Ads Testing Tool reported the Page "not subscribed
+// to leadgen field". The messaging route imports a Page `leadgen` change, but
+// nothing ever put `leadgen` on the Page's subscribed_apps list, and Meta
+// delivers a field only when it is subscribed at the Page AND app levels.
+{
+  const LEADS_GRANTED = `${GRANTED},leads_retrieval,pages_manage_ads`;
+  ok("pageWebhookFields: messaging grant alone → exactly the four parser fields",
+    pageWebhookFields(GRANTED).join(",") === PAGE_MESSAGING_WEBHOOK_FIELDS.join(","), pageWebhookFields(GRANTED));
+  ok("pageWebhookFields: leads_retrieval granted → the four plus leadgen",
+    pageWebhookFields(LEADS_GRANTED).join(",") === [...PAGE_MESSAGING_WEBHOOK_FIELDS, "leadgen"].join(","), pageWebhookFields(LEADS_GRANTED));
+  ok("pageWebhookFields: an unreadable grant asks for no leadgen", !pageWebhookFields(null).includes("leadgen"));
+
+  {
+    const { calls, restore } = stubFetch({ status: 200, body: { success: true } });
+    const res = await subscribePageWebhook({ pageToken: "PAGE-TOKEN", pageId: "PAGE_1", grantedScopes: LEADS_GRANTED });
+    restore();
+    ok("with leads granted, ONE subscribe names messages AND leadgen",
+      calls.length === 1 && calls[0]?.body?.get("subscribed_fields") === [...PAGE_MESSAGING_WEBHOOK_FIELDS, "leadgen"].join(","),
+      calls.map((c) => c.body?.get("subscribed_fields")));
+    ok("…and stamps the subscription", res.webhookSubscribedAt instanceof Date && res.webhookSubscribeError === null, res);
+  }
+  {
+    // Meta refuses the whole list over leadgen (no ADVERTISE task, say): the
+    // retry without it must still subscribe the inbox.
+    const calls = [];
+    const original = globalThis.fetch;
+    const realWarn = console.warn;
+    const warned = [];
+    console.warn = (...a) => warned.push(a.join(" "));
+    globalThis.fetch = async (url, init = {}) => {
+      const body = init.body ? new URLSearchParams(String(init.body)) : null;
+      calls.push({ url: String(url), body });
+      const refused = String(body?.get("subscribed_fields") || "").includes("leadgen");
+      return {
+        ok: !refused,
+        status: refused ? 400 : 200,
+        headers: new Headers(),
+        json: async () => (refused ? { error: { code: 200, message: "(#200) leadgen requires ADVERTISE" } } : { success: true }),
+      };
+    };
+    const res = await subscribePageWebhook({ pageToken: "PAGE-TOKEN", pageId: "PAGE_1", grantedScopes: LEADS_GRANTED });
+    globalThis.fetch = original;
+    console.warn = realWarn;
+    ok("a leadgen refusal is retried once WITHOUT leadgen",
+      calls.length === 2 && calls[1]?.body?.get("subscribed_fields") === PAGE_MESSAGING_WEBHOOK_FIELDS.join(","),
+      calls.map((c) => c.body?.get("subscribed_fields")));
+    ok("…and the inbox is subscribed — a lead-form refusal never reads as 'messages are not arriving'",
+      res.webhookSubscribedAt instanceof Date && res.webhookSubscribeError === null, res);
+    ok("…and the lead half is logged by name", warned.some((l) => l.includes("leadgen refused")), warned);
+  }
+  {
+    const original = globalThis.fetch;
+    let n = 0;
+    globalThis.fetch = async () => { n += 1; throw new Error("ECONNRESET"); };
+    const res = await subscribePageWebhook({ pageToken: "PAGE-TOKEN", pageId: "PAGE_1", grantedScopes: LEADS_GRANTED });
+    globalThis.fetch = original;
+    ok("a NETWORK failure is not retried as if leadgen were the cause", n === 1 && res.webhookSubscribedAt === null && /network/.test(res.webhookSubscribeError || ""), { n, res });
+  }
+}
+
+// ── Which feature is missing which permission ──────────────────────────────
+//
+// The Pages connect runs on a Login CONFIGURATION (config_id), so what a
+// company is granted is whatever that configuration lists. A permission left
+// out of it disappears from every token, and until this the panel named only
+// publishing's gaps.
+{
+  const ALL = "pages_show_list,pages_read_engagement,pages_messaging,pages_manage_metadata,instagram_basic,instagram_manage_messages,leads_retrieval,pages_manage_ads";
+  ok("missingFeaturePermissions: an unreadable grant is null, never an all-clear",
+    missingFeaturePermissions(null, { messaging: true, leads: true }) === null);
+  ok("…everything granted → no rows", missingFeaturePermissions(ALL, { messaging: true, leads: true }).length === 0);
+  const noIg = missingFeaturePermissions(ALL.replace(",instagram_manage_messages", ""), { messaging: true, leads: true });
+  ok("…instagram_manage_messages missing → ONE row, Instagram messages, naming it",
+    noIg.length === 1 && noIg[0].feature === "instagramMessages" && noIg[0].missing.join(",") === "instagram_manage_messages", noIg);
+  const noLeads = missingFeaturePermissions("pages_show_list,pages_messaging,pages_manage_metadata,instagram_basic,instagram_manage_messages", { messaging: true, leads: true });
+  ok("…the lead permissions missing → a Lead forms row naming each",
+    noLeads.length === 1 && noLeads[0].feature === "leadForms" && ["leads_retrieval", "pages_read_engagement", "pages_manage_ads"].every((p) => noLeads[0].missing.includes(p)), noLeads);
+  ok("…a feature switched off on this deployment is never listed",
+    missingFeaturePermissions("pages_show_list", { messaging: false, leads: false }).length === 0);
+  ok("…ads_management is not claimed as missing (FieldQuo does not request it)",
+    !Object.values(FEATURE_PERMISSIONS).flat().includes("ads_management"));
+
+  const statusSrc = code("app/api/settings/social/status/route.js");
+  ok("the status route sends missingFeaturePermissions, gated on the two deployment switches",
+    /missingFeaturePermissions: missingFeaturePermissions\(shape\.scopes, \{\s*messaging: metaMessagingApproved\(\),\s*leads: metaLeadsScopeEnabled\(\),\s*\}\)/.test(statusSrc));
+  const panelSrc = code("app/components/settings/SocialPublishingPanel.js");
+  ok("the Settings panel prints one line per feature and the fix",
+    /connection\.missingFeaturePermissions\.filter\(\(row\) => FEATURE_LABEL_KEYS\[row\.feature\]\)\.map/.test(panelSrc) &&
+      /t\("app\.setSocial\.featureMissing", \{/.test(panelSrc) && /t\("app\.setSocial\.featureMissingFix"\)/.test(panelSrc));
+  for (const key of Object.keys(FEATURE_PERMISSIONS)) {
+    ok(`the panel has a label for ${key}`, new RegExp(`${key}: "app\\.setSocial\\.feature\\.${key}"`).test(panelSrc));
+  }
+  const newKeys = ["app.setSocial.featureMissing", "app.setSocial.featureMissingFix", ...Object.keys(FEATURE_PERMISSIONS).map((k) => `app.setSocial.feature.${k}`)];
+  for (const [lang, table] of Object.entries(APP_MESSAGES)) {
+    const missing = newKeys.filter((k) => typeof table[k] !== "string" || !table[k].trim());
+    ok(`${lang}: every per-feature permission string exists`, missing.length === 0, missing);
+    ok(`${lang}: featureMissing carries {feature} and {scopes}`,
+      /\{feature\}/.test(table["app.setSocial.featureMissing"] || "") && /\{scopes\}/.test(table["app.setSocial.featureMissing"] || ""));
+  }
 }
 
 // ── Disconnecting unsubscribes ─────────────────────────────────────────────
