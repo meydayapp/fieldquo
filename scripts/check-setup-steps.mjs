@@ -640,6 +640,124 @@ console.log("\n8. Time estimates and the progress line (2026-09-24)\n");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+console.log("\n9. \"Connect Google reviews\" waits for Google's approval (2026-09-28)\n");
+
+// The owner: "because we cannot integrate Google reviews yet we should remove
+// it from the additional set-ups." One helper decides —
+// googleBusinessAvailable() in lib/reviews/googleBusiness/availability.js —
+// and the snapshot hands its answer to the step as googleReviewsAvailable.
+{
+  const gr = (snap) => stepsFor({ ...EMPTY, ...snap }).find((x) => x.key === "google_reviews");
+  const shown = (snap) => remainingSteps(stepsFor({ ...EMPTY, ...snap })).some((x) => x.key === "google_reviews");
+
+  // Flag OFF: absent from the card, and out of "N of M done".
+  ok("google: not available → the row does not apply", gr({ googleReviewsAvailable: false }).applies === false);
+  ok("…and is not on the card", !shown({ googleReviewsAvailable: false }));
+  ok("…without taking any other row with it", remainingSteps(stepsFor({ ...EMPTY, googleReviewsAvailable: false })).length === TOTAL - 1);
+  {
+    const p = setupProgress(stepsFor({ ...EMPTY, googleReviewsAvailable: false }));
+    ok("…and is out of the progress total", p.total === TOTAL - 1 && p.done === 0, JSON.stringify(p));
+    // Approved testimonials would mark it done — a row that does not apply
+    // must not be counted as done either, or the owner reads "1 of 16 done"
+    // for a row they were never shown.
+    const d = setupProgress(stepsFor({ ...EMPTY, googleReviewsAvailable: false, approvedTestimonials: 3 }));
+    ok("…and not counted as done when testimonials would have finished it", d.done === 0 && d.total === TOTAL - 1, JSON.stringify(d));
+    const h = setupProgress(stepsFor({ ...EMPTY, googleReviewsAvailable: false, dismissed: ["google_reviews"] }));
+    ok("…nor as hidden when it had been hidden by hand", h.hidden === 0 && h.total === TOTAL - 1, JSON.stringify(h));
+  }
+  // Flag ON: back on the card and in the total, with no code change.
+  ok("google: available → the row applies", gr({ googleReviewsAvailable: true }).applies === true);
+  ok("…is on the card", shown({ googleReviewsAvailable: true }));
+  ok("…and in the progress total", setupProgress(stepsFor({ ...EMPTY, googleReviewsAvailable: true })).total === TOTAL);
+  ok("…and still leaves when connected or a testimonial is approved",
+    !shown({ googleReviewsAvailable: true, googleReviewsConnected: true }) && !shown({ googleReviewsAvailable: true, approvedTestimonials: 1 }));
+  // The file's rule: only an explicit false removes a row.
+  ok("google: an absent signal APPLIES (the snapshot always sets it)", gr({}).applies === true && stepsFor({}).find((x) => x.key === "google_reviews").applies === true);
+  ok("google: a non-boolean is not false", gr({ googleReviewsAvailable: "no" }).applies === true);
+
+  // The producer: the snapshot sets it from the ONE helper, every time.
+  const snap = stripComments(source("lib/setupStepsSnapshot.js"));
+  ok("the snapshot reports googleReviewsAvailable from googleBusinessAvailable()",
+    /import \{ googleBusinessAvailable \} from "@\/lib\/reviews\/googleBusiness\/availability";/.test(snap) &&
+      /googleReviewsAvailable: googleBusinessAvailable\(\),/.test(snap));
+  const stepsSrc = stripComments(source("lib/setupSteps.js"));
+  ok("the step reads the snapshot field, never the environment",
+    /appliesWhen: \(s\) => s\.googleReviewsAvailable !== false/.test(stepsSrc) && !/process\.env/.test(stepsSrc));
+}
+
+// The helper itself, executed against the environment it reads.
+{
+  const { googleBusinessApiApproved, googleBusinessAvailable } = await import("@/lib/reviews/googleBusiness/availability");
+  const KEYS = ["GOOGLE_BUSINESS_API_APPROVED", "GOOGLE_OAUTH_CLIENT_ID", "GOOGLE_OAUTH_CLIENT_SECRET", "META_TOKEN_ENCRYPTION_KEY"];
+  const saved = Object.fromEntries(KEYS.map((k) => [k, process.env[k]]));
+  const setEnv = (vals) => {
+    for (const k of KEYS) {
+      if (vals[k] === undefined) delete process.env[k];
+      else process.env[k] = vals[k];
+    }
+  };
+  const OAUTH = {
+    GOOGLE_OAUTH_CLIENT_ID: "client-id.apps.googleusercontent.com",
+    GOOGLE_OAUTH_CLIENT_SECRET: "secret",
+    META_TOKEN_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString("base64"),
+  };
+  try {
+    setEnv({ ...OAUTH });
+    ok("helper: OAuth configured, flag unset → not available (production today)", googleBusinessApiApproved() === false && googleBusinessAvailable() === false);
+    for (const junk of ["true", "yes", "0", "", "11", "on"]) {
+      setEnv({ ...OAUTH, GOOGLE_BUSINESS_API_APPROVED: junk });
+      ok(`helper: GOOGLE_BUSINESS_API_APPROVED=${JSON.stringify(junk)} → not available`, googleBusinessAvailable() === false);
+    }
+    setEnv({ ...OAUTH, GOOGLE_BUSINESS_API_APPROVED: "1" });
+    ok("helper: flag \"1\" + OAuth configured → available", googleBusinessApiApproved() === true && googleBusinessAvailable() === true);
+    setEnv({ ...OAUTH, GOOGLE_BUSINESS_API_APPROVED: " 1 " });
+    ok("helper: surrounding whitespace is trimmed", googleBusinessAvailable() === true);
+    setEnv({ GOOGLE_BUSINESS_API_APPROVED: "1" });
+    ok("helper: approved but no OAuth client → not available", googleBusinessApiApproved() === true && googleBusinessAvailable() === false);
+  } finally {
+    setEnv(saved);
+  }
+
+  // One reader of the flag in the running code.
+  const { readdirSync, statSync } = await import("node:fs");
+  const walk = (dir, out = []) => {
+    for (const name of readdirSync(dir)) {
+      if (name === "node_modules" || name.startsWith(".")) continue;
+      const full = `${dir}/${name}`;
+      if (statSync(full).isDirectory()) walk(full, out);
+      else if (/\.(js|jsx|mjs|ts|tsx)$/.test(name)) out.push(full);
+    }
+    return out;
+  };
+  const readers = [...walk("app"), ...walk("lib")].filter((f) => /process\.env\.GOOGLE_BUSINESS_API_APPROVED/.test(source(f)));
+  ok("the flag is read in exactly one file", readers.length === 1 && readers[0] === "lib/reviews/googleBusiness/availability.js", readers.join(","));
+  ok("docs/VERCEL.md has a row for GOOGLE_BUSINESS_API_APPROVED", /^\| `GOOGLE_BUSINESS_API_APPROVED` \|/m.test(source("docs/VERCEL.md")));
+}
+
+// Settings › Reviews (and the home dialog around the same card): a plain
+// sentence instead of a live button, from the same helper.
+{
+  const route = stripComments(source("app/api/settings/reviews/route.js"));
+  ok("GET /api/settings/reviews sends available: googleBusinessAvailable()", /available: googleBusinessAvailable\(\),/.test(route));
+  const card = stripComments(source("app/app/settings/reviews/GoogleBusiness.js"));
+  const awaiting = /!connection && !available \? \(\s*<p[^>]*data-gbp-awaiting-approval>([\s\S]*?)<\/p>/.exec(card);
+  ok("the card has an awaiting-approval branch, before the Connect button",
+    Boolean(awaiting) && card.indexOf("data-gbp-awaiting-approval") < card.indexOf('href="/api/reviews/google/connect"'));
+  ok("…which says the sentence and draws no link or button",
+    Boolean(awaiting) && /app\.setReviews\.gbpAwaitingApproval/.test(awaiting[1]) && !/<a|<button|href=/.test(awaiting[1]));
+  ok("…and reads `available` from the server, never a literal", /const available = Boolean\(googleBusiness\?\.available\);/.test(card));
+  const connect = stripComments(source("app/api/reviews/google/connect/route.js"));
+  ok("the connect route refuses with not_approved before the consent redirect",
+    /if \(!googleBusinessAvailable\(\)\) return settings\(\{ google: "not_approved" \}\);/.test(connect) &&
+      connect.indexOf("googleBusinessAvailable()") < connect.indexOf("buildBusinessAuthorizeUrl({"));
+  ok("…and the Reviews page has a sentence for that word", /not_approved: "app\.setReviews\.gbpAwaitingApproval"/.test(source("app/app/settings/reviews/page.js")));
+  const langs = Object.keys(APP_MESSAGES);
+  const missing = langs.filter((code) => !String(APP_MESSAGES[code]?.["app.setReviews.gbpAwaitingApproval"] || "").trim());
+  ok("the sentence is in all nine languages", missing.length === 0 && langs.length === 9, missing.join(","));
+  ok("…and the English is the owner's", APP_MESSAGES.en["app.setReviews.gbpAwaitingApproval"] === "Google review import is waiting on Google's approval.");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 console.log(`\n${pass} passed, ${failures.length} failed\n`);
 if (failures.length) {
   for (const f of failures) console.log(`  - ${f}`);

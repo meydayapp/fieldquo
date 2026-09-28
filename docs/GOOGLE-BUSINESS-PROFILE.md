@@ -76,8 +76,20 @@ To apply:
    whole project — every contractor; the nightly cron reads one company at
    a time and a company's reviews are a page or two, so that is plenty.
 
-Until this lands, "Connect" works (the OAuth half is real), "Pick your
-listing" prints the refusal, and nothing else changes.
+Until this lands, nothing offers the connection (2026-09-28, the owner:
+"because we cannot integrate Google reviews yet we should remove it from
+the additional set-ups"): the home page's "Connect Google reviews" set-up
+row is off the card and out of its "N of M done" count, so it is also absent
+from the onboarding next-steps email; Settings › Reviews says *Google review
+import is waiting on Google's approval* instead of drawing a Connect button;
+and `/api/reviews/google/connect` redirects back with `not_approved`. All
+four read one helper, `googleBusinessAvailable()` in
+`lib/reviews/googleBusiness/availability.js`.
+
+5. **When Google's approval email arrives, set `GOOGLE_BUSINESS_API_APPROVED=1`
+   in Vercel (Production) and redeploy.** Exactly `1`. The row, the button
+   and the route come back on their own; nothing else changes. Nothing on
+   our side can observe the approval — that is why it is a flag.
 
 ### 2. Sensitive-scope verification — who may consent
 
@@ -111,6 +123,7 @@ The calendar's two scopes already need this verification
 | State at Google | What the screen says | What the cron does |
 |---|---|---|
 | OAuth client vars unset | "Google sign-in isn't set up on this deployment yet. Missing: …" — no button | `skipped: "not_configured"` |
+| Not yet approved (`GOOGLE_BUSINESS_API_APPROVED` unset) | "Google review import is waiting on Google's approval." — no button; the home set-up row is hidden. A company already connected keeps its connected view (so it can disconnect) | unchanged — it refreshes only the connections that already exist |
 | Connected, quota 0 | the quota sentence above, with Google's words, on Pick your listing / Refresh; stamped on the row as `lastError` | records the same sentence; nothing else |
 | Connected, wrong account (403) | "The connected account must be an owner or manager of the listing …" | same |
 | Token expired (401 / invalid_grant) | "The connection to Google has expired. Disconnect and connect again." | same |

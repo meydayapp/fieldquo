@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 28 September 2026 ("Connect Google reviews" is off the home set-up card, out of its "N of M done" count and out of the next-steps email until Google approves the Business Profile API; Settings › Reviews says "Google review import is waiting on Google's approval" with no Connect button and the connect route refuses `not_approved` — one helper, `googleBusinessAvailable()`, and one flag the owner sets on the approval day, `GOOGLE_BUSINESS_API_APPROVED=1` — see "Connect Google reviews waits for Google" below)
 Last updated: 28 September 2026 (annual-first plan pickers and live promotions — the 1-year tab by default on every picker, PlatformPromotion wired end to end through lib/billing/promotions.js into /pricing, the in-app picker, signup and Stripe Checkout as a coupon; schema SQL owed before deploy — see the section of that name below)
 Last updated: 28 September 2026 ("View as company" follow-up: the heal-on-read writes that live in the route itself now skip for the read-only session — company / appointment geocode on schedule/map and business-info, the voice number-repair GET heal, the Business Profile locations stamps; and, through a `readOnly` flag the shared libs now take, shift-request expiry + crew notifications, the onboarding stamp, the gallery merge on seven reads, the voice readiness heal and the Google busy stamps; see "View as company" reads everything)
 Last updated: 28 September 2026 ("View as company": an active superadmin's read-only session reads as the company's real OWNER membership — quotes, client contact details, equipment, invoices, payroll, insights all load; writes still refused by method in middleware + assertReadOnly, plus the OAuth/Stripe-return GETs now listed in lib/platform/impersonationToken.js; the GETs that write on read skip for the session; `npm run check:impersonation`)
@@ -64,6 +65,47 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## Connect Google reviews waits for Google (28 September 2026)
+
+The owner: "because we cannot integrate Google reviews yet we should remove
+it from the additional set-ups." Google has not approved FieldQuo's Business
+Profile API "Basic API Access" application, so every project call answers
+429 and a company that followed the set-up row reached a dead end.
+
+- **One helper, one flag.** `googleBusinessAvailable()` in
+  `lib/reviews/googleBusiness/availability.js` = the existing OAuth client
+  check (`googleCalendarConfigured()`) AND `GOOGLE_BUSINESS_API_APPROVED=1`.
+  No existing flag captured Google's approval — the OAuth client is set
+  today because the calendar uses it — and nothing on our side can observe
+  the approval, so it is a flag. Row in `docs/VERCEL.md`; step 5 in
+  `docs/GOOGLE-BUSINESS-PROFILE.md`.
+- **The home card.** `lib/setupStepsSnapshot.js` reports it as
+  `googleReviewsAvailable`; the `google_reviews` step's `appliesWhen` takes
+  the row off the card while it is false, and `setupProgress` already counts
+  only applicable rows, so "N of M done" drops it too (never counted as done
+  or hidden). The onboarding next-steps email, the platform sample of it and
+  the sales check-in all read `remainingSteps(stepsFor(loadSetupSnapshot()))`,
+  so they follow with no change of their own.
+- **Settings › Reviews** (and the home dialog around the same card): with
+  the OAuth client configured but the flag off and no connection, one
+  sentence — "Google review import is waiting on Google's approval." plus the
+  existing "paste your reviews below" — instead of the Connect button. A
+  company already connected keeps its connected view so it can disconnect.
+  `/api/reviews/google/connect` redirects back with `not_approved`, which
+  the page prints with the same sentence. Nine languages.
+- **Checks.** `check:setup-steps` §9 (flag off: absent, out of the total, not
+  done even with approved testimonials; flag on: present; the helper
+  executed against its env; the one reader; the settings sentence and the
+  connect refusal) and `check:onboarding-next-steps` §7f (the letter lists
+  it only with the flag on). Both fail on the previous code.
+- **Owed, owner:** set `GOOGLE_BUSINESS_API_APPROVED=1` in Vercel the day
+  Google's approval email arrives, and redeploy. Not before — it would bring
+  back a Connect button whose every read is refused.
+- **Left as is, deliberately:** Settings › Presentation's footnote still
+  links "Connect Google reviews" to `/app/settings/reviews#google-business`;
+  it lands on the Reviews page (testimonials, paste import) and the card
+  there now says the approval is pending.
 
 ## Annual-first plan pickers, and promotions that actually discount (28 September 2026)
 

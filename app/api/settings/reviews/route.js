@@ -33,6 +33,7 @@ import { ndefSize, tagThatFits, NTAG215_BYTES } from "@/lib/reviews/vcard";
 import { appleWalletConfigured, appleWalletMissing, googleWalletConfigured, googleWalletMissing } from "@/lib/reviews/wallet/config";
 import { googleCalendarConfigured, googleCalendarMissing } from "@/lib/calendar/googleClient";
 import { getBusinessConnection, publicBusinessShape } from "@/lib/reviews/googleBusiness/connection";
+import { googleBusinessAvailable } from "@/lib/reviews/googleBusiness/availability";
 
 const HOUR = 60 * 60 * 1000;
 
@@ -119,6 +120,10 @@ export async function GET(request) {
     googleBusiness: {
       configured: googleCalendarConfigured(),
       missing: googleCalendarMissing(),
+      // Configured AND Google has approved the Business Profile API — the
+      // same answer the home page's set-up row is hidden by. The card draws
+      // no Connect button while it is false.
+      available: googleBusinessAvailable(),
       connection: publicBusinessShape(connection),
     },
   });

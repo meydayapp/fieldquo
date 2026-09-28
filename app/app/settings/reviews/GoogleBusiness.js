@@ -11,6 +11,14 @@
 //   not configured   the OAuth client is not on this deployment (the same
 //                    GOOGLE_OAUTH_CLIENT_ID/SECRET the calendar uses). One
 //                    sentence naming the variables; no button.
+//   awaiting Google  the client is there but Google has not approved the
+//                    Business Profile API (`available` false —
+//                    lib/reviews/googleBusiness/availability.js, the same
+//                    answer that hides the home page's set-up row). One
+//                    sentence saying so; no button, because consent would
+//                    succeed and every read after it be refused. A company
+//                    already connected keeps its connected view, so it can
+//                    still disconnect.
 //   connected, refused   Google answered — and on a project whose Business
 //                    Profile API quota is still 0 (every new project) it
 //                    answers 429 on the first call. The sentence the server
@@ -46,6 +54,7 @@ export default function GoogleBusiness({ googleBusiness, outcomeKey, onChanged }
   const { t } = useTranslation();
   const connection = googleBusiness?.connection || null;
   const configured = Boolean(googleBusiness?.configured);
+  const available = Boolean(googleBusiness?.available);
 
   const [reviews, setReviews] = useState(null);
   const [locations, setLocations] = useState(null);
@@ -172,6 +181,10 @@ export default function GoogleBusiness({ googleBusiness, outcomeKey, onChanged }
           {t("app.setReviews.gbpNotSetUp")}{" "}
           <span className="font-mono">{(googleBusiness?.missing || []).join(", ")}</span>{" "}
           {t("app.setReviews.gbpPasteInstead")}
+        </p>
+      ) : !connection && !available ? (
+        <p className="text-xs text-muted-foreground" data-gbp-awaiting-approval>
+          {t("app.setReviews.gbpAwaitingApproval")} {t("app.setReviews.gbpPasteInstead")}
         </p>
       ) : !connection ? (
         <div className="space-y-2">
