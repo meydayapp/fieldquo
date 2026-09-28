@@ -545,7 +545,10 @@ ok(
 
 // The hourly floor is the same cost basis, for the trades that price by time.
 const { calculateHourlyFloor } = await import("@/lib/analytics/minimumPrice");
-const hourly = await calculateHourlyFloor({ companyId: "co", billableHoursPerMonth: 100 });
+// Pinned to the same NOW as `burn` above. Unpinned, the floor read the wall
+// clock while `burn` did not, and the loan's interest — which falls every month
+// it amortises — made the two disagree from 2026-09-27 onward.
+const hourly = await calculateHourlyFloor({ companyId: "co", billableHoursPerMonth: 100, asOf: NOW });
 ok("the hourly floor reports the cost basis", hourly.monthlyFixedCosts === burn.totalMonthlyCost, hourly);
 // The RATE itself, not just the figure printed above it. Mutation testing found
 // this gap: swapping the divisor back to the cash burn left `monthlyFixedCosts`
