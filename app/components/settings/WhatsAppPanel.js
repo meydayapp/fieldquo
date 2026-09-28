@@ -15,6 +15,18 @@
 // in app/api/settings/whatsapp/connect (AGENTS.md: hiding a control is not
 // access control; both halves ship together).
 //
+// ── …nor while Meta has not approved FieldQuo to onboard businesses ───────
+//
+// With the switch ON, Embedded Signup still dead-ends on Meta's own page
+// ("FieldQuo can't onboard customers right now") for every company that is
+// not FieldQuo's own, until Meta approves FieldQuo as a WhatsApp Tech
+// Provider (META_WHATSAPP_ONBOARDING_APPROVED — lib/meta/whatsappOnboarding
+// .js). Until then a company sees ONE sentence and no control. FieldQuo staff
+// (an active /platform session in the same browser) still get both doors,
+// labelled as staff-only, so the flow can be tested and recorded for Meta's
+// review. Which card shows is lib/meta/whatsappPanelState.js, a pure function
+// of the status route's answer, executed by scripts/check-whatsapp.mjs.
+//
 // ── Why the 24-hour window is explained HERE ──────────────────────────────
 //
 // Because it is the single thing about WhatsApp that will surprise a
@@ -36,10 +48,12 @@
 // WhatsApp → API Setup, a system user, a permanent token. The collapsed
 // "advanced" section below the sign-up button takes those three values and
 // posts them to app/api/settings/whatsapp/manual, which proves the token
-// against Meta before storing anything. Collapsed, because for every company
-// that is NOT the one running the Meta app it is the wrong door — the
-// sign-up button is the one Meta wants them through — and an open form with
-// three cryptic fields would be the thing the eye lands on first.
+// against Meta before storing anything. Staff-only, before AND after Meta's
+// approval: the token has to come from FieldQuo's own Meta app, so for every
+// company that is not the one running it this is a door that cannot open —
+// and the route refuses a non-staff POST, not just this panel. Collapsed even
+// for staff, because an open form with three cryptic fields would be the
+// thing the eye lands on first.
 //
 // The token field is a password input with autocomplete off, is never
 // echoed back (the route returns publicChannelShape, which has no token
@@ -57,6 +71,7 @@ import {
   KeyRound,
   RefreshCw,
   ShieldAlert,
+  ShieldCheck,
 } from "lucide-react";
 // lucide ships NO brand marks — the bio-link page drew these as inline SVG and
 // this reuses that one set rather than a second that drifts from it.
@@ -64,6 +79,7 @@ import { SocialGlyph } from "@/app/components/links/linkIcons";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { fetchJson } from "@/lib/fetchJson";
 import { WHATSAPP_SETTINGS_PATH } from "@/lib/messaging/whatsappSettingsPath";
+import { whatsAppPanelState } from "@/lib/meta/whatsappPanelState";
 
 // Every `whatsappError` value app/api/settings/whatsapp/{connect,callback} can
 // redirect with. Anything unrecognised falls to the unknown line rather than
@@ -220,22 +236,30 @@ export default function WhatsAppPanel() {
   }
 
   const channels = status?.channels || [];
-  const canConnect = Boolean(
-    status?.connectEnabled && status?.fullyConfigured && status?.signupConfigured,
-  );
-  // The pasted-credential door needs the flag and the credentials, but NOT
-  // the Embedded Signup configuration — that is the one thing it exists to
-  // do without. Withheld under a support session: the route would refuse the
-  // POST (non-negotiable #3), and a form that would be refused is not drawn.
-  const canManual = Boolean(
-    status?.connectEnabled && status?.fullyConfigured && !status?.readOnly,
+  // Every "which card" decision, from the status route's answer — see
+  // lib/meta/whatsappPanelState.js, and this file's header for why a company
+  // may see no way in at all yet.
+  const view = whatsAppPanelState(status);
+
+  // "Visible to FieldQuo staff only — for testing and Meta's review". Said on
+  // the control itself so the owner, recording the review video, and anyone
+  // else on staff never mistakes it for what a company sees.
+  const staffLabel = (
+    <p
+      className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-1 text-xs font-medium text-foreground"
+      data-whatsapp-staff-only
+    >
+      <ShieldCheck size={13} aria-hidden="true" />
+      {t("app.setWhatsApp.staffOnly")}
+    </p>
   );
 
   // A function rather than a component so it closes over this panel's state
   // without a second round of props, and so it can be placed in two of the
   // cards above without being mounted twice.
-  const manualSection = () => (
+  const manualSection = (withStaffLabel) => (
     <div className="rounded-lg border border-border bg-muted/30" data-whatsapp-manual>
+      {withStaffLabel && <div className="px-3 pt-3">{staffLabel}</div>}
       <button
         type="button"
         onClick={() => setManualOpen((o) => !o)}
@@ -372,11 +396,27 @@ export default function WhatsAppPanel() {
         </div>
       )}
 
+      {/* State 0 — Meta has not approved FieldQuo to onboard businesses, and
+          this viewer is not staff. One sentence, NO control: Embedded Signup
+          would end on Meta's own "can't onboard customers right now" page,
+          and the advanced block needs a token no company can make. */}
+      {view.comingSoon && (
+        <div className="bg-card border border-border rounded-xl p-5" data-whatsapp-coming-soon>
+          <div className="flex items-start gap-2">
+            <Clock size={18} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <p className="text-sm text-foreground">
+              {t("app.setWhatsApp.comingSoon")}
+              {view.comingSoonInboxKey && <> {t(view.comingSoonInboxKey)}</>}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* State 1 — waiting on Meta. The honest sentence, and NO connect
           control: whatsapp_business_messaging has not been approved, so there
           is nothing a contractor can do here today and pretending otherwise
           would be the dead button AGENTS.md is built around. */}
-      {status && !status.connectEnabled && (
+      {view.showAwaiting && (
         <div className="bg-card border border-border rounded-xl p-5 space-y-2">
           <div className="flex items-center gap-2">
             <Clock size={18} className="text-amber-600 dark:text-amber-400 shrink-0" />
@@ -390,7 +430,7 @@ export default function WhatsAppPanel() {
           Two different missing things, named separately: app credentials are a
           shared Meta setting, and the Embedded Signup configuration id is one
           specific thing created once in the App Dashboard. */}
-      {status?.connectEnabled && !status?.fullyConfigured && (
+      {view.showNotConfigured && (
         <div className="bg-card border border-border rounded-xl p-5 space-y-2">
           <div className="flex items-center gap-2">
             <ShieldAlert size={18} className="text-muted-foreground shrink-0" />
@@ -401,7 +441,7 @@ export default function WhatsAppPanel() {
           <p className="text-sm text-muted-foreground">{t("app.setWhatsApp.notConfiguredBody")}</p>
         </div>
       )}
-      {status?.connectEnabled && status?.fullyConfigured && !status?.signupConfigured && (
+      {view.showNoSignupConfig && (
         <div className="bg-card border border-border rounded-xl p-5 space-y-3">
           <div className="flex items-center gap-2">
             <ShieldAlert size={18} className="text-muted-foreground shrink-0" />
@@ -413,13 +453,14 @@ export default function WhatsAppPanel() {
           {/* No sign-up configuration is exactly the case the second door
               covers, so it is offered here too and not only under the
               sign-up button. */}
-          {canManual && channels.length === 0 && manualSection()}
+          {view.manualInNoSignupCard && manualSection(view.manualStaffLabel)}
         </div>
       )}
 
       {/* State 3 — ready, nothing connected. */}
-      {canConnect && channels.length === 0 && (
+      {view.showConnectCard && (
         <div className="bg-card border border-border rounded-xl p-5 space-y-3">
+          {view.connectCardStaffLabel && staffLabel}
           <h3 className="font-semibold text-foreground">
             {t("app.setWhatsApp.notConnectedTitle")}
           </h3>
@@ -433,7 +474,7 @@ export default function WhatsAppPanel() {
             <SocialGlyph platform="whatsapp" size={16} />
             {t("app.setWhatsApp.connect")}
           </a>
-          {canManual && manualSection()}
+          {view.manualInConnectCard && manualSection(view.manualStaffLabel)}
         </div>
       )}
 

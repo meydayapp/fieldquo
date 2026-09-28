@@ -1246,20 +1246,24 @@ ok(
 );
 
 const panelSrc = read("app/components/settings/WhatsAppPanel.js");
+// The panel's card decisions moved into lib/meta/whatsappPanelState.js so
+// section 15 can EXECUTE them; these keep the original intent against the
+// file that now holds each decision.
+const panelStateSrc = read("lib/meta/whatsappPanelState.js");
 ok(
   "the panel says what is blocked when the flag is off",
-  /!status\.connectEnabled/.test(panelSrc) && /awaitingTitle/.test(panelSrc),
+  /showAwaiting: live && !connectEnabled/.test(panelStateSrc) &&
+    orderedInSource(panelSrc, "view.showAwaiting && (", "awaitingTitle"),
 );
 ok(
   "…and `canConnect` is derived from the flag, not from the channel list",
-  /canConnect = Boolean\(\s*status\?\.connectEnabled/.test(panelSrc),
+  /const canConnect = signupDoor && connectEnabled && fullyConfigured && signupConfigured;/.test(panelStateSrc),
 );
 ok(
-  "…so the ONE connect link is inside the canConnect block and nowhere else",
+  "…so the ONE connect link is inside the connect card and nowhere else",
   (panelSrc.match(/href="\/api\/settings\/whatsapp\/connect"/g) || []).length === 1 &&
-    panelSrc.indexOf("canConnect && channels.length === 0") > 0 &&
-    panelSrc.indexOf("canConnect && channels.length === 0") <
-      panelSrc.indexOf('href="/api/settings/whatsapp/connect"'),
+    /showConnectCard = canConnect && !hasChannels/.test(panelStateSrc) &&
+    orderedInSource(panelSrc, "view.showConnectCard && (", 'href="/api/settings/whatsapp/connect"'),
 );
 ok(
   "the panel explains the 24-hour rule where a contractor connects",
@@ -2655,7 +2659,7 @@ ok("…holding the new token", decryptToken(rows.messagingChannel[0].accessToken
 globalThis.__FQ_MEMBER = async () => globalThis.__FQ_SESSION;
 register(
   `data:text/javascript,${encodeURIComponent(`
-const STUBS = { "@/lib/currentMember": "fq-stub:member", "next/server": "fq-stub:next" };
+const STUBS = { "@/lib/currentMember": "fq-stub:member", "next/server": "fq-stub:next", "next/headers": "fq-stub:headers" };
 export async function resolve(specifier, context, nextResolve) {
   if (STUBS[specifier]) return { url: STUBS[specifier], shortCircuit: true };
   return nextResolve(specifier, context);
@@ -2665,11 +2669,16 @@ export async function load(url, context, nextLoad) {
     return { format: "module", shortCircuit: true,
       source: "export const getCurrentMember = (...a) => globalThis.__FQ_MEMBER(...a);" };
   }
+  if (url === "fq-stub:headers") {
+    return { format: "module", shortCircuit: true,
+      source: "export async function cookies() { return { set: (...a) => (globalThis.__FQ_COOKIES_SET ||= []).push(a), get: () => undefined }; }" };
+  }
   if (url === "fq-stub:next") {
     return { format: "module", shortCircuit: true, source: \`
 export class NextResponse {
   constructor(body, init) { this.body = body; this.status = init?.status ?? 200; this.headers = new Map(Object.entries(init?.headers ?? {})); }
   static json(body, init) { const r = new NextResponse(body, init); r.json = async () => body; return r; }
+  static redirect(url, status) { const r = new NextResponse(null, { status: status ?? 307 }); r.location = String(url); r.headers.set("location", String(url)); return r; }
 }\` };
   }
   return nextLoad(url, context);
@@ -2679,6 +2688,32 @@ export class NextResponse {
 const manualRoute = await import("@/app/api/settings/whatsapp/manual/route.js");
 
 const ADMIN = { id: "mem_1", userId: "user_1", companyId: "company_REAL", role: "owner" };
+
+// The pasted-credential door is FieldQuo-staff-only (lib/meta/
+// whatsappOnboarding.js), so every request in this section is made AS staff
+// unless it says otherwise: a real platform-token signed with the real
+// primitive, and an active PlatformAdmin row — the two things the helper
+// re-reads. Section 15 executes the non-staff side.
+process.env.PLATFORM_JWT_SECRET ||= "check-whatsapp-platform-secret";
+const { SignJWT } = await import("jose");
+const STAFF_ADMIN = { id: "padm_staff", email: "staff@fieldquo.test", role: "superadmin", active: true };
+function platformToken(adminId, role = "superadmin", extra = {}) {
+  return new SignJWT({ adminId, role, ...extra })
+    .setProtectedHeader({ alg: "HS256" })
+    .setExpirationTime("1h")
+    .setIssuedAt()
+    .sign(new TextEncoder().encode(process.env.PLATFORM_JWT_SECRET));
+}
+/** A NextRequest's cookie jar, on a plain Request. */
+function withCookies(req, jar) {
+  req.cookies = { get: (name) => (jar[name] ? { name, value: jar[name] } : undefined) };
+  return req;
+}
+async function asStaff(req, admin = STAFF_ADMIN) {
+  if (!rows.platformAdmin.some((r) => r.id === admin.id)) rows.platformAdmin.push({ ...admin });
+  return withCookies(req, { "platform-token": await platformToken(admin.id, admin.role) });
+}
+
 let ipSeq = 0;
 const logged = [];
 const realConsoleError = console.error;
@@ -2694,7 +2729,7 @@ function restoreConsole() {
   console.warn = realConsoleWarn;
   console.log = realConsoleLog;
 }
-async function postManual(body, { session = ADMIN, sameIp = false, method = "POST" } = {}) {
+async function postManual(body, { session = ADMIN, sameIp = false, method = "POST", staff = true } = {}) {
   globalThis.__FQ_SESSION = session;
   if (!sameIp) ipSeq++;
   const req = new Request("http://app.local/api/settings/whatsapp/manual", {
@@ -2702,6 +2737,9 @@ async function postManual(body, { session = ADMIN, sameIp = false, method = "POS
     headers: { "content-type": "application/json", "x-forwarded-for": `10.0.0.${ipSeq}` },
     body: body === undefined ? undefined : typeof body === "string" ? body : JSON.stringify(body),
   });
+  if (staff === true) await asStaff(req);
+  else if (staff) await asStaff(req, staff);
+  else withCookies(req, {});
   captureConsole();
   let res;
   try {
@@ -2859,7 +2897,7 @@ const panelSrc2 = read("app/components/settings/WhatsAppPanel.js");
 ok("the token field is a password input with autocomplete off", /type="password"[\s\S]{0,120}autoComplete="off"/.test(panelSrc2));
 ok("…posted to the manual route", /\/api\/settings\/whatsapp\/manual/.test(panelSrc2));
 ok("…and cleared from state after a refusal", /accessToken: ""/.test(panelSrc2));
-ok("the panel withholds the form under a read-only (impersonated) session", /!status\?\.readOnly/.test(panelSrc2));
+ok("the panel withholds the form under a read-only (impersonated) session", /status\?\.readOnly !== true/.test(read("lib/meta/whatsappPanelState.js")) && /view\.manualIn(Connect|NoSignup)Card && manualSection/.test(panelSrc2));
 ok("…and the status route reports readOnly from the member's impersonation flag", /readOnly: Boolean\(member\.impersonation\)/.test(read("app/api/settings/whatsapp/status/route.js")));
 ok("the panel prints which door a connected number came through", /viaManual/.test(panelSrc2) && /viaSignup/.test(panelSrc2));
 ok("the manual route goes through memberOrRefusal and isBillingAdmin", /memberOrRefusal\(request\)/.test(manualSrc) && /isBillingAdmin\(member\.role\)/.test(manualSrc));
@@ -2871,6 +2909,289 @@ ok("…validates through the pure helper rather than an inline regex", /validate
 ok("the schema column is additive and nullable", /connectedVia String\?/.test(read("prisma/schema.prisma")));
 ok("the feature registry's prefix covers the new route", feature?.apiPrefixes.some((p) => "/api/settings/whatsapp/manual".startsWith(p)));
 ok("the dashboard doc has the API Setup + system user subsection", /API Setup \+ system user token/.test(read("docs/META-DASHBOARD-CURRENT.md")));
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("15. Before Meta approves FieldQuo as a Tech Provider — no dead door for a company");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The owner's report: with the switch on, "Connect WhatsApp" opened Embedded
+// Signup and dead-ended on Meta's own page, "FieldQuo can't onboard customers
+// right now", and the advanced block asked a painter for a WABA id and a
+// system-user token from FieldQuo's own Meta app. Until
+// META_WHATSAPP_ONBOARDING_APPROVED is set, a company sees one sentence and
+// no control; FieldQuo staff keep both doors, labelled, to record Meta's
+// review. After it, everyone gets Connect and the advanced block stays staff.
+//
+// Executed, not read: the real status route → the real panel-state function,
+// the real connect route's redirect, the real manual route's refusal — flag
+// off and on, staff and not. Imported dynamically so a missing helper is a
+// FAIL line here rather than a crash that hides every section above.
+
+let onboarding = null;
+let panelStateMod = null;
+try {
+  onboarding = await import("@/lib/meta/whatsappOnboarding");
+  panelStateMod = await import("@/lib/meta/whatsappPanelState");
+} catch (err) {
+  ok("the onboarding helper and the panel-state function exist", false, err?.message);
+}
+const statusRoute = await import("@/app/api/settings/whatsapp/status/route.js");
+const connectRoute = await import("@/app/api/settings/whatsapp/connect/route.js");
+const view = (status) => (panelStateMod ? panelStateMod.whatsAppPanelState(status) : {});
+
+const savedOnboarding = {
+  approved: process.env.META_WHATSAPP_ONBOARDING_APPROVED,
+  config: process.env.META_WHATSAPP_CONFIG_ID,
+  appUrl: process.env.NEXT_PUBLIC_APP_URL,
+};
+process.env.META_WHATSAPP_ENABLED = "1";
+process.env.META_WHATSAPP_CONFIG_ID = "cfg_123";
+process.env.NEXT_PUBLIC_APP_URL = "https://app.fieldquo.test";
+const setApproved = (on) => {
+  if (on) process.env.META_WHATSAPP_ONBOARDING_APPROVED = "1";
+  else delete process.env.META_WHATSAPP_ONBOARDING_APPROVED;
+};
+
+// ── A. The flag, parsed ────────────────────────────────────────────────────
+if (onboarding) {
+  for (const [raw, want] of [[undefined, false], ["", false], ["0", false], ["false", false], ["no", false], ["1", true], ["true", true], [" YES ", true]]) {
+    if (raw === undefined) delete process.env.META_WHATSAPP_ONBOARDING_APPROVED;
+    else process.env.META_WHATSAPP_ONBOARDING_APPROVED = raw;
+    ok(`META_WHATSAPP_ONBOARDING_APPROVED=${JSON.stringify(raw)} reads as ${want}`, onboarding.metaWhatsAppOnboardingApproved() === want);
+  }
+  setApproved(false);
+}
+
+// ── B. The doors, as a table ───────────────────────────────────────────────
+if (onboarding) {
+  const D = onboarding.whatsAppDoors;
+  const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  ok("not approved × company: coming soon, no door at all", eq(D({ approved: false, staff: false }), { comingSoon: true, signup: false, signupStaffOnly: false, manual: false }));
+  ok("not approved × staff: both doors, the signup one flagged staff-only", eq(D({ approved: false, staff: true }), { comingSoon: false, signup: true, signupStaffOnly: true, manual: true }));
+  ok("approved × company: the signup door, and NOT the advanced one", eq(D({ approved: true, staff: false }), { comingSoon: false, signup: true, signupStaffOnly: false, manual: false }));
+  ok("approved × staff: both doors, the advanced one still staff-only", eq(D({ approved: true, staff: true }), { comingSoon: false, signup: true, signupStaffOnly: false, manual: true }));
+  ok("truthy-but-not-true values open nothing", eq(D({ approved: "1", staff: 1 }), D({ approved: false, staff: false })));
+}
+
+// ── C. Who is staff — the real token primitive, the row re-read ────────────
+if (onboarding) {
+  const req = () => new Request("http://app.local/api/settings/whatsapp/status");
+  resetDbStub();
+  ok("no cookie jar at all → not staff (and no throw)", (await onboarding.isWhatsAppStaff(req())) === false);
+  ok("no platform-token → not staff", (await onboarding.isWhatsAppStaff(withCookies(req(), {}))) === false);
+  ok("an active PlatformAdmin's token → staff", (await onboarding.isWhatsAppStaff(await asStaff(req()))) === true);
+  ok("…any role, not only superadmin", (await onboarding.isWhatsAppStaff(await asStaff(req(), { id: "padm_support", email: "s@fieldquo.test", role: "support", active: true }))) === true);
+  rows.platformAdmin.push({ id: "padm_off", email: "off@fieldquo.test", role: "superadmin", active: false });
+  ok("a DEACTIVATED admin's still-valid token → not staff (the row decides, not the token)", (await onboarding.isWhatsAppStaff(withCookies(req(), { "platform-token": await platformToken("padm_off") }))) === false);
+  ok("a token for an admin with no row → not staff", (await onboarding.isWhatsAppStaff(withCookies(req(), { "platform-token": await platformToken("padm_ghost") }))) === false);
+  ok("a sales rep's scoped token, same secret → not staff", (await onboarding.isWhatsAppStaff(withCookies(req(), { "platform-token": await platformToken(STAFF_ADMIN.id, "superadmin", { scope: "sales" }) }))) === false);
+  ok("a garbage token → not staff", (await onboarding.isWhatsAppStaff(withCookies(req(), { "platform-token": "not.a.jwt" }))) === false);
+  const secret = process.env.PLATFORM_JWT_SECRET;
+  const tok = await platformToken(STAFF_ADMIN.id);
+  delete process.env.PLATFORM_JWT_SECRET;
+  let staffNoSecret = null;
+  try {
+    staffNoSecret = await onboarding.isWhatsAppStaff(withCookies(req(), { "platform-token": tok }));
+  } catch {
+    staffNoSecret = "threw";
+  }
+  process.env.PLATFORM_JWT_SECRET = secret;
+  ok("PLATFORM_JWT_SECRET unset → not staff, and the status route is not 500'd by it", staffNoSecret === false, String(staffNoSecret));
+}
+
+// ── D. Status route → panel state, flag off/on × staff/company ─────────────
+async function getStatus({ staff = false, session = ADMIN } = {}) {
+  globalThis.__FQ_SESSION = session;
+  const req = new Request("http://app.local/api/settings/whatsapp/status");
+  if (staff) await asStaff(req);
+  else withCookies(req, {});
+  // featureStateFor logs that the stub has no platformFeature rows and falls
+  // back to the registry default — true, and noise here.
+  captureConsole();
+  let res;
+  try {
+    res = await statusRoute.GET(req);
+  } finally {
+    restoreConsole();
+  }
+  return { status: res.status, json: typeof res.json === "function" ? await res.json() : res.body };
+}
+const pick = (v) => ({
+  comingSoon: v.comingSoon, connect: v.showConnectCard, connectLabel: v.connectCardStaffLabel,
+  manual: Boolean(v.manualInConnectCard || v.manualInNoSignupCard), manualLabel: v.manualStaffLabel,
+  awaiting: v.showAwaiting, notConfigured: v.showNotConfigured, noSignup: v.showNoSignupConfig,
+});
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const NONE = { comingSoon: false, connect: false, connectLabel: false, manual: false, manualLabel: false, awaiting: false, notConfigured: false, noSignup: false };
+
+for (const [approved, staff, want, label] of [
+  [false, false, { ...NONE, comingSoon: true }, "not approved × company: the one sentence — no Connect, no advanced block, no other card"],
+  [false, true, { ...NONE, connect: true, connectLabel: true, manual: true }, "not approved × staff: Connect AND the advanced block, the card labelled staff-only"],
+  [true, false, { ...NONE, connect: true }, "approved × company: today's Connect button — and NO advanced block"],
+  [true, true, { ...NONE, connect: true, manual: true, manualLabel: true }, "approved × staff: Connect for everyone, the advanced block labelled staff-only"],
+]) {
+  resetDbStub();
+  setApproved(approved);
+  const s = await getStatus({ staff });
+  ok(`status 200 (${approved ? "approved" : "not approved"}, ${staff ? "staff" : "company"})`, s.status === 200, `${s.status} ${JSON.stringify(s.json)}`);
+  const got = pick(view(s.json));
+  ok(label, same(got, want), JSON.stringify(got));
+  ok("…and the status route reports the approval as the server read it", s.json?.onboardingApproved === approved);
+}
+
+// Without an Embedded Signup configuration the advanced block is offered in
+// the "sign-up isn't configured" card — to staff only, with its own label.
+delete process.env.META_WHATSAPP_CONFIG_ID;
+resetDbStub();
+setApproved(false);
+ok("no signup config × company, not approved: still just the sentence", same(pick(view((await getStatus()).json)), { ...NONE, comingSoon: true }));
+resetDbStub();
+ok("no signup config × staff: the advanced block in the not-configured card, labelled", same(pick(view((await getStatus({ staff: true })).json)), { ...NONE, noSignup: true, manual: true, manualLabel: true }));
+resetDbStub();
+setApproved(true);
+ok("no signup config × company, approved: the not-configured card and NO advanced block", same(pick(view((await getStatus()).json)), { ...NONE, noSignup: true }));
+process.env.META_WHATSAPP_CONFIG_ID = "cfg_123";
+
+// The switch itself off: a company still reads the one sentence, staff the
+// technical "awaiting" card.
+delete process.env.META_WHATSAPP_ENABLED;
+delete process.env.META_APP_MODE;
+setApproved(false);
+resetDbStub();
+ok("switch off × company: the sentence, not the technical card", same(pick(view((await getStatus()).json)), { ...NONE, comingSoon: true }));
+resetDbStub();
+ok("switch off × staff: the awaiting card and no control", same(pick(view((await getStatus({ staff: true })).json)), { ...NONE, awaiting: true }));
+process.env.META_WHATSAPP_ENABLED = "1";
+
+// The second half of the sentence names only inboxes that are connected.
+const ch = (platform, status = "connected", extra = {}) => ({
+  id: `chan_${platform}_${status}`, companyId: "company_REAL", platform, externalId: `${platform}_1`,
+  status, disconnectedAt: null, connectedAt: new Date("2026-09-01"), ...extra,
+});
+setApproved(false);
+for (const [seed, key, label] of [
+  [[], null, "no Facebook or Instagram connected → no claim that they come in here"],
+  [[ch("facebook")], "app.setWhatsApp.comingSoonInboxFacebook", "Facebook only → names Facebook only"],
+  [[ch("instagram")], "app.setWhatsApp.comingSoonInboxInstagram", "Instagram only → names Instagram only"],
+  [[ch("facebook"), ch("instagram")], "app.setWhatsApp.comingSoonInboxBoth", "both → names both"],
+  [[ch("facebook", "needs_reauth")], null, "a Facebook Page needing reconnection is NOT counted as coming in"],
+]) {
+  resetDbStub();
+  rows.messagingChannel.push(...seed);
+  const v = view((await getStatus()).json);
+  ok(label, v.comingSoon === true && v.comingSoonInboxKey === key, String(v.comingSoonInboxKey));
+}
+
+// A WhatsApp number a company connected earlier is still drawn with its
+// Disconnect — the sentence replaces the ways in, never a working channel.
+resetDbStub();
+rows.messagingChannel.push(ch("whatsapp", "connected", { externalId: "1357924680", wabaId: "2468013579" }));
+{
+  const s = await getStatus();
+  ok("an already-connected number is still listed for a company pre-approval", s.json?.channels?.length === 1);
+  ok("…with no coming-soon card over it and no way to connect a second", same(pick(view(s.json)), NONE));
+}
+
+// Fails closed: a status without `doors` (an older response) opens nothing.
+ok(
+  "a status with no `doors` field reads as coming soon — never a Connect button nobody vouched for",
+  same(pick(view({ connectEnabled: true, fullyConfigured: true, signupConfigured: true, channels: [] })), { ...NONE, comingSoon: true }),
+);
+ok("null status draws nothing", same(pick(view(null)), NONE));
+ok(
+  "a read-only (impersonated) staff session gets no advanced form",
+  view({ connectEnabled: true, fullyConfigured: true, signupConfigured: true, readOnly: true, channels: [], doors: { signup: true, signupStaffOnly: true, manual: true } }).manualInConnectCard === false,
+);
+
+// ── E. The connect route refuses a typed URL, not just a hidden link ───────
+async function getConnect({ staff = false } = {}) {
+  globalThis.__FQ_SESSION = ADMIN;
+  globalThis.__FQ_COOKIES_SET = [];
+  const req = new Request("http://app.local/api/settings/whatsapp/connect");
+  if (staff) await asStaff(req);
+  else withCookies(req, {});
+  const res = await connectRoute.GET(req);
+  return { status: res.status, location: res.location || res.headers?.get?.("location") || "", cookies: globalThis.__FQ_COOKIES_SET };
+}
+for (const [approved, staff, toMeta, label] of [
+  [false, false, false, "not approved × company: /connect redirects back with awaiting_review"],
+  [false, true, true, "not approved × staff: /connect opens Embedded Signup (to record Meta's review)"],
+  [true, false, true, "approved × company: /connect opens Embedded Signup"],
+  [true, true, true, "approved × staff: /connect opens Embedded Signup"],
+]) {
+  resetDbStub();
+  setApproved(approved);
+  const r = await getConnect({ staff });
+  const wentToMeta = /^https:\/\/www\.facebook\.com\/[^/]+\/dialog\/oauth\?/.test(r.location) && r.location.includes("config_id=cfg_123");
+  ok(label, toMeta ? wentToMeta : /whatsappError=awaiting_review/.test(r.location) && !/facebook\.com/.test(r.location), r.location);
+  ok(`…${toMeta ? "setting" : "and setting NO"} OAuth state cookie`, toMeta ? r.cookies.length === 1 : r.cookies.length === 0);
+}
+
+// ── F. The manual route refuses a hand-built POST from a company ───────────
+for (const [approved, staff, wantStatus, wantCode, label] of [
+  [false, false, 409, "awaiting_review", "not approved × company: /manual refuses (awaiting_review)"],
+  [false, true, 200, null, "not approved × staff: /manual connects"],
+  [true, false, 403, "staff_only", "approved × company: /manual STILL refuses (staff_only) — Embedded Signup is their door"],
+  [true, true, 200, null, "approved × staff: /manual connects"],
+]) {
+  resetDbStub();
+  setApproved(approved);
+  scriptMeta();
+  const r = await postManual(GOOD, { staff });
+  ok(label, r.status === wantStatus && (wantCode ? r.json?.code === wantCode : r.json?.connected === true), `${r.status} ${r.text}`);
+  if (wantCode) {
+    ok("…before a single call to Meta, with no row stored", metaCalls.length === 0 && rows.messagingChannel.length === 0);
+    ok("…and without echoing the token", !r.text.includes(PASTED_TOKEN));
+  }
+}
+resetDbStub();
+setApproved(false);
+scriptMeta();
+rows.platformAdmin.push({ id: "padm_off", email: "off@fieldquo.test", role: "superadmin", active: false });
+{
+  const r = await postManual(GOOD, { staff: { id: "padm_off", role: "superadmin", active: false } });
+  ok("a deactivated admin's token is refused at /manual", r.status === 409 && r.json?.code === "awaiting_review" && rows.messagingChannel.length === 0, `${r.status} ${r.text}`);
+}
+
+// ── G. The panel draws the state, and says it in every language ────────────
+const panelSrc3 = read("app/components/settings/WhatsAppPanel.js");
+ok("the panel derives its cards from whatsAppPanelState(status)", /const view = whatsAppPanelState\(status\);/.test(panelSrc3));
+{
+  const start = panelSrc3.indexOf("{view.comingSoon && (");
+  const end = panelSrc3.indexOf("{view.showAwaiting && (");
+  const block = start >= 0 && end > start ? panelSrc3.slice(start, end) : "";
+  ok("the coming-soon card renders the sentence", /app\.setWhatsApp\.comingSoon"/.test(block) && /view\.comingSoonInboxKey/.test(block));
+  ok("…and holds no link, no button and no form", block.length > 0 && !/<a\b|<button\b|<form\b|href=/.test(block));
+}
+ok("the Connect card carries the staff-only label when the door is staff-only", orderedInSource(panelSrc3, "view.showConnectCard && (", "view.connectCardStaffLabel && staffLabel"));
+ok("the advanced block carries it otherwise", /manualSection\(view\.manualStaffLabel\)/.test(panelSrc3) && /withStaffLabel && /.test(panelSrc3));
+ok("the label is the translated staff-only line", /t\("app\.setWhatsApp\.staffOnly"\)/.test(panelSrc3));
+ok("no advanced block is drawn outside the two gated cards", (panelSrc3.match(/manualSection\(/g) || []).length === 2);
+const ONBOARDING_KEYS = [
+  "app.setWhatsApp.comingSoon",
+  "app.setWhatsApp.comingSoonInboxBoth",
+  "app.setWhatsApp.comingSoonInboxFacebook",
+  "app.setWhatsApp.comingSoonInboxInstagram",
+  "app.setWhatsApp.staffOnly",
+];
+for (const k of ONBOARDING_KEYS) {
+  const missing = LANGS.filter((l) => typeof APP_MESSAGES[l][k] !== "string" || !APP_MESSAGES[l][k].trim());
+  ok(`${k} exists in all nine languages`, missing.length === 0, missing.join(","));
+  const untranslated = LANGS.filter((l) => l !== "en" && APP_MESSAGES[l][k] === APP_MESSAGES.en[k]);
+  ok(`…and is translated, not English copied`, untranslated.length === 0, untranslated.join(","));
+}
+ok("the sentence says it is waiting on Meta and names WhatsApp", /Meta/.test(APP_MESSAGES.en["app.setWhatsApp.comingSoon"] || "") && /WhatsApp/.test(APP_MESSAGES.en["app.setWhatsApp.comingSoon"] || ""));
+ok("the staff line says who sees it and why", /FieldQuo staff only/.test(APP_MESSAGES.en["app.setWhatsApp.staffOnly"] || "") && /Meta's review/.test(APP_MESSAGES.en["app.setWhatsApp.staffOnly"] || ""));
+ok("META_WHATSAPP_ONBOARDING_APPROVED is documented in docs/VERCEL.md", /^\| `META_WHATSAPP_ONBOARDING_APPROVED` \|/m.test(read("docs/VERCEL.md")));
+
+for (const [k, v] of Object.entries({
+  META_WHATSAPP_ONBOARDING_APPROVED: savedOnboarding.approved,
+  META_WHATSAPP_CONFIG_ID: savedOnboarding.config,
+  NEXT_PUBLIC_APP_URL: savedOnboarding.appUrl,
+})) {
+  if (v === undefined) delete process.env[k];
+  else process.env[k] = v;
+}
 
 globalThis.fetch = realFetch;
 

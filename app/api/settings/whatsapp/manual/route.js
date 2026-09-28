@@ -52,6 +52,10 @@
 //                        not need Meta's approval to work — that is the whole
 //                        point of it — but FieldQuo's own switch for "WhatsApp
 //                        is offered here" is one switch, not two.
+//   whatsAppAccess       FieldQuo staff only (lib/meta/whatsappOnboarding.js).
+//                        The token has to come from FieldQuo's own Meta app,
+//                        so for any other company this door cannot work —
+//                        before or after Meta approves Embedded Signup.
 //   metaFullyConfigured  the app credentials (debug_token needs them) and the
 //                        encryption key (without which nothing can be stored).
 export const runtime = "nodejs";
@@ -70,6 +74,7 @@ import { publicChannelShape } from "@/lib/messaging/channels";
 import { recordActivity } from "@/lib/activity/log";
 import { rateLimit } from "@/lib/rateLimit";
 import { validateManualCredentials, MANUAL_REQUIRED_SCOPES } from "@/lib/messaging/whatsappManual";
+import { whatsAppAccess } from "@/lib/meta/whatsappOnboarding";
 
 /**
  * A refusal, in the shape the panel maps to a sentence in the reader's
@@ -102,6 +107,19 @@ export async function POST(request) {
   if (!metaWhatsAppEnabled()) {
     return refuse("awaiting_review", "WhatsApp messaging is not switched on for this deployment.", 409);
   }
+  // FieldQuo staff only — before Meta's tech-provider approval AND after it
+  // (lib/meta/whatsappOnboarding.js). The token this door takes must come
+  // from FieldQuo's own Meta app, which a company cannot produce, so for a
+  // company it is a form that cannot work; the panel withholds it and this is
+  // the half that refuses a hand-built POST. Before approval the refusal says
+  // what the company is actually waiting on; after it, where to go instead.
+  const access = await whatsAppAccess(request);
+  if (!access.manual) {
+    return access.approved
+      ? refuse("staff_only", "Connect WhatsApp with the Connect WhatsApp button on this screen.", 403)
+      : refuse("awaiting_review", "WhatsApp is waiting on Meta to approve FieldQuo, so there's nothing to connect yet.", 409);
+  }
+
   if (!metaFullyConfigured()) {
     return refuse("not_configured", "This deployment cannot store a WhatsApp connection yet.", 409);
   }

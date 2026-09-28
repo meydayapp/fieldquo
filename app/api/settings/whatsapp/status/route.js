@@ -3,9 +3,13 @@
 // What the WhatsApp panel needs to render ONE honest state and never a control
 // that cannot work:
 //
-//   1. awaiting Meta review  — metaWhatsAppEnabled() is false, which is every
-//                              production deployment today. No Connect button
-//                              at all; the panel says what is blocked.
+//   0. coming soon           — Meta has not yet approved FieldQuo as a
+//                              WhatsApp Tech Provider
+//                              (META_WHATSAPP_ONBOARDING_APPROVED unset) and
+//                              the viewer is not FieldQuo staff. One sentence,
+//                              no control — see lib/meta/whatsappOnboarding.js.
+//   1. awaiting Meta review  — metaWhatsAppEnabled() is false. No Connect
+//                              button at all; the panel says what is blocked.
 //   2. not configured        — the flag is on but this deployment has no
 //                              META_APP_ID/META_APP_SECRET, no token
 //                              encryption key, or no Embedded Signup
@@ -33,6 +37,7 @@ import { featureStateFor } from "@/lib/features/gate";
 import { listChannels, publicChannelShape } from "@/lib/messaging/channels";
 import { publicTemplateShape } from "@/lib/messaging/templates";
 import { whatsAppSignupConfigured } from "@/lib/messaging/whatsappSignup";
+import { whatsAppAccess } from "@/lib/meta/whatsappOnboarding";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -48,9 +53,21 @@ export async function GET(request) {
   // env flag would offer a Connect button FieldQuo itself has switched off.
   const feature = await featureStateFor(member.companyId, "whatsapp_messaging");
 
-  const channels = (await listChannels(member.companyId).catch(() => []))
-    .filter((c) => c.platform === "whatsapp")
-    .map(publicChannelShape);
+  // Which doors THIS viewer gets — decided here, on the server, from Meta's
+  // tech-provider approval and whether the browser is FieldQuo staff
+  // (lib/meta/whatsappOnboarding.js). The panel draws what this says and
+  // nothing more; /connect and /manual refuse on the same answer.
+  const access = await whatsAppAccess(request);
+
+  const allChannels = await listChannels(member.companyId).catch(() => []);
+  const channels = allChannels.filter((c) => c.platform === "whatsapp").map(publicChannelShape);
+  // Which of the OTHER two Meta inboxes are live for this company, so the
+  // coming-soon sentence can say "your Facebook and Instagram messages already
+  // come in here" only when that is true — a company with neither connected
+  // is not told otherwise.
+  const inboxPlatforms = ["facebook", "instagram"].filter((p) =>
+    allChannels.some((c) => c.platform === p && c.status === "connected"),
+  );
 
   // Templates are only meaningful once a number is connected — there is no
   // WABA to have approved anything against otherwise. An empty list for an
@@ -73,6 +90,18 @@ export async function GET(request) {
     // contractor can act on, and "FieldQuo has not switched this on for you"
     // is a support conversation.
     connectEnabled: metaWhatsAppEnabled(),
+    // Meta's approval of FieldQuo as a WhatsApp Tech Provider, and the doors
+    // that follow for this viewer. Until it lands a company sees one sentence
+    // and no control — Embedded Signup would end on Meta's "can't onboard
+    // customers right now" page — while staff keep both doors to test with.
+    onboardingApproved: access.approved,
+    doors: {
+      comingSoon: access.comingSoon,
+      signup: access.signup,
+      signupStaffOnly: access.signupStaffOnly,
+      manual: access.manual,
+    },
+    inboxPlatforms,
     featureState: feature.state,
     appConfigured: metaAppConfigured(),
     fullyConfigured: metaFullyConfigured(),
