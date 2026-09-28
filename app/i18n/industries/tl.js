@@ -67,7 +67,6 @@ const tl = {
     workMaterial: "{material}: {squares} square × {rate}",
     workTearOff: "Pagtanggal ng lumang patong: {layers} × {squares} square × {rate}",
     workPitch: "Matarik na bubong ({rise}/12): +{pct}",
-    workRounding: "Ini-round sa buong halaga",
     workSubtotal: "Subtotal",
     workTotal: "Kabuuan",
     workRange: "Nakita ng may-ari ng bahay ang saklaw na {range} (±{pct} sa paligid ng subtotal).",

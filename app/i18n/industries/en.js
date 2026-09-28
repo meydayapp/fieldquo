@@ -75,7 +75,6 @@ const en = {
     workMaterial: "{material}: {squares} squares × {rate}",
     workTearOff: "Tearing off old layers: {layers} × {squares} squares × {rate}",
     workPitch: "Steep roof ({rise}/12): +{pct}",
-    workRounding: "Rounded to a tidy figure",
     workSubtotal: "Subtotal",
     workTotal: "Total",
     workRange: "The homeowner saw a range of {range} (±{pct} around the subtotal).",

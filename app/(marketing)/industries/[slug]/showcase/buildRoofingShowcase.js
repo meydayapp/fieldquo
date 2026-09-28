@@ -265,6 +265,11 @@ export function buildRoofingShowcase() {
     // and the decimal separator are the reader's.
     tax: {
       rate: Number(tax?.rate) || 0,
+      // The resolver's result itself (plain data), which createEstimateDraft
+      // turns into the draft's Quote.taxResolution — so the review row's
+      // taxRate comes out of appliedTaxRate() from the record the real queue
+      // reads, not from the rate re-implied by the rounded tax.
+      resolution: tax || null,
       headline: Object.fromEntries(Object.keys(INDUSTRY_MESSAGES).map((code) => [code, taxLineHeadline(tax, code)])),
     },
     quoteNumber: "Q-1048",

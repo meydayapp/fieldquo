@@ -566,7 +566,7 @@ section("6. Names, not keys: the lead's source and the option picked");
   );
   ok("no source at all prints nothing", leadSourceLabel(tt, null) === "" && leadSourceLabel(tt, "") === "");
   const leadsSrc = read("app/app/leads/page.js");
-  ok("function LeadDrawer( and function LeadCard( are textually intact (check:leads-drag slices on them)", /function LeadDrawer\(\{ leadId, assignees, onClose, onPatched, t \}\)/.test(leadsSrc) && /function LeadCard\(/.test(leadsSrc));
+  ok("function LeadDrawer( and function LeadCard( are textually intact (check:leads-drag slices on them)", /function LeadDrawer\(\{ leadId, assignees, onClose, onPatched, t(?:, sample = null)? \}\)/.test(leadsSrc) && /function LeadCard\(/.test(leadsSrc));
   const leads = code("app/app/leads/page.js");
   ok("the lead drawer no longer prints the raw source", !/lead\.source && ` · \$\{lead\.source\}`/.test(leads) && /leadSourceLabel\(t, lead\.source\)/.test(leads));
   ok("…and names the option from the route's materialLabel", /row\.key === "material" && lead\?\.materialLabel/.test(leads));

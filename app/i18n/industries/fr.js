@@ -62,7 +62,6 @@ const fr = {
     workMaterial: "{material} : {squares} carrés × {rate}",
     workTearOff: "Arrachage des anciennes couches : {layers} × {squares} carrés × {rate}",
     workPitch: "Toit à forte pente ({rise}/12) : +{pct}",
-    workRounding: "Arrondi à un montant rond",
     workSubtotal: "Sous-total",
     workTotal: "Total",
     workRange: "Le propriétaire a vu une fourchette de {range} (±{pct} autour du sous-total).",

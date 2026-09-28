@@ -33,6 +33,9 @@ import { scoreLead } from "@/lib/leads/score";
 import { cleanBudgetBand, cleanTimeline } from "@/lib/leads/qualifiers";
 import { lineItemsFromBreakdown, breakdownForRecord } from "@/lib/estimate/estimateLines";
 import { quoteTotals } from "@/lib/quotes/totals";
+import { resolutionForDocument } from "@/lib/tax/taxResolution";
+import { appliedTaxRate, documentLinesTotal } from "@/lib/estimate/approveEstimate";
+import { materialLabelFromConfig } from "@/lib/estimate/materialLabel";
 import { instantQuoteCopy, instantQuoteLanguage, instantTradeLabel } from "@/lib/i18n/instantQuoteCopy";
 import { contactSatisfied } from "@/lib/estimate/formFields";
 
@@ -109,6 +112,24 @@ function storedMeasurement(m) {
 }
 
 /**
+ * loadMaterialLabels()'s entry for one option: the saved row's label, by the
+ * same pure materialLabelFromConfig() it runs, with the drafted names in the
+ * other languages — here the showcase's own (fixture.materialLabels, its
+ * stand-in for namespace materialLabel), minus the company's language, which
+ * loadPhraseTranslations() never returns a translation for. Null for a key
+ * nobody can name, as the route leaves it.
+ */
+function materialLabelFor(fixture, key) {
+  const label = materialLabelFromConfig(fixture.config, key);
+  if (!label) return null;
+  const translations = {};
+  for (const [code, names] of Object.entries(fixture.materialLabels || {})) {
+    if (code !== fixture.company.defaultLanguage && typeof names?.[key] === "string" && names[key].trim()) translations[code] = names[key];
+  }
+  return { label, translations };
+}
+
+/**
  * The whole request, as the route runs it.
  *
  * @param fixture  buildRoofingShowcase()'s result
@@ -160,6 +181,13 @@ export function runRequest(fixture, body, { now = new Date(fixture.createdAt) } 
     subtotal: estimate.point || 0,
     tax: totals.tax,
     taxRate: fixture.tax.rate,
+    // createEstimateDraft's Quote.taxResolution, by its own call.
+    taxResolution: resolutionForDocument({
+      resolution: fixture.tax.resolution || null,
+      tax: totals.tax,
+      taxableBase: totals.taxableBase,
+      taxEnabled: true,
+    }),
     total: totals.total,
     reviewNotes: homeownerLines.join("\n") || null,
     estimateData: {
@@ -210,6 +238,9 @@ export function runRequest(fixture, body, { now = new Date(fixture.createdAt) } 
     doNotCall: false,
     quoteId,
     quote: { id: quoteId, quoteNumber: fixture.quoteNumber, status: "draft" },
+    // What GET /api/leads/[id] adds, so the drawer names the option the way
+    // it does for a real lead ("Architectural shingles", not asphalt_arch).
+    materialLabel: materialLabelFor(fixture, body?.materialKey),
     createdAt,
   };
 
@@ -218,6 +249,19 @@ export function runRequest(fixture, body, { now = new Date(fixture.createdAt) } 
     id: quoteId,
     quoteNumber: fixture.quoteNumber,
     total: totals.total,
+    // The rest of the money the route selects, and the two figures it adds
+    // beside it — appliedTaxRate / documentLinesTotal, called as the route
+    // calls them — so "Approve at (total incl. tax)" carries its
+    // "= X before tax + Y tax" caption here as it does in the app. The
+    // draft's one scope group mirrors its lineItems (createEstimateDraft),
+    // so the flat list totals the same as the group would.
+    subtotal: draft.subtotal,
+    discount: 0,
+    tax: draft.tax,
+    taxEnabled: true,
+    taxRate: appliedTaxRate({ subtotal: draft.subtotal, discount: 0, tax: draft.tax, taxEnabled: true, taxResolution: draft.taxResolution }),
+    linesTotal: documentLinesTotal({ lineItems: draft.lineItems }),
+    materialLabel: materialLabelFor(fixture, body?.materialKey),
     estimateSource: fixture.measurement.source,
     reviewNotes: draft.reviewNotes,
     createdAt,
@@ -268,9 +312,11 @@ export function defaultBody(fixture, language = "en") {
 /**
  * "How this price was worked out", from the estimate's own outputs and the
  * config it priced from. Every amount is the estimator's (breakdown rows,
- * point, low/high) or quoteTotals' (tax, total); the rounding row is the
- * difference between the estimator's rounded lines and its rounded total,
- * shown rather than hidden so the rows add up to the subtotal the draft stores.
+ * point, low/high) or quoteTotals' (tax, total). `rounding` is what the
+ * estimator's lines fall short of its point by — always 0 since
+ * settleBreakdown() (lib/estimate/instantEstimate.js) itemises the point
+ * exactly, so the working has no "rounded" row; kept as a figure so the
+ * check can prove it stays 0 rather than trusting that it does.
  */
 export function priceWorkings(fixture, run) {
   const { estimate, measurement, draft } = run;

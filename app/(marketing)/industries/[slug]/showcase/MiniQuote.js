@@ -69,7 +69,6 @@ export default function MiniQuote({ fixture, run, approved, copy }) {
   if (w.steepnessPct > 0 && w.lines[i]) {
     rows.push({ key: "pitch", label: fill(copy.workPitch, { rise: w.rise, pct: pct(w.steepnessPct) }), amount: w.lines[i++].amount });
   }
-  if (w.rounding !== 0) rows.push({ key: "rounding", label: copy.workRounding, amount: w.rounding });
 
   const status = approved ? (
     <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded-full bg-inverted text-inverted-foreground" data-sample-status="approved">

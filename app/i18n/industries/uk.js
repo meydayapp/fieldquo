@@ -62,7 +62,6 @@ const uk = {
     workMaterial: "{material}: {squares} квадратів × {rate}",
     workTearOff: "Демонтаж старих шарів: {layers} × {squares} квадратів × {rate}",
     workPitch: "Крутий дах ({rise}/12): +{pct}",
-    workRounding: "Округлено до рівної суми",
     workSubtotal: "Проміжний підсумок",
     workTotal: "Разом",
     workRange: "Власник бачив діапазон {range} (±{pct} від проміжного підсумку).",
