@@ -67,6 +67,32 @@ export const TRIAL_FRAMES = [
   out: "docs/screens/no-card-signup",
 }));
 
+// ── The platform cancel / lock panel for every company (2026-09-28) ───────
+// docs/screens/platform-cancel-lock: the REAL CompanyActions handed what the
+// REAL lib/platform/cancelOptions.js computes for a card-free trial, an
+// expired trial, a Stripe-subscribed company (unchanged) and a demo; then the
+// locked screen and the banner a trial FieldQuo ended sees. LockFrame.jsx.
+export const LOCK_FRAMES = [
+  ["panel-trial", "trial", 1280, 1500],
+  ["panel-trial-phone", "trial", 375, 2200],
+  ["panel-trial-over", "trial-over", 1280, 1500],
+  ["panel-subscribed", "subscribed", 1280, 1500],
+  ["panel-demo", "demo", 1280, 1300],
+  ["locked-terms-trial", "locked-terms-trial", 1280, 820],
+  ["banner-ending", "banner-ending", 1280, 400],
+  ["banner-ended", "banner-ended", 1280, 400],
+].map(([slug, view, width, height]) => ({
+  slug,
+  href: slug.startsWith("panel") ? "/platform/companies/co_frame" : "/app",
+  page: "docs/screens/app-guide/harness/LockFrame.jsx",
+  props: { view },
+  mode: "public",
+  width,
+  height,
+  chapter: "platform-cancel-lock",
+  out: "docs/screens/platform-cancel-lock",
+}));
+
 // ── The reactive signup panel (2026-09-24) — docs/screens/signup-aside ────
 // The real /signup parked on each step (SignupAsideFrame.jsx seeds the draft
 // and answers the signup routes): the account step empty and typed, the
@@ -373,6 +399,7 @@ export const SCREENS = [
   { slug: "mobile-supplies", href: "/app/me/supplies", page: "app/app/me/supplies/page.js", member: "crew", width: 375, height: 1400, chapter: "help" },
   ...INTRO_FRAMES,
   ...TRIAL_FRAMES,
+  ...LOCK_FRAMES,
   ...SIGNUP_ASIDE_FRAMES,
 
   // ── Typed per-trade checklists (docs/screens/checklists/) ──────────────

@@ -30,6 +30,8 @@ import { notifySubscriptionState } from "@/lib/billing/notify";
 import { recordActivity } from "@/lib/activity/log";
 import { recordError } from "@/lib/platform/errorLog";
 import { getAppOrigin } from "@/lib/appUrl";
+import { db } from "@/lib/db";
+import { fieldquoEndRefusal } from "@/lib/billing/access";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -55,6 +57,16 @@ export async function POST(request) {
   if (!isBillingAdmin(member.role)) {
     return NextResponse.json({ error: BILLING_ADMIN_ERROR }, { status: 403 });
   }
+
+  // FieldQuo ended it (a terms lock, or a trial ended from the console):
+  // Resume would start a new Stripe subscription and take a payment while
+  // the lock stays on — the same door checkout closes, closed here too.
+  const [endedCompany, endedSub] = await Promise.all([
+    db.company.findUnique({ where: { id: member.companyId }, select: { platformEndsAt: true, platformEndMode: true } }),
+    db.subscription.findUnique({ where: { companyId: member.companyId }, select: { accessLockedAt: true } }),
+  ]);
+  const endedBy = fieldquoEndRefusal(endedCompany, endedSub);
+  if (endedBy) return NextResponse.json({ error: endedBy, reason: "ended_by_fieldquo" }, { status: 403 });
 
   let result;
   try {

@@ -1556,6 +1556,30 @@ model Company {
   trialReminder15At      DateTime?
   trialReminder7At       DateTime?
   trialReminder3At       DateTime?
+  /// FieldQuo ended this company's access from the platform console when
+  /// there was NO Stripe subscription to cancel — the card-free trial
+  /// (2026-09-24), a trial that already ran out, a company made by hand.
+  /// Written only by /api/platform/companies/[id]/cancel-subscription's
+  /// no-Stripe branch; a Stripe-subscribed company keeps the Subscription
+  /// columns (canceledAt, accessLockedAt) that route always wrote, untouched.
+  ///
+  ///   platformEndMode  "period_end" | "now" | "terms" — which of the
+  ///                    panel's three the superadmin chose.
+  ///   platformEndsAt   the instant full access stops: the trial's end for
+  ///                    period_end, the press for now and terms.
+  ///   platformEndReason the reason typed on the panel — the audit row has
+  ///                    it too; this copy is what the locked screen prints.
+  ///
+  /// lib/billing/access.js fieldquoEndAccessFor reads them FIRST, before any
+  /// subscription or trial rule: terms = locked at once; the other two =
+  /// full until platformEndsAt, CANCELLED_DAYS read-only, then locked. Set,
+  /// they also close checkout and Resume (a trial FieldQuo ended cannot buy
+  /// its way back — lib/billing/access.js fieldquoEndRefusal) and every
+  /// trial letter (reminders, next steps, signup recovery). Null on every
+  /// ordinary row. Nothing clears them: there is no reinstate control yet.
+  platformEndsAt         DateTime?
+  platformEndMode        String?
+  platformEndReason      String?
   /// On by default for a NEW company: sharing anonymised pricing and
   /// conversion figures is part of the Terms (§7) a company accepts at signup,
   /// so it is not a box to hunt for — it can be switched off in Settings >

@@ -431,7 +431,7 @@ console.log("\n── 9. The routes and screens, pinned ────────
   ok("the button POSTs and never navigates except to a checkoutUrl", /method: "POST"/.test(button) && /window\.location\.href = data\.checkoutUrl/.test(button) && !/href="\/app\/settings\/account-billing/.test(button));
   ok("the button says the charge before the press (restartCharged with {amount})", /app\.billing\.restartCharged/.test(button) && /app\.billing\.resumeCredited/.test(button));
   const page = read("app/app/settings/account-billing/page.js");
-  ok("billing page: Resume is primary, 'Choose a different plan' the secondary path to the cards", /<ResumePlanButton/.test(page) && /app\.billing\.chooseDifferentPlan/.test(page) && /href="#plans"/.test(page) && /<div id="plans">/.test(page));
+  ok("billing page: Resume is primary, 'Choose a different plan' the secondary path to the cards", /<ResumePlanButton/.test(page) && /app\.billing\.chooseDifferentPlan/.test(page) && /href="#plans"/.test(page) && /<div id="plans"[ >]/.test(page));
   ok("billing page: an ending plan shows 'ends on', not 'Next billing date', and hides Cancel plan", /!isEnding && subscription\?\.currentPeriodEnd/.test(page) && /app\.billing\.endsOn/.test(page) && /status !== "canceled" && !isEnding/.test(page));
   const flow = read("app/app/settings/account-billing/CancelFlow.js");
   ok("cancel flow: the confirm sentence branches on cancelModeFor(status)", /cancelModeFor\(status\)/.test(flow) && /app\.cancelFlow\.endsOnDate/.test(flow) && /app\.cancelFlow\.endsNow/.test(flow) && /app\.cancelFlow\.noSecondTrial/.test(flow));

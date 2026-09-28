@@ -28,6 +28,7 @@ import { isRetired, RETIRED_PLAN_ERROR } from "@/lib/platform/sellablePlans";
 import { ensureCustomPlan } from "@/lib/billing/customPlan";
 import { currencyForCountry } from "@/lib/pricing/ladder";
 import { billingCountry } from "@/lib/company/resolveCountry";
+import { fieldquoEndRefusal } from "@/lib/billing/access";
 
 // Note: this is called by a COMPANY (upgrading their own plan), not a platform admin —
 // hence getCurrentMember, not getCurrentPlatformAdmin. It lives under /platform/billing
@@ -69,6 +70,21 @@ export async function POST(request) {
   const company = await db.company.findUnique({
     where: { id: member.companyId },
   });
+
+  // ── FieldQuo ended this company: no card buys it back ─────────────────
+  //
+  // This route is on the billing allow-list so a locked company can pay its
+  // way out of a failed card. A company FieldQuo ended from the platform
+  // console — a trial, or a terms lock on a subscribed company — must not
+  // use that same door: a trial would convert past the ending, and a terms
+  // lock would take a new payment while Subscription.accessLockedAt kept
+  // the account shut. Before any Plan row is found or made.
+  const endedSub = await db.subscription.findUnique({
+    where: { companyId: member.companyId },
+    select: { accessLockedAt: true },
+  });
+  const endedBy = fieldquoEndRefusal(company, endedSub);
+  if (endedBy) return NextResponse.json({ error: endedBy, reason: "ended_by_fieldquo" }, { status: 403 });
 
   let planId = requestedPlanId;
   if (customSeats !== undefined) {

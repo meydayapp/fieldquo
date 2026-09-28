@@ -196,6 +196,9 @@ async function runEarlyTouch({ now, origin, address, from }) {
       select: {
         ...DISMISSAL_SELECT,
         id: true, name: true, email: true, isDemo: true, createdAt: true, defaultLanguage: true, industries: true, trialEndsAt: true,
+        // FieldQuo ended it from the console: never "your free month is
+        // waiting" (lib/signup/earlyNudge.js refuses, and closes the address).
+        platformEndsAt: true,
         subscription: { select: { id: true } },
         salesAttribution: { select: { salesRepId: true } },
         signupLead: { select: { id: true, firstName: true, language: true, trades: true, stepReached: true, lastSeenAt: true } },
@@ -318,8 +321,9 @@ async function runEarlyTouch({ now, origin, address, from }) {
       // — a login with a paying company — since the batch was read.
       if ((await finishedAddressKeys([person.email])).size) { await failed("completed_before_send"); continue; }
     } else {
-      const freshCompany = await db.company.findUnique({ where: { id: person.companyId }, select: { isDemo: true, trialEndsAt: true, subscription: { select: { id: true } }, ...DISMISSAL_SELECT } });
+      const freshCompany = await db.company.findUnique({ where: { id: person.companyId }, select: { isDemo: true, trialEndsAt: true, platformEndsAt: true, subscription: { select: { id: true } }, ...DISMISSAL_SELECT } });
       if (!freshCompany || freshCompany.isDemo || hasFinishedSignup(freshCompany)) { await failed("completed_before_send"); continue; }
+      if (freshCompany.platformEndsAt) { await failed("ended_by_fieldquo_before_send"); continue; }
       if (isDismissed(freshCompany)) { await failed("dismissed_before_send"); continue; }
     }
 
@@ -398,6 +402,8 @@ export async function GET(request) {
       // the query's own fragment now leaves trials out as well, and the
       // predicate throws on an unselected column instead of guessing.
       trialEndsAt: true,
+      // FieldQuo ended it from the console — decideSignupNudge refuses.
+      platformEndsAt: true,
       subscription: { select: { id: true } },
       ...DISMISSAL_SELECT,
       _count: { select: { members: true } },
@@ -512,9 +518,9 @@ export async function GET(request) {
     // list" reverts and sends nothing.
     const fresh = await db.company.findUnique({
       where: { id: company.id },
-      select: { isDemo: true, trialEndsAt: true, subscription: { select: { id: true } }, ...DISMISSAL_SELECT },
+      select: { isDemo: true, trialEndsAt: true, platformEndsAt: true, subscription: { select: { id: true } }, ...DISMISSAL_SELECT },
     });
-    if (!fresh || fresh.isDemo || hasFinishedSignup(fresh) || isDismissed(fresh)) {
+    if (!fresh || fresh.isDemo || hasFinishedSignup(fresh) || isDismissed(fresh) || fresh.platformEndsAt) {
       await revert();
       note("completed_before_send");
       continue;

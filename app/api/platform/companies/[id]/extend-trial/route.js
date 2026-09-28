@@ -63,9 +63,26 @@ export async function POST(request, { params }) {
 
   const company = await db.company.findUnique({
     where: { id },
-    select: { id: true, name: true, trialEndsAt: true },
+    select: { id: true, name: true, trialEndsAt: true, platformEndsAt: true, platformEndMode: true },
   });
   if (!company) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // FieldQuo ended this company from the "Cancel" panel. That ending, not
+  // trialEndsAt, is what lib/billing/access.js reads, so moving the trial
+  // date here would write a column, print "Free until March" and change
+  // nothing the company can do — a control that appears to work and
+  // doesn't. Refused by name until a reinstate control exists.
+  if (company.platformEndsAt) {
+    return NextResponse.json(
+      {
+        error:
+          company.platformEndMode === "terms"
+            ? "FieldQuo locked this company for a terms breach — extending its free period would not reopen it, and there is no reinstate control yet."
+            : "FieldQuo already ended this company's access — extending its free period would not bring it back, and there is no reinstate control yet.",
+      },
+      { status: 409 },
+    );
+  }
 
   // Extend from whichever is later: an unexpired trial or now. Extending from a
   // date already in the past would hand out fewer days than promised.

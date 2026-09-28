@@ -29,6 +29,24 @@
 //
 // billing:manage, a reason of three characters or more, an audit row — the
 // same bar as end-trial, which also moves money against the customer.
+//
+// ── No Stripe subscription (2026-09-28) ────────────────────────────────────
+//
+// This answered 409 "there is nothing to cancel" for every company without
+// one — since 2026-09-24 that is every new company, because the free trial
+// takes no card. The owner: "if i lock the account because of terms break
+// locked immediately it should still block the trial". So a company with no
+// Stripe subscription takes the SAME three modes, written to Company
+// (platformEndsAt / platformEndMode / platformEndReason — the schema says
+// why there), which lib/billing/access.js reads before any trial or
+// subscription rule. The words and the rules are lib/platform/cancelOptions.js,
+// the file the panel renders from, so the button and the route agree.
+//
+// The Stripe path below the branch is untouched — same Stripe calls, same
+// transaction, same audit row, same response — and
+// scripts/check-platform-cancel-lock.mjs replays it against a recording
+// Stripe and database to prove it. A demo is refused (FieldQuo's own
+// fixture — nobody to lock out).
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -37,6 +55,8 @@ import { stripe } from "@/lib/stripe";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { requirePlatformPermission } from "@/lib/platform/permissions";
 import { subscriptionFieldsFromStripe } from "@/lib/billing/subscriptionFields";
+import { trialAccessFor, FIELDQUO_END_SELECT } from "@/lib/billing/access";
+import { planFieldquoEnd } from "@/lib/platform/cancelOptions";
 
 export const CANCEL_MODES = Object.freeze(["period_end", "now", "terms"]);
 
@@ -61,7 +81,7 @@ export async function POST(request, { params }) {
   }
 
   const [company, sub] = await Promise.all([
-    db.company.findUnique({ where: { id }, select: { id: true, name: true } }),
+    db.company.findUnique({ where: { id }, select: { id: true, name: true, isDemo: true, trialEndsAt: true, ...FIELDQUO_END_SELECT } }),
     db.subscription.findUnique({
       where: { companyId: id },
       select: { stripeSubscriptionId: true, status: true, accessLockedAt: true, cancelAtPeriodEnd: true },
@@ -69,7 +89,7 @@ export async function POST(request, { params }) {
   ]);
   if (!company) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!sub?.stripeSubscriptionId) {
-    return NextResponse.json({ error: "No Stripe subscription on this company — there is nothing to cancel." }, { status: 409 });
+    return endWithoutStripe({ admin, id, company, sub: sub ?? null, mode, reason });
   }
   if (sub.accessLockedAt) {
     return NextResponse.json({ error: "This company is already locked by FieldQuo." }, { status: 409 });
@@ -167,5 +187,67 @@ export async function POST(request, { params }) {
         : mode === "now"
           ? "thirty days read-only from now, then locked"
           : "locked now — no read-only window; automatic top-up switched off; numbers released by the rent run; prepaid balance left as it is",
+  });
+}
+
+// ── The no-Stripe path ─────────────────────────────────────────────────────
+//
+// Read fresh by the POST above on this press, decided by planFieldquoEnd (a
+// looser ending than one already set is refused; a demo is refused), and
+// written in ONE transaction with its audit row — the Stripe path's shape.
+// A terms lock switches automatic phone-credit top-up off in the same step,
+// exactly as the Stripe path does and for the same reason: a locked company
+// must never be charged again by a cron.
+async function endWithoutStripe({ admin, id, company, sub, mode, reason }) {
+  const now = new Date();
+  // What the trial alone allows today, for the sentence an expired trial's
+  // "now" is refused or accepted with. Only trialEndsAt is passed, so an
+  // ending already set is not folded in.
+  const trialAccess = trialAccessFor({ trialEndsAt: company.trialEndsAt }, now);
+  const plan = planFieldquoEnd({ company, subscription: sub, mode, reason, trialAccess, now });
+  if (plan.error) return NextResponse.json({ error: plan.error }, { status: plan.status || 409 });
+
+  const topupOff =
+    mode === "terms"
+      ? [
+          db.voiceAutoTopup.updateMany({
+            where: { companyId: id, enabled: true },
+            data: { enabled: false, disabledAt: now, disabledReason: "terms_lock" },
+          }),
+        ]
+      : [];
+  await db.$transaction([
+    ...topupOff,
+    db.company.update({ where: { id }, data: plan.data }),
+    db.platformAuditLog.create({
+      data: {
+        platformAdminId: admin.id,
+        action: "access_ended_by_platform",
+        targetCompanyId: id,
+        details: {
+          mode,
+          reason,
+          kind: plan.kind,
+          hadSubscriptionRow: Boolean(sub),
+          trialEndsAt: company.trialEndsAt ? new Date(company.trialEndsAt).toISOString() : null,
+          accessEndsAt: plan.data.platformEndsAt.toISOString(),
+          lockedAt: mode === "terms" ? now.toISOString() : null,
+          previous: plan.previous
+            ? { ...plan.previous, endsAt: plan.previous.endsAt ? plan.previous.endsAt.toISOString() : null }
+            : null,
+        },
+      },
+    }),
+  ]);
+
+  return NextResponse.json({
+    ok: true,
+    mode,
+    stripeStatus: null,
+    cancelAtPeriodEnd: false,
+    currentPeriodEnd: null,
+    accessEndsAt: plan.data.platformEndsAt,
+    lockedAt: mode === "terms" ? now : null,
+    access: plan.access,
   });
 }
