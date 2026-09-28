@@ -246,8 +246,12 @@ async function openPicker() {
   return until("[data-service-picker-list]");
 }
 async function openGroup(key) {
-  const head = await until(`[data-service-picker-group="${key}"] h3 button`);
-  if (head.getAttribute("aria-expanded") !== "true") head.click();
+  await until(`[data-service-picker-group="${key}"]`);
+  // The 2026-09-25 dialog folded each trade behind its header; the tiles of
+  // 2026-09-28 have no fold. Opened when there is one, so this scene runs
+  // unchanged on either tree.
+  const head = document.querySelector(`[data-service-picker-group="${key}"] h3 button`);
+  if (head && head.getAttribute("aria-expanded") !== "true") head.click();
   await wait(150);
 }
 async function pickerScene(scene) {
@@ -261,18 +265,37 @@ async function pickerScene(scene) {
     await wait(500);
     return;
   }
-  if (scene === "picker-open-lines") {
-    const list = await openPicker();
-    const toggle = await until("[data-service-picker-lines-toggle]");
-    toggle.click();
-    await until("[data-service-picker-preview]");
-    // Scroll the dialog's own body, not the page: scrollIntoView moves every
-    // scrolling ancestor, the card included, and cuts off its heading.
-    const li = toggle.closest("li");
-    const body = li?.closest(".overflow-y-auto");
-    if (li && body) body.scrollTop += li.getBoundingClientRect().top - body.getBoundingClientRect().top - 90;
-    void list;
-    await wait(500);
+  if (scene === "picker-keys") {
+    // The keyboard, on the real dialog: Escape closes it; reopened, the
+    // arrows walk the grid from the search box. Each step's focused control
+    // is left in __harnessResult for the report; the frame is the last one.
+    const key = (k) => document.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }));
+    const at = () => {
+      const el = document.activeElement;
+      return el?.getAttribute("data-service-picker-type-add") ? `type:${el.getAttribute("data-service-picker-type-add")}` : el?.getAttribute("data-service-picker-add") ? `service:${el.getAttribute("data-service-picker-add")}` : el?.hasAttribute?.("data-service-picker-search") ? "search" : el?.tagName || null;
+    };
+    const steps = [];
+    await openPicker();
+    await wait(300);
+    steps.push(["open", at()]);
+    key("Escape");
+    await wait(400);
+    steps.push(["Escape closes", document.querySelector("[data-service-picker-list]") ? "still open" : "closed"]);
+    await openPicker();
+    await wait(300);
+    (await until("[data-service-picker-search]")).focus();
+    for (const k of ["ArrowDown", "ArrowDown", "ArrowRight", "ArrowDown", "ArrowLeft", "ArrowUp", "ArrowUp", "ArrowUp"]) {
+      key(k);
+      await wait(60);
+      const r = document.activeElement.getBoundingClientRect();
+      steps.push([k, at(), Math.round(r.left), Math.round(r.top)]);
+    }
+    key("ArrowDown");
+    key("ArrowDown");
+    key("ArrowRight");
+    await wait(200);
+    steps.push(["frame", at()]);
+    window.__harnessResult = steps;
     return;
   }
   if (scene === "picker-search") {
@@ -282,9 +305,10 @@ async function pickerScene(scene) {
     return;
   }
   if (scene === "picker-add-first-template") {
+    // The first service tile — handyman's seeded services carry templates,
+    // so the press is the template add, as the old row's default Add was.
     await openPicker();
-    const toggle = await until("[data-service-picker-lines-toggle]");
-    toggle.closest("li").querySelector("[data-service-picker-add]").click();
+    (await until("[data-service-picker-add]")).click();
     await wait(600);
     const groups = document.querySelectorAll("[data-doc-group]");
     groups[groups.length - 1]?.scrollIntoView({ block: "start" });

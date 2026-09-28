@@ -21,18 +21,33 @@
 //                     the frames that add each quote type through the foot
 //                     and save, so the PATCH body can be compared, md5 for
 //                     md5, with the same press on origin/main's cards.
+//   picker-plumber-*  one trade — plumbing — and the plumbing seed with its
+//                     seedKeys: the dialog's headings are the seed's own
+//                     categories (2026-09-28), no trade heading above them.
 //
 // "-classic" in a slug answers the classic layout; everything else the
 // document layout. Every save a picker frame makes is recorded on
 // window.__pickerSaves (the body, as posted) for the md5 runner.
 import { COMPANY, day, iso } from "./company.js";
 import { SERVICE_CATEGORIES, PRODUCTS_FIXTURE, systemCategory } from "./routes-settings-a.js";
-import { serviceSeedsForCompanyTrade, seedableServices, seedText, seedTemplateFor, seedCategoryKeys } from "@/lib/services/seeds";
+import { serviceSeedsForCompanyTrade, seedableServices, seedText, seedTemplateFor, seedCategoryKeys, seedServiceByKey } from "@/lib/services/seeds";
+import { seedCategoryName } from "@/lib/services/confirmServices";
+import { SERVICE_SEEDS } from "@/app/data/serviceSeeds";
+import { productSeedCategory } from "@/lib/quotes/servicePicker";
 import { suggestedIn } from "@/lib/pricing/benchmarkFx";
 
 const slugOf = (ctx) => ctx.screen?.slug || "";
 const isPicker = (ctx) => slugOf(ctx).startsWith("picker-");
-const shape = (ctx) => (slugOf(ctx).startsWith("picker-3types") ? "3types" : slugOf(ctx).startsWith("picker-15types") || slugOf(ctx).startsWith("picker-invoice") ? "15types" : slugOf(ctx).startsWith("picker-md5") ? "md5" : null);
+const shape = (ctx) =>
+  slugOf(ctx).startsWith("picker-3types")
+    ? "3types"
+    : slugOf(ctx).startsWith("picker-15types") || slugOf(ctx).startsWith("picker-invoice")
+      ? "15types"
+      : slugOf(ctx).startsWith("picker-md5")
+        ? "md5"
+        : slugOf(ctx).startsWith("picker-plumber")
+          ? "plumber"
+          : null;
 
 // ── Three quote types, nothing linked ──────────────────────────────────────
 const THREE = SERVICE_CATEGORIES.map((c) => ({ ...c, enabled: ["cabinet_refinishing", "cabinet_refacing", "countertop"].includes(c.key) }));
@@ -86,6 +101,52 @@ const HANDYMAN_SEEDED = seedableServices(serviceSeedsForCompanyTrade("handyman")
 });
 // One archived row — never offered.
 HANDYMAN_SEEDED.push({ ...HANDYMAN_SEEDED[0], id: "pr_hm_archived", name: "Archived — old rate", active: false });
+
+// What GET /api/products attaches to a seeded row since 2026-09-28 — the
+// heading the Add service dialog files it under — by the route's own call.
+const SEED_DEPS = { seedServiceByKey, seedCategoryName, SERVICE_SEEDS };
+const withSeedCategory = (rows) =>
+  rows.map((p) => {
+    const seedCategory = productSeedCategory(p, SEED_DEPS);
+    return seedCategory ? { ...p, seedCategory } : p;
+  });
+
+// ── One trade, the plumbing seed (2026-09-28) ──────────────────────────────
+// A plumber with plumbing alone switched on and the plumbing seed installed
+// (each row keeps its seedKey, as lib/products/seedServices.js writes it), plus
+// one service the company wrote itself — the dialog's headings are the
+// seed's own categories, "Other" last, and no trade heading above them.
+const PLUMBING_CAT = systemCategory("plumbing", "Plumbing", "Droplets", 40, true);
+const PLUMBER = [PLUMBING_CAT, ...SERVICE_CATEGORIES.map((c) => ({ ...c, enabled: false }))];
+const PLUMBING_SEEDED = [
+  ...seedableServices(serviceSeedsForCompanyTrade("plumbing")).map((row, i) => {
+    const { name, description, translations } = seedText(row, "en");
+    return {
+      id: `pr_pl_${i}`,
+      companyId: COMPANY.id,
+      seedKey: row.seedKey,
+      name,
+      description: description || null,
+      translations: Object.keys(translations).length ? translations : null,
+      type: "service",
+      unitPrice: suggestedIn(row.benchmark?.median, "CAD") || null,
+      costPrice: null,
+      unit: row.unit || null,
+      active: true,
+      templateEnabled: true,
+      templateLines: null,
+      estimateTypes: [],
+      imageUrl: null,
+      categories: [{ id: PLUMBING_CAT.id, label: PLUMBING_CAT.label }],
+      createdAt: iso(day(-2)),
+    };
+  }),
+  {
+    id: "pr_pl_own", companyId: COMPANY.id, seedKey: null, name: "Emergency call-out — after hours", description: null, translations: null,
+    type: "service", unitPrice: 195, costPrice: null, unit: "flat", active: true, templateEnabled: true, templateLines: null, estimateTypes: [],
+    imageUrl: null, categories: [{ id: PLUMBING_CAT.id, label: PLUMBING_CAT.label }], createdAt: iso(day(-1)),
+  },
+];
 
 // ── Every fixture quote type, and three services to add ────────────────────
 const ALL = SERVICE_CATEGORIES.map((c) => ({ ...c, enabled: true }));
@@ -150,6 +211,7 @@ export const ROUTES_PICKER = [
       if (s === "3types") return THREE;
       if (s === "15types") return [...FIFTEEN, ...SERVICE_CATEGORIES.map((c) => ({ ...c, enabled: false }))];
       if (s === "md5") return ALL;
+      if (s === "plumber") return PLUMBER;
       return ctx.next();
     },
   },
@@ -159,8 +221,9 @@ export const ROUTES_PICKER = [
     reply: (ctx) => {
       const s = shape(ctx);
       if (s === "3types") return PRODUCTS_FIXTURE;
-      if (s === "15types") return HANDYMAN_SEEDED;
+      if (s === "15types") return withSeedCategory(HANDYMAN_SEEDED);
       if (s === "md5") return MD5_PRODUCTS;
+      if (s === "plumber") return withSeedCategory(PLUMBING_SEEDED);
       return ctx.next();
     },
   },
