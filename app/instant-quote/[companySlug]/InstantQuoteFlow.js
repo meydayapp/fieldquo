@@ -429,15 +429,31 @@ function LawnMap({ mapsKey, onArea, companySlug, centerAddress = "", t, area = f
 // the server by the page that mounts this (lib/estimate/publicFormLook.js) —
 // never from the URL, which on an embed is a string somebody else pasted.
 // Null, or the default preset, changes nothing at all: see FormLook.
-export default function InstantQuoteFlow({ companySlug, embedded = false, look: lookProp = null }) {
-  const [data, setData] = useState(null);
+//
+// `sample` is set only by the marketing walk-through on /industries/roofing
+// (app/(marketing)/industries/[slug]/showcase/). Same precedent as
+// QuoteApproval's `sample` (commit da656e6d): the component a homeowner uses,
+// fed a payload instead of a fetch, and refusing every request it would
+// otherwise make — the page GET, the preview /measure, the service-area
+// check, the ad-tracking visit, the call-back POST and the /request POST.
+// It carries { payload, prefill: { address, contact }, submit(body) → reply }:
+// `submit` is the page's own adapter over the real pure pricing functions, so
+// the figure on screen is the one /request would compute, and nothing leaves
+// the browser. Absent — every real mount — and not one line below behaves
+// differently.
+export default function InstantQuoteFlow({ companySlug, embedded = false, look: lookProp = null, sample = null }) {
+  const [data, setData] = useState(sample ? sample.payload : null);
   const [loadErr, setLoadErr] = useState("");
   // 404 means this link is for a company that doesn't exist — the only failure
   // where /quote/<slug> is just as broken, so it's the only one without the
   // escape hatch. Everything else (network, 500) is transient and the
   // request-a-quote form is a real alternative.
   const [loadErrStatus, setLoadErrStatus] = useState(0);
-  const [trade, setTrade] = useState(null);
+  // A sample is seeded the way the payload effect below seeds a real load:
+  // its one trade picked outright, its language taken from the payload.
+  const [trade, setTrade] = useState(() =>
+    sample?.payload?.trades?.length === 1 ? sample.payload.trades[0] : null,
+  );
   // Whether the visitor TAPPED a trade chip, as opposed to the page picking
   // the only one on offer — see "How far this visit got" below.
   const [tradeTapped, setTradeTapped] = useState(false);
@@ -445,9 +461,9 @@ export default function InstantQuoteFlow({ companySlug, embedded = false, look: 
   // The visitor's language. Null until the first effect resolves it (see
   // initialLanguage) — the payload's own `language` fills it in when the
   // browser and the link said nothing, i.e. the company's.
-  const [language, setLanguage] = useState(null);
+  const [language, setLanguage] = useState(() => (sample ? instantQuoteLanguage(sample.payload?.language) || "en" : null));
 
-  const [address, setAddress] = useState("");
+  const [address, setAddress] = useState(sample?.prefill?.address || "");
   // ── Where the job is ──────────────────────────────────────────────────────
   //
   // Separate from `address`, which for a roof IS the measurement input. Every
@@ -495,7 +511,7 @@ export default function InstantQuoteFlow({ companySlug, embedded = false, look: 
   const [preview, setPreview] = useState(null);
   const [previewing, setPreviewing] = useState(false);
 
-  const [contact, setContact] = useState({ name: "", email: "", phone: "" });
+  const [contact, setContact] = useState(() => ({ name: "", email: "", phone: "", ...(sample?.prefill?.contact || {}) }));
   // null means unanswered, and stays null until they tap. Not 0 — index 0 is
   // the lowest band, a real answer, and seeding it would record "under $3,500"
   // for everyone who never touched the question.
@@ -512,6 +528,9 @@ export default function InstantQuoteFlow({ companySlug, embedded = false, look: 
   // being null on the first run means "whatever the company speaks" — the
   // route answers with that and the state is seeded from the answer.
   useEffect(() => {
+    // A sample arrived with its payload (seeded above) and offers one
+    // language, so there is nothing to fetch now or on a switch.
+    if (sample) return undefined;
     const wanted = language ?? initialLanguage(companySlug);
     const ctl = new AbortController();
     fetchJson(`/api/instant-quote/${companySlug}${wanted ? `?lang=${wanted}` : ""}`, { signal: ctl.signal })
@@ -537,7 +556,7 @@ export default function InstantQuoteFlow({ companySlug, embedded = false, look: 
         setLoadErrStatus(e.status || 0);
       });
     return () => ctl.abort();
-  }, [companySlug, language]);
+  }, [companySlug, language, sample]);
 
   // The pills the company offers. Before the payload lands (the loading and
   // error screens) all three are drawn: nothing is known yet, and the first
@@ -602,7 +621,9 @@ export default function InstantQuoteFlow({ companySlug, embedded = false, look: 
   // the effects below; and the contact boxes kept as they are typed, under
   // the sentence that says so.
   const tracking = useAdTracking({
-    ready: Boolean(data),
+    // Never for a sample: no visit row, no step beacons, no pixels, no
+    // partial lead — a marketing visitor is nobody's lead.
+    ready: Boolean(data) && !sample,
     companySlug,
     surface: "instant_quote",
     pixels: data?.pixels || null,
@@ -710,7 +731,9 @@ export default function InstantQuoteFlow({ companySlug, embedded = false, look: 
     // (see `livePreviewShown`) rather than cleared here. Clearing it in the
     // effect body costs a second render pass on every keystroke that makes the
     // form incomplete again, and lets a stale figure paint once before it goes.
-    if (!livePreview) return;
+    // A sample never measures: its trade is shown after submit, and the
+    // measurement is the fixture's.
+    if (!livePreview || sample) return;
 
     const ctl = new AbortController();
     const timer = setTimeout(async () => {
@@ -752,7 +775,7 @@ export default function InstantQuoteFlow({ companySlug, embedded = false, look: 
       clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [livePreview, companySlug, trade?.trade, address, polygon, JSON.stringify(intake), lang]);
+  }, [livePreview, sample, companySlug, trade?.trade, address, polygon, JSON.stringify(intake), lang]);
 
   // ── Inside the company's service area? ───────────────────────────────────
   //
@@ -768,7 +791,9 @@ export default function InstantQuoteFlow({ companySlug, embedded = false, look: 
   const jobAddress = byAddress(trade?.measure) ? address : siteAddress;
   const jobPostal = siteJurisdiction.postalCode || "";
   useEffect(() => {
-    if (!trade || jobAddress.trim().length < 5) return;
+    // A sample company has no service area to be outside of, and asking
+    // would be a request the walk-through promises not to make.
+    if (sample || !trade || jobAddress.trim().length < 5) return;
     const asked = jobAddress.trim();
     const ctl = new AbortController();
     const timer = setTimeout(async () => {
@@ -785,7 +810,7 @@ export default function InstantQuoteFlow({ companySlug, embedded = false, look: 
       ctl.abort();
       clearTimeout(timer);
     };
-  }, [companySlug, trade, jobAddress, jobPostal]);
+  }, [sample, companySlug, trade, jobAddress, jobPostal]);
   const areaNote = areaVerdict && areaVerdict.address === jobAddress.trim() ? areaVerdict : null;
 
   async function submit() {
@@ -821,6 +846,14 @@ export default function InstantQuoteFlow({ companySlug, embedded = false, look: 
       // The index only. The server owns the dollars behind it — a form that
       // posted "budget: 10000" could be edited to say anything (#5).
       if (budgetIndex !== null) payload.budgetBandIndex = budgetIndex;
+      // A sample hands the same body to the page's adapter instead of
+      // POSTing it: no lead, no draft, no report, no pixel, no redirect and
+      // no scroll to the top of somebody else's page. The adapter's reply has
+      // /request's shape, so the panel below reveals exactly as it would.
+      if (sample) {
+        setResult(sample.submit(payload));
+        return;
+      }
       // The visit's token, so the lead carries the campaign it came from —
       // after any beacon still in flight has landed (bounded wait).
       await tracking.settled();
@@ -1144,6 +1177,10 @@ export default function InstantQuoteFlow({ companySlug, embedded = false, look: 
                           value={address}
                           onChange={(e) => setAddress(e.target.value)}
                           placeholder={t.addressPlaceholder}
+                          // A sample measures one fixed house whatever is
+                          // typed, so its address cannot be edited into a
+                          // different house the figure would not describe.
+                          readOnly={Boolean(sample)}
                           className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
                         />
                       </label>
@@ -1560,6 +1597,7 @@ export default function InstantQuoteFlow({ companySlug, embedded = false, look: 
               lawnPick={lawnPick}
               address={jobAddress}
               contact={contact}
+              sample={Boolean(sample)}
             />
           </div>
         </div>
@@ -1727,7 +1765,7 @@ function Section({ title, required = false, children }) {
  * announced "$X,XXX" would be reading out fake money, and a cursor that could
  * select it invites people to try.
  */
-function EstimatePanel({ trade, result, preview, previewing, theme, solid, language, t, currency, company, companySlug, lawnPick, address, contact }) {
+function EstimatePanel({ trade, result, preview, previewing, theme, solid, language, t, currency, company, companySlug, lawnPick, address, contact, sample = false }) {
   const lawnCopy = lawnEstimateCopy(language);
   const isLawn = trade?.measure === "lawn_address";
   const rangeLabel = isLawn ? lawnCopy.total : t.estimatedRange;
@@ -1873,8 +1911,10 @@ function EstimatePanel({ trade, result, preview, previewing, theme, solid, langu
       {/* "This doesn't look right?" — under every figure read off imagery,
           and under a refusal. Two humans-in-the-loop: the company's number,
           and a call-back request that flags the lead for an on-site visit.
-          The estimate itself is untouched. */}
-      {fromImagery(trade?.measure) && (shown || preview?.refused || result) && (
+          The estimate itself is untouched. Not drawn for a sample: both of
+          its ways out reach a real person (a tel: link, a call-back POST),
+          and a sample company has neither. */}
+      {!sample && fromImagery(trade?.measure) && (shown || preview?.refused || result) && (
         <MeasurementDoubt
           companySlug={companySlug}
           companyPhone={company.phone || null}

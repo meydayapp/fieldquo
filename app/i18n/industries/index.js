@@ -43,3 +43,20 @@ export function industryChromeFor(language = "en") {
   const dict = INDUSTRY_MESSAGES[language] || en;
   return { ...en.chrome, ...(dict.chrome || {}) };
 }
+
+/**
+ * The roofing walk-through's words (app/(marketing)/industries/[slug]/
+ * showcase/), key by key over English like the chrome. The nested `how`
+ * list and `materials` map are taken whole from one language, never mixed:
+ * half a numbered list in French and half in English reads as broken.
+ */
+export function industryShowcaseFor(language = "en") {
+  const dict = INDUSTRY_MESSAGES[language] || en;
+  const own = dict.showcase || {};
+  return {
+    ...en.showcase,
+    ...own,
+    how: Array.isArray(own.how) && own.how.length === en.showcase.how.length ? own.how : en.showcase.how,
+    materials: { ...en.showcase.materials, ...(own.materials || {}) },
+  };
+}

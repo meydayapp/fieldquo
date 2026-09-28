@@ -7,6 +7,7 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { ArrowRight, Check, PlayCircle, X as XIcon } from "lucide-react";
 import { INDUSTRIES } from "@/app/data/industries";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -16,7 +17,14 @@ import {
 } from "@/app/i18n/industries";
 import { TRADE_PITCH_TOP, tradeSellingPoints } from "@/lib/sales/tradeSellingPoints";
 
-export default function IndustryPageContent({ slug, videoId }) {
+// The walk-through a trade may carry (./showcase/registry.js), by kind. Its
+// own chunk: it renders the instant-quote form, the leads drawer and the
+// review queue, which the other eleven trade pages have no reason to load.
+const SHOWCASE_VIEWS = {
+  instant_quote: dynamic(() => import("./showcase/RoofingShowcase")),
+};
+
+export default function IndustryPageContent({ slug, videoId, showcase = null }) {
   const { language } = useTranslation();
 
   const content = industryContentFor(slug, language);
@@ -33,6 +41,10 @@ export default function IndustryPageContent({ slug, videoId }) {
   // no tradeKey draws no section.
   const tradeKey = INDUSTRIES.find((i) => i.slug === slug)?.tradeKey || null;
   const pitch = tradeSellingPoints(tradeKey, language, { limit: TRADE_PITCH_TOP });
+
+  // Drawn only when the server handed this trade a showcase AND this page
+  // knows how to draw its kind — never a link to an anchor nothing renders.
+  const ShowcaseView = showcase ? SHOWCASE_VIEWS[showcase.kind] || null : null;
 
   return (
     <div>
@@ -62,6 +74,18 @@ export default function IndustryPageContent({ slug, videoId }) {
                 >
                   {chrome.talkToUs}
                 </Link>
+                {/* Added beside the two above, never in place of them: the
+                    trial and the conversation stay where they were. A plain
+                    anchor, so it works before hydration and from an ad. */}
+                {ShowcaseView && (
+                  <a
+                    href={`#${showcase.anchor}`}
+                    className="inline-flex items-center gap-2 border border-border bg-card px-6 py-3 rounded-full text-sm font-semibold text-foreground hover:border-foreground/40"
+                    data-showcase-cta
+                  >
+                    <PlayCircle size={16} aria-hidden="true" /> {chrome.seeItInAction}
+                  </a>
+                )}
               </div>
 
               <p className="mt-3 text-sm text-muted-foreground">{chrome.noCard}</p>
@@ -98,6 +122,8 @@ export default function IndustryPageContent({ slug, videoId }) {
           </div>
         </div>
       </div>
+
+      {ShowcaseView && <ShowcaseView fixture={showcase.data} anchor={showcase.anchor} />}
 
       {/* Problem → solution */}
       {content.pains.length > 0 && (
