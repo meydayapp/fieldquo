@@ -8,6 +8,7 @@
 import { db } from "@/lib/db";
 import { partitionPlans } from "@/lib/platform/sellablePlans";
 import { customOfferFromScale } from "@/lib/billing/customPlan";
+import { livePromotions, universalPromotions, withOffers, customOfferTable } from "@/lib/billing/promotions";
 import { marketingMetadata } from "@/lib/marketing/metadata";
 import PricingPlans from "./PricingPlans";
 
@@ -120,10 +121,26 @@ export default async function PricingPage() {
 
   // Prisma Decimal doesn't cross the server/client boundary. Serialise here
   // rather than letting the RSC payload throw at render time.
+  // ── The prices, resolved on the server ───────────────────────────────────
+  //
+  // Month and 1-year offers for every card under the promotions running now
+  // (lib/billing/promotions.js — the resolver the checkout reprices with).
+  // Only a promotion that applies in EVERY currency the page is standing in
+  // for is shown: this page cannot know the visitor's currency, and a
+  // CAD-only sale printed here would be promised to an American.
+  const now = new Date();
+  const promotions = universalPromotions(
+    await livePromotions({ now }),
+    [...new Set(sellable.filter((p) => p.tierKey).map((p) => p.currency))],
+  );
+  const offersById = new Map(withOffers(plans, { promotions, now }).map((p) => [p.id, p.offers]));
+
   const serialised = plans.map((plan) => ({
     id: plan.id,
     name: plan.name,
     priceMonthly: Number(plan.priceMonthly),
+    priceAnnual: plan.priceAnnual === null || plan.priceAnnual === undefined ? null : Number(plan.priceAnnual),
+    offers: offersById.get(plan.id) || null,
     // The row's OWN currency column, not a guess about the reader. It picks the
     // symbol and is never printed as a code — see the price block in
     // PricingPlans.
@@ -149,6 +166,7 @@ export default async function PricingPage() {
   const customOffer = rawOffer
     ? { ...rawOffer, baseMonthly: Number(rawOffer.baseMonthly), baseAnnual: rawOffer.baseAnnual === null ? null : Number(rawOffer.baseAnnual) }
     : null;
+  if (customOffer) customOffer.offers = customOfferTable(customOffer, { promotions, now });
 
   return <PricingPlans plans={serialised} customOffer={customOffer} />;
 }

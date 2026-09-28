@@ -7,6 +7,7 @@ import { partitionPlans, withheldReasons, isRetired } from "@/lib/platform/sella
 import { recordError } from "@/lib/platform/errorLog";
 import { ensureCustomPlan } from "@/lib/billing/customPlan";
 import { customSeatsFromTierKey, SUPPORTED_CURRENCIES } from "@/lib/pricing/ladder";
+import { livePromotions, withOffers } from "@/lib/billing/promotions";
 
 // Public — the signup page needs to show plans without a session. This is
 // deliberately separate from /api/platform/billing/plans (which is platform-admin-
@@ -178,12 +179,25 @@ export async function GET(request) {
   // selected at all.)
   const publicShape = ({ isPublic, retiredAt, ...plan }) => plan;
 
+  // ── The prices the signup cards print, resolved here ─────────────────────
+  //
+  // Each row with its month and 1-year offers under the promotions running
+  // now (lib/billing/promotions.js). Signup knows the currency by the plan
+  // step, so a sale scoped to one currency is shown on that currency's rows
+  // only. The checkout reprices from the database again when the session
+  // opens; these are what the cards say, not what the card sends.
+  const now = new Date();
+  const promotions = await livePromotions({ now });
+
   return NextResponse.json({
-    plans: [
-      ...sellable.map(publicShape),
-      ...(unlisted ? [{ ...publicShape(unlisted), unlisted: true }] : []),
-      ...customRows.map((p) => ({ ...publicShape(p), unlisted: true })),
-    ],
+    plans: withOffers(
+      [
+        ...sellable.map(publicShape),
+        ...(unlisted ? [{ ...publicShape(unlisted), unlisted: true }] : []),
+        ...customRows.map((p) => ({ ...publicShape(p), unlisted: true })),
+      ],
+      { promotions, now },
+    ),
     // The signup page needs to tell "we have no plans configured" apart from
     // "these plans exist but none can be bought right now". They look
     // identical as an empty array and mean completely different things.

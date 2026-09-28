@@ -86,8 +86,13 @@ import { PROCESSING_RATES } from "@/lib/stripe/processingFee";
 // Pool that never connects; no query leaves this process.
 let planRows = [];
 db.plan = { findMany: async () => planRows };
-const renderPage = async (rows) => {
+// The running promotions the page asks lib/billing/promotions.js for since
+// 2026-09-28 — none unless a block below scripts one.
+let promotionRows = [];
+db.platformPromotion = { findMany: async () => promotionRows };
+const renderPage = async (rows, promotions = []) => {
   planRows = rows;
+  promotionRows = promotions;
   return renderToStaticMarkup(
     createElement(LanguageProvider, { initialLanguage: "en" }, await PricingPage()),
   );
@@ -449,15 +454,60 @@ async function main() {
       html.includes(">Custom · 20 seats · 25 crew<") && html.includes(`$${twenty.price}`), twenty.price);
     // The fixture's Scale row carries no annual price, so the card must not
     // invent a year; with one, it says the year at the same ratio.
-    ok("...with no year while Scale has no annual price", !html.includes("a year, billed yearly"));
+    ok("...with no year while Scale has no annual price", !html.includes("once a year"));
     const withYear = await renderPage(ladderRows.map((r) => (r.tierKey === "scale" ? { ...r, priceAnnual: r.priceMonthly * 10 } : r)));
-    ok("...and $6,190 a year once Scale is sold yearly", withYear.includes("6,190") && withYear.includes("a year, billed yearly"));
+    ok("...and $6,190 a year once Scale is sold yearly", withYear.includes("Billed $6,190 once a year"));
     ok("...names the per-seat step and the cap in words: 47 seats, 52 crew, 100 people",
       html.includes(`$${CUSTOM_SEAT_PRICE}`) && html.includes(`${CUSTOM_MAX_SEATS} seats`) && html.includes(`${CUSTOM_MAX_SEATS + CUSTOM_CREW_GAP} crew`) && html.includes(`${MAX_COMPANY_PEOPLE} people`));
     ok("...offers the quick picks 15 / 20 / 30 / 40", ["15", "20", "30", "40"].every((n) => new RegExp(`aria-pressed="(true|false)"[^>]*>${n}<`).test(html)));
     ok("...and no fifth card without a Scale row to price from",
       !(await renderPage(ladderRows.filter((r) => r.tierKey !== "scale"))).includes('id="custom"'));
   }
+  // ── The 1-year tab and a running sale, through the shipped page ─────────
+  //
+  // The standing 1-year offer (ten months) on every row, then the owner's
+  // "40% off the monthly price, applied to the 1-year commitment" running —
+  // resolved by lib/billing/promotions.js inside page.js, rendered by
+  // PlanOfferPrice. And a CAD-only sale, which this currency-blind page must
+  // not print.
+  {
+    const annualRows = ladderRows.map((r) => ({ ...r, priceAnnual: r.priceMonthly * 10 }));
+    const standing = await renderPage(annualRows);
+    ok("with a year on every row the page opens on the 1-year tab, saving on it",
+      standing.includes("1-year commitment · save 17%") && standing.indexOf("1-year commitment") < standing.indexOf(">Monthly<"));
+    ok("...Solo's card: $99/mo crossed, $82.50/mo, billed $990 once a year, save $198, ribbon Save 17%",
+      standing.includes("line-through") && standing.includes("$99/mo") && standing.includes("$82.50/mo") &&
+        standing.includes("Billed $990 once a year") && standing.includes("You save $198 a year") && standing.includes("Save 17%"));
+    const sale = {
+      id: "promo_owner",
+      label: "40% off the yearly plan",
+      active: true,
+      startsAt: null,
+      endsAt: new Date(Date.now() + 20 * 86400000),
+      discountKind: "percent",
+      discountValue: "40",
+      durationMonths: 3,
+      tierKeys: null,
+      currencies: null,
+      appliesTo: "year",
+      createdAt: new Date(),
+    };
+    const onSale = await renderPage(annualRows, [sale]);
+    ok("the owner's sale on the page: Save 40% on the tab and the ribbon",
+      onSale.includes("1-year commitment · save 40%") && onSale.includes("Save 40%"));
+    ok("...Solo $59.40/mo, billed $712.80 for year one, then $990/yr, with the sale's label",
+      onSale.includes("$59.40/mo") && onSale.includes("Billed $712.80 for year one") &&
+        onSale.includes("then $990/yr") && onSale.includes("40% off the yearly plan"));
+    ok("...Scale billed $2,656.80 for year one, then $3,690/yr",
+      onSale.includes("Billed $2,656.80 for year one") && onSale.includes("then $3,690/yr"));
+    ok("...never 40% off the standing $990 ($594) — the sale replaces, it does not stack", !onSale.includes("$594"));
+    ok("...and an end date", /Offer ends [A-Z][a-z]{2} \d{1,2}, \d{4}/.test(onSale));
+    const cadOnly = await renderPage(annualRows, [{ ...sale, currencies: ["CAD"] }]);
+    ok("a CAD-only sale is not printed on the currency-blind page", !cadOnly.includes("712.80") && cadOnly.includes("Save 17%"));
+    const off = await renderPage(annualRows, [{ ...sale, active: false }]);
+    ok("a switched-off sale changes nothing", !off.includes("712.80") && off.includes("Billed $990 once a year"));
+  }
+
   ok("Solo is rendered once", count(">Solo<") === 1, count(">Solo<"));
   ok("Scale is rendered once", count(">Scale<") === 1, count(">Scale<"));
   ok("no rendered link is bound to a currency row", !/href="\/signup\?plan=(solo|crew|shop|scale)-/.test(html));

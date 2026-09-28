@@ -14,12 +14,13 @@ import {
   billingBasis,
 } from "@/lib/signup/funnel";
 import {
-  DEFAULT_INTERVAL,
   annualPriceOf,
   annualSaving,
   chargeFor,
 } from "@/lib/billing/interval";
-import { currencyLabel, annualComparison } from "@/lib/pricing/ladder";
+import { currencyLabel } from "@/lib/pricing/ladder";
+import { yearTabSaving } from "@/lib/pricing/planOffer";
+import { offerMoney } from "@/app/components/billing/PlanOfferPrice";
 import { INDUSTRIES } from "@/app/data/industries";
 import { categoryKeysForIndustries } from "@/app/data/industryCategories";
 import PricingCard from "@/app/components/marketing/PricingCard";
@@ -167,6 +168,26 @@ function savingSentence(t, { amount, months }) {
   if (whole !== null && whole > 2)
     return t("app.signup.plan.saveMonths", "Save {amount} a year — {n} months free.", { amount, n: whole });
   return t("app.signup.plan.saveOnly", "Save {amount} a year.", { amount });
+}
+
+// The charge, in words, for the summary and the button: "CA$990 a year",
+// "CA$99/mo" — or, while a promotion applies to the chosen card, its
+// discounted first charge to the cent ("CA$712.80 for year one", "CA$59.40/mo
+// for 3 months"), from the server's offer. One helper because the sentence
+// above the button and the button itself must never say two different prices.
+function chargeWords(t, charge, promoOffer, symbol, money) {
+  if (promoOffer) {
+    const amount = offerMoney(symbol)(promoOffer.charge);
+    return promoOffer.interval === "year"
+      ? t("app.signup.plan.yearOne", "{amount} for year one", { amount })
+      : promoOffer.promoMonths === 1
+        ? t("app.signup.plan.perMonthForOne", "{amount}/mo for the first month", { amount })
+        : t("app.signup.plan.perMonthFor", "{amount}/mo for {months} months", { amount, months: promoOffer.promoMonths });
+  }
+  const amount = `${symbol}${money(charge.amount)}`;
+  return charge.interval === "year"
+    ? t("app.signup.plan.aYear", "{amount} a year", { amount })
+    : t("app.signup.plan.perMonth", "{amount}/mo", { amount });
 }
 
 // ── No commitment | 1-year commitment ─────────────────────────────────────
@@ -1074,11 +1095,14 @@ export default function SignupPage() {
   // the plans effect below and constant afterwards.
   const wantedRef = useRef({ tier: null, planId: null });
 
-  // Monthly (no commitment) or annual (one year, one charge). Same rate either
-  // way — see lib/billing/interval.js. Defaults to the option with no
-  // commitment attached, because that is the safe thing to assume for someone
-  // who has not chosen.
-  const [billingInterval, setBillingInterval] = useState(DEFAULT_INTERVAL);
+  // Monthly (no commitment) or the 1-year commitment (one charge a year).
+  // Opens on the year — the owner's approved design (2026-09-28): every plan
+  // picker defaults to the 1-year tab with its saving on it, Monthly one tap
+  // away. The tab the cards are priced in is always visible above them, the
+  // summary under them states the charge in the chosen cadence, and a plan
+  // with no annual price falls back to monthly (effectiveInterval below), so
+  // nothing is bought on a cadence the page did not say.
+  const [billingInterval, setBillingInterval] = useState("year");
 
   const [form, setForm] = useState({
     firstName: "",
@@ -1231,29 +1255,35 @@ export default function SignupPage() {
   // row, which is created without one.
   const annualPrice = annualPriceOf(selectedPlan);
   const annualAvailable = annualPrice !== null;
-  // What gets posted. Never `billingInterval` straight from state: a plan with
-  // no annual price must not be bought on a cadence it does not have, and the
-  // screen shows this same value, so the button and the charge cannot diverge.
-  const effectiveInterval = annualAvailable ? billingInterval : "month";
+  // The cadence the cards are priced in, and — once a plan is chosen — the
+  // one posted. Never `billingInterval` straight from state: a plan with no
+  // annual price must not be bought on a cadence it does not have, and the
+  // screen shows this same value, so the button and the charge cannot
+  // diverge. Before a choice the tabs follow the ladder: the year when any
+  // card sells one.
+  const anyYearOffer = visiblePlans.some((p) => annualPriceOf(p) !== null);
+  const effectiveInterval = (hasSelection ? annualAvailable : anyYearOffer) ? billingInterval : "month";
   const charge = chargeFor(selectedPlan, effectiveInterval);
+  // The selected card's offer on that cadence, resolved on the server with
+  // any running promotion (/api/marketing/plans → lib/billing/promotions.js).
+  // Only what is SAID comes from it: the post carries the plan and cadence,
+  // and the checkout reprices from the database (non-negotiable #5).
+  const selectedOffer = selectedPlan?.offers?.[effectiveInterval] || null;
+  const promoOffer = selectedOffer?.available && selectedOffer.promo ? selectedOffer : null;
+  const centsMoney = offerMoney(symbol);
   // Two months on the ladder's default. Shown only when the number is real
   // and positive, so nothing claims a saving that isn't there.
   const yearlySaving = annualSaving(selectedPlan);
   // The pill on the yearly tab. The selected plan's own percentage once one
   // is chosen; before that, the best on offer across the ladder — "up to"
   // when the rungs disagree, which they can, because priceAnnual is per row.
-  const ladderComparisons = visiblePlans
-    .map((p) => annualComparison({ priceMonthly: p.priceMonthly, priceAnnual: p.priceAnnual }))
-    .filter((c) => c.available);
-  const anyAnnual = ladderComparisons.length > 0;
-  const selectedComparison = selectedPlan
-    ? annualComparison({ priceMonthly: selectedPlan.priceMonthly, priceAnnual: selectedPlan.priceAnnual })
-    : null;
-  const pillPercent = selectedComparison?.available
-    ? selectedComparison.percent
-    : Math.max(0, ...ladderComparisons.map((c) => c.percent));
-  const pillUpTo =
-    !selectedComparison?.available && ladderComparisons.some((c) => c.percent !== pillPercent);
+  // From the server's offers, so a running sale's "Save 40%" and the standing
+  // offer's "Save 17%" are the percentages the cards themselves print.
+  const anyAnnual = anyYearOffer;
+  const selectedYear = selectedPlan?.offers?.year;
+  const ladderSaving = yearTabSaving(visiblePlans.map((p) => p.offers));
+  const pillPercent = selectedYear?.available ? selectedYear.percent : ladderSaving.percent;
+  const pillUpTo = !selectedYear?.available && ladderSaving.upTo;
   // Disabled, not hidden — see BillingIntervalTabs.
   const yearTabDisabled = hasSelection ? !annualAvailable : !anyAnnual;
   const savingLine = annualAvailable
@@ -3185,6 +3215,27 @@ export default function SignupPage() {
                     t("app.signup.plan.ladderMonthlyOnly", "These plans are billed monthly only.")
                   ) : effectiveInterval === "year" ? (
                     hasSelection ? (
+                      promoOffer ? (
+                        // A sale on the year: its first-year charge, the
+                        // month that makes, and what it renews at — the
+                        // server's figures, to the cent.
+                        <>
+                          {t(
+                            "app.signup.plan.yearlyPromoLine",
+                            "{year} for year one — that's {month} a month — then {renewal} a year.",
+                            {
+                              year: centsMoney(promoOffer.charge),
+                              month: centsMoney(promoOffer.perMonth),
+                              renewal: centsMoney(promoOffer.renewal),
+                            },
+                          )}{" "}
+                          <span className="font-medium text-green-700 dark:text-green-400">
+                            {t("pricing.offer.youSaveYearOne", "You save {amount} in year one", {
+                              amount: centsMoney(promoOffer.saves),
+                            })}
+                          </span>
+                        </>
+                      ) : (
                       <>
                         {t(
                           "app.signup.plan.yearlyLine",
@@ -3196,6 +3247,7 @@ export default function SignupPage() {
                         )}{" "}
                         <span className="font-medium text-green-700 dark:text-green-400">{savingLine}</span>
                       </>
+                      )
                     ) : (
                       t(
                         "app.signup.plan.yearlyPick",
@@ -3306,15 +3358,10 @@ export default function SignupPage() {
                             trial: trialText(t, pricing.trialTotal),
                           });
                       const [before, after] = around(sentence, "{charge}");
-                      const amount = `${symbol}${money(charge.amount)}`;
                       return (
                         <>
                           {before}
-                          <span className="font-semibold text-foreground">
-                            {charge.interval === "year"
-                              ? t("app.signup.plan.aYear", "{amount} a year", { amount })
-                              : t("app.signup.plan.perMonth", "{amount}/mo", { amount })}
-                          </span>
+                          <span className="font-semibold text-foreground">{chargeWords(t, charge, promoOffer, symbol, money)}</span>
                           {after}
                         </>
                       );
@@ -3338,11 +3385,7 @@ export default function SignupPage() {
                     : !charge
                       ? t("app.signup.continueToPayment", "Continue to Payment")
                       : (() => {
-                          const amount = `${symbol}${money(charge.amount)}`;
-                          const chargeText =
-                            charge.interval === "year"
-                              ? t("app.signup.plan.aYear", "{amount} a year", { amount })
-                              : t("app.signup.plan.perMonth", "{amount}/mo", { amount });
+                          const chargeText = chargeWords(t, charge, promoOffer, symbol, money);
                           if (finishCheckout && !resumeTrialLive)
                             return t("app.signup.plan.startToday", "Start — {charge}, billed from today", {
                               charge: chargeText,

@@ -117,8 +117,18 @@ export async function GET(request) {
   }
 
   if (seesPlan) {
+    // The promotion this plan was sold under and what it charged
+    // (lib/billing/promotions.js) — the page says "Year one at CA$712.80
+    // (…), then CA$990/year" from it while the discounted period runs.
+    // Its own read, so a database that has not been given the column yet
+    // costs the page one sentence, not the whole billing screen.
+    const promotionApplied = await db.subscription
+      .findUnique({ where: { companyId: member.companyId }, select: { promotionApplied: true } })
+      .then((r) => r?.promotionApplied ?? null)
+      .catch(() => null);
     return NextResponse.json({
       ...subscription,
+      promotionApplied,
       showTrialBadge,
       // What the live read found, so the page can say "checked with Stripe"
       // or "could not reach Stripe" rather than implying either.

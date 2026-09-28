@@ -472,7 +472,9 @@ console.log("\nThe preview does no arithmetic of its own");
 
 ok("the promotions page never multiplies a price", () => {
   const src = code("app/platform/billing/promotions/page.js");
-  assert.match(src, /priceFor\(/, "it must call priceFor");
+  // planOffer (lib/pricing/planOffer.js) — the resolver every customer
+  // surface and the checkout price with, which asks priceFor for the month.
+  assert.match(src, /planOffer\(/, "it must call planOffer");
   // The shapes a hand-rolled discount takes. Any of them here means somebody
   // wrote the bug this page exists to prevent.
   assert.ok(
@@ -485,7 +487,11 @@ ok("it prices the ROW, not SEAT_LADDER's default", () => {
   // The operator can change a price without a deploy; a preview built from the
   // constant would show them the number they no longer charge.
   const src = code("app/platform/billing/promotions/page.js");
-  assert.match(src, /price:\s*plan\.priceMonthly/);
+  // The preview rows are the loaded Plan rows themselves (and a custom size
+  // priced from the loaded Scale row), handed to planOffer as they are.
+  assert.match(src, /rows\.push\(\{ key: plan\.id, name: plan\.name, plan \}\)/);
+  assert.match(src, /customTier\(CUSTOM_EXAMPLE_SEATS, \{ base: plan \}\)/);
+  assert.match(src, /planOffer\(\{ plan: row\.plan/);
 });
 
 ok("priceFor on an operator-edited row uses the edited number", () => {

@@ -93,6 +93,38 @@ export const LOCK_FRAMES = [
   out: "docs/screens/platform-cancel-lock",
 }));
 
+// ── Annual-first pickers and live promotions (2026-09-28) ───────────────────
+// The REAL Account & Billing picker and /pricing grid on the 1-year tab by
+// default — the standing offer, then the owner's "40% off the yearly plan"
+// sale running — the Monthly tab, and the REAL promotions console with the
+// sale open in the editor (its preview per tier × currency × commitment).
+// PromoFrame.jsx computes the offers with the server's own pure resolver.
+export const PROMO_FRAMES = [
+  ["billing-year", { view: "billing" }, 1280, 1700],
+  ["billing-year-phone", { view: "billing" }, 375, 3600],
+  ["billing-year-sale", { view: "billing", sale: true }, 1280, 1800],
+  ["billing-year-sale-phone", { view: "billing", sale: true }, 375, 3900],
+  ["billing-monthly", { view: "billing", press: "billing-monthly" }, 1280, 1500],
+  ["pricing-year", { view: "pricing" }, 1280, 1500],
+  ["pricing-year-phone", { view: "pricing" }, 375, 3800],
+  ["pricing-year-sale", { view: "pricing", sale: true }, 1280, 1600],
+  ["pricing-year-sale-phone", { view: "pricing", sale: true }, 375, 4200],
+  ["pricing-monthly", { view: "pricing", press: "pricing-monthly" }, 1280, 1400],
+  ["pricing-monthly-phone", { view: "pricing", press: "pricing-monthly" }, 375, 3400],
+  ["platform-promotion-form", { view: "platform", press: "platform" }, 1280, 2600],
+  ["platform-promotion-form-phone", { view: "platform", press: "platform" }, 375, 4600],
+].map(([slug, props, width, height]) => ({
+  slug,
+  href: props.view === "billing" ? "/app/settings/account-billing" : props.view === "platform" ? "/platform/billing/promotions" : "/pricing",
+  page: "docs/screens/app-guide/harness/PromoFrame.jsx",
+  props,
+  mode: "public",
+  width,
+  height,
+  chapter: "annual-promotions",
+  out: "docs/screens/annual-promotions",
+}));
+
 // ── The reactive signup panel (2026-09-24) — docs/screens/signup-aside ────
 // The real /signup parked on each step (SignupAsideFrame.jsx seeds the draft
 // and answers the signup routes): the account step empty and typed, the
@@ -400,6 +432,7 @@ export const SCREENS = [
   ...INTRO_FRAMES,
   ...TRIAL_FRAMES,
   ...LOCK_FRAMES,
+  ...PROMO_FRAMES,
   ...SIGNUP_ASIDE_FRAMES,
 
   // ── Typed per-trade checklists (docs/screens/checklists/) ──────────────

@@ -13,12 +13,11 @@ import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 import CancelFlow from "./CancelFlow";
 import ResumePlanButton from "@/app/components/billing/ResumePlanButton";
 import CustomSeatPicker, { pickedTier } from "@/app/components/billing/CustomSeatPicker";
-import { customSeatsFromTierKey } from "@/lib/pricing/ladder";
-import {
-  annualPriceOf,
-  annualSaving,
-  isBillingInterval,
-} from "@/lib/billing/interval";
+import { customSeatsFromTierKey, currencyLabel } from "@/lib/pricing/ladder";
+import { yearTabSaving } from "@/lib/pricing/planOffer";
+import PlanOfferPrice, { OfferRibbon, offerMoney, yearTabLabel } from "@/app/components/billing/PlanOfferPrice";
+import { numberLocaleFor } from "@/app/i18n/numberLocale";
+import { annualPriceOf } from "@/lib/billing/interval";
 import { classifyPlanChange } from "@/lib/platform/planChange";
 import {
   subscriptionStatusClasses,
@@ -51,6 +50,40 @@ function seatLine(plan, t) {
   return plan.maxUsers === 1
     ? t("app.billing.upToUsersCapOne", "Up to 1 user")
     : t("app.billing.upToUsersCap", "Up to {count} users", { count: plan.maxUsers });
+}
+
+// "Year one at CA$712.80 (40% off the yearly plan), then CA$990/year" —
+// while the promotion the subscription was sold under is still discounting
+// it. From Subscription.promotionApplied (lib/billing/promotions.js), which
+// the server wrote with the figures it charged; a promotion booked for a
+// later change is not said until it lands, and one whose period has passed
+// is not said at all.
+function currentPromotionLine(subscription, money, t) {
+  const p = subscription?.promotionApplied;
+  if (!p || !subscription?.plan || subscription.status === "canceled") return null;
+  if (p.path === "scheduled" && subscription.pendingPlanId) return null;
+  if (p.interval !== (subscription.billingInterval || "month")) return null;
+  const from = new Date(p.charged?.at || p.appliedAt || 0).getTime();
+  const months = p.interval === "year" ? 12 : Number(p.promotionalMonths) || 0;
+  if (!Number.isFinite(from) || !months || Date.now() > from + months * 31 * 86400000) return null;
+  const charge = money((Number(p.chargeCents) || 0) / 100);
+  const regular = money((Number(p.regularCents) || 0) / 100);
+  return (
+    <p className="text-sm text-muted-foreground mt-1" data-current-promotion>
+      {p.interval === "year"
+        ? t("app.billing.promoYearOne", "Year one at {charge} ({label}), then {regular}/year", {
+            charge,
+            regular,
+            label: p.label || "",
+          })
+        : t("app.billing.promoMonths", "{charge}/month for your first {months} months ({label}), then {regular}/month", {
+            charge,
+            regular,
+            months,
+            label: p.label || "",
+          })}
+    </p>
+  );
 }
 
 function daysLeft(date) {
@@ -96,7 +129,7 @@ export default function AccountBillingPage() {
 
 function AccountBillingScreen() {
   const money = useCompanyMoney();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const { formatDate } = useCompanyPreferences();
   const [subscription, setSubscription] = useState(null);
   const [plans, setPlans] = useState([]);
@@ -134,15 +167,16 @@ function AccountBillingScreen() {
   // pre-purchased and every other card stays exactly as clickable. A key no
   // card carries marks nothing.
   const [wantedTier, setWantedTier] = useState(null);
-  // ── Which cadence an upgrade is bought on ────────────────────────────────
+  // ── Which cadence the cards are priced in ───────────────────────────────
   //
-  // null until the subscription loads, then seeded from what the company is
-  // ALREADY on. This route used to send no cadence at all, so a company that
-  // took the one-year commitment at signup and changed tier here was moved to
-  // monthly without being told — the two months they had committed for, gone.
-  //
-  // Seeded rather than defaulted to monthly for the same reason: the safe
-  // assumption for somebody who has already chosen is what they chose.
+  // The 1-year commitment, by default — the owner's approved design
+  // (2026-09-28): the picker opens on the year, with its saving on the tab,
+  // and Monthly one tap away. It was seeded from the company's own cadence
+  // before that, because this route once sent none and quietly moved annual
+  // companies to monthly; the cadence still travels with every purchase and
+  // the server still refuses a year a plan cannot be sold on, so nothing is
+  // bought on a cadence nobody chose — the tab says which one the card is.
+  // Falls back to monthly after the load when no card sells a year.
   const [billingInterval, setBillingInterval] = useState(null);
   // Two different questions that were briefly one variable: `onYear` is the
   // cadence they are BILLED on, `billingInterval` is the cadence the plan cards
@@ -194,11 +228,6 @@ function AccountBillingScreen() {
       }
       const sub = await subRes.json();
       setSubscription(sub);
-      // Only on the first load. Re-seeding on every refresh would yank the
-      // control back under someone who had just switched it.
-      setBillingInterval((current) =>
-        current ?? (isBillingInterval(sub?.billingInterval) ? sub.billingInterval : "month"),
-      );
       // { plans, currency } since the ladder shipped — the route now filters to
       // the company's own currency rather than listing both, because the two
       // rows of a tier carry the same NUMBER and picking between them is not a
@@ -217,6 +246,11 @@ function AccountBillingScreen() {
       const body = planRes.ok ? await planRes.json() : null;
       const planList = Array.isArray(body) ? body : body?.plans;
       setPlans(Array.isArray(planList) ? planList : []);
+      // Only on the first load. Re-seeding on every refresh would yank the
+      // tab back under someone who had just switched it.
+      setBillingInterval((current) =>
+        current ?? ((Array.isArray(planList) ? planList : []).some((p) => annualPriceOf(p) !== null) ? "year" : "month"),
+      );
       setCustomOffer(body && !Array.isArray(body) && body.custom ? body.custom : null);
       const onCustom = customSeatsFromTierKey(sub?.plan?.tierKey);
       if (onCustom) setCustomSeats(onCustom);
@@ -486,6 +520,12 @@ function AccountBillingScreen() {
   const currentPlanLine = subscription?.plan
     ? `${subscription.plan.name} (${cadenceLabel(subscription.billingInterval, t)})`
     : "";
+  // The cards speak in the PLAN's currency — "US$99/mo" — because that is
+  // the money the Stripe line is built in (planStripeCurrency). The
+  // company's own currency is what it quotes clients in, and a British
+  // company is billed on the USD rows.
+  const locale = numberLocaleFor(language);
+  const cardMoney = offerMoney(currencyLabel(planCurrency) || "$", locale);
 
   return (
     <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
@@ -542,6 +582,13 @@ function AccountBillingScreen() {
                 {onYear ? ` · ${t("app.billing.oneYearCommitment", "1 year commitment")}` : ""}
               </p>
             )}
+            {/* ── The promotion this plan was bought under ────────────────
+                From Subscription.promotionApplied — written by the server
+                when the coupon was applied, with the charge it computed —
+                so a company in its discounted year sees the year-one price
+                it pays and what it renews at, not only the standing price
+                above. Hidden once the promotional period is over. */}
+            {currentPromotionLine(subscription, money, t)}
             {isTrialing && trialDays !== null && (
               <p className="text-sm text-amber-700 dark:text-amber-300 mt-2 font-medium">
                 {t("app.billing.trialEnds", "Trial ends in {days} day{plural}", { days: trialDays, plural: trialDays === 1 ? "" : "s" })}
@@ -717,10 +764,13 @@ function AccountBillingScreen() {
               price. A toggle whose other half cannot be bought is a control
               that appears to work. */}
           {plans.some((p) => annualPriceOf(p) !== null) && (
-            <div className="inline-flex rounded-full border border-border p-0.5 text-xs font-semibold">
+            <div className="inline-flex flex-wrap rounded-full border border-border p-0.5 text-xs font-semibold" role="tablist">
               {[
+                // The year first and by default; its label carries the saving
+                // the cards below actually show (yearTabSaving over their
+                // server-resolved offers — never a typed "17%").
+                ["year", yearTabLabel(t, yearTabSaving(plans.filter((p) => !customSeatsFromTierKey(p.tierKey)).map((p) => p.offers)))],
                 ["month", t("app.billing.payMonthly", "Monthly")],
-                ["year", t("app.billing.payYearly", "1 year commitment")],
               ].map(([value, label]) => (
                 <button
                   key={value}
@@ -754,10 +804,12 @@ function AccountBillingScreen() {
             const sameTier = plan.id === currentPlanId;
             const isCurrent =
               sameTier && (subscription?.billingInterval || "month") === billingInterval;
-            // null means this tier has no annual option — not "free", and not
+            // The card's figures, resolved on the server with any running
+            // promotion (lib/billing/promotions.js). A plan with no annual
+            // price has an unavailable year offer — not "free", and not
             // "fall back to monthly". See lib/billing/interval.js.
+            const offer = plan.offers?.[billingInterval || "month"] || null;
             const yearly = billingInterval === "year" ? annualPriceOf(plan) : null;
-            const saving = yearly !== null ? annualSaving(plan) : null;
             // The server refuses this combination, so the button must not offer
             // it. Refusing on both sides rather than trusting either.
             const unsellable = billingInterval === "year" && annualPriceOf(plan) === null;
@@ -765,45 +817,40 @@ function AccountBillingScreen() {
             return (
               <div
                 key={plan.id}
-                className={`border rounded-xl p-4 ${
+                className={`relative overflow-hidden border rounded-xl p-4 ${
                   isCurrent ? "border-inverted" : "border-border"
                 } ${suggested ? "ring-2 ring-amber-400 dark:ring-amber-500" : ""}`}
               >
-                <h3 className="font-semibold text-foreground">{plan.name}</h3>
+                <OfferRibbon offer={offer} t={t} />
+                <h3 className="font-semibold text-foreground pr-12">{plan.name}</h3>
                 {suggested && (
                   <span className="inline-block mt-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-900">
                     {t("app.billing.suggested", "Suggested for you")}
                   </span>
                 )}
-                {/* The yearly figure is the plan's OWN priceAnnual, never twelve
-                    times the monthly one — the ladder gives two months free, and
-                    an operator can type a different deal per tier. A tier with no
-                    annual price shows its monthly one and says so on the button
-                    below, rather than displaying a year it cannot sell. */}
-                <p className="text-2xl font-bold text-foreground mt-1">
-                  {money(yearly !== null ? yearly : plan.priceMonthly)}
-                  <span className="text-sm font-normal text-muted-foreground">
-                    {yearly !== null
-                      ? t("app.billing.perYearShort", "/yr")
-                      : t("app.billing.perMonthShort", "/mo")}
-                  </span>
-                </p>
-                {yearly !== null && (
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {t("app.billing.perMonthEquivalent", "{amount} a month", {
-                      amount: money(yearly / 12),
-                    })}
-                  </p>
-                )}
-                {/* The saving is the REASON to commit, so it is said in money
-                    and in months — "two months free" is checkable against the
-                    monthly price; a percentage is a number to trust. Hidden at
-                    zero rather than printed as "Save $0". */}
-                {yearly !== null && saving > 0 && (
-                  <p className="text-xs font-medium text-green-700 dark:text-green-400 mt-0.5">
-                    {t("app.billing.annualSaving", "Save {amount} a year", {
-                      amount: money(saving),
-                    })}
+                {/* The price, said by the one component every surface uses
+                    (PlanOfferPrice): on the year, the monthly price crossed
+                    out, the effective month large, the billed total and the
+                    saving — or, during a sale, the sale's figures, its label,
+                    the renewal and the end date. A tier with no annual price
+                    shows its monthly one and says so below, rather than
+                    displaying a year it cannot sell. */}
+                {offer?.available || plan.offers?.month?.available ? (
+                  <PlanOfferPrice
+                    offer={offer?.available ? offer : plan.offers.month}
+                    t={t}
+                    money={cardMoney}
+                    locale={locale}
+                    size="md"
+                    className="mt-1"
+                  />
+                ) : (
+                  // A response without offers (an older cached one) still
+                  // names the plan's price rather than drawing a card with
+                  // none — the regular monthly price, which is never wrong.
+                  <p className="text-2xl font-bold text-foreground mt-1">
+                    {money(plan.priceMonthly)}
+                    <span className="text-sm font-normal text-muted-foreground">{t("app.billing.perMonthShort", "/mo")}</span>
                   </p>
                 )}
                 {seatLine(plan, t) && (
@@ -853,8 +900,14 @@ function AccountBillingScreen() {
             const onCustomSize = customSeatsFromTierKey(subscription?.plan?.tierKey);
             const sameSize = tier && onCustomSize === tier.seats;
             const isCurrent = sameSize && (subscription?.billingInterval || "month") === billingInterval;
-            const yearly = tier && billingInterval === "year" ? tier.priceAnnual : null;
             const unsellable = billingInterval === "year" && (!tier || tier.priceAnnual === null);
+            // This size's offers, resolved on the server for every size
+            // (lib/billing/promotions.js customOfferTable) — the stepper
+            // picks the row; nothing here applies a discount.
+            const sizeOffers = tier ? customOffer.offers?.[tier.seats] || null : null;
+            const offer = sizeOffers?.[billingInterval || "month"]?.available
+              ? sizeOffers[billingInterval || "month"]
+              : sizeOffers?.month || null;
             const virtual = tier
               ? {
                   id: `custom:${tier.seats}`,
@@ -869,8 +922,9 @@ function AccountBillingScreen() {
               : null;
             const suggested = Boolean(customSeatsFromTierKey(wantedTier)) && !isCurrent;
             return (
-              <div className={`border rounded-xl p-4 ${isCurrent ? "border-inverted" : "border-border"} ${suggested ? "ring-2 ring-amber-400 dark:ring-amber-500" : ""}`}>
-                <h3 className="font-semibold text-foreground">
+              <div className={`relative overflow-hidden border rounded-xl p-4 ${isCurrent ? "border-inverted" : "border-border"} ${suggested ? "ring-2 ring-amber-400 dark:ring-amber-500" : ""}`}>
+                <OfferRibbon offer={offer} t={t} />
+                <h3 className="font-semibold text-foreground pr-12">
                   {t("app.billing.custom.title", "Need more people?")}
                 </h3>
                 {suggested && (
@@ -878,7 +932,7 @@ function AccountBillingScreen() {
                     {t("app.billing.suggested", "Suggested for you")}
                   </span>
                 )}
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-xs text-muted-foreground mt-1 pr-12">
                   {t("app.billing.custom.body", "Past {baseSeats} seats, add as many as you need — every seat brings a crew member with it.", {
                     baseSeats: customOffer.baseSeats,
                   })}
@@ -897,19 +951,7 @@ function AccountBillingScreen() {
                 />
                 {tier && (
                   <>
-                    <p className="text-2xl font-bold text-foreground mt-3">
-                      {money(yearly !== null ? yearly : tier.price)}
-                      <span className="text-sm font-normal text-muted-foreground">
-                        {yearly !== null
-                          ? t("app.billing.perYearShort", "/yr")
-                          : t("app.billing.perMonthShort", "/mo")}
-                      </span>
-                    </p>
-                    {yearly !== null && (
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {t("app.billing.perMonthEquivalent", "{amount} a month", { amount: money(yearly / 12) })}
-                      </p>
-                    )}
+                    <PlanOfferPrice offer={offer} t={t} money={cardMoney} locale={locale} size="md" className="mt-3" />
                     <p className="text-xs text-muted-foreground mt-1">
                       {t("app.billing.seatsWithCrew", { seats: tier.seats, crew: tier.crewSeats })}
                     </p>

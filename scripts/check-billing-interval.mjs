@@ -140,8 +140,12 @@ ok("...with a reason a person can act on", /yearly commitment/.test(refused.erro
 ok("...and that same plan still sells monthly",
   resolveCheckoutInterval(custom, "month").interval === "month");
 ok("the subscription route sends it to the screen", /billingInterval: true/.test(subRoute));
-ok("the page seeds the switch from what they're on",
-  /isBillingInterval\(sub\?\.billingInterval\)/.test(page));
+// The owner's approved design (2026-09-28): every plan picker opens on the
+// 1-year commitment — when some card sells a year — rather than on whatever
+// the company is billed on. The cadence still travels with the purchase
+// (below) and the server still refuses a year a plan cannot be sold on.
+ok("the picker opens on the 1-year commitment when a year is sold",
+  /some\(\(p\) => annualPriceOf\(p\) !== null\) \? "year" : "month"/.test(page));
 // Either shape carries the cadence: a rung by planId, a custom size by seat count.
 ok("...and posts it back", /\{ planId, interval: billingInterval \|\| "month" \}/.test(page) && /\{ customSeats: Number\(custom\[1\]\), interval: billingInterval \|\| "month" \}/.test(page));
 // A toggle whose other half cannot be bought is a control that appears to work.

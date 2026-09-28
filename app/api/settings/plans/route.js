@@ -20,6 +20,8 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 import { customOfferFor } from "@/lib/billing/customPlan";
+import { livePromotions, withOffers, customOfferTable, honouredFor } from "@/lib/billing/promotions";
+import { classifyPlanChange } from "@/lib/platform/planChange";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -42,7 +44,10 @@ export async function GET(request) {
   // the plan you are paying for is broken in a more obvious way.
   const subscription = await db.subscription.findUnique({
     where: { companyId: member.companyId },
-    select: { planId: true },
+    // Status, cadence and the Stripe id decide whether a promotion can be
+    // honoured on each card (lib/billing/promotions.js honouredFor) — the
+    // card must not show a sale the change it triggers would not charge.
+    select: { planId: true, status: true, billingInterval: true, stripeSubscriptionId: true },
   });
 
   // ── One currency, decided by the address ────────────────────────────────
@@ -104,5 +109,20 @@ export async function GET(request) {
   // a price back, only a seat count. Null when the currency has no Scale row,
   // and the page then renders no stepper rather than a dead one.
   const custom = currency ? await customOfferFor(currency) : null;
-  return NextResponse.json({ plans, currency, custom });
+
+  // ── Every price on the picker, resolved here ─────────────────────────────
+  //
+  // The running promotions, applied to each card and to every custom size by
+  // lib/billing/promotions.js — the same resolver the checkout reprices with
+  // at the moment of purchase, so the card and the charge cannot disagree.
+  // The page renders `offers`; it never discounts anything itself.
+  const now = new Date();
+  const promotions = await livePromotions({ now });
+  const currentPlan = subscription?.planId ? plans.find((p) => p.id === subscription.planId) || null : null;
+  const honoured = honouredFor({ subscription, currentPlan, classify: classifyPlanChange });
+  return NextResponse.json({
+    plans: withOffers(plans, { promotions, now, honoured }),
+    currency,
+    custom: custom ? { ...custom, offers: customOfferTable(custom, { promotions, now, honoured }) } : null,
+  });
 }

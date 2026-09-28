@@ -14,6 +14,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import CustomSeatPicker, { pickedTier } from "@/app/components/billing/CustomSeatPicker";
+import PlanOfferPrice, { OfferRibbon, offerMoney, yearTabLabel } from "@/app/components/billing/PlanOfferPrice";
+import { yearTabSaving } from "@/lib/pricing/planOffer";
 import { currencyMeta } from "@/lib/currency";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { numberLocaleFor } from "@/app/i18n/numberLocale";
@@ -362,15 +364,21 @@ export function peopleLines(plan) {
  * exactly as the rung cards do; signup resolves it against the currency it
  * works out from the address.
  */
-function CustomPlanCard({ offer, t, price }) {
+function CustomPlanCard({ offer, t, price, interval, locale }) {
   const [seats, setSeats] = useState(20);
   if (!offer) return null;
   const tier = pickedTier(offer, seats);
   const symbol = currencyMeta(offer.currency).symbol;
+  // This size's figures on the chosen tab, resolved on the server for every
+  // size (lib/billing/promotions.js customOfferTable). A year this size cannot
+  // be sold on falls back to its monthly offer rather than a blank card.
+  const sizeOffers = tier ? offer.offers?.[tier.seats] || null : null;
+  const cardOffer = sizeOffers?.[interval]?.available ? sizeOffers[interval] : sizeOffers?.month || null;
   return (
-    <div id="custom" className="mt-6 border border-border rounded-2xl p-8 flex flex-col lg:flex-row lg:items-start gap-8 hover:border-foreground/40 transition-colors">
+    <div id="custom" className="relative overflow-hidden mt-6 border border-border rounded-2xl p-8 flex flex-col lg:flex-row lg:items-start gap-8 hover:border-foreground/40 transition-colors">
+      <OfferRibbon offer={cardOffer} t={t} />
       <div className="flex-1">
-        <h3 className="text-lg font-semibold text-foreground">
+        <h3 className="text-lg font-semibold text-foreground pr-14 lg:pr-0">
           {t("pricing.custom.title", "Need more people? Build a custom plan.")}
         </h3>
         <p className="mt-2 text-sm text-muted-foreground">
@@ -416,19 +424,16 @@ function CustomPlanCard({ offer, t, price }) {
               {t("pricing.crewIncluded", "{count} crew members included — free", { count: tier.crewSeats })}
             </li>
           </ul>
-          <div className="mt-4 flex items-baseline flex-wrap gap-x-1.5">
-            <span className="text-3xl font-bold text-foreground">
-              {symbol}
-              {price(tier.price)}
-            </span>
-            <span className="text-sm text-muted-foreground">{t("pricingPage.perMonth")}</span>
-          </div>
-          {tier.priceAnnual !== null && (
-            <p className="mt-1 text-xs text-muted-foreground">
-              {t("pricing.custom.annual", "or {amount} a year, billed yearly", {
-                amount: `${symbol}${price(tier.priceAnnual)}`,
-              })}
-            </p>
+          {cardOffer ? (
+            <PlanOfferPrice offer={cardOffer} t={t} money={offerMoney(symbol, locale)} locale={locale} className="mt-4" />
+          ) : (
+            <div className="mt-4 flex items-baseline flex-wrap gap-x-1.5">
+              <span className="text-3xl font-bold text-foreground">
+                {symbol}
+                {price(tier.price)}
+              </span>
+              <span className="text-sm text-muted-foreground">{t("pricingPage.perMonth")}</span>
+            </div>
           )}
           <Link
             href={`/signup?tier=${encodeURIComponent(tier.tierKey)}`}
@@ -451,6 +456,16 @@ export default function PricingPlans({ plans, customOffer = null, asOf = renderA
   const price = (amount) =>
     Number(amount || 0).toLocaleString(locale, { maximumFractionDigits: 0 });
 
+  // ── Monthly | 1-year commitment, the year first ─────────────────────────
+  //
+  // The owner's approved design (2026-09-28): the page opens on the 1-year
+  // commitment, its tab carrying the saving the cards actually show. The
+  // tabs only exist when some card sells a year — a tab whose other half
+  // cannot be bought is a control that appears to work.
+  const anyYear = plans.some((p) => p.offers?.year?.available);
+  const [cadence, setCadence] = useState(anyYear ? "year" : "month");
+  const tabSaving = yearTabSaving(plans.map((p) => p.offers));
+
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
       <div className="text-center max-w-2xl mx-auto mb-12">
@@ -471,17 +486,53 @@ export default function PricingPlans({ plans, customOffer = null, asOf = renderA
         </div>
       ) : (
         <>
+          {anyYear && (
+            <div className="mb-8 flex justify-center">
+              <div role="tablist" className="inline-flex flex-wrap justify-center items-center gap-1 rounded-full border border-border bg-card p-1">
+                {[
+                  ["year", yearTabLabel(t, tabSaving)],
+                  ["month", t("pricing.offer.tabMonthly", "Monthly")],
+                ].map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    role="tab"
+                    aria-selected={cadence === value}
+                    onClick={() => setCadence(value)}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                      cadence === value ? "bg-inverted text-inverted-foreground" : "text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div className={`grid gap-6 ${COLUMN_CLASS[columns]}`}>
             {plans.map((plan) => {
               const features = plan.features || {};
+              // The server's offer for the chosen tab; a card with no year
+              // keeps its monthly offer rather than inventing one.
+              const offer = plan.offers?.[cadence]?.available ? plan.offers[cadence] : plan.offers?.month || null;
               return (
                 <div
                   key={plan.id}
-                  className="border border-border rounded-2xl p-8 flex flex-col hover:border-foreground/40 transition-colors"
+                  className="relative overflow-hidden border border-border rounded-2xl p-8 flex flex-col hover:border-foreground/40 transition-colors"
                 >
-                  <h3 className="text-lg font-semibold text-foreground">
+                  <OfferRibbon offer={offer} t={t} />
+                  <h3 className="text-lg font-semibold text-foreground pr-10">
                     {plan.name}
                   </h3>
+                  {offer ? (
+                    <PlanOfferPrice
+                      offer={offer}
+                      t={t}
+                      money={offerMoney(currencyMeta(plan.currency).symbol, locale)}
+                      locale={locale}
+                      className="mt-3"
+                    />
+                  ) : (
                   <div className="mt-3 flex items-baseline flex-wrap gap-x-1.5">
                     <span className="text-3xl font-bold text-foreground">
                       {currencyMeta(plan.currency).symbol}
@@ -503,6 +554,7 @@ export default function PricingPlans({ plans, customOffer = null, asOf = renderA
                       {t("pricingPage.perMonth")}
                     </span>
                   </div>
+                  )}
 
                   <ul className="mt-6 space-y-2.5 flex-1">
                     {/* Seats and crew as separate statements — never their sum.
@@ -577,7 +629,7 @@ export default function PricingPlans({ plans, customOffer = null, asOf = renderA
             })}
           </div>
 
-          <CustomPlanCard offer={customOffer} t={t} price={price} />
+          <CustomPlanCard offer={customOffer} t={t} price={price} interval={cadence} locale={locale} />
 
           <IncludedEverywhere t={t} />
 

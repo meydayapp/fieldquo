@@ -35,7 +35,7 @@ import { count } from "@/app/components/platform/MetricCard";
 import { fetchJson } from "@/lib/fetchJson";
 // planMoney lives in the ladder beside currencyLabel: one place decides how a
 // price is written, and it is executable by check:platform-truth there.
-import { planMoney, isCustomPlan, CUSTOM_SEAT_PRICE, CUSTOM_MIN_SEATS, CUSTOM_MAX_SEATS, MAX_COMPANY_PEOPLE } from "@/lib/pricing/ladder";
+import { planMoney, isCustomPlan, CUSTOM_SEAT_PRICE, CUSTOM_MIN_SEATS, CUSTOM_MAX_SEATS, MAX_COMPANY_PEOPLE, annualDeal, annualDealText } from "@/lib/pricing/ladder";
 // The card says what THIS says, and nothing else, about whether a plan can be
 // bought. See the note on PlanCard's status line.
 import { planStatus, isRetired } from "@/lib/platform/sellablePlans";
@@ -389,8 +389,8 @@ export default function PlatformPlansPage() {
             </Field>
 
             <Field
-              label={`Price per year${draft.currency ? ` (${draft.currency})` : ""}`}
-              hint="Blank = this tier has no annual option. Annual is the interval, not a discount — a saving has to be typed in."
+              label={`1-year offer for this plan${draft.currency ? ` (${draft.currency})` : ""}`}
+              hint="The standing 1-year commitment promotion, for this row only — normally set for every plan at once on Promotions. Blank = this tier has no 1-year option. The monthly price above is the regular price."
             >
               <input
                 type="number"
@@ -401,6 +401,14 @@ export default function PlatformPlansPage() {
                   setDraft({ ...draft, priceAnnual: e.target.value })
                 }
                 className={inputClass}
+              />
+              {/* Live, from the two numbers in THIS form — so the deal is
+                  read before Save, not discovered on the card afterwards. */}
+              <AnnualDealLine
+                priceMonthly={draft.priceMonthly}
+                priceAnnual={draft.priceAnnual}
+                currency={draft.currency}
+                className="mt-1 text-xs"
               />
             </Field>
 
@@ -721,11 +729,11 @@ function PlanCard({ plan: p, subscribers, usageKnown, canManage, canRetire, busy
       </div>
 
       <dl className="mt-3 space-y-1 text-sm text-muted-foreground flex-1">
-        <div>
-          {p.priceAnnual === null || p.priceAnnual === undefined
-            ? "No annual price"
-            : `${planMoney(p.priceAnnual, p.currency)}/yr`}
-        </div>
+        <AnnualDealLine
+          priceMonthly={p.priceMonthly}
+          priceAnnual={p.priceAnnual}
+          currency={p.currency}
+        />
         <div>
           {p.seats} {p.seats === 1 ? "seat" : "seats"} + {p.crewSeats} crew
           {" · "}
@@ -823,6 +831,42 @@ function PlanCard({ plan: p, subscribers, usageKnown, canManage, canRetire, busy
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
+
+// ── The year, said as a deal ─────────────────────────────────────────────
+//
+// This line printed "CA$990.00/yr" under "CA$99.00/mo" and nothing else, and
+// the owner read it as a mistake — "did you not know that a year has 12
+// months". It is the deal (pay for ten, get twelve), so it now SAYS the deal,
+// worked out from this row's own two prices by annualDeal() rather than from
+// the ladder's default: a row edited to 10.5 months or to more than twelve
+// says so. A year that saves nothing is amber — a commitment nobody gains
+// from is either a typo or a decision worth seeing on the card.
+//
+// Used on the card and live under the annual field of the edit form, so the
+// sentence being typed toward is the sentence the card will show.
+function AnnualDealLine({ priceMonthly, priceAnnual, currency, className = "" }) {
+  const deal = annualDeal({ priceMonthly, priceAnnual });
+  const text = annualDealText(deal, { money: (n) => planMoney(n, currency) });
+  if (deal.kind === "none") {
+    return <div className={className}>{text}</div>;
+  }
+  // The monthly price is THE price (the owner, 2026-09-28); the year is the
+  // standing 1-year promotion, so it is labelled as an offer and pointed at
+  // the page that sets it for every plan at once.
+  const line = `1-year offer: ${planMoney(deal.annual, currency)}/yr — ${text} · set on Promotions`;
+  if (deal.warning) {
+    return (
+      <div
+        className={`flex items-start gap-1 text-amber-700 dark:text-amber-300 ${className}`}
+        title="The year saves nothing over paying monthly — nobody gains from committing"
+      >
+        <AlertCircle size={14} className="shrink-0 mt-0.5" aria-hidden="true" />
+        <span>{line}</span>
+      </div>
+    );
+  }
+  return <div className={className}>{line}</div>;
+}
 
 function Field({ label, hint, children }) {
   return (

@@ -621,7 +621,7 @@ console.log("\nThe payload and the route the button calls");
     /\{ customSeats: Number\(custom\[1\]\), interval: billingInterval \|\| "month" \}/.test(billingPage) && /\{ planId, interval: billingInterval \|\| "month" \}/.test(billingPage));
   ok("...and renders the stepper from the server's offer, not a price of its own", /customOffer/.test(billingPage) && /pickedTier\(customOffer, customSeats\)/.test(billingPage));
   const plansRoute = readFileSync("app/api/settings/plans/route.js", "utf8");
-  ok("/api/settings/plans sends the custom offer in the company's currency", /customOfferFor\(currency\)/.test(plansRoute) && /custom \}\)/.test(plansRoute));
+  ok("/api/settings/plans sends the custom offer in the company's currency", /customOfferFor\(currency\)/.test(plansRoute) && /custom: custom \? \{ \.\.\.custom, offers: customOfferTable\(custom,/.test(plansRoute));
   const pricing = readFileSync("app/(marketing)/pricing/PricingPlans.js", "utf8");
   ok("the public pricing page's fifth card links by SIZE, never by row or price", /\/signup\?tier=\$\{encodeURIComponent\(tier\.tierKey\)\}/.test(pricing));
   const marketing = readFileSync("app/api/marketing/plans/route.js", "utf8");

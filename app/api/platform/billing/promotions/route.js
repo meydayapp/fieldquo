@@ -64,6 +64,10 @@ export async function POST(request) {
         discountKind: promotion.discountKind,
         discountValue: String(promotion.discountValue),
         durationMonths: promotion.durationMonths,
+        // Which commitment it discounts — "year" replaces the standing
+        // 1-year offer for the first year, which is a different cost from a
+        // monthly discount with the same number on it.
+        appliesTo: promotion.appliesTo,
         startsAt: promotion.startsAt,
         endsAt: promotion.endsAt,
         tierKeys: promotion.tierKeys,

@@ -17,6 +17,7 @@ import { serviceWindowNotice } from "@/lib/messaging/serviceWindow";
 import { responseStamps } from "@/lib/messaging/waiting";
 import { readStatus } from "@/lib/messaging/outcomes";
 import { SEAT_LADDER, defaultAnnualPrice } from "@/lib/pricing/ladder";
+import { planOffers } from "@/lib/pricing/planOffer";
 
 const [MARC, JULIE, SAM, , LEO, ANA] = PEOPLE;
 
@@ -479,6 +480,11 @@ export const PLANS = SEAT_LADDER.map((rung) => ({
   features: null,
   isPublic: true,
   createdAt: iso(day(-400)),
+})).map((plan) => ({
+  ...plan,
+  // What the route attaches since 2026-09-28 (lib/billing/promotions.js
+  // withOffers): the month and 1-year offers, no sale running.
+  offers: planOffers({ plan, promotions: [] }),
 }));
 const SHOP = PLANS.find((p) => p.tierKey === "shop");
 const SUBSCRIPTION = {

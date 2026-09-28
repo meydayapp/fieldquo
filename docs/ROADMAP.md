@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 28 September 2026 (the platform "Cancel the subscription" panel works for every company: a card-free trial can be ended at the trial's end, now, or locked for a terms breach — three additive Company columns the owner must add first — with checkout/Resume refusing a company FieldQuo ended, no trial letters to it, and /platform counting it locked/cancelled — see "The platform cancel / lock panel works for every company")
+Last updated: 28 September 2026 (annual-first plan pickers and live promotions — the 1-year tab by default on every picker, PlatformPromotion wired end to end through lib/billing/promotions.js into /pricing, the in-app picker, signup and Stripe Checkout as a coupon; schema SQL owed before deploy — see the section of that name below)
 Last updated: 25 September 2026 (FieldQuo's own language no longer follows the last page you visited: the permanent origin-wide localStorage key is gone (removed on load), a signed-in account's language wins on public pages too (GET /api/me/language, only for a browser that has signed in), the header switcher lasts one tab session, booking pages / prefills / email-link landings set their page only — see "FieldQuo's language follows the person, not the last page")
 Last updated: 25 September 2026 (/platform/analytics: the signup funnel is the card-free flow counted "reached this step or later" — monotone, trial started tied to a finished company — and the laptop leak that put "Account & company 581" over "Visited 565" is closed; FieldQuo's own Meta campaigns as campaign ▸ ad set ▸ ad with signups / trials / paying, "+"/%20 merged, id-only campaigns labelled, Instagram read from site_source_name; the Ads Manager URL-parameters string with a how-to — see "/platform/analytics: an honest signup funnel, and FieldQuo's own Meta campaigns" below)
 Last updated: 25 September 2026 (Create › Request opens a hand-entered lead form at /app/leads/new — the owner's six fields, posted through createScoredLead as source "manual", gated at requests:view_create_edit on page and route, landing on the board with the new lead's drawer open; the board's ?lead= deep link now also works after an in-app navigation — see "Still owed here" under "Phone menus, the Create sheet and a mobile audit" below)
@@ -61,6 +61,134 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## Annual-first plan pickers, and promotions that actually discount (28 September 2026)
+
+The owner approved a mockup: every plan picker opens on the **1-year
+commitment** tab, its label carrying the saving ("1-year commitment · save
+17%"); each card shows the monthly price crossed out, the effective month
+large, "Billed US$990 once a year", "You save US$198 a year" and a corner
+ribbon "Save 17%". During a sale the card shows the sale's month, "For the
+first 12 months, then US$990/yr", "Billed US$712.80 for year one", the sale's
+label as a badge, "Offer ends Oct 31, 2026" and "Save 40%".
+
+Then the pricing model (owner, same day): **the monthly price is the only
+regular price.** The year's "pay 10 months, get 12" is a STANDING promotion
+for committing — the one promotion with no end date. A time-limited sale on
+the year is **40% off the MONTHLY price, applied to the 1-year commitment**:
+year one = 12 × monthly × 0.6, it REPLACES the standing offer for that year
+(never stacks — 40% off 990 = 594 is wrong), the customer pays whichever is
+lower, and it renews at the standing offer.
+
+### What was true before
+
+PlatformPromotion was a **dead control.** Rows were created, validated,
+previewed and audit-logged at /platform/billing/promotions and read by nothing
+a customer touches — /pricing, the in-app picker, signup and both Stripe
+Checkout builders ignored them, so a promotion switched on discounted nobody
+while its badge said "Applied to checkout". The form offered an A$ AUD
+checkbox that `promotionFields.js` refused ("isn't a currency FieldQuo prices
+in"). Run against the pre-change tree the new check fails **86 of 106**
+(including: a live sale in the database, and the Checkout Session opened with
+no discount at all), and the extended /pricing check fails 9 (the owner's
+sale running, the page printed none of it). Both runs are in the scratchpad
+(`annual-baseline-check.txt`, `annual-baseline-pricing-page.txt`).
+
+### What shipped
+
+- **`lib/pricing/planOffer.js`** — `planOffer({ plan, interval, promotions,
+  now })`, the ONE function that prices a card and a charge: crossed
+  monthly, per-month, billed total, saving, whole-percent ribbon (vs 12 ×
+  monthly), renewal, promotion (public fields only), the Stripe amount off in
+  cents; `yearTabSaving`, `stripeDiscountSpec`, `promotionHonoured`,
+  `standingAnnualFor` / `parseStandingOffer` / `standingOfferSummary`. Pure.
+- **`lib/billing/promotions.js`** — the server resolver: `livePromotions`
+  (switch + dates via `promotionIsLive`; an unreadable table answers "none"
+  and is recorded, so a promotion can never take the pricing page or a
+  checkout down), `withOffers`, `customOfferTable` (all 37 custom sizes),
+  `universalPromotions` (/pricing shows only a sale valid in every currency
+  it stands in for), `checkoutPromotion` + `ensurePromotionCoupon`, and the
+  webhook's `promotionFromCheckoutSession` / `promotionChargedFromInvoice`.
+- **Schema (additive, NOT applied):** `PlatformPromotion.appliesTo`
+  ("month" | "year" | "both", default "month" — what every existing row
+  meant: `priceFor` discounted the monthly price for `durationMonths`), and
+  `Subscription.promotionApplied Json?` (what was sold and charged).
+- **Every customer surface** resolves through it and renders through one
+  component, `app/components/billing/PlanOfferPrice.js` (+ `OfferRibbon`):
+  `/api/settings/plans` → Account & Billing (rungs, the custom card, and a
+  "Year one at … then …/year" line under the current plan from
+  `promotionApplied`); `app/(marketing)/pricing` (new Monthly / 1-year tabs,
+  year first); `/api/marketing/plans` → signup's `PricingCard`, its pill, its
+  year line and the charge on the button. The browser posts plan + interval
+  only; checkout reprices from the database (non-negotiable #5).
+- **Stripe Billing** (`lib/platform/stripeBilling.js`): both Checkout
+  builders, the immediate change and the scheduled change call
+  `checkoutPromotion` at the moment of purchase. The lines stay the REGULAR
+  price; the sale is an `amount_off` coupon in the plan's currency (Solo
+  yearly: 27,720¢), id `fqpromo_<promotion>_<cur>_<y|m>_<cents>_<once|rN>`,
+  found by id before it is minted with the id as idempotency key (a re-run,
+  a race or a second buyer reuse it; one tampered in the dashboard is refused).
+  Duration `once` for a year; **with a trial it is `repeating` for
+  ⌈trial/28⌉+1 months** — Stripe spends a `once` coupon on the first invoice,
+  which on a trial is the $0 one. Monthly: `repeating` for the promotional
+  months (+⌈trial/31⌉). Stripe Tax is untouched (it computes on the
+  discounted subtotal). Plan changes keep existing discounts (retention) by
+  Discount id; the schedule's new phase carries the coupon; the one path that
+  does NOT honour a sale — a paid yearly plan upgraded to another yearly plan
+  mid-year (the coupon would be spent on next year's renewal) — shows the
+  standing price with a sentence saying why. Checkout metadata and the
+  subscription row record the sale; `invoice.payment_succeeded` records what
+  was actually paid, discounted and taxed on the invoice carrying the coupon.
+- **Console:** "Applies to: 1-year commitment / Monthly / Both"; AUD and
+  "Custom" accepted; the preview prices every rung × currency (+ a 20-seat
+  custom size) on each covered commitment with `planOffer`, says "40% off the
+  monthly price — Solo's year one billed A$712.80 instead of 12 × monthly
+  (A$1,188.00) or the standing 1-year offer (A$990.00)", and warns in amber
+  when a sale loses to the standing offer. The **standing 1-year offer** is a
+  panel at the top ("Pay 10 months, get 12 — save 17%", editable as months
+  free or percent off, preview per row) writing `Plan.priceAnnual` on every
+  ladder/custom row through `PATCH /api/platform/billing/annual-offer`
+  (plan:manage, audit-logged). `promotionFields` still refuses a sale with no
+  end and names the standing panel. /platform/billing/plans calls the year
+  "1-year offer: … · set on Promotions".
+- All new strings in the nine languages (16 marketing, 6 app keys).
+
+### The owner's promotion, exactly (check:promotions-live)
+
+"40% off the yearly plan, all plans, all currencies, ends October 31" → CAD =
+USD = AUD: Solo 990 → **712.80** for year one (59.40/mo), Crew 1,690 →
+**1,216.80** (101.40), Shop 2,690 → **1,936.80** (161.40), Scale 3,690 →
+**2,656.80** (221.40); custom sizes 12 × monthly × 0.6 (20 seats: 6,190 →
+**4,456.80**, 371.40/mo); ribbon "Save 40%"; renews at 990 / 1,690 / 2,690 /
+3,690 / 6,190. A 10% sale (1,069.20) loses to 990 and is flagged.
+
+### Checks
+
+`check:promotions-live` (new, in check:all, 106 assertions: resolver matrix
+4 tiers × 3 currencies × 5 states × 2 commitments, the exact numbers, form
+validation, the recording fake Stripe — `scripts/fixtures/promotionsStubs.mjs`
+via `scripts/promotions-stub-hooks.mjs` — static resolver sweep, contrast,
+nine languages); `check:pricing-page` extended (the owner's sale through the
+shipped page); `check:seat-ladder` extended (appliesTo / custom scope).
+Adjusted to the new design: `check:billing-interval` (picker opens on the
+year), `check:platform-pricing-console` (preview calls planOffer),
+`check:plan-change` (plans route's custom offer shape). `dbStub` gained an
+empty `platformPromotion` table. Screenshots (1280 + 375): harness
+`PromoFrame.jsx`, rows `PROMO_FRAMES` in screens.js.
+
+### Owed
+
+- **Apply the SQL before deploying** (the owner, by hand):
+  `ALTER TABLE "PlatformPromotion" ADD COLUMN "appliesTo" TEXT NOT NULL DEFAULT 'month';`
+  `ALTER TABLE "Subscription" ADD COLUMN "promotionApplied" JSONB;`
+  Until then promotions read as "none" (recorded in the error log), the
+  console cannot list or save them, and the "year one" line is silent.
+- Owner decisions: (1) a paid yearly → yearly upgrade mid-year does not get a
+  sale; (2) a company already TRIALING on the same plan+cadence cannot "take"
+  a sale on its current card (it is "Current plan"); (3) monthly sale + trial
+  may give one extra discounted month (Stripe counts coupon months from
+  application); (4) a sale checkout opened before the end date and paid after
+  it keeps the sale (no `redeem_by` on the coupon).
 
 ## The platform cancel / lock panel works for every company, not only a Stripe-subscribed one (28 September 2026)
 
