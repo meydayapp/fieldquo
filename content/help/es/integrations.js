@@ -190,11 +190,11 @@ const PART_1 = {
   "whatsapp": {
     title: "WhatsApp Business",
     summary:
-      "Su propio número de WhatsApp Business respondido desde la bandeja de Mensajes, la regla de las 24 horas que WhatsApp impone a las respuestas, y por qué el botón Conectar todavía no se ofrece.",
-    updated: "2026-09-12",
+      "Su propio número de WhatsApp Business respondido desde la bandeja de Mensajes, la regla de las 24 horas que WhatsApp impone a las respuestas, y por qué el panel dice «próximamente» en lugar de ofrecer un botón Conectar.",
+    updated: "2026-09-28",
     intro: [
       "El panel **WhatsApp Business** de **Configuración → Meta Ads** conecta el número de WhatsApp Business al que escriben sus clientes, para que sus mensajes lleguen a **Mensajes** junto a sus conversaciones de Facebook e Instagram y se respondan desde allí. Es un número de empresa, no el WhatsApp personal de nadie.",
-      "Hoy el panel dice **Esperando la aprobación de Meta**: responder mensajes de WhatsApp necesita un permiso que Meta debe conceder a FieldQuo antes de que se pueda conectar ningún número. Esa revisión depende de Meta. No falta nada de su parte, y este artículo cuenta qué hace la función el día que se active — incluida la única regla que sorprende a todo el mundo.",
+      "Hoy el panel dice **WhatsApp llegará pronto. Estamos esperando que Meta apruebe a FieldQuo para WhatsApp y le avisaremos el día que esté listo.**, sin botón: Meta todavía no ha concedido a FieldQuo el acceso avanzado (Advanced Access) a los permisos de WhatsApp que necesita el número de una empresa, y hasta entonces el registro de Meta rechaza a toda empresa que no sea FieldQuo. Esa revisión depende de Meta. No falta nada de su parte — vea [[whatsapp-coming-soon|WhatsApp (próximamente)]] — y este artículo cuenta qué hace la función el día que se active — incluida la única regla que sorprende a todo el mundo.",
     ],
     sections: [
       {
@@ -202,7 +202,7 @@ const PART_1 = {
         heading: "Vista general",
         blocks: [
           { p: "Cuando la conexión se ofrezca, **Conectar WhatsApp** lo lleva por el registro propio de Meta, donde elige o crea una cuenta de WhatsApp Business y un número de teléfono; FieldQuo se suscribe a los mensajes de ese número, y una conversación aparece en Mensajes en cuanto un cliente escribe. Las respuestas salen desde su número. El panel muestra entonces el número con su nombre verificado, las plantillas leídas de Meta y un botón **Desconectar**." },
-          { p: "Existe una segunda puerta, plegada, para una empresa que ya usa la API Cloud de Meta: pegue el identificador de la cuenta de WhatsApp Business, el identificador del número y un token permanente, y FieldQuo comprueba el token ante Meta antes de guardar nada. El token se guarda cifrado y nunca se vuelve a mostrar. Para casi todas las empresas, el botón de registro es la puerta correcta." },
+          { p: "Una segunda puerta, plegada — **Conectar con credenciales de Cloud API (avanzado)** — se muestra solo al equipo de FieldQuo, con la etiqueta **Visible solo para el equipo de FieldQuo — para pruebas y la revisión de Meta**, y así sigue después de la aprobación de Meta: necesita un token de la propia aplicación de Meta de FieldQuo. Su empresa no la ve; el botón de registro es la puerta de todas las empresas." },
           { figure: "live:app-settings-meta-ads", caption: "Configuración → Meta Ads — el panel WhatsApp Business está al final e indica si ya se puede conectar un número." },
         ],
       },
@@ -226,7 +226,7 @@ const PART_1 = {
           { bullets: [
             "**Conectar WhatsApp** — inicia el registro de Meta. Si cancela a medio camino, no se conecta nada; si la cuenta todavía no tiene número de teléfono, el panel lo dice y le pide añadir uno con Meta.",
             "**Actualizar plantillas** — vuelve a leer de Meta sus plantillas aprobadas. Las plantillas nuevas no aparecen hasta que lo pulsa.",
-            "**Desconectar** — quita el número de FieldQuo y elimina el token guardado. Las conversaciones que ya están en Mensajes se quedan.",
+            "**Desconectar** — FieldQuo deja de recibir los mensajes de ese número. No se borra nada: las conversaciones que ya están en Mensajes se quedan, y volver a conectar el mismo número recupera sus hilos.",
             "La insignia del panel — **Conectado mediante el registro de Meta** o **Conectado con credenciales de API** — registra qué puerta se usó.",
           ] },
         ],
@@ -249,7 +249,7 @@ const PART_1 = {
     faq: [
       { q: "¿Puedo usar mi WhatsApp personal?", a: "No. La conexión es a una cuenta de WhatsApp Business y su número, a través de Meta. Un número personal no tiene esa cuenta." },
       { q: "¿Por qué no puedo responder a un mensaje de la semana pasada?", a: "Es la regla de WhatsApp, no de FieldQuo: más de 24 horas después del último mensaje del cliente, solo se puede enviar una plantilla aprobada de antemano por Meta. Cree plantillas en el Administrador de WhatsApp y pulse Actualizar plantillas." },
-      { q: "¿Cuándo aparecerá el botón Conectar?", a: "Cuando Meta apruebe el permiso para FieldQuo. El panel cambiará por sí solo; no hay nada que solicitar de su parte." },
+      { q: "¿Cuándo aparecerá el botón Conectar?", a: "Cuando Meta conceda a FieldQuo el acceso avanzado a sus permisos de WhatsApp. Los plazos los fija Meta, no FieldQuo; el panel cambia el día de la aprobación, y no hay nada que solicitar de su parte." },
     ],
   },
 

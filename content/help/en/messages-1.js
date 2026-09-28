@@ -198,10 +198,10 @@ export const ARTICLES = {
   "whatsapp-business": {
     title: "WhatsApp Business messages",
     summary:
-      "Your own WhatsApp Business number answered in the same inbox as Facebook and Instagram, with the 24-hour rule WhatsApp itself enforces and the approved templates that get you past it.",
-    updated: "2026-09-12",
+      "Your own WhatsApp Business number answered in the same inbox as Facebook and Instagram, with the 24-hour rule WhatsApp itself enforces — coming soon: built, and waiting on Meta's approval before any company can connect a number.",
+    updated: "2026-09-28",
     intro: [
-      "A contractor's WhatsApp Business number is connected from the **WhatsApp Business** card on **Settings → Meta Ads**, through Meta's own sign-up, and from then on every message a client sends to that number lands in [[the-messages-inbox|Messages]] under the **WhatsApp** chip, beside Facebook and Instagram. Photos, videos, voice messages, documents, stickers, contact cards and map pins all arrive; photos, videos, documents and your own address can be sent back.",
+      "Today the **WhatsApp Business** card on **Settings → Meta Ads** reads **WhatsApp is coming soon. We're waiting on Meta to approve FieldQuo for WhatsApp, and we'll tell you the day it's ready.** — with no button (see [[whatsapp-coming-soon|WhatsApp (coming soon)]]). This article is how it works once Meta says yes: your WhatsApp Business number is connected through Meta's own sign-up, and from then on every message a client sends to that number lands in [[the-messages-inbox|Messages]] under the **WhatsApp** chip, beside Facebook and Instagram. Photos, videos, voice messages, documents, stickers, contact cards and map pins all arrive; photos, videos, documents and your own address can be sent back.",
       "One rule will surprise anybody who has only used WhatsApp on a phone: on a business number, WhatsApp refuses a typed message more than **24 hours** after the client last wrote. FieldQuo says which case you are in on every conversation and offers the way through — a template Meta approved in advance — rather than letting the send fail after you pressed the button.",
     ],
     sections: [
@@ -209,21 +209,21 @@ export const ARTICLES = {
         id: "overview",
         heading: "Overview",
         blocks: [
-          { p: "The connection needs a permission Meta approves per app. While it is pending, the card reads **Waiting on Meta's approval** with no button, and a typed address cannot start the flow either — the server refuses it with the same sentence. When the flow is open, the card reads **No WhatsApp number connected** with **Connect WhatsApp**." },
-          { p: "Below the button sits a collapsed **Connect with Cloud API credentials (advanced)** section. It exists for the people who run FieldQuo's own Meta app and is the wrong door for everyone else; the sign-up button is the one Meta wants a business to go through." },
+          { p: "Connecting another business's WhatsApp number needs Meta to grant FieldQuo Advanced Access to its two WhatsApp permissions — sending messages and managing WhatsApp Business accounts — through Meta's App Review. Until it does, your company sees only the coming-soon sentence, followed by **Your Facebook and Instagram messages already come in here.** (or just the one you have connected). There is no button, and a typed address cannot start the flow either — the server refuses it. The day Meta approves, the card reads **No WhatsApp number connected** with **Connect WhatsApp**." },
+          { p: "A collapsed **Connect with Cloud API credentials (advanced)** section, labelled **Visible to FieldQuo staff only — for testing and Meta's review**, is drawn only for FieldQuo's own staff, and stays that way after Meta approves. Your company never sees it; the sign-up button is the door Meta wants a business to go through." },
         ],
       },
       {
         id: "connect-your-number",
-        heading: "How to connect your number",
+        heading: "How you will connect your number",
         blocks: [
           { steps: [
-            "Open **Settings → Meta Ads** and scroll to **WhatsApp Business**.",
+            "Once Meta has approved FieldQuo, open **Settings → Meta Ads** and scroll to **WhatsApp Business**.",
             "Press **Connect WhatsApp**. Meta walks you through signing in, choosing or creating a WhatsApp Business Account, and picking the phone number your clients write to.",
             "Back on the card, the number appears with its verified name, **Connected via Meta sign-up**, and the phone number as Meta prints it. Messages start arriving in the inbox straight after.",
             "Press **Refresh templates** to read your message templates from Meta. The card lists each with its language and Meta's own status — **APPROVED**, or whatever Meta says.",
           ] },
-          { figure: "live:app-settings-meta-ads", caption: "Settings → Meta Ads — the WhatsApp Business card at the bottom, with Connect WhatsApp and the collapsed advanced section." },
+          { figure: "live:app-settings-meta-ads", caption: "Settings → Meta Ads — the WhatsApp Business card sits at the bottom of the screen; until Meta approves FieldQuo it holds only the coming-soon sentence." },
           { note: "A number that cannot receive is worse than none, so if FieldQuo cannot subscribe to the number's messages nothing is connected and the card says so: **FieldQuo couldn't subscribe to your messages, so nothing was connected.** Try again." },
         ],
       },

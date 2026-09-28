@@ -343,48 +343,35 @@ export const ARTICLES = {
   "facebook-lead-forms": {
     title: "Formulaires de prospects Facebook",
     summary:
-      "Transformez les formulaires attachés à vos publicités Facebook et Instagram en prospects sur votre tableau, avec la campagne dont chacun provient — et ce que la connexion fait et ne fait pas.",
-    updated: "2026-09-12",
+      "Ce qui se passe quand un propriétaire remplit le formulaire d'une de vos publicités Facebook ou Instagram : quelle connexion le lit, comment il devient un prospect et ce que change chaque contrôle. La configuration complète a son propre guide.",
+    updated: "2026-09-28",
     intro: [
-      "Vous diffusez une publicité — « Obtenez une estimation de peinture gratuite » — et un propriétaire la touche. Meta affiche son propre formulaire, prérempli avec le nom et le courriel de son compte Facebook, et la personne appuie sur Envoyer. Cette personne est un prospect, et **Réglages → Publicités Meta** est l'endroit où vous dites à FieldQuo lesquels de ces formulaires transformer en prospects.",
-      "Un prospect issu d'un formulaire que vous activez apparaît dans **Prospects** comme toute autre demande — noté de la même façon, annoncé aux mêmes personnes — et porte le nom de la campagne dont il vient.",
+      "Vous diffusez une publicité — « Obtenez une estimation de peinture gratuite » — et un propriétaire la touche. Meta affiche son propre formulaire, prérempli avec le nom et le courriel de son compte Facebook, et la personne appuie sur Envoyer. La carte **Formulaires de prospects Facebook** de **Paramètres → Publicités Meta** est l'endroit où vous dites à FieldQuo lesquels de ces formulaires transformer en prospects.",
+      "Cette page en est la version courte : ce que la carte lit, ce qui arrive et ce que fait chaque contrôle. La configuration pas à pas — avec la liste de vérification de la carte, le sens de chaque message et l'envoi d'un prospect de test — se trouve dans son propre guide.",
     ],
     sections: [
       {
         id: "overview",
-        heading: "Aperçu",
+        heading: "Quelle connexion lit vos prospects",
         blocks: [
-          { p: "Une seule connexion alimente trois choses : les dépenses publicitaires dans vos chiffres marketing, les formulaires de prospects dans Prospects, et les messages de Page, d'Instagram et de WhatsApp dans Messages. Les formulaires de prospects exigent d'abord la connexion du compte publicitaire Meta, parce que c'est la même connexion qui lit vos Pages." },
-          { p: "Meta livre un envoi de deux façons et FieldQuo écoute les deux : un webhook à l'instant où le formulaire est soumis, et une relève de chaque formulaire activé à vingt minutes de chaque heure. Les deux se recoupent exprès — un webhook peut se perdre — et ne peuvent pas compter en double, parce qu'un prospect est indexé sur l'identifiant propre de Meta." },
+          { p: "Les formulaires et les prospects sont lus par votre connexion à la **Page Facebook** — la carte **Publication Facebook et Instagram** plus bas dans **Paramètres → Publicités Meta**, connectée avec **Connecter Facebook et Instagram** et modifiée avec **Reconnecter ou changer de page**. Ils ne sont pas lus par le compte publicitaire Meta en haut de l'écran : cette connexion-là rapporte ce que vous dépensez, et elle ne voit pas les formulaires de votre Page. Vous n'avez pas besoin du compte publicitaire pour recevoir des prospects." },
+          { p: "FieldQuo lit une seule Page : celle qui est connectée, et la carte la nomme — **Les formulaires et les prospects sont lus par votre connexion à la Page Facebook : …**. Si vos publicités sont diffusées depuis une autre Page, passez la connexion à cette Page." },
+          { p: "Meta livre un envoi de deux façons et FieldQuo écoute les deux : un avis instantané à l'instant où le formulaire est soumis, et une relecture de chaque formulaire activé à vingt minutes de chaque heure. Les deux se recoupent exprès — un avis instantané peut se perdre — et ne peuvent pas compter en double, parce qu'un prospect est indexé sur l'identifiant propre de Meta." },
         ],
       },
       {
-        id: "on-the-screen",
-        heading: "Ce qu'il y a à l'écran",
-        blocks: [
-          { p: "La carte **Formulaires de prospects Facebook** se trouve sous la connexion du compte publicitaire dans **Réglages → Publicités Meta** :" },
-          { bullets: [
-            "**Quand quelqu'un remplit le formulaire attaché à l'une de vos publicités Facebook ou Instagram, FieldQuo peut l'ajouter comme prospect.**",
-            "**Dernier prospect reçu le …** ou **Aucun prospect n'a encore été reçu depuis Meta.** — la seule ligne qui vous dit que le branchement fonctionne.",
-            "Une ligne par formulaire trouvé sur vos Pages, avec **Prospects : …**, la date du dernier, et un commutateur **Activé** / **Désactivé**.",
-            "**De quelles campagnes viennent ces prospects** — les campagnes et le nombre de prospects produits par chacune.",
-            "**Trouver mes formulaires de prospects** — relit vos Pages et liste les nouveaux formulaires.",
-          ] },
-          { figure: "live:app-settings-meta-ads", caption: "Réglages → Publicités Meta — la carte Formulaires de prospects Facebook sous la connexion du compte publicitaire, avant qu'un formulaire ait été trouvé." },
-        ],
-      },
-      {
-        id: "switch-a-form-on",
-        heading: "Comment activer un formulaire",
+        id: "set-it-up",
+        heading: "La configuration, en bref",
         blocks: [
           { steps: [
-            "Ouvrez **Réglages → Publicités Meta** et appuyez sur **Connecter Meta Ads** si la carte du haut dit que rien n'est connecté. Voir [[connect-meta-ads|Connecter votre compte publicitaire Meta]].",
-            "Appuyez sur **Trouver mes formulaires de prospects**. Chaque formulaire de prospects des Pages que cette connexion peut lire est listé.",
-            "Activez le commutateur de chaque formulaire dont les envois doivent devenir des prospects. Laissez un formulaire désactivé et ses envois restent chez Meta.",
-            "Surveillez **Dernier prospect reçu le** après votre prochain envoi.",
-            "Ouvrez **Prospects** — la nouvelle carte porte la source et la campagne.",
+            "Connectez votre Page Facebook sous **Publication Facebook et Instagram**, en accordant chaque autorisation que Meta demande.",
+            "Dans la carte **Formulaires de prospects Facebook**, appuyez sur **Trouver mes formulaires de prospects**. Les formulaires de la Page connectée sont listés.",
+            "Mettez sur **Activé** le commutateur de chaque formulaire dont les envois doivent devenir des prospects. Un formulaire qui vient d'être trouvé est **Désactivé**.",
+            "Envoyez un prospect de test avec l'outil de test des publicités à formulaire de Meta et surveillez l'apparition de **Dernier prospect reçu le …**.",
           ] },
-          { note: "Si la carte affiche un avis ambre — **Les formulaires de prospects Facebook nécessitent l'approbation par Meta d'une autorisation supplémentaire ; rien n'est encore reçu.** — tous les commutateurs sont désactivés et rien n'arrive. C'est l'examen de l'autorisation par Meta, pas votre configuration ; le reste de la connexion fonctionne." },
+          { p: "Chaque étape, et quoi faire quand l'une ne se coche pas, se trouve dans [[get-facebook-and-instagram-lead-ads-into-fieldquo|Recevoir vos publicités à formulaire Facebook et Instagram dans FieldQuo]] — l'article qu'ouvre le lien **Guide étape par étape** de la carte." },
+          { figure: "live:app-settings-meta-ads", caption: "Paramètres → Publicités Meta — la carte Formulaires de prospects Facebook, avec Trouver mes formulaires de prospects, et en dessous la carte Publication Facebook et Instagram par laquelle les formulaires sont lus." },
+          { note: "Si la carte affiche un avis ambre — **Les formulaires de prospects Facebook nécessitent l'approbation par Meta d'une autorisation supplémentaire ; rien n'est encore reçu.** — tous les commutateurs et **Trouver mes formulaires de prospects** sont désactivés et rien n'arrive. C'est l'examen de FieldQuo par Meta, pas votre configuration." },
         ],
       },
       {
@@ -408,9 +395,11 @@ export const ARTICLES = {
           { table: {
             head: ["Contrôle", "Ce qu'il fait"],
             rows: [
-              ["**Activé** / **Désactivé** par formulaire", "Activé : le webhook et la relève horaire importent les envois de ce formulaire. Désactivé : rien n'en est importé ; les prospects déjà sur votre tableau restent."],
-              ["**Trouver mes formulaires de prospects**", "Relit vos Pages et ajoute à la liste les formulaires nouvellement créés. Il n'importe rien par lui-même."],
-              ["**Déconnecter** sur le compte publicitaire", "Met fin à la connexion dont dépendent les formulaires. Les formulaires activés cessent de recevoir jusqu'à ce que vous reconnectiez."],
+              ["**Activé** / **Désactivé** par formulaire", "Activé : l'avis instantané et la relecture horaire importent les envois de ce formulaire. Désactivé : rien n'en est importé ; les prospects déjà sur votre tableau restent."],
+              ["**Trouver mes formulaires de prospects**", "Relit la Page connectée et ajoute à la liste les formulaires nouvellement créés, en position **Désactivé**. Il n'importe rien par lui-même et ne réactive jamais un formulaire que vous avez désactivé."],
+              ["**Reconnecter ou changer de page**", "Change la Page que FieldQuo lit, ou accorde de nouveau une autorisation que Meta a retenue. Appuyez ensuite sur **Trouver mes formulaires de prospects** pour lister les formulaires de cette Page."],
+              ["**Déconnecter** sous **Publication Facebook et Instagram**", "Met fin à la connexion à la Page par laquelle les formulaires sont lus. Les formulaires activés cessent de recevoir jusqu'à ce que vous connectiez de nouveau une Page."],
+              ["**Déconnecter** sur le compte publicitaire Meta", "Arrête la synchronisation des dépenses publicitaires. Les prospects continuent d'arriver par la connexion à la Page."],
             ],
           } },
         ],
@@ -419,7 +408,7 @@ export const ARTICLES = {
         id: "cost-per-lead",
         heading: "Coût par prospect",
         blocks: [
-          { p: "Parce qu'un prospect Meta porte l'identifiant de sa campagne et que les dépenses publicitaires synchronisées portent le même identifiant, FieldQuo peut montrer un coût par prospect par campagne pour ce seul chemin. Le coût par prospect par campagne couvre les prospects arrivés par un formulaire de prospects Meta. Tous les autres canaux — et le propriétaire qui a vu la publicité et a téléphoné — restent mélangés dans l'ensemble, parce que rien ne relie cette dépense à ce prospect. Voir [[marketing-spend|Dépenses marketing]]." },
+          { p: "Un prospect Meta porte l'identifiant de la publicité dont il vient, et FieldQuo retrouve la campagne de cette publicité quand Meta le permet — par le compte publicitaire s'il est connecté, sinon par la Page. Quand le compte publicitaire est aussi connecté, ses dépenses synchronisées portent le même identifiant de campagne, et FieldQuo peut montrer un coût par prospect par campagne pour ce seul chemin. Tous les autres canaux — et le propriétaire qui a vu la publicité et a téléphoné — restent mélangés dans l'ensemble, parce que rien ne relie cette dépense à ce prospect. Voir [[connect-meta-ads|Connecter votre compte publicitaire Meta]] et [[marketing-spend|Dépenses marketing]]." },
           { tip: "Donnez à chaque publicité son propre formulaire. Un formulaire partagé par cinq campagnes attribue quand même chaque prospect à la campagne qui l'a produit, mais un formulaire par publicité rend la liste de cette carte lisible d'un coup d'œil." },
         ],
       },
@@ -427,15 +416,15 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Qui peut le voir",
         blocks: [
-          { p: "**Publicités Meta** est un écran réservé au propriétaire et aux administrateurs : il tient une connexion à un compte qui dépense votre argent. Un membre Manager, Dispatcher, Estimator ou Crew ne voit pas la ligne, et l'API le refuse." },
+          { p: "**Publicités Meta** est un écran réservé au propriétaire et aux administrateurs : il tient les connexions à votre Page et à un compte qui dépense votre argent. Un membre Manager, Dispatcher, Estimator ou Crew ne voit pas la ligne, et l'API le refuse." },
         ],
       },
     ],
     faq: [
-      { q: "Pourquoi tous les commutateurs sont-ils grisés ?", a: "La carte vous le dit : les formulaires de prospects Facebook nécessitent l'approbation par Meta d'une autorisation supplémentaire, et d'ici là rien n'est reçu. Votre connexion est bonne ; il n'y a rien à corriger de votre côté." },
+      { q: "Ai-je besoin de connecter le compte publicitaire Meta ?", a: "Pas pour les prospects — ils sont lus par la connexion à la Page Facebook. Le compte publicitaire ajoute vos dépenses publicitaires, à partir desquelles le coût par prospect est calculé." },
+      { q: "Trouver mes formulaires de prospects n'a rien trouvé, mais ma publicité a un formulaire. Pourquoi ?", a: "Le message nomme la Page consultée. Si ce n'est pas la Page d'où votre publicité est diffusée, appuyez sur Reconnecter ou changer de page, choisissez la bonne, puis appuyez de nouveau sur Trouver mes formulaires de prospects." },
       { q: "Un envoi est arrivé deux fois sur Facebook. Aurai-je deux prospects ?", a: "Non. Un prospect est indexé sur l'identifiant propre de Meta, et les deux chemins de livraison le vérifient. La seconde livraison est consignée comme doublon et ne crée rien." },
-      { q: "Le prospect me notifie-t-il comme un prospect du site web ?", a: "Oui — la même notification lead.created, aux mêmes personnes, avec la même pondération Chaud / Tiède / Froid." },
-      { q: "FieldQuo peut-il modifier mes publicités ?", a: "Non. La connexion ne fait que lire les dépenses, les performances et les formulaires de prospects. Elle ne crée ni ne modifie jamais une publicité." },
+      { q: "FieldQuo peut-il modifier mes publicités ?", a: "Non. FieldQuo ne crée ni ne modifie jamais une publicité. La connexion au compte publicitaire lit les dépenses et les performances ; la connexion à la Page lit vos formulaires et vos prospects." },
     ],
   },
 

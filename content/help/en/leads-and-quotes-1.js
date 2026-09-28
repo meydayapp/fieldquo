@@ -347,48 +347,35 @@ export const ARTICLES = {
   "facebook-lead-forms": {
     title: "Facebook lead forms",
     summary:
-      "Turn the forms attached to your Facebook and Instagram ads into leads on your board, with the campaign each one came from — and what the connection does and does not do.",
-    updated: "2026-09-12",
+      "What happens when a homeowner fills in the form on one of your Facebook or Instagram ads: which connection reads it, how it becomes a lead, and what each control changes. The full setup is its own guide.",
+    updated: "2026-09-28",
     intro: [
-      "You run an ad — “Get a free painting estimate” — and a homeowner taps it. Meta shows its own form, pre-filled with the name and email on their Facebook account, and they press Submit. That person is a lead, and **Settings → Meta Ads** is where you tell FieldQuo which of those forms to turn into one.",
-      "A lead from a form you switch on appears in **Leads** like any other enquiry — scored the same way, notified to the same people — and carries the name of the campaign it came from.",
+      "You run an ad — “Get a free painting estimate” — and a homeowner taps it. Meta shows its own form, pre-filled with the name and email on their Facebook account, and they press Submit. The **Facebook lead forms** card on **Settings → Meta Ads** is where you tell FieldQuo which of those forms to turn into leads.",
+      "This page is the short version: what the card reads, what arrives, and what each control does. The setup, step by step — with the checklist on the card, what every message means and how to send a test lead — is in its own guide.",
     ],
     sections: [
       {
         id: "overview",
-        heading: "Overview",
+        heading: "Which connection reads your leads",
         blocks: [
-          { p: "One connection feeds three things: ad spend into your marketing numbers, lead forms into Leads, and Page, Instagram and WhatsApp messages into Messages. Lead forms need the Meta ad account connected first, because the same login is what reads your Pages." },
-          { p: "Meta delivers a submission two ways and FieldQuo listens to both: a webhook the moment the form is submitted, and a poll of every switched-on form at twenty past each hour. The two overlap on purpose — a webhook can be dropped — and cannot double-count, because a lead is keyed on Meta's own id." },
+          { p: "Lead forms and leads are read through your **Facebook Page** connection — the **Facebook & Instagram publishing** card further down **Settings → Meta Ads**, connected with **Connect Facebook & Instagram** and changed with **Reconnect or switch Page**. They are not read through the Meta ad account at the top of the screen: that connection brings in what you spend, and it cannot see your Page's forms. You do not need the ad account connected to receive leads." },
+          { p: "FieldQuo reads one Page: the one connected, and the card names it — **Lead forms and leads are read through your Facebook Page connection: …**. If your ads run from another Page, switch the connection to that Page." },
+          { p: "Meta delivers a submission two ways and FieldQuo listens to both: an instant notice the moment the form is submitted, and a re-read of every switched-on form at twenty past each hour. The two overlap on purpose — an instant notice can be missed — and cannot double-count, because a lead is keyed on Meta's own id." },
         ],
       },
       {
-        id: "on-the-screen",
-        heading: "What is on the screen",
-        blocks: [
-          { p: "The **Facebook lead forms** card sits under the ad-account connection on **Settings → Meta Ads**:" },
-          { bullets: [
-            "**When someone fills in the form attached to one of your Facebook or Instagram ads, FieldQuo can add them as a lead.**",
-            "**Last lead received …** or **No lead has been received from Meta yet.** — the one line that tells you the wiring works.",
-            "One row per form found on your Pages, with **Leads: …**, the date of the last one, and an **On** / **Off** switch.",
-            "**Which campaigns these leads came from** — the campaigns and how many leads each produced.",
-            "**Find my lead forms** — reads your Pages again and lists any new forms.",
-          ] },
-          { figure: "live:app-settings-meta-ads", caption: "Settings → Meta Ads — the Facebook lead forms card under the ad-account connection, before any form has been found." },
-        ],
-      },
-      {
-        id: "switch-a-form-on",
-        heading: "How to switch a form on",
+        id: "set-it-up",
+        heading: "Setting it up, in short",
         blocks: [
           { steps: [
-            "Open **Settings → Meta Ads** and press **Connect Meta Ads** if the card at the top says **Not connected**. See [[connect-meta-ads|Connect your Meta ad account]].",
-            "Press **Find my lead forms**. Every lead form on the Pages that login can read is listed.",
-            "Turn the switch on for each form whose submissions should become leads. Leave a form off and its submissions stay in Meta.",
-            "Watch **Last lead received** after your next submission.",
-            "Open **Leads** — the new card carries the source and the campaign.",
+            "Connect your Facebook Page under **Facebook & Instagram publishing**, allowing every permission Meta asks for.",
+            "In the **Facebook lead forms** card, press **Find my lead forms**. It lists the forms on the connected Page.",
+            "Turn the switch to **On** for each form whose submissions should become leads. A form you have just found starts **Off**.",
+            "Send a test lead with Meta's Lead Ads Testing Tool and watch **Last lead received …** appear.",
           ] },
-          { note: "If the card shows an amber notice — **Facebook lead forms need Meta's approval of one more permission; nothing is being received yet.** — every switch is disabled and nothing is arriving. That is Meta's review of the permission, not your setup; the rest of the connection still works." },
+          { p: "Each step, and what to do when one does not tick, is in [[get-facebook-and-instagram-lead-ads-into-fieldquo|Get your Facebook and Instagram lead ads into FieldQuo]] — the article the card's **Step-by-step guide** link opens." },
+          { figure: "live:app-settings-meta-ads", caption: "Settings → Meta Ads — the Facebook lead forms card, with Find my lead forms, and the Facebook & Instagram publishing card below it that the forms are read through." },
+          { note: "If the card shows an amber notice — **Facebook lead forms need Meta's approval of one more permission; nothing is being received yet.** — every switch and **Find my lead forms** are disabled and nothing is arriving. That is Meta's review of FieldQuo, not your setup." },
         ],
       },
       {
@@ -412,9 +399,11 @@ export const ARTICLES = {
           { table: {
             head: ["Control", "What it does"],
             rows: [
-              ["**On** / **Off** per form", "On: the webhook and the hourly poll import that form's submissions. Off: nothing is imported from it; leads already on your board stay."],
-              ["**Find my lead forms**", "Reads your Pages and adds newly created forms to the list. It does not import anything by itself."],
-              ["**Disconnect** on the ad account", "Ends the connection the forms depend on. Switched-on forms stop receiving until you reconnect."],
+              ["**On** / **Off** per form", "On: the instant notice and the hourly re-read import that form's submissions. Off: nothing is imported from it; leads already on your board stay."],
+              ["**Find my lead forms**", "Reads the connected Page and adds newly created forms to the list, switched **Off**. It does not import anything by itself, and never switches back on a form you turned off."],
+              ["**Reconnect or switch Page**", "Changes which Page FieldQuo reads, or re-grants a permission Meta held back. Press **Find my lead forms** afterwards to list that Page's forms."],
+              ["**Disconnect** under **Facebook & Instagram publishing**", "Ends the Page connection the forms are read through. Switched-on forms stop receiving until you connect a Page again."],
+              ["**Disconnect** on the Meta ad account", "Stops the ad spend sync. Leads keep arriving through the Page connection."],
             ],
           } },
         ],
@@ -423,7 +412,7 @@ export const ARTICLES = {
         id: "cost-per-lead",
         heading: "Cost per lead",
         blocks: [
-          { p: "Because a Meta lead carries its campaign id and the synced ad spend carries the same id, FieldQuo can show cost per lead per campaign for this one path. Per-campaign cost per lead covers leads that arrived through a Meta lead form. Every other channel — and a homeowner who saw the ad and phoned — is still blended across everything, because nothing links that spend to that lead. See [[marketing-spend|Marketing spend]]." },
+          { p: "A Meta lead carries the id of the ad it came from, and FieldQuo looks up that ad's campaign when Meta allows it — through the ad account when one is connected, otherwise through the Page. When the ad account is also connected, its synced spend carries the same campaign id, so FieldQuo can show cost per lead per campaign for this one path. Every other channel — and a homeowner who saw the ad and phoned — is still blended across everything, because nothing links that spend to that lead. See [[connect-meta-ads|Connect your Meta ad account]] and [[marketing-spend|Marketing spend]]." },
           { tip: "Give each ad its own form. One form shared by five campaigns still attributes each lead to the campaign that produced it, but a form per ad makes the list on this card readable at a glance." },
         ],
       },
@@ -431,15 +420,15 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Who can see it",
         blocks: [
-          { p: "**Meta Ads** is an owner-and-administrator screen: it holds a connection to an account that spends your money. A Manager, Dispatcher, Estimator or Crew member does not see the row, and the API refuses them." },
+          { p: "**Meta Ads** is an owner-and-administrator screen: it holds connections to your Page and to an account that spends your money. A Manager, Dispatcher, Estimator or Crew member does not see the row, and the API refuses them." },
         ],
       },
     ],
     faq: [
-      { q: "Why is every switch greyed out?", a: "The card is telling you: Facebook lead forms need Meta's approval of one more permission, and until then nothing is received. Your connection is fine; there is nothing to fix on your side." },
+      { q: "Do I need the Meta ad account connected?", a: "Not for the leads — they are read through the Facebook Page connection. The ad account adds your ad spend, which is what cost per lead is calculated from." },
+      { q: "Find my lead forms found none, but my ad has a form. Why?", a: "The message names the Page it looked at. If that is not the Page your ad runs from, press Reconnect or switch Page, choose the right one, and press Find my lead forms again." },
       { q: "A submission arrived twice on Facebook. Will I get two leads?", a: "No. A lead is keyed on Meta's own id, and both delivery paths check it. The second delivery is recorded as a duplicate and creates nothing." },
-      { q: "Does the lead notify me like a website lead?", a: "Yes — the same lead.created notification, to the same people, with the same Hot / Warm / Cold weighting." },
-      { q: "Can FieldQuo change my ads?", a: "No. The connection only reads spend, performance and lead forms. It never creates or edits an ad." },
+      { q: "Can FieldQuo change my ads?", a: "No. FieldQuo never creates or edits an ad. The ad-account connection reads spend and performance; the Page connection reads your lead forms and leads." },
     ],
   },
 

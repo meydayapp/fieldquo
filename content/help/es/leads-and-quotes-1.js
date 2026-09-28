@@ -343,48 +343,35 @@ export const ARTICLES = {
   "facebook-lead-forms": {
     title: "Formularios de clientes potenciales de Facebook",
     summary:
-      "Convierta los formularios adjuntos a sus anuncios de Facebook e Instagram en prospectos en su tablero, con la campaña de la que vino cada uno, y lo que la conexión hace y no hace.",
-    updated: "2026-09-12",
+      "Qué pasa cuando un propietario rellena el formulario de uno de sus anuncios de Facebook o Instagram: qué conexión lo lee, cómo se convierte en prospecto y qué cambia cada control. La configuración completa tiene su propia guía.",
+    updated: "2026-09-28",
     intro: [
-      "Usted publica un anuncio — «Obtenga una estimación de pintura gratis» — y un propietario lo toca. Meta muestra su propio formulario, rellenado con el nombre y el correo de su cuenta de Facebook, y la persona pulsa Enviar. Esa persona es un prospecto, y **Configuración → Meta Ads** es donde usted le dice a FieldQuo cuáles de esos formularios convertir en uno.",
-      "Un prospecto de un formulario que usted activa aparece en **Prospectos** como cualquier otra consulta — calificado igual, notificado a las mismas personas — y lleva el nombre de la campaña de la que vino.",
+      "Usted publica un anuncio — «Obtenga una estimación de pintura gratis» — y un propietario lo toca. Meta muestra su propio formulario, rellenado con el nombre y el correo de su cuenta de Facebook, y la persona pulsa Enviar. La tarjeta **Formularios de clientes potenciales de Facebook** de **Configuración → Meta Ads** es donde usted le dice a FieldQuo cuáles de esos formularios convertir en prospectos.",
+      "Esta página es la versión corta: qué lee la tarjeta, qué llega y qué hace cada control. La configuración paso a paso — con la lista de comprobación de la tarjeta, qué significa cada mensaje y cómo enviar un prospecto de prueba — está en su propia guía.",
     ],
     sections: [
       {
         id: "overview",
-        heading: "Resumen",
+        heading: "Qué conexión lee sus prospectos",
         blocks: [
-          { p: "Una sola conexión alimenta tres cosas: el gasto publicitario en sus cifras de marketing, los formularios de clientes potenciales en Prospectos, y los mensajes de Página, Instagram y WhatsApp en Mensajes. Los formularios exigen primero la conexión de la cuenta publicitaria de Meta, porque es el mismo acceso el que lee sus Páginas." },
-          { p: "Meta entrega un envío de dos maneras y FieldQuo escucha ambas: un webhook en el momento en que se envía el formulario, y una consulta de cada formulario activado a los veinte minutos de cada hora. Las dos se superponen a propósito — un webhook puede perderse — y no pueden contar doble, porque un prospecto se indexa por el identificador propio de Meta." },
+          { p: "Los formularios y los prospectos se leen con su conexión a la **Página de Facebook** — la tarjeta **Publicación en Facebook e Instagram** más abajo en **Configuración → Meta Ads**, que se conecta con **Conectar Facebook e Instagram** y se cambia con **Reconectar o cambiar de página**. No se leen con la cuenta publicitaria de Meta de la parte de arriba: esa conexión trae lo que usted gasta y no puede ver los formularios de su Página. No necesita la cuenta publicitaria conectada para recibir prospectos." },
+          { p: "FieldQuo lee una sola Página: la que está conectada, y la tarjeta la nombra — **Los formularios y los clientes potenciales se leen con tu conexión a la Página de Facebook: …**. Si sus anuncios salen de otra Página, cambie la conexión a esa Página." },
+          { p: "Meta entrega un envío de dos maneras y FieldQuo escucha ambas: un aviso instantáneo en el momento en que se envía el formulario, y una nueva lectura de cada formulario activado a los veinte minutos de cada hora. Las dos se superponen a propósito — un aviso instantáneo puede perderse — y no pueden contar doble, porque un prospecto se indexa por el identificador propio de Meta." },
         ],
       },
       {
-        id: "on-the-screen",
-        heading: "Qué hay en la pantalla",
-        blocks: [
-          { p: "La tarjeta **Formularios de clientes potenciales de Facebook** está bajo la conexión de la cuenta publicitaria en **Configuración → Meta Ads**:" },
-          { bullets: [
-            "**Cuando alguien rellena el formulario adjunto a uno de tus anuncios de Facebook o Instagram, FieldQuo puede añadirlo como cliente potencial.**",
-            "**Último recibido el …** o **Todavía no se ha recibido ninguno desde Meta.** — la única línea que le dice que la conexión funciona.",
-            "Una fila por formulario encontrado en sus Páginas, con **Clientes potenciales: …**, la fecha del último, y un interruptor **Activado** / **Desactivado**.",
-            "**De qué campañas vienen estos clientes potenciales** — las campañas y cuántos prospectos produjo cada una.",
-            "**Buscar mis formularios** — vuelve a leer sus Páginas y lista los formularios nuevos.",
-          ] },
-          { figure: "live:app-settings-meta-ads", caption: "Configuración → Meta Ads — la tarjeta Formularios de clientes potenciales de Facebook bajo la conexión de la cuenta publicitaria, antes de que se haya encontrado un formulario." },
-        ],
-      },
-      {
-        id: "switch-a-form-on",
-        heading: "Cómo activar un formulario",
+        id: "set-it-up",
+        heading: "La configuración, en resumen",
         blocks: [
           { steps: [
-            "Abra **Configuración → Meta Ads** y pulse **Conectar Meta Ads** si la tarjeta de arriba dice que no hay conexión. Vea [[connect-meta-ads|Conectar su cuenta publicitaria de Meta]].",
-            "Pulse **Buscar mis formularios**. Se lista cada formulario de clientes potenciales de las Páginas que ese acceso puede leer.",
-            "Active el interruptor de cada formulario cuyos envíos deban convertirse en prospectos. Deje un formulario desactivado y sus envíos se quedan en Meta.",
-            "Observe **Último recibido el** después de su próximo envío.",
-            "Abra **Prospectos**: la nueva tarjeta lleva la fuente y la campaña.",
+            "Conecte su Página de Facebook en **Publicación en Facebook e Instagram**, aceptando cada permiso que Meta pida.",
+            "En la tarjeta **Formularios de clientes potenciales de Facebook**, pulse **Buscar mis formularios**. Se listan los formularios de la Página conectada.",
+            "Ponga en **Activado** el interruptor de cada formulario cuyos envíos deban convertirse en prospectos. Un formulario recién encontrado empieza **Desactivado**.",
+            "Envíe un prospecto de prueba con la herramienta de prueba de anuncios para clientes potenciales de Meta y observe cómo aparece **Último recibido el …**.",
           ] },
-          { note: "Si la tarjeta muestra un aviso ámbar — **Los formularios de clientes potenciales de Facebook necesitan que Meta apruebe un permiso más; todavía no se está recibiendo nada.** — todos los interruptores están desactivados y no llega nada. Eso es la revisión del permiso por parte de Meta, no su configuración; el resto de la conexión sigue funcionando." },
+          { p: "Cada paso, y qué hacer cuando uno no se marca, está en [[get-facebook-and-instagram-lead-ads-into-fieldquo|Cómo traer sus anuncios de clientes potenciales de Facebook e Instagram a FieldQuo]] — el artículo que abre el enlace **Guía paso a paso** de la tarjeta." },
+          { figure: "live:app-settings-meta-ads", caption: "Configuración → Meta Ads — la tarjeta Formularios de clientes potenciales de Facebook, con Buscar mis formularios, y debajo la tarjeta Publicación en Facebook e Instagram con la que se leen los formularios." },
+          { note: "Si la tarjeta muestra un aviso ámbar — **Los formularios de clientes potenciales de Facebook necesitan que Meta apruebe un permiso más; todavía no se está recibiendo nada.** — todos los interruptores y **Buscar mis formularios** están desactivados y no llega nada. Eso es la revisión de FieldQuo por parte de Meta, no su configuración." },
         ],
       },
       {
@@ -408,9 +395,11 @@ export const ARTICLES = {
           { table: {
             head: ["Control", "Qué hace"],
             rows: [
-              ["**Activado** / **Desactivado** por formulario", "Activado: el webhook y la consulta horaria importan los envíos de ese formulario. Desactivado: no se importa nada de él; los prospectos que ya están en su tablero se quedan."],
-              ["**Buscar mis formularios**", "Lee sus Páginas y añade a la lista los formularios recién creados. No importa nada por sí solo."],
-              ["**Desconectar** en la cuenta publicitaria", "Termina la conexión de la que dependen los formularios. Los formularios activados dejan de recibir hasta que usted vuelva a conectar."],
+              ["**Activado** / **Desactivado** por formulario", "Activado: el aviso instantáneo y la lectura de cada hora importan los envíos de ese formulario. Desactivado: no se importa nada de él; los prospectos que ya están en su tablero se quedan."],
+              ["**Buscar mis formularios**", "Lee la Página conectada y añade a la lista los formularios recién creados, en **Desactivado**. No importa nada por sí solo y nunca vuelve a activar un formulario que usted desactivó."],
+              ["**Reconectar o cambiar de página**", "Cambia la Página que FieldQuo lee, o vuelve a conceder un permiso que Meta retuvo. Después pulse **Buscar mis formularios** para listar los formularios de esa Página."],
+              ["**Desconectar** en **Publicación en Facebook e Instagram**", "Termina la conexión a la Página con la que se leen los formularios. Los formularios activados dejan de recibir hasta que usted vuelva a conectar una Página."],
+              ["**Desconectar** en la cuenta publicitaria de Meta", "Detiene la sincronización del gasto publicitario. Los prospectos siguen llegando por la conexión a la Página."],
             ],
           } },
         ],
@@ -419,7 +408,7 @@ export const ARTICLES = {
         id: "cost-per-lead",
         heading: "Costo por prospecto",
         blocks: [
-          { p: "Como un prospecto de Meta lleva el identificador de su campaña y el gasto publicitario sincronizado lleva el mismo identificador, FieldQuo puede mostrar el costo por prospecto por campaña para esta única vía. El costo por prospecto por campaña cubre los prospectos que llegaron por un formulario de clientes potenciales de Meta. Todos los demás canales — y el propietario que vio el anuncio y llamó por teléfono — siguen mezclados en el conjunto, porque nada vincula ese gasto con ese prospecto. Vea [[marketing-spend|Gasto en marketing]]." },
+          { p: "Un prospecto de Meta lleva el identificador del anuncio del que vino, y FieldQuo busca la campaña de ese anuncio cuando Meta lo permite — con la cuenta publicitaria si está conectada, y si no con la Página. Cuando la cuenta publicitaria también está conectada, su gasto sincronizado lleva el mismo identificador de campaña, así que FieldQuo puede mostrar el costo por prospecto por campaña para esta única vía. Todos los demás canales — y el propietario que vio el anuncio y llamó por teléfono — siguen mezclados en el conjunto, porque nada vincula ese gasto con ese prospecto. Vea [[connect-meta-ads|Conectar su cuenta publicitaria de Meta]] y [[marketing-spend|Gasto en marketing]]." },
           { tip: "Dé a cada anuncio su propio formulario. Un formulario compartido por cinco campañas igual atribuye cada prospecto a la campaña que lo produjo, pero un formulario por anuncio hace que la lista de esta tarjeta se lea de un vistazo." },
         ],
       },
@@ -427,15 +416,15 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Quién puede verlo",
         blocks: [
-          { p: "**Meta Ads** es una pantalla del propietario y los administradores: guarda una conexión a una cuenta que gasta su dinero. Un miembro Manager, Dispatcher, Estimator o Crew no ve la fila, y la API lo rechaza." },
+          { p: "**Meta Ads** es una pantalla del propietario y los administradores: guarda las conexiones a su Página y a una cuenta que gasta su dinero. Un miembro Manager, Dispatcher, Estimator o Crew no ve la fila, y la API lo rechaza." },
         ],
       },
     ],
     faq: [
-      { q: "¿Por qué todos los interruptores están en gris?", a: "La tarjeta se lo dice: los formularios de clientes potenciales de Facebook necesitan que Meta apruebe un permiso más, y hasta entonces no se recibe nada. Su conexión está bien; no hay nada que arreglar de su lado." },
+      { q: "¿Necesito conectar la cuenta publicitaria de Meta?", a: "No para los prospectos: se leen con la conexión a la Página de Facebook. La cuenta publicitaria añade su gasto en anuncios, que es con lo que se calcula el costo por prospecto." },
+      { q: "Buscar mis formularios no encontró ninguno, pero mi anuncio tiene un formulario. ¿Por qué?", a: "El mensaje nombra la Página que consultó. Si no es la Página de la que sale su anuncio, pulse Reconectar o cambiar de página, elija la correcta y vuelva a pulsar Buscar mis formularios." },
       { q: "Un envío llegó dos veces en Facebook. ¿Tendré dos prospectos?", a: "No. Un prospecto se indexa por el identificador propio de Meta, y ambas vías de entrega lo comprueban. La segunda entrega se registra como duplicado y no crea nada." },
-      { q: "¿El prospecto me notifica como uno del sitio web?", a: "Sí: la misma notificación lead.created, a las mismas personas, con la misma ponderación Caliente / Templado / Frío." },
-      { q: "¿FieldQuo puede cambiar mis anuncios?", a: "No. La conexión solo lee gasto, rendimiento y formularios de clientes potenciales. Nunca crea ni edita un anuncio." },
+      { q: "¿FieldQuo puede cambiar mis anuncios?", a: "No. FieldQuo nunca crea ni edita un anuncio. La conexión de la cuenta publicitaria lee el gasto y el rendimiento; la conexión a la Página lee sus formularios y sus prospectos." },
     ],
   },
 

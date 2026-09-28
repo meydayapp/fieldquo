@@ -192,10 +192,10 @@ export const ARTICLES = {
   "whatsapp-business": {
     title: "Les messages WhatsApp Business",
     summary:
-      "Votre propre numéro WhatsApp Business traité dans la même boîte que Facebook et Instagram, avec la règle des 24 heures que WhatsApp impose lui-même et les modèles approuvés qui permettent de la contourner.",
-    updated: "2026-09-12",
+      "Votre propre numéro WhatsApp Business traité dans la même boîte que Facebook et Instagram, avec la règle des 24 heures que WhatsApp impose lui-même — bientôt : c'est construit, et ça attend l'approbation de Meta avant qu'une entreprise puisse connecter un numéro.",
+    updated: "2026-09-28",
     intro: [
-      "Le numéro WhatsApp Business d'un entrepreneur se connecte depuis la carte **WhatsApp Business** de **Paramètres → Publicités Meta**, par l'inscription de Meta, et dès lors chaque message qu'un client envoie à ce numéro arrive dans [[the-messages-inbox|Messages]] sous la pastille **WhatsApp**, à côté de Facebook et Instagram. Photos, vidéos, messages vocaux, documents, autocollants, fiches contact et positions arrivent tous ; photos, vidéos, documents et votre propre adresse peuvent repartir.",
+      "Aujourd'hui, la carte **WhatsApp Business** de **Paramètres → Publicités Meta** affiche **WhatsApp arrive bientôt. Nous attendons que Meta approuve FieldQuo pour WhatsApp, et nous vous préviendrons le jour où ce sera prêt.** — sans bouton (voir [[whatsapp-coming-soon|WhatsApp (bientôt)]]). Cet article décrit le fonctionnement une fois que Meta aura dit oui : votre numéro WhatsApp Business se connecte par l'inscription de Meta, et dès lors chaque message qu'un client envoie à ce numéro arrive dans [[the-messages-inbox|Messages]] sous la pastille **WhatsApp**, à côté de Facebook et Instagram. Photos, vidéos, messages vocaux, documents, autocollants, fiches contact et positions arrivent tous ; photos, vidéos, documents et votre propre adresse peuvent repartir.",
       "Une règle surprendra quiconque n'a utilisé WhatsApp que sur un téléphone : sur un numéro d'entreprise, WhatsApp refuse un message écrit plus de **24 heures** après le dernier message du client. FieldQuo indique dans quel cas vous êtes sur chaque conversation et offre la porte de sortie — un modèle approuvé à l'avance par Meta — plutôt que de laisser l'envoi échouer après que vous avez appuyé sur le bouton.",
     ],
     sections: [
@@ -203,21 +203,21 @@ export const ARTICLES = {
         id: "overview",
         heading: "Vue d'ensemble",
         blocks: [
-          { p: "La connexion exige une autorisation que Meta approuve par application. Tant qu'elle est en attente, la carte affiche **En attente de l'approbation de Meta** sans bouton, et une adresse tapée à la main ne peut pas non plus démarrer le parcours — le serveur la refuse avec la même phrase. Quand le parcours est ouvert, la carte affiche **Aucun numéro WhatsApp connecté** avec **Connecter WhatsApp**." },
-          { p: "Sous le bouton se trouve une section repliée **Connecter avec des identifiants Cloud API (avancé)**. Elle existe pour les personnes qui administrent l'application Meta de FieldQuo elle-même et c'est la mauvaise porte pour tous les autres ; le bouton d'inscription est celui que Meta veut voir une entreprise emprunter." },
+          { p: "Pour connecter le numéro WhatsApp d'une autre entreprise, Meta doit accorder à FieldQuo l'accès avancé (Advanced Access) à ses deux autorisations WhatsApp — envoyer des messages et gérer les comptes WhatsApp Business — au terme de son examen des applications (App Review). D'ici là, votre entreprise ne voit que la phrase « bientôt », suivie de **Vos messages Facebook et Instagram arrivent déjà ici.** (ou seulement celui que vous avez connecté). Il n'y a pas de bouton, et une adresse tapée à la main ne peut pas non plus démarrer le parcours — le serveur la refuse. Le jour où Meta approuve, la carte affiche **Aucun numéro WhatsApp connecté** avec **Connecter WhatsApp**." },
+          { p: "Une section repliée **Connecter avec des identifiants Cloud API (avancé)**, étiquetée **Visible uniquement par l'équipe FieldQuo — pour les tests et l'examen de Meta**, n'est affichée qu'à l'équipe de FieldQuo, et le reste après l'approbation de Meta. Votre entreprise ne la voit jamais ; le bouton d'inscription est la porte que Meta veut voir une entreprise emprunter." },
         ],
       },
       {
         id: "connect-your-number",
-        heading: "Connecter votre numéro",
+        heading: "Comment vous connecterez votre numéro",
         blocks: [
           { steps: [
-            "Ouvrez **Paramètres → Publicités Meta** et descendez jusqu'à **WhatsApp Business**.",
+            "Une fois FieldQuo approuvé par Meta, ouvrez **Paramètres → Publicités Meta** et descendez jusqu'à **WhatsApp Business**.",
             "Appuyez sur **Connecter WhatsApp**. Meta vous guide pour vous connecter, choisir ou créer un compte WhatsApp Business, et choisir le numéro de téléphone auquel vos clients écrivent.",
             "De retour sur la carte, le numéro apparaît avec son nom vérifié, **Connecté via l'inscription Meta**, et le numéro tel que Meta l'imprime. Les messages arrivent dans la boîte tout de suite après.",
             "Appuyez sur **Actualiser les modèles** pour lire vos modèles de message chez Meta. La carte liste chacun avec sa langue et le statut donné par Meta — **APPROVED**, ou ce que Meta indique.",
           ] },
-          { figure: "live:app-settings-meta-ads", caption: "Paramètres → Publicités Meta — la carte WhatsApp Business au bas, avec Connecter WhatsApp et la section avancée repliée." },
+          { figure: "live:app-settings-meta-ads", caption: "Paramètres → Publicités Meta — la carte WhatsApp Business se trouve au bas de l'écran ; tant que Meta n'a pas approuvé FieldQuo, elle ne contient que la phrase « bientôt »." },
           { note: "Un numéro qui ne reçoit rien est pire que pas de numéro : si FieldQuo ne peut pas s'abonner aux messages du numéro, rien n'est connecté et la carte le dit — **FieldQuo n'a pas pu s'abonner à vos messages : rien n'a été connecté, car un numéro qui ne reçoit rien est pire que pas de numéro. Réessayez.**" },
         ],
       },
