@@ -40,11 +40,11 @@
 //     asked for, lib/quotes/servicePicker.js pickerSections), a row the
 //     company wrote itself under "Other". A company with more than one
 //     trade gets each trade's name above its block, its own trades first;
-//     with one, the headings are the whole structure. The seed data those
-//     headings come from is ~6 MB (1.3 MB gzipped), so it is its own chunk,
-//     never in the builder's bundle: fetched once the browser is idle after
-//     the button appears, or at the first hover, focus or press; if it
-//     cannot load, the tiles are drawn under their trades alone;
+//     with one, the headings are the whole structure. Each heading arrives
+//     on the product row itself (`seedCategory`, attached by GET
+//     /api/products on the server): the seed data it comes from is ~1.3 MB
+//     gzipped, and a phone in a driveway should not download that to learn
+//     a dozen category names;
 //   - tiles: the NAME, one line, a thin border and the app's primary colour
 //     as a bar down the left edge. The whole tile is the button and one tap
 //     adds it — a quote type with its calculator, a service with its
@@ -103,33 +103,6 @@ import {
   seedCategoryOf,
 } from "@/lib/quotes/servicePicker";
 
-// The seed files' category headings, loaded once per page: a separate chunk
-// (import()), so the seeds are never part of the builder's own bundle and a
-// quote with no Add service dialog (four offerings or fewer) never fetches
-// them. Resolves to the three things seedCategoryOf reads, or null when the
-// chunk cannot load (offline) — the dialog then draws the trades without
-// headings rather than waiting.
-let seedDeps = null;
-function loadSeedDeps() {
-  if (!seedDeps) {
-    seedDeps = Promise.all([
-      import("@/lib/services/seeds"),
-      import("@/lib/services/confirmServices"),
-      import("@/app/data/serviceSeeds"),
-    ])
-      .then(([seeds, confirm, data]) => ({
-        seedServiceByKey: seeds.seedServiceByKey,
-        seedCategoryName: confirm.seedCategoryName,
-        SERVICE_SEEDS: data.SERVICE_SEEDS,
-      }))
-      .catch(() => {
-        seedDeps = null; // a later open may try again
-        return null;
-      });
-  }
-  return seedDeps;
-}
-
 const SERVICES_HREF = "/app/settings/services";
 const CONFIRM_HREF = "/app/settings/services/confirm";
 
@@ -185,18 +158,6 @@ export default function AddServicePicker({ picker, documentLanguage }) {
   const count = pickerCount(groups, { invoice });
   const shape = pickerShape(count);
 
-  // The dialog's headings, fetched while the browser is idle once the button
-  // is on the page — by the time anyone presses it they are usually here.
-  useEffect(() => {
-    if (shape !== "dialog" || typeof window === "undefined") return undefined;
-    if (typeof window.requestIdleCallback === "function") {
-      const id = window.requestIdleCallback(() => loadSeedDeps(), { timeout: 4000 });
-      return () => window.cancelIdleCallback?.(id);
-    }
-    const id = setTimeout(() => loadSeedDeps(), 2000);
-    return () => clearTimeout(id);
-  }, [shape]);
-
   if (shape === "empty") {
     // An invoice with no services has nothing to offer here and draws
     // nothing: its card's "Add line item" is the way in, as before.
@@ -236,9 +197,6 @@ export default function AddServicePicker({ picker, documentLanguage }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        onPointerEnter={loadSeedDeps}
-        onPointerDown={loadSeedDeps}
-        onFocus={loadSeedDeps}
         aria-haspopup="dialog"
         data-add-service-open
         className="flex w-full min-h-12 items-center justify-center gap-2 rounded-xl bg-foreground px-4 py-3 text-sm font-semibold text-background shadow-sm hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
@@ -338,27 +296,6 @@ function ServicePickerDialog({ picker, groups, invoice, documentLanguage, onClos
   const { t } = useTranslation();
   const wide = useWide();
   const searchRef = useRef(null);
-  // undefined while the seed headings load; null when they could not, or
-  // are slow — after a moment the tiles are drawn under their trades alone
-  // and the headings join them if they arrive, so a bad connection never
-  // holds up the list itself.
-  const [deps, setDeps] = useState(undefined);
-  useEffect(() => {
-    let live = true;
-    const slow = setTimeout(() => {
-      if (live) setDeps((d) => (d === undefined ? null : d));
-    }, 1500);
-    loadSeedDeps().then((d) => {
-      if (live) setDeps((prev) => d || prev || null);
-    });
-    return () => {
-      live = false;
-      clearTimeout(slow);
-    };
-  }, []);
-  const lang = picker.language;
-  const categoryOf = useMemo(() => (deps ? (p) => seedCategoryOf(p, lang, deps) : deps), [deps, lang]);
-
   // Adds, then closes: the document scrolls to what was added
   // (DocumentBuilder's addAndOpen).
   const addNow = (entry) => {
@@ -388,8 +325,6 @@ function ServicePickerDialog({ picker, groups, invoice, documentLanguage, onClos
       stickyClass={wide ? "-top-4 pt-4 -mt-4" : "-top-3 pt-3 -mt-3"}
       onAdd={addNow}
       showManage={!wide}
-      categoryOf={categoryOf || null}
-      loading={deps === undefined}
     />
   );
 
@@ -467,9 +402,9 @@ function Tile({ name, tag = null, onClick, ...rest }) {
  * The list inside the dialog — search, headings, tiles. Exported so
  * scripts/check-service-picker.mjs can render it without a portal.
  *
- * @param categoryOf(product) → the seed heading (seedCategoryOf), or null to
- *        draw each trade's services without headings
- * @param loading the headings are still on their way
+ * Each service's heading is the `seedCategory` its row carries
+ * (seedCategoryOf, in the document's language); a row without one goes
+ * under "Other".
  */
 export function ServicePickerList({
   picker,
@@ -482,13 +417,12 @@ export function ServicePickerList({
   showManage = false,
   initialQuery = "",
   initialPresetsFor = null,
-  categoryOf = null,
-  loading = false,
 }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState(initialQuery);
   const [presetsFor, setPresetsFor] = useState(initialPresetsFor);
   const lang = picker.language;
+  const categoryOf = useMemo(() => (p) => seedCategoryOf(p, lang), [lang]);
   // "grouped under each trade only when the company has more than one trade"
   // (owner) — counted on the whole list, so a search that narrows to one
   // trade does not change the page's structure under the reader.
@@ -559,11 +493,7 @@ export function ServicePickerList({
         </label>
       </div>
 
-      {loading ? (
-        <p className="py-8 text-center text-sm text-muted-foreground" role="status" data-service-picker-loading>
-          {t("app.action.loading", "Loading…")}
-        </p>
-      ) : shown.length === 0 ? (
+      {shown.length === 0 ? (
         <p className="py-8 text-center text-sm text-muted-foreground" data-service-picker-nomatch>
           {t("app.servicePicker.noMatch", "Nothing matches “{query}”.", { query: query.trim() })}
         </p>

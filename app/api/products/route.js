@@ -33,6 +33,15 @@ import { sanitiseProduction } from "@/lib/services/productionRates";
 import { isAddedForYou } from "@/lib/services/addedForYou";
 import { loadPhraseTranslations } from "@/lib/i18n/phrases";
 import { templateLineTexts, templateLinePhrasesFor } from "@/lib/services/templates";
+// The heading a seeded service sits under in the Add service dialog
+// (lib/quotes/servicePicker.js productSeedCategory). Resolved HERE because the
+// seeds are already in this server bundle (isAddedForYou reads them) and are
+// ~1.3 MB gzipped — a phone opening a quote should not download them to learn
+// a dozen category names.
+import { productSeedCategory } from "@/lib/quotes/servicePicker";
+import { seedServiceByKey } from "@/lib/services/seeds";
+import { seedCategoryName } from "@/lib/services/confirmServices";
+import { SERVICE_SEEDS } from "@/app/data/serviceSeeds";
 
 /** Owner/admin only. Mirrors the other settings routes. */
 function requireCatalogueWrite(member) {
@@ -125,10 +134,15 @@ export async function GET(request) {
   // showPricing does not open. Stripped for anyone without payroll view_all.
   // `addedForYou`: a seeded row the company has not renamed or repriced —
   // the "Added for you" badge (lib/services/addedForYou.js has the rule).
+  // `seedCategory`: a seeded row's heading in the Add service dialog.
   return NextResponse.json(
     products.map((p) => {
       const templateLinePhrases = templateLinePhrasesFor(p, drafts);
       const out = { ...redactProductCommission(full, p), addedForYou: isAddedForYou(p, { currency }) };
+      // Only on a row that has one: a service the company wrote itself
+      // carries no key at all, and the dialog files it under "Other".
+      const seedCategory = productSeedCategory(p, { seedServiceByKey, seedCategoryName, SERVICE_SEEDS });
+      if (seedCategory) out.seedCategory = seedCategory;
       return templateLinePhrases ? { ...out, templateLinePhrases } : out;
     }),
   );

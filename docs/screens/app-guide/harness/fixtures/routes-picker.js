@@ -30,7 +30,10 @@
 // window.__pickerSaves (the body, as posted) for the md5 runner.
 import { COMPANY, day, iso } from "./company.js";
 import { SERVICE_CATEGORIES, PRODUCTS_FIXTURE, systemCategory } from "./routes-settings-a.js";
-import { serviceSeedsForCompanyTrade, seedableServices, seedText, seedTemplateFor, seedCategoryKeys } from "@/lib/services/seeds";
+import { serviceSeedsForCompanyTrade, seedableServices, seedText, seedTemplateFor, seedCategoryKeys, seedServiceByKey } from "@/lib/services/seeds";
+import { seedCategoryName } from "@/lib/services/confirmServices";
+import { SERVICE_SEEDS } from "@/app/data/serviceSeeds";
+import { productSeedCategory } from "@/lib/quotes/servicePicker";
 import { suggestedIn } from "@/lib/pricing/benchmarkFx";
 
 const slugOf = (ctx) => ctx.screen?.slug || "";
@@ -98,6 +101,15 @@ const HANDYMAN_SEEDED = seedableServices(serviceSeedsForCompanyTrade("handyman")
 });
 // One archived row — never offered.
 HANDYMAN_SEEDED.push({ ...HANDYMAN_SEEDED[0], id: "pr_hm_archived", name: "Archived — old rate", active: false });
+
+// What GET /api/products attaches to a seeded row since 2026-09-28 — the
+// heading the Add service dialog files it under — by the route's own call.
+const SEED_DEPS = { seedServiceByKey, seedCategoryName, SERVICE_SEEDS };
+const withSeedCategory = (rows) =>
+  rows.map((p) => {
+    const seedCategory = productSeedCategory(p, SEED_DEPS);
+    return seedCategory ? { ...p, seedCategory } : p;
+  });
 
 // ── One trade, the plumbing seed (2026-09-28) ──────────────────────────────
 // A plumber with plumbing alone switched on and the plumbing seed installed
@@ -209,9 +221,9 @@ export const ROUTES_PICKER = [
     reply: (ctx) => {
       const s = shape(ctx);
       if (s === "3types") return PRODUCTS_FIXTURE;
-      if (s === "15types") return HANDYMAN_SEEDED;
+      if (s === "15types") return withSeedCategory(HANDYMAN_SEEDED);
       if (s === "md5") return MD5_PRODUCTS;
-      if (s === "plumber") return PLUMBING_SEEDED;
+      if (s === "plumber") return withSeedCategory(PLUMBING_SEEDED);
       return ctx.next();
     },
   },

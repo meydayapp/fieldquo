@@ -21,10 +21,11 @@
 //      archived row, a product, a service linked to nothing), the order (the
 //      quote's own trades first), the threshold (4 inline, 5 a dialog), the
 //      search (accents folded, every word, a trade name keeps its services).
-//   A2. The headings: seedCategoryOf reads a row's category from the seed its
-//      seedKey names, in the document's language; pickerSections orders them
-//      as the seed file does, merges same names, puts the uncategorised
-//      under "Other" (and draws no lone "Other").
+//   A2. The headings: GET /api/products attaches each seeded row's category
+//      (productSeedCategory, on the server, every language the seed names it
+//      in); the browser reads it in the document's language (seedCategoryOf);
+//      pickerSections orders them as the seed file does, merges same names,
+//      puts the uncategorised under "Other" (and draws no lone "Other").
 //   B. A press on a templated service IS the template add: templatePreview
 //      builds the lines the same way QuoteBuilder addScopeGroupWithTemplate
 //      does — same group, same measurements, same held-back units — and
@@ -36,14 +37,15 @@
 //   D. The list, rendered: tiles with the name only — no price (whatever
 //      showPricing says), no description, no tick box, no "Add as one line",
 //      no template preview — the headings, the presets, search, languages,
-//      the invoice's shape, the loading state.
+//      the invoice's shape.
 //   E. The control's three shapes (empty / inline / dialog), and the solid
 //      Add service button on every quote.
 //   F. The words: every key in nine languages, the placeholders equal, the
 //      old dialog's strings gone from all of them.
 //   G. The wiring, read from source: a quote type is still
-//      b.addScopeGroup(category, label) — the call the old tiles made — and
-//      the seeds are never in the builder's bundle.
+//      b.addScopeGroup(category, label) — the call the old tiles made — the
+//      products route attaches the headings, and the browser never imports
+//      the seeds (not statically, not dynamically).
 //
 // The saved body of each add through a tile is compared with the old
 // dialog's "Add", md5 for md5, by the app-guide harness (picker-md5-* rows,
@@ -67,9 +69,11 @@ import {
   templatePreview,
   quoteTypeSummary,
   seedCategoryOf,
+  productSeedCategory,
   pickerSections,
 } from "../lib/quotes/servicePicker.js";
 import { newScopeGroup } from "../lib/quotes/builderPayload.js";
+import { lineFromProduct } from "../lib/quotes/lineDetail.js";
 import { expandServiceTemplate, measurementsFromGroups, keysPricedByGroup } from "../lib/quotes/serviceTemplateLines.js";
 import { seedServiceByKey } from "../lib/services/seeds.js";
 import { seedCategoryName } from "../lib/services/confirmServices.js";
@@ -141,7 +145,14 @@ const P_CUSTOM = { id: "s5", name: "Emergency call-out", type: "service", active
 const P_GONE = seeded("s6", "fq.plumbing.nothing.like_this", "Seed that no longer exists");
 const PLUMBING = [P_HEATER, P_DRAIN, P_AERATOR, P_LEAK, P_CUSTOM, P_GONE];
 const DEPS = { seedServiceByKey, seedCategoryName, SERVICE_SEEDS };
-const categoryIn = (lang) => (p) => seedCategoryOf(p, lang, DEPS);
+// What GET /api/products serves: the row, plus its heading when it has one.
+const served = (p) => {
+  const seedCategory = productSeedCategory(p, DEPS);
+  return seedCategory ? { ...p, seedCategory } : p;
+};
+const PLUMBING_SERVED = PLUMBING.map(served);
+const [S_HEATER, S_DRAIN, , , S_CUSTOM, S_GONE] = PLUMBING_SERVED;
+const categoryIn = (lang) => (p) => seedCategoryOf(p, lang);
 
 // ───────────────────────────────────────────────────────────────────────────
 console.log("A. what is offered, in what order, and when it is a dialog");
@@ -193,20 +204,39 @@ eq("junk query", filterPicker(groups, null).length, 4);
 console.log("A2. the headings inside a trade: the seed's own categories");
 // ───────────────────────────────────────────────────────────────────────────
 {
-  const heater = seedCategoryOf(P_HEATER, "en", DEPS);
+  // The server half — what the products route attaches.
+  const sc = productSeedCategory(P_DRAIN, DEPS);
+  eq("the route attaches the seed's category key and its place in the file", [sc?.key, sc?.index], ["plumbing.drains", SERVICE_SEEDS.plumbing.categories.findIndex((c) => c.key === "drains")]);
+  eq("…named in every language the seed names it in, and only those", Object.keys(sc?.name || {}).sort(), Object.keys(SERVICE_SEEDS.plumbing.categories.find((c) => c.key === "drains").name).sort());
+  ok("…which is the seed's own eight (en fr es it de uk pa tl)", ["en", "fr", "es", "it", "de", "uk", "pa", "tl"].every((l) => typeof sc?.name?.[l] === "string" && sc.name[l].length > 0));
+  eq("a row the company wrote itself gets nothing", productSeedCategory(P_CUSTOM, DEPS), null);
+  eq("a seedKey whose seed is gone gets nothing", productSeedCategory(P_GONE, DEPS), null);
+  eq("…so the route adds no key to either", ["seedCategory" in S_CUSTOM, "seedCategory" in S_GONE], [false, false]);
+  eq("no deps → nothing", productSeedCategory(P_HEATER, {}), null);
+  eq("junk → nothing", [productSeedCategory(null, DEPS), productSeedCategory({ seedKey: 7 }, DEPS), productSeedCategory("x", DEPS)], [null, null, null]);
+  const undeclared = { seedServiceByKey: () => ({ trade: "plumbing", category: "not_declared" }), seedCategoryName, SERVICE_SEEDS };
+  eq("a category the seed file does not declare is not sent as its key", productSeedCategory(P_HEATER, undeclared), null);
+  const bytes = JSON.stringify(sc).length;
+  ok("the payload per seeded row is small (< 600 bytes)", bytes < 600, String(bytes));
+  console.log(`  seedCategory on one plumbing row: ${bytes} bytes`);
+
+  // The browser half — read off the row, in the document's language.
+  const heater = seedCategoryOf(S_HEATER, "en");
   eq("a seeded row's heading is its seed's category", [heater?.name, heater?.trade, heater?.key], ["Water heaters", "plumbing", "plumbing.water_heaters"]);
   eq("…at its place in the seed file", heater?.index, SERVICE_SEEDS.plumbing.categories.findIndex((c) => c.key === "water_heaters"));
-  eq("…in the document's language (French)", seedCategoryOf(P_DRAIN, "fr", DEPS)?.name, "Débouchage de drains");
-  eq("…in a language the seed carries from its i18n file (German)", seedCategoryOf(P_DRAIN, "de", DEPS)?.name, "Abflussreinigung");
-  eq("…English where the seed has no such language (Chinese)", seedCategoryOf(P_DRAIN, "zh", DEPS)?.name, "Drain cleaning");
-  eq("a row the company wrote itself has none", seedCategoryOf(P_CUSTOM, "en", DEPS), null);
-  eq("a seedKey whose seed is gone has none", seedCategoryOf(P_GONE, "en", DEPS), null);
-  eq("no deps (the chunk did not load) → none", seedCategoryOf(P_HEATER, "en", {}), null);
-  eq("junk → none", [seedCategoryOf(null, "en", DEPS), seedCategoryOf({ seedKey: 7 }, "en", DEPS), seedCategoryOf("x", "en", DEPS)], [null, null, null]);
-  const undeclared = { seedServiceByKey: () => ({ trade: "plumbing", category: "not_declared" }), seedCategoryName, SERVICE_SEEDS };
-  eq("a category the seed file does not declare is not printed as its key", seedCategoryOf(P_HEATER, "en", undeclared), null);
+  eq("…in the document's language (French)", seedCategoryOf(S_DRAIN, "fr")?.name, "Débouchage de drains");
+  eq("…in a language the seed carries from its i18n file (German)", seedCategoryOf(S_DRAIN, "de")?.name, "Abflussreinigung");
+  eq("…English where the seed has no such language (Chinese)", seedCategoryOf(S_DRAIN, "zh")?.name, "Drain cleaning");
+  eq("the browser never reads seedKey itself — a row without the attached heading has none", seedCategoryOf(P_HEATER, "en"), null);
+  eq("the company's own row has none", seedCategoryOf(S_CUSTOM, "en"), null);
+  eq(
+    "malformed payloads → none, never a heading nobody wrote",
+    [null, "x", {}, { key: 3, name: { en: "A" } }, { key: "t.c" }, { key: "t.c", name: "A" }, { key: "t.c", name: { en: "  " } }, { key: ".c", name: { en: "A" } }].map((c) => seedCategoryOf({ seedCategory: c }, "en")),
+    [null, null, null, null, null, null, null, null],
+  );
+  eq("a missing index sorts last, not first", seedCategoryOf({ seedCategory: { key: "t.c", name: { en: "A" } } }, "en")?.index, Number.MAX_SAFE_INTEGER);
 
-  const g = pickerGroups({ categories: [PLUMB], products: PLUMBING })[0];
+  const g = pickerGroups({ categories: [PLUMB], products: PLUMBING_SERVED })[0];
   const secs = pickerSections(g, categoryIn("en"));
   eq(
     "sections in the seed file's order, the uncategorised last as Other",
@@ -215,7 +245,8 @@ console.log("A2. the headings inside a trade: the seed's own categories");
   );
   eq("…Other holds the company's own row and the orphaned seed", secs.at(-1).services.map((p) => p.id).sort(), ["s5", "s6"]);
   eq("every service is in exactly one section", secs.flatMap((s) => s.services.map((p) => p.id)).sort(), PLUMBING.map((p) => p.id).sort());
-  eq("no resolver (seeds failed to load) → one unlabelled section, nothing lost", pickerSections(g, null).map((s) => [s.label, s.services.length]), [[null, 6]]);
+  eq("the same rows WITHOUT the attached headings → one unlabelled section, nothing lost", pickerSections(pickerGroups({ categories: [PLUMB], products: PLUMBING })[0], categoryIn("en")).map((s) => [s.label, s.services.length]), [[null, 6]]);
+  eq("no resolver → one unlabelled section, nothing lost", pickerSections(g, null).map((s) => [s.label, s.services.length]), [[null, 6]]);
   eq("nothing categorised → no lone Other heading", pickerSections({ services: [P_CUSTOM, UNLINKED] }, categoryIn("en")).map((s) => [s.label, !!s.other]), [[null, false]]);
   eq("an empty group has no sections", pickerSections({ services: [] }, categoryIn("en")), []);
   eq("junk group", pickerSections(null, categoryIn("en")), []);
@@ -279,6 +310,14 @@ console.log("B. a press on a templated service is the template add");
   const b = md5(byHand.lines);
   ok("the preview's lines md5 = the add's expansion md5", a === b, `${a} vs ${b}`);
   console.log(`  md5  stairs preview lines: ${a}`);
+  // The heading the products route now attaches rides on the product object
+  // the adds read. It must not reach anything they write: the same service
+  // with and without `seedCategory`, expanded and lined, md5 for md5.
+  const tagged = { ...STAIR_REFINISH, seedKey: "fq.plumbing.drains.drain_cleaning_visit", seedCategory: productSeedCategory({ seedKey: "fq.plumbing.drains.drain_cleaning_visit" }, DEPS) };
+  const untagged = { ...STAIR_REFINISH, seedKey: "fq.plumbing.drains.drain_cleaning_visit" };
+  const expandOf = (p) => expandServiceTemplate(p, { measurements: measurementsFromGroups([group], { targetTempId: group.tempId }), language: "fr", companyLanguage: "en", currency: "CAD", runId: "r1", heading: true, pricedKeys: keysPricedByGroup(group) }).lines;
+  ok("seedCategory never reaches a template add's lines", Boolean(tagged.seedCategory) && md5(expandOf(tagged)) === md5(expandOf(untagged)));
+  ok("…nor the one line an add without a template writes", md5(lineFromProduct(tagged, { language: "fr", defaultLanguage: "en" })) === md5(lineFromProduct(untagged, { language: "fr", defaultLanguage: "en" })));
   eq("the preview's group is the one the add creates, last", pv.groups.at(-1).categoryKey, "stairs");
 
   const pp = templatePreview({ category: ELEC, product: PANEL, currency: "CAD", language: "fr", companyLanguage: "en" });
@@ -402,8 +441,7 @@ const textOf = (s) => s.replace(/<[^>]+>/g, "").trim();
   ok("the service name is the document's language", fr.includes("Remplacement de panneau — 200 A"));
   ok("the interface is the reader's language", fr.includes("Rechercher par nom, description ou métier") && fr.includes("Type de soumission") && fr.includes("Sur cette soumission"));
 
-  const loading = renderList(quotePicker(), { loading: true });
-  ok("while the headings load: the search box and a status line, no tiles yet", loading.includes("data-service-picker-search") && loading.includes("data-service-picker-loading") && loading.includes('role="status"') && tilesIn(loading).length === 0);
+  ok("no loading state: the tiles are drawn with the dialog, headings and all", !html.includes("data-service-picker-loading") && !html.includes('role="status"'));
 
   const invoicePicker = quotePicker({ kind: "invoice", preview: (_c, p) => (p.templateLines?.length ? { offered: true, count: p.templateLines.length, lines: [], groups: null } : null) });
   const invHtml = renderList(invoicePicker);
@@ -414,20 +452,20 @@ const textOf = (s) => s.replace(/<[^>]+>/g, "").trim();
   ok("invoice: found by search", invOpen.includes("Rush fee") && !invOpen.includes("Outlet install"));
 
   // ── The seed's headings, drawn ──────────────────────────────────────────
-  const plumber = quotePicker({ categories: [PLUMB], products: PLUMBING, preview: () => null });
-  const one = renderList(plumber, { categoryOf: categoryIn("en") });
+  const plumber = quotePicker({ categories: [PLUMB], products: PLUMBING_SERVED, preview: () => null });
+  const one = renderList(plumber);
   ok("one trade: no trade heading — the categories are the structure", !one.includes("data-service-picker-trade"));
   const labels = [...one.matchAll(/data-service-picker-section-label[^>]*>([^<]+)</g)].map((m) => m[1]);
   eq("…in the seed file's order, Other last", labels, ["Service visits and diagnostics", "Drain cleaning", "Faucets and fixtures", "Water heaters", "Other services"]);
   ok("…each a small uppercase label", /<h3 class="mb-2 text-\[11px\] font-semibold uppercase tracking-wider text-muted-foreground" data-service-picker-section-label/.test(one));
   ok("…the quote type tile first, above them", one.indexOf('data-service-picker-type-add="plumbing"') < one.indexOf("data-service-picker-section-label"));
-  const oneFr = renderList({ ...plumber, language: "fr" }, { categoryOf: categoryIn("fr"), lang: "fr" });
+  const oneFr = renderList({ ...plumber, language: "fr" }, { lang: "fr" });
   ok("the headings in the quote's language", oneFr.includes(">Débouchage de drains<") && oneFr.includes(">Chauffe-eau<") && oneFr.includes(">Autres services<"));
-  const two = renderList({ ...plumber, categories: [PLUMB, ELEC], products: [...PLUMBING, OUTLET, PANEL] }, { categoryOf: categoryIn("en") });
+  const two = renderList({ ...plumber, categories: [PLUMB, ELEC], products: [...PLUMBING_SERVED, OUTLET, PANEL] });
   ok("two trades: each trade's name above its own headings", (two.match(/data-service-picker-trade/g) || []).length === 2 && /<h4[^>]*data-service-picker-section-label[^>]*>Drain cleaning</.test(two));
   ok("…a trade with no seeded service draws no lone Other", !(two.split('data-service-picker-group="electrical"')[1] || "").includes("data-service-picker-section-label"));
-  const unloaded = renderList(plumber, { categoryOf: null });
-  ok("no headings loaded → every tile still there, no heading invented", !unloaded.includes("data-service-picker-section-label") && PLUMBING.every((p) => unloaded.includes(`data-service-picker-add="${p.id}"`)));
+  const bare = renderList({ ...plumber, products: PLUMBING });
+  ok("rows without attached headings → every tile still there, no heading invented", !bare.includes("data-service-picker-section-label") && PLUMBING.every((p) => bare.includes(`data-service-picker-add="${p.id}"`)));
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -473,7 +511,7 @@ console.log("F. the words, in nine languages");
   const picker = src("app/components/quotes/builder/AddServicePicker.js");
   const keys = [...new Set([...picker.matchAll(/t\(\s*"(app\.[a-zA-Z]+\.[a-zA-Z_]+)"/g)].map((m) => m[1]))];
   ok("the picker's words are catalogue keys", keys.filter((k) => k.startsWith("app.servicePicker.")).length >= 12, String(keys.length));
-  ok("…including Cancel and the loading line", keys.includes("app.action.cancel") && keys.includes("app.action.loading"));
+  ok("…including Cancel", keys.includes("app.action.cancel"));
   const holes = (s) => [...String(s).matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort().join(",");
   for (const lang of Object.keys(APP_MESSAGES)) {
     const missing = keys.filter((k) => !(k in APP_MESSAGES[lang]));
@@ -492,7 +530,7 @@ console.log("F. the words, in nine languages");
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-console.log("G. the wiring — the quote types are the old call; the seeds load apart");
+console.log("G. the wiring — the quote types are the old call; the headings come from the server");
 // ───────────────────────────────────────────────────────────────────────────
 {
   const doc = src("app/components/quotes/builder/DocumentBuilder.js");
@@ -510,8 +548,17 @@ console.log("G. the wiring — the quote types are the old call; the seeds load 
   ok("the dialog is the set-up dialogs' frame, and the phone's sheet", /from "@\/app\/components\/dashboard\/StepDialog"/.test(me) && /from "@\/app\/components\/mobile\/BottomSheet"/.test(me));
   ok("the dialog's press is runPickerEntry, then close", /const addNow = \(entry\) => \{\s*runPickerEntry\(picker, entry\);\s*onClose\(\);/.test(me));
   ok("the dialog's footer is Cancel", /footer=\{cancel\}/.test(me) && /data-service-picker-cancel/.test(me) && /onClick=\{onClose\}/.test(me));
-  ok("the seeds are NOT imported statically — not by the picker, not by its lib", !/^import[^;]*from "@\/(lib\/services\/seeds|lib\/services\/confirmServices|app\/data\/serviceSeeds)"/m.test(me) && !/^import[^;]*(services\/seeds|confirmServices|serviceSeeds)/m.test(lib));
-  ok("…they are a dynamic import, when the dialog is near", /import\("@\/lib\/services\/seeds"\)/.test(me) && /import\("@\/app\/data\/serviceSeeds"\)/.test(me));
+  // The seeds are ~1.3 MB gzipped; the browser never downloads them for the
+  // picker — not in its bundle, not as a chunk fetched later.
+  const seedPath = /(lib\/services\/seeds|lib\/services\/confirmServices|app\/data\/serviceSeeds)/;
+  const imports = (code) => [...code.matchAll(/(?:^import[^;]*?from\s*|import\s*\(\s*)["']([^"']+)["']/gm)].map((m) => m[1]);
+  ok("the picker imports no seed module — statically or dynamically", !imports(me).some((m) => seedPath.test(m)) && !/import\s*\(/.test(me), imports(me).join(", "));
+  ok("…nor does its lib", !imports(lib).some((m) => seedPath.test(m)) && !/import\s*\(/.test(lib), imports(lib).join(", "));
+  ok("no idle prefetch or loading state left behind", !/requestIdleCallback|loadSeedDeps|data-service-picker-loading/.test(me));
+  const route = src("app/api/products/route.js");
+  ok("GET /api/products attaches the heading with the pure helper and the server's seeds", /seedCategory = productSeedCategory\(p, \{ seedServiceByKey, seedCategoryName, SERVICE_SEEDS \}\)/.test(route) && /if \(seedCategory\) out\.seedCategory = seedCategory;/.test(route));
+  ok("…inside the showPricing gate the route already had (nothing new served to anyone)", route.indexOf('requireToggle(full, "showPricing"') > 0 && route.indexOf('requireToggle(full, "showPricing"') < route.indexOf("productSeedCategory(p"));
+  ok("the picker reads the heading off the row", /seedCategoryOf\(p, lang\)/.test(me));
   ok("no 'Create custom item' without an add behind it", !/custom item/i.test(me.replace(/\/\/.*$/gm, "")));
 }
 
@@ -531,7 +578,7 @@ console.log("H. contrast, measured — the app's tokens, light and dark");
     ["Add service label on the button", "background", "foreground", 4.5],
     ["the button's edge on the page (not text: 3:1)", "foreground", "background", 3],
     ["tile name on the tile", "foreground", "card", 4.5],
-    ["section / trade-suffix / loading text on the dialog", "muted-foreground", "card", 4.5],
+    ["section / trade-suffix text on the dialog", "muted-foreground", "card", 4.5],
     ["the Quote type tag", "muted-foreground", "muted", 4.5],
     ["count under the button, on the page", "muted-foreground", "background", 4.5],
     ["search text and placeholder in the box", "muted-foreground", "background", 4.5],

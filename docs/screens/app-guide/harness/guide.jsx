@@ -243,11 +243,7 @@ const buttonWithText = (text, root = document) =>
   [...root.querySelectorAll("button")].find((b) => b.textContent.trim() === text);
 async function openPicker() {
   (await until("[data-add-service-open]")).click();
-  const list = await until("[data-service-picker-list]");
-  // Since 2026-09-28 the dialog's headings (the seed categories) arrive a
-  // moment after it opens; the frame is the list once they are drawn.
-  for (let i = 0; i < 40 && document.querySelector("[data-service-picker-loading]"); i++) await wait(100);
-  return list;
+  return until("[data-service-picker-list]");
 }
 async function openGroup(key) {
   await until(`[data-service-picker-group="${key}"]`);
