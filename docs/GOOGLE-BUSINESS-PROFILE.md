@@ -118,6 +118,79 @@ The calendar's two scopes already need this verification
 4. Add the owner's account under **Test users** now, so the flow can be
    exercised end to end before verification.
 
+## The Book button on the listing (Settings › Booking Page)
+
+The owner, 2026-09-28: companies should be able to put a **Book** button
+on their Google Business Profile — the one Search and Maps draw beside Call
+and Directions, the way Jobber users do — pointing at their FieldQuo
+booking page. Settings › Booking Page has a card for it, in two layers.
+
+**By hand — works today, no approval needed.** Once the booking page is
+bookable (an active booking type whose person has bookable hours —
+`bookingPageLive()` in `lib/reviews/googleBusiness/bookButton.js`; before
+that the card says to set up the booking page first, because Google traffic
+landing on "hasn't set up online booking yet" is worse than no button), the
+card shows the booking link with a Copy button and Google's own steps
+([support.google.com/business/answer/6218037](https://support.google.com/business/answer/6218037)):
+business.google.com → on Search select "Booking" (on Maps "Edit profile",
+then the booking type) → "Add link" → paste → "Save"; "Set preferred link"
+when there are several. Google's button names stay in English, in quotes, in
+all nine languages — nobody has checked what Google calls them in each.
+
+**Automatically — "Add it for me".** Drawn only when
+`googleBusinessAvailable()` is true AND the company has connected its
+Business Profile AND picked a listing in Settings › Reviews. Otherwise the
+section is absent (not approved) or one line pointing at Settings › Reviews
+(approved, not connected). `app/api/reviews/google/book-button`:
+
+- **POST** lists the listing's `APPOINTMENT` links first; if one already
+  carries this booking URL it answers "already on Google" and creates
+  nothing, otherwise it calls
+  [`locations.placeActionLinks.create`](https://developers.google.com/my-business/reference/placeactions/rest/v1/locations.placeActionLinks/create)
+  with `{ uri, placeActionType: "APPOINTMENT", isPreferred }` (the
+  checkbox). The uri is built on the server from `bookingSlug || slug`; the
+  browser sends only `preferred`, and a non-https or localhost address is
+  refused before Google is asked.
+- **DELETE** ("Remove from Google") re-lists and deletes only the link(s)
+  that are ours: type `APPOINTMENT`, uri equal to this booking page, named
+  under this location, not `isEditable: false` (an aggregator's). Every
+  other link on the profile — another booking tool, a Reserve-with-Google
+  partner, one the owner typed — is never touched. The browser never names
+  a link.
+- **GET** says whether the page is bookable and, only when the button would
+  be drawn, whether our link is on the listing now. Nothing is written.
+
+Who: `user:manage` (`refuseUnlessAdmin`), the capability the Booking Page
+screen and every other `/api/reviews/google/*` route already require —
+owners, admins and supervisors.
+
+**Why `APPOINTMENT` and not `ONLINE_APPOINTMENT`.** Google's enum: APPOINTMENT
+is "booking an appointment", ONLINE_APPOINTMENT "booking an online
+appointment" — an appointment *held* online, which Google's help page lists
+as its own button for "a list of services (such as telemedicine or
+virtual)". A contractor's booking page books site visits (and calls); it is
+the ordinary "Book an appointment" link.
+
+**Why the link's name is not stored.** Google keys a link on (location, uri,
+type) — `create` treats a repeat of that triple as the same link — so the
+booking URL identifies ours, and a fresh list cannot go stale the way a
+stored name would after the owner edits the profile by hand. (It would also
+have needed a new column and a `db push`.) Consequence: if a company later
+changes its booking slug, the old link stays on Google until removed there
+by hand; "Remove from Google" looks for the current address.
+
+### Owner step at Google (one-time, before the flag goes on)
+
+The Book button uses a **fourth** API, separate from the three the reviews
+need: console.cloud.google.com → the FieldQuo project → **APIs & Services →
+Library** → enable **My Business Place Actions API**
+(`mybusinessplaceactions.googleapis.com`). Same project, same OAuth client,
+same `business.manage` scope (already requested by the connect flow), same
+Basic API Access approval — no new consent. If it is not enabled, "Add it for
+me" answers Google's 403 as *"Google's Place Actions API is not switched on
+for FieldQuo yet … add the link by hand"* (`bookButtonMessage()`), with
+Google's words beside it.
+
 ## What the code does with the answer
 
 | State at Google | What the screen says | What the cron does |
@@ -145,3 +218,5 @@ connection's authority.
 | Listing → review link | `lib/reviews/googlePlace.js` |
 | Paste import with stars and dates | `lib/reviews/testimonials.js`, `app/api/settings/testimonials/import/route.js` |
 | The check | `scripts/check-reviews-google.mjs` — executes the refresh against a fake Google that answers 429, and reads the sentence back |
+| The Book button: which link is ours, list-then-create, remove | `lib/reviews/googleBusiness/bookButton.js`, calls in `client.js`, route `app/api/reviews/google/book-button`, card `app/app/settings/booking-page/GoogleBookButton.js` |
+| Its check | `scripts/check-google-book-button.mjs` (`npm run check:google-book-button`) — runs the route against a stubbed Google `fetch`: create, idempotent repeat, other providers' links untouched, remove, refusals, flag off/on, permission |

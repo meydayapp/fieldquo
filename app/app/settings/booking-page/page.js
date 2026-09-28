@@ -4,6 +4,7 @@
 import { useState, useEffect } from "react";
 import EmbedCode from "@/app/components/settings/EmbedCode";
 import AutoTranslateBanner from "@/app/components/settings/AutoTranslateBanner";
+import GoogleBookButton from "./GoogleBookButton";
 import { Plus, X } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -453,6 +454,11 @@ function BookingPageScreen() {
           "Paste this where you want the calendar to appear. It works on Wix, Squarespace, WordPress and hand-written HTML — it is an ordinary HTML element. The small script only resizes the box as the visitor moves through the steps; if your site strips scripts the calendar still works at a fixed height.",
         )}
       />
+
+      {/* The other place a stranger finds the calendar: the Book button on
+          the company's Google listing. Here, beside the embed, for the same
+          reason the embed is — "how do I use this?" is asked on this screen. */}
+      <GoogleBookButton />
 
       {/* One answer to "how long is a visit", used for anything FieldQuo creates
           automatically. Separate from the per-event lengths below because those
