@@ -1113,7 +1113,9 @@ section("13. A scope group can be renamed, and every reader prints the name");
   for (const [file, re] of [
     ["app/api/quotes/[id]/document/route.js", /label: g\.label \|\| g\.category\?\.label/],
     ["app/api/public/quotes/[token]/route.js", /label: g\.label \|\| g\.category\?\.label/],
-    ["lib/email/quoteSections.js", /g\.label \|\| g\.category\?\.label/],
+    // toGroups moved here from lib/email/quoteSections.js (which re-exports
+    // it) so the email-template editor can import it without the catalogues.
+    ["lib/quotes/scopeGroupDisplay.js", /g\.label \|\| g\.category\?\.label/],
     ["app/app/quotes/[id]/page.js", /label=\{group\.label \|\| group\.category\?\.label\}/],
     ["lib/workOrder/build.js", /g\?\.label \|\| g\?\.category\?\.label/],
     ["lib/quotes/importQuote.js", /label: g\.label \|\| null/],
