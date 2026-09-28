@@ -68,6 +68,7 @@ import {
   humaniseKey,
 } from "@/lib/leads/intakeShape";
 import { wasAsked } from "@/lib/leads/qualifiers";
+import { leadSourceLabel } from "@/lib/leads/sourceLabel";
 import { serviceAreaCopy } from "@/lib/company/serviceArea";
 import { tradeQuestionCopy, whenNeededLabel } from "@/lib/leads/tradeQuestions";
 import { summarisePotential } from "@/lib/leads/potentialValue";
@@ -1201,7 +1202,21 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t, sample = null })
   // question it answered. See intakeRow.
   const intakeEntries = leadIntakeDetails(lead?.intake)
     .map((entry) => ({ key: entry[0], ...intakeRow(entry, language) }))
-    .filter((row) => row.label);
+    .filter((row) => row.label)
+    // The instant estimate's option, by the name the homeowner picked it by
+    // (the route sends it: GET /api/leads/[id] materialLabel) — the row
+    // printed the price-book key, "asphalt_arch". An option nobody can name
+    // any more keeps the key.
+    .map((row) =>
+      row.key === "material" && lead?.materialLabel
+        ? {
+            ...row,
+            label: t("app.reviews.material").replace(/\s*:\s*$/, ""),
+            value: lead.materialLabel.translations?.[language] || lead.materialLabel.label,
+            raw: false,
+          }
+        : row,
+    );
   const addressLine = leadAddressLine(lead?.intake);
 
   return (
@@ -1265,7 +1280,9 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t, sample = null })
               )}
               <div className="mt-1 text-xs text-muted-foreground">
                 {new Date(lead.createdAt).toLocaleString()}
-                {lead.source && ` · ${lead.source}`}
+                {/* The channel as a sentence, not the column's word: this
+                    printed "· instant_quote". See lib/leads/sourceLabel.js. */}
+                {lead.source && ` · ${leadSourceLabel(t, lead.source)}`}
               </div>
               <CameFrom attribution={lead.attribution} t={t} />
             </div>

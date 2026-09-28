@@ -62,7 +62,6 @@ const es = {
     workMaterial: "{material}: {squares} cuadrados × {rate}",
     workTearOff: "Retiro de capas viejas: {layers} × {squares} cuadrados × {rate}",
     workPitch: "Techo empinado ({rise}/12): +{pct}",
-    workRounding: "Redondeado a una cifra limpia",
     workSubtotal: "Subtotal",
     workTotal: "Total",
     workRange: "El propietario vio un rango de {range} (±{pct} alrededor del subtotal).",

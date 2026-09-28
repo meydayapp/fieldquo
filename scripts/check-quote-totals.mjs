@@ -29,6 +29,7 @@
 
 import {
   quoteTotals,
+  quoteTotalsFromTotal,
   discountAmountFromPercent,
   discountPercentOfSubtotal,
 } from "@/lib/quotes/totals";
@@ -253,6 +254,52 @@ t(
 t("an unparseable date yields an empty field, not Invalid Date", defaultValidUntil("nope"), "");
 t("no date at all", toDateInputValue(null), "");
 t("single digits are padded", toDateInputValue(new Date(2026, 0, 5)), "2026-01-05");
+
+// ───────────────────────────────────────────────────────────────────────────
+// 6. Backwards from a total that includes tax
+// ───────────────────────────────────────────────────────────────────────────
+//
+// The estimate-review queue's "Approve at" is the tax-inclusive total. The
+// approve route wrote it into subtotal AND total and left the old tax on the
+// quote — a 13% draft approved at 19,000 stored 19,000 + 2,119 = 19,000.
+// quoteTotalsFromTotal solves the subtotal instead; whatever it returns must
+// satisfy the forward identity to the cent, and land on the typed total
+// whenever cents allow.
+console.log("\nA tax-inclusive total splits back into subtotal + tax");
+{
+  const r = quoteTotalsFromTotal({ total: 19000, taxRate: 13 });
+  t("19,000 at 13% → subtotal 16,814.16 + tax 2,185.84", [r.subtotal, r.tax, r.total, r.exact], [16814.16, 2185.84, 19000, true]);
+  const q = quoteTotalsFromTotal({ total: 18419, taxRate: 13 });
+  t("the showcase's own 18,419 at 13% → 16,300 + 2,119", [q.subtotal, q.tax, q.total], [16300, 2119, 18419]);
+  const d = quoteTotalsFromTotal({ total: 11300, discount: 1000, taxRate: 13 });
+  t("a discount stays off the taxable base: 11,300 − (1,000 off) → 11,000 / 10,000 / 1,300", [d.subtotal, d.taxableBase, d.tax, d.total], [11000, 10000, 1300, 11300]);
+  const off = quoteTotalsFromTotal({ total: 5000, taxRate: 13, taxEnabled: false });
+  t("tax switched off: the total IS the subtotal", [off.subtotal, off.tax, off.total], [5000, 0, 5000]);
+  t("garbage is 0, never NaN", [quoteTotalsFromTotal({ total: "abc", taxRate: 13 }).total, quoteTotalsFromTotal({ total: -50, taxRate: 13 }).total], [0, 0]);
+
+  // Every total in cents from $1 to ~$50k at the rates contractors actually
+  // charge (QC's 14.975%, NYC's 8.875%): never an identity break, never more
+  // than a cent from what was typed, and `exact` true exactly when it landed.
+  let broken = 0;
+  let far = 0;
+  let lied = 0;
+  let seed = 7;
+  const rand = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
+  for (const rate of [0, 5, 7, 8.875, 13, 14.975, 15, 20, 25]) {
+    for (let i = 0; i < 1500; i++) {
+      const want = Math.round(rand() * 5_000_000) / 100 + 1;
+      const disc = i % 5 === 0 ? Math.round(rand() * 50_000) / 100 : 0;
+      const x = quoteTotalsFromTotal({ total: want, discount: disc, taxRate: rate });
+      const fwd = quoteTotals({ subtotal: x.subtotal, discount: disc, taxRate: rate });
+      if (Math.round(x.total * 100) !== Math.round((x.taxableBase + x.tax) * 100) || fwd.total !== x.total) broken++;
+      if (Math.abs(x.total - want) > 0.011) far++;
+      if (x.exact !== (x.total === Math.round(want * 100) / 100)) lied++;
+    }
+  }
+  t("13,500 random totals × rates: total = subtotal − discount + tax, always", broken, 0);
+  t("…never more than a cent from the typed figure", far, 0);
+  t("…and `exact` says whether it landed", lied, 0);
+}
 
 console.log(
   fail === 0

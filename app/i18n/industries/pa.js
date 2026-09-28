@@ -67,7 +67,6 @@ const pa = {
     workMaterial: "{material}: {squares} ਸਕੁਏਅਰ × {rate}",
     workTearOff: "ਪੁਰਾਣੀਆਂ ਪਰਤਾਂ ਉਤਾਰਨਾ: {layers} × {squares} ਸਕੁਏਅਰ × {rate}",
     workPitch: "ਢਲਵੀਂ ਛੱਤ ({rise}/12): +{pct}",
-    workRounding: "ਪੂਰੀ ਰਕਮ ਤੱਕ ਗੋਲ ਕੀਤਾ",
     workSubtotal: "ਉਪ-ਜੋੜ",
     workTotal: "ਕੁੱਲ",
     workRange: "ਘਰ ਦੇ ਮਾਲਕ ਨੂੰ {range} ਦੀ ਰੇਂਜ ਦਿਖੀ (ਉਪ-ਜੋੜ ਦੇ ਦੁਆਲੇ ±{pct})।",

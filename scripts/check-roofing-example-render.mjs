@@ -76,6 +76,11 @@ for (const lang of LANGUAGE_CODES) {
   ok(`${lang}: step 1 is the homeowner's real form (${flowLang})`, html.includes(esc(instantQuoteCopy(flowLang).heroTitle)) && html.includes(esc(fixture.address)));
   ok(`${lang}: step 2 is the lead card, scored`, html.includes(esc(run.lead.name)) && html.includes(String(run.lead.score)));
   ok(`${lang}: step 3 is the review card for the same quote`, html.includes(run.review.quoteNumber) && html.includes(`value="${run.review.total}"`));
+  if (lang === "en") {
+    const review = html.slice(html.indexOf(run.review.quoteNumber), html.indexOf('data-sample-quote'));
+    ok(`${lang}: step 3 says what "Approve at" is made of (= subtotal before tax + tax)`, review.includes(esc(`= ${money(run.review.subtotal)} before tax + ${money(run.review.tax)} tax.`)), review.match(/=[^<]*before tax[^<]*/)?.[0] || null);
+  }
+  ok(`${lang}: step 4's working has no "rounded" row — the lines add up to the subtotal`, !html.includes('data-working="rounding"'));
   ok(`${lang}: step 4's quote and working show that same total`, html.split(esc(money(run.draft.total))).length - 1 >= 2);
   ok(`${lang}: the quote starts as a Draft`, html.includes('data-sample-status="draft"'));
   ok(`${lang}: every option on the tier list is priced`, run.options.options.every((o) => html.includes(`data-tier="${o.materialKey}"`)));

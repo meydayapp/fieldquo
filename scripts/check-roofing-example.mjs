@@ -31,7 +31,8 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { rows, writes, resetDbStub } from "@/lib/db";
-import { priceAllMaterials, priceOneMaterial } from "@/lib/estimate/instantQuoteServer";
+import { priceAllMaterials, priceOneMaterial, loadMaterialLabels, materialLabelSlot } from "@/lib/estimate/instantQuoteServer";
+import { appliedTaxRate, documentLinesTotal } from "@/lib/estimate/approveEstimate";
 import { createEstimateDraft } from "@/lib/estimate/createEstimateQuote";
 import { createScoredLead } from "@/lib/leads/createLead";
 import { INSTANT_ESTIMATE_DEFAULTS } from "@/lib/estimate/instantEstimate";
@@ -159,7 +160,7 @@ ok("the tear-off clamp is measureForTrade()'s: blank, negative and fractional al
 section("4. The draft, the lead and the review are createEstimateDraft's and createScoredLead's");
 for (const [label, body] of [
   ["the default request", defaultBody(fixture, "en")],
-  ["architectural, one layer (where the estimator's rounding shows)", { ...defaultBody(fixture, "en"), intake: { tearOffLayers: "1" } }],
+  ["architectural, one layer (where the estimator's rounding used to show)", { ...defaultBody(fixture, "en"), intake: { tearOffLayers: "1" } }],
   ["standing seam, no tear-off, a French form", { ...defaultBody(fixture, "fr"), materialKey: "metal_standing_seam", intake: { tearOffLayers: "0" }, budgetBandIndex: 2 }],
 ]) {
   seed();
@@ -197,7 +198,21 @@ for (const [label, body] of [
   ok(`${label}: the review card approves at that total`, run.review.total === run.draft.total && run.review.quoteNumber === run.draft.quoteNumber);
   ok(`${label}: the homeowner's reply reveals that range`, run.reply.estimate && run.reply.estimate.low === run.estimate.low && run.reply.estimate.high === run.estimate.high);
   const w = priceWorkings(fixture, run);
-  ok(`${label}: the working adds up — rows + rounding = subtotal, subtotal + tax = total`, w.lines.reduce((s, l) => s + l.amount, 0) + w.rounding === w.subtotal && Math.round((w.subtotal + w.tax) * 100) === Math.round(w.total * 100), w);
+  ok(`${label}: the working adds up — rows = subtotal, subtotal + tax = total`, w.rounding === 0 && w.lines.reduce((s, l) => s + l.amount, 0) === w.subtotal && Math.round((w.subtotal + w.tax) * 100) === Math.round(w.total * 100), w);
+  ok(`${label}: the mini quote's lines add up to its subtotal`, Math.round(run.draft.lineItems.reduce((s, l) => s + Number(l.amount), 0) * 100) === Math.round(run.draft.subtotal * 100), { lines: run.draft.lineItems.map((l) => l.amount), subtotal: run.draft.subtotal });
+
+  // The two figures GET /api/quotes/estimate-reviews adds beside the money,
+  // worked by the route's own calls on the row createEstimateDraft wrote —
+  // its taxResolution record and its scope group — against the sample's.
+  const realRate = q && appliedTaxRate(q);
+  const realLinesTotal = q && documentLinesTotal({ lineItems: q.lineItems, scopeGroups: q.scopeGroups?.create || [] });
+  ok(`${label}: the review row's taxRate and linesTotal are the route's for the real draft`, q && run.review.taxRate === realRate && run.review.linesTotal === realLinesTotal && run.review.taxRate === fixture.tax.rate, { real: [realRate, realLinesTotal], mine: [run.review.taxRate, run.review.linesTotal] });
+  ok(`${label}: …with the subtotal and tax beside them, so the "before tax + tax" caption renders`, q && run.review.subtotal === Number(q.subtotal) && run.review.tax === Number(q.tax) && run.review.discount === 0 && run.review.taxEnabled === true && run.review.linesTotal === run.review.subtotal);
+  ok(`${label}: …and the draft's tax record is the one createEstimateDraft wrote`, q && JSON.stringify(run.draft.taxResolution) === JSON.stringify(q.taxResolution), { real: q?.taxResolution, mine: run.draft.taxResolution });
+
+  // The option's name, as GET /api/leads/[id] and the review queue send it.
+  const named = (await loadMaterialLabels(COMPANY_ID, [{ trade: "roofing", key: body.materialKey }]))[materialLabelSlot("roofing", body.materialKey)] || null;
+  ok(`${label}: the lead and the review row name the option by loadMaterialLabels' label`, named && run.lead.materialLabel?.label === named.label && run.review.materialLabel?.label === named.label, { real: named, lead: run.lead.materialLabel, review: run.review.materialLabel });
 
   const lead = await createScoredLead({
     companyId: COMPANY_ID,
@@ -217,7 +232,7 @@ for (const [label, body] of [
 {
   const r = runRequest(fixture, { ...defaultBody(fixture, "en"), intake: { tearOffLayers: "1" } });
   const w = priceWorkings(fixture, r);
-  ok("where the estimator's rounded lines and rounded total differ, the working SAYS so rather than hiding it", w.rounding !== 0 && w.lines.reduce((s, l) => s + l.amount, 0) + w.rounding === w.subtotal, w.rounding);
+  ok("where the estimator's rounded lines used to miss its total, they now add up to it exactly (settleBreakdown) — no rounding row", w.rounding === 0 && w.lines.reduce((s, l) => s + l.amount, 0) === w.subtotal, w.rounding);
 }
 
 /* ═════════════════════════ 5. Words, in every language ══════════════════ */

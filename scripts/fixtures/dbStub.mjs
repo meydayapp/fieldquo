@@ -22,6 +22,9 @@ export const rows = {
   serviceCategory: [],
   client: [],
   quote: [],
+  // A quote's scope groups, for the routes that write a group beside the
+  // quote (approve-estimate's adjustment line). Empty unless a check scripts one.
+  quoteScopeGroup: [],
   // Maintenance plans on a quote (check-plan-templates' route half).
   servicePlanTemplate: [],
   quotePlanOffer: [],
@@ -39,6 +42,9 @@ export const rows = {
   // recipe overrides, which is the same "use the code defaults" state a real
   // company with nothing saved under Settings would be in.
   companyServiceCategory: [],
+  // Drafted translations of company texts (lib/i18n/phrases.js) — empty, so
+  // every phrase reads as the company wrote it unless a check scripts one.
+  companyTextTranslation: [],
   materialRecipeSetting: [],
   // The company's own margin target (Settings → Overhead), read by
   // companyMarginTarget in lib/costing/quoteCostEstimate.js on every costing
@@ -270,12 +276,14 @@ export function resetDbStub() {
   rows.serviceCategory = [];
   rows.client = [];
   rows.quote = [];
+  rows.quoteScopeGroup = [];
   rows.servicePlanTemplate = [];
   rows.quotePlanOffer = [];
   rows.voiceCallTask = [];
   rows.callConsent = [];
   rows.company = [];
   rows.companyServiceCategory = [];
+  rows.companyTextTranslation = [];
   rows.materialRecipeSetting = [];
   rows.marketingCampaign = [];
   rows.marketingSubscriber = [];
@@ -697,10 +705,12 @@ export const db = new Proxy(
     serviceCategory: model("serviceCategory"),
     client: model("client"),
     quote: model("quote"),
+    quoteScopeGroup: model("quoteScopeGroup"),
     voiceCallTask: model("voiceCallTask"),
     callConsent: model("callConsent"),
     company: model("company"),
     companyServiceCategory: model("companyServiceCategory"),
+    companyTextTranslation: model("companyTextTranslation"),
     materialRecipeSetting: model("materialRecipeSetting"),
     forecastSettings: model("forecastSettings"),
     usSalesTaxRate: model("usSalesTaxRate"),

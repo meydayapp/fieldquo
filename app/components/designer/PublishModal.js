@@ -28,25 +28,26 @@
 // about to post is a gate with a hole in it. "Edit the words" below opens that
 // dialog instead of turning this textarea back on.
 //
-// ══ Why the Publish button can render even though nothing can publish yet ══
+// ══ When the company has no Page connected ════════════════════════════════
 //
-// lib/social/metaConnection.js's getMetaConnection() always returns
-// connected: false in this build — there is no Meta OAuth/token layer wired
-// in yet (see that file's header). AGENTS.md's rule is "don't render a dead
-// button", not "don't render a button for an unfinished feature" — the
-// difference is what happens when it's clicked. A dead button clicks and
-// does nothing, or fakes success. This one always opens a real dialog: the
-// caption editor and image preview below are fully functional today (they
-// validate against Meta's real rules, useful on its own before the
-// connection ever lands), and the one thing that's honestly not available —
-// the actual Meta call — is stated in plain language instead of offered.
-// That's the "Coming soon panel is honest" half of the same rule, applied to
-// the one part of the screen that truly isn't finished.
+// The Publish button that opens this is only rendered once FieldQuo's Meta
+// app is configured (CampaignEditor.js, socialVisible). What is still per
+// company is the Page: lib/social/metaConnection.js reads the connection
+// Settings › Meta Ads stores (app/components/settings/SocialPublishingPanel.js),
+// and a company that has not made one gets `connected: false`. This dialog
+// then says where the connection is made and, for someone allowed to make
+// it, links there — that screen's own states say whether Meta has approved
+// the connect flow yet, so the link is honest either way. It used to say
+// "not available yet, check back soon", written when no connect flow existed
+// at all; once it did, that sentence sent an owner away from the one screen
+// that fixes it.
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   Check,
   Clock,
   FlaskConical,
+  Link2,
   Loader2,
   PencilLine,
   RotateCcw,
@@ -54,6 +55,9 @@ import {
   TriangleAlert,
   X,
 } from "lucide-react";
+import { usePermissions } from "@/app/providers/PermissionProvider";
+import { isBillingAdmin } from "@/lib/billing/billingAdmin";
+import { SOCIAL_SETTINGS_PATH } from "@/lib/social/settingsPath";
 // lucide-react 1.x dropped brand/trademark icons (Facebook, Instagram, …) —
 // there is no icon here to stand in for either platform, so the checkbox
 // labels below carry the platform by name/handle alone rather than reaching
@@ -123,6 +127,13 @@ const CAPTION_ERROR_KEYS = {
  */
 export default function PublishModal({ isOpen, onClose, design, preparePublishAsset, onOpenApproval }) {
   const { t } = useTranslation();
+  // Settings › Meta Ads is owner/admin only (SETTINGS_ROW_CAPABILITY
+  // "billing"; app/api/settings/social/* refuse anyone else). A supervisor
+  // can open this dialog, so the link is theirs only when that screen would
+  // be — otherwise the sentence alone says who to ask. Falls open while the
+  // provider has not resolved, PermissionProvider's rule.
+  const caller = usePermissions();
+  const canConnect = !caller?.role || isBillingAdmin(caller.role);
 
   const [connection, setConnection] = useState(null); // null = loading
   const [ratioKey, setRatioKey] = useState(SHAPES[0].key);
@@ -363,6 +374,16 @@ export default function PublishModal({ isOpen, onClose, design, preparePublishAs
             <p className="text-sm text-muted-foreground">
               {t("app.marketingDesigner.publishModal.notConnectedBody")}
             </p>
+            {canConnect && (
+              <Link
+                href={SOCIAL_SETTINGS_PATH}
+                data-publish-connect-link
+                className="mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-full bg-inverted px-4 text-sm font-bold text-inverted-foreground"
+              >
+                <Link2 size={15} aria-hidden="true" />
+                {t("app.messages.connect.openSettings")}
+              </Link>
+            )}
           </div>
         )}
 

@@ -64,7 +64,6 @@ const it = {
     workMaterial: "{material}: {squares} square × {rate}",
     workTearOff: "Rimozione dei vecchi strati: {layers} × {squares} square × {rate}",
     workPitch: "Tetto ripido ({rise}/12): +{pct}",
-    workRounding: "Arrotondato a una cifra tonda",
     workSubtotal: "Subtotale",
     workTotal: "Totale",
     workRange: "Il proprietario ha visto una fascia di {range} (±{pct} attorno al subtotale).",

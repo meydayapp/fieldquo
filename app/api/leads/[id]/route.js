@@ -20,6 +20,7 @@ import {
   LEAD_QUOTE_EVIDENCE_SELECT,
   quoteEvidence,
 } from "@/lib/leads/pipeline";
+import { loadMaterialLabels, materialLabelSlot } from "@/lib/estimate/instantQuoteServer";
 
 // One lead, with everything the detail view shows.
 export async function GET(request, { params }) {
@@ -62,12 +63,33 @@ export async function GET(request, { params }) {
     doNotCall = Boolean(optOut);
   }
 
+  // ── The option they picked, by name ──────────────────────────────────────
+  //
+  // The instant estimate stores the option as its key (intake.material =
+  // "asphalt_arch"), and the drawer printed the key. Named the way the review
+  // queue names it (loadMaterialLabels: the company's own option label and its
+  // drafted translations), for the trade the linked draft was priced as. Only
+  // for the instant estimate's own leads: a funnel question someone keyed
+  // "material" holds the homeowner's words, which are already a name.
+  let materialLabel = null;
+  const materialKey = lead.intake && typeof lead.intake.material === "string" ? lead.intake.material : null;
+  if (materialKey && lead.source === "instant_quote") {
+    const draft = lead.quoteId
+      ? await db.quote
+          .findFirst({ where: { id: lead.quoteId, companyId: member.companyId }, select: { quoteType: true, estimateData: true } })
+          .catch(() => null)
+      : null;
+    const trade = draft?.estimateData?.trade || draft?.quoteType || null;
+    const labels = await loadMaterialLabels(member.companyId, [{ trade, key: materialKey }]).catch(() => ({}));
+    materialLabel = labels[materialLabelSlot(trade, materialKey)] || null;
+  }
+
   // The same filter as the list beside it. Enumerating ids off a redacted
   // board and pulling each detail is precisely how the client leak was
   // reached before it — see the note in app/api/clients/[id]/route.js — so the
   // detail door closes at the same time as the list.
   return NextResponse.json(
-    redactLead(full, { ...lead, quote: quoteEvidence(lead.quote), doNotCall }),
+    redactLead(full, { ...lead, quote: quoteEvidence(lead.quote), doNotCall, materialLabel }),
   );
 }
 

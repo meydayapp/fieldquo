@@ -99,7 +99,10 @@ console.log("\n3. Hostile measurements\n");
   ok(!withImg.assumptions.includes(gutterEstimateCopy("en").flatRoof), "a pitched roof does not");
   ok(withImg.breakdown.length === 2 && withImg.breakdown[0].amount > 0 && withImg.breakdown[1].amount > 0, "breakdown: trough and downspouts", withImg.breakdown);
   const noDs = estimateGutters(m(100, 0), SEED);
-  ok(noDs.ok && noDs.breakdown.length === 1, "zero downspouts: no downspout line", noDs.breakdown);
+  // No downspout line — counted by label, not by length: 100 ft sits under
+  // the seed's high-end minimum, and the floor is itemised as its own "Job
+  // minimum adjustment" line so the lines add up to the point.
+  ok(noDs.ok && !noDs.breakdown.some((l) => /downspout/i.test(l.label)), "zero downspouts: no downspout line", noDs.breakdown);
 }
 
 console.log("\n4. Hostile rate cards\n");

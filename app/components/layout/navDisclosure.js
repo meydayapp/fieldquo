@@ -54,6 +54,26 @@ export function filterGroups(groups, query, label) {
     .filter((group) => group.items.length > 0);
 }
 
+/**
+ * Is the row at `href` the current page? A prefix match ("/app" exact), except
+ * that among the rows in `hrefs`, a longer one that ALSO matches wins. Since
+ * 2026-09-28 the rail carries Marketing (/app/marketing) and the designer
+ * beneath it (/app/marketing/designer) side by side, and a bare prefix match
+ * lit both as "you are here" on the designer — two current pages is none. The
+ * same longest-href rule activeGroupKey below already uses for the group.
+ *
+ * A row NOT in `hrefs` keeps the plain prefix match: the Settings row at the
+ * rail's foot stays lit on every settings page, which is how it has always
+ * told the reader the settings list is where they are.
+ */
+export function isRowActive(href, pathname, hrefs = []) {
+  const path = typeof pathname === "string" ? pathname : "";
+  const matches = (h) => (h === "/app" ? path === "/app" : Boolean(h) && path.startsWith(h));
+  if (!matches(href)) return false;
+  if (!hrefs.includes(href)) return true;
+  return !hrefs.some((h) => h !== href && h.length > href.length && h.startsWith(href) && matches(h));
+}
+
 /** The group holding the current route, by longest matching href. */
 export function activeGroupKey(groups, pathname, isActive) {
   let best = null;

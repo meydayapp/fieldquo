@@ -7,7 +7,7 @@
 //   "FieldQuo is very heavy on the side menus and settings menu" — so the
 //   rail holds at most SEVENTEEN top-level rows (Jobber's count, measured in
 //   docs/research/jobber-ui-study.md), in named groups, with the rest under
-//   More.
+//   More. EIGHTEEN since 2026-09-28 — the Marketing designer, see section 1.
 //
 //   "Now we shouldn't lose any of our great features — the AI review, agents,
 //   scheduling, dispatching, etc." — so (a) every destination the rail and
@@ -126,10 +126,18 @@ ok("Home, More, the rail groups, the More groups, the account rows, the tabs and
   HOME && MORE_ROW && NAV.length >= 4 && MORE.length >= 3 && BOTTOM.length === 3 && TABS.length === 5 && SETTINGS.length === 8,
   `rail ${NAV.length} groups / ${railRows.length} rows · More ${MORE.length} groups / ${moreRows.length} rows · settings ${SETTINGS.length} groups / ${settingsRows.length} rows`);
 
-// ── 1. At most seventeen top-level rows, in named groups ───────────────────
+// ── 1. At most eighteen top-level rows, in named groups ────────────────────
+//
+// Seventeen (Jobber's count) from 2026-09-21 until 2026-09-28, when the
+// owner reported he could not find the Marketing designer "in the menus" —
+// it was filed under More › Work — and needed it to publish to Facebook and
+// Instagram. It moved into Grow beside Marketing, and the ceiling moved by
+// exactly that one row rather than something else being pushed down to make
+// room: every other rail row is on the owner's own first-class list. The
+// ceiling still exists so the NEXT row has to argue its way in the same way.
 
-section("1. The rail: at most seventeen top-level rows");
-const CEILING = 17;
+section("1. The rail: at most eighteen top-level rows");
+const CEILING = 18;
 ok(`Home + the rail groups hold ≤ ${CEILING} rows`, railRows.length <= CEILING, `${railRows.length}`);
 ok("every rail group is translated in English and French",
   NAV.every((g) => en[g.key] && APP_MESSAGES.fr[g.key]), NAV.map((g) => g.key).join(" "));

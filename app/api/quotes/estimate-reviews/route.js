@@ -10,7 +10,9 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { can } from "@/lib/permissions";
-import { redactClient, redactQuoteMoney, hasLevel } from "@/lib/permissions/enforce";
+import { redactClient, redactQuoteMoney, hasLevel, canSeeMoney } from "@/lib/permissions/enforce";
+import { appliedTaxRate, documentLinesTotal } from "@/lib/estimate/approveEstimate";
+import { loadMaterialLabels, materialLabelSlot } from "@/lib/estimate/instantQuoteServer";
 import { callRecordingHref } from "@/lib/voice/recording";
 import { estimateReportUrl } from "@/lib/estimate/report/load";
 import { isInstantEstimateQuote } from "@/lib/estimate/report/model";
@@ -37,6 +39,16 @@ export async function GET(request) {
       id: true,
       quoteNumber: true,
       total: true,
+      // The rest of the money, so the screen can say what the "Approve at"
+      // figure is made of — it is the tax-inclusive total, and an adjusted
+      // one is split back into subtotal + tax at the document's own rate
+      // (lib/estimate/approveEstimate.js). Money columns, redacted below with
+      // `total` by redactQuoteMoney.
+      subtotal: true,
+      discount: true,
+      tax: true,
+      taxEnabled: true,
+      taxResolution: true,
       estimateSource: true,
       estimateData: true,
       // What the caller asked for that this automatic price does not carry.
@@ -68,7 +80,10 @@ export async function GET(request) {
       // photos look like a roof" on the card, not only on the quote page.
       // Only the verdict leaves this route (photoCheck below), never the pass.
       aiVisionPasses: true,
-      scopeGroups: DEEP_READ_SCOPE_SELECT,
+      // The lines too, for documentLinesTotal: an adjusted approval adds the
+      // difference as a line, and the screen says how much before it does.
+      lineItems: true,
+      scopeGroups: { ...DEEP_READ_SCOPE_SELECT, select: { ...DEEP_READ_SCOPE_SELECT.select, lineItems: true } },
     },
   });
 
@@ -116,8 +131,26 @@ export async function GET(request) {
   }
   const tradeNames = await tradeNamesFor([...mentioned]);
 
-  const redacted = quotes.map(({ sourceCallId, shareToken, autoEstimated, quoteType, createdVia, aiVisionPasses, scopeGroups, ...q }, i) => ({
+  // The option each homeowner picked, by name — the card printed the key.
+  const tradeOf = (q) => q.estimateData?.trade || q.quoteType || null;
+  const materialLabels = await loadMaterialLabels(
+    member.companyId,
+    quotes
+      .filter((q) => typeof q.estimateData?.materialKey === "string")
+      .map((q) => ({ trade: tradeOf(q), key: q.estimateData.materialKey })),
+  ).catch(() => ({}));
+
+  const redacted = quotes.map(({ sourceCallId, shareToken, autoEstimated, quoteType, createdVia, aiVisionPasses, scopeGroups, taxResolution, lineItems, ...q }, i) => ({
+    materialLabel: materialLabels[materialLabelSlot(tradeOf({ ...q, quoteType }), q.estimateData?.materialKey)] || null,
     ...redactQuoteMoney(full, q),
+    // The rate an adjusted total is split at and what the lines add up to —
+    // the same appliedTaxRate / documentLinesTotal the approve route uses, so
+    // the screen's preview is the split that gets written. Only beside the
+    // money they explain; withheld with it.
+    ...(canSeeMoney(full) && {
+      taxRate: appliedTaxRate({ ...q, taxResolution }),
+      linesTotal: documentLinesTotal({ lineItems, scopeGroups }),
+    }),
     photoCheck: checks[i],
     client: redactClient(full, q.client),
     // Null until the report has been published (the token is minted then), so

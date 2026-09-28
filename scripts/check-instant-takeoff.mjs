@@ -110,7 +110,9 @@ console.log("\n5. The draft stores it on the group\n");
   const src = readFileSync("lib/estimate/createEstimateQuote.js", "utf8").replace(/\/\/.*$/gm, "");
   ok(/\.\.\.\(groupTakeoff && \{ takeoff: groupTakeoff \}\)/.test(src) && /\.\.\.\(groupIntake && \{ intakeValues: groupIntake \}\)/.test(src), "createEstimateDraft writes takeoff and intakeValues onto the scope group");
   ok(/categoryKey: category\?\.key \|\| null/.test(src), "…and hands the category key to the mapping (painting needs it)");
-  ok(/lineItems,\s*subtotal: estimate\.point \|\| 0/.test(src), "…while the lines and the price stay the homeowner's breakdown");
+  // The group's price is the sum of its lines (linesSubtotal), which the
+  // estimators make equal to the point — never a figure beside the lines.
+  ok(/lineItems,\s*subtotal: totals\.subtotal/.test(src) && /subtotal: linesSubtotal\(lineItems, estimate\.point\)/.test(src), "…while the lines and the price stay the homeowner's breakdown");
 }
 
 console.log(`\n${fail === 0 ? "ALL PASS" : fail + " FAILED"}`);

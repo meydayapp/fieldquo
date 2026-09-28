@@ -61,7 +61,7 @@ import {
   MessagesSquare,
 } from "lucide-react";
 import Logo from "@/app/components/Logo";
-import { activeGroupKey, isGroupOpen } from "@/app/components/layout/navDisclosure";
+import { activeGroupKey, isGroupOpen, isRowActive } from "@/app/components/layout/navDisclosure";
 import { useGroupDisclosure } from "@/app/components/layout/NavFilter";
 import { useFeatureFlags } from "@/app/providers/FeatureProvider";
 import { filterNavGroups, filterNavItems } from "@/lib/features/nav";
@@ -88,7 +88,9 @@ import { useRovingRows } from "@/app/components/layout/rovingRows";
 // a REORGANISATION, not a cut: every destination that existed still exists,
 // and the owner's own list of what must stay first-class — the AI review,
 // the AI employees, schedule and dispatch, quotes, jobs, invoices, clients,
-// leads, the inbox, reports — is what the seventeen are. Everything else is
+// leads, the inbox, reports — is what the seventeen are. (Eighteen since
+// 2026-09-28: the Marketing designer moved up into Grow when the owner could
+// not find it — see its row, and check-shell.mjs's ceiling.) Everything else is
 // one click away under More (/app/more, and the phone's bottom sheet), and
 // scripts/check-shell.mjs proves two things about that every build: the
 // flagship rows are top-level, and every old row is still reachable in two
@@ -181,6 +183,18 @@ export const NAV_GROUPS = [
     key: "app.nav.group.grow",
     items: [
       { key: "app.nav.marketing", href: "/app/marketing", icon: Megaphone, tour: "nav-marketing", helpArticle: "marketing" },
+      // The designer: one ad in every size, approved, then published to the
+      // company's Facebook Page and Instagram. Its own row rather than folded
+      // into the Marketing hub, because it is a different verb (design and
+      // post one asset vs. run a campaign) and the reachability check needs
+      // its own href. Up here from More › Work since 2026-09-28: the owner
+      // went looking for it in the menus and did not find it — a marketing
+      // tool filed under "Work" is the discovery failure DEFAULT_OPEN's
+      // comment below already describes. Labelled for what it does ("Social
+      // posts & ads"), not for the tool, for the same reason. The feature
+      // flag (marketing_designer) and NAV_REQUIREMENTS are keyed on the row's
+      // key, not its group, so both gates followed it here unchanged.
+      { key: "app.nav.marketingDesigner", href: "/app/marketing/designer", icon: Palette, helpArticle: "marketing-designer" },
       // Facebook Page and Instagram business messages — a stranger who found
       // the company, i.e. a lead. The crew inbox (work coming in FROM the
       // van) is under More; the crew's own chat is under People.
@@ -213,7 +227,7 @@ export const NAV_GROUPS = [
 // Rendered by /app/more (a grid of tiles, one per group), by the phone's More
 // sheet, and by the rail's own search. Same three filters as the rail, same
 // trade gate. Nothing here was removed from the product — the rows below
-// are exactly the rows the rail used to carry, minus the seventeen above.
+// are exactly the rows the rail used to carry, minus the ones above.
 export const MORE_GROUPS = [
   {
     key: "app.nav.group.moreWork",
@@ -230,11 +244,6 @@ export const MORE_GROUPS = [
       { key: "app.nav.tasks", href: "/app/tasks", icon: ListTodo, helpArticle: "tasks" },
       { key: "app.nav.funnels", href: "/app/funnels", icon: Filter, helpArticle: "funnels" },
       { key: "app.nav.crewInbox", href: "/app/crew-inbox", icon: MessageSquare, helpArticle: "crew-inbox" },
-      // The multi-ratio ad canvas editor — its own row, not folded into the
-      // Marketing hub, because it is a different verb (design one asset in
-      // five sizes vs. run a campaign) and the reachability check needs its
-      // own href to prove it reachable.
-      { key: "app.nav.marketingDesigner", href: "/app/marketing/designer", icon: Palette, helpArticle: "marketing-designer" },
     ],
   },
   {
@@ -331,6 +340,15 @@ export const HOME_ITEM = { key: "app.nav.home", href: "/app", icon: Home, helpAr
 // reads it; the phone tab bar and the More page draw this item their own way
 // and carry no anchor.
 export const MORE_ITEM = { key: "app.nav.more", href: "/app/more", icon: LayoutGrid, tour: "nav-more", helpArticle: "home" };
+
+// The rows whose "current page" is decided longest-href-first — the rail's
+// groups and More's (isRowActive in navDisclosure.js). One function for the
+// rail, the More page and the phone sheet, so the three never disagree about
+// which row is lit.
+const ROW_HREFS = [...NAV_GROUPS, ...MORE_GROUPS].flatMap((g) => g.items.map((i) => i.href));
+export function isNavRowActive(pathname, href) {
+  return isRowActive(href, pathname, ROW_HREFS);
+}
 
 /**
  * The hook a foldable group's header carries so a tour step can unfold it:
@@ -463,8 +481,7 @@ export default function AdminSidebar() {
     });
   }
 
-  const isActive = (href) =>
-    href === "/app" ? pathname === "/app" : pathname.startsWith(href);
+  const isActive = (href) => isNavRowActive(pathname, href);
 
   const activeKey = activeGroupKey(navGroups, pathname, isActive);
   const { openKeys, toggle } = useGroupDisclosure({

@@ -72,7 +72,6 @@ const de = {
     workMaterial: "{material}: {squares} Squares × {rate}",
     workTearOff: "Abriss alter Lagen: {layers} × {squares} Squares × {rate}",
     workPitch: "Steiles Dach ({rise}/12): +{pct}",
-    workRounding: "Auf einen runden Betrag gerundet",
     workSubtotal: "Zwischensumme",
     workTotal: "Gesamt",
     workRange: "Der Hausbesitzer sah eine Spanne von {range} (±{pct} um die Zwischensumme).",

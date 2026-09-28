@@ -641,6 +641,59 @@ ok(
   /key:\s*"app\.nav\.marketingDesigner"/.test(adminSrc) && /href:\s*"\/app\/marketing\/designer"/.test(adminSrc),
   "AdminSidebar.js renders a real row pointing at /app/marketing/designer",
 );
+// ── Findable, not just reachable (owner, 2026-09-28) ─────────────────────
+// "I don't see a button in the menus" — the row existed, under More › Work.
+// It is on the rail now, in Grow right after Marketing, and only there; and
+// the Marketing hub links into it twice, both through the rail's own row and
+// filters. The "Social post" choice in New campaign is a LINK: the campaign
+// model has no social type, and the create route coerces unknown types to
+// "pamphlet", so the choice must never reach the POST.
+{
+  const navBlock = adminSrc.slice(adminSrc.indexOf("export const NAV_GROUPS"), adminSrc.indexOf("export const MORE_GROUPS"));
+  const moreBlock = adminSrc.slice(adminSrc.indexOf("export const MORE_GROUPS"), adminSrc.indexOf("const INFLUENCER_ONLY"));
+  const growBlock = navBlock.slice(navBlock.indexOf('key: "app.nav.group.grow"'));
+  const growKeys = [...growBlock.slice(0, growBlock.indexOf("],")).matchAll(/key: "(app\.nav\.[A-Za-z]+)", href:/g)].map((m) => m[1]);
+  ok(
+    growKeys[0] === "app.nav.marketing" && growKeys[1] === "app.nav.marketingDesigner",
+    "the designer row is on the rail, in Grow, right after Marketing",
+    growKeys.join(" "),
+  );
+  ok(!moreBlock.includes('"app.nav.marketingDesigner"'), "…and not listed a second time under More");
+
+  const hubSrc = read("app/app/marketing/page.js");
+  ok(
+    /useNavItems\(DESIGNER_ROWS\)/.test(hubSrc) && /i\.key === "app\.nav\.marketingDesigner"/.test(hubSrc),
+    "the Marketing hub finds the rail's own designer row and runs it through the rail's filters (feature flag + NAV_REQUIREMENTS)",
+  );
+  ok(
+    (hubSrc.match(/href=\{designer\.href\}/g) || []).length === 2 && /t\("app\.marketing\.designPost"\)/.test(hubSrc),
+    "…and links to it twice: a \"Design a post\" header button and the New campaign social choice",
+  );
+  ok(
+    /\{designer && \(\s*<option value=\{SOCIAL_CHOICE\}>/.test(hubSrc),
+    "the Social post choice is offered only when the designer row survives the filters",
+  );
+  ok(
+    /if \(form\.type === SOCIAL_CHOICE\) return;/.test(hubSrc) && /\{!isSocial && \(\s*<>[\s\S]*type="submit"[\s\S]*<\/>\s*\)\}/.test(hubSrc),
+    "…and never reaches the create POST: no submit button in that state, and handleCreate refuses it",
+  );
+
+  const publishModalSrc = read("app/components/designer/PublishModal.js");
+  ok(
+    /notConnected && \([\s\S]*?href=\{SOCIAL_SETTINGS_PATH\}/.test(publishModalSrc),
+    "the publish dialog's not-connected state links to where the Page is connected, not 'check back soon'",
+  );
+
+  const { isRowActive } = await import("../app/components/layout/navDisclosure.js");
+  const hrefs = ["/app/marketing", "/app/marketing/designer"];
+  ok(
+    isRowActive("/app/marketing/designer", "/app/marketing/designer/md_1", hrefs) &&
+      !isRowActive("/app/marketing", "/app/marketing/designer/md_1", hrefs) &&
+      isRowActive("/app/marketing", "/app/marketing/mc_1", hrefs),
+    "on the designer only its own row is lit — not Marketing above it as well",
+  );
+}
+
 const navPermSrc = read("lib/permissions/nav.js");
 ok(
   /"app\.nav\.marketingDesigner":\s*\{\s*role:/.test(navPermSrc),

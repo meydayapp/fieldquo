@@ -64,7 +64,6 @@ const zh = {
     workMaterial: "{material}：{squares} 方 × {rate}",
     workTearOff: "拆除旧层：{layers} × {squares} 方 × {rate}",
     workPitch: "陡坡屋顶（{rise}/12）：+{pct}",
-    workRounding: "取整为整数金额",
     workSubtotal: "小计",
     workTotal: "合计",
     workRange: "房主看到的区间为 {range}（小计上下浮动 ±{pct}）。",

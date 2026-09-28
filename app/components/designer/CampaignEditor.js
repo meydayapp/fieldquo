@@ -415,7 +415,12 @@ export function CampaignEditor({ design, onBack }) {
 
   return (
     <div className="h-screen w-full flex flex-col overflow-hidden">
-      <div className="shrink-0 border-b border-border bg-card px-3 py-2 flex items-center gap-2 overflow-x-auto">
+      {/* Wraps before it scrolls. At 1280 with the rail open, a single
+          scrolling row put Calendar and Publish past the right edge — the
+          one control the page exists for, reachable only by a sideways
+          scroll nobody knew to try. The scroll stays for a phone, where the
+          ratio tabs alone are wider than the screen. */}
+      <div className="shrink-0 border-b border-border bg-card px-3 py-2 flex flex-wrap items-center gap-2 overflow-x-auto">
         <button
           type="button"
           onClick={onBack}
