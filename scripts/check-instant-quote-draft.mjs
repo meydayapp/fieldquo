@@ -59,11 +59,26 @@
 import fs from "node:fs";
 import { createEstimateDraft } from "@/lib/estimate/createEstimateQuote";
 import { soloEstimatorFrom } from "@/lib/estimate/soloEstimator";
-import { lineItemsFromBreakdown, breakdownForRecord } from "@/lib/estimate/estimateLines";
-import { estimateCabinetRefinishing } from "@/lib/estimate/instantEstimate";
+import { lineItemsFromBreakdown, breakdownForRecord, linesSubtotal } from "@/lib/estimate/estimateLines";
+import {
+  estimateCabinetRefinishing,
+  estimateRoofing,
+  computeInstantEstimate,
+  INSTANT_ESTIMATE_DEFAULTS,
+  INSTANT_ESTIMATE_TRADES,
+} from "@/lib/estimate/instantEstimate";
+import { lawnLinesFromEstimate } from "@/lib/quotes/lawnLines";
+import { quoteTotals } from "@/lib/quotes/totals";
 import { billedUnitsOf } from "@/lib/quotes/builderPayload";
 import { catalogueAddOnsFor, seedCatalogueAddOns, CATALOGUE_ADD_ON_SOURCE } from "@/lib/quotes/offeredAddOns";
-import { measureForTrade, priceOneMaterial } from "@/lib/estimate/instantQuoteServer";
+import {
+  measureForTrade,
+  priceOneMaterial,
+  loadMaterialLabels,
+  materialLabelSlot,
+  materialLabelFromConfig,
+} from "@/lib/estimate/instantQuoteServer";
+import { phraseKey } from "@/lib/i18n/phrases";
 import { taxStatement } from "@/lib/tax/documentTax";
 import { FALLBACK_LABOUR_RATE, FALLBACK_OVERHEAD_PCT } from "@/lib/costing/quoteCosting";
 import { rows, writes, resetDbStub, db } from "@/lib/db";
@@ -701,6 +716,332 @@ for (const file of [
   const namedFields = bodyDestructure ? bodyDestructure[1].split(",").map((s) => s.trim().split(":")[0].trim()) : [];
   const leaked = MONEY_KEYS.filter((k) => namedFields.includes(k));
   ok(`${file} reads no money field off the request body`, leaked.length === 0, leaked);
+}
+
+/* ═══════ 7. MONEY — the draft's lines add up to its subtotal, every trade ═══ */
+//
+// Found building the roofing showcase: 24.1 squares of architectural
+// shingles, one tear-off layer, 8/12 pitch drafted lines of 13,260 + 1,570 +
+// 1,480 = 16,310 under a subtotal of 16,300 — each line rounded to $10 on its
+// own, the point rounded on its own. And wherever the company's minimum
+// lifted the figure, the lines never heard about it: three squares drafted a
+// $1,650 line under a $2,500 subtotal. Executed on every trade the estimator
+// offers, every seeded option, small jobs (under the floor) and odd ones, and
+// then through createEstimateDraft itself.
+
+section("Every trade's lines itemise its figure exactly — rounding and the floor included");
+
+const MATRIX = {
+  roofing: [
+    { squares: 24.1, tearOffLayers: 1, steepness: "moderate", predominantPitch: { rise: 8 }, areaSqft: 2410 },
+    { squares: 3, tearOffLayers: 0, steepness: "standard" },
+    { squares: 31.7, tearOffLayers: 2, steepness: "steep", predominantPitch: { rise: 10 } },
+  ],
+  epoxy: [{ areaSqft: 437, surfaceCondition: "poor" }, { areaSqft: 55, surfaceCondition: "fair" }],
+  parging: [{ areaSqft: 173, access: "scaffold", condition: "cracked" }, { areaSqft: 9 }],
+  flooring: [{ areaSqft: 613, surfaceCondition: "poor" }, { areaSqft: 21 }],
+  painting: [{ areaSqft: 1433, scope: "exterior", surfaceCondition: "poor" }, { areaSqft: 15 }],
+  paving: [{ areaSqft: 747 }, { areaSqft: 33 }],
+  countertop: [{ areaSqft: 47.5, edgeFt: 13, cutouts: 1, backsplashSqft: 11.5 }, { areaSqft: 3 }],
+  stair: [{ treads: 13, railingFt: 0, shape: "L" }, { treads: 7, railingFt: 11.5, shape: "U" }, { treads: 1, shape: "straight" }],
+  cabinet_refinishing: [
+    { doorCount: 23, drawerCount: 7 },
+    { doorCount: 3, drawerCount: 0 },
+    { doorCount: 27, drawerCount: 9, addOns: ["softCloseHinges"] },
+  ],
+  cabinet_refacing: [{ doorCount: 23, drawerCount: 7, boxLinearFt: 13.5 }, { doorCount: 1, drawerCount: 0 }],
+  lawn_mowing: [{ areaSqft: 7300 }, { areaSqft: 91000 }],
+  junk_removal: [
+    { items: [{ key: "sofa", quantity: 1 }, { key: "mattress", quantity: 2 }], jobType: "single_items", stairsFlights: 1 },
+    { items: [{ key: "sofa", quantity: 1 }], jobType: "single_items" },
+  ],
+  gutters: [{ gutterFt: 184, downspouts: 6 }, { gutterFt: 47, downspouts: 1 }, { gutterFt: 143, downspouts: 5 }, { gutterFt: 100, downspouts: 0 }],
+  lawn_care: [{ areaSqft: 6400 }, { areaSqft: 900 }],
+};
+
+const cents = (n) => Math.round(Number(n) * 100);
+const draftLinesFor = (trade, est) =>
+  trade === "lawn_care" && Array.isArray(est.lines) ? lawnLinesFromEstimate(est.lines, {}) : lineItemsFromBreakdown(est.breakdown, { label: "Service" });
+
+{
+  let priced = 0;
+  let mismatched = [];
+  let untidy = [];
+  let floorsUnsaid = [];
+  let tradesSeen = new Set();
+  for (const [trade, spec] of Object.entries(INSTANT_ESTIMATE_TRADES)) {
+    const config = INSTANT_ESTIMATE_DEFAULTS[trade];
+    const keys = spec.hasMaterials && Array.isArray(config?.materials) && config.materials.length ? config.materials.map((m) => m.key) : [null];
+    for (const measurements of MATRIX[trade] || []) {
+      for (const materialKey of keys) {
+        const est = computeInstantEstimate({ trade, measurements, materialKey, config });
+        if (!est.ok) continue;
+        priced += 1;
+        tradesSeen.add(trade);
+        const lines = draftLinesFor(trade, est);
+        const sum = lines.reduce((s, l) => s + cents(l.amount), 0);
+        if (sum !== cents(est.point)) mismatched.push({ trade, materialKey, point: est.point, lines: sum / 100 });
+        // Tidy: every line a whole $10 on the trades that round (lawn care
+        // prints a program's price to the cent, on purpose).
+        if (trade !== "lawn_care" && lines.some((l) => cents(l.amount) % 1000 !== 0)) untidy.push({ trade, materialKey, lines: lines.map((l) => l.amount) });
+        // A figure the floor lifted says so on a line of its own, on every
+        // trade that has a floor (junk removal names its own "Minimum charge").
+        if (est.minimumApplied && !["lawn_care", "lawn_mowing", "junk_removal"].includes(trade)) {
+          const breakdownSum = (est.breakdown || []).filter((b) => b.label !== "Job minimum adjustment").reduce((s, b) => s + b.amount, 0);
+          const said = (est.breakdown || []).some((b) => b.label === "Job minimum adjustment");
+          if (breakdownSum < est.point && !said) floorsUnsaid.push({ trade, materialKey, point: est.point });
+        }
+      }
+    }
+  }
+  ok(`the matrix reaches every instant trade (${Object.keys(INSTANT_ESTIMATE_TRADES).length})`, tradesSeen.size === Object.keys(INSTANT_ESTIMATE_TRADES).length, [...tradesSeen]);
+  ok(`every priced option's draft lines sum to its point (${priced} priced)`, mismatched.length === 0, mismatched);
+  ok("…with every line still a tidy $10", untidy.length === 0, untidy);
+  ok("…and a floor that lifted the figure is its own 'Job minimum adjustment' line", floorsUnsaid.length === 0, floorsUnsaid);
+}
+
+// Hostile and odd input, many times over: the lines reach the point exactly,
+// and no line strays more than one tidy step from the unrounded cost it
+// itemises (so the settling never moves money between lines to make it fit).
+{
+  let seed = 20260928;
+  const rand = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
+  let bad = [];
+  let strayed = [];
+  const cfg = INSTANT_ESTIMATE_DEFAULTS.roofing;
+  for (let i = 0; i < 2000; i += 1) {
+    const squares = Math.round(rand() * 6000) / 100;
+    const m = { squares, tearOffLayers: Math.floor(rand() * 4), steepness: ["standard", "moderate", "steep", "very_steep"][Math.floor(rand() * 4)] };
+    const key = cfg.materials[Math.floor(rand() * cfg.materials.length)].key;
+    const band = [0, 0.1, 0.15, 0.35][Math.floor(rand() * 4)];
+    const minCharge = [0, 2500, 3333, 999.99][Math.floor(rand() * 4)];
+    const est = estimateRoofing(m, key, { ...cfg, rangeBandPct: band, minCharge });
+    if (!est.ok) continue;
+    const sum = est.breakdown.reduce((s, b) => s + cents(b.amount), 0);
+    if (sum !== cents(est.point)) bad.push({ m, key, band, minCharge, point: est.point, sum: sum / 100 });
+    const rate = cfg.materials.find((x) => x.key === key).ratePerSquare;
+    const base = squares * rate;
+    if (Math.abs(est.breakdown[0].amount - base) > 10) strayed.push({ squares, key, line: est.breakdown[0].amount, base });
+  }
+  ok("2,000 random roofs, bands and floors: the lines sum to the point every time", bad.length === 0, bad.slice(0, 3));
+  ok("…and the base line never strays more than one $10 step from squares × rate", strayed.length === 0, strayed.slice(0, 3));
+  // Gutter cards typed the wrong way round (high under low) still add up.
+  const swapped = computeInstantEstimate({
+    trade: "gutters",
+    measurements: { gutterFt: 184, downspouts: 6 },
+    config: { perFt: { low: 11, high: 10 }, perDownspout: { low: 700, high: 410 }, minCharge: { low: 0, high: 0 } },
+  });
+  ok("a gutter card typed the wrong way round still drafts lines that add up", swapped.ok && swapped.breakdown.reduce((s, b) => s + cents(b.amount), 0) === cents(swapped.point), swapped.breakdown);
+}
+
+// The showcase's own house, through the real estimator.
+{
+  const est = computeInstantEstimate({
+    trade: "roofing",
+    measurements: { squares: 24.1, tearOffLayers: 1, steepness: "moderate", predominantPitch: { rise: 8 }, areaSqft: 2410 },
+    materialKey: "asphalt_arch",
+    config: INSTANT_ESTIMATE_DEFAULTS.roofing,
+  });
+  const amounts = est.breakdown.map((b) => b.amount);
+  ok("24.1 squares architectural, 1 layer, 8/12: point 16,300", est.point === 16300, est.point);
+  ok("…itemised 13,250 + 1,570 + 1,480 — the lines say 16,300 too", JSON.stringify(amounts) === JSON.stringify([13250, 1570, 1480]), amounts);
+  const small = computeInstantEstimate({ trade: "roofing", measurements: { squares: 3, tearOffLayers: 0 }, materialKey: "asphalt_arch", config: INSTANT_ESTIMATE_DEFAULTS.roofing });
+  ok("three squares under a $2,500 minimum: a $1,650 line and an $850 'Job minimum adjustment'", JSON.stringify(small.breakdown.map((b) => [b.label, b.amount])) === JSON.stringify([["3 squares of Architectural shingles", 1650], ["Job minimum adjustment", 850]]), small.breakdown);
+  const adj = lineItemsFromBreakdown(small.breakdown).at(-1);
+  ok("…which drafts as the quote builder's flat line: 1 × $850", adj?.description === "Job minimum adjustment" && adj?.quantity === 1 && adj?.unit === "flat" && adj?.rate === 850 && adj?.amount === 850, adj);
+}
+
+section("The draft's subtotal IS the sum of its lines, and total = subtotal + tax");
+
+{
+  const ROOF_CATEGORY = { id: "cat_roofing", key: "roofing", label: "Roofing" };
+  const HST_CO = {
+    id: "co_hst",
+    taxRate: 0,
+    autoApplyLocalTax: true,
+    taxRates: [{ name: "HST Ontario", rate: 13 }],
+    country: "CA",
+    province: "ON",
+    defaultLanguage: "en",
+  };
+  const cases = [
+    ["roofing", "asphalt_arch", { squares: 24.1, tearOffLayers: 1, steepness: "moderate", predominantPitch: { rise: 8 }, areaSqft: 2410 }],
+    ["roofing", "asphalt_arch", { squares: 3, tearOffLayers: 0 }],
+    ["epoxy", "polyaspartic", { areaSqft: 437, surfaceCondition: "poor" }],
+    ["countertop", "granite", { areaSqft: 47.5, edgeFt: 13, cutouts: 1, backsplashSqft: 11.5 }],
+    ["cabinet_refacing", null, { doorCount: 1, drawerCount: 0 }],
+    ["gutters", null, { gutterFt: 47, downspouts: 1 }],
+    ["junk_removal", null, { items: [{ key: "sofa", quantity: 1 }, { key: "mattress", quantity: 2 }], jobType: "single_items", stairsFlights: 1 }],
+    ["lawn_care", null, { areaSqft: 6400 }],
+  ];
+  for (const [trade, materialKey, measurement] of cases) {
+    resetDbStub();
+    rows.serviceCategory = [ROOF_CATEGORY];
+    const estimate = computeInstantEstimate({ trade, measurements: measurement, materialKey, config: INSTANT_ESTIMATE_DEFAULTS[trade] });
+    await createEstimateDraft({
+      createdVia: "instant_quote",
+      company: HST_CO,
+      trade,
+      categoryId: ROOF_CATEGORY.id,
+      contact: { ...BASE_CONTACT, email: `${trade}@test.example` },
+      measurement,
+      materialKey,
+      estimate,
+      source: "manual",
+      city: "Ottawa",
+      province: "ON",
+      country: "CA",
+      language: "en",
+    });
+    const data = lastQuoteWrite();
+    const group = data?.scopeGroups?.create?.[0];
+    const lineSum = (data?.lineItems || []).reduce((s, l) => s + cents(l.amount), 0);
+    const expect = quoteTotals({ subtotal: lineSum / 100, taxRate: 13, taxEnabled: true });
+    ok(
+      `${trade}${materialKey ? `/${materialKey}` : ""}: subtotal = Σ lines = point (${estimate.point})`,
+      cents(data?.subtotal) === lineSum && lineSum === cents(estimate.point),
+      { subtotal: data?.subtotal, lines: lineSum / 100, point: estimate.point },
+    );
+    ok(
+      "…the scope group says the same, and total = subtotal + tax at 13%",
+      cents(group?.subtotal) === lineSum &&
+        cents(data?.tax) === cents(expect.tax) &&
+        cents(data?.total) === cents(data?.subtotal) + cents(data?.tax),
+      { group: group?.subtotal, tax: data?.tax, total: data?.total },
+    );
+  }
+  // ── The whole grid, through the draft itself ─────────────────────────────
+  //
+  // Every instant trade × every seeded option × the matrix above, plus a
+  // roofing grid of sizes × tear-off layers × pitches × materials (the owner's
+  // repro among them: 24.1 squares, 2,412.5 sqft, 8/12, 0 and 1 layers).
+  // Asserted on what createEstimateDraft WROTE: Σ lineItems.amount ===
+  // subtotal, the group says the same, total = subtotal + tax.
+  const grid = [];
+  for (const [trade, spec] of Object.entries(INSTANT_ESTIMATE_TRADES)) {
+    const config = INSTANT_ESTIMATE_DEFAULTS[trade];
+    const keys = spec.hasMaterials && Array.isArray(config?.materials) && config.materials.length ? config.materials.map((m) => m.key) : [null];
+    for (const m of MATRIX[trade] || []) for (const k of keys) grid.push([trade, k, m]);
+  }
+  for (const squares of [3, 12.7, 24.1, 38.9])
+    for (const tearOffLayers of [0, 1, 2])
+      for (const [steepness, rise] of [["standard", 4], ["moderate", 8], ["steep", 10], ["very_steep", 14]])
+        for (const mat of INSTANT_ESTIMATE_DEFAULTS.roofing.materials)
+          grid.push(["roofing", mat.key, { squares, areaSqft: squares * 100 + 2.5, tearOffLayers, steepness, predominantPitch: { rise } }]);
+  const gridBad = [];
+  const trades = new Set();
+  for (const [trade, materialKey, measurement] of grid) {
+    const estimate = computeInstantEstimate({ trade, measurements: measurement, materialKey, config: INSTANT_ESTIMATE_DEFAULTS[trade] });
+    if (!estimate.ok) continue;
+    resetDbStub();
+    rows.serviceCategory = [ROOF_CATEGORY];
+    await createEstimateDraft({
+      createdVia: "instant_quote",
+      company: HST_CO,
+      trade,
+      categoryId: ROOF_CATEGORY.id,
+      contact: { ...BASE_CONTACT, email: "grid@test.example" },
+      measurement,
+      materialKey,
+      estimate,
+      source: "manual",
+      city: "Ottawa",
+      province: "ON",
+      country: "CA",
+      language: "en",
+    });
+    const d = lastQuoteWrite();
+    const g = d?.scopeGroups?.create?.[0];
+    const sum = (d?.lineItems || []).reduce((s, l) => s + cents(l.amount), 0);
+    trades.add(trade);
+    // …and the range the homeowner saw still brackets the figure charged.
+    const bracketed = cents(estimate.low) <= sum && sum <= cents(estimate.high);
+    if (sum !== cents(d?.subtotal) || cents(g?.subtotal) !== sum || cents(d?.subtotal) + cents(d?.tax) !== cents(d?.total) || !bracketed) {
+      gridBad.push({ trade, materialKey, measurement, lines: sum / 100, subtotal: d?.subtotal, group: g?.subtotal, total: d?.total });
+    }
+  }
+  ok(`the draft grid (${grid.length} inputs, ${trades.size} trades): Σ lineItems.amount === subtotal, group and total agree, low ≤ subtotal ≤ high`, gridBad.length === 0 && trades.size === Object.keys(INSTANT_ESTIMATE_TRADES).length, gridBad.slice(0, 3));
+  for (const [layers, want] of [[1, 16300], [0, 14580]]) {
+    const e = computeInstantEstimate({
+      trade: "roofing",
+      measurements: { squares: 24.1, areaSqft: 2412.5, predominantPitch: { rise: 8 }, steepness: "moderate", tearOffLayers: layers },
+      materialKey: "asphalt_arch",
+      config: INSTANT_ESTIMATE_DEFAULTS.roofing,
+    });
+    const sum = e.breakdown.reduce((s, b) => s + b.amount, 0);
+    ok(`the owner's repro, ${layers} tear-off layer${layers === 1 ? "" : "s"}: lines ${sum} = point ${e.point} (was ${want + 10})`, e.point === want && sum === want && e.low <= sum && sum <= e.high, { point: e.point, sum });
+  }
+
+  // The showcase figures, exactly.
+  resetDbStub();
+  rows.serviceCategory = [ROOF_CATEGORY];
+  const showcase = computeInstantEstimate({
+    trade: "roofing",
+    measurements: { squares: 24.1, tearOffLayers: 1, steepness: "moderate", predominantPitch: { rise: 8 }, areaSqft: 2410 },
+    materialKey: "asphalt_arch",
+    config: INSTANT_ESTIMATE_DEFAULTS.roofing,
+  });
+  await createEstimateDraft({
+    createdVia: "instant_quote",
+    company: HST_CO,
+    trade: "roofing",
+    categoryId: ROOF_CATEGORY.id,
+    contact: { ...BASE_CONTACT, email: "showcase@test.example" },
+    measurement: { squares: 24.1 },
+    materialKey: "asphalt_arch",
+    estimate: showcase,
+    source: "google_solar",
+    city: "Ottawa",
+    province: "ON",
+    country: "CA",
+    language: "en",
+  });
+  const sc = lastQuoteWrite();
+  ok("the showcase draft: subtotal 16,300, HST 2,119, total 18,419 — and its lines say 16,300", Number(sc?.subtotal) === 16300 && Number(sc?.tax) === 2119 && Number(sc?.total) === 18419 && linesSubtotal(sc?.lineItems) === 16300, { subtotal: sc?.subtotal, tax: sc?.tax, total: sc?.total, lines: linesSubtotal(sc?.lineItems) });
+  ok("linesSubtotal: no lines keeps the point, never a subtotal of nothing", linesSubtotal([], 4200) === 4200 && linesSubtotal(null, 4200) === 4200);
+}
+
+/* ═══════ 8. NAMES — the option picked, by the name it was picked by ═══════ */
+//
+// The review card printed "asphalt arch" and the lead drawer "asphalt_arch":
+// the stored KEY. loadMaterialLabels names it from the company's own option
+// label, with its drafted translations — executed against the stub.
+
+section("An option key is named from the company's own label, in every drafted language");
+
+{
+  resetDbStub();
+  const co = "co_names";
+  rows.instantQuoteConfig = [
+    { companyId: co, trade: "roofing", config: { materials: [{ key: "asphalt_arch", label: "Architectural shingles" }, { key: "blank", label: "  " }] } },
+    { companyId: co, trade: "stair", config: { materials: [{ key: "standard", label: "Straight run" }] } },
+    { companyId: co, trade: "painting", config: { materials: [{ key: "standard", label: "Standard paint" }] } },
+    { companyId: "co_other", trade: "roofing", config: { materials: [{ key: "asphalt_arch", label: "SOMEONE ELSE'S NAME" }] } },
+  ];
+  rows.companyServiceCategory = [];
+  const key = phraseKey("materialLabel", "Architectural shingles");
+  rows.companyTextTranslation = [
+    { companyId: co, language: "fr", key, text: "Bardeaux architecturaux", sourceHash: key.split(":")[2], sourceLanguage: "en", status: "drafted" },
+    { companyId: co, language: "uk", key, text: "Архітектурна черепиця", sourceHash: key.split(":")[2], sourceLanguage: "en", status: "reviewed" },
+  ];
+  const labels = await loadMaterialLabels(co, [
+    { trade: "roofing", key: "asphalt_arch" },
+    { trade: "stair", key: "standard" },
+    { trade: null, key: "standard" },
+    { trade: "roofing", key: "nope" },
+    { trade: "roofing", key: "blank" },
+    { trade: "roofing", key: "asphalt_3tab" },
+  ]);
+  const arch = labels[materialLabelSlot("roofing", "asphalt_arch")];
+  ok("asphalt_arch → the company's 'Architectural shingles'", arch?.label === "Architectural shingles", arch);
+  ok("…with its drafted translations, per language", arch?.translations?.fr === "Bardeaux architecturaux" && arch?.translations?.uk === "Архітектурна черепиця", arch?.translations);
+  ok("…never another company's name for the same key", !JSON.stringify(labels).includes("SOMEONE ELSE"));
+  ok("the same key in two trades is named per trade", labels[materialLabelSlot("stair", "standard")]?.label === "Straight run");
+  ok("…and with no trade to go on, an ambiguous key names nothing", !labels[materialLabelSlot(null, "standard")]);
+  ok("a key nobody can name returns nothing — the screen keeps its fallback", !labels[materialLabelSlot("roofing", "nope")] && !labels[materialLabelSlot("roofing", "blank")]);
+  ok("a seeded option the company never renamed keeps the seeded name", labels[materialLabelSlot("roofing", "asphalt_3tab")]?.label === "3-tab asphalt shingles", labels[materialLabelSlot("roofing", "asphalt_3tab")]);
+  ok("materialLabelFromConfig survives hostile configs", materialLabelFromConfig(null, "x") === null && materialLabelFromConfig({ materials: "x" }, "x") === null && materialLabelFromConfig({ materials: [null, 3, { key: "x", label: 7 }] }, "x") === null);
+  ok("no keys asked, no query run", JSON.stringify(await loadMaterialLabels(co, [])) === "{}");
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

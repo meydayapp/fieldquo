@@ -6,8 +6,10 @@
 // price a human hasn't seen ever reaches the homeowner as binding.
 //
 // The reviewer may set the final total here — the range midpoint is a starting
-// point, not a commitment. Approving preserves estimateData (what the homeowner
-// was shown) untouched, so "what we quoted" and "what they saw" stay distinct.
+// point, not a commitment. The figure is tax-inclusive and is split back into
+// subtotal and tax at the document's own rate (lib/estimate/approveEstimate.js).
+// Approving preserves estimateData (what the homeowner was shown) untouched,
+// so "what we quoted" and "what they saw" stay distinct.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -17,6 +19,8 @@ import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { recordActivity } from "@/lib/activity/log";
 import { can } from "@/lib/permissions";
 import { onQuoteApproved } from "@/lib/voice/triggers";
+import { Prisma } from "@prisma/client";
+import { approvedEstimateMoney } from "@/lib/estimate/approveEstimate";
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -44,7 +48,21 @@ export async function POST(request, { params }) {
 
   const quote = await db.quote.findFirst({
     where: { id, companyId: member.companyId },
-    select: { id: true, autoEstimated: true, needsReview: true },
+    select: {
+      id: true,
+      autoEstimated: true,
+      needsReview: true,
+      // What an adjusted total is split back into — see approvedEstimateMoney.
+      subtotal: true,
+      discount: true,
+      tax: true,
+      total: true,
+      taxEnabled: true,
+      taxResolution: true,
+      language: true,
+      lineItems: true,
+      scopeGroups: { select: { id: true, lineItems: true, subtotal: true }, orderBy: { sortOrder: "asc" } },
+    },
   });
   if (!quote) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!quote.autoEstimated) {
@@ -64,15 +82,38 @@ export async function POST(request, { params }) {
     reviewedAt: new Date(),
   };
 
-  // Optional adjust-and-approve. Only touch the total when a positive number is
+  // Optional adjust-and-approve. Only touch the money when a positive number is
   // supplied — an approval that forgets the total shouldn't zero the quote.
-  const finalTotal = Number(body?.total);
-  if (Number.isFinite(finalTotal) && finalTotal > 0) {
-    data.total = finalTotal;
-    data.subtotal = finalTotal;
+  //
+  // The figure is the TAX-INCLUSIVE total: the review screen opens its box on
+  // Quote.total and says "total including tax" under it. This wrote it into
+  // subtotal AND total and left the old tax standing, so tax sat on the wrong
+  // base and total ≠ subtotal + tax. approvedEstimateMoney solves the subtotal
+  // at the rate the document was written with, re-charges the tax on it, and
+  // adds the difference to the lines as one "Price adjustment" line so they
+  // still add up (lib/estimate/approveEstimate.js).
+  const money = approvedEstimateMoney(quote, body?.total);
+  if (money) {
+    data.subtotal = money.subtotal;
+    data.tax = money.tax;
+    data.total = money.total;
+    data.taxResolution = money.taxResolution ?? Prisma.DbNull;
+    if (money.adjustment !== 0) data.lineItems = money.quoteLineItems;
   }
 
-  await db.quote.update({ where: { id }, data });
+  // One transaction: a quote whose total moved and whose adjustment line did
+  // not land on its scope group is the document that doesn't add up.
+  await db.$transaction([
+    db.quote.update({ where: { id }, data }),
+    ...(money?.group
+      ? [
+          db.quoteScopeGroup.update({
+            where: { id: money.group.id },
+            data: { lineItems: money.group.lineItems, subtotal: money.group.subtotal },
+          }),
+        ]
+      : []),
+  ]);
 
   await recordActivity(member, {
     action: "estimate.approved",
@@ -82,7 +123,10 @@ export async function POST(request, { params }) {
       data.total != null
         ? `Approved instant estimate at ${data.total}`
         : "Approved instant estimate",
-    metadata: data.total != null ? { total: data.total } : undefined,
+    metadata:
+      data.total != null
+        ? { total: data.total, subtotal: data.subtotal, tax: data.tax, adjustment: money?.adjustment ?? 0 }
+        : undefined,
   });
 
   // Best-effort: queue the confirm-and-schedule call, IF the client already has
