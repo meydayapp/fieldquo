@@ -100,7 +100,8 @@ export async function GET(request, { params }) {
   // two people open it at once. Never a reason for the list to fail.
   if (job.quoteId) {
     try {
-      await fileAcceptanceDocuments({
+      // Not for a read-only support session: the backfill files rows.
+      if (member.impersonationMode !== "read_only") await fileAcceptanceDocuments({
         quoteId: job.quoteId,
         jobId: job.id,
         source: AUTOFILE_SOURCES.backfill,

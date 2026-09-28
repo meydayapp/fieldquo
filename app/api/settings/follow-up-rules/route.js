@@ -19,7 +19,8 @@ export async function GET(request) {
   // every load and a write only once per company. Best-effort: a seeding
   // failure must not take the page down.
   try {
-    await ensureDefaultFollowUps(db, member.companyId);
+    // Not for a read-only support session: seeding writes rows.
+    if (member.impersonationMode !== "read_only") await ensureDefaultFollowUps(db, member.companyId);
   } catch (err) {
     console.error("[follow-up-rules] default seeding failed:", err?.message);
   }

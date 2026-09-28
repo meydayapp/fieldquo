@@ -13,7 +13,8 @@ export async function GET(request) {
   const { member, worker, response } = await hrSelfOrRefusal(request);
   if (response) return response;
 
-  await reconcileRunsForWorker(db, { companyId: member.companyId, workerId: worker.id, actorUserId: member.userId });
+  // Not for a read-only support session: reconciling writes, as the owner.
+  if (member.impersonationMode !== "read_only") await reconcileRunsForWorker(db, { companyId: member.companyId, workerId: worker.id, actorUserId: member.userId });
   const run = await db.onboardingRun.findFirst({
     where: { companyId: member.companyId, workerId: worker.id },
     select: RUN_SELECT,

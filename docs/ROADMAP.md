@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 28 September 2026 ("View as company": an active superadmin's read-only session reads as the company's real OWNER membership — quotes, client contact details, equipment, invoices, payroll, insights all load; writes still refused by method in middleware + assertReadOnly, plus the OAuth/Stripe-return GETs now listed in lib/platform/impersonationToken.js; the GETs that write on read skip for the session; `npm run check:impersonation`)
 Last updated: 28 September 2026 (the platform "Cancel the subscription" panel works for every company: a card-free trial can be ended at the trial's end, now, or locked for a terms breach — three additive Company columns the owner must add first — with checkout/Resume refusing a company FieldQuo ended, no trial letters to it, and /platform counting it locked/cancelled — see "The platform cancel / lock panel works for every company")
 Last updated: 25 September 2026 (FieldQuo's own language no longer follows the last page you visited: the permanent origin-wide localStorage key is gone (removed on load), a signed-in account's language wins on public pages too (GET /api/me/language, only for a browser that has signed in), the header switcher lasts one tab session, booking pages / prefills / email-link landings set their page only — see "FieldQuo's language follows the person, not the last page")
 Last updated: 25 September 2026 (/platform/analytics: the signup funnel is the card-free flow counted "reached this step or later" — monotone, trial started tied to a finished company — and the laptop leak that put "Account & company 581" over "Visited 565" is closed; FieldQuo's own Meta campaigns as campaign ▸ ad set ▸ ad with signups / trials / paying, "+"/%20 merged, id-only campaigns labelled, Instagram read from site_source_name; the Ads Manager URL-parameters string with a how-to — see "/platform/analytics: an honest signup funnel, and FieldQuo's own Meta campaigns" below)
@@ -61,6 +62,68 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## "View as company" reads everything, as the owner, and still writes nothing (28 September 2026)
+
+The owner, auditing a customer: "Hidden by your access level" on a client's
+contact details, 403 on the quotes list and on Equipment & warranties. Cause:
+`getImpersonatedMember`'s read-only branch resolved to `{ id: null, role:
+"viewer" }`, and `loadEnforceableMember(db, null)` returns null, so every grid
+gate refused. It was the auditor's session, never the company's restriction.
+
+### What shipped (narrow; an earlier 253-file attempt was rejected)
+
+- `lib/currentMember.js`: for an ACTIVE superadmin (re-read from
+  `PlatformAdmin` every request) the session borrows the company's earliest
+  active `role: "owner"` Member row — id, userId, role — with
+  `impersonation: true, impersonationMode: "read_only"` intact. Every existing
+  `loadEnforceableMember(db, member.id)` answers with owner-level reads,
+  unchanged. Admin/support/deactivated superadmin, or a company with no active
+  owner, keep the old stub.
+- Writes: unchanged mechanism — middleware and `assertReadOnly` refuse by the
+  token's mode and the method, never by id/role. Added to both: the GETs that
+  act rather than read (Google Calendar / Business Profile, Facebook page,
+  WhatsApp, Meta ads OAuth connect/callback, Stripe onboarding refresh, voice
+  top-up returns) — `isWriteShapedGet` in `lib/platform/impersonationToken.js`.
+  They used to be refused only by role checks the "viewer" stub failed.
+- Nothing attributed to the owner: `recordActivity` returns for the read-only
+  session; `/api/calendar/feed` neither mints nor reveals the owner's feed
+  token; `/api/leave` never creates the owner a Worker; HR onboarding reconcile
+  (`actorUserId` = owner) skipped.
+- The GETs that write on read skip the write and still answer: ai-employee
+  sources, stripe/connect/status, settings/subscription `?live=1`,
+  subscription/retention, settings/voice heal, settings/ai/bundle
+  `?session_id=`, follow-up-rules and quote-text-blocks seeding, HR templates,
+  invoice lifecycle ledger refresh, job photo/document backfill, instant-visit
+  linking on a quote.
+
+### Checks
+
+`npm run check:impersonation` (in check:all): 164 assertions — resolver,
+grid, middleware over every non-GET handler, assertReadOnly, every tenant
+write handler direct, every GET (auditor vs owner: 0 refusals, 0 writes), a
+24-endpoint persona matrix, and 17 side-effect GETs driven down their write
+path (owner writes, auditor writes nothing). 91 fail on the old tree; real
+members' 1,248 response hashes identical (9 cells nondeterministic run to run).
+
+### Owed / owner decisions
+
+- **Owner decision:** "my" endpoints (`/api/availability`, `/api/me/earnings`
+  and `/api/me/home`, `/api/notifications`, `/api/leave`) now show the OWNER's
+  personal data to the auditor. Acceptable for a superadmin audit? Nothing
+  extra built (the calendar feed token is the one exception — a bearer link).
+- Pre-existing heal-on-read writes still reachable by ANY support session
+  (they ran for the old stub too; not widened here): gallery merge
+  (`ensureGalleryMerged` via settings/gallery, presentation, quote-email,
+  website, setup-steps, quote email-sections/presentation), company geocode
+  (schedule/map, business-info), `/api/shift-requests` expiring stale requests
+  and notifying, voice readiness / number-repair heal, onboarding-status
+  completion stamp, Business Profile locations sync stamp. Fix centrally in a
+  follow-up. One is newly reachable: `/api/calendar/google/busy` now reads
+  every member's connection (owner = team-wide) and stamps `lastError` on a
+  connection when Google refuses its token — an error stamp, no data change.
+- `/api/migrations/[id]/documents` GET still refuses support (its loader is
+  shared with the upload POST) — pre-existing.
 
 ## The platform cancel / lock panel works for every company, not only a Stripe-subscribed one (28 September 2026)
 

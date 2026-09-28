@@ -245,7 +245,8 @@ export async function GET(request) {
   // no provider call. Writes in one direction and never touches `enabled` — see
   // lib/voice/diagnose.js. Best-effort: a provider we cannot reach leaves the
   // row alone and the old message stands, which is the safe way to be wrong.
-  if (number && number.status !== "active" && number.status !== "porting") {
+  // Not for a read-only support session: the heal writes the number's row.
+  if (number && number.status !== "active" && number.status !== "porting" && member.impersonationMode !== "read_only") {
     try {
       const healed = await diagnoseAndHeal(member.companyId);
       if (healed.status === "active") number.status = "active";

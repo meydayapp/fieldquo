@@ -60,6 +60,7 @@ import {
   IMPERSONATION_COOKIE,
   verifyImpersonationToken,
   isReadOnlyMethod,
+  isWriteShapedGet,
   allowsWrites,
 } from "@/lib/platform/impersonationToken";
 import { subdomainFromHost } from "@/lib/site/subdomain";
@@ -298,7 +299,13 @@ export async function middleware(request) {
       // when the token was minted and is signed into it — a forged or
       // hand-edited cookie fails jwtVerify before it reaches here, and a token
       // for a real company can never carry this mode.
-      if (!allowsWrites(claims.mode) && !isReadOnlyMethod(request.method)) {
+      // Plus the GETs that act rather than read (an OAuth callback saving a
+      // connection into the company) — the list lives beside the verifier, and
+      // assertReadOnly in lib/currentMember.js consults the same one.
+      if (
+        !allowsWrites(claims.mode) &&
+        (!isReadOnlyMethod(request.method) || isWriteShapedGet(pathname))
+      ) {
         return NextResponse.json(
           {
             error:

@@ -63,7 +63,7 @@ async function requireOwner(request) {
  * it says canceled the row is healed from it and the answer is "cancelled",
  * with no offers, rather than a 502 hiding a known state.
  */
-async function seatUsage(companyId) {
+async function seatUsage(companyId, readOnly = false) {
   const [sub, activeMembers] = await Promise.all([
     db.subscription.findUnique({
       where: { companyId },
@@ -103,7 +103,8 @@ async function seatUsage(companyId) {
   if (live) {
     // Self-healing: the row learns what Stripe holds, in the same request —
     // whichever way it had drifted. Only a write when something differs.
-    const { after } = await writeSubscriptionFromStripe(companyId, live, { row: sub });
+    // Not for a read-only support session, which reports the stored row.
+    const { after } = readOnly ? { after: sub } : await writeSubscriptionFromStripe(companyId, live, { row: sub });
     if (live.status === "canceled") canceled = { canceledAt: after?.canceledAt || null };
   } else if (sub?.status === "canceled") {
     canceled = { canceledAt: sub.canceledAt || null };
@@ -126,7 +127,7 @@ export async function GET(request) {
   if (error) return NextResponse.json({ error }, { status });
 
   const reason = new URL(request.url).searchParams.get("reason") || null;
-  const { sub, seats, activeMembers, perSeat, canceled } = await seatUsage(member.companyId);
+  const { sub, seats, activeMembers, perSeat, canceled } = await seatUsage(member.companyId, member.impersonationMode === "read_only");
   if (canceled) return canceledResponse(canceled);
 
   return NextResponse.json({

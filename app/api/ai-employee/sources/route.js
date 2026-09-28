@@ -84,10 +84,11 @@ export async function GET(request) {
   const { member, response } = await admin(request, { allowSupportToLook: true });
   if (response) return response;
 
-  const employee = await employeeFor(member.companyId);
+  // Not for a read-only support session: looking must not create the row.
+  if (member.impersonationMode !== "read_only") await employeeFor(member.companyId);
   const rows = await db.aiEmployeeSource.findMany({
-    // Company-wide — see employeeFor. `employee` is still resolved above so a
-    // first read creates the default row the POST will file under.
+    // Company-wide — see employeeFor. It still runs above so a first read
+    // creates the default row the POST will file under.
     where: { companyId: member.companyId },
     orderBy: { createdAt: "desc" },
   });

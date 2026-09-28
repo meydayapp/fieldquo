@@ -35,7 +35,8 @@ export async function GET(request) {
   const { full, response: denied } = await levelOrRefusal(member, "quotes", "view_only", "see the quote library");
   if (denied) return denied;
 
-  await seedTextBlocksIfEmpty(db, member.companyId);
+  // Not for a read-only support session: seeding writes rows.
+  if (member.impersonationMode !== "read_only") await seedTextBlocksIfEmpty(db, member.companyId);
 
   const rows = await db.quoteTextBlock.findMany({
     where: { companyId: member.companyId },

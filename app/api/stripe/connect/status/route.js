@@ -117,6 +117,10 @@ export async function GET(request) {
     );
   }
 
+  // A read-only support session reads Stripe's answer and repairs nothing:
+  // no capability request, no write-back, no sales milestone — each would be
+  // FieldQuo changing the company while looking at it (non-negotiable #3).
+  const readOnly = member.impersonationMode === "read_only";
   try {
     const account = await stripe.accounts.retrieve(company.stripeAccountId);
     const summary = summariseConnectAccount(account);
@@ -134,7 +138,7 @@ export async function GET(request) {
     // the toggle sees the capability's real status on this very poll, not
     // on the next one.
     const synced =
-      (await ensureChargeCapabilities(account, { company }).catch((err) => {
+      (await (readOnly ? Promise.resolve(false) : ensureChargeCapabilities(account, { company })).catch((err) => {
         console.error("[stripe/connect/status] capability request failed:", err?.message);
         return false;
       })) || account;
@@ -165,10 +169,11 @@ export async function GET(request) {
     // company view — sees the same truth without each having to call Stripe.
     const bankDebitEnabled = Boolean(bankDebitMethodFor(synced));
     if (
-      summary.chargesEnabled !== company.stripeChargesEnabled ||
-      summary.detailsSubmitted !== company.stripeOnboarded ||
-      bankDebitEnabled !== company.stripeBankDebitEnabled ||
-      affirmStatus !== company.stripeAffirmStatus
+      !readOnly &&
+      (summary.chargesEnabled !== company.stripeChargesEnabled ||
+        summary.detailsSubmitted !== company.stripeOnboarded ||
+        bankDebitEnabled !== company.stripeBankDebitEnabled ||
+        affirmStatus !== company.stripeAffirmStatus)
     ) {
       await db.company.update({
         where: { id: company.id },
@@ -204,7 +209,7 @@ export async function GET(request) {
     // settings page that 500s is a company that cannot tell whether it can
     // take payments.
     if (summary.chargesEnabled) {
-      await recordActivation({ companyId: company.id }).catch((err) => {
+      if (!readOnly) await recordActivation({ companyId: company.id }).catch((err) => {
         console.error("[sales] activation milestone failed:", err?.message);
       });
     }

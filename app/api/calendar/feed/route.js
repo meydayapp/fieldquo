@@ -29,6 +29,11 @@ function answer(request, token) {
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+  // A read-only support session is the OWNER's membership borrowed: minting
+  // would write a token onto the owner, and reading one would hand FieldQuo a
+  // bearer link to their calendar that outlives the session. The panel shows
+  // its "couldn't load" state instead.
+  if (member.impersonationMode === "read_only") return NextResponse.json({ token: null, urls: null });
 
   const row = await db.member.findUnique({
     where: { id: member.id },
