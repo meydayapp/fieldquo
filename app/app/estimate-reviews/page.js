@@ -14,6 +14,7 @@ import { fetchJson } from "@/lib/fetchJson";
 import { showError } from "@/lib/clientErrors";
 import { jsonBody } from "@/lib/jsonBody";
 import { DeepReadMismatch } from "@/app/components/ai/DeepReadFindings";
+import { approvedEstimateMoney } from "@/lib/estimate/approveEstimate";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
 import {
@@ -185,7 +186,7 @@ export default function EstimateReviewsPage() {
 }
 
 function ReviewCard({ q, canApprove, busy, onApprove, onAssignToMe, currentUserId, tradeNames }) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   // The company's own currency. This page formatted every figure as
   // `"$" + Math.round(...)`, so a GBP contractor read dollars on the screen
   // where they sign a price off — and the literal "$" concatenation is
@@ -226,6 +227,21 @@ function ReviewCard({ q, canApprove, busy, onApprove, onAssignToMe, currentUserI
   const typed = Number(total);
   const adjusted =
     Number.isFinite(typed) && typed !== Number(q.total) ? typed : null;
+
+  // ── What the figure in the box is ──────────────────────────────────────
+  //
+  // The box opens on the quote's TOTAL, tax included, so that is what a
+  // number typed into it means — and the route now splits an adjusted one
+  // back into subtotal + tax at the document's own rate instead of writing
+  // it into both columns. Said under the box, from the same pure function
+  // the route runs, so the split on screen is the split that is written.
+  // Absent when the money is withheld (no subtotal or rate arrived).
+  const split =
+    q.subtotal != null && q.taxRate != null && typed > 0
+      ? adjusted != null
+        ? approvedEstimateMoney(q, adjusted)
+        : { taxableBase: Number(q.subtotal) - Number(q.discount || 0), tax: Number(q.tax) || 0, adjustment: 0 }
+      : null;
 
   return (
     <div className="rounded-xl border border-border bg-card p-5">
@@ -308,18 +324,19 @@ function ReviewCard({ q, canApprove, busy, onApprove, onAssignToMe, currentUserI
               </strong>
             ) : null}
           </div>
-          {/* The price-book KEY, tidied. Every other consumer of materialKey
-              looks it up in the company's configured materials to get a label
-              (lib/estimate/instantEstimate.js), and this route does not send
-              that list — so the reviewer was reading `architectural_shingle`.
-              Underscores out is not the real fix; the real fix is the route
-              sending the label, and that is a payload change flagged in the
-              report rather than made silently here. */}
+          {/* The option by the name the homeowner picked it by. The route
+              now sends it (loadMaterialLabels: the company's own option
+              label, with its drafted translations), so the reviewer reads
+              "Architectural shingles" in their own language rather than the
+              price-book key `asphalt_arch`. The tidied key stays only as the
+              fallback for an option nobody can name any more. */}
           {d.materialKey && (
             <div>
               {t("app.reviews.material")}
               <strong className="text-foreground">
-                {String(d.materialKey).replace(/_/g, " ")}
+                {q.materialLabel
+                  ? q.materialLabel.translations?.[language] || q.materialLabel.label
+                  : String(d.materialKey).replace(/_/g, " ")}
               </strong>
             </div>
           )}
@@ -440,6 +457,24 @@ function ReviewCard({ q, canApprove, busy, onApprove, onAssignToMe, currentUserI
           {busy ? <Loader2 size={15} className="animate-spin" /> : <BadgeCheck size={15} />}
           {t("app.reviews.approve", "Approve")}
         </button>
+        {split && (
+          <p className="basis-full text-xs text-muted-foreground">
+            {split.tax > 0
+              ? t("app.reviews.approveAtTaxIncluded", {
+                  subtotal: money(split.taxableBase),
+                  tax: money(split.tax),
+                })
+              : t("app.reviews.approveAtNoTax")}
+            {split.adjustment !== 0 && (
+              <>
+                {" "}
+                {t("app.reviews.approveAdjustmentLine", {
+                  amount: money(split.adjustment),
+                })}
+              </>
+            )}
+          </p>
+        )}
           </>
         )}
         <Link

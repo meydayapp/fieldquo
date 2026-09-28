@@ -286,7 +286,7 @@
     "check:quote-costing": "node --import ./scripts/alias-loader.mjs scripts/check-quote-costing.mjs",
     "check:quote-price-check": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-quote-price-check.mjs",
     "check:quote-totals": "node --import ./scripts/alias-loader.mjs scripts/check-quote-totals.mjs",
-    "check:approval-screens": "node --import ./scripts/alias-loader.mjs scripts/check-approval-screens.mjs",
+    "check:approval-screens": "node --import ./scripts/alias-loader.mjs --import ./scripts/route-stub-loader.mjs scripts/check-approval-screens.mjs",
     "check:quote-approval": "node --import ./scripts/alias-loader.mjs scripts/check-quote-approval.mjs",
     "check:quote-preview": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs --import ./scripts/member-stub-loader.mjs scripts/check-quote-preview.mjs",
     "check:quote-decision": "node --import ./scripts/alias-loader.mjs scripts/check-quote-decision.mjs",
