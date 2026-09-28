@@ -20,22 +20,43 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, Inbox, RefreshCw, Search } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Circle, ExternalLink, Inbox, RefreshCw, Search } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { fetchJson } from "@/lib/fetchJson";
+import { articleMeta } from "@/lib/help/tree";
+import { helpPath } from "@/lib/help/urls";
+import { isHelpChromeLang } from "@/lib/help/chrome";
 
 // The refusal codes app/api/meta/leads/forms/refresh answers with, each turned
 // into a sentence here rather than showing the route's English `error`.
 const RECONNECT_CODES = new Set(["auth_error", "token_unreadable"]);
 
+// Meta's own pages the checklist sends people to. Meta's addresses, not ours:
+// Leads Access Manager's CRM tab (Meta Help Centre, business/help/540596413257598)
+// and the Lead Ads Testing Tool, which submits a real test lead to a form.
+const LEADS_ACCESS_URL = "https://business.facebook.com/settings/leads-accesses";
+const LEAD_ADS_TESTING_URL = "https://developers.facebook.com/tools/lead-ads-testing";
+
+// The help-centre article the checklist's "Step-by-step guide" opens. Resolved
+// through lib/help/tree.js rather than a written-out path, so the link follows
+// the article if it ever changes category — and is simply not drawn if the
+// slug stops existing, instead of pointing at a 404.
+const GUIDE_SLUG = "get-facebook-and-instagram-lead-ads-into-fieldquo";
+
 export default function MetaLeadFormsPanel() {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [busyFormId, setBusyFormId] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [refreshNote, setRefreshNote] = useState("");
+  // Whether the LAST "Find my lead forms" came back with Meta's Leads Access
+  // Manager refusal. Only then does the checklist grow its Leads access step:
+  // most businesses never customise Lead Access Manager, and a step telling
+  // every contractor to go and assign a CRM in Meta would send the majority
+  // on an errand that changes nothing.
+  const [leadsAccessRefused, setLeadsAccessRefused] = useState(false);
 
   const load = useCallback(async () => {
     setError("");
@@ -78,6 +99,7 @@ export default function MetaLeadFormsPanel() {
     setRefreshNote("");
     try {
       const res = await fetchJson("/api/meta/leads/forms/refresh", { method: "POST" });
+      setLeadsAccessRefused(false);
       // Always names the Page it looked at: "found 0" on its own could not
       // tell a contractor whether the Page has no forms or FieldQuo looked
       // somewhere else — which is exactly what it once did.
@@ -89,6 +111,7 @@ export default function MetaLeadFormsPanel() {
       );
       await load();
     } catch (err) {
+      setLeadsAccessRefused((err?.code || err?.data?.code || null) === "leads_access");
       setError(refreshErrorText(err));
     } finally {
       setRefreshing(false);
@@ -171,6 +194,96 @@ export default function MetaLeadFormsPanel() {
     "Facebook lead forms need Meta's approval of one more permission; nothing is being received yet.",
   );
 
+  // ── The checklist ────────────────────────────────────────────────────────
+  //
+  // Every tick is computed from what GET /api/meta/leads/forms (and the last
+  // refresh) already answered — nothing is stored, so a tick cannot go stale
+  // or be set by hand. Each unticked step names the button ON THIS SCREEN
+  // that does it, using the same keys those buttons render, so the sentence
+  // and the button cannot disagree in any language.
+  //
+  // Drawn only while lead forms can actually work (scopeReady). Before Meta
+  // approves the permission, "Find my lead forms" and every switch are
+  // disabled, and a checklist saying "press Find my lead forms" would be an
+  // instruction to press a dead button; the amber banner already says why
+  // nothing is arriving.
+  //
+  // The Page step: `missing: null` means Meta's granted list could not be
+  // read at connect time. That is not "nothing is missing" (AGENTS.md failure
+  // class 5), so it is not ticked on its own — but forms listed through that
+  // very connection prove it can read, so found forms tick it.
+  const findFormsLabel = t("app.setMetaLeads.findForms", "Find my lead forms");
+  const forms = data?.forms || [];
+  const missing = connected ? leadsPage.missing : undefined;
+  const pageReady =
+    connected && ((Array.isArray(missing) && missing.length === 0) || (missing === null && forms.length > 0));
+  const checklist = [
+    {
+      key: "page",
+      label: t("app.setMetaLeads.checklist.page", "Facebook Page connected, with the lead permissions"),
+      done: pageReady,
+      todo: !connected
+        ? t("app.setMetaLeads.checklist.pageTodo", "Connect your Facebook Page in {section} below.", { section: pageSection })
+        : Array.isArray(missing) && missing.length > 0
+          ? t("app.setMetaLeads.checklist.pageMissing", 'Press "{button}" in {section} and allow every permission Meta asks for.', { button: reconnectButton, section: pageSection })
+          : t("app.setMetaLeads.checklist.pageUnknown", 'Meta didn\'t say which permissions it granted. Press "{button}" below — Meta\'s answer says if one is missing.', { button: findFormsLabel }),
+    },
+    // Meta's refusal, and only after Meta has actually refused (see
+    // leadsAccessRefused). Never ticked: once a refresh gets through, the
+    // step is simply no longer there.
+    ...(leadsAccessRefused
+      ? [
+          {
+            key: "leadsAccess",
+            label: t("app.setMetaLeads.checklist.leadsAccess", "FieldQuo assigned in Meta's Leads access"),
+            done: false,
+            todo: leadsAccessSteps(leadsPageLabel),
+            link: {
+              href: LEADS_ACCESS_URL,
+              text: t("app.setMetaLeads.checklist.leadsAccessLink", "Open Leads access in Meta"),
+            },
+          },
+        ]
+      : []),
+    {
+      key: "forms",
+      label: t("app.setMetaLeads.checklist.forms", "Lead forms found"),
+      done: forms.length > 0,
+      todo: t(
+        "app.setMetaLeads.checklist.formsTodo",
+        'Press "{button}" below. If Meta finds none, this Page has no lead form yet: create one for your ad in Meta, then press it again.',
+        { button: findFormsLabel },
+      ),
+    },
+    {
+      key: "formOn",
+      label: t("app.setMetaLeads.checklist.formOn", "At least one form switched on"),
+      done: forms.some((f) => f.active),
+      todo: t(
+        "app.setMetaLeads.checklist.formOnTodo",
+        'Set the switch beside each form whose submissions should become leads to "{on}".',
+        { on: t("app.setMetaLeads.on", "On") },
+      ),
+    },
+    {
+      key: "firstLead",
+      label: t("app.setMetaLeads.checklist.firstLead", "First lead received"),
+      done: Boolean(data?.lastLeadAt),
+      todo: t(
+        "app.setMetaLeads.checklist.firstLeadTodo",
+        "Send a test lead to a form that is switched on with Meta's Lead Ads Testing Tool, or wait for a real one. FieldQuo also re-reads every switched-on form once an hour, so a lead Meta's instant notice missed still arrives.",
+      ),
+      link: {
+        href: LEAD_ADS_TESTING_URL,
+        text: t("app.setMetaLeads.checklist.testToolLink", "Open Meta's Lead Ads Testing Tool"),
+      },
+    },
+  ];
+  const guide = articleMeta(GUIDE_SLUG);
+  const guideHref = guide
+    ? helpPath(isHelpChromeLang(language) ? language : "en", guide.category, guide.slug)
+    : null;
+
   return (
     <div className="bg-card border border-border rounded-xl p-5 space-y-4">
       <div className="flex items-start gap-2">
@@ -187,6 +300,69 @@ export default function MetaLeadFormsPanel() {
           </p>
         </div>
       </div>
+
+      {/* The self-ticking checklist — see its computation above. */}
+      {data && scopeReady && (
+        <div className="border border-border rounded-lg px-3 py-2.5 space-y-2" data-lead-forms-checklist>
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <h3 className="text-sm font-semibold text-foreground">
+              {t("app.setMetaLeads.checklist.title", "Getting your lead ads into FieldQuo")}
+            </h3>
+            {guideHref && (
+              <a
+                href={guideHref}
+                target="_blank"
+                rel="noopener"
+                className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+              >
+                {t("app.setMetaLeads.checklist.guide", "Step-by-step guide")}
+                <ExternalLink size={12} aria-hidden="true" />
+              </a>
+            )}
+          </div>
+          <ol className="space-y-1.5">
+            {checklist.map((step) => (
+              <li key={step.key} className="flex items-start gap-2 text-sm">
+                {step.done ? (
+                  <CheckCircle2 size={16} className="shrink-0 mt-0.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                ) : (
+                  <Circle size={16} className="shrink-0 mt-0.5 text-muted-foreground" aria-hidden="true" />
+                )}
+                <div className="min-w-0">
+                  <span className="sr-only">
+                    {step.done
+                      ? t("app.setMetaLeads.checklist.done", "Done")
+                      : t("app.setMetaLeads.checklist.todo", "To do")}
+                    {": "}
+                  </span>
+                  <span className={step.done ? "text-muted-foreground" : "text-foreground font-medium"}>
+                    {step.label}
+                  </span>
+                  {!step.done && (
+                    <p className="text-xs text-muted-foreground mt-0.5 break-words">
+                      {step.todo}
+                      {step.link && (
+                        <>
+                          {" "}
+                          <a
+                            href={step.link.href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 font-medium text-foreground underline underline-offset-2"
+                          >
+                            {step.link.text}
+                            <ExternalLink size={11} aria-hidden="true" />
+                          </a>
+                        </>
+                      )}
+                    </p>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
 
       {/* What happens to a lead — asked for in plain words, because the
           question a contractor actually has is "and then what?" */}
