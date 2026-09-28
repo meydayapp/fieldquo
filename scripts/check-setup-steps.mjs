@@ -484,7 +484,7 @@ console.log("\n5. The routes: gated, tenant-scoped, additive\n");
   const get = stripComments(source("app/api/setup-steps/route.js"));
   ok("GET goes through memberOrRefusal", /const \{ member, response \} = await memberOrRefusal\(request\);\s*if \(response\) return response;/.test(get));
   ok("GET requires user:manage (impersonation may look)", /requirePermission\(member\.role, "user:manage"\)/.test(get) && /if \(!member\.impersonation\)/.test(get));
-  ok("GET reads the caller's company only", /loadSetupSnapshot\(member\.companyId\)/.test(get) && !/companyId\s*=\s*body|searchParams\.get\("companyId"\)/.test(get));
+  ok("GET reads the caller's company only", /loadSetupSnapshot\(member\.companyId[,)]/.test(get) && !/companyId\s*=\s*body|searchParams\.get\("companyId"\)/.test(get));
 
   const post = stripComments(source("app/api/setup-steps/dismiss/route.js"));
   ok("POST goes through memberOrRefusal", /const \{ member, response \} = await memberOrRefusal\(request\);\s*if \(response\) return response;/.test(post));

@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 28 September 2026 ("View as company" follow-up: the heal-on-read writes that live in the route itself now skip for the read-only session — company / appointment geocode on schedule/map and business-info, the voice number-repair GET heal, the Business Profile locations stamps; and, through a `readOnly` flag the shared libs now take, shift-request expiry + crew notifications, the onboarding stamp, the gallery merge on seven reads, the voice readiness heal and the Google busy stamps — four source-text check assertions still owed; see "View as company" reads everything)
+Last updated: 28 September 2026 ("View as company" follow-up: the heal-on-read writes that live in the route itself now skip for the read-only session — company / appointment geocode on schedule/map and business-info, the voice number-repair GET heal, the Business Profile locations stamps; and, through a `readOnly` flag the shared libs now take, shift-request expiry + crew notifications, the onboarding stamp, the gallery merge on seven reads, the voice readiness heal and the Google busy stamps; see "View as company" reads everything)
 Last updated: 28 September 2026 ("View as company": an active superadmin's read-only session reads as the company's real OWNER membership — quotes, client contact details, equipment, invoices, payroll, insights all load; writes still refused by method in middleware + assertReadOnly, plus the OAuth/Stripe-return GETs now listed in lib/platform/impersonationToken.js; the GETs that write on read skip for the session; `npm run check:impersonation`)
 Last updated: 28 September 2026 (the platform "Cancel the subscription" panel works for every company: a card-free trial can be ended at the trial's end, now, or locked for a terms breach — three additive Company columns the owner must add first — with checkout/Resume refusing a company FieldQuo ended, no trial letters to it, and /platform counting it locked/cancelled — see "The platform cancel / lock panel works for every company")
 Last updated: 25 September 2026 (FieldQuo's own language no longer follows the last page you visited: the permanent origin-wide localStorage key is gone (removed on load), a signed-in account's language wins on public pages too (GET /api/me/language, only for a browser that has signed in), the header switcher lasts one tab session, booking pages / prefills / email-link landings set their page only — see "FieldQuo's language follows the person, not the last page")
@@ -141,16 +141,16 @@ members' 1,248 response hashes identical (9 cells nondeterministic run to run).
     `lib/calendar/googleBusy.js`). 13 more section-7 assertions (incl. "the
     owner's request notifies, the auditor's notifies nobody"), all failing
     against the libs before the skips.
-  - **Owed:** four source-text assertions pinned the old call spellings and
-    now fail — `check:onboarding-solo` ("…and the snapshot reads those
-    rows": `loadCompanyGallery\(companyId\)`), `check:setup-steps` ("GET
-    reads the caller's company only": `loadSetupSnapshot\(member\.companyId\)`)
-    and `check:client-proposal` (the website route and setupStepsSnapshot
-    lines of "reads/writes the one gallery"). Each needs its `\)` widened to
-    `[,)]`; those scripts were outside the approved scope.
-  - Not covered: other GETs that reach `googleBusyRanges` without the flag
-    (`lib/schedule/entryNeighbours.js`, `lib/booking/computeAvailability.js`)
-    can still stamp a connection's `lastError` for the session.
+  - Four source-text assertions that pinned the old call spellings
+    (`check:onboarding-solo`, `check:setup-steps`, two in
+    `check:client-proposal`) now accept a trailing option — `\)` widened to
+    `[,)]`, the first argument still pinned.
+  - The other two `googleBusyRanges` callers need no flag:
+    `lib/schedule/entryNeighbours.js` is reached only from the PATCH handlers
+    of `appointments/[id]` and `jobs/[id]/visits/[visitId]`, which middleware
+    and `assertReadOnly` refuse for the session; `lib/booking/computeAvailability.js`
+    serves the public booking / reschedule pages and the voice + AI-employee
+    tools (POST), never an impersonated `/app` GET.
 - `/api/migrations/[id]/documents` GET still refuses support (its loader is
   shared with the upload POST) — pre-existing.
 

@@ -245,12 +245,12 @@ section("7. One gallery");
   const readers = {
     "app/site/[subdomain]/page.js": /loadCompanyGallery\(site\.companyId\)/,
     "app/api/settings/website/photos/route.js": /replaceCompanyGallery\(member\.companyId, pairs/,
-    "app/api/settings/website/route.js": /loadCompanyGallery\(member\.companyId\)/,
+    "app/api/settings/website/route.js": /loadCompanyGallery\(member\.companyId[,)]/,
     "app/api/settings/quote-email/route.js": /replaceCompanyGallery\(member\.companyId/,
     "app/api/quotes/[id]/send/route.js": /withCompanyGallery\(/,
     "app/api/quotes/[id]/email-sections/route.js": /withCompanyGallery\(/,
     "lib/proposal/load.js": /loadCompanyGallery\(companyId/,
-    "lib/setupStepsSnapshot.js": /loadCompanyGallery\(companyId\)/,
+    "lib/setupStepsSnapshot.js": /loadCompanyGallery\(companyId[,)]/,
   };
   for (const [f, re] of Object.entries(readers)) ok(`${f} reads/writes the one gallery`, re.test(strip(read(f))));
   const gallery = strip(read("lib/company/gallery.js"));
