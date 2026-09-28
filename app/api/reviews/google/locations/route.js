@@ -33,14 +33,15 @@ export async function GET(request) {
   }
   if (!token?.ok) {
     const { kind, message } = quotaMessage(token);
-    await recordBusinessSyncOutcome(member.companyId, { error: message });
+    // Not for a read-only support session (here and below): the stamp writes the connection row.
+    if (member.impersonationMode !== "read_only") await recordBusinessSyncOutcome(member.companyId, { error: message });
     return NextResponse.json({ error: message, kind }, { status: 502 });
   }
 
   const accounts = await google.listAccounts({ accessToken: token.accessToken });
   if (!accounts.ok) {
     const { kind, message } = quotaMessage(accounts);
-    await recordBusinessSyncOutcome(member.companyId, { error: message });
+    if (member.impersonationMode !== "read_only") await recordBusinessSyncOutcome(member.companyId, { error: message });
     return NextResponse.json({ error: message, kind }, { status: 502 });
   }
 
@@ -51,7 +52,7 @@ export async function GET(request) {
       const page = await google.listLocations({ accessToken: token.accessToken, accountName: account.name, pageToken });
       if (!page.ok) {
         const { kind, message } = quotaMessage(page);
-        await recordBusinessSyncOutcome(member.companyId, { error: message });
+        if (member.impersonationMode !== "read_only") await recordBusinessSyncOutcome(member.companyId, { error: message });
         return NextResponse.json({ error: message, kind }, { status: 502 });
       }
       for (const loc of Array.isArray(page.data?.locations) ? page.data.locations : []) {
@@ -70,7 +71,7 @@ export async function GET(request) {
     } while (pageToken);
   }
 
-  await recordBusinessSyncOutcome(member.companyId, {});
+  if (member.impersonationMode !== "read_only") await recordBusinessSyncOutcome(member.companyId, {});
   return NextResponse.json({ locations: out });
 }
 

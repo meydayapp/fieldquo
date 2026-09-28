@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 28 September 2026 ("View as company" follow-up: the heal-on-read writes that live in the route itself now skip for the read-only session — company / appointment geocode on schedule/map and business-info, the voice number-repair GET heal, the Business Profile locations stamps; shift-request expiry, gallery merge, voice readiness, onboarding stamp and the Google busy stamp live in shared libs and are still owed — see "View as company" reads everything)
 Last updated: 28 September 2026 ("View as company": an active superadmin's read-only session reads as the company's real OWNER membership — quotes, client contact details, equipment, invoices, payroll, insights all load; writes still refused by method in middleware + assertReadOnly, plus the OAuth/Stripe-return GETs now listed in lib/platform/impersonationToken.js; the GETs that write on read skip for the session; `npm run check:impersonation`)
 Last updated: 28 September 2026 (the platform "Cancel the subscription" panel works for every company: a card-free trial can be ended at the trial's end, now, or locked for a terms breach — three additive Company columns the owner must add first — with checkout/Resume refusing a company FieldQuo ended, no trial letters to it, and /platform counting it locked/cancelled — see "The platform cancel / lock panel works for every company")
 Last updated: 25 September 2026 (FieldQuo's own language no longer follows the last page you visited: the permanent origin-wide localStorage key is gone (removed on load), a signed-in account's language wins on public pages too (GET /api/me/language, only for a browser that has signed in), the header switcher lasts one tab session, booking pages / prefills / email-link landings set their page only — see "FieldQuo's language follows the person, not the last page")
@@ -112,16 +113,32 @@ members' 1,248 response hashes identical (9 cells nondeterministic run to run).
   and `/api/me/home`, `/api/notifications`, `/api/leave`) now show the OWNER's
   personal data to the auditor. Acceptable for a superadmin audit? Nothing
   extra built (the calendar feed token is the one exception — a bearer link).
-- Pre-existing heal-on-read writes still reachable by ANY support session
-  (they ran for the old stub too; not widened here): gallery merge
-  (`ensureGalleryMerged` via settings/gallery, presentation, quote-email,
-  website, setup-steps, quote email-sections/presentation), company geocode
-  (schedule/map, business-info), `/api/shift-requests` expiring stale requests
-  and notifying, voice readiness / number-repair heal, onboarding-status
-  completion stamp, Business Profile locations sync stamp. Fix centrally in a
-  follow-up. One is newly reachable: `/api/calendar/google/busy` now reads
-  every member's connection (owner = team-wide) and stamps `lastError` on a
-  connection when Google refuses its token — an error stamp, no data change.
+- Pre-existing heal-on-read writes reachable by ANY support session (they ran
+  for the old stub too; not widened here).
+  - **Fixed (28 Sep, follow-up, branch `fix/impersonation-heal-guards`)** — the
+    write sits in the route, so the route skips it for
+    `impersonationMode === "read_only"` and still answers: company geocode
+    (`schedule/map` centre, `settings/business-info`), the day map's appointment
+    coordinate backfill, `settings/voice/number/repair` GET's status heal, and
+    all four `lastError`/`lastSyncAt` stamps in `reviews/google/locations` GET.
+    Section 7 of `npm run check:impersonation` drives each down its write path
+    (owner writes, auditor 0 writes, same read less the skipped write's own
+    fields); 11 of those assertions fail against the routes before the skips.
+  - **Still owed — the write is inside a shared lib, so a route-level skip
+    would also drop the read; needs a scope decision (lib change):**
+    `/api/shift-requests` (`listFor` → `expireStale` in
+    `lib/shiftRequests/store.js`: expires requests AND notifies staff — the
+    worst of the set); gallery merge (`ensureGalleryMerged` inside
+    `loadCompanyGallery` / `withCompanyGallery` in `lib/company/gallery.js`,
+    reached from settings/gallery, settings/website, settings/quote-email,
+    quote email-sections, and via `lib/proposal/load.js` /
+    `lib/setupStepsSnapshot.js` from both presentation routes and setup-steps);
+    voice readiness (`checkReadiness` → `diagnoseAndHeal` in
+    `lib/voice/readiness.js`); onboarding-status (`getOnboardingStatus` stamps
+    `onboardingCompletedAt` in `lib/onboarding.js`); and
+    `/api/calendar/google/busy` (`googleBusyRanges` → `recordSyncOutcome` in
+    `lib/calendar/googleBusy.js` stamps `lastError` on members' connections —
+    newly reachable, since the owner is team-wide).
 - `/api/migrations/[id]/documents` GET still refuses support (its loader is
   shared with the upload POST) — pre-existing.
 

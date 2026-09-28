@@ -44,6 +44,9 @@
 // this tree against another (real members' answers must not move).
 //
 // Run against the tree before the fix, 91 assertions fail.
+// The heal-on-read specs added to section 7 afterwards (schedule/map geocode,
+// business-info geocode, voice number repair heal, Business Profile location
+// stamps) fail 11 more against those routes before their skips.
 
 process.env.IMPERSONATION_JWT_SECRET ||= "test-secret-for-guard-only-not-a-real-key";
 // Nothing here may reach a real service. Unset so every "is it configured?"
@@ -507,6 +510,7 @@ async function outcome(handler, req) {
     status: res?.status ?? 0,
     error: body?.error,
     location: res?.headers?.get?.("location") || null,
+    body,
     writes: writes.slice(),
     out: outbound.slice(),
     hash: createHash("md5").update(text).digest("hex").slice(0, 10),
@@ -692,6 +696,26 @@ stripe.checkout.sessions.retrieve = stripeRead("checkout.sessions.retrieve", {
 const exportSwitch = await import("@/lib/export/companyDataExport");
 exportSwitch.companyDataExport.available = true;
 
+// Google answered in-process for the heal-on-read specs below: a rooftop
+// geocode, and the Business Profile token / accounts / locations reads.
+const json = (value, status = 200) => new Response(JSON.stringify(value), { status, headers: { "content-type": "application/json" } });
+const GEOCODE_HIT = () => json({ status: "OK", results: [{ formatted_address: "1 Main St, Toronto", geometry: { location: { lat: 43.65, lng: -79.38 }, location_type: "ROOFTOP" } }] });
+const tokenCrypto = await import("@/lib/meta/tokenCrypto");
+const GOOGLE_ENV = { GOOGLE_OAUTH_CLIENT_ID: "cid_check_only", GOOGLE_OAUTH_CLIENT_SECRET: "cs_check_only_not_real", META_TOKEN_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString("base64") };
+// `refuse` names the one call Google turns down, so each of the route's
+// four stamps (token, accounts, locations page, success) is reached alone.
+const googleBusinessResponder = ({ refuse = null } = {}) => (url) => {
+  const no = () => json({ error: { message: "Quota exceeded for quota metric" } }, 403);
+  if (url === "https://oauth2.googleapis.com/token") return refuse === "token" ? json({ error: "invalid_grant", error_description: "Token has been expired or revoked." }, 400) : json({ access_token: "at_check_only" });
+  if (/mybusinessaccountmanagement\.googleapis\.com\/v1\/accounts$/.test(url)) {
+    return refuse === "accounts" ? no() : json({ accounts: [{ name: "accounts/1", accountName: "Zlla Painting" }] });
+  }
+  if (/mybusinessbusinessinformation\.googleapis\.com\/v1\/accounts\/1\/locations/.test(url)) {
+    return refuse === "locations" ? no() : json({ locations: [{ name: "locations/9", title: "Zlla Painting", storefrontAddress: { addressLines: ["1 Main St"], locality: "Toronto", administrativeArea: "ON" } }] });
+  }
+  return null;
+};
+
 const SUB_ROW = { id: "sub-row", companyId: CO, status: "trialing", stripeSubscriptionId: "sub_1", stripeCustomerId: "cus_1", plan: { maxUsers: 10, seats: 10, crewSeats: null } };
 const SIDE_EFFECT_GETS = [
   { label: "GET /api/ai-employee/sources (creates the default AI employee)", file: "app/api/ai-employee/sources/route.js", path: "/api/ai-employee/sources", script() {}, auditorStillReads: true },
@@ -779,6 +803,72 @@ const SIDE_EFFECT_GETS = [
     env: { CLOUDINARY_CLOUD_NAME: "demo" },
     auditorStillReads: true,
   },
+  // ── Heal-on-read writes left over from the first pass (ROADMAP, 28 Sep) ──
+  //
+  // Each is the route's own write, skipped in the route. `sameRead` compares
+  // what the auditor was answered with what the owner was, less the fields
+  // the write itself produced — a skipped geocode answers the stored nulls,
+  // which is the truth about the row, not a different read.
+  {
+    label: "GET /api/schedule/map (geocodes the company's own address for the centre)", file: "app/api/schedule/map/route.js", path: "/api/schedule/map?day=2025-06-02",
+    script(r) { r["company.findUnique"] = () => ({ ...COMPANY, latitude: null, longitude: null }); },
+    env: { GOOGLE_MAPS_SERVER_KEY: "maps_check_only_not_real" },
+    fetch: (url) => (/maps\.googleapis\.com\/maps\/api\/geocode/.test(url) ? GEOCODE_HIT() : null),
+    auditorStillReads: true,
+    sameRead: (own, aud) => own.centre?.lat === 43.65 && aud.centre === null && aud.day === own.day && JSON.stringify(aud.entries) === JSON.stringify(own.entries),
+  },
+  {
+    label: "GET /api/schedule/map (backfills an appointment's coordinates)", file: "app/api/schedule/map/route.js", path: "/api/schedule/map?day=2025-06-02",
+    script(r) {
+      r["appointment.findMany"] = () => [{ id: "a1", companyId: CO, scheduledAt: new Date("2025-06-02T15:00:00Z"), status: "scheduled", location: "9 Elm St, Toronto", client: { ...CLIENT }, latitude: null, longitude: null, geocodedAt: null }];
+    },
+    env: { GOOGLE_MAPS_SERVER_KEY: "maps_check_only_not_real" },
+    fetch: (url) => (/maps\.googleapis\.com\/maps\/api\/geocode/.test(url) ? GEOCODE_HIT() : null),
+    auditorStillReads: true,
+    sameRead: (own, aud) => own.geocoded?.tried === 1 && aud.geocoded?.tried === 0 && aud.geocoded?.remaining === 1 &&
+      aud.entries?.length === 1 && aud.entries[0].id === "a1" && aud.entries[0].latitude === null && JSON.stringify(aud.centre) === JSON.stringify(own.centre),
+  },
+  {
+    label: "GET /api/settings/business-info (geocodes the company's address)", file: "app/api/settings/business-info/route.js", path: "/api/settings/business-info",
+    script(r) { r["company.findUnique"] = () => ({ ...COMPANY, latitude: null, longitude: null }); },
+    env: { GOOGLE_MAPS_SERVER_KEY: "maps_check_only_not_real" },
+    fetch: (url) => (/maps\.googleapis\.com\/maps\/api\/geocode/.test(url) ? GEOCODE_HIT() : null),
+    auditorStillReads: true,
+    sameRead: (own, aud) => {
+      const strip = ({ latitude, longitude, ...rest }) => JSON.stringify(rest);
+      return own.latitude === 43.65 && aud.latitude === null && aud.longitude === null && strip(aud) === strip(own);
+    },
+  },
+  {
+    label: "GET /api/settings/voice/number/repair (heals a stalled number status)", file: "app/api/settings/voice/number/repair/route.js", path: "/api/settings/voice/number/repair",
+    script(r) {
+      r["voicePhoneNumber.findFirst"] = () => ({ id: "n1", companyId: CO, e164: "+14165550123", status: "provisioning", source: "retell", numberType: "local", createdAt: new Date("2025-01-01") });
+    },
+    env: { RETELL_API_KEY: "key_check_only_not_real" },
+    fetch: (url) => (/retellai\.com\/get-phone-number/.test(url) ? new Response(JSON.stringify({ phone_number: "+14165550123", inbound_agent_id: null }), { status: 200, headers: { "content-type": "application/json" } }) : null),
+    auditorStillReads: true,
+    sameRead: (own, aud) => aud.e164 === "+14165550123" && aud.verdict === own.verdict && aud.statusStale === true,
+  },
+  {
+    label: "GET /api/reviews/google/locations (stamps lastSyncAt on the Business Profile connection)", file: "app/api/reviews/google/locations/route.js", path: "/api/reviews/google/locations",
+    script(r) { r["companyGoogleBusiness.findUnique"] = () => ({ companyId: CO, refreshTokenEnc: tokenCrypto.encryptToken("rt_check_only"), email: "o@zlla.example" }); },
+    env: GOOGLE_ENV,
+    fetch: googleBusinessResponder(),
+    // Minting a short-lived access token is a POST, and is the read's own
+    // precondition: nothing is stored (lib/calendar/googleClient.js).
+    readCalls: /^https:\/\/oauth2\.googleapis\.com\/token$/,
+    auditorStillReads: true,
+    sameRead: (own, aud) => aud.locations?.length === 1 && JSON.stringify(aud) === JSON.stringify(own),
+  },
+  ...["token", "accounts", "locations"].map((refuse) => ({
+    label: `GET /api/reviews/google/locations (stamps Google's refusal of the ${refuse} call as lastError)`, file: "app/api/reviews/google/locations/route.js", path: "/api/reviews/google/locations",
+    script(r) { r["companyGoogleBusiness.findUnique"] = () => ({ companyId: CO, refreshTokenEnc: tokenCrypto.encryptToken("rt_check_only"), email: "o@zlla.example" }); },
+    env: GOOGLE_ENV,
+    fetch: googleBusinessResponder({ refuse }),
+    readCalls: /^https:\/\/oauth2\.googleapis\.com\/token$/,
+    // Google's refusal is the read here: the auditor is told the same 502.
+    sameRead: (own, aud, ownOut, audOut) => ownOut.status === 502 && audOut.status === 502 && Boolean(aud.error) && aud.error === own.error,
+  })),
 ];
 for (const spec of SIDE_EFFECT_GETS) {
   const r = ROUTES.find((x) => x.rel === spec.file);
@@ -798,13 +888,21 @@ for (const spec of SIDE_EFFECT_GETS) {
   };
   becomePersona("owner");
   const own = await drive();
-  const ownActs = [...tenantWritesOf(own.writes).map((w) => `${w.model}.${w.method}`), ...own.out.filter((o) => o.method !== "GET").map((o) => o.url)];
+  const acts = (o) => [
+    ...tenantWritesOf(o.writes).map((w) => `${w.model}.${w.method}`),
+    ...o.out.filter((x) => x.method !== "GET" && !spec.readCalls?.test(x.url)).map((x) => x.url),
+  ];
+  const ownActs = acts(own);
   becomeAuditor();
   const aud = await drive();
-  const audActs = [...tenantWritesOf(aud.writes).map((w) => `${w.model}.${w.method}`), ...aud.out.filter((o) => o.method !== "GET").map((o) => o.url)];
+  const audActs = acts(aud);
   ok(`${spec.label}: the real owner's request reaches the write (${ownActs.join(", ") || "nothing"})`, ownActs.length > 0, `owner ${own.status} ${own.error || ""}`);
   ok(`${spec.label}: the auditor's performs 0 writes (status ${aud.status})`, audActs.length === 0, audActs.join(", "));
   if (spec.auditorStillReads) ok(`${spec.label}: …and still answers the read`, aud.status === 200, `${aud.status} ${aud.error || ""}`);
+  if (spec.sameRead) {
+    ok(`${spec.label}: …with the owner's read, less only what the skipped write would have added`,
+      spec.sameRead(own.body || {}, aud.body || {}, own, aud), `owner ${own.status} ${JSON.stringify(own.body).slice(0, 160)}\n       auditor ${aud.status} ${JSON.stringify(aud.body).slice(0, 160)}`);
+  }
 }
 exportSwitch.companyDataExport.available = false;
 delete process.env.STRIPE_SECRET_KEY;
