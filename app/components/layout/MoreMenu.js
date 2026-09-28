@@ -22,7 +22,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Search, X, FileText, Clock, Wallet, Users, Settings as SettingsIcon } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
-import { HOME_ITEM, NAV_GROUPS, MORE_GROUPS, useNavGroups } from "@/app/components/layout/AdminSidebar";
+import { HOME_ITEM, NAV_GROUPS, MORE_GROUPS, isNavRowActive, useNavGroups } from "@/app/components/layout/AdminSidebar";
 import { TAB_ITEMS } from "@/app/components/layout/MobileTabBar";
 import { useSettingsGroups } from "@/app/components/layout/SettingsSidebar";
 import { useNavShell } from "@/app/components/layout/NavShell";
@@ -49,9 +49,9 @@ export const MORE_GROUP_META = {
   "app.nav.group.morePartners": { icon: Users, hint: "app.nav.groupHint.morePartners" },
 };
 
-/** Mirrors AdminSidebar's isActive: /app is exact, everything else a prefix. */
+/** AdminSidebar's own rule, not a mirror of it — see isNavRowActive. */
 function isActive(pathname, href) {
-  return href === "/app" ? pathname === "/app" : pathname.startsWith(href);
+  return isNavRowActive(pathname, href);
 }
 
 /**
