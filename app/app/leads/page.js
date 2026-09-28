@@ -211,20 +211,22 @@ export default function LeadsRoute({ sample = null } = {}) {
 // nowhere else.
 function LeadsSample({ sample }) {
   const { t } = useTranslation();
-  const [leads, setLeads] = useState(() => (Array.isArray(sample.leads) ? sample.leads : []));
+  // Named apart from the board's `leads` below: the showcase always passes
+  // its rows, and check:empty-vs-error governs the board's own list state.
+  const [rows, setSampleLeads] = useState(() => (Array.isArray(sample.leads) ? sample.leads : []));
   const [openId, setOpenId] = useState("");
   const col = COLUMNS[0];
-  const openLead = leads.find((l) => l.id === openId) || null;
+  const openLead = rows.find((l) => l.id === openId) || null;
   const patchLead = (updated) =>
-    setLeads((prev) => prev.map((l) => (l.id === updated.id ? { ...l, ...updated } : l)));
+    setSampleLeads((prev) => prev.map((l) => (l.id === updated.id ? { ...l, ...updated } : l)));
   return (
     <div>
       <div className="flex items-center justify-between mb-3 px-1">
         <h2 className="text-sm font-semibold text-foreground">{t(col.labelKey)}</h2>
-        <span className="text-xs text-muted-foreground">{leads.length}</span>
+        <span className="text-xs text-muted-foreground">{rows.length}</span>
       </div>
       <div className="space-y-3">
-        {leads.map((lead) => (
+        {rows.map((lead) => (
           <LeadCard key={lead.id} lead={lead} tone={col.tone} onOpen={() => setOpenId(lead.id)} t={t} dragHandle={null} />
         ))}
       </div>
