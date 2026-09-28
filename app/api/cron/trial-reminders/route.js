@@ -59,6 +59,9 @@ export async function GET(request) {
       trialReminder15At: true,
       trialReminder7At: true,
       trialReminder3At: true,
+      // FieldQuo ended it from the console: the letter's "choose a plan"
+      // would point at a checkout route that refuses this company.
+      platformEndsAt: true,
       members: { where: { active: true }, select: { role: true, permissions: true, active: true } },
     },
     take: BATCH,
@@ -73,6 +76,7 @@ export async function GET(request) {
       trialEndsAt: company.trialEndsAt,
       hasSubscription: false,
       isDemo: company.isDemo,
+      endedByFieldQuo: Boolean(company.platformEndsAt),
       stamps: company,
       now,
     });

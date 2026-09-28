@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 28 September 2026 (the platform "Cancel the subscription" panel works for every company: a card-free trial can be ended at the trial's end, now, or locked for a terms breach — three additive Company columns the owner must add first — with checkout/Resume refusing a company FieldQuo ended, no trial letters to it, and /platform counting it locked/cancelled — see "The platform cancel / lock panel works for every company")
 Last updated: 25 September 2026 (FieldQuo's own language no longer follows the last page you visited: the permanent origin-wide localStorage key is gone (removed on load), a signed-in account's language wins on public pages too (GET /api/me/language, only for a browser that has signed in), the header switcher lasts one tab session, booking pages / prefills / email-link landings set their page only — see "FieldQuo's language follows the person, not the last page")
 Last updated: 25 September 2026 (/platform/analytics: the signup funnel is the card-free flow counted "reached this step or later" — monotone, trial started tied to a finished company — and the laptop leak that put "Account & company 581" over "Visited 565" is closed; FieldQuo's own Meta campaigns as campaign ▸ ad set ▸ ad with signups / trials / paying, "+"/%20 merged, id-only campaigns labelled, Instagram read from site_source_name; the Ads Manager URL-parameters string with a how-to — see "/platform/analytics: an honest signup funnel, and FieldQuo's own Meta campaigns" below)
 Last updated: 25 September 2026 (Create › Request opens a hand-entered lead form at /app/leads/new — the owner's six fields, posted through createScoredLead as source "manual", gated at requests:view_create_edit on page and route, landing on the board with the new lead's drawer open; the board's ?lead= deep link now also works after an in-app navigation — see "Still owed here" under "Phone menus, the Create sheet and a mobile audit" below)
@@ -58,6 +59,119 @@ than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## The platform cancel / lock panel works for every company, not only a Stripe-subscribed one (28 September 2026)
+
+The owner: on a /platform company page, "Cancel the subscription" offered three
+modes to a card-free trial and then answered "No Stripe subscription on this
+company — there is nothing to cancel". "If i lock the account because of terms
+break locked immediately it should still block the trial."
+
+### What was true before
+
+- `app/api/platform/companies/[id]/cancel-subscription` returned 409 for every
+  company without a `stripeSubscriptionId`. Since 2026-09-24 that is every new
+  company: the trial takes no card and makes no Subscription row. Read-only on
+  production (2026-09-28): 32 companies would have shown the sentence — the 5
+  real trials (dtvwork, Poshmark, Emilio The Painter, jaspedo, Luma Painting)
+  and 27 demos.
+- The only lock column was `Subscription.accessLockedAt`, which a trial has no
+  row to hold. A company with no Subscription and no trial date had full access
+  for ever (`accessFor(null)`).
+- The panel promised "the locked screen says FieldQuo ended it, with your
+  reason" (e6283647). The reason never reached the screen — access.js did not
+  select it and AccountLocked did not print it — for subscribed companies too.
+- A terms-locked company's 402 said "Your account is locked because payment is
+  overdue" (denyReason had no "terms" branch), and the locked screen said the
+  data "comes back the moment payment goes through".
+- `/api/platform/billing/checkout` and `/resume` are on the billing allow-list,
+  and neither asked whether FieldQuo had closed the company: a terms-locked
+  subscribed company could start a new subscription and pay while
+  `accessLockedAt` kept it shut.
+- scripts/check-signup-gate.mjs had two assertions with `ok()`'s arguments
+  reversed — they printed the regex result as the label and could not fail.
+
+### What shipped
+
+- **Three new Company columns** (additive, NOT yet on the database — see
+  "Owed" below): `platformEndsAt`, `platformEndMode` (period_end | now |
+  terms), `platformEndReason`. Written only by the cancel route's no-Stripe
+  branch; the Stripe path writes exactly what it always wrote.
+- **`lib/platform/cancelOptions.js`** (pure, import-free): which kind a company
+  is (stripe / trial / trial_over / no_trial / demo), the words for each mode,
+  which modes are available, and what the route writes. The panel renders from
+  it (via the company route's `cancelOptions`) and the route decides with it.
+  A later press may only tighten (period_end → now → terms). A demo is refused
+  — FieldQuo's own fixture, nothing billed, nobody to lock out.
+- **`lib/billing/access.js fieldquoEndAccessFor`**, read FIRST by
+  `accessForCompany` (for every company, nested in the one subscription query)
+  and folded into `trialAccessFor`: terms → locked, reason "terms" (the same
+  reason as a subscribed lock, so the locked screen, the 402 and the phone
+  rent release need no second word); now / period_end → full until
+  `platformEndsAt`, then 30 days read-only ("fieldquo_ended"), then locked
+  ("fieldquo_ended_locked") — the subscribed semantics, not the trial's 7.
+- Per company type × mode:
+
+  | | at the end | now | terms |
+  |---|---|---|---|
+  | Stripe-subscribed | unchanged (Stripe cancel_at_period_end) | unchanged | unchanged (+ reason on the locked screen) |
+  | trial | full until trialEndsAt, 30d read-only, locked; cannot convert | 30d read-only from now, locked; cannot convert | locked now |
+  | trial already over | not offered ("no period left") | 30d read-only from now (re-opens reading on a locked trial — said on the radio), locked | locked now |
+  | no trial, no Stripe | not offered | 30d read-only, locked | locked now |
+  | demo | refused | refused | refused |
+
+- **No card buys back an ending**: checkout and Resume answer 403 with
+  `fieldquoEndRefusal` (a company FieldQuo ended, or a subscribed terms lock)
+  before any Stripe call. Extend-trial refuses an ended company (a new trial
+  date would change nothing it can do). There is no reinstate control.
+- **What the company sees**: the banner says "FieldQuo is ending this account —
+  full access until {date}" / "FieldQuo has ended this account — read-only for
+  N more days" with no button (9 languages); Account & Billing hides the plan
+  cards behind one sentence; the locked screen prints FieldQuo's reason (both
+  paths) and no longer promises that paying restores a closed account.
+- **Letters**: the 15/7/3 trial reminders, the next-steps letter (recorded as
+  "ended_by_fieldquo"), the 24-hour recovery note and the 5-minute early nudge
+  all refuse a company FieldQuo ended; the early nudge also closes the address.
+- **Console counts**: `subscriberBucket` — terms → "locked", an ended company
+  past its full access → "cancelled", an ending still ahead stays in its trial
+  bucket; the status word says "Locked by FieldQuo" / "Ended by FieldQuo {date}"
+  / "… · ended by FieldQuo, cannot convert".
+- Phone numbers: an ended trial stops paying rent and is released on the same
+  days a cancellation is (lib/voice/spendGate.js).
+- Audit: `access_ended_by_platform` (who, mode, reason, dates, previous ending),
+  in the same transaction as the write; a terms lock switches automatic top-up
+  off in that transaction, as the Stripe path does.
+
+### Checks
+
+- `npm run check:platform-cancel-lock` (86 checks, in check:all): the matrix,
+  the access gate for every resulting state at +0/+10/+20/+45 days, the REAL
+  route replayed against a recording Stripe and database, the letters, the
+  buckets, checkout/Resume. The Stripe path's calls + write set + response are
+  pinned by md5 (`9a6a4364…`), recorded with `--baseline=` against the
+  pre-change route: byte-identical. Fails on the old code (exit 1).
+- check-signup-gate's reversed assertions fixed; check-billing-resume's
+  `<div id="plans">` regex accepts the new `hidden` attribute.
+- Screens: docs/screens/platform-cancel-lock/en (LockFrame.jsx).
+
+### Owed
+
+- **Apply before this deploys** — every page reads the new columns:
+  ```sql
+  ALTER TABLE "Company" ADD COLUMN "platformEndMode" TEXT,
+  ADD COLUMN "platformEndReason" TEXT,
+  ADD COLUMN "platformEndsAt" TIMESTAMP(3);
+  ```
+- A reinstate / unlock control on /platform (none exists for either path).
+- The "End trial now · Stripe bills the first invoice today" panel still
+  renders on a card-free trial, which has no Stripe subscription to bill.
+- Sales check-in texts (lib/sales/checkin) do not know about an ending:
+  `REP_COMPANY_SELECT` is deliberately narrow, and adding the column there is a
+  privacy call for the owner.
+- The locked screen's "Tell us — that still works" links to /app/help, which
+  the locked layout also replaces with the locked screen.
 
 ---
 

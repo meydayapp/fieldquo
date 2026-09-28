@@ -25,7 +25,7 @@ import PlatformWriteGate, {
   usePlatformAdmin,
 } from "@/app/components/platform/PlatformWriteGate";
 
-export default function CompanyActions({ companyId, companyName, trialEndsAt, onDone }) {
+export default function CompanyActions({ companyId, companyName, trialEndsAt, cancelOptions, onDone }) {
   const [days, setDays] = useState(30);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -131,19 +131,38 @@ export default function CompanyActions({ companyId, companyName, trialEndsAt, on
   // (locked at once, no read-only window). The confirm sentence names the
   // consequence for the mode chosen, because "cancel" alone hides which of
   // the three the owner is about to do.
-  const [cancelMode, setCancelMode] = useState("period_end");
+  //
+  // ── Every company, not only a Stripe-subscribed one (2026-09-28) ──────
+  //
+  // The modes, their words and which of them this company may take come
+  // from lib/platform/cancelOptions.js via the company route — the function
+  // the cancel route decides with — so a card-free trial reads "At the end
+  // of the free trial — full access until {date}…" and a demo reads why
+  // there is nothing to do, instead of three radios that answered "there is
+  // nothing to cancel". For a Stripe-subscribed company the words are the
+  // exact strings this panel printed before.
+  const cancelKind = cancelOptions?.kind || null;
+  const cancelModes = cancelOptions?.modes || [];
+  const firstAvailable = cancelModes.find((m) => m.available)?.value || null;
+  const [cancelMode, setCancelMode] = useState(firstAvailable);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelBusy, setCancelBusy] = useState(false);
   const [cancelResult, setCancelResult] = useState(null);
   const [cancelError, setCancelError] = useState("");
-  const CANCEL_CONSEQUENCE = {
-    period_end: "They keep full access until the date they paid to, then thirty days read-only.",
-    now: "Nothing more is charged. Read-only for thirty days from now, then locked.",
-    terms: "Locked immediately — no read-only window. The locked screen says FieldQuo ended it, with your reason.",
-  };
+  // A reload after a press can take the chosen mode away (an ending only
+  // tightens) — fall back to what is still on offer rather than submit a
+  // radio that is no longer there.
+  const chosenMode = cancelModes.find((m) => m.value === cancelMode && m.available) ? cancelMode : firstAvailable;
+  const CANCEL_CONSEQUENCE = Object.fromEntries(cancelModes.map((m) => [m.value, m.consequence]));
+  const chosen = cancelModes.find((m) => m.value === chosenMode) || null;
 
   async function cancelSubscription() {
-    if (!window.confirm(`Cancel ${companyName}'s subscription? ${CANCEL_CONSEQUENCE[cancelMode]}`)) return;
+    if (!chosen) return;
+    const question =
+      cancelKind === "stripe"
+        ? `Cancel ${companyName}'s subscription? ${CANCEL_CONSEQUENCE[chosenMode]}`
+        : `End ${companyName}'s access? ${CANCEL_CONSEQUENCE[chosenMode]}`;
+    if (!window.confirm(question)) return;
     setCancelBusy(true);
     setCancelError("");
     setCancelResult(null);
@@ -151,7 +170,7 @@ export default function CompanyActions({ companyId, companyName, trialEndsAt, on
       const res = await fetch(`/api/platform/companies/${companyId}/cancel-subscription`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: cancelMode, reason: cancelReason }),
+        body: JSON.stringify({ mode: chosenMode, reason: cancelReason }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || `Failed (${res.status})`);
@@ -331,9 +350,22 @@ export default function CompanyActions({ companyId, companyName, trialEndsAt, on
       <div className="rounded-lg border border-red-300 dark:border-red-900 p-4 mt-3" data-cancel-subscription>
         <div className="flex items-center gap-2 mb-3">
           <Ban size={15} className="text-red-700 dark:text-red-300" />
-          <span className="text-sm font-semibold text-foreground">Cancel the subscription</span>
-          <span className="text-xs text-muted-foreground">· FieldQuo ends it — from here, not the Stripe dashboard</span>
+          <span className="text-sm font-semibold text-foreground">{cancelOptions?.heading || "Cancel the subscription"}</span>
+          {cancelOptions?.subtitle ? (
+            <span className="text-xs text-muted-foreground">· {cancelOptions.subtitle}</span>
+          ) : null}
         </div>
+        {!cancelOptions ? (
+          // No answer about which kind of company this is: say so, never
+          // fall back to the Stripe radios — on a trial they would lie.
+          <p className="text-xs text-muted-foreground">
+            Couldn&apos;t work out whether this company has a Stripe subscription — reload the page.
+          </p>
+        ) : cancelOptions.refusal ? (
+          <p className="text-sm text-foreground" data-cancel-refusal>
+            {cancelOptions.refusal}
+          </p>
+        ) : (
         <PlatformWriteGate
           status={roleStatus}
           allowed={canExtend}
@@ -342,52 +374,62 @@ export default function CompanyActions({ companyId, companyName, trialEndsAt, on
           who="superadmin"
         >
           <div className="space-y-2">
-            {[
-              ["period_end", "At the end of the paid period"],
-              ["now", "Now — thirty days read-only, then locked"],
-              ["terms", "Terms breach — locked immediately"],
-            ].map(([value, label]) => (
-              <label key={value} className="flex items-start gap-2 text-sm text-foreground min-h-[44px] lg:min-h-0">
+            {cancelOptions.ended?.note ? (
+              <p className="text-xs text-amber-800 dark:text-amber-300">{cancelOptions.ended.note}</p>
+            ) : null}
+            {cancelModes.map((m) => (
+              <label
+                key={m.value}
+                className={`flex items-start gap-2 text-sm min-h-[44px] lg:min-h-0 ${m.available ? "text-foreground" : "text-muted-foreground"}`}
+              >
                 <input
                   type="radio"
                   name="cancel-mode"
-                  value={value}
-                  checked={cancelMode === value}
-                  onChange={() => setCancelMode(value)}
+                  value={m.value}
+                  checked={chosenMode === m.value}
+                  disabled={!m.available}
+                  onChange={() => setCancelMode(m.value)}
                   className="mt-1"
                 />
                 <span>
-                  {label}
-                  <span className="block text-xs text-muted-foreground">{CANCEL_CONSEQUENCE[value]}</span>
+                  {m.label}
+                  <span className="block text-xs text-muted-foreground">{m.available ? m.consequence : m.unavailable}</span>
                 </span>
               </label>
             ))}
             <label className="block text-xs text-muted-foreground">
-              Reason — goes in the audit log{cancelMode === "terms" ? " and on the locked screen" : ""}
+              Reason — goes in the audit log{chosenMode === "terms" ? " and on the locked screen" : ""}
               <input
                 type="text"
                 value={cancelReason}
                 onChange={(e) => setCancelReason(e.target.value)}
-                placeholder={cancelMode === "terms" ? "e.g. Sent unsolicited texts through FieldQuo after a warning" : "e.g. Asked to stop by email on Sep 18"}
+                placeholder={chosenMode === "terms" ? "e.g. Sent unsolicited texts through FieldQuo after a warning" : "e.g. Asked to stop by email on Sep 18"}
                 className="mt-1 block w-full min-h-[44px] rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
               />
             </label>
             <button
               onClick={cancelSubscription}
-              disabled={cancelBusy || cancelReason.trim().length < 3}
+              disabled={cancelBusy || !chosen || cancelReason.trim().length < 3}
               className="min-h-[44px] lg:min-h-0 inline-flex items-center gap-1.5 rounded-full bg-red-700 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
             >
               {cancelBusy ? <Loader2 size={13} className="animate-spin" /> : <Ban size={13} />}
-              {cancelMode === "terms" ? "Cancel and lock now" : cancelMode === "now" ? "Cancel now" : "Cancel at period end"}
+              {chosen?.button || "Nothing to choose"}
             </button>
           </div>
         </PlatformWriteGate>
+        )}
         {cancelError && <p className="mt-2 text-xs text-red-700 dark:text-red-300 break-words">{cancelError}</p>}
         {cancelResult && (
           <p className="mt-2 text-xs text-emerald-800 dark:text-emerald-300 break-words">
-            Done — Stripe says {cancelResult.stripeStatus}
-            {cancelResult.currentPeriodEnd ? ` · period ends ${new Date(cancelResult.currentPeriodEnd).toLocaleDateString()}` : ""}
-            {" · "}{cancelResult.access}.
+            {cancelResult.stripeStatus ? (
+              <>
+                Done — Stripe says {cancelResult.stripeStatus}
+                {cancelResult.currentPeriodEnd ? ` · period ends ${new Date(cancelResult.currentPeriodEnd).toLocaleDateString()}` : ""}
+                {" · "}{cancelResult.access}.
+              </>
+            ) : (
+              <>Done — no Stripe subscription to cancel · {cancelResult.access}.</>
+            )}
           </p>
         )}
       </div>

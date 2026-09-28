@@ -79,7 +79,7 @@ import {
   decideSignupNudge,
 } from "@/lib/signup/abandoned";
 import { DISMISSAL_SELECT, isDismissed } from "@/lib/signup/dismissal";
-import { trialAccessFor } from "@/lib/billing/access";
+import { trialAccessFor, FIELDQUO_END_SELECT } from "@/lib/billing/access";
 import { PROMOTE_AFTER_MS, STEP_LABELS, emailKeyOf, tradeKeyForIndustries, unfinishedSignupLeadWhere } from "@/lib/signup/leads";
 import { EARLY_NUDGE_DELAY_MINUTES, EARLY_TOUCH, RECOVERY_TOUCH } from "@/lib/signup/earlyNudge";
 import { discoveryTradeKeys, discoveryTradeLabel, isDiscoveryTradeKey } from "@/lib/sales/discovery/trades";
@@ -155,6 +155,8 @@ export async function GET(request) {
     createdAt: true,
     trialEndsAt: true,
     signupNudgeSentAt: true,
+    // A FieldQuo ending: the trial state below and the nudge decision read it.
+    ...FIELDQUO_END_SELECT,
     isDemo: true,
     subscription: { select: { id: true } },
     referredByCode: true,

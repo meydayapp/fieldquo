@@ -346,7 +346,7 @@ console.log("\n── 9. The routes, pinned ────────────
   // Since 2026-09-14 the cancelled state's primary action is the shared Resume
   // button (scripts/check-billing-resume.mjs owns it); "Choose a different
   // plan" is the secondary path to the cards.
-  ok("the billing page renders the cancelled state with Resume and the path to the plan cards", /app\.billing\.cancelledOn/.test(page) && /<ResumePlanButton/.test(page) && /href="#plans"/.test(page) && /<div id="plans">/.test(page));
+  ok("the billing page renders the cancelled state with Resume and the path to the plan cards", /app\.billing\.cancelledOn/.test(page) && /<ResumePlanButton/.test(page) && /href="#plans"/.test(page) && /<div id="plans"[ >]/.test(page));
   ok("a cancelled company's old tier is buyable again", /status === "canceled" \? null : subscription\?\.plan\?\.id/.test(page));
 
   const cron = stripComments(read("app/api/cron/billing-sync/route.js"));

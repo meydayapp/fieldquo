@@ -84,6 +84,11 @@ export async function GET(request) {
     // state, so withheld from anyone who may not see billing state — the
     // same rule as `reason` above.
     ...(access.endsAt && seesDetail ? { endsAt: access.endsAt } : {}),
+    // FieldQuo ended this company from the platform console. The banner and
+    // Account & Billing read it to stop offering "Choose a plan" — checkout
+    // refuses such a company, and a button that can only fail is the one
+    // thing this page must not render. Same visibility rule as `reason`.
+    ...(access.endedBy === "fieldquo" && seesDetail ? { endedByFieldQuo: true } : {}),
     ...(trial ? { trial } : {}),
   });
 }

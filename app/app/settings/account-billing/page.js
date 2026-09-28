@@ -153,12 +153,18 @@ function AccountBillingScreen() {
   // Whether the account was locked when this page loaded. A ref, not state:
   // it's read once inside an effect that must not re-run when it changes.
   const wasLockedRef = useRef(false);
+  // FieldQuo ended this company from the platform console. The plan cards
+  // are replaced by one sentence: checkout refuses such a company
+  // (lib/billing/access.js fieldquoEndRefusal), and a card whose "Choose"
+  // can only fail is the dead button this page must not render.
+  const [endedByFieldQuo, setEndedByFieldQuo] = useState(false);
 
   useEffect(() => {
     fetch("/api/settings/subscription/access")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (d) wasLockedRef.current = d.level === "locked";
+        if (d?.endedByFieldQuo) setEndedByFieldQuo(true);
       })
       .catch(() => {});
   }, []);
@@ -687,8 +693,17 @@ function AccountBillingScreen() {
         </div>
       </div>
 
-      {/* Available plans — the anchor is the "Start a new plan" link's target */}
-      <div id="plans">
+      {endedByFieldQuo ? (
+        <div className="bg-card border border-border rounded-xl p-5" data-fieldquo-ended>
+          <p className="text-sm text-foreground">
+            {t("app.billing.fieldquoEnded", "FieldQuo has ended this account, so a plan can't be chosen here. If you think this is a mistake, tell us from Help.")}
+          </p>
+        </div>
+      ) : null}
+
+      {/* Available plans — the anchor is the "Start a new plan" link's target.
+          Hidden, not merely disabled, once FieldQuo has ended the account. */}
+      <div id="plans" hidden={endedByFieldQuo}>
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
           <h2 className="text-base font-semibold text-foreground">{t("app.billing.plansHeading", "Plans")}</h2>
 

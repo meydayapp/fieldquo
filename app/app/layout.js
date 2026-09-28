@@ -452,7 +452,12 @@ export default async function AppLayout({ children }) {
   if (locked) {
     return (
       <div className="min-h-screen bg-background">
-        <AccountLocked reason={locked.reason} companyName={company?.name} />
+        <AccountLocked
+          reason={locked.reason}
+          companyName={company?.name}
+          lockedReason={locked.lockedReason || null}
+          endedByFieldQuo={locked.endedBy === "fieldquo"}
+        />
       </div>
     );
   }

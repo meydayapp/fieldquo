@@ -91,6 +91,49 @@ export default function BillingBanner() {
   ) : null;
 
   if (!state) return resumedStrip;
+  // ── FieldQuo ended this account (2026-09-28) ────────────────────────────
+  //
+  // From the platform console, on a company with no Stripe subscription —
+  // usually the card-free trial (lib/billing/access.js fieldquoEndAccessFor).
+  // Read BEFORE the trial and "ends on" branches: both of those offer a
+  // button (Choose a plan, Resume) that checkout and resume now refuse for
+  // this company, and a banner whose only button can only fail is worse
+  // than none. So: what happened, until when, and where to ask — no button.
+  if (state.reason === "fieldquo_ending" || state.reason === "fieldquo_ended") {
+    const ending = state.reason === "fieldquo_ending";
+    return (
+      <>
+        {resumedStrip}
+        <div
+          role="alert"
+          className="px-4 py-3 text-sm bg-amber-50 dark:bg-amber-950/50 text-amber-900 dark:text-amber-200 border-b border-amber-200 dark:border-amber-900"
+        >
+          <div className="max-w-6xl mx-auto flex flex-wrap items-center gap-x-3 gap-y-2">
+            <AlertTriangle size={17} className="shrink-0" />
+            <p className="flex-1 min-w-[14rem]">
+              <strong>
+                {ending
+                  ? t("app.billingBanner.fieldquoEnding", "FieldQuo is ending this account — full access until {date}.", {
+                      date: formatDate(state.endsAt),
+                    })
+                  : state.daysLeft === 1
+                    ? t("app.billingBanner.fieldquoEndedOneDay", "FieldQuo has ended this account — read-only for 1 more day.")
+                    : t("app.billingBanner.fieldquoEndedDays", "FieldQuo has ended this account — read-only for {days} more days.", {
+                        days: state.daysLeft,
+                      })}
+              </strong>{" "}
+              {ending
+                ? t("app.billingBanner.fieldquoEndingBody", "After that it is read-only for 30 days, then it locks. A plan can't be chosen — nothing is deleted.")
+                : t("app.billingBanner.fieldquoEndedBody", "You can still see everything and download any quote or invoice as a PDF, but you can't create or send. After that the account locks — nothing is deleted.")}{" "}
+              <Link href="/app/help" className="underline underline-offset-2 font-medium">
+                {t("app.billingBanner.fieldquoContact", "Questions? Tell us.")}
+              </Link>
+            </p>
+          </div>
+        </div>
+      </>
+    );
+  }
   // ── The free trial ──────────────────────────────────────────────────────
   //
   // Since 2026-09-24 signup ends with no plan and no card (the owner: "move

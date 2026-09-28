@@ -39,7 +39,7 @@ import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { requirePlatformPermission } from "@/lib/platform/permissions";
 import { cardFreeTrialWhere } from "@/lib/signup/abandoned";
-import { trialAccessFor } from "@/lib/billing/access";
+import { trialAccessFor, FIELDQUO_END_SELECT } from "@/lib/billing/access";
 import { loadSubscriberBook, outlookSubscriptions } from "@/lib/platform/trialCounting";
 import { isTrialingBucket } from "@/lib/platform/subscriberBuckets";
 import { buildRevenueOutlook } from "@/lib/platform/revenueOutlook";
@@ -80,6 +80,9 @@ export async function GET(request) {
         country: true,
         createdAt: true,
         trialEndsAt: true,
+        // A trial FieldQuo ended: trialAccessFor reads the ending first, so
+        // this list says read-only/locked, not "N days left".
+        ...FIELDQUO_END_SELECT,
         onboardingStatus: true,
         members: { where: { role: "owner" }, take: 1, select: { user: { select: { name: true, email: true } } } },
       },

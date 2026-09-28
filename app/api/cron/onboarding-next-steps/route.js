@@ -82,6 +82,8 @@ const COMPANY_SELECT = {
   industries: true,
   nextStepsEmailSentAt: true,
   nextStepsEmailSkipped: true,
+  // FieldQuo ended it from the console — decideNextStepsEmail refuses.
+  platformEndsAt: true,
   subscription: { select: { id: true, status: true, nextStepsEmailSentAt: true, nextStepsEmailSkipped: true } },
   signupLead: { select: { firstName: true, trades: true } },
   members: { where: { role: "owner" }, take: 1, select: { user: { select: { name: true } } } },

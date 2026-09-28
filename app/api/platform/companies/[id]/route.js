@@ -8,6 +8,8 @@ import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { requirePlatformPermission } from "@/lib/platform/permissions";
 import { diagnoseNumber } from "@/lib/voice/diagnose";
 import { companyStanding } from "@/lib/platform/companyStanding";
+import { cancelOptions } from "@/lib/platform/cancelOptions";
+import { trialAccessFor } from "@/lib/billing/access";
 
 // Next 16: params is a Promise and must be awaited. Reading params.id
 // synchronously resolves to undefined, which turns every lookup on this route
@@ -94,7 +96,17 @@ export async function GET(request, { params }) {
 
   // The header's status, derived rather than read off onboardingStatus —
   // lib/platform/companyStanding.js says why.
-  return NextResponse.json({ ...company, voiceDiagnosis, standing: companyStanding(company) });
+  // What the "Cancel the subscription" panel may offer THIS company, in
+  // words true for it — the same pure function the cancel route decides
+  // with, so the button and the write cannot disagree. trialAccess is the
+  // trial's own state without any ending folded in (only trialEndsAt goes
+  // in), for the sentence an expired trial's "now" carries.
+  const cancel = cancelOptions({
+    company,
+    subscription: company.subscription ?? null,
+    trialAccess: trialAccessFor({ trialEndsAt: company.trialEndsAt }),
+  });
+  return NextResponse.json({ ...company, voiceDiagnosis, standing: companyStanding(company), cancelOptions: cancel });
 }
 
 export async function PATCH(request, { params }) {
