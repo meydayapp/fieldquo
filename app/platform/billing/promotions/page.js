@@ -873,7 +873,7 @@ function YearNote({ promo, rows, now }) {
         >
           <AlertCircle size={16} className="shrink-0 mt-0.5" />
           <span>
-            On {losers.length === rows.length ? "every plan" : `${losers.length} of ${rows.length} plans`} this
+            On {losers.length === rows.length ? "every plan" : `${losers.length} of ${rows.length} plans`} this{" "}
             sale&apos;s first year costs more than the standing 1-year offer, so it does not apply there — the
             customer is charged the standing offer. A 1-year sale has to beat{" "}
             {planMoney(offer.standing, c)} on {first.name} to change anything.

@@ -488,10 +488,12 @@ ok(
     !/(price|amount|total|monthly)\s*:/i.test(bodyMatch ? bodyMatch[1] : "x:"),
 );
 // effectiveInterval, not billingInterval straight from state: a plan with no
-// annual price must not be bought on a cadence it does not have.
+// annual price must not be bought on a cadence it does not have. Once a plan
+// is chosen the guard is annualAvailable; before a choice the tabs follow
+// whether any card sells a year (annual-first pickers, 2026-09-28).
 ok(
   "...and effectiveInterval is still what guards an annual-less plan",
-  /const effectiveInterval = annualAvailable \? billingInterval : "month";/.test(
+  /const effectiveInterval = \(hasSelection \? annualAvailable : anyYearOffer\) \? billingInterval : "month";/.test(
     signupSrc,
   ),
 );
