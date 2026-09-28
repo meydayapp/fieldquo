@@ -31,6 +31,7 @@ import { getAppOrigin } from "@/lib/appUrl";
 import { WHATSAPP_STATE_COOKIE, baseCookieOptions } from "@/lib/meta/oauthCookies";
 import { buildWhatsAppSignupUrl } from "@/lib/messaging/whatsappSignup";
 import { WHATSAPP_SETTINGS_PATH } from "@/lib/messaging/whatsappSettingsPath";
+import { whatsAppAccess } from "@/lib/meta/whatsappOnboarding";
 
 export async function GET(request) {
   const origin = getAppOrigin(request);
@@ -52,6 +53,17 @@ export async function GET(request) {
   // link. Sending someone to Embedded Signup for a permission Meta has not
   // granted shows them a dialog that errors on Meta's side.
   if (!metaWhatsAppEnabled()) {
+    return settings({ whatsappError: "awaiting_review" });
+  }
+
+  // Meta's tech-provider approval, checked server-side for the same reason as
+  // the flag above: until it lands, Embedded Signup for any company but
+  // FieldQuo's own ends on Meta's "FieldQuo can't onboard customers right
+  // now" page. Staff pass so the flow can be recorded for Meta's review
+  // (lib/meta/whatsappOnboarding.js); everyone else is told what they are
+  // waiting on, in the panel's own words.
+  const access = await whatsAppAccess(request);
+  if (!access.signup) {
     return settings({ whatsappError: "awaiting_review" });
   }
 
