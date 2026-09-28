@@ -592,7 +592,7 @@ export const ARTICLES = {
     title: "Publicités Meta",
     summary:
       "Connectez votre propre compte publicitaire Meta pour que les dépenses publicitaires entrent dans vos chiffres marketing, plus les formulaires de prospects Facebook, la publication Facebook et Instagram et les connexions WhatsApp Business qui vivent sur le même écran.",
-    updated: "2026-09-12",
+    updated: "2026-09-28",
     intro: [
       "**Paramètres → Publicités Meta** est l'endroit où une entreprise connecte son propre compte publicitaire Meta (Facebook/Instagram). FieldQuo ne fait que lire les dépenses et les performances des campagnes — il ne crée ni ne modifie jamais une publicité — et les lignes qu'il importe deviennent des dépenses marketing, pour que votre coût par prospect inclue ce que vous avez payé à Meta. Trois autres connexions Meta se trouvent sur le même écran parce qu'elles sont toutes « un compte Meta que cette entreprise connecte » : les formulaires de prospects Facebook, la publication Facebook et Instagram, et WhatsApp Business.",
     ],
@@ -612,8 +612,8 @@ export const ARTICLES = {
           { bullets: [
             "**Publicités Meta — Connectez votre propre compte publicitaire Meta (Facebook/Instagram) pour intégrer les dépenses et les performances des campagnes à vos chiffres marketing.**",
             "La carte de connexion — **Non connecté** avec **Connecter Meta Ads**, ou le compte connecté avec **Dernière synchronisation …**, **Synchroniser maintenant**, **Voir vos campagnes →** et **Déconnecter**. Après une synchronisation : **… nouvelles lignes, … mises à jour**, plus les erreurs, les doublons possibles ou un écart de devise.",
-            "**Formulaires de prospects Facebook** — les formulaires trouvés sur vos Pages, chacun avec un interrupteur **Activé** / **Désactivé**, son nombre de prospects et le dernier reçu, **Trouver mes formulaires de prospects**, et **De quelles campagnes viennent ces prospects**.",
-            "**Publication Facebook et Instagram** et **WhatsApp Business** — leurs propres cartes de connexion, dont chacune dit clairement quand sa permission n'est pas encore approuvée et n'offre aucun bouton dans ce cas.",
+            "**Formulaires de prospects Facebook** — les formulaires trouvés sur la Page Facebook connectée, chacun avec un interrupteur **Activé** / **Désactivé**, son nombre de prospects et le dernier reçu, **Trouver mes formulaires de prospects**, et **De quelles campagnes viennent ces prospects**.",
+            "**Publication Facebook et Instagram** — la connexion à votre Page Facebook (**Connecter Facebook et Instagram**, puis **Reconnecter ou changer de page**) par laquelle les formulaires de prospects sont lus. **WhatsApp Business** — pour l'instant une seule phrase annonçant que WhatsApp arrive bientôt, et aucun bouton, jusqu'à ce que Meta accorde à FieldQuo l'accès avancé à ses autorisations WhatsApp.",
           ] },
         ],
       },
@@ -648,8 +648,8 @@ export const ARTICLES = {
         id: "the-other-three",
         heading: "Formulaires de prospects, publication et WhatsApp",
         blocks: [
-          { p: "**Formulaires de prospects Facebook** transforme un formulaire attaché à l'une de vos publicités en prospect dans Prospects — noté comme toute autre demande, prévenant les mêmes personnes, avec vos règles de relance appliquées. Il utilise la même connexion Meta que le compte publicitaire. Tant que Meta n'a pas approuvé une autorisation de plus pour FieldQuo, le panneau dit **Les formulaires de prospects Facebook nécessitent l'approbation par Meta d'une autorisation supplémentaire ; rien n'est encore reçu.** et chaque interrupteur est désactivé avec cette raison — affiché, pas caché, pour que vous sachiez que les prospects n'arrivent pas et que ce n'est pas votre faute. Voir [[facebook-lead-forms|Formulaires de prospects Facebook]]." },
-          { p: "**Publication Facebook et Instagram** publie un design du Designer marketing directement sur votre propre Page et votre compte Instagram. **WhatsApp Business** répond sur votre propre numéro WhatsApp dans Messages, à côté des conversations Facebook et Instagram, avec la règle des 24 heures expliquée sur la carte. Les deux n'affichent un bouton Connecter que lorsque leur permission est approuvée. Voir [[connect-your-facebook-page-and-instagram|Connecter votre Page Facebook et Instagram]] et [[whatsapp-business|WhatsApp Business]]." },
+          { p: "**Formulaires de prospects Facebook** transforme un formulaire attaché à l'une de vos publicités en prospect dans Prospects — noté comme toute autre demande, prévenant les mêmes personnes, avec vos règles de relance appliquées. Les formulaires et les prospects sont lus par votre connexion à la Page Facebook — la carte **Publication Facebook et Instagram** plus bas — et non par le compte publicitaire, qui ne voit pas les formulaires de votre Page. Vous n'avez pas besoin du compte publicitaire pour recevoir des prospects. Si le panneau affiche **Les formulaires de prospects Facebook nécessitent l'approbation par Meta d'une autorisation supplémentaire ; rien n'est encore reçu.**, chaque interrupteur et **Trouver mes formulaires de prospects** sont désactivés avec cette raison — affiché, pas caché, pour que vous sachiez que les prospects n'arrivent pas et que ce n'est pas votre faute. Voir [[facebook-lead-forms|Formulaires de prospects Facebook]]." },
+          { p: "**Publication Facebook et Instagram** connecte votre Page Facebook et son compte Instagram : les designs du Designer marketing y sont publiés, et les formulaires de prospects sont lus par cette connexion. Quand ses autorisations ne sont pas activées pour FieldQuo, la carte affiche **En attente de l'approbation de Meta** et n'offre aucun bouton. **WhatsApp Business** répondra sur votre propre numéro WhatsApp dans Messages, à côté des conversations Facebook et Instagram ; tant que Meta n'a pas accordé à FieldQuo, dans son App Review, l'accès avancé à ses autorisations WhatsApp, la carte se limite à une phrase, sans bouton. Voir [[connect-your-facebook-page-and-instagram|Connecter votre Page Facebook et Instagram]] et [[whatsapp-coming-soon|WhatsApp (bientôt)]]." },
         ],
       },
       {
@@ -663,7 +663,7 @@ export const ARTICLES = {
     faq: [
       { q: "FieldQuo peut-il créer ou modifier mes publicités?", a: "Non. La connexion est en lecture seule : les dépenses et les performances entrent, rien ne sort." },
       { q: "Les dépenses s'importent-elles d'elles-mêmes?", a: "Non. Appuyez sur Synchroniser maintenant. Chaque synchronisation couvre les 30 derniers jours par défaut et met à jour les lignes qu'elle a déjà écrites." },
-      { q: "J'ai connecté, alors pourquoi les formulaires de prospects sont-ils encore désactivés?", a: "L'autorisation des formulaires de prospects n'est pas encore approuvée pour l'application Meta de FieldQuo. Le panneau le dit et garde les interrupteurs désactivés jusqu'à ce qu'elle le soit." },
+      { q: "J'ai connecté mon compte publicitaire, alors pourquoi n'y a-t-il aucun formulaire de prospects?", a: "Les formulaires de prospects sont lus par votre connexion à la Page Facebook, pas par le compte publicitaire. Connectez votre Page sous Publication Facebook et Instagram, puis appuyez sur Trouver mes formulaires de prospects. Si le panneau affiche plutôt l'avis orange sur l'approbation de Meta, les interrupteurs restent désactivés jusqu'à ce qu'il disparaisse." },
     ],
   },
 

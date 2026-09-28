@@ -154,10 +154,14 @@ add your own mobile under "To" as a verified recipient (it messages a small
 fixed list until Advanced access). This is what you message from your phone
 in the WhatsApp recording.
 
-### WhatsApp before Access Verification: API Setup + system user token
+### WhatsApp before Advanced Access: API Setup + system user token
 
 Embedded Signup (the "Connect WhatsApp" button) refuses the business until
-Meta's Access Verification of the app lands (submitted 2026-09-11). Meta's
+Meta's App Review grants the app **advanced access** to
+`whatsapp_business_messaging` and `whatsapp_business_management` — both
+still read "Ready for testing", i.e. Standard access. Access Verification
+(submitted 2026-09-11) is done: Meta confirmed FieldQuo as a verified Tech
+Provider on 2026-09-14 (app 4442828659308969, business 1534735784993645). Meta's
 own get-started guide (developers.facebook.com/docs/whatsapp/cloud-api/
 get-started) says what an app admin can do meanwhile, and FieldQuo has a
 second door for exactly it: Settings → Meta Ads → WhatsApp card → **Connect

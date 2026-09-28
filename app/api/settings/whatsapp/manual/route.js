@@ -5,8 +5,12 @@
 // ══ Why a second door exists ═══════════════════════════════════════════════
 //
 // Embedded Signup (app/api/settings/whatsapp/connect) is the door Meta wants
-// businesses walked through, and it is shut until Meta's Access Verification
-// of FieldQuo's app lands (submitted 2026-09-11). Meta's own get-started guide
+// businesses walked through, and it is shut until Meta's App Review grants
+// FieldQuo's app ADVANCED access to whatsapp_business_messaging +
+// whatsapp_business_management. (Access Verification, submitted 2026-09-11,
+// is done: Meta confirmed FieldQuo as a verified Tech Provider on
+// 2026-09-14. Both permissions still read "Ready for testing" — Standard
+// access, which reaches only FieldQuo's own business.) Meta's own get-started guide
 // says what an app admin can do in the meantime: WhatsApp → API Setup, add
 // the business number, create a system user, generate a PERMANENT token with
 // whatsapp_business_messaging + whatsapp_business_management, and use the

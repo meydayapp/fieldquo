@@ -404,11 +404,11 @@ export const ARTICLES = {
   "connect-meta-ads": {
     title: "Connecter votre compte publicitaire Meta",
     summary:
-      "Liez votre propre compte publicitaire Facebook et Instagram pour que ses dépenses et ses résultats de campagne entrent dans Dépenses marketing — en lecture seule, synchronisés quand vous appuyez sur Synchroniser maintenant — et voyez ce que le même écran attend encore de Meta.",
-    updated: "2026-09-12",
+      "Liez votre propre compte publicitaire Facebook et Instagram pour que ses dépenses et ses résultats de campagne entrent dans Dépenses marketing — en lecture seule, synchronisés quand vous appuyez sur Synchroniser maintenant — et voyez ce que font les cartes voisines : formulaires de prospects, publication et WhatsApp.",
+    updated: "2026-09-28",
     intro: [
       "**Paramètres → Encaissement → Publicités Meta** connecte le compte publicitaire Meta de votre entreprise. Dans les mots de l'écran : « Connectez votre propre compte publicitaire Meta (Facebook/Instagram) pour intégrer les dépenses et les performances des campagnes à vos chiffres marketing. » FieldQuo ne fait que lire les dépenses et les performances — il ne crée ni ne modifie jamais une publicité.",
-      "Le même écran porte trois autres cartes Meta : **Formulaires de prospects Facebook**, **Publication Facebook et Instagram** et **WhatsApp Business**. Chacune énonce ses propres conditions, et aujourd'hui chacune attend une autorisation que Meta n'a pas encore accordée à l'application FieldQuo.",
+      "Le même écran porte trois autres cartes Meta : **Formulaires de prospects Facebook**, **Publication Facebook et Instagram** et **WhatsApp Business**. Chacune énonce ses propres conditions. Les formulaires de prospects et la publication passent tous deux par votre connexion à la Page Facebook — la carte de publication — et non par ce compte publicitaire, et chacun affiche un avis et désactive ses commandes si une autorisation Meta dont il a besoin n'est pas activée pour FieldQuo. WhatsApp est différent : chaque entreprise voit une seule phrase « bientôt » et aucun bouton tant que Meta n'a pas accordé à FieldQuo, dans son App Review, l'accès avancé à ses deux autorisations WhatsApp.",
     ],
     sections: [
       {
@@ -442,9 +442,9 @@ export const ARTICLES = {
               ["**Synchroniser maintenant**", "Importe les 30 derniers jours dans Dépenses marketing et met à jour le tableau des campagnes. Les lignes dans une autre devise sont converties à un taux fixé et marquées ≈."],
               ["**Reconnecter**", "Apparaît quand la pastille se lit **Reconnexion nécessaire** — Meta indique que le jeton conservé n'est plus valide. La synchronisation est en pause tant que vous ne l'avez pas fait."],
               ["**Déconnecter**", "Arrête la synchronisation. Les lignes déjà importées restent dans votre historique de dépenses marketing."],
-              ["Les interrupteurs des **Formulaires de prospects Facebook**", "Affichés par formulaire avec leur nombre de prospects, mais désactivés : « Les formulaires de prospects Facebook nécessitent l'approbation par Meta d'une autorisation supplémentaire ; rien n'est encore reçu. » Voir [[facebook-lead-forms|Formulaires de prospects Facebook]]."],
-              ["**Publication Facebook et Instagram**", "Se lit **En attente de l'approbation de Meta**. Publier depuis le Créateur en dépend — voir [[social-posting-and-scheduling|Publier sur Facebook et Instagram, maintenant ou plus tard]]."],
-              ["**WhatsApp Business**", "Se lit **En attente de l'approbation de Meta**. Voir [[whatsapp-business|Messages WhatsApp Business]]."],
+              ["Les interrupteurs des **Formulaires de prospects Facebook**", "Un par formulaire trouvé sur votre Page Facebook connectée, avec son nombre de prospects — les formulaires et les prospects sont lus par la connexion à la Page, pas par ce compte publicitaire. Si la carte affiche « Les formulaires de prospects Facebook nécessitent l'approbation par Meta d'une autorisation supplémentaire ; rien n'est encore reçu. », les interrupteurs sont désactivés. Voir [[facebook-lead-forms|Formulaires de prospects Facebook]]."],
+              ["**Publication Facebook et Instagram**", "**Connecter Facebook et Instagram** connecte votre Page et son compte Instagram — la connexion par laquelle les formulaires de prospects sont lus et par laquelle le Créateur publie. La carte affiche **En attente de l'approbation de Meta**, sans bouton, si ses autorisations ne sont pas activées pour FieldQuo. Voir [[social-posting-and-scheduling|Publier sur Facebook et Instagram, maintenant ou plus tard]]."],
+              ["**WhatsApp Business**", "Affiche **WhatsApp arrive bientôt. Nous attendons que Meta approuve FieldQuo pour WhatsApp, et nous vous préviendrons le jour où ce sera prêt.**, sans bouton, tant que Meta n'a pas accordé à FieldQuo l'accès avancé à ses autorisations WhatsApp. Voir [[whatsapp-coming-soon|WhatsApp (bientôt)]]."],
             ],
           } },
         ],
@@ -460,7 +460,7 @@ export const ARTICLES = {
     faq: [
       { q: "FieldQuo va-t-il modifier mes publicités ou mon budget ?", a: "Non. L'autorisation demandée à Meta est en lecture seule ; l'écran dit qu'il ne crée ni ne modifie jamais une publicité." },
       { q: "Mon compte publicitaire facture en USD et mon entreprise est en CAD — que se passe-t-il ?", a: "Les lignes sont converties à un taux de change fixé et chaque chiffre qu'elles touchent est marqué ≈ approximatif, avec l'ancienneté du taux à côté. Un taux de plus de 45 jours est refusé et le montant est nommé comme exclu." },
-      { q: "Où vont les prospects de mes publicités ?", a: "Dès que Meta approuve l'autorisation des formulaires de prospects, un prospect issu d'un formulaire que vous activez arrive dans Prospects comme toute autre demande. D'ici là, les interrupteurs sont désactivés et la carte dit que rien n'est reçu." },
+      { q: "Où vont les prospects de mes publicités ?", a: "Un prospect issu d'un formulaire que vous activez arrive dans Prospects comme toute autre demande. Les formulaires sont lus par votre connexion à la Page Facebook, pas par ce compte publicitaire. Si la carte des formulaires affiche l'avis sur l'approbation de Meta, les interrupteurs sont désactivés et rien n'est reçu." },
     ],
   },
 

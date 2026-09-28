@@ -405,11 +405,11 @@ export const ARTICLES = {
   "connect-meta-ads": {
     title: "Conectar su cuenta publicitaria de Meta",
     summary:
-      "Vincule su propia cuenta publicitaria de Facebook e Instagram para que su gasto y los resultados de sus campañas entren en Gasto en marketing —de solo lectura, sincronizados cuando pulsa Sincronizar ahora— y vea qué más espera de Meta esa misma pantalla.",
-    updated: "2026-09-12",
+      "Vincule su propia cuenta publicitaria de Facebook e Instagram para que su gasto y los resultados de sus campañas entren en Gasto en marketing —de solo lectura, sincronizados cuando pulsa Sincronizar ahora— y vea qué hacen las tarjetas vecinas de formularios, publicación y WhatsApp.",
+    updated: "2026-09-28",
     intro: [
       "**Configuración → Cobros → Meta Ads** conecta la cuenta publicitaria de Meta de su propia empresa. En palabras de la pantalla: conecte su propia cuenta publicitaria de Meta (Facebook/Instagram) para traer el gasto y el rendimiento de las campañas a sus cifras de marketing. FieldQuo solo lee gasto y rendimiento; nunca crea ni cambia un anuncio.",
-      "La misma pantalla tiene otras tres tarjetas de Meta: **Formularios de clientes potenciales de Facebook**, **Publicación en Facebook e Instagram** y **WhatsApp Business**. Cada una enuncia sus propias condiciones, y hoy cada una espera un permiso que Meta todavía no ha concedido a la aplicación de FieldQuo.",
+      "La misma pantalla tiene otras tres tarjetas de Meta: **Formularios de clientes potenciales de Facebook**, **Publicación en Facebook e Instagram** y **WhatsApp Business**. Cada una enuncia sus propias condiciones. Los formularios y la publicación funcionan ambos con su conexión a la Página de Facebook —la tarjeta de publicación—, no con esta cuenta publicitaria, y cada uno muestra un aviso y desactiva sus controles si un permiso de Meta que necesita no está activado para FieldQuo. WhatsApp es distinto: todas las empresas ven una sola frase de «próximamente» y ningún botón hasta que Meta le otorgue a FieldQuo, en su App Review, el acceso avanzado a sus dos permisos de WhatsApp.",
     ],
     sections: [
       {
@@ -443,9 +443,9 @@ export const ARTICLES = {
               ["**Sincronizar ahora**", "Importa los últimos 30 días en Gasto en marketing y actualiza la tabla de campañas. Las filas en otra moneda se convierten a un tipo fijado y se marcan ≈."],
               ["**Volver a conectar**", "Aparece cuando el chip dice **Hay que volver a conectarla**: Meta indica que el token guardado ya no es válido. La sincronización queda en pausa hasta que lo haga."],
               ["**Desconectar**", "Detiene la sincronización. Las filas ya importadas se quedan en su historial de gasto en marketing."],
-              ["Los interruptores de **Formularios de clientes potenciales de Facebook**", "Se muestran por formulario con su número de clientes potenciales, pero desactivados: «Los formularios de clientes potenciales de Facebook necesitan que Meta apruebe un permiso más; todavía no se está recibiendo nada.» Vea [[facebook-lead-forms|Formularios de clientes potenciales de Facebook]]."],
-              ["**Publicación en Facebook e Instagram**", "Dice **Esperando la aprobación de Meta**. Publicar desde el Diseñador depende de ello; vea [[social-posting-and-scheduling|Publicar en Facebook e Instagram, ahora o más tarde]]."],
-              ["**WhatsApp Business**", "Dice **Esperando la aprobación de Meta**. Vea [[whatsapp-business|Mensajes de WhatsApp Business]]."],
+              ["Los interruptores de **Formularios de clientes potenciales de Facebook**", "Uno por cada formulario encontrado en su Página de Facebook conectada, con su número de clientes potenciales: los formularios y los clientes potenciales se leen a través de la conexión con la Página, no de esta cuenta publicitaria. Si la tarjeta muestra «Los formularios de clientes potenciales de Facebook necesitan que Meta apruebe un permiso más; todavía no se está recibiendo nada.», los interruptores están desactivados. Vea [[facebook-lead-forms|Formularios de clientes potenciales de Facebook]]."],
+              ["**Publicación en Facebook e Instagram**", "**Conectar Facebook e Instagram** conecta su Página y su cuenta de Instagram: la conexión a través de la cual se leen los formularios y publica el Diseñador. Dice **Esperando la aprobación de Meta**, sin botón, si sus permisos no están activados para FieldQuo. Vea [[social-posting-and-scheduling|Publicar en Facebook e Instagram, ahora o más tarde]]."],
+              ["**WhatsApp Business**", "Dice **WhatsApp llegará pronto. Estamos esperando que Meta apruebe a FieldQuo para WhatsApp y le avisaremos el día que esté listo.**, sin botón, hasta que Meta le otorgue a FieldQuo el acceso avanzado a sus permisos de WhatsApp. Vea [[whatsapp-coming-soon|WhatsApp (próximamente)]]."],
             ],
           } },
         ],
@@ -461,7 +461,7 @@ export const ARTICLES = {
     faq: [
       { q: "¿FieldQuo cambiará mis anuncios o mi presupuesto publicitario?", a: "No. El permiso que le pide a Meta es de solo lectura; la pantalla dice que nunca crea ni cambia un anuncio." },
       { q: "Mi cuenta publicitaria factura en USD y mi empresa está en CAD, ¿qué pasa?", a: "Las filas se convierten a un tipo de cambio fijado y cada cifra que tocan se marca ≈ aproximada, con la antigüedad del tipo al lado. Un tipo de más de 45 días se rechaza y el importe se nombra como excluido." },
-      { q: "¿A dónde van los clientes potenciales de mis anuncios?", a: "En cuanto Meta apruebe el permiso de formularios, un cliente potencial de un formulario que active llega a Prospectos como cualquier otra solicitud. Hasta entonces los interruptores están desactivados y la tarjeta dice que no se recibe nada." },
+      { q: "¿A dónde van los clientes potenciales de mis anuncios?", a: "Un cliente potencial de un formulario que active llega a Prospectos como cualquier otra solicitud. Los formularios se leen a través de su conexión con la Página de Facebook, no de esta cuenta publicitaria. Si la tarjeta de formularios muestra el aviso sobre la aprobación de Meta, los interruptores están desactivados y no se recibe nada." },
     ],
   },
 

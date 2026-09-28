@@ -592,7 +592,7 @@ export const ARTICLES = {
     title: "Meta Ads",
     summary:
       "Connect your own Meta ad account so ad spend flows into your marketing numbers, plus the Facebook lead forms, Facebook & Instagram publishing and WhatsApp Business connections that live on the same screen.",
-    updated: "2026-09-12",
+    updated: "2026-09-28",
     intro: [
       "**Settings → Meta Ads** is where a company connects its own Meta (Facebook/Instagram) ad account. FieldQuo only reads spend and campaign performance — it never creates or changes an ad — and the rows it imports become marketing spend, so your cost per lead includes what you paid Meta. Three more Meta connections sit on the same screen because they are all “a Meta account this company connects”: Facebook lead forms, Facebook & Instagram publishing, and WhatsApp Business.",
     ],
@@ -612,8 +612,8 @@ export const ARTICLES = {
           { bullets: [
             "**Meta Ads — Connect your own Meta (Facebook/Instagram) ad account to bring spend and campaign performance into your marketing numbers.**",
             "The connection card — **Not connected** with **Connect Meta Ads**, or the connected account with **Last synced …**, **Sync now**, **See your campaigns →** and **Disconnect**. After a sync: **… new rows, … updated**, plus any errors, possible duplicates or a currency mismatch.",
-            "**Facebook lead forms** — the forms found on your Pages, each with an **On** / **Off** switch, its lead count and last lead, **Find my lead forms**, and **Which campaigns these leads came from**.",
-            "**Facebook & Instagram publishing** and **WhatsApp Business** — their own connect cards, each of which says plainly when its permission is not yet approved and offers no button in that case.",
+            "**Facebook lead forms** — the forms found on the connected Facebook Page, each with an **On** / **Off** switch, its lead count and last lead, **Find my lead forms**, and **Which campaigns these leads came from**.",
+            "**Facebook & Instagram publishing** — the Facebook Page connection (**Connect Facebook & Instagram**, later **Reconnect or switch Page**) that lead forms are read through. **WhatsApp Business** — for now one sentence saying WhatsApp is coming soon, and no button, until Meta grants FieldQuo advanced access to its WhatsApp permissions.",
           ] },
         ],
       },
@@ -648,8 +648,8 @@ export const ARTICLES = {
         id: "the-other-three",
         heading: "Lead forms, publishing and WhatsApp",
         blocks: [
-          { p: "**Facebook lead forms** turns a form attached to one of your ads into a lead in Leads — scored like any other enquiry, notifying the same people, with your follow-up rules applied. It uses the same Meta login as the ad account. Until Meta approves one more permission for FieldQuo, the panel says **Facebook lead forms need Meta's approval of one more permission; nothing is being received yet.** and every switch is disabled with that reason — shown, not hidden, so you know leads are not arriving and it is not your fault. See [[facebook-lead-forms|Facebook lead forms]]." },
-          { p: "**Facebook & Instagram publishing** posts a design from the Marketing Designer straight to your own Page and Instagram account. **WhatsApp Business** answers your own WhatsApp number in Messages beside Facebook and Instagram conversations, with the 24-hour rule explained on the card. Both render a Connect button only when their permission is approved. See [[connect-your-facebook-page-and-instagram|Connecting your Facebook Page and Instagram]] and [[whatsapp-business|WhatsApp Business]]." },
+          { p: "**Facebook lead forms** turns a form attached to one of your ads into a lead in Leads — scored like any other enquiry, notifying the same people, with your follow-up rules applied. Forms and leads are read through your Facebook Page connection — the **Facebook & Instagram publishing** card below — not through the ad account, which cannot see your Page's forms. You do not need the ad account connected to receive leads. If the panel shows **Facebook lead forms need Meta's approval of one more permission; nothing is being received yet.**, every switch and **Find my lead forms** are disabled with that reason — shown, not hidden, so you know leads are not arriving and it is not your fault. See [[facebook-lead-forms|Facebook lead forms]]." },
+          { p: "**Facebook & Instagram publishing** connects your Facebook Page and its Instagram account: designs from the Marketing Designer post there, and lead forms are read through it. When its permissions are not switched on for FieldQuo it reads **Waiting on Meta's approval** and offers no button. **WhatsApp Business** will answer your own WhatsApp number in Messages beside Facebook and Instagram conversations; until Meta grants FieldQuo advanced access to its WhatsApp permissions in App Review, the card is one sentence with no button. See [[connect-your-facebook-page-and-instagram|Connecting your Facebook Page and Instagram]] and [[whatsapp-coming-soon|WhatsApp (coming soon)]]." },
         ],
       },
       {
@@ -663,7 +663,7 @@ export const ARTICLES = {
     faq: [
       { q: "Can FieldQuo create or edit my ads?", a: "No. The connection is read-only: spend and performance come in, nothing goes out." },
       { q: "Does spend import on its own?", a: "No. Press Sync now. Each sync covers the last 30 days by default and updates rows it already wrote." },
-      { q: "I connected, so why are lead forms still off?", a: "The lead-form permission is not approved for FieldQuo's Meta app yet. The panel says so and keeps the switches disabled until it is." },
+      { q: "I connected my ad account, so why are there no lead forms?", a: "Lead forms are read through your Facebook Page connection, not the ad account. Connect your Page under Facebook & Instagram publishing, then press Find my lead forms. If the panel shows the amber notice about Meta's approval instead, the switches stay disabled until it goes away." },
     ],
   },
 

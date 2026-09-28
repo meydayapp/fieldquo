@@ -3,8 +3,10 @@
 // What the WhatsApp panel needs to render ONE honest state and never a control
 // that cannot work:
 //
-//   0. coming soon           — Meta has not yet approved FieldQuo as a
-//                              WhatsApp Tech Provider
+//   0. coming soon           — Meta's App Review has not yet granted
+//                              ADVANCED access to whatsapp_business_messaging
+//                              + whatsapp_business_management (Tech Provider
+//                              verification itself is done, 2026-09-14)
 //                              (META_WHATSAPP_ONBOARDING_APPROVED unset) and
 //                              the viewer is not FieldQuo staff. One sentence,
 //                              no control — see lib/meta/whatsappOnboarding.js.
@@ -90,8 +92,9 @@ export async function GET(request) {
     // contractor can act on, and "FieldQuo has not switched this on for you"
     // is a support conversation.
     connectEnabled: metaWhatsAppEnabled(),
-    // Meta's approval of FieldQuo as a WhatsApp Tech Provider, and the doors
-    // that follow for this viewer. Until it lands a company sees one sentence
+    // Whether Meta's App Review has granted FieldQuo advanced access to the
+    // two WhatsApp permissions (FieldQuo is already a verified Tech Provider,
+    // since 2026-09-14), and the doors that follow for this viewer. Until it lands a company sees one sentence
     // and no control — Embedded Signup would end on Meta's "can't onboard
     // customers right now" page — while staff keep both doors to test with.
     onboardingApproved: access.approved,

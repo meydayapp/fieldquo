@@ -276,10 +276,10 @@ export const ARTICLES = {
   "whatsapp-coming-soon": {
     title: "WhatsApp (próximamente)",
     summary:
-      "Los mensajes de WhatsApp Business en FieldQuo están listos y esperan la aprobación de Meta; esto es lo que dice la tarjeta hoy y lo que hará cuando Meta diga que sí.",
+      "Los mensajes de WhatsApp Business en FieldQuo están listos y esperan la revisión (App Review) de Meta de los dos permisos de WhatsApp de FieldQuo; esto es lo que dice la tarjeta hoy y lo que hará cuando Meta diga que sí.",
     updated: "2026-09-28",
     intro: [
-      "Todavía no puede conectar un número de WhatsApp a FieldQuo. La parte de la bandeja de entrada está lista, pero Meta tiene que aprobar a FieldQuo antes de que cualquier empresa pueda conectar su número de WhatsApp, y esa aprobación no ha llegado. FieldQuo no sabe cuándo llegará.",
+      "Todavía no puede conectar un número de WhatsApp a FieldQuo. La parte de la bandeja de entrada está lista. Falta una sola decisión de Meta: su App Review tiene que otorgarle a FieldQuo el acceso avanzado a los dos permisos de WhatsApp, y hasta entonces ninguna empresa puede conectar su propio número. FieldQuo no sabe cuándo será.",
       "En lugar de un botón para conectar que lo llevaría a una página de Meta que lo rechaza, la tarjeta **WhatsApp Business** de **Configuración → Meta Ads** lo dice en una frase.",
     ],
     sections: [
@@ -300,7 +300,7 @@ export const ARTICLES = {
         heading: "Qué está esperando FieldQuo",
         blocks: [
           {
-            p: "Para que una empresa pueda conectar su propio número de WhatsApp, Meta tiene que aprobar a FieldQuo para WhatsApp: el permiso para responder mensajes de WhatsApp y el derecho a llevar a las empresas por el registro de WhatsApp de Meta. Mientras tanto, ese registro rechaza a toda empresa que no sea la de FieldQuo, así que un botón para conectar siempre terminaría en el rechazo de Meta. Por eso no se muestra ninguno.",
+            p: "FieldQuo ya está registrado y verificado ante Meta para conectar los números de WhatsApp de otras empresas. Lo que sigue pendiente es la App Review de Meta de dos permisos: **whatsapp_business_messaging**, que envía y recibe los mensajes, y **whatsapp_business_management**, que lee su número y sus plantillas. Hoy FieldQuo tiene acceso estándar a ambos, que solo funciona para la propia empresa de FieldQuo; la suya necesita el acceso avanzado, y solo la revisión lo otorga. Mientras tanto, el registro de Meta rechaza a toda empresa que no sea la de FieldQuo, así que un botón para conectar siempre terminaría en el rechazo de Meta. Por eso no se muestra ninguno.",
           },
         ],
       },
@@ -325,7 +325,7 @@ export const ARTICLES = {
           {
             bullets: [
               "Responda sus mensajes de Facebook e Instagram en FieldQuo: vea [[answer-facebook-and-instagram-messages-from-fieldquo|Responder mensajes de Facebook e Instagram desde FieldQuo]].",
-              "Siga respondiendo WhatsApp desde su teléfono como hoy. No tiene que pedirle nada a FieldQuo; la tarjeta cambia cuando Meta lo apruebe.",
+              "Siga respondiendo WhatsApp desde su teléfono como hoy. No tiene que pedirle nada a FieldQuo; la tarjeta cambia cuando Meta otorgue el acceso avanzado.",
               "Si ya tiene una cuenta de WhatsApp Business en Meta, puede escribir sus plantillas de mensajes con anticipación en el WhatsApp Manager de Meta; FieldQuo leerá las aprobadas una vez que conecte su número.",
             ],
           },
@@ -333,8 +333,8 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "¿Puedo tener acceso anticipado?", a: "No. Mientras Meta no apruebe a FieldQuo, su registro rechaza a toda empresa que no sea la de FieldQuo, así que no hay una puerta que abrir antes." },
-      { q: "¿Cuándo estará listo?", a: "Cuando Meta lo apruebe: Meta fija los tiempos, no FieldQuo. La tarjeta cambia sola ese día." },
+      { q: "¿Puedo tener acceso anticipado?", a: "No. Mientras la App Review de Meta no otorgue el acceso avanzado a los dos permisos de WhatsApp, el registro de Meta rechaza a toda empresa que no sea la de FieldQuo, así que no hay una puerta que abrir antes." },
+      { q: "¿Cuándo estará listo?", a: "Cuando la App Review de Meta otorgue el acceso avanzado: Meta fija los tiempos, no FieldQuo. FieldQuo activa la tarjeta ese mismo día." },
     ],
   },
 };

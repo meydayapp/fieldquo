@@ -43,8 +43,10 @@
 //
 // ── The second door: pasted Cloud API credentials ─────────────────────────
 //
-// Embedded Signup is shut until Meta's Access Verification of FieldQuo's app
-// lands, and Meta's own guide says what an app admin can do meanwhile:
+// Embedded Signup is shut until Meta's App Review grants FieldQuo's app
+// advanced access to the two WhatsApp permissions (Tech Provider verification
+// is already done, 2026-09-14), and Meta's own guide says what an app admin
+// can do meanwhile:
 // WhatsApp → API Setup, a system user, a permanent token. The collapsed
 // "advanced" section below the sign-up button takes those three values and
 // posts them to app/api/settings/whatsapp/manual, which proves the token

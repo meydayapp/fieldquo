@@ -280,10 +280,10 @@ export const ARTICLES = {
   "whatsapp-coming-soon": {
     title: "WhatsApp (coming soon)",
     summary:
-      "WhatsApp Business messages in FieldQuo are built and waiting on Meta's approval; here is what the card says today and what it will do once Meta says yes.",
+      "WhatsApp Business messages in FieldQuo are built and waiting on Meta's App Review of FieldQuo's two WhatsApp permissions; here is what the card says today and what it will do once Meta says yes.",
     updated: "2026-09-28",
     intro: [
-      "You can't connect a WhatsApp number to FieldQuo yet. The inbox side is built, but Meta has to approve FieldQuo before any business can connect its WhatsApp number, and that approval has not arrived. FieldQuo does not know when it will.",
+      "You can't connect a WhatsApp number to FieldQuo yet. The inbox side is built. What is missing is one decision by Meta: its App Review has to grant FieldQuo advanced access to the two WhatsApp permissions, and until it does no business can connect its own number. FieldQuo does not know when that will be.",
       "Rather than a Connect button that would lead to a Meta page refusing you, the **WhatsApp Business** card on **Settings → Meta Ads** says so in one sentence.",
     ],
     sections: [
@@ -304,7 +304,7 @@ export const ARTICLES = {
         heading: "What FieldQuo is waiting for",
         blocks: [
           {
-            p: "To let a business connect its own WhatsApp number, Meta has to approve FieldQuo for WhatsApp — the permission to answer WhatsApp messages and the right to take businesses through Meta's WhatsApp sign-up. Until Meta does, its sign-up refuses every business except FieldQuo's own, so a Connect button would only ever end on Meta's refusal. That is why none is shown.",
+            p: "FieldQuo is already registered and verified with Meta to connect other businesses' WhatsApp numbers. What is still pending is Meta's App Review of two permissions: **whatsapp_business_messaging**, which sends and receives the messages, and **whatsapp_business_management**, which reads your number and your templates. Today FieldQuo has standard access to both, which works only for FieldQuo's own business; your business needs advanced access, and only the review grants it. Until then Meta's sign-up refuses every business except FieldQuo's own, so a Connect button would only ever end on Meta's refusal. That is why none is shown.",
           },
         ],
       },
@@ -329,7 +329,7 @@ export const ARTICLES = {
           {
             bullets: [
               "Answer your Facebook and Instagram messages in FieldQuo — see [[answer-facebook-and-instagram-messages-from-fieldquo|Answer Facebook and Instagram messages from FieldQuo]].",
-              "Keep answering WhatsApp from your phone as you do today. There is nothing to request from FieldQuo; the card changes when Meta approves.",
+              "Keep answering WhatsApp from your phone as you do today. There is nothing to request from FieldQuo; the card changes when Meta grants advanced access.",
               "If you already have a WhatsApp Business account with Meta, you can write your message templates in Meta's WhatsApp Manager ahead of time; FieldQuo reads the approved ones once your number is connected.",
             ],
           },
@@ -337,8 +337,8 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "Can I get early access?", a: "No. Until Meta approves FieldQuo, Meta's sign-up refuses every business but FieldQuo's own, so there is no door to open early." },
-      { q: "When will it be ready?", a: "When Meta approves it — Meta sets the timing, not FieldQuo. The card changes on its own that day." },
+      { q: "Can I get early access?", a: "No. Until Meta's App Review grants advanced access to the two WhatsApp permissions, Meta's sign-up refuses every business but FieldQuo's own, so there is no door to open early." },
+      { q: "When will it be ready?", a: "When Meta's App Review grants advanced access — Meta sets the timing, not FieldQuo. FieldQuo switches the card on the day it lands." },
     ],
   },
 };

@@ -2433,7 +2433,8 @@ ok("every language's activity line keeps the {number} placeholder", missingParam
 section("14. THE SECOND DOOR — pasted Cloud API credentials, executed");
 // ═══════════════════════════════════════════════════════════════════════════
 //
-// Embedded Signup is shut until Meta's Access Verification lands, so a company
+// Embedded Signup is shut until Meta's App Review grants advanced access to
+// the two WhatsApp permissions (Tech Provider verification is done), so a company
 // admin can paste a WABA id, a phone number id and a permanent system user
 // token instead (app/api/settings/whatsapp/manual). What has to be TRUE and
 // is executed here rather than read:
@@ -2911,7 +2912,7 @@ ok("the feature registry's prefix covers the new route", feature?.apiPrefixes.so
 ok("the dashboard doc has the API Setup + system user subsection", /API Setup \+ system user token/.test(read("docs/META-DASHBOARD-CURRENT.md")));
 
 // ═══════════════════════════════════════════════════════════════════════════
-section("15. Before Meta approves FieldQuo as a Tech Provider — no dead door for a company");
+section("15. Before Meta grants advanced access to the WhatsApp permissions — no dead door for a company");
 // ═══════════════════════════════════════════════════════════════════════════
 //
 // The owner's report: with the switch on, "Connect WhatsApp" opened Embedded

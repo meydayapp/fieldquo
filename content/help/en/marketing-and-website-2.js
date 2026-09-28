@@ -408,11 +408,11 @@ export const ARTICLES = {
   "connect-meta-ads": {
     title: "Connect your Meta ad account",
     summary:
-      "Link your own Facebook and Instagram ad account so its spend and campaign results flow into Marketing spend — read-only, synced when you press Sync now — and see what else the same screen is waiting on Meta for.",
-    updated: "2026-09-12",
+      "Link your own Facebook and Instagram ad account so its spend and campaign results flow into Marketing spend — read-only, synced when you press Sync now — and what the lead forms, publishing and WhatsApp cards beside it do.",
+    updated: "2026-09-28",
     intro: [
       "**Settings → Getting paid → Meta Ads** connects your company's own Meta ad account. In the screen's words: “Connect your own Meta (Facebook/Instagram) ad account to bring spend and campaign performance into your marketing numbers.” FieldQuo only reads spend and performance — it never creates or changes an ad.",
-      "The same screen holds three more Meta cards: **Facebook lead forms**, **Facebook & Instagram publishing** and **WhatsApp Business**. Each states its own preconditions, and today each is waiting on a permission Meta has not yet granted to FieldQuo's app.",
+      "The same screen holds three more Meta cards: **Facebook lead forms**, **Facebook & Instagram publishing** and **WhatsApp Business**. Each states its own preconditions. Lead forms and publishing both run on your Facebook Page connection — the publishing card — not on this ad account, and either one shows a notice and disables its controls if a Meta permission it needs is not switched on for FieldQuo. WhatsApp is different: every company sees one “coming soon” sentence and no button until Meta grants FieldQuo advanced access to its two WhatsApp permissions in App Review.",
     ],
     sections: [
       {
@@ -446,9 +446,9 @@ export const ARTICLES = {
               ["**Sync now**", "Imports the last 30 days into Marketing spend and updates the campaign table. Rows in another currency are converted at a pinned rate and marked ≈."],
               ["**Reconnect**", "Appears when the chip reads **Needs reconnecting** — Meta says the stored token is no longer valid. Syncing is paused until you do."],
               ["**Disconnect**", "Stops syncing. Rows already imported stay in your marketing spend history."],
-              ["**Facebook lead forms** switches", "Shown per form with their lead counts, but disabled: “Facebook lead forms need Meta's approval of one more permission; nothing is being received yet.” See [[facebook-lead-forms|Facebook lead forms]]."],
-              ["**Facebook & Instagram publishing**", "Reads **Waiting on Meta's approval**. Posting from the Designer waits on it — see [[social-posting-and-scheduling|Post to Facebook and Instagram, now or later]]."],
-              ["**WhatsApp Business**", "Reads **Waiting on Meta's approval**. See [[whatsapp-business|WhatsApp Business messages]]."],
+              ["**Facebook lead forms** switches", "One per form found on your connected Facebook Page, with its lead count — forms and leads are read through the Page connection, not this ad account. If the card shows “Facebook lead forms need Meta's approval of one more permission; nothing is being received yet.”, the switches are disabled. See [[facebook-lead-forms|Facebook lead forms]]."],
+              ["**Facebook & Instagram publishing**", "**Connect Facebook & Instagram** connects your Page and its Instagram account — the connection lead forms are read through and the Designer posts through. It reads **Waiting on Meta's approval**, with no button, if its permissions are not switched on for FieldQuo. See [[social-posting-and-scheduling|Post to Facebook and Instagram, now or later]]."],
+              ["**WhatsApp Business**", "Reads **WhatsApp is coming soon. We're waiting on Meta to approve FieldQuo for WhatsApp, and we'll tell you the day it's ready.**, with no button, until Meta grants FieldQuo advanced access to its WhatsApp permissions. See [[whatsapp-coming-soon|WhatsApp (coming soon)]]."],
             ],
           } },
         ],
@@ -464,7 +464,7 @@ export const ARTICLES = {
     faq: [
       { q: "Will FieldQuo change my ads or my budget?", a: "No. The permission it asks Meta for is read-only; the screen says it never creates or changes an ad." },
       { q: "My ad account bills in USD and my company is in CAD — what happens?", a: "The rows are converted at a pinned exchange rate and every figure they touch is marked ≈ approximate, with the rate's age beside it. A rate older than 45 days is refused and the amount is named as excluded." },
-      { q: "Where do the leads from my ads go?", a: "Once Meta approves the lead-forms permission, a lead from a form you switch on lands in Leads like any other enquiry. Until then the switches are disabled and the card says nothing is being received." },
+      { q: "Where do the leads from my ads go?", a: "A lead from a form you switch on lands in Leads like any other enquiry. The forms are read through your Facebook Page connection, not this ad account. If the lead-forms card shows the notice about Meta's approval, the switches are disabled and nothing is being received." },
     ],
   },
 
