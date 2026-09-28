@@ -73,6 +73,7 @@ import {
   validateCaption,
   isValidFacebookScheduleTime,
   isSocialPublishingVisible,
+  isRetryablePublishCode,
 } from "@/lib/social/metaSpecs";
 import { metaAppConfigured } from "@/lib/meta/client";
 import { getMetaConnection } from "@/lib/social/metaConnection";
@@ -533,20 +534,59 @@ async function publishOnePlatform({
   }
 }
 
+// ── What a failure records, and what it tells the modal ──────────────────
+//
+// errorMessage stores Meta's FULL answer when Meta gave one (err.metaDetail —
+// code, error_subcode, type, error_user_title/msg, fbtrace_id; never a token),
+// and our own sentence otherwise. On 2026-09-28 a real Instagram refusal
+// (9004 / 2207052) was stored here as "Unexpected error" and survived only in
+// a Vercel log line — the row is the place support looks, so the row has to
+// hold it.
+//
+// `retryable` is what puts "Try Instagram again" on the result. The button
+// re-POSTs this same route for that one platform, so a retry runs every gate
+// a first attempt does (approval fingerprint, caption, connection) — there is
+// no second publish path to drift from this one.
 async function failRow(row, err, platform) {
   if (err instanceof PublishRefusal) {
     const status = err.code === "rate_limited" ? "rate_limited" : "failed";
     await db.socialPublish.update({
       where: { id: row.id },
-      data: { status, errorMessage: err.message, externalContainerId: err.containerId || null },
+      data: {
+        status,
+        errorMessage: err.metaDetail || err.message,
+        externalContainerId: err.containerId || null,
+      },
     });
-    return { status, code: err.code, message: err.message, rate: err.rate };
+    return {
+      status,
+      code: err.code,
+      message: err.message,
+      rate: err.rate,
+      retryable: typeof err.retryable === "boolean" ? err.retryable : isRetryablePublishCode(err.code),
+      meta: err.meta || null,
+    };
   }
 
   console.error("[marketing/designer/publish]", platform, err);
   await db.socialPublish.update({
     where: { id: row.id },
-    data: { status: "failed", errorMessage: "Unexpected error" },
+    data: {
+      status: "failed",
+      // Still not a raw dump of whatever was thrown — a non-Meta error can be
+      // anything, including one whose message quotes a request — but no longer
+      // a bare "Unexpected error" either: the error's class and a bounded,
+      // redacted message are what a support conversation starts from.
+      errorMessage: `Unexpected error: ${String(err?.name || "Error")}: ${String(err?.message || "")
+        .replace(/access_token=[^&\s"']+/gi, "access_token=[redacted]")
+        .slice(0, 500)}`,
+    },
   });
-  return { status: "failed", code: "unexpected", message: "Something went wrong. Nothing was posted." };
+  return {
+    status: "failed",
+    code: "unexpected",
+    message: "Something went wrong. Nothing was posted.",
+    retryable: true,
+    meta: null,
+  };
 }

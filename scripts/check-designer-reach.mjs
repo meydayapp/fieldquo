@@ -272,6 +272,14 @@ function makeStore() {
         }
         return { count };
       },
+      // Section 9 drives the real publish route, which writes its outcome
+      // with update-by-id.
+      async update({ where, data }) {
+        const row = socialPublishes.find((r) => r.id === where.id);
+        if (!row) throw new Error("socialPublish.update: not found");
+        Object.assign(row, data, { updatedAt: new Date() });
+        return { ...row };
+      },
     },
     // Real Prisma runs the array's operations inside one transaction; this
     // fake has no isolation to offer, so it just awaits each in order —
@@ -299,12 +307,28 @@ const STUBS = {
   "@/lib/db": "fq-stub:db",
   "@/lib/currentMember": "fq-stub:member",
   "next/server": "fq-stub:next",
+  // Section 9 only — the publish route's own side doors. Nothing before
+  // section 9 imports any of these four, so stubbing them cannot change what
+  // sections 1–8 exercise. The Graph client itself is NOT stubbed: section 9
+  // runs the real lib/social/metaGraphClient.js over a stubbed fetch, so the
+  // error parsing under test is the code that runs in production.
+  "@/lib/signup/planGate": "fq-stub:plangate",
+  "@/lib/cloudinary": "fq-stub:cloudinary",
+  "@/lib/social/metaConnection": "fq-stub:metaconn",
+  "@/lib/activity/log": "fq-stub:activity",
+};
+const DELEGATES = {
+  "fq-stub:plangate": "export const planOrRefusal = async () => ({ response: null });",
+  "fq-stub:cloudinary": "export const uploadBuffer = (...a) => globalThis.__FQ_UPLOAD(...a);",
+  "fq-stub:metaconn": "export const getMetaConnection = (...a) => globalThis.__FQ_META_CONN(...a);",
+  "fq-stub:activity": "export const recordActivity = async () => {};",
 };
 export async function resolve(specifier, context, nextResolve) {
   if (STUBS[specifier]) return { url: STUBS[specifier], shortCircuit: true };
   return nextResolve(specifier, context);
 }
 export async function load(url, context, nextLoad) {
+  if (DELEGATES[url]) return { format: "module", shortCircuit: true, source: DELEGATES[url] };
   if (url === "fq-stub:db") {
     return {
       format: "module", shortCircuit: true,
@@ -1260,6 +1284,227 @@ if (exists(ANNOTATOR_EDITOR)) {
   const editorCode = stripComments(editorSrc);
   ok(editorSrc.trim().startsWith('"use client";'), "PhotoAnnotatorEditor.js opens with \"use client\" (it imports fabric)");
   ok(/from\s+["']fabric["']/.test(editorCode), "PhotoAnnotatorEditor.js imports fabric — the reason it needs the ssr:false wrapper at all");
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   9. A Meta refusal at Instagram container creation is RECORDED, EXPLAINED
+      and RETRYABLE — the 2026-09-28 production incident, replayed
+   ═══════════════════════════════════════════════════════════════════════════
+
+   What happened: Facebook posted, Instagram failed at POST /{ig-user}/media,
+   and SocialPublish cmulkob5x000805k19jwwy47g stored "Unexpected error".
+   Meta's actual answer (Vercel log, same minute) was HTTP 400, code 9004,
+   error_subcode 2207052, "Only photo or video can be accepted as media type."
+   — the route's catch-all did not know what a Graph error was, so the one
+   field support reads held nothing.
+
+   This section runs the REAL publish route and the REAL Graph client; only
+   fetch() is stubbed, answering exactly the error body Meta sends. Every
+   container-create failure class is asserted three ways: what is STORED
+   (errorMessage carries code/subcode/type/user text/fbtrace_id, never a
+   token), what the modal is TOLD (a code it has words for, and whether a
+   retry can help), and — for the incident's own case — that "Try Instagram
+   again" re-runs the same route for Instagram alone and does not re-post to
+   Facebook. */
+
+section("9. Meta refusals at Instagram container creation — stored in full, named for the modal, retryable where retrying can help");
+
+{
+  const { designFingerprint } = await import("@/lib/marketing/approvalFingerprint");
+  const metaSpecs = await import("../lib/social/metaSpecs.js");
+  const publishRoute = await import("@/app/api/marketing/designer/designs/[id]/publish/route.js");
+
+  const SECRET_TOKEN = "EAAGfakePageTokenForTheCheckOnly1234567890abcdef";
+  globalThis.__FQ_META_CONN = async () => ({
+    connected: true,
+    mock: false,
+    reason: null,
+    pageId: "918147324721528",
+    pageName: "Truefinish Cabinets",
+    pageAccessToken: SECRET_TOKEN,
+    instagramUserId: "17841480173629186",
+    instagramUsername: "truefinishcabinets",
+  });
+  globalThis.__FQ_UPLOAD = async () => ({
+    secure_url: "https://res.cloudinary.com/demo/image/upload/v1/fieldquo/companies/co1/social/check.jpg",
+    width: 1080,
+    height: 1080,
+    bytes: 226561,
+  });
+  const savedEnv = { id: process.env.META_APP_ID, secret: process.env.META_APP_SECRET };
+  process.env.META_APP_ID = "check-app";
+  process.env.META_APP_SECRET = "check-secret";
+
+  // An approved design — fingerprinted the way the route will recompute it.
+  const layout = { id: "l-pub", designId: "d-pub", ratioKey: "instagram_post", width: 1080, height: 1080, json: { objects: [] } };
+  store.layouts.push(layout);
+  const caption = "This is a test image to be removed";
+  store.designs.push({
+    id: "d-pub",
+    companyId: "co1",
+    campaignId: "camp1",
+    name: "App Review",
+    caption,
+    hashtags: [],
+    approvedAt: new Date(),
+    approvedFingerprint: designFingerprint({ layouts: [layout], caption, hashtags: [] }),
+  });
+
+  // The stubbed Meta. `igMediaAnswer` is what POST /{ig-user}/media returns.
+  let igMediaAnswer = null;
+  let quotaUsed = 2;
+  let quotaAsked = null;
+  const calls = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init = {}) => {
+    const u = new URL(String(url));
+    calls.push({ method: init.method || "GET", path: u.pathname });
+    const json = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
+    if (u.pathname.endsWith("/918147324721528/photos")) return json(200, { id: "p1", post_id: "918147324721528_1" });
+    if (u.pathname.endsWith("/content_publishing_limit")) {
+      quotaAsked = u.searchParams.get("fields");
+      return json(200, { data: [{ quota_usage: quotaUsed, config: { quota_total: 50, quota_duration: 86400 } }] });
+    }
+    if (u.pathname.endsWith("/17841480173629186/media")) return igMediaAnswer();
+    if (u.pathname.endsWith("/container_ok")) return json(200, { status_code: "FINISHED", id: "container_ok" });
+    if (u.pathname.endsWith("/17841480173629186/media_publish")) return json(200, { id: "ig_media_1" });
+    return json(404, { error: { message: `unstubbed ${u.pathname}`, code: 803 } });
+  };
+  const metaError = (status, error) => () => ({ ok: false, status, json: async () => ({ error }) });
+
+  const post = (platforms) =>
+    publishRoute.POST(
+      req("http://x/x", "POST", {
+        ratioKey: "instagram_post",
+        platforms,
+        imageBase64: `data:image/jpeg;base64,${Buffer.from("jpeg-bytes").toString("base64")}`,
+      }),
+      { params: Promise.resolve({ id: "d-pub" }) },
+    );
+  const rowsFor = (platform) => store.socialPublishes.filter((r) => r.designId === "d-pub" && r.platform === platform);
+  const latest = (platform) => rowsFor(platform).at(-1);
+
+  // ── The incident itself: 9004 / 2207052, both platforms in one request ──
+  igMediaAnswer = metaError(400, {
+    message: "Only photo or video can be accepted as media type.",
+    type: "OAuthException",
+    code: 9004,
+    error_subcode: 2207052,
+    is_transient: false,
+    error_user_title: "Media download has failed.",
+    // Hostile on purpose: a reply that quotes a request URL must not smuggle
+    // the token into the row.
+    error_user_msg: `The media could not be fetched from this uri: https://graph.facebook.com/x?access_token=${SECRET_TOKEN}`,
+    fbtrace_id: "ABBxfvhnegQWbuazapIWu62",
+  });
+  const first = await post(["facebook", "instagram"]);
+  ok(first.status === 200, "the incident request completes (per-platform results, not a 500)", JSON.stringify(first.body));
+  ok(first.body?.results?.facebook?.status === "published", "…Facebook still posts — one platform's refusal never sinks the other");
+  const ig = first.body?.results?.instagram || {};
+  ok(ig.status === "failed", "…Instagram is recorded as failed");
+  ok(ig.code === "meta_media_unreachable", "…with a NAMED code the modal translates (meta_media_unreachable), not 'unexpected'", ig.code);
+  ok(ig.retryable === true, "…and marked retryable — Meta's documented fix for 2207052 is to try the URL again");
+  ok(ig.meta?.code === 9004 && ig.meta?.subcode === 2207052, "…and Meta's code/subcode reach the modal for the support line", JSON.stringify(ig.meta));
+  ok(ig.meta?.fbtraceId === "ABBxfvhnegQWbuazapIWu62", "…including the fbtrace_id Meta asks for when a problem is reported");
+  const stored = latest("instagram")?.errorMessage || "";
+  ok(stored !== "Unexpected error", "SocialPublish.errorMessage is no longer the bare 'Unexpected error' the incident stored", stored);
+  ok(/code=9004/.test(stored) && /error_subcode=2207052/.test(stored), "…it carries Meta's code AND error_subcode", stored);
+  ok(/type=OAuthException/.test(stored), "…and Meta's error type");
+  ok(/Only photo or video can be accepted as media type\./.test(stored), "…and Meta's own message, verbatim");
+  ok(/error_user_title: Media download has failed\./.test(stored), "…and error_user_title");
+  ok(/error_user_msg: The media could not be fetched/.test(stored), "…and error_user_msg");
+  ok(/fbtrace_id: ABBxfvhnegQWbuazapIWu62/.test(stored), "…and the fbtrace_id");
+  ok(/refused at container/.test(stored), "…and WHICH call refused (container creation), since the same code means different things at media_publish");
+  ok(!stored.includes(SECRET_TOKEN) && !JSON.stringify(ig).includes(SECRET_TOKEN), "…and the page token appears NOWHERE — not in the row, not in the response, even when Meta's text quotes a URL carrying it");
+  ok(latest("instagram")?.externalContainerId == null, "…and no container id is invented for a create that never returned one");
+
+  // ── "Try Instagram again": same route, Instagram only ──────────────────
+  const fbRowsBefore = rowsFor("facebook").length;
+  const fbCallsBefore = calls.filter((c) => c.path.endsWith("/photos")).length;
+  igMediaAnswer = () => ({ ok: true, status: 200, json: async () => ({ id: "container_ok" }) });
+  const retry = await post(["instagram"]);
+  ok(retry.body?.results?.instagram?.status === "published", "retrying Instagram alone through the SAME route publishes once Meta accepts the image", JSON.stringify(retry.body));
+  ok(!("facebook" in (retry.body?.results || {})), "…and the retry's answer has no Facebook entry");
+  ok(rowsFor("facebook").length === fbRowsBefore, "…no second Facebook row was written");
+  ok(calls.filter((c) => c.path.endsWith("/photos")).length === fbCallsBefore, "…and Facebook's endpoint was not called again — a retry never double-posts the platform that succeeded");
+  ok(latest("instagram")?.externalPostId === "ig_media_1" && latest("instagram")?.externalContainerId === "container_ok", "…and the retry's own row records Meta's container and media ids");
+
+  // ── Every other container-create failure class ─────────────────────────
+  const CASES = [
+    [{ message: "(#10) Application does not have permission for this action", type: "OAuthException", code: 10 }, "meta_permission", false, "failed"],
+    [{ message: "(#200) Requires instagram_content_publish permission", type: "OAuthException", code: 200 }, "meta_permission", false, "failed"],
+    [{ message: "Error validating access token: The user has not authorized application.", type: "OAuthException", code: 190, error_subcode: 458 }, "meta_auth", false, "failed"],
+    [{ message: "Unsupported post request. Object with ID '17841480173629186' does not exist, cannot be loaded due to missing permissions, or does not support this operation.", type: "GraphMethodException", code: 100, error_subcode: 33 }, "meta_account", false, "failed"],
+    [{ message: "The Instagram account is restricted.", type: "OAuthException", code: 25, error_subcode: 2207050 }, "meta_account", false, "failed"],
+    [{ message: "Application request limit reached", type: "OAuthException", code: 4, is_transient: true }, "rate_limited", false, "rate_limited"],
+    [{ message: "You reached maximum number of posts that is allowed to be published by Content Publish API.", type: "OAuthException", code: 9, error_subcode: 2207042 }, "rate_limited", false, "rate_limited"],
+    [{ message: "The submitted image with aspect ratio ('0.5625') cannot be published.", type: "OAuthException", code: 36003, error_subcode: 2207009 }, "meta_media_rejected", false, "failed"],
+    [{ message: "An unknown error has occurred.", type: "OAuthException", code: 1, is_transient: true }, "meta_transient", true, "failed"],
+    [{ message: "Service temporarily unavailable", type: "OAuthException", code: 2, is_transient: true }, "meta_transient", true, "failed"],
+    [{ message: "Create media fail, please try to re-create media", type: "OAuthException", code: -1, error_subcode: 2207032 }, "meta_transient", true, "failed"],
+    [{ message: "It takes too long to download the media.", type: "OAuthException", code: -2, error_subcode: 2207003 }, "meta_media_unreachable", true, "failed"],
+    [{ message: "Something Meta has never documented", type: "OAuthException", code: 12345 }, "meta_error", true, "failed"],
+  ];
+  for (const [error, code, retryable, status] of CASES) {
+    igMediaAnswer = metaError(400, { ...error, fbtrace_id: `trace_${error.code}` });
+    const res = await post(["instagram"]);
+    const r = res.body?.results?.instagram || {};
+    const row = latest("instagram");
+    const label = `${error.code}${error.error_subcode ? `/${error.error_subcode}` : ""}`;
+    ok(
+      r.code === code && r.retryable === retryable && r.status === status && row?.status === status,
+      `Meta ${label} at container creation → ${code} (${status}, retry ${retryable ? "offered" : "NOT offered"})`,
+      JSON.stringify({ code: r.code, retryable: r.retryable, status: r.status, row: row?.status }),
+    );
+    ok(
+      new RegExp(`code=${error.code}\\b`).test(row?.errorMessage || "") && (row?.errorMessage || "").includes(`fbtrace_id: trace_${error.code}`),
+      `…and the ${label} row stores Meta's code and fbtrace_id`,
+      row?.errorMessage,
+    );
+  }
+
+  // ── The quota pre-check reads Meta's REAL envelope ─────────────────────
+  //
+  // Meta answers { data: [{ quota_usage, config }] }. The client used to pass
+  // that envelope straight to interpretRateLimit(), which found no
+  // quota_usage and called every real reading "unverified" — the pre-check
+  // could never refuse.
+  ok(quotaAsked === "config,quota_usage", "the publishing-limit read asks Meta for config AND quota_usage by name", quotaAsked);
+  quotaUsed = 50;
+  const mediaCallsBefore = calls.filter((c) => c.path.endsWith("/17841480173629186/media")).length;
+  const capped = await post(["instagram"]);
+  ok(capped.body?.results?.instagram?.status === "rate_limited", "an account at 50/50 in Meta's real envelope is refused as rate_limited", JSON.stringify(capped.body));
+  ok(
+    calls.filter((c) => c.path.endsWith("/17841480173629186/media")).length === mediaCallsBefore,
+    "…BEFORE any container is created",
+  );
+  quotaUsed = 2;
+
+  // ── Pure halves, against hostile input ─────────────────────────────────
+  ok(metaSpecs.classifyMetaPublishError(null).code === "meta_error", "classifyMetaPublishError(null) does not throw and lands on the generic code");
+  ok(metaSpecs.describeMetaError(new Error("plain"), "container") === null, "describeMetaError ignores a non-Meta error rather than dressing it up as one");
+  ok(metaSpecs.metaErrorFields({ name: "MetaGraphError", message: "x", code: "9004", subcode: null }).subcode === null, "a null subcode stays null (not 0) — absence is not a statement");
+
+  // ── The modal: a sentence for every code the classifier can produce, and a
+  //    retry wired to the same publish function ──────────────────────────
+  const modalSrc = stripComments(read("app/components/designer/PublishModal.js"));
+  const producible = new Set(CASES.map((c) => c[1]).concat(["meta_media_unreachable"]));
+  for (const code of producible) {
+    if (code === "rate_limited") continue; // rendered by its own amber row, resultRateLimited
+    const m = modalSrc.match(new RegExp(`\\b${code}:\\s*"(app\\.[^"]+)"`));
+    ok(Boolean(m) && typeof APP_MESSAGES.en[m[1]] === "string", `the modal has its own words for ${code}, and the key exists in English`, m?.[1]);
+  }
+  ok(/onRetry=\{\(\)\s*=>\s*handlePublish\(platform\)\}/.test(modalSrc), "\"Try {platform} again\" calls the SAME handlePublish, narrowed to that platform — no second publish path");
+  ok(/result\.retryable\s*&&/.test(modalSrc), "…and is rendered only when the server says a retry can help");
+  ok(/retrying\s*\?\s*\[onlyPlatform\]/.test(modalSrc), "…and the retry request carries ONLY the failed platform");
+  ok(/\.\.\.\(prev \|\| \{\}\), \.\.\.\(data\.results/.test(modalSrc), "…and merges its result over the previous ones, so Facebook's success stays on screen");
+  ok(typeof APP_MESSAGES.en["app.marketingDesigner.publishModal.retryPlatform"] === "string", "the retry label is a real translation key");
+
+  globalThis.fetch = realFetch;
+  if (savedEnv.id === undefined) delete process.env.META_APP_ID;
+  else process.env.META_APP_ID = savedEnv.id;
+  if (savedEnv.secret === undefined) delete process.env.META_APP_SECRET;
+  else process.env.META_APP_SECRET = savedEnv.secret;
 }
 
 console.log(`\n${checks} checks, ${fail} failure(s).`);

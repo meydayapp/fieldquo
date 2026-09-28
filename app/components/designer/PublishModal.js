@@ -49,6 +49,7 @@ import {
   FlaskConical,
   Loader2,
   PencilLine,
+  RotateCcw,
   Send,
   TriangleAlert,
   X,
@@ -59,6 +60,7 @@ import {
 // for a lookalike icon that isn't actually either brand's mark.
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError } from "@/lib/clientErrors";
+import { SOCIAL_SETTINGS_PATH } from "@/lib/social/settingsPath";
 import {
   validateCaption,
   validateImageForInstagram,
@@ -260,8 +262,14 @@ export default function PublishModal({ isOpen, onClose, design, preparePublishAs
     Boolean(asset) &&
     !submitting;
 
-  async function handlePublish() {
-    if (!canSubmit) return;
+  // `onlyPlatform` is the "Try Instagram again" path: the SAME request, the
+  // same function, narrowed to the one platform that failed — never a second
+  // way to publish. The server re-runs every gate for it (approval, caption,
+  // connection), and its result replaces only that platform's row, so a
+  // Facebook post that already went out is neither re-sent nor forgotten.
+  async function handlePublish(onlyPlatform) {
+    const retrying = typeof onlyPlatform === "string";
+    if (retrying ? submitting || !asset || !connection?.connected || !approved : !canSubmit) return;
     setSubmitting(true);
     setSubmitError("");
     try {
@@ -270,16 +278,20 @@ export default function PublishModal({ isOpen, onClose, design, preparePublishAs
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ratioKey,
-          platforms: Object.entries(platforms)
-            .filter(([, on]) => on)
-            .map(([key]) => key),
+          platforms: retrying
+            ? [onlyPlatform]
+            : Object.entries(platforms)
+                .filter(([, on]) => on)
+                .map(([key]) => key),
           caption,
           imageBase64: asset.dataUrl,
           scheduledFor: scheduledForDate ? scheduledForDate.toISOString() : undefined,
           // Only ever acted on server-side when connection.mock is true —
           // sending it for a real connection is simply ignored there.
+          // A retry does not re-simulate: the demo's point is showing that the
+          // second attempt is a real, separate attempt.
           simulateFailure:
-            connection?.mock && mockFailure !== "none" ? mockFailure : undefined,
+            !retrying && connection?.mock && mockFailure !== "none" ? mockFailure : undefined,
         }),
       });
       if (!res.ok) {
@@ -289,7 +301,7 @@ export default function PublishModal({ isOpen, onClose, design, preparePublishAs
         return;
       }
       const data = await res.json();
-      setResults(data.results || {});
+      setResults((prev) => (retrying ? { ...(prev || {}), ...(data.results || {}) } : data.results || {}));
     } finally {
       setSubmitting(false);
     }
@@ -616,7 +628,7 @@ export default function PublishModal({ isOpen, onClose, design, preparePublishAs
               </button>
               <button
                 type="button"
-                onClick={handlePublish}
+                onClick={() => handlePublish()}
                 disabled={!canSubmit}
                 className="flex-1 bg-inverted text-inverted-foreground rounded-full px-4 py-2.5 text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-1.5"
               >
@@ -638,8 +650,18 @@ export default function PublishModal({ isOpen, onClose, design, preparePublishAs
         {done && (
           <div className="space-y-3">
             {Object.entries(results).map(([platform, r]) => (
-              <ResultRow key={platform} platform={platform} result={r} t={t} />
+              <ResultRow
+                key={platform}
+                platform={platform}
+                result={r}
+                t={t}
+                submitting={submitting}
+                onRetry={() => handlePublish(platform)}
+              />
             ))}
+            {submitError && (
+              <p className="text-xs text-red-600 dark:text-red-400">{submitError}</p>
+            )}
             <button
               type="button"
               onClick={onClose}
@@ -654,7 +676,39 @@ export default function PublishModal({ isOpen, onClose, design, preparePublishAs
   );
 }
 
-function ResultRow({ platform, result, t }) {
+// A failure code the modal has its own words for — Meta's refusals, sorted by
+// what the contractor has to DO (lib/social/metaSpecs.js's
+// classifyMetaPublishError). Any other code keeps showing the server's own
+// sentence, as it always has — and so does a known code in a language that
+// somehow lacks the key: the server's English sentence is the fallback, not a
+// third copy of it kept here.
+const FAILURE_KEYS = {
+  meta_auth: "app.marketingDesigner.publishModal.failureMetaAuth",
+  meta_permission: "app.marketingDesigner.publishModal.failureMetaPermission",
+  meta_account: "app.marketingDesigner.publishModal.failureMetaAccount",
+  meta_media_unreachable: "app.marketingDesigner.publishModal.failureMediaUnreachable",
+  meta_media_rejected: "app.marketingDesigner.publishModal.failureMediaRejected",
+  meta_transient: "app.marketingDesigner.publishModal.failureMetaTransient",
+  meta_error: "app.marketingDesigner.publishModal.failureMetaError",
+};
+
+// The codes whose fix is on the connection, not the post — they get a way to
+// the settings screen instead of a retry that would fail identically.
+const SETTINGS_FIX_CODES = new Set(["meta_auth", "meta_permission", "meta_account"]);
+
+// Meta's own reply, verbatim and in Meta's language, plus the numbers support
+// needs (code/subcode and the fbtrace_id Meta asks for when you report a
+// problem). Shown small, under the plain-language line — not instead of it.
+function metaReplyLine(meta) {
+  if (!meta) return "";
+  const text = meta.userMsg || meta.message || "";
+  const numbers = [meta.code != null ? `${meta.code}${meta.subcode != null ? `/${meta.subcode}` : ""}` : "", meta.fbtraceId || ""]
+    .filter(Boolean)
+    .join(" · ");
+  return [text, numbers ? `(${numbers})` : ""].filter(Boolean).join(" ");
+}
+
+function ResultRow({ platform, result, t, submitting, onRetry }) {
   const platformLabel = platform === "instagram" ? "Instagram" : "Facebook";
 
   if (result.status === "published") {
@@ -683,24 +737,68 @@ function ResultRow({ platform, result, t }) {
     );
   }
 
+  const metaReply = metaReplyLine(result.meta);
+
   if (result.status === "rate_limited") {
     return (
       <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-950/40 rounded-lg p-3 text-sm text-amber-700 dark:text-amber-300">
         <TriangleAlert size={16} className="mt-0.5 shrink-0" />
-        <span>{t("app.marketingDesigner.publishModal.resultRateLimited", { platform: platformLabel })}</span>
+        <div className="space-y-1">
+          <span>{t("app.marketingDesigner.publishModal.resultRateLimited", { platform: platformLabel })}</span>
+          {metaReply && (
+            <p className="text-xs opacity-90">
+              {t("app.marketingDesigner.publishModal.metaReply", "Meta's reply: {reply}", { reply: metaReply })}
+            </p>
+          )}
+        </div>
       </div>
     );
   }
 
+  const known = FAILURE_KEYS[result.code];
+  const message = known ? t(known, result.message || "") : result.message || "";
+
   return (
-    <div className="flex items-start gap-2 bg-red-50 dark:bg-red-950/40 rounded-lg p-3 text-sm text-red-700 dark:text-red-300">
-      <TriangleAlert size={16} className="mt-0.5 shrink-0" />
-      <span>
-        {t("app.marketingDesigner.publishModal.resultFailed", {
-          platform: platformLabel,
-          message: result.message || "",
-        })}
-      </span>
+    <div className="bg-red-50 dark:bg-red-950/40 rounded-lg p-3 text-sm text-red-700 dark:text-red-300 space-y-2">
+      <div className="flex items-start gap-2">
+        <TriangleAlert size={16} className="mt-0.5 shrink-0" />
+        <div className="space-y-1">
+          <span>
+            {t("app.marketingDesigner.publishModal.resultFailed", {
+              platform: platformLabel,
+              message,
+            })}
+          </span>
+          {metaReply && (
+            <p className="text-xs opacity-90 break-words">
+              {t("app.marketingDesigner.publishModal.metaReply", "Meta's reply: {reply}", { reply: metaReply })}
+            </p>
+          )}
+        </div>
+      </div>
+      {(result.retryable || SETTINGS_FIX_CODES.has(result.code)) && (
+        <div className="flex flex-wrap gap-2 pl-6">
+          {result.retryable && (
+            <button
+              type="button"
+              onClick={onRetry}
+              disabled={submitting}
+              className="inline-flex items-center gap-1.5 rounded-full border border-current px-3 py-1.5 text-xs font-semibold disabled:opacity-60"
+            >
+              {submitting ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />}
+              {t("app.marketingDesigner.publishModal.retryPlatform", "Try {platform} again", { platform: platformLabel })}
+            </button>
+          )}
+          {SETTINGS_FIX_CODES.has(result.code) && (
+            <a
+              href={SOCIAL_SETTINGS_PATH}
+              className="inline-flex items-center rounded-full border border-current px-3 py-1.5 text-xs font-semibold"
+            >
+              {t("app.marketingDesigner.publishModal.openConnectionSettings", "Open connection settings")}
+            </a>
+          )}
+        </div>
+      )}
     </div>
   );
 }

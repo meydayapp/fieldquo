@@ -194,7 +194,9 @@ async function fireOne(row, now) {
         where: { id: row.id },
         data: {
           status,
-          errorMessage: err.message,
+          // Meta's full answer when it gave one — same rule as the publish
+          // route's failRow(), for the same 2026-09-28 reason.
+          errorMessage: err.metaDetail || err.message,
           externalContainerId: err.containerId || row.externalContainerId || null,
         },
       });
