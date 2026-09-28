@@ -1,7 +1,7 @@
 # FieldQuo — current phase and what's left
 
 Last updated: 28 September 2026 ("Connect Google reviews" is off the home set-up card, out of its "N of M done" count and out of the next-steps email until Google approves the Business Profile API; Settings › Reviews says "Google review import is waiting on Google's approval" with no Connect button and the connect route refuses `not_approved` — one helper, `googleBusinessAvailable()`, and one flag the owner sets on the approval day, `GOOGLE_BUSINESS_API_APPROVED=1` — see "Connect Google reviews waits for Google" below)
-Last updated: 28 September 2026 (Facebook/Instagram messages: zero webhook deliveries in production — the App Dashboard has no Webhooks subscription; /app/messages now polls the list and open thread every 15 s while visible; the Page subscribe carries `leadgen`; Settings › Meta Ads names missing permissions per feature — see the section of that name)
+Last updated: 28 September 2026 (lead forms are read through the Facebook Page connection, not the ad account — "found 0" root cause, Leads Access Manager named in the panel; Facebook/Instagram messages: zero webhook deliveries in production — the App Dashboard has no Webhooks subscription; /app/messages now polls the list and open thread every 15 s while visible; the Page subscribe carries `leadgen`; Settings › Meta Ads names missing permissions per feature — see the section of that name)
 Last updated: 28 September 2026 (annual-first plan pickers and live promotions — the 1-year tab by default on every picker, PlatformPromotion wired end to end through lib/billing/promotions.js into /pricing, the in-app picker, signup and Stripe Checkout as a coupon; schema SQL owed before deploy — see the section of that name below)
 Last updated: 28 September 2026 ("View as company" follow-up: the heal-on-read writes that live in the route itself now skip for the read-only session — company / appointment geocode on schedule/map and business-info, the voice number-repair GET heal, the Business Profile locations stamps; and, through a `readOnly` flag the shared libs now take, shift-request expiry + crew notifications, the onboarding stamp, the gallery merge on seven reads, the voice readiness heal and the Google busy stamps; see "View as company" reads everything)
 Last updated: 28 September 2026 ("View as company": an active superadmin's read-only session reads as the company's real OWNER membership — quotes, client contact details, equipment, invoices, payroll, insights all load; writes still refused by method in middleware + assertReadOnly, plus the OAuth/Stripe-return GETs now listed in lib/platform/impersonationToken.js; the GETs that write on read skip for the session; `npm run check:impersonation`)
@@ -155,6 +155,51 @@ reads; FieldQuo does not request it (META_LEADS_SCOPE). Not changed.
 **Not done:** Meta's `standby` (handover) events are not parsed; if the
 Page's Meta Business AI holds thread control, those messages would need the
 `standby` field and a parser branch.
+
+## Lead forms: "found 0" because they were read through the wrong connection (28 September 2026)
+
+TrueFinish has two Meta connections: the ad account (Meta Ads connect,
+`ads_read`) and the Facebook Page "Truefinish Cabinets" (Pages login
+configuration: `leads_retrieval`, `pages_manage_ads`, `pages_show_list`,
+`pages_read_engagement`, `pages_manage_metadata`, page token stored). "Find
+my lead forms" said 0 for a Page with a form ("free quote"), and the Lead
+Ads Testing Tool's lead never arrived.
+
+**Root cause.** Forms discovery, the webhook's lead fetch and the cron poll
+all took the AD connection's user token and minted a page token from
+`GET /me/accounts` — a login that cannot see the Page, on an edge already
+measured (12 Sep) to answer `[]` for a business-portfolio Page. Zero Pages
+examined → "found 0", no error. With no MetaLeadForm row, every `leadgen`
+delivery would also have been dropped as `unknown_page`. Production
+(read-only): no MetaLeadForm row in any company, one ad connection in the
+whole database (TrueFinish's) — so nothing depended on the old path. The
+Page connection was saved 19:25:41 UTC; the commit that adds `leadgen` to
+the Page subscribe first reached origin/main at 20:37 UTC, so that
+connection subscribed the messaging fields only.
+
+**What shipped.** `resolveLeadsCredential` (lib/meta/leadsFetch.js) is the
+one chooser: the live MetaPageConnection's stored page token, refused with a
+code when there is no Page connection, the token will not decrypt, or the
+granted list lacks a read permission. Discovery, webhook and cron all use it;
+`/me/accounts` is no longer on the lead path. Attribution still reads the ad
+with the ad-account token (page token if there is none). A Leads Access
+Manager refusal is classified `leads_access` by its message (Meta documents
+no code for it) and never retried. The panel names the Page it reads, what
+that connection lacks, the Page on every result ("Looked at the Page …: 0"),
+and a translated sentence per refusal — including Meta's path "Settings" ›
+"Integrations" › "Leads access" › the Page › "CRMs" › "Assign CRMs" (labels
+kept in English). `check:meta-leads` §12 and `check:meta-leads-webhook` §E
+(real client, Graph stubbed at `fetch`) fail on the previous code.
+
+**Owed by the owner, in order:** (1) Settings › Meta Ads › "Reconnect or
+switch Page" once, so the Page is subscribed to `leadgen`; (2) Meta Business
+Suite → "Settings" › "Integrations" › "Leads access" → Truefinish Cabinets →
+"CRMs" → "Assign CRMs" → FieldQuo (the Testing Tool's "Lead Access Manager
+Enabled" means only assigned CRMs get leads); (3) "Find my lead forms", switch
+"free quote" On; (4) send a test lead from the Testing Tool.
+
+**Not done:** a webhook-path refusal (leads_access, page_mismatch) is only
+logged — nothing stores it for the panel; that needs a column.
 
 ---
 

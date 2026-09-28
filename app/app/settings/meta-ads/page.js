@@ -435,7 +435,7 @@ function MetaAdsPageScreen() {
           only after connecting would hide that from the people most likely to
           ask. It states its own preconditions (see the panel). */}
       {status?.fullyConfigured && (
-        <MetaLeadFormsPanel connected={Boolean(status?.connection)} />
+        <MetaLeadFormsPanel />
       )}
 
       {/* Facebook/Instagram PUBLISHING — a third thing a Meta account can do,

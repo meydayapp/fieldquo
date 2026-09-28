@@ -24,7 +24,11 @@ import { AlertTriangle, Inbox, RefreshCw, Search } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { fetchJson } from "@/lib/fetchJson";
 
-export default function MetaLeadFormsPanel({ connected }) {
+// The refusal codes app/api/meta/leads/forms/refresh answers with, each turned
+// into a sentence here rather than showing the route's English `error`.
+const RECONNECT_CODES = new Set(["auth_error", "token_unreadable"]);
+
+export default function MetaLeadFormsPanel() {
   const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -74,18 +78,89 @@ export default function MetaLeadFormsPanel({ connected }) {
     setRefreshNote("");
     try {
       const res = await fetchJson("/api/meta/leads/forms/refresh", { method: "POST" });
-      setRefreshNote(t("app.setMetaLeads.refreshFound", { count: res.found }));
+      // Always names the Page it looked at: "found 0" on its own could not
+      // tell a contractor whether the Page has no forms or FieldQuo looked
+      // somewhere else — which is exactly what it once did.
+      const page = res.page?.name || res.page?.id || "";
+      setRefreshNote(
+        res.found > 0
+          ? t("app.setMetaLeads.refreshFoundOnPage", "Looked at the Page {page}: {count} lead forms found.", { page, count: res.found })
+          : t("app.setMetaLeads.refreshNoneOnPage", "Looked at the Page {page}: Meta returned no lead forms for it.", { page }),
+      );
       await load();
     } catch (err) {
-      setError(err.message);
+      setError(refreshErrorText(err));
     } finally {
       setRefreshing(false);
     }
   }
 
+  // The Page connection's own labels, read from the same keys its panel
+  // (app/components/settings/SocialPublishingPanel.js) renders, so a sentence
+  // here that says "press X in Y" names the button and section exactly as
+  // they appear on this screen, in every language.
+  const pageSection = t("app.setSocial.title", "Facebook & Instagram publishing");
+  const reconnectButton = t("app.setSocial.reconnect", "Reconnect or switch Page");
+
+  // Meta's Leads Access Manager. Meta's own labels stay in English quotes in
+  // every language: they are what a contractor will see on Meta's screen,
+  // whatever language FieldQuo is in. Path per Meta's Help Centre, "Assign
+  // or remove permissions in Leads Access Manager" (business/help/540596413257598).
+  function leadsAccessSteps(page) {
+    return t(
+      "app.setMetaLeads.leadsAccessSteps",
+      'In Meta Business Suite open "Settings" › "Integrations" › "Leads access" (or business.facebook.com/settings/leads-accesses), choose the Page {page}, open the "CRMs" tab, press "Assign CRMs" and assign FieldQuo.',
+      { page },
+    );
+  }
+
+  function missingPermissionsText(page, missing) {
+    return t(
+      "app.setMetaLeads.pageMissingPermissions",
+      'Meta did not grant the Page connection for {page} these permissions: {permissions}. Press "{button}" in {section} and allow them.',
+      { page, permissions: missing.join(", "), button: reconnectButton, section: pageSection },
+    );
+  }
+
+  function refreshErrorText(err) {
+    const code = err?.code || err?.data?.code || null;
+    const page = err?.data?.page?.name || err?.data?.page?.id || "";
+    if (code === "no_page_connection") {
+      return t(
+        "app.setMetaLeads.needsPageConnection",
+        "Connect your Facebook Page in {section} below first — lead forms and leads are read through that connection, not the ad account above.",
+        { section: pageSection },
+      );
+    }
+    if (code === "permission_missing") {
+      return missingPermissionsText(page, Array.isArray(err?.data?.missing) ? err.data.missing : []);
+    }
+    if (code === "leads_access") {
+      return `${t(
+        "app.setMetaLeads.leadsAccessRefused",
+        "Meta refused to give FieldQuo the leads of {page}: this business uses Leads Access Manager.",
+        { page },
+      )} ${leadsAccessSteps(page)}`;
+    }
+    if (RECONNECT_CODES.has(code)) {
+      return t(
+        "app.setMetaLeads.pageReconnect",
+        'Meta no longer accepts FieldQuo\'s access to {page}. Press "{button}" in {section}.',
+        { page, button: reconnectButton, section: pageSection },
+      );
+    }
+    return err?.message || "";
+  }
+
   if (loading) {
     return <div className="h-40 bg-muted rounded-xl animate-pulse" />;
   }
+
+  // "Connected" for lead forms means a Facebook Page connection to read
+  // through — the ad-account connection above cannot see the Page.
+  const leadsPage = data?.leadsPage || null;
+  const connected = Boolean(leadsPage);
+  const leadsPageLabel = leadsPage ? leadsPage.pageName || leadsPage.pageId : "";
 
   const scopeReady = Boolean(data?.leadsScopeEnabled);
   // One sentence, one reason, used for the banner AND as the disabled
@@ -130,13 +205,33 @@ export default function MetaLeadFormsPanel({ connected }) {
         </div>
       )}
 
-      {!connected && (
+      {data && !connected && (
         <p className="text-sm text-muted-foreground">
           {t(
-            "app.setMetaLeads.needsConnection",
-            "Connect your Meta ad account above first — the same login is what reads your Pages.",
+            "app.setMetaLeads.needsPageConnection",
+            "Connect your Facebook Page in {section} below first — lead forms and leads are read through that connection, not the ad account above.",
+            { section: pageSection },
           )}
         </p>
+      )}
+
+      {/* Which Page is read, and what that connection was not granted —
+          said before anyone presses a button, so "found 0" is never the
+          first sign that something is missing. */}
+      {connected && (
+        <p className="text-sm text-muted-foreground">
+          {t(
+            "app.setMetaLeads.readsPage",
+            "Lead forms and leads are read through your Facebook Page connection: {page}.",
+            { page: leadsPageLabel },
+          )}
+        </p>
+      )}
+      {connected && Array.isArray(leadsPage.missing) && leadsPage.missing.length > 0 && (
+        <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-lg px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
+          <AlertTriangle size={15} className="shrink-0 mt-0.5" />
+          <span>{missingPermissionsText(leadsPageLabel, leadsPage.missing)}</span>
+        </div>
       )}
 
       {error && (
@@ -205,6 +300,20 @@ export default function MetaLeadFormsPanel({ connected }) {
                 </li>
               ))}
             </ul>
+          )}
+
+          {/* Leads Access Manager can refuse FieldQuo a Page's LEADS while its
+              forms list fine — so a working "Find my lead forms" is no proof
+              leads will arrive, and the refusal on the webhook path is only
+              seen in the server log. Said here, once there are forms. */}
+          {connected && data.forms.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {t(
+                "app.setMetaLeads.leadsAccessHint",
+                "If your business uses Meta's Leads Access Manager, no lead reaches FieldQuo until FieldQuo is assigned as a CRM for the Page.",
+              )}{" "}
+              {leadsAccessSteps(leadsPageLabel)}
+            </p>
           )}
 
           {/* Which campaigns the leads came from. Counts only — a cost per
