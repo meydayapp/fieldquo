@@ -36,12 +36,12 @@ import { steepnessTier } from "@/lib/measure/roofMeasurement";
 import { INSTANT_ESTIMATE_DEFAULTS, INSTANT_ESTIMATE_TRADES } from "@/lib/estimate/instantEstimate";
 import { sanitiseInstantConfig } from "@/lib/estimate/instantQuoteReadiness";
 import { visibilityFor, lockedEstimateMessage } from "@/lib/estimate/visibility";
-import { budgetBands } from "@/lib/estimate/budgetBands";
 import { effectiveFormFields } from "@/lib/estimate/formFields";
 import { resolveDocumentTax } from "@/lib/tax/documentTax";
 import { taxLineHeadline } from "@/lib/tax/taxLine";
 import { INDUSTRY_MESSAGES } from "@/app/i18n/industries";
-import { SUMMIT_RIDGE_CONTENT } from "./summitRidgeContent";
+import { payloadBands } from "./houseFixture";
+import { showcasePresentation } from "./showcaseLanguage";
 import {
   INSTANT_QUOTE_LANGUAGES,
   instantTradeLabel,
@@ -77,49 +77,6 @@ export const SHOWCASE_COMPANY = Object.freeze({
   country: "CA",
   defaultLanguage: "en",
 });
-
-/**
- * What the company shows beside its documents — the proposal sections the
- * client quote page and the estimate report draw (lib/proposal/load.js
- * projectProposal's shape) and the waivers attached to the quote
- * (loadQuoteWaivers' shape). Words from ./summitRidgeContent.js, verbatim.
- * No testimonials: a fictional company's reviews would be fabricated, so the
- * section is off rather than filled.
- */
-function showcasePresentation() {
-  const c = SUMMIT_RIDGE_CONTENT;
-  const half = Math.ceil(c.waivers.length / 2);
-  // WaiverSign pairs one box with each section, and a waiver carries at most
-  // five boxes (lib/company/documents.js WAIVER_MAX_ACKNOWLEDGEMENTS), so the
-  // owner's ten acknowledgements are two documents of five.
-  const waiver = (items, n) => ({
-    token: `sample-waiver-${n}`,
-    title: `Roofing project acknowledgements (${n} of 2)`,
-    sections: items.map((w) => ({ heading: w.title, text: w.text })),
-    acknowledgements: items.map((w) => w.title),
-    status: "pending",
-    signedAt: null,
-    signedName: null,
-  });
-  return {
-    proposal: {
-      sections: ["about", "beforeAfter", "documents"],
-      about: { headline: c.about.headline, story: c.about.story, teamPhotoUrl: "/demo/summit-ridge/team.webp", videoUrl: null },
-      gallery: [{ before: "/demo/summit-ridge/roof-before.webp", after: "/demo/summit-ridge/roof-after.webp", caption: null }],
-      documents: [
-        {
-          url: "/demo/summit-ridge/insurance-certificate-SAMPLE.pdf",
-          title: "SAMPLE / DEMO – NOT VALID INSURANCE",
-          summary: "Certificate of commercial general liability · fictional insurer DemoSure",
-        },
-      ],
-      testimonials: [],
-      services: [],
-      waivers: [waiver(c.waivers.slice(0, half), 1), waiver(c.waivers.slice(half), 2)],
-    },
-    processSteps: c.process.steps,
-  };
-}
 
 /** The invented homeowner — example.com and a 555-01xx number are reserved for fiction. */
 export const SHOWCASE_HOMEOWNER = Object.freeze({
@@ -217,10 +174,7 @@ function showcasePayload(language, config) {
         trade: TRADE,
         estimateDisplay,
         ...(estimateDisplay === "after_submit" && { lockedMessage: lockedEstimateMessage(language) }),
-        budgetBands: budgetBands(config.budgetThresholds, { currency: SHOWCASE_COMPANY.currency, language }).map((b) => ({
-          index: b.index,
-          label: b.label,
-        })),
+        budgetBands: payloadBands(config, { currency: SHOWCASE_COMPANY.currency, language }),
         label: instantTradeLabel(TRADE, language),
         description: instantTradeBlurb(TRADE, language),
         measure: spec.measure,
@@ -236,46 +190,59 @@ function showcasePayload(language, config) {
 }
 
 /**
+ * The draft's tax for a house in `province`, `country` — resolved the way
+ * createEstimateDraft resolves it: the client's province, no company
+ * override, no work-type claim. The example company is taken to work where
+ * the house is (its province and country are the house's), so nothing is
+ * "assumed" from an office across a border. Used for the sample house here
+ * and for a visitor's real address by POST /api/showcase/roof-measure, so
+ * both are taxed by one path.
+ *
+ * Returns the rate, the resolver's result itself (plain data, which
+ * createEstimateDraft turns into Quote.taxResolution — so the review row's
+ * taxRate comes out of appliedTaxRate() from the record the real queue
+ * reads, not from a rate re-implied by the rounded tax), and the estimator
+ * screens' own headline for it ("HST 13% (Ontario)") as a key and params per
+ * marketing language — the words and the decimal separator are the reader's.
+ */
+export function showcaseTax({ province, country, address }) {
+  const tax = resolveDocumentTax({
+    company: { province, country },
+    taxRates: null,
+    client: { province, country, address },
+    workType: null,
+    lang: "en",
+  });
+  return {
+    rate: Number(tax?.rate) || 0,
+    resolution: tax || null,
+    headline: Object.fromEntries(Object.keys(INDUSTRY_MESSAGES).map((code) => [code, taxLineHeadline(tax, code)])),
+  };
+}
+
+/**
  * Everything the walk-through needs, as plain data. Called by the industry
  * page's server half for the roofing slug only.
  */
 export function buildRoofingShowcase() {
   const config = showcaseConfig();
-  const client = { province: SHOWCASE_COMPANY.province, country: SHOWCASE_COMPANY.country, address: SHOWCASE_ADDRESS };
-  // The draft's tax, resolved the way createEstimateDraft resolves it: the
-  // client's province, no company override, no work-type claim.
-  const tax = resolveDocumentTax({
-    company: { province: SHOWCASE_COMPANY.province, country: SHOWCASE_COMPANY.country },
-    taxRates: null,
-    client,
-    workType: null,
-    lang: "en",
-  });
   return {
     trade: TRADE,
     company: { ...SHOWCASE_COMPANY },
-    presentation: showcasePresentation(),
+    presentation: showcasePresentation("en"),
     homeowner: { ...SHOWCASE_HOMEOWNER },
     address: SHOWCASE_ADDRESS,
     reviewer: { ...SHOWCASE_REVIEWER },
     measurement: showcaseMeasurement(),
     config,
-    // The rate, and the estimator screens' own headline for it ("HST 13%
-    // (Ontario)") as a key and params per marketing language — the words
-    // and the decimal separator are the reader's.
-    tax: {
-      rate: Number(tax?.rate) || 0,
-      // The resolver's result itself (plain data), which createEstimateDraft
-      // turns into the draft's Quote.taxResolution — so the review row's
-      // taxRate comes out of appliedTaxRate() from the record the real queue
-      // reads, not from the rate re-implied by the rounded tax.
-      resolution: tax || null,
-      headline: Object.fromEntries(Object.keys(INDUSTRY_MESSAGES).map((code) => [code, taxLineHeadline(tax, code)])),
-    },
+    tax: showcaseTax({ province: SHOWCASE_COMPANY.province, country: SHOWCASE_COMPANY.country, address: SHOWCASE_ADDRESS }),
     quoteNumber: "Q-1048",
     // A fixed moment, so the default request reads the same on every build.
     createdAt: "2026-09-24T14:05:00.000Z",
-    materialLabels: Object.fromEntries(INSTANT_QUOTE_LANGUAGES.map((code) => [code, materialLabelsFor(code)])),
+    // Every marketing language, not only the form's three: the lead drawer
+    // and the review queue (steps 2 and 3) name the option in the READER's
+    // language from these, as the app does from namespace materialLabel.
+    materialLabels: Object.fromEntries(Object.keys(INDUSTRY_MESSAGES).map((code) => [code, materialLabelsFor(code)])),
     payloads: Object.fromEntries(INSTANT_QUOTE_LANGUAGES.map((code) => [code, showcasePayload(code, config)])),
   };
 }

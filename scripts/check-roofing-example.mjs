@@ -3,7 +3,9 @@
 //   npm run check:roofing-example
 //
 // The roofing walk-through on /industries/roofing#instant-quote-example
-// (app/(marketing)/industries/[slug]/showcase/). Three files, one claim each:
+// (app/(marketing)/industries/[slug]/showcase/). Four files, one claim each
+// (check-roofing-example-live.mjs: the "use a real address" route — caps,
+// cache, origin, refusals, cost per try — against a stubbed Google):
 //
 //   this file                          the numbers are the product's numbers,
 //                                      the words exist in every language, and
@@ -255,7 +257,7 @@ for (const code of LANGS) {
   }
   const s = industryShowcaseFor(code);
   ok(`${code}: the resolver returns four steps and five materials`, s.how.length === 4 && Object.keys(s.materials).length === 5 && industryChromeFor(code).seeItInAction);
-  for (const key of ["workMeasured", "workMaterial", "workTearOff", "workPitch", "workRange", "tierRate"]) {
+  for (const key of ["workMeasured", "workMaterial", "workTearOff", "workPitch", "workRange", "tierRate", "workTyped", "typedAssumption", "liveShowingMeasured", "liveShowingTyped", "liveSquaresInvalid"]) {
     const holes = (EN[key].match(/\{\w+\}/g) || []).sort().join();
     const theirs = (own[key].match(/\{\w+\}/g) || []).sort().join();
     if (holes !== theirs) ok(`${code}: ${key} keeps the same placeholders`, false, { en: holes, [code]: theirs });
@@ -266,9 +268,21 @@ for (const code of LANGS) {
 
 section("6. No section can reach Google, post, or fetch");
 const SHOWCASE_FILES = readdirSync(DIR).map((f) => join(DIR, f));
+// The one exception, and it is opt-in: step 1's "Use a real address" panel.
+const LIVE_PANEL = join(DIR, "LiveAddress.js");
 for (const f of SHOWCASE_FILES) {
+  if (f === LIVE_PANEL) continue;
   const src = stripComments(read(f));
   ok(`${f}: no fetch, no XHR, no beacon, no Google`, !/\bfetch\s*\(|fetchJson|XMLHttpRequest|sendBeacon|maps\.googleapis|google\.com\/maps|maps\.google/.test(src));
+}
+{
+  const src = stripComments(read(LIVE_PANEL));
+  const calls = src.match(/\bfetch\s*\(|fetchJson\s*\(|XMLHttpRequest|sendBeacon/g) || [];
+  ok("the live panel makes exactly one request: fetchJson to the showcase's own route", calls.length === 1 && /fetchJson\(MEASURE_URL, \{ method: "POST"/.test(src) && /const MEASURE_URL = "\/api\/showcase\/roof-measure";/.test(src) && !/maps\.googleapis|google\.com\/maps/.test(src), calls);
+  ok("…only from the form's submit, never on render or on typing", /async function measure\(e\) \{\s*e\.preventDefault\(\);\s*if \(!picked \|\| busy\) return;/.test(src) && /<form onSubmit=\{measure\}/.test(src) && !/useEffect/.test(src));
+  ok("…and the Places picker (which loads Google's script) is not mounted until the visitor presses the button", /\{!open \? \(\s*<button type="button" onClick=\{\(\) => setOpen\(true\)\}[\s\S]*?\) : \(\s*<form onSubmit=\{measure\}[\s\S]*?<AddressAutocomplete/.test(src));
+  ok("…refuses an address the picker placed outside Canada/US before calling", /if \(picked\.country && !LIVE_COUNTRIES\.includes\(picked\.country\)\) \{\s*setOutcome\(\{ reason: "outside"/.test(src) && src.indexOf("LIVE_COUNTRIES.includes") < src.indexOf("await fetchJson"));
+  ok("…and posts an address and a country, never an amount (non-negotiable #5)", /body: \{ address: picked\.address, country: picked\.country \|\| null \}/.test(src));
 }
 {
   const flow = read("app/instant-quote/[companySlug]/InstantQuoteFlow.js");
@@ -304,7 +318,16 @@ for (const f of SHOWCASE_FILES) {
 {
   const qa = read("app/q/[token]/QuoteApproval.js");
   ok("the quote page's sample mode (commit da656e6d) still refuses its fetch and its POST", /if \(sample\) \{\s*setQuote\(sample\);/.test(qa) && /async function submit\(decision\) \{\s*if \(sample\) return;/.test(qa));
-  ok("the two homeowner pages render inside SampleFrame (inert, sandboxed)", /<SampleFrame[\s\S]*<ReportView[\s\S]*<SampleFrame[\s\S]*<QuoteApproval token=\{null\} sample=/.test(read(join(DIR, "ClientPreviews.js"))));
+  const previews = stripComments(read(join(DIR, "ClientPreviews.js")));
+  ok("the two homeowner pages render inside SampleFrame (sandboxed), each through the navigation guard", /<SampleFrame key=\{view\} width=\{width\}[^>]*navigable=\{guard\}>/.test(previews) && /<Preview [^>]*>\s*<ReportView /.test(previews) && /<Preview [^>]*>\s*<QuoteApproval token=\{null\} sample=\{payload\} \/>/.test(previews));
+  const guard = previews.slice(previews.indexOf("function navigationGuard("), previews.indexOf("export function ViewToggle("));
+  ok("…the guard stops EVERY click before the page sees it, and moves the box only for a contents link", /const click = \(e\) => \{\s*const el = control\(e\);\s*stop\(e\);\s*const id = sectionFor\(el\);\s*if \(id\) go\(id\);\s*else if \(el\) onBlocked\(\);/.test(guard));
+  ok("…stops every submit, and presses on any other control (no focus, no signature stroke)", /const submit = \(e\) => \{\s*stop\(e\);/.test(guard) && /if \(el && !sectionFor\(el\)\) stop\(e\);/.test(guard) && /\["pointerdown", press\]/.test(guard) && /\["touchstart", press\]/.test(guard));
+  ok("…in the capture phase on the frame's document, ahead of React's handlers", /doc\.addEventListener\(type, fn, \{ capture: true, passive: false \}\)/.test(guard));
+  ok("…and a contents link is only an in-page #anchor or a button labelled as one of the page's own sections", /href\.startsWith\("#"\)/.test(guard) && /navByLabel\[String\(el\.textContent \|\| ""\)\.trim\(\)\]/.test(guard));
+  const frameRaw = read("app/components/auth/samples/SampleFrame.js");
+  const frame = frameRaw;
+  ok("SampleFrame's navigable mode is opt-in: absent, the body is inert and the frame takes no pointer", /if \(!isNavigable\) doc\.body\.setAttribute\("inert", ""\);/.test(frame) && /pointerEvents: "none",\s*\/\/[^\n]*\n\s*\/\/[^\n]*\n\s*\.\.\.\(isNavigable && \{ pointerEvents: "auto" \}\)/.test(frame) && /sandbox="allow-same-origin"/.test(frame) && !/allow-scripts/.test(stripComments(frameRaw)));
 }
 
 /* ═════════════════════════ 7. Contrast, both palettes ════════════════════ */

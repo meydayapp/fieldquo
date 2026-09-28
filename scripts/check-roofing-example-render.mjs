@@ -21,7 +21,9 @@ import MiniQuote from "@/app/(marketing)/industries/[slug]/showcase/MiniQuote";
 import IndustryPageContent from "@/app/(marketing)/industries/[slug]/IndustryPageContent";
 import { buildRoofingShowcase } from "@/app/(marketing)/industries/[slug]/showcase/buildRoofingShowcase";
 import { runRequest, defaultBody } from "@/app/(marketing)/industries/[slug]/showcase/roofingRun";
-import { industryShowcaseFor, industryChromeFor } from "@/app/i18n/industries";
+import { industryShowcaseFor, industryChromeFor, INDUSTRY_MESSAGES } from "@/app/i18n/industries";
+import { summitRidgeContentFor } from "@/app/(marketing)/industries/[slug]/showcase/summitRidgeContent";
+import { documentLanguageFor, fixtureInLanguage } from "@/app/(marketing)/industries/[slug]/showcase/showcaseLanguage";
 import { LANGUAGE_CODES } from "@/app/i18n/languages";
 import { instantQuoteCopy, instantQuoteLanguage } from "@/lib/i18n/instantQuoteCopy";
 import { moneyFormatter } from "@/lib/format/money";
@@ -148,6 +150,67 @@ for (const lang of LANGUAGE_CODES) {
     const pad = Number(classOf(scrollDiv).match(/(?:^|\s)pt-([\d.]+)(\s|$)/)?.[1] || 0) * 4;
     const between = scrollAt < 0 ? "" : html.slice(scrollAt, m.index);
     ok(`${lang}: SampleFrame's tag (${offset}px above its frame) clears the top of the scroll box that clips it (${pad}px padding, 8px to spare)`, scrollAt >= 0 && pad - offset >= 8 && (between.match(/<div/g) || []).length === 1, { offset, pad });
+  }
+}
+
+section("5. The showcase follows the visitor's language — as far as the product does");
+// Owner, 2026-09-28: switched the site to UK, ਪੰ, TL, DE, IT and parts of the
+// showcase stayed English. The rule now (showcase/showcaseLanguage.js): the
+// section, the app screens and Summit Ridge's card follow the SITE language;
+// the homeowner's pages and the draft follow the DOCUMENT language, which is
+// the site's when the product's homeowner pipeline speaks it (en, fr, es)
+// and English otherwise. So: French and Spanish renders may contain NO
+// English string from the fixture anywhere; the other five may contain them
+// only inside the homeowner's pages (the step-1 form and the two previews)
+// and in the draft's own line wording — and step 1 says why.
+{
+  const enContent = summitRidgeContentFor("en");
+  const EN_SHOWCASE = INDUSTRY_MESSAGES.en.showcase;
+  const englishStrings = (lang) => {
+    const own = INDUSTRY_MESSAGES[lang]?.showcase || {};
+    const copyStrings = Object.entries(EN_SHOWCASE)
+      .filter(([k, v]) => typeof v === "string" && v.length > 12 && own[k] !== v)
+      // Templates are checked through their fixed opening words only.
+      .map(([, v]) => v.split("{")[0].trim())
+      .filter((v) => v.length > 12);
+    return [
+      enContent.about.headline,
+      enContent.tagline,
+      enContent.insuranceTitle,
+      enContent.waiverTitle.split("(")[0].trim(),
+      ...enContent.process.steps.map((s) => s.title),
+      ...enContent.waivers.map((w) => w.title),
+      // A product name a language keeps as a loanword (Tagalog's
+      // "Architectural shingles") is that language's word, not a leak.
+      ...Object.entries(EN_SHOWCASE.materials).filter(([k, v]) => own.materials?.[k] !== v).map(([, v]) => v),
+      ...copyStrings,
+    ];
+  };
+  const cut = (html, from, to) => (from >= 0 && to > from ? html.slice(0, from) + html.slice(to) : html);
+  for (const lang of LANGUAGE_CODES) {
+    const html = render(createElement(RoofingShowcase, { fixture, anchor: ANCHOR }), lang);
+    const doc = documentLanguageFor(lang);
+    const content = summitRidgeContentFor(lang);
+    ok(`${lang}: Summit Ridge's tagline on the company card is in ${lang}`, html.includes(esc(content.tagline)));
+    const docContent = summitRidgeContentFor(doc);
+    ok(`${lang}: both homeowner previews carry Summit Ridge's About and process in the document language (${doc})`, html.split(esc(docContent.about.headline)).length - 1 >= 2 && html.includes(esc(docContent.process.steps[8].title)) && html.includes(esc(docContent.waivers[9].title)));
+    if (lang === "en") continue;
+    let outside = html;
+    if (doc !== lang) {
+      // The homeowner's pages, in the document language by the product's
+      // own limit: the form's surface, and each preview's frame content.
+      outside = cut(outside, outside.indexOf("data-showcase-surface"), outside.indexOf("data-showcase-report"));
+      const rp = outside.indexOf("data-showcase-report");
+      outside = cut(outside, outside.indexOf("data-sample-fallback", rp), outside.indexOf("data-showcase-run"));
+      const qp = outside.indexOf("data-showcase-quote-page");
+      outside = cut(outside, outside.indexOf("data-sample-fallback", qp), outside.indexOf('href="/signup"', qp));
+      // The draft's own lines, written in its language when it was created.
+      const run = runRequest(fixtureInLanguage(fixture, lang), defaultBody(fixtureInLanguage(fixture, lang), doc));
+      for (const l of run.draft.lineItems) outside = outside.split(esc(l.description)).join("");
+    }
+    const leaked = englishStrings(lang).filter((s) => outside.includes(esc(s)));
+    ok(`${lang}: no English fixture or showcase string ${doc === lang ? "anywhere on the section" : "outside the homeowner's pages and the draft's own lines"}`, leaked.length === 0, leaked);
+    if (doc !== lang) ok(`${lang}: …and step 1 says the homeowner's pages are in English`, html.includes(esc(industryShowcaseFor(lang).formLanguageNote)));
   }
 }
 

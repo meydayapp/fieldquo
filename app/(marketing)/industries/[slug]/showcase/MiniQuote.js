@@ -108,8 +108,9 @@ export default function MiniQuote({ fixture, run, approved, copy }) {
 
       <div className="rounded-xl border border-border bg-card p-5" data-sample-workings>
         <h4 className="text-base font-semibold text-foreground">{copy.workingsTitle}</h4>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {fill(copy.workMeasured, { area: num(w.areaSqft), squares: num(w.squares) })}
+        <p className="mt-1 text-sm text-muted-foreground" data-working-source={fixture.measurement?.source || null}>
+          {/* A size the visitor typed is theirs, not a measurement — ./houseFixture.js. */}
+          {fill(fixture.measurement?.source === "manual" ? copy.workTyped : copy.workMeasured, { area: num(w.areaSqft), squares: num(w.squares) })}
         </p>
         <dl className="mt-4 space-y-2 text-sm">
           {rows.map((r) => (

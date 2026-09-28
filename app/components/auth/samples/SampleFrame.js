@@ -85,7 +85,18 @@ function mirrorStyles(doc) {
  * @param children   the real component(s), when `html` is not given
  * @param background the iframe body's background (a document is white paper)
  */
-export default function SampleFrame({ width = 390, crop = null, maxHeight = 720, label, html = null, children = null, background = "transparent", className = "" }) {
+/**
+ * @param navigable  OPT-IN, and only the roofing showcase passes it
+ *                   (app/(marketing)/industries/[slug]/showcase/
+ *                   ClientPreviews.js): a function (doc, frame) → cleanup,
+ *                   called once the frame's document is up. The body is then
+ *                   NOT inert and the frame takes the pointer, so the
+ *                   caller's own capture-phase guard on `doc` can let the
+ *                   page's contents links move the preview and stop every
+ *                   other click, submit and press before the component sees
+ *                   it. Absent — every signup sample — nothing changes.
+ */
+export default function SampleFrame({ width = 390, crop = null, maxHeight = 720, label, html = null, children = null, background = "transparent", className = "", navigable = null }) {
   const shownWidth = Math.min(width, crop || width);
   const { t } = useTranslation();
   const outerRef = useRef(null);
@@ -95,6 +106,13 @@ export default function SampleFrame({ width = 390, crop = null, maxHeight = 720,
   const [mount, setMount] = useState(null);
   // What the content's height is read from, once the frame has loaded.
   const readHeight = useRef(null);
+  // The navigable guard, latest version — read when the frame loads, so a
+  // caller passing a new function each render does not reload the frame.
+  const isNavigable = typeof navigable === "function";
+  const navigableRef = useRef(navigable);
+  useEffect(() => {
+    navigableRef.current = navigable;
+  }, [navigable]);
 
   // ── Measuring, without a ResizeObserver ─────────────────────────────────
   //
@@ -141,7 +159,8 @@ export default function SampleFrame({ width = 390, crop = null, maxHeight = 720,
       cleanup();
       const doc = frame.contentDocument;
       if (!doc?.body) return;
-      doc.body.setAttribute("inert", "");
+      if (!isNavigable) doc.body.setAttribute("inert", "");
+      const stopGuard = isNavigable ? navigableRef.current?.(doc, frame) : null;
       doc.body.style.margin = "0";
       // The frame is always exactly as tall as its content, so it never
       // scrolls — and a scrollbar that came and went as the height settled
@@ -155,6 +174,7 @@ export default function SampleFrame({ width = 390, crop = null, maxHeight = 720,
         setContentHeight(readHeight.current());
         cleanup = () => {
           readHeight.current = null;
+          if (typeof stopGuard === "function") stopGuard();
         };
         return;
       }
@@ -180,6 +200,7 @@ export default function SampleFrame({ width = 390, crop = null, maxHeight = 720,
       cleanup = () => {
         readHeight.current = null;
         stopStyles();
+        if (typeof stopGuard === "function") stopGuard();
         setMount(null);
       };
     };
@@ -190,7 +211,7 @@ export default function SampleFrame({ width = 390, crop = null, maxHeight = 720,
       frame.removeEventListener("load", onLoad);
       cleanup();
     };
-  }, [html, background]);
+  }, [html, background, isNavigable]);
 
   const shown = contentHeight == null ? null : Math.min(contentHeight, maxHeight);
   const clipped = contentHeight != null && contentHeight > maxHeight;
@@ -251,8 +272,12 @@ export default function SampleFrame({ width = 390, crop = null, maxHeight = 720,
             transform: `scale(${s})`,
             transformOrigin: "top left",
             pointerEvents: "none",
+            // A navigable preview takes the pointer; its caller's guard (see
+            // `navigable` above) decides what a click may do.
+            ...(isNavigable && { pointerEvents: "auto" }),
             background,
           }}
+          data-sample-navigable={isNavigable ? "1" : undefined}
         />
         {!html && !mount ? (
           // Server render and the first client render: the real component's
