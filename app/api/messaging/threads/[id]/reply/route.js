@@ -56,6 +56,11 @@ import { rateLimit } from "@/lib/rateLimit";
 import { humanTookOver } from "@/lib/aiEmployee/routing";
 import { sendEmailThreadReply } from "@/lib/mailbox/reply";
 import { formatAddressList } from "@/lib/mailbox/addresses";
+import {
+  INSTAGRAM_CAPABILITY_REASON,
+  missingInstagramPermissions,
+  withPermissionVerdict,
+} from "@/lib/messaging/instagramSendErrors";
 
 const MAX_LENGTH = 2000; // Meta's own limit for a text message.
 
@@ -326,6 +331,27 @@ export async function POST(request, { params }) {
     direction: "out",
   });
 
+  // ── Instagram's "(#3) … capability": which permission, when knowable ────
+  //
+  // Meta's refusal does not say what is missing. The grant Meta reported when
+  // this Page was connected does — MetaPageConnection.scopes, for the Page the
+  // Instagram account is linked through — so the missing permissions are read
+  // from it (READ only) and ride on the stored sentence, where the screen
+  // reads them back after a reload (lib/messaging/instagramSendErrors.js).
+  // No row, or no stored grant: the verdict is "unknown", never "nothing
+  // missing".
+  let missingPermissions = null;
+  if (!result.ok && result.reason === INSTAGRAM_CAPABILITY_REASON) {
+    const pageConnection = await db.metaPageConnection
+      .findFirst({
+        where: { companyId: member.companyId, instagramUserId: thread.channel?.externalId || "", disconnectedAt: null },
+        select: { scopes: true },
+      })
+      .catch(() => null);
+    missingPermissions = missingInstagramPermissions(pageConnection?.scopes ?? null);
+    result.message = withPermissionVerdict(result.message, missingPermissions);
+  }
+
   // Written either way. A failed send that left no trace would make the
   // conversation read as though nobody ever tried.
   const message = await db.message.create({
@@ -435,7 +461,14 @@ export async function POST(request, { params }) {
 
   if (!result.ok) {
     return NextResponse.json(
-      { sent: false, reason: result.reason, error: result.message, message: shaped },
+      {
+        sent: false,
+        reason: result.reason,
+        error: result.message,
+        message: shaped,
+        // Only on the Instagram capability refusal; see above.
+        ...(result.reason === INSTAGRAM_CAPABILITY_REASON ? { missingPermissions } : {}),
+      },
       { status: 409 },
     );
   }

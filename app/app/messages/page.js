@@ -125,7 +125,22 @@ import {
 import {
   PlatformBadge, Attachments, NoteBody, OutcomePicker, StatusPicker, WaitingBadge,
   ComposerTabs, AssigneePicker, ServiceWindowNotice, TemplatePicker, AttachControl,
+  ThreadControlNotice, InstagramMessagingNotice,
 } from "./ConversationBits";
+// Meta's "another app is controlling this thread" refusal, named — from the
+// PURE module, not metaSend.js, which reaches "@/lib/db" through the token.
+import {
+  THREAD_CONTROL_REASON,
+  isThreadControlFailure,
+  threadControlAskable,
+} from "@/lib/messaging/threadControl";
+// Instagram's "(#3) … does not have the capability", named the same way and
+// from a pure module for the same reason.
+import {
+  INSTAGRAM_CAPABILITY_REASON,
+  isInstagramCapabilityFailure,
+  permissionVerdictFromFailure,
+} from "@/lib/messaging/instagramSendErrors";
 import { uploadFile } from "@/lib/media/uploadClient";
 import { threadRoomGroups } from "./threadRooms";
 
@@ -542,6 +557,21 @@ function MessagesScreen() {
           });
           continue;
         }
+      }
+      // ── Another app holds the conversation at Meta ─────────────────────
+      //
+      // The stored row keeps Meta's English sentence for the record; the
+      // bubble says what happened in the reader's language, and the panel
+      // above the composer says what to change (ThreadControlNotice).
+      if (item.status === "failed" && isThreadControlFailure(item.error)) {
+        items.push({ ...item, error: t("app.messages.threadControl.failed") });
+        continue;
+      }
+      // Instagram's code 3, the same way: translated here, the fix above the
+      // composer (InstagramMessagingNotice).
+      if (item.status === "failed" && isInstagramCapabilityFailure(item.error)) {
+        items.push({ ...item, error: t("app.messages.igCapability.failed") });
+        continue;
       }
       items.push(item);
     }
@@ -1467,6 +1497,22 @@ function ComposerArea({ thread, note, blockKey, isDemo, canEdit, windowNotice, w
         ),
       });
       if (!res.ok) {
+        // Meta's thread-control refusal is the one reason with a translated
+        // sentence of its own: the server's `error` is Meta's English, and the
+        // panel above the box (drawn from the failed row the refresh below
+        // brings back) carries the fix. The typed words stay in the box either
+        // way — nothing on this path clears `text`.
+        const data = await res.clone().json().catch(() => null);
+        if (data?.reason === THREAD_CONTROL_REASON) {
+          setSendError(t("app.messages.threadControl.failed"));
+          await onChanged?.();
+          return;
+        }
+        if (data?.reason === INSTAGRAM_CAPABILITY_REASON) {
+          setSendError(t("app.messages.igCapability.failed"));
+          await onChanged?.();
+          return;
+        }
         // The server's own sentence — "no Page is connected", "that Page
         // needs reconnecting" — under the box, not a generic failure. It also
         // WROTE the attempt, so reloading shows the failed row above.
@@ -1504,6 +1550,16 @@ function ComposerArea({ thread, note, blockKey, isDemo, canEdit, windowNotice, w
   // `disabledReplyKey`); it is repeated here only on the Note side, where
   // the tabs print the note hint instead and the box would otherwise be off
   // with no sentence on it.
+  // ── Another app holds this conversation at Meta ─────────────────────────
+  //
+  // Read from the thread itself — the most recent reply attempt, not state
+  // set by this component — so the panel survives a reload and disappears
+  // the moment a reply goes through (a sent row becomes the most recent).
+  const lastReply = [...(thread?.messages || [])].reverse().find((m) => m.direction === "out");
+  const controlHeld =
+    mode === "reply" && !demoBlocked && Boolean(lastReply) && isThreadControlFailure(lastReply.failedReason);
+  const instagramBlocked =
+    mode === "reply" && !demoBlocked && Boolean(lastReply) && isInstagramCapabilityFailure(lastReply.failedReason);
   const hint = demoBlocked ? (
     mode === "note" ? <span>{t("app.messages.compose.disabled.demo")}</span> : null
   ) : !canEdit ? (
@@ -1525,6 +1581,25 @@ function ComposerArea({ thread, note, blockKey, isDemo, canEdit, windowNotice, w
           disabledReplyKey={blockKey}
           t={t}
         />
+        {controlHeld ? (
+          <ThreadControlNotice
+            key={thread.id}
+            threadId={thread.id}
+            platform={thread.platform}
+            askable={canEdit && threadControlAskable(thread.platform)}
+            t={t}
+          />
+        ) : null}
+        {instagramBlocked ? (
+          <InstagramMessagingNotice
+            // Which permission, read back from the stored sentence the reply
+            // route wrote — the same verdict after a reload as at the moment
+            // of the failure.
+            missing={permissionVerdictFromFailure(lastReply.failedReason)}
+            settingsHref={SOCIAL_SETTINGS_PATH}
+            t={t}
+          />
+        ) : null}
         {/* The way through, offered exactly when it is the answer. */}
         {mode === "reply" && templatesOffered && !blockKey && (
           <TemplatePicker

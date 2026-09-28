@@ -37,6 +37,7 @@ import {
 // and the build says so. The bio-link page already needed these two and drew
 // them as inline SVG; one set of glyphs, not two that drift apart.
 import { SocialGlyph } from "@/app/components/links/linkIcons";
+import { fetchJson } from "@/lib/fetchJson";
 import {
   THREAD_OUTCOMES,
   THREAD_STATUSES,
@@ -1063,6 +1064,134 @@ export function ServiceWindowNotice({ notice, client = null, t }) {
         )}
       </span>
     </p>
+  );
+}
+
+/**
+ * "Another app controls this conversation" — what to change, and the one
+ * thing FieldQuo can do from here.
+ *
+ * Drawn above the composer while the most recent reply on this thread was
+ * refused for that reason (lib/messaging/threadControl.js). The fix is in
+ * Meta, in two settings the company owns, so they are named in order. The
+ * button appears only where Meta documents request_thread_control for us
+ * (Facebook — threadControlAskable) and only for somebody allowed to reply.
+ *
+ * The button's success sentence says what a delivered request means and no
+ * more: the app holding the conversation decides, and FieldQuo is not told
+ * its answer. "Taken over!" would be the control that appears to work.
+ */
+export function ThreadControlNotice({ threadId, platform, askable, t }) {
+  const [state, setState] = useState("idle"); // idle | asking | asked | failed
+  const [detail, setDetail] = useState("");
+
+  async function ask() {
+    setState("asking");
+    setDetail("");
+    try {
+      await fetchJson("/api/messaging/threads/" + encodeURIComponent(threadId) + "/request-control", { method: "POST" });
+      setState("asked");
+    } catch (err) {
+      // Meta's own words (or ours) under the translated line: the reason the
+      // request failed is what tells the contractor which setting to look at.
+      setDetail(err?.i18nKey ? t(err.i18nKey) : err?.message || "");
+      setState("failed");
+    }
+  }
+
+  return (
+    <div
+      className="mb-2 rounded-lg border border-destructive bg-card px-3 py-2 text-xs text-foreground"
+      data-thread-control-notice
+    >
+      <p className="flex items-start gap-2 font-semibold">
+        <AlertTriangle size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
+        <span>{t("app.messages.threadControl.title")}</span>
+      </p>
+      <ol className="mt-1 list-decimal space-y-1 pl-8">
+        <li>{t("app.messages.threadControl.stepAutomations")}</li>
+        <li>
+          {platform === "instagram"
+            ? t("app.messages.threadControl.stepRoutingInstagram")
+            : t("app.messages.threadControl.stepRouting")}
+        </li>
+      </ol>
+      <p className="mt-1">{t("app.messages.threadControl.after")}</p>
+      {askable ? (
+        <div className="mt-1">
+          <button
+            type="button"
+            onClick={ask}
+            disabled={state === "asking"}
+            className="inline-flex min-h-[44px] items-center gap-1.5 font-semibold underline disabled:opacity-60"
+            data-thread-control-ask
+          >
+            {state === "asking" && <Loader2 size={12} className="animate-spin" aria-hidden="true" />}
+            {state === "asking" ? t("app.messages.threadControl.asking") : t("app.messages.threadControl.ask")}
+          </button>
+          {state === "asked" && <p className="mt-1" role="status">{t("app.messages.threadControl.asked")}</p>}
+          {state === "failed" && (
+            <p className="mt-1" role="alert">
+              {t("app.messages.threadControl.askFailed")}
+              {detail ? <span className="mt-0.5 block">{detail}</span> : null}
+            </p>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * "Meta refused this Instagram reply" — code 3, named
+ * (lib/messaging/instagramSendErrors.js). Drawn above the composer while the
+ * most recent reply on an Instagram thread was refused for that reason.
+ *
+ * Leads with the permission, because that is the likeliest gap (production
+ * logs in through a Facebook Login for Business CONFIGURATION, whose grant is
+ * whatever the dashboard lists), and names WHICH permission when the stored
+ * grant says so:
+ *
+ *   missing = [..]  the grant Meta reported lacks these — named, definite
+ *   missing = null  no stored grant to read — "may not", naming
+ *                   instagram_manage_messages, never "nothing is missing"
+ *   missing = []    the grant has all of Meta's listed permissions — the
+ *                   dashboard step is dropped (it would be wrong advice) and
+ *                   the Instagram-side setting is what is left
+ *
+ * The Instagram setting is quoted from Meta's get-started page and nothing
+ * else — no menu path here that page does not print. The reconnect link is
+ * the one the inbox's connect card uses.
+ */
+export function InstagramMessagingNotice({ missing = null, settingsHref, t }) {
+  const allGranted = Array.isArray(missing) && missing.length === 0;
+  const title = Array.isArray(missing)
+    ? missing.length
+      ? t("app.messages.igCapability.titleMissing", { permissions: missing.join(", ") })
+      : t("app.messages.igCapability.titleGranted")
+    : t("app.messages.igCapability.titleUnknown");
+  return (
+    <div
+      className="mb-2 rounded-lg border border-destructive bg-card px-3 py-2 text-xs text-foreground"
+      data-instagram-capability-notice
+    >
+      <p className="flex items-start gap-2 font-semibold">
+        <AlertTriangle size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
+        <span>{title}</span>
+      </p>
+      <ol className="mt-1 list-decimal space-y-1 pl-8">
+        {allGranted ? null : (
+          <li>
+            {t("app.messages.igCapability.stepDashboard", { settings: t("app.settings.metaAds") })}{" "}
+            <Link href={settingsHref} className="font-semibold underline underline-offset-2">
+              {t("app.messages.connect.reconnect")}
+            </Link>
+          </li>
+        )}
+        <li>{t("app.messages.igCapability.stepAllowAccess")}</li>
+      </ol>
+      <p className="mt-1">{t("app.messages.igCapability.after")}</p>
+    </div>
   );
 }
 
