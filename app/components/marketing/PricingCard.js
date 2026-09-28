@@ -3,9 +3,8 @@
 
 import { CheckCircle2 } from "lucide-react";
 import { TRIAL_PRICE } from "@/lib/pricing";
-import { annualComparison } from "@/lib/pricing/ladder";
-import { annualPriceOf } from "@/lib/billing/interval";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import PlanOfferPrice, { OfferRibbon, offerMoney } from "@/app/components/billing/PlanOfferPrice";
 // The locale table moved to app/i18n/numberLocale.js — /pricing needed the
 // same one, and two copies of a mapping is how the second copy goes stale.
 import { numberLocaleFor } from "@/app/i18n/numberLocale";
@@ -58,8 +57,12 @@ export default function PricingCard({ plan, selected, onSelect, interval = "mont
   // Custom row) — the card then keeps the monthly figure under the yearly tab
   // and SAYS it is monthly only, rather than inventing a twelve-times price.
   const yearly = interval === "year";
-  const cmp = annualComparison({ priceMonthly: plan.priceMonthly, priceAnnual: plan.priceAnnual });
-  const annualTotal = annualPriceOf(plan);
+  // The server's offer for this card on this cadence (/api/marketing/plans →
+  // lib/billing/promotions.js): the standing 1-year offer, or a running sale.
+  // The card says it through PlanOfferPrice, the component every plan
+  // picker uses, and does no arithmetic of its own.
+  const yearOffer = plan.offers?.year?.available ? plan.offers.year : null;
+  const offer = yearly ? yearOffer : plan.offers?.month || null;
   const perMonth = `${symbol}${money(monthlyTotal, locale)}${t("pricing.perMonthShort")}`;
 
   // ── There used to be a "(${amount}/licence)" line here ────────────────────
@@ -101,7 +104,7 @@ export default function PricingCard({ plan, selected, onSelect, interval = "mont
         </span>
       )}
 
-      <h3 className="text-lg font-semibold text-foreground">{label}</h3>
+      <h3 className="text-lg font-semibold text-foreground pr-10">{label}</h3>
 
       <div className="mt-3">
         <div className="text-sm text-muted-foreground">{t("pricing.firstMonth")}</div>
@@ -112,29 +115,16 @@ export default function PricingCard({ plan, selected, onSelect, interval = "mont
         </div>
       </div>
 
-      {yearly && cmp.available ? (
+      {offer && (yearly ? yearOffer : true) ? (
         <div className="mt-2 text-sm text-muted-foreground">
-          {t("pricing.then")}{" "}
-          <span className="font-semibold text-foreground">
-            {symbol}
-            {money(cmp.perMonth, locale)}
-            {t("pricing.perMonthShort")}
-          </span>
-          {/* The strike-through is the monthly rate, shown only when the
-              year really is cheaper — "was CA$99/mo" beside an identical
-              number is a discount that isn't there. */}
-          {cmp.saves > 0 && (
-            <span className="ml-2 line-through decoration-muted-foreground/60">{perMonth}</span>
-          )}
+          <OfferRibbon offer={offer} t={t} />
+          <div className="mb-1">{t("pricing.then")}</div>
           {/* The free first month is a Stripe trial on BOTH cadences (see
               lib/platform/stripeBilling.js createTrialCheckoutSession): no
-              charge for thirty days, then the whole year in one payment. So
-              this never says "today" — nothing is charged today. */}
-          <div className="text-xs mt-1">
-            {t("app.signup.plan.card.paidAnnually", "paid annually — {year} after your free month", {
-              year: `${symbol}${money(annualTotal, locale)}`,
-            })}
-          </div>
+              charge for thirty days, then the offer below. So nothing here
+              says "today" — nothing is charged today; the summary under the
+              cards says when the first charge lands. */}
+          <PlanOfferPrice offer={offer} t={t} money={offerMoney(symbol, locale)} locale={locale} size="md" />
         </div>
       ) : (
         <div className="mt-2 text-sm text-muted-foreground">

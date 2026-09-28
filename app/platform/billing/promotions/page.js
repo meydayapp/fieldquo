@@ -12,15 +12,27 @@
 // both were editable would be the screen where somebody changes a price
 // intending to run a sale. They are linked in both directions instead.
 //
-// ── Every number on this page comes from priceFor() ────────────────────────
+// ── Every number on this page comes from planOffer() ──────────────────────
 //
-// Not one line of this file multiplies a price by a discount. priceFor() in
-// lib/pricing/ladder.js is the only thing that knows how, it is covered by the
-// seat-ladder check, and it already refuses the cases a naive renderer gets
-// wrong — a 100% discount rendered as free (Stripe rejects a zero
-// unit_amount), a discount larger than the price, a promotion outside its
-// dates. A second implementation here would be a second set of those bugs, in
-// the surface an operator uses to decide.
+// Not one line of this file multiplies a price by a discount. planOffer() in
+// lib/pricing/planOffer.js (which asks priceFor() in lib/pricing/ladder.js
+// for the monthly side) is the only thing that knows how — the SAME function
+// the customer surfaces and the Stripe checkout are priced with, so the
+// preview here is what a customer will be shown and charged. It already
+// refuses the cases a naive renderer gets wrong — a 100% discount rendered as
+// free (Stripe rejects a zero unit_amount), a discount larger than the price,
+// a promotion outside its dates, a 1-year sale that would charge more than
+// the standing 1-year offer. A second implementation here would be a second
+// set of those bugs, in the surface an operator uses to decide.
+//
+// ── The standing 1-year offer is on this page too ─────────────────────────
+//
+// The owner (2026-09-28): the monthly price is the only regular price; the
+// 1-year commitment's "pay 10 months, get 12" is a standing promotion, the
+// one promotion with no end date. It is stored on the plan rows
+// (Plan.priceAnnual) and edited in the panel at the top of this page, for
+// every plan at once; a time-limited sale on the year replaces it for the
+// first year and never stacks on it.
 //
 // Likewise the running/not-running question goes to promotionIsLive() via
 // lib/pricing/promotionStatus.js, so the badge and the checkout cannot
@@ -41,9 +53,17 @@ import { fetchJson } from "@/lib/fetchJson";
 import {
   SEAT_LADDER,
   SUPPORTED_CURRENCIES,
-  priceFor,
   currencyLabel,
+  customTier,
+  CUSTOM_TIER_KEY,
+  CUSTOM_LABEL,
+  planMoney,
 } from "@/lib/pricing/ladder";
+import {
+  planOffer,
+  standingOfferSummary,
+  standingAnnualFor,
+} from "@/lib/pricing/planOffer";
 import { promotionStatus } from "@/lib/pricing/promotionStatus";
 import PlatformWriteGate, {
   usePlatformAdmin,
@@ -59,8 +79,23 @@ const BLANK = {
   endsAt: "",
   tierKeys: [],
   currencies: [],
+  // The 1-year commitment by default: the owner's promotions are annual-first.
+  // The server's default for a body without the field stays "month", which
+  // is what every row saved before the field existed means.
+  appliesTo: "year",
   active: false,
 };
+
+const APPLIES_TO_LABEL = {
+  year: "1-year commitment",
+  month: "Monthly",
+  both: "Both",
+};
+
+// Which commitments a row or draft discounts — the same reading as
+// promotionIntervals() in lib/pricing/ladder.js (unknown = monthly).
+const intervalsOf = (promo) =>
+  promo?.appliesTo === "both" ? ["year", "month"] : promo?.appliesTo === "year" ? ["year"] : ["month"];
 
 /** ISO → the value a datetime-local input wants, in the browser's own zone. */
 function toLocalInput(value) {
@@ -162,6 +197,7 @@ export default function PlatformPromotionsPage() {
         endsAt: draft.endsAt ? new Date(draft.endsAt).toISOString() : null,
         tierKeys: draft.tierKeys,
         currencies: draft.currencies,
+        appliesTo: draft.appliesTo,
         active: draft.active,
       };
       await fetchJson(
@@ -253,6 +289,10 @@ export default function PlatformPromotionsPage() {
         </div>
       )}
 
+      {!loading && promotions !== null && (
+        <StandingOfferPanel plans={ladderPlans} canManage={canManage} onSaved={load} />
+      )}
+
       {draft && (
         <PromotionEditor
           draft={draft}
@@ -312,6 +352,7 @@ export default function PlatformPromotionsPage() {
                   currencies: Array.isArray(promo.currencies)
                     ? promo.currencies
                     : [],
+                  appliesTo: promo.appliesTo || "month",
                   active: !!promo.active,
                 })
               }
@@ -329,7 +370,7 @@ function PromotionRow({ promo, plans, now, busy, canManage, onToggle, onEdit }) 
   const status = promotionStatus(promo, now);
 
   return (
-    <div className="bg-card border border-border rounded-xl p-5">
+    <div className="bg-card border border-border rounded-xl p-5" data-promotion-row>
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -342,9 +383,7 @@ function PromotionRow({ promo, plans, now, busy, canManage, onToggle, onEdit }) 
           </div>
           <p className="text-sm text-muted-foreground mt-1">{status.detail}</p>
           <p className="text-sm text-muted-foreground mt-1">
-            {describeDiscount(promo)} for {promo.durationMonths}{" "}
-            {promo.durationMonths === 1 ? "month" : "months"}, then the plan
-            reverts. {describeScope(promo)}
+            {describeTerms(promo)} {describeScope(promo)}
           </p>
           {promo.notes && (
             <p className="text-xs text-muted-foreground mt-2 italic">
@@ -387,7 +426,7 @@ function PromotionRow({ promo, plans, now, busy, canManage, onToggle, onEdit }) 
         // expired therefore shows every price unchanged, which is the true
         // answer — the editor below is where you preview the hypothetical.
         now={now}
-        caption="What customers are charged right now"
+        caption="What customers are shown and charged right now"
       />
     </div>
   );
@@ -479,8 +518,29 @@ function PromotionEditor({ draft, setDraft, plans, saving, onSave, onCancel }) {
         </Field>
 
         <Field
-          label="Promotional months"
-          hint="How long the reduced price lasts before the plan reverts. Zero would mean forever, and is refused."
+          label="Applies to"
+          hint="1-year commitment: the discount is off twelve months of the monthly price, charged once for the first year, and it replaces the standing 1-year offer for that year (never stacks). Monthly: the monthly price for the promotional months."
+        >
+          <div className="flex flex-wrap gap-3 pt-1" role="radiogroup" aria-label="Applies to">
+            {["year", "month", "both"].map((value) => (
+              <label key={value} className="flex items-center gap-1.5 text-sm text-foreground">
+                <input
+                  type="radio"
+                  name="appliesTo"
+                  value={value}
+                  checked={(draft.appliesTo || "month") === value}
+                  onChange={() => set({ appliesTo: value })}
+                  className="accent-primary"
+                />
+                {APPLIES_TO_LABEL[value]}
+              </label>
+            ))}
+          </div>
+        </Field>
+
+        <Field
+          label="Promotional months (monthly)"
+          hint="How long the reduced MONTHLY price lasts before the plan reverts. Zero would mean forever, and is refused. A 1-year sale is one charge for the first year and ignores this."
         >
           <input
             type="number"
@@ -514,7 +574,7 @@ function PromotionEditor({ draft, setDraft, plans, saving, onSave, onCancel }) {
 
         <Field label="Tiers" hint="None ticked = every tier">
           <div className="flex flex-wrap gap-3 pt-1">
-            {SEAT_LADDER.map((t) => (
+            {[...SEAT_LADDER, { tierKey: CUSTOM_TIER_KEY, label: `${CUSTOM_LABEL} ("Need more people?")` }].map((t) => (
               <label
                 key={t.tierKey}
                 className="flex items-center gap-1.5 text-sm text-foreground"
@@ -608,8 +668,34 @@ function PromotionEditor({ draft, setDraft, plans, saving, onSave, onCancel }) {
 /* ────────────────────────────────────────────────────────────────────────── */
 
 /**
- * Every rung, priced by priceFor(). No arithmetic in this component.
+ * Every plan the promotion can reach — each rung in each currency, plus a
+ * custom size priced from that currency's Scale row — on each commitment the
+ * promotion covers, priced by planOffer(). The figures are the ones the
+ * customer's card will show and the checkout will charge. No arithmetic in
+ * this component.
  */
+const CUSTOM_EXAMPLE_SEATS = 20;
+
+function previewRows(plans) {
+  const rows = [];
+  for (const plan of plans.filter((p) => !/^custom-\d+$/.test(p.tierKey || ""))) {
+    rows.push({ key: plan.id, name: plan.name, plan });
+    if (plan.tierKey === "scale") {
+      // The "Need more people?" plan, one example size, priced from this
+      // currency's Scale row exactly as ensureCustomPlan mints it.
+      const tier = customTier(CUSTOM_EXAMPLE_SEATS, { base: plan });
+      if (tier) {
+        rows.push({
+          key: `${plan.id}-custom`,
+          name: tier.name,
+          plan: { tierKey: tier.tierKey, currency: plan.currency, priceMonthly: tier.price, priceAnnual: tier.priceAnnual },
+        });
+      }
+    }
+  }
+  return rows;
+}
+
 function LadderPreview({ promo, plans, now, caption }) {
   if (!plans.length) {
     return (
@@ -624,69 +710,176 @@ function LadderPreview({ promo, plans, now, caption }) {
     );
   }
 
+  const rows = previewRows(plans);
+  const intervals = intervalsOf(promo);
+  const money = (n, currency) => planMoney(n, currency);
+
   return (
-    <div className="mt-4">
+    <div className="mt-4 space-y-4" data-promotion-preview>
       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
         {caption}
       </p>
-      <div className="mt-2 overflow-x-auto">
-        <table className="w-full text-sm min-w-[34rem]">
-          <thead>
-            <tr className="text-left text-xs text-muted-foreground">
-              <th className="font-medium py-1.5 pr-3">Plan</th>
-              <th className="font-medium py-1.5 pr-3">Regular</th>
-              <th className="font-medium py-1.5 pr-3">While running</th>
-              <th className="font-medium py-1.5 pr-3">Saving</th>
-              <th className="font-medium py-1.5">Then reverts to</th>
-            </tr>
-          </thead>
-          <tbody>
-            {plans.map((plan) => {
-              // priceFor owns the arithmetic, the clamps and the date rules.
-              // The row supplies the CURRENT price — the operator's edit, not
-              // SEAT_LADDER's default — which is what customers actually pay.
-              const pricing = priceFor({
-                tier: { tierKey: plan.tierKey, price: plan.priceMonthly },
-                currency: plan.currency,
-                promotion: promo,
-                now,
-              });
-              const sym = currencyLabel(plan.currency);
-              return (
-                <tr key={plan.id} className="border-t border-border">
-                  <td className="py-1.5 pr-3 text-foreground">{plan.name}</td>
-                  <td className="py-1.5 pr-3 text-muted-foreground">
-                    {sym}
-                    {pricing.regular.toFixed(2)}
-                  </td>
-                  <td
-                    className={`py-1.5 pr-3 font-medium ${
-                      pricing.promoApplied
-                        ? "text-emerald-700 dark:text-emerald-300"
-                        : "text-muted-foreground"
-                    }`}
-                  >
-                    {sym}
-                    {pricing.now.toFixed(2)}
-                  </td>
-                  <td className="py-1.5 pr-3 text-muted-foreground">
-                    {pricing.promoApplied
-                      ? `${sym}${pricing.saving.toFixed(2)}/mo`
-                      : "—"}
-                  </td>
-                  <td className="py-1.5 text-muted-foreground">
-                    {sym}
-                    {pricing.revertsTo.toFixed(2)}
-                    {pricing.promoApplied
-                      ? ` after ${pricing.durationMonths} mo`
-                      : ""}
-                  </td>
+      {intervals.includes("year") && (
+        <div>
+          <p className="text-sm font-semibold text-foreground">1-year commitment</p>
+          <YearNote promo={promo} rows={rows} now={now} />
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full text-sm min-w-[46rem]">
+              <thead>
+                <tr className="text-left text-xs text-muted-foreground">
+                  <th className="font-medium py-1.5 pr-3">Plan</th>
+                  <th className="font-medium py-1.5 pr-3">12 × monthly</th>
+                  <th className="font-medium py-1.5 pr-3">Standing 1-year offer</th>
+                  <th className="font-medium py-1.5 pr-3">Year one while running</th>
+                  <th className="font-medium py-1.5 pr-3">Per month</th>
+                  <th className="font-medium py-1.5 pr-3">Ribbon</th>
+                  <th className="font-medium py-1.5">Then renews at</th>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+              </thead>
+              <tbody>
+                {rows.map((row) => {
+                  const offer = planOffer({ plan: row.plan, interval: "year", promotions: [promo], now });
+                  const c = row.plan.currency;
+                  if (!offer.available) {
+                    return (
+                      <tr key={row.key} className="border-t border-border">
+                        <td className="py-1.5 pr-3 text-foreground">{row.name}</td>
+                        <td colSpan={6} className="py-1.5 text-muted-foreground">
+                          Not sold on a 1-year commitment — no annual price on this row.
+                        </td>
+                      </tr>
+                    );
+                  }
+                  const loses = offer.outranked?.length > 0 && !offer.promo;
+                  return (
+                    <tr key={row.key} className="border-t border-border">
+                      <td className="py-1.5 pr-3 text-foreground">{row.name}</td>
+                      <td className="py-1.5 pr-3 text-muted-foreground">{money(offer.twelveMonths, c)}</td>
+                      <td className="py-1.5 pr-3 text-muted-foreground">{money(offer.standing, c)}</td>
+                      <td
+                        className={`py-1.5 pr-3 font-medium ${
+                          offer.promo
+                            ? "text-emerald-700 dark:text-emerald-300"
+                            : loses
+                              ? "text-amber-700 dark:text-amber-300"
+                              : "text-muted-foreground"
+                        }`}
+                      >
+                        {offer.promo
+                          ? money(offer.charge, c)
+                          : loses
+                            ? `${money(offer.outranked[0].wouldCharge, c)} — loses to the standing offer`
+                            : "— not applied"}
+                      </td>
+                      <td className="py-1.5 pr-3 text-muted-foreground">{money(offer.perMonth, c)}</td>
+                      <td className="py-1.5 pr-3 text-muted-foreground">
+                        {offer.percent > 0 ? `Save ${offer.percent}%` : "—"}
+                      </td>
+                      <td className="py-1.5 text-muted-foreground">
+                        {money(offer.renewal, c)}/yr
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      {intervals.includes("month") && (
+        <div>
+          <p className="text-sm font-semibold text-foreground">Monthly</p>
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full text-sm min-w-[34rem]">
+              <thead>
+                <tr className="text-left text-xs text-muted-foreground">
+                  <th className="font-medium py-1.5 pr-3">Plan</th>
+                  <th className="font-medium py-1.5 pr-3">Regular</th>
+                  <th className="font-medium py-1.5 pr-3">While running</th>
+                  <th className="font-medium py-1.5 pr-3">Saving</th>
+                  <th className="font-medium py-1.5">Then reverts to</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => {
+                  const offer = planOffer({ plan: row.plan, interval: "month", promotions: [promo], now });
+                  const c = row.plan.currency;
+                  if (!offer.available) return null;
+                  return (
+                    <tr key={row.key} className="border-t border-border">
+                      <td className="py-1.5 pr-3 text-foreground">{row.name}</td>
+                      <td className="py-1.5 pr-3 text-muted-foreground">{money(offer.monthly, c)}</td>
+                      <td
+                        className={`py-1.5 pr-3 font-medium ${
+                          offer.promo ? "text-emerald-700 dark:text-emerald-300" : "text-muted-foreground"
+                        }`}
+                      >
+                        {money(offer.charge, c)}
+                      </td>
+                      <td className="py-1.5 pr-3 text-muted-foreground">
+                        {offer.promo ? `${money(offer.saves, c)}/mo` : "—"}
+                      </td>
+                      <td className="py-1.5 text-muted-foreground">
+                        {money(offer.renewal, c)}
+                        {offer.promo ? ` after ${offer.promoMonths} mo` : ""}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The sentence the owner asked for beside a 1-year sale: what it is measured
+ * against, and what it beats — "40% off the monthly price — year one billed
+ * CA$712.80 instead of 12 × monthly (CA$1,188.00) or the standing 1-year
+ * offer (CA$990.00)". Said for the first rung, where the figures are
+ * checkable in the head; the table has the rest. And a warning, in amber,
+ * for every row where the sale would charge MORE than the standing offer —
+ * the customer is charged the lower, so such a sale changes nothing there.
+ */
+function YearNote({ promo, rows, now }) {
+  const first = rows.find((r) => planOffer({ plan: r.plan, interval: "year", promotions: [promo], now }).available);
+  if (!first) return null;
+  const offer = planOffer({ plan: first.plan, interval: "year", promotions: [promo], now });
+  const c = first.plan.currency;
+  const losers = rows.filter((r) => {
+    const o = planOffer({ plan: r.plan, interval: "year", promotions: [promo], now });
+    return o.available && !o.promo && o.outranked?.length > 0;
+  });
+  const what =
+    promo.discountKind === "amount"
+      ? `${planMoney(Number(promo.discountValue), c)} off the monthly price`
+      : `${Number(promo.discountValue)}% off the monthly price`;
+  return (
+    <div className="mt-1 space-y-2">
+      <p className="text-sm text-muted-foreground" data-year-note>
+        {offer.promo
+          ? `${what} — ${first.name}'s year one billed ${planMoney(offer.charge, c)} instead of 12 × monthly (${planMoney(offer.twelveMonths, c)}) or the standing 1-year offer (${planMoney(offer.standing, c)}), then renews at ${planMoney(offer.renewal, c)}/yr.`
+          : offer.outranked?.length
+            ? `${what} — ${first.name}'s year one would be ${planMoney(offer.outranked[0].wouldCharge, c)}, more than the standing 1-year offer (${planMoney(offer.standing, c)}). Customers pay the lower, so this sale changes nothing on the 1-year commitment.`
+            : `${what} — not applying to ${first.name} at this moment.`}
+      </p>
+      {losers.length > 0 && (
+        <div
+          className="border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 rounded-lg p-3 text-sm text-amber-800 dark:text-amber-200 flex items-start gap-2"
+          data-year-warning
+        >
+          <AlertCircle size={16} className="shrink-0 mt-0.5" />
+          <span>
+            On {losers.length === rows.length ? "every plan" : `${losers.length} of ${rows.length} plans`} this
+            sale&apos;s first year costs more than the standing 1-year offer, so it does not apply there — the
+            customer is charged the standing offer. A 1-year sale has to beat{" "}
+            {planMoney(offer.standing, c)} on {first.name} to change anything.
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -714,11 +907,176 @@ function describeScope(promo) {
   const currencies = Array.isArray(promo.currencies) ? promo.currencies : [];
   const tierText = tiers.length
     ? tiers
-        .map((k) => SEAT_LADDER.find((t) => t.tierKey === k)?.label || k)
+        .map((k) => (k === CUSTOM_TIER_KEY ? CUSTOM_LABEL : SEAT_LADDER.find((t) => t.tierKey === k)?.label || k))
         .join(", ")
-    : "every tier";
-  const currencyText = currencies.length ? currencies.join(", ") : "both currencies";
+    : "every plan, custom sizes included";
+  // "both currencies" was true until AUD joined on 2026-09-24.
+  const currencyText = currencies.length ? currencies.join(", ") : "every currency";
   return `Applies to ${tierText} in ${currencyText}.`;
+}
+
+// What the promotion does, by commitment — a 1-year sale is one discounted
+// first year measured against twelve monthly payments; a monthly one lasts
+// its promotional months.
+function describeTerms(promo) {
+  const months = promo.durationMonths;
+  const monthly = `${describeDiscount(promo)}, on the monthly price for ${months} ${months === 1 ? "month" : "months"}, then it reverts.`;
+  const yearly = `${describeDiscount(promo)}, measured on the monthly price, on the 1-year commitment: the first year is charged at twelve discounted months (replacing the standing 1-year offer when lower), then renews at the standing offer.`;
+  const intervals = intervalsOf(promo);
+  if (intervals.length === 2) return `${yearly} Monthly: ${monthly}`;
+  return intervals[0] === "year" ? yearly : monthly;
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * The standing 1-year commitment offer — the one promotion with no end date.
+ *
+ * Read off the plan rows (standingOfferSummary: one statement when every row
+ * carries the same deal, "varies" when a tier was given its own) and edited
+ * for every ladder plan at once through /api/platform/billing/annual-offer,
+ * which recomputes each row's year from its OWN monthly price. The preview
+ * under the fields shows every row's new year before anything is saved.
+ */
+function StandingOfferPanel({ plans, canManage, onSaved }) {
+  const summary = useMemo(() => standingOfferSummary(plans), [plans]);
+  const [editing, setEditing] = useState(false);
+  const [kind, setKind] = useState("months");
+  const [value, setValue] = useState(String(summary.monthsFree ?? 2));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const offer = { kind, value: Number(value) };
+  const rungs = plans.filter((p) => !/^custom-\d+$/.test(p.tierKey || ""));
+
+  async function save() {
+    setSaving(true);
+    setError("");
+    try {
+      await fetchJson("/api/platform/billing/annual-offer", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(offer),
+      });
+      setEditing(false);
+      await onSaved();
+    } catch (err) {
+      setError(err.message || "Couldn't save the 1-year offer.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const said =
+    summary.kind === "none"
+      ? "No plan is sold on a 1-year commitment."
+      : summary.kind === "varies"
+        ? "The plans carry different 1-year deals — see each plan's card on Plans."
+        : summary.monthsFree
+          ? `Pay ${summary.monthsPaid} months, get 12 — ${summary.monthsFree} ${summary.monthsFree === 1 ? "month" : "months"} free (save ${summary.percent}% against twelve monthly payments).`
+          : `Save ${summary.percent}% against twelve monthly payments.`;
+
+  return (
+    <div className="bg-card border border-border rounded-xl p-5" data-standing-offer>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="font-semibold text-foreground">1-year commitment offer</h3>
+            <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${TONE_BADGE.positive}`}>
+              Standing — no end date
+            </span>
+          </div>
+          <p className="text-sm text-muted-foreground mt-1">{said}</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            The monthly price is the regular price. This is the standing promotion for committing to a year —
+            the only promotion without an end date. A 1-year sale below replaces it for the first year and
+            never stacks on it; customers always pay the lower of the two.
+          </p>
+        </div>
+        {canManage && !editing && (
+          <button
+            onClick={() => setEditing(true)}
+            className="border border-border text-foreground text-sm font-semibold px-3 py-1.5 rounded-lg hover:bg-muted"
+          >
+            Edit
+          </button>
+        )}
+      </div>
+
+      {editing && (
+        <div className="mt-4 space-y-3">
+          <div className="flex flex-wrap items-end gap-3">
+            <Field label="Say it as">
+              <select value={kind} onChange={(e) => setKind(e.target.value)} className={`${inputClass} w-56`}>
+                <option value="months">Months free (pay 12 − N)</option>
+                <option value="percent">Percent off 12 × monthly</option>
+              </select>
+            </Field>
+            <Field label={kind === "months" ? "Months free" : "Percent off"}>
+              <input
+                type="number"
+                min={kind === "months" ? 1 : 0.01}
+                max={kind === "months" ? 11 : 99.99}
+                step={kind === "months" ? 1 : 0.01}
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                className={`${inputClass} w-32`}
+              />
+            </Field>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[30rem]">
+              <thead>
+                <tr className="text-left text-xs text-muted-foreground">
+                  <th className="font-medium py-1.5 pr-3">Plan</th>
+                  <th className="font-medium py-1.5 pr-3">Monthly</th>
+                  <th className="font-medium py-1.5 pr-3">1-year today</th>
+                  <th className="font-medium py-1.5">1-year after saving</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rungs.map((p) => {
+                  const next = standingAnnualFor(p.priceMonthly, offer);
+                  return (
+                    <tr key={p.id} className="border-t border-border">
+                      <td className="py-1.5 pr-3 text-foreground">{p.name}</td>
+                      <td className="py-1.5 pr-3 text-muted-foreground">{planMoney(p.priceMonthly, p.currency)}</td>
+                      <td className="py-1.5 pr-3 text-muted-foreground">
+                        {p.priceAnnual == null ? "—" : planMoney(p.priceAnnual, p.currency)}
+                      </td>
+                      <td className="py-1.5 font-medium text-foreground">
+                        {next === null ? "—" : planMoney(next, p.currency)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Applies to every ladder plan and custom size, from its own monthly price. Existing yearly
+            subscriptions keep the price they renew on; a year sold after saving is priced from this.
+          </p>
+          {error && <p className="text-sm text-red-700 dark:text-red-300">{error}</p>}
+          <div className="flex gap-2">
+            <button
+              onClick={save}
+              disabled={saving}
+              className="min-h-[44px] lg:min-h-0 inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
+            >
+              {saving && <Loader2 size={14} className="animate-spin" />}
+              Save the 1-year offer
+            </button>
+            <button
+              onClick={() => setEditing(false)}
+              className="border border-border text-foreground text-sm font-semibold px-4 py-2 rounded-lg"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 const inputClass =

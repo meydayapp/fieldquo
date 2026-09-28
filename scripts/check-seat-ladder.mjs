@@ -193,6 +193,29 @@ ok("a currency list excludes the others",
 ok("and includes its own",
   promotionApplies({ tierKeys: ["solo"], currencies: ["CAD"] }, { tierKey: "solo", currency: "CAD" }) === true);
 
+// ── Which commitment (2026-09-28) ─────────────────────────────────────────
+// A promotion now says whether it discounts the monthly price, the 1-year
+// commitment, or both; a row from before the field is monthly, which is what
+// priceFor always did with it. The year's own arithmetic (twelve months of
+// the monthly price, never stacked on the standing offer) is
+// check:promotions-live's; here, only the scope and the monthly side.
+ok("a promotion with no appliesTo covers the month only",
+  promotionApplies({}, { tierKey: "solo", currency: "CAD", interval: "month" }) === true &&
+    promotionApplies({}, { tierKey: "solo", currency: "CAD", interval: "year" }) === false);
+ok('"year" covers the year and not the month',
+  promotionApplies({ appliesTo: "year" }, { tierKey: "solo", currency: "CAD", interval: "year" }) === true &&
+    promotionApplies({ appliesTo: "year" }, { tierKey: "solo", currency: "CAD", interval: "month" }) === false);
+ok('"both" covers both', ["month", "year"].every((interval) => promotionApplies({ appliesTo: "both" }, { tierKey: "crew", currency: "AUD", interval })));
+ok("asked without an interval, the scope answers as before", promotionApplies({ appliesTo: "year" }, { tierKey: "solo", currency: "CAD" }) === true);
+ok('a custom size is matched by "custom" in the tier list, and not by the rungs',
+  promotionApplies({ tierKeys: ["custom"] }, { tierKey: "custom-20", currency: "USD" }) === true &&
+    promotionApplies({ tierKeys: ["scale"] }, { tierKey: "custom-20", currency: "USD" }) === false);
+ok("an AUD scope reaches AUD", promotionApplies({ currencies: ["AUD"] }, { tierKey: "solo", currency: "AUD" }) === true);
+ok("priceFor leaves the monthly price alone under a 1-year-only promotion",
+  priceFor({ tier: solo, promotion: { ...promo, appliesTo: "year" }, now: new Date("2026-08-27") }).now === 99);
+ok("...and still discounts it under \"both\"",
+  priceFor({ tier: solo, promotion: { ...promo, appliesTo: "both" }, now: new Date("2026-08-27") }).now === 69.3);
+
 console.log("\nCurrency comes from the address, and cannot be chosen");
 ok("Canada is CAD", currencyForCountry("CA") === "CAD");
 ok("the United States is USD", currencyForCountry("US") === "USD");

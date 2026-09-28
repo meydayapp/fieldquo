@@ -69,6 +69,8 @@ export async function PATCH(request, { params }) {
         newEndsAt: promotion.endsAt,
         previousDiscount: `${existing.discountKind} ${String(existing.discountValue)}`,
         newDiscount: `${promotion.discountKind} ${String(promotion.discountValue)}`,
+        previousAppliesTo: existing.appliesTo,
+        newAppliesTo: promotion.appliesTo,
         wasRunning: wasLive,
         nowRunning: isLive,
       },

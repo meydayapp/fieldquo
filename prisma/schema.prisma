@@ -707,6 +707,24 @@ model PlatformPromotion {
   /// Empty means every currency.
   currencies Json?
 
+  /// Which commitment the promotion discounts: "month", "year" or "both".
+  ///
+  /// "month" is what every row meant before this column existed — priceFor()
+  /// took the monthly price and discounted it for `durationMonths` — so it is
+  /// the default, and a row saved before 2026-09-28 keeps doing exactly what
+  /// it did.
+  ///
+  /// "year" is the 1-year commitment: the discount is measured against TWELVE
+  /// times the monthly price (the owner, 2026-09-28: "40% off the monthly
+  /// price, applied to the 1-year commitment"), charged once for the first
+  /// year, and it REPLACES the standing 1-year offer (Plan.priceAnnual) for
+  /// that year rather than stacking on it. The customer pays whichever is
+  /// lower, so a weak sale can never cost more than the standing offer. The
+  /// year after renews at the standing offer then in force.
+  /// `durationMonths` is ignored for the year — a year is one charge.
+  /// See lib/pricing/planOffer.js.
+  appliesTo String @default("month")
+
   createdByAdminId String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -1126,6 +1144,22 @@ model Subscription {
   /// created before the annual option existed, and monthly is what they are on
   /// — a null here would mean "unknown", which no screen could render honestly.
   billingInterval String @default("month")
+
+  /// The promotion this subscription was sold under, and what it was charged.
+  ///
+  /// Written by the checkout / plan-change paths the moment a PlatformPromotion
+  /// is applied as a Stripe coupon (lib/billing/promotions.js), from the
+  /// SERVER's own reprice — the promotion id and label, the Stripe coupon, the
+  /// interval and currency, the regular charge and the discounted one in
+  /// cents. The invoice.payment_succeeded webhook then adds what Stripe
+  /// actually collected on the discounted invoice (amount paid, discount, tax)
+  /// under `charged`, so "why was this invoice $712.80?" is answered from the
+  /// row a year later, after the promotion itself has ended.
+  ///
+  /// Null on every subscription sold at the regular price. JSON rather than
+  /// five columns because it is a record of one event, read as a whole, and
+  /// nothing filters on its parts.
+  promotionApplied Json?
 
   retentionOffer   String?
   retentionOfferAt DateTime?

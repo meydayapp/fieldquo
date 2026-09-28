@@ -114,19 +114,20 @@ import P111 from "@/app/app/me/supplies/page.js";
 import P112 from "@/docs/screens/app-guide/harness/TakeoffFrame.jsx";
 import P113 from "@/docs/screens/app-guide/harness/TrialFrame.jsx";
 import P114 from "@/docs/screens/app-guide/harness/LockFrame.jsx";
-import P115 from "@/docs/screens/app-guide/harness/SignupAsideFrame.jsx";
-import P116 from "@/app/app/callbacks/page.js";
-import P117 from "@/app/app/settings/follow-ups/past-clients/page.js";
-import P118 from "@/app/app/daily-sheets/week/page.js";
-import P119 from "@/app/app/invoices/new/page.js";
-import P120 from "@/docs/screens/app-guide/harness/PaintRatesFrame.jsx";
-import P121 from "@/app/app/settings/presentation/page.js";
-import P122 from "@/app/co/[token]/ChangeOrderApproval.js";
-import P123 from "@/app/app/invoices/[id]/edit/page.js";
-import P124 from "@/app/app/tickets/page.js";
-import P125 from "@/app/app/tickets/[id]/page.js";
-import P126 from "@/app/platform/analytics/page.js";
-import P127 from "@/app/app/leads/traffic/page.js";
+import P115 from "@/docs/screens/app-guide/harness/PromoFrame.jsx";
+import P116 from "@/docs/screens/app-guide/harness/SignupAsideFrame.jsx";
+import P117 from "@/app/app/callbacks/page.js";
+import P118 from "@/app/app/settings/follow-ups/past-clients/page.js";
+import P119 from "@/app/app/daily-sheets/week/page.js";
+import P120 from "@/app/app/invoices/new/page.js";
+import P121 from "@/docs/screens/app-guide/harness/PaintRatesFrame.jsx";
+import P122 from "@/app/app/settings/presentation/page.js";
+import P123 from "@/app/co/[token]/ChangeOrderApproval.js";
+import P124 from "@/app/app/invoices/[id]/edit/page.js";
+import P125 from "@/app/app/tickets/page.js";
+import P126 from "@/app/app/tickets/[id]/page.js";
+import P127 from "@/app/platform/analytics/page.js";
+import P128 from "@/app/app/leads/traffic/page.js";
 export const PAGES = {
   "app/app/page.js": P0,
   "app/app/leads/page.js": P1,
@@ -243,17 +244,18 @@ export const PAGES = {
   "docs/screens/app-guide/harness/TakeoffFrame.jsx": P112,
   "docs/screens/app-guide/harness/TrialFrame.jsx": P113,
   "docs/screens/app-guide/harness/LockFrame.jsx": P114,
-  "docs/screens/app-guide/harness/SignupAsideFrame.jsx": P115,
-  "app/app/callbacks/page.js": P116,
-  "app/app/settings/follow-ups/past-clients/page.js": P117,
-  "app/app/daily-sheets/week/page.js": P118,
-  "app/app/invoices/new/page.js": P119,
-  "docs/screens/app-guide/harness/PaintRatesFrame.jsx": P120,
-  "app/app/settings/presentation/page.js": P121,
-  "app/co/[token]/ChangeOrderApproval.js": P122,
-  "app/app/invoices/[id]/edit/page.js": P123,
-  "app/app/tickets/page.js": P124,
-  "app/app/tickets/[id]/page.js": P125,
-  "app/platform/analytics/page.js": P126,
-  "app/app/leads/traffic/page.js": P127,
+  "docs/screens/app-guide/harness/PromoFrame.jsx": P115,
+  "docs/screens/app-guide/harness/SignupAsideFrame.jsx": P116,
+  "app/app/callbacks/page.js": P117,
+  "app/app/settings/follow-ups/past-clients/page.js": P118,
+  "app/app/daily-sheets/week/page.js": P119,
+  "app/app/invoices/new/page.js": P120,
+  "docs/screens/app-guide/harness/PaintRatesFrame.jsx": P121,
+  "app/app/settings/presentation/page.js": P122,
+  "app/co/[token]/ChangeOrderApproval.js": P123,
+  "app/app/invoices/[id]/edit/page.js": P124,
+  "app/app/tickets/page.js": P125,
+  "app/app/tickets/[id]/page.js": P126,
+  "app/platform/analytics/page.js": P127,
+  "app/app/leads/traffic/page.js": P128,
 };

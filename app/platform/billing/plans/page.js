@@ -389,8 +389,8 @@ export default function PlatformPlansPage() {
             </Field>
 
             <Field
-              label={`Price per year${draft.currency ? ` (${draft.currency})` : ""}`}
-              hint="Blank = this tier has no annual option. Annual is the interval, not a discount — a saving has to be typed in."
+              label={`1-year offer for this plan${draft.currency ? ` (${draft.currency})` : ""}`}
+              hint="The standing 1-year commitment promotion, for this row only — normally set for every plan at once on Promotions. Blank = this tier has no 1-year option. The monthly price above is the regular price."
             >
               <input
                 type="number"
@@ -850,7 +850,10 @@ function AnnualDealLine({ priceMonthly, priceAnnual, currency, className = "" })
   if (deal.kind === "none") {
     return <div className={className}>{text}</div>;
   }
-  const line = `${planMoney(deal.annual, currency)}/yr — ${text}`;
+  // The monthly price is THE price (the owner, 2026-09-28); the year is the
+  // standing 1-year promotion, so it is labelled as an offer and pointed at
+  // the page that sets it for every plan at once.
+  const line = `1-year offer: ${planMoney(deal.annual, currency)}/yr — ${text} · set on Promotions`;
   if (deal.warning) {
     return (
       <div

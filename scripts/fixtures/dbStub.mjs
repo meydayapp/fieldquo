@@ -103,6 +103,11 @@ export const rows = {
   // subscription onto a plan that no longer exists (a foreign key would throw
   // and Stripe would retry for ever), and that refusal is a query.
   plan: [],
+  // Running promotions (lib/billing/promotions.js). Every checkout builder
+  // and plan change asks for them at the moment of purchase since
+  // 2026-09-28; empty means "no sale running", the state these checks were
+  // written against. check-promotions-live scripts its own.
+  platformPromotion: [],
   // Page messaging (check-messaging.mjs). The claims that need executing here
   // are "a re-delivered webhook does not post the message twice" and "the
   // company comes from the CHANNEL row, never from the payload" — both are
@@ -281,6 +286,7 @@ export function resetDbStub() {
   rows.quoteAddOn = [];
   rows.subscription = [];
   rows.plan = [];
+  rows.platformPromotion = [];
   rows.messagingChannel = [];
   rows.metaLeadForm = [];
   rows.metaAdConnection = [];
@@ -709,6 +715,7 @@ export const db = new Proxy(
     helpFeedback: model("helpFeedback"),
     subscription: model("subscription"),
     plan: model("plan"),
+    platformPromotion: model("platformPromotion"),
     messagingChannel: model("messagingChannel"),
     metaLeadForm: model("metaLeadForm"),
     metaAdConnection: model("metaAdConnection"),
