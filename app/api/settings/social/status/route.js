@@ -9,10 +9,12 @@ import {
   metaAppConfigured,
   metaFullyConfigured,
   metaPagesConnectEnabled,
+  metaMessagingApproved,
+  metaLeadsScopeEnabled,
   META_PAGES_SCOPE,
 } from "@/lib/meta/client";
 import { getPageConnection, publicPageConnectionShape } from "@/lib/meta/pageConnection";
-import { missingWebhookPermissions } from "@/lib/meta/pageConnect";
+import { missingWebhookPermissions, missingFeaturePermissions } from "@/lib/meta/pageConnect";
 import { missingPageChannels } from "@/lib/messaging/pageChannels";
 import { pageImportState } from "@/lib/messaging/pageImport";
 
@@ -68,6 +70,14 @@ export async function GET(request) {
           // instead of leaving a blank where a subscription would be; an empty
           // array means the permissions are there and any failure is Meta's.
           webhookMissingPermissions: missingWebhookPermissions(shape.scopes),
+          // One row per switched-on feature that Meta's grant cannot serve —
+          // Instagram messages, lead forms — so a permission missing from the
+          // Login configuration shows up on the panel instead of as a silent
+          // absence (lib/meta/pageConnect.js, missingFeaturePermissions).
+          missingFeaturePermissions: missingFeaturePermissions(shape.scopes, {
+            messaging: metaMessagingApproved(),
+            leads: metaLeadsScopeEnabled(),
+          }),
           // Which inboxes this grant allows that have no live MessagingChannel
           // row — non-empty only for a Page connected before the connect flow
           // created them, which is every Page connected up to today. The panel

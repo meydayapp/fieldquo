@@ -111,5 +111,63 @@ ok("a signed leadgen delivery to the MESSAGING url is 200 with one lead handled 
 out = await post({ object: "instagram", entry: [{ id: "17841480173629186", changes: [{ field: "leadgen", value: { leadgen_id: "x", page_id: PAGE } }] }] });
 ok("an Instagram-object batch never runs the lead loop", out.status === 200 && out.json?.leads === 0, JSON.stringify(out));
 
+// ── D. Messages, through the same signed route ────────────────────────────
+//
+// 2026-09-28: the owner wrote to the TrueFinish Page from Facebook and from
+// Instagram and nothing arrived until a manual Sync. Production logs held no
+// request to this route at all, so Meta never posted — but "the receiver is
+// fine" was a claim, not a result, until the real route had been handed the
+// real shapes. These are Meta's documented bodies with the owner's real Page
+// and Instagram ids: an inbound Page message, a re-delivery of it, an
+// inbound Instagram DM, an Instagram echo (sender is the business account,
+// which is how Instagram reports a reply sent from the Instagram app), an
+// Instagram `messaging_seen` (a read with a mid and no watermark), a forged
+// signature, and a Page the company has DISCONNECTED.
+const IG = "17841480173629186";
+const pageMsg = (mid, text, ts) => ({
+  object: "page",
+  entry: [{ id: PAGE, time: ts, messaging: [{ sender: { id: "PSID_OWNER" }, recipient: { id: PAGE }, timestamp: ts, message: { mid, text } }] }],
+});
+const igMsg = (item) => ({ object: "instagram", entry: [{ id: IG, time: 1790636400000, messaging: [item] }] });
+resetDbStub();
+rows.messagingChannel.push(
+  { id: "ch_fb", companyId: "company_TF", platform: "facebook", externalId: PAGE, status: "connected", disconnectedAt: null, accessTokenEnc: "x" },
+  { id: "ch_ig", companyId: "company_TF", platform: "instagram", externalId: IG, status: "connected", disconnectedAt: null, accessTokenEnc: "x" },
+);
+console.warn = () => {};
+out = await post(pageMsg("m_fb_1", "Hello", 1790636936000));
+ok("a signed Page message → 200, one event, one created", out.status === 200 && out.json?.events === 1 && out.json?.created === 1, JSON.stringify(out));
+const fbThread = rows.messageThread.find((t) => t.channelId === "ch_fb");
+ok("…filed under the Page's company, keyed on the sender's PSID", fbThread?.companyId === "company_TF" && fbThread?.externalThreadId === "PSID_OWNER", JSON.stringify(fbThread));
+ok("…as an inbound message with the text and Meta's timestamp", rows.message.some((m) => m.externalId === "m_fb_1" && m.direction === "in" && m.body === "Hello" && m.sentAt instanceof Date && m.sentAt.getTime() === 1790636936000));
+out = await post(pageMsg("m_fb_1", "Hello", 1790636936000));
+ok("a re-delivery is 200 and creates nothing", out.status === 200 && out.json?.created === 0 && rows.message.filter((m) => m.externalId === "m_fb_1").length === 1, JSON.stringify(out));
+ok("…and does not bump the unread badge twice", fbThread?.unread === 1, fbThread?.unread);
+
+out = await post(igMsg({ sender: { id: "IGSID_OWNER" }, recipient: { id: IG }, timestamp: 1790636400000, message: { mid: "aWdfig_1", text: "Hey" } }));
+const igThread = rows.messageThread.find((t) => t.channelId === "ch_ig");
+ok("a signed Instagram DM → 200 and a thread on the Instagram channel", out.status === 200 && out.json?.created === 1 && igThread?.externalThreadId === "IGSID_OWNER", JSON.stringify(out));
+out = await post(igMsg({ sender: { id: IG }, recipient: { id: "IGSID_OWNER" }, timestamp: 1790636460000, message: { mid: "aWdfig_2", text: "Hi! How can we help?", is_echo: true } }));
+ok("an Instagram echo lands in the SAME thread as an outbound reply", out.json?.created === 1 && rows.message.some((m) => m.externalId === "aWdfig_2" && m.direction === "out" && m.threadId === igThread?.id), JSON.stringify(out));
+ok("…and clears the waiting badge", igThread?.unread === 0, igThread?.unread);
+out = await post(igMsg({ sender: { id: "IGSID_OWNER" }, recipient: { id: IG }, timestamp: 1790636500000, read: { mid: "aWdfig_2" } }));
+ok("an Instagram `messaging_seen` (mid, no watermark) is acknowledged with 200 and writes no message", out.status === 200 && rows.message.length === 3, JSON.stringify(out));
+
+const forged = JSON.stringify(pageMsg("m_forged", "Pay this invoice", 1790636999000));
+const realErr = console.error;
+console.error = () => {};
+const forgedRes = await route.POST(new Request("http://www.fieldquo.com/api/meta/messaging/webhook", {
+  method: "POST",
+  headers: { "content-type": "application/json", "x-hub-signature-256": "sha256=" + "0".repeat(64), "x-forwarded-for": "10.9.9.9" },
+  body: forged,
+}));
+ok("a forged signature is 403 and writes nothing", forgedRes.status === 403 && !rows.message.some((m) => m.externalId === "m_forged"), forgedRes.status);
+
+rows.messagingChannel[0].disconnectedAt = new Date();
+out = await post(pageMsg("m_fb_2", "Still there?", 1790637000000));
+ok("a Page the company DISCONNECTED is 200 (Meta keeps the subscription) and files nothing", out.status === 200 && !rows.message.some((m) => m.externalId === "m_fb_2"), JSON.stringify(out));
+console.warn = realWarn;
+console.error = realErr;
+
 console.log(`check-meta-leads-webhook: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

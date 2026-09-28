@@ -1,6 +1,7 @@
 # FieldQuo — current phase and what's left
 
 Last updated: 28 September 2026 ("Connect Google reviews" is off the home set-up card, out of its "N of M done" count and out of the next-steps email until Google approves the Business Profile API; Settings › Reviews says "Google review import is waiting on Google's approval" with no Connect button and the connect route refuses `not_approved` — one helper, `googleBusinessAvailable()`, and one flag the owner sets on the approval day, `GOOGLE_BUSINESS_API_APPROVED=1` — see "Connect Google reviews waits for Google" below)
+Last updated: 28 September 2026 (Facebook/Instagram messages: zero webhook deliveries in production — the App Dashboard has no Webhooks subscription; /app/messages now polls the list and open thread every 15 s while visible; the Page subscribe carries `leadgen`; Settings › Meta Ads names missing permissions per feature — see the section of that name)
 Last updated: 28 September 2026 (annual-first plan pickers and live promotions — the 1-year tab by default on every picker, PlatformPromotion wired end to end through lib/billing/promotions.js into /pricing, the in-app picker, signup and Stripe Checkout as a coupon; schema SQL owed before deploy — see the section of that name below)
 Last updated: 28 September 2026 ("View as company" follow-up: the heal-on-read writes that live in the route itself now skip for the read-only session — company / appointment geocode on schedule/map and business-info, the voice number-repair GET heal, the Business Profile locations stamps; and, through a `readOnly` flag the shared libs now take, shift-request expiry + crew notifications, the onboarding stamp, the gallery merge on seven reads, the voice readiness heal and the Google busy stamps; see "View as company" reads everything)
 Last updated: 28 September 2026 ("View as company": an active superadmin's read-only session reads as the company's real OWNER membership — quotes, client contact details, equipment, invoices, payroll, insights all load; writes still refused by method in middleware + assertReadOnly, plus the OAuth/Stripe-return GETs now listed in lib/platform/impersonationToken.js; the GETs that write on read skip for the session; `npm run check:impersonation`)
@@ -106,6 +107,56 @@ Profile API "Basic API Access" application, so every project call answers
   links "Connect Google reviews" to `/app/settings/reviews#google-business`;
   it lands on the Reviews page (testimonials, paste import) and the card
   there now says the approval is pending.
+## Facebook / Instagram messages "don't stream": Meta never posts, and the screen never looked (28 September 2026)
+
+The owner wrote to the TrueFinish Page from Facebook and to @truefinishcabinets
+from Instagram and nothing appeared until he pressed Sync.
+
+**What the evidence says.** Production logs hold zero requests — GET or POST —
+to `/api/meta/messaging/webhook` (or the leads / WhatsApp webhooks) in every
+retained line. Every Facebook/Instagram message row for the company was
+written by the import (the connect-time pull at 19:09:56 UTC, the manual
+import at 18:56:49, the 15-minute cron), never within seconds of being sent.
+Meta's Lead Ads Testing Tool: "App does not have a webhook subscription". The
+receiver itself is correct: real-shaped signed Page and Instagram bodies
+replayed through the real route create the thread and message, re-deliveries
+create nothing, an Instagram echo files as our reply, a forged signature is
+403 (`check:meta-leads-webhook` §D). Also: the Page was reconnected at 19:00
+and 19:09 and **disconnected at 19:12:57** — it is disconnected now.
+
+**Root cause:** the App Dashboard has no Webhooks subscription for the Page
+and Instagram objects (app level). The per-Page `subscribed_apps` call is
+made at connect and succeeded; Meta needs both.
+
+**What shipped.**
+
+- `/app/messages` re-reads the list AND the open conversation every 15 s
+  while the tab is visible, at once when it becomes visible, nothing while
+  hidden; marks the open one read only when it is on screen
+  (`lib/messaging/inboxPoll.js`, `check:app-messages-kit` §8b). Sync stays as
+  the manual pull.
+- The Page subscribe now includes `leadgen` when `leads_retrieval` is granted
+  (nothing ever subscribed it at Page level), and retries with the messaging
+  fields alone if Meta refuses it, so lead forms can never cost the inbox
+  (`check:meta-pages-connect`).
+- Settings › Meta Ads names, per feature (Facebook messages, Instagram
+  messages, lead-ad forms), any permission Meta's grant lacks — the Pages
+  connect runs on a Login configuration, so a permission missing from it is
+  missing for everyone. Nine languages.
+
+**Owed by the owner (dashboard, not code)** — the checklist is in
+docs/META-DASHBOARD-CURRENT.md › Webhooks: Page + Instagram objects →
+`https://www.fieldquo.com/api/meta/messaging/webhook`, verify token =
+`META_WEBHOOK_VERIFY_TOKEN`, the fields listed there; Instagram "Allow access
+to messages"; then reconnect in Settings › Meta Ads. **Decision owed:**
+Meta's lead-ads pages list `ads_management` for leadgen webhooks and lead
+reads; FieldQuo does not request it (META_LEADS_SCOPE). Not changed.
+
+**Not done:** Meta's `standby` (handover) events are not parsed; if the
+Page's Meta Business AI holds thread control, those messages would need the
+`standby` field and a parser branch.
+
+---
 
 ## Annual-first plan pickers, and promotions that actually discount (28 September 2026)
 
