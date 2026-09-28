@@ -115,7 +115,7 @@
     "check:conversation-score": "node --import ./scripts/alias-loader.mjs scripts/check-conversation-score.mjs",
     "check:conversation-coach": "node --import ./scripts/alias-loader.mjs scripts/check-conversation-coach.mjs",
     "check:whatsapp": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-whatsapp.mjs",
-    "check:messaging": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-messaging.mjs",
+    "check:messaging": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs --import ./scripts/route-stub-loader.mjs scripts/check-messaging.mjs",
     "check:migration-service": "node --import ./scripts/alias-loader.mjs scripts/check-migration-service.mjs",
     "check:meta-insights": "node --import ./scripts/alias-loader.mjs scripts/check-meta-insights.mjs",
     "check:spend-currency": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-spend-currency.mjs",

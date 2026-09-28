@@ -34,7 +34,10 @@
 //
 // Run:
 //   node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs \
-//        scripts/check-messaging.mjs
+//        --import ./scripts/route-stub-loader.mjs scripts/check-messaging.mjs
+//
+// route-stub-loader points `@/lib/apiMember` at a scripted session so section
+// 14 can EXECUTE the reply route and the request-control route.
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -1323,6 +1326,603 @@ section("13. Every relation a thread route selects exists on the model");
   }
   ok("MessageThread.client is a relation to Client (the thread screen and the temperature reading both select it)", /^\s+client\s+Client\?\s+@relation\(fields: \[clientId\]/m.test(block));
   ok("…and Client carries the back-relation", /^\s+messageThreads\s+MessageThread\[\]/m.test(schema.match(/^model Client \{[\s\S]*?^\}/m)?.[0] || ""));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("14. Another app controls the thread — named, translated, asked for, never taken");
+//
+// The incident (2026-09-28): the owner answered a Page conversation Meta's
+// Business AI had already answered, and the failed bubble read
+// "meta_unknown_error: (#10) Message failed to send because another app is
+// controlling this thread now." This section replays that exact Graph error
+// through the REAL reply route (db and session stubbed, fetch stubbed — no
+// request leaves the machine and no stored token is read) and follows it to
+// the row, the response, the bubble's predicate and the composer.
+//
+// Imported dynamically so that on the code before this fix — where
+// lib/messaging/threadControl.js and the request-control route do not exist —
+// the section prints FAIL lines instead of dying on a static import.
+{
+  const tc = await import("@/lib/messaging/threadControl").catch(() => ({}));
+  const { encryptToken } = await import("@/lib/meta/tokenCrypto");
+  const { GRAPH_API_VERSION } = await import("@/lib/meta/client");
+  const { messageItem } = await import("@/lib/messaging/rooms");
+  const { session } = await import("./fixtures/apiMemberStub.mjs");
+  const replyRoute = await import("../app/api/messaging/threads/[id]/reply/route.js");
+  const askRoute = await import("../app/api/messaging/threads/[id]/request-control/route.js").catch(() => null);
+
+  const REASON = "meta_other_app_controls_thread";
+  // Meta's body as the owner's screen quoted it: code 10, no subcode.
+  const INCIDENT = {
+    error: {
+      message: "(#10) Message failed to send because another app is controlling this thread now.",
+      type: "OAuthException",
+      code: 10,
+      fbtrace_id: "AtrAce",
+    },
+  };
+  // The same refusal as Meta's error-code table lists it: subcode 2018300.
+  const WITH_SUBCODE = { error: { message: "(#10) Something else.", code: 10, error_subcode: 2018300 } };
+  // Code 10 that is NOT thread control — must stay out of this case.
+  const WINDOW = { error: { message: "(#10) This message is sent outside of allowed window.", code: 10, error_subcode: 2018278 } };
+  const NO_PERMISSION = { error: { message: "(#10) Application does not have permission for this action", code: 10, error_subcode: 1404170 } };
+
+  ok("the reason code is the named one", tc.THREAD_CONTROL_REASON === REASON, String(tc.THREAD_CONTROL_REASON));
+  ok("the incident's body (code 10, no subcode) is recognised", tc.isThreadControlError?.(INCIDENT) === true);
+  ok("subcode 2018300 is recognised whatever the sentence", tc.isThreadControlError?.(WITH_SUBCODE) === true);
+  ok("code 10 for the 24-hour window is NOT thread control", tc.isThreadControlError?.(WINDOW) === false);
+  ok("code 10 for a missing permission is NOT thread control", tc.isThreadControlError?.(NO_PERMISSION) === false);
+  ok("an empty / non-Meta body is not thread control", tc.isThreadControlError?.(null) === false && tc.isThreadControlError?.({}) === false);
+  ok(
+    "a stored failedReason is recognised in both shapes (route `reason: message`, AI employee bare reason)",
+    tc.isThreadControlFailure?.(`${REASON}: Meta said so`) === true &&
+      tc.isThreadControlFailure?.(REASON) === true &&
+      tc.isThreadControlFailure?.("meta_unknown_error: (#10) Message failed…") === false &&
+      tc.isThreadControlFailure?.(null) === false,
+  );
+  ok(
+    "asking is offered on Facebook only — not Instagram, not WhatsApp",
+    tc.threadControlAskable?.("facebook") === true &&
+      tc.threadControlAskable?.("instagram") === false &&
+      tc.threadControlAskable?.("whatsapp") === false,
+  );
+
+  // ── The fixture: one connected Page, one conversation, one owner ────────
+  resetDbStub();
+  const channel = {
+    id: "ch_tc",
+    companyId: "co_tc",
+    platform: "facebook",
+    externalId: "PAGE_TC",
+    name: "Truefinish Page",
+    status: "connected",
+    disconnectedAt: null,
+    connectedAt: new Date("2026-09-01T00:00:00Z"),
+    lastError: null,
+    // A token minted HERE with the check's own key — never a stored one.
+    accessTokenEnc: encryptToken("stub-page-token"),
+  };
+  rows.company = [{ id: "co_tc", isDemo: false, name: "Truefinish" }];
+  rows.messagingChannel = [channel];
+  rows.messageThread = [
+    {
+      id: "th_tc",
+      companyId: "co_tc",
+      participantExternalId: "PSID_EMILIO",
+      channelId: "ch_tc",
+      channel,
+      status: "open",
+      firstInboundAt: new Date(Date.now() - 10 * 60 * 1000),
+      firstReplyAt: null,
+      waitingSince: new Date(Date.now() - 10 * 60 * 1000),
+      // Inside the 24-hour window, so the window refusal cannot be what fires.
+      lastInboundAt: new Date(Date.now() - 5 * 60 * 1000),
+      assignedEmployeeId: null,
+      humanTookOverAt: null,
+      unread: 1,
+    },
+  ];
+  session.member = { id: null, userId: "u_owner", companyId: "co_tc", role: "owner" };
+
+  const calls = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init = {}) => {
+    const href = String(url);
+    let body = null;
+    try {
+      body = JSON.parse(init.body);
+    } catch {
+      body = init.body ?? null;
+    }
+    calls.push({ url: href, method: init.method || "GET", body });
+    if (href.endsWith("/messages")) {
+      return new Response(JSON.stringify(INCIDENT), { status: 400, headers: { "content-type": "application/json" } });
+    }
+    if (href.endsWith("/request_thread_control")) {
+      return new Response(JSON.stringify({ success: true }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    return new Response(JSON.stringify({ error: { message: `unexpected call ${href}`, code: 1 } }), { status: 500 });
+  };
+
+  const typed = "Hi Emilio — yes, Tuesday works for the kitchen measure.";
+  let res;
+  let json = null;
+  try {
+    res = await replyRoute.POST(
+      new Request("http://localhost/api/messaging/threads/th_tc/reply", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-forwarded-for": "10.9.9.1" },
+        body: JSON.stringify({ text: typed }),
+      }),
+      { params: Promise.resolve({ id: "th_tc" }) },
+    );
+    json = await res.json();
+  } catch (err) {
+    ok("the reply route ran against the replayed error", false, err?.message);
+  }
+
+  const sendCall = calls.find((c) => c.url.endsWith("/messages"));
+  ok(
+    "the route really called Meta's Send API for the Page (stubbed fetch)",
+    sendCall?.url === `https://graph.facebook.com/${GRAPH_API_VERSION}/PAGE_TC/messages` &&
+      sendCall?.body?.recipient?.id === "PSID_EMILIO" &&
+      sendCall?.body?.message?.text === typed,
+    sendCall?.url,
+  );
+  ok("the route answers 409, not 200", res?.status === 409, String(res?.status));
+  ok("the returned reason is the named case", json?.reason === REASON, String(json?.reason));
+  ok("…and never meta_unknown_error", json?.reason !== "meta_unknown_error");
+
+  const created = writes.find((w) => w.model === "message" && w.action === "create");
+  ok(
+    "the Message row is still written, carrying the named reason",
+    typeof created?.data?.failedReason === "string" && created.data.failedReason.startsWith(`${REASON}: `),
+    created?.data?.failedReason,
+  );
+  ok("…with Meta's own sentence kept for the record", /another app is controlling this thread/.test(created?.data?.failedReason || ""));
+  ok("…and the words that did not go, so scrolling back shows what was tried", created?.data?.body === typed);
+  ok(
+    "a refused reply does not move the conversation (no thread update, unread untouched)",
+    !writes.some((w) => w.model === "messageThread" && w.action === "update") && rows.messageThread[0].unread === 1,
+  );
+
+  // ── The bubble: the page's own predicate over the row it will be handed ──
+  const item = messageItem(json?.message);
+  ok("the returned row renders as a failed bubble", item?.status === "failed");
+  ok(
+    "…whose failedReason the page recognises and translates (isThreadControlFailure)",
+    tc.isThreadControlFailure?.(item?.error) === true,
+    item?.error,
+  );
+
+  const pageSrc = read("app/app/messages/page.js");
+  ok(
+    "the thread rows swap a thread-control failure for the translated sentence",
+    /isThreadControlFailure\(item\.error\)[\s\S]{0,120}t\("app\.messages\.threadControl\.failed"\)/.test(pageSrc),
+  );
+  ok(
+    "the composer answers the named reason with the translated sentence, not Meta's English",
+    /data\?\.reason === THREAD_CONTROL_REASON[\s\S]{0,80}setSendError\(t\("app\.messages\.threadControl\.failed"\)\)/.test(pageSrc),
+  );
+  ok(
+    "the panel with the fix is drawn from the most recent reply attempt (survives a reload)",
+    /isThreadControlFailure\(lastReply\.failedReason\)/.test(pageSrc) && /<ThreadControlNotice/.test(pageSrc),
+  );
+  // ── The typed words survive the refusal ─────────────────────────────────
+  // Positional, because send() is JSX-adjacent and cannot be imported: every
+  // `return` on the refusal path comes BEFORE the one `setText("")`, and the
+  // refusal block itself never calls setText.
+  {
+    const sendFn = pageSrc.slice(pageSrc.indexOf("async function send()"));
+    const refusal = sendFn.slice(sendFn.indexOf("if (!res.ok) {"), sendFn.indexOf('setText("");'));
+    ok(
+      "a refused reply leaves the text in the composer (no setText on the refusal path, cleared only after it)",
+      sendFn.indexOf("if (!res.ok) {") > -1 &&
+        sendFn.indexOf('setText("");') > sendFn.indexOf("if (!res.ok) {") &&
+        !/setText\(/.test(refusal),
+    );
+    ok(
+      "…including the thread-control branch, which returns before the clear",
+      /THREAD_CONTROL_REASON[\s\S]*?return;/.test(refusal),
+    );
+  }
+
+  // ── Nine languages, every key, none left in English ─────────────────────
+  const KEYS = ["failed", "title", "stepAutomations", "stepRouting", "stepRoutingInstagram", "after", "ask", "asking", "asked", "askFailed"]
+    .map((k) => `app.messages.threadControl.${k}`);
+  const langs = Object.keys(APP_MESSAGES);
+  ok("the app has nine languages to cover", langs.length === 9, langs.join(","));
+  for (const lang of langs) {
+    const dict = APP_MESSAGES[lang] || {};
+    const missing = KEYS.filter((k) => typeof dict[k] !== "string" || !dict[k].trim());
+    const english = lang === "en" ? [] : KEYS.filter((k) => !missing.includes(k) && dict[k] === APP_MESSAGES.en[k]);
+    ok(`${lang}: every thread-control sentence is present and translated`, !missing.length && !english.length, [...missing, ...english].join(", "));
+  }
+  ok(
+    "the English fix names both settings the owner changes",
+    /Inbox” → “Automations/.test(APP_MESSAGES.en["app.messages.threadControl.stepAutomations"] || "") &&
+      /Business AI/.test(APP_MESSAGES.en["app.messages.threadControl.stepAutomations"] || "") &&
+      // The tab name Meta's Conversation Routing page uses.
+      /“Conversation Routing” tab/.test(APP_MESSAGES.en["app.messages.threadControl.stepRouting"] || ""),
+  );
+
+  // ── Asking: request_thread_control, and its exact shape ─────────────────
+  calls.length = 0;
+  writes.length = 0;
+  let askRes = null;
+  let askJson = null;
+  try {
+    askRes = await askRoute?.POST(
+      new Request("http://localhost/api/messaging/threads/th_tc/request-control", {
+        method: "POST",
+        headers: { "x-forwarded-for": "10.9.9.2" },
+      }),
+      { params: Promise.resolve({ id: "th_tc" }) },
+    );
+    askJson = askRes ? await askRes.json() : null;
+  } catch (err) {
+    ok("the request-control route ran", false, err?.message);
+  }
+  const askCall = calls.find((c) => c.url.endsWith("/request_thread_control"));
+  ok(
+    "Ask calls POST /{PAGE-ID}/request_thread_control with the PSID and the Page token",
+    askCall?.method === "POST" &&
+      askCall?.url === `https://graph.facebook.com/${GRAPH_API_VERSION}/PAGE_TC/request_thread_control` &&
+      askCall?.body?.recipient?.id === "PSID_EMILIO" &&
+      askCall?.body?.access_token === "stub-page-token" &&
+      typeof askCall?.body?.metadata === "string" &&
+      Object.keys(askCall?.body || {}).sort().join(",") === "access_token,metadata,recipient",
+    JSON.stringify(askCall?.body ? { ...askCall.body, access_token: "…" } : null),
+  );
+  ok("…and answers requested: true, claiming nothing more", askRes?.status === 200 && askJson?.requested === true && Object.keys(askJson || {}).length === 1);
+  ok("…writes nothing (a request is not a message)", writes.length === 0, writes.map((w) => `${w.model}.${w.action}`).join(","));
+  ok("take_thread_control is never called", !calls.some((c) => /take_thread_control|pass_thread_control/.test(c.url)));
+
+  // Instagram: explained, never asked — no Meta call at all.
+  rows.messagingChannel[0] = { ...channel, platform: "instagram", externalId: "IG_TC" };
+  rows.messageThread[0].channel = rows.messagingChannel[0];
+  calls.length = 0;
+  let igRes = null;
+  let igJson = null;
+  try {
+    igRes = await askRoute?.POST(
+      new Request("http://localhost/api/messaging/threads/th_tc/request-control", { method: "POST", headers: { "x-forwarded-for": "10.9.9.3" } }),
+      { params: Promise.resolve({ id: "th_tc" }) },
+    );
+    igJson = igRes ? await igRes.json() : null;
+  } catch (err) {
+    ok("the request-control route ran for Instagram", false, err?.message);
+  }
+  ok(
+    "an Instagram conversation is refused by name, with no call to Meta",
+    igRes?.status === 409 && igJson?.reason === "thread_control_unsupported" && calls.length === 0,
+    `${igRes?.status} ${igJson?.reason} calls=${calls.length}`,
+  );
+
+  // Another tenant's thread id is a 404, like the reply route.
+  session.member = { id: null, userId: "u_other", companyId: "co_other", role: "owner" };
+  rows.company.push({ id: "co_other", isDemo: false, name: "Other" });
+  let foreign = null;
+  try {
+    foreign = await askRoute?.POST(
+      new Request("http://localhost/api/messaging/threads/th_tc/request-control", { method: "POST", headers: { "x-forwarded-for": "10.9.9.4" } }),
+      { params: Promise.resolve({ id: "th_tc" }) },
+    );
+  } catch (err) {
+    ok("the request-control route ran for a foreign member", false, err?.message);
+  }
+  ok("another company's member cannot ask for this conversation (404)", foreign?.status === 404, String(foreign?.status));
+
+  globalThis.fetch = realFetch;
+  session.member = null;
+  resetDbStub();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("15. Instagram replies — the Page-token endpoint, and code 3 named");
+//
+// The second incident the same day: every Instagram reply failed with
+// "meta_unknown_error: (#3) Application does not have the capability to make
+// this API call." while Facebook replies worked. The send was POSTing to
+// graph.facebook.com/<instagram account id>/messages — the Instagram-Login
+// API's path — with the PAGE token that belongs to the Messenger Platform's
+// Instagram API, whose documented path is /PAGE-ID/messages or /me/messages
+// (metaSend.js's sendPath carries the citations). Replayed through the real
+// reply route with fetch stubbed; no stored token is read.
+{
+  const ig = await import("@/lib/messaging/instagramSendErrors").catch(() => ({}));
+  const { encryptToken } = await import("@/lib/meta/tokenCrypto");
+  const { GRAPH_API_VERSION } = await import("@/lib/meta/client");
+  const { messageItem } = await import("@/lib/messaging/rooms");
+  const { session } = await import("./fixtures/apiMemberStub.mjs");
+  const replyRoute = await import("../app/api/messaging/threads/[id]/reply/route.js");
+
+  const REASON = "meta_instagram_messaging_not_enabled";
+  const CODE3 = {
+    error: {
+      message: "(#3) Application does not have the capability to make this API call.",
+      type: "OAuthException",
+      code: 3,
+      fbtrace_id: "AigTrace",
+    },
+  };
+  ok("the reason code is the named one", ig.INSTAGRAM_CAPABILITY_REASON === REASON, String(ig.INSTAGRAM_CAPABILITY_REASON));
+  ok("code 3 on Instagram is recognised", ig.isInstagramCapabilityError?.("instagram", CODE3) === true);
+  ok("code 3 on Facebook is NOT (it would send a Page owner into Instagram's settings)", ig.isInstagramCapabilityError?.("facebook", CODE3) === false);
+  ok(
+    "other Instagram errors are not (code 10 window, code 190 token)",
+    ig.isInstagramCapabilityError?.("instagram", { error: { code: 10, error_subcode: 2534022 } }) === false &&
+      ig.isInstagramCapabilityError?.("instagram", { error: { code: 190 } }) === false,
+  );
+  ok(
+    "a stored failedReason is recognised in both shapes",
+    ig.isInstagramCapabilityFailure?.(`${REASON}: Meta said so`) === true &&
+      ig.isInstagramCapabilityFailure?.(REASON) === true &&
+      ig.isInstagramCapabilityFailure?.("meta_unknown_error: (#3) Application does not have the capability") === false,
+  );
+
+  resetDbStub();
+  const channel = {
+    id: "ch_ig",
+    companyId: "co_ig",
+    platform: "instagram",
+    // The Instagram professional account id — the webhook's entry.id, which
+    // is what this row is keyed on. It must NOT appear in the send URL.
+    externalId: "17841400000000001",
+    name: "@truefinish",
+    status: "connected",
+    disconnectedAt: null,
+    connectedAt: new Date("2026-09-01T00:00:00Z"),
+    lastError: null,
+    accessTokenEnc: encryptToken("stub-page-token-ig"),
+  };
+  rows.company = [{ id: "co_ig", isDemo: false, name: "Truefinish" }];
+  rows.messagingChannel = [channel];
+  rows.messageThread = [
+    {
+      id: "th_ig",
+      companyId: "co_ig",
+      participantExternalId: "IGSID_EMILIO",
+      channelId: "ch_ig",
+      channel,
+      status: "open",
+      firstInboundAt: new Date(Date.now() - 10 * 60 * 1000),
+      firstReplyAt: null,
+      waitingSince: new Date(Date.now() - 10 * 60 * 1000),
+      lastInboundAt: new Date(Date.now() - 5 * 60 * 1000),
+      assignedEmployeeId: null,
+      humanTookOverAt: null,
+      unread: 1,
+    },
+  ];
+  session.member = { id: null, userId: "u_owner", companyId: "co_ig", role: "owner" };
+
+  const calls = [];
+  const realFetch = globalThis.fetch;
+  let answer = "code3";
+  globalThis.fetch = async (url, init = {}) => {
+    let body = null;
+    try {
+      body = JSON.parse(init.body);
+    } catch {
+      body = null;
+    }
+    calls.push({ url: String(url), body });
+    if (answer === "code3") {
+      return new Response(JSON.stringify(CODE3), { status: 400, headers: { "content-type": "application/json" } });
+    }
+    return new Response(JSON.stringify({ recipient_id: "IGSID_EMILIO", message_id: "aWdfZAG1faXRlbToxOklHTWVzc2FnZAUlE" }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+
+  const typed = "Hi! Yes, we can come Thursday for the cabinet quote.";
+  const post = () =>
+    replyRoute.POST(
+      new Request("http://localhost/api/messaging/threads/th_ig/reply", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-forwarded-for": "10.9.8.1" },
+        body: JSON.stringify({ text: typed }),
+      }),
+      { params: Promise.resolve({ id: "th_ig" }) },
+    );
+
+  let res = null;
+  let json = null;
+  try {
+    res = await post();
+    json = await res.json();
+  } catch (err) {
+    ok("the reply route ran for Instagram", false, err?.message);
+  }
+  const call = calls[0];
+  ok(
+    "an Instagram reply is POSTed to graph.facebook.com/<ver>/me/messages (Page token), not /<ig id>/messages",
+    call?.url === `https://graph.facebook.com/${GRAPH_API_VERSION}/me/messages` && !call?.url.includes(channel.externalId),
+    call?.url,
+  );
+  ok(
+    "…addressed to the IGSID with the Page token, text and RESPONSE type unchanged",
+    call?.body?.recipient?.id === "IGSID_EMILIO" &&
+      call?.body?.message?.text === typed &&
+      call?.body?.messaging_type === "RESPONSE" &&
+      call?.body?.access_token === "stub-page-token-ig",
+  );
+  ok("Meta's code 3 comes back as the named reason, not meta_unknown_error", json?.reason === REASON, String(json?.reason));
+  const created = writes.find((w) => w.model === "message" && w.action === "create");
+  ok(
+    "the Message row carries the named reason and Meta's own sentence",
+    typeof created?.data?.failedReason === "string" &&
+      created.data.failedReason.startsWith(`${REASON}: `) &&
+      /does not have the capability/.test(created.data.failedReason),
+    created?.data?.failedReason,
+  );
+  const item = messageItem(json?.message);
+  ok("…and the page's predicate recognises the bubble", item?.status === "failed" && ig.isInstagramCapabilityFailure?.(item?.error) === true);
+  ok(
+    "no stored grant: the verdict is UNKNOWN (null), never 'nothing missing'",
+    "missingPermissions" in (json || {}) && json.missingPermissions === null &&
+      ig.permissionVerdictFromFailure?.(item?.error) === null,
+    JSON.stringify(json?.missingPermissions),
+  );
+
+  // ── Which permission — read from the grant Meta reported at connect ─────
+  const replayWithScopes = async (scopes, ip) => {
+    writes.length = 0;
+    rows.message = [];
+    rows.metaPageConnection = [
+      { id: "mpc_1", companyId: "co_ig", pageId: "PAGE_LINKED", instagramUserId: channel.externalId, scopes, disconnectedAt: null },
+      // A disconnected row for the same account with a DIFFERENT grant — must
+      // not be the one read.
+      { id: "mpc_old", companyId: "co_ig", pageId: "PAGE_OLD", instagramUserId: channel.externalId, scopes: "", disconnectedAt: new Date() },
+    ];
+    const r = await replyRoute.POST(
+      new Request("http://localhost/api/messaging/threads/th_ig/reply", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-forwarded-for": ip },
+        body: JSON.stringify({ text: typed }),
+      }),
+      { params: Promise.resolve({ id: "th_ig" }) },
+    );
+    const j = await r.json();
+    return { j, row: writes.find((w) => w.model === "message" && w.action === "create")?.data };
+  };
+  {
+    // Production's Facebook Login for Business configuration — the Lead Ads
+    // diagnostics showed Page permissions missing from it.
+    const { j, row } = await replayWithScopes("pages_show_list,pages_messaging,instagram_manage_messages", "10.9.8.2");
+    ok(
+      "a grant lacking Meta's listed permissions names exactly the missing ones, in Meta's order",
+      JSON.stringify(j.missingPermissions) === JSON.stringify(["instagram_basic", "pages_manage_metadata"]),
+      JSON.stringify(j.missingPermissions),
+    );
+    ok(
+      "…and the stored sentence carries the same verdict, so a reload reads it back",
+      JSON.stringify(ig.permissionVerdictFromFailure?.(row?.failedReason)) === JSON.stringify(["instagram_basic", "pages_manage_metadata"]),
+      row?.failedReason,
+    );
+  }
+  {
+    const { j, row } = await replayWithScopes("instagram_basic instagram_manage_messages pages_manage_metadata pages_messaging", "10.9.8.3");
+    ok(
+      "a grant with every listed permission answers [] (the dashboard step would be wrong advice)",
+      Array.isArray(j.missingPermissions) && j.missingPermissions.length === 0 &&
+        JSON.stringify(ig.permissionVerdictFromFailure?.(row?.failedReason)) === "[]",
+      row?.failedReason,
+    );
+  }
+  ok(
+    "the verdict reader only returns Meta's permission names — a stored sentence cannot inject others",
+    ig.permissionVerdictFromFailure?.(`${REASON}: x [missing permissions: <script>, instagram_basic]`)?.join(",") === "instagram_basic" &&
+      ig.permissionVerdictFromFailure?.(`${REASON}: x [missing permissions: nonsense]`) === null &&
+      ig.permissionVerdictFromFailure?.(`${REASON}: x [missing permissions: instagram_basic`) === null &&
+      ig.permissionVerdictFromFailure?.(null) === null,
+  );
+  ok(
+    "the permission list is the one Meta's get-started page names",
+    JSON.stringify(ig.INSTAGRAM_MESSAGING_PERMISSIONS) === JSON.stringify(["instagram_basic", "instagram_manage_messages", "pages_manage_metadata"]),
+  );
+  ok(
+    "missingInstagramPermissions: empty or absent grant is unknown, not complete",
+    ig.missingInstagramPermissions?.(null) === null && ig.missingInstagramPermissions?.("  ") === null,
+  );
+
+  // The same route, Meta answering 200 — the send now succeeds end to end on
+  // the documented path. ($transaction is not scripted in the db stub, so the
+  // success branch's thread update is not executed here; the send result and
+  // its response are what this proves.)
+  answer = "ok";
+  calls.length = 0;
+  const { sendMetaMessage: send } = await import("@/lib/messaging/metaSend");
+  const okSend = await send({
+    channel,
+    recipientExternalId: "IGSID_EMILIO",
+    text: typed,
+    lastInboundAt: new Date(Date.now() - 60 * 1000),
+  });
+  ok(
+    "with Meta answering, the Instagram send succeeds on /me/messages and returns Meta's message id",
+    okSend.ok === true && okSend.externalId === "aWdfZAG1faXRlbToxOklHTWVzc2FnZAUlE" && calls[0]?.url.endsWith("/me/messages"),
+    JSON.stringify(okSend),
+  );
+  calls.length = 0;
+  await send({
+    channel: { ...channel, platform: "facebook", externalId: "PAGE_FB" },
+    recipientExternalId: "PSID_1",
+    text: "hi",
+    lastInboundAt: new Date(Date.now() - 60 * 1000),
+  });
+  ok(
+    "a Facebook reply is untouched: still /<page id>/messages",
+    calls[0]?.url === `https://graph.facebook.com/${GRAPH_API_VERSION}/PAGE_FB/messages`,
+    calls[0]?.url,
+  );
+
+  const pageSrc = read("app/app/messages/page.js");
+  ok(
+    "the thread rows swap the Instagram failure for the translated sentence",
+    /isInstagramCapabilityFailure\(item\.error\)[\s\S]{0,120}t\("app\.messages\.igCapability\.failed"\)/.test(pageSrc),
+  );
+  ok(
+    "the composer answers the named reason with the translated sentence",
+    /data\?\.reason === INSTAGRAM_CAPABILITY_REASON[\s\S]{0,80}setSendError\(t\("app\.messages\.igCapability\.failed"\)\)/.test(pageSrc),
+  );
+  ok(
+    "the fix is drawn above the composer from the most recent reply attempt",
+    /isInstagramCapabilityFailure\(lastReply\.failedReason\)/.test(pageSrc) && /<InstagramMessagingNotice/.test(pageSrc),
+  );
+
+  ok(
+    "the notice reads the verdict back from the stored sentence",
+    /missing=\{permissionVerdictFromFailure\(lastReply\.failedReason\)\}/.test(pageSrc),
+  );
+  const bitsSrc = read("app/app/messages/ConversationBits.js");
+  ok(
+    "the notice leads with the named permissions, drops the dashboard step when all are granted",
+    /titleMissing", \{ permissions: missing\.join\(", "\) \}/.test(bitsSrc) &&
+      /allGranted \? null :/.test(bitsSrc) &&
+      /titleUnknown/.test(bitsSrc),
+  );
+
+  const KEYS = ["failed", "titleMissing", "titleUnknown", "titleGranted", "stepDashboard", "stepAllowAccess", "after"].map(
+    (k) => `app.messages.igCapability.${k}`,
+  );
+  for (const lang of Object.keys(APP_MESSAGES)) {
+    const dict = APP_MESSAGES[lang] || {};
+    const missing = KEYS.filter((k) => typeof dict[k] !== "string" || !dict[k].trim());
+    const english = lang === "en" ? [] : KEYS.filter((k) => !missing.includes(k) && dict[k] === APP_MESSAGES.en[k]);
+    ok(`${lang}: every Instagram-capability sentence is present and translated`, !missing.length && !english.length, [...missing, ...english].join(", "));
+  }
+  // Meta's get-started page, verbatim — in EVERY language, because Meta's
+  // docs name the labels in English and a translated label nobody has read
+  // in Instagram's own UI would be a guess.
+  const IG_PATH = "Instagram Settings > Messages and story replies > Message controls > Connected Tools > Allow Access to Messages";
+  for (const lang of Object.keys(APP_MESSAGES)) {
+    ok(
+      `${lang}: the Instagram setting is Meta's documented path, verbatim`,
+      (APP_MESSAGES[lang]?.["app.messages.igCapability.stepAllowAccess"] || "").includes(IG_PATH),
+    );
+  }
+  ok(
+    "the English lead names instagram_manage_messages and the Meta App Dashboard configuration",
+    /instagram_manage_messages/.test(APP_MESSAGES.en["app.messages.igCapability.titleUnknown"] || "") &&
+      /\{permissions\}/.test(APP_MESSAGES.en["app.messages.igCapability.titleMissing"] || "") &&
+      /Facebook Login configuration in the Meta App Dashboard/.test(APP_MESSAGES.en["app.messages.igCapability.stepDashboard"] || "") &&
+      /Moderate/.test(APP_MESSAGES.en["app.messages.igCapability.stepDashboard"] || ""),
+  );
+  ok(
+    "every language keeps the {permissions} and {settings} placeholders",
+    Object.keys(APP_MESSAGES).every(
+      (l) =>
+        (APP_MESSAGES[l]?.["app.messages.igCapability.titleMissing"] || "").includes("{permissions}") &&
+        (APP_MESSAGES[l]?.["app.messages.igCapability.stepDashboard"] || "").includes("{settings}"),
+    ),
+  );
+
+  globalThis.fetch = realFetch;
+  session.member = null;
+  resetDbStub();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
