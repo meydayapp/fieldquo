@@ -13,8 +13,10 @@ import {
   Mail,
   Contact,
   DollarSign,
+  Palette,
 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { NAV_GROUPS, MORE_GROUPS, useNavItems } from "@/app/components/layout/AdminSidebar";
 import { fetchArray } from "@/lib/loadState";
 import ListState from "@/app/components/ListState";
 import { can } from "@/lib/permissions";
@@ -48,6 +50,31 @@ function emptyForm() {
 // picker — not the one-off Quote/Instructions/Receipt automation templates.
 const ELIGIBLE_TEMPLATE_TYPES = ["marketing_email", "custom_email"];
 
+// ── The way into the designer from here ─────────────────────────────────────
+//
+// The owner looked for "a post for Facebook and Instagram" on this hub and in
+// New campaign's type list, and found neither: the designer was only a row
+// under More. It is linked from here twice now — a header button, and a
+// "Social post" entry in the type list — and both are the RAIL'S OWN ROW,
+// looked up rather than restated, then passed through the rail's own filters
+// (useNavItems: the marketing_designer feature flag, then NAV_REQUIREMENTS).
+// So a company FieldQuo has hidden the designer from, or a role the row is
+// withheld from, sees neither link — the same answer the menu gives.
+//
+// "social" is NOT a campaign type. MarketingCampaignType has pamphlet,
+// meta_ads, email and other, and the create route coerces anything else to
+// "pamphlet" — so choosing it must never reach handleCreate. Choosing it
+// swaps the form for a sentence and a link into the designer, where a post
+// is actually designed, approved and published (it files the design under a
+// meta_ads campaign itself; see app/app/marketing/designer/page.js).
+const SOCIAL_CHOICE = "social";
+// Both lists, so moving the row between the rail and More never silently
+// drops these links.
+const DESIGNER_ROW = [...NAV_GROUPS, ...MORE_GROUPS]
+  .flatMap((g) => g.items)
+  .find((i) => i.key === "app.nav.marketingDesigner");
+const DESIGNER_ROWS = DESIGNER_ROW ? [DESIGNER_ROW] : [];
+
 export default function MarketingPage() {
   const { t } = useTranslation();
   // Same reason as the worker rate: the campaign budget was printed through a
@@ -65,6 +92,8 @@ export default function MarketingPage() {
   // the provider has not resolved — PermissionProvider's rule.
   const caller = usePermissions();
   const canManageMarketing = !caller?.role || can(caller.role, "user:manage");
+  // The designer's rail row after the rail's own filters — see DESIGNER_ROW.
+  const designer = useNavItems(DESIGNER_ROWS)[0] || null;
   // null until the server answers — see lib/loadState.js.
   const [campaigns, setCampaigns] = useState(null);
   // ── null, not [] — the same rule `campaigns` above already follows ───────
@@ -136,6 +165,9 @@ export default function MarketingPage() {
   async function handleCreate(e) {
     e.preventDefault();
     setError("");
+    // Not a campaign type — see SOCIAL_CHOICE. The form has no submit button
+    // in this state; this is the half that holds if Enter finds a way in.
+    if (form.type === SOCIAL_CHOICE) return;
     if (!form.name.trim()) {
       setError(t("app.marketing.nameRequired"));
       return;
@@ -162,6 +194,7 @@ export default function MarketingPage() {
 
   const isPamphlet = form.type === "pamphlet";
   const isEmail = form.type === "email";
+  const isSocial = form.type === SOCIAL_CHOICE && Boolean(designer);
 
   const archivedCount = (campaigns ?? []).filter(isArchived).length;
   const visible = (campaigns ?? []).filter((c) => showArchived || !isArchived(c));
@@ -176,7 +209,10 @@ export default function MarketingPage() {
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-6">
-      <div className="flex items-start justify-between gap-4">
+      {/* Stacks and wraps below xl. Four pills in one unwrapping row ran off
+          the right edge of a phone — "Design a post" and "New campaign" were
+          past the screen, which on a phone is the same as not there. */}
+      <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <Megaphone size={22} /> {t("app.nav.marketing")}
@@ -185,7 +221,7 @@ export default function MarketingPage() {
             {t("app.marketing.subtitle")}
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 xl:shrink-0 xl:justify-end">
           <Link
             data-tour="marketing-subscribers"
             href="/app/marketing/subscribers"
@@ -199,6 +235,15 @@ export default function MarketingPage() {
               className="flex items-center gap-2 border border-border text-foreground px-4 py-2.5 rounded-full text-sm font-semibold hover:bg-muted"
             >
               <DollarSign size={14} /> {t("app.marketing.spendLink", "Marketing spend")}
+            </Link>
+          )}
+          {designer && (
+            <Link
+              data-marketing-design-post
+              href={designer.href}
+              className="flex items-center gap-2 border border-border text-foreground px-4 py-2.5 rounded-full text-sm font-semibold hover:bg-muted"
+            >
+              <Palette size={14} /> {t("app.marketing.designPost")}
             </Link>
           )}
           {canManageMarketing && (
@@ -389,15 +434,18 @@ export default function MarketingPage() {
             )}
 
             <form onSubmit={handleCreate} className="space-y-3">
-              <input
-                autoFocus
-                required
-                placeholder={t("app.marketing.namePlaceholder")}
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                className={inputClass}
-              />
+              {!isSocial && (
+                <input
+                  autoFocus
+                  required
+                  placeholder={t("app.marketing.namePlaceholder")}
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className={inputClass}
+                />
+              )}
               <select
+                data-marketing-campaign-type
                 value={form.type}
                 onChange={(e) => setForm({ ...form, type: e.target.value })}
                 className={inputClass}
@@ -406,124 +454,147 @@ export default function MarketingPage() {
                 <option value="meta_ads">{t("app.marketing.type.meta_ads")}</option>
                 <option value="email">{t("app.marketing.type.email")}</option>
                 <option value="other">{t("app.marketing.type.other")}</option>
+                {designer && (
+                  <option value={SOCIAL_CHOICE}>{t("app.marketing.type.social")}</option>
+                )}
               </select>
 
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">
-                  {t("app.marketing.assignTo")}
-                </label>
-                <select
-                  value={form.assignedToId}
-                  onChange={(e) =>
-                    setForm({ ...form, assignedToId: e.target.value })
-                  }
-                  className={inputClass}
-                >
-                  <option value="">{t("app.marketing.unassigned")}</option>
-                  {(members ?? []).map((m) => (
-                    <option key={m.user?.id} value={m.user?.id}>
-                      {m.user?.name || m.user?.email}
-                    </option>
-                  ))}
-                  {/* A list that would not load silently collapsed this to
-                      "Unassigned" — which is itself a valid choice, so nothing
-                      about the dropdown looked wrong. Said out loud instead,
-                      and disabled so it cannot be picked as a person. */}
-                  {members === null && (
-                    <option value="" disabled>
-                      {t(
-                        "app.marketing.membersUnavailable",
-                        "Team list unavailable — reload to assign someone",
-                      )}
-                    </option>
-                  )}
-                </select>
-              </div>
-
-              {isEmail && (
-                <div>
-                  <label className="text-xs text-muted-foreground block mb-1">
-                    {t("app.marketing.templateToSend")}
-                  </label>
-                  <select
-                    required
-                    value={form.templateId}
-                    onChange={(e) =>
-                      setForm({ ...form, templateId: e.target.value })
-                    }
-                    className={inputClass}
+              {/* The social choice ends here: a sentence and the way in, with
+                  nothing below it that could be filled in and thrown away —
+                  see SOCIAL_CHOICE. */}
+              {isSocial && (
+                <div className="rounded-lg border border-border bg-muted p-4 space-y-3">
+                  <p className="text-sm text-foreground">{t("app.marketing.socialHint")}</p>
+                  <Link
+                    data-marketing-open-designer
+                    href={designer.href}
+                    className="flex w-full items-center justify-center gap-2 bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold"
                   >
-                    <option value="" disabled>
-                      {t("app.marketing.chooseTemplate")}
-                    </option>
-                    {(templates ?? []).map((tpl) => (
-                      <option key={tpl.id} value={tpl.id}>
-                        {tpl.name}
-                      </option>
-                    ))}
-                  </select>
-                  {/* Three states, and only ONE of them is "go and write one".
-                      A list that failed to load must not send somebody off to
-                      recreate templates they already have — that is the data
-                      re-entry lib/loadState.js exists to prevent. */}
-                  {templatesErrorKey ? (
-                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                      {t(templatesErrorKey)}{" "}
-                      <button
-                        type="button"
-                        onClick={loadTemplates}
-                        className="underline font-medium"
-                      >
-                        {t("app.load.retry")}
-                      </button>
-                    </p>
-                  ) : (
-                    Array.isArray(templates) &&
-                    templates.length === 0 && (
-                      <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                        {t("app.marketing.noTemplatesPre")}{" "}
-                        <a href="/app/settings/email-templates" className="underline">
-                          {t("app.marketing.emailTemplatesLink")}
-                        </a>{" "}
-                        {t("app.marketing.noTemplatesPost")}
-                      </p>
-                    )
-                  )}
+                    <Palette size={14} /> {t("app.marketing.openDesigner")}
+                  </Link>
                 </div>
               )}
 
-              {!isPamphlet && !isEmail && (
+              {!isSocial && (
                 <>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder={t("app.marketing.budgetPlaceholder")}
-                    value={form.budget}
-                    onChange={(e) =>
-                      setForm({ ...form, budget: e.target.value })
-                    }
-                    className={inputClass}
-                  />
-                  <input
-                    placeholder={t("app.marketing.linkPlaceholder")}
-                    value={form.externalUrl}
-                    onChange={(e) =>
-                      setForm({ ...form, externalUrl: e.target.value })
-                    }
-                    className={inputClass}
-                  />
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1">
+                      {t("app.marketing.assignTo")}
+                    </label>
+                    <select
+                      value={form.assignedToId}
+                      onChange={(e) =>
+                        setForm({ ...form, assignedToId: e.target.value })
+                      }
+                      className={inputClass}
+                    >
+                      <option value="">{t("app.marketing.unassigned")}</option>
+                      {(members ?? []).map((m) => (
+                        <option key={m.user?.id} value={m.user?.id}>
+                          {m.user?.name || m.user?.email}
+                        </option>
+                      ))}
+                      {/* A list that would not load silently collapsed this to
+                          "Unassigned" — which is itself a valid choice, so nothing
+                          about the dropdown looked wrong. Said out loud instead,
+                          and disabled so it cannot be picked as a person. */}
+                      {members === null && (
+                        <option value="" disabled>
+                          {t(
+                            "app.marketing.membersUnavailable",
+                            "Team list unavailable — reload to assign someone",
+                          )}
+                        </option>
+                      )}
+                    </select>
+                  </div>
+
+                  {isEmail && (
+                    <div>
+                      <label className="text-xs text-muted-foreground block mb-1">
+                        {t("app.marketing.templateToSend")}
+                      </label>
+                      <select
+                        required
+                        value={form.templateId}
+                        onChange={(e) =>
+                          setForm({ ...form, templateId: e.target.value })
+                        }
+                        className={inputClass}
+                      >
+                        <option value="" disabled>
+                          {t("app.marketing.chooseTemplate")}
+                        </option>
+                        {(templates ?? []).map((tpl) => (
+                          <option key={tpl.id} value={tpl.id}>
+                            {tpl.name}
+                          </option>
+                        ))}
+                      </select>
+                      {/* Three states, and only ONE of them is "go and write one".
+                          A list that failed to load must not send somebody off to
+                          recreate templates they already have — that is the data
+                          re-entry lib/loadState.js exists to prevent. */}
+                      {templatesErrorKey ? (
+                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                          {t(templatesErrorKey)}{" "}
+                          <button
+                            type="button"
+                            onClick={loadTemplates}
+                            className="underline font-medium"
+                          >
+                            {t("app.load.retry")}
+                          </button>
+                        </p>
+                      ) : (
+                        Array.isArray(templates) &&
+                        templates.length === 0 && (
+                          <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                            {t("app.marketing.noTemplatesPre")}{" "}
+                            <a href="/app/settings/email-templates" className="underline">
+                              {t("app.marketing.emailTemplatesLink")}
+                            </a>{" "}
+                            {t("app.marketing.noTemplatesPost")}
+                          </p>
+                        )
+                      )}
+                    </div>
+                  )}
+
+                  {!isPamphlet && !isEmail && (
+                    <>
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder={t("app.marketing.budgetPlaceholder")}
+                        value={form.budget}
+                        onChange={(e) =>
+                          setForm({ ...form, budget: e.target.value })
+                        }
+                        className={inputClass}
+                      />
+                      <input
+                        placeholder={t("app.marketing.linkPlaceholder")}
+                        value={form.externalUrl}
+                        onChange={(e) =>
+                          setForm({ ...form, externalUrl: e.target.value })
+                        }
+                        className={inputClass}
+                      />
+                    </>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={saving || (isEmail && !form.templateId)}
+                    className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
+                  >
+                    {saving
+                      ? t("app.marketing.creating")
+                      : t("app.marketing.createCampaign")}
+                  </button>
                 </>
               )}
-
-              <button
-                type="submit"
-                disabled={saving || (isEmail && !form.templateId)}
-                className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
-              >
-                {saving
-                  ? t("app.marketing.creating")
-                  : t("app.marketing.createCampaign")}
-              </button>
             </form>
           </div>
         </div>
