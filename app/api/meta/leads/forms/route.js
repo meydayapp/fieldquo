@@ -24,7 +24,8 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 import { metaLeadsScopeEnabled } from "@/lib/meta/client";
-import { getConnection } from "@/lib/meta/connection";
+import { getPageConnection } from "@/lib/meta/pageConnection";
+import { missingFeaturePermissions } from "@/lib/meta/pageConnect";
 import { META_LEAD_SOURCE } from "@/lib/meta/leadsImport";
 
 export async function GET(request) {
@@ -34,8 +35,12 @@ export async function GET(request) {
     return NextResponse.json({ error: BILLING_ADMIN_ERROR }, { status: 403 });
   }
 
-  const [connection, forms] = await Promise.all([
-    getConnection(member.companyId),
+  // The FACEBOOK PAGE connection, not the Meta Ads one: lead forms and leads
+  // are read with the page token it stores (lib/meta/leadsFetch.js's
+  // resolveLeadsCredential says why), so "connected" here means "there is a
+  // Page to read", and the panel names that Page.
+  const [pageConnection, forms] = await Promise.all([
+    getPageConnection(member.companyId),
     db.metaLeadForm.findMany({
       where: { companyId: member.companyId },
       orderBy: [{ pageName: "asc" }, { name: "asc" }],
@@ -82,8 +87,24 @@ export async function GET(request) {
   return NextResponse.json({
     // The one answer, from the one place. See metaLeadsScopeEnabled().
     leadsScopeEnabled: metaLeadsScopeEnabled(),
-    connected: Boolean(connection),
-    connectionStatus: connection?.status || null,
+    connected: Boolean(pageConnection),
+    // Which Page the forms are read from, and what Meta did NOT grant that
+    // Page connection for lead forms (the leadForms list in
+    // lib/meta/pageConnect.js — pages_manage_metadata included, since the
+    // leadgen webhook rides on it). `missing: null` is "Meta's granted list
+    // could not be read", which the panel leaves unsaid rather than printing
+    // an all-clear it does not know.
+    leadsPage: pageConnection
+      ? {
+          pageId: pageConnection.pageId,
+          pageName: pageConnection.pageName || null,
+          missing: (() => {
+            const rows = missingFeaturePermissions(pageConnection.scopes, { leads: true });
+            if (rows === null) return null;
+            return rows.find((r) => r.feature === "leadForms")?.missing || [];
+          })(),
+        }
+      : null,
     forms: forms.map((f) => ({
       id: f.id,
       pageId: f.pageId,

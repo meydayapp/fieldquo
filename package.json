@@ -123,7 +123,7 @@
     "check:meta-pages-connect": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-meta-pages-connect.mjs",
     "check:page-import": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-page-import.mjs",
     "check:meta-leads": "node --import ./scripts/alias-loader.mjs scripts/check-meta-leads.mjs",
-    "check:meta-leads-webhook": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-meta-leads-webhook.mjs",
+    "check:meta-leads-webhook": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs --import ./scripts/member-stub-loader.mjs scripts/check-meta-leads-webhook.mjs",
     "check:visit-status": "node --import ./scripts/alias-loader.mjs scripts/check-visit-status.mjs",
     "check:site-visit": "node --import ./scripts/alias-loader.mjs scripts/check-site-visit.mjs",
     "check:appointment-about": "node --import ./scripts/alias-loader.mjs scripts/check-appointment-about.mjs",

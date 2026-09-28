@@ -34,8 +34,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { requireCronSecret } from "@/lib/security/cronAuth";
 import { db } from "@/lib/db";
-import { getConnection, getDecryptedToken, recordSyncOutcome } from "@/lib/meta/connection";
-import { pollForm } from "@/lib/meta/leadsFetch";
+import { pollForm, resolveLeadsCredential } from "@/lib/meta/leadsFetch";
 
 export async function GET(request) {
   const denied = requireCronSecret(request);
@@ -57,39 +56,28 @@ export async function GET(request) {
   const summary = { companies: 0, forms: 0, created: 0, duplicates: 0, skipped: 0, errors: [] };
 
   for (const [companyId, companyForms] of byCompany) {
-    const connection = await getConnection(companyId);
-    if (!connection) {
-      summary.errors.push(`company ${companyId}: lead forms are active but the Meta connection is gone`);
-      continue;
-    }
-
-    let userToken;
-    try {
-      userToken = getDecryptedToken(connection);
-    } catch {
-      // A corrupted row after a key rotation — NOT an expired Meta token, and
-      // not fixable by reconnecting through Facebook. Recorded as "error" so
-      // the settings screen shows it, on exactly the reasoning
-      // app/api/meta-ads/sync/route.js uses for the same failure.
-      await recordSyncOutcome({
-        companyId,
-        status: "error",
-        error: "Stored token could not be read. Disconnect and reconnect.",
-      }).catch(() => {});
-      summary.errors.push(`company ${companyId}: stored token unreadable`);
+    // The Page connection's stored page token, resolved once per company —
+    // the same credential the webhook and "Find my lead forms" use (see
+    // resolveLeadsCredential). It used to be the AD connection's user token,
+    // which cannot see the Page. No sync status is written on a refusal: the
+    // ad connection's status describes the spend sync, and a Page problem
+    // stamped on it would tell a contractor their ads stopped syncing.
+    const credential = await resolveLeadsCredential(companyId);
+    if (!credential.ok) {
+      summary.errors.push(
+        `company ${companyId}: lead forms are active but ${credential.reason}` +
+          (credential.missing ? ` (${credential.missing.join(",")})` : ""),
+      );
       continue;
     }
 
     summary.companies += 1;
-    // One /me/accounts call per company rather than one per form. In memory,
-    // for this run only — see pageTokenFor().
-    const pageTokenCache = new Map();
 
     for (const form of companyForms) {
       summary.forms += 1;
       let result;
       try {
-        result = await pollForm({ companyId, userToken, form, pageTokenCache });
+        result = await pollForm({ companyId, credential, form });
       } catch (err) {
         // One form's failure must not abandon another company's leads.
         summary.errors.push(`form ${form.formId}: ${err?.message || String(err)}`);

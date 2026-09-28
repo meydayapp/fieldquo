@@ -55,7 +55,10 @@ const realError = console.error;
 console.error = (...a) => silenced.push(a.join(" "));
 r = await ingestLeadgenChanges(leadgenBody(), { log: "meta-messaging-webhook/leadgen" });
 console.error = realError;
-ok("form on, no ad-account connection → skipped no_connection, logged under the caller's tag", r.results[0].reason === "no_connection" && silenced.some((l) => l.startsWith("[meta-messaging-webhook/leadgen]")), JSON.stringify({ r, silenced }));
+// Leads are read through the Facebook PAGE connection (resolveLeadsCredential),
+// so "no connection" now means no Page connection — an ad account alone does
+// not count, and is not what is checked for.
+ok("form on, no Page connection → skipped no_page_connection, logged under the caller's tag", r.results[0].reason === "no_page_connection" && silenced.some((l) => l.startsWith("[meta-messaging-webhook/leadgen]")), JSON.stringify({ r, silenced }));
 
 r = await ingestLeadgenChanges(leadgenBody({ leadgen_id: null }));
 ok("no leadgen_id → incomplete_payload", r.results[0].reason === "incomplete_payload");
@@ -168,6 +171,102 @@ out = await post(pageMsg("m_fb_2", "Still there?", 1790637000000));
 ok("a Page the company DISCONNECTED is 200 (Meta keeps the subscription) and files nothing", out.status === 200 && !rows.message.some((m) => m.externalId === "m_fb_2"), JSON.stringify(out));
 console.warn = realWarn;
 console.error = realErr;
+
+// ── E. Which token reads the lead — the REAL client, Graph stubbed at fetch ─
+//
+// 2026-09-28, TrueFinish: an ad-account connection (ads_read) AND a Facebook
+// Page connection (leads_retrieval, pages_manage_ads, … and a stored page
+// token). "Find my lead forms" said 0 and the Lead Ads Testing Tool's lead
+// never arrived: every lead read minted a page token from GET /me/accounts
+// with the AD connection's user token. Here nothing between the route and
+// fetch() is stubbed except the database and the session — lib/meta/client.js,
+// lib/meta/leadsFetch.js, lib/meta/pageConnection.js and the real AES-GCM
+// token crypto all run — and each Graph request records the token it carried.
+process.env.META_TOKEN_ENCRYPTION_KEY = "11".repeat(32);
+const { encryptToken } = await import("@/lib/meta/tokenCrypto");
+const graphHits = [];
+let graphAnswer = () => ({ status: 404, body: { error: { message: "unscripted", code: 803 } } });
+const realFetch = globalThis.fetch;
+globalThis.fetch = async (input, init) => {
+  const url = new URL(String(input));
+  if (url.hostname !== "graph.facebook.com") return realFetch(input, init);
+  const token = url.searchParams.get("access_token") || new URLSearchParams(String(init?.body || "")).get("access_token");
+  const path = url.pathname.replace(/^\/v[\d.]+/, "");
+  graphHits.push({ path, token });
+  const { status, body } = graphAnswer(path);
+  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+};
+const TF_SCOPES =
+  "pages_show_list,ads_read,pages_messaging,instagram_basic,instagram_content_publish,leads_retrieval,instagram_manage_messages,pages_read_engagement,pages_manage_metadata,pages_manage_ads,pages_manage_posts,public_profile";
+function seedTruefinish() {
+  resetDbStub();
+  graphHits.length = 0;
+  rows.metaLeadForm = [{ id: "f_tf", companyId: "company_TF", pageId: PAGE, pageName: "Truefinish Cabinets", formId: "form_1", name: "free quote", active: true }];
+  rows.metaAdConnection = [{ id: "ad_tf", companyId: "company_TF", adAccountId: "act_14771954", status: "connected", accessTokenEnc: encryptToken("AD_USER_TOKEN") }];
+  rows.metaPageConnection = [{
+    id: "pc_tf", companyId: "company_TF", pageId: PAGE, pageName: "Truefinish Cabinets",
+    pageAccessTokenEnc: encryptToken("TF_PAGE_TOKEN"), scopes: TF_SCOPES, connectedAt: new Date(), disconnectedAt: null,
+  }];
+}
+const LAM_REFUSAL = { status: 400, body: { error: { message: "CRM access has been revoked from Lead Access Manager", type: "OAuthException", code: 200 } } };
+
+seedTruefinish();
+graphAnswer = (path) =>
+  path === "/lg_1"
+    ? { status: 200, body: { id: "lg_1", created_time: "2026-09-28T20:10:00+0000", ad_id: "AD_1", form_id: "form_1", field_data: [{ name: "full_name", values: ["Test Lead"] }, { name: "phone_number", values: ["+15145550100"] }] } }
+    : path === "/AD_1"
+      ? { status: 200, body: { id: "AD_1", campaign: { id: "C_1", name: "Spring" } } }
+      : { status: 404, body: { error: { message: "unscripted " + path, code: 803 } } };
+console.error = () => {};
+console.warn = () => {};
+console.log = ((log) => (...a) => (String(a[0]).startsWith("[meta/leads]") ? undefined : log(...a)))(console.log);
+r = await ingestLeadgenChanges(leadgenBody());
+console.error = realErr;
+console.warn = realWarn;
+const leadHit = graphHits.find((h) => h.path === "/lg_1");
+ok("the webhook's lead is read with the Page connection's STORED page token", leadHit?.token === "TF_PAGE_TOKEN", JSON.stringify(graphHits));
+ok("…and nothing asks /me/accounts, or reads the lead with the ad-account token", !graphHits.some((h) => h.path === "/me/accounts") && !graphHits.some((h) => h.path === "/lg_1" && h.token === "AD_USER_TOKEN"), JSON.stringify(graphHits));
+ok("campaign attribution still reads the ad with the ad-account token", graphHits.some((h) => h.path === "/AD_1" && h.token === "AD_USER_TOKEN"), JSON.stringify(graphHits));
+ok("the lead is imported", r.results[0]?.status === "created" && !r.retryNeeded, JSON.stringify(r.results));
+
+seedTruefinish();
+graphAnswer = (path) => (path === "/lg_1" ? LAM_REFUSAL : { status: 404, body: { error: { message: "unscripted", code: 803 } } });
+console.error = () => {};
+r = await ingestLeadgenChanges(leadgenBody());
+console.error = realErr;
+ok("Meta's Leads Access Manager refusal is classified leads_access and not retried", r.results[0]?.reason === "leads_access" && r.retryNeeded === false, JSON.stringify(r));
+
+// "Find my lead forms", through the real route and the real client.
+const { setCurrentMember } = await import("./fixtures/currentMemberStub.mjs");
+const refreshRoute = await import("@/app/api/meta/leads/forms/refresh/route.js");
+process.env.META_LEADS_ENABLED = "1";
+setCurrentMember({ companyId: "company_TF", role: "owner", userId: "u_owner" });
+async function refresh() {
+  const res = await refreshRoute.POST(new Request("http://www.fieldquo.com/api/meta/leads/forms/refresh", { method: "POST" }));
+  return { status: res.status, json: typeof res.json === "function" ? await res.json() : null };
+}
+seedTruefinish();
+rows.metaLeadForm = [];
+graphAnswer = (path) =>
+  path === `/${PAGE}/leadgen_forms`
+    ? { status: 200, body: { data: [{ id: "form_free_quote", name: "free quote", status: "ACTIVE" }] } }
+    : { status: 200, body: { data: [] } }; // what /me/accounts answered TrueFinish
+out = await refresh();
+const formsHit = graphHits.find((h) => h.path === `/${PAGE}/leadgen_forms`);
+ok("\"Find my lead forms\" reads the connected Page's forms with the stored page token", formsHit?.token === "TF_PAGE_TOKEN" && !graphHits.some((h) => h.path === "/me/accounts"), JSON.stringify(graphHits));
+ok("…finds \"free quote\", names the Page, and stores it OFF", out.status === 200 && out.json?.found === 1 && out.json?.page?.name === "Truefinish Cabinets" && rows.metaLeadForm.some((f) => f.formId === "form_free_quote" && f.active === false && f.pageId === PAGE), JSON.stringify({ out, forms: rows.metaLeadForm }));
+
+seedTruefinish();
+graphAnswer = (path) => (path === `/${PAGE}/leadgen_forms` ? LAM_REFUSAL : { status: 200, body: { data: [] } });
+out = await refresh();
+ok("a Leads Access Manager refusal on discovery answers code leads_access with the Page", out.status === 502 && out.json?.code === "leads_access" && out.json?.page?.id === PAGE, JSON.stringify(out));
+
+seedTruefinish();
+rows.metaPageConnection = [];
+out = await refresh();
+ok("with only the ad-account connection, discovery refuses no_page_connection and calls nothing", out.status === 409 && out.json?.code === "no_page_connection" && graphHits.length === 0, JSON.stringify({ out, graphHits }));
+delete process.env.META_LEADS_ENABLED;
+globalThis.fetch = realFetch;
 
 console.log(`check-meta-leads-webhook: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
