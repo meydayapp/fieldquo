@@ -74,13 +74,22 @@ function sourceLabel(t, source) {
     : t("app.reviews.source.unknown", "Source not recorded");
 }
 
-export default function EstimateReviewsPage() {
+// `sample` is set only by the marketing walk-through on /industries/roofing
+// (app/(marketing)/industries/[slug]/showcase/), following QuoteApproval's
+// precedent (commit da656e6d): this screen, fed the GET reply
+// ({ quotes, canApprove, currentUserId, tradeNames }) instead of fetching it,
+// plus `me` (the reviewer's name) and `onApprove(q)`. Nothing is fetched,
+// PATCHed or POSTed: approving and claiming change this screen's own state
+// the way the reload after the real POST would (an approved estimate leaves
+// the queue), and tell the page so it can move its own sample quote on.
+// A real mount passes nothing and behaves exactly as before.
+export default function EstimateReviewsPage({ sample = null } = {}) {
   const { t } = useTranslation();
-  const [quotes, setQuotes] = useState(null);
-  const [canApprove, setCanApprove] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState(null);
+  const [quotes, setQuotes] = useState(sample ? sample.quotes : null);
+  const [canApprove, setCanApprove] = useState(Boolean(sample?.canApprove));
+  const [currentUserId, setCurrentUserId] = useState(sample?.currentUserId || null);
   // Trade names for the photo warning, per language (lib/ai/deepReadView.js).
-  const [tradeNames, setTradeNames] = useState({});
+  const [tradeNames, setTradeNames] = useState(sample?.tradeNames || {});
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState(null);
 
@@ -97,10 +106,16 @@ export default function EstimateReviewsPage() {
   }
 
   useEffect(() => {
+    if (sample) return;
     load();
   }, []);
 
   async function approve(q, adjusted) {
+    if (sample) {
+      sample.onApprove?.(q, adjusted);
+      setQuotes((prev) => (prev || []).filter((x) => x.id !== q.id));
+      return;
+    }
     setBusyId(q.id);
     try {
       await fetchJson(`/api/quotes/${q.id}/approve-estimate`, {
@@ -122,6 +137,12 @@ export default function EstimateReviewsPage() {
   // yourself, not somebody else), so this is safe for anyone who can see the
   // queue at all.
   async function assignToMe(q) {
+    if (sample) {
+      setQuotes((prev) =>
+        (prev || []).map((x) => (x.id === q.id ? { ...x, assignedTo: { id: currentUserId, name: sample.me || "" } } : x)),
+      );
+      return;
+    }
     setBusyId(q.id);
     try {
       await fetchJson(`/api/quotes/${q.id}`, {
@@ -177,6 +198,7 @@ export default function EstimateReviewsPage() {
             onAssignToMe={assignToMe}
             currentUserId={currentUserId}
             tradeNames={tradeNames}
+            sample={Boolean(sample)}
           />
         ))}
       </div>
@@ -184,7 +206,7 @@ export default function EstimateReviewsPage() {
   );
 }
 
-function ReviewCard({ q, canApprove, busy, onApprove, onAssignToMe, currentUserId, tradeNames }) {
+function ReviewCard({ q, canApprove, busy, onApprove, onAssignToMe, currentUserId, tradeNames, sample = false }) {
   const { t } = useTranslation();
   // The company's own currency. This page formatted every figure as
   // `"$" + Math.round(...)`, so a GBP contractor read dollars on the screen
@@ -427,6 +449,10 @@ function ReviewCard({ q, canApprove, busy, onApprove, onAssignToMe, currentUserI
             value={total}
             onChange={(e) => setTotal(e.target.value)}
             disabled={!canApprove}
+            // A sample approves at the drafted figure only: an adjusted
+            // total is written by the approve route, which a sample never
+            // calls, so a box that accepted one would promise a write.
+            readOnly={sample}
             aria-label={t("app.reviews.approveAt")}
             className="w-28 min-h-11 rounded-lg border border-border bg-background px-2 py-1.5 text-base"
           />
@@ -442,11 +468,15 @@ function ReviewCard({ q, canApprove, busy, onApprove, onAssignToMe, currentUserI
         </button>
           </>
         )}
+        {/* Not for a sample: the quote it opens is behind a sign-in the
+            visitor does not have, and Link would prefetch it. */}
+        {!sample && (
         <Link
           href={`/app/quotes/${q.id}`}
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >{t("app.reviews.openQuote")}<ExternalLink size={13} />
         </Link>
+        )}
         {/* The branded report the homeowner was emailed after their price was
             revealed — the staff copy of it, so the reviewer sees exactly what
             the customer is holding. Present only once the report exists; the

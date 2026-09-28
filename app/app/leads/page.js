@@ -191,7 +191,58 @@ function initials(name) {
     .join("");
 }
 
-export default function LeadsPage() {
+// The route's export. A real mount passes nothing and gets the board below,
+// unchanged. `sample` ({ leads, assignees }) is set only by the marketing
+// walk-through on /industries/roofing (app/(marketing)/industries/[slug]/
+// showcase/), following QuoteApproval's `sample` (commit da656e6d): the
+// card and the drawer a contractor uses, fed a lead instead of fetching one.
+// A wrapper rather than a branch inside LeadsPage, because the board's hooks
+// cannot be skipped conditionally; LeadCard and LeadDrawer stay where they
+// are, since a page module may only export its default.
+export default function LeadsRoute({ sample = null } = {}) {
+  return sample ? <LeadsSample sample={sample} /> : <LeadsPage />;
+}
+
+// The "New" column as the board draws it, with no board around it: no
+// DndContext (a drag would be a PATCH), no search, filters or sort (they are
+// server queries), no links into the app. What is left is what the showcase
+// is for — the card, and the drawer it opens. Status and owner changes made
+// in the drawer land on the card, the way the board's patchLead does, and go
+// nowhere else.
+function LeadsSample({ sample }) {
+  const { t } = useTranslation();
+  const [leads, setLeads] = useState(() => (Array.isArray(sample.leads) ? sample.leads : []));
+  const [openId, setOpenId] = useState("");
+  const col = COLUMNS[0];
+  const openLead = leads.find((l) => l.id === openId) || null;
+  const patchLead = (updated) =>
+    setLeads((prev) => prev.map((l) => (l.id === updated.id ? { ...l, ...updated } : l)));
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3 px-1">
+        <h2 className="text-sm font-semibold text-foreground">{t(col.labelKey)}</h2>
+        <span className="text-xs text-muted-foreground">{leads.length}</span>
+      </div>
+      <div className="space-y-3">
+        {leads.map((lead) => (
+          <LeadCard key={lead.id} lead={lead} tone={col.tone} onOpen={() => setOpenId(lead.id)} t={t} dragHandle={null} />
+        ))}
+      </div>
+      {openLead && (
+        <LeadDrawer
+          leadId={openLead.id}
+          assignees={Array.isArray(sample.assignees) ? sample.assignees : []}
+          onClose={() => setOpenId("")}
+          onPatched={patchLead}
+          t={t}
+          sample={openLead}
+        />
+      )}
+    </div>
+  );
+}
+
+function LeadsPage() {
   const { t } = useTranslation();
   // The bottom rung — GET /api/leads refuses below it. Leads ARE the requests
   // category; see lib/permissions/nav.js.
@@ -992,10 +1043,14 @@ function LeadCard({ lead, tone, onOpen, t, dragHandle }) {
   );
 }
 
-function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
+// `sample` is a lead object, set only by LeadsSample below (the marketing
+// walk-through on /industries/roofing). With it the drawer renders that lead
+// instead of fetching one, and every write stays in this component's state —
+// see LeadsSample for why, and patch() below for how.
+function LeadDrawer({ leadId, assignees, onClose, onPatched, t, sample = null }) {
   const { language } = useTranslation();
-  const [lead, setLead] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [lead, setLead] = useState(sample);
+  const [loading, setLoading] = useState(!sample);
   const [err, setErr] = useState("");
   const [noteText, setNoteText] = useState("");
   const [savingNote, setSavingNote] = useState(false);
@@ -1032,6 +1087,7 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
   // pulsing its skeleton for as long as somebody was willing to watch it.
   // Nothing said the request had failed and nothing offered a retry.
   const reload = useCallback(async () => {
+    if (sample) return;
     setErr("");
     try {
       const res = await fetch(`/api/leads/${leadId}`);
@@ -1042,13 +1098,22 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
     } finally {
       setLoading(false);
     }
-  }, [leadId, t]);
+  }, [leadId, t, sample]);
 
   useEffect(() => {
     reload();
   }, [reload]);
 
   async function patch(body) {
+    // A sample's owner and status change here and on the sample's card, the
+    // way a PATCH's reply would — never on a server.
+    if (sample) {
+      const next = { ...body };
+      if ("assignedToId" in body) next.assignedTo = assignees.find((a) => a.id === body.assignedToId) || null;
+      setLead((prev) => ({ ...prev, ...next }));
+      onPatched({ id: leadId, ...next });
+      return;
+    }
     setBusy(true);
     setErr("");
     try {
@@ -1068,7 +1133,7 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
 
   async function addNote(e) {
     e.preventDefault();
-    if (!noteText.trim()) return;
+    if (sample || !noteText.trim()) return;
     setSavingNote(true);
     setErr("");
     try {
@@ -1089,6 +1154,7 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
   // DELETE /api/leads/[id]/notes/[noteId] — the top rung of the Notes dial.
   // Removed from the local list only after the server said so.
   async function deleteNote(noteId) {
+    if (sample) return;
     setDeletingNoteId(noteId);
     setErr("");
     try {
@@ -1110,6 +1176,7 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
   }
 
   async function convert() {
+    if (sample) return;
     setConverting(true);
     setErr("");
     try {
@@ -1229,7 +1296,9 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
                   resolves the address from this lead's own intake and checks
                   for imagery for free; the panorama loads only on tap. The
                   detail panel only — never on a board card. */}
-              {addressLine && (
+              {/* Not for a sample: its address is invented, and the lookup
+                  is a Google request the walk-through promises not to make. */}
+              {addressLine && !sample && (
                 <StreetViewPeek
                   kind="lead"
                   id={lead.id}
@@ -1507,6 +1576,9 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
             {/* What this lead became — the quote, its jobs, its invoices —
                 and the ways to put a quote on it: create one (the existing
                 convert path) or link one that already exists. */}
+            {/* A sample's documents are the page's own sections below the
+                drawer; this list would fetch the lead's real ones. */}
+            {!sample && (
             <LinkedDocuments
               leadId={leadId}
               lead={lead}
@@ -1520,6 +1592,7 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
               onUnlinked={applyLinked}
               t={t}
             />
+            )}
             {picker && (
               <QuoteLinkPicker
                 leadId={leadId}

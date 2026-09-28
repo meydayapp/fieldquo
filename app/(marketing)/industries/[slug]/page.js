@@ -10,6 +10,7 @@ import { INDUSTRIES } from "@/app/data/industries";
 import { INDUSTRY_CONTENT } from "@/app/data/industryContent";
 import { marketingMetadata } from "@/lib/marketing/metadata";
 import IndustryPageContent from "./IndustryPageContent";
+import { industryShowcase } from "./showcase/registry";
 
 export function generateStaticParams() {
   return INDUSTRIES.map((ind) => ({ slug: ind.slug }));
@@ -43,5 +44,8 @@ export default async function IndustryPage({ params }) {
   const industry = INDUSTRY_CONTENT[slug];
   if (!industry) return notFound();
 
-  return <IndustryPageContent slug={slug} videoId={industry.videoId} />;
+  // The trade's live walk-through, when it has one (./showcase/registry.js):
+  // built here, on the server, and handed down as plain data — its builder
+  // reads fixtures and tax tables a browser bundle should not carry.
+  return <IndustryPageContent slug={slug} videoId={industry.videoId} showcase={industryShowcase(slug)} />;
 }
