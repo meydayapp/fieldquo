@@ -46,7 +46,10 @@
 // Run against the tree before the fix, 91 assertions fail.
 // The heal-on-read specs added to section 7 afterwards (schedule/map geocode,
 // business-info geocode, voice number repair heal, Business Profile location
-// stamps) fail 11 more against those routes before their skips.
+// stamps) fail 11 more against those routes before their skips; the ones for
+// the writes inside shared libs (shift-request expiry + notifications,
+// onboarding stamp, gallery merge on seven reads, voice readiness heal, Google
+// busy stamps) fail 13 more against those libs before theirs.
 
 process.env.IMPERSONATION_JWT_SECRET ||= "test-secret-for-guard-only-not-a-real-key";
 // Nothing here may reach a real service. Unset so every "is it configured?"
@@ -716,6 +719,15 @@ const googleBusinessResponder = ({ refuse = null } = {}) => (url) => {
   return null;
 };
 
+// A cover request whose shift began before anyone answered: listFor's expiry
+// moves it to "expired" and tells Jonny (u-crew).
+const STALE_SHIFT_REQUEST = {
+  id: "sr1", companyId: CO, shiftId: "s1", kind: "cover", fromWorkerId: "w1", toWorkerId: null, offeredShiftId: null,
+  status: "pending_peer", note: null, decisionNote: null, decidedById: null, decidedAt: null, createdAt: new Date("2025-05-01"),
+  shift: { id: "s1", start: new Date("2025-06-01T12:00:00Z"), end: new Date("2025-06-01T20:00:00Z") }, offeredShift: null,
+  fromWorker: { id: "w1", name: "Jonny", title: null, userId: "u-crew" }, toWorker: null, decidedBy: null,
+};
+
 const SUB_ROW = { id: "sub-row", companyId: CO, status: "trialing", stripeSubscriptionId: "sub_1", stripeCustomerId: "cus_1", plan: { maxUsers: 10, seats: 10, crewSeats: null } };
 const SIDE_EFFECT_GETS = [
   { label: "GET /api/ai-employee/sources (creates the default AI employee)", file: "app/api/ai-employee/sources/route.js", path: "/api/ai-employee/sources", script() {}, auditorStillReads: true },
@@ -869,6 +881,73 @@ const SIDE_EFFECT_GETS = [
     // Google's refusal is the read here: the auditor is told the same 502.
     sameRead: (own, aud, ownOut, audOut) => ownOut.status === 502 && audOut.status === 502 && Boolean(aud.error) && aud.error === own.error,
   })),
+  // ── The same, where the write lives in a shared lib (a `readOnly` option,
+  // or the member itself, passed through; every other caller unchanged) ──
+  {
+    label: "GET /api/shift-requests (expires a stale request and notifies the crew on it)", file: "app/api/shift-requests/route.js", path: "/api/shift-requests",
+    script(r) { r["shiftRequest.findMany"] = () => [{ ...STALE_SHIFT_REQUEST }]; },
+    notifies: true,
+    auditorStillReads: true,
+    sameAsOwner: true,
+  },
+  {
+    label: "GET /api/onboarding-status (stamps onboardingCompletedAt on a finished checklist)", file: "app/api/onboarding-status/route.js", path: "/api/onboarding-status",
+    script(r) {
+      r["company.findUnique"] = () => ({ ...COMPANY, logoUrl: "https://res.cloudinary.com/demo/logo.png", stripeChargesEnabled: true, taxIdNumber: "123456789RT0001", onboardingCompletedAt: null });
+      r["companyServiceCategory.count"] = 1;
+      r["companyServiceCategory.findMany"] = () => [{ defaultRate: 45, category: { key: "painting" } }];
+    },
+    auditorStillReads: true,
+    sameAsOwner: true,
+  },
+  ...[
+    ["/api/settings/gallery", "app/api/settings/gallery/route.js"],
+    ["/api/settings/website", "app/api/settings/website/route.js"],
+    ["/api/settings/quote-email", "app/api/settings/quote-email/route.js"],
+    ["/api/quotes/q1/email-sections", "app/api/quotes/[id]/email-sections/route.js"],
+    ["/api/settings/presentation", "app/api/settings/presentation/route.js"],
+    ["/api/quotes/q1/presentation", "app/api/quotes/[id]/presentation/route.js"],
+    ["/api/setup-steps", "app/api/setup-steps/route.js"],
+  ].map(([path, file]) => ({
+    label: `GET ${path} (runs the one-time gallery merge)`, file, path,
+    script(r) {
+      r["company.findUnique"] = () => ({ ...COMPANY, galleryMergedAt: null, quoteEmailBeforeAfter: [{ beforeUrl: "https://res.cloudinary.com/demo/b1.jpg", afterUrl: "https://res.cloudinary.com/demo/a1.jpg" }], site: null });
+      r["companyGalleryPair.findMany"] = () => [{ id: "g0", beforeUrl: "https://res.cloudinary.com/demo/b0.jpg", afterUrl: "https://res.cloudinary.com/demo/a0.jpg", beforePublicId: null, afterPublicId: null, caption: "Kitchen", sortOrder: 0, source: "manual" }];
+    },
+    auditorStillReads: true,
+    sameAsOwner: true,
+  })),
+  {
+    label: "GET /api/settings/voice/readiness (heals a stalled number status)", file: "app/api/settings/voice/readiness/route.js", path: "/api/settings/voice/readiness",
+    script(r) {
+      r["voicePhoneNumber.findFirst"] = () => ({ id: "n1", companyId: CO, e164: "+14165550123", status: "provisioning", source: "retell", numberType: "local", createdAt: new Date("2025-01-01") });
+    },
+    env: { RETELL_API_KEY: "key_check_only_not_real" },
+    fetch: (url) => (/retellai\.com\/get-phone-number/.test(url) ? json({ phone_number: "+14165550123", inbound_agent_id: null }) : null),
+    auditorStillReads: true,
+    sameAsOwner: true,
+  },
+  ...["token", "freeBusy"].map((refuse) => ({
+    label: `GET /api/calendar/google/busy (stamps Google's refusal of the ${refuse} call as the connection's lastError)`, file: "app/api/calendar/google/busy/route.js",
+    path: "/api/calendar/google/busy?from=2025-06-01T00:00:00Z&to=2025-06-08T00:00:00Z",
+    script(r) {
+      r["memberGoogleCalendar.findMany"] = () => [{
+        memberId: "m-owner", refreshTokenEnc: tokenCrypto.encryptToken("rt_check_only"), calendarId: "primary", busyReadEnabled: true,
+        member: { userId: "u-owner", user: { name: "Zed Owner" } },
+      }];
+    },
+    env: GOOGLE_ENV,
+    fetch: (url) => {
+      if (url === "https://oauth2.googleapis.com/token") return refuse === "token" ? json({ error: "invalid_grant", error_description: "Token has been expired or revoked." }, 400) : json({ access_token: "at_check_only" });
+      if (url === "https://www.googleapis.com/calendar/v3/freeBusy") return json({ error: { message: "Calendar usage limits exceeded." } }, 403);
+      return null;
+    },
+    // Both are POSTs and both are the read itself: a token mint (nothing
+    // stored) and a free/busy QUERY. Neither changes anything at Google.
+    readCalls: /^https:\/\/(oauth2\.googleapis\.com\/token|www\.googleapis\.com\/calendar\/v3\/freeBusy)$/,
+    auditorStillReads: true,
+    sameAsOwner: true,
+  })),
 ];
 for (const spec of SIDE_EFFECT_GETS) {
   const r = ROUTES.find((x) => x.rel === spec.file);
@@ -880,7 +959,11 @@ for (const spec of SIDE_EFFECT_GETS) {
     for (const [k, v] of Object.entries(spec.env || {})) { saved[k] = process.env[k]; process.env[k] = v; }
     fetchResponder = spec.fetch || null;
     try {
-      return await outcome(mod.GET, await request("GET", spec.path));
+      const o = await outcome(mod.GET, await request("GET", spec.path));
+      // Fire-and-forget work (`void notifyDecided(...)` in the shift-request
+      // expiry) lands after the response: read the writes once it has.
+      await new Promise((r) => setTimeout(r, 50));
+      return { ...o, writes: writes.slice(), out: outbound.slice() };
     } finally {
       fetchResponder = null;
       for (const [k, v] of Object.entries(saved)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
@@ -899,6 +982,13 @@ for (const spec of SIDE_EFFECT_GETS) {
   ok(`${spec.label}: the real owner's request reaches the write (${ownActs.join(", ") || "nothing"})`, ownActs.length > 0, `owner ${own.status} ${own.error || ""}`);
   ok(`${spec.label}: the auditor's performs 0 writes (status ${aud.status})`, audActs.length === 0, audActs.join(", "));
   if (spec.auditorStillReads) ok(`${spec.label}: …and still answers the read`, aud.status === 200, `${aud.status} ${aud.error || ""}`);
+  if (spec.notifies) {
+    const notes = (o) => tenantWritesOf(o.writes).filter((w) => /^notification/.test(w.model)).length + o.out.filter((x) => x.method !== "GET").length;
+    ok(`${spec.label}: the owner's request notifies (${notes(own)}), the auditor's notifies nobody (${notes(aud)})`, notes(own) > 0 && notes(aud) === 0);
+  }
+  if (spec.sameAsOwner) {
+    ok(`${spec.label}: …byte-identical to the owner's answer (${aud.status}:${aud.hash} / ${own.status}:${own.hash})`, aud.status === own.status && aud.hash === own.hash);
+  }
   if (spec.sameRead) {
     ok(`${spec.label}: …with the owner's read, less only what the skipped write would have added`,
       spec.sameRead(own.body || {}, aud.body || {}, own, aud), `owner ${own.status} ${JSON.stringify(own.body).slice(0, 160)}\n       auditor ${aud.status} ${JSON.stringify(aud.body).slice(0, 160)}`);

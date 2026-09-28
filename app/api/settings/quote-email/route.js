@@ -64,7 +64,7 @@ export async function GET(request) {
     select: QUOTE_EMAIL_COMPANY_SELECT,
   });
 
-  return NextResponse.json(present(await withCompanyGallery(company || {}, member.companyId)));
+  return NextResponse.json(present(await withCompanyGallery(company || {}, member.companyId, { readOnly: member.impersonationMode === "read_only" })));
 }
 
 export async function PATCH(request) {

@@ -31,7 +31,7 @@ export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
   const [pairs, draft] = await Promise.all([
-    loadCompanyGallery(member.companyId),
+    loadCompanyGallery(member.companyId, { readOnly: member.impersonationMode === "read_only" }),
     loadGalleryDraft(member.companyId),
   ]);
   return NextResponse.json({ pairs, draft });

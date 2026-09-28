@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 28 September 2026 ("View as company" follow-up: the heal-on-read writes that live in the route itself now skip for the read-only session — company / appointment geocode on schedule/map and business-info, the voice number-repair GET heal, the Business Profile locations stamps; shift-request expiry, gallery merge, voice readiness, onboarding stamp and the Google busy stamp live in shared libs and are still owed — see "View as company" reads everything)
+Last updated: 28 September 2026 ("View as company" follow-up: the heal-on-read writes that live in the route itself now skip for the read-only session — company / appointment geocode on schedule/map and business-info, the voice number-repair GET heal, the Business Profile locations stamps; and, through a `readOnly` flag the shared libs now take, shift-request expiry + crew notifications, the onboarding stamp, the gallery merge on seven reads, the voice readiness heal and the Google busy stamps — four source-text check assertions still owed; see "View as company" reads everything)
 Last updated: 28 September 2026 ("View as company": an active superadmin's read-only session reads as the company's real OWNER membership — quotes, client contact details, equipment, invoices, payroll, insights all load; writes still refused by method in middleware + assertReadOnly, plus the OAuth/Stripe-return GETs now listed in lib/platform/impersonationToken.js; the GETs that write on read skip for the session; `npm run check:impersonation`)
 Last updated: 28 September 2026 (the platform "Cancel the subscription" panel works for every company: a card-free trial can be ended at the trial's end, now, or locked for a terms breach — three additive Company columns the owner must add first — with checkout/Resume refusing a company FieldQuo ended, no trial letters to it, and /platform counting it locked/cancelled — see "The platform cancel / lock panel works for every company")
 Last updated: 25 September 2026 (FieldQuo's own language no longer follows the last page you visited: the permanent origin-wide localStorage key is gone (removed on load), a signed-in account's language wins on public pages too (GET /api/me/language, only for a browser that has signed in), the header switcher lasts one tab session, booking pages / prefills / email-link landings set their page only — see "FieldQuo's language follows the person, not the last page")
@@ -124,21 +124,33 @@ members' 1,248 response hashes identical (9 cells nondeterministic run to run).
     Section 7 of `npm run check:impersonation` drives each down its write path
     (owner writes, auditor 0 writes, same read less the skipped write's own
     fields); 11 of those assertions fail against the routes before the skips.
-  - **Still owed — the write is inside a shared lib, so a route-level skip
-    would also drop the read; needs a scope decision (lib change):**
-    `/api/shift-requests` (`listFor` → `expireStale` in
-    `lib/shiftRequests/store.js`: expires requests AND notifies staff — the
-    worst of the set); gallery merge (`ensureGalleryMerged` inside
-    `loadCompanyGallery` / `withCompanyGallery` in `lib/company/gallery.js`,
-    reached from settings/gallery, settings/website, settings/quote-email,
-    quote email-sections, and via `lib/proposal/load.js` /
-    `lib/setupStepsSnapshot.js` from both presentation routes and setup-steps);
-    voice readiness (`checkReadiness` → `diagnoseAndHeal` in
-    `lib/voice/readiness.js`); onboarding-status (`getOnboardingStatus` stamps
-    `onboardingCompletedAt` in `lib/onboarding.js`); and
-    `/api/calendar/google/busy` (`googleBusyRanges` → `recordSyncOutcome` in
-    `lib/calendar/googleBusy.js` stamps `lastError` on members' connections —
-    newly reachable, since the owner is team-wide).
+  - **Fixed (same branch, second pass) — the write lives in a shared lib, so
+    the lib skips it when its caller says so; every other caller passes
+    nothing and behaves as before:** `/api/shift-requests` (`listFor(member)`
+    skips `expireStale` — no expiry, no notification to the crew — for the
+    read-only member; `lib/shiftRequests/store.js`); onboarding-status
+    (`getOnboardingStatus(companyId, { readOnly })`, `lib/onboarding.js`);
+    gallery merge (`loadCompanyGallery` / `withCompanyGallery` `{ readOnly }`
+    in `lib/company/gallery.js`, passed through `lib/proposal/load.js` and
+    `lib/setupStepsSnapshot.js` from settings/gallery, settings/website,
+    settings/quote-email, quote email-sections, both presentation routes and
+    setup-steps — the auditor sees the gallery as stored, unmerged); voice
+    readiness (`checkReadiness(…, { readOnly })` diagnoses without healing,
+    `lib/voice/readiness.js`); `/api/calendar/google/busy`
+    (`googleBusyRanges({ …, readOnly })` skips both `lastError` stamps,
+    `lib/calendar/googleBusy.js`). 13 more section-7 assertions (incl. "the
+    owner's request notifies, the auditor's notifies nobody"), all failing
+    against the libs before the skips.
+  - **Owed:** four source-text assertions pinned the old call spellings and
+    now fail — `check:onboarding-solo` ("…and the snapshot reads those
+    rows": `loadCompanyGallery\(companyId\)`), `check:setup-steps` ("GET
+    reads the caller's company only": `loadSetupSnapshot\(member\.companyId\)`)
+    and `check:client-proposal` (the website route and setupStepsSnapshot
+    lines of "reads/writes the one gallery"). Each needs its `\)` widened to
+    `[,)]`; those scripts were outside the approved scope.
+  - Not covered: other GETs that reach `googleBusyRanges` without the flag
+    (`lib/schedule/entryNeighbours.js`, `lib/booking/computeAvailability.js`)
+    can still stamp a connection's `lastError` for the session.
 - `/api/migrations/[id]/documents` GET still refuses support (its loader is
   shared with the upload POST) — pre-existing.
 

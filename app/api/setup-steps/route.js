@@ -37,7 +37,7 @@ export async function GET(request) {
   }
 
   try {
-    const snapshot = await loadSetupSnapshot(member.companyId);
+    const snapshot = await loadSetupSnapshot(member.companyId, { readOnly: member.impersonationMode === "read_only" });
     return NextResponse.json({ steps: stepsFor(snapshot) });
   } catch (error) {
     console.error("[setup-steps]", error);

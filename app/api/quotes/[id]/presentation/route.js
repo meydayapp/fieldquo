@@ -35,6 +35,7 @@ async function present(member, quote) {
       company: company || {},
       language,
       presentation: quote.presentation,
+      readOnly: member.impersonationMode === "read_only",
     }),
     loadWorkPlan({ quote, companyId: member.companyId }),
     listDocuments(member.companyId),

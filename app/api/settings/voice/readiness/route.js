@@ -47,10 +47,11 @@ export async function GET(request) {
   // Deliberately readable by an impersonating support session — non-negotiable
   // #3: the platform console views everything and edits nothing, and this is
   // the one screen that answers "why is this contractor's phone not working".
-  // Nothing here writes to the company's own data.
+  // The number diagnosis inside heals a stale status column for a real member;
+  // for the read-only session it is asked not to, so nothing here writes.
 
   try {
-    const result = await checkReadiness(member.companyId, getAppOrigin(request));
+    const result = await checkReadiness(member.companyId, getAppOrigin(request), { readOnly: member.impersonationMode === "read_only" });
     return NextResponse.json(result);
   } catch (err) {
     // An honest failure, not an empty chain. A readiness check that renders
