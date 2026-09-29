@@ -16,8 +16,8 @@
 
 import { defaultTemplateFor, TAX_FORM_ITEMS_BY_COUNTRY } from "@/lib/onboarding/defaultTemplate";
 import { normaliseTemplateItems, normaliseTemplateName, ITEM_KINDS } from "@/lib/onboarding/template";
-import { openItems, reconcile, setTaskDone, progress, overdueItems, runPatch, describeRun } from "@/lib/onboarding/run";
-import { ensureTemplates, startRun, reconcileRunsForWorker } from "@/lib/onboarding/service";
+import { openItems, reconcile, setTaskDone, progress, overdueItems, runPatch, describeRun, handInKindFor, checkHandIn, attachHandIn, HAND_IN_MAX_BYTES } from "@/lib/onboarding/run";
+import { ensureTemplates, startRun, reconcileRunsForWorker, handInForItem, handInFiles } from "@/lib/onboarding/service";
 import { policyHash, parsePolicyBody, nextVersionFor, mayRewriteVersion, policyAppliesTo, pendingPolicies, parseAcknowledgement } from "@/lib/hr/policies";
 import { pendingPolicyCount, pendingNoteCount } from "@/lib/hr/pending";
 import { createPolicy, updatePolicy, acknowledgementReport, policiesForWorker } from "@/lib/hr/policyService";
@@ -378,6 +378,132 @@ section("8. The seams other code reads: notifications, More links, starters, cat
   const hrKeys = Object.keys(APP_MESSAGES.en).filter((k) => k.startsWith("app.hr."));
   ok("the app.hr.* catalogue is present in all nine languages", Object.entries(APP_MESSAGES).every(([, d]) => hrKeys.every((k) => typeof d[k] === "string")), Object.entries(APP_MESSAGES).map(([l, d]) => [l, hrKeys.filter((k) => typeof d[k] !== "string").length]));
   ok("every placeholder in English appears in every language", Object.values(APP_MESSAGES).every((d) => hrKeys.every((k) => { const a = (APP_MESSAGES.en[k].match(/\{[a-zA-Z]+\}/g) || []).sort().join(); const b = (d[k].match(/\{[a-zA-Z]+\}/g) || []).sort().join(); return a === b; })));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("9. A manager hands a file in from a checklist row, on the person's behalf");
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  // Pure first.
+  ok("handInKindFor: a document item files under its documentKind", handInKindFor({ kind: "document", documentKind: "id" }) === "id");
+  ok("handInKindFor: a form item files as a tax_form", handInKindFor({ kind: "form", formKind: "td1_federal" }) === "tax_form");
+  ok("handInKindFor: a task and a policy take no file", handInKindFor({ kind: "task" }) === null && handInKindFor({ kind: "policy", policyId: "p" }) === null);
+  ok("handInKindFor: garbage is null, not a throw", handInKindFor(null) === null && handInKindFor({ kind: "document" }) === null);
+  const pureItems = openItems([
+    { key: "t", label: "Task", kind: "task", required: true },
+    { key: "p", label: "Policy", kind: "policy", policyId: "pol", required: true },
+    { key: "d", label: "ID", kind: "document", documentKind: "id", required: true },
+  ]);
+  ok("checkHandIn refuses a task (400)", checkHandIn(pureItems, "t").status === 400);
+  ok("checkHandIn refuses a policy (400)", checkHandIn(pureItems, "p").status === 400);
+  ok("checkHandIn refuses an unknown key (404)", checkHandIn(pureItems, "nope").status === 404);
+  ok("checkHandIn refuses 26 MB (413)", checkHandIn(pureItems, "d", { sizeBytes: 26 * 1024 * 1024 }).status === 413);
+  ok("checkHandIn refuses a size that isn't a number", checkHandIn(pureItems, "d", { sizeBytes: "lots" }).status === 400 && checkHandIn(pureItems, "d", { sizeBytes: -5 }).status === 400);
+  ok("checkHandIn refuses a video", checkHandIn(pureItems, "d", { mimeType: "video/mp4" }).status === 400);
+  ok("checkHandIn refuses an HTML file", checkHandIn(pureItems, "d", { mimeType: "text/html" }).status === 400);
+  ok("checkHandIn accepts a PDF and a phone photo", !checkHandIn(pureItems, "d", { mimeType: "application/pdf", sizeBytes: 1000 }).error && !checkHandIn(pureItems, "d", { mimeType: "image/heic" }).error);
+  ok("checkHandIn at exactly 25 MB passes", !checkHandIn(pureItems, "d", { sizeBytes: HAND_IN_MAX_BYTES }).error);
+  ok("attachHandIn refuses a task", !!attachHandIn(pureItems, "t", { documentId: "x", at: NOW }).error);
+  ok("attachHandIn refuses a missing document id", !!attachHandIn(pureItems, "d", { documentId: "", at: NOW }).error);
+
+  // reconcile: a form item's file counts only while that exact tax_form lives.
+  const formItem = { ...openItems([{ key: "f", label: "Federal TD1", kind: "form", formKind: "td1_federal", required: true }])[0], status: "done", doneAt: NOW, documentId: "tf-doc" };
+  const live = reconcile([formItem], { documents: [{ id: "tf-doc", kind: "tax_form", archivedAt: null, createdAt: NOW }], taxForms: [] });
+  ok("a done form item whose filed TD1 is live stays done", live.items[0].status === "done" && live.changed === false);
+  const gone = reconcile([formItem], { documents: [{ id: "tf-doc", kind: "tax_form", archivedAt: NOW, createdAt: NOW }], taxForms: [] });
+  ok("archiving the filed TD1 re-opens the form item", gone.items[0].status === "open" && gone.items[0].documentId === null);
+  const wrongKind = reconcile([formItem], { documents: [{ id: "tf-doc", kind: "id", archivedAt: null, createdAt: NOW }], taxForms: [] });
+  ok("a documentId pointing at a non-tax_form document does not hold a form item", wrongKind.items[0].status === "open");
+  const openForm = openItems([{ key: "f", label: "Federal TD1", kind: "form", formKind: "td1_federal", required: true }]);
+  ok("a tax_form document alone does not tick an OPEN form item (which TD1 is it?)", reconcile(openForm, { documents: [{ id: "x", kind: "tax_form", archivedAt: null, createdAt: NOW }], taxForms: [] }).items[0].status === "open");
+  const oldPtr = [{ ...openItems([{ key: "d", label: "ID", kind: "document", documentKind: "id", required: true }])[0], status: "done", doneAt: at(-2), documentId: "old" }];
+  const moved = reconcile(oldPtr, { documents: [{ id: "old", kind: "id", archivedAt: null, createdAt: at(-2) }, { id: "new", kind: "id", archivedAt: null, createdAt: at(0) }] });
+  ok("a done document item follows the newest live file (a newer upload)", moved.changed && moved.items[0].documentId === "new" && moved.items[0].status === "done");
+  const onlyOld = reconcile([{ ...oldPtr[0], documentId: "new" }], { documents: [{ id: "old", kind: "id", archivedAt: null, createdAt: at(-2) }, { id: "new", kind: "id", archivedAt: at(0), createdAt: at(0) }] });
+  ok("archiving the newer one points back at the older live one, still done", onlyOld.items[0].documentId === "old" && onlyOld.items[0].status === "done");
+
+  // Now through the database, two companies.
+  const CLOUD = "demo";
+  const url = (n) => `https://res.cloudinary.com/${CLOUD}/image/upload/v1/fieldquo/companies/A/documents/${n}.pdf`;
+  const itemsA = openItems([
+    { key: "id", label: "Upload a piece of photo ID", kind: "document", documentKind: "id", required: true, dueDays: 3 },
+    { key: "td1f", label: "Fill in the federal TD1", kind: "form", formKind: "td1_federal", required: true, dueDays: 3 },
+    { key: "td1p", label: "Fill in the provincial TD1", kind: "form", formKind: "td1_provincial", required: true, dueDays: 3 },
+    { key: "ppe", label: "PPE issued", kind: "task", required: true, dueDays: 1 },
+    { key: "vp", label: "Vehicle policy", kind: "policy", policyId: "pa", required: false },
+  ]);
+  const db = fakeDb({
+    company: [{ id: "A", country: "CA", name: "A Co" }, { id: "B", country: "CA", name: "B Co" }],
+    user: [{ id: "ma", name: "Maria Manager" }, { id: "ub", name: "Bob" }],
+    member: [{ id: "m_ma", companyId: "A", userId: "ma", role: "admin", active: true }],
+    worker: [
+      { id: "wa", companyId: "A", name: "Daniel", active: true, userId: null },
+      { id: "wb", companyId: "B", name: "Bob", active: true, userId: "ub" },
+    ],
+    workerDocument: [{ id: "doc-b", companyId: "B", workerId: "wb", kind: "id", title: "Bob's licence", fileUrl: url("b"), archivedAt: null, uploadedById: "ub", uploadedByKind: "worker", createdAt: NOW }],
+    onboardingRun: [
+      { id: "runA", companyId: "A", workerId: "wa", templateId: "t", items: itemsA, startedAt: NOW, completedAt: null },
+      { id: "runB", companyId: "B", workerId: "wb", templateId: "t", items: openItems([{ key: "id", label: "ID", kind: "document", documentKind: "id", required: true }]), startedAt: NOW, completedAt: null },
+    ],
+  });
+  const docCount = () => db.tables.workerDocument.length;
+  const call = (over) => handInForItem(db, { companyId: "A", runId: "runA", key: "id", body: { fileUrl: url("id1"), sizeBytes: 1000, mimeType: "application/pdf" }, cloudName: CLOUD, actorUserId: "ma", ...over });
+
+  const before = docCount();
+  const foreign = await call({ runId: "runB" });
+  ok("company A naming company B's run is Not found, and nothing is written", foreign.status === 404 && docCount() === before && db.tables.onboardingRun.find((r) => r.id === "runB").items[0].status === "open");
+  ok("a run id that isn't a string is Not found", (await call({ runId: { in: ["runA"] } })).status === 404 && (await call({ runId: "" })).status === 404);
+  ok("no company on the session is Not found", (await call({ companyId: null })).status === 404);
+  ok("a task item refuses a file (400), nothing written", (await call({ key: "ppe" })).status === 400 && docCount() === before);
+  ok("a policy item refuses a file (400), nothing written", (await call({ key: "vp" })).status === 400 && docCount() === before);
+  ok("an unknown item key is 404", (await call({ key: "../id" })).status === 404);
+  ok("a missing file is refused, nothing written", (await call({ body: { sizeBytes: 10 } })).status === 400 && docCount() === before);
+  ok("a URL from another host is refused", (await call({ body: { fileUrl: "https://evil.example/id.pdf" } })).status === 400 && docCount() === before);
+  ok("another Cloudinary account's URL is refused", (await call({ body: { fileUrl: "https://res.cloudinary.com/other/image/upload/x.pdf" } })).status === 400);
+  ok("an oversized file is refused with 413, nothing written", (await call({ body: { fileUrl: url("big"), sizeBytes: 30 * 1024 * 1024 } })).status === 413 && docCount() === before);
+
+  const first = await call({});
+  const runNow = () => db.tables.onboardingRun.find((r) => r.id === "runA");
+  const idItem = () => runNow().items.find((i) => i.key === "id");
+  ok("the photo ID lands as an ordinary WorkerDocument of kind id, company A, Daniel's file", first.document?.kind === "id" && db.tables.workerDocument.some((d) => d.id === first.document.id && d.companyId === "A" && d.workerId === "wa" && d.uploadedByKind === "manager" && d.uploadedById === "ma"));
+  ok("…with the file name the browser sent, or the item's wording when it sent none", first.document.title === "Upload a piece of photo ID");
+  ok("the row ticks and points at that document", idItem().status === "done" && idItem().documentId === first.document.id);
+  ok("the evidence tick carries no hand-ticker's name (it was filed, not ticked)", idItem().doneByName === null);
+
+  const second = await call({ body: { fileUrl: url("id2"), title: "passport.pdf", mimeType: "application/pdf" } });
+  ok("uploading again files a NEW document; the first is still there, not archived", second.document.id !== first.document.id && db.tables.workerDocument.find((d) => d.id === first.document.id)?.archivedAt == null);
+  ok("the row now points at the newest file", idItem().documentId === second.document.id && second.document.title === "passport.pdf");
+
+  const fed = await call({ key: "td1f", body: { fileUrl: url("td1f"), mimeType: "application/pdf" } });
+  const itemOf = (k) => runNow().items.find((i) => i.key === k);
+  ok("a signed federal TD1 is filed as a tax_form titled after the item", fed.document?.kind === "tax_form" && fed.document.title === "Fill in the federal TD1");
+  ok("it ticks the federal item and NOT the provincial one", itemOf("td1f").status === "done" && itemOf("td1f").documentId === fed.document.id && itemOf("td1p").status === "open");
+  await reconcileRunsForWorker(db, { companyId: "A", workerId: "wa" });
+  ok("a later reconcile leaves the filed TD1 ticked", itemOf("td1f").status === "done");
+  ok("the run is not complete while the provincial TD1 and the task are open", runNow().completedAt == null);
+
+  await call({ key: "td1p", body: { fileUrl: url("td1p"), mimeType: "image/jpeg" } });
+  const provDoc = itemOf("td1p").documentId;
+  ok("a phone photo of the signed provincial TD1 ticks the provincial row", itemOf("td1p").status === "done" && !!provDoc);
+  // Archive it the way PATCH /api/hr/documents/[id] does, then reconcile as
+  // that route does. (The run is still open — the PPE task isn't ticked.)
+  db.tables.workerDocument.find((d) => d.id === provDoc).archivedAt = NOW;
+  await reconcileRunsForWorker(db, { companyId: "A", workerId: "wa" });
+  ok("archiving a filed TD1 re-opens its row (the file no longer holds it)", itemOf("td1p").status === "open");
+  await db.onboardingRun.update({ where: { id: "runA" }, data: { items: setTaskDone(runNow().items, "ppe", { byUserId: "ma", byName: "Maria Manager" }).items } });
+  ok("the task still ticks by hand beside it", itemOf("ppe").status === "done" && itemOf("ppe").doneByName === "Maria Manager");
+
+  const done = await call({ key: "td1p", body: { fileUrl: url("td1p2"), mimeType: "application/pdf" } });
+  ok("handing in the last required file completes the run", !!done.run.completedAt && !!runNow().completedAt);
+
+  // The files the rows show — names, never ids — and nothing from company B.
+  const hostile = { ...runNow(), items: [...runNow().items, { key: "x", kind: "document", documentKind: "id", status: "done", documentId: "doc-b" }] };
+  const files = await handInFiles(db, { companyId: "A", workerId: "wa", runs: [hostile] });
+  ok("handInFiles returns the row's file with who filed it, by name", files[second.document.id]?.uploadedByName === "Maria Manager" && files[second.document.id]?.fileUrl === url("id2"));
+  ok("handInFiles never returns another company's document, whatever id an item carries", !("doc-b" in files));
+  ok("handInFiles carries no user id", Object.values(files).every((f) => !("uploadedById" in f)));
+  ok("company B's run and file were never touched", db.tables.onboardingRun.find((r) => r.id === "runB").items[0].status === "open" && db.tables.workerDocument.filter((d) => d.companyId === "B").length === 1);
+  ok("nothing was deleted: every document filed is still a row", db.tables.workerDocument.filter((d) => d.companyId === "A").length === 5);
 }
 
 console.log(`\n${pass} ok, ${fails.length} failed`);

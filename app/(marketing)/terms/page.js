@@ -225,11 +225,10 @@ export default function TermsPage() {
       {/* Entity name and address as verified in Meta Business Verification
           (confirmed by the owner 2026-09-28). Ontario law and Ottawa courts
           follow from where the company is based. Registration in Ontario and
-          the United States is the owner's own wording (2026-09-28); the US
-          state was not given, so none is named. */}
+          Wyoming is the owner's own wording (2026-09-28 / 09-29). */}
       <p>
         FieldQuo is operated by FieldQuo Inc., a company registered in
-        Ontario, Canada and in the United States, with its office at 917
+        Ontario, Canada and in Wyoming, United States, with its office at 917
         Littlerock Way, Ottawa, Ontario K1T 0N2, Canada. These terms are governed by the laws of the
         Province of Ontario and the federal laws of Canada that apply there,
         and the courts located in Ottawa, Ontario have jurisdiction over any

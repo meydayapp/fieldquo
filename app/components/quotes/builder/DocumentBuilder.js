@@ -749,7 +749,13 @@ export default function DocumentBuilder({ b, kind = "quote" }) {
         ]
       : [
           issueDate ? { label: labels.date, value: formatDate(issueDate) } : null,
-          b.validUntil ? { label: labels.validUntil, value: formatDate(b.validUntil) } : null,
+          // Always a row, set or not — like the invoice's due date above. It
+          // used to be dropped when empty, and the "not set" fallback below
+          // only fired when the list was EMPTY, which is only ever a create
+          // (an edit always has an issue date). So a saved quote with no
+          // expiry — every instant-estimate draft before 2026-09-29 — opened
+          // with no "Valid until" row at all, and no visible way to add one.
+          { label: labels.validUntil, value: b.validUntil ? formatDate(b.validUntil) : t("app.quoteNew.validUntilCleared") },
         ]
   ).filter(Boolean);
 
@@ -1074,8 +1080,8 @@ export default function DocumentBuilder({ b, kind = "quote" }) {
               number={start.quoteNumber}
               numberPlaceholder={t("app.docBuilder.numberOnSave", "Numbered on first save")}
               // The dates under the number (mockup b7) — click to change the
-              // expiry. Absent on a create with no expiry: nothing invented.
-              meta={meta.length ? meta : [{ label: labels.validUntil, value: t("app.quoteNew.validUntilCleared") }]}
+              // expiry. An empty expiry reads as not set: nothing invented.
+              meta={meta}
               edit={{
                 company: canEditCompany ? () => setEditing((e) => (e === "company" ? null : "company")) : null,
                 companyLabel: t("app.docBuilder.editCompany", "Edit company details"),

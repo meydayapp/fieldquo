@@ -30,6 +30,12 @@ import { useCustomFields, CustomFieldInputs } from "@/app/components/customField
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 import JobTitleInput from "@/app/components/team/JobTitleInput";
 import { personTitle } from "@/lib/team/personLabel";
+import Link from "next/link";
+import {
+  EndEmploymentDialog,
+  ReactivateDialog,
+} from "@/app/components/team/EndEmployment";
+import { isSeparated, separationTypeKey } from "@/lib/team/separation";
 
 // hiredOn is a calendar day. Both reading it into the <input type="date"> and
 // displaying it must use the UTC getters, or the date shifts a day each way.
@@ -55,8 +61,21 @@ export default function WorkersPage() {
 
 function WorkersScreen() {
   const { t } = useTranslation();
+  const access = useSettingsAccess();
+  // canChange, not canSee: a read-only support session sees this page (the
+  // console views everything) and must not be shown live-looking buttons
+  // whose saves the server refuses. The route re-checks the same gate.
+  const canEnd = access.canChange("payroll");
+  // The HR file sits behind user:manage (lib/hr/access.js). Everyone who can
+  // open this page holds it today; asked anyway, so the link can't outlive a
+  // change to either gate.
+  const canOpenHr = access.canSee("user:manage");
   const [workers, setWorkers] = useState(null);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  // The worker whose End-employment / Re-activate dialog is open.
+  const [ending, setEnding] = useState(null);
+  const [reactivating, setReactivating] = useState(null);
   // The last thirty days against the rota, per person — late, no-shows,
   // early outs — from the time-clock watch's verdicts. Read beside the
   // roster, never in place of it: a failure here leaves the card without
@@ -125,6 +144,11 @@ function WorkersScreen() {
           {error}
         </div>
       )}
+      {notice && (
+        <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 rounded-lg px-4 py-3 text-sm text-emerald-800 dark:text-emerald-300">
+          {notice}
+        </div>
+      )}
 
       {missingRate.length > 0 && (
         <div className="rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-300 flex items-start gap-2">
@@ -146,6 +170,9 @@ function WorkersScreen() {
             attendance={attendance ? attendance[w.id] || null : null}
             reload={load}
             onConnect={() => connectStripe(w.id)}
+            canOpenHr={canOpenHr}
+            onEnd={canEnd ? () => setEnding(w) : null}
+            onReactivate={canEnd ? () => setReactivating(w) : null}
           />
         ))}
         {!workers.length && (
@@ -159,11 +186,45 @@ function WorkersScreen() {
         <Info size={13} className="mt-0.5 shrink-0" />
         {t("app.setWorkers.typeNote")}
       </p>
+
+      {ending && (
+        <EndEmploymentDialog
+          worker={ending}
+          onClose={() => setEnding(null)}
+          onDone={async () => {
+            setNotice(t("app.separation.done", { name: ending.name }));
+            setError("");
+            setEnding(null);
+            await load();
+          }}
+        />
+      )}
+      {reactivating && (
+        <ReactivateDialog
+          worker={reactivating}
+          onClose={() => setReactivating(null)}
+          onDone={async () => {
+            setNotice("");
+            setError("");
+            setReactivating(null);
+            await load();
+          }}
+        />
+      )}
     </div>
   );
 }
 
-function WorkerRow({ worker, workers = [], attendance = null, reload, onConnect }) {
+function WorkerRow({
+  worker,
+  workers = [],
+  attendance = null,
+  reload,
+  onConnect,
+  canOpenHr = false,
+  onEnd = null,
+  onReactivate = null,
+}) {
   const { t } = useTranslation();
   // The rate is typed by a person in the company own currency, so it is
   // formatted in that currency rather than labelled with a symbol the
@@ -448,9 +509,15 @@ function WorkerRow({ worker, workers = [], attendance = null, reload, onConnect 
       <div className="min-w-0">
         <div className="text-sm font-medium text-foreground flex items-center gap-2">
           {worker.name}
+          {/* "Ended 29 Sep · Dismissed" when the reason is on file; the old
+              bare "Inactive" for somebody switched off without one. */}
           {worker.active === false && (
-            <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
-              {t("app.setWorkers.inactive")}
+            <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground" data-worker-status>
+              {isSeparated(worker)
+                ? `${t("app.separation.endedBadge", {
+                    date: formatDateOnly(worker.separatedOn),
+                  })} · ${t(separationTypeKey(worker.separationType))}`
+                : t("app.setWorkers.inactive")}
             </span>
           )}
           {saved && (
@@ -509,7 +576,8 @@ function WorkerRow({ worker, workers = [], attendance = null, reload, onConnect 
           </div>
         )}
       </div>
-      <div className="flex items-center gap-2 shrink-0">
+      {/* Wraps: up to five pills now, and a phone is 375px wide. */}
+      <div className="flex flex-wrap items-center gap-2">
         {worker.type === "contractor" &&
           (worker.stripeConnectedAccountId ? (
             <span className="text-xs text-green-600 dark:text-green-400">
@@ -523,12 +591,61 @@ function WorkerRow({ worker, workers = [], attendance = null, reload, onConnect 
               {t("app.setWorkers.connectStripe")}
             </button>
           ))}
+        {/* Where the separation record lives. Ended workers drop off Manage
+            Team's roster, so without this their HR file has no way in. */}
+        {canOpenHr && (
+          <Link
+            href={`/app/settings/team/people/${worker.id}`}
+            className="text-xs border border-border rounded-full px-3 py-1.5"
+            data-hr-file-link
+          >
+            {t("app.hr.person.file")}
+          </Link>
+        )}
         <button
           onClick={() => setEditing(true)}
           className="text-xs border border-border rounded-full px-3 py-1.5"
         >
           {t("app.action.edit")}
         </button>
+        {/* ── The visible way off payroll ──────────────────────────────────
+            The owner removed a worker from the team and could not find how to
+            take him off payroll: the only control was the Active checkbox
+            inside Edit, which also could not say why he left. It still works
+            (and is still the bare switch); this is the one that records the
+            reason. An inactive worker with no reason on file gets "Record why
+            they left" beside Re-activate, so somebody switched off the old way
+            can still have their file completed. */}
+        {worker.active !== false && onEnd && (
+          <button
+            type="button"
+            onClick={onEnd}
+            className="text-xs border border-border rounded-full px-3 py-1.5 text-red-700 dark:text-red-300"
+            data-end-employment
+          >
+            {t("app.separation.endEmployment")}
+          </button>
+        )}
+        {worker.active === false && onEnd && !isSeparated(worker) && (
+          <button
+            type="button"
+            onClick={onEnd}
+            className="text-xs border border-border rounded-full px-3 py-1.5"
+            data-record-separation
+          >
+            {t("app.separation.recordWhy")}
+          </button>
+        )}
+        {worker.active === false && onReactivate && (
+          <button
+            type="button"
+            onClick={onReactivate}
+            className="text-xs border border-border rounded-full px-3 py-1.5"
+            data-reactivate
+          >
+            {t("app.separation.reactivate")}
+          </button>
+        )}
       </div>
     </div>
   );

@@ -17,6 +17,14 @@ import AccessEditor, {
 import { describeAccess } from "@/lib/permissions/accessPresets";
 import { personTitle } from "@/lib/team/personLabel";
 import CommissionRates from "@/app/components/commissions/CommissionRates";
+import {
+  EndEmploymentDialog,
+  SeparationFields,
+  emptySeparation,
+  separationFormError,
+  separationErrorText,
+  submitSeparation,
+} from "@/app/components/team/EndEmployment";
 import { PERMISSION_PRESETS, PRESET_TO_ROLE } from "@/lib/permissions";
 import {
   ROLE_LABELS,
@@ -103,6 +111,21 @@ export default function TeamOverviewPage() {
   // different sentences because they are different outcomes.
   const [resendingId, setResendingId] = useState(null);
   const [notice, setNotice] = useState("");
+  // ── Ending employment from this page ───────────────────────────────────
+  //
+  // The owner cancelled a worker's invitation here, read "remove that from
+  // Workers", and found no Remove anywhere. The same End-employment dialog
+  // the Workers page uses is offered on the no-login rows and, as an opt-in,
+  // inside the cancel-invitation dialog. Gated on the Workers page's own
+  // capability — payroll — via canChange, so a read-only support session
+  // never sees a live-looking button (POST /separation re-checks it).
+  const canEndEmployment = access.canChange("payroll");
+  const [endingWorker, setEndingWorker] = useState(null);
+  // Cancel-invitation dialog: "also end their employment", unticked by
+  // default, with the same four questions when ticked.
+  const [revokeAlsoEnd, setRevokeAlsoEnd] = useState(false);
+  const [revokeSeparation, setRevokeSeparation] = useState(emptySeparation);
+  const [revokeError, setRevokeError] = useState("");
 
   // What THIS user is allowed to assign. Comes from the server rather than
   // being inferred client-side: the UI should offer exactly what the API will
@@ -415,9 +438,23 @@ export default function TeamOverviewPage() {
   // Cancel an invitation nobody has accepted. The server is the authority
   // (DELETE /api/settings/members/pending/[id] re-checks the permission and
   // the company); this only decides whether to offer the control.
-  async function revokeInvite(pendingRow) {
+  async function revokeInvite(pendingRow, linkedWorker = null) {
+    // Checked BEFORE the cancel, so a half-filled separation form doesn't
+    // leave an invitation cancelled and the person still on payroll.
+    const alsoEnd = revokeAlsoEnd && !!linkedWorker;
+    if (alsoEnd) {
+      const field = separationFormError(revokeSeparation, {
+        hiredOn: linkedWorker.hiredOn,
+      });
+      if (field) {
+        setRevokeError(separationErrorText(t, field));
+        return;
+      }
+    }
+    setRevokeError("");
     setRevokingId(pendingRow.id);
     setError("");
+    setNotice("");
     try {
       const res = await fetch(`/api/settings/members/pending/${pendingRow.id}`, {
         method: "DELETE",
@@ -430,12 +467,46 @@ export default function TeamOverviewPage() {
         );
       }
       setConfirmRevoke(null);
+      if (alsoEnd) {
+        // The worker the SERVER found for that address (workerKept), not the
+        // one this page matched — the cancel route's lookup is the link, and
+        // this only ever acts on what it reported.
+        const kept = data?.workerKept;
+        if (!kept?.id) {
+          setNotice(t("app.separation.cancelNoWorker"));
+        } else {
+          try {
+            await submitSeparation(t, kept.id, revokeSeparation);
+            setNotice(t("app.separation.done", { name: kept.name || linkedWorker.name }));
+          } catch (err) {
+            setError(t("app.separation.cancelThenFailed", { error: err.message }));
+          }
+        }
+      }
       await load();
     } catch (err) {
       setError(err.message);
     } finally {
       setRevokingId(null);
     }
+  }
+
+  function openRevoke(pendingRow) {
+    setRevokeAlsoEnd(false);
+    setRevokeSeparation(emptySeparation());
+    setRevokeError("");
+    setConfirmRevoke(pendingRow);
+  }
+
+  // The Worker row a pending invitation is linked to: the cancel route finds
+  // it by company + email (app/api/settings/members/pending/[id]), so the
+  // same match decides whether to offer "also end their employment". Only an
+  // active, login-less row — somebody already off payroll has nothing to end.
+  function linkedWorkerFor(pendingRow) {
+    if (!pendingRow?.email) return null;
+    return (
+      unlinkedWorkers.find((w) => w.email && w.email === pendingRow.email) || null
+    );
   }
 
   // Send a pending invitation again. The server (POST
@@ -1023,7 +1094,7 @@ export default function TeamOverviewPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setConfirmRevoke(p)}
+                    onClick={() => openRevoke(p)}
                     disabled={revokingId === p.id || resendingId === p.id}
                     className="text-xs font-semibold text-red-700 dark:text-red-300 border border-border rounded-full px-2.5 py-1 flex items-center gap-1 disabled:opacity-60"
                   >
@@ -1068,9 +1139,12 @@ export default function TeamOverviewPage() {
           and the timesheet form, and gets paid — QA found one carrying a
           $232.17 pay-run line — while being completely absent from this page.
           A manager could schedule and pay someone they could not see.
-          Listed read-only. There is no role and no access to toggle, because
-          there is no login; that is the whole point, and inventing controls
-          for it would be worse than the omission. */}
+          No role and no access to toggle, because there is no login; that is
+          the whole point, and inventing controls for it would be worse than
+          the omission. The one control is End employment, for payroll admins:
+          being on the books is exactly what these rows are about, and the
+          owner removed somebody from the team and then could not find how to
+          take him off payroll. */}
       {unlinkedWorkers.length > 0 && (
         <div className="bg-card border border-border rounded-xl overflow-hidden">
           <div className="px-5 py-3 border-b border-border">
@@ -1111,8 +1185,20 @@ export default function TeamOverviewPage() {
                     </Link>
                   )}
                 </div>
-                <span className="text-xs px-2.5 py-1 rounded-full bg-muted text-muted-foreground shrink-0">
-                  {t("app.setTeam.noLoginBadge", "No login")}
+                <span className="flex flex-wrap items-center justify-end gap-2 shrink-0">
+                  <span className="text-xs px-2.5 py-1 rounded-full bg-muted text-muted-foreground">
+                    {t("app.setTeam.noLoginBadge", "No login")}
+                  </span>
+                  {canEndEmployment && (
+                    <button
+                      type="button"
+                      onClick={() => setEndingWorker(w)}
+                      className="text-xs font-semibold text-red-700 dark:text-red-300 border border-border rounded-full px-2.5 py-1"
+                      data-end-employment
+                    >
+                      {t("app.separation.endEmployment")}
+                    </button>
+                  )}
                 </span>
               </div>
             ))}
@@ -1211,23 +1297,69 @@ export default function TeamOverviewPage() {
         </div>
       )}
 
-      {confirmRevoke && (
-        <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-          <div className="fq-dialog-card bg-card rounded-t-2xl sm:rounded-xl w-full sm:max-w-sm p-6 space-y-4">
+      {endingWorker && (
+        <EndEmploymentDialog
+          worker={endingWorker}
+          onClose={() => setEndingWorker(null)}
+          onDone={async () => {
+            setError("");
+            setNotice(t("app.separation.done", { name: endingWorker.name }));
+            setEndingWorker(null);
+            await load();
+          }}
+        />
+      )}
+
+      {confirmRevoke && (() => {
+        const linkedWorker = canEndEmployment ? linkedWorkerFor(confirmRevoke) : null;
+        return (
+        <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 overflow-y-auto">
+          <div className="fq-dialog-card bg-card rounded-t-2xl sm:rounded-xl w-full sm:max-w-sm p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             <h2 className="font-semibold text-foreground">
               {t("app.setTeam.cancelInviteTitle", "Cancel this invitation?")}
             </h2>
+            {/* It used to end "remove that from Workers if you need to" — and
+                Workers had no Remove. It now names the control that exists. */}
             <p className="text-sm text-muted-foreground">
-              {t(
-                "app.setTeam.cancelInviteBody",
-                "Their invitation link stops working and the licence is freed. They keep any worker record already on your books — remove that from Workers if you need to.",
-              )}
+              {t("app.setTeam.cancelInviteBody")}
             </p>
             <p className="text-sm font-medium text-foreground">
               {confirmRevoke.name
                 ? `${confirmRevoke.name} — ${confirmRevoke.email}`
                 : confirmRevoke.email}
             </p>
+            {/* Offered only when this invitation has a worker row on the
+                books (the cancel route's own email match) and the reader may
+                end employment. Unticked by default: cancelling an invite is
+                not, by itself, a decision about somebody's job. */}
+            {linkedWorker && (
+              <div className="space-y-3">
+                <label className="flex items-start gap-2 text-sm text-foreground">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={revokeAlsoEnd}
+                    onChange={(e) => {
+                      setRevokeAlsoEnd(e.target.checked);
+                      setRevokeError("");
+                    }}
+                    data-revoke-also-end
+                  />
+                  {t("app.separation.alsoEnd")}
+                </label>
+                {revokeAlsoEnd && (
+                  <SeparationFields
+                    value={revokeSeparation}
+                    onChange={setRevokeSeparation}
+                  />
+                )}
+              </div>
+            )}
+            {revokeError && (
+              <div className="rounded-lg bg-red-50 dark:bg-red-950/30 px-3 py-2 text-sm text-red-700 dark:text-red-300">
+                {revokeError}
+              </div>
+            )}
             <div className="flex gap-3">
               <button
                 type="button"
@@ -1239,7 +1371,7 @@ export default function TeamOverviewPage() {
               <button
                 type="button"
                 disabled={revokingId === confirmRevoke.id}
-                onClick={() => revokeInvite(confirmRevoke)}
+                onClick={() => revokeInvite(confirmRevoke, linkedWorker)}
                 className="flex-1 bg-red-600 text-white py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
               >
                 {revokingId === confirmRevoke.id
@@ -1249,7 +1381,8 @@ export default function TeamOverviewPage() {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
