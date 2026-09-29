@@ -34,6 +34,7 @@ import {
   buildChangeOrderSignature,
 } from "@/lib/jobs/changeOrderAddendum";
 import { applyChangeOrderDecision } from "@/lib/jobs/changeOrderDecision";
+import { syncForSourceJob } from "@/lib/subcontractors/sourceLink";
 
 // First hop of x-forwarded-for is the client on Vercel. Best-effort — an audit
 // record with a null IP is still a valid signature, just weaker evidence.
@@ -231,6 +232,14 @@ export async function POST(request, { params }) {
   }
 
   await applyChangeOrderDecision(co.id, "approved", { byUserId: null, previousStatus: "waiting_client" });
+
+  // When this job's quote was imported by a general contractor on FieldQuo,
+  // the signer IS that contractor, and their job's subcontract cost becomes
+  // the quote plus every change order they signed — replaced, never added
+  // to (lib/subcontractors/sourceLink.js). Here and only here, and on the
+  // staff PATCH that can take a decision back: a signature is the one thing
+  // allowed to move the GC's side. Never throws.
+  await syncForSourceJob(db, { jobId: co.jobId });
 
   const label = changeOrderLabel(co, await db.changeOrder.findMany({ where: { jobId: co.jobId }, select: { id: true, seq: true, createdAt: true } }));
   await recordActivity(

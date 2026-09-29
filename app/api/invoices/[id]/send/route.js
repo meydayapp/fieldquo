@@ -39,6 +39,7 @@ import { familyPayments } from "@/lib/invoices/family";
 import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
 import { invoiceSendAsk } from "@/lib/invoices/sendAsk";
 import { fileSentInvoiceDocument } from "@/lib/jobs/documentAutofile";
+import { syncForSourceInvoice } from "@/lib/subcontractors/sourceLink";
 import {
   loadEnforceableMember,
   requireLevel,
@@ -329,6 +330,13 @@ export async function POST(request, { params }) {
   } catch (err) {
     console.error("[invoice send] job document:", err?.message);
   }
+
+  // When the quote this invoice bills was imported by a general contractor on
+  // FieldQuo, the invoice is THEIR subcontractor bill: a copy lands on their
+  // job, beside the approved figure it is checked against
+  // (lib/subcontractors/sourceLink.js). Never throws; a send is never failed
+  // by it.
+  await syncForSourceInvoice(db, { invoiceId: invoice.id });
 
   // Usage count — see lib/analytics/product/server.js.
   await recordFeatureUse("invoice_sent", { companyId: member.companyId, memberId: member.id });
