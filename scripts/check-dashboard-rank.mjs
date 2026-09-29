@@ -736,6 +736,10 @@ const RANKED_FILES = [
   "app/components/dashboard/HeroRevenue.js",
   "app/components/dashboard/SecondaryMetrics.js",
   "app/components/dashboard/Delta.js",
+  // The home rebuild of 2026-09-29 put two more money-bearing panels above
+  // the fold; they are held to the same rule.
+  "app/components/dashboard/WorkPanel.js",
+  "app/components/dashboard/FocusSection.js",
 ];
 // Deliberately NOT in scope, and named rather than silently skipped:
 // OnboardingProgress, RevenueGoalCard, AwaitingPayment, MigrationNotice and
@@ -796,15 +800,24 @@ console.log("\n9. The order on the page is the ranked order\n");
 // passes trivially when `a` is absent (-1 is less than everything), so every
 // marker is asserted PRESENT before any of them is compared.
 
-const dashboardBody = braceBody(pageSrc, "export default function DashboardPage(");
-ok("DashboardPage's body was found", Boolean(dashboardBody));
+// Since 2026-09-29 the office dashboard is its own component
+// (OfficeDashboard) — DashboardPage only chooses between it and crew "My
+// day" (scripts/check-dashboard-home.mjs holds that choice). The order is the
+// owner's new design: the work panel, the automation's leftovers, "Your
+// focus", the set-up checklist, then the numbers, compact.
+const dashboardBody = braceBody(pageSrc, "function OfficeDashboard(");
+ok("OfficeDashboard's body was found", Boolean(dashboardBody));
 
 const ORDER = [
+  ["the work panel", "<WorkPanel"],
   ["the block that needs a person", "<NeedsToday"],
+  ["your focus", "<FocusSection"],
+  ["the set-up checklist", "<SetupSteps"],
+  ['the "numbers" rule', "app.dash.rest.title"],
   ["the hero figure", "<HeroRevenue"],
   ["the four supporting metrics", "<SecondaryMetrics"],
-  ['the "everything else" rule', "app.dash.rest.title"],
   ["the received-money chart", 'id="money-received"'],
+  ["the goal, beside it", "<RevenueGoalCard"],
   ["recent quotes", "app.dash.recentQuotes"],
 ];
 const at_ = ORDER.map(([label, marker]) => {

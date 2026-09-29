@@ -18,6 +18,11 @@ import NeedsToday from "@/app/components/dashboard/NeedsToday";
 import HeroRevenue from "@/app/components/dashboard/HeroRevenue";
 import SecondaryMetrics from "@/app/components/dashboard/SecondaryMetrics";
 import MigrationNotice from "@/app/components/dashboard/MigrationNotice";
+import WorkPanel from "@/app/components/dashboard/WorkPanel";
+import FocusSection from "@/app/components/dashboard/FocusSection";
+import CrewMyDay from "@/app/components/dashboard/CrewMyDay";
+import InfoTip from "@/app/components/dashboard/InfoTip";
+import { isCrewHome } from "@/lib/dashboard/crewHome";
 import { Figure, FigureText } from "@/app/components/dashboard/Figure";
 import { monthLabel, sparklineMonthsFor, trendSentenceFor } from "@/app/components/dashboard/trendSentence";
 import { CARD_CLIPPED, INSET } from "@/app/components/dashboard/surface";
@@ -39,10 +44,12 @@ import ListState from "@/app/components/ListState";
 // panels, described only as a count. Nobody reading it could tell what needed
 // doing.
 //
-// The order now is: what needs a person today, the one figure the business
-// runs on, four supporting figures, then everything else. Nothing was deleted
-// to make room — the aging detail, the received-money chart, the goal card,
-// recent quotes and the appointments list are all still here, below.
+// The order since 2026-09-29 (the owner's design): the work panel — what is
+// waiting on a person, tab by tab — then "Your focus" (what they told us
+// matters), then the set-up checklist in that order, then the numbers,
+// compact: the hero figure, four supporting figures, the payments chart
+// beside the goal, the aging detail, recent quotes and the diary. Nothing was
+// deleted to make room; every panel that was here still is.
 //
 // The decisions that ranking involves — is this figure known, is there an
 // honest comparison, is the sample big enough to print a percentage — are NOT
@@ -83,7 +90,21 @@ function clockTime(value) {
   return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 }
 
+// ── Two homes, one URL (2026-09-29) ────────────────────────────────────────
+//
+// Crew — no owner/admin seat, no schedule to run, none of the office
+// documents — land on "My day": the next stop, the week, the clock, the job's
+// photos and checklist, and no money (lib/dashboard/crewHome.js decides who,
+// and scripts/check-dashboard-home.mjs runs that decision over every preset).
+// Everyone else gets the office dashboard below. Two components rather than
+// one with branches, so neither home's hooks fire for the other: the office
+// dashboard's money reads are never even asked for by a crew member.
 export default function DashboardPage() {
+  const caller = usePermissions();
+  return isCrewHome(caller) ? <CrewMyDay /> : <OfficeDashboard />;
+}
+
+function OfficeDashboard() {
   const { t } = useTranslation();
   const canCreateQuote = useHasLevel("quotes", "view_create_edit");
   // GET /api/quotes refuses at quotes:none (Crew), and the "Recent quotes"
@@ -202,6 +223,31 @@ export default function DashboardPage() {
         }
       });
   }, []);
+
+  // ── The work panel and "Your focus" ──────────────────────────────────────
+  //
+  // One read (GET /api/dashboard/home), shaped to the member on the server.
+  // `null` until it answers; a failure keeps its error key and retry, like
+  // every other panel here. Never refused as a whole — tabs and facts the
+  // member may not see arrive marked so, and the components leave them out.
+  const [home, setHome] = useState(null);
+  const [homeErrorKey, setHomeErrorKey] = useState("");
+  const loadHome = useCallback(async () => {
+    const result = await fetchList("/api/dashboard/home", { cache: "no-store" });
+    if (result.aborted) return;
+    if (result.ok) {
+      setHome(result.data);
+      setHomeErrorKey("");
+      return;
+    }
+    setHome(null);
+    setHomeErrorKey(result.errorKey);
+  }, []);
+  useEffect(() => {
+    loadHome();
+  }, [loadHome]);
+  /** Does the work panel carry this tab for this member? */
+  const workTabAllowed = (key) => Boolean(home?.work?.tabs?.some((tab) => tab.key === key && tab.allowed));
 
   const loadOverview = useCallback(async () => {
     const result = await fetchList("/api/analytics/overview");
@@ -457,29 +503,108 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6 sm:space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">{t("app.dash.title")}</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          {t("app.dash.subtitle")}
-        </p>
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-5 sm:space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold text-foreground">{t("app.dash.title")}</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {t("app.dash.subtitle")}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {/* Same rule POST /api/quotes enforces — see app/app/quotes/page.js.
+              The other two lead to screens a view_only member can genuinely use. */}
+          {canCreateQuote && (
+            <Link
+              href="/app/quotes/new"
+              className="inline-flex min-h-10 items-center bg-inverted text-inverted-foreground px-4 rounded-full text-sm font-semibold"
+            >
+              {t("app.dash.newQuote", "+ New Quote")}
+            </Link>
+          )}
+          <Link
+            href="/app/clients"
+            className="inline-flex min-h-10 items-center border border-border px-4 rounded-full text-sm font-semibold"
+          >
+            {t("app.dash.viewClients")}
+          </Link>
+          <Link
+            href="/app/appointments"
+            className="inline-flex min-h-10 items-center border border-border px-4 rounded-full text-sm font-semibold"
+          >
+            {t("app.dash.scheduleAppointment")}
+          </Link>
+        </div>
       </div>
 
-      {/* ── 1. What is waiting on a person ──────────────────────────────────
-          Above everything, because it is the only content on this page that is
-          waiting on the reader — the panels below are figures, and figures
-          keep. Overdue invoices by name and amount, then the three things the
-          automation did that still need somebody. Renders itself away when
-          there is nothing, so a quiet company is not accused of a backlog it
-          does not have. */}
+      {/* ── 1. The work panel ───────────────────────────────────────────────
+          Requests · Quotes · Jobs · Invoices, each badged with what is waiting
+          on a person (the owner's design, 2026-09-29; rules in
+          lib/dashboard/workPanel.js). A tab the member may not see is not
+          drawn at all. A failed load says so and offers a retry; a panel that
+          quietly vanished would read as "nothing to do". */}
+      {homeErrorKey && (
+        <ListState loading={false} isEmpty={false} errorKey={homeErrorKey} onRetry={loadHome}>
+          {null}
+        </ListState>
+      )}
+      <WorkPanel
+        work={home?.work}
+        currency={home?.currency}
+        readOnly={Boolean(home?.readOnly)}
+        onChanged={() => {
+          loadHome();
+          loadMoney();
+        }}
+      />
+
+      {/* What the automation did that still needs somebody — the calls the
+          receptionist took, the visits it booked. The overdue invoices and the
+          instant estimates this card used to list first now live in the
+          panel's Invoices and Requests tabs, so they are omitted here exactly
+          when the member has those tabs; one list per fact. Renders itself
+          away when there is nothing. */}
       <NeedsToday
         needs={rank.needsToday}
         onChase={(inv) => chase(inv, "top")}
         chasing={chasing}
         chaseError={chaseError}
         chaseNote={chaseNote}
+        // Until the panel answers, the panel is assumed to carry them (no
+        // flash of rows that then move); if it fails, they come back here.
+        omit={
+          home
+            ? { overdue: workTabAllowed("invoices"), reviews: workTabAllowed("requests") }
+            : { overdue: !homeErrorKey, reviews: !homeErrorKey }
+        }
       />
 
+      {/* Bookings held for a visit fee that hasn't landed. They have no
+          Appointment by design, so they appear on no calendar — this is the one
+          place they are visible at all. Renders itself away when empty. */}
+      <AwaitingPayment />
+
+      {/* FieldQuo's own migration surcharge waiting on a decision or a
+          payment — the "similar to an invoice they'd need to pay" surface
+          the data-migration brief asked for. Renders itself away when there
+          is nothing quoted or accepted-and-unpaid. */}
+      <MigrationNotice />
+
+      {/* ── 2. Your focus ───────────────────────────────────────────────────
+          Driven by Company.signupPriority and signupFocus; cards resolved from
+          real facts by lib/dashboard/focus.js. A company that never answered
+          gets the picker once (owner/admin). */}
+      {home && (
+        <FocusSection
+          focus={home.focus}
+          facts={home.facts}
+          perms={home.perms}
+          readOnly={Boolean(home.readOnly)}
+          onSaved={loadHome}
+        />
+      )}
+
+      {/* ── 3. The set-up checklist ─────────────────────────────────────── */}
       {onboardingError && (
         <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm px-4 py-3">
           Onboarding status unavailable: {onboardingError}
@@ -499,9 +624,10 @@ export default function DashboardPage() {
         footer={<TourLauncher />}
       />
 
-      {/* The eleven things worth doing after onboarding — each row removed the
-          moment the database says it is done, or hidden by hand. Fetches and
-          gates itself; renders nothing when nothing is left.
+      {/* The things worth doing after onboarding, as a checklist ordered by
+          the company's focus — each row removed the moment the database says
+          it is done, or hidden by hand. Fetches and gates itself; renders
+          nothing when nothing is left.
 
           "Take the tour" rides on exactly one card: the onboarding card while
           it shows, this one once it has gone (complete, or failed to load).
@@ -510,6 +636,8 @@ export default function DashboardPage() {
           appear here and then jump up a card. */}
       {canManageSetup && (
         <SetupSteps
+          priority={home?.focus?.priority || null}
+          focus={home?.focus?.focus || null}
           footer={
             onboardingError || (onboarding && (onboarding.complete || !onboarding.steps?.length))
               ? <TourLauncher />
@@ -518,10 +646,20 @@ export default function DashboardPage() {
         />
       )}
 
+      {/* ── 4. The numbers, compact ─────────────────────────────────────────
+          Demoted, not deleted: the hero figure, the four supporting tiles,
+          the received-money chart with its period selector, the goal, the
+          aging detail, recent quotes and the appointments list are all still
+          here and all still work. */}
+      <div className="border-t border-foreground/15 pt-5">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {t("app.dash.rest.title", "The detail")}
+        </h2>
+      </div>
+
       {/* The money figures failed to load — but were not refused. One
           rendering of a failed load for the whole app, reassurance sentence
-          and retry included. Above the hero rather than inside it, because a
-          full-width panel occupying one grid cell reads as a broken tile. */}
+          and retry included. */}
       {overviewErrorKey && (
         <ListState
           loading={false}
@@ -533,8 +671,9 @@ export default function DashboardPage() {
         </ListState>
       )}
 
-      {/* ── 2. The hero figure ──────────────────────────────────────────────
-          Absent, not zeroed, for a member the overview endpoint refused. */}
+      {/* The hero figure — "Paid invoices this month", beside "Payments
+          received", each with a tip saying what it counts. Absent, not
+          zeroed, for a member the overview endpoint refused. */}
       <HeroRevenue
         hero={rank.hero}
         trendSentence={trendSentence}
@@ -542,46 +681,10 @@ export default function DashboardPage() {
         t={t}
       />
 
-      {/* ── 3. The four that support it ─────────────────────────────────────
-          2×2 at every width including a phone. Each tile is independently
-          absent — a member with showPricing off sees the one tile that is not
-          money rather than three tiles reading zero. */}
+      {/* The four that support it. 2×2 at every width including a phone.
+          Each tile is independently absent — a member with showPricing off
+          sees the one tile that is not money rather than three reading zero. */}
       <SecondaryMetrics metrics={rank.metrics} t={t} />
-
-      <div className="flex flex-wrap gap-3">
-        {/* Same rule POST /api/quotes enforces — see app/app/quotes/page.js.
-            The other two lead to screens a view_only member can genuinely use. */}
-        {canCreateQuote && (
-          <Link
-            href="/app/quotes/new"
-            className="bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
-          >
-            {t("app.dash.newQuote", "+ New Quote")}
-          </Link>
-        )}
-        <Link
-          href="/app/clients"
-          className="border border-border px-4 py-2.5 rounded-full text-sm font-semibold"
-        >
-          {t("app.dash.viewClients")}
-        </Link>
-        <Link
-          href="/app/appointments"
-          className="border border-border px-4 py-2.5 rounded-full text-sm font-semibold"
-        >
-          {t("app.dash.scheduleAppointment")}
-        </Link>
-      </div>
-
-      {/* ── 4. Everything else ──────────────────────────────────────────────
-          Demoted, not deleted. The aging detail, the received-money chart with
-          its period selector, the goal, the held bookings, recent quotes and
-          the appointments list are all still here and all still work. */}
-      <div className="border-t border-foreground/15 pt-5">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          {t("app.dash.rest.title", "The detail")}
-        </h2>
-      </div>
 
       {/* The money panels failed to load — but were not refused. Same shape,
           same reasoning as the overview banner above. */}
@@ -599,13 +702,24 @@ export default function DashboardPage() {
       {/* ── What has actually come in, month by month ───────────────────────
           The hero figure above totals invoices marked paid; this counts
           PAYMENTS. Two different questions, and the caption says which one this
-          is rather than letting the two quietly disagree. */}
+          is rather than letting the two quietly disagree.
+
+          Side by side with the yearly goal on a wide screen, stacked on a
+          phone — the bottom of the page is compact now (2026-09-29). */}
+      <div className="grid gap-5 sm:gap-6 lg:grid-cols-2 lg:items-start">
       {money?.revenue && (
         <div id="money-received" className={CARD_CLIPPED}>
-          <div className="flex items-center justify-between px-4 sm:px-5 py-4 border-b border-foreground/15 gap-3">
-            <h2 className="font-semibold text-foreground flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-between px-4 sm:px-5 py-3 border-b border-foreground/15 gap-3">
+            <h2 className="font-semibold text-foreground flex flex-wrap items-center gap-x-2">
               <TrendingUp size={16} className="text-muted-foreground" aria-hidden="true" />
-              {t("app.dash.revenue.title", "Money received")}
+              {t("app.dash.paymentsReceived", "Payments received")}
+              <InfoTip
+                label={t("app.dash.whatIsThis", "What does this count?")}
+                text={t(
+                  "app.dash.paymentsReceivedTip",
+                  "Every payment you recorded — deposits and part-payments included — counted in the month the money arrived. This is the money that actually reached you.",
+                )}
+              />
             </h2>
             <div className="flex gap-1.5">
               {(money.periods || []).map((p) => (
@@ -651,7 +765,7 @@ export default function DashboardPage() {
                 </p>
               ) : (
                 <>
-                  <div className="flex items-end gap-2 h-32">
+                  <div className="flex items-end gap-2 h-24">
                     {money.revenue.series.map((s, _i, series) => {
                       const max = Math.max(...series.map((r) => r.amount));
                       // A month with nothing in it gets no bar at all. A
@@ -693,8 +807,8 @@ export default function DashboardPage() {
                   </FigureText>
                   <p className="text-xs text-muted-foreground mt-3">
                     {t(
-                      "app.dash.revenue.caption",
-                      "Payments recorded, by the month they were received. The revenue figure at the top of the page totals invoices marked paid, which is a different measure.",
+                      "app.dash.payments.caption",
+                      "Payments recorded, by the month they arrived. Paid invoices this month, above, counts invoices at their full total instead — a different measure.",
                     )}
                     {money.revenue.series.some((s) => s.partial)
                       ? ` ${t("app.dash.revenue.partial", "The last bar is the current month, still in progress.")}`
@@ -706,6 +820,19 @@ export default function DashboardPage() {
           )}
         </div>
       )}
+
+      {/* Yearly goal + pace. Renders itself away for a non-admin with no goal
+          set, so it's never a dead prompt. */}
+      <RevenueGoalCard
+        goal={overview?.goal}
+        canEdit={Boolean(overview?.canEditGoal)}
+        onSaved={() =>
+          fetch("/api/analytics/overview")
+            .then((r) => (r.ok ? r.json() : null))
+            .then(setOverview)
+        }
+      />
+      </div>
 
       {/* ── Money owed, with age ────────────────────────────────────────────
           The aging detail, demoted below the fold — the overdue rows it used to
@@ -1087,29 +1214,6 @@ export default function DashboardPage() {
           )}
         </div>
       )}
-
-      {/* Yearly goal + pace. Renders itself away for a non-admin with no goal
-          set, so it's never a dead prompt. */}
-      <RevenueGoalCard
-        goal={overview?.goal}
-        canEdit={Boolean(overview?.canEditGoal)}
-        onSaved={() =>
-          fetch("/api/analytics/overview")
-            .then((r) => (r.ok ? r.json() : null))
-            .then(setOverview)
-        }
-      />
-
-      {/* Bookings held for a visit fee that hasn't landed. They have no
-          Appointment by design, so they appear on no calendar — this is the one
-          place they are visible at all. Renders itself away when empty. */}
-      <AwaitingPayment />
-
-      {/* FieldQuo's own migration surcharge waiting on a decision or a
-          payment — the "similar to an invoice they'd need to pay" surface
-          the data-migration brief asked for. Renders itself away when there
-          is nothing quoted or accepted-and-unpaid. */}
-      <MigrationNotice />
 
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Absent, not erroring, for a member below quotes:view_only — see

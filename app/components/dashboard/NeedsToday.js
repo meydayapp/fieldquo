@@ -94,6 +94,14 @@ const LINE =
  *                   promoted here, and the full "money owed" list downstairs
  *                   still needs the button for invoices that are not yet late.
  * @param chasing    the invoice id mid-request, or null
+ * @param omit       what the page already shows elsewhere (2026-09-29): the
+ *                   home screen's work panel lists overdue invoices under
+ *                   Invoices and instant estimates under Requests, so it
+ *                   passes { overdue: true, reviews: true } and this card
+ *                   keeps only what the panel does not carry — the calls
+ *                   the receptionist took and the visits it booked. One list
+ *                   per fact; the same invoice twice on one screen reads as
+ *                   two invoices.
  */
 export default function NeedsToday({
   needs,
@@ -101,6 +109,7 @@ export default function NeedsToday({
   chasing,
   chaseError,
   chaseNote,
+  omit = {},
 }) {
   const { t } = useTranslation();
   const { formatDateTime } = useCompanyPreferences();
@@ -128,7 +137,7 @@ export default function NeedsToday({
     };
   }, []);
 
-  const reviewCount = reviews ? reviews.length : 0;
+  const reviewCount = reviews && !omit.reviews ? reviews.length : 0;
   // A call is done with when it became a quote or somebody archived it — the
   // API reports `archived` as either (see the Quote.sourceCallId join in
   // app/api/voice/calls/route.js). `!quote` is stated as well because this line
@@ -136,7 +145,7 @@ export default function NeedsToday({
   // know the derivation to trust the number.
   const openCalls = calls ? calls.filter((c) => !c.archived && !c.quote).length : 0;
   const upcoming = upcomingBookings(calls);
-  const overdue = needs?.rows || [];
+  const overdue = omit.overdue ? [] : needs?.rows || [];
 
   if (
     overdue.length === 0 &&
