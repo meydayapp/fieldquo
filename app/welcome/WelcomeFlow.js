@@ -45,6 +45,7 @@ import {
 } from "@/lib/signup/welcome";
 
 import { WELCOME_NEXT_KEY, WELCOME_LINK_KEY } from "@/app/welcome/storageKeys";
+import { pendingAddToQuotePath } from "@/lib/quotes/addToQuoteLink";
 
 /** The analytics beacon a screen sends when shown — lib/analytics/product/events.js SIGNUP_STEP_BAR. */
 export const WELCOME_BEACON = Object.freeze(Object.fromEntries(WELCOME_STEPS.map((s) => [s, `w_${s}`])));
@@ -54,7 +55,16 @@ function afterSetupUrl() {
     const next = sessionStorage.getItem(WELCOME_NEXT_KEY);
     if (isInternalPath(next)) return next;
   } catch {
-    // Blocked storage: the dashboard.
+    // Blocked storage: the cookie below, else the dashboard.
+  }
+  // A signup that began on "add this price to your own quote" but outlived
+  // its tab (email verified elsewhere, back tomorrow) still lands on that
+  // quote — lib/quotes/addToQuoteLink.js.
+  try {
+    const pending = pendingAddToQuotePath(document.cookie);
+    if (isInternalPath(pending)) return pending;
+  } catch {
+    // Blocked cookies: the dashboard.
   }
   return "/app";
 }
