@@ -60,7 +60,7 @@ export default function TermsPage() {
         company you were not invited to.
       </p>
       <p>
-        A new company's first month is free (see the pricing page for current
+        A new company's first 14 days are free (see the pricing page for current
         plans and rates). We also run a referral programme: when a company
         you refer signs up and qualifies, both you and they receive one free
         month. Referral terms may change; the terms in effect at the time you

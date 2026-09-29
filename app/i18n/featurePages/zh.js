@@ -16,9 +16,9 @@
 // messages.js. The comment in index.js is one behind and should be corrected.
 
 const zh = {
-  "featurePage.chrome.startTrial": "免费试用一个月",
+  "featurePage.chrome.startTrial": "免费试用 14 天",
   "featurePage.chrome.seePricing": "查看价格",
-  "featurePage.chrome.firstMonthFree": "第一个月免费。注册时需要绑定银行卡，本月结束前不会扣款。",
+  "featurePage.chrome.firstMonthFree": "前 14 天免费，免费期结束前不会扣款。",
   "featurePage.chrome.painsTitle": "这能从你一周里拿掉什么",
   "featurePage.chrome.howTitle": "在这里它怎么运作",
   "featurePage.chrome.specificsTitle": "具体细节",
@@ -31,7 +31,7 @@ const zh = {
   "featurePage.chrome.moreTitle": "这方面还有",
   "featurePage.chrome.moreBody": "每一项都有自己的页面。",
   "featurePage.chrome.ctaTitle": "拿你自己的工程试试",
-  "featurePage.chrome.ctaBody": "第一个月免费。带上你自己的单价、你自己的 logo，还有你手上现成的客户名单。",
+  "featurePage.chrome.ctaBody": "前 14 天免费。带上你自己的单价、你自己的 logo，还有你手上现成的客户名单。",
   "featurePage.chrome.talkToPerson": "找真人聊聊",
   "featurePage.chrome.alsoRead": "看这页的师傅还看了",
   "featuresIndex.title": "FieldQuo 能做的所有事",

@@ -42,7 +42,7 @@ export const SAVINGS_PAGE_TL = {
   "marketing.savings.basis.reported": "Mga numerong iniulat mismo ng mga kontratista",
   "marketing.savings.basis.estimate": "Tantiya namin",
   "marketing.savings.cta.title": "Ang tapat na paraan para masuri ang alinman dito ay sa sarili ninyong mga trabaho.",
-  "marketing.savings.cta.body": "Libre ang unang buwan, at walang kontrata.",
+  "marketing.savings.cta.body": "Libre ang unang 14 na araw, at walang kontrata.",
   "marketing.savings.cta.button": "Magsimula nang libre",
   "marketing.savings.unit.minutes.one": "{n} minuto",
   "marketing.savings.unit.minutes.other": "{n} minuto",

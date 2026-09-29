@@ -206,7 +206,7 @@ export default async function GlossaryTermPage({ params }) {
               pairing rather than trusting this comment. */}
           <p className="mt-3 text-primary-foreground/80">
             Quotes, invoices and scheduling for field-service businesses. Your
-            first month is free — your card isn&apos;t charged until it ends.
+            first 14 days are free — your card isn&apos;t charged until they end.
           </p>
           <Link
             href="/signup"

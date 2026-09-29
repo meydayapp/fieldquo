@@ -125,7 +125,7 @@ export default function Hero() {
         </p>
 
         {/* The demo is kept and demoted, not deleted. A 30-minute sales call is
-            the wrong FIRST ask for a self-serve product whose first month is
+            the wrong FIRST ask for a self-serve product whose first 14 days are
             free — it was the only styled control in this hero, which is what
             made the page ask for a meeting instead of a signup. It is still the
             right SECOND ask for the visitor who wants to talk to somebody, and

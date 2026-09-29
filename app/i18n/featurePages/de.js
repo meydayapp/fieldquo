@@ -5,9 +5,9 @@
 // see the report for the ones worth a second read.
 
 const de = {
-  "featurePage.chrome.startTrial": "Ihren Gratismonat starten",
+  "featurePage.chrome.startTrial": "Ihre 14 Gratistage starten",
   "featurePage.chrome.seePricing": "Preise ansehen",
-  "featurePage.chrome.firstMonthFree": "Ihr erster Monat ist gratis. Bei der Anmeldung wird eine Karte hinterlegt; bis zum Ende des Monats wird nichts abgebucht.",
+  "featurePage.chrome.firstMonthFree": "Ihre ersten 14 Tage sind gratis; bis zu deren Ende wird nichts abgebucht.",
   "featurePage.chrome.painsTitle": "Was Ihnen das von der Woche abnimmt",
   "featurePage.chrome.howTitle": "So funktioniert es hier",
   "featurePage.chrome.specificsTitle": "Die Einzelheiten",
@@ -20,7 +20,7 @@ const de = {
   "featurePage.chrome.moreTitle": "Mehr aus diesem Bereich",
   "featurePage.chrome.moreBody": "Jedes davon hat eine eigene Seite.",
   "featurePage.chrome.ctaTitle": "Testen Sie es an Ihren eigenen Aufträgen",
-  "featurePage.chrome.ctaBody": "Der erste Monat ist gratis. Bringen Sie Ihre eigenen Sätze mit, Ihr eigenes Logo und die Kundenliste, die Sie ohnehin schon haben.",
+  "featurePage.chrome.ctaBody": "Die ersten 14 Tage sind gratis. Bringen Sie Ihre eigenen Sätze mit, Ihr eigenes Logo und die Kundenliste, die Sie ohnehin schon haben.",
   "featurePage.chrome.talkToPerson": "Mit einem Menschen sprechen",
   "featurePage.chrome.alsoRead": "Betriebe, die das lesen, lesen auch",
   "featuresIndex.title": "Alles, was FieldQuo kann",
