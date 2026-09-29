@@ -11,9 +11,11 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
-import { performImport, ImportError } from "@/lib/quotes/importQuote";
+import { performImport, ImportError, sourceCostAmount } from "@/lib/quotes/importQuote";
 import { deriveCommitStatus, importerView } from "@/lib/quotes/importedStatus";
 import { recordActivity } from "@/lib/activity/log";
+import { isPubliclyReadable } from "@/lib/quotes/shareToken";
+import { NEW_TARGET, parseNewClient, createImportTargetQuote } from "@/lib/quotes/importTarget";
 
 export async function POST(request, { params }) {
   const { token } = await params;
@@ -45,7 +47,19 @@ export async function POST(request, { params }) {
       { status: 400 },
     );
 
-  const [sourceQuote, targetQuote, targetCompany] = await Promise.all([
+  // "Start a new quote": the client's name and kind are the only things the
+  // page sends, checked here before anything is written.
+  const startNew = targetQuoteId === NEW_TARGET;
+  let newClient = null;
+  if (startNew) {
+    const { response: noClients } = await levelOrRefusal(member, "clientsProperties", "full_edit", "add clients");
+    if (noClients) return noClients;
+    const parsed = parseNewClient(body.newClient);
+    if (parsed.error) return NextResponse.json({ error: parsed.error }, { status: 400 });
+    newClient = parsed.data;
+  }
+
+  const [sourceQuote, existingTarget, targetCompany] = await Promise.all([
     db.quote.findFirst({
       where: { shareToken: token },
       include: {
@@ -55,15 +69,37 @@ export async function POST(request, { params }) {
     }),
     // Ownership enforced in the query: a target quote id that isn't the viewer's
     // simply doesn't resolve.
-    db.quote.findFirst({
-      where: { id: targetQuoteId, companyId: member.companyId },
-      include: { scopeGroups: true },
-    }),
+    startNew
+      ? Promise.resolve(null)
+      : db.quote.findFirst({
+          where: { id: targetQuoteId, companyId: member.companyId },
+          include: { scopeGroups: true },
+        }),
     db.company.findUnique({
       where: { id: member.companyId },
       select: { taxRate: true },
     }),
   ]);
+
+  // A draft is nobody's to import — the same gate as the page and the GET.
+  if (!sourceQuote || !isPubliclyReadable(sourceQuote.status))
+    return NextResponse.json({ error: "That quote link isn't valid." }, { status: 404 });
+  // Refused BEFORE a new quote is made, so "this is your own quote" never
+  // leaves an empty draft behind it.
+  if (sourceQuote.companyId === member.companyId)
+    return NextResponse.json({ error: "This is your own quote — nothing to import." }, { status: 400 });
+  if (startNew && !(sourceCostAmount(sourceQuote) > 0))
+    return NextResponse.json({ error: "That quote doesn't have an amount to import yet." }, { status: 400 });
+
+  let targetQuote = existingTarget;
+  if (startNew) {
+    try {
+      targetQuote = await createImportTargetQuote(db, { member, client: newClient });
+    } catch (err) {
+      console.error("[import quote] new quote failed:", err?.message);
+      return NextResponse.json({ error: "Couldn't start a new quote. Please try again." }, { status: 500 });
+    }
+  }
 
   try {
     const result = await performImport({
@@ -94,6 +130,9 @@ export async function POST(request, { params }) {
 
     return NextResponse.json({
       ok: true,
+      // Where the success card sends them: the quote, to finish it.
+      targetQuoteId: targetQuote.id,
+      targetQuoteNumber: targetQuote.quoteNumber,
       import: importerView(
         { ...result.import, sourceCompany: sourceQuote.company },
         { commitStatus },

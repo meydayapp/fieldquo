@@ -15,6 +15,7 @@ import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
 import { sourceCostAmount } from "@/lib/quotes/importQuote";
+import { isPubliclyReadable } from "@/lib/quotes/shareToken";
 
 export async function GET(request, { params }) {
   const { token } = await params;
@@ -35,7 +36,15 @@ export async function GET(request, { params }) {
       // the cheapest form of not leaking it.
     },
   });
-  if (!source)
+  // ── A draft is nobody's to import ─────────────────────────────────────────
+  //
+  // Every saved quote carries a token now (lib/quotes/shareToken.js), so a
+  // token resolving says nothing about whether the quote was ever SENT. This
+  // endpoint answered for drafts anyway — the sub's still-being-worked-out
+  // price, to whoever held a link copied early. Same rule and same 404 as the
+  // page itself (app/q/[token]/page.js): the amount goes only to a token
+  // holder who could already read it there.
+  if (!source || !isPubliclyReadable(source.status))
     return NextResponse.json({ error: "This link isn't valid." }, { status: 404 });
 
   // A logged-in viewer. Wrapped because getCurrentMember also runs the billing
@@ -54,6 +63,9 @@ export async function GET(request, { params }) {
   const full = authenticated ? await loadEnforceableMember(db, member.id) : null;
   const canImport =
     authenticated && !isOwnQuote && hasLevel(full, "quotes", "view_create_edit");
+  // "Start a new quote" makes a CLIENT as well as a quote — offered only to
+  // someone the POST will let do both (app/api/clients asks the same level).
+  const canStartNew = canImport && hasLevel(full, "clientsProperties", "full_edit");
 
   // ── Three fields used to be built here and read by nothing ───────────────
   //
@@ -99,6 +111,7 @@ export async function GET(request, { params }) {
     authenticated,
     isOwnQuote,
     canImport,
+    canStartNew,
     openQuotes,
   });
 }
