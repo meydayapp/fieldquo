@@ -280,7 +280,9 @@ ok("comment checkbox is disabled when the creator disabled comments", /disabled=
 ok("composer shows the creator's nickname", /postingAs", \{ name: creatorInfo\.nickname/.test(modal));
 ok("composer states the unaudited privacy rule before posting", /!audited && \(/.test(modal) && /app\.tiktokPublish\.unauditedNotice/.test(modal));
 ok("composer states the processing delay", /app\.tiktokPublish\.processingNote/.test(modal));
-ok("composer fetches creator_info every time it opens", /fetchJson\("\/api\/tiktok\/creator-info"\)/.test(modal) && /\[isOpen, design\?\.id\]/.test(modal));
+// `endpoint` is the design's (or, for a video post, the video's) TikTok
+// route — one per thing being posted, so a new one re-runs the fetch.
+ok("composer fetches creator_info every time it opens", /fetchJson\("\/api\/tiktok\/creator-info"\)/.test(modal) && /\[isOpen, endpoint\]/.test(modal) && /`\/api\/marketing\/designer\/designs\/\$\{design\?\.id\}\/tiktok`/.test(modal));
 ok("server refetches creator_info on the POST itself", /queryCreatorInfo\(\{ accessToken: access\.accessToken \}\)/.test(designerRoute) && designerRoute.indexOf("queryCreatorInfo(") < designerRoute.indexOf("validateTikTokPost("));
 ok("server requires the approval, as the Meta route does", /approvalState\(design, design\.layouts\)/.test(designerRoute.slice(designerRoute.indexOf("export async function POST"))));
 

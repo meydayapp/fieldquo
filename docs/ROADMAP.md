@@ -68,6 +68,57 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Video posts: upload, cover, caption, publish (29 September 2026)
+
+Owner-approved first version — no in-video editing. Marketing Designer ›
+a campaign › **New video post** uploads a clip (browser → Cloudinary,
+purpose `video`, ≤100 MB) and the server reads its size, length and frame
+rate back from Cloudinary (`explicit`, Admin API fallback), refusing under 3 s
+or over 10 min. `/app/marketing/designer/video/[id]` then offers: the shape
+(a clip that isn't 9:16 cannot be posted until the person picks **Fit to 9:16
+(adds bars)** or **Crop to 9:16**, previewed, then shown as the actual
+Cloudinary rendition — H.264/AAC MP4, 24–60 fps, ≤1080×1920, requested with
+`eager_async` because on-the-fly video is capped at 40 MB on Free), a cover
+(a frame, or an uploaded picture for Instagram), the caption, and posting to:
+
+- **Instagram Reel** — `media_type=REELS` container (`thumb_offset` or
+  `cover_url`, `share_to_feed`), polled by the screen; the poll claims the row
+  (compare-and-set) before `media_publish`, so two tabs cannot post twice.
+- **Facebook Page Reel** — `/video_reels` start → rupload `file_url` → finish
+  `PUBLISHED`, status from `GET /{video-id}?fields=status`. Chosen over
+  `/{page-id}/videos` because the Reels guide documents Page limits (3–90 s,
+  ≥540×960, 30/day) and a status endpoint.
+- **TikTok video** — the SAME composer as designs (`TikTokPublishModal`, video
+  mode): Duet/Stitch beside comments, greyed when creator_info says off; the
+  length checked against `max_video_post_duration_sec`; `/v2/post/publish/video/init/`
+  PULL_FROM_URL through `/api/tiktok/media/<token>.mp4` (streamed, Range
+  honoured), or the inbox draft `/v2/post/publish/inbox/video/init/`.
+
+Every limit, the doc URL it came from, the status maps and the error codes are
+in `lib/marketing/videoPost.js`. Recorded on `SocialPublish` / `TikTokPublish`
+(`videoPostId`, `mediaType`, `videoUrl` — additive, applied by SQL) and the new
+`VideoPost` table. Processors text for Cloudinary, Meta and TikTok names video.
+
+### Checks
+
+`check:video-posts` (148) — per-platform limits on hostile input, 9:16
+enforcement in the rules and the routes, payloads md5 against each platform's
+own doc example, the IG/FB/TikTok status maps, publish-exactly-once, a failed
+status read never recorded as a failed post, and the Facebook/Instagram/TikTok
+PHOTO payloads md5-identical to origin/main. `check:tiktok`, `designer`,
+`designer-reach`, `direct-upload`, `legal-pages`, translations green.
+
+### Not in this version
+
+Picking a clip from a job (jobs keep photos only), trimming or any in-video
+edit, scheduling a video, a non-Reel Facebook Page video, deleting a video
+post, a separate approval step (the one screen that posts shows the clip,
+shape, cover and caption), and Facebook custom Reel covers (a separate Graph
+call). Nothing has been posted to a real account yet — the first real post
+(Meta App Review + TikTok audit gates unchanged) is the proof still owed.
+
+---
+
 ## TikTok posting, phase 1 (29 September 2026)
 
 Approved by the owner 2026-09-29. A Marketing Designer design posts to the
