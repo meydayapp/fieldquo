@@ -2,10 +2,12 @@
 //
 // A person's paperwork, from the manager's side: list it, file it.
 //
-// Same two-step upload as app/api/subcontractors/[id]/documents: the
-// browser POSTs the file to /api/upload, gets a Cloudinary URL, and POSTs
-// THAT here. isUploadedUrl() refuses any other host. Nothing is deleted —
-// PATCH /api/hr/documents/[id] archives.
+// Same two-step upload as app/api/subcontractors/[id]/documents, except the
+// file is private: the browser uploads with purpose "hr" (Cloudinary type
+// "authenticated"), and POSTs the resulting URL here. parseWorkerDocumentBody
+// refuses any other host, a public URL, and another company's folder. The
+// file is opened only through GET /api/hr/documents/[id]/open. Nothing is
+// deleted — PATCH /api/hr/documents/[id] archives.
 //
 // Filing a document may complete an onboarding item ("upload a piece of
 // ID"), so the run is reconciled after the write — see lib/onboarding/run.js.
@@ -45,7 +47,7 @@ export async function POST(request, { params }) {
   if (!worker) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const raw = await request.json().catch(() => ({}));
-  const parsed = parseWorkerDocumentBody(raw, { cloudName: process.env.CLOUDINARY_CLOUD_NAME, by: "manager" });
+  const parsed = parseWorkerDocumentBody(raw, { cloudName: process.env.CLOUDINARY_CLOUD_NAME, companyId: member.companyId, by: "manager" });
   if (parsed.error) return NextResponse.json({ error: parsed.error }, { status: parsed.status || 400 });
 
   const document = await db.workerDocument.create({

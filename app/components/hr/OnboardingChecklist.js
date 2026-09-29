@@ -28,6 +28,7 @@ import { fetchList } from "@/lib/loadState";
 import { fetchJson, errorText } from "@/lib/fetchJson";
 import { showError } from "@/lib/clientErrors";
 import { uploadFile } from "@/lib/media/uploadClient";
+import { hrDocumentOpenPath } from "@/lib/hr/documents";
 import ListState from "@/app/components/ListState";
 
 const ICONS = { document: FileBadge, policy: ScrollText, form: FileSpreadsheet };
@@ -110,7 +111,7 @@ export default function OnboardingChecklist({ mode = "self", workerId = null, on
     try {
       let uploaded;
       try {
-        uploaded = await uploadFile(file, { purpose: "documents" });
+        uploaded = await uploadFile(file, { purpose: "hr" });
       } catch (err) {
         showError(err?.message || t("app.hr.docs.uploadError"));
         return;
@@ -221,7 +222,7 @@ export default function OnboardingChecklist({ mode = "self", workerId = null, on
                       </span>
                       {file ? (
                         <span className="block text-xs text-muted-foreground mt-0.5" data-hr-item-file>
-                          <a href={file.fileUrl} target="_blank" rel="noopener noreferrer" className="text-foreground underline break-all">
+                          <a href={hrDocumentOpenPath(file.id)} target="_blank" rel="noopener noreferrer" className="text-foreground underline break-all">
                             {file.title}
                           </a>
                           {" · "}
