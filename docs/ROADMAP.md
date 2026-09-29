@@ -68,6 +68,27 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Quote costing says when it's guessing — and who was quoted reaches the job (29 September 2026)
+
+Owner decision: an instant estimate is costed at FieldQuo's $35/h with nobody assigned and overhead at 10% of the price when the company has no job count. Say so, fix it from the quote, ask the company.
+
+### What shipped
+
+- **Warnings, only when a default was used** (`lib/costing/costingDefaults.js` `costingDefaultsUsed`, rendered by `CostingDefaultsNotice` on the quote page's Cost & margin block and the builder's cost panel): "Labour is at FieldQuo's $35/h default — nobody is assigned to this job yet." + Assign (crew empty, hours > 0, stored rate = 35; a typed $48 fallback is not called FieldQuo's); "Overhead is estimated at 10% of the price — tell us how many jobs you do…" + link to `/app/settings/overhead#capacity` (basis ≠ per_job, quoting the stored %). Nothing on a named-crew / per-job costing. The constants moved to that file (re-exported from `quoteCosting.js`).
+- **Assign on the quote page**: `QuoteCostEditor` gets the builder's own "Add from your team…" (`TeamCrewPicker`, one copy for both panels, `crewMemberFromWorker` in `lib/costing/crew.js`), saving through the same PATCH → `buildQuoteCostingRow`. Workers with no rate are named ("No pay rate set for X", link to Workers). Fixed on the way: the editor used to post no overhead %, no note and no worker ids — re-costing an instant estimate zeroed its overhead and wiped the note.
+- **Carry to the job**: the conversion carried NO crew for any quote. `GET /api/jobs/[id]` now returns `quotedCrew` (names + ids, from the quote's costing via `lib/jobs/quotedCrew.js`; pay rates stripped), the job page shows "Crew on the quote", and the first visit's form pre-selects the first quoted person with a login.
+- **Capacity per month**: `ForecastSettings.jobsPerMonthCapacity Int?` (additive); Settings › Overhead takes "a week / a month"; `calculateMinimumPrice` divides by the monthly figure when set ($4,141.40 ÷ 4 = $1,035.35/job; weekly 1 → $956.44, unchanged); the weekly column is still written (rounded, ≥ 1).
+- **Setup card**: "How many jobs do you do a month?" and "What does an hour of your crew cost? Set pay rates". There is no company-wide labour cost rate (only `Company.labourSellRate`, a sell rate) — none was invented; the row links to Workers pay rates.
+
+### Checks
+
+`check:costing-defaults` (new, 79), `check:setup-steps` (two rows added), quote-costing, quote-builder, instant-quote-draft, cost-basis, overhead-arithmetic, job-costing, depreciation, translations. md5 of a properly costed quote's summary / saved shape / estimate shape and of weekly price-floor results identical before and after.
+
+### Owed
+
+- **Before deploy**: `ALTER TABLE "ForecastSettings" ADD COLUMN IF NOT EXISTS "jobsPerMonthCapacity" INTEGER;` — already applied to the database in `.env` on 2026-09-29.
+- Existing saved quotes keep their numbers; nothing is re-costed until someone changes the costing.
+
 ## The trial is 14 days (29 September 2026)
 
 Owner decision, restated with numbers and approved: a NEW signup gets 14 days free, no card. Sign up Oct 1 → full access until Oct 15; no plan by then → read-only for GRACE_DAYS (7), then locked, nothing deleted (lib/billing/access.js trialAccessFor — the existing card-free lock, unchanged).

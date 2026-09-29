@@ -9469,6 +9469,15 @@ model ForecastSettings {
   invoiceSentToPaid   Decimal   @default(0.80) @db.Decimal(6, 3)
   avgJobValue         Decimal   @default(7000) @db.Decimal(12, 2)
   jobsPerWeekCapacity Int       @default(3)
+  /// Capacity as the owner said it when they said it per MONTH ("4 jobs a
+  /// month"). NULL means they answered per week, or not at all — the weekly
+  /// column above is then the answer, as it always was. When set, it wins:
+  /// lib/analytics/minimumPrice.js divides the month's costs by it directly
+  /// instead of by weekly × 4.33, which on a company doing four a month
+  /// understated the per-job overhead by 8%. app/api/settings/forecast keeps
+  /// the weekly column written alongside it (rounded, at least 1) so every
+  /// reader of "is capacity set" still works.
+  jobsPerMonthCapacity Int?
   /// The margin the price floor is worked out at, as a fraction (0.25 = 25%).
   ///
   /// NULL means "never set", and lib/analytics/minimumPrice.js then uses its
