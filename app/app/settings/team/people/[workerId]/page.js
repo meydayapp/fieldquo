@@ -33,6 +33,8 @@ function PersonFile({ workerId }) {
   const [worker, setWorker] = useState(null);
   const [loading, setLoading] = useState(true);
   const [errorKey, setErrorKey] = useState("");
+  const [checklistVersion, setChecklistVersion] = useState(0);
+  const [docsVersion, setDocsVersion] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -69,8 +71,12 @@ function PersonFile({ workerId }) {
               </p>
             </div>
             <CustomFieldsPanel entityType="team" entityId={workerId} />
-            <OnboardingChecklist mode="manager" workerId={workerId} />
-            <WorkerDocumentsPanel mode="manager" workerId={workerId} />
+            {/* The two cards read the same file: a hand-in from a checklist
+                row is a new document, and a document filed or archived in
+                the Documents card can tick or re-open a checklist row. Each
+                remounts (and reloads) when the other changes something. */}
+            <OnboardingChecklist key={`onb-${docsVersion}`} mode="manager" workerId={workerId} onChanged={() => setChecklistVersion((v) => v + 1)} />
+            <WorkerDocumentsPanel key={`docs-${checklistVersion}`} mode="manager" workerId={workerId} onChanged={() => setDocsVersion((v) => v + 1)} />
             <WorkerNotesPanel workerId={workerId} />
           </>
         )}
