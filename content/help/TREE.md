@@ -90,7 +90,7 @@ callbacks, the crew inbox, team chat, How You Compare, the KPI dashboard,
 
 <!-- tree:start -->
 
-_Generated 2026-09-28 — 334 articles in the tree; written: en 334, fr 334, es 334; “Only in FieldQuo”: 34._
+_Generated 2026-09-29 — 335 articles in the tree; written: en 335, fr 335, es 335; “Only in FieldQuo”: 34._
 
 ### getting-started (23)
 
@@ -384,7 +384,7 @@ _Generated 2026-09-28 — 334 articles in the tree; written: en 334, fr 334, es 
 | `import-expenses-from-a-bank-csv` — Import expenses from a bank CSV | ✓ | ✓ | ✓ | expenses | expenses |  |
 | `overhead-and-your-minimum-price` — Overhead and your minimum price | ✓ | ✓ | ✓ | settings-overhead | break_even |  |
 
-### settings (48)
+### settings (49)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -422,6 +422,7 @@ _Generated 2026-09-28 — 334 articles in the tree; written: en 334, fr 334, es 
 | `settings-work-email` — Work email | ✓ | ✓ | ✓ | settings-work-email |  |  |
 | `settings-payments` — Payments | ✓ | ✓ | ✓ | settings-payments | stripe_connect |  |
 | `settings-meta-ads` — Meta Ads | ✓ | ✓ | ✓ | settings-meta-ads | marketing_spend |  |
+| `settings-tiktok` — TikTok | ✓ | ✓ | ✓ | settings-tiktok | proof |  |
 | `settings-expense-tracking` — Expense Tracking | ✓ | ✓ | ✓ | settings-expense-tracking | expenses |  |
 | `settings-ai-credit` — AI credit | ✓ | ✓ | ✓ | settings-ai-credit | ai_copilot |  |
 | `settings-payroll` — Payroll settings | ✓ | ✓ | ✓ | settings-payroll | payroll |  |
