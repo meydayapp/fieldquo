@@ -43,6 +43,27 @@ const STATUS_FILTERS = [
 
 // The four goals the signup offers (lib/signup/signupPreview.js SIGNUP_GOALS),
 // in the console's English — the platform is not translated.
+// The welcome questions (lib/signup/welcome.js WELCOME_STEPS), as the badge
+// names the screen a company stopped on.
+const WELCOME_STEP_WORDS = {
+  profile: "about you",
+  business: "business",
+  size: "team & years",
+  revenue: "revenue",
+  priority: "priority",
+  focus: "focus",
+  source: "how they heard",
+  setup: "setup screen",
+};
+
+// The welcome priority screen (lib/signup/welcome.js WELCOME_PRIORITIES).
+const PRIORITY_WORDS = {
+  professional: "wants to look professional",
+  control: "wants control of the business",
+  win_more: "wants more jobs",
+  exploring: "just exploring",
+};
+
 const SIGNUP_GOAL_WORDS = {
   look_professional: "wants to look professional",
   feel_in_control: "wants control of the business",
@@ -356,8 +377,21 @@ export default function PlatformCompaniesPage() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium text-foreground truncate">
-                        {c.name}
+                        {/* A company made by the one-screen signup has no name
+                            until its welcome business screen is answered —
+                            said so, with the owner's address, rather than a
+                            blank row. */}
+                        {c.name || `(no business name yet) · ${c.members?.[0]?.user?.email || c.email || "no email"}`}
                       </span>
+                      {c.onboardingStep && !c.personalizedAt && (
+                        <span
+                          className="text-xs px-2 py-0.5 rounded-full border bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900"
+                          title="Stopped in the welcome questions — this is the next unanswered screen"
+                          data-welcome-step
+                        >
+                          Welcome: {WELCOME_STEP_WORDS[c.onboardingStep] || c.onboardingStep}
+                        </span>
+                      )}
                       {/* Right beside the name: the first thing the owner
                           wants to know about a new company is whether anyone
                           is actually in it. */}
@@ -422,7 +456,7 @@ export default function PlatformCompaniesPage() {
                           they were picked — a skipped step prints nothing.
                           Read here so sales and support know who they are
                           talking to before opening the company. */}
-                      {(c.teamSizeBand || c.yearsInBusinessBand || c.signupGoal || c.signupSource) && (
+                      {(c.teamSizeBand || c.yearsInBusinessBand || c.signupGoal || c.signupSource || c.revenueBand || c.signupPriority) && (
                         <span
                           className="text-xs px-2 py-0.5 rounded-full border bg-muted text-muted-foreground border-border"
                           title="From the signup's Team and Goals steps"
@@ -432,7 +466,12 @@ export default function PlatformCompaniesPage() {
                             c.teamSizeBand && `Team ${c.teamSizeBand === "1" ? "just them" : c.teamSizeBand}`,
                             c.yearsInBusinessBand && `${c.yearsInBusinessBand} yrs`,
                             c.signupGoal && SIGNUP_GOAL_WORDS[c.signupGoal],
+                            c.revenueBand && (c.revenueBand === "prefer_not" ? "revenue not given" : `revenue ${c.revenueBand}`),
+                            c.signupPriority && PRIORITY_WORDS[c.signupPriority],
+                            Array.isArray(c.signupFocus) && c.signupFocus.length ? `focus: ${c.signupFocus.join(", ")}` : null,
                             c.signupSource && `via ${c.signupSource}`,
+                            c.members?.[0]?.user?.phone && `owner ${c.members[0].user.phone}`,
+                            c.members?.[0]?.user?.marketingConsentAt && "product news: yes",
                           ]
                             .filter(Boolean)
                             .join(" · ")}

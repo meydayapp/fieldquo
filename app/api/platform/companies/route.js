@@ -74,6 +74,15 @@ export async function GET(request) {
     include: {
       subscription: { include: { plan: { select: { name: true } } } },
       _count: { select: { members: true, quotes: true } },
+      // The owner's own number and product-news consent, from the one-screen
+      // signup and its welcome questions (2026-09-29) — for sales and support
+      // to reach the person, and to know whether product news may be sent.
+      members: {
+        where: { role: "owner" },
+        take: 1,
+        orderBy: { createdAt: "asc" },
+        select: { user: { select: { email: true, phone: true, marketingConsentAt: true } } },
+      },
     },
     orderBy: { createdAt: "desc" },
   });
