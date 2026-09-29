@@ -41,10 +41,14 @@ import { SIGNUP_SOURCE } from "@/lib/signup/leads";
 const PROVISIONAL_SLUG = /^fq-[a-z0-9]+$/;
 
 /** Owner of a company on the welcome flow, or the response to send. */
-async function welcomeOwner(request) {
+async function welcomeOwner(request, { write = false } = {}) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return { response };
-  if (member.impersonation) {
+  // A support session READS what the owner reads (non-negotiable #3: view
+  // everything) — the GET answers it identically, and check:impersonation
+  // holds it to that. It never WRITES an answer: refused here and, before
+  // that, in middleware.js.
+  if (write && member.impersonation) {
     return { response: NextResponse.json({ error: "A support session is read-only.", code: "read_only" }, { status: 403 }) };
   }
   if (member.role !== "owner") {
@@ -91,7 +95,7 @@ function readTimezone(value) {
 }
 
 export async function PATCH(request) {
-  const { member, response } = await welcomeOwner(request);
+  const { member, response } = await welcomeOwner(request, { write: true });
   if (response) return response;
   const body = await request.json().catch(() => null);
   const step = body?.step;
