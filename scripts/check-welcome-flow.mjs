@@ -326,7 +326,7 @@ for (const f of DID_YOU_KNOW) {
   if (f.source === "arithmetic") {
     ok(`${f.key}: its figure is computed from named inputs`, typeof f.compute === "function" && f.inputs && Object.keys(f.inputs).length >= 3);
     ok(`${f.key}: the sentence types no result`, !/\d{1,3},\d{3}/.test(f.text) && /\{total\}/.test(f.text));
-    ok(`${f.key}: 5 h × $25 × 52 weeks = $6,500`, yearlyAdminValue() === ADMIN_HOURS_SAVED_PER_WEEK * ADMIN_HOURLY_VALUE * WORKING_WEEKS_PER_YEAR && factValues(f).total === "6,500");
+    ok(`${f.key}: 5 h × $25 × 52 weeks = $6,500`, yearlyAdminValue() === ADMIN_HOURS_SAVED_PER_WEEK * ADMIN_HOURLY_VALUE * WORKING_WEEKS_PER_YEAR && factValues(f).total === "$6,500" && factValues(f).rate === "$25");
     ok(`${f.key}: change an input and the sentence changes`, yearlyAdminValue({ hours: 4 }) === 4 * 25 * 52);
   }
   ok(`${f.key}: in the catalogue, with the same placeholders`, APP_MESSAGES.en[f.textKey] === f.text);
