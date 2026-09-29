@@ -180,15 +180,18 @@ section("2. The capture route — 204, JSON body, no PII in a URL, cross-visitor
   ok("the route is rate-limited", /rateLimit\(request, "signup-lead"/.test(route));
 
   const page = read("app/signup/page.js");
-  ok("the page posts a JSON body to the capture endpoint", /fetch\(CAPTURE_ENDPOINT, \{\s*method: "POST"/.test(page) && /body: JSON\.stringify\(body\)/.test(page));
+  // ── 2026-09-29: the one-screen signup captures nothing ───────────────────
+  //
+  // /signup asks for an email and a password only, and an email alone is a
+  // login attempt, never a lead (lib/signup/leadCapture.js) — so the page
+  // posts no capture. Whoever presses Start has a company from that second,
+  // and /platform/companies shows the welcome question they stopped on.
+  ok("the one-screen page posts no capture (an email alone is a login attempt)", !/fetch\(CAPTURE_ENDPOINT, \{\s*method: "POST"/.test(page) && !/captureBodyFor\(/.test(page));
+  ok("...and the capture contract agrees: an email and a password are not worth a row", captureBodyFor({ email: "a@b.co", password: "hunter22" }, "account") === null);
   ok("the page never puts the email in the capture URL", !/CAPTURE_ENDPOINT\}\?email=/.test(page) && !/\/api\/signup\/lead\?email/.test(page));
-  ok("the page waits CAPTURE_DEBOUNCE_MS after the last change", /setTimeout\(send, CAPTURE_DEBOUNCE_MS\)/.test(page));
-  ok("the page posts at once when the step moves", /if \(stepMoved\) send\(\);/.test(page));
-  ok("the page keeps the furthest step at the Stripe handoff", /captureBodyFor\(form, "checkout"/.test(page));
-  ok("the page uses keepalive so a handoff post still leaves", /keepalive: true,\s*\}\)\.catch/.test(page.split("function postSignupCapture")[1] || ""));
   ok("the resume link is read as a token", /URLSearchParams\(window\.location\.search\)\.get\("resume"\)/.test(page));
-  ok("the resume prefill fills only what is still empty", /if \(next\[key\] \|\| !value\) return;/.test(page) && /put\("email", p\.email\)/.test(page));
-  ok("a signed-in owner adding a business is never captured", /if \(!hydrated \|\| !entryChecked \|\| alreadyOnFieldquo \|\| finishCheckout\) return;/.test(page));
+  ok("the resume prefill puts back the email, only while the box is empty", /setForm\(\(f\) => \(f\.email \? f : \{ \.\.\.f, email: found\.prefill\.email \}\)\)/.test(page));
+  ok("a signed-in owner is never shown the account form", /entryChecked && !accountReady && !alreadyOnFieldquo && !finishCheckout/.test(page));
 
   // Executed against the stub: create, update, lock.
   resetDbStub();
@@ -261,12 +264,12 @@ section("2b. A signed-in return puts the row back — the owner's 2026-09-21 bug
   ok("…and a signed-out caller gets the same 404 as an unknown token", /if \(!email && !userId\) return NextResponse\.json\(\{ error: "Not found" \}, \{ status: 404 \}\);/.test(route));
 
   const page = read("app/signup/page.js");
-  const signedIn = page.split("setResumedSignup(true);")[1]?.split("} catch {")[0] || "";
-  ok("the signed-in branch asks for the row before entryChecked flips", /CAPTURE_ENDPOINT\}\?mine=1/.test(signedIn) && /applyLeadPrefill\(p\)/.test(signedIn) && /leadStepRef\.current = p\.stepReached/.test(signedIn));
-  ok("the resume judges the further of the draft's step and the row's", /further\(draftStepRef\.current, leadStepRef\.current\)/.test(page));
-  ok("the prefill puts back the address and the service picks", /put\("address", p\.address\)/.test(page) && /setSelectedCategoryIds\(p\.serviceCategoryIds\)/.test(page));
-  ok("the banner claims a restore only when fields the person can see were put back", /const names = restoredFieldNames\(restoredLead\?\.fields, t\);\s*const kept = names\.length > 0;/.test(page) && /"app\.signup\.resumed\.bodyRestoredFields"/.test(page) && !/nothing you've already entered is lost/.test(page));
-  ok("the capture posts the picks on every step and at the handoff", (page.match(/selectedCategoryIds,\s*salesCode/g) || []).length >= 3);
+  // A signed-in return: a login with no company gets the same "Start my free
+  // trial" press (no second password); an owner part-way through the welcome
+  // questions is sent to the next unanswered one — the answers live on the
+  // company now, not in a SignupLead row.
+  ok("a signed-in login with no company is offered the same press, not a second password", /data-signup-signed-in/.test(page) && /onClick=\{handleStartSignedIn\}/.test(page));
+  ok("a signed-in owner part-way through the welcome questions is sent to the next one", /fetch\("\/api\/signup\/personalize"\)/.test(page) && /window\.location\.replace\(welcome\.resumeUrl\)/.test(page));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -369,11 +372,8 @@ section("2c. The owner's SECOND return, same day — the row the cron had matche
   ok("…and says 'signed in, no company yet' on it", /signed in, no company yet/.test(platformPage));
 
   const page = read("app/signup/page.js");
-  const signedIn = page.split("setResumedSignup(true);")[1]?.split("} catch {")[0] || "";
-  ok("the page restores when the server says not completed, and seeds from the session otherwise", /if \(p && !p\.completed\)/.test(signedIn) && /applyLeadPrefill\(\{ email: session\.user\.email, \.\.\.splitName\(session\.user\.name\) \}\)/.test(signedIn));
-  ok("the banner names the fields it put back — never the account-step ones a login is not shown", /app\.signup\.resumed\.bodyRestoredFields/.test(page) && /\{ fields: names \}/.test(page) && !/email: \(\) => t\("app\.signup\.field\.email"/.test(page));
+  ok("the signed-in screen names the login it found", /accountReady\.email/.test(page) && /app\.signup\.signedInNoBusiness/.test(page));
   ok("Not you? Sign out clears the tab draft before reloading", /sessionStorage\.removeItem\(DRAFT_KEY\);[\s\S]{0,200}window\.location\.href = to;/.test(page));
-  ok("…and says when the missing address is what held the step back", /app\.signup\.resumed\.addressMissing/.test(page) && /!form\.address\.trim\(\)/.test(page));
   ok("the resumed banner has 'Not you? Sign out' that reloads THIS page", /data-resumed-sign-out/.test(page) && /handleSignOut\(window\.location\.pathname \+ window\.location\.search\)/.test(page) && /app\.signup\.resumed\.signOut/.test(page));
   for (const lang of Object.keys(APP_MESSAGES)) {
     const dict = APP_MESSAGES[lang];
@@ -1066,8 +1066,10 @@ section("16. \"Do you have a website?\" — kept on the draft row, put back on r
   const prefill = await signupLeadForResume({ client: db, token: "tok-w" });
   ok("the resume prefill carries the No", prefill?.hasWebsite === false);
   const page = read("app/signup/page.js");
-  ok("the page puts a stored answer back only while its own is empty", /if \(next\.hasWebsite == null && \(p\.hasWebsite === true \|\| p\.hasWebsite === false\)\)/.test(page));
-  ok("the tab's draft keeps it (the whole form is saved, minus the password)", /hasWebsite: null,\n\s+website: "",/.test(page) && /const \{ password, \.\.\.safeForm \} = form;/.test(page));
+  // 2026-09-29: the website is asked on the welcome business screen —
+  // optional, and a blank one is unanswered (null), never a No.
+  ok("the website is asked on the welcome business screen, optional", /id="welcome-website"/.test(read("app/welcome/WelcomeFlow.js")) && !/signup-website/.test(page));
+  ok("...and a blank one is unanswered, never a No", /ctx\.website = site \? readWebsiteAnswer\(\{ hasWebsite: true, website: site \}\) : \{ website: null, hasWebsite: null \};/.test(read("app/api/signup/personalize/route.js")));
   ok("the company is created with it, re-read server-side", /readWebsiteAnswer\(\{ hasWebsite, website \}\)/.test(read("app/api/companies/route.js")) && /website: websiteAnswer\.website,\n\s+hasWebsite: websiteAnswer\.hasWebsite,/.test(read("app/api/companies/route.js")));
   ok("the schema carries the answer on the company and the draft row", /hasWebsite\s+Boolean\?/.test(read("prisma/schema.prisma")) && /model SignupLead \{[\s\S]*hasWebsite Boolean\?\n\s+website\s+String\?/.test(read("prisma/schema.prisma")));
 }
