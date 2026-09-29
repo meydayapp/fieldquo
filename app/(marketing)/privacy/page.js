@@ -150,6 +150,13 @@ export default function PrivacyPage() {
         are kept for 30 days and then reduced to daily totals.
       </p>
       <p>
+        Separately, back-office page loads (never a page a company&apos;s
+        clients see) report performance timings to Vercel Speed Insights so
+        we can find slow pages: the page path without its query string, the
+        device and browser type, and how long the page took to load. It is
+        listed in Section 4.
+      </p>
+      <p>
         We do not knowingly collect information from anyone we know to be a
         minor, and FieldQuo is built for business-to-business and
         business-to-homeowner transactions, not for use by children.
