@@ -324,6 +324,31 @@ section("4. suggestTradesBatch");
   ok("planSuggestion carries the id and the columns", plan.id === "x" && plan.suggestedTradeKey === "roofing");
   ok("the selection SQL for missing names suggestedAt IS NULL", sqlText(suggestSelectionSql("missing")).includes('"suggestedAt" IS NULL'));
   ok("the selection SQL for stale names the version", sqlText(suggestSelectionSql("stale")).includes('"suggestedVersion"'));
+
+  // Prospect_suggest_missing_idx is a partial index whose predicate is this
+  // selection written out. Postgres only uses it when it can prove the query
+  // implies the predicate, so a status added to CLAIMABLE_STATUSES or a new
+  // reason clause would silently send the cron back to a ~600k-buffer pkey
+  // walk. Compared clause-for-clause (values inlined, whitespace and
+  // parentheses ignored) against the schema's raw() text.
+  {
+    const schema = read("prisma/schema.prisma");
+    const m = schema.match(/@@index\(\[id\], map: "Prospect_suggest_missing_idx", where: raw\("((?:[^"\\]|\\.)*)"\)\)/);
+    const predicate = m ? m[1].replace(/\\"/g, '"') : "";
+    const sel = suggestSelectionSql("missing");
+    let inlined = sel.strings[0];
+    for (let i = 1; i < sel.strings.length; i++) inlined += `'${String(sel.values[i - 1]).replace(/'/g, "''")}'` + sel.strings[i];
+    // The schema holds Postgres's normalised spelling ("status = ANY (ARRAY[
+    // 'a'::text, …])", unquoted identifiers) so migrate diff sees no drift;
+    // the query is written as IN (…). Both are reduced to one spelling.
+    const norm = (s) =>
+      s.replace(/[()\s"]/g, "").replace(/::text/g, "").replace(/=ANYARRAY\[/g, "IN").replace(/\]/g, "");
+    const reason = inlined.replace(/\s+AND\s+"suggestedAt"\s+IS\s+NULL\s*$/, "");
+    ok("the schema declares Prospect_suggest_missing_idx with a raw() predicate", Boolean(m));
+    ok("…and its predicate is exactly the missing selection (suggestedAt IS NULL AND the Review-folder reasons)",
+      reason !== inlined && norm(predicate) === norm(`"suggestedAt" IS NULL AND ${reason}`), { predicate, selection: inlined });
+    ok("…and the generator enables partialIndexes, without which the where: is a schema error", /previewFeatures\s*=\s*\[[^\]]*"partialIndexes"/.test(schema));
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
