@@ -68,6 +68,27 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## The homepage, rebuilt to the approved structure (29 September 2026)
+
+Owner priority #1: the UX designer's twelve-section homepage, desktop and 375px phone, in all nine marketing catalogues (en fr es uk pa tl de it + zh).
+
+### What shipped
+
+- `app/(marketing)/page.js` is now a server component with `revalidate = 60` (not force-dynamic: the homepage is the most-visited page and Neon scales to zero). It reads plans and promotions through the same chain /pricing uses — `partitionPlans → oneRowPerTier → livePromotions → universalPromotions → withOffers` — and every read is guarded, so an unreachable database renders the page without prices or a pill, never a remembered figure.
+- Sections, in order, in `app/components/marketing/home/`: HomeHero (headline, trial + "See how it works", trial line from `TRIAL_DAYS`/`TRIAL_CARD_REQUIRED`, the flow line, and the **sale pill** — shown only when `lib/marketing/homeSale.js` finds a promotion that every ladder card actually resolved to, so a CAD-only, one-tier, or outranked 1-year sale never shows; name/percent/interval/end date all from the row), ProductDemo (desktop + phone drawn in HTML, sample data labelled), ResultsResearch (no-number promises, FieldQuo facts, and the BuildOps 2026 benchmark as shares of 54 respondents with its source line — `research.js`), HowItWorks, TradeSelector (8 real industries, illustrative estimates, client-side only, links to /industries/<slug>), OutcomeGroups (every item links to a real /features or /product page), AskAI, OneSystem (categories, no competitor names), CustomerStory (`CUSTOMER_STORIES = []` — renders nothing until an owner-approved story is added; the file says how), HomePricing (audience → Solo/Crew/Shop/Scale, `PlanOfferPrice` with the 1-year offer as /pricing opens on it), HomeFAQ (seven answers, each traced in the file to the code that makes it true; languages computed from `SUPPORTED_EMAIL_LANGUAGES` and `APP_LANGUAGES`), FinalCTA (plus the demo booker, kept from the old hero).
+- Removed: `Hero.js`, `AIExplainer.js`, `FeaturesIndustries.js`, `ResourcesTeaser.js` (homepage-only). `FAQ.js`, `ClosingCTA.js` and `DemoBooking.js` stay — /product/<slug> and the roofing showcase use them.
+- `oneRowPerTier` moved to `lib/pricing/oneRowPerTier.js` and `peopleLines` to `lib/pricing/peopleLines.js`, unchanged, re-exported from their old homes; `offerEndDate` takes optional date parts.
+- Copy: `app/i18n/homePage/*.js`, merged into MARKETING (170 keys × 9).
+
+### Checks
+
+`check:homepage-sections` rewritten (it pinned the old four sections): approved order, the price chain and ISR ≤ 60s, nothing typed (ladder prices, sale figures, the trial length), `homeSalePill` executed against six promotion cases, research figures pinned to the brief and worded as respondents reporting, no unapproved story, no fetch in any section, every link resolved including /features, /product and /industries slugs, a second /signup ask. `check:marketing-cta`: the no-card ban now follows `TRIAL_CARD_REQUIRED` — while false, a no-card claim is allowed only in a file that reads the constant (TrialLine, HomeFAQ); flipped to true, the old ban returns (mutation-tested). `check:promotions-live` lists the homepage as a price surface; `check:marketing-i18n` scans the home sections.
+
+### Owed
+
+- No FieldQuo customer story, results or logos exist yet — the slots are honest and empty. When the owner has an approved story, add it to `CUSTOMER_STORIES`.
+- `hero.noCard` still says a card is taken ("your card isn't charged until they end") and is rendered by nothing; reword or remove it with the rest of the card-story cleanup the trial entry below lists.
+
 ## The trial is 14 days (29 September 2026)
 
 Owner decision, restated with numbers and approved: a NEW signup gets 14 days free, no card. Sign up Oct 1 → full access until Oct 15; no plan by then → read-only for GRACE_DAYS (7), then locked, nothing deleted (lib/billing/access.js trialAccessFor — the existing card-free lock, unchanged).

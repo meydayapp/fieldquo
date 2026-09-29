@@ -58,10 +58,13 @@ export function offerMoney(symbol = "$", locale = "en-CA") {
  * promise a day that is not in it — so the day is read one millisecond
  * before the end.
  */
-export function offerEndDate(endsAt, locale = "en-CA") {
+export function offerEndDate(endsAt, locale = "en-CA", parts = { year: "numeric", month: "short", day: "numeric" }) {
   const t = endsAt ? new Date(endsAt).getTime() : NaN;
   if (!Number.isFinite(t)) return null;
-  return new Date(t - 1).toLocaleDateString(locale, { year: "numeric", month: "short", day: "numeric" });
+  // `parts` exists for the homepage's sale pill, which prints "Oct 31" in a
+  // one-line pill. Same last-day rule either way — that rule is the reason
+  // the pill reuses this rather than formatting the date itself.
+  return new Date(t - 1).toLocaleDateString(locale, parts);
 }
 
 /**

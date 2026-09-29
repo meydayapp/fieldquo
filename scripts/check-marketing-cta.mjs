@@ -63,6 +63,26 @@
 // generalised to every key in the catalogue rather than the one where the bug
 // was first found.
 //
+// ══ 2026-09-29: the ban now follows TRIAL_CARD_REQUIRED ══════════════════
+//
+// Everything above was written while a card WAS taken at signup, and the ban
+// was right then. The owner decided on 2026-09-24 (re-confirmed 2026-09-29)
+// that signup takes no card: lib/pricing.js exports TRIAL_CARD_REQUIRED =
+// false and the trial runs on trialEndsAt alone. A permanent ban would now
+// forbid the one true sentence the homepage most wants to say — a rule that
+// outlived its reason, exactly what this header warns against.
+//
+// So the ban is conditional on the constant rather than deleted:
+//
+//   TRIAL_CARD_REQUIRED true   every rule in section 3 runs as written — a
+//                              no-card claim anywhere in the marketing tree
+//                              fails the build.
+//   TRIAL_CARD_REQUIRED false  a no-card claim is allowed ONLY in a file that
+//                              reads TRIAL_CARD_REQUIRED itself, so the claim
+//                              is gated on the same fact and disappears the
+//                              day the owner turns the card back on. A file
+//                              that hard-codes the claim still fails.
+//
 // It cannot prove the CTA is visible, above the fold, contrasted, or
 // persuasive. A key assembled at run time — t(`hero.tabs.${key}.label`) — is
 // unreadable here; those are COUNTED and reported, never silently passed.
@@ -70,6 +90,8 @@ import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, relative } from "node:path";
 import { MESSAGES } from "../app/i18n/messages.js";
+// Plain node can import it: lib/pricing.js has no imports of its own.
+import { TRIAL_CARD_REQUIRED } from "../lib/pricing.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -268,7 +290,15 @@ const noCardValue = EN["hero.noCard"];
 const CLAIMS_NO_CARD =
   /no\s+(credit\s+)?card\s+(is\s+)?(required|needed)|without\s+a\s+(credit\s+)?card|card[- ]free/i;
 
-if (noCardValue === undefined) {
+if (!TRIAL_CARD_REQUIRED) {
+  // See the 2026-09-29 note in the header: signup takes no card, so the key
+  // ban has nothing to protect. Section 3b still requires every file that
+  // renders a no-card claim to be gated on TRIAL_CARD_REQUIRED.
+  ok(
+    "TRIAL_CARD_REQUIRED is false (lib/pricing.js) — a no-card claim is true, the hero.noCard ban is suspended",
+    true,
+  );
+} else if (noCardValue === undefined) {
   ok(
     "hero.noCard is gone from the catalogue — nothing to police",
     true,
@@ -368,15 +398,21 @@ const codeOnly = (src) =>
   for (const file of MARKETING_TREE) {
     const src = codeOnly(read(file));
     const hit = src.match(CLAIMS_NO_CARD);
-    if (hit) offenders.push(`${file} — "${hit[0]}"`);
+    // With no card taken, a literal claim is allowed only where it is gated
+    // on the constant that makes it true (see the header).
+    if (hit && (TRIAL_CARD_REQUIRED || !/\bTRIAL_CARD_REQUIRED\b/.test(src))) {
+      offenders.push(`${file} — "${hit[0]}"`);
+    }
   }
   ok(
-    "no marketing file writes the no-card claim as a literal string",
+    TRIAL_CARD_REQUIRED
+      ? "no marketing file writes the no-card claim as a literal string"
+      : "every marketing file that writes a no-card claim gates it on TRIAL_CARD_REQUIRED",
     offenders.length === 0,
     offenders.join("; ") +
-      " — a card IS taken at signup (/api/companies opens Stripe Checkout). The honest " +
-      "wording for the same promise is \"Your first 14 days are free — your card isn't " +
-      "charged until they end.\"",
+      (TRIAL_CARD_REQUIRED
+        ? " — a card IS taken at signup (TRIAL_CARD_REQUIRED is true in lib/pricing.js)."
+        : " — read TRIAL_CARD_REQUIRED from lib/pricing.js and render the claim only while it is false."),
   );
 }
 
@@ -388,14 +424,17 @@ const codeOnly = (src) =>
   const offenders = [];
   for (const file of MARKETING_TREE) {
     const src = codeOnly(read(file));
+    const gated = !TRIAL_CARD_REQUIRED && /\bTRIAL_CARD_REQUIRED\b/.test(src);
     for (const key of guiltyKeys) {
-      if (new RegExp(`["'\`]${key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}["'\`]`).test(src)) {
+      if (new RegExp(`["'\`]${key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}["'\`]`).test(src) && !gated) {
         offenders.push(`${file} renders ${key}`);
       }
     }
   }
   ok(
-    `no marketing file renders a catalogue key that makes the claim (${guiltyKeys.length} such key(s) in English)`,
+    TRIAL_CARD_REQUIRED
+      ? `no marketing file renders a catalogue key that makes the claim (${guiltyKeys.length} such key(s) in English)`
+      : `every file rendering a no-card key gates it on TRIAL_CARD_REQUIRED (${guiltyKeys.length} such key(s) in English)`,
     offenders.length === 0,
     offenders.join("; "),
   );
