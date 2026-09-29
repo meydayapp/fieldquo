@@ -113,7 +113,10 @@ for (const v of HOSTILE) {
 for (const b of TEAM_SIZE_BANDS) ok(`team band "${b.key}" is kept as typed`, cleanTeamSizeBand(b.key) === b.key);
 for (const b of YEARS_BANDS) ok(`years band "${b.key}" is kept as typed`, cleanYearsBand(b.key) === b.key);
 for (const g of SIGNUP_GOALS) ok(`goal "${g.key}" is kept as typed`, cleanSignupGoal(g.key) === g.key);
-ok("the bands are the five the owner saw (Just me / 2–5 / 6–10 / 11–15 / 16+)", TEAM_SIZE_BANDS.map((b) => b.key).join(",") === "1,2-5,6-10,11-15,16+");
+// The five the old Team step showed, plus the welcome screen's split of 16+
+// into 16–20 and 21+ (2026-09-29) — added beside "16+", which stays readable
+// for the companies that answered it.
+ok("the bands are the old five plus 16–20 and 21+", TEAM_SIZE_BANDS.map((b) => b.key).join(",") === "1,2-5,6-10,11-15,16+,16-20,21+");
 ok("the years are the five the brief named", YEARS_BANDS.map((b) => b.key).join(",") === "<1,1-2,3-5,6-10,10+");
 ok("four goals, one of them 'just exploring'", SIGNUP_GOALS.length === 4 && SIGNUP_GOALS.some((g) => g.key === "exploring"));
 
@@ -222,8 +225,11 @@ ok("an unknown language falls back to English rather than nothing", sampleServic
   ok("the route reads the currency through the closed list", /cleanSampleCurrency\(params\.get\("currency"\)\)/.test(route));
   ok("the route answers services, categoryKey, currency, group, processSteps, glossary and nothing else", /NextResponse\.json\(\s*\{\s*services: sample\?\.services \|\| \[\],[\s\S]*?categoryKey: sample\?\.categoryKey \|\| null,\s*currency: sample\?\.currency \|\| null,\s*group: sample\?\.group \|\| null,\s*processSteps: sample\?\.processSteps \|\| \[\],\s*glossary: sample\?\.glossary \|\| \[\],\s*\}/.test(route));
   ok("the route reads the seeds through lib/signup/sampleServices, never the seed folder", /lib\/signup\/sampleServices/.test(route) && !/serviceSeeds/.test(route));
-  const page = code("app/signup/page.js");
-  ok("the page calls it with the trade, the language and the plan's currency", /\/api\/signup\/sample-services\?industry=\$\{encodeURIComponent\(firstIndustry\)\}&lang=\$\{encodeURIComponent\(form\.language\)\}&currency=\$\{encodeURIComponent\(planCurrency \|\| ""\)\}/.test(page));
+  // 2026-09-29: /signup no longer mounts the reactive panel — the one-screen
+  // signup and the welcome questions carry WelcomeAside (a real screenshot
+  // and one sourced fact, lib/signup/didYouKnow.js). The route and the
+  // samples are still checked here for as long as they exist.
+  ok("the one-screen signup does not call the sample route", !/\/api\/signup\/sample-services/.test(code("app/signup/page.js")));
   const browserFiles = ["app/components/auth/SignupPreviews.js", "app/components/auth/AuthAside.js", "app/signup/page.js", ...readdirSync("app/components/auth/samples").map((f) => `app/components/auth/samples/${f}`)];
   ok("the browser bundle does not import the seeds", browserFiles.every((f) => !/serviceSeeds|lib\/services\/seeds|signup\/sampleServices/.test(code(f))), browserFiles.filter((f) => /serviceSeeds|lib\/services\/seeds|signup\/sampleServices/.test(code(f))));
 }
@@ -448,20 +454,23 @@ console.log("\nThe wiring: written AND read");
   ok("next/previous agree through the two new rungs", nextStep("business") === "team" && nextStep("team") === "goals" && nextStep("goals") === "industry" && previousStep("industry") === "goals" && previousStep("goals") === "team" && previousStep("team", { accountExists: true }) === "business");
   ok("neither optional rung gates a later one", furthestStep({ accountExists: true, companyReady: true }) === "industry");
   ok("the capture reports the two new steps as themselves", CAPTURE_STEPS.includes("team") && CAPTURE_STEPS.includes("goals"));
-  ok("the page renders a team step and a goals step", /step === "team" && \(/.test(page) && /step === "goals" && \(/.test(page));
-  ok("both steps can be skipped, and skipping stores nothing", /data-skip-step="team"/.test(page) && /setTeamSizeBand\(null\);\s*setYearsBand\(null\);/.test(page) && /data-skip-step="goals"/.test(page) && /setSignupGoal\(null\);\s*setSignupSource\(""\);/.test(page));
-  ok("the page posts the four answers, null when skipped", /teamSizeBand: teamSizeBand \|\| null,\s*yearsInBusinessBand: yearsBand \|\| null,\s*signupGoal: signupGoal \|\| null,\s*signupSource: signupSource\.trim\(\) \|\| null,/.test(page));
-  ok("the draft keeps them for a refresh", /teamSizeBand,\s*yearsBand,\s*signupGoal,\s*signupSource,\s*step,/.test(page) && /typeof draft\?\.teamSizeBand === "string"/.test(page));
-  // Since 2026-09-25 the platform funnel has a bar for each (Team shown =
-  // account submitted, Goals shown = Team done — lib/analytics/product/
-  // events.js SIGNUP_STEP_BAR), so the page sends both.
-  ok("the funnel map sends the two steps", /\{ team: "team", goals: "goals", industry: "trades", services: "services" \}/.test(page));
-  ok("the aside and the strip are handed the live preview", /<AuthAside variant="signup" preview=\{asidePreview\} \/>/.test(page) && /<SignupAsideStrip preview=\{asidePreview\} \/>/.test(page));
+  // ── 2026-09-29: the team answer moved to the welcome size screen ────────
+  //
+  // /signup is one screen; the size, years, priority and source answers are
+  // asked on /welcome and written by PATCH /api/signup/personalize through
+  // lib/signup/welcome.js readWelcomeAnswer — required there, never
+  // defaulted. The old page's team/goals steps are gone with the page.
+  const welcomeRoute = code("app/api/signup/personalize/route.js");
+  const flow = code("app/welcome/WelcomeFlow.js");
+  ok("/signup renders no team or goals step any more", !/step === "team"/.test(page) && !/step === "goals"/.test(page));
+  ok("the welcome size screen posts the two band answers", /save\(\{ teamSizeBand, yearsInBusinessBand: yearsBand \}\)/.test(flow));
+  ok("...through the one reader, which writes them", /readWelcomeAnswer\(step, answers, ctx\)/.test(welcomeRoute));
+  ok("both /signup and every welcome screen carry the sourced-fact aside", /<WelcomeAside step="account" \/>/.test(page) && /aside=\{<WelcomeAside step=\{step\} \/>\}/.test(flow));
   ok("the route cleans each answer against its closed list", /cleanTeamSizeBand\(teamSizeBand\)/.test(route) && /cleanYearsBand\(yearsInBusinessBand\)/.test(route) && /cleanSignupGoal\(signupGoal\)/.test(route) && /cleanSignupSource\(signupSource\)/.test(route));
   ok("the route writes the four columns", /teamSizeBand: teamBand,\s*yearsInBusinessBand: yearsBand,\s*signupGoal: goal,\s*signupSource: source,/.test(route));
   ok("the route starts the trial banner on the band's rung only when the link named none", /recommendedTierKeyForBand\(teamBand\)/.test(route) && route.indexOf("recommendedTierKeyForBand(teamBand)") > route.indexOf("wantedPlanId === \"string\""));
   ok("the schema carries the four columns, all optional", ["teamSizeBand", "yearsInBusinessBand", "signupGoal", "signupSource"].every((c) => new RegExp(`\\n  ${c}\\s+String\\?`).test(schema)));
-  ok("the platform company list reads them", /c\.teamSizeBand/.test(code("app/platform/companies/page.js")) && /c\.signupGoal/.test(code("app/platform/companies/page.js")));
+  ok("the platform company list reads them", /c\.teamSizeBand/.test(code("app/platform/companies/page.js")) && /c\.signupGoal/.test(code("app/platform/companies/page.js")) && /c\.revenueBand/.test(code("app/platform/companies/page.js")) && /c\.signupPriority/.test(code("app/platform/companies/page.js")));
   ok("the rail labels the two rungs from the app catalogue", /team: \{ key: "app\.signup\.steps\.team"/.test(code("app/components/auth/SignupSteps.js")));
   const shell = code("app/components/auth/AuthShell.js");
   ok("the shell draws the strip above the form below lg, and the aside only from lg when a strip is given", /strip \? <div className="mt-6 lg:hidden">\{strip\}<\/div> : null/.test(shell) && /strip \? "hidden lg:block" : ""/.test(shell));
