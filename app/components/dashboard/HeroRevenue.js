@@ -23,6 +23,15 @@
 // Putting them in one card labelled separately is the opposite of conflating
 // them: it is the arrangement where a reader can see both names at once.
 //
+// ══ The names, 2026-09-29 ══════════════════════════════════════════════════
+//
+// "Revenue this month" beside "Money received" still read as one number said
+// twice, and owners asked which was right. Both are right; the names were the
+// problem. So the left is now PAID INVOICES THIS MONTH and the right PAYMENTS
+// RECEIVED, each with an (i) that says exactly what it counts and why the two
+// differ. The left keeps its measure (the goal card's pace is built on it);
+// the cash number is the right one, and its tip says so.
+//
 // ══ Why the big figure carries no delta ═════════════════════════════════════
 //
 // Because there is no prior for it. lib/analytics/overview.js computes last
@@ -40,6 +49,7 @@
 
 import Link from "next/link";
 import { ArrowRight, TrendingUp } from "lucide-react";
+import InfoTip from "./InfoTip";
 import { formatMoney } from "@/lib/currency";
 import { Figure, FigureText } from "./Figure";
 import Delta from "./Delta";
@@ -116,9 +126,16 @@ export default function HeroRevenue({ hero, trendSentence, monthLabels, t }) {
     <div className={`${CARD} p-5 sm:p-6`}>
       <div className="grid gap-6 sm:grid-cols-2 sm:gap-8 sm:items-center">
         <div className="min-w-0">
-          <div className="flex items-center gap-2 text-muted-foreground text-sm">
+          <div className="flex flex-wrap items-center gap-x-2 text-muted-foreground text-sm">
             <TrendingUp size={16} className="shrink-0" aria-hidden="true" />
-            {t("app.dash.revenueThisMonth", "Revenue this month")}
+            {t("app.dash.paidInvoicesThisMonth", "Paid invoices this month")}
+            <InfoTip
+              label={t("app.dash.whatIsThis", "What does this count?")}
+              text={t(
+                "app.dash.paidInvoicesTip",
+                "The full total of every invoice marked paid this month, counted on the day it was marked paid. Deposits and part-payments are not in it until the invoice is paid in full — Payments received shows the money that actually came in.",
+              )}
+            />
           </div>
           {/* `hero.currency` comes from the receivables payload. A member with
               showPricing who is nonetheless refused the invoice list has no
@@ -137,8 +154,15 @@ export default function HeroRevenue({ hero, trendSentence, monthLabels, t }) {
         {received && (
           <div className="min-w-0">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-sm font-semibold text-foreground">
-                {t("app.dash.revenue.title", "Money received")}
+              <h2 className="flex flex-wrap items-center gap-x-1 text-sm font-semibold text-foreground">
+                {t("app.dash.paymentsReceived", "Payments received")}
+                <InfoTip
+                  label={t("app.dash.whatIsThis", "What does this count?")}
+                  text={t(
+                    "app.dash.paymentsReceivedTip",
+                    "Every payment you recorded — deposits and part-payments included — counted in the month the money arrived. This is the money that actually reached you.",
+                  )}
+                />
               </h2>
               <Link
                 href="#money-received"
@@ -150,7 +174,7 @@ export default function HeroRevenue({ hero, trendSentence, monthLabels, t }) {
             </div>
             <Sparkline
               series={received.series}
-              label={t("app.dash.revenue.title", "Money received")}
+              label={t("app.dash.paymentsReceived", "Payments received")}
             />
             {monthLabels && (
               <FigureText

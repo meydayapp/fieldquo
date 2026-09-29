@@ -216,7 +216,12 @@ const TOTAL = EXPECTED_KEYS.length;
   ok("confirm: every other step has no title params", stepsFor({ ...EMPTY, signupSeededServices: 9 }).filter((s) => s.key !== "confirm_services").every((s) => s.titleParams === null));
   ok("confirm: the snapshot counts signup's rows from the company's and the rows' creation times",
     /createdAt: true,\s*\},/.test(snap) && /seedKey: true, createdAt: true/.test(snap) && /signupSeededServices: signupSeededRows\(products, company\.createdAt\)\.length/.test(snap));
-  ok("confirm: the card, the dialog title and the email pass the figures", (source("app/components/dashboard/SetupSteps.js").match(/t\(step\.titleKey, step\.title, step\.titleParams \|\| undefined\)/g) || []).length === 4 &&
+  // Three since the 2026-09-29 checklist redesign: the dialog title, the
+  // link's label, and one `labelled()` that names every drawn row (the
+  // highlighted next step and the rest alike). What matters is that no title
+  // is drawn WITHOUT its figures, so the bare two-argument form must be absent.
+  ok("confirm: the card, the dialog title and the email pass the figures", (source("app/components/dashboard/SetupSteps.js").match(/t\(step\.titleKey, step\.title, step\.titleParams \|\| undefined\)/g) || []).length === 3 &&
+    !/t\(step\.titleKey, step\.title\)/.test(source("app/components/dashboard/SetupSteps.js")) &&
     /fill\(t\(step\.titleKey \|\| `app\.setup\.step\.\$\{step\.key\}`, step\.title \|\| step\.key\), step\.titleParams \|\| \{\}\)/.test(source("lib/email/onboardingNextStepsEmail.js")));
   {
     const langs = Object.keys(APP_MESSAGES);

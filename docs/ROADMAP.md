@@ -69,6 +69,36 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## The /app home, rebuilt: work panel, your focus, the checklist, My day (29 September 2026)
+
+The owner-approved home design, desktop and phone. Nothing that worked was removed; every old panel is still on the page.
+
+### What shipped
+
+- **Work panel** (top; `app/components/dashboard/WorkPanel.js`, rules in `lib/dashboard/workPanel.js`, data from `GET /api/dashboard/home` → `lib/dashboard/homeData.js`). Tabs Requests · Quotes · Jobs · Invoices, each badged ONLY with what waits on a person, hidden at zero; a tab the member may not see is not drawn (its reads are not even made). One action per row.
+  - Requests: lead `status "new"` with no quote (the follow-up cron's own rule) → Reply; instant estimate `autoEstimated && needsReview` → Review; a booked visit `needs_supervisor` with nobody assigned, still ahead → Review.
+  - Quotes: sent, unanswered, not expired/superseded (`quoteChaseBlocker`), and nothing sent to the client — send, manual or automated follow-up — for 3 days → Follow up; or expiring within 7 days → Follow up. **"Viewed, no answer" is not counted: FieldQuo does not record a client opening a quote** (`VIEWED_TRACKED = false`).
+  - Jobs: `unscheduled` → Schedule (new visit); a visit today/tomorrow by the COMPANY's timezone → Open.
+  - Invoices: owed and overdue → Chase (inline, the same request-payment POST; disabled under a support session); owed, no due date, issued 14+ days ago → Chase; draft → Send.
+- **Your focus** (`FocusSection.js`, `lib/dashboard/focus.js`): driven by `signupPriority` + every `signupFocus` key. All 19 focus keys map to real cards (metric / status / shortcut); a feature never set up becomes its set-up step, offered only to someone who can take it; no data, no card. Companies without a priority get a one-time picker (owner/admin; "Not now" stored per person in `/api/ui-state`) saving through the new idempotent `PATCH /api/dashboard/focus` (two columns only; refuses impersonation and non-admins), plus "Change focus".
+- **Set-up checklist** (`SetupSteps.js`): same steps, dismissals and dialogs, now ordered by priority/focus (`orderSetupSteps`, a permutation), with a progress bar, per-step and total time, ONE highlighted next step with Start, and a "Done: …" / "You're all set up" moment from a re-read in the session.
+- **Numbers, compact**: "Revenue this month" is now **Paid invoices this month** and "Money received" is **Payments received**, each with an (i) tip saying what it counts (cash vs invoices marked paid); chart beside the goal card.
+- **Crew "My day"** (`CrewMyDay.js`, `GET /api/dashboard/my-day`, `lib/dashboard/crewHome.js`): Crew-shaped members (no owner/admin, no schedule edit_all, no requests/quotes/invoices) get the next stop with Directions, today and the next 7 days, clock in/out (links `/app/clock`), each visit's photos/checklist progress → the job. Built from a whitelist — no money, no company numbers.
+- `NeedsToday` keeps only the receptionist lines when the panel carries the overdue invoices and estimates (`omit`).
+- 142 new strings in all nine app languages.
+
+### Checks
+
+`check:dashboard-home` (new, 198 assertions) plus `dashboard`, `dashboard-rank` (order and file list moved to the new design), `setup-steps`, `welcome-flow`, `employee-home`, `crew-access`, `rbac-*`, `impersonation`, `translations`, `app-catalogue`, `language-completeness`, `mobile`, `hooks`, `route-callers`, `empty-vs-error`.
+
+### Owed
+
+- Product: the brief named a "get paid faster" priority; the signup columns hold `professional / control / win_more / exploring`, so those are the four versions (paid-faster is the focus `invoices_paid_faster` under control).
+- Product: "viewed, no answer" needs a quote-opened event (e.g. a `Quote.viewedAt` stamped by `/q/[token]`) before it can be counted.
+- Not verified in a browser this session (no local login); needs a look on a phone and a desktop.
+
+---
+
 ## One-screen signup and the welcome questions (29 September 2026)
 
 The owner-approved Jobber-shaped signup. `/signup` is one screen — work email, password, an UNTICKED "Send me product news and offers", the Terms/Privacy line, "Start my free trial →", "Already have an account? Log in" (no Google/Apple: Better Auth has no social provider configured). That press creates the login AND the company (`POST /api/companies` with no name and no address), so the trial is real before any question is asked.
