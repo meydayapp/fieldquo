@@ -186,7 +186,11 @@ section("4. The wiring");
   const billing = decomment(read("lib/platform/stripeBilling.js"));
   ok("the billing sync stamps completion where the Subscription row is written", /stampSignupCompletedByCompany\(\{ client: db, companyId/.test(billing) && billing.indexOf("stampSignupCompletedByCompany(") > billing.indexOf("db.subscription.upsert("));
   const page = decomment(read("app/signup/page.js"));
-  ok("the signup page reads ?link=, keeps it in the draft, beacons opened and company, and sends the token with the company", /get\("link"\)/.test(page) && /salesCode,\s*signupLinkToken,/.test(page) && /reportSignupStep\(signupLinkToken, "opened"\)/.test(page) && /reportSignupStep\(signupLinkToken, "company"\)/.test(page) && /signupLinkToken: signupLinkToken \|\| undefined/.test(page));
+  // 2026-09-29: /signup is one screen with no business details on it, so
+  // "Company details" is beaconed by the welcome business screen, with the
+  // token /signup hands over in this tab's sessionStorage.
+  ok("the signup page reads ?link=, keeps it in the draft, beacons opened, and sends the token with the company", /get\("link"\)/.test(page) && /signupLinkToken, nextPath \}/.test(page) && /reportSignupStep\(signupLinkToken, "opened"\)/.test(page) && /signupLinkToken: signupLinkToken \|\| undefined/.test(page));
+  ok("...and hands it to the welcome screens, whose business answer beacons 'company'", /sessionStorage\.setItem\(WELCOME_LINK_KEY, signupLinkToken\)/.test(page) && /step: "company"/.test(decomment(read("app/welcome/WelcomeFlow.js"))) && !/reportSignupStep\(signupLinkToken, "company"\)/.test(page));
   ok("…the beacon never awaits and never throws into the page", /keepalive: true/.test(page) && /\.catch\(\(\) => \{\}\)/.test(page.slice(page.indexOf("function reportSignupStep"), page.indexOf("function reportSignupStep") + 600)));
   const route = decomment(read("app/api/sales/leads/[id]/signup-progress/route.js"));
   ok("the rep route scopes the lead by leadWhere and the row by the rep, and 404s both ways", /leadWhere\(rep\.id, id\)/.test(route) && /signupProgressForRep\(\{ client: db, leadId: lead\.id, salesRepId: rep\.id/.test(route) && (route.match(/status: 404/g) || []).length === 2 && /requireOutreachRep\(request\)/.test(route));

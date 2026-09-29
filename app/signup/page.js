@@ -889,7 +889,8 @@ export default function SignupPage() {
         return;
       }
 
-      if (signupLinkToken) reportSignupStep(signupLinkToken, "company");
+      // "Company details" on the rep's panel is reported by the welcome
+      // business screen, when there ARE details (app/welcome/WelcomeFlow.js).
       const ok = await createCompany();
       // The login exists even when the company POST failed: this page's
       // signed-in screen offers the same press again, never a second password.
