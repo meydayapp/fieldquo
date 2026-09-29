@@ -37,10 +37,10 @@ export const ARTICLES = {
             head: ["En la tarjeta", "Qué significa"],
             rows: [
               ["El nombre del plan (Solo, Crew, Shop, Scale)", "El nivel en el que está hoy. Si hay un cambio programado para más adelante, aquí sigue apareciendo el plan que tiene ahora."],
-              ["La etiqueta de estado", "**Trial** durante su mes gratis (la etiqueta sigue en inglés por ahora), **Activo** cuando ya paga, **Atrasada** tras un pago fallido (corre un reloj de gracia — vea [[failed-payments-and-the-grace-period|Pagos fallidos y el período de gracia]]), **Cancelado** cuando se va."],
+              ["La etiqueta de estado", "**Trial** durante su prueba gratuita (la etiqueta sigue en inglés por ahora), **Activo** cuando ya paga, **Atrasada** tras un pago fallido (corre un reloj de gracia — vea [[failed-payments-and-the-grace-period|Pagos fallidos y el período de gracia]]), **Cancelado** cuando se va."],
               ["El precio", "Mostrado en la frecuencia con la que realmente se le cobra: **$169.00/mes** en mensual, o la cifra anual con **/año** y **Compromiso de 1 año** si tomó el año."],
               ["Licencias y cuadrilla", "**3 puestos · 8 miembros de cuadrilla incluidos gratis**: lo que el plan permite, no cuántas personas tiene. Gestionar equipo muestra el conteo que está usando."],
-              ["Días restantes de prueba", "Solo durante el mes gratis: **Días restantes de prueba: 12**, en cuenta regresiva hasta el primer cobro."],
+              ["Días restantes de prueba", "Solo durante la prueba gratuita: **Días restantes de prueba: 12**, en cuenta regresiva hasta el primer cobro."],
               ["Próxima fecha de facturación", "El día en que Stripe cobra la tarjeta registrada por el siguiente período. No se muestra durante la prueba, que muestra la cuenta regresiva en su lugar."],
             ],
           } },
@@ -79,7 +79,7 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "La página dice Sin plan activo, pero pagué hace un minuto.", a: "Pulse **Verificar con Stripe**. La página también lo hace sola cuando vuelve de la página de pago, pero una confirmación lenta puede ganarle. No se cobra nada dos veces." },
-      { q: "¿Por qué no hay Próxima fecha de facturación en mi tarjeta?", a: "Todavía está en su mes gratis, y la tarjeta muestra **Días restantes de prueba** en su lugar. El primer cobro cae el día en que ese conteo llega a cero." },
+      { q: "¿Por qué no hay Próxima fecha de facturación en mi tarjeta?", a: "Todavía está en su prueba gratuita, y la tarjeta muestra **Días restantes de prueba** en su lugar. El primer cobro cae el día en que ese conteo llega a cero." },
       { q: "¿Dónde está el dinero que me pagaron mis clientes?", a: "Aquí no. Pulse **Ver lo que me pagaron mis clientes**, que abre **Configuración → Pagos**: su propia cuenta de Stripe conectada, sus transferencias y sus comisiones. Vea [[payment-processing-fees-and-payouts|Comisiones de procesamiento de pagos y transferencias]]." },
       { q: "¿Mi encargada de oficina puede abrir esta página?", a: "Solo si es administradora. Marque **Hacer administrador** en su acceso en **Gestionar equipo**; eso también le permite cambiar el plan y la tarjeta, así que déselo a la persona que realmente paga la cuenta." },
     ],
@@ -164,63 +164,61 @@ export const ARTICLES = {
   },
 
   "free-first-month": {
-    title: "Su primer mes es gratis",
+    title: "Sus primeros 14 días son gratis",
     summary:
-      "Cómo funciona el mes gratis al registrarse, por qué se pide una tarjeta de todos modos, qué muestra la pantalla mientras corre la prueba, y exactamente qué pasa el día en que termina.",
-    updated: "2026-09-12",
+      "Cómo funciona la prueba gratuita: 14 días de todo el producto sin tarjeta ni plan, los recordatorios antes de que termine, y exactamente qué pasa si no se elige un plan.",
+    updated: "2026-09-29",
     intro: [
-      "Cada empresa nueva recibe su primer mes de FieldQuo gratis: todo el producto, en el plan que eligió, sin ningún cobro durante 30 días. Su tarjeta se toma en la página de pago para que el plan simplemente continúe cuando termine el mes; no se cobra nada hasta entonces, y la página lo dice con todas las letras.",
-      "Este artículo dice qué es la prueba, qué ve mientras corre, cuándo se le recuerda, y qué pasa el día 30, incluso si la tarjeta no pasa.",
+      "Cada empresa nueva recibe 14 días de FieldQuo gratis: todo el producto, sin tarjeta y sin plan que elegir al registrarse. Elige un plan desde la app cuando esté listo; no se cobra nada hasta entonces.",
+      "Este artículo dice qué es la prueba, qué ve mientras corre, cuándo se le recuerda, y qué pasa el día en que termina si no se ha elegido un plan.",
     ],
     sections: [
       {
         id: "overview",
         heading: "Resumen",
         blocks: [
-          { p: "El mes gratis es una prueba de Stripe sobre una suscripción real. Elige un plan y una frecuencia en el último paso del registro, ingresa una tarjeta en la página de pago de Stripe, y la suscripción arranca en estado **Trial** con una prueba de 30 días. El día en que termina la prueba, Stripe cobra la tarjeta por el primer período — el precio mensual, o el precio anual completo si tomó el compromiso — y el estado pasa a **Activo**." },
-          { p: "Es gratis, no un dólar simbólico: la oferta en cada pantalla dice **Primer mes gratis**, y no aparece ninguna línea de cobro único en la página de pago. Una referencia de otra empresa de FieldQuo agrega un mes más a la prueba antes del primer cobro — vea [[referral-months|Meses por referidos]]." },
+          { p: "La prueba empieza en el momento en que se crea su empresa y dura 14 días. Todavía no hay una suscripción detrás ni nada que cancelar: es simplemente una fecha. Una empresa que se registró con la prueba anterior de 30 días conserva la fecha de fin que se le dio." },
+          { p: "Es gratis, no un dólar simbólico. Una recomendación de otra empresa de FieldQuo añade un mes más a la prueba — vea [[referral-months|Meses por recomendación]]." },
         ],
       },
       {
         id: "how-it-works-at-signup",
         heading: "Cómo funciona al registrarse",
         blocks: [
-          { figure: "harness:signup", caption: "Comience su prueba gratis — los cuatro pasos, y la tarjeta a la derecha que dice que la tarjeta se toma en la página de pago y que el primer cobro cae cuando termina el mes gratis." },
           { steps: [
             "Complete **Tu cuenta y tu empresa**: nombre, correo, empresa, dirección. El país de su dirección fija su moneda de facturación.",
-            "Elija sus oficios y sus servicios en los pasos 2 y 3.",
-            "En **Elige tu plan**, elija un nivel y responda **¿Cómo prefieres que te cobremos?** — **Sin compromiso** o **Compromiso de 1 año**. La línea debajo dice, por ejemplo, **Primer mes gratis, luego $99.00/mes.**",
-            "Pulse **Continuar al pago**. La página de Stripe toma su tarjeta y su dirección de facturación y muestra la prueba; no se le cobra. Aterriza en FieldQuo con el plan ya activo.",
+            "Elija sus oficios y servicios.",
+            "Termine el último paso. Llega a FieldQuo con la prueba en marcha: sin tarjeta y sin plan.",
           ] },
-          { note: "Se requiere una tarjeta para iniciar la prueba. Es una decisión deliberada: significa que el producto sigue funcionando el día 31 sin una segunda página de pago, y es la razón por la que la prueba puede ser un mes completo del producto real en lugar de una demo." },
+          { note: "No se pide tarjeta al registrarse. La añade al elegir un plan, y el primer cobro del plan cae el día en que termina la prueba: elegir antes no le quita ningún día gratis." },
         ],
       },
       {
         id: "what-you-see-during-the-trial",
         heading: "Qué ve durante la prueba",
         blocks: [
-          { p: "En **Cuenta y facturación**, la tarjeta del plan lleva una etiqueta **Trial** (en inglés, por ahora) y, bajo el precio, **Días restantes de prueba: 23** en cuenta regresiva. Todavía no hay **Próxima fecha de facturación**: la cuenta regresiva es esa fecha. Todo lo demás en la pantalla funciona como funcionará después de la prueba, incluido **Elegir plan**: subir de plan durante el mes gratis surte efecto de inmediato y sigue siendo gratis hasta que termina el mes, porque la prueba se mantiene donde estaba. Vea [[change-your-plan|Cambiar de plan]]." },
-          { p: "También recibe un correo de confirmación cuando la suscripción se activa, con el plan, **Status: Free trial** y **Trial ends** con la fecha." },
+          { p: "Un aviso en la parte superior de la app dice **Prueba gratuita · quedan 12 días**, con **Elegir un plan** al lado y, cuando el tamaño de su equipo apunta a uno, un plan recomendado. La misma opción está en **Cuenta y facturación**. Elegir un plan durante la prueba conserva los días que le quedan: el plan empieza, y se cobra por primera vez, el día en que la prueba habría terminado. Vea [[change-your-plan|Cambiar de plan]]." },
+          { p: "Una vez elegido un plan, el aviso lo nombra con su fecha de inicio y dice que no se cobra nada hasta entonces." },
         ],
       },
       {
-        id: "when-the-month-ends",
-        heading: "Cuando termina el mes",
+        id: "when-the-trial-ends",
+        heading: "Cuando termina la prueba",
         blocks: [
           { bullets: [
-            "**Siete días antes** del primer cobro, FieldQuo envía al propietario un recordatorio por correo con el plan, el monto, la fecha y los últimos cuatro dígitos de la tarjeta si se conocen. Vea [[renewal-reminders|Recordatorios de renovación]].",
-            "**El mismo día**, Stripe cobra la tarjeta. La etiqueta de estado pasa a **Activo** y la tarjeta muestra **Próxima fecha de facturación** un mes (o un año) después.",
-            "**Si el cobro falla**, el estado pasa a **Atrasada** y empieza un período de gracia de 7 días: todavía puede leer todo, pero no agregar nada, hasta que arregle la tarjeta con **Gestionar facturación y método de pago**. Pasados los siete días, la cuenta queda bloqueada en la pantalla de facturación hasta que se pague. Nada se borra en ningún momento. Vea [[failed-payments-and-the-grace-period|Pagos fallidos y el período de gracia]].",
+            "**Siete días, tres días y un día antes** del final, si no se ha elegido un plan, FieldQuo envía al propietario un recordatorio con la fecha de fin y un botón **Elegir un plan**. Cada uno se envía una sola vez.",
+            "**Ese día**, si no se ha elegido un plan, la cuenta pasa a **solo lectura durante 7 días**: todos pueden seguir viendo cada cotización, factura, cliente y foto, pero no se puede crear ni enviar nada nuevo. El aviso dice **Tu prueba terminó · solo lectura durante 7 días más**.",
+            "**Pasados esos 7 días** la cuenta se bloquea hasta que se elija un plan. Nada se borra en ningún momento: elegir un plan lo devuelve todo tal como estaba.",
           ] },
-          { warning: "Cancelar durante el mes gratis detiene el primer cobro, pero termina su acceso en los mismos términos que cualquier cancelación: lea [[cancel-your-subscription|Cancelar su suscripción]] antes de pulsar **Cancelar plan** el día 29 esperando un día extra gratis." },
+          { warning: "La prueba se ofrece una sola vez por empresa. Cancelar un plan y volver a elegir uno no inicia una segunda prueba gratuita — vea [[cancel-your-subscription|Cancelar su suscripción]]." },
         ],
       },
     ],
     faq: [
-      { q: "¿El primer mes es realmente gratis, o cuesta $1?", a: "Gratis. El precio del primer mes es cero, la página de pago no muestra ningún cobro por él, y la pantalla de registro dice **Primer mes gratis**." },
-      { q: "¿El mes gratis también aplica al plan anual?", a: "Sí. Primero viene el mes, luego el año: ningún cobro durante 30 días, luego el monto anual completo, y el año empieza con ese cobro." },
-      { q: "Me refirió otro contratista. ¿Cuánto dura mi prueba?", a: "30 días más un mes por referido, y el recordatorio y el primer cobro se corren con él. La confirmación tras el registro nombra a la empresa que lo refirió." },
-      { q: "¿Puedo probarlo sin tarjeta?", a: "No. El registro toma una tarjeta en la página de pago antes de que empiece la prueba. No se cobra hasta que termina el mes gratis, y puede cancelar antes." },
+      { q: "¿Es realmente gratis, o cuesta $1?", a: "Gratis. No se cobra nada durante los 14 días, y no se pide tarjeta hasta que elige un plan." },
+      { q: "¿La prueba también aplica al plan anual?", a: "Sí. Elija el plan anual durante la prueba y el año empieza —y se cobra— el día en que termina la prueba." },
+      { q: "Me recomendó otro contratista — ¿cuánto dura mi prueba?", a: "14 días más un mes por recomendación, y los recordatorios se corren con ella. La confirmación después del registro nombra a la empresa que lo recomendó." },
+      { q: "¿Puedo probarlo sin tarjeta?", a: "Sí. El registro no pide tarjeta. La añade al elegir un plan, y no se cobra hasta que termina la prueba." },
     ],
   },
 
@@ -280,7 +278,7 @@ export const ARTICLES = {
             "**El año se paga una vez, por adelantado**, en la fecha de renovación, en su moneda, con el impuesto que Stripe agrega donde corresponde.",
             "**Volver a mensual, o bajar de nivel, espera a que termine el año.** El cambio se programa para el final del período y nada se reembolsa, acredita ni cobra antes: la misma regla que una bajada de plan mensual, en un período más largo.",
             "**Subir de plan a mitad de año no espera.** Un nivel superior aplica hoy y el resto del año se prorratea.",
-            "**El primer mes gratis viene antes del año**, no dentro de él: ningún cobro durante 30 días, luego el monto anual completo.",
+            "**La prueba gratuita viene antes del año**, no dentro de él: ningún cobro durante los días de prueba, luego el monto anual completo.",
             "**Los recordatorios llegan 30 días antes** de una renovación anual, por correo, con el monto y la tarjeta. Las renovaciones mensuales no reciben recordatorio, porque un cobro que se repite cada mes no es noticia — vea [[renewal-reminders|Recordatorios de renovación]].",
           ] },
         ],
@@ -330,7 +328,7 @@ export const ARTICLES = {
             "El cuadro de diálogo **Cambiar de plan** dice: **Tu plan cambia a Shop (facturado mensualmente) de inmediato. La diferencia por el resto de este período de facturación se prorratea hoy.** Pulse **Cambiar de plan ahora**.",
             "La página se recarga y lee el nuevo plan desde Stripe. Las licencias y plazas de cuadrilla adicionales se pueden usar de inmediato en **Gestionar equipo**.",
           ] },
-          { note: "Durante su mes gratis, una subida de plan también aplica de inmediato, y sigue siendo gratis: la prueba se mantiene exactamente donde estaba y el nuevo precio empieza cuando termina." },
+          { note: "Durante su prueba gratuita, una subida de plan también aplica de inmediato, y sigue siendo gratis: la prueba se mantiene exactamente donde estaba y el nuevo precio empieza cuando termina." },
         ],
       },
       {
@@ -569,7 +567,7 @@ export const ARTICLES = {
         heading: "Correos que FieldQuo envía sobre su facturación",
         blocks: [
           { bullets: [
-            "**Cuando empieza un plan**: una confirmación con el plan, **Status: Free trial** durante el mes gratis, y **Trial ends** o **Next billing date**. Enviada una vez, sin importar cuántas veces la página verifique con Stripe.",
+            "**Cuando empieza un plan**: una confirmación con el plan, **Status: Free trial** durante la prueba gratuita, y **Trial ends** o **Next billing date**. Enviada una vez, sin importar cuántas veces la página verifique con Stripe.",
             "**Cuando cae un cambio de plan**: el mismo correo, con el plan anterior y el nuevo, el día en que el cambio surte efecto.",
             "**Antes del primer cobro**: siete días antes de que una prueba se convierta en pago, con el monto y los últimos cuatro dígitos de la tarjeta si se conocen. Las renovaciones anuales reciben el mismo correo 30 días antes; las mensuales no reciben ninguno. Vea [[renewal-reminders|Recordatorios de renovación]].",
             "**Cuando falla un pago**: los avisos del período de gracia, vea [[failed-payments-and-the-grace-period|Pagos fallidos y el período de gracia]].",

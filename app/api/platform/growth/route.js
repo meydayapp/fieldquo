@@ -23,6 +23,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { measureGrowth } from "@/lib/platform/growthMeasured";
+import { TRIAL_DAYS } from "@/lib/pricing";
 import { project, ASSUMPTION_FIELDS, FLOORS, MILESTONES } from "@/lib/platform/growthModel";
 
 const SINGLETON = "singleton";
@@ -80,9 +81,13 @@ async function buildResponse() {
       startingPaying: measured.starting.paying,
       startingTrialing: measured.starting.trialing,
       listSize: measured.listSize,
-      // The trial is one month (app/api/companies/route.js: 30 days); a
-      // referral adds one more for the newcomer, which this rounds away.
-      trialMonths: 1,
+      // The model steps a month at a time. The trial is TRIAL_DAYS (14 since
+      // 2026-09-29; it was 30), so a signup's first payment lands in the same
+      // or the next monthly step — never two later. One step of lag is the
+      // nearest the model can say it; 0 would drop startingTrialing (the
+      // pipeline has no slot to hold them). A referral's extra month for the
+      // newcomer is rounded away, as before.
+      trialMonths: Math.max(1, Math.ceil(TRIAL_DAYS / 30)),
       now,
     });
   } catch (err) {

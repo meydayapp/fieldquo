@@ -966,7 +966,7 @@ export default function SignupPage() {
             ? resumeTrialLive
               ? t(
                   "app.signup.finish.subtitleTrial",
-                  "{company} is set up — it just needs a card before you can use it. Your free month has {days} left, so nothing is charged today.",
+                  "{company} is set up — it just needs a card before you can use it. Your free trial has {days} left, so nothing is charged today.",
                   {
                     company: finishCheckout.name,
                     days: `${resumeTrialDaysLeft} ${t(resumeTrialDaysLeft === 1 ? "app.signup.finish.day" : "app.signup.finish.days")}`,
@@ -1478,7 +1478,7 @@ export default function SignupPage() {
                                 trial: trialText(t, pricing.trialTotal),
                                 charge: chargeText,
                               })
-                            : t("app.signup.plan.startTrial", "Start — first month free, then {charge}", {
+                            : t("app.signup.plan.startTrial", "Start — 14 days free, then {charge}", {
                                 charge: chargeText,
                               });
                         })()}

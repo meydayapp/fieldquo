@@ -43,10 +43,10 @@ export const ARTICLES = {
             head: ["On the card", "What it means"],
             rows: [
               ["The plan name (Solo, Crew, Shop, Scale)", "The tier you are on today. If a change is booked for a later date, this still names the plan you have now."],
-              ["The status chip", "**Trial** during your free month, **Active** once you are paying, **Overdue** after a failed payment (a grace clock is running — see [[failed-payments-and-the-grace-period|Failed payments and the grace period]]), **Cancelled** after you leave."],
+              ["The status chip", "**Trial** during your free trial, **Active** once you are paying, **Overdue** after a failed payment (a grace clock is running — see [[failed-payments-and-the-grace-period|Failed payments and the grace period]]), **Cancelled** after you leave."],
               ["The price", "Shown on the cadence you are actually billed on — **$169.00/month** on monthly, or the yearly figure with **/year** and **1 year commitment** if you took the year."],
               ["Seats and crew", "**3 seats · 8 crew included free** — the plan's allowance, not how many people you have. Manage Team shows the count you are using."],
-              ["Days left in trial", "Only during the free month: **Days left in trial: 12**, counting down to the first charge."],
+              ["Days left in trial", "Only during the free trial: **Days left in trial: 12**, counting down to the first charge."],
               ["Next billing date", "The day Stripe charges the card on file for the next period. Not shown during the trial, which shows the countdown instead."],
             ],
           } },
@@ -85,7 +85,7 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "The page says No active plan but I paid a minute ago.", a: "Press **Check with Stripe**. The page also does this by itself when you arrive back from checkout, but a slow confirmation can beat it. Nothing is charged twice." },
-      { q: "Why is there no Next billing date on my card?", a: "You are still in your free month, and the card shows **Days left in trial** instead. The first charge lands the day that count reaches zero." },
+      { q: "Why is there no Next billing date on my card?", a: "You are still in your free trial, and the card shows **Days left in trial** instead. The first charge lands the day that count reaches zero." },
       { q: "Where is the money my clients paid me?", a: "Not here. Press **See what my clients paid me**, which opens **Settings → Payments** — your own connected Stripe account, payouts and fees. See [[payment-processing-fees-and-payouts|Payment processing fees and payouts]]." },
       { q: "Can my office manager open this page?", a: "Only if they are an administrator. Tick **Make administrator** on their access in **Manage Team**; that also lets them change the plan and the card, so give it to the person who genuinely pays the bill." },
     ],
@@ -170,63 +170,61 @@ export const ARTICLES = {
   },
 
   "free-first-month": {
-    title: "Your first month is free",
+    title: "Your first 14 days are free",
     summary:
-      "How the free month works at signup, why a card is taken anyway, what the screen shows while the trial runs, and exactly what happens on the day it ends.",
-    updated: "2026-09-12",
+      "How the free trial works: 14 days of the whole product with no card and no plan, the reminders before it ends, and exactly what happens if no plan is chosen.",
+    updated: "2026-09-29",
     intro: [
-      "Every new company gets its first month of FieldQuo free — the whole product, on whichever plan you chose, with no charge for 30 days. Your card is taken at checkout so that the plan simply continues when the month ends; nothing is charged until then, and the page says so in as many words.",
-      "This article says what the trial is, what you see while it runs, when you are reminded, and what happens on day 30 — including if the card does not go through.",
+      "Every new company gets 14 days of FieldQuo free — the whole product, with no card and no plan to choose at signup. You choose a plan from inside the app whenever you are ready; nothing is charged until you do.",
+      "This article says what the trial is, what you see while it runs, when you are reminded, and what happens on the day it ends if no plan has been chosen.",
     ],
     sections: [
       {
         id: "overview",
         heading: "Overview",
         blocks: [
-          { p: "The free month is a Stripe trial on a real subscription. You pick a plan and a cadence on the last step of signup, enter a card on Stripe's checkout page, and the subscription starts in **Trial** status with a trial of 30 days. On the day the trial ends, Stripe charges the card for the first period — the monthly price, or the full yearly price if you took the commitment — and the status becomes **Active**." },
-          { p: "It is free, not a token dollar: the offer on every screen reads **Free first month**, and no one-time line appears at checkout. A referral from another FieldQuo company adds a further month to the trial before the first charge — see [[referral-months|Referral months]]." },
+          { p: "The trial starts the moment your company is created and runs for 14 days. There is no subscription behind it yet and nothing to cancel: it is simply a date. A company that signed up on the earlier 30-day trial keeps the end date it was given." },
+          { p: "It is free, not a token dollar. A referral from another FieldQuo company adds one more month to the trial — see [[referral-months|Referral months]]." },
         ],
       },
       {
         id: "how-it-works-at-signup",
         heading: "How it works at signup",
         blocks: [
-          { figure: "harness:signup", caption: "Start your free trial — the four steps, and the card on the right that says the card is taken at checkout and the first charge lands when the free month ends." },
           { steps: [
             "Fill in **Your account and business** — name, email, company, address. The country in your address sets your billing currency.",
-            "Choose your trades and services on steps 2 and 3.",
-            "On **Choose your plan**, pick a tier and answer **How would you like to be billed?** — **No commitment** or **1 year commitment**. The line under it reads, for example, **Free first month, then $99.00/mo.**",
-            "Press **Continue to Payment**. Stripe's page takes your card and billing address and shows the trial; you are not charged. You land in FieldQuo with the plan already live.",
+            "Choose your trades and services.",
+            "Finish the last step. You land in FieldQuo with the trial running — no card, no plan.",
           ] },
-          { note: "A card is required to start the trial. That is a deliberate decision: it means the product keeps working on day 31 without a second checkout, and it is why the trial can be a full month of the real thing rather than a demo." },
+          { note: "No card is asked for at signup. You add one when you choose a plan, and the plan's first charge lands on the day the trial ends — choosing early does not cost you any free days." },
         ],
       },
       {
         id: "what-you-see-during-the-trial",
         heading: "What you see during the trial",
         blocks: [
-          { p: "On **Account & Billing** the plan card carries a **Trial** chip and, under the price, **Days left in trial: 23** counting down. There is no **Next billing date** yet — the countdown is that date. Everything else on the screen works as it will after the trial, including **Choose plan**: an upgrade during the free month takes effect right away and stays free until the month ends, because the trial is kept where it was. See [[change-your-plan|Change your plan]]." },
-          { p: "You also receive one confirmation email when the subscription goes live, listing the plan, **Status: Free trial** and **Trial ends** with the date." },
+          { p: "A banner across the top of the app reads **Free trial · 12 days left**, with **Choose a plan** beside it and, when your team size points to one, a recommended plan. The same choice is on **Account & Billing**. Choosing a plan during the trial keeps the days you have left: the plan starts, and is first charged, on the day the trial would have ended. See [[change-your-plan|Change your plan]]." },
+          { p: "Once a plan is chosen, the banner names it and the date it starts, and says nothing is charged until then." },
         ],
       },
       {
-        id: "when-the-month-ends",
-        heading: "When the month ends",
+        id: "when-the-trial-ends",
+        heading: "When the trial ends",
         blocks: [
           { bullets: [
-            "**Seven days before** the first charge, FieldQuo emails the owner a reminder naming the plan, the amount, the date, and the last four digits of the card if known. See [[renewal-reminders|Renewal reminders]].",
-            "**On the day**, Stripe charges the card. The status chip turns **Active** and the card shows **Next billing date** one month (or one year) on.",
-            "**If the charge fails**, the status becomes **Overdue** and a 7-day grace period starts: you can still read everything, but not add to it, until the card is fixed with **Manage billing & payment method**. After the seven days the account is locked to the billing screen until it is paid. Nothing is deleted at any point. See [[failed-payments-and-the-grace-period|Failed payments and the grace period]].",
+            "**Seven days, three days and one day before** the end, if no plan has been chosen, FieldQuo emails the owner a reminder with the end date and a **Choose a plan** button. Each is sent once.",
+            "**On the day**, if no plan has been chosen, the account goes **read-only for 7 days**: everyone can still see every quote, invoice, client and photo, but nothing new can be created or sent. The banner reads **Your trial ended · read-only for 7 more days**.",
+            "**After those 7 days** the account locks until a plan is chosen. Nothing is deleted at any point — choosing a plan brings everything back exactly as it was.",
           ] },
-          { warning: "Cancelling during the free month stops the first charge, but it ends your access on the same terms as any cancellation — see [[cancel-your-subscription|Cancel your subscription]] before you press **Cancel plan** on day 29 expecting a free extra day." },
+          { warning: "The trial is offered once per company. Cancelling a plan and choosing one again does not start a second free trial — see [[cancel-your-subscription|Cancel your subscription]]." },
         ],
       },
     ],
     faq: [
-      { q: "Is the first month really free, or is it $1?", a: "Free. The price of the first month is zero, the checkout shows no charge for it, and the signup screen reads **Free first month**." },
-      { q: "Does the free month apply to the yearly plan too?", a: "Yes. The month comes first, then the year: no charge for 30 days, then the full yearly amount, and the year starts from that charge." },
-      { q: "I was referred by another contractor — how long is my trial?", a: "30 days plus one referral month, and the reminder and the first charge move out with it. The confirmation after signup names the company that referred you." },
-      { q: "Can I try it without a card?", a: "No. Signup takes a card at checkout before the trial starts. It is not charged until the free month ends, and you can cancel before then." },
+      { q: "Is it really free, or is it $1?", a: "Free. Nothing is charged during the 14 days, and no card is asked for until you choose a plan." },
+      { q: "Does the trial apply to the yearly plan too?", a: "Yes. Choose the yearly plan during the trial and the year starts — and is charged — on the day the trial ends." },
+      { q: "I was referred by another contractor — how long is my trial?", a: "14 days plus one referral month, and the reminders move out with it. The confirmation after signup names the company that referred you." },
+      { q: "Can I try it without a card?", a: "Yes. Signup takes no card. You add one when you choose a plan, and it is not charged until the trial ends." },
     ],
   },
 
@@ -286,7 +284,7 @@ export const ARTICLES = {
             "**The year is paid once, up front**, on the renewal date, in your currency, with tax added by Stripe where it applies.",
             "**Going back to monthly, or down a tier, waits for the year to end.** The change is booked for the end of the period and nothing is refunded, credited or charged before then — the same rule as a monthly downgrade, over a longer period.",
             "**Upgrading mid-year does not wait.** A higher tier applies today and the remainder of the year is prorated.",
-            "**The free first month comes before the year**, not inside it: no charge for 30 days, then the full yearly amount.",
+            "**The free trial comes before the year**, not inside it: no charge for the trial days, then the full yearly amount.",
             "**Reminders arrive 30 days before** a yearly renewal, by email, naming the amount and the card. Monthly renewals get no reminder because a charge that recurs every month is not news — see [[renewal-reminders|Renewal reminders]].",
           ] },
         ],
@@ -336,7 +334,7 @@ export const ARTICLES = {
             "The dialog **Change your plan** reads: **Your plan changes to Shop (billed monthly) right away. The difference for the rest of this billing period is prorated today.** Press **Change plan now**.",
             "The page reloads and reads the new plan off Stripe. The extra seats and crew places are usable immediately on **Manage Team**.",
           ] },
-          { note: "During your free month an upgrade also applies right away, and stays free: the trial is kept exactly where it was and the new price starts when it ends." },
+          { note: "During your free trial an upgrade also applies right away, and stays free: the trial is kept exactly where it was and the new price starts when it ends." },
         ],
       },
       {
@@ -575,7 +573,7 @@ export const ARTICLES = {
         heading: "Emails FieldQuo sends about your billing",
         blocks: [
           { bullets: [
-            "**When a plan starts** — one confirmation naming the plan, **Status: Free trial** during the free month, and **Trial ends** or **Next billing date**. Sent once, however many times the page checks with Stripe.",
+            "**When a plan starts** — one confirmation naming the plan, **Status: Free trial** during the free trial, and **Trial ends** or **Next billing date**. Sent once, however many times the page checks with Stripe.",
             "**When a plan change lands** — the same email, naming the previous plan and the new one, on the day the change takes effect.",
             "**Before the first charge** — seven days before a trial converts, with the amount and the card's last four digits if known. Yearly renewals get the same email 30 days ahead; monthly renewals get none. See [[renewal-reminders|Renewal reminders]].",
             "**When a payment fails** — the grace-period warnings, see [[failed-payments-and-the-grace-period|Failed payments and the grace period]].",

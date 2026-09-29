@@ -572,7 +572,7 @@ export const COMPARE_CHROME = {
     "is generated from the same record the engineering checks run against, so " +
     "a feature that stops working stops being advertised.",
 
-  ctaTitle: "First month free with a card on file, and you can read the price before you start",
+  ctaTitle: "14 days free, and you can read the price before you start",
   // ══ This said "No card to start", and that was false ══════════════════════
   //
   // /api/companies commits the Company and then opens Stripe Checkout
@@ -591,14 +591,18 @@ export const COMPARE_CHROME = {
   // The replacement is the wording app/i18n/industries/en.js already uses for
   // the same promise, so the site makes one statement about the card rather
   // than two.
-  // Phrased so it does not repeat ctaTitle's "First month free" back at the
+  // Phrased so it does not repeat ctaTitle's "14 days free" back at the
   // reader, and so the part that was being hidden — that a card IS taken — is
   // the part stated plainly rather than implied by an absence.
+  //
+  // 2026-09-29: the trial became 14 days (TRIAL_DAYS) and signup takes no
+  // card (TRIAL_CARD_REQUIRED = false), so the card clause above is no longer
+  // true either way round. The sentence now says only what is true under
+  // both: nothing is charged during the free days.
   ctaBody:
     "No call to book, and the price is on the pricing page rather than behind " +
-    "a form. Your card is taken at signup and isn't charged until the free " +
-    "month ends.",
-  ctaButton: "Start your free month",
+    "a form. Nothing is charged during the 14 free days.",
+  ctaButton: "Start your 14-day free trial",
   ctaSecondary: "See the pricing",
 
   otherPagesTitle: "The other comparisons",

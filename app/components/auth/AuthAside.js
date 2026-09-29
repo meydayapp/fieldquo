@@ -304,7 +304,7 @@ function ReactiveSignupAside({ preview }) {
           <p className="mt-6 border-t border-border pt-4 text-xs text-muted-foreground leading-relaxed">
             {t(
               "auth.aside.signup.billing",
-              "{trial}. No card and no plan today \u2014 you pick a plan from inside the app before the free month is up, and nothing is charged until you do.",
+              "{trial}. No card and no plan today \u2014 you pick a plan from inside the app before the 14 free days are up, and nothing is charged until you do.",
               { trial: trialLabel() },
             )}
           </p>
@@ -419,7 +419,7 @@ export default function AuthAside({ variant = "login", preview = null }) {
             <p className="mt-6 border-t border-border pt-4 text-xs text-muted-foreground leading-relaxed">
               {t(
                 "auth.aside.signup.billing",
-                "{trial}. No card and no plan today \u2014 you pick a plan from inside the app before the free month is up, and nothing is charged until you do.",
+                "{trial}. No card and no plan today \u2014 you pick a plan from inside the app before the 14 free days are up, and nothing is charged until you do.",
                 { trial: trialLabel() },
               )}
             </p>
@@ -427,10 +427,10 @@ export default function AuthAside({ variant = "login", preview = null }) {
             <p className="mt-6 border-t border-border pt-4 text-xs text-muted-foreground leading-relaxed">
               {t(
                 "auth.aside.login.newHere",
-                "New here? Starting a business takes a few minutes and the first month is free.",
+                "New here? Starting a business takes a few minutes and the first 14 days are free.",
               )}{" "}
               <Link href="/signup" className="font-medium text-foreground underline">
-                {t("auth.aside.login.newHereCta", "Start your free month")}
+                {t("auth.aside.login.newHereCta", "Start your 14-day free trial")}
               </Link>
             </p>
           )}

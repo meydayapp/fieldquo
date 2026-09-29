@@ -834,7 +834,7 @@ ok("send=true implies every guard passed, over every fixture",
 const earlyArgs = { firstName: "Émilie", companyName: "<b>Peinture</b> Tremblay", resumeUrl: "https://x/signup?resume=t", optOutUrl: "https://x/no-contact/t", mailingAddress: "1 Rue Test, Montréal" };
 const earlyEn = buildSignupEarlyNudgeEmail({ ...earlyArgs, language: "en", tradeKey: "painting" });
 ok("it builds", Boolean(earlyEn.subject && earlyEn.html && earlyEn.text));
-ok("the subject is the free month, not a bill", /free month/i.test(earlyEn.subject));
+ok("the subject is the free trial, not a bill — and says 14 days, not a month", /14 free days/i.test(earlyEn.subject) && !/month/i.test(earlyEn.subject), earlyEn.subject);
 ok("the button is the way back in", earlyEn.html.includes('href="https://x/signup?resume=t"') && earlyEn.text.includes("https://x/signup?resume=t"));
 ok("three trade points, the same three the reps' intro email prints",
   earlyEn.points.length === 3 &&

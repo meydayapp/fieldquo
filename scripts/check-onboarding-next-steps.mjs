@@ -339,8 +339,8 @@ section("7f. The trial line and the additional set-up steps");
   // The card as a brand-new company sees it: nothing done, nothing hidden.
   const fresh = remainingSteps(stepsFor({}));
   const e = buildOnboardingNextStepsEmail({ ...base, setupSteps: fresh, trialEndsAt: trialEnd });
-  ok("the trial line: one honest sentence with the date", e.trialLine === "Your free month runs until Oct 21, 2026." && e.text.includes(e.trialLine) && e.html.includes(e.trialLine));
-  ok("no trial date → no trial line, never a guessed one", en.trialLine === null && !/free month/.test(en.text));
+  ok("the trial line: one honest sentence with the date", e.trialLine === "Your free trial runs until Oct 21, 2026." && e.text.includes(e.trialLine) && e.html.includes(e.trialLine));
+  ok("no trial date → no trial line, never a guessed one", en.trialLine === null && !/free (month|trial)/.test(en.text));
   ok(`the additional steps: at most ${NEXT_STEPS_MORE_MAX} named, in the card's order`, JSON.stringify(e.more) === JSON.stringify(fresh.slice(0, NEXT_STEPS_MORE_MAX).map((st) => st.key)));
   ok("…the rest counted, pointing at the home page", e.moreHidden === fresh.length - NEXT_STEPS_MORE_MAX && new RegExp(`and ${fresh.length - NEXT_STEPS_MORE_MAX} more on your home page`).test(e.text));
   ok("…under the card's own title", /Additional set-up steps/.test(e.text) && /Additional set-up steps/.test(e.html));
@@ -395,7 +395,7 @@ section("7g. Eight languages, and no English trade sentence in the other five");
 {
   const trialEnd = new Date("2026-10-21T18:00:00Z");
   const fresh = remainingSteps(stepsFor({}));
-  const EN_OWN = ["Still to do", "Already done", "Do this now", "Open my home page", "Your free month", "Additional set-up steps", "more on your home page"];
+  const EN_OWN = ["Still to do", "Already done", "Do this now", "Open my home page", "Your free trial", "Additional set-up steps", "more on your home page"];
   for (const l of LANGUAGE_CODES) {
     // 4817, not 12: the proof's company count must be a number nothing else
     // in the letter can print. It was 12 until "Confirm what you quote" made

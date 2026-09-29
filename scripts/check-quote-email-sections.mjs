@@ -42,7 +42,13 @@ import {
   QuoteEmailSectionsIncomplete,
 } from "../lib/quotes/emailSections.js";
 import { buildQuoteEmail } from "../lib/email/quoteEmail.js";
-import { documentTheme, fillPair } from "../lib/documents/theme.js";
+import crypto from "node:crypto";
+import { documentTheme, fillPair, washPair } from "../lib/documents/theme.js";
+import { emailCopy, EMAIL_COPY, SUPPORTED_EMAIL_LANGUAGES } from "../lib/i18n/emailCopy.js";
+import { CLIENT_DOC_COPY } from "../lib/i18n/clientDocCopy.js";
+import { documentFormatters } from "../lib/i18n/documentLabels.js";
+import { monthlyPayment } from "../lib/financing/monthlyEstimate.js";
+import { escapeHtml } from "../lib/email/documentEmailLayout.js";
 import { contrastRatio, ensureContrast, accessiblePair } from "../lib/brand/colour.js";
 import { SERVICE_PALETTE } from "../lib/documents/serviceContent.js";
 import { APP_MESSAGES } from "../app/i18n/appMessages.js";
@@ -506,6 +512,170 @@ for (const [name, accent] of Object.entries(SERVICE_PALETTE)) {
     `${contrastRatio(badge.fg, badge.bg).toFixed(2)}:1`);
   ok(`trade accent ${name}: its bullet glyph clears 4.5:1 on the card`,
     contrastRatio(ensureContrast(accent, "#ffffff", 4.5), "#ffffff") >= 4.5);
+}
+
+// ── 5c. Financing — the owner's decision of 2026-09-29 ─────────────────────
+//
+// When the company's Financing card is on, every quote email carries a
+// financing section. Everything the decision constrains is executed here
+// rather than read: off is byte-identical to an email that never heard of
+// financing, the company's words and numbers print as they were saved, and no
+// monthly figure is ever computed — not in the HTML, not in the text part.
+
+console.log("\nFinancing: on when the company says so, silent otherwise\n");
+
+{
+  const md5 = (s) => crypto.createHash("md5").update(s).digest("hex");
+  const QURL = "https://app.fieldquo.com/q/fin123";
+  const LENDER = "https://lender.example/apply?ref=northline&x=1";
+  const NOTE = "0% for 12 months through Bayview Credit Union — ask Sam.";
+  const render = (financing, { language = "en", brandColor = "#06356b", withKey = true, refs = false } = {}) =>
+    buildQuoteEmail({
+      quote: quoteRow(),
+      client: { name: "Jane Fournier" },
+      company: companyRow({
+        brandColor,
+        ...(withKey ? { financing } : {}),
+        ...(refs ? { quoteEmailIncludeReferences: true, quoteEmailReferences: REFS } : {}),
+      }),
+      url: QURL,
+      scopeGroups: SCOPE_GROUPS,
+      language,
+    });
+  const both = (r) => r.html + "\n" + r.text;
+
+  // OFF, in every spelling a saved row can have, against an email built with
+  // no financing key at all — which is what every email was before this
+  // section existed. md5 of html + text, per language and per brand.
+  const OFF = {
+    "null": null,
+    "switched off with everything filled in": { enabled: false, note: NOTE, url: LENDER, aprPct: 9.99, termMonths: 60 },
+    "on, but no note and no link": { enabled: true, note: "   ", url: null, aprPct: null, termMonths: null },
+    "on, terms only — nothing of the company's own to say": { enabled: true, note: null, url: null, aprPct: 9.99, termMonths: 60 },
+    "on, and the only link is javascript:": { enabled: true, note: "", url: "javascript:alert(1)" },
+    "a string, not an object": "yes",
+  };
+  let identical = 0;
+  let compared = 0;
+  const offMismatch = [];
+  for (const language of SUPPORTED_EMAIL_LANGUAGES) {
+    for (const brandColor of ["#06356b", "#FFD600", "#ffffff", "#000000", "#808080"]) {
+      const baseline = md5(both(render(undefined, { language, brandColor, withKey: false })));
+      for (const [label, financing] of Object.entries(OFF)) {
+        compared++;
+        if (md5(both(render(financing, { language, brandColor }))) === baseline) identical++;
+        else offMismatch.push(`${language} ${brandColor} ${label}`);
+      }
+    }
+  }
+  ok("financing OFF (6 spellings × 8 languages × 5 brands): html + text byte-identical to no financing at all",
+    identical === compared, offMismatch.slice(0, 3).join("; ") || `${identical}/${compared} md5 matches`);
+
+  // ON, note only: the company's words, verbatim; the link goes to the quote.
+  const noteOnly = render({ enabled: true, note: NOTE, url: null });
+  const enCopy = emailCopy("en");
+  ok("note only: the section appears with its heading",
+    noteOnly.html.includes(escapeHtml(enCopy.financingHeading.toUpperCase())));
+  ok("note only: the company's note is printed exactly as written",
+    noteOnly.html.includes(escapeHtml(NOTE)) && noteOnly.text.includes(NOTE));
+  ok("note only: the link goes to the quote page's financing panel (no lender link exists)",
+    noteOnly.html.includes(`href="${QURL}"`) &&
+      noteOnly.html.includes(enCopy.financingOnQuote) &&
+      noteOnly.text.includes(`${enCopy.financingOnQuote}: ${QURL}`));
+  ok("note only: no invented terms line", !noteOnly.html.includes("APR"));
+
+  // ON, link only: the lender hand-off, and no sentence of ours pretending to
+  // be the company's.
+  const linkOnly = render({ enabled: true, note: null, url: LENDER });
+  ok("link only: the section appears, linking to the company's lender",
+    linkOnly.html.includes(`href="${LENDER.replace(/&/g, "&amp;")}"`) &&
+      linkOnly.html.includes(enCopy.financingCta) &&
+      linkOnly.text.includes(`${enCopy.financingCta}: ${LENDER}`));
+  ok("link only: no fallback 'ask us' sentence put in the company's mouth",
+    !/ask us for details/i.test(both(linkOnly)));
+
+  // A note that is markup is text, not markup.
+  const hostile = render({ enabled: true, note: '<img src=x onerror="alert(1)">', url: null });
+  ok("a note that is markup is escaped, not rendered",
+    !hostile.html.includes("<img src=x") && hostile.html.includes("&lt;img src=x"));
+
+  // APR and term exactly as stored, and never a monthly figure.
+  const withTerms = render({ enabled: true, note: NOTE, url: LENDER, aprPct: 9.99, termMonths: 60 });
+  ok("APR and term print verbatim (9.99 / 60)",
+    withTerms.html.includes("9.99% APR over 60 months") && withTerms.text.includes("9.99% APR over 60 months"));
+  const zeroApr = render({ enabled: true, note: NOTE, url: null, aprPct: 0, termMonths: 12 });
+  ok("a stated 0% APR is printed as 0, not dropped as falsy",
+    zeroApr.html.includes("0% APR over 12 months"));
+  const { money } = documentFormatters("en", "CAD");
+  const wouldBe = [
+    monthlyPayment({ principal: 14250, aprPct: 9.99, termMonths: 60 }),
+    monthlyPayment({ principal: 14250, aprPct: 0, termMonths: 12 }),
+  ].map((m) => money(m));
+  ok("no monthly payment is computed — the amortised figures appear nowhere",
+    wouldBe.every((m) => !both(withTerms).includes(m) && !both(zeroApr).includes(m)),
+    wouldBe.join(", "));
+  ok("…and no per-month wording at all",
+    !/(\/\s?mo\b|per month|a month|monthly)/i.test(both(withTerms)));
+
+  // Position: after "how the work runs", before the references.
+  const placed = render({ enabled: true, note: NOTE, url: null }, { refs: true });
+  const iSteps = placed.html.indexOf("HOW THE WORK RUNS");
+  const iFin = placed.html.indexOf("FINANCING AVAILABLE");
+  const iRefs = placed.html.indexOf("Anna");
+  ok("the section sits after the steps and before the references",
+    iSteps !== -1 && iSteps < iFin && iFin < iRefs, `${iSteps} < ${iFin} < ${iRefs}`);
+  ok("…in the text part too",
+    placed.text.indexOf("HOW THE WORK RUNS") < placed.text.indexOf("FINANCING AVAILABLE") &&
+      placed.text.indexOf("FINANCING AVAILABLE") < placed.text.indexOf("Anna"));
+
+  // White-label: nothing of ours in the section.
+  const section = withTerms.html.slice(iFin - 600, withTerms.html.indexOf("</table>", withTerms.html.indexOf("FINANCING AVAILABLE")));
+  ok("white-label: the section says nothing about FieldQuo", !/fieldquo/i.test(section));
+
+  // Every language the email speaks.
+  const clientDoc = CLIENT_DOC_COPY;
+  for (const language of SUPPORTED_EMAIL_LANGUAGES) {
+    const c = EMAIL_COPY[language];
+    const has = ["financingHeading", "financingTerms", "financingOnQuote", "financingCta"].every((k) => k in c);
+    const r = render({ enabled: true, note: NOTE, url: LENDER, aprPct: 9.99, termMonths: 60 }, { language });
+    const n = render({ enabled: true, note: NOTE, url: null }, { language });
+    ok(`${language}: heading, terms and both link labels are written in this language`,
+      has &&
+        r.html.includes(escapeHtml(c.financingHeading.toUpperCase())) &&
+        r.html.includes(escapeHtml(c.financingTerms("9.99", "60"))) &&
+        r.html.includes(escapeHtml(c.financingCta)) &&
+        n.html.includes(escapeHtml(c.financingOnQuote)));
+    ok(`${language}: the note is still the company's own words, untranslated`,
+      r.html.includes(escapeHtml(NOTE)));
+    ok(`${language}: the lender button reads the same as the approval page's`,
+      clientDoc[language] && c.financingCta === clientDoc[language].financingCta,
+      `${c.financingCta} / ${clientDoc[language]?.financingCta}`);
+  }
+
+  // Contrast: every pairing the section introduces, on the brands that break
+  // the naive rule. The owner's four plus the fixture's navy.
+  const report = [];
+  for (const brand of ["#FFD600", "#ffffff", "#000000", "#808080", "#06356b", "#f7e017", "#ff69b4"]) {
+    const w = washPair(documentTheme({ brandColor: brand }));
+    const pairs = [
+      ["heading / link", w.accent, w.bg],
+      ["note / terms", w.ink, w.bg],
+    ];
+    const worst = pairs
+      .map(([label, fg, bg]) => ({ label, ratio: contrastRatio(fg, bg) }))
+      .sort((a, b) => a.ratio - b.ratio)[0];
+    report.push(`${brand} ${pairs.map(([l, fg, bg]) => `${l} ${contrastRatio(fg, bg).toFixed(2)}`).join(", ")}`);
+    ok(`financing, brand ${brand}: every pairing clears 4.5:1`,
+      worst.ratio >= 4.5, `worst is ${worst.label} at ${worst.ratio.toFixed(2)}:1`);
+    const html = render({ enabled: true, note: NOTE, url: LENDER, aprPct: 9.99, termMonths: 60 }, { brandColor: brand }).html;
+    ok(`financing, brand ${brand}: the email uses exactly those measured colours`,
+      html.includes(`background:${w.bg};padding:14px 16px`) && html.includes(`color:${w.accent};text-decoration:underline`));
+  }
+  console.log(`  contrast: ${report.join(" | ")}`);
+
+  // Reachable: the send route loads the column the section reads.
+  ok("the send route selects Company.financing, so a real send can carry the section",
+    /financing:\s*true/.test(read("app/api/quotes/[id]/send/route.js")));
 }
 
 // ── 6. Every send path, read as text ───────────────────────────────────────

@@ -218,7 +218,7 @@ section("4. The wiring");
       return Object.keys(APP_MESSAGES).every((lang) => en.every((ph) => APP_MESSAGES[lang][key].includes(ph)));
     })());
   }
-  ok("the English card point is the owner's sentence", /not charged for a month/.test(APP_MESSAGES.en["app.salesSignupProgress.cardPoint"]) && /Settings in one click/.test(APP_MESSAGES.en["app.salesSignupProgress.cardPoint"]));
+  ok("the English card point is the owner's sentence", /not charged for 14 days/.test(APP_MESSAGES.en["app.salesSignupProgress.cardPoint"]) && /Settings in one click/.test(APP_MESSAGES.en["app.salesSignupProgress.cardPoint"]));
   ok("nine languages", Object.keys(APP_MESSAGES).length === 9);
   const schema = read("prisma/schema.prisma");
   const model = schema.slice(schema.indexOf("model SalesSignupProgress {"));

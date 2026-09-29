@@ -89,10 +89,10 @@ export const ARTICLES = {
   "start-your-free-trial": {
     title: "Start your free trial",
     summary:
-      "Four steps on the public signup form, a card at checkout, and nothing charged for the first month.",
+      "Four steps on the public signup form, a card at checkout, and nothing charged for the first 14 days.",
     updated: "2026-09-12",
     intro: [
-      "Signing up a company is self-serve: anyone can open the signup page, set up a business, pick a plan and start. The first month is free, and a card is taken at checkout so the second month can be billed without a second conversation.",
+      "Signing up a company is self-serve: anyone can open the signup page, set up a business, pick a plan and start. The first 14 days are free, and a card is taken at checkout so the plan can be billed when they end without a second conversation.",
       "Joining a company that already exists is different — that is invite-only. If a colleague already uses FieldQuo, ask them to invite you from Manage Team; see [[invite-a-team-member|Invite a team member]].",
     ],
     sections: [
@@ -100,7 +100,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Overview",
         blocks: [
-          { p: "The form says **Start your free month** at the top and walks four steps: Account, Trades, Services, Plan. One login owns one business; if you are already signed in with a company, the page tells you so and offers to take you to your dashboard or to invite someone instead." },
+          { p: "The form says **Start your 14-day free trial** at the top and walks four steps: Account, Trades, Services, Plan. One login owns one business; if you are already signed in with a company, the page tells you so and offers to take you to your dashboard or to invite someone instead." },
         ],
       },
       {
@@ -135,9 +135,9 @@ export const ARTICLES = {
       },
       {
         id: "the-card-and-the-free-month",
-        heading: "The card, and the free month",
+        heading: "The card, and the free trial",
         blocks: [
-          { p: "**Continue to Payment** creates the company and opens Stripe Checkout. Stripe takes the card; FieldQuo never sees the number. The line above the button says it plainly: **Free first month**, then the plan price. Nothing is charged today — the free month is 30 days from the moment the company is created, and the first charge lands when it ends. See [[free-first-month|The free first month]]." },
+          { p: "**Continue to Payment** creates the company and opens Stripe Checkout. Stripe takes the card; FieldQuo never sees the number. The line above the button says it plainly: **14 days free**, then the plan price. Nothing is charged today — the trial is 14 days from the moment the company is created, and the first charge lands when it ends. See [[free-first-month|Your first 14 days are free]]." },
           { warning: "If you close the checkout tab, the company exists but has no card, and every screen under the app is closed until it does. Signing in again lands you on **One step left** — “{company} is set up — it just needs a card before you can use it” — with the plan step ready to finish." },
           { tip: "Arrived through another contractor's referral link? The banner on the form says so, and one extra free month is added to your trial. The person who referred you earns a month once you are a paying customer. See [[referral-months|Referral months]]." },
         ],
@@ -156,7 +156,7 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "Do I have to give a card to try it?", a: "Yes — at checkout, through Stripe. Nothing is charged during the free month, and you can cancel before it ends from Account & Billing." },
+      { q: "Do I have to give a card to try it?", a: "Yes — at checkout, through Stripe. Nothing is charged during the 14 free days, and you can cancel before it ends from Account & Billing." },
       { q: "Can I pick the currency?", a: "No. It is read from the address you gave. The two price lists carry the same numbers, so there is nothing to choose between." },
       { q: "I already use FieldQuo at work. Can I sign up my own business too?", a: "One login owns one business. Sign up your own company with a different email address." },
       { q: "Can I change plan later?", a: "Yes, from Account & Billing — see [[change-your-plan|Change your plan]]. Moving up takes effect straight away." },

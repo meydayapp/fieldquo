@@ -638,7 +638,7 @@ export const ARTICLES = {
         heading: "Plans and paying for FieldQuo",
         blocks: [
           { bullets: [
-            "**Is there a free trial?** The first month is free. A card is taken at signup and nothing is charged until the second month. See [[free-first-month|Your first month is free]].",
+            "**Is there a free trial?** Yes — the first 14 days are free, and nothing is charged until they end. See [[free-first-month|Your first 14 days are free]].",
             "**What do the plans differ by?** Seats and crew logins, nothing else — every feature is in every plan. Solo is $99 a month for 1 seat and 5 crew logins; Crew $169 for 3 and 8; Shop $269 for 6 and 11; Scale $369 for 10 and 15. See [[the-four-plans|The four plans]].",
             "**What is a seat, and what is a crew login?** A seat is somebody who creates and changes quotes, jobs and invoices. A crew login clocks in, reads their schedule and adds photos, and is free. See [[seats-and-crew-logins|Seats and crew logins]].",
             "**Is a year cheaper?** Yes — a one-year commitment is two months free, billed once a year. See [[monthly-or-a-year-commitment|Monthly, or a one-year commitment]].",

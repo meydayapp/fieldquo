@@ -566,9 +566,9 @@ console.log("\nThe gate is actually wired in\n");
     "every /app route sends them back here and the header's avatar links to /app, so without this there is no way to leave an account they cannot use — the same reason /api/auth is on the locked-account allow-list",
   );
   ok(
-    "the free month is quoted from the company, not promised blindly",
+    "the free trial is quoted from the company, not promised blindly",
     /resumeTrialLive/.test(page) && /trialEndsAt/.test(page),
-    "/api/platform/billing/checkout only sends trial days while trialEndsAt is in the future — saying 'first month free' over a charge that lands today is a promise with money on it",
+    "/api/platform/billing/checkout only sends trial days while trialEndsAt is in the future — saying '14 days free' over a charge that lands today is a promise with money on it",
   );
 }
 

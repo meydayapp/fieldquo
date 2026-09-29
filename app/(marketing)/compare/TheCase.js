@@ -264,7 +264,7 @@ export default function TheCase({ competitor, t, locale = "en-CA", asOf = null }
               href="/signup"
               className="mt-6 inline-flex items-center gap-2 bg-background text-foreground px-6 py-3 rounded-full text-sm font-semibold transition hover:brightness-110"
             >
-              {say("compare.ctaButton", "Start your free month")}{" "}
+              {say("compare.ctaButton", "Start your 14-day free trial")}{" "}
               <ArrowRight size={16} />
             </Link>
           </div>

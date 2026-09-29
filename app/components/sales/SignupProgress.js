@@ -33,7 +33,7 @@
 // ══ The talking point ═════════════════════════════════════════════════════
 //
 // The card step is where a signup dies, and the owner's answer to the card
-// objection — "you're not charged for a month; cancel from Settings in one
+// objection — "you're not charged for 14 days; cancel from Settings in one
 // click" — is printed inline the moment the stepper is past "Opened" and
 // before "Signed up", in the rep's language (nine keys), so it is on the
 // screen before the rep has to reach for it.

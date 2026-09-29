@@ -770,7 +770,7 @@ You stop being involved with the paperwork and the milestones run on their own.
 |---|---|---|
 | Signup | The company uses your link | Attribution locks immediately |
 | **Activated** | Stripe enables charges on their account | Webhook, minutes |
-| **Renewed** | Their next billing cycle turns — paid, or free if a credit covered it | Around day 30, when the free month ends |
+| **Renewed** | Their next billing cycle turns — paid, or free if a credit covered it | Around day 14, when the free trial ends (day 30 for a company that signed up before 2026-09-29) |
 | **Still paying** | Still active 60 days after the **subscription started**, trial included | Nightly sweep, 09:20 UTC |
 
 Default amounts are **$20 / $40 / $65 — $125 in total.** They are set per
@@ -786,7 +786,7 @@ again the next night.
 
 Two things worth knowing on a call:
 
-- **A contractor who cancels during the free month never produces a billing
+- **A contractor who cancels during the free trial never produces a billing
   cycle**, so two of your three milestones never fire. Qualify hard.
 - **Retention money from a March cohort lands in May.** Your first two months
   look worse than your steady state. That is arithmetic, not performance.
