@@ -18,6 +18,7 @@ import PlanRequiredPrompt from "@/app/components/PlanRequiredPrompt";
 import AppTours from "@/app/components/AppTours";
 import JenniferPanel from "@/app/components/jennifer/JenniferPanel";
 import OfflineShell from "@/app/components/offline/OfflineShell";
+import BackOfficeSpeedInsights from "@/app/components/layout/BackOfficeSpeedInsights";
 import CompanyPreferencesProvider from "@/app/providers/CompanyPreferencesProvider";
 import { LanguageProvider } from "@/app/providers/LanguageProvider";
 import { FeatureProvider } from "@/app/providers/FeatureProvider";
@@ -600,6 +601,11 @@ export default async function AppLayout({ children }) {
           Mounted at the shell level, not per-page, for the same reason
           ToastLayer is: one instance, reachable from anywhere in /app. */}
       <JenniferPanel variant="app" role={callerPermissions?.role} />
+      {/* Renders nothing. Vercel Speed Insights, sampled, for the back office
+          ONLY — mounted here rather than in the root layout so no homeowner
+          surface ever loads it. See the file for the sample rate and why the
+          query string is stripped. */}
+      <BackOfficeSpeedInsights />
     </div>
   );
 }
