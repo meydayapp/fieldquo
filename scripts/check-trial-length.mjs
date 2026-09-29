@@ -142,6 +142,8 @@ const BANNED = [
   /ਮੁਫ਼ਤ ਮਹੀਨ|ਪਹਿਲਾ ਮਹੀਨਾ|ਪਹਿਲੇ ਮਹੀਨੇ/,
   /libreng buwan|unang buwan|buwang libre/i,
   /免费月|首月|第一个月|免费一个月|一个月免费|头一个月/,
+  // "not charged for a month", in the languages the sales texts are written in
+  /(charged|charge|cobra|factur\S*|abgebucht|addebitat\S*)[^.:]{0,25}\b(for a month|in a month|un mes|un mois|einen Monat|un mese)\b/i,
 ];
 // What is allowed to say a month: the referral month (both sides), promo
 // codes and influencers, the annual plan's months free, a sale's first-month
@@ -165,6 +167,8 @@ const ALLOW = new RegExp([
   "questions qui reviennent", "preguntas que surgen", "dans son premier mois", "en su primer mes",
   // the legacy trial, named as such
   "earlier 30-day", "ancien essai de 30", "prueba anterior de 30",
+  // a quote's tax going unnoticed, not an offer
+  "sales-tax",
   // date formats ("month first")
   "Спершу місяць", "спершу місяць",
 ].join("|"), "i");

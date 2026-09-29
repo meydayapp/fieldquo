@@ -483,7 +483,7 @@ section("2b. Unfinished signups: +2 h and +24 h after the link was opened, on th
   for (const language of ["en", "fr", "es"]) {
     for (const touchpoint of ["2h", "24h"]) {
       const text = unfinishedSignupDraft({ language, repName: "Daniel", businessName: "Easy Roofers Inc.", link, touchpoint });
-      ok(`${language} ${touchpoint}: a sentence with the rep, the business, the link and the no-charge line`, typeof text === "string" && text.includes("Daniel") && text.includes("Easy Roofers Inc.") && text.includes(link) && /mois|mes|month/.test(text), text);
+      ok(`${language} ${touchpoint}: a sentence with the rep, the business, the link and the no-charge line`, typeof text === "string" && text.includes("Daniel") && text.includes("Easy Roofers Inc.") && text.includes(link) && /14 (jours|días|days)/.test(text) && !/mois|month|\bmes\b/.test(text), text);
       ok(`${language} ${touchpoint}: two GSM-7 segments with room for the CASL footer (the link is a third of it)`, text.length <= 245, text.length);
     }
   }
