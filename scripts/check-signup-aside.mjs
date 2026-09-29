@@ -43,7 +43,7 @@
 // server render has no chunk to load — the samples are imported directly
 // instead. The bundle is deleted after the run.
 
-import { readFileSync, readdirSync } from "node:fs";
+import fs, { readFileSync, readdirSync } from "node:fs";
 import { createElement, isValidElement, Children } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { LanguageProvider } from "@/app/providers/LanguageProvider";
@@ -220,11 +220,10 @@ ok("currency is read case-blind and trimmed", cleanSampleCurrency(" cad ") === "
 ok("an unknown language falls back to English rather than nothing", sampleServicesForIndustry("painting", "zz", "CAD").length === sampleServicesForIndustry("painting", "en", "CAD").length);
 
 {
-  const route = code("app/api/signup/sample-services/route.js");
-  ok("the route is rate-limited", /rateLimit\(request, "signup-sample-services"/.test(route));
-  ok("the route reads the currency through the closed list", /cleanSampleCurrency\(params\.get\("currency"\)\)/.test(route));
-  ok("the route answers services, categoryKey, currency, group, processSteps, glossary and nothing else", /NextResponse\.json\(\s*\{\s*services: sample\?\.services \|\| \[\],[\s\S]*?categoryKey: sample\?\.categoryKey \|\| null,\s*currency: sample\?\.currency \|\| null,\s*group: sample\?\.group \|\| null,\s*processSteps: sample\?\.processSteps \|\| \[\],\s*glossary: sample\?\.glossary \|\| \[\],\s*\}/.test(route));
-  ok("the route reads the seeds through lib/signup/sampleServices, never the seed folder", /lib\/signup\/sampleServices/.test(route) && !/serviceSeeds/.test(route));
+  // 2026-09-29: the public sample route (and the public category list) went
+  // with the page that called them — an unauthenticated endpoint with no
+  // caller is surface for nothing (check:route-callers).
+  ok("the public sample route is gone with its only caller", !fs.existsSync("app/api/signup/sample-services/route.js") && !fs.existsSync("app/api/service-categories/public/route.js"));
   // 2026-09-29: /signup no longer mounts the reactive panel — the one-screen
   // signup and the welcome questions carry WelcomeAside (a real screenshot
   // and one sourced fact, lib/signup/didYouKnow.js). The route and the
