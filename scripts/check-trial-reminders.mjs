@@ -5,7 +5,7 @@
 // The card-free trial (2026-09-24): lib/billing/access.js trialAccessFor,
 // lib/billing/trialReminder.js, lib/email/trialReminderEmail.js, the
 // recommended rung, and the nudge that must NOT fire on it. Executed, not
-// grepped: every boundary of the three windows and of the read-only week.
+// grepped: every boundary of the three windows (7/3/1) and of the read-only week.
 //
 // Run: node --import ./scripts/alias-loader.mjs scripts/check-trial-reminders.mjs
 import { readFileSync } from "node:fs";
@@ -54,34 +54,50 @@ ok(accessFor(null, NOW).reason === "no_subscription", "accessFor(null) is untouc
 }
 
 // ── trialReminderDecision: three windows, one letter each ──────────────────
-ok(TRIAL_REMINDER_DAYS.join(",") === "15,7,3", "the windows are 15, 7 and 3 days");
-ok(trialReminderField(15) === "trialReminder15At" && trialReminderField(3) === "trialReminder3At", "the stamps are Company.trialReminder{N}At");
-ok(trialReminderDecision({ trialEndsAt: endIn(10), isDemo: true, now: NOW }).reason === "demo", "a demo is never written to");
-ok(trialReminderDecision({ trialEndsAt: endIn(10), hasSubscription: true, now: NOW }).reason === "plan_chosen", "a company with a Subscription row has chosen — renewalReminder's job");
+// 7/3/1 since 2026-09-29 (the trial became TRIAL_DAYS = 14; a 15-day letter
+// cannot happen inside it).
+ok(TRIAL_REMINDER_DAYS.join(",") === "7,3,1", "the windows are 7, 3 and 1 days");
+ok(trialReminderField(7) === "trialReminder7At" && trialReminderField(1) === "trialReminder1At", "the stamps are Company.trialReminder{N}At");
+ok(trialReminderDecision({ trialEndsAt: endIn(5), isDemo: true, now: NOW }).reason === "demo", "a demo is never written to");
+ok(trialReminderDecision({ trialEndsAt: endIn(5), hasSubscription: true, now: NOW }).reason === "plan_chosen", "a company with a Subscription row has chosen — renewalReminder's job");
 ok(trialReminderDecision({ trialEndsAt: null, now: NOW }).reason === "no_trial_end", "no date → nothing claimed");
 ok(trialReminderDecision({ trialEndsAt: endIn(-1), now: NOW }).reason === "trial_over", "past the end → nothing (the banner says it now)");
-ok(trialReminderDecision({ trialEndsAt: endIn(16), now: NOW }).reason === "not_yet_in_window", "16 days out → not yet");
+ok(trialReminderDecision({ trialEndsAt: endIn(8), now: NOW }).reason === "not_yet_in_window", "8 days out → not yet");
+ok(trialReminderDecision({ trialEndsAt: endIn(14), now: NOW }).reason === "not_yet_in_window", "a brand-new 14-day trial → nothing on day one");
+ok(trialReminderDecision({ trialEndsAt: endIn(15), now: NOW }).reason === "not_yet_in_window", "15 days out → no 15-day letter any more");
 {
-  const d = trialReminderDecision({ trialEndsAt: endIn(15), now: NOW });
-  ok(d.send && d.days === 15 && d.field === "trialReminder15At" && d.daysLeft === 15, "15 days out → the 15-day letter, saying 15");
+  const d = trialReminderDecision({ trialEndsAt: endIn(7), now: NOW });
+  ok(d.send && d.days === 7 && d.field === "trialReminder7At" && d.daysLeft === 7, "7 days out → the 7-day letter, saying 7");
 }
 {
-  const d = trialReminderDecision({ trialEndsAt: endIn(12), now: NOW });
-  ok(d.send && d.days === 15 && d.daysLeft === 12, "12 days out with nothing sent → the 15-day letter, saying TWELVE (the real count)");
+  const d = trialReminderDecision({ trialEndsAt: endIn(5), now: NOW });
+  ok(d.send && d.days === 7 && d.daysLeft === 5, "5 days out with nothing sent → the 7-day letter, saying FIVE (the real count)");
 }
-ok(trialReminderDecision({ trialEndsAt: endIn(12), stamps: { trialReminder15At: NOW }, now: NOW }).reason === "already_sent", "…and not twice");
+ok(trialReminderDecision({ trialEndsAt: endIn(5), stamps: { trialReminder7At: NOW }, now: NOW }).reason === "already_sent", "…and not twice");
+ok(trialReminderDecision({ trialEndsAt: endIn(4), stamps: { trialReminder7At: NOW }, now: NOW }).reason === "already_sent", "4 days out is still the 7-day window, already sent");
 {
-  const d = trialReminderDecision({ trialEndsAt: endIn(7), stamps: { trialReminder15At: NOW }, now: NOW });
-  ok(d.send && d.days === 7 && d.field === "trialReminder7At", "7 days out → the 7-day letter");
-  ok(trialReminderDecision({ trialEndsAt: endIn(8), stamps: { trialReminder15At: NOW }, now: NOW }).reason === "already_sent", "8 days out is still the 15-day window, already sent");
-}
-{
-  const d = trialReminderDecision({ trialEndsAt: endIn(3), stamps: { trialReminder15At: NOW, trialReminder7At: NOW }, now: NOW });
+  const d = trialReminderDecision({ trialEndsAt: endIn(3), stamps: { trialReminder7At: NOW }, now: NOW });
   ok(d.send && d.days === 3 && d.field === "trialReminder3At", "3 days out → the 3-day letter");
-  const one = trialReminderDecision({ trialEndsAt: endIn(0.5), now: NOW });
-  ok(one.send && one.days === 3 && one.daysLeft === 1, "half a day out with nothing ever sent → ONE letter (the 3-day one), never three stale ones");
+  ok(trialReminderDecision({ trialEndsAt: endIn(2), stamps: { trialReminder7At: NOW, trialReminder3At: NOW }, now: NOW }).reason === "already_sent", "2 days out is still the 3-day window, already sent");
 }
-ok(trialReminderDecision({ trialEndsAt: endIn(2), stamps: { trialReminder3At: NOW }, now: NOW }).reason === "already_sent", "the 3-day stamp holds the whole last window");
+{
+  const d = trialReminderDecision({ trialEndsAt: endIn(1), stamps: { trialReminder7At: NOW, trialReminder3At: NOW }, now: NOW });
+  ok(d.send && d.days === 1 && d.field === "trialReminder1At" && d.daysLeft === 1, "1 day out → the 1-day letter");
+  const half = trialReminderDecision({ trialEndsAt: endIn(0.5), now: NOW });
+  ok(half.send && half.days === 1 && half.daysLeft === 1, "half a day out with nothing ever sent → ONE letter (the 1-day one), never three stale ones");
+}
+ok(trialReminderDecision({ trialEndsAt: endIn(0.5), stamps: { trialReminder1At: NOW }, now: NOW }).reason === "already_sent", "the 1-day stamp holds the whole last window");
+// A company still on the OLDER 30-day trial, part-way through when this
+// shipped: it may already carry the 15-day stamp. That stamp must neither
+// block the 7/3/1 letters nor produce a second 7-day one.
+{
+  const legacy = { trialReminder15At: NOW };
+  ok(trialReminderDecision({ trialEndsAt: endIn(20), stamps: legacy, now: NOW }).reason === "not_yet_in_window", "legacy 30-day trial at 20 days → nothing yet");
+  const d = trialReminderDecision({ trialEndsAt: endIn(6), stamps: legacy, now: NOW });
+  ok(d.send && d.days === 7, "legacy trial with the old 15-day stamp still gets the 7-day letter");
+  ok(trialReminderDecision({ trialEndsAt: endIn(6), stamps: { ...legacy, trialReminder7At: NOW }, now: NOW }).reason === "already_sent", "…and a legacy trial that already had the 7-day letter under 15/7/3 is not mailed it again");
+  ok(trialReminderDecision({ trialEndsAt: endIn(2), stamps: { ...legacy, trialReminder7At: NOW, trialReminder3At: NOW }, now: NOW }).reason === "already_sent", "…nor the 3-day one");
+}
 
 // ── The letter, in the company's language ──────────────────────────────────
 {
@@ -124,7 +140,7 @@ ok(trialReminderDecision({ trialEndsAt: endIn(2), stamps: { trialReminder3At: NO
 // ── The abandoned-signup nudge must not fire on a trial ────────────────────
 {
   const base = { isDemo: false, subscription: null, memberCount: 1, email: "o@x.com", createdAt: new Date(NOW.getTime() - 3 * DAY) };
-  ok(decideSignupNudge({ company: { ...base, trialEndsAt: endIn(27) }, now: NOW }).reason === "trial_no_plan", "a company on its trial is not 'you didn't finish signing up'");
+  ok(decideSignupNudge({ company: { ...base, trialEndsAt: endIn(12) }, now: NOW }).reason === "trial_no_plan", "a company on its trial is not 'you didn't finish signing up'");
   ok(decideSignupNudge({ company: { ...base, trialEndsAt: endIn(-3) }, now: NOW }).reason === "trial_no_plan", "…nor after it ends (the trial letters and the banner own that)");
   ok(decideSignupNudge({ company: { ...base, trialEndsAt: null }, now: NOW }).send === true, "a company with no trial date at all is still the old abandoned case");
   // undefined is not null: a query that forgot to select trialEndsAt must not
@@ -140,7 +156,8 @@ ok(trialReminderDecision({ trialEndsAt: endIn(2), stamps: { trialReminder3At: NO
   ok(/subscription: \{ is: null \}/.test(route) && /isDemo: false/.test(route), "the cron reads only real companies with no Subscription row");
   ok(/\[field\]: null/.test(route) && /revert/.test(route), "the stamp is claimed on null and reverted on a failed send");
   const schema = readFileSync(new URL("../prisma/schema.prisma", import.meta.url), "utf8");
-  ok(/trialReminder15At\s+DateTime\?/.test(schema) && /trialReminder7At\s+DateTime\?/.test(schema) && /trialReminder3At\s+DateTime\?/.test(schema) && /signupTierKey\s+String\?/.test(schema), "the four Company columns exist");
+  ok(/trialReminder7At\s+DateTime\?/.test(schema) && /trialReminder3At\s+DateTime\?/.test(schema) && /trialReminder1At\s+DateTime\?/.test(schema) && /signupTierKey\s+String\?/.test(schema), "the four Company columns exist");
+  ok(TRIAL_REMINDER_DAYS.every((d) => new RegExp(`${trialReminderField(d)}: true`).test(route)), "the cron selects every window's stamp — an unselected one reads as never sent and mails daily");
   const companies = readFileSync(new URL("../app/api/companies/route.js", import.meta.url), "utf8");
   ok(/signupTierKey: plan \? null : chosenTier/.test(companies), "signup writes signupTierKey");
   const access = readFileSync(new URL("../app/api/settings/subscription/access/route.js", import.meta.url), "utf8");

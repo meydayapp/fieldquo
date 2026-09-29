@@ -14,7 +14,7 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { createTrialCheckoutSession } from "@/lib/platform/stripeBilling";
 import { trialDaysAllowed } from "@/lib/billing/trialOnce";
-import { TRIAL_PRICE } from "@/lib/pricing";
+import { TRIAL_PRICE, TRIAL_DAYS } from "@/lib/pricing";
 import { runSetupInline } from "@/lib/signup/setupStages";
 import { getAppOrigin, isInternalPath } from "@/lib/appUrl";
 import { applySignupReferral, REFEREE_BONUS_MONTHS } from "@/lib/referrals";
@@ -304,8 +304,8 @@ export async function POST(request) {
     return NextResponse.json({ error: RETIRED_PLAN_ERROR }, { status: 409 });
   }
 
-  // What createTrialCheckoutSession needs to know about money: the free first
-  // month (always TRIAL_PRICE, never plan-specific) and, for the record kept
+  // What createTrialCheckoutSession needs to know about money: the free trial
+  // (always TRIAL_PRICE, never plan-specific) and, for the record kept
   // on the Stripe subscription's own metadata, how many people this plan is
   // for. The recurring charge itself comes straight off `plan` — see the note
   // on the line item in lib/platform/stripeBilling.js.
@@ -418,7 +418,10 @@ export async function POST(request) {
         currency,
         industries: Array.isArray(industries) ? industries : [],
         onboardingStatus: "pending",
-        trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        // TRIAL_DAYS (lib/pricing.js) — 14 since 2026-09-29. Only ever set
+        // here, on create: a company already on the older 30-day trial keeps
+        // the date it was given.
+        trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
         signupTierKey: plan ? null : chosenTier,
         teamSizeBand: teamBand,
         yearsInBusinessBand: yearsBand,
@@ -767,17 +770,18 @@ export async function POST(request) {
 
   // Trial length Stripe should honour = however long this company is actually
   // free for. applySignupReferral may have just extended trialEndsAt by
-  // REFEREE_BONUS_MONTHS; `company` in memory still holds the base 30-day date,
-  // so read the referral's returned value when present. This is what makes a
-  // referred signup's FIRST Stripe trial the full 30 days + referral, not 30
-  // with the extra time stranded in a column Stripe never sees.
+  // REFEREE_BONUS_MONTHS; `company` in memory still holds the base TRIAL_DAYS
+  // date, so read the referral's returned value when present. This is what
+  // makes a referred signup's FIRST Stripe trial the full TRIAL_DAYS +
+  // referral, not TRIAL_DAYS with the extra time stranded in a column Stripe
+  // never sees.
   // Whichever path extended the trial (referral or a promo code) is the real
   // free-until date Stripe should honour.
   const effectiveTrialEnd =
     referral?.trialEndsAt || (promo?.ok && promo.trialEndsAt) || company.trialEndsAt;
   // Through the one-trial rule (lib/billing/trialOnce.js) like every other
   // checkout. The row was created a few lines up, so trialUsedAt is null and
-  // this is the full free month — the call is here so the rule has no path
+  // this is the full free trial — the call is here so the rule has no path
   // around it, not because a fresh company can fail it. Floored at 1 because
   // createTrialCheckoutSession sends trial_period_days unconditionally and
   // Stripe rejects 0.

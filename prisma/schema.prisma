@@ -1581,15 +1581,18 @@ model Company {
   yearsInBusinessBand    String?
   signupGoal             String?
   signupSource           String?
-  /// When each "your free trial ends in N days" letter went out — 15, 7 and 3
+  /// When each "your free trial ends in N days" letter went out — 7, 3 and 1
   /// days before trialEndsAt, to a company that has NOT chosen a plan (one
   /// with a Subscription row is told by lib/billing/renewalReminder.js
   /// instead). Claimed before the send and reverted when the send fails, so a
   /// day is never mailed twice and a failed send is retried tomorrow —
   /// lib/billing/trialReminder.js, app/api/cron/trial-reminders.
+  /// trialReminder15At is the 15-day letter from the 30-day trial (schedule
+  /// 15/7/3 until 2026-09-29): kept as history, no longer written or read.
   trialReminder15At      DateTime?
   trialReminder7At       DateTime?
   trialReminder3At       DateTime?
+  trialReminder1At       DateTime?
   /// FieldQuo ended this company's access from the platform console when
   /// there was NO Stripe subscription to cancel — the card-free trial
   /// (2026-09-24), a trial that already ran out, a company made by hand.
