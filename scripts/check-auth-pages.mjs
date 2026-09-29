@@ -62,19 +62,20 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { LanguageProvider } from "@/app/providers/LanguageProvider";
-import {
-  STEPS,
-  firstStep,
-  nextStep,
-  previousStep,
-  furthestStep,
-} from "@/lib/signup/funnel";
 import LoginPage from "@/app/login/page";
-import SignupPage, { AccountFields, validateCompanyFields } from "@/app/signup/page";
+import SignupPage, { AccountFields, validateAccountFields } from "@/app/signup/page";
 import AuthShell from "@/app/components/auth/AuthShell";
 import AuthAside from "@/app/components/auth/AuthAside";
-import SignupSteps, { rungsFor } from "@/app/components/auth/SignupSteps";
-import { INDUSTRIES } from "@/app/data/industries";
+import WelcomeAside from "@/app/components/auth/WelcomeAside";
+import WelcomeFlow from "@/app/welcome/WelcomeFlow";
+import {
+  WELCOME_STEPS,
+  nextWelcomeStep,
+  previousWelcomeStep,
+  allowedWelcomeStep,
+} from "@/lib/signup/welcome";
+import { DID_YOU_KNOW, factValues } from "@/lib/signup/didYouKnow";
+import { TRIAL_DAYS, TRIAL_CARD_REQUIRED } from "@/lib/pricing";
 
 let pass = 0;
 const fails = [];
@@ -168,48 +169,26 @@ for (const [page, html] of [
 // The proof panel carries a real screenshot of a real screen, the same one the
 // homepage hero opens on. A panel of adjectives would have been easier.
 ok("/login shows the product, not a gradient", loginHtml.includes("hero-quotes"));
-// Since 2026-09-24 the signup panel draws a LIVE sample instead of the hero
-// screenshot, and since 2026-09-25 the sample is the product itself (AuthAside
-// `preview` → app/components/auth/samples/): on the first step, the quote
-// email as buildQuoteEmail writes it, with the company name in the From
-// line. The bare-panel render below still carries the photo.
-ok("/signup shows it too — the real quote email sample on the first step", signupHtml.includes("data-signup-aside") && signupHtml.includes('data-sample-kind="email"'));
+// Since 2026-09-29 the signup panel is the welcome aside: a screenshot of a
+// real FieldQuo screen and one "Did you know…" line from the one sourced list
+// (lib/signup/didYouKnow.js) — no invented statistic, no competitor imagery.
+ok("/signup shows it too — a real screen and a sourced fact", signupHtml.includes("data-welcome-aside") && /marketing(%2F|\/)hero-/.test(signupHtml) && /data-fact-source="(product|arithmetic)"/.test(signupHtml));
 
 // ══════════════════════════════════════════════════════════════════════════
-console.log("\nEvery field the account step collects, still bound to its key");
+console.log("\nEvery field the account screen collects, still bound to its key");
 //
-// The table below is the contract: eleven controls, in this order, each reading
-// AND writing one named key of `form`. It is built by walking the element tree
-// the shipped component returns and firing each onChange with a sentinel, so it
-// describes the component rather than a memory of it.
-//
-// Both halves matter. Reading proves the field SHOWS what state holds; writing
-// proves a keystroke lands in the same place. AGENTS.md's first recurring
-// failure class is a field written and never read, or read and never written —
-// and a redesign that moves eleven inputs into a new file is exactly how one
-// arrives.
-const BASE_FORM = {
-  firstName: "F-first",
-  lastName: "F-last",
-  email: "F-email",
-  password: "F-password",
-  companyName: "F-company",
-  phone: "F-phone",
-  address: "F-address",
-  city: "F-city",
-  province: "F-province",
-  language: "F-language",
-  country: "F-country",
-};
+// Since 2026-09-29 /signup is one screen: work email, password, and the
+// unticked "Send me product news and offers". Everything about the business
+// is asked afterwards on the welcome screens (rendered below). The table is
+// built by walking the element tree AccountFields returns and FIRING each
+// onChange, so it describes the shipped component rather than a memory of it
+// — a field that is shown and never written, or written and never shown, is
+// AGENTS.md's first recurring failure class.
+const BASE_FORM = { email: "F-email", password: "F-password", consent: false };
 
-// Components declared in app/signup/page.js are expanded; anything else is a
-// leaf whose props are still inspectable. AddressAutocomplete in particular
-// must NOT be expanded — it calls useLoadScript, and hooks outside React throw.
-const OURS = new Set(["AccountFields", "CompanyFields"]);
-
+const OURS = new Set(["AccountFields"]);
 function walk(node, out) {
-  if (node == null || typeof node === "boolean" || typeof node === "number")
-    return;
+  if (node == null || typeof node === "boolean" || typeof node === "number") return;
   if (Array.isArray(node)) {
     for (const child of node) walk(child, out);
     return;
@@ -228,148 +207,139 @@ function walk(node, out) {
   walk(props.children, out);
 }
 
-const flat = [];
 let writtenKeys = null;
 const spyForm = (arg) => {
   const next = typeof arg === "function" ? arg(BASE_FORM) : arg;
   writtenKeys = Object.keys(next).filter((k) => next[k] !== BASE_FORM[k]);
 };
-walk(
-  createElement(AccountFields, {
-    form: BASE_FORM,
-    setForm: spyForm,
-    fieldErrors: {},
-  }),
-  flat,
+const flat = [];
+walk(createElement(AccountFields, { form: BASE_FORM, setForm: spyForm, fieldErrors: {} }), flat);
+const inputs = flat.filter((n) => n.host && (n.tag === "input" || n.tag === "select"));
+ok("the account screen renders exactly three controls", inputs.length === 3, `${inputs.length}`);
+ok(
+  "...email, password, consent — in that order",
+  inputs.map((n) => n.props.id).join(",") === "signup-email,signup-password,signup-consent",
+  inputs.map((n) => n.props.id).join(","),
 );
-
-// A control is whatever the label above it labels: a host input/select, or the
-// Places component that renders one of its own.
-const isControl = (n) =>
-  (n.host && (n.tag === "input" || n.tag === "select")) ||
-  n.tag === "AddressAutocomplete";
-
-const fields = [];
-let pendingLabel = null;
-for (const node of flat) {
-  if (node.host && node.tag === "label") {
-    const kids = node.props.children;
-    pendingLabel = typeof kids === "string" ? kids.trim() : String(kids).trim();
-    continue;
-  }
-  if (!isControl(node)) continue;
-  fields.push({ label: pendingLabel, node });
-  pendingLabel = null;
-}
-
-/** Fire this control's onChange and report which key of `form` moved. */
-function keyWrittenBy(node) {
-  const handler = node.props.onChange;
-  if (typeof handler !== "function") return null;
+const byId = (id) => inputs.find((n) => n.props.id === id);
+for (const [id, key, value] of [
+  ["signup-email", "email", "x@y.co"],
+  ["signup-password", "password", "hunter22hunter"],
+]) {
+  const n = byId(id);
+  ok(`#${id} READS form.${key}`, n?.props.value === BASE_FORM[key], String(n?.props.value));
   writtenKeys = null;
-  // AddressAutocomplete's onChange takes the address string; a host input's
-  // takes an event. Handing the wrong shape to either would throw, which is
-  // itself a useful thing for this to notice.
-  handler(node.host ? { target: { value: "5551234567" } } : "5551234567");
-  return writtenKeys && writtenKeys.length === 1 ? writtenKeys[0] : writtenKeys;
+  n?.props.onChange({ target: { value } });
+  ok(`#${id} WRITES form.${key}`, JSON.stringify(writtenKeys) === JSON.stringify([key]), JSON.stringify(writtenKeys));
+  ok(`#${id} has a label pointing at it`, flat.some((l) => l.host && l.tag === "label" && l.props.htmlFor === id));
 }
-
-// label, the key it is bound to, and whether it is typed in or filled from the
-// address. City and Province are read-only on purpose: they come from the
-// Google place, and a contractor who could type them by hand could disagree
-// with the address that decides his billing currency.
-const EXPECTED = [
-  ["First name", "firstName", "typed"],
-  ["Last name", "lastName", "typed"],
-  ["Email", "email", "typed"],
-  ["Company name", "companyName", "typed"],
-  ["Phone", "phone", "typed"],
-  ["Address", "address", "typed"],
-  ["City", "city", "readonly"],
-  ["Province", "province", "readonly"],
-  ["Country", "country", "typed"],
-  ["Language", "language", "typed"],
-  ["Password", "password", "typed"],
-];
-
-ok(
-  `the account step still renders exactly ${EXPECTED.length} controls`,
-  fields.length === EXPECTED.length,
-  `${fields.length}`,
-);
-ok(
-  "...in the same order, under the same labels",
-  fields.map((f) => f.label).join(" | ") ===
-    EXPECTED.map(([label]) => label).join(" | "),
-  fields.map((f) => f.label).join(" | "),
-);
-
-for (const [label, key, kind] of EXPECTED) {
-  const found = fields.find((f) => f.label === label);
-  if (!found) {
-    ok(`"${label}" is still on the form`, false);
-    continue;
-  }
-  ok(`"${label}" READS form.${key}`, found.node.props.value === BASE_FORM[key], String(found.node.props.value));
-  if (kind === "readonly") {
-    ok(`"${label}" stays filled from the address, not typed`, found.node.props.readOnly === true);
-    ok(`...so it writes nothing`, typeof found.node.props.onChange !== "function");
-  } else {
-    ok(`"${label}" WRITES form.${key}`, keyWrittenBy(found.node) === key, JSON.stringify(keyWrittenBy(found.node)));
-  }
-}
-
-// ── "Do you have a website?" — two buttons, then a field on Yes ────────────
-//
-// Not in the eleven above: with no answer (BASE_FORM has none) the address
-// field is not rendered at all, so the table's count is unchanged. The
-// buttons and the field are walked here instead, the same way — fired, and
-// the key of `form` they move read back.
 {
-  const answered = [];
-  walk(createElement(AccountFields, { form: BASE_FORM, setForm: spyForm, fieldErrors: {} }), answered);
-  const buttons = answered.filter((n) => n.host && n.tag === "button" && n.props["data-has-website"] !== undefined);
-  ok("the account step asks 'Do you have a website?' with a Yes and a No", buttons.length === 2);
-  for (const b of buttons) {
-    writtenKeys = null;
-    b.props.onClick();
-    ok(`the ${b.props["data-has-website"] === "true" ? "Yes" : "No"} button writes form.hasWebsite`, JSON.stringify(writtenKeys) === '["hasWebsite"]', JSON.stringify(writtenKeys));
-  }
-  ok("with no answer, no address field is rendered", !answered.some((n) => n.host && n.tag === "input" && n.props.id === "signup-website"));
-  const YES_FORM = { ...BASE_FORM, hasWebsite: true, website: "shop.example.ca" };
-  let yesWritten = null;
-  const yesSpy = (arg) => {
-    const next = typeof arg === "function" ? arg(YES_FORM) : arg;
-    yesWritten = Object.keys(next).filter((k) => next[k] !== YES_FORM[k]);
-  };
-  const yes = [];
-  walk(createElement(AccountFields, { form: YES_FORM, setForm: yesSpy, fieldErrors: {} }), yes);
-  const field = yes.find((n) => n.host && n.tag === "input" && n.props.id === "signup-website");
-  ok("on Yes, the address field appears and READS form.website", field?.props.value === "shop.example.ca");
-  field?.props.onChange({ target: { value: "other.example.ca" } });
-  ok("…and WRITES form.website", JSON.stringify(yesWritten) === '["website"]', JSON.stringify(yesWritten));
-  ok("…with the same label/field pairing as the rest (htmlFor → id)", yes.some((n) => n.host && n.tag === "label" && n.props.htmlFor === "signup-website"));
-  // 2026-09-25: the owner typed "www.truefinishcabinets.com" and the
-  // browser's own "Please enter a URL." blocked Continue — type="url"
-  // refuses anything without a scheme. The field is plain text with the URL
-  // keyboard; lib/signup/website.js is the only judge, and its refusal is
-  // the page's own inline error in the signup language.
-  ok("…typed as text with the URL keyboard, so the browser never refuses a bare www. address", field?.props.type === "text" && field?.props.inputMode === "url" && field?.props.autoComplete === "url", JSON.stringify({ type: field?.props.type, inputMode: field?.props.inputMode }));
-  for (const typed of ["www.truefinishcabinets.com", "truefinishcabinets.com", "http://truefinishcabinets.com", "https://truefinishcabinets.com/kitchens"]) {
-    ok(`…"${typed}" passes the page's own validator`, !validateCompanyFields({ ...BASE_FORM, companyName: "X", address: "1 Main St", hasWebsite: true, website: typed }).website);
-  }
-  for (const typed of ["not a site", "javascript:alert(1)", "localhost:3000", "www", ""]) {
-    const errs = validateCompanyFields({ ...BASE_FORM, companyName: "X", address: "1 Main St", hasWebsite: true, website: typed }, (k, f) => `${k}|${f}`);
-    ok(`…"${typed}" is refused with OUR message (app.signup.error.website), not the browser's`, String(errs.website || "").startsWith("app.signup.error.website|"), errs.website);
-  }
+  const n = byId("signup-consent");
+  ok("the consent box is a checkbox", n?.props.type === "checkbox");
+  ok("...UNTICKED unless the person ticks it", n?.props.checked === false);
+  writtenKeys = null;
+  n?.props.onChange({ target: { checked: true } });
+  ok("...and ticking it WRITES form.consent", JSON.stringify(writtenKeys) === '["consent"]', JSON.stringify(writtenKeys));
+}
+ok('the email is typed as one, with autocomplete="email"', byId("signup-email")?.props.type === "email" && byId("signup-email")?.props.autoComplete === "email");
+ok('the password CREATES one: autocomplete="new-password"', byId("signup-password")?.props.autoComplete === "new-password");
+ok("an address that already has a login is told to sign in, not refused",
+  (() => {
+    const out = [];
+    walk(createElement(AccountFields, { form: { ...BASE_FORM, email: "a@b.co" }, setForm: () => {}, fieldErrors: {}, existingLogin: "a@b.co" }), out);
+    return out.some((n) => n.host && n.props["data-signup-login-exists"] !== undefined);
+  })());
+for (const [form, field, why] of [
+  [{ email: "nope", password: "longenough" }, "email", "an address that is not one"],
+  [{ email: "a@b.co", password: "short" }, "password", "a password under 8"],
+  [{ email: "a@b.co", password: "x".repeat(129) }, "password", "a password over 128"],
+]) {
+  ok(`the page's own validator refuses ${why}`, Boolean(validateAccountFields(form)[field]));
+}
+ok("...and passes a good pair", Object.keys(validateAccountFields({ email: "a@b.co", password: "longenough" })).length === 0);
+
+// The PASSWORD is the one thing the tab's draft must never carry —
+// sessionStorage lives on a van's shared laptop.
+{
+  const src = code("app/signup/page.js");
+  const draftWrite = src.match(/sessionStorage\.setItem\(\s*DRAFT_KEY,[\s\S]*?\);/)?.[0] || "";
+  ok("the saved draft is written in one place", Boolean(draftWrite));
+  ok("...and never carries the password", draftWrite && !/password/.test(draftWrite), draftWrite);
 }
 
-// The password is the one field the draft must never carry — sessionStorage
-// lives on a van's shared laptop. Asserted here because the field moved files.
-ok(
-  "the password is still stripped out of the saved draft",
-  /const \{ password, \.\.\.safeForm \} = form;/.test(code("app/signup/page.js")),
-);
+console.log("\nThe welcome screens render, each with its own fields");
+//
+// Rendered through react-dom/server with a stored prefill, the way
+// app/welcome/[step]/page.js hands them over — a screen that throws here
+// throws in the browser.
+const PREFILL = {
+  user: { email: "o@x.co", firstName: "Ana", lastName: "Silva", phone: "555-123-4567" },
+  company: {
+    name: "Silva Painting",
+    address: "1 Main St, Toronto, ON",
+    city: "Toronto",
+    province: "ON",
+    postalCode: "",
+    country: "CA",
+    currency: "CAD",
+    currencySymbol: "$",
+    website: "",
+    industry: "painting:interior_painting",
+    teamSizeBand: "2-5",
+    yearsInBusinessBand: "3-5",
+    revenueBand: "150-500k",
+    signupPriority: "control",
+    signupFocus: ["scheduling"],
+    signupSource: "friend",
+    trialEndsAt: "2026-10-13T00:00:00.000Z",
+  },
+  trade: { key: "interior_painting", id: "cat1", label: "Interior Painting" },
+};
+const GROUPS = [
+  { slug: "painting", label: "Painting", options: [{ value: "painting:interior_painting", industry: "painting", tradeKey: "interior_painting", label: "Interior Painting" }] },
+];
+const welcomeHtml = {};
+for (const step of WELCOME_STEPS.filter((s) => s !== "setup")) {
+  try {
+    welcomeHtml[step] = inEnglish(createElement(WelcomeFlow, { step, prefill: PREFILL, groups: step === "business" ? GROUPS : null }));
+  } catch (err) {
+    welcomeHtml[step] = "";
+    fails.push(`/welcome/${step} threw while rendering — ${err.message}`);
+  }
+  ok(`/welcome/${step} renders`, welcomeHtml[step].length > 300, `${welcomeHtml[step].length} chars`);
+}
+const welcomeHtmlAll = Object.values(welcomeHtml).join("");
+const W = (step) => textOf(welcomeHtml[step] || "");
+ok("profile: “Your free trial is now active”, the owner's sentence, and the three fields prefilled",
+  W("profile").includes("Your free trial is now active") &&
+    W("profile").includes("We'll use your name and number to set up your account and make sure you get support when you need it.") &&
+    /id="welcome-firstName"[^>]*value="Ana"|value="Ana"[^>]*id="welcome-firstName"/.test(welcomeHtml.profile) &&
+    /id="welcome-phone"/.test(welcomeHtml.profile));
+ok("business: company name, ONE address field, the industry select, an optional website",
+  /id="welcome-companyName"/.test(welcomeHtml.business) &&
+    W("business").includes("Company address") &&
+    /role="combobox"/.test(welcomeHtml.business) &&
+    /id="welcome-website"/.test(welcomeHtml.business) &&
+    W("business").includes("(optional)") &&
+    !/id="signup-city"|id="signup-province"|id="signup-country"/.test(welcomeHtml.business));
+ok("...the website typed as text with the URL keyboard, so a bare www. address is never refused by the browser",
+  /id="welcome-website"[^>]*type="text"|type="text"[^>]*id="welcome-website"/.test(welcomeHtml.business) && /inputMode="url"|inputmode="url"/.test(welcomeHtml.business));
+ok("size: “Your Interior Painting business at a glance”, six team chips and five year chips",
+  W("size").includes("Your Interior Painting business at a glance") &&
+    ["Just me", "2–5", "6–10", "11–15", "16–20", "21+"].every((c) => W("size").includes(c)) &&
+    ["Less than 1", "1–2", "3–5", "6–10", "10+"].every((c) => W("size").includes(c)));
+ok("revenue: the bands in the company's own currency symbol, and “I'd prefer not to say”",
+  ["$0–$50K", "$50K–$150K", "$150K–$500K", "$500K–$1M", "$1M–$2M", "$2M+", "I'd prefer not to say"].every((c) => W("revenue").includes(c)),
+  W("revenue"));
+ok("priority: “Ana, let's get FieldQuo working for you” and the four cards",
+  W("priority").includes("Ana, let's get FieldQuo working for you") &&
+    W("priority").includes("I want my business to look as professional as my work") &&
+    W("priority").includes("I'm not sure yet, just exploring"));
+ok("focus: the options depend on the priority (control → scheduling, routes, team…)",
+  W("focus").includes("Scheduling jobs efficiently") && W("focus").includes("Planning smarter routes") && !W("focus").includes("Quotes that win work"));
+ok("source: a select and “Get started”", /id="welcome-source"/.test(welcomeHtml.source) && W("source").includes("Get started"));
+ok("every screen after the first has a Back button", WELCOME_STEPS.filter((s) => s !== "setup" && s !== "profile").every((s) => W(s).includes("Back")));
+ok("...and the first has none", !W("profile").includes("← Back"));
 
 console.log("\n  …and on /login");
 const loginText = textOf(loginHtml);
@@ -385,229 +355,116 @@ ok("...and so is signup", loginHtml.includes('href="/signup"'));
 ok("labels are associated with their inputs", /for="login-email"/.test(loginHtml) && /id="login-email"/.test(loginHtml));
 
 // ══════════════════════════════════════════════════════════════════════════
-console.log("\nThe payload /api/companies receives is unchanged");
+console.log("\nThe payload /api/companies receives");
 //
-// Source, not a render — see the header. The key SET is the contract: the API
-// 400s without a name, seeds Company.country from this body (which decides the
-// billing currency and the fallback tax jurisdiction), and reprices the plan
-// from its own row. An extra key here is a new promise; a missing one is a
-// silent regression four steps after the field that filled it.
+// Source, not a render — the key SET is the contract. Since 2026-09-29 the
+// press posts NO business facts at all (no name, no address, no country: the
+// welcome questions ask for those, and the route creates the company with
+// explicit nulls — scripts/check-welcome-flow.mjs). What it still carries are
+// the link's own facts, the page language, the consent, and what the pricing
+// link named — never money.
 const signupSrc = code("app/signup/page.js");
 const bodyMatch = signupSrc.match(
-  /fetch\("\/api\/companies",[\s\S]*?body: JSON\.stringify\(\{([\s\S]*?)\n {8}\}\),/,
+  /fetch\("\/api\/companies",[\s\S]*?body: JSON\.stringify\(\{([\s\S]*?)\n {6}\}\),/,
 );
 ok("the POST body is still one literal in one place", Boolean(bodyMatch));
-// `key:` and bare `key,` both count. No key is passed shorthand today, but the
-// regex keeps accepting both: it was written after a colon-only version
-// quietly declared the payload one key smaller than it was, and narrowing it
-// again the moment the shorthand key went away would re-open that hole for
-// whoever adds the next one.
+// `key:` and bare `key,` both count — a colon-only version once declared the
+// payload one key smaller than it was.
 const bodyKeys = bodyMatch
-  ? [...bodyMatch[1].matchAll(/^\s{10}([A-Za-z][A-Za-z0-9]*)\s*[:,]/gm)].map((m) => m[1])
+  ? [...bodyMatch[1].matchAll(/^\s{8}([A-Za-z][A-Za-z0-9]*)\s*[:,]/gm)].map((m) => m[1])
   : [];
 const EXPECTED_BODY = [
-  "name",
-  "phone",
-  "address",
-  "city",
-  "province",
-  "country",
+  // The page's language — the company's default until Settings says otherwise.
   "language",
-  "industries",
-  // Added 2026-09-24: "Do you have a website?" — the answer (true / false /
-  // null) and, for a yes, the address. An answer and a URL, never money;
-  // /api/companies re-reads both through lib/signup/website.js and puts the
-  // URL on Company.website, the column the company's own site lived in.
-  "hasWebsite",
-  "website",
-  "planId",
-  // Added 2026-09-24 with the card-free signup: what the /pricing link named
-  // (?tier= / ?plan=), kept on Company.signupTierKey so the trial banner's
-  // "Choose a plan" opens Account & Billing on that card. A name, never money.
-  "wantedTier",
-  "wantedPlanId",
-  // employeeCount was here until 2026-08-31. Signup used to post a raw
-  // headcount, and /api/companies minted a "Custom (N employees)" Plan from it
-  // at the retired $45/licence rate — so a prospect who clicked the Solo card
-  // could be charged a different number than the card showed. The ladder has
-  // no honest headcount-to-tier mapping, so the parameter was removed rather
-  // than guessed at. See docs/PRICING-CLEANUP.md.
-  "serviceCategoryIds",
-  // The Team and Goals steps (2026-09-24): words picked, or null when skipped.
-  "teamSizeBand",
-  "yearsInBusinessBand",
-  "signupGoal",
-  "signupSource",
-  "billingInterval",
+  // "Send me product news and offers": only `true` counts server-side.
+  "marketingConsent",
+  // A promo or referral code (the two-way waterfall in the route).
   "referralCode",
-  // Added 2026-09-01 with sales attribution. Its OWN key, deliberately not
-  // folded into referralCode: that field is already a two-way waterfall (a
-  // platform promo code, then a contractor referral code) resolved by trying
-  // one and falling through to the other, and a FieldQuo rep's code joining
-  // that queue would mean a mistyped promo code silently attributing a
-  // commission. See lib/sales/attribution.js and
-  // scripts/check-sales-attribution.mjs, which asserts the two namespaces stay
-  // separate at this boundary.
+  // A FieldQuo rep's code — its OWN key, never folded into referralCode, so a
+  // mistyped promo can never attribute a commission (check:sales-attribution).
   "salesCode",
-  // Added 2026-09-13 with the growth model's paid-ads source: the utm_*
-  // query the ad landed with, so an ad signup is measurable on SignupOrigin.
+  // The advert the link carried, for SignupOrigin.
   "utm",
-  // Added 2026-09-13 with the rep's live signup stepper: the token minted
-  // when a rep TEXTED the link, so the completion stamps the right row.
+  // The token on a link a rep TEXTED, for the rep's panel.
   "signupLinkToken",
   "next",
-  // Added 2026-09-25 with the signup progress screen: true on the no-plan
-  // finish, asking the route to create the company and leave the seeding to
-  // POST /api/signup/setup, which the screen streams stage by stage. A flag
-  // about HOW to answer, never money and never a company fact.
-  "stagedSetup",
+  // What the /pricing link named (?tier= / ?plan=) — a card, never a price.
+  "wantedTier",
+  "wantedPlanId",
 ];
-// 2026-09-13: the funnel crashed for every visitor because one caller ran
-// validateCompanyFields(form) without `t` and the validator called it on the
-// first empty field. Every helper that formats a sentence takes `t` with the
-// English-only default, and no call site may omit it without that default
-// existing.
+ok("...carrying exactly these keys", bodyKeys.join(",") === EXPECTED_BODY.join(","), bodyKeys.join(","));
+ok(
+  "...no business fact rides on it — no name, no address, no country",
+  !/\b(name|address|country|province|city|phone)\s*:/.test(bodyMatch ? bodyMatch[1] : "name:"),
+);
+ok("...and no money", !/(price|amount|total|monthly)\s*:/i.test(bodyMatch ? bodyMatch[1] : "x:"));
 {
   const src = readFileSync("app/signup/page.js", "utf8");
-  ok("validateCompanyFields and validateAccountFields default `t` to englishOnly",
-    /function validateCompanyFields\(form, t = englishOnly\)/.test(src) &&
-    /function validateAccountFields\(form, t = englishOnly\)/.test(src));
-  ok("monthsFree / dayCount / trialText are never called without t",
-    !/\b(monthsFree|dayCount|trialText)\(\s*[^t\s]/.test(src));
+  ok("validateAccountFields defaults `t` to englishOnly", /function validateAccountFields\(form, t = englishOnly\)/.test(src));
+  ok("monthsFree / dayCount / trialText are never called without t", !/\b(monthsFree|dayCount|trialText)\(\s*[^t\s]/.test(src));
 }
+// The one plan step /signup keeps: a company created before 2026-09-24 that
+// never finished Stripe checkout. It posts the plan and the CADENCE, and the
+// checkout route reprices from its own row (non-negotiable #5).
 ok(
-  "...carrying exactly the same keys",
-  bodyKeys.join(",") === EXPECTED_BODY.join(","),
-  bodyKeys.join(","),
+  "the resumed payment posts the cadence, never an amount",
+  /body: JSON\.stringify\(\{ planId: selectedPlanId, interval: effectiveInterval \}\)/.test(signupSrc),
 );
-// Non-negotiable #5: the browser never sends money. The cadence is a word, and
-// the server reprices from its own Plan row.
-ok(
-  "...the cadence, never an amount",
-  /billingInterval: effectiveInterval,/.test(signupSrc) &&
-    !/(price|amount|total|monthly)\s*:/i.test(bodyMatch ? bodyMatch[1] : "x:"),
-);
-// effectiveInterval, not billingInterval straight from state: a plan with no
-// annual price must not be bought on a cadence it does not have. Once a plan
-// is chosen the guard is annualAvailable; before a choice the tabs follow
-// whether any card sells a year (annual-first pickers, 2026-09-28).
 ok(
   "...and effectiveInterval is still what guards an annual-less plan",
-  /const effectiveInterval = \(hasSelection \? annualAvailable : anyYearOffer\) \? billingInterval : "month";/.test(
-    signupSrc,
-  ),
+  /const effectiveInterval = \(hasSelection \? annualAvailable : anyYearOffer\) \? billingInterval : "month";/.test(signupSrc),
 );
-// The account step's own submit still creates the login before anything else.
-ok("signUp.email is still what the account step calls", /await signUp\.email\(\{/.test(signupSrc));
-ok("...and the company is still what checkout follows", /window\.location\.href = data\.checkoutUrl;/.test(signupSrc));
+ok("signUp.email is still what the account screen calls", /await signUp\.email\(\{/.test(signupSrc));
+ok("...then the company, then the first welcome question", /await createCompany\(\)/.test(signupSrc) && /window\.location\.href = data\.welcomeUrl;/.test(signupSrc));
+ok("...and the resumed payment still follows its checkout", /window\.location\.href = data\.checkoutUrl;/.test(signupSrc));
 
 // ══════════════════════════════════════════════════════════════════════════
-console.log("\nThe step order, and the plan step still last");
+console.log("\nThe welcome questions' order, and the rail that counts them");
 //
-// Executed against lib/signup/funnel.js, which is where the order lives. The
-// plan step used to be FIRST, priced off a hardcoded "CA", so a contractor in
-// Texas was shown Canadian money before anybody asked where he was. Nothing
-// about a layout change may put it back.
-// Seven since 2026-09-24: the Team and Goals rungs sit between the entry
-// and Trades (lib/signup/funnel.js OPTIONAL_STEPS), both skippable, so
-// "Start my free trial" is still the last button of the funnel.
-ok("STEPS is the seven names, team and goals before trades", STEPS.join(",") === "account,business,team,goals,industry,services,plan", STEPS.join(","));
-ok("...and plan is last", STEPS[STEPS.length - 1] === "plan");
-for (const accountExists of [false, true]) {
-  const who = accountExists ? "with a login" : "a stranger";
-  const walked = [firstStep({ accountExists })];
+// Executed against lib/signup/welcome.js, where the order lives — the screens
+// ask it for Back, and the server for Next (PATCH /api/signup/personalize).
+ok(
+  "WELCOME_STEPS is the owner's order, setup last",
+  WELCOME_STEPS.join(",") === "profile,business,size,revenue,priority,focus,source,setup",
+  WELCOME_STEPS.join(","),
+);
+{
+  const walked = [WELCOME_STEPS[0]];
   let guard = 0;
-  while (guard++ < 10) {
-    const next = nextStep(walked[walked.length - 1], { accountExists });
+  while (guard++ < 20) {
+    const next = nextWelcomeStep(walked[walked.length - 1]);
     if (!next) break;
     walked.push(next);
   }
-  ok(`${who} walks ${walked.join(" → ")}`, walked[walked.length - 1] === "plan" && walked.length === 6, walked.join(" → "));
-  ok(`...and Back retraces it exactly`, walked.slice(1).every((step, i) => previousStep(step, { accountExists }) === walked[i]));
-  ok(`...with nothing behind the first step`, previousStep(walked[0], { accountExists }) === null);
-  // The rail is DERIVED from the funnel rather than restating it. A rail with
-  // its own list of four names is the copy that rots — this one would still be
-  // showing the plan step first.
-  ok(`...and the progress rail names the same six while the plan step is on screen`, rungsFor({ accountExists, current: "plan" }).join(",") === walked.join(","), rungsFor({ accountExists, current: "plan" }).join(","));
-  // Since 2026-09-24 a NEW signup ends at Services — no plan, no card (the
-  // owner's decision; app/signup/page.js handleFinish withoutPlan). The rail
-  // a new visitor sees counts three; the plan rung is drawn only for a
-  // company created before that date finishing its checkout.
-  ok(`...and five, ending at services, for a new signup`, rungsFor({ accountExists, current: "services" }).join(",") === walked.slice(0, -1).join(","), rungsFor({ accountExists, current: "services" }).join(","));
+  ok(`Next walks ${walked.join(" → ")}`, walked.join(",") === WELCOME_STEPS.join(","));
+  ok("...and Back retraces it exactly", walked.slice(1).every((s, i) => previousWelcomeStep(s) === walked[i]));
+  ok("...with nothing behind the first question", previousWelcomeStep(walked[0]) === null);
 }
-// Nothing past the account step is reachable without a login: an unauthenticated
-// visitor restored straight into "services" once reached checkout and got a bare
-// 401 with nothing on screen saying which of two missing things was missing.
-ok(
-  "an account is still the gate on everything after it",
-  furthestStep({ accountExists: false, companyReady: true, hasIndustries: true, hasServices: true }) === "account",
-);
-
-console.log("\n  …and the rail says so on screen");
-// Three for a new signup (2026-09-24: it ends at Services, no plan, no card);
-// the plan rung is drawn only while it is the step on screen — a company from
-// before that date finishing its checkout.
+ok("a screen past the first unanswered one is never shown", allowedWelcomeStep("revenue", { user: {}, company: {}, tradeKeys: [] }) === "profile");
 for (const [step, expected] of [
-  ["account", "Step 1 of 5"],
-  ["team", "Step 2 of 5"],
-  ["goals", "Step 3 of 5"],
-  ["industry", "Step 4 of 5"],
-  ["services", "Step 5 of 5"],
-  ["plan", "Step 6 of 6"],
+  ["profile", "Question 1 of 7"],
+  ["business", "Question 2 of 7"],
+  ["size", "Question 3 of 7"],
+  ["source", "Question 7 of 7"],
 ]) {
-  const html = inEnglish(createElement(SignupSteps, { current: step, accountExists: false }));
-  ok(`on "${step}" it reads ${expected}`, textOf(html).includes(expected), textOf(html));
+  ok(`on /welcome/${step} the rail reads ${expected}`, textOf(welcomeHtml[step] || "").includes(expected), textOf(welcomeHtml[step] || "").slice(0, 120));
 }
-// A step name the rail does not know would draw four empty bars — "you have
-// done nothing" said to somebody four screens in. It renders nothing instead.
+{
+  const flowSrc = code("app/welcome/WelcomeFlow.js");
+  ok("the rail is wired to the live step, not to a constant", /rail=\{<QuestionRail step=\{step\} \/>\}/.test(flowSrc));
+  ok("...and the aside likewise", /aside=\{<WelcomeAside step=\{step\} \/>\}/.test(flowSrc));
+}
 ok(
-  "an unknown step renders no rail rather than an empty one",
-  inEnglish(createElement(SignupSteps, { current: "checkout", accountExists: false })) === "",
-);
-
-console.log("\n  …and the page actually mounts it");
-//
-// ══ The assertion this file was missing ════════════════════════════════════
-//
-// Mutation-testing this check found the exact failure its own header warns
-// about: deleting <SignupSteps /> from app/signup/page.js left every assertion
-// above green, because they all render the component directly. The rail cannot
-// be reached through the page's markup — signup's first render is the
-// entry-check placeholder and the rail is deliberately null until we know who
-// this visitor is — so the wiring is pinned in the two places it can be:
-// the page must hand it the LIVE step, and the shell must render what it is
-// handed.
-ok(
-  "the rail is wired to the live step, not to a constant",
-  /<SignupSteps\s+current=\{step\}\s+accountExists=\{accountExists\}\s*\/>/.test(signupSrc),
-);
-ok(
-  "...and AuthShell renders whatever rail it is given",
-  inEnglish(
-    createElement(AuthShell, {
-      title: "t",
-      rail: createElement("b", null, "RAIL-SENTINEL"),
-      children: "form",
-    }),
-  ).includes("RAIL-SENTINEL"),
+  "AuthShell renders whatever rail it is given",
+  inEnglish(createElement(AuthShell, { title: "t", rail: createElement("b", null, "RAIL-SENTINEL"), children: "form" })).includes("RAIL-SENTINEL"),
 );
 ok(
   "...and whatever aside it is given",
-  inEnglish(
-    createElement(AuthShell, {
-      title: "t",
-      aside: createElement("b", null, "ASIDE-SENTINEL"),
-      children: "form",
-    }),
-  ).includes("ASIDE-SENTINEL"),
+  inEnglish(createElement(AuthShell, { title: "t", aside: createElement("b", null, "ASIDE-SENTINEL"), children: "form" })).includes("ASIDE-SENTINEL"),
 );
-// The plan step is the one that goes full width. If that condition inverted,
-// four plan cards would be crushed into a 26rem column.
 ok(
-  "the plan step is the one step with no aside beside it",
-  // The panel is handed the live form (`preview`) since 2026-09-24; the
-  // plan-step condition is what this asserts.
-  /aside=\{step === "plan" \? null : <AuthAside variant="signup" preview=\{asidePreview\} \/>\}/.test(signupSrc),
+  "the resumed plan step is the one /signup screen with no aside — its cards need the width",
+  /aside=\{finishCheckout \? null : <WelcomeAside step="account" \/>\}/.test(signupSrc),
 );
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -630,33 +487,38 @@ const SURFACES = [
   ["/login", loginText],
   ["/signup", textOf(signupHtml)],
   ["the login panel", textOf(inEnglish(createElement(AuthAside, { variant: "login" })))],
-  ["the signup panel", textOf(inEnglish(createElement(AuthAside, { variant: "signup" })))],
+  ["the welcome panel", textOf(inEnglish(createElement(WelcomeAside, { step: "account" })))],
+  ...Object.entries(welcomeHtml).map(([step, html]) => [`/welcome/${step}`, textOf(html)]),
 ];
 for (const [where, text] of SURFACES) {
   for (const [pattern, what] of FORBIDDEN) {
     ok(`${where} does not claim ${what}`, !pattern.test(text));
   }
 }
-// Said, not merely not-denied. Somebody about to hand over eleven fields
-// deserves to know what is NOT coming — no card, no plan step — and where the
-// plan gets chosen instead (the app's trial banner).
-const signupPanel = textOf(inEnglish(createElement(AuthAside, { variant: "signup" })));
-ok("the signup panel says there is no card and no plan today", /No card and no plan today/.test(signupPanel), signupPanel);
-ok("...and where the plan is chosen instead", /from inside the app/.test(signupPanel));
-ok("...and the offer comes from trialLabel(), not a typed number", /Free first month/.test(signupPanel));
-ok(
-  "...off the helper rather than restated",
-  /trialLabel\(\)/.test(code("app/components/auth/AuthAside.js")),
-);
-// The trades count is the one number on the panel that cannot be written by
-// hand — it is the length of app/data/industries.js.
-ok(
-  `the panel counts ${INDUSTRIES.length} trades rather than naming a number`,
-  signupPanel.includes(`${INDUSTRIES.length} trades`) &&
-    /INDUSTRIES\.length/.test(code("app/components/auth/AuthAside.js")),
-);
+// Said, not merely not-denied: how long the trial is and whether it takes a
+// card — both from lib/pricing.js, never typed on the page.
+{
+  const signupText = textOf(signupHtml);
+  ok(`/signup says the trial is ${TRIAL_DAYS} days`, signupText.includes(`Free for ${TRIAL_DAYS} days`), signupText.slice(0, 200));
+  ok(
+    `...and ${TRIAL_CARD_REQUIRED ? "does not promise" : "says"} “no card needed”, as TRIAL_CARD_REQUIRED says`,
+    TRIAL_CARD_REQUIRED ? !/no card needed/i.test(signupText) : /no card needed/i.test(signupText),
+  );
+  ok("...off the constants rather than a typed number", /TRIAL_DAYS/.test(signupSrc) && /TRIAL_CARD_REQUIRED/.test(signupSrc) && !/Free for 14 days/.test(signupSrc));
+}
+// The "Did you know…" line: one list, each fact with a source, the arithmetic
+// one computed. scripts/check-welcome-flow.mjs holds the list itself; here the
+// panel is held to showing only what the list says.
+{
+  const panel = textOf(inEnglish(createElement(WelcomeAside, { step: "account" })));
+  const shown = DID_YOU_KNOW.filter((f) => {
+    let s = f.text;
+    for (const [k, v] of Object.entries(factValues(f))) s = s.replace(`{${k}}`, String(v));
+    return panel.includes(s);
+  });
+  ok("the welcome panel shows exactly one fact from the sourced list", shown.length === 1, panel);
+}
 
-// ══════════════════════════════════════════════════════════════════════════
 console.log("\nBoth themes define every colour these pages use");
 //
 // Not because /login goes dark today — it does not; ThemeProvider's allow-list
@@ -695,8 +557,8 @@ const classesIn = (html) => {
 const surfaces = new Set([
   ...classesIn(loginHtml),
   ...classesIn(signupHtml),
-  ...classesIn(inEnglish(createElement(AuthAside, { variant: "signup" }))),
-  ...classesIn(inEnglish(createElement(SignupSteps, { current: "industry", accountExists: false }))),
+  ...classesIn(inEnglish(createElement(WelcomeAside, { step: "account" }))),
+  ...classesIn(welcomeHtmlAll),
 ]);
 const tokenClasses = [];
 for (const cls of surfaces) {
@@ -831,10 +693,13 @@ console.log("\n── One business to a login ───────────�
 
 const companiesSrc = code("app/api/companies/route.js");
 
-// Every step, not just the first: a resumed draft would otherwise render the
-// business step underneath the refusal panel.
-const guarded = (signupSrc.match(/entryChecked && !alreadyOnFieldquo && step ===/g) || []).length;
-ok("no signup step renders for a member", guarded >= 7, guarded);
+// Both forms — the signed-out account screen and the signed-in "Start my free
+// trial" — are guarded on the membership answer.
+ok(
+  "no signup form renders for a member",
+  /entryChecked && !accountReady && !alreadyOnFieldquo && !finishCheckout/.test(signupSrc) &&
+    /entryChecked && accountReady && !alreadyOnFieldquo && !finishCheckout/.test(signupSrc),
+);
 ok("...nor the loading state that precedes them",
   // (A resume link held for the two-account choice hides it too.)
   /\{!entryChecked && !alreadyOnFieldquo && (!resumeElsewhere && )?\(/.test(signupSrc));
