@@ -226,16 +226,13 @@ export const GROUPS = [
   },
 ];
 
-// Everything open on a first visit, for the same reason the main rail's
-// groups are: folding solves "this list is long" for someone who already
-// knows where things live, and it does not solve discovery. With the list
-// open, every settings page is two clicks from anywhere — Settings, then
-// the row — which is the ceiling scripts/check-shell.mjs holds; closed by
-// default it would be three (Settings, the group, the row), and the old
-// second sidebar's "nothing is open until you're in it" was exactly the
-// complaint that the first thing a new owner saw was eight headings and no
-// pages. The user's own folds still persist (fq-settings-groups); nothing
-// here anchors a tour, so no group needs pinning.
+// One group open at a time, like the main rail (owner, 2026-09-29). This
+// trades the old "every settings page two clicks away" ceiling for a short
+// list: a page in a closed group is now three (Settings, the group, the row)
+// — the owner's explicit choice. What keeps it findable: the group holding
+// the current page opens by itself, and the filter box shows every matching
+// page whatever is folded. The last-opened group persists
+// (fq-settings-groups); nothing here anchors a tour, so no group is pinned.
 const DISCLOSURE_KEY = "fq-settings-groups";
 const DEFAULT_OPEN = GROUPS.map((g) => g.key);
 
@@ -324,6 +321,7 @@ export function SettingsPanel({ onBack, onNavigate }) {
     storageKey: DISCLOSURE_KEY,
     defaultOpenKeys: DEFAULT_OPEN,
     activeKey,
+    exclusive: true,
   });
   const onRowsKeyDown = useRovingRows();
 

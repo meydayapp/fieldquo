@@ -110,6 +110,29 @@ export function initialOpenKeys({ defaultOpenKeys = [], overrides = {}, active =
 }
 
 /**
+ * One-open-at-a-time ("exclusive") disclosure — the owner's rule since
+ * 2026-09-29 for the main rail and the settings list: opening a group closes
+ * the others, so the sidebar stays short. The invariant above still holds —
+ * headers never hide, a query shows every match, the rail ignores disclosure,
+ * pinned groups never fold — this only decides WHICH one group is open.
+ *
+ * The one open group at mount: the group holding the current page, else the
+ * group the user last opened (the one `true` in their stored overrides), else
+ * the first default. Never more than one.
+ */
+export function initialExclusiveKey({ defaultOpenKeys = [], overrides = {}, active = null }) {
+  if (active) return active;
+  const stored = Object.entries(overrides || {}).filter(([, isOpen]) => isOpen);
+  if (stored.length) return stored[stored.length - 1][0];
+  return defaultOpenKeys[0] ?? null;
+}
+
+/** The open set after clicking `key` in exclusive mode: it alone, or none. */
+export function exclusiveToggle(openKeys, key) {
+  return openKeys.has(key) ? new Set() : new Set([key]);
+}
+
+/**
  * Whether a group shows its items. The single source of truth for guarantees
  * 1 and 3 — both sidebars call this rather than deciding for themselves, so
  * the check script exercises the rule that actually ships.

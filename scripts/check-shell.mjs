@@ -171,8 +171,11 @@ const FLAGSHIP = {
 for (const [key, what] of Object.entries(FLAGSHIP)) {
   ok(`${what} (${key}) is a rail row`, railRows.some((r) => r.key === key));
 }
-ok("every flagship's group is drawn (no flagship hides behind a folded group on a first visit)",
-  adminSrc.includes("const DEFAULT_OPEN = NAV_GROUPS.map((g) => g.key)"));
+// Since 2026-09-29 the rail opens ONE group at a time (owner's call). A
+// flagship in a folded group is reached by the filter or by its group header;
+// the group holding the current page opens itself (check:sidebar proves both).
+ok("the rail opens one group at a time, seeded from every group (owner 2026-09-29)",
+  adminSrc.includes("const DEFAULT_OPEN = NAV_GROUPS.map((g) => g.key)") && /defaultOpenKeys: DEFAULT_OPEN,\s*activeKey,\s*exclusive: true,/.test(adminSrc));
 // Work and AI stay pinned. Since 2026-09-24 People and Grow hold tour rows
 // too (Assign shifts, Marketing, Receptionist) WITHOUT being pinned — the tour
 // unfolds them through the header's data-tour-open hook, and check:sidebar
@@ -232,7 +235,7 @@ const OLD_SETTINGS = [
 // sheet holds the rail rows that are not tabs, the More groups, the settings
 // groups and the account rows (PhoneMenuTiles in MoreMenu.js). The hamburger
 // drawer is a second two-tap route to every rail row.
-const settingsOpenByDefault = settingsSrc.includes("const DEFAULT_OPEN = GROUPS.map((g) => g.key)") && settingsSrc.includes("defaultOpenKeys: DEFAULT_OPEN");
+const settingsOpenByDefault = settingsSrc.includes("const DEFAULT_OPEN = GROUPS.map((g) => g.key)") && /defaultOpenKeys: DEFAULT_OPEN,\s*activeKey,\s*exclusive: true,/.test(settingsSrc);
 const sheetHoldsRail = moreSrc.includes("PHONE_MENU_GROUPS") && moreSrc.includes("NAV_GROUPS.flatMap((g) => g.items)") && moreSrc.includes("!TAB_HREFS.has(i.href)");
 // The sheet draws the mockup's rows (s3, 2026-09-22): one row per More
 // group and per settings group, every page of the group as a link in the
@@ -240,7 +243,7 @@ const sheetHoldsRail = moreSrc.includes("PHONE_MENU_GROUPS") && moreSrc.includes
 const sheetHoldsMore = moreSrc.includes("const more = useNavGroups(MORE_GROUPS);") && moreSrc.includes("{more.map((group) => {") && /group\.items\.map\(\(item, i\) => \(\s*<span key=\{item\.href\}>[\s\S]*?<Link href=\{item\.href\}/.test(moreSrc);
 const sheetHoldsSettings = moreSrc.includes("useSettingsGroups()") && moreSrc.includes("{settings.map((group, i) => (") && /group\.items\.map\(\(item, j\) => \(\s*<span key=\{item\.href\}>[\s\S]*?<Link href=\{item\.href\}/.test(moreSrc);
 const sheetHoldsAccount = moreSrc.includes("<AccountMenu onNavigate={shell.close} tone=\"sheet\" />");
-ok("the settings list slides in with every group open on a first visit", settingsOpenByDefault);
+ok("the settings list opens one group at a time, like the rail (owner 2026-09-29)", settingsOpenByDefault);
 ok("the phone sheet holds the rail rows that are not tabs", sheetHoldsRail);
 ok("the phone sheet holds the More groups", sheetHoldsMore);
 ok("the phone sheet holds the settings groups", sheetHoldsSettings);
