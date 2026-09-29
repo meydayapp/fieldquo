@@ -32,6 +32,7 @@ import { warrantyLinkVerdict } from "@/lib/equipment/installed";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 import { syncJobRoom } from "@/lib/company/chat/store";
 import { CHANGE_ORDER_INCLUDE, presentChangeOrder } from "@/lib/jobs/changeOrderPresent";
+import { quotedCrewFrom, quotedCrewWorkerIds } from "@/lib/jobs/quotedCrew";
 
 // Next 16: params is a Promise.
 export async function GET(request, { params }) {
@@ -75,6 +76,10 @@ export async function GET(request, { params }) {
               assignedTo: { select: { id: true, name: true } },
             },
           },
+          // Who the quote was costed with — turned into `quotedCrew` below
+          // (names and ids only) and then dropped: this row also carries each
+          // person's pay rate, and the crew read this response.
+          costing: { select: { crew: true } },
         },
       },
       // Appointments booked BY HAND about this job (Appointment.jobId): a
@@ -152,6 +157,29 @@ export async function GET(request, { params }) {
   });
 
   if (!job) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // ── The crew the quote was costed with (lib/jobs/quotedCrew.js) ──────────
+  //
+  // Resolved against THIS company's workers only — a worker id is a string
+  // off a stored JSON blob — so the name is the worker's current one and the
+  // login behind it can pre-fill the first visit. Best-effort: a failed read
+  // leaves the stored names without identities, never fails the job page.
+  const storedCrew = job.quote?.costing?.crew;
+  let quotedCrew = [];
+  if (Array.isArray(storedCrew) && storedCrew.length) {
+    const ids = quotedCrewWorkerIds(storedCrew);
+    const workers = ids.length
+      ? await db.worker
+          .findMany({
+            where: { companyId: member.companyId, id: { in: ids } },
+            select: { id: true, name: true, userId: true },
+          })
+          .catch(() => [])
+      : [];
+    quotedCrew = quotedCrewFrom(storedCrew, workers);
+  }
+  if (job.quote) delete job.quote.costing;
+
   if (job.warrantyEquipment) {
     job.warrantyEquipment = withWarranty(job.warrantyEquipment, { asOf: new Date() });
   }
@@ -172,6 +200,7 @@ export async function GET(request, { params }) {
     // Labelled (CO-1, CO-2) and redacted — the signature PNG and the share
     // token stay on the server. See lib/jobs/changeOrderPresent.js.
     changeOrders: (job.changeOrders || []).map((co) => presentChangeOrder(co, job.changeOrders)),
+    quotedCrew,
   });
 }
 

@@ -95,6 +95,127 @@ The owner-approved Jobber-shaped signup. `/signup` is one screen — work email,
 - The unmounted reactive signup panel (`AuthAside` signup variant, `app/components/auth/samples/`, `SignupSteps`, the step functions in `lib/signup/funnel.js`) can be deleted with its checks.
 - The early nudge's "free month" copy and the trial-length copy elsewhere belong to the 14-day trial change running beside this one.
 - Product decision: the sales floor's SignupLead capture no longer fires from `/signup` (an email alone is not a lead); stalled owners are visible on `/platform/companies` with their welcome step and phone instead.
+## TikTok posting, phase 1 (29 September 2026)
+
+Approved by the owner 2026-09-29. A Marketing Designer design posts to the
+company's own TikTok account as a **photo** Direct Post of its 9:16 layout
+(`lib/marketing/ratios.js` `tiktok`, 1080×1920 JPEG) — the preset that was
+reachable only through "Download all" until now. Every TikTok fact below was
+read off developers.tiktok.com on 2026-09-29 and is cited in the code.
+
+### What shipped
+
+- **Switched on by configuration only** (`lib/tiktok/config.js`):
+  `TIKTOK_CLIENT_KEY` + `TIKTOK_CLIENT_SECRET` + `META_TOKEN_ENCRYPTION_KEY`.
+  Missing any → Settings › TikTok shows "TikTok posting — coming soon" with
+  no button, the connect route refuses, the designer offers no TikTok.
+- **Connection** — `TikTokConnection` (additive table). `/api/tiktok/connect`
+  → TikTok Login Kit (no PKCE for web) with a signed state bound to member +
+  company + a cookie nonce; `/api/tiktok/callback` exchanges the code, reads
+  user.info.basic, stores both tokens encrypted with the SAME helper as Meta
+  (`lib/meta/tokenCrypto.js`). Access tokens (24h) refresh on use; the daily
+  `/api/cron/tiktok-token-refresh` (07:37 UTC) rolls a refresh token (365d)
+  forward inside its last 30 days. Disconnect revokes at TikTok first, then
+  nulls the tokens and stamps the row — never a delete; `authorization.removed`
+  and a dead refresh token do the same.
+- **Settings › TikTok** (`app/app/settings/tiktok`, its own sidebar row
+  directly under Meta Ads — not a card on the Meta screen, the owner's call):
+  nickname + avatar, missing permissions, Disconnect, why a previous
+  connection ended, and the unaudited notice. Help article `settings-tiktok`
+  in en/fr/es.
+- **Composer** (`app/components/designer/TikTokPublishModal.js`, opened from
+  the Publish dialog's TikTok destination — or straight from Publish when
+  TikTok is the company's only destination — and only when connected): TikTok's mandated
+  UX — creator_info fetched fresh on every open, nickname shown, privacy
+  dropdown from TikTok's options with no default ("Only me" only while
+  unaudited), "Allow comments" off and greyed when the creator disabled it,
+  commercial disclosure (Your brand / Branded content, labels, "can't be
+  private"), the Music Usage / Branded Content Policy consent line, preview,
+  "may take a few minutes". Same approval gate and read-only caption as the
+  Meta dialog. Two explicit actions: **Post to TikTok** (Direct Post,
+  `video.publish`) and **Send to TikTok as a draft** (MEDIA_UPLOAD into the
+  creator's TikTok inbox, `video.upload`) — every scope requested is one the
+  review video can show working.
+- **Publish** (`/api/marketing/designer/designs/[id]/tiktok`): re-queries
+  creator_info, validates the choice server-side, uploads the JPEG, writes a
+  `TikTokPublish` row, hands TikTok
+  `https://www.fieldquo.com/api/tiktok/media/<signed token>.jpg` (HMAC,
+  one hour, row + company bound, 404 otherwise) and polls
+  `/api/tiktok/publish/[id]` every 5 s for ~3 min. `/api/tiktok/webhook`
+  (TikTok-Signature verified, idempotent) records post.publish.* and
+  authorization.removed.
+- **Errors**: every documented TikTok code and fail_reason has its own
+  sentence in all nine app languages; an unknown code is quoted, never hidden.
+- TikTok added to `lib/legal/processors.js`; privacy date 2026-09-29.
+
+### Checks
+
+`npm run check:tiktok` (239 checks: state/CSRF, media token tampering /
+expiry / other company, webhook signature, privacy rules and defaults, the
+request body, status monotonicity, error sentences in every language,
+"disconnect never deletes" executed on every path, refresh-on-use).
+Facebook/Instagram Graph call arguments for a stored design: md5 identical
+before and after (6ad4e7c8…).
+
+### Owed — the owner
+
+1. Create the app on developers.tiktok.com (Login Kit + Content Posting API,
+   Direct Post); register redirect `https://www.fieldquo.com/api/tiktok/callback`,
+   scopes `user.info.basic`, `video.publish`, `video.upload`, webhook
+   `https://www.fieldquo.com/api/tiktok/webhook`.
+2. Set `TIKTOK_CLIENT_KEY` / `TIKTOK_CLIENT_SECRET` in Vercel.
+3. Done by the owner: the domain `fieldquo.com` is verified, which covers
+   the media prefix. (`TIKTOK_VERIFICATION_FILENAME` / `_CONTENT` remain as
+   an optional URL-prefix fallback.)
+4. Submit the audit (a screencast of the composer). Until it passes every
+   post is private and stays private, the creator's account must be private,
+   and at most 5 creators a day can post. Set `TIKTOK_AUDITED=1` the day it
+   passes.
+
+### Not in phase 1
+
+Video posts, scheduling a TikTok post, a TikTok row in the designer
+calendar, and an editable TikTok title.
+## The homepage, rebuilt to the approved structure (29 September 2026)
+
+Owner priority #1: the UX designer's twelve-section homepage, desktop and 375px phone, in all nine marketing catalogues (en fr es uk pa tl de it + zh).
+
+### What shipped
+
+- `app/(marketing)/page.js` is now a server component with `revalidate = 60` (not force-dynamic: the homepage is the most-visited page and Neon scales to zero). It reads plans and promotions through the same chain /pricing uses — `partitionPlans → oneRowPerTier → livePromotions → universalPromotions → withOffers` — and every read is guarded, so an unreachable database renders the page without prices or a pill, never a remembered figure.
+- Sections, in order, in `app/components/marketing/home/`: HomeHero (headline, trial + "See how it works", trial line from `TRIAL_DAYS`/`TRIAL_CARD_REQUIRED`, the flow line, and the **sale pill** — shown only when `lib/marketing/homeSale.js` finds a promotion that every ladder card actually resolved to, so a CAD-only, one-tier, or outranked 1-year sale never shows; name/percent/interval/end date all from the row), ProductDemo (desktop + phone drawn in HTML, sample data labelled), ResultsResearch (no-number promises, FieldQuo facts, and the BuildOps 2026 benchmark as shares of 54 respondents with its source line — `research.js`), HowItWorks, TradeSelector (8 real industries, illustrative estimates, client-side only, links to /industries/<slug>), OutcomeGroups (every item links to a real /features or /product page), AskAI, OneSystem (categories, no competitor names), CustomerStory (`CUSTOMER_STORIES = []` — renders nothing until an owner-approved story is added; the file says how), HomePricing (audience → Solo/Crew/Shop/Scale, `PlanOfferPrice` with the 1-year offer as /pricing opens on it), HomeFAQ (seven answers, each traced in the file to the code that makes it true; languages computed from `SUPPORTED_EMAIL_LANGUAGES` and `APP_LANGUAGES`), FinalCTA (plus the demo booker, kept from the old hero).
+- Removed: `Hero.js`, `AIExplainer.js`, `FeaturesIndustries.js`, `ResourcesTeaser.js` (homepage-only). `FAQ.js`, `ClosingCTA.js` and `DemoBooking.js` stay — /product/<slug> and the roofing showcase use them.
+- `oneRowPerTier` moved to `lib/pricing/oneRowPerTier.js` and `peopleLines` to `lib/pricing/peopleLines.js`, unchanged, re-exported from their old homes; `offerEndDate` takes optional date parts.
+- Copy: `app/i18n/homePage/*.js`, merged into MARKETING (170 keys × 9).
+
+### Checks
+
+`check:homepage-sections` rewritten (it pinned the old four sections): approved order, the price chain and ISR ≤ 60s, nothing typed (ladder prices, sale figures, the trial length), `homeSalePill` executed against six promotion cases, research figures pinned to the brief and worded as respondents reporting, no unapproved story, no fetch in any section, every link resolved including /features, /product and /industries slugs, a second /signup ask. `check:marketing-cta`: the no-card ban now follows `TRIAL_CARD_REQUIRED` — while false, a no-card claim is allowed only in a file that reads the constant (TrialLine, HomeFAQ); flipped to true, the old ban returns (mutation-tested). `check:promotions-live` lists the homepage as a price surface; `check:marketing-i18n` scans the home sections.
+
+### Owed
+
+- No FieldQuo customer story, results or logos exist yet — the slots are honest and empty. When the owner has an approved story, add it to `CUSTOMER_STORIES`.
+- `hero.noCard` still says a card is taken ("your card isn't charged until they end") and is rendered by nothing; reword or remove it with the rest of the card-story cleanup the trial entry below lists.
+## Quote costing says when it's guessing — and who was quoted reaches the job (29 September 2026)
+
+Owner decision: an instant estimate is costed at FieldQuo's $35/h with nobody assigned and overhead at 10% of the price when the company has no job count. Say so, fix it from the quote, ask the company.
+
+### What shipped
+
+- **Warnings, only when a default was used** (`lib/costing/costingDefaults.js` `costingDefaultsUsed`, rendered by `CostingDefaultsNotice` on the quote page's Cost & margin block and the builder's cost panel): "Labour is at FieldQuo's $35/h default — nobody is assigned to this job yet." + Assign (crew empty, hours > 0, stored rate = 35; a typed $48 fallback is not called FieldQuo's); "Overhead is estimated at 10% of the price — tell us how many jobs you do…" + link to `/app/settings/overhead#capacity` (basis ≠ per_job, quoting the stored %). Nothing on a named-crew / per-job costing. The constants moved to that file (re-exported from `quoteCosting.js`).
+- **Assign on the quote page**: `QuoteCostEditor` gets the builder's own "Add from your team…" (`TeamCrewPicker`, one copy for both panels, `crewMemberFromWorker` in `lib/costing/crew.js`), saving through the same PATCH → `buildQuoteCostingRow`. Workers with no rate are named ("No pay rate set for X", link to Workers). Fixed on the way: the editor used to post no overhead %, no note and no worker ids — re-costing an instant estimate zeroed its overhead and wiped the note.
+- **Carry to the job**: the conversion carried NO crew for any quote. `GET /api/jobs/[id]` now returns `quotedCrew` (names + ids, from the quote's costing via `lib/jobs/quotedCrew.js`; pay rates stripped), the job page shows "Crew on the quote", and the first visit's form pre-selects the first quoted person with a login.
+- **Capacity per month**: `ForecastSettings.jobsPerMonthCapacity Int?` (additive); Settings › Overhead takes "a week / a month"; `calculateMinimumPrice` divides by the monthly figure when set ($4,141.40 ÷ 4 = $1,035.35/job; weekly 1 → $956.44, unchanged); the weekly column is still written (rounded, ≥ 1).
+- **Setup card**: "How many jobs do you do a month?" and "What does an hour of your crew cost? Set pay rates". There is no company-wide labour cost rate (only `Company.labourSellRate`, a sell rate) — none was invented; the row links to Workers pay rates.
+
+### Checks
+
+`check:costing-defaults` (new, 79), `check:setup-steps` (two rows added), quote-costing, quote-builder, instant-quote-draft, cost-basis, overhead-arithmetic, job-costing, depreciation, translations. md5 of a properly costed quote's summary / saved shape / estimate shape and of weekly price-floor results identical before and after.
+
+### Owed
+
+- **Before deploy**: `ALTER TABLE "ForecastSettings" ADD COLUMN IF NOT EXISTS "jobsPerMonthCapacity" INTEGER;` — already applied to the database in `.env` on 2026-09-29.
+- Existing saved quotes keep their numbers; nothing is re-costed until someone changes the costing.
 
 ## The trial is 14 days (29 September 2026)
 

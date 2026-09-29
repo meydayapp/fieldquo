@@ -39,7 +39,7 @@ export async function POST(request) {
   if (response) return response;
 
   const raw = await request.json().catch(() => ({}));
-  const parsed = parseWorkerDocumentBody(raw, { cloudName: process.env.CLOUDINARY_CLOUD_NAME, by: "worker" });
+  const parsed = parseWorkerDocumentBody(raw, { cloudName: process.env.CLOUDINARY_CLOUD_NAME, companyId: member.companyId, by: "worker" });
   if (parsed.error) return NextResponse.json({ error: parsed.error }, { status: parsed.status || 400 });
 
   const document = await db.workerDocument.create({

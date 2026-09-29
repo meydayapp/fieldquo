@@ -172,7 +172,15 @@ console.log("\nWiring");
   const route = read("app/api/leads/route.js");
   ok("API computes the value behind the pricing toggle", /canSeeMoney\(full\)/.test(route) && /showMoney && \{ potential:/.test(route));
   ok("API averages come from lib/leads/wonAverages (company-scoped)", /loadWonAverages\(\s*db,\s*member\.companyId/.test(route));
-  ok("API strips the quote's money back off the response", /publicQuote = quote\s*\?\s*\{ id: quote\.id, quoteNumber: quote\.quoteNumber, status: quote\.status \}/.test(route));
+  // 930e92bf added hasWork (the Won rule's evidence, which the board asks
+  // before a drop) and routed the row through quoteEvidence(). Still a
+  // whitelist: exactly these four keys, and null — never the raw row — when
+  // quoteEvidence declines it.
+  ok(
+    "API strips the quote's money back off the response",
+    /publicQuote = evidence\s*\?\s*\{\s*id: evidence\.id,\s*quoteNumber: evidence\.quoteNumber,\s*status: evidence\.status,\s*hasWork: evidence\.hasWork,\s*\}\s*:\s*null;/.test(route) &&
+      /quote: publicQuote,/.test(route),
+  );
   const won = read("lib/leads/wonAverages.js");
   ok("won-quote query is scoped to companyId and status accepted", /companyId,\s*status: "accepted"/.test(won));
   const page = read("app/app/leads/page.js");

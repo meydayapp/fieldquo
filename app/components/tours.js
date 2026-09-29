@@ -45,12 +45,16 @@
 // reliable regardless of what the dashboard itself is showing.
 //
 // ── Rows inside a group the reader can fold ─────────────────────────────────
-// Work and AI never fold (AdminSidebar's `pinned`). People and Grow do, so a
-// step on one of their rows lists TWO openers — the drawer (phones), then the
+// Every rail group folds, one open at a time (owner, 2026-09-29 — Work and AI
+// used to be pinned open for this tour's sake and no longer are). So a step
+// on ANY grouped row lists TWO openers — the drawer (phones), then the
 // group's header — and the matching closers. OnboardingTour clicks an opener
-// only while the target is still off screen, and undoes only what it clicked,
-// so a group the reader left open stays open. The header hook is
-// groupTourHook() in AdminSidebar.js: "app.nav.group.grow" -> "nav-group-grow".
+// only while the target is still off screen; on the way out it folds the
+// groups it opened and reopens the one the reader had open before it began
+// (tourUndoClicks in lib/tours/anchor.js), which matters now that opening
+// one group closes the rest. The header hook is groupTourHook() in
+// AdminSidebar.js: "app.nav.group.grow" -> "nav-group-grow". Rows outside
+// any group (More, Create, Search, Settings) stay `inRail`.
 
 const DRAWER_OPEN = "[data-tour-open='nav']";
 const DRAWER_CLOSE = "[data-tour-close='nav']";
@@ -112,10 +116,7 @@ export const TOURS = [
     key: WELCOME_TOUR_KEY,
     match: (p) => p === "/app",
     steps: [
-      {
-        target: "[data-tour='nav-requests']",
-        openWith: DRAWER_OPEN,
-        closeWith: DRAWER_CLOSE,
+      inFoldingGroup("[data-tour='nav-requests']", "work", {
         // "Leads", not "Requests". The nav item this points at is labelled
         // Leads on screen — in all six languages (app.nav.requests) — and the
         // tour was reading the internal message KEY instead. A tour that
@@ -129,14 +130,14 @@ export const TOURS = [
         // the actual sidebar string, not transliterated from this comment.
         titleKey: "app.tour.welcome.leadsTitle",
         bodyKey: "app.tour.welcome.leadsBody",
-      },
-      inRail("[data-tour='nav-quotes']", {
+      }),
+      inFoldingGroup("[data-tour='nav-quotes']", "work", {
         titleKey: "app.tour.welcome.quotesTitle",
         bodyKey: "app.tour.welcome.quotesBody",
       }),
       // Copy re-keyed (…reviewsNav*): the row reads "Quote reviews" now, and
       // the old title, "Instant estimates to approve", named nothing on screen.
-      inRail("[data-tour='nav-estimate-reviews']", {
+      inFoldingGroup("[data-tour='nav-estimate-reviews']", "work", {
         titleKey: "app.tour.welcome.reviewsNavTitle",
         bodyKey: "app.tour.welcome.reviewsNavBody",
       }),
@@ -153,11 +154,11 @@ export const TOURS = [
         titleKey: "app.tour.welcome.receptionistTitle",
         bodyKey: "app.tour.welcome.receptionistBody",
       }),
-      inRail("[data-tour='nav-ai']", {
+      inFoldingGroup("[data-tour='nav-ai']", "ai", {
         titleKey: "app.tour.welcome.aiTitle",
         bodyKey: "app.tour.welcome.aiBody",
       }),
-      inRail("[data-tour='nav-ai-team']", {
+      inFoldingGroup("[data-tour='nav-ai-team']", "ai", {
         titleKey: "app.tour.welcome.aiTeamTitle",
         bodyKey: "app.tour.welcome.aiTeamBody",
       }),

@@ -63,6 +63,7 @@ import { SOCIAL_SETTINGS_PATH } from "@/lib/social/settingsPath";
 // labels below carry the platform by name/handle alone rather than reaching
 // for a lookalike icon that isn't actually either brand's mark.
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { SocialGlyph } from "@/app/components/links/linkIcons";
 import { reportResponseError } from "@/lib/clientErrors";
 import {
   validateCaption,
@@ -142,6 +143,8 @@ export default function PublishModal({
   preparePublishAsset,
   onOpenApproval,
   initialShape,
+  tiktokConnected = false,
+  onChooseTikTok,
 }) {
   const { t } = useTranslation();
   // Settings › Meta Ads is owner/admin only (SETTINGS_ROW_CAPABILITY
@@ -391,6 +394,30 @@ export default function PublishModal({
             <Loader2 size={16} className="animate-spin" />
             {t("app.marketingDesigner.publishModal.checkingConnection")}
           </div>
+        )}
+
+        {/* TikTok as a destination — only when this company has a TikTok
+            account connected (CampaignEditor passes tiktokConnected from the
+            same check that decides the Publish button). TikTok's own rules
+            (a 9:16 shape, privacy with no default, disclosure, its consent
+            line) are a different form from this one, so choosing it hands
+            over to TikTok's composer (TikTokPublishModal.js) rather than
+            adding a fourth checkbox whose rules this dialog would have to
+            mix into Facebook's and Instagram's. Shown whether or not a
+            Facebook Page is connected: the two connections are independent. */}
+        {!loadingConnection && !done && tiktokConnected && onChooseTikTok && (
+          <button
+            type="button"
+            onClick={onChooseTikTok}
+            className="mb-4 w-full flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2.5 text-sm text-foreground hover:bg-muted"
+            data-publish-tiktok
+          >
+            <span className="flex items-center gap-2 font-semibold">
+              <SocialGlyph platform="tiktok" size={15} />
+              {t("app.tiktokPublish.destination")}
+            </span>
+            <span className="text-xs text-muted-foreground">{t("app.tiktokPublish.destinationHint")}</span>
+          </button>
         )}
 
         {notConnected && (

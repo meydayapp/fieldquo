@@ -5,7 +5,7 @@
 // settings-follow-ups, settings-notifications, settings-email-domain,
 // settings-work-email,
 // settings-payments, settings-meta-ads, settings-expense-tracking,
-// settings-ai-credit, settings-payroll, settings-website,
+// settings-tiktok, settings-ai-credit, settings-payroll, settings-website,
 // settings-instant-quotes.
 //
 // One article per Settings row. Every control described here was read off
@@ -1073,6 +1073,58 @@ export const ARTICLES = {
       { q: "Can a homeowner see my rates?", a: "No. The public page shows a range, never the rate card. Publishing a rate card openly would hand it to every competitor in town." },
       { q: "Is an instant estimate binding?", a: "No. It is a range the homeowner can request. It lands in Estimate Reviews, and nothing is sent to them as a quote until someone approves it." },
       { q: "I switched a trade on but the link says nothing is available.", a: "A trade is live only when it is on and priceable — saved with rates. The line at the top counts exactly those; the card of a trade that needs a price says so." },
+    ],
+  },
+
+  "settings-tiktok": {
+    title: "TikTok",
+    summary:
+      "Connect your business's TikTok account so an approved Marketing Designer design can be posted to it as a photo, or sent to your TikTok inbox as a draft.",
+    updated: "2026-09-29",
+    intro: [
+      "**Settings → TikTok** is where a company connects the TikTok account it posts from. Once connected, the Marketing Designer's **Publish** dialog offers **TikTok**, and an approved design goes to that account as a photo in the 9:16 shape. Only owners and admins see this screen.",
+    ],
+    sections: [
+      {
+        id: "states",
+        heading: "What the screen shows",
+        blocks: [
+          { bullets: [
+            "**TikTok posting — coming soon** — this FieldQuo deployment is not set up for TikTok yet. There is no button, and nothing for you to do.",
+            "**No TikTok account connected** — with **Connect TikTok**. If an account was connected before, a line says why it no longer is.",
+            "The connected account — its name and picture, any permission TikTok did not grant, and **Disconnect**.",
+          ] },
+          { warning: "Until TikTok approves FieldQuo, every post is visible only to you (private) and stays private after that, and your TikTok account must itself be set to private. The screen and the posting dialog both say so." },
+        ],
+      },
+      {
+        id: "connect",
+        heading: "How to connect",
+        blocks: [
+          { steps: [
+            "Open **Settings → TikTok** and press **Connect TikTok**.",
+            "Sign in on TikTok and approve FieldQuo.",
+            "You come back to the same screen with **TikTok connected.** and the account's name and picture.",
+          ] },
+          { note: "**Disconnect** asks TikTok to remove FieldQuo's access and deletes the stored sign-in. Posts already on TikTok stay there." },
+        ],
+      },
+      {
+        id: "post",
+        heading: "Posting a design",
+        blocks: [
+          { steps: [
+            "Approve the design, then press **Publish** in the Marketing Designer and choose **TikTok**.",
+            "Check the account name, the preview and the caption. Choose **Who can see this post** — nothing is chosen for you.",
+            "Tick **Allow comments** or **Disclose commercial content** only if you want them; both start off.",
+            "Press **Post to TikTok**, or **Send to TikTok as a draft** to finish it in the TikTok app. The post can take a few minutes to appear.",
+          ] },
+        ],
+      },
+    ],
+    faq: [
+      { q: "Why can I only choose Only me?", a: "TikTok has not approved FieldQuo yet. Until it does, TikTok accepts private posts only, and posts made before then stay private." },
+      { q: "Can I edit the caption?", a: "Yes — press Edit the words. Changing the words withdraws the approval, so the design is approved again before it goes out." },
     ],
   },
 };

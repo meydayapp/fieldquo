@@ -41,6 +41,8 @@ import {
 import { APP_MESSAGES } from "../app/i18n/appMessages.js";
 // Plain data, no imports — safe under bare node (see its own header).
 import { TOURS } from "../app/components/tours.js";
+// The tour's undo planner — pure, no imports (see its own section).
+import { tourUndoClicks } from "../lib/tours/anchor.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => fs.readFileSync(path.join(ROOT, p), "utf8");
@@ -380,12 +382,14 @@ for (const [name, groups] of [["rail", NAV], ["more", MORE], ["panel", SETTINGS]
   ok(`${name}: a query overrides every collapsed group`,
     whenSearching.length === 0, whenSearching.map((i) => i.key).join(" "));
 
-  // With nothing open and no query, only pinned groups may show items — and
-  // anything hidden must still have its header on screen to reopen it.
+  // With nothing open and no query, NO group may show items — every group
+  // folds since 2026-09-29 (owner: "every sidebar that has accordion") — and
+  // anything hidden still has its header on screen to reopen it.
   const shownIdle = visibleItems({ groups, query: "", openKeys: CLOSED, label });
-  const pinnedItems = groups.filter((g) => g.pinned).flatMap((g) => g.items);
-  ok(`${name}: closed groups actually hide their items`,
-    shownIdle.length === pinnedItems.length, `${shownIdle.length} shown, ${pinnedItems.length} pinned`);
+  ok(`${name}: closed groups actually hide their items (none held open)`,
+    shownIdle.length === 0, `${shownIdle.length} shown`);
+  const pinned = groups.filter((g) => g.pinned).map((g) => g.key);
+  ok(`${name}: no group is pinned open`, pinned.length === 0, pinned.join(" "));
 }
 
 // The icon rail has no headers to click, so it must ignore disclosure entirely
@@ -421,7 +425,7 @@ for (const tour of TOURS) {
 const asList = (v) => (Array.isArray(v) ? v : v ? [v] : []);
 for (const [name, groups] of [["rail", NAV], ["more", MORE], ["panel", SETTINGS]]) {
   const bad = [];
-  for (const g of groups.filter((x) => !x.pinned)) {
+  for (const g of groups) {
     for (const item of g.items.filter((i) => i.tour)) {
       const opener = `[data-tour-open='${hookFor(g.key)}']`;
       for (const { tour, step } of stepsByAnchor.get(item.tour) || []) {
@@ -458,10 +462,12 @@ ok("the active group opens even when stored state says closed",
     .has(anyGroup));
 ok("a stored preference survives the defaults",
   !initialOpenKeys({ defaultOpenKeys: [anyGroup], overrides: { [anyGroup]: false } }).has(anyGroup));
-ok("a pinned group is open with nothing stored and no query",
-  isGroupOpen({ group: { key: "x", pinned: true }, openKeys: CLOSED }));
-ok("an unpinned group is closed with nothing stored and no query",
+ok("the retired `pinned` flag no longer holds a group open",
+  !isGroupOpen({ group: { key: "x", pinned: true }, openKeys: CLOSED }));
+ok("a group is closed with nothing stored and no query",
   !isGroupOpen({ group: { key: "x" }, openKeys: CLOSED }));
+ok("navDisclosure has no pinned branch left",
+  !/\bpinned\b/.test(stripComments(read("app/components/layout/navDisclosure.js"))));
 
 // One open at a time (owner, 2026-09-29) — the rule both sidebars now use.
 const [gA, gB, gC] = SETTINGS.map((g) => g.key);
@@ -477,6 +483,122 @@ ok("exclusive: first visit opens exactly the first default",
   initialExclusiveKey({ defaultOpenKeys: [gA, gB], overrides: {} }) === gA);
 ok("exclusive: a query still shows every group whatever is folded",
   isGroupOpen({ group: { key: gB }, openKeys: new Set([gA]), searching: true }));
+
+// ── Every accordion sidebar is exclusive, none pinned (owner, 2026-09-29) ──
+//
+// "For every sidebar that has accordion": found by the hook, not by a list of
+// file names, so a fourth accordion added later is held to the same rule the
+// day it lands. Each useGroupDisclosure call must pass `exclusive: true`.
+{
+  const files = [];
+  const walk = (dir) => {
+    for (const e of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
+      const rel = path.join(dir, e.name);
+      if (e.isDirectory()) { if (e.name !== "node_modules" && !e.name.startsWith(".")) walk(rel); }
+      else if (/\.(js|jsx|mjs)$/.test(e.name)) files.push(rel);
+    }
+  };
+  walk("app");
+  const calls = [];
+  for (const f of files) {
+    const src = stripComments(read(f));
+    for (const m of src.matchAll(/(?<!function )useGroupDisclosure\(\{([\s\S]*?)\}\)/g)) calls.push({ f, args: m[1] });
+  }
+  const callers = new Set(calls.map((c) => c.f));
+  ok("found every accordion sidebar by its hook (rail, settings, /platform)",
+    ["app/components/layout/AdminSidebar.js", "app/components/layout/SettingsSidebar.js", "app/components/platform/PlatformSidebar.js"]
+      .every((f) => callers.has(f)), [...callers].join(" "));
+  const notExclusive = calls.filter((c) => !/\bexclusive:\s*true\b/.test(c.args)).map((c) => c.f);
+  ok("every useGroupDisclosure call passes exclusive: true", notExclusive.length === 0, notExclusive.join(" "));
+  const platformGroups = sliceArray(read("app/components/platform/PlatformSidebar.js"), "const GROUPS = [");
+  ok("no /platform group is pinned", !/\bpinned\s*:/.test(stripComments(platformGroups)));
+  ok("no /app rail or settings group is pinned",
+    !/\bpinned\s*:/.test(stripComments(sliceArray(adminSrc, "const NAV_GROUPS = ["))) &&
+      !/\bpinned\s*:/.test(stripComments(sliceArray(settingsSrc, "const GROUPS = ["))));
+}
+
+// ── The welcome tour on a folded rail, executed ────────────────────────────
+//
+// Work and AI used to be pinned so the walkthrough could see their rows. Now
+// the tour unfolds each row's group through its header. Run the real steps
+// against the real exclusive toggle from every starting fold the reader could
+// have left — each group alone, and nothing — and require (a) every grouped
+// anchor is on screen when its step runs, (b) the undo puts the reader's fold
+// back exactly. (b) is the case the old replay-in-reverse undo got wrong.
+{
+  const hookSel = (k) => `[data-tour-open='${hookFor(k)}']`;
+  const keyOfHook = new Map(NAV.map((g) => [hookSel(g.key), g.key]));
+  const groupOfAnchor = new Map(NAV.flatMap((g) => g.items.filter((i) => i.tour).map((i) => [i.tour, g.key])));
+  const welcome = TOURS.find((t) => t.match("/app") && t.steps.some((st) => /nav-requests/.test(st.target)));
+  ok("found the welcome tour", Boolean(welcome));
+  const grouped = (welcome?.steps || []).filter((st) => groupOfAnchor.has(/data-tour='([^']+)'/.exec(st.target)?.[1]));
+  ok("the welcome tour visits rows in every rail group that holds an anchor",
+    new Set(grouped.map((st) => groupOfAnchor.get(/data-tour='([^']+)'/.exec(st.target)[1]))).size ===
+      new Set(groupOfAnchor.values()).size);
+  const simulate = (start) => {
+    let open = new Set(start);
+    const owed = [];
+    let restore = null;
+    const missed = [];
+    for (const step of grouped) {
+      const anchor = /data-tour='([^']+)'/.exec(step.target)[1];
+      const seen = () => visibleItems({ groups: NAV, query: "", openKeys: open, label }).some((i) => i.tour === anchor);
+      const openers = asList(step.openWith);
+      const closers = asList(step.closeWith);
+      for (let i = 0; i < openers.length && !seen(); i++) {
+        const key = keyOfHook.get(openers[i]);
+        if (!key) continue; // the drawer's hamburger: display:none on a desktop
+        const toggle = closers[i] === openers[i];
+        if (toggle && restore === null) restore = [...open].map(hookSel);
+        open = exclusiveToggle(open, key);
+        if (closers[i] && !owed.some((o) => o.selector === closers[i])) owed.push({ selector: closers[i], toggle });
+      }
+      if (!seen()) missed.push(anchor);
+    }
+    const wasOpen = new Set(open);
+    for (const sel of tourUndoClicks({ owed, expandedNow: [...wasOpen].map(hookSel), restore })) {
+      const key = keyOfHook.get(sel);
+      if (key) open = exclusiveToggle(open, key);
+    }
+    return { missed, end: [...open].sort().join(), start: [...start].sort().join() };
+  };
+  for (const start of [[], ...NAV.map((g) => [g.key])]) {
+    const r = simulate(start);
+    const name = start.length ? start[0].split(".").pop() : "nothing";
+    ok(`tour from a rail with ${name} open: every grouped anchor is on screen at its step`,
+      r.missed.length === 0, r.missed.join(" "));
+    ok(`tour from a rail with ${name} open: the reader's fold is put back`, r.end === r.start, `${r.start} -> ${r.end}`);
+  }
+  // Icon rail: no headers, every row drawn — the tour needs no opener at all.
+  ok("tour on the icon rail: every anchor is drawn with nothing open",
+    [...groupOfAnchor.keys()].every((a) =>
+      visibleItems({ groups: NAV, query: "", openKeys: CLOSED, label, railCollapsed: true }).some((i) => i.tour === a)));
+}
+
+// tourUndoClicks against hostile input.
+{
+  const G = "[data-tour-open='nav-group-grow']";
+  const P = "[data-tour-open='nav-group-people']";
+  const W = "[data-tour-open='nav-group-work']";
+  const X = "[data-tour-close='nav']";
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  ok("undo: no args, no clicks", same(tourUndoClicks(), []) && same(tourUndoClicks({ owed: null, expandedNow: null, restore: null }), []));
+  ok("undo: junk entries in owed are ignored", same(tourUndoClicks({ owed: [null, {}, { selector: "" }], expandedNow: [] }), []));
+  ok("undo: a group the tour opened and is open now is folded",
+    same(tourUndoClicks({ owed: [{ selector: G, toggle: true }], expandedNow: [G], restore: [] }), [G]));
+  ok("undo: a group the tour opened but that is already shut is NOT clicked (that would reopen it)",
+    same(tourUndoClicks({ owed: [{ selector: P, toggle: true }, { selector: G, toggle: true }], expandedNow: [G], restore: [] }), [G]));
+  ok("undo: the reader's own group is reopened after the fold",
+    same(tourUndoClicks({ owed: [{ selector: G, toggle: true }], expandedNow: [G], restore: [W] }), [G, W]));
+  ok("undo: the tour ending in the reader's own group clicks nothing",
+    same(tourUndoClicks({ owed: [{ selector: W, toggle: true }], expandedNow: [W], restore: [W] }), []));
+  ok("undo: the drawer closes last, after the headers inside it",
+    same(tourUndoClicks({ owed: [{ selector: X, toggle: false }, { selector: G, toggle: true }], expandedNow: [G], restore: [] }), [G, X]));
+  ok("undo: a duplicated owed entry is clicked once",
+    same(tourUndoClicks({ owed: [{ selector: G, toggle: true }, { selector: G, toggle: true }], expandedNow: [G], restore: null }), [G]));
+  ok("undo: restore null (no header clicked) never reopens anything",
+    same(tourUndoClicks({ owed: [{ selector: X, toggle: false }], expandedNow: [W], restore: null }), [X]));
+}
 
 // Disclosure is a browser preference, not a record. A schema field would have
 // to be read, written and migrated per device for no gain — and a nav that

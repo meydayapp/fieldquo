@@ -176,13 +176,13 @@ for (const [key, what] of Object.entries(FLAGSHIP)) {
 // the group holding the current page opens itself (check:sidebar proves both).
 ok("the rail opens one group at a time, seeded from every group (owner 2026-09-29)",
   adminSrc.includes("const DEFAULT_OPEN = NAV_GROUPS.map((g) => g.key)") && /defaultOpenKeys: DEFAULT_OPEN,\s*activeKey,\s*exclusive: true,/.test(adminSrc));
-// Work and AI stay pinned. Since 2026-09-24 People and Grow hold tour rows
-// too (Assign shifts, Marketing, Receptionist) WITHOUT being pinned — the tour
-// unfolds them through the header's data-tour-open hook, and check:sidebar
-// proves every such step names that opener. So this asserts the two groups
-// by name rather than "every group with a tour row is pinned".
-ok("the AI group and Work are pinned (tour anchors nav-ai / nav-requests / nav-quotes / nav-estimate-reviews)",
-  ["app.nav.group.work", "app.nav.group.ai"].every((k) => NAV.find((g) => g.key === k)?.pinned === true));
+// No group is pinned open (owner, 2026-09-29: every accordion folds). Work
+// and AI used to be, for the welcome tour's anchors; the tour now unfolds
+// every group through the header's data-tour-open hook, as it already did
+// for People and Grow — check:sidebar runs the tour against every starting
+// fold and proves each anchor is on screen at its step.
+ok("no rail group is pinned — Work and AI fold like the rest",
+  NAV.length > 0 && NAV.every((g) => g.pinned === false) && !/\bpinned\s*:/.test(adminSrc));
 
 // ── 3. Nothing lost: every old destination, two taps away ──────────────────
 //
@@ -219,7 +219,7 @@ const OLD_SETTINGS = [
   "/app/settings/quote-email", "/app/settings/email-templates", "/app/settings/templates", "/app/settings/translations",
   "/app/settings/checklists", "/app/settings/job-photo-tags",
   "/app/settings/messages", "/app/settings/follow-ups", "/app/settings/notifications", "/app/settings/email-domain",
-  "/app/settings/payments", "/app/settings/meta-ads", "/app/settings/expense-tracking", "/app/settings/ai-credit", "/app/settings/payroll",
+  "/app/settings/payments", "/app/settings/meta-ads", "/app/settings/tiktok", "/app/settings/expense-tracking", "/app/settings/ai-credit", "/app/settings/payroll",
   "/app/settings/website", "/app/settings/instant-quotes", "/app/settings/lead-form", "/app/settings/links",
   "/app/settings/voice", "/app/settings/ai-employee", "/app/settings/reviews",
 ];

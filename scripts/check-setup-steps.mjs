@@ -80,6 +80,10 @@ const EXPECTED_KEYS = [
   // its answer.
   "confirm_services",
   "overhead",
+  // 2026-09-29: the owner's "ask the company" — the job count every quote's
+  // overhead divides by, and the pay rates its labour is costed at.
+  "job_capacity",
+  "pay_rates",
   "payment_schedule",
   // The client proposal's four (2026-09-21, client mockup §2), in the
   // mockup's position: after the payment schedule.
@@ -138,6 +142,10 @@ const EMPTY = {
   // seeded to quote from — the row applies), and never confirmed.
   quoteCoverage: [],
   servicesConfirmed: false,
+  // No job count, nobody on the payroll.
+  jobCapacitySet: false,
+  workersActive: 0,
+  workersUnrated: 0,
 };
 const TOTAL = EXPECTED_KEYS.length;
 
@@ -258,6 +266,8 @@ const FLIPS = [
   ["googleReviewsConnected", true, "google_reviews"],
   ["approvedTestimonials", 2, "google_reviews"],
   ["servicesConfirmed", true, "confirm_services"],
+  ["jobCapacitySet", true, "job_capacity"],
+  ["workersActive", 2, "pay_rates"],
 ];
 for (const [field, value, expectKey] of FLIPS) {
   const steps = stepsFor({ ...EMPTY, [field]: value });
@@ -267,6 +277,19 @@ for (const [field, value, expectKey] of FLIPS) {
     done.length === 1 && done[0] === expectKey,
     done.join(",") || "nothing",
   );
+}
+
+// The two costing rows (2026-09-29): a half-answer is not an answer.
+{
+  const row = (snap, key) => stepsFor({ ...EMPTY, ...snap }).find((s) => s.key === key);
+  ok("job_capacity: only a real true is done — 'true', 1, null are not", ["true", 1, null, undefined].every((v) => row({ jobCapacitySet: v }, "job_capacity").done === false));
+  ok("pay_rates: two on the payroll, one with no rate → not done", row({ workersActive: 2, workersUnrated: 1 }, "pay_rates").done === false);
+  ok("pay_rates: nobody on the payroll → not done (nobody a quote could be assigned to)", row({ workersActive: 0, workersUnrated: 0 }, "pay_rates").done === false);
+  ok("pay_rates: an unmeasured unrated count is not 'none unrated'", row({ workersActive: 2, workersUnrated: null }, "pay_rates").done === false);
+  const snap = stripComments(source("lib/setupStepsSnapshot.js"));
+  ok("snapshot: both capacity columns, and the Workers page's own missing-rate test",
+    /jobsPerWeekCapacity: true, jobsPerMonthCapacity: true/.test(snap) &&
+      /db\.worker\.count\(\{ where: \{ companyId, active: true, hourlyRate: null \} \}\)/.test(snap));
 }
 
 // The signals that must NOT count, each for a stated reason.

@@ -206,7 +206,9 @@ function fakeServer(scope, { tamper, lookupError = null } = {}) {
       if (resourceType === "image" && file.size > FREE_PLAN.image_max_size_bytes) return { status: 400, json: async () => ({ error: { message: `File size too large. Got ${file.size}. Maximum is ${FREE_PLAN.image_max_size_bytes}.` } }) };
       const version = 1726000000;
       const format = resourceType === "raw" ? undefined : "jpg";
-      fakeAdmin.set(params.public_id, { public_id: params.public_id, version, resource_type: resourceType, type: "upload", format, bytes: file.size, secure_url: `https://res.cloudinary.com/${CLOUD}/${resourceType}/upload/v${version}/${params.public_id}${format ? `.${format}` : ""}` });
+      // Cloudinary stores under the SIGNED type — "authenticated" for an hr upload.
+      const type = params.type || "upload";
+      fakeAdmin.set(params.public_id, { public_id: params.public_id, version, resource_type: resourceType, type, format, bytes: file.size, secure_url: `https://res.cloudinary.com/${CLOUD}/${resourceType}/${type}/v${version}/${params.public_id}${format ? `.${format}` : ""}` });
       let answer = { public_id: params.public_id, version, resource_type: resourceType, signature: cloudinarySignature({ public_id: params.public_id, version }, SECRET, { version: 1 }) };
       if (tamper) answer = tamper(answer);
       return { status: 200, json: async () => answer };
@@ -216,10 +218,11 @@ function fakeServer(scope, { tamper, lookupError = null } = {}) {
       // record the fake Cloudinary wrote — or by `lookupError` when set.
       const out = await decideVerify({
         scope, body: JSON.parse(init.body), secret: SECRET, cloudName: CLOUD, record: async (e) => recorded.push(e),
-        lookup: async (publicId, resourceType) => {
+        lookup: async (publicId, resourceType, type = "upload") => {
           if (lookupError) throw lookupError;
           const rec = fakeAdmin.get(publicId);
-          if (!rec || rec.resource_type !== resourceType) throw { error: { message: "Resource not found", http_code: 404 } };
+          // The Admin API finds an asset only under the type it was stored as.
+          if (!rec || rec.resource_type !== resourceType || rec.type !== type) throw { error: { message: "Resource not found", http_code: 404 } };
           return rec;
         },
       });
@@ -237,6 +240,22 @@ const blob = (size, type = "image/jpeg") => new File([new Uint8Array(size)], "IM
   const entry = await uploadFile(blob(6 * MB), { purpose: "jobs", fetchImpl, onProgress: (l, t) => progress.push([l, t]) });
   ok("a 6 MB photo goes up: sign → Cloudinary → verify", entry.url.includes(`/fieldquo/companies/${CO}/jobs/`) && entry.kind === "photo" && entry.bytes === 6 * MB && calls.length === 3 && calls[0] === "/api/upload/sign" && calls[2] === "/api/upload/verify", { entry, calls });
   ok("…and nothing is left in the progress store afterwards", getUploadsSnapshot().length === 0);
+}
+{
+  // An HR file (photo ID, TD1): signed as "authenticated", verified under that
+  // type, and handed back with its private URL — lib/hr/documentFile.js.
+  const { fetchImpl } = fakeServer(member("hr"));
+  const entry = await uploadFile(blob(2 * MB, "application/pdf"), { purpose: "hr", fetchImpl });
+  ok("an hr upload goes up private: its URL is /raw/authenticated/ in the company's hr folder", entry.url.startsWith(`https://res.cloudinary.com/${CLOUD}/raw/authenticated/`) && entry.url.includes(`/fieldquo/companies/${CO}/hr/`), entry);
+  const { fetchImpl: dropType } = fakeServer(member("hr"), { tamper: (a) => a });
+  // A browser that strips the signed `type` field breaks the signature: Cloudinary refuses.
+  const stripping = async (url, init) => {
+    if (url.startsWith("https://api.cloudinary.com/")) init.body.delete("type");
+    return dropType(url, init);
+  };
+  let refused = null;
+  try { await uploadFile(blob(2 * MB, "application/pdf"), { purpose: "hr", fetchImpl: stripping }); } catch (e) { refused = e; }
+  ok("stripping the signed type to get a public copy is refused by the signature", !!refused);
 }
 {
   const { fetchImpl, calls } = fakeServer(jobs);

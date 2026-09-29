@@ -2,50 +2,43 @@
 //
 //   npm run check:homepage-sections
 //
-// The homepage BELOW the hero. check:marketing-cta already proves the page
-// asks for the signup and that every key it renders exists; this proves the
-// two things that check cannot see, both of which the sections below the hero
-// got wrong before this ran.
+// The homepage, section by section — rewritten 2026-09-29 with the page.
 //
-// ══ 1. Both halves of a catalogue entry, or neither ══════════════════════
+// ══ What changed, and what was kept ══════════════════════════════════════
 //
-// The feature band listed four products and rendered `product.<key>.label`
-// only. `product.<key>.description` — a sentence per feature, written and
-// translated into every language in the catalogue — had no call site
-// anywhere in app/. Four bordered boxes with two words in each is not a
-// feature band, and the copy that would have made it one was already paid
-// for. That is the schema-field-written-and-never-read failure from
-// AGENTS.md with the catalogue standing in for the schema, and the reason it
-// survived is that nothing broke: t() returns something for the half that IS
-// rendered, so the page looks finished.
+// The first version of this file pinned the OLD design: four named sections
+// (FeaturesIndustries, FAQ, ResourcesTeaser, ClosingCTA), the feature band's
+// `product.<key>.label`/`.description` pair, and the trades strip's
+// useIndustryLabels() call. The homepage was rebuilt to the owner-approved
+// structure from a UX review (hero, demo, results, how it works, your trade,
+// outcomes, AI, one system, customer story, pricing, FAQ, final ask), so
+// those design pins were retired with the components they pinned.
 //
-// So: for every feature the band lists, BOTH halves must exist in English and
-// BOTH must be rendered.
+// The RULES that were about honesty rather than layout were kept and carried
+// onto the new sections:
 //
-// ══ 2. Every link it draws has somewhere to land ═════════════════════════
+//   · every internal link resolves to a real route — and a slug under a
+//     dynamic route (/features/[slug], /product/[slug], /industries/[slug])
+//     resolves to a page that route will actually render;
+//   · the page asks for the signup again below the hero.
 //
-// ResourcesTeaser's FAQ card pointed at /resources/faq, a route that never
-// existed, and the footer had already dropped its copy of the same link for
-// that reason — so the homepage kept the 404 the footer had fixed. A dead
-// link is the dead-control rule wearing an <a>: it looks like it works right
-// up until somebody clicks it.
+// And the new page's own promises are pinned, because each is the kind of
+// thing that quietly rots:
 //
-// Every internal href in the below-hero sections is resolved against the
-// real app/ route tree, route groups and dynamic segments included.
+//   · the sections render, in the approved order;
+//   · the industry research is the report's figures, attributed, with its
+//     source line — never FieldQuo's results, never a magnitude;
+//   · no customer story renders without an owner sign-off on record;
+//   · the trade selector and every other section fetch nothing (a public page
+//     that pulled a company's rates would be non-negotiable #4 broken);
+//   · no price, sale figure or trial length is typed — they come from the
+//     resolver /pricing uses and from lib/pricing.js;
+//   · the sale pill's selector (lib/marketing/homeSale.js) is EXECUTED against
+//     a sale that applies everywhere, one that does not, one the standing
+//     offer outranks, a fixed-amount one, and no plans at all.
 //
-// ══ What this proves, and what it cannot ═════════════════════════════════
-//
-// It reads source, so it proves that a t() call of the right SHAPE is present
-// and that an href of the right shape resolves. It cannot prove the
-// description is rendered for the SAME feature whose label is (the key is
-// built at run time from a loop variable this script does not evaluate), that
-// the text is visible rather than clipped, or that a page at the end of a
-// resolved route says anything useful. Those need a browser. The shape check
-// is still worth having: it is what turns "somebody deleted the description
-// line" from a silent regression into a red build.
-//
-// Nothing here duplicates check:marketing-cta. That one asks whether the page
-// ASKS; this one asks whether the sections it asks in are WIRED.
+// check:marketing-cta still owns "the page asks, and asks for something
+// true"; nothing here duplicates it.
 import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -53,17 +46,18 @@ import { MESSAGES } from "../app/i18n/messages.js";
 import { INDUSTRIES } from "../app/data/industries.js";
 import { INDUSTRY_CONTENT } from "../app/data/industryContent.js";
 import { PRODUCT_FEATURES } from "../app/data/productFeatures.js";
+import { FEATURE_PAGES } from "../app/data/featurePages.js";
+import { TRIAL_DAYS } from "../lib/pricing.js";
+import { planOffer } from "../lib/pricing/planOffer.js";
+import { homeSalePill, saleName } from "../lib/marketing/homeSale.js";
+import { RESEARCH_SOURCE, RESEARCH_STATS } from "../app/components/marketing/home/research.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 let pass = 0;
 const failures = [];
 
-/**
- * label first, condition second. Every check in this repo is written this way
- * and the one that was not produced a run of green failures — `ok(cond, label)`
- * passes on any non-empty string, so every assertion in the file "passed".
- */
+/** label first, condition second — see the note in check-marketing-cta. */
 function ok(name, condition, detail = "") {
   if (condition) {
     pass++;
@@ -75,142 +69,243 @@ function ok(name, condition, detail = "") {
   return false;
 }
 const section = (t) => console.log(`\n${t}`);
-
 const read = (rel) => readFileSync(join(ROOT, rel), "utf8");
 
 /**
- * Comments stripped before anything is matched. A key named in a comment is
- * not a rendered key and an href named in a comment is not a link — reading
- * the raw file is how a check passes on its own documentation. This file's own
- * header names `product.<key>.description` half a dozen times, which is
- * exactly the string rule 1 looks for.
+ * Comments stripped before anything is matched: a key or an href named in a
+ * comment is not rendered, and every file here explains itself at length.
  */
 const stripComments = (src) =>
-  src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
 
 const EN = MESSAGES.en || {};
-
-// The sections after the hero. Hero.js is deliberately absent: it is finished,
-// it is covered by check:marketing-cta, and a rule that also polices it would
-// fail the next person who touches it for reasons that belong to another file.
-const SECTIONS = [
-  "app/components/marketing/FeaturesIndustries.js",
-  "app/components/marketing/FAQ.js",
-  "app/components/marketing/ResourcesTeaser.js",
-  "app/components/marketing/ClosingCTA.js",
-];
-
-console.log("\nHomepage sections below the hero — both halves, and no dead links\n");
-
-// ═══════════════════════════════════════════════════════════════════════════
-// The files exist and the page still renders them
-// ═══════════════════════════════════════════════════════════════════════════
-//
-// Asserted rather than assumed: a renamed section would otherwise drop out of
-// every rule below and the run would stay green over a page it is no longer
-// reading — the same trap check:marketing-cta avoids by resolving imports.
-
-section("The page renders the sections this file checks");
-
 const HOME = "app/(marketing)/page.js";
+const DIR = "app/components/marketing/home";
+
+// The approved order (owner, 2026-09-29). A section moved, dropped or renamed
+// is a failure to explain, not something to re-sort silently.
+const ORDER = [
+  "HomeHero",
+  "ProductDemo",
+  "ResultsResearch",
+  "HowItWorks",
+  "TradeSelector",
+  "OutcomeGroups",
+  "AskAI",
+  "OneSystem",
+  "CustomerStory",
+  "HomePricing",
+  "HomeFAQ",
+  "FinalCTA",
+];
+const fileOf = (name) => `${DIR}/${name}.js`;
+
+console.log("\nHomepage — the approved sections, wired and honest\n");
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("1. The page renders the approved sections, in order");
+// ═══════════════════════════════════════════════════════════════════════════
+
 const homeSrc = stripComments(read(HOME));
-
-for (const rel of SECTIONS) {
-  const name = rel.split("/").pop().replace(/\.js$/, "");
-  ok(`${name}.js exists`, existsSync(join(ROOT, rel)));
-  ok(
-    `${HOME} imports and renders <${name} />`,
-    new RegExp(`import\\s+${name}\\s+from`).test(homeSrc) &&
-      new RegExp(`<${name}\\s*/>`).test(homeSrc),
-    "the section is on disk but the homepage no longer shows it",
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// 1. Both halves of every feature the band lists
-// ═══════════════════════════════════════════════════════════════════════════
-
-section("The feature band renders a label AND a description for every feature");
-
-const bandSrc = stripComments(read(SECTIONS[0]));
-
-/**
- * The FEATURES array, read out of the component rather than restated here.
- * A list copied into a check is a list that goes stale, and it would then
- * prove things about features the band does not render.
- */
-const bandKeys = [...bandSrc.matchAll(/\bkey:\s*"([^"]+)"/g)].map((m) => m[1]);
-
-ok(
-  "the band's FEATURES array is readable and non-empty",
-  bandKeys.length > 0,
-  "no `key: \"…\"` entries found — if the array moved, this rule is now blind and must be rewritten, not deleted",
-);
-
-for (const key of bandKeys) {
-  for (const half of ["label", "description"]) {
-    ok(
-      `product.${key}.${half} exists in English`,
-      `product.${key}.${half}` in EN,
-      "the band names a feature the catalogue has only half of",
-    );
+{
+  const positions = [];
+  for (const name of ORDER) {
+    ok(`${name}.js exists`, existsSync(join(ROOT, fileOf(name))));
+    const imported = new RegExp(`import\\s+${name}\\s+from\\s+["']@/${fileOf(name).replace(/\.js$/, "")}["']`).test(homeSrc);
+    const at = homeSrc.search(new RegExp(`<${name}[\\s/>]`));
+    ok(`${HOME} imports and renders <${name} />`, imported && at !== -1, "the section is on disk but the homepage no longer shows it");
+    positions.push(at);
   }
-}
-
-// Both SHAPES have to appear in the source. `t(`product.${f.key}.label`)` is a
-// run-time key, so the exact string is unreadable here — but the shape is not,
-// and the regression this guards against is a whole line being deleted, which
-// takes the shape with it.
-for (const half of ["label", "description"]) {
   ok(
-    `the band renders t(\`product.\${…}.${half}\`)`,
-    new RegExp(
-      "t\\(\\s*`product\\.\\$\\{[^`]*\\}\\." + half + "`",
-    ).test(bandSrc),
-    `nothing in the band reads the ${half} half — the catalogue would carry copy nothing shows, which is how it got here`,
+    "the sections render in the approved order",
+    positions.every((p, i) => i === 0 || p > positions[i - 1]),
+    ORDER.join(" → "),
   );
 }
 
-// The trade strip is the only place on the page a roofer meets the word
-// roofing. It renders from the translated hook, not from the English data
-// module, and reverting that puts a strip of English back into the middle of
-// eight translated pages.
-ok(
-  "the trades strip still renders the TRANSLATED labels",
-  /useIndustryLabels\s*\(\s*\)/.test(bandSrc),
-  "app/data/industries.js labels are English-only routing keys, not display copy",
-);
-
 // ═══════════════════════════════════════════════════════════════════════════
-// 2. Every link these sections draw resolves to a real route
+section("2. Prices, the sale and the trial are read, never typed");
 // ═══════════════════════════════════════════════════════════════════════════
 
-section("No section below the hero draws a link with nowhere to land");
+{
+  const m = homeSrc.match(/export const revalidate\s*=\s*(\d+)/);
+  ok(
+    "the page revalidates at most every 60 seconds (a sale switched off must leave the pill within a minute)",
+    m && Number(m[1]) > 0 && Number(m[1]) <= 60 && !/force-static/.test(homeSrc),
+    m ? `revalidate is ${m[1]}` : "no `export const revalidate` — a static homepage would freeze the pill and the prices at build time",
+  );
+  for (const call of ["db.plan.findMany(", "partitionPlans(", "oneRowPerTier(", "livePromotions(", "universalPromotions(", "withOffers(", "homeSalePill("]) {
+    ok(`the page resolves prices through ${call.replace("(", "()")} — the same chain /pricing uses`, homeSrc.includes(call));
+  }
+  ok("the page's plan read is not narrowed by a select", !/findMany\(\{[^}]*select:/.test(homeSrc));
 
-/**
- * Every route the app actually serves, as a list of segment arrays.
- *
- * Route groups — `(marketing)` — contribute no segment, which is the whole
- * point of them and the reason a naive path-to-URL map gets /contact wrong.
- * A `[slug]` segment matches anything, so it is kept as a wildcard rather
- * than as a literal.
- */
+  const pricing = stripComments(read(fileOf("HomePricing")));
+  ok("HomePricing prints offers through PlanOfferPrice, the component /pricing uses", /<PlanOfferPrice\b/.test(pricing));
+  ok(
+    "HomePricing types no ladder price (99 / 169 / 269 / 369 / 990)",
+    !/\b(99|169|269|369|990)\b/.test(pricing),
+  );
+  // Class lists are styling (a mask gradient's "30%"), not copy; dropped first.
+  const hero = stripComments(read(fileOf("HomeHero"))).replace(/className="[^"]*"/g, "");
+  ok("the sale pill types no percentage or date", !/\d+\s*%|\b(Oct|Nov|Dec|Jan)\b/.test(hero));
+
+  // The trial length lives in lib/pricing.js. A home.* sentence carrying it
+  // as a literal is the next "14" that is wrong the day the owner changes it.
+  const typed = Object.entries(EN).filter(
+    ([k, v]) => k.startsWith("home.") && new RegExp(`(^|[^\\d,.])${TRIAL_DAYS}([^\\d,.]|$)`).test(String(v)),
+  );
+  ok(
+    `no home.* sentence types the trial length (${TRIAL_DAYS}) — it arrives as {days}`,
+    typed.length === 0,
+    typed.map(([k]) => k).join(", "),
+  );
+  ok("the trial line reads TRIAL_DAYS and TRIAL_CARD_REQUIRED", /TRIAL_DAYS/.test(read(fileOf("TrialLine"))) && /TRIAL_CARD_REQUIRED/.test(read(fileOf("TrialLine"))));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("3. The sale pill announces only a sale every visitor is charged");
+// ═══════════════════════════════════════════════════════════════════════════
+
+{
+  const now = new Date("2026-10-10T12:00:00Z");
+  const ladder = [
+    { id: "solo", tierKey: "solo", currency: "USD", priceMonthly: 99, priceAnnual: 990 },
+    { id: "crew", tierKey: "crew", currency: "USD", priceMonthly: 169, priceAnnual: 1690 },
+    { id: "shop", tierKey: "shop", currency: "USD", priceMonthly: 269, priceAnnual: 2690 },
+    { id: "scale", tierKey: "scale", currency: "USD", priceMonthly: 369, priceAnnual: 3690 },
+  ];
+  const promo = (over) => ({
+    id: "fall",
+    label: "Fall Sale 40%",
+    active: true,
+    startsAt: "2026-09-01T00:00:00Z",
+    endsAt: "2026-11-01T00:00:00Z",
+    discountKind: "percent",
+    discountValue: 40,
+    durationMonths: 12,
+    tierKeys: null,
+    currencies: null,
+    appliesTo: "year",
+    ...over,
+  });
+  const cards = (promotions) =>
+    ladder.map((plan) => ({
+      ...plan,
+      offers: {
+        month: planOffer({ plan, interval: "month", promotions, now }),
+        year: planOffer({ plan, interval: "year", promotions, now }),
+      },
+    }));
+  const run = (promotions, plans = cards(promotions)) => homeSalePill({ promotions, plans });
+
+  const fall = run([promo()]);
+  ok("a 40% 1-year sale on every plan shows", fall && fall.percent === 40 && fall.intervals.join() === "year", JSON.stringify(fall));
+  ok('its name drops the "40%" the pill already says', fall?.name === "Fall Sale", fall?.name);
+  ok("its end date is the row's", fall?.endsAt === "2026-11-01T00:00:00.000Z", fall?.endsAt);
+
+  ok("a sale scoped to one plan does not show", run([promo({ tierKeys: ["solo"] })]) === null);
+  ok(
+    "a 10% year sale that the standing 1-year offer beats does not show (nobody would be charged it)",
+    run([promo({ discountValue: 10, label: "Tiny sale" })]) === null,
+  );
+  ok("a sale that has ended does not show", run([promo({ endsAt: "2026-10-01T00:00:00Z" })]) === null);
+  ok("no plans read (database down) means no pill", run([promo()], []) === null);
+  const amount = run([promo({ discountKind: "amount", discountValue: 20, appliesTo: "month", durationMonths: 3, label: "Spring" })]);
+  ok("a fixed-amount sale shows its name with no invented percentage", amount && amount.percent === null && amount.name === "Spring", JSON.stringify(amount));
+  ok('a label whose number is not the discount is kept whole', saleName("Top 10 sale", 40) === "Top 10 sale");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("4. The research is the report's, attributed, and worded as shares");
+// ═══════════════════════════════════════════════════════════════════════════
+
+{
+  // Pinned to the owner's brief (BuildOps 2026 Customer Benchmark, April 2026,
+  // 54 commercial contractors). Changing a figure means changing it here too,
+  // on purpose, against the report.
+  const EXPECTED = {
+    volume: 0.8,
+    revenuePerTech: 0.76,
+    margins: 0.76,
+    growth: 0.72,
+    invoicing: 0.75,
+    quoteTurnaround: 0.76,
+    winRate: 0.64,
+  };
+  for (const [key, share] of Object.entries(EXPECTED)) {
+    const stat = RESEARCH_STATS.find((s) => s.key === key);
+    ok(`${key}: ${Math.round(share * 100)}% of respondents`, stat?.share === share, JSON.stringify(stat));
+  }
+  ok("tools replaced: 2.6 on average", RESEARCH_STATS.find((s) => s.key === "tools")?.average === 2.6);
+  ok("no figure beyond the report's eight", RESEARCH_STATS.length === 8);
+  ok(
+    "the source is named with its sample and date",
+    RESEARCH_SOURCE.report === "BuildOps 2026 Customer Benchmark Report" &&
+      RESEARCH_SOURCE.contractors === 54 &&
+      RESEARCH_SOURCE.published.year === 2026 &&
+      RESEARCH_SOURCE.published.month === 4,
+  );
+
+  // Worded as people REPORTING, never as a magnitude: "76% more revenue" is a
+  // claim the report does not make. Every share label must start with the
+  // respondents' verb, in English.
+  for (const stat of RESEARCH_STATS.filter((s) => s.share != null)) {
+    const text = String(EN[`home.results.stat.${stat.key}`] || "");
+    ok(`home.results.stat.${stat.key} is worded as respondents reporting`, /^(say|report)\b/.test(text), text);
+  }
+  const results = stripComments(read(fileOf("ResultsResearch")));
+  ok("the results section prints the source line", /t\(\s*"home\.results\.source"/.test(results) && /RESEARCH_SOURCE\.report/.test(results));
+  ok("the results section says these are not FieldQuo customer results", /not FieldQuo customer results/.test(String(EN["home.results.intro"])));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("5. Nothing invented: no unapproved story, no fetched rates");
+// ═══════════════════════════════════════════════════════════════════════════
+
+{
+  const src = stripComments(read(fileOf("CustomerStory")));
+  const m = src.match(/export const CUSTOMER_STORIES\s*=\s*\[([\s\S]*?)\];/);
+  ok("CUSTOMER_STORIES is readable", Boolean(m), "if the constant moved, this rule is blind and must be rewritten, not deleted");
+  const body = (m?.[1] || "").trim();
+  if (!body) {
+    ok("no customer story is on the page (none has been approved yet)", true);
+  } else {
+    const entries = (body.match(/\bid\s*:/g) || []).length;
+    for (const field of ["approvedBy", "approvedOn", "originalLanguage"]) {
+      ok(
+        `every customer story carries ${field}`,
+        (body.match(new RegExp(`\\b${field}\\s*:`, "g")) || []).length >= entries,
+        "a story without an owner sign-off on record must not render",
+      );
+    }
+  }
+  ok("the section renders nothing while the list is empty", /if\s*\(\s*!story\s*\)\s*return null/.test(src));
+
+  const files = readdirSync(join(ROOT, DIR)).filter((f) => f.endsWith(".js"));
+  const fetching = files.filter((f) => /\bfetch\s*\(|["'`]\/api\//.test(stripComments(read(`${DIR}/${f}`))));
+  ok(
+    `no homepage section fetches anything (${files.length} files)`,
+    fetching.length === 0,
+    fetching.join(", ") + " — the trade examples are illustrative and client-side; a real rate card must never reach a public page",
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("6. Every link these sections draw has somewhere to land");
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Every route the app serves, as segment arrays; (groups) dropped, [dyn] kept. */
 function routeIndex() {
   const routes = [];
   const walk = (relDir) => {
-    const abs = join(ROOT, relDir);
     let entries;
     try {
-      entries = readdirSync(abs);
+      entries = readdirSync(join(ROOT, relDir));
     } catch {
       return;
     }
     if (entries.includes("page.js") || entries.includes("page.jsx")) {
-      const segs = relDir
-        .split("/")
-        .slice(1) // drop "app"
-        .filter((s) => s && !(s.startsWith("(") && s.endsWith(")")));
-      routes.push(segs);
+      routes.push(relDir.split("/").slice(1).filter((s) => s && !(s.startsWith("(") && s.endsWith(")"))));
     }
     for (const e of entries) {
       if (e.startsWith(".") || e === "node_modules") continue;
@@ -221,149 +316,77 @@ function routeIndex() {
   walk("app");
   return routes;
 }
-
 const ROUTES = routeIndex();
+ok("the route index found the marketing pages", ROUTES.length > 20, `only ${ROUTES.length} routes`);
 
-ok(
-  "the route index found the marketing pages",
-  ROUTES.length > 20,
-  `only ${ROUTES.length} routes found — the walk is broken, and every link below would pass by accident`,
-);
-
-/** Does `segs` match a real route? `[dyn]` in either side is a wildcard. */
 function routeExists(segs) {
-  return ROUTES.some((route) => {
-    if (route.length !== segs.length) return false;
-    return route.every((r, i) => {
-      const s = segs[i];
-      const rDyn = r.startsWith("[");
-      const sDyn = s === "[dyn]";
-      if (rDyn || sDyn) return rDyn; // a dynamic href needs a dynamic route
-      return r === s;
-    });
-  });
+  return ROUTES.some(
+    (route) =>
+      route.length === segs.length &&
+      route.every((r, i) => (r.startsWith("[") || segs[i] === "[dyn]" ? r.startsWith("[") : r === segs[i])),
+  );
 }
 
-/**
- * Internal hrefs, in all three forms these files use.
- *
- * `href="/x"` and `` href={`/x/${slug}`} `` are the obvious two. The third —
- * `href: "/x"` inside a config array at the top of the file — is the one that
- * matters, and the first version of this rule missed it: BOTH the feature
- * band's four product links and all three resource links live in such an
- * array and are spread onto the element as `href={f.href}`. That rule found
- * two links on a page that draws nine and reported ALL PASS. The dead
- * /resources/faq link this check exists to catch was in exactly that array,
- * so the first version could not have caught the bug it was written for.
- *
- * The templated form collapses every `${…}` to `[dyn]` so it can be matched
- * against a dynamic route. External links (http, mailto, tel) and bare hash
- * anchors are not routes and are skipped.
- */
+/** href="/x", href={`/x/${y}`} and config-array `href: "/x"` — all three. */
 function hrefsIn(src) {
   const found = [];
-  for (const m of src.matchAll(
-    /href\s*[=:]\s*(?:"([^"]*)"|\{`([^`]*)`\}|`([^`]*)`)/g,
-  )) {
+  for (const m of src.matchAll(/href\s*[=:]\s*(?:"([^"]*)"|\{`([^`]*)`\}|`([^`]*)`)/g)) {
     const raw = m[1] ?? m[2] ?? m[3] ?? "";
-    if (!raw.startsWith("/")) continue; // http/mailto/tel/#anchor
-    found.push(raw);
+    if (raw.startsWith("/")) found.push(raw);
   }
   return found;
 }
 
 let linksChecked = 0;
-for (const rel of SECTIONS) {
-  const src = stripComments(read(rel));
-  const name = rel.split("/").pop();
+const literalSlugs = { features: new Set(), product: new Set() };
+for (const name of ORDER) {
+  const src = stripComments(read(fileOf(name)));
   const dead = [];
   for (const href of hrefsIn(src)) {
-    // The path only. A hash is an in-page anchor and a query is not routing.
     const path = href.split("#")[0].split("?")[0];
-    if (path === "/" || path === "") continue; // the homepage itself
-    const segs = path
-      .replace(/\$\{[^}]*\}/g, "[dyn]")
-      .split("/")
-      .filter(Boolean);
+    if (!path || path === "/") continue;
+    const segs = path.replace(/\$\{[^}]*\}/g, "[dyn]").split("/").filter(Boolean);
     linksChecked++;
     if (!routeExists(segs)) dead.push(href);
+    if (segs.length === 2 && segs[1] !== "[dyn]" && literalSlugs[segs[0]]) literalSlugs[segs[0]].add(segs[1]);
   }
-  ok(
-    `${name} — every internal link resolves to a page`,
-    dead.length === 0,
-    dead.join(", ") + " — no page.js serves this",
-  );
+  ok(`${name}.js — every internal link resolves to a page`, dead.length === 0, dead.join(", ") + " — no page.js serves this");
 }
 
-// /product/[slug] is a dynamic route, so the rule above accepts ANY slug in
-// that position — /product/quoting and /product/qouting resolve identically to
-// it, and the page calls notFound() on the second. The four the band draws are
-// literals in its own source, so they can be checked against the data module
-// the route reads.
 {
-  const slugs = [...bandSrc.matchAll(/href:\s*"\/product\/([^"]+)"/g)].map(
-    (m) => m[1],
-  );
+  // A dynamic route accepts any slug and calls notFound() on a wrong one, so
+  // the literal slugs are checked against the data those routes render from.
+  const featureSlugs = new Set(FEATURE_PAGES.map((p) => p.slug));
+  const badFeatures = [...literalSlugs.features].filter((s) => !featureSlugs.has(s));
   ok(
-    "the feature band still links to /product/<slug>",
-    slugs.length > 0,
-    "no product links found — if the band stopped linking, this rule is blind and must be rewritten, not deleted",
+    `every /features/<slug> link is a real feature page (${literalSlugs.features.size})`,
+    literalSlugs.features.size > 0 && badFeatures.length === 0,
+    badFeatures.join(", ") || "no /features links found — the outcome groups stopped linking, and this rule is blind",
   );
-  const missing = slugs.filter((s) => !(s in PRODUCT_FEATURES));
-  ok(
-    `every feature card points at a product page that exists (${slugs.length})`,
-    missing.length === 0,
-    missing.join(", ") + " — /product/<slug> calls notFound() on these",
-  );
-}
+  const badProducts = [...literalSlugs.product].filter((s) => !(s in PRODUCT_FEATURES));
+  ok(`every /product/<slug> link is a real product page (${literalSlugs.product.size})`, badProducts.length === 0, badProducts.join(", "));
 
-// A dynamic href passes the rule above as long as SOME dynamic route sits in
-// that slot, which says nothing about the slugs actually rendered. The trades
-// strip builds twelve of them from INDUSTRIES, so those twelve are checked
-// against the route by hand — /industries/[slug] calls notFound() on a slug it
-// has no content for, and a strip of twelve links to a 404 is what this whole
-// section exists to prevent.
-{
-  // Imported, not grepped. The first version of this rule searched
-  // industryContent.js for `"cleaning"` and failed eight of the twelve trades
-  // that are there — the object keys are bare identifiers wherever the slug is
-  // a valid one (`cleaning:`) and quoted only where it is not
-  // (`"lawn-care":`). Matching the source text of a data module instead of its
-  // value is the same mistake as matching an attribute instead of what renders.
-  const slugs = INDUSTRIES.map((ind) => ind.slug);
-  ok(
-    "app/data/industries.js still lists slugs",
-    slugs.length > 0,
-    "the trades strip renders from this array — if it is empty, the rule below proves nothing",
-  );
-  const missing = slugs.filter((s) => !(s in INDUSTRY_CONTENT));
-  ok(
-    `every trade in the strip (${slugs.length}) has industry content behind it`,
-    missing.length === 0,
-    missing.join(", ") + " — /industries/<slug> calls notFound() on these",
-  );
+  // The trade selector builds /industries/${slug} from TRADE_EXAMPLES; read
+  // the slugs out of its source rather than restating them here.
+  const trades = [...stripComments(read(fileOf("TradeSelector"))).matchAll(/\{\s*slug:\s*"([^"]+)"/g)].map((m) => m[1]);
+  ok("the trade selector lists eight trades", trades.length === 8, trades.join(", "));
+  const known = new Set(INDUSTRIES.map((i) => i.slug));
+  const badTrades = trades.filter((s) => !known.has(s) || !(s in INDUSTRY_CONTENT));
+  ok("every trade is a real FieldQuo industry with a page behind it", badTrades.length === 0, badTrades.join(", "));
+  const missingCopy = trades.filter((s) => !(`home.trades.${s}.job` in EN) || !(`home.trades.${s}.scope` in EN));
+  ok("every trade has its example job and scope in the catalogue", missingCopy.length === 0, missingCopy.join(", "));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 3. The page asks again at the bottom
+section("7. The page asks a second time, after the reasons to say yes");
 // ═══════════════════════════════════════════════════════════════════════════
-//
-// check:marketing-cta proves the homepage links to /signup SOMEWHERE, and
-// before this section landed the only one was in the hero — above the fold,
-// before the visitor knows what the product is, and gone by the time the FAQ
-// has answered the last objection. A reader who is convinced at the bottom of
-// the page had nothing to click but the footer.
-
-section("The page asks a second time, after the reasons to say yes");
 
 {
-  const askers = SECTIONS.filter((rel) =>
-    /href="\/signup/.test(stripComments(read(rel))),
-  );
+  const askers = ORDER.slice(1).filter((name) => /href="\/signup/.test(stripComments(read(fileOf(name)))));
   ok(
     "a section BELOW the hero links to /signup",
     askers.length > 0,
-    "the hero is the only ask on the page again — a visitor convinced by the FAQ has to scroll back up, or find the nav, which on a phone is behind a hamburger",
+    "the hero is the only ask on the page again — a visitor convinced by the FAQ has to scroll back up",
   );
 }
 

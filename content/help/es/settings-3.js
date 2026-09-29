@@ -1075,4 +1075,56 @@ export const ARTICLES = {
       { q: "Activé un oficio pero el enlace dice que no hay nada disponible.", a: "Un oficio está en vivo solo cuando está activado y se puede cotizar — guardado con tarifas. La línea de arriba cuenta exactamente esos; la ficha de un oficio que necesita precio lo dice." },
     ],
   },
+
+  "settings-tiktok": {
+    title: "TikTok",
+    summary:
+      "Conecta la cuenta de TikTok de tu empresa para publicar en ella un diseño aprobado del Marketing Designer como foto, o enviarlo como borrador a tu bandeja de TikTok.",
+    updated: "2026-09-29",
+    intro: [
+      "**Configuración → TikTok** es donde una empresa conecta la cuenta de TikTok desde la que publica. Una vez conectada, la ventana **Publicar** del Marketing Designer ofrece **TikTok**, y un diseño aprobado va a esa cuenta como foto en formato 9:16. Solo los propietarios y administradores ven esta pantalla.",
+    ],
+    sections: [
+      {
+        id: "states",
+        heading: "Lo que muestra la pantalla",
+        blocks: [
+          { bullets: [
+            "**Publicación en TikTok — próximamente** — este despliegue de FieldQuo todavía no está configurado para TikTok. No hay botón y no tienes que hacer nada.",
+            "**No hay ninguna cuenta de TikTok conectada** — con **Conectar TikTok**. Si antes había una cuenta conectada, una línea explica por qué ya no lo está.",
+            "La cuenta conectada — su nombre y su foto, cualquier permiso que TikTok no haya concedido, y **Desconectar**.",
+          ] },
+          { warning: "Hasta que TikTok apruebe FieldQuo, cada publicación solo la ves tú (privada) y sigue siéndolo después, y tu propia cuenta de TikTok debe ser privada. La pantalla y la ventana de publicación lo dicen." },
+        ],
+      },
+      {
+        id: "connect",
+        heading: "Cómo conectar",
+        blocks: [
+          { steps: [
+            "Abre **Configuración → TikTok** y pulsa **Conectar TikTok**.",
+            "Inicia sesión en TikTok y autoriza a FieldQuo.",
+            "Vuelves a la misma pantalla con **TikTok conectado.** y el nombre y la foto de la cuenta.",
+          ] },
+          { note: "**Desconectar** pide a TikTok que retire el acceso de FieldQuo y borra el inicio de sesión guardado. Las publicaciones que ya están en TikTok se quedan allí." },
+        ],
+      },
+      {
+        id: "post",
+        heading: "Publicar un diseño",
+        blocks: [
+          { steps: [
+            "Aprueba el diseño, pulsa **Publicar** en el Marketing Designer y elige **TikTok**.",
+            "Revisa el nombre de la cuenta, la vista previa y el texto. Elige **Quién puede ver esta publicación** — nada viene elegido por ti.",
+            "Marca **Permitir comentarios** o **Declarar contenido comercial** solo si quieres; ambos empiezan desactivados.",
+            "Pulsa **Publicar en TikTok**, o **Enviar a TikTok como borrador** para terminarlo en la app de TikTok. La publicación puede tardar unos minutos en aparecer.",
+          ] },
+        ],
+      },
+    ],
+    faq: [
+      { q: "¿Por qué solo puedo elegir Solo yo?", a: "TikTok todavía no ha aprobado FieldQuo. Hasta entonces, TikTok solo acepta publicaciones privadas, y las hechas antes siguen siendo privadas." },
+      { q: "¿Puedo editar el texto?", a: "Sí — pulsa Editar el texto. Cambiar el texto retira la aprobación, así que el diseño se vuelve a aprobar antes de salir." },
+    ],
+  },
 };

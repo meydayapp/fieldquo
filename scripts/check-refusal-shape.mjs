@@ -128,6 +128,13 @@ const RESOLVES_ITS_OWN = {
     "not a dual-audience endpoint). Every OTHER app/api/meta-ads/* route is " +
     "a normal POST reached via fetch() and uses memberOrRefusal like " +
     "everything else.",
+  "app/api/tiktok/callback/route.js":
+    "TikTok's OAuth redirect target — the same shape as the Meta callback " +
+    "above: the browser lands here straight off tiktok.com, a JSON 401 is " +
+    "unshowable, so a failed resolution (no session, member switched " +
+    "mid-flow, impersonation) becomes a 302 back to Settings › TikTok with an " +
+    "error code the card explains. Every other app/api/tiktok/* route is a " +
+    "normal fetch() route using memberOrRefusal.",
   "app/api/reviews/google/callback/route.js":
     "Google's OAuth redirect target for the company's Business Profile — " +
     "the same shape as the calendar callback below, on the same OAuth " +

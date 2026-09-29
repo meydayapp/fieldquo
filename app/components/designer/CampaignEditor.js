@@ -69,6 +69,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError } from "@/lib/clientErrors";
 import DesignerLoader from "@/app/components/designer/DesignerLoader";
 import PublishModal from "@/app/components/designer/PublishModal";
+import TikTokPublishModal from "@/app/components/designer/TikTokPublishModal";
 import ApprovalModal from "@/app/components/designer/ApprovalModal";
 import { JSON_KEYS } from "@/lib/designer/constants";
 import { downloadFile } from "@/lib/designer/utils";
@@ -192,6 +193,17 @@ export function CampaignEditor({ design, onBack }) {
   // publish GET the modal itself calls when opened — one more request on
   // mount, not a second endpoint to keep in sync with it.
   const [socialVisible, setSocialVisible] = useState(false);
+  // TikTok, on its own axis: drawn only when this deployment has TikTok's
+  // credentials AND this company has an account connected — the button is the
+  // destination, so it does not exist until there is somewhere to post. Starts
+  // false for the reason socialVisible does. Independent of socialVisible on
+  // purpose: Meta's review and TikTok's are separate, and one being pending
+  // must not hide the other.
+  const [tiktokReady, setTiktokReady] = useState(false);
+  const [tiktokOpen, setTiktokOpen] = useState(false);
+  // Which publish dialog "Review & approve" was opened from, so approving
+  // returns the person to the same one.
+  const [approvalReturn, setApprovalReturn] = useState("publish");
 
   // The approval state for the toolbar badge. Its OWN request rather than a
   // field on the publish GET — that route is about Meta, and for a real
@@ -229,6 +241,23 @@ export function CampaignEditor({ design, onBack }) {
         // Swallowed, same as CompanyPreferencesProvider's own fetch: the
         // safe failure direction for a feature gated on Meta approval is
         // "stays hidden," not "throws and takes the editor down with it."
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [design.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/marketing/designer/designs/${design.id}/tiktok`);
+        if (cancelled || !res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setTiktokReady(Boolean(data.available && data.connected));
+      } catch {
+        // Same safe direction as the Meta check above: stays hidden.
       }
     })();
     return () => {
@@ -524,24 +553,32 @@ export function CampaignEditor({ design, onBack }) {
             lib/social/metaConnection.js and metaSpecs.js's
             isSocialPublishingVisible(). */}
         {socialVisible && (
-          <>
-            <Link
-              href="/app/marketing/designer/calendar"
-              className="flex items-center gap-2 border border-border text-foreground px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap shrink-0"
-            >
-              <CalendarDays size={13} />
-              {t("app.marketingDesigner.calendarLink", "Calendar")}
-            </Link>
-            <button
-              type="button"
-              onClick={() => setPublishOpen(true)}
-              disabled={!editorInstance}
-              className="flex items-center gap-2 bg-inverted text-inverted-foreground px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap disabled:opacity-60 shrink-0"
-            >
-              <Share2 size={13} />
-              {t("app.marketingDesigner.publish")}
-            </button>
-          </>
+          <Link
+            href="/app/marketing/designer/calendar"
+            className="flex items-center gap-2 border border-border text-foreground px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap shrink-0"
+          >
+            <CalendarDays size={13} />
+            {t("app.marketingDesigner.calendarLink", "Calendar")}
+          </Link>
+        )}
+        {/* ONE Publish button for every destination. Drawn when Facebook/
+            Instagram is visible (as before) OR a TikTok account is connected
+            — TikTok's review is separate from Meta's, so either one alone is
+            enough. With Meta visible it opens the Publish dialog, where TikTok
+            is one more destination; with only TikTok it opens TikTok's own
+            composer directly, because a Meta dialog for a company with no
+            Meta app would be the dead control this repo removes. */}
+        {(socialVisible || tiktokReady) && (
+          <button
+            type="button"
+            onClick={() => (socialVisible ? setPublishOpen(true) : setTiktokOpen(true))}
+            disabled={!editorInstance}
+            className="flex items-center gap-2 bg-inverted text-inverted-foreground px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap disabled:opacity-60 shrink-0"
+            data-publish-open
+          >
+            <Share2 size={13} />
+            {t("app.marketingDesigner.publish")}
+          </button>
         )}
       </div>
 
@@ -576,6 +613,26 @@ export function CampaignEditor({ design, onBack }) {
           initialShape={publishShape}
           onOpenApproval={() => {
             setPublishOpen(false);
+            setApprovalReturn("publish");
+            setApprovalOpen(true);
+          }}
+          tiktokConnected={tiktokReady}
+          onChooseTikTok={() => {
+            setPublishOpen(false);
+            setTiktokOpen(true);
+          }}
+        />
+      )}
+
+      {tiktokReady && (
+        <TikTokPublishModal
+          isOpen={tiktokOpen}
+          onClose={() => setTiktokOpen(false)}
+          design={design}
+          preparePublishAsset={preparePublishAsset}
+          onOpenApproval={() => {
+            setTiktokOpen(false);
+            setApprovalReturn("tiktok");
             setApprovalOpen(true);
           }}
         />
@@ -592,10 +649,13 @@ export function CampaignEditor({ design, onBack }) {
         previewShape={publishShape}
         getCanvasPhotoUrls={getCanvasPhotoUrls}
         onDownloadAll={handleDownloadAll}
-        socialVisible={socialVisible}
+        socialVisible={socialVisible || tiktokReady}
         onOpenPublish={() => {
           setApprovalOpen(false);
-          setPublishOpen(true);
+          // Back to whichever dialog sent the person here to approve; TikTok's
+          // composer when Meta publishing is not visible at all.
+          if (approvalReturn === "tiktok" || !socialVisible) setTiktokOpen(true);
+          else setPublishOpen(true);
         }}
         onStateChange={setApprovalState}
       />

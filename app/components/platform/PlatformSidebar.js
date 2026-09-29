@@ -83,8 +83,11 @@
 // unreachable — and scripts/check-sidebar.mjs proves it against the real
 // functions. What that buys here:
 //
-//   - Every group is open by default. A new admin sees the whole console; a
-//     fold is a choice, remembered.
+//   - One group open at a time (owner, 2026-09-29: every accordion sidebar
+//     folds this way, the /app rail and settings list included). Opening a
+//     group closes the one that was open. With no route in a group (the
+//     dashboard) the admin's last-opened group opens, else the first.
+//     Every heading stays on screen, so any row is one heading-click away.
 //   - The group holding the current route is opened on every load and every
 //     route change, whatever is stored — a deep link never lands you in a
 //     folded group. It is a LOAD-time rule, not a render-time one: forced open
@@ -95,7 +98,7 @@
 //     folds. The id is remembered beside it so the key is known before the
 //     fetch answers and the rail does not redraw once it does. localStorage
 //     only, inside try/catch — a private window, a quota, a hand-edited value
-//     all fall back to "everything open".
+//     all fall back to the default (the route's group, else the first).
 //   - Keyboard: each heading is a real <button aria-expanded>, so Tab reaches
 //     it and Space/Enter fold it. The chevron turns; the heading keeps the
 //     same tokens as the rows (text-sidebar-muted-foreground on --sidebar,
@@ -563,7 +566,10 @@ const GROUPS = [
   },
 ];
 
-/** Every group open unless the admin folded it — a new admin sees the whole console. */
+/**
+ * The order groups are tried in when no route picks one: exclusive mode opens
+ * DEFAULT_OPEN[0] on a first visit (initialExclusiveKey in navDisclosure.js).
+ */
 const DEFAULT_OPEN = GROUPS.map((g) => g.key);
 
 /** The admin id this browser last signed in as, if storage will say. */
@@ -810,6 +816,7 @@ export default function PlatformSidebar() {
     storageKey: disclosureStorageKey(adminId),
     defaultOpenKeys: DEFAULT_OPEN,
     activeKey,
+    exclusive: true,
   });
 
   if (pathname === "/platform/login") return null;

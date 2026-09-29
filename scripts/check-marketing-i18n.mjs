@@ -72,6 +72,9 @@ const SURFACES = [
   "app/(marketing)/compare",
   "app/(marketing)/pricing",
   "app/app/leads/import",
+  // The homepage's sections, rebuilt 2026-09-29 — the page a stranger reads
+  // first, in eight languages, so no English sentence may sit in its JSX.
+  "app/components/marketing/home",
 ];
 
 // The catalogue modules themselves are DEFINITIONS, not uses: en.js is nothing

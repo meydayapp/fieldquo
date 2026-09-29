@@ -4,7 +4,7 @@
 // from the checklist row — the photocopied licence, the paper TD1 somebody
 // filled in at the kitchen table. Same two-step upload as the Documents card
 // (app/api/hr/workers/[workerId]/documents): the browser sends the file to
-// /api/upload (purpose "documents"), then POSTs the Cloudinary URL here.
+// Cloudinary privately (uploadFile purpose "hr"), then POSTs its URL here.
 // The file becomes an ordinary WorkerDocument — it shows in the Documents
 // card too — and the item ticks from it (lib/onboarding/service.js
 // handInForItem). A second upload is a new document, not a replacement of

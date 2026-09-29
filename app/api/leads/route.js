@@ -119,6 +119,10 @@ export async function GET(request) {
     : {};
   const withPotential = leads.map((l) => {
     const { quote, ...rest } = l;
+    // A whitelist on both branches. quoteEvidence spreads the whole row
+    // (total, acceptedTotal, estimateData ride along), so the four fields are
+    // picked by name; and a row it declines is dropped to null rather than
+    // passed through raw, which would hand those same totals to the board.
     const evidence = quoteEvidence(quote);
     const publicQuote = evidence
       ? {
@@ -127,7 +131,7 @@ export async function GET(request) {
           status: evidence.status,
           hasWork: evidence.hasWork,
         }
-      : quote;
+      : null;
     return {
       ...rest,
       quote: publicQuote,

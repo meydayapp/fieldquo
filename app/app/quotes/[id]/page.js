@@ -40,11 +40,11 @@
 //   app.quoteDetail.notCostedAtSave
 //     en "Nothing was costed when this quote was saved, so these figures are
 //         worked out from today's rates — not what it was priced at. Nobody
-//         recorded who was doing the work either, so the hours carry no money."
+//         recorded who was doing the work either — see below for what stood in."
 //     fr "Rien n'a été chiffré au moment d'enregistrer cette soumission, alors
 //         ces chiffres sont calculés aux taux d'aujourd'hui — pas à ce qui a
-//         été facturé. Personne n'a noté qui faisait le travail non plus, donc
-//         les heures ne portent aucun montant."
+//         été facturé. Personne n’a noté qui faisait le travail non plus — voir
+//         ci-dessous ce qui en tient lieu."
 //   app.quoteDetail.costIncomplete
 //     en "Some of the work has no cost against it, so the real margin is lower
 //         than this."
@@ -135,6 +135,8 @@ import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvide
 import { documentLabels } from "@/lib/i18n/documentLabels";
 import ImportedByPanel from "./ImportedByPanel";
 import QuoteCostEditor from "@/app/components/quotes/QuoteCostEditor";
+import CostingDefaultsNotice from "@/app/components/quotes/CostingDefaultsNotice";
+import { costingDefaultsUsed, unratedCrew } from "@/lib/costing/costingDefaults";
 import EmailSectionsPanel from "./EmailSectionsPanel";
 import PresentationPanel from "./PresentationPanel";
 import EmailSectionsBlockedModal from "./EmailSectionsBlockedModal";
@@ -1771,9 +1773,24 @@ export default function QuoteDetailPage() {
                     Nothing was costed when this quote was saved, so these
                     figures are worked out from today&apos;s rates — not what it
                     was priced at. Nobody recorded who was doing the work
-                    either, so the hours carry no money.
+                    either — see below for what stood in.
                   </p>
                 )}
+
+                {/* Which of FieldQuo's guesses these figures stand on, each
+                    with its fix — only the ones the costing actually used
+                    (lib/costing/costingDefaults.js). A quote costed with a
+                    named crew against the company's real overhead shows
+                    nothing here. "Assign" opens the editor below, whose team
+                    picker is the builder's own. */}
+                <CostingDefaultsNotice
+                  className="mb-3"
+                  defaults={costingDefaultsUsed(costing)}
+                  currency={quote.company?.currency}
+                  language={language}
+                  t={t}
+                  onAssign={() => setCostEditorOpen(true)}
+                />
 
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {[
@@ -1903,6 +1920,25 @@ export default function QuoteDetailPage() {
                         </li>
                       ))}
                     </ul>
+                    {/* By name. "1 member has no rate" makes the reader
+                        find which; the saved row knows, so it says. */}
+                    {unratedCrew(costing.crew).length > 0 && (
+                      <div className="mt-1.5 text-xs text-amber-700 dark:text-amber-400">
+                        {unratedCrew(costing.crew).map((m, i) => (
+                          <p key={`${m.name}${i}`}>
+                            {t("app.cost.noPayRateFor", "No pay rate set for {name}", {
+                              name: m.name || t("app.quoteDetail.unnamed", "Unnamed"),
+                            })}
+                          </p>
+                        ))}
+                        <Link
+                          href="/app/settings/team/workers"
+                          className="inline-flex min-h-[36px] items-center font-medium underline"
+                        >
+                          {t("app.cost.setPayRates", "Set pay rates")}
+                        </Link>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1959,6 +1995,9 @@ export default function QuoteDetailPage() {
                 <QuoteCostEditor
                   quoteId={id}
                   existing={costing.saved ? costing : null}
+                  overheadBasis={costing.overheadBasis || null}
+                  currency={quote.company?.currency}
+                  language={language}
                   t={t}
                   onSaved={async () => {
                     setCostEditorOpen(false);

@@ -81,11 +81,22 @@ export default function NewVisitPage() {
         setLoading(false);
         return;
       }
-      setJob(await jobRes.json());
+      const jobData = await jobRes.json();
+      setJob(jobData);
 
       if (memberRes?.ok) {
         const data = await memberRes.json();
-        setMembers(Array.isArray(data) ? data : []);
+        const list = Array.isArray(data) ? data : [];
+        setMembers(list);
+        // Opens on the first person the approved quote was costed with who
+        // can sign in (lib/jobs/quotedCrew.js) — and only when that person is
+        // on the list this select offers, so it can never pre-select someone
+        // the form can't show. Still a choice: "Not assigned yet" stays one
+        // click away. A crew member with no login can't be a visit's
+        // assignee, and is left for the office to decide.
+        const offered = new Set(list.map((m) => m.user?.id || m.userId).filter(Boolean));
+        const first = (jobData?.quotedCrew || []).find((c) => c.userId && offered.has(c.userId));
+        if (first) setAssignedToId(first.userId);
       }
       if (tplRes?.ok) {
         const data = await tplRes.json();
