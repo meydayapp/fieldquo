@@ -38,6 +38,7 @@ import { appliedTaxRate, documentLinesTotal } from "@/lib/estimate/approveEstima
 import { materialLabelFromConfig } from "@/lib/estimate/materialLabel";
 import { instantQuoteCopy, instantQuoteLanguage, instantTradeLabel } from "@/lib/i18n/instantQuoteCopy";
 import { contactSatisfied } from "@/lib/estimate/formFields";
+import { industryShowcaseFor } from "@/app/i18n/industries";
 
 /**
  * The saved row with its option names in `language` — what priceOneMaterial()
@@ -65,13 +66,28 @@ export function measurementFor(fixture, intake) {
 
 /** priceOneMaterial()'s figure for one option — the draft is written from this. */
 export function estimateFor(fixture, { materialKey, intake, language = "en" }) {
-  return computeInstantEstimate({
+  const estimate = computeInstantEstimate({
     trade: fixture.trade,
     measurements: measurementFor(fixture, intake),
     materialKey,
     config: configFor(fixture, language),
     language,
   });
+  return statedAssumptions(fixture, estimate, language);
+}
+
+/**
+ * A roof size the visitor TYPED (./houseFixture.js fixtureWithSquares) goes
+ * through the same estimator, whose assumption line says the squares were
+ * "measured from satellite" — true of every roof the real form prices (it
+ * never prices a roof it could not measure) and false here. So for a typed
+ * size, and only then, the assumption says what happened instead. Every
+ * amount is left exactly as the estimator returned it.
+ */
+function statedAssumptions(fixture, estimate, language) {
+  if (fixture.measurement?.source !== "manual" || !estimate?.ok) return estimate;
+  const line = String(industryShowcaseFor(language).typedAssumption).replace("{squares}", String(fixture.measurement.squares));
+  return { ...estimate, assumptions: [line] };
 }
 
 /** /measure's list: every option priced for this roof, before the visibility gate. */
