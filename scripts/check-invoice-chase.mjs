@@ -334,7 +334,12 @@ ok(
 console.log("\n5. The owed card — every row is a door, and the result lands on the row\n");
 
 const page = read("app/app/page.js");
-const owedCard = page.slice(page.indexOf('t("app.dash.owed.title"'), page.indexOf("Yearly goal + pace"));
+// The dashboard rework (2026-09-29) moved Money owed to the bottom of the
+// page, below the yearly goal, so the old end marker now sits BEFORE the card
+// and the slice came back empty. The card is the page's last section: read to
+// the end of the component rather than to a neighbour that can move again.
+const owedStart = page.indexOf('t("app.dash.owed.title"');
+const owedCard = page.slice(owedStart, page.indexOf("\n  );\n", owedStart));
 ok("the client name links to the invoice", /<Link\s+href=\{`\/app\/invoices\/\$\{inv\.id\}`\}[^>]*>\s*\{inv\.client\?\.name\}/.test(owedCard));
 ok("the invoice number links to the invoice", /<Link href=\{`\/app\/invoices\/\$\{inv\.id\}`\}[^>]*>\s*\{inv\.invoiceNumber\}/.test(owedCard));
 ok("a Job link appears when jobId exists", /\{inv\.jobId && \(/.test(owedCard) && /href=\{`\/app\/jobs\/\$\{inv\.jobId\}`\}/.test(owedCard));
