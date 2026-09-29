@@ -149,6 +149,18 @@ export function CampaignEditor({ design, onBack }) {
   const [activeRatio, setActiveRatio] = useState(() =>
     openingRatio((design.layouts || []).map((l) => l.ratioKey)),
   );
+  // The shape this design would be posted as — ONE value, handed to both the
+  // Publish dialog (where it starts) and the Approval dialog (what it
+  // previews), so the image an approver signs off on is the image that goes
+  // out. Fixed at mount, off the same saved keys and opening tab as above:
+  // PublishModal reads its starting shape once, and a preview that followed
+  // the live tab while the dialog did not would let the two disagree. For
+  // every design made before the portrait existed this is the square — the
+  // shape both dialogs always used.
+  const [publishShape] = useState(() => {
+    const savedKeys = (design.layouts || []).map((l) => l.ratioKey);
+    return defaultPublishShape({ savedKeys, activeKey: openingRatio(savedKeys) });
+  });
   const [warnings, setWarnings] = useState(() => {
     const initial = {};
     for (const l of design.layouts || []) {
@@ -561,10 +573,7 @@ export function CampaignEditor({ design, onBack }) {
           onClose={() => setPublishOpen(false)}
           design={design}
           preparePublishAsset={preparePublishAsset}
-          initialShape={defaultPublishShape({
-            savedKeys: Object.keys(layoutsRef.current),
-            activeKey: activeRatio,
-          })}
+          initialShape={publishShape}
           onOpenApproval={() => {
             setPublishOpen(false);
             setApprovalOpen(true);
@@ -580,6 +589,7 @@ export function CampaignEditor({ design, onBack }) {
         onClose={() => setApprovalOpen(false)}
         design={design}
         preparePublishAsset={preparePublishAsset}
+        previewShape={publishShape}
         getCanvasPhotoUrls={getCanvasPhotoUrls}
         onDownloadAll={handleDownloadAll}
         socialVisible={socialVisible}

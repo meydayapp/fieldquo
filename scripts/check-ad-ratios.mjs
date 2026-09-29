@@ -27,6 +27,7 @@ import {
   assetFilename,
   openingRatio,
   defaultPublishShape,
+  ratiosForDesign,
 } from "@/lib/marketing/ratios";
 import {
   validateImageForInstagram,
@@ -298,7 +299,52 @@ for (const k of shapeBlock.match(/key: "([a-z_]+)"/g).map((m) => m.slice(6, -1))
 ok(/initialShape/.test(modal) && /FALLBACK_SHAPE = "instagram_post"/.test(modal),
   "PublishModal starts on the caller's initialShape, falling back to the square");
 const editor = readFileSync("app/components/designer/CampaignEditor.js", "utf8");
-ok(/initialShape=\{defaultPublishShape\(/.test(editor), "CampaignEditor hands PublishModal defaultPublishShape()'s answer");
+ok(/const \[publishShape\] = useState\(\(\) => \{[\s\S]{0,200}defaultPublishShape\(\{ savedKeys, activeKey: openingRatio\(savedKeys\) \}\)/.test(editor),
+  "CampaignEditor works out ONE publish shape: defaultPublishShape() over the saved keys and the opening tab");
+ok(/initialShape=\{publishShape\}/.test(editor), "…hands it to PublishModal as the starting shape");
+ok(/previewShape=\{publishShape\}/.test(editor), "…and the SAME value to ApprovalModal as the preview shape");
+
+// ApprovalModal: the approver sees the image that will be posted.
+const approvalSrc = readFileSync("app/components/designer/ApprovalModal.js", "utf8");
+ok(/preparePublishAsset\(previewShape\)/.test(approvalSrc) && !/preparePublishAsset\("instagram_post"\)/.test(approvalSrc),
+  "ApprovalModal previews previewShape, not a hard-coded square");
+ok(/previewShape = "instagram_post"/.test(approvalSrc), "…defaulting to the square it always previewed");
+ok(/\[isOpen, preparePublishAsset, previewShape\]/.test(approvalSrc), "…and re-renders the preview if the shape changes");
+{
+  // The shape CampaignEditor computes, executed: for every existing design it
+  // is the square the approval preview has always shown; for a new or
+  // portrait design it is the portrait the Publish dialog will post.
+  const shapeFor = (keys) => defaultPublishShape({ savedKeys: keys, activeKey: openingRatio(keys) });
+  const existing = [
+    ["instagram_post"],
+    ["facebook_feed"],
+    ["instagram_story", "tiktok"],
+    ["facebook_feed", "instagram_post", "instagram_story", "tiktok", "youtube_thumb"],
+  ];
+  for (const keys of existing) {
+    ok(shapeFor(keys) === "instagram_post", `existing design [${keys.join(", ")}]: approval previews (and Publish starts on) the square, as before`, shapeFor(keys));
+  }
+  ok(shapeFor([]) === "instagram_portrait", "a NEW design: approval previews the portrait it will be posted as");
+  ok(shapeFor(["instagram_portrait"]) === "instagram_portrait", "a portrait design: approval previews the portrait");
+  ok(shapeFor(AD_RATIOS.map((r) => r.key)) === "instagram_portrait", "a job-post design (every preset composed): portrait");
+}
+
+// ratiosForDesign(): "N/M formats ready" never penalises a preset the
+// design never had.
+{
+  const keysOf = (list) => list.map((r) => r.key);
+  const five = ["instagram_post", "instagram_story", "tiktok", "facebook_feed", "youtube_thumb"];
+  ok(ratiosForDesign(five).length === 5 && !keysOf(ratiosForDesign(five)).includes("instagram_portrait"),
+    "a design finished before the portrait existed counts 5/5, not 5/6", keysOf(ratiosForDesign(five)));
+  ok(ratiosForDesign(["instagram_post"]).length === 5, "a pre-portrait square-only design counts against 5 (shows 1/5, as it always did)");
+  ok(ratiosForDesign([]).length === 6, "a design with nothing saved is new, and counts the portrait (0/6)");
+  ok(ratiosForDesign(["instagram_portrait"]).length === 6, "a design with a portrait layout counts it (1/6)");
+  ok(ratiosForDesign([...five, "instagram_portrait"]).length === 6, "…and all six saved is 6/6");
+  ok(ratiosForDesign(undefined).length === 6 && ratiosForDesign([null, 3]).length === 6,
+    "hostile input (undefined, non-strings) does not throw and is treated as nothing saved");
+  ok(keysOf(ratiosForDesign(five)).join() === keysOf(AD_RATIOS).filter((k) => k !== "instagram_portrait").join(),
+    "…and the order of the chips is unchanged");
+}
 ok(/openingRatio\(\(design\.layouts/.test(editor), "CampaignEditor opens on openingRatio(), not DEFAULT_RATIO directly");
 
 section("11. Facebook's pre-post check — warns about the feed crop, never refuses");

@@ -63,12 +63,18 @@ import { INSTAGRAM_CAPTION_SPEC, validateCaption } from "@/lib/social/metaSpecs"
  * @param {() => void} [props.onOpenPublish]
  * @param {(state: string) => void} [props.onStateChange]  so the toolbar badge
  *   follows an approval made in here without a page reload.
+ * @param {string} [props.previewShape]  the ratio key the preview renders —
+ *   the SAME shape the Publish dialog starts on (CampaignEditor passes one
+ *   value to both), so an approver signs off on the image that would actually
+ *   be posted. Defaults to the square, which is what this preview always was
+ *   and still is for every design made before the 4:5 portrait existed.
  */
 export default function ApprovalModal({
   isOpen,
   onClose,
   design,
   preparePublishAsset,
+  previewShape = "instagram_post",
   getCanvasPhotoUrls,
   onDownloadAll,
   socialVisible = false,
@@ -137,7 +143,7 @@ export default function ApprovalModal({
     setAssetLoading(true);
     (async () => {
       try {
-        const generated = await preparePublishAsset("instagram_post");
+        const generated = await preparePublishAsset(previewShape);
         if (!cancelled) setAsset(generated);
       } catch {
         if (!cancelled) setAsset(null);
@@ -148,7 +154,7 @@ export default function ApprovalModal({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, preparePublishAsset]);
+  }, [isOpen, preparePublishAsset, previewShape]);
 
   const captionCheck = validateCaption(caption);
   const dirty = caption !== savedCaption;
