@@ -312,7 +312,7 @@ tenancy, so it carries no information.
 | `JobPhotoMention` | JobPhotoComment, Member | — |
 | `JobPhotoTag` | — | JobPhotoTagOnPhoto |
 | `JobPhotoTagOnPhoto` | JobPhoto, JobPhotoTag | — |
-| `JobSubcontractor` | Job, JobVisit, Subcontractor | SubcontractorPayment |
+| `JobSubcontractor` | Job, JobVisit, Subcontractor | SubcontractorBill, SubcontractorPayment |
 | `JobVisit` | Job | JobSubcontractor, LocationStamp |
 | `LeadNote` | LeadRequest | — |
 | `LeadRequest` | Quote, ServiceCategory | LeadNote, Quote |
@@ -439,6 +439,7 @@ tenancy, so it carries no information.
 | `StaffRoom` | PlatformAdmin, SalesRep | StaffMessage, StaffRoomMember |
 | `StaffRoomMember` | PlatformAdmin, SalesRep, StaffRoom | — |
 | `Subcontractor` | — | JobSubcontractor, SubcontractorDocument, SubcontractorPayment |
+| `SubcontractorBill` | JobSubcontractor | — |
 | `SubcontractorDocument` | Subcontractor | — |
 | `SubcontractorPayment` | JobSubcontractor, Subcontractor | — |
 | `Subscription` | Plan | Company |

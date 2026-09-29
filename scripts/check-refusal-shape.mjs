@@ -99,6 +99,13 @@ const RESOLVES_ITS_OWN = {
     "companyId must equal the one signed into the cookie, so a session that " +
     "switched tenants mid-flow is refused rather than connecting the wrong " +
     "company's Page.",
+  "app/api/public/quotes/[token]/viewed/route.js":
+    "A PUBLIC beacon the client's quote page sends, where a session is only " +
+    "ever a reason NOT to count the open: `getCurrentMember(request, { " +
+    "skipBillingGate: true }).catch(() => null)` asks 'is this the company's " +
+    "own staff, or a support session?' (lib/quotes/quoteViews.js). No " +
+    "session, a lapsed one or a refused one is a homeowner, which is exactly " +
+    "the reader this records — refusing them would record nobody.",
   "app/api/quotes/received/[token]/route.js":
     "A PUBLIC page that treats a session as optional. `getCurrentMember(request)" +
     ".catch(() => null)` is deliberate: an absent, lapsed or billing-locked " +
