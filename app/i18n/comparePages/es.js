@@ -76,7 +76,7 @@ const es = {
   "compare.lede.roofr": "Roofr vende los mensajes SMS, su Instant Estimator, un sitio web y una recepcionista con IA como complementos mensuales separados — {addOnTotal} al mes sobre el plan — y cada techo que mides se cobra por informe encima de eso. FieldQuo incluye los cuatro en todos los planes, a todos los precios, desde {ourEntry}, y mide un techo a partir de su dirección sin cargo por techo.",
   "compare.concession.roofr": "Empecemos por lo que no tenemos. El plan más barato de Roofr es gratis, sin límite de tiempo, y todos los planes de Roofr incluyen usuarios ilimitados; su informe de medición lista las cumbreras, limatesas y limahoyas como medidas, y el nuestro deduce ese reparto por convención a partir de la forma del techo. FieldQuo es además una aplicación web sin app para el teléfono, sin nada que funcione sin red, y sin un vendedor que te guíe.",
   "compare.lede.paintscout": "El plan de PaintScout vende el presupuesto; la agenda, el embudo y el trabajo son un complemento a {addOnTotal} más al mes, y cada persona después de la primera se paga. FieldQuo también cotiza la pintura por tasa de producción — horas a partir de tus tasas, galones a partir del rendimiento — y lleva el presupuesto, el trabajo, la factura y el cobro en un solo plan, con todos los de la camioneta gratis, desde {ourEntry}.",
-  "compare.concession.paintscout": "Empecemos por lo que no tenemos. PaintScout está hecho solo para pintores, y sus tasas de producción por defecto vienen de años de empresas de pintura; las nuestras llegan como puntos de partida que se espera que ajustes. Su página lista apps para iOS y Android, modo sin conexión, QuickBooks, Zapier y CompanyCam, una comunidad de otros pintores, y una prueba que no pide tarjeta. FieldQuo no tiene nada de eso, y si alguno de esos puntos lo decide por ti, ellos son la mejor compra.",
+  "compare.concession.paintscout": "Empecemos por lo que no tenemos. PaintScout está hecho solo para pintores, y sus tasas de producción por defecto vienen de años de empresas de pintura; las nuestras llegan como puntos de partida que se espera que ajustes. Su página lista apps para iOS y Android, modo sin conexión, QuickBooks, Zapier y CompanyCam, y una comunidad de otros pintores. FieldQuo no tiene nada de eso, y si alguno de esos puntos lo decide por ti, ellos son la mejor compra.",
   "compare.capability.measured_roof_report": "Un informe de medición de techo con longitudes de aristas medidas",
   "compare.capability.integration_marketplace": "Se conecta con otras herramientas (Zapier, CompanyCam)",
   "compare.capability.community": "Una comunidad de clientes para preguntar a otros contratistas",
@@ -280,7 +280,7 @@ const es = {
   "compare.rows.notInTheirPlans": "No está en sus planes",
   "compare.rows.freeTrial": "Prueba gratis",
   "compare.rows.firstMonthFree": "14 días gratis",
-  "compare.rows.noCardCharged": "No se cobra la tarjeta hasta que termina",
+  "compare.rows.noCardCharged": "Sin tarjeta para empezar",
   "compare.rows.trialOffered": "Ofrecen prueba",
   "compare.rows.seeTheirSite": "consulta su sitio para ver las condiciones de hoy",
 

@@ -19,7 +19,7 @@ const PART_1 = {
       "How Stripe is used twice — once so your clients can pay you, once so FieldQuo can bill you — what you connect, what Stripe sees, and what Disconnect really does.",
     updated: "2026-09-12",
     intro: [
-      "Stripe does two different jobs in FieldQuo, and they are never the same account. **Stripe Connect** is yours: an Express account created in your company's name when you press **Connect with Stripe**, into which every online payment from a client is deposited. **Stripe Billing** is FieldQuo's: the card you gave at signup, charged for your plan, your phone credit and the migration service. This article is about the first one, and says where the second one lives so the two are never confused.",
+      "Stripe does two different jobs in FieldQuo, and they are never the same account. **Stripe Connect** is yours: an Express account created in your company's name when you press **Connect with Stripe**, into which every online payment from a client is deposited. **Stripe Billing** is FieldQuo's: the card you add when you choose a plan, charged for that plan, your phone credit and the migration service. This article is about the first one, and says where the second one lives so the two are never confused.",
       "The short version: connect once on **Settings → Payments**, finish what Stripe asks for on Stripe's own page, and from then on every invoice, deposit and instalment carries a Pay button. FieldQuo never holds the money and never sees your bank details.",
     ],
     sections: [

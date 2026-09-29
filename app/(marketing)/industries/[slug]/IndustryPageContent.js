@@ -16,6 +16,7 @@ import {
   industryChromeFor,
 } from "@/app/i18n/industries";
 import { TRADE_PITCH_TOP, tradeSellingPoints } from "@/lib/sales/tradeSellingPoints";
+import { TRIAL_DAYS } from "@/lib/pricing";
 
 // The walk-through a trade may carry (./showcase/registry.js), by kind. Its
 // own chunk: it renders the instant-quote form, the leads drawer and the
@@ -88,7 +89,10 @@ export default function IndustryPageContent({ slug, videoId, showcase = null }) 
                 )}
               </div>
 
-              <p className="mt-3 text-sm text-muted-foreground">{chrome.noCard}</p>
+              {/* {days} is TRIAL_DAYS, not a number typed into nine languages. */}
+              <p className="mt-3 text-sm text-muted-foreground">
+                {String(chrome.noCard || "").replace("{days}", String(TRIAL_DAYS))}
+              </p>
             </div>
 
             {/* Real embed once videoId is set; honest placeholder otherwise. */}

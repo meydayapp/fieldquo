@@ -18,7 +18,7 @@ const en = {
     seeItInAction: "See it in action",
     startTrial: "Start free trial",
     talkToUs: "Talk to us",
-    noCard: "Your first 14 days are free — your card isn't charged until they end.",
+    noCard: "No card needed — your first {days} days are free.",
     videoSoon: "Product walkthrough coming soon",
     videoDemoPrefix: "Want a live one instead?",
     videoDemoLink: "Book a demo",

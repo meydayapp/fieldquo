@@ -1930,7 +1930,7 @@ async function main() {
     ok("the concession names their painting defaults and our opening positions",
       /production-rate defaults come from years of painting companies/.test(ps.text) &&
         /opening positions you are expected to tune/.test(ps.text));
-    ok("...and iOS/Android, offline, QuickBooks, Zapier/CompanyCam, a community and a no-card trial",
+    ok("...and iOS/Android, offline, QuickBooks, Zapier/CompanyCam and a community — and the no-card trial is on the page as both sides' (ours takes no card either since 2026-09-24)",
       ["mobile_app", "offline_use", "accounting_sync", "integration_marketplace", "community"].every((k) =>
         elementsWith(ps.html, "data-capability").some(
           (el) => el.value === k && /they-have-we-dont/.test(el.outer) && !/data-unverified/.test(el.outer),

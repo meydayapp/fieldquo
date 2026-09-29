@@ -2,6 +2,11 @@
 
 generator client {
   provider = "prisma-client-js"
+  // partialIndexes: @@index(..., where: raw(...)) — Prospect's suggestion
+  // scan needs an index over exactly the rows it can return (see
+  // Prospect_suggest_missing_idx). Schema-only: it changes no generated
+  // client API.
+  previewFeatures = ["partialIndexes"]
 }
 
 datasource db {
@@ -14691,6 +14696,27 @@ model Prospect {
   @@index([suggestedTradeKey])
   /// The cron slice's "rows not yet suggested" scan.
   @@index([suggestedAt])
+  /// The same scan as it actually runs: suggestTradesBatch's "missing"
+  /// selection (Review-folder reasons AND "suggestedAt" IS NULL) ORDER BY id
+  /// LIMIT 2000, every sales-pipeline cron tick. Half the table (~287k of
+  /// ~596k) has never been suggested because most rows are not in the Review
+  /// folder, so neither the plain suggestedAt index nor the primary key helps:
+  /// the planner walked the pkey and filtered every row — ~600k buffers,
+  /// ~4 s, to return nothing. This index holds exactly the rows the
+  /// selection can return, in id order, so the scan reads a handful of pages.
+  /// The predicate is the SQL of reviewReasonSql(null) + "suggestedAt" IS
+  /// NULL with the status lists written out (CLAIMABLE_STATUSES,
+  /// REVIEW_STATUSES) — if either list or a reason clause changes, change
+  /// this with it, or the planner stops being able to prove the query
+  /// implies it and quietly goes back to the pkey walk
+  /// (check:trade-suggestions compares the two). Created in production with
+  /// CREATE INDEX CONCURRENTLY on 2026-09-29.
+  ///
+  /// Written in Postgres's own normalised form (pg_get_expr of the created
+  /// index), not the form it was typed in: Prisma compares the text, so the
+  /// typed form made `migrate diff` plan a DROP and a blocking re-CREATE of
+  /// an index that was already right.
+  @@index([id], map: "Prospect_suggest_missing_idx", where: raw("(\"suggestedAt\" IS NULL) AND (((classification = 'contractor'::text) AND (\"tradeKey\" IS NULL) AND (status = ANY (ARRAY['discovered'::text, 'researching'::text]))) OR (status = 'needs_review'::text) OR ((\"possibleDuplicateOfId\" IS NOT NULL) AND (status = ANY (ARRAY['discovered'::text, 'researching'::text, 'needs_review'::text]))))"))
   /// The enrich route's "held rows never checked, or checked long ago" scan.
   @@index([placesCheckedAt])
   /// "The rows merged into this one" — the survivor's duplicate panel, and

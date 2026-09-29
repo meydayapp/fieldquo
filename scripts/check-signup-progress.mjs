@@ -221,7 +221,10 @@ section("4. The wiring");
       return Object.keys(APP_MESSAGES).every((lang) => en.every((ph) => APP_MESSAGES[lang][key].includes(ph)));
     })());
   }
-  ok("the English card point is the owner's sentence", /not charged for 14 days/.test(APP_MESSAGES.en["app.salesSignupProgress.cardPoint"]) && /Settings in one click/.test(APP_MESSAGES.en["app.salesSignupProgress.cardPoint"]));
+  // Signup has taken no card since 2026-09-24 (TRIAL_CARD_REQUIRED = false):
+  // the rep's answer to "do I need a card?" is no, in every language.
+  ok("the English card point says there is no card", /Signup takes no card/.test(APP_MESSAGES.en["app.salesSignupProgress.cardPoint"]) && /14 days are free/.test(APP_MESSAGES.en["app.salesSignupProgress.cardPoint"]));
+  ok("…and no language still promises to cancel a card-backed trial", Object.values(APP_MESSAGES).every((m) => !/cancel|annuler|cancelar|скасув|ਰੱਦ|mag-cancel|kündigen|取消|annullare/i.test(m["app.salesSignupProgress.cardPoint"] || "")));
   ok("nine languages", Object.keys(APP_MESSAGES).length === 9);
   const schema = read("prisma/schema.prisma");
   const model = schema.slice(schema.indexOf("model SalesSignupProgress {"));

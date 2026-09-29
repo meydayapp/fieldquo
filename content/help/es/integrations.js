@@ -16,7 +16,7 @@ const PART_1 = {
       "Cómo Stripe se usa dos veces — una para que sus clientes le paguen, otra para que FieldQuo le cobre — qué conecta usted, qué ve Stripe, y qué hace realmente Desconectar.",
     updated: "2026-09-12",
     intro: [
-      "Stripe hace dos trabajos distintos en FieldQuo, y nunca son la misma cuenta. **Stripe Connect** es suyo: una cuenta Express creada a nombre de su empresa cuando pulsa **Conectar con Stripe**, en la que se deposita cada pago en línea de un cliente. **Stripe Billing** es de FieldQuo: la tarjeta que dio al registrarse, cobrada por su plan, su crédito telefónico y el servicio de migración. Este artículo trata del primero, y dice dónde vive el segundo para que nunca se confundan.",
+      "Stripe hace dos trabajos distintos en FieldQuo, y nunca son la misma cuenta. **Stripe Connect** es suyo: una cuenta Express creada a nombre de su empresa cuando pulsa **Conectar con Stripe**, en la que se deposita cada pago en línea de un cliente. **Stripe Billing** es de FieldQuo: la tarjeta que añade al elegir un plan, cobrada por ese plan, su crédito telefónico y el servicio de migración. Este artículo trata del primero, y dice dónde vive el segundo para que nunca se confundan.",
       "En resumen: conecte una vez en **Configuración → Pagos**, termine lo que Stripe pide en su propia página, y desde entonces cada factura, depósito y cuota lleva un botón Pagar. FieldQuo nunca retiene el dinero y nunca ve sus datos bancarios.",
     ],
     sections: [

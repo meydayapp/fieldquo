@@ -229,8 +229,8 @@ Anchored on **subscription start, trial included** — `Subscription.createdAt`,
 the row written at `checkout.session.completed`.
 
 **This was built wrong once and the fix is worth understanding.** Anchoring on
-the first *payment* pays roughly a trial-length late: the first month is free,
-so a payment lands near day 30, and counting sixty days from there means paying
+the first *payment* pays roughly a trial-length late: the trial was then a free
+month (14 days since 2026-09-29), so a payment landed near day 30, and counting sixty days from there means paying
 at **day 91** for a milestone defined at day 60 — 31 days late, measured in the
 worked example below.
 

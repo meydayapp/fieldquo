@@ -554,7 +554,7 @@ export function caseRows(competitorId, competitorName, t, locale = "en-CA", asOf
       {
         kind: YES,
         text: say("compare.rows.firstMonthFree", "14 days free"),
-        sub: say("compare.rows.noCardCharged", "No card charged until it ends"),
+        sub: say("compare.rows.noCardCharged", "No card needed to start"),
       },
       {
         kind: PLAIN,
