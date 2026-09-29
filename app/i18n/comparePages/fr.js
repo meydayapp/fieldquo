@@ -83,7 +83,7 @@ const fr = {
   "compare.lede.roofr": "Roofr vend les textos SMS, son Instant Estimator, un site web et un réceptionniste IA comme extras mensuels séparés — {addOnTotal} par mois en plus du forfait — et chaque toit que vous mesurez est facturé au rapport par-dessus. FieldQuo met les quatre dans tous les forfaits, à tous les prix, à partir de {ourEntry}, et mesure un toit à partir de son adresse sans frais par toit.",
   "compare.concession.roofr": "Commençons par ce que nous n’avons pas. Le forfait le moins cher de Roofr est gratuit, sans limite de temps, et chaque forfait Roofr inclut un nombre illimité d’utilisateurs; leur rapport de mesure liste les faîtes, les arêtiers et les noues comme mesurés, tandis que le nôtre déduit cette répartition par convention à partir de la forme du toit. FieldQuo est aussi une application web sans application mobile, sans rien qui fonctionne hors réseau, et sans vendeur pour vous guider.",
   "compare.lede.paintscout": "Le forfait de PaintScout vend l’estimation; l’horaire, le pipeline et le chantier sont un extra à {addOnTotal} de plus par mois, et chaque personne après la première est facturée. FieldQuo chiffre aussi la peinture au taux de production — les heures à partir de vos taux, les gallons à partir du rendement — et mène la soumission, le chantier, la facture et le paiement dans un seul forfait, avec tout le monde dans la camionnette gratuit, à partir de {ourEntry}.",
-  "compare.concession.paintscout": "Commençons par ce que nous n’avons pas. PaintScout est conçu uniquement pour les peintres, et ses taux de production par défaut viennent d’années d’entreprises de peinture; les nôtres sont livrés comme des points de départ que vous êtes censé ajuster. Leur page liste des applications iOS et Android, un mode hors ligne, QuickBooks, Zapier et CompanyCam, une communauté d’autres peintres, et un essai qui ne demande aucune carte. FieldQuo n’a rien de tout cela, et si l’un de ces points décide pour vous, c’est eux le meilleur achat.",
+  "compare.concession.paintscout": "Commençons par ce que nous n’avons pas. PaintScout est conçu uniquement pour les peintres, et ses taux de production par défaut viennent d’années d’entreprises de peinture; les nôtres sont livrés comme des points de départ que vous êtes censé ajuster. Leur page liste des applications iOS et Android, un mode hors ligne, QuickBooks, Zapier et CompanyCam, et une communauté d’autres peintres. FieldQuo n’a rien de tout cela, et si l’un de ces points décide pour vous, c’est eux le meilleur achat.",
   "compare.capability.measured_roof_report": "Un rapport de mesure de toit avec les longueurs d’arêtes mesurées",
   "compare.capability.integration_marketplace": "Se connecte à d’autres outils (Zapier, CompanyCam)",
   "compare.capability.community": "Une communauté de clients pour demander à d’autres entrepreneurs",
@@ -285,7 +285,7 @@ const fr = {
   "compare.rows.notInTheirPlans": "Absent de leurs forfaits",
   "compare.rows.freeTrial": "Essai gratuit",
   "compare.rows.firstMonthFree": "14 jours gratuits",
-  "compare.rows.noCardCharged": "Aucune carte débitée avant la fin",
+  "compare.rows.noCardCharged": "Aucune carte pour commencer",
   "compare.rows.trialOffered": "Essai offert",
   "compare.rows.seeTheirSite": "voyez leur site pour les conditions en vigueur",
 

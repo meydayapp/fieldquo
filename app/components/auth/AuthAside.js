@@ -11,12 +11,11 @@
 //
 //   1. No mobile app, no QuickBooks, no Zapier. None of the three exist, and
 //      they are the three things a field-service product is assumed to have.
-//   2. No "no credit card required". Signup opens a Stripe subscription with a
-//      trial and no `payment_method_collection: "if_required"`, so a card IS
-//      taken — twelve marketing pages were corrected for saying otherwise
-//      earlier today and this page is not going to be the thirteenth. The
-//      signup panel states the opposite explicitly, off trialLabel() rather
-//      than a typed number.
+//   2. The card, said the way the flow keeps it. Until 2026-09-24 signup
+//      opened a Stripe subscription and a card WAS taken, so "no credit card
+//      required" was banned here. Since then signup takes no card
+//      (TRIAL_CARD_REQUIRED = false) and the panel says so — the trial length
+//      off trialLabel() rather than a typed number.
 //   3. The trades line is COUNTED from app/data/industries.js, not written. It
 //      is the one number here that cannot go stale.
 //

@@ -191,7 +191,7 @@ export const ARTICLES = {
           { bullets: [
             "Votre logo — ou, sans logo, votre initiale sur votre couleur de marque — au-dessus de la ligne « [Votre entreprise] uses FieldQuo ».",
             "Le titre **Get your first month free**, un paragraphe de description de FieldQuo, et un bouton **Claim your first month free** qui ouvre le formulaire d'inscription avec votre code de parrainage attaché.",
-            "Sous le bouton : « No card charged during your trial. Cancel any time. » Puis trois puces sur ce que fait le produit.",
+            "Sous le bouton : « No card needed to start — you choose a plan from inside the app. » Puis trois puces sur ce que fait le produit.",
             "Un pied de page qui dit la partie discrète : « For businesses new to FieldQuo. Already have an account? Sign in. » — une entreprise existante ne peut pas réclamer l'offre.",
           ] },
           { p: "La page est rendue sur le serveur pour être lisible dans la première demi-seconde avec une barre de signal, et elle porte un aperçu de lien (titre et description) parce qu'elle se fait coller dans des groupes WhatsApp et Facebook où la carte d'aperçu est l'argument de vente." },

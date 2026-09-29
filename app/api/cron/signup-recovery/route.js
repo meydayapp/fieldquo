@@ -3,8 +3,8 @@
 // Every five minutes: the two letters FieldQuo writes to somebody who started
 // a signup and stopped.
 //
-//   1. The EARLY touch — five minutes after their last activity, "your free
-//      month is waiting", the way back in, and the three things FieldQuo does
+//   1. The EARLY touch — five minutes after their last activity, "your 14
+//      free days are waiting", the way back in, and the three things FieldQuo does
 //      for their trade. lib/signup/earlyNudge.js decides; the owner's number.
 //   2. The RECOVERY note — twenty-four hours after a company was created with
 //      no card, once. lib/signup/abandoned.js decides; unchanged.

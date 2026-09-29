@@ -6,8 +6,7 @@ const it = {
     seeItInAction: "Lo veda in azione",
     startTrial: "Prova gratuita",
     talkToUs: "Parliamone",
-    noCard:
-      "I primi 14 giorni sono gratuiti — la sua carta non viene addebitata finché non finiscono.",
+    noCard: "Nessuna carta richiesta — i primi {days} giorni sono gratuiti.",
     videoSoon: "Presentazione del prodotto in arrivo",
     videoDemoPrefix: "Preferisce vederla dal vivo?",
     videoDemoLink: "Prenota una demo",

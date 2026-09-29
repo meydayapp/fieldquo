@@ -33,9 +33,12 @@ import {
   planSetupStages,
   publicStage,
   runSetupStage,
+  seededServiceNames,
   setupStagesAllowed,
   withSetupLock,
 } from "@/lib/signup/setupStages";
+import { loadWelcomeState } from "@/lib/signup/welcomeState";
+import { stampSignupWelcomeDoneByCompany } from "@/lib/sales/signupProgress";
 
 export async function POST(request) {
   const session = await auth.api.getSession({ headers: request.headers });
@@ -49,9 +52,18 @@ export async function POST(request) {
   const member = await db.member.findFirst({
     where: { userId: session.user.id, role: "owner" },
     orderBy: { createdAt: "desc" },
-    select: { companyId: true, role: true, company: { select: { id: true, createdAt: true } } },
+    select: {
+      companyId: true,
+      role: true,
+      company: { select: { id: true, createdAt: true, onboardingStep: true, personalizedAt: true } },
+    },
   });
-  const gate = setupStagesAllowed({ member, now: new Date() });
+  // A company on the welcome questions may run only once every question is
+  // answered — lib/signup/setupStages.js setupStagesAllowed says why.
+  const welcomeResume = member?.company?.onboardingStep
+    ? (await loadWelcomeState(db, { companyId: member.companyId, userId: session.user.id }))?.resume
+    : undefined;
+  const gate = setupStagesAllowed({ member, now: new Date(), welcomeResume });
   if (!gate.ok) {
     return NextResponse.json({ error: gate.error, code: gate.code }, { status: gate.status });
   }
@@ -85,7 +97,20 @@ export async function POST(request) {
             send({ type: "stage", key: stage.key, status: "active" });
             const result = await runSetupStage(stage, { companyId, client: db });
             if (result.ok) {
-              send({ type: "stage", key: stage.key, status: "done" });
+              // The services a trade's stage created, read back from the
+              // rows — the setup screen shows them as chips (+N others).
+              // Best-effort: a failed read sends the stage without names,
+              // never fails it.
+              const seeded =
+                stage.kind === "services"
+                  ? await seededServiceNames(db, { companyId, categoryId: stage.categoryId }).catch(() => null)
+                  : null;
+              send({
+                type: "stage",
+                key: stage.key,
+                status: "done",
+                ...(seeded ? { names: seeded.names, total: seeded.total } : {}),
+              });
             } else {
               failed.push(stage.key);
               // On /platform/errors, not only on the owner's screen: a seed
@@ -99,6 +124,29 @@ export async function POST(request) {
               }).catch(() => {});
               send({ type: "stage", key: stage.key, status: "failed" });
             }
+          }
+          // ── The welcome questions are finished ──────────────────────────
+          //
+          // Stamped when the run COMPLETES, failed stages included: a failed
+          // stage is on /platform/errors and the screen offers Retry, but the
+          // owner has answered everything and must not be walked back into
+          // the questions by the /app gate. Written before "complete" is
+          // sent, so the browser's navigation never races it.
+          if (gate.welcome) {
+            await db.company
+              .update({ where: { id: companyId }, data: { personalizedAt: new Date(), onboardingStep: "setup" } })
+              .catch((err) =>
+                recordError({
+                  area: "signup",
+                  code: "personalized_not_stamped",
+                  message: `personalizedAt was not stamped after setup: ${err?.message || err}`,
+                  companyId,
+                }).catch(() => {}),
+              );
+          }
+          // The rep's live tracker: "Account set up" (best-effort).
+          if (gate.welcome) {
+            await stampSignupWelcomeDoneByCompany({ client: db, companyId }).catch(() => {});
           }
           send({ type: "complete", failed });
         });

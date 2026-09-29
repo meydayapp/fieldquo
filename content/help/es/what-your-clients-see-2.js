@@ -192,7 +192,7 @@ export const ARTICLES = {
           { bullets: [
             "Su logotipo — o, sin uno, su inicial sobre su color de marca — sobre la línea «[Su empresa] uses FieldQuo».",
             "El titular **Get your first month free**, un párrafo de descripción de FieldQuo, y un botón **Claim your first month free** que abre el formulario de registro con su código de referido adjunto.",
-            "Bajo el botón: «No card charged during your trial. Cancel any time.» Luego tres viñetas sobre lo que hace el producto.",
+            "Bajo el botón: «No card needed to start — you choose a plan from inside the app.» Luego tres viñetas sobre lo que hace el producto.",
             "Un pie que dice la parte discreta: «For businesses new to FieldQuo. Already have an account? Sign in.»: una empresa existente no puede canjear una oferta.",
           ] },
           { p: "La página se renderiza en el servidor para que se lea en el primer medio segundo con una sola barra de señal, y lleva una vista previa de enlace (título y descripción) porque se pega en grupos de WhatsApp y Facebook donde la tarjeta de vista previa es el argumento de venta." },

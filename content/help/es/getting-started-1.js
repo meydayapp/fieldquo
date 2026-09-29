@@ -73,7 +73,7 @@ export const ARTICLES = {
         heading: "Por dónde empezar",
         blocks: [
           { bullets: [
-            "[[start-your-free-trial|Empiece su prueba gratis]] — los cuatro pasos del registro y para qué es la tarjeta.",
+            "[[start-your-free-trial|Empiece su prueba gratis]] — los pasos del registro, y por qué no hay tarjeta que dar.",
             "[[your-first-day-setup-checklist|Su primer día]] — la lista que el panel muestra hasta que está completa.",
             "[[the-sidebar-and-where-everything-is|El menú lateral]] — dónde está cada pantalla.",
           ] },
@@ -90,10 +90,10 @@ export const ARTICLES = {
   "start-your-free-trial": {
     title: "Empiece su prueba gratis",
     summary:
-      "Cuatro pasos en el formulario público de registro, una tarjeta al pagar, y nada cobrado durante los primeros 14 días.",
-    updated: "2026-09-12",
+      "El formulario público de registro, paso a paso: ni tarjeta ni plan hoy, los primeros 14 días gratis, y un plan elegido desde la aplicación cuando usted esté listo.",
+    updated: "2026-09-29",
     intro: [
-      "Registrar una empresa es autoservicio: cualquiera puede abrir la página de registro, configurar un negocio, elegir un plan y empezar. Los primeros 14 días son gratis, y se toma una tarjeta al pagar para que el plan pueda cobrarse cuando terminen sin una segunda conversación.",
+      "Registrar una empresa es autoservicio: cualquiera puede abrir la página de registro, configurar un negocio y empezar. Los primeros 14 días son gratis, y el registro no pide tarjeta ni plan — usted elige un plan, y añade una tarjeta para pagarlo, desde la aplicación cuando esté listo.",
       "Unirse a una empresa que ya existe es distinto: solo por invitación. Si un colega ya usa FieldQuo, pídale que lo invite desde Gestionar equipo; vea [[invite-a-team-member|Invitar a un miembro del equipo]].",
     ],
     sections: [
@@ -101,25 +101,26 @@ export const ARTICLES = {
         id: "overview",
         heading: "Resumen",
         blocks: [
-          { p: "El formulario dice **Empieza tus 14 días gratis** arriba y recorre cuatro pasos: Account, Trades, Services, Plan. Una cuenta de acceso posee un solo negocio; si ya inició sesión con una empresa, la página se lo dice y le ofrece ir a su panel o invitar a alguien en su lugar." },
+          { p: "El formulario dice **Empieza tus 14 días gratis** arriba y recorre cinco pasos cortos: su cuenta y su empresa, su equipo, lo que más le importa, sus oficios y sus servicios. Los pasos del equipo y de lo que más le importa se pueden omitir. Una cuenta de acceso posee un solo negocio; si ya inició sesión con una empresa, la página se lo dice y le ofrece ir a su panel o invitar a alguien en su lugar." },
         ],
       },
       {
-        id: "the-four-steps",
-        heading: "Los cuatro pasos",
+        id: "the-steps",
+        heading: "Los pasos",
         blocks: [
           { steps: [
-            "**Account** — su nombre y apellido, correo y una contraseña de 8 a 128 caracteres, más el nombre de la empresa, el teléfono y la dirección. La dirección importa: decide el país, y el país decide si se le cobra en dólares canadienses o estadounidenses.",
-            "**Trades** — «What trades does your company work in?» Marque todos los oficios que apliquen; esto reduce los tipos de presupuesto que verá.",
-            "**Services** — «Which services do you offer?» Los tipos de presupuesto habituales de sus oficios vienen preseleccionados. Active los que ofrece; podrá cambiarlo en cualquier momento en Configuración → Servicios y precios.",
-            "**Plan** — «Choose your plan»: los cuatro planes en su moneda, y luego cómo quiere que se le cobre. Pulse **Continue to Payment** para ir al pago.",
+            "**Tu cuenta y tu empresa** — su nombre y apellido, correo y una contraseña de 8 a 128 caracteres, más el nombre de la empresa, el teléfono y la dirección. La dirección importa: decide el país, y el país decide la moneda en la que se cotizará su plan.",
+            "**Su equipo** — «¿Cuántas personas trabajan con usted, incluido usted?» y «¿Cuánto tiempo lleva en el negocio?» Las respuestas ajustan la vista previa del calendario junto al formulario y el plan que sugiere el aviso de la prueba. **Omitir este paso** sigue adelante sin guardar nada.",
+            "**¿Qué es lo que más le importa ahora?** — elija lo que más quiere resolver con FieldQuo, y diga cómo supo de nosotros. También es opcional.",
+            "**Oficios** — «¿En qué oficios trabaja tu empresa?» Marque todos los oficios que apliquen; esto reduce los tipos de presupuesto que verá.",
+            "**Servicios** — «¿Qué servicios ofreces?» Los tipos de presupuesto habituales de sus oficios vienen preseleccionados. Active los que ofrece; podrá cambiarlo en cualquier momento en Configuración → Servicios y precios. **Empezar mi prueba gratuita** crea la empresa y lo lleva directo adentro.",
           ] },
-          { note: "El formulario de registro en sí está en inglés. La aplicación, una vez dentro, sigue el idioma que usted elija — vea [[choose-your-language|Elija su idioma]]." },
+          { note: "La aplicación, una vez dentro, sigue el idioma que usted elija — vea [[choose-your-language|Elija su idioma]]." },
         ],
       },
       {
         id: "choosing-a-plan",
-        heading: "Elegir un plan",
+        heading: "Elegir un plan, cuando esté listo",
         blocks: [
           { table: {
             head: ["Plan", "Al mes", "Asientos", "Accesos de cuadrilla"],
@@ -130,24 +131,23 @@ export const ARTICLES = {
               ["Scale", "369", "10", "15, gratis"],
             ],
           } },
-          { p: "El número es el mismo en las dos monedas: una empresa canadiense paga 99 dólares canadienses, una estadounidense 99 dólares estadounidenses. Un **asiento** es alguien que puede crear o cambiar un presupuesto, un trabajo o una factura; un **acceso de cuadrilla** es alguien que ve su horario, marca su entrada y envía fotos, y no cuesta nada. El detalle completo: [[your-plan-and-seats|Su plan y sus asientos]]." },
-          { p: "Bajo las tarjetas de planes, **No commitment** cobra mes a mes y se cancela cuando quiera; **1 year commitment** cobra una vez al año por el precio de diez meses — dos meses gratis. Un equipo más grande que Scale se cotiza a mano: la tarjeta **Need more than Scale?** lleva a la página de contacto." },
+          { p: "El número es el mismo en cada moneda: una empresa canadiense paga 99 dólares canadienses, una estadounidense 99 dólares estadounidenses. Un **asiento** es alguien que puede crear o cambiar un presupuesto, un trabajo o una factura; un **acceso de cuadrilla** es alguien que ve su horario, marca su entrada y envía fotos, y no cuesta nada. El detalle completo: [[your-plan-and-seats|Su plan y sus asientos]]." },
+          { p: "El plan no forma parte del registro. Elíjalo con **Elegir un plan** en el aviso de la prueba, o desde **Cuenta y facturación**, cuando quiera durante la prueba. **Mensual** es sin compromiso y se cancela cuando quiera; **Compromiso de 1 año** cobra una vez al año por el precio de diez meses — dos meses gratis. Un equipo más grande que Scale se cotiza a mano, por la página de contacto." },
         ],
       },
       {
-        id: "the-card-and-the-free-month",
-        heading: "La tarjeta, y la prueba gratuita",
+        id: "no-card-and-the-free-trial",
+        heading: "Sin tarjeta hoy, y la prueba gratuita",
         blocks: [
-          { p: "**Continue to Payment** crea la empresa y abre Stripe Checkout. Stripe toma la tarjeta; FieldQuo nunca ve el número. La línea sobre el botón lo dice claro: **14 días gratis**, y luego el precio del plan. Hoy no se cobra nada — la prueba dura 14 días desde que se crea la empresa, y el primer cargo cae cuando termina. Vea [[free-first-month|Sus primeros 14 días son gratis]]." },
-          { warning: "Si cierra la pestaña del pago, la empresa existe pero no tiene tarjeta, y cada pantalla de la aplicación queda cerrada hasta que la tenga. Al volver a iniciar sesión cae en **Falta un paso** — «{company} está configurada — solo falta una tarjeta para que puedas usarla» — con el paso del plan listo para terminar." },
+          { p: "El registro no pide tarjeta. La prueba dura 14 días desde que se crea la empresa, con todo el producto y nada que cancelar. Cuando elige un plan, Stripe toma la tarjeta en su propia página — FieldQuo nunca ve el número — y el primer cargo del plan cae el día en que termina la prueba, así que elegir pronto no le cuesta ningún día gratis. Si la prueba termina sin un plan elegido, la cuenta queda en solo lectura durante 7 días y luego se bloquea; no se borra nada. Vea [[free-first-month|Sus primeros 14 días son gratis]]." },
           { tip: "¿Llegó por el enlace de recomendación de otro contratista? El aviso del formulario lo dice, y se añade un mes gratis extra a su prueba. La persona que lo recomendó gana un mes cuando usted ya es cliente de pago. Vea [[referral-months|Los meses por recomendación]]." },
         ],
       },
       {
-        id: "after-checkout",
-        heading: "Después del pago",
+        id: "after-signup",
+        heading: "Después del registro",
         blocks: [
-          { p: "Stripe lo devuelve al panel. Un recorrido corto señala el menú la primera vez; podrá repetirlo después desde Ayuda — vea [[replay-the-setup-walkthrough|Repetir el recorrido de configuración]]. La tarjeta **Termina de configurar FieldQuo** enumera lo que todavía falta y, para propietarios y administradores, el menú muestra **Trial started · N days left** hasta el primer pago." },
+          { p: "**Empezar mi prueba gratuita** lo lleva al panel. Un recorrido corto señala el menú la primera vez; podrá repetirlo después desde Ayuda — vea [[replay-the-setup-walkthrough|Repetir el recorrido de configuración]]. La tarjeta **Termina de configurar FieldQuo** enumera lo que todavía falta y, para el propietario, un aviso arriba muestra **Prueba gratuita · quedan N días** con **Elegir un plan** al lado." },
           { bullets: [
             "[[your-first-day-setup-checklist|Su primer día: la lista de configuración]] — qué hacer y en qué orden.",
             "[[company-settings-basics|Lo básico de la configuración de la empresa]] — la dirección, los impuestos y el horario que el formulario de registro no pidió.",
@@ -157,8 +157,8 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "¿Tengo que dar una tarjeta para probarlo?", a: "Sí — al pagar, a través de Stripe. No se cobra nada durante los 14 días gratis, y puede cancelar antes de que termine desde Cuenta y facturación." },
-      { q: "¿Puedo elegir la moneda?", a: "No. Se lee de la dirección que usted dio. Las dos listas de precios llevan los mismos números, así que no hay nada que elegir." },
+      { q: "¿Tengo que dar una tarjeta para probarlo?", a: "No. El registro no pide tarjeta. Solo añade una cuando elige un plan, y no se cobra hasta que terminan los 14 días gratis." },
+      { q: "¿Puedo elegir la moneda?", a: "No. Se lee de la dirección que usted dio. Las listas de precios llevan los mismos números, así que no hay nada que elegir." },
       { q: "Ya uso FieldQuo en mi trabajo. ¿Puedo registrar también mi propio negocio?", a: "Una cuenta de acceso posee un solo negocio. Registre su propia empresa con otra dirección de correo." },
       { q: "¿Puedo cambiar de plan después?", a: "Sí, desde Cuenta y facturación — vea [[change-your-plan|Cambiar de plan]]. Subir de plan surte efecto de inmediato." },
     ],

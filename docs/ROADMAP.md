@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 29 September 2026 (the one-screen signup and the welcome questions — /signup asks email + password, Start creates the company with explicit nulls on a TRIAL_DAYS trial, /welcome/<step> asks the rest and resumes after any sign-out, the setup screen names the services it created, a readiness gate refuses client-facing sends without a name and country — see "One-screen signup and the welcome questions" below)
 Last updated: 29 September 2026 (the trial is 14 days, no card — TRIAL_DAYS / TRIAL_CARD_REQUIRED in lib/pricing.js; existing trials keep their date; referral month still composes on top; reminders 7/3/1 with a new Company.trialReminder1At column the owner must add before deploy; "first month free" gone from every screen, email, help article and catalogue in nine languages — see "The trial is 14 days")
 Last updated: 28 September 2026 ("Connect Google reviews" is off the home set-up card, out of its "N of M done" count and out of the next-steps email until Google approves the Business Profile API; Settings › Reviews says "Google review import is waiting on Google's approval" with no Connect button and the connect route refuses `not_approved` — one helper, `googleBusinessAvailable()`, and one flag the owner sets on the approval day, `GOOGLE_BUSINESS_API_APPROVED=1` — see "Connect Google reviews waits for Google" below)
 Last updated: 28 September 2026 (lead forms are read through the Facebook Page connection, not the ad account — "found 0" root cause, Leads Access Manager named in the panel; Facebook/Instagram messages: zero webhook deliveries in production — the App Dashboard has no Webhooks subscription; /app/messages now polls the list and open thread every 15 s while visible; the Page subscribe carries `leadgen`; Settings › Meta Ads names missing permissions per feature — see the section of that name)
@@ -116,6 +117,65 @@ post, a separate approval step (the one screen that posts shows the clip,
 shape, cover and caption), and Facebook custom Reel covers (a separate Graph
 call). Nothing has been posted to a real account yet — the first real post
 (Meta App Review + TikTok audit gates unchanged) is the proof still owed.
+
+---
+
+## The /app home, rebuilt: work panel, your focus, the checklist, My day (29 September 2026)
+
+The owner-approved home design, desktop and phone. Nothing that worked was removed; every old panel is still on the page.
+
+### What shipped
+
+- **Work panel** (top; `app/components/dashboard/WorkPanel.js`, rules in `lib/dashboard/workPanel.js`, data from `GET /api/dashboard/home` → `lib/dashboard/homeData.js`). Tabs Requests · Quotes · Jobs · Invoices, each badged ONLY with what waits on a person, hidden at zero; a tab the member may not see is not drawn (its reads are not even made). One action per row.
+  - Requests: lead `status "new"` with no quote (the follow-up cron's own rule) → Reply; instant estimate `autoEstimated && needsReview` → Review; a booked visit `needs_supervisor` with nobody assigned, still ahead → Review.
+  - Quotes: sent, unanswered, not expired/superseded (`quoteChaseBlocker`), and nothing sent to the client — send, manual or automated follow-up — for 3 days → Follow up; or expiring within 7 days → Follow up. **"Viewed, no answer" is not counted: FieldQuo does not record a client opening a quote** (`VIEWED_TRACKED = false`).
+  - Jobs: `unscheduled` → Schedule (new visit); a visit today/tomorrow by the COMPANY's timezone → Open.
+  - Invoices: owed and overdue → Chase (inline, the same request-payment POST; disabled under a support session); owed, no due date, issued 14+ days ago → Chase; draft → Send.
+- **Your focus** (`FocusSection.js`, `lib/dashboard/focus.js`): driven by `signupPriority` + every `signupFocus` key. All 19 focus keys map to real cards (metric / status / shortcut); a feature never set up becomes its set-up step, offered only to someone who can take it; no data, no card. Companies without a priority get a one-time picker (owner/admin; "Not now" stored per person in `/api/ui-state`) saving through the new idempotent `PATCH /api/dashboard/focus` (two columns only; refuses impersonation and non-admins), plus "Change focus".
+- **Set-up checklist** (`SetupSteps.js`): same steps, dismissals and dialogs, now ordered by priority/focus (`orderSetupSteps`, a permutation), with a progress bar, per-step and total time, ONE highlighted next step with Start, and a "Done: …" / "You're all set up" moment from a re-read in the session.
+- **Numbers, compact**: "Revenue this month" is now **Paid invoices this month** and "Money received" is **Payments received**, each with an (i) tip saying what it counts (cash vs invoices marked paid); chart beside the goal card.
+- **Crew "My day"** (`CrewMyDay.js`, `GET /api/dashboard/my-day`, `lib/dashboard/crewHome.js`): Crew-shaped members (no owner/admin, no schedule edit_all, no requests/quotes/invoices) get the next stop with Directions, today and the next 7 days, clock in/out (links `/app/clock`), each visit's photos/checklist progress → the job. Built from a whitelist — no money, no company numbers.
+- `NeedsToday` keeps only the receptionist lines when the panel carries the overdue invoices and estimates (`omit`).
+- 142 new strings in all nine app languages.
+
+### Checks
+
+`check:dashboard-home` (new, 198 assertions) plus `dashboard`, `dashboard-rank` (order and file list moved to the new design), `setup-steps`, `welcome-flow`, `employee-home`, `crew-access`, `rbac-*`, `impersonation`, `translations`, `app-catalogue`, `language-completeness`, `mobile`, `hooks`, `route-callers`, `empty-vs-error`.
+
+### Owed
+
+- Product: the brief named a "get paid faster" priority; the signup columns hold `professional / control / win_more / exploring`, so those are the four versions (paid-faster is the focus `invoices_paid_faster` under control).
+- Product: "viewed, no answer" needs a quote-opened event (e.g. a `Quote.viewedAt` stamped by `/q/[token]`) before it can be counted.
+- Not verified in a browser this session (no local login); needs a look on a phone and a desktop.
+
+---
+
+## One-screen signup and the welcome questions (29 September 2026)
+
+The owner-approved Jobber-shaped signup. `/signup` is one screen — work email, password, an UNTICKED "Send me product news and offers", the Terms/Privacy line, "Start my free trial →", "Already have an account? Log in" (no Google/Apple: Better Auth has no social provider configured). That press creates the login AND the company (`POST /api/companies` with no name and no address), so the trial is real before any question is asked.
+
+### What shipped
+
+- **Welcome screens, one URL each** (`app/welcome/[step]`, rules in `lib/signup/welcome.js`): profile ("✓ Your free trial is now active", first/last name, phone) → business (company name, ONE Google Places address — country/province/city/postal come from the picked place — a searchable industry select grouped by FieldQuo industry with sticky group headers, optional website) → size ("Your <trade> business at a glance": 6 team chips, 5 years chips; "Just me" stamps `worksAloneAt`) → revenue (chips in the company's own currency symbol + "I'd prefer not to say") → priority (4 cards) → focus (multi-select whose options depend on the priority) → source (closed select, "Get started") → setup.
+- **Setup screen** (`/welcome/setup`): "Setting up <company>…", "Adding <trade> services…" with chips of the service names the stage actually created (read back from `Product` rows, "+N others"), checklists/plans, "Creating your templates…", dashboard — every tick from the server stream, no timers. Stamps `Company.personalizedAt`; "Go to my dashboard anyway" after a failed stage stamps it too.
+- **Resume**: `Company.onboardingStep` is recomputed from the stored answers after every `PATCH /api/signup/personalize`. The `/app` shell sends the OWNER of an unfinished flow to `/welcome/<step>` (`lib/signup/welcomeGate.js`) — never a support session, an invited member, or a company from before this flow (`onboardingStep` null). Every screen is prefilled. `?resume=` links and the finish-setting-up letter point at the next question.
+- **Explicit nulls**: the first press writes `name: ""`, `country/currency/timezone: null`, a provisional `fq-` slug (re-derived once from the name), `TRIAL_DAYS` (14) trial, no card (`TRIAL_CARD_REQUIRED`). Nothing is seeded until the country is known.
+- **Readiness gate** (`lib/company/profileReadiness.js`): no business name + country → `planOrRefusal` refuses quote/invoice send, share, call, request-payment, checkout link, website/designer publish, campaign send, service-plan authorise (402 with a "Finish setting up your business →" prompt to `/welcome/business` for the owner); follow-ups, the voice receptionist and the public booking/self-quote pages refuse too. Live DB: 0 existing companies lack either.
+- **Aside**: FieldQuo's own screenshots + one "Did you know…" from `lib/signup/didYouKnow.js` (3 facts, each with a `source`; the $6,500 is computed).
+- **Platform**: `/platform/companies` shows "(no business name yet) · email", a "Welcome: <screen>" badge, the new answers, owner phone and product-news consent. The analytics funnel is visited → trial started → the seven questions → workspace ready from `SIGNUP_FUNNEL_CUTOVER` (2026-09-29); earlier days render the legacy seven-step funnel separately.
+- Additive schema (applied by SQL): `Company.onboardingStep/personalizedAt/revenueBand/signupPriority/signupFocus`, `User.phone/marketingConsentAt/marketingConsentText`.
+- Removed: the two public routes only the old signup called (`/api/signup/sample-services`, `/api/service-categories/public`).
+
+### Checks
+
+`check:welcome-flow` (new) plus `signup-order`, `auth-pages`, `signup-aside`, `signup-funnel`, `signup-creating`, `signup-gate`, `signup-leads`, `plan-gate`, `abandoned-signup`, `onboarding-next-steps`, `setup-steps`, `company-country`, `route-callers`.
+
+### Owed
+
+- The welcome dashboard (first-job list ordered by `signupFocus`) — separate task.
+- The unmounted reactive signup panel (`AuthAside` signup variant, `app/components/auth/samples/`, `SignupSteps`, the step functions in `lib/signup/funnel.js`) can be deleted with its checks.
+- The early nudge's "free month" copy and the trial-length copy elsewhere belong to the 14-day trial change running beside this one.
+- Product decision: the sales floor's SignupLead capture no longer fires from `/signup` (an email alone is not a lead); stalled owners are visible on `/platform/companies` with their welcome step and phone instead.
 
 ---
 

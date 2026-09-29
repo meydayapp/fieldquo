@@ -2,6 +2,11 @@
 
 generator client {
   provider = "prisma-client-js"
+  // partialIndexes: @@index(..., where: raw(...)) — Prospect's suggestion
+  // scan needs an index over exactly the rows it can return (see
+  // Prospect_suggest_missing_idx). Schema-only: it changes no generated
+  // client API.
+  previewFeatures = ["partialIndexes"]
 }
 
 datasource db {
@@ -1581,6 +1586,26 @@ model Company {
   yearsInBusinessBand    String?
   signupGoal             String?
   signupSource           String?
+  /// The welcome questions after "Start my free trial" (2026-09-29,
+  /// app/welcome/[step] — lib/signup/welcome.js holds every closed list).
+  /// Stored as the key picked, only when picked; nothing is defaulted.
+  /// revenueBand is WELCOME_REVENUE_BANDS ("prefer_not" is an answer, not a
+  /// default); signupPriority is one of four WELCOME_PRIORITIES and
+  /// signupFocus the focus keys offered UNDER that priority. Read on
+  /// /platform/companies/[id] beside the team and goal answers.
+  revenueBand            String?
+  signupPriority         String?
+  signupFocus            String[]         @default([])
+  /// Where the owner is in the welcome questions: the key of the next
+  /// unanswered screen (lib/signup/welcome.js WELCOME_STEPS), written by
+  /// PATCH /api/signup/personalize after every answer. NULL on every company
+  /// created before 2026-09-29 — the /app gate reads null as "not on this
+  /// flow" and never routes those owners anywhere (lib/signup/welcomeGate.js).
+  onboardingStep         String?
+  /// When the welcome questions were finished and the setup screen ran (or
+  /// the owner chose to carry on past a failed stage). Until then the owner is
+  /// sent back to /welcome/<onboardingStep> on every visit to /app.
+  personalizedAt         DateTime?
   /// When each "your free trial ends in N days" letter went out — 7, 3 and 1
   /// days before trialEndsAt, to a company that has NOT chosen a plan (one
   /// with a Subscription row is told by lib/billing/renewalReminder.js
@@ -2685,6 +2710,17 @@ model User {
   // localStorage) so a tour a rep already dismissed doesn't re-appear when they
   // open the app on the shop iPad. Shape: { seenTours: string[] }.
   uiState       Json?
+  /// The owner's own number, from the welcome "about you" screen
+  /// (2026-09-29) — for FieldQuo to reach them about their account. NOT the
+  /// business phone printed on quotes (Company.phone), which is never filled
+  /// from this. Read on /platform/companies/[id].
+  phone         String?
+  /// "Send me product news and offers", ticked on /signup. Written ONLY when
+  /// the box was ticked: the moment, and the exact sentence shown in the
+  /// language it was shown in. Null = never agreed, which is the default the
+  /// law asks for. Read on /platform/companies/[id].
+  marketingConsentAt   DateTime?
+  marketingConsentText String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -14750,6 +14786,27 @@ model Prospect {
   @@index([suggestedTradeKey])
   /// The cron slice's "rows not yet suggested" scan.
   @@index([suggestedAt])
+  /// The same scan as it actually runs: suggestTradesBatch's "missing"
+  /// selection (Review-folder reasons AND "suggestedAt" IS NULL) ORDER BY id
+  /// LIMIT 2000, every sales-pipeline cron tick. Half the table (~287k of
+  /// ~596k) has never been suggested because most rows are not in the Review
+  /// folder, so neither the plain suggestedAt index nor the primary key helps:
+  /// the planner walked the pkey and filtered every row — ~600k buffers,
+  /// ~4 s, to return nothing. This index holds exactly the rows the
+  /// selection can return, in id order, so the scan reads a handful of pages.
+  /// The predicate is the SQL of reviewReasonSql(null) + "suggestedAt" IS
+  /// NULL with the status lists written out (CLAIMABLE_STATUSES,
+  /// REVIEW_STATUSES) — if either list or a reason clause changes, change
+  /// this with it, or the planner stops being able to prove the query
+  /// implies it and quietly goes back to the pkey walk
+  /// (check:trade-suggestions compares the two). Created in production with
+  /// CREATE INDEX CONCURRENTLY on 2026-09-29.
+  ///
+  /// Written in Postgres's own normalised form (pg_get_expr of the created
+  /// index), not the form it was typed in: Prisma compares the text, so the
+  /// typed form made `migrate diff` plan a DROP and a blocking re-CREATE of
+  /// an index that was already right.
+  @@index([id], map: "Prospect_suggest_missing_idx", where: raw("(\"suggestedAt\" IS NULL) AND (((classification = 'contractor'::text) AND (\"tradeKey\" IS NULL) AND (status = ANY (ARRAY['discovered'::text, 'researching'::text]))) OR (status = 'needs_review'::text) OR ((\"possibleDuplicateOfId\" IS NOT NULL) AND (status = ANY (ARRAY['discovered'::text, 'researching'::text, 'needs_review'::text]))))"))
   /// The enrich route's "held rows never checked, or checked long ago" scan.
   @@index([placesCheckedAt])
   /// "The rows merged into this one" — the survivor's duplicate panel, and

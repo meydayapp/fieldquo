@@ -279,6 +279,9 @@ console.log("\nOne field style across all six pages");
 const PAGES = [
   ["app/login/page.js", LOGIN],
   ["app/signup/page.js", SIGNUP],
+  // 2026-09-29: the address field moved from /signup to the welcome
+  // business screen with the rest of the business questions.
+  ["app/welcome/WelcomeFlow.js", readFileSync("app/welcome/WelcomeFlow.js", "utf8")],
   ["app/forgot-password/page.js", FORGOT],
   ["app/reset-password/ResetPassword.js", RESET],
   ["app/verify-email/VerifyEmail.js", VERIFY],
@@ -316,10 +319,11 @@ for (const [name, src] of PAGES) {
 // component. Allowing "one somewhere" would let a new bare label take its
 // place, so the allowance is pinned to the file AND to the word above it.
 for (const [name, src] of PAGES) {
-  const bare = (src.match(/<label className=\{FIELD_LABEL\}>[\s\S]{0,40}?</g) || []);
-  if (name === "app/signup/page.js") {
-    ok(`${name}: the only unpointed label is Address`,
-      bare.length === 1 && /Address/.test(bare[0]),
+  // 80, not 40: the welcome screens' labels are t() calls with a longer key.
+  const bare = (src.match(/<label className=\{FIELD_LABEL\}>[\s\S]{0,80}?</g) || []);
+  if (name === "app/welcome/WelcomeFlow.js") {
+    ok(`${name}: the only unpointed label is the company Address`,
+      bare.length === 1 && /business\.address/.test(bare[0]),
       bare.join(" | "));
   } else {
     ok(`${name}: no label sits over a field it doesn't point at`,

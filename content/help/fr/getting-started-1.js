@@ -73,7 +73,7 @@ export const ARTICLES = {
         heading: "Par où commencer",
         blocks: [
           { bullets: [
-            "[[start-your-free-trial|Commencer votre essai gratuit]] — les quatre étapes d'inscription et à quoi sert la carte.",
+            "[[start-your-free-trial|Commencer votre essai gratuit]] — les étapes d'inscription, et pourquoi il n'y a pas de carte à donner.",
             "[[your-first-day-setup-checklist|Votre première journée]] — la liste que le tableau de bord affiche tant qu'elle n'est pas terminée.",
             "[[the-sidebar-and-where-everything-is|Le menu]] — où se trouve chaque écran.",
           ] },
@@ -90,10 +90,10 @@ export const ARTICLES = {
   "start-your-free-trial": {
     title: "Commencer votre essai gratuit",
     summary:
-      "Quatre étapes sur le formulaire d'inscription public, une carte au paiement, et rien de facturé les 14 premiers jours.",
-    updated: "2026-09-12",
+      "Le formulaire d'inscription public, étape par étape : ni carte ni forfait aujourd'hui, les 14 premiers jours gratuits, et un forfait choisi depuis l'application quand vous êtes prêt.",
+    updated: "2026-09-29",
     intro: [
-      "L'inscription d'une entreprise se fait en libre-service : n'importe qui peut ouvrir la page d'inscription, créer son entreprise, choisir un forfait et commencer. Les 14 premiers jours sont gratuits, et une carte est prise au paiement pour que le forfait puisse être facturé à leur fin sans nouvelle conversation.",
+      "L'inscription d'une entreprise se fait en libre-service : n'importe qui peut ouvrir la page d'inscription, créer son entreprise et commencer. Les 14 premiers jours sont gratuits, et l'inscription ne demande ni carte ni forfait — vous choisissez un forfait, et ajoutez une carte pour le payer, depuis l'application quand vous êtes prêt.",
       "Rejoindre une entreprise qui existe déjà, c'est autre chose : ça se fait sur invitation seulement. Si un collègue utilise déjà FieldQuo, demandez-lui de vous inviter depuis Gérer l'équipe; voir [[invite-a-team-member|Inviter un membre de l'équipe]].",
     ],
     sections: [
@@ -101,25 +101,26 @@ export const ARTICLES = {
         id: "overview",
         heading: "Aperçu",
         blocks: [
-          { p: "Le formulaire affiche **Commencez vos 14 jours gratuits** en haut et parcourt quatre étapes : Account, Trades, Services, Plan. Un identifiant possède une seule entreprise; si vous êtes déjà connecté avec une entreprise, la page vous le dit et vous propose d'aller à votre tableau de bord ou d'inviter quelqu'un à la place." },
+          { p: "Le formulaire affiche **Commencez vos 14 jours gratuits** en haut et parcourt cinq courtes étapes : votre compte et votre entreprise, votre équipe, ce qui vous préoccupe le plus, vos corps de métier et vos services. Les étapes de l'équipe et des préoccupations peuvent être passées. Un identifiant possède une seule entreprise; si vous êtes déjà connecté avec une entreprise, la page vous le dit et vous propose d'aller à votre tableau de bord ou d'inviter quelqu'un à la place." },
         ],
       },
       {
-        id: "the-four-steps",
-        heading: "Les quatre étapes",
+        id: "the-steps",
+        heading: "Les étapes",
         blocks: [
           { steps: [
-            "**Account** — votre prénom et votre nom, votre courriel et un mot de passe de 8 à 128 caractères, plus le nom de l'entreprise, le téléphone et l'adresse. L'adresse compte : elle détermine le pays, et le pays détermine si vous payez en dollars canadiens ou américains.",
-            "**Trades** — « What trades does your company work in? » Cochez tous les métiers qui s'appliquent; cela réduit les types de soumission que vous verrez.",
-            "**Services** — « Which services do you offer? » Les types de soumission habituels de vos métiers sont présélectionnés. Activez ceux que vous offrez; vous pourrez changer cela n'importe quand sous Paramètres → Services et tarifs.",
-            "**Plan** — « Choose your plan » : les quatre forfaits dans votre devise, puis la façon dont vous voulez être facturé. Appuyez sur **Continue to Payment** pour passer au paiement.",
+            "**Votre compte et votre entreprise** — votre prénom et votre nom, votre courriel et un mot de passe de 8 à 128 caractères, plus le nom de l'entreprise, le téléphone et l'adresse. L'adresse compte : elle détermine le pays, et le pays détermine la devise dans laquelle votre forfait sera tarifé.",
+            "**Votre équipe** — « Combien de personnes travaillent avec vous, vous compris? » et « Depuis combien de temps êtes-vous en affaires? » Les réponses ajustent l'aperçu du calendrier à côté du formulaire et le forfait que la bannière d'essai vous suggère. **Passer cette étape** continue sans rien enregistrer.",
+            "**Qu'est-ce qui vous préoccupe le plus?** — choisissez la chose pour laquelle vous voulez surtout FieldQuo, et dites comment vous avez entendu parler de nous. Facultatif aussi.",
+            "**Corps de métier** — « Dans quels corps de métier votre entreprise travaille-t-elle? » Cochez tous les métiers qui s'appliquent; cela réduit les types de soumission que vous verrez.",
+            "**Services** — « Quels services offrez-vous? » Les types de soumission habituels de vos métiers sont présélectionnés. Activez ceux que vous offrez; vous pourrez changer cela n'importe quand sous Paramètres → Services et tarifs. **Commencer mon essai gratuit** crée l'entreprise et vous fait entrer tout de suite.",
           ] },
-          { note: "Le formulaire d'inscription lui-même est en anglais. L'application, une fois entré, suit la langue que vous choisissez — voir [[choose-your-language|Choisir votre langue]]." },
+          { note: "L'application, une fois entré, suit la langue que vous choisissez — voir [[choose-your-language|Choisir votre langue]]." },
         ],
       },
       {
         id: "choosing-a-plan",
-        heading: "Choisir un forfait",
+        heading: "Choisir un forfait, quand vous êtes prêt",
         blocks: [
           { table: {
             head: ["Forfait", "Par mois", "Sièges", "Accès équipe"],
@@ -130,24 +131,23 @@ export const ARTICLES = {
               ["Scale", "369", "10", "15, gratuits"],
             ],
           } },
-          { p: "Le chiffre est le même dans les deux devises : une entreprise canadienne paie 99 dollars canadiens, une américaine 99 dollars américains. Un **siège** est quelqu'un qui peut créer ou modifier une soumission, un chantier ou une facture; un **accès équipe** est quelqu'un qui voit son horaire, pointe et envoie des photos, et il ne coûte rien. Le détail complet : [[your-plan-and-seats|Votre forfait et vos sièges]]." },
-          { p: "Sous les cartes de forfaits, **No commitment** facture au mois et s'annule n'importe quand; **1 year commitment** facture une fois par année au prix de dix mois — deux mois gratuits. Une équipe plus grande que Scale est tarifée à la main : la carte **Need more than Scale?** mène à la page de contact." },
+          { p: "Le chiffre est le même dans chaque devise : une entreprise canadienne paie 99 dollars canadiens, une américaine 99 dollars américains. Un **siège** est quelqu'un qui peut créer ou modifier une soumission, un chantier ou une facture; un **accès équipe** est quelqu'un qui voit son horaire, pointe et envoie des photos, et il ne coûte rien. Le détail complet : [[your-plan-and-seats|Votre forfait et vos sièges]]." },
+          { p: "Le forfait ne fait pas partie de l'inscription. Choisissez-le avec **Choisir un forfait** sur la bannière d'essai, ou depuis **Compte et facturation**, quand vous voulez pendant l'essai. **Mensuel** est sans engagement et s'annule n'importe quand; **Engagement d'un an** facture une fois par année au prix de dix mois — deux mois gratuits. Une équipe plus grande que Scale est tarifée à la main, par la page de contact." },
         ],
       },
       {
-        id: "the-card-and-the-free-month",
-        heading: "La carte, et l'essai gratuit",
+        id: "no-card-and-the-free-trial",
+        heading: "Pas de carte aujourd'hui, et l'essai gratuit",
         blocks: [
-          { p: "**Continue to Payment** crée l'entreprise et ouvre Stripe Checkout. Stripe prend la carte; FieldQuo ne voit jamais le numéro. La ligne au-dessus du bouton le dit clairement : **14 jours gratuits**, puis le prix du forfait. Rien n'est facturé aujourd'hui — l'essai dure 14 jours à partir de la création de l'entreprise, et le premier prélèvement tombe à la fin. Voir [[free-first-month|Vos 14 premiers jours sont gratuits]]." },
-          { warning: "Si vous fermez l'onglet du paiement, l'entreprise existe mais n'a pas de carte, et chaque écran de l'application reste fermé tant qu'elle n'en a pas. En vous reconnectant, vous arrivez sur **Une dernière étape** — « {company} est configurée — il ne manque qu'une carte pour pouvoir l'utiliser » — avec l'étape du forfait prête à terminer." },
+          { p: "L'inscription ne demande aucune carte. L'essai dure 14 jours à partir de la création de l'entreprise, avec tout le produit et rien à annuler. Quand vous choisissez un forfait, Stripe prend la carte sur sa propre page — FieldQuo ne voit jamais le numéro — et le premier prélèvement du forfait tombe le jour où l'essai se termine : choisir tôt ne vous coûte aucun jour gratuit. Si l'essai se termine sans forfait choisi, le compte passe en lecture seule pendant 7 jours, puis se verrouille; rien n'est supprimé. Voir [[free-first-month|Vos 14 premiers jours sont gratuits]]." },
           { tip: "Arrivé par le lien de parrainage d'un autre entrepreneur? La bannière du formulaire le dit, et un mois gratuit de plus s'ajoute à votre essai. La personne qui vous a recommandé gagne un mois une fois que vous êtes client payant. Voir [[referral-months|Les mois de parrainage]]." },
         ],
       },
       {
-        id: "after-checkout",
-        heading: "Après le paiement",
+        id: "after-signup",
+        heading: "Après l'inscription",
         blocks: [
-          { p: "Stripe vous renvoie au tableau de bord. Une courte visite guidée pointe le menu la première fois; vous pourrez la rejouer plus tard depuis Aide — voir [[replay-the-setup-walkthrough|Rejouer la visite guidée]]. La carte **Terminer la configuration de FieldQuo** liste ce qui manque encore et, pour les propriétaires et administrateurs, le menu affiche **Trial started · N days left** jusqu'au premier paiement." },
+          { p: "**Commencer mon essai gratuit** vous amène au tableau de bord. Une courte visite guidée pointe le menu la première fois; vous pourrez la rejouer plus tard depuis Aide — voir [[replay-the-setup-walkthrough|Rejouer la visite guidée]]. La carte **Terminer la configuration de FieldQuo** liste ce qui manque encore et, pour le propriétaire, une bannière en haut affiche **Essai gratuit · N jours restants** avec **Choisir un forfait** à côté." },
           { bullets: [
             "[[your-first-day-setup-checklist|Votre première journée : la liste de configuration]] — quoi faire, dans quel ordre.",
             "[[company-settings-basics|Les bases du profil de l'entreprise]] — l'adresse, les taxes et les heures que le formulaire d'inscription n'a pas demandées.",
@@ -157,8 +157,8 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "Dois-je donner une carte pour essayer?", a: "Oui — au paiement, par Stripe. Rien n'est facturé pendant les 14 jours gratuits, et vous pouvez annuler avant la fin depuis Compte et facturation." },
-      { q: "Puis-je choisir la devise?", a: "Non. Elle est lue dans l'adresse que vous avez donnée. Les deux listes de prix portent les mêmes chiffres, il n'y a donc rien à choisir." },
+      { q: "Dois-je donner une carte pour essayer?", a: "Non. L'inscription ne prend aucune carte. Vous en ajoutez une seulement quand vous choisissez un forfait, et elle n'est pas débitée avant la fin des 14 jours gratuits." },
+      { q: "Puis-je choisir la devise?", a: "Non. Elle est lue dans l'adresse que vous avez donnée. Les listes de prix portent les mêmes chiffres, il n'y a donc rien à choisir." },
       { q: "J'utilise déjà FieldQuo au travail. Puis-je inscrire ma propre entreprise aussi?", a: "Un identifiant possède une seule entreprise. Inscrivez votre propre entreprise avec une autre adresse courriel." },
       { q: "Puis-je changer de forfait plus tard?", a: "Oui, depuis Compte et facturation — voir [[change-your-plan|Changer de forfait]]. Passer à un forfait supérieur prend effet tout de suite." },
     ],

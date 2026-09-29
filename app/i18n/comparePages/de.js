@@ -75,7 +75,7 @@ const de = {
   "compare.lede.roofr": "Roofr verkauft SMS, seinen Instant Estimator, eine Website und eine KI-Rezeption als getrennte monatliche Zusatzmodule — {addOnTotal} im Monat zusätzlich zum Tarif — und jedes Dach, das Sie aufmessen, wird obendrein pro Bericht berechnet. FieldQuo hat alle vier in jedem Tarif, zu jedem Preis, ab {ourEntry}, und misst ein Dach anhand seiner Adresse ohne Gebühr pro Dach.",
   "compare.concession.roofr": "Zuerst das, was wir nicht haben. Roofrs günstigster Tarif ist kostenlos, ohne Zeitlimit, und jeder Roofr-Tarif enthält unbegrenzt viele Nutzer; ihr Aufmaßbericht führt Firste, Grate und Kehlen als gemessen auf, unserer leitet diese Aufteilung per Konvention aus der Dachform ab. FieldQuo ist außerdem eine Webanwendung ohne Handy-App, ohne etwas, das ohne Netz funktioniert, und ohne Verkäufer, der Sie durchführt.",
   "compare.lede.paintscout": "PaintScouts Tarif verkauft den Kostenvoranschlag; Terminplanung, Pipeline und Auftrag sind ein Zusatzmodul für {addOnTotal} mehr im Monat, und jede Person nach der ersten kostet extra. FieldQuo kalkuliert Malerarbeiten ebenfalls nach Leistungssatz — Stunden aus Ihren Sätzen, Gallonen aus der Ergiebigkeit — und führt Angebot, Auftrag, Rechnung und Zahlung in einem Tarif, mit jedem im Lieferwagen kostenlos, ab {ourEntry}.",
-  "compare.concession.paintscout": "Zuerst das, was wir nicht haben. PaintScout ist nur für Maler gebaut, und seine Standard-Leistungssätze stammen aus Jahren mit Malerbetrieben; unsere kommen als Ausgangswerte, die Sie anpassen sollen. Ihre Seite nennt iOS- und Android-Apps, einen Offline-Modus, QuickBooks, Zapier und CompanyCam, eine Community anderer Maler und eine Testphase ohne Karte. FieldQuo hat nichts davon, und wenn einer dieser Punkte für Sie entscheidet, sind sie der bessere Kauf.",
+  "compare.concession.paintscout": "Zuerst das, was wir nicht haben. PaintScout ist nur für Maler gebaut, und seine Standard-Leistungssätze stammen aus Jahren mit Malerbetrieben; unsere kommen als Ausgangswerte, die Sie anpassen sollen. Ihre Seite nennt iOS- und Android-Apps, einen Offline-Modus, QuickBooks, Zapier und CompanyCam und eine Community anderer Maler. FieldQuo hat nichts davon, und wenn einer dieser Punkte für Sie entscheidet, sind sie der bessere Kauf.",
   "compare.capability.measured_roof_report": "Ein Dachaufmaßbericht mit gemessenen Kantenlängen",
   "compare.capability.integration_marketplace": "Anbindung an andere Tools (Zapier, CompanyCam)",
   "compare.capability.community": "Eine Kunden-Community, um andere Handwerker zu fragen",
@@ -276,7 +276,7 @@ const de = {
   "compare.rows.notInTheirPlans": "In ihren Tarifen nicht enthalten",
   "compare.rows.freeTrial": "Kostenlose Testphase",
   "compare.rows.firstMonthFree": "14 Tage gratis",
-  "compare.rows.noCardCharged": "Bis zum Ende wird keine Karte belastet",
+  "compare.rows.noCardCharged": "Keine Karte zum Start nötig",
   "compare.rows.trialOffered": "Testphase wird angeboten",
   "compare.rows.seeTheirSite": "aktuelle Bedingungen auf ihrer Website",
 

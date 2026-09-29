@@ -124,11 +124,9 @@ export default function FeaturePageContent({ slug }) {
                   {t("featurePage.chrome.seePricing")}
                 </Link>
               </div>
-              {/* Deliberately not "no credit card required". The homepage says
-                  that and /industries says "your card isn't charged until it
-                  ends", which are two different promises about the same funnel.
-                  A feature page is not the place to pick a side, so it says only
-                  the part both agree on. */}
+              {/* Only the free days. /industries adds "no card needed" (true
+                  since 2026-09-24, TRIAL_CARD_REQUIRED = false); a feature page
+                  keeps to the one line every surface shares. */}
               <p className="mt-3 text-sm text-muted-foreground">
                 {t("featurePage.chrome.firstMonthFree")}
               </p>

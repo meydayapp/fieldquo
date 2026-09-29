@@ -235,7 +235,7 @@ export const ARTICLES = {
     updated: "2026-09-12",
     intro: [
       "Every plan can be paid one of two ways. **Monthly** is no commitment: the plan renews every month and you can leave at any time. **1 year commitment** is one charge for twelve months at the price of ten — two months free — in exchange for committing to the year.",
-      "You choose at signup, and you can change your mind later from **Account & Billing**. This article gives the two prices side by side, explains the switch on the screen, and says plainly what the word commitment means once the year has been charged.",
+      "You choose when you pick a plan, and you can change your mind later from **Account & Billing**. This article gives the two prices side by side, explains the switch on the screen, and says plainly what the word commitment means once the year has been charged.",
     ],
     sections: [
       {

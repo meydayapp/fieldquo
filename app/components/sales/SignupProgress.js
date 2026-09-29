@@ -123,10 +123,13 @@ export default function SignupProgress({ leadId, className = "" }) {
 
   const stuckStep = progress.stuck ? progress.steps.find((s) => s.key === progress.stuckAtKey) : null;
   const stuckMinutes = progress.stuck ? Math.max(1, Math.floor(progress.stuckForMs / 60000)) : 0;
-  // Past "Opened" and not yet signed up: the card is the next thing they
-  // will be asked for, and the objection is best answered before it is raised.
+  // Past "Opened" and not yet signed up: "do I need a card?" is the question
+  // that stalls a signup, and it is best answered before it is raised. The
+  // answer is no — signup has taken no card since 2026-09-24.
   const reached = progress.steps.filter((s) => s.done).length;
-  const showCardPoint = !progress.completed && reached >= 2;
+  // Only on the checkout flow: the one-screen signup takes no card
+  // (progress.flow — lib/sales/signupProgress.js), so the objection never comes.
+  const showCardPoint = progress.flow !== "welcome" && !progress.completed && reached >= 2;
 
   return (
     <div className={`rounded-xl border border-border bg-card p-4 space-y-3 ${className}`} data-testid="signup-progress">

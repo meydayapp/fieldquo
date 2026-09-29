@@ -45,6 +45,47 @@ export function stageLabel(t, stage) {
   }
 }
 
+/**
+ * The welcome setup screen's words for a stage (2026-09-29) — the owner's
+ * three lines, "Setting up <company>…", "Adding <trade> services…",
+ * "Creating your templates…", plus the two stages that also really run
+ * there (the trade's checklists and plans, and opening the dashboard). A
+ * stage that does not run is never listed: the list is the server's plan.
+ * Exported for the check.
+ */
+export function welcomeStageLabel(t, stage, companyName = "") {
+  switch (stage?.kind) {
+    case "company":
+      return companyName
+        ? t("app.welcome.setup.company", "Setting up {company}…", { company: companyName })
+        : t("app.welcome.setup.companyPlain", "Setting up your business…");
+    case "services":
+      return stage.label
+        ? t("app.welcome.setup.services", "Adding {trade} services…", { trade: stage.label })
+        : t("app.welcome.setup.servicesPlain", "Adding your services…");
+    case "checklists":
+      return t("app.welcome.setup.checklists", "Adding your checklists and maintenance plans…");
+    case "templates":
+      return t("app.welcome.setup.templates", "Creating your templates…");
+    case "dashboard":
+      return t("app.welcome.setup.dashboard", "Opening your dashboard…");
+    default:
+      return t("app.welcome.setup.servicesPlain", "Adding your services…");
+  }
+}
+
+/**
+ * The chips under a finished services stage: the names the server read back
+ * from the rows it created, and "+N others" for the rest. Nothing when the
+ * stage created none — no chip is ever a name from the seed file. Exported
+ * for the check.
+ */
+export function seededChips(stage) {
+  const names = Array.isArray(stage?.names) ? stage.names.filter((n) => typeof n === "string" && n.trim()) : [];
+  const total = Number.isInteger(stage?.total) ? stage.total : names.length;
+  return { names, others: Math.max(0, total - names.length) };
+}
+
 /** The sentence under a stopped run. Exported for the check. */
 export function problemText(t, problem, stages) {
   if (!problem) return "";
@@ -99,6 +140,7 @@ function StageIcon({ status }) {
  * @param onContinue      go to the dashboard with a stage unfinished
  */
 export default function SignupCreating({
+  variant = "signup",
   stages = [],
   companyName = "",
   problem = null,
@@ -114,6 +156,8 @@ export default function SignupCreating({
   const now = currentStage(stages);
   const count = t("app.signup.progress.count", "{done} of {total} steps done", { done, total });
   const companyCreated = Boolean(problem?.companyCreated) || stages.some((s) => s.key === "company" && s.status === "done");
+  const welcome = variant === "welcome";
+  const label = (s) => (welcome ? welcomeStageLabel(t, s, companyName) : stageLabel(t, s));
 
   return (
     <section
@@ -160,19 +204,51 @@ export default function SignupCreating({
             <span className="mt-0.5 shrink-0">
               <StageIcon status={s.status} />
             </span>
-            <span className="min-w-0 break-words">{stageLabel(t, s)}</span>
+            <span className="min-w-0 break-words">
+              {label(s)}
+              {welcome && s.kind === "services" && s.status === "done" && (() => {
+                const { names, others } = seededChips(s);
+                if (!names.length) return null;
+                return (
+                  <span className="mt-1.5 flex flex-wrap gap-1.5" data-seeded-chips>
+                    {names.map((n) => (
+                      <span key={n} className="rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs font-normal text-foreground">
+                        {n}
+                      </span>
+                    ))}
+                    {others > 0 && (
+                      <span className="rounded-full px-2 py-0.5 text-xs font-normal text-muted-foreground">
+                        {t("app.welcome.setup.others", "+{n} others", { n: others })}
+                      </span>
+                    )}
+                  </span>
+                );
+              })()}
+            </span>
           </li>
         ))}
       </ol>
 
       {/* What a screen reader hears as the run moves: the step now under way. */}
       <p className="sr-only" aria-live="polite" aria-atomic="true">
-        {problem ? "" : now ? t("app.signup.progress.now", "Now: {step}", { step: stageLabel(t, now) }) : ""}
+        {problem ? "" : now ? t("app.signup.progress.now", "Now: {step}", { step: label(now) }) : ""}
       </p>
 
       {problem && (
         <div role="alert" className="mt-5 rounded-lg border border-border bg-muted px-4 py-3">
-          <p className="text-sm text-foreground">{problemText(t, problem, stages)}</p>
+          <p className="text-sm text-foreground">
+            {welcome && problem.translated
+              ? // A sentence the welcome screen already put in the reader's
+                // language (lib/signup/visitorErrors.js).
+                problem.message
+              : welcome && problem.stage === "company"
+                ? // On the welcome screen the first stage confirms the
+                  // answers; the business already exists, so "may have been
+                  // created" would be the wrong sentence — and the route's
+                  // own (English) words are never shown to a visitor.
+                  t("app.welcome.setup.failedAnswers", "We couldn't reach FieldQuo to finish setting up. Retry picks up where it stopped.")
+                : problemText(t, problem, stages)}
+          </p>
           <button
             type="button"
             onClick={onRetry}
@@ -197,7 +273,7 @@ export default function SignupCreating({
               disabled={running}
               className="w-full mt-3 text-sm text-muted-foreground hover:text-foreground disabled:opacity-60"
             >
-              ← {t("app.signup.progress.back", "Back to the form")}
+              ← {welcome ? t("app.welcome.setup.back", "Back to the questions") : t("app.signup.progress.back", "Back to the form")}
             </button>
           )}
         </div>

@@ -31,6 +31,7 @@
 // (`cheapest.label`, `parity.tier.label`) and the band a contractor reported.
 // They are quotations. See lib/marketing/compareLabels.js for the argument.
 import { SEAT_LADDER } from "@/lib/pricing/ladder";
+import { TRIAL_CARD_REQUIRED } from "@/lib/pricing";
 import {
   tierLadder,
   firstTierWith,
@@ -554,7 +555,8 @@ export function caseRows(competitorId, competitorName, t, locale = "en-CA", asOf
       {
         kind: YES,
         text: say("compare.rows.firstMonthFree", "14 days free"),
-        sub: say("compare.rows.noCardCharged", "No card charged until it ends"),
+        // Only while signup really takes no card (lib/pricing.js).
+        sub: TRIAL_CARD_REQUIRED ? undefined : say("compare.rows.noCardCharged", "No card needed to start"),
       },
       {
         kind: PLAIN,

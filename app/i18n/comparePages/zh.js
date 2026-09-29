@@ -73,7 +73,7 @@ const zh = {
   "compare.lede.roofr": "Roofr 把短信、Instant Estimator、网站和 AI 接待员当作四个单独的按月附加项来卖——在套餐之外每月再加 {addOnTotal}——而你测量的每一个屋顶，还要再按报告另外收费。FieldQuo 把这四样放进每个套餐、每个价位，从 {ourEntry} 起，并且按地址测量屋顶，不按屋顶收费。",
   "compare.concession.roofr": "先说我们没有的。Roofr 最便宜的套餐是免费的，没有时间限制，而且每个 Roofr 套餐都包含不限人数的用户；他们的测量报告把屋脊、斜脊和天沟列为实测值，而我们的是按惯例从屋顶形状推算出这种划分。FieldQuo 还是一个网页应用：没有手机 App，离线什么都用不了，也没有销售人员带你上手。",
   "compare.lede.paintscout": "PaintScout 的套餐卖的是报价；排班、销售管道和工程是附加项，每月再加 {addOnTotal}，而且第一个人之后每个人都要付费。FieldQuo 同样按施工效率给油漆工程定价——按你的效率算工时，按涂布率算用漆量——并在同一个套餐里跑完报价、工程、发票和收款，车上的人全部免费，从 {ourEntry} 起。",
-  "compare.concession.paintscout": "先说我们没有的。PaintScout 只为油漆工而建，它的默认施工效率来自多年油漆公司的积累；我们的默认值只是起点，需要你自己调。他们的页面列出了 iOS 和 Android App、离线模式、QuickBooks、Zapier 和 CompanyCam、一个油漆工社区，以及一个不需要银行卡的试用。这些 FieldQuo 都没有；如果其中任何一项对你是决定性的，他们是更好的选择。",
+  "compare.concession.paintscout": "先说我们没有的。PaintScout 只为油漆工而建，它的默认施工效率来自多年油漆公司的积累；我们的默认值只是起点，需要你自己调。他们的页面列出了 iOS 和 Android App、离线模式、QuickBooks、Zapier 和 CompanyCam，以及一个油漆工社区。这些 FieldQuo 都没有；如果其中任何一项对你是决定性的，他们是更好的选择。",
   "compare.capability.measured_roof_report": "带实测边长的屋顶测量报告",
   "compare.capability.integration_marketplace": "连接其他工具（Zapier、CompanyCam）",
   "compare.capability.community": "可以向其他承包商请教的客户社区",
@@ -274,7 +274,7 @@ const zh = {
   "compare.rows.notInTheirPlans": "他们的套餐里没有",
   "compare.rows.freeTrial": "免费试用",
   "compare.rows.firstMonthFree": "免费 14 天",
-  "compare.rows.noCardCharged": "结束之前不扣卡",
+  "compare.rows.noCardCharged": "开始时无需绑卡",
   "compare.rows.trialOffered": "提供试用",
   "compare.rows.seeTheirSite": "现行条款以他们网站为准",
 

@@ -495,7 +495,10 @@ async function main() {
     ok("a failed stage → outcome failed, naming it", out.outcome === "failed" && out.stage === "services:cat_ext" && out.companyCreated === true);
     const carried = await runSignupCreation({ stages: initialStages(TRADES), postCompany: async () => jsonResponse(200, { appUrl: "/q/abc", setup: "staged" }), openSetup: async () => streamResponse([failing]), timeouts: FAST });
     ok("…and carries the route's appUrl, so Retry / 'anyway' land where the signup began", carried.outcome === "failed" && carried.appUrl === "/q/abc");
-    ok("the page hands that appUrl to the next run", /if \(result\.appUrl\) creationRef\.current\.appUrl = result\.appUrl;/.test(read("app/signup/page.js")) && /fallbackAppUrl: creationRef\.current\.appUrl \|\| signupAppUrl,/.test(read("app/signup/page.js")));
+    // 2026-09-29: the progress screen runs at the END of the welcome questions
+    // (app/welcome/WelcomeFlow.js SetupScreen); where to land comes from the
+    // ?next= /signup kept in this tab (afterSetupUrl), handed to every run.
+    ok("the setup screen hands its landing to every run", /fallbackAppUrl: appUrl,/.test(read("app/welcome/WelcomeFlow.js")) && /const appUrl = afterSetupUrl\(\);/.test(read("app/welcome/WelcomeFlow.js")));
     ok("…the others stay done", out.stages.filter((s) => s.status === "done").length === 4);
     ok("…the sentence names the stage and offers Settings", problemText(tEn, out, out.stages).includes("Adding your services for Exterior Painting") && /Settings/.test(problemText(tEn, out, out.stages)));
     percents = [];
@@ -570,19 +573,25 @@ async function main() {
   // ══ H. Wiring and strings ══════════════════════════════════════════════════
   section("H. The page and the routes are wired to it; the strings exist in nine languages");
   {
-    const page = code("app/signup/page.js");
-    const finish = page.slice(page.indexOf("async function handleFinish"), page.indexOf("function leaveCreating"));
-    ok("the page renders SignupCreating", /<SignupCreating\b/.test(page) && /import SignupCreating from "@\/app\/components\/auth\/SignupCreating"/.test(page));
-    ok("the no-plan finish goes through runCreation", /if \(withoutPlan\) \{[\s\S]*?await runCreation\(\);/.test(finish));
-    ok("runCreation drives runSignupCreation with the stream route", /runSignupCreation\(\{/.test(finish) && /fetch\("\/api\/signup\/setup", \{ method: "POST", signal \}\)/.test(finish));
-    ok("the company POST can be aborted and asks for staging on the no-plan path", /signal,\n\s+body: JSON\.stringify\(\{/.test(finish) && /stagedSetup: withoutPlan \? true : undefined,/.test(finish));
-    ok("a Retry re-sends the SAME request and carries the unknown outcome", /onRetry=\{runCreation\}/.test(page) && /postCompany: creationRef\.current\.postCompany/.test(finish) && /companyMaybeCreated: creationRef\.current\.companyMaybeCreated/.test(finish) && /if \(result\.companyUnknown\) creationRef\.current\.companyMaybeCreated = true;/.test(finish));
-    ok("the services card is hidden while the screen shows (no second press)", /step === "services" && !creating && \(/.test(page));
-    ok("no timer moves a stage: the page's only timeout is the slow-navigation link", (finish.match(/setTimeout\(/g) || []).length === 1 && /slowNavigation: true/.test(finish));
-    ok("Back is only for a company that does not exist; Continue goes to the app", /onBack=\{leaveCreating\}/.test(page) && /onContinue=\{\(\) => \{\s*window\.location\.href = creating\.appUrl \|\| signupAppUrl;/.test(page));
+    // ── Where the screen lives now (2026-09-29) ─────────────────────────────
+    //
+    // /signup's one press creates the company; the seeding runs on the LAST
+    // welcome screen (/welcome/setup), once every question is answered and
+    // the currency is known. Its first stage confirms the answers (PATCH
+    // { step: "finish" }), not a second company.
+    const flow = code("app/welcome/WelcomeFlow.js");
+    const screen = flow.slice(flow.indexOf("function SetupScreen"), flow.indexOf("/* ── The questions"));
+    ok("the welcome setup screen renders SignupCreating, in its welcome variant", /<SignupCreating\s+variant="welcome"/.test(screen) && /import SignupCreating from "@\/app\/components\/auth\/SignupCreating"/.test(flow));
+    ok("its run drives runSignupCreation with the stream route", /runSignupCreation\(\{/.test(screen) && /fetch\("\/api\/signup\/setup", \{ method: "POST", signal \}\)/.test(screen));
+    ok("...its first stage is the answers confirmed, abortable", /body: JSON\.stringify\(\{ step: "finish" \}\),\s*signal,/.test(screen));
+    ok("a Retry starts from the stages the failed run left", /onRetry=\{run\}/.test(screen) && /const start = ref\.current\.stages \|\| initialStages\(trades\);/.test(screen) && /ref\.current\.stages = result\.stages;/.test(screen));
+    ok("the run starts once per visit (no second run from a double mount)", /if \(ref\.current\.started\) return;/.test(screen));
+    ok("no timer moves a stage: the screen's only timeout is the slow-navigation link", (screen.match(/setTimeout\(/g) || []).length === 1 && /slowNavigation: true/.test(screen));
+    ok("'Go to my dashboard anyway' stamps the answers finished first", /onContinue=\{carryOn\}/.test(screen) && /body: JSON\.stringify\(\{ step: "done" \}\)/.test(screen));
+    ok("Back (only before the answers are confirmed) returns to the questions", /onBack=\{\(\) => router\.push\(welcomePath\("source"\)\)\}/.test(screen));
 
     const route = code("app/api/companies/route.js");
-    ok("/api/companies reads stagedSetup and seeds inline otherwise", /stagedSetup,\n\s*\} = await request\.json\(\);/.test(route) && /const staged = stagedSetup === true && !plan;/.test(route) && /if \(!staged\) \{[\s\S]*?runSetupInline\(/.test(route));
+    ok("/api/companies reads stagedSetup, stages the one-screen signup, and seeds inline otherwise", /stagedSetup,\n/.test(route) && /const staged = \(stagedSetup === true && !plan\) \|\| welcomeFlow;/.test(route) && /if \(!staged\) \{[\s\S]*?runSetupInline\(/.test(route));
     ok("…answers setup: 'staged' | 'done'", /setup: staged \? "staged" : "done",/.test(route));
     ok("…serialises company creation per USER and re-checks membership under the lock", /pg_advisory_xact_lock\(hashtext\(\$\{`signup-company:\$\{session\.user\.id\}`\}\)\)/.test(route) && /const raced = await tx\.member\.findFirst\(/.test(route) && /if \(raced\) return null;/.test(route));
     ok("…a raced second request gets the same 409 already_has_company", /if \(!company\) \{\s*return NextResponse\.json\([\s\S]*?code: "already_has_company"[\s\S]*?status: 409/.test(route));

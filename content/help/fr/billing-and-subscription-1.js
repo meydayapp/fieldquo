@@ -228,7 +228,7 @@ export const ARTICLES = {
     updated: "2026-09-12",
     intro: [
       "Chaque forfait peut être payé de deux façons. **Mensuel**, c'est sans engagement : le forfait se renouvelle chaque mois et vous pouvez partir n'importe quand. **Engagement d'un an**, c'est un seul prélèvement pour douze mois au prix de dix — deux mois gratuits — en échange de l'engagement pour l'année.",
-      "Vous choisissez à l'inscription, et vous pouvez changer d'idée plus tard depuis **Compte et facturation**. Cet article met les deux prix côte à côte, explique le sélecteur à l'écran, et dit clairement ce que veut dire le mot engagement une fois l'année prélevée.",
+      "Vous choisissez en prenant un forfait, et vous pouvez changer d'idée plus tard depuis **Compte et facturation**. Cet article met les deux prix côte à côte, explique le sélecteur à l'écran, et dit clairement ce que veut dire le mot engagement une fois l'année prélevée.",
     ],
     sections: [
       {

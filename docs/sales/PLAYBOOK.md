@@ -506,9 +506,9 @@ lines sort the three before you ask to be handed on.
 
 **If they say yes**
 
-> Good. I'm texting you the link now — open it while we're on, it's two minutes. Company details, pick the plan, card: you're not charged for 14 days and you can cancel from Settings in one click. Then your rates go in however they exist — a spreadsheet, a photo of a page — and send one real quote out of it and ring me if it feels wrong.
+> Good. I'm texting you the link now — open it while we're on, it's two minutes. Company details, your trades and your services, and you're in — no card, and the first 14 days are free. Then your rates go in however they exist — a spreadsheet, a photo of a page — and send one real quote out of it and ring me if it feels wrong.
 
-- Stay on the line through the card step. The signup dies at the card when nobody is on the phone; your screen shows where they are, so you never have to ask.
+- Stay on the line until they are in. There is no card step any more, but a signup still dies halfway when nobody is on the phone; your screen shows where they are, so you never have to ask.
 - After you ask, stop talking. Futrell is emphatic about this: anything said after the question takes the pressure off the decision, and the pressure is the only thing making it happen now.
 - Waiting is a real answer and gets a real date. A rep who treats it as a loss argues, and arguing at the close is how a maybe becomes a no.
 - Do not discount to get the yes. Saylor's own figure: forty per cent of buyers ask for a concession only because they had to ask, and half of sellers give one on the first request.
@@ -943,7 +943,7 @@ first is $20 a month — that is the whole card.
 **Where we win**
 
 - PaintScout includes one user and charges $20 a month for each additional team seat; FieldQuo bills only the people who originate money and includes field crew free
-- PaintScout's 14-day trial takes no card; FieldQuo's month is free with a card on file and you leave at the end of any month (the first half is a point for them — say it)
+- PaintScout's 14-day trial takes no card, and neither does FieldQuo's; FieldQuo is month to month and you leave at the end of any month
 - Operations — scheduling, the pipeline, jobs, tasks, reminders — is a $99/mo add-on on top of Sales. All of it is in every plan of ours.
 - 50 things we ship are not listed on any tier of their pricing page — including Lead form for your website, AI quote review, AI receptionist, Confirmation calls, Quote drafted from the call, Your own website.
 

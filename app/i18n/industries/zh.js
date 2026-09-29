@@ -10,7 +10,7 @@ const zh = {
     seeItInAction: "看看实际效果",
     startTrial: "开始免费试用",
     talkToUs: "联系我们",
-    noCard: "前 14 天免费——试用结束前不会扣你的卡。",
+    noCard: "无需绑卡——前 {days} 天免费。",
     videoSoon: "产品操作视频即将上线",
     videoDemoPrefix: "想看真人实操？",
     videoDemoLink: "预约演示",

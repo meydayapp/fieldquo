@@ -85,7 +85,7 @@ const tl = {
   "compare.lede.roofr": "Ibinebenta ng Roofr ang SMS texting, ang Instant Estimator nito, isang website at isang AI receptionist bilang magkakahiwalay na buwanang add-on — {addOnTotal} bawat buwan sa ibabaw ng plano — at bawat bubong na sinusukat mo ay sinisingil bawat report sa ibabaw pa niyan. Nasa bawat plano ng FieldQuo ang apat na iyon, sa bawat presyo, mula {ourEntry}, at sinusukat nito ang bubong mula sa address nang walang bayad bawat bubong.",
   "compare.concession.roofr": "Simulan sa wala kami. Libre ang pinakamurang plano ng Roofr, walang limitasyon sa oras, at kasama sa bawat plano ng Roofr ang walang-limitasyong mga user; nakalista sa kanilang measurement report ang mga tuktok, hip at valley bilang nasukat, samantalang hinahango ng amin ang paghahating iyon ayon sa kumbensiyon mula sa hugis ng bubong. Web application din ang FieldQuo na walang phone app, walang gumagana nang walang signal, at walang salesperson na gagabay sa iyo.",
   "compare.lede.paintscout": "Ang plano ng PaintScout ay nagbebenta ng estimate; ang scheduling, ang pipeline at ang trabaho ay add-on na {addOnTotal} pa bawat buwan, at bayad ang bawat tao pagkatapos ng una. Pinepresyo rin ng FieldQuo ang pintura ayon sa production rate — oras mula sa iyong mga rate, galon mula sa coverage — at pinapatakbo ang quote, ang trabaho, ang invoice at ang bayad sa iisang plano, libre ang lahat ng nasa van, mula {ourEntry}.",
-  "compare.concession.paintscout": "Simulan sa wala kami. Para lamang sa mga pintor ang PaintScout, at ang mga default na production rate nito ay galing sa taon-taon ng mga kumpanya ng pintura; ang amin ay dumarating bilang panimulang halaga na inaasahang iaayos mo. Nakalista sa kanilang page ang iOS at Android app, offline mode, QuickBooks, Zapier at CompanyCam, isang komunidad ng ibang pintor, at trial na hindi humihingi ng card. Wala ang FieldQuo ng alinman doon, at kung alinman sa mga iyon ang magpapasya para sa iyo, sila ang mas mabuting bilhin.",
+  "compare.concession.paintscout": "Simulan sa wala kami. Para lamang sa mga pintor ang PaintScout, at ang mga default na production rate nito ay galing sa taon-taon ng mga kumpanya ng pintura; ang amin ay dumarating bilang panimulang halaga na inaasahang iaayos mo. Nakalista sa kanilang page ang iOS at Android app, offline mode, QuickBooks, Zapier at CompanyCam, at isang komunidad ng ibang pintor. Wala ang FieldQuo ng alinman doon, at kung alinman sa mga iyon ang magpapasya para sa iyo, sila ang mas mabuting bilhin.",
   "compare.capability.measured_roof_report": "Isang measurement report ng bubong na may sinukat na haba ng mga gilid",
   "compare.capability.integration_marketplace": "Kumokonekta sa ibang tool (Zapier, CompanyCam)",
   "compare.capability.community": "Isang komunidad ng mga customer para magtanong sa ibang kontratista",
@@ -284,7 +284,7 @@ const tl = {
   "compare.rows.notInTheirPlans": "Wala sa mga plano nila",
   "compare.rows.freeTrial": "Libreng subok",
   "compare.rows.firstMonthFree": "Libre ang 14 na araw",
-  "compare.rows.noCardCharged": "Walang sisingiling card hangga't hindi ito natatapos",
+  "compare.rows.noCardCharged": "Walang card na kailangan para magsimula",
   "compare.rows.trialOffered": "May inaalok na subok",
   "compare.rows.seeTheirSite": "tingnan ang site nila para sa kasalukuyang tuntunin",
 
