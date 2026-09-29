@@ -74,6 +74,7 @@ import {
   isValidFacebookScheduleTime,
   isSocialPublishingVisible,
   isRetryablePublishCode,
+  checkImageForFacebookFeed,
 } from "@/lib/social/metaSpecs";
 import { metaAppConfigured } from "@/lib/meta/client";
 import { getMetaConnection } from "@/lib/social/metaConnection";
@@ -398,7 +399,22 @@ export async function POST(request, { params }) {
       : anyScheduled
         ? `Scheduled "${design.name}" for ${platforms.join(", ")} at ${scheduledFor?.toISOString()}`
         : `Attempted to publish "${design.name}" to ${platforms.join(", ")}`,
-    metadata: { platforms, scheduledFor, results: Object.fromEntries(Object.entries(results).map(([k, v]) => [k, v.status])) },
+    metadata: {
+      platforms,
+      scheduledFor,
+      results: Object.fromEntries(Object.entries(results).map(([k, v]) => [k, v.status])),
+      // Recorded, never enforced: a Facebook post taller than 4:5 went out and
+      // the feed will crop it. Present only when some platform said so.
+      ...(Object.values(results).some((r) => r.warnings?.length)
+        ? {
+            warnings: Object.fromEntries(
+              Object.entries(results)
+                .filter(([, v]) => v.warnings?.length)
+                .map(([k, v]) => [k, v.warnings]),
+            ),
+          }
+        : {}),
+    },
   }).catch(() => {});
 
   return NextResponse.json({ results });
@@ -482,7 +498,15 @@ async function publishOnePlatform({
     }
 
     await db.socialPublish.update({ where: { id: row.id }, data: { status: "scheduled" } });
-    return { status: "scheduled", scheduledFor };
+    // A queued demo Facebook post never reaches publishToFacebook() until the
+    // cron fires it, so its feed-crop warning is worked out here, from the
+    // same function, rather than lost for the one path that skips the call.
+    const feed = platform === "facebook" ? checkImageForFacebookFeed({ width, height }) : null;
+    return {
+      status: "scheduled",
+      scheduledFor,
+      ...(feed?.warnings.length ? { warnings: feed.warnings } : {}),
+    };
   }
 
   // Everything else: an immediate publish on either platform, OR a REAL
@@ -508,6 +532,8 @@ async function publishOnePlatform({
             imageUrl,
             caption,
             fileSizeBytes,
+            width,
+            height,
             scheduledPublishTime: scheduledFor || undefined,
             client,
             simulateFailure: effectiveSimulateFailure,
@@ -528,7 +554,15 @@ async function publishOnePlatform({
       },
     });
 
-    return { status: result.status, postId: result.postId, scheduledFor: scheduledFor || null };
+    return {
+      status: result.status,
+      postId: result.postId,
+      scheduledFor: scheduledFor || null,
+      // Facebook's feed-crop warning (publishToFacebook) — the post went out;
+      // this only tells the contractor how the feed will show it. Absent, not
+      // empty, when there is nothing to say.
+      ...(result.warnings?.length ? { warnings: result.warnings } : {}),
+    };
   } catch (err) {
     return failRow(row, err, platform);
   }

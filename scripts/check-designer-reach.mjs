@@ -562,7 +562,13 @@ section("4. Download all — one distinctly-named file per ratio, named for the 
 
 const { AD_RATIOS, assetFilename } = await import("@/lib/marketing/ratios");
 
-ok(AD_RATIOS.length === 5, "sanity: five ratios are actually defined", AD_RATIOS.length);
+// Six since 2026-09-28: Instagram portrait (4:5) was ADDED beside the square,
+// never swapped for it — see lib/marketing/ratios.js.
+ok(AD_RATIOS.length === 6, "sanity: six ratios are actually defined (portrait 4:5 added, square kept)", AD_RATIOS.length);
+ok(
+  AD_RATIOS.some((r) => r.key === "instagram_post" && r.width === 1080 && r.height === 1080),
+  "…and the square is still instagram_post at 1080x1080 — the key every existing saved layout is filed under",
+);
 
 const names = AD_RATIOS.map((r) => assetFilename("Spring Promo", r.key));
 ok(new Set(names).size === names.length, "assetFilename() produces a DISTINCT name for every ratio", names.join(" | "));
@@ -1496,7 +1502,14 @@ section("9. Meta refusals at Instagram container creation — stored in full, na
     [{ message: "The Instagram account is restricted.", type: "OAuthException", code: 25, error_subcode: 2207050 }, "meta_account", false, "failed"],
     [{ message: "Application request limit reached", type: "OAuthException", code: 4, is_transient: true }, "rate_limited", false, "rate_limited"],
     [{ message: "You reached maximum number of posts that is allowed to be published by Content Publish API.", type: "OAuthException", code: 9, error_subcode: 2207042 }, "rate_limited", false, "rate_limited"],
-    [{ message: "The submitted image with aspect ratio ('0.5625') cannot be published.", type: "OAuthException", code: 36003, error_subcode: 2207009 }, "meta_media_rejected", false, "failed"],
+    // The shape refusal has its own code since 2026-09-28 — the one image
+    // refusal the contractor can fix on the same screen (Portrait or Square).
+    [{ message: "The submitted image with aspect ratio ('0.5625') cannot be published.", type: "OAuthException", code: 36003, error_subcode: 2207009 }, "meta_media_shape", false, "failed"],
+    [{ message: "The submitted image with aspect ratio ('0.5625') cannot be published.", type: "OAuthException", code: 36003 }, "meta_media_shape", false, "failed"],
+    [{ message: "Invalid parameter: the image's aspect ratio is not supported", type: "OAuthException", code: 100 }, "meta_media_shape", false, "failed"],
+    // …and size/format refusals still land where they always did.
+    [{ message: "The image is too large to download. It should be less than 8MiB.", type: "OAuthException", code: 36000, error_subcode: 2207004 }, "meta_media_rejected", false, "failed"],
+    [{ message: "The image format webp is not supported.", type: "OAuthException", code: 36001, error_subcode: 2207005 }, "meta_media_rejected", false, "failed"],
     [{ message: "An unknown error has occurred.", type: "OAuthException", code: 1, is_transient: true }, "meta_transient", true, "failed"],
     [{ message: "Service temporarily unavailable", type: "OAuthException", code: 2, is_transient: true }, "meta_transient", true, "failed"],
     [{ message: "Create media fail, please try to re-create media", type: "OAuthException", code: -1, error_subcode: 2207032 }, "meta_transient", true, "failed"],
@@ -1519,6 +1532,36 @@ section("9. Meta refusals at Instagram container creation — stored in full, na
       `…and the ${label} row stores Meta's code and fbtrace_id`,
       row?.errorMessage,
     );
+    if (code === "meta_media_shape") {
+      ok(
+        r.message === "Instagram refused this image's shape — use Portrait 4:5 or Square. Nothing was posted.",
+        `…and ${label} tells the contractor which shapes to use, not the generic "Something went wrong"`,
+        r.message,
+      );
+    }
+  }
+
+  // ── Facebook's feed-crop warning: returned and recorded, never refused ──
+  {
+    const squareFb = (await post(["facebook"])).body?.results?.facebook || {};
+    ok(
+      JSON.stringify(Object.keys(squareFb).sort()) === JSON.stringify(["postId", "scheduledFor", "status"]),
+      "a stored 1080x1080 design's Facebook result has exactly the keys it always had — no empty `warnings` added",
+      JSON.stringify(squareFb),
+    );
+    const savedUpload = globalThis.__FQ_UPLOAD;
+    globalThis.__FQ_UPLOAD = async () => ({
+      secure_url: "https://res.cloudinary.com/demo/image/upload/v1/fieldquo/companies/co1/social/tall.jpg",
+      width: 1080,
+      height: 1920,
+      bytes: 300000,
+    });
+    const photosBefore = calls.filter((c) => c.path.endsWith("/photos")).length;
+    const tall = (await post(["facebook"])).body?.results?.facebook || {};
+    globalThis.__FQ_UPLOAD = savedUpload;
+    ok(tall.status === "published", "a 9:16 image still POSTS to Facebook — the feed check warns, it does not refuse", JSON.stringify(tall));
+    ok(calls.filter((c) => c.path.endsWith("/photos")).length === photosBefore + 1, "…Meta's /photos endpoint was actually called for it");
+    ok(JSON.stringify(tall.warnings) === JSON.stringify(["feed_crop"]), "…and the result carries warnings: [\"feed_crop\"]", JSON.stringify(tall.warnings));
   }
 
   // ── The quota pre-check reads Meta's REAL envelope ─────────────────────

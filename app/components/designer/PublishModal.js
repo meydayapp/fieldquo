@@ -67,6 +67,7 @@ import { reportResponseError } from "@/lib/clientErrors";
 import {
   validateCaption,
   validateImageForInstagram,
+  checkImageForFacebookFeed,
   INSTAGRAM_CAPTION_SPEC,
   isValidFacebookScheduleTime,
   isValidScheduleTime,
@@ -98,15 +99,23 @@ function toLocalInputValue(date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-// The only two AD_RATIOS crops this dialog will ever offer — both verified
+// The only AD_RATIOS crops this dialog will ever offer — all verified
 // compliant with Instagram's 4:5–1.91:1 aspect-ratio gate in
-// lib/social/metaSpecs.js's own comment on INSTAGRAM_COMPLIANT_RATIO_KEY. A
-// Story (9:16) or TikTok crop is never offered here, because Instagram's
-// feed endpoint would reject it outright rather than letter-box it.
+// lib/social/metaSpecs.js's own comment on INSTAGRAM_COMPLIANT_RATIO_KEY, and
+// all shown uncropped in Facebook's feed. A Story (9:16) or TikTok crop is
+// never offered here, because Instagram's feed endpoint would reject it
+// outright rather than letter-box it.
+//
+// Portrait (4:5, 1080x1350) was added 2026-09-28 as the recommended shape; the
+// square and landscape are unchanged. Which one the dialog STARTS on comes
+// from `initialShape` (lib/marketing/ratios.js defaultPublishShape()), so a
+// design made before the portrait existed still opens on the square.
 const SHAPES = [
+  { key: "instagram_portrait", labelKey: "app.marketingDesigner.publishModal.shapePortrait" },
   { key: "instagram_post", labelKey: "app.marketingDesigner.publishModal.shapeSquare" },
   { key: "facebook_feed", labelKey: "app.marketingDesigner.publishModal.shapeLandscape" },
 ];
+const FALLBACK_SHAPE = "instagram_post";
 
 const CAPTION_ERROR_KEYS = {
   empty: "app.marketingDesigner.publishModal.captionEmpty",
@@ -123,8 +132,17 @@ const CAPTION_ERROR_KEYS = {
  * @param {(ratioKey: string) => Promise<{dataUrl:string,width:number,height:number}|null>} props.preparePublishAsset
  * @param {() => void} [props.onOpenApproval]  hands the person over to the
  *   screen where the words are actually edited and the sign-off happens.
+ * @param {string} [props.initialShape]  the SHAPES key to start on. Anything
+ *   not in SHAPES (or absent) starts on the square, as this dialog always did.
  */
-export default function PublishModal({ isOpen, onClose, design, preparePublishAsset, onOpenApproval }) {
+export default function PublishModal({
+  isOpen,
+  onClose,
+  design,
+  preparePublishAsset,
+  onOpenApproval,
+  initialShape,
+}) {
   const { t } = useTranslation();
   // Settings › Meta Ads is owner/admin only (SETTINGS_ROW_CAPABILITY
   // "billing"; app/api/settings/social/* refuse anyone else). A supervisor
@@ -135,7 +153,9 @@ export default function PublishModal({ isOpen, onClose, design, preparePublishAs
   const canConnect = !caller?.role || isBillingAdmin(caller.role);
 
   const [connection, setConnection] = useState(null); // null = loading
-  const [ratioKey, setRatioKey] = useState(SHAPES[0].key);
+  const [ratioKey, setRatioKey] = useState(() =>
+    SHAPES.some((s) => s.key === initialShape) ? initialShape : FALLBACK_SHAPE,
+  );
   const [asset, setAsset] = useState(null);
   const [assetLoading, setAssetLoading] = useState(false);
   const [assetFailed, setAssetFailed] = useState(false);
@@ -226,6 +246,14 @@ export default function PublishModal({ isOpen, onClose, design, preparePublishAs
   const captionCheck = useMemo(() => validateCaption(caption), [caption]);
   const imageCheck = useMemo(
     () => (asset ? validateImageForInstagram({ width: asset.width, height: asset.height }) : null),
+    [asset],
+  );
+
+  // Facebook's pre-post check. A WARNING only — it is deliberately not part of
+  // canSubmit below: Facebook accepts any shape and crops the tall ones in the
+  // feed, so the contractor is told and then left to decide.
+  const facebookFeedCheck = useMemo(
+    () => (asset ? checkImageForFacebookFeed({ width: asset.width, height: asset.height }) : null),
     [asset],
   );
 
@@ -464,7 +492,9 @@ export default function PublishModal({ isOpen, onClose, design, preparePublishAs
               <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
                 {t("app.marketingDesigner.publishModal.shapeLabel")}
               </p>
-              <div className="flex gap-2">
+              {/* Wraps: three shapes in German or Punjabi do not fit one row
+                  of a phone-width dialog. */}
+              <div className="flex flex-wrap gap-2">
                 {SHAPES.map((s) => (
                   <button
                     key={s.key}
@@ -503,6 +533,15 @@ export default function PublishModal({ isOpen, onClose, design, preparePublishAs
               <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
                 <TriangleAlert size={12} />
                 {t("app.marketingDesigner.publishModal.imageNotCompliant")}
+              </p>
+            )}
+            {platforms.facebook && facebookFeedCheck?.warnings.includes("feed_crop") && (
+              <p
+                data-facebook-feed-crop
+                className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1"
+              >
+                <TriangleAlert size={12} />
+                {t("app.marketingDesigner.publishModal.facebookFeedCrop")}
               </p>
             )}
 
@@ -708,6 +747,7 @@ const FAILURE_KEYS = {
   meta_permission: "app.marketingDesigner.publishModal.failureMetaPermission",
   meta_account: "app.marketingDesigner.publishModal.failureMetaAccount",
   meta_media_unreachable: "app.marketingDesigner.publishModal.failureMediaUnreachable",
+  meta_media_shape: "app.marketingDesigner.publishModal.failureMediaShape",
   meta_media_rejected: "app.marketingDesigner.publishModal.failureMediaRejected",
   meta_transient: "app.marketingDesigner.publishModal.failureMetaTransient",
   meta_error: "app.marketingDesigner.publishModal.failureMetaError",
@@ -736,11 +776,24 @@ function ResultRow({ platform, result, t, submitting, onRetry, canConnect }) {
   const settingsLink = canConnect && SETTINGS_FIX_CODES.has(result.code);
   const platformLabel = platform === "instagram" ? "Instagram" : "Facebook";
 
+  // The server's own feed-crop warning on a post that DID go out (or is
+  // queued) — the same sentence the pre-post check showed, so a contractor who
+  // posted anyway still has it on the result.
+  const feedCrop = Array.isArray(result.warnings) && result.warnings.includes("feed_crop") ? (
+    <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+      <TriangleAlert size={12} />
+      {t("app.marketingDesigner.publishModal.facebookFeedCrop")}
+    </p>
+  ) : null;
+
   if (result.status === "published") {
     return (
       <div className="flex items-start gap-2 bg-muted rounded-lg p-3 text-sm text-foreground">
         <Check size={16} className="mt-0.5 shrink-0" />
-        <span>{t("app.marketingDesigner.publishModal.resultPublished", { platform: platformLabel })}</span>
+        <div className="space-y-1">
+          <span>{t("app.marketingDesigner.publishModal.resultPublished", { platform: platformLabel })}</span>
+          {feedCrop}
+        </div>
       </div>
     );
   }
@@ -750,14 +803,17 @@ function ResultRow({ platform, result, t, submitting, onRetry, canConnect }) {
     return (
       <div className="flex items-start gap-2 bg-muted rounded-lg p-3 text-sm text-foreground">
         <Clock size={16} className="mt-0.5 shrink-0" />
-        <span>
-          {when && !Number.isNaN(when.getTime())
-            ? t("app.marketingDesigner.publishModal.resultScheduled", {
-                platform: platformLabel,
-                when: when.toLocaleString(),
-              })
-            : t("app.marketingDesigner.publishModal.resultScheduledNoTime", { platform: platformLabel })}
-        </span>
+        <div className="space-y-1">
+          <span>
+            {when && !Number.isNaN(when.getTime())
+              ? t("app.marketingDesigner.publishModal.resultScheduled", {
+                  platform: platformLabel,
+                  when: when.toLocaleString(),
+                })
+              : t("app.marketingDesigner.publishModal.resultScheduledNoTime", { platform: platformLabel })}
+          </span>
+          {feedCrop}
+        </div>
       </div>
     );
   }

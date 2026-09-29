@@ -79,6 +79,8 @@ import {
   reflow,
   overflowing,
   assetFilename,
+  openingRatio,
+  defaultPublishShape,
 } from "@/lib/marketing/ratios";
 
 // Renders `doc` (a parsed fabric document) to a data URL on an offscreen
@@ -141,10 +143,12 @@ function rasterize(doc, fallbackWidth, fallbackHeight, format = "png") {
 export function CampaignEditor({ design, onBack }) {
   const { t } = useTranslation();
 
-  const [activeRatio, setActiveRatio] = useState(() => {
-    const has = (design.layouts || []).some((l) => l.ratioKey === DEFAULT_RATIO);
-    return has ? DEFAULT_RATIO : design.layouts?.[0]?.ratioKey || DEFAULT_RATIO;
-  });
+  // openingRatio(), not DEFAULT_RATIO directly: the default moved to 4:5 on
+  // 2026-09-28, and a design saved before that must keep opening on the square
+  // it was laid out on rather than on a portrait tab it has never had.
+  const [activeRatio, setActiveRatio] = useState(() =>
+    openingRatio((design.layouts || []).map((l) => l.ratioKey)),
+  );
   const [warnings, setWarnings] = useState(() => {
     const initial = {};
     for (const l of design.layouts || []) {
@@ -557,6 +561,10 @@ export function CampaignEditor({ design, onBack }) {
           onClose={() => setPublishOpen(false)}
           design={design}
           preparePublishAsset={preparePublishAsset}
+          initialShape={defaultPublishShape({
+            savedKeys: Object.keys(layoutsRef.current),
+            activeKey: activeRatio,
+          })}
           onOpenApproval={() => {
             setPublishOpen(false);
             setApprovalOpen(true);
