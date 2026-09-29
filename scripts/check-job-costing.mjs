@@ -201,5 +201,23 @@ console.log("\nThe same physical asset logged on two different jobs the same day
     jobB.equipment.total, oneDayOfRig.total);
 }
 
+console.log("\nA sub's imported quote, adopted on acceptance, then a signed change order");
+{
+  // The owner's worked example (2026-09-29), from the costing side: the
+  // import's expense ($3,000 at first, category "Subcontractor") and the
+  // JobSubcontractor that adopted it describe the same money. After the GC
+  // signs the sub's +$250 change order both say $3,250
+  // (lib/subcontractors/sourceLink.js), and the job must cost $3,250 — not
+  // $6,500, not $3,000. check:subcontractors runs the full chain.
+  const importExpense = { id: "exp_imp", category: "Subcontractor", amount: 3250 };
+  const adopted = [{ agreedAmount: 3250, status: "agreed", importExpenseId: "exp_imp" }];
+  const c = actualJobCost([importExpense, { category: "Materials", amount: 100 }], [], { subcontracts: adopted });
+  t("the subcontract is counted once, at the approved $3,250", c.subcontracts.total, 3250);
+  t("…the adopted import expense is left out of expenses", c.expenses.total, 100);
+  t("…and the job costs $3,350 all in", c.total, 3350);
+  const unadopted = actualJobCost([importExpense], [], { subcontracts: [] });
+  t("an import nobody adopted still counts through its expense", unadopted.total, 3250);
+}
+
 console.log(fail ? `\n${fail} FAILED\n` : "\nALL PASS — a job can say what it cost\n");
 process.exit(fail ? 1 : 0);
