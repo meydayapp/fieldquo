@@ -80,8 +80,8 @@ read off developers.tiktok.com on 2026-09-29 and is cited in the code.
 
 - **Switched on by configuration only** (`lib/tiktok/config.js`):
   `TIKTOK_CLIENT_KEY` + `TIKTOK_CLIENT_SECRET` + `META_TOKEN_ENCRYPTION_KEY`.
-  Missing any → Settings › Meta Ads shows "TikTok posting — coming soon" with
-  no button, the connect route refuses, the designer draws no TikTok button.
+  Missing any → Settings › TikTok shows "TikTok posting — coming soon" with
+  no button, the connect route refuses, the designer offers no TikTok.
 - **Connection** — `TikTokConnection` (additive table). `/api/tiktok/connect`
   → TikTok Login Kit (no PKCE for web) with a signed state bound to member +
   company + a cookie nonce; `/api/tiktok/callback` exchanges the code, reads
@@ -91,19 +91,24 @@ read off developers.tiktok.com on 2026-09-29 and is cited in the code.
   forward inside its last 30 days. Disconnect revokes at TikTok first, then
   nulls the tokens and stamps the row — never a delete; `authorization.removed`
   and a dead refresh token do the same.
-- **Settings card** (`app/components/settings/TikTokPanel.js`) beside
-  Facebook & Instagram on Settings › Meta Ads: nickname + avatar, missing
-  permissions, Disconnect, why a previous connection ended, and the unaudited
-  notice.
+- **Settings › TikTok** (`app/app/settings/tiktok`, its own sidebar row
+  directly under Meta Ads — not a card on the Meta screen, the owner's call):
+  nickname + avatar, missing permissions, Disconnect, why a previous
+  connection ended, and the unaudited notice. Help article `settings-tiktok`
+  in en/fr/es.
 - **Composer** (`app/components/designer/TikTokPublishModal.js`, opened from
-  the designer's TikTok button, drawn only when connected): TikTok's mandated
+  the Publish dialog's TikTok destination — or straight from Publish when
+  TikTok is the company's only destination — and only when connected): TikTok's mandated
   UX — creator_info fetched fresh on every open, nickname shown, privacy
   dropdown from TikTok's options with no default ("Only me" only while
   unaudited), "Allow comments" off and greyed when the creator disabled it,
   commercial disclosure (Your brand / Branded content, labels, "can't be
   private"), the Music Usage / Branded Content Policy consent line, preview,
   "may take a few minutes". Same approval gate and read-only caption as the
-  Meta dialog.
+  Meta dialog. Two explicit actions: **Post to TikTok** (Direct Post,
+  `video.publish`) and **Send to TikTok as a draft** (MEDIA_UPLOAD into the
+  creator's TikTok inbox, `video.upload`) — every scope requested is one the
+  review video can show working.
 - **Publish** (`/api/marketing/designer/designs/[id]/tiktok`): re-queries
   creator_info, validates the choice server-side, uploads the JPEG, writes a
   `TikTokPublish` row, hands TikTok
@@ -118,7 +123,7 @@ read off developers.tiktok.com on 2026-09-29 and is cited in the code.
 
 ### Checks
 
-`npm run check:tiktok` (225 checks: state/CSRF, media token tampering /
+`npm run check:tiktok` (239 checks: state/CSRF, media token tampering /
 expiry / other company, webhook signature, privacy rules and defaults, the
 request body, status monotonicity, error sentences in every language,
 "disconnect never deletes" executed on every path, refresh-on-use).
@@ -129,13 +134,12 @@ before and after (6ad4e7c8…).
 
 1. Create the app on developers.tiktok.com (Login Kit + Content Posting API,
    Direct Post); register redirect `https://www.fieldquo.com/api/tiktok/callback`,
-   scopes `user.info.basic`, `video.publish`, webhook
+   scopes `user.info.basic`, `video.publish`, `video.upload`, webhook
    `https://www.fieldquo.com/api/tiktok/webhook`.
 2. Set `TIKTOK_CLIENT_KEY` / `TIKTOK_CLIENT_SECRET` in Vercel.
-3. URL-prefix verification for `https://www.fieldquo.com/api/tiktok/media/`:
-   paste the portal's file name and content into
-   `TIKTOK_VERIFICATION_FILENAME` / `TIKTOK_VERIFICATION_CONTENT`, deploy,
-   press Verify.
+3. Done by the owner: the domain `fieldquo.com` is verified, which covers
+   the media prefix. (`TIKTOK_VERIFICATION_FILENAME` / `_CONTENT` remain as
+   an optional URL-prefix fallback.)
 4. Submit the audit (a screencast of the composer). Until it passes every
    post is private and stays private, the creator's account must be private,
    and at most 5 creators a day can post. Set `TIKTOK_AUDITED=1` the day it
