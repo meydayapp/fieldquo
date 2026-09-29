@@ -40,6 +40,7 @@
 // every other entry in vercel.json rather than asserted in a comment.
 
 import fs from "node:fs";
+import { register } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -824,6 +825,214 @@ function fnBody(src, name) {
   ok("the runner imports the handler barrel for its side effects", /import\s+"\.\/handlers"/.test(read("lib/sales/pipeline/runner.js")), "");
   ok("and imports the registry", /from\s+"\.\/registry"/.test(read("lib/sales/pipeline/runner.js")));
   ok("mask left the import statements intact", src.includes("import"));
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   11. One run at a time, and a run that stops on its own clock
+   ═══════════════════════════════════════════════════════════════════════════
+
+   Measured 2026-09-28: runs of this cron outlasted the minute (p50 156 s), so
+   three were alive at once and they spent 93% of the project's
+   function-seconds re-reading the same Prospect rows. Two fixes, both proved
+   by running them rather than by reading them:
+
+     - the advisory lock (lib/sales/pipeline/runLock.js): a second taker is
+       refused while the first holds it, the release goes out on the SAME
+       connection that took it, and the REAL route, asked to run while the
+       lock is held, answers 200 { skipped: "running" } having sent nothing
+       but BEGIN / the try-lock / ROLLBACK;
+     - the drain's deadline: past it, no further task is claimed, and the
+       rows not reached are left exactly as they were.
+
+   The route is imported with next/server and — for runLock.js ONLY — pg
+   stubbed, the way check-sales-checkin-materialise.mjs stubs next/server.
+   lib/db keeps the real pg: if the skip path ever fell through to the work,
+   the drain would reach for a database this check does not have and the
+   assertion on the body would fail, not pass. */
+section("11. One run at a time — the lock and the time budget");
+
+{
+  register(
+    `data:text/javascript,${encodeURIComponent(`
+export async function resolve(specifier, context, nextResolve) {
+  if (specifier === "next/server") return { url: "fq-stub:next", shortCircuit: true };
+  if (specifier === "pg" && String(context.parentURL || "").endsWith("/lib/sales/pipeline/runLock.js")) return { url: "fq-stub:pg", shortCircuit: true };
+  return nextResolve(specifier, context);
+}
+export async function load(url, context, nextLoad) {
+  if (url === "fq-stub:next")
+    return { format: "module", shortCircuit: true,
+      source: "export const NextResponse = { json: (body, init) => ({ status: init?.status ?? 200, body, json: async () => body }) };" };
+  if (url === "fq-stub:pg")
+    return { format: "module", shortCircuit: true,
+      source: "export class Client { constructor(o) { this.o = o; globalThis.__fqRunLockStub.clients.push(this); this.sent = []; } on() {} async connect() {} async query(sql) { this.sent.push(sql); return { rows: /pg_try_advisory_xact_lock/.test(sql) ? [{ locked: globalThis.__fqRunLockStub.locked }] : [] }; } async end() { this.ended = true; } }" };
+  return nextLoad(url, context);
+}`)}`,
+  );
+  globalThis.__fqRunLockStub = { locked: false, clients: [] };
+  const { tryTakeRunLock, SALES_PIPELINE_LOCK_KEY } = await import("@/lib/sales/pipeline/runLock");
+
+  ok("the lock key is a fixed bigint above 2^31, so no hashtext() key can collide with it",
+    typeof SALES_PIPELINE_LOCK_KEY === "bigint" && SALES_PIPELINE_LOCK_KEY > 2n ** 31n, String(SALES_PIPELINE_LOCK_KEY));
+
+  // A fake Postgres with transaction-scoped advisory locks: held by the
+  // connection whose transaction took it, released by COMMIT/ROLLBACK/close
+  // of THAT connection and no other.
+  const held = new Map(); // key -> connection id
+  let nextConn = 0;
+  // `refusals` is shared by every connection one tryTakeRunLock call opens,
+  // so "fail the first N connects" means the first N ATTEMPTS, retries included.
+  const makeConn = ({ refusals = { left: 0 }, failCommit = false } = {}) => {
+    const conn = { id: ++nextConn, sent: [], params: [], ended: false };
+    conn.on = () => {};
+    conn.connect = async () => {
+      await tick();
+      if (refusals.left-- > 0) throw new Error("P1001 cold start");
+    };
+    conn.query = async (sql, params) => {
+      await tick();
+      conn.sent.push(sql);
+      if (params) conn.params.push(...params);
+      if (/pg_try_advisory_xact_lock/.test(sql)) {
+        const key = String(params[0]);
+        if (held.has(key) && held.get(key) !== conn.id) return { rows: [{ locked: false }] };
+        held.set(key, conn.id);
+        return { rows: [{ locked: true }] };
+      }
+      if (sql === "COMMIT" && failCommit) {
+        for (const [k, c] of held) if (c === conn.id) held.delete(k);
+        throw new Error("terminating connection due to idle-in-transaction timeout");
+      }
+      if (sql === "COMMIT" || sql === "ROLLBACK") for (const [k, c] of held) if (c === conn.id) held.delete(k);
+      return { rows: [] };
+    };
+    conn.end = async () => {
+      conn.ended = true;
+      for (const [k, c] of held) if (c === conn.id) held.delete(k);
+    };
+    return conn;
+  };
+
+  const conns = [];
+  const connect = (opts) => () => {
+    const c = makeConn(opts);
+    conns.push(c);
+    return c;
+  };
+  const quiet = () => {};
+
+  const [first, second] = await Promise.all([
+    tryTakeRunLock({ connect: connect(), log: quiet }),
+    tryTakeRunLock({ connect: connect(), log: quiet }),
+  ]);
+  ok("two runs racing for the lock: exactly one gets it", (first === null) !== (second === null));
+  const winner = conns.find((c) => held.get(String(SALES_PIPELINE_LOCK_KEY)) === c.id);
+  const loser = conns.find((c) => c !== winner);
+  ok("the lock is taken inside a transaction, with the fixed key as the parameter",
+    winner?.sent[0] === "BEGIN" && /pg_try_advisory_xact_lock\(\$1::bigint\)/.test(winner?.sent[1] || "") && winner?.params[0] === String(SALES_PIPELINE_LOCK_KEY),
+    winner?.sent);
+  ok("the refused run sent only BEGIN, the try-lock and ROLLBACK, and closed its connection",
+    loser?.sent.length === 3 && loser.sent[0] === "BEGIN" && loser.sent[2] === "ROLLBACK" && loser.ended === true, loser?.sent);
+  ok("the winner's connection stays open for the run (the lock lives with its transaction)", winner && !winner.ended);
+
+  const third = await tryTakeRunLock({ connect: connect(), log: quiet });
+  ok("while it is held, the next tick is refused too", third === null);
+
+  const lock = first || second;
+  await lock.release();
+  ok("release COMMITs on the connection that took the lock — the only one that can release it",
+    winner.sent.at(-1) === "COMMIT" && winner.ended === true && conns.filter((c) => c !== winner).every((c) => !c.sent.includes("COMMIT")),
+    winner.sent);
+  const after = await tryTakeRunLock({ connect: connect(), log: quiet });
+  ok("once released, the next tick gets it", after !== null);
+  await after.release();
+  await after.release();
+  ok("a second release is a no-op, not a second COMMIT", conns.at(-1).sent.filter((s) => s === "COMMIT").length === 1);
+
+  const logged = [];
+  const doomed = await tryTakeRunLock({ connect: connect({ failCommit: true }), log: (l) => logged.push(l) });
+  let threw = false;
+  try {
+    await doomed.release();
+  } catch {
+    threw = true;
+  }
+  ok("a release whose session already died does not throw (it runs in the route's finally) and is logged",
+    !threw && logged.length === 1 && conns.at(-1).ended === true, logged);
+
+  const cold = await tryTakeRunLock({ connect: connect({ refusals: { left: 1 } }), log: quiet });
+  ok("Neon's cold-start refusal is retried once", cold !== null);
+  await cold.release();
+  let down = null;
+  try {
+    await tryTakeRunLock({ connect: connect({ refusals: { left: 2 } }), log: quiet });
+  } catch (err) {
+    down = err;
+  }
+  ok("…and a database that stays down is an error, not a silent skip", down !== null);
+
+  // ── The real route, with the lock held elsewhere ─────────────────────────
+  const prevSecret = process.env.CRON_SECRET;
+  process.env.CRON_SECRET = "check-sales-pipeline-lock-secret";
+  try {
+    const route = await import("@/app/api/cron/sales-pipeline/route.js");
+    const request = { headers: { get: (k) => (String(k).toLowerCase() === "authorization" ? `Bearer ${process.env.CRON_SECRET}` : null) } };
+
+    globalThis.__fqRunLockStub = { locked: false, clients: [] };
+    const started = Date.now();
+    const res = await route.GET(request);
+    const stub = globalThis.__fqRunLockStub;
+    ok("a tick that finds another run holding the lock answers 200 { success: true, skipped: \"running\" }",
+      res?.status === 200 && JSON.stringify(res.body) === JSON.stringify({ success: true, skipped: "running" }), JSON.stringify(res?.body));
+    ok("…and does nothing else: one connection, BEGIN / try-lock / ROLLBACK, closed",
+      stub.clients.length === 1 && JSON.stringify(stub.clients[0].sent.map((s) => s.split("(")[0])) === JSON.stringify(["BEGIN", "SELECT pg_try_advisory_xact_lock", "ROLLBACK"]) && stub.clients[0].ended === true,
+      stub.clients[0]?.sent);
+    ok("…cheaply", Date.now() - started < 1000, `${Date.now() - started} ms`);
+
+    const refused = await route.GET({ headers: { get: () => null } });
+    ok("an unauthenticated call is refused before the lock is even asked for",
+      refused?.status === 401 && globalThis.__fqRunLockStub.clients.length === 1);
+  } finally {
+    if (prevSecret === undefined) delete process.env.CRON_SECRET;
+    else process.env.CRON_SECRET = prevSecret;
+  }
+
+  // ── Where the route takes and releases it ────────────────────────────────
+  const code = mask(fnBody(read("app/api/cron/sales-pipeline/route.js"), "GET") || "");
+  const secretAt = code.indexOf("requireCronSecret(");
+  const lockAt = code.indexOf("tryTakeRunLock(");
+  const skipAt = code.search(/if\s*\(!lock\)\s*return/);
+  const workAt = code.indexOf("drainSalesPipeline(");
+  ok("the lock is taken after the secret and before any work, and a refusal returns before it",
+    secretAt !== -1 && secretAt < lockAt && lockAt < skipAt && skipAt < workAt, JSON.stringify({ secretAt, lockAt, skipAt, workAt }));
+  ok("…and released in a finally that wraps the whole run", /try\s*\{[\s\S]*drainSalesPipeline\([\s\S]*\}\s*finally\s*\{\s*await lock\.release\(\)/.test(code));
+  const route = read("app/api/cron/sales-pipeline/route.js");
+  const runBudget = Number((/const RUN_BUDGET_MS = ([\d_]+);/.exec(route) || [])[1]?.replace(/_/g, ""));
+  const drainBudget = Number((/const DRAIN_BUDGET_MS = ([\d_]+);/.exec(route) || [])[1]?.replace(/_/g, ""));
+  const declared = Number((/export const maxDuration = (\d+);/.exec(route) || [])[1]);
+  ok("the run's budget ends inside maxDuration with a minute for the step in flight, and the drains' inside that",
+    drainBudget > 0 && drainBudget < runBudget && runBudget <= declared * 1000 - 60_000, JSON.stringify({ drainBudget, runBudget, declared }));
+  ok("both drains carry the deadline", (code.match(/deadline: drainDeadline/g) || []).length === 2);
+  const steps = (code.match(/else try \{/g) || []).length;
+  const guards = (code.match(/if \(late\(\)\) [\w.[\]]+ = LATE;\s*else try \{/g) || []).length;
+  ok("every step after the drains is skipped, not started, once the budget is spent", steps >= 16 && guards === steps, JSON.stringify({ steps, guards }));
+}
+
+{
+  // The drain's deadline, executed: a clock that passes it after the first
+  // task leaves the other two exactly as they were — not claimed, not
+  // charged, not backed off — and says how many it left.
+  const store = makeStore([{ id: "d1" }, { id: "d2", createdAt: at(1) }, { id: "d3", createdAt: at(2) }]);
+  useHandler("CALCULATE_LEAD_SCORE", async () => ({ done: true }));
+  let calls = 0;
+  const clock = () => (calls++ === 0 ? 0 : 10_000);
+  const r = await drainSalesPipeline({ now: T0, limit: 10, deadline: 5_000, deps: { db: store.db, recordError: swallow, clock } });
+  ok("past the deadline the drain stops between tasks", r.done === 1 && store.row("d1").status === "done", JSON.stringify({ done: r.done, skipped: r.skipped }));
+  ok("…reporting what it left", r.skipped.time_budget === 2, JSON.stringify(r.skipped));
+  ok("…and the rows it left are untouched for the next tick",
+    ["d2", "d3"].every((id) => store.row(id).status === "queued" && store.row(id).attempts === 0 && store.row(id).claimToken === null && ms(store.row(id).notBefore) === T0.getTime()));
+  const none = await drainSalesPipeline({ now: T0, limit: 10, deps: { db: store.db, recordError: swallow } });
+  ok("with no deadline nothing changes: the next drain finishes them", none.done === 2 && !("time_budget" in none.skipped), JSON.stringify({ done: none.done, skipped: none.skipped }));
 }
 
 console.log(
