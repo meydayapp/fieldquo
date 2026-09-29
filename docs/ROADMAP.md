@@ -69,6 +69,32 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## A sub's quote, all the way into the GC's job (29 September 2026)
+
+The owner-approved flow for a quote sent to another BUSINESS: the general contractor carries the sub's price into their own quote, and from there the sub follows the work — onto the job, through change orders, to the invoice.
+
+### What shipped
+
+- **The email line.** A quote whose client is `Client.type = "company"` carries one quiet line under the first button — "Add this price to your own quote →" — in all eight document languages (`emailCopy.addToOwnQuote`), linking to `/q/<token>/add`. Homeowners' emails are byte-identical (md5 of all 8 languages × quote/follow-up, before and after: `1688e6eb8ba7d4b274624da2ee8c5475`). `lib/quotes/addToQuoteLink.js`.
+- **`/q/[token]/add`.** Explains in plain words (price becomes a subcontractor cost with THEIR markup; on acceptance the sender joins their job automatically; change orders and the invoice follow), then: a signed-in member of another company gets the import card, now with "Start a new quote" (asks the client's name and homeowner/business — nothing defaulted; `lib/quotes/importTarget.js`); signed out gets "Create your free account" (`/signup?next=`) or "Log in" (`/login?next=`), plus a one-week cookie so a signup that outlives the tab still lands back here after /welcome. Same draft gate and same exposure as `/q/<token>` — and the received-quote GET/POST now refuse drafts too (they answered for them before).
+- **On acceptance** (`lib/subcontractors/sourceLink.js` `adoptImportsOnJob`, from both job-creation paths): the sender is found or added on the GC's roster (name, email, phone as printed on their quote; linked company), and a `JobSubcontractor` (`agreed`) adopts the import's expense — counted once. Idempotent under an advisory lock.
+- **Change orders:** only a change order the GC approved AND signed (same public screen as every client) moves the GC's figure: snapshot + signed deltas, recomputed, never added. Unsigned or staff-approved: nothing moves. The GC's price to their own client is untouched.
+- **The sub's invoice:** on send, a `SubcontractorBill` copy lands on the GC's job panel; "Invoice $X differs from approved $Y" when it doesn't match. Cost stays the approved figure.
+- **`Quote.viewedAt` / `viewCount`**, stamped by a POST the client's page sends after rendering (never staff, a support session, a preview, a bot or a prefetch — `lib/quotes/quoteViews.js`), shown on the quote page's trail. `isViewedNoAnswer()` is ready for the dashboard badge rule; `lib/dashboard/workPanel.js` is not on this branch, so it is not wired there yet.
+
+### Schema (applied additively by hand; the live diff's Community DROPs were not run)
+
+`Quote.viewedAt`, `Quote.viewCount`, table `SubcontractorBill` (unique on job-subcontractor + source invoice, FK cascade to `JobSubcontractor`).
+
+### Checks
+
+`check:subcontractors` (the $3,000 → $3,600 → $3,000 cost → +$250 signed → $3,250 worked example, idempotency, tenant isolation, bills), `check:job-costing`, `check:quote-email-sections` (business line × 8 languages, homeowner byte-identity, contrast), `check:quote-approval` (views, draft gate, add page), `check:welcome-flow` (resume).
+
+### Owed
+
+- The sub's owner name is NOT copied as the roster contact (it is not on the quote the GC received), and `Subcontractor` has no address column — both left empty rather than invented. Owner's call if either should change.
+- Wire `isViewedNoAnswer` into `lib/dashboard/workPanel.js` once that branch lands.
+
 ## TikTok posting, phase 1 (29 September 2026)
 
 Approved by the owner 2026-09-29. A Marketing Designer design posts to the
