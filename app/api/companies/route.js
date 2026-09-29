@@ -14,7 +14,9 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { createTrialCheckoutSession } from "@/lib/platform/stripeBilling";
 import { trialDaysAllowed } from "@/lib/billing/trialOnce";
-import { TRIAL_PRICE } from "@/lib/pricing";
+import { TRIAL_PRICE, trialEndsAtFrom } from "@/lib/pricing";
+import { APP_MESSAGES } from "@/app/i18n/appMessages";
+import { welcomePath } from "@/lib/signup/welcome";
 import { runSetupInline } from "@/lib/signup/setupStages";
 import { getAppOrigin, isInternalPath } from "@/lib/appUrl";
 import { applySignupReferral, REFEREE_BONUS_MONTHS } from "@/lib/referrals";
@@ -41,6 +43,18 @@ import {
   cleanYearsBand,
   recommendedTierKeyForBand,
 } from "@/lib/signup/signupPreview";
+
+/** The provisional slug a nameless company is created under. */
+const PROVISIONAL_SLUG_PREFIX = "fq-";
+
+/** "Send me product news and offers", as the page showed it. */
+function consentSentence(language) {
+  return (
+    APP_MESSAGES[language]?.["app.signup.consent"] ||
+    APP_MESSAGES.en?.["app.signup.consent"] ||
+    "Send me product news and offers"
+  );
+}
 
 export async function POST(request) {
   const session = await auth.api.getSession({ headers: request.headers });
@@ -161,7 +175,29 @@ export async function POST(request) {
     // stage (lib/signup/setupStages.js). Absent — an older page, or the plan
     // step on its way to Stripe — seeds inline exactly as before.
     stagedSetup,
+    // ── "Send me product news and offers" (2026-09-29) ──────────────────────
+    //
+    // The unticked box on /signup. Only `true` counts; the moment and the
+    // sentence shown are written to the User — nothing at all otherwise.
+    marketingConsent,
   } = await request.json();
+
+  // ── The one-screen signup (2026-09-29) ──────────────────────────────────
+  //
+  // /signup asks for an email and a password and nothing about the business:
+  // "Start my free trial" creates the login and then posts here WITHOUT a
+  // name or an address, and the welcome questions (app/welcome/[step],
+  // lib/signup/welcome.js) fill them in afterwards. So a body with no name
+  // and no plan is that press, and the company is created with explicit
+  // nulls where the answers will go — never the schema's "CA" / "CAD" /
+  // America/Toronto defaults, and never a placeholder name. Until the
+  // business screen is answered, lib/company/profileReadiness.js refuses
+  // every client-facing send.
+  //
+  // A name still takes the old path below unchanged (a page cached from
+  // before this deploy), and a plan still needs a name and a country — a
+  // Stripe checkout for a business with neither is not something to open.
+  const welcomeFlow = !name && !planId;
 
   const websiteAnswer = readWebsiteAnswer({ hasWebsite, website });
   if (websiteAnswer.error) {
@@ -193,7 +229,7 @@ export async function POST(request) {
   // is a price and a tax jurisdiction.
   const basis = billingBasis({ country, address, province });
   const homeCountry = basis.country;
-  if (!homeCountry) {
+  if (!homeCountry && !welcomeFlow) {
     return NextResponse.json(
       {
         error:
@@ -208,7 +244,7 @@ export async function POST(request) {
   // basis.planCurrency, which is the one FieldQuo may bill THEM in: the seat
   // ladder exists in CAD, USD and AUD only (USD for every other Stripe country), while a company can quote its own
   // clients in any of the currencies lib/currency.js lists.
-  const currency = currencyForCountry(homeCountry);
+  const currency = homeCountry ? currencyForCountry(homeCountry) : null;
 
   // ── The cadence, validated rather than coerced ──────────────────────────
   //
@@ -224,7 +260,7 @@ export async function POST(request) {
   }
   const interval = billingInterval || "month";
 
-  if (!name) {
+  if (!name && !welcomeFlow) {
     return NextResponse.json(
       { error: "Company name is required" },
       { status: 400 },
@@ -235,7 +271,7 @@ export async function POST(request) {
   // `<`/`>` have no legitimate use in a business name; see
   // lib/security/rejectMarkupCharacters.js for why this is a second layer,
   // not the actual fix.
-  if (containsMarkupCharacters(name)) {
+  if (name && containsMarkupCharacters(name)) {
     return NextResponse.json(
       { error: "Company name can't contain < or >" },
       { status: 400 },
@@ -358,12 +394,18 @@ export async function POST(request) {
     );
   }
 
+  // A nameless company gets a provisional slug ("fq-" + random), re-derived
+  // from the name once when the business screen is answered
+  // (app/api/signup/personalize). Nothing public exists under it before then:
+  // the readiness gate refuses every publish until the name is stated.
   const slug = name
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "")
-    .concat(`-${Math.random().toString(36).slice(2, 6)}`);
+    ? name
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "")
+        .concat(`-${Math.random().toString(36).slice(2, 6)}`)
+    : `${PROVISIONAL_SLUG_PREFIX}${Math.random().toString(36).slice(2, 8)}`;
 
   // ── Company + owner membership: one unit, or neither ────────────────────
   //
@@ -397,7 +439,7 @@ export async function POST(request) {
 
     const c = await tx.company.create({
       data: {
-        name,
+        name: name || "",
         slug,
         // The address the person REGISTERED with. Company.email was never set at
         // signup, so Company Details opened with an empty Email field for every
@@ -413,12 +455,24 @@ export async function POST(request) {
         postalCode: postalCode || null,
         website: websiteAnswer.website,
         hasWebsite: websiteAnswer.hasWebsite,
-        country: homeCountry,
+        // Explicit, never left to the schema: country and currency are the
+        // answer or null, and the timezone is null until the welcome business
+        // screen states one — the schema's "CA" / "CAD" / Toronto defaults
+        // would be FieldQuo deciding where somebody's business is.
+        // scripts/check-welcome-flow.mjs asserts all three are written.
+        country: homeCountry || null,
         defaultLanguage,
-        currency,
+        currency: currency || null,
+        timezone: null,
         industries: Array.isArray(industries) ? industries : [],
         onboardingStatus: "pending",
-        trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        // TRIAL_DAYS (lib/pricing.js) — the owner's fourteen days for new
+        // signups from 2026-09-29. An existing company's date is untouched.
+        trialEndsAt: trialEndsAtFrom(new Date()),
+        // The welcome questions start at the first screen; the /app gate
+        // routes the owner there until personalizedAt is stamped
+        // (lib/signup/welcomeGate.js). Null on the old named path.
+        onboardingStep: welcomeFlow ? "profile" : null,
         signupTierKey: plan ? null : chosenTier,
         teamSizeBand: teamBand,
         yearsInBusinessBand: yearsBand,
@@ -430,6 +484,16 @@ export async function POST(request) {
     await tx.member.create({
       data: { userId: session.user.id, companyId: c.id, role: "owner" },
     });
+
+    // The consent, in the same unit as the company: the box was ticked on
+    // the screen that created it. The sentence is resolved from the catalogue
+    // in the language the page was in, so the record says what was shown.
+    if (marketingConsent === true) {
+      await tx.user.update({
+        where: { id: session.user.id },
+        data: { marketingConsentAt: new Date(), marketingConsentText: consentSentence(defaultLanguage) },
+      });
+    }
 
     return c;
   });
@@ -561,8 +625,8 @@ export async function POST(request) {
     }),
     salesRepId: attributedRepId,
     referralCode: typeof referralCode === "string" ? referralCode : null,
-    statedCountry: homeCountry,
-    companyName: name,
+    statedCountry: homeCountry || null,
+    companyName: name || null,
     utm: utm && typeof utm === "object" ? utm : null,
   });
 
@@ -586,7 +650,10 @@ export async function POST(request) {
   let org;
   try {
     org = await auth.api.createOrganization({
-      body: { name, slug: company.id },
+      // A nameless company's org is named by its id: Better Auth wants a
+      // name, and the org's is read by nothing a person sees — the company
+      // row carries the name once it is given.
+      body: { name: name || company.id, slug: company.id },
       headers: request.headers,
     });
   } catch (err) {
@@ -719,7 +786,7 @@ export async function POST(request) {
   // its way to Stripe, a page older than the screen — gets them here, inline
   // and best-effort as before: a failed stage never blocks the signup, and
   // each one is on /platform/errors rather than only in a console.
-  const staged = stagedSetup === true && !plan;
+  const staged = (stagedSetup === true && !plan) || welcomeFlow;
   if (!staged) {
     const trades =
       Array.isArray(serviceCategoryIds) && serviceCategoryIds.length > 0
@@ -752,9 +819,22 @@ export async function POST(request) {
   // where to choose. `next` is honoured for an internal path the same way the
   // checkout success URL would have — a signup that began from "add this
   // quote to your project" still lands on the quote.
+  if (welcomeFlow) {
+    // Nothing is seeded yet: the trade's services are priced in the currency
+    // the business screen establishes, so they run on the welcome setup
+    // screen (POST /api/signup/setup) once the country is known.
+    return NextResponse.json({
+      welcomeUrl: welcomePath("profile"),
+      trialEndsAt: referral?.trialEndsAt || (promo?.ok && promo.trialEndsAt) || company.trialEndsAt,
+      referral: referral
+        ? { referrerName: referral.referrer.name, trialEndsAt: referral.trialEndsAt, months: REFEREE_BONUS_MONTHS }
+        : null,
+    });
+  }
+
   if (!plan) {
     return NextResponse.json({
-      appUrl: isInternalPath(next) ? next : "/app?welcome=true",
+      appUrl: isInternalPath(next) ? next : "/app",
       // Says the seeding is still to run. A page that asked for staging but
       // reaches a server without it (a deploy in between) reads its absence
       // as "all done here" and goes straight to the app.
