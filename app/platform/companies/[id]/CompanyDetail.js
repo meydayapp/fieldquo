@@ -211,7 +211,7 @@ export default function CompanyDetail({ companyId }) {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl font-bold text-foreground">{company.name}</h1>
+            <h1 className="text-2xl font-bold text-foreground">{company.name || "(no business name yet)"}</h1>
             {/* Derived by the API (lib/platform/companyStanding.js): a
                 card-free trial reads "Trialing · no plan yet · N days left",
                 never onboardingStatus's "pending", which only moves at a
@@ -236,6 +236,34 @@ export default function CompanyDetail({ companyId }) {
           <p className="text-sm text-muted-foreground mt-1">
             Joined {formatDate(company.createdAt)} · /{company.slug}
           </p>
+          {/* "Needs call back" (lib/platform/callBack.js): where the owner
+              stopped — a welcome question or the onboarding checklist — and
+              the number they gave for exactly this. */}
+          {company.callBack ? (
+            <div
+              className="mt-3 rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-sm text-amber-900 dark:text-amber-100"
+              data-callback
+            >
+              <p className="font-semibold">Needs call back</p>
+              <p>
+                Stopped at{" "}
+                {company.callBack.kind === "welcome" ? "the welcome questions" : "the onboarding checklist"}:{" "}
+                <strong>{company.callBack.label}</strong>
+                {" · "}
+                {company.callBack.phone ? (
+                  <a href={`tel:${company.callBack.phone}`} className="underline underline-offset-2">
+                    {company.callBack.phone}
+                  </a>
+                ) : (
+                  "no phone given yet"
+                )}
+                {(() => {
+                  const owner = company.members?.find((m) => m.role === "owner");
+                  return owner?.user?.marketingConsentAt ? " · product news: yes" : "";
+                })()}
+              </p>
+            </div>
+          ) : null}
         </div>
 
         <div className="flex gap-2 flex-wrap">

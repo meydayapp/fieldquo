@@ -500,11 +500,16 @@ const api = codeOf(read("app/api/companies/route.js"));
 const billing = codeOf(read("lib/platform/stripeBilling.js"));
 const marketing = read("app/api/marketing/plans/route.js");
 
+// ── 2026-09-29: /signup is one screen ─────────────────────────────────────
+//
+// The steps it used to walk are the welcome questions now, one URL each
+// (app/welcome/[step], lib/signup/welcome.js — scripts/check-welcome-flow.mjs
+// executes their order and resume rules). What /signup still takes from
+// lib/signup/funnel.js is the billing basis for the one plan step it keeps:
+// a company created before 2026-09-24 finishing its checkout.
 ok(
-  "the signup page takes its order and resume rules from lib/signup/funnel",
-  /from "@\/lib\/signup\/funnel"/.test(page) &&
-    /\bresumeStep\b/.test(page) &&
-    /\bfirstStep\b/.test(page),
+  "the signup page reads the billing basis from lib/signup/funnel",
+  /from "@\/lib\/signup\/funnel"/.test(page) && /\bbillingBasis\b/.test(page),
 );
 ok(
   "...and does not keep a second copy of STEPS",
@@ -512,13 +517,9 @@ ok(
   "a local STEPS array would be the copy that rots",
 );
 ok(
-  "every forward move on the page asks the funnel where it goes",
-  /goToStep\(nextStep\(/.test(page),
-  "a typed step name in a button is how a reordered funnel leaves a button behind",
-);
-ok(
-  "...and every Back button likewise",
-  /goBackToStep\(previousStep\(/.test(page),
+  "the page keeps no step machine of its own — Start hands over to the welcome questions",
+  !/goToStep\(/.test(page) && /welcomeUrl/.test(page),
+  "a second step list on /signup would be the copy that rots beside lib/signup/welcome.js",
 );
 ok(
   "the signup form no longer seeds country: \"CA\"",
@@ -526,9 +527,9 @@ ok(
   'the seed stated a country nobody had entered, and the plan step priced off it',
 );
 ok(
-  "the country select offers an explicit empty option",
-  /<option value="">/.test(page),
-  "without it the select DISPLAYS Canada while the value is empty",
+  "the page asks no country at all — the welcome business screen takes it from the selected place",
+  !/id="signup-country"/.test(page),
+  "a country select on the first screen is a statement asked before anybody said where they are",
 );
 ok(
   "the page reads the currency through billingBasis rather than assuming one",
@@ -536,7 +537,7 @@ ok(
 );
 ok(
   "the page posts the CADENCE and no money",
-  /billingInterval:\s*effectiveInterval/.test(page) &&
+  /interval:\s*effectiveInterval/.test(page) &&
     !/monthlyTotal:\s*/.test(page.split("fetch(\"/api/companies\"")[1] || ""),
   "the browser never sends an amount — the server reprices from its own rows",
 );
@@ -576,7 +577,10 @@ ok(
 );
 ok(
   "...refusing rather than inventing one when nothing states it",
-  /if \(!homeCountry\)/.test(api) && /status: 400/.test(api),
+  // The one-screen signup posts no address at all (welcomeFlow), and the
+  // company is created with country NULL — explicit, never "CA". Any other
+  // body still has to state one.
+  /if \(!homeCountry && !welcomeFlow\)/.test(api) && /status: 400/.test(api) && /country: homeCountry \|\| null/.test(api),
 );
 ok(
   "/api/companies validates the interval instead of coercing it",

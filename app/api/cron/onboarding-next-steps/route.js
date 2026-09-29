@@ -84,6 +84,10 @@ const COMPANY_SELECT = {
   nextStepsEmailSkipped: true,
   // FieldQuo ended it from the console — decideNextStepsEmail refuses.
   platformEndsAt: true,
+  // The welcome questions: an unfinished one leads the letter with a link to
+  // it (lib/email/onboardingNextStepsEmail.js welcomeStep).
+  onboardingStep: true,
+  personalizedAt: true,
   subscription: { select: { id: true, status: true, nextStepsEmailSentAt: true, nextStepsEmailSkipped: true } },
   signupLead: { select: { firstName: true, trades: true } },
   members: { where: { role: "owner" }, take: 1, select: { user: { select: { name: true } } } },
@@ -234,6 +238,7 @@ export async function GET(request) {
         trialEndsAt: nextStepsTrialEndsAt({ company, subscription: company.subscription ?? null, now }),
         origin,
         proof,
+        welcomeStep: company.onboardingStep && !company.personalizedAt ? company.onboardingStep : null,
       });
     } catch (err) {
       await revert();

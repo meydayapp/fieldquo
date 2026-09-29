@@ -122,7 +122,7 @@ export async function GET(request) {
             where: { active: true },
             // Both columns hasFinishedSignup needs, selected — it throws on
             // either being absent rather than reading a customer as unfinished.
-            select: { company: { select: { isDemo: true, trialEndsAt: true, subscription: { select: { id: true } } } } },
+            select: { company: { select: { isDemo: true, trialEndsAt: true, onboardingStep: true, personalizedAt: true, subscription: { select: { id: true } } } } },
           },
         },
       })

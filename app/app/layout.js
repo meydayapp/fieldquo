@@ -32,6 +32,7 @@ import { auth } from "@/lib/auth";
 import { getCurrentMember } from "@/lib/currentMember";
 import { featureMapForCompany, navFlagsFrom } from "@/lib/features/gate";
 import { setupGateDecision } from "@/lib/signup/setupGate";
+import { welcomeGateDecision } from "@/lib/signup/welcomeGate";
 import { stripeSubscriptionExists } from "@/lib/billing/checkoutEvidence";
 
 // Everything under /app is per-user and behind the session check in
@@ -126,7 +127,17 @@ async function getCompanyShell() {
       where: { id: member.companyId },
       // influencerAt/influencerRepId: whether the Influencer row belongs in
       // the rail. Both, because lib/influencers' isInfluencer() needs both.
-      select: { name: true, currency: true, influencerAt: true, influencerRepId: true, offlineCachingEnabled: true },
+      // onboardingStep/personalizedAt: the welcome gate below — read here,
+      // on the query every /app page already makes, so the gate costs nothing.
+      select: {
+        name: true,
+        currency: true,
+        influencerAt: true,
+        influencerRepId: true,
+        offlineCachingEnabled: true,
+        onboardingStep: true,
+        personalizedAt: true,
+      },
     });
   } catch (err) {
     console.error("[AppLayout] couldn't load the company shell:", err);
@@ -423,6 +434,24 @@ export default async function AppLayout({ children }) {
   // redirect() throws NEXT_REDIRECT, so it stays outside the try/catch that
   // getSetupRedirect keeps around its own lookups.
   if (typeof setupPath === "string") redirect(setupPath);
+
+  // ── The welcome questions, unfinished (2026-09-29) ──────────────────────
+  //
+  // The owner of a company created on the one-screen signup is sent back to
+  // the next unanswered question — after a sign-out, a closed tab, or a week
+  // away — until personalizedAt is stamped. lib/signup/welcomeGate.js is the
+  // rule: never a support session, never anyone but the owner, never a
+  // company from before this flow (onboardingStep null). Built from answers
+  // this layout already resolved, so it adds no query; a lookup that failed
+  // leaves role null, which the rule reads as "let them in". /welcome is not
+  // under /app, so this cannot loop.
+  const welcome = welcomeGateDecision({
+    impersonating: Boolean(settingsShell.access?.impersonation),
+    role: settingsShell.access?.role || null,
+    onboardingStep: company?.onboardingStep || null,
+    personalizedAt: company?.personalizedAt || null,
+  });
+  if (welcome.action === "redirect") redirect(welcome.path);
 
   // ── Signed up, never paid, and not the person who can pay ───────────────
   //

@@ -130,7 +130,9 @@ async function decide({
 
 const OWNER = { companyId: "co", role: "owner" };
 const ESTIMATOR = { companyId: "co", role: "estimator" };
-const OLD_COMPANY = { id: "co", isDemo: false, createdAt: LONG_AGO };
+// A name and a country, like every company created before 2026-09-29 (the
+// live database had none without either on the day the profile gate landed).
+const OLD_COMPANY = { id: "co", isDemo: false, createdAt: LONG_AGO, name: "Old Co", country: "CA" };
 
 console.log("\nplanDecision — the states a send has to tell apart\n");
 
@@ -364,6 +366,26 @@ console.log("\nThe refusal a browser actually receives\n");
     "send this quote",
   );
   ok("an allowed send returns no response to send back", !allowed.response);
+
+  // ── A trial company from the one-screen signup, no business answers yet ──
+  //
+  // Paid-or-trialling is not named: the same call refuses a company with no
+  // name or country (lib/company/profileReadiness.js), with the 402 the
+  // browser already opens a prompt for, and the path to the welcome business
+  // screen for the owner only.
+  resetDbStub();
+  rows.company.push({ id: "co", isDemo: false, createdAt: LONG_AGO, name: "", country: null });
+  const unnamed = await planOrRefusal({ ...OWNER, billingAccess: { reason: "trial_no_plan" } }, "send this quote");
+  ok("a nameless, countryless company is refused a send", unnamed.response?.status === PLAN_REQUIRED_STATUS, unnamed.response?.status);
+  ok("...naming the profile, not the plan", unnamed.response?.body?.planRequired?.reason === "business_profile_incomplete" && unnamed.response?.body?.code === "business_profile_incomplete");
+  ok("...with the owner sent to the welcome business screen", unnamed.response?.body?.planRequired?.path === "/welcome/business" && unnamed.response?.body?.planRequired?.canFinish === true);
+  ok("...and saying which fields are missing", JSON.stringify(unnamed.response?.body?.missing) === '["name","country"]');
+  const unnamedEmployee = await planOrRefusal({ companyId: "co", role: "estimator", billingAccess: { reason: "trial_no_plan" } }, "send this quote");
+  ok("an invited member is refused too, with no link — the owner answers the questions", unnamedEmployee.response?.status === PLAN_REQUIRED_STATUS && unnamedEmployee.response?.body?.planRequired?.path === null && unnamedEmployee.response?.body?.planRequired?.canFinish === false);
+  resetDbStub();
+  rows.company.push({ id: "co", isDemo: false, createdAt: LONG_AGO, name: "Named Co", country: null });
+  const noCountry = await planOrRefusal({ ...OWNER, billingAccess: { reason: "trial_no_plan" } }, "send this quote");
+  ok("a name without a country is still refused (the currency comes from it)", noCountry.response?.body?.planRequired?.reason === "business_profile_incomplete" && JSON.stringify(noCountry.response?.body?.missing) === '["country"]');
 }
 
 {
