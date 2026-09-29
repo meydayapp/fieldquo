@@ -442,6 +442,9 @@ section("5. Every customer price surface calls the shared resolver");
     ["app/api/settings/plans/route.js", ["livePromotions(", "withOffers(", "customOfferTable("]],
     ["app/api/marketing/plans/route.js", ["livePromotions(", "withOffers("]],
     ["app/(marketing)/pricing/page.js", ["livePromotions(", "universalPromotions(", "withOffers(", "customOfferTable("]],
+    // The homepage's pricing band and sale pill (2026-09-29): same chain, no
+    // custom card, and homeSalePill() picks the pill from the resolved offers.
+    ["app/(marketing)/page.js", ["livePromotions(", "universalPromotions(", "withOffers(", "homeSalePill("]],
   ];
   for (const [file, needles] of surfaces) {
     const src = code(file);

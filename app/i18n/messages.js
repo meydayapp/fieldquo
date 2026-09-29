@@ -35,6 +35,9 @@ import { COMPARE_PAGE_MESSAGES } from "./comparePages/index.js";
 // check, and therefore English on a nine-language site until the owner read it
 // in Ukrainian. See app/i18n/savingsPage/index.js.
 import { SAVINGS_PAGE_MESSAGES } from "./savingsPage/index.js";
+// And the homepage's own catalogue (rebuilt 2026-09-29) — same placement and
+// same reason: public copy, gated at the marketing bar.
+import { HOME_PAGE_MESSAGES } from "./homePage/index.js";
 
 const en = {
   // Navigation
@@ -4868,6 +4871,7 @@ const MARKETING = Object.fromEntries(
       ...(FEATURE_PAGE_MESSAGES[code] || {}),
       ...(COMPARE_PAGE_MESSAGES[code] || {}),
       ...(SAVINGS_PAGE_MESSAGES[code] || {}),
+      ...(HOME_PAGE_MESSAGES[code] || {}),
     },
   ]),
 );
