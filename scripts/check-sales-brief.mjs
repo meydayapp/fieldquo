@@ -1603,7 +1603,7 @@ section("12. Guards that are source questions");
 
   const cache = bodyOf(src, "async function cacheBrief(") || "";
   ok("the cache write is guarded on our own claim token", /claimToken: task\.claimToken/.test(cache), cache.slice(0, 300));
-  ok("…and stores sentences only", /phrasing \? \{ opening: phrasing\.opening, angles: phrasing\.angles \}/.test(cache));
+  ok("…and stores sentences only — made storable (pgSafe) and nothing added", /phrasing \? pgSafe\(\{ opening: phrasing\.opening, angles: phrasing\.angles \}\)/.test(cache));
 }
 
 {

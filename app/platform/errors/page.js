@@ -15,6 +15,9 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Loader2, AlertTriangle, Check, Undo2, Mail, CreditCard, FileText, Bot, Webhook, Upload, Clock, Users } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { ERROR_KINDS, KIND_LABELS } from "@/lib/platform/errorKinds";
+
+const ENV_LABELS = { production: "Production", preview: "Preview", local: "Local" };
 
 // Icon AND label together, because they were two facts about the same thing
 // kept in one place and none. `account_abuse` had an icon and no label, so the
@@ -89,6 +92,99 @@ function ReviewForm({ count, busy, onSubmit, onCancel }) {
   );
 }
 
+// "Mark all like this reviewed": same area + code, optionally only this
+// attempt's. The count is fetched before anything can be confirmed, and the
+// newest matching row's time goes back with the confirm as `before` — so
+// what is marked is what the number said, never rows that arrived while the
+// panel was open. Built for the day one stuck sales-dial attempt filled the
+// queue with 7,360 copies of one entry.
+function LikeForm({ area, code, attemptId, onDone, onCancel }) {
+  const [onlyAttempt, setOnlyAttempt] = useState(false);
+  const [counts, setCounts] = useState(null);
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    let live = true;
+    setCounts(null);
+    setErr("");
+    const qs = new URLSearchParams({ area, code });
+    if (onlyAttempt && attemptId) qs.set("attemptId", attemptId);
+    fetchJson(`/api/platform/errors/like?${qs}`)
+      .then((j) => live && setCounts(j))
+      .catch((e) => live && setErr(e.message));
+    return () => {
+      live = false;
+    };
+  }, [area, code, attemptId, onlyAttempt]);
+
+  async function confirm(e) {
+    e.preventDefault();
+    if (!counts?.count) return;
+    setBusy(true);
+    setErr("");
+    try {
+      await fetchJson("/api/platform/errors/like", {
+        method: "PATCH",
+        body: { area, code, attemptId: onlyAttempt ? attemptId : null, before: counts.newestAt, note },
+      });
+      await onDone();
+    } catch (e2) {
+      setErr(e2.message);
+      setBusy(false);
+    }
+  }
+
+  const n = counts?.count ?? null;
+  return (
+    <form onSubmit={confirm} className="mt-2 rounded-lg border border-border bg-muted/40 p-3 space-y-2">
+      <p className="text-sm text-foreground">
+        {n === null && !err && (
+          <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+            <Loader2 size={12} className="animate-spin" /> Counting…
+          </span>
+        )}
+        {n !== null && (
+          <>
+            Mark <strong>{n.toLocaleString()}</strong> unreviewed{" "}
+            <span className="font-mono text-xs">{area} · {code}</span> {n === 1 ? "error" : "errors"}
+            {onlyAttempt && attemptId ? <> for attempt <span className="font-mono text-xs">{attemptId}</span></> : null} reviewed?
+            {n > 0 && counts.oldestAt && (
+              <span className="block text-xs text-muted-foreground mt-0.5">
+                From {when(counts.oldestAt)} to {when(counts.newestAt)}. Nothing is deleted; they move to the reviewed archive.
+              </span>
+            )}
+          </>
+        )}
+      </p>
+      {attemptId && (
+        <label className="flex items-center gap-1.5 text-xs text-muted-foreground min-h-[44px] lg:min-h-0">
+          <input type="checkbox" checked={onlyAttempt} onChange={(e) => setOnlyAttempt(e.target.checked)} disabled={busy} />
+          Only this attempt ({attemptId})
+        </label>
+      )}
+      <div className="flex flex-wrap gap-2 items-center">
+        <input
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="Why is this fine? (optional, one line)"
+          maxLength={300}
+          className="flex-1 min-w-[200px] border border-border rounded-lg px-3 py-2 text-sm bg-card text-foreground"
+        />
+        <button type="submit" disabled={busy || !n} className={`${BTN} bg-inverted text-inverted-foreground border-foreground`}>
+          {busy ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+          Mark {n ? n.toLocaleString() : ""} reviewed
+        </button>
+        <button type="button" onClick={onCancel} disabled={busy} className={BTN}>
+          Cancel
+        </button>
+      </div>
+      {err && <p className="text-xs text-red-700 dark:text-red-300">{err}</p>}
+    </form>
+  );
+}
+
 export default function PlatformErrorsPage() {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -99,12 +195,19 @@ export default function PlatformErrorsPage() {
     return new URLSearchParams(window.location.search).get("area") || "";
   });
   const [showReviewed, setShowReviewed] = useState(false);
+  // Errors · Notices · Security (lib/platform/errorKinds.js), Errors first;
+  // and where the row was written, production first — the owner's Mac
+  // writes to the production database too.
+  const [kind, setKind] = useState("error");
+  const [env, setEnv] = useState("production");
   const [busy, setBusy] = useState(false);
   // Checkbox selection, by id. Cleared on every reload so a row that moved to
   // the other list can't stay "selected" invisibly.
   const [selected, setSelected] = useState(() => new Set());
   // Which note form is open: an error id, "batch", or null.
   const [noteFor, setNoteFor] = useState(null);
+  // Which "like this" panel is open: an error id, or `repeat:<area>|<code>`.
+  const [likeFor, setLikeFor] = useState(null);
 
   const load = useCallback(async () => {
     setError("");
@@ -112,14 +215,17 @@ export default function PlatformErrorsPage() {
       const qs = new URLSearchParams();
       if (area) qs.set("area", area);
       if (showReviewed) qs.set("resolved", "1");
+      qs.set("kind", kind);
+      qs.set("env", env);
       const json = await fetchJson(`/api/platform/errors?${qs}`);
       setData(json);
       setSelected(new Set());
       setNoteFor(null);
+      setLikeFor(null);
     } catch (e) {
       setError(e.message);
     }
-  }, [area, showReviewed]);
+  }, [area, showReviewed, kind, env]);
 
   useEffect(() => {
     load();
@@ -145,6 +251,10 @@ export default function PlatformErrorsPage() {
   }
 
   const errors = data?.errors || [];
+  // Unreviewed copies per (area, code), from the server — not a count of
+  // this page, which holds at most 100 rows.
+  const repeats = showReviewed ? [] : data?.repeats || [];
+  const repeatCount = new Map(repeats.map((g) => [`${g.area}|${g.code}`, g.count]));
   const allSelected = errors.length > 0 && errors.every((e) => selected.has(e.id));
   const selectedIds = errors.filter((e) => selected.has(e.id)).map((e) => e.id);
 
@@ -186,6 +296,41 @@ export default function PlatformErrorsPage() {
         )}
       </div>
 
+      {/* Kind tabs and environment. Counts are unreviewed, under the chosen
+          environment — so "Errors (0)" in Production means fieldquo.com is
+          clean even while a local script's failures sit under Local. */}
+      <div className="flex items-center gap-2 flex-wrap border-b border-border pb-2">
+        {ERROR_KINDS.map((k) => (
+          <button
+            key={k}
+            onClick={() => {
+              setKind(k);
+              setArea("");
+            }}
+            aria-pressed={kind === k}
+            className={`min-h-[44px] lg:min-h-0 text-sm font-semibold px-3 py-1.5 rounded-lg ${
+              kind === k ? "bg-inverted text-inverted-foreground" : "text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            {KIND_LABELS[k]}
+            {data?.kindCounts ? ` (${(data.kindCounts[k] ?? 0).toLocaleString()})` : ""}
+          </button>
+        ))}
+        <label className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground min-h-[44px] lg:min-h-0">
+          Where
+          <select
+            value={env}
+            onChange={(e) => setEnv(e.target.value)}
+            className="border border-border rounded-lg px-2 py-1 text-xs bg-card text-foreground"
+          >
+            <option value="production">Production (fieldquo.com)</option>
+            <option value="preview">Preview deployments</option>
+            <option value="local">Local (scripts, dev)</option>
+            <option value="all">Everywhere</option>
+          </select>
+        </label>
+      </div>
+
       {/* Filters */}
       <div className="flex items-center gap-2 flex-wrap">
         <button
@@ -212,6 +357,41 @@ export default function PlatformErrorsPage() {
           Show reviewed{data ? ` (${data.reviewedCount})` : ""}
         </label>
       </div>
+
+      {/* The same failure, repeating. Up to five, loudest first; ten copies
+          or more, because two of a kind is ordinary and this strip is for
+          the one that is drowning the list. */}
+      {repeats.filter((g) => g.count >= 10).length > 0 && (
+        <div className="rounded-xl border border-border bg-card px-4 py-3 space-y-2">
+          <p className="text-xs font-semibold text-foreground">Repeating</p>
+          {repeats
+            .filter((g) => g.count >= 10)
+            .slice(0, 5)
+            .map((g) => {
+              const key = `repeat:${g.area}|${g.code}`;
+              return (
+                <div key={key}>
+                  <div className="flex items-center gap-2 flex-wrap text-xs">
+                    <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                      {areaLabel(g.area)}
+                    </span>
+                    <span className="font-mono text-muted-foreground">{g.code}</span>
+                    <span className="font-semibold text-foreground">×{g.count.toLocaleString()}</span>
+                    <span className="text-muted-foreground">— last {when(g.lastAt)}</span>
+                    {likeFor !== key && (
+                      <button onClick={() => setLikeFor(key)} disabled={busy} className={`ml-auto ${BTN}`}>
+                        <Check size={12} /> Mark all like this reviewed
+                      </button>
+                    )}
+                  </div>
+                  {likeFor === key && (
+                    <LikeForm area={g.area} code={g.code} attemptId={null} onDone={load} onCancel={() => setLikeFor(null)} />
+                  )}
+                </div>
+              );
+            })}
+        </div>
+      )}
 
       {/* Batch bar. The "Mark all shown" shortcut of old is "select all" here,
           so what gets marked is what is ticked and visible — never a row that
@@ -291,8 +471,17 @@ export default function PlatformErrorsPage() {
                       {areaLabel(e.area)}
                     </span>
                     {e.code && <span className="text-[11px] font-mono text-muted-foreground">{e.code}</span>}
+                    {!e.resolvedAt && e.code && (repeatCount.get(`${e.area}|${e.code}`) || 0) > 1 && (
+                      <span className="text-[11px] font-semibold text-foreground">
+                        ×{repeatCount.get(`${e.area}|${e.code}`).toLocaleString()} unreviewed
+                      </span>
+                    )}
                     <span className="text-[11px] text-muted-foreground">· {when(e.createdAt)}</span>
-                    {e.companyId && (
+                    {/* Where it was written. Every row says so; a row from
+                        before the stamp says that, not a guess. */}
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded border border-border text-muted-foreground">
+                      {ENV_LABELS[e.environment] || "env not recorded"}
+                    </span>                    {e.companyId && (
                       <>
                         <Link
                           href={`/platform/companies/${e.companyId}`}
@@ -336,11 +525,29 @@ export default function PlatformErrorsPage() {
                       onCancel={() => setNoteFor(null)}
                     />
                   )}
+                  {likeFor === e.id && (
+                    <LikeForm
+                      area={e.area}
+                      code={e.code}
+                      attemptId={typeof e.detail?.attemptId === "string" ? e.detail.attemptId : null}
+                      onDone={load}
+                      onCancel={() => setLikeFor(null)}
+                    />
+                  )}
                 </div>
-                {!e.resolvedAt && noteFor !== e.id && (
-                  <button onClick={() => setNoteFor(e.id)} disabled={busy} className={`shrink-0 ${BTN}`}>
-                    <Check size={12} /> Mark reviewed
-                  </button>
+                {!e.resolvedAt && noteFor !== e.id && likeFor !== e.id && (
+                  <div className="shrink-0 flex flex-col items-end gap-1.5">
+                    <button onClick={() => setNoteFor(e.id)} disabled={busy} className={BTN}>
+                      <Check size={12} /> Mark reviewed
+                    </button>
+                    {/* Only where there is a "like": a code, and another
+                        unreviewed row carrying it. */}
+                    {e.code && (repeatCount.get(`${e.area}|${e.code}`) || 0) > 1 && (
+                      <button onClick={() => setLikeFor(e.id)} disabled={busy} className={BTN}>
+                        <Check size={12} /> Mark all like this reviewed
+                      </button>
+                    )}
+                  </div>
                 )}
                 {e.resolvedAt && (
                   <button onClick={() => review([e.id], false)} disabled={busy} className={`shrink-0 ${BTN}`}>

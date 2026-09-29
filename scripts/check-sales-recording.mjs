@@ -34,7 +34,7 @@ import { recordingsCsv } from "@/lib/sales/calls/recordingsList";
 import { recordCallRecording } from "@/lib/sales/calls/store";
 import { acknowledged, noContent } from "@/lib/sales/calls/twilioAck";
 import { answeredAtFrom } from "@/lib/sales/calls/providerStatus";
-import { recordingFromResource, legColumnsFromCall, pickProspectLeg, reconcileRecordings, reconcileProspectLegs } from "@/lib/sales/calls/reconcileProvider";
+import { recordingFromResource, legColumnsFromCall, pickProspectLeg, reconcileRecordings, reconcileProspectLegs, LEG_CLAIMED_ELSEWHERE, isProviderSidClash } from "@/lib/sales/calls/reconcileProvider";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => readFileSync(join(ROOT, p), "utf8");
@@ -310,6 +310,113 @@ section("9. The net under the webhooks — lib/sales/calls/reconcileProvider.js"
   ok("a rep leg's outbound child becomes the prospect leg", legWrites.some((w) => w.where.id === "c1" && w.data.providerCallSid === "CAkid" && w.data.providerStatus === "no-answer"));
   ok("a rep leg with no child is closed as failed / no_prospect_leg, so it is not asked again", legWrites.some((w) => w.where.id === "c2" && w.data.providerStatus === "failed" && w.data.endReason === "no_prospect_leg") && legs.noLeg === 1);
   ok("carrier reads are counted and capped", legs.fetched === 3 && legs.updated === 2);
+
+  // ── 2026-09-24: a sid another row owns (7,360 identical log entries) ──
+  // A stateful fake: rows are filtered the way Postgres would for the
+  // shapes the sweep asks, updateMany honours its WHERE, and the @unique on
+  // providerCallSid is enforced — so "not retried every run" is executed,
+  // not asserted from the code.
+  const NUM = "+17163664950";
+  const at = new Date("2026-09-24T19:51:13Z");
+  const mkStore = (rows, { raceSid = null, logRows = [] } = {}) => {
+    const match = (r, w = {}) => Object.entries(w).every(([k, v]) => {
+      if (k === "id" && v && typeof v === "object") return v.not !== undefined ? r.id !== v.not : true;
+      if (v && typeof v === "object" && !(v instanceof Date)) {
+        if ("in" in v) return v.in.includes(r[k]);
+        if ("not" in v) return v.not === null ? r[k] != null : r[k] !== v.not;
+        if ("gte" in v || "lte" in v || "gt" in v) return true;
+        return true;
+      }
+      return (r[k] ?? null) === v;
+    });
+    const writes = [];
+    return {
+      rows, writes, logRows,
+      salesCallAttempt: {
+        findMany: async ({ where, take }) => rows.filter((r) => match(r, where)).slice(0, take ?? 1e9).map((r) => ({ ...r })),
+        updateMany: async ({ where, data }) => {
+          writes.push({ where, data });
+          const hit = rows.filter((r) => match(r, where));
+          if (data.providerCallSid && (data.providerCallSid === raceSid || rows.some((o) => o.providerCallSid === data.providerCallSid && !hit.includes(o)))) {
+            throw Object.assign(new Error("Unique constraint failed on the fields: (`providerCallSid`)"), { code: "P2002", meta: { target: ["providerCallSid"] } });
+          }
+          hit.forEach((r) => Object.assign(r, data));
+          return { count: hit.length };
+        },
+      },
+      platformErrorLog: {
+        findFirst: async ({ where }) => logRows.find((l) => l.code === where.code && l.resolvedAt == null && l.detail?.attemptId === where.detail.equals) || null,
+      },
+    };
+  };
+  const orphan = () => ({ id: "A", direction: "out", dialChannel: "browser", repCallSid: null, providerCallSid: null, providerStatus: null, toE164: NUM, dialledAt: at });
+  const redial = () => ({ id: "B", direction: "out", dialChannel: "browser", repCallSid: "CArepB", providerCallSid: "CAredial", providerStatus: "completed", toE164: NUM, dialledAt: new Date(at.getTime() + 75000) });
+  const redialLeg = { sid: "CAredial", direction: "outbound-dial", to: NUM, status: "completed", duration: "9", endTime: new Date("2026-09-24T19:53:00Z") };
+  let listCalls = 0;
+  const nearCarrier = (legsFor) => ({ calls: Object.assign(() => ({ fetch: async () => ({}) }), { list: async (q) => { listCalls += 1; return legsFor(q); } }) });
+  const reports = [];
+  const report = async (e) => { reports.push(e); };
+  const NOW = new Date("2026-09-25T00:00:00Z");
+
+  {
+    const store = mkStore([orphan(), redial()]);
+    listCalls = 0; reports.length = 0;
+    const r1 = await reconcileProspectLegs({ client: store, twilio: nearCarrier(() => [redialLeg]), now: NOW, report });
+    const a = store.rows.find((r) => r.id === "A");
+    ok("the redial's leg — already on B — is never written onto A", !store.writes.some((w) => w.data.providerCallSid === "CAredial") && a.providerCallSid === null, store.writes);
+    ok("A is closed as failed / leg_claimed_elsewhere, and B is untouched", a.providerStatus === "failed" && a.endReason === LEG_CLAIMED_ELSEWHERE && store.rows.find((r) => r.id === "B").providerCallSid === "CAredial" && r1.claimedElsewhere === 1 && r1.failed === 0, { a, r1 });
+    ok("…and nothing is logged: a resolved row is not an error", reports.length === 0, reports);
+    const r2 = await reconcileProspectLegs({ client: store, twilio: nearCarrier(() => [redialLeg]), now: NOW, report });
+    ok("not retried every run: the next tick does not ask the carrier about A again", listCalls === 1 && r2.fetched === 0 && r2.failed === 0, { listCalls, r2 });
+  }
+  {
+    // The race: nobody owns the sid when the sweep looks, somebody does by the write.
+    const store = mkStore([orphan()], { raceSid: "CAfresh" });
+    reports.length = 0;
+    const r = await reconcileProspectLegs({ client: store, twilio: nearCarrier(() => [{ ...redialLeg, sid: "CAfresh" }]), now: NOW, report });
+    const a = store.rows[0];
+    ok("a P2002 on providerCallSid mid-write resolves like a taken sid — closed, not thrown, not logged", a.providerStatus === "failed" && a.endReason === LEG_CLAIMED_ELSEWHERE && r.failed === 0 && r.claimedElsewhere === 1 && reports.length === 0, { a, r, reports });
+    ok("isProviderSidClash: P2002 on that column (or unnamed) yes; another column or another code no", isProviderSidClash({ code: "P2002", meta: { target: ["providerCallSid"] } }) && isProviderSidClash({ code: "P2002" }) && !isProviderSidClash({ code: "P2002", meta: { target: ["recordingSid"] } }) && !isProviderSidClash({ code: "P2025" }));
+  }
+  {
+    // One bad row must not stop the others: A's leg is taken, C's is free.
+    const c = { ...orphan(), id: "C", toE164: "+15550001234", dialledAt: new Date(at.getTime() + 1000) };
+    const store = mkStore([orphan(), c, redial()]);
+    const r = await reconcileProspectLegs({ client: store, twilio: nearCarrier((q) => (q.to === NUM ? [redialLeg] : [{ ...redialLeg, sid: "CAc", to: "+15550001234" }])), now: NOW, report });
+    ok("one row whose leg is taken does not block the next — C is matched in the same tick", store.rows.find((x) => x.id === "C").providerCallSid === "CAc" && r.updated === 1 && r.claimedElsewhere === 1, r);
+  }
+  {
+    // Two legs to the number, one owned: the free one is this dial's.
+    const store = mkStore([orphan(), redial()]);
+    await reconcileProspectLegs({ client: store, twilio: nearCarrier(() => [redialLeg, { ...redialLeg, sid: "CAmine", duration: "40" }]), now: NOW, report });
+    ok("with the owned leg set aside, the one free leg to the number is the match", store.rows[0].providerCallSid === "CAmine" && store.rows[0].talkSeconds === 40, store.rows[0]);
+  }
+  {
+    // (3): the rep leg's prospect child is on another row; a transfer child is free.
+    const bridgedRow = { ...orphan(), id: "D", repCallSid: "CArepD" };
+    const store = mkStore([bridgedRow, { ...redial(), id: "E" }]);
+    reports.length = 0;
+    const kids = [redialLeg, { sid: "CAxfer", direction: "outbound-dial", to: "+15559990000", status: "completed", duration: "30", endTime: new Date() }];
+    await reconcileProspectLegs({ client: store, twilio: nearCarrier(() => kids), now: NOW, report });
+    const d = store.rows[0];
+    ok("(3) a taken prospect child is not replaced by the transfer leg that is left", d.providerCallSid === null && d.providerStatus === "failed" && d.endReason === LEG_CLAIMED_ELSEWHERE, d);
+    ok("…and two rows claiming one call is logged — once", reports.length === 1 && reports[0].code === LEG_CLAIMED_ELSEWHERE && reports[0].detail.attemptId === "D", reports);
+  }
+  {
+    // A genuine carrier failure: logged, then not again while that entry is unreviewed.
+    const logRows = [];
+    const store = mkStore([orphan()], { logRows });
+    reports.length = 0;
+    const failing = nearCarrier(() => { throw Object.assign(new Error("Twilio 503"), { status: 503 }); });
+    const logInto = async (e) => { reports.push(e); logRows.push({ ...e, resolvedAt: null }); };
+    await reconcileProspectLegs({ client: store, twilio: failing, now: NOW, report: logInto });
+    await reconcileProspectLegs({ client: store, twilio: failing, now: NOW, report: logInto });
+    await reconcileProspectLegs({ client: store, twilio: failing, now: NOW, report: logInto });
+    ok("a genuine failure is logged once across three ticks, the row left open to retry", reports.length === 1 && reports[0].code === "leg_time_match_failed" && store.rows[0].providerStatus === null, reports.length);
+    logRows[0].resolvedAt = new Date();
+    await reconcileProspectLegs({ client: store, twilio: failing, now: NOW, report: logInto });
+    ok("…and marked reviewed, the next occurrence is said again", reports.length === 2, reports.length);
+  }
 
   const cron = read("app/api/cron/sales-pipeline/route.js");
   ok("the cron runs both sweeps and one catch-up transcription a tick, each in its own try", /reconcileRecordings\(\{ now, client: db/.test(cron) && /reconcileProspectLegs\(\{ now, client: db/.test(cron) && /transcribeMissing\(\{ limit: 1, retryUnconfigured: true, client: db \}\)/.test(cron));

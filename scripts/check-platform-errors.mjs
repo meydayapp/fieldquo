@@ -45,7 +45,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { reviewErrors, REVIEW_BULK_MAX, REVIEW_NOTE_MAX } from "../lib/platform/errorLog.js";
+import { reviewErrors, REVIEW_BULK_MAX, REVIEW_NOTE_MAX, errorsLikeWhere, countErrorsLike, reviewErrorsLike } from "../lib/platform/errorLog.js";
 import { AUDIT_ACTIONS } from "../lib/platform/auditActions.js";
 import { webhookAttention, refusedPhrase, refusalReason, ATTENTION_WINDOW_MS } from "../lib/voice/webhookAttention.js";
 
@@ -364,6 +364,65 @@ console.log("\n   …and the route and page that use it");
   ok("the quiet state is a muted footer line with a review link, never the red card", dash.includes('attention?.level === "quiet"') && dash.includes('href="/platform/errors?area=voice_webhook"'));
   const errorsPage = strip(read(PAGE));
   ok("/platform/errors honours ?area= from that link", errorsPage.includes('get("area")'));
+}
+
+// ═══════════════ 8. Mark all like this reviewed ════════════════════════════
+console.log("\n8. Mark all like this reviewed (2026-09-29, 7,360 copies of one entry)");
+{
+  ok("errorsLikeWhere needs an area AND a code — never 'the whole uncoded area'", errorsLikeWhere({ area: "sales_dial" }) === null && errorsLikeWhere({ code: "x" }) === null && errorsLikeWhere({ area: " ", code: " " }) === null && errorsLikeWhere({ area: { $ne: 1 }, code: ["x"] }) === null);
+  ok("…and a garbage `before` is refused rather than dropped (dropped would sweep newer rows)", errorsLikeWhere({ area: "a", code: "c", before: "not a date" }) === null);
+  const w = errorsLikeWhere({ area: "sales_dial", code: "leg_time_match_failed", attemptId: "att1", before: "2026-09-30T01:19:42.945Z" });
+  ok("the set is unreviewed, same area + code, created no later than `before`, and the attempt when given",
+    w.area === "sales_dial" && w.code === "leg_time_match_failed" && w.resolvedAt === null && w.createdAt.lte.toISOString() === "2026-09-30T01:19:42.945Z" && w.detail.path[0] === "attemptId" && w.detail.equals === "att1", w);
+  ok("…with no attempt, no detail filter", !("detail" in errorsLikeWhere({ area: "a", code: "c" })));
+
+  const fake = (count) => {
+    const updates = [];
+    const audits = [];
+    const tx = {
+      platformErrorLog: { updateMany: async (args) => { updates.push(args); return { count }; } },
+      platformAuditLog: { create: async (args) => { audits.push(args.data); return args.data; } },
+    };
+    return { updates, audits, $transaction: async (fn) => fn(tx), platformErrorLog: new Proxy({}, { get: (_, k) => () => { throw new Error(`platformErrorLog.${String(k)} outside tx`); } }) };
+  };
+  const now = new Date("2026-09-30T02:00:00Z");
+  let db = fake(7360);
+  let r = await reviewErrorsLike({ area: "sales_dial", code: "leg_time_match_failed", before: "2026-09-30T01:19:42.945Z", note: " stuck attempt, fixed ", adminId: "adm_1" }, { db, now });
+  ok("one statement marks all 7,360, inside the transaction", r.ok && r.count === 7360 && db.updates.length === 1, r);
+  ok("…with the SAME stamp as the single action: resolvedAt / resolvedBy (admin id) / resolvedNote",
+    db.updates[0].data.resolvedAt === now && db.updates[0].data.resolvedBy === "adm_1" && db.updates[0].data.resolvedNote === "stuck attempt, fixed", db.updates[0].data);
+  ok("…never a delete", !JSON.stringify(db.updates).includes("delete"));
+  ok("…and ONE audit row, error_reviewed, naming the filter and the count rather than 7,360 ids",
+    db.audits.length === 1 && db.audits[0].action === "error_reviewed" && db.audits[0].platformAdminId === "adm_1" && db.audits[0].details.count === 7360 && db.audits[0].details.like.code === "leg_time_match_failed" && !("errorIds" in db.audits[0].details), db.audits[0]);
+  db = fake(0);
+  r = await reviewErrorsLike({ area: "a", code: "c", before: now.toISOString(), adminId: "adm_1" }, { db, now });
+  ok("a sweep that matched nothing writes no audit row", r.ok && r.count === 0 && db.audits.length === 0);
+  r = await reviewErrorsLike({ area: "a", code: "c", adminId: "adm_1" }, { db: fake(1), now });
+  ok("no `before` → refused: the person must have seen a count", !r.ok && r.status === 400);
+  r = await reviewErrorsLike({ area: "a", code: "c", before: now.toISOString(), adminId: "" }, { db: fake(1), now });
+  ok("no admin → refused", !r.ok && r.status === 400);
+
+  const agg = { platformErrorLog: { aggregate: async (args) => ({ _count: { _all: 12 }, _max: { createdAt: now }, _min: { createdAt: new Date(now - 1000) }, args }) } };
+  r = await countErrorsLike({ area: "a", code: "c", attemptId: "x" }, { db: agg });
+  ok("countErrorsLike returns the count and the newest row's time (the `before` the confirm sends)", r.ok && r.count === 12 && r.newestAt === now, r);
+  ok("…and refuses a set it cannot name", (await countErrorsLike({ area: "a" }, { db: agg })).ok === false);
+
+  const LIKE = "app/api/platform/errors/like/route.js";
+  const like = strip(read(LIKE));
+  const patch = like.slice(like.indexOf("export async function PATCH"));
+  ok("the like route gates on the platform admin and company:view — the single action's permission", like.includes("getCurrentPlatformAdmin(request)") && /requirePlatformPermission\(admin\.role,\s*"company:view"\)/.test(like));
+  ok("…refuses a caller holding a live support session, before the write", patch.indexOf("verifyImpersonationToken(") !== -1 && patch.indexOf("verifyImpersonationToken(") < patch.indexOf("reviewErrorsLike(") && /IMPERSONATION_COOKIE/.test(patch) && /403/.test(patch));
+  ok("…rejects < and > in the note, passes the admin id and the client's `before`", patch.includes("containsMarkupCharacters(note)") && patch.includes("adminId: admin.id") && patch.includes("before: body?.before"));
+  ok("…and writes only through the helper", !like.includes("platformErrorLog."));
+
+  const pg = strip(read(PAGE));
+  ok("the page fetches the count before a confirm is possible, and sends newestAt as before", pg.includes("`/api/platform/errors/like?${qs}`") && pg.includes("before: counts.newestAt") && pg.includes("disabled={busy || !n}"));
+  ok("…the confirm states the count", pg.includes("Mark <strong>{n.toLocaleString()}</strong> unreviewed"));
+  ok("…offers 'only this attempt' when the row names one", pg.includes("e.detail?.attemptId") && pg.includes("Only this attempt"));
+  ok("…shows the per-row button only where another unreviewed row shares the code", /e\.code && \(repeatCount\.get\(`\$\{e\.area\}\|\$\{e\.code\}`\) \|\| 0\) > 1 && \(\s*<button onClick=\{\(\) => setLikeFor\(e\.id\)\}/.test(pg));
+  ok("…and the Repeating strip with ×N and last-seen", pg.includes("Repeating") && pg.includes("×{g.count.toLocaleString()}") && pg.includes("when(g.lastAt)"));
+  const coll = strip(read(COLLECTION));
+  ok("GET returns repeats: unreviewed per (area, code) under the list's filter", /by:\s*\["area",\s*"code"\],\s*where:\s*\{\s*\.\.\.filters,\s*resolvedAt:\s*null,\s*code:\s*\{\s*not:\s*null\s*\}\s*\}/.test(coll) && coll.includes("repeats,"));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -413,6 +413,40 @@ async function main() {
     ok("the call script is sanitised before the upsert", /script: pgSafe\(checked\.script\)/.test(script));
     const runner = decomment(read("lib/sales/pipeline/runner.js"));
     ok("the runner's own note and lastError cannot carry one either", /pgSafeString\(String\(note\)\)\.slice\(0, 500\)/.test(runner) && /pgSafeString\(message\)\.slice\(0, 500\)/.test(runner));
+
+    // 2026-09-29 sweep: every other pipeline write whose text came from a
+    // vendor's scrape or a model. Hostile first, then the wiring.
+    const { Prisma } = await import("@prisma/client");
+    const listingRow = {
+      where: { source_externalId: { source: "google_maps", externalId: `ChIJ${NUL}x` } },
+      create: { name: `Joe${NUL}'s Roofing\u0007`, payload: { listing: { reviews: [`great${NUL}`, "ok\u000b"] } }, matchResult: Prisma.DbNull, rating: 4.5, fetchedAt: at },
+      update: { name: "Joe's Roofing", matchResult: Prisma.JsonNull },
+    };
+    const clean = pgSafe(listingRow);
+    ok("a scraped listing's NULs and stray controls are gone at every depth", !hasUnstorableText(clean) && clean.create.name === "Joe's Roofing" && clean.create.payload.listing.reviews[0] === "great" && clean.create.payload.listing.reviews[1] === "ok" && clean.where.source_externalId.externalId === "ChIJx");
+    ok("Prisma.DbNull / JsonNull pass through as the SAME sentinels — never rebuilt as {} (that would store an empty object, not NULL)", clean.create.matchResult === Prisma.DbNull && clean.update.matchResult === Prisma.JsonNull);
+    ok("…a Date and a number untouched", clean.create.fetchedAt === at && clean.create.rating === 4.5);
+    class Money { constructor(v) { this.v = v; } }
+    const m = new Money(`1${NUL}0`);
+    ok("any class instance is left whole (only plain objects are walked)", pgSafe({ m }).m === m);
+    ok("a model's brief phrasing with NULs becomes storable", !hasUnstorableText(pgSafe({ opening: `Hi${NUL} there`, angles: [`one${NUL}`, "two"] })));
+
+    const wraps = [
+      ["lib/sales/pipeline/handlers/generateResearchBrief.js", /phrasing: phrasing \? pgSafe\(\{ opening: phrasing\.opening, angles: phrasing\.angles \}\) : null/],
+      ["lib/sales/intel/apifyRuns.js", /db\.externalListing\.upsert\(pgSafe\(\{/],
+      ["lib/sales/intel/listings.js", /externalListing\.upsert\(\{ \.\.\.pgSafe\(row\), select: \{ id: true, matchedProspectId: true \} \}\)/],
+      ["lib/sales/intel/listingMatch.js", /createMany\(\{ data: pgSafe\(plan\.evidence\) \}\)/],
+      ["lib/sales/intel/promoteListings.js", /prospect\.create\(\{ data: pgSafe\(plan\.prospect\)/],
+      ["lib/sales/intel/people.js", /prospectPerson\.createMany\(\{ data: pgSafe\(plan\.rows\)/],
+      ["lib/sales/intel/bbbApply.js", /prospectEvidence\.create\(\{\s*data: pgSafe\(\{/],
+      ["lib/sales/intel/db.js", /reason: pgSafe\(o\.reason\)/],
+      ["lib/sales/discovery/ingest.js", /prospect\.createMany\(\{ data: pgSafe\(inserts\.map/],
+    ];
+    for (const [file, re] of wraps) ok(`${file} writes its outside text through pgSafe`, re.test(decomment(read(file))));
+    const listings = decomment(read("lib/sales/intel/listings.js"));
+    ok("…and listings.js has no externalListing upsert left that skips it", !/externalListing\.upsert\(\{ \.\.\.row,/.test(listings));
+    const listingMatch = decomment(read("lib/sales/intel/listingMatch.js"));
+    ok("…nor listingMatch.js an evidence write that does", !/createMany\(\{ data: plan\.evidence \}\)/.test(listingMatch) && !/prospect\.update\(\{ where: \{ id: prospectId \}, data: plan\.data \}\)/.test(listingMatch));
   }
 
   // ═════════════════════════════════════════════════════════════════════════
