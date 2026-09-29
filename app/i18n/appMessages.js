@@ -96020,7 +96020,7 @@ const tl = {
   "app.designerTemplates.name.people-hiring": "Naghahanap kami",
   "app.designerTemplates.name.people-crew-at-work": "Crew habang nagtatrabaho",
   "app.designerTemplates.name.people-thank-you": "Salamat / holiday",
-  "app.designerTemplates.name.people-referral": "Referral program",
+  "app.designerTemplates.name.people-referral": "Programa ng referral",
   "app.marketingDesigner.slides.label": "Mga slide",
   "app.marketingDesigner.slides.goTo": "Slide {n}",
   "app.marketingDesigner.slides.add": "Magdagdag ng slide",
