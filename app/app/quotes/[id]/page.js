@@ -151,6 +151,7 @@ import { quoteStatusLabel, quoteStatusClasses } from "@/lib/quotes/statusLabels"
 import { formatAddress } from "@/lib/format/address";
 import { planRequiredFrom } from "@/lib/signup/planRequired";
 import QuotePlanOffers from "@/app/components/quotes/QuotePlanOffers";
+import { quoteViewState } from "@/lib/quotes/quoteViews";
 import {
   COMPLEXITY_LEVELS,
   COMPLEXITY_REASONS,
@@ -1278,6 +1279,20 @@ export default function QuoteDetailPage() {
               label={t("app.quoteDetail.emailed")}
               at={quote.sentAt}
               detail={quote.sentToEmail}
+            />
+          )}
+          {/* The first time the CLIENT opened the link — never staff, a
+              support session, a preview or a scanner (lib/quotes/quoteViews.js).
+              Absent means "no open recorded", which on a quote sent before
+              this existed is not "never opened", so nothing is said then. */}
+          {quoteViewState(quote).viewed && (
+            <TrailRow
+              label={
+                quoteViewState(quote).count > 1
+                  ? t("app.quoteDetail.openedByClientN", { count: quoteViewState(quote).count })
+                  : t("app.quoteDetail.openedByClient")
+              }
+              at={quoteViewState(quote).firstViewedAt}
             />
           )}
           {quote.followUpSentAt && (

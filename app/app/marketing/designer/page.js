@@ -461,6 +461,13 @@ export default function MarketingDesignerPage() {
                                 post" and "TikTok" are the networks' names,
                                 not interface copy. */}
                             <span className="mt-1 flex flex-wrap gap-1">
+                              {/* A carousel says so on the list — the format
+                                  chips below describe every one of its slides. */}
+                              {d.slideCount > 1 && (
+                                <span className="text-[10px] leading-none px-1.5 py-1 rounded-full bg-inverted text-inverted-foreground">
+                                  {t("app.marketingDesigner.publishModal.slideCount", { value: d.slideCount })}
+                                </span>
+                              )}
                               {counted.map((r) => (
                                 <span
                                   key={r.key}

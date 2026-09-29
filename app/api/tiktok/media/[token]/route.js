@@ -55,7 +55,7 @@ async function resolve(params) {
     loadRow: (id) =>
       db.tikTokPublish.findUnique({
         where: { id },
-        select: { companyId: true, status: true, imageUrl: true, mediaType: true, videoUrl: true },
+        select: { companyId: true, status: true, imageUrl: true, imageUrls: true, mediaType: true, videoUrl: true },
       }),
   });
 }

@@ -75,6 +75,9 @@ export default function ApprovalModal({
   design,
   preparePublishAsset,
   previewShape = "instagram_post",
+  // A carousel is approved as a whole (its fingerprint covers every slide),
+  // so the approver sees every slide, not just the first.
+  slideCount = 1,
   getCanvasPhotoUrls,
   onDownloadAll,
   socialVisible = false,
@@ -91,6 +94,7 @@ export default function ApprovalModal({
   // states that look identical if you only track one string.
   const [savedCaption, setSavedCaption] = useState("");
   const [asset, setAsset] = useState(null);
+  const [extraSlides, setExtraSlides] = useState([]);
   const [assetLoading, setAssetLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -140,11 +144,21 @@ export default function ApprovalModal({
     if (!isOpen) return;
     let cancelled = false;
     setAsset(null);
+    setExtraSlides([]);
     setAssetLoading(true);
     (async () => {
       try {
         const generated = await preparePublishAsset(previewShape);
-        if (!cancelled) setAsset(generated);
+        const extras = [];
+        for (let i = 1; i < Math.max(1, slideCount); i++) {
+          // eslint-disable-next-line no-await-in-loop
+          const more = await preparePublishAsset(previewShape, i);
+          if (more) extras.push(more);
+        }
+        if (!cancelled) {
+          setAsset(generated);
+          setExtraSlides(extras);
+        }
       } catch {
         if (!cancelled) setAsset(null);
       } finally {
@@ -154,7 +168,7 @@ export default function ApprovalModal({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, preparePublishAsset, previewShape]);
+  }, [isOpen, preparePublishAsset, previewShape, slideCount]);
 
   const captionCheck = validateCaption(caption);
   const dirty = caption !== savedCaption;
@@ -329,9 +343,9 @@ export default function ApprovalModal({
                 for a button they already pressed. */}
             <StateBanner state={state} approvedByName={approval.approvedByName} t={t} />
 
-            {/* The rendered asset. The square crop, because it is the one
-                every destination here accepts. */}
-            <div className="rounded-lg overflow-hidden border border-border bg-muted flex items-center justify-center min-h-[160px]">
+            {/* The rendered asset, in the format Instagram gets
+                (lib/marketing/destinations.js) — every slide of a carousel. */}
+            <div className="rounded-lg overflow-x-auto border border-border bg-muted flex items-center justify-center gap-2 min-h-[160px]">
               {assetLoading && <Loader2 size={20} className="animate-spin text-muted-foreground" />}
               {!assetLoading && !asset && (
                 <p className="text-xs text-muted-foreground p-4 text-center">
@@ -343,9 +357,20 @@ export default function ApprovalModal({
                 <img
                   src={asset.dataUrl}
                   alt={t("app.marketingDesigner.publishModal.previewAlt")}
-                  className="max-h-64 w-auto object-contain"
+                  className={`${extraSlides.length ? "max-h-48 shrink-0" : "max-h-64"} w-auto object-contain`}
                 />
               )}
+              {!assetLoading &&
+                asset &&
+                extraSlides.map((a, i) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={i}
+                    src={a.dataUrl}
+                    alt={t("app.marketingDesigner.publishModal.previewAlt")}
+                    className="max-h-48 w-auto object-contain shrink-0"
+                  />
+                ))}
             </div>
 
             {/* The words */}

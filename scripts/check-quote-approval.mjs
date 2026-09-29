@@ -343,5 +343,59 @@ const docOnly = pageSrc;
 ok("the approval document contains no FieldQuo wordmark", !/FieldQuo/i.test(docOnly));
 ok("the public payload sends no FieldQuo-owned field", !/FIELDQUO/.test(routeSrc));
 
+// ───────────────────────────────────────────────────────────────────────────
+console.log("\n10. \"The client opened it\" — Quote.viewedAt, stamped by the client only");
+{
+  const { viewVerdict, isLikelyBot, isPrefetchRequest, quoteViewState, isViewedNoAnswer } = await import("@/lib/quotes/quoteViews");
+  const PHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1";
+  const hdr = (h) => ({ get: (n) => h[n.toLowerCase()] ?? null });
+  ok("a homeowner on a phone counts", viewVerdict({ status: "sent", userAgent: PHONE }).record === true);
+  ok("…so does a contractor of ANOTHER company (the GC reading a sub's quote)", viewVerdict({ status: "sent", userAgent: PHONE, staffOfCompany: false }).record === true);
+  ok("the company's own staff never count", viewVerdict({ status: "sent", userAgent: PHONE, staffOfCompany: true }).reason === "staff");
+  ok("a read-only support session never counts", viewVerdict({ status: "accepted", userAgent: PHONE, impersonating: true }).reason === "impersonation");
+  ok("a draft never counts (preview)", viewVerdict({ status: "draft", userAgent: PHONE }).reason === "draft");
+  ok("a prefetch never counts", viewVerdict({ status: "sent", userAgent: PHONE, prefetch: true }).reason === "prefetch");
+  for (const ua of ["", null, "Slackbot-LinkExpanding 1.0", "facebookexternalhit/1.1", "WhatsApp/2.23", "Mozilla/5.0 (compatible; Googlebot/2.1)", "curl/8.1", "python-requests/2.31", "Mozilla/5.0 HeadlessChrome/120", "Microsoft Office SafeLinks"]) {
+    ok(`not a reader: ${JSON.stringify(ua)}`, isLikelyBot(ua) && viewVerdict({ status: "sent", userAgent: ua }).record === false);
+  }
+  ok("a real phone is not a bot", !isLikelyBot(PHONE));
+  ok("Sec-Purpose: prefetch is a prefetch", isPrefetchRequest(hdr({ "sec-purpose": "prefetch;prerender" })));
+  ok("Next's router prefetch is a prefetch", isPrefetchRequest(hdr({ "next-router-prefetch": "1" })));
+  ok("an ordinary request is not", !isPrefetchRequest(hdr({})) && !isPrefetchRequest(null));
+  ok("no stamp: not viewed, count 0", quoteViewState({}).viewed === false && quoteViewState({}).count === 0);
+  ok("a junk date is not a view", quoteViewState({ viewedAt: "nope", viewCount: 3 }).viewed === false);
+  ok("stamped: viewed, first date, count", (() => { const v = quoteViewState({ viewedAt: "2026-09-29T10:00:00Z", viewCount: 4 }); return v.viewed && v.count === 4 && v.firstViewedAt.toISOString().startsWith("2026-09-29"); })());
+  ok("viewed, no answer: sent + opened + undecided", isViewedNoAnswer({ status: "sent", viewedAt: new Date() }));
+  ok("…not when never opened (absence is not a view)", !isViewedNoAnswer({ status: "sent", viewedAt: null }));
+  ok("…not once decided", !isViewedNoAnswer({ status: "sent", viewedAt: new Date(), acceptedAt: new Date() }) && !isViewedNoAnswer({ status: "accepted", viewedAt: new Date() }));
+
+  const viewedRoute = strip(read("app/api/public/quotes/[token]/viewed/route.js"));
+  ok("the stamp route asks viewVerdict, with the staff test the preview uses", /viewVerdict\(/.test(viewedRoute) && /memberMayPreview\(member, quote\.companyId\)/.test(viewedRoute));
+  ok("…writes raw so Quote.updatedAt does not move, first view kept", /COALESCE\("viewedAt", NOW\(\)\)/.test(viewedRoute) && !/db\.quote\.update/.test(viewedRoute));
+  ok("…and never stamps a draft", /"status" <> 'draft'/.test(viewedRoute));
+  ok("the page reports the open from the browser, never for a preview", /\/viewed`, \{ method: "POST"/.test(pageSrc) && /quote\.preview/.test(pageSrc));
+  ok("the public GET still writes no view", !/viewedAt|viewCount/.test(routeSrc));
+  ok("the quote page reads it back (a field written is a field read)", /quoteViewState\(quote\)/.test(strip(read("app/app/quotes/[id]/page.js"))));
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+console.log("\n11. The received-quote routes and the add-to-your-quote page");
+{
+  const importSrc = strip(read("app/api/quotes/received/[token]/import/route.js"));
+  const addPage = strip(read("app/q/[token]/add/page.js"));
+  const addFlow = strip(read("app/q/[token]/add/AddToQuoteFlow.js"));
+  ok("the context GET refuses a draft, like the page", /isPubliclyReadable\(source\.status\)/.test(ctxSrc));
+  ok("the import POST refuses a draft too", /isPubliclyReadable\(sourceQuote\.status\)/.test(importSrc));
+  ok("the add page 404s a draft and an unknown token", /if \(!quote \|\| !isPubliclyReadable\(quote\.status\)\) notFound\(\)/.test(addPage));
+  ok("the add page shows only what /q shows: sender name and the quote's price", /sourceCostAmount\(quote\)/.test(addPage) && !/client|lineItems|scopeGroups|costing/.test(addPage.replace(/"use client"|AddToQuoteFlow/g, "")));
+  ok("\"start a new quote\" asks for the client-creation level before writing", /levelOrRefusal\(member, "clientsProperties", "full_edit"/.test(importSrc));
+  ok("…refuses the sender's own quote before a draft is made", importSrc.indexOf("This is your own quote") < importSrc.indexOf("createImportTargetQuote(db"));
+  ok("…and is only offered to someone who may do both", /canStartNew = canImport && hasLevel\(full, "clientsProperties", "full_edit"\)/.test(ctxSrc));
+  ok("the browser sends no money: markup, display, label, target, new client", !/amount|price|total/i.test((addFlow.match(/body: JSON\.stringify\(\{[\s\S]*?\}\)/) || [""])[0]) && !/snapshot|clientPrice:/.test((panelSrc.match(/body: JSON\.stringify\(\{[\s\S]*?\}\),/) || [""])[0]));
+  ok("signed out: a free account or a login, both returning to this page", /\/signup\?next=\$\{encodeURIComponent\(here\)\}/.test(addFlow) && /\/login\?next=\$\{encodeURIComponent\(here\)\}/.test(addFlow));
+  ok("the signed-out on-ramp is on the add page, NOT under the white-label quote", !/signup\?next/.test(panelSrc) && !/signup/.test(pageSrc));
+  ok("a signed-out reader gets the QUOTE's language, a member their own", /if \(!data\.authenticated\) setPageLanguage\(language\)/.test(addFlow));
+}
+
 console.log(`\n${fail === 0 ? "ALL PASS" : "FAILURES"} — ${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

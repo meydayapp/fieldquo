@@ -769,6 +769,56 @@ for (const key of QUOTE_EMAIL_SECTION_KEYS) {
     actions.remove.href);
 }
 
+// ── "Add this price to your own quote →" — business clients only ─────────
+//
+// Owner-approved 2026-09-29: a quote addressed to a BUSINESS (Client.type
+// "company") carries one quiet line under the first button, linking to
+// /q/<token>/add. A homeowner's email must be byte-for-byte what it was —
+// proven two ways: unset type and "individual" render identically, and
+// cutting the one line out of the business email gives the homeowner's back.
+
+console.log("\nThe add-to-your-quote line — business clients only\n");
+{
+  const { addToQuoteUrl, isBusinessClient } = await import("../lib/quotes/addToQuoteLink.js");
+  const url = "https://x.test/q/tok_abcdefghijklmnopqrstuvwxyz";
+  const addUrl = addToQuoteUrl(url);
+  const md5 = (e) => crypto.createHash("md5").update(`${e.subject}\0${e.html}\0${e.text}`).digest("hex");
+  const LINE_BLOCK = new RegExp(`\\n\\s*<p style="[^"]*">\\s*<a href="${addUrl.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")}"[^>]*>[^<]*</a>\\s*</p>`);
+
+  ok("isBusinessClient: only type \"company\"", isBusinessClient({ type: "company" }) && !isBusinessClient({ type: "individual" }) && !isBusinessClient({}) && !isBusinessClient(null) && !isBusinessClient({ type: "Company" }));
+  ok("the page link is the quote link plus /add", addUrl === `${url}/add` && addToQuoteUrl(`${url}/`) === `${url}/add`);
+
+  for (const language of SUPPORTED_EMAIL_LANGUAGES) {
+    const words = emailCopy(language).addToOwnQuote;
+    ok(`${language}: the line has words of its own, not English`, typeof words === "string" && words.length > 5 && (language === "en" || words !== EMAIL_COPY.en.addToOwnQuote));
+    for (const kind of ["quote", "follow_up"]) {
+      const base = { quote: quoteRow(), company: companyRow(), url, language, kind };
+      const unset = buildQuoteEmail({ ...base, client: { name: "Jane Fournier" } });
+      const indiv = buildQuoteEmail({ ...base, client: { name: "Jane Fournier", type: "individual" } });
+      const biz = buildQuoteEmail({ ...base, client: { name: "Jane Fournier", type: "company" } });
+      const tag = `${language}/${kind}`;
+      ok(`${tag}: homeowner — unset type and "individual" are byte-identical`, md5(unset) === md5(indiv));
+      ok(`${tag}: homeowner — no add link in the HTML or the text`, !indiv.html.includes(addUrl) && !indiv.text.includes(addUrl));
+      ok(`${tag}: business — the line, in the email's language, linking to /add`, biz.html.includes(escapeHtml(words)) && biz.html.includes(`href="${addUrl}"`));
+      ok(`${tag}: business — once, under the first button and above the paste-this fallback`,
+        biz.html.split(`href="${addUrl}"`).length === 2 &&
+          biz.html.indexOf(addUrl) < biz.html.indexOf(escapeHtml(emailCopy(language).orPaste)));
+      ok(`${tag}: business — cut the one line and the homeowner's HTML comes back byte for byte`, biz.html.replace(LINE_BLOCK, "") === indiv.html);
+      ok(`${tag}: business — the text part carries the link too, and only that differs`,
+        biz.text.includes(addUrl) && biz.text.split("\n").filter((l) => !l.includes(addUrl)).join("\n") === indiv.text);
+      ok(`${tag}: the subject never changes`, biz.subject === indiv.subject);
+    }
+  }
+
+  // The line is inkMuted on the card's paper — measured, on the brands
+  // contractors actually pick.
+  for (const hex of ["#ffffff", "#ffff00", "#fefcdd", "#000000", "#808080", "#B8860B", "#06356b", null]) {
+    const t = documentTheme({ brandColor: hex });
+    const r = contrastRatio(t.inkMuted, t.paper);
+    ok(`line ink on paper clears 4.5:1 for brand ${hex}`, r >= 4.5, r.toFixed(2));
+  }
+}
+
 console.log(
   `\n${checks} checks, ${failures} failure(s).${
     failures ? "" : " An empty section cannot leave the building."

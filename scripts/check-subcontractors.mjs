@@ -503,6 +503,237 @@ section("10. The matrix says shipped, and the caveat is gone");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+section("11. Imported quote → the GC's job: the owner's worked example (2026-09-29)");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Sub quotes $3,000. GC imports it at 20% → $3,600 on the GC's quote. GC's
+// client accepts → the GC's job carries a $3,000 subcontract, counted ONCE.
+// Sub's +$250 change order, approved AND signed by the GC → $3,250. The GC's
+// price to their own client stays $3,600. An unsigned change order moves
+// nothing. The sub's invoice lands on the GC's job; a mismatch is flagged,
+// never adopted. Everything below runs the shipped modules against an
+// in-memory database, so every write is counted rather than assumed.
+{
+  const { performImport, materializeImportedCosts } = await import("@/lib/quotes/importQuote");
+  const {
+    adoptImportsOnJob,
+    syncForSourceJob,
+    syncForSourceInvoice,
+    subcontractBillState,
+    approvedSubcontractTotal,
+    isSignedApproval,
+    latestSentVersion,
+  } = await import("@/lib/subcontractors/sourceLink");
+  const { loadJobSubcontracts } = await import("@/lib/costing/jobCostInputs");
+  const { actualJobCost } = await import("@/lib/costing/actualJobCost");
+
+  // ── A tiny Prisma stand-in: equality, { in }, { not }, OR, nested select ──
+  const matches = (row, where = {}) =>
+    Object.entries(where).every(([k, v]) => {
+      if (k === "OR") return v.some((w) => matches(row, w));
+      if (v && typeof v === "object" && !Array.isArray(v) && !(v instanceof Date)) {
+        if ("in" in v) return v.in.includes(row[k]);
+        if ("not" in v) return row[k] !== v.not;
+        if ("notIn" in v) return !v.notIn.includes(row[k]);
+        return false;
+      }
+      return (row[k] ?? null) === (v ?? null);
+    });
+  let seq = 0;
+  const id = (p) => `${p}_${++seq}`;
+  function makeDb() {
+    const T = {
+      company: [], quote: [], quoteScopeGroup: [], serviceCategory: [], quoteImport: [], job: [],
+      changeOrder: [], invoice: [], expense: [], subcontractor: [], jobSubcontractor: [], subcontractorBill: [],
+    };
+    const writes = [];
+    const shape = (table, row, select, include) => {
+      if (!row) return null;
+      const out = select ? {} : { ...row };
+      const rel = { ...(select || {}), ...(include || {}) };
+      for (const [k, v] of Object.entries(rel)) {
+        if (!v) continue;
+        if (k === "sourceCompany") out[k] = shape("company", T.company.find((c) => c.id === row.sourceCompanyId), v.select);
+        else if (k === "company") out[k] = shape("company", T.company.find((c) => c.id === row.companyId), v.select);
+        else if (k === "scopeGroups") out[k] = T.quoteScopeGroup.filter((g) => g.quoteId === row.id);
+        else if (k === "versions") out[k] = T.invoice.filter((i) => i.parentInvoiceId === row.id).map((i) => shape("invoice", i, v.select));
+        else if (k === "targetQuote") out[k] = shape("quote", T.quote.find((q) => q.id === row.targetQuoteId), v.select);
+        else out[k] = row[k];
+      }
+      return out;
+    };
+    const model = (name) => ({
+      findMany: async ({ where = {}, select, include } = {}) => T[name].filter((r) => matches(r, where)).map((r) => shape(name, r, select, include)),
+      findFirst: async ({ where = {}, select, include } = {}) => shape(name, T[name].find((r) => matches(r, where)), select, include),
+      findUnique: async ({ where = {}, select, include } = {}) => shape(name, T[name].find((r) => matches(r, where)), select, include),
+      create: async ({ data, select, include }) => {
+        if (name === "quoteImport" && T.quoteImport.some((r) => r.targetQuoteId === data.targetQuoteId && r.sourceQuoteId === data.sourceQuoteId))
+          throw Object.assign(new Error("unique"), { code: "P2002" });
+        const row = { id: id(name), createdAt: new Date(2026, 8, ++seq), ...data };
+        T[name].push(row);
+        writes.push(`${name}.create`);
+        return shape(name, row, select, include);
+      },
+      update: async ({ where, data, select }) => {
+        const row = T[name].find((r) => matches(r, where));
+        if (!row) throw new Error(`${name}.update: no row`);
+        Object.assign(row, data);
+        writes.push(`${name}.update`);
+        return shape(name, row, select);
+      },
+      updateMany: async ({ where, data }) => {
+        const rows = T[name].filter((r) => matches(r, where));
+        for (const r of rows) Object.assign(r, data);
+        writes.push(`${name}.updateMany`);
+        return { count: rows.length };
+      },
+      upsert: async ({ where, create, update }) => {
+        const key = Object.values(where)[0];
+        const row = T[name].find((r) => (typeof key === "object" ? matches(r, key) : r.key === key));
+        if (row) {
+          Object.assign(row, update);
+          writes.push(`${name}.upsert:update`);
+          return row;
+        }
+        const made = { id: id(name), ...create };
+        T[name].push(made);
+        writes.push(`${name}.upsert:create`);
+        return made;
+      },
+    });
+    const db = Object.fromEntries(Object.keys(T).map((n) => [n, model(n)]));
+    db.$transaction = async (fn) => fn(db);
+    db.$executeRaw = async () => 0;
+    return { db, T, writes };
+  }
+
+  const { db, T, writes } = makeDb();
+  T.company.push(
+    { id: "SUB", name: "Sparky Electric", email: "office@sparky.test", phone: "555-0199" },
+    { id: "GC", name: "Build Right" },
+    { id: "OTHER", name: "Unrelated Co" },
+  );
+  // The sub's quote to the GC, sent; its share link is what the GC holds.
+  T.quote.push({ id: "SQ", companyId: "SUB", status: "sent", total: 3000, acceptedTotal: null, quoteNumber: "Q-S-1" });
+  // The GC's own quote to their homeowner, open.
+  T.quote.push({ id: "GQ", companyId: "GC", status: "draft", total: 0, discount: 0, taxEnabled: false, quoteNumber: "Q-G-1" });
+
+  const member = { companyId: "GC", userId: "u_gc" };
+  const load = (qid) => ({ ...T.quote.find((q) => q.id === qid), scopeGroups: T.quoteScopeGroup.filter((g) => g.quoteId === qid) });
+  const res = await performImport({
+    db, member, sourceQuote: load("SQ"), targetQuote: load("GQ"), targetCompany: { taxRate: 0 }, markupPercent: 20, display: "blended",
+  });
+  ok("$3,000 at 20% puts $3,600 on the GC's quote", res.clientPrice === 3600 && T.quote.find((q) => q.id === "GQ").total === 3600, [res.clientPrice, T.quote.find((q) => q.id === "GQ").total]);
+  ok("…and the import books the GC's cost at $3,000", Number(T.quoteImport[0].snapshotAmount) === 3000);
+
+  // The GC's homeowner accepts; the GC's quote becomes a job.
+  T.quote.find((q) => q.id === "GQ").status = "accepted";
+  T.job.push({ id: "GJ", companyId: "GC", quoteId: "GQ" });
+  await materializeImportedCosts(db, { quoteId: "GQ", jobId: "GJ", companyId: "GC" });
+  const adopted = await adoptImportsOnJob(db, { quoteId: "GQ", jobId: "GJ", companyId: "GC" });
+  ok("acceptance puts the sender on the GC's job", adopted.adopted === 1 && T.jobSubcontractor.length === 1, adopted);
+  const sub = T.subcontractor[0];
+  ok("…as a new roster entry in the GC's company, linked to the sender", sub?.companyId === "GC" && sub?.linkedCompanyId === "SUB");
+  ok("…carrying only what the sub's quote shows: name, email, phone", sub?.name === "Sparky Electric" && sub?.email === "office@sparky.test" && sub?.phone === "555-0199");
+  ok("…and nothing invented: no contact name, no trade from the neutral default label", sub?.contactName == null && sub?.trade === null, sub);
+  const js = T.jobSubcontractor[0];
+  ok("the job row is `agreed` at $3,000 and ADOPTS the import", js.status === "agreed" && Number(js.agreedAmount) === 3000 && js.quoteImportId === T.quoteImport[0].id && js.companyId === "GC");
+
+  const costJob = async () => {
+    const subcontracts = await loadJobSubcontracts(db, { companyId: "GC", jobId: "GJ" });
+    const expenses = T.expense.filter((e) => e.projectId === "GJ" && e.companyId === "GC");
+    return actualJobCost(expenses, [], { subcontracts });
+  };
+  let cost = await costJob();
+  ok("job costing: $3,000 — the import expense AND the sub row describe it, counted once", cost.total === 3000 && cost.subcontracts.total === 3000 && cost.expenses.total === 0 && cost.subcontracts.expensesExcluded === 3000, cost.total);
+
+  // ── Idempotency ─────────────────────────────────────────────────────────
+  await materializeImportedCosts(db, { quoteId: "GQ", jobId: "GJ", companyId: "GC" });
+  const again = await adoptImportsOnJob(db, { quoteId: "GQ", jobId: "GJ", companyId: "GC" });
+  ok("a retried acceptance adds nothing: one expense, one sub, one job row", again.adopted === 0 && T.expense.length === 1 && T.subcontractor.length === 1 && T.jobSubcontractor.length === 1, [again, T.expense.length, T.subcontractor.length, T.jobSubcontractor.length]);
+  ok("…and costs the same $3,000", (await costJob()).total === 3000);
+
+  // ── Change orders on the SUB's job ──────────────────────────────────────
+  T.quote.find((q) => q.id === "SQ").status = "accepted";
+  T.job.push({ id: "SJ", companyId: "SUB", quoteId: "SQ" });
+  const co = { id: "co1", jobId: "SJ", status: "waiting_client", priceDelta: 250, signature: null };
+  T.changeOrder.push(co);
+  await syncForSourceJob(db, { jobId: "SJ" });
+  ok("a change order out for signature moves nothing", Number(js.agreedAmount) === 3000 && (await costJob()).total === 3000);
+  co.status = "approved"; // staff marked it approved, no signature
+  await syncForSourceJob(db, { jobId: "SJ" });
+  ok("…nor one a staff member marked approved without the GC's signature", Number(js.agreedAmount) === 3000);
+  co.signature = { name: "Pat GC", signatureDataUrl: "data:image/png;base64,x", signedAt: "2026-09-29T12:00:00Z" };
+  await syncForSourceJob(db, { jobId: "SJ" });
+  ok("approved AND signed by the GC: the job's subcontract becomes $3,250", Number(js.agreedAmount) === 3250, js.agreedAmount);
+  cost = await costJob();
+  ok("job costing: $3,250, still counted once", cost.total === 3250 && cost.subcontracts.total === 3250 && cost.expenses.total === 0, cost.total);
+  ok("…the unadopted road agrees: the import's expense is $3,250 too", Number(T.expense[0].amount) === 3250);
+  ok("the GC's price to their own client stays $3,600", T.quote.find((q) => q.id === "GQ").total === 3600);
+  await syncForSourceJob(db, { jobId: "SJ" });
+  await syncForSourceJob(db, { jobId: "SJ" });
+  ok("the same signature synced three times is still $3,250 — replaced, never added", Number(js.agreedAmount) === 3250);
+  co.status = "rejected";
+  await syncForSourceJob(db, { jobId: "SJ" });
+  ok("a signed change order taken back returns the cost to $3,000", Number(js.agreedAmount) === 3000);
+  co.status = "approved";
+  await syncForSourceJob(db, { jobId: "SJ" });
+
+  // ── The sub's invoice ───────────────────────────────────────────────────
+  T.invoice.push({ id: "INVD", companyId: "SUB", quoteId: "SQ", jobId: "SJ", parentInvoiceId: null, invoiceNumber: "INV-9", total: 9999, version: 1, sentAt: null });
+  await syncForSourceInvoice(db, { invoiceId: "INVD" });
+  ok("a draft invoice the GC never received is not a bill", T.subcontractorBill.length === 0);
+  T.invoice.push({ id: "INV1", companyId: "SUB", quoteId: null, jobId: "SJ", parentInvoiceId: null, invoiceNumber: "INV-10", total: 3250, version: 1, sentAt: new Date("2026-09-30") });
+  await syncForSourceInvoice(db, { invoiceId: "INV1" });
+  let bills = T.subcontractorBill.filter((b) => b.jobSubcontractorId === js.id);
+  ok("the sent invoice lands on the GC's job, owned by the GC", bills.length === 1 && bills[0].companyId === "GC" && Number(bills[0].total) === 3250 && bills[0].invoiceNumber === "INV-10");
+  ok("…and matches the approved amount", subcontractBillState({ agreedAmount: js.agreedAmount, bills }).state === "matches");
+  T.invoice.push({ id: "INV1v2", companyId: "SUB", quoteId: null, jobId: "SJ", parentInvoiceId: "INV1", invoiceNumber: "INV-10", total: 3400, version: 2, sentAt: new Date("2026-10-02") });
+  await syncForSourceInvoice(db, { invoiceId: "INV1v2" });
+  bills = T.subcontractorBill.filter((b) => b.jobSubcontractorId === js.id);
+  const verdict = subcontractBillState({ agreedAmount: js.agreedAmount, bills });
+  ok("an amended, re-sent invoice updates the ONE bill, not a second", bills.length === 1 && Number(bills[0].total) === 3400 && bills[0].version === 2);
+  ok("…is flagged: Invoice $3,400 differs from approved $3,250", verdict.state === "differs" && verdict.billed === 3400 && verdict.approved === 3250, verdict);
+  ok("…and the cost stays the approved $3,250", Number(js.agreedAmount) === 3250 && (await costJob()).total === 3250);
+
+  // ── Tenant isolation ────────────────────────────────────────────────────
+  // A row in ANOTHER company pointing at the same import id, and a job in
+  // another company that claims the sub's quote as its own.
+  T.jobSubcontractor.push({ id: "forged", companyId: "OTHER", jobId: "OJ", quoteImportId: T.quoteImport[0].id, agreedAmount: 1, status: "agreed" });
+  T.job.push({ id: "OJX", companyId: "OTHER", quoteId: "SQ" });
+  T.changeOrder.push({ id: "co_forged", jobId: "OJX", status: "approved", priceDelta: 100000, signature: { name: "Mallory" } });
+  const before = writes.length;
+  await syncForSourceJob(db, { jobId: "OJX" });
+  ok("another company's job naming the sub's quote syncs nothing", writes.length === before, writes.slice(before));
+  await syncForSourceJob(db, { jobId: "SJ" });
+  ok("…its change order never reaches the GC's figure", Number(js.agreedAmount) === 3250);
+  ok("a row in another company carrying the import id is never written", Number(T.jobSubcontractor.find((r) => r.id === "forged").agreedAmount) === 1);
+  ok("…and gets no copy of the sub's bill", !T.subcontractorBill.some((b) => b.jobSubcontractorId === "forged"));
+  const adoptOther = await adoptImportsOnJob(db, { quoteId: "GQ", jobId: "OJ", companyId: "OTHER" });
+  ok("adoption for another company finds none of the GC's imports", adoptOther.adopted === 0);
+
+  // ── The pure pieces, against hostile input ──────────────────────────────
+  ok("isSignedApproval: a blank name is no signature", !isSignedApproval({ status: "approved", signature: { name: "  " } }));
+  ok("isSignedApproval: a string is no signature", !isSignedApproval({ status: "approved", signature: "yes" }));
+  ok("isSignedApproval: signed but pending is not approval", !isSignedApproval({ status: "pending", signature: { name: "A" } }));
+  ok("approvedSubcontractTotal: junk deltas and nulls are skipped, cents exact", approvedSubcontractTotal({ snapshotAmount: "3000.10", changeOrders: [null, { status: "approved", signature: { name: "A" }, priceDelta: "0.2" }, { status: "approved", priceDelta: 50 }] }) === 3000.3);
+  ok("approvedSubcontractTotal: a signed credit lowers it", approvedSubcontractTotal({ snapshotAmount: 3000, changeOrders: [{ status: "approved", signature: { name: "A" }, priceDelta: -400 }] }) === 2600);
+  ok("subcontractBillState: 3250.1 + 0.2 matches 3250.3 in cents", subcontractBillState({ agreedAmount: 3250.3, bills: [{ total: 3250.1 }, { total: 0.2 }] }).state === "matches");
+  ok("subcontractBillState: no bills is `none`, not a match", subcontractBillState({ agreedAmount: 0, bills: [] }).state === "none");
+  ok("latestSentVersion: unsent root and unsent amendment is nothing", latestSentVersion({ id: "r", versions: [{ version: 2, sentAt: null }], sentAt: null }) === null);
+
+  // ── Wired where the events happen ───────────────────────────────────────
+  const codeOf = (p) => stripComments(read(p));
+  ok("the acceptance path adopts after materialising", /materializeImportedCosts[\s\S]*adoptImportsOnJob/.test(codeOf("lib/jobs/createJobFromQuote.js")));
+  ok("a job created from a quote by hand adopts too", /materializeImportedCosts[\s\S]*adoptImportsOnJob/.test(codeOf("lib/jobs/createJob.js")));
+  ok("the client's signature syncs the GC's side", /syncForSourceJob\(db, \{ jobId: co\.jobId \}\)/.test(codeOf("app/api/public/change-orders/[token]/route.js")));
+  ok("a staff decision re-syncs (a signed one can be taken back)", /syncForSourceJob\(db, \{ jobId: job\.id \}\)/.test(codeOf("app/api/jobs/[id]/change-orders/[changeOrderId]/route.js")));
+  ok("sending an invoice syncs the GC's bill", /syncForSourceInvoice\(db, \{ invoiceId: invoice\.id \}\)/.test(codeOf("app/api/invoices/[id]/send/route.js")));
+  ok("the job panel shows the bills and the verdict", /subcontractBillState/.test(codeOf("app/api/jobs/[id]/subcontractors/route.js")) && /billDiffers/.test(codeOf("app/components/jobs/JobSubcontractors.js")));
+  ok("the money strip takes the bills off too", (() => { const r = stripJobSubcontractorMoney({ id: "x", agreedAmount: 1, bills: [{ total: 1 }], billing: { billed: 1 } }); return !("bills" in r) && !("billing" in r); })());
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 console.log(
   fails.length
     ? `\nFAILED — ${fails.length} of ${pass + fails.length}\n${fails.map((f) => `  ✗ ${f}`).join("\n")}`

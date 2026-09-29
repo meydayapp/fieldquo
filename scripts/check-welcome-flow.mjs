@@ -452,5 +452,48 @@ console.log("\n7. Every new string in every app language");
   ok("the trial sentence reads the constant, not a typed number", /TRIAL_DAYS/.test(code("app/signup/page.js")) && !/Free for 14 days/.test(code("app/signup/page.js")));
 }
 
+/* ── The signup that began on "add this price to your own quote" ────────── */
+//
+// A contractor with no account taps "Create your free account" on
+// /q/<token>/add. They must land back on that page, signed in, after the
+// welcome questions — in this tab through ?next= (sessionStorage), and in
+// another tab or tomorrow through the cookie the page left
+// (lib/quotes/addToQuoteLink.js).
+console.log("\nSignup resume — back to the quote they were adding\n");
+{
+  const {
+    addToQuotePath,
+    addToQuoteCookie,
+    clearAddToQuoteCookie,
+    pendingAddToQuotePath,
+    isShareTokenShape,
+    ADD_TO_QUOTE_COOKIE,
+  } = await import("@/lib/quotes/addToQuoteLink");
+  const { isInternalPath } = await import("@/lib/appUrl");
+  const TOKEN = "Abc_def-0123456789abcdefghijklmnopqrstuvwxy"; // 43, base64url
+  ok("the page path is internal and names the token", addToQuotePath(TOKEN) === `/q/${TOKEN}/add` && isInternalPath(addToQuotePath(TOKEN)));
+  ok("the cookie is set for the token, site-wide, lax, a week", addToQuoteCookie(TOKEN) === `${ADD_TO_QUOTE_COOKIE}=${TOKEN}; Max-Age=604800; Path=/; SameSite=Lax`);
+  ok("…never for something that is not a share token", addToQuoteCookie("../../evil") === null && addToQuoteCookie("") === null && addToQuoteCookie(null) === null);
+  ok("the welcome flow reads it back among other cookies", pendingAddToQuotePath(`a=1; ${ADD_TO_QUOTE_COOKIE}=${TOKEN}; b=2`) === `/q/${TOKEN}/add`);
+  ok("…and nothing when it is absent or cleared", pendingAddToQuotePath("a=1") === null && pendingAddToQuotePath(`${ADD_TO_QUOTE_COOKIE}=`) === null && pendingAddToQuotePath(undefined) === null);
+  for (const hostile of ["//evil.com", "/\\evil.com", "https://evil.com/x", "tok/../../app", "<script>", "a".repeat(400)]) {
+    ok(`a hostile cookie value never becomes a URL: ${JSON.stringify(hostile.slice(0, 20))}`, pendingAddToQuotePath(`${ADD_TO_QUOTE_COOKIE}=${hostile}`) === null && !isShareTokenShape(hostile));
+  }
+  ok("clearing expires it", /Max-Age=0/.test(clearAddToQuoteCookie()));
+
+  const welcome = code("app/welcome/WelcomeFlow.js");
+  const after = welcome.slice(welcome.indexOf("function afterSetupUrl"), welcome.indexOf("function reportCompanyDetails"));
+  ok("after the questions: ?next= first, the cookie second, the dashboard last",
+    after.indexOf("WELCOME_NEXT_KEY") > -1 &&
+      after.indexOf("WELCOME_NEXT_KEY") < after.indexOf("pendingAddToQuotePath(document.cookie)") &&
+      after.indexOf("pendingAddToQuotePath(document.cookie)") < after.lastIndexOf('return "/app"'));
+  ok("…and the cookie's path is checked as internal before it is followed", /isInternalPath\(pending\)/.test(after));
+  const flow = code("app/q/[token]/add/AddToQuoteFlow.js");
+  ok("the add page's buttons carry ?next= AND leave the cookie", /\/signup\?next=/.test(flow) && /\/login\?next=/.test(flow) && (flow.match(/onClick=\{rememberHere\}/g) || []).length === 2);
+  ok("…and clear it once they are back signed in", /document\.cookie = clearAddToQuoteCookie\(\)/.test(flow));
+  ok("/signup hands ?next= to the welcome flow", /sessionStorage\.setItem\(WELCOME_NEXT_KEY, nextPath\)/.test(code("app/signup/page.js")));
+  ok("/login honours an internal ?next=", /safeNext\(params\.get\("next"\)\)/.test(code("app/login/page.js")));
+}
+
 console.log(fails.length ? `\nFAILED — ${fails.length} of ${pass + fails.length}\n${fails.map((f) => `  ✗ ${f}`).join("\n")}` : `\nPASSED — ${pass}/${pass} assertions`);
 process.exit(fails.length ? 1 : 0);

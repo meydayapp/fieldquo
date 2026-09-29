@@ -41,7 +41,7 @@
 // "not available yet, check back soon", written when no connect flow existed
 // at all; once it did, that sentence sent an owner away from the one screen
 // that fixes it.
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Check,
@@ -75,6 +75,9 @@ import {
   FACEBOOK_SCHEDULE_MIN_MINUTES,
   FACEBOOK_SCHEDULE_MAX_DAYS,
 } from "@/lib/social/metaSpecs";
+import { destinationRatio, planMetaRequests } from "@/lib/marketing/destinations";
+import { ratio as ratioByKey } from "@/lib/marketing/ratios";
+import { metaPublishBody } from "@/lib/social/publishBody";
 
 // The datetime-local picker's own min/max — the INTERSECTION of Facebook's
 // Meta-enforced window and FieldQuo's own Instagram window, so a single
@@ -100,23 +103,28 @@ function toLocalInputValue(date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-// The only AD_RATIOS crops this dialog will ever offer — all verified
-// compliant with Instagram's 4:5–1.91:1 aspect-ratio gate in
-// lib/social/metaSpecs.js's own comment on INSTAGRAM_COMPLIANT_RATIO_KEY, and
-// all shown uncropped in Facebook's feed. A Story (9:16) or TikTok crop is
-// never offered here, because Instagram's feed endpoint would reject it
-// outright rather than letter-box it.
+// ══ No shape picker: each destination gets its own format ═══════════════════
 //
-// Portrait (4:5, 1080x1350) was added 2026-09-28 as the recommended shape; the
-// square and landscape are unchanged. Which one the dialog STARTS on comes
-// from `initialShape` (lib/marketing/ratios.js defaultPublishShape()), so a
-// design made before the portrait existed still opens on the square.
-const SHAPES = [
-  { key: "instagram_portrait", labelKey: "app.marketingDesigner.publishModal.shapePortrait" },
-  { key: "instagram_post", labelKey: "app.marketingDesigner.publishModal.shapeSquare" },
-  { key: "facebook_feed", labelKey: "app.marketingDesigner.publishModal.shapeLandscape" },
-];
-const FALLBACK_SHAPE = "instagram_post";
+// Owner, 2026-09-29 (lib/marketing/destinations.js): Instagram feed 4:5,
+// Facebook feed 4:5 — or 1.91:1 only when the person asks for a link-style
+// post — TikTok 9:16. The Portrait / Square / Landscape picker that used to
+// sit here could only ever make a platform crop or refuse the post, so it is
+// gone; each checked destination shows its own preview, in the one format it
+// gets, and that is the image sent to it. A design laid out square before 4:5
+// existed keeps posting that square to both — destinations.js explains why —
+// in the exact request this dialog always sent for it.
+//
+// Facebook and Instagram in the same format are ONE request, as before; a
+// link-style Facebook post is a second request with its own image
+// (planMetaRequests()).
+
+// What a format is called next to its preview. The label keys are the ones
+// the old picker used, so every language already has them.
+const FORMAT_LABEL_KEYS = {
+  instagram_portrait: "app.marketingDesigner.publishModal.shapePortrait",
+  instagram_post: "app.marketingDesigner.publishModal.shapeSquare",
+  facebook_feed: "app.marketingDesigner.publishModal.shapeLandscape",
+};
 
 const CAPTION_ERROR_KEYS = {
   empty: "app.marketingDesigner.publishModal.captionEmpty",
@@ -130,11 +138,12 @@ const CAPTION_ERROR_KEYS = {
  * @param {boolean} props.isOpen
  * @param {() => void} props.onClose
  * @param {{id:string,name:string,campaign?:{name?:string}}} props.design
- * @param {(ratioKey: string) => Promise<{dataUrl:string,width:number,height:number}|null>} props.preparePublishAsset
+ * @param {(ratioKey: string, slide?: number) => Promise<{dataUrl:string,width:number,height:number}|null>} props.preparePublishAsset
  * @param {() => void} [props.onOpenApproval]  hands the person over to the
  *   screen where the words are actually edited and the sign-off happens.
- * @param {string} [props.initialShape]  the SHAPES key to start on. Anything
- *   not in SHAPES (or absent) starts on the square, as this dialog always did.
+ * @param {string[]} [props.savedKeys]  the formats the design's first slide
+ *   has saved — what decides whether it is a pre-4:5 square design.
+ * @param {number} [props.slideCount]  1 for a single image; 2–10 a carousel.
  */
 export default function PublishModal({
   isOpen,
@@ -142,7 +151,8 @@ export default function PublishModal({
   design,
   preparePublishAsset,
   onOpenApproval,
-  initialShape,
+  savedKeys = [],
+  slideCount = 1,
   tiktokConnected = false,
   onChooseTikTok,
 }) {
@@ -156,12 +166,14 @@ export default function PublishModal({
   const canConnect = !caller?.role || isBillingAdmin(caller.role);
 
   const [connection, setConnection] = useState(null); // null = loading
-  const [ratioKey, setRatioKey] = useState(() =>
-    SHAPES.some((s) => s.key === initialShape) ? initialShape : FALLBACK_SHAPE,
-  );
-  const [asset, setAsset] = useState(null);
-  const [assetLoading, setAssetLoading] = useState(false);
-  const [assetFailed, setAssetFailed] = useState(false);
+  // "feed" (4:5) unless the person asks for Facebook's link-style 1.91:1.
+  const [facebookStyle, setFacebookStyle] = useState("feed");
+  // ratioKey -> { status: "loading"|"ready"|"failed", items: [{dataUrl,width,height}] }
+  // — every slide, rendered in each format a checked destination gets.
+  const [assets, setAssets] = useState({});
+  // Formats already asked for this open — a ref, because the loop below must
+  // know synchronously, and a state updater is not guaranteed to run in time.
+  const requestedRef = useRef(new Set());
   // Read-only here — set from the design when this opens, never typed into.
   // See this file's header.
   const [caption, setCaption] = useState("");
@@ -193,6 +205,9 @@ export default function PublishModal({
     setScheduleOn(false);
     setScheduleValue("");
     setMockFailure("none");
+    setFacebookStyle("feed");
+    setAssets({});
+    requestedRef.current = new Set();
     let cancelled = false;
     (async () => {
       const res = await fetch(`/api/marketing/designer/designs/${design.id}/publish`);
@@ -220,45 +235,72 @@ export default function PublishModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, design?.id]);
 
+  // The format each destination gets — decided, not chosen.
+  const igRatio = destinationRatio("instagram", { savedKeys });
+  const fbRatio = destinationRatio("facebook", { savedKeys, facebookStyle });
+  const neededRatios = useMemo(() => {
+    const out = [];
+    if (platforms.instagram) out.push(igRatio);
+    if (platforms.facebook && !out.includes(fbRatio)) out.push(fbRatio);
+    return out;
+  }, [platforms.instagram, platforms.facebook, igRatio, fbRatio]);
+
+  // Every slide rendered in every needed format, once per open. These are the
+  // exact pixels sent — the preview is not a stand-in for them.
   useEffect(() => {
     if (!isOpen) return;
     let cancelled = false;
-    setAsset(null);
-    setAssetFailed(false);
-    setAssetLoading(true);
     (async () => {
-      try {
-        const generated = await preparePublishAsset(ratioKey);
+      for (const key of neededRatios) {
         if (cancelled) return;
-        if (!generated) {
-          setAssetFailed(true);
-        } else {
-          setAsset(generated);
+        if (requestedRef.current.has(key)) continue;
+        requestedRef.current.add(key);
+        setAssets((prev) => ({ ...prev, [key]: { status: "loading", items: [] } }));
+        const items = [];
+        let failed = false;
+        for (let i = 0; i < Math.max(1, slideCount); i++) {
+          try {
+            // eslint-disable-next-line no-await-in-loop
+            const generated = await preparePublishAsset(key, i);
+            if (!generated) failed = true;
+            else items.push(generated);
+          } catch {
+            failed = true;
+          }
+          if (cancelled) {
+            // Asked again on the next run rather than left "loading" forever.
+            requestedRef.current.delete(key);
+            return;
+          }
         }
-      } catch {
-        if (!cancelled) setAssetFailed(true);
-      } finally {
-        if (!cancelled) setAssetLoading(false);
+        setAssets((prev) => ({ ...prev, [key]: { status: failed ? "failed" : "ready", items } }));
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [isOpen, ratioKey, preparePublishAsset]);
+  }, [isOpen, neededRatios, preparePublishAsset, slideCount]);
 
   const captionCheck = useMemo(() => validateCaption(caption), [caption]);
-  const imageCheck = useMemo(
-    () => (asset ? validateImageForInstagram({ width: asset.width, height: asset.height }) : null),
-    [asset],
-  );
+  const igItems = assets[igRatio]?.status === "ready" ? assets[igRatio].items : null;
+  const fbItems = assets[fbRatio]?.status === "ready" ? assets[fbRatio].items : null;
+  const imageCheck = useMemo(() => {
+    if (!igItems) return null;
+    const bad = igItems.map((a) => validateImageForInstagram({ width: a.width, height: a.height })).find((c) => !c.ok);
+    return bad || { ok: true, errors: [] };
+  }, [igItems]);
 
   // Facebook's pre-post check. A WARNING only — it is deliberately not part of
-  // canSubmit below: Facebook accepts any shape and crops the tall ones in the
-  // feed, so the contractor is told and then left to decide.
+  // canSubmit below. With each destination on its own format it can no longer
+  // fire from this dialog (4:5 and 1.91:1 both show in full); kept because the
+  // server's result can still carry it for a post scheduled before.
   const facebookFeedCheck = useMemo(
-    () => (asset ? checkImageForFacebookFeed({ width: asset.width, height: asset.height }) : null),
-    [asset],
+    () => (fbItems?.[0] ? checkImageForFacebookFeed({ width: fbItems[0].width, height: fbItems[0].height }) : null),
+    [fbItems],
   );
+  // What is still a template placeholder on the design, from the server's own
+  // count — the publish route refuses on the same thing.
+  const placeholderCount = Number(connection?.placeholders?.count) || 0;
 
   const wantsInstagram = platforms.instagram;
   const anyPlatform = platforms.facebook || platforms.instagram;
@@ -292,6 +334,7 @@ export default function PublishModal({
   // exists so the reason is visible before the click rather than as a 409
   // afterwards.
   const approved = approval === "approved";
+  const assetsReady = neededRatios.length > 0 && neededRatios.every((k) => assets[k]?.status === "ready");
 
   const canSubmit =
     connection?.connected &&
@@ -300,8 +343,33 @@ export default function PublishModal({
     captionOk &&
     imageOk &&
     scheduleOk &&
-    Boolean(asset) &&
+    assetsReady &&
+    placeholderCount === 0 &&
     !submitting;
+
+  // A carousel's slides are uploaded one request each (…/assets) and the
+  // publish request carries their signed receipts — ten images in one body
+  // would pass the size a server function accepts. See lib/marketing/
+  // slideAssets.js. Returns the receipts, or null after reporting a failure.
+  async function stageSlides(key) {
+    const tokens = [];
+    for (const item of assets[key]?.items || []) {
+      // eslint-disable-next-line no-await-in-loop
+      const res = await fetch(`/api/marketing/designer/designs/${design.id}/assets`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ratioKey: key, imageBase64: item.dataUrl }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setSubmitError(body?.message || body?.error || t("app.marketingDesigner.publishModal.genericError"));
+        return null;
+      }
+      // eslint-disable-next-line no-await-in-loop
+      tokens.push((await res.json()).token);
+    }
+    return tokens;
+  }
 
   // `onlyPlatform` is the "Try Instagram again" path: the SAME request, the
   // same function, narrowed to the one platform that failed — never a second
@@ -310,39 +378,62 @@ export default function PublishModal({
   // Facebook post that already went out is neither re-sent nor forgotten.
   async function handlePublish(onlyPlatform) {
     const retrying = typeof onlyPlatform === "string";
-    if (retrying ? submitting || !asset || !connection?.connected || !approved : !canSubmit) return;
+    if (retrying ? submitting || !connection?.connected || !approved : !canSubmit) return;
+    const chosen = retrying
+      ? [onlyPlatform]
+      : Object.entries(platforms)
+          .filter(([, on]) => on)
+          .map(([key]) => key);
+    // One request per distinct format — Facebook and Instagram together when
+    // they share one, exactly as before.
+    const plan = planMetaRequests({ platforms: chosen, savedKeys, facebookStyle });
+    if (!plan.every((p) => assets[p.ratioKey]?.status === "ready")) return;
     setSubmitting(true);
     setSubmitError("");
+    const merged = {};
     try {
-      const res = await fetch(`/api/marketing/designer/designs/${design.id}/publish`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ratioKey,
-          platforms: retrying
-            ? [onlyPlatform]
-            : Object.entries(platforms)
-                .filter(([, on]) => on)
-                .map(([key]) => key),
-          caption,
-          imageBase64: asset.dataUrl,
-          scheduledFor: scheduledForDate ? scheduledForDate.toISOString() : undefined,
-          // Only ever acted on server-side when connection.mock is true —
-          // sending it for a real connection is simply ignored there.
-          // A retry does not re-simulate: the demo's point is showing that the
-          // second attempt is a real, separate attempt.
-          simulateFailure:
-            !retrying && connection?.mock && mockFailure !== "none" ? mockFailure : undefined,
-        }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        setSubmitError(body?.message || t("app.marketingDesigner.publishModal.genericError"));
-        await reportResponseError(res);
-        return;
+      for (const request of plan) {
+        const items = assets[request.ratioKey].items;
+        let slideTokens;
+        if (items.length > 1) {
+          // eslint-disable-next-line no-await-in-loop
+          slideTokens = await stageSlides(request.ratioKey);
+          if (!slideTokens) return;
+        }
+        // eslint-disable-next-line no-await-in-loop
+        const res = await fetch(`/api/marketing/designer/designs/${design.id}/publish`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            metaPublishBody({
+              ratioKey: request.ratioKey,
+              platforms: request.platforms,
+              caption,
+              imageBase64: items[0].dataUrl,
+              slideTokens,
+              scheduledFor: scheduledForDate ? scheduledForDate.toISOString() : undefined,
+              // Only ever acted on server-side when connection.mock is true —
+              // sending it for a real connection is simply ignored there.
+              // A retry does not re-simulate: the demo's point is showing that
+              // the second attempt is a real, separate attempt.
+              simulateFailure:
+                !retrying && connection?.mock && mockFailure !== "none" ? mockFailure : undefined,
+            }),
+          ),
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          setSubmitError(body?.message || t("app.marketingDesigner.publishModal.genericError"));
+          await reportResponseError(res);
+          break;
+        }
+        // eslint-disable-next-line no-await-in-loop
+        const data = await res.json();
+        Object.assign(merged, data.results || {});
       }
-      const data = await res.json();
-      setResults((prev) => (retrying ? { ...(prev || {}), ...(data.results || {}) } : data.results || {}));
+      if (Object.keys(merged).length) {
+        setResults((prev) => (retrying ? { ...(prev || {}), ...merged } : merged));
+      }
     } finally {
       setSubmitting(false);
     }
@@ -514,48 +605,83 @@ export default function PublishModal({
               </div>
             </div>
 
-            {/* Shape */}
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
-                {t("app.marketingDesigner.publishModal.shapeLabel")}
-              </p>
-              {/* Wraps: three shapes in German or Punjabi do not fit one row
-                  of a phone-width dialog. */}
-              <div className="flex flex-wrap gap-2">
-                {SHAPES.map((s) => (
-                  <button
-                    key={s.key}
-                    type="button"
-                    onClick={() => setRatioKey(s.key)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium ${
-                      ratioKey === s.key
-                        ? "bg-inverted text-inverted-foreground"
-                        : "bg-muted text-foreground"
-                    }`}
-                  >
-                    {t(s.labelKey)}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Preview — the actual pixels that will be sent, not a placeholder */}
-            <div className="rounded-lg overflow-hidden border border-border bg-muted flex items-center justify-center min-h-[160px]">
-              {assetLoading && <Loader2 size={20} className="animate-spin text-muted-foreground" />}
-              {!assetLoading && assetFailed && (
-                <p className="text-xs text-muted-foreground p-4 text-center">
-                  {t("app.marketingDesigner.publishModal.previewError")}
-                </p>
-              )}
-              {!assetLoading && asset && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={asset.dataUrl}
-                  alt={t("app.marketingDesigner.publishModal.previewAlt")}
-                  className="max-h-64 w-auto object-contain"
+            {/* Facebook's post style. Feed (4:5) unless the person asks for
+                the link-style 1.91:1 — the one case Facebook gets a different
+                format from Instagram, and so a second request. */}
+            {platforms.facebook && (
+              <label className="flex items-center gap-2 text-xs text-foreground" data-facebook-link-style>
+                <input
+                  type="checkbox"
+                  checked={facebookStyle === "link"}
+                  onChange={(e) => setFacebookStyle(e.target.checked ? "link" : "feed")}
                 />
-              )}
-            </div>
+                {t("app.marketingDesigner.publishModal.facebookLinkStyle", "Post to Facebook as a link-style image (1.91:1)")}
+              </label>
+            )}
+
+            {/* One preview per destination, in the format it gets — the
+                actual pixels that will be sent, every slide of a carousel. */}
+            {(platforms.instagram || platforms.facebook) && (
+              <div className="space-y-3" data-destination-previews>
+                {[
+                  platforms.instagram ? { platform: "instagram", key: igRatio } : null,
+                  platforms.facebook ? { platform: "facebook", key: fbRatio } : null,
+                ]
+                  .filter(Boolean)
+                  .map(({ platform, key }) => {
+                    const entry = assets[key];
+                    const r = ratioByKey(key);
+                    return (
+                      <div key={platform}>
+                        <p className="text-xs font-semibold text-muted-foreground mb-1.5">
+                          {t(
+                            "app.marketingDesigner.publishModal.destinationFormat",
+                            "{platform} gets {format}",
+                            {
+                              platform: t(`app.marketingDesigner.publishModal.${platform}`),
+                              format: `${t(FORMAT_LABEL_KEYS[key] || "", r ? `${r.width}×${r.height}` : key)}${
+                                slideCount > 1
+                                  ? ` · ${t("app.marketingDesigner.publishModal.slideCount", { value: slideCount })}`
+                                  : ""
+                              }`,
+                            },
+                          )}
+                        </p>
+                        <div className="rounded-lg border border-border bg-muted flex items-center gap-2 overflow-x-auto p-2 min-h-[120px]">
+                          {(!entry || entry.status === "loading") && (
+                            <Loader2 size={20} className="animate-spin text-muted-foreground mx-auto" />
+                          )}
+                          {entry?.status === "failed" && (
+                            <p className="text-xs text-muted-foreground p-4 text-center w-full">
+                              {t("app.marketingDesigner.publishModal.previewError")}
+                            </p>
+                          )}
+                          {entry?.status === "ready" &&
+                            entry.items.map((item, i) => (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                key={i}
+                                src={item.dataUrl}
+                                alt={t("app.marketingDesigner.publishModal.previewAlt")}
+                                className={`${slideCount > 1 ? "max-h-40" : "max-h-64 mx-auto"} w-auto object-contain shrink-0`}
+                              />
+                            ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+            {placeholderCount > 0 && (
+              <p className="text-xs text-amber-700 dark:text-amber-400 flex items-start gap-1" data-publish-placeholders>
+                <TriangleAlert size={12} className="mt-0.5 shrink-0" />
+                {t(
+                  "app.marketingDesigner.publishModal.placeholdersBlock",
+                  "This design still has {count} template placeholders (a review, a number, a photo…). Replace or delete them in the editor before it can be posted.",
+                  { count: placeholderCount },
+                )}
+              </p>
+            )}
             {wantsInstagram && imageCheck && !imageCheck.ok && (
               <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
                 <TriangleAlert size={12} />

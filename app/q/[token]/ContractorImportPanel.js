@@ -22,10 +22,14 @@ import { useEffect, useState } from "react";
 import { Loader2, Plus, Check, ExternalLink } from "lucide-react";
 import { formatMoney } from "@/lib/currency";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { NEW_IMPORT_TARGET as NEW_TARGET } from "@/lib/quotes/addToQuoteLink";
 
 const MARKUP_PRESETS = [0, 10, 20, 30];
 
-export default function ContractorImportPanel({ token }) {
+// `initialCtx`: the add-this-price page (app/q/[token]/add) has already
+// fetched the context to decide what to show around this card, so it hands it
+// over rather than having the same request made twice.
+export default function ContractorImportPanel({ token, initialCtx = null }) {
   // The viewer here is a signed-in contractor, never the homeowner, so the
   // app catalogue (their own language) is the right one — the white-label
   // document above this card speaks the QUOTE's language, this card speaks
@@ -40,6 +44,10 @@ export default function ContractorImportPanel({ token }) {
   const [customMarkup, setCustomMarkup] = useState("");
   const [display, setDisplay] = useState("blended");
   const [label, setLabel] = useState("");
+  // "Start a new quote": who it is for. The kind has NO default — a client is
+  // a homeowner or a business because somebody said so (lib/quotes/importTarget.js).
+  const [newClientName, setNewClientName] = useState("");
+  const [newClientType, setNewClientType] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -47,13 +55,25 @@ export default function ContractorImportPanel({ token }) {
 
   useEffect(() => {
     let cancelled = false;
+    const adopt = (data) => {
+      setCtx(data);
+      // Newest open quote first; with none, a new one when that is allowed.
+      if (data.openQuotes?.length) setTargetQuoteId(data.openQuotes[0].id);
+      else if (data.canStartNew) setTargetQuoteId(NEW_TARGET);
+    };
+    if (initialCtx) {
+      adopt(initialCtx);
+      setLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
     (async () => {
       try {
         const res = await fetch(`/api/quotes/received/${token}`);
         const data = await res.json().catch(() => null);
         if (cancelled || !res.ok || !data) return;
-        setCtx(data);
-        if (data.openQuotes?.length) setTargetQuoteId(data.openQuotes[0].id);
+        adopt(data);
       } catch {
         /* a failed context load just means no panel — never break the quote */
       } finally {
@@ -63,7 +83,7 @@ export default function ContractorImportPanel({ token }) {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, initialCtx]);
 
   if (loading || !ctx || ctx.error) return null;
   // The sender viewing their own quote, or a homeowner's white-label quote —
@@ -118,10 +138,13 @@ export default function ContractorImportPanel({ token }) {
               {t("app.quoteImport.pendingUntil")}
             </p>
             <a
-              href="/app/quotes"
+              href={done.quoteId ? `/app/quotes/${done.quoteId}` : "/app/quotes"}
               className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#06356b] mt-3"
             >
-              {t("app.quoteImport.openQuotes")} <ExternalLink size={13} />
+              {done.quoteId
+                ? t("app.quoteImport.openQuote", { quote: done.quoteNumber || t("app.quoteImport.yourQuote") })
+                : t("app.quoteImport.openQuotes")}{" "}
+              <ExternalLink size={13} />
             </a>
           </div>
         </div>
@@ -129,10 +152,12 @@ export default function ContractorImportPanel({ token }) {
     );
   }
 
-  const noQuotes = !ctx.openQuotes?.length;
+  const noQuotes = !ctx.openQuotes?.length && !ctx.canStartNew;
+  const startingNew = targetQuoteId === NEW_TARGET;
+  const newReady = !startingNew || (newClientName.trim() && newClientType);
 
   async function submit() {
-    if (!targetQuoteId || submitting) return;
+    if (!targetQuoteId || submitting || !newReady) return;
     setSubmitting(true);
     setError("");
     try {
@@ -144,6 +169,7 @@ export default function ContractorImportPanel({ token }) {
           markupPercent: markup,
           display,
           label: label.trim() || undefined,
+          ...(startingNew ? { newClient: { name: newClientName.trim(), type: newClientType } } : {}),
         }),
       });
       const data = await res.json().catch(() => null);
@@ -152,7 +178,8 @@ export default function ContractorImportPanel({ token }) {
       setDone({
         targetTotal: data.targetTotal,
         clientPrice: data.import?.clientPrice ?? clientPrice,
-        quoteNumber: q?.quoteNumber,
+        quoteNumber: data.targetQuoteNumber || q?.quoteNumber,
+        quoteId: data.targetQuoteId || null,
       });
     } catch (e) {
       setError(e.message);
@@ -203,8 +230,48 @@ export default function ContractorImportPanel({ token }) {
                   {q.clientName ? ` — ${q.clientName}` : ""}
                 </option>
               ))}
+              {ctx.canStartNew && (
+                <option value={NEW_TARGET}>{t("app.quoteImport.startNew")}</option>
+              )}
             </select>
           </label>
+
+          {/* A new quote needs a client, and the page can't know who it is. */}
+          {startingNew && (
+            <div className="space-y-2">
+              <label className="block">
+                <span className="block text-xs font-medium text-[#2d2520]/70 mb-1">
+                  {t("app.quoteImport.newClientName")}
+                </span>
+                <input
+                  value={newClientName}
+                  onChange={(e) => setNewClientName(e.target.value)}
+                  autoComplete="off"
+                  className="w-full rounded-lg border border-black/15 bg-white px-3 py-2 text-sm"
+                />
+              </label>
+              <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("app.quoteImport.newClientKind")}>
+                {[
+                  ["individual", t("app.quoteImport.newClientHomeowner")],
+                  ["company", t("app.quoteImport.newClientBusiness")],
+                ].map(([val, txt]) => (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => setNewClientType(val)}
+                    aria-pressed={newClientType === val}
+                    className={`inline-flex items-center px-4 py-1.5 min-h-11 rounded-full text-sm font-semibold border ${
+                      newClientType === val
+                        ? "bg-[#06356b] text-white border-[#06356b]"
+                        : "bg-white text-[#2d2520] border-black/15"
+                    }`}
+                  >
+                    {txt}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Markup */}
           <div>
@@ -316,7 +383,7 @@ export default function ContractorImportPanel({ token }) {
           <button
             type="button"
             onClick={submit}
-            disabled={submitting || !targetQuoteId}
+            disabled={submitting || !targetQuoteId || !newReady}
             className="w-full inline-flex items-center justify-center gap-2 bg-[#06356b] text-white px-5 py-3 rounded-full text-sm font-semibold disabled:opacity-60"
           >
             {submitting ? (
