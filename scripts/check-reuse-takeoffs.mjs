@@ -433,6 +433,14 @@ section("H — the panels render and are mounted");
 
   // The painting card: its geometry controls moved into AreaGeometry.js, and
   // its HTML is byte-for-byte what it was (md5 taken before the move).
+  //
+  // Re-pinned once, on purpose: cd845c5e… was the pre-move md5; 2e2c0074
+  // (ActionMenu, 2026-09-25) moved the card's "+ Add option" trigger onto the
+  // shared menu — wrapper `relative inline-block mt-2` → `mt-2`, the button
+  // gains aria-haspopup and a 40px min height. Rendered at 1c504788 and at
+  // main and diffed: those two lines, in each of the six renders, are the
+  // ONLY difference, and none of it is a geometry control. Anything else that
+  // moves this hash is a regression to explain, not a hash to re-pin.
   const areas = [
     { areaType: "den", label: "Den", surface: "interior", measurement: "area", lengthFt: 10, widthFt: 13, heightFt: 9, substrates: [{ key: "walls", label: "Walls", coats: 2, quantity: null, driver: "wallSqft", productKey: "wall_interior" }] },
     { areaType: "den", label: "Hall", surface: "interior", measurement: "area", lengthFt: 4, widthFt: 20, heightFt: 8, wallSqftOverride: 150, floorSqftOverride: 0, substrates: [] },
@@ -446,7 +454,7 @@ section("H — the panels render and are mounted");
       all += md5(wrap(<TradeTakeoff categoryKey={key} takeoff={{ model: "area_substrate", estimateType: type, areas }} book={getPriceBook(key)} onChange={() => {}} siteAddress="x" />, lang));
     }
   }
-  ok("the painting room card's HTML is unchanged by sharing its geometry controls (md5 cd845c5e…)", md5(all) === "cd845c5ee8ed1f25c17cf1328b5d4246", md5(all));
+  ok("the painting room card's HTML is unchanged by sharing its geometry controls (md5 163d096b…, cd845c5e… + the 2e2c0074 Add-option menu)", md5(all) === "163d096bb4f3c9e18d1a556bee3f56ca", md5(all));
 }
 
 section("I — nine languages");

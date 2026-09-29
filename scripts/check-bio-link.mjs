@@ -651,7 +651,13 @@ check("the avatar is the logo when there is one, initials otherwise", /company\.
 console.log("\nloader");
 const loadSrc = readFileSync(new URL("../lib/links/load.js", import.meta.url), "utf8");
 check("instant rows are filtered by the trades the estimator can price", /INSTANT_ESTIMATE_TRADES\[trade\]/.test(loadSrc) && /select: \{ trade: true \}/.test(loadSrc));
-check("painting needs an offered scope, as it does on /instant-quote", /paintingScopesOffered\(await companyEnabledCategoryKeys\(company\.id\)\)/.test(loadSrc));
+// 02ac4aeab hoisted the enabled-service read into shape() so the kitchen row
+// shares it; the rule is unchanged: the SAME company's keys reach
+// paintingScopesOffered, and a painting-only company with no scope counts 0.
+check("painting needs an offered scope, as it does on /instant-quote",
+  /const categoryKeys = await companyEnabledCategoryKeys\(company\.id\)/.test(loadSrc) &&
+  /enabledEstimators: await priceableEstimators\(company, categoryKeys\)/.test(loadSrc) &&
+  /const scopes = paintingScopesOffered\(categoryKeys\);\s*return scopes\.length > 0 \? 1 : 0;/.test(loadSrc));
 check("the loader still reads what the website row needs", /site: \{ select: \{ subdomain: true, published: true \} \}/.test(loadSrc) && /reviewUrl: true/.test(loadSrc) && /logoUrl: true/.test(loadSrc) && /brandColor: true/.test(loadSrc));
 
 // ── the settings screen previews the page, it does not redraw it ───────────
