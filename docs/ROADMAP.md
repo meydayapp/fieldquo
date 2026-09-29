@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 29 September 2026 (the trial is 14 days, no card — TRIAL_DAYS / TRIAL_CARD_REQUIRED in lib/pricing.js; existing trials keep their date; referral month still composes on top; reminders 7/3/1 with a new Company.trialReminder1At column the owner must add before deploy; "first month free" gone from every screen, email, help article and catalogue in nine languages — see "The trial is 14 days")
 Last updated: 28 September 2026 ("Connect Google reviews" is off the home set-up card, out of its "N of M done" count and out of the next-steps email until Google approves the Business Profile API; Settings › Reviews says "Google review import is waiting on Google's approval" with no Connect button and the connect route refuses `not_approved` — one helper, `googleBusinessAvailable()`, and one flag the owner sets on the approval day, `GOOGLE_BUSINESS_API_APPROVED=1` — see "Connect Google reviews waits for Google" below)
 Last updated: 28 September 2026 (lead forms are read through the Facebook Page connection, not the ad account — "found 0" root cause, Leads Access Manager named in the panel; Facebook/Instagram messages: zero webhook deliveries in production — the App Dashboard has no Webhooks subscription; /app/messages now polls the list and open thread every 15 s while visible; the Page subscribe carries `leadgen`; Settings › Meta Ads names missing permissions per feature — see the section of that name)
 Last updated: 28 September 2026 (annual-first plan pickers and live promotions — the 1-year tab by default on every picker, PlatformPromotion wired end to end through lib/billing/promotions.js into /pricing, the in-app picker, signup and Stripe Checkout as a coupon; schema SQL owed before deploy — see the section of that name below)
@@ -66,6 +67,26 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## The trial is 14 days (29 September 2026)
+
+Owner decision, restated with numbers and approved: a NEW signup gets 14 days free, no card. Sign up Oct 1 → full access until Oct 15; no plan by then → read-only for GRACE_DAYS (7), then locked, nothing deleted (lib/billing/access.js trialAccessFor — the existing card-free lock, unchanged).
+
+### What shipped
+
+- `lib/pricing.js`: `TRIAL_DAYS = 14`, `TRIAL_CARD_REQUIRED = false`; `trialLabel()` now reads "14 days free". `/api/companies` stamps `trialEndsAt = now + TRIAL_DAYS` on create only — no existing row is rewritten; a company on the 30-day trial keeps its date. `createTrialCheckoutSession`'s default is TRIAL_DAYS; every real caller still derives Stripe's `trial_period_days` from `trialEndsAt` (trialDaysAllowed), so a legacy trial choosing a plan keeps its own remaining days.
+- Referral: unchanged composition — base `trialEndsAt` + REFEREE_BONUS_MONTHS calendar months. Oct 1 referral signup: before Oct 31 → Nov 30 (60 days); now Oct 15 → Nov 15 (45 days).
+- Trial reminders 15/7/3 → **7/3/1** (a 15-day letter cannot happen in 14 days). Applies to every trial from deploy, including the legacy 30-day ones; the claim-on-null stamps mean no duplicates (a legacy company that already had its 7-day letter is not mailed it again). The old 15-day stamp is kept as history, no longer read.
+- Copy: app + marketing catalogues (9 languages), compare / feature / industry / savings / cost / glossary / pricing metadata / terms, auth panel, signup fallbacks (wording only — signup is being rebuilt), billing banner, sales emails / SMS / call scripts / the AI sales agent, platform console labels, growth forecast comment. Help centre: "free-first-month" rewritten (en/fr/es) for 14 days, no card, 7/3/1, the read-only week; trial-length wording elsewhere.
+
+### Checks
+
+`check:trial-length` (new — constants, the stamp, no update writes, Stripe default, referral worked example, 7/3/1 over a simulated trial, and a nine-language grep for leftover month-trial copy with a referral/promo/annual allowlist), `check:trial-reminders` (rewritten for 7/3/1 incl. legacy-stamp cases), plus the wording in auth-pages, abandoned-signup, onboarding-next-steps, signup-gate, marketing-cta.
+
+### Owed
+
+- **Before deploy, the owner adds the column** (Prisma now selects it; without it every Company read fails): `ALTER TABLE "Company" ADD COLUMN IF NOT EXISTS "trialReminder1At" TIMESTAMP(3);`
+- Several surfaces still describe a card taken at signup (compare/feature notes, the help "Start your free trial" article, sales call scripts, check-marketing-cta's no-card ban). The length is fixed there; the card story is the 2026-09-24 decision's and is out of this change's scope.
 
 ## Connect Google reviews waits for Google (28 September 2026)
 
