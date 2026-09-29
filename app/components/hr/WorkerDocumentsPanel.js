@@ -10,8 +10,11 @@
 //                     (certification, licence, ID, other); no verify, no
 //                     archive, and the manager's private note is not here.
 //
-// Same two-step upload as every document panel in the product: the file to
-// /api/upload, the URL to this feature's route. The expiry badge is the
+// Same two-step upload as every document panel in the product — the file up
+// with uploadFile, the URL to this feature's route — except the purpose is
+// "hr", which stores it privately, and the title links to
+// /api/hr/documents/[id]/open (hrDocumentOpenPath), never to a stored URL:
+// see lib/hr/documentFile.js. The expiry badge is the
 // shared ExpiryBadge, on the shared window: a document with no date reads
 // "no expiry recorded", never "expired".
 
@@ -27,7 +30,7 @@ import ListState from "@/app/components/ListState";
 import ExpiryBadge from "@/app/components/ExpiryBadge";
 import { CLIENT_MEDIA_ACCEPT } from "@/lib/media/validate";
 import { formatBytes } from "@/lib/jobs/documents";
-import { WORKER_DOCUMENT_KINDS, WORKER_SELF_KINDS } from "@/lib/hr/documents";
+import { WORKER_DOCUMENT_KINDS, WORKER_SELF_KINDS, hrDocumentOpenPath } from "@/lib/hr/documents";
 import { documentExpiry } from "@/lib/hr/documentExpiry";
 
 export function documentKindLabel(t, kind) {
@@ -81,7 +84,7 @@ export default function WorkerDocumentsPanel({ mode = "manager", workerId = null
     try {
       let uploaded;
       try {
-        uploaded = await uploadFile(file, { purpose: "documents" });
+        uploaded = await uploadFile(file, { purpose: "hr" });
       } catch (err) {
         showError(err?.message || t("app.hr.docs.uploadError"));
         return;
@@ -214,7 +217,7 @@ export default function WorkerDocumentsPanel({ mode = "manager", workerId = null
             return (
               <li key={doc.id} className="py-3 flex flex-col sm:flex-row sm:items-start justify-between gap-2" data-hr-document>
                 <div className="min-w-0">
-                  <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="block text-sm font-semibold text-foreground underline truncate">
+                  <a href={hrDocumentOpenPath(doc.id)} target="_blank" rel="noopener noreferrer" className="block text-sm font-semibold text-foreground underline truncate">
                     {doc.title}
                   </a>
                   <span className="block text-xs text-muted-foreground">
