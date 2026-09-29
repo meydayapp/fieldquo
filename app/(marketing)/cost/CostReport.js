@@ -729,7 +729,7 @@ export default function CostReport({ result, t = englishOnly }) {
           {t("cost.ctaTitle", "The honest way to check any of this is on your own jobs.")}
         </p>
         <p className="mt-2 text-sm text-muted-foreground">
-          {t("cost.ctaBody", "The first month is free, and there is no contract.")}
+          {t("cost.ctaBody", "The first 14 days are free, and there is no contract.")}
         </p>
         <Link
           href="/signup"

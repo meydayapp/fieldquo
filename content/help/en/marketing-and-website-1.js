@@ -312,7 +312,7 @@ export const ARTICLES = {
             head: ["Your situation", "Footer credit"],
             rows: [
               ["Paid plan, in good standing", "No credit"],
-              ["Free first month on a paid plan, card on file", "No credit — the month we told you was free is free"],
+              ["Free trial on a paid plan, card on file", "No credit — the days we told you were free are free"],
               ["A payment failed, inside the grace window", "No credit — those days are for fixing the card, not for rebranding your site"],
               ["Grace window expired, or subscription cancelled and ended", "Credit shows"],
               ["No subscription at all, or a plan priced at zero", "Credit shows"],
@@ -334,7 +334,7 @@ export const ARTICLES = {
         blocks: [
           { steps: [
             "Open **Account & Billing** (owners and administrators) and pick a plan — see [[your-plan-and-seats|Your plan and seats]].",
-            "Finish checkout with a card. From that moment the site renders without the credit, including during the free first month.",
+            "Finish checkout with a card. From that moment the site renders without the credit, including during the free trial.",
             "Keep the card working. If a payment fails you have the grace window before the credit returns — see [[failed-payments-and-the-grace-period|Failed payments and the grace period]].",
           ] },
           { note: "Cancelling shows the same rule in reverse: the cancel flow tells you the site and booking page stay live, and that the small line comes back to the footer once the account closes." },

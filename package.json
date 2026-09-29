@@ -91,6 +91,7 @@
     "check:subscription-refunds": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-subscription-refunds.mjs",
     "check:grace-warning": "node --import ./scripts/alias-loader.mjs scripts/check-grace-warning.mjs",
     "check:trial-reminders": "node --import ./scripts/alias-loader.mjs scripts/check-trial-reminders.mjs",
+    "check:trial-length": "node --import ./scripts/alias-loader.mjs scripts/check-trial-length.mjs",
     "check:prompt": "node --import ./scripts/alias-loader.mjs scripts/check-voice-prompt.mjs",
     "check:visit-path": "node --import ./scripts/alias-loader.mjs scripts/check-voice-visit.mjs",
     "check:pdf": "npx tsx --tsconfig jsconfig.json scripts/check-kitchen-pdf.jsx",
@@ -635,7 +636,8 @@
     "check:phrases-labels": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-phrases-labels.mjs",
     "check:phrases-booking": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-phrases-booking.mjs",
     "check:phrases-catalogue": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-phrases-catalogue.mjs",
-    "check:auto-translate": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-auto-translate.mjs"
+    "check:auto-translate": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-auto-translate.mjs",
+    "check:member-request-cache": "node --conditions=react-server --import ./scripts/alias-loader.mjs --import ./scripts/impersonation-stub-loader.mjs scripts/check-member-request-cache.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

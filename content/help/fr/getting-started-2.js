@@ -633,7 +633,7 @@ export const ARTICLES = {
         heading: "Les forfaits et le paiement de FieldQuo",
         blocks: [
           { bullets: [
-            "**Y a-t-il un essai gratuit ?** Le premier mois est gratuit. Une carte est prise à l'inscription et rien n'est facturé avant le deuxième mois. Voir [[free-first-month|Votre premier mois est gratuit]].",
+            "**Y a-t-il un essai gratuit ?** Oui — les 14 premiers jours sont gratuits, et rien n'est facturé avant leur fin. Voir [[free-first-month|Vos 14 premiers jours sont gratuits]].",
             "**En quoi les forfaits diffèrent-ils ?** Par les sièges et les équipiers, rien d'autre — chaque fonction est dans chaque forfait. Solo coûte 99 $ par mois pour 1 siège et 5 équipiers ; Crew 169 $ pour 3 et 8 ; Shop 269 $ pour 6 et 11 ; Scale 369 $ pour 10 et 15. Voir [[the-four-plans|Les quatre forfaits]].",
             "**C'est quoi un siège, et c'est quoi un équipier ?** Un siège, c'est quelqu'un qui crée et modifie des soumissions, des chantiers et des factures. Un équipier pointe ses heures, lit son horaire et ajoute des photos, et c'est gratuit. Voir [[seats-and-crew-logins|Sièges et accès équipiers]].",
             "**Une année, c'est moins cher ?** Oui — un engagement d'un an, c'est deux mois gratuits, facturé une fois par année. Voir [[monthly-or-a-year-commitment|Mensuel, ou un engagement d'un an]].",

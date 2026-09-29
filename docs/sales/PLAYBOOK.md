@@ -506,7 +506,7 @@ lines sort the three before you ask to be handed on.
 
 **If they say yes**
 
-> Good. I'm texting you the link now — open it while we're on, it's two minutes. Company details, pick the plan, card: you're not charged for a month and you can cancel from Settings in one click. Then your rates go in however they exist — a spreadsheet, a photo of a page — and send one real quote out of it and ring me if it feels wrong.
+> Good. I'm texting you the link now — open it while we're on, it's two minutes. Company details, pick the plan, card: you're not charged for 14 days and you can cancel from Settings in one click. Then your rates go in however they exist — a spreadsheet, a photo of a page — and send one real quote out of it and ring me if it feels wrong.
 
 - Stay on the line through the card step. The signup dies at the card when nobody is on the phone; your screen shows where they are, so you never have to ask.
 - After you ask, stop talking. Futrell is emphatic about this: anything said after the question takes the pressure off the decision, and the pressure is the only thing making it happen now.

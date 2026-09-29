@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Search } from "lucide-react";
-import { initialOpenKeys, readOverrides, writeOverrides } from "./navDisclosure";
+import { exclusiveToggle, initialExclusiveKey, initialOpenKeys, readOverrides, writeOverrides } from "./navDisclosure";
 
 const TONE = {
   rail: {
@@ -81,18 +81,22 @@ export function NavEmptyState({ query, onClear, clearLabel, message, tone = "pan
  * keeps applying to the rest — a new group added to the nav later gets the
  * sensible default instead of inheriting "closed" from a stale blob.
  */
-export function useGroupDisclosure({ storageKey, defaultOpenKeys = [], activeKey = null }) {
+export function useGroupDisclosure({ storageKey, defaultOpenKeys = [], activeKey = null, exclusive = false }) {
   // Server and first client render must agree, so the initial set is derived
   // from defaults + the active route only — both known without a browser.
   // Stored preferences land in the effect below.
-  const [openKeys, setOpenKeys] = useState(() =>
-    initialOpenKeys({ defaultOpenKeys, active: activeKey }),
-  );
+  // Exclusive mode (one group open at a time) derives its single key the
+  // same two-phase way: defaults + route now, stored preference in the effect.
+  const seed = (overrides) =>
+    exclusive
+      ? new Set([initialExclusiveKey({ defaultOpenKeys: defaultsRef.current, overrides, active: activeKey })].filter(Boolean))
+      : initialOpenKeys({ defaultOpenKeys: defaultsRef.current, overrides, active: activeKey });
+  const defaultsRef = useRef(defaultOpenKeys);
+  defaultsRef.current = defaultOpenKeys;
+  const [openKeys, setOpenKeys] = useState(() => seed({}));
 
   const openRef = useRef(openKeys);
   const overridesRef = useRef({});
-  const defaultsRef = useRef(defaultOpenKeys);
-  defaultsRef.current = defaultOpenKeys;
 
   useEffect(() => {
     openRef.current = openKeys;
@@ -101,11 +105,7 @@ export function useGroupDisclosure({ storageKey, defaultOpenKeys = [], activeKey
   useEffect(() => {
     const stored = readOverrides(storageKey);
     overridesRef.current = stored;
-    const next = initialOpenKeys({
-      defaultOpenKeys: defaultsRef.current,
-      overrides: stored,
-      active: activeKey,
-    });
+    const next = seed(stored);
     openRef.current = next;
     setOpenKeys(next);
     // Hydration is a one-shot per storage key. activeKey is handled by the
@@ -119,8 +119,8 @@ export function useGroupDisclosure({ storageKey, defaultOpenKeys = [], activeKey
   useEffect(() => {
     if (!activeKey) return;
     setOpenKeys((prev) => {
-      if (prev.has(activeKey)) return prev;
-      const next = new Set(prev);
+      if (prev.has(activeKey) && (!exclusive || prev.size === 1)) return prev;
+      const next = exclusive ? new Set() : new Set(prev);
       next.add(activeKey);
       openRef.current = next;
       return next;
@@ -130,15 +130,24 @@ export function useGroupDisclosure({ storageKey, defaultOpenKeys = [], activeKey
   const toggle = useCallback(
     (key) => {
       const nowOpen = !openRef.current.has(key);
-      const next = new Set(openRef.current);
-      if (nowOpen) next.add(key);
-      else next.delete(key);
+      let next;
+      if (exclusive) {
+        next = exclusiveToggle(openRef.current, key);
+      } else {
+        next = new Set(openRef.current);
+        if (nowOpen) next.add(key);
+        else next.delete(key);
+      }
       openRef.current = next;
       setOpenKeys(next);
-      overridesRef.current = { ...overridesRef.current, [key]: nowOpen };
+      // Exclusive mode remembers only the last click: one `true` at most, so
+      // initialExclusiveKey can never find two groups to reopen.
+      overridesRef.current = exclusive
+        ? { [key]: nowOpen }
+        : { ...overridesRef.current, [key]: nowOpen };
       writeOverrides(storageKey, overridesRef.current);
     },
-    [storageKey],
+    [storageKey, exclusive],
   );
 
   return { openKeys, toggle };

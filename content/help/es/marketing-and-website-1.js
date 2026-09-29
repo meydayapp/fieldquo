@@ -308,7 +308,7 @@ export const ARTICLES = {
             head: ["Su situación", "Línea en el pie de página"],
             rows: [
               ["Plan de pago, al día", "Sin línea"],
-              ["Primer mes gratis en un plan de pago, con tarjeta registrada", "Sin línea — el mes que dijimos que era gratis es gratis"],
+              ["Prueba gratuita en un plan de pago, con tarjeta registrada", "Sin línea — los días que dijimos que eran gratis son gratis"],
               ["Un pago falló, dentro del período de gracia", "Sin línea — esos días son para arreglar la tarjeta, no para cambiarle la marca a su sitio"],
               ["Período de gracia vencido, o suscripción cancelada y terminada", "La línea se muestra"],
               ["Sin suscripción, o un plan con precio cero", "La línea se muestra"],
@@ -330,7 +330,7 @@ export const ARTICLES = {
         blocks: [
           { steps: [
             "Abra **Cuenta y facturación** (propietarios y administradores) y elija un plan — vea [[your-plan-and-seats|Su plan y sus puestos]].",
-            "Termine el pago con una tarjeta. Desde ese momento el sitio se muestra sin la línea, incluso durante el primer mes gratis.",
+            "Termine el pago con una tarjeta. Desde ese momento el sitio se muestra sin la línea, incluso durante la prueba gratuita.",
             "Mantenga la tarjeta vigente. Si un pago falla, tiene el período de gracia antes de que la línea vuelva — vea [[failed-payments-and-the-grace-period|Pagos fallidos y el período de gracia]].",
           ] },
           { note: "Cancelar muestra la misma regla al revés: el proceso de cancelación le avisa que el sitio y la página de reservas siguen en vivo, y que la pequeña línea vuelve al pie de página cuando la cuenta se cierra." },

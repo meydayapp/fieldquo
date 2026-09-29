@@ -60,8 +60,9 @@ originate money — read off the permission grid, not the role label, because an
 owner can call twenty estimators "Crew" and still hand each one quote-editing
 rights. Crew are free because they cost almost nothing to serve.
 
-**The first month is free.** `TRIAL_PRICE = 0` in `lib/pricing.js`. Write it as
-"Free first month", never "$0 first month" — that reads like a bug.
+**The first 14 days are free, no card.** `TRIAL_DAYS = 14`, `TRIAL_PRICE = 0`
+in `lib/pricing.js` (since 2026-09-29; it was a month). Write it as "14 days
+free", never "$0 for 14 days" — that reads like a bug.
 
 **Annual: pay for ten months, get twelve** (`ANNUAL_FREE_MONTHS = 2`, 16.7%).
 Deliberately less than the competitor's ~29%, because this ladder already

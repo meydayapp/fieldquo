@@ -80,7 +80,7 @@ promo and referral waterfall, and nothing in that path grants a reward.
 That is a real difference from the referral programme, which *does* give a free
 month, and a rep who assumes otherwise will promise something the product will
 not deliver. **Do not tell a contractor they get anything for using your link.**
-They get the same first month free that everyone gets.
+They get the same 14 days free that everyone gets.
 
 What the link does is create the attribution row that pays you.
 

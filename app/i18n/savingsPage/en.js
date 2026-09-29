@@ -75,7 +75,7 @@ export const SAVINGS_PAGE_EN = {
   "marketing.savings.basis.reported": "Contractors' own reported figures",
   "marketing.savings.basis.estimate": "Our estimate",
   "marketing.savings.cta.title": "The honest way to check any of this is on your own jobs.",
-  "marketing.savings.cta.body": "The first month is free, and there is no contract.",
+  "marketing.savings.cta.body": "The first 14 days are free, and there is no contract.",
   "marketing.savings.cta.button": "Start free",
   "marketing.savings.unit.minutes.one": "{n} minute",
   "marketing.savings.unit.minutes.other": "{n} minutes",

@@ -508,7 +508,7 @@ section("6b. The stay-on-the-line step, in the lead's language");
     ok(`${lang}: no digits — nothing here is a price or a time`, !/\d/.test(step.say + step.then + step.watch));
   }
   ok("English is the owner's sentence", STAY_ON_THE_LINE.en.say === "I'm texting you the link now — open it while we're on, it's two minutes.");
-  ok("…and the card objection's answer", /not charged for a month/.test(STAY_ON_THE_LINE.en.then) && /Settings in one click/.test(STAY_ON_THE_LINE.en.then));
+  ok("…and the card objection's answer", /not charged for fourteen days/.test(STAY_ON_THE_LINE.en.then) && /Settings in one click/.test(STAY_ON_THE_LINE.en.then));
   ok("stayOnTheLineFor: fr and es are their own; an unknown language falls back to English and says so", stayOnTheLineFor("fr").say === STAY_ON_THE_LINE.fr.say && !stayOnTheLineFor("fr").fallback && stayOnTheLineFor("es").language === "es" && stayOnTheLineFor("de").language === "en" && stayOnTheLineFor("de").fallback === true && stayOnTheLineFor(null).language === "en");
   const comp = decomment(read("app/components/sales/StayOnTheLine.js"));
   ok("the component prints the step from the module, in the script's language", /stayOnTheLineFor\(language\)/.test(comp) && /step\.say/.test(comp) && /step\.then/.test(comp));

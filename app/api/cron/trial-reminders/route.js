@@ -1,7 +1,7 @@
 // app/api/cron/trial-reminders/route.js
 //
 // Daily: tell a company on a free trial with NO plan chosen that the trial
-// ends in 15, 7 or 3 days, what happens then (read-only for a week, then
+// ends in 7, 3 or 1 days (TRIAL_REMINDER_DAYS), what happens then (read-only for a week, then
 // locked, nothing deleted), which plan fits their team, and where to choose
 // one. The decision is lib/billing/trialReminder.js; this route only runs it,
 // the same "cron stays thin" split renewal-reminders and grace-warning use.
@@ -56,9 +56,9 @@ export async function GET(request) {
       isDemo: true,
       trialEndsAt: true,
       signupTierKey: true,
-      trialReminder15At: true,
       trialReminder7At: true,
       trialReminder3At: true,
+      trialReminder1At: true,
       // FieldQuo ended it from the console: the letter's "choose a plan"
       // would point at a checkout route that refuses this company.
       platformEndsAt: true,

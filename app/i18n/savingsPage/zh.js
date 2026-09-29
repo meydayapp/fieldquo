@@ -42,7 +42,7 @@ export const SAVINGS_PAGE_ZH = {
   "marketing.savings.basis.reported": "承包商自己报告的数字",
   "marketing.savings.basis.estimate": "我们的估计",
   "marketing.savings.cta.title": "要老老实实验证这些，最好的办法是拿你自己的活来试。",
-  "marketing.savings.cta.body": "第一个月免费，也没有合同。",
+  "marketing.savings.cta.body": "前 14 天免费，也没有合同。",
   "marketing.savings.cta.button": "免费开始",
   "marketing.savings.unit.minutes.one": "{n} 分钟",
   "marketing.savings.unit.minutes.other": "{n} 分钟",

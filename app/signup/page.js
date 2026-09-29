@@ -2346,7 +2346,7 @@ export default function SignupPage() {
             ? t("app.signup.eyebrowExisting", "Add a business")
             : entryChecked && finishCheckout
               ? t("app.signup.finish.eyebrow", "Finish setting up")
-              : t("app.signup.eyebrow", "Start your free month")
+              : t("app.signup.eyebrow", "Start your 14-day free trial")
         }
         title={
           finishCheckout
@@ -2367,7 +2367,7 @@ export default function SignupPage() {
             resumeTrialLive ? (
               t(
                 "app.signup.finish.subtitleTrial",
-                "{company} is set up — it just needs a card before you can use it. Your free month has {days} left, so nothing is charged today.",
+                "{company} is set up — it just needs a card before you can use it. Your free trial has {days} left, so nothing is charged today.",
                 {
                   company: finishCheckout.name,
                   // The noun comes out of the catalogue, not out of a template
@@ -2698,7 +2698,7 @@ export default function SignupPage() {
               <p className="text-sm text-muted-foreground mt-1">
                 {t(
                   "app.signup.account.body",
-                  "We'll ask which trades you work in and which services you offer next \u2014 then you're in. No card and no plan today; you choose a plan from inside the app before the free month is up.",
+                  "We'll ask which trades you work in and which services you offer next \u2014 then you're in. No card and no plan today; you choose a plan from inside the app before the 14 free days are up.",
                 )}
               </p>
             </div>
@@ -3403,7 +3403,7 @@ export default function SignupPage() {
                                 trial: trialText(t, pricing.trialTotal),
                                 charge: chargeText,
                               })
-                            : t("app.signup.plan.startTrial", "Start — first month free, then {charge}", {
+                            : t("app.signup.plan.startTrial", "Start — 14 days free, then {charge}", {
                                 charge: chargeText,
                               });
                         })()}

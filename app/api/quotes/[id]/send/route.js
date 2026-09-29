@@ -169,6 +169,10 @@ export async function POST(request, { params }) {
       // quote's own box is empty — the same fallback the PDF and the client
       // page already apply. assertSectionFieldsLoaded refuses without it.
       defaultProcessNotes: true,
+      // The Financing card (Settings › Instant Quotes). buildQuoteEmail adds
+      // its section only when this is switched on with a note or a link;
+      // left out of the select, every quote email would silently omit it.
+      financing: true,
       ...QUOTE_EMAIL_COMPANY_SELECT,
     },
   }), member.companyId);

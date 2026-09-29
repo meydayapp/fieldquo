@@ -646,7 +646,7 @@ export default function SavingsCalculator() {
           )}
         </p>
         <p className="mt-2 text-sm text-muted-foreground">
-          {t("marketing.savings.cta.body", "The first month is free, and there is no contract.")}
+          {t("marketing.savings.cta.body", "The first 14 days are free, and there is no contract.")}
         </p>
         <Link
           href="/signup"

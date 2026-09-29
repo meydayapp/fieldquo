@@ -8,7 +8,7 @@
 // timeline read-only once lib/shifts/attendance.js exists (see the route).
 
 import { useCallback, useEffect, useState } from "react";
-import { MessageSquareText, Award, AlertTriangle, FileWarning, StickyNote, Clock } from "lucide-react";
+import { MessageSquareText, Award, AlertTriangle, FileWarning, StickyNote, Clock, UserX, UserCheck } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { fetchList } from "@/lib/loadState";
@@ -16,12 +16,17 @@ import { fetchJson, errorText } from "@/lib/fetchJson";
 import ListState from "@/app/components/ListState";
 import { NOTE_KINDS, NOTE_KIND_DEFAULTS } from "@/lib/hr/notes";
 
-const ICONS = { note: StickyNote, recognition: Award, warning: AlertTriangle, write_up: FileWarning };
+// separation / reactivation are written by the End-employment and Re-activate
+// actions (lib/hr/notes.js SYSTEM_NOTE_KINDS), never by this form — they
+// only need a look on the timeline, not a button in the kind picker.
+const ICONS = { note: StickyNote, recognition: Award, warning: AlertTriangle, write_up: FileWarning, separation: UserX, reactivation: UserCheck };
 const TONE = {
   note: "border-border bg-muted text-muted-foreground",
   recognition: "border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300",
   warning: "border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300",
   write_up: "border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300",
+  separation: "border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300",
+  reactivation: "border-sky-200 dark:border-sky-900 bg-sky-50 dark:bg-sky-950 text-sky-700 dark:text-sky-300",
 };
 
 export function noteKindLabel(t, kind) {
