@@ -157,6 +157,10 @@ export default function LiveAddress({ base, active, onUse, copy }) {
                 setPicked(null);
               }}
               onPlaceSelected={(place) => {
+                // address-jurisdiction: none — a showcase roof measurement
+                // creates no Client and prices a sample quote, so there is no
+                // tax jurisdiction for province to inform; country is kept
+                // only to refuse an address outside LIVE_COUNTRIES (CA/US).
                 setText(place.address);
                 setPicked({ address: place.address, country: place.country || null });
               }}
