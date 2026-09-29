@@ -252,6 +252,41 @@ export default function PrivacyPage() {
         verified.
       </p>
 
+      {/* A subsection, not a new numbered section: other text points at
+          "Section 7" by number, and renumbering would silently repoint it.
+          These four commitments are the owner's (2026-09-28), made so the
+          answer given in Meta's data-handling questions is true — they are
+          promises about how a request is handled, so keep them to what a
+          small company can actually do. */}
+      <h3>Requests from public authorities</h3>
+      <p>
+        If a government agency, regulator, or law-enforcement authority asks
+        FieldQuo for personal information, we:
+      </p>
+      <ul>
+        <li>
+          review every request to confirm it is lawful and properly made
+          before we respond;
+        </li>
+        <li>
+          challenge a request we consider unlawful, overly broad, or not
+          properly made, and do not disclose anything while that challenge is
+          open unless the law requires us to;
+        </li>
+        <li>
+          disclose only the minimum information the request legally requires;
+          and
+        </li>
+        <li>
+          keep a record of each request, our response, the legal basis for it,
+          and who handled it.
+        </li>
+      </ul>
+      <p>
+        Where the law allows, we tell the affected company before disclosing
+        its information, so it can respond itself.
+      </p>
+
       <h2>5. How long we keep information</h2>
       <p>
         We want to state this plainly rather than promise a retention
