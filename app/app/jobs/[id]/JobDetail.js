@@ -855,6 +855,23 @@ export default function JobDetail({ jobId }) {
           </div>
         </div>
 
+        {/* Who the quote was costed with (lib/jobs/quotedCrew.js) — carried
+            from the approved quote so the first visit isn't staffed from
+            memory. Names only; the quote's pay rates stay on the quote. The
+            new-visit form opens on the first of them who can sign in. Absent
+            when the quote named nobody, rather than a heading over nothing. */}
+        {job.quotedCrew?.length > 0 && (
+          <div className="mb-4 pb-4 border-b border-border" data-quoted-crew>
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+              {t("app.job.quotedCrew", "Crew on the quote")}
+              {job.quote?.quoteNumber ? ` · ${job.quote.quoteNumber}` : ""}
+            </div>
+            <p className="text-sm text-foreground">
+              {job.quotedCrew.map((m) => m.name).join(", ")}
+            </p>
+          </div>
+        )}
+
         {/* The estimator's measure, scheduled on the QUOTE before this job
             existed (lib/quotes/siteVisit.js). Read-only here — it is an
             Appointment, edited on the calendar or the quote — and above the

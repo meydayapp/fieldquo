@@ -123,6 +123,11 @@ function OverheadEditor() {
   // capacity it needs and no screen that showed the result, so the sentence was
   // describing something that didn't exist.
   const [capacity, setCapacity] = useState("");
+  // Which unit the owner answers in. A company doing four jobs a month can't
+  // say so in whole jobs a week — "1" became 4.33 a month and understated
+  // every job's share of the overhead. Opens on whichever unit the saved
+  // answer was given in; see ForecastSettings.jobsPerMonthCapacity.
+  const [capacityUnit, setCapacityUnit] = useState("week");
   const [capacitySaving, setCapacitySaving] = useState(false);
   // The margin the floor is marked up by, as a whole percent. "" means the
   // company has never set one, and the floor then uses its 20% default. Until
@@ -291,11 +296,17 @@ function OverheadEditor() {
     ]).then(([s, d, forecast]) => {
       setSalaries(Array.isArray(s) ? s : []);
       setDebts(Array.isArray(d) ? d : []);
-      setCapacity(
-        forecast?.jobsPerWeekCapacity == null
-          ? ""
-          : String(forecast.jobsPerWeekCapacity),
-      );
+      if (forecast?.jobsPerMonthCapacity != null) {
+        setCapacityUnit("month");
+        setCapacity(String(forecast.jobsPerMonthCapacity));
+      } else {
+        setCapacityUnit("week");
+        setCapacity(
+          forecast?.jobsPerWeekCapacity == null
+            ? ""
+            : String(forecast.jobsPerWeekCapacity),
+        );
+      }
       setMarginPct(
         forecast?.targetMarginPct == null ? "" : String(forecast.targetMarginPct),
       );
@@ -446,7 +457,11 @@ function OverheadEditor() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          jobsPerWeekCapacity: capacity === "" ? null : Number(capacity),
+          // Only the unit the owner answered in is sent; the server keeps
+          // the weekly column written either way (lib/analytics/capacity.js).
+          ...(capacityUnit === "month" && capacity !== ""
+            ? { jobsPerMonthCapacity: Number(capacity) }
+            : { jobsPerWeekCapacity: capacity === "" || capacityUnit === "month" ? null : Number(capacity) }),
           // "" is sent as null — "clear it, back to the default" — never
           // omitted, so a blanked field really does blank the column.
           targetMarginPct: marginPct === "" ? null : Number(marginPct),
@@ -578,7 +593,7 @@ function OverheadEditor() {
           so the calculation behind it silently assumed three jobs a week for
           every company on the platform — an invented capacity producing an
           invented price floor. It now refuses to answer without a real one. */}
-      <div className="bg-card border border-border rounded-xl p-4 sm:p-5 space-y-4">
+      <div id="capacity" className="bg-card border border-border rounded-xl p-4 sm:p-5 space-y-4 scroll-mt-4">
         <div>
           <h2 className="font-semibold text-foreground">{t("app.setOverhead.minPriceTitle")}</h2>
           <p className="text-sm text-muted-foreground mt-0.5">
@@ -587,21 +602,38 @@ function OverheadEditor() {
         </div>
 
         <form onSubmit={saveCapacity} className="flex flex-col sm:flex-row gap-2 sm:items-end">
-          <label className="flex-1">
-            <span className="text-xs font-medium text-muted-foreground block mb-1">
-              {t("app.setOverhead.jobsPerWeek")}
-            </span>
-            <input
-              type="number"
-              min="1"
-              max="200"
-              step="1"
-              value={capacity}
-              onChange={(e) => setCapacity(e.target.value)}
-              placeholder={t("app.setOverhead.notSet")}
-              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
-            />
-          </label>
+          <div className="flex-1">
+            <label
+              htmlFor="capacity-count"
+              className="text-xs font-medium text-muted-foreground block mb-1"
+            >
+              {capacityUnit === "month"
+                ? t("app.setOverhead.jobsPerMonthLabel", "Jobs per month")
+                : t("app.setOverhead.jobsPerWeek")}
+            </label>
+            <div className="flex gap-2">
+              <input
+                id="capacity-count"
+                type="number"
+                min="1"
+                max={capacityUnit === "month" ? "900" : "200"}
+                step="1"
+                value={capacity}
+                onChange={(e) => setCapacity(e.target.value)}
+                placeholder={t("app.setOverhead.notSet")}
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
+              />
+              <select
+                value={capacityUnit}
+                onChange={(e) => setCapacityUnit(e.target.value)}
+                aria-label={t("app.setOverhead.capacityUnit", "Counted per")}
+                className="border border-border rounded-lg px-2 py-2 text-sm bg-background"
+              >
+                <option value="week">{t("app.setOverhead.perWeek", "a week")}</option>
+                <option value="month">{t("app.setOverhead.perMonth", "a month")}</option>
+              </select>
+            </div>
+          </div>
           <label className="flex-1">
             <span className="text-xs font-medium text-muted-foreground block mb-1">
               {t("app.setOverhead.targetMargin", "Target margin %")}

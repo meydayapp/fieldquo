@@ -28,6 +28,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { recordActivity } from "@/lib/activity/log";
+import { parseCapacity } from "@/lib/analytics/capacity";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -35,13 +36,16 @@ export async function GET(request) {
 
   const row = await db.forecastSettings.findUnique({
     where: { companyId: member.companyId },
-    select: { jobsPerWeekCapacity: true, targetMargin: true },
+    select: { jobsPerWeekCapacity: true, jobsPerMonthCapacity: true, targetMargin: true },
   });
 
   return NextResponse.json({
     // null, not a number: "we don't know" is a real answer and the caller must
     // be able to tell it apart from a real capacity of zero.
     jobsPerWeekCapacity: row?.jobsPerWeekCapacity ?? null,
+    // Set only when the owner answered per month; the screen then shows the
+    // month, as typed, rather than the weekly figure derived from it.
+    jobsPerMonthCapacity: row?.jobsPerMonthCapacity ?? null,
     targetMarginPct: toPct(row?.targetMargin),
   });
 }
@@ -82,15 +86,13 @@ export async function PUT(request) {
   }
 
   const body = await request.json().catch(() => ({}));
-  const raw = body?.jobsPerWeekCapacity;
-  const value = raw === null || raw === "" ? null : Number(raw);
-
-  if (value !== null && (!Number.isInteger(value) || value < 1 || value > 200)) {
-    return NextResponse.json(
-      { error: "Jobs per week must be a whole number between 1 and 200." },
-      { status: 400 },
-    );
+  const cap = parseCapacity(body);
+  if (cap.error) {
+    return NextResponse.json({ error: cap.error }, { status: 400 });
   }
+  // What the activity line and the response speak in: the unit the owner used.
+  const value = cap.month !== null ? cap.month : cap.week || null;
+  const unit = cap.month !== null ? "month" : "week";
 
   // Rejected rather than clamped, and rejected BEFORE anything is written:
   // a 120% margin silently stored as 95% is a setting the owner never chose,
@@ -115,14 +117,16 @@ export async function PUT(request) {
       // Prisma apply @default(3), so a brand-new company that saved a BLANK
       // capacity got a fabricated 3 — and the minimum-price card then showed a
       // real dollar floor derived from a number the user never entered.
-      jobsPerWeekCapacity: value === null ? 0 : value,
+      jobsPerWeekCapacity: cap.week,
+      jobsPerMonthCapacity: cap.month,
       ...marginWrite,
     },
     update: {
-      ...(value === null ? { jobsPerWeekCapacity: 0 } : { jobsPerWeekCapacity: value }),
+      jobsPerWeekCapacity: cap.week,
+      jobsPerMonthCapacity: cap.month,
       ...marginWrite,
     },
-    select: { jobsPerWeekCapacity: true, targetMargin: true },
+    select: { jobsPerWeekCapacity: true, jobsPerMonthCapacity: true, targetMargin: true },
   });
 
   const marginWords = margin.skip
@@ -131,15 +135,17 @@ export async function PUT(request) {
   await recordActivity(member, {
     action: "settings.forecast_updated",
     entityType: "settings",
-    summary: `Set job capacity to ${value === null ? "not set" : `${value}/week`}${marginWords}`,
+    summary: `Set job capacity to ${value === null ? "not set" : `${value}/${unit}`}${marginWords}`,
     metadata: {
-      jobsPerWeekCapacity: value,
+      jobsPerWeekCapacity: cap.week || null,
+      ...(cap.month !== null ? { jobsPerMonthCapacity: cap.month } : {}),
       ...(margin.skip ? {} : { targetMarginPct: toPct(margin.value) }),
     },
   });
 
   return NextResponse.json({
     jobsPerWeekCapacity: saved.jobsPerWeekCapacity || null,
+    jobsPerMonthCapacity: saved.jobsPerMonthCapacity ?? null,
     targetMarginPct: toPct(saved.targetMargin),
   });
 }

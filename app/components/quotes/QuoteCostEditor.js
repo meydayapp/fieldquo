@@ -15,29 +15,65 @@
 // writes, through the same PATCH, and the server re-derives every figure from
 // the quote's own scope groups — the browser sends inputs, never money.
 //
-// ── Why the inputs are only these four ──────────────────────────────────────
+// ── Assigning the crew (2026-09-29) ─────────────────────────────────────────
+//
+// An instant estimate is created with nobody on it, so its labour sits at
+// FieldQuo's $35/h default until somebody says who is doing the job. The Cost
+// & margin block's "Assign" opens this editor, and "Add from your team…" here
+// is the builder's own control (TeamCrewPicker) — same worker, same real pay
+// rate, same member shape, same save path (buildQuoteCostingRow). The worker
+// id travels with each row, which is how the job raised from this quote knows
+// who was quoted (lib/jobs/quotedCrew.js).
+//
+// ── Why the inputs are only these ───────────────────────────────────────────
 //
 // Takeoff hours and the bill of materials come from the scope groups and are
 // not editable here; changing those means changing the quote, which is the
 // editor's job. What an estimator adds AFTER the takeoff is: who is doing it,
 // hours the takeoff could not know about, materials bought outside the recipe,
-// and the overhead basis. Those are exactly the four the builder collects.
+// and the overhead percentage when the company's real overhead isn't known.
+//
+// ── What this used to lose on every save ────────────────────────────────────
+//
+// It posted crew, hours, materials and the fallback rate — and not the
+// overhead percentage or the note. The server reads an absent percentage as 0
+// and an absent note as blank, so re-costing an instant estimate from here
+// silently dropped its 10% overhead and wiped the builder's note; and the crew
+// went without their worker ids. All four now go back as they came.
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Plus, Trash2 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
+import TeamCrewPicker from "@/app/components/quotes/TeamCrewPicker";
+import {
+  FALLBACK_LABOUR_RATE,
+  FALLBACK_OVERHEAD_PCT,
+  unratedCrew,
+} from "@/lib/costing/costingDefaults";
 
 const inputClass =
   "w-full rounded border border-border bg-background px-2 py-1 text-sm";
 
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
-export default function QuoteCostEditor({ quoteId, existing, onSaved, t }) {
+export default function QuoteCostEditor({
+  quoteId,
+  existing,
+  onSaved,
+  t,
+  currency,
+  language,
+  // From the costing on screen: "per_job" means the company's real overhead
+  // is known and the percentage is not consulted, so the box is not offered.
+  overheadBasis = null,
+}) {
   // Seeded from whatever is already stored, so opening this on a costed quote
   // shows what was costed rather than an empty form inviting a re-type.
   const [crew, setCrew] = useState(() =>
     (existing?.crew || []).map((m) => ({
+      id: m.id ?? null,
       name: m.name || "",
       rate: m.hourlyRate ?? "",
       // Only hours the estimator PINNED come back as an input. A resolved
@@ -52,9 +88,35 @@ export default function QuoteCostEditor({ quoteId, existing, onSaved, t }) {
   const [addedMaterialCost, setAddedMaterialCost] = useState(
     existing?.addedMaterialCost ?? "",
   );
-  const [labourRate, setLabourRate] = useState(existing?.labourRate ?? "");
+  // Nothing saved means the figures on screen were DERIVED at the fallback
+  // rate and percentage (lib/costing/quoteCostEstimate.js) — so those are what
+  // the boxes open on, the same way the builder opens. Opening on blank would
+  // save labour at $0 and overhead at 0% over a panel that showed neither.
+  const [labourRate, setLabourRate] = useState(
+    existing?.labourRate ?? FALLBACK_LABOUR_RATE,
+  );
+  const [overheadPct, setOverheadPct] = useState(
+    existing?.overheadPct ?? FALLBACK_OVERHEAD_PCT,
+  );
+  const [workers, setWorkers] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // The team, for the picker. The builder loads the same list the same way;
+  // a failure leaves the picker off and the typed rows working, rather than
+  // blocking a save over a convenience.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/workers")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows) => {
+        if (!cancelled) setWorkers(Array.isArray(rows) ? rows.filter((w) => w.active !== false) : []);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function save() {
     setSaving(true);
@@ -70,6 +132,7 @@ export default function QuoteCostEditor({ quoteId, existing, onSaved, t }) {
             crew: crew
               .filter((m) => m.name.trim() || m.rate !== "" || m.hours !== "")
               .map((m) => ({
+                id: m.id || null,
                 name: m.name.trim(),
                 rate: m.rate === "" ? null : num(m.rate),
                 hours: m.hours === "" ? null : num(m.hours),
@@ -79,6 +142,8 @@ export default function QuoteCostEditor({ quoteId, existing, onSaved, t }) {
             addedMaterialCost:
               addedMaterialCost === "" ? 0 : num(addedMaterialCost),
             labourRate: labourRate === "" ? 0 : num(labourRate),
+            overheadPct: overheadPct === "" ? 0 : num(overheadPct),
+            note: existing?.note ?? "",
           },
         }),
       });
@@ -92,6 +157,10 @@ export default function QuoteCostEditor({ quoteId, existing, onSaved, t }) {
       setSaving(false);
     }
   }
+
+  // Named rows with no rate: they'd cost nothing, so they are named here
+  // rather than priced at $0 or quietly given the $35 default.
+  const unrated = unratedCrew(crew).filter((m) => m.name.trim());
 
   return (
     <div className="rounded-lg border border-border p-3">
@@ -153,19 +222,56 @@ export default function QuoteCostEditor({ quoteId, existing, onSaved, t }) {
         ))}
       </div>
 
-      <button
-        type="button"
-        onClick={() => setCrew([...crew, { name: "", rate: "", hours: "" }])}
-        className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-      >
-        <Plus size={13} />{" "}
-        {t("app.quoteDetail.addCrew", "Add someone to the crew")}
-      </button>
+      <div className="mt-1.5 flex flex-wrap items-center gap-2">
+        <TeamCrewPicker
+          workers={workers}
+          currency={currency}
+          language={language}
+          t={t}
+          onAdd={(member) =>
+            setCrew([
+              ...crew,
+              {
+                id: member.id,
+                name: member.name,
+                // Blank, not 0, for a worker with no rate on file: the box
+                // shows the gap, and the line below names it.
+                rate: member.rate > 0 ? member.rate : "",
+                hours: "",
+              },
+            ])
+          }
+        />
+        <button
+          type="button"
+          onClick={() => setCrew([...crew, { id: null, name: "", rate: "", hours: "" }])}
+          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+        >
+          <Plus size={13} />{" "}
+          {t("app.quoteDetail.addCrew", "Add someone to the crew")}
+        </button>
+      </div>
+
+      {unrated.length > 0 && (
+        <div className="mt-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+          {unrated.map((m, i) => (
+            <p key={`${m.name}${i}`}>
+              {t("app.cost.noPayRateFor", "No pay rate set for {name}", { name: m.name.trim() })}
+            </p>
+          ))}
+          <Link
+            href="/app/settings/team/workers"
+            className="mt-1 inline-flex min-h-[36px] items-center font-semibold underline"
+          >
+            {t("app.cost.setPayRates", "Set pay rates")}
+          </Link>
+        </div>
+      )}
 
       {/* Leaving every crew rate blank is a real state — a solo operator who
           has not set a rate — so a fallback rate is offered rather than the
           panel silently costing their labour at nothing. */}
-      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+      <div className="mt-3 grid gap-2 sm:grid-cols-4">
         <label className="text-xs text-muted-foreground">
           {t("app.quoteDetail.fallbackRate", "Rate if nobody above has one")}
           <input
@@ -199,6 +305,22 @@ export default function QuoteCostEditor({ quoteId, existing, onSaved, t }) {
             className={`${inputClass} mt-0.5`}
           />
         </label>
+        {/* Only when there's nothing better — the same rule the builder's
+            panel follows. Once the company's real cost per job is known, a
+            percentage beside it would be a second answer to one question. */}
+        {overheadBasis !== "per_job" && (
+          <label className="text-xs text-muted-foreground">
+            {t("app.cost.overheadPct")}
+            <input
+              type="number"
+              min="0"
+              step="0.5"
+              value={overheadPct}
+              onChange={(e) => setOverheadPct(e.target.value)}
+              className={`${inputClass} mt-0.5`}
+            />
+          </label>
+        )}
       </div>
 
       <button

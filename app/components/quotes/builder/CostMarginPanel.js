@@ -31,6 +31,9 @@
 import { TrendingUp, AlertTriangle, Plus, Trash2, Undo2 } from "lucide-react";
 import { formatAppMoney } from "@/lib/format/money";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import TeamCrewPicker from "@/app/components/quotes/TeamCrewPicker";
+import CostingDefaultsNotice from "@/app/components/quotes/CostingDefaultsNotice";
+import { costingDefaultsUsed } from "@/lib/costing/costingDefaults";
 
 // toFixed does not group, so this panel printed $1113.11 and $2100.00 beside
 // a correctly-grouped total in the same sticky bar. Shared formatter now —
@@ -346,6 +349,26 @@ export default function CostMarginPanel({
 
       <ProfitMarginCard estimate={estimate} subtotal={subtotal} money={money} t={t} marginTarget={marginTarget} />
 
+      {/* Which of FieldQuo's guesses this margin stands on — a quote only. An
+          invoice's hours are actuals and its rate is never the $35 default,
+          so the sentence would be about something that isn't there. The
+          picker that fixes the labour half is right below, so no button. */}
+      {!hoursAreActual && (
+        <CostingDefaultsNotice
+          className="mt-3"
+          defaults={costingDefaultsUsed({
+            crew,
+            labourHours: estimate.labourHours,
+            labourRate: crew.length === 0 ? estimate.effectiveRate : null,
+            overheadBasis: estimate.overheadBasis,
+            overheadPct,
+          })}
+          currency={currency}
+          language={language}
+          t={t}
+        />
+      )}
+
       {/* Where the labour rate comes from. A worker with an hourly rate on
           their record wins; otherwise the manual box appears. */}
       <div className="flex flex-wrap items-end gap-3 mt-3 mb-4">
@@ -489,37 +512,16 @@ export default function CostMarginPanel({
             >
               <Plus size={15} /> {t("app.cost.addCrewMember")}
             </button>
-            {workers.length > 0 && (
-              <select
-                value=""
-                onChange={(e) => {
-                  const w = workers.find((x) => x.id === e.target.value);
-                  if (!w) return;
-                  onCrewChange([
-                    ...crew,
-                    {
-                      id: w.id,
-                      name: w.name || t("app.cost.crewMember"),
-                      // A worker with no rate on file joins at 0 and is
-                      // flagged, rather than being quietly left off the job.
-                      rate: Number(w.hourlyRate) || 0,
-                      hours: null,
-                    },
-                  ]);
-                }}
-                className="rounded border border-border px-2 py-1 text-sm"
-              >
-                <option value="">{t("app.cost.addFromTeam")}</option>
-                {workers.map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {w.name}
-                    {w.hourlyRate != null
-                      ? ` — ${t("app.cost.ratePerHour", { rate: money(w.hourlyRate) })}`
-                      : ` — ${t("app.cost.noRateSet")}`}
-                  </option>
-                ))}
-              </select>
-            )}
+            {/* Shared with the quote page's cost editor — see TeamCrewPicker
+                for why there is one copy. A worker with no rate joins at 0
+                and is flagged below, never left off the job. */}
+            <TeamCrewPicker
+              workers={workers}
+              currency={currency}
+              language={language}
+              t={t}
+              onAdd={(member) => onCrewChange([...crew, member])}
+            />
           </div>
 
           {crewNotice && (

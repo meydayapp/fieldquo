@@ -31,6 +31,7 @@ import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 import JobTitleInput from "@/app/components/team/JobTitleInput";
 import { personTitle } from "@/lib/team/personLabel";
 import Link from "next/link";
+import BackToHome from "@/app/components/BackToHome";
 import {
   EndEmploymentDialog,
   ReactivateDialog,
@@ -136,6 +137,7 @@ function WorkersScreen() {
         <p className="text-sm text-muted-foreground mt-1">
           {t("app.setWorkers.subtitle")}
         </p>
+        <BackToHome />
       </div>
 
       {error && (
@@ -150,6 +152,10 @@ function WorkersScreen() {
         </div>
       )}
 
+      {/* The setup card's "Set pay rates" row lands here (#pay-rates): a quote
+          costs its labour from these rates, and a worker without one is
+          flagged on every quote they are assigned to. */}
+      <div id="pay-rates" className="scroll-mt-4" />
       {missingRate.length > 0 && (
         <div className="rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-300 flex items-start gap-2">
           <AlertTriangle size={15} className="mt-0.5 shrink-0" />
