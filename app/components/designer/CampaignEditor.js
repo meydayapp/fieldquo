@@ -69,7 +69,9 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError } from "@/lib/clientErrors";
 import DesignerLoader from "@/app/components/designer/DesignerLoader";
 import PublishModal from "@/app/components/designer/PublishModal";
+import TikTokPublishModal from "@/app/components/designer/TikTokPublishModal";
 import ApprovalModal from "@/app/components/designer/ApprovalModal";
+import { SocialGlyph } from "@/app/components/links/linkIcons";
 import { JSON_KEYS } from "@/lib/designer/constants";
 import { downloadFile } from "@/lib/designer/utils";
 import {
@@ -192,6 +194,14 @@ export function CampaignEditor({ design, onBack }) {
   // publish GET the modal itself calls when opened — one more request on
   // mount, not a second endpoint to keep in sync with it.
   const [socialVisible, setSocialVisible] = useState(false);
+  // TikTok, on its own axis: drawn only when this deployment has TikTok's
+  // credentials AND this company has an account connected — the button is the
+  // destination, so it does not exist until there is somewhere to post. Starts
+  // false for the reason socialVisible does. Independent of socialVisible on
+  // purpose: Meta's review and TikTok's are separate, and one being pending
+  // must not hide the other.
+  const [tiktokReady, setTiktokReady] = useState(false);
+  const [tiktokOpen, setTiktokOpen] = useState(false);
 
   // The approval state for the toolbar badge. Its OWN request rather than a
   // field on the publish GET — that route is about Meta, and for a real
@@ -229,6 +239,23 @@ export function CampaignEditor({ design, onBack }) {
         // Swallowed, same as CompanyPreferencesProvider's own fetch: the
         // safe failure direction for a feature gated on Meta approval is
         // "stays hidden," not "throws and takes the editor down with it."
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [design.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/marketing/designer/designs/${design.id}/tiktok`);
+        if (cancelled || !res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setTiktokReady(Boolean(data.available && data.connected));
+      } catch {
+        // Same safe direction as the Meta check above: stays hidden.
       }
     })();
     return () => {
@@ -543,6 +570,18 @@ export function CampaignEditor({ design, onBack }) {
             </button>
           </>
         )}
+        {tiktokReady && (
+          <button
+            type="button"
+            onClick={() => setTiktokOpen(true)}
+            disabled={!editorInstance}
+            className="flex items-center gap-2 border border-border text-foreground px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap disabled:opacity-60 shrink-0"
+            data-tiktok-open
+          >
+            <SocialGlyph platform="tiktok" size={13} />
+            {t("app.tiktokPublish.button")}
+          </button>
+        )}
       </div>
 
       {anyOverflow && (
@@ -576,6 +615,19 @@ export function CampaignEditor({ design, onBack }) {
           initialShape={publishShape}
           onOpenApproval={() => {
             setPublishOpen(false);
+            setApprovalOpen(true);
+          }}
+        />
+      )}
+
+      {tiktokReady && (
+        <TikTokPublishModal
+          isOpen={tiktokOpen}
+          onClose={() => setTiktokOpen(false)}
+          design={design}
+          preparePublishAsset={preparePublishAsset}
+          onOpenApproval={() => {
+            setTiktokOpen(false);
             setApprovalOpen(true);
           }}
         />

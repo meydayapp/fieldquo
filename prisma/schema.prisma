@@ -1886,6 +1886,13 @@ model Company {
   // company that disconnects publishing must not lose its ads import (or its
   // inbox) with it. See lib/meta/pageConnection.js and lib/social/metaConnection.js.
   metaPageConnections   MetaPageConnection[]
+  // TikTok, a separate platform with its own OAuth, its own token lifetimes
+  // (24h access / 365d refresh) and its own publish lifecycle — so its own two
+  // tables rather than a third SocialPlatform value bolted onto SocialPublish,
+  // whose Meta-shaped columns (container ids, native scheduling) mean nothing
+  // to TikTok. See lib/tiktok/connection.js.
+  tiktokConnections     TikTokConnection[]
+  tiktokPublishes       TikTokPublish[]
   salaries              Salary[]
   debts                 Debt[]
   assets                Asset[]
@@ -6453,6 +6460,7 @@ model MarketingDesign {
 
   layouts         MarketingDesignLayout[]
   socialPublishes SocialPublish[]
+  tiktokPublishes TikTokPublish[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -8852,6 +8860,128 @@ model MetaPageConnection {
 
   @@unique([companyId, pageId])
   @@index([companyId])
+}
+
+/// A company's connected TikTok account — the one door is
+/// lib/tiktok/connection.js, which encrypts on the way in (the SAME
+/// lib/meta/tokenCrypto.js helper and key Meta tokens use) and decrypts only
+/// at the moment of use.
+///
+/// Disconnecting NEVER deletes the row: the tokens are nulled and
+/// disconnectedAt/disconnectReason stamped in one write, and every read of a
+/// live connection filters `disconnectedAt: null`. The row is kept because
+/// TikTokPublish history names the account it went to (openId), and because
+/// "who connected what, when, and why it stopped" is what support is asked.
+model TikTokConnection {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// TikTok's per-app user id — what a webhook's user_openid is matched on.
+  openId String
+
+  /// Shown on the settings card. From user.info.basic at connect time, and
+  /// refreshed from creator_info each time the composer opens (the avatar URL
+  /// TikTok hands out expires, so a stale one is replaced rather than trusted).
+  displayName String?
+  avatarUrl   String?
+
+  /// AES-256-GCM blobs (lib/meta/tokenCrypto.js). Null on a disconnected row.
+  accessTokenEnc  String?
+  refreshTokenEnc String?
+  /// "valid for 24 hours" / "valid for 365 days after initial issuance" —
+  /// developers.tiktok.com/doc/oauth-user-access-token-management. The access
+  /// token is refreshed on use when it is within a few minutes of this; the
+  /// daily cron (app/api/cron/tiktok-token-refresh) rolls the refresh token
+  /// forward when IT nears expiry, so a connection nobody posts from for a
+  /// year still works.
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+
+  /// The comma-separated scopes TikTok actually granted — the person can
+  /// untick one on TikTok's consent screen, and the settings card says which.
+  scopes String?
+
+  connectedByUserId String?
+  connectedAt       DateTime  @default(now())
+  /// Null while live. Stamped (never a delete) by Disconnect, by TikTok's
+  /// authorization.removed webhook, or when a refresh is refused for good.
+  disconnectedAt    DateTime?
+  /// "user" | "authorization_removed" | "refresh_failed" — read by the
+  /// settings card to say why a once-connected account is no longer.
+  disconnectReason  String?
+  /// Set when Disconnect called /v2/oauth/revoke/ and TikTok did not confirm —
+  /// the card tells the person to remove FieldQuo in the TikTok app to be
+  /// certain. Null when the revoke succeeded or was never attempted.
+  revokeError       String?
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([companyId, openId])
+  @@index([companyId])
+  @@index([openId])
+}
+
+/// One Direct Post of a Marketing Designer design to TikTok, from the Post
+/// press to TikTok's final word. Everything TikTok was sent is recorded here —
+/// privacy level, the comment and disclosure choices, the caption — because
+/// "what did we actually tell TikTok" is the first support question and the
+/// design itself can change afterwards.
+model TikTokPublish {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// SetNull for the reason SocialPublish.designId gives: deleting a design
+  /// must not erase the record of what was posted from it.
+  designId String?
+  design   MarketingDesign? @relation(fields: [designId], references: [id], onDelete: SetNull)
+
+  /// The account it went to, and its nickname as creator_info reported it at
+  /// the moment of posting — the mandated "which account receives this".
+  openId          String
+  creatorNickname String?
+
+  ratioKey String
+  caption  String @db.Text
+  /// The Cloudinary copy of the rendered JPEG. Never handed to TikTok
+  /// directly: TikTok only pulls from FieldQuo's verified media prefix, and
+  /// /api/tiktok/media/<signed token> streams these bytes.
+  imageUrl String
+  width    Int?
+  height   Int?
+
+  privacyLevel       String
+  disableComment     Boolean
+  brandContentToggle Boolean
+  brandOrganicToggle Boolean
+
+  status       TikTokPublishStatus @default(pending)
+  /// TikTok's publish_id from /v2/post/publish/content/init/ — what the
+  /// status poll and the post.publish.* webhooks are matched on.
+  publishId    String?             @unique
+  /// TikTok's fail_reason (status fetch / webhook) or error code (init).
+  failReason   String?
+  /// TikTok's developer-facing message and log_id, for support. Never shown
+  /// as the explanation — the composer maps failReason to a sentence.
+  errorDetail  String?
+  /// Present only once TikTok says the post is publicly viewable — never for
+  /// a private (SELF_ONLY) post, which is every post before the audit.
+  publicPostId String?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  publishedAt DateTime?
+
+  @@index([companyId])
+  @@index([designId])
+}
+
+enum TikTokPublishStatus {
+  pending
+  processing
+  inbox_delivered
+  published
+  failed
 }
 
 // ── Leave / PTO ─────────────────────────────────────────────────────────────

@@ -198,6 +198,14 @@ const EXTERNAL_CALLERS = {
     "META_WEBHOOK_VERIFY_TOKEN the same way. The tenant is resolved by " +
     "looking WhatsApp's own phone number id up in MessagingChannel — never " +
     "from the payload, and never from the WABA id in entry.id.",
+  "/api/tiktok/webhook":
+    "TikTok posts here for post.publish.* status events and " +
+    "authorization.removed. The callback URL is entered in FieldQuo's app on " +
+    "developers.tiktok.com, so no in-app caller can exist. Every POST is " +
+    "verified against TIKTOK_CLIENT_SECRET via the TikTok-Signature header " +
+    "(lib/tiktok/signing.js verifyWebhookSignature), which refuses when the " +
+    "secret is unset; a publish event is matched on publish_id AND the " +
+    "row's openId, never on the payload alone.",
   "/api/settings/whatsapp/callback":
     "Meta's redirect target for WhatsApp Embedded Signup — a third " +
     "redirect_uri registered in Meta's App Dashboard beside " +

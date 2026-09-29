@@ -108,6 +108,7 @@
     "check:demo": "node --import ./scripts/alias-loader.mjs scripts/check-demo.mjs",
     "check:route-callers": "node --import ./scripts/alias-loader.mjs scripts/check-route-callers.mjs",
     "check:meta-token-crypto": "node --import ./scripts/alias-loader.mjs scripts/check-meta-token-crypto.mjs",
+    "check:tiktok": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-tiktok.mjs",
     "check:conversation-attribution": "node --import ./scripts/alias-loader.mjs scripts/check-conversation-attribution.mjs",
     "check:ai-employee": "node --import ./scripts/alias-loader.mjs scripts/check-ai-employee.mjs",
     "check:handling-timeline": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-handling-timeline.mjs",

@@ -32,6 +32,7 @@ import { fetchJson } from "@/lib/fetchJson";
 import MetaLeadFormsPanel from "./MetaLeadFormsPanel";
 import SocialPublishingPanel from "@/app/components/settings/SocialPublishingPanel";
 import WhatsAppPanel from "@/app/components/settings/WhatsAppPanel";
+import TikTokPanel from "@/app/components/settings/TikTokPanel";
 
 // Maps the `metaError` query param the OAuth callback redirects with to a
 // translation key — see app/api/meta-ads/callback/route.js for every value
@@ -447,6 +448,13 @@ function MetaAdsPageScreen() {
           depend on whether an unrelated ad account happens to be connected.
           It states its own preconditions (see the panel). */}
       <SocialPublishingPanel />
+
+      {/* TikTok — not a Meta surface, and not renamed into one: a sibling
+          card, directly under Facebook & Instagram, because it is the same
+          job (an account the Marketing Designer posts to). Rendered
+          unconditionally; its first state is "coming soon" until this
+          deployment has TikTok's credentials. See the panel. */}
+      <TikTokPanel />
 
       {/* ── WhatsApp Business ────────────────────────────────────────────
           The fifth Meta surface on this screen, and the fifth App Review.

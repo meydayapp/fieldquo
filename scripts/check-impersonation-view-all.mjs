@@ -80,6 +80,7 @@ const WRITE_SHAPED_GET_PATHS = [
   "/api/settings/whatsapp/connect", "/api/settings/whatsapp/callback",
   "/api/meta-ads/callback", "/api/stripe/connect/refresh",
   "/api/settings/voice/topup", "/api/settings/voice/auto-topup",
+  "/api/tiktok/connect", "/api/tiktok/callback",
 ];
 import { rows, writes, resetImpersonationDb, db } from "./fixtures/impersonationDb.mjs";
 import { authStub } from "./fixtures/authStub.mjs";

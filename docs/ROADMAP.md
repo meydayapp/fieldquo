@@ -67,6 +67,84 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## TikTok posting, phase 1 (29 September 2026)
+
+Approved by the owner 2026-09-29. A Marketing Designer design posts to the
+company's own TikTok account as a **photo** Direct Post of its 9:16 layout
+(`lib/marketing/ratios.js` `tiktok`, 1080×1920 JPEG) — the preset that was
+reachable only through "Download all" until now. Every TikTok fact below was
+read off developers.tiktok.com on 2026-09-29 and is cited in the code.
+
+### What shipped
+
+- **Switched on by configuration only** (`lib/tiktok/config.js`):
+  `TIKTOK_CLIENT_KEY` + `TIKTOK_CLIENT_SECRET` + `META_TOKEN_ENCRYPTION_KEY`.
+  Missing any → Settings › Meta Ads shows "TikTok posting — coming soon" with
+  no button, the connect route refuses, the designer draws no TikTok button.
+- **Connection** — `TikTokConnection` (additive table). `/api/tiktok/connect`
+  → TikTok Login Kit (no PKCE for web) with a signed state bound to member +
+  company + a cookie nonce; `/api/tiktok/callback` exchanges the code, reads
+  user.info.basic, stores both tokens encrypted with the SAME helper as Meta
+  (`lib/meta/tokenCrypto.js`). Access tokens (24h) refresh on use; the daily
+  `/api/cron/tiktok-token-refresh` (07:37 UTC) rolls a refresh token (365d)
+  forward inside its last 30 days. Disconnect revokes at TikTok first, then
+  nulls the tokens and stamps the row — never a delete; `authorization.removed`
+  and a dead refresh token do the same.
+- **Settings card** (`app/components/settings/TikTokPanel.js`) beside
+  Facebook & Instagram on Settings › Meta Ads: nickname + avatar, missing
+  permissions, Disconnect, why a previous connection ended, and the unaudited
+  notice.
+- **Composer** (`app/components/designer/TikTokPublishModal.js`, opened from
+  the designer's TikTok button, drawn only when connected): TikTok's mandated
+  UX — creator_info fetched fresh on every open, nickname shown, privacy
+  dropdown from TikTok's options with no default ("Only me" only while
+  unaudited), "Allow comments" off and greyed when the creator disabled it,
+  commercial disclosure (Your brand / Branded content, labels, "can't be
+  private"), the Music Usage / Branded Content Policy consent line, preview,
+  "may take a few minutes". Same approval gate and read-only caption as the
+  Meta dialog.
+- **Publish** (`/api/marketing/designer/designs/[id]/tiktok`): re-queries
+  creator_info, validates the choice server-side, uploads the JPEG, writes a
+  `TikTokPublish` row, hands TikTok
+  `https://www.fieldquo.com/api/tiktok/media/<signed token>.jpg` (HMAC,
+  one hour, row + company bound, 404 otherwise) and polls
+  `/api/tiktok/publish/[id]` every 5 s for ~3 min. `/api/tiktok/webhook`
+  (TikTok-Signature verified, idempotent) records post.publish.* and
+  authorization.removed.
+- **Errors**: every documented TikTok code and fail_reason has its own
+  sentence in all nine app languages; an unknown code is quoted, never hidden.
+- TikTok added to `lib/legal/processors.js`; privacy date 2026-09-29.
+
+### Checks
+
+`npm run check:tiktok` (225 checks: state/CSRF, media token tampering /
+expiry / other company, webhook signature, privacy rules and defaults, the
+request body, status monotonicity, error sentences in every language,
+"disconnect never deletes" executed on every path, refresh-on-use).
+Facebook/Instagram Graph call arguments for a stored design: md5 identical
+before and after (6ad4e7c8…).
+
+### Owed — the owner
+
+1. Create the app on developers.tiktok.com (Login Kit + Content Posting API,
+   Direct Post); register redirect `https://www.fieldquo.com/api/tiktok/callback`,
+   scopes `user.info.basic`, `video.publish`, webhook
+   `https://www.fieldquo.com/api/tiktok/webhook`.
+2. Set `TIKTOK_CLIENT_KEY` / `TIKTOK_CLIENT_SECRET` in Vercel.
+3. URL-prefix verification for `https://www.fieldquo.com/api/tiktok/media/`:
+   paste the portal's file name and content into
+   `TIKTOK_VERIFICATION_FILENAME` / `TIKTOK_VERIFICATION_CONTENT`, deploy,
+   press Verify.
+4. Submit the audit (a screencast of the composer). Until it passes every
+   post is private and stays private, the creator's account must be private,
+   and at most 5 creators a day can post. Set `TIKTOK_AUDITED=1` the day it
+   passes.
+
+### Not in phase 1
+
+Video posts, scheduling a TikTok post, a TikTok row in the designer
+calendar, and an editable TikTok title.
+
 ## Connect Google reviews waits for Google (28 September 2026)
 
 The owner: "because we cannot integrate Google reviews yet we should remove
