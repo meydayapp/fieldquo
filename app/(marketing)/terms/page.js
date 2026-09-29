@@ -5,11 +5,10 @@
 // page were established, and for the checked-in verification
 // (scripts/check-legal-pages.mjs, wired into `npm run check:all`).
 //
-// This is not a substitute for legal review. In particular: FieldQuo's legal
-// entity name, place of incorporation, and governing-law/venue clause are
-// NOT established anywhere in this codebase — those are business facts, not
-// facts a codebase audit can produce — and are left as explicit placeholders
-// below rather than invented. See the report that shipped with this page.
+// This is not a substitute for legal review. The legal entity and address in
+// section 15 came from the owner (Meta Business Verification, 2026-09-28);
+// the Ontario governing-law clause follows from that address and has not
+// been reviewed by counsel.
 import { marketingMetadata } from "@/lib/marketing/metadata";
 import { SUPPORT_EMAIL } from "@/lib/supportContact";
 import {
@@ -223,14 +222,19 @@ export default function TermsPage() {
       </p>
 
       <h2>15. Governing law and legal entity</h2>
+      {/* Entity name and address as verified in Meta Business Verification
+          (confirmed by the owner 2026-09-28). Ontario law and Ottawa courts
+          follow from where the company is based. Registration in Ontario and
+          the United States is the owner's own wording (2026-09-28); the US
+          state was not given, so none is named. */}
       <p>
-        <em>
-          [[PLACEHOLDER: FieldQuo's legal entity name, place of
-          incorporation/registration, and the governing law and venue that
-          apply to these terms are not established anywhere in this codebase
-          and need to be confirmed by the business owner and/or counsel
-          before this page is treated as final.]]
-        </em>
+        FieldQuo is operated by FieldQuo Inc., a company registered in
+        Ontario, Canada and in the United States, with its office at 917
+        Littlerock Way, Ottawa, Ontario K1T 0N2, Canada. These terms are governed by the laws of the
+        Province of Ontario and the federal laws of Canada that apply there,
+        and the courts located in Ottawa, Ontario have jurisdiction over any
+        dispute arising from them, except where the law of your place of
+        residence gives you a right that cannot be waived.
       </p>
 
       <h2>16. Contact</h2>
