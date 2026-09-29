@@ -89,7 +89,7 @@ function errorText(t, code) {
   return t("app.tiktok.error.unknown", { code: code || "?" });
 }
 
-export default function TikTokPublishModal({ isOpen, onClose, design, preparePublishAsset, onOpenApproval }) {
+export default function TikTokPublishModal({ isOpen, onClose, design, preparePublishAsset, onOpenApproval, slideCount = 1 }) {
   const { t } = useTranslation();
   const caller = usePermissions();
   const canConnect = !caller?.role || isBillingAdmin(caller.role);
@@ -97,6 +97,9 @@ export default function TikTokPublishModal({ isOpen, onClose, design, preparePub
   const [meta, setMeta] = useState(null); // GET /designs/[id]/tiktok
   const [creator, setCreator] = useState(null); // { creatorInfo, privacyOptions, audited } | { error }
   const [asset, setAsset] = useState(null);
+  // Slides 2..n of a carousel design — one photo-mode post, every image in
+  // TikTok's 9:16 (lib/marketing/destinations.js).
+  const [extraAssets, setExtraAssets] = useState([]);
   const [assetState, setAssetState] = useState("idle"); // idle | loading | failed | ready
   const [choice, setChoice] = useState(COMPOSER_DEFAULTS);
   const [submitting, setSubmitting] = useState(false);
@@ -139,13 +142,22 @@ export default function TikTokPublishModal({ isOpen, onClose, design, preparePub
     if (!isOpen) return undefined;
     let cancelled = false;
     setAsset(null);
+    setExtraAssets([]);
     setAssetState("loading");
     (async () => {
       try {
-        const generated = await preparePublishAsset(TIKTOK_RATIO_KEY);
+        const generated = await preparePublishAsset(TIKTOK_RATIO_KEY, 0);
+        const extras = [];
+        for (let i = 1; i < Math.max(1, slideCount); i++) {
+          // eslint-disable-next-line no-await-in-loop
+          const more = await preparePublishAsset(TIKTOK_RATIO_KEY, i);
+          if (!more) throw new Error("slide render failed");
+          extras.push(more);
+        }
         if (cancelled) return;
         if (generated) {
           setAsset(generated);
+          setExtraAssets(extras);
           setAssetState("ready");
         } else setAssetState("failed");
       } catch {
@@ -155,7 +167,7 @@ export default function TikTokPublishModal({ isOpen, onClose, design, preparePub
     return () => {
       cancelled = true;
     };
-  }, [isOpen, preparePublishAsset]);
+  }, [isOpen, preparePublishAsset, slideCount]);
 
   // Stop polling when the dialog closes or unmounts.
   useEffect(() => {
@@ -175,20 +187,25 @@ export default function TikTokPublishModal({ isOpen, onClose, design, preparePub
     () => validateTikTokPost({ ...choice, description: caption, creatorInfo, audited }),
     [choice, caption, creatorInfo, audited],
   );
-  const photoCheck = useMemo(
-    () => (asset ? validateTikTokPhoto({ width: asset.width, height: asset.height }) : null),
-    [asset],
-  );
+  const photoCheck = useMemo(() => {
+    if (!asset) return null;
+    const checks = [asset, ...extraAssets].map((a) => validateTikTokPhoto({ width: a.width, height: a.height }));
+    return checks.find((c) => !c.ok) || checks[0];
+  }, [asset, extraAssets]);
+  // Template placeholders still on the design (the route refuses on them).
+  const placeholderCount = Number(meta?.placeholders?.count) || 0;
   const label = commercialLabel(choice);
   const consent = consentLine(choice);
   const brandedBlocked = brandedContentBlockedBy(choice);
 
-  const canSubmit = Boolean(creatorInfo) && approved && check.ok && photoCheck?.ok && assetState === "ready" && !submitting;
+  const canSubmit =
+    Boolean(creatorInfo) && approved && check.ok && photoCheck?.ok && assetState === "ready" && placeholderCount === 0 && !submitting;
   // "Send to TikTok as a draft" needs no privacy level or disclosure — the
   // creator sets those in TikTok's own editor — but the same approval, the
   // same image and a caption TikTok will take.
   const draftCheck = useMemo(() => validateTikTokDraft({ description: caption, creatorInfo }), [caption, creatorInfo]);
-  const canDraft = Boolean(creatorInfo) && approved && draftCheck.ok && photoCheck?.ok && assetState === "ready" && !submitting;
+  const canDraft =
+    Boolean(creatorInfo) && approved && draftCheck.ok && photoCheck?.ok && assetState === "ready" && placeholderCount === 0 && !submitting;
 
   function set(patch) {
     setChoice((c) => {
@@ -230,11 +247,26 @@ export default function TikTokPublishModal({ isOpen, onClose, design, preparePub
     setSubmitting(true);
     setSubmitError(null);
     try {
+      // A carousel's images go up one request each and travel as signed
+      // receipts (lib/marketing/slideAssets.js); one image goes in the body,
+      // as it always did.
+      let slideTokens;
+      if (extraAssets.length) {
+        slideTokens = [];
+        for (const a of [asset, ...extraAssets]) {
+          // eslint-disable-next-line no-await-in-loop
+          const staged = await fetchJson(`/api/marketing/designer/designs/${design.id}/assets`, {
+            method: "POST",
+            body: { ratioKey: TIKTOK_RATIO_KEY, imageBase64: a.dataUrl },
+          });
+          slideTokens.push(staged.token);
+        }
+      }
       const data = await fetchJson(`/api/marketing/designer/designs/${design.id}/tiktok`, {
         method: "POST",
         body: {
           mode,
-          imageBase64: asset.dataUrl,
+          ...(slideTokens ? { slideTokens } : { imageBase64: asset.dataUrl }),
           caption,
           privacyLevel: choice.privacyLevel,
           allowComment: choice.allowComment,
@@ -348,11 +380,34 @@ export default function TikTokPublishModal({ isOpen, onClose, design, preparePub
               {assetState === "failed" && (
                 <p className="text-xs text-muted-foreground p-4 text-center">{t("app.marketingDesigner.publishModal.previewError")}</p>
               )}
-              {assetState === "ready" && asset && (
+              {assetState === "ready" && asset && !extraAssets.length && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={asset.dataUrl} alt={t("app.tiktokPublish.previewAlt")} className="max-h-72 w-auto object-contain" />
               )}
+              {assetState === "ready" && asset && extraAssets.length > 0 && (
+                <div className="flex gap-2 overflow-x-auto p-2 w-full" data-tiktok-slides>
+                  {[asset, ...extraAssets].map((a, i) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img key={i} src={a.dataUrl} alt={t("app.tiktokPublish.previewAlt")} className="max-h-60 w-auto object-contain shrink-0" />
+                  ))}
+                </div>
+              )}
             </div>
+            {extraAssets.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {t("app.marketingDesigner.publishModal.slideCount", { value: extraAssets.length + 1 })}
+              </p>
+            )}
+            {placeholderCount > 0 && (
+              <p className="text-xs text-amber-700 dark:text-amber-400 flex items-start gap-1" data-tiktok-placeholders>
+                <TriangleAlert size={12} className="mt-0.5 shrink-0" />
+                {t(
+                  "app.marketingDesigner.publishModal.placeholdersBlock",
+                  "This design still has {count} template placeholders (a review, a number, a photo…). Replace or delete them in the editor before it can be posted.",
+                  { count: placeholderCount },
+                )}
+              </p>
+            )}
             {photoCheck && !photoCheck.ok && (
               <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
                 <TriangleAlert size={12} />

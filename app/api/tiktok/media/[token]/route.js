@@ -45,7 +45,7 @@ async function resolve(params) {
     nowSeconds: Date.now() / 1000,
     verificationFile: tiktokVerificationFile(),
     loadRow: (id) =>
-      db.tikTokPublish.findUnique({ where: { id }, select: { companyId: true, status: true, imageUrl: true } }),
+      db.tikTokPublish.findUnique({ where: { id }, select: { companyId: true, status: true, imageUrl: true, imageUrls: true } }),
   });
 }
 

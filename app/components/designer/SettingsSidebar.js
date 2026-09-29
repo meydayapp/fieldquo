@@ -89,7 +89,10 @@ export function SettingsSidebar({ editor, activeTool, onChangeActiveTool }) {
         <div className="space-y-3 border-b p-4">
           <Label className="text-sm">Frame</Label>
           <div className="grid grid-cols-2 gap-2">
-            {AD_RATIOS.map((r) => (
+            {/* No square for a new frame (lib/marketing/destinations.js);
+                shown only while the canvas already IS one, so a 1:1 design
+                still sees where it is. */}
+            {AD_RATIOS.filter((r) => r.key !== "instagram_post" || activeRatioKey === r.key).map((r) => (
               <Button
                 key={r.key}
                 type="button"

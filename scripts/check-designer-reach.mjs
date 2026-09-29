@@ -131,7 +131,8 @@ section("2. Editor.js's onEditorReady prop is additive, not a breaking change");
 const editorSrc = read("app/components/designer/Editor.js");
 const editorCode = stripComments(editorSrc);
 ok(
-  /export function Editor\(\{\s*initialData,\s*saveCallback,\s*onEditorReady\s*\}\)/.test(editorCode),
+  // 2026-09-29: onApplyTemplate/templatesVersion follow it (templates).
+  /export function Editor\(\{\s*initialData,\s*saveCallback,\s*onEditorReady\b/.test(editorCode),
   "Editor() destructures onEditorReady alongside the two existing props, not in place of either",
 );
 ok(
@@ -590,11 +591,13 @@ ok(
 if (exists(CAMPAIGN_EDITOR)) {
   const ceCode = stripComments(read(CAMPAIGN_EDITOR));
   ok(
-    /for \(const r of AD_RATIOS\)/.test(ceCode),
-    "handleDownloadAll iterates ALL of AD_RATIOS, not a hardcoded subset",
+    // Every tab the design shows (visibleRatios — every preset but the square
+    // a design made after 2026-09-29 never has), for every carousel slide.
+    /for \(const r of tabs\)/.test(ceCode) && /const tabs = useMemo\(\(\) => visibleRatios\(/.test(ceCode),
+    "handleDownloadAll iterates every format tab the design has, not a hardcoded subset",
   );
   ok(
-    /downloadFile\(\s*dataUrl,\s*"png",\s*assetFilename\(/.test(ceCode),
+    /const name = assetFilename\(/.test(ceCode) && /downloadFile\(dataUrl, "png",/.test(ceCode),
     "…and every exported file is named through assetFilename(), not a random id",
   );
   ok(
@@ -1556,12 +1559,16 @@ section("9. Meta refusals at Instagram container creation — stored in full, na
       height: 1920,
       bytes: 300000,
     });
+    // Owner, 2026-09-29: each destination gets its own format and never the
+    // wrong size. A 9:16 picture sent as the square's image used to post to
+    // Facebook with a feed-crop warning; it is now refused before Meta is
+    // called (lib/marketing/destinations.js matchesRatio). The warning itself
+    // survives in publishToFacebook() for rows scheduled before this change.
     const photosBefore = calls.filter((c) => c.path.endsWith("/photos")).length;
-    const tall = (await post(["facebook"])).body?.results?.facebook || {};
+    const tallRes = await post(["facebook"]);
     globalThis.__FQ_UPLOAD = savedUpload;
-    ok(tall.status === "published", "a 9:16 image still POSTS to Facebook — the feed check warns, it does not refuse", JSON.stringify(tall));
-    ok(calls.filter((c) => c.path.endsWith("/photos")).length === photosBefore + 1, "…Meta's /photos endpoint was actually called for it");
-    ok(JSON.stringify(tall.warnings) === JSON.stringify(["feed_crop"]), "…and the result carries warnings: [\"feed_crop\"]", JSON.stringify(tall.warnings));
+    ok(tallRes.status === 400 && tallRes.body?.error === "wrong_format", "a 9:16 image sent as the square is REFUSED as the wrong format — never posted and cropped", JSON.stringify(tallRes.body));
+    ok(calls.filter((c) => c.path.endsWith("/photos")).length === photosBefore, "…and Meta's /photos endpoint was never called for it");
   }
 
   // ── The quota pre-check reads Meta's REAL envelope ─────────────────────
@@ -1598,7 +1605,7 @@ section("9. Meta refusals at Instagram container creation — stored in full, na
   ok(/onRetry=\{\(\)\s*=>\s*handlePublish\(platform\)\}/.test(modalSrc), "\"Try {platform} again\" calls the SAME handlePublish, narrowed to that platform — no second publish path");
   ok(/result\.retryable\s*&&/.test(modalSrc), "…and is rendered only when the server says a retry can help");
   ok(/retrying\s*\?\s*\[onlyPlatform\]/.test(modalSrc), "…and the retry request carries ONLY the failed platform");
-  ok(/\.\.\.\(prev \|\| \{\}\), \.\.\.\(data\.results/.test(modalSrc), "…and merges its result over the previous ones, so Facebook's success stays on screen");
+  ok(/\.\.\.\(prev \|\| \{\}\), \.\.\.merged/.test(modalSrc), "…and merges its result over the previous ones, so Facebook's success stays on screen");
   ok(typeof APP_MESSAGES.en["app.marketingDesigner.publishModal.retryPlatform"] === "string", "the retry label is a real translation key");
 
   globalThis.fetch = realFetch;

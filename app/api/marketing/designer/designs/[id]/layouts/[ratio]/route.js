@@ -16,6 +16,7 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { ratio as ratioByKey } from "@/lib/marketing/ratios";
+import { MAX_SLIDES } from "@/lib/marketing/slides";
 
 async function loadOwnedDesign(companyId, id) {
   const design = await db.marketingDesign.findUnique({ where: { id } });
@@ -74,6 +75,36 @@ export async function PUT(request, { params }) {
   const height = Number(body?.height);
   if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
     return NextResponse.json({ error: "width and height must be positive numbers." }, { status: 400 });
+  }
+
+  // ?slide=N (1-based over the EXTRA slides) writes carousel slide N+1 —
+  // lib/marketing/slides.js. Absent, it is slide 1: the row this route has
+  // always written, so a single-image design's save is unchanged.
+  const slideParam = new URL(request.url).searchParams.get("slide");
+  if (slideParam !== null) {
+    const position = Number(slideParam);
+    if (!Number.isInteger(position) || position < 1 || position > MAX_SLIDES - 1) {
+      return NextResponse.json({ error: `slide must be 1 to ${MAX_SLIDES - 1}.` }, { status: 400 });
+    }
+    // A carousel grows one slide at a time: slide N+1 can only be written
+    // once slide N exists, so a stray request cannot leave a hole that
+    // groupSlides() would silently close up under a different number.
+    if (position > 1) {
+      const previous = await db.marketingDesignSlideLayout.findFirst({
+        where: { designId: id, position: position - 1 },
+        select: { id: true },
+      });
+      if (!previous) {
+        return NextResponse.json({ error: "Add the slides before this one first." }, { status: 409 });
+      }
+    }
+    const slideRow = await db.marketingDesignSlideLayout.upsert({
+      where: { designId_position_ratioKey: { designId: id, position, ratioKey: ratioDef.key } },
+      create: { designId: id, position, ratioKey: ratioDef.key, json: parsedJson, width, height },
+      update: { json: parsedJson, width, height },
+    });
+    await db.marketingDesign.update({ where: { id }, data: { updatedAt: new Date() } });
+    return NextResponse.json(slideRow);
   }
 
   const layout = await db.marketingDesignLayout.upsert({

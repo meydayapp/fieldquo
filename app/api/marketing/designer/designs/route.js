@@ -19,6 +19,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 import { approvalState } from "@/lib/marketing/approvalFingerprint";
+import { slideCount } from "@/lib/marketing/slides";
 
 // Same gate as every other marketing-management route (campaigns, stops,
 // send) — reusing user:manage rather than inventing a second permission
@@ -48,6 +49,9 @@ const DESIGN_LIST_SELECT = {
     // render a badge.
     select: { ratioKey: true, json: true, width: true, height: true, updatedAt: true },
   },
+  // Carousel slides 2..n — in the approval fingerprint, and counted so the
+  // list can say "4 slides". Their documents are never returned either.
+  slideLayouts: { select: { position: true, ratioKey: true, json: true, width: true, height: true } },
 };
 
 /**
@@ -55,11 +59,12 @@ const DESIGN_LIST_SELECT = {
  * documents, plus the approval state computed from them.
  */
 function toListRow(design) {
-  const { layouts, approvedFingerprint, ...rest } = design;
+  const { layouts, slideLayouts = [], approvedFingerprint, ...rest } = design;
   return {
     ...rest,
     layouts: layouts.map(({ json, ...l }) => l), // eslint-disable-line no-unused-vars
-    approval: approvalState({ ...design, approvedFingerprint }, layouts).state,
+    slideCount: slideCount(slideLayouts),
+    approval: approvalState({ ...design, approvedFingerprint }, layouts, slideLayouts).state,
   };
 }
 

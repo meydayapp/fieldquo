@@ -68,6 +68,75 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Designer: contractor templates, "Save as template", a format per destination, carousels (29 September 2026)
+
+Owner-approved the same day. Four pieces, one branch.
+
+### What shipped
+
+- **29 original contractor templates** (`lib/designer/templateCatalog.js`) —
+  before/after ×6 (slider with a thin divider and ‹ › handle, top/bottom,
+  diagonal, big-after-small-before inset, before → during → after, a 4-slide
+  project-story carousel), win work ×7, trust ×6, tips ×5 (how-it-works is a
+  5-slide carousel), people ×5. Layout patterns drawn from primitives; no
+  Canva file, art or photo. Every slide has a 4:5, 9:16 and 1.91:1 layout and
+  never a square. Colours are roles resolved through `lib/documents/theme.js`
+  (fillPair / washPair) and words are copy keys in nine languages
+  (`lib/designer/templateCopy.js`), filled per company by
+  `lib/designer/templateFill.js`: brand colour, logo (Cloudinary `c_pad`) or
+  name, phone, website, town, service area, services, season by hemisphere,
+  the company's own job photos (a BEFORE/AFTER pair only from a job with both
+  ends tagged) and a REAL approved review (Testimonial.approved, or a Google
+  review the company chose to show, marked "Google"). Anything missing is an
+  obvious bracketed placeholder named `fq-ph:<kind>`.
+- **Placeholders block publishing** — both publish routes (Meta and TikTok)
+  refuse with `placeholders_remaining` while one is left on the layouts being
+  posted; typing into one renames it (`useCanvasEvents` `text:changed`); the
+  editor shows "N placeholders to replace" and the dialogs say why Publish is
+  off.
+- **Save as template** — `DesignTemplate.companyId` (null = FieldQuo's
+  catalogue), `displayName`, `slides`, `archivedAt`, `key`, `category`
+  (additive). The editor's "Save as template" stores every slide and format
+  of the design; the Templates panel shows **Your templates** above
+  **FieldQuo templates** (by category), previews rendered in the company's
+  colours; delete archives. All reads/writes scoped in the WHERE.
+- **A format per destination** (`lib/marketing/destinations.js`) — IG feed
+  4:5, FB feed 4:5 (1.91:1 only for "link-style"), TikTok 9:16,
+  Reels/Stories 9:16. The Publish dialog's shape picker is gone; each
+  checked destination shows its own preview. The server refuses any other
+  format (`wrong_format`) and measures Cloudinary's pixels
+  (`matchesRatio`). No 1:1 for new designs, templates, the job-post composer
+  or the resize presets; a square design from before 4:5 keeps publishing its
+  square — md5-proved identical request body.
+- **Carousels** — 2–10 slides per design (`MarketingDesignSlideLayout`,
+  slide 1 unchanged in `MarketingDesignLayout`; fingerprint unchanged for
+  designs without extra slides). Instagram CAROUSEL container with
+  `is_carousel_item` children, Facebook unpublished photos (`temporary` when
+  scheduled) + one `/feed` post with `attached_media`, TikTok photo mode with
+  several `photo_images` (a signed media token per image). Slides upload one
+  request each (`…/assets`, a signed receipt) to stay under Vercel's 4.5 MB
+  body limit; `SocialPublish.imageUrls` / `TikTokPublish.imageUrls` carry
+  them, and the scheduled-publish cron posts a carousel row as a carousel.
+
+### Checks
+
+`check:design-templates` (162: formats, contrast 5,562 pairs × 9 hostile
+brands, fill, scoping, archive, per-destination refusal, placeholder block on
+both routes, Graph/TikTok payload shapes, md5 of the legacy body, fingerprint
+unchanged); `check:designer`, `check:ad-ratios`, `check:designer-reach`,
+`check:tiktok`, `check:job-post` updated/green.
+
+### Owed
+
+- **Run the seed after this deploys, not before**: `npm run
+  seed:design-templates` (a `-- --dry-run` builds and checks without
+  writing). Seeding first would show raw catalogue documents to the
+  deployed older sidebar.
+- Instagram **Stories/Reels publishing** is not a destination yet — the
+  format rule exists (9:16) but nothing posts there.
+- Meta's docs were read 2026-09-29; a carousel has not yet been posted
+  to a real Page/IG account.
+
 ## TikTok posting, phase 1 (29 September 2026)
 
 Approved by the owner 2026-09-29. A Marketing Designer design posts to the
