@@ -111,10 +111,13 @@ export function initialOpenKeys({ defaultOpenKeys = [], overrides = {}, active =
 
 /**
  * One-open-at-a-time ("exclusive") disclosure — the owner's rule since
- * 2026-09-29 for the main rail and the settings list: opening a group closes
- * the others, so the sidebar stays short. The invariant above still holds —
- * headers never hide, a query shows every match, the rail ignores disclosure,
- * pinned groups never fold — this only decides WHICH one group is open.
+ * 2026-09-29 for EVERY accordion sidebar: the main rail, the settings list
+ * and the /platform console. Opening a group closes the others, so the
+ * sidebar stays short. The invariant above still holds — headers never hide,
+ * a query shows every match, the rail ignores disclosure — this only decides
+ * WHICH one group is open. No group is exempt: "pinned" groups (Work and AI,
+ * kept open for the welcome tour's anchors) were retired the same day; the
+ * tour unfolds the group it needs through the header instead.
  *
  * The one open group at mount: the group holding the current page, else the
  * group the user last opened (the one `true` in their stored overrides), else
@@ -137,11 +140,11 @@ export function exclusiveToggle(openKeys, key) {
  * 1 and 3 — both sidebars call this rather than deciding for themselves, so
  * the check script exercises the rule that actually ships.
  *
- * `pinned` groups never fold: see the comment on NAV_GROUPS in AdminSidebar
- * about the walkthrough's anchors.
+ * There is no `pinned` escape hatch any more (retired 2026-09-29, owner:
+ * every accordion folds). A group that must be seen by the tour is opened by
+ * the tour through its header — see NAV_GROUPS in AdminSidebar.js.
  */
 export function isGroupOpen({ group, openKeys, searching = false, railCollapsed = false }) {
-  if (group.pinned) return true;
   // A query, or a rail with no room for headings, shows everything it found.
   if (searching || railCollapsed) return true;
   return openKeys.has(group.key);

@@ -54,6 +54,7 @@ import {
   spotlightStyle,
   visibleTarget,
   waitForTarget,
+  tourUndoClicks,
   CARD_WIDTH,
   CARD_HEIGHT_ESTIMATE,
   MARGIN,
@@ -78,7 +79,16 @@ import {
 // would FOLD a group the reader had open all along. The drawer's X was safe
 // under the old rule by accident (it is off screen when the drawer is shut);
 // a toggle is not.
+//
+// Since 2026-09-29 every sidebar group folds one-at-a-time, so clicking a
+// header also closes its siblings and "click it again" no longer undoes it.
+// The tour now remembers which headers were open before its first header
+// click (`restore`) and plans the undo from state — tourUndoClicks in
+// lib/tours/anchor.js, where the reasoning and the check live.
 const asList = (v) => (Array.isArray(v) ? v : v ? [v] : []);
+
+/** The selector that finds a header again by its tour hook. */
+const hookSelector = (el) => `[data-tour-open='${el.getAttribute("data-tour-open")}']`;
 
 export default function OnboardingTour({ steps, storageKey, serverSeen = false, onFinish, force = false }) {
   // Resolved HERE, not baked into tours.js. That module is plain data with no
@@ -94,7 +104,11 @@ export default function OnboardingTour({ steps, storageKey, serverSeen = false, 
   const [ready, setReady] = useState(false);
   const finished = useRef(false);
   // Closers owed, in the order their openers were clicked — see asList above.
+  // Each is { selector, toggle }: a toggle is a header that is its own closer.
   const owed = useRef([]);
+  // The sidebar headers that were open before the tour clicked its first
+  // one — what the undo puts back. Null until a header is clicked.
+  const restore = useRef(null);
   // The card's REAL height once drawn. cardPosition decides above-or-below
   // from a height, and the 190px estimate is a two-line body; the 2026-09-24
   // welcome tour's Settings step (a four-line body in English, longer in
@@ -173,8 +187,18 @@ export default function OnboardingTour({ steps, storageKey, serverSeen = false, 
         const opener = visibleTarget(openers[i]) || (i > 0 ? await waitForTarget(openers[i], 400) : null);
         if (cancelled) return;
         if (!opener) continue;
+        const toggle = closers[i] === openers[i] && opener.hasAttribute("aria-expanded");
+        if (toggle && restore.current === null) {
+          // Snapshot the reader's own fold before the tour changes it. Scoped
+          // to the header's <nav>: the drawer's hamburger also carries
+          // aria-expanded and is not a group.
+          const nav = opener.closest("nav") || document;
+          restore.current = [...nav.querySelectorAll("[data-tour-open][aria-expanded='true']")].map(hookSelector);
+        }
         opener.click();
-        if (closers[i] && !owed.current.includes(closers[i])) owed.current.push(closers[i]);
+        if (closers[i] && !owed.current.some((o) => o.selector === closers[i])) {
+          owed.current.push({ selector: closers[i], toggle });
+        }
         el = await waitForTarget(step.target);
       }
       if (cancelled) return;
@@ -239,8 +263,17 @@ export default function OnboardingTour({ steps, storageKey, serverSeen = false, 
     // leaves it open has changed the app on its way out. Innermost first — a
     // group header inside the drawer has to be folded back while the drawer
     // is still open to click it.
-    for (const closer of [...owed.current].reverse()) visibleTarget(closer)?.click();
+    const expandedNow = owed.current
+      .filter((o) => o.toggle && visibleTarget(o.selector)?.getAttribute("aria-expanded") === "true")
+      .map((o) => o.selector);
+    for (const sel of restore.current || []) {
+      if (visibleTarget(sel)?.getAttribute("aria-expanded") === "true") expandedNow.push(sel);
+    }
+    for (const closer of tourUndoClicks({ owed: owed.current, expandedNow, restore: restore.current })) {
+      visibleTarget(closer)?.click();
+    }
     owed.current = [];
+    restore.current = null;
     onFinish?.();
   }, [onFinish, storageKey]);
 

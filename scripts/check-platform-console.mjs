@@ -65,7 +65,8 @@ import {
   isOnTrial,
 } from "../lib/platform/trialCounting.js";
 import {
-  initialOpenKeys,
+  exclusiveToggle,
+  initialExclusiveKey,
   isGroupOpen,
   readOverrides,
   visibleItems,
@@ -607,10 +608,12 @@ const railCode2 = stripComments(railSrc);
 ok("the rail folds on the shared disclosure module, not a private copy",
   /import \{ useGroupDisclosure \} from "@\/app\/components\/layout\/NavFilter"/.test(railCode2) &&
     /import \{ activeGroupKey, isGroupOpen \} from "@\/app\/components\/layout\/navDisclosure"/.test(railCode2));
-ok("every group is open by default",
+ok("DEFAULT_OPEN lists every group, in rail order (the first opens on a first visit)",
   /const DEFAULT_OPEN = GROUPS\.map\(\(g\) => g\.key\)/.test(railCode2));
-ok("the group holding the route is passed as activeKey",
-  /useGroupDisclosure\(\{\s*storageKey: disclosureStorageKey\(adminId\),\s*defaultOpenKeys: DEFAULT_OPEN,\s*activeKey,\s*\}\)/.test(railCode2));
+// One group open at a time, like the /app rail and settings list (owner,
+// 2026-09-29: "for every sidebar that has accordion").
+ok("the group holding the route is passed as activeKey, one group open at a time",
+  /useGroupDisclosure\(\{\s*storageKey: disclosureStorageKey\(adminId\),\s*defaultOpenKeys: DEFAULT_OPEN,\s*activeKey,\s*exclusive: true,\s*\}\)/.test(railCode2));
 ok("activeKey is found by the rows' own active rule (exact or prefix), not a bare prefix",
   /activeGroupKey\(GROUPS, pathname, \(href\) => \{\s*const item = ALL_ITEMS\.find\(\(i\) => i\.href === href\);\s*return item \? isActive\(item, pathname\) : false;/.test(railCode2));
 
@@ -621,19 +624,23 @@ const label = (k) => k;
 // the row is drawn. This is the deep-link promise, per row.
 const hiddenWhenActive = PLATFORM_ITEMS.filter((item) => {
   const active = groupOf(item.href);
-  const open = initialOpenKeys({ defaultOpenKeys: everyKey, overrides: ALL_CLOSED, active });
+  // Hostile storage: every group stored closed AND a different group stored
+  // as the last one opened. The route's group must still win.
+  const other = everyKey.find((k) => k !== active);
+  const open = new Set([initialExclusiveKey({ defaultOpenKeys: everyKey, overrides: { ...ALL_CLOSED, [other]: true }, active })]);
   return !visibleItems({ groups: PLATFORM_GROUPS, query: "", openKeys: open, label }).some((i) => i.href === item.href);
 });
 ok("a stored 'closed' never hides the route the admin is on (every row)",
   hiddenWhenActive.length === 0, hiddenWhenActive.map((i) => i.href).join(" "));
-ok("with everything stored closed and nothing active, every row is hidden and every heading is still drawn",
-  visibleItems({ groups: PLATFORM_GROUPS, query: "", openKeys: initialOpenKeys({ defaultOpenKeys: everyKey, overrides: ALL_CLOSED }), label }).length === 0 &&
+ok("with everything stored closed and nothing active, exactly the first group opens",
+  initialExclusiveKey({ defaultOpenKeys: everyKey, overrides: ALL_CLOSED }) === everyKey[0]);
+ok("with nothing open every row is hidden and nothing is held open (no pinned group)",
+  visibleItems({ groups: PLATFORM_GROUPS, query: "", openKeys: new Set(), label }).length === 0 &&
     PLATFORM_GROUPS.every((g) => !isGroupOpen({ group: g, openKeys: new Set() })));
-ok("a fold on one group leaves the other six open",
-  (() => {
-    const open = initialOpenKeys({ defaultOpenKeys: everyKey, overrides: { spending: false } });
-    return !open.has("spending") && everyKey.filter((k) => k !== "spending").every((k) => open.has(k));
-  })());
+ok("opening one group closes the one that was open",
+  [...exclusiveToggle(new Set(["earnings"]), "spending")].join() === "spending");
+ok("clicking the open group closes it",
+  exclusiveToggle(new Set(["spending"]), "spending").size === 0);
 
 // Round trip through a fake localStorage — the value the rail writes is the
 // value it reads back, and a storage that throws costs nothing but memory.
@@ -650,11 +657,13 @@ ok("a fold on one group leaves the other six open",
   const back = readOverrides(KEY);
   ok("fold state round-trips through storage", JSON.stringify(back) === JSON.stringify({ spending: false, leadData: false }), JSON.stringify(back));
   ok("…under a per-admin key (two admins on one machine do not share folds)", store.has(KEY) && !store.has("fq-platform-groups"));
-  const open = initialOpenKeys({ defaultOpenKeys: everyKey, overrides: back, active: "spending" });
   ok("…and the round-tripped 'closed' still yields to the active group",
-    open.has("spending") && !open.has("leadData") && open.has("earnings"));
+    initialExclusiveKey({ defaultOpenKeys: everyKey, overrides: back, active: "spending" }) === "spending");
+  writeOverrides(KEY, { leadData: true });
+  ok("…and with no active group the admin's last-opened group reopens",
+    initialExclusiveKey({ defaultOpenKeys: everyKey, overrides: readOverrides(KEY) }) === "leadData");
   store.set(KEY, "{not json");
-  ok("a hand-edited value falls back to everything open", JSON.stringify(readOverrides(KEY)) === "{}");
+  ok("a hand-edited value falls back to the defaults", JSON.stringify(readOverrides(KEY)) === "{}");
   globalThis.window = {
     localStorage: {
       getItem: () => { throw new Error("SecurityError"); },
