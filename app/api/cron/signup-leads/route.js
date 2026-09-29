@@ -39,6 +39,20 @@ export async function GET(request) {
   const out = { success: true };
   try {
     out.promotion = await promoteSignupLeads({ client: db, now });
+    // Rows that threw no longer stop the loop (salesFloor's promoteSignupLeads
+    // collects them), so the failure is surfaced here instead: still a 500,
+    // still in PlatformErrorLog, with the first error's text and which rows.
+    const failed = out.promotion?.failed || [];
+    if (failed.length) {
+      out.success = false;
+      out.promotionError = `${failed.length} signup lead(s) failed to promote: ${failed[0].error}`;
+      await recordError({
+        area: "signup",
+        code: "signup_leads_promotion_failed",
+        message: `Promoting ${failed.length} signup lead(s) threw: ${failed[0].error}`,
+        detail: { failed: failed.slice(0, 20) },
+      }).catch(() => {});
+    }
   } catch (err) {
     out.success = false;
     out.promotionError = err?.message || String(err);
