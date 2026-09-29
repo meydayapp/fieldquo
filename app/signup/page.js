@@ -47,7 +47,6 @@ import { isValidEmail } from "@/lib/validation";
 import { COUNTRIES } from "@/lib/currency";
 import { isInternalPath } from "@/lib/appUrl";
 import { useTranslation } from "@/app/hooks/useTranslation";
-import { trackSignupStep } from "@/lib/analytics/track";
 import { CAPTURE_ENDPOINT } from "@/lib/signup/leadCapture";
 import { RESUME_ACTIONS, safeResumeTarget } from "@/lib/signup/resumeRoute";
 import { WELCOME_NEXT_KEY, WELCOME_LINK_KEY } from "@/app/welcome/storageKeys";
@@ -889,7 +888,7 @@ export default function SignupPage() {
         else setError(message);
         return;
       }
-      trackSignupStep("start");
+
       if (signupLinkToken) reportSignupStep(signupLinkToken, "company");
       const ok = await createCompany();
       // The login exists even when the company POST failed: this page's
@@ -905,7 +904,7 @@ export default function SignupPage() {
   async function handleStartSignedIn() {
     setSubmitting(true);
     try {
-      trackSignupStep("start");
+
       await createCompany();
     } finally {
       setSubmitting(false);
