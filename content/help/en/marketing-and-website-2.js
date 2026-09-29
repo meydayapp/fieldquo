@@ -849,4 +849,68 @@ export const ARTICLES = {
       }
     ]
   },
+  // lib/marketing/videoArchive.js (rules), lib/marketing/videoArchiveServer.js
+  // (copy → verify → remove, restore), app/app/marketing/designer/video/[id].
+  "archived-videos": {
+    "title": "Archived videos: when a video post moves to the archive, and restoring it",
+    "summary": "Thirty days after it finished posting, a video's file moves to long-term storage. Your Reels and TikToks stay up; restoring it to post again counts as one of the month's videos.",
+    "updated": "2026-09-29",
+    "intro": [
+      "Thirty days after a video post has finished posting everywhere you sent it, FieldQuo moves the video file into long-term storage. Your Reels and TikToks stay up — Instagram, Facebook and TikTok keep their own copies — and the video post stays in your Marketing Designer."
+    ],
+    "sections": [
+      {
+        "id": "when",
+        "heading": "When a video is archived",
+        "blocks": [
+          {
+            "bullets": [
+              "**30 days after its last destination finished posting** — Instagram, Facebook or TikTok, whichever you sent it to. It doesn't need to have gone to all three.",
+              "Never while a post is still processing or scheduled, or has failed and is waiting for you to try again — the retry needs the file.",
+              "Never for a video that was never posted.",
+              "A restored video gets its 30 days again, counted from when you restored it."
+            ]
+          },
+          {
+            "p": "The file is copied first and the copy is checked byte for byte. Only then is the original removed. If the copy can't be made or doesn't match, nothing is removed and it is tried again later."
+          }
+        ]
+      },
+      {
+        "id": "what-you-see",
+        "heading": "What an archived video looks like",
+        "blocks": [
+          {
+            "p": "In the Marketing Designer it shows **Video · archived**. Opening it shows **Archived**, where it was sent and when, and the size of the checked copy. The player, the cover and the tick boxes aren't shown: the file isn't there to play or send until you restore it."
+          }
+        ]
+      },
+      {
+        "id": "restore",
+        "heading": "Posting it again",
+        "blocks": [
+          {
+            "steps": [
+              "Open the archived video post.",
+              "Press **Restore to post again**.",
+              "Wait a few minutes while it is copied back — you can leave the page. When it's back, the video screen works exactly as before: shape, cover, caption, approval and the tick boxes."
+            ]
+          },
+          {
+            "note": "Restoring counts as **one of this month's videos**, the same as a new upload, because the video is stored and processed again. When the month is used up, restoring is refused with the count, like a new upload."
+          }
+        ]
+      }
+    ],
+    "faq": [
+      {
+        "q": "Are my posts on Instagram, Facebook or TikTok deleted?",
+        "a": "No. They live on those platforms' own servers and nothing there changes. Only FieldQuo's copy of the file moves."
+      },
+      {
+        "q": "Can I change the caption or cover of an archived video?",
+        "a": "Restore it first. The shape, cover, caption and approval are all chosen against the video itself, and it isn't there until it's restored."
+      }
+    ]
+  },
 };

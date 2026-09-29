@@ -555,7 +555,10 @@ export default function MarketingDesignerPage() {
                         <span className="min-w-0">
                           <span className="block text-sm font-medium text-foreground truncate">{v.name}</span>
                           <span className="block text-xs text-muted-foreground">
-                            {v.uploadState === "ready"
+                            {/* Archived (lib/marketing/videoArchive.js) stays listed — its posts are still live. */}
+                            {v.archive
+                              ? t(v.archive.restoring ? "app.videoPost.listRestoring" : "app.videoPost.listArchived")
+                              : v.uploadState === "ready"
                               ? t("app.videoPost.listLine", { seconds: Math.round(v.durationSec) })
                               : v.uploadState === "failed"
                                 ? t("app.videoPost.listFailed")

@@ -72,6 +72,14 @@ export async function POST(request, { params }) {
       { status: 409 },
     );
   }
+  // An approval signs the clip as it will be sent; an archived clip is not
+  // in Cloudinary to be sent (lib/marketing/videoArchive.js). Restore first.
+  if (post.archivedAt) {
+    return NextResponse.json(
+      { error: "archived", code: "archived", message: "This video is archived. Restore it before approving it." },
+      { status: 409 },
+    );
+  }
 
   let body = {};
   try {

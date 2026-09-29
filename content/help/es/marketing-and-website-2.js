@@ -846,4 +846,66 @@ export const ARTICLES = {
       }
     ]
   },
+  "archived-videos": {
+    "title": "Videos archivados: cuándo una publicación de video pasa al archivo, y cómo restaurarla",
+    "summary": "Treinta días después de terminar de publicarse, el archivo de un video pasa a almacenamiento a largo plazo. Tus Reels y TikToks siguen activos; restaurarlo para publicarlo de nuevo cuenta como uno de los videos del mes.",
+    "updated": "2026-09-29",
+    "intro": [
+      "Treinta días después de que una publicación de video termina de publicarse en todos los sitios a los que la enviaste, FieldQuo traslada el archivo del video a almacenamiento a largo plazo. Tus Reels y TikToks siguen activos — Instagram, Facebook y TikTok guardan sus propias copias — y la publicación de video sigue en tu Diseñador de marketing."
+    ],
+    "sections": [
+      {
+        "id": "when",
+        "heading": "Cuándo se archiva un video",
+        "blocks": [
+          {
+            "bullets": [
+              "**30 días después de que su último destino terminó de publicarse** — Instagram, Facebook o TikTok, según a dónde lo enviaste. No hace falta que haya ido a los tres.",
+              "Nunca mientras una publicación sigue procesándose o está programada, o falló y espera a que lo intentes de nuevo — el nuevo intento necesita el archivo.",
+              "Nunca para un video que no se publicó.",
+              "Un video restaurado vuelve a tener sus 30 días, contados desde que lo restauraste."
+            ]
+          },
+          {
+            "p": "Primero se copia el archivo y la copia se comprueba byte a byte. Solo entonces se retira el original. Si la copia no se puede hacer o no coincide, no se retira nada y se vuelve a intentar más tarde."
+          }
+        ]
+      },
+      {
+        "id": "what-you-see",
+        "heading": "Cómo se ve un video archivado",
+        "blocks": [
+          {
+            "p": "En el Diseñador de marketing aparece como **Video · archivado**. Al abrirlo verás **Archivado**, a dónde se envió y cuándo, y el tamaño de la copia comprobada. El reproductor, la portada y las casillas no se muestran: el archivo no está para reproducirse ni enviarse hasta que lo restaures."
+          }
+        ]
+      },
+      {
+        "id": "restore",
+        "heading": "Publicarlo de nuevo",
+        "blocks": [
+          {
+            "steps": [
+              "Abre la publicación de video archivada.",
+              "Pulsa **Restaurar para publicar de nuevo**.",
+              "Espera unos minutos mientras se vuelve a copiar — puedes salir de la página. Cuando vuelva, la pantalla del video funciona exactamente como antes: formato, portada, texto, aprobación y casillas."
+            ]
+          },
+          {
+            "note": "Restaurar cuenta como **uno de los videos de este mes**, igual que una subida nueva, porque el video se vuelve a almacenar y procesar. Cuando el mes está agotado, la restauración se rechaza con el recuento, como una subida nueva."
+          }
+        ]
+      }
+    ],
+    "faq": [
+      {
+        "q": "¿Se borran mis publicaciones en Instagram, Facebook o TikTok?",
+        "a": "No. Están en los servidores de esas plataformas y allí no cambia nada. Solo se traslada la copia del archivo que guarda FieldQuo."
+      },
+      {
+        "q": "¿Puedo cambiar el texto o la portada de un video archivado?",
+        "a": "Primero restáuralo. El formato, la portada, el texto y la aprobación se eligen sobre el propio video, y no está disponible hasta que se restaura."
+      }
+    ]
+  },
 };

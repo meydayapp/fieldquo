@@ -175,6 +175,10 @@
     {
       "path": "/api/cron/tiktok-token-refresh",
       "schedule": "37 7 * * *"
+    },
+    {
+      "path": "/api/cron/video-archive",
+      "schedule": "27 * * * *"
     }
   ]
 }

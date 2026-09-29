@@ -39,6 +39,7 @@ import { PublishRefusal } from "@/lib/social/publishDesign";
 import { startFacebookReel, startInstagramReel } from "@/lib/social/publishVideo";
 import { FACEBOOK_REEL_SPEC, checkForPlatform, fitAllowed, frameUrl, sendUrl, withCode } from "@/lib/marketing/videoPost";
 import { videoApprovalState } from "@/lib/marketing/approvalFingerprint";
+import { claimHeld } from "@/lib/marketing/videoArchive";
 import { cloudName, loadOwnedVideoPost, publishRowShape, renditionState } from "@/lib/marketing/videoPostServer";
 import * as metaGraphClient from "@/lib/social/metaGraphClient";
 import * as mockMetaGraphClient from "@/lib/social/mockMetaGraphClient";
@@ -106,6 +107,11 @@ export async function POST(request, { params }) {
   if (!connection.connected) return refuse(409, "not_connected", "Connect Facebook & Instagram in Settings first.");
 
   if (post.uploadState !== "ready") return refuse(409, "upload_not_ready", "The clip is still being uploaded or prepared.");
+  // Archived (lib/marketing/videoArchive.js): Cloudinary no longer has the
+  // file Meta would be told to fetch. Being archived right now: it is about
+  // to stop having it.
+  if (post.archivedAt) return refuse(409, "archived", "This video is archived. Restore it before posting it again.");
+  if (claimHeld(post)) return refuse(409, "archiving", "This video is being moved to the archive. Try again in a few minutes.");
 
   // The approval, re-derived from the row on THIS request — the same gate a
   // design's publish route applies (approvalFingerprint.js).

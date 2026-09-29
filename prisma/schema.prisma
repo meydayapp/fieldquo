@@ -9304,6 +9304,38 @@ model VideoPost {
   approvedById        String?
   approvedFingerprint String?
 
+  /// ── Archive (lib/marketing/videoArchive.js, owner-approved 2026-09-29) ──
+  /// Cloudinary bills storage every month for as long as a clip is kept
+  /// (1 credit ≈ 1 GB ≈ US$0.37); Cloudflare R2 is ~US$0.015/GB-month with no
+  /// egress fee. 30 days after every destination finished posting, the cron
+  /// (app/api/cron/video-archive) copies the stored clip to R2, verifies the
+  /// copy, and only THEN removes it from Cloudinary. The posts stay live on
+  /// Instagram, Facebook and TikTok — they hold their own copies.
+  ///
+  /// Set only once Cloudinary no longer holds the clip and a VERIFIED copy
+  /// exists in R2. Null again once a restore has arrived back in Cloudinary.
+  archivedAt        DateTime?
+  /// The R2 object key of the verified copy (bucket R2_BUCKET). Kept after a
+  /// restore: the R2 copy is never deleted, and re-archiving writes the same key.
+  archiveKey        String?
+  /// Size and SHA-256 of the copy, measured on the bytes as they streamed from
+  /// Cloudinary to R2. The size is re-checked against R2 before a restore.
+  archiveBytes      Int?
+  archiveSha256     String?
+  /// The cron's per-row claim (UPDATE … WHERE archiveClaimedAt IS NULL or
+  /// stale), so two runs never copy or delete the same clip at once.
+  archiveClaimedAt  DateTime?
+  /// When a run last looked at this post — the candidate query is ordered on
+  /// it, so posts that are not yet eligible cannot starve the ones that are.
+  archiveCheckedAt  DateTime?
+  /// Why the last archive or restore attempt did not finish ("copy_failed: …",
+  /// "restore_failed: …"). Cleared when one succeeds. Nothing is removed from
+  /// Cloudinary while this describes a failed copy.
+  archiveError      String?
+  /// When "Restore to post again" was pressed. The 30 days start again from
+  /// here, so a restored clip is not archived again before it can be posted.
+  archiveRestoredAt DateTime?
+
   socialPublishes SocialPublish[]
   tiktokPublishes TikTokPublish[]
 
@@ -9313,6 +9345,7 @@ model VideoPost {
   @@index([companyId])
   @@index([campaignId])
   @@index([companyId, countedAt])
+  @@index([archivedAt, archiveCheckedAt])
 }
 
 /// One "Video pack" add-on subscription (lib/marketing/videoPack.js): +90
