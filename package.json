@@ -636,7 +636,8 @@
     "check:phrases-labels": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-phrases-labels.mjs",
     "check:phrases-booking": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-phrases-booking.mjs",
     "check:phrases-catalogue": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-phrases-catalogue.mjs",
-    "check:auto-translate": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-auto-translate.mjs"
+    "check:auto-translate": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-auto-translate.mjs",
+    "check:member-request-cache": "node --conditions=react-server --import ./scripts/alias-loader.mjs --import ./scripts/impersonation-stub-loader.mjs scripts/check-member-request-cache.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
