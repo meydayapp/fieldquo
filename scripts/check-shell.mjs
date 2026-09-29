@@ -219,7 +219,7 @@ const OLD_SETTINGS = [
   "/app/settings/quote-email", "/app/settings/email-templates", "/app/settings/templates", "/app/settings/translations",
   "/app/settings/checklists", "/app/settings/job-photo-tags",
   "/app/settings/messages", "/app/settings/follow-ups", "/app/settings/notifications", "/app/settings/email-domain",
-  "/app/settings/payments", "/app/settings/meta-ads", "/app/settings/expense-tracking", "/app/settings/ai-credit", "/app/settings/payroll",
+  "/app/settings/payments", "/app/settings/meta-ads", "/app/settings/tiktok", "/app/settings/expense-tracking", "/app/settings/ai-credit", "/app/settings/payroll",
   "/app/settings/website", "/app/settings/instant-quotes", "/app/settings/lead-form", "/app/settings/links",
   "/app/settings/voice", "/app/settings/ai-employee", "/app/settings/reviews",
 ];

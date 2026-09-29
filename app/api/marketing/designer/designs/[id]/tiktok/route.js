@@ -6,7 +6,8 @@
 // and creator_info is fetched by the composer itself when it opens
 // (app/api/tiktok/creator-info).
 //
-// POST — one Direct Post of the design's 9:16 layout as a TikTok PHOTO post.
+// POST — one Direct Post of the design's 9:16 layout as a TikTok PHOTO post,
+// or (body.mode "draft") the same photo sent to the creator's TikTok inbox.
 //
 // ══ Every gate the Facebook/Instagram route has, and TikTok's own ══════════
 //
@@ -48,12 +49,15 @@ import { queryCreatorInfo, initPhotoPost } from "@/lib/tiktok/client";
 import { getLiveTikTokConnection, getTikTokAccess } from "@/lib/tiktok/connection";
 import { makeMediaToken, mediaUrlFor, signingRootKey } from "@/lib/tiktok/signing";
 import {
+  POST_MODES,
   TIKTOK_RATIO_KEY,
+  buildPhotoDraftBody,
   buildPhotoPostBody,
   classifyTikTokError,
   creatorPostingBlock,
   isJpeg,
   validateTikTokPhoto,
+  validateTikTokDraft,
   validateTikTokPost,
 } from "@/lib/tiktok/specs";
 
@@ -77,6 +81,7 @@ function historyShape(row) {
   return {
     id: row.id,
     status: row.status,
+    postMode: row.postMode,
     privacyLevel: row.privacyLevel,
     creatorNickname: row.creatorNickname,
     failReason: row.failReason,
@@ -171,6 +176,11 @@ export async function POST(request, { params }) {
   // the person agreeing to TikTok's terms, whatever else it carries.
   if (body?.consent !== true) return refuse(400, "consent_required", "Confirm you agree to TikTok's terms to post.");
 
+  // "post" — a Direct Post with the choices below (scope video.publish).
+  // "draft" — "Send to TikTok as a draft" (MEDIA_UPLOAD, scope video.upload):
+  // TikTok puts it in the creator's inbox and they finish it in TikTok's own
+  // editor, so none of the choices below are sent or required.
+  const isDraft = body?.mode === "draft";
   const choice = {
     privacyLevel: typeof body?.privacyLevel === "string" ? body.privacyLevel : null,
     allowComment: body?.allowComment === true,
@@ -209,12 +219,14 @@ export async function POST(request, { params }) {
     });
   }
 
-  const check = validateTikTokPost({
-    ...choice,
-    description: caption,
-    creatorInfo: info.data,
-    audited: tiktokAudited(),
-  });
+  const check = isDraft
+    ? validateTikTokDraft({ description: caption, creatorInfo: info.data })
+    : validateTikTokPost({
+        ...choice,
+        description: caption,
+        creatorInfo: info.data,
+        audited: tiktokAudited(),
+      });
   if (!check.ok) {
     // privacy_not_offered is the browser holding an option TikTok no longer
     // offers this creator — the same fact TikTok's own
@@ -250,10 +262,12 @@ export async function POST(request, { params }) {
       imageUrl: uploaded.secure_url,
       width: uploaded.width ?? null,
       height: uploaded.height ?? null,
-      privacyLevel: choice.privacyLevel,
-      disableComment: !choice.allowComment,
-      brandContentToggle: choice.commercialOn && choice.brandedContent,
-      brandOrganicToggle: choice.commercialOn && choice.yourBrand,
+      postMode: isDraft ? POST_MODES.draft : POST_MODES.post,
+      // A draft sends none of these (see the schema note on postMode).
+      privacyLevel: isDraft ? "" : choice.privacyLevel,
+      disableComment: isDraft ? false : !choice.allowComment,
+      brandContentToggle: isDraft ? false : choice.commercialOn && choice.brandedContent,
+      brandOrganicToggle: isDraft ? false : choice.commercialOn && choice.yourBrand,
       status: "pending",
     },
   });
@@ -264,11 +278,10 @@ export async function POST(request, { params }) {
     companyId: member.companyId,
     nowSeconds: Date.now() / 1000,
   });
-  const postBody = buildPhotoPostBody({
-    ...choice,
-    description: caption,
-    photoUrl: mediaUrlFor(getAppOrigin(request), token),
-  });
+  const photoUrl = mediaUrlFor(getAppOrigin(request), token);
+  const postBody = isDraft
+    ? buildPhotoDraftBody({ description: caption, photoUrl })
+    : buildPhotoPostBody({ ...choice, description: caption, photoUrl });
 
   const init = await initPhotoPost({ accessToken: access.accessToken, body: postBody });
   if (!init.ok || !init.data?.publish_id) {
@@ -281,7 +294,7 @@ export async function POST(request, { params }) {
         errorDetail: init.ok ? "TikTok returned no publish_id" : `${init.message || ""}${init.logId ? ` (log ${init.logId})` : ""}`.slice(0, 500) || null,
       },
     });
-    await logActivity(member, design, "failed", choice.privacyLevel);
+    await logActivity(member, design, "failed", isDraft ? "draft" : choice.privacyLevel);
     return NextResponse.json({ result: { id: row.id, status: "failed", ...c } });
   }
 
@@ -289,7 +302,7 @@ export async function POST(request, { params }) {
     where: { id: row.id },
     data: { status: "processing", publishId: String(init.data.publish_id) },
   });
-  await logActivity(member, design, "processing", choice.privacyLevel);
+  await logActivity(member, design, "processing", isDraft ? "draft" : choice.privacyLevel);
 
   return NextResponse.json({ result: { id: row.id, status: "processing" } });
 }
@@ -303,6 +316,7 @@ async function logActivity(member, design, outcome, privacyLevel) {
       outcome === "failed"
         ? `Attempted to post "${design.name}" to TikTok`
         : `Sent "${design.name}" to TikTok`,
+    // privacyLevel is "draft" for Send to TikTok as a draft.
     metadata: { platforms: ["tiktok"], results: { tiktok: outcome }, privacyLevel },
   }).catch(() => {});
 }

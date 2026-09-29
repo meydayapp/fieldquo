@@ -8978,6 +8978,14 @@ model TikTokPublish {
   width    Int?
   height   Int?
 
+  /// "DIRECT_POST" (posted by FieldQuo with the choices below) or
+  /// "MEDIA_UPLOAD" ("Send to TikTok as a draft": TikTok puts it in the
+  /// creator's inbox and they finish it in TikTok's own editor — scope
+  /// video.upload). Added after the first four columns below, which is why a
+  /// draft row carries them: for MEDIA_UPLOAD nothing in them was sent to
+  /// TikTok — privacyLevel is "" (chosen in TikTok, not here) and the three
+  /// booleans are false — and every reader branches on postMode first.
+  postMode           String  @default("DIRECT_POST")
   privacyLevel       String
   disableComment     Boolean
   brandContentToggle Boolean

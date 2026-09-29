@@ -6,7 +6,7 @@ import { cookies } from "next/headers";
 import { getCurrentMember } from "@/lib/currentMember";
 import { isBillingAdmin } from "@/lib/billing/billingAdmin";
 import { getAppOrigin } from "@/lib/appUrl";
-import { SOCIAL_SETTINGS_PATH } from "@/lib/social/settingsPath";
+import { TIKTOK_SETTINGS_PATH } from "@/lib/tiktok/settingsPath";
 import { recordError } from "@/lib/platform/errorLog";
 import { TIKTOK_CALLBACK_PATH, TIKTOK_STATE_COOKIE, tiktokConfigured } from "@/lib/tiktok/config";
 import { signingRootKey, verifyOAuthState } from "@/lib/tiktok/signing";
@@ -19,7 +19,7 @@ import { saveTikTokConnection } from "@/lib/tiktok/connection";
 // looking at a tab that just came back from tiktok.com, and the useful place
 // to land them is the screen they started on.
 function toSettings(origin, params) {
-  return NextResponse.redirect(`${origin}${SOCIAL_SETTINGS_PATH}?${new URLSearchParams(params)}#tiktok`);
+  return NextResponse.redirect(`${origin}${TIKTOK_SETTINGS_PATH}?${new URLSearchParams(params)}`);
 }
 
 export async function GET(request) {

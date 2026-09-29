@@ -113,6 +113,15 @@ const designerRoute = read("app/api/marketing/designer/designs/[id]/tiktok/route
 ok("publish route refuses when not configured", /if \(!tiktokConfigured\(\)\) return refuse\(403, "not_available"/.test(designerRoute));
 const editor = read("app/components/designer/CampaignEditor.js");
 ok("designer draws the TikTok button only when available AND connected", /setTiktokReady\(Boolean\(data\.available && data\.connected\)\)/.test(editor) && /\{tiktokReady && \(/.test(editor));
+const publishModal = read("app/components/designer/PublishModal.js");
+ok("Publish dialog offers TikTok only when connected", /!loadingConnection && !done && tiktokConnected && onChooseTikTok && \(/.test(publishModal) && /tiktokConnected=\{tiktokReady\}/.test(editor));
+ok("the Publish button exists for a TikTok-only company", /\(socialVisible \|\| tiktokReady\) && \(/.test(editor));
+const sidebar = read("app/components/layout/SettingsSidebar.js");
+const metaRow = sidebar.indexOf('key: "app.settings.metaAds"');
+const tiktokRow = sidebar.indexOf('key: "app.settings.tiktok"');
+ok("Settings sidebar: a TikTok row directly under Meta Ads", metaRow > 0 && tiktokRow > metaRow && !sidebar.slice(metaRow, tiktokRow).includes("{ key:") && /href: "\/app\/settings\/tiktok"/.test(sidebar));
+ok("Settings › TikTok page renders the panel behind the billing gate", /canSee\("billing"\)/.test(read("app/app/settings/tiktok/page.js")) && /<TikTokPanel \/>/.test(read("app/app/settings/tiktok/page.js")));
+ok("TikTok is NOT on the Meta Ads page", !/TikTok/.test(read("app/app/settings/meta-ads/page.js")));
 const cron = read("app/api/cron/tiktok-token-refresh/route.js");
 ok("cron skips when not configured", /if \(!tiktokConfigured\(\)\) return NextResponse\.json\(\{ success: true, skipped: "not_configured" \}\)/.test(cron));
 
@@ -294,6 +303,18 @@ ok("photo with no dimensions → refused", !specs.validateTikTokPhoto({ width: N
 ok("photo over 20MB → file_too_large", specs.validateTikTokPhoto({ width: 1080, height: 1920, bytes: 21 * 1024 * 1024 }).errors.includes("file_too_large"));
 ok("JPEG magic recognised; PNG refused", specs.isJpeg(Buffer.from([0xff, 0xd8, 0xff, 0xe0])) && !specs.isJpeg(Buffer.from([0x89, 0x50, 0x4e, 0x47])));
 
+// "Send to TikTok as a draft" — MEDIA_UPLOAD, scope video.upload.
+const draft = specs.buildPhotoDraftBody({ description: "Hi", photoUrl: url });
+ok("draft: MEDIA_UPLOAD of a PHOTO pulled from our URL", draft.media_type === "PHOTO" && draft.post_mode === "MEDIA_UPLOAD" && draft.source_info.source === "PULL_FROM_URL" && draft.source_info.photo_images[0] === url);
+ok("draft: only the description is sent (privacy/comment/brand are DIRECT_POST-only)", JSON.stringify(Object.keys(draft.post_info)) === '["description"]');
+ok("draft: needs no privacy level", specs.validateTikTokDraft({ description: "Hi", creatorInfo }).ok === true);
+ok("draft: still refuses a caption over 4000", specs.validateTikTokDraft({ description: "a".repeat(4001), creatorInfo }).errors.includes("description_too_long"));
+ok("draft: still needs creator_info", specs.validateTikTokDraft({ description: "Hi", creatorInfo: null }).ok === false);
+ok("every scope asked for is exercised: video.upload by the draft, video.publish by the post", JSON.stringify(config.TIKTOK_SCOPES) === '["user.info.basic","video.publish","video.upload"]' && /buildPhotoDraftBody/.test(designerRoute) && /buildPhotoPostBody/.test(designerRoute));
+ok("draft is only sent on body.mode === \"draft\" — anything else is a Direct Post with every check", /const isDraft = body\?\.mode === "draft";/.test(designerRoute));
+ok("composer: the draft is its own explicit button", /onClick=\{\(\) => handlePost\("draft"\)\}/.test(modal) && /onClick=\{\(\) => handlePost\("post"\)\}/.test(modal));
+ok("app_version_check_failed (drafts need TikTok ≥ 31.8) is a known code", specs.classifyTikTokError({ status: 400, code: "app_version_check_failed" }).known);
+
 // ══ 7 ═══════════════════════════════════════════════════════════════════════
 section("7. Status: mapped, idempotent, never moves a finished post");
 
@@ -450,7 +471,7 @@ const live = (id, over = {}) => ({
   ok("Connecting: tokens stored encrypted, never plain", fresh.accessTokenEnc !== "a2" && decryptToken(fresh.accessTokenEnc) === "a2" && decryptToken(fresh.refreshTokenEnc) === "r2");
   ok("Connecting: 24h / 365d expiries recorded", Math.abs(fresh.accessTokenExpiresAt - Date.now() - 86400_000) < 60_000 && fresh.refreshTokenExpiresAt > new Date(Date.now() + 360 * 86400_000));
   ok("public shape carries no token", !JSON.stringify(connection.publicTikTokShape(fresh)).includes(fresh.accessTokenEnc));
-  ok("missing scopes: granted list compared to asked", JSON.stringify(connection.missingTikTokScopes("user.info.basic")) === '["video.publish"]' && connection.missingTikTokScopes(null) === null);
+  ok("missing scopes: granted list compared to asked", JSON.stringify(connection.missingTikTokScopes("user.info.basic,video.publish")) === '["video.upload"]' && connection.missingTikTokScopes(null) === null);
 }
 {
   const src = ["lib/tiktok", "app/api/tiktok", "app/api/cron/tiktok-token-refresh"].flatMap(function walk(p) {

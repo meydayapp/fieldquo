@@ -1,10 +1,9 @@
 // app/components/settings/TikTokPanel.js
 //
-// The TikTok connection card, on Settings › Meta Ads beside "Facebook &
-// Instagram publishing". That screen is Meta's by name, and it stays so: this
-// is a sibling card under the same sidebar row because it is the same kind of
-// thing — "a social account this company posts designs to" — and a second
-// sidebar row for one card would split one job across two places.
+// The body of Settings › TikTok (app/app/settings/tiktok/page.js) — TikTok's
+// own screen and sidebar row, directly under Meta Ads. It began as a card on
+// the Meta Ads screen; the owner moved it out (2026-09-29) because TikTok is
+// not a Meta account and has to be findable by its own name.
 //
 // ── Three honest states, never a control that can't work ──────────────────
 //
@@ -26,7 +25,7 @@ import { AlertTriangle, CheckCircle2, Clock, Link2, Lock } from "lucide-react";
 import { SocialGlyph } from "@/app/components/links/linkIcons";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { fetchJson } from "@/lib/fetchJson";
-import { SOCIAL_SETTINGS_PATH } from "@/lib/social/settingsPath";
+import { TIKTOK_SETTINGS_PATH } from "@/lib/tiktok/settingsPath";
 
 // Every `tiktokError` app/api/tiktok/{connect,callback} can redirect with.
 const ERROR_KEYS = {
@@ -82,7 +81,7 @@ export default function TikTokPanel() {
     } else {
       setBanner({ tone: "error", text: t(ERROR_KEYS[errKind] || ERROR_KEYS.exchange_failed) });
     }
-    router.replace(SOCIAL_SETTINGS_PATH);
+    router.replace(TIKTOK_SETTINGS_PATH);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -114,11 +113,11 @@ export default function TikTokPanel() {
   const endedKey = ended ? REASON_KEYS[ended.disconnectReason] : null;
 
   return (
-    <div id="tiktok" className="space-y-3 scroll-mt-4">
+    <div className="space-y-3">
       <div>
-        <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
-          <SocialGlyph platform="tiktok" size={18} /> {t("app.setTikTok.title")}
-        </h2>
+        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+          <SocialGlyph platform="tiktok" size={20} /> {t("app.setTikTok.title")}
+        </h1>
         <p className="text-sm text-muted-foreground mt-1">{t("app.setTikTok.subtitle")}</p>
       </div>
 

@@ -4,8 +4,12 @@
 //
 // "Post to TikTok" — the composer TikTok's Content Sharing Guidelines mandate
 // (developers.tiktok.com/doc/content-sharing-guidelines, read 2026-09-29),
-// opened from CampaignEditor.js's TikTok button, which is only drawn when this
-// company has a TikTok account connected.
+// opened from the Publish dialog's TikTok destination (PublishModal.js), or
+// straight from the designer's Publish button when TikTok is the only
+// destination this company has. Either way only when a TikTok account is
+// connected (CampaignEditor.js tiktokReady). Two explicit actions: "Post to
+// TikTok" (Direct Post, scope video.publish) and "Send to TikTok as a draft"
+// (MEDIA_UPLOAD into the creator's TikTok inbox, scope video.upload).
 //
 // ── Its own dialog, not a fourth checkbox in PublishModal ─────────────────
 //
@@ -34,7 +38,7 @@ import Link from "next/link";
 import { Check, Clock, Inbox, Loader2, Lock, PencilLine, RotateCcw, Send, TriangleAlert, X } from "lucide-react";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { isBillingAdmin } from "@/lib/billing/billingAdmin";
-import { SOCIAL_SETTINGS_PATH } from "@/lib/social/settingsPath";
+import { TIKTOK_SETTINGS_PATH } from "@/lib/tiktok/settingsPath";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { fetchJson } from "@/lib/fetchJson";
 import {
@@ -49,6 +53,7 @@ import {
   consentLine,
   privacyOptionBlockedBy,
   validateTikTokPhoto,
+  validateTikTokDraft,
   validateTikTokPost,
 } from "@/lib/tiktok/specs";
 
@@ -179,6 +184,11 @@ export default function TikTokPublishModal({ isOpen, onClose, design, preparePub
   const brandedBlocked = brandedContentBlockedBy(choice);
 
   const canSubmit = Boolean(creatorInfo) && approved && check.ok && photoCheck?.ok && assetState === "ready" && !submitting;
+  // "Send to TikTok as a draft" needs no privacy level or disclosure — the
+  // creator sets those in TikTok's own editor — but the same approval, the
+  // same image and a caption TikTok will take.
+  const draftCheck = useMemo(() => validateTikTokDraft({ description: caption, creatorInfo }), [caption, creatorInfo]);
+  const canDraft = Boolean(creatorInfo) && approved && draftCheck.ok && photoCheck?.ok && assetState === "ready" && !submitting;
 
   function set(patch) {
     setChoice((c) => {
@@ -215,14 +225,15 @@ export default function TikTokPublishModal({ isOpen, onClose, design, preparePub
     }, POLL_INTERVAL_MS);
   }
 
-  async function handlePost() {
-    if (!canSubmit) return;
+  async function handlePost(mode = "post") {
+    if (mode === "draft" ? !canDraft : !canSubmit) return;
     setSubmitting(true);
     setSubmitError(null);
     try {
       const data = await fetchJson(`/api/marketing/designer/designs/${design.id}/tiktok`, {
         method: "POST",
         body: {
+          mode,
           imageBase64: asset.dataUrl,
           caption,
           privacyLevel: choice.privacyLevel,
@@ -230,14 +241,14 @@ export default function TikTokPublishModal({ isOpen, onClose, design, preparePub
           commercialOn: choice.commercialOn,
           yourBrand: choice.yourBrand,
           brandedContent: choice.brandedContent,
-          // The Post button IS the express consent the guidelines require;
-          // the server refuses a request that does not carry it.
+          // The Post (or Send as a draft) press IS the express consent the
+          // guidelines require; the server refuses a request without it.
           consent: true,
         },
       });
       const r = data?.result || {};
       if (r.status === "processing") {
-        setResult({ id: r.id, status: "processing" });
+        setResult({ id: r.id, status: "processing", postMode: mode === "draft" ? "MEDIA_UPLOAD" : "DIRECT_POST" });
         poll(r.id);
       } else {
         setSubmitError({ code: r.code, fix: r.fix, retryable: r.retryable });
@@ -505,7 +516,7 @@ export default function TikTokPublishModal({ isOpen, onClose, design, preparePub
               </button>
               <button
                 type="button"
-                onClick={handlePost}
+                onClick={() => handlePost("post")}
                 disabled={!canSubmit}
                 title={check.errors.includes("commercial_choice_required") ? errorText(t, "commercial_choice_required") : undefined}
                 className="flex-1 bg-inverted text-inverted-foreground rounded-full px-4 py-2.5 text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-1.5"
@@ -514,6 +525,23 @@ export default function TikTokPublishModal({ isOpen, onClose, design, preparePub
                 {submitting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
                 {submitting ? t("app.tiktokPublish.posting") : t("app.tiktokPublish.confirm")}
               </button>
+            </div>
+            {/* The second, explicit action: TikTok's MEDIA_UPLOAD mode (scope
+                video.upload). Nothing is published — the photo lands in the
+                creator's TikTok inbox and they finish it in TikTok's editor,
+                where privacy and disclosure are chosen instead of here. */}
+            <div className="space-y-1">
+              <button
+                type="button"
+                onClick={() => handlePost("draft")}
+                disabled={!canDraft}
+                className="w-full border border-border rounded-full px-4 py-2.5 text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-1.5"
+                data-tiktok-draft
+              >
+                <Inbox size={14} />
+                {t("app.tiktokPublish.sendDraft")}
+              </button>
+              <p className="text-xs text-muted-foreground text-center">{t("app.tiktokPublish.sendDraftHelp")}</p>
             </div>
           </div>
         )}
@@ -539,7 +567,7 @@ function ErrorBlock({ t, code, fix, canConnect }) {
         <span>{errorText(t, code)}</span>
       </p>
       {fix === "reconnect" && canConnect && (
-        <Link href={`${SOCIAL_SETTINGS_PATH}#tiktok`} className="ml-6 inline-flex items-center rounded-full border border-current px-3 py-1.5 text-xs font-semibold">
+        <Link href={TIKTOK_SETTINGS_PATH} className="ml-6 inline-flex items-center rounded-full border border-current px-3 py-1.5 text-xs font-semibold">
           {t("app.marketingDesigner.publishModal.openConnectionSettings", "Open connection settings")}
         </Link>
       )}

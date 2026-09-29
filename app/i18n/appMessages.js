@@ -9481,6 +9481,12 @@ const en = {
 
   // Settings -> Meta Ads -> Facebook & Instagram publishing (app/components/settings/SocialPublishingPanel.js).
   "app.setSocial.title": "Facebook & Instagram publishing",
+  "app.settings.tiktok": "TikTok",
+  "app.tiktokPublish.sendDraft": "Send to TikTok as a draft",
+  "app.tiktokPublish.sendDraftHelp": "Nothing is published: the photo goes to your TikTok inbox and you finish the post in the TikTok app.",
+  "app.tiktokPublish.destination": "Post to TikTok",
+  "app.tiktokPublish.destinationHint": "9:16 photo · opens TikTok's own options",
+  "app.tiktok.error.app_version_check_failed": "Your TikTok app is too old to receive drafts. Update the TikTok app, then try again.",
   "app.setTikTok.title": "TikTok posting",
   "app.setTikTok.subtitle": "Post a design from the Marketing Designer straight to your business's TikTok account, as a photo post.",
   "app.setTikTok.comingSoonTitle": "TikTok posting — coming soon",
@@ -24862,6 +24868,12 @@ const fr = {
 
   // Settings -> Meta Ads -> Facebook & Instagram publishing (app/components/settings/SocialPublishingPanel.js).
   "app.setSocial.title": "Publication Facebook et Instagram",
+  "app.settings.tiktok": "TikTok",
+  "app.tiktokPublish.sendDraft": "Envoyer à TikTok en brouillon",
+  "app.tiktokPublish.sendDraftHelp": "Rien n'est publié : la photo arrive dans votre boîte de réception TikTok et vous terminez la publication dans l'app TikTok.",
+  "app.tiktokPublish.destination": "Publier sur TikTok",
+  "app.tiktokPublish.destinationHint": "Photo 9:16 · ouvre les options propres à TikTok",
+  "app.tiktok.error.app_version_check_failed": "Votre app TikTok est trop ancienne pour recevoir des brouillons. Mettez l'app TikTok à jour, puis réessayez.",
   "app.setTikTok.title": "Publication TikTok",
   "app.setTikTok.subtitle": "Publiez un visuel du Marketing Designer directement sur le compte TikTok de votre entreprise, sous forme de publication photo.",
   "app.setTikTok.comingSoonTitle": "Publication TikTok — bientôt disponible",
@@ -40589,6 +40601,12 @@ const es = {
 
   // Settings -> Meta Ads -> Facebook & Instagram publishing (app/components/settings/SocialPublishingPanel.js).
   "app.setSocial.title": "Publicación en Facebook e Instagram",
+  "app.settings.tiktok": "TikTok",
+  "app.tiktokPublish.sendDraft": "Enviar a TikTok como borrador",
+  "app.tiktokPublish.sendDraftHelp": "No se publica nada: la foto llega a tu bandeja de entrada de TikTok y terminas la publicación en la app de TikTok.",
+  "app.tiktokPublish.destination": "Publicar en TikTok",
+  "app.tiktokPublish.destinationHint": "Foto 9:16 · abre las opciones propias de TikTok",
+  "app.tiktok.error.app_version_check_failed": "Tu app de TikTok es demasiado antigua para recibir borradores. Actualiza la app de TikTok y vuelve a intentarlo.",
   "app.setTikTok.title": "Publicación en TikTok",
   "app.setTikTok.subtitle": "Publica un diseño del Marketing Designer directamente en la cuenta de TikTok de tu empresa, como publicación de foto.",
   "app.setTikTok.comingSoonTitle": "Publicación en TikTok — próximamente",
@@ -55270,6 +55288,12 @@ const uk = {
 
   // Settings -> Meta Ads -> Facebook & Instagram publishing (app/components/settings/SocialPublishingPanel.js).
   "app.setSocial.title": "Публікація у Facebook та Instagram",
+  "app.settings.tiktok": "TikTok",
+  "app.tiktokPublish.sendDraft": "Надіслати в TikTok як чернетку",
+  "app.tiktokPublish.sendDraftHelp": "Нічого не публікується: фото потрапляє у ваші вхідні TikTok, а допис ви завершуєте в застосунку TikTok.",
+  "app.tiktokPublish.destination": "Опублікувати в TikTok",
+  "app.tiktokPublish.destinationHint": "Фото 9:16 · відкриває власні параметри TikTok",
+  "app.tiktok.error.app_version_check_failed": "Ваш застосунок TikTok застарий, щоб отримувати чернетки. Оновіть застосунок TikTok і спробуйте ще раз.",
   "app.setTikTok.title": "Публікація в TikTok",
   "app.setTikTok.subtitle": "Публікуйте дизайн із Marketing Designer прямо в акаунт TikTok вашої компанії як фотодопис.",
   "app.setTikTok.comingSoonTitle": "Публікація в TikTok — незабаром",
@@ -70420,6 +70444,12 @@ const pa = {
 
   // Settings -> Meta Ads -> Facebook & Instagram publishing (app/components/settings/SocialPublishingPanel.js).
   "app.setSocial.title": "ਫੇਸਬੁੱਕ ਅਤੇ ਇੰਸਟਾਗ੍ਰਾਮ ਪ੍ਰਕਾਸ਼ਨ",
+  "app.settings.tiktok": "TikTok",
+  "app.tiktokPublish.sendDraft": "TikTok ਨੂੰ ਡਰਾਫ਼ਟ ਵਜੋਂ ਭੇਜੋ",
+  "app.tiktokPublish.sendDraftHelp": "ਕੁਝ ਵੀ ਪੋਸਟ ਨਹੀਂ ਹੁੰਦਾ: ਫ਼ੋਟੋ ਤੁਹਾਡੇ TikTok ਇਨਬਾਕਸ ਵਿੱਚ ਜਾਂਦੀ ਹੈ ਅਤੇ ਤੁਸੀਂ ਪੋਸਟ TikTok ਐਪ ਵਿੱਚ ਪੂਰੀ ਕਰਦੇ ਹੋ।",
+  "app.tiktokPublish.destination": "TikTok 'ਤੇ ਪੋਸਟ ਕਰੋ",
+  "app.tiktokPublish.destinationHint": "9:16 ਫ਼ੋਟੋ · TikTok ਦੇ ਆਪਣੇ ਵਿਕਲਪ ਖੋਲ੍ਹਦਾ ਹੈ",
+  "app.tiktok.error.app_version_check_failed": "ਤੁਹਾਡੀ TikTok ਐਪ ਡਰਾਫ਼ਟ ਲੈਣ ਲਈ ਬਹੁਤ ਪੁਰਾਣੀ ਹੈ। TikTok ਐਪ ਅੱਪਡੇਟ ਕਰੋ, ਫਿਰ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
   "app.setTikTok.title": "TikTok 'ਤੇ ਪੋਸਟ ਕਰਨਾ",
   "app.setTikTok.subtitle": "Marketing Designer ਤੋਂ ਡਿਜ਼ਾਈਨ ਸਿੱਧਾ ਆਪਣੇ ਕਾਰੋਬਾਰ ਦੇ TikTok ਖਾਤੇ 'ਤੇ ਫ਼ੋਟੋ ਪੋਸਟ ਵਜੋਂ ਪੋਸਟ ਕਰੋ।",
   "app.setTikTok.comingSoonTitle": "TikTok 'ਤੇ ਪੋਸਟ ਕਰਨਾ — ਜਲਦੀ ਆ ਰਿਹਾ ਹੈ",
@@ -85565,6 +85595,12 @@ const tl = {
 
   // Settings -> Meta Ads -> Facebook & Instagram publishing (app/components/settings/SocialPublishingPanel.js).
   "app.setSocial.title": "Pag-post sa Facebook at Instagram",
+  "app.settings.tiktok": "TikTok",
+  "app.tiktokPublish.sendDraft": "Ipadala sa TikTok bilang draft",
+  "app.tiktokPublish.sendDraftHelp": "Walang ipo-post: mapupunta ang larawan sa iyong TikTok inbox at tatapusin mo ang post sa TikTok app.",
+  "app.tiktokPublish.destination": "I-post sa TikTok",
+  "app.tiktokPublish.destinationHint": "9:16 na larawan · binubuksan ang sariling mga opsyon ng TikTok",
+  "app.tiktok.error.app_version_check_failed": "Masyadong luma ang iyong TikTok app para makatanggap ng draft. I-update ang TikTok app, saka subukan ulit.",
   "app.setTikTok.title": "Pag-post sa TikTok",
   "app.setTikTok.subtitle": "I-post ang isang disenyo mula sa Marketing Designer diretso sa TikTok account ng iyong negosyo, bilang photo post.",
   "app.setTikTok.comingSoonTitle": "Pag-post sa TikTok — malapit na",
@@ -101040,6 +101076,12 @@ const de = {
 
   // Settings -> Meta Ads -> Facebook & Instagram publishing (app/components/settings/SocialPublishingPanel.js).
   "app.setSocial.title": "Veröffentlichen auf Facebook und Instagram",
+  "app.settings.tiktok": "TikTok",
+  "app.tiktokPublish.sendDraft": "Als Entwurf an TikTok senden",
+  "app.tiktokPublish.sendDraftHelp": "Es wird nichts veröffentlicht: Das Foto landet in Ihrem TikTok-Posteingang und Sie stellen den Beitrag in der TikTok-App fertig.",
+  "app.tiktokPublish.destination": "Auf TikTok veröffentlichen",
+  "app.tiktokPublish.destinationHint": "9:16-Foto · öffnet TikToks eigene Optionen",
+  "app.tiktok.error.app_version_check_failed": "Ihre TikTok-App ist zu alt, um Entwürfe zu empfangen. Aktualisieren Sie die TikTok-App und versuchen Sie es erneut.",
   "app.setTikTok.title": "Veröffentlichen auf TikTok",
   "app.setTikTok.subtitle": "Veröffentlichen Sie ein Design aus dem Marketing Designer direkt als Fotobeitrag im TikTok-Konto Ihres Unternehmens.",
   "app.setTikTok.comingSoonTitle": "Veröffentlichen auf TikTok — demnächst",
@@ -116116,6 +116158,12 @@ const zh = {
 
   // Settings -> Meta Ads -> Facebook & Instagram publishing (app/components/settings/SocialPublishingPanel.js).
   "app.setSocial.title": "Facebook 和 Instagram 发布",
+  "app.settings.tiktok": "TikTok",
+  "app.tiktokPublish.sendDraft": "作为草稿发送到 TikTok",
+  "app.tiktokPublish.sendDraftHelp": "不会发布任何内容：照片会进入您的 TikTok 收件箱，您在 TikTok 应用中完成发布。",
+  "app.tiktokPublish.destination": "发布到 TikTok",
+  "app.tiktokPublish.destinationHint": "9:16 照片 · 打开 TikTok 自己的选项",
+  "app.tiktok.error.app_version_check_failed": "您的 TikTok 应用版本太旧，无法接收草稿。请更新 TikTok 应用后重试。",
   "app.setTikTok.title": "TikTok 发布",
   "app.setTikTok.subtitle": "将 Marketing Designer 中的设计以图片帖子的形式直接发布到您公司的 TikTok 账号。",
   "app.setTikTok.comingSoonTitle": "TikTok 发布 — 即将推出",
@@ -131388,6 +131436,12 @@ const it = {
 
   // Settings -> Meta Ads -> Facebook & Instagram publishing (app/components/settings/SocialPublishingPanel.js).
   "app.setSocial.title": "Pubblicazione su Facebook e Instagram",
+  "app.settings.tiktok": "TikTok",
+  "app.tiktokPublish.sendDraft": "Invia a TikTok come bozza",
+  "app.tiktokPublish.sendDraftHelp": "Non viene pubblicato nulla: la foto arriva nella tua posta in arrivo di TikTok e completi il post nell'app TikTok.",
+  "app.tiktokPublish.destination": "Pubblica su TikTok",
+  "app.tiktokPublish.destinationHint": "Foto 9:16 · apre le opzioni proprie di TikTok",
+  "app.tiktok.error.app_version_check_failed": "La tua app TikTok è troppo vecchia per ricevere bozze. Aggiorna l'app TikTok e riprova.",
   "app.setTikTok.title": "Pubblicazione su TikTok",
   "app.setTikTok.subtitle": "Pubblica un design del Marketing Designer direttamente sull'account TikTok della tua azienda, come post fotografico.",
   "app.setTikTok.comingSoonTitle": "Pubblicazione su TikTok — in arrivo",

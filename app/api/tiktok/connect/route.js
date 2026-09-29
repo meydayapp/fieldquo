@@ -7,7 +7,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 import { getAppOrigin } from "@/lib/appUrl";
 import { baseCookieOptions } from "@/lib/meta/oauthCookies";
-import { SOCIAL_SETTINGS_PATH } from "@/lib/social/settingsPath";
+import { TIKTOK_SETTINGS_PATH } from "@/lib/tiktok/settingsPath";
 import {
   TIKTOK_AUTHORIZE_URL,
   TIKTOK_CALLBACK_PATH,
@@ -36,7 +36,7 @@ import { makeOAuthState, newOAuthNonce, signingRootKey } from "@/lib/tiktok/sign
 export async function GET(request) {
   const origin = getAppOrigin(request);
   const settings = (params) =>
-    NextResponse.redirect(`${origin}${SOCIAL_SETTINGS_PATH}?${new URLSearchParams(params)}#tiktok`);
+    NextResponse.redirect(`${origin}${TIKTOK_SETTINGS_PATH}?${new URLSearchParams(params)}`);
 
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;

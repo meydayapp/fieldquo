@@ -25,6 +25,7 @@ function shape(row) {
   return {
     id: row.id,
     status: row.status,
+    postMode: row.postMode,
     privacyLevel: row.privacyLevel,
     publicPostId: row.publicPostId,
     publishedAt: row.publishedAt,
