@@ -308,7 +308,7 @@ export const ARTICLES = {
             head: ["Votre situation", "Mention au pied de page"],
             rows: [
               ["Forfait payant, en règle", "Aucune mention"],
-              ["Premier mois gratuit sur un forfait payant, carte au dossier", "Aucune mention — le mois que nous avons dit gratuit est gratuit"],
+              ["Essai gratuit sur un forfait payant, carte au dossier", "Aucune mention — les jours que nous avons dits gratuits sont gratuits"],
               ["Un paiement a échoué, à l'intérieur du délai de grâce", "Aucune mention — ces jours servent à corriger la carte, pas à remarquer votre site"],
               ["Délai de grâce expiré, ou abonnement annulé et terminé", "La mention s'affiche"],
               ["Aucun abonnement, ou un forfait à prix zéro", "La mention s'affiche"],
@@ -330,7 +330,7 @@ export const ARTICLES = {
         blocks: [
           { steps: [
             "Ouvrez **Compte et facturation** (propriétaires et administrateurs) et choisissez un forfait — voir [[your-plan-and-seats|Votre forfait et vos sièges]].",
-            "Terminez le paiement avec une carte. Dès ce moment, le site s'affiche sans la mention, y compris pendant le premier mois gratuit.",
+            "Terminez le paiement avec une carte. Dès ce moment, le site s'affiche sans la mention, y compris pendant l'essai gratuit.",
             "Gardez la carte valide. Si un paiement échoue, vous avez le délai de grâce avant que la mention revienne — voir [[failed-payments-and-the-grace-period|Paiements échoués et délai de grâce]].",
           ] },
           { note: "L'annulation montre la même règle à l'envers : le parcours d'annulation vous dit que le site et la page de rendez-vous restent en ligne, et que la petite ligne revient au pied de page une fois le compte fermé." },

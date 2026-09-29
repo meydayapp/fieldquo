@@ -36,10 +36,10 @@ export const ARTICLES = {
             head: ["Sur la carte", "Ce que ça veut dire"],
             rows: [
               ["Le nom du forfait (Solo, Crew, Shop, Scale)", "Le palier où vous êtes aujourd'hui. Si un changement est programmé pour plus tard, c'est encore le forfait que vous avez maintenant qui est nommé."],
-              ["La pastille d'état", "**Trial** pendant votre mois gratuit (la pastille reste en anglais aujourd'hui), **Actif** une fois que vous payez, **En retard** après un paiement refusé (un délai de grâce court — voir [[failed-payments-and-the-grace-period|Paiements refusés et délai de grâce]]), **Annulé** après votre départ."],
+              ["La pastille d'état", "**Trial** pendant votre essai gratuit (la pastille reste en anglais aujourd'hui), **Actif** une fois que vous payez, **En retard** après un paiement refusé (un délai de grâce court — voir [[failed-payments-and-the-grace-period|Paiements refusés et délai de grâce]]), **Annulé** après votre départ."],
               ["Le prix", "Affiché à la fréquence à laquelle vous êtes vraiment facturé — **169,00 $/mois** au mois, ou le montant annuel suivi de **/an** et de **Engagement d'un an** si vous avez pris l'année."],
               ["Sièges et équipiers", "**3 sièges · 8 équipiers inclus gratuitement** — ce que le forfait permet, pas le nombre de gens que vous avez. Gérer l'équipe montre le compte que vous utilisez."],
-              ["Jours restants dans l'essai", "Seulement pendant le mois gratuit : **Jours restants dans l'essai : 12**, en décompte jusqu'au premier prélèvement."],
+              ["Jours restants dans l'essai", "Seulement pendant l'essai gratuit : **Jours restants dans l'essai : 12**, en décompte jusqu'au premier prélèvement."],
               ["Prochaine date de facturation", "Le jour où Stripe prélève la carte au dossier pour la prochaine période. Pas affichée pendant l'essai, qui montre le décompte à la place."],
             ],
           } },
@@ -78,7 +78,7 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "La page dit Aucun forfait actif, mais j'ai payé il y a une minute.", a: "Appuyez sur **Vérifier auprès de Stripe**. La page le fait aussi d'elle-même quand vous revenez de la page de paiement, mais une confirmation lente peut la devancer. Rien n'est facturé deux fois." },
-      { q: "Pourquoi n'y a-t-il pas de Prochaine date de facturation sur ma carte?", a: "Vous êtes encore dans votre mois gratuit, et la carte affiche **Jours restants dans l'essai** à la place. Le premier prélèvement tombe le jour où ce compte arrive à zéro." },
+      { q: "Pourquoi n'y a-t-il pas de Prochaine date de facturation sur ma carte?", a: "Vous êtes encore dans votre essai gratuit, et la carte affiche **Jours restants dans l'essai** à la place. Le premier prélèvement tombe le jour où ce compte arrive à zéro." },
       { q: "Où est l'argent que mes clients m'ont payé?", a: "Pas ici. Appuyez sur **Voir ce que mes clients m'ont payé**, qui ouvre **Paramètres → Paiements** — votre propre compte Stripe connecté, vos virements et vos frais. Voir [[payment-processing-fees-and-payouts|Frais de traitement des paiements et virements]]." },
       { q: "Ma responsable de bureau peut-elle ouvrir cette page?", a: "Seulement si elle est administratrice. Cochez **Nommer administrateur** sur son accès dans **Gérer l'équipe**; cela lui permet aussi de changer le forfait et la carte, alors donnez-le à la personne qui paie vraiment la facture." },
     ],
@@ -163,63 +163,61 @@ export const ARTICLES = {
   },
 
   "free-first-month": {
-    title: "Votre premier mois est gratuit",
+    title: "Vos 14 premiers jours sont gratuits",
     summary:
-      "Comment fonctionne le mois gratuit à l'inscription, pourquoi une carte est quand même demandée, ce que l'écran affiche pendant l'essai, et exactement ce qui se passe le jour où il se termine.",
-    updated: "2026-09-12",
+      "Comment fonctionne l'essai gratuit : 14 jours de tout le produit, sans carte ni forfait, les rappels avant la fin, et exactement ce qui se passe si aucun forfait n'est choisi.",
+    updated: "2026-09-29",
     intro: [
-      "Chaque nouvelle entreprise a son premier mois de FieldQuo gratuit — tout le produit, sur le forfait que vous avez choisi, sans aucun prélèvement pendant 30 jours. Votre carte est prise à la page de paiement pour que le forfait continue simplement quand le mois se termine; rien n'est facturé avant, et la page le dit en toutes lettres.",
-      "Cet article dit ce qu'est l'essai, ce que vous voyez pendant qu'il court, quand on vous le rappelle, et ce qui se passe au jour 30 — y compris si la carte ne passe pas.",
+      "Chaque nouvelle entreprise a 14 jours de FieldQuo gratuits — tout le produit, sans carte ni forfait à choisir à l'inscription. Vous choisissez un forfait depuis l'application quand vous êtes prêt; rien n'est facturé avant.",
+      "Cet article dit ce qu'est l'essai, ce que vous voyez pendant qu'il court, quand on vous le rappelle, et ce qui se passe le jour où il se termine si aucun forfait n'a été choisi.",
     ],
     sections: [
       {
         id: "overview",
-        heading: "Vue d'ensemble",
+        heading: "Aperçu",
         blocks: [
-          { p: "Le mois gratuit est un essai Stripe sur un vrai abonnement. Vous choisissez un forfait et une fréquence à la dernière étape de l'inscription, entrez une carte sur la page de paiement de Stripe, et l'abonnement démarre à l'état **Trial** avec un essai de 30 jours. Le jour où l'essai se termine, Stripe prélève la carte pour la première période — le prix mensuel, ou le prix annuel complet si vous avez pris l'engagement — et l'état devient **Actif**." },
-          { p: "C'est gratuit, pas un dollar symbolique : l'offre sur chaque écran se lit **Premier mois gratuit**, et aucune ligne ponctuelle n'apparaît à la page de paiement. Un parrainage par une autre entreprise FieldQuo ajoute un mois de plus à l'essai avant le premier prélèvement — voir [[referral-months|Mois de parrainage]]." },
+          { p: "L'essai commence au moment où votre entreprise est créée et dure 14 jours. Il n'y a pas encore d'abonnement derrière, ni rien à annuler : c'est simplement une date. Une entreprise inscrite avec l'ancien essai de 30 jours garde la date de fin qu'on lui a donnée." },
+          { p: "C'est gratuit, pas un dollar symbolique. Un parrainage par une autre entreprise FieldQuo ajoute un mois de plus à l'essai — voir [[referral-months|Mois de parrainage]]." },
         ],
       },
       {
         id: "how-it-works-at-signup",
-        heading: "Comment ça marche à l'inscription",
+        heading: "Comment ça se passe à l'inscription",
         blocks: [
-          { figure: "harness:signup", caption: "Commencez votre essai gratuit — les quatre étapes, et la carte à droite qui dit que la carte est prise à la page de paiement et que le premier prélèvement tombe à la fin du mois gratuit." },
           { steps: [
             "Remplissez **Votre compte et votre entreprise** — nom, courriel, entreprise, adresse. Le pays de votre adresse fixe votre devise de facturation.",
-            "Choisissez vos métiers et vos services aux étapes 2 et 3.",
-            "Dans **Choisissez votre forfait**, prenez un palier et répondez à **Comment souhaitez-vous être facturé?** — **Sans engagement** ou **Engagement d'un an**. La ligne en dessous se lit par exemple **Premier mois gratuit, puis 99,00 $/mois.**",
-            "Appuyez sur **Continuer vers le paiement**. La page de Stripe prend votre carte et votre adresse de facturation et affiche l'essai; vous n'êtes pas facturé. Vous arrivez dans FieldQuo avec le forfait déjà actif.",
+            "Choisissez vos métiers et vos services.",
+            "Terminez la dernière étape. Vous arrivez dans FieldQuo avec l'essai en cours — sans carte ni forfait.",
           ] },
-          { note: "Une carte est requise pour commencer l'essai. C'est une décision délibérée : ça veut dire que le produit continue de fonctionner au jour 31 sans deuxième passage à la caisse, et c'est pourquoi l'essai peut être un mois complet du vrai produit plutôt qu'une démo." },
+          { note: "Aucune carte n'est demandée à l'inscription. Vous en ajoutez une en choisissant un forfait, et le premier prélèvement du forfait tombe le jour où l'essai se termine — choisir tôt ne vous fait perdre aucun jour gratuit." },
         ],
       },
       {
         id: "what-you-see-during-the-trial",
         heading: "Ce que vous voyez pendant l'essai",
         blocks: [
-          { p: "Dans **Compte et facturation**, la carte du forfait porte une pastille **Trial** (en anglais, pour l'instant) et, sous le prix, **Jours restants dans l'essai : 23** en décompte. Il n'y a pas encore de **Prochaine date de facturation** — le décompte est cette date. Tout le reste de l'écran fonctionne comme après l'essai, y compris **Choisir ce forfait** : monter de forfait pendant le mois gratuit prend effet tout de suite et reste gratuit jusqu'à la fin du mois, parce que l'essai est gardé là où il était. Voir [[change-your-plan|Changer de forfait]]." },
-          { p: "Vous recevez aussi un courriel de confirmation quand l'abonnement devient actif, qui nomme le forfait, **Status: Free trial** et **Trial ends** avec la date." },
+          { p: "Une bannière en haut de l'application affiche **Essai gratuit · 12 jours restants**, avec **Choisir un forfait** à côté et, quand la taille de votre équipe en indique un, un forfait recommandé. Le même choix se trouve dans **Compte et facturation**. Choisir un forfait pendant l'essai garde les jours qu'il vous reste : le forfait commence, et est prélevé pour la première fois, le jour où l'essai se serait terminé. Voir [[change-your-plan|Changer de forfait]]." },
+          { p: "Une fois un forfait choisi, la bannière le nomme avec sa date de début, et dit que rien n'est facturé avant." },
         ],
       },
       {
-        id: "when-the-month-ends",
-        heading: "Quand le mois se termine",
+        id: "when-the-trial-ends",
+        heading: "Quand l'essai se termine",
         blocks: [
           { bullets: [
-            "**Sept jours avant** le premier prélèvement, FieldQuo envoie au propriétaire un rappel par courriel qui nomme le forfait, le montant, la date et les quatre derniers chiffres de la carte s'ils sont connus. Voir [[renewal-reminders|Rappels de renouvellement]].",
-            "**Le jour même**, Stripe prélève la carte. La pastille d'état passe à **Actif** et la carte affiche **Prochaine date de facturation** un mois (ou un an) plus tard.",
-            "**Si le prélèvement échoue**, l'état devient **En retard** et un délai de grâce de 7 jours commence : vous pouvez encore tout lire, mais rien ajouter, jusqu'à ce que la carte soit réparée avec **Gérer la facturation et le mode de paiement**. Après les sept jours, le compte est verrouillé sur l'écran de facturation jusqu'à ce que ce soit payé. Rien n'est supprimé à aucun moment. Voir [[failed-payments-and-the-grace-period|Paiements refusés et délai de grâce]].",
+            "**Sept jours, trois jours et un jour avant** la fin, si aucun forfait n'a été choisi, FieldQuo envoie au propriétaire un rappel avec la date de fin et un bouton **Choisir un forfait**. Chacun est envoyé une seule fois.",
+            "**Le jour même**, si aucun forfait n'a été choisi, le compte passe en **lecture seule pendant 7 jours** : tout le monde voit encore chaque soumission, facture, client et photo, mais rien de nouveau ne peut être créé ni envoyé. La bannière affiche **Votre essai est terminé · lecture seule pendant encore 7 jours**.",
+            "**Après ces 7 jours**, le compte se verrouille jusqu'à ce qu'un forfait soit choisi. Rien n'est supprimé à aucun moment — choisir un forfait redonne tout exactement comme c'était.",
           ] },
-          { warning: "Annuler pendant le mois gratuit arrête le premier prélèvement, mais met fin à votre accès aux mêmes conditions que n'importe quelle annulation — lisez [[cancel-your-subscription|Annuler votre abonnement]] avant d'appuyer sur **Annuler le forfait** au jour 29 en espérant une journée gratuite de plus." },
+          { warning: "L'essai est offert une seule fois par entreprise. Annuler un forfait puis en choisir un de nouveau ne relance pas un deuxième essai gratuit — voir [[cancel-your-subscription|Annuler votre abonnement]]." },
         ],
       },
     ],
     faq: [
-      { q: "Le premier mois est-il vraiment gratuit, ou c'est 1 $?", a: "Gratuit. Le prix du premier mois est zéro, la page de paiement n'affiche aucun frais pour lui, et l'écran d'inscription se lit **Premier mois gratuit**." },
-      { q: "Le mois gratuit s'applique-t-il aussi au forfait annuel?", a: "Oui. Le mois vient d'abord, puis l'année : aucun prélèvement pendant 30 jours, puis le montant annuel complet, et l'année commence à ce prélèvement." },
-      { q: "J'ai été parrainé par un autre entrepreneur — combien de temps dure mon essai?", a: "30 jours plus un mois de parrainage, et le rappel et le premier prélèvement se décalent d'autant. La confirmation après l'inscription nomme l'entreprise qui vous a parrainé." },
-      { q: "Puis-je l'essayer sans carte?", a: "Non. L'inscription prend une carte à la page de paiement avant que l'essai commence. Elle n'est pas facturée avant la fin du mois gratuit, et vous pouvez annuler avant." },
+      { q: "Est-ce vraiment gratuit, ou c'est 1 $?", a: "Gratuit. Rien n'est facturé pendant les 14 jours, et aucune carte n'est demandée avant que vous choisissiez un forfait." },
+      { q: "L'essai s'applique-t-il aussi au forfait annuel?", a: "Oui. Choisissez le forfait annuel pendant l'essai et l'année commence — et est prélevée — le jour où l'essai se termine." },
+      { q: "J'ai été parrainé par un autre entrepreneur — combien de temps dure mon essai?", a: "14 jours plus un mois de parrainage, et les rappels se décalent d'autant. La confirmation après l'inscription nomme l'entreprise qui vous a parrainé." },
+      { q: "Puis-je l'essayer sans carte?", a: "Oui. L'inscription ne demande aucune carte. Vous en ajoutez une en choisissant un forfait, et elle n'est pas prélevée avant la fin de l'essai." },
     ],
   },
 
@@ -279,7 +277,7 @@ export const ARTICLES = {
             "**L'année est payée une fois, d'avance**, à la date de renouvellement, dans votre devise, avec les taxes ajoutées par Stripe là où elles s'appliquent.",
             "**Revenir au mensuel, ou descendre de palier, attend la fin de l'année.** Le changement est programmé pour la fin de la période et rien n'est remboursé, crédité ou facturé avant — la même règle qu'une descente de forfait au mois, sur une période plus longue.",
             "**Monter de forfait en cours d'année n'attend pas.** Un palier supérieur s'applique aujourd'hui et le reste de l'année est calculé au prorata.",
-            "**Le premier mois gratuit vient avant l'année**, pas dedans : aucun prélèvement pendant 30 jours, puis le montant annuel complet.",
+            "**L'essai gratuit vient avant l'année**, pas dedans : aucun prélèvement pendant les jours d'essai, puis le montant annuel complet.",
             "**Les rappels arrivent 30 jours avant** un renouvellement annuel, par courriel, avec le montant et la carte. Les renouvellements mensuels n'ont pas de rappel, parce qu'un prélèvement qui revient chaque mois n'est pas une nouvelle — voir [[renewal-reminders|Rappels de renouvellement]].",
           ] },
         ],
@@ -329,7 +327,7 @@ export const ARTICLES = {
             "La boîte de dialogue **Changer de forfait** se lit : **Votre forfait passe à Shop (facturé mensuellement) immédiatement. La différence pour le reste de la période de facturation est calculée au prorata aujourd'hui.** Appuyez sur **Changer de forfait maintenant**.",
             "La page se recharge et lit le nouveau forfait chez Stripe. Les sièges et places d'équipiers supplémentaires sont utilisables immédiatement dans **Gérer l'équipe**.",
           ] },
-          { note: "Pendant votre mois gratuit, une montée de forfait s'applique aussi tout de suite, et reste gratuite : l'essai est gardé exactement là où il était et le nouveau prix commence à sa fin." },
+          { note: "Pendant votre essai gratuit, une montée de forfait s'applique aussi tout de suite, et reste gratuite : l'essai est gardé exactement là où il était et le nouveau prix commence à sa fin." },
         ],
       },
       {
@@ -568,7 +566,7 @@ export const ARTICLES = {
         heading: "Les courriels que FieldQuo envoie au sujet de votre facturation",
         blocks: [
           { bullets: [
-            "**Quand un forfait démarre** — une confirmation qui nomme le forfait, **Status: Free trial** pendant le mois gratuit, et **Trial ends** ou **Next billing date**. Envoyée une fois, peu importe combien de fois la page vérifie auprès de Stripe.",
+            "**Quand un forfait démarre** — une confirmation qui nomme le forfait, **Status: Free trial** pendant l'essai gratuit, et **Trial ends** ou **Next billing date**. Envoyée une fois, peu importe combien de fois la page vérifie auprès de Stripe.",
             "**Quand un changement de forfait tombe** — le même courriel, qui nomme l'ancien forfait et le nouveau, le jour où le changement prend effet.",
             "**Avant le premier prélèvement** — sept jours avant qu'un essai devienne payant, avec le montant et les quatre derniers chiffres de la carte s'ils sont connus. Les renouvellements annuels reçoivent le même courriel 30 jours d'avance; les renouvellements mensuels n'en reçoivent pas. Voir [[renewal-reminders|Rappels de renouvellement]].",
             "**Quand un paiement échoue** — les avertissements du délai de grâce, voir [[failed-payments-and-the-grace-period|Paiements refusés et délai de grâce]].",

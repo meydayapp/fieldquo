@@ -92,7 +92,7 @@ export const ARTICLES = {
       "Qué suscripciones reciben un correo antes del próximo cobro, con cuánta anticipación llega, qué dice, y por qué un plan mensual no recibe ninguno.",
     updated: "2026-09-12",
     intro: [
-      "Antes de que FieldQuo cobre su tarjeta por otro período, puede avisarle. Lo hace donde un aviso es útil: **30 días** antes de que se renueve un plan anual, y **7 días** antes de que un primer mes gratis se convierta en el primer cobro real. Un plan mensual no recibe recordatorio: el mismo monto el mismo día cada mes no es algo sobre lo que nadie necesite una carta.",
+      "Antes de que FieldQuo cobre su tarjeta por otro período, puede avisarle. Lo hace donde un aviso es útil: **30 días** antes de que se renueve un plan anual, y **7 días** antes de que una prueba gratuita se convierta en el primer cobro real. Un plan mensual no recibe recordatorio: el mismo monto el mismo día cada mes no es algo sobre lo que nadie necesite una carta.",
       "Este artículo dice exactamente quién recibe el correo, cuándo, qué contiene, y qué hacer si quiere cambiar o cancelar antes de la fecha que nombra.",
     ],
     sections: [
@@ -112,7 +112,7 @@ export const ARTICLES = {
             head: ["Su suscripción", "Recordatorio"],
             rows: [
               ["Plan anual (compromiso de 1 año)", "30 días antes de la fecha de renovación"],
-              ["Primer mes gratis, a punto de pasar a pago", "7 días antes del primer cobro (30 días si el plan es anual)"],
+              ["Prueba gratuita, a punto de pasar a pago", "7 días antes del primer cobro (30 días si el plan es anual)"],
               ["Plan mensual", "Ninguno: el monto y el día son los mismos cada mes"],
             ],
           } },
@@ -174,7 +174,7 @@ export const ARTICLES = {
         heading: "Resumen",
         blocks: [
           { p: "Pulsar **Cancelar plan** abre un flujo corto: **Antes de irte** (por qué se va), a veces **Una cosa primero** (una oferta), luego **Cancelar tu plan** (las consecuencias y la confirmación). Lo que hace confirmar depende de si ha pagado. En un **plan pagado**, la suscripción queda programada para terminar en su próxima fecha de facturación: el estado sigue **Activo**, la tarjeta dice *Tu plan termina el {date} — no se cobrará nada más*, y todo sigue funcionando hasta entonces. En una **prueba**, la suscripción termina de inmediato, porque no se ha pagado nada. Cuando el plan termina de verdad, su estado pasa a **Cancelado** y arranca una ventana de solo lectura de 30 días. Después, la cuenta se bloquea hasta que alguien reanude." },
-          { warning: "No se reembolsa nada, pero tampoco se pierde nada. Un mes o un año pagados corren hasta la fecha de su factura y sigue trabajando hasta entonces. Una prueba termina al pulsar el botón, y el primer mes gratis no se ofrece otra vez: una sola prueba gratuita por empresa, para siempre. Reiniciar después de cancelar una prueba se cobra ese mismo día." },
+          { warning: "No se reembolsa nada, pero tampoco se pierde nada. Un mes o un año pagados corren hasta la fecha de su factura y sigue trabajando hasta entonces. Una prueba termina al pulsar el botón, y la prueba gratuita no se ofrece otra vez: una sola prueba gratuita por empresa, para siempre. Reiniciar después de cancelar una prueba se cobra ese mismo día." },
         ],
       },
       {
@@ -216,7 +216,7 @@ export const ARTICLES = {
             "**Luego bloqueada.** Pasados los 30 días la cuenta queda cerrada hasta que se vuelva a iniciar el plan. Nada se borra en ningún momento; volver a empezar lo devuelve todo.",
             "**Sus clientes conservan cada enlace.** Los presupuestos, el portal del cliente y las páginas de pago de factura siguen abriéndose, y cualquier cosa que paguen sigue llegando a su propia cuenta de Stripe.",
             "**Sin reembolso, sin pérdida.** Un período pagado corre hasta su fecha y conserva el acceso completo hasta entonces; la pantalla indica esa fecha antes de que confirme.",
-            "**Reanudar** es un solo botón, en el aviso superior y en Cuenta y facturación, y dice por sí mismo qué hace al pulsarlo. En un plan programado para terminar: *Reanudar* — se quita la programación y el plan continúa, sin cobro. En un plan pagado que ya terminó con semanas restantes: *Reanudar — no se cobra nada hasta el {date}* — las semanas que pagó se respetan en la nueva suscripción. En un plan cancelado durante su prueba: *Reiniciar — tu primer mes se cobra hoy ({amount})* — el primer mes gratis no se ofrece una segunda vez. Si Stripe no tiene ninguna tarjeta suya, Reanudar abre en su lugar una página de pago de Stripe, sin prueba. **Elegir otro plan** sigue en la misma pantalla para otro nivel.",
+            "**Reanudar** es un solo botón, en el aviso superior y en Cuenta y facturación, y dice por sí mismo qué hace al pulsarlo. En un plan programado para terminar: *Reanudar* — se quita la programación y el plan continúa, sin cobro. En un plan pagado que ya terminó con semanas restantes: *Reanudar — no se cobra nada hasta el {date}* — las semanas que pagó se respetan en la nueva suscripción. En un plan cancelado durante su prueba: *Reiniciar — tu primer mes se cobra hoy ({amount})* — la prueba gratuita no se ofrece una segunda vez. Si Stripe no tiene ninguna tarjeta suya, Reanudar abre en su lugar una página de pago de Stripe, sin prueba. **Elegir otro plan** sigue en la misma pantalla para otro nivel.",
           ] },
         ],
       },
@@ -265,7 +265,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Resumen",
         blocks: [
-          { p: "Cada empresa tiene un código de referido y un enlace en **Recomienda y gana**. Un negocio que se registra con él empieza con su primer mes gratis normal más un mes por referido. Luego aparece bajo **Negocios que has referido** como **Registrado: aún no paga** hasta que su primera factura pagada se procesa, momento en que la etiqueta pasa a **Acreditado** y se agrega un mes a su propio acceso, automáticamente." },
+          { p: "Cada empresa tiene un código de referido y un enlace en **Recomienda y gana**. Un negocio que se registra con él empieza con su prueba gratuita normal de 14 días más un mes por referido. Luego aparece bajo **Negocios que has referido** como **Registrado: aún no paga** hasta que su primera factura pagada se procesa, momento en que la etiqueta pasa a **Acreditado** y se agrega un mes a su propio acceso, automáticamente." },
           { p: "El mes es del mismo tamaño sin importar a quién refiera. Una empresa Solo que refiere a una empresa Scale gana un mes de Solo; el tamaño del negocio que trae no cambia lo que recibe: la pantalla lo dice con sus propias palabras." },
         ],
       },
@@ -276,7 +276,7 @@ export const ARTICLES = {
           { steps: [
             "Abra **Recomienda y gana** (en la barra lateral principal, o bajo Configuración) y comparta **Tu enlace**: cópielo con **Copiar**, o use **Enviar una invitación** por correo o por SMS. FieldQuo envía un mensaje y no insiste, y el formulario de invitación permite 20 al día.",
             "El otro negocio se registra con el enlace. Su prueba gratis se extiende un mes en el acto, y aparece en su lista como **Registrado: aún no paga**.",
-            "Paga su primera factura real — el mes gratis es $0, así que el primer cobro después — habiendo terminado su incorporación y conectado una cuenta de Stripe verificada para recibir pagos.",
+            "Paga su primera factura real — la prueba gratuita es $0, así que el primer cobro después — habiendo terminado su incorporación y conectado una cuenta de Stripe verificada para recibir pagos.",
             "Su mes se agrega en el momento en que cae ese pago, y la fila dice **Acreditado**.",
           ] },
           { figure: "live:app-settings-refer", caption: "Recomienda y gana — su enlace, el formulario de invitación, y los negocios que ha referido con su estado." },
@@ -290,7 +290,7 @@ export const ARTICLES = {
           { table: {
             head: ["Su cuenta", "Qué hace el mes"],
             rows: [
-              ["Todavía en el primer mes gratis", "La fecha de fin de su prueba se corre un mes. No se cobra nada hasta entonces."],
+              ["Todavía en la prueba gratuita", "La fecha de fin de su prueba se corre un mes. No se cobra nada hasta entonces."],
               ["Pagando mensual", "Su próximo cobro se aplaza un mes calendario. El plan sigue; simplemente no se le cobra ese mes."],
               ["Pagando anual", "Su fecha de renovación se corre un mes: un año que termina el 27 de agosto se renueva el 27 de septiembre. No se le cobra otro año para recibirlo."],
             ],
@@ -320,7 +320,7 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "El negocio que referí se registró hace semanas. ¿Por qué todavía no me acreditan?", a: "Su fila todavía dice Registrado: aún no paga. El mes se otorga con su primer pago real, después de su mes gratis, y solo una vez que su incorporación está completa y su cuenta de Stripe para pagos de clientes está verificada." },
+      { q: "El negocio que referí se registró hace semanas. ¿Por qué todavía no me acreditan?", a: "Su fila todavía dice Registrado: aún no paga. El mes se otorga con su primer pago real, después de su prueba gratuita, y solo una vez que su incorporación está completa y su cuenta de Stripe para pagos de clientes está verificada." },
       { q: "¿Es un descuento o un mes gratis?", a: "Un mes gratis: su próximo cobro se corre un mes. No es un crédito en dólares contra una factura más grande." },
       { q: "¿El negocio referido recibe algo?", a: "Sí: un mes extra agregado a su prueba gratis al registrarse, antes de haber pagado nada." },
     ],

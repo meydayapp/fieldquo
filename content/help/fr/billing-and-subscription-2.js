@@ -92,7 +92,7 @@ export const ARTICLES = {
       "Quels abonnements reçoivent un courriel avant le prochain prélèvement, combien de temps d'avance il arrive, ce qu'il dit, et pourquoi un forfait mensuel n'en reçoit pas.",
     updated: "2026-09-12",
     intro: [
-      "Avant que FieldQuo prélève votre carte pour une autre période, il peut vous prévenir. Il le fait là où un avertissement est utile : **30 jours** avant le renouvellement d'un forfait annuel, et **7 jours** avant qu'un premier mois gratuit devienne le premier vrai prélèvement. Un forfait mensuel ne reçoit pas de rappel — le même montant le même jour chaque mois n'est pas quelque chose dont quiconque a besoin d'être averti par lettre.",
+      "Avant que FieldQuo prélève votre carte pour une autre période, il peut vous prévenir. Il le fait là où un avertissement est utile : **30 jours** avant le renouvellement d'un forfait annuel, et **7 jours** avant qu'un essai gratuit devienne le premier vrai prélèvement. Un forfait mensuel ne reçoit pas de rappel — le même montant le même jour chaque mois n'est pas quelque chose dont quiconque a besoin d'être averti par lettre.",
       "Cet article dit exactement qui reçoit le courriel, quand, ce qu'il contient, et quoi faire si vous voulez changer ou annuler avant la date qu'il nomme.",
     ],
     sections: [
@@ -112,7 +112,7 @@ export const ARTICLES = {
             head: ["Votre abonnement", "Rappel"],
             rows: [
               ["Forfait annuel (engagement d'un an)", "30 jours avant la date de renouvellement"],
-              ["Premier mois gratuit, sur le point de devenir payant", "7 jours avant le premier prélèvement (30 jours si le forfait est annuel)"],
+              ["Essai gratuit, sur le point de devenir payant", "7 jours avant le premier prélèvement (30 jours si le forfait est annuel)"],
               ["Forfait mensuel", "Aucun — le montant et le jour sont les mêmes chaque mois"],
             ],
           } },
@@ -174,7 +174,7 @@ export const ARTICLES = {
         heading: "Vue d'ensemble",
         blocks: [
           { p: "Appuyer sur **Annuler le forfait** ouvre un court parcours : **Avant de partir** (pourquoi vous partez), parfois **Une chose d'abord** (une offre), puis **Annuler votre forfait** (les conséquences et la confirmation). Ce que fait la confirmation dépend de si vous avez payé. Sur un **forfait payé**, l'abonnement est programmé pour se terminer à votre prochaine date de facturation : l'état reste **Actif**, la carte indique *Votre forfait se termine le {date} — plus rien ne sera facturé*, et tout continue de fonctionner jusque-là. Sur un **essai**, l'abonnement se termine tout de suite, parce que rien n'a été payé. Quand le forfait se termine vraiment, son état devient **Annulé** et une fenêtre de lecture seule de 30 jours commence. Après, le compte se verrouille jusqu'à ce que quelqu'un reprenne." },
-          { warning: "Rien n'est remboursé — mais rien n'est perdu non plus. Un mois ou une année payés courent jusqu'à la date de votre facture et vous continuez de travailler jusque-là. Un essai se termine au moment où vous appuyez sur le bouton, et le premier mois gratuit n'est pas offert de nouveau : un seul essai gratuit par entreprise, pour toujours. Redémarrer après l'annulation d'un essai est facturé le jour même." },
+          { warning: "Rien n'est remboursé — mais rien n'est perdu non plus. Un mois ou une année payés courent jusqu'à la date de votre facture et vous continuez de travailler jusque-là. Un essai se termine au moment où vous appuyez sur le bouton, et l'essai gratuit n'est pas offert de nouveau : un seul essai gratuit par entreprise, pour toujours. Redémarrer après l'annulation d'un essai est facturé le jour même." },
         ],
       },
       {
@@ -216,7 +216,7 @@ export const ARTICLES = {
             "**Puis verrouillé.** Après les 30 jours, le compte reste fermé jusqu'à ce que le forfait soit redémarré. Rien n'est supprimé à aucun moment; redémarrer redonne tout.",
             "**Vos clients gardent chaque lien.** Les soumissions, le portail client et les pages de paiement de facture s'ouvrent toujours, et tout ce qu'ils paient arrive toujours dans votre propre compte Stripe.",
             "**Aucun remboursement, aucune perte.** Une période payée court jusqu'à sa date et vous gardez l'accès complet jusque-là; l'écran indique cette date avant que vous confirmiez.",
-            "**Reprendre** est un seul bouton, sur la bannière et dans Compte et facturation, et il dit lui-même ce que fait l'appui. Sur un forfait programmé pour se terminer : *Reprendre* — la programmation est retirée et le forfait continue, rien n'est facturé. Sur un forfait payé déjà terminé avec des semaines restantes : *Reprendre — rien n'est facturé avant le {date}* — les semaines que vous avez payées sont honorées sur le nouvel abonnement. Sur un forfait annulé pendant son essai : *Redémarrer — votre premier mois est facturé aujourd'hui ({amount})* — le premier mois gratuit n'est pas offert une deuxième fois. Si Stripe n'a aucune carte pour vous, Reprendre ouvre plutôt une page de paiement Stripe, sans essai. **Choisir un autre forfait** reste sur le même écran pour un autre palier.",
+            "**Reprendre** est un seul bouton, sur la bannière et dans Compte et facturation, et il dit lui-même ce que fait l'appui. Sur un forfait programmé pour se terminer : *Reprendre* — la programmation est retirée et le forfait continue, rien n'est facturé. Sur un forfait payé déjà terminé avec des semaines restantes : *Reprendre — rien n'est facturé avant le {date}* — les semaines que vous avez payées sont honorées sur le nouvel abonnement. Sur un forfait annulé pendant son essai : *Redémarrer — votre premier mois est facturé aujourd'hui ({amount})* — l'essai gratuit n'est pas offert une deuxième fois. Si Stripe n'a aucune carte pour vous, Reprendre ouvre plutôt une page de paiement Stripe, sans essai. **Choisir un autre forfait** reste sur le même écran pour un autre palier.",
           ] },
         ],
       },
@@ -265,7 +265,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Vue d'ensemble",
         blocks: [
-          { p: "Chaque entreprise a un code de parrainage et un lien dans **Parrainage**. Une entreprise qui s'inscrit par ce lien commence avec son premier mois gratuit normal plus un mois de parrainage. Elle est ensuite listée sous **Entreprises que vous avez parrainées** comme **Inscrit — pas encore payant** jusqu'à ce que sa première facture payée passe, moment où la pastille devient **Crédité** et un mois s'ajoute à votre propre accès, automatiquement." },
+          { p: "Chaque entreprise a un code de parrainage et un lien dans **Parrainage**. Une entreprise qui s'inscrit par ce lien commence avec son essai gratuit normal de 14 jours plus un mois de parrainage. Elle est ensuite listée sous **Entreprises que vous avez parrainées** comme **Inscrit — pas encore payant** jusqu'à ce que sa première facture payée passe, moment où la pastille devient **Crédité** et un mois s'ajoute à votre propre accès, automatiquement." },
           { p: "Le mois est de la même taille peu importe qui vous parrainez. Une entreprise Solo qui parraine une entreprise Scale gagne un mois de Solo; la taille de l'entreprise que vous amenez ne change pas ce que vous recevez — l'écran le dit en toutes lettres." },
         ],
       },
@@ -276,7 +276,7 @@ export const ARTICLES = {
           { steps: [
             "Ouvrez **Parrainage** (dans la barre latérale principale, ou sous Paramètres) et partagez **Votre lien** — **Copier**-le, ou utilisez **Envoyer une invitation** par courriel ou par texto. FieldQuo envoie un message et ne relance pas, et le formulaire d'invitation en permet 20 par jour.",
             "L'autre entreprise s'inscrit par le lien. Son essai gratuit est prolongé d'un mois sur-le-champ, et elle apparaît dans votre liste comme **Inscrit — pas encore payant**.",
-            "Elle paie sa première vraie facture — le mois gratuit est à 0 $, donc le premier prélèvement après — après avoir terminé son intégration et connecté un compte Stripe vérifié pour encaisser des paiements.",
+            "Elle paie sa première vraie facture — l'essai gratuit est à 0 $, donc le premier prélèvement après — après avoir terminé son intégration et connecté un compte Stripe vérifié pour encaisser des paiements.",
             "Votre mois s'ajoute dès que ce paiement tombe, et la ligne indique **Crédité**.",
           ] },
           { figure: "live:app-settings-refer", caption: "Parrainage — votre lien, le formulaire d'invitation, et les entreprises que vous avez parrainées avec leur état." },
@@ -290,7 +290,7 @@ export const ARTICLES = {
           { table: {
             head: ["Votre compte", "Ce que fait le mois"],
             rows: [
-              ["Encore dans le premier mois gratuit", "La date de fin de votre essai recule d'un mois. Rien n'est facturé d'ici là."],
+              ["Encore dans l'essai gratuit", "La date de fin de votre essai recule d'un mois. Rien n'est facturé d'ici là."],
               ["Payant au mois", "Votre prochain prélèvement est reporté d'un mois civil. Le forfait continue; vous n'êtes simplement pas facturé pour ce mois-là."],
               ["Payant à l'année", "Votre date de renouvellement recule d'un mois — une année qui finit le 27 août se renouvelle le 27 septembre. On ne vous facture pas une autre année pour le recevoir."],
             ],
@@ -320,7 +320,7 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "L'entreprise que j'ai parrainée s'est inscrite il y a des semaines. Pourquoi ne suis-je toujours pas crédité?", a: "Sa ligne indique encore Inscrit — pas encore payant. Le mois est accordé à son premier vrai paiement, après son mois gratuit, et seulement une fois son intégration terminée et son compte Stripe pour les paiements de clients vérifié." },
+      { q: "L'entreprise que j'ai parrainée s'est inscrite il y a des semaines. Pourquoi ne suis-je toujours pas crédité?", a: "Sa ligne indique encore Inscrit — pas encore payant. Le mois est accordé à son premier vrai paiement, après son essai gratuit, et seulement une fois son intégration terminée et son compte Stripe pour les paiements de clients vérifié." },
       { q: "Est-ce un rabais ou un mois gratuit?", a: "Un mois gratuit : votre prochain prélèvement recule d'un mois. Ce n'est pas un crédit en dollars sur une facture plus grosse." },
       { q: "L'entreprise parrainée reçoit-elle quelque chose?", a: "Oui — un mois de plus ajouté à son essai gratuit à l'inscription, avant qu'elle ait payé quoi que ce soit." },
     ],
