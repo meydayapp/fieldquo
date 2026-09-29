@@ -231,7 +231,7 @@ ok("the [id] route awaits params (Next 16)", single.includes("await params"));
 
 const get = collection.slice(collection.indexOf("export async function GET"), collection.indexOf("export async function PATCH"));
 ok("GET's unresolvedCount counts resolvedAt: null", /count\(\{\s*where:\s*\{\s*resolvedAt:\s*null\s*\}\s*\}\)/.test(get));
-ok("GET's area chips count resolvedAt: null", /groupBy\(\{[\s\S]*?where:\s*\{\s*resolvedAt:\s*null\s*\}/.test(get));
+ok("GET's area chips count resolvedAt: null, under the tab and environment being viewed", /by:\s*\["area"\],\s*where:\s*\{\s*resolvedAt:\s*null,\s*AND:\s*\[byKind,\s*byEnv/.test(get));
 ok("GET returns reviewedCount, the archive behind the toggle", /reviewedCount/.test(get) && /NOT:\s*\{\s*resolvedAt:\s*null\s*\}/.test(get));
 ok("…under the same area/company filter as the list", /count\(\{\s*where:\s*\{\s*\.\.\.filters,\s*NOT:/.test(get));
 ok("the default list is the UNREVIEWED rows; ?resolved=1 is the archive", get.includes('searchParams.get("resolved") === "1"') && get.includes("resolved ? { NOT: { resolvedAt: null } } : { resolvedAt: null }"));
@@ -423,6 +423,71 @@ console.log("\n8. Mark all like this reviewed (2026-09-29, 7,360 copies of one e
   ok("…and the Repeating strip with ×N and last-seen", pg.includes("Repeating") && pg.includes("×{g.count.toLocaleString()}") && pg.includes("when(g.lastAt)"));
   const coll = strip(read(COLLECTION));
   ok("GET returns repeats: unreviewed per (area, code) under the list's filter", /by:\s*\["area",\s*"code"\],\s*where:\s*\{\s*\.\.\.filters,\s*resolvedAt:\s*null,\s*code:\s*\{\s*not:\s*null\s*\}\s*\}/.test(coll) && coll.includes("repeats,"));
+}
+
+// ═══════════════ 9. Kinds and environments ═════════════════════════════════
+console.log("\n9. Errors · Notices · Security, and where each row was written");
+{
+  const K = await import("../lib/platform/errorKinds.js");
+  const { withEnvironment } = await import("../lib/platform/errorLog.js");
+  const row = (area, code, message = "x", detail = null) => ({ area, code, message, detail });
+
+  ok("a refused voice-webhook signature is security", K.kindOf(row("voice_webhook", "webhook_rejected_no_signature")) === "security");
+  ok("…but a voice webhook that threw is an error", K.kindOf(row("voice_webhook", null, "Voice webhook failed: boom")) === "error");
+  ok("the sales inbound signature check is security, and seat sharing is too", K.kindOf(row("sales_inbound", "signature_rejected")) === "security" && K.kindOf(row("account_abuse", "shared_seat")) === "security");
+  ok("voice credit exhausted is a notice", K.kindOf(row("voice_credit", null, "Voice credit exhausted — the agent was detached from this number")) === "notice");
+  ok("a Resend refusal of an @example.com QA address is a notice…", K.kindOf(row("email", "resend_rejected", "Resend rejected mail to qa.okafor@example.com: Invalid `to` field.")) === "notice");
+  ok("…and a Resend refusal of a real address stays an error", K.kindOf(row("email", "resend_rejected", "Resend rejected mail to joe@gmail.com: domain not verified")) === "error");
+  ok("the leg matcher, and anything unnamed, is an error — a new failure never lands in a tab nobody opens", K.kindOf(row("sales_dial", "leg_time_match_failed")) === "error" && K.kindOf({}) === "error" && K.kindOf(null) === "error");
+  ok("a null code never matches a code rule", K.kindOf(row("sales_inbound", null)) === "error");
+
+  // kindWhere, executed against an in-memory evaluator of the Prisma shape,
+  // so the database filter and kindOf are proved to agree — including on
+  // SQL's NULL semantics under NOT, the trap the environment filter hit.
+  const T = true, F = false, N = null; // three-valued logic
+  const not3 = (v) => (v === N ? N : !v);
+  const and3 = (vs) => (vs.some((v) => v === F) ? F : vs.some((v) => v === N) ? N : T);
+  const or3 = (vs) => (vs.some((v) => v === T) ? T : vs.some((v) => v === N) ? N : F);
+  const field = (r, k, cond) => {
+    const v = r[k] ?? null;
+    if (cond && typeof cond === "object") {
+      if ("not" in cond) return cond.not === null ? v !== null : v === null ? N : v !== cond.not;
+      if ("startsWith" in cond) return v === null ? N : v.startsWith(cond.startsWith);
+      if ("contains" in cond) return v === null ? N : v.includes(cond.contains);
+    }
+    return v === null ? N : v === cond;
+  };
+  const evalWhere = (r, w) => and3(Object.entries(w).map(([k, c]) => (k === "AND" ? and3(c.map((x) => evalWhere(r, x))) : k === "OR" ? or3(c.map((x) => evalWhere(r, x))) : k === "NOT" ? not3(Array.isArray(c) ? and3(c.map((x) => evalWhere(r, x))) : evalWhere(r, c)) : field(r, k, c))));
+  const sample = [
+    row("voice_webhook", "webhook_rejected_bad_signature"), row("voice_webhook", null, "threw"), row("sales_inbound", "signature_rejected"),
+    row("account_abuse", null), row("voice_credit", null), row("email", "resend_rejected", "to a@example.com"), row("email", "resend_rejected", "to a@gmail.com"),
+    row("email", "email_reserved_domain"), row("sales_dial", "leg_time_match_failed"), row("cron", null, "no code at all"),
+  ];
+  const agree = sample.every((r) => K.ERROR_KINDS.every((k) => (evalWhere(r, K.kindWhere(k)) === T) === (K.kindOf(r) === k)));
+  ok("kindWhere and kindOf agree on every sample row, for every tab", agree);
+  ok("…each row lands in exactly one tab — a row with no code is not lost to NULL under NOT", sample.every((r) => K.ERROR_KINDS.filter((k) => evalWhere(r, K.kindWhere(k)) === T).length === 1));
+  ok("an unknown kind is refused, not defaulted", K.kindWhere("everything") === null && K.kindWhere(undefined) === null);
+
+  ok("currentEnvironment: VERCEL_ENV production/preview as said; development or absent is local", K.currentEnvironment({ VERCEL_ENV: "production" }) === "production" && K.currentEnvironment({ VERCEL_ENV: "preview" }) === "preview" && K.currentEnvironment({ VERCEL_ENV: "development" }) === "local" && K.currentEnvironment({}) === "local" && K.currentEnvironment(null) === "local");
+  ok("environmentOf reads detail.env; a row from before the stamp is null, not a guess", K.environmentOf({ detail: { env: "local" } }) === "local" && K.environmentOf({ detail: { attemptId: "a" } }) === null && K.environmentOf({ detail: null }) === null && K.environmentOf({ detail: { env: "mars" } }) === null && K.environmentOf({ detail: ["env"] }) === null);
+  const ANY = Symbol("AnyNull");
+  const prod = K.environmentWhere("production", { anyNull: ANY });
+  ok("Production includes unstamped rows via path = AnyNull (a NOT would drop them: 0 of 25,976 on 2026-09-29)", prod.OR.length === 2 && prod.OR[1].detail.equals === ANY && prod.OR[0].detail.equals === "production" && !JSON.stringify(prod).includes("NOT"));
+  ok("Local / Preview are exact; All is no filter; anything else refused", K.environmentWhere("local").detail.equals === "local" && K.environmentWhere("preview").detail.equals === "preview" && Object.keys(K.environmentWhere("all")).length === 0 && K.environmentWhere("staging") === null);
+
+  ok("withEnvironment stamps env on an object, keeps every caller key, and a caller's own env wins", JSON.stringify(withEnvironment({ attemptId: "a", n: 1 }, "local")) === JSON.stringify({ env: "local", attemptId: "a", n: 1 }) && withEnvironment({ env: "preview" }, "local").env === "preview");
+  ok("…no detail becomes { env }, and a non-object is wrapped rather than altered", JSON.stringify(withEnvironment(null, "production")) === '{"env":"production"}' && JSON.stringify(withEnvironment(undefined, "local")) === '{"env":"local"}' && JSON.stringify(withEnvironment(["x"], "local")) === '{"env":"local","value":["x"]}' && JSON.stringify(withEnvironment("s", "local")) === '{"env":"local","value":"s"}');
+  const lib = strip(read("lib/platform/errorLog.js"));
+  ok("recordError writes detail through withEnvironment — every new row says where", /detail:\s*withEnvironment\(detail\)/.test(lib));
+  ok("the leg matcher's once-per-attempt lookup still finds detail.attemptId beside env", withEnvironment({ attemptId: "att1" }, "production").attemptId === "att1");
+
+  const coll = strip(read(COLLECTION));
+  ok("GET defaults to the Errors tab in production and refuses unknown values", coll.includes('searchParams.get("kind") || "error"') && coll.includes('searchParams.get("env") || "production"') && /Unknown kind/.test(coll) && /Unknown environment/.test(coll));
+  ok("…passes Prisma.AnyNull so unstamped rows stay in Production", coll.includes("environmentWhere(envFilter, { anyNull: Prisma.AnyNull })"));
+  ok("…returns per-tab counts and labels every row with its kind and environment", coll.includes("kindCounts") && coll.includes("kind: kindOf(e)") && coll.includes("environment: environmentOf(e)"));
+  const pg = strip(read(PAGE));
+  ok("the page has the three tabs, Errors first, and a Where filter defaulting to Production", pg.includes('useState("error")') && pg.includes('useState("production")') && pg.includes("ERROR_KINDS.map((k)") && pg.includes('qs.set("kind", kind)') && pg.includes('qs.set("env", env)'));
+  ok("…and every row shows its environment, or says it was not recorded", pg.includes('ENV_LABELS[e.environment] || "env not recorded"'));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
