@@ -69,6 +69,10 @@ import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import { uploadBuffer } from "@/lib/cloudinary";
 import { ratio as ratioByKey } from "@/lib/marketing/ratios";
+import { destinationRatio, isAllowedPublishRatio, matchesRatio } from "@/lib/marketing/destinations";
+import { allLayoutRows, rowsForRatio, slideCount } from "@/lib/marketing/slides";
+import { verifySlideAsset } from "@/lib/marketing/slideAssets";
+import { placeholdersIn } from "@/lib/designer/placeholders";
 import {
   validateCaption,
   isValidFacebookScheduleTime,
@@ -104,6 +108,9 @@ async function loadOwned(companyId, id) {
       // can only be re-checked against the artwork as it stands, and that
       // means reading it here rather than remembering that it once matched.
       layouts: { select: { ratioKey: true, json: true, width: true, height: true } },
+      // Carousel slides 2..n: in the approval fingerprint, scanned for
+      // placeholders, and counted so a carousel is posted whole or not at all.
+      slideLayouts: { select: { position: true, ratioKey: true, json: true, width: true, height: true } },
       approvedBy: { select: { name: true } },
     },
   });
@@ -167,6 +174,11 @@ export async function GET(request, { params }) {
     // app/api/marketing/designer/designs/[id]/route.js's PATCH.
     caption: design.caption || "",
     hashtags: design.hashtags || [],
+    // How many images a publish sends (a carousel is 2–10), and what is still
+    // a placeholder on the design — so the dialog says why Publish is off
+    // before anyone presses it. The POST re-derives both.
+    slideCount: slideCount(design.slideLayouts),
+    placeholders: placeholdersIn(allLayoutRows(design.layouts, design.slideLayouts)),
   });
 }
 
@@ -238,6 +250,26 @@ export async function POST(request, { params }) {
     );
   }
 
+  // ── The destination's own format, never another ──────────────────────────
+  //
+  // lib/marketing/destinations.js: Instagram and Facebook feed get 4:5,
+  // Facebook's link style 1.91:1 — and a square only for a design that was
+  // laid out square before 4:5 existed. A request asking to post any other
+  // shape to a platform is refused here, before anything is uploaded; the
+  // dialog never builds one.
+  const savedKeys = design.layouts.map((l) => l.ratioKey);
+  const wrongFor = platforms.filter((p) => !isAllowedPublishRatio(p, ratioKey, savedKeys));
+  if (wrongFor.length) {
+    return NextResponse.json(
+      {
+        error: "wrong_format",
+        message: `That format isn't the one ${wrongFor.join(" and ")} gets. Nothing was posted.`,
+        expected: Object.fromEntries(wrongFor.map((p) => [p, destinationRatio(p, { savedKeys })])),
+      },
+      { status: 400 },
+    );
+  }
+
   // ── The approval gate ───────────────────────────────────────────────────
   //
   // Before the image is decoded, before anything is uploaded, and long before
@@ -254,6 +286,26 @@ export async function POST(request, { params }) {
             ? "This design changed after it was approved. Review it and approve it again before posting."
             : "This design hasn't been approved yet. Review it and approve it before posting.",
         approval: { state: approval.state },
+      },
+      { status: 409 },
+    );
+  }
+
+  // ── Nothing that is still a placeholder goes out ────────────────────────
+  //
+  // A template leaves an obvious "[Paste a real review…]" or "[Number] years"
+  // where only the company knows the truth (lib/designer/placeholders.js).
+  // Checked on the layouts in the format being posted — every slide — or on
+  // everything when that format was never saved and will be reflowed from
+  // the others.
+  const postedRows = rowsForRatio(design.layouts, design.slideLayouts, ratioKey);
+  const remaining = placeholdersIn(postedRows.length ? postedRows : allLayoutRows(design.layouts, design.slideLayouts));
+  if (remaining.count) {
+    return NextResponse.json(
+      {
+        error: "placeholders_remaining",
+        message: "Replace the placeholders on this design (reviews, numbers, photos) before posting it.",
+        placeholders: remaining,
       },
       { status: 409 },
     );
@@ -314,25 +366,56 @@ export async function POST(request, { params }) {
   // platform's connection is the mock — see SIMULATABLE_FAILURES above.
   const simulateFailure = SIMULATABLE_FAILURES.has(body?.simulateFailure) ? body.simulateFailure : null;
 
-  const dataUrl = typeof body?.imageBase64 === "string" ? body.imageBase64 : "";
-  const base64 = dataUrl.includes(",") ? dataUrl.slice(dataUrl.indexOf(",") + 1) : dataUrl;
-  if (!base64) {
-    return NextResponse.json({ error: "An image is required." }, { status: 400 });
-  }
-  // Rough pre-check on the encoded length before paying for the decode —
-  // base64 runs ~4/3 the size of the decoded bytes.
-  if (base64.length > (MAX_UPLOAD_BYTES * 4) / 3) {
-    return NextResponse.json({ error: "Image is too large." }, { status: 413 });
+  // ── A carousel is posted whole or not at all ─────────────────────────────
+  //
+  // Its slides were uploaded one by one (…/assets) and arrive here as signed
+  // receipts, in order. Exactly as many as the design has slides, every one
+  // minted for THIS company and design, in THIS format, at its proportions —
+  // a carousel missing a slide, or with a slide in another shape, is not the
+  // post that was approved.
+  const expectedSlides = slideCount(design.slideLayouts);
+  let carousel = null;
+  if (expectedSlides > 1 || Array.isArray(body?.slideTokens)) {
+    const tokens = Array.isArray(body?.slideTokens) ? body.slideTokens : [];
+    if (expectedSlides < 2 || tokens.length !== expectedSlides) {
+      return NextResponse.json(
+        { error: "slides_mismatch", message: `This design has ${expectedSlides} slide(s); send every one of them, in order.` },
+        { status: 400 },
+      );
+    }
+    carousel = [];
+    for (const token of tokens) {
+      const asset = verifySlideAsset(token, { companyId: member.companyId, designId: design.id });
+      if (!asset || asset.ratioKey !== ratioKey || !matchesRatio(ratioKey, asset.width, asset.height)) {
+        return NextResponse.json(
+          { error: "wrong_format", message: "One of the slides isn't in this destination's format. Nothing was posted." },
+          { status: 400 },
+        );
+      }
+      carousel.push({ imageUrl: asset.url, width: asset.width, height: asset.height, fileSizeBytes: asset.bytes });
+    }
   }
 
-  let buffer;
-  try {
-    buffer = Buffer.from(base64, "base64");
-  } catch {
-    return NextResponse.json({ error: "Couldn't read the image data." }, { status: 400 });
+  const dataUrl = typeof body?.imageBase64 === "string" ? body.imageBase64 : "";
+  const base64 = dataUrl.includes(",") ? dataUrl.slice(dataUrl.indexOf(",") + 1) : dataUrl;
+  if (!base64 && !carousel) {
+    return NextResponse.json({ error: "An image is required." }, { status: 400 });
   }
-  if (!buffer.length || buffer.length > MAX_UPLOAD_BYTES) {
-    return NextResponse.json({ error: "Image is too large." }, { status: 413 });
+  let buffer = null;
+  if (!carousel) {
+    // Rough pre-check on the encoded length before paying for the decode —
+    // base64 runs ~4/3 the size of the decoded bytes.
+    if (base64.length > (MAX_UPLOAD_BYTES * 4) / 3) {
+      return NextResponse.json({ error: "Image is too large." }, { status: 413 });
+    }
+    try {
+      buffer = Buffer.from(base64, "base64");
+    } catch {
+      return NextResponse.json({ error: "Couldn't read the image data." }, { status: 400 });
+    }
+    if (!buffer.length || buffer.length > MAX_UPLOAD_BYTES) {
+      return NextResponse.json({ error: "Image is too large." }, { status: 413 });
+    }
   }
 
   if (!connection?.connected) {
@@ -359,14 +442,28 @@ export async function POST(request, { params }) {
   // possibly after the design itself is edited or deleted) still has the
   // exact pixels that were previewed and confirmed.
   let uploaded;
-  try {
-    uploaded = await uploadBuffer(buffer, {
-      folder: `fieldquo/companies/${member.companyId}/social`,
-      resourceType: "image",
-    });
-  } catch (err) {
-    console.error("[marketing/designer/publish] upload failed", err?.message);
-    return NextResponse.json({ error: "Couldn't upload the image. Nothing was posted." }, { status: 502 });
+  if (carousel) {
+    // Already uploaded, one request per slide, and measured by Cloudinary —
+    // the receipts above. The row records the first as its image.
+    uploaded = { secure_url: carousel[0].imageUrl, width: carousel[0].width, height: carousel[0].height, bytes: carousel[0].fileSizeBytes };
+  } else {
+    try {
+      uploaded = await uploadBuffer(buffer, {
+        folder: `fieldquo/companies/${member.companyId}/social`,
+        resourceType: "image",
+      });
+    } catch (err) {
+      console.error("[marketing/designer/publish] upload failed", err?.message);
+      return NextResponse.json({ error: "Couldn't upload the image. Nothing was posted." }, { status: 502 });
+    }
+    // Cloudinary's measurement of what the browser rendered: a picture that is
+    // not this format's shape is refused rather than posted and cropped.
+    if (!matchesRatio(ratioKey, uploaded.width, uploaded.height)) {
+      return NextResponse.json(
+        { error: "wrong_format", message: "That image isn't the size this format needs. Nothing was posted." },
+        { status: 400 },
+      );
+    }
   }
 
   const results = {};
@@ -385,6 +482,7 @@ export async function POST(request, { params }) {
       ratioKey,
       scheduledFor,
       simulateFailure,
+      carousel,
     });
   }
 
@@ -451,6 +549,7 @@ async function publishOnePlatform({
   ratioKey,
   scheduledFor,
   simulateFailure,
+  carousel = null,
 }) {
   const isMock = Boolean(connection.mock);
   const client = isMock ? mockMetaGraphClient : metaGraphClient;
@@ -466,6 +565,9 @@ async function publishOnePlatform({
       platform,
       caption,
       imageUrl,
+      // Every slide of a carousel, in order — what a scheduled row's fire
+      // reads back (the cron never re-renders). Empty for one image.
+      imageUrls: carousel ? carousel.map((c) => c.imageUrl) : [],
       width,
       height,
       isMock,
@@ -524,6 +626,7 @@ async function publishOnePlatform({
             width,
             height,
             fileSizeBytes,
+            carousel,
             client,
             simulateFailure: effectiveSimulateFailure,
           })
@@ -535,6 +638,7 @@ async function publishOnePlatform({
             width,
             height,
             scheduledPublishTime: scheduledFor || undefined,
+            carousel,
             client,
             simulateFailure: effectiveSimulateFailure,
           });

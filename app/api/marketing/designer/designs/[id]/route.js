@@ -20,6 +20,9 @@ async function loadOwned(companyId, id) {
     where: { id },
     include: {
       layouts: true,
+      // Carousel slides 2..n (lib/marketing/slides.js). The editor groups
+      // them with groupSlides(); a single-image design has none.
+      slideLayouts: { orderBy: [{ position: "asc" }, { ratioKey: "asc" }] },
       // The campaign's name is what assetFilename() (lib/marketing/ratios.js)
       // names every exported file after — the editor page needs it without a
       // second request, and it is the one field of the campaign this screen

@@ -1345,8 +1345,50 @@ model DesignTemplate {
   /// rows below DO have one.
   thumbnailUrl String?
 
+  /// ── Added 2026-09-29: the contractor catalogue and company templates ──
+  ///
+  /// The stable identity of a FieldQuo catalogue template
+  /// (lib/designer/templateCatalog.js), so prisma/seed-design-templates.js
+  /// upserts on something that never changes when a template is renamed or
+  /// translated. Null on a company's own template, which has no seed.
+  key String? @unique
+
+  /// Null = FieldQuo's catalogue, shown to every company. Set = a template
+  /// one company saved from its own design ("Save as template"), shown to
+  /// that company only: every read and write is scoped on it
+  /// (app/api/designer/templates). Additive — the catalogue rows written
+  /// before this column existed read as null, which is what they are.
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// The sidebar section: before_after | win_work | trust | tips | people.
+  /// Null for the two original generic starters and for company templates.
+  category String?
+
+  /// What a person called their saved template. `name` above stays @unique
+  /// (dropping that index is not an additive change), so a company
+  /// template's `name` is an internal handle ("company-template:<id>") and
+  /// this is what the sidebar prints. Catalogue rows leave it null and are
+  /// named by their translated key instead.
+  displayName String?
+
+  /// Every slide, every format: `[{ [ratioKey]: { json, width, height } }]`,
+  /// one object per slide in order. A catalogue template carries the three
+  /// formats FieldQuo publishes to (instagram_portrait 4:5, tiktok 9:16,
+  /// facebook_feed 1.91:1 — never the square); a company template carries
+  /// whatever layouts the design it was saved from had. Json rather than a
+  /// child table because a template is only ever read whole and written
+  /// once. Null on the two original starters, which have `json` alone.
+  slides Json?
+
+  /// "Delete" on a company template sets this; nothing hard-deletes a
+  /// template. Archived rows are excluded from every read.
+  archivedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([companyId])
 }
 
 // ============================================================
@@ -1879,6 +1921,8 @@ model Company {
   customQuoteTypes      ServiceCategory[]
   marketingCampaigns    MarketingCampaign[]
   marketingDesigns      MarketingDesign[]
+  /// "Save as template" rows — DesignTemplate.companyId. See that model.
+  designTemplates       DesignTemplate[]
   socialPublishes       SocialPublish[]
   documentTemplates     DocumentTemplate[]
   expenses              Expense[]
@@ -6552,6 +6596,9 @@ model MarketingDesign {
   approvedFingerprint String?
 
   layouts         MarketingDesignLayout[]
+  /// Slides 2..10 of a carousel. Slide 1 is `layouts`, unchanged, so a
+  /// single-image design is exactly the rows it always was.
+  slideLayouts    MarketingDesignSlideLayout[]
   socialPublishes SocialPublish[]
   tiktokPublishes TikTokPublish[]
 
@@ -6599,6 +6646,37 @@ model MarketingDesignLayout {
   // One saved layout per ratio per design — saving again for the same ratio
   // REPLACES it (upsert on this key), it never accumulates a history row.
   @@unique([designId, ratioKey])
+  @@index([designId])
+}
+
+// Slides 2..10 of a carousel design (lib/marketing/slides.js). One row per
+// slide per format, the same shape as MarketingDesignLayout.
+//
+// A separate table rather than a `position` column on MarketingDesignLayout:
+// that table's unique key is [designId, ratioKey], and widening it to include
+// a position means dropping an index — not an additive change on a live
+// database. Keeping slide 1 where it always was also means every design made
+// before carousels existed, and the approval fingerprint computed over it,
+// is byte-for-byte what it was (lib/marketing/approvalFingerprint.js).
+//
+// `position` is 1-based over the EXTRA slides: position 1 is the carousel's
+// second image. No companyId, for MarketingDesignLayout's reason — reached
+// only through a design already proved to be the caller's.
+model MarketingDesignSlideLayout {
+  id       String          @id @default(cuid())
+  designId String
+  design   MarketingDesign @relation(fields: [designId], references: [id], onDelete: Cascade)
+
+  position Int
+  ratioKey String
+  json     Json
+  width    Int
+  height   Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([designId, position, ratioKey])
   @@index([designId])
 }
 
@@ -6697,6 +6775,13 @@ model SocialPublish {
   /// scheduled row's cron fire reads FROM — the image is uploaded once, at
   /// schedule time, and reused; only Instagram's container is deferred.
   imageUrl String
+  /// Every slide of a CAROUSEL post, in order, when there is more than one
+  /// (imageUrl is then the first). Empty for a single-image post — which is
+  /// every row written before carousels existed, and why a scheduled row's
+  /// fire treats [] as "the one image in imageUrl" rather than as "no image".
+  /// Captured here at schedule time for the same reason imageUrl is: the cron
+  /// never re-renders a design. See lib/marketing/slides.js.
+  imageUrls String[] @default([])
 
   /// The rendered asset's real pixel dimensions — needed again at a
   /// scheduled row's fire time to re-run validateImageForInstagram() against
@@ -9065,6 +9150,11 @@ model TikTokPublish {
   /// directly: TikTok only pulls from FieldQuo's verified media prefix, and
   /// /api/tiktok/media/<signed token> streams these bytes.
   imageUrl String
+  /// A photo-mode post with several images (a carousel design): every slide's
+  /// Cloudinary copy, in order; imageUrl is the first. Empty for a single
+  /// photo, which is every row before carousels existed. The media route
+  /// serves imageUrls[i] for a token that names index i (lib/tiktok/media.js).
+  imageUrls String[] @default([])
   width    Int?
   height   Int?
 

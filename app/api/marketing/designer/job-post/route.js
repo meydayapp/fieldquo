@@ -42,6 +42,7 @@ import { checkAiQuota, recordAiUsage } from "@/lib/ai/usage";
 import { generateMarketingCopy } from "@/lib/ai/marketingCopy";
 import { documentTheme } from "@/lib/documents/theme";
 import { AD_RATIOS, ratio as ratioByKey, DEFAULT_RATIO } from "@/lib/marketing/ratios";
+import { visibleRatios } from "@/lib/marketing/destinations";
 import { composeJobPost, tradeFooter, factualHeadline } from "@/lib/marketing/jobPost";
 import { listPostableJobs, loadJobPostSource } from "@/lib/marketing/jobPostSource";
 import { loadJobPhotoContext } from "@/lib/marketing/jobPhotoContext";
@@ -229,8 +230,11 @@ export async function POST(request) {
   // so); composing each frame from the same facts puts the footer band at the
   // bottom of the Story as well as the bottom of the square, which a uniform
   // scale cannot do.
+  //
+  // Every ratio but the square: a new design is never 1:1 (owner,
+  // 2026-09-29 — lib/marketing/destinations.js visibleRatios()).
   await db.$transaction(
-    AD_RATIOS.map((r) => {
+    visibleRatios([]).map((r) => {
       const doc = composeJobPost({
         frame: { width: r.width, height: r.height },
         photos: source.photos,

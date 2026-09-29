@@ -26,9 +26,9 @@ import {
   overflowing,
   assetFilename,
   openingRatio,
-  defaultPublishShape,
   ratiosForDesign,
 } from "@/lib/marketing/ratios";
+import { destinationRatio } from "@/lib/marketing/destinations";
 import {
   validateImageForInstagram,
   validateImageForFacebook,
@@ -271,76 +271,56 @@ ok(openingRatio(["instagram_post", "instagram_portrait"]) === "instagram_portrai
 ok(openingRatio(undefined) === "instagram_portrait" && openingRatio([null, 7]) === "instagram_portrait",
   "hostile input (undefined, non-strings) does not throw and falls to the default");
 
-// defaultPublishShape(): the Publish dialog's first shape. It was always the
-// square; it only becomes portrait for a portrait design.
-ok(defaultPublishShape({ savedKeys: ["instagram_post"], activeKey: "instagram_post" }) === "instagram_post",
-  "an existing square design's Publish dialog starts on Square, as it always did");
-ok(defaultPublishShape({ savedKeys: ["facebook_feed", "instagram_story"], activeKey: "facebook_feed" }) === "instagram_post",
-  "…and so does one on any other tab — the dialog's old starting shape");
-ok(defaultPublishShape({ savedKeys: [], activeKey: "instagram_portrait" }) === "instagram_portrait",
-  "a NEW design (opened on the portrait tab) starts on Portrait");
-ok(defaultPublishShape({ savedKeys: ["instagram_portrait"], activeKey: "tiktok" }) === "instagram_portrait",
-  "a design with a saved portrait layout starts on Portrait whichever tab is open");
-ok(defaultPublishShape() === "instagram_post" && defaultPublishShape({ savedKeys: "nope" }) === "instagram_post",
-  "hostile input does not throw and starts on the square");
+// Owner, 2026-09-29: the Publish dialog's shape picker (and
+// defaultPublishShape(), which chose where it started) is gone. Each
+// destination gets its own format — lib/marketing/destinations.js — and a
+// square design from before 4:5 keeps posting its square.
+ok(destinationRatio("instagram", { savedKeys: ["instagram_post"] }) === "instagram_post",
+  "an existing square design still posts its square to Instagram");
+ok(destinationRatio("facebook", { savedKeys: ["instagram_post"] }) === "instagram_post",
+  "…and to Facebook's feed");
+ok(destinationRatio("instagram", { savedKeys: [] }) === "instagram_portrait", "a NEW design posts 4:5 to Instagram");
+ok(destinationRatio("facebook", { savedKeys: ["instagram_portrait"] }) === "instagram_portrait", "…and 4:5 to Facebook's feed");
+ok(destinationRatio("facebook", { savedKeys: [], facebookStyle: "link" }) === "facebook_feed", "…and 1.91:1 only for a link-style Facebook post");
+ok(destinationRatio("tiktok", { savedKeys: ["instagram_post"] }) === "tiktok", "TikTok always gets 9:16");
+ok(destinationRatio("instagram", { savedKeys: ["instagram_post", "instagram_portrait"] }) === "instagram_portrait",
+  "a design with BOTH gets the portrait");
 
-// The dialog offers the portrait, keeps the square, and never starts anywhere
-// it does not offer.
+// The dialog has no picker left to offer a wrong shape from, and every format
+// a feed destination can be given passes Instagram's gate and shows in full.
 const modal = readFileSync("app/components/designer/PublishModal.js", "utf8");
-const shapeBlock = modal.slice(modal.indexOf("const SHAPES = ["), modal.indexOf("];", modal.indexOf("const SHAPES = [")));
+ok(!modal.includes("const SHAPES = [") && !/setRatioKey\(/.test(modal), "PublishModal has no shape picker any more");
+ok(/planMetaRequests\(/.test(modal) && /destinationRatio\("instagram"/.test(modal),
+  "…it asks destinations.js which format each platform gets");
 for (const k of ["instagram_portrait", "instagram_post", "facebook_feed"]) {
-  ok(shapeBlock.includes(`key: "${k}"`), `PublishModal offers ${k}`);
-}
-ok(!/instagram_story|tiktok/.test(shapeBlock), "…and still never a 9:16 shape Instagram's feed endpoint would refuse");
-for (const k of shapeBlock.match(/key: "([a-z_]+)"/g).map((m) => m.slice(6, -1))) {
-  ok(igOk(k), `…every offered shape (${k}) passes Instagram's gate`);
+  ok(igOk(k), `a feed format (${k}) passes Instagram's gate`);
   ok(checkImageForFacebookFeed(ratio(k)).warnings.length === 0, `…and shows in full in Facebook's feed (${k})`);
 }
-ok(/initialShape/.test(modal) && /FALLBACK_SHAPE = "instagram_post"/.test(modal),
-  "PublishModal starts on the caller's initialShape, falling back to the square");
 const editor = readFileSync("app/components/designer/CampaignEditor.js", "utf8");
-ok(/const \[publishShape\] = useState\(\(\) => \{[\s\S]{0,200}defaultPublishShape\(\{ savedKeys, activeKey: openingRatio\(savedKeys\) \}\)/.test(editor),
-  "CampaignEditor works out ONE publish shape: defaultPublishShape() over the saved keys and the opening tab");
-ok(/initialShape=\{publishShape\}/.test(editor), "…hands it to PublishModal as the starting shape");
-ok(/previewShape=\{publishShape\}/.test(editor), "…and the SAME value to ApprovalModal as the preview shape");
+ok(/destinationRatio\("instagram", \{ savedKeys: firstSlideKeys \}\)/.test(editor),
+  "CampaignEditor's approval preview is the format Instagram gets");
+ok(/previewShape=\{publishShape\}/.test(editor), "…handed to ApprovalModal as the preview shape");
 
 // ApprovalModal: the approver sees the image that will be posted.
 const approvalSrc = readFileSync("app/components/designer/ApprovalModal.js", "utf8");
 ok(/preparePublishAsset\(previewShape\)/.test(approvalSrc) && !/preparePublishAsset\("instagram_post"\)/.test(approvalSrc),
   "ApprovalModal previews previewShape, not a hard-coded square");
-ok(/previewShape = "instagram_post"/.test(approvalSrc), "…defaulting to the square it always previewed");
-ok(/\[isOpen, preparePublishAsset, previewShape\]/.test(approvalSrc), "…and re-renders the preview if the shape changes");
-{
-  // The shape CampaignEditor computes, executed: for every existing design it
-  // is the square the approval preview has always shown; for a new or
-  // portrait design it is the portrait the Publish dialog will post.
-  const shapeFor = (keys) => defaultPublishShape({ savedKeys: keys, activeKey: openingRatio(keys) });
-  const existing = [
-    ["instagram_post"],
-    ["facebook_feed"],
-    ["instagram_story", "tiktok"],
-    ["facebook_feed", "instagram_post", "instagram_story", "tiktok", "youtube_thumb"],
-  ];
-  for (const keys of existing) {
-    ok(shapeFor(keys) === "instagram_post", `existing design [${keys.join(", ")}]: approval previews (and Publish starts on) the square, as before`, shapeFor(keys));
-  }
-  ok(shapeFor([]) === "instagram_portrait", "a NEW design: approval previews the portrait it will be posted as");
-  ok(shapeFor(["instagram_portrait"]) === "instagram_portrait", "a portrait design: approval previews the portrait");
-  ok(shapeFor(AD_RATIOS.map((r) => r.key)) === "instagram_portrait", "a job-post design (every preset composed): portrait");
-}
+ok(/\[isOpen, preparePublishAsset, previewShape(, slideCount)?\]/.test(approvalSrc), "…and re-renders the preview if the shape changes");
 
 // ratiosForDesign(): "N/M formats ready" never penalises a preset the
-// design never had.
+// design never had — the portrait for a pre-4:5 design, the square for any
+// design that never had one (new designs are never offered 1:1).
 {
   const keysOf = (list) => list.map((r) => r.key);
   const five = ["instagram_post", "instagram_story", "tiktok", "facebook_feed", "youtube_thumb"];
   ok(ratiosForDesign(five).length === 5 && !keysOf(ratiosForDesign(five)).includes("instagram_portrait"),
     "a design finished before the portrait existed counts 5/5, not 5/6", keysOf(ratiosForDesign(five)));
   ok(ratiosForDesign(["instagram_post"]).length === 5, "a pre-portrait square-only design counts against 5 (shows 1/5, as it always did)");
-  ok(ratiosForDesign([]).length === 6, "a design with nothing saved is new, and counts the portrait (0/6)");
-  ok(ratiosForDesign(["instagram_portrait"]).length === 6, "a design with a portrait layout counts it (1/6)");
-  ok(ratiosForDesign([...five, "instagram_portrait"]).length === 6, "…and all six saved is 6/6");
-  ok(ratiosForDesign(undefined).length === 6 && ratiosForDesign([null, 3]).length === 6,
+  ok(ratiosForDesign([]).length === 5 && !keysOf(ratiosForDesign([])).includes("instagram_post"),
+    "a NEW design counts the portrait and not the square (0/5)");
+  ok(ratiosForDesign(["instagram_portrait"]).length === 5, "a portrait design with no square counts 1/5");
+  ok(ratiosForDesign([...five, "instagram_portrait"]).length === 6, "…a design with all six saved is 6/6");
+  ok(ratiosForDesign(undefined).length === 5 && ratiosForDesign([null, 3]).length === 5,
     "hostile input (undefined, non-strings) does not throw and is treated as nothing saved");
   ok(keysOf(ratiosForDesign(five)).join() === keysOf(AD_RATIOS).filter((k) => k !== "instagram_portrait").join(),
     "…and the order of the chips is unchanged");

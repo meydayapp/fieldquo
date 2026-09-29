@@ -44,6 +44,10 @@ import { recordActivity } from "@/lib/activity/log";
 import { uploadBuffer } from "@/lib/cloudinary";
 import { getAppOrigin } from "@/lib/appUrl";
 import { approvalState } from "@/lib/marketing/approvalFingerprint";
+import { matchesRatio } from "@/lib/marketing/destinations";
+import { allLayoutRows, rowsForRatio, slideCount } from "@/lib/marketing/slides";
+import { verifySlideAsset } from "@/lib/marketing/slideAssets";
+import { placeholdersIn } from "@/lib/designer/placeholders";
 import { tiktokAudited, tiktokConfigured } from "@/lib/tiktok/config";
 import { queryCreatorInfo, initPhotoPost } from "@/lib/tiktok/client";
 import { getLiveTikTokConnection, getTikTokAccess } from "@/lib/tiktok/connection";
@@ -69,6 +73,9 @@ async function loadOwned(companyId, id) {
     where: { id },
     include: {
       layouts: { select: { ratioKey: true, json: true, width: true, height: true } },
+      // Carousel slides 2..n — fingerprinted, scanned for placeholders, and
+      // posted together as one photo-mode post.
+      slideLayouts: { select: { position: true, ratioKey: true, json: true, width: true, height: true } },
       approvedBy: { select: { name: true } },
     },
   });
@@ -118,6 +125,8 @@ export async function GET(request, { params }) {
       approvedByName: design.approvedBy?.name || null,
     },
     caption: design.caption || "",
+    slideCount: slideCount(design.slideLayouts),
+    placeholders: placeholdersIn(allLayoutRows(design.layouts, design.slideLayouts)),
     history: history.map(historyShape),
   });
 }
@@ -172,6 +181,17 @@ export async function POST(request, { params }) {
     });
   }
 
+  // ── Nothing that is still a placeholder goes out ────────────────────────
+  // The same rule as the Facebook/Instagram route, on the 9:16 layouts TikTok
+  // gets (or everything, when 9:16 was never saved and will be reflowed).
+  const verticalRows = rowsForRatio(design.layouts, design.slideLayouts, TIKTOK_RATIO_KEY);
+  const remaining = placeholdersIn(verticalRows.length ? verticalRows : allLayoutRows(design.layouts, design.slideLayouts));
+  if (remaining.count) {
+    return refuse(409, "placeholders_remaining", "Replace the placeholders on this design (reviews, numbers, photos) before posting it.", {
+      placeholders: remaining,
+    });
+  }
+
   // Express consent — the Post button sends it; a request without it is not
   // the person agreeing to TikTok's terms, whatever else it carries.
   if (body?.consent !== true) return refuse(400, "consent_required", "Confirm you agree to TikTok's terms to post.");
@@ -189,21 +209,45 @@ export async function POST(request, { params }) {
     brandedContent: body?.brandedContent === true,
   };
 
-  // ── The image ────────────────────────────────────────────────────────────
-  const dataUrl = typeof body?.imageBase64 === "string" ? body.imageBase64 : "";
-  const base64 = dataUrl.includes(",") ? dataUrl.slice(dataUrl.indexOf(",") + 1) : dataUrl;
-  if (!base64) return refuse(400, "no_image", "An image is required.");
-  if (base64.length > (MAX_UPLOAD_BYTES * 4) / 3) return refuse(413, "file_too_large", "Image is too large.");
-  let buffer;
-  try {
-    buffer = Buffer.from(base64, "base64");
-  } catch {
-    return refuse(400, "bad_image", "Couldn't read the image data.");
+  // ── A carousel: every slide, already uploaded, as signed receipts ────────
+  // (lib/marketing/slideAssets.js). Exactly the design's slide count, each in
+  // TikTok's 9:16 — the same whole-or-nothing rule as the Meta route.
+  const expectedSlides = slideCount(design.slideLayouts);
+  let slides = null;
+  if (expectedSlides > 1 || Array.isArray(body?.slideTokens)) {
+    const tokens = Array.isArray(body?.slideTokens) ? body.slideTokens : [];
+    if (expectedSlides < 2 || tokens.length !== expectedSlides) {
+      return refuse(400, "slides_mismatch", "Send every slide of this design, in order.");
+    }
+    slides = [];
+    for (const token of tokens) {
+      const asset = verifySlideAsset(token, { companyId: member.companyId, designId: design.id });
+      if (!asset || asset.ratioKey !== TIKTOK_RATIO_KEY || !matchesRatio(TIKTOK_RATIO_KEY, asset.width, asset.height)) {
+        return refuse(400, "wrong_format", "One of the slides isn't in TikTok's 9:16 format. Nothing was posted.");
+      }
+      const photo = validateTikTokPhoto({ width: asset.width, height: asset.height, bytes: asset.bytes });
+      if (!photo.ok) return refuse(400, "picture_size_check_failed", "This image is larger than TikTok accepts.", { errors: photo.errors });
+      slides.push(asset);
+    }
   }
-  if (!buffer.length || buffer.length > MAX_UPLOAD_BYTES) return refuse(413, "file_too_large", "Image is too large.");
-  // TikTok photo posts take JPEG or WebP; the composer rasterises JPEG, so
-  // anything else is a request this route did not build.
-  if (!isJpeg(buffer)) return refuse(400, "file_format_check_failed", "The image must be a JPEG.");
+
+  // ── The image ────────────────────────────────────────────────────────────
+  let buffer = null;
+  if (!slides) {
+    const dataUrl = typeof body?.imageBase64 === "string" ? body.imageBase64 : "";
+    const base64 = dataUrl.includes(",") ? dataUrl.slice(dataUrl.indexOf(",") + 1) : dataUrl;
+    if (!base64) return refuse(400, "no_image", "An image is required.");
+    if (base64.length > (MAX_UPLOAD_BYTES * 4) / 3) return refuse(413, "file_too_large", "Image is too large.");
+    try {
+      buffer = Buffer.from(base64, "base64");
+    } catch {
+      return refuse(400, "bad_image", "Couldn't read the image data.");
+    }
+    if (!buffer.length || buffer.length > MAX_UPLOAD_BYTES) return refuse(413, "file_too_large", "Image is too large.");
+    // TikTok photo posts take JPEG or WebP; the composer rasterises JPEG, so
+    // anything else is a request this route did not build.
+    if (!isJpeg(buffer)) return refuse(400, "file_format_check_failed", "The image must be a JPEG.");
+  }
 
   // ── A token, and creator_info fetched fresh on THIS request ──────────────
   const access = await getTikTokAccess(member.companyId);
@@ -236,19 +280,28 @@ export async function POST(request, { params }) {
   }
 
   let uploaded;
-  try {
-    uploaded = await uploadBuffer(buffer, {
-      folder: `fieldquo/companies/${member.companyId}/social`,
-      resourceType: "image",
-    });
-  } catch (err) {
-    console.error("[designer/tiktok] upload failed", err?.message);
-    return refuse(502, "upload_failed", "Couldn't upload the image. Nothing was posted.");
-  }
+  if (slides) {
+    uploaded = { secure_url: slides[0].url, width: slides[0].width, height: slides[0].height, bytes: slides[0].bytes };
+  } else {
+    try {
+      uploaded = await uploadBuffer(buffer, {
+        folder: `fieldquo/companies/${member.companyId}/social`,
+        resourceType: "image",
+      });
+    } catch (err) {
+      console.error("[designer/tiktok] upload failed", err?.message);
+      return refuse(502, "upload_failed", "Couldn't upload the image. Nothing was posted.");
+    }
 
-  const photo = validateTikTokPhoto({ width: uploaded.width, height: uploaded.height, bytes: uploaded.bytes });
-  if (!photo.ok) {
-    return refuse(400, "picture_size_check_failed", "This image is larger than TikTok accepts.", { errors: photo.errors });
+    const photo = validateTikTokPhoto({ width: uploaded.width, height: uploaded.height, bytes: uploaded.bytes });
+    if (!photo.ok) {
+      return refuse(400, "picture_size_check_failed", "This image is larger than TikTok accepts.", { errors: photo.errors });
+    }
+    // TikTok gets 9:16 (lib/marketing/destinations.js) — measured by
+    // Cloudinary, so a request carrying another shape is refused, not posted.
+    if (!matchesRatio(TIKTOK_RATIO_KEY, uploaded.width, uploaded.height)) {
+      return refuse(400, "wrong_format", "That image isn't TikTok's 9:16 format. Nothing was posted.");
+    }
   }
 
   const row = await db.tikTokPublish.create({
@@ -260,6 +313,7 @@ export async function POST(request, { params }) {
       ratioKey: TIKTOK_RATIO_KEY,
       caption,
       imageUrl: uploaded.secure_url,
+      imageUrls: slides ? slides.map((a) => a.url) : [],
       width: uploaded.width ?? null,
       height: uploaded.height ?? null,
       postMode: isDraft ? POST_MODES.draft : POST_MODES.post,
@@ -272,16 +326,24 @@ export async function POST(request, { params }) {
     },
   });
 
-  const token = makeMediaToken({
-    rootKey: signingRootKey(),
-    publishId: row.id,
-    companyId: member.companyId,
-    nowSeconds: Date.now() / 1000,
-  });
-  const photoUrl = mediaUrlFor(getAppOrigin(request), token);
+  const origin = getAppOrigin(request);
+  const mint = (index) =>
+    mediaUrlFor(
+      origin,
+      makeMediaToken({
+        rootKey: signingRootKey(),
+        publishId: row.id,
+        companyId: member.companyId,
+        nowSeconds: Date.now() / 1000,
+        index,
+      }),
+    );
+  const photoUrl = mint(undefined);
+  // One signed URL per slide, each able to open only its own image.
+  const photoUrls = slides ? slides.map((_, i) => mint(i)) : undefined;
   const postBody = isDraft
-    ? buildPhotoDraftBody({ description: caption, photoUrl })
-    : buildPhotoPostBody({ ...choice, description: caption, photoUrl });
+    ? buildPhotoDraftBody({ description: caption, photoUrl, photoUrls })
+    : buildPhotoPostBody({ ...choice, description: caption, photoUrl, photoUrls });
 
   const init = await initPhotoPost({ accessToken: access.accessToken, body: postBody });
   if (!init.ok || !init.data?.publish_id) {
