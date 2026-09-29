@@ -3455,6 +3455,20 @@ model Quote {
   acceptedAt DateTime?
   declinedAt DateTime?
 
+  /// When the CLIENT first opened /q/<token>, and how many times since.
+  ///
+  /// Stamped only by POST /api/public/quotes/[token]/viewed, which the
+  /// approval page calls from the browser after the document has rendered —
+  /// never by the GET that serves it (scripts/check-quote-preview.mjs forbids
+  /// that), so a mail scanner or link prefetcher that fetches without running
+  /// the page never counts. The route also refuses the company's own staff,
+  /// a read-only support session and a draft preview: "the client opened it"
+  /// must mean the client. Null means "no client view recorded", which on a
+  /// quote sent before this column existed is not the same as "never opened".
+  /// Read through lib/quotes/quoteViews.js.
+  viewedAt  DateTime?
+  viewCount Int       @default(0)
+
   /// Why it was lost, when anyone says.
   ///
   /// "You lose 60% of quotes on price" and "you lose 60% on timing" describe
@@ -3726,9 +3740,49 @@ model JobSubcontractor {
   updatedAt DateTime @updatedAt
 
   payments SubcontractorPayment[]
+  /// The sub's own invoices for this work, when they are on FieldQuo too —
+  /// see SubcontractorBill.
+  bills    SubcontractorBill[]
 
   @@index([jobId])
   @@index([subcontractorId, status])
+}
+
+/// An invoice a subcontractor on FieldQuo SENT to this company for work on
+/// one job — the GC's copy of the bill, written by
+/// lib/subcontractors/sourceLink.js when the sub sends it, never typed.
+///
+/// A copy, not a relation to the sub's Invoice row, because that row belongs
+/// to another tenant: the GC may hold what the sub SENT them (the number, the
+/// total, the date — all printed on the invoice they received) and nothing
+/// else of the sub's ledger. sourceInvoiceId is the sub's ROOT invoice id,
+/// kept so a re-send or an amended version updates this row instead of
+/// adding a second one.
+///
+/// It never moves job costing on its own. The job's subcontract cost is the
+/// JobSubcontractor's agreedAmount — the approved figure (the quote the GC
+/// accepted plus every change order the GC signed). A bill that matches it
+/// is the same number; one that doesn't is flagged on the job ("Invoice $X
+/// differs from approved $Y") rather than silently becoming the cost.
+model SubcontractorBill {
+  id                 String           @id @default(cuid())
+  /// The GC — the company this copy belongs to.
+  companyId          String
+  jobSubcontractorId String
+  jobSubcontractor   JobSubcontractor @relation(fields: [jobSubcontractorId], references: [id], onDelete: Cascade)
+  sourceCompanyId    String
+  sourceInvoiceId    String
+  invoiceNumber      String
+  /// The latest SENT version's total, in the sub's currency — which is the
+  /// GC's, since the import's snapshot already assumed as much.
+  total              Decimal          @db.Decimal(12, 2)
+  version            Int              @default(1)
+  sentAt             DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@unique([jobSubcontractorId, sourceInvoiceId])
+  @@index([companyId])
 }
 
 /// Money paid TO a sub. Recorded (cash, cheque, e-transfer — the same
