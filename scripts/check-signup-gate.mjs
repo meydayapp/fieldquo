@@ -500,9 +500,11 @@ console.log("\nThe gate is actually wired in\n");
   const page = read("app/signup/page.js");
   const finish = functionBody(page, "handleFinish");
 
+  // Since 2026-09-29 handleFinish IS the resumed payment — the one plan step
+  // /signup keeps — so the whole function is held to it.
   ok(
     "a resumed payment does NOT post /api/companies",
-    orderedBoth(finish, "if (finishCheckout) {", '"/api/companies"'),
+    !/"\/api\/companies"/.test(finish) && /"\/api\/platform\/billing\/checkout"/.test(finish),
     "that route 409s on any session that already has a membership — the redirect would land on a dead button",
   );
   ok(
@@ -514,7 +516,7 @@ console.log("\nThe gate is actually wired in\n");
     "it sends the plan and the cadence, never a price",
     /planId:\s*selectedPlanId/.test(finish) &&
       /interval:\s*effectiveInterval/.test(finish) &&
-      !/amount|price|total/i.test(finish.split("if (finishCheckout) {")[1].split("\n    }\n")[0]),
+      !/amount|price|total/i.test(finish.split("body: JSON.stringify(")[1]?.split(")")[0] || "amount"),
     "non-negotiable #5: the browser never sends money amounts",
   );
   ok(
@@ -529,19 +531,19 @@ console.log("\nThe gate is actually wired in\n");
     "inferring it from /api/settings/subscription is ambiguous: that route returns a null status both for no subscription AND for anyone who isn't a billing admin",
   );
   ok(
-    "the plan step is where a resumed visit lands",
-    /if \(finishCheckout\) \{\s*\n\s*entryStepRef\.current = "plan";/.test(page),
-    "resumeStep clamps to what a DRAFT supports, and the draft dies with the tab",
+    "the plan step is what a resumed visit sees",
+    /\{entryChecked && finishCheckout && \(/.test(page),
+    "the company exists and the card is the only thing left",
   );
   ok(
-    "the company's own address fills a missing draft",
-    /country: f\.country \|\| finishCheckout\.country/.test(page),
-    "no country means the plan step asks 'where is your business?' and its button leads to a form whose Continue 409s",
+    "the plan is priced off the company's own stored address",
+    /const basis = billingBasis\(finishCheckout \|\| \{\}\);/.test(page),
+    "the tab's draft may not exist; the company row always does",
   );
   ok(
-    "Back is not rendered on a resumed payment",
-    /\{!finishCheckout && \(\s*\n\s*<button/.test(page),
-    "the earlier steps edit a company that already exists and nothing on this page writes to it",
+    "no Back on a resumed payment — there is no earlier step to go back to",
+    !/goBackToStep|previousStep\(/.test(page),
+    "the business details are edited in Company Settings, on the other side of this payment",
   );
   ok(
     "a redirected owner can still sign out",
@@ -568,6 +570,25 @@ console.log("\nThe gate is actually wired in\n");
     /resumeTrialLive/.test(page) && /trialEndsAt/.test(page),
     "/api/platform/billing/checkout only sends trial days while trialEndsAt is in the future — saying '14 days free' over a charge that lands today is a promise with money on it",
   );
+}
+
+// ── The welcome questions' gate (2026-09-29) ─────────────────────────────
+//
+// The owner of a company made on the one-screen signup is sent to the next
+// unanswered welcome question until personalizedAt is stamped — the rule is
+// lib/signup/welcomeGate.js (its matrix runs in check:welcome-flow). Held
+// here: the /app shell calls it with what it already resolved, never for a
+// support session, and after the checkout gate's redirect.
+{
+  const layout = read("app/app/layout.js");
+  ok("the /app shell asks the welcome gate", /welcomeGateDecision\(\{/.test(layout) && /if \(welcome\.action === "redirect"\) redirect\(welcome\.path\);/.test(layout));
+  ok("...with the support-session flag and the role it already resolved", /impersonating: Boolean\(settingsShell\.access\?\.impersonation\)/.test(layout) && /role: settingsShell\.access\?\.role \|\| null/.test(layout));
+  ok("...reading the two columns on the query every page already makes", /onboardingStep: true,\s*personalizedAt: true,/.test(layout));
+  ok("...after the checkout gate's redirect, before the lock screen", layout.indexOf("if (typeof setupPath === \"string\") redirect(setupPath);") < layout.indexOf("welcomeGateDecision({") && layout.indexOf("welcomeGateDecision({") < layout.indexOf("if (locked) {"));
+  const welcomePage = read("app/welcome/[step]/page.js");
+  ok("/welcome sends a support session and a non-owner to /app, never into a customer's questions", /if \(member\.impersonation \|\| member\.role !== "owner"\) redirect\("\/app"\);/.test(welcomePage));
+  ok("...and a company that is finished (or never on the flow) to /app", /if \(!state \|\| !state\.company\.onboardingStep \|\| !state\.resume\) redirect\("\/app"\);/.test(welcomePage));
+  ok("...and no session to /login, coming back after", /redirect\(`\/login\?next=\$\{encodeURIComponent\(welcomePath/.test(welcomePage));
 }
 
 // ── The resume endpoint ──────────────────────────────────────────────────

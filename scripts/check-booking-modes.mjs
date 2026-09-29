@@ -87,6 +87,9 @@ const COMPANY = {
   name: "Acme Cabinets",
   email: "office@acme.test",
   phone: "555-0100",
+  // Every real company has a country (0 without one on 2026-09-29), and the
+  // public booking lookup refuses a company without one — lib/company/profileReadiness.js.
+  country: "CA",
   currency: "CAD",
   timezone: "America/Toronto",
   defaultLanguage: "en",

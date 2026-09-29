@@ -28,7 +28,37 @@ import {
   excludeDemo, topPaths, byLanguage, dimension, signupFunnel, monotoneFromCounts, featureUsage,
   companyScreens, perDay, salesTopFeatures,
 } from "@/lib/analytics/product/aggregate";
-import { SIGNUP_FUNNEL, SIGNUP_STEP_BAR, FEATURES } from "@/lib/analytics/product/events";
+import { SIGNUP_FUNNEL_DEFS, SIGNUP_FUNNEL_CUTOVER, signupFunnelCutover, FEATURES } from "@/lib/analytics/product/events";
+
+/**
+ * One era's funnel over [start, end): distinct visitors when the raw window
+ * covers it, else the daily counts made monotone (labelled as events).
+ */
+function buildFunnel({ raw, rows, def, start, end, completed }) {
+  if (raw && raw.from <= start) {
+    const f = signupFunnel(raw.counts, raw.stoppedAt, "visitors", def);
+    f.excluded = raw.excluded;
+    f.companiesFinished = raw.companiesFinished;
+    f.companiesLinked = raw.companiesLinked;
+    return f;
+  }
+  const counts = Object.fromEntries(def.funnel.map((k) => [k, 0]));
+  for (const r of rows) {
+    const day = new Date(r.date);
+    if (!(day >= start && day < end)) continue;
+    if (r.event === "page_view" && r.path === "/signup") counts.visited += r.count;
+    else if (r.event === "signup_step" && def.stepBar[r.path]) counts[def.stepBar[r.path]] += r.count;
+  }
+  // Trial started is a company on every basis — completedSignupWhere, never
+  // a beacon. Past the raw window no browser can be tied to it, so the bar
+  // is the companies themselves.
+  counts[def.trialBar] = Math.max(counts[def.trialBar] || 0, completed);
+  const f = signupFunnel(monotoneFromCounts(counts, def), raw ? raw.stoppedAt : null, "events", def);
+  f.companiesFinished = completed;
+  f.companiesLinked = null;
+  if (raw) f.stoppedAtFrom = raw.from.toISOString().slice(0, 10);
+  return f;
+}
 import { loadCampaignReport, CAMPAIGN_METRICS } from "@/lib/analytics/product/campaigns";
 import { groupAdRows, META_URL_PARAMETERS, META_URL_PARAMETERS_DOC } from "@/lib/tracking/adParams";
 import { RAW_RETENTION_DAYS } from "@/lib/analytics/product/rollup";
@@ -52,7 +82,16 @@ export async function GET(request) {
   const [dailyAll, uniques, funnelRaw, conversions, totalCompanies, rangeUniques, completedInRange] = await Promise.all([
     dailyRows({ start: range.start, end: range.end }),
     rawUniques({ start: range.start, end: range.end }),
-    signupVisitors({ start: range.start, end: range.end }),
+    // The current funnel's own window: from the cutover on. Before it, the
+    // legacy funnel (below) — the old signup's steps are never mapped onto
+    // screens those visitors never saw.
+    range.end > signupFunnelCutover()
+      ? signupVisitors({
+          start: range.start > signupFunnelCutover() ? range.start : signupFunnelCutover(),
+          end: range.end,
+          def: SIGNUP_FUNNEL_DEFS.current,
+        })
+      : null,
     clientConversions({ start: range.start, end: range.end, includeDemo }),
     companyDenominator({ includeDemo }),
     rawUniquesByPath({ start: range.start, end: range.end }),
@@ -100,27 +139,47 @@ export async function GET(request) {
   // Either way every bar is "reached this step or later", so no bar can read
   // higher than the one before it (aggregate.js funnelFromVisitors) — the
   // owner's screenshot had "Account & company 581" over "Visited 565".
-  let funnel;
-  if (funnelRaw && funnelRaw.from <= range.start) {
-    funnel = signupFunnel(funnelRaw.counts, funnelRaw.stoppedAt, "visitors");
-    funnel.excluded = funnelRaw.excluded;
-    funnel.companiesFinished = funnelRaw.companiesFinished;
-    funnel.companiesLinked = funnelRaw.companiesLinked;
-  } else {
-    const counts = Object.fromEntries(SIGNUP_FUNNEL.map((k) => [k, 0]));
-    for (const r of rows) {
-      if (r.event === "page_view" && r.path === "/signup") counts.visited += r.count;
-      else if (r.event === "signup_step" && SIGNUP_STEP_BAR[r.path]) counts[SIGNUP_STEP_BAR[r.path]] += r.count;
-    }
-    // Trial started is a company on every basis — completedSignupWhere,
-    // never a beacon (see signupsCompleted). Past the raw window no browser
-    // can be tied to it, so the bar is the companies themselves.
-    counts.trial_started = completedInRange;
-    funnel = signupFunnel(monotoneFromCounts(counts), funnelRaw ? funnelRaw.stoppedAt : null, "events");
-    funnel.companiesFinished = completedInRange;
-    funnel.companiesLinked = null;
-    if (funnelRaw) funnel.stoppedAtFrom = funnelRaw.from.toISOString().slice(0, 10);
-  }
+  //
+  // ── Two eras (2026-09-29) ──────────────────────────────────────────────
+  //
+  // The one-screen signup changed what the bars ARE (lib/analytics/product/
+  // events.js SIGNUP_FUNNEL_CUTOVER). A range that starts before the cutover
+  // gets the old funnel for its days before it, drawn separately; the
+  // current funnel covers the days from it.
+  const cutover = signupFunnelCutover();
+  const curStart = range.start > cutover ? range.start : cutover;
+  const [curCompleted, legacyRaw, legacyCompleted] = await Promise.all([
+    range.end > cutover
+      ? range.start >= cutover
+        ? completedInRange
+        : signupsCompleted({ start: curStart, end: range.end })
+      : 0,
+    range.start < cutover
+      ? signupVisitors({ start: range.start, end: range.end < cutover ? range.end : cutover, def: SIGNUP_FUNNEL_DEFS.legacy })
+      : null,
+    range.start < cutover
+      ? range.end <= cutover
+        ? completedInRange
+        : signupsCompleted({ start: range.start, end: cutover })
+      : 0,
+  ]);
+  const funnel =
+    range.end > cutover
+      ? buildFunnel({ raw: funnelRaw, rows, def: SIGNUP_FUNNEL_DEFS.current, start: curStart, end: range.end, completed: curCompleted })
+      : buildFunnel({ raw: null, rows: [], def: SIGNUP_FUNNEL_DEFS.current, start: curStart, end: curStart, completed: 0 });
+  funnel.from = curStart.toISOString().slice(0, 10);
+  funnel.cutover = SIGNUP_FUNNEL_CUTOVER;
+  const funnelLegacy =
+    range.start < cutover
+      ? buildFunnel({
+          raw: legacyRaw,
+          rows,
+          def: SIGNUP_FUNNEL_DEFS.legacy,
+          start: range.start,
+          end: range.end < cutover ? range.end : cutover,
+          completed: legacyCompleted,
+        })
+      : null;
 
   // ── Campaigns: campaign ▸ ad set ▸ ad, with what they led to ───────────
   //
@@ -244,6 +303,7 @@ export async function GET(request) {
     marketing,
     campaigns,
     funnel,
+    funnelLegacy,
     help,
     product,
     client,
