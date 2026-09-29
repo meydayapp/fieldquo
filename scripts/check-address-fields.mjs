@@ -186,7 +186,8 @@ for (const must of [
   "app/components/dashboard/panels/BusinessInfoPanel.js",
   "app/components/quotes/builder/ClientPicker.js",
   "app/quote/[companySlug]/SelfQuoteFlow.js",
-  "app/signup/page.js",
+  // The signup address moved to the welcome business screen (2026-09-29).
+  "app/welcome/WelcomeFlow.js",
 ])
   ok(
     `${must} is in the consumer set`,
