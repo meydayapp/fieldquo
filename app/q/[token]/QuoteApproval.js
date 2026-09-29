@@ -386,6 +386,29 @@ export default function QuoteApproval({ token, sample = null }) {
     [proposal],
   );
 
+  // ── "The client opened it" ───────────────────────────────────────────────
+  //
+  // Sent from HERE, after the document has rendered, rather than stamped by
+  // the GET that served it: a mail scanner or a prefetch fetches without
+  // running this, and the GET is promised to write nothing (it also serves
+  // the office's draft preview). Never for a preview or a sample, once per
+  // tab so a reload is not a second reader, and fire-and-forget — the
+  // server decides whether it counts (lib/quotes/quoteViews.js) and nothing
+  // on this page waits for or shows the answer.
+  const viewReported = useRef(false);
+  useEffect(() => {
+    if (sample || !quote || quote.preview || viewReported.current) return;
+    viewReported.current = true;
+    const key = `fq:quote-viewed:${token}`;
+    try {
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, "1");
+    } catch {
+      // Blocked storage: report anyway; at worst a reload counts twice.
+    }
+    fetch(`/api/public/quotes/${token}/viewed`, { method: "POST", keepalive: true }).catch(() => {});
+  }, [sample, quote, token]);
+
   useEffect(() => {
     if (typeof window === "undefined" || !quote) return undefined;
     const ids = sectionKeys.map((k) => SECTION_IDS[k]);
