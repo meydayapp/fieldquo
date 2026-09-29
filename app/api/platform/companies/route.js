@@ -9,6 +9,8 @@ import { isCardFreeTrial } from "@/lib/signup/abandoned";
 import { companyStanding } from "@/lib/platform/companyStanding";
 import { subscriberBucket } from "@/lib/platform/trialCounting";
 import { BUCKETS, BUCKET_GROUPS } from "@/lib/platform/subscriberBuckets";
+import { getOnboardingStatus } from "@/lib/onboarding";
+import { callBackFor, needsChecklistRead } from "@/lib/platform/callBack";
 
 /**
  * The status filter: one of the buckets every /platform number counts
@@ -91,12 +93,26 @@ export async function GET(request) {
   // page's per-country tally counts it); `standing` — the words the screen
   // prints, derived from the same bucket (lib/platform/companyStanding.js).
   const now = new Date();
-  return NextResponse.json(
-    companies
-      .map((c) => ({ ...c, bucket: subscriberBucket(c, now) }))
-      .filter(keep)
-      .map((c) => ({ ...c, standing: companyStanding(c, now) })),
+  const rows = companies
+    .map((c) => ({ ...c, bucket: subscriberBucket(c, now) }))
+    .filter(keep)
+    .map((c) => ({ ...c, standing: companyStanding(c, now) }));
+
+  // ── "Needs call back" (lib/platform/callBack.js) ─────────────────────────
+  //
+  // The checklist is read — read-only, never stamping — only for the rows
+  // whose welcome questions are done and whose checklist has not been
+  // stamped complete; a failed read is "not asked", never a flag.
+  const checklists = await Promise.all(
+    rows.map((c) => (needsChecklistRead(c) ? getOnboardingStatus(c.id, { readOnly: true }).catch(() => null) : null)),
   );
+  const withCallBack = rows.map((c, i) => ({
+    ...c,
+    callBack: callBackFor({ company: c, onboarding: checklists[i], ownerPhone: c.members?.[0]?.user?.phone || null }),
+  }));
+  // ?callBack=1 — only the companies someone should ring.
+  const onlyCallBack = searchParams.get("callBack") === "1";
+  return NextResponse.json(onlyCallBack ? withCallBack.filter((c) => c.callBack) : withCallBack);
 }
 
 // Manual company creation — used before self-serve signup exists, or for

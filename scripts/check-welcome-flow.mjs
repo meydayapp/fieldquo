@@ -60,6 +60,7 @@ import { buildOnboardingNextStepsEmail } from "@/lib/email/onboardingNextStepsEm
 import { TRIAL_DAYS, TRIAL_CARD_REQUIRED } from "@/lib/pricing";
 import { TRADE_CATALOG } from "@/lib/trades/catalog";
 import { APP_MESSAGES } from "@/app/i18n/appMessages";
+import { callBackFor, needsChecklistRead } from "@/lib/platform/callBack";
 
 let pass = 0;
 const fails = [];
@@ -341,6 +342,28 @@ ok("each screen shows one, in turn", factForStep("account", ["account", "profile
 {
   const aside = code("app/components/auth/WelcomeAside.js");
   ok("the aside's pictures are FieldQuo's own screenshots, files that exist", (aside.match(/"\/marketing\/[\w-]+\.webp"/g) || []).every((p) => existsSync(`public${p.slice(1, -1)}`)) && /hero-quotes/.test(aside));
+}
+
+/* ── 6b. Needs call back ────────────────────────────────────────────────── */
+console.log("\n6b. Needs call back on /platform/companies");
+{
+  const open = { complete: false, steps: [{ key: "logo", label: "Add your logo and brand color", done: true }, { key: "payments", label: "Connect Stripe to accept client payments", done: false }] };
+  const w = callBackFor({ company: { onboardingStep: "revenue", personalizedAt: null }, ownerPhone: " 555-123-4567 " });
+  ok("stopped in the welcome questions → flagged, with the screen and the owner's phone", w?.kind === "welcome" && w.step === "revenue" && w.label === "Revenue" && w.phone === "555-123-4567", JSON.stringify(w));
+  ok("...even before any phone was given (then it says so)", callBackFor({ company: { onboardingStep: "profile", personalizedAt: null } })?.phone === null);
+  const s = callBackFor({ company: { onboardingStep: "setup", personalizedAt: new Date(), onboardingCompletedAt: null }, onboarding: open, ownerPhone: "555-000-1111" });
+  ok("welcome done, checklist open → flagged at the first step not done", s?.kind === "setup" && s.step === "payments", JSON.stringify(s));
+  ok("a pre-flow company with an open checklist is flagged too", callBackFor({ company: { onboardingStep: null, onboardingCompletedAt: null }, onboarding: open })?.kind === "setup");
+  ok("a checklist stamped complete → no call", callBackFor({ company: { onboardingCompletedAt: new Date() }, onboarding: open }) === null);
+  ok("a complete checklist → no call", callBackFor({ company: {}, onboarding: { complete: true, steps: [] } }) === null);
+  ok("a checklist that could not be read → no call (never guessed)", callBackFor({ company: {}, onboarding: null }) === null);
+  ok("a demo, or a company FieldQuo ended → no call", callBackFor({ company: { isDemo: true, onboardingStep: "profile" } }) === null && callBackFor({ company: { platformEndsAt: new Date(), onboardingStep: "profile" } }) === null);
+  ok("the checklist is only read when the welcome answer does not already decide", !needsChecklistRead({ onboardingStep: "size", personalizedAt: null }) && needsChecklistRead({ onboardingStep: "setup", personalizedAt: new Date() }) && !needsChecklistRead({ onboardingCompletedAt: new Date() }));
+  const list = code("app/api/platform/companies/route.js");
+  ok("the list reads the checklist read-only, and ?callBack=1 filters", /getOnboardingStatus\(c\.id, \{ readOnly: true \}\)/.test(list) && /searchParams\.get\("callBack"\) === "1"/.test(list));
+  const page = code("app/platform/companies/page.js");
+  ok("the list page has the filter and the badge", /data-filter-callback/.test(page) && /if \(callBackOnly\) rows = rows\.filter\(\(c\) => c\.callBack\);/.test(page) && /data-callback/.test(page));
+  ok("the detail page shows it with the owner's phone", /data-callback/.test(code("app/platform/companies/[id]/CompanyDetail.js")) && /callBackFor\(\{ company, onboarding: checklist/.test(code("app/api/platform/companies/[id]/route.js")));
 }
 
 /* ── 7. The strings ─────────────────────────────────────────────────────── */

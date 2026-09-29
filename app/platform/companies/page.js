@@ -162,6 +162,14 @@ export default function PlatformCompaniesPage() {
   // pill means a row is listed if and only if its badge says "Online now".
   // The list is not paged, so there is no "12 companies" over a page of 3.
   const [onlineOnly, setOnlineOnly] = useState(false);
+  // "Needs call back" (lib/platform/callBack.js, the owner's 2026-09-29
+  // ask): narrows the loaded rows to the owners who stopped part-way through
+  // the welcome questions or the onboarding checklist. Seeded from
+  // ?callBack=1 so a link can open the list already narrowed.
+  const [callBackOnly, setCallBackOnly] = useState(false);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("callBack") === "1") setCallBackOnly(true);
+  }, []);
   const [sortBy, setSortBy] = useState("newest");
   const badgeFor = useCallback(
     (c) => {
@@ -174,6 +182,7 @@ export default function PlatformCompaniesPage() {
     if (!Array.isArray(companies)) return companies;
     let rows = companies;
     if (onlineOnly && presenceData) rows = rows.filter((c) => badgeFor(c)?.code === "online");
+    if (callBackOnly) rows = rows.filter((c) => c.callBack);
     if (sortBy === "recent" && presenceData) {
       rows = [...rows].sort(
         (a, b) =>
@@ -181,7 +190,8 @@ export default function PlatformCompaniesPage() {
       );
     }
     return rows;
-  }, [companies, onlineOnly, sortBy, presenceData, presenceById, badgeFor, now]);
+  }, [companies, onlineOnly, callBackOnly, sortBy, presenceData, presenceById, badgeFor, now]);
+  const callBackCount = Array.isArray(companies) ? companies.filter((c) => c.callBack).length : 0;
 
   const load = useCallback(async (q, s) => {
     setLoading(true);
@@ -286,6 +296,18 @@ export default function PlatformCompaniesPage() {
           >
             Online now{onlineNow ? ` (${count(onlineNow)})` : ""}
           </button>
+          <button
+            onClick={() => setCallBackOnly((v) => !v)}
+            aria-pressed={callBackOnly}
+            data-filter-callback
+            className={`min-h-[44px] min-w-[44px] lg:min-h-0 px-3 py-2 rounded-lg text-sm font-medium border ${
+              callBackOnly
+                ? "bg-amber-700 text-white border-amber-700"
+                : "border-border text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            Needs call back ({count(callBackCount)})
+          </button>
           <label className="sr-only" htmlFor="company-sort">
             Sort
           </label>
@@ -383,6 +405,16 @@ export default function PlatformCompaniesPage() {
                             blank row. */}
                         {c.name || `(no business name yet) · ${c.members?.[0]?.user?.email || c.email || "no email"}`}
                       </span>
+                      {c.callBack && (
+                        <span
+                          className="text-xs px-2 py-0.5 rounded-full border bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 border-amber-300 dark:border-amber-800 font-medium"
+                          title={c.callBack.kind === "welcome" ? "Stopped in the welcome questions after Start my free trial" : "Stopped in the onboarding checklist"}
+                          data-callback
+                        >
+                          Needs call back · {c.callBack.kind === "welcome" ? "welcome" : "setup"}: {c.callBack.label}
+                          {c.callBack.phone ? ` · ${c.callBack.phone}` : " · no phone yet"}
+                        </span>
+                      )}
                       {c.onboardingStep && !c.personalizedAt && (
                         <span
                           className="text-xs px-2 py-0.5 rounded-full border bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900"
