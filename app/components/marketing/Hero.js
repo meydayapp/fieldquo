@@ -112,8 +112,8 @@ export default function Hero() {
             languages and it is FALSE: /api/companies creates the company and
             then opens Stripe Checkout, and app/app/layout.js sends an owner
             whose company has no subscription back to pay before it will show a
-            dashboard. The offer that IS true is the free first month
-            (TRIAL_PRICE = 0), and pricing.firstMonth / pricing.free already say
+            dashboard. The offer that IS true is the free trial
+            (TRIAL_PRICE = 0, TRIAL_DAYS long), and pricing.firstMonth ("First 14 days") / pricing.free already say
             it in all nine — the same two strings PricingCard prints over the
             price. Joined with a separator rather than composed into a sentence,
             because word order is not ours to assume across nine languages. */}

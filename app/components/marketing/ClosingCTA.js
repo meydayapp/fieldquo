@@ -39,8 +39,8 @@ export default function ClosingCTA() {
           {/* The same two keys the hero prints under its button, and the same
               reason: hero.noCard says "No credit card required" in every
               language and it is false — /api/companies opens Stripe Checkout
-              straight after creating the company. The free first month
-              (TRIAL_PRICE = 0) is the offer that is actually kept. Joined with
+              straight after creating the company. The free trial
+              (TRIAL_PRICE = 0, TRIAL_DAYS long) is the offer that is actually kept. Joined with
               a separator rather than composed into a sentence, because word
               order is not ours to assume across nine languages.
 
