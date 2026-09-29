@@ -24,6 +24,12 @@
 // BATCH stays at 25 precisely so each drain is short. Neon's cold-start P1001
 // is retried once, as everywhere (AGENTS.md, "Environment gotchas").
 //
+// Safe was not the same as cheap. Runs of this route came to outlast the
+// minute (p50 156 s on 2026-09-28), so three were alive at once, re-reading
+// the same Prospect rows and spending 93% of the project's function-seconds.
+// Since 2026-09-29 an advisory lock (lib/sales/pipeline/runLock.js) lets one
+// run at a time; a tick that finds one going returns { skipped: "running" }.
+//
 // The next lever, when 8,000 a day is wanted, is BATCH 50 — which is a decision
 // about how long one invocation may run (see below), not a schedule edit.
 //
@@ -67,6 +73,7 @@ import { NextResponse } from "next/server";
 import { requireCronSecret } from "@/lib/security/cronAuth";
 import { db } from "@/lib/db";
 import { drainSalesPipeline } from "@/lib/sales/pipeline/runner";
+import { SALES_PIPELINE_LOCK_KEY, tryTakeRunLock } from "@/lib/sales/pipeline/runLock";
 import { handlerStatus } from "@/lib/sales/pipeline/registry";
 import { topUpResearchBacklog } from "@/lib/sales/pipeline/research";
 import { SUGGEST_CRON_SLICE, suggestTradesBatch } from "@/lib/sales/discovery/suggestTradesBatch";
@@ -133,284 +140,340 @@ const BATCH = 100;
 // The point is priority, not volume.
 const DISCOVERY_SLICE = 6;
 
+// ── The run's time budget ─────────────────────────────────────────────────
+//
+// With one run at a time (the lock in GET), a run that overstays does not
+// get joined by another — it delays the next one. So each run spends at most
+// RUN_BUDGET_MS and then stops cleanly: no step STARTS after it, and each
+// step it skips reports { skipped: "time_budget" } in the body rather than
+// vanishing from it. Every step here is state-driven — queued tasks, rows
+// missing a stamp — so what a run skips the next minute's run does.
+//
+// 240 s leaves 60 s under maxDuration for the step in flight to finish; the
+// AI slice keeps its own arithmetic below (it ends 30 s under maxDuration).
+// The drains stop claiming at DRAIN_BUDGET_MS so the sweeps after them still
+// get time: before the lock, runs were p50 156 s mostly because three of them
+// fought over the same reads, and a drain that eats the whole budget would
+// starve the backlog, the suggestions and the call reconciliation behind it.
+const RUN_BUDGET_MS = 240_000;
+const DRAIN_BUDGET_MS = 150_000;
+const LATE = Object.freeze({ skipped: "time_budget" });
+
 export async function GET(request) {
   // First, before any work — this header is the entire authentication boundary
   // for a job that spends a directory API quota and a model vendor's budget.
   const denied = requireCronSecret(request);
   if (denied) return denied;
 
-  // ── Discovery gets its own slice, taken FIRST ──────────────────────────
+  // ── One run at a time ────────────────────────────────────────────────────
   //
-  // The queue is one FIFO ordered by `notBefore asc, createdAt asc`, and
-  // discovery is a SERIAL CHAIN: one page per task, the next page enqueued only
-  // when that one finishes. So every page of 100 prospects enqueues roughly 700
-  // enrichment tasks — enrich, crawl, technology, capabilities, opportunities,
-  // score, brief — and the NEXT discovery page is created after all of them and
-  // sorts behind all of them.
-  //
-  // The pipeline therefore ate its own tail: the more it discovered, the longer
-  // the next discovery waited. Measured with 1,414 tasks queued — discovery
-  // completions were 4, 9, 7, 13, 13 and 2 an hour, and prospects arrived in
-  // bursts of exactly PROMOTE_LIMIT with nothing in between. Raising the
-  // discovery budget could not touch it: only six discovery tasks existed to
-  // spend it on. Starvation, not a ceiling.
-  //
-  // Draining discovery on its own first is the whole fix, and it is why the
-  // runner takes `kinds`. The slice is small because each task is expensive at
-  // the provider and produces a hundred prospects: what matters is that the
-  // next page is never behind an enrichment backlog, not that many run at once.
-  const now = new Date();
-  const discovery = await drainSalesPipeline({
-    now,
-    limit: DISCOVERY_SLICE,
-    kinds: ["DISCOVER_BUSINESSES"],
-  });
+  // A run still going when the next minute fired used to be joined by a second
+  // and a third (p50 156 s against a 60 s schedule, measured 2026-09-28), all
+  // making the same Prospect reads. Now the later tick leaves at once with a
+  // 200 — the runner's leases already made overlap safe; this makes it cheap.
+  // Taken after the secret, so an unauthenticated caller cannot hold it, and
+  // released in `finally`, on the connection that took it — why that has to
+  // be a transaction-level lock on a dedicated client is in runLock.js.
+  const lock = await tryTakeRunLock({ key: SALES_PIPELINE_LOCK_KEY });
+  if (!lock) return NextResponse.json({ success: true, skipped: "running" });
 
-  // Then everything else, with the batch reduced by what discovery just spent,
-  // so the invocation's serial-time budget is unchanged — the check asserts
-  // maxDuration against BATCH, and this must not quietly exceed it.
-  const result = await drainSalesPipeline({
-    now,
-    limit: Math.max(0, BATCH - discovery.considered),
-  });
-  result.discovery = discovery;
+  try {
+    // ── Discovery gets its own slice, taken FIRST ──────────────────────────
+    //
+    // The queue is one FIFO ordered by `notBefore asc, createdAt asc`, and
+    // discovery is a SERIAL CHAIN: one page per task, the next page enqueued only
+    // when that one finishes. So every page of 100 prospects enqueues roughly 700
+    // enrichment tasks — enrich, crawl, technology, capabilities, opportunities,
+    // score, brief — and the NEXT discovery page is created after all of them and
+    // sorts behind all of them.
+    //
+    // The pipeline therefore ate its own tail: the more it discovered, the longer
+    // the next discovery waited. Measured with 1,414 tasks queued — discovery
+    // completions were 4, 9, 7, 13, 13 and 2 an hour, and prospects arrived in
+    // bursts of exactly PROMOTE_LIMIT with nothing in between. Raising the
+    // discovery budget could not touch it: only six discovery tasks existed to
+    // spend it on. Starvation, not a ceiling.
+    //
+    // Draining discovery on its own first is the whole fix, and it is why the
+    // runner takes `kinds`. The slice is small because each task is expensive at
+    // the provider and produces a hundred prospects: what matters is that the
+    // next page is never behind an enrichment backlog, not that many run at once.
+    const now = new Date();
+    const deadline = now.getTime() + RUN_BUDGET_MS;
+    const drainDeadline = now.getTime() + DRAIN_BUDGET_MS;
+    const late = () => Date.now() >= deadline;
+    const discovery = await drainSalesPipeline({
+      now,
+      limit: DISCOVERY_SLICE,
+      kinds: ["DISCOVER_BUSINESSES"],
+      deadline: drainDeadline,
+    });
 
-  // Inbound calls nobody answered and nobody left a message on, old enough
-  // that no TwiML can still be running for them: mark missed, push the rep.
-  // Here because this is the one sales cron that runs every minute; the
-  // number's own status callback does the same work seconds after the hang
-  // up when it is configured, and this is the net for when it is not.
-  // lib/sales/calls/missed.js. Its own try: a failure here must not stop the
-  // pipeline, and a pipeline failure must not stop this.
-  try {
-    result.missedCalls = await sweepMissedInbound({ now, client: db, log: (line) => console.error(line) });
-  } catch (err) {
-    result.missedCalls = { error: err?.message || String(err) };
-  }
+    // Then everything else, with the batch reduced by what discovery just spent,
+    // so the invocation's serial-time budget is unchanged — the check asserts
+    // maxDuration against BATCH, and this must not quietly exceed it.
+    const result = await drainSalesPipeline({
+      now,
+      limit: Math.max(0, BATCH - discovery.considered),
+      deadline: drainDeadline,
+    });
+    result.discovery = discovery;
 
-  // The callback agenda: the "Callback due — asked for you" push when a
-  // promised time comes, and the hand-over to the next available rep when
-  // the promising rep is off past the platform's grace.
-  // lib/sales/calls/callbackAgenda.js. Its own try, same reason as above.
-  try {
-    result.callbacks = await sweepCallbackAgenda({ now, client: db, log: (line) => console.error(line) });
-  } catch (err) {
-    result.callbacks = { error: err?.message || String(err) };
-  }
-
-  // What the calls cost. Twilio prices a call minutes after it ends, so the
-  // status callback lands without a price on most rows; this asks the Calls
-  // resource for the ten most recent unpriced ones a minute, and once an
-  // hour pulls the account's Usage Records into PlatformCostDaily for
-  // /platform/costs. lib/sales/calls/costs.js, lib/platform/costs/twilioUsage.js.
-  // Each in its own try, for the reason the sweep above gives.
-  try {
-    result.carrierPrices = await reconcileCarrierPrices({ now, client: db, limit: 10, log: (line) => console.error(line) });
-  } catch (err) {
-    result.carrierPrices = { error: err?.message || String(err) };
-  }
-  try {
-    result.twilioUsage = await pullTwilioUsageIfStale({ now, client: db });
-  } catch (err) {
-    result.twilioUsage = { error: err?.message || String(err) };
-  }
-
-  // The net under the call webhooks (lib/sales/calls/reconcileProvider.js):
-  // recordings the carrier holds that no row carries, prospect legs whose
-  // final status never landed, and the first-day answeredAt overwrite.
-  // Twilio sends a call-progress event once; from 2026-09-18 every one was
-  // answered 500, and this is what files what those days dropped — and
-  // what will file the next dropped one. Then ONE transcription a tick of
-  // a filed recording nobody transcribed: the recording webhook does this
-  // in after() on the day; this catches up. The AI slice below measures
-  // its own budget from `elapsed`, so a slow transcription shortens that
-  // slice rather than overrunning the function.
-  try {
-    result.recordings = await reconcileRecordings({ now, client: db, limit: 50, log: (line) => console.error(line) });
-  } catch (err) {
-    result.recordings = { error: err?.message || String(err) };
-  }
-  try {
-    result.prospectLegs = await reconcileProspectLegs({ now, client: db, limit: 10, log: (line) => console.error(line) });
-  } catch (err) {
-    result.prospectLegs = { error: err?.message || String(err) };
-  }
-  // Lead statuses follow the outcomes (lib/sales/leadStatus.js): every
-  // disposition and demo of the last fortnight replayed as forward-only
-  // compare-and-sets. The first run after 2026-09-21 is the backfill; every
-  // run after it is the net for a write that took an older path. Cheap —
-  // an UPDATE that matches nothing costs a lookup.
-  try {
-    result.leadStatuses = await backfillLeadStatuses({ client: db, since: new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000), now });
-  } catch (err) {
-    result.leadStatuses = { error: err?.message || String(err) };
-  }
-  try {
-    const t = await transcribeMissing({ limit: 1, retryUnconfigured: true, client: db });
-    result.transcribed = { attempted: t.attempted, done: t.done, results: t.results.map((r) => ({ id: r.id, ok: r.ok, reason: r.reason })) };
-  } catch (err) {
-    result.transcribed = { error: err?.message || String(err) };
-  }
-  // The other bills, once a day each: OpenAI's Costs endpoint, Neon's
-  // consumption, Stripe's balance transactions — into the same ledger, for
-  // the same page. One groupBy read a tick when nothing is due; a provider
-  // whose key is not set is skipped, and a failed pull is logged with the
-  // provider named (lib/platform/costs/providerPulls.js).
-  try {
-    result.providerCosts = await pullDailyProvidersIfStale({ now, client: db });
-  } catch (err) {
-    result.providerCosts = { error: err?.message || String(err) };
-  }
-
-  // ── Then the backlog: websites nobody has read, a slice per run ──────────
-  //
-  // 42,383 prospects had a website and no crawl when this was added, and only
-  // a discovery page had ever queued research — so a board-imported row could
-  // sit for ever with a URL nothing read. This adds up to
-  // BACKLOG_TOPUP_PER_RUN of them a run, oldest claimable first, and stops
-  // while BACKLOG_PENDING_CEILING enrich-or-crawl tasks are already waiting;
-  // the arithmetic (2,400 crawls an hour at the provider ceiling, ~840 at the
-  // run's wall clock — 18 to 50 hours for the lot) is printed above the
-  // function in lib/sales/pipeline/research.js. It runs AFTER the drains so a
-  // slow drain shortens this rather than the other way round, and it is two
-  // reads plus at most sixty small writes — a second, against the 100 s the
-  // duration rule budgets for the batch. Nothing in it calls a model: the
-  // backlog lane phrases nothing.
-  //
-  // Its own try/catch, because a failure here — Neon cold, a slow scan — must
-  // not turn a drain that already happened into a 500 the cron log reads as
-  // "the pipeline did not run".
-  let backlog;
-  try {
-    backlog = await topUpResearchBacklog({ db, now });
-  } catch (err) {
-    backlog = { error: err?.message || String(err) };
-  }
-  result.backlog = backlog;
-
-  // ── Then the Review folder's name suggestions, for rows that just arrived ─
-  //
-  // The By-suggestion mode (/platform/sales/review) groups the folder by a
-  // STORED suggestion (Prospect.suggested*), and a row a running campaign
-  // banked a minute ago has none until something computes it. This is that
-  // something: up to SUGGEST_CRON_SLICE rows a tick whose suggestedAt is
-  // null, through the same pure suggester the screen's chips use, written
-  // in three two-thousand-row statements. Nothing outside this process is
-  // touched and no trade is written (the batch's header). "missing" only —
-  // a keyword-table change is recomputed from the folder's own button or
-  // scripts/suggest-trades.mjs, because a version bump over 300,000 rows is
-  // a deliberate act and not something a cron should start on its own.
-  //
-  // Its own try/catch, for the backlog's reason: a slow scan must not turn a
-  // drain that already happened into a 500.
-  let suggestions;
-  try {
-    suggestions = await suggestTradesBatch({ db, mode: "missing", limit: SUGGEST_CRON_SLICE, deadlineMs: 20_000, now });
-  } catch (err) {
-    suggestions = { error: err?.message || String(err) };
-  }
-  result.suggestions = suggestions;
-
-  // ── No Google Places sweep. ─────────────────────────────────────────────
-  //
-  // One ran here from 2026-09-17 to 2026-09-20 — 25 Text Search lookups
-  // per rep per clock hour, in queue order. The owner's rule of 2026-09-18
-  // retired it: Google data is READ from his Mac by scripts/scrape/maps.mjs
-  // into ExternalListing rows, which lib/sales/intel/listings.js matches
-  // to prospects; no API key is involved anywhere in this pipeline. By the
-  // time it was removed the API had refused every request for two days
-  // (PERMISSION_DENIED, 9,181 PlatformErrorLog rows, one a minute from this
-  // tick). The code is gone, not flagged off — lib/sales/intel/places.js's
-  // header has the full account — so there is no `places` key in this
-  // result any more; scripts/check-places-retired.mjs asserts that.
-  //
-  // What remains of it is a one-off tidy: those 9,181 rows can never be
-  // deleted (PlatformErrorLog is the record — the model comment on
-  // resolvedAt), so they are marked reviewed in-product, by the system, with
-  // the reason on every row. One updateMany on the (area, createdAt) index;
-  // count 0 on every tick after the first. Its own try/catch, as above.
-  let placesRetired;
-  try {
-    placesRetired = await retirePlacesRefusals({ db, now });
-  } catch (err) {
-    placesRetired = { error: err?.message || String(err) };
-  }
-  result.placesRetired = placesRetired;
-
-  // ── Then who to ask for, from the registers, in the enrichment order ───
-  //
-  // lib/sales/intel/registerPeople.js: a table read per row against the
-  // CSLB personnel file already loaded, no vendor and no money, so it walks
-  // both tiers of the enrichment order (claimed, then the trades being
-  // worked) at REGISTER_PER_TICK a tick. Its own try/catch, as above.
-  let people;
-  try {
-    people = await sweepRegisterPeople({ db, now });
-  } catch (err) {
-    people = { error: err?.message || String(err) };
-  }
-  result.people = people;
-
-  // ── Then the websites read more than a month ago, in the same order ────
-  //
-  // lib/sales/pipeline/recrawl.js: the rows reps hold and the rows next in
-  // dispatch whose lastCrawledAt is older than MIN_RECRAWL_MS, up to
-  // RECRAWL_PER_TICK a tick — a few seconds of one invocation. Held rows
-  // go to the claimed lane, the rest to the backlog; an
-  // unchanged site costs the crawl alone, a changed one runs the chain as
-  // a first crawl does. Never the pool. Its own try/catch, as above.
-  let recrawl;
-  try {
-    recrawl = await sweepRecrawls({ db, now });
-  } catch (err) {
-    recrawl = { error: err?.message || String(err) };
-  }
-  result.recrawl = recrawl;
-
-  // ── Then the bulk vendor runs, one tick each ───────────────────────────
-  //
-  // lib/sales/intel/apifyRuns.js: collect the runs that finished since the
-  // last tick, then start what today's cap allows for the pairs the
-  // enrichment order names next. Returns at once when APIFY_TOKEN is unset.
-  // BBB first: it carries the principal contact, which is what the rep
-  // card is short of; Maps second.
-  result.apify = {};
-  for (const source of ["bbb", "google_maps"]) {
-    try {
-      result.apify[source] = await runApifyTick({ db, source, now, trigger: "cron" });
+    // Inbound calls nobody answered and nobody left a message on, old enough
+    // that no TwiML can still be running for them: mark missed, push the rep.
+    // Here because this is the one sales cron that runs every minute; the
+    // number's own status callback does the same work seconds after the hang
+    // up when it is configured, and this is the net for when it is not.
+    // lib/sales/calls/missed.js. Its own try: a failure here must not stop the
+    // pipeline, and a pipeline failure must not stop this.
+    if (late()) result.missedCalls = LATE;
+    else try {
+      result.missedCalls = await sweepMissedInbound({ now, client: db, log: (line) => console.error(line) });
     } catch (err) {
-      result.apify[source] = { error: err?.message || String(err) };
+      result.missedCalls = { error: err?.message || String(err) };
     }
-  }
 
-  // ── Then the PAID pass, only while an approval row says so ──────────────
-  //
-  // The owner approved the AI pass over the names the table cannot read
-  // (≈ $6.86 estimated, $10 cap). The key is Sensitive in Vercel, so this is
-  // the only place it can run, and one four-minute button press at a time
-  // would be twenty presses. lib/sales/discovery/suggestTradesAiApproval.js
-  // reads the approval (a PlatformAiBudget "job" row), sums the ledger,
-  // runs batches with the time AND the money left, and clears the row when
-  // the rows run out or the cap is hit. With no approval it returns at once.
-  //
-  // The time it gets is what this invocation has left: maxDuration less what
-  // the drains, the backlog and the free slice already spent, less a margin
-  // for the last batch and the audit row. Nothing here changes the batch
-  // arithmetic the check reasons about.
-  const AI_SLICE_MAX_MS = 180_000;
-  const AI_SLICE_MARGIN_MS = 30_000;
-  const elapsed = Date.now() - now.getTime();
-  const aiDeadline = Math.min(AI_SLICE_MAX_MS, maxDuration * 1000 - elapsed - AI_SLICE_MARGIN_MS);
-  let aiSuggestions;
-  try {
-    aiSuggestions = await runTradeSuggestAiSlice({ db, deadlineMs: aiDeadline, now, trigger: "cron" });
-  } catch (err) {
-    aiSuggestions = { error: err?.message || String(err) };
-  }
-  result.aiSuggestions = aiSuggestions;
+    // The callback agenda: the "Callback due — asked for you" push when a
+    // promised time comes, and the hand-over to the next available rep when
+    // the promising rep is off past the platform's grace.
+    // lib/sales/calls/callbackAgenda.js. Its own try, same reason as above.
+    if (late()) result.callbacks = LATE;
+    else try {
+      result.callbacks = await sweepCallbackAgenda({ now, client: db, log: (line) => console.error(line) });
+    } catch (err) {
+      result.callbacks = { error: err?.message || String(err) };
+    }
 
-  // handlers is in the response on purpose: until the eight stages are written,
-  // the truthful answer to "did the pipeline run?" includes which stages exist.
-  // A success body that hid that would be the dead-control failure in JSON.
-  return NextResponse.json({ success: true, batch: BATCH, ...result, handlers: handlerStatus() });
+    // What the calls cost. Twilio prices a call minutes after it ends, so the
+    // status callback lands without a price on most rows; this asks the Calls
+    // resource for the ten most recent unpriced ones a minute, and once an
+    // hour pulls the account's Usage Records into PlatformCostDaily for
+    // /platform/costs. lib/sales/calls/costs.js, lib/platform/costs/twilioUsage.js.
+    // Each in its own try, for the reason the sweep above gives.
+    if (late()) result.carrierPrices = LATE;
+    else try {
+      result.carrierPrices = await reconcileCarrierPrices({ now, client: db, limit: 10, log: (line) => console.error(line) });
+    } catch (err) {
+      result.carrierPrices = { error: err?.message || String(err) };
+    }
+    if (late()) result.twilioUsage = LATE;
+    else try {
+      result.twilioUsage = await pullTwilioUsageIfStale({ now, client: db });
+    } catch (err) {
+      result.twilioUsage = { error: err?.message || String(err) };
+    }
+
+    // The net under the call webhooks (lib/sales/calls/reconcileProvider.js):
+    // recordings the carrier holds that no row carries, prospect legs whose
+    // final status never landed, and the first-day answeredAt overwrite.
+    // Twilio sends a call-progress event once; from 2026-09-18 every one was
+    // answered 500, and this is what files what those days dropped — and
+    // what will file the next dropped one. Then ONE transcription a tick of
+    // a filed recording nobody transcribed: the recording webhook does this
+    // in after() on the day; this catches up. The AI slice below measures
+    // its own budget from `elapsed`, so a slow transcription shortens that
+    // slice rather than overrunning the function.
+    if (late()) result.recordings = LATE;
+    else try {
+      result.recordings = await reconcileRecordings({ now, client: db, limit: 50, log: (line) => console.error(line) });
+    } catch (err) {
+      result.recordings = { error: err?.message || String(err) };
+    }
+    if (late()) result.prospectLegs = LATE;
+    else try {
+      result.prospectLegs = await reconcileProspectLegs({ now, client: db, limit: 10, log: (line) => console.error(line) });
+    } catch (err) {
+      result.prospectLegs = { error: err?.message || String(err) };
+    }
+    // Lead statuses follow the outcomes (lib/sales/leadStatus.js): every
+    // disposition and demo of the last fortnight replayed as forward-only
+    // compare-and-sets. The first run after 2026-09-21 is the backfill; every
+    // run after it is the net for a write that took an older path. Cheap —
+    // an UPDATE that matches nothing costs a lookup.
+    if (late()) result.leadStatuses = LATE;
+    else try {
+      result.leadStatuses = await backfillLeadStatuses({ client: db, since: new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000), now });
+    } catch (err) {
+      result.leadStatuses = { error: err?.message || String(err) };
+    }
+    if (late()) result.transcribed = LATE;
+    else try {
+      const t = await transcribeMissing({ limit: 1, retryUnconfigured: true, client: db });
+      result.transcribed = { attempted: t.attempted, done: t.done, results: t.results.map((r) => ({ id: r.id, ok: r.ok, reason: r.reason })) };
+    } catch (err) {
+      result.transcribed = { error: err?.message || String(err) };
+    }
+    // The other bills, once a day each: OpenAI's Costs endpoint, Neon's
+    // consumption, Stripe's balance transactions — into the same ledger, for
+    // the same page. One groupBy read a tick when nothing is due; a provider
+    // whose key is not set is skipped, and a failed pull is logged with the
+    // provider named (lib/platform/costs/providerPulls.js).
+    if (late()) result.providerCosts = LATE;
+    else try {
+      result.providerCosts = await pullDailyProvidersIfStale({ now, client: db });
+    } catch (err) {
+      result.providerCosts = { error: err?.message || String(err) };
+    }
+
+    // ── Then the backlog: websites nobody has read, a slice per run ──────────
+    //
+    // 42,383 prospects had a website and no crawl when this was added, and only
+    // a discovery page had ever queued research — so a board-imported row could
+    // sit for ever with a URL nothing read. This adds up to
+    // BACKLOG_TOPUP_PER_RUN of them a run, oldest claimable first, and stops
+    // while BACKLOG_PENDING_CEILING enrich-or-crawl tasks are already waiting;
+    // the arithmetic (2,400 crawls an hour at the provider ceiling, ~840 at the
+    // run's wall clock — 18 to 50 hours for the lot) is printed above the
+    // function in lib/sales/pipeline/research.js. It runs AFTER the drains so a
+    // slow drain shortens this rather than the other way round, and it is two
+    // reads plus at most sixty small writes — a second, against the 100 s the
+    // duration rule budgets for the batch. Nothing in it calls a model: the
+    // backlog lane phrases nothing.
+    //
+    // Its own try/catch, because a failure here — Neon cold, a slow scan — must
+    // not turn a drain that already happened into a 500 the cron log reads as
+    // "the pipeline did not run".
+    let backlog;
+    if (late()) backlog = LATE;
+    else try {
+      backlog = await topUpResearchBacklog({ db, now });
+    } catch (err) {
+      backlog = { error: err?.message || String(err) };
+    }
+    result.backlog = backlog;
+
+    // ── Then the Review folder's name suggestions, for rows that just arrived ─
+    //
+    // The By-suggestion mode (/platform/sales/review) groups the folder by a
+    // STORED suggestion (Prospect.suggested*), and a row a running campaign
+    // banked a minute ago has none until something computes it. This is that
+    // something: up to SUGGEST_CRON_SLICE rows a tick whose suggestedAt is
+    // null, through the same pure suggester the screen's chips use, written
+    // in three two-thousand-row statements. Nothing outside this process is
+    // touched and no trade is written (the batch's header). "missing" only —
+    // a keyword-table change is recomputed from the folder's own button or
+    // scripts/suggest-trades.mjs, because a version bump over 300,000 rows is
+    // a deliberate act and not something a cron should start on its own.
+    //
+    // Its own try/catch, for the backlog's reason: a slow scan must not turn a
+    // drain that already happened into a 500.
+    let suggestions;
+    if (late()) suggestions = LATE;
+    else try {
+      suggestions = await suggestTradesBatch({ db, mode: "missing", limit: SUGGEST_CRON_SLICE, deadlineMs: 20_000, now });
+    } catch (err) {
+      suggestions = { error: err?.message || String(err) };
+    }
+    result.suggestions = suggestions;
+
+    // ── No Google Places sweep. ─────────────────────────────────────────────
+    //
+    // One ran here from 2026-09-17 to 2026-09-20 — 25 Text Search lookups
+    // per rep per clock hour, in queue order. The owner's rule of 2026-09-18
+    // retired it: Google data is READ from his Mac by scripts/scrape/maps.mjs
+    // into ExternalListing rows, which lib/sales/intel/listings.js matches
+    // to prospects; no API key is involved anywhere in this pipeline. By the
+    // time it was removed the API had refused every request for two days
+    // (PERMISSION_DENIED, 9,181 PlatformErrorLog rows, one a minute from this
+    // tick). The code is gone, not flagged off — lib/sales/intel/places.js's
+    // header has the full account — so there is no `places` key in this
+    // result any more; scripts/check-places-retired.mjs asserts that.
+    //
+    // What remains of it is a one-off tidy: those 9,181 rows can never be
+    // deleted (PlatformErrorLog is the record — the model comment on
+    // resolvedAt), so they are marked reviewed in-product, by the system, with
+    // the reason on every row. One updateMany on the (area, createdAt) index;
+    // count 0 on every tick after the first. Its own try/catch, as above.
+    let placesRetired;
+    if (late()) placesRetired = LATE;
+    else try {
+      placesRetired = await retirePlacesRefusals({ db, now });
+    } catch (err) {
+      placesRetired = { error: err?.message || String(err) };
+    }
+    result.placesRetired = placesRetired;
+
+    // ── Then who to ask for, from the registers, in the enrichment order ───
+    //
+    // lib/sales/intel/registerPeople.js: a table read per row against the
+    // CSLB personnel file already loaded, no vendor and no money, so it walks
+    // both tiers of the enrichment order (claimed, then the trades being
+    // worked) at REGISTER_PER_TICK a tick. Its own try/catch, as above.
+    let people;
+    if (late()) people = LATE;
+    else try {
+      people = await sweepRegisterPeople({ db, now });
+    } catch (err) {
+      people = { error: err?.message || String(err) };
+    }
+    result.people = people;
+
+    // ── Then the websites read more than a month ago, in the same order ────
+    //
+    // lib/sales/pipeline/recrawl.js: the rows reps hold and the rows next in
+    // dispatch whose lastCrawledAt is older than MIN_RECRAWL_MS, up to
+    // RECRAWL_PER_TICK a tick — a few seconds of one invocation. Held rows
+    // go to the claimed lane, the rest to the backlog; an
+    // unchanged site costs the crawl alone, a changed one runs the chain as
+    // a first crawl does. Never the pool. Its own try/catch, as above.
+    let recrawl;
+    if (late()) recrawl = LATE;
+    else try {
+      recrawl = await sweepRecrawls({ db, now });
+    } catch (err) {
+      recrawl = { error: err?.message || String(err) };
+    }
+    result.recrawl = recrawl;
+
+    // ── Then the bulk vendor runs, one tick each ───────────────────────────
+    //
+    // lib/sales/intel/apifyRuns.js: collect the runs that finished since the
+    // last tick, then start what today's cap allows for the pairs the
+    // enrichment order names next. Returns at once when APIFY_TOKEN is unset.
+    // BBB first: it carries the principal contact, which is what the rep
+    // card is short of; Maps second.
+    result.apify = {};
+    for (const source of ["bbb", "google_maps"]) {
+      if (late()) result.apify[source] = LATE;
+      else try {
+        result.apify[source] = await runApifyTick({ db, source, now, trigger: "cron" });
+      } catch (err) {
+        result.apify[source] = { error: err?.message || String(err) };
+      }
+    }
+
+    // ── Then the PAID pass, only while an approval row says so ──────────────
+    //
+    // The owner approved the AI pass over the names the table cannot read
+    // (≈ $6.86 estimated, $10 cap). The key is Sensitive in Vercel, so this is
+    // the only place it can run, and one four-minute button press at a time
+    // would be twenty presses. lib/sales/discovery/suggestTradesAiApproval.js
+    // reads the approval (a PlatformAiBudget "job" row), sums the ledger,
+    // runs batches with the time AND the money left, and clears the row when
+    // the rows run out or the cap is hit. With no approval it returns at once.
+    //
+    // The time it gets is what this invocation has left: maxDuration less what
+    // the drains, the backlog and the free slice already spent, less a margin
+    // for the last batch and the audit row. Nothing here changes the batch
+    // arithmetic the check reasons about.
+    const AI_SLICE_MAX_MS = 180_000;
+    const AI_SLICE_MARGIN_MS = 30_000;
+    const elapsed = Date.now() - now.getTime();
+    const aiDeadline = Math.min(AI_SLICE_MAX_MS, maxDuration * 1000 - elapsed - AI_SLICE_MARGIN_MS);
+    let aiSuggestions;
+    if (late()) aiSuggestions = LATE;
+    else try {
+      aiSuggestions = await runTradeSuggestAiSlice({ db, deadlineMs: aiDeadline, now, trigger: "cron" });
+    } catch (err) {
+      aiSuggestions = { error: err?.message || String(err) };
+    }
+    result.aiSuggestions = aiSuggestions;
+
+    // handlers is in the response on purpose: until the eight stages are written,
+    // the truthful answer to "did the pipeline run?" includes which stages exist.
+    // A success body that hid that would be the dead-control failure in JSON.
+    return NextResponse.json({ success: true, batch: BATCH, ...result, handlers: handlerStatus() });
+  } finally {
+    await lock.release();
+  }
 }

@@ -14515,6 +14515,15 @@ model Prospect {
   /// "The rows merged into this one" — the survivor's duplicate panel, and
   /// the read-path union of their evidence (lib/sales/discovery/mergedReads.js).
   @@index([mergedIntoId])
+  /// The dispatch order's per-trade read — claimCandidateWhere({ tradeKey })
+  /// ORDER BY createdAt LIMIT 400, which lib/sales/intel/enrichmentOrder.js
+  /// runs twice per worked trade for every pass the sales-pipeline cron makes
+  /// (register people, re-crawl, each Apify source). Without it the only
+  /// usable index was (status, hot): a bitmap of 576,000 claimable rows,
+  /// filtered down to one trade, then sorted — ~0.6 s alone and 40–60 s a
+  /// query under the cron's own overlap, measured 2026-09-29. With it the
+  /// read walks one trade in dispatch order and stops at the LIMIT.
+  @@index([tradeKey, createdAt])
   repNotes SalesRepNote[]
   playbookAssignments SalesPlaybookAssignment[]
   talkingPoints       ProspectTalkingPoint[]
