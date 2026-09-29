@@ -6,7 +6,9 @@
 //         that rendition; the original upload is never touched, so switching
 //         back and forth loses nothing.
 //
-// There is no DELETE in this first version — see docs/VIDEO-POSTS.md.
+// There is no DELETE in this first version: the posts it made keep pointing
+// at it (SetNull would survive it, but "delete" was not in the approved scope
+// and a video post holds nothing but its own clip). docs/ROADMAP.md lists it.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";

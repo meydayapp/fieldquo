@@ -6667,7 +6667,7 @@ model SocialPublish {
   /// whether a "published" row actually posted anywhere.
   isMock Boolean @default(false)
 
-  /// ── Video posts (docs/VIDEO-POSTS.md) ─────────────────────────────────
+  /// ── Video posts (lib/marketing/videoPost.js) ──────────────────────────
   ///
   /// Set only on a row that published a VideoPost rather than a design —
   /// designId is then null. SetNull for the reason designId gives.
@@ -9022,7 +9022,7 @@ model TikTokPublish {
   /// a private (SELF_ONLY) post, which is every post before the audit.
   publicPostId String?
 
-  /// ── Video posts (docs/VIDEO-POSTS.md) ─────────────────────────────────
+  /// ── Video posts (lib/marketing/videoPost.js) ──────────────────────────
   /// Set only for a VideoPost's TikTok post; designId is then null.
   videoPostId String?
   videoPost   VideoPost? @relation(fields: [videoPostId], references: [id], onDelete: SetNull)
@@ -9044,7 +9044,7 @@ model TikTokPublish {
 // A video clip a contractor uploaded to post as an Instagram Reel, a Facebook
 // Page Reel or a TikTok video (owner-approved 2026-09-29; first version is
 // upload + cover + caption + publish, no in-video editing). See
-// docs/VIDEO-POSTS.md and lib/marketing/videoPost.js for every rule.
+// lib/marketing/videoPost.js for every rule (and the docs it was read from).
 //
 // The ORIGINAL upload is never changed or replaced: `fit` only picks which
 // Cloudinary derived rendition (pad or crop to 9:16) is sent, so switching

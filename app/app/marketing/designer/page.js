@@ -14,13 +14,14 @@
 // versa; they are the same row.
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BadgeCheck, Camera, ImageOff, Loader2, Palette, Plus, Trash2, TriangleAlert } from "lucide-react";
+import { BadgeCheck, Camera, Film, ImageOff, Loader2, Palette, Plus, Trash2, TriangleAlert } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { fetchList } from "@/lib/loadState";
 import { reportResponseError, showError } from "@/lib/clientErrors";
 import ListState from "@/app/components/ListState";
 import { ratiosForDesign } from "@/lib/marketing/ratios";
+import { uploadFile } from "@/lib/media/uploadClient";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -60,6 +61,52 @@ export default function MarketingDesignerPage() {
   const [jobsLoading, setJobsLoading] = useState(false);
   const [pickerFor, setPickerFor] = useState(null);
   const [composing, setComposing] = useState(null);
+
+  // ── "New video post" ────────────────────────────────────────────────────
+  //
+  // Upload a clip (browser → Cloudinary, purpose "video"), then make the post
+  // from it; the server reads the clip's size and length from Cloudinary and
+  // refuses one outside the limits. Jobs keep photos, not videos, so there is
+  // no "from a job" for a video yet — upload only.
+  const [videosByCampaign, setVideosByCampaign] = useState(null);
+  const [videoUpload, setVideoUpload] = useState(null); // { campaignId, percent }
+
+  async function handleNewVideo(campaignId, file) {
+    if (!file) return;
+    setVideoUpload({ campaignId, percent: 0 });
+    try {
+      const entry = await uploadFile(file, {
+        purpose: "video",
+        onProgress: (loaded, total) =>
+          setVideoUpload({ campaignId, percent: total ? Math.round((loaded / total) * 100) : 0 }),
+      });
+      if (entry.kind !== "video") {
+        showError(t("app.videoPost.mustBeVideo"));
+        return;
+      }
+      const baseName = (file.name || "").replace(/\.[^.]+$/, "").trim() || t("app.videoPost.defaultName");
+      const res = await fetch("/api/marketing/video-posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ campaignId, name: baseName, publicId: entry.publicId }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        showError(
+          data?.code && data.code !== "bad_request"
+            ? t(`app.videoPost.error.${data.code}`, { max: "600", min: "3", seconds: String(Math.round(data?.facts?.durationSec || 0)) })
+            : data?.error || t("app.marketingDesigner.createError"),
+        );
+        return;
+      }
+      const post = await res.json();
+      router.push(`/app/marketing/designer/video/${post.id}`);
+    } catch (err) {
+      showError(err?.serverMessage || err?.message || t("app.marketingDesigner.createError"));
+    } finally {
+      setVideoUpload(null);
+    }
+  }
 
   const openPicker = useCallback(async (campaignId) => {
     setPickerFor((prev) => (prev === campaignId ? null : campaignId));
@@ -107,9 +154,10 @@ export default function MarketingDesignerPage() {
     // different failure shapes to handle by hand. Either one failing blanks
     // BOTH lists: a design without its campaign's name, or a campaign whose
     // design count is silently wrong, is worse than one clear error banner.
-    const [campaignsResult, designsResult] = await Promise.all([
+    const [campaignsResult, designsResult, videosResult] = await Promise.all([
       fetchList("/api/marketing/campaigns"),
       fetchList("/api/marketing/designer/designs"),
+      fetchList("/api/marketing/video-posts"),
     ]);
 
     if (!campaignsResult.ok) {
@@ -126,6 +174,21 @@ export default function MarketingDesignerPage() {
       setDesignsByCampaign(null);
       return;
     }
+    // Same rule for the video posts: a campaign that silently shows no
+    // videos because the list failed would read as "none made".
+    if (!videosResult.ok) {
+      if (videosResult.aborted) return;
+      setErrorKey(videosResult.errorKey);
+      setCampaigns(null);
+      setDesignsByCampaign(null);
+      setVideosByCampaign(null);
+      return;
+    }
+    const videoGroups = {};
+    for (const v of Array.isArray(videosResult.data?.videoPosts) ? videosResult.data.videoPosts : []) {
+      (videoGroups[v.campaignId] ||= []).push(v);
+    }
+    setVideosByCampaign(videoGroups);
 
     const campaignList = Array.isArray(campaignsResult.data) ? campaignsResult.data : [];
     const designs = Array.isArray(designsResult.data?.designs) ? designsResult.data.designs : [];
@@ -412,6 +475,28 @@ export default function MarketingDesignerPage() {
                   </div>
                 )}
 
+                {/* ── Video posts in this campaign ──────────────────── */}
+                {(videosByCampaign?.[c.id] || []).length > 0 && (
+                  <div className="grid sm:grid-cols-2 gap-2 mb-3">
+                    {videosByCampaign[c.id].map((v) => (
+                      <button
+                        key={v.id}
+                        type="button"
+                        onClick={() => router.push(`/app/marketing/designer/video/${v.id}`)}
+                        className="flex items-center gap-2 text-left border border-border rounded-lg px-3 py-2 min-h-[44px]"
+                      >
+                        <Film size={14} className="shrink-0 text-muted-foreground" />
+                        <span className="min-w-0">
+                          <span className="block text-sm font-medium text-foreground truncate">{v.name}</span>
+                          <span className="block text-xs text-muted-foreground">
+                            {t("app.videoPost.listLine", { seconds: Math.round(v.durationSec) })}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 {/* ── Make a post out of work already done ─────────────
                     The photos the crew already took, with the job's own
                     scope of work behind the words. The other button below
@@ -515,6 +600,28 @@ export default function MarketingDesignerPage() {
                     <Plus size={14} /> {t("app.marketingDesigner.newDesign")}
                   </button>
                 </div>
+                {/* A clip from the computer or the phone's camera roll. */}
+                <label
+                  className={`mt-2 flex items-center gap-2 w-fit border border-border text-foreground px-3 py-2.5 rounded-full text-sm font-semibold min-h-[44px] ${videoUpload ? "opacity-60" : "cursor-pointer"}`}
+                  data-video-new
+                >
+                  {videoUpload?.campaignId === c.id ? <Loader2 size={14} className="animate-spin" /> : <Film size={14} />}
+                  {videoUpload?.campaignId === c.id
+                    ? t("app.videoPost.uploading", { percent: videoUpload.percent })
+                    : t("app.videoPost.new")}
+                  <input
+                    type="file"
+                    accept="video/mp4,video/quicktime,video/webm"
+                    className="sr-only"
+                    disabled={Boolean(videoUpload)}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = "";
+                      handleNewVideo(c.id, file);
+                    }}
+                  />
+                </label>
+                <p className="mt-1 text-xs text-muted-foreground">{t("app.videoPost.newHint")}</p>
               </div>
             );
           })}
