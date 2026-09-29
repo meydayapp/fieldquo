@@ -38,6 +38,7 @@ import {
 } from "@/lib/permissions/enforce";
 import { CHANGE_ORDER_STATUSES } from "@/lib/jobs/changeOrderValue";
 import { applyChangeOrderDecision } from "@/lib/jobs/changeOrderDecision";
+import { syncForSourceJob } from "@/lib/subcontractors/sourceLink";
 import { CHANGE_ORDER_INCLUDE, presentChangeOrder } from "@/lib/jobs/changeOrderPresent";
 
 export async function PATCH(request, { params }) {
@@ -129,6 +130,12 @@ export async function PATCH(request, { params }) {
   // rejection or a withdrawal releases the step it had on hold. Best effort —
   // see lib/jobs/changeOrderDecision.js.
   await applyChangeOrderDecision(updated.id, status, { byUserId: member.userId, previousStatus: existing.status });
+
+  // A general contractor who imported this job's quote counts only the
+  // change orders they SIGNED. A staff decision here never adds one to that
+  // set (no signature), but it can take a signed one out of `approved` — so
+  // the GC's figure is recomputed from scratch. Never throws.
+  await syncForSourceJob(db, { jobId: job.id });
 
   const all = await db.changeOrder.findMany({ where: { jobId: job.id }, select: { id: true, seq: true, createdAt: true } });
   return NextResponse.json(presentChangeOrder(updated, all));

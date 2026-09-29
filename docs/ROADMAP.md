@@ -100,24 +100,26 @@ The owner-approved home design, desktop and phone. Nothing that worked was remov
 ---
 
 ## One-screen signup and the welcome questions (29 September 2026)
+## A sub's quote, all the way into the GC's job (29 September 2026)
 
-The owner-approved Jobber-shaped signup. `/signup` is one screen — work email, password, an UNTICKED "Send me product news and offers", the Terms/Privacy line, "Start my free trial →", "Already have an account? Log in" (no Google/Apple: Better Auth has no social provider configured). That press creates the login AND the company (`POST /api/companies` with no name and no address), so the trial is real before any question is asked.
+The owner-approved flow for a quote sent to another BUSINESS: the general contractor carries the sub's price into their own quote, and from there the sub follows the work — onto the job, through change orders, to the invoice.
 
 ### What shipped
 
-- **Welcome screens, one URL each** (`app/welcome/[step]`, rules in `lib/signup/welcome.js`): profile ("✓ Your free trial is now active", first/last name, phone) → business (company name, ONE Google Places address — country/province/city/postal come from the picked place — a searchable industry select grouped by FieldQuo industry with sticky group headers, optional website) → size ("Your <trade> business at a glance": 6 team chips, 5 years chips; "Just me" stamps `worksAloneAt`) → revenue (chips in the company's own currency symbol + "I'd prefer not to say") → priority (4 cards) → focus (multi-select whose options depend on the priority) → source (closed select, "Get started") → setup.
-- **Setup screen** (`/welcome/setup`): "Setting up <company>…", "Adding <trade> services…" with chips of the service names the stage actually created (read back from `Product` rows, "+N others"), checklists/plans, "Creating your templates…", dashboard — every tick from the server stream, no timers. Stamps `Company.personalizedAt`; "Go to my dashboard anyway" after a failed stage stamps it too.
-- **Resume**: `Company.onboardingStep` is recomputed from the stored answers after every `PATCH /api/signup/personalize`. The `/app` shell sends the OWNER of an unfinished flow to `/welcome/<step>` (`lib/signup/welcomeGate.js`) — never a support session, an invited member, or a company from before this flow (`onboardingStep` null). Every screen is prefilled. `?resume=` links and the finish-setting-up letter point at the next question.
-- **Explicit nulls**: the first press writes `name: ""`, `country/currency/timezone: null`, a provisional `fq-` slug (re-derived once from the name), `TRIAL_DAYS` (14) trial, no card (`TRIAL_CARD_REQUIRED`). Nothing is seeded until the country is known.
-- **Readiness gate** (`lib/company/profileReadiness.js`): no business name + country → `planOrRefusal` refuses quote/invoice send, share, call, request-payment, checkout link, website/designer publish, campaign send, service-plan authorise (402 with a "Finish setting up your business →" prompt to `/welcome/business` for the owner); follow-ups, the voice receptionist and the public booking/self-quote pages refuse too. Live DB: 0 existing companies lack either.
-- **Aside**: FieldQuo's own screenshots + one "Did you know…" from `lib/signup/didYouKnow.js` (3 facts, each with a `source`; the $6,500 is computed).
-- **Platform**: `/platform/companies` shows "(no business name yet) · email", a "Welcome: <screen>" badge, the new answers, owner phone and product-news consent. The analytics funnel is visited → trial started → the seven questions → workspace ready from `SIGNUP_FUNNEL_CUTOVER` (2026-09-29); earlier days render the legacy seven-step funnel separately.
-- Additive schema (applied by SQL): `Company.onboardingStep/personalizedAt/revenueBand/signupPriority/signupFocus`, `User.phone/marketingConsentAt/marketingConsentText`.
-- Removed: the two public routes only the old signup called (`/api/signup/sample-services`, `/api/service-categories/public`).
+- **The email line.** A quote whose client is `Client.type = "company"` carries one quiet line under the first button — "Add this price to your own quote →" — in all eight document languages (`emailCopy.addToOwnQuote`), linking to `/q/<token>/add`. Homeowners' emails are byte-identical (md5 of all 8 languages × quote/follow-up, before and after: `1688e6eb8ba7d4b274624da2ee8c5475`). `lib/quotes/addToQuoteLink.js`.
+- **`/q/[token]/add`.** Explains in plain words (price becomes a subcontractor cost with THEIR markup; on acceptance the sender joins their job automatically; change orders and the invoice follow), then: a signed-in member of another company gets the import card, now with "Start a new quote" (asks the client's name and homeowner/business — nothing defaulted; `lib/quotes/importTarget.js`); signed out gets "Create your free account" (`/signup?next=`) or "Log in" (`/login?next=`), plus a one-week cookie so a signup that outlives the tab still lands back here after /welcome. Same draft gate and same exposure as `/q/<token>` — and the received-quote GET/POST now refuse drafts too (they answered for them before).
+- **On acceptance** (`lib/subcontractors/sourceLink.js` `adoptImportsOnJob`, from both job-creation paths): the sender is found or added on the GC's roster (name, email, phone as printed on their quote; linked company), and a `JobSubcontractor` (`agreed`) adopts the import's expense — counted once. Idempotent under an advisory lock.
+- **Change orders:** only a change order the GC approved AND signed (same public screen as every client) moves the GC's figure: snapshot + signed deltas, recomputed, never added. Unsigned or staff-approved: nothing moves. The GC's price to their own client is untouched.
+- **The sub's invoice:** on send, a `SubcontractorBill` copy lands on the GC's job panel; "Invoice $X differs from approved $Y" when it doesn't match. Cost stays the approved figure.
+- **`Quote.viewedAt` / `viewCount`**, stamped by a POST the client's page sends after rendering (never staff, a support session, a preview, a bot or a prefetch — `lib/quotes/quoteViews.js`), shown on the quote page's trail. `isViewedNoAnswer()` is ready for the dashboard badge rule; `lib/dashboard/workPanel.js` is not on this branch, so it is not wired there yet.
+
+### Schema (applied additively by hand; the live diff's Community DROPs were not run)
+
+`Quote.viewedAt`, `Quote.viewCount`, table `SubcontractorBill` (unique on job-subcontractor + source invoice, FK cascade to `JobSubcontractor`).
 
 ### Checks
 
-`check:welcome-flow` (new) plus `signup-order`, `auth-pages`, `signup-aside`, `signup-funnel`, `signup-creating`, `signup-gate`, `signup-leads`, `plan-gate`, `abandoned-signup`, `onboarding-next-steps`, `setup-steps`, `company-country`, `route-callers`.
+`check:subcontractors` (the $3,000 → $3,600 → $3,000 cost → +$250 signed → $3,250 worked example, idempotency, tenant isolation, bills), `check:job-costing`, `check:quote-email-sections` (business line × 8 languages, homeowner byte-identity, contrast), `check:quote-approval` (views, draft gate, add page), `check:welcome-flow` (resume).
 
 ### Owed
 
@@ -125,6 +127,9 @@ The owner-approved Jobber-shaped signup. `/signup` is one screen — work email,
 - The unmounted reactive signup panel (`AuthAside` signup variant, `app/components/auth/samples/`, `SignupSteps`, the step functions in `lib/signup/funnel.js`) can be deleted with its checks.
 - The early nudge's "free month" copy and the trial-length copy elsewhere belong to the 14-day trial change running beside this one.
 - Product decision: the sales floor's SignupLead capture no longer fires from `/signup` (an email alone is not a lead); stalled owners are visible on `/platform/companies` with their welcome step and phone instead.
+- The sub's owner name is NOT copied as the roster contact (it is not on the quote the GC received), and `Subcontractor` has no address column — both left empty rather than invented. Owner's call if either should change.
+- Wire `isViewedNoAnswer` into `lib/dashboard/workPanel.js` once that branch lands.
+
 ## TikTok posting, phase 1 (29 September 2026)
 
 Approved by the owner 2026-09-29. A Marketing Designer design posts to the
@@ -246,6 +251,33 @@ Owner decision: an instant estimate is costed at FieldQuo's $35/h with nobody as
 
 - **Before deploy**: `ALTER TABLE "ForecastSettings" ADD COLUMN IF NOT EXISTS "jobsPerMonthCapacity" INTEGER;` — already applied to the database in `.env` on 2026-09-29.
 - Existing saved quotes keep their numbers; nothing is re-costed until someone changes the costing.
+
+## One-screen signup and the welcome questions (29 September 2026)
+
+The owner-approved Jobber-shaped signup. `/signup` is one screen — work email, password, an UNTICKED "Send me product news and offers", the Terms/Privacy line, "Start my free trial →", "Already have an account? Log in" (no Google/Apple: Better Auth has no social provider configured). That press creates the login AND the company (`POST /api/companies` with no name and no address), so the trial is real before any question is asked.
+
+### What shipped
+
+- **Welcome screens, one URL each** (`app/welcome/[step]`, rules in `lib/signup/welcome.js`): profile ("✓ Your free trial is now active", first/last name, phone) → business (company name, ONE Google Places address — country/province/city/postal come from the picked place — a searchable industry select grouped by FieldQuo industry with sticky group headers, optional website) → size ("Your <trade> business at a glance": 6 team chips, 5 years chips; "Just me" stamps `worksAloneAt`) → revenue (chips in the company's own currency symbol + "I'd prefer not to say") → priority (4 cards) → focus (multi-select whose options depend on the priority) → source (closed select, "Get started") → setup.
+- **Setup screen** (`/welcome/setup`): "Setting up <company>…", "Adding <trade> services…" with chips of the service names the stage actually created (read back from `Product` rows, "+N others"), checklists/plans, "Creating your templates…", dashboard — every tick from the server stream, no timers. Stamps `Company.personalizedAt`; "Go to my dashboard anyway" after a failed stage stamps it too.
+- **Resume**: `Company.onboardingStep` is recomputed from the stored answers after every `PATCH /api/signup/personalize`. The `/app` shell sends the OWNER of an unfinished flow to `/welcome/<step>` (`lib/signup/welcomeGate.js`) — never a support session, an invited member, or a company from before this flow (`onboardingStep` null). Every screen is prefilled. `?resume=` links and the finish-setting-up letter point at the next question.
+- **Explicit nulls**: the first press writes `name: ""`, `country/currency/timezone: null`, a provisional `fq-` slug (re-derived once from the name), `TRIAL_DAYS` (14) trial, no card (`TRIAL_CARD_REQUIRED`). Nothing is seeded until the country is known.
+- **Readiness gate** (`lib/company/profileReadiness.js`): no business name + country → `planOrRefusal` refuses quote/invoice send, share, call, request-payment, checkout link, website/designer publish, campaign send, service-plan authorise (402 with a "Finish setting up your business →" prompt to `/welcome/business` for the owner); follow-ups, the voice receptionist and the public booking/self-quote pages refuse too. Live DB: 0 existing companies lack either.
+- **Aside**: FieldQuo's own screenshots + one "Did you know…" from `lib/signup/didYouKnow.js` (3 facts, each with a `source`; the $6,500 is computed).
+- **Platform**: `/platform/companies` shows "(no business name yet) · email", a "Welcome: <screen>" badge, the new answers, owner phone and product-news consent. The analytics funnel is visited → trial started → the seven questions → workspace ready from `SIGNUP_FUNNEL_CUTOVER` (2026-09-29); earlier days render the legacy seven-step funnel separately.
+- Additive schema (applied by SQL): `Company.onboardingStep/personalizedAt/revenueBand/signupPriority/signupFocus`, `User.phone/marketingConsentAt/marketingConsentText`.
+- Removed: the two public routes only the old signup called (`/api/signup/sample-services`, `/api/service-categories/public`).
+
+### Checks
+
+`check:welcome-flow` (new) plus `signup-order`, `auth-pages`, `signup-aside`, `signup-funnel`, `signup-creating`, `signup-gate`, `signup-leads`, `plan-gate`, `abandoned-signup`, `onboarding-next-steps`, `setup-steps`, `company-country`, `route-callers`.
+
+### Owed
+
+- The welcome dashboard (first-job list ordered by `signupFocus`) — separate task.
+- The unmounted reactive signup panel (`AuthAside` signup variant, `app/components/auth/samples/`, `SignupSteps`, the step functions in `lib/signup/funnel.js`) can be deleted with its checks.
+- The early nudge's "free month" copy and the trial-length copy elsewhere belong to the 14-day trial change running beside this one.
+- Product decision: the sales floor's SignupLead capture no longer fires from `/signup` (an email alone is not a lead); stalled owners are visible on `/platform/companies` with their welcome step and phone instead.
 
 ## The trial is 14 days (29 September 2026)
 
