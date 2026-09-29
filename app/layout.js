@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { LanguageProvider } from "@/app/providers/LanguageProvider";
 import { ThemeProvider } from "@/app/providers/ThemeProvider";
 import AnalyticsBeacon from "@/app/components/AnalyticsBeacon";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
 // Pre-paint theme script.
@@ -182,6 +183,7 @@ export default function RootLayout({ children }) {
             {/* FieldQuo's own page-view count — one beacon per view, no
                 third party, no cookie. lib/analytics/track.js. */}
             <AnalyticsBeacon />
+            <SpeedInsights />
           </LanguageProvider>
         </ThemeProvider>
       </body>
