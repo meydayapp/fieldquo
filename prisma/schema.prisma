@@ -1896,6 +1896,7 @@ model Company {
   // to TikTok. See lib/tiktok/connection.js.
   tiktokConnections     TikTokConnection[]
   tiktokPublishes       TikTokPublish[]
+  videoPosts            VideoPost[]
   salaries              Salary[]
   debts                 Debt[]
   assets                Asset[]
@@ -6390,6 +6391,7 @@ model MarketingCampaign {
 
   stops       PamphletStop[]
   designs     MarketingDesign[]
+  videoPosts  VideoPost[]
   deliveries  MarketingCampaignDelivery[]
 
   createdAt DateTime @default(now())
@@ -6665,12 +6667,28 @@ model SocialPublish {
   /// whether a "published" row actually posted anywhere.
   isMock Boolean @default(false)
 
+  /// ── Video posts (docs/VIDEO-POSTS.md) ─────────────────────────────────
+  ///
+  /// Set only on a row that published a VideoPost rather than a design —
+  /// designId is then null. SetNull for the reason designId gives.
+  videoPostId String?
+  videoPost   VideoPost? @relation(fields: [videoPostId], references: [id], onDelete: SetNull)
+  /// "image" for every design row (the default, so every existing row reads
+  /// as what it was), "reel" for an Instagram Reel or a Facebook Page Reel.
+  /// Readers branch on this before trusting imageUrl: on a reel row imageUrl
+  /// is the cover frame, and the file Meta pulled is videoUrl.
+  mediaType String  @default("image")
+  /// The exact Cloudinary rendition Meta was told to fetch (9:16, H.264/AAC
+  /// MP4 — lib/marketing/videoPost.js renditionUrl). Null on image rows.
+  videoUrl  String?
+
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   publishedAt DateTime?
 
   @@index([companyId])
   @@index([designId])
+  @@index([videoPostId])
   /// The cron's whole query: due, unclaimed, scheduled rows. Composite
   /// rather than two single-column indexes — the cron always filters both
   /// together, and a single index it can use start-to-finish beats Postgres
@@ -9004,12 +9022,84 @@ model TikTokPublish {
   /// a private (SELF_ONLY) post, which is every post before the audit.
   publicPostId String?
 
+  /// ── Video posts (docs/VIDEO-POSTS.md) ─────────────────────────────────
+  /// Set only for a VideoPost's TikTok post; designId is then null.
+  videoPostId String?
+  videoPost   VideoPost? @relation(fields: [videoPostId], references: [id], onDelete: SetNull)
+  /// "PHOTO" (every design row — the default) or "VIDEO". On a VIDEO row
+  /// imageUrl is the cover frame and videoUrl is what TikTok pulls, through
+  /// /api/tiktok/media/<signed token>.mp4 — never the Cloudinary URL itself.
+  mediaType   String  @default("PHOTO")
+  videoUrl    String?
+
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   publishedAt DateTime?
 
   @@index([companyId])
   @@index([designId])
+  @@index([videoPostId])
+}
+
+// A video clip a contractor uploaded to post as an Instagram Reel, a Facebook
+// Page Reel or a TikTok video (owner-approved 2026-09-29; first version is
+// upload + cover + caption + publish, no in-video editing). See
+// docs/VIDEO-POSTS.md and lib/marketing/videoPost.js for every rule.
+//
+// The ORIGINAL upload is never changed or replaced: `fit` only picks which
+// Cloudinary derived rendition (pad or crop to 9:16) is sent, so switching
+// back to a different fit loses nothing — the same "the original pixels are
+// kept forever" rule JobPhoto.url follows.
+//
+// Upload only: jobs keep photos, not videos (JobPhoto has no video kind and
+// lib/jobs/photoAutofile.js skips a homeowner's video), so there is no job
+// media to pick a clip from yet.
+model VideoPost {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// Same home as a design — the Marketing Designer groups by campaign.
+  campaignId String
+  campaign   MarketingCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  name String
+
+  /// The original, as uploaded (purpose "video", lib/media/directUpload.js)
+  /// and read back from Cloudinary on the server — never from the browser.
+  videoUrl      String
+  videoPublicId String
+  width         Int
+  height        Int
+  durationSec   Float
+  bytes         Int?
+  format        String?
+  frameRate     Float?
+
+  /// "original" (already 9:16) | "pad" (Fit to 9:16, adds bars) | "crop"
+  /// (Crop to 9:16). Never chosen for the person: a clip that is not 9:16
+  /// starts at "original" and cannot be posted until they pick one.
+  fit String @default("original")
+
+  /// "frame" — coverOffsetMs into the (rendered) video — or "image": an
+  /// uploaded picture, which only Instagram can take (cover_url). Facebook's
+  /// Reels publishing call has no cover parameter; TikTok takes a timestamp.
+  coverMode     String  @default("frame")
+  coverOffsetMs Int     @default(0)
+  coverImageUrl String?
+
+  caption String? @db.Text
+
+  createdById String?
+
+  socialPublishes SocialPublish[]
+  tiktokPublishes TikTokPublish[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([campaignId])
 }
 
 enum TikTokPublishStatus {
