@@ -261,7 +261,7 @@ export async function POST(request) {
   // ── No planId: a free trial with no plan and no card ────────────────────
   //
   // The signup page stopped posting one on 2026-09-24. The company is created
-  // exactly as before — trialEndsAt thirty days out — and lib/billing/access.js
+  // exactly as before — trialEndsAt TRIAL_DAYS out — and lib/billing/access.js
   // reads that date: full access until it passes, then GRACE_DAYS read-only,
   // then locked, nothing deleted. The plan is chosen later from the banner
   // (Account & Billing's "Choose plan", which carries the remaining trial days
