@@ -21,7 +21,12 @@ import { fetchList } from "@/lib/loadState";
 import { reportResponseError, showError } from "@/lib/clientErrors";
 import ListState from "@/app/components/ListState";
 import { ratiosForDesign } from "@/lib/marketing/ratios";
-import { uploadFile } from "@/lib/media/uploadClient";
+import { fetchJson } from "@/lib/fetchJson";
+import { probeVideo } from "@/lib/media/videoProbe";
+import { uploadInChunks } from "@/lib/media/chunkedUpload";
+import { VIDEO_POST_LIMITS, isNineBySixteen } from "@/lib/marketing/videoPost";
+import { formatClipLength } from "@/lib/marketing/videoAllowance";
+import { AllowanceUsed, VideoAllowanceLine } from "@/app/components/designer/VideoAllowance";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -64,45 +69,98 @@ export default function MarketingDesignerPage() {
 
   // ── "New video post" ────────────────────────────────────────────────────
   //
-  // Upload a clip (browser → Cloudinary, purpose "video"), then make the post
-  // from it; the server reads the clip's size and length from Cloudinary and
-  // refuses one outside the limits. Jobs keep photos, not videos, so there is
-  // no "from a job" for a video yet — upload only.
+  // 1. The browser reads the clip's shape and length (lib/media/videoProbe.js)
+  //    — a clip over 2:30 is refused here, before anything is sent; one that
+  //    isn't 9:16 asks "Fit or Crop?" first, so the reshape rides in the same
+  //    Cloudinary pass as the 1080p conversion.
+  // 2. The server checks this month's video allowance and signs the upload
+  //    (app/api/marketing/video-posts POST). A used-up month is refused with
+  //    the count and — for an owner or admin — "Add a video pack".
+  // 3. The file goes browser → Cloudinary in chunks (lib/media/chunkedUpload.js)
+  //    and the video screen waits for Cloudinary to finish converting it.
+  // Jobs keep photos, not videos, so there is no "from a job" for a video.
   const [videosByCampaign, setVideosByCampaign] = useState(null);
+  const [videoAllowance, setVideoAllowance] = useState(null);
   const [videoUpload, setVideoUpload] = useState(null); // { campaignId, percent }
+  const [pendingClip, setPendingClip] = useState(null); // { campaignId, file, probe, needsFit, unknown }
+  const [allowanceBlocked, setAllowanceBlocked] = useState(null); // campaignId
 
   async function handleNewVideo(campaignId, file) {
     if (!file) return;
+    setAllowanceBlocked(null);
+    if (!(file.type || "").startsWith("video/")) {
+      showError(t("app.videoPost.mustBeVideo"));
+      return;
+    }
+    const probe = await probeVideo(file);
+    if (probe.durationSec && probe.durationSec > VIDEO_POST_LIMITS.maxSeconds + 0.5) {
+      showError(t("app.videoPost.error.too_long_clip", { length: formatClipLength(VIDEO_POST_LIMITS.maxSeconds) }));
+      return;
+    }
+    if (probe.durationSec && probe.durationSec < VIDEO_POST_LIMITS.minSeconds) {
+      showError(t("app.videoPost.error.too_short"));
+      return;
+    }
+    const needsFit = Boolean(probe.width && probe.height) && !isNineBySixteen(probe.width, probe.height);
+    const unknown = !probe.durationSec || !probe.width || !probe.height;
+    if (needsFit || unknown) {
+      setPendingClip({ campaignId, file, probe, needsFit, unknown });
+      return;
+    }
+    await sendVideo(campaignId, file, probe, null);
+  }
+
+  async function sendVideo(campaignId, file, probe, fit) {
+    setPendingClip(null);
     setVideoUpload({ campaignId, percent: 0 });
+    let postId = null;
     try {
-      const entry = await uploadFile(file, {
-        purpose: "video",
-        onProgress: (loaded, total) =>
-          setVideoUpload({ campaignId, percent: total ? Math.round((loaded / total) * 100) : 0 }),
-      });
-      if (entry.kind !== "video") {
-        showError(t("app.videoPost.mustBeVideo"));
-        return;
-      }
       const baseName = (file.name || "").replace(/\.[^.]+$/, "").trim() || t("app.videoPost.defaultName");
-      const res = await fetch("/api/marketing/video-posts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ campaignId, name: baseName, publicId: entry.publicId }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
+      let started;
+      try {
+        started = await fetchJson("/api/marketing/video-posts", {
+          method: "POST",
+          body: {
+            campaignId,
+            name: baseName,
+            fit,
+            file: { type: file.type, size: file.size, width: probe.width, height: probe.height, durationSec: probe.durationSec },
+          },
+        });
+      } catch (err) {
+        if (err.code === "allowance_used") {
+          setVideoAllowance(err.data?.allowance || null);
+          setAllowanceBlocked(campaignId);
+          return;
+        }
         showError(
-          data?.code && data.code !== "bad_request"
-            ? t(`app.videoPost.error.${data.code}`, { max: "600", min: "3", seconds: String(Math.round(data?.facts?.durationSec || 0)) })
-            : data?.error || t("app.marketingDesigner.createError"),
+          err.code && err.code !== "bad_request"
+            ? t(`app.videoPost.error.${err.code === "too_long" ? "too_long_clip" : err.code}`, {
+                length: formatClipLength(VIDEO_POST_LIMITS.maxSeconds),
+                size: err.data?.maxBytes ? `${Math.round(err.data.maxBytes / (1024 * 1024))} MB` : "",
+              })
+            : err.message || t("app.marketingDesigner.createError"),
         );
         return;
       }
-      const post = await res.json();
-      router.push(`/app/marketing/designer/video/${post.id}`);
+      postId = started.post.id;
+      setVideoAllowance(started.allowance || null);
+      await uploadInChunks(file, {
+        url: started.upload.url,
+        fields: started.upload.fields,
+        chunkBytes: started.upload.chunkBytes,
+        onProgress: (loaded, total) => setVideoUpload({ campaignId, percent: total ? Math.round((loaded / total) * 100) : 0 }),
+      });
+      // The bytes are there; Cloudinary is converting them. The video screen
+      // waits for it — nothing else to do here.
+      await fetchJson(`/api/marketing/video-posts/${postId}/arrival`, { method: "POST", body: {} }).catch(() => null);
+      router.push(`/app/marketing/designer/video/${postId}`);
     } catch (err) {
-      showError(err?.serverMessage || err?.message || t("app.marketingDesigner.createError"));
+      // The upload itself failed: release the slot it was holding at once.
+      if (postId) {
+        await fetchJson(`/api/marketing/video-posts/${postId}/arrival`, { method: "POST", body: { failed: true, reason: err?.status || "network" } }).catch(() => null);
+      }
+      showError(t("app.videoPost.uploadFailed"));
     } finally {
       setVideoUpload(null);
     }
@@ -189,6 +247,7 @@ export default function MarketingDesignerPage() {
       (videoGroups[v.campaignId] ||= []).push(v);
     }
     setVideosByCampaign(videoGroups);
+    setVideoAllowance(videosResult.data?.allowance || null);
 
     const campaignList = Array.isArray(campaignsResult.data) ? campaignsResult.data : [];
     const designs = Array.isArray(designsResult.data?.designs) ? designsResult.data.designs : [];
@@ -489,7 +548,11 @@ export default function MarketingDesignerPage() {
                         <span className="min-w-0">
                           <span className="block text-sm font-medium text-foreground truncate">{v.name}</span>
                           <span className="block text-xs text-muted-foreground">
-                            {t("app.videoPost.listLine", { seconds: Math.round(v.durationSec) })}
+                            {v.uploadState === "ready"
+                              ? t("app.videoPost.listLine", { seconds: Math.round(v.durationSec) })
+                              : v.uploadState === "failed"
+                                ? t("app.videoPost.listFailed")
+                                : t("app.videoPost.listPreparing")}
                           </span>
                         </span>
                       </button>
@@ -621,7 +684,61 @@ export default function MarketingDesignerPage() {
                     }}
                   />
                 </label>
-                <p className="mt-1 text-xs text-muted-foreground">{t("app.videoPost.newHint")}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t("app.videoPost.newHint", { length: formatClipLength(VIDEO_POST_LIMITS.maxSeconds) })}
+                </p>
+                <VideoAllowanceLine allowance={videoAllowance} className="mt-1" />
+                {allowanceBlocked === c.id && (
+                  <div className="mt-2">
+                    <AllowanceUsed allowance={videoAllowance} returnPath="/app/marketing/designer" />
+                  </div>
+                )}
+
+                {/* ── Before uploading: the shape, or an unreadable clip ───
+                    A clip that isn't 9:16 is made 9:16 IN the upload, so the
+                    choice comes first. A clip the browser couldn't read is
+                    uploaded at a safe size and trimmed at 2:30 — said before
+                    the person chooses to send it. */}
+                {pendingClip?.campaignId === c.id && (
+                  <div className="mt-2 rounded-lg border border-border p-3 space-y-2" data-video-pending>
+                    {pendingClip.needsFit ? (
+                      <>
+                        <p className="text-sm text-foreground">
+                          {t("app.videoPost.notVerticalBeforeUpload", { width: pendingClip.probe.width, height: pendingClip.probe.height })}
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {["pad", "crop"].map((fit) => (
+                            <button
+                              key={fit}
+                              type="button"
+                              onClick={() => sendVideo(c.id, pendingClip.file, pendingClip.probe, fit)}
+                              className="rounded-full border border-border px-4 py-2 text-sm font-semibold min-h-[44px]"
+                            >
+                              {t(fit === "pad" ? "app.videoPost.fitPad" : "app.videoPost.fitCrop")}
+                            </button>
+                          ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground">{t("app.videoPost.fitHelpUpload")}</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm text-foreground">
+                          {t("app.videoPost.unknownClip", { length: formatClipLength(VIDEO_POST_LIMITS.maxSeconds) })}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => sendVideo(c.id, pendingClip.file, pendingClip.probe, null)}
+                          className="rounded-full bg-inverted text-inverted-foreground px-4 py-2 text-sm font-semibold min-h-[44px]"
+                        >
+                          {t("app.videoPost.uploadAnyway")}
+                        </button>
+                      </>
+                    )}
+                    <button type="button" onClick={() => setPendingClip(null)} className="block text-xs underline text-muted-foreground">
+                      {t("app.videoPost.cancelUpload")}
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}

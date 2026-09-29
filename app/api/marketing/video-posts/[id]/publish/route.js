@@ -19,10 +19,10 @@
 // app/api/marketing/video-posts/publishes/[publishId] — which is also what
 // finally publishes an Instagram container once Meta says FINISHED.
 //
-// No approval step, unlike a design: a design's words and artwork are edited
-// on other screens and approved separately, which is what its fingerprint
-// guards. A video post's clip, shape, cover and caption are all on the one
-// screen that posts it, in front of the person pressing Post.
+// The same approval as a design (owner, 2026-09-29): nothing is sent unless
+// the post is approved for exactly the clip, shape, cover and caption it has
+// now (lib/marketing/approvalFingerprint.js videoApprovalState, re-derived on
+// this request). Editing any of those on the video screen withdraws it.
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
@@ -37,7 +37,8 @@ import { getMetaConnection } from "@/lib/social/metaConnection";
 import { isSocialPublishingVisible, isRetryablePublishCode } from "@/lib/social/metaSpecs";
 import { PublishRefusal } from "@/lib/social/publishDesign";
 import { startFacebookReel, startInstagramReel } from "@/lib/social/publishVideo";
-import { FACEBOOK_REEL_SPEC, checkForPlatform, fitAllowed, frameUrl, renditionUrl, withCode } from "@/lib/marketing/videoPost";
+import { FACEBOOK_REEL_SPEC, checkForPlatform, fitAllowed, frameUrl, sendUrl, withCode } from "@/lib/marketing/videoPost";
+import { videoApprovalState } from "@/lib/marketing/approvalFingerprint";
 import { cloudName, loadOwnedVideoPost, publishRowShape, renditionState } from "@/lib/marketing/videoPostServer";
 import * as metaGraphClient from "@/lib/social/metaGraphClient";
 import * as mockMetaGraphClient from "@/lib/social/mockMetaGraphClient";
@@ -104,10 +105,26 @@ export async function POST(request, { params }) {
   }
   if (!connection.connected) return refuse(409, "not_connected", "Connect Facebook & Instagram in Settings first.");
 
+  if (post.uploadState !== "ready") return refuse(409, "upload_not_ready", "The clip is still being uploaded or prepared.");
+
+  // The approval, re-derived from the row on THIS request — the same gate a
+  // design's publish route applies (approvalFingerprint.js).
+  const approval = videoApprovalState(post);
+  if (!approval.ok) {
+    return refuse(
+      409,
+      approval.state === "stale" ? "approval_stale" : "not_approved",
+      approval.state === "stale"
+        ? "This video post changed after it was approved. Review it and approve it again before posting."
+        : "This video post hasn't been approved yet. Review it and approve it before posting.",
+      { approval: { state: approval.state } },
+    );
+  }
+
   // The shape first: nothing is sent in a shape nobody chose.
   if (!fitAllowed(post.fit, post)) return refuse(409, "not_vertical", "This clip isn't 9:16. Choose Fit or Crop first.");
 
-  const videoUrl = renditionUrl({ cloudName: cloudName(), publicId: post.videoPublicId, fit: post.fit });
+  const videoUrl = sendUrl(post, cloudName());
   const state = await renditionState(post);
   if (state !== "ready") {
     return refuse(409, "rendition_not_ready", "The video is still being prepared. Try again in a moment.", { rendition: state });

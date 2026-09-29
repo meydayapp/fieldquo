@@ -25,6 +25,13 @@ import AddOnStack from "../compare/AddOnStack";
 import { addOnStack } from "../compare/addOns";
 import { renderAsOf } from "../compare/asOf";
 import { PROCESSING_RATES } from "@/lib/stripe/processingFee";
+import {
+  INCLUDED_VIDEOS_PER_MONTH,
+  VIDEO_MAX_SECONDS,
+  VIDEO_PACK,
+  formatClipLength,
+  formatPackPrice,
+} from "@/lib/marketing/videoAllowance";
 import { peopleLines } from "@/lib/pricing/peopleLines";
 
 /**
@@ -605,6 +612,19 @@ export default function PricingPlans({ plans, customOffer = null, asOf = renderA
             {t("pricingPage.processingFees", {
               card: PROCESSING_RATES.card.formula,
               debit: PROCESSING_RATES.acss_debit.formula,
+            })}
+          </p>
+          {/* The one paid add-on a plan can carry: video posts. Every number
+              from lib/marketing/videoAllowance.js — the same constants the
+              upload gate enforces and the pack checkout charges — and the
+              price named in US dollars because that is what the pack bills
+              in, whatever the plan's currency. */}
+          <p className="mt-3 text-center text-sm text-muted-foreground max-w-2xl mx-auto" data-pricing-video-pack>
+            {t("pricingPage.videoPosts", {
+              included: INCLUDED_VIDEOS_PER_MONTH,
+              price: `US${formatPackPrice(VIDEO_PACK.priceCents)}`,
+              videos: VIDEO_PACK.videos,
+              length: formatClipLength(VIDEO_MAX_SECONDS),
             })}
           </p>
         </>

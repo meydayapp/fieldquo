@@ -718,4 +718,131 @@ export const ARTICLES = {
       { q: "J'ai gagné un jalon mais aucun argent n'est arrivé — pourquoi ?", a: "Les semaines se clôturent le lundi et sont payées à la main ensuite. Vérifiez qu'un moyen de paiement est enregistré sous Comment vous êtes payé ; sans lui, il n'y a nulle part où l'envoyer." },
     ],
   },
+  "video-posts": {
+    "title": "Publications vidéo : Reels et TikToks, et vos vidéos du mois",
+    "summary": "Téléversez une vidéo, approuvez-la et publiez-la en Reel Instagram, Reel Facebook et sur TikTok — et combien de vidéos votre forfait inclut chaque mois, et ce qu'ajoute un pack vidéo.",
+    "updated": "2026-09-29",
+    "intro": [
+      "Dans le Studio marketing, chaque campagne a **Nouvelle publication vidéo**. Choisissez une vidéo sur votre ordinateur ou votre téléphone (3 secondes à 2:30), donnez-lui une couverture et une légende, approuvez-la, puis cochez où elle part : **Reel Instagram**, **Reel Facebook**, **TikTok** — une, deux ou les trois.",
+      "Chaque forfait inclut **5 vidéos par mois**. Un **pack vidéo** ajoute jusqu'à **90 vidéos de plus par mois** pour **77 $ US/mois**. Une vidéo compte une seule fois, quelle que soit sa durée et quel que soit le nombre d'endroits où vous la publiez."
+    ],
+    "sections": [
+      {
+        "id": "upload",
+        "heading": "Téléverser une vidéo",
+        "blocks": [
+          {
+            "steps": [
+              "Ouvrez **Marketing → Studio**, trouvez la campagne et appuyez sur **Nouvelle publication vidéo**.",
+              "Choisissez la vidéo. Avant tout envoi, FieldQuo lit sa durée et son format : une vidéo de plus de **2:30** est refusée tout de suite, et une vidéo qui n'est pas verticale (9:16) demande d'abord **Ajuster en 9:16 (ajoute des bandes)** ou **Recadrer en 9:16**.",
+              "Gardez la page ouverte pendant le téléversement — les grosses vidéos partent en morceaux, donc un enregistrement 4K de téléphone passe. Quand elle indique **Conversion**, vous pouvez quitter : l'écran de la vidéo reprend là où il en était."
+            ]
+          },
+          {
+            "p": "Chaque vidéo est convertie une seule fois, à son arrivée : au plus 1080×1920 pour une vidéo verticale (1920×1080 pour une horizontale), en MP4 accepté par Instagram, Facebook et TikTok. Ajuster ou Recadrer se fait dans la même étape. L'original 4K n'est pas conservé — ce que vous voyez sur l'écran de la vidéo est exactement ce qui sera publié."
+          },
+          {
+            "note": "Si votre navigateur ne peut pas lire la durée d'une vidéo (certains ordinateurs anciens n'ouvrent pas la vidéo HEVC d'un iPhone), on vous prévient avant le téléversement que tout ce qui dépasse 2:30 sera coupé à 2:30."
+          }
+        ]
+      },
+      {
+        "id": "allowance",
+        "heading": "Vos vidéos du mois",
+        "blocks": [
+          {
+            "bullets": [
+              "**5 vidéos par mois** sont incluses dans chaque forfait. Le mois est le mois civil dans le fuseau horaire de votre entreprise.",
+              "Une vidéo est comptée **une fois**, quand elle est arrivée et a été convertie — c'est là que le coût de stockage et de conversion est engagé. Une vidéo de 10 secondes et une de 2:30 comptent chacune pour une. La publier sur Instagram, Facebook et TikTok reste une seule vidéo.",
+              "Une vidéo dont le téléversement échoue n'est pas comptée.",
+              "L'écran de la vidéo et **Paramètres → Compte et facturation** affichent **X vidéos sur Y utilisées ce mois-ci**."
+            ]
+          },
+          {
+            "p": "Quand le mois est épuisé, un nouveau téléversement est refusé avant tout envoi, avec le décompte. Les propriétaires et administrateurs voient **Ajouter un pack vidéo** ; les autres sont invités à le leur demander."
+          }
+        ]
+      },
+      {
+        "id": "video-pack",
+        "heading": "Le pack vidéo",
+        "blocks": [
+          {
+            "p": "Un **pack vidéo** est un module mensuel : **77 $ US/mois** pour jusqu'à **90 vidéos de plus par mois**, en plus des 5 incluses. Vous pouvez en avoir plusieurs — chacun en ajoute 90. Ajoutez-en un depuis **Paramètres → Compte et facturation** ou depuis le bouton qui apparaît quand le mois est épuisé ; c'est un paiement Stripe sur le même compte que votre forfait."
+          },
+          {
+            "bullets": [
+              "Il compte dès que son premier paiement passe, et tant qu'il est payé.",
+              "**Arrêter le renouvellement** le laisse compter jusqu'à la fin du mois payé, puis il prend fin. Rien de déjà publié n'est touché.",
+              "Les packs vidéo sont facturés en dollars américains. Une entreprise dont le forfait est facturé en dollars canadiens ou australiens ne peut pas encore en ajouter — l'écran le dit au lieu de proposer un paiement que Stripe refuserait."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "approve",
+        "heading": "Approuver une publication vidéo",
+        "blocks": [
+          {
+            "p": "Une publication vidéo demande la même approbation qu'un visuel. Sur l'écran de la vidéo, **Approuver** enregistre qui l'a approuvée et exactement ce qui a été approuvé : la vidéo, son format, la couverture et la légende. Modifier l'un d'eux ensuite retire l'approbation, et l'écran le dit — approuvez-la de nouveau après avoir vérifié."
+          },
+          {
+            "p": "Les propriétaires, administrateurs, gestionnaires et répartiteurs peuvent approuver et publier."
+          }
+        ]
+      },
+      {
+        "id": "post",
+        "heading": "Où elle part : une case par destination",
+        "blocks": [
+          {
+            "table": {
+              "head": [
+                "Destination",
+                "Durée acceptée",
+                "Remarques"
+              ],
+              "rows": [
+                [
+                  "Reel Instagram",
+                  "3 secondes – 15 minutes",
+                  "Exige une légende. Aussi affiché dans la grille du profil. Utilise l'image choisie ou votre image de couverture."
+                ],
+                [
+                  "Reel Facebook",
+                  "3 – 90 secondes",
+                  "Publié sur votre Page. Facebook choisit sa propre couverture. Jusqu'à 30 Reels par jour et par Page."
+                ],
+                [
+                  "TikTok",
+                  "Jusqu'à la limite de votre compte TikTok",
+                  "Ouvre la fenêtre de publication de TikTok — qui peut voir, commentaires, Duo, Collage et divulgation — comme TikTok l'exige."
+                ]
+              ]
+            }
+          },
+          {
+            "p": "Une destination où la vidéo ne peut pas aller est grisée avec la raison, et les autres restent disponibles — une vidéo de 2 minutes affiche **Trop longue pour un Reel Facebook (90 secondes au maximum)** tandis qu'Instagram et TikTok restent cochables."
+          },
+          {
+            "tip": "Publier sur Facebook et Instagram demande l'approbation de l'application FieldQuo par Meta — voir [[social-posting-and-scheduling|Publier sur Facebook et Instagram]]. D'ici là, ces deux cases indiquent que ce n'est pas encore disponible. TikTok demande que votre compte soit connecté dans [[settings-tiktok|Paramètres → TikTok]]."
+          }
+        ]
+      }
+    ],
+    "faq": [
+      {
+        "q": "Une vidéo plus longue compte-t-elle pour plus d'une ?",
+        "a": "Non. Une vidéo compte une fois, de 3 secondes à 2:30."
+      },
+      {
+        "q": "Pourquoi ne puis-je pas changer le format après le téléversement ?",
+        "a": "Ajuster ou Recadrer est appliqué à l'arrivée de la vidéo, et l'original n'est pas conservé — c'est ce qui évite de stocker une vidéo 4K en 4K. Téléversez-la de nouveau pour choisir l'autre format."
+      },
+      {
+        "q": "J'ai publié la même vidéo sur Instagram et TikTok — ça fait deux ?",
+        "a": "Non. Elle est comptée une fois, au téléversement."
+      }
+    ]
+  },
 };

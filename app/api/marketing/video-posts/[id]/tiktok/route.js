@@ -43,9 +43,10 @@ import {
   fitAllowed,
   frameUrl,
   renditionSize,
-  renditionUrl,
+  sendUrl,
 } from "@/lib/marketing/videoPost";
 import { cloudName, loadOwnedVideoPost, renditionState } from "@/lib/marketing/videoPostServer";
+import { videoApprovalState } from "@/lib/marketing/approvalFingerprint";
 
 function refuse(status, code, message, extra) {
   return NextResponse.json({ error: message, code, ...(extra || {}) }, { status });
@@ -86,9 +87,9 @@ export async function GET(request, { params }) {
     connected: Boolean(connection),
     account: connection ? { displayName: connection.displayName || null, avatarUrl: connection.avatarUrl || null } : null,
     audited: tiktokAudited(),
-    // A video post has no separate approval (see the publish route's
-    // header); the composer reads this as "nothing to approve".
-    approval: { state: "approved", notRequired: true },
+    // The video post's own approval — the composer refuses to post without
+    // it, as for a design (lib/marketing/approvalFingerprint.js).
+    approval: { state: videoApprovalState(post).state, approvedAt: post.approvedAt || null },
     caption: post.caption || "",
     history: history.map(historyShape),
   });
@@ -116,6 +117,20 @@ export async function POST(request, { params }) {
     body = await request.json();
   } catch {
     return refuse(400, "bad_request", "Invalid request body.");
+  }
+
+  if (post.uploadState !== "ready") return refuse(409, "rendition_not_ready", "The clip is still being uploaded or prepared.");
+  // ── Approval, exactly as the Instagram/Facebook route checks it ──────────
+  const approval = videoApprovalState(post);
+  if (!approval.ok) {
+    return refuse(
+      409,
+      approval.state === "stale" ? "approval_stale" : "not_approved",
+      approval.state === "stale"
+        ? "This video post changed after it was approved. Review it and approve it again before posting."
+        : "This video post hasn't been approved yet. Review it and approve it before posting.",
+      { approval: { state: approval.state } },
+    );
   }
 
   const caption = post.caption ? post.caption.trim() : "";
@@ -166,7 +181,7 @@ export async function POST(request, { params }) {
   }
 
   const cn = cloudName();
-  const videoUrl = renditionUrl({ cloudName: cn, publicId: post.videoPublicId, fit: post.fit });
+  const videoUrl = sendUrl(post, cn);
   const size = renditionSize(post.fit, post);
   const coverMs = post.coverMode === "frame" ? post.coverOffsetMs : 0;
 

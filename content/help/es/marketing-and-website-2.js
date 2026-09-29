@@ -719,4 +719,131 @@ export const ARTICLES = {
       { q: "Gané un hito pero no ha llegado dinero, ¿por qué?", a: "Las semanas se cierran el lunes y se pagan a mano después. Comprueba que hay un método de pago registrado en Cómo se te paga; sin él, no hay adónde enviarlo." },
     ],
   },
+  "video-posts": {
+    "title": "Publicaciones de video: Reels y TikToks, y tus videos del mes",
+    "summary": "Sube un video, apruébalo y publícalo como Reel de Instagram, Reel de Facebook y en TikTok — y cuántos videos incluye tu plan cada mes y qué añade un paquete de videos.",
+    "updated": "2026-09-29",
+    "intro": [
+      "En el Diseñador de marketing, cada campaña tiene **Nueva publicación de video**. Elige un video de tu computadora o teléfono (de 3 segundos a 2:30), ponle portada y texto, apruébalo y marca a dónde va: **Reel de Instagram**, **Reel de Facebook**, **TikTok** — uno, dos o los tres.",
+      "Cada plan incluye **5 videos al mes**. Un **paquete de videos** añade hasta **90 más al mes** por **US$77/mes**. Un video cuenta una sola vez, dure lo que dure y lo publiques donde lo publiques."
+    ],
+    "sections": [
+      {
+        "id": "upload",
+        "heading": "Subir un video",
+        "blocks": [
+          {
+            "steps": [
+              "Abre **Marketing → Diseñador**, busca la campaña y pulsa **Nueva publicación de video**.",
+              "Elige el video. Antes de enviar nada, FieldQuo lee su duración y su formato: un video de más de **2:30** se rechaza enseguida, y uno que no es vertical (9:16) pregunta primero **Ajustar a 9:16 (agrega franjas)** o **Recortar a 9:16**.",
+              "Deja la página abierta mientras sube — los videos grandes se envían por partes, así que una grabación 4K del teléfono funciona. Cuando diga **Convirtiendo**, puedes salir: la pantalla del video retoma donde estaba."
+            ]
+          },
+          {
+            "p": "Cada video se convierte una sola vez, al llegar: a un máximo de 1080×1920 si es vertical (1920×1080 si es horizontal), en un MP4 que aceptan Instagram, Facebook y TikTok. Ajustar o Recortar se hace en el mismo paso. El original 4K no se guarda — lo que ves en la pantalla del video es exactamente lo que se publica."
+          },
+          {
+            "note": "Si tu navegador no puede leer la duración de un video (algunas computadoras antiguas no abren el video HEVC de un iPhone), se te avisa antes de subirlo que todo lo que pase de 2:30 se cortará en 2:30."
+          }
+        ]
+      },
+      {
+        "id": "allowance",
+        "heading": "Tus videos del mes",
+        "blocks": [
+          {
+            "bullets": [
+              "**5 videos al mes** vienen incluidos en cada plan. El mes es el mes calendario en la zona horaria de tu empresa.",
+              "Un video se cuenta **una vez**, cuando ha llegado y se ha convertido — que es cuando se genera el costo de almacenamiento y conversión. Un video de 10 segundos y uno de 2:30 cuentan uno cada uno. Publicarlo en Instagram, Facebook y TikTok sigue siendo uno.",
+              "Un video que no se llega a subir no se cuenta.",
+              "La pantalla del video y **Configuración → Cuenta y facturación** muestran **X de Y videos usados este mes**."
+            ]
+          },
+          {
+            "p": "Cuando se acaba el mes, una nueva subida se rechaza antes de enviar nada, con el recuento. Los propietarios y administradores ven **Agregar un paquete de videos**; los demás reciben el aviso de pedírselo a uno de ellos."
+          }
+        ]
+      },
+      {
+        "id": "video-pack",
+        "heading": "El paquete de videos",
+        "blocks": [
+          {
+            "p": "Un **paquete de videos** es un complemento mensual: **US$77/mes** por hasta **90 videos más al mes**, además de los 5 incluidos. Puedes tener más de uno — cada uno añade otros 90. Agrégalo desde **Configuración → Cuenta y facturación** o desde el botón que aparece cuando se acaba el mes; es un pago de Stripe en la misma cuenta que tu plan."
+          },
+          {
+            "bullets": [
+              "Cuenta desde que pasa su primer pago, y mientras esté pagado.",
+              "**Dejar de renovar** lo mantiene contando hasta el final del mes pagado, y luego termina. No se toca nada de lo ya publicado.",
+              "Los paquetes de videos se facturan en dólares estadounidenses. Una empresa cuyo plan se factura en dólares canadienses o australianos aún no puede agregar uno — la pantalla lo dice en lugar de ofrecer un pago que Stripe rechazaría."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "approve",
+        "heading": "Aprobar una publicación de video",
+        "blocks": [
+          {
+            "p": "Una publicación de video necesita la misma aprobación que un diseño. En la pantalla del video, **Aprobar** registra quién la aprobó y exactamente qué aprobó: el video, su formato, la portada y el texto. Cambiar cualquiera de ellos después retira la aprobación, y la pantalla lo dice — vuelve a aprobarla después de revisarla."
+          },
+          {
+            "p": "Los propietarios, administradores, gerentes y despachadores pueden aprobar y publicar."
+          }
+        ]
+      },
+      {
+        "id": "post",
+        "heading": "A dónde va: una casilla por destino",
+        "blocks": [
+          {
+            "table": {
+              "head": [
+                "Destino",
+                "Duración que acepta",
+                "Notas"
+              ],
+              "rows": [
+                [
+                  "Reel de Instagram",
+                  "3 segundos – 15 minutos",
+                  "Necesita texto. También aparece en la cuadrícula del perfil. Usa el fotograma elegido o tu imagen de portada."
+                ],
+                [
+                  "Reel de Facebook",
+                  "3 – 90 segundos",
+                  "Se publica en tu página. Facebook elige su propia portada. Hasta 30 Reels al día por página."
+                ],
+                [
+                  "TikTok",
+                  "Hasta el límite de tu cuenta de TikTok",
+                  "Abre la ventana de publicación de TikTok — quién puede verlo, comentarios, Dúo, Stitch y divulgación — como exige TikTok."
+                ]
+              ]
+            }
+          },
+          {
+            "p": "Un destino al que el video no puede ir aparece en gris con el motivo, y los demás siguen disponibles — un video de 2 minutos muestra **Demasiado largo para un Reel de Facebook (máximo 90 segundos)** mientras Instagram y TikTok se pueden marcar."
+          },
+          {
+            "tip": "Publicar en Facebook e Instagram necesita que Meta apruebe la app de FieldQuo — consulta [[social-posting-and-scheduling|Publicar en Facebook e Instagram]]. Mientras tanto, esas dos casillas dicen que aún no está disponible. TikTok necesita tu cuenta conectada en [[settings-tiktok|Configuración → TikTok]]."
+          }
+        ]
+      }
+    ],
+    "faq": [
+      {
+        "q": "¿Un video más largo cuenta como más de uno?",
+        "a": "No. Un video cuenta una vez, de 3 segundos a 2:30."
+      },
+      {
+        "q": "¿Por qué no puedo cambiar el formato después de subirlo?",
+        "a": "Ajustar o Recortar se aplica cuando llega el video, y el original no se guarda — eso evita almacenar una grabación 4K en 4K. Súbelo de nuevo para elegir el otro formato."
+      },
+      {
+        "q": "Publiqué el mismo video en Instagram y TikTok — ¿cuenta como dos?",
+        "a": "No. Se cuenta una vez, al subirlo."
+      }
+    ]
+  },
 };

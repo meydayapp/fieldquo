@@ -74,8 +74,8 @@ ok("uploaded cover with no picture refused for Instagram", vp.checkForPlatform("
 ok("uploaded cover as javascript: URL refused", vp.checkForPlatform("instagram", { ...vertical, coverMode: "image", coverImageUrl: "javascript:alert(1)" }).errors.includes("cover_image_missing"));
 
 const upload = (f) => vp.checkUploadedVideo(f);
-ok("created: 3 s – 600 s, real video only", upload({ resourceType: "video", width: 1, height: 1, durationSec: 3 }).ok && !upload({ resourceType: "video", width: 1, height: 1, durationSec: 601 }).ok && !upload({ resourceType: "image", width: 1, height: 1, durationSec: 5 }).ok && !upload(null).ok);
-ok("created: over 100 MB refused", upload({ resourceType: "video", width: 1, height: 1, durationSec: 5, bytes: 101 * 1024 * 1024 }).errors.includes("file_too_large"));
+ok("created: 3 s – 2:30, real video only", upload({ resourceType: "video", width: 1, height: 1, durationSec: 3 }).ok && upload({ resourceType: "video", width: 1, height: 1, durationSec: 150 }).ok && !upload({ resourceType: "video", width: 1, height: 1, durationSec: 151 }).ok && !upload({ resourceType: "image", width: 1, height: 1, durationSec: 5 }).ok && !upload(null).ok);
+ok("created: over 2 GB refused, 900 MB accepted", upload({ resourceType: "video", width: 1, height: 1, durationSec: 5, bytes: 900 * 1024 * 1024 }).ok && upload({ resourceType: "video", width: 1, height: 1, durationSec: 5, bytes: 2049 * 1024 * 1024 }).errors.includes("file_too_large"));
 const facts = vp.readVideoFacts({ resource_type: "video", width: 1080, height: 1920, duration: "12.5", bytes: 5000, format: "MOV", frame_rate: 29.97 });
 ok("readVideoFacts reads Cloudinary's explicit() answer", facts.durationSec === 12.5 && facts.format === "mov" && facts.frameRate === 29.97);
 const mm = vp.readVideoFacts({ resource_type: "video", video_metadata: { format: { duration: "7.2" }, streams: [{ codec_type: "audio" }, { codec_type: "video", width: 720, height: 1280, avg_frame_rate: "30000/1001" }] } });
@@ -320,7 +320,7 @@ section("9. Gates and sentences");
 for (const [name, src] of [["publish", publishRoute], ["tiktok", tiktokRoute]]) {
   ok(`${name}: user:manage + paid plan before anything`, /requirePermission\(member\.role, "user:manage"\)/.test(src) && /planOrRefusal\(member,/.test(src));
 }
-ok("create: the clip must be this company's 'video' upload", /isOwnVideoId\(member\.companyId, publicId\)/.test(read("app/api/marketing/video-posts/route.js")));
+ok("create: the clip id is minted by US in this company's \"video\" folder — the browser never names it", /uploadScope\("member", \{ companyId: member\.companyId, purpose: VIDEO_PURPOSE \}\)/.test(read("app/api/marketing/video-posts/route.js")) && !/body\?\.publicId/.test(read("app/api/marketing/video-posts/route.js")));
 ok("create: the campaign must be this company's", /ownedIdsRefusal\(NextResponse, db, member\.companyId, \{ campaignId \}\)/.test(read("app/api/marketing/video-posts/route.js")));
 ok("the composer is ONE component (TikTokPublishModal takes a video, no copy)", /video=\{tiktokVideo\}/.test(read("app/app/marketing/designer/video/[id]/page.js")) && !/content-sharing-guidelines/.test(read("app/app/marketing/designer/video/[id]/page.js")));
 const modal = read("app/components/designer/TikTokPublishModal.js");
@@ -332,7 +332,7 @@ const hostile = [0, 1, 3, 90.5, 700, 901, NaN];
 for (const p of [...vp.PLATFORMS, "x"]) for (const d of hostile) for (const post of [vertical, landscape, { ...vertical, width: 100, height: 178 }, { ...vertical, fit: "zzz" }, { ...vertical, caption: "" }, { ...vertical, coverMode: "image" }, { ...vertical, coverOffsetMs: -1 }, { ...vertical, caption: "#a ".repeat(40) + "@b ".repeat(30) + "x".repeat(2300) }, { ...vertical, width: 5000, height: 8889 }]) {
   for (const e of vp.checkForPlatform(p, { ...post, durationSec: d }, { maxVideoPostDurationSec: 60 }).errors) produced.add(e);
 }
-for (const e of ["not_vertical", "rendition_not_ready", "reel_daily_limit", "container_error", "container_expired", "meta_video_format", "facebook_reel_failed", "unexpected", "not_ours", "campaign_required", "cloudinary_unavailable", "not_a_video", "no_duration", "file_too_large", "too_short", "too_long"]) produced.add(e);
+for (const e of ["not_vertical", "rendition_not_ready", "reel_daily_limit", "container_error", "container_expired", "meta_video_format", "facebook_reel_failed", "unexpected", "not_ours", "campaign_required", "cloudinary_unavailable", "not_a_video", "no_duration", "file_too_large", "too_short", "too_long", "not_approved", "approval_stale", "changed_since_review", "upload_not_ready", "shape_fixed_on_upload", "upload_failed", "upload_never_arrived", "cloudinary_failed", "allowance_used", "choose_fit", "too_long_clip"]) produced.add(e);
 produced.delete("unknown_platform"); // never reaches a screen: platforms are a closed set in every route
 const langs = Object.keys(APP_MESSAGES);
 for (const lang of langs) {
@@ -344,6 +344,213 @@ for (const lang of langs) {
   const bad = keys.filter((k) => typeof APP_MESSAGES[lang][k] !== "string" || ((APP_MESSAGES.en[k].match(/\{\w+\}/g) || []).sort().join() !== (APP_MESSAGES[lang][k].match(/\{\w+\}/g) || []).sort().join()));
   ok(`${lang}: every app.videoPost string present with English's placeholders (${keys.length})`, bad.length === 0, bad.slice(0, 5).join(", "));
 }
+
+// ══ 10 ══════════════════════════════════════════════════════════════════════
+section("10. The monthly allowance and the video pack (owner, 2026-09-29)");
+
+const al = await import("../lib/marketing/videoAllowance.js");
+ok("constants: 5 included, pack 90 videos at 7700 cents USD monthly, clips up to 150 s", al.INCLUDED_VIDEOS_PER_MONTH === 5 && al.VIDEO_PACK.videos === 90 && al.VIDEO_PACK.priceCents === 7700 && al.VIDEO_PACK.currency === "USD" && al.VIDEO_PACK.interval === "month" && al.VIDEO_MAX_SECONDS === 150);
+ok("the constants file carries the worked example and the owner's pricing rationale", (() => {
+  const src = read("lib/marketing/videoAllowance.js");
+  return /95 videos made this month: 5 included \+ 90 from the pack/.test(src) && /96th is refused/.test(src) && /WORST case/.test(src) && /90 videos × 2\.5 min × US\$0\.17/.test(src) && /buffer/.test(src) && /90 × 1 min ≈ US\$15/.test(src);
+})());
+ok("one video counts once whatever its length", [3, 45, 90, 150].every((s) => al.videosFor({ durationSec: s }) === 1));
+ok("the price is formatted from the constant ($77), the length as 2:30", al.formatPackPrice() === "$77" && al.formatClipLength() === "2:30" && al.formatPackPrice(7750) === "$77.50");
+
+const future = new Date(Date.now() + 10 * 86400e3);
+const past = new Date(Date.now() - 86400e3);
+const onePack = [{ paidThrough: future }];
+const allow1 = al.allowanceFor(onePack);
+ok("worked example: 1 pack → 95 a month", allow1.total === 95 && allow1.included === 5 && allow1.fromPacks === 90);
+let blockedAt = null;
+for (let n = 0; n <= 100; n++) {
+  if (!al.decideNewVideo({ used: n, reserved: 0, allowance: allow1 }).ok) { blockedAt = n; break; }
+}
+ok("worked example: 95 videos go through, the 96th is refused (allowance_used)", blockedAt === 95 && al.decideNewVideo({ used: 95, allowance: allow1 }).code === "allowance_used");
+ok("…and 95 clips of 2:30 are still 95 (length changes nothing)", Array.from({ length: 95 }, () => al.videosFor({ durationSec: 150 })).reduce((a, b) => a + b, 0) === 95);
+ok("no pack: the 6th is refused", al.decideNewVideo({ used: 5, allowance: al.allowanceFor([]) }).ok === false && al.decideNewVideo({ used: 4, allowance: al.allowanceFor([]) }).ok);
+ok("a clip on its way in holds its slot (4 used + 1 uploading → the next is refused)", !al.decideNewVideo({ used: 4, reserved: 1, allowance: al.allowanceFor([]) }).ok);
+ok("two packs stack to 185", al.allowanceFor([{ paidThrough: future }, { paidThrough: future }]).total === 185);
+ok("a pack counts only while a PAID period covers today", al.allowanceFor([{ paidThrough: past }]).total === 5 && al.allowanceFor([{ paidThrough: null, status: "active" }]).total === 5 && al.allowanceFor([{ paidThrough: "junk" }]).total === 5);
+ok("a pack set to stop renewing keeps counting until its paid month ends", al.allowanceFor([{ paidThrough: future, cancelAtPeriodEnd: true, status: "active" }]).total === 95);
+ok("hostile counts never go negative or grant more", al.decideNewVideo({ used: -50, reserved: -3, allowance: { total: 5 } }).remaining === 5 && !al.decideNewVideo({ used: 0, allowance: null }).ok);
+
+const tor = (iso) => al.monthWindow(new Date(iso), "America/Toronto").label;
+ok("the month is the company's own: 2026-10-01 03:00 UTC is still September in Toronto", tor("2026-10-01T03:00:00Z") === "2026-09" && tor("2026-10-01T05:00:00Z") === "2026-10");
+ok("…and already October in Sydney", al.monthWindow(new Date("2026-09-30T15:00:00Z"), "Australia/Sydney").label === "2026-10");
+const nov = al.monthWindow(new Date("2026-11-15T12:00:00Z"), "America/Toronto");
+ok("a month across the DST change still starts and ends at local midnight", nov.start.toISOString() === "2026-11-01T04:00:00.000Z" && nov.end.toISOString() === "2026-12-01T05:00:00.000Z");
+ok("an unknown time zone falls back to the schema default, not UTC", al.monthWindow(new Date("2026-10-01T03:00:00Z"), "Mars/Olympus").timeZone === "America/Toronto");
+const dec = al.monthWindow(new Date("2026-12-31T12:00:00Z"), "America/Toronto");
+ok("December rolls into January", dec.end.toISOString() === "2027-01-01T05:00:00.000Z");
+
+// The pack's billing: two doors, one settlement, nothing doubled.
+const packLib = await import("../lib/marketing/videoPack.js");
+function packWorld() {
+  const rows = new Map();
+  const activity = [];
+  const prisma = {
+    videoPack: {
+      findUnique: async ({ where }) => (where.stripeSubscriptionId ? [...rows.values()].find((r) => r.stripeSubscriptionId === where.stripeSubscriptionId) : rows.get(where.id)) || null,
+      upsert: async ({ where, create, update }) => {
+        const found = [...rows.values()].find((r) => r.stripeSubscriptionId === where.stripeSubscriptionId);
+        if (found) { Object.assign(found, update); return found; }
+        const row = { id: `vp_${rows.size + 1}`, paidThrough: null, lastPaidInvoiceId: null, ...create };
+        rows.set(row.id, row);
+        return row;
+      },
+      updateMany: async ({ where, data }) => {
+        const r = rows.get(where.id);
+        const same = (a, b) => (a ? new Date(a).getTime() : null) === (b ? new Date(b).getTime() : null);
+        if (!r || !same(r.paidThrough, where.paidThrough)) return { count: 0 };
+        Object.assign(r, data);
+        return { count: 1 };
+      },
+      update: async ({ where, data }) => Object.assign(rows.get(where.id), data),
+    },
+  };
+  const subs = {
+    sub_pack: { id: "sub_pack", status: "active", customer: "cus_1", metadata: { companyId: "co_1", kind: packLib.VIDEO_PACK_KIND, packKey: "video_pack_90" } },
+    sub_plan: { id: "sub_plan", status: "active", customer: "cus_1", metadata: { companyId: "co_1", planId: "p1" } },
+  };
+  const deps = {
+    db: prisma,
+    stripe: { subscriptions: { retrieve: async (id) => subs[id] || null } },
+    recordActivity: async (_m, a) => activity.push(a),
+  };
+  return { rows, activity, deps };
+}
+const inv = (sub, endIso, id = `in_${endIso}`) => ({ id, status: "paid", subscription: sub, lines: { data: [{ period: { start: 0, end: Math.floor(new Date(endIso).getTime() / 1000) } }] } });
+{
+  const w = packWorld();
+  const r1 = await packLib.settleVideoPackInvoice(inv("sub_pack", "2026-11-01T00:00:00Z"), { deps: w.deps });
+  const r2 = await packLib.settleVideoPackInvoice(inv("sub_pack", "2026-11-01T00:00:00Z"), { deps: w.deps });
+  const row = [...w.rows.values()][0];
+  ok("a pack's first paid invoice sets paidThrough to the period end", r1.handled && r1.settled && row.paidThrough.toISOString() === "2026-11-01T00:00:00.000Z");
+  ok("the same invoice settled twice (webhook + browser return) changes nothing and logs once", r2.handled && r2.moved === false && w.activity.length === 1 && w.rows.size === 1);
+  await packLib.settleVideoPackInvoice(inv("sub_pack", "2026-12-01T00:00:00Z"), { deps: w.deps });
+  await packLib.settleVideoPackInvoice(inv("sub_pack", "2026-11-01T00:00:00Z", "in_late"), { deps: w.deps });
+  ok("a renewal moves it forward; a late replay of an older invoice never pulls it back", row.paidThrough.toISOString() === "2026-12-01T00:00:00.000Z");
+  const notOurs = await packLib.settleVideoPackInvoice(inv("sub_plan", "2026-11-01T00:00:00Z"), { deps: w.deps });
+  ok("the company's own plan invoice is NOT a pack (falls through to the plan handler)", notOurs.handled === false);
+  const unpaid = await packLib.settleVideoPackInvoice({ ...inv("sub_pack", "2027-01-01T00:00:00Z"), status: "open" }, { deps: w.deps });
+  ok("an unpaid pack invoice grants nothing", unpaid.handled && unpaid.settled === false && row.paidThrough.toISOString() === "2026-12-01T00:00:00.000Z");
+  ok("laterOf ignores junk and keeps the later date", packLib.laterOf("junk", "2026-01-01").toISOString().startsWith("2026-01-01") && packLib.laterOf("2027-01-01", "2026-01-01").toISOString().startsWith("2027"));
+}
+ok("packs are USD only; a CAD company is told why before Stripe is asked", packLib.packAvailability("USD").ok && !packLib.packAvailability("CAD").ok && /US dollars/.test(packLib.packAvailability("CAD").reason));
+const webhook = read("app/api/platform/billing/webhook/route.js");
+ok("webhook: pack invoices are intercepted BEFORE the company-plan handler", webhook.indexOf("settleVideoPackInvoice(invoice)") > 0 && webhook.indexOf("settleVideoPackInvoice(invoice)") < webhook.indexOf("await syncSubscriptionFromStripeEvent(event)"));
+ok("webhook: a pack's subscription.deleted never reaches the churn handler", webhook.indexOf("event.data.object?.metadata?.kind === VIDEO_PACK_KIND") > 0 && webhook.indexOf("event.data.object?.metadata?.kind === VIDEO_PACK_KIND") < webhook.indexOf("await syncSubscriptionFromStripeEvent(event)"));
+ok("checkout return: a pack session is settled, not filed as a failed plan checkout", /kind === VIDEO_PACK_KIND/.test(read("lib/stripe/settleCheckoutSession.js")));
+const packRoute = read("app/api/marketing/video-pack/route.js");
+ok("buying or cancelling a pack is owner/admin only (isBillingAdmin)", (packRoute.match(/if \(!isBillingAdmin\(member\.role\)\)/g) || []).length === 2);
+ok("the checkout price comes from VIDEO_PACK, never the request", /unit_amount: VIDEO_PACK\.priceCents/.test(read("lib/marketing/videoPack.js")) && !/priceCents|amount/.test(packRoute.slice(packRoute.indexOf("export async function POST"), packRoute.indexOf("export async function DELETE")).replace(/createVideoPackCheckoutSession/g, "")));
+const createRoute = read("app/api/marketing/video-posts/route.js");
+ok("the upload is refused on the allowance BEFORE it is signed", createRoute.indexOf("allowance.decision.ok") > 0 && createRoute.indexOf("allowance.decision.ok") < createRoute.indexOf("planVideoUpload("));
+ok("counted once, when it arrives (a conditional update on a still-pending post)", /countedAt: now/.test(read("lib/marketing/videoPostServer.js")) && /uploadState: \{ in: \["uploading", "processing"\] \}/.test(read("lib/marketing/videoPostServer.js")));
+
+// ══ 11 ══════════════════════════════════════════════════════════════════════
+section("11. 1080p on arrival, in one pass; large uploads");
+
+const vu = await import("../lib/marketing/videoUpload.js");
+const vscope = direct.uploadScope("member", { companyId: "co_1", purpose: "video" });
+const fixedId = () => "0f8fad5b-d9cb-469f-a165-70867728950e";
+const plan4k = vu.planVideoUpload({ type: "video/quicktime", size: 900 * 1024 * 1024, width: 3840, height: 2160, durationSec: 150 }, vscope, { fit: "crop", randomId: fixedId, now: 0, planLimits: { video_max_size_bytes: 4 * 1024 ** 3 } });
+ok("a 2:30 4K landscape clip of 900 MB is accepted", plan4k.ok, JSON.stringify(plan4k));
+ok("…and the crop to 9:16 rides in the SAME incoming transformation as the 1080p conversion", plan4k.params.transformation === "eo_150/c_fill,w_1080,h_1920,g_center/ac_aac,fps_24-60,vc_h264:high:auto");
+ok("stored as MP4, converted in the background, public_id minted by us", plan4k.params.format === "mp4" && plan4k.params.async === "true" && plan4k.params.public_id === `${vscope.folder}/${fixedId()}` && plan4k.params.overwrite === "false");
+const planV = vu.planVideoUpload({ type: "video/mp4", size: 5e6, width: 2160, height: 3840, durationSec: 20 }, vscope, { randomId: fixedId, now: 0 });
+ok("a vertical 4K clip is scaled DOWN to 1080x1920 (c_limit), no choice asked", planV.ok && planV.preparedAs === "vertical" && planV.params.transformation.includes("/c_limit,w_1080,h_1920/"));
+const planU = vu.planVideoUpload({ type: "video/quicktime", size: 5e6 }, vscope, { randomId: fixedId, now: 0 });
+ok("a clip the browser couldn't read is capped at 1920 a side and still trimmed at 2:30", planU.ok && planU.preparedAs === "limit" && planU.params.transformation.startsWith("eo_150/c_limit,w_1920,h_1920/"));
+ok("a known non-9:16 clip with no Fit/Crop chosen is refused before upload (choose_fit)", vu.planVideoUpload({ type: "video/mp4", size: 5e6, width: 1920, height: 1080, durationSec: 10 }, vscope, {}).code === "choose_fit");
+ok("a declared 2:31 clip is refused before upload; 2:30 is not", vu.planVideoUpload({ type: "video/mp4", size: 5e6, width: 1080, height: 1920, durationSec: 151 }, vscope, {}).code === "too_long" && vu.planVideoUpload({ type: "video/mp4", size: 5e6, width: 1080, height: 1920, durationSec: 150 }, vscope, {}).ok);
+ok("the Cloudinary plan's own ceiling binds (Free 100 MB → a 900 MB clip is refused with the number)", (() => {
+  const r = vu.planVideoUpload({ type: "video/mp4", size: 900e6, width: 1080, height: 1920, durationSec: 60 }, vscope, { planLimits: { video_max_size_bytes: 100 * 1024 * 1024 } });
+  return r.code === "file_too_large" && r.maxBytes === 100 * 1024 * 1024;
+})());
+ok("not a video / empty / hostile type → refused", ["image/jpeg", "", null, "video/x-evil"].every((type) => !vu.planVideoUpload({ type, size: 10 }, vscope, {}).ok) && !vu.planVideoUpload({ type: "video/mp4", size: 0 }, vscope, {}).ok);
+ok("a notification_url that isn't https is never signed", !("notification_url" in vu.planVideoUpload({ type: "video/mp4", size: 5e6, width: 1080, height: 1920, durationSec: 5 }, vscope, { notificationUrl: "http://localhost:3000/x" }).params));
+const signedFields = vu.signedUploadFields(plan4k.params, { apiKey: "k", secret: "s" });
+ok("the incoming transformation is INSIDE the signature (the browser cannot drop it to store 4K)", signedFields.signature === direct.cloudinarySignature(plan4k.params, "s") && signedFields.signature !== direct.cloudinarySignature({ ...plan4k.params, transformation: "" }, "s"));
+ok("chunks are 20 MB (Cloudinary's floor is 5 MB; one request over 100 MB is refused)", vu.CHUNK_BYTES === 20 * 1024 * 1024);
+const chunkSrc = read("lib/media/chunkedUpload.js");
+ok("the chunked uploader sends X-Unique-Upload-Id and Content-Range, retries a dropped chunk", /X-Unique-Upload-Id/.test(chunkSrc) && /bytes \$\{start\}-\$\{end - 1\}\/\$\{total\}/.test(chunkSrc) && /RETRIES/.test(chunkSrc));
+
+// Notification signature
+const body = JSON.stringify({ notification_type: "upload", public_id: "x" });
+const ts = 1_800_000_000;
+const sig1 = createHash("sha1").update(body + ts + "secret").digest("hex");
+const sig256 = createHash("sha256").update(body + ts + "secret").digest("hex");
+ok("notification: SHA-1 and SHA-256 signatures verify", vu.verifyNotification({ body, timestamp: String(ts), signature: sig1, secret: "secret", nowSeconds: ts + 5 }) && vu.verifyNotification({ body, timestamp: String(ts), signature: sig256, secret: "secret", nowSeconds: ts + 5 }));
+ok("notification: a tampered body, a wrong secret, a stale or missing timestamp are refused", !vu.verifyNotification({ body: body + " ", timestamp: String(ts), signature: sig1, secret: "secret", nowSeconds: ts }) && !vu.verifyNotification({ body, timestamp: String(ts), signature: sig1, secret: "other", nowSeconds: ts }) && !vu.verifyNotification({ body, timestamp: String(ts), signature: sig1, secret: "secret", nowSeconds: ts + 3 * 3600 }) && !vu.verifyNotification({ body, timestamp: null, signature: sig1, secret: "secret", nowSeconds: ts }));
+
+// Arrival
+const pendingPost = { videoPublicId: `${vscope.folder}/${fixedId()}` };
+const arrived = { public_id: pendingPost.videoPublicId, resource_type: "video", width: 1080, height: 1920, duration: 149.97, bytes: 60e6, format: "mp4", secure_url: `https://res.cloudinary.com/demo/video/upload/v1/${pendingPost.videoPublicId}.mp4` };
+ok("arrival: Cloudinary's own facts are stored (1080x1920, 149.97 s)", (() => { const j = vu.judgeArrival({ post: pendingPost, asset: arrived, cloudName: "demo" }); return j.ok && j.facts.width === 1080 && j.facts.durationSec === 149.97; })());
+ok("arrival: another id, another cloud, a 2 s clip → refused", vu.judgeArrival({ post: pendingPost, asset: { ...arrived, public_id: "x" }, cloudName: "demo" }).code === "not_ours" && vu.judgeArrival({ post: pendingPost, asset: arrived, cloudName: "evil" }).code === "not_ours" && vu.judgeArrival({ post: pendingPost, asset: { ...arrived, duration: 2 }, cloudName: "demo" }).code === "too_short");
+const preparedPost = { videoPublicId: pendingPost.videoPublicId, preparedAs: "crop", fit: "original" };
+ok("a clip prepared on arrival is SENT AS STORED — no derived rendition, no second transcode", vp.sendUrl(preparedPost, "demo") === `https://res.cloudinary.com/demo/video/upload/${pendingPost.videoPublicId}.mp4`);
+ok("…a legacy row (no preparedAs) still sends the derived rendition", vp.sendUrl({ ...preparedPost, preparedAs: null, fit: "pad" }, "demo").includes("/c_pad,"));
+const itemRoute2 = read("app/api/marketing/video-posts/[id]/route.js");
+ok("a clip made 9:16 on arrival cannot be re-shaped (the original is gone — said, not faked)", /shape_fixed_on_upload/.test(itemRoute2));
+ok("the notify route verifies the signature before reading anything", (() => { const s = read("app/api/marketing/video-posts/cloudinary-notify/route.js"); return s.indexOf("verifyNotification(") < s.indexOf("JSON.parse(raw)"); })());
+
+// ══ 12 ══════════════════════════════════════════════════════════════════════
+section("12. Tick boxes and the approval gate");
+
+const long = { ...vertical, durationSec: 120 };
+const dFb = vp.destinationState(vp.checkForPlatform("facebook", long));
+const dIg = vp.destinationState(vp.checkForPlatform("instagram", long));
+const dTt = vp.destinationState(vp.checkForPlatform("tiktok", long));
+ok("a 2:00 clip: Facebook greyed out (too_long, max 90); Instagram and TikTok available", !dFb.available && dFb.reason === "too_long" && dFb.limits.maxSeconds === 90 && dIg.available && dTt.available);
+ok("…the sentence says so, in every language", langs.every((l) => typeof APP_MESSAGES[l]["app.videoPost.limit.facebook.too_long"] === "string" && APP_MESSAGES[l]["app.videoPost.limit.facebook.too_long"].includes("{max}")) && APP_MESSAGES.en["app.videoPost.limit.facebook.too_long"].replace("{max}", "90") === "Too long for a Facebook Reel (max 90 seconds)");
+ok("a missing caption does NOT grey Instagram out (it's fixed on this screen)", vp.destinationState(vp.checkForPlatform("instagram", { ...vertical, caption: "" })).available);
+const limitPairs = [];
+for (const p of vp.PLATFORMS) for (const post of [long, { ...vertical, durationSec: 1 }, { ...vertical, width: 100, height: 178 }, { ...vertical, width: 5000, height: 8889 }, { ...vertical, durationSec: 0 }, { ...vertical, width: 0 }, { ...vertical, durationSec: 700 }]) {
+  const d = vp.destinationState(vp.checkForPlatform(p, post));
+  if (d.reason) limitPairs.push(`app.videoPost.limit.${p}.${d.reason}`);
+}
+for (const lang of langs) {
+  const missing = [...new Set(limitPairs)].filter((k) => typeof APP_MESSAGES[lang][k] !== "string");
+  ok(`${lang}: a greyed-out reason for every platform limit (${new Set(limitPairs).size})`, missing.length === 0, missing.join(", "));
+}
+
+const af = await import("../lib/marketing/approvalFingerprint.js");
+const approvedPost = { videoPublicId: "a/b", fit: "original", coverMode: "frame", coverOffsetMs: 1000, coverImageUrl: null, caption: "Hi" };
+const fp = af.videoFingerprint(approvedPost);
+const withApproval = { ...approvedPost, approvedAt: new Date(), approvedFingerprint: fp };
+ok("approved for exactly what it shows", af.videoApprovalState(withApproval).state === "approved");
+ok("a changed caption, cover frame, cover mode, shape or clip → stale", ["caption", "coverOffsetMs", "coverMode", "fit", "videoPublicId"].every((k) => af.videoApprovalState({ ...withApproval, [k]: k === "coverOffsetMs" ? 2000 : k === "coverMode" ? "image" : `${withApproval[k]}x` }).state === "stale"));
+ok("renaming it does not (the name isn't the post)", af.videoApprovalState({ ...withApproval, name: "renamed" }).state === "approved");
+ok("the frame offset is irrelevant when an uploaded picture is the cover", af.videoFingerprint({ ...approvedPost, coverMode: "image", coverImageUrl: "u", coverOffsetMs: 1 }) === af.videoFingerprint({ ...approvedPost, coverMode: "image", coverImageUrl: "u", coverOffsetMs: 9 }));
+ok("never approved → not_approved", af.videoApprovalState(approvedPost).state === "not_approved" && af.videoApprovalState(null).state === "not_approved");
+const pub = read("app/api/marketing/video-posts/[id]/publish/route.js");
+const tik = read("app/api/marketing/video-posts/[id]/tiktok/route.js");
+ok("Instagram/Facebook publish refuses without a live approval, before any Meta call", pub.indexOf("videoApprovalState(post)") > 0 && pub.indexOf("videoApprovalState(post)") < pub.indexOf("startInstagramReel({"));
+ok("TikTok refuses without a live approval, before init", tik.indexOf("const approval = videoApprovalState(post)") > 0 && tik.indexOf("const approval = videoApprovalState(post)") < tik.indexOf("initVideoPost({"));
+ok("the composer reads the REAL approval (no more notRequired)", !/notRequired: true/.test(tik));
+ok("PATCH withdraws a standing approval when caption/cover/shape change", /const APPROVED_FIELDS = \["caption", "fit", "coverMode", "coverOffsetMs", "coverImageUrl"\]/.test(itemRoute2) && /approvedAt: null, approvedById: null, approvedFingerprint: null/.test(itemRoute2));
+ok("approve uses the same permission as a design's (user:manage) and the fingerprint guard", (() => { const s = read("app/api/marketing/video-posts/[id]/approval/route.js"); return /requirePermission\(member\.role, "user:manage"\)/.test(s) && /changed_since_review/.test(s); })());
+ok("a support session's GET never writes (arrival check skipped when read-only)", /if \(member\.impersonationMode !== "read_only"\) post = /.test(itemRoute2));
+
+// ══ 13 ══════════════════════════════════════════════════════════════════════
+section("13. Shown wherever add-ons are sold or explained");
+
+const pricingSrc = read("app/(marketing)/pricing/PricingPlans.js");
+ok("/pricing names the pack from the constants, never a typed price", /pricingPage\.videoPosts/.test(pricingSrc) && /VIDEO_PACK\.priceCents/.test(pricingSrc) && !/\b77\b/.test(pricingSrc));
+const { MESSAGES } = await import("../app/i18n/messages.js");
+ok("/pricing sentence in every marketing language, with its four numbers as placeholders", Object.keys(MESSAGES).every((l) => ["{included}", "{price}", "{videos}", "{length}"].every((ph) => String(MESSAGES[l]["pricingPage.videoPosts"] || "").includes(ph))));
+ok("Account & Billing shows the pack card (usage + Add video pack)", /<VideoPackCard/.test(read("app/app/settings/account-billing/page.js")));
+ok("the video screen shows 'X of Y videos used this month'", /<VideoAllowanceLine/.test(read("app/app/marketing/designer/video/[id]/page.js")));
+const helpTree = read("lib/help/tree.js");
+ok("a help article exists in en, fr and es", /A\("video-posts"/.test(helpTree) && ["en", "fr", "es"].every((l) => /"video-posts":/.test(read(`content/help/${l}/marketing-and-website-2.js`))));
+ok("…and it names the allowance, the pack, the 2:30 limit, Facebook's 90 s, 1080p and the approval", (() => {
+  const s = read("content/help/en/marketing-and-website-2.js");
+  const a = s.slice(s.indexOf('"video-posts":'));
+  return /5 videos a month/.test(a) && /US\$77\/month/.test(a) && /2:30/.test(a) && /3 – 90 seconds/.test(a) && /1080/.test(a) && /Approve/.test(a);
+})());
 
 console.log(`\n${checks - failures}/${checks} checks passed${failures ? ` — ${failures} FAILED` : ""}`);
 process.exit(failures ? 1 : 0);
