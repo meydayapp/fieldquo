@@ -36,6 +36,7 @@ import {
   WELCOME_STEPS,
 } from "@/lib/signup/welcome";
 import { loadWelcomeState, welcomePrefill } from "@/lib/signup/welcomeState";
+import { SIGNUP_SOURCE } from "@/lib/signup/leads";
 
 const PROVISIONAL_SLUG = /^fq-[a-z0-9]+$/;
 
@@ -200,6 +201,16 @@ export async function PATCH(request) {
       companyId: member.companyId,
     }).catch(() => {});
     return NextResponse.json({ error: "We couldn't save that — try again." }, { status: 500 });
+  }
+
+  // The sales floor's welcome-call row was written when the company was
+  // created, before it had a name (lib/signup/salesFloor.js). Give it the
+  // name now, so a rep does not ring a blank row. Best-effort: FieldQuo's
+  // bookkeeping never fails the owner's answer.
+  if (step === "business" && read.company?.name) {
+    await db.prospect
+      .updateMany({ where: { companyId: member.companyId, sourceProvider: SIGNUP_SOURCE }, data: { businessName: read.company.name } })
+      .catch(() => {});
   }
 
   // Where they are now, from the stored answers — never a counter.
