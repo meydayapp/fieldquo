@@ -237,12 +237,17 @@ export default function SignupCreating({
       {problem && (
         <div role="alert" className="mt-5 rounded-lg border border-border bg-muted px-4 py-3">
           <p className="text-sm text-foreground">
-            {welcome && problem.stage === "company"
-              ? // On the welcome screen the first stage confirms the answers;
-                // the business already exists, so "may have been created"
-                // would be the wrong sentence.
-                problem.message || t("app.welcome.setup.failedAnswers", "We couldn't reach FieldQuo to finish setting up. Retry picks up where it stopped.")
-              : problemText(t, problem, stages)}
+            {welcome && problem.translated
+              ? // A sentence the welcome screen already put in the reader's
+                // language (lib/signup/visitorErrors.js).
+                problem.message
+              : welcome && problem.stage === "company"
+                ? // On the welcome screen the first stage confirms the
+                  // answers; the business already exists, so "may have been
+                  // created" would be the wrong sentence — and the route's
+                  // own (English) words are never shown to a visitor.
+                  t("app.welcome.setup.failedAnswers", "We couldn't reach FieldQuo to finish setting up. Retry picks up where it stopped.")
+                : problemText(t, problem, stages)}
           </p>
           <button
             type="button"

@@ -61,6 +61,7 @@ import { TRIAL_DAYS, TRIAL_CARD_REQUIRED } from "@/lib/pricing";
 import { TRADE_CATALOG } from "@/lib/trades/catalog";
 import { APP_MESSAGES } from "@/app/i18n/appMessages";
 import { callBackFor, needsChecklistRead } from "@/lib/platform/callBack";
+import { visitorError, isNetworkFailure, VISITOR_ERROR } from "@/lib/signup/visitorErrors";
 
 let pass = 0;
 const fails = [];
@@ -364,6 +365,75 @@ console.log("\n6b. Needs call back on /platform/companies");
   const page = code("app/platform/companies/page.js");
   ok("the list page has the filter and the badge", /data-filter-callback/.test(page) && /if \(callBackOnly\) rows = rows\.filter\(\(c\) => c\.callBack\);/.test(page) && /data-callback/.test(page));
   ok("the detail page shows it with the owner's phone", /data-callback/.test(code("app/platform/companies/[id]/CompanyDetail.js")) && /callBackFor\(\{ company, onboarding: checklist/.test(code("app/api/platform/companies/[id]/route.js")));
+}
+
+/* ── 6c. A failed request, said in the visitor's language ───────────────── */
+console.log("\n6c. Network failures never show an engine's words");
+{
+  const te = (m) => Object.assign(new TypeError(m));
+  for (const [what, err] of [
+    ["Safari's TypeError", te("Load failed")],
+    ["Chrome's TypeError", te("Failed to fetch")],
+    ["Firefox's TypeError", te("NetworkError when attempting to fetch resource.")],
+    ["Better Auth's failed-fetch error (no status)", { message: "Load failed", status: 0 }],
+    ["Better Auth's failed-fetch error (status undefined)", { message: "Failed to fetch" }],
+    ["fetchJson's network error", { message: "Couldn't reach the server.", i18nKey: "app.fetchError.network" }],
+  ]) {
+    ok(`${what} → "couldn't reach FieldQuo", with a Retry`, isNetworkFailure(err) && visitorError({ err }).key === VISITOR_ERROR.unreachable.key && visitorError({ err }).retry === true);
+  }
+  ok("a 5xx → our side, with a Retry", visitorError({ status: 503 }).key === VISITOR_ERROR.server.key && visitorError({ status: 503 }).retry);
+  ok("an error page instead of JSON → our side", visitorError({ status: 200, jsonOk: false }).key === VISITOR_ERROR.server.key);
+  ok("anything else → the caller's own translated sentence, never the error's message", visitorError({ err: { message: "INTERNAL: boom", status: 400 }, status: 400, fallback: { key: "k.fallback", text: "x" } }).key === "k.fallback");
+  ok("a 4xx with a real message is not mistaken for the network", !isNetworkFailure({ message: "User already exists", status: 422 }));
+  for (const file of ["app/signup/page.js", "app/welcome/WelcomeFlow.js"]) {
+    const src = code(file);
+    ok(`${file}: no error's own message is ever put on screen`, !/setError\([^)]*\.message/.test(src) && !/err\?\.message/.test(src) && !/setFieldErrors\(\{[^}]*\.message/.test(src));
+    ok(`${file}: failures go through visitorError and offer a Retry`, /visitorError\(/.test(src) && /data-visitor-retry/.test(src) && /app\.signup\.error\.retry/.test(src));
+  }
+  ok("the welcome setup screen never shows the route's English words", /welcome && problem\.translated/.test(code("app/components/auth/SignupCreating.js")) && !/problem\.message \|\| t\("app\.welcome\.setup\.failedAnswers"/.test(code("app/components/auth/SignupCreating.js")));
+  for (const k of [VISITOR_ERROR.unreachable.key, VISITOR_ERROR.server.key, "app.signup.error.retry"]) {
+    ok(`${k} is in every app language`, Object.keys(APP_MESSAGES).every((l) => typeof APP_MESSAGES[l][k] === "string" && APP_MESSAGES[l][k].trim()));
+  }
+}
+
+/* ── 6d. The fact panel over the photo ──────────────────────────────────── */
+console.log("\n6d. The fact sits on the photo, on a solid panel, contrast measured");
+{
+  const aside = code("app/components/auth/WelcomeAside.js");
+  ok("the fact is ONE panel laid over the photo, not a separate card", /lg:absolute lg:bottom-4 lg:left-4 lg:right-4/.test(aside) && (aside.match(/data-fact-panel/g) || []).length === 1);
+  ok("the panel is solid --inverted with --inverted-foreground text", /bg-inverted text-inverted-foreground/.test(aside));
+  ok("no faded text and no text straight on the image", !/opacity-|text-white|bg-black\/|bg-gradient|from-black/.test(aside));
+  ok("the key figure is large", /text-2xl lg:text-3xl font-bold/.test(aside));
+  ok("on a phone the photo is dropped and the panel stays", /className="hidden lg:block h-auto w-full"/.test(aside));
+  const css = read("app/globals.css");
+  const vars = (re) => {
+    const block = css.match(re);
+    const m = new Map();
+    if (block) for (const x of block[1].matchAll(/--([a-z0-9-]+):\s*(#[0-9a-fA-F]{6});/g)) m.set(x[1], x[2]);
+    return m;
+  };
+  const light = vars(/\n:root \{([\s\S]*?)\n\}/);
+  const dark = vars(/\n\.dark \{([\s\S]*?)\n\}/);
+  const lum = (hex) => {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const ratio = (a, b) => {
+    const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
+    return (x + 0.05) / (y + 0.05);
+  };
+  for (const [name, pal] of [["light", light], ["dark", dark]]) {
+    const fg = pal.get("inverted-foreground") || light.get("inverted-foreground");
+    const bg = pal.get("inverted") || light.get("inverted");
+    const r = fg && bg ? ratio(fg, bg) : 0;
+    ok(`${name}: the panel's text on its panel is ${r.toFixed(2)}:1 (≥ 4.5)`, r >= 4.5, `${fg} on ${bg}`);
+  }
+  for (const f of DID_YOU_KNOW.filter((x) => x.headlineKey)) {
+    const holes = (s) => (String(s).match(/\{\w+\}/g) || []).sort().join(",");
+    ok(`${f.key}: its headline is in every language, same placeholders`, Object.keys(APP_MESSAGES).every((l) => typeof APP_MESSAGES[l][f.headlineKey] === "string" && holes(APP_MESSAGES[l][f.headlineKey]) === holes(f.headline)));
+  }
+  const admin = DID_YOU_KNOW.find((f) => f.key === "admin_hours");
+  ok("the admin figure's headline is the computed total", admin.headline.replace("{total}", factValues(admin).total) === "$6,500 a year");
 }
 
 /* ── 7. The strings ─────────────────────────────────────────────────────── */

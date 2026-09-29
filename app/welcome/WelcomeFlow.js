@@ -45,6 +45,7 @@ import {
 } from "@/lib/signup/welcome";
 
 import { WELCOME_NEXT_KEY, WELCOME_LINK_KEY } from "@/app/welcome/storageKeys";
+import { visitorError } from "@/lib/signup/visitorErrors";
 
 /** The analytics beacon a screen sends when shown — lib/analytics/product/events.js SIGNUP_STEP_BAR. */
 export const WELCOME_BEACON = Object.freeze(Object.fromEntries(WELCOME_STEPS.map((s) => [s, `w_${s}`])));
@@ -232,7 +233,8 @@ function SetupScreen({ prefill }) {
       window.location.href = afterSetupUrl();
       return;
     }
-    setCreating((c) => (c ? { ...c, running: false, problem: { ...c.problem, message: t("app.welcome.error.generic", "We couldn't save that — try again.") } } : c));
+    const v = visitorError({ status: res ? res.status : 0, fallback: { key: "app.welcome.error.generic", text: "We couldn't save that — try again." } });
+    setCreating((c) => (c ? { ...c, running: false, problem: { ...c.problem, message: t(v.key, v.text), translated: true } } : c));
   }
 
   if (!creating) return null;
@@ -259,6 +261,9 @@ export default function WelcomeFlow({ step, prefill, groups = null }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // The last answer that failed to reach the server, for the Retry beside
+  // the sentence (lib/signup/visitorErrors.js: never an engine's own words).
+  const [retryAnswers, setRetryAnswers] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
   const [trialDate, setTrialDate] = useState("");
 
@@ -305,8 +310,14 @@ export default function WelcomeFlow({ step, prefill, groups = null }) {
     }
   }, [p.company.trialEndsAt, language]);
 
+  function failed(v, answers) {
+    setError(t(v.key, v.text));
+    setRetryAnswers(v.retry ? { answers } : null);
+  }
+
   async function save(answers) {
     setError("");
+    setRetryAnswers(null);
     setFieldErrors({});
     setSaving(true);
     try {
@@ -315,7 +326,11 @@ export default function WelcomeFlow({ step, prefill, groups = null }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ step, answers }),
       });
-      const data = await res.json().catch(() => null);
+      let jsonOk = true;
+      const data = await res.json().catch(() => {
+        jsonOk = false;
+        return null;
+      });
       if (res.ok && data?.nextUrl) {
         // "Company details" on the rep's panel, when a rep texted the link
         // this signup came from (lib/sales/signupProgress.js). Fire-and-forget.
@@ -331,9 +346,9 @@ export default function WelcomeFlow({ step, prefill, groups = null }) {
         setFieldErrors({ [data.field]: errorText(t, data.code) });
         return;
       }
-      setError(errorText(t, "generic"));
-    } catch {
-      setError(errorText(t, "generic"));
+      failed(visitorError({ status: res.status, jsonOk, fallback: { key: "app.welcome.error.generic", text: "We couldn't save that — try again." } }), answers);
+    } catch (err) {
+      failed(visitorError({ err, fallback: { key: "app.welcome.error.generic", text: "We couldn't save that — try again." } }), answers);
     } finally {
       setSaving(false);
     }
@@ -747,8 +762,19 @@ export default function WelcomeFlow({ step, prefill, groups = null }) {
         aside={<WelcomeAside step={step} />}
       >
         {error && (
-          <div role="alert" className="mb-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
-            {error}
+          <div role="alert" className="mb-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3" data-visitor-error>
+            <p>{error}</p>
+            {retryAnswers ? (
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => save(retryAnswers.answers)}
+                className="mt-2 font-semibold underline underline-offset-2 disabled:opacity-60"
+                data-visitor-retry
+              >
+                {t("app.signup.error.retry", "Try again")}
+              </button>
+            ) : null}
           </div>
         )}
         {body}

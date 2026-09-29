@@ -16033,6 +16033,11 @@ const en = {
   "app.nextSteps.yourBusiness": "your business",
   "app.nextSteps.welcome.label": "Finish setting up your business",
   "app.nextSteps.welcome.unlock": "A few quick questions — your business name, address and trade go on every quote and invoice you send.",
+  "app.welcome.fact.adminHours.headline": "{total} a year",
+  "app.welcome.fact.payByCard.headline": "Get paid by card",
+  "app.signup.error.unreachable": "We couldn't reach FieldQuo — check your connection and try again.",
+  "app.signup.error.serverTrouble": "Something went wrong on our side — please try again in a moment.",
+  "app.signup.error.retry": "Try again",
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -31564,6 +31569,11 @@ const fr = {
   "app.nextSteps.yourBusiness": "votre entreprise",
   "app.nextSteps.welcome.label": "Terminez la configuration de votre entreprise",
   "app.nextSteps.welcome.unlock": "Quelques questions rapides — le nom, l'adresse et le métier de votre entreprise apparaissent sur chaque soumission et facture que vous envoyez.",
+  "app.welcome.fact.adminHours.headline": "{total} par année",
+  "app.welcome.fact.payByCard.headline": "Faites-vous payer par carte",
+  "app.signup.error.unreachable": "Impossible de joindre FieldQuo — vérifiez votre connexion et réessayez.",
+  "app.signup.error.serverTrouble": "Un problème est survenu de notre côté — veuillez réessayer dans un instant.",
+  "app.signup.error.retry": "Réessayer",
 };
 
 
@@ -47447,6 +47457,11 @@ const es = {
   "app.nextSteps.yourBusiness": "tu negocio",
   "app.nextSteps.welcome.label": "Termina de configurar tu negocio",
   "app.nextSteps.welcome.unlock": "Unas preguntas rápidas — el nombre, la dirección y el oficio de tu negocio aparecen en cada presupuesto y factura que envías.",
+  "app.welcome.fact.adminHours.headline": "{total} al año",
+  "app.welcome.fact.payByCard.headline": "Cobra con tarjeta",
+  "app.signup.error.unreachable": "No pudimos conectar con FieldQuo — revisa tu conexión e inténtalo de nuevo.",
+  "app.signup.error.serverTrouble": "Algo salió mal de nuestro lado — inténtalo de nuevo en un momento.",
+  "app.signup.error.retry": "Reintentar",
 };
 
 const uk = {
@@ -62808,6 +62823,11 @@ const uk = {
   "app.nextSteps.yourBusiness": "ваш бізнес",
   "app.nextSteps.welcome.label": "Завершіть налаштування вашого бізнесу",
   "app.nextSteps.welcome.unlock": "Кілька швидких запитань — назва вашої компанії, адреса та спеціальність з'являються на кожному кошторисі й рахунку, який ви надсилаєте.",
+  "app.welcome.fact.adminHours.headline": "{total} на рік",
+  "app.welcome.fact.payByCard.headline": "Отримуйте оплату карткою",
+  "app.signup.error.unreachable": "Не вдалося з'єднатися з FieldQuo — перевірте з'єднання і спробуйте ще раз.",
+  "app.signup.error.serverTrouble": "Щось пішло не так на нашому боці — спробуйте ще раз за хвилину.",
+  "app.signup.error.retry": "Спробувати ще раз",
 };
 
 const pa = {
@@ -78099,6 +78119,11 @@ const pa = {
   "app.nextSteps.yourBusiness": "ਤੁਹਾਡਾ ਕਾਰੋਬਾਰ",
   "app.nextSteps.welcome.label": "ਆਪਣੇ ਕਾਰੋਬਾਰ ਦਾ ਸੈੱਟਅੱਪ ਪੂਰਾ ਕਰੋ",
   "app.nextSteps.welcome.unlock": "ਕੁਝ ਤੇਜ਼ ਸਵਾਲ — ਤੁਹਾਡੇ ਕਾਰੋਬਾਰ ਦਾ ਨਾਂ, ਪਤਾ ਅਤੇ ਕਿੱਤਾ ਹਰ ਕੋਟ ਅਤੇ ਇਨਵੌਇਸ 'ਤੇ ਜਾਂਦਾ ਹੈ ਜੋ ਤੁਸੀਂ ਭੇਜਦੇ ਹੋ।",
+  "app.welcome.fact.adminHours.headline": "{total} ਸਾਲਾਨਾ",
+  "app.welcome.fact.payByCard.headline": "ਕਾਰਡ ਨਾਲ ਭੁਗਤਾਨ ਲਓ",
+  "app.signup.error.unreachable": "ਅਸੀਂ FieldQuo ਨਾਲ ਜੁੜ ਨਹੀਂ ਸਕੇ — ਆਪਣਾ ਕਨੈਕਸ਼ਨ ਜਾਂਚੋ ਅਤੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
+  "app.signup.error.serverTrouble": "ਸਾਡੇ ਪਾਸੇ ਕੁਝ ਗਲਤ ਹੋ ਗਿਆ — ਕਿਰਪਾ ਕਰਕੇ ਥੋੜ੍ਹੀ ਦੇਰ ਬਾਅਦ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
+  "app.signup.error.retry": "ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ",
 };
 
 const tl = {
@@ -93400,6 +93425,11 @@ const tl = {
   "app.nextSteps.yourBusiness": "negosyo mo",
   "app.nextSteps.welcome.label": "Tapusin ang pag-set up ng negosyo mo",
   "app.nextSteps.welcome.unlock": "Ilang mabilis na tanong — ang pangalan, address at trade ng negosyo mo ay lalabas sa bawat quote at invoice na ipinapadala mo.",
+  "app.welcome.fact.adminHours.headline": "{total} kada taon",
+  "app.welcome.fact.payByCard.headline": "Magpabayad gamit ang card",
+  "app.signup.error.unreachable": "Hindi namin maabot ang FieldQuo — tingnan ang iyong koneksyon at subukang muli.",
+  "app.signup.error.serverTrouble": "May nagkaproblema sa aming panig — pakisubukang muli mamaya.",
+  "app.signup.error.retry": "Subukang muli",
 };
 
 const de = {
@@ -108587,6 +108617,11 @@ const de = {
   "app.nextSteps.yourBusiness": "Ihr Unternehmen",
   "app.nextSteps.welcome.label": "Schließen Sie die Einrichtung Ihres Unternehmens ab",
   "app.nextSteps.welcome.unlock": "Ein paar kurze Fragen — Name, Adresse und Gewerk Ihres Unternehmens erscheinen auf jedem Angebot und jeder Rechnung, die Sie versenden.",
+  "app.welcome.fact.adminHours.headline": "{total} im Jahr",
+  "app.welcome.fact.payByCard.headline": "Per Karte bezahlt werden",
+  "app.signup.error.unreachable": "FieldQuo ist gerade nicht erreichbar — prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
+  "app.signup.error.serverTrouble": "Bei uns ist etwas schiefgelaufen — bitte versuchen Sie es gleich noch einmal.",
+  "app.signup.error.retry": "Erneut versuchen",
 };
 
 const zh = {
@@ -123766,6 +123801,11 @@ const zh = {
   "app.nextSteps.yourBusiness": "你的公司",
   "app.nextSteps.welcome.label": "完成公司设置",
   "app.nextSteps.welcome.unlock": "几个简单问题——你的公司名称、地址和行业会出现在你发送的每份报价单和账单上。",
+  "app.welcome.fact.adminHours.headline": "每年 {total}",
+  "app.welcome.fact.payByCard.headline": "用银行卡收款",
+  "app.signup.error.unreachable": "无法连接到 FieldQuo — 请检查网络连接后重试。",
+  "app.signup.error.serverTrouble": "我们这边出了点问题 — 请稍后再试。",
+  "app.signup.error.retry": "重试",
 };
 
 const it = {
@@ -139247,6 +139287,11 @@ const it = {
   "app.nextSteps.yourBusiness": "la tua impresa",
   "app.nextSteps.welcome.label": "Completa la configurazione della tua impresa",
   "app.nextSteps.welcome.unlock": "Alcune domande rapide — il nome, l'indirizzo e il mestiere della tua impresa compaiono su ogni preventivo e fattura che invii.",
+  "app.welcome.fact.adminHours.headline": "{total} all'anno",
+  "app.welcome.fact.payByCard.headline": "Fatti pagare con carta",
+  "app.signup.error.unreachable": "Non riusciamo a raggiungere FieldQuo — controlla la connessione e riprova.",
+  "app.signup.error.serverTrouble": "Qualcosa è andato storto da parte nostra — riprova tra un momento.",
+  "app.signup.error.retry": "Riprova",
 };
 
 export const APP_MESSAGES = { en, fr, es, uk, pa, tl, de, zh, it };

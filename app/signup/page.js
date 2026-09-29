@@ -50,6 +50,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { CAPTURE_ENDPOINT } from "@/lib/signup/leadCapture";
 import { RESUME_ACTIONS, safeResumeTarget } from "@/lib/signup/resumeRoute";
 import { WELCOME_NEXT_KEY, WELCOME_LINK_KEY } from "@/app/welcome/storageKeys";
+import { isNetworkFailure, visitorError } from "@/lib/signup/visitorErrors";
 
 // "1 month free" / "3 months free". The banner hardcoded the plural and read
 // "1 months free" for the whole life of the current one-month offer. Same
@@ -824,8 +825,24 @@ export default function SignupPage() {
    * question. A 409 means this login already has a business — the /app gate
    * knows where it belongs.
    */
-  async function createCompany() {
+  // ── A failed request, said in the visitor's language ─────────────────────
+  //
+  // Never an Error's own message: Safari's "Load failed" reached the owner on
+  // a preview (lib/signup/visitorErrors.js). The sentence is a catalogue key,
+  // and a Retry runs the same press again.
+  const [retry, setRetry] = useState(null);
+  function showVisitorError(v, again) {
+    setError(t(v.key, v.text));
+    setRetry(() => (v.retry && typeof again === "function" ? again : null));
+  }
+  function clearError() {
     setError("");
+    setRetry(null);
+  }
+
+  async function createCompany() {
+    clearError();
+    let thrown = null;
     const res = await fetch("/api/companies", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -840,8 +857,20 @@ export default function SignupPage() {
         wantedTier: wantedRef.current.tier || undefined,
         wantedPlanId: wantedRef.current.planId || undefined,
       }),
-    }).catch(() => null);
-    const data = await res?.json().catch(() => null);
+    }).catch((err) => {
+      thrown = err;
+      return null;
+    });
+    let jsonOk = true;
+    let data = null;
+    if (res) {
+      const text = await res.text().catch(() => "");
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        jsonOk = false;
+      }
+    }
     if (res?.ok && isInternalPath(data?.welcomeUrl)) {
       try {
         sessionStorage.removeItem(DRAFT_KEY);
@@ -857,13 +886,21 @@ export default function SignupPage() {
       window.location.href = "/app";
       return true;
     }
-    setError(data?.error || t("app.signup.error.finishCompany", "Could not finish setting up your company"));
+    showVisitorError(
+      visitorError({
+        err: thrown,
+        status: res ? res.status : 0,
+        jsonOk,
+        fallback: { key: "app.signup.error.finishCompany", text: "Could not finish setting up your company" },
+      }),
+      handleStartSignedIn,
+    );
     return false;
   }
 
   async function handleAccountSubmit(e) {
-    e.preventDefault();
-    setError("");
+    e?.preventDefault?.();
+    clearError();
     const errors = validateAccountFields(form, t);
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) return;
@@ -883,9 +920,25 @@ export default function SignupPage() {
           setFieldErrors({ email: t("app.signup.error.loginExists") });
           return;
         }
-        const message = result.error.message || t("app.signup.error.createAccount", "Could not create your account");
-        if (message.toLowerCase().includes("email")) setFieldErrors({ email: message });
-        else setError(message);
+        // Better Auth's own words are English and sometimes an engine's
+        // ("Load failed"); only its CODE is read, and the sentence is ours.
+        const code = String(result.error.code || "");
+        if (!isNetworkFailure(result.error) && /EMAIL/.test(code)) {
+          setFieldErrors({ email: t("app.signup.error.email", "Enter a valid email address") });
+          return;
+        }
+        if (!isNetworkFailure(result.error) && /PASSWORD/.test(code)) {
+          setFieldErrors({ password: t("app.signup.error.passwordMin", `At least ${PASSWORD_MIN} characters`, { n: PASSWORD_MIN }) });
+          return;
+        }
+        showVisitorError(
+          visitorError({
+            err: result.error,
+            status: result.error.status,
+            fallback: { key: "app.signup.error.createAccount", text: "Could not create your account" },
+          }),
+          () => handleAccountSubmit(),
+        );
         return;
       }
 
@@ -896,7 +949,10 @@ export default function SignupPage() {
       // signed-in screen offers the same press again, never a second password.
       if (!ok) setAccountReady({ email: form.email });
     } catch (err) {
-      setError(err?.message || t("app.signup.error.createAccount", "Could not create your account"));
+      showVisitorError(
+        visitorError({ err, fallback: { key: "app.signup.error.createAccount", text: "Could not create your account" } }),
+        () => handleAccountSubmit(),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -917,7 +973,7 @@ export default function SignupPage() {
   // Opens checkout for the company they already have, through the route
   // Account & Billing uses, sending the plan and the cadence — never a price.
   async function handleFinish() {
-    setError("");
+    clearError();
     if (!hasSelection) {
       setError(t("app.signup.error.selectPlan", "Please select a plan first."));
       return;
@@ -929,17 +985,31 @@ export default function SignupPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ planId: selectedPlanId, interval: effectiveInterval }),
       });
-      const data = await res.json().catch(() => null);
+      let jsonOk = true;
+      const data = await res.json().catch(() => {
+        jsonOk = false;
+        return null;
+      });
       if (!res.ok || !data?.checkoutUrl) {
-        setError(
-          data?.error ||
-            t("app.signup.error.checkout", "We couldn't open checkout. Try again, or get in touch and we'll finish it with you."),
+        showVisitorError(
+          visitorError({
+            status: res.status,
+            jsonOk,
+            fallback: {
+              key: "app.signup.error.checkout",
+              text: "We couldn't open checkout. Try again, or get in touch and we'll finish it with you.",
+            },
+          }),
+          handleFinish,
         );
         return;
       }
       window.location.href = data.checkoutUrl;
     } catch (err) {
-      setError(err?.message || t("app.signup.error.checkoutShort", "We couldn't open checkout."));
+      showVisitorError(
+        visitorError({ err, fallback: { key: "app.signup.error.checkoutShort", text: "We couldn't open checkout." } }),
+        handleFinish,
+      );
     } finally {
       setSubmitting(false);
     }
@@ -1051,8 +1121,19 @@ export default function SignupPage() {
         )}
 
         {error && (
-          <div role="alert" className="mb-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
-            {error}
+          <div role="alert" className="mb-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3" data-visitor-error>
+            <p>{error}</p>
+            {retry ? (
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={() => retry()}
+                className="mt-2 font-semibold underline underline-offset-2 disabled:opacity-60"
+                data-visitor-retry
+              >
+                {t("app.signup.error.retry", "Try again")}
+              </button>
+            ) : null}
           </div>
         )}
 
