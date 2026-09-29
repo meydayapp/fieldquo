@@ -41,6 +41,7 @@ import {
 } from "@/lib/subcontractors/access";
 import { subcontractorAttention } from "@/lib/subcontractors/expiry";
 import { paymentsCover } from "@/lib/subcontractors/money";
+import { subcontractBillState } from "@/lib/subcontractors/sourceLink";
 import {
   parseJobSubcontractorBody,
   JOB_SUBCONTRACTOR_SELECT,
@@ -64,6 +65,12 @@ const ROW_SELECT = {
   },
   visit: { select: { id: true, scheduledAt: true } },
   payments: { select: PAYMENT_SELECT, orderBy: { date: "desc" } },
+  // The sub's own invoices for this work, when they are on FieldQuo too —
+  // copies written by lib/subcontractors/sourceLink.js when the sub sends.
+  bills: {
+    select: { id: true, invoiceNumber: true, total: true, version: true, sentAt: true },
+    orderBy: { sentAt: "asc" },
+  },
 };
 
 async function ownJob(jobId, companyId, full) {
@@ -78,6 +85,10 @@ function decorate(row, { canSeeMoney, now }) {
   const cover = paymentsCover(row.agreedAmount, row.payments);
   const shaped = {
     ...row,
+    bills: row.bills.map((b) => ({ ...b, total: Number(b.total) })),
+    // "Invoice X differs from approved Y" — the approved figure is the agreed
+    // amount; a bill never replaces it on its own.
+    billing: subcontractBillState({ agreedAmount: row.agreedAmount, bills: row.bills }),
     subcontractor: {
       id: row.subcontractor.id,
       name: row.subcontractor.name,

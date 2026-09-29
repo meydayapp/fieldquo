@@ -339,6 +339,34 @@ export default function JobSubcontractors({ jobId, onChanged }) {
                 </div>
               </div>
 
+              {/* The sub's own invoices, when they are on FieldQuo and sent
+                  them to this company (lib/subcontractors/sourceLink.js). The
+                  amount above stays the approved figure; a bill that doesn't
+                  match it is said out loud here, never adopted silently. */}
+              {!row.restricted && row.bills?.length > 0 && (
+                <div className="text-xs space-y-0.5">
+                  {row.bills.map((b) => (
+                    <p key={b.id} className="text-muted-foreground tabular-nums">
+                      {t("app.subcontractors.billLine", "Their invoice {number} · {amount} · {date}", {
+                        number: b.invoiceNumber,
+                        amount: money(b.total),
+                        date: b.sentAt ? formatDate(b.sentAt) : "—",
+                      })}
+                    </p>
+                  ))}
+                  {row.billing?.state === "differs" ? (
+                    <p className="font-semibold text-amber-700 dark:text-amber-400 tabular-nums">
+                      {t("app.subcontractors.billDiffers", "Invoice {billed} differs from approved {approved}", {
+                        billed: money(row.billing.billed),
+                        approved: money(row.billing.approved),
+                      })}
+                    </p>
+                  ) : row.billing?.state === "matches" ? (
+                    <p className="text-muted-foreground">{t("app.subcontractors.billMatches", "Matches the approved amount")}</p>
+                  ) : null}
+                </div>
+              )}
+
               {canManage && (
                 <div className="flex flex-wrap items-center gap-3">
                   {canSeeMoney && row.status !== "paid" && payingId !== row.id && (
