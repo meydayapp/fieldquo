@@ -323,6 +323,12 @@ console.log("\nAn upgrade taken while a change is pending");
     order.indexOf("subscriptionSchedules.release") !== -1 && order.indexOf("subscriptionSchedules.release") < order.indexOf("subscriptions.update"));
   ok("the upgrade itself is still immediate and prorated (today's behaviour)",
     only("subscriptions.update")[0]?.args[1]?.proration_behavior === "create_prorations");
+  // Stripe refuses product_data on a subscription item ("Received unknown
+  // parameter: items[0][price_data][product_data]") — the fake would not, so
+  // the shape is asserted here. Every upgrade failed this way until 2026-09-28.
+  const pd = only("subscriptions.update")[0]?.args[1]?.items?.[0]?.price_data;
+  ok("the swapped item names a Product ID and sends no product_data",
+    typeof pd?.product === "string" && pd.product.length > 0 && !("product_data" in pd), JSON.stringify(pd));
 }
 
 // ── Two items at Stripe for a custom size ───────────────────────────────────
