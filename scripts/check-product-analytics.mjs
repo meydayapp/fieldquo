@@ -38,7 +38,7 @@ import {
 import {
   sanitiseBatch, sanitiseEvent, cleanReferrerHost, cleanHelpQuery, cleanLanguage, cleanVisitorId,
   foldReferrerHost, cleanClickNetwork, trafficSource,
-  BROWSER_EVENTS, FEATURES, FEATURE_KEYS, SIGNUP_FUNNEL, MAX_EVENTS_PER_BATCH,
+  BROWSER_EVENTS, FEATURES, FEATURE_KEYS, SIGNUP_FUNNEL, SIGNUP_FUNNEL_LEGACY, SIGNUP_FUNNEL_DEFS, MAX_EVENTS_PER_BATCH,
 } from "@/lib/analytics/product/events.js";
 import {
   rollup, dailyKey, distinctVisitors, compactionPlan, retentionCutoff, utcDay, RAW_RETENTION_DAYS,
@@ -283,16 +283,24 @@ section("6. aggregate");
 const D = new Date("2026-09-10T00:00:00Z");
 const drow = (over = {}) => ({ date: D, surface: "app", event: "page_view", path: "/app/quotes", language: "en", companyId: "c1", isDemo: false, count: 1, uniqueVisitors: null, ...over });
 {
-  ok("the funnel is the card-free signup's seven steps", SIGNUP_FUNNEL.join(",") === "visited,account_submitted,team,goals,trades,services,trial_started");
-  const f = signupFunnel({ visited: 200, account_submitted: 100, team: 80, goals: 80, trades: 50, services: 20, trial_started: 10 }, { visited: 100, account_submitted: 20, team: 0, goals: 30, trades: 30, services: 20, trial_started: 10 });
-  ok("the funnel keeps the step order", f.steps.map((s) => s.key).join(",") === SIGNUP_FUNNEL.join(","));
+  // 2026-09-29: the one-screen signup and its welcome questions are the
+  // current funnel (from SIGNUP_FUNNEL_CUTOVER); the seven-step card-free
+  // funnel is kept as the legacy definition, so the days before still read
+  // as what they were. The arithmetic below runs against the legacy one.
+  ok("the current funnel is the welcome flow's", SIGNUP_FUNNEL.join(",") === "visited,trial_started,profile,business,size,revenue,priority,focus,source,workspace_ready");
+  ok("the legacy funnel is the card-free signup's seven steps, kept", SIGNUP_FUNNEL_LEGACY.join(",") === "visited,account_submitted,team,goals,trades,services,trial_started");
+  const LEGACY = SIGNUP_FUNNEL_DEFS.legacy;
+  const f = signupFunnel({ visited: 200, account_submitted: 100, team: 80, goals: 80, trades: 50, services: 20, trial_started: 10 }, { visited: 100, account_submitted: 20, team: 0, goals: 30, trades: 30, services: 20, trial_started: 10 }, "visitors", LEGACY);
+  ok("the funnel keeps the step order", f.steps.map((s) => s.key).join(",") === SIGNUP_FUNNEL_LEGACY.join(","));
   ok("drop-off is against the step before", f.steps[1].dropPct === 50 && f.steps[1].dropFromPrevious === 100 && f.steps[3].dropPct === 0 && f.steps[5].dropPct === 60);
   ok("the first step has no drop", f.steps[0].dropPct === null && f.steps[0].dropFromPrevious === null);
   ok("of-first is the conversion from visited", f.steps[6].ofFirstPct === 5 && f.steps[0].ofFirstPct === 100);
   ok("stopped-at is a share of everyone who stopped, and a trial did not stop", f.stoppedAt.find((s) => s.key === "visited").pct === 50 && f.stoppedAt.every((s) => s.key !== "trial_started"));
   const empty = signupFunnel({});
   ok("an empty funnel divides nothing", empty.steps.every((s) => s.count === 0 && s.dropPct === null && s.ofFirstPct === null) && empty.stoppedAt === null);
-  ok("a later step larger than the one before is a zero drop, not a negative", signupFunnel({ visited: 5, account_submitted: 9 }).steps[1].dropFromPrevious === 0);
+  ok("a later step larger than the one before is a zero drop, not a negative", signupFunnel({ visited: 5, account_submitted: 9 }, null, "visitors", LEGACY).steps[1].dropFromPrevious === 0 && signupFunnel({ visited: 5, trial_started: 9 }).steps[1].dropFromPrevious === 0);
+  const cur = signupFunnel({ visited: 10, trial_started: 4, workspace_ready: 1 }, { visited: 6, trial_started: 3, workspace_ready: 1 });
+  ok("current: workspace ready did not stop", cur.stoppedAt.every((s) => s.key !== "workspace_ready"));
   // Monotonicity itself — the rule the owner's screenshot broke — is
   // executed against synthetic browsers in scripts/check-signup-funnel.mjs.
 
@@ -369,7 +377,10 @@ section("8. wiring");
   ok("…drops an impersonation session", /!member\.impersonation/.test(track));
   ok("…and never trusts the browser's surface", !/body\.s\b/.test(track.replace(/\/\/.*$/gm, "")));
   const signup = read("app/signup/page.js");
-  ok("the signup page emits each step shown and \"finish\" at Start my free trial, and no checkout beacon", /trackSignupStep\(funnelStep\)/.test(signup) && /trackSignupStep\("finish"\)/.test(signup) && !/trackCheckoutStarted/.test(signup));
+  // 2026-09-29: /signup is one screen (its page view is "visited"); each
+  // welcome screen shown sends its step and the setup screen "w_ready".
+  const welcomeFlow = read("app/welcome/WelcomeFlow.js");
+  ok("each welcome screen emits its step, setup emits w_ready, and there is no checkout beacon", /trackSignupStep\(WELCOME_BEACON\[step\]\)/.test(welcomeFlow) && /trackSignupStep\("w_ready"\)/.test(welcomeFlow) && !/trackCheckoutStarted/.test(signup) && !/trackCheckoutStarted/.test(welcomeFlow));
   ok("the help search emits after the typing settles", /trackHelpSearch\(q, results\.length\)/.test(read("app/components/help-centre/HelpSearch.js")));
   const trackLib = read("lib/analytics/track.js");
   ok("only a page view schedules a flush; hide and pagehide flush", /if \(event === "page_view"\) scheduleFlush\(\);/.test(trackLib) && /addEventListener\("pagehide", flush\)/.test(trackLib) && /visibilitychange/.test(trackLib));

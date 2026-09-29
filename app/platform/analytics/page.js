@@ -43,8 +43,48 @@ const pct = (n) => (n === null || n === undefined ? "—" : `${n}%`);
 
 const RANGE_LABELS = { 1: "Today", 7: "Last 7 days", 30: "Last 30 days", 90: "Last 90 days", 365: "Last year" };
 
-// The card-free signup since 2026-09-24 (lib/analytics/product/events.js
-// SIGNUP_FUNNEL). Each label is a step COMPLETED; the hint says what proves it.
+// The one-screen signup and its welcome questions, from 2026-09-29
+// (lib/analytics/product/events.js SIGNUP_FUNNEL). Each label is a step
+// COMPLETED; the hint says what proves it.
+const WELCOME_STEP_LABELS = {
+  visited: "Visited /signup",
+  trial_started: "Trial started",
+  profile: "About you",
+  business: "Business",
+  size: "Team & years",
+  revenue: "Revenue",
+  priority: "Priority",
+  focus: "Focus",
+  source: "Heard about us",
+  workspace_ready: "Workspace ready",
+};
+const WELCOME_STEP_HINTS = {
+  visited: "opened the signup page",
+  trial_started: "pressed Start my free trial — a company exists (the first welcome screen was shown, or the server tied a company to this browser)",
+  profile: "name and phone saved — the business screen was shown",
+  business: "business name, address and trade saved — the team screen was shown",
+  size: "team size and years saved",
+  revenue: "revenue band saved (or “prefer not to say”)",
+  priority: "one priority picked",
+  focus: "focus areas picked",
+  source: "“how did you hear” answered — the setup screen was shown",
+  workspace_ready: "the setup screen finished and the dashboard opened",
+};
+const WELCOME_STOPPED_LABELS = {
+  visited: "Left without pressing Start",
+  trial_started: "Stopped on About you",
+  profile: "Stopped on Business",
+  business: "Stopped on Team & years",
+  size: "Stopped on Revenue",
+  revenue: "Stopped on Priority",
+  priority: "Stopped on Focus",
+  focus: "Stopped on Heard about us",
+  source: "Stopped on the setup screen",
+};
+
+// The seven-step card-free signup, 2026-09-24 → 2026-09-28 (events.js
+// SIGNUP_FUNNEL_LEGACY), still drawn for ranges that reach back before the
+// cutover. Each label is a step COMPLETED; the hint says what proves it.
 const STEP_LABELS = {
   visited: "Visited /signup",
   account_submitted: "Account submitted",
@@ -156,20 +196,26 @@ function Stat({ label, value, hint }) {
 
 function Funnel({ funnel, rangeLabel }) {
   const max = Math.max(1, ...funnel.steps.map((s) => s.count));
+  const current = funnel.era === "current";
+  const labels = current ? WELCOME_STEP_LABELS : STEP_LABELS;
+  const hints = current ? WELCOME_STEP_HINTS : STEP_HINTS;
+  const stoppedLabels = current ? WELCOME_STOPPED_LABELS : STOPPED_LABELS;
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
         {funnel.basis === "visitors"
           ? `How many browsers completed each step, ${rangeLabel.toLowerCase()} — one browser counts once, and a browser counts at every step up to the furthest one it proved ("reached this step or later"), so a resume link that lands on Services, or a step whose beacon was lost, can never make a later bar taller than an earlier one.`
           : `Past 30 days only daily counts are kept, with no browser behind them: each bar is the largest count at that step or after it (a floor, kept monotone), a person who came back twice counts twice, and "Trial started" is the companies themselves.`}
-        {" "}Signup takes no card and has no plan step since 24 September 2026. Team and Goals sent no beacon before 25 September, so a browser that stopped on them before then counts only as &ldquo;Account submitted&rdquo;.
+        {current
+          ? ` The one-screen signup and its welcome questions, from ${funnel.cutover || "29 September 2026"}${funnel.from && funnel.from !== funnel.cutover ? ` (this range: from ${funnel.from})` : ""}: the trial starts when Start is pressed, and the questions come after it.`
+          : " The seven-step signup before 29 September 2026. Signup took no card and had no plan step from 24 September. Team and Goals sent no beacon before 25 September, so a browser that stopped on them before then counts only as “Account submitted”."}
       </p>
       <div className="space-y-2">
         {funnel.steps.map((s) => (
           <div key={s.key} className="grid grid-cols-[minmax(0,9rem)_1fr_auto] sm:grid-cols-[minmax(0,14rem)_1fr_auto] gap-3 items-center text-sm">
             <span className="min-w-0">
-              <span className="block text-foreground truncate">{STEP_LABELS[s.key] || s.key}</span>
-              <span className="block text-[11px] leading-tight text-muted-foreground">{STEP_HINTS[s.key] || ""}</span>
+              <span className="block text-foreground truncate">{labels[s.key] || s.key}</span>
+              <span className="block text-[11px] leading-tight text-muted-foreground">{hints[s.key] || ""}</span>
             </span>
             <div className="h-5 rounded bg-muted overflow-hidden">
               <div className="h-full bg-primary/70" style={{ width: `${Math.max(1, Math.round((s.count / max) * 100))}%` }} />
@@ -202,7 +248,7 @@ function Funnel({ funnel, rangeLabel }) {
           <ul className="text-sm grid gap-1 sm:grid-cols-2">
             {funnel.stoppedAt.map((s) => (
               <li key={s.key} className="flex justify-between gap-3 border-t border-border py-1">
-                <span className="text-foreground">{STOPPED_LABELS[s.key] || s.key}</span>
+                <span className="text-foreground">{stoppedLabels[s.key] || s.key}</span>
                 <span className="tabular-nums text-muted-foreground">{num(s.count)} · {pct(s.pct)}</span>
               </li>
             ))}
@@ -515,6 +561,12 @@ export default function PlatformAnalyticsPage() {
                 <h2 className="text-base font-semibold text-foreground">Signup funnel</h2>
                 <Funnel funnel={data.funnel} rangeLabel={RANGE_LABELS[data.range.days] || `Last ${data.range.days} days`} />
               </section>
+              {data.funnelLegacy ? (
+                <section className={CARD} data-funnel-legacy>
+                  <h2 className="text-base font-semibold text-foreground">Signup funnel — before 29 September 2026</h2>
+                  <Funnel funnel={data.funnelLegacy} rangeLabel={RANGE_LABELS[data.range.days] || `Last ${data.range.days} days`} />
+                </section>
+              ) : null}
               <section className={CARD} data-campaign-table>
                 <h2 className="text-base font-semibold text-foreground">Ad campaigns</h2>
                 <p className="text-xs text-muted-foreground">

@@ -20,10 +20,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CreditCard, X } from "lucide-react";
+import { Building2, CreditCard, X } from "lucide-react";
 import { PLAN_REQUIRED_EVENT } from "@/lib/signup/planRequired";
+import { PROFILE_INCOMPLETE_CODE } from "@/lib/company/profileReadiness";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function PlanRequiredPrompt() {
+  const { t } = useTranslation();
   const [prompt, setPrompt] = useState(null);
 
   useEffect(() => {
@@ -38,6 +41,10 @@ export default function PlanRequiredPrompt() {
   if (!prompt) return null;
 
   const close = () => setPrompt(null);
+  // The same 402 carries the business-profile refusal (2026-09-29,
+  // lib/signup/planGate.js planOrRefusal): no name or country yet, so the
+  // fix is the welcome business screen, not a plan.
+  const profile = prompt.reason === PROFILE_INCOMPLETE_CODE;
 
   return (
     <div
@@ -49,14 +56,18 @@ export default function PlanRequiredPrompt() {
       <div className="fq-dialog-card bg-card border border-border rounded-2xl shadow-xl w-full sm:max-w-md p-5">
         <div className="flex items-start gap-3">
           <span className="rounded-full bg-amber-100 dark:bg-amber-900/40 p-2 shrink-0">
-            <CreditCard size={18} className="text-amber-700 dark:text-amber-300" />
+            {profile ? (
+              <Building2 size={18} className="text-amber-700 dark:text-amber-300" />
+            ) : (
+              <CreditCard size={18} className="text-amber-700 dark:text-amber-300" />
+            )}
           </span>
           <div className="flex-1 min-w-0">
             <h2
               id="fq-plan-required-title"
               className="text-base font-semibold text-foreground"
             >
-              Finish choosing your plan
+              {profile ? t("app.welcome.gate.title", "Finish setting up your business") : "Finish choosing your plan"}
             </h2>
             <p className="mt-1.5 text-sm text-muted-foreground">
               {prompt.message ||
@@ -90,7 +101,7 @@ export default function PlanRequiredPrompt() {
               onClick={close}
               className="px-3.5 py-2 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 text-center"
             >
-              Choose a plan
+              {profile ? t("app.welcome.gate.cta", "Finish setting up your business →") : "Choose a plan"}
             </Link>
           ) : null}
         </div>

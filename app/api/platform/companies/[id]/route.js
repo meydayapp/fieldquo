@@ -10,6 +10,8 @@ import { diagnoseNumber } from "@/lib/voice/diagnose";
 import { companyStanding } from "@/lib/platform/companyStanding";
 import { cancelOptions } from "@/lib/platform/cancelOptions";
 import { trialAccessFor } from "@/lib/billing/access";
+import { getOnboardingStatus } from "@/lib/onboarding";
+import { callBackFor, needsChecklistRead } from "@/lib/platform/callBack";
 
 // Next 16: params is a Promise and must be awaited. Reading params.id
 // synchronously resolves to undefined, which turns every lookup on this route
@@ -35,7 +37,9 @@ export async function GET(request, { params }) {
     include: {
       subscription: { include: { plan: true } },
       members: {
-        include: { user: { select: { name: true, email: true } } },
+        // phone / marketingConsentAt: the owner's own number and product-news
+        // consent from the one-screen signup (2026-09-29), for the call-back.
+        include: { user: { select: { name: true, email: true, phone: true, marketingConsentAt: true } } },
         orderBy: { createdAt: "asc" },
       },
       // Client and quote counts only — not the records themselves. Aggregates
@@ -106,7 +110,13 @@ export async function GET(request, { params }) {
     subscription: company.subscription ?? null,
     trialAccess: trialAccessFor({ trialEndsAt: company.trialEndsAt }),
   });
-  return NextResponse.json({ ...company, voiceDiagnosis, standing: companyStanding(company), cancelOptions: cancel });
+  // "Needs call back" (lib/platform/callBack.js) — the same rule as the list.
+  const owner = company.members.find((m) => m.role === "owner") || null;
+  const checklist = needsChecklistRead(company)
+    ? await getOnboardingStatus(id, { readOnly: true }).catch(() => null)
+    : null;
+  const callBack = callBackFor({ company, onboarding: checklist, ownerPhone: owner?.user?.phone || null });
+  return NextResponse.json({ ...company, voiceDiagnosis, standing: companyStanding(company), cancelOptions: cancel, callBack });
 }
 
 export async function PATCH(request, { params }) {

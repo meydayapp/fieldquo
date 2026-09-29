@@ -43,6 +43,27 @@ const STATUS_FILTERS = [
 
 // The four goals the signup offers (lib/signup/signupPreview.js SIGNUP_GOALS),
 // in the console's English — the platform is not translated.
+// The welcome questions (lib/signup/welcome.js WELCOME_STEPS), as the badge
+// names the screen a company stopped on.
+const WELCOME_STEP_WORDS = {
+  profile: "about you",
+  business: "business",
+  size: "team & years",
+  revenue: "revenue",
+  priority: "priority",
+  focus: "focus",
+  source: "how they heard",
+  setup: "setup screen",
+};
+
+// The welcome priority screen (lib/signup/welcome.js WELCOME_PRIORITIES).
+const PRIORITY_WORDS = {
+  professional: "wants to look professional",
+  control: "wants control of the business",
+  win_more: "wants more jobs",
+  exploring: "just exploring",
+};
+
 const SIGNUP_GOAL_WORDS = {
   look_professional: "wants to look professional",
   feel_in_control: "wants control of the business",
@@ -141,6 +162,14 @@ export default function PlatformCompaniesPage() {
   // pill means a row is listed if and only if its badge says "Online now".
   // The list is not paged, so there is no "12 companies" over a page of 3.
   const [onlineOnly, setOnlineOnly] = useState(false);
+  // "Needs call back" (lib/platform/callBack.js, the owner's 2026-09-29
+  // ask): narrows the loaded rows to the owners who stopped part-way through
+  // the welcome questions or the onboarding checklist. Seeded from
+  // ?callBack=1 so a link can open the list already narrowed.
+  const [callBackOnly, setCallBackOnly] = useState(false);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("callBack") === "1") setCallBackOnly(true);
+  }, []);
   const [sortBy, setSortBy] = useState("newest");
   const badgeFor = useCallback(
     (c) => {
@@ -153,6 +182,7 @@ export default function PlatformCompaniesPage() {
     if (!Array.isArray(companies)) return companies;
     let rows = companies;
     if (onlineOnly && presenceData) rows = rows.filter((c) => badgeFor(c)?.code === "online");
+    if (callBackOnly) rows = rows.filter((c) => c.callBack);
     if (sortBy === "recent" && presenceData) {
       rows = [...rows].sort(
         (a, b) =>
@@ -160,7 +190,8 @@ export default function PlatformCompaniesPage() {
       );
     }
     return rows;
-  }, [companies, onlineOnly, sortBy, presenceData, presenceById, badgeFor, now]);
+  }, [companies, onlineOnly, callBackOnly, sortBy, presenceData, presenceById, badgeFor, now]);
+  const callBackCount = Array.isArray(companies) ? companies.filter((c) => c.callBack).length : 0;
 
   const load = useCallback(async (q, s) => {
     setLoading(true);
@@ -265,6 +296,18 @@ export default function PlatformCompaniesPage() {
           >
             Online now{onlineNow ? ` (${count(onlineNow)})` : ""}
           </button>
+          <button
+            onClick={() => setCallBackOnly((v) => !v)}
+            aria-pressed={callBackOnly}
+            data-filter-callback
+            className={`min-h-[44px] min-w-[44px] lg:min-h-0 px-3 py-2 rounded-lg text-sm font-medium border ${
+              callBackOnly
+                ? "bg-amber-700 text-white border-amber-700"
+                : "border-border text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            Needs call back ({count(callBackCount)})
+          </button>
           <label className="sr-only" htmlFor="company-sort">
             Sort
           </label>
@@ -356,8 +399,31 @@ export default function PlatformCompaniesPage() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium text-foreground truncate">
-                        {c.name}
+                        {/* A company made by the one-screen signup has no name
+                            until its welcome business screen is answered —
+                            said so, with the owner's address, rather than a
+                            blank row. */}
+                        {c.name || `(no business name yet) · ${c.members?.[0]?.user?.email || c.email || "no email"}`}
                       </span>
+                      {c.callBack && (
+                        <span
+                          className="text-xs px-2 py-0.5 rounded-full border bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 border-amber-300 dark:border-amber-800 font-medium"
+                          title={c.callBack.kind === "welcome" ? "Stopped in the welcome questions after Start my free trial" : "Stopped in the onboarding checklist"}
+                          data-callback
+                        >
+                          Needs call back · {c.callBack.kind === "welcome" ? "welcome" : "setup"}: {c.callBack.label}
+                          {c.callBack.phone ? ` · ${c.callBack.phone}` : " · no phone yet"}
+                        </span>
+                      )}
+                      {c.onboardingStep && !c.personalizedAt && (
+                        <span
+                          className="text-xs px-2 py-0.5 rounded-full border bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900"
+                          title="Stopped in the welcome questions — this is the next unanswered screen"
+                          data-welcome-step
+                        >
+                          Welcome: {WELCOME_STEP_WORDS[c.onboardingStep] || c.onboardingStep}
+                        </span>
+                      )}
                       {/* Right beside the name: the first thing the owner
                           wants to know about a new company is whether anyone
                           is actually in it. */}
@@ -422,7 +488,7 @@ export default function PlatformCompaniesPage() {
                           they were picked — a skipped step prints nothing.
                           Read here so sales and support know who they are
                           talking to before opening the company. */}
-                      {(c.teamSizeBand || c.yearsInBusinessBand || c.signupGoal || c.signupSource) && (
+                      {(c.teamSizeBand || c.yearsInBusinessBand || c.signupGoal || c.signupSource || c.revenueBand || c.signupPriority) && (
                         <span
                           className="text-xs px-2 py-0.5 rounded-full border bg-muted text-muted-foreground border-border"
                           title="From the signup's Team and Goals steps"
@@ -432,7 +498,12 @@ export default function PlatformCompaniesPage() {
                             c.teamSizeBand && `Team ${c.teamSizeBand === "1" ? "just them" : c.teamSizeBand}`,
                             c.yearsInBusinessBand && `${c.yearsInBusinessBand} yrs`,
                             c.signupGoal && SIGNUP_GOAL_WORDS[c.signupGoal],
+                            c.revenueBand && (c.revenueBand === "prefer_not" ? "revenue not given" : `revenue ${c.revenueBand}`),
+                            c.signupPriority && PRIORITY_WORDS[c.signupPriority],
+                            Array.isArray(c.signupFocus) && c.signupFocus.length ? `focus: ${c.signupFocus.join(", ")}` : null,
                             c.signupSource && `via ${c.signupSource}`,
+                            c.members?.[0]?.user?.phone && `owner ${c.members[0].user.phone}`,
+                            c.members?.[0]?.user?.marketingConsentAt && "product news: yes",
                           ]
                             .filter(Boolean)
                             .join(" · ")}

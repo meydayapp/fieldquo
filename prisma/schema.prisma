@@ -1581,6 +1581,26 @@ model Company {
   yearsInBusinessBand    String?
   signupGoal             String?
   signupSource           String?
+  /// The welcome questions after "Start my free trial" (2026-09-29,
+  /// app/welcome/[step] — lib/signup/welcome.js holds every closed list).
+  /// Stored as the key picked, only when picked; nothing is defaulted.
+  /// revenueBand is WELCOME_REVENUE_BANDS ("prefer_not" is an answer, not a
+  /// default); signupPriority is one of four WELCOME_PRIORITIES and
+  /// signupFocus the focus keys offered UNDER that priority. Read on
+  /// /platform/companies/[id] beside the team and goal answers.
+  revenueBand            String?
+  signupPriority         String?
+  signupFocus            String[]         @default([])
+  /// Where the owner is in the welcome questions: the key of the next
+  /// unanswered screen (lib/signup/welcome.js WELCOME_STEPS), written by
+  /// PATCH /api/signup/personalize after every answer. NULL on every company
+  /// created before 2026-09-29 — the /app gate reads null as "not on this
+  /// flow" and never routes those owners anywhere (lib/signup/welcomeGate.js).
+  onboardingStep         String?
+  /// When the welcome questions were finished and the setup screen ran (or
+  /// the owner chose to carry on past a failed stage). Until then the owner is
+  /// sent back to /welcome/<onboardingStep> on every visit to /app.
+  personalizedAt         DateTime?
   /// When each "your free trial ends in N days" letter went out — 7, 3 and 1
   /// days before trialEndsAt, to a company that has NOT chosen a plan (one
   /// with a Subscription row is told by lib/billing/renewalReminder.js
@@ -2677,6 +2697,17 @@ model User {
   // localStorage) so a tour a rep already dismissed doesn't re-appear when they
   // open the app on the shop iPad. Shape: { seenTours: string[] }.
   uiState       Json?
+  /// The owner's own number, from the welcome "about you" screen
+  /// (2026-09-29) — for FieldQuo to reach them about their account. NOT the
+  /// business phone printed on quotes (Company.phone), which is never filled
+  /// from this. Read on /platform/companies/[id].
+  phone         String?
+  /// "Send me product news and offers", ticked on /signup. Written ONLY when
+  /// the box was ticked: the moment, and the exact sentence shown in the
+  /// language it was shown in. Null = never agreed, which is the default the
+  /// law asks for. Read on /platform/companies/[id].
+  marketingConsentAt   DateTime?
+  marketingConsentText String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

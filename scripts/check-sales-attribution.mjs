@@ -466,9 +466,12 @@ section("6. A sales code arriving beside a promo / referral code");
 
   // And the page sends it as its own field.
   const SIGNUP_PAGE = readFileSync("app/signup/page.js", "utf8");
-  const finish = namedFunction(SIGNUP_PAGE, "handleFinish");
-  ok("the signup page's handleFinish has a body", finish.length > 500, `${finish.length} chars`);
-  ok("handleFinish posts salesCode as its own field", /salesCode:\s*salesCode\s*\|\|\s*undefined/.test(finish));
+  // 2026-09-29: the one-screen signup posts the company from createCompany
+  // (the "Start my free trial" press); handleFinish is only the resumed
+  // payment of a company from before 2026-09-24, which posts no company.
+  const finish = namedFunction(SIGNUP_PAGE, "createCompany");
+  ok("the signup page's company post (createCompany) has a body", finish.length > 500, `${finish.length} chars`);
+  ok("it posts salesCode as its own field", /salesCode:\s*salesCode\s*\|\|\s*undefined/.test(finish));
   ok("and still posts referralCode separately", /referralCode:\s*referralCode\s*\|\|\s*undefined/.test(finish));
 }
 {
@@ -734,14 +737,14 @@ section("10. A superadmin correction — new row, audit row, one transaction");
   ok("it persists the sales code", /\bsalesCode,/.test(writer));
   ok("and the referral code, which had the identical gap", /\breferralCode,/.test(writer));
 
-  const reader = between(PAGE, "sessionStorage.getItem(DRAFT_KEY)", "setHydrated(true)");
+  const reader = between(PAGE, "sessionStorage.getItem(DRAFT_KEY)", "// A corrupt or blocked store");
   ok("the draft reader was found", reader.length > 200, `${reader.length} chars`);
-  ok("it restores the sales code", /draft\?\.salesCode/.test(reader));
-  ok("it restores the referral code", /draft\?\.referralCode/.test(reader));
+  ok("it restores the sales code", /draft\.salesCode/.test(reader));
+  ok("it restores the referral code", /draft\.referralCode/.test(reader));
   // A fresh link must beat a stale draft: someone arriving on a second rep's
   // link meant the link they just clicked.
-  ok('a query "sales" still wins over the draft', /!query\.get\("sales"\)/.test(reader));
-  ok('a query "ref" still wins over the draft', /!query\.get\("ref"\)/.test(reader));
+  ok('a query "sales" still wins over the draft', /!q\.get\("sales"\)/.test(reader));
+  ok('a query "ref" still wins over the draft', /!q\.get\("ref"\)/.test(reader));
 }
 
 console.log(`\n${pass} passed, ${fails.length} failed.`);
