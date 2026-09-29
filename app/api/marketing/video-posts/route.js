@@ -31,7 +31,7 @@ import { requirePermission } from "@/lib/permissions";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 import { getAppOrigin } from "@/lib/appUrl";
 import { uploadScope } from "@/lib/media/directUpload";
-import { planLimits, uploadsConfigured } from "@/lib/media/directUploadServer";
+import { cloudinaryUploadUrl, planLimits, uploadsConfigured } from "@/lib/media/directUploadServer";
 import { CHUNK_BYTES, planVideoUpload, signedUploadFields } from "@/lib/marketing/videoUpload";
 import { VIDEO_PURPOSE, allowanceBody, loadVideoAllowance, shapeVideoPost } from "@/lib/marketing/videoPostServer";
 
@@ -139,7 +139,7 @@ export async function POST(request) {
     {
       post: shapeVideoPost(post),
       upload: {
-        url: `https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/video/upload`,
+        url: cloudinaryUploadUrl("video"),
         fields: signedUploadFields(plan.params, {
           apiKey: process.env.CLOUDINARY_API_KEY,
           secret: process.env.CLOUDINARY_API_SECRET,
