@@ -100,23 +100,57 @@ in `lib/marketing/videoPost.js`. Recorded on `SocialPublish` / `TikTokPublish`
 (`videoPostId`, `mediaType`, `videoUrl` — additive, applied by SQL) and the new
 `VideoPost` table. Processors text for Cloudinary, Meta and TikTok names video.
 
+### Round 2 — owner decisions of 29 September 2026
+
+- **Approval**, as for designs: `videoFingerprint` (clip, shape, cover,
+  caption) in `lib/marketing/approvalFingerprint.js`, `/api/marketing/
+  video-posts/[id]/approval`, refused by the Meta and TikTok routes when not
+  live; editing caption/cover/shape withdraws it.
+- **1080p on arrival, one pass**: the browser reads the clip first
+  (`lib/media/videoProbe.js`); over 2:30 is refused, non-9:16 asks Fit/Crop
+  BEFORE upload. The signed upload carries an incoming transformation
+  (`eo_150` + fit + H.264/AAC, `format=mp4`, `async`) so Cloudinary stores
+  only the prepared clip, which is then sent as stored (`sendUrl`). Chunked
+  upload (`lib/media/chunkedUpload.js`, 20 MB chunks) up to 2 GB, bounded by
+  the Cloudinary plan's own video ceiling — **the account must be on a plan
+  that allows large videos (Free is 100 MB; the owner is moving to Plus)**.
+  Arrival by Cloudinary's signed notification (`/api/marketing/video-posts/
+  cloudinary-notify`) or, failing that, the screen's throttled Admin API look.
+- **One tick box per destination**; a clip-limit refusal greys it out with the
+  reason ("Too long for a Facebook Reel (max 90 seconds)").
+- **Video allowance** (`lib/marketing/videoAllowance.js`, the one file with the
+  numbers and the worked example): 5 videos a calendar month (company time
+  zone), one clip = one video whatever its length or destinations, max 2:30,
+  counted on arrival, reserved while uploading. **Video pack** US$77/month,
+  +90 videos, stackable (`VideoPack`, one Stripe subscription each,
+  `lib/marketing/videoPack.js` mirroring the AI credit bundle — both
+  settlement doors, `paidThrough` only moves forward, intercepted before the
+  plan webhook handler, USD only). Shown on the video screen, the designer,
+  Account & Billing (add / stop renewing), `/pricing` and the help article
+  `video-posts` (en/fr/es).
+
 ### Checks
 
-`check:video-posts` (148) — per-platform limits on hostile input, 9:16
+`check:video-posts` (230) — per-platform limits on hostile input, 9:16
 enforcement in the rules and the routes, payloads md5 against each platform's
 own doc example, the IG/FB/TikTok status maps, publish-exactly-once, a failed
-status read never recorded as a failed post, and the Facebook/Instagram/TikTok
-PHOTO payloads md5-identical to origin/main. `check:tiktok`, `designer`,
-`designer-reach`, `direct-upload`, `legal-pages`, translations green.
+status read never recorded as a failed post, the Facebook/Instagram/TikTok
+PHOTO payloads md5-identical to origin/main; round 2: the 95/96th worked
+example, time-zone months, pack settlement idempotency, the signed incoming
+transformation, notification signatures, the Facebook 90 s tick box, the
+approval gate and where the pack is shown. `check:tiktok`, `designer`,
+`designer-reach`, `direct-upload`, `pricing-page`, `ai-credit`,
+`stripe-destinations`, `help-centre`, `legal-pages`, translations green.
 
 ### Not in this version
 
 Picking a clip from a job (jobs keep photos only), trimming or any in-video
 edit, scheduling a video, a non-Reel Facebook Page video, deleting a video
-post, a separate approval step (the one screen that posts shows the clip,
-shape, cover and caption), and Facebook custom Reel covers (a separate Graph
-call). Nothing has been posted to a real account yet — the first real post
-(Meta App Review + TikTok audit gates unchanged) is the proof still owed.
+post, changing the shape of a clip already made 9:16 on upload (re-upload),
+a video pack priced in CAD/AUD, and Facebook custom Reel covers (a separate
+Graph call). Nothing has been posted or uploaded through Cloudinary's async
+path for real yet — the first real upload and post (Meta App Review + TikTok
+audit gates unchanged) is the proof still owed.
 
 ---
 
