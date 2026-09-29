@@ -521,7 +521,7 @@ console.log("\nThe gate is actually wired in\n");
   );
   ok(
     "the failure branch says something",
-    appearsAfter(finish, "if (!res.ok || !data?.checkoutUrl)", "setError("),
+    (appearsAfter(finish, "if (!res.ok || !data?.checkoutUrl)", "setError(") || appearsAfter(finish, "if (!res.ok || !data?.checkoutUrl)", "showVisitorError(")),
     "`if (res.ok) {}` with no else is the second recurring failure class in AGENTS.md",
   );
 
