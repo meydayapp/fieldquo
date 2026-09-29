@@ -173,7 +173,30 @@ section("4. The drawer opens and closes");
   ok("the drawer opens through [data-tour-open=platform-nav]", !sceneError, sceneError || "");
   const drawer = await chrome.eval(`(() => { const d = document.querySelector('[data-platform-drawer]'); if (!d) return null; const r = d.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height), rows: d.querySelectorAll('a[href^="/platform"]').length, close: Boolean(d.querySelector('[data-tour-close="platform-nav"]')) }; })()`);
   ok("…is a panel narrower than the phone, full height", Boolean(drawer) && drawer.w < 375 && drawer.h >= 800, JSON.stringify(drawer));
-  ok("…carries every rail row", Boolean(drawer) && drawer.rows >= 50, `rows=${drawer?.rows}`);
+  // One group open at a time since 2026-09-29 (owner: every accordion
+  // sidebar), so the drawer no longer shows fifty rows at once. What it must
+  // still do is REACH them: every heading drawn, exactly one expanded, and
+  // opening each heading in turn — through a real click — reveals rows that
+  // add up to the whole rail.
+  const folds = await chrome.eval(`(async () => {
+    const d = document.querySelector('[data-platform-drawer]');
+    if (!d) return null;
+    const heads = [...d.querySelectorAll('button[data-platform-group]')];
+    const expanded = heads.filter((h) => h.getAttribute('aria-expanded') === 'true').length;
+    const seen = new Set([...d.querySelectorAll('a[href^="/platform"]')].map((a) => a.getAttribute('href')));
+    let maxOpen = 0;
+    for (const key of heads.map((h) => h.getAttribute('data-platform-group'))) {
+      const h = d.querySelector('button[data-platform-group="' + key + '"]');
+      if (h.getAttribute('aria-expanded') !== 'true') h.click();
+      await new Promise((r) => setTimeout(r, 60));
+      for (const a of d.querySelectorAll('a[href^="/platform"]')) seen.add(a.getAttribute('href'));
+      maxOpen = Math.max(maxOpen, d.querySelectorAll('button[data-platform-group][aria-expanded="true"]').length);
+    }
+    return { heads: heads.length, expanded, rows: seen.size, maxOpen };
+  })()`);
+  ok("…draws every group heading with exactly one group open", Boolean(folds) && folds.heads >= 7 && folds.expanded === 1, JSON.stringify(folds));
+  ok("…and opening each heading in turn reaches every rail row, never two groups at once",
+    Boolean(folds) && folds.rows >= 50 && folds.maxOpen === 1, JSON.stringify(folds));
   ok("…and a close button the tour can press", Boolean(drawer?.close));
   const closed = await chrome.eval(`(async () => { document.querySelector('[data-tour-close="platform-nav"]').click(); await new Promise((r) => setTimeout(r, 300)); return !document.querySelector('[data-platform-drawer]'); })()`);
   ok("…which closes it", closed === true);

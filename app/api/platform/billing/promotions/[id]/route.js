@@ -13,7 +13,12 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { requirePlatformPermission } from "@/lib/platform/permissions";
-import { parsePromotionFields } from "@/lib/billing/promotionFields";
+import {
+  parsePromotionFields,
+  promotionConflict,
+  promotionConflictMessage,
+  promotionWidens,
+} from "@/lib/billing/promotionFields";
 import { promotionIsLive } from "@/lib/pricing/ladder";
 
 export async function PATCH(request, { params }) {
@@ -42,6 +47,24 @@ export async function PATCH(request, { params }) {
     existing,
   });
   if (error) return NextResponse.json({ error }, { status: 400 });
+
+  // One sale at a time (owner, 2026-09-29). Only an edit that makes this sale
+  // cover more — switched on, extended, started earlier, scoped wider — is
+  // checked; a label, a note, ending early or switching off never is.
+  if (promotionWidens(existing, data)) {
+    const now = new Date();
+    const candidate = { ...existing, ...data };
+    const others = await db.platformPromotion.findMany({
+      where: { active: true, endsAt: { gt: now }, id: { not: id } },
+    });
+    const clash = promotionConflict(candidate, others, { now });
+    if (clash) {
+      return NextResponse.json(
+        { error: promotionConflictMessage(clash, candidate, { now, timeZone: body.timeZone }), conflictId: clash.id },
+        { status: 409 },
+      );
+    }
+  }
 
   const promotion = await db.platformPromotion.update({ where: { id }, data });
 

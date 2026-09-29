@@ -97,6 +97,15 @@ const APPLIES_TO_LABEL = {
 const intervalsOf = (promo) =>
   promo?.appliesTo === "both" ? ["year", "month"] : promo?.appliesTo === "year" ? ["year"] : ["month"];
 
+/** The browser's IANA zone, or undefined (the server then says Toronto). */
+function browserTimeZone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** ISO → the value a datetime-local input wants, in the browser's own zone. */
 function toLocalInput(value) {
   if (!value) return "";
@@ -129,6 +138,15 @@ export default function PlatformPromotionsPage() {
   const [busyId, setBusyId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // A refused save, drawn beside the editor's Save button rather than in the
+  // page-top box: the editor sits below the standing-offer panel, so a
+  // refusal up there (the "one sale at a time" one above all) lands off
+  // screen from the button that caused it.
+  const [saveError, setSaveError] = useState("");
+  const openDraft = (next) => {
+    setSaveError("");
+    setDraft(next);
+  };
   // plan:manage — the same permission the promotions routes enforce, held by
   // admin and superadmin and refused for support. The editor used to be drawn
   // for everyone and the 403 arrived after Save.
@@ -184,6 +202,7 @@ export default function PlatformPromotionsPage() {
   async function save() {
     setSaving(true);
     setError("");
+    setSaveError("");
     try {
       const payload = {
         label: draft.label,
@@ -199,6 +218,9 @@ export default function PlatformPromotionsPage() {
         currencies: draft.currencies,
         appliesTo: draft.appliesTo,
         active: draft.active,
+        // Only so a "one sale at a time" refusal names the other sale's
+        // dates in the operator's own zone; nothing is stored from it.
+        timeZone: browserTimeZone(),
       };
       await fetchJson(
         draft.id
@@ -213,7 +235,7 @@ export default function PlatformPromotionsPage() {
       setDraft(null);
       await load();
     } catch (err) {
-      setError(err.message || "Couldn't save the promotion.");
+      setSaveError(err.message || "Couldn't save the promotion.");
     } finally {
       setSaving(false);
     }
@@ -239,7 +261,7 @@ export default function PlatformPromotionsPage() {
       await fetchJson(`/api/platform/billing/promotions/${promo.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ active: turningOn }),
+        body: JSON.stringify({ active: turningOn, timeZone: browserTimeZone() }),
       });
       await load();
     } catch (err) {
@@ -265,7 +287,7 @@ export default function PlatformPromotionsPage() {
         </div>
         {canManage && (
           <button
-            onClick={() => setDraft({ ...BLANK })}
+            onClick={() => openDraft({ ...BLANK })}
             className="min-h-[44px] lg:min-h-0 inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg"
           >
             <Plus size={14} /> New promotion
@@ -299,8 +321,9 @@ export default function PlatformPromotionsPage() {
           setDraft={setDraft}
           plans={ladderPlans}
           saving={saving}
+          error={saveError}
           onSave={save}
-          onCancel={() => setDraft(null)}
+          onCancel={() => openDraft(null)}
         />
       )}
 
@@ -339,7 +362,7 @@ export default function PlatformPromotionsPage() {
               canManage={canManage}
               onToggle={() => toggle(promo)}
               onEdit={() =>
-                setDraft({
+                openDraft({
                   id: promo.id,
                   label: promo.label || "",
                   notes: promo.notes || "",
@@ -434,7 +457,7 @@ function PromotionRow({ promo, plans, now, busy, canManage, onToggle, onEdit }) 
 
 /* ────────────────────────────────────────────────────────────────────────── */
 
-function PromotionEditor({ draft, setDraft, plans, saving, onSave, onCancel }) {
+function PromotionEditor({ draft, setDraft, plans, saving, error, onSave, onCancel }) {
   const set = (patch) => setDraft({ ...draft, ...patch });
   const toggleIn = (key, value) => {
     const list = draft[key] || [];
@@ -643,6 +666,15 @@ function PromotionEditor({ draft, setDraft, plans, saving, onSave, onCancel }) {
           now={previewMoment}
           caption={`What each plan costs while this promotion is running (priced at ${previewMoment.toLocaleDateString("en-CA")})`}
         />
+      )}
+
+      {error && (
+        <div
+          role="alert"
+          className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl p-4 flex items-start gap-2 text-sm text-red-700 dark:text-red-300"
+        >
+          <AlertCircle size={16} className="shrink-0 mt-0.5" /> {error}
+        </div>
       )}
 
       <div className="flex gap-2">

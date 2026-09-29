@@ -556,5 +556,100 @@ section("7. Every new string in all nine languages");
   ok(`${keys.length} keys × 9 languages, placeholders intact`, holes.length === 0, holes.slice(0, 6));
 }
 
+// ── 8 ────────────────────────────────────────────────────────────────────────
+section("8. One sale at a time (owner, 2026-09-29)");
+{
+  const conflict = fieldsMod.promotionConflict;
+  const widens = fieldsMod.promotionWidens;
+  const message = fieldsMod.promotionConflictMessage;
+  ok("the overlap rule is exported as pure functions",
+    [conflict, widens, message].every((f) => typeof f === "function"));
+  const C = (...a) => (typeof conflict === "function" ? conflict(...a) : "missing");
+  const W = (...a) => (typeof widens === "function" ? widens(...a) : "missing");
+  const at = { now: NOW };
+  const FALL = { id: "fall", label: "Fall Sale 40%", active: true, startsAt: null, endsAt: ENDS, appliesTo: "year", tierKeys: null, currencies: null };
+  const NEW = { label: "Black Friday", active: true, startsAt: "2026-10-20T04:00:00Z", endsAt: "2026-11-15T05:00:00Z", appliesTo: "both", tierKeys: null, currencies: null };
+
+  ok("a new 'both' sale overlapping a live 1-year sale is refused", C(NEW, [FALL], at)?.id === "fall");
+  ok("…with the owner's sentence, naming the other sale, its end and the shared commitment",
+    message?.(FALL, NEW, { now: NOW, timeZone: "America/Toronto" }) ===
+      'The "Fall Sale 40%" runs until Oct 31 on 1-year plans — end it or pick dates after it.',
+    message?.(FALL, NEW, { now: NOW, timeZone: "America/Toronto" }));
+  ok("a monthly sale beside a 1-year sale is not a clash (different commitments)", C({ ...NEW, appliesTo: "month" }, [FALL], at) === null);
+  ok("an unknown appliesTo reads as monthly, so it does not clash with a 1-year sale", C({ ...NEW, appliesTo: "decade" }, [FALL], at) === null);
+  ok("starting exactly when the other ends (touching) is allowed", C({ ...NEW, startsAt: ENDS }, [FALL], at) === null);
+  ok("starting one minute before it ends is refused",
+    C({ ...NEW, startsAt: new Date(new Date(ENDS).getTime() - 60_000).toISOString() }, [FALL], at)?.id === "fall");
+  ok("a switched-off sale is ignored", C(NEW, [{ ...FALL, active: false }], at) === null);
+  ok("an ended sale still switched on is ignored", C(NEW, [{ ...FALL, endsAt: "2026-10-01T00:00:00Z" }], at) === null);
+  ok("a sale with no end date is ignored (it is not a sale — promotionIsLive agrees)", C(NEW, [{ ...FALL, endsAt: null }], at) === null);
+  ok("creating a sale switched OFF is never refused", C({ ...NEW, active: false }, [FALL], at) === null);
+  ok("a candidate that has already ended is never refused", C({ ...NEW, endsAt: "2026-10-01T00:00:00Z" }, [FALL], at) === null);
+  ok("a sale is never in conflict with itself (edit)", C({ ...FALL, id: "fall" }, [FALL], at) === null);
+  ok("null tiers (all) meet a single tier", C({ ...NEW, tierKeys: ["crew"] }, [FALL], at)?.id === "fall");
+  ok("disjoint tiers do not meet", C({ ...NEW, tierKeys: ["solo"] }, [{ ...FALL, tierKeys: ["crew"] }], at) === null);
+  ok("overlapping tier lists meet", C({ ...NEW, tierKeys: ["solo", "crew"] }, [{ ...FALL, tierKeys: ["crew"] }], at)?.id === "fall");
+  ok("an EMPTY tier list is 'all', same as null", C({ ...NEW, tierKeys: [] }, [{ ...FALL, tierKeys: ["scale"] }], at)?.id === "fall");
+  ok("null currencies (all) meet CAD", C({ ...NEW, currencies: ["CAD"] }, [FALL], at)?.id === "fall");
+  ok("USD-only and CAD-only do not meet", C({ ...NEW, currencies: ["USD"] }, [{ ...FALL, currencies: ["CAD"] }], at) === null);
+  ok("disjoint tiers but shared currency still do not clash (every axis must meet)",
+    C({ ...NEW, tierKeys: ["solo"], currencies: ["CAD"] }, [{ ...FALL, tierKeys: ["crew"], currencies: ["CAD"] }], at) === null);
+  const XMAS = { id: "xmas", label: "Holiday", active: true, startsAt: "2026-12-01T05:00:00Z", endsAt: "2027-01-01T05:00:00Z", appliesTo: "month", tierKeys: null, currencies: null };
+  ok("a scheduled (future) sale counts: a window reaching into it is refused",
+    C({ ...NEW, appliesTo: "month", endsAt: "2026-12-05T05:00:00Z" }, [XMAS], at)?.id === "xmas");
+  ok("…and a window that ends before it starts is allowed", C({ ...NEW, appliesTo: "month" }, [XMAS], at) === null);
+  ok("…and its message gives both dates, the year only when it is not this year",
+    message?.(XMAS, null, { now: NOW, timeZone: "America/Toronto" }) ===
+      'The "Holiday" runs from Dec 1 until Dec 31 on monthly plans — end it or pick dates after it.',
+    message?.(XMAS, null, { now: NOW, timeZone: "America/Toronto" }));
+  ok("two clashes: the one ending first is named",
+    C({ ...NEW, appliesTo: "both", endsAt: "2026-12-20T05:00:00Z" }, [XMAS, FALL], at)?.id === "fall");
+  let threw = false;
+  try {
+    C(NEW, null, at); C(NEW, [null, {}, "x", { active: true, endsAt: "soon" }], at); C(null, [FALL], at); C(NEW, undefined, { now: "nonsense" });
+  } catch { threw = true; }
+  ok("junk rows, a null list and a nonsense clock are ignored, never thrown on", !threw &&
+    C(NEW, [null, {}, "x", { active: true, endsAt: "soon" }], at) === null);
+  ok("an unknown time zone falls back to Toronto rather than throwing",
+    /runs until Oct 31/.test(message?.(FALL, NEW, { now: NOW, timeZone: "Mars/Olympus" }) || ""));
+
+  // Which edits are checked at all — a label, a note, ending early is never refused.
+  const EXIST = { ...FALL, startsAt: "2026-10-01T04:00:30Z", endsAt: "2026-11-01T04:00:30Z", tierKeys: ["crew"], currencies: ["CAD"] };
+  ok("a create is always checked", W(null, {}) === true);
+  ok("label / notes / discount edits are not checked", W(EXIST, { label: "x", notes: "y", discountValue: 30, discountKind: "amount", durationMonths: 6 }) === false);
+  ok("the console's full re-save of an unchanged row (seconds dropped by datetime-local) is not checked",
+    W(EXIST, { label: EXIST.label, startsAt: new Date("2026-10-01T04:00:00Z"), endsAt: new Date("2026-11-01T04:00:00Z"), tierKeys: ["crew"], currencies: ["CAD"], appliesTo: "year", active: true }) === false);
+  ok("ending early is not checked", W(EXIST, { endsAt: new Date("2026-10-20T00:00:00Z") }) === false);
+  ok("switching off is not checked", W(EXIST, { active: false }) === false);
+  ok("narrowing (fewer tiers, one commitment) is not checked", W({ ...EXIST, tierKeys: ["crew", "shop"], appliesTo: "both" }, { tierKeys: ["crew"], appliesTo: "year" }) === false);
+  ok("extending is checked", W(EXIST, { endsAt: new Date("2026-11-30T00:00:00Z") }) === true);
+  ok("switching on is checked", W({ ...EXIST, active: false }, { active: true }) === true);
+  ok("starting earlier is checked", W(EXIST, { startsAt: new Date("2026-09-01T00:00:00Z") }) === true);
+  ok("clearing the start (start now) is checked", W(EXIST, { startsAt: null }) === true);
+  ok("starting later is not checked", W(EXIST, { startsAt: new Date("2026-10-10T00:00:00Z") }) === false);
+  ok("one tier -> all tiers is checked", W(EXIST, { tierKeys: null }) === true);
+  ok("one tier -> two tiers is checked", W(EXIST, { tierKeys: ["crew", "shop"] }) === true);
+  ok("all currencies -> one is not checked", W({ ...EXIST, currencies: null }, { currencies: ["CAD"] }) === false);
+  ok("CAD -> CAD + USD is checked", W(EXIST, { currencies: ["CAD", "USD"] }) === true);
+  ok("1-year -> both is checked", W(EXIST, { appliesTo: "both" }) === true);
+
+  // The wiring: both routes ask BEFORE they write, answer 409 with the sentence.
+  const post = code("app/api/platform/billing/promotions/route.js");
+  const patch = code("app/api/platform/billing/promotions/[id]/route.js");
+  const before = (src, a, b) => src.includes(a) && src.includes(b) && src.indexOf(a) < src.indexOf(b);
+  ok("POST checks for a clash before db.platformPromotion.create, and answers 409",
+    before(post, "promotionConflict(data, others", "db.platformPromotion.create(") && /status: 409/.test(post) && post.includes("promotionConflictMessage("));
+  ok("POST reads the other sales fresh — switched on and not ended",
+    /findMany\(\{\s*where: \{ active: true, endsAt: \{ gt: now \} \}/.test(post));
+  ok("PATCH checks only a widening edit, before db.platformPromotion.update, and answers 409",
+    before(patch, "promotionWidens(existing, data)", "db.platformPromotion.update(") &&
+      before(patch, "promotionConflict(candidate, others", "db.platformPromotion.update(") && /status: 409/.test(patch));
+  ok("PATCH judges the row as it WOULD be (existing + edits)", /const candidate = \{ \.\.\.existing, \.\.\.data \}/.test(patch));
+  const page = code("app/platform/billing/promotions/page.js");
+  ok("the console shows a refused save inside the editor, beside Save",
+    page.includes("setSaveError(err.message") && page.includes("error={saveError}") && /role="alert"/.test(page));
+  ok("the console sends its time zone so the dates read in the operator's zone", (page.match(/timeZone: browserTimeZone\(\)/g) || []).length === 2);
+}
+
 console.log(fails.length ? `\nFAILED — ${fails.length} of ${pass + fails.length}` : `\nPASSED — ${pass}/${pass}`);
 process.exit(fails.length ? 1 : 0);

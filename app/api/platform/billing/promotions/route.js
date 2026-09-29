@@ -12,7 +12,11 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { requirePlatformPermission } from "@/lib/platform/permissions";
-import { parsePromotionFields } from "@/lib/billing/promotionFields";
+import {
+  parsePromotionFields,
+  promotionConflict,
+  promotionConflictMessage,
+} from "@/lib/billing/promotionFields";
 
 export async function GET(request) {
   const admin = await getCurrentPlatformAdmin(request);
@@ -47,6 +51,20 @@ export async function POST(request) {
   const body = await request.json().catch(() => ({}));
   const { data, error } = parsePromotionFields(body, { partial: false });
   if (error) return NextResponse.json({ error }, { status: 400 });
+
+  // One sale at a time (owner, 2026-09-29) — see promotionConflict. Read
+  // fresh, immediately before the write, never trusted from the page.
+  const now = new Date();
+  const others = await db.platformPromotion.findMany({
+    where: { active: true, endsAt: { gt: now } },
+  });
+  const clash = promotionConflict(data, others, { now });
+  if (clash) {
+    return NextResponse.json(
+      { error: promotionConflictMessage(clash, data, { now, timeZone: body.timeZone }), conflictId: clash.id },
+      { status: 409 },
+    );
+  }
 
   const promotion = await db.platformPromotion.create({
     data: { ...data, createdByAdminId: admin.id },

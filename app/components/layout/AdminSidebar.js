@@ -116,28 +116,27 @@ import { useRovingRows } from "@/app/components/layout/rovingRows";
 // permission grid (lib/permissions/nav.js) keep doing what they do; the
 // trade gate is a third filter, not a replacement for either.
 //
-// ── Collapsible, with two groups deliberately not ───────────────────────────
+// ── Every group folds, one open at a time ───────────────────────────────────
 //
-// The groups fold and remember it. "Work" and "AI" do NOT fold, for a
-// concrete reason rather than a taste one: app/components/tours.js points
-// the first-run walkthrough at [data-tour='nav-requests'], 'nav-quotes',
-// 'nav-estimate-reviews' and 'nav-ai', and OnboardingTour requires a target
-// that measures non-zero. A collapsed group unmounts its items, so a folded
-// Work is a walkthrough that silently never starts. `pinned` is that rule,
-// made explicit.
+// Until 2026-09-29 "Work" and "AI" were `pinned` — they never folded, because
+// app/components/tours.js points the first-run walkthrough at rows inside
+// them ('nav-requests', 'nav-quotes', 'nav-estimate-reviews', 'nav-ai',
+// 'nav-ai-team') and a collapsed group unmounts its items: a folded Work was
+// a walkthrough that silently never started. The owner then asked for every
+// accordion to fold, one group at a time, none held open — so the pin went
+// and the tour does the unfolding instead.
 //
-// Since the 2026-09-24 tour refresh the walkthrough also visits rows in
-// People, Grow (Assign shifts, Marketing, Receptionist) — groups that DO fold.
-// Pinning them would have taken a control away from the reader to suit the
-// tour, so instead each such step names the group's header as an opener
-// (`data-tour-open="nav-group-<name>"`, groupTourHook below): the tour clicks
-// it only when the row is not on screen, and clicks it again on the way out
-// so the reader's fold is put back. check:sidebar enforces the pair — a
-// `tour` row in a foldable group must be reachable through that hook.
+// The mechanism is the one the 2026-09-24 tour refresh built for People and
+// Grow: every group header carries `data-tour-open="nav-group-<name>"`
+// (groupTourHook below), and every tour step aimed at a row inside a group
+// names that header as an opener (tours.js `inFoldingGroup`). OnboardingTour
+// clicks it only when the row is not on screen, and on the way out puts back
+// whichever group the reader had open before the tour touched anything.
+// check:sidebar enforces the pair — a `tour` row in any group must be
+// reachable through its header's hook — and fails on any `pinned` group.
 export const NAV_GROUPS = [
   {
     key: "app.nav.group.work",
-    pinned: true,
     items: [
       { key: "app.nav.requests", href: "/app/leads", icon: ClipboardList, tour: "nav-requests", helpArticle: "requests" },
       { key: "app.nav.quotes", href: "/app/quotes", icon: FileText, tour: "nav-quotes", helpArticle: "quotes" },
@@ -207,10 +206,10 @@ export const NAV_GROUPS = [
   // The AI employees, as their own shelf. FieldQuo AI is the estimator's
   // assistant (answers about the company's own numbers); AI team is where
   // the employees are hired, given a face and a channel, and where their
-  // proposals wait for a yes. Pinned: `nav-ai` is a tour anchor.
+  // proposals wait for a yes. Folds like the rest; the tour opens it to
+  // reach its `nav-ai` / `nav-ai-team` anchors.
   {
     key: "app.nav.group.ai",
-    pinned: true,
     items: [
       { key: "app.nav.ai", href: "/app/copilot", icon: Sparkles, tour: "nav-ai", helpArticle: "ai" },
       // A settings page with a rail row, the way Your team always was: the
@@ -540,33 +539,28 @@ export default function AdminSidebar() {
                   groups still read as groups because of the gap between
                   them — a heading squeezed into 76px would be truncated
                   noise, and there is nothing to toggle. */}
-              {showLabel &&
-                (group.pinned ? (
-                  <div className="px-2 pt-1 pb-[3px] text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-muted-foreground">
-                    {t(group.key)}
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => toggle(group.key)}
-                    aria-expanded={open}
-                    data-nav-row
-                    // How the welcome tour unfolds this group when a step
-                    // points at a row inside it and the reader had folded it
-                    // (tours.js `openWith`). The tour folds it back on the
-                    // way out — only if it was the one that opened it.
-                    data-tour-open={groupTourHook(group.key)}
-                    className="w-full flex items-center gap-1.5 px-2 pt-1 pb-[3px] rounded-lg text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
-                  >
-                    <span className="truncate">{t(group.key)}</span>
-                    <ChevronDown
-                      size={13}
-                      className={`ml-auto shrink-0 transition-transform motion-reduce:transition-none ${
-                        open ? "" : "-rotate-90"
-                      }`}
-                    />
-                  </button>
-                ))}
+              {showLabel && (
+                <button
+                  type="button"
+                  onClick={() => toggle(group.key)}
+                  aria-expanded={open}
+                  data-nav-row
+                  // How the welcome tour unfolds this group when a step
+                  // points at a row inside it and the group is folded
+                  // (tours.js `openWith`). Every group has one since the
+                  // pins were retired (2026-09-29).
+                  data-tour-open={groupTourHook(group.key)}
+                  className="w-full flex items-center gap-1.5 px-2 pt-1 pb-[3px] rounded-lg text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+                >
+                  <span className="truncate">{t(group.key)}</span>
+                  <ChevronDown
+                    size={13}
+                    className={`ml-auto shrink-0 transition-transform motion-reduce:transition-none ${
+                      open ? "" : "-rotate-90"
+                    }`}
+                  />
+                </button>
+              )}
               {open && (
                 <div className="space-y-0.5">
                   {group.items.map((item) => row(item, { forceExpanded }))}
