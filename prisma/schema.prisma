@@ -7740,6 +7740,31 @@ model Worker {
   active                    Boolean    @default(true)
   createdAt                 DateTime   @default(now())
 
+  // ── How their employment ended — the most recent separation ──────────────
+  //
+  // `active: false` says THAT somebody left payroll; it cannot say why. The
+  // owner "removed" a worker and then had no way to record that he was
+  // dismissed, or what happened — an HR file with a hole exactly where the
+  // explanation belongs. Written only by POST /api/workers/[id]/separation,
+  // which also writes a private "separation" note into the person's HR file
+  // in the same transaction (lib/team/separation.js).
+  //
+  // The free-text EXPLANATION is deliberately NOT a column here. GET
+  // /api/workers hands every Worker scalar to anyone signed in (crew
+  // included — the scheduler needs the roster), so a text column on this row
+  // would put "why Jonny was fired" one fetch away from Jonny's colleagues.
+  // It lives only in the WorkerNote, behind the HR gate, where notes are
+  // already immutable. The four facts below are redacted from both worker
+  // GETs for anyone who can't open HR files (redactSeparation).
+  //
+  // Kept after a re-activation: the separation is history, and the
+  // "reactivation" note on the HR file records the new chapter. A current
+  // separation is `active === false && separatedOn != null`.
+  separatedOn              DateTime? // their last day worked
+  separationType           String?   // lib/team/separation.js SEPARATION_TYPES
+  separationRehireEligible Boolean?  // null = not stated, never assumed
+  separatedById            String?   // Member.id of who recorded it
+
   timeEntries TimeEntry[]
   locationStamps LocationStamp[]
   shifts      Shift[]
