@@ -20,6 +20,7 @@ import ListState from "@/app/components/ListState";
 import OnboardingChecklist from "@/app/components/hr/OnboardingChecklist";
 import WorkerDocumentsPanel from "@/app/components/hr/WorkerDocumentsPanel";
 import WorkerNotesPanel from "@/app/components/hr/WorkerNotesPanel";
+import SeparationSummary from "@/app/components/hr/SeparationSummary";
 
 export default function PersonFilePage({ params }) {
   const { workerId } = use(params);
@@ -70,6 +71,11 @@ function PersonFile({ workerId }) {
                 {[worker.title, worker.email, worker.active === false ? t("app.hr.person.inactive") : null].filter(Boolean).join(" · ")}
               </p>
             </div>
+            {/* How their employment ended, first — it is the question anybody
+                opening an ended worker's file is asking. Asked only for an
+                inactive worker; the card renders nothing when no reason was
+                recorded. */}
+            {worker.active === false && <SeparationSummary workerId={workerId} />}
             <CustomFieldsPanel entityType="team" entityId={workerId} />
             {/* The two cards read the same file: a hand-in from a checklist
                 row is a new document, and a document filed or archived in
