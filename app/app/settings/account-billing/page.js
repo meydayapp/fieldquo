@@ -11,6 +11,7 @@ import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 
 import CancelFlow from "./CancelFlow";
+import { VideoPackCard } from "@/app/components/designer/VideoAllowance";
 import ResumePlanButton from "@/app/components/billing/ResumePlanButton";
 import CustomSeatPicker, { pickedTier } from "@/app/components/billing/CustomSeatPicker";
 import { customSeatsFromTierKey, currencyLabel } from "@/lib/pricing/ladder";
@@ -1015,6 +1016,12 @@ function AccountBillingScreen() {
           )}
         </div>
       </div>
+
+      {/* ── Add-ons: the Video pack ─────────────────────────────────────
+          This month's video posts and the packs held; "Add video pack" is a
+          real Stripe Checkout for an owner or admin (lib/marketing/
+          videoPack.js). Prices come from lib/marketing/videoAllowance.js. */}
+      {!endedByFieldQuo && <VideoPackCard returnPath="/app/settings/account-billing" />}
 
       {/* ── What happens if you press Confirm, before you press it ───────
           Two sentences, both facts about code. A downgrade or a cadence

@@ -61,28 +61,55 @@
 // The tab bar below is the sanctioned way to switch ratios in the campaign
 // editor; the general resize tool predates this component and is not
 // disabled here.
+//
+// ══ Slides (carousels) and templates — 2026-09-29 ═══════════════════════════
+//
+// A design can hold 2–10 slides (lib/marketing/slides.js). Each slide has its
+// own layout per format, exactly like slide 1 always had; the slide strip
+// switches slide the same deferred way a tab switches format (pendingActionRef
+// below), and the save callback is re-created per SLIDE as well as per format
+// for the same in-flight-save reason. Slide 1 keeps its original URL
+// (…/layouts/<ratio>); slide N+1 adds ?slide=N.
+//
+// Applying a template writes every slide in every format through that same
+// save route — the template's own 4:5 / 9:16 / 1.91:1 layouts, and the other
+// tabs this design shows derived from them with reflow() — so an applied
+// template is an ordinary edit: fingerprinted, approvable, and never a
+// half-replaced design with one format left over from before.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { fabric } from "fabric";
-import { ArrowLeft, BadgeCheck, CalendarDays, Download, Share2, TriangleAlert } from "lucide-react";
+import {
+  ArrowLeft,
+  BadgeCheck,
+  BookmarkPlus,
+  CalendarDays,
+  Download,
+  Loader2,
+  Plus,
+  Share2,
+  Trash2,
+  TriangleAlert,
+} from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
-import { reportResponseError } from "@/lib/clientErrors";
+import { reportResponseError, showError } from "@/lib/clientErrors";
 import DesignerLoader from "@/app/components/designer/DesignerLoader";
 import PublishModal from "@/app/components/designer/PublishModal";
 import TikTokPublishModal from "@/app/components/designer/TikTokPublishModal";
 import ApprovalModal from "@/app/components/designer/ApprovalModal";
 import { JSON_KEYS } from "@/lib/designer/constants";
 import { downloadFile } from "@/lib/designer/utils";
+import { placeholdersIn } from "@/lib/designer/placeholders";
 import {
-  AD_RATIOS,
   DEFAULT_RATIO,
   ratio as ratioByKey,
   reflow,
   overflowing,
   assetFilename,
   openingRatio,
-  defaultPublishShape,
 } from "@/lib/marketing/ratios";
+import { destinationRatio, visibleRatios } from "@/lib/marketing/destinations";
+import { MAX_SLIDES, groupSlides, reflowSourceKey } from "@/lib/marketing/slides";
 
 // Renders `doc` (a parsed fabric document) to a data URL on an offscreen
 // canvas, never touching the live editor. `format` defaults to "png" for
@@ -135,14 +162,67 @@ function rasterize(doc, fallbackWidth, fallbackHeight, format = "png") {
   });
 }
 
+/** Slide 1 keeps the URL it always had; slide N+1 is ?slide=N. */
+function layoutUrl(designId, ratioKey, slide) {
+  return `/api/marketing/designer/designs/${designId}/layouts/${ratioKey}${slide > 0 ? `?slide=${slide}` : ""}`;
+}
+
+/** An empty frame: the workspace rect alone, at the origin. */
+function blankDoc(frame) {
+  return {
+    version: "5.3.0",
+    objects: [
+      {
+        type: "rect",
+        name: "clip",
+        originX: "left",
+        originY: "top",
+        left: 0,
+        top: 0,
+        width: frame.width,
+        height: frame.height,
+        fill: "#ffffff",
+        stroke: null,
+        strokeWidth: 0,
+        scaleX: 1,
+        scaleY: 1,
+        angle: 0,
+        opacity: 1,
+        selectable: false,
+        hasControls: false,
+      },
+    ],
+  };
+}
+
+// How long the editor's own debounced autosave (500ms, Editor.js) needs to
+// land before a slide is removed or a template replaces the design. A save
+// still waiting in the debounce is tagged with the slide it was made on; if
+// it fired AFTER the slides were renumbered it would write the old picture
+// over the slide that moved into that position.
+const SETTLE_MS = 800;
+const settle = () => new Promise((resolve) => setTimeout(resolve, SETTLE_MS));
+
 /**
  * @param {Object} props
  * @param {Object} props.design - the loaded MarketingDesign, with `layouts`
- *   (each `{ ratioKey, json, width, height }`) and `campaign.name`.
+ *   (each `{ ratioKey, json, width, height }`), `slideLayouts` (carousel
+ *   slides 2..n) and `campaign.name`.
  * @param {() => void} [props.onBack]
  */
 export function CampaignEditor({ design, onBack }) {
   const { t } = useTranslation();
+
+  // Every slide's layouts: [{ [ratioKey]: { json, width, height } }]. A ref,
+  // not state: read synchronously from inside the tab/slide handlers and the
+  // download and publish loops, none of which should wait on a re-render to
+  // see a save that just landed. `layoutVersion` is bumped whenever it
+  // changes, for the parts of the screen drawn from it.
+  const slidesRef = useRef(groupSlides(design.layouts || [], design.slideLayouts || []));
+  const [layoutVersion, setLayoutVersion] = useState(0);
+  const bump = () => setLayoutVersion((v) => v + 1);
+  const [slideTotal, setSlideTotal] = useState(() => slidesRef.current.length);
+  const [activeSlide, setActiveSlide] = useState(0);
 
   // openingRatio(), not DEFAULT_RATIO directly: the default moved to 4:5 on
   // 2026-09-28, and a design saved before that must keep opening on the square
@@ -150,32 +230,39 @@ export function CampaignEditor({ design, onBack }) {
   const [activeRatio, setActiveRatio] = useState(() =>
     openingRatio((design.layouts || []).map((l) => l.ratioKey)),
   );
-  // The shape this design would be posted as — ONE value, handed to both the
-  // Publish dialog (where it starts) and the Approval dialog (what it
-  // previews), so the image an approver signs off on is the image that goes
-  // out. Fixed at mount, off the same saved keys and opening tab as above:
-  // PublishModal reads its starting shape once, and a preview that followed
-  // the live tab while the dialog did not would let the two disagree. For
-  // every design made before the portrait existed this is the square — the
-  // shape both dialogs always used.
-  const [publishShape] = useState(() => {
-    const savedKeys = (design.layouts || []).map((l) => l.ratioKey);
-    return defaultPublishShape({ savedKeys, activeKey: openingRatio(savedKeys) });
-  });
+
+  const firstSlideKeys = Object.keys(slidesRef.current[0] || {});
+  // The format Instagram gets (lib/marketing/destinations.js) — what the
+  // approval dialog previews, so the image an approver signs off on is the
+  // image that goes out. The square only for a design laid out square before
+  // 4:5 existed; 4:5 for every other.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const publishShape = useMemo(() => destinationRatio("instagram", { savedKeys: firstSlideKeys }), [layoutVersion]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const tabs = useMemo(() => visibleRatios(firstSlideKeys), [layoutVersion]);
+
   const [warnings, setWarnings] = useState(() => {
     const initial = {};
-    for (const l of design.layouts || []) {
-      const frame = ratioByKey(l.ratioKey);
-      if (!frame) continue;
-      const overflow = overflowing(l.json, frame);
-      if (overflow.length) initial[l.ratioKey] = overflow;
-    }
+    slidesRef.current.forEach((slideMap, i) => {
+      for (const [key, l] of Object.entries(slideMap)) {
+        const frame = ratioByKey(key);
+        if (!frame) continue;
+        const overflow = overflowing(l.json, frame);
+        if (overflow.length) initial[`${i}:${key}`] = overflow;
+      }
+    });
     return initial;
   });
   const [editorInstance, setEditorInstance] = useState(undefined);
   const [downloading, setDownloading] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
   const [approvalOpen, setApprovalOpen] = useState(false);
+  const [busy, setBusy] = useState(null); // null | "slide" | "template"
+  const [templatesVersion, setTemplatesVersion] = useState(0);
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [templateSaved, setTemplateSaved] = useState(false);
   // "approved" | "stale" | "not_approved" | null (not known yet).
   //
   // null is a real third value, not a stand-in for "not approved": a failed
@@ -265,30 +352,20 @@ export function CampaignEditor({ design, onBack }) {
     };
   }, [design.id]);
 
-  // Keyed by ratioKey -> { json (parsed object), width, height }. A ref, not
-  // state: read synchronously from inside the tab-click handler and the
-  // download-all loop, neither of which should wait on a re-render to see a
-  // save that just landed.
-  const layoutsRef = useRef(
-    Object.fromEntries(
-      (design.layouts || []).map((l) => [l.ratioKey, { json: l.json, width: l.width, height: l.height }]),
-    ),
-  );
   // { type: "load", doc } | { type: "reflow", ratioKey } | null
   const pendingActionRef = useRef(null);
 
-  // Re-created per active ratio ON PURPOSE — see this file's module doc.
+  // Re-created per active ratio AND slide ON PURPOSE — see this file's
+  // module doc.
   const saveCallback = useCallback(
     async (values) => {
       const ratioKey = activeRatio;
-      const res = await fetch(
-        `/api/marketing/designer/designs/${design.id}/layouts/${ratioKey}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(values),
-        },
-      );
+      const slide = activeSlide;
+      const res = await fetch(layoutUrl(design.id, ratioKey, slide), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      });
       if (!res.ok) {
         await reportResponseError(res);
         // Rethrown so Editor.js's own debouncedSave sees the rejection and
@@ -297,15 +374,15 @@ export function CampaignEditor({ design, onBack }) {
         throw new Error("save failed");
       }
       const saved = await res.json();
-      layoutsRef.current = {
-        ...layoutsRef.current,
-        [ratioKey]: { json: saved.json, width: saved.width, height: saved.height },
-      };
+      const next = slidesRef.current.slice();
+      next[slide] = { ...(next[slide] || {}), [ratioKey]: { json: saved.json, width: saved.width, height: saved.height } };
+      slidesRef.current = next;
+      bump();
       const frame = ratioByKey(ratioKey);
       const overflow = frame ? overflowing(saved.json, frame) : [];
-      setWarnings((prev) => ({ ...prev, [ratioKey]: overflow.length ? overflow : undefined }));
+      setWarnings((prev) => ({ ...prev, [`${slide}:${ratioKey}`]: overflow.length ? overflow : undefined }));
     },
-    [design.id, activeRatio],
+    [design.id, activeRatio, activeSlide],
   );
 
   // Fires after EVERY identity change of `editor`, most of which have
@@ -327,69 +404,89 @@ export function CampaignEditor({ design, onBack }) {
 
   function handleSelectRatio(ratioKey) {
     if (ratioKey === activeRatio) return;
-    const saved = layoutsRef.current[ratioKey];
+    const saved = slidesRef.current[activeSlide]?.[ratioKey];
     pendingActionRef.current = saved
       ? { type: "load", doc: saved.json }
       : { type: "reflow", ratioKey };
     setActiveRatio(ratioKey);
   }
 
-  // The "what document, what pixel size, for this one ratio" resolution —
-  // live-on-screen if it's the open tab (so a download or a publish never
-  // ships a stale version of the tab you're LOOKING at, which would be its
-  // own dead-control failure), else the saved layout, else a fresh reflow()
-  // for a ratio nobody has opened yet. Shared by handleDownloadAll's loop
-  // below and preparePublishAsset() (PublishModal.js's caller) — both need
-  // the exact same answer to "what would ratio X actually render as right
-  // now", and this was two copies of that question before the social flow
-  // needed to ask it a second time.
+  /** What slide `i` looks like in format `ratioKey`, when it is not on screen. */
+  function docForSlide(i, ratioKey) {
+    const map = slidesRef.current[i] || {};
+    if (map[ratioKey]) return map[ratioKey].json;
+    const target = ratioByKey(ratioKey) || ratioByKey(DEFAULT_RATIO);
+    const src = reflowSourceKey(map, target);
+    if (src) return reflow(map[src].json, map[src], { width: target.width, height: target.height });
+    return blankDoc(target);
+  }
+
+  function handleSelectSlide(i) {
+    if (i === activeSlide || i < 0 || i >= slidesRef.current.length) return;
+    pendingActionRef.current = { type: "load", doc: docForSlide(i, activeRatio) };
+    setActiveSlide(i);
+  }
+
+  // The "what document, what pixel size, for this ratio of this slide"
+  // resolution — live-on-screen if it's the open tab of the open slide (so a
+  // download or a publish never ships a stale version of what you're LOOKING
+  // at, which would be its own dead-control failure), else the saved layout,
+  // else a fresh reflow() of that slide. Shared by handleDownloadAll's loop and
+  // preparePublishAsset() — both need the exact same answer to "what would
+  // this actually render as right now".
   const resolveRatioFrame = useCallback(
-    (ratioKey) => {
+    (ratioKey, slide = 0) => {
       if (!editorInstance) return null;
       const liveWorkspace = editorInstance.getWorkspace();
       const liveFrame = liveWorkspace
         ? { width: liveWorkspace.width, height: liveWorkspace.height }
         : null;
+      const onScreen = slide === activeSlide;
 
-      if (ratioKey === activeRatio && liveFrame) {
+      if (onScreen && ratioKey === activeRatio && liveFrame) {
         return { doc: editorInstance.canvas.toJSON(JSON_KEYS), frame: liveFrame };
       }
 
-      const saved = layoutsRef.current[ratioKey];
+      const map = slidesRef.current[slide];
+      if (!map) return null;
+      const saved = map[ratioKey];
       if (saved) {
         return { doc: saved.json, frame: { width: saved.width, height: saved.height } };
       }
 
-      if (liveFrame) {
-        const r = ratioByKey(ratioKey);
-        if (!r) return null;
+      const r = ratioByKey(ratioKey);
+      if (!r) return null;
+      const target = { width: r.width, height: r.height };
+      if (onScreen && liveFrame) {
         const liveDoc = editorInstance.canvas.toJSON(JSON_KEYS);
-        return {
-          doc: reflow(liveDoc, liveFrame, { width: r.width, height: r.height }),
-          frame: { width: r.width, height: r.height },
-        };
+        return { doc: reflow(liveDoc, liveFrame, target), frame: target };
       }
-
+      const src = reflowSourceKey(map, target);
+      if (src) return { doc: reflow(map[src].json, map[src], target), frame: target };
       return null;
     },
-    [editorInstance, activeRatio],
+    [editorInstance, activeRatio, activeSlide],
   );
 
   async function handleDownloadAll() {
     if (!editorInstance || downloading) return;
     setDownloading(true);
     try {
-      for (const r of AD_RATIOS) {
-        const resolved = resolveRatioFrame(r.key);
-        if (!resolved) continue;
+      for (let s = 0; s < slidesRef.current.length; s++) {
+        for (const r of tabs) {
+          const resolved = resolveRatioFrame(r.key, s);
+          if (!resolved) continue;
 
-        // eslint-disable-next-line no-await-in-loop
-        const { dataUrl } = await rasterize(resolved.doc, resolved.frame.width, resolved.frame.height, "png");
-        downloadFile(dataUrl, "png", assetFilename(design?.campaign?.name, r.key));
-        // A browser blocks a burst of same-tick downloads as a popup storm;
-        // spacing them out is what keeps all five actually landing.
-        // eslint-disable-next-line no-await-in-loop
-        await new Promise((resolve) => setTimeout(resolve, 200));
+          // eslint-disable-next-line no-await-in-loop
+          const { dataUrl } = await rasterize(resolved.doc, resolved.frame.width, resolved.frame.height, "png");
+          const name = assetFilename(design?.campaign?.name, r.key).replace(/\.png$/, "");
+          // A carousel's files say which slide they are, in order.
+          downloadFile(dataUrl, "png", slidesRef.current.length > 1 ? `${name}-${s + 1}` : name);
+          // A browser blocks a burst of same-tick downloads as a popup storm;
+          // spacing them out is what keeps all of them actually landing.
+          // eslint-disable-next-line no-await-in-loop
+          await new Promise((resolve) => setTimeout(resolve, 200));
+        }
       }
     } finally {
       setDownloading(false);
@@ -420,15 +517,15 @@ export function CampaignEditor({ design, onBack }) {
       .filter((src) => typeof src === "string" && /^https?:\/\//.test(src));
   }, [editorInstance]);
 
-  // For PublishModal: rasterise ONE ratio as a JPEG (Instagram's required
-  // format — see the rasterize() header) and hand back the data URL plus the
-  // pixel size actually rendered, so the modal can run
-  // lib/social/metaSpecs.js's validateImageForInstagram() against the REAL
-  // output before anything is uploaded, not against AD_RATIOS' nominal
-  // width/height which a hand-adjusted layout may no longer match exactly.
+  // For the publish dialogs: rasterise ONE slide in ONE format as a JPEG
+  // (Instagram's required format — see the rasterize() header) and hand back
+  // the data URL plus the pixel size actually rendered, so the dialog can run
+  // lib/social/metaSpecs.js's checks against the REAL output before anything
+  // is uploaded. `slide` defaults to the first — every caller before carousels
+  // asked for exactly that.
   const preparePublishAsset = useCallback(
-    async (ratioKey) => {
-      const resolved = resolveRatioFrame(ratioKey);
+    async (ratioKey, slide = 0) => {
+      const resolved = resolveRatioFrame(ratioKey, slide);
       if (!resolved) return null;
       const { dataUrl, width, height } = await rasterize(
         resolved.doc,
@@ -441,6 +538,199 @@ export function CampaignEditor({ design, onBack }) {
     [resolveRatioFrame],
   );
 
+  // ── Slides ──────────────────────────────────────────────────────────────
+
+  /** PUT one layout to slide `slide`; returns the saved layout or null. */
+  async function putLayout(slide, ratioKey, layout) {
+    const res = await fetch(layoutUrl(design.id, ratioKey, slide), {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ json: JSON.stringify(layout.json), width: layout.width, height: layout.height }),
+    });
+    if (!res.ok) {
+      await reportResponseError(res);
+      return null;
+    }
+    const saved = await res.json();
+    return { json: saved.json, width: saved.width, height: saved.height };
+  }
+
+  // "Add slide" starts from a copy of the slide on screen, every format it
+  // has — the next slide of a project story usually keeps the same look.
+  async function handleAddSlide() {
+    if (!editorInstance || busy || slidesRef.current.length >= MAX_SLIDES) return;
+    setBusy("slide");
+    try {
+      const n = slidesRef.current.length;
+      const source = { ...(slidesRef.current[activeSlide] || {}) };
+      const ws = editorInstance.getWorkspace();
+      if (ws) source[activeRatio] = { json: editorInstance.canvas.toJSON(JSON_KEYS), width: ws.width, height: ws.height };
+      const copy = {};
+      for (const [key, layout] of Object.entries(source)) {
+        // eslint-disable-next-line no-await-in-loop
+        const saved = await putLayout(n, key, layout);
+        if (!saved) return;
+        copy[key] = saved;
+      }
+      slidesRef.current = [...slidesRef.current, copy];
+      setSlideTotal(slidesRef.current.length);
+      bump();
+      pendingActionRef.current = { type: "load", doc: docForSlide(n, activeRatio) };
+      setActiveSlide(n);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleRemoveSlide() {
+    if (activeSlide === 0 || busy) return;
+    if (!window.confirm(t("app.marketingDesigner.slides.removeConfirm", "Remove this slide? Its layouts in every format are deleted."))) return;
+    setBusy("slide");
+    try {
+      const removing = activeSlide;
+      await settle();
+      const res = await fetch(`/api/marketing/designer/designs/${design.id}/slides/${removing}`, { method: "DELETE" });
+      if (!res.ok) {
+        await reportResponseError(res);
+        return;
+      }
+      const next = slidesRef.current.slice();
+      next.splice(removing, 1);
+      slidesRef.current = next;
+      setSlideTotal(next.length);
+      setWarnings({});
+      bump();
+      pendingActionRef.current = { type: "load", doc: docForSlide(removing - 1, activeRatio) };
+      setActiveSlide(removing - 1);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  // ── Templates ───────────────────────────────────────────────────────────
+
+  // Called by TemplateSidebar after the person confirmed the replacement.
+  const applyTemplate = useCallback(
+    async (template) => {
+      if (!editorInstance || busy) return false;
+      setBusy("template");
+      try {
+        const res = await fetch(`/api/designer/templates/${template.id}/fill`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        });
+        if (!res.ok) {
+          await reportResponseError(res);
+          return false;
+        }
+        const data = await res.json();
+        const filled = Array.isArray(data.slides) ? data.slides : [];
+
+        // The two original single-document starters: they only ever replaced
+        // the canvas on screen, and still do.
+        if (data.legacy) {
+          const only = filled[0]?.legacy;
+          if (only?.json) editorInstance.loadJson(JSON.stringify(only.json));
+          return Boolean(only?.json);
+        }
+        if (!filled.length) return false;
+
+        // Every tab this design shows gets a layout: the template's own for
+        // its three formats, a reflow of the closest one for the rest (a Story
+        // from the 9:16, a YouTube thumbnail from the 1.91:1).
+        const tabKeys = tabs.map((r) => r.key);
+        const next = filled.slice(0, MAX_SLIDES).map((map) => {
+          const out = { ...map };
+          for (const key of tabKeys) {
+            if (out[key]) continue;
+            const r = ratioByKey(key);
+            const src = reflowSourceKey(map, r);
+            if (src) out[key] = { json: reflow(map[src].json, map[src], r), width: r.width, height: r.height };
+          }
+          return out;
+        });
+
+        await settle();
+        // Extra slides the template does not have go, last first, so the
+        // positions never leave a gap mid-way.
+        for (let p = slidesRef.current.length - 1; p >= next.length; p--) {
+          // eslint-disable-next-line no-await-in-loop
+          const del = await fetch(`/api/marketing/designer/designs/${design.id}/slides/${p}`, { method: "DELETE" });
+          if (!del.ok && del.status !== 404) {
+            await reportResponseError(del);
+            return false;
+          }
+        }
+        const saved = [];
+        for (let i = 0; i < next.length; i++) {
+          const map = {};
+          for (const [key, layout] of Object.entries(next[i])) {
+            // eslint-disable-next-line no-await-in-loop
+            const s = await putLayout(i, key, layout);
+            if (!s) return false;
+            map[key] = s;
+          }
+          saved.push(map);
+        }
+        slidesRef.current = saved;
+        setSlideTotal(saved.length);
+        setWarnings({});
+        bump();
+        const doc = saved[0][activeRatio]?.json || docForSlide(0, activeRatio);
+        if (activeSlide === 0) {
+          editorInstance.loadJson(JSON.stringify(doc));
+        } else {
+          pendingActionRef.current = { type: "load", doc };
+          setActiveSlide(0);
+        }
+        return true;
+      } finally {
+        setBusy(null);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [editorInstance, busy, tabs, activeRatio, activeSlide, design.id],
+  );
+
+  // "Save as template": the layouts on the SERVER are what becomes the
+  // template (the route reads them itself), so the tab on screen is saved
+  // first — otherwise the last half-second of editing would be left out.
+  async function handleSaveTemplate(e) {
+    e?.preventDefault?.();
+    const name = templateName.trim();
+    if (!name) {
+      showError(t("app.marketingDesigner.saveTemplate.nameRequired", "Give the template a name."));
+      return;
+    }
+    if (!editorInstance) return;
+    setSavingTemplate(true);
+    try {
+      const ws = editorInstance.getWorkspace();
+      if (ws) {
+        try {
+          await saveCallback({ json: JSON.stringify(editorInstance.canvas.toJSON(JSON_KEYS)), width: ws.width, height: ws.height });
+        } catch {
+          return; // saveCallback already reported it
+        }
+      }
+      const res = await fetch("/api/designer/templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ designId: design.id, name }),
+      });
+      if (!res.ok) {
+        await reportResponseError(res);
+        return;
+      }
+      setTemplatesVersion((v) => v + 1);
+      setTemplateSaved(true);
+      setTemplateName("");
+    } finally {
+      setSavingTemplate(false);
+    }
+  }
+
   // Computed ONCE, off the design this component mounted with — Editor.js
   // reads initialData through a useRef on mount and never again (its own
   // module doc), so recomputing this on every activeRatio change would be
@@ -448,7 +738,7 @@ export function CampaignEditor({ design, onBack }) {
   // loadJson/changeRatio instead. Empty deps is deliberate for that reason.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const initialData = useMemo(() => {
-    const saved = layoutsRef.current[activeRatio];
+    const saved = slidesRef.current[0]?.[activeRatio];
     if (saved) {
       return { json: JSON.stringify(saved.json), width: saved.width, height: saved.height };
     }
@@ -457,6 +747,11 @@ export function CampaignEditor({ design, onBack }) {
   }, []);
 
   const anyOverflow = Object.values(warnings).some((w) => w && w.length > 0);
+  // What is still a template placeholder anywhere on the design — the same
+  // count both publish routes refuse on (lib/designer/placeholders.js).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const placeholders = useMemo(() => placeholdersIn(slidesRef.current.flatMap((m) => Object.values(m))), [layoutVersion]);
+  const activeMap = slidesRef.current[activeSlide] || {};
 
   return (
     <div className="h-screen w-full flex flex-col overflow-hidden">
@@ -476,11 +771,13 @@ export function CampaignEditor({ design, onBack }) {
 
         <div className="h-5 w-px bg-border shrink-0" />
 
+        {/* The format tabs: every preset but the square, which only a design
+            already laid out square still has (destinations.js). */}
         <div data-tour="designer-ratios" className="flex items-center gap-1 shrink-0">
-          {AD_RATIOS.map((r) => {
+          {tabs.map((r) => {
             const isActive = r.key === activeRatio;
-            const hasSaved = Boolean(layoutsRef.current[r.key]);
-            const hasWarning = Boolean(warnings[r.key]?.length);
+            const hasSaved = Boolean(activeMap[r.key]);
+            const hasWarning = Boolean(warnings[`${activeSlide}:${r.key}`]?.length);
             return (
               <button
                 key={r.key}
@@ -502,7 +799,88 @@ export function CampaignEditor({ design, onBack }) {
           })}
         </div>
 
+        <div className="h-5 w-px bg-border shrink-0" />
+
+        {/* The slide strip. One slide is an ordinary post; two to ten are a
+            carousel on Instagram, a multi-photo post on Facebook and a
+            photo-mode post on TikTok. */}
+        <div className="flex items-center gap-1 shrink-0" data-designer-slides>
+          <span className="text-xs text-muted-foreground pr-1">{t("app.marketingDesigner.slides.label", "Slides")}</span>
+          {Array.from({ length: slideTotal }, (_, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => handleSelectSlide(i)}
+              disabled={Boolean(busy)}
+              aria-label={t("app.marketingDesigner.slides.goTo", "Slide {n}", { n: i + 1 })}
+              className={`min-w-[28px] h-7 rounded-full text-xs font-semibold ${
+                i === activeSlide ? "bg-inverted text-inverted-foreground" : "bg-muted text-foreground"
+              }`}
+            >
+              {i + 1}
+            </button>
+          ))}
+          {slideTotal < MAX_SLIDES && (
+            <button
+              type="button"
+              onClick={handleAddSlide}
+              disabled={!editorInstance || Boolean(busy)}
+              title={t("app.marketingDesigner.slides.add", "Add a slide")}
+              aria-label={t("app.marketingDesigner.slides.add", "Add a slide")}
+              className="h-7 w-7 rounded-full border border-border flex items-center justify-center disabled:opacity-60"
+            >
+              {busy === "slide" ? <Loader2 size={12} className="animate-spin" /> : <Plus size={13} />}
+            </button>
+          )}
+          {activeSlide > 0 && (
+            <button
+              type="button"
+              onClick={handleRemoveSlide}
+              disabled={Boolean(busy)}
+              title={t("app.marketingDesigner.slides.remove", "Remove this slide")}
+              aria-label={t("app.marketingDesigner.slides.remove", "Remove this slide")}
+              className="h-7 w-7 rounded-full border border-border flex items-center justify-center text-muted-foreground disabled:opacity-60"
+            >
+              <Trash2 size={12} />
+            </button>
+          )}
+        </div>
+
         <div className="flex-1" />
+
+        {placeholders.count > 0 && (
+          <span
+            data-designer-placeholders
+            className="flex items-center gap-1 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 px-2.5 py-1 text-xs font-medium shrink-0"
+            title={t(
+              "app.marketingDesigner.placeholders.hint",
+              "Bracketed text and \"Add a photo\" boxes came from the template. Replace or delete each one — nothing can be posted while one is left.",
+            )}
+          >
+            <TriangleAlert size={12} />
+            {t("app.marketingDesigner.placeholders.count", { value: placeholders.count })}
+          </span>
+        )}
+
+        {busy === "template" && (
+          <span className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+            <Loader2 size={12} className="animate-spin" /> {t("app.marketingDesigner.templates.applying", "Applying template…")}
+          </span>
+        )}
+
+        <button
+          type="button"
+          onClick={() => {
+            setTemplateSaved(false);
+            setSaveTemplateOpen(true);
+          }}
+          disabled={!editorInstance}
+          className="flex items-center gap-2 border border-border text-foreground px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap disabled:opacity-60 shrink-0"
+          data-save-template
+        >
+          <BookmarkPlus size={13} />
+          {t("app.marketingDesigner.saveTemplate.button", "Save as template")}
+        </button>
 
         <button
           type="button"
@@ -596,8 +974,70 @@ export function CampaignEditor({ design, onBack }) {
           initialData={initialData}
           saveCallback={saveCallback}
           onEditorReady={setEditorInstance}
+          onApplyTemplate={applyTemplate}
+          templatesVersion={templatesVersion}
         />
       </div>
+
+      {saveTemplateOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
+          onClick={savingTemplate ? undefined : () => setSaveTemplateOpen(false)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <form
+            onSubmit={handleSaveTemplate}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-card rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md p-6 space-y-3"
+          >
+            <h2 className="text-lg font-semibold text-foreground">
+              {t("app.marketingDesigner.saveTemplate.title", "Save as a template")}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {t(
+                "app.marketingDesigner.saveTemplate.body",
+                "Every slide and every format of this design becomes one of your company's templates. Only your team sees it.",
+              )}
+            </p>
+            {templateSaved ? (
+              <p className="text-sm text-foreground flex items-center gap-2" data-template-saved>
+                <BadgeCheck size={14} className="text-emerald-700 dark:text-emerald-400" />
+                {t("app.marketingDesigner.saveTemplate.saved", "Saved. It's under “Your templates” in the Templates panel.")}
+              </p>
+            ) : (
+              <input
+                autoFocus
+                value={templateName}
+                maxLength={80}
+                onChange={(e) => setTemplateName(e.target.value)}
+                placeholder={t("app.marketingDesigner.saveTemplate.namePlaceholder", "Template name")}
+                className="w-full border border-border rounded-lg px-3 py-2.5 text-sm bg-background"
+              />
+            )}
+            <div className="flex gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => setSaveTemplateOpen(false)}
+                disabled={savingTemplate}
+                className="flex-1 border border-border rounded-full px-4 py-2.5 text-sm font-semibold disabled:opacity-60"
+              >
+                {templateSaved ? t("app.marketingDesigner.publishModal.close") : t("app.marketingDesigner.publishModal.cancel")}
+              </button>
+              {!templateSaved && (
+                <button
+                  type="submit"
+                  disabled={savingTemplate || !templateName.trim()}
+                  className="flex-1 bg-inverted text-inverted-foreground rounded-full px-4 py-2.5 text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-1.5"
+                >
+                  {savingTemplate ? <Loader2 size={14} className="animate-spin" /> : <BookmarkPlus size={14} />}
+                  {t("app.marketingDesigner.saveTemplate.confirm", "Save template")}
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Both halves are load-bearing: socialVisible keeps the whole modal
           out of the tree for a real company with no Meta app configured (a
@@ -610,7 +1050,8 @@ export function CampaignEditor({ design, onBack }) {
           onClose={() => setPublishOpen(false)}
           design={design}
           preparePublishAsset={preparePublishAsset}
-          initialShape={publishShape}
+          savedKeys={firstSlideKeys}
+          slideCount={slideTotal}
           onOpenApproval={() => {
             setPublishOpen(false);
             setApprovalReturn("publish");
@@ -630,6 +1071,7 @@ export function CampaignEditor({ design, onBack }) {
           onClose={() => setTiktokOpen(false)}
           design={design}
           preparePublishAsset={preparePublishAsset}
+          slideCount={slideTotal}
           onOpenApproval={() => {
             setTiktokOpen(false);
             setApprovalReturn("tiktok");
@@ -647,6 +1089,7 @@ export function CampaignEditor({ design, onBack }) {
         design={design}
         preparePublishAsset={preparePublishAsset}
         previewShape={publishShape}
+        slideCount={slideTotal}
         getCanvasPhotoUrls={getCanvasPhotoUrls}
         onDownloadAll={handleDownloadAll}
         socialVisible={socialVisible || tiktokReady}

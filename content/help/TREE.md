@@ -90,7 +90,7 @@ callbacks, the crew inbox, team chat, How You Compare, the KPI dashboard,
 
 <!-- tree:start -->
 
-_Generated 2026-09-29 — 335 articles in the tree; written: en 335, fr 335, es 335; “Only in FieldQuo”: 34._
+_Generated 2026-09-29 — 336 articles in the tree; written: en 336, fr 336, es 336; “Only in FieldQuo”: 34._
 
 ### getting-started (23)
 
@@ -284,7 +284,7 @@ _Generated 2026-09-29 — 335 articles in the tree; written: en 335, fr 335, es 
 | `the-manager-log-book` — The manager's log book | ✓ | ✓ | ✓ | manager-log | hr_compliance |  |
 | `hr-and-compliance` — HR & compliance overview | ✓ | ✓ | ✓ |  | hr_compliance |  |
 
-### marketing-and-website (24)
+### marketing-and-website (25)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -304,6 +304,7 @@ _Generated 2026-09-29 — 335 articles in the tree; written: en 335, fr 335, es 
 | `the-marketing-designer` — The Marketing Designer | ✓ | ✓ | ✓ | marketing-designer | marketing_designer | ✓ |
 | `make-a-post-from-a-job` — Make a post from a job | ✓ | ✓ | ✓ |  | marketing_designer |  |
 | `social-posting-and-scheduling` — Post to Facebook and Instagram, now or later | ✓ | ✓ | ✓ |  | page_messaging |  |
+| `video-posts` — Video posts: Reels and TikToks, and your monthly videos | ✓ | ✓ | ✓ |  | marketing_designer |  |
 | `connect-meta-ads` — Connect your Meta ad account | ✓ | ✓ | ✓ | settings-meta-ads | marketing_spend |  |
 | `get-facebook-and-instagram-lead-ads-into-fieldquo` — Get your Facebook and Instagram lead ads into FieldQuo | ✓ | ✓ | ✓ | settings-meta-ads | marketing_spend |  |
 | `answer-facebook-and-instagram-messages-from-fieldquo` — Answer Facebook and Instagram messages from FieldQuo | ✓ | ✓ | ✓ |  | page_messaging |  |

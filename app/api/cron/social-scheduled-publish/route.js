@@ -151,6 +151,15 @@ async function fireOne(row, now) {
 
   const client = connection.mock ? mockMetaGraphClient : metaGraphClient;
 
+  // A carousel row carries every slide's URL, captured at schedule time; one
+  // image leaves imageUrls empty and posts imageUrl exactly as before. Every
+  // slide was checked to be the same format when it was scheduled, so the
+  // row's one width/height describes each of them.
+  const carousel =
+    Array.isArray(row.imageUrls) && row.imageUrls.length > 1
+      ? row.imageUrls.map((imageUrl) => ({ imageUrl, width: row.width, height: row.height }))
+      : null;
+
   try {
     // No `design` lookup anywhere in this function — deliberately. Every
     // field either call needs (imageUrl, caption, width, height) was
@@ -165,12 +174,14 @@ async function fireOne(row, now) {
             caption: row.caption,
             width: row.width,
             height: row.height,
+            carousel,
             client,
           })
         : await publishToFacebook({
             connection,
             imageUrl: row.imageUrl,
             caption: row.caption,
+            carousel,
             client,
             // No scheduledPublishTime: this cron IS the scheduled moment,
             // so publishToFacebook() publishes immediately, exactly the way

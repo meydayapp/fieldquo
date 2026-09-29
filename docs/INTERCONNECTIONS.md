@@ -206,7 +206,7 @@ Ask three questions of this graph:
 ## The entity graph
 
 Every model, and what points at it. Generated from `prisma/schema.prisma`, so
-it cannot drift from the code. 308 models.
+it cannot drift from the code. 312 models.
 
 **Read it before adding anything.** The question it answers is "what already
 touches this, and what would my change touch" — which is the question that was
@@ -232,16 +232,16 @@ tenancy, so it carries no information.
 | **Invoice** | 8 | Appointment, ChangeOrder, InvoiceCosting, JobPaymentStage, Payment, ServicePlanOccurrence, Task, TimeEntry |
 | **ServiceCategory** | 6 | CompanyServiceCategory, JobChecklistTemplate, LeadRequest, QuickAddItem, QuoteScopeGroup, ServiceDocument |
 | **SalesCallAttempt** | 5 | SalesCallEvent, SalesCallQa, SalesCallTransfer, SalesDispositionAudit, SalesRecordingMark |
+| **MarketingCampaign** | 4 | MarketingCampaignDelivery, MarketingDesign, PamphletStop, VideoPost |
+| **MarketingDesign** | 4 | MarketingDesignLayout, MarketingDesignSlideLayout, SocialPublish, TikTokPublish |
 | **Task** | 4 | ChangeOrder, JobPhoto, TaskDependency, TimeEntry |
 | **Asset** | 3 | AssetDocument, AssetUseLog, Expense |
 | **CompanyChatRoom** | 3 | CompanyChatMember, CompanyChatMessage, Job |
-| **MarketingCampaign** | 3 | MarketingCampaignDelivery, MarketingDesign, PamphletStop |
-| **MarketingDesign** | 3 | MarketingDesignLayout, SocialPublish, TikTokPublish |
 | **SalesThread** | 3 | SalesEmailDraft, SalesMessage, SalesRepNote |
 
 ### Every model, both directions
 
-<details><summary>308 models — expand</summary>
+<details><summary>312 models — expand</summary>
 
 | Model | Points at | Pointed at by |
 |---|---|---|
@@ -265,7 +265,7 @@ tenancy, so it carries no information.
 | `ClientEquipmentService` | ClientEquipment | — |
 | `ClientTicket` | Client | ClientTicketMessage |
 | `ClientTicketMessage` | ClientTicket | — |
-| `Company` | AiCreditBundle, CompanyGoogleBusiness, CompanySite, CrewInboxNumber, ForecastSettings, LinkPage, MetaAdConnection, SalesAttribution, SalesRep, SignupDismissal, SignupLead, SignupOrigin, Subscription, VoiceAgent, VoiceAutoTopup | AccountAbuseStrike, ActivityLog, AiCreditBundle, AiDigest, AiEmployee, AiEmployeeProposal, AiEmployeeReply, AiEmployeeRoutingEvent, AiEmployeeSource, AiUsage, Appointment, Asset, AssetUseLog, AvailabilityRequest, CallConsent, CallbackEntry, CallbackList, CallbackRule, Client, ClientEquipment, ClientTicket, CompanyChatMember, CompanyChatMessage, CompanyChatRoom, CompanyDocument, CompanyFeatureOverride, CompanyGalleryPair, CompanyGoogleBusiness, CompanyServiceCategory, CompanySite, CompanyTextTranslation, ComplexityFactorPreset, ConnectFeeRecovery, CrewInboundMessage, CrewInboxNumber, CustomField, DailyObjectiveSheet, Debt, DocumentSignature, DocumentTemplate, EmailMessage, EventType, Expense, ExpenseImportBatch, FollowUpRule, ForecastSettings, Funnel, FunnelVisit, GoogleReview, InstantPayout, InstantQuoteConfig, Invoice, Job, JobChecklistTemplate, JobCommission, JobCommissionEntry, JobDailyLog, JobDocument, JobPaymentStage, JobPhoto, JobPhotoComment, JobPhotoMention, JobPhotoTag, JobSubcontractor, LeadRequest, LeavePolicy, LeaveRequest, LinkPage, LocationStamp, MailboxConnection, MarketingCampaign, MarketingDesign, MarketingSpend, MarketingSubscriber, Material, MaterialRecipeSetting, Member, MessageThread, MessagingChannel, MetaAdConnection, MetaLeadForm, MetaPageConnection, MigrationRequest, NotificationDelivery, NotificationEvent, NotificationRule, OfflineSyncItem, PayRun, PaymentScheduleStage, PendingTeamProfile, Product, Prospect, PurchaseOrder, QuickAddItem, Quote, QuoteImport, QuoteTemplate, QuoteTextBlock, Receipt, RecordEdit, ReferralCredit, ReferralInvite, SafetyIncident, Salary, SalaryComponent, SalesAttribution, SalesAttributionTouch, SalesCheckIn, SalesCommissionEntry, SalesRep, SatisfactionResponse, ScheduleEvent, ServiceCategory, ServiceDocument, ServicePlan, ServicePlanTemplate, Shift, ShiftAttendance, ShiftRequest, ShoutOut, SignupDismissal, SignupLead, SignupOrigin, SmsDelivery, SmsOptOut, SocialPublish, StockMovement, Subcontractor, SubcontractorPayment, Subscription, Supplier, SupplyRequest, SupportTicket, Task, TaxRate, TikTokConnection, TikTokPublish, VehicleDetail, VoiceAgent, VoiceAutoTopup, VoiceCall, VoiceCallTask, VoiceCreditEntry, VoicePhoneNumber, WhatsAppTemplate, WorkArea, Worker, WorkingHours |
+| `Company` | AiCreditBundle, CompanyGoogleBusiness, CompanySite, CrewInboxNumber, ForecastSettings, LinkPage, MetaAdConnection, SalesAttribution, SalesRep, SignupDismissal, SignupLead, SignupOrigin, Subscription, VoiceAgent, VoiceAutoTopup | AccountAbuseStrike, ActivityLog, AiCreditBundle, AiDigest, AiEmployee, AiEmployeeProposal, AiEmployeeReply, AiEmployeeRoutingEvent, AiEmployeeSource, AiUsage, Appointment, Asset, AssetUseLog, AvailabilityRequest, CallConsent, CallbackEntry, CallbackList, CallbackRule, Client, ClientEquipment, ClientTicket, CompanyChatMember, CompanyChatMessage, CompanyChatRoom, CompanyDocument, CompanyFeatureOverride, CompanyGalleryPair, CompanyGoogleBusiness, CompanyServiceCategory, CompanySite, CompanyTextTranslation, ComplexityFactorPreset, ConnectFeeRecovery, CrewInboundMessage, CrewInboxNumber, CustomField, DailyObjectiveSheet, Debt, DesignTemplate, DocumentSignature, DocumentTemplate, EmailMessage, EventType, Expense, ExpenseImportBatch, FollowUpRule, ForecastSettings, Funnel, FunnelVisit, GoogleReview, InstantPayout, InstantQuoteConfig, Invoice, Job, JobChecklistTemplate, JobCommission, JobCommissionEntry, JobDailyLog, JobDocument, JobPaymentStage, JobPhoto, JobPhotoComment, JobPhotoMention, JobPhotoTag, JobSubcontractor, LeadRequest, LeavePolicy, LeaveRequest, LinkPage, LocationStamp, MailboxConnection, MarketingCampaign, MarketingDesign, MarketingSpend, MarketingSubscriber, Material, MaterialRecipeSetting, Member, MessageThread, MessagingChannel, MetaAdConnection, MetaLeadForm, MetaPageConnection, MigrationRequest, NotificationDelivery, NotificationEvent, NotificationRule, OfflineSyncItem, PayRun, PaymentScheduleStage, PendingTeamProfile, Product, Prospect, PurchaseOrder, QuickAddItem, Quote, QuoteImport, QuoteTemplate, QuoteTextBlock, Receipt, RecordEdit, ReferralCredit, ReferralInvite, SafetyIncident, Salary, SalaryComponent, SalesAttribution, SalesAttributionTouch, SalesCheckIn, SalesCommissionEntry, SalesRep, SatisfactionResponse, ScheduleEvent, ServiceCategory, ServiceDocument, ServicePlan, ServicePlanTemplate, Shift, ShiftAttendance, ShiftRequest, ShoutOut, SignupDismissal, SignupLead, SignupOrigin, SmsDelivery, SmsOptOut, SocialPublish, StockMovement, Subcontractor, SubcontractorPayment, Subscription, Supplier, SupplyRequest, SupportTicket, Task, TaxRate, TikTokConnection, TikTokPublish, VehicleDetail, VideoPack, VideoPost, VoiceAgent, VoiceAutoTopup, VoiceCall, VoiceCallTask, VoiceCreditEntry, VoicePhoneNumber, WhatsAppTemplate, WorkArea, Worker, WorkingHours |
 | `CompanyChatMember` | CompanyChatRoom, Member | — |
 | `CompanyChatMessage` | CompanyChatRoom, Member | — |
 | `CompanyChatRoom` | Job | CompanyChatMember, CompanyChatMessage, Job |
@@ -322,10 +322,11 @@ tenancy, so it carries no information.
 | `LinkPage` | — | Company |
 | `LocationStamp` | Job, JobVisit, TimeEntry, Worker | — |
 | `MailboxConnection` | MessagingChannel | EmailMessage, MessagingChannel |
-| `MarketingCampaign` | DocumentTemplate | MarketingCampaignDelivery, MarketingDesign, PamphletStop |
+| `MarketingCampaign` | DocumentTemplate | MarketingCampaignDelivery, MarketingDesign, PamphletStop, VideoPost |
 | `MarketingCampaignDelivery` | MarketingCampaign, MarketingSubscriber | — |
-| `MarketingDesign` | Job, MarketingCampaign | MarketingDesignLayout, SocialPublish, TikTokPublish |
+| `MarketingDesign` | Job, MarketingCampaign | MarketingDesignLayout, MarketingDesignSlideLayout, SocialPublish, TikTokPublish |
 | `MarketingDesignLayout` | MarketingDesign | — |
+| `MarketingDesignSlideLayout` | MarketingDesign | — |
 | `MarketingSubscriber` | — | MarketingCampaignDelivery |
 | `Material` | — | Expense, MaterialPriceEntry |
 | `MaterialPriceEntry` | Expense, Material | — |
@@ -434,7 +435,7 @@ tenancy, so it carries no information.
 | `SignupDismissal` | SignupLead | Company, SignupLead |
 | `SignupLead` | Prospect, SalesRep, SignupDismissal | Company, Prospect, SignupDismissal |
 | `SignupOrigin` | PlatformAdmin, SalesRep | Company |
-| `SocialPublish` | MarketingDesign | — |
+| `SocialPublish` | MarketingDesign, VideoPost | — |
 | `StaffMessage` | PlatformAdmin, SalesRep, StaffRoom | — |
 | `StaffRoom` | PlatformAdmin, SalesRep | StaffMessage, StaffRoomMember |
 | `StaffRoomMember` | PlatformAdmin, SalesRep, StaffRoom | — |
@@ -450,12 +451,13 @@ tenancy, so it carries no information.
 | `Task` | ChangeOrder, Client, Invoice, Job, Quote, WorkArea | ChangeOrder, JobPhoto, TaskDependency, TimeEntry |
 | `TaskDependency` | Task | — |
 | `TaxFormSubmission` | Worker | — |
-| `TikTokPublish` | MarketingDesign | — |
+| `TikTokPublish` | MarketingDesign, VideoPost | — |
 | `TimeEntry` | Invoice, Job, Task, Worker | LocationStamp, TimeEntryBreak |
 | `TimeEntryBreak` | TimeEntry | — |
 | `User` | Worker | Account, AccountDevice, Appointment, AvailabilityRequest, AvailabilitySchedule, CallbackEntry, ChangeOrder, DailyObjectiveSheet, EventType, Funnel, Invoice, JobMaterial, JobVisit, LeadNote, LeadRequest, MarketingCampaign, MarketingDesign, Member, OrgMember, PamphletStop, PushSubscription, Quote, ScheduleEvent, Session, Shift, ShiftRequest, SupplyRequest, Task, TimeEntry, TwoFactor, WorkAreaAssignment, Worker, WorkingHours |
 | `VehicleDetail` | — | VehicleMaintenance |
 | `VehicleMaintenance` | VehicleDetail | — |
+| `VideoPost` | MarketingCampaign | SocialPublish, TikTokPublish |
 | `VoiceAgent` | — | Company, VoiceCall, VoicePhoneNumber |
 | `VoiceAutoTopup` | — | Company |
 | `VoiceCall` | VoiceAgent, VoicePhoneNumber | — |

@@ -34,6 +34,9 @@ async function loadOwned(companyId, id) {
     where: { id },
     include: {
       layouts: { select: { ratioKey: true, json: true, width: true, height: true } },
+      // Carousel slides 2..n are part of what is approved — see
+      // lib/marketing/approvalFingerprint.js.
+      slideLayouts: { select: { position: true, ratioKey: true, json: true, width: true, height: true } },
       approvedBy: { select: { name: true } },
     },
   });
@@ -116,6 +119,7 @@ export async function POST(request, { params }) {
 
   const current = designFingerprint({
     layouts: design.layouts,
+    slideLayouts: design.slideLayouts,
     caption: design.caption || "",
     hashtags: design.hashtags || [],
   });
@@ -140,6 +144,9 @@ export async function POST(request, { params }) {
     },
     include: {
       layouts: { select: { ratioKey: true, json: true, width: true, height: true } },
+      // Carousel slides 2..n are part of what is approved — see
+      // lib/marketing/approvalFingerprint.js.
+      slideLayouts: { select: { position: true, ratioKey: true, json: true, width: true, height: true } },
       approvedBy: { select: { name: true } },
     },
   });
@@ -183,6 +190,9 @@ export async function DELETE(request, { params }) {
     data: { approvedAt: null, approvedById: null, approvedFingerprint: null },
     include: {
       layouts: { select: { ratioKey: true, json: true, width: true, height: true } },
+      // Carousel slides 2..n are part of what is approved — see
+      // lib/marketing/approvalFingerprint.js.
+      slideLayouts: { select: { position: true, ratioKey: true, json: true, width: true, height: true } },
       approvedBy: { select: { name: true } },
     },
   });

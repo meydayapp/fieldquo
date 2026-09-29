@@ -1,6 +1,23 @@
 // prisma/seed-design-templates.js
 //
-//   npm run seed:design-templates
+//   npm run seed:design-templates             (writes)
+//   npm run seed:design-templates -- --dry-run  (builds and checks, writes nothing)
+//
+// ── 2026-09-29: the contractor catalogue ────────────────────────────────────
+//
+// Besides the two generic starters below, this seeds FieldQuo's own
+// contractor templates — lib/designer/templateCatalog.js's TEMPLATE_CATALOG,
+// before/after, win-work, trust, tips and people posts, each with a layout in
+// every publishing format (4:5, 9:16, 1.91:1; never the square). Upserted on
+// the template's stable `key`, so re-running fixes a template in place and a
+// company's own saved templates (companyId set) are never touched. Additive:
+// nothing is deleted, and a key dropped from the catalogue leaves its row
+// alone for a person to decide about.
+//
+// The documents carry colour ROLES and copy KEYS, not colours and words — the
+// company's brand and language are applied when a template is opened
+// (app/api/designer/templates). That is also why there is no thumbnail file:
+// the sidebar renders each preview in the company's own colours.
 //
 // The Marketing Designer's starter-template gallery — DesignTemplate rows,
 // global (no companyId), same reasoning as seed-checklists.js's system
@@ -39,6 +56,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { db } from "../lib/db.js";
+import { TEMPLATE_CATALOG, buildTemplateSlides } from "../lib/designer/templateCatalog.js";
+import { TEMPLATE_FORMATS } from "../lib/marketing/destinations.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const readJson = (rel) => JSON.parse(fs.readFileSync(path.join(HERE, rel), "utf8"));
@@ -68,7 +87,43 @@ const TEMPLATES = [
   // }, // needs its `type:"image"` src re-hosted off images.unsplash.com first
 ];
 
+const DRY_RUN = process.argv.includes("--dry-run");
+
+async function seedCatalogue() {
+  for (const t of TEMPLATE_CATALOG) {
+    const slides = buildTemplateSlides(t);
+    for (const [i, slide] of slides.entries()) {
+      for (const key of TEMPLATE_FORMATS) {
+        if (!slide[key]?.json?.objects?.length) throw new Error(`${t.key}: slide ${i + 1} has no ${key} layout`);
+      }
+      if (slide.instagram_post) throw new Error(`${t.key}: a new template must not carry a square layout`);
+    }
+    const primary = slides[0].instagram_portrait;
+    const data = {
+      category: t.category,
+      slides,
+      // The 4:5 first slide doubles as the row's `json`, which is what the
+      // template's column has always held and what an older reader expects.
+      json: primary.json,
+      width: primary.width,
+      height: primary.height,
+      thumbnailUrl: null,
+    };
+    if (!DRY_RUN) {
+      await db.designTemplate.upsert({
+        where: { key: t.key },
+        // `name` stays unique and internal for catalogue rows — the sidebar
+        // prints the translated app.designerTemplates.name.<key>.
+        create: { key: t.key, name: `catalog:${t.key}`, ...data },
+        update: data,
+      });
+    }
+    console.log(`  ${DRY_RUN ? "dry " : "ok  "} ${t.key} (${t.category}, ${slides.length} slide(s) x ${TEMPLATE_FORMATS.length} formats)`);
+  }
+}
+
 async function main() {
+  await seedCatalogue();
   for (const t of TEMPLATES) {
     const doc = readJson(t.jsonFile);
     const clip = clipOf(doc);
@@ -76,6 +131,7 @@ async function main() {
       throw new Error(`${t.jsonFile}: no "clip" object with width/height — not a usable template`);
     }
 
+    if (DRY_RUN) continue;
     await db.designTemplate.upsert({
       where: { name: t.name },
       create: {
@@ -95,8 +151,12 @@ async function main() {
     console.log(`  ok   ${t.name} (${clip.width}x${clip.height}, ${doc.objects.length} objects)`);
   }
 
-  const count = await db.designTemplate.count();
-  console.log(`\n${count} design template(s) in the gallery.`);
+  if (DRY_RUN) {
+    console.log(`\nDry run: ${TEMPLATE_CATALOG.length} catalogue template(s) built; nothing written.`);
+    return;
+  }
+  const count = await db.designTemplate.count({ where: { companyId: null } });
+  console.log(`\n${count} FieldQuo template(s) in the gallery.`);
 }
 
 main()

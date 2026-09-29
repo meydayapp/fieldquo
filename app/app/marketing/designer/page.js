@@ -14,13 +14,19 @@
 // versa; they are the same row.
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BadgeCheck, Camera, ImageOff, Loader2, Palette, Plus, Trash2, TriangleAlert } from "lucide-react";
+import { BadgeCheck, Camera, Film, ImageOff, Loader2, Palette, Plus, Trash2, TriangleAlert } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { fetchList } from "@/lib/loadState";
 import { reportResponseError, showError } from "@/lib/clientErrors";
 import ListState from "@/app/components/ListState";
 import { ratiosForDesign } from "@/lib/marketing/ratios";
+import { fetchJson } from "@/lib/fetchJson";
+import { probeVideo } from "@/lib/media/videoProbe";
+import { uploadInChunks } from "@/lib/media/chunkedUpload";
+import { VIDEO_POST_LIMITS, isNineBySixteen } from "@/lib/marketing/videoPost";
+import { formatClipLength } from "@/lib/marketing/videoAllowance";
+import { AllowanceUsed, VideoAllowanceLine } from "@/app/components/designer/VideoAllowance";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -60,6 +66,105 @@ export default function MarketingDesignerPage() {
   const [jobsLoading, setJobsLoading] = useState(false);
   const [pickerFor, setPickerFor] = useState(null);
   const [composing, setComposing] = useState(null);
+
+  // ── "New video post" ────────────────────────────────────────────────────
+  //
+  // 1. The browser reads the clip's shape and length (lib/media/videoProbe.js)
+  //    — a clip over 2:30 is refused here, before anything is sent; one that
+  //    isn't 9:16 asks "Fit or Crop?" first, so the reshape rides in the same
+  //    Cloudinary pass as the 1080p conversion.
+  // 2. The server checks this month's video allowance and signs the upload
+  //    (app/api/marketing/video-posts POST). A used-up month is refused with
+  //    the count and — for an owner or admin — "Add a video pack".
+  // 3. The file goes browser → Cloudinary in chunks (lib/media/chunkedUpload.js)
+  //    and the video screen waits for Cloudinary to finish converting it.
+  // Jobs keep photos, not videos, so there is no "from a job" for a video.
+  const [videosByCampaign, setVideosByCampaign] = useState(null);
+  const [videoAllowance, setVideoAllowance] = useState(null);
+  const [videoUpload, setVideoUpload] = useState(null); // { campaignId, percent }
+  const [pendingClip, setPendingClip] = useState(null); // { campaignId, file, probe, needsFit, unknown }
+  const [allowanceBlocked, setAllowanceBlocked] = useState(null); // campaignId
+
+  async function handleNewVideo(campaignId, file) {
+    if (!file) return;
+    setAllowanceBlocked(null);
+    if (!(file.type || "").startsWith("video/")) {
+      showError(t("app.videoPost.mustBeVideo"));
+      return;
+    }
+    const probe = await probeVideo(file);
+    if (probe.durationSec && probe.durationSec > VIDEO_POST_LIMITS.maxSeconds + 0.5) {
+      showError(t("app.videoPost.error.too_long_clip", { length: formatClipLength(VIDEO_POST_LIMITS.maxSeconds) }));
+      return;
+    }
+    if (probe.durationSec && probe.durationSec < VIDEO_POST_LIMITS.minSeconds) {
+      showError(t("app.videoPost.error.too_short"));
+      return;
+    }
+    const needsFit = Boolean(probe.width && probe.height) && !isNineBySixteen(probe.width, probe.height);
+    const unknown = !probe.durationSec || !probe.width || !probe.height;
+    if (needsFit || unknown) {
+      setPendingClip({ campaignId, file, probe, needsFit, unknown });
+      return;
+    }
+    await sendVideo(campaignId, file, probe, null);
+  }
+
+  async function sendVideo(campaignId, file, probe, fit) {
+    setPendingClip(null);
+    setVideoUpload({ campaignId, percent: 0 });
+    let postId = null;
+    try {
+      const baseName = (file.name || "").replace(/\.[^.]+$/, "").trim() || t("app.videoPost.defaultName");
+      let started;
+      try {
+        started = await fetchJson("/api/marketing/video-posts", {
+          method: "POST",
+          body: {
+            campaignId,
+            name: baseName,
+            fit,
+            file: { type: file.type, size: file.size, width: probe.width, height: probe.height, durationSec: probe.durationSec },
+          },
+        });
+      } catch (err) {
+        if (err.code === "allowance_used") {
+          setVideoAllowance(err.data?.allowance || null);
+          setAllowanceBlocked(campaignId);
+          return;
+        }
+        showError(
+          err.code && err.code !== "bad_request"
+            ? t(`app.videoPost.error.${err.code === "too_long" ? "too_long_clip" : err.code}`, {
+                length: formatClipLength(VIDEO_POST_LIMITS.maxSeconds),
+                size: err.data?.maxBytes ? `${Math.round(err.data.maxBytes / (1024 * 1024))} MB` : "",
+              })
+            : err.message || t("app.marketingDesigner.createError"),
+        );
+        return;
+      }
+      postId = started.post.id;
+      setVideoAllowance(started.allowance || null);
+      await uploadInChunks(file, {
+        url: started.upload.url,
+        fields: started.upload.fields,
+        chunkBytes: started.upload.chunkBytes,
+        onProgress: (loaded, total) => setVideoUpload({ campaignId, percent: total ? Math.round((loaded / total) * 100) : 0 }),
+      });
+      // The bytes are there; Cloudinary is converting them. The video screen
+      // waits for it — nothing else to do here.
+      await fetchJson(`/api/marketing/video-posts/${postId}/arrival`, { method: "POST", body: {} }).catch(() => null);
+      router.push(`/app/marketing/designer/video/${postId}`);
+    } catch (err) {
+      // The upload itself failed: release the slot it was holding at once.
+      if (postId) {
+        await fetchJson(`/api/marketing/video-posts/${postId}/arrival`, { method: "POST", body: { failed: true, reason: err?.status || "network" } }).catch(() => null);
+      }
+      showError(t("app.videoPost.uploadFailed"));
+    } finally {
+      setVideoUpload(null);
+    }
+  }
 
   const openPicker = useCallback(async (campaignId) => {
     setPickerFor((prev) => (prev === campaignId ? null : campaignId));
@@ -107,9 +212,10 @@ export default function MarketingDesignerPage() {
     // different failure shapes to handle by hand. Either one failing blanks
     // BOTH lists: a design without its campaign's name, or a campaign whose
     // design count is silently wrong, is worse than one clear error banner.
-    const [campaignsResult, designsResult] = await Promise.all([
+    const [campaignsResult, designsResult, videosResult] = await Promise.all([
       fetchList("/api/marketing/campaigns"),
       fetchList("/api/marketing/designer/designs"),
+      fetchList("/api/marketing/video-posts"),
     ]);
 
     if (!campaignsResult.ok) {
@@ -126,6 +232,22 @@ export default function MarketingDesignerPage() {
       setDesignsByCampaign(null);
       return;
     }
+    // Same rule for the video posts: a campaign that silently shows no
+    // videos because the list failed would read as "none made".
+    if (!videosResult.ok) {
+      if (videosResult.aborted) return;
+      setErrorKey(videosResult.errorKey);
+      setCampaigns(null);
+      setDesignsByCampaign(null);
+      setVideosByCampaign(null);
+      return;
+    }
+    const videoGroups = {};
+    for (const v of Array.isArray(videosResult.data?.videoPosts) ? videosResult.data.videoPosts : []) {
+      (videoGroups[v.campaignId] ||= []).push(v);
+    }
+    setVideosByCampaign(videoGroups);
+    setVideoAllowance(videosResult.data?.allowance || null);
 
     const campaignList = Array.isArray(campaignsResult.data) ? campaignsResult.data : [];
     const designs = Array.isArray(designsResult.data?.designs) ? designsResult.data.designs : [];
@@ -339,6 +461,13 @@ export default function MarketingDesignerPage() {
                                 post" and "TikTok" are the networks' names,
                                 not interface copy. */}
                             <span className="mt-1 flex flex-wrap gap-1">
+                              {/* A carousel says so on the list — the format
+                                  chips below describe every one of its slides. */}
+                              {d.slideCount > 1 && (
+                                <span className="text-[10px] leading-none px-1.5 py-1 rounded-full bg-inverted text-inverted-foreground">
+                                  {t("app.marketingDesigner.publishModal.slideCount", { value: d.slideCount })}
+                                </span>
+                              )}
                               {counted.map((r) => (
                                 <span
                                   key={r.key}
@@ -409,6 +538,32 @@ export default function MarketingDesignerPage() {
                         </div>
                       );
                     })}
+                  </div>
+                )}
+
+                {/* ── Video posts in this campaign ──────────────────── */}
+                {(videosByCampaign?.[c.id] || []).length > 0 && (
+                  <div className="grid sm:grid-cols-2 gap-2 mb-3">
+                    {videosByCampaign[c.id].map((v) => (
+                      <button
+                        key={v.id}
+                        type="button"
+                        onClick={() => router.push(`/app/marketing/designer/video/${v.id}`)}
+                        className="flex items-center gap-2 text-left border border-border rounded-lg px-3 py-2 min-h-[44px]"
+                      >
+                        <Film size={14} className="shrink-0 text-muted-foreground" />
+                        <span className="min-w-0">
+                          <span className="block text-sm font-medium text-foreground truncate">{v.name}</span>
+                          <span className="block text-xs text-muted-foreground">
+                            {v.uploadState === "ready"
+                              ? t("app.videoPost.listLine", { seconds: Math.round(v.durationSec) })
+                              : v.uploadState === "failed"
+                                ? t("app.videoPost.listFailed")
+                                : t("app.videoPost.listPreparing")}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
                   </div>
                 )}
 
@@ -515,6 +670,82 @@ export default function MarketingDesignerPage() {
                     <Plus size={14} /> {t("app.marketingDesigner.newDesign")}
                   </button>
                 </div>
+                {/* A clip from the computer or the phone's camera roll. */}
+                <label
+                  className={`mt-2 flex items-center gap-2 w-fit border border-border text-foreground px-3 py-2.5 rounded-full text-sm font-semibold min-h-[44px] ${videoUpload ? "opacity-60" : "cursor-pointer"}`}
+                  data-video-new
+                >
+                  {videoUpload?.campaignId === c.id ? <Loader2 size={14} className="animate-spin" /> : <Film size={14} />}
+                  {videoUpload?.campaignId === c.id
+                    ? t("app.videoPost.uploading", { percent: videoUpload.percent })
+                    : t("app.videoPost.new")}
+                  <input
+                    type="file"
+                    accept="video/mp4,video/quicktime,video/webm"
+                    className="sr-only"
+                    disabled={Boolean(videoUpload)}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = "";
+                      handleNewVideo(c.id, file);
+                    }}
+                  />
+                </label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t("app.videoPost.newHint", { length: formatClipLength(VIDEO_POST_LIMITS.maxSeconds) })}
+                </p>
+                <VideoAllowanceLine allowance={videoAllowance} className="mt-1" />
+                {allowanceBlocked === c.id && (
+                  <div className="mt-2">
+                    <AllowanceUsed allowance={videoAllowance} returnPath="/app/marketing/designer" />
+                  </div>
+                )}
+
+                {/* ── Before uploading: the shape, or an unreadable clip ───
+                    A clip that isn't 9:16 is made 9:16 IN the upload, so the
+                    choice comes first. A clip the browser couldn't read is
+                    uploaded at a safe size and trimmed at 2:30 — said before
+                    the person chooses to send it. */}
+                {pendingClip?.campaignId === c.id && (
+                  <div className="mt-2 rounded-lg border border-border p-3 space-y-2" data-video-pending>
+                    {pendingClip.needsFit ? (
+                      <>
+                        <p className="text-sm text-foreground">
+                          {t("app.videoPost.notVerticalBeforeUpload", { width: pendingClip.probe.width, height: pendingClip.probe.height })}
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {["pad", "crop"].map((fit) => (
+                            <button
+                              key={fit}
+                              type="button"
+                              onClick={() => sendVideo(c.id, pendingClip.file, pendingClip.probe, fit)}
+                              className="rounded-full border border-border px-4 py-2 text-sm font-semibold min-h-[44px]"
+                            >
+                              {t(fit === "pad" ? "app.videoPost.fitPad" : "app.videoPost.fitCrop")}
+                            </button>
+                          ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground">{t("app.videoPost.fitHelpUpload")}</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm text-foreground">
+                          {t("app.videoPost.unknownClip", { length: formatClipLength(VIDEO_POST_LIMITS.maxSeconds) })}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => sendVideo(c.id, pendingClip.file, pendingClip.probe, null)}
+                          className="rounded-full bg-inverted text-inverted-foreground px-4 py-2 text-sm font-semibold min-h-[44px]"
+                        >
+                          {t("app.videoPost.uploadAnyway")}
+                        </button>
+                      </>
+                    )}
+                    <button type="button" onClick={() => setPendingClip(null)} className="block text-xs underline text-muted-foreground">
+                      {t("app.videoPost.cancelUpload")}
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}

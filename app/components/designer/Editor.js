@@ -90,7 +90,16 @@ import { SettingsSidebar } from "@/app/components/designer/SettingsSidebar";
  *   which is why a consumer must guard for "nothing changed that I care
  *   about" itself rather than assume one call means one meaningful event).
  */
-export function Editor({ initialData, saveCallback, onEditorReady }) {
+/**
+ * Also takes, from the campaign editor only:
+ *   onApplyTemplate(template) — "apply this template to every slide and
+ *     format" (CampaignEditor.js). Without it TemplateSidebar falls back to
+ *     replacing the canvas on screen, the only thing a template could do
+ *     before.
+ *   templatesVersion — bumped when "Save as template" adds one, so the
+ *     Templates panel reloads its list.
+ */
+export function Editor({ initialData, saveCallback, onEditorReady, onApplyTemplate, templatesVersion }) {
   // "unavailable" (no saveCallback wired — nothing rendered), "idle" (has a
   // callback, nothing saved yet this session), "pending", "saved", "error".
   const [saveStatus, setSaveStatus] = useState(saveCallback ? "idle" : "unavailable");
@@ -208,7 +217,13 @@ export function Editor({ initialData, saveCallback, onEditorReady }) {
         <TextSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
         <FontSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
         <ImageSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
-        <TemplateSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
+        <TemplateSidebar
+          editor={editor}
+          activeTool={activeTool}
+          onChangeActiveTool={onChangeActiveTool}
+          onApplyTemplate={onApplyTemplate}
+          templatesVersion={templatesVersion}
+        />
         <FilterSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
         <AiSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
         <RemoveBgSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />

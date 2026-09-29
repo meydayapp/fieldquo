@@ -71,6 +71,7 @@ import PricingPlans, {
 } from "@/app/(marketing)/pricing/PricingPlans";
 import { resolvePlanSelection } from "@/app/signup/page";
 import { PROCESSING_RATES } from "@/lib/stripe/processingFee";
+import { VIDEO_PACK } from "@/lib/marketing/videoAllowance";
 
 // ── Rows in, HTML out, through the shipped page ────────────────────────────
 //
@@ -697,6 +698,10 @@ async function main() {
       ...Object.values(PROCESSING_RATES).flatMap((r) =>
         [r.fixedCents, r.capCents].filter((c) => c != null).map((c) => c / 100),
       ),
+      // The video-pack sentence: its price is VIDEO_PACK.priceCents, the
+      // constant the pack's Stripe checkout charges (lib/marketing/
+      // videoPack.js) — publishable by construction, like the fees above.
+      VIDEO_PACK.priceCents / 100,
       ...allAddOns()
         .filter((a) => withholdReason(a, TODAY) === null && a.price?.kind === PRICE_AMOUNT)
         .map((a) => a.price.amount),

@@ -8,6 +8,12 @@ import { settleCheckoutSession, failCheckoutSession } from "@/lib/stripe/settleC
 import { invoiceSubscriptionId } from "@/lib/billing/subscriptionChargeEvent";
 import { settleChargeEvent } from "@/lib/stripe/settleChargeEvent";
 import { grantAiBundlePeriod, resolveAiBundleSubscription } from "@/lib/ai/creditBundle";
+import {
+  VIDEO_PACK_KIND,
+  resolveVideoPackSubscription,
+  settleVideoPackInvoice,
+  upsertVideoPackFromSubscription,
+} from "@/lib/marketing/videoPack";
 import { recordError } from "@/lib/platform/errorLog";
 import { stampWebhookReceived } from "@/lib/platform/webhookHealth";
 
@@ -207,6 +213,28 @@ export async function POST(request) {
     const invoice = event.data.object;
     const subscriptionId = invoiceSubscriptionId(invoice);
 
+    // A Video pack's invoice — same collision, same answer as the AI bundle
+    // below (lib/marketing/videoPack.js). Checked first: the two tables never
+    // share a subscription id, so the order changes nothing for either.
+    try {
+      if (event.type === "invoice.payment_succeeded") {
+        const pack = await settleVideoPackInvoice(invoice);
+        if (pack.handled) return NextResponse.json({ received: true, settled: "video_pack_period", result: pack });
+      } else if (await resolveVideoPackSubscription(subscriptionId)) {
+        // Stripe's dunning retries it; paidThrough simply stops moving, so the
+        // pack stops counting when its paid month ends. Nothing else to do.
+        return NextResponse.json({ received: true, settled: "video_pack_period_failed" });
+      }
+    } catch (err) {
+      await recordError({
+        area: "billing-webhook",
+        code: "video_pack_invoice",
+        message: `Video pack invoice handling failed: ${err?.message}`,
+        detail: { eventId: event?.id, type: event?.type, invoiceId: invoice?.id, subscriptionId },
+      });
+      return NextResponse.json({ error: "Video pack settlement failed" }, { status: 500 });
+    }
+
     try {
       if (event.type === "invoice.payment_succeeded") {
         const result = await grantAiBundlePeriod(invoice);
@@ -236,6 +264,23 @@ export async function POST(request) {
       return NextResponse.json({ error: "AI bundle settlement failed" }, { status: 500 });
     }
     // Not a bundle invoice — fall through to the company's own plan handling.
+  }
+
+  // ── A Video pack's own subscription changing ─────────────────────────────
+  //
+  // Its status and cancel-at-period-end are shown on the billing screen, so
+  // they are kept current here — and kept OUT of the company-plan handler,
+  // which would look the subscription id up on the plan's table and, for a
+  // `deleted`, mark the company churned.
+  if (
+    (event.type === "customer.subscription.created" ||
+      event.type === "customer.subscription.updated" ||
+      event.type === "customer.subscription.deleted") &&
+    event.data.object?.metadata?.kind === VIDEO_PACK_KIND
+  ) {
+    const sub = event.data.object;
+    await upsertVideoPackFromSubscription(event.type === "customer.subscription.deleted" ? { ...sub, status: "canceled" } : sub);
+    return NextResponse.json({ received: true, settled: "video_pack_subscription" });
   }
 
   // syncSubscriptionFromStripeEvent throws when a checkout session arrives with

@@ -69,6 +69,91 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Video posts: upload, cover, caption, publish (29 September 2026)
+
+Owner-approved first version — no in-video editing. Marketing Designer ›
+a campaign › **New video post** uploads a clip (browser → Cloudinary,
+purpose `video`, ≤100 MB) and the server reads its size, length and frame
+rate back from Cloudinary (`explicit`, Admin API fallback), refusing under 3 s
+or over 10 min. `/app/marketing/designer/video/[id]` then offers: the shape
+(a clip that isn't 9:16 cannot be posted until the person picks **Fit to 9:16
+(adds bars)** or **Crop to 9:16**, previewed, then shown as the actual
+Cloudinary rendition — H.264/AAC MP4, 24–60 fps, ≤1080×1920, requested with
+`eager_async` because on-the-fly video is capped at 40 MB on Free), a cover
+(a frame, or an uploaded picture for Instagram), the caption, and posting to:
+
+- **Instagram Reel** — `media_type=REELS` container (`thumb_offset` or
+  `cover_url`, `share_to_feed`), polled by the screen; the poll claims the row
+  (compare-and-set) before `media_publish`, so two tabs cannot post twice.
+- **Facebook Page Reel** — `/video_reels` start → rupload `file_url` → finish
+  `PUBLISHED`, status from `GET /{video-id}?fields=status`. Chosen over
+  `/{page-id}/videos` because the Reels guide documents Page limits (3–90 s,
+  ≥540×960, 30/day) and a status endpoint.
+- **TikTok video** — the SAME composer as designs (`TikTokPublishModal`, video
+  mode): Duet/Stitch beside comments, greyed when creator_info says off; the
+  length checked against `max_video_post_duration_sec`; `/v2/post/publish/video/init/`
+  PULL_FROM_URL through `/api/tiktok/media/<token>.mp4` (streamed, Range
+  honoured), or the inbox draft `/v2/post/publish/inbox/video/init/`.
+
+Every limit, the doc URL it came from, the status maps and the error codes are
+in `lib/marketing/videoPost.js`. Recorded on `SocialPublish` / `TikTokPublish`
+(`videoPostId`, `mediaType`, `videoUrl` — additive, applied by SQL) and the new
+`VideoPost` table. Processors text for Cloudinary, Meta and TikTok names video.
+
+### Round 2 — owner decisions of 29 September 2026
+
+- **Approval**, as for designs: `videoFingerprint` (clip, shape, cover,
+  caption) in `lib/marketing/approvalFingerprint.js`, `/api/marketing/
+  video-posts/[id]/approval`, refused by the Meta and TikTok routes when not
+  live; editing caption/cover/shape withdraws it.
+- **1080p on arrival, one pass**: the browser reads the clip first
+  (`lib/media/videoProbe.js`); over 2:30 is refused, non-9:16 asks Fit/Crop
+  BEFORE upload. The signed upload carries an incoming transformation
+  (`eo_150` + fit + H.264/AAC, `format=mp4`, `async`) so Cloudinary stores
+  only the prepared clip, which is then sent as stored (`sendUrl`). Chunked
+  upload (`lib/media/chunkedUpload.js`, 20 MB chunks) up to 2 GB, bounded by
+  the Cloudinary plan's own video ceiling — **the account must be on a plan
+  that allows large videos (Free is 100 MB; the owner is moving to Plus)**.
+  Arrival by Cloudinary's signed notification (`/api/marketing/video-posts/
+  cloudinary-notify`) or, failing that, the screen's throttled Admin API look.
+- **One tick box per destination**; a clip-limit refusal greys it out with the
+  reason ("Too long for a Facebook Reel (max 90 seconds)").
+- **Video allowance** (`lib/marketing/videoAllowance.js`, the one file with the
+  numbers and the worked example): 5 videos a calendar month (company time
+  zone), one clip = one video whatever its length or destinations, max 2:30,
+  counted on arrival, reserved while uploading. **Video pack** US$77/month,
+  +90 videos, stackable (`VideoPack`, one Stripe subscription each,
+  `lib/marketing/videoPack.js` mirroring the AI credit bundle — both
+  settlement doors, `paidThrough` only moves forward, intercepted before the
+  plan webhook handler, USD only). Shown on the video screen, the designer,
+  Account & Billing (add / stop renewing), `/pricing` and the help article
+  `video-posts` (en/fr/es).
+
+### Checks
+
+`check:video-posts` (230) — per-platform limits on hostile input, 9:16
+enforcement in the rules and the routes, payloads md5 against each platform's
+own doc example, the IG/FB/TikTok status maps, publish-exactly-once, a failed
+status read never recorded as a failed post, the Facebook/Instagram/TikTok
+PHOTO payloads md5-identical to origin/main; round 2: the 95/96th worked
+example, time-zone months, pack settlement idempotency, the signed incoming
+transformation, notification signatures, the Facebook 90 s tick box, the
+approval gate and where the pack is shown. `check:tiktok`, `designer`,
+`designer-reach`, `direct-upload`, `pricing-page`, `ai-credit`,
+`stripe-destinations`, `help-centre`, `legal-pages`, translations green.
+
+### Not in this version
+
+Picking a clip from a job (jobs keep photos only), trimming or any in-video
+edit, scheduling a video, a non-Reel Facebook Page video, deleting a video
+post, changing the shape of a clip already made 9:16 on upload (re-upload),
+a video pack priced in CAD/AUD, and Facebook custom Reel covers (a separate
+Graph call). Nothing has been posted or uploaded through Cloudinary's async
+path for real yet — the first real upload and post (Meta App Review + TikTok
+audit gates unchanged) is the proof still owed.
+
+---
+
 ## The /app home, rebuilt: work panel, your focus, the checklist, My day (29 September 2026)
 
 The owner-approved home design, desktop and phone. Nothing that worked was removed; every old panel is still on the page.
@@ -129,6 +214,76 @@ The owner-approved flow for a quote sent to another BUSINESS: the general contra
 - Product decision: the sales floor's SignupLead capture no longer fires from `/signup` (an email alone is not a lead); stalled owners are visible on `/platform/companies` with their welcome step and phone instead.
 - The sub's owner name is NOT copied as the roster contact (it is not on the quote the GC received), and `Subcontractor` has no address column — both left empty rather than invented. Owner's call if either should change.
 - Wire `isViewedNoAnswer` into `lib/dashboard/workPanel.js` once that branch lands.
+## Designer: contractor templates, "Save as template", a format per destination, carousels (29 September 2026)
+
+Owner-approved the same day. Four pieces, one branch.
+
+### What shipped
+
+- **29 original contractor templates** (`lib/designer/templateCatalog.js`) —
+  before/after ×6 (slider with a thin divider and ‹ › handle, top/bottom,
+  diagonal, big-after-small-before inset, before → during → after, a 4-slide
+  project-story carousel), win work ×7, trust ×6, tips ×5 (how-it-works is a
+  5-slide carousel), people ×5. Layout patterns drawn from primitives; no
+  Canva file, art or photo. Every slide has a 4:5, 9:16 and 1.91:1 layout and
+  never a square. Colours are roles resolved through `lib/documents/theme.js`
+  (fillPair / washPair) and words are copy keys in nine languages
+  (`lib/designer/templateCopy.js`), filled per company by
+  `lib/designer/templateFill.js`: brand colour, logo (Cloudinary `c_pad`) or
+  name, phone, website, town, service area, services, season by hemisphere,
+  the company's own job photos (a BEFORE/AFTER pair only from a job with both
+  ends tagged) and a REAL approved review (Testimonial.approved, or a Google
+  review the company chose to show, marked "Google"). Anything missing is an
+  obvious bracketed placeholder named `fq-ph:<kind>`.
+- **Placeholders block publishing** — both publish routes (Meta and TikTok)
+  refuse with `placeholders_remaining` while one is left on the layouts being
+  posted; typing into one renames it (`useCanvasEvents` `text:changed`); the
+  editor shows "N placeholders to replace" and the dialogs say why Publish is
+  off.
+- **Save as template** — `DesignTemplate.companyId` (null = FieldQuo's
+  catalogue), `displayName`, `slides`, `archivedAt`, `key`, `category`
+  (additive). The editor's "Save as template" stores every slide and format
+  of the design; the Templates panel shows **Your templates** above
+  **FieldQuo templates** (by category), previews rendered in the company's
+  colours; delete archives. All reads/writes scoped in the WHERE.
+- **A format per destination** (`lib/marketing/destinations.js`) — IG feed
+  4:5, FB feed 4:5 (1.91:1 only for "link-style"), TikTok 9:16,
+  Reels/Stories 9:16. The Publish dialog's shape picker is gone; each
+  checked destination shows its own preview. The server refuses any other
+  format (`wrong_format`) and measures Cloudinary's pixels
+  (`matchesRatio`). No 1:1 for new designs, templates, the job-post composer
+  or the resize presets; a square design from before 4:5 keeps publishing its
+  square — md5-proved identical request body.
+- **Carousels** — 2–10 slides per design (`MarketingDesignSlideLayout`,
+  slide 1 unchanged in `MarketingDesignLayout`; fingerprint unchanged for
+  designs without extra slides). Instagram CAROUSEL container with
+  `is_carousel_item` children, Facebook unpublished photos (`temporary` when
+  scheduled) + one `/feed` post with `attached_media`, TikTok photo mode with
+  several `photo_images` (a signed media token per image). Slides upload one
+  request each (`…/assets`, a signed receipt) to stay under Vercel's 4.5 MB
+  body limit; `SocialPublish.imageUrls` / `TikTokPublish.imageUrls` carry
+  them, and the scheduled-publish cron posts a carousel row as a carousel.
+
+### Checks
+
+`check:design-templates` (162: formats, contrast 5,562 pairs × 9 hostile
+brands, fill, scoping, archive, per-destination refusal, placeholder block on
+both routes, Graph/TikTok payload shapes, md5 of the legacy body, fingerprint
+unchanged); `check:designer`, `check:ad-ratios`, `check:designer-reach`,
+`check:tiktok`, `check:job-post` updated/green.
+
+### Owed
+
+- **Run the seed after this deploys, not before**: `npm run
+  seed:design-templates` (a `-- --dry-run` builds and checks without
+  writing). Seeding first would show raw catalogue documents to the
+  deployed older sidebar.
+- Instagram **Stories/Reels publishing** is not a destination yet — the
+  format rule exists (9:16) but nothing posts there.
+- Meta's docs were read 2026-09-29; a carousel has not yet been posted
+  to a real Page/IG account.
+
+---
 
 ## TikTok posting, phase 1 (29 September 2026)
 

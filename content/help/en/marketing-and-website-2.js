@@ -722,4 +722,131 @@ export const ARTICLES = {
       { q: "I earned a milestone but no money has arrived — why?", a: "Weeks close on Monday and are paid by hand afterwards. Check that a payout method is on file under How you get paid; without one, there is nowhere to send it." },
     ],
   },
+  "video-posts": {
+    "title": "Video posts: Reels and TikToks, and your monthly videos",
+    "summary": "Upload a clip, approve it, and post it as an Instagram Reel, a Facebook Reel and a TikTok — plus how many videos your plan includes each month and what a video pack adds.",
+    "updated": "2026-09-29",
+    "intro": [
+      "In the Marketing Designer, every campaign has **New video post**. Pick a clip from your computer or phone (3 seconds to 2:30), give it a cover and a caption, approve it, then tick where it goes: **Instagram Reel**, **Facebook Reel**, **TikTok** — one, two or all three.",
+      "Every plan includes **5 videos a month**. A **Video pack** adds up to **90 more a month** for **US$77/month**. One video counts once, however long it is and however many places you post it."
+    ],
+    "sections": [
+      {
+        "id": "upload",
+        "heading": "Uploading a clip",
+        "blocks": [
+          {
+            "steps": [
+              "Open **Marketing → Designer**, find the campaign, and press **New video post**.",
+              "Choose the clip. Before anything is sent, FieldQuo reads its length and shape: a clip over **2:30** is refused straight away, and one that isn't vertical (9:16) asks **Fit to 9:16 (adds bars)** or **Crop to 9:16** first.",
+              "Keep the page open while it uploads — large clips go up in pieces, so a phone's 4K recording works. When it says **Converting**, you can leave: the video screen picks up where it left off."
+            ]
+          },
+          {
+            "p": "Every clip is converted once, as it arrives: to at most 1080×1920 for a vertical clip (1920×1080 for a landscape one), as an MP4 that Instagram, Facebook and TikTok all accept. Fit or Crop is done in the same step. The 4K original is not kept — what you see on the video screen is exactly what gets posted."
+          },
+          {
+            "note": "If your browser can't read a clip's length (some older computers can't open an iPhone's HEVC video), you are told before you upload that anything past 2:30 will be cut at 2:30."
+          }
+        ]
+      },
+      {
+        "id": "allowance",
+        "heading": "Your monthly videos",
+        "blocks": [
+          {
+            "bullets": [
+              "**5 videos a month** are included on every plan. The month is the calendar month in your company's time zone.",
+              "A video is counted **once**, when it has arrived and been converted — that is when the storage and conversion cost is incurred. A 10-second clip and a 2:30 clip each count as one. Posting it to Instagram, Facebook and TikTok is still one.",
+              "A clip that fails to upload is not counted.",
+              "The video screen and **Settings → Account & Billing** both show **X of Y videos used this month**."
+            ]
+          },
+          {
+            "p": "When the month is used up, a new upload is refused before anything is sent, with the count. Owners and administrators see **Add a video pack**; everyone else is told to ask one of them."
+          }
+        ]
+      },
+      {
+        "id": "video-pack",
+        "heading": "The video pack",
+        "blocks": [
+          {
+            "p": "A **Video pack** is a monthly add-on: **US$77/month** for up to **90 more videos a month**, on top of the 5 included. You can hold more than one — each adds another 90. Add one from **Settings → Account & Billing** or from the button that appears when the month is used up; it is a Stripe checkout on the same account as your plan."
+          },
+          {
+            "bullets": [
+              "It counts from the moment its first payment goes through, and for as long as it is paid for.",
+              "**Stop renewing** keeps it counting until the end of the month you have paid for, then it ends. Nothing already posted is touched.",
+              "Video packs are billed in US dollars. A company whose plan is billed in Canadian or Australian dollars can't add one yet — the screen says so instead of offering a checkout that Stripe would refuse."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "approve",
+        "heading": "Approving a video post",
+        "blocks": [
+          {
+            "p": "A video post needs the same approval as a design. On the video screen, **Approve** records who approved it and exactly what they approved: the clip, its shape, the cover and the caption. Changing any of those afterwards withdraws the approval, and the screen says so — approve it again once you've looked."
+          },
+          {
+            "p": "Owners, administrators, managers and dispatchers can approve and post."
+          }
+        ]
+      },
+      {
+        "id": "post",
+        "heading": "Where it goes: one tick box each",
+        "blocks": [
+          {
+            "table": {
+              "head": [
+                "Destination",
+                "Length it accepts",
+                "Notes"
+              ],
+              "rows": [
+                [
+                  "Instagram Reel",
+                  "3 seconds – 15 minutes",
+                  "Needs a caption. Also shown on your profile grid. Uses the frame you picked, or your uploaded cover picture."
+                ],
+                [
+                  "Facebook Reel",
+                  "3 – 90 seconds",
+                  "Posted to your Page. Facebook picks its own cover. Up to 30 Reels a day per Page."
+                ],
+                [
+                  "TikTok",
+                  "Up to your TikTok account's own limit",
+                  "Opens TikTok's own posting window — who can see it, comments, Duet, Stitch and disclosure — as TikTok requires."
+                ]
+              ]
+            }
+          },
+          {
+            "p": "A destination the clip can't go to is greyed out with the reason, and the others stay available — a 2-minute clip shows **Too long for a Facebook Reel (max 90 seconds)** while Instagram and TikTok can still be ticked."
+          },
+          {
+            "tip": "Posting to Facebook and Instagram needs Meta's approval of FieldQuo's app — see [[social-posting-and-scheduling|Post to Facebook and Instagram, now or later]]. Until then those two boxes say it isn't available yet. TikTok needs your account connected under [[settings-tiktok|Settings → TikTok]]."
+          }
+        ]
+      }
+    ],
+    "faq": [
+      {
+        "q": "Does a longer video count as more than one?",
+        "a": "No. One video counts once, from 3 seconds up to 2:30."
+      },
+      {
+        "q": "Why can't I change the shape after uploading?",
+        "a": "Fit or Crop is applied as the clip arrives, and the original isn't kept — that is what keeps a 4K recording from being stored at 4K. Upload the clip again to choose the other shape."
+      },
+      {
+        "q": "I posted the same video to Instagram and TikTok — is that two?",
+        "a": "No. It is counted once, when it was uploaded."
+      }
+    ]
+  },
 };
