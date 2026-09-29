@@ -831,7 +831,7 @@ export default function PlatformDashboardPage() {
           <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl p-5 flex items-start justify-between gap-4 flex-wrap">
             <div>
               <div className="font-semibold text-amber-900 dark:text-amber-200">
-                {count(data.trialCompanies)} companies in an unpaid free month
+                {count(data.trialCompanies)} companies in an unpaid free trial
               </div>
               {/* The split is printed, not just the total. This number was
                   wrong for months behind the label "companies on trial" and

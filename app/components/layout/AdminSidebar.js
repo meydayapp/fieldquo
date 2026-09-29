@@ -408,11 +408,13 @@ export function useNavItems(items) {
   );
 }
 
-// Everything is open on a first visit; folding is something the user CHOOSES
-// once they know where things live. (This was once "open Work, fold the
-// rest", and the owner went looking for the crew messaging agent and couldn't
-// find it in the menu because Grow was folded. Folding solves "this rail is
-// long" for someone who knows what's on it; it does not solve discovery.)
+// One group open at a time (owner, 2026-09-29: "if I open a new accordion
+// the other should close … to keep things minimalistic"). This reverses the
+// earlier all-open default, which existed because the owner once couldn't
+// find the crew messaging agent under a folded Grow — the two things that
+// answer that failure still hold: the group holding the current page always
+// opens, and typing in the filter shows every match regardless of folds.
+// DEFAULT_OPEN's first key is the group opened when no page is in a group.
 const DEFAULT_OPEN = NAV_GROUPS.map((g) => g.key);
 const DISCLOSURE_KEY = "fq-nav-groups";
 
@@ -488,6 +490,7 @@ export default function AdminSidebar() {
     storageKey: DISCLOSURE_KEY,
     defaultOpenKeys: DEFAULT_OPEN,
     activeKey,
+    exclusive: true,
   });
 
   // Arrow keys walk the rows; Home/End jump. The list is the one thing on

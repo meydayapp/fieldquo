@@ -16,8 +16,8 @@
 
 import { defaultTemplateFor, TAX_FORM_ITEMS_BY_COUNTRY } from "@/lib/onboarding/defaultTemplate";
 import { normaliseTemplateItems, normaliseTemplateName, ITEM_KINDS } from "@/lib/onboarding/template";
-import { openItems, reconcile, setTaskDone, progress, overdueItems, runPatch, describeRun } from "@/lib/onboarding/run";
-import { ensureTemplates, startRun, reconcileRunsForWorker } from "@/lib/onboarding/service";
+import { openItems, reconcile, setTaskDone, progress, overdueItems, runPatch, describeRun, handInKindFor, checkHandIn, attachHandIn, HAND_IN_MAX_BYTES } from "@/lib/onboarding/run";
+import { ensureTemplates, startRun, reconcileRunsForWorker, handInForItem, handInFiles } from "@/lib/onboarding/service";
 import { policyHash, parsePolicyBody, nextVersionFor, mayRewriteVersion, policyAppliesTo, pendingPolicies, parseAcknowledgement } from "@/lib/hr/policies";
 import { pendingPolicyCount, pendingNoteCount } from "@/lib/hr/pending";
 import { createPolicy, updatePolicy, acknowledgementReport, policiesForWorker } from "@/lib/hr/policyService";
@@ -34,6 +34,11 @@ import { HR_MORE_LINKS } from "@/lib/me/moreLinks";
 import { NOTIFICATION_TYPES, typeProblems } from "@/lib/notifications/catalog";
 import { hrefFor, noteKeysFor } from "@/lib/notifications/render";
 import { APP_MESSAGES } from "@/app/i18n/appMessages";
+import { parseCloudinaryFileUrl, hrFileLocation, authenticatedUrlFor, OPEN_LINK_TTL_SECONDS, HR_DELIVERY_TYPE } from "@/lib/hr/documentFile";
+import { openHrDocument } from "@/lib/hr/documentOpen";
+import { uploadScope, planUpload, judgeUploadedAsset, judgeOnSignature } from "@/lib/media/directUpload";
+import { v2 as cloudinarySdk } from "cloudinary";
+import { readFileSync } from "node:fs";
 import { fakeDb } from "./hrFakeDb.mjs";
 
 let pass = 0;
@@ -240,14 +245,23 @@ section("5. Certifications ride the shared expiry window; each mark fires once")
   ok("EXPIRING_KINDS is certification and licence", [...EXPIRING_KINDS].sort().join() === "certification,licence");
 
   // Body parsing — the door.
-  const cloud = { cloudName: "demo" };
+  const cloud = { cloudName: "demo", companyId: "A" };
+  const priv = (n, co = "A") => `https://res.cloudinary.com/demo/raw/authenticated/v1/fieldquo/companies/${co}/hr/${n}.pdf`;
   ok("a foreign host is refused", !!parseWorkerDocumentBody({ kind: "licence", fileUrl: "https://evil.example/x.pdf" }, cloud).error);
   ok("a Cloudinary URL under another cloud is refused", !!parseWorkerDocumentBody({ kind: "licence", fileUrl: "https://res.cloudinary.com/other/x.pdf" }, cloud).error);
-  const goodDoc = parseWorkerDocumentBody({ kind: "licence", title: "Class 5", fileUrl: "https://res.cloudinary.com/demo/x.pdf", expiresAt: "2027-01-01", issuedAt: "2022-01-01", number: " AB 123 " }, cloud);
+  const goodDoc = parseWorkerDocumentBody({ kind: "licence", title: "Class 5", fileUrl: priv("x"), expiresAt: "2027-01-01", issuedAt: "2022-01-01", number: " AB 123 " }, cloud);
   ok("a good body parses with dates and a trimmed number", !goodDoc.error && goodDoc.data.number === "AB 123" && goodDoc.data.expiresAt instanceof Date);
-  ok("expiry before issue is refused", !!parseWorkerDocumentBody({ kind: "licence", fileUrl: "https://res.cloudinary.com/demo/x.pdf", expiresAt: "2020-01-01", issuedAt: "2022-01-01" }, cloud).error);
-  ok("a worker may not file a contract about themselves", !!parseWorkerDocumentBody({ kind: "contract", fileUrl: "https://res.cloudinary.com/demo/x.pdf" }, { ...cloud, by: "worker" }).error);
-  ok("a worker's upload is stamped uploadedByKind=worker and carries no note", (() => { const r = parseWorkerDocumentBody({ kind: "licence", fileUrl: "https://res.cloudinary.com/demo/x.pdf", note: "secret" }, { ...cloud, by: "worker" }); return r.data.uploadedByKind === "worker" && r.data.note === null; })());
+  ok("expiry before issue is refused", !!parseWorkerDocumentBody({ kind: "licence", fileUrl: priv("x"), expiresAt: "2020-01-01", issuedAt: "2022-01-01" }, cloud).error);
+  ok("a worker may not file a contract about themselves", !!parseWorkerDocumentBody({ kind: "contract", fileUrl: priv("x") }, { ...cloud, by: "worker" }).error);
+  ok("a worker's upload is stamped uploadedByKind=worker and carries no note", (() => { const r = parseWorkerDocumentBody({ kind: "licence", fileUrl: priv("x"), note: "secret" }, { ...cloud, by: "worker" }); return r.data.uploadedByKind === "worker" && r.data.note === null; })());
+  // Private storage (lib/hr/documentFile.js): only an authenticated upload in
+  // the session's own company folder may be filed.
+  ok("a PUBLIC upload of ours is refused — an HR file is never filed at a public link", !!parseWorkerDocumentBody({ kind: "licence", fileUrl: "https://res.cloudinary.com/demo/raw/upload/v1/fieldquo/companies/A/hr/x.pdf" }, cloud).error);
+  ok("a public upload in the old documents folder is refused too", !!parseWorkerDocumentBody({ kind: "licence", fileUrl: "https://res.cloudinary.com/demo/image/upload/v1/fieldquo/companies/A/documents/x.jpg" }, cloud).error);
+  ok("another company's PRIVATE file is refused (it would be signed for us)", !!parseWorkerDocumentBody({ kind: "licence", fileUrl: priv("x", "B") }, cloud).error);
+  ok("a company-prefix look-alike (A2) is refused", !!parseWorkerDocumentBody({ kind: "licence", fileUrl: "https://res.cloudinary.com/demo/raw/authenticated/v1/fieldquo/companies/A2/hr/x.pdf" }, cloud).error);
+  ok("no company on the call → refused, never 'any folder'", !!parseWorkerDocumentBody({ kind: "licence", fileUrl: priv("x") }, { cloudName: "demo" }).error);
+  ok("a traversal in the path is refused", !!parseWorkerDocumentBody({ kind: "licence", fileUrl: "https://res.cloudinary.com/demo/raw/authenticated/v1/fieldquo/companies/A/../B/hr/x.pdf" }, cloud).error);
   ok("WORKER_SELF_KINDS is a subset of WORKER_DOCUMENT_KINDS", WORKER_SELF_KINDS.every((k) => WORKER_DOCUMENT_KINDS.includes(k)));
   ok("an empty patch is refused", !!parseWorkerDocumentPatch({}).error);
   ok("a patch may clear the expiry", parseWorkerDocumentPatch({ expiresAt: "" }).data.expiresAt === null);
@@ -378,6 +392,240 @@ section("8. The seams other code reads: notifications, More links, starters, cat
   const hrKeys = Object.keys(APP_MESSAGES.en).filter((k) => k.startsWith("app.hr."));
   ok("the app.hr.* catalogue is present in all nine languages", Object.entries(APP_MESSAGES).every(([, d]) => hrKeys.every((k) => typeof d[k] === "string")), Object.entries(APP_MESSAGES).map(([l, d]) => [l, hrKeys.filter((k) => typeof d[k] !== "string").length]));
   ok("every placeholder in English appears in every language", Object.values(APP_MESSAGES).every((d) => hrKeys.every((k) => { const a = (APP_MESSAGES.en[k].match(/\{[a-zA-Z]+\}/g) || []).sort().join(); const b = (d[k].match(/\{[a-zA-Z]+\}/g) || []).sort().join(); return a === b; })));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("9. A manager hands a file in from a checklist row, on the person's behalf");
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  // Pure first.
+  ok("handInKindFor: a document item files under its documentKind", handInKindFor({ kind: "document", documentKind: "id" }) === "id");
+  ok("handInKindFor: a form item files as a tax_form", handInKindFor({ kind: "form", formKind: "td1_federal" }) === "tax_form");
+  ok("handInKindFor: a task and a policy take no file", handInKindFor({ kind: "task" }) === null && handInKindFor({ kind: "policy", policyId: "p" }) === null);
+  ok("handInKindFor: garbage is null, not a throw", handInKindFor(null) === null && handInKindFor({ kind: "document" }) === null);
+  const pureItems = openItems([
+    { key: "t", label: "Task", kind: "task", required: true },
+    { key: "p", label: "Policy", kind: "policy", policyId: "pol", required: true },
+    { key: "d", label: "ID", kind: "document", documentKind: "id", required: true },
+  ]);
+  ok("checkHandIn refuses a task (400)", checkHandIn(pureItems, "t").status === 400);
+  ok("checkHandIn refuses a policy (400)", checkHandIn(pureItems, "p").status === 400);
+  ok("checkHandIn refuses an unknown key (404)", checkHandIn(pureItems, "nope").status === 404);
+  ok("checkHandIn refuses 26 MB (413)", checkHandIn(pureItems, "d", { sizeBytes: 26 * 1024 * 1024 }).status === 413);
+  ok("checkHandIn refuses a size that isn't a number", checkHandIn(pureItems, "d", { sizeBytes: "lots" }).status === 400 && checkHandIn(pureItems, "d", { sizeBytes: -5 }).status === 400);
+  ok("checkHandIn refuses a video", checkHandIn(pureItems, "d", { mimeType: "video/mp4" }).status === 400);
+  ok("checkHandIn refuses an HTML file", checkHandIn(pureItems, "d", { mimeType: "text/html" }).status === 400);
+  ok("checkHandIn accepts a PDF and a phone photo", !checkHandIn(pureItems, "d", { mimeType: "application/pdf", sizeBytes: 1000 }).error && !checkHandIn(pureItems, "d", { mimeType: "image/heic" }).error);
+  ok("checkHandIn at exactly 25 MB passes", !checkHandIn(pureItems, "d", { sizeBytes: HAND_IN_MAX_BYTES }).error);
+  ok("attachHandIn refuses a task", !!attachHandIn(pureItems, "t", { documentId: "x", at: NOW }).error);
+  ok("attachHandIn refuses a missing document id", !!attachHandIn(pureItems, "d", { documentId: "", at: NOW }).error);
+
+  // reconcile: a form item's file counts only while that exact tax_form lives.
+  const formItem = { ...openItems([{ key: "f", label: "Federal TD1", kind: "form", formKind: "td1_federal", required: true }])[0], status: "done", doneAt: NOW, documentId: "tf-doc" };
+  const live = reconcile([formItem], { documents: [{ id: "tf-doc", kind: "tax_form", archivedAt: null, createdAt: NOW }], taxForms: [] });
+  ok("a done form item whose filed TD1 is live stays done", live.items[0].status === "done" && live.changed === false);
+  const gone = reconcile([formItem], { documents: [{ id: "tf-doc", kind: "tax_form", archivedAt: NOW, createdAt: NOW }], taxForms: [] });
+  ok("archiving the filed TD1 re-opens the form item", gone.items[0].status === "open" && gone.items[0].documentId === null);
+  const wrongKind = reconcile([formItem], { documents: [{ id: "tf-doc", kind: "id", archivedAt: null, createdAt: NOW }], taxForms: [] });
+  ok("a documentId pointing at a non-tax_form document does not hold a form item", wrongKind.items[0].status === "open");
+  const openForm = openItems([{ key: "f", label: "Federal TD1", kind: "form", formKind: "td1_federal", required: true }]);
+  ok("a tax_form document alone does not tick an OPEN form item (which TD1 is it?)", reconcile(openForm, { documents: [{ id: "x", kind: "tax_form", archivedAt: null, createdAt: NOW }], taxForms: [] }).items[0].status === "open");
+  const oldPtr = [{ ...openItems([{ key: "d", label: "ID", kind: "document", documentKind: "id", required: true }])[0], status: "done", doneAt: at(-2), documentId: "old" }];
+  const moved = reconcile(oldPtr, { documents: [{ id: "old", kind: "id", archivedAt: null, createdAt: at(-2) }, { id: "new", kind: "id", archivedAt: null, createdAt: at(0) }] });
+  ok("a done document item follows the newest live file (a newer upload)", moved.changed && moved.items[0].documentId === "new" && moved.items[0].status === "done");
+  const onlyOld = reconcile([{ ...oldPtr[0], documentId: "new" }], { documents: [{ id: "old", kind: "id", archivedAt: null, createdAt: at(-2) }, { id: "new", kind: "id", archivedAt: at(0), createdAt: at(0) }] });
+  ok("archiving the newer one points back at the older live one, still done", onlyOld.items[0].documentId === "old" && onlyOld.items[0].status === "done");
+
+  // Now through the database, two companies.
+  const CLOUD = "demo";
+  const url = (n) => `https://res.cloudinary.com/${CLOUD}/raw/authenticated/v1/fieldquo/companies/A/hr/${n}.pdf`;
+  const itemsA = openItems([
+    { key: "id", label: "Upload a piece of photo ID", kind: "document", documentKind: "id", required: true, dueDays: 3 },
+    { key: "td1f", label: "Fill in the federal TD1", kind: "form", formKind: "td1_federal", required: true, dueDays: 3 },
+    { key: "td1p", label: "Fill in the provincial TD1", kind: "form", formKind: "td1_provincial", required: true, dueDays: 3 },
+    { key: "ppe", label: "PPE issued", kind: "task", required: true, dueDays: 1 },
+    { key: "vp", label: "Vehicle policy", kind: "policy", policyId: "pa", required: false },
+  ]);
+  const db = fakeDb({
+    company: [{ id: "A", country: "CA", name: "A Co" }, { id: "B", country: "CA", name: "B Co" }],
+    user: [{ id: "ma", name: "Maria Manager" }, { id: "ub", name: "Bob" }],
+    member: [{ id: "m_ma", companyId: "A", userId: "ma", role: "admin", active: true }],
+    worker: [
+      { id: "wa", companyId: "A", name: "Daniel", active: true, userId: null },
+      { id: "wb", companyId: "B", name: "Bob", active: true, userId: "ub" },
+    ],
+    workerDocument: [{ id: "doc-b", companyId: "B", workerId: "wb", kind: "id", title: "Bob's licence", fileUrl: url("b"), archivedAt: null, uploadedById: "ub", uploadedByKind: "worker", createdAt: NOW }],
+    onboardingRun: [
+      { id: "runA", companyId: "A", workerId: "wa", templateId: "t", items: itemsA, startedAt: NOW, completedAt: null },
+      { id: "runB", companyId: "B", workerId: "wb", templateId: "t", items: openItems([{ key: "id", label: "ID", kind: "document", documentKind: "id", required: true }]), startedAt: NOW, completedAt: null },
+    ],
+  });
+  const docCount = () => db.tables.workerDocument.length;
+  const call = (over) => handInForItem(db, { companyId: "A", runId: "runA", key: "id", body: { fileUrl: url("id1"), sizeBytes: 1000, mimeType: "application/pdf" }, cloudName: CLOUD, actorUserId: "ma", ...over });
+
+  const before = docCount();
+  const foreign = await call({ runId: "runB" });
+  ok("company A naming company B's run is Not found, and nothing is written", foreign.status === 404 && docCount() === before && db.tables.onboardingRun.find((r) => r.id === "runB").items[0].status === "open");
+  ok("a run id that isn't a string is Not found", (await call({ runId: { in: ["runA"] } })).status === 404 && (await call({ runId: "" })).status === 404);
+  ok("no company on the session is Not found", (await call({ companyId: null })).status === 404);
+  ok("a task item refuses a file (400), nothing written", (await call({ key: "ppe" })).status === 400 && docCount() === before);
+  ok("a policy item refuses a file (400), nothing written", (await call({ key: "vp" })).status === 400 && docCount() === before);
+  ok("an unknown item key is 404", (await call({ key: "../id" })).status === 404);
+  ok("a missing file is refused, nothing written", (await call({ body: { sizeBytes: 10 } })).status === 400 && docCount() === before);
+  ok("a URL from another host is refused", (await call({ body: { fileUrl: "https://evil.example/id.pdf" } })).status === 400 && docCount() === before);
+  ok("another Cloudinary account's URL is refused", (await call({ body: { fileUrl: "https://res.cloudinary.com/other/image/upload/x.pdf" } })).status === 400);
+  ok("an oversized file is refused with 413, nothing written", (await call({ body: { fileUrl: url("big"), sizeBytes: 30 * 1024 * 1024 } })).status === 413 && docCount() === before);
+
+  const first = await call({});
+  const runNow = () => db.tables.onboardingRun.find((r) => r.id === "runA");
+  const idItem = () => runNow().items.find((i) => i.key === "id");
+  ok("the photo ID lands as an ordinary WorkerDocument of kind id, company A, Daniel's file", first.document?.kind === "id" && db.tables.workerDocument.some((d) => d.id === first.document.id && d.companyId === "A" && d.workerId === "wa" && d.uploadedByKind === "manager" && d.uploadedById === "ma"));
+  ok("…with the file name the browser sent, or the item's wording when it sent none", first.document.title === "Upload a piece of photo ID");
+  ok("the row ticks and points at that document", idItem().status === "done" && idItem().documentId === first.document.id);
+  ok("the evidence tick carries no hand-ticker's name (it was filed, not ticked)", idItem().doneByName === null);
+
+  const second = await call({ body: { fileUrl: url("id2"), title: "passport.pdf", mimeType: "application/pdf" } });
+  ok("uploading again files a NEW document; the first is still there, not archived", second.document.id !== first.document.id && db.tables.workerDocument.find((d) => d.id === first.document.id)?.archivedAt == null);
+  ok("the row now points at the newest file", idItem().documentId === second.document.id && second.document.title === "passport.pdf");
+
+  const fed = await call({ key: "td1f", body: { fileUrl: url("td1f"), mimeType: "application/pdf" } });
+  const itemOf = (k) => runNow().items.find((i) => i.key === k);
+  ok("a signed federal TD1 is filed as a tax_form titled after the item", fed.document?.kind === "tax_form" && fed.document.title === "Fill in the federal TD1");
+  ok("it ticks the federal item and NOT the provincial one", itemOf("td1f").status === "done" && itemOf("td1f").documentId === fed.document.id && itemOf("td1p").status === "open");
+  await reconcileRunsForWorker(db, { companyId: "A", workerId: "wa" });
+  ok("a later reconcile leaves the filed TD1 ticked", itemOf("td1f").status === "done");
+  ok("the run is not complete while the provincial TD1 and the task are open", runNow().completedAt == null);
+
+  await call({ key: "td1p", body: { fileUrl: url("td1p"), mimeType: "image/jpeg" } });
+  const provDoc = itemOf("td1p").documentId;
+  ok("a phone photo of the signed provincial TD1 ticks the provincial row", itemOf("td1p").status === "done" && !!provDoc);
+  // Archive it the way PATCH /api/hr/documents/[id] does, then reconcile as
+  // that route does. (The run is still open — the PPE task isn't ticked.)
+  db.tables.workerDocument.find((d) => d.id === provDoc).archivedAt = NOW;
+  await reconcileRunsForWorker(db, { companyId: "A", workerId: "wa" });
+  ok("archiving a filed TD1 re-opens its row (the file no longer holds it)", itemOf("td1p").status === "open");
+  await db.onboardingRun.update({ where: { id: "runA" }, data: { items: setTaskDone(runNow().items, "ppe", { byUserId: "ma", byName: "Maria Manager" }).items } });
+  ok("the task still ticks by hand beside it", itemOf("ppe").status === "done" && itemOf("ppe").doneByName === "Maria Manager");
+
+  const done = await call({ key: "td1p", body: { fileUrl: url("td1p2"), mimeType: "application/pdf" } });
+  ok("handing in the last required file completes the run", !!done.run.completedAt && !!runNow().completedAt);
+
+  // The files the rows show — names, never ids — and nothing from company B.
+  const hostile = { ...runNow(), items: [...runNow().items, { key: "x", kind: "document", documentKind: "id", status: "done", documentId: "doc-b" }] };
+  const files = await handInFiles(db, { companyId: "A", workerId: "wa", runs: [hostile] });
+  ok("handInFiles returns the row's file with who filed it, by name — and no stored URL", files[second.document.id]?.uploadedByName === "Maria Manager" && !("fileUrl" in files[second.document.id]));
+  ok("a filed document over the wire carries no fileUrl (it opens through the open route)", !("fileUrl" in second.document));
+  ok("handInFiles never returns another company's document, whatever id an item carries", !("doc-b" in files));
+  ok("handInFiles carries no user id", Object.values(files).every((f) => !("uploadedById" in f)));
+  ok("company B's run and file were never touched", db.tables.onboardingRun.find((r) => r.id === "runB").items[0].status === "open" && db.tables.workerDocument.filter((d) => d.companyId === "B").length === 1);
+  ok("nothing was deleted: every document filed is still a row", db.tables.workerDocument.filter((d) => d.companyId === "A").length === 5);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("10. HR files are private: uploaded authenticated, opened only through the gated route");
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  const CLOUD = "demo";
+  const UUID = "0b6f7a52-3c1d-4e8f-9a0b-1c2d3e4f5a6b";
+
+  // The upload side — the "hr" purpose is signed as authenticated.
+  const hr = uploadScope("member", { companyId: "A", purpose: "hr" });
+  const docs = uploadScope("member", { companyId: "A", purpose: "documents" });
+  ok("purpose hr → folder …/A/hr, delivery type authenticated", hr.ok && hr.folder === "fieldquo/companies/A/hr" && hr.deliveryType === HR_DELIVERY_TYPE);
+  ok("purpose documents (company insurance, job files) stays public", docs.deliveryType === "upload");
+  const hrPlan = planUpload({ type: "application/pdf", size: 1000 }, hr, { randomId: () => UUID });
+  ok("an HR upload SIGNS type=authenticated (the browser can't drop it)", hrPlan.ok && hrPlan.params.type === "authenticated", hrPlan.params);
+  ok("a public purpose's signed fields carry no type at all (unchanged)", !("type" in planUpload({ type: "image/jpeg", size: 1000 }, docs).params));
+  ok("an SVG is refused for HR (no script-carrying image in a person's file)", !planUpload({ type: "image/svg+xml", size: 1000 }, hr).ok);
+  const hrId = `fieldquo/companies/A/hr/${UUID}.pdf`;
+  const claim = { publicId: hrId, version: "1726000000", signature: "a".repeat(40), resourceType: "raw" };
+  const hrAsset = (over = {}) => ({ public_id: hrId, version: 1726000000, resource_type: "raw", type: "authenticated", bytes: 2000, secure_url: `https://res.cloudinary.com/${CLOUD}/raw/authenticated/v1726000000/${hrId}`, ...over });
+  const judged = judgeUploadedAsset({ claim, asset: hrAsset(), scope: hr, cloudName: CLOUD, filename: "td1.pdf" });
+  ok("verify accepts an authenticated asset for the hr scope, keeping its private URL", judged.ok && judged.entry.url.includes("/raw/authenticated/"), judged);
+  ok("verify REFUSES a public asset for the hr scope", judgeUploadedAsset({ claim, asset: hrAsset({ type: "upload", secure_url: `https://res.cloudinary.com/${CLOUD}/raw/upload/v1726000000/${hrId}` }), scope: hr, cloudName: CLOUD }).code === "wrong_type");
+  ok("verify still refuses an authenticated asset for a public scope", judgeUploadedAsset({ claim: { ...claim, publicId: `fieldquo/companies/A/documents/${UUID}.pdf` }, asset: hrAsset({ public_id: `fieldquo/companies/A/documents/${UUID}.pdf` }), scope: docs, cloudName: CLOUD }).code === "wrong_type");
+  const secret = "s3cret";
+  const { cloudinarySignature } = await import("@/lib/media/directUpload");
+  const signedClaim = { ...claim, signature: cloudinarySignature({ public_id: hrId, version: claim.version }, secret, { version: 1 }) };
+  const fallback = judgeOnSignature({ claim: signedClaim, scope: hr, cloudName: CLOUD, secret });
+  ok("the rate-limited fallback builds the AUTHENTICATED URL for hr", fallback.ok && fallback.entry.url === `https://res.cloudinary.com/${CLOUD}/raw/authenticated/v1726000000/${hrId}`, fallback);
+
+  // Reading a stored URL back.
+  const p = parseCloudinaryFileUrl(`https://res.cloudinary.com/${CLOUD}/image/upload/v17/fieldquo/companies/A/documents/abc.jpg`, { cloudName: CLOUD });
+  ok("a legacy public photo URL parses: image/upload, id without extension, format jpg", p && p.resourceType === "image" && p.deliveryType === "upload" && p.publicId === "fieldquo/companies/A/documents/abc" && p.format === "jpg", p);
+  const r = parseCloudinaryFileUrl(`https://res.cloudinary.com/${CLOUD}/raw/authenticated/v1/${hrId}`, { cloudName: CLOUD });
+  ok("a raw file keeps its extension in the id and has no format", r && r.publicId === hrId && r.format === "");
+  for (const [label, u] of [
+    ["another cloud", `https://res.cloudinary.com/other/raw/authenticated/v1/${hrId}`],
+    ["a look-alike host", `https://res.cloudinary.com.evil.net/${CLOUD}/raw/authenticated/v1/${hrId}`],
+    ["http", `http://res.cloudinary.com/${CLOUD}/raw/authenticated/v1/${hrId}`],
+    ["a query string", `https://res.cloudinary.com/${CLOUD}/raw/authenticated/v1/${hrId}?x=1`],
+    ["a transformation", `https://res.cloudinary.com/${CLOUD}/image/upload/w_100/v1/fieldquo/companies/A/hr/a.jpg`],
+    ["a private type", `https://res.cloudinary.com/${CLOUD}/raw/private/v1/${hrId}`],
+    ["percent-escapes", `https://res.cloudinary.com/${CLOUD}/raw/authenticated/v1/fieldquo/companies/A/hr/a%2F..%2Fb.pdf`],
+    ["junk", "not a url"],
+  ]) ok(`parse refuses ${label}`, parseCloudinaryFileUrl(u, { cloudName: CLOUD }) === null);
+  ok("hrFileLocation refuses a file in another company's folder", hrFileLocation(`https://res.cloudinary.com/${CLOUD}/raw/authenticated/v1/fieldquo/companies/B/hr/x.pdf`, { cloudName: CLOUD, companyId: "A" }).code === "other_company");
+  ok("authenticatedUrlFor rewrites only the type segment", authenticatedUrlFor(`https://res.cloudinary.com/${CLOUD}/image/upload/v17/fieldquo/companies/A/documents/abc.jpg`, { cloudName: CLOUD }) === `https://res.cloudinary.com/${CLOUD}/image/authenticated/v17/fieldquo/companies/A/documents/abc.jpg`);
+
+  // The open decision, through the database, two companies, with the REAL
+  // SDK signer (fake credentials — nothing leaves the machine).
+  cloudinarySdk.config({ cloud_name: CLOUD, api_key: "111", api_secret: "shh" });
+  const sign = (id, format, options) => cloudinarySdk.utils.private_download_url(id, format, options);
+  const legacyUrl = `https://res.cloudinary.com/${CLOUD}/image/upload/v17/fieldquo/companies/A/documents/legacy.jpg`;
+  const db = fakeDb({
+    worker: [
+      { id: "wa", companyId: "A", name: "Ana", userId: "ua" },
+      { id: "wa2", companyId: "A", name: "Ben", userId: "ub2" },
+      { id: "wb", companyId: "B", name: "Bob", userId: "ub" },
+    ],
+    workerDocument: [
+      { id: "d-own", companyId: "A", workerId: "wa", fileUrl: `https://res.cloudinary.com/${CLOUD}/raw/authenticated/v1/${hrId}`, archivedAt: null },
+      { id: "d-legacy", companyId: "A", workerId: "wa", fileUrl: legacyUrl, archivedAt: null },
+      { id: "d-archived", companyId: "A", workerId: "wa", fileUrl: `https://res.cloudinary.com/${CLOUD}/raw/authenticated/v1/${hrId}`, archivedAt: NOW },
+      { id: "d-colleague", companyId: "A", workerId: "wa2", fileUrl: `https://res.cloudinary.com/${CLOUD}/raw/authenticated/v1/${hrId}`, archivedAt: null },
+      { id: "d-b", companyId: "B", workerId: "wb", fileUrl: `https://res.cloudinary.com/${CLOUD}/raw/authenticated/v1/fieldquo/companies/B/hr/x.pdf`, archivedAt: null },
+      { id: "d-smuggled", companyId: "A", workerId: "wa", fileUrl: `https://res.cloudinary.com/${CLOUD}/raw/authenticated/v1/fieldquo/companies/B/hr/x.pdf`, archivedAt: null },
+    ],
+  });
+  const managerA = { companyId: "A", userId: "ma", role: "supervisor" };
+  const crewA = { companyId: "A", userId: "ua", role: "employee" };
+  const crewNoWorker = { companyId: "A", userId: "nobody", role: "employee" };
+  const managerB = { companyId: "B", userId: "mb", role: "admin" };
+  const T = Date.UTC(2026, 8, 29, 12, 0, 0);
+  const open = (member, id, over = {}) => openHrDocument(db, { member, id, cloudName: CLOUD, sign, now: T, ...over });
+
+  const m = await open(managerA, "d-own");
+  const q = m.url ? new URL(m.url).searchParams : new URLSearchParams();
+  ok("a manager opens a document: a 302 to Cloudinary's signed download", m.status === 302 && m.url.startsWith(`https://api.cloudinary.com/v1_1/${CLOUD}/raw/download?`), m);
+  ok(`the signed link expires in ${OPEN_LINK_TTL_SECONDS}s (5 minutes)`, OPEN_LINK_TTL_SECONDS === 300 && Number(q.get("expires_at")) === T / 1000 + 300 && m.expiresAt === T / 1000 + 300);
+  ok("…and it is signed, for the authenticated type, inline", !!q.get("signature") && q.get("type") === "authenticated" && q.get("public_id") === hrId && q.get("attachment") === "false");
+  const legacy = await open(managerA, "d-legacy");
+  const lq = new URL(legacy.url).searchParams;
+  ok("a legacy PUBLIC file opens too (deploy before migrate is safe): signed for type upload, format jpg", legacy.status === 302 && lq.get("type") === "upload" && lq.get("format") === "jpg" && lq.get("public_id") === "fieldquo/companies/A/documents/legacy");
+  ok("a manager may open an archived document (their screen lists them)", (await open(managerA, "d-archived")).status === 302);
+  ok("the person opens their OWN document", (await open(crewA, "d-own")).status === 302);
+  ok("a crew member without HR access can't open a colleague's document (404)", (await open(crewA, "d-colleague")).status === 404);
+  ok("…nor their own ARCHIVED one (their screen doesn't show it)", (await open(crewA, "d-archived")).status === 404);
+  ok("a member with no crew record opens nothing", (await open(crewNoWorker, "d-own")).status === 404);
+  ok("another company's document is Not found — for their manager too", (await open(managerA, "d-b")).status === 404 && (await open(managerB, "d-own")).status === 404);
+  ok("company B's manager opens their own", (await open(managerB, "d-b")).status === 302);
+  ok("a missing document is 404", (await open(managerA, "nope")).status === 404);
+  ok("a non-string id / no member is 404, not a throw", (await open(managerA, { in: ["d-own"] })).status === 404 && (await open(null, "d-own")).status === 404);
+  ok("a row naming ANOTHER company's file is never signed (409)", (await open(managerA, "d-smuggled")).status === 409);
+  ok("no signer configured → 503, never an unsigned URL", (await open(managerA, "d-own", { sign: null })).status === 503);
+  ok("a refusal never carries a URL", [await open(crewA, "d-colleague"), await open(managerA, "d-smuggled")].every((x) => !x.url));
+
+  // Source assertions: the screens never render a stored URL, and upload as hr.
+  const src = (f) => readFileSync(new URL(`../${f}`, import.meta.url), "utf8");
+  for (const f of ["app/components/hr/WorkerDocumentsPanel.js", "app/components/hr/OnboardingChecklist.js"]) {
+    const s = src(f);
+    ok(`${f}: no link to a stored fileUrl`, !/href=\{[^}]*fileUrl/.test(s) && !/\.fileUrl\b/.test(s));
+    ok(`${f}: links through hrDocumentOpenPath`, s.includes("hrDocumentOpenPath("));
+    ok(`${f}: uploads with purpose "hr", never "documents"`, s.includes('purpose: "hr"') && !s.includes('purpose: "documents"'));
+  }
+  const route = src("app/api/hr/documents/[id]/open/route.js");
+  ok("the open route checks the member and redirects with no-store", route.includes("memberOrRefusal(request)") && route.includes("openHrDocument(") && route.includes("private, no-store"));
 }
 
 console.log(`\n${pass} ok, ${fails.length} failed`);

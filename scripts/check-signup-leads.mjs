@@ -503,6 +503,80 @@ section("4. The promotion, executed — and no claim row anywhere in it");
   out = await promoteSignupLeads({ client: db, now: NOW });
   ok("an existing Company with the email is linked as completed — no lead", rows.prospect.length === 0 && rows.signupLead[0].completedCompanyId === "c_dave" && rows.signupLead[0].skipReason === "company_exists");
 
+  // (h2) the matched company's slot is already TAKEN — production, 2026-09-25
+  // to 2026-09-29: the owner's half-typed test signup matched (by phone) the
+  // company his finished signup had created, and that finished row already
+  // held completedCompanyId, which is @unique. The write raised P2002
+  // ("Unique constraint failed on the fields: (`completedCompanyId`)"), threw
+  // out of the loop on every run — 379 HTTP 500s — and every lead behind it
+  // waited forever. The stub's updateMany knows no unique index, so this
+  // client adds the live database's one.
+  const uniqueLinkClient = ({ raceOnce = false } = {}) => {
+    let raced = !raceOnce;
+    const signupLead = {
+      ...db.signupLead,
+      updateMany: async (args) => {
+        const target = args?.data?.completedCompanyId;
+        if (target) {
+          if (!raced) { raced = true; rows.signupLead.push({ ...lead(), id: "l_racer", emailKey: "racer@x.com", completedCompanyId: target, skipReason: null }); }
+          if (rows.signupLead.some((r) => r.completedCompanyId === target && !matchesId(r, args.where))) {
+            const err = new Error("Invalid `prisma.signupLead.updateMany()` invocation:\n\nUnique constraint failed on the fields: (`\"completedCompanyId\"`)");
+            err.code = "P2002";
+            throw err;
+          }
+        }
+        return db.signupLead.updateMany(args);
+      },
+    };
+    const c = { ...db, signupLead };
+    c.$transaction = async (fn) => fn(c);
+    return c;
+  };
+  const matchesId = (r, where) => where?.id === r.id;
+  const seedTakenSlot = () => {
+    resetDbStub();
+    rows.company.push({ id: "c_emilio", name: "Emilio The Painter", email: "owner@x.com", phone: "613-555-0142", isDemo: false });
+    // The row that finished and created the company — it holds the slot.
+    rows.signupLead.push(lead({ id: "l_finished", emailKey: "owner@x.com", email: "owner@x.com", completedCompanyId: "c_emilio", stepReached: "checkout" }));
+    // The stuck row: same phone, a half-typed address, oldest lastSeenAt.
+    rows.signupLead.push(lead({ id: "l_stuck", emailKey: "own@x.com", email: "own@x.com", lastSeenAt: minutesAgo(600) }));
+    // A genuine lead queued BEHIND it — nothing in common with the company.
+    rows.signupLead.push(lead({ id: "l_behind", emailKey: "sam@y.com", email: "sam@y.com", phoneE164: "+15145550199", phoneRaw: "514-555-0199", lastSeenAt: minutesAgo(40) }));
+  };
+  seedTakenSlot();
+  let threw = null;
+  try { out = await promoteSignupLeads({ client: uniqueLinkClient(), now: NOW }); } catch (err) { threw = err; }
+  const stuck = rows.signupLead.find((r) => r.id === "l_stuck");
+  const holder = rows.signupLead.find((r) => r.id === "l_finished");
+  ok("a company whose slot is taken does not throw the promotion (the 2026-09-25 P2002)", threw === null && out.failed.length === 0, threw?.message);
+  ok("…the matching row is stamped company_exists, without stealing the slot", stuck.skipReason === "company_exists" && stuck.completedCompanyId === null && holder.completedCompanyId === "c_emilio");
+  ok("…so it leaves the floor for good (a second run does not consider it)", decideSignupLeadPromotion({ lead: stuck, now: NOW }).action === "skip");
+  ok("…and the lead queued BEHIND it is promoted in the same run", rows.signupLead.find((r) => r.id === "l_behind").promotedAt && out.written.some((w) => w.leadId === "l_behind" && w.action === "prospect"));
+  ok("…no Prospect for the company's own person", rows.prospect.length === 1 && rows.prospect[0].sourceRecordId === "l_behind");
+
+  // (h3) the slot is free at the read and taken by the write (a racing
+  // completion): the P2002 is answered as a taken slot, never rethrown.
+  resetDbStub();
+  rows.company.push({ id: "c_emilio", name: "Emilio The Painter", email: "owner@x.com", phone: "613-555-0142", isDemo: false });
+  rows.signupLead.push(lead({ id: "l_stuck", emailKey: "own@x.com", email: "own@x.com" }));
+  threw = null;
+  try { out = await promoteSignupLeads({ client: uniqueLinkClient({ raceOnce: true }), now: NOW }); } catch (err) { threw = err; }
+  const raced = rows.signupLead.find((r) => r.id === "l_stuck");
+  ok("a P2002 from a racing link is answered with the stamp alone", threw === null && out.failed.length === 0 && raced.skipReason === "company_exists" && raced.completedCompanyId === null, threw?.message);
+
+  // (h4) any row that DOES throw is collected, and the rows behind it still run
+  resetDbStub();
+  rows.signupLead.push(lead({ id: "l_bad", emailKey: "bad@x.com", email: "bad@x.com", lastSeenAt: minutesAgo(600) }));
+  rows.signupLead.push(lead({ id: "l_good", emailKey: "good@y.com", email: "good@y.com", phoneE164: "+15145550199", phoneRaw: "514-555-0199" }));
+  const breaking = { ...db, prospect: { ...db.prospect, upsert: async (args) => { if (args?.where?.sourceProvider_sourceRecordId?.sourceRecordId === "l_bad") throw new Error("boom"); return db.prospect.upsert(args); } } };
+  breaking.$transaction = async (fn) => fn(breaking);
+  threw = null;
+  try { out = await promoteSignupLeads({ client: breaking, now: NOW }); } catch (err) { threw = err; }
+  ok("a row that throws is reported in `failed`, not thrown", threw === null && out.failed.length === 1 && out.failed[0].leadId === "l_bad" && out.failed[0].error === "boom" && out.counts.failed === 1);
+  ok("…and the row behind it is still promoted", out.written.some((w) => w.leadId === "l_good"));
+  const cronRoute = read("app/api/cron/signup-leads/route.js");
+  ok("the cron still answers 500 and records the error when any row failed", /promotion\?\.failed/.test(cronRoute) && /out\.success = false;[\s\S]*signup_leads_promotion_failed/.test(cronRoute.slice(cronRoute.indexOf("promotion?.failed"))) && /status: out\.success \? 200 : 500/.test(cronRoute));
+
   // (i) too recent → untouched
   resetDbStub();
   rows.signupLead.push(lead({ lastSeenAt: minutesAgo(5) }));

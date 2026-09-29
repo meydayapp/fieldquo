@@ -11,9 +11,9 @@
 const uk = {
 
   // ── The furniture of a feature page ─────────────────────────────────────
-  "featurePage.chrome.startTrial": "Почніть безкоштовний місяць",
+  "featurePage.chrome.startTrial": "Почніть 14 безкоштовних днів",
   "featurePage.chrome.seePricing": "Переглянути ціни",
-  "featurePage.chrome.firstMonthFree": "Перший місяць безкоштовний. Під час реєстрації потрібна картка, і до кінця місяця нічого не списується.",
+  "featurePage.chrome.firstMonthFree": "Перші 14 днів безкоштовні, і до їх завершення нічого не списується.",
   "featurePage.chrome.painsTitle": "Що це знімає з вашого тижня",
   "featurePage.chrome.howTitle": "Як це працює тут",
   "featurePage.chrome.specificsTitle": "Конкретика",
@@ -26,7 +26,7 @@ const uk = {
   "featurePage.chrome.moreTitle": "Більше в цьому напрямку",
   "featurePage.chrome.moreBody": "Кожне з цього має власну сторінку.",
   "featurePage.chrome.ctaTitle": "Спробуйте на своїх власних роботах",
-  "featurePage.chrome.ctaBody": "Перший місяць безкоштовний. Беріть власні розцінки, власний логотип і той список клієнтів, який у вас уже є.",
+  "featurePage.chrome.ctaBody": "Перші 14 днів безкоштовні. Беріть власні розцінки, власний логотип і той список клієнтів, який у вас уже є.",
   "featurePage.chrome.talkToPerson": "Поговорити з живою людиною",
   "featurePage.chrome.alsoRead": "Підрядники, які це читають, читають також",
 

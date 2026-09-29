@@ -1581,15 +1581,18 @@ model Company {
   yearsInBusinessBand    String?
   signupGoal             String?
   signupSource           String?
-  /// When each "your free trial ends in N days" letter went out — 15, 7 and 3
+  /// When each "your free trial ends in N days" letter went out — 7, 3 and 1
   /// days before trialEndsAt, to a company that has NOT chosen a plan (one
   /// with a Subscription row is told by lib/billing/renewalReminder.js
   /// instead). Claimed before the send and reverted when the send fails, so a
   /// day is never mailed twice and a failed send is retried tomorrow —
   /// lib/billing/trialReminder.js, app/api/cron/trial-reminders.
+  /// trialReminder15At is the 15-day letter from the 30-day trial (schedule
+  /// 15/7/3 until 2026-09-29): kept as history, no longer written or read.
   trialReminder15At      DateTime?
   trialReminder7At       DateTime?
   trialReminder3At       DateTime?
+  trialReminder1At       DateTime?
   /// FieldQuo ended this company's access from the platform console when
   /// there was NO Stripe subscription to cancel — the card-free trial
   /// (2026-09-24), a trial that already ran out, a company made by hand.
@@ -7747,6 +7750,31 @@ model Worker {
   payrollProviderEmployeeId String?
   active                    Boolean    @default(true)
   createdAt                 DateTime   @default(now())
+
+  // ── How their employment ended — the most recent separation ──────────────
+  //
+  // `active: false` says THAT somebody left payroll; it cannot say why. The
+  // owner "removed" a worker and then had no way to record that he was
+  // dismissed, or what happened — an HR file with a hole exactly where the
+  // explanation belongs. Written only by POST /api/workers/[id]/separation,
+  // which also writes a private "separation" note into the person's HR file
+  // in the same transaction (lib/team/separation.js).
+  //
+  // The free-text EXPLANATION is deliberately NOT a column here. GET
+  // /api/workers hands every Worker scalar to anyone signed in (crew
+  // included — the scheduler needs the roster), so a text column on this row
+  // would put "why Jonny was fired" one fetch away from Jonny's colleagues.
+  // It lives only in the WorkerNote, behind the HR gate, where notes are
+  // already immutable. The four facts below are redacted from both worker
+  // GETs for anyone who can't open HR files (redactSeparation).
+  //
+  // Kept after a re-activation: the separation is history, and the
+  // "reactivation" note on the HR file records the new chapter. A current
+  // separation is `active === false && separatedOn != null`.
+  separatedOn              DateTime? // their last day worked
+  separationType           String?   // lib/team/separation.js SEPARATION_TYPES
+  separationRehireEligible Boolean?  // null = not stated, never assumed
+  separatedById            String?   // Member.id of who recorded it
 
   timeEntries TimeEntry[]
   locationStamps LocationStamp[]
@@ -14620,6 +14648,15 @@ model Prospect {
   /// "The rows merged into this one" — the survivor's duplicate panel, and
   /// the read-path union of their evidence (lib/sales/discovery/mergedReads.js).
   @@index([mergedIntoId])
+  /// The dispatch order's per-trade read — claimCandidateWhere({ tradeKey })
+  /// ORDER BY createdAt LIMIT 400, which lib/sales/intel/enrichmentOrder.js
+  /// runs twice per worked trade for every pass the sales-pipeline cron makes
+  /// (register people, re-crawl, each Apify source). Without it the only
+  /// usable index was (status, hot): a bitmap of 576,000 claimable rows,
+  /// filtered down to one trade, then sorted — ~0.6 s alone and 40–60 s a
+  /// query under the cron's own overlap, measured 2026-09-29. With it the
+  /// read walks one trade in dispatch order and stops at the LIMIT.
+  @@index([tradeKey, createdAt])
   repNotes SalesRepNote[]
   playbookAssignments SalesPlaybookAssignment[]
   talkingPoints       ProspectTalkingPoint[]

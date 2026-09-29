@@ -24,7 +24,7 @@
 //      transaction), a demo is refused, and the Stripe path's calls, write
 //      set and response are pinned — with --baseline, compared by md5
 //      against the route as it was before this change;
-//   4. every letter the trial gets (15/7/3 reminders, next steps, the two
+//   4. every letter the trial gets (7/3/1 reminders, next steps, the two
 //      signup-recovery nudges) refuses a company FieldQuo ended;
 //   5. the console's buckets and status words: a locked trial is "locked",
 //      an ended one "cancelled", never "trialing";
@@ -310,7 +310,7 @@ if (baselineArg) {
 console.log("\n4. No trial letter to a company FieldQuo ended\n");
 ok(trialReminderDecision({ trialEndsAt: at(3), endedByFieldQuo: true, now: NOW }).reason === "ended_by_fieldquo" &&
    trialReminderDecision({ trialEndsAt: at(3), now: NOW }).send === true,
-  "15/7/3 reminder: refused when ended, still sent when not");
+  "7/3/1 reminder: refused when ended, still sent when not");
 ok(/platformEndsAt: true/.test(read("app/api/cron/trial-reminders/route.js")) && /endedByFieldQuo: Boolean\(company\.platformEndsAt\)/.test(read("app/api/cron/trial-reminders/route.js")),
   "…and the cron selects the column and passes it");
 const nsCompany = { isDemo: false, email: "o@x.co", createdAt: new Date(NOW.getTime() - 3 * 3600e3), trialEndsAt: at(20), platformEndsAt: at(20) };

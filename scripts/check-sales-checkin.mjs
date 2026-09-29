@@ -50,6 +50,7 @@ import {
   SUPPRESSIONS,
   FIRST_CHECKIN_DAY,
   RETENTION_NEAR_DAYS,
+  TRIAL_ENDING_SOON_DAYS,
   PROBLEM_URGENCY,
   MIN_GAP_FLOOR_DAYS,
   MIN_GAP_CEILING_DAYS,
@@ -333,8 +334,16 @@ section("6. The reasons, and the order a rep works them in");
   }
   const trialFar = decide({ subscriptionStatus: "trialing", signedUpAt: dayAgo(1) }, { trialEndsAt: new Date(NOW.getTime() + 29 * DAY) });
   ok("…a free period ending in a month is not raised as ending soon", !codes(trialFar).includes("trial_ends_before_retention"), codes(trialFar));
-  const trialNear = decide({ subscriptionStatus: "trialing", signedUpAt: dayAgo(20) }, { trialEndsAt: new Date(NOW.getTime() + RETENTION_NEAR_DAYS * DAY) });
+  const trialNear = decide({ subscriptionStatus: "trialing", signedUpAt: dayAgo(20) }, { trialEndsAt: new Date(NOW.getTime() + TRIAL_ENDING_SOON_DAYS * DAY) });
   ok("…one ending within the near window is", codes(trialNear).includes("trial_ends_before_retention"), codes(trialNear));
+  // The 14-day trial (2026-09-29): day 1 is 13 days from the end, which the
+  // old fortnight window called "soon". Soon is the first trial letter's 7.
+  {
+    const { TRIAL_REMINDER_DAYS } = await import("@/lib/billing/trialReminder");
+    ok("the near window is the first trial letter's (7 days)", TRIAL_ENDING_SOON_DAYS === Math.max(...TRIAL_REMINDER_DAYS) && TRIAL_ENDING_SOON_DAYS === 7);
+  }
+  const day1Of14 = decide({ subscriptionStatus: "trialing", signedUpAt: dayAgo(1) }, { trialEndsAt: new Date(NOW.getTime() + 13 * DAY) });
+  ok("…so day 1 of a 14-day trial is not raised as ending soon", !codes(day1Of14).includes("trial_ends_before_retention"), codes(day1Of14));
 
   const many = decide({ subscriptionStatus: "past_due", chargesEnabled: false, onboardingCompletedAt: null }, { setup: THREE_OPEN });
   ok("several problems all appear", many.reasons.length === 4, codes(many));

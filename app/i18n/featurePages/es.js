@@ -11,9 +11,9 @@
 const es = {
 
   // ── The furniture of a feature page ─────────────────────────────────────
-  "featurePage.chrome.startTrial": "Empieza tu mes gratis",
+  "featurePage.chrome.startTrial": "Empieza tus 14 días gratis",
   "featurePage.chrome.seePricing": "Ver precios",
-  "featurePage.chrome.firstMonthFree": "Tu primer mes es gratis. Se pide una tarjeta al registrarte y no se cobra nada hasta que termine el mes.",
+  "featurePage.chrome.firstMonthFree": "Tus primeros 14 días son gratis, y no se cobra nada hasta que terminen.",
   "featurePage.chrome.painsTitle": "Lo que esto te quita de la semana",
   "featurePage.chrome.howTitle": "Cómo funciona aquí",
   "featurePage.chrome.specificsTitle": "Los detalles",
@@ -26,7 +26,7 @@ const es = {
   "featurePage.chrome.moreTitle": "Más en esta área",
   "featurePage.chrome.moreBody": "Cada uno de estos tiene su propia página.",
   "featurePage.chrome.ctaTitle": "Pruébalo con tus propios trabajos",
-  "featurePage.chrome.ctaBody": "El primer mes es gratis. Trae tus propias tarifas, tu propio logo y la lista de clientes que ya tienes.",
+  "featurePage.chrome.ctaBody": "Los primeros 14 días son gratis. Trae tus propias tarifas, tu propio logo y la lista de clientes que ya tienes.",
   "featurePage.chrome.talkToPerson": "Habla con una persona",
   "featurePage.chrome.alsoRead": "Los contratistas que leen esto también leen",
 

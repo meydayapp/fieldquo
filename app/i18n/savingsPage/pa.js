@@ -42,7 +42,7 @@ export const SAVINGS_PAGE_PA = {
   "marketing.savings.basis.reported": "ਠੇਕੇਦਾਰਾਂ ਦੇ ਆਪਣੇ ਦੱਸੇ ਅੰਕੜੇ",
   "marketing.savings.basis.estimate": "ਸਾਡਾ ਅੰਦਾਜ਼ਾ",
   "marketing.savings.cta.title": "ਇਹ ਸਭ ਪਰਖਣ ਦਾ ਇਮਾਨਦਾਰ ਤਰੀਕਾ ਤੁਹਾਡੇ ਆਪਣੇ ਕੰਮਾਂ ਉੱਤੇ ਹੈ।",
-  "marketing.savings.cta.body": "ਪਹਿਲਾ ਮਹੀਨਾ ਮੁਫ਼ਤ ਹੈ, ਅਤੇ ਕੋਈ ਇਕਰਾਰਨਾਮਾ ਨਹੀਂ।",
+  "marketing.savings.cta.body": "ਪਹਿਲੇ 14 ਦਿਨ ਮੁਫ਼ਤ ਹਨ, ਅਤੇ ਕੋਈ ਇਕਰਾਰਨਾਮਾ ਨਹੀਂ।",
   "marketing.savings.cta.button": "ਮੁਫ਼ਤ ਸ਼ੁਰੂ ਕਰੋ",
   "marketing.savings.unit.minutes.one": "{n} ਮਿੰਟ",
   "marketing.savings.unit.minutes.other": "{n} ਮਿੰਟ",

@@ -83,8 +83,10 @@ Roughly 64 Prisma models, 167 API routes, 62 `/app` pages, 12 `/platform` pages.
 These came from the product owner directly. Do not relax them without asking.
 
 1. **Company signup is open; *joining* a company is invite-only.** A new
-   company can self-serve a trial from the public `/signup` form (first month
-   free — `TRIAL_PRICE` in `lib/pricing.js`). What is invite-only is being
+   company can self-serve a trial from the public `/signup` form (14 days
+   free, no card — `TRIAL_DAYS`, `TRIAL_CARD_REQUIRED` and `TRIAL_PRICE` in
+   `lib/pricing.js`; since 2026-09-29, and existing trials keep their date).
+   What is invite-only is being
    added to an *existing* company —
    employees are invited against that company's licensed seats — plus the
    referral flow (invitee and referrer each get ONE free month — the owner

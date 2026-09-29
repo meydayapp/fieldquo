@@ -109,7 +109,7 @@ export default function NextStepsEmailCard() {
             What a new company hears from FieldQuo after it signs up — no card needed since 2026-09-24: if the
             onboarding checklist is still open, one &ldquo;finish setting up&rdquo; letter listing the steps left and
             the additional set-up steps still on their home page, in the company&apos;s language, each a link to that
-            step, with the date their free month ends. Card-free trials and card-backed signups alike. Sent once per
+            step, with the date their free trial ends. Card-free trials and card-backed signups alike. Sent once per
             company, never to a demo or an address on the do-not-contact list, and never once the delay is more than{" "}
             {bounds?.windowHours ?? 72} h behind.
           </p>

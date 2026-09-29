@@ -13,7 +13,13 @@ import { normaliseTitle } from "@/lib/team/personLabel";
 import { managementChain } from "@/lib/org/reportingLine";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission, can } from "@/lib/permissions";
-import { hasWorkerHistory } from "@/lib/team/workerArchive";
+import { canManageHr } from "@/lib/hr/access";
+import { redactSeparation } from "@/lib/team/separation";
+import {
+  recordLanguage,
+  actorDisplayName,
+  reactivationNoteText,
+} from "@/lib/team/separationRecord";
 // Same normaliser the crew inbox matches with, so a number accepted here is a
 // number that will actually be recognised on an inbound text.
 import { toE164 } from "@/lib/sms/twilioClient";
@@ -65,8 +71,14 @@ export async function GET(request, { params }) {
     });
   }
 
+  // How their employment ended is HR data, not roster data — the person
+  // themselves reads this route for their own record, and so may a
+  // colleague. Only the HR file's keepers get the separation facts.
   return NextResponse.json(
-    redactPay(full, worker, { ownUserId: member.userId }),
+    redactSeparation(
+      redactPay(full, worker, { ownUserId: member.userId }),
+      canManageHr(member),
+    ),
   );
 }
 
@@ -233,9 +245,7 @@ export async function PATCH(request, { params }) {
   // type is intentionally NOT editable here — flipping contractor<->employee has real
   // legal/tax implications and shouldn't be a casual field update. Treat it as
   // "deactivate this worker record, create a new one" if that's genuinely needed.
-  const updated = await db.worker.update({
-    where: { id: _params.id },
-    data: {
+  const data = {
       ...(name !== undefined && { name }),
       ...(email !== undefined && { email }),
       ...(title?.ok && { title: title.value }),
@@ -249,8 +259,46 @@ export async function PATCH(request, { params }) {
       ...(active !== undefined && { active }),
       ...(hiredOn !== undefined && { hiredOn: hiredOnValue }),
       ...(managerId !== undefined && { managerId: managerValue }),
-    },
-  });
+  };
+
+  // ── Switching somebody back on is a chapter in their HR file ─────────────
+  //
+  // The Re-activate button on Workers, and the Edit form's Active checkbox,
+  // both land here. When an inactive worker becomes active, a private
+  // "reactivation" note records who and when, in the same transaction as the
+  // flip — so an HR file that says "dismissed on the 3rd" and then shows them
+  // on the rota in October also says who brought them back. The separation
+  // columns are left alone: they are history, and isSeparated() reads
+  // `active` first. Every other PATCH takes exactly the path it always did.
+  const reactivating = active === true && existing.active === false;
+  let updated;
+  if (reactivating) {
+    const [language, authorName] = await Promise.all([
+      recordLanguage(member.companyId),
+      actorDisplayName(member),
+    ]);
+    const now = new Date();
+    const noteBody = await reactivationNoteText({ language, on: now, by: authorName });
+    updated = await db.$transaction(async (tx) => {
+      const row = await tx.worker.update({ where: { id: _params.id }, data });
+      await tx.workerNote.create({
+        data: {
+          companyId: member.companyId,
+          workerId: existing.id,
+          authorMemberId: member.id,
+          authorName,
+          kind: "reactivation",
+          body: noteBody,
+          occurredAt: now,
+          visibleToWorker: false,
+          requiresAcknowledgement: false,
+        },
+      });
+      return row;
+    });
+  } else {
+    updated = await db.worker.update({ where: { id: _params.id }, data });
+  }
 
   return NextResponse.json(updated);
 }
@@ -277,47 +325,34 @@ export async function DELETE(request, { params }) {
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  // ── "Deleted" must mean archived, not erased ─────────────────────────────
+  // ── DELETE archives. It never deletes. ──────────────────────────────────
   //
   // lib/billing/access.js states the rule for a COMPANY that stops paying:
   // "a locked account is inaccessible, not erased." The same rule applies one
   // level down, to a PERSON: a pay run naming somebody who worked in March is
-  // an accounting record, and a worker's timesheets are somebody's employment
-  // history. Neither gets to develop a hole because they left in August.
+  // an accounting record, and a worker's timesheets, leave and HR file are
+  // somebody's employment history.
   //
-  // This used to check ONLY payouts.length — a worker paid through Stripe was
-  // protected, but one who had logged hours (TimeEntry, cascade-deletes with
-  // the Worker row) or already appeared on a committed pay run (PayRunLine —
-  // captures workerName at run time precisely so a rate change or a departure
-  // can't rewrite what a past payslip says, which a silently-succeeding delete
-  // defeated just as completely as an edit would) was hard-deleted anyway.
-  // That is exactly how a real hire — logged time, no Stripe payout because
-  // they were paid by cheque — could vanish from the books while their pay
-  // run still existed with a dangling workerId, or (if PayRunLine's required
-  // relation refused the delete at the database level) the request simply
-  // 500'd with no explanation and the row was never actually removed —
-  // "deleted, and still shows in Payroll" either way.
+  // This used to hard-delete a worker with no payouts, time entries or pay-run
+  // lines — "genuinely nothing to keep". That judged history by three tables
+  // out of the dozen that hang off a Worker (HR documents and notes,
+  // onboarding, shifts, leave and more cascade with the row), and whether a
+  // cascade destroys something is not a question to get right by listing
+  // tables. Before that it checked payouts alone, which is how a worker paid by
+  // cheque vanished from the books while their pay run still named them.
   //
-  // Checked as existence, not full rows: this only needs to know whether
-  // history exists, never what it says.
-  const [payoutCount, timeEntryCount, payRunLineCount] = await Promise.all([
-    db.payout.count({ where: { workerId: _params.id } }),
-    db.timeEntry.count({ where: { workerId: _params.id } }),
-    db.payRunLine.count({ where: { workerId: _params.id } }),
-  ]);
-
-  if (hasWorkerHistory({ payoutCount, timeEntryCount, payRunLineCount })) {
-    await db.worker.update({
-      where: { id: _params.id },
-      data: { active: false },
-    });
-    return NextResponse.json({ success: true, deactivated: true });
-  }
-
-  // Reaches here only for a worker who was never paid, never logged an hour,
-  // and never appeared on a pay run — genuinely nothing to keep. Removing
-  // them is not a policy exception to "nothing is ever deleted"; there is no
-  // record yet for that rule to protect.
-  await db.worker.delete({ where: { id: _params.id } });
-  return NextResponse.json({ success: true, deleted: true });
+  // It had no caller in the app when it was changed (the Workers page PATCHes;
+  // nothing sends DELETE here), and it now always answers the
+  // `{ success, deactivated }` shape its history branch always returned, so
+  // anything that ever did call it keeps working.
+  //
+  // It records no reason. The visible way to end somebody's employment is
+  // POST ./separation, which does the same flip and writes WHY into the HR
+  // file; this verb stays the bare archive — the same thing the Edit form's
+  // Active checkbox does.
+  await db.worker.update({
+    where: { id: _params.id },
+    data: { active: false },
+  });
+  return NextResponse.json({ success: true, deactivated: true });
 }

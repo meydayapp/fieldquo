@@ -11,6 +11,8 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { normaliseTitle } from "@/lib/team/personLabel";
+import { canManageHr } from "@/lib/hr/access";
+import { redactSeparation } from "@/lib/team/separation";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -30,8 +32,15 @@ export async function GET(request) {
   // Manager whose payroll level is view_own and who is refused by every
   // payroll PAGE. Your own rate still comes through.
   const full = await loadEnforceableMember(db, member.id);
+  // The same door serves the crew's scheduler, so how somebody's employment
+  // ended (dismissed? rehireable?) is stripped for anyone who can't open HR
+  // files. The explanation itself is never on this row at all — see
+  // Worker.separatedOn in prisma/schema.prisma.
+  const seesHr = canManageHr(member);
   return NextResponse.json(
-    redactPayList(full, workers, { ownUserId: member.userId }),
+    redactPayList(full, workers, { ownUserId: member.userId }).map((w) =>
+      redactSeparation(w, seesHr),
+    ),
   );
 }
 

@@ -1044,5 +1044,43 @@ section("An option key is named from the company's own label, in every drafted l
   ok("no keys asked, no query run", JSON.stringify(await loadMaterialLabels(co, [])) === "{}");
 }
 
+/* ═══════════ Expiry — the same 30 days a hand-built quote opens with ═════ */
+
+section("An instant-estimate draft carries the builder's default expiry");
+
+// The owner (2026-09-29): editing a quote from the instant estimate had no
+// expiry date "like when I create a new quote". Every one of the 7 instant
+// drafts in production had validUntil null. The draft now gets exactly what
+// QuoteBuilder's create state gets — defaultValidUntil() — stored the way
+// the quote routes store the builder's date string (UTC midnight).
+{
+  resetDbStub();
+  rows.serviceCategory = [CABINET_CATEGORY];
+  const company = { id: "co_expiry", taxRate: 0, taxRates: [], country: "CA", province: "ON", defaultLanguage: "en" };
+  const { defaultValidUntil } = await import("@/lib/quotes/validUntil");
+  await createEstimateDraft({
+    createdVia: "instant_quote",
+    company,
+    trade: "cabinet_refinishing",
+    categoryId: CABINET_CATEGORY.id,
+    contact: { ...BASE_CONTACT, email: "expiry@test.example" },
+    measurement: { doorCount: 20, drawerCount: 2, complexityLevel: "standard" },
+    materialKey: null,
+    estimate: cabinetEstimate(4000),
+    source: "manual",
+    language: "en",
+  });
+  const data = lastQuoteWrite();
+  const expected = defaultValidUntil();
+  ok("validUntil is written, not null", data?.validUntil instanceof Date && !Number.isNaN(data.validUntil.getTime()), data?.validUntil);
+  ok(
+    "…and it is the builder's default date, stored as UTC midnight",
+    data?.validUntil?.toISOString() === `${expected}T00:00:00.000Z`,
+    { got: data?.validUntil, expected },
+  );
+  const days = Math.round((data.validUntil.getTime() - Date.parse(new Date().toISOString().slice(0, 10))) / 86_400_000);
+  ok("…which is 30 days out (±1 for the local/UTC calendar edge)", days >= 29 && days <= 31, days);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

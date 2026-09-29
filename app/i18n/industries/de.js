@@ -15,7 +15,7 @@ const de = {
     seeItInAction: "In Aktion ansehen",
     startTrial: "Kostenlos testen",
     talkToUs: "Sprechen Sie mit uns",
-    noCard: "Ihr erster Monat ist gratis — Ihre Karte wird erst danach belastet.",
+    noCard: "Ihre ersten 14 Tage sind gratis — Ihre Karte wird erst danach belastet.",
     videoSoon: "Produktrundgang folgt in Kürze",
     videoDemoPrefix: "Lieber eine Live-Demo?",
     videoDemoLink: "Demo buchen",

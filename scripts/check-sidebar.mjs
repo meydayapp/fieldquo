@@ -30,7 +30,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  exclusiveToggle,
   filterGroups,
+  initialExclusiveKey,
   initialOpenKeys,
   isGroupOpen,
   visibleGroups,
@@ -460,6 +462,21 @@ ok("a pinned group is open with nothing stored and no query",
   isGroupOpen({ group: { key: "x", pinned: true }, openKeys: CLOSED }));
 ok("an unpinned group is closed with nothing stored and no query",
   !isGroupOpen({ group: { key: "x" }, openKeys: CLOSED }));
+
+// One open at a time (owner, 2026-09-29) — the rule both sidebars now use.
+const [gA, gB, gC] = SETTINGS.map((g) => g.key);
+ok("exclusive: opening a group closes every other",
+  [...exclusiveToggle(new Set([gA]), gB)].join() === gB);
+ok("exclusive: clicking the open group closes it (nothing open)",
+  exclusiveToggle(new Set([gA]), gA).size === 0);
+ok("exclusive: the current page's group wins over the stored one",
+  initialExclusiveKey({ defaultOpenKeys: [gA], overrides: { [gB]: true }, active: gC }) === gC);
+ok("exclusive: with no current group, the last group the user opened reopens",
+  initialExclusiveKey({ defaultOpenKeys: [gA], overrides: { [gA]: false, [gB]: true } }) === gB);
+ok("exclusive: first visit opens exactly the first default",
+  initialExclusiveKey({ defaultOpenKeys: [gA, gB], overrides: {} }) === gA);
+ok("exclusive: a query still shows every group whatever is folded",
+  isGroupOpen({ group: { key: gB }, openKeys: new Set([gA]), searching: true }));
 
 // Disclosure is a browser preference, not a record. A schema field would have
 // to be read, written and migrated per device for no gain — and a nav that

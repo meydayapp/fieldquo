@@ -643,7 +643,7 @@ for (const [where, text] of SURFACES) {
 const signupPanel = textOf(inEnglish(createElement(AuthAside, { variant: "signup" })));
 ok("the signup panel says there is no card and no plan today", /No card and no plan today/.test(signupPanel), signupPanel);
 ok("...and where the plan is chosen instead", /from inside the app/.test(signupPanel));
-ok("...and the offer comes from trialLabel(), not a typed number", /Free first month/.test(signupPanel));
+ok("...and the offer comes from trialLabel(), not a typed number", /14 days free/.test(signupPanel) && !/first month|free month/i.test(signupPanel), signupPanel);
 ok(
   "...off the helper rather than restated",
   /trialLabel\(\)/.test(code("app/components/auth/AuthAside.js")),

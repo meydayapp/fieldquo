@@ -216,7 +216,7 @@ export default function BillingBanner() {
           <AlertTriangle size={17} className="shrink-0" />
           <p className="flex-1 min-w-[14rem]">
             <strong>Finish signing up — add your card within {state.minutesLeft ?? 60} min to keep this account.</strong>{" "}
-            Nothing is charged until your free month is up. After that time you&apos;ll be sent back to the signup page to finish.
+            Nothing is charged until your free trial is up. After that time you&apos;ll be sent back to the signup page to finish.
           </p>
           <Link
             href="/signup"

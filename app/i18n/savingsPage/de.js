@@ -42,7 +42,7 @@ export const SAVINGS_PAGE_DE = {
   "marketing.savings.basis.reported": "Von Handwerkern selbst genannte Zahlen",
   "marketing.savings.basis.estimate": "Unsere Schätzung",
   "marketing.savings.cta.title": "Der ehrliche Weg, das alles zu prüfen, sind Ihre eigenen Aufträge.",
-  "marketing.savings.cta.body": "Der erste Monat ist kostenlos, und es gibt keinen Vertrag.",
+  "marketing.savings.cta.body": "Die ersten 14 Tage sind kostenlos, und es gibt keinen Vertrag.",
   "marketing.savings.cta.button": "Kostenlos starten",
   "marketing.savings.unit.minutes.one": "{n} Minute",
   "marketing.savings.unit.minutes.other": "{n} Minuten",

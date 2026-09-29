@@ -11,9 +11,9 @@
 const pa = {
 
   // ── The furniture of a feature page ─────────────────────────────────────
-  "featurePage.chrome.startTrial": "ਆਪਣਾ ਮੁਫ਼ਤ ਮਹੀਨਾ ਸ਼ੁਰੂ ਕਰੋ",
+  "featurePage.chrome.startTrial": "ਆਪਣੇ 14 ਮੁਫ਼ਤ ਦਿਨ ਸ਼ੁਰੂ ਕਰੋ",
   "featurePage.chrome.seePricing": "ਕੀਮਤਾਂ ਵੇਖੋ",
-  "featurePage.chrome.firstMonthFree": "ਤੁਹਾਡਾ ਪਹਿਲਾ ਮਹੀਨਾ ਮੁਫ਼ਤ ਹੈ। ਸਾਈਨ-ਅੱਪ ਵੇਲੇ ਇੱਕ ਕਾਰਡ ਲਿਆ ਜਾਂਦਾ ਹੈ ਅਤੇ ਮਹੀਨਾ ਪੂਰਾ ਹੋਣ ਤੱਕ ਕੁਝ ਵੀ ਚਾਰਜ ਨਹੀਂ ਕੀਤਾ ਜਾਂਦਾ।",
+  "featurePage.chrome.firstMonthFree": "ਤੁਹਾਡੇ ਪਹਿਲੇ 14 ਦਿਨ ਮੁਫ਼ਤ ਹਨ, ਅਤੇ ਇਨ੍ਹਾਂ ਦੇ ਪੂਰੇ ਹੋਣ ਤੱਕ ਕੁਝ ਵੀ ਚਾਰਜ ਨਹੀਂ ਕੀਤਾ ਜਾਂਦਾ।",
   "featurePage.chrome.painsTitle": "ਇਹ ਤੁਹਾਡੇ ਹਫ਼ਤੇ ਤੋਂ ਕੀ ਘਟਾਉਂਦਾ ਹੈ",
   "featurePage.chrome.howTitle": "ਇੱਥੇ ਇਹ ਕਿਵੇਂ ਕੰਮ ਕਰਦਾ ਹੈ",
   "featurePage.chrome.specificsTitle": "ਬਾਰੀਕੀਆਂ",
@@ -26,7 +26,7 @@ const pa = {
   "featurePage.chrome.moreTitle": "ਇਸੇ ਖੇਤਰ ਵਿੱਚ ਹੋਰ",
   "featurePage.chrome.moreBody": "ਇਹਨਾਂ ਵਿੱਚੋਂ ਹਰ ਇੱਕ ਦਾ ਆਪਣਾ ਪੰਨਾ ਹੈ।",
   "featurePage.chrome.ctaTitle": "ਆਪਣੀਆਂ ਜੌਬਾਂ ਉੱਤੇ ਅਜ਼ਮਾ ਕੇ ਵੇਖੋ",
-  "featurePage.chrome.ctaBody": "ਪਹਿਲਾ ਮਹੀਨਾ ਮੁਫ਼ਤ ਹੈ। ਆਪਣੇ ਰੇਟ, ਆਪਣਾ ਲੋਗੋ ਅਤੇ ਗਾਹਕਾਂ ਦੀ ਜੋ ਸੂਚੀ ਪਹਿਲਾਂ ਹੀ ਤੁਹਾਡੇ ਕੋਲ ਹੈ, ਲੈ ਆਓ।",
+  "featurePage.chrome.ctaBody": "ਪਹਿਲੇ 14 ਦਿਨ ਮੁਫ਼ਤ ਹਨ। ਆਪਣੇ ਰੇਟ, ਆਪਣਾ ਲੋਗੋ ਅਤੇ ਗਾਹਕਾਂ ਦੀ ਜੋ ਸੂਚੀ ਪਹਿਲਾਂ ਹੀ ਤੁਹਾਡੇ ਕੋਲ ਹੈ, ਲੈ ਆਓ।",
   "featurePage.chrome.talkToPerson": "ਕਿਸੇ ਬੰਦੇ ਨਾਲ ਗੱਲ ਕਰੋ",
   "featurePage.chrome.alsoRead": "ਇਹ ਪੜ੍ਹਨ ਵਾਲੇ ਠੇਕੇਦਾਰ ਇਹ ਵੀ ਪੜ੍ਹਦੇ ਹਨ",
 

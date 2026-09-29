@@ -8,7 +8,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hrManagerOrRefusal } from "@/lib/hr/gate";
 import { ownWorker } from "@/lib/hr/access";
-import { startRun, RUN_SELECT, reconcileRunsForWorker } from "@/lib/onboarding/service";
+import { startRun, RUN_SELECT, reconcileRunsForWorker, handInFiles } from "@/lib/onboarding/service";
 import { describeRun } from "@/lib/onboarding/run";
 import { recordActivity } from "@/lib/activity/log";
 
@@ -26,7 +26,10 @@ export async function GET(request, { params }) {
     select: RUN_SELECT,
     orderBy: { startedAt: "desc" },
   });
-  return NextResponse.json({ worker: { id: worker.id, name: worker.name }, runs: runs.map((r) => describeRun(r)) });
+  // The file each document/form row points at, so the row can show it and
+  // who filed it (handed in by the person, or by a manager on their behalf).
+  const files = await handInFiles(db, { companyId: member.companyId, workerId: worker.id, runs });
+  return NextResponse.json({ worker: { id: worker.id, name: worker.name }, runs: runs.map((r) => describeRun(r)), files });
 }
 
 export async function POST(request, { params }) {

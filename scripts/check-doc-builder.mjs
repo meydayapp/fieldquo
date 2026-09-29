@@ -417,6 +417,30 @@ for (const [label, mode, id, initial] of CASES) {
   ok("stored: the imported group cannot be edited", /Subcontracted railing[\s\S]*?importedLocked|Subcontracted railing/.test(doc) && !/Subcontracted railing[\s\S]{0,400}data-doc-group-toggle/.test(doc));
 }
 
+// The expiry row, create vs edit. The owner (2026-09-29): a quote from the
+// instant estimate had no expiry "like when I create a new quote". In the
+// document layout a saved quote with validUntil null dropped the row from the
+// masthead entirely — the "not set" fallback only fired when the WHOLE meta
+// list was empty, which an edit (it always has an issue date) never is. Every
+// quote now shows the row: the date when there is one, "No expiry date…" when
+// not, and clicking it opens the same date field a create has.
+{
+  const masthead = (html) => (html.split("data-doc-masthead")[1] || "").split("data-doc-parties")[0].replace(/<!-- -->/g, "");
+  const nullExpiry = { ...STORED_QUOTE, language: "en", validUntil: null };
+  const editNull = render("document", "edit", "q1", { ...initialStateFromQuote(nullExpiry), quote: nullExpiry, costingLoaded: true });
+  ok("expiry: an edit with NO expiry still shows the Valid until row", masthead(editNull).includes("Valid until"), masthead(editNull).slice(0, 400));
+  ok("…saying it is not set, not inventing a date", masthead(editNull).includes("No expiry date"));
+  ok("…next to the issue date it already showed", /Date/.test(masthead(editNull)));
+  const setExpiry = { ...STORED_QUOTE, language: "en" };
+  const editSet = render("document", "edit", "q1", { ...initialStateFromQuote(setExpiry), quote: setExpiry, costingLoaded: true });
+  ok("expiry: an edit WITH an expiry prints the date, not the not-set line", masthead(editSet).includes("Valid until") && !masthead(editSet).includes("No expiry date"));
+  const create = render("document", "create", null, initialStateFromQuote(null));
+  ok("expiry: a create still opens with the dated row", masthead(create).includes("Valid until") && !masthead(create).includes("No expiry date"));
+  // The classic layout always drew the field; pinned so it stays that way.
+  const classicNull = render("classic", "edit", "q1", initialStateFromQuote(nullExpiry));
+  ok("expiry: classic edit with no expiry draws the empty date field", /id="quote-valid-until"[^>]*value=""/.test(classicNull) || /value=""[^>]*id="quote-valid-until"/.test(classicNull));
+}
+
 // A stored draft carrying the estimator's own complexity factor (lib/pricing/
 // customFactors.js): saved as a LINE, reopened as a FACTOR in the editor,
 // drawn on the document as the reason line the client reads, and the same

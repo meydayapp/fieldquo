@@ -443,7 +443,7 @@ _Generated 2026-09-28 — 334 articles in the tree; written: en 334, fr 334, es 
 |---|:-:|:-:|:-:|---|---|:-:|
 | `your-plan-and-seats` — Your plan and seats | ✓ | ✓ | ✓ | plan |  |  |
 | `the-four-plans` — The four plans: Solo, Crew, Shop, Scale | ✓ | ✓ | ✓ |  | team_access |  |
-| `free-first-month` — Your first month is free | ✓ | ✓ | ✓ |  |  |  |
+| `free-first-month` — Your first 14 days are free | ✓ | ✓ | ✓ |  |  |  |
 | `monthly-or-a-year-commitment` — Monthly, or a one-year commitment | ✓ | ✓ | ✓ |  |  |  |
 | `change-your-plan` — Change your plan | ✓ | ✓ | ✓ |  |  |  |
 | `add-a-seat-or-a-crew-login` — Add a seat, or a free crew login | ✓ | ✓ | ✓ |  | team_access |  |

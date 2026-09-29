@@ -633,7 +633,7 @@ export const ARTICLES = {
         heading: "Planes y el pago de FieldQuo",
         blocks: [
           { bullets: [
-            "**¿Hay una prueba gratuita?** El primer mes es gratis. Se toma una tarjeta al registrarse y no se cobra nada hasta el segundo mes. Vea [[free-first-month|Su primer mes es gratis]].",
+            "**¿Hay una prueba gratuita?** Sí: los primeros 14 días son gratis, y no se cobra nada hasta que terminan. Vea [[free-first-month|Sus primeros 14 días son gratis]].",
             "**¿En qué se diferencian los planes?** En licencias y accesos de cuadrilla, nada más — cada función está en cada plan. Solo cuesta $99 al mes por 1 licencia y 5 accesos de cuadrilla; Crew $169 por 3 y 8; Shop $269 por 6 y 11; Scale $369 por 10 y 15. Vea [[the-four-plans|Los cuatro planes]].",
             "**¿Qué es una licencia, y qué es un acceso de cuadrilla?** Una licencia es alguien que crea y cambia presupuestos, trabajos y facturas. Un acceso de cuadrilla registra entrada, lee su horario y agrega fotos, y es gratuito. Vea [[seats-and-crew-logins|Licencias y accesos de cuadrilla]].",
             "**¿Un año sale más barato?** Sí — un compromiso de un año son dos meses gratis, facturado una vez al año. Vea [[monthly-or-a-year-commitment|Mensual, o un compromiso de un año]].",

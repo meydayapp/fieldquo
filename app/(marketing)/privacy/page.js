@@ -252,11 +252,12 @@ export default function PrivacyPage() {
         anonymised, aggregate figures (never its client-level data).
       </p>
       <p>
-        <strong>Data residency:</strong> we have not established, and do not
-        claim, that data is stored or processed in any particular country.
-        None of the services above are currently configured to guarantee
-        that, and this policy will not claim it until that changes and can be
-        verified.
+        <strong>Where data is hosted:</strong> FieldQuo&apos;s database and
+        application servers are in the United States, in the northern
+        Virginia / Washington, D.C. area (Neon on AWS us-east-1 and
+        Vercel&apos;s iad1 region). The other services listed above run on
+        their own infrastructure and may process the information they receive
+        in other countries, under their own terms.
       </p>
 
       {/* A subsection, not a new numbered section: other text points at

@@ -1,9 +1,9 @@
 const it = {
 
   // ── The furniture of a feature page ─────────────────────────────────────
-  "featurePage.chrome.startTrial": "Inizi il suo mese gratuito",
+  "featurePage.chrome.startTrial": "Inizi i suoi 14 giorni gratuiti",
   "featurePage.chrome.seePricing": "Vedi i prezzi",
-  "featurePage.chrome.firstMonthFree": "Il suo primo mese è gratuito. Una carta viene richiesta all'iscrizione e nulla viene addebitato fino alla fine del mese.",
+  "featurePage.chrome.firstMonthFree": "I suoi primi 14 giorni sono gratuiti, e nulla viene addebitato fino alla loro fine.",
   "featurePage.chrome.painsTitle": "Cosa le toglie dalla settimana",
   "featurePage.chrome.howTitle": "Come funziona qui",
   "featurePage.chrome.specificsTitle": "Nel dettaglio",
@@ -16,7 +16,7 @@ const it = {
   "featurePage.chrome.moreTitle": "Altro in quest'area",
   "featurePage.chrome.moreBody": "Ognuna di queste ha una pagina propria.",
   "featurePage.chrome.ctaTitle": "Lo provi sui suoi lavori",
-  "featurePage.chrome.ctaBody": "Il primo mese è gratuito. Porti le sue tariffe, il suo logo e l'elenco clienti che ha già.",
+  "featurePage.chrome.ctaBody": "I primi 14 giorni sono gratuiti. Porti le sue tariffe, il suo logo e l'elenco clienti che ha già.",
   "featurePage.chrome.talkToPerson": "Parli con una persona",
   "featurePage.chrome.alsoRead": "Gli artigiani che leggono questa pagina leggono anche",
 
