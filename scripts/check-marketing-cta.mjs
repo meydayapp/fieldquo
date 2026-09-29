@@ -291,8 +291,8 @@ if (noCardValue === undefined) {
       `${file} — does not render hero.noCard`,
       !/["'`]hero\.noCard["'`]/.test(src),
       "rewrite the key first — app/i18n/industries/en.js already has the honest " +
-        "wording for the same promise: \"Your first month is free — your card isn't " +
-        "charged until it ends.\"",
+        "wording for the same promise: \"Your first 14 days are free — your card isn't " +
+        "charged until they end.\"",
     );
   }
 }
@@ -375,8 +375,8 @@ const codeOnly = (src) =>
     offenders.length === 0,
     offenders.join("; ") +
       " — a card IS taken at signup (/api/companies opens Stripe Checkout). The honest " +
-      "wording for the same promise is \"Your first month is free — your card isn't " +
-      "charged until it ends.\"",
+      "wording for the same promise is \"Your first 14 days are free — your card isn't " +
+      "charged until they end.\"",
   );
 }
 

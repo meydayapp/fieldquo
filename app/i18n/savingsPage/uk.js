@@ -42,7 +42,7 @@ export const SAVINGS_PAGE_UK = {
   "marketing.savings.basis.reported": "Цифри, названі самими підрядниками",
   "marketing.savings.basis.estimate": "Наша оцінка",
   "marketing.savings.cta.title": "Чесний спосіб перевірити все це — на власних роботах.",
-  "marketing.savings.cta.body": "Перший місяць безкоштовний, і жодного договору.",
+  "marketing.savings.cta.body": "Перші 14 днів безкоштовні, і жодного договору.",
   "marketing.savings.cta.button": "Почати безкоштовно",
   "marketing.savings.unit.minutes.one": "{n} хвилина",
   "marketing.savings.unit.minutes.other": "{n} хвилин",

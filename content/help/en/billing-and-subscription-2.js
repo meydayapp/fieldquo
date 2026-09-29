@@ -97,7 +97,7 @@ export const ARTICLES = {
       "Which subscriptions get an email before the next charge, how far ahead it arrives, what it says, and why a monthly plan does not get one.",
     updated: "2026-09-12",
     intro: [
-      "Before FieldQuo charges your card for another period, it can warn you. It does so where a warning is useful: **30 days** before a yearly plan renews, and **7 days** before a free first month turns into the first real charge. A monthly plan gets no reminder — the same amount on the same day every month is not something anyone needs a letter about.",
+      "Before FieldQuo charges your card for another period, it can warn you. It does so where a warning is useful: **30 days** before a yearly plan renews, and **7 days** before a free trial turns into the first real charge. A monthly plan gets no reminder — the same amount on the same day every month is not something anyone needs a letter about.",
       "This article says exactly who gets the email, when, what is in it, and what to do if you want to change or cancel before the date it names.",
     ],
     sections: [
@@ -117,7 +117,7 @@ export const ARTICLES = {
             head: ["Your subscription", "Reminder"],
             rows: [
               ["Yearly plan (1 year commitment)", "30 days before the renewal date"],
-              ["Free first month, about to become paid", "7 days before the first charge (30 days if the plan is yearly)"],
+              ["Free trial, about to become paid", "7 days before the first charge (30 days if the plan is yearly)"],
               ["Monthly plan", "None — the amount and the day are the same every month"],
             ],
           } },
@@ -179,7 +179,7 @@ export const ARTICLES = {
         heading: "Overview",
         blocks: [
           { p: "Pressing **Cancel plan** opens a short flow: **Before you go** (why you are leaving), sometimes **One thing first** (an offer), then **Cancel your plan** (the consequences and the confirmation). What confirming does depends on whether you have paid. On a **paid plan** the subscription is booked to end on your next billing date: the status stays **Active**, the card reads *Your plan ends on {date} — nothing more will be charged*, and everything keeps working until then. On a **trial** the subscription ends at once, because nothing has been paid for. When the plan actually ends, its status becomes **Cancelled** and a 30-day read-only window starts. After it, the account locks until someone resumes." },
-          { warning: "Nothing is refunded — but nothing is lost either. A paid month or year runs to the date on your invoice and you keep working until then. A trial ends on the button press, and the free first month is not offered again: one free trial per company, ever. Restarting after a trial cancellation is charged on the day." },
+          { warning: "Nothing is refunded — but nothing is lost either. A paid month or year runs to the date on your invoice and you keep working until then. A trial ends on the button press, and the free trial is not offered again: one free trial per company, ever. Restarting after a trial cancellation is charged on the day." },
         ],
       },
       {
@@ -221,7 +221,7 @@ export const ARTICLES = {
             "**Then locked.** After the 30 days the account stays shut until the plan is started again. Nothing is deleted at any point; starting again gives all of it back.",
             "**Your clients keep every link.** Quotes, the client portal and invoice pay pages still open, and anything they pay still reaches your own Stripe account.",
             "**No refund, no loss.** A paid period runs to its date and you keep full access until then; the screen states that date before you confirm.",
-            "**Resume** is one button, on the banner and on Account & Billing, and it says on its face what pressing it does. On a plan booked to end: *Resume* — the booking is removed and the plan continues, nothing charged. On a paid plan that already ended with weeks left: *Resume — nothing charged until {date}* — the weeks you paid for are honoured on the new subscription. On a plan cancelled during its trial: *Restart — your first month is charged today ({amount})* — the free first month is not offered a second time. If Stripe has no card on file for you, Resume opens a Stripe checkout instead, with no trial. **Choose a different plan** is still on the same screen for a different tier.",
+            "**Resume** is one button, on the banner and on Account & Billing, and it says on its face what pressing it does. On a plan booked to end: *Resume* — the booking is removed and the plan continues, nothing charged. On a paid plan that already ended with weeks left: *Resume — nothing charged until {date}* — the weeks you paid for are honoured on the new subscription. On a plan cancelled during its trial: *Restart — your first month is charged today ({amount})* — the free trial is not offered a second time. If Stripe has no card on file for you, Resume opens a Stripe checkout instead, with no trial. **Choose a different plan** is still on the same screen for a different tier.",
           ] },
         ],
       },
@@ -270,7 +270,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Overview",
         blocks: [
-          { p: "Every company has a referral code and a link on **Refer & Earn**. A business that signs up through it starts with its normal free first month plus one referral month. You are then listed under **Businesses you've referred** as **Signed up — not yet paying** until their first paid invoice clears, at which point the badge becomes **Credited** and a month is added to your own access, automatically." },
+          { p: "Every company has a referral code and a link on **Refer & Earn**. A business that signs up through it starts with its normal 14-day free trial plus one referral month. You are then listed under **Businesses you've referred** as **Signed up — not yet paying** until their first paid invoice clears, at which point the badge becomes **Credited** and a month is added to your own access, automatically." },
           { p: "The month is the same size whoever you refer. A Solo company referring a Scale company earns a month of Solo; the size of the business you bring in does not change what you get — the screen says so in its own words." },
         ],
       },
@@ -281,7 +281,7 @@ export const ARTICLES = {
           { steps: [
             "Open **Refer & Earn** (in the main sidebar, or under Settings) and share **Your link** — **Copy** it, or use **Send an invite** by email or text. FieldQuo sends one message and does not follow up, and the invite form allows 20 a day.",
             "The other business signs up through the link. Their free trial is extended by one month on the spot, and they appear in your list as **Signed up — not yet paying**.",
-            "They pay their first real invoice — the free month is $0, so the first charge after it — having finished onboarding and connected a verified Stripe account for taking payments.",
+            "They pay their first real invoice — the free trial is $0, so the first charge after it — having finished onboarding and connected a verified Stripe account for taking payments.",
             "Your month is added the moment that payment lands, and the row reads **Credited**.",
           ] },
           { figure: "live:app-settings-refer", caption: "Refer & Earn — your link, the invite form, and the businesses you have referred with their status." },
@@ -295,7 +295,7 @@ export const ARTICLES = {
           { table: {
             head: ["Your account", "What the month does"],
             rows: [
-              ["Still on the free first month", "Your trial end date moves one month later. Nothing is charged until then."],
+              ["Still on the free trial", "Your trial end date moves one month later. Nothing is charged until then."],
               ["Paying monthly", "Your next charge is deferred by a calendar month. The plan keeps going; you are simply not billed for that month."],
               ["Paying yearly", "Your renewal date moves one month later — a year ending 27 Aug renews 27 Sep. You are not billed another year to receive it."],
             ],
@@ -325,7 +325,7 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "The business I referred signed up weeks ago. Why am I still not credited?", a: "Their row still reads Signed up — not yet paying. The month is granted on their first real payment, after their free month, and only once their onboarding is complete and their Stripe account for client payments is verified." },
+      { q: "The business I referred signed up weeks ago. Why am I still not credited?", a: "Their row still reads Signed up — not yet paying. The month is granted on their first real payment, after their free trial, and only once their onboarding is complete and their Stripe account for client payments is verified." },
       { q: "Is it a discount or a free month?", a: "A free month: your next charge moves a month later. It is not a dollar credit against a bigger invoice." },
       { q: "Does the referred business get anything?", a: "Yes — one extra month added to their free trial at signup, before they have paid anything." },
     ],

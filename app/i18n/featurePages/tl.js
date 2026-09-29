@@ -11,9 +11,9 @@
 const tl = {
 
   // ── The furniture of a feature page ─────────────────────────────────────
-  "featurePage.chrome.startTrial": "Simulan ang libreng buwan mo",
+  "featurePage.chrome.startTrial": "Simulan ang 14 na libreng araw mo",
   "featurePage.chrome.seePricing": "Tingnan ang presyo",
-  "featurePage.chrome.firstMonthFree": "Libre ang unang buwan mo. Hihingin ang card sa pag-sign up at walang sisingilin hanggang matapos ang buwan.",
+  "featurePage.chrome.firstMonthFree": "Libre ang unang 14 na araw mo, at walang sisingilin hanggang matapos ang mga ito.",
   "featurePage.chrome.painsTitle": "Ano ang binabawas nito sa linggo mo",
   "featurePage.chrome.howTitle": "Paano ito gumagana dito",
   "featurePage.chrome.specificsTitle": "Ang mga detalye",
@@ -26,7 +26,7 @@ const tl = {
   "featurePage.chrome.moreTitle": "Iba pa sa bahaging ito",
   "featurePage.chrome.moreBody": "May sariling pahina ang bawat isa sa mga ito.",
   "featurePage.chrome.ctaTitle": "Subukan ito sa sarili mong mga trabaho",
-  "featurePage.chrome.ctaBody": "Libre ang unang buwan. Dalhin ang sarili mong presyo, sarili mong logo at ang listahan ng kliyenteng meron ka na.",
+  "featurePage.chrome.ctaBody": "Libre ang unang 14 na araw. Dalhin ang sarili mong presyo, sarili mong logo at ang listahan ng kliyenteng meron ka na.",
   "featurePage.chrome.talkToPerson": "Makipag-usap sa totoong tao",
   "featurePage.chrome.alsoRead": "Binabasa rin ng mga kontratistang nagbabasa nito",
 

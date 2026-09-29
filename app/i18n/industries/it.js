@@ -7,7 +7,7 @@ const it = {
     startTrial: "Prova gratuita",
     talkToUs: "Parliamone",
     noCard:
-      "Il primo mese è gratuito — la sua carta non viene addebitata finché non finisce.",
+      "I primi 14 giorni sono gratuiti — la sua carta non viene addebitata finché non finiscono.",
     videoSoon: "Presentazione del prodotto in arrivo",
     videoDemoPrefix: "Preferisce vederla dal vivo?",
     videoDemoLink: "Prenota una demo",

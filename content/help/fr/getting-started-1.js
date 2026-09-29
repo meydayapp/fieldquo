@@ -90,10 +90,10 @@ export const ARTICLES = {
   "start-your-free-trial": {
     title: "Commencer votre essai gratuit",
     summary:
-      "Quatre étapes sur le formulaire d'inscription public, une carte au paiement, et rien de facturé le premier mois.",
+      "Quatre étapes sur le formulaire d'inscription public, une carte au paiement, et rien de facturé les 14 premiers jours.",
     updated: "2026-09-12",
     intro: [
-      "L'inscription d'une entreprise se fait en libre-service : n'importe qui peut ouvrir la page d'inscription, créer son entreprise, choisir un forfait et commencer. Le premier mois est gratuit, et une carte est prise au paiement pour que le deuxième mois puisse être facturé sans nouvelle conversation.",
+      "L'inscription d'une entreprise se fait en libre-service : n'importe qui peut ouvrir la page d'inscription, créer son entreprise, choisir un forfait et commencer. Les 14 premiers jours sont gratuits, et une carte est prise au paiement pour que le forfait puisse être facturé à leur fin sans nouvelle conversation.",
       "Rejoindre une entreprise qui existe déjà, c'est autre chose : ça se fait sur invitation seulement. Si un collègue utilise déjà FieldQuo, demandez-lui de vous inviter depuis Gérer l'équipe; voir [[invite-a-team-member|Inviter un membre de l'équipe]].",
     ],
     sections: [
@@ -101,7 +101,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Aperçu",
         blocks: [
-          { p: "Le formulaire affiche **Commencez votre mois gratuit** en haut et parcourt quatre étapes : Account, Trades, Services, Plan. Un identifiant possède une seule entreprise; si vous êtes déjà connecté avec une entreprise, la page vous le dit et vous propose d'aller à votre tableau de bord ou d'inviter quelqu'un à la place." },
+          { p: "Le formulaire affiche **Commencez vos 14 jours gratuits** en haut et parcourt quatre étapes : Account, Trades, Services, Plan. Un identifiant possède une seule entreprise; si vous êtes déjà connecté avec une entreprise, la page vous le dit et vous propose d'aller à votre tableau de bord ou d'inviter quelqu'un à la place." },
         ],
       },
       {
@@ -136,9 +136,9 @@ export const ARTICLES = {
       },
       {
         id: "the-card-and-the-free-month",
-        heading: "La carte, et le mois gratuit",
+        heading: "La carte, et l'essai gratuit",
         blocks: [
-          { p: "**Continue to Payment** crée l'entreprise et ouvre Stripe Checkout. Stripe prend la carte; FieldQuo ne voit jamais le numéro. La ligne au-dessus du bouton le dit clairement : **Free first month**, puis le prix du forfait. Rien n'est facturé aujourd'hui — le mois gratuit dure 30 jours à partir de la création de l'entreprise, et le premier prélèvement tombe à la fin. Voir [[free-first-month|Le premier mois gratuit]]." },
+          { p: "**Continue to Payment** crée l'entreprise et ouvre Stripe Checkout. Stripe prend la carte; FieldQuo ne voit jamais le numéro. La ligne au-dessus du bouton le dit clairement : **14 jours gratuits**, puis le prix du forfait. Rien n'est facturé aujourd'hui — l'essai dure 14 jours à partir de la création de l'entreprise, et le premier prélèvement tombe à la fin. Voir [[free-first-month|Vos 14 premiers jours sont gratuits]]." },
           { warning: "Si vous fermez l'onglet du paiement, l'entreprise existe mais n'a pas de carte, et chaque écran de l'application reste fermé tant qu'elle n'en a pas. En vous reconnectant, vous arrivez sur **Une dernière étape** — « {company} est configurée — il ne manque qu'une carte pour pouvoir l'utiliser » — avec l'étape du forfait prête à terminer." },
           { tip: "Arrivé par le lien de parrainage d'un autre entrepreneur? La bannière du formulaire le dit, et un mois gratuit de plus s'ajoute à votre essai. La personne qui vous a recommandé gagne un mois une fois que vous êtes client payant. Voir [[referral-months|Les mois de parrainage]]." },
         ],
@@ -157,7 +157,7 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "Dois-je donner une carte pour essayer?", a: "Oui — au paiement, par Stripe. Rien n'est facturé pendant le mois gratuit, et vous pouvez annuler avant la fin depuis Compte et facturation." },
+      { q: "Dois-je donner une carte pour essayer?", a: "Oui — au paiement, par Stripe. Rien n'est facturé pendant les 14 jours gratuits, et vous pouvez annuler avant la fin depuis Compte et facturation." },
       { q: "Puis-je choisir la devise?", a: "Non. Elle est lue dans l'adresse que vous avez donnée. Les deux listes de prix portent les mêmes chiffres, il n'y a donc rien à choisir." },
       { q: "J'utilise déjà FieldQuo au travail. Puis-je inscrire ma propre entreprise aussi?", a: "Un identifiant possède une seule entreprise. Inscrivez votre propre entreprise avec une autre adresse courriel." },
       { q: "Puis-je changer de forfait plus tard?", a: "Oui, depuis Compte et facturation — voir [[change-your-plan|Changer de forfait]]. Passer à un forfait supérieur prend effet tout de suite." },

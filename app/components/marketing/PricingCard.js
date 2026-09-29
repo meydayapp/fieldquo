@@ -119,9 +119,9 @@ export default function PricingCard({ plan, selected, onSelect, interval = "mont
         <div className="mt-2 text-sm text-muted-foreground">
           <OfferRibbon offer={offer} t={t} />
           <div className="mb-1">{t("pricing.then")}</div>
-          {/* The free first month is a Stripe trial on BOTH cadences (see
+          {/* The free trial is a Stripe trial on BOTH cadences (see
               lib/platform/stripeBilling.js createTrialCheckoutSession): no
-              charge for thirty days, then the offer below. So nothing here
+              charge for the trial days (TRIAL_DAYS), then the offer below. So nothing here
               says "today" — nothing is charged today; the summary under the
               cards says when the first charge lands. */}
           <PlanOfferPrice offer={offer} t={t} money={offerMoney(symbol, locale)} locale={locale} size="md" />

@@ -90,10 +90,10 @@ export const ARTICLES = {
   "start-your-free-trial": {
     title: "Empiece su prueba gratis",
     summary:
-      "Cuatro pasos en el formulario público de registro, una tarjeta al pagar, y nada cobrado durante el primer mes.",
+      "Cuatro pasos en el formulario público de registro, una tarjeta al pagar, y nada cobrado durante los primeros 14 días.",
     updated: "2026-09-12",
     intro: [
-      "Registrar una empresa es autoservicio: cualquiera puede abrir la página de registro, configurar un negocio, elegir un plan y empezar. El primer mes es gratis, y se toma una tarjeta al pagar para que el segundo mes pueda cobrarse sin una segunda conversación.",
+      "Registrar una empresa es autoservicio: cualquiera puede abrir la página de registro, configurar un negocio, elegir un plan y empezar. Los primeros 14 días son gratis, y se toma una tarjeta al pagar para que el plan pueda cobrarse cuando terminen sin una segunda conversación.",
       "Unirse a una empresa que ya existe es distinto: solo por invitación. Si un colega ya usa FieldQuo, pídale que lo invite desde Gestionar equipo; vea [[invite-a-team-member|Invitar a un miembro del equipo]].",
     ],
     sections: [
@@ -101,7 +101,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Resumen",
         blocks: [
-          { p: "El formulario dice **Empieza tu mes gratis** arriba y recorre cuatro pasos: Account, Trades, Services, Plan. Una cuenta de acceso posee un solo negocio; si ya inició sesión con una empresa, la página se lo dice y le ofrece ir a su panel o invitar a alguien en su lugar." },
+          { p: "El formulario dice **Empieza tus 14 días gratis** arriba y recorre cuatro pasos: Account, Trades, Services, Plan. Una cuenta de acceso posee un solo negocio; si ya inició sesión con una empresa, la página se lo dice y le ofrece ir a su panel o invitar a alguien en su lugar." },
         ],
       },
       {
@@ -136,9 +136,9 @@ export const ARTICLES = {
       },
       {
         id: "the-card-and-the-free-month",
-        heading: "La tarjeta, y el mes gratis",
+        heading: "La tarjeta, y la prueba gratuita",
         blocks: [
-          { p: "**Continue to Payment** crea la empresa y abre Stripe Checkout. Stripe toma la tarjeta; FieldQuo nunca ve el número. La línea sobre el botón lo dice claro: **Free first month**, y luego el precio del plan. Hoy no se cobra nada — el mes gratis dura 30 días desde que se crea la empresa, y el primer cargo cae cuando termina. Vea [[free-first-month|El primer mes gratis]]." },
+          { p: "**Continue to Payment** crea la empresa y abre Stripe Checkout. Stripe toma la tarjeta; FieldQuo nunca ve el número. La línea sobre el botón lo dice claro: **14 días gratis**, y luego el precio del plan. Hoy no se cobra nada — la prueba dura 14 días desde que se crea la empresa, y el primer cargo cae cuando termina. Vea [[free-first-month|Sus primeros 14 días son gratis]]." },
           { warning: "Si cierra la pestaña del pago, la empresa existe pero no tiene tarjeta, y cada pantalla de la aplicación queda cerrada hasta que la tenga. Al volver a iniciar sesión cae en **Falta un paso** — «{company} está configurada — solo falta una tarjeta para que puedas usarla» — con el paso del plan listo para terminar." },
           { tip: "¿Llegó por el enlace de recomendación de otro contratista? El aviso del formulario lo dice, y se añade un mes gratis extra a su prueba. La persona que lo recomendó gana un mes cuando usted ya es cliente de pago. Vea [[referral-months|Los meses por recomendación]]." },
         ],
@@ -157,7 +157,7 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "¿Tengo que dar una tarjeta para probarlo?", a: "Sí — al pagar, a través de Stripe. No se cobra nada durante el mes gratis, y puede cancelar antes de que termine desde Cuenta y facturación." },
+      { q: "¿Tengo que dar una tarjeta para probarlo?", a: "Sí — al pagar, a través de Stripe. No se cobra nada durante los 14 días gratis, y puede cancelar antes de que termine desde Cuenta y facturación." },
       { q: "¿Puedo elegir la moneda?", a: "No. Se lee de la dirección que usted dio. Las dos listas de precios llevan los mismos números, así que no hay nada que elegir." },
       { q: "Ya uso FieldQuo en mi trabajo. ¿Puedo registrar también mi propio negocio?", a: "Una cuenta de acceso posee un solo negocio. Registre su propia empresa con otra dirección de correo." },
       { q: "¿Puedo cambiar de plan después?", a: "Sí, desde Cuenta y facturación — vea [[change-your-plan|Cambiar de plan]]. Subir de plan surte efecto de inmediato." },
