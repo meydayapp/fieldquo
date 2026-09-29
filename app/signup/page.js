@@ -1,61 +1,56 @@
 // app/signup/page.js
+//
+// ══ One screen (2026-09-29) ════════════════════════════════════════════════
+//
+// The owner approved a Jobber-shaped signup: this page asks for a work email,
+// a password and an unticked "Send me product news and offers", and its one
+// button — "Start my free trial" — creates the login AND the company. Every
+// question about the business comes afterwards, one screen at a time, at
+// /welcome/<step> (app/welcome, lib/signup/welcome.js), where a person who
+// signs out or comes back next week lands on the question they stopped at.
+//
+// It replaces, in place and with no flag, the seven-step funnel that asked
+// for eleven fields before anything existed. What that page did beyond the
+// form is kept here unchanged, because those are other people's doors:
+//
+//   · a ?resume= link is routed before anything renders (lib/signup/
+//     resumeRoute.js) — now to the next unanswered welcome question;
+//   · a company created before 2026-09-24 that never finished Stripe
+//     checkout still finishes it here, on the plan step (finishCheckout);
+//   · a login that already has a business is told so, not offered another
+//     (one business per login — the route refuses too);
+//   · a login with NO company (the old funnel's abandoned state) gets the
+//     same "Start my free trial" press, without a second password;
+//   · ?ref= / ?sales= / utm_* / ?link= / ?next= / ?tier= ride along to
+//     POST /api/companies exactly as before.
+//
+// Old deep links: the steps were never URLs, only a step name in this tab's
+// draft; a draft naming an old step is ignored and the visitor lands here
+// (signed out) or on their next welcome question (signed in).
 "use client";
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { signUp, signOut } from "@/lib/auth-client";
-import { TRIAL_PRICE, trialLabel } from "@/lib/pricing";
-import {
-  STEPS,
-  firstStep,
-  resumeStep,
-  previousStep,
-  nextStep,
-  billingBasis,
-} from "@/lib/signup/funnel";
-import {
-  annualPriceOf,
-  annualSaving,
-  chargeFor,
-} from "@/lib/billing/interval";
+import { TRIAL_PRICE, TRIAL_DAYS, TRIAL_CARD_REQUIRED, trialLabel } from "@/lib/pricing";
+import { billingBasis } from "@/lib/signup/funnel";
+import { annualPriceOf, annualSaving, chargeFor } from "@/lib/billing/interval";
 import { currencyLabel } from "@/lib/pricing/ladder";
 import { yearTabSaving } from "@/lib/pricing/planOffer";
 import { offerMoney } from "@/app/components/billing/PlanOfferPrice";
-import { INDUSTRIES } from "@/app/data/industries";
-import { categoryKeysForIndustries } from "@/app/data/industryCategories";
 import PricingCard from "@/app/components/marketing/PricingCard";
 import MarketingHeader from "@/app/components/marketing/MarketingHeader";
 import AuthShell from "@/app/components/auth/AuthShell";
-import AuthAside, { SignupAsideStrip } from "@/app/components/auth/AuthAside";
-import { ChoiceChips } from "@/app/components/auth/SignupPreviews";
-import {
-  SIGNUP_GOALS,
-  SIGNUP_SOURCE_MAX,
-  TEAM_SIZE_BANDS,
-  YEARS_BANDS,
-} from "@/lib/signup/signupPreview";
-import SignupSteps from "@/app/components/auth/SignupSteps";
-import {
-  fieldClass,
-  READONLY_FIELD,
-  FIELD_LABEL,
-  FIELD_ERROR,
-  PRIMARY_BUTTON,
-} from "@/app/components/auth/fieldStyles";
-
-// add to imports at top of app/signup/page.js
-import AddressAutocomplete from "@/app/components/AddressAutocomplete";
-import { formatPhoneInput, isValidPhone, isValidEmail } from "@/lib/validation";
-import { LANGUAGES } from "@/app/i18n/languages";
+import WelcomeAside from "@/app/components/auth/WelcomeAside";
+import { fieldClass, FIELD_LABEL, FIELD_ERROR, PRIMARY_BUTTON } from "@/app/components/auth/fieldStyles";
+import { isValidEmail } from "@/lib/validation";
 import { COUNTRIES } from "@/lib/currency";
 import { isInternalPath } from "@/lib/appUrl";
 import { useTranslation } from "@/app/hooks/useTranslation";
-import { trackSignupStep, visitorId } from "@/lib/analytics/track";
-import { CAPTURE_DEBOUNCE_MS, CAPTURE_ENDPOINT, captureBodyFor, captureFingerprint } from "@/lib/signup/leadCapture";
-import { readWebsiteAnswer } from "@/lib/signup/website";
+import { trackSignupStep } from "@/lib/analytics/track";
+import { CAPTURE_ENDPOINT } from "@/lib/signup/leadCapture";
 import { RESUME_ACTIONS, safeResumeTarget } from "@/lib/signup/resumeRoute";
-import SignupCreating from "@/app/components/auth/SignupCreating";
-import { CREATING_TIMEOUTS, initialStages, runSignupCreation } from "@/lib/signup/creatingProgress";
+import { WELCOME_NEXT_KEY, WELCOME_LINK_KEY } from "@/app/welcome/storageKeys";
 
 // "1 month free" / "3 months free". The banner hardcoded the plural and read
 // "1 months free" for the whole life of the current one-month offer. Same
@@ -99,46 +94,6 @@ function around(sentence, placeholder) {
   return [sentence.slice(0, at), sentence.slice(at + placeholder.length)];
 }
 
-/**
- * The names of the fields applyLeadPrefill put back, in the words the form
- * labels them with, joined for the resumed-signup banner. The two picks
- * (trades, services) have no form label and get their own short words.
- * Empty when nothing the person can see was restored — the caller then
- * shows the honest "carry on below" sentence instead.
- */
-function restoredFieldNames(fields, t) {
-  // No email, first or last name: those live on the account step, which a
-  // person who already has a login is never shown again — naming a field
-  // they cannot find on the page reads as one more thing that was lost.
-  const label = {
-    companyName: () => t("app.signup.field.companyName", "Company name"),
-    phone: () => t("app.signup.field.phone", "Phone"),
-    address: () => t("app.signup.address", "Address"),
-    city: () => t("app.signup.field.city", "City"),
-    province: () => t("app.signup.field.province", "Province"),
-    country: () => t("app.signup.field.country", "Country"),
-    language: () => t("app.signup.field.language", "Language"),
-    trades: () => t("app.signup.resumed.field.trades", "your trades"),
-    website: () => t("app.signup.resumed.field.website", "your website answer"),
-    services: () => t("app.signup.resumed.field.services", "your services"),
-  };
-  return (Array.isArray(fields) ? fields : [])
-    .map((f) => (label[f] ? label[f]() : null))
-    .filter(Boolean)
-    .join(", ");
-}
-
-/**
- * Better Auth stores one `name`; this form asks for two. The account step
- * joined them with a space, so the first word is the first name and the
- * rest the last — good enough for a prefill, and empty strings (which
- * applyLeadPrefill skips) when the session has no name at all.
- */
-function splitName(name) {
-  const words = String(name || "").trim().split(/\s+/).filter(Boolean);
-  if (!words.length) return { firstName: "", lastName: "" };
-  return { firstName: words[0], lastName: words.slice(1).join(" ") };
-}
 
 // Prices on this page are whole dollars in a stated currency, and the currency
 // is written with the ladder's own label (CA$ / US$) rather than a bare "$" —
@@ -243,14 +198,6 @@ function BillingIntervalTabs({ t, value, onChange, yearDisabled, percent, upTo }
     </div>
   );
 }
-
-// Where a half-finished signup is kept between visits.
-//
-// sessionStorage, not localStorage and not a cookie. Three reasons, in order:
-// this is one person's unfinished form in one tab, so it should die with the
-// tab rather than sit on a van's shared laptop; it holds their name, email,
-// phone and home address, which is not something to leave behind on a machine;
-// and a second tab starting a different signup must not inherit the first one's
 // company. The PASSWORD is deliberately never written to it.
 /**
  * Tell the rep's panel where this signup is. Fire-and-forget on purpose:
@@ -269,449 +216,6 @@ function reportSignupStep(token, step) {
   } catch {
     // A runtime without fetch keepalive, or a blocked request. Nothing to do.
   }
-}
-
-/**
- * Keep what this step has typed — lib/signup/leadCapture.js says what and
- * when. A JSON body to the capture endpoint, fire-and-forget, `keepalive` so
- * a post fired on the way to Stripe still leaves. The page never reads the
- * answer; a blocked request costs the signup nothing.
- */
-function postSignupCapture(body) {
-  try {
-    fetch(CAPTURE_ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      keepalive: true,
-    }).catch(() => {});
-  } catch {
-    // A runtime without fetch keepalive, or a blocked request. Nothing to do.
-  }
-}
-
-const DRAFT_KEY = "fieldquo:signup-draft";
-
-// Better Auth enforces 8–128 characters on the server — its own defaults, since
-// lib/auth.js sets neither minPasswordLength nor maxPasswordLength. The client
-// only ever checked the minimum, so an over-long password passed validation here
-// and came back from signUp as an opaque failure with nothing on the field.
-const PASSWORD_MIN = 8;
-const PASSWORD_MAX = 128;
-
-// The company half of the form, shared by the "account" and "business" steps.
-// `t` comes in as an argument: these are module-scope functions, not
-// components, so they cannot call the hook — and the messages they return are
-// rendered straight under the field.
-// `t` defaults to the English-only formatter: one caller (the abandoned-
-// signup snapshot) judges readiness without rendering anything, and a
-// validator that throws "t is not a function" the moment a field is empty
-// took the whole funnel down on 2026-09-13 — every visitor saw "This page
-// couldn't load". A message nobody reads may be English; a crash may not.
-export function validateCompanyFields(form, t = englishOnly) {
-  const errors = {};
-  if (!form.companyName.trim())
-    errors.companyName = t("app.signup.error.companyName", "Company name is required");
-  if (form.phone && !isValidPhone(form.phone))
-    errors.phone = t("app.signup.error.phone", "Format: 555-123-4567");
-  if (!form.address.trim())
-    errors.address = t("app.signup.error.address", "Start typing and select your address");
-  // "Do you have a website?" is optional — unanswered is allowed and stays
-  // unanswered. A "Yes" must come with an address that is one, through the
-  // same reader the capture and /api/companies use (lib/signup/website.js).
-  if (readWebsiteAnswer(form).error)
-    errors.website = t("app.signup.error.website", "Enter your website address, like yourcompany.com — or choose No");
-  return errors;
-}
-
-// Everything the account step asks for: the company rules above plus the
-// personal fields only that step collects.
-function validateAccountFields(form, t = englishOnly) {
-  const errors = validateCompanyFields(form, t);
-  if (!form.firstName.trim())
-    errors.firstName = t("app.signup.error.firstName", "First name is required");
-  if (!form.lastName.trim())
-    errors.lastName = t("app.signup.error.lastName", "Last name is required");
-  if (!isValidEmail(form.email))
-    errors.email = t("app.signup.error.email", "Enter a valid email address");
-  if (!form.password || form.password.length < PASSWORD_MIN)
-    errors.password = t("app.signup.error.passwordMin", `At least ${PASSWORD_MIN} characters`, { n: PASSWORD_MIN });
-  else if (form.password.length > PASSWORD_MAX)
-    errors.password = t("app.signup.error.passwordMax", `At most ${PASSWORD_MAX} characters`, { n: PASSWORD_MAX });
-  return errors;
-}
-
-// What CompanyFields / AccountFields translate with when nobody hands them a
-// `t`: the English fallback, verbatim. SignupPage always passes its own, so in
-// the product this never runs. It exists for scripts/check-auth-pages.mjs,
-// which calls the two components as plain functions — outside React, where the
-// hook would throw — to prove every field still reads and writes its key of
-// `form`; that check compares the labels it finds against the English words,
-// so the fallback has to BE those words.
-const englishOnly = (key, fallbackOrValues) =>
-  typeof fallbackOrValues === "string" ? fallbackOrValues : key;
-
-// Where a visit starts before anything is known about it. Derived from the
-// funnel rather than typed, so the two can't drift apart.
-const INITIAL_STEP = firstStep({ accountExists: false });
-
-// The step order, the resume rules and the country→currency read all live in
-// lib/signup/funnel.js — pure, so scripts/check-signup-order.mjs executes them
-// against the whole state matrix instead of this file's behaviour being argued
-// about. STEPS is imported above and deliberately not redeclared here.
-
-// The company half of the form. Rendered by two steps — "account" (new login +
-// first business) and "business" (an existing login adding another) — as one
-// component rather than two copies, because the copy is the one that rots.
-//
-// Module scope on purpose: declared inside SignupPage it would be a new
-// component type on every render, remounting AddressAutocomplete and losing
-// focus mid-keystroke.
-function CompanyFields({ form, setForm, fieldErrors, t = englishOnly }) {
-  return (
-    <>
-      <div>
-        {/* htmlFor/id throughout, which none of these fields had. Tapping a
-            label on a phone did nothing and a screen reader read eleven
-            unlabelled boxes. The ids are prefixed because the account step
-            renders this component inside a form that has its own fields. */}
-        <label htmlFor="signup-companyName" className={FIELD_LABEL}>
-          {t("app.signup.field.companyName", "Company name")}
-        </label>
-        <input
-          id="signup-companyName"
-          autoComplete="organization"
-          value={form.companyName}
-          onChange={(e) => setForm({ ...form, companyName: e.target.value })}
-          className={fieldClass(Boolean(fieldErrors.companyName))}
-        />
-        {fieldErrors.companyName && (
-          <p className={FIELD_ERROR}>{fieldErrors.companyName}</p>
-        )}
-      </div>
-
-      <div>
-        <label htmlFor="signup-phone" className={FIELD_LABEL}>
-          {t("app.signup.field.phone", "Phone")}
-        </label>
-        <input
-          id="signup-phone"
-          type="tel"
-          autoComplete="tel"
-          value={form.phone}
-          onChange={(e) =>
-            setForm({ ...form, phone: formatPhoneInput(e.target.value) })
-          }
-          placeholder="555-123-4567"
-          className={fieldClass(Boolean(fieldErrors.phone))}
-        />
-        {fieldErrors.phone && <p className={FIELD_ERROR}>{fieldErrors.phone}</p>}
-      </div>
-
-      <div>
-        {/* No htmlFor here, alone among these fields. AddressAutocomplete does
-            not take an `id` — it renders Google's own input — and a label
-            pointing at an id nothing carries is a control that looks wired and
-            is not. The fix belongs in that component, which this change does
-            not own. */}
-        <label className={FIELD_LABEL}>{t("app.signup.address", "Address")}</label>
-        <AddressAutocomplete
-          value={form.address}
-          onChange={(val) => setForm((f) => ({ ...f, address: val }))}
-          // address-jurisdiction: keeps city, province AND country.
-          //
-          // `country` was dropped, and it is not cosmetic here — it seeds
-          // Company.country, which drives the billing currency AND is the
-          // fallback jurisdiction every quote falls back to when the client's
-          // own address can't answer (lib/tax/documentTax.js). Left at the
-          // "CA" default, a contractor who typed a Texas address got a
-          // Canadian company. Google's short_name is already ISO alpha-2.
-          //
-          // Only overwritten when Google actually returned one — a partial
-          // place must not blank a country the user picked by hand.
-          onPlaceSelected={({ address, city, province, postalCode, country }) =>
-            setForm((f) => ({
-              ...f,
-              address,
-              city: city || f.city,
-              province: province || f.province,
-              postalCode: postalCode || f.postalCode,
-              country: country || f.country,
-            }))
-          }
-          placeholder={t("app.signup.field.addressPlaceholder", "Start typing your address...")}
-          className={fieldClass(Boolean(fieldErrors.address))}
-        />
-        {fieldErrors.address && (
-          <p className={FIELD_ERROR}>{fieldErrors.address}</p>
-        )}
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label htmlFor="signup-city" className={FIELD_LABEL}>
-            {t("app.signup.field.city", "City")}
-          </label>
-          <input
-            id="signup-city"
-            value={form.city}
-            readOnly
-            placeholder={t("app.signup.field.autoFilled", "Auto-filled from address")}
-            className={READONLY_FIELD}
-          />
-        </div>
-        <div>
-          <label htmlFor="signup-province" className={FIELD_LABEL}>
-            {t("app.signup.field.province", "Province")}
-          </label>
-          <input
-            id="signup-province"
-            value={form.province}
-            readOnly
-            placeholder={t("app.signup.field.autoFilled", "Auto-filled from address")}
-            className={READONLY_FIELD}
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label htmlFor="signup-country" className={FIELD_LABEL}>
-            {t("app.signup.field.country", "Country")}
-          </label>
-          <select
-            id="signup-country"
-            value={form.country}
-            onChange={(e) => setForm({ ...form, country: e.target.value })}
-            className={fieldClass(false)}
-          >
-            {/* An explicit empty option, because the form no longer seeds "CA".
-                Without it the select would DISPLAY Canada while the value was
-                "" — the screen stating something the record does not, which is
-                the whole failure this change removes. */}
-            <option value="">{t("app.signup.field.selectCountry", "Select a country…")}</option>
-            {COUNTRIES.map((c) => (
-              <option key={c.code} value={c.code}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-          {/* Filled in from the address you pick, and it decides which prices
-              you are shown on the last step. */}
-          <p className="text-xs text-muted-foreground mt-1">
-            {t("app.signup.field.countryHint", "Filled in from your address. Sets your billing currency.")}
-          </p>
-        </div>
-        <div>
-          <label htmlFor="signup-language" className={FIELD_LABEL}>
-            {t("app.signup.field.language", "Language")}
-          </label>
-          <select
-            id="signup-language"
-            value={form.language}
-            onChange={(e) => setForm({ ...form, language: e.target.value })}
-            className={fieldClass(false)}
-          >
-            {LANGUAGES.map((l) => (
-              <option key={l.code} value={l.code}>
-                {l.nativeName}
-              </option>
-            ))}
-          </select>
-          <p className="text-xs text-muted-foreground mt-1">
-            {t("app.signup.field.languageHint", "Your default in the app.")}
-          </p>
-        </div>
-      </div>
-
-      {/* ── Do you have a website? ─────────────────────────────────────────
-          Yes → the address (Company.website, the column the company's own
-          site already lived in); No → that answer, kept (Company.hasWebsite
-          false), which puts "Create your website" on their set-up steps.
-          Optional: unanswered stays null, never read as a no. Two buttons
-          rather than radios so a second press takes the answer back. */}
-      <div role="group" aria-labelledby="signup-hasWebsite-label">
-        <p id="signup-hasWebsite-label" className={FIELD_LABEL}>
-          {t("app.signup.field.hasWebsite", "Do you have a website?")}
-        </p>
-        <div className="flex gap-2">
-          {[
-            [true, t("app.signup.field.hasWebsiteYes", "Yes")],
-            [false, t("app.signup.field.hasWebsiteNo", "No")],
-          ].map(([value, label]) => (
-            <button
-              key={String(value)}
-              type="button"
-              aria-pressed={form.hasWebsite === value}
-              onClick={() =>
-                setForm((f) => ({ ...f, hasWebsite: f.hasWebsite === value ? null : value }))
-              }
-              className={`flex-1 text-sm border rounded-lg px-4 py-2 ${
-                form.hasWebsite === value ? "border-inverted bg-muted font-medium" : "border-border bg-card"
-              }`}
-              data-has-website={String(value)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        {form.hasWebsite === false && (
-          <p className="text-xs text-muted-foreground mt-1">
-            {t("app.signup.field.websiteHint", "No problem — you can build one inside FieldQuo once you're in.")}
-          </p>
-        )}
-      </div>
-      {form.hasWebsite === true && (
-        <div>
-          <label htmlFor="signup-website" className={FIELD_LABEL}>
-            {t("app.signup.field.website", "Website address")}
-          </label>
-          {/* type="text", not "url": the browser's URL validator refuses
-              "www.truefinishcabinets.com" (no scheme) with its own "Please
-              enter a URL." and blocks Continue — and owners type www.
-              without https. inputMode keeps the URL keyboard on a phone;
-              lib/signup/website.js adds https:// and refuses junk, and the
-              refusal is OUR inline error, in the signup's language. */}
-          <input
-            id="signup-website"
-            type="text"
-            inputMode="url"
-            autoComplete="url"
-            value={form.website || ""}
-            onChange={(e) => setForm({ ...form, website: e.target.value })}
-            placeholder="yourcompany.com"
-            className={fieldClass(Boolean(fieldErrors.website))}
-          />
-          {fieldErrors.website && <p className={FIELD_ERROR}>{fieldErrors.website}</p>}
-        </div>
-      )}
-    </>
-  );
-}
-
-/**
- * Everything the "account" step asks for, in the order it has always asked.
- *
- * ══ Extracted so it can be EXECUTED ════════════════════════════════════════
- *
- * This was inline JSX inside a 1,700-line component whose first render is the
- * "Getting things ready..." panel — the entry check has not answered yet — so
- * no check could reach it. scripts/check-auth-pages.mjs walks the tree this
- * returns and fires every onChange, which is what proves that the eleven fields
- * are still here and still bound to the same eleven keys of `form` after a
- * redesign that moved every one of them.
- *
- * Module scope, like CompanyFields and for the same reason: declared inside
- * SignupPage it would be a new component type on every render, remounting
- * AddressAutocomplete and losing focus mid-keystroke.
- *
- * Presentational only. The submit handler, the validators and the step machine
- * all stay in SignupPage, so nothing about what gets POSTed passes through here.
- */
-export function AccountFields({ form, setForm, fieldErrors, existingLogin = null, t = englishOnly }) {
-  return (
-    <>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label htmlFor="signup-firstName" className={FIELD_LABEL}>
-            {t("app.signup.field.firstName", "First name")}
-          </label>
-          <input
-            id="signup-firstName"
-            autoComplete="given-name"
-            value={form.firstName}
-            onChange={(e) => setForm({ ...form, firstName: e.target.value })}
-            className={fieldClass(Boolean(fieldErrors.firstName))}
-          />
-          {fieldErrors.firstName && (
-            <p className={FIELD_ERROR}>{fieldErrors.firstName}</p>
-          )}
-        </div>
-        <div>
-          <label htmlFor="signup-lastName" className={FIELD_LABEL}>
-            {t("app.signup.field.lastName", "Last name")}
-          </label>
-          <input
-            id="signup-lastName"
-            autoComplete="family-name"
-            value={form.lastName}
-            onChange={(e) => setForm({ ...form, lastName: e.target.value })}
-            className={fieldClass(Boolean(fieldErrors.lastName))}
-          />
-          {fieldErrors.lastName && (
-            <p className={FIELD_ERROR}>{fieldErrors.lastName}</p>
-          )}
-        </div>
-      </div>
-
-      <div>
-        <label htmlFor="signup-email" className={FIELD_LABEL}>
-          {t("app.signup.field.email", "Email")}
-        </label>
-        <input
-          id="signup-email"
-          type="email"
-          autoComplete="email"
-          value={form.email}
-          onChange={(e) => setForm({ ...form, email: e.target.value })}
-          placeholder="you@company.com"
-          className={fieldClass(Boolean(fieldErrors.email))}
-        />
-        {existingLogin && existingLogin === form.email.trim().toLowerCase() ? (
-          // ── "User already exists", said usefully ──────────────────────
-          // Better Auth's own sentence is what a company that lost its
-          // confirmation email read when it tried to sign up again, and
-          // concluded the signup had failed. The login is there; the door
-          // is Sign in. The email travels on the query so the login form
-          // opens with it filled — an address, not a secret.
-          <div
-            className="mt-2 rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-sm text-amber-950 dark:text-amber-100"
-            data-signup-login-exists
-          >
-            <p className="break-words">{t("app.signup.error.loginExists")}</p>
-            <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
-              <Link
-                href={`/login?email=${encodeURIComponent(existingLogin)}`}
-                className="font-medium underline underline-offset-2"
-              >
-                {t("app.signup.error.loginExistsSignIn")}
-              </Link>
-              <Link
-                href={`/forgot-password?email=${encodeURIComponent(existingLogin)}`}
-                className="underline underline-offset-2"
-              >
-                {t("app.signup.error.loginExistsReset")}
-              </Link>
-            </p>
-          </div>
-        ) : (
-          fieldErrors.email && <p className={FIELD_ERROR}>{fieldErrors.email}</p>
-        )}
-      </div>
-
-      <CompanyFields form={form} setForm={setForm} fieldErrors={fieldErrors} t={t} />
-
-      <div>
-        <label htmlFor="signup-password" className={FIELD_LABEL}>
-          {t("app.signup.field.password", "Password")}
-        </label>
-        <input
-          id="signup-password"
-          type="password"
-          // new-password, not password: this field CREATES one, and the token is
-          // what makes a password manager offer to generate and store it rather
-          // than trying to fill the last one it saw.
-          autoComplete="new-password"
-          value={form.password}
-          onChange={(e) => setForm({ ...form, password: e.target.value })}
-          className={fieldClass(Boolean(fieldErrors.password))}
-        />
-        {fieldErrors.password && (
-          <p className={FIELD_ERROR}>{fieldErrors.password}</p>
-        )}
-      </div>
-    </>
-  );
 }
 
 /**
@@ -784,126 +288,154 @@ export function resolvePlanSelection({
   return null;
 }
 
+// The link codes this tab carries between visits: sessionStorage, never a
+// cookie — a rep's code surviving into next week's unrelated signup on a
+// shared van laptop is the failure this avoids. The email is kept so a
+// refresh does not empty the box; the PASSWORD never is.
+const DRAFT_KEY = "fieldquo:signup-draft";
+
+// Better Auth enforces 8–128 characters on the server — its own defaults, since
+// lib/auth.js sets neither minPasswordLength nor maxPasswordLength.
+const PASSWORD_MIN = 8;
+const PASSWORD_MAX = 128;
+
+// What AccountFields translates with when nobody hands it a `t`: the English
+// fallback, verbatim — scripts/check-auth-pages.mjs calls it as a plain
+// function, outside React, and compares the labels against the English.
+const englishOnly = (key, fallbackOrValues) => (typeof fallbackOrValues === "string" ? fallbackOrValues : key);
+
+/** The account screen's rules. Exported for the check. */
+export function validateAccountFields(form, t = englishOnly) {
+  const errors = {};
+  if (!isValidEmail(form.email)) errors.email = t("app.signup.error.email", "Enter a valid email address");
+  if (!form.password || form.password.length < PASSWORD_MIN)
+    errors.password = t("app.signup.error.passwordMin", `At least ${PASSWORD_MIN} characters`, { n: PASSWORD_MIN });
+  else if (form.password.length > PASSWORD_MAX)
+    errors.password = t("app.signup.error.passwordMax", `At most ${PASSWORD_MAX} characters`, { n: PASSWORD_MAX });
+  return errors;
+}
+
+/**
+ * The account screen's fields: work email, password, and the unticked
+ * "Send me product news and offers". Module scope and presentational, so
+ * scripts/check-auth-pages.mjs can execute it and prove each field is still
+ * bound to its key of `form`.
+ */
+export function AccountFields({ form, setForm, fieldErrors, existingLogin = null, t = englishOnly }) {
+  return (
+    <>
+      <div>
+        <label htmlFor="signup-email" className={FIELD_LABEL}>
+          {t("app.signup.field.workEmail", "Work email")}
+        </label>
+        <input
+          id="signup-email"
+          type="email"
+          autoComplete="email"
+          value={form.email}
+          onChange={(e) => setForm({ ...form, email: e.target.value })}
+          placeholder="you@company.com"
+          className={fieldClass(Boolean(fieldErrors.email))}
+        />
+        {existingLogin && existingLogin === form.email.trim().toLowerCase() ? (
+          // A login already on this address is the wrong door, not a failure:
+          // sign in (the address travels, never a secret) or reset.
+          <div
+            className="mt-2 rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-sm text-amber-950 dark:text-amber-100"
+            data-signup-login-exists
+          >
+            <p className="break-words">{t("app.signup.error.loginExists")}</p>
+            <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+              <Link href={`/login?email=${encodeURIComponent(existingLogin)}`} className="font-medium underline underline-offset-2">
+                {t("app.signup.error.loginExistsSignIn")}
+              </Link>
+              <Link href={`/forgot-password?email=${encodeURIComponent(existingLogin)}`} className="underline underline-offset-2">
+                {t("app.signup.error.loginExistsReset")}
+              </Link>
+            </p>
+          </div>
+        ) : (
+          fieldErrors.email && <p className={FIELD_ERROR}>{fieldErrors.email}</p>
+        )}
+      </div>
+
+      <div>
+        <label htmlFor="signup-password" className={FIELD_LABEL}>
+          {t("app.signup.field.password", "Password")}
+        </label>
+        <input
+          id="signup-password"
+          type="password"
+          // new-password: this field CREATES one, so a password manager offers
+          // to generate and store it rather than filling the last one it saw.
+          autoComplete="new-password"
+          value={form.password}
+          onChange={(e) => setForm({ ...form, password: e.target.value })}
+          className={fieldClass(Boolean(fieldErrors.password))}
+        />
+        {fieldErrors.password && <p className={FIELD_ERROR}>{fieldErrors.password}</p>}
+      </div>
+
+      {/* Unticked, and nothing is recorded unless it is ticked: the moment
+          and the sentence go on the User (POST /api/companies). */}
+      <label className="flex items-start gap-3 text-sm text-foreground">
+        <input
+          id="signup-consent"
+          type="checkbox"
+          checked={form.consent === true}
+          onChange={(e) => setForm({ ...form, consent: e.target.checked })}
+          className="mt-0.5 h-4 w-4 rounded border-border"
+        />
+        <span>{t("app.signup.consent", "Send me product news and offers")}</span>
+      </label>
+    </>
+  );
+}
+
 export default function SignupPage() {
-  // Every sentence on the funnel goes through t() with its English as the
-  // fallback (app.signup.* in appMessages.js). It was English-only for a long
-  // time on the reasoning that converting it belonged to its own change; this
-  // is that change. What stays fixed is number formatting — see money().
-  const { t, setPageLanguage } = useTranslation();
+  const { t, setPageLanguage, language } = useTranslation();
 
-  // Signed-out is the common case, so the funnel opens on "account". A visitor
-  // who turns out to have a login is moved to "business" by the resume effect
-  // below, and nothing renders until that answer is in — see `entryChecked`.
-  const [step, setStep] = useState(INITIAL_STEP);
-
-  // Referral code from /refer/<code>, which links here as ?ref=<code>.
-  //
-  // Read from window.location rather than useSearchParams() to avoid needing a
-  // Suspense boundary around this whole page — see the note in
-  // app/app/layout.js about prerender failures from client-only hooks.
-  //
-  // Held in state and posted with the company, NOT stored in a cookie: a stale
-  // referral cookie from a link someone clicked last month shouldn't silently
-  // attach itself to an unrelated signup.
+  // Codes on the link that sent them here. Read from window.location rather
+  // than useSearchParams() to avoid a Suspense boundary around the page.
+  // ?ref= is a promo or referral code (validated below before any banner is
+  // shown); ?sales= a FieldQuo rep's code, never validated here (a public
+  // "is this rep real" answer would enumerate the roster); utm_* the advert;
+  // ?link= a rep's texted-link token; ?next= where a signup that began from
+  // "add this quote to your project" returns to. All posted with the company.
   const [referralCode, setReferralCode] = useState("");
-  // The FieldQuo sales rep whose link this is: /signup?sales=<code>.
-  //
-  // Its OWN parameter and its own POST field. ?ref= is already the promo /
-  // referral namespace, and those two are told apart by trying one and falling
-  // through to the other — a rep code cannot join that queue without a
-  // mistyped promo code becoming a commission. See app/api/companies/route.js.
-  //
-  // Deliberately NOT validated against the server the way ?ref= is below, and
-  // nothing on this page renders because of it. There is nothing to promise
-  // the contractor (the commission is FieldQuo's business, not theirs), so a
-  // banner would be an offer nobody made — and a public endpoint answering
-  // "is this rep code real" would let anyone enumerate FieldQuo's sales roster.
-  // The server resolves it and stays silent about the result.
   const [salesCode, setSalesCode] = useState("");
-  // The advert this visit came from — utm_source / utm_medium / utm_campaign
-  // off the query string, held like the two codes above (state and the
-  // session draft, never a cookie) and posted with the company so
-  // SignupOrigin can say which signups came from paid ads. Nothing on this
-  // page renders because of them.
   const [utm, setUtm] = useState(null);
-  // The per-text token on a link a rep TEXTED (`&link=`), so the rep's
-  // panel can watch the steps while they stay on the line —
-  // lib/sales/signupProgress.js. Absent on the rep's plain link and on
-  // every other way in; then nothing is reported.
   const [signupLinkToken, setSignupLinkToken] = useState("");
-  // Where to return after checkout, when signup began from a flow like "add this
-  // quote to your project" (?next=/q/<token>). Internal paths only.
   const [nextPath, setNextPath] = useState("");
   const [referrer, setReferrer] = useState(null);
-  // Set when someone opens a signup link while already signed in to a company.
-  // Referral offers are for businesses new to FieldQuo, so they can't redeem —
-  // and being told that here beats filling in the whole form first.
+
+  // The signed-in states, each its own screen (see the header).
   const [alreadyOnFieldquo, setAlreadyOnFieldquo] = useState(null);
-  // Signed in, but with NO company — someone who created their account here and
-  // stopped before "Continue to Payment", which is the only thing that creates
-  // the company. They have a login and nothing to log in TO, so /app sends them
-  // back here (app/app/layout.js) and this page picks up where they stopped.
   const [accountReady, setAccountReady] = useState(null);
-  // True only when that state was found on ARRIVAL. accountReady is also set
-  // the moment this page creates an account, and explaining "you already have
-  // an account" to someone who just watched us make one reads as a bug.
-  const [resumedSignup, setResumedSignup] = useState(false);
-  // The SignupLead put back on a signed-in return: which step it had reached
-  // and which fields it refilled. Null when there was no row — the banner
-  // then makes no promise about what was kept.
-  const [restoredLead, setRestoredLead] = useState(null);
-  const leadStepRef = useRef(null);
-  // ── The THIRD signed-in state: a company that was never paid for ────────
-  //
-  // /api/companies commits the Company and the owner's membership and only
-  // then opens Stripe Checkout, so closing that tab leaves a complete company
-  // with no card. app/app/layout.js now sends whoever can pay for it back
-  // here instead of into a dashboard they haven't bought.
-  //
-  // Distinct from `alreadyOnFieldquo`, which is a company that IS paid for and
-  // gets the "one business to a login" wall. Distinct from `accountReady`,
-  // which is a login with no company at all. All three are signed in and none
-  // of them wants the same screen.
-  //
-  // Holds the company's own details, because the sessionStorage draft that
-  // normally carries the address dies with the tab — and the address is what
-  // decides which currency the plan cards are priced in.
   const [finishCheckout, setFinishCheckout] = useState(null);
-  // Both of the above start unknown. Nothing may resume until the answer is in:
-  // guessing "signed out" and then correcting would flash the account step at
-  // someone who already has an account.
-  const [entryChecked, setEntryChecked] = useState(false);
-  // A ?resume= link for one address, opened in a browser signed in as a
-  // DIFFERENT account (lib/signup/resumeRoute.js SWITCH). Holds both
-  // addresses and where "continue" goes; while set, no step renders.
   const [resumeElsewhere, setResumeElsewhere] = useState(null);
+  // Nothing renders until the entry check has answered — guessing "signed
+  // out" and correcting would flash a password box at somebody signed in.
+  const [entryChecked, setEntryChecked] = useState(false);
+
+  const [form, setForm] = useState({ email: "", password: "", consent: false });
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [existingLogin, setExistingLogin] = useState(null);
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    // Set when this visit is leaving (or waiting on a choice) — the steps
-    // must not flash up behind it, so entryChecked stays false.
     let held = false;
-
     (async () => {
       try {
         // ── A resume link is routed before anything else is asked ─────────
-        //
-        // The owner's own link, 2026-09-25: an address that had had a login
-        // for twelve days opened on the ACCOUNT step, and only a typed
-        // password found out. The server now says, from the User table and
-        // this browser's session, where the link belongs
-        // (app/api/signup/lead GET → lib/signup/resumeRoute.js). Nothing here
-        // signs anyone in: a login path always ends at /login.
         const resumeToken = new URLSearchParams(window.location.search).get("resume");
         if (resumeToken) {
           const found = await fetch(`${CAPTURE_ENDPOINT}?token=${encodeURIComponent(resumeToken)}`)
             .then((r) => (r.ok ? r.json() : null))
             .catch(() => null);
           if (cancelled) return;
-          // The language the follow-up email was written in — the page it
-          // opened should not answer in a browser guess. For this page only:
-          // a prefill is not the person choosing a language for FieldQuo, so
-          // it is never stored (app/providers/LanguageProvider.js).
           if (found?.prefill?.language) setPageLanguage(found.prefill.language);
           const route = found?.route;
           const to = safeResumeTarget(route?.to);
@@ -914,31 +446,16 @@ export default function SignupPage() {
           }
           if (route?.action === RESUME_ACTIONS.SWITCH && to) {
             held = true;
-            setResumeElsewhere({
-              email: found.prefill.email,
-              other: route.sessionEmail || "",
-              to,
-            });
+            setResumeElsewhere({ email: found.prefill.email, other: route.sessionEmail || "", to });
             return;
           }
-          // SIGNUP / CONTINUE, or no answer: the checks below, as before —
-          // CONTINUE is a signed-in owner, whom they land on the first
-          // unfinished step.
+          if (found?.prefill?.email) setForm((f) => (f.email ? f : { ...f, email: found.prefill.email }));
+          if (found?.prefill?.accountExists && found.prefill.email) {
+            setExistingLogin(String(found.prefill.email).trim().toLowerCase());
+          }
         }
 
-        // ── Asked FIRST, because it is the only unambiguous question ──────
-        //
-        // "Is this a company that was created and never paid for, and may this
-        // caller pay for it?" One server-side answer. The pair of endpoints
-        // below cannot produce it: /api/settings/subscription returns a null
-        // status both for a company with no subscription AND for anyone who
-        // isn't a billing admin, so inferring from it would put a Continue to
-        // Payment button in front of an estimator whose POST then 403s. See
-        // app/api/signup/resume/route.js.
-        //
-        // Anything other than a clean `resume: true` falls through to the
-        // existing checks — a network blip must not turn a paid-up company
-        // into one being asked to pay again.
+        // ── A company created and never paid for (before 2026-09-24) ──────
         const resume = await fetch("/api/signup/resume")
           .then((r) => (r.ok ? r.json() : null))
           .catch(() => null);
@@ -947,126 +464,97 @@ export default function SignupPage() {
           return;
         }
 
-        // business-info is COMPANY-scoped, so its answer separates the two
-        // signed-in states: 200 means a company exists (they're adding another
-        // business), and 401 means specifically that no company could be
-        // resolved. Any other status is a fault — a 402 from the billing gate,
-        // a 500 — and must not be read as "you have no company", or a working
-        // account gets offered a duplicate one.
+        // ── An owner part-way through the welcome questions ───────────────
+        //
+        // Their company exists (this page created it); the next unanswered
+        // question is where they belong, not here.
+        const welcome = await fetch("/api/signup/personalize")
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null);
+        if (welcome?.onFlow && !welcome.personalized && isInternalPath(welcome.resumeUrl)) {
+          held = true;
+          window.location.replace(welcome.resumeUrl);
+          return;
+        }
+
+        // business-info is COMPANY-scoped: 200 means a company exists, 401
+        // specifically that no company could be resolved. Any other status is
+        // a fault and must not be read as "you have no company".
         const res = await fetch("/api/settings/business-info");
         if (res.ok) {
           const data = await res.json().catch(() => null);
-          if (!cancelled && data?.name) setAlreadyOnFieldquo(data);
+          if (!cancelled) setAlreadyOnFieldquo(data || {});
           return;
         }
         if (res.status !== 401) return;
 
-        // Same session endpoint the invitation page uses. A session here with
-        // no company is the abandoned-signup state.
+        // A session with no company: the old funnel's abandoned login, or a
+        // "Start my free trial" whose company POST never landed.
         const session = await fetch("/api/auth/get-session")
           .then((r) => (r.ok ? r.json() : null))
           .catch(() => null);
-        if (!cancelled && session?.user?.id) {
-          setAccountReady(session.user);
-          setResumedSignup(true);
-          // ── What they typed last time, by the address the session proves ──
-          //
-          // The owner's own return, 2026-09-21: signed back in from a fresh
-          // session, the tab with the draft long gone, and the page opened
-          // on an empty business step under a banner saying nothing was
-          // lost. The SignupLead row knew he had reached Plan; the page only
-          // ever asked for it by resume token, which a fresh sign-in does
-          // not have. Awaited HERE, before entryChecked flips, because the
-          // resume effect judges the step once, on the state it sees then.
-          const mine = await fetch(`${CAPTURE_ENDPOINT}?mine=1`)
-            .then((r) => (r.ok ? r.json() : null))
-            .catch(() => null);
-          const p = mine?.prefill;
-          if (cancelled) return;
-          if (p && !p.completed) {
-            // `completed` is the server's signupLeadFinished, not the bare
-            // column: his second return the same day found the row linked
-            // by the cron to ANOTHER company of his and the page put nothing
-            // back. The row's furthest step is restored too, and the
-            // banner names every field that came back — resumeStep still
-            // clamps to what those answers support, so a row from before
-            // the address column existed lands on the business step with
-            // the address box the only empty one.
-            const restored = applyLeadPrefill(p);
-            leadStepRef.current = p.stepReached || null;
-            setRestoredLead({ step: p.stepReached || null, fields: restored });
-          } else {
-            // No row (or a row that genuinely finished under a company they
-            // are no longer in). The session still knows who they are: the
-            // address and the name they typed at the account step. Put
-            // those into the form — they are theirs, not a guess — so the
-            // next capture writes a row and /platform/signups can see a
-            // person who has a login and nothing to log in to.
-            applyLeadPrefill({ email: session.user.email, ...splitName(session.user.name) });
-            setRestoredLead({ step: null, fields: [] });
-          }
-        }
+        if (!cancelled && session?.user?.id) setAccountReady(session.user);
       } catch {
-        // Offline or blocked: fall through as a signed-out visitor, which is
-        // the flow that asks for everything rather than assuming it has it.
+        // Offline or blocked: the signed-out screen, which asks for everything.
       } finally {
         if (!cancelled && !held) setEntryChecked(true);
       }
     })();
-
     return () => {
       cancelled = true;
     };
     // Once, on arrival. setPageLanguage is the provider's stable callback.
-  }, []);
-
-  useEffect(() => {
-    const raw = new URLSearchParams(window.location.search).get("next");
-    if (isInternalPath(raw)) setNextPath(raw);
-  }, []);
-
-  useEffect(() => {
-    const code = new URLSearchParams(window.location.search).get("ref");
-    if (code) setReferralCode(code);
-  }, []);
-
-  useEffect(() => {
-    const code = new URLSearchParams(window.location.search).get("sales");
-    if (code) setSalesCode(code);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
+    const raw = q.get("next");
+    if (isInternalPath(raw)) setNextPath(raw);
+    if (q.get("ref")) setReferralCode(q.get("ref"));
+    if (q.get("sales")) setSalesCode(q.get("sales"));
+    if (q.get("link")) setSignupLinkToken(q.get("link"));
     const tags = {};
     for (const k of ["utm_source", "utm_medium", "utm_campaign"]) {
       const v = q.get(k);
       if (v && v.trim()) tags[k] = v.trim().slice(0, 100);
     }
     if (Object.keys(tags).length) setUtm(tags);
+    // The draft: the codes the query string does NOT carry this time (a
+    // visitor who followed the Terms link and came back to a bare /signup
+    // keeps the referral they arrived on — the query still wins when present).
+    try {
+      const draft = JSON.parse(sessionStorage.getItem(DRAFT_KEY) || "null");
+      if (draft && typeof draft === "object") {
+        if (draft.referralCode && !q.get("ref")) setReferralCode(draft.referralCode);
+        if (draft.salesCode && !q.get("sales")) setSalesCode(draft.salesCode);
+        if (draft.utm && !q.get("utm_source") && !q.get("utm_medium")) setUtm(draft.utm);
+        if (draft.signupLinkToken && !q.get("link")) setSignupLinkToken(draft.signupLinkToken);
+        if (draft.nextPath && !raw && isInternalPath(draft.nextPath)) setNextPath(draft.nextPath);
+        if (typeof draft.email === "string") setForm((f) => (f.email ? f : { ...f, email: draft.email }));
+      }
+    } catch {
+      // A corrupt or blocked store: start clean.
+    }
   }, []);
 
   useEffect(() => {
-    const token = new URLSearchParams(window.location.search).get("link");
-    if (token) setSignupLinkToken(token);
-  }, []);
+    try {
+      sessionStorage.setItem(
+        DRAFT_KEY,
+        JSON.stringify({ email: form.email, referralCode, salesCode, utm, signupLinkToken, nextPath }),
+      );
+    } catch {
+      // Private mode or a full quota: a worse experience, not a broken one.
+    }
+  }, [form.email, referralCode, salesCode, utm, signupLinkToken, nextPath]);
 
-  // "Opened" — the first thing a rep on the phone wants to see. A beacon:
-  // fired once per token, never awaited, never read; the endpoint answers
-  // 204 whatever happened, and a blocked request costs the signup nothing.
+  // "Opened" — the first thing a rep on the phone wants to see.
   useEffect(() => {
-    if (!signupLinkToken) return;
-    reportSignupStep(signupLinkToken, "opened");
+    if (signupLinkToken) reportSignupStep(signupLinkToken, "opened");
   }, [signupLinkToken]);
 
-  // Confirm the referral code is real before promising anything. A typo'd link
-  // should not produce a banner claiming free months that the API then
-  // silently declines to grant.
-  //
-  // Keyed on `referralCode` rather than run once on mount, because the code no
-  // longer only ever arrives from the query string — it is restored from the
-  // draft too (see below), and a mount-only fetch would restore the code
-  // silently and drop the banner the visitor had already been shown. Same
-  // input, same promise, however they got back here.
+  // Confirm a referral code is real before promising anything.
   useEffect(() => {
     if (!referralCode) return;
     let cancelled = false;
@@ -1079,98 +567,29 @@ export default function SignupPage() {
     };
   }, [referralCode]);
 
+  // Re-run the rules over errors already on screen, so a fixed password
+  // stops being red before the next press.
+  useEffect(() => {
+    setFieldErrors((shown) => {
+      const keys = Object.keys(shown);
+      if (!keys.length) return shown;
+      const fresh = validateAccountFields(form, t);
+      const narrowed = {};
+      let changed = false;
+      for (const key of keys) {
+        if (fresh[key]) narrowed[key] = fresh[key];
+        if (fresh[key] !== shown[key]) changed = true;
+      }
+      return changed ? narrowed : shown;
+    });
+  }, [form, t]);
+
   const [plans, setPlans] = useState([]);
   const [plansLoading, setPlansLoading] = useState(true);
-  // Why the plan the link named is not in the list — { planId, reason } from
-  // /api/marketing/plans, or null. Today the one reason is "retired": the
-  // plan exists, somebody was sent its link, and it is no longer offered.
-  // Said on the page rather than silently landing them with nothing
-  // selected, which reads as the link being broken.
   const [refusedPlan, setRefusedPlan] = useState(null);
   const [selectedPlanId, setSelectedPlanId] = useState(null);
-
-  // What the link that sent them here asked for: { tier, planId }. A ref rather
-  // than state because it is read, never rendered, and re-rendering the funnel
-  // when the query string is parsed would be a render for nothing. Filled in by
-  // the plans effect below and constant afterwards.
   const wantedRef = useRef({ tier: null, planId: null });
-
-  // Monthly (no commitment) or the 1-year commitment (one charge a year).
-  // Opens on the year — the owner's approved design (2026-09-28): every plan
-  // picker defaults to the 1-year tab with its saving on it, Monthly one tap
-  // away. The tab the cards are priced in is always visible above them, the
-  // summary under them states the charge in the chosen cadence, and a plan
-  // with no annual price falls back to monthly (effectiveInterval below), so
-  // nothing is bought on a cadence the page did not say.
   const [billingInterval, setBillingInterval] = useState("year");
-
-  const [form, setForm] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    password: "",
-    companyName: "",
-    phone: "",
-    address: "",
-    city: "",
-    province: "",
-    // The company's own language becomes their default interface language and
-    // the fallback for client documents. Country drives the billing currency
-    // (derived, not asked) — see lib/currency.js currencyForCountry.
-    language: "en",
-    // Empty, NOT "CA". The seed here was half of the defect this step order
-    // fixes: it stated a country nobody had entered, the plan step (then first)
-    // priced off it, and /api/companies defaulted a second time — so a Texan
-    // saw Canadian prices and got a Canadian company. Empty means unanswered,
-    // and the plan step asks rather than guessing.
-    country: "",
-    // "Do you have a website?" — true / false / null (unanswered), and the
-    // address when true. lib/signup/website.js reads both at every boundary.
-    hasWebsite: null,
-    website: "",
-  });
-
-  const [selectedIndustries, setSelectedIndustries] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState([]);
-  // When on, the services step shows only the quote types preset from the
-  // chosen industries; toggled off to browse/add from the full catalog.
-  const [showAllServices, setShowAllServices] = useState(false);
-  // ── The Team and Goals steps (2026-09-24) ─────────────────────────────
-  //
-  // Null until a chip is pressed, and null is what is posted when a step is
-  // skipped — the company row records the words picked or nothing, never a
-  // default (AGENTS.md failure class 5). The panel beside the form reads
-  // teamSizeBand to change the calendar's shape and signupGoal to pick its
-  // picture; /api/companies reads the band to start the trial banner on a
-  // rung when the pricing link named none.
-  const [teamSizeBand, setTeamSizeBand] = useState(null);
-  const [yearsBand, setYearsBand] = useState(null);
-  const [signupGoal, setSignupGoal] = useState(null);
-  const [signupSource, setSignupSource] = useState("");
-  // The sample quote beside the Trades step, per industry slug, language and
-  // currency, from /api/signup/sample-services: two of the trade's seed
-  // services with the price a company in that trade starts with, and the
-  // trade's scope wording and steps — the seeds stay on the server
-  // (lib/signup/sampleServices.js). Cached for the tab: the same trade is not
-  // fetched twice.
-  const [sampleServices, setSampleServices] = useState({});
-
-  const [error, setError] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  // The progress screen after "Start my free trial" (SignupCreating): null
-  // until pressed, then { stages, problem, running, slowNavigation, appUrl }.
-  // The ref holds what a Retry needs and the render does not: the request as
-  // it was first built, and whether an earlier attempt's outcome was unknown
-  // (lib/signup/creatingProgress.js — that is what makes a Retry safe).
-  const [creating, setCreating] = useState(null);
-  const creationRef = useRef({ postCompany: null, stages: null, companyMaybeCreated: false, appUrl: null });
-
-  // add this state alongside your other useState calls
-  const [fieldErrors, setFieldErrors] = useState({});
-  // The address Better Auth refused as already registered — AccountFields
-  // turns it into "sign in instead" under the email field.
-  const [existingLogin, setExistingLogin] = useState(null);
 
   const selectedPlan = plans.find((p) => p.id === selectedPlanId);
 
@@ -1185,12 +604,6 @@ export default function SignupPage() {
   const selectedPlanName = selectedPlan?.name || "Selected plan";
 
   const hasSelection = Boolean(selectedPlanId);
-  // "There is already a login behind this" — true whether they're resuming an
-  // abandoned signup or adding a second business. Both skip account CREATION.
-  // finishCheckout counts too: they are signed in, their company exists, and
-  // the only thing left is the card. Without it the funnel would open on the
-  // account step and offer them a login they are currently using.
-  const accountExists = Boolean(accountReady || alreadyOnFieldquo || finishCheckout);
 
   // ── What is actually left of the free month, for a resumed payment ──────
   //
@@ -1209,9 +622,9 @@ export default function SignupPage() {
 
   // ── Where they are, and therefore what money they see ───────────────────
   //
-  // Read from the address they just gave, three steps before this matters. The
-  // whole reason the plan step moved to the end.
-  const basis = billingBasis(form);
+  // Read from the company that was created and never paid for — its own
+  // stored address and country, the only thing that decides the currency.
+  const basis = billingBasis(finishCheckout || {});
   const planCurrency = basis.planCurrency;
   const symbol = currencyLabel(planCurrency);
   const currencyName =
@@ -1298,492 +711,6 @@ export default function SignupPage() {
         )
     : "";
 
-  // ── The draft ───────────────────────────────────────────────────────────
-  //
-  // Read once on mount, written on every change afterward. `hydrated` is state
-  // rather than a ref so the writer can't run until the RESTORED values have
-  // actually rendered — a ref flipped inside the reader would still leave the
-  // writer's first pass holding the empty initial form, and it would save that
-  // over the draft it is here to preserve.
-  const [hydrated, setHydrated] = useState(false);
-
-  // The public signup funnel on /platform/analytics — every visitor, not only
-  // the ones a rep texted. One event per step SHOWN, after the draft has been
-  // restored so a resumed visit counts where it landed. Each screen proves
-  // the step BEFORE it was completed (lib/analytics/product/events.js
-  // SIGNUP_STEP_BAR): Team shown = account submitted, Goals shown = Team
-  // done, and so on; "finish" is sent when Start my free trial is pressed
-  // (handleFinish), and "Trial started" is the server's, from the Company
-  // row. "visited" is the page view itself.
-  //
-  // account/business send nothing: the account screen is shown to every
-  // visitor on arrival, which is what the page view already counts — the
-  // old "account" beacon was why that bar read higher than "visited". The
-  // plan step is only a resumed payment now, not a step of the signup.
-  // Anonymous: a route pattern and a step name, nothing typed into the form.
-  useEffect(() => {
-    if (!hydrated) return;
-    const funnelStep = { team: "team", goals: "goals", industry: "trades", services: "services" }[step];
-    if (funnelStep && !finishCheckout) trackSignupStep(funnelStep);
-  }, [hydrated, step, finishCheckout]);
-  const draftStepRef = useRef(null);
-
-  // ── The capture ─────────────────────────────────────────────────────────
-  //
-  // What the first step has typed, kept server-side as it is typed, so a
-  // person who closes the tab at Trades is somebody the sales floor can ring
-  // (lib/signup/leads.js). Debounced CAPTURE_DEBOUNCE_MS after the last
-  // change; posted at once when the step moves (the furthest step is a fact
-  // worth having even if the next thing they do is close the tab). Nothing is
-  // posted twice: the fingerprint of the last body sent is kept in a ref.
-  // Not for a signed-in owner adding a business or finishing a checkout —
-  // those already have a Company row, which is the whole point of this.
-  const lastCaptureRef = useRef("");
-  const captureTimerRef = useRef(null);
-  const lastCaptureStepRef = useRef(null);
-
-  // ── A SignupLead row, put back into the form ────────────────────────────
-  //
-  // One applier for the two ways a row comes back — a ?resume= token from a
-  // rep's email, and a signed-in return (the entry check above). Fills only
-  // what is still empty: a draft in this tab is fresher than a row from the
-  // day they left. Returns the names of the fields it actually filled, so
-  // the banner can say "we kept X, Y, Z" instead of claiming nothing was
-  // lost when the address column was blank.
-  //
-  // Judged against the CURRENT state through refs, not inside a setState
-  // updater: the updater runs later, during the next render, so a list of
-  // filled fields pushed from inside it would still be empty when this
-  // function returns — and the entry check needs the answer now.
-  const formRef = useRef(form);
-  formRef.current = form;
-  const industriesRef = useRef(selectedIndustries);
-  industriesRef.current = selectedIndustries;
-  const categoryIdsRef = useRef(selectedCategoryIds);
-  categoryIdsRef.current = selectedCategoryIds;
-  function applyLeadPrefill(p) {
-    const filled = [];
-    const next = { ...formRef.current };
-    const put = (key, value) => {
-      if (next[key] || !value) return;
-      next[key] = value;
-      filled.push(key);
-    };
-    put("email", p.email);
-    put("firstName", p.firstName);
-    put("lastName", p.lastName);
-    put("companyName", p.companyName);
-    put("phone", p.phone ? formatPhoneInput(p.phone) : "");
-    put("address", p.address);
-    put("city", p.city);
-    put("province", p.province);
-    put("country", p.country);
-    if (p.language && p.language !== "en" && next.language === "en") {
-      next.language = p.language;
-      filled.push("language");
-    }
-    // The website answer, only while this form has none — a "no" is an
-    // answer worth putting back as much as a URL is.
-    if (next.hasWebsite == null && (p.hasWebsite === true || p.hasWebsite === false)) {
-      next.hasWebsite = p.hasWebsite;
-      if (p.hasWebsite && p.website && !next.website) next.website = p.website;
-      filled.push("website");
-    }
-    setForm(next);
-    if (!industriesRef.current.length && Array.isArray(p.trades) && p.trades.length) {
-      setSelectedIndustries(p.trades);
-      filled.push("trades");
-    }
-    if (!categoryIdsRef.current.length && Array.isArray(p.serviceCategoryIds) && p.serviceCategoryIds.length) {
-      setSelectedCategoryIds(p.serviceCategoryIds);
-      filled.push("services");
-    }
-    if (p.accountExists && p.email) setExistingLogin(String(p.email).trim().toLowerCase());
-    return filled;
-  }
-  useEffect(() => {
-    if (!hydrated || !entryChecked || alreadyOnFieldquo || finishCheckout) return;
-    const body = captureBodyFor(form, step, {
-      selectedIndustries,
-      selectedCategoryIds,
-      salesCode,
-      referralCode,
-      utm,
-      visitorId: visitorId(),
-      referrer: (() => {
-        try {
-          return document.referrer ? new URL(document.referrer).hostname : null;
-        } catch {
-          return null;
-        }
-      })(),
-    });
-    const fp = captureFingerprint(body);
-    if (!body || fp === lastCaptureRef.current) return;
-    const stepMoved = lastCaptureStepRef.current !== null && lastCaptureStepRef.current !== step;
-    lastCaptureStepRef.current = step;
-    if (captureTimerRef.current) clearTimeout(captureTimerRef.current);
-    const send = () => {
-      lastCaptureRef.current = fp;
-      postSignupCapture(body);
-    };
-    if (stepMoved) send();
-    else captureTimerRef.current = setTimeout(send, CAPTURE_DEBOUNCE_MS);
-    return () => {
-      if (captureTimerRef.current) clearTimeout(captureTimerRef.current);
-    };
-  }, [hydrated, entryChecked, alreadyOnFieldquo, finishCheckout, form, step, selectedIndustries, selectedCategoryIds, salesCode, referralCode, utm]);
-
-  // ── A resume link ───────────────────────────────────────────────────────
-  //
-  // The rep's intro email to somebody who stopped mid-signup links here with
-  // ?resume=<token> (a random token, never the email — app/api/signup/lead).
-  // The endpoint hands back what THEY typed and the form opens filled in,
-  // only where it is still empty: a draft in this tab is fresher than a row
-  // from the day they left. A login already created on the address gets the
-  // "sign in instead" line under the email box rather than a second password.
-  useEffect(() => {
-    if (!hydrated) return;
-    const token = new URLSearchParams(window.location.search).get("resume");
-    if (!token) return;
-    let cancelled = false;
-    fetch(`${CAPTURE_ENDPOINT}?token=${encodeURIComponent(token)}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        const p = d?.prefill;
-        if (cancelled || !p || p.completed) return;
-        applyLeadPrefill(p);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [hydrated]);
-
-  useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem(DRAFT_KEY);
-      if (raw) {
-        const draft = JSON.parse(raw);
-        // password is never stored, and `...form` here would reintroduce it as
-        // undefined and break the controlled input.
-        if (draft?.form) setForm((f) => ({ ...f, ...draft.form, password: "" }));
-        if (draft?.selectedPlanId) setSelectedPlanId(draft.selectedPlanId);
-        if (Array.isArray(draft?.selectedIndustries))
-          setSelectedIndustries(draft.selectedIndustries);
-        if (Array.isArray(draft?.selectedCategoryIds))
-          setSelectedCategoryIds(draft.selectedCategoryIds);
-        if (typeof draft?.showAllServices === "boolean")
-          setShowAllServices(draft.showAllServices);
-        // The two optional steps: a string restores, anything else stays
-        // unanswered. Validated again by the server (signupPreview.js).
-        if (typeof draft?.teamSizeBand === "string") setTeamSizeBand(draft.teamSizeBand);
-        if (typeof draft?.yearsBand === "string") setYearsBand(draft.yearsBand);
-        if (typeof draft?.signupGoal === "string") setSignupGoal(draft.signupGoal);
-        if (typeof draft?.signupSource === "string") setSignupSource(draft.signupSource);
-        // Absent on any draft written before the interval existed, which is
-        // every draft in flight the day this deploys. Absent means unanswered,
-        // so it stays on the no-commitment default rather than being restored
-        // as a commitment nobody made.
-        if (draft?.billingInterval === "year" || draft?.billingInterval === "month")
-          setBillingInterval(draft.billingInterval);
-        // ── The codes, and the exact way they used to be lost ─────────────
-        //
-        // Neither code was in the draft. A plain REFRESH was never the
-        // problem: both tagCurrentEntry and goToStep call
-        // replaceState/pushState with two arguments, so the URL and its query
-        // string are never touched and the capture effects above re-run on
-        // mount with ?ref= / ?sales= still there.
-        //
-        // What loses them is leaving /signup by a LINK — Terms, Privacy, Login
-        // — and coming back by a fresh navigation to a bare /signup. The whole
-        // draft restores, the query string does not, and the code is gone with
-        // no sign anything happened: the referral's free month simply doesn't
-        // land, and the rep who earned the signup isn't attributed.
-        //
-        // The query string still WINS when it is present, which is why this
-        // checks it rather than restoring unconditionally: someone who arrives
-        // on a second rep's link after abandoning the first one's meant the
-        // link they just clicked, not the one in a stale draft. These two
-        // effects and the draft read are all mount effects, and the draft read
-        // is declared last, so without this guard it would overwrite them.
-        const query = new URLSearchParams(window.location.search);
-        if (draft?.referralCode && !query.get("ref")) setReferralCode(draft.referralCode);
-        if (draft?.salesCode && !query.get("sales")) setSalesCode(draft.salesCode);
-        if (draft?.utm && !query.get("utm_source") && !query.get("utm_medium")) setUtm(draft.utm);
-        if (draft?.signupLinkToken && !query.get("link")) setSignupLinkToken(draft.signupLinkToken);
-        // Applied later, once we know whether the account behind it still
-        // exists — see the resume effect below.
-        draftStepRef.current = draft?.step || null;
-      }
-    } catch {
-      // A corrupt or blocked store is not a reason to fail the signup — they
-      // just start from the top, which is the behaviour this replaced.
-    }
-    setHydrated(true);
-  }, []);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    try {
-      const { password, ...safeForm } = form;
-      sessionStorage.setItem(
-        DRAFT_KEY,
-        JSON.stringify({
-          form: safeForm,
-          selectedPlanId,
-          selectedIndustries,
-          selectedCategoryIds,
-          showAllServices,
-          billingInterval,
-          teamSizeBand,
-          yearsBand,
-          signupGoal,
-          signupSource,
-          step,
-          // Not personal data in the sense the header's password note is
-          // about: these are the codes on the link that sent them here, not
-          // anything the visitor typed about themselves. They die with the tab
-          // like the rest of the draft, which is the right lifetime for them
-          // too — a rep's code surviving into next week's unrelated signup on
-          // a shared van laptop is exactly what the ?ref= comment above
-          // rejects a cookie for.
-          referralCode,
-          salesCode,
-          signupLinkToken,
-          utm,
-        }),
-      );
-    } catch {
-      // Private mode, or a full quota. Losing the draft is a worse experience,
-      // not a broken one.
-    }
-  }, [
-    hydrated,
-    form,
-    selectedPlanId,
-    selectedIndustries,
-    selectedCategoryIds,
-    showAllServices,
-    billingInterval,
-    teamSizeBand,
-    yearsBand,
-    signupGoal,
-    signupSource,
-    step,
-    referralCode,
-    salesCode,
-    utm,
-  ]);
-
-  // ── Browser history ─────────────────────────────────────────────────────
-  //
-  // All the steps live at /signup and none of them used to touch history, so
-  // one press of Back from the last step threw the visitor out of the funnel
-  // and onto the marketing homepage — three steps of work gone. One entry per
-  // step forward, and Back walks them.
-  //
-  // The depth rides in the state rather than a counter, so going FORWARD again
-  // restores the right value instead of decrementing past zero.
-  const depthRef = useRef(0);
-  // The step this visit started on — where a Back that lands on the entry we
-  // arrived through has to return to. Kept in a ref because that entry can't be
-  // relied on to carry our tag: see tagCurrentEntry.
-  // Seeded with the funnel's own first step, and corrected by the resume effect
-  // the moment we know whether there is a session behind this visit.
-  const entryStepRef = useRef(INITIAL_STEP);
-
-  /**
-   * Add our step to whatever is already in this entry's history state.
-   *
-   * Both halves matter. The App Router writes its own routing tree into the
-   * entry AFTER hydration, so anything we replace it with on mount is silently
-   * overwritten — which is why the arrival entry is tagged lazily, on the first
-   * forward move, rather than in a mount effect. And dropping Next's keys would
-   * make its own popstate handler treat our entries as foreign and hard-navigate
-   * back to the server, turning "go back one step" into a full page load that
-   * loses the form.
-   */
-  function tagCurrentEntry(value, depth) {
-    window.history.replaceState(
-      { ...window.history.state, signupStep: value, signupDepth: depth },
-      "",
-    );
-  }
-
-  useEffect(() => {
-    function onPopState(e) {
-      // A pop that leaves /signup entirely is the router's business, not ours.
-      if (window.location.pathname !== "/signup") return;
-      const restored = e.state?.signupStep;
-      // No tag means the entry we arrived on — the one Next overwrote. That is
-      // the start of the funnel, not "not ours".
-      depthRef.current = restored ? e.state.signupDepth || 0 : 0;
-      setStep(restored || entryStepRef.current);
-    }
-
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
-  }, []);
-
-  function goToStep(next) {
-    if (next === step) return;
-    if (!window.history.state?.signupStep) tagCurrentEntry(step, depthRef.current);
-    depthRef.current += 1;
-    window.history.pushState(
-      {
-        ...window.history.state,
-        signupStep: next,
-        signupDepth: depthRef.current,
-      },
-      "",
-    );
-    setStep(next);
-  }
-
-  function goBackToStep(target) {
-    // Prefer the real history entry, so this button and the browser's own Back
-    // do the same thing. A RESUMED visit lands directly on a later step with
-    // nothing behind it in this visit's history — going back then would drop
-    // them out of signup entirely, so the step moves in place instead.
-    if (depthRef.current > 0) {
-      window.history.back();
-      return;
-    }
-    entryStepRef.current = target;
-    tagCurrentEntry(target, 0);
-    setStep(target);
-  }
-
-  // ── The company's own details, for a resume with no draft ───────────────
-  //
-  // The sessionStorage draft dies with the tab, so somebody finishing their
-  // payment from a different device — or a week later, or after clearing the
-  // browser — arrives with an empty form. On the plan step that is not
-  // cosmetic: billingBasis(form) reads the country, and no country means the
-  // step renders "Where is your business?" and a button back to a form whose
-  // Continue posts /api/companies, which refuses with 409 because the company
-  // already exists. A dead end.
-  //
-  // So the stored company fills the gaps. `f.x || value`, never a blind
-  // overwrite: whatever they typed in this tab is a fresher statement than
-  // what is in the database, and the draft effect above has already run by
-  // the time this does (it is synchronous on mount; the fetch that sets
-  // finishCheckout is not).
-  useEffect(() => {
-    if (!finishCheckout) return;
-    setForm((f) => ({
-      ...f,
-      companyName: f.companyName || finishCheckout.name || "",
-      phone: f.phone || finishCheckout.phone || "",
-      address: f.address || finishCheckout.address || "",
-      city: f.city || finishCheckout.city || "",
-      province: f.province || finishCheckout.province || "",
-      country: f.country || finishCheckout.country || "",
-      language: f.language || finishCheckout.language || f.language,
-    }));
-  }, [finishCheckout]);
-
-  // Resume, once we know both who they are and which plans exist.
-  const resumedRef = useRef(false);
-
-  useEffect(() => {
-    if (resumedRef.current) return;
-    // `hydrated` as well as `entryChecked`: the draft read is what supplies the
-    // company details and the trade/service picks that resumeStep judges the
-    // state on, and deciding before it has landed would clamp everyone back to
-    // the first step. It is a synchronous mount effect and always wins the race
-    // today, which is precisely why depending on the timing rather than saying
-    // so would be the kind of thing that breaks quietly later.
-    //
-    // `plansLoading` used to gate this too, because the first step WAS the plan
-    // step. It is the last one now, so nothing about where a visitor lands
-    // depends on the plan list having arrived, and waiting on that fetch would
-    // hold the account form back for a round trip that answers a later
-    // question.
-    if (!hydrated || !entryChecked) return;
-    resumedRef.current = true;
-
-    // ── Finishing a payment: straight to the plan step ────────────────────
-    //
-    // resumeStep is not consulted, and deliberately. Its whole job is to clamp
-    // a visitor to the furthest step their ANSWERS support — no login, no
-    // company details, no trades picked — and every one of those is already
-    // committed to the database here. Judging them by a draft that may not
-    // exist would park somebody whose company has been running for weeks on
-    // "tell us your trades", where Continue leads to a POST that 409s.
-    //
-    // Replaced into history rather than pushed, same as below: arriving at the
-    // payment step is not a navigation they made.
-    if (finishCheckout) {
-      entryStepRef.current = "plan";
-      tagCurrentEntry("plan", depthRef.current);
-      setStep("plan");
-      return;
-    }
-
-    // The live step wins once they've moved, so this also covers the race where
-    // someone clicks Continue faster than the entry check comes back: a signed-in
-    // person who reached "account" that way is moved to "business" rather than
-    // being asked to sign up for an account they already have.
-    // The further of the two records of where they were: this tab's draft
-    // and the server's row (a signed-in return from another device has only
-    // the row). resumeStep still clamps to what the restored answers support.
-    const further = (a, b) => (STEPS.indexOf(b) > STEPS.indexOf(a) ? b : a || b);
-    const saved = step === INITIAL_STEP ? further(draftStepRef.current, leadStepRef.current) : step;
-    const target = resumeStep(saved, {
-      accountExists,
-      // What the account/business step collects, judged by the same validator
-      // that step uses — so "far enough to leave it" means one thing in both
-      // places rather than two rules that drift.
-      companyReady: Object.keys(validateCompanyFields(form)).length === 0,
-      hasIndustries: selectedIndustries.length > 0,
-      hasServices: selectedCategoryIds.length > 0,
-    });
-    if (target === step) return;
-    // Replace, don't push: arriving where they left off is not a navigation
-    // they made, so Back from here leaves the page rather than replaying a step
-    // they never walked in this visit. The depth is carried, not zeroed — in the
-    // race case above there IS a real entry behind us.
-    if (depthRef.current === 0) entryStepRef.current = target;
-    tagCurrentEntry(target, depthRef.current);
-    setStep(target);
-  }, [
-    hydrated,
-    entryChecked,
-    accountExists,
-    finishCheckout,
-    step,
-    form,
-    selectedIndustries,
-    selectedCategoryIds,
-  ]);
-
-  // Re-run the rules over the errors ALREADY on screen whenever the form
-  // changes, and drop the ones that now pass.
-  //
-  // Validation only ever ran on submit, so a password corrected from 7
-  // characters to 9 kept "At least 8 characters" in red until the next submit —
-  // which then succeeded. The message was both stale and false at the same
-  // time. Only the fields already showing an error are re-evaluated, so typing
-  // a first name still can't light up the untouched fields below it.
-  useEffect(() => {
-    setFieldErrors((shown) => {
-      const keys = Object.keys(shown);
-      if (keys.length === 0) return shown;
-
-      const fresh = validateAccountFields(form, t);
-      const narrowed = {};
-      let changed = false;
-      for (const key of keys) {
-        if (fresh[key]) narrowed[key] = fresh[key];
-        if (fresh[key] !== shown[key]) changed = true;
-      }
-      // Same object when nothing moved — a new one every keystroke would
-      // re-render the whole form for no reason.
-      return changed ? narrowed : shown;
-    });
-  }, [form, t]);
 
   useEffect(() => {
     // ── What the link asked for ─────────────────────────────────────────────
@@ -1833,43 +760,7 @@ export default function SignupPage() {
       .catch(() => setPlans([]))
       .finally(() => setPlansLoading(false));
 
-    fetch("/api/service-categories/public")
-      .then((r) => r.json())
-      .then((data) => setCategories(Array.isArray(data) ? data : []))
-      .catch(() => setCategories([]));
   }, []);
-
-  // The sample quote's two lines for the first trade picked, in the form's
-  // language. Only while the panel that draws them is on screen; a miss
-  // (network, an industry with no seed) leaves the trade's quote-type
-  // labels standing in — the form is never blocked on a picture.
-  const firstIndustry = selectedIndustries[0] || null;
-  const sampleKey = `${firstIndustry}|${form.language}|${planCurrency}`;
-  useEffect(() => {
-    if (!firstIndustry || (step !== "industry" && step !== "goals")) return;
-    if (sampleServices[sampleKey]) return;
-    let cancelled = false;
-    fetch(`/api/signup/sample-services?industry=${encodeURIComponent(firstIndustry)}&lang=${encodeURIComponent(form.language)}&currency=${encodeURIComponent(planCurrency || "")}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (cancelled) return;
-        setSampleServices((prev) => ({
-          ...prev,
-          [sampleKey]: {
-            services: Array.isArray(d?.services) ? d.services : [],
-            categoryKey: typeof d?.categoryKey === "string" ? d.categoryKey : null,
-            currency: typeof d?.currency === "string" ? d.currency : null,
-            group: d?.group && typeof d.group === "object" ? d.group : null,
-            processSteps: Array.isArray(d?.processSteps) ? d.processSteps : [],
-            glossary: Array.isArray(d?.glossary) ? d.glossary : [],
-          },
-        }));
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [firstIndustry, form.language, planCurrency, sampleKey, step, sampleServices]);
 
   // ── One place decides what is selected ──────────────────────────────────
   //
@@ -1904,112 +795,15 @@ export default function SignupPage() {
     setError("");
   }
 
-  function handleBusinessSubmit(e) {
-    e.preventDefault();
+
+  function selectPlan(plan) {
+    setSelectedPlanId(plan.id);
     setError("");
-
-    const errors = validateCompanyFields(form, t);
-    setFieldErrors(errors);
-    if (Object.keys(errors).length > 0) return;
-
-    // "Company details" for the rep watching — see the "opened" beacon above.
-    if (signupLinkToken) reportSignupStep(signupLinkToken, "company");
-
-    // Off the funnel, not typed. Every forward move on this page asks
-    // lib/signup/funnel.js where it goes, so reordering the steps there cannot
-    // leave a button pointing at the old next one.
-    goToStep(nextStep("business", { accountExists }));
   }
 
-  // replace handleAccountSubmit entirely
-  async function handleAccountSubmit(e) {
-    e.preventDefault();
-    setError("");
-
-    const errors = validateAccountFields(form, t);
-
-    setFieldErrors(errors);
-    if (Object.keys(errors).length > 0) return;
-
-    setSubmitting(true);
-
-    await fetch("/api/auth/precheck", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: form.email }),
-    });
-    try {
-      const result = await signUp.email({
-        email: form.email,
-        password: form.password,
-        name: `${form.firstName} ${form.lastName}`.trim(),
-      });
-
-      if (result?.error) {
-        // A login already on this address is not a failure to create one —
-        // it is the wrong door. Better Auth says "User already exists"
-        // (USER_ALREADY_EXISTS), which has no "email" in it, so it used to
-        // land in the general banner untranslated and read as a crash.
-        if (
-          result.error.code === "USER_ALREADY_EXISTS" ||
-          /already exists/i.test(result.error.message || "")
-        ) {
-          setExistingLogin(form.email.trim().toLowerCase());
-          setFieldErrors({ email: t("app.signup.error.loginExists") });
-          return;
-        }
-        // Surface Better Auth's own message on the specific field when possible,
-        // otherwise fall back to the general error banner.
-        const message =
-          result.error.message ||
-          t("app.signup.error.createAccount", "Could not create your account");
-        if (message.toLowerCase().includes("email")) {
-          setFieldErrors({ email: message });
-        } else {
-          setError(message);
-        }
-        return;
-      }
-
-      // The account now exists without a company, which is exactly the state
-      // this page can resume into if they stop here.
-      setAccountReady({ email: form.email });
-      goToStep(nextStep("account", { accountExists: true }));
-    } catch (err) {
-      setError(err?.message || t("app.signup.error.createAccount", "Could not create your account"));
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  function toggleIndustry(slug) {
-    setSelectedIndustries((prev) =>
-      prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug],
-    );
-  }
-
-  function toggleCategory(id) {
-    setSelectedCategoryIds((prev) =>
-      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
-    );
-  }
-
-  // Through better-auth's own client, not a raw fetch to /api/auth/sign-out:
-  // the raw call clears the cookie and leaves the client-side session store
-  // still reporting a logged-in user, so MarketingHeader keeps rendering the
-  // avatar until something forces a refetch. Same reasoning as AdminSidebar.
-  //
-  // `to` is where to land afterwards. The unfinished-checkout banner sends
-  // people to /login; the resumed-signup banner reloads THIS page with its
-  // query string intact (a rep's ?sales= code, a referral) so the person can
-  // start over or sign in as somebody else without losing the link they
-  // came in on — being unable to sign out of an account you cannot use is
-  // its own kind of broken, and the owner hit exactly that on 2026-09-21.
-  //
-  // The tab's draft goes with the session. "Not you?" means the next person
-  // at this keyboard must not find the last one's company, phone and email
-  // already typed into the account step — and the draft is what would put
-  // them there, because the restore above wrote the row into it.
+  // Through better-auth's own client, so the header stops showing an avatar.
+  // The tab's draft goes with the session: "Not you?" means the next person
+  // at this keyboard must not find the last one's address typed in.
   async function handleSignOut(to = "/login") {
     await signOut({
       fetchOptions: {
@@ -2017,7 +811,7 @@ export default function SignupPage() {
           try {
             sessionStorage.removeItem(DRAFT_KEY);
           } catch {
-            // A blocked storage is a draft that was never written either.
+            // Nothing to remove.
           }
           window.location.href = to;
         },
@@ -2026,457 +820,196 @@ export default function SignupPage() {
   }
 
   /**
-   * @param withoutPlan  the Services step's own finish: the company is created
-   *                     on its free trial with NO plan and NO card, and the
-   *                     browser goes straight to /app. Since 2026-09-24 this is
-   *                     how every new signup ends (the owner: "move the credit
-   *                     card and plan selection out of the sign up and just
-   *                     move it to the banner"); the plan step below it is
-   *                     kept for a company created before that date finishing
-   *                     its checkout, and for a draft saved on that step.
+   * The press that makes the trial real: POST /api/companies with no name and
+   * no address (the welcome questions ask for those), then the first welcome
+   * question. A 409 means this login already has a business — the /app gate
+   * knows where it belongs.
    */
-  async function handleFinish({ withoutPlan = false } = {}) {
+  async function createCompany() {
     setError("");
-
-    // Refusals the button is already disabled for, restated here because a
-    // disabled button is not a guard — the same three states are checked on the
-    // server, and this only decides which sentence they read.
-    if (!hasSelection && !withoutPlan) {
-      setError(t("app.signup.error.selectPlan", "Please select a plan first."));
-      return;
-    }
-    if (!planCurrency && !withoutPlan) {
-      setError(
-        basis.country
-          ? t(
-              "app.signup.error.noPricingFor",
-              "We don't have plan pricing for {country} yet — get in touch and we'll sort it out.",
-              { country: countryName },
-            )
-          : t(
-              "app.signup.error.addressFirst",
-              "Add your business address first — it's what tells us which currency to price in.",
-            ),
-      );
-      return;
-    }
-    setSubmitting(true);
-
-    // ── Resuming: the company exists, so /api/companies would refuse ───────
-    //
-    // That route's "one business per login" guard 409s on any session that
-    // already has a membership, which is exactly this person. It has to — the
-    // alternative is a second company beside the one they abandoned. So the
-    // resumed flow opens checkout for the company they already have, through
-    // the same route Account & Billing's "Choose plan" uses, with the same
-    // billing-admin gate app/api/signup/resume already applied before this
-    // button was rendered at all.
-    //
-    // It sends the CADENCE and the plan id, never a price (non-negotiable #5),
-    // and the route reprices from its own Plan row and refuses "year" outright
-    // for a plan with no annual price.
-    if (finishCheckout) {
-      try {
-        const res = await fetch("/api/platform/billing/checkout", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            planId: selectedPlanId,
-            interval: effectiveInterval,
-          }),
-        });
-        const data = await res.json().catch(() => null);
-        if (!res.ok || !data?.checkoutUrl) {
-          setError(
-            data?.error ||
-              t(
-                "app.signup.error.checkout",
-                "We couldn't open checkout. Try again, or get in touch and we'll finish it with you.",
-              ),
-          );
-          return;
-        }
-        // Nothing to clear from sessionStorage here: the draft describes a
-        // company that was created weeks ago, and handleFinish already removed
-        // it on the run that created it. Clearing it again would be tidying
-        // something that isn't there.
-      // The furthest step, kept: "checkout" means they reached Stripe.
-      if (!finishCheckout) {
-        const handoff = captureBodyFor(form, "checkout", { selectedIndustries, selectedCategoryIds, salesCode, referralCode, utm, visitorId: visitorId() });
-        if (handoff) postSignupCapture(handoff);
-      }
-        window.location.href = data.checkoutUrl;
-        return;
-      } catch (err) {
-        setError(err?.message || t("app.signup.error.checkoutShort", "We couldn't open checkout."));
-        return;
-      } finally {
-        setSubmitting(false);
-      }
-    }
-
-    // Built once per press and kept for a Retry, so a resend is the same
-    // request byte for byte — the route's one-business guard, not this page,
-    // is what makes sending it twice safe.
-    const postCompany = (signal) =>
-      fetch("/api/companies", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        signal,
-        body: JSON.stringify({
-          name: form.companyName,
-          phone: form.phone,
-          address: form.address,
-          city: form.city,
-          province: form.province,
-          country: form.country,
-          language: form.language,
-          industries: selectedIndustries,
-          // "Do you have a website?" — the answer and, for a yes, the
-          // address. Re-read by the route through lib/signup/website.js;
-          // the browser's own validation is a courtesy.
-          hasWebsite: form.hasWebsite,
-          website: form.hasWebsite === true ? form.website : undefined,
-          planId: withoutPlan ? undefined : selectedPlanId,
-          // What the link that brought them here asked for, kept on the
-          // company so the trial banner opens Account & Billing on that card
-          // — see Company.signupTierKey. Only meaningful when no plan is
-          // chosen here; with one, the plan itself is the answer.
-          wantedTier: withoutPlan ? wantedRef.current.tier || undefined : undefined,
-          wantedPlanId: withoutPlan ? wantedRef.current.planId || undefined : undefined,
-          serviceCategoryIds: selectedCategoryIds,
-          // The Team and Goals answers, or null for a skipped step — the
-          // server validates each against its closed list and stores the
-          // words picked, never a default.
-          teamSizeBand: teamSizeBand || null,
-          yearsInBusinessBand: yearsBand || null,
-          signupGoal: signupGoal || null,
-          signupSource: signupSource.trim() || null,
-          // The CADENCE, never a price. The server reprices from its own Plan
-          // row either way (non-negotiable #5) and refuses "year" outright for
-          // a plan with no annual price rather than quietly billing monthly
-          // under an annual label.
-          billingInterval: effectiveInterval,
-          referralCode: referralCode || undefined,
-          // Its own field, never folded into referralCode — see the third
-          // namespace note in app/api/companies/route.js.
-          salesCode: salesCode || undefined,
-          utm: utm || undefined,
-          // The token from a texted link, so the server can stamp "plan
-          // chosen" on the rep's panel. Not a code and not attribution:
-          // attribution is the salesCode above, and the server never trusts
-          // this for anything but the stamp.
-          signupLinkToken: signupLinkToken || undefined,
-          next: nextPath || undefined,
-          // The no-plan finish shows the seeding as named steps, so it asks
-          // the route to create the company and leave the seeding to POST
-          // /api/signup/setup. The plan step on its way to Stripe does not.
-          stagedSetup: withoutPlan ? true : undefined,
-        }),
-      });
-
-    // ── No plan: the progress screen, then the app ──────────────────────────
-    //
-    // No checkout, no Stripe, no "checkout started" bar — the funnel's last
-    // two bars describe a payment that did not happen here. What the owner
-    // sees instead is SignupCreating: the company, each trade's services, the
-    // checklists, the templates, the dashboard — each ticked off when the
-    // server says it is done (runCreation below).
-    if (withoutPlan) {
-      // The funnel's "Services" bar: Start my free trial was pressed. Whether
-      // a company came of it is "Trial started", which the server decides
-      // from the Company row — never this beacon.
-      if (!finishCheckout) trackSignupStep("finish");
-      creationRef.current = { ...creationRef.current, postCompany, stages: null };
-      await runCreation();
-      return;
-    }
-
-    try {
-      const res = await postCompany();
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error || t("app.signup.error.finishCompany", "Could not finish setting up your company"));
-        return;
-      }
-
-      if (!data.checkoutUrl) {
-        setError(t("app.signup.error.noCheckoutUrl", "Company was created, but no checkout URL was returned."));
-        return;
-      }
-
-      // The company exists now, so the draft describes work that is finished.
-      // Leaving it would resume a completed signup the next time this page is
-      // opened in the same tab — and offer to build the company a second time.
+    const res = await fetch("/api/companies", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        language,
+        marketingConsent: form.consent === true,
+        referralCode: referralCode || undefined,
+        salesCode: salesCode || undefined,
+        utm: utm || undefined,
+        signupLinkToken: signupLinkToken || undefined,
+        next: nextPath || undefined,
+        wantedTier: wantedRef.current.tier || undefined,
+        wantedPlanId: wantedRef.current.planId || undefined,
+      }),
+    }).catch(() => null);
+    const data = await res?.json().catch(() => null);
+    if (res?.ok && isInternalPath(data?.welcomeUrl)) {
       try {
         sessionStorage.removeItem(DRAFT_KEY);
+        if (nextPath) sessionStorage.setItem(WELCOME_NEXT_KEY, nextPath);
+        if (signupLinkToken) sessionStorage.setItem(WELCOME_LINK_KEY, signupLinkToken);
       } catch {
-        // Nothing to do about it, and nothing that should stop checkout.
+        // Storage blocked: the dashboard is where they land after setup.
       }
+      window.location.href = data.welcomeUrl;
+      return true;
+    }
+    if (res?.status === 409 && data?.code === "already_has_company") {
+      window.location.href = "/app";
+      return true;
+    }
+    setError(data?.error || t("app.signup.error.finishCompany", "Could not finish setting up your company"));
+    return false;
+  }
 
-      // The furthest step, kept: "checkout" means they reached Stripe.
-      if (!finishCheckout) {
-        const handoff = captureBodyFor(form, "checkout", { selectedIndustries, selectedCategoryIds, salesCode, referralCode, utm, visitorId: visitorId() });
-        if (handoff) postSignupCapture(handoff);
+  async function handleAccountSubmit(e) {
+    e.preventDefault();
+    setError("");
+    const errors = validateAccountFields(form, t);
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+    setSubmitting(true);
+    try {
+      await fetch("/api/auth/precheck", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: form.email }),
+      }).catch(() => null);
+      // No name yet: the welcome "about you" question asks for it, and Better
+      // Auth's `name` is a plain string that may be empty until then.
+      const result = await signUp.email({ email: form.email, password: form.password, name: "" });
+      if (result?.error) {
+        if (result.error.code === "USER_ALREADY_EXISTS" || /already exists/i.test(result.error.message || "")) {
+          setExistingLogin(form.email.trim().toLowerCase());
+          setFieldErrors({ email: t("app.signup.error.loginExists") });
+          return;
+        }
+        const message = result.error.message || t("app.signup.error.createAccount", "Could not create your account");
+        if (message.toLowerCase().includes("email")) setFieldErrors({ email: message });
+        else setError(message);
+        return;
       }
-      window.location.href = data.checkoutUrl;
+      trackSignupStep("start");
+      if (signupLinkToken) reportSignupStep(signupLinkToken, "company");
+      const ok = await createCompany();
+      // The login exists even when the company POST failed: this page's
+      // signed-in screen offers the same press again, never a second password.
+      if (!ok) setAccountReady({ email: form.email });
     } catch (err) {
-      setError(err?.message || t("app.signup.error.finishCompany", "Could not finish setting up your company"));
+      setError(err?.message || t("app.signup.error.createAccount", "Could not create your account"));
     } finally {
       setSubmitting(false);
     }
   }
 
-  // ── The progress screen's run, and its Retry ────────────────────────────
-  //
-  // lib/signup/creatingProgress.js does the work: the company POST under a
-  // deadline, then the seeding stream, each stage ticked only when the server
-  // reports it. This only keeps the screen's state and does the two things a
-  // library should not — the draft and the navigation.
-  //
-  // A Retry calls this again with the stages the failed run left (done stays
-  // done) and the SAME postCompany; `companyMaybeCreated` carries "we never
-  // heard back" across, which is what lets the resend's 409 mean "it worked".
-  const signupAppUrl = isInternalPath(nextPath) ? nextPath : "/app?welcome=true";
-  async function runCreation() {
-    const trades = categories
-      .filter((c) => selectedCategoryIds.includes(c.id))
-      .map((c) => ({ id: c.id, label: c.label }));
-    const start = creationRef.current.stages || initialStages(trades);
-    setError("");
-    setCreating((c) => ({
-      stages: start,
-      problem: null,
-      running: true,
-      slowNavigation: false,
-      appUrl: c?.appUrl || signupAppUrl,
-    }));
-
-    const result = await runSignupCreation({
-      stages: start,
-      postCompany: creationRef.current.postCompany,
-      openSetup: (signal) => fetch("/api/signup/setup", { method: "POST", signal }),
-      companyMaybeCreated: creationRef.current.companyMaybeCreated,
-      fallbackAppUrl: creationRef.current.appUrl || signupAppUrl,
-      onStages: (stages) => setCreating((c) => (c ? { ...c, stages } : c)),
-    });
-
-    creationRef.current.stages = result.stages;
-    if (result.companyUnknown) creationRef.current.companyMaybeCreated = true;
-    if (result.appUrl) creationRef.current.appUrl = result.appUrl;
-
-    // Once the company exists the draft describes finished work — left
-    // behind, it would offer to build it again. Kept while that is unknown or
-    // untrue, so "Back to the form" still has everything typed.
-    if (result.outcome === "done" || result.companyCreated === true) {
-      try {
-        sessionStorage.removeItem(DRAFT_KEY);
-      } catch {
-        // Nothing to do about it, and nothing that should stop the app opening.
-      }
+  async function handleStartSignedIn() {
+    setSubmitting(true);
+    try {
+      trackSignupStep("start");
+      await createCompany();
+    } finally {
+      setSubmitting(false);
     }
+  }
 
-    if (result.outcome === "done") {
-      setCreating((c) => ({ ...c, stages: result.stages, running: false, appUrl: result.appUrl }));
-      window.location.href = result.appUrl;
-      // Normally this page is gone long before this fires. If it is not, the
-      // screen offers the link by hand rather than sit on "Preparing".
-      setTimeout(
-        () => setCreating((c) => (c ? { ...c, slowNavigation: true } : c)),
-        CREATING_TIMEOUTS.navigateSlowMs,
-      );
+  // ── The resumed payment's one press (a company from before 2026-09-24) ──
+  //
+  // Opens checkout for the company they already have, through the route
+  // Account & Billing uses, sending the plan and the cadence — never a price.
+  async function handleFinish() {
+    setError("");
+    if (!hasSelection) {
+      setError(t("app.signup.error.selectPlan", "Please select a plan first."));
       return;
     }
-    setCreating((c) => ({ ...c, stages: result.stages, problem: result, running: false, appUrl: result.appUrl || c?.appUrl }));
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/platform/billing/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId: selectedPlanId, interval: effectiveInterval }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.checkoutUrl) {
+        setError(
+          data?.error ||
+            t("app.signup.error.checkout", "We couldn't open checkout. Try again, or get in touch and we'll finish it with you."),
+        );
+        return;
+      }
+      window.location.href = data.checkoutUrl;
+    } catch (err) {
+      setError(err?.message || t("app.signup.error.checkoutShort", "We couldn't open checkout."));
+    } finally {
+      setSubmitting(false);
+    }
   }
 
-  // Back to the form: only offered while no company exists. The error the
-  // route gave (a website it could not read, a country it could not place)
-  // goes where the form shows its errors.
-  function leaveCreating() {
-    const message = creating?.problem?.message || "";
-    creationRef.current.stages = null;
-    setCreating(null);
-    setSubmitting(false);
-    if (message) setError(message);
-  }
-
-  // ── What the panel beside the form is told ──────────────────────────────
-  //
-  // Everything the reactive aside draws, in one object: the step, the form
-  // as typed, the two optional answers, and for the trades and services
-  // steps the words the picture needs — the trade's sample services (or its
-  // quote-type labels when there is no seed), the trade's name as the scope
-  // heading, the currency the address resolved to, the ticked quote types.
-  const presetLabelsForFirstTrade = firstIndustry
-    ? categories.filter((c) => categoryKeysForIndustries([firstIndustry]).includes(c.key)).map((c) => c.label)
-    : [];
-  const asidePreview = {
-    step,
-    form,
-    language: form.language,
-    teamSizeBand,
-    signupGoal,
-    sampleServices: sampleServices[sampleKey]?.services || [],
-    sampleTrade: sampleServices[sampleKey] || null,
-    fallbackLines: presetLabelsForFirstTrade,
-    groupLabel: INDUSTRIES.find((i) => i.slug === firstIndustry)?.label || "",
-    currency: planCurrency,
-    serviceLabels: categories.filter((c) => selectedCategoryIds.includes(c.id)).map((c) => c.label),
-  };
+  const trialLine = TRIAL_CARD_REQUIRED
+    ? t("app.signup.trialDays", "Free for {days} days.", { days: TRIAL_DAYS })
+    : t("app.signup.trialDaysNoCard", "Free for {days} days — no card needed.", { days: TRIAL_DAYS });
 
   return (
     <>
       <MarketingHeader />
-      {/* ── The frame, and the one step that does without it ────────────────
-          Every step but the last gets the two-column shell: a form column and
-          a panel saying what is being set up, the same shape as /features and
-          /compare. The PLAN step drops the panel and goes full width, because
-          its own content is four plan cards plus a Custom card — five columns
-          of decision that cannot be squeezed into 26rem — and because a
-          visitor on the last step has already been persuaded. A persuasion
-          panel there would be arguing with somebody holding a card.
-
-          `step` is only read here. Nothing about the funnel, the draft, the
-          currency or the payload passes through this layout. */}
       <AuthShell
         eyebrow={
           entryChecked && alreadyOnFieldquo
             ? t("app.signup.eyebrowExisting", "Add a business")
             : entryChecked && finishCheckout
               ? t("app.signup.finish.eyebrow", "Finish setting up")
-              : t("app.signup.eyebrow", "Start your free month")
+              : t("app.signup.eyebrowTrial", "Free trial")
         }
-        title={
-          finishCheckout
-            ? t("app.signup.finish.title", "One step left")
-            : t("app.signup.title", "Start your free trial")
-        }
+        title={finishCheckout ? t("app.signup.finish.title", "One step left") : t("app.signup.title", "Start your free trial")}
         subtitle={
-          finishCheckout ? (
-            /* ── Never the blanket "first month free" here ────────────────
-               trialLabel() states the offer a NEW signup gets. Somebody
-               resuming may have had that month already: /api/platform/billing/
-               checkout only carries trial days onto Stripe while trialEndsAt is
-               still in the future, so promising a free month to a company that
-               abandoned checkout in July would be a promise the charge does not
-               keep. The company's own trialEndsAt decides which sentence they
-               read, and there is no third sentence for "we don't know" —
-               the API sends the column or the company doesn't resume. */
-            resumeTrialLive ? (
-              t(
-                "app.signup.finish.subtitleTrial",
-                "{company} is set up — it just needs a card before you can use it. Your free month has {days} left, so nothing is charged today.",
-                {
+          finishCheckout
+            ? resumeTrialLive
+              ? t(
+                  "app.signup.finish.subtitleTrial",
+                  "{company} is set up — it just needs a card before you can use it. Your free month has {days} left, so nothing is charged today.",
+                  {
+                    company: finishCheckout.name,
+                    days: `${resumeTrialDaysLeft} ${t(resumeTrialDaysLeft === 1 ? "app.signup.finish.day" : "app.signup.finish.days")}`,
+                  },
+                )
+              : t("app.signup.finish.subtitle", "{company} is set up — it just needs a card before you can use it.", {
                   company: finishCheckout.name,
-                  // The noun comes out of the catalogue, not out of a template
-                  // literal — "3 days" inside an otherwise French sentence is
-                  // exactly what the catalogue exists to stop.
-                  days: `${resumeTrialDaysLeft} ${t(
-                    resumeTrialDaysLeft === 1
-                      ? "app.signup.finish.day"
-                      : "app.signup.finish.days",
-                  )}`,
-                },
-              )
-            ) : (
-              t(
-                "app.signup.finish.subtitle",
-                "{company} is set up — it just needs a card before you can use it.",
-                { company: finishCheckout.name },
-              )
-            )
-          ) : (
-            <>
-              {/* Off the trialLabel helper, never a hardcoded number — this line
-                  had drifted to "$1" while the system actually charges $0. */}
-              {trialText(t)}
-              {" — "}
-              {t(
-                "app.signup.subtitle",
-                "set up your business and pick your trades \u2014 no card needed.",
-              )}
-            </>
-          )
+                })
+            : trialLine
         }
-        rail={
-          entryChecked ? (
-            <SignupSteps current={step} accountExists={accountExists} />
-          ) : null
-        }
-        aside={step === "plan" ? null : <AuthAside variant="signup" preview={asidePreview} />}
-        strip={step === "plan" ? null : <SignupAsideStrip preview={asidePreview} />}
+        aside={finishCheckout ? null : <WelcomeAside step="account" />}
       >
-        {/* ── Already signed in with a business: the form does not render ──
-            This used to show a banner explaining that carrying on would set up
-            an ADDITIONAL business, on the reasoning that a redirect would be
-            wrong because somebody might genuinely want a second one.
-
-            The owner ruled otherwise, twice: "i cannot sign up if i'm already
-            logged in." So the form is not offered at all, and POST
-            /api/companies refuses with 409 — the screen and the route agree,
-            rather than the screen hiding something the URL would still reach.
-
-            Not a redirect. Somebody who typed /signup deliberately deserves a
-            sentence saying why they are not getting it, and the two things
-            they might actually have wanted are right here. A silent bounce to
-            the dashboard reads as the link being broken.
-
-            `alreadyOnFieldquo` means a MEMBERSHIP, not a session. A session
-            with no company is the abandoned signup and still gets the whole
-            form — see the entry check above. */}
         {alreadyOnFieldquo && (
           <div className="max-w-md mx-auto bg-card border border-border rounded-2xl px-6 py-8 text-center">
-            <h1 className="text-xl font-bold text-foreground">
-              {t("app.signup.alreadyIn", "You already have a business here")}
-            </h1>
+            <h1 className="text-xl font-bold text-foreground">{t("app.signup.alreadyIn", "You already have a business here")}</h1>
             <p className="mt-3 text-sm text-muted-foreground">
-              {t(
-                "app.signup.alreadyInBody",
-                "You're signed in as {name}. FieldQuo gives one business to a login, so there is nothing to set up on this page.",
-                { name: alreadyOnFieldquo.name },
-              )}
+              {alreadyOnFieldquo.name
+                ? t(
+                    "app.signup.alreadyInBody",
+                    "You're signed in as {name}. FieldQuo gives one business to a login, so there is nothing to set up on this page.",
+                    { name: alreadyOnFieldquo.name },
+                  )
+                : t(
+                    "app.signup.alreadyInBodyPlain",
+                    "FieldQuo gives one business to a login, and this login has one — so there is nothing to set up on this page.",
+                  )}
             </p>
             <div className="mt-6 flex flex-col gap-3">
-              <a
-                href="/app"
-                className="bg-inverted text-inverted-foreground rounded-full px-6 py-3 text-sm font-semibold"
-              >
+              <a href="/app" className="bg-inverted text-inverted-foreground rounded-full px-6 py-3 text-sm font-semibold">
                 {t("app.signup.goToDashboard", "Go to your dashboard")}
               </a>
-              {/* The two real reasons somebody signed-in lands here: they meant
-                  to invite a colleague, or they followed a referral link. Both
-                  are a click away rather than a dead end. */}
-              <a
-                href="/app/settings/team"
-                className="text-sm font-medium text-muted-foreground hover:text-foreground"
-              >
+              <a href="/app/settings/team" className="text-sm font-medium text-muted-foreground hover:text-foreground">
                 {t("app.signup.inviteInstead", "Add someone to your team instead")}
               </a>
               {referrer && (
-                <a
-                  href="/app/settings/refer"
-                  className="text-sm font-medium text-muted-foreground hover:text-foreground"
-                >
-                  {t(
-                    "app.signup.yourOwnReferral",
-                    "Referral offers are for businesses new to FieldQuo — here is your own link",
-                  )}
+                <a href="/app/settings/refer" className="text-sm font-medium text-muted-foreground hover:text-foreground">
+                  {t("app.signup.yourOwnReferral", "Referral offers are for businesses new to FieldQuo — here is your own link")}
                 </a>
               )}
             </div>
           </div>
         )}
 
-        {/* ── Why they are here rather than on the dashboard ───────────────
-            They pressed something that goes to /app and landed on a signup
-            page instead. Unexplained, that reads as the product losing their
-            account — which is precisely the complaint the resumed-signup
-            banner below was written to answer, and this is the same failure
-            one step further along the funnel. Says what is missing, and names
-            the business so nobody thinks they've been thrown into somebody
-            else's signup. */}
         {finishCheckout && (
           <div className="max-w-md mx-auto mb-6 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
             <p>
@@ -2486,138 +1019,22 @@ export default function SignupPage() {
                 { company: finishCheckout.name },
               )}
             </p>
-            {/* ── The way out ─────────────────────────────────────────────
-                They were redirected here from /app and every route under
-                /app sends them straight back, so the header's avatar (which
-                links to /app) returns them to this page. Without this there
-                is no way to leave the account at all — being unable to sign
-                out of something you cannot use is its own kind of broken, and
-                it is the same reason lib/billing/access.js keeps /api/auth on
-                the allow-list for a locked company. */}
-            <button
-              type="button"
-              onClick={() => handleSignOut("/login")}
-              className="mt-2 text-sm font-semibold underline underline-offset-2"
-            >
+            <button type="button" onClick={() => handleSignOut("/login")} className="mt-2 text-sm font-semibold underline underline-offset-2">
               {t("app.signup.finish.signOut", "Sign out of this account")}
             </button>
           </div>
         )}
 
-        {/* ── The link named a plan that is no longer offered ──────────────
-            A retired plan (Plan.retiredAt) is refused by /api/marketing/plans
-            even by link, and the refusal comes back as `refused` so it can be
-            said here. Shown on every step, because this is where the link
-            lands; the plan step below carries the current plans, which is the
-            "here are the current ones" half. Nothing is pre-selected for
-            them — see resolvePlanSelection. */}
-        {refusedPlan?.reason === "retired" && !alreadyOnFieldquo && (
+        {refusedPlan?.reason === "retired" && finishCheckout && (
           <div className="max-w-md mx-auto mb-6 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
-            <p>
-              {t(
-                "app.signup.plan.retired",
-                "That plan is no longer offered — here are the current ones.",
-              )}
-            </p>
+            <p>{t("app.signup.plan.retired", "That plan is no longer offered — here are the current ones.")}</p>
           </div>
         )}
 
-        {resumedSignup && !alreadyOnFieldquo && (
-          <div className="max-w-md mx-auto mb-6 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
-            {(() => {
-              // "Nothing you've already entered is lost" was printed over an
-              // EMPTY form on 2026-09-21. The sentence now depends on what
-              // was actually put back: the row's fields, BY NAME, or nothing.
-              // A list rather than "what you entered", because the second
-              // time round the row was missing the one field the next step
-              // needs, and "we've put back what you entered" over a form
-              // asking for the address again read as the same lie.
-              const names = restoredFieldNames(restoredLead?.fields, t);
-              const kept = names.length > 0;
-              const [before, after] = around(
-                kept
-                  ? t(
-                      "app.signup.resumed.bodyRestoredFields",
-                      "You're signed in as {email}, but your business was never finished — that last step is what creates it. We've put back: {fields}. Carry on from where you stopped.",
-                      { fields: names },
-                    )
-                  : t(
-                      "app.signup.resumed.body",
-                      "You're signed in as {email}, but your business was never finished — that last step is what creates it. Carry on below to set it up.",
-                    ),
-                "{email}",
-              );
-              // Landed short of the row's furthest step because the address
-              // was never saved (rows from before the column existed):
-              // say so, or the banner's "carry on from where you stopped"
-              // sits over a step they had already passed.
-              const shortOfStep =
-                kept &&
-                restoredLead.step &&
-                STEPS.indexOf(restoredLead.step) > STEPS.indexOf(step) &&
-                !form.address.trim();
-              return (
-                <>
-                  <p>
-                    {before}
-                    <strong>
-                      {accountReady?.email ||
-                        t("app.signup.resumed.yourAccount", "your account")}
-                    </strong>
-                    {after}
-                  </p>
-                  {shortOfStep && (
-                    <p className="mt-2">
-                      {t(
-                        "app.signup.resumed.addressMissing",
-                        "Your street address wasn't saved last time — add it below and you'll be back at the step you reached.",
-                      )}
-                    </p>
-                  )}
-                </>
-              );
-            })()}
-            {/* ── Not you? ─────────────────────────────────────────────────
-                Every route under /app sends a login with no company back
-                here, and the header's avatar links to /app: without this
-                there was no way out of the account at all. Signs out and
-                reloads this page, query string and all. */}
-            <button
-              type="button"
-              onClick={() => handleSignOut(window.location.pathname + window.location.search)}
-              className="mt-2 text-sm font-semibold underline underline-offset-2"
-              data-resumed-sign-out
-            >
-              {t("app.signup.resumed.signOut", "Not you? Sign out")}
-            </button>
-            <p className="mt-2">
-              {t(
-                "app.signup.resumed.invited",
-                "Joining a business someone invited you to? Ask them to resend the invitation instead — this page sets up a new business of your own.",
-              )}
-            </p>
-          </div>
-        )}
-
-        {/* Only shown once the code has been confirmed real. Carried through
-            every step so someone who reaches the payment screen still sees
-            what they were promised on the landing page. */}
         {referrer && !alreadyOnFieldquo && (
-          <div className="max-w-md mx-auto mb-6 bg-brand-accent/10 border border-brand-accent/40 rounded-xl px-4 py-3 text-center">
-            {/* --foreground, not a literal #2d2520. The hex was a near-black
-                chosen against the light card, so the one line of copy on this
-                banner would have been near-black on a dark wash the day the
-                theme allow-list grows to cover /signup — the "the dark value
-                was never written" case AuthShell's header warns about.
-                check:auth-pages proves the token resolves in both palettes; it
-                cannot prove anything about a literal. */}
+          <div className="mb-6 bg-brand-accent/10 border border-brand-accent/40 rounded-xl px-4 py-3 text-center">
             {(() => {
-              // Two bold spans in one translated sentence: split on {name}
-              // first, then on {months} in whatever is left after it.
-              const sentence = t(
-                "app.signup.referred",
-                "{name} referred you — {months} added to your trial.",
-              );
+              const sentence = t("app.signup.referred", "{name} referred you — {months} added to your trial.");
               const [a, rest] = around(sentence, "{name}");
               const [b, c] = around(rest, "{months}");
               return (
@@ -2632,29 +1049,15 @@ export default function SignupPage() {
             })()}
           </div>
         )}
+
         {error && (
-          <div className="max-w-md mx-auto mb-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
+          <div role="alert" className="mb-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
             {error}
           </div>
         )}
-        {/* ── Nothing renders until we know who this is ────────────────────
-            The funnel now OPENS on a form: "account" for a stranger,
-            "business" for someone who already has a login. Rendering the
-            account step first and swapping it a moment later would flash a
-            create-a-password form at somebody who is already signed in, which
-            reads as the product having forgotten them — the same complaint the
-            resumed-signup banner below exists to answer. */}
-        {/* ── A resume link for one account, opened while signed in as
-            another. Both addresses on screen and the choice theirs: carrying
-            on here would either write this signup into the signed-in
-            account or sign it out without asking. "Continue" signs the other
-            account out (with its draft, handleSignOut) and goes to sign-in or
-            the account step for the link's address. */}
+
         {resumeElsewhere && (
-          <div
-            className="max-w-md mx-auto bg-card border border-border rounded-2xl px-6 py-8 text-center"
-            data-signup-resume-switch
-          >
+          <div className="max-w-md mx-auto bg-card border border-border rounded-2xl px-6 py-8 text-center" data-signup-resume-switch>
             <h1 className="text-xl font-bold text-foreground break-words">
               {t("app.signup.resumeSwitch.title", { email: resumeElsewhere.email })}
             </h1>
@@ -2669,424 +1072,96 @@ export default function SignupPage() {
               >
                 {t("app.auth.switch.continueAs", { email: resumeElsewhere.email })}
               </button>
-              <a
-                href="/app"
-                className="text-sm font-medium text-muted-foreground hover:text-foreground break-words"
-              >
+              <a href="/app" className="text-sm font-medium text-muted-foreground hover:text-foreground break-words">
                 {t("app.auth.switch.stayAs", { other: resumeElsewhere.other })}
               </a>
             </div>
           </div>
         )}
+
         {!entryChecked && !alreadyOnFieldquo && !resumeElsewhere && (
           <div className="bg-card border border-border rounded-xl shadow-sm p-8 text-center text-sm text-muted-foreground">
             {t("app.signup.gettingReady", "Getting things ready...")}
           </div>
         )}
-        {entryChecked && !alreadyOnFieldquo && step === "account" && (
-          <form
-            onSubmit={handleAccountSubmit}
-            className="bg-card border border-border rounded-xl shadow-sm p-6 sm:p-8 space-y-5"
-          >
-            {/* No plan summary here any more. The plan is chosen on the LAST
-                step now, so a box naming one would either be empty or be
-                describing a choice that hasn't been made. */}
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">
-                {t("app.signup.account.title", "Your account and business")}
-              </h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                {t(
-                  "app.signup.account.body",
-                  "We'll ask which trades you work in and which services you offer next \u2014 then you're in. No card and no plan today; you choose a plan from inside the app before the free month is up.",
-                )}
-              </p>
-            </div>
 
-            {/* The eleven fields, lifted to module scope so a check can execute
-                them. Same fields, same order, same keys of `form` — see the
-                note on AccountFields. */}
-            <AccountFields
-              form={form}
-              setForm={setForm}
-              fieldErrors={fieldErrors}
-              existingLogin={existingLogin}
-              t={t}
-            />
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className={PRIMARY_BUTTON}
-            >
-              {submitting
-                ? t("app.signup.creatingAccount", "Creating your account...")
-                : t("app.signup.continue", "Continue")}
-            </button>
-          </form>
-        )}
-        {/* The signed-in path. Everything the account step collects about the
-            BUSINESS, nothing it collects about the person — they already have a
-            login, and /api/companies needs a name or it 400s. */}
-        {entryChecked && !alreadyOnFieldquo && step === "business" && (
-          <form
-            onSubmit={handleBusinessSubmit}
-            className="bg-card border border-border rounded-xl shadow-sm p-6 sm:p-8 space-y-5"
-          >
-            {/* Two audiences reach this step. Someone ADDING a business needs
-                to be told the existing one is untouched; someone RESUMING has
-                no existing one, and that same sentence rendered as "separate
-                from  — nothing there changes", pointing at a company that
-                doesn't exist. */}
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">
-                {alreadyOnFieldquo
-                  ? t("app.signup.business.titleNew", "Your new business")
-                  : t("app.signup.business.title", "Your business")}
-              </h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                {t(
-                  "app.signup.business.body",
-                  "This is the business your clients will see on quotes and invoices.",
-                )}{" "}
-                {alreadyOnFieldquo ? (
-                  (() => {
-                    const [before, after] = around(
-                      t(
-                        "app.signup.business.separate",
-                        "It's separate from {name} — nothing there changes.",
-                      ),
-                      "{name}",
-                    );
-                    return (
-                      <>
-                        {before}
-                        <strong>{alreadyOnFieldquo.name}</strong>
-                        {after}
-                      </>
-                    );
-                  })()
-                ) : (
-                  t("app.signup.business.changeLater", "You can change any of it later in Settings.")
-                )}
-              </p>
-            </div>
-
-            <CompanyFields
-              form={form}
-              setForm={setForm}
-              fieldErrors={fieldErrors}
-              t={t}
-            />
-
-            <button type="submit" className={PRIMARY_BUTTON}>
-              {t("app.signup.continue", "Continue")}
-            </button>
-          </form>
-        )}
-        {/* ── Team (optional, 2026-09-24) ─────────────────────────────────
-            Two chip rows. Neither is required: Continue moves on with
-            whatever is picked, Skip moves on with nothing, and nothing is
-            defaulted — the panel beside the form is what the answer is for
-            right now, and the company row keeps the words for later. */}
-        {entryChecked && !alreadyOnFieldquo && step === "team" && (
-          <div className="bg-card border border-border rounded-xl shadow-sm p-6 sm:p-8">
-            <h2 className="text-lg font-semibold text-foreground mb-1">
-              {t("app.signup.team.title", "Your team")}
-            </h2>
-            <p className="text-sm text-muted-foreground mb-5">
-              {t(
-                "app.signup.team.body",
-                "Two quick questions so the calendar and the plan we suggest fit your size. You can skip this.",
-              )}
-            </p>
-            <div className="space-y-5">
-              <div>
-                <p className={`${FIELD_LABEL} mb-2`}>
-                  {t("app.signup.team.sizeQuestion", "How many people work with you, including you?")}
-                </p>
-                <ChoiceChips
-                  options={TEAM_SIZE_BANDS}
-                  value={teamSizeBand}
-                  onChange={setTeamSizeBand}
-                  name={t("app.signup.team.sizeQuestion", "How many people work with you, including you?")}
-                />
-              </div>
-              <div>
-                <p className={`${FIELD_LABEL} mb-2`}>
-                  {t("app.signup.team.yearsQuestion", "How long have you been in business?")}
-                </p>
-                <ChoiceChips
-                  options={YEARS_BANDS}
-                  value={yearsBand}
-                  onChange={setYearsBand}
-                  name={t("app.signup.team.yearsQuestion", "How long have you been in business?")}
-                />
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => goToStep(nextStep("team", { accountExists }))}
-              className={`${PRIMARY_BUTTON} mt-6`}
-            >
-              {t("app.signup.continue", "Continue")}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setTeamSizeBand(null);
-                setYearsBand(null);
-                goToStep(nextStep("team", { accountExists }));
-              }}
-              className="w-full mt-3 text-sm font-medium text-muted-foreground hover:text-foreground"
-              data-skip-step="team"
-            >
-              {t("app.signup.skip", "Skip this step")}
-            </button>
-            <button
-              type="button"
-              onClick={() => goBackToStep(previousStep("team", { accountExists }))}
-              className="w-full mt-3 text-sm text-muted-foreground hover:text-foreground"
-            >
-              ← {t("app.signup.back", "Back")}
-            </button>
-          </div>
-        )}
-        {/* ── Goals (optional, 2026-09-24) ────────────────────────────────
-            One goal and a free-text "how did you hear about us". Same
-            rules as the team step: optional, skippable, nothing defaulted. */}
-        {entryChecked && !alreadyOnFieldquo && step === "goals" && (
-          <div className="bg-card border border-border rounded-xl shadow-sm p-6 sm:p-8">
-            <h2 className="text-lg font-semibold text-foreground mb-1">
-              {t("app.signup.goals.title", "What's top of mind?")}
-            </h2>
-            <p className="text-sm text-muted-foreground mb-5">
-              {t(
-                "app.signup.goals.body",
-                "Pick one and we'll point you at the right part of the app first. Optional.",
-              )}
-            </p>
-            <ChoiceChips
-              options={SIGNUP_GOALS}
-              value={signupGoal}
-              onChange={setSignupGoal}
-              name={t("app.signup.goals.title", "What's top of mind?")}
-            />
-            <div className="mt-5">
-              <label className={FIELD_LABEL} htmlFor="signup-source">
-                {t("app.signup.goals.sourceLabel", "How did you hear about us?")}
-              </label>
-              <input
-                id="signup-source"
-                type="text"
-                value={signupSource}
-                maxLength={SIGNUP_SOURCE_MAX}
-                onChange={(e) => setSignupSource(e.target.value)}
-                placeholder={t("app.signup.goals.sourcePlaceholder", "A friend, a search, a Facebook group…")}
-                className={fieldClass(false)}
-              />
-            </div>
-
-            <button
-              type="button"
-              onClick={() => goToStep(nextStep("goals", { accountExists }))}
-              className={`${PRIMARY_BUTTON} mt-6`}
-            >
-              {t("app.signup.continue", "Continue")}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setSignupGoal(null);
-                setSignupSource("");
-                goToStep(nextStep("goals", { accountExists }));
-              }}
-              className="w-full mt-3 text-sm font-medium text-muted-foreground hover:text-foreground"
-              data-skip-step="goals"
-            >
-              {t("app.signup.skip", "Skip this step")}
-            </button>
-            <button
-              type="button"
-              onClick={() => goBackToStep(previousStep("goals", { accountExists }))}
-              className="w-full mt-3 text-sm text-muted-foreground hover:text-foreground"
-            >
-              ← {t("app.signup.back", "Back")}
-            </button>
-          </div>
-        )}
-        {entryChecked && !alreadyOnFieldquo && step === "industry" && (
-          <div className="bg-card border border-border rounded-xl shadow-sm p-6 sm:p-8">
-            <h2 className="text-lg font-semibold text-foreground mb-1">
-              {t("app.signup.industry.title", "What trades does your company work in?")}
-            </h2>
-            <p className="text-sm text-muted-foreground mb-4">
-              {t(
-                "app.signup.industry.body",
-                "Select all that apply — this narrows down which quote types you'll see.",
-              )}
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              {INDUSTRIES.map((ind) => (
-                <button
-                  type="button"
-                  key={ind.slug}
-                  onClick={() => toggleIndustry(ind.slug)}
-                  className={`text-left border rounded-lg px-4 py-3 text-sm ${
-                    selectedIndustries.includes(ind.slug)
-                      ? "border-inverted bg-muted font-medium"
-                      : "border-border bg-card"
-                  }`}
-                >
-                  {ind.label}
-                </button>
-              ))}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                // Preset the services step from the chosen industries — the
-                // point of asking for industry at all. Maps preset category
-                // keys -> the catalog ids we already loaded, and pre-checks
-                // them so a painter arrives with refinishing/refacing/
-                // painting already selected instead of a blank list.
-                const presetKeys = categoryKeysForIndustries(
-                  selectedIndustries,
+        {/* ── Signed in, no business: the same press, no second password ── */}
+        {entryChecked && accountReady && !alreadyOnFieldquo && !finishCheckout && (
+          <div className="bg-card border border-border rounded-xl shadow-sm p-6 sm:p-8 space-y-4" data-signup-signed-in>
+            <p className="text-sm text-foreground">
+              {(() => {
+                const [before, after] = around(
+                  t("app.signup.signedInNoBusiness", "You're signed in as {email}. Start your free trial and we'll set up your business next."),
+                  "{email}",
                 );
-                const presetIds = categories
-                  .filter((c) => presetKeys.includes(c.key))
-                  .map((c) => c.id);
-                setSelectedCategoryIds(presetIds);
-                setShowAllServices(presetIds.length === 0);
-                goToStep(nextStep("industry", { accountExists }));
-              }}
-              disabled={selectedIndustries.length === 0}
-              className={`${PRIMARY_BUTTON} mt-6 disabled:opacity-40`}
-            >
-              {t("app.signup.continue", "Continue")}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => goBackToStep(previousStep("industry", { accountExists }))}
-              className="w-full mt-3 text-sm text-muted-foreground hover:text-foreground"
-            >
-              ← {t("app.signup.back", "Back")}
-            </button>
-          </div>
-        )}
-        {/* ── After "Start my free trial": the progress screen ───────────────
-            Replaces the services card for as long as the run lasts — the
-            company, each trade, the checklists, the templates, the dashboard,
-            each ticked when the server reports it (see runCreation). Only
-            "Back to the form" brings the card back, and only while no
-            company exists. */}
-        {creating && (
-          <SignupCreating
-            stages={creating.stages}
-            companyName={form.companyName}
-            problem={creating.problem}
-            running={creating.running}
-            slowNavigation={creating.slowNavigation}
-            appUrl={creating.appUrl}
-            onRetry={runCreation}
-            onBack={leaveCreating}
-            onContinue={() => {
-              window.location.href = creating.appUrl || signupAppUrl;
-            }}
-          />
-        )}
-        {entryChecked && !alreadyOnFieldquo && step === "services" && !creating && (
-          <div className="bg-card border border-border rounded-xl shadow-sm p-6 sm:p-8">
-            <h2 className="text-lg font-semibold text-foreground mb-1">
-              {t("app.signup.services.title", "Which services do you offer?")}
-            </h2>
-            <p className="text-sm text-muted-foreground mb-4">
-              {showAllServices
-                ? t(
-                    "app.signup.services.bodyAll",
-                    "Browsing every quote type — turn on the ones you offer. You can change this anytime.",
-                  )
-                : t(
-                    "app.signup.services.bodyPreset",
-                    "We've preselected the usual quote types for your trade. Adjust as needed — you can change this anytime.",
-                  )}
+                return (
+                  <>
+                    {before}
+                    <strong className="break-all">{accountReady.email}</strong>
+                    {after}
+                  </>
+                );
+              })()}
             </p>
-            {(() => {
-              const presetKeys = categoryKeysForIndustries(selectedIndustries);
-              const visible =
-                showAllServices || presetKeys.length === 0
-                  ? categories
-                  : categories.filter((c) => presetKeys.includes(c.key));
-              return (
-                <div className="grid grid-cols-2 gap-2 max-h-80 overflow-y-auto">
-                  {visible.map((cat) => (
-                    <button
-                      type="button"
-                      key={cat.id}
-                      onClick={() => toggleCategory(cat.id)}
-                      className={`text-left border rounded-lg px-4 py-3 text-sm ${
-                        selectedCategoryIds.includes(cat.id)
-                          ? "border-inverted bg-muted font-medium"
-                          : "border-border bg-card"
-                      }`}
-                    >
-                      {cat.label}
-                    </button>
-                  ))}
-                  {categories.length === 0 && (
-                    <p className="col-span-2 text-sm text-muted-foreground">
-                      {t("app.signup.services.loading", "Loading services...")}
-                    </p>
-                  )}
-                </div>
-              );
-            })()}
-
-            {categoryKeysForIndustries(selectedIndustries).length > 0 && (
-              <button
-                type="button"
-                onClick={() => setShowAllServices((v) => !v)}
-                className="w-full mt-3 text-sm font-medium text-muted-foreground hover:text-foreground"
-              >
-                {showAllServices
-                  ? `← ${t("app.signup.services.showMine", "Show just my trade's quote types")}`
-                  : `+ ${t("app.signup.services.addOther", "Add a quote type from another trade")}`}
-              </button>
-            )}
-
-            {/* The last step since 2026-09-24: this creates the company on
-                its free trial — no plan, no card — and opens the app. The
-                plan is chosen later from the banner (the owner's decision;
-                see handleFinish). The button says what the press does. */}
+            <label className="flex items-start gap-3 text-sm text-foreground">
+              <input
+                type="checkbox"
+                checked={form.consent === true}
+                onChange={(e) => setForm({ ...form, consent: e.target.checked })}
+                className="mt-0.5 h-4 w-4 rounded border-border"
+              />
+              <span>{t("app.signup.consent", "Send me product news and offers")}</span>
+            </label>
+            <button type="button" disabled={submitting} onClick={handleStartSignedIn} className={PRIMARY_BUTTON}>
+              {submitting ? t("app.signup.settingUp", "Setting up...") : `${t("app.signup.startTrial", "Start my free trial")} →`}
+            </button>
             <button
               type="button"
-              onClick={() => handleFinish({ withoutPlan: true })}
-              disabled={selectedCategoryIds.length === 0 || submitting}
-              className={`${PRIMARY_BUTTON} mt-6 disabled:opacity-40`}
+              onClick={() => handleSignOut(window.location.pathname + window.location.search)}
+              className="w-full text-sm font-medium text-muted-foreground hover:text-foreground"
+              data-resumed-sign-out
             >
-              {submitting
-                ? t("app.signup.settingUp", "Setting up...")
-                : t("app.signup.finishTrial", "Start my free trial")}
+              {t("app.signup.resumed.signOut", "Not you? Sign out")}
             </button>
-
-            <button
-              type="button"
-              onClick={() => goBackToStep(previousStep("services", { accountExists }))}
-              className="w-full mt-3 text-sm text-muted-foreground hover:text-foreground"
-            >
-              ← {t("app.signup.back", "Back")}
-            </button>
+            <p className="text-xs text-muted-foreground">
+              {t(
+                "app.signup.resumed.invited",
+                "Joining a business someone invited you to? Ask them to resend the invitation instead — this page sets up a new business of your own.",
+              )}
+            </p>
           </div>
         )}
-        {/* ── Last step, and last for a reason ─────────────────────────────
-            The address three steps back is what says which currency these
-            prices are in. It used to be FIRST, priced off a hardcoded "CA",
-            so a contractor in Texas was shown Canadian money before anybody
-            asked where he was. */}
-        {entryChecked && !alreadyOnFieldquo && step === "plan" && (
+
+        {entryChecked && !accountReady && !alreadyOnFieldquo && !finishCheckout && !resumeElsewhere && (
+          <form onSubmit={handleAccountSubmit} className="bg-card border border-border rounded-xl shadow-sm p-6 sm:p-8 space-y-5">
+            <AccountFields form={form} setForm={setForm} fieldErrors={fieldErrors} existingLogin={existingLogin} t={t} />
+            <p className="text-xs text-muted-foreground">
+              {(() => {
+                const sentence = t("app.signup.terms", "By starting your trial you agree to the {terms} and the {privacy}.");
+                const [a, rest] = around(sentence, "{terms}");
+                const [b, c] = around(rest, "{privacy}");
+                return (
+                  <>
+                    {a}
+                    <Link href="/terms" className="underline underline-offset-2">
+                      {t("app.signup.termsLink", "Terms of Service")}
+                    </Link>
+                    {b}
+                    <Link href="/privacy" className="underline underline-offset-2">
+                      {t("app.signup.privacyLink", "Privacy Policy")}
+                    </Link>
+                    {c}
+                  </>
+                );
+              })()}
+            </p>
+            <button type="submit" disabled={submitting} className={PRIMARY_BUTTON}>
+              {submitting ? t("app.signup.creatingAccount", "Creating your account...") : `${t("app.signup.startTrial", "Start my free trial")} →`}
+            </button>
+          </form>
+        )}
+
+        {entryChecked && finishCheckout && (
           <div>
             {/* h2, not a second h1. The shell above already carries the
                 page's heading, and two h1s is one page claiming to be two. */}
@@ -3120,7 +1195,7 @@ export default function SignupPage() {
                 </p>
                 <button
                   type="button"
-                  onClick={() => goToStep(firstStep({ accountExists }))}
+                  onClick={() => (window.location.href = "/contact")}
                   className="mt-4 bg-inverted text-inverted-foreground px-5 py-2.5 rounded-full text-sm font-semibold"
                 >
                   {t("app.signup.plan.addAddress", "Add your business address")}
@@ -3151,7 +1226,7 @@ export default function SignupPage() {
                   {t("app.signup.plan.notRight", "Not right?")}{" "}
                   <button
                     type="button"
-                    onClick={() => goToStep(firstStep({ accountExists }))}
+                    onClick={() => (window.location.href = "/contact")}
                     className="underline"
                   >
                     {t("app.signup.plan.changeCountry", "Change your country")}
@@ -3409,36 +1484,20 @@ export default function SignupPage() {
                         })()}
                 </button>
 
-                {/* ── No Back when this is a resumed payment ───────────────
-                    The earlier steps edit a company that already exists, and
-                    nothing on this page writes to it — /api/companies refuses
-                    a session that already has a membership (409), which is
-                    what stops an abandoned signup from quietly minting a
-                    second business. So Back would lead to three screens of
-                    fields whose changes go nowhere: a control that appears to
-                    work and doesn't. Company Settings is where those details
-                    are edited, and it is on the other side of this payment. */}
-                {!finishCheckout && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      goBackToStep(previousStep("plan", { accountExists }))
-                    }
-                    className="w-full mt-3 text-sm text-muted-foreground hover:text-foreground"
-                  >
-                    ← {t("app.signup.back", "Back")}
-                  </button>
-                )}
               </div>
             )}
           </div>
         )}
-        <p className="text-sm text-muted-foreground mt-6">
-          {t("app.signup.alreadyAccount", "Already have an account?")}{" "}
-          <Link href="/login" className="font-medium text-foreground underline">
-            {t("app.signup.logIn", "Log in")}
-          </Link>
-        </p>
+
+
+        {!finishCheckout && !alreadyOnFieldquo && (
+          <p className="text-sm text-muted-foreground mt-6">
+            {t("app.signup.alreadyAccount", "Already have an account?")}{" "}
+            <Link href="/login" className="font-medium text-foreground underline">
+              {t("app.signup.logIn", "Log in")}
+            </Link>
+          </p>
+        )}
       </AuthShell>
     </>
   );

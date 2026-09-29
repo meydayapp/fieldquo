@@ -44,8 +44,7 @@ import {
   welcomePath,
 } from "@/lib/signup/welcome";
 
-/** Where /signup left "the page this signup began from" (?next=), if anywhere. */
-export const WELCOME_NEXT_KEY = "fieldquo:welcome-next";
+import { WELCOME_NEXT_KEY, WELCOME_LINK_KEY } from "@/app/welcome/storageKeys";
 
 /** The analytics beacon a screen sends when shown — lib/analytics/product/events.js SIGNUP_STEP_BAR. */
 export const WELCOME_BEACON = Object.freeze(Object.fromEntries(WELCOME_STEPS.map((s) => [s, `w_${s}`])));
@@ -58,6 +57,21 @@ function afterSetupUrl() {
     // Blocked storage: the dashboard.
   }
   return "/app";
+}
+
+function reportCompanyDetails() {
+  try {
+    const token = sessionStorage.getItem(WELCOME_LINK_KEY);
+    if (!token) return;
+    fetch("/api/signup/progress", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, step: "company" }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch {
+    // Blocked storage or fetch: the panel is quieter, the signup unaffected.
+  }
 }
 
 /** A refused answer's sentence, by the code lib/signup/welcome.js returns. Exported for the check. */
@@ -303,6 +317,9 @@ export default function WelcomeFlow({ step, prefill, groups = null }) {
       });
       const data = await res.json().catch(() => null);
       if (res.ok && data?.nextUrl) {
+        // "Company details" on the rep's panel, when a rep texted the link
+        // this signup came from (lib/sales/signupProgress.js). Fire-and-forget.
+        if (step === "business") reportCompanyDetails();
         router.push(data.nextUrl);
         return;
       }
