@@ -108,11 +108,11 @@ export default function Hero() {
           </a>
         </div>
 
-        {/* NOT hero.noCard. That key says "No credit card required" in nine
-            languages and it is FALSE: /api/companies creates the company and
-            then opens Stripe Checkout, and app/app/layout.js sends an owner
-            whose company has no subscription back to pay before it will show a
-            dashboard. The offer that IS true is the free trial
+        {/* hero.noCard is gone. It sat in the catalogue rendered by nothing,
+            and flipped between "no card required" and "your card isn't
+            charged until…" as the billing flow changed under it — a dead key
+            is where a false claim waits. Since 2026-09-24 signup takes no card
+            (TRIAL_CARD_REQUIRED = false). The offer is the free trial
             (TRIAL_PRICE = 0, TRIAL_DAYS long), and pricing.firstMonth ("First 14 days") / pricing.free already say
             it in all nine — the same two strings PricingCard prints over the
             price. Joined with a separator rather than composed into a sentence,

@@ -93,7 +93,7 @@ const en = {
   "compare.lede.roofr": "Roofr sells SMS texting, its Instant Estimator, a website and an AI receptionist as separate monthly add-ons — {addOnTotal} a month on top of the plan — and every roof you measure is charged per report on top of that. FieldQuo puts all four in every plan, at every price, from {ourEntry}, and measures a roof from its address without a per-roof fee.",
   "compare.concession.roofr": "Start with what we do not have. Roofr's cheapest plan is free, with no time limit, and every Roofr plan includes unlimited users; their measurement report lists the ridges, hips and valleys as measured, and ours derives that split by convention from the roof's shape. FieldQuo is also a web application with no phone app, nothing that works off the network, and no salesperson to walk you through it.",
   "compare.lede.paintscout": "PaintScout's plan sells the estimate; scheduling, the pipeline and the job are an add-on at {addOnTotal} a month more, and every person after the first is paid for. FieldQuo prices painting by production rate too — hours from your rates, gallons from coverage — and runs the quote, the job, the invoice and the payment in one plan, with everybody in a van free, from {ourEntry}.",
-  "compare.concession.paintscout": "Start with what we do not have. PaintScout is built only for painters, and its production-rate defaults come from years of painting companies; ours ship as opening positions you are expected to tune. Their page lists iOS and Android apps, offline mode, QuickBooks, Zapier and CompanyCam, a community of other painters, and a trial that asks for no card. FieldQuo has none of those, and if any of them decides it for you, they are the better buy.",
+  "compare.concession.paintscout": "Start with what we do not have. PaintScout is built only for painters, and its production-rate defaults come from years of painting companies; ours ship as opening positions you are expected to tune. Their page lists iOS and Android apps, offline mode, QuickBooks, Zapier and CompanyCam, and a community of other painters. FieldQuo has none of those, and if any of them decides it for you, they are the better buy.",
   "compare.capability.measured_roof_report": "A roof measurement report with measured edge lengths",
   "compare.capability.integration_marketplace": "Connects to other tools (Zapier, CompanyCam)",
   "compare.capability.community": "A customer community to ask other contractors",
@@ -294,7 +294,7 @@ const en = {
   "compare.rows.notInTheirPlans": "Not in their plans",
   "compare.rows.freeTrial": "Free trial",
   "compare.rows.firstMonthFree": "14 days free",
-  "compare.rows.noCardCharged": "No card charged until it ends",
+  "compare.rows.noCardCharged": "No card needed to start",
   "compare.rows.trialOffered": "Trial offered",
   "compare.rows.seeTheirSite": "see their site for current terms",
 

@@ -195,7 +195,7 @@ export const ARTICLES = {
           { bullets: [
             "Your logo — or, without one, your initial on your brand colour — over the line “[Your company] uses FieldQuo”.",
             "The headline **Get your first month free**, a one-paragraph description of FieldQuo, and a **Claim your first month free** button that opens the signup form with your referral code attached.",
-            "Under the button: “No card charged during your trial. Cancel any time.” Then three bullets on what the product does.",
+            "Under the button: “No card needed to start — you choose a plan from inside the app.” Then three bullets on what the product does.",
             "A footer that says the quiet part: “For businesses new to FieldQuo. Already have an account? Sign in.” — an existing company cannot redeem an offer.",
           ] },
           { p: "The page is server-rendered so it is readable in the first half-second on one bar of signal, and it carries a link preview (title and description) because it gets pasted into WhatsApp and Facebook groups where the preview card is the pitch." },

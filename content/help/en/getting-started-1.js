@@ -72,7 +72,7 @@ export const ARTICLES = {
         heading: "Where to start",
         blocks: [
           { bullets: [
-            "[[start-your-free-trial|Start your free trial]] — the four signup steps and what the card is for.",
+            "[[start-your-free-trial|Start your free trial]] — the signup steps, and why there is no card to give.",
             "[[your-first-day-setup-checklist|Your first day]] — the checklist the dashboard shows until it is done.",
             "[[the-sidebar-and-where-everything-is|The sidebar]] — where every screen lives.",
           ] },
@@ -89,10 +89,10 @@ export const ARTICLES = {
   "start-your-free-trial": {
     title: "Start your free trial",
     summary:
-      "Four steps on the public signup form, a card at checkout, and nothing charged for the first 14 days.",
-    updated: "2026-09-12",
+      "The public signup form, step by step: no card and no plan today, the first 14 days free, and a plan chosen from inside the app when you are ready.",
+    updated: "2026-09-29",
     intro: [
-      "Signing up a company is self-serve: anyone can open the signup page, set up a business, pick a plan and start. The first 14 days are free, and a card is taken at checkout so the plan can be billed when they end without a second conversation.",
+      "Signing up a company is self-serve: anyone can open the signup page, set up a business and start. The first 14 days are free, and signup asks for no card and no plan — you choose a plan, and add a card for it, from inside the app when you are ready.",
       "Joining a company that already exists is different — that is invite-only. If a colleague already uses FieldQuo, ask them to invite you from Manage Team; see [[invite-a-team-member|Invite a team member]].",
     ],
     sections: [
@@ -100,25 +100,26 @@ export const ARTICLES = {
         id: "overview",
         heading: "Overview",
         blocks: [
-          { p: "The form says **Start your 14-day free trial** at the top and walks four steps: Account, Trades, Services, Plan. One login owns one business; if you are already signed in with a company, the page tells you so and offers to take you to your dashboard or to invite someone instead." },
+          { p: "The form says **Start your 14-day free trial** at the top and walks five short steps: your account and business, your team, what is top of mind, your trades and your services. The team and top-of-mind steps can be skipped. One login owns one business; if you are already signed in with a company, the page tells you so and offers to take you to your dashboard or to invite someone instead." },
         ],
       },
       {
-        id: "the-four-steps",
-        heading: "The four steps",
+        id: "the-steps",
+        heading: "The steps",
         blocks: [
           { steps: [
-            "**Account** — your first and last name, email and a password of 8 to 128 characters, plus the company name, phone and address. The address matters: it decides the country, and the country decides whether you are priced in Canadian or US dollars.",
+            "**Your account and business** — your first and last name, email and a password of 8 to 128 characters, plus the company name, phone and address. The address matters: it decides the country, and the country decides the currency your plan will be priced in.",
+            "**Your team** — “How many people work with you, including you?” and “How long have you been in business?” The answers size the calendar preview beside the form and the plan the trial banner suggests. **Skip this step** moves on and saves nothing.",
+            "**What's top of mind?** — pick the one thing you most want FieldQuo for, and say how you heard about us. Also optional.",
             "**Trades** — “What trades does your company work in?” Pick every trade that applies; this narrows the quote types you will see.",
-            "**Services** — “Which services do you offer?” The usual quote types for your trades are preselected. Turn on the ones you offer; you can change this any time under Settings → Services & Pricing.",
-            "**Plan** — “Choose your plan”: the four plans in your currency, then how you want to be billed. Press **Continue to Payment** to go to checkout.",
+            "**Services** — “Which services do you offer?” The usual quote types for your trades are preselected. Turn on the ones you offer; you can change this any time under Settings → Services & Pricing. **Start my free trial** creates the company and takes you straight in.",
           ] },
-          { note: "The signup form itself is in English. The app, once you are in, follows the language you choose — see [[choose-your-language|Choose your language]]." },
+          { note: "The app, once you are in, follows the language you choose — see [[choose-your-language|Choose your language]]." },
         ],
       },
       {
         id: "choosing-a-plan",
-        heading: "Choosing a plan",
+        heading: "Choosing a plan, when you are ready",
         blocks: [
           { table: {
             head: ["Plan", "A month", "Seats", "Crew logins"],
@@ -129,24 +130,23 @@ export const ARTICLES = {
               ["Scale", "369", "10", "15, free"],
             ],
           } },
-          { p: "The number is the same in both currencies: a Canadian company pays 99 Canadian dollars, an American one 99 US dollars. A **seat** is somebody who can create or change a quote, job or invoice; a **crew login** is someone who sees their schedule, clocks in and sends photos, and costs nothing. Full detail: [[your-plan-and-seats|Your plan and seats]]." },
-          { p: "Under the plan cards, **No commitment** bills monthly and can be cancelled any time; **1 year commitment** bills once a year for the price of ten months — two months free. A team bigger than Scale is priced by hand: the **Need more than Scale?** card leads to the contact page." },
+          { p: "The number is the same in each currency: a Canadian company pays 99 Canadian dollars, an American one 99 US dollars. A **seat** is somebody who can create or change a quote, job or invoice; a **crew login** is someone who sees their schedule, clocks in and sends photos, and costs nothing. Full detail: [[your-plan-and-seats|Your plan and seats]]." },
+          { p: "The plan is not part of signup. Choose it from **Choose a plan** on the trial banner, or from **Account & Billing**, whenever you like during the trial. **Monthly** is no commitment and can be cancelled any time; **1 year commitment** bills once a year for the price of ten months — two months free. A team bigger than Scale is priced by hand through the contact page." },
         ],
       },
       {
-        id: "the-card-and-the-free-month",
-        heading: "The card, and the free trial",
+        id: "no-card-and-the-free-trial",
+        heading: "No card today, and the free trial",
         blocks: [
-          { p: "**Continue to Payment** creates the company and opens Stripe Checkout. Stripe takes the card; FieldQuo never sees the number. The line above the button says it plainly: **14 days free**, then the plan price. Nothing is charged today — the trial is 14 days from the moment the company is created, and the first charge lands when it ends. See [[free-first-month|Your first 14 days are free]]." },
-          { warning: "If you close the checkout tab, the company exists but has no card, and every screen under the app is closed until it does. Signing in again lands you on **One step left** — “{company} is set up — it just needs a card before you can use it” — with the plan step ready to finish." },
+          { p: "Signup asks for no card. The trial runs 14 days from the moment the company is created, with the whole product and nothing to cancel. When you choose a plan, Stripe takes the card on its own page — FieldQuo never sees the number — and the plan's first charge lands on the day the trial ends, so choosing early costs you no free days. If the trial ends with no plan chosen, the account goes read-only for 7 days and then locks; nothing is deleted. See [[free-first-month|Your first 14 days are free]]." },
           { tip: "Arrived through another contractor's referral link? The banner on the form says so, and one extra free month is added to your trial. The person who referred you earns a month once you are a paying customer. See [[referral-months|Referral months]]." },
         ],
       },
       {
-        id: "after-checkout",
-        heading: "After checkout",
+        id: "after-signup",
+        heading: "After signup",
         blocks: [
-          { p: "Stripe sends you back to the dashboard. A short walkthrough points at the sidebar the first time; you can replay it later from Help — see [[replay-the-setup-walkthrough|Replay the setup walkthrough]]. The card **Finish setting up FieldQuo** lists what is still missing, and, for owners and administrators, the sidebar shows **Trial started · N days left** until the first payment." },
+          { p: "**Start my free trial** lands you on the dashboard. A short walkthrough points at the sidebar the first time; you can replay it later from Help — see [[replay-the-setup-walkthrough|Replay the setup walkthrough]]. The card **Finish setting up FieldQuo** lists what is still missing, and, for the owner, a banner across the top reads **Free trial · N days left** with **Choose a plan** beside it." },
           { bullets: [
             "[[your-first-day-setup-checklist|Your first day: the setup checklist]] — what to do in what order.",
             "[[company-settings-basics|Company settings basics]] — the address, taxes and hours the signup form did not ask for.",
@@ -156,8 +156,8 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "Do I have to give a card to try it?", a: "Yes — at checkout, through Stripe. Nothing is charged during the 14 free days, and you can cancel before it ends from Account & Billing." },
-      { q: "Can I pick the currency?", a: "No. It is read from the address you gave. The two price lists carry the same numbers, so there is nothing to choose between." },
+      { q: "Do I have to give a card to try it?", a: "No. Signup takes no card. You add one only when you choose a plan, and it is not charged until the 14 free days are over." },
+      { q: "Can I pick the currency?", a: "No. It is read from the address you gave. The price lists carry the same numbers, so there is nothing to choose between." },
       { q: "I already use FieldQuo at work. Can I sign up my own business too?", a: "One login owns one business. Sign up your own company with a different email address." },
       { q: "Can I change plan later?", a: "Yes, from Account & Billing — see [[change-your-plan|Change your plan]]. Moving up takes effect straight away." },
     ],

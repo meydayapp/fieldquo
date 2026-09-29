@@ -255,70 +255,55 @@ for (const file of FILES) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 3. The claim the billing flow keeps
+// 3. The claim the billing flow keeps — about the card
 // ═══════════════════════════════════════════════════════════════════════════
+//
+// This rule has flipped once and says why. Until 2026-09-24 a card WAS taken
+// at signup (/api/companies opened Stripe Checkout), so the false sentence was
+// "no credit card required" and this section banned it. The owner then moved
+// the card and the plan out of signup (TRIAL_CARD_REQUIRED = false in
+// lib/pricing.js; re-confirmed 2026-09-29): the company is created on its free
+// trial with no card, and a card is entered only when a plan is chosen from
+// inside the app. The false sentence is now the OPPOSITE one — "your card
+// isn't charged until it ends", "a card on file", "the card is what starts
+// them" — and that is what is hunted below.
+//
+// Read from the constant, not assumed: if TRIAL_CARD_REQUIRED ever goes back to
+// true, this section says so and stops passing until the copy is revisited,
+// rather than silently policing the wrong direction.
+section("No marketing surface claims a card is taken at signup");
 
-section("No marketing surface claims a card is not needed");
+const pricingSrc = read("lib/pricing.js");
+const cardRequired = /export const TRIAL_CARD_REQUIRED = true;/.test(pricingSrc);
+ok(
+  "lib/pricing.js still says signup takes no card (TRIAL_CARD_REQUIRED = false)",
+  /export const TRIAL_CARD_REQUIRED = false;/.test(pricingSrc) && !cardRequired,
+  "the card rule below assumes a card-free signup — revisit every 'no card' sentence before flipping it",
+);
 
-const noCardValue = EN["hero.noCard"];
-// The shapes an English "you need no card" promise takes. Deliberately narrow:
-// this must match the sentence that is false, and must NOT match the honest
-// one ("your card isn't charged until it ends"), which is about WHEN a card is
-// charged, not whether one is taken.
-const CLAIMS_NO_CARD =
-  /no\s+(credit\s+)?card\s+(is\s+)?(required|needed)|without\s+a\s+(credit\s+)?card|card[- ]free/i;
+// The shapes an English "a card is taken" promise takes. Deliberately narrow:
+// it must match the sentence that is false now, and must NOT match the true
+// one ("No card needed — your first 14 days are free").
+const CLAIMS_CARD_TAKEN =
+  /card\s+(isn't|is\s+not|won't\s+be)\s+charged\s+until|card\s+on\s+file|card\s+is\s+what\s+starts|no\s+card\s+charged\s+(until|during)|takes\s+a\s+card|a\s+card\s+is\s+taken|card\s+at\s+checkout/i;
 
-if (noCardValue === undefined) {
-  ok(
-    "hero.noCard is gone from the catalogue — nothing to police",
-    true,
-  );
-} else if (!CLAIMS_NO_CARD.test(noCardValue)) {
-  // Self-retiring: the key was rewritten to something true, so the ban lifts.
-  ok(
-    `hero.noCard no longer claims a card is unnecessary — it is safe to render again ("${noCardValue}")`,
-    true,
-  );
-} else {
-  console.log(
-    `  hero.noCard is currently "${noCardValue}", which the signup flow does not keep:\n` +
-      "  /api/companies opens Stripe Checkout and app/app/layout.js gates a company with no\n" +
-      "  subscription. Until that string is corrected, nothing may render it.\n",
-  );
-  for (const file of FILES) {
-    const src = stripComments(read(file));
-    ok(
-      `${file} — does not render hero.noCard`,
-      !/["'`]hero\.noCard["'`]/.test(src),
-      "rewrite the key first — app/i18n/industries/en.js already has the honest " +
-        "wording for the same promise: \"Your first 14 days are free — your card isn't " +
-        "charged until they end.\"",
-    );
-  }
+// hero.noCard sat in the catalogue for a month rendered by nothing, saying
+// whichever of the two claims was current — a dead key is where a false claim
+// waits. It was deleted on 2026-09-29 and stays deleted.
+{
+  const still = Object.entries(MESSAGES).filter(([, m]) => m && "hero.noCard" in m).map(([l]) => l);
+  ok("hero.noCard is gone from every catalogue", still.length === 0, still.join(", "));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 3b. The same claim, made WITHOUT the key — the hole this rule had
+// 3b. The same claim, anywhere in the marketing tree
 // ═══════════════════════════════════════════════════════════════════════════
 //
-// Everything above polices ONE catalogue key across the files the HOMEPAGE
-// imports. This file's own header claimed it proved "no marketing file renders
-// a claim the billing flow does not keep", and it did not: on 2026-09-03
-// app/(marketing)/compare/compareCopy.js carried
-//
-//     ctaBody: "No card to start, no call to book, …"
-//
-// as a hand-written English literal, rendered on /compare and on every
-// /compare/[slug] page — the surface a shopper reads while choosing between us
-// and a competitor. It is the identical false claim, and it was invisible here
-// twice over: it is not `hero.noCard`, and compareCopy.js is not a file the
-// homepage imports.
-//
-// So the claim is now hunted by its WORDS across the whole marketing tree, and
-// the key rule is generalised to every key in the catalogue rather than the one
-// key where the bug was first found. Both halves matter: a string can be
-// written inline, and a string can be written in the catalogue and pulled in by
-// a key nobody thought to ban.
+// Hunted by its WORDS across every marketing file, and through every catalogue
+// key a marketing file renders — the lesson of 2026-09-03, when the claim sat
+// as an inline English literal in compareCopy.js and a key-scoped rule could
+// not see it. The two separate English catalogues the marketing pages read
+// (app/i18n/industries/en.js, app/i18n/comparePages/en.js) are read too.
 section("The claim itself, anywhere in the marketing tree");
 
 /**
@@ -354,37 +339,34 @@ ok(
 /**
  * Comments removed, INCLUDING trailing ones.
  *
- * Load-bearing: this file's own ban is explained in prose in Hero.js's header,
- * which contains the false sentence verbatim as the thing being refused. A scan
- * over raw source reports the explanation as the offence — the second
- * false-pass trap in AGENTS.md, in its inverted form. `[^:]//` so a URL inside
- * a string is not mistaken for the start of a comment.
+ * Load-bearing: the rule is explained in prose in the marketing files' own
+ * comments, which quote the false sentence as the thing being refused. A scan
+ * over raw source reports the explanation as the offence. `[^:]//` so a URL
+ * inside a string is not mistaken for the start of a comment.
  */
 const codeOnly = (src) =>
   src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
 
 {
   const offenders = [];
-  for (const file of MARKETING_TREE) {
+  for (const file of [...MARKETING_TREE, "app/i18n/industries/en.js", "app/i18n/comparePages/en.js"]) {
     const src = codeOnly(read(file));
-    const hit = src.match(CLAIMS_NO_CARD);
+    const hit = src.match(CLAIMS_CARD_TAKEN);
     if (hit) offenders.push(`${file} — "${hit[0]}"`);
   }
   ok(
-    "no marketing file writes the no-card claim as a literal string",
+    "no marketing file or marketing catalogue says a card is taken at signup",
     offenders.length === 0,
     offenders.join("; ") +
-      " — a card IS taken at signup (/api/companies opens Stripe Checkout). The honest " +
-      "wording for the same promise is \"Your first 14 days are free — your card isn't " +
-      "charged until they end.\"",
+      " — signup takes no card (TRIAL_CARD_REQUIRED = false). The true wording is " +
+      "\"No card needed — your first 14 days are free.\"",
   );
 }
 
 {
-  // The generalised form of the hero.noCard rule: ANY key whose English value
-  // makes the claim, referenced by ANY file in the tree. Self-retiring in the
-  // same way — correct the catalogue value and this stops objecting to the key.
-  const guiltyKeys = Object.keys(EN).filter((k) => CLAIMS_NO_CARD.test(String(EN[k] ?? "")));
+  // Any key whose English value makes the claim, referenced by any file in
+  // the tree.
+  const guiltyKeys = Object.keys(EN).filter((k) => CLAIMS_CARD_TAKEN.test(String(EN[k] ?? "")));
   const offenders = [];
   for (const file of MARKETING_TREE) {
     const src = codeOnly(read(file));

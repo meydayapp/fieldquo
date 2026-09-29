@@ -119,7 +119,7 @@ export default async function ReferralLandingPage({ params }) {
             </Link>
 
             <p className="text-xs text-[#2d2520]/40 mt-3">
-              No card charged during your trial. Cancel any time.
+              No card needed to start — you choose a plan from inside the app.
             </p>
           </div>
 

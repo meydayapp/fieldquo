@@ -36,11 +36,9 @@ export default function ClosingCTA() {
     <section className="bg-muted border-t border-border">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="rounded-2xl border border-border bg-card p-8 sm:p-10 text-center sm:flex sm:items-center sm:justify-between sm:gap-8 sm:text-left">
-          {/* The same two keys the hero prints under its button, and the same
-              reason: hero.noCard says "No credit card required" in every
-              language and it is false — /api/companies opens Stripe Checkout
-              straight after creating the company. The free trial
-              (TRIAL_PRICE = 0, TRIAL_DAYS long) is the offer that is actually kept. Joined with
+          {/* The same two keys the hero prints under its button (hero.noCard,
+              the old card sentence, was deleted — see Hero.js). The free trial
+              (TRIAL_PRICE = 0, TRIAL_DAYS long, no card) is the offer. Joined with
               a separator rather than composed into a sentence, because word
               order is not ours to assume across nine languages.
 

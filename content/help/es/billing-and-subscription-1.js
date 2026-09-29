@@ -229,7 +229,7 @@ export const ARTICLES = {
     updated: "2026-09-12",
     intro: [
       "Cada plan puede pagarse de dos formas. **Mensual** es sin compromiso: el plan se renueva cada mes y puede irse cuando quiera. **Compromiso de 1 año** es un solo cobro por doce meses al precio de diez — dos meses gratis — a cambio de comprometerse por el año.",
-      "Elige al registrarse, y puede cambiar de opinión después desde **Cuenta y facturación**. Este artículo pone los dos precios lado a lado, explica el selector en la pantalla, y dice claramente qué significa la palabra compromiso una vez que el año se ha cobrado.",
+      "Elige al escoger un plan, y puede cambiar de opinión después desde **Cuenta y facturación**. Este artículo pone los dos precios lado a lado, explica el selector en la pantalla, y dice claramente qué significa la palabra compromiso una vez que el año se ha cobrado.",
     ],
     sections: [
       {

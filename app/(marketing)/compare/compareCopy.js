@@ -311,8 +311,8 @@ export const COMPARE_PAGES = [
       "painters, and its production-rate defaults come from years of " +
       "painting companies; ours ship as opening positions you are expected " +
       "to tune. Their page lists iOS and Android apps, offline mode, " +
-      "QuickBooks, Zapier and CompanyCam, a community of other painters, " +
-      "and a trial that asks for no card. FieldQuo has none of those, and if " +
+      "QuickBooks, Zapier and CompanyCam, and a community of other painters. " +
+      "FieldQuo has none of those, and if " +
       "any of them decides it for you, they are the better buy.",
     features: [
       "paint_takeoff",

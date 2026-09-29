@@ -11,7 +11,7 @@ const tl = {
     seeItInAction: "Tingnan kung paano ito gumagana",
     startTrial: "Simulan ang libreng subok",
     talkToUs: "Kausapin kami",
-    noCard: "Libre ang unang 14 na araw mo — hindi sisingilin ang card mo hangga't hindi natatapos ang mga ito.",
+    noCard: "Walang card na kailangan — libre ang unang {days} na araw mo.",
     videoSoon: "Malapit nang mailabas ang product walkthrough",
     videoDemoPrefix: "Gusto mo ba ng live na demo?",
     videoDemoLink: "Mag-book ng demo",

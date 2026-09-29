@@ -1,7 +1,7 @@
 // app/components/sales/StayOnTheLine.js
 //
 // The "after a yes" step on the call screen: text the link, stay on the
-// line through the card step. The three sentences come from
+// line until they are in (signup has taken no card since 2026-09-24). The three sentences come from
 // lib/sales/playbook/stayOnTheLine.js in the script's language (EN / FR /
 // ES) — the same language the AI script on the same card is in — and the
 // heading is the rep's own language (nine keys). Drawn under the close in

@@ -81,7 +81,7 @@ const it = {
   "compare.lede.roofr": "Roofr vende gli SMS, il suo Instant Estimator, un sito web e una receptionist IA come componenti aggiuntivi mensili separati — {addOnTotal} al mese oltre al piano — e ogni tetto che misuri viene addebitato a rapporto in più. FieldQuo mette tutti e quattro in ogni piano, a ogni prezzo, da {ourEntry}, e misura un tetto dal suo indirizzo senza costo per tetto.",
   "compare.concession.roofr": "Partiamo da ciò che non abbiamo. Il piano più economico di Roofr è gratuito, senza limite di tempo, e ogni piano Roofr include utenti illimitati; il loro rapporto di misura elenca colmi, displuvi e compluvi come misurati, mentre il nostro ricava quella suddivisione per convenzione dalla forma del tetto. FieldQuo è inoltre un'applicazione web senza app per il telefono, senza nulla che funzioni senza rete, e senza un venditore che ti accompagni.",
   "compare.lede.paintscout": "Il piano di PaintScout vende il preventivo; la programmazione, la pipeline e il lavoro sono un componente aggiuntivo a {addOnTotal} in più al mese, e ogni persona dopo la prima si paga. Anche FieldQuo prezza la tinteggiatura a tasso di produzione — ore dai tuoi tassi, galloni dalla resa — e porta preventivo, lavoro, fattura e incasso in un solo piano, con tutti quelli nel furgone gratis, da {ourEntry}.",
-  "compare.concession.paintscout": "Partiamo da ciò che non abbiamo. PaintScout è fatto solo per imbianchini, e i suoi tassi di produzione predefiniti vengono da anni di imprese di tinteggiatura; i nostri arrivano come punti di partenza che ci si aspetta tu regoli. La loro pagina elenca app iOS e Android, la modalità offline, QuickBooks, Zapier e CompanyCam, una community di altri imbianchini, e una prova che non chiede carta. FieldQuo non ha nulla di tutto questo, e se uno di questi punti decide per te, sono loro l'acquisto migliore.",
+  "compare.concession.paintscout": "Partiamo da ciò che non abbiamo. PaintScout è fatto solo per imbianchini, e i suoi tassi di produzione predefiniti vengono da anni di imprese di tinteggiatura; i nostri arrivano come punti di partenza che ci si aspetta tu regoli. La loro pagina elenca app iOS e Android, la modalità offline, QuickBooks, Zapier e CompanyCam, e una community di altri imbianchini. FieldQuo non ha nulla di tutto questo, e se uno di questi punti decide per te, sono loro l'acquisto migliore.",
   "compare.capability.measured_roof_report": "Un rapporto di misura del tetto con le lunghezze dei bordi misurate",
   "compare.capability.integration_marketplace": "Si collega ad altri strumenti (Zapier, CompanyCam)",
   "compare.capability.community": "Una community di clienti a cui chiedere ad altri artigiani",
@@ -283,7 +283,7 @@ const it = {
   "compare.rows.notInTheirPlans": "Non nei loro piani",
   "compare.rows.freeTrial": "Prova gratuita",
   "compare.rows.firstMonthFree": "14 giorni gratuiti",
-  "compare.rows.noCardCharged": "Nessun addebito sulla carta finché non finisce",
+  "compare.rows.noCardCharged": "Nessuna carta per iniziare",
   "compare.rows.trialOffered": "Prova offerta",
   "compare.rows.seeTheirSite": "veda il loro sito per le condizioni di oggi",
 
