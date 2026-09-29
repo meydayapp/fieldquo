@@ -622,7 +622,7 @@ export default function PricingPlans({ plans, customOffer = null, asOf = renderA
           <p className="mt-3 text-center text-sm text-muted-foreground max-w-2xl mx-auto" data-pricing-video-pack>
             {t("pricingPage.videoPosts", {
               included: INCLUDED_VIDEOS_PER_MONTH,
-              // "$77 USD": the currency named after the figure, the way the
+              // "<price> USD": the currency named after the figure, the way the
               // page names none beside a card price (check:pricing-page).
               price: `${formatPackPrice(VIDEO_PACK.priceCents)} ${VIDEO_PACK.currency}`,
               videos: VIDEO_PACK.videos,
