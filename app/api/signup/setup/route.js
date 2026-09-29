@@ -38,6 +38,7 @@ import {
   withSetupLock,
 } from "@/lib/signup/setupStages";
 import { loadWelcomeState } from "@/lib/signup/welcomeState";
+import { stampSignupWelcomeDoneByCompany } from "@/lib/sales/signupProgress";
 
 export async function POST(request) {
   const session = await auth.api.getSession({ headers: request.headers });
@@ -142,6 +143,10 @@ export async function POST(request) {
                   companyId,
                 }).catch(() => {}),
               );
+          }
+          // The rep's live tracker: "Account set up" (best-effort).
+          if (gate.welcome) {
+            await stampSignupWelcomeDoneByCompany({ client: db, companyId }).catch(() => {});
           }
           send({ type: "complete", failed });
         });

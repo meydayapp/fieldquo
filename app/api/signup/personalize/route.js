@@ -37,6 +37,7 @@ import {
 } from "@/lib/signup/welcome";
 import { loadWelcomeState, welcomePrefill } from "@/lib/signup/welcomeState";
 import { SIGNUP_SOURCE } from "@/lib/signup/leads";
+import { stampSignupWelcomeDoneByCompany } from "@/lib/sales/signupProgress";
 
 const PROVISIONAL_SLUG = /^fq-[a-z0-9]+$/;
 
@@ -126,6 +127,8 @@ export async function PATCH(request) {
         where: { id: member.companyId },
         data: { personalizedAt: new Date(), onboardingStep: "setup" },
       });
+      // The rep's live tracker: "Account set up" (best-effort).
+      await stampSignupWelcomeDoneByCompany({ client: db, companyId: member.companyId }).catch(() => {});
       return NextResponse.json({ ok: true, nextUrl: "/app" });
     }
     await db.company.update({ where: { id: member.companyId }, data: { onboardingStep: "setup" } });

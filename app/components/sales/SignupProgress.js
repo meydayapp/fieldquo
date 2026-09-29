@@ -126,7 +126,9 @@ export default function SignupProgress({ leadId, className = "" }) {
   // Past "Opened" and not yet signed up: the card is the next thing they
   // will be asked for, and the objection is best answered before it is raised.
   const reached = progress.steps.filter((s) => s.done).length;
-  const showCardPoint = !progress.completed && reached >= 2;
+  // Only on the checkout flow: the one-screen signup takes no card
+  // (progress.flow — lib/sales/signupProgress.js), so the objection never comes.
+  const showCardPoint = progress.flow !== "welcome" && !progress.completed && reached >= 2;
 
   return (
     <div className={`rounded-xl border border-border bg-card p-4 space-y-3 ${className}`} data-testid="signup-progress">

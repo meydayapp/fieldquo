@@ -733,7 +733,7 @@ export async function POST(request) {
     // never a failed signup. Now after the org, so a company that a failed
     // createOrganization rolled back is no longer stamped "plan chosen".
     if (typeof signupLinkToken === "string" && signupLinkToken) {
-      await stampSignupPlanByToken({ client: db, token: signupLinkToken, companyId: company.id, now: new Date() }).catch((err) => {
+      await stampSignupPlanByToken({ client: db, token: signupLinkToken, companyId: company.id, now: new Date(), welcome: welcomeFlow }).catch((err) => {
         console.error("[companies] signup progress plan stamp failed:", err?.message || err);
       });
     }

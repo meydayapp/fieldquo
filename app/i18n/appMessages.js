@@ -16038,6 +16038,9 @@ const en = {
   "app.signup.error.unreachable": "We couldn't reach FieldQuo — check your connection and try again.",
   "app.signup.error.serverTrouble": "Something went wrong on our side — please try again in a moment.",
   "app.signup.error.retry": "Try again",
+  "app.salesSignupProgress.step.trialStarted": "Free trial started",
+  "app.salesSignupProgress.step.priorities": "Priorities picked",
+  "app.salesSignupProgress.step.setupDone": "Account set up",
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -31574,6 +31577,9 @@ const fr = {
   "app.signup.error.unreachable": "Impossible de joindre FieldQuo — vérifiez votre connexion et réessayez.",
   "app.signup.error.serverTrouble": "Un problème est survenu de notre côté — veuillez réessayer dans un instant.",
   "app.signup.error.retry": "Réessayer",
+  "app.salesSignupProgress.step.trialStarted": "Essai gratuit commencé",
+  "app.salesSignupProgress.step.priorities": "Priorités choisies",
+  "app.salesSignupProgress.step.setupDone": "Compte configuré",
 };
 
 
@@ -47462,6 +47468,9 @@ const es = {
   "app.signup.error.unreachable": "No pudimos conectar con FieldQuo — revisa tu conexión e inténtalo de nuevo.",
   "app.signup.error.serverTrouble": "Algo salió mal de nuestro lado — inténtalo de nuevo en un momento.",
   "app.signup.error.retry": "Reintentar",
+  "app.salesSignupProgress.step.trialStarted": "Prueba gratuita iniciada",
+  "app.salesSignupProgress.step.priorities": "Prioridades elegidas",
+  "app.salesSignupProgress.step.setupDone": "Cuenta configurada",
 };
 
 const uk = {
@@ -62828,6 +62837,9 @@ const uk = {
   "app.signup.error.unreachable": "Не вдалося з'єднатися з FieldQuo — перевірте з'єднання і спробуйте ще раз.",
   "app.signup.error.serverTrouble": "Щось пішло не так на нашому боці — спробуйте ще раз за хвилину.",
   "app.signup.error.retry": "Спробувати ще раз",
+  "app.salesSignupProgress.step.trialStarted": "Пробний період розпочато",
+  "app.salesSignupProgress.step.priorities": "Пріоритети обрано",
+  "app.salesSignupProgress.step.setupDone": "Обліковий запис налаштовано",
 };
 
 const pa = {
@@ -78124,6 +78136,9 @@ const pa = {
   "app.signup.error.unreachable": "ਅਸੀਂ FieldQuo ਨਾਲ ਜੁੜ ਨਹੀਂ ਸਕੇ — ਆਪਣਾ ਕਨੈਕਸ਼ਨ ਜਾਂਚੋ ਅਤੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
   "app.signup.error.serverTrouble": "ਸਾਡੇ ਪਾਸੇ ਕੁਝ ਗਲਤ ਹੋ ਗਿਆ — ਕਿਰਪਾ ਕਰਕੇ ਥੋੜ੍ਹੀ ਦੇਰ ਬਾਅਦ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
   "app.signup.error.retry": "ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ",
+  "app.salesSignupProgress.step.trialStarted": "ਮੁਫ਼ਤ ਟ੍ਰਾਇਲ ਸ਼ੁਰੂ ਹੋਇਆ",
+  "app.salesSignupProgress.step.priorities": "ਤਰਜੀਹਾਂ ਚੁਣੀਆਂ",
+  "app.salesSignupProgress.step.setupDone": "ਖਾਤਾ ਸੈੱਟ ਅੱਪ ਹੋਇਆ",
 };
 
 const tl = {
@@ -93430,6 +93445,9 @@ const tl = {
   "app.signup.error.unreachable": "Hindi namin maabot ang FieldQuo — tingnan ang iyong koneksyon at subukang muli.",
   "app.signup.error.serverTrouble": "May nagkaproblema sa aming panig — pakisubukang muli mamaya.",
   "app.signup.error.retry": "Subukang muli",
+  "app.salesSignupProgress.step.trialStarted": "Nagsimula ang libreng trial",
+  "app.salesSignupProgress.step.priorities": "Napili ang mga priyoridad",
+  "app.salesSignupProgress.step.setupDone": "Na-set up ang account",
 };
 
 const de = {
@@ -108622,6 +108640,9 @@ const de = {
   "app.signup.error.unreachable": "FieldQuo ist gerade nicht erreichbar — prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
   "app.signup.error.serverTrouble": "Bei uns ist etwas schiefgelaufen — bitte versuchen Sie es gleich noch einmal.",
   "app.signup.error.retry": "Erneut versuchen",
+  "app.salesSignupProgress.step.trialStarted": "Kostenlose Testphase gestartet",
+  "app.salesSignupProgress.step.priorities": "Prioritäten gewählt",
+  "app.salesSignupProgress.step.setupDone": "Konto eingerichtet",
 };
 
 const zh = {
@@ -123806,6 +123827,9 @@ const zh = {
   "app.signup.error.unreachable": "无法连接到 FieldQuo — 请检查网络连接后重试。",
   "app.signup.error.serverTrouble": "我们这边出了点问题 — 请稍后再试。",
   "app.signup.error.retry": "重试",
+  "app.salesSignupProgress.step.trialStarted": "免费试用已开始",
+  "app.salesSignupProgress.step.priorities": "已选择重点",
+  "app.salesSignupProgress.step.setupDone": "账户已设置",
 };
 
 const it = {
@@ -139292,6 +139316,9 @@ const it = {
   "app.signup.error.unreachable": "Non riusciamo a raggiungere FieldQuo — controlla la connessione e riprova.",
   "app.signup.error.serverTrouble": "Qualcosa è andato storto da parte nostra — riprova tra un momento.",
   "app.signup.error.retry": "Riprova",
+  "app.salesSignupProgress.step.trialStarted": "Prova gratuita avviata",
+  "app.salesSignupProgress.step.priorities": "Priorità scelte",
+  "app.salesSignupProgress.step.setupDone": "Account configurato",
 };
 
 export const APP_MESSAGES = { en, fr, es, uk, pa, tl, de, zh, it };

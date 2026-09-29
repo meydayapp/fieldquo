@@ -56,6 +56,9 @@ import {
   stampSignupCompletedByCompany,
   stampSignupPlanByToken,
   stampSignupStepByToken,
+  stampSignupWelcomeDoneByCompany,
+  WELCOME_SIGNUP_STEPS,
+  signupFlowFor,
 } from "@/lib/sales/signupProgress";
 import { signupLinkFor } from "@/lib/sales/repStats";
 import { MIN_PANEL_POLL_MS, SIGNUP_LINK_SENT_EVENT, nextSignupPollMs } from "@/lib/sales/signupProgressPoll";
@@ -231,6 +234,35 @@ section("4. The wiring");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// ── The one-screen signup (2026-09-29): tracked through the welcome flow ──
+{
+  const T0 = new Date("2026-09-29T15:00:00Z");
+  const min = (n) => new Date(T0.getTime() + n * 60000);
+  const row = { linkSentAt: T0, openedAt: min(1), planAt: min(2), companyAt: null, cardAt: null, completedAt: null, companyId: "co" };
+  const onFlow = { onboardingStep: "business", personalizedAt: null, signupPriority: null, signupFocus: [], updatedAt: min(3) };
+  ok("a card-free company on the welcome questions is drawn with the welcome steps", signupFlowFor(row, onFlow) === "welcome");
+  const v = signupProgressView(row, min(4), onFlow);
+  ok("…Link sent, Opened, Free trial started, Business details, Priorities picked, Account set up", v.steps.map((s) => s.key).join(",") === "link_sent,opened,account,company,priorities,setup", v.steps.map((s) => s.key).join(","));
+  ok("…no Plan chosen or Card entered on it", !v.steps.some((s) => s.key === "plan" || s.key === "card"));
+  ok("…the company's creation is 'Free trial started', and business details are NOT inferred from it", v.steps.find((s) => s.key === "account").done && !v.steps.find((s) => s.key === "company").done && v.currentKey === "account");
+  ok("…not stuck one minute after the last answer (the company row moved)", !v.stuck);
+  ok("…stuck once three minutes pass with nothing moving", signupProgressView(row, min(7), onFlow).stuck);
+  const answered = signupProgressView({ ...row, companyAt: min(5) }, min(6), { ...onFlow, onboardingStep: "source", signupPriority: "control", signupFocus: ["scheduling"], updatedAt: min(6) });
+  ok("priority and focus answered on the company → 'Priorities picked'", answered.steps.find((s) => s.key === "priorities").done && answered.currentKey === "priorities");
+  const done = signupProgressView({ ...row, companyAt: min(5), completedAt: min(9) }, min(20), { ...onFlow, personalizedAt: min(9) });
+  ok("personalizedAt → 'Account set up', completed, never stuck", done.completed && done.steps.find((s) => s.key === "setup").done && !done.stuck);
+  ok("the view says which flow, so the panel drops the card talking point", done.flow === "welcome" && /progress\.flow !== "welcome"/.test(read("app/components/sales/SignupProgress.js")));
+  ok("a company that DID go through checkout keeps the card steps", signupFlowFor({ ...row, cardAt: min(3) }, onFlow) === "checkout" && signupFlowFor(row, { onboardingStep: null }) === "checkout");
+  ok("the welcome labels are in every language", WELCOME_SIGNUP_STEPS.every((s) => Object.keys(APP_MESSAGES).every((l) => typeof APP_MESSAGES[l][s.labelKey] === "string")));
+  resetDbStub();
+  rows.salesSignupProgress.push({ id: "sp-w", token: newLinkToken(), leadId: "l1", salesRepId: "r1", openedAt: null, companyAt: null, planAt: null, companyId: null, completedAt: null });
+  await stampSignupPlanByToken({ client: db, token: rows.salesSignupProgress[0].token, companyId: "co", now: T0, welcome: true });
+  ok("the one-screen press stamps 'Free trial started' without inventing 'Business details'", rows.salesSignupProgress[0].planAt && !rows.salesSignupProgress[0].companyAt);
+  await stampSignupWelcomeDoneByCompany({ client: db, companyId: "co", now: min(9) });
+  ok("finishing the welcome questions stamps completedAt, and no card", rows.salesSignupProgress[0].completedAt && !rows.salesSignupProgress[0].cardAt);
+  ok("the companies route passes the flow; setup and 'carry on' stamp the finish", /welcome: welcomeFlow \}/.test(read("app/api/companies/route.js")) && /stampSignupWelcomeDoneByCompany\(/.test(read("app/api/signup/setup/route.js")) && /stampSignupWelcomeDoneByCompany\(/.test(read("app/api/signup/personalize/route.js")));
+}
+
 console.log(`\n${pass} passed, ${failures.length} failed`);
 if (failures.length) {
   console.log(failures.map((f) => `  - ${f}`).join("\n"));
