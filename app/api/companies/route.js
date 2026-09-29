@@ -14,10 +14,10 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { createTrialCheckoutSession } from "@/lib/platform/stripeBilling";
 import { trialDaysAllowed } from "@/lib/billing/trialOnce";
-import { TRIAL_PRICE, trialEndsAtFrom } from "@/lib/pricing";
+import { TRIAL_PRICE, TRIAL_DAYS } from "@/lib/pricing";
+import { runSetupInline } from "@/lib/signup/setupStages";
 import { APP_MESSAGES } from "@/app/i18n/appMessages";
 import { welcomePath } from "@/lib/signup/welcome";
-import { runSetupInline } from "@/lib/signup/setupStages";
 import { getAppOrigin, isInternalPath } from "@/lib/appUrl";
 import { applySignupReferral, REFEREE_BONUS_MONTHS } from "@/lib/referrals";
 import { redeemPromoCode } from "@/lib/platform/promoCodes";
@@ -466,18 +466,16 @@ export async function POST(request) {
         timezone: null,
         industries: Array.isArray(industries) ? industries : [],
         onboardingStatus: "pending",
-        // TRIAL_DAYS (lib/pricing.js) — the owner's fourteen days for new
-        // signups from 2026-09-29. An existing company's date is untouched.
-        trialEndsAt: trialEndsAtFrom(new Date()),
-        // The welcome questions start at the first screen; the /app gate
-        // routes the owner there until personalizedAt is stamped
-        // (lib/signup/welcomeGate.js). Null on the old named path.
-        onboardingStep: welcomeFlow ? "profile" : null,
+        trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
         signupTierKey: plan ? null : chosenTier,
         teamSizeBand: teamBand,
         yearsInBusinessBand: yearsBand,
         signupGoal: goal,
         signupSource: source,
+        // The welcome questions start at the first screen; the /app gate
+        // routes the owner there until personalizedAt is stamped
+        // (lib/signup/welcomeGate.js). Null on the old named path.
+        onboardingStep: welcomeFlow ? "profile" : null,
       },
     });
 

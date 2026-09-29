@@ -25,19 +25,17 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { billingBasis } from "@/lib/signup/funnel";
-import { currencyForCountry, CURRENCY_SYMBOL } from "@/lib/currency";
+import { currencyForCountry } from "@/lib/currency";
 import { readWebsiteAnswer } from "@/lib/signup/website";
-import { categoryLabel } from "@/lib/i18n/translateContent";
 import { recordError } from "@/lib/platform/errorLog";
 import {
-  industryChoiceValue,
   nextWelcomeStep,
   readWelcomeAnswer,
   resumeWelcomeStep,
   welcomePath,
   WELCOME_STEPS,
 } from "@/lib/signup/welcome";
-import { loadWelcomeState } from "@/lib/signup/welcomeState";
+import { loadWelcomeState, welcomePrefill } from "@/lib/signup/welcomeState";
 
 const PROVISIONAL_SLUG = /^fq-[a-z0-9]+$/;
 
@@ -54,43 +52,6 @@ async function welcomeOwner(request) {
   return { member };
 }
 
-/** The screens' prefill: what is stored, in the shape the forms use. */
-function prefillFrom(state, language) {
-  const c = state.company;
-  const words = String(state.user?.name || "").trim().split(/\s+/).filter(Boolean);
-  const trade = state.trades[0] || null;
-  return {
-    user: {
-      email: state.user?.email || "",
-      firstName: words[0] || "",
-      lastName: words.slice(1).join(" "),
-      phone: state.user?.phone || "",
-    },
-    company: {
-      name: c.name || "",
-      address: c.address || "",
-      city: c.city || "",
-      province: c.province || "",
-      postalCode: c.postalCode || "",
-      country: c.country || "",
-      currency: c.currency || null,
-      // The symbol the revenue chips are drawn in — the company's own
-      // currency, never a guessed one. Null until the business screen.
-      currencySymbol: c.currency ? CURRENCY_SYMBOL[c.currency] || null : null,
-      website: c.website || "",
-      industry: industryChoiceValue({ industries: c.industries, tradeKey: trade?.key || null }),
-      teamSizeBand: c.teamSizeBand || null,
-      yearsInBusinessBand: c.yearsInBusinessBand || null,
-      revenueBand: c.revenueBand || null,
-      signupPriority: c.signupPriority || null,
-      signupFocus: Array.isArray(c.signupFocus) ? c.signupFocus : [],
-      signupSource: c.signupSource || null,
-      trialEndsAt: c.trialEndsAt || null,
-    },
-    trade: trade ? { key: trade.key, label: categoryLabel(trade, language) } : null,
-  };
-}
-
 export async function GET(request) {
   const { member, response } = await welcomeOwner(request);
   if (response) return response;
@@ -102,7 +63,7 @@ export async function GET(request) {
     personalized: Boolean(state.company.personalizedAt),
     resume: state.resume,
     resumeUrl: state.resume ? welcomePath(state.resume) : "/app",
-    ...prefillFrom(state, language),
+    ...welcomePrefill(state, language),
   });
 }
 
