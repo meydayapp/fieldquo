@@ -24,7 +24,15 @@
 // middleware.js has no gate on /api/tiktok (it falls through to next()).
 // The bytes are streamed from Cloudinary here rather than redirected to it,
 // because TikTok does not follow redirects and only trusts this prefix.
+//   3. One video post's MP4 rendition (lib/marketing/videoPost.js), under the
+//      same kind of token — the ROW's mediaType decides, never the URL's
+//      extension. Streamed, not buffered: a clip is up to 100 MB, and a
+//      streamed response is not held to the function's request/response
+//      body cap. A Range request is passed through to Cloudinary and its 206
+//      back, so a fetcher that downloads in parts gets parts.
 export const runtime = "nodejs";
+// A 100 MB clip streamed to TikTok takes longer than the default limit.
+export const maxDuration = 300;
 
 import { db } from "@/lib/db";
 import { tiktokVerificationFile } from "@/lib/tiktok/config";
@@ -45,8 +53,35 @@ async function resolve(params) {
     nowSeconds: Date.now() / 1000,
     verificationFile: tiktokVerificationFile(),
     loadRow: (id) =>
-      db.tikTokPublish.findUnique({ where: { id }, select: { companyId: true, status: true, imageUrl: true } }),
+      db.tikTokPublish.findUnique({
+        where: { id },
+        select: { companyId: true, status: true, imageUrl: true, mediaType: true, videoUrl: true },
+      }),
   });
+}
+
+/** The video: Cloudinary's bytes, as MP4, Range honoured. */
+async function videoResponse(request, videoUrl, withBody) {
+  const range = request.headers.get("range");
+  let upstream;
+  try {
+    upstream = await fetch(videoUrl, {
+      method: withBody ? "GET" : "HEAD",
+      headers: range && /^bytes=\d*-\d*$/.test(range) ? { Range: range } : {},
+      signal: AbortSignal.timeout(280_000),
+    });
+  } catch {
+    return new Response("Upstream unavailable", { status: 502, headers: NO_STORE });
+  }
+  if (!upstream.ok) return new Response("Upstream unavailable", { status: 502, headers: NO_STORE });
+  const type = (upstream.headers.get("content-type") || "").toLowerCase();
+  if (!type.startsWith("video/mp4")) return notFound(withBody);
+  const headers = { "Content-Type": "video/mp4", "Accept-Ranges": "bytes", "X-Robots-Tag": "noindex", ...NO_STORE };
+  for (const h of ["content-length", "content-range"]) {
+    const v = upstream.headers.get(h);
+    if (v && /^[\w\s/*-]+$/.test(v)) headers[h === "content-length" ? "Content-Length" : "Content-Range"] = v;
+  }
+  return new Response(withBody ? upstream.body : null, { status: upstream.status === 206 ? 206 : 200, headers });
 }
 
 function verificationResponse(file, withBody) {
@@ -60,6 +95,7 @@ export async function GET(request, { params }) {
   const hit = await resolve(params);
   if (!hit) return notFound();
   if (hit.kind === "verification") return verificationResponse(hit.file, true);
+  if (hit.kind === "video") return videoResponse(request, hit.videoUrl, true);
 
   let upstream;
   try {
@@ -87,5 +123,6 @@ export async function HEAD(request, { params }) {
   const hit = await resolve(params);
   if (!hit) return notFound(false);
   if (hit.kind === "verification") return verificationResponse(hit.file, false);
+  if (hit.kind === "video") return videoResponse(request, hit.videoUrl, false);
   return new Response(null, { status: 200, headers: { "Content-Type": "image/jpeg", ...NO_STORE } });
 }
