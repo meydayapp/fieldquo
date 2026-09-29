@@ -16,8 +16,27 @@
 // prevent, and it is why these cases are EXECUTED rather than eyeballed: an
 // off-by-a-half-width in the centring maths produces a layout that looks
 // plausible in review and wrong on a phone.
-import { AD_RATIOS, DEFAULT_RATIO, ratio, reflow, overflowing, assetFilename } from "@/lib/marketing/ratios";
-import { validateImageForInstagram, INSTAGRAM_COMPLIANT_RATIO_KEY } from "@/lib/social/metaSpecs";
+import { readFileSync } from "node:fs";
+import {
+  AD_RATIOS,
+  DEFAULT_RATIO,
+  LEGACY_DEFAULT_RATIO,
+  ratio,
+  reflow,
+  overflowing,
+  assetFilename,
+  openingRatio,
+  defaultPublishShape,
+  ratiosForDesign,
+} from "@/lib/marketing/ratios";
+import {
+  validateImageForInstagram,
+  validateImageForFacebook,
+  checkImageForFacebookFeed,
+  classifyMetaPublishError,
+  INSTAGRAM_COMPLIANT_RATIO_KEY,
+} from "@/lib/social/metaSpecs";
+import { APP_MESSAGES } from "@/app/i18n/appMessages";
 
 let fail = 0;
 const ok = (c, m, d) => {
@@ -220,6 +239,204 @@ for (const [label, args] of [
   ok(!threw, `hostile input (${label}) does not throw`);
   ok(result?.ok === false, `…and is correctly refused, not silently accepted`, result);
 }
+
+section("10. Portrait 4:5 is the default for NEW posts; every existing design keeps its square");
+
+// Owner, 2026-09-28: new Instagram posts are 4:5, not 1:1. Added as a NEW key
+// so no saved layout (filed under its ratioKey) changes meaning.
+const portrait = ratio("instagram_portrait");
+ok(portrait && portrait.width === 1080 && portrait.height === 1350, "instagram_portrait is 1080x1350 — Instagram's recommended feed size", portrait);
+ok(DEFAULT_RATIO === "instagram_portrait", "…and it is the default a NEW design opens on", DEFAULT_RATIO);
+ok(igOk("instagram_portrait"), "…and passes Instagram's gate — it sits exactly on the 4:5 floor, which is inclusive");
+ok(portrait.width >= 320 && portrait.width <= 1440, "…at a width inside Instagram's 320–1440 range, so Meta does not rescale it");
+const square = ratio("instagram_post");
+ok(square && square.width === 1080 && square.height === 1080 && square.file === "instagram-post",
+  "the square is still instagram_post, 1080x1080, still downloading as …-instagram-post.png", square);
+ok(LEGACY_DEFAULT_RATIO === "instagram_post", "the pre-2026-09-28 default is named, for the designs made on it");
+
+// openingRatio(): the editor's first tab. For every design saved before the
+// default moved, the answer must be the one the old rule gave.
+const oldRule = (keys) => (keys.includes("instagram_post") ? "instagram_post" : keys[0] || "instagram_post");
+for (const keys of [
+  ["instagram_post"],
+  ["facebook_feed", "instagram_post"],
+  ["instagram_story", "tiktok", "facebook_feed", "instagram_post", "youtube_thumb"],
+  ["facebook_feed"],
+  ["youtube_thumb", "tiktok"],
+]) {
+  ok(openingRatio(keys) === oldRule(keys), `an existing design saved as [${keys.join(", ")}] opens exactly where it did (${oldRule(keys)})`, openingRatio(keys));
+}
+ok(openingRatio([]) === "instagram_portrait", "a design with nothing saved is new, and opens on portrait");
+ok(openingRatio(["instagram_post", "instagram_portrait"]) === "instagram_portrait", "a design that HAS a portrait layout opens on it");
+ok(openingRatio(undefined) === "instagram_portrait" && openingRatio([null, 7]) === "instagram_portrait",
+  "hostile input (undefined, non-strings) does not throw and falls to the default");
+
+// defaultPublishShape(): the Publish dialog's first shape. It was always the
+// square; it only becomes portrait for a portrait design.
+ok(defaultPublishShape({ savedKeys: ["instagram_post"], activeKey: "instagram_post" }) === "instagram_post",
+  "an existing square design's Publish dialog starts on Square, as it always did");
+ok(defaultPublishShape({ savedKeys: ["facebook_feed", "instagram_story"], activeKey: "facebook_feed" }) === "instagram_post",
+  "…and so does one on any other tab — the dialog's old starting shape");
+ok(defaultPublishShape({ savedKeys: [], activeKey: "instagram_portrait" }) === "instagram_portrait",
+  "a NEW design (opened on the portrait tab) starts on Portrait");
+ok(defaultPublishShape({ savedKeys: ["instagram_portrait"], activeKey: "tiktok" }) === "instagram_portrait",
+  "a design with a saved portrait layout starts on Portrait whichever tab is open");
+ok(defaultPublishShape() === "instagram_post" && defaultPublishShape({ savedKeys: "nope" }) === "instagram_post",
+  "hostile input does not throw and starts on the square");
+
+// The dialog offers the portrait, keeps the square, and never starts anywhere
+// it does not offer.
+const modal = readFileSync("app/components/designer/PublishModal.js", "utf8");
+const shapeBlock = modal.slice(modal.indexOf("const SHAPES = ["), modal.indexOf("];", modal.indexOf("const SHAPES = [")));
+for (const k of ["instagram_portrait", "instagram_post", "facebook_feed"]) {
+  ok(shapeBlock.includes(`key: "${k}"`), `PublishModal offers ${k}`);
+}
+ok(!/instagram_story|tiktok/.test(shapeBlock), "…and still never a 9:16 shape Instagram's feed endpoint would refuse");
+for (const k of shapeBlock.match(/key: "([a-z_]+)"/g).map((m) => m.slice(6, -1))) {
+  ok(igOk(k), `…every offered shape (${k}) passes Instagram's gate`);
+  ok(checkImageForFacebookFeed(ratio(k)).warnings.length === 0, `…and shows in full in Facebook's feed (${k})`);
+}
+ok(/initialShape/.test(modal) && /FALLBACK_SHAPE = "instagram_post"/.test(modal),
+  "PublishModal starts on the caller's initialShape, falling back to the square");
+const editor = readFileSync("app/components/designer/CampaignEditor.js", "utf8");
+ok(/const \[publishShape\] = useState\(\(\) => \{[\s\S]{0,200}defaultPublishShape\(\{ savedKeys, activeKey: openingRatio\(savedKeys\) \}\)/.test(editor),
+  "CampaignEditor works out ONE publish shape: defaultPublishShape() over the saved keys and the opening tab");
+ok(/initialShape=\{publishShape\}/.test(editor), "…hands it to PublishModal as the starting shape");
+ok(/previewShape=\{publishShape\}/.test(editor), "…and the SAME value to ApprovalModal as the preview shape");
+
+// ApprovalModal: the approver sees the image that will be posted.
+const approvalSrc = readFileSync("app/components/designer/ApprovalModal.js", "utf8");
+ok(/preparePublishAsset\(previewShape\)/.test(approvalSrc) && !/preparePublishAsset\("instagram_post"\)/.test(approvalSrc),
+  "ApprovalModal previews previewShape, not a hard-coded square");
+ok(/previewShape = "instagram_post"/.test(approvalSrc), "…defaulting to the square it always previewed");
+ok(/\[isOpen, preparePublishAsset, previewShape\]/.test(approvalSrc), "…and re-renders the preview if the shape changes");
+{
+  // The shape CampaignEditor computes, executed: for every existing design it
+  // is the square the approval preview has always shown; for a new or
+  // portrait design it is the portrait the Publish dialog will post.
+  const shapeFor = (keys) => defaultPublishShape({ savedKeys: keys, activeKey: openingRatio(keys) });
+  const existing = [
+    ["instagram_post"],
+    ["facebook_feed"],
+    ["instagram_story", "tiktok"],
+    ["facebook_feed", "instagram_post", "instagram_story", "tiktok", "youtube_thumb"],
+  ];
+  for (const keys of existing) {
+    ok(shapeFor(keys) === "instagram_post", `existing design [${keys.join(", ")}]: approval previews (and Publish starts on) the square, as before`, shapeFor(keys));
+  }
+  ok(shapeFor([]) === "instagram_portrait", "a NEW design: approval previews the portrait it will be posted as");
+  ok(shapeFor(["instagram_portrait"]) === "instagram_portrait", "a portrait design: approval previews the portrait");
+  ok(shapeFor(AD_RATIOS.map((r) => r.key)) === "instagram_portrait", "a job-post design (every preset composed): portrait");
+}
+
+// ratiosForDesign(): "N/M formats ready" never penalises a preset the
+// design never had.
+{
+  const keysOf = (list) => list.map((r) => r.key);
+  const five = ["instagram_post", "instagram_story", "tiktok", "facebook_feed", "youtube_thumb"];
+  ok(ratiosForDesign(five).length === 5 && !keysOf(ratiosForDesign(five)).includes("instagram_portrait"),
+    "a design finished before the portrait existed counts 5/5, not 5/6", keysOf(ratiosForDesign(five)));
+  ok(ratiosForDesign(["instagram_post"]).length === 5, "a pre-portrait square-only design counts against 5 (shows 1/5, as it always did)");
+  ok(ratiosForDesign([]).length === 6, "a design with nothing saved is new, and counts the portrait (0/6)");
+  ok(ratiosForDesign(["instagram_portrait"]).length === 6, "a design with a portrait layout counts it (1/6)");
+  ok(ratiosForDesign([...five, "instagram_portrait"]).length === 6, "…and all six saved is 6/6");
+  ok(ratiosForDesign(undefined).length === 6 && ratiosForDesign([null, 3]).length === 6,
+    "hostile input (undefined, non-strings) does not throw and is treated as nothing saved");
+  ok(keysOf(ratiosForDesign(five)).join() === keysOf(AD_RATIOS).filter((k) => k !== "instagram_portrait").join(),
+    "…and the order of the chips is unchanged");
+}
+ok(/openingRatio\(\(design\.layouts/.test(editor), "CampaignEditor opens on openingRatio(), not DEFAULT_RATIO directly");
+
+section("11. Facebook's pre-post check — warns about the feed crop, never refuses");
+
+// 4:5 is the tallest shape Facebook's feed shows uncropped. The check must
+// bite just below it, not at it, and must never become a refusal.
+for (const [label, w, h, expectWarn] of [
+  ["0.5 (1:2)", 500, 1000, true],
+  ["0.79", 790, 1000, true],
+  ["a hair under 0.8 (1080x1351)", 1080, 1351, true],
+  ["exactly 0.8 (1080x1350)", 1080, 1350, false],
+  ["exactly 0.8 (800x1000)", 800, 1000, false],
+  ["1 (square)", 1080, 1080, false],
+  ["1.91", 1910, 1000, false],
+  ["1.92 (wider than Instagram allows)", 1920, 1000, false],
+  ["9:16 Story", 1080, 1920, true],
+]) {
+  const r = checkImageForFacebookFeed({ width: w, height: h });
+  ok(expectWarn ? r.warnings.includes("feed_crop") : r.warnings.length === 0,
+    `${label}: ${expectWarn ? "warns feed_crop" : "no warning"}`, r);
+  ok(!("ok" in r), `…${label} returns no \`ok\` — there is nothing for a submit gate to wire to`);
+}
+for (const [label, args] of [
+  ["NaN width", { width: NaN, height: 1080 }],
+  ["NaN height", { width: 1080, height: NaN }],
+  ["zero width", { width: 0, height: 1080 }],
+  ["zero height", { width: 1080, height: 0 }],
+  ["zero both", { width: 0, height: 0 }],
+  ["Infinity height", { width: 1080, height: Infinity }],
+  ["negative", { width: -1080, height: 1350 }],
+  ["strings", { width: "1080", height: "1920" }],
+  ["garbage strings", { width: "wide", height: "tall" }],
+  ["nothing at all", undefined],
+]) {
+  let threw = false;
+  let r;
+  try {
+    r = checkImageForFacebookFeed(args);
+  } catch {
+    threw = true;
+  }
+  ok(!threw, `hostile input (${label}) does not throw`);
+  if (label === "strings") {
+    ok(r?.warnings.includes("feed_crop"), "…numeric strings are measured like numbers (1080x1920 warns)", r);
+  } else {
+    ok(Array.isArray(r?.warnings) && r.warnings.length === 0, `…and ${label} says nothing rather than inventing a crop`, r);
+  }
+}
+// The refusal gate is untouched: a tall image is still ok for Facebook.
+ok(validateImageForFacebook({ fileSizeBytes: 1000 }).ok === true && !("warnings" in validateImageForFacebook({ fileSizeBytes: 1000 })),
+  "validateImageForFacebook() — the REFUSAL gate — is unchanged: same shape, no warnings key");
+ok(/platforms\.facebook && facebookFeedCheck\?\.warnings\.includes\("feed_crop"\)/.test(modal),
+  "PublishModal shows the feed-crop warning only when Facebook is a selected destination");
+{
+  const start = modal.indexOf("const canSubmit =");
+  const canSubmitExpr = modal.slice(start, modal.indexOf(";", start));
+  ok(start > 0 && /imageOk/.test(canSubmitExpr) && !/facebookFeedCheck|feed_crop/.test(canSubmitExpr),
+    "…and the warning is NOT part of canSubmit — it never blocks the post", canSubmitExpr);
+}
+
+section("12. Meta's shape refusal gets its own sentence");
+
+const G = (e) => classifyMetaPublishError({ name: "MetaGraphError", message: "m", ...e });
+ok(G({ code: 36003, subcode: 2207009 }).code === "meta_media_shape", "36003 / 2207009 (Meta: aspect ratio cannot be published) → meta_media_shape");
+ok(G({ code: 36003 }).code === "meta_media_shape", "36003 with no subcode → meta_media_shape");
+ok(G({ code: 100, message: "The aspect ratio is not supported." }).code === "meta_media_shape", "a generic code whose text names the aspect ratio → meta_media_shape");
+ok(G({ code: 36003, subcode: 2207009 }).retryable === false, "…and no retry is offered: the same image fails identically");
+ok(G({ code: 36000, subcode: 2207004 }).code === "meta_media_rejected", "36000 / 2207004 (too large) is still meta_media_rejected");
+ok(G({ code: 36001, subcode: 2207005 }).code === "meta_media_rejected", "36001 / 2207005 (format) is still meta_media_rejected");
+ok(G({ code: 190, message: "aspect ratio" }).code === "meta_auth", "an auth error is never re-labelled by its text");
+ok(G({ code: 4, message: "aspect ratio" }).code === "rate_limited", "…nor is a rate limit");
+ok(/meta_media_shape:\s*"app\.marketingDesigner\.publishModal\.failureMediaShape"/.test(modal), "the modal translates meta_media_shape");
+
+section("13. Every new sentence exists in every app language");
+
+const NEW_KEYS = [
+  "app.marketingDesigner.publishModal.shapePortrait",
+  "app.marketingDesigner.publishModal.facebookFeedCrop",
+  "app.marketingDesigner.publishModal.failureMediaShape",
+];
+for (const [code, dict] of Object.entries(APP_MESSAGES)) {
+  for (const k of NEW_KEYS) {
+    ok(typeof dict[k] === "string" && dict[k].trim().length > 0, `${code}: ${k.split(".").pop()}`);
+  }
+  ok(/4:5/.test(dict["app.marketingDesigner.publishModal.shapePortrait"] || ""), `${code}: the portrait label says 4:5`);
+  if (code !== "en") {
+    for (const k of NEW_KEYS.slice(1)) {
+      ok(dict[k] !== APP_MESSAGES.en[k], `${code}: ${k.split(".").pop()} is translated, not English copied across`);
+    }
+  }
+}
+ok(Object.keys(APP_MESSAGES).length === 9, "…across all nine app languages", Object.keys(APP_MESSAGES));
 
 console.log(`\n${fail === 0 ? "ALL PASS" : fail + " FAILED"}`);
 process.exit(fail ? 1 : 0);

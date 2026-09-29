@@ -836,9 +836,17 @@ section("16. The designs index — the answer the server already sent");
     /new Set\(\s*\(d\.layouts \|\| \[\]\)\.map\(\(l\) => l\.ratioKey\)/.test(indexPage),
     "…and the page reads the keys rather than only counting them",
   );
+  // `counted` is ratiosForDesign(saved) since the 4:5 portrait was added
+  // (2026-09-28): every preset, bar a portrait a pre-portrait design never had.
   ok(
-    /AD_RATIOS\.map\(\(r\) => \(/.test(indexPage) && /\{r\.label\}/.test(indexPage),
-    "…rendering one chip per format, named",
+    /const counted = ratiosForDesign\(\[\.\.\.saved\]\)/.test(indexPage) &&
+      /counted\.map\(\(r\) => \(/.test(indexPage) &&
+      /\{r\.label\}/.test(indexPage),
+    "…rendering one chip per format that counts for this design, named",
+  );
+  ok(
+    (indexPage.match(/total: counted\.length/g) || []).length === 2 && !/total: AD_RATIOS\.length/.test(indexPage),
+    "…and both 'N/M formats ready' lines divide by the same counted list the chips show",
   );
   ok(
     /saved\.has\(r\.key\)/.test(indexPage),

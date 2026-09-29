@@ -20,7 +20,7 @@ import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvide
 import { fetchList } from "@/lib/loadState";
 import { reportResponseError, showError } from "@/lib/clientErrors";
 import ListState from "@/app/components/ListState";
-import { AD_RATIOS } from "@/lib/marketing/ratios";
+import { ratiosForDesign } from "@/lib/marketing/ratios";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -287,6 +287,10 @@ export default function MarketingDesignerPage() {
                         (d.layouts || []).map((l) => l.ratioKey),
                       );
                       const done = saved.size;
+                      // Counted against ratiosForDesign(), not every preset:
+                      // a design finished before the 4:5 portrait existed
+                      // stays 5/5, not a 5/6 that reads as something missing.
+                      const counted = ratiosForDesign([...saved]);
                       return (
                         <div
                           key={d.id}
@@ -335,7 +339,7 @@ export default function MarketingDesignerPage() {
                                 post" and "TikTok" are the networks' names,
                                 not interface copy. */}
                             <span className="mt-1 flex flex-wrap gap-1">
-                              {AD_RATIOS.map((r) => (
+                              {counted.map((r) => (
                                 <span
                                   key={r.key}
                                   className={`text-[10px] leading-none px-1.5 py-1 rounded-full border border-border ${
@@ -360,7 +364,7 @@ export default function MarketingDesignerPage() {
                                   <ImageOff size={11} />{" "}
                                   {t("app.marketingDesigner.ratiosSaved", {
                                     done,
-                                    total: AD_RATIOS.length,
+                                    total: counted.length,
                                   })}
                                   {d.createdAt && (
                                     <>
@@ -375,7 +379,7 @@ export default function MarketingDesignerPage() {
                                 <>
                                   {t("app.marketingDesigner.ratiosSaved", {
                                     done,
-                                    total: AD_RATIOS.length,
+                                    total: counted.length,
                                   })}
                                   {d.updatedAt && (
                                     <>
