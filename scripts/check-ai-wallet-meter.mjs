@@ -96,7 +96,12 @@ function makeDb(seed = {}) {
         err.code = "P2002";
         throw err;
       }
-      const row = { id: `${name}_${++seq}`, createdAt: new Date(), ...data };
+      // Pinned, not the wall clock: the suite's month windows are computed from
+      // BEFORE_END/AFTER_END, and a real `new Date()` started landing INSIDE
+      // AFTER_END's month on 2026-10-01, double-counting rows a test never meant
+      // to be in that window. BEFORE_END is what the wall clock was when every
+      // expectation here was written.
+      const row = { id: `${name}_${++seq}`, createdAt: BEFORE_END, ...data };
       store[name].push(row);
       return row;
     },

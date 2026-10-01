@@ -829,7 +829,11 @@ console.log("\n── 6b. Connect account fees: the ledger, the cap, the carry-f
   ok("allocation is oldest-first and never exceeds what a row still owes: 50 + 25 + 15",
     alloc.updates.map((u) => `${u.id}:${u.addCents}`).join() === "a:50,b:25,c:15" && alloc.unallocatedCents === 0, alloc);
 
-  const rows = new Map([["x", { id: "x", companyId: "co1", currency: "cad", feeCents: 225, recoveredCents: 0, period: "2026-09", createdAt: new Date(1) }], ["y", { id: "y", companyId: "co1", currency: "usd", feeCents: 100, recoveredCents: 0, period: "2026-09", createdAt: new Date(2) }]]);
+  // The rows' period is THIS month, not a fixed one: applyRecovery stamps
+  // recoveredAt with the wall clock, and connectFeeTotals counts a recovery in
+  // the month it happened. A fixed "2026-09" stopped matching on 2026-10-01.
+  const THIS_MONTH = new Date().toISOString().slice(0, 7);
+  const rows = new Map([["x", { id: "x", companyId: "co1", currency: "cad", feeCents: 225, recoveredCents: 0, period: THIS_MONTH, createdAt: new Date(1) }], ["y", { id: "y", companyId: "co1", currency: "usd", feeCents: 100, recoveredCents: 0, period: THIS_MONTH, createdAt: new Date(2) }]]);
   const db = {
     connectFeeRecovery: {
       findMany: async ({ where = {} }) => [...rows.values()].filter((r) => (where.recoveredOnPaymentIntent ? r.recoveredOnPaymentIntent === where.recoveredOnPaymentIntent : (!where.companyId || r.companyId === where.companyId) && (!where.currency || r.currency === where.currency))),
@@ -843,7 +847,7 @@ console.log("\n── 6b. Connect account fees: the ledger, the cap, the carry-f
   ok("  ^ and a second call on the same intent applies nothing", (await applyRecovery({ companyId: "co1", currency: "cad", cents: 225, paymentIntentId: "pi_1" }, { db })).appliedCents === 0);
   ok("  ^ a company that never pays again simply stays outstanding — the USD row is untouched, never written off",
     (await outstandingRecoveryCents({ companyId: "co1", currency: "usd" }, { db })) === 100);
-  const totals = await connectFeeTotals({ month: "2026-09" }, { db });
+  const totals = await connectFeeTotals({ month: THIS_MONTH }, { db });
   ok("platform totals per currency: CAD recovered 225 / outstanding 0; USD recovered 0 / outstanding 100",
     totals.cad.recoveredThisMonthCents === 225 && totals.cad.outstandingCents === 0 && totals.usd.outstandingCents === 100 && totals.usd.billedThisMonthCents === 100, totals);
 
