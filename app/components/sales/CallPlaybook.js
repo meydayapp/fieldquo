@@ -58,6 +58,7 @@ import StayOnTheLine from "@/app/components/sales/StayOnTheLine";
 import TurnaroundQuestion from "@/app/components/sales/TurnaroundQuestion";
 import SignupOpener from "@/app/components/sales/SignupOpener";
 import TradePoints from "@/app/components/sales/TradePoints";
+import { isReverseSelling } from "@/lib/sales/playbook/approaches";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
@@ -179,7 +180,7 @@ function ScriptLanguageSwitch({ scriptLanguage, chosen, loading, onChange }) {
   );
 }
 
-function AiScript({ script, language, switchProps, tradeKey = null }) {
+function AiScript({ script, language, switchProps, tradeKey = null, plant = false }) {
   const { t } = useTranslation();
   const crawled = script.crawledAt ? new Date(script.crawledAt) : null;
   const when = crawled && !Number.isNaN(crawled.getTime())
@@ -271,7 +272,7 @@ function AiScript({ script, language, switchProps, tradeKey = null }) {
         <p className="text-sm text-foreground break-words mt-1">{script.closeAsk}</p>
       </div>
       {/* After a yes: text the link, stay on the line — in the script's language. */}
-      <StayOnTheLine language={script.language || "en"} />
+      <StayOnTheLine language={script.language || "en"} plant={plant} />
 
       {script.doNotSay?.length ? (
         <div>
@@ -324,7 +325,7 @@ function AiScript({ script, language, switchProps, tradeKey = null }) {
  * Nothing here is written by this file: a missing part is left out, never
  * padded (AGENTS.md failure class 5).
  */
-function ConsoleScript({ script, stages, language, switchProps, tradeKey = null }) {
+function ConsoleScript({ script, stages, language, switchProps, tradeKey = null, plant = false }) {
   const { t } = useTranslation();
   const crawled = script.crawledAt ? new Date(script.crawledAt) : null;
   const when = crawled && !Number.isNaN(crawled.getTime())
@@ -457,7 +458,7 @@ function ConsoleScript({ script, stages, language, switchProps, tradeKey = null 
         <TurnaroundQuestion language={script.language || "en"} compact />
         <TradePoints tradeKey={tradeKey} language={script.language || "en"} compact />
         {/* After a yes: text the link, stay on the line — in the script's language. */}
-        <StayOnTheLine language={script.language || "en"} compact />
+        <StayOnTheLine language={script.language || "en"} compact plant={plant} />
       </div>
     </div>
   );
@@ -566,6 +567,9 @@ export default function CallPlaybook({
     : null;
   const pointStages = stages.filter((s) => (s.points || []).length > 0);
   const pointCount = pointStages.reduce((n, s) => n + s.points.length, 0);
+  // The early referral plant belongs to the Reverse Selling script alone; on
+  // every other playbook the "stay on the line" box is what it always was.
+  const plant = isReverseSelling(data.playbook?.key);
 
   return (
     <div className={layout === "console" ? "space-y-4" : "rounded-xl border border-border bg-card p-4 space-y-4"}>
@@ -602,9 +606,9 @@ export default function CallPlaybook({
           stages below are the whole screen, as they were. */}
       {data.callScript ? (
         layout === "console" ? (
-          <ConsoleScript script={data.callScript} stages={stages} language={language} switchProps={switchProps} tradeKey={data.prospect?.tradeKey || null} />
+          <ConsoleScript script={data.callScript} stages={stages} language={language} switchProps={switchProps} tradeKey={data.prospect?.tradeKey || null} plant={plant} />
         ) : (
-          <AiScript script={data.callScript} language={language} switchProps={switchProps} tradeKey={data.prospect?.tradeKey || null} />
+          <AiScript script={data.callScript} language={language} switchProps={switchProps} tradeKey={data.prospect?.tradeKey || null} plant={plant} />
         )
       ) : switchProps ? (
         // No script in any language yet — the switch still stands, because
@@ -617,7 +621,7 @@ export default function CallPlaybook({
           under that script's close instead. */}
       {!data.callScript ? <TurnaroundQuestion language={data.scriptLanguage?.current || data.scriptLanguage?.default || "en"} /> : null}
       {!data.callScript ? <TradePoints tradeKey={data.prospect?.tradeKey || null} language={data.scriptLanguage?.current || data.scriptLanguage?.default || "en"} /> : null}
-      {!data.callScript ? <StayOnTheLine language={data.scriptLanguage?.current || data.scriptLanguage?.default || "en"} /> : null}
+      {!data.callScript ? <StayOnTheLine language={data.scriptLanguage?.current || data.scriptLanguage?.default || "en"} plant={plant} /> : null}
 
       {/* ── One stage, and the rep moves it ──────────────────────────────── */}
       {stage ? (
@@ -675,6 +679,24 @@ export default function CallPlaybook({
                   </li>
                 ))}
               </ul>
+            ) : null}
+
+            {/* ── Notes for the rep, never read out ──────────────────────────
+                A playbook may carry them per stage (the Reverse Selling one
+                does: how to say it, when to stop talking). Rows, printed
+                verbatim like the lines above; only the heading is the rep's
+                language. Absent on the starter playbooks, so nothing is drawn. */}
+            {(stage.tips || []).length ? (
+              <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-1" data-testid="stage-tips">
+                <p className="text-xs font-semibold text-muted-foreground">{t("app.salesCall.repTips")}</p>
+                <ul className="list-disc pl-5 space-y-1">
+                  {stage.tips.map((tip, i) => (
+                    <li key={`${stage.stageKey}-tip-${i}`} className="text-xs text-foreground break-words">
+                      {tip}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ) : null}
 
             {/* ── The only sentences that are about THIS business ────────────

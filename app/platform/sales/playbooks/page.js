@@ -212,6 +212,12 @@ export default function PlatformSalesPlaybooksPage() {
           stageKey: s.key,
           say: row?.say || "",
           prompts: (row?.prompts || []).join("\n"),
+          // Rep notes and the objection scope ride in the draft so a save
+          // sends them back. Leaving them out of the draft would delete them
+          // on every save — see shapeStages in lib/sales/playbook/admin.js.
+          tips: (row?.tips || []).join("\n"),
+          ownObjectionCodes: (row?.ownObjectionCodes || []).join("\n"),
+          hideObjectionCodes: (row?.hideObjectionCodes || []).join("\n"),
         };
       }),
     });
@@ -228,7 +234,7 @@ export default function PlatformSalesPlaybooksPage() {
       name: "",
       selectorKey: selectors[0]?.key || "",
       priority: 50,
-      stages: stages.map((s) => ({ stageKey: s.key, say: "", prompts: "" })),
+      stages: stages.map((s) => ({ stageKey: s.key, say: "", prompts: "", tips: "", ownObjectionCodes: "", hideObjectionCodes: "" })),
     });
     setError("");
     setProblems([]);
@@ -243,11 +249,17 @@ export default function PlatformSalesPlaybooksPage() {
       name: d.name,
       selectorKey: d.selectorKey,
       priority: numberOrNull(d.priority),
-      stages: d.stages.map((s) => ({
-        stageKey: s.stageKey,
-        say: s.say,
-        prompts: s.prompts.split("\n").map((p) => p.trim()).filter(Boolean),
-      })),
+      stages: d.stages.map((s) => {
+        const lines = (v) => String(v || "").split("\n").map((p) => p.trim()).filter(Boolean);
+        const out = { stageKey: s.stageKey, say: s.say, prompts: lines(s.prompts), tips: lines(s.tips) };
+        // The scope lists belong to the objections stage only; the route
+        // refuses them anywhere else, so they are sent only from there.
+        if (s.stageKey === "objections") {
+          out.ownObjectionCodes = lines(s.ownObjectionCodes);
+          out.hideObjectionCodes = lines(s.hideObjectionCodes);
+        }
+        return out;
+      }),
     };
   }
 
@@ -515,6 +527,18 @@ export default function PlatformSalesPlaybooksPage() {
               <RefreshBuiltIns busy={busy} send={send} />
             </div>
           )}
+          {/* What Install will create, by name, and which arrive switched off
+              — the Reverse Selling playbook does, so installing it changes no
+              rep's screen until somebody presses Switch on below. */}
+          {canWrite && !draft && (data?.availableDefaults || []).length > 0 && (
+            <p className="text-xs text-muted-foreground break-words">
+              Install creates:{" "}
+              {(data.availableDefaults || [])
+                .map((p) => `${p.name}${p.active === false ? " (arrives switched off)" : ""}`)
+                .join(", ")}
+              .
+            </p>
+          )}
 
           {draft?.kind === "playbook" && (
             <div className="bg-card border border-border rounded-xl p-4 space-y-4">
@@ -596,10 +620,46 @@ export default function PlatformSalesPlaybooksPage() {
                         <p className="text-xs text-muted-foreground">{meta?.purpose}</p>
                       </div>
                       {meta?.usesObjections ? (
-                        <p className="text-xs text-muted-foreground italic">
-                          Rendered from the objection library, filtered to the prospect. Nothing to
-                          write here.
-                        </p>
+                        <>
+                          <p className="text-xs text-muted-foreground italic">
+                            The answers are rendered from the objection library, filtered to the
+                            prospect. Optionally, one general line shown above them, and which
+                            library answers this playbook owns or hides.
+                          </p>
+                          <textarea
+                            className={AREA}
+                            rows={2}
+                            value={s.say}
+                            placeholder="Optional: the general answer, shown above the library."
+                            onChange={(e) => {
+                              const next = [...draft.stages];
+                              next[i] = { ...s, say: e.target.value };
+                              setDraft({ ...draft, stages: next });
+                            }}
+                          />
+                          <textarea
+                            className={AREA}
+                            rows={2}
+                            value={s.ownObjectionCodes}
+                            placeholder="Objection codes only this playbook shows — one per line. Hidden from every other playbook."
+                            onChange={(e) => {
+                              const next = [...draft.stages];
+                              next[i] = { ...s, ownObjectionCodes: e.target.value };
+                              setDraft({ ...draft, stages: next });
+                            }}
+                          />
+                          <textarea
+                            className={AREA}
+                            rows={2}
+                            value={s.hideObjectionCodes}
+                            placeholder="Shared objection codes this playbook hides (it has its own answer) — one per line."
+                            onChange={(e) => {
+                              const next = [...draft.stages];
+                              next[i] = { ...s, hideObjectionCodes: e.target.value };
+                              setDraft({ ...draft, stages: next });
+                            }}
+                          />
+                        </>
                       ) : (
                         <>
                           <textarea
@@ -626,6 +686,19 @@ export default function PlatformSalesPlaybooksPage() {
                           />
                         </>
                       )}
+                      {/* Notes for the rep, shown on the call screen apart
+                          from the lines and never read out. */}
+                      <textarea
+                        className={AREA}
+                        rows={2}
+                        value={s.tips}
+                        placeholder="Rep notes for this stage, not read out — one per line."
+                        onChange={(e) => {
+                          const next = [...draft.stages];
+                          next[i] = { ...s, tips: e.target.value };
+                          setDraft({ ...draft, stages: next });
+                        }}
+                      />
                       {meta?.usesTalkingPoints && (
                         <p className="text-xs text-muted-foreground">
                           Per-prospect talking points are inserted here. Each one cites an
@@ -716,6 +789,28 @@ export default function PlatformSalesPlaybooksPage() {
                               </li>
                             ))}
                           </ul>
+                        )}
+                        {(s.tips || []).length > 0 && (
+                          <div className="rounded-lg border border-border bg-muted/40 p-2">
+                            <p className="text-xs font-semibold text-muted-foreground">Rep notes (not read out)</p>
+                            <ul className="pl-5 list-disc text-xs text-foreground space-y-1">
+                              {s.tips.map((tip, i) => (
+                                <li key={i} className="break-words">
+                                  {tip}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {((s.ownObjectionCodes || []).length > 0 || (s.hideObjectionCodes || []).length > 0) && (
+                          <p className="text-xs text-muted-foreground break-words">
+                            {(s.ownObjectionCodes || []).length > 0
+                              ? `Owns ${s.ownObjectionCodes.length} objection answer(s), shown on no other playbook: ${s.ownObjectionCodes.join(", ")}. `
+                              : ""}
+                            {(s.hideObjectionCodes || []).length > 0
+                              ? `Hides the shared answers: ${s.hideObjectionCodes.join(", ")}.`
+                              : ""}
+                          </p>
                         )}
                         {!s.say && !(s.prompts || []).length && !meta?.usesObjections && (
                           <p className="text-sm text-muted-foreground italic">

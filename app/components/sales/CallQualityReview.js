@@ -193,6 +193,24 @@ function Scorecard({ call, labels }) {
           </ul>
         </details>
       ) : null}
+      {/* The second scorecard, present only on a call made on the Reverse
+          Selling playbook (lib/sales/calls/qa.js reverseSellingFrom). It does
+          not feed the overall above; it is the moves that call was coached on. */}
+      {Array.isArray(qa.scores?.reverseSellingRubric?.lines) && qa.scores.reverseSellingRubric.lines.length ? (
+        <details className="text-xs text-muted-foreground" data-testid="reverse-selling-rubric">
+          <summary className="cursor-pointer">
+            {labels.reverseSellingRubric}
+            {typeof qa.scores.reverseSellingRubric.score === "number" ? ` — ${qa.scores.reverseSellingRubric.score}/100` : ""}
+          </summary>
+          <ul className="mt-1 grid grid-cols-2 gap-x-4">
+            {qa.scores.reverseSellingRubric.lines.map((l) => (
+              <li key={l.key} className={l.met ? "" : "text-red-700 dark:text-red-300"}>
+                {l.key}: {l.points}/{l.weight}
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
     </div>
   );
 }

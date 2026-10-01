@@ -40,6 +40,7 @@ function Stage({ stage, row }) {
   const { t } = useTranslation();
   const say = (row?.say || "").trim();
   const prompts = Array.isArray(row?.prompts) ? row.prompts.filter(Boolean) : [];
+  const tips = Array.isArray(row?.tips) ? row.tips.filter((x) => typeof x === "string" && x.trim()) : [];
   return (
     <div className="border-t border-border pt-3 mt-3 first:border-t-0 first:pt-0 first:mt-0">
       <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand-accent-text">
@@ -57,6 +58,20 @@ function Stage({ stage, row }) {
             </li>
           ))}
         </ul>
+      ) : null}
+      {/* Notes for the rep, never read out — the same rows the call screen
+          draws under the stage (lib/sales/playbook/defaults.js, MAX_TIPS). */}
+      {tips.length ? (
+        <div className="mt-2 rounded-lg border border-border bg-muted/40 p-3">
+          <p className="text-xs font-semibold text-muted-foreground">{t("app.salesCall.repTips")}</p>
+          <ul className="mt-1 list-disc pl-5 space-y-1">
+            {tips.map((tip, i) => (
+              <li key={i} className="text-xs text-foreground break-words">
+                {tip}
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : null}
       {/* An unwritten stage says so. A blank that reads as "nothing to say
           here" is the padding failure AGENTS.md names, on a script somebody

@@ -31,11 +31,11 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { superadminOrRefusal } from "@/lib/sales/intel/configAdmin";
-import { PLAYBOOK_PROBLEMS, PLAYBOOK_VARS, seedPlaybooks, validatePlaybook } from "@/lib/sales/playbook/defaults";
+import { PLAYBOOK_PROBLEMS, PLAYBOOK_VARS, validatePlaybook } from "@/lib/sales/playbook/defaults";
 import { SELECTION_REFUSALS } from "@/lib/sales/playbook/select";
 import { selectorCatalogue } from "@/lib/sales/playbook/selectors";
 import { STAGES } from "@/lib/sales/playbook/stages";
-import { loadPlaybooks, storeState } from "@/lib/sales/playbook/store";
+import { builtInPlaybooks, loadPlaybooks, storeState } from "@/lib/sales/playbook/store";
 import { sayProblems, shapePlaybookInput } from "@/lib/sales/playbook/admin";
 
 /** The validator's own sentences, so no screen invents a second set. */
@@ -85,12 +85,15 @@ export async function GET(request) {
     stages: STAGES.map((s) => ({ ...s })),
     variables: PLAYBOOK_VARS,
     selectionRefusals: SELECTION_REFUSALS,
-    // Which of the built-in four are not in the database. Drives an "install"
-    // control that creates exactly these and never overwrites an edit.
+    // Which of the built-in playbooks are not in the database — the four
+    // starters and the Reverse Selling playbook, which installs SWITCHED OFF.
+    // Drives an "install" control that creates exactly these and never
+    // overwrites an edit. `active` rides along so the screen can say which
+    // one will arrive off.
     availableDefaults: store.ready
-      ? seedPlaybooks()
+      ? builtInPlaybooks()
           .filter((p) => !installedKeys.has(p.key))
-          .map((p) => ({ key: p.key, name: p.name, selectorKey: p.selectorKey }))
+          .map((p) => ({ key: p.key, name: p.name, selectorKey: p.selectorKey, active: p.active }))
       : [],
   });
 }

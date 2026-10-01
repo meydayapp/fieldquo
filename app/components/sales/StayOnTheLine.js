@@ -11,11 +11,17 @@
 
 import { PhoneCall } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
-import { stayOnTheLineFor } from "@/lib/sales/playbook/stayOnTheLine";
+import { referralPlantFor, stayOnTheLineFor } from "@/lib/sales/playbook/stayOnTheLine";
 
-export default function StayOnTheLine({ language = "en", compact = false }) {
+/**
+ * @param plant  true only when the Reverse Selling playbook is on screen: the
+ *               early referral plant is part of that script and of no other,
+ *               so every other call draws exactly the three sentences it did.
+ */
+export default function StayOnTheLine({ language = "en", compact = false, plant = false }) {
   const { t } = useTranslation();
   const step = stayOnTheLineFor(language);
+  const seed = plant ? referralPlantFor(language) : null;
   return (
     <div
       className={compact ? "rounded-lg border border-border bg-muted p-3 space-y-1" : "rounded-lg border border-border bg-muted p-3 space-y-1.5"}
@@ -28,6 +34,13 @@ export default function StayOnTheLine({ language = "en", compact = false }) {
       <p className="text-sm text-foreground break-words">“{step.say}”</p>
       <p className="text-xs text-muted-foreground break-words">{step.then}</p>
       {!compact ? <p className="text-xs text-muted-foreground break-words">{step.watch}</p> : null}
+      {seed ? (
+        <div className="border-t border-border pt-1.5 mt-1 space-y-0.5" data-testid="referral-plant" data-language={seed.language}>
+          <p className="text-xs font-semibold text-foreground">{t("app.salesCall.referralPlant")}</p>
+          <p className="text-sm text-foreground break-words">“{seed.say}”</p>
+          {!compact ? <p className="text-xs text-muted-foreground break-words">{seed.why}</p> : null}
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -277,10 +277,28 @@ section("Stages — nine, fixed, never padded");
 section("Selectors — three-valued, and null never counts as absent");
 // ═══════════════════════════════════════════════════════════════════════════
 {
-  ok("the four rules the spec names all exist", SELECTOR_KEYS.length === 4, SELECTOR_KEYS);
+  // The four the spec names, plus exactly one general rule — anything_observed,
+  // for the Reverse Selling playbook, which claims nothing about what we saw.
+  // It still refuses a prospect nothing has been recorded for (asserted
+  // below), which is the line defaults.js draws against a fifth "general"
+  // playbook. scripts/check-reverse-selling-playbook.mjs holds the rest of it.
+  ok(
+    "the four rules the spec names exist, plus the one general rule",
+    SELECTOR_KEYS.length === 5 && SELECTOR_KEYS.includes("anything_observed"),
+    SELECTOR_KEYS,
+  );
   for (const key of ["competitor_detected", "no_website", "website_without_booking", "email_only_quote_request"]) {
     ok(`${key} is implemented`, SELECTOR_KEYS.includes(key));
   }
+  ok(
+    "anything_observed does NOT match a business nothing has been recorded for",
+    runSelector("anything_observed", SCENARIOS.nothing).matched === false,
+  );
+  ok(
+    "anything_observed matches any business something was recorded for",
+    runSelector("anything_observed", SCENARIOS.noWebsite).matched &&
+      runSelector("anything_observed", SCENARIOS.competitor).matched,
+  );
 
   ok("no_website matches a real false", runSelector("no_website", SCENARIOS.noWebsite).matched);
   ok(

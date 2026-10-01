@@ -75,6 +75,7 @@ const LABELS = {
   talkSplit: (rep, contractor) => `rep ${rep} s, contractor ${contractor} s`,
   coaching: "Coaching",
   rubric: "How the score adds up",
+  reverseSellingRubric: "Reverse Selling moves (not in the score above)",
   humanPass: "Your pass",
   humanPassIntro: "Your score replaces the model's on the performance page. Say why in the note — the rep reads it.",
   reviewedBy: (name, when) => `Reviewed by ${name} on ${when}.`,
