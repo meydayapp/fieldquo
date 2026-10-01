@@ -32,6 +32,7 @@ import { STAGES, orderStages } from "@/lib/sales/playbook/stages";
 
 import PlaybookSearch from "./PlaybookSearch";
 import ProductUsageCard from "../ProductUsageCard";
+import ReverseSellingScripts from "@/app/components/sales/ReverseSellingScripts";
 
 const CARD = "rounded-xl border border-border bg-card";
 
@@ -92,6 +93,7 @@ export default function PlaybookView({
   objections = [],
   cards = [],
   moments = [],
+  scripts = [],
 }) {
   const { t } = useTranslation();
 
@@ -139,6 +141,10 @@ export default function PlaybookView({
           );
         })}
       </section>
+
+      {/* The Reverse Selling short scripts — present only while that
+          playbook is switched on (page.js); empty, nothing is drawn. */}
+      {scripts.length ? <ReverseSellingScripts scripts={scripts} showIntro /> : null}
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-foreground">

@@ -90,7 +90,31 @@ import { queueWhere } from "@/lib/sales/prospectView";
 import { SIGNUP_PROSPECT_SELECT, signupStateOf } from "@/lib/signup/salesFloor";
 import { assembleProspectPlaybook } from "@/lib/sales/playbook/assemble";
 import { weaveDisclosure } from "@/lib/sales/playbook/recordingDisclosure";
+import { isReverseSelling } from "@/lib/sales/playbook/approaches";
+import { fillScripts, leadSourceFor, reverseSellingScripts } from "@/lib/sales/playbook/reverseSellingScripts";
 import { repPublicName } from "@/lib/sales/repIdentity";
+
+/**
+ * The Reverse Selling short scripts for this prospect, or null on every other
+ * playbook. Which one opens first is read off what this route already loaded
+ * — the signup kind, the signup company's subscription, and whether the
+ * competitor rule matched one of the objection rows — and nothing else
+ * (lib/sales/playbook/reverseSellingScripts.js, leadSourceFor).
+ */
+function salesScriptsFor({ selectedKey, mine, signup, objections, businessName, repName }) {
+  if (!isReverseSelling(selectedKey)) return null;
+  const competitorDetected = (Array.isArray(objections) ? objections : []).some(
+    (o) => o?.contextSelectorKey === "competitor_detected" && o?.context,
+  );
+  return {
+    suggested: leadSourceFor({
+      signupKind: mine?.signupKind || null,
+      subscriptionStatus: mine?.company?.subscription?.status || null,
+      competitorDetected,
+    }),
+    scripts: fillScripts(reverseSellingScripts(), { businessName, repName, first: signup?.firstName || null }),
+  };
+}
 
 /** The response shape of one stored row. */
 function shapeScript(row) {
@@ -297,6 +321,17 @@ export async function GET(request) {
     },
     // Who is on the call, for the signup opener's "{rep} here".
     repName: repPublicName(rep),
+    // The Reverse Selling playbook's short scripts — per lead source, the
+    // follow-ups, the demo, the check-ins, the partner call — or null on any
+    // other playbook. The call screen draws them only when present.
+    salesScripts: salesScriptsFor({
+      selectedKey: result.selection.selected?.key || null,
+      mine,
+      signup,
+      objections: result.objections,
+      businessName: result.prospect.businessName,
+      repName: repPublicName(rep),
+    }),
     objections: result.objections,
     talkingPoints: result.talkingPoints,
     // Carried up so a three-line script off a business whose site timed out
