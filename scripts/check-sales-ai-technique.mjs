@@ -168,7 +168,7 @@ ok(/never overrides the absolute rules above/i.test(flat(section)),
    "it says outright that it cannot override the rules");
 
 const REQUIRED_MOVES = [
-  "reflex_no", "asp", "foreshadow", "hypothetical", "no_why", "no_pounce",
+  "reflex_no", "asp", "foreshadow", "two_choices", "hypothetical", "no_why", "no_pounce",
   "fair_enough", "label_feeling", "listen", "match_style", "give_control",
 ];
 const keys = MOVES.map((m) => m.key);
@@ -192,9 +192,30 @@ ok(/Match their style/.test(s), "it matches the caller's style");
 ok(/then you decide if it's worth keeping/.test(s), "it gives them control");
 ok(FIVE_STEP_ANSWER.length === 5 && FIVE_STEP_ANSWER.every((step) => s.includes(step)),
    "the five-step objection answer, all five, in order of the doc");
-ok(/reverse close/i.test(s) && /would you feel comfortable running your quotes on this/.test(s),
-   "the reverse close: easy questions instead of one big one");
-ok(/too-easy yes/i.test(s) && /Will it be hard to switch/.test(s), "…and the too-easy-yes test");
+
+// ── The owner's decision of 2026-10-01: the call's goal is a demo ───────────
+ok(/THE GOAL OF THIS CALL: A DEMO WITH A PERSON/.test(section) && /does not close a sale and does not push the trial/.test(s),
+   "the goal of the call is a demo with a person, not a sale and not the trial");
+ok(/THE FREE TRIAL — ONLY WHEN THEY ASK/.test(section) && /Never offer the trial as the next step yourself, and never push it/.test(s),
+   "the trial is offered only when the caller asks for it, never pushed");
+ok(s.indexOf("First: the demo with a person") > -1 && s.indexOf("First: the demo with a person") < s.indexOf("Next: the trial, at their own request"),
+   "the demo is the first next step; the trial comes after it, and only at their request");
+ok(!/would you feel comfortable running your quotes on this/.test(s) && !/shall we get your trial started/i.test(s),
+   "the reverse close and the trial ask are gone from the phone — they belong to the demo, not the call");
+ok(/offer two choices/i.test(s) && /never an open "what time works for you\?"/.test(s),
+   "times are offered as two choices, never an open \"what time works\"");
+ok(/TWO TO FOUR SENTENCES, NEVER AN ARGUMENT/.test(section) && /Nobody is talked out of an objection on the phone, so do not try/.test(s),
+   "objection answers are short and never argued");
+{
+  // Every common-objection bullet moves to the next step (the demo), except
+  // "do you have…?", which is a factual yes or "not right now".
+  const block = section.slice(section.indexOf("How the common ones go"), section.indexOf("THE GOAL OF THIS CALL"));
+  const bullets = block.split(/\n- /).slice(1).map(flat);
+  const strays = bullets.filter((b) => !/^"Do you have/.test(b) && !/\bdemo\b/.test(b));
+  ok(bullets.length >= 10 && strays.length === 0, "every common objection answer redirects to the demo", strays.join(" | "));
+}
+ok(/two questions, not ten/i.test(s) && /what has them looking at this, and when they want something in place/.test(s),
+   "discovery on the call is minimal: what has them looking, and when");
 ok(s.toLowerCase().includes(REFERRAL_ASK.toLowerCase().replace(/\?$/, "")),
    "the referral question, in the doc's words", REFERRAL_ASK);
 ok(/at the end of every call, signed up or not/i.test(s), "…asked on every call, signed up or not");
@@ -213,6 +234,16 @@ ok(/Ask what day and time suits them/.test(flat(tr)) && !/Ask what day and time 
 ok(/cannot arrange a callback/.test(flat(tn)), "…and otherwise it is told it cannot arrange one");
 ok(/Never\s+promise anyone will ring at that time/i.test(tr),
    "asking for a time never becomes promising a call — the existing rule still wins");
+// The agent has no booking tool (lib/platform/salesAgent.js), so "book a demo"
+// is a transfer, a time said for the recording, or the contact page.
+ok(/You cannot book a time yourself; the person they reach does/.test(flat(tr)) && /use\s+transfer_to_human/.test(flat(tr)),
+   "with a transfer number, the demo is booked by the person they are put through to");
+ok(/You cannot book it yourself and you cannot put them through/.test(flat(nr)) && /earlier or later in the week, morning or afternoon/.test(flat(nr)) && /Never promise anyone will ring at that time/.test(flat(nr)),
+   "recorded, no transfer: their choice of time is said for the recording, and no call is promised");
+ok(/You cannot book it, put them through, or keep anything said here/.test(flat(nn)) && nn.includes("fieldquo.com/contact"),
+   "neither: the contact page, and nothing implied to be kept");
+ok(!/\bbook(?:ed|ing)? (?:it|the demo|a demo|a time) for them\b/i.test(section),
+   "the agent never claims to book a demo itself");
 
 // ── Trial, card and referral terms come from the constants ───────────────────
 console.log("\n── The terms come from lib/pricing.js and lib/referrals ────────\n");

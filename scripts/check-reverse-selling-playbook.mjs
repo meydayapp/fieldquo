@@ -28,7 +28,15 @@
 //      rules — appear for this playbook and change nothing for any other;
 //   9. the console keeps the rep notes and the objection scope on a save,
 //      and "install" creates exactly this playbook, switched off (the
-//      dry-run of what the button would write).
+//      dry-run of what the button would write);
+//  10. the call coach scores the book-the-demo moves on that playbook's calls
+//      only, and the old rubric's output is unchanged;
+//  11. version 2 (owner, 2026-10-01): the cold call's next step books a DEMO
+//      with two choices of time; no answer on its screen runs past four
+//      spoken sentences; every lead source has its own short script; the
+//      follow-ups, the seven-part demo, the check-ins and the partner call
+//      exist; version 1's long answers survive word for word as Backup; and
+//      docs/sales/REVERSE-SELLING-SCRIPTS.md says exactly what the code says.
 //
 // Run: npm run check:reverse-selling-playbook
 import { createHash } from "node:crypto";
@@ -49,15 +57,30 @@ import { seedPlaybooks, validatePlaybook } from "@/lib/sales/playbook/defaults";
 import { matchObjectionText, objectionsForPlaybook, objectionsForProspect, seedObjections } from "@/lib/sales/playbook/objections";
 import { carriesDisclosure } from "@/lib/sales/playbook/recordingDisclosure";
 import {
+  DEMO_MINUTES_WORDS,
+  DEMO_OFFER,
   PLAN_SENTENCE,
   REFERRAL_OFFER,
   REVERSE_SELLING_PRIORITY,
   REVERSE_SELLING_SELECTOR,
+  REVERSE_SELLING_VERSION,
   STARTS_AT,
   TRIAL_DAYS_WORDS,
+  reverseSellingBackup,
   seedReverseSellingObjections,
   seedReverseSellingPlaybook,
+  spokenSentences,
 } from "@/lib/sales/playbook/reverseSelling";
+import {
+  LEAD_SOURCE_KEYS,
+  SCRIPT_GROUPS,
+  fillScripts,
+  leadSourceFor,
+  reverseSellingScripts,
+} from "@/lib/sales/playbook/reverseSellingScripts";
+import { REP_DEMO_MINUTES } from "@/lib/sales/demoBooking/slots";
+import { REFERRAL_ASK } from "@/lib/sales/technique";
+import { RETIRED_OBJECTIONS, RETIRED_PLAYBOOKS, isUnedited, objectionFingerprint } from "@/lib/sales/playbook/seedHistory";
 import { buildCallScript } from "@/lib/sales/playbook/script";
 import { runSelector } from "@/lib/sales/playbook/selectors";
 import { REFERRAL_PLANT, STAY_ON_THE_LINE, referralPlantFor } from "@/lib/sales/playbook/stayOnTheLine";
@@ -113,7 +136,13 @@ const stage = (key) => PB.stages.find((s) => s.stageKey === key);
 const allLines = PB.stages.flatMap((s) => [s.say, ...s.prompts]);
 const allTips = PB.stages.flatMap((s) => s.tips || []);
 const allResponses = OBJ.map((o) => o.response);
-const everything = [...allLines, ...allTips, ...allResponses];
+const SCRIPTS = reverseSellingScripts();
+// Names and part labels are headings ("version 1.0", "1. Agenda") and are
+// never read out, so the digit rule is for the lines, notes and sources.
+const scriptText = SCRIPTS.flatMap((s) => [s.when, s.source, ...s.lines.map((l) => l.text), ...s.notes]).filter(Boolean);
+const scriptHeadings = SCRIPTS.flatMap((s) => [s.name, ...s.lines.map((l) => l.label || "")]).filter(Boolean);
+const everything = [...allLines, ...allTips, ...allResponses, ...scriptText];
+const script = (key) => SCRIPTS.find((s) => s.key === key);
 
 // The fixtures the BEFORE fingerprints were taken on — the same shapes
 // check-sales-playbook.mjs uses.
@@ -169,16 +198,17 @@ section("2. The referral ask is in Wrap up — both branches, the offer, the pla
 // ═══════════════════════════════════════════════════════════════════════════
 {
   const close = stage("close");
-  ok("Wrap up opens with the signed-up referral ask", /who do you know that could benefit from this too/i.test(close.say) && /Congrats/.test(close.say), close.say);
-  ok("…the didn't-sign-up branch is there", close.prompts.some((p) => /If they didn't sign up/.test(p) && /who do you know that's growing their company/.test(p)));
+  ok("Wrap up opens on the booked demo, then the referral ask", /who do you know that could benefit from this too/i.test(close.say) && /You're all set for \[day\] at \[time\]/.test(close.say), close.say);
+  ok("…the didn't-book branch is there", close.prompts.some((p) => /If they didn't book/.test(p) && /who do you know that's growing their company/.test(p)));
+  ok("…and the asked-for-a-trial branch keeps the owner's congratulations", close.prompts.some((p) => /If they started the trial because they asked/.test(p) && /Congrats/.test(p)));
   ok("…the hesitation helpers are there", close.prompts.some((p) => /a guy you sub for/.test(p)) && close.prompts.some((p) => /wants to scale their business/.test(p)));
   ok("…the referral offer is said", close.prompts.some((p) => p.includes(REFERRAL_OFFER)));
   ok("…with where their link lives", close.prompts.some((p) => /Settings, Refer & Earn/.test(p)));
   ok("…and the details to collect", close.prompts.some((p) => /name, trade, phone number/.test(p)));
   ok("the early plant is a Wrap up note", (close.tips || []).some((t) => /The way I know I did my job is if a month from now/.test(t)));
-  ok("…and ask on every call, signed up or not", (close.tips || []).some((t) => /Ask on every call, whether they signed up or not/.test(t)));
+  ok("…and ask on every call, booked or not", (close.tips || []).some((t) => /Ask on every call, whether they booked or not/.test(t)));
   ok("discovery's 'everything is fine' branch ends politely with a referral ask", (stage("current_process").tips || []).some((t) => /ask for a referral/.test(t)));
-  ok("ask-resolve-ask sends a firm no twice to the referral ask", (stage("next_step").tips || []).some((t) => /same firm no twice/.test(t) && /referral ask/.test(t)));
+  ok("ask-resolve-ask moved to the demo, and a firm no twice still goes to the referral question", script("demo").notes.some((t) => /same firm no twice/.test(t) && /referral question/.test(t)));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -192,9 +222,15 @@ section("3. Trial, price and referral text come from the constants");
     ok(`the plan sentence carries ${r.label} at ${r.price}, ${r.seats} seat(s), ${r.crewSeats} crew — in words`,
       PLAN_SENTENCE.includes(`${r.label}, ${W(r.price)}`) && PLAN_SENTENCE.includes(`${r.seats === 1 ? "one seat" : `${W(r.seats)} seats`} and ${W(r.crewSeats)} crew`), PLAN_SENTENCE);
   }
-  ok("the present (fit) carries the plan sentence", stage("fit").say.includes(PLAN_SENTENCE));
-  ok("the present says the trial length and no card", stage("fit").say.includes(`The first ${W(TRIAL_DAYS)} days are free and no card is needed to start`));
-  ok("the close asks for the trial in its own length", stage("next_step").say.includes(`try it free for ${W(TRIAL_DAYS)} days`));
+  ok("'what is it?' carries the plan sentence for a rep asked every price", (stage("fit").tips || []).some((t) => t.includes(PLAN_SENTENCE)));
+  ok("…and the demo's value part says it", script("demo").lines.some((l) => l.text.includes(PLAN_SENTENCE)));
+  ok("the trial, only when asked, says its length and no card", stage("fit").prompts.some((p) => /^Only if they ask/.test(p) && p.includes(`The first ${W(TRIAL_DAYS)} days are free and no card is needed to start`)));
+  ok("the demo the call books is REP_DEMO_MINUTES long, in words", DEMO_MINUTES_WORDS === W(REP_DEMO_MINUTES) && DEMO_OFFER === `${W(REP_DEMO_MINUTES)} minutes on a screen`);
+  // Version 1's own words (Backup) say "ten minutes" for building a quote on
+  // the call; they are kept word for word, so they are left out of this one.
+  const live = [...allLines, ...allTips, ...allResponses, ...SCRIPTS.filter((s) => s.group !== "backup").flatMap((s) => [...s.lines.map((l) => l.text), ...s.notes])].join(" ");
+  const minuteWords = [...live.matchAll(/\b([a-z]+(?:-[a-z]+)?)[- ]minutes?\b/gi)].map((m) => m[1].toLowerCase()).filter((w) => !["couple", "few", "of"].includes(w));
+  ok("no live line types a meeting length: every 'N minutes' is REP_DEMO_MINUTES (or the signup's five)", minuteWords.length > 0 && minuteWords.every((w) => w === W(REP_DEMO_MINUTES) || w === "five"), minuteWords);
   ok("'starts at' is the first rung", STARTS_AT === `${W(rungs[0].price)} dollars a month`);
   ok("the referrer's reward is REFERRER_BONUS_MONTHS, on paying", REFERRAL_OFFER.includes(REFERRER_BONUS_MONTHS === 1 ? "you get a month of FieldQuo free" : `you get ${W(REFERRER_BONUS_MONTHS)} months`) && /signs up and starts paying/.test(REFERRAL_OFFER));
   ok("the newcomer's is REFEREE_BONUS_MONTHS, on their trial, through the link", REFERRAL_OFFER.includes(REFEREE_BONUS_MONTHS === 1 ? "an extra free month" : `${W(REFEREE_BONUS_MONTHS)} extra free months`) && /with your link/.test(REFERRAL_OFFER));
@@ -272,7 +308,7 @@ section("5. The four starter playbooks are byte-identical");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-section("6. The objection answers: found, five-step, scoped");
+section("6. The objection answers: found, short, redirected, scoped");
 // ═══════════════════════════════════════════════════════════════════════════
 {
   const rsOn = { ...PB, active: true };
@@ -284,7 +320,21 @@ section("6. The objection answers: found, five-step, scoped");
   ok("its screen shows all of them", OBJ.every((o) => codes.has(o.code)));
   ok("…and none of the shared answers it replaces", scope.hideObjectionCodes.every((c) => !codes.has(c)), scope.hideObjectionCodes.filter((c) => codes.has(c)));
   ok("…every one of which is a real shared code", scope.hideObjectionCodes.every((c) => seedObjections().some((o) => o.code === c)));
-  ok("…while the shared answers it does not replace stay", ["HOW_DID_YOU_GET_MY_NUMBER", "CONTRACT_LOCK_IN", "WHO_OWNS_MY_DATA", "JUST_TELL_ME_THE_PRICE", "WRONG_PERSON"].every((c) => codes.has(c)));
+  // Version 2: every shared answer has a short Reverse Selling version, so a
+  // rep on this playbook never reads a six-sentence answer on a cold call.
+  ok("every shared answer is replaced on its screen by a short one", seedObjections().every((o) => scope.hideObjectionCodes.includes(o.code)), seedObjections().filter((o) => !scope.hideObjectionCodes.includes(o.code)).map((o) => o.code));
+  ok("…so its screen shows its own answers and nothing else", library.every((o) => o.code.startsWith("RS_")), library.filter((o) => !o.code.startsWith("RS_")).map((o) => o.code));
+  ok("…and the shared rows themselves are untouched (the starter screens still show them)", md5(seedObjections()) === "0ae0891de5c05ec5c27d1cb7e5cb7d8e");
+
+  // ── No cold-call objection answer runs more than four spoken sentences ──
+  // Directions to the rep (in parentheses) are not spoken and not counted.
+  for (const o of library) {
+    const n = spokenSentences(o.response).length;
+    ok(`${o.code}: two to four spoken sentences (${n})`, n >= 2 && n <= 4, spokenSentences(o.response));
+  }
+  ok("the objections stage's own line is four sentences or fewer", spokenSentences(stage("objections").say).length <= 4, spokenSentences(stage("objections").say));
+  ok("spokenSentences counts sentences, not directions", spokenSentences("(Let them answer. Then wait.) One. Two? \"Three.\" Four!").length === 4 && spokenSentences("(Only a direction.)").length === 0);
+
   // What a contractor says → the Reverse Selling answer, by its cues.
   const HEARD = {
     "I'm busy right now, call me later": "RS_IM_BUSY",
@@ -307,36 +357,77 @@ section("6. The objection answers: found, five-step, scoped");
     "my customers don't care what the quote looks like": "RS_BELIEF_QUOTE_LOOKS",
     "customers pay when they pay": "RS_BELIEF_PAY_WHEN_THEY_PAY",
     "I'll hire an office person later": "RS_BELIEF_HIRE_OFFICE_LATER",
+    "where did you get my number?": "RS_HOW_DID_YOU_GET_MY_NUMBER",
+    "is this a sales call?": "RS_IS_THIS_A_SALES_CALL",
+    "never heard of you": "RS_NEVER_HEARD_OF_YOU",
+    "you want the owner": "RS_WRONG_PERSON",
+    "how much is it?": "RS_JUST_TELL_ME_THE_PRICE",
+    "am I locked in to a contract?": "RS_CONTRACT_LOCK_IN",
+    "who owns my data?": "RS_WHO_OWNS_MY_DATA",
+    "my bookkeeper uses quickbooks": "RS_BOOKKEEPER_USES_SOMETHING_ELSE",
+    "all my work is word of mouth": "RS_DONT_NEED_A_WEBSITE",
+    "every job is different, they need to talk to me": "RS_BOOKING_NOT_FOR_US",
+    "they email me, email works": "RS_EMAIL_WORKS_FINE",
+    "I've got more work than I can handle": "RS_PLENTY_OF_WORK",
   };
   for (const [heard, code] of Object.entries(HEARD)) {
     const hit = matchObjectionText(heard, library).map((o) => o.code);
     ok(`"${heard}" finds ${code}`, hit.includes(code), hit);
   }
-  // The five-step answer: agree, their side, "Let's do this" (or the
-  // document's own next step), what's in it for them, control and a check.
-  const FIVE_STEP = ["RS_PARTNER", "RS_NO_TIME_TO_LEARN", "RS_PAPER_WORKS", "RS_TOO_EXPENSIVE", "RS_TRIED_SOFTWARE", "RS_SEND_INFO", "RS_THINK_ABOUT_IT", "RS_ALREADY_USE_APP", "RS_DO_YOU_HAVE", "RS_IM_BUSY"];
-  for (const code of FIVE_STEP) {
-    const r = OBJ.find((o) => o.code === code).response;
-    const nextStep = /Let's do this|Give me ten minutes|How about we get them on the phone|That's why I do it with you on the call/.test(r);
-    const control = /Fair enough\?|for real\?|when you're both around\?|Then you decide/.test(r);
-    ok(`${code} suggests the next step and hands control back`, nextStep && control);
+  // The redirect: "let's not decide anything now" (or its kin) + the demo +
+  // control handed back. Four answers redirect differently, on purpose: the
+  // reflex no (A-S-P, then a question), the wrong person (who and when),
+  // and the two "who is this?" answers (the opener's hand-over).
+  const OWN_SHAPE = new Set(["RS_NOT_INTERESTED", "RS_WRONG_PERSON", "RS_HOW_DID_YOU_GET_MY_NUMBER", "RS_IS_THIS_A_SALES_CALL"]);
+  for (const o of OBJ) {
+    if (OWN_SHAPE.has(o.code)) continue;
+    const r = o.response;
+    ok(`${o.code} redirects to the demo and hands control back`, r.includes(DEMO_OFFER) && /Then you decide/.test(r) && /fair enough\?/i.test(r));
   }
-  ok("the busy answer asks when they won't be busy, and pulls back", /When do you think you won't be busy\?/.test(OBJ.find((o) => o.code === "RS_IM_BUSY").response) && /leave it here\?/.test(OBJ.find((o) => o.code === "RS_IM_BUSY").response));
-  ok("the partner answer confronts the land mine and plays it out", /What are you afraid of happening\? Let's play it out/.test(OBJ.find((o) => o.code === "RS_PARTNER").response));
+  ok("…and never argues for the trial on the call", OBJ.every((o) => !/start (?:it|the trial|your trial) (?:now|while we're on the phone)/i.test(o.response)));
+  ok("the hand-over answers hand over", ["RS_HOW_DID_YOU_GET_MY_NUMBER", "RS_IS_THIS_A_SALES_CALL"].every((c) => /you decide/.test(OBJ.find((o) => o.code === c).response) && /Fair enough\?/.test(OBJ.find((o) => o.code === c).response)));
   ok("the competitor answer links the battlecard and never trashes the app", /battlecard is on the Playbook tab/.test(OBJ.find((o) => o.code === "RS_ALREADY_USE_APP").response) && /Never trash the other app/.test(OBJ.find((o) => o.code === "RS_ALREADY_USE_APP").response));
   ok("'do you have X' never promises it is coming", /Never promise it's coming/.test(OBJ.find((o) => o.code === "RS_DO_YOU_HAVE").response));
   ok("'not interested' keeps the do-not-call switch", /mark do-not-call in the dialer/.test(OBJ.find((o) => o.code === "RS_NOT_INTERESTED").response));
+  ok("'where did you get my number' keeps the do-not-call switch", /mark do-not-call in the dialer/.test(OBJ.find((o) => o.code === "RS_HOW_DID_YOU_GET_MY_NUMBER").response));
+  ok("the price answer is the first rung, from the ladder", OBJ.find((o) => o.code === "RS_JUST_TELL_ME_THE_PRICE").response.includes(STARTS_AT));
+  // The short answers take their cues and context from the shared row they
+  // replace, so a rep finds both by the same words.
+  for (const o of OBJ.filter((x) => !["RS_IM_BUSY", "RS_PARTNER", "RS_NO_TIME_TO_LEARN", "RS_PAPER_WORKS", "RS_TOO_EXPENSIVE", "RS_TRIED_SOFTWARE", "RS_SEND_INFO", "RS_THINK_ABOUT_IT", "RS_ALREADY_USE_APP", "RS_DO_YOU_HAVE", "RS_NOT_INTERESTED", "RS_BEST_WORST_CASE"].includes(x.code) && !x.code.startsWith("RS_BELIEF_"))) {
+    const shared = seedObjections().find((s) => `RS_${s.code}` === o.code);
+    ok(`${o.code} is found by the same cues as ${shared?.code}`, shared && md5(o.cues) === md5(shared.cues) && o.contextSelectorKey === (shared.contextSelectorKey ?? null));
+  }
+
+  // ── Version 1's long answers: kept word for word, as Backup ─────────────
+  const backup = reverseSellingBackup();
+  ok("every version-one answer is in Backup", backup.length === 18 && Object.keys(RETIRED_OBJECTIONS).filter((c) => c.startsWith("RS_")).every((c) => backup.some((b) => b.code === c)));
+  ok("…word for word (each matches the fingerprint version one shipped with)", backup.every((b) => isUnedited("objection", b.code, objectionFingerprint(b))), backup.filter((b) => !isUnedited("objection", b.code, objectionFingerprint(b))).map((b) => b.code));
+  ok("…the busy answer still asks when they won't be busy, and pulls back", /When do you think you won't be busy\?/.test(backup.find((b) => b.code === "RS_IM_BUSY").response) && /leave it here\?/.test(backup.find((b) => b.code === "RS_IM_BUSY").response));
+  ok("…the partner answer still plays it out", /What are you afraid of happening\? Let's play it out/.test(backup.find((b) => b.code === "RS_PARTNER").response));
+  ok("…best case / worst case is there", /Worst case/.test(backup.find((b) => b.code === "RS_BEST_WORST_CASE").response));
+  ok("…and Backup is on the rep's screen beside the scripts", script("backup").lines.length === backup.length && backup.every((b) => script("backup").lines.some((l) => l.text === b.response && l.label === b.label)));
+  ok("an unedited version-one install can be refreshed to version two", RETIRED_PLAYBOOKS.REVERSE_SELLING?.includes("52fdf67b9aaed479") && !isUnedited("playbook", PB.key, playbookFingerprint(PB)) && OBJ.every((o) => !isUnedited("objection", o.code, objectionFingerprint(o))));
+  ok("the playbook and its answers are version two", PB.version === REVERSE_SELLING_VERSION && REVERSE_SELLING_VERSION === "2" && OBJ.every((o) => o.version === "2"));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 section("7. No banned move, and the opener says the call is recorded");
 // ═══════════════════════════════════════════════════════════════════════════
 {
-  const hits = everything.map((t) => ({ t: t.slice(0, 80), moves: bannedMovesIn(t) })).filter((h) => h.moves.length);
+  const hits = [...everything, ...scriptHeadings].map((t) => ({ t: t.slice(0, 80), moves: bannedMovesIn(t) })).filter((h) => h.moves.length);
   ok("nothing in it makes a banned move", hits.length === 0, hits);
   ok("the referral plant makes none either", Object.values(REFERRAL_PLANT).every((p) => bannedMovesIn(p.say).length === 0));
   ok("the opener carries the recording disclosure", carriesDisclosure(stage("open").say));
   ok("the opener says FieldQuo and who is calling", /FieldQuo/.test(stage("open").say) && /\{repName\}/.test(stage("open").say));
+  // Version 2's opener: support, plus control handed over — and the owner's
+  // own support sentence kept word for word.
+  const open = stage("open").say;
+  ok("the opener keeps the owner's support line verbatim",
+    open.includes("We support contractors who are doing their quotes and invoices at night after a full day on site. I'm calling to see if that's something we can take off your plate."));
+  ok("…admits the call was unexpected without the banned bad-time question", /I know you weren't expecting my call/.test(open) && !/bad time/i.test(open));
+  ok("…and lets THEM decide whether to go on", /If it's worth a couple of minutes, I'll ask you two quick questions and you decide from there\. Fair enough\?$/.test(open));
+  ok("…with no permission ask (the owner chose support over permission)", !/Can I give you thirty seconds/i.test(open));
+  ok("the banned-move sweep still fires on the bad-time admission the book would use", bannedMovesIn("I may be catching you at a bad time").includes("bad-time question"));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -381,12 +472,17 @@ section("8. The pieces outside the stages: for this playbook, and nobody else");
   const pPlain = callScriptPrompt(plain);
   const pRs = callScriptPrompt(rs);
   ok("no approach: the prompt sells the fifteen minutes, as before", /closeAsk: sell the meeting/.test(pPlain) && !/Reverse Selling|free trial, started/.test(pPlain));
-  ok("Reverse Selling: the close asks for the trial in TRIAL_DAYS, and the referral", pRs.includes(`try it free for ${W(TRIAL_DAYS)} days`) && /referral ask, which ends every call/.test(pRs) && !/closeAsk: sell the meeting/.test(pRs));
-  ok("Reverse Selling: the opener is support, not a cold call", /open as someone calling to SUPPORT them/.test(pRs) && !/Second: own it — this is a cold call/.test(pRs));
-  ok("Reverse Selling: questions are what/how, never why", /never "why"/.test(pRs) && !/Every one is a leading question with two or three answers/.test(pRs));
-  ok("Reverse Selling: objections are the five-step answer, and stories only the pattern", /five-step answer/.test(pRs) && /A lot of owners I talk to/.test(pRs));
+  ok("Reverse Selling: the close BOOKS THE DEMO with two choices of time, then the referral", /closeAsk: book the demo, as a question with two choices of time/.test(pRs) && pRs.includes(`Let's set up ${W(REP_DEMO_MINUTES)} minutes on a screen — earlier in the week or later, morning or afternoon?`) && /referral ask, which ends every call/.test(pRs) && !/closeAsk: sell the meeting/.test(pRs));
+  ok("Reverse Selling: the close asks for the email and foreshadows the meeting", /ask for their email for the invite/.test(pRs) && /foreshadow the meeting/.test(pRs));
+  ok("Reverse Selling: the trial only if they asked, never as the close", /no trial unless they asked to start now/.test(pRs) && !pRs.includes(`try it free for ${W(TRIAL_DAYS)} days?`));
+  ok("Reverse Selling: the opener is support, then the decision handed over", /hand them the decision/.test(pRs) && /we support contractors who are doing their quotes and invoices at night/.test(pRs) && !/Second: own it — this is a cold call/.test(pRs));
+  ok("Reverse Selling: two questions, what/how, never why", /never "why"/.test(pRs) && /the only questions on this call/.test(pRs) && !/Every one is a leading question with two or three answers/.test(pRs));
+  ok("Reverse Selling: objection answers are two to four sentences, never argued, stories only the pattern", /two to four sentences/.test(pRs) && /never an argument/.test(pRs) && /A lot of owners I talk to/.test(pRs));
+  ok("Reverse Selling: 'what is it?' ends on the demo, never the trial", /It ends by offering the demo/.test(pRs) && /never the trial and never a close/.test(pRs));
   ok("Reverse Selling: exactly three style rules swapped", callScriptStyleRules(REVERSE_SELLING_APPROACH).filter((r, i) => r !== CALL_SCRIPT_STYLE_RULES[i]).length === 3);
-  ok("Reverse Selling: the system prompt names the trial and the support framing", /SUPPORT the contractor/.test(callScriptSystem(rs)) && callScriptSystem(rs).includes(W(TRIAL_DAYS)) && !/\d/.test(callScriptSystem(rs)));
+  ok("Reverse Selling: the next-step rule is the demo with two choices, trial only on request", callScriptStyleRules(REVERSE_SELLING_APPROACH).some((r) => /^The next step is a .*-minute demo on a screen, booked with two choices of time/.test(r) && /Only if they ask to start now/.test(r)));
+  ok("Reverse Selling: the system prompt names the demo, the trial-on-request and the support framing", /SUPPORT the contractor/.test(callScriptSystem(rs)) && callScriptSystem(rs).includes(`book a ${W(REP_DEMO_MINUTES)}-minute demo`) && /Only if the contractor asks to start now/.test(callScriptSystem(rs)) && callScriptSystem(rs).includes(W(TRIAL_DAYS)) && !/\d/.test(callScriptSystem(rs)));
+  ok("Reverse Selling: no day name and no digit in the swapped instructions", !/\b(?:mon|tues|wednes|thurs|fri|satur|sun)day\b/i.test(callScriptStyleRules(REVERSE_SELLING_APPROACH).join(" ")) && !/\d/.test(callScriptStyleRules(REVERSE_SELLING_APPROACH).join(" ")));
   ok("Reverse Selling: the trial length is spelled, never a digit", !pRs.includes(`${TRIAL_DAYS} days`) && !callScriptSystem(rs).includes(`${TRIAL_DAYS} days`));
   const handler = read("lib/sales/pipeline/handlers/generateCallScript.js");
   ok("the pipeline passes the approach and the per-call system prompt",
@@ -469,11 +565,18 @@ section("10. The call coach scores the moves — on Reverse Selling calls, besid
     md5(buildQaPrompt({ playbook: starter, playbookMatched: true, objections: seedObjections(), transcript: transcriptForModel(T), language: "en", repName: "Dana", businessName: "Acme Painting", callLanguage: "en" })) === "8a28c6a0e4c87cef687f8b772e588dc2");
   ok("…and a no-playbook call's", md5(buildQaPrompt({ playbook: null, playbookMatched: false, objections: [], transcript: transcriptForModel(T), language: "fr", repName: "Dana", businessName: "Acme", callLanguage: "fr" })) === "59eff909aa89286bb036730f618ec4b8");
   ok("the moves rubric sums to 100", Object.values(REVERSE_SELLING_WEIGHTS).reduce((a, b) => a + b, 0) === 100);
+  ok("…and scores what the call is for: the demo booked with two choices, short discovery, objections redirected, control, prep, the referral",
+    md5(Object.keys(REVERSE_SELLING_WEIGHTS)) === md5(["demoBooked", "twoChoiceTime", "minimalDiscovery", "objectionRedirect", "gaveControl", "prepQuestions", "referralAsk", "noWhy"]),
+    REVERSE_SELLING_WEIGHTS);
+  ok("…with the demo, the two choices, the redirect and the referral weighted heaviest",
+    REVERSE_SELLING_WEIGHTS.demoBooked >= 20 && ["twoChoiceTime", "objectionRedirect", "referralAsk"].every((k) => REVERSE_SELLING_WEIGHTS[k] >= 15));
   ok("a starter call gets QA_SCHEMA itself", qaSchemaFor({ reverseSelling: false }) === QA_SCHEMA && !scoresReverseSelling(starter));
   const rsSchema = qaSchemaFor({ reverseSelling: true });
   const strict = (o) => o?.type !== "object" || (o.additionalProperties === false && Object.keys(o.properties || {}).every((k) => o.required.includes(k)) && Object.values(o.properties).every(strict));
   ok("a Reverse Selling call's schema adds the moves, strict-mode clean", scoresReverseSelling(PB) && rsSchema.properties.reverseSelling && rsSchema.required.includes("reverseSelling") && strict(rsSchema));
   ok("…and adds no number field", !JSON.stringify(REVERSE_SELLING_QA_PROPERTY).includes("\"integer\"") && !JSON.stringify(REVERSE_SELLING_QA_PROPERTY).includes("\"number\""));
+  ok("…and the outcome is a closed list that tells a pushed trial from an asked-for one",
+    md5(REVERSE_SELLING_QA_PROPERTY.properties.outcome.properties.result.enum) === md5(["demo_booked", "trial_on_request", "trial_pushed", "callback_dated", "none"]));
   const det = analyseReverseSelling(T);
   ok("a 'why' question on the rep's lines is caught", det.whyQuestions.length === 1 && /Why do you quote at night/.test(det.whyQuestions[0].text), det.whyQuestions);
   ok("…'thirty seconds on why I called?' is not — that is the reason, not a why question", !det.whyQuestions.some((w) => /thirty seconds/.test(w.text)) || det.whyQuestions.length === 1);
@@ -481,15 +584,36 @@ section("10. The call coach scores the moves — on Reverse Selling calls, besid
   ok("'fair enough?' is counted as an agreement check", det.agreementChecks === 1);
   ok("'who do you know' is the referral ask", det.referralAsked === true && det.referralAt === 30);
   ok("the contractor's own 'why' never counts", analyseReverseSelling([{ speaker: "contractor", start: 0, end: 2, text: "Why are you calling?" }]).whyQuestions.length === 0);
-  const ALL = { asp: { firstResistance: true, met: true, evidence: "" }, noPounce: yes, gaveControl: yes, reverseClose: yes, tooEasyYes: { occurred: false, tested: false, evidence: "" }, nextStepDayAndTime: yes, referralAsked: yes, agreementChecked: yes, whyQuestions: [] };
-  ok("every move made, no why question → 100", reverseSellingFrom({ deterministic: { whyQuestions: [], agreementChecks: 1, referralAsked: true }, scores: ALL }).score === 100);
+  ok("'mornings or afternoons?' is a two-choice time", det.twoChoiceAsks.length === 1 && /mornings or afternoons/.test(det.twoChoiceAsks[0].text), det.twoChoiceAsks);
+  const rep = (text) => analyseReverseSelling([{ speaker: "rep", start: 0, end: 2, text }]);
+  ok("…so are 'Tuesday or Wednesday' and 'this week or next'", rep("I've got Tuesday or Wednesday open.").twoChoiceAsks.length === 1 && rep("Would this week or next be better?").twoChoiceAsks.length === 1);
+  ok("…'you or the office?' is not — both sides have to be times", rep("Is that you or the office?").twoChoiceAsks.length === 0);
+  ok("an open 'what time works for you?' is counted, not credited", rep("What time works for you?").openTimeAsks === 1 && rep("What time works for you?").twoChoiceAsks.length === 0);
+  const ALL = {
+    outcome: { result: "demo_booked", evidence: "" },
+    twoChoiceTime: yes,
+    minimalDiscovery: yes,
+    objectionRedirect: { objectionRaised: true, met: true, evidence: "" },
+    gaveControl: yes,
+    prepQuestions: yes,
+    referralAsked: yes,
+    whyQuestions: [],
+  };
+  const NONE = { whyQuestions: [], twoChoiceAsks: [], referralAsked: false };
+  const line = (scores, d0 = NONE) => (key) => reverseSellingFrom({ deterministic: d0, scores }).lines.find((l) => l.key === key).met;
+  ok("every move made, no why question → 100", reverseSellingFrom({ deterministic: { ...NONE, referralAsked: true }, scores: ALL }).score === 100);
   ok("one why question loses exactly its line", reverseSellingFrom({ deterministic: det, scores: ALL }).score === 100 - REVERSE_SELLING_WEIGHTS.noWhy);
-  ok("no resistance → A-S-P is not owed", reverseSellingFrom({ deterministic: { whyQuestions: [] }, scores: { ...ALL, asp: { firstResistance: false, met: false, evidence: "" } } }).lines.find((l) => l.key === "asp").met);
-  ok("a tested too-easy yes earns the close line without the reverse close", reverseSellingFrom({ deterministic: { whyQuestions: [] }, scores: { ...ALL, reverseClose: { met: false, evidence: "" }, tooEasyYes: { occurred: true, tested: true, evidence: "" } } }).lines.find((l) => l.key === "reverseClose").met);
-  ok("…an UNtested one does not", !reverseSellingFrom({ deterministic: { whyQuestions: [] }, scores: { ...ALL, reverseClose: { met: false, evidence: "" }, tooEasyYes: { occurred: true, tested: false, evidence: "" } } }).lines.find((l) => l.key === "reverseClose").met);
+  ok("a trial the contractor ASKED for counts as the outcome", line({ ...ALL, outcome: { result: "trial_on_request", evidence: "" } })("demoBooked"));
+  ok("…a trial the rep PUSHED does not", !line({ ...ALL, outcome: { result: "trial_pushed", evidence: "" } })("demoBooked"));
+  ok("…nor a dated callback", !line({ ...ALL, outcome: { result: "callback_dated", evidence: "" } })("demoBooked"));
+  ok("prep questions are earned on a booked demo only", !line({ ...ALL, outcome: { result: "trial_on_request", evidence: "" } })("prepQuestions") && line(ALL)("prepQuestions"));
+  ok("no objection → the redirect is not owed", line({ ...ALL, objectionRedirect: { objectionRaised: false, met: false, evidence: "" } })("objectionRedirect"));
+  ok("an argued objection loses the redirect line", !line({ ...ALL, objectionRedirect: { objectionRaised: true, met: false, evidence: "" } })("objectionRedirect"));
+  ok("two choices heard in the transcript earn the line even if the model missed them", line({ ...ALL, twoChoiceTime: { met: false, evidence: "" } }, { ...NONE, twoChoiceAsks: [{ text: "x" }] })("twoChoiceTime"));
   ok("no model reply → no score, not zero", reverseSellingFrom({ deterministic: det, scores: null }).score === null);
   const rsPrompt = buildQaPrompt({ playbook: PB, playbookMatched: true, objections: [], transcript: transcriptForModel(T), language: "en", repName: "Dana", businessName: "Acme Painting", callLanguage: "en" });
   ok("a Reverse Selling call's prompt asks for the moves", rsPrompt.includes(REVERSE_SELLING_QA_SECTION));
+  ok("…and says the call's job was to book a demo, not to push the trial", /The job of this call was to BOOK A DEMO, not to close and not to push the free trial/.test(REVERSE_SELLING_QA_SECTION));
 
   // End to end through scoreAttempt, both kinds of call, on the db stub.
   const MODEL = { ...OLD_SCORES, coaching: ["One.", "Two.", "Three."], reverseSelling: ALL };
@@ -532,6 +656,117 @@ section("10. The call coach scores the moves — on Reverse Selling calls, besid
   for (const lang of Object.keys(APP_MESSAGES)) {
     ok(`the moves heading exists in ${lang}`, typeof APP_MESSAGES[lang]["app.salesCallQa.reverseSellingRubric"] === "string");
   }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("11. Version 2: the cold call books the demo, and every lead source has its script");
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  // ── The cold call's next step is a demo, with a two-choice time ─────────
+  const next = stage("next_step");
+  ok("next_step targets the demo", next.say.includes(DEMO_OFFER) && /^Let's do this: let's set up/.test(next.say), next.say);
+  ok("…with two concrete choices of day, then morning or afternoon", /\[day\] or \[day\]/.test(next.say) && /morning or afternoon\?$/.test(next.say));
+  ok("…never an open 'what time works'", !/what time works|whenever suits|when's good for you/i.test(next.say));
+  ok("…then the email for the invite, the foreshadow and the prep questions, in that order", (() => {
+    const at = (re) => next.prompts.findIndex((p) => re.test(p));
+    const email = at(/best email for the invite/);
+    const fore = at(/^Foreshadow:/);
+    const prep = at(/^Prep, so the demo is about them/);
+    return email === 0 && fore > email && prep > fore;
+  })());
+  ok("…the prep questions cover trade, crew, what they use now, how they quote, and their biggest worry",
+    ["What trade", "how many on the crew", "What are you using now", "how does a quote usually go out", "biggest worry"].every((w) => next.prompts.join(" ").includes(w)));
+  ok("…and the trial is there only for a prospect who asks", next.prompts.filter((p) => /trial|free and no card/i.test(p)).every((p) => /^Only if they ask/.test(p)));
+  ok("no stage pushes the trial: 'try it free' is never asked for on the call", !allLines.some((l) => /makes sense to try it free|let's get your trial started|start (?:it|your free trial) (?:now|while)/i.test(l)));
+  ok("discovery on the call is two questions", stage("discovery").say.endsWith("?") && stage("discovery").prompts.filter((p) => /\?"?$/.test(p)).length === 1);
+  ok("the call is laid out as questions, then maybe a demo, nothing decided today", /proper look on a screen another day/.test(stage("relevance").say) && /Nothing gets decided today/.test(stage("relevance").say));
+
+  // ── Every lead source has a script, and each is the short shape ─────────
+  ok("the lead sources the owner listed are all here",
+    ["cold_v1", "cold_v2", "signup_unfinished", "trial_not_converted", "link_no_signup", "inbound_caller", "referred_by_customer", "uses_competitor", "former_customer"].every((k) => LEAD_SOURCE_KEYS.includes(k)));
+  for (const key of LEAD_SOURCE_KEYS) {
+    const s = script(key);
+    ok(`${key}: has a script`, Boolean(s) && s.group === "lead_source");
+    if (!s) continue;
+    const texts = s.lines.map((l) => l.text);
+    ok(`${key}: six to ten lines (${texts.length})`, texts.length >= 6 && texts.length <= 10);
+    ok(`${key}: almost all questions`, texts.filter((t) => /\?/.test(t)).length >= Math.ceil(texts.length / 2), texts.filter((t) => !/\?/.test(t)));
+    ok(`${key}: opens with who is calling and the recording aside`, carriesDisclosure(texts[0]) && /FieldQuo/.test(texts[0]) && /\{repName\}/.test(texts[0]));
+    ok(`${key}: books the demo with a two-choice time`, texts.some((t) => t.includes(DEMO_OFFER) && /\[day\] or \[day\]/.test(t)));
+    ok(`${key}: ends on the referral question`, texts[texts.length - 1].toLowerCase().includes(REFERRAL_ASK.toLowerCase().replace(/\?$/, "")));
+    ok(`${key}: never pushes the trial`, texts.filter((t) => /trial|signup link|free and no card/i.test(t)).every((t) => /^\(Only if they ask|that's them asking|^You've been trying FieldQuo|^If you do try it|^What would have to be true/.test(t)), texts.filter((t) => /trial/i.test(t)));
+  }
+  ok("cold version 1.0 is shorter than 2.0, and 2.0 qualifies who decides", script("cold_v1").lines.length < script("cold_v2").lines.length && script("cold_v2").lines.some((l) => /who else would want a say/.test(l.text)));
+  ok("the referred script says the newcomer's month only comes through the referrer's link", script("referred_by_customer").lines.some((l) => l.text.includes("sign up through their link")) && script("referred_by_customer").notes.some((n) => /customer's own link/.test(n)));
+
+  // ── Which script opens first ────────────────────────────────────────────
+  ok("a cancelled subscription is a former customer", leadSourceFor({ subscriptionStatus: "canceled", signupKind: "stalled" }) === "former_customer");
+  ok("an abandoned signup is 'started, didn't finish'", leadSourceFor({ signupKind: "abandoned" }) === "signup_unfinished");
+  ok("a new or stalled signup with no active plan is the trial script", leadSourceFor({ signupKind: "new" }) === "trial_not_converted" && leadSourceFor({ signupKind: "stalled", subscriptionStatus: "trialing" }) === "trial_not_converted");
+  ok("…a paying one gets no prospecting script at all", leadSourceFor({ signupKind: "new", subscriptionStatus: "active" }) === null);
+  ok("a competitor on their site is the competitor script", leadSourceFor({ competitorDetected: true }) === "uses_competitor");
+  ok("anything else researched is the cold call, version 1.0", leadSourceFor({}) === "cold_v1");
+  ok("an unknown signup kind is never guessed into a source", leadSourceFor({ signupKind: "mystery" }) === null);
+  const filled = fillScripts(SCRIPTS, { businessName: "Acme Painting", repName: "Dana", first: null });
+  ok("the screen fills the business and the rep where it knows them", filled.find((s) => s.key === "cold_v1").lines[0].text.startsWith("Hi, is this Acme Painting? It's Dana with FieldQuo"));
+  ok("…and leaves a placeholder it does not know visible, never a hole", filled.find((s) => s.key === "trial_not_converted").lines[0].text.startsWith("Hi {first}, it's Dana"));
+
+  // ── The follow-ups, the demo, the check-ins, the partner call ───────────
+  const follow = SCRIPTS.filter((s) => s.group === "follow_up");
+  ok("three follow-up scripts: hot, later, after the demo", md5(follow.map((s) => s.key)) === md5(["follow_up_hot", "follow_up_later", "follow_up_after_demo"]));
+  for (const s of follow) {
+    ok(`${s.key}: one to three lines, with a two-choice time`, s.lines.length >= 1 && s.lines.length <= 3 && s.lines.some((l) => /\[day\] or \[day\]/.test(l.text)));
+  }
+  ok("the later lead opens on what they said last time", /Last time we talked you said/.test(script("follow_up_later").lines[0].text) && /Is that still the case\?/.test(script("follow_up_later").lines[0].text));
+  const demo = script("demo");
+  const parts = [...new Set(demo.lines.map((l) => (l.label.match(/^(\d)\./) || [])[1]))];
+  ok("the demo is seven parts, in order", md5(parts) === md5(["1", "2", "3", "4", "5", "6", "7"]), parts);
+  ok("…opens with the agenda and a decision taken together", /we decide together if it makes sense/.test(demo.lines[0].text));
+  ok("…says the honesty and the referral up front", /straight with you/.test(demo.lines[1].text) && /tell another contractor/.test(demo.lines[1].text));
+  ok("…shows by asking ('if a quote goes out two days late…')", demo.lines.some((l) => /^4\./.test(l.label) && /If a quote goes out two days late, what usually happens\?/.test(l.text)));
+  ok("…takes the risk off them with the constants: every plan, every feature, month to month, the trial", demo.lines.some((l) => /^5\./.test(l.label) && l.text.includes(PLAN_SENTENCE) && /month to month/.test(l.text) && l.text.includes(`The first ${W(TRIAL_DAYS)} days are free`)));
+  ok("…keeps the owner's cost questions, present, reverse close and ask-resolve-ask", demo.lines.some((l) => /On a scale of one to ten/.test(l.text)) && demo.lines.some((l) => /So you said \[their words from your notes\]/.test(l.text)) && demo.lines.some((l) => /would you feel comfortable running your quotes on this/.test(l.text)) && demo.lines.some((l) => /So with that out of the way/.test(l.text)));
+  ok("…and the plan is small yes questions", demo.lines.some((l) => /^7\. The plan/.test(l.label) && /When could you send your first real quote/.test(l.text)));
+  const checkins = SCRIPTS.filter((s) => s.group === "check_in");
+  ok("four check-ins through the year: new year, before busy, mid-year, before slow", md5(checkins.map((s) => s.key)) === md5(["checkin_new_year", "checkin_busy_season", "checkin_mid_year", "checkin_slow_season"]));
+  for (const s of checkins) {
+    ok(`${s.key}: gives something useful and ends on the referral question`, s.lines.length >= 3 && s.lines[s.lines.length - 1].text.toLowerCase().includes(REFERRAL_ASK.toLowerCase().replace(/\?$/, "")));
+    ok(`${s.key}: says plainly that no check-in caller exists`, s.notes.some((n) => /no check-in caller or queue for this in FieldQuo yet/.test(n)));
+  }
+  const partner = script("partner");
+  ok("the referral-partner call exists, for suppliers, bookkeepers and brokers", partner && /suppliers/.test(partner.when) && /bookkeepers/.test(partner.when) && /insurance brokers/.test(partner.when));
+  ok("…is a script, not a programme: no money, no fee, no promise of business", /no partner programme/.test(partner.source) && partner.notes.some((n) => /Never offer money, a fee, a discount or a commission/.test(n)));
+  ok("the groups are drawn in the server's order", md5([...new Set(SCRIPTS.map((s) => s.group))]) === md5([...SCRIPT_GROUPS]));
+
+  // ── No digit, no banned move, no invented customer in any script ────────
+  ok("no script line or note carries a digit", scriptText.every((t) => !/\d/.test(t)), scriptText.filter((t) => /\d/.test(t)));
+
+  // ── Where the rep sees them ─────────────────────────────────────────────
+  const routeSrc = read("app/api/sales/playbook/route.js");
+  ok("the call route sends the scripts for the Reverse Selling playbook only", /if \(!isReverseSelling\(selectedKey\)\) return null;/.test(routeSrc) && /salesScripts: salesScriptsFor\(\{/.test(routeSrc));
+  ok("…picking the first one from what it already read", /leadSourceFor\(\{\s*signupKind: mine\?\.signupKind/.test(routeSrc) && /contextSelectorKey === "competitor_detected"/.test(routeSrc));
+  const cp = read("app/components/sales/CallPlaybook.js");
+  ok("the call screen draws them only on that playbook", /\{plant && data\.salesScripts\?\.scripts\?\.length \? \(/.test(cp) && /<ReverseSellingScripts scripts=\{data\.salesScripts\.scripts\} suggested=/.test(cp));
+  const page = read("app/sales/playbook/page.js");
+  ok("the reading screen draws them only while it is switched on", /playbooks\.some\(\(p\) => isReverseSelling\(p\.key\)\) \? reverseSellingScripts\(\) : \[\]/.test(page) && /scripts\.length \? <ReverseSellingScripts scripts=\{scripts\} showIntro \/> : null/.test(read("app/sales/playbook/PlaybookView.js")));
+  const comp = read("app/components/sales/ReverseSellingScripts.js");
+  ok("the client component never imports the script module (it reads the database through referrals)", !/from "@\/lib\/sales\/playbook\/reverseSellingScripts"|from "@\/lib\/sales\/playbook\/reverseSelling"/.test(comp));
+  const KEYS = ["heading", "intro", "forThisLead", "whereFrom", ...SCRIPT_GROUPS.map((g) => `group.${g}`)].map((k) => `app.salesScripts.${k}`);
+  for (const lang of Object.keys(APP_MESSAGES)) {
+    ok(`the scripts' headings exist in ${lang}`, KEYS.every((k) => typeof APP_MESSAGES[lang][k] === "string" && APP_MESSAGES[lang][k].length > 0), KEYS.filter((k) => !APP_MESSAGES[lang][k]));
+  }
+  ok("every group heading the component uses is one of the server's groups", SCRIPT_GROUPS.every((g) => comp.includes(`"app.salesScripts.group.${g}"`)));
+
+  // ── The owner's copy says exactly what the code says ────────────────────
+  const doc = read("docs/sales/REVERSE-SELLING-SCRIPTS.md");
+  const flatDoc = doc.replace(/\s+/g, " ");
+  const missing = [
+    ...PB.stages.flatMap((s) => [s.say, ...s.prompts]),
+    ...OBJ.map((o) => o.response),
+    ...SCRIPTS.filter((s) => s.group !== "backup").flatMap((s) => s.lines.map((l) => l.text)),
+  ].filter((t) => t && !flatDoc.includes(t.replace(/\s+/g, " ")));
+  ok("docs/sales/REVERSE-SELLING-SCRIPTS.md carries every line, word for word", missing.length === 0, missing.slice(0, 3));
 }
 
 console.log(`\n${failures.length ? `${failures.length} FAILED` : "PASSED"} — ${passed} passed, ${failures.length} failed`);

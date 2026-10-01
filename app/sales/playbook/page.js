@@ -49,6 +49,8 @@ export const dynamic = "force-dynamic";
 import { battlecards } from "@/lib/sales/playbook/battlecards";
 import { playbookMoments } from "@/lib/sales/playbook/moments";
 import { objectionScope } from "@/lib/sales/playbook/objections";
+import { isReverseSelling } from "@/lib/sales/playbook/approaches";
+import { reverseSellingScripts } from "@/lib/sales/playbook/reverseSellingScripts";
 import { loadObjections, loadPlaybooks } from "@/lib/sales/playbook/store";
 
 import PlaybookView from "./PlaybookView";
@@ -74,6 +76,10 @@ export default async function SalesPlaybookPage() {
   const asOf = new Date();
   const cards = battlecards({ asOf });
   const MOMENTS = playbookMoments();
+  // The Reverse Selling short scripts belong to that playbook alone, so they
+  // are on this page only while it is switched on — the same rule the call
+  // screen follows. Switched off, the page is exactly what it was.
+  const scripts = playbooks.some((p) => isReverseSelling(p.key)) ? reverseSellingScripts() : [];
 
   return (
     <PlaybookView
@@ -81,6 +87,7 @@ export default async function SalesPlaybookPage() {
       objections={objections}
       cards={cards}
       moments={MOMENTS}
+      scripts={scripts}
     />
   );
 }

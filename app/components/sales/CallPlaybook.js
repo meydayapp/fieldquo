@@ -58,6 +58,7 @@ import StayOnTheLine from "@/app/components/sales/StayOnTheLine";
 import TurnaroundQuestion from "@/app/components/sales/TurnaroundQuestion";
 import SignupOpener from "@/app/components/sales/SignupOpener";
 import TradePoints from "@/app/components/sales/TradePoints";
+import ReverseSellingScripts from "@/app/components/sales/ReverseSellingScripts";
 import { isReverseSelling } from "@/lib/sales/playbook/approaches";
 
 const BTN =
@@ -783,6 +784,14 @@ export default function CallPlaybook({
         <p className="text-sm text-muted-foreground break-words">
           {t("app.salesCall.playbookNoStages")}
         </p>
+      ) : null}
+
+      {/* ── The Reverse Selling short scripts ───────────────────────────────
+          Only on that playbook: the route sends `salesScripts` for it alone,
+          and the key is checked here too so a stale response for another
+          playbook draws nothing. The one for this lead's source opens first. */}
+      {plant && data.salesScripts?.scripts?.length ? (
+        <ReverseSellingScripts scripts={data.salesScripts.scripts} suggested={data.salesScripts.suggested || null} />
       ) : null}
 
       {/* ── If they push back ────────────────────────────────────────────── */}

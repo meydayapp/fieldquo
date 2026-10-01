@@ -69,6 +69,47 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Reverse Selling, version 2: the first call books the demo (1 October 2026)
+
+Owner decision: the job of a first/cold call is to **book a demo**; the trial
+is started on the call only when the prospect asks. The playbook is still
+installed **switched off**.
+
+### What shipped
+
+- **Playbook v2** (`lib/sales/playbook/reverseSelling.js`): the nine stages are
+  now a short cold call — support opener that hands them the decision, two
+  discovery questions, next step = demo with "[day] or [day], morning or
+  afternoon", email, foreshadow, prep questions, referral ask. Thirty objection
+  answers, each two to four spoken sentences that redirect to the demo; every
+  shared answer is hidden on this playbook's screen (the starter screens are
+  byte-identical). Version 1's long answers are kept word for word as Backup.
+  v1 fingerprints are in `seedHistory.js`, so an unedited v1 install upgrades
+  with Install (12 new answers) + "Refresh the built-ins" (playbook + 18).
+- **Short scripts** (`lib/sales/playbook/reverseSellingScripts.js`): one per
+  lead source (cold 1.0 / 2.0, unfinished signup, trial, link sent, inbound,
+  customer referral, competitor, former customer), three follow-ups, the
+  seven-part demo, four customer check-ins, the referral-partner call, Backup.
+  Shown on the call screen (this lead's source first) and the Playbook tab,
+  only while the playbook is on. `docs/sales/REVERSE-SELLING-SCRIPTS.md` is
+  generated from them (`npm run build:reverse-selling-doc`).
+- **Phone agent** (`lib/sales/technique.js`): the goal is a demo with a person;
+  trial only on request; two questions; two-choice times; short redirecting
+  objection answers. It cannot book a demo itself (one tool: transfer).
+- **Call coach** (`lib/sales/calls/qa.js`): the Reverse Selling scorecard is
+  re-weighted for the demo goal; the old rubric is unchanged.
+- **AI call script** (`lib/sales/intel/callScript.js`): the gated RS branch
+  books the demo instead of closing on the trial.
+
+### Owed
+
+- The demo is `REP_DEMO_MINUTES` = 15 (the owner said "about 20"), and the
+  call panel books a 30-minute calendar block (`NEXT_STEP_MINUTES.demo`).
+  Which length is right is the owner's call.
+- No customer-success caller exists; the four check-ins are scripts only.
+- Lead sources with no marker on a prospect (customer referral before signup,
+  link sent, inbound) are picked by the rep.
+
 ## The sales AI learns the Reverse Selling technique (1 October 2026)
 
 The owner-approved "FieldQuo Closer Call Script — Reverse Selling" doc, taught
