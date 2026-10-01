@@ -69,6 +69,46 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## The sales AI learns the Reverse Selling technique (1 October 2026)
+
+The owner-approved "FieldQuo Closer Call Script — Reverse Selling" doc, taught
+to the AI sales surfaces from ONE module, `lib/sales/technique.js` (our words,
+no book text, stories in pattern form only, no figure typed in).
+
+### What shipped
+
+- **Phone agent** (`lib/platform/salesPrompt.js`): a "HOW TO HAVE THE
+  CONVERSATION" section after the rules, facts and honest gaps, before the
+  notes — the moves (A-S-P, no "why", "fair enough?", don't pounce, label a
+  feeling, match their style, give control), discovery before features, the
+  five-step objection answer and the doc's objections, the reverse close and
+  too-easy-yes test, a concrete next step (trial at /signup → person/contact
+  page → a callback only when calls are recorded) and the referral question.
+  Trial and card wording from `lib/pricing.js`, referral months from
+  `lib/referrals`. **Not live until a superadmin presses "Push the current
+  prompt again" on /platform/sales-agent** — there is no cron; until then the
+  readiness chain reports the prompt link as drifted.
+- **Check-in drafts** (`lib/sales/checkin/draft.js`): offers end "just tell me
+  a day and time that suits you"; a text aimed at a Friday in the recipient's
+  zone closes with "I am around this weekend if you need anything" (no zone,
+  no line); the model's system prompt carries the written technique.
+- **Reply triage** (`lib/sales/replyTriage.js`): a reply naming another
+  contractor is triaged `positive` with a reason saying it is a referral. No
+  new kind.
+
+### Checks
+
+`check:sales-ai-technique` (new, in check:all); `check:sales-agent`'s prompt
+ceiling moved 15000 → 26000 for the section.
+
+### Owed
+
+- A distinct "referral" triage kind is a product decision (chip, filter, every
+  portal language).
+- There is no AI suggested-reply surface for sales texts; the route the brief
+  named (`/api/platform/sales/review/suggested/ai`) suggests TRADES for the
+  review folder. Building one is a scope decision.
+
 ## Video posts: upload, cover, caption, publish (29 September 2026)
 
 Owner-approved first version — no in-video editing. Marketing Designer ›
