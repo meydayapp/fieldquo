@@ -78,6 +78,7 @@ function reviewLabelsFor(t) {
     talkSplit: (rep, contractor) => t("app.salesCallQa.talkSplit", { rep, contractor }),
     coaching: t("app.salesCallQa.coaching"),
     rubric: t("app.salesCallQa.rubric"),
+    reverseSellingRubric: t("app.salesCallQa.reverseSellingRubric"),
     humanPass: t("app.salesCallQa.humanPass"),
     humanPassIntro: t("app.salesCallQa.humanPassIntro"),
     reviewedBy: (name, when) => t("app.salesCallQa.reviewedBy", { name, when }),

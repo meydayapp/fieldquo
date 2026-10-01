@@ -74,6 +74,22 @@ import {
   callScriptSystem,
 } from "@/lib/sales/intel/callScript";
 import { APP_MESSAGES } from "@/app/i18n/appMessages";
+import {
+  QA_SCHEMA,
+  REVERSE_SELLING_QA_PROPERTY,
+  REVERSE_SELLING_QA_SECTION,
+  REVERSE_SELLING_WEIGHTS,
+  analyseReverseSelling,
+  analyseTranscript,
+  buildQaPrompt,
+  overallFrom,
+  qaSchemaFor,
+  reverseSellingFrom,
+  scoreAttempt,
+  scoresReverseSelling,
+  transcriptForModel,
+} from "@/lib/sales/calls/qa";
+import { rows as stubRows, writes as stubWrites, resetDbStub } from "./fixtures/dbStub.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => readFileSync(join(ROOT, p), "utf8");
@@ -426,6 +442,95 @@ section("9. The console keeps what it saves; install creates it switched off");
   ok("…with the audit row in the same transaction", writes.some((w) => w.op === "platformAuditLog.create" && w.args.data.action === "sales_playbook_defaults_installed"));
   if (process.argv.includes("--print-dry-run")) {
     console.log("\nDRY RUN — what the console's Install button would write:\n" + JSON.stringify({ result, writes: writes.map((w) => ({ op: w.op, rows: w.args?.data })) }, null, 2));
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("10. The call coach scores the moves — on Reverse Selling calls, beside the old rubric");
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  const T = [
+    { speaker: "rep", start: 0, end: 6, text: "Hi, is that Acme Painting? Dana here from FieldQuo, quick heads-up, this call may be recorded." },
+    { speaker: "contractor", start: 6, end: 8, text: "Yeah, who's this?" },
+    { speaker: "rep", start: 8, end: 20, text: "Can I give you thirty seconds on why I called? Why do you quote at night? Fair enough?" },
+    { speaker: "contractor", start: 20, end: 30, text: "I'm busy, call me later." },
+    { speaker: "rep", start: 30, end: 60, text: "Totally fair. Who do you know that could use this? What works better for you, mornings or afternoons?" },
+  ];
+  const yes = { met: true, evidence: "x" };
+  const OLD_SCORES = { identityCheck: yes, permissionAsk: { asked: true, phrasedForYes: true, evidence: "" }, candour: yes, bannedMoves: [], pivot: { delivered: true, afterContractorAnswer: true, evidence: "" }, discovery: { questionCount: 3, turnaroundAsked: false, evidence: "" }, objections: [], nextStep: { offered: true, dated: false, evidence: "" }, closeAsk: yes, gatekeeper: { firstSpeakerDecisionMaker: true, nameObtained: false, timeObtained: false, evidence: "" } };
+  const d = analyseTranscript(T, { repName: "Dana", businessName: "Acme Painting" });
+  const starter = seedPlaybooks()[0];
+  // Taken on the coach BEFORE the moves were added (same fixture). The old
+  // schema, the old deterministic half, the old rubric and the old prompt.
+  ok("the old scorecard schema is unchanged", md5(QA_SCHEMA) === "c2223359341cf93e2c269335801aaf04", md5(QA_SCHEMA));
+  ok("the old deterministic half is unchanged", md5(d) === "7595166d6615ba4cec385c1760b3dc3e", md5(d));
+  ok("the old rubric output is unchanged", md5(overallFrom({ deterministic: d, scores: OLD_SCORES })) === "ab77d12537061f32a680fbfda797a834");
+  ok("a starter-playbook call's prompt is unchanged",
+    md5(buildQaPrompt({ playbook: starter, playbookMatched: true, objections: seedObjections(), transcript: transcriptForModel(T), language: "en", repName: "Dana", businessName: "Acme Painting", callLanguage: "en" })) === "8a28c6a0e4c87cef687f8b772e588dc2");
+  ok("…and a no-playbook call's", md5(buildQaPrompt({ playbook: null, playbookMatched: false, objections: [], transcript: transcriptForModel(T), language: "fr", repName: "Dana", businessName: "Acme", callLanguage: "fr" })) === "59eff909aa89286bb036730f618ec4b8");
+  ok("the moves rubric sums to 100", Object.values(REVERSE_SELLING_WEIGHTS).reduce((a, b) => a + b, 0) === 100);
+  ok("a starter call gets QA_SCHEMA itself", qaSchemaFor({ reverseSelling: false }) === QA_SCHEMA && !scoresReverseSelling(starter));
+  const rsSchema = qaSchemaFor({ reverseSelling: true });
+  const strict = (o) => o?.type !== "object" || (o.additionalProperties === false && Object.keys(o.properties || {}).every((k) => o.required.includes(k)) && Object.values(o.properties).every(strict));
+  ok("a Reverse Selling call's schema adds the moves, strict-mode clean", scoresReverseSelling(PB) && rsSchema.properties.reverseSelling && rsSchema.required.includes("reverseSelling") && strict(rsSchema));
+  ok("…and adds no number field", !JSON.stringify(REVERSE_SELLING_QA_PROPERTY).includes("\"integer\"") && !JSON.stringify(REVERSE_SELLING_QA_PROPERTY).includes("\"number\""));
+  const det = analyseReverseSelling(T);
+  ok("a 'why' question on the rep's lines is caught", det.whyQuestions.length === 1 && /Why do you quote at night/.test(det.whyQuestions[0].text), det.whyQuestions);
+  ok("…'thirty seconds on why I called?' is not — that is the reason, not a why question", !det.whyQuestions.some((w) => /thirty seconds/.test(w.text)) || det.whyQuestions.length === 1);
+  ok("'that's exactly why I'm calling?' is not a why question", analyseReverseSelling([{ speaker: "rep", start: 0, end: 2, text: "And that's exactly why I'm calling?" }]).whyQuestions.length === 0);
+  ok("'fair enough?' is counted as an agreement check", det.agreementChecks === 1);
+  ok("'who do you know' is the referral ask", det.referralAsked === true && det.referralAt === 30);
+  ok("the contractor's own 'why' never counts", analyseReverseSelling([{ speaker: "contractor", start: 0, end: 2, text: "Why are you calling?" }]).whyQuestions.length === 0);
+  const ALL = { asp: { firstResistance: true, met: true, evidence: "" }, noPounce: yes, gaveControl: yes, reverseClose: yes, tooEasyYes: { occurred: false, tested: false, evidence: "" }, nextStepDayAndTime: yes, referralAsked: yes, agreementChecked: yes, whyQuestions: [] };
+  ok("every move made, no why question → 100", reverseSellingFrom({ deterministic: { whyQuestions: [], agreementChecks: 1, referralAsked: true }, scores: ALL }).score === 100);
+  ok("one why question loses exactly its line", reverseSellingFrom({ deterministic: det, scores: ALL }).score === 100 - REVERSE_SELLING_WEIGHTS.noWhy);
+  ok("no resistance → A-S-P is not owed", reverseSellingFrom({ deterministic: { whyQuestions: [] }, scores: { ...ALL, asp: { firstResistance: false, met: false, evidence: "" } } }).lines.find((l) => l.key === "asp").met);
+  ok("a tested too-easy yes earns the close line without the reverse close", reverseSellingFrom({ deterministic: { whyQuestions: [] }, scores: { ...ALL, reverseClose: { met: false, evidence: "" }, tooEasyYes: { occurred: true, tested: true, evidence: "" } } }).lines.find((l) => l.key === "reverseClose").met);
+  ok("…an UNtested one does not", !reverseSellingFrom({ deterministic: { whyQuestions: [] }, scores: { ...ALL, reverseClose: { met: false, evidence: "" }, tooEasyYes: { occurred: true, tested: false, evidence: "" } } }).lines.find((l) => l.key === "reverseClose").met);
+  ok("no model reply → no score, not zero", reverseSellingFrom({ deterministic: det, scores: null }).score === null);
+  const rsPrompt = buildQaPrompt({ playbook: PB, playbookMatched: true, objections: [], transcript: transcriptForModel(T), language: "en", repName: "Dana", businessName: "Acme Painting", callLanguage: "en" });
+  ok("a Reverse Selling call's prompt asks for the moves", rsPrompt.includes(REVERSE_SELLING_QA_SECTION));
+
+  // End to end through scoreAttempt, both kinds of call, on the db stub.
+  const MODEL = { ...OLD_SCORES, coaching: ["One.", "Two.", "Three."], reverseSelling: ALL };
+  for (const kind of ["starter", "reverse"]) {
+    resetDbStub();
+    const pbRow = kind === "reverse" ? { ...PB, active: true } : starter;
+    stubRows.salesCallAttempt.push({
+      id: `att_${kind}`, salesRepId: "rep_1", prospectId: "p1", transcript: T, transcribedAt: new Date("2026-10-01T10:00:00Z"),
+      playbookKey: pbRow.key, playbookVersion: pbRow.version, dialledAt: new Date("2026-10-01T09:55:00Z"), talkSeconds: 60, endedAt: null,
+      salesRep: { id: "rep_1", name: "Dana Whitfield", workName: "Dana", language: "en" }, prospect: { businessName: "Acme Painting", province: "ON" }, qa: null, recordingMarks: [],
+    });
+    let sent = null;
+    const r = await scoreAttempt(`att_${kind}`, {
+      sample: false,
+      checkBudgetFn: async () => ({ ok: true }),
+      completeFn: async (args) => {
+        sent = args;
+        args.onUsage?.({ promptTokens: 3000, completionTokens: 700 });
+        return { ok: true, data: kind === "reverse" ? MODEL : { ...OLD_SCORES, coaching: MODEL.coaching } };
+      },
+      recordUsageFn: async () => ({}),
+      loadPlaybooksFn: async () => [...seedPlaybooks(), pbRow.key === PB.key ? pbRow : PB],
+      loadObjectionsFn: async () => builtInObjections(),
+      now: new Date("2026-10-01T10:05:00Z"),
+    });
+    const w = stubWrites.find((x) => x.model === "salesCallQa" && x.action.startsWith("upsert"));
+    if (kind === "starter") {
+      ok("starter call: scored with QA_SCHEMA and the 1800-token budget", r.ok && sent.schema === QA_SCHEMA && sent.maxTokens === 1800);
+      ok("starter call: no moves scorecard, no moves in the deterministic half", w && !("reverseSellingRubric" in w.data.scores) && !("reverseSelling" in w.data.deterministic));
+      ok("starter call: the prompt never mentions Reverse Selling", !/REVERSE SELLING/.test(sent.prompt));
+    } else {
+      ok("Reverse Selling call: scored with the moves schema", r.ok && sent.schema.properties.reverseSelling && sent.maxTokens > 1800);
+      ok("Reverse Selling call: the moves scorecard is stored beside the old rubric", w && w.data.scores.reverseSellingRubric?.score === 100 - REVERSE_SELLING_WEIGHTS.noWhy && Array.isArray(w.data.scores.rubric), w?.data?.scores?.reverseSellingRubric);
+      ok("Reverse Selling call: the overall is the OLD rubric's, untouched", w.data.overall === overallFrom({ deterministic: w.data.deterministic, scores: w.data.scores }).overall);
+      ok("Reverse Selling call: the reviewer is shown that playbook's own answers", /RS_IM_BUSY|I'm busy right now, call me later/.test(sent.prompt) && !/I'm busy \/ I'm on a job right now/.test(sent.prompt));
+    }
+  }
+  const review = read("app/components/sales/CallQualityReview.js");
+  ok("the review screen draws the moves scorecard when there is one", /reverseSellingRubric/.test(review));
+  for (const lang of Object.keys(APP_MESSAGES)) {
+    ok(`the moves heading exists in ${lang}`, typeof APP_MESSAGES[lang]["app.salesCallQa.reverseSellingRubric"] === "string");
   }
 }
 
