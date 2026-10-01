@@ -845,4 +845,66 @@ export const ARTICLES = {
       }
     ]
   },
+  "archived-videos": {
+    "title": "Vidéos archivées : quand une publication vidéo passe à l'archive, et comment la restaurer",
+    "summary": "Trente jours après la fin de sa publication, le fichier d'une vidéo est déplacé vers un stockage longue durée. Vos Reels et TikToks restent en ligne ; la restaurer pour la republier compte comme une des vidéos du mois.",
+    "updated": "2026-09-29",
+    "intro": [
+      "Trente jours après qu'une publication vidéo a fini d'être publiée partout où vous l'avez envoyée, FieldQuo déplace le fichier vidéo vers un stockage longue durée. Vos Reels et TikToks restent en ligne — Instagram, Facebook et TikTok gardent leurs propres copies — et la publication vidéo reste dans votre Studio marketing."
+    ],
+    "sections": [
+      {
+        "id": "when",
+        "heading": "Quand une vidéo est archivée",
+        "blocks": [
+          {
+            "bullets": [
+              "**30 jours après la fin de publication de sa dernière destination** — Instagram, Facebook ou TikTok, selon où vous l'avez envoyée. Elle n'a pas besoin d'être partie sur les trois.",
+              "Jamais pendant qu'une publication est encore en traitement ou programmée, ou a échoué et attend que vous réessayiez — la nouvelle tentative a besoin du fichier.",
+              "Jamais pour une vidéo qui n'a jamais été publiée.",
+              "Une vidéo restaurée a de nouveau droit à ses 30 jours, comptés à partir de la restauration."
+            ]
+          },
+          {
+            "p": "Le fichier est d'abord copié, et la copie est vérifiée octet par octet. Ce n'est qu'ensuite que l'original est retiré. Si la copie échoue ou ne correspond pas, rien n'est retiré et une nouvelle tentative a lieu plus tard."
+          }
+        ]
+      },
+      {
+        "id": "what-you-see",
+        "heading": "À quoi ressemble une vidéo archivée",
+        "blocks": [
+          {
+            "p": "Dans le Studio marketing, elle affiche **Vidéo · archivée**. En l'ouvrant, vous voyez **Archivée**, où elle a été envoyée et quand, et la taille de la copie vérifiée. Le lecteur, la couverture et les cases à cocher ne sont pas affichés : le fichier n'est pas là pour être lu ou envoyé tant que vous ne l'avez pas restaurée."
+          }
+        ]
+      },
+      {
+        "id": "restore",
+        "heading": "La publier à nouveau",
+        "blocks": [
+          {
+            "steps": [
+              "Ouvrez la publication vidéo archivée.",
+              "Appuyez sur **Restaurer pour publier à nouveau**.",
+              "Patientez quelques minutes pendant qu'elle est recopiée — vous pouvez quitter la page. Une fois revenue, l'écran de la vidéo fonctionne exactement comme avant : format, couverture, légende, approbation et cases à cocher."
+            ]
+          },
+          {
+            "note": "La restauration compte comme **une des vidéos de ce mois**, comme un nouveau téléversement, parce que la vidéo est de nouveau stockée et traitée. Quand le mois est épuisé, la restauration est refusée avec le décompte, comme un nouveau téléversement."
+          }
+        ]
+      }
+    ],
+    "faq": [
+      {
+        "q": "Mes publications sur Instagram, Facebook ou TikTok sont-elles supprimées ?",
+        "a": "Non. Elles sont sur les serveurs de ces plateformes et rien n'y change. Seule la copie du fichier chez FieldQuo est déplacée."
+      },
+      {
+        "q": "Puis-je modifier la légende ou la couverture d'une vidéo archivée ?",
+        "a": "Restaurez-la d'abord. Le format, la couverture, la légende et l'approbation se choisissent sur la vidéo elle-même, et elle n'est pas là tant qu'elle n'est pas restaurée."
+      }
+    ]
+  },
 };

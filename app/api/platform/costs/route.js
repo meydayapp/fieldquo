@@ -29,6 +29,7 @@ import { platformCostSummary, periodBounds, RANGES } from "@/lib/platform/costs/
 import { pullTwilioUsage } from "@/lib/platform/costs/twilioUsage";
 import { DAILY_PROVIDERS, pullProvider } from "@/lib/platform/costs/providerPulls";
 import { dayDate } from "@/lib/platform/costs/dailyLedger";
+import { videoArchiveStatus } from "@/lib/marketing/videoArchiveServer";
 
 async function gate(request) {
   const admin = await getCurrentPlatformAdmin(request);
@@ -50,17 +51,21 @@ export async function GET(request) {
   const granularity = ["day", "week", "month"].includes(url.searchParams.get("by")) ? url.searchParams.get("by") : bounds.granularity;
 
   try {
-    const [summary, outcomeSettings] = await Promise.all([
+    const [summary, outcomeSettings, videoArchive] = await Promise.all([
       platformCostSummary({ from: bounds.from, to: bounds.to, granularity, now }),
       // The two levers on the transcript and QA lines
       // (lib/sales/calls/outcomeSettings.js), printed beside the spend so
       // the owner sees what share of calls the money covers.
       outcomeSettingValues().catch(() => null),
+      // Whether video posts are leaving Cloudinary's monthly storage bill for
+      // R2 (lib/marketing/videoArchive.js) — or, unconfigured, that they are
+      // not, with the variables named. Null only if the read itself failed.
+      videoArchiveStatus().catch(() => null),
     ]);
     const sampling = outcomeSettings
       ? { transcriptionPercent: outcomeSettings["sales.transcription.percent"], aiReviewPercent: outcomeSettings["sales.aiReview.percent"], amdEnabled: outcomeSettings["sales.amd.enabled"] === true, amdUsdPerCall: AMD_USD_PER_CALL }
       : null;
-    return NextResponse.json({ ...summary, sampling, range, ranges: RANGES });
+    return NextResponse.json({ ...summary, sampling, videoArchive, range, ranges: RANGES });
   } catch (err) {
     return NextResponse.json({ error: err?.message || "Could not read the costs." }, { status: 503 });
   }

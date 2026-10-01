@@ -43,6 +43,7 @@ import Link from "next/link";
 import { AlertCircle, Loader2, RefreshCw } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { TWILIO_CATEGORY_LABELS } from "@/lib/platform/costs/dailyLedger";
+import { formatArchiveBytes } from "@/lib/marketing/videoArchive";
 
 const CARD = "rounded-xl border border-border bg-card p-4 space-y-3";
 const BTN = "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
@@ -579,6 +580,28 @@ export default function PlatformCostsPage() {
                 </tbody>
               </table>
             </div>
+            {/* One honest line for the video archive (lib/marketing/videoArchive.js):
+                not configured names the variables; configured says what has
+                actually left Cloudinary and whether anything keeps failing. */}
+            {data.videoArchive ? (
+              <p className="text-xs text-muted-foreground break-words" data-video-archive-status>
+                Video archive (Cloudflare R2):{" "}
+                {!data.videoArchive.configured ? (
+                  <span className="text-amber-700 dark:text-amber-300">
+                    not configured — waiting for {data.videoArchive.missing.join(", ")}. Every video post stays in Cloudinary until it is.
+                  </span>
+                ) : (
+                  <>
+                    {data.videoArchive.archived} video{data.videoArchive.archived === 1 ? "" : "s"} moved out of Cloudinary ({formatArchiveBytes(data.videoArchive.archivedBytes) || "0 KB"}), {data.videoArchive.afterDays} days after posting finished.
+                    {data.videoArchive.failing ? (
+                      <span className="text-amber-700 dark:text-amber-300">
+                        {" "}{data.videoArchive.failing} waiting to retry — nothing was removed for them. Last error: {data.videoArchive.lastError}
+                      </span>
+                    ) : null}
+                  </>
+                )}
+              </p>
+            ) : null}
           </section>
 
           {/* ── By period ────────────────────────────────────────────── */}

@@ -68,7 +68,7 @@ export async function GET(request, { params }) {
   // No rendition is asked about for a shape nobody may post (a non-9:16 clip
   // still on "original") — there is nothing to be ready.
   const ready = post.uploadState === "ready";
-  const rendition = ready && fitAllowed(post.fit, post) ? await renditionState(post) : null;
+  const rendition = ready && !post.archivedAt && fitAllowed(post.fit, post) ? await renditionState(post) : null;
   return NextResponse.json(shapeVideoPost(post, { rendition, approvedByName: await approverName(post) }));
 }
 
@@ -90,6 +90,13 @@ export async function PATCH(request, { params }) {
     body = await request.json();
   } catch {
     return refuse(400, "bad_request", "Invalid request body.");
+  }
+
+  // Archived (lib/marketing/videoArchive.js): the name is the only thing
+  // that means anything without the clip. Shape, cover and caption are what
+  // an approval signs, and are chosen against the clip — after a restore.
+  if (post.archivedAt && Object.keys(body || {}).some((k) => k !== "name")) {
+    return refuse(409, "archived", "This video is archived. Restore it before changing it.");
   }
 
   const data = {};
@@ -161,6 +168,6 @@ export async function PATCH(request, { params }) {
       metadata: { changed },
     }).catch(() => {});
   }
-  const rendition = fitAllowed(updated.fit, updated) ? await renditionState(updated) : null;
+  const rendition = !updated.archivedAt && fitAllowed(updated.fit, updated) ? await renditionState(updated) : null;
   return NextResponse.json(shapeVideoPost(updated, { rendition, approvedByName: await approverName(updated) }));
 }

@@ -35,10 +35,20 @@
 //
 // Middleware already refuses every write; the controls are disabled as well
 // so nothing looks pressable that cannot work.
+//
+// ── Archived ──────────────────────────────────────────────────────────────
+//
+// 30 days after a video finished posting, its file moves from Cloudinary to
+// the archive (lib/marketing/videoArchive.js). The post stays here with what
+// it was sent to; nothing that needs the file (the player, the cover, the
+// tick boxes) is shown. "Restore to post again" appears only when restoring
+// can actually run, and says before it is pressed that it counts as one of
+// this month's videos.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, BadgeCheck, Check, Clock, Film, ImagePlus, Loader2, Lock, Send, TriangleAlert } from "lucide-react";
+import { Archive, ArrowLeft, BadgeCheck, Check, Clock, Film, ImagePlus, Loader2, Lock, RotateCcw, Send, TriangleAlert } from "lucide-react";
+import { formatArchiveBytes } from "@/lib/marketing/videoArchive";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useImpersonation } from "@/app/hooks/useImpersonation";
 import { fetchJson } from "@/lib/fetchJson";
@@ -71,6 +81,7 @@ const KNOWN = new Set([
   "not_a_video", "file_too_large", "name_required", "no_platforms", "not_ours", "campaign_required",
   "not_approved", "approval_stale", "changed_since_review", "upload_not_ready", "shape_fixed_on_upload",
   "upload_failed", "upload_never_arrived", "cloudinary_failed", "allowance_used", "choose_fit",
+  "archived", "archiving", "not_archived", "already_restoring", "archive_unavailable", "archive_copy_missing",
 ]);
 
 function errorText(t, code, vars) {
@@ -101,6 +112,7 @@ export default function VideoPostPage() {
   const [approving, setApproving] = useState(false);
   const [results, setResults] = useState({}); // platform → row-ish
   const [tiktokOpen, setTiktokOpen] = useState(false);
+  const [restoring, setRestoring] = useState(false);
   const renditionTimer = useRef(null);
   const arrivalTimer = useRef(null);
   const pollTimers = useRef({});
@@ -157,9 +169,10 @@ export default function VideoPostPage() {
   }, [uploadState, id, adopt, loadSides]);
 
   // Poll until a derived rendition exists (a Fit/Crop chosen after upload),
-  // so "Post" never sends a URL that would fail to download.
+  // so "Post" never sends a URL that would fail to download. Never for an
+  // archived clip — there is no rendition until it is restored.
   useEffect(() => {
-    if (!post || post.uploadState !== "ready" || post.rendition?.state === "ready" || !isNineBySixteenOrFitted(post)) return undefined;
+    if (!post || post.uploadState !== "ready" || post.archive || post.rendition?.state === "ready" || !isNineBySixteenOrFitted(post)) return undefined;
     let attempt = 0;
     const tick = async () => {
       attempt += 1;
@@ -208,6 +221,20 @@ export default function VideoPostPage() {
       if (err.code === "changed_since_review") load();
     } finally {
       setApproving(false);
+    }
+  }
+
+  /** Copies the archived clip back into Cloudinary; the arrival poll above takes it from there. */
+  async function restore() {
+    setRestoring(true);
+    try {
+      adopt(await fetchJson(`/api/marketing/video-posts/${id}/restore`, { method: "POST", body: {} }));
+      fetchJson("/api/marketing/video-pack").then((d) => setAllowance(d.allowance)).catch(() => {});
+    } catch (err) {
+      if (err.code === "allowance_used" && err.data?.allowance) setAllowance(err.data.allowance);
+      showError(err.code ? errorText(t, err.code) : err.message);
+    } finally {
+      setRestoring(false);
     }
   }
 
@@ -338,10 +365,69 @@ export default function VideoPostPage() {
           ) : (
             <p className="text-sm text-foreground flex items-center gap-2">
               <Loader2 size={14} className="animate-spin" />
-              {t(post.uploadState === "uploading" ? "app.videoPost.stillUploading" : "app.videoPost.converting")}
+              {t(post.archive?.restoring ? "app.videoPost.archive.restoring" : post.uploadState === "uploading" ? "app.videoPost.stillUploading" : "app.videoPost.converting")}
             </p>
           )}
         </section>
+      </div>
+    );
+  }
+
+  // ── Archived: listed, with what it was sent to; nothing that needs the file ──
+  if (post.archive) {
+    const history = [
+      ...(Array.isArray(meta?.history) ? meta.history.map((h) => ({ ...h, where: h.platform === "instagram" ? "app.videoPost.instagram" : "app.videoPost.facebook" })) : []),
+      ...(Array.isArray(tiktok?.history) ? tiktok.history.map((h) => ({ ...h, where: "app.videoPost.tiktok" })) : []),
+    ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    const restoreFailed = typeof post.archive.lastError === "string" && post.archive.lastError.startsWith("restore_failed");
+    return (
+      <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
+        {header}
+        <section className="bg-card border border-border rounded-xl p-5 space-y-3" data-video-archived>
+          <h2 className="font-semibold text-foreground flex items-center gap-2">
+            <Archive size={16} /> {t("app.videoPost.archive.title")}
+          </h2>
+          <p className="text-sm text-foreground">{t("app.videoPost.archive.body")}</p>
+          {post.archive.bytes && post.archive.sha256 ? (
+            <p className="text-xs text-muted-foreground break-all">
+              {t("app.videoPost.archive.copy", { size: formatArchiveBytes(post.archive.bytes), checksum: post.archive.sha256.slice(0, 16) })}
+            </p>
+          ) : null}
+          {restoreFailed && (
+            <p className="text-sm text-amber-700 dark:text-amber-400 flex items-start gap-2">
+              <TriangleAlert size={14} className="mt-0.5 shrink-0" /> {t("app.videoPost.archive.lastRestoreFailed")}
+            </p>
+          )}
+          {post.archive.restorable ? (
+            <>
+              <p className="text-sm text-muted-foreground">{t("app.videoPost.archive.restoreNote")}</p>
+              <button
+                type="button"
+                onClick={restore}
+                disabled={readOnly || restoring}
+                className="inline-flex items-center gap-1.5 rounded-full bg-inverted text-inverted-foreground px-4 py-2 text-sm font-semibold min-h-[44px] disabled:opacity-60"
+                data-video-restore
+              >
+                {restoring ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+                {t("app.videoPost.archive.restore")}
+              </button>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">{t("app.videoPost.archive.unavailable")}</p>
+          )}
+        </section>
+        {history.length > 0 && (
+          <section className="bg-card border border-border rounded-xl p-5 space-y-2">
+            <h2 className="font-semibold text-foreground">{t("app.videoPost.historyTitle")}</h2>
+            <ul className="text-xs text-muted-foreground space-y-0.5">
+              {history.map((h) => (
+                <li key={h.id}>
+                  {new Date(h.createdAt).toLocaleString()} · {t(h.where)} · {t(`app.videoPost.status.${h.status}`)}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </div>
     );
   }

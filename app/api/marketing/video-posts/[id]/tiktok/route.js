@@ -47,6 +47,7 @@ import {
 } from "@/lib/marketing/videoPost";
 import { cloudName, loadOwnedVideoPost, renditionState } from "@/lib/marketing/videoPostServer";
 import { videoApprovalState } from "@/lib/marketing/approvalFingerprint";
+import { claimHeld } from "@/lib/marketing/videoArchive";
 
 function refuse(status, code, message, extra) {
   return NextResponse.json({ error: message, code, ...(extra || {}) }, { status });
@@ -120,6 +121,10 @@ export async function POST(request, { params }) {
   }
 
   if (post.uploadState !== "ready") return refuse(409, "rendition_not_ready", "The clip is still being uploaded or prepared.");
+  // The same two refusals as the Instagram/Facebook route: TikTok would pull
+  // a file Cloudinary no longer has (lib/marketing/videoArchive.js).
+  if (post.archivedAt) return refuse(409, "archived", "This video is archived. Restore it before posting it again.");
+  if (claimHeld(post)) return refuse(409, "archiving", "This video is being moved to the archive. Try again in a few minutes.");
   // ── Approval, exactly as the Instagram/Facebook route checks it ──────────
   const approval = videoApprovalState(post);
   if (!approval.ok) {

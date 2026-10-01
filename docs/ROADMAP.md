@@ -129,6 +129,27 @@ in `lib/marketing/videoPost.js`. Recorded on `SocialPublish` / `TikTokPublish`
   Account & Billing (add / stop renewing), `/pricing` and the help article
   `video-posts` (en/fr/es).
 
+### Round 3 — the video archive (owner-approved 29 September 2026)
+
+30 days after a video post finished posting to every destination it was sent
+to (only Instagram is fine; nothing open, scheduled or failed-awaiting-retry),
+the hourly `/api/cron/video-archive` streams the stored clip Cloudinary → R2
+(`aws4fetch`, ~11 KB, over the multi-MB AWS SDK), hashes it on the way
+(MD5 + SHA-256), HEADs R2 (size and ETag must match; Cloudinary's own MD5
+too), records `archiveKey/archiveBytes/archiveSha256`, re-checks eligibility,
+and only THEN destroys the Cloudinary asset and its derived versions
+(`archivedAt`). Per-row claim (`archiveClaimedAt`), any failure removes nothing
+and retries. Rules `lib/marketing/videoArchive.js`, I/O
+`lib/marketing/videoArchiveServer.js`, R2 `lib/media/r2.js`. The video screen
+shows **Archived** with its post history; **Restore to post again** hands R2's
+presigned URL to Cloudinary into the same public id and the normal arrival
+flow continues — it counts as one of this month's videos (said on screen).
+**Needs `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`,
+`R2_BUCKET` in Vercel** — until then the cron does nothing and
+`/platform/costs` says "not configured". Help article `archived-videos`.
+`check:video-archive`. Post permalinks are not stored today (only platform
+ids), so the archived view lists where and when, not links.
+
 ### Checks
 
 `check:video-posts` (230) — per-platform limits on hostile input, 9:16

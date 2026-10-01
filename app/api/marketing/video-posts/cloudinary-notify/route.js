@@ -23,6 +23,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { notificationFailure, verifyNotification } from "@/lib/marketing/videoUpload";
 import { settleArrival } from "@/lib/marketing/videoPostServer";
+import { arrivalFailurePatch } from "@/lib/marketing/videoArchive";
 import { recordError } from "@/lib/platform/errorLog";
 
 export async function POST(request) {
@@ -52,9 +53,11 @@ export async function POST(request) {
 
   const failure = notificationFailure(payload);
   if (failure) {
+    // A restore from the archive that Cloudinary could not take leaves the
+    // post archived (its R2 copy is untouched) rather than failed.
     await db.videoPost.updateMany({
       where: { id: post.id, uploadState: { in: ["uploading", "processing"] } },
-      data: { uploadState: "failed", uploadError: "cloudinary_failed" },
+      data: arrivalFailurePatch(post, "cloudinary_failed"),
     });
     await recordError({
       area: "video-posts",
