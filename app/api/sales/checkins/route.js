@@ -167,6 +167,8 @@ export async function POST(request) {
     scheduledFor,
     origin: wantsEngineDraft ? "engine" : "manual",
     dedupeKey,
+    // Only read for the engine's weekend line (lib/sales/technique.js).
+    timeZone,
   });
 
   if (!result.ok) {
