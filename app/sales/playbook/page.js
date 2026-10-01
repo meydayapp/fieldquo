@@ -48,12 +48,27 @@ export const dynamic = "force-dynamic";
 
 import { battlecards } from "@/lib/sales/playbook/battlecards";
 import { playbookMoments } from "@/lib/sales/playbook/moments";
+import { objectionScope } from "@/lib/sales/playbook/objections";
 import { loadObjections, loadPlaybooks } from "@/lib/sales/playbook/store";
 
 import PlaybookView from "./PlaybookView";
 
 export default async function SalesPlaybookPage() {
-  const [playbooks, objections] = await Promise.all([loadPlaybooks(), loadObjections()]);
+  const [allPlaybooks, allObjections] = await Promise.all([
+    loadPlaybooks({ includeInactive: true }),
+    loadObjections(),
+  ]);
+  // The same active playbooks, in the same order, loadPlaybooks() returned.
+  const playbooks = allPlaybooks.filter((p) => p.active !== false);
+  // An answer a SWITCHED-OFF playbook owns (the Reverse Selling answers,
+  // until the owner turns it on) is on no call screen, so it is not on the
+  // reading screen either — a rep must not learn an answer here that the
+  // dialler will never show them. Answers an active playbook owns stay: this
+  // page is the whole library for every script a rep can be handed.
+  const hiddenOwned = new Set(
+    allPlaybooks.filter((p) => p.active === false).flatMap((p) => objectionScope(p).own),
+  );
+  const objections = allObjections.filter((o) => !hiddenOwned.has(o.code));
   // Pinned to the render, not read twice: a figure goes stale at ninety days
   // and two clocks inside one page could disagree about whether it publishes.
   const asOf = new Date();

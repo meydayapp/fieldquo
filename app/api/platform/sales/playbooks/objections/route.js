@@ -14,11 +14,10 @@ import { db } from "@/lib/db";
 import { superadminOrRefusal } from "@/lib/sales/intel/configAdmin";
 import {
   OBJECTION_PROBLEMS,
-  seedObjections,
   validateObjection,
 } from "@/lib/sales/playbook/objections";
 import { selectorCatalogue } from "@/lib/sales/playbook/selectors";
-import { loadObjections, storeState } from "@/lib/sales/playbook/store";
+import { builtInObjections, loadObjections, storeState } from "@/lib/sales/playbook/store";
 import { sayProblems, shapeObjectionInput } from "@/lib/sales/playbook/admin";
 
 const say = (codes) => sayProblems(codes, OBJECTION_PROBLEMS);
@@ -43,7 +42,7 @@ export async function GET(request) {
     // and look like it had.
     selectors: selectorCatalogue(),
     availableDefaults: store.ready
-      ? seedObjections()
+      ? builtInObjections()
           .filter((o) => !installed.has(o.code))
           .map((o) => ({ code: o.code, label: o.label }))
       : [],
