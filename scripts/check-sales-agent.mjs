@@ -460,7 +460,14 @@ ok(/^---$/m.test(hostile), "the notes are fenced, so an injection reads as text 
 // exactly that kind of ordinary growth, not a truncation regression, so the
 // ceiling moved with it rather than the rule being trimmed to fit an
 // arbitrary number chosen before the rule existed.
-ok(buildSalesPrompt({ knowledge: kbA, notes: "x".repeat(99999) }).length < 15000,
+//
+// It moved a second time on 2026-10-01 for the same kind of reason: the
+// selling technique (lib/sales/technique.js's phoneTechnique, ~10kB — the
+// moves, the five-step answer, the objections, the close, the next step and
+// the referral question) is fixed content the owner asked for, not a note
+// escaping its bound. The notes cap is still 3000 and is still what this
+// fires on: 99999 characters of notes would put the prompt far past 26000.
+ok(buildSalesPrompt({ knowledge: kbA, notes: "x".repeat(99999) }).length < 26000,
    "a runaway note is truncated rather than blowing the context window");
 
 ok(SALES_RULES !== voicePrompt.SYSTEM_RULES,
