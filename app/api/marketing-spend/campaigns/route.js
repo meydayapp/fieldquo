@@ -7,6 +7,9 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { dayRangeUtc } from "@/lib/analytics/dayRange";
 import { buildCampaignRollup } from "@/lib/analytics/campaignRollup";
+import { CLIENT_MATCH_SELECT, CANDIDATE_SCAN_LIMIT } from "@/lib/contacts/matchContact";
+import { verifyConversion } from "@/lib/attribution/conversionEvidence";
+import { ATTRIBUTION_WINDOW_DAYS } from "@/lib/attribution/conversationOutcome";
 
 // Per-campaign spend, Meta's own counts, and what each campaign became in
 // FieldQuo — the "Campaigns" section of app/app/marketing/spend/page.js.
@@ -69,11 +72,74 @@ export async function GET(request) {
         metaCampaignId: { not: null },
         ...(range && { createdAt: range }),
       },
-      select: { id: true, metaCampaignId: true, metaCampaignName: true, quoteId: true },
+      select: {
+        id: true,
+        metaCampaignId: true,
+        metaCampaignName: true,
+        quoteId: true,
+        source: true,
+        // For the conversion check below — a lead with no recorded quote.
+        name: true,
+        email: true,
+        phone: true,
+        intake: true,
+        createdAt: true,
+      },
     }),
   ]);
 
-  const quoteIds = [...new Set(leads.map((l) => l.quoteId).filter(Boolean))];
+  // ── A lead nobody linked to its quote ──────────────────────────────────────
+  //
+  // A homeowner messages from the ad, the contractor quotes them from the
+  // client screen, and the lead is never converted — so LeadRequest.quoteId
+  // is empty and the campaign would show a lead and no sale. The same check
+  // the lead drawer shows (lib/attribution/conversionEvidence.js) is run here,
+  // and ONLY a confirmed conversion (exact phone or email, or a name plus an
+  // agreeing address; never a name alone, never a tie) contributes its quote,
+  // as `inferredQuoteId` — counted apart so the screen can say how many.
+  const unlinked = leads.filter((l) => !l.quoteId);
+  if (unlinked.length) {
+    const DAY = 24 * 60 * 60 * 1000;
+    const earliest = Math.min(...unlinked.map((l) => new Date(l.createdAt).getTime()));
+    const [clients, candidateQuotes] = await Promise.all([
+      db.client.findMany({ where: { companyId }, select: CLIENT_MATCH_SELECT, orderBy: { createdAt: "desc" }, take: CANDIDATE_SCAN_LIMIT }),
+      db.quote.findMany({
+        where: { companyId, createdAt: { gte: new Date(earliest - DAY) } },
+        select: { id: true, clientId: true, status: true, createdAt: true, total: true, acceptedTotal: true, quoteNumber: true, siteAddress: true },
+      }),
+    ]);
+    const candidateJobs = candidateQuotes.length
+      ? await db.job.findMany({
+          where: { companyId, quoteId: { in: candidateQuotes.map((q) => q.id) } },
+          select: { id: true, quoteId: true, clientId: true, status: true, siteAddress: true },
+        })
+      : [];
+    // A quote already linked to another lead is that lead's, not this one's.
+    const taken = new Set(leads.map((l) => l.quoteId).filter(Boolean));
+    for (const l of unlinked) {
+      const v = verifyConversion({
+        conversation: { id: l.id, source: null, startedAt: l.createdAt },
+        contact: {
+          name: l.name,
+          email: l.email,
+          phone: l.phone,
+          address: typeof l.intake?.address === "string" ? l.intake.address : null,
+        },
+        clients,
+        quotes: candidateQuotes.filter((q) => !taken.has(q.id)),
+        jobs: candidateJobs,
+        invoices: [],
+        companyId,
+        windowDays: ATTRIBUTION_WINDOW_DAYS,
+      });
+      if (v.countable && v.quote?.id) {
+        l.inferredQuoteId = v.quote.id;
+        taken.add(v.quote.id);
+      }
+    }
+  }
+
+  const quoteIds = [...new Set(leads.map((l) => l.quoteId || l.inferredQuoteId).filter(Boolean))];
   const jobs = quoteIds.length
     ? await db.job.findMany({
         where: { companyId, quoteId: { in: quoteIds } },
@@ -102,13 +168,22 @@ export async function GET(request) {
           status: { notIn: ["draft"] },
           OR: [{ jobId: { in: jobIds } }, { jobId: null, quoteId: { in: quoteIds } }],
         },
-        select: { id: true, parentInvoiceId: true, version: true, total: true, jobId: true, quoteId: true },
+        select: { id: true, parentInvoiceId: true, version: true, total: true, amountPaid: true, jobId: true, quoteId: true },
       })
     : [];
 
   const rollup = buildCampaignRollup({
     spendRows,
-    leads,
+    // The contact details were read for the conversion check only; the
+    // rollup is handed what it counts and nothing it would print.
+    leads: leads.map((l) => ({
+      id: l.id,
+      metaCampaignId: l.metaCampaignId,
+      metaCampaignName: l.metaCampaignName,
+      quoteId: l.quoteId,
+      inferredQuoteId: l.inferredQuoteId || null,
+      source: l.source,
+    })),
     jobs,
     invoices,
     companyCurrency: company?.currency || "CAD",
