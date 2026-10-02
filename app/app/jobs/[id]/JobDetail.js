@@ -342,7 +342,11 @@ export default function JobDetail({ jobId }) {
           )}
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        {/* Wraps, and on a phone the status picker takes its own full-width
+            row with the buttons underneath. As one row that could not wrap,
+            Work order + status + Edit + Archive + Delete ran past a phone's
+            edge and Archive/Delete were cut off (owner, 2026-10-02). */}
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:shrink-0">
           {/* The crew's copy of the quote — per area, scope, hours, the
               estimator's crew note, a tick and photos; no prices. Offered to
               everyone who can open the job, because the crew are its readers
@@ -362,7 +366,7 @@ export default function JobDetail({ jobId }) {
               value={job.status}
               disabled={busy}
               onChange={(e) => setStatus(e.target.value)}
-              className="border border-border rounded-lg px-3 py-2 text-sm bg-card disabled:opacity-60"
+              className="order-first w-full sm:order-none sm:w-auto border border-border rounded-lg px-3 py-2 text-sm bg-card disabled:opacity-60"
             >
               {JOB_STATUSES.map((s) => (
                 <option key={s} value={s}>
