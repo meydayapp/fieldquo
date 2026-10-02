@@ -18,6 +18,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import DemoBooking from "@/app/components/marketing/DemoBooking";
+import { DEMO_BOOKER_ANCHOR } from "@/lib/demo/bookerAnchor";
 import TrialLine from "./TrialLine";
 
 export default function FinalCTA() {
@@ -40,8 +41,11 @@ export default function FinalCTA() {
           </Link>
           <TrialLine className="mt-5 text-sm text-primary-foreground/80" />
         </div>
-        <div className="text-center">
-          <DemoBooking variant="quiet" />
+        {/* The id is where Jennifer's "Book a demo" button lands
+            (lib/ai/jennifer/allowlist.js) — and arriving by it opens the
+            picker rather than leaving the visitor to find a quiet link. */}
+        <div id={DEMO_BOOKER_ANCHOR} className="text-center scroll-mt-24">
+          <DemoBooking variant="quiet" openOnHash={DEMO_BOOKER_ANCHOR} />
         </div>
       </div>
     </section>
