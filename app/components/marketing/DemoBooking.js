@@ -43,9 +43,27 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 // either way. "secondary" exists because the hero gained a brand-accent trial
 // CTA above this one, and two accent buttons stacked leave a hero with no
 // primary action. Anywhere this is the only ask, "primary" is still right.
-export default function DemoBooking({ variant = "primary" }) {
+//
+// `openOnHash` names an anchor that, when it is the page's hash, opens the
+// picker. Jennifer's "Book a demo" button links to the homepage at that
+// anchor (lib/demo/bookerAnchor.js); landing on a collapsed quiet link after
+// pressing "Book a demo" would make the visitor hunt for the thing they
+// already asked for. Checked on mount (arriving from another page) and on
+// hashchange (pressing it while already on the homepage, which does not
+// remount anything).
+export default function DemoBooking({ variant = "primary", openOnHash = null }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!openOnHash) return undefined;
+    const check = () => {
+      if (window.location.hash === `#${openOnHash}`) setOpen(true);
+    };
+    check();
+    window.addEventListener("hashchange", check);
+    return () => window.removeEventListener("hashchange", check);
+  }, [openOnHash]);
   const [mode, setMode] = useState("slot"); // slot | callback
   const [days, setDays] = useState(null); // null = loading
   const [dayIdx, setDayIdx] = useState(0);

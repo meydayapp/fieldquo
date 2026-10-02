@@ -69,6 +69,27 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Jennifer sells with the Reverse Selling technique (2 October 2026)
+
+Jennifer's **visitor mode** (fieldquo.com, no account) now carries
+`chatTechnique()` from `lib/sales/technique.js` — the phone agent's moves and
+objection answers, from the same data (`CHAT_MOVES`, `OBJECTIONS`,
+`STORIES_RULE`), with chat wording only where the phone's is about a phone.
+Goal: a demo with a person; the trial only when asked; the referral question
+last. The phone agent's prompt is byte-identical (md5 over every variant).
+
+- **What she can do toward a demo:** point at it, never book it. A new `demo`
+  route key lands on the homepage's own picker (`/#book-a-demo`,
+  `lib/demo/bookerAnchor.js`), which now opens itself when landed on; it books
+  real slots through `/api/demo/book` or takes a call-back. `contact` is the
+  second choice. `escalateToHuman` is not a demo path (an anonymous ticket has
+  no contact details).
+- **Length:** `SLOT_MINUTES` (30) from `lib/demo/slots.js` — the constant the
+  homepage booking and its invite use. `REP_DEMO_MINUTES` governs a rep's own
+  `/demo/<code>` page, which a visitor is never sent to.
+- **Company mode** (signed-in support) is unchanged and hash-pinned in
+  `check:jennifer`, with a scan for selling words.
+
 ## Reverse Selling, version 2: the first call books the demo (1 October 2026)
 
 Owner decision: the job of a first/cold call is to **book a demo**; the trial

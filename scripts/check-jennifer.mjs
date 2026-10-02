@@ -26,6 +26,15 @@
 //      loadConversation() must fail to MATCH, not fetch-then-reject.
 //   8. The polling GET route enforces the same scope.
 //
+// And one from the owner's 2026-10-02 ask that Jennifer sell the way the
+// reps and the phone agent do:
+//
+//   9. Visitor mode carries lib/sales/technique.js's chat section (goal: a
+//      demo with a person, its length read from lib/demo/slots.js; the trial
+//      only when asked; the referral question), and its "demo" route really
+//      lands on a booker that books. Company mode is byte-identical to
+//      before (hash-pinned) and carries no selling at all.
+//
 //   node --import ./scripts/alias-loader.mjs scripts/check-jennifer.mjs
 //
 // ══ Mutation-testing note ═══════════════════════════════════════════════
@@ -506,6 +515,142 @@ const route = await import("@/app/api/jennifer/route.js");
   const req = new Request("http://x/api/jennifer?conversationId=conv-belongs-to-b", { method: "GET" });
   const res = await route.GET(req);
   ok(res.status === 404, "GET /api/jennifer for another company's conversationId returns 404, not the conversation");
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   9. The selling technique reaches VISITOR mode, and only visitor mode
+   ═══════════════════════════════════════════════════════════════════════════
+
+   Owner, 2026-10-02: Jennifer sells the way the reps and the phone agent now
+   do — the Reverse Selling technique in lib/sales/technique.js, goal a demo
+   with a person, the trial only when asked. A customer whose something is
+   BROKEN must never get that: company mode is pinned by hash below, so a
+   change that leaks one sentence of selling into it fails here, and the
+   pinned text is also scanned for the selling vocabulary so a re-pin cannot
+   bless a pitch. Every prompt here is ASSEMBLED by the real builders; no
+   model is called. */
+{
+  const crypto = await import("node:crypto");
+  const fs = await import("node:fs");
+  const md5 = (s) => crypto.createHash("md5").update(s).digest("hex");
+  const flat = (s) => String(s).replace(/\s+/g, " ");
+  const promptMod = await import("@/lib/ai/jennifer/prompt");
+  const technique = await import("@/lib/sales/technique");
+  const pricing = await import("@/lib/pricing");
+  const referrals = await import("@/lib/referrals");
+  const { SLOT_MINUTES } = await import("@/lib/demo/slots");
+  const { DEMO_BOOKER_ANCHOR, DEMO_BOOKER_PATH } = await import("@/lib/demo/bookerAnchor");
+  const { bannedMovesIn } = await import("@/lib/sales/playbook/bannedMoves");
+  const { TECHNIQUE_HEADING, CHAT_MOVES, MOVES, FIVE_STEP_ANSWER, REFERRAL_ASK, OBJECTIONS } = technique;
+
+  const visitor = await promptMod.buildAnonymousPrompt({ knowledge: "FIELDQUO FACTS (stub)" });
+  const section = visitor.slice(visitor.indexOf(TECHNIQUE_HEADING));
+  const s = flat(section);
+
+  // ── Visitor mode carries the technique ──────────────────────────────────
+  ok(visitor.includes(TECHNIQUE_HEADING), "visitor mode carries the technique section");
+  ok(visitor.indexOf("ESCALATE, DON'T ANSWER") < visitor.indexOf(TECHNIQUE_HEADING) &&
+     visitor.indexOf("WHAT FIELDQUO IS") < visitor.indexOf(TECHNIQUE_HEADING) &&
+     visitor.indexOf("NAVIGATION IS CLICK-THROUGH") < visitor.indexOf(TECHNIQUE_HEADING),
+     "…LAST, after the facts, the data rule, navigation and escalation it cannot override");
+  ok(/never overrides the rules above/.test(s) && /ESCALATE, DON'T ANSWER still comes before anything here/.test(s),
+     "…and it says so");
+  ok(MOVES.map((m) => m.key).join() === CHAT_MOVES.map((m) => m.key).join() && CHAT_MOVES.every((m) => section.includes(m.text)),
+     "every move in lib/sales/technique.js reaches the chat, by key, in order");
+  ok(/A-S-P/.test(s) && /Pivot straight to a question about them, in the same message/.test(s), "A-S-P on resistance, the pivot in the same message");
+  ok(/Never ask "why"/.test(s) && /"what" and "how"/.test(s), "no \"why\" questions");
+  ok(/fair enough\?/i.test(s), "\"fair enough?\" checks");
+  ok(/Give them control/.test(s), "gives them control");
+  ok(/ASK BEFORE TELLING/.test(s) && /how they handle quotes and invoices today, and when they want something better in place/.test(s),
+     "asks before telling: how they handle quotes and invoices, and when");
+  ok(/never make them answer questions to get an answer/.test(s), "…without holding a direct answer hostage to discovery");
+  ok(FIVE_STEP_ANSWER.every((step) => s.includes(step)) && /TWO TO FOUR SENTENCES, NEVER AN ARGUMENT/.test(s),
+     "objections: the five-step answer, two to four sentences, never argued");
+  {
+    const block = section.slice(section.indexOf("How the common ones go"), section.indexOf("THE GOAL OF THIS CHAT"));
+    const bullets = block.split(/\n- /).slice(1).map(flat);
+    const strays = bullets.filter((b) => !/^"Do you have/.test(b) && !/\bdemo\b/.test(b));
+    ok(bullets.length === OBJECTIONS.length && strays.length === 0, "every objection answer redirects to the demo", strays.join(" | "));
+  }
+  ok(/offer two choices/.test(s) && /never name or suggest a day or a time yourself/.test(s),
+     "two choices of next step, and never an invented time — she cannot see the calendar");
+  ok(/THE FREE TRIAL — ONLY WHEN THEY ASK/.test(s) && /Never offer the trial as the next step yourself, and never push it/.test(s),
+     "the trial only when they ask");
+  ok(s.includes(technique.trialTerms().sentence) && technique.trialTerms().days === pricing.TRIAL_DAYS &&
+     technique.trialTerms().cardRequired === pricing.TRIAL_CARD_REQUIRED,
+     "…in TRIAL_DAYS / TRIAL_CARD_REQUIRED's words");
+  ok(/A card is asked for/.test(technique.chatTechnique({ cardRequired: true })) &&
+     !/needs no card/.test(technique.chatTechnique({ cardRequired: true })),
+     "…and a card-required trial stops saying \"no card\"");
+  ok(/EVERY CONVERSATION ENDS WITH A CONCRETE NEXT STEP/.test(s) && s.indexOf("First: a") < s.indexOf("Next: the trial"),
+     "ends with a concrete next step, the demo first");
+  ok(s.toLowerCase().includes(REFERRAL_ASK.toLowerCase().replace(/\?$/, "")), "the referral question, in the doc's words");
+  ok(s.includes(flat(technique.referralTerms().sentence)) &&
+     technique.referralTerms().referee === referrals.REFEREE_BONUS_MONTHS &&
+     technique.referralTerms().referrer === referrals.REFERRER_BONUS_MONTHS,
+     "referral terms from lib/referrals");
+  ok(/Never ask for that person's name, number or email — this chat keeps nothing/.test(s),
+     "the referral question never collects a third party's details (nothing anonymous is kept)");
+  ok(/WHO THIS IS FOR/.test(s) && /something of theirs is not working, none of this section applies/.test(s) &&
+     /A support answer never turns into a pitch/.test(s),
+     "a logged-out customer with a broken thing gets help, not a pitch");
+
+  // ── The demo: what she can actually do, and its length from the constant ──
+  ok(s.includes(`THE GOAL OF THIS CHAT: A ${SLOT_MINUTES}-MINUTE DEMO WITH A PERSON`) && s.includes(`a ${SLOT_MINUTES}-minute demo with one of the team`),
+     `the demo length is SLOT_MINUTES (${SLOT_MINUTES}) — the length the booker she points at books`);
+  ok(technique.chatTechnique({ demoMinutes: 47 }).includes("47-minute demo") && !/\d+-minute/.test(technique.chatTechnique({})),
+     "a different constant renders a different length, and no constant states none");
+  const promptCode = codeOnly(fs.readFileSync(path.join(ROOT, "lib/ai/jennifer/prompt.js"), "utf8"));
+  ok(/import \{ SLOT_MINUTES \} from "@\/lib\/demo\/slots"/.test(promptCode) && /demoMinutes:\s*SLOT_MINUTES/.test(promptCode) &&
+     !/demoMinutes:\s*\d/.test(promptCode),
+     "prompt.js reads the demo length from lib/demo/slots.js, never a typed number");
+  const bookSrc = codeOnly(fs.readFileSync(path.join(ROOT, "lib/demo/bookingEmails.js"), "utf8"));
+  ok(/minutes:\s*SLOT_MINUTES/.test(bookSrc), "…the same constant the booking's own calendar invite uses");
+  const digits = section.replace(technique.trialTerms().label, "").replace(new RegExp(`\\b${SLOT_MINUTES}-minute`, "gi"), "").match(/\d+/g) || [];
+  ok(digits.length === 0, "the chat technique types no other number", digits.join(", "));
+
+  ok(allowlist.resolveNavRoute("anonymous", "demo")?.path === DEMO_BOOKER_PATH && DEMO_BOOKER_PATH === `/#${DEMO_BOOKER_ANCHOR}`,
+     "the \"demo\" route key is the homepage's demo picker anchor");
+  ok(/offerNavigation with "demo"/.test(s) && /Nothing is booked until they finish it there/.test(s) && /You cannot book it/.test(s),
+     "she points at the booker and never claims to book");
+  ok(/offerNavigation with "contact"/.test(s), "…or a person by message on the contact page");
+  ok(/Never use escalateToHuman to get a demo/.test(s), "…and never sends a demo through escalation (an anonymous ticket has no contact details)");
+  const finalCta = codeOnly(fs.readFileSync(path.join(ROOT, "app/components/marketing/home/FinalCTA.js"), "utf8"));
+  ok(/id=\{DEMO_BOOKER_ANCHOR\}/.test(finalCta) && /<DemoBooking[^>]*openOnHash=\{DEMO_BOOKER_ANCHOR\}/.test(finalCta) &&
+     /from "@\/lib\/demo\/bookerAnchor"/.test(finalCta),
+     "the homepage section carries that id and opens the picker when landed on");
+  const booker = codeOnly(fs.readFileSync(path.join(ROOT, "app/components/marketing/DemoBooking.js"), "utf8"));
+  ok(/window\.location\.hash === `#\$\{openOnHash\}`/.test(booker) && /addEventListener\("hashchange"/.test(booker) &&
+     /fetch\("\/api\/demo\/book"/.test(booker) && fs.existsSync(path.join(ROOT, "app/api/demo/book/route.js")),
+     "…and the picker it opens really books (/api/demo/book exists and is what it posts to)");
+  ok(fs.existsSync(path.join(ROOT, "app/(marketing)/page.js")) &&
+     /<FinalCTA\s*\/>/.test(fs.readFileSync(path.join(ROOT, "app/(marketing)/page.js"), "utf8")),
+     "…and the homepage renders that section, so the anchor is reachable");
+
+  // ── Nothing the rules forbid comes in with it ───────────────────────────
+  ok(bannedMovesIn(section).length === 0, "the chat technique makes no banned move", bannedMovesIn(section).join(", "));
+  const scrubbed = section.replace(/Stories: you have not met any customers[\s\S]*?Never invent a customer\./, " ");
+  ok(/Never invent a customer\./.test(section) && !/\bI (?:spoke|talked) (?:with|to)\b|\bowners I talk to\b|\b(?:called|named)\s+[A-Z][a-z]+\b/.test(scrubbed),
+     "stories in pattern form only; no named or invented customer");
+  ok(!/[$€£]\s*\d|\b\d+\s*(?:\/|per\s+)\s*month|\b\d+%\s*off\b|special (?:price|rate|offer)/i.test(section),
+     "no price, discount or offer language in the technique");
+
+  // ── Company mode: byte-identical, and no selling in it ──────────────────
+  // Pinned 2026-10-02 against the render BEFORE the technique was added. If
+  // the company prompt changes on purpose, re-pin only after reading the new
+  // text — and the vocabulary scan below must still pass.
+  const COMPANY_PINS = [
+    [{ knowledge: "GUIDE TEXT", role: "owner", firstName: "Ana", dataToolNames: ["countQuotesByStatus", "getReceivables", "findJob", "nonsense"] }, "82bad9a06a74e493f5d18b7fafce57db"],
+    [{ knowledge: "GUIDE TEXT", role: "member", firstName: null, dataToolNames: [] }, "65f8676f731beb138ff79ec1bf4c1084"],
+    [{ knowledge: "GUIDE TEXT", role: "admin", firstName: null, dataToolNames: [] }, "c5a6c17cf368145d03b36d1236658572"],
+  ];
+  for (const [args, pin] of COMPANY_PINS) {
+    const text = await promptMod.buildCompanyPrompt(args);
+    ok(md5(text) === pin, `company mode (${args.role}, ${args.dataToolNames.length} data tools) is byte-identical to before the technique`, md5(text));
+    const selling = [TECHNIQUE_HEADING, REFERRAL_ASK, "A-S-P", "fair enough", "free trial", "demo", "referral", "Let's not decide"]
+      .filter((w) => text.toLowerCase().includes(w.toLowerCase()));
+    ok(selling.length === 0, `company mode (${args.role}) has no selling in it`, selling.join(", "));
+  }
 }
 
 console.log(`\n${checks} checks, ${fail} failed.`);
