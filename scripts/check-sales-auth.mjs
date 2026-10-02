@@ -937,8 +937,8 @@ const LIB_FORBIDDEN_WRITE_BY_DESIGN = {
     "resolve one string to two reps. Column and WHERE asserted below.",
   "lib/sales/demoHoursWrite.js":
     "saveRepDemoHours(). Writes ONLY SalesRep.timeZone and SalesRep.demoHours " +
-    "— DEMO_HOURS_WRITES_ON_SALES_REP — the hours a prospect may book fifteen " +
-    "minutes of the rep's day on app/demo/[repCode], and the zone they are " +
+    "— DEMO_HOURS_WRITES_ON_SALES_REP — the hours a prospect may book a " +
+    "demo (REP_DEMO_MINUTES) of the rep's day on app/demo/[repCode], and the zone they are " +
     "read in. Neither can change what is owed, who a company is credited to, " +
     "whether a batch pays, or whether the rep can sign in tomorrow; the worst " +
     "a false value achieves is a calendar nobody can book. Both are judged by " +

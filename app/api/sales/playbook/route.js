@@ -91,29 +91,59 @@ import { SIGNUP_PROSPECT_SELECT, signupStateOf } from "@/lib/signup/salesFloor";
 import { assembleProspectPlaybook } from "@/lib/sales/playbook/assemble";
 import { weaveDisclosure } from "@/lib/sales/playbook/recordingDisclosure";
 import { isReverseSelling } from "@/lib/sales/playbook/approaches";
-import { fillScripts, leadSourceFor, reverseSellingScripts } from "@/lib/sales/playbook/reverseSellingScripts";
+import { callScreenScripts, demoBookedNow, fillScripts, leadSourceFor, reverseSellingScripts } from "@/lib/sales/playbook/reverseSellingScripts";
+import { repDemoZone } from "@/lib/sales/demoBooking/slots";
 import { repPublicName } from "@/lib/sales/repIdentity";
 
 /**
- * The Reverse Selling short scripts for this prospect, or null on every other
- * playbook. Which one opens first is read off what this route already loaded
- * — the signup kind, the signup company's subscription, and whether the
- * competitor rule matched one of the objection rows — and nothing else
- * (lib/sales/playbook/reverseSellingScripts.js, leadSourceFor).
+ * The ONE Reverse Selling script for this call, or null on every other
+ * playbook. Which one is read off what this route already loaded — the
+ * signup kind, the signup company's subscription, whether the competitor
+ * rule matched one of the objection rows — plus, only on this playbook, a
+ * demo with this lead booked for today (lib/sales/playbook/
+ * reverseSellingScripts.js: leadSourceFor, demoBookedNow, callScreenScripts).
+ * Only that script and the ones its switch may swap in are sent, so the call
+ * screen has no second script to draw (owner, 2026-10-02).
  */
-function salesScriptsFor({ selectedKey, mine, signup, objections, businessName, repName }) {
+function salesScriptsFor({ selectedKey, mine, signup, objections, businessName, repName, demoNow }) {
   if (!isReverseSelling(selectedKey)) return null;
   const competitorDetected = (Array.isArray(objections) ? objections : []).some(
     (o) => o?.contextSelectorKey === "competitor_detected" && o?.context,
   );
-  return {
-    suggested: leadSourceFor({
-      signupKind: mine?.signupKind || null,
-      subscriptionStatus: mine?.company?.subscription?.status || null,
-      competitorDetected,
-    }),
-    scripts: fillScripts(reverseSellingScripts(), { businessName, repName, first: signup?.firstName || null }),
-  };
+  const suggested = leadSourceFor({
+    signupKind: mine?.signupKind || null,
+    subscriptionStatus: mine?.company?.subscription?.status || null,
+    competitorDetected,
+  });
+  const scripts = fillScripts(reverseSellingScripts(), { businessName, repName, first: signup?.firstName || null });
+  return callScreenScripts(scripts, { suggested, demoNow });
+}
+
+/**
+ * This rep's demo with this lead, when one is booked for today and is not
+ * over — read ONLY on the Reverse Selling playbook, so every other call makes
+ * exactly the reads it always made. The lead is the rep's SalesLead for this
+ * prospect (SalesEvent.leadId → SalesLead.prospectId); "today" is the rep's
+ * day, in the zone their demo hours are read in.
+ */
+async function demoNowFor({ repId, prospectId, now }) {
+  if (typeof db.salesEvent?.findMany !== "function") return null;
+  const repRow = typeof db.salesRep?.findUnique === "function"
+    ? await db.salesRep.findUnique({ where: { id: repId }, select: { timeZone: true } })
+    : null;
+  const events = await db.salesEvent.findMany({
+    where: {
+      salesRepId: repId,
+      type: "demo",
+      status: "scheduled",
+      startAt: { gte: new Date(now.getTime() - 24 * 60 * 60 * 1000), lt: new Date(now.getTime() + 24 * 60 * 60 * 1000) },
+      lead: { prospectId },
+    },
+    orderBy: { startAt: "asc" },
+    take: 5,
+    select: { startAt: true, endAt: true, status: true, type: true },
+  });
+  return demoBookedNow(events, { now, timeZone: repDemoZone(repRow || {}).timeZone });
 }
 
 /** The response shape of one stored row. */
@@ -208,6 +238,11 @@ export async function GET(request) {
   }
   const byLanguage = new Map(rows.map((r) => [r.language || "en", r]));
   const stored = byLanguage.get(defaultLanguage) || null;
+  // On the Reverse Selling playbook the call screen draws its one script and
+  // not the AI script (CallPlaybook.js), so nothing here may spend on writing
+  // an AI script in another language for it: no on-demand generation, and no
+  // languages offered to switch to.
+  const reverseSelling = isReverseSelling(result.selection.selected?.key || null);
 
   // ── The asked-for language, written now if it has to be ─────────────────
   //
@@ -217,7 +252,7 @@ export async function GET(request) {
   // either — generateCallScript's hash check is the second gate.
   let shown = byLanguage.get(language) || null;
   let fallback = null;
-  if (language !== defaultLanguage && scriptRowStale(shown, { lastCrawledAt: mine.lastCrawledAt })) {
+  if (!reverseSelling && language !== defaultLanguage && scriptRowStale(shown, { lastCrawledAt: mine.lastCrawledAt })) {
     const since = new Date(now.getTime() - 60 * 60 * 1000);
     const recent = typeof db.platformAiUsage?.count === "function"
       ? await db.platformAiUsage.count({
@@ -315,15 +350,15 @@ export async function GET(request) {
       current: shown ? shown.language || "en" : language,
       default: defaultLanguage,
       leadLanguage: requiredLanguageFor(mine),
-      available: SCRIPT_LANGUAGES,
+      available: reverseSelling ? [] : SCRIPT_LANGUAGES,
       fallback,
       repId: rep.id,
     },
     // Who is on the call, for the signup opener's "{rep} here".
     repName: repPublicName(rep),
-    // The Reverse Selling playbook's short scripts — per lead source, the
-    // follow-ups, the demo, the check-ins, the partner call — or null on any
-    // other playbook. The call screen draws them only when present.
+    // The Reverse Selling playbook's ONE script for this call (and the ones
+    // its switch may swap in), or null on any other playbook. The call screen
+    // draws it only when present.
     salesScripts: salesScriptsFor({
       selectedKey: result.selection.selected?.key || null,
       mine,
@@ -331,6 +366,14 @@ export async function GET(request) {
       objections: result.objections,
       businessName: result.prospect.businessName,
       repName: repPublicName(rep),
+      // A failed read is "no demo today": the call script still draws, and
+      // the rep is dialling — but it is logged, never silent.
+      demoNow: reverseSelling
+        ? await demoNowFor({ repId: rep.id, prospectId, now }).catch((err) => {
+            console.error("[sales/playbook] demo-today read failed:", err?.message || err);
+            return null;
+          })
+        : null,
     }),
     objections: result.objections,
     talkingPoints: result.talkingPoints,

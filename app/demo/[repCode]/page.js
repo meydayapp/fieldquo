@@ -1,8 +1,8 @@
 // app/demo/[repCode]/page.js
 //
-// A rep's public demo page — reached from the "Book a 15-minute demo"
-// button in the intro email (with a sealed token in ?t=) or from the bare
-// link the rep hands out. No login, usually on a phone. The GET behind it
+// A rep's public demo page — reached from the "Book a demo" button (a
+// REP_DEMO_MINUTES demo) in the intro email (with a sealed token in ?t=) or
+// from the bare link the rep hands out. No login, usually on a phone. The GET behind it
 // reads only; the confirm is a POST — app/api/demo/rep/[repCode]/route.js
 // says why.
 export const dynamic = "force-dynamic";

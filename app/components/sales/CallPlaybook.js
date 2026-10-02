@@ -58,7 +58,8 @@ import StayOnTheLine from "@/app/components/sales/StayOnTheLine";
 import TurnaroundQuestion from "@/app/components/sales/TurnaroundQuestion";
 import SignupOpener from "@/app/components/sales/SignupOpener";
 import TradePoints from "@/app/components/sales/TradePoints";
-import ReverseSellingScripts from "@/app/components/sales/ReverseSellingScripts";
+import { ReverseSellingCallScript } from "@/app/components/sales/ReverseSellingScripts";
+import SignupBadge, { signupFactText } from "@/app/components/sales/SignupBadge";
 import { isReverseSelling } from "@/lib/sales/playbook/approaches";
 
 const BTN =
@@ -466,6 +467,145 @@ function ConsoleScript({ script, stages, language, switchProps, tradeKey = null,
 }
 
 /**
+ * The playbook's name and why it opened — or, with none, why not. One drawing
+ * for both arrangements below (the stepper and the Reverse Selling one script).
+ */
+function PlaybookHeader({ data }) {
+  const { t } = useTranslation();
+  return (
+    <div className="space-y-1">
+      <h3 className="text-base font-semibold text-foreground break-words">
+        {data.playbook ? data.playbook.name : t("app.salesCall.noScriptHeading")}
+      </h3>
+      {data.playbook ? (
+        <p className="text-xs text-muted-foreground break-words">
+          {t("app.salesCall.chosenBecause", {
+            reason: data.playbook.selectorLabel || data.playbook.describe,
+          })}
+          {data.playbook.facts?.length
+            ? ` (${data.playbook.facts.map((f) => `${f.label}: ${f.value}`).join(", ")})`
+            : ""}
+        </p>
+      ) : (
+        <p className="text-sm text-muted-foreground break-words">
+          {data.noPlaybookReason} {t("app.salesCall.noPlaybookAdvice")}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * "If they push back": the answers, labels to scan and the answer one tap
+ * down, filtered by what the rep types. Drawn under the stepper on every
+ * playbook, and under the one script on Reverse Selling — one component, so
+ * the two cannot drift. `heard` lives in CallPlaybook so a re-render of the
+ * script above never clears it mid-call.
+ */
+function ObjectionRail({ objections, shown, heard, setHeard }) {
+  const { t } = useTranslation();
+  return (
+    <div className="space-y-2">
+      <h4 className="text-sm font-semibold text-foreground">
+        {t("app.salesCall.ifTheyPushBack")}
+      </h4>
+      <label className="block text-sm">
+        <span className="text-xs text-muted-foreground">
+          {t("app.salesCall.typeWhatTheySaid")}
+        </span>
+        {/* The placeholder stays English on purpose, in every language. It is
+            an example of an input that WORKS, and the cues it has to hit are
+            English substrings in lib/sales/playbook/objections.js — matched
+            exactly, because a close-enough match opens the wrong answer and
+            the rep reads it out. A translated example would demonstrate a
+            phrase that can never match. */}
+        <input
+          className={FIELD}
+          value={heard}
+          onChange={(e) => setHeard(e.target.value)}
+          placeholder="we already use jobber"
+          aria-label={t("app.salesCall.heardAria")}
+        />
+      </label>
+
+      {shown.missed ? (
+        <p className="text-xs text-muted-foreground break-words">
+          <CircleHelp size={14} className="inline mr-1" />
+          {t("app.salesCall.noCueMatch")}
+        </p>
+      ) : null}
+      {shown.filtered ? (
+        <div className="flex items-center gap-2">
+          <p className="text-xs text-muted-foreground break-words">
+            {t("app.salesCall.matchCount", {
+              shown: shown.rows.length,
+              total: objections.length,
+            })}
+          </p>
+          <button
+            type="button"
+            className={`${BTN} border border-border text-foreground`}
+            onClick={() => setHeard("")}
+          >
+            {t("app.salesCall.showAll")}
+          </button>
+        </div>
+      ) : null}
+
+      {objections.length === 0 ? (
+        <p className="text-sm text-muted-foreground break-words">
+          {t("app.salesCall.objectionsEmpty")}
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {shown.rows.map((row) => (
+            <Objection key={row.code} row={row} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The honest footnotes: what was not checked, a degraded generation, the starter library. */
+function Footnotes({ data }) {
+  const { t } = useTranslation();
+  return (
+    <div className="space-y-1 border-t border-border pt-3">
+      {data.unchecked?.length ? (
+        <p className="text-xs text-muted-foreground break-words">
+          {t("app.salesCall.uncheckedNote", { items: data.unchecked.join(", ") })}
+        </p>
+      ) : null}
+      {data.generation?.degraded ? (
+        <p className="text-xs text-muted-foreground break-words">{data.generation.reasonText}</p>
+      ) : null}
+      {data.store && !data.store.ready ? (
+        <p className="text-xs text-muted-foreground break-words">
+          {t("app.salesCall.starterScripts")}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * A signup lead on the Reverse Selling screen: the badge and the one fact
+ * (the step they stopped at, when) — not the signup opener, which is a script
+ * of its own. The lead-source script under it is the one opener.
+ */
+function SignupFact({ signup }) {
+  const { t } = useTranslation();
+  if (!signup?.kind) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-2" data-testid="rs-signup-fact">
+      <SignupBadge kind={signup.badge || signup.kind} compact />
+      {signup.fact ? <p className="text-xs text-muted-foreground break-words">{signupFactText(signup.fact, t)}</p> : null}
+    </div>
+  );
+}
+
+/**
  * @param layout       "stack" (default) is the card as it has always been —
  *                     the generated script above one stage at a time. "console"
  *                     is the queue's Script tab: the generated script as
@@ -571,28 +711,42 @@ export default function CallPlaybook({
   // The early referral plant belongs to the Reverse Selling script alone; on
   // every other playbook the "stay on the line" box is what it always was.
   const plant = isReverseSelling(data.playbook?.key);
+  const container = layout === "console" ? "space-y-4" : "rounded-xl border border-border bg-card p-4 space-y-4";
+
+  // ── Reverse Selling: ONE script ─────────────────────────────────────────
+  //
+  // The owner (2026-10-02): "why are there two scripts in the sales rep?
+  // Shouldn't they have one?" On this playbook the screen is: the header,
+  // the one script the server chose (with its small switch), the objection
+  // answers, one closed Tips area, the footnotes. No stepper, no AI script and
+  // its language switch, no signup opener, no turnaround or trade points —
+  // each of those is a second script. The stages stay the playbook's data
+  // (their notes are in Tips); every other playbook renders below exactly as
+  // it always has. `reason` marks the server's one-script shape, so a stale
+  // response of the older shape falls through to the stepper.
+  const callScreen = plant && typeof data.salesScripts?.reason === "string" ? data.salesScripts : null;
+  if (callScreen) {
+    const afterYesLanguage = data.scriptLanguage?.current || data.scriptLanguage?.default || "en";
+    return (
+      <div className={container} data-testid="rs-call-screen">
+        <PlaybookHeader data={data} />
+        {data.prospect?.signup ? <SignupFact signup={data.prospect.signup} /> : null}
+        <ReverseSellingCallScript
+          key={`${data.prospect?.id || ""}:${callScreen.shown || ""}`}
+          callScreen={callScreen}
+          stages={stages}
+          afterYes={<StayOnTheLine language={afterYesLanguage} compact plant={plant} />}
+        >
+          <ObjectionRail objections={objections} shown={shown} heard={heard} setHeard={setHeard} />
+        </ReverseSellingCallScript>
+        <Footnotes data={data} />
+      </div>
+    );
+  }
 
   return (
-    <div className={layout === "console" ? "space-y-4" : "rounded-xl border border-border bg-card p-4 space-y-4"}>
-      <div className="space-y-1">
-        <h3 className="text-base font-semibold text-foreground break-words">
-          {data.playbook ? data.playbook.name : t("app.salesCall.noScriptHeading")}
-        </h3>
-        {data.playbook ? (
-          <p className="text-xs text-muted-foreground break-words">
-            {t("app.salesCall.chosenBecause", {
-              reason: data.playbook.selectorLabel || data.playbook.describe,
-            })}
-            {data.playbook.facts?.length
-              ? ` (${data.playbook.facts.map((f) => `${f.label}: ${f.value}`).join(", ")})`
-              : ""}
-          </p>
-        ) : (
-          <p className="text-sm text-muted-foreground break-words">
-            {data.noPlaybookReason} {t("app.salesCall.noPlaybookAdvice")}
-          </p>
-        )}
-      </div>
+    <div className={container}>
+      <PlaybookHeader data={data} />
 
       {/* ── A signup lead opens differently ──────────────────────────────
           Above everything: the person typed their number into FieldQuo's
@@ -786,91 +940,11 @@ export default function CallPlaybook({
         </p>
       ) : null}
 
-      {/* ── The Reverse Selling short scripts ───────────────────────────────
-          Only on that playbook: the route sends `salesScripts` for it alone,
-          and the key is checked here too so a stale response for another
-          playbook draws nothing. The one for this lead's source opens first. */}
-      {plant && data.salesScripts?.scripts?.length ? (
-        <ReverseSellingScripts scripts={data.salesScripts.scripts} suggested={data.salesScripts.suggested || null} />
-      ) : null}
-
       {/* ── If they push back ────────────────────────────────────────────── */}
-      <div className="space-y-2">
-        <h4 className="text-sm font-semibold text-foreground">
-          {t("app.salesCall.ifTheyPushBack")}
-        </h4>
-        <label className="block text-sm">
-          <span className="text-xs text-muted-foreground">
-            {t("app.salesCall.typeWhatTheySaid")}
-          </span>
-          {/* The placeholder stays English on purpose, in every language. It is
-              an example of an input that WORKS, and the cues it has to hit are
-              English substrings in lib/sales/playbook/objections.js — matched
-              exactly, because a close-enough match opens the wrong answer and
-              the rep reads it out. A translated example would demonstrate a
-              phrase that can never match. */}
-          <input
-            className={FIELD}
-            value={heard}
-            onChange={(e) => setHeard(e.target.value)}
-            placeholder="we already use jobber"
-            aria-label={t("app.salesCall.heardAria")}
-          />
-        </label>
-
-        {shown.missed ? (
-          <p className="text-xs text-muted-foreground break-words">
-            <CircleHelp size={14} className="inline mr-1" />
-            {t("app.salesCall.noCueMatch")}
-          </p>
-        ) : null}
-        {shown.filtered ? (
-          <div className="flex items-center gap-2">
-            <p className="text-xs text-muted-foreground break-words">
-              {t("app.salesCall.matchCount", {
-                shown: shown.rows.length,
-                total: objections.length,
-              })}
-            </p>
-            <button
-              type="button"
-              className={`${BTN} border border-border text-foreground`}
-              onClick={() => setHeard("")}
-            >
-              {t("app.salesCall.showAll")}
-            </button>
-          </div>
-        ) : null}
-
-        {objections.length === 0 ? (
-          <p className="text-sm text-muted-foreground break-words">
-            {t("app.salesCall.objectionsEmpty")}
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {shown.rows.map((row) => (
-              <Objection key={row.code} row={row} />
-            ))}
-          </div>
-        )}
-      </div>
+      <ObjectionRail objections={objections} shown={shown} heard={heard} setHeard={setHeard} />
 
       {/* ── The honest footnotes ─────────────────────────────────────────── */}
-      <div className="space-y-1 border-t border-border pt-3">
-        {data.unchecked?.length ? (
-          <p className="text-xs text-muted-foreground break-words">
-            {t("app.salesCall.uncheckedNote", { items: data.unchecked.join(", ") })}
-          </p>
-        ) : null}
-        {data.generation?.degraded ? (
-          <p className="text-xs text-muted-foreground break-words">{data.generation.reasonText}</p>
-        ) : null}
-        {data.store && !data.store.ready ? (
-          <p className="text-xs text-muted-foreground break-words">
-            {t("app.salesCall.starterScripts")}
-          </p>
-        ) : null}
-      </div>
+      <Footnotes data={data} />
     </div>
   );
 }

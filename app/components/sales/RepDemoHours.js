@@ -20,6 +20,9 @@ import { CalendarClock, Loader2 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useLanguageContext } from "@/app/providers/LanguageProvider";
+// The slot length the intro sentence names — the same constant the demo page
+// cuts its slots to, so the card cannot promise a different length.
+import { REP_DEMO_MINUTES } from "@/lib/sales/demoBooking/slots";
 
 const ZONES = [
   "America/St_Johns",
@@ -105,7 +108,7 @@ export default function RepDemoHours() {
         <CalendarClock size={16} className="text-muted-foreground shrink-0" />
         <h2 className="text-base font-semibold text-foreground">{t("app.salesSettings.demoHeading")}</h2>
       </div>
-      <p className="text-sm text-muted-foreground">{t("app.salesSettings.demoIntro")}</p>
+      <p className="text-sm text-muted-foreground">{t("app.salesSettings.demoIntro", { minutes: REP_DEMO_MINUTES })}</p>
 
       {state.failed ? (
         <p className="text-sm text-muted-foreground">{t("app.salesSettings.demoLoadFailed")}</p>

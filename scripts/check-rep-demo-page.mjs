@@ -38,6 +38,7 @@ const {
   DEFAULT_DEMO_HOURS, REP_DEMO_MINUTES, busyFromEvents, initialsOf, parseDemoHours, repDemoSlots, repDemoWindows, repDemoZone, repFreeAt, usableTimeZone,
 } = await import("@/lib/sales/demoBooking/slots");
 const { REP_DEMO_COPY, repDemoCopy, repDemoLanguage, fillDemoCopy, whenLabel } = await import("@/lib/sales/demoBooking/copy");
+const { NEXT_STEP_MINUTES } = await import("@/lib/sales/nextSteps");
 const { repDemoUrl } = await import("@/lib/sales/demoBooking/url");
 const { bookRepDemo, repDemoPageState } = await import("@/lib/sales/demoBooking/book");
 const { sealIntroLink } = await import("@/lib/sales/outreach/introLink");
@@ -57,25 +58,40 @@ const now = new Date("2026-09-18T15:00:00.000Z");
 
   const rep = { timeZone: "America/Toronto", demoHours: null };
   const slots = repDemoSlots(rep, [], now);
-  ok("slots are 15 minutes apart", slots.length > 10 && slots[1].getTime() - slots[0].getTime() === REP_DEMO_MINUTES * 60_000, slots.slice(0, 2));
+  // The demo is thirty minutes (owner, 2026-10-02) — one constant with the
+  // call panel's NEXT_STEP_MINUTES.demo, which it used to disagree with.
+  const M = REP_DEMO_MINUTES;
+  const MS = M * 60_000;
+  ok("the demo is the call panel's demo length, thirty minutes", M === NEXT_STEP_MINUTES.demo && M === 30, M);
+  ok("slots are one demo apart, back to back", slots.length > 10 && slots[1].getTime() - slots[0].getTime() === MS, slots.slice(0, 2));
+  ok("no two offered slots overlap: every start is at least one demo after the one before", slots.every((d, i) => i === 0 || d.getTime() - slots[i - 1].getTime() >= MS));
   ok("nothing inside the two-hour lead time (first slot is 13:00 EDT)", slots[0].toISOString() === "2026-09-18T17:00:00.000Z", slots[0]);
   const local = (d) => new Intl.DateTimeFormat("en-US", { timeZone: "America/Toronto", hour: "numeric", minute: "2-digit", hour12: false, weekday: "short" }).format(d);
-  ok("every slot is a weekday 09:00–16:45 in the rep's zone", slots.every((d) => { const s = local(d); return !/Sat|Sun/.test(s) && /(09|1[0-6]):/.test(s); }), slots.filter((d) => /Sat|Sun/.test(local(d))).slice(0, 2).map(local));
-  ok("the last bookable start ends by 17:00", slots.every((d) => !/16:(4[6-9]|5\d)/.test(local(d)) && !/17:/.test(local(d))));
+  const minuteOfDay = (d) => { const [h, m] = local(d).replace(/^\D+/, "").split(":").map(Number); return h * 60 + m; };
+  ok("every slot is a weekday inside 09:00–17:00 in the rep's zone", slots.every((d) => !/Sat|Sun/.test(local(d)) && minuteOfDay(d) >= 9 * 60), slots.filter((d) => /Sat|Sun/.test(local(d))).slice(0, 2).map(local));
+  ok("the last bookable start ends by 17:00 — a whole demo fits", slots.every((d) => minuteOfDay(d) + M <= 17 * 60) && slots.some((d) => minuteOfDay(d) === 17 * 60 - M), slots.slice(-2).map(local));
 
   const vanRep = { timeZone: "America/Vancouver", demoHours: null };
   const van = repDemoSlots(vanRep, [], now);
   const localVan = (d) => new Intl.DateTimeFormat("en-US", { timeZone: "America/Vancouver", hour: "numeric", minute: "2-digit", hour12: false }).format(d);
   ok("a Vancouver rep's 09:00 is 09:00 in Vancouver, not Toronto", van.some((d) => localVan(d) === "09:00") && !van.some((d) => localVan(d) === "06:00"), van.slice(0, 3).map(localVan));
 
-  // A callback at 13:05 with no end blocks 13:00 (overlap) and 13:15 (occupies one demo length); 13:30 stays.
-  const busyRep = repDemoSlots(rep, [{ startAt: new Date("2026-09-18T17:05:00.000Z"), endAt: null, status: "scheduled" }], now);
-  const at = (iso) => busyRep.some((d) => d.toISOString() === iso);
-  ok("a callback with no end blocks the slot it sits in and the one it runs into", !at("2026-09-18T17:00:00.000Z") && !at("2026-09-18T17:15:00.000Z") && at("2026-09-18T17:30:00.000Z"));
+  // A callback at 13:05 with no end occupies one demo length (13:05 to
+  // 13:05 + M): it blocks the 13:00 slot it sits in and the next one it runs
+  // into; the slot after that stays.
+  const T0 = new Date("2026-09-18T17:00:00.000Z").getTime();
+  const iso = (t) => new Date(t).toISOString();
+  const busyRep = repDemoSlots(rep, [{ startAt: new Date(T0 + 5 * 60_000), endAt: null, status: "scheduled" }], now);
+  const at = (t) => busyRep.some((d) => d.getTime() === t);
+  ok("a callback with no end blocks the slot it sits in and the one it runs into", !at(T0) && !at(T0 + MS) && at(T0 + 2 * MS), busyRep.slice(0, 3).map((d) => d.toISOString()));
+  // The old fifteen-minute demos already on a calendar block every
+  // thirty-minute slot they touch — a longer demo never lands on one.
+  const oldDemo = repDemoSlots(rep, [{ startAt: new Date(T0 + 15 * 60_000), endAt: new Date(T0 + 30 * 60_000), status: "scheduled" }], now);
+  ok("an existing fifteen-minute demo at 13:15 blocks the 13:00 slot, and 13:30 stays", !oldDemo.some((d) => d.getTime() === T0) && oldDemo.some((d) => d.getTime() === T0 + MS));
   const cancelled = repDemoSlots(rep, [{ startAt: new Date("2026-09-18T17:00:00.000Z"), endAt: new Date("2026-09-18T18:00:00.000Z"), status: "cancelled" }], now);
   ok("a cancelled event blocks nothing", cancelled.some((d) => d.toISOString() === "2026-09-18T17:00:00.000Z"));
   const span = repDemoSlots(rep, [{ startAt: new Date("2026-09-18T17:00:00.000Z"), endAt: new Date("2026-09-18T18:00:00.000Z"), status: "scheduled" }], now);
-  ok("an hour-long event blocks four slots", !span.some((d) => d >= new Date("2026-09-18T17:00:00.000Z") && d < new Date("2026-09-18T18:00:00.000Z")) && span.some((d) => d.toISOString() === "2026-09-18T18:00:00.000Z"));
+  ok("an hour-long event blocks every slot inside it", !span.some((d) => d >= new Date("2026-09-18T17:00:00.000Z") && d < new Date("2026-09-18T18:00:00.000Z")) && span.some((d) => d.toISOString() === "2026-09-18T18:00:00.000Z"));
   ok("repFreeAt refuses a hand-posted 03:00", repFreeAt(rep, [], "2026-09-19T07:00:00.000Z", now) === false);
   ok("repFreeAt refuses a past slot", repFreeAt(rep, [], "2026-09-18T13:00:00.000Z", now) === false);
   ok("repFreeAt refuses garbage", repFreeAt(rep, [], "not a date", now) === false);
@@ -99,6 +115,12 @@ const now = new Date("2026-09-18T15:00:00.000Z");
     const echoed = Object.keys(REP_DEMO_COPY.en).filter((k) => REP_DEMO_COPY[l][k] === REP_DEMO_COPY.en[k]);
     ok(`no ${l} value is the English sentence`, echoed.length === 0, echoed);
   }
+  // The page, the confirmation email and the invite say the length the slots
+  // are cut to — in all three languages, never a typed 15.
+  const everyValue = ["en", "fr", "es"].flatMap((l) => Object.values(REP_DEMO_COPY[l]));
+  ok("the page, the email and the invite name the demo as REP_DEMO_MINUTES long", ["en", "fr", "es"].every((l) => REP_DEMO_COPY[l].title.includes(String(REP_DEMO_MINUTES)) && REP_DEMO_COPY[l].email_body.includes(String(REP_DEMO_MINUTES)) && REP_DEMO_COPY[l].ics_description.includes(String(REP_DEMO_MINUTES))));
+  ok("…and no value still says fifteen", everyValue.every((v) => !/\b15\b|fifteen|quinze|quince/i.test(v)), everyValue.filter((v) => /\b15\b|fifteen|quinze|quince/i.test(v)));
+  ok("the settings card says the same length, from the constant", Object.keys(APP_MESSAGES).every((l) => /\{minutes\}/.test(APP_MESSAGES[l]["app.salesSettings.demoIntro"] || "") && !/\b15\b/.test(APP_MESSAGES[l]["app.salesSettings.demoIntro"])) && /t\("app\.salesSettings\.demoIntro", \{ minutes: REP_DEMO_MINUTES \}\)/.test(read("app/components/sales/RepDemoHours.js")));
   ok("an unknown language is English", repDemoCopy("xx") === REP_DEMO_COPY.en && repDemoLanguage("de") === null && repDemoLanguage("FR") === "fr");
   ok("fill replaces every placeholder", fillDemoCopy("{rep} at {when}", { rep: "A", when: "B" }) === "A at B");
   ok("whenLabel is in the language and zone", /vendredi/.test(whenLabel(now, { language: "fr", timeZone: "America/Toronto" })) && /11/.test(whenLabel(now, { language: "en", timeZone: "America/Toronto" })));
@@ -209,7 +231,7 @@ function fakeClient() {
   const booked = await bookRepDemo({ repCode: "dan", token, slot: "2026-09-18T17:00:00.000Z", name: "Dave Martin", email: "dave@acme.example", phone: "+16135550199", business: "Acme Roofing", client, now });
   ok("a good confirm books", booked.ok === true && booked.at === "2026-09-18T17:00:00.000Z" && booked.language === "fr", booked);
   const ev = client.events[0];
-  ok("…as a SalesEvent of type demo, 15 minutes, linked to the lead and snapshotting the contact", client.events.length === 1 && ev.type === "demo" && ev.leadId === "lead_1" && ev.endAt.getTime() - ev.startAt.getTime() === 15 * 60_000 && ev.contactName === "Dave Martin" && ev.businessName === "Acme Roofing", ev);
+  ok("…as a SalesEvent of type demo, one demo long (REP_DEMO_MINUTES), linked to the lead and snapshotting the contact", client.events.length === 1 && ev.type === "demo" && ev.leadId === "lead_1" && ev.endAt.getTime() - ev.startAt.getTime() === REP_DEMO_MINUTES * 60_000 && ev.contactName === "Dave Martin" && ev.businessName === "Acme Roofing", ev);
   ok("…and stamps the intro row with the event and the request time", client.intro.get("ie_1").demoEventId === "ev_1" && client.intro.get("ie_1").demoRequestedAt === now);
   ok("…and moves the lead forward to demoed, never back (compare-and-set on the statuses below it)",
     client.leadWrites.length === 1 && client.leadWrites[0].where.id === "lead_1" && client.leadWrites[0].where.salesRepId === "rep_1" &&
@@ -224,10 +246,17 @@ function fakeClient() {
 
   const rival = await bookRepDemo({ repCode: "dan", slot: "2026-09-18T17:00:00.000Z", name: "Rita", email: "rita@other.example", client, now });
   ok("another prospect confirming the same slot is refused as taken", rival.ok === false && rival.reason === "taken" && client.events.length === 1);
-  const next = await bookRepDemo({ repCode: "dan", slot: "2026-09-18T17:15:00.000Z", name: "Rita", email: "rita@other.example", client, now });
+  // A start inside the booked demo is not a slot: it would double-book the
+  // rep for the overlap, so it is refused as taken (it is not on the grid).
+  const DEMO = REP_DEMO_MINUTES * 60_000;
+  const B0 = new Date("2026-09-18T17:00:00.000Z").getTime();
+  const overlap = await bookRepDemo({ repCode: "dan", slot: new Date(B0 + 15 * 60_000).toISOString(), name: "Rita", email: "rita@other.example", client, now });
+  ok("a start fifteen minutes into the booked demo is refused — no double-booking", overlap.ok === false && overlap.reason === "taken" && client.events.length === 1);
+  const next = await bookRepDemo({ repCode: "dan", slot: new Date(B0 + DEMO).toISOString(), name: "Rita", email: "rita@other.example", client, now });
   ok("…and the next slot is free (the bare link books with no lead)", next.ok === true && client.events.length === 2 && client.events[1].leadId === null && client.events[1].contactName === "Rita");
+  ok("…and starts exactly where the first demo ends, so the two never overlap", client.events[1].startAt.getTime() === client.events[0].endAt.getTime());
   client.leads.push({ id: "lead_9", salesRepId: "rep_1", email: "known@x.example" });
-  const known = await bookRepDemo({ repCode: "dan", slot: "2026-09-18T17:30:00.000Z", name: "Known", email: "Known@x.example", client, now });
+  const known = await bookRepDemo({ repCode: "dan", slot: new Date(B0 + 2 * DEMO).toISOString(), name: "Known", email: "Known@x.example", client, now });
   ok("a bare-link booking from an address the rep has as a lead links that lead", known.ok && client.events[2].leadId === "lead_9");
 
   const counts = await introRequestsForRep({ salesRepId: "rep_1", client, now });

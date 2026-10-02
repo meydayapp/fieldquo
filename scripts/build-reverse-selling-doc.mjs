@@ -3,7 +3,7 @@
 //   npm run build:reverse-selling-doc
 //
 // Writes docs/sales/REVERSE-SELLING-SCRIPTS.md — the Reverse Selling scripts,
-// version 2, as the owner copies them into his own document — FROM the code
+// in the version the code is at, as the owner copies them into his own document — FROM the code
 // the reps' screens read: lib/sales/playbook/reverseSelling.js (the nine
 // stages and the short objection answers), lib/sales/playbook/
 // reverseSellingScripts.js (one script per lead source, the follow-ups, the
@@ -65,6 +65,13 @@ p(
   "",
   "Our own words, written for trade contractors. Nothing here is taken from the book.",
   "",
+  "## What changed (owner, 2026-10-02)",
+  "",
+  `- **The demo is ${REP_DEMO_MINUTES} minutes**, one number everywhere: the call panel's \"Book a demo\", the rep's demo page and its slots, the intro email, the signup opener, and every line below that offers the demo.`,
+  "- **One script on the call screen.** The rep sees the one script for this lead's source, picked automatically — or the demo script when a demo with this lead is booked for today. No second script beside it.",
+  "- **One cold call.** Versions 1.0 and 2.0 are merged into one, based on 1.0; 2.0's \"who else would want a say\" is now part of the booking line.",
+  "- **Every prospect gets it once it is on**, including a business nothing has been recorded about yet (they used to fall through to the old AI script).",
+  "",
   "## What changed (owner, 2026-10-01)",
   "",
   "- **The first call books a demo.** It does not close and does not push the free trial. The trial is started on the call only when the prospect asks for it or clearly wants it now.",
@@ -77,16 +84,17 @@ p(
   "",
   "## Facts the scripts use, and where they come from",
   "",
-  `- The demo: **${REP_DEMO_MINUTES} minutes** — \`REP_DEMO_MINUTES\` in \`lib/sales/demoBooking/slots.js\`, the length the intro email and the rep's demo page promise.`,
+  `- The demo: **${REP_DEMO_MINUTES} minutes** — \`REP_DEMO_MINUTES\` in \`lib/sales/demoBooking/slots.js\`, read from \`NEXT_STEP_MINUTES.demo\` in \`lib/sales/nextSteps.js\`: the block the call panel books, the slot the rep's demo page offers, and the length the intro email promises.`,
   `- The trial: **${TRIAL_DAYS} days**, ${TRIAL_CARD_REQUIRED ? "a card at signup" : "no card to start"} — \`TRIAL_DAYS\` / \`TRIAL_CARD_REQUIRED\` in \`lib/pricing.js\`.`,
   "- Plans, seats and crew: `SEAT_LADDER` in `lib/pricing/ladder.js`. Referral months: `lib/referrals` (the referrer's month lands when the referred company pays; the newcomer's extra trial month only through the referrer's own link).",
   "- Placeholders: `{businessName}`, `{repName}` and `{first}` are filled on the call screen where it knows them; `[day]`, `[time]` and `[their words]` are the rep's, from the calendar and the call notes. No line names a day.",
   "",
   "## Where a rep sees them",
   "",
-  "- **The call screen** (a claimed prospect): the nine stages below, the short objection answers, and under them the scripts — the one for this lead's source opened first.",
-  "- **The Playbook tab** (/sales/playbook): all of it, for reading before a call.",
-  "- Both only while the Reverse Selling playbook is **switched on**. It is installed switched off; the owner switches it on in the platform console.",
+  "- **The call screen** (a claimed prospect): ONE script — the one for this lead's source, picked automatically, or the demo script when a demo with this lead is booked for today (with a small \"Not the demo?\" switch back to the call script). A cold call carries a small \"Not a cold call?\" switch for the three sources nothing on the record marks: a customer's referral, a link sent and never used, and a call they made to us. Under the script, the short objection answers (tap to open), then one closed \"Tips\" area: this script's notes, what to do after a yes, and the notes for every stage.",
+  "- The nine stages below stay the playbook's own data — the call coach, the AI script and the Playbook tab read them — but the call screen does not step through them.",
+  "- **The Playbook tab** (/sales/playbook): all of it — the stages, every script, the follow-ups, the demo, the check-ins, the referral-partner call and the Backup — for reading before a call. Those are not on the call screen.",
+  "- Both only while the Reverse Selling playbook is **switched on**. It is installed switched off; the owner switches it on in the platform console. Once on, it opens on every prospect, including one nothing has been recorded about yet.",
   "",
   "---",
   "",

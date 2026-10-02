@@ -855,7 +855,13 @@ section("9. The rep's facts, the opener and the intro email variant — en / fr 
     }
   }
   ok("the English abandoned opener is the owner's sentence", /You started setting up FieldQuo for X this morning and got as far as Trades — can I get you the rest of the way\?/.test(signupOpenerFor({ kind: "abandoned", language: "en", first: "Dave", business: "X", rep: "Ann", step: "Trades", at: NOW, now: NOW }).say));
-  ok("the English welcome opener is onboarding, not selling", /I'm here to get your first quote out today; got fifteen minutes\?/.test(signupOpenerFor({ kind: "new", language: "en", first: "Dave", business: "X", rep: "Ann", at: NOW, now: NOW }).say));
+  // The setup call is the demo-booking link, so its length is REP_DEMO_MINUTES
+  // (owner, 2026-10-02: thirty), spelled — it was a typed "fifteen".
+  const { REP_DEMO_MINUTES } = await import("@/lib/sales/demoBooking/slots");
+  const { integerInWords } = await import("@/lib/sales/intel/pageExcerpts");
+  const DEMO_WORDS = integerInWords(REP_DEMO_MINUTES);
+  ok("the English welcome opener is onboarding, not selling", signupOpenerFor({ kind: "new", language: "en", first: "Dave", business: "X", rep: "Ann", at: NOW, now: NOW }).say.includes(`I'm here to get your first quote out today; got ${DEMO_WORDS} minutes?`));
+  ok("…and the setup call it offers is the demo's length in every language, never the old fifteen", ["en", "fr", "es"].every((l) => { const o = signupOpenerFor({ kind: "new", language: l, first: "Dave", business: "X", rep: "Ann", at: NOW, now: NOW }); return !/fifteen|quinze|quince|\{minutes\}/.test(o.say + o.ask); }) && signupOpenerFor({ kind: "new", language: "en", business: "X", rep: "Ann" }).ask.includes(`book ${DEMO_WORDS} minutes`));
   ok("the stalled opener names what stalled", /never got a card/.test(signupOpenerFor({ kind: "stalled", language: "en", first: "Dave", business: "X", rep: "Ann", at: NOW, stalledReason: "no_card", now: NOW }).say) && /no quote has gone out/.test(signupOpenerFor({ kind: "stalled", language: "en", first: "Dave", business: "X", rep: "Ann", at: NOW, stalledReason: "no_quote", now: NOW }).say));
   ok("an unknown language falls back to English and says so", signupOpenerFor({ kind: "new", language: "de", business: "X", rep: "A" }).fallback === true);
   ok("an unknown kind is null", signupOpenerFor({ kind: "cold", language: "en" }) === null);

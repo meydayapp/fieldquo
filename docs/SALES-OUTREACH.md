@@ -100,7 +100,7 @@ builder cards in all, the quote on a phone for every other trade; rebuilt
 with `node docs/screens/app-guide/harness/shoot.mjs` on the `intro-*` rows
 with `HARNESS_MAPS_KEY` set, then `node scripts/build-intro-screenshots.mjs`),
 the rep's signup link, and two buttons —
-"Ask {rep} to call me back", "Book a 15-minute demo" — plus a one-click
+"Ask {rep} to call me back", "Book a 30-minute demo" (REP_DEMO_MINUTES) — plus a one-click
 unsubscribe in the footer. It goes through the same `deliverOutreach` as
 every other rep send (suppression list, readiness, filed on the lead's
 thread, copy in Sent), and one `SalesIntroEmail` row records the send.

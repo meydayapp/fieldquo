@@ -54,7 +54,7 @@ import { capabilityMatrix } from "../lib/sales/intel/capabilities.js";
 import { assertStrictSchema } from "../lib/ai/jsonSchema.js";
 
 import { STAGES, STAGE_KEYS, TALKING_POINT_STAGES, orderStages } from "../lib/sales/playbook/stages.js";
-import { SELECTOR_KEYS, runSelector, selectorCatalogue } from "../lib/sales/playbook/selectors.js";
+import { SELECTOR_KEYS, runSelector, selector, selectorCatalogue } from "../lib/sales/playbook/selectors.js";
 import { selectPlaybook } from "../lib/sales/playbook/select.js";
 import { seedPlaybooks, validatePlaybook, varsIn } from "../lib/sales/playbook/defaults.js";
 import {
@@ -277,15 +277,24 @@ section("Stages — nine, fixed, never padded");
 section("Selectors — three-valued, and null never counts as absent");
 // ═══════════════════════════════════════════════════════════════════════════
 {
-  // The four the spec names, plus exactly one general rule — anything_observed,
-  // for the Reverse Selling playbook, which claims nothing about what we saw.
-  // It still refuses a prospect nothing has been recorded for (asserted
-  // below), which is the line defaults.js draws against a fifth "general"
-  // playbook. scripts/check-reverse-selling-playbook.mjs holds the rest of it.
+  // The four the spec names, plus two general rules for a selling APPROACH
+  // that claims nothing about what we saw: anything_observed (still refuses a
+  // prospect nothing has been recorded for, asserted below) and, since
+  // 2026-10-02, every_prospect — the Reverse Selling playbook's, so that once
+  // it is on every prospect gets it. every_prospect is refused on any playbook
+  // that is not an approach, which keeps the line defaults.js draws against a
+  // general STARTER playbook. scripts/check-reverse-selling-playbook.mjs holds
+  // the rest of it.
   ok(
-    "the four rules the spec names exist, plus the one general rule",
-    SELECTOR_KEYS.length === 5 && SELECTOR_KEYS.includes("anything_observed"),
+    "the four rules the spec names exist, plus the two general rules",
+    SELECTOR_KEYS.length === 6 && SELECTOR_KEYS.includes("anything_observed") && SELECTOR_KEYS.includes("every_prospect"),
     SELECTOR_KEYS,
+  );
+  ok(
+    "every_prospect matches a business nothing has been recorded for — and only an approach may use it",
+    runSelector("every_prospect", SCENARIOS.nothing).matched === true &&
+      selector("every_prospect")?.approachOnly === true &&
+      seedPlaybooks().every((p) => validatePlaybook({ ...p, selectorKey: "every_prospect" }).problems.includes("selector_needs_approach")),
   );
   for (const key of ["competitor_detected", "no_website", "website_without_booking", "email_only_quote_request"]) {
     ok(`${key} is implemented`, SELECTOR_KEYS.includes(key));

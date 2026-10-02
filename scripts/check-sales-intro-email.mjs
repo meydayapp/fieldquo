@@ -598,6 +598,25 @@ const { LOT_MEASURE_TRADES } = await import("@/lib/measure/lotTakeoff");
   ok(!/La version anglaise suit/.test(en.html), "englishBelow on an English email adds nothing");
 }
 
+// ── The demo's length is the constant (owner, 2026-10-02: thirty) ──────────
+// Every button, page and setup-call sentence the email carries opens the rep's
+// demo page, whose slots are REP_DEMO_MINUTES long. It said "15" while the call
+// panel booked thirty; now it reads the one number.
+{
+  const { REP_DEMO_MINUTES } = await import("@/lib/sales/demoBooking/slots");
+  const { INTRO_COPY, SIGNUP_INTRO_COPY } = await import("@/lib/sales/outreach/introEmail");
+  const M = String(REP_DEMO_MINUTES);
+  const texts = [
+    ...Object.values(INTRO_COPY || {}).map((c) => c.demo),
+    ...Object.values(INTRO_LINK_COPY).flatMap((c) => Object.values(c).flatMap((v) => (typeof v === "string" ? [v] : v && typeof v === "object" ? [v.demo] : []))),
+    ...Object.values(SIGNUP_INTRO_COPY).flatMap((byKind) => Object.values(byKind).flatMap((v) => [v.gap, v.cta])),
+  ].filter((v) => typeof v === "string");
+  ok("the demo button says REP_DEMO_MINUTES in all three languages", Object.values(INTRO_COPY || {}).length === 3 && Object.values(INTRO_COPY).every((c) => c.demo.includes(M)), Object.values(INTRO_COPY || {}).map((c) => c.demo));
+  ok("…the page behind the link too", Object.values(INTRO_LINK_COPY).every((c) => c.title.demo.includes(`${M}`) && c.ask.demo.includes(`${M}`)), Object.values(INTRO_LINK_COPY).map((c) => c.title.demo));
+  ok("…and the setup-call buttons for a new or stalled signup", ["en", "fr", "es"].every((l) => ["signup_new", "signup_stalled"].every((k) => SIGNUP_INTRO_COPY[l][k].cta.includes(M) && SIGNUP_INTRO_COPY[l][k].gap.includes(M))));
+  ok("no demo sentence still says fifteen", texts.every((t) => !/\b15\b|fifteen|quinze|quince/i.test(t)), texts.filter((t) => /\b15\b|fifteen|quinze|quince/i.test(t)));
+}
+
 console.log(`\n${pass} passed, ${failures.length} failed`);
 if (failures.length) {
   for (const f of failures) console.log(`  - ${f}`);

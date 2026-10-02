@@ -90,7 +90,13 @@ for (const lang of ["en", "fr", "es"]) {
     ok(`${lang} ${tp}: names the rep, the business, carries NO link, fits two segments with the footer`, /Daniel/.test(text) && /Easy Roofers/.test(text) && !/https?:\/\//.test(text) && text.length <= 240, text);
   }
 }
-ok("day 2 asks about the link; day 5 offers fifteen minutes, mornings or afternoons; last says it is the last", /questions about the link/i.test(linkNoSignupDraft({ touchpoint: "d2" })) && /fifteen minutes/.test(linkNoSignupDraft({ touchpoint: "d5" })) && /mornings or afternoons/.test(linkNoSignupDraft({ touchpoint: "d5" })) && /Last note/.test(linkNoSignupDraft({ touchpoint: "last" })));
+// Day 5 offers the demo, so its length is REP_DEMO_MINUTES in words (the
+// owner set it at thirty on 2026-10-02; it was a typed "fifteen").
+const { REP_DEMO_MINUTES } = await import("@/lib/sales/demoBooking/slots");
+const { integerInWords } = await import("@/lib/sales/intel/pageExcerpts");
+const DEMO_WORDS = `${integerInWords(REP_DEMO_MINUTES)} minutes`;
+ok("day 2 asks about the link; day 5 offers the demo's length (REP_DEMO_MINUTES, in words), mornings or afternoons; last says it is the last", /questions about the link/i.test(linkNoSignupDraft({ touchpoint: "d2" })) && linkNoSignupDraft({ touchpoint: "d5" }).includes(DEMO_WORDS) && !/fifteen/.test(linkNoSignupDraft({ touchpoint: "d5" })) && /mornings or afternoons/.test(linkNoSignupDraft({ touchpoint: "d5" })) && /Last note/.test(linkNoSignupDraft({ touchpoint: "last" })));
+ok("…and French and Spanish say it too, never the old quinze / quince", !/quinze|quince/.test(linkNoSignupDraft({ language: "fr", touchpoint: "d5" }) + linkNoSignupDraft({ language: "es", touchpoint: "d5" })));
 ok("an unknown language falls back to English", /it is FieldQuo\. Any questions/.test(linkNoSignupDraft({ language: "de", touchpoint: "d2" })));
 ok("the key is its own shape, and no other engine claims it", linkNoSignupDedupeKey("p1", "d2") === "linksent:p1:d2" && isLinkNoSignupKey("linksent:p1:last") && !isLinkNoSignupKey("signup:p1:2h") && !isUnfinishedSignupKey("linksent:p1:d2") && touchpointOfKey("linksent:p1:d2") === null && linkNoSignupDedupeKey("p1", "d3") === null);
 ok("parse reverses the key", JSON.stringify(parseLinkNoSignupKey("linksent:abc:d5")) === JSON.stringify({ progressId: "abc", touchpoint: "d5" }) && parseLinkNoSignupKey("scheduled:c:1") === null);

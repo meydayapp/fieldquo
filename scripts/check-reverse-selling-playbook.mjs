@@ -36,7 +36,13 @@
 //      spoken sentences; every lead source has its own short script; the
 //      follow-ups, the seven-part demo, the check-ins and the partner call
 //      exist; version 1's long answers survive word for word as Backup; and
-//      docs/sales/REVERSE-SELLING-SCRIPTS.md says exactly what the code says.
+//      docs/sales/REVERSE-SELLING-SCRIPTS.md says exactly what the code says;
+//  12. version 3 (owner, 2026-10-02): the demo is thirty minutes, from ONE
+//      constant (NEXT_STEP_MINUTES.demo → REP_DEMO_MINUTES); the call screen
+//      draws ONE script (no stepper, no second script, a switch that swaps it
+//      in place); one cold-call script; the playbook opens on every prospect,
+//      including one nothing was recorded for, and is refused on any playbook
+//      that is not an approach; and a v2 install refreshes to v3.
 //
 // Run: npm run check:reverse-selling-playbook
 import { createHash } from "node:crypto";
@@ -72,19 +78,26 @@ import {
   spokenSentences,
 } from "@/lib/sales/playbook/reverseSelling";
 import {
+  COLD_SOURCES,
   LEAD_SOURCE_KEYS,
+  NOT_A_COLD_CALL,
   SCRIPT_GROUPS,
+  SWITCH_LABEL_KEYS,
+  callScreenScripts,
+  demoBookedNow,
+  demoPacing,
   fillScripts,
   leadSourceFor,
   reverseSellingScripts,
 } from "@/lib/sales/playbook/reverseSellingScripts";
 import { REP_DEMO_MINUTES } from "@/lib/sales/demoBooking/slots";
+import { NEXT_STEP_MINUTES } from "@/lib/sales/nextSteps";
 import { REFERRAL_ASK } from "@/lib/sales/technique";
 import { RETIRED_OBJECTIONS, RETIRED_PLAYBOOKS, isUnedited, objectionFingerprint } from "@/lib/sales/playbook/seedHistory";
 import { buildCallScript } from "@/lib/sales/playbook/script";
 import { runSelector } from "@/lib/sales/playbook/selectors";
 import { REFERRAL_PLANT, STAY_ON_THE_LINE, referralPlantFor } from "@/lib/sales/playbook/stayOnTheLine";
-import { builtInObjections, builtInPlaybooks, installDefaults } from "@/lib/sales/playbook/store";
+import { builtInObjections, builtInPlaybooks, installDefaults, refreshBuiltIns } from "@/lib/sales/playbook/store";
 import { playbookFingerprint } from "@/lib/sales/playbook/seedHistory";
 import { REVERSE_SELLING_POINT_RULES, talkingPointPrompt } from "@/lib/sales/playbook/generate";
 import {
@@ -176,7 +189,14 @@ section("1. A valid playbook, switched off, on the general rule, above the four"
   ok("its key is the stable approach key", PB.key === REVERSE_SELLING_KEY && isReverseSelling(PB.key) && approachForPlaybook(PB.key) === REVERSE_SELLING_APPROACH);
   ok("…and no starter playbook is an approach", seedPlaybooks().every((p) => approachForPlaybook(p.key) === null));
   ok("it is installed SWITCHED OFF", PB.active === false);
-  ok("it opens on anything_observed", PB.selectorKey === REVERSE_SELLING_SELECTOR && REVERSE_SELLING_SELECTOR === "anything_observed");
+  // Version 3: it opens on EVERY prospect — a business nothing has been
+  // recorded for too — so once it is on, nobody falls through to the old AI
+  // script (owner, 2026-10-02).
+  ok("it opens on every_prospect", PB.selectorKey === REVERSE_SELLING_SELECTOR && REVERSE_SELLING_SELECTOR === "every_prospect");
+  ok("every_prospect matches a business nothing has been recorded for", runSelector("every_prospect", SCENARIOS.nothing).matched === true);
+  ok("…and is refused on any playbook that is not an approach — a starter can never be put on it",
+    seedPlaybooks().every((p) => validatePlaybook({ ...p, selectorKey: "every_prospect" }).problems.includes("selector_needs_approach")) &&
+      !validatePlaybook(PB).problems.includes("selector_needs_approach"));
   ok("its priority is above all four", seedPlaybooks().every((p) => p.priority < REVERSE_SELLING_PRIORITY));
   ok("it covers the nine stages", PB.stages.length === 9);
   ok("anything_observed refuses a business nothing has been recorded for", runSelector("anything_observed", SCENARIOS.nothing).matched === false);
@@ -187,8 +207,11 @@ section("1. A valid playbook, switched off, on the general rule, above the four"
     ok(`${name}: while it is off a starter playbook opens`, off && off !== PB.key, off);
     ok(`${name}: once it is switched on, it opens`, on === PB.key, on);
   }
-  ok("switched on, it still opens on nothing for a business nothing was recorded for",
-    selectForProspect({ allPlaybooks: builtInPlaybooks().map((p) => ({ ...p, active: true })), index: SCENARIOS.nothing }).selection.selected === null);
+  ok("switched OFF, a business nothing was recorded for still gets no playbook — exactly as before",
+    selectForProspect({ allPlaybooks: builtInPlaybooks(), index: SCENARIOS.nothing }).selection.selected === null &&
+      selectForProspect({ allPlaybooks: builtInPlaybooks(), index: SCENARIOS.nothing }).selection.reason === "nothing_observed");
+  ok("switched ON, a business nothing was recorded for gets Reverse Selling — every prospect does",
+    selectForProspect({ allPlaybooks: builtInPlaybooks().map((p) => ({ ...p, active: true })), index: SCENARIOS.nothing }).selection.selected?.key === PB.key);
   ok("it may not say {competitor} — it can open with no competitor detected",
     !validatePlaybook({ ...PB, stages: [{ stageKey: "open", say: "You run {competitor}.", prompts: [] }] }).ok);
 }
@@ -226,11 +249,18 @@ section("3. Trial, price and referral text come from the constants");
   ok("…and the demo's value part says it", script("demo").lines.some((l) => l.text.includes(PLAN_SENTENCE)));
   ok("the trial, only when asked, says its length and no card", stage("fit").prompts.some((p) => /^Only if they ask/.test(p) && p.includes(`The first ${W(TRIAL_DAYS)} days are free and no card is needed to start`)));
   ok("the demo the call books is REP_DEMO_MINUTES long, in words", DEMO_MINUTES_WORDS === W(REP_DEMO_MINUTES) && DEMO_OFFER === `${W(REP_DEMO_MINUTES)} minutes on a screen`);
+  ok("the demo is thirty minutes, from ONE constant: REP_DEMO_MINUTES is the call panel's NEXT_STEP_MINUTES.demo",
+    REP_DEMO_MINUTES === NEXT_STEP_MINUTES.demo && REP_DEMO_MINUTES === 30 && DEMO_MINUTES_WORDS === "thirty" &&
+      /export const REP_DEMO_MINUTES = NEXT_STEP_MINUTES\.demo;/.test(read("lib/sales/demoBooking/slots.js")));
   // Version 1's own words (Backup) say "ten minutes" for building a quote on
   // the call; they are kept word for word, so they are left out of this one.
   const live = [...allLines, ...allTips, ...allResponses, ...SCRIPTS.filter((s) => s.group !== "backup").flatMap((s) => [...s.lines.map((l) => l.text), ...s.notes])].join(" ");
-  const minuteWords = [...live.matchAll(/\b([a-z]+(?:-[a-z]+)?)[- ]minutes?\b/gi)].map((m) => m[1].toLowerCase()).filter((w) => !["couple", "few", "of"].includes(w));
+  // Number words only: "by minute two" in the demo's pacing note is a clock
+  // mark, and the word before "minute" there is not a number.
+  const NUMBER_WORDS = new Set(Array.from({ length: 121 }, (_, n) => W(n)));
+  const minuteWords = [...live.matchAll(/\b([a-z]+(?:-[a-z]+)?)[- ]minutes?\b/gi)].map((m) => m[1].toLowerCase()).filter((w) => NUMBER_WORDS.has(w));
   ok("no live line types a meeting length: every 'N minutes' is REP_DEMO_MINUTES (or the signup's five)", minuteWords.length > 0 && minuteWords.every((w) => w === W(REP_DEMO_MINUTES) || w === "five"), minuteWords);
+  ok("…and nothing still says the old fifteen-minute demo", !/fifteen minutes|fifteen-minute/i.test(live), live.match(/[^.]*fifteen[- ]minute[^.]*/i)?.[0]);
   ok("'starts at' is the first rung", STARTS_AT === `${W(rungs[0].price)} dollars a month`);
   ok("the referrer's reward is REFERRER_BONUS_MONTHS, on paying", REFERRAL_OFFER.includes(REFERRER_BONUS_MONTHS === 1 ? "you get a month of FieldQuo free" : `you get ${W(REFERRER_BONUS_MONTHS)} months`) && /signs up and starts paying/.test(REFERRAL_OFFER));
   ok("the newcomer's is REFEREE_BONUS_MONTHS, on their trial, through the link", REFERRAL_OFFER.includes(REFEREE_BONUS_MONTHS === 1 ? "an extra free month" : `${W(REFEREE_BONUS_MONTHS)} extra free months`) && /with your link/.test(REFERRAL_OFFER));
@@ -400,14 +430,18 @@ section("6. The objection answers: found, short, redirected, scoped");
 
   // ── Version 1's long answers: kept word for word, as Backup ─────────────
   const backup = reverseSellingBackup();
-  ok("every version-one answer is in Backup", backup.length === 18 && Object.keys(RETIRED_OBJECTIONS).filter((c) => c.startsWith("RS_")).every((c) => backup.some((b) => b.code === c)));
+  // Version one is the FIRST fingerprint on each of its eighteen codes; v2's
+  // follow it (seedHistory.js), and nine answers first shipped in v2 have v2
+  // as their only entry.
+  ok("every version-one answer is in Backup", backup.length === 18 && backup.every((b) => RETIRED_OBJECTIONS[b.code]?.[0] === objectionFingerprint(b)));
   ok("…word for word (each matches the fingerprint version one shipped with)", backup.every((b) => isUnedited("objection", b.code, objectionFingerprint(b))), backup.filter((b) => !isUnedited("objection", b.code, objectionFingerprint(b))).map((b) => b.code));
   ok("…the busy answer still asks when they won't be busy, and pulls back", /When do you think you won't be busy\?/.test(backup.find((b) => b.code === "RS_IM_BUSY").response) && /leave it here\?/.test(backup.find((b) => b.code === "RS_IM_BUSY").response));
   ok("…the partner answer still plays it out", /What are you afraid of happening\? Let's play it out/.test(backup.find((b) => b.code === "RS_PARTNER").response));
   ok("…best case / worst case is there", /Worst case/.test(backup.find((b) => b.code === "RS_BEST_WORST_CASE").response));
   ok("…and Backup is on the rep's screen beside the scripts", script("backup").lines.length === backup.length && backup.every((b) => script("backup").lines.some((l) => l.text === b.response && l.label === b.label)));
-  ok("an unedited version-one install can be refreshed to version two", RETIRED_PLAYBOOKS.REVERSE_SELLING?.includes("52fdf67b9aaed479") && !isUnedited("playbook", PB.key, playbookFingerprint(PB)) && OBJ.every((o) => !isUnedited("objection", o.code, objectionFingerprint(o))));
-  ok("the playbook and its answers are version two", PB.version === REVERSE_SELLING_VERSION && REVERSE_SELLING_VERSION === "2" && OBJ.every((o) => o.version === "2"));
+  ok("an unedited version-one or version-two install can be refreshed to version three",
+    ["52fdf67b9aaed479", "9243007f25309fb7"].every((f) => RETIRED_PLAYBOOKS.REVERSE_SELLING?.includes(f)) && !isUnedited("playbook", PB.key, playbookFingerprint(PB)) && OBJ.every((o) => !isUnedited("objection", o.code, objectionFingerprint(o))));
+  ok("the playbook and its answers are version three", PB.version === REVERSE_SELLING_VERSION && REVERSE_SELLING_VERSION === "3" && OBJ.every((o) => o.version === "3"));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -536,8 +570,64 @@ section("9. The console keeps what it saves; install creates it switched off");
   ok("…and exactly its own answers", obWrite?.args?.data?.length === OBJ.length && obWrite.args.data.every((o) => o.code.startsWith("RS_")));
   ok("…and touches no starter playbook and no shared answer", result.playbooksSkipped === 4 && result.objectionsSkipped === seedObjections().length);
   ok("…with the audit row in the same transaction", writes.some((w) => w.op === "platformAuditLog.create" && w.args.data.action === "sales_playbook_defaults_installed"));
+  ok("…installed on the every-prospect rule, as version three", pbWrite?.args?.data?.[0]?.selectorKey === "every_prospect" && pbWrite.args.data[0].version === "3");
   if (process.argv.includes("--print-dry-run")) {
     console.log("\nDRY RUN — what the console's Install button would write:\n" + JSON.stringify({ result, writes: writes.map((w) => ({ op: w.op, rows: w.args?.data })) }, null, 2));
+  }
+
+  // ── Refresh: an unedited version-two install comes up to version three ──
+  //
+  // Version two's words are this version's with the demo at fifteen minutes
+  // and two notes that said "beside the scripts" — rebuilt here, and proved to
+  // BE version two by the fingerprint seedHistory.js recorded for it. Then the
+  // console's "Refresh the built-ins" runs against a database holding the four
+  // starters, the shared library and that v2 install: recorded, never written.
+  const toV2 = (text) =>
+    String(text)
+      .replaceAll(`${W(REP_DEMO_MINUTES)} minutes on a screen`, "fifteen minutes on a screen")
+      .replaceAll(`Here's how the ${W(REP_DEMO_MINUTES)} minutes go`, "Here's how the fifteen minutes go")
+      .replace("are under Backup on the Playbook tab. They're for the demo", "are under Backup, beside the scripts. They're for the demo")
+      .replace("the Friday text in Follow-up calls on the Playbook tab.", "the Friday text in Follow-up calls.");
+  const v2pb = {
+    ...PB,
+    selectorKey: "anything_observed",
+    version: "2",
+    stages: PB.stages.map((st) => ({ ...st, say: toV2(st.say), prompts: st.prompts.map(toV2), ...(st.tips ? { tips: st.tips.map(toV2) } : {}) })),
+  };
+  ok("version two, rebuilt, is exactly what shipped (the fingerprint seedHistory recorded)", playbookFingerprint(v2pb) === "9243007f25309fb7", playbookFingerprint(v2pb));
+  const v2obj = OBJ.map((o) => ({ ...o, response: toV2(o.response), version: "2" }));
+  const changedObj = v2obj.filter((o) => objectionFingerprint(o) !== objectionFingerprint(OBJ.find((x) => x.code === o.code)));
+  ok("…and every v2 answer that changed is recorded as unedited v2", changedObj.length === OBJ.length - 4 && changedObj.every((o) => isUnedited("objection", o.code, objectionFingerprint(o))), changedObj.filter((o) => !isUnedited("objection", o.code, objectionFingerprint(o))).map((o) => o.code));
+  const rwrites = [];
+  const rclient = {
+    salesPlaybook: { findMany: async () => [...seedPlaybooks(), v2pb], update: (args) => ({ op: "salesPlaybook.update", args }) },
+    salesObjection: { findMany: async () => [...seedObjections(), ...v2obj], update: (args) => ({ op: "salesObjection.update", args }) },
+    salesPlaybookExperiment: {},
+    salesPlaybookAssignment: {},
+    prospectTalkingPoint: {},
+    platformAuditLog: { create: (args) => ({ op: "platformAuditLog.create", args }) },
+    $transaction: async (ops) => {
+      rwrites.push(...ops);
+      return ops;
+    },
+  };
+  const refreshed = await refreshBuiltIns({ client: rclient, adminId: "dry-run" });
+  const pbUpdate = rwrites.find((w) => w.op === "salesPlaybook.update");
+  ok("refresh brings the v2 playbook up to v3: the every-prospect rule, version three, the thirty-minute words",
+    refreshed.playbooksUpdated === 1 && pbUpdate?.args?.where?.key === PB.key && pbUpdate.args.data.selectorKey === "every_prospect" && pbUpdate.args.data.version === "3" && md5(pbUpdate.args.data.stages) === md5(PB.stages), refreshed);
+  ok("…and the v2 answers that offer the demo, and nothing else",
+    refreshed.objectionsUpdated === changedObj.length && rwrites.filter((w) => w.op === "salesObjection.update").every((w) => w.args.where.code.startsWith("RS_") && w.args.data.version === "3"));
+  ok("…touching no starter playbook and no shared answer, with the audit row in the same transaction",
+    rwrites.filter((w) => w.op === "salesPlaybook.update").length === 1 && rwrites.some((w) => w.op === "platformAuditLog.create" && w.args.data.action === "sales_playbook_builtins_refreshed") && refreshed.playbooksKept.length === 0 && refreshed.objectionsKept.length === 0);
+  if (process.argv.includes("--print-dry-run")) {
+    console.log("\nDRY RUN — what the console's Refresh button would write over an unedited v2 install:\n" + JSON.stringify({
+      result: refreshed,
+      writes: rwrites.map((w) => (w.op === "salesPlaybook.update"
+        ? { op: w.op, key: w.args.where.key, selectorKey: w.args.data.selectorKey, version: w.args.data.version, stages: w.args.data.stages.length }
+        : w.op === "salesObjection.update"
+          ? { op: w.op, code: w.args.where.code, version: w.args.data.version }
+          : { op: w.op, action: w.args.data.action })),
+    }, null, 2));
   }
 }
 
@@ -684,7 +774,7 @@ section("11. Version 2: the cold call books the demo, and every lead source has 
 
   // ── Every lead source has a script, and each is the short shape ─────────
   ok("the lead sources the owner listed are all here",
-    ["cold_v1", "cold_v2", "signup_unfinished", "trial_not_converted", "link_no_signup", "inbound_caller", "referred_by_customer", "uses_competitor", "former_customer"].every((k) => LEAD_SOURCE_KEYS.includes(k)));
+    ["cold_call", "signup_unfinished", "trial_not_converted", "link_no_signup", "inbound_caller", "referred_by_customer", "uses_competitor", "former_customer"].every((k) => LEAD_SOURCE_KEYS.includes(k)));
   for (const key of LEAD_SOURCE_KEYS) {
     const s = script(key);
     ok(`${key}: has a script`, Boolean(s) && s.group === "lead_source");
@@ -697,7 +787,14 @@ section("11. Version 2: the cold call books the demo, and every lead source has 
     ok(`${key}: ends on the referral question`, texts[texts.length - 1].toLowerCase().includes(REFERRAL_ASK.toLowerCase().replace(/\?$/, "")));
     ok(`${key}: never pushes the trial`, texts.filter((t) => /trial|signup link|free and no card/i.test(t)).every((t) => /^\(Only if they ask|that's them asking|^You've been trying FieldQuo|^If you do try it|^What would have to be true/.test(t)), texts.filter((t) => /trial/i.test(t)));
   }
-  ok("cold version 1.0 is shorter than 2.0, and 2.0 qualifies who decides", script("cold_v1").lines.length < script("cold_v2").lines.length && script("cold_v2").lines.some((l) => /who else would want a say/.test(l.text)));
+  // ── ONE cold-call script (owner, 2026-10-02): 1.0 and 2.0 merged ────────
+  const cold = script("cold_call");
+  ok("one cold-call script: no version 1.0 or 2.0 left", LEAD_SOURCE_KEYS.filter((k) => /^cold/.test(k)).length === 1 && !script("cold_v1") && !script("cold_v2") && SCRIPTS.filter((s) => /cold call/i.test(s.name)).length === 1);
+  ok("…based on 1.0, the shortest: nine lines", cold.lines.length === 9);
+  ok("…with 2.0's 'who else would want a say' folded into the booking line", cold.lines.some((l) => l.text.includes(DEMO_OFFER) && /for a time when everyone who decides is around/.test(l.text) && /\[day\] or \[day\]/.test(l.text)) && !cold.lines.some((l) => /who else would want a say/.test(l.text)));
+  ok("…every line short (thirty-five words at most)", cold.lines.every((l) => l.text.split(/\s+/).length <= 35), cold.lines.map((l) => l.text.split(/\s+/).length));
+  ok("…and question-led: all but the support line ask something", cold.lines.filter((l) => !/\?/.test(l.text)).length <= 1, cold.lines.filter((l) => !/\?/.test(l.text)).map((l) => l.text));
+  ok("…and its 'what is it?' note says the stage's own words", cold.notes.some((n) => n.includes(stage("fit").say.split(" The easiest")[0])));
   ok("the referred script says the newcomer's month only comes through the referrer's link", script("referred_by_customer").lines.some((l) => l.text.includes("sign up through their link")) && script("referred_by_customer").notes.some((n) => /customer's own link/.test(n)));
 
   // ── Which script opens first ────────────────────────────────────────────
@@ -706,10 +803,10 @@ section("11. Version 2: the cold call books the demo, and every lead source has 
   ok("a new or stalled signup with no active plan is the trial script", leadSourceFor({ signupKind: "new" }) === "trial_not_converted" && leadSourceFor({ signupKind: "stalled", subscriptionStatus: "trialing" }) === "trial_not_converted");
   ok("…a paying one gets no prospecting script at all", leadSourceFor({ signupKind: "new", subscriptionStatus: "active" }) === null);
   ok("a competitor on their site is the competitor script", leadSourceFor({ competitorDetected: true }) === "uses_competitor");
-  ok("anything else researched is the cold call, version 1.0", leadSourceFor({}) === "cold_v1");
+  ok("anything else is the cold call — researched, or nothing recorded yet", leadSourceFor({}) === "cold_call");
   ok("an unknown signup kind is never guessed into a source", leadSourceFor({ signupKind: "mystery" }) === null);
   const filled = fillScripts(SCRIPTS, { businessName: "Acme Painting", repName: "Dana", first: null });
-  ok("the screen fills the business and the rep where it knows them", filled.find((s) => s.key === "cold_v1").lines[0].text.startsWith("Hi, is this Acme Painting? It's Dana with FieldQuo"));
+  ok("the screen fills the business and the rep where it knows them", filled.find((s) => s.key === "cold_call").lines[0].text.startsWith("Hi, is this Acme Painting? It's Dana with FieldQuo"));
   ok("…and leaves a placeholder it does not know visible, never a hole", filled.find((s) => s.key === "trial_not_converted").lines[0].text.startsWith("Hi {first}, it's Dana"));
 
   // ── The follow-ups, the demo, the check-ins, the partner call ───────────
@@ -744,15 +841,15 @@ section("11. Version 2: the cold call books the demo, and every lead source has 
 
   // ── Where the rep sees them ─────────────────────────────────────────────
   const routeSrc = read("app/api/sales/playbook/route.js");
-  ok("the call route sends the scripts for the Reverse Selling playbook only", /if \(!isReverseSelling\(selectedKey\)\) return null;/.test(routeSrc) && /salesScripts: salesScriptsFor\(\{/.test(routeSrc));
-  ok("…picking the first one from what it already read", /leadSourceFor\(\{\s*signupKind: mine\?\.signupKind/.test(routeSrc) && /contextSelectorKey === "competitor_detected"/.test(routeSrc));
+  ok("the call route sends the script for the Reverse Selling playbook only", /if \(!isReverseSelling\(selectedKey\)\) return null;/.test(routeSrc) && /salesScripts: salesScriptsFor\(\{/.test(routeSrc));
+  ok("…picking it from what it already read", /leadSourceFor\(\{\s*signupKind: mine\?\.signupKind/.test(routeSrc) && /contextSelectorKey === "competitor_detected"/.test(routeSrc));
+  ok("…and sending only the call-screen selection, never every script", /return callScreenScripts\(scripts, \{ suggested, demoNow \}\);/.test(routeSrc) && !/scripts: fillScripts\(/.test(routeSrc));
   const cp = read("app/components/sales/CallPlaybook.js");
-  ok("the call screen draws them only on that playbook", /\{plant && data\.salesScripts\?\.scripts\?\.length \? \(/.test(cp) && /<ReverseSellingScripts scripts=\{data\.salesScripts\.scripts\} suggested=/.test(cp));
   const page = read("app/sales/playbook/page.js");
   ok("the reading screen draws them only while it is switched on", /playbooks\.some\(\(p\) => isReverseSelling\(p\.key\)\) \? reverseSellingScripts\(\) : \[\]/.test(page) && /scripts\.length \? <ReverseSellingScripts scripts=\{scripts\} showIntro \/> : null/.test(read("app/sales/playbook/PlaybookView.js")));
   const comp = read("app/components/sales/ReverseSellingScripts.js");
   ok("the client component never imports the script module (it reads the database through referrals)", !/from "@\/lib\/sales\/playbook\/reverseSellingScripts"|from "@\/lib\/sales\/playbook\/reverseSelling"/.test(comp));
-  const KEYS = ["heading", "intro", "forThisLead", "whereFrom", ...SCRIPT_GROUPS.map((g) => `group.${g}`)].map((k) => `app.salesScripts.${k}`);
+  const KEYS = ["heading", "intro", "forThisLead", "whereFrom", ...SCRIPT_GROUPS.map((g) => `group.${g}`), "notColdCall", "notTheDemo", "tips", "tipsThisScript", "tipsEveryCall", "demoToday", "demoRunning", "noScript"].map((k) => `app.salesScripts.${k}`);
   for (const lang of Object.keys(APP_MESSAGES)) {
     ok(`the scripts' headings exist in ${lang}`, KEYS.every((k) => typeof APP_MESSAGES[lang][k] === "string" && APP_MESSAGES[lang][k].length > 0), KEYS.filter((k) => !APP_MESSAGES[lang][k]));
   }
@@ -767,6 +864,79 @@ section("11. Version 2: the cold call books the demo, and every lead source has 
     ...SCRIPTS.filter((s) => s.group !== "backup").flatMap((s) => s.lines.map((l) => l.text)),
   ].filter((t) => t && !flatDoc.includes(t.replace(/\s+/g, " ")));
   ok("docs/sales/REVERSE-SELLING-SCRIPTS.md carries every line, word for word", missing.length === 0, missing.slice(0, 3));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("12. Version 3: ONE script on the call screen, and a thirty-minute demo");
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  const SCREEN_GROUPS = new Set(["lead_source", "demo"]);
+  // ── One script rendered: callScreenScripts, executed for every source ───
+  for (const key of [...LEAD_SOURCE_KEYS, null, "mystery"]) {
+    const cs = callScreenScripts(SCRIPTS, { suggested: key });
+    const isLead = LEAD_SOURCE_KEYS.includes(key);
+    ok(`${key}: exactly one script is shown`, isLead ? cs.shown === key && cs.reason === "lead_source" : cs.shown === null && cs.reason === "no_source", cs.shown);
+    ok(`${key}: nothing but that script and its switch's options is sent`,
+      cs.scripts.length === (cs.switch ? cs.switch.options.length : cs.shown ? 1 : 0) &&
+        cs.scripts.every((s) => SCREEN_GROUPS.has(s.group)) &&
+        (!cs.shown || cs.scripts[0].key === cs.shown),
+      cs.scripts.map((s) => s.key));
+    if (COLD_SOURCES.includes(key)) {
+      ok(`${key}: carries the "Not a cold call?" switch to the three undetectable sources, on the same script`,
+        cs.switch?.kind === "not_cold" && cs.switch.labelKey === SWITCH_LABEL_KEYS.not_cold && md5(cs.switch.options) === md5([key, ...NOT_A_COLD_CALL]));
+    } else if (isLead) {
+      ok(`${key}: no switch — its source was detected`, cs.switch === null);
+    }
+  }
+  ok("the three undetectable sources are the owner's three", md5([...NOT_A_COLD_CALL]) === md5(["referred_by_customer", "link_no_signup", "inbound_caller"]));
+  ok("no second script on the call screen: follow-ups, check-ins, the partner call and Backup are never sent to it",
+    LEAD_SOURCE_KEYS.every((k) => callScreenScripts(SCRIPTS, { suggested: k, demoNow: { at: "x", running: false } }).scripts.every((s) => SCREEN_GROUPS.has(s.group))));
+
+  // ── A demo booked for today shows the demo script INSTEAD ──────────────
+  const NOW = new Date("2026-10-02T15:00:00.000Z"); // 11:00 in Toronto
+  const at = (iso, extra = {}) => ({ startAt: new Date(iso), endAt: null, status: "scheduled", type: "demo", ...extra });
+  const later = demoBookedNow([at("2026-10-02T19:00:00.000Z")], { now: NOW, timeZone: "America/Toronto" });
+  ok("a demo later today is found", later?.at === "2026-10-02T19:00:00.000Z" && later.running === false, later);
+  ok("…a demo running now is found, and says so", demoBookedNow([at("2026-10-02T14:45:00.000Z")], { now: NOW, timeZone: "America/Toronto" })?.running === true);
+  ok("…one that has ended is not (no end time = one demo long)", demoBookedNow([at(new Date(NOW.getTime() - (REP_DEMO_MINUTES + 1) * 60_000).toISOString())], { now: NOW, timeZone: "America/Toronto" }) === null);
+  ok("…tomorrow's is not today's", demoBookedNow([at("2026-10-03T14:00:00.000Z")], { now: NOW, timeZone: "America/Toronto" }) === null);
+  ok("…a cancelled or done one never counts", demoBookedNow([at("2026-10-02T19:00:00.000Z", { status: "cancelled" }), at("2026-10-02T19:30:00.000Z", { status: "done" })], { now: NOW, timeZone: "America/Toronto" }) === null);
+  ok("…'today' is the rep's day: 21:00 Vancouver on the 2nd is the 3rd in UTC and still today", demoBookedNow([at("2026-10-03T04:00:00.000Z")], { now: new Date("2026-10-02T23:00:00.000Z"), timeZone: "America/Vancouver" })?.at === "2026-10-03T04:00:00.000Z");
+  const demoCs = callScreenScripts(SCRIPTS, { suggested: "cold_call", demoNow: later });
+  ok("with a demo today the ONE script is the demo, with \"Not the demo?\" back to the call script", demoCs.shown === "demo" && demoCs.reason === "demo_now" && demoCs.demoAt === later.at && demoCs.switch?.kind === "not_demo" && md5(demoCs.switch.options) === md5(["demo", "cold_call"]) && demoCs.scripts.length === 2);
+
+  // ── The component draws one script, and the call screen nothing else ───
+  const comp = read("app/components/sales/ReverseSellingScripts.js");
+  const callComp = comp.slice(comp.indexOf("export function ReverseSellingCallScript"));
+  ok("the call-screen component draws ONE script's lines — never a list of scripts", (callComp.match(/<ScriptLines /g) || []).length === 1 && /<ScriptLines script=\{current\} \/>/.test(callComp) && !/scripts\.map\(\(s\) => \(\s*<Script/.test(callComp));
+  ok("…its switch swaps that one script in place (a select over the server's options)", /onChange=\{\(e\) => setChoice\(e\.target\.value\)\}/.test(callComp) && /sw\.options\.map/.test(callComp));
+  ok("…and the Tips area is one <details>, closed (no `open`)", (callComp.match(/<details /g) || []).length === 1 && /data-testid="rs-tips"/.test(callComp) && !/<details[^>]*\bopen\b/.test(callComp));
+  const cp = read("app/components/sales/CallPlaybook.js");
+  const routeSrc = read("app/api/sales/playbook/route.js");
+  const branchStart = cp.indexOf("if (callScreen) {");
+  const branchEnd = cp.indexOf("\n  return (\n    <div className={container}>", branchStart);
+  const rsBranch = branchStart > 0 && branchEnd > branchStart ? cp.slice(branchStart, branchEnd) : "";
+  ok("on Reverse Selling the call screen returns its one-script layout first", /const callScreen = plant && typeof data\.salesScripts\?\.reason === "string" \? data\.salesScripts : null;/.test(cp) && rsBranch.includes("<ReverseSellingCallScript"));
+  ok("…with NO second script: no stepper, no AI script or its language switch, no signup opener, no turnaround, no trade points",
+    !/<AiScript|<ConsoleScript|<ScriptLanguageSwitch|<SignupOpener|<TurnaroundQuestion|<TradePoints|setStageIndex|stageOf/.test(rsBranch), rsBranch.slice(0, 200));
+  ok("…the objection answers beneath it, and the after-a-yes box inside Tips", /<ObjectionRail /.test(rsBranch) && /afterYes=\{<StayOnTheLine /.test(rsBranch));
+  ok("the full scripts panel is no longer drawn on the call screen (Playbook tab only)", !/<ReverseSellingScripts /.test(cp) && !/import ReverseSellingScripts/.test(cp));
+  ok("every other playbook keeps the stepper, the AI script and the signup opener exactly where they were", /<SignupOpener signup=\{data\.prospect\.signup\}/.test(cp) && /<AiScript script=\{data\.callScript\}/.test(cp) && /app\.salesCall\.stageOf/.test(cp));
+  ok("the route spends nothing on an AI script the Reverse Selling screen does not show", /if \(!reverseSelling && language !== defaultLanguage/.test(routeSrc) && /available: reverseSelling \? \[\] : SCRIPT_LANGUAGES/.test(routeSrc));
+  ok("…and reads today's demo only on that playbook", /demoNow: reverseSelling\s*\? await demoNowFor\(/.test(routeSrc));
+
+  // ── The demo is thirty minutes, and its script is paced for it ─────────
+  const demo = script("demo");
+  const pace = demoPacing();
+  ok("the demo script's name says thirty minutes, from the constant", demo.name === `The demo — ${W(REP_DEMO_MINUTES)} minutes, seven parts`);
+  ok("its rep notes are paced for thirty: 'thirty minutes means thirty minutes', then minute marks", demo.notes[0].startsWith(`${W(REP_DEMO_MINUTES)} minutes means ${W(REP_DEMO_MINUTES)} minutes.`) && demo.notes[0].includes(`minute ${W(pace.discoveryBy)}`) && demo.notes[0].includes(`last ${W(pace.close)}`));
+  ok("…and the marks add up: open < discovery < show < the end, the close fills the rest", pace.minutes === REP_DEMO_MINUTES && pace.openBy < pace.discoveryBy && pace.discoveryBy < pace.showBy && pace.showBy + pace.close === pace.minutes && pace.discoveryBy - pace.openBy === Math.round(REP_DEMO_MINUTES / 3));
+  ok("…a fifteen-minute pacing would differ (the notes are derived, not typed)", demoPacing(15).discoveryBy !== pace.discoveryBy);
+  ok("no script, note or answer says fifteen minutes any more", !/fifteen minutes|fifteen-minute/i.test([...scriptText.filter((t) => !reverseSellingBackup().some((b) => b.response === t)), ...allLines, ...allTips, ...allResponses].join(" ")));
+
+  // ── The doc says it ─────────────────────────────────────────────────────
+  const doc = read("docs/sales/REVERSE-SELLING-SCRIPTS.md");
+  ok("the owner's document says thirty minutes and one script", doc.includes(`**The demo is ${REP_DEMO_MINUTES} minutes**`) && /ONE script/.test(doc) && doc.includes("version " + REVERSE_SELLING_VERSION + ")"));
 }
 
 console.log(`\n${failures.length ? `${failures.length} FAILED` : "PASSED"} — ${passed} passed, ${failures.length} failed`);

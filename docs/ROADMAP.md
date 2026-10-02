@@ -69,6 +69,64 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Reverse Selling, version 3: one script, a thirty-minute demo (2 October 2026)
+
+Owner decisions: **the demo is 30 minutes**, one number everywhere; and **one
+script for the rep** ("why are there two scripts in the sales rep? Shouldn't
+they have one?"). The playbook is still installed **switched off**; with it
+off, every existing screen and prompt is byte-identical (the md5 pins in
+`check:reverse-selling-playbook` section 5 hold).
+
+### What shipped
+
+- **One demo length.** `REP_DEMO_MINUTES` (`lib/sales/demoBooking/slots.js`)
+  now reads `NEXT_STEP_MINUTES.demo` (30, `lib/sales/nextSteps.js`), so the
+  call panel's "Book a demo", the rep's demo page and its slots, the
+  confirmation email and invite, the intro email's demo and setup-call
+  buttons, the intro-link page, the settings card (`{minutes}` in nine
+  languages), the signup opener (EN/FR/ES), the link-no-signup day-5 text and
+  every Reverse Selling line say the same number. Thirty-minute slots are
+  back to back and re-checked in the booking transaction;
+  `check:rep-demo-page` proves no overlap and no double-booking, including
+  against old fifteen-minute demos already on a calendar.
+- **One script on the call screen** (Reverse Selling only):
+  `callScreenScripts()` picks the ONE script — this lead's source, or the
+  demo script when a demo with this lead is booked for today — and the route
+  sends only it and its switch's options. A cold call carries a small "Not a
+  cold call?" switch (customer referral, link sent, inbound call); a demo
+  today carries "Not the demo?". Under it, the short objection answers, then
+  one closed "Tips" area (this script's notes, after-a-yes, every stage's
+  notes). No stepper, AI script, language switch, signup opener, turnaround
+  or trade points on this playbook; the nine stages stay as data. The
+  follow-ups, check-ins, partner call and Backup are on the Playbook tab only.
+  On this playbook the route generates no AI script on demand.
+- **One cold-call script**: 1.0 and 2.0 merged on 1.0, with "who else would
+  want a say" folded into the booking line ("a time when everyone who decides
+  is around").
+- **Every prospect gets it once it is on**: new selector `every_prospect`
+  (matches a business nothing was recorded for), refused by `validatePlaybook`
+  on any playbook that is not an approach. v2 fingerprints are in
+  `seedHistory.js`, so "Refresh the built-ins" brings an unedited v2 install to
+  v3 (playbook + 26 answers; the dry-run is in the check, `--print-dry-run`).
+- The demo script's notes are re-paced for thirty (minute marks derived from
+  the constant, `demoPacing()`).
+
+### Owed
+
+- **The four starter playbooks still SAY "give me fifteen minutes"** (and the
+  shared objection answers, battlecards, the "fifteen minutes" moment, the
+  non-RS AI call-script prompt and the call coach's schema description). They
+  are md5-pinned byte-identical by the owner's rule, live as rows in the
+  database, and changing the AI prompt would regenerate every stored call
+  script (cost). Owner's call: break the pins and refresh, or keep.
+- With Reverse Selling on, the pipeline still writes an AI call script for
+  claimed prospects that the call screen no longer shows (~a tenth of a cent
+  each). Owner's call whether to stop writing them for this playbook.
+- `docs/DEMO-*.md` are 15-minute demo blocks (scripts with timings); not
+  re-paced. The rep manual PDFs (`docs/sales/manual/build`) need
+  `npm run build:sales-manual` for the corrected demo sentence.
+- A lead the rep typed in (no prospect) still has no playbook at all.
+
 ## Reverse Selling, version 2: the first call books the demo (1 October 2026)
 
 Owner decision: the job of a first/cold call is to **book a demo**; the trial
@@ -103,12 +161,11 @@ installed **switched off**.
 
 ### Owed
 
-- The demo is `REP_DEMO_MINUTES` = 15 (the owner said "about 20"), and the
-  call panel books a 30-minute calendar block (`NEXT_STEP_MINUTES.demo`).
-  Which length is right is the owner's call.
+- ~~The demo is `REP_DEMO_MINUTES` = 15 while the call panel books 30.~~
+  Settled 2 October: 30, one constant (version 3 above).
 - No customer-success caller exists; the four check-ins are scripts only.
-- Lead sources with no marker on a prospect (customer referral before signup,
-  link sent, inbound) are picked by the rep.
+- ~~Lead sources with no marker are picked by the rep.~~ Version 3: a cold
+  call carries a "Not a cold call?" switch to those three.
 
 ## The sales AI learns the Reverse Selling technique (1 October 2026)
 
