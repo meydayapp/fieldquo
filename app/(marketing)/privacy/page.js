@@ -33,6 +33,7 @@ import {
 } from "@/lib/legal/effectiveDates";
 import { PROCESSORS } from "@/lib/legal/processors";
 import { PRIVACY_OFFICER } from "@/lib/legal/privacyOfficer";
+import { DELETION_BUSINESS_DAYS } from "@/lib/dataDeletion/constants";
 import LegalDocument from "@/app/components/marketing/LegalDocument";
 
 export const metadata = marketingMetadata({
@@ -205,6 +206,16 @@ export default function PrivacyPage() {
           <strong>Drafting and translation.</strong> AI drafts website copy
           and translates text a company writes, working from that company's
           own data — it does not invent services, prices, or layouts.
+        </li>
+        <li>
+          <strong>Reading client conversations.</strong> When a company uses
+          the paid conversation read, the conversation coach or the monthly
+          conversation review, the text of its own client conversations
+          (texts, chats, and emails filed from a connected mailbox) is read by
+          an AI model to tell that company how an enquiry is going and what
+          its won and lost enquiries had in common. Surnames, phone numbers,
+          email addresses, street addresses and postcodes are removed before
+          the model sees a word.
         </li>
       </ul>
       <p>
@@ -405,21 +416,303 @@ export default function PrivacyPage() {
         see the Security page for more detail.
       </p>
 
-      <h2>9. Quebec — Law 25</h2>
+      {/* ── Google user data ─────────────────────────────────────────────
+          Written for Google's OAuth verification (2026-10-03), which rejects
+          a policy that does not say, per scope, what is read, written, kept,
+          shared and how it is undone, plus the Limited Use statement. Every
+          sentence was checked against the code that makes it true:
+
+            calendar.events / calendar.readonly
+                       lib/calendar/googleClient.js (scopes, freebusy, the
+                       event calls), googleEvent.js (what an event carries),
+                       googleSync.js (only FieldQuo-marked events are touched;
+                       disconnect removes the mirrors it still tracks — a
+                       visit more than 30 days past is dropped from tracking
+                       and stays on the calendar), googleBusy.js (5-minute
+                       memory cache, never written to the database),
+                       app/api/calendar/google/busy (team-schedule viewers).
+            business.manage
+                       lib/reviews/googleBusiness/client.js (accounts,
+                       locations, reviews, place-action links — no reply
+                       call exists), sync.js (30-day cache), bookButton.js
+                       (only our own APPOINTMENT link), connection.js
+                       (disconnect deletes every cached review). The Book
+                       link is NOT removed by disconnect — said below.
+            gmail.readonly / gmail.send
+                       lib/mailbox/providers/google.js, parse.js (headers
+                       for everything, body only for a client/lead match),
+                       attachments.js (10 × 10 MB to Cloudinary), send.js
+                       (client mail only, never campaigns), connections.js
+                       (disconnect wipes the credential; filed mail stays).
+
+          The human-access paragraph is a commitment about PRACTICE, and the
+          code does not enforce it: a superadmin's read-only "view as
+          company" (lib/platform/impersonate.js) can open the inbox — filed
+          emails included — and the Google reviews with only a free-text
+          reason, no consent from the company. Anyone using that view on a
+          company with a connected mailbox is bound by this paragraph. If
+          impersonation changes, re-read this.
+
+          If a scope is added or a behaviour changes, this section and the
+          matching row in lib/legal/processors.js change in the same commit,
+          with a new PRIVACY_POLICY_EFFECTIVE_DATE. */}
+      <h2>9. Google user data</h2>
+      <p>
+        FieldQuo can connect to three Google services: Google Calendar,
+        Google Business Profile and Gmail. Each connects only when someone at
+        a company chooses to, on Google&apos;s own consent screen, and each
+        can be disconnected at any time. This section sets out exactly what
+        FieldQuo reads from and writes to each one, what it keeps and for how
+        long, and how to undo it. &ldquo;Google user data&rdquo; here means
+        the information FieldQuo receives from Google through those
+        connections.
+      </p>
+
+      <h3>Google Calendar &mdash; a staff member&apos;s own calendar</h3>
+      <p>
+        Connected by a staff member, for themselves, from Settings &rsaquo; My
+        calendar. FieldQuo asks Google for <code>calendar.events</code> and{" "}
+        <code>calendar.readonly</code>, and for the connected account&apos;s
+        email address.
+      </p>
+      <ul>
+        <li>
+          <strong>What it writes.</strong> FieldQuo creates, updates and
+          deletes events on your primary calendar for the site visits,
+          appointments and bookings assigned to you in FieldQuo. Each event
+          carries the kind of visit, the client&apos;s name, the site address
+          (none for a phone or video call), the time, and a link back to
+          FieldQuo. For a video-call booking, Google creates a Google Meet
+          link with the event, and FieldQuo saves that link on the booking so
+          the client can be sent it.
+        </li>
+        <li>
+          <strong>What it reads.</strong> When your calendar is busy: start
+          and end times only, through Google&apos;s free/busy query, which
+          returns no titles, attendees, locations or descriptions. It is used
+          so that a time you are busy is not offered on the company&apos;s
+          booking page, by its AI receptionist, or to the office when it moves
+          a visit. FieldQuo also reads back the events it created itself &mdash;
+          each one carries a private FieldQuo mark &mdash; to keep them up to
+          date, and checks that mark before changing or deleting anything, so
+          it never edits or deletes an event of your own.
+        </li>
+        <li>
+          <strong>Who sees it.</strong> Your busy times appear on
+          FieldQuo&apos;s calendar as grey &ldquo;busy&rdquo; blocks with no
+          detail, to you and to colleagues whose role lets them see the
+          team&apos;s schedule.
+        </li>
+        <li>
+          <strong>What is stored, and for how long.</strong> An encrypted
+          refresh token, your Google email address (to show &ldquo;Connected
+          as&rdquo;), and the Google ID of each event FieldQuo created &mdash;
+          until you disconnect. Busy times are held in server memory for at
+          most five minutes and are never saved to the database. A Meet link
+          stays on the booking it belongs to, because the client was sent it.
+        </li>
+        <li>
+          Reading busy times and writing visits can each be switched off
+          separately, on the same screen, without disconnecting.
+        </li>
+      </ul>
+
+      <h3>Google Business Profile &mdash; the company&apos;s listing</h3>
+      <p>
+        Connected for the company, from Settings &rsaquo; Reviews, by someone
+        allowed to manage the company&apos;s team in FieldQuo (an owner or
+        admin, or a manager or dispatcher). FieldQuo asks Google for <code>business.manage</code>, and
+        for the connected account&apos;s email address.
+      </p>
+      <ul>
+        <li>
+          <strong>What it reads.</strong> The Business Profile accounts and
+          listings the Google account manages (each listing&apos;s name, title
+          and address), so you can pick which listing to connect; only the one
+          you pick is kept. Then that listing&apos;s reviews: the
+          reviewer&apos;s display name (or &ldquo;A Google user&rdquo; when the
+          review is anonymous), the star rating, the review text, the reply
+          already posted, if any, and the dates. They are shown to the company
+          in Settings &rsaquo; Reviews. A review appears publicly only if the
+          company switches it on: it is then shown unedited and credited to
+          Google on the company&apos;s FieldQuo website, and can be used in
+          marketing graphics the company makes in FieldQuo. FieldQuo does not
+          reply to, edit or remove reviews.
+        </li>
+        <li>
+          <strong>What it writes.</strong> Only when the company asks, from
+          Settings &rsaquo; Booking Page: it adds a &ldquo;Book&rdquo; button
+          to the listing that links to the company&apos;s FieldQuo booking
+          page, or removes that one button. It never changes any other link
+          or any other part of the listing.
+        </li>
+        <li>
+          <strong>What is stored, and for how long.</strong> An encrypted
+          refresh token, the Google email address, the chosen account and
+          listing names, and a copy of the listing&apos;s reviews. The copy
+          is refreshed nightly; a review Google no longer returns is deleted
+          at that refresh, and no review is kept longer than 30 days without
+          being fetched again.
+        </li>
+      </ul>
+
+      <h3>Gmail &mdash; a connected work mailbox</h3>
+      <p>
+        Connected from Settings &rsaquo; Work email: by any staff member for
+        their own work mailbox, or by an owner or admin for the company
+        mailbox. FieldQuo asks Google for <code>gmail.readonly</code> and for
+        the account&apos;s email address. It asks for{" "}
+        <code>gmail.send</code> only when an owner or admin sets up the
+        company mailbox to send client email.
+      </p>
+      <ul>
+        <li>
+          <strong>What it reads.</strong> About every ten minutes &mdash; and,
+          when the mailbox is first connected, for the previous 90 days &mdash;
+          FieldQuo reads the headers of new mail (sender, recipients, subject,
+          date and message IDs), skipping spam, trash, drafts and chats, and
+          compares the addresses with the company&apos;s clients and leads.
+        </li>
+        <li>
+          <strong>What it keeps.</strong> Only a message to or from one of
+          the company&apos;s clients or leads is downloaded in full and filed
+          into that client&apos;s conversation in FieldQuo: its headers, its
+          text, and its attachments (up to ten files of up to 10&nbsp;MB each,
+          stored with Cloudinary). For every other message the body is never
+          downloaded and nothing is stored but a count of skipped messages. A
+          filed email is part of the client&apos;s conversation like a text
+          or a chat: the company&apos;s staff see it in the inbox, it counts
+          towards that conversation&apos;s score, and it is included when the
+          company uses the paid AI conversation features described in Section
+          3 &mdash; with surnames, phone numbers, email addresses, street
+          addresses and postcodes removed before an AI model sees it.
+        </li>
+        <li>
+          <strong>What it sends.</strong> When sending is switched on, the
+          company&apos;s client emails &mdash; quotes, invoices, payment
+          requests, booking confirmations and replies written in
+          FieldQuo&apos;s inbox &mdash; are sent through the mailbox, so they
+          come from its real address and sit in its Sent folder. FieldQuo
+          sends nothing else through it, and never marketing campaigns.
+        </li>
+        <li>
+          <strong>What is stored, and for how long.</strong> The encrypted
+          credential and the mailbox address, until you disconnect. Filed
+          emails stay with the client&apos;s record until they are deleted on
+          request (below).
+        </li>
+      </ul>
+
+      <h3>How Google user data is used, and what it is never used for</h3>
+      <ul>
+        <li>
+          It is used only to provide the features described above to the
+          company and the person who connected it.
+        </li>
+        <li>It is never sold.</li>
+        <li>
+          It is never used for advertising &mdash; not to serve, target or
+          personalise ads, and not to build a profile of anyone.
+        </li>
+        <li>
+          It is never used to develop, improve or train generalised AI or
+          machine-learning models.
+        </li>
+        <li>
+          It is not transferred to anyone except the service providers listed
+          in Section 4 that FieldQuo needs to run these features (its database
+          and hosting, Cloudinary for email attachments, and OpenAI for the AI
+          features described in Section 3), or where the law requires it
+          (Section 4, &ldquo;Requests from public authorities&rdquo;).
+        </li>
+        <li>
+          No one at FieldQuo reads it unless you have given us permission to
+          for specific data (for example, by asking support to look into a
+          problem), it is necessary for security purposes such as
+          investigating abuse or a security incident, it is necessary to
+          comply with the law, or it has been aggregated and anonymised for
+          FieldQuo&apos;s internal operations. Staff at your own company see
+          what FieldQuo shows them in the product, under the permissions your
+          company sets.
+        </li>
+      </ul>
+      <p>
+        <strong>
+          FieldQuo&apos;s use and transfer to any other app of information
+          received from Google APIs will adhere to the{" "}
+          <a href="https://developers.google.com/terms/api-services-user-data-policy">
+            Google API Services User Data Policy
+          </a>
+          , including the Limited Use requirements.
+        </strong>
+      </p>
+
+      <h3>Disconnecting, revoking access, and deletion</h3>
+      <ul>
+        <li>
+          <strong>Google Calendar:</strong> Settings &rsaquo; My calendar
+          &rsaquo; Disconnect. FieldQuo deletes the events it is still keeping
+          in step on your calendar &mdash; upcoming visits and those from the
+          past 30 days &mdash; revokes its access at Google, and deletes the
+          stored token, email address and event IDs. Visits further in the
+          past stay on your calendar as your own history; delete them in
+          Google Calendar if you want them gone.
+        </li>
+        <li>
+          <strong>Google Business Profile:</strong> Settings &rsaquo; Reviews
+          &rsaquo; Disconnect (the same people who can connect it). FieldQuo
+          revokes its access at
+          Google and deletes the stored token, the listing details and every
+          copied review at once &mdash; which also takes them off the
+          company&apos;s website. A &ldquo;Book&rdquo; button FieldQuo added
+          stays on the listing, because it is part of your public profile:
+          remove it first from Settings &rsaquo; Booking Page, or afterwards
+          from your Business Profile on Google.
+        </li>
+        <li>
+          <strong>Gmail:</strong> Settings &rsaquo; Work email &rsaquo;
+          Disconnect (the person who connected the mailbox, or an owner or
+          admin). FieldQuo revokes its access at Google, deletes the stored
+          credential, stops reading the mailbox and stops sending through it.
+          Emails already filed into client conversations stay, as the
+          company&apos;s record of what was said to its clients; the screen
+          says so before you confirm.
+        </li>
+        <li>
+          <strong>At Google, at any time:</strong> remove FieldQuo&apos;s
+          access at{" "}
+          <a href="https://myaccount.google.com/permissions">
+            myaccount.google.com/permissions
+          </a>
+          . FieldQuo can then no longer read or write anything through that
+          connection. What it already stored stays until you also disconnect
+          in FieldQuo, or ask us to delete it.
+        </li>
+        <li>
+          <strong>Deletion on request:</strong> to have Google user data
+          FieldQuo holds deleted &mdash; filed emails included &mdash; email{" "}
+          <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a> or use{" "}
+          <Link href="/data-deletion">Data Deletion</Link>. It is carried out
+          by a person within {DELETION_BUSINESS_DAYS} business days, and you
+          are told when it is done.
+        </li>
+      </ul>
+
+      <h2>10. Quebec — Law 25</h2>
       <p>
         {PRIVACY_OFFICER.name}, {PRIVACY_OFFICER.title}, is responsible for
         the protection of personal information at FieldQuo and can be reached
         at {PRIVACY_OFFICER.contact}.
       </p>
 
-      <h2>10. Changes to this policy</h2>
+      <h2>11. Changes to this policy</h2>
       <p>
         If we change this policy in a way that matters, we'll update the
         effective date at the top and, where the change is material, tell
         subscribing companies directly.
       </p>
 
-      <h2>11. Contact</h2>
+      <h2>12. Contact</h2>
       <p>
         Questions about this policy: <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.
       </p>

@@ -73,6 +73,31 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Privacy policy: the Google user data section (3 October 2026)
+
+For Google OAuth verification. `/privacy` Section 9 "Google user data" says,
+per scope, what is read, written, stored and for how long, who sees it, how to
+disconnect / revoke / have it deleted, and carries the Limited Use statement
+with the link to the Google API Services User Data Policy. Scopes the code
+requests (all through the one OAuth client in `lib/calendar/googleClient.js`):
+`calendar.events` + `calendar.readonly` (My calendar), `business.manage`
+(Reviews / Booking Page Book button), `gmail.readonly` + `gmail.send` only for
+a company mailbox set to send (Work email), each with `openid email`.
+`lib/legal/processors.js` gains Google Business Profile and Gmail rows; the
+Calendar row now names the client's name and the Meet link; OpenAI's row names
+the redacted conversation text the paid conversation read / coach / monthly
+review send. Quebec, Changes and Contact renumbered 10–12. Privacy effective
+date 2026-10-03. English only, like the other legal pages.
+
+### Owed — owner decision
+
+- The human-access promise ("no one at FieldQuo reads it unless…") is policy,
+  not code: superadmin read-only impersonation can open a company's inbox,
+  filed Gmail included, and its Google reviews with only a free-text reason.
+  Either hide email-channel message bodies under impersonation or require the
+  company's consent for that view — Gmail's restricted-scope review (CASA) is
+  likely to ask.
+
 ## Interior painting instant estimate: a room picker, sized like stairs (3 October 2026)
 
 The owner: build the interior painting instant quote from typical room sizes by region,
