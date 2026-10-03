@@ -312,6 +312,60 @@ section("The AI fence, and the fallback that makes it safe to be strict");
     ok("…and the email gets the AI's sentences", r.sentences?.length === 2 && r.chargedCents >= 1);
   }
   clearPayerCache();
+
+  // ── The phone-call notes: the same rule (owner, 2026-10-03) ───────────────
+  // Executed through the REAL meterFor("monthly_digest_calls") and the REAL
+  // buildCallInsights, with only the stores and the vendor faked.
+  const { digestCallInsights } = await import("@/lib/ai/monthlyDigest");
+  const { buildCallInsights } = await import("@/lib/ai/callTranscriptDigest");
+  ok("monthly_digest_calls is registered as company-paid from the AI wallet, wired", payerFeature("monthly_digest_calls")?.defaultPayer === "company" && companyLedgerFor("monthly_digest_calls") === "wallet" && payerFeature("monthly_digest_calls")?.wired === true);
+  ok("…and its debit lands in the AI wallet", poolForKind("monthly_digest_calls") === POOLS.AI);
+  const turnsOf = (...lines) => lines.map((text, i) => ({ role: i % 2 === 0 ? "agent" : "caller", text }));
+  const callDb = () => ({
+    reads: 0,
+    quote: { findMany: async function () { callDbReads.n++; return [{ id: "q_a", quoteNumber: "Q-A", status: "accepted", sourceCallId: "call_a", declineReason: null, sentAt: new Date("2026-09-02"), acceptedAt: new Date("2026-09-06"), declinedAt: null }]; } },
+    voiceCall: { findMany: async () => { callDbReads.n++; return [{ id: "call_a", transcript: turnsOf("hi", "your price beat Acme's by three hundred, we're in"), summary: null }]; } },
+  });
+  const callDbReads = { n: 0 };
+  const vendorReply = async ({ onUsage }) => {
+    await onUsage?.({ model: "gpt-5.4-mini", promptTokens: 2400, completionTokens: 300 });
+    return { ok: true, data: { calls: [{ callIndex: 0, notes: ["Caller said the price beat Acme's."] }] } };
+  };
+  {
+    clearPayerCache();
+    callDbReads.n = 0;
+    const L = ledgerFor(0);
+    let vendorCalls = 0;
+    const meter = await meterFor("monthly_digest_calls", { companyId: "co_no_ai", prisma: L.fakePrisma, now: AFTER_GRACE, deps: L.deps });
+    const out = await digestCallInsights({
+      companyId: "co_no_ai",
+      period: PERIOD,
+      meter,
+      buildCallInsights: (args) => buildCallInsights({ ...args, db: callDb(), isAiConfigured: () => true, complete: async (a) => { vendorCalls++; return vendorReply(a); } }),
+    });
+    ok("call notes, NO AI credit: none — the section is absent (null), not an empty one", out === null);
+    ok("…no model call and not a single quote or transcript read", vendorCalls === 0 && callDbReads.n === 0);
+    ok("…never charged and never counted against an allowance", L.debits.length === 0 && L.usages.length === 0 && L.allowanceAsked() === 0);
+  }
+  {
+    clearPayerCache();
+    const L = ledgerFor(5000);
+    let vendorCalls = 0;
+    const meter = await meterFor("monthly_digest_calls", { companyId: "co_ai", prisma: L.fakePrisma, now: AFTER_GRACE, deps: L.deps });
+    const out = await digestCallInsights({
+      companyId: "co_ai",
+      period: PERIOD,
+      meter,
+      buildCallInsights: (args) => buildCallInsights({ ...args, db: callDb(), isAiConfigured: () => true, complete: async (a) => { vendorCalls++; return vendorReply(a); } }),
+    });
+    ok("call notes, WITH AI credit: the transcripts are read, once", vendorCalls === 1 && out?.calls?.[0]?.notes?.[0]?.includes("Acme"), out);
+    ok("…usage is the company's own, under monthly_digest_calls, paid from the wallet", L.usages.length === 1 && L.usages[0].companyId === "co_ai" && L.usages[0].feature === "monthly_digest_calls" && L.usages[0].paidFromWallet === true, L.usages);
+    ok("…one wallet debit, kind monthly_digest_calls, keyed per company per month", L.debits.length === 1 && L.debits[0].kind === "monthly_digest_calls" && L.debits[0].ref === `monthly_digest_calls:co_ai:${PERIOD.key}` && L.debits[0].cents >= 1, L.debits);
+    ok("…and the monthly allowance is not consulted", L.allowanceAsked() === 0);
+  }
+  clearPayerCache();
+  const digestSrc = code("lib/ai/monthlyDigest.js");
+  ok("generateMonthlyDigest reaches call notes only through digestCallInsights", /digestCallInsights\(\{ companyId, period: summary\.period \}\)/.test(digestSrc) && (digestSrc.match(/buildCallInsights\(/g) || []).length === 0);
   ok("the system prompt forbids typed numbers and invented facts", /never write a digit/.test(DIGEST_SYSTEM) && /do not invent/.test(DIGEST_SYSTEM));
 
   const metrics = digestMetrics(empty, summaryFormatter({ language: "en", currency: "CAD" }));
