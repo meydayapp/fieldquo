@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { demoLiveStamp } from "@/lib/demo/simulatedSpend";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { can, requirePermission } from "@/lib/permissions";
 import {
@@ -249,6 +250,8 @@ export async function POST(request) {
         companyId: member.companyId,
         name: clientName,
         phone: clientPhone || null,
+        // Typed in live — see app/api/clients/route.js and demoLiveStamp.
+        ...(await demoLiveStamp(member.companyId)),
       },
     });
   }

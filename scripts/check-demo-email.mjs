@@ -154,12 +154,16 @@ section("2. Order — the demo branch runs before the vendor call");
   if (body === null) {
     ok(false, "lib/email/resend.js exports sendEmail — renamed? this rule proves nothing now");
   } else {
-    const guard = body.indexOf("isDemoCompany(companyId)");
+    // The question became demoSendVerdict on 2026-10-03, when a demo gained
+    // ONE way to send for real (a client created live in the demo — see
+    // scripts/check-demo-live-recipients.mjs). It asks isDemoCompany's
+    // question first, from the row, and every property below is unchanged.
+    const guard = body.indexOf("demoSendVerdict({ companyId");
     const substitute = body.indexOf("recordSimulatedSend(");
     const vendor = body.indexOf("resend.emails.send(");
     const noKey = body.indexOf("if (!resend)");
 
-    ok(guard !== -1, "sendEmail asks isDemoCompany(companyId)");
+    ok(guard !== -1, "sendEmail asks demoSendVerdict({ companyId, … }) — the demo gate, re-read from the row");
     ok(substitute !== -1, "sendEmail substitutes recordSimulatedSend() for a demo");
     ok(
       vendor !== -1,
@@ -388,9 +392,19 @@ for (const [file, fn] of [
 }
 for (const page of ["app/app/quotes/[id]/page.js", "app/app/invoices/[id]/page.js"]) {
   const src = read(page);
+  // The sentence is chosen by demoSendNoteKey (lib/demo/liveRecipients.js),
+  // which check-demo-live-recipients.mjs executes: simulated → "not emailed"
+  // (with why), sent for real → "this one really went out".
   ok(
-    src.includes("data.simulated === true") && src.includes('t("app.demo.notEmailed")'),
+    src.includes("demoSendNoteKey(data)") && /\{justSentDemoNote && \(?\s*<> \{t\(justSentDemoNote\)\}/.test(src),
     `${page} says so on screen instead of showing a bare "Sent to …"`,
+  );
+}
+{
+  const src = read("lib/demo/liveRecipients.js");
+  ok(
+    src.includes('if (data?.simulated !== true) return null;') && src.includes('return "app.demo.notEmailed";'),
+    "demoSendNoteKey answers a simulated send with app.demo.notEmailed (or a more specific reason)",
   );
 }
 

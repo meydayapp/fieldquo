@@ -85,6 +85,10 @@ export async function GET(request, { params }) {
           stripeAccountId: true,
           stripeChargesEnabled: true,
           stripeBankDebitEnabled: true,
+          // A demo shows the Pay button and walks to a "no card is charged"
+          // screen instead of Stripe — app/portal/[token]/demo-pay. Stripped
+          // below with the Stripe fields; only `demoPayments` leaves.
+          isDemo: true,
           // The "How to pay" block is rendered per invoice below from these
           // (a stored block wins — see howToPayFor) and every one of them
           // is stripped from `company` before the response: the homeowner
@@ -356,9 +360,15 @@ export async function GET(request, { params }) {
     vatRegistered: _vatRegistered,
     usTaxOverrides: _usTaxOverrides,
     arrivalWindowMinutes: _arrivalWindowMinutes,
+    isDemo,
     ...companyView
   } = client.company || {};
-  const onlinePayments = Boolean(stripeAccountId && stripeChargesEnabled);
+  // A demo's Pay button always renders — and never reaches Stripe: the pay
+  // route answers a demo with the demo-pay screen, whatever account the
+  // company holds (lib/demo/simulatedSpend.js refuseDemoCharge). Card only;
+  // the bank and financing offers below stay keyed on the real account.
+  const demoPayments = Boolean(isDemo);
+  const onlinePayments = Boolean(stripeAccountId && stripeChargesEnabled) || demoPayments;
   // "Pay from bank account" renders only when Stripe has ACTIVATED the
   // capability, the company bills in that method's currency, AND the amount
   // is inside Stripe's per-debit cap ($3,000 CAD for PAD — measured, see
@@ -477,7 +487,11 @@ export async function GET(request, { params }) {
       howToPay: howToPayFor(invoice, {
         company: client.company || {},
         language: invoice.language || resolveClientLanguage(client, client.company),
-        online: onlinePayments ? onlineOptions(client.company) : null,
+        online: demoPayments
+          ? { url: null, card: true, bank: false, affirm: false }
+          : onlinePayments
+            ? onlineOptions(client.company)
+            : null,
       }),
       taxKind: statement.kind,
       taxAssumedRegion: statement.assumed ? statement.assumedRegion : null,
@@ -731,6 +745,7 @@ export async function GET(request, { params }) {
     language: resolveClientLanguage(client, client.company),
     company: companyView,
     onlinePayments,
+    demoPayments,
     // No company-level `bankDebit` here any more: the answer depends on the
     // amount, so it lives on each invoice and each stage above.
     quotes: client.quotes,

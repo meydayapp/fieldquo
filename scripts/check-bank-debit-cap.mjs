@@ -169,6 +169,8 @@ const COMPANY = {
   stripeAccountId: "acct_contractor", stripeChargesEnabled: true, stripeBankDebitEnabled: true,
   offerFinancing: true, stripeAffirmStatus: null, defaultLanguage: "en", paymentMethods: null,
   taxRate: null, autoApplyLocalTax: false, vatRegistered: false, usTaxOverrides: null,
+  // Read by refuseDemoCharge in the Stripe seams (a demo never reaches Stripe).
+  isDemo: false,
 };
 const invoiceRow = (id, number, total, extra = {}) => ({
   id, invoiceNumber: number, total, amountPaid: 0, status: "sent", sentAt: new Date("2026-09-01"),

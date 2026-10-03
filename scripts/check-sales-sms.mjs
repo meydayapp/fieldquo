@@ -241,7 +241,17 @@ const fakeDb = {
     },
   },
 
-  activityLog: { create: async ({ data }) => { store.activity.push(data); return { id: id(), ...data }; } },
+  // The demo gate (lib/demo/simulatedSpend.js demoSendVerdict) asks whether
+  // the recipient is a client somebody created live in the demo. None are
+  // here — every demo send in this file is to a number nobody typed live, so
+  // it must be simulated; scripts/check-demo-live-recipients.mjs covers the
+  // live case against a fuller store.
+  client: { findMany: async () => [] },
+  leadRequest: { findMany: async () => [] },
+  activityLog: {
+    create: async ({ data }) => { store.activity.push(data); return { id: id(), ...data }; },
+    count: async () => 0,
+  },
   platformErrorLog: { create: async ({ data }) => { store.errors.push(data); return { id: id(), ...data }; } },
 
   platformSmsNumber: {
@@ -474,12 +484,14 @@ section("2. The demo branch is at the seam, and ahead of the vendor call");
   if (body === null) {
     ok(false, "lib/sms/twilioClient.js exports sendSms — renamed? this rule proves nothing now");
   } else {
-    const guard = body.indexOf("isDemoCompany(companyId)");
+    // demoSendVerdict since 2026-10-03 — isDemoCompany's question, re-read
+    // from the row, plus the one live-recipient exception.
+    const guard = body.indexOf("demoSendVerdict({ companyId");
     const substitute = body.indexOf("recordSimulatedSms(");
     const vendor = body.indexOf("client.messages.create(");
     const noNumber = body.indexOf("No SMS 'from' number");
 
-    ok("sendSms asks isDemoCompany(companyId)", guard !== -1, guard);
+    ok("sendSms asks demoSendVerdict({ companyId, … })", guard !== -1, guard);
     ok("sendSms substitutes recordSimulatedSms() for a demo", substitute !== -1, substitute);
     ok(
       "sendSms still reaches client.messages.create() — otherwise this ordering proves nothing",

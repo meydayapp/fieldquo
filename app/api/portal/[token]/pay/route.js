@@ -11,6 +11,7 @@ import { resolveClientLanguage } from "@/lib/i18n/resolveLanguage";
 import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
 import { documentFormatters } from "@/lib/i18n/documentLabels";
 import { recordError } from "@/lib/platform/errorLog";
+import { recordDemoPayment } from "@/lib/demo/demoPayment";
 
 export async function POST(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -103,7 +104,9 @@ export async function POST(request, { params }) {
   const company = await db.company.findUnique({
     where: { id: client.companyId },
   });
-  if (!company.stripeAccountId || !company.stripeChargesEnabled) {
+  // A demo walks the pay step without Stripe (below), so it is not refused
+  // for lacking an account — and holding one changes nothing.
+  if (!company.isDemo && (!company.stripeAccountId || !company.stripeChargesEnabled)) {
     return NextResponse.json(
       { error: "This company can't accept online payments yet" },
       { status: 400 },
@@ -173,6 +176,29 @@ export async function POST(request, { params }) {
   const balanceCents = invoiceBalanceCents(current);
   const chargeCents =
     amountCents == null ? balanceCents : Math.max(0, Math.min(amountCents, balanceCents));
+
+  // ── A demo: the real pay step, with no card and no Stripe ────────────────
+  //
+  // A prospect playing the homeowner reaches here from a real email (a demo
+  // can now send for real to a client created live — lib/demo/simulatedSpend
+  // .js). First press: the demo pay screen, branded like this portal, that
+  // says plainly no card is charged. Its button posts back here with
+  // `demoConfirm`, and the payment is recorded against the invoice the way a
+  // card payment would be, so the portal shows "Payment received" and the
+  // rep's /app shows the invoice paid. Never a Stripe call: the amount is
+  // still the one derived above, and `demoConfirm` is a yes, not a figure.
+  if (company.isDemo) {
+    if (chargeCents <= 0) {
+      return NextResponse.json({ error: copy.demoPayNothingOwed }, { status: 400 });
+    }
+    if (body.demoConfirm !== true) {
+      const qs = new URLSearchParams({ invoice: current.id });
+      if (stageId && amountCents != null) qs.set("stage", stageId);
+      return NextResponse.json({ checkoutUrl: `${baseUrl}/portal/${_params.token}/demo-pay?${qs}`, demo: true });
+    }
+    await recordDemoPayment({ invoice: current, amountCents: chargeCents, stageId: amountCents != null ? stageId : null });
+    return NextResponse.json({ checkoutUrl: `${baseUrl}/portal/${_params.token}?paid=true`, demo: true });
+  }
   if (method !== "card") {
     const offer = bankDebitOffer({ company, amountCents: chargeCents });
     if (offer && !offer.eligible) {
