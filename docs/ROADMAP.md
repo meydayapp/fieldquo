@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 3 October 2026 (demos send for real to a client created live in the demo — public booking, self-quote, instant quote, or a client a rep types in — capped 30 emails / 20 texts a day, SMS from the system number, US texts wait on A2P 10DLC; a demo's Pay button walks to a branded "no card is charged" screen and never reaches Stripe — see "Demos send for real to a client created live" below)
 Last updated: 29 September 2026 (the one-screen signup and the welcome questions — /signup asks email + password, Start creates the company with explicit nulls on a TRIAL_DAYS trial, /welcome/<step> asks the rest and resumes after any sign-out, the setup screen names the services it created, a readiness gate refuses client-facing sends without a name and country — see "One-screen signup and the welcome questions" below)
 Last updated: 29 September 2026 (the trial is 14 days, no card — TRIAL_DAYS / TRIAL_CARD_REQUIRED in lib/pricing.js; existing trials keep their date; referral month still composes on top; reminders 7/3/1 with a new Company.trialReminder1At column the owner must add before deploy; "first month free" gone from every screen, email, help article and catalogue in nine languages — see "The trial is 14 days")
 Last updated: 28 September 2026 ("Connect Google reviews" is off the home set-up card, out of its "N of M done" count and out of the next-steps email until Google approves the Business Profile API; Settings › Reviews says "Google review import is waiting on Google's approval" with no Connect button and the connect route refuses `not_approved` — one helper, `googleBusinessAvailable()`, and one flag the owner sets on the approval day, `GOOGLE_BUSINESS_API_APPROVED=1` — see "Connect Google reviews waits for Google" below)
@@ -68,6 +69,40 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## Demos send for real to a client created live (3 October 2026)
+
+The owner: "Can the demo accounts send actual emails and have the text messages sent when someone books, so that it can be shown to a client?" — narrowed to "not the info that's already there, but if we need to create a new quote or create a client", and then "we want to showcase what the client gets."
+
+**Shipped**
+
+- **One gate.** `demoSendVerdict()` in `lib/demo/simulatedSpend.js`, beside `isDemoCompany`, is asked by `sendEmail` (`lib/email/resend.js`) and `sendSms` (`lib/sms/twilioClient.js`) with an id, never a flag. It re-reads the company row. A real company gets `{ demo: false }` and its sends are unchanged. A demo sends for real only when every recipient belongs to a `Client` or `LeadRequest` that has `demoLiveAt` set within the last 24 hours. Everything else is simulated exactly as before, with a reason: `not_live`, `expired`, `retired`, `cap`, `opted_out`, `no_sms_number` or `us_unregistered`. A database error still fails the send and never sends it.
+- **The marker.** `Client.demoLiveAt` and `LeadRequest.demoLiveAt` are new nullable columns, added by SQL on 2026-10-03.
+  - Only `demoLiveStamp()` writes the marker, re-reading `isDemo` at create time. It is called from: `POST /api/clients` (also used by the builder's quick-add), a new client typed into an appointment, the public booking confirm (new booker only), the public self-quote lead, the public instant-quote client (`createdVia: "instant_quote"` only), and `convertLead` from a live lead.
+  - Seeding, imports, the migration service, the phone path, door-knock stops and every edit never set it. A seeded client with a stranger's email typed onto it stays simulated.
+  - A marker on the row was chosen over "created after the last reset" because the seeder creates its rows after the reset too.
+  - A pool reset wipes the rows. A rep reset retires the company, and the gate refuses a retired company.
+- **Caps and audit.** Each demo may send 30 real emails and 20 real texts in any rolling 24 hours (`LIVE_DAILY_CAP`, `lib/demo/liveRecipients.js`). Each real send first writes an `email.demo_live` / `sms.demo_live` ActivityLog row giving the recipient, the From and what was sent. If that row can't be written, the send is simulated instead.
+- **SMS.** A live demo text goes from FieldQuo's system number, never the demo's fictional line. STOP and call opt-outs are re-checked in the gate. US recipients stay simulated until Twilio reports the system number in a VERIFIED A2P 10DLC campaign; this is read through `readUsA2pStatus` and cached for 10 minutes. Canadian recipients send.
+- **Rep feedback.** The quote and invoice send banners say one of three things: "this one really went out", "not emailed: only clients created live…" or "not emailed: today's real sends are used". `/sales/demo` gains a "Real emails and texts" card showing who gets them, the caps, the SMS number and its US state, plus per-demo usage today. All new copy is in nine languages.
+- **Money.** A demo never reaches Stripe.
+  - `refuseDemoCharge()` runs first in `createInvoiceCheckoutSession`, `createBookingFeeCheckoutSession`, `createAuthorisationSetupSession` and `chargeOccurrenceOffSession`.
+  - The portal shows a demo the Pay button. It leads to `/portal/<token>/demo-pay`, a page in the company's own branding that says "Demo — no card is charged" in the client's language. Confirming records a `demo_pi_…` payment through `recordStripePayment` (`lib/demo/demoPayment.js`) and returns to "Payment received".
+  - Refunding that payment never calls Stripe.
+  - A demo booking with a fee is confirmed as free.
+- **Demo deposit schedule fixed.** The seeded stages used the triggers `on_approval` and `on_completion`, which the engine has never had, so approving a demo quote never asked for the deposit. New seeds use `on_invoice_created` and `job_end`. Existing demos keep the old rows until reset.
+- **Cost.** `/platform/costs` → Sales floor shows "Sales demos — real emails and texts to prospects" with counts and a list-price estimate, at $0. The money is already inside the pulled Twilio lines and Resend's plan.
+- `check:demo-live-recipients` (in `check:all`) executes every hostile fixture. `check:demo-email`, `check:sales-sms`, `check:booking-modes`, `check:processing-fee`, `check:bank-debit-cap` and `check:quote-preview` were updated.
+
+**Owner to do**
+
+- **US texting:** register an A2P 10DLC brand and campaign in Twilio, and put the system number +17162747905 into that campaign's Messaging Service. `/platform/crew-lines` → "US texting" shows the steps and the live verdict. Until then, live demo texts reach Canadian phones only, and the panel says so.
+
+**Known limits**
+
+- The cap is counted before the send, so two sends at the very same instant can both pass at 29/30.
+- Client-facing pages still use FieldQuo's favicon, root meta description and app domain. This is pre-existing and not specific to demos.
+- Seeded demos print fictional "How to pay" details (`pay@<slug>.example.com`) and a 555 phone number.
 
 ## Reverse Selling, version 3: one script, a thirty-minute demo (2 October 2026)
 

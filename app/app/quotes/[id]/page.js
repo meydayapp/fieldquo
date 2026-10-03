@@ -152,6 +152,7 @@ import { formatAddress } from "@/lib/format/address";
 import { planRequiredFrom } from "@/lib/signup/planRequired";
 import QuotePlanOffers from "@/app/components/quotes/QuotePlanOffers";
 import { quoteViewState } from "@/lib/quotes/quoteViews";
+import { demoSendNoteKey } from "@/lib/demo/liveRecipients";
 import {
   COMPLEXITY_LEVELS,
   COMPLEXITY_REASONS,
@@ -313,7 +314,10 @@ export default function QuoteDetailPage() {
   // Whether the last send was intercepted because this is a demo company. Kept
   // beside justSent rather than folded into it: the banner still names the
   // address, and only the claim about delivery changes.
-  const [justSentSimulated, setJustSentSimulated] = useState(false);
+  // Holds the message KEY (lib/demo/liveRecipients.js demoSendNoteKey): a
+  // demo can now send for real to a client created live in the demo, so the
+  // banner has three things to say, not one.
+  const [justSentDemoNote, setJustSentDemoNote] = useState(null);
   // ── The Send… menu's own state ──────────────────────────────────────────
   const [shareStaffOpen, setShareStaffOpen] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
@@ -542,7 +546,7 @@ export default function QuoteDetailPage() {
       // one action the user most wants confirmation of.
       setQuote((q) => ({ ...q, ...data }));
       setJustSent(data.to);
-      setJustSentSimulated(data.simulated === true);
+      setJustSentDemoNote(demoSendNoteKey(data));
       setTimeout(() => setJustSent(""), 6000);
     } catch (err) {
       setError(err.message);
@@ -1265,8 +1269,8 @@ export default function QuoteDetailPage() {
                 banner elsewhere on the page: the sentence the rep reads is
                 "Sent to <address>", and the correction has to reach them
                 before they look away. */}
-            {justSentSimulated && (
-              <> {t("app.demo.notEmailed")}</>
+            {justSentDemoNote && (
+              <> {t(justSentDemoNote)}</>
             )}
           </span>
         </div>

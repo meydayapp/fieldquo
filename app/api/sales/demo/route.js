@@ -61,6 +61,7 @@ import {
   resetRepDemo, retireRepDemo } from "@/lib/sales/repDemo";
 import { INDUSTRIES } from "@/lib/demo/industries";
 import { materialiseDemoCheckIn } from "@/lib/sales/checkin/materialise";
+import { demoLivePanel } from "@/lib/demo/simulatedSpend";
 
 const bad = (error, status = 400) => NextResponse.json({ error }, { status });
 
@@ -85,8 +86,18 @@ async function draftCheckIn(repId) {
 
 async function fullState(repId) {
   const rep = await freshRep(repId);
+  const state = await repDemoState(rep);
+  // Real emails and texts to clients created live in a demo — usage against
+  // the daily cap, and whether texting can reach the prospect's phone at all.
+  // Fails soft to null: the panel then says it couldn't check, and nothing
+  // else on this screen depends on it.
+  const live = await demoLivePanel(state.demos.map((d) => d.id)).catch((err) => {
+    console.error("[sales demo] live-message status not read:", err?.message);
+    return null;
+  });
   return {
-    ...(await repDemoState(rep)),
+    ...state,
+    live,
     industries: Object.entries(INDUSTRIES).map(([key, v]) => ({ key, label: v.label, pitchTrade: v.pitchTrade || null })),
   };
 }

@@ -365,6 +365,8 @@ export async function POST(request, { params }) {
     to,
     messageId: result?.id || null,
     simulated: result?.simulated === true,
+    simulatedReason: result?.simulatedReason || null,
+    demoLive: result?.demoLive === true,
     // What was asked for, so the screen can say "asked for Deposit: $1,500"
     // rather than "sent".
     ask: { kind: ask.kind, requested: ask.requestCents / 100, collected: ask.collectedCents / 100, remaining: ask.remainingCents / 100, stage: ask.stage ? { label: ask.stage.label, index: ask.stage.index, count: ask.stage.count } : null },

@@ -296,6 +296,30 @@ export default function SalesDemoPage() {
         <>
           {loginCard}
 
+          {/* Real messages: who gets them, the daily cap, and whether a text
+              can reach the prospect's phone at all — read from the same
+              system number and Twilio registration the send gate reads
+              (lib/demo/simulatedSpend.js demoLivePanel), so this card never
+              promises a text the gate would then simulate. */}
+          <section className={CARD}>
+            <h2 className="text-base font-semibold text-foreground">{t("app.salesCal.liveHeading")}</h2>
+            {data?.live ? (
+              <>
+                <p className="text-sm text-muted-foreground break-words">{t("app.salesCal.liveHow", { hours: data.live.windowHours })}</p>
+                <p className="text-sm text-muted-foreground break-words">{t("app.salesCal.liveCaps", { emails: data.live.cap.email, texts: data.live.cap.sms })}</p>
+                <p className={`text-sm break-words ${data.live.sms.us ? "text-muted-foreground" : "text-amber-900 dark:text-amber-200"}`}>
+                  {!data.live.sms.number
+                    ? t("app.salesCal.liveSmsNone")
+                    : data.live.sms.us
+                      ? t("app.salesCal.liveSmsBoth", { number: data.live.sms.number })
+                      : t("app.salesCal.liveSmsCanadaOnly", { number: data.live.sms.number })}
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">{t("app.salesCal.liveUnknown")}</p>
+            )}
+          </section>
+
           <section className="space-y-3">
             <h2 className="text-base font-semibold text-foreground">{t("app.salesCal.demoMineHeading")}</h2>
             {demos.map((company) => (
@@ -320,6 +344,17 @@ export default function SalesDemoPage() {
                     in the rep's language where one exists, English otherwise;
                     an industry with no pitchTrade draws no list. */}
                 <DemoHighlights pitchTrade={company.pitchTrade} tradeLabel={company.tradeLabel} language={language} t={t} />
+
+                {data?.live?.usage?.[company.id] ? (
+                  <p className="text-xs text-muted-foreground break-words">
+                    {t("app.salesCal.liveUsage", {
+                      email: data.live.usage[company.id].email,
+                      emailCap: data.live.cap.email,
+                      sms: data.live.usage[company.id].sms,
+                      smsCap: data.live.cap.sms,
+                    })}
+                  </p>
+                ) : null}
 
                 {loginExists ? (
                   <>

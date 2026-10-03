@@ -256,6 +256,18 @@ section("The public route, executed: who gets what");
     !("preview" in worldOnSent.body),
   );
 
+  // A demo company's sent quote, opened by the prospect it was really emailed
+  // to (a client created live in the demo — scripts/check-demo-live-
+  // recipients.mjs). Nothing on this route may treat a demo differently: the
+  // prospect must see exactly what a real client sees, Approve included.
+  rows.quote.push(quote({ id: "q_demo", status: "sent", sentAt: new Date(), shareToken: "tok_demo", company: { ...COMPANY, isDemo: true } }));
+  const prospectOnDemo = await call("tok_demo", null);
+  ok("a DEMO company's sent quote, to its client: 200, the real document", prospectOnDemo.status === 200 && prospectOnDemo.body.quoteNumber === "Q-1", prospectOnDemo.status);
+  ok("…not a preview, so Approve and Decline are there", !("preview" in prospectOnDemo.body));
+  // The stub hands rows back whole (it does not apply `select`), so the
+  // payload half of "nothing says demo" is the route's own company select.
+  ok("…and the route never selects isDemo for the client's copy", !/isDemo/.test(publicApi));
+
   const unknown = await call("tok_nothing", OWNER);
   ok("an unknown token is 404 even for a signed-in member", unknown.status === 404);
 

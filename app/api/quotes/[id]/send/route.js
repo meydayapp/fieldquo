@@ -478,6 +478,11 @@ export async function POST(request, { params }) {
     to,
     messageId: result?.id || null,
     simulated: result?.simulated === true,
+    // Why a demo's send was simulated ("cap", "not_live", …), or that it went
+    // out for real to a client created live in the demo — the banner says
+    // which (lib/demo/liveRecipients.js demoSendNoteKey).
+    simulatedReason: result?.simulatedReason || null,
+    demoLive: result?.demoLive === true,
   });
 }
 
