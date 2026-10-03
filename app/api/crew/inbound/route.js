@@ -190,6 +190,8 @@ export async function POST(request) {
       // What the carrier says it charged us for. Capped and sanity-checked
       // downstream — a forged NumSegments must not invent a charge.
       segments: Number(params.NumSegments) || 1,
+      // So the charge can be settled to Twilio's price × 2 once it is rated.
+      messageSid: params.MessageSid || null,
     });
 
     // ── Paying for the reply, and for the line ────────────────────────────

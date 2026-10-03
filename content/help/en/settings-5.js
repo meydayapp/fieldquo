@@ -70,7 +70,7 @@ export const ARTICLES = {
         id: "cost",
         heading: "What it costs",
         blocks: [
-          { p: "Everything is taken from your phone balance (the one the receptionist uses): $4.00 a month for the number, charged from the day it goes live, 2¢ a text, 5¢ a photo, and on a moved number 5¢ a minute for calls forwarded to you or placed with the Call button. The screen shows a monthly estimate from your own last 30 days of texts before you start. FieldQuo charges nothing to move the number." },
+          { p: "Everything is taken from your phone balance (the one the receptionist uses): $4.00 a month for the number, charged from the day it goes live. Texts and calls are billed at cost × 2, with a minimum of 2¢ a text, 5¢ a photo and, on a moved number, 5¢ a minute for calls forwarded to you or placed with the Call button — texts from some carriers cost more than the minimum. The screen shows a minimum monthly estimate from your own last 30 days of texts before you start. FieldQuo charges nothing to move the number." },
         ],
       },
     ],

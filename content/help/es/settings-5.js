@@ -67,7 +67,7 @@ export const ARTICLES = {
         id: "cost",
         heading: "Lo que cuesta",
         blocks: [
-          { p: "Todo se descuenta de su saldo telefónico (el que usa la recepcionista): 4,00 $ al mes por el número, cobrados desde el día que se activa, 2 ¢ por mensaje, 5 ¢ por foto y, en un número traspasado, 5 ¢ por minuto de las llamadas que se le desvían o que hace con el botón Llamar. Antes de empezar, la pantalla muestra una estimación mensual con sus mensajes de los últimos 30 días. FieldQuo no cobra nada por traspasar el número." },
+          { p: "Todo se descuenta de su saldo telefónico (el que usa la recepcionista): 4,00 $ al mes por el número, cobrados desde el día que se activa. Los mensajes y las llamadas se cobran al costo × 2, con un mínimo de 2 ¢ por mensaje, 5 ¢ por foto y, en un número traspasado, 5 ¢ por minuto de las llamadas que se le desvían o que hace con el botón Llamar — los mensajes de algunos operadores cuestan más que ese mínimo. Antes de empezar, la pantalla muestra una estimación mensual mínima con sus mensajes de los últimos 30 días. FieldQuo no cobra nada por traspasar el número." },
         ],
       },
     ],

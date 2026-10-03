@@ -17,6 +17,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { phonePriceBanners } from "@/lib/phoneUsage/priceChanges";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -111,11 +112,17 @@ export async function GET(request) {
   const dismissedNotices = Array.isArray(user?.uiState?.dismissedNotices)
     ? user.uiState.dismissedNotices
     : [];
+  // "Text and call prices changed" — served from here for the same reason the
+  // account standing is: the shell already calls this on every load. Who sees
+  // it and what it may say is lib/phoneUsage/priceChanges.js; dismissing
+  // goes through the same `dismiss` POST below.
+  const phonePrices = await phonePriceBanners(member, dismissedNotices);
   return NextResponse.json({
     seenTours,
     dismissedNotices,
     account,
     notifications: { unread: unreadCount },
+    phonePrices,
   });
 }
 

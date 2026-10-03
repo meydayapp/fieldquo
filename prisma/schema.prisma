@@ -2587,6 +2587,7 @@ model Company {
   /// "Bring your number" — the business line clients already know, hosted
   /// for texts or ported to FieldQuo. See lib/businessNumber/.
   broughtNumber BroughtNumber?
+  phoneUsageCharges PhoneUsageCharge[]
   jobPhotos JobPhoto[]
   jobPhotoTags JobPhotoTag[]
 
@@ -21550,4 +21551,84 @@ model PlanReadMessage {
   createdAt    DateTime @default(now())
 
   @@index([planReadId, createdAt])
+}
+
+/// One metered text or call, charged provisionally at the flat floor price
+/// and SETTLED to Twilio's actual price × 2 once Twilio reports it
+/// (lib/phoneUsage/settle.js). The owner's rule (2026-10-03): companies pay
+/// twice what a message or minute costs FieldQuo, never less than the floor
+/// (2¢ a text segment, 5¢ a photo, 5¢ a call minute).
+///
+/// The money itself stays in VoiceCreditEntry — the provisional debit under
+/// `ledgerRef`, any top-up under `${ledgerRef}:settle` — so the balance is
+/// still one sum. This row is only the bookkeeping that says which charges
+/// are waiting on a price, and what the price turned out to be.
+model PhoneUsageCharge {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// Twilio's SM…/MM…/CA… id — the record the price is read from.
+  sid       String  @unique
+  /// message | call
+  resource  String
+  /// in | out
+  direction String
+  /// The ledger row this settles: its kind (crew_text, brought_text,
+  /// brought_call) and its ref.
+  ledgerKind String
+  ledgerRef  String
+  provisionalCents Int
+  /// Segments for a text, minutes for a call; 1 for a photo.
+  units      Int     @default(1)
+  hasMedia   Boolean @default(false)
+  /// The other party's country — Canadian carrier fees depend on it.
+  country    String?
+
+  /// What Twilio charged FieldQuo, in millionths of a dollar, once known.
+  providerCostMicros Int?
+  /// What the company was charged in the end (provisional + settlement).
+  chargedCents Int?
+  /// lib/phoneUsage/pricing.js priceClass — the cost-tracking bucket.
+  priceClass String?
+  attempts   Int       @default(0)
+  settledAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([settledAt, createdAt])
+  @@index([companyId, createdAt])
+}
+
+/// A unit price FieldQuo has seen Twilio charge, per class (SMS in/out, MMS,
+/// per country; forwarded and bridged call minutes). Several tiers per class
+/// is normal — a Canadian inbound text costs one thing from Telus and another
+/// from Bell. A tier is ADOPTED once seen SUSTAIN_COUNT times; an adoption in
+/// a class that already had tiers is a price change (PhonePriceChange). No
+/// companyId: this is FieldQuo's own cost data, never shown to a company.
+model PhoneCostTier {
+  id           String    @id @default(cuid())
+  priceClass   String
+  unitMicros   Int
+  observations Int       @default(0)
+  firstSeenAt  DateTime  @default(now())
+  lastSeenAt   DateTime  @default(now())
+  adoptedAt    DateTime?
+
+  @@unique([priceClass, unitMicros])
+  @@index([priceClass])
+}
+
+/// A change in what COMPANIES pay for a class, caused by a sustained new
+/// Twilio price. Drives the in-app banner (our new price and the date only)
+/// and the platform notice. No companyId — it applies to everyone.
+model PhonePriceChange {
+  id            String   @id @default(cuid())
+  priceClass    String
+  /// Our charge per unit before and after, in cents.
+  previousCents Int?
+  chargeCents   Int
+  effectiveAt   DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  @@index([effectiveAt])
 }

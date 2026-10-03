@@ -10,6 +10,7 @@ import ActivityBeat from "@/app/components/layout/ActivityBeat";
 import BillingBanner from "@/app/components/layout/BillingBanner";
 import EmailVerifyBanner from "@/app/components/layout/EmailVerifyBanner";
 import SeatSharingBanner from "@/app/components/layout/SeatSharingBanner";
+import PhonePriceBanner from "@/app/components/layout/PhonePriceBanner";
 import AccountLocked from "@/app/components/layout/AccountLocked";
 import SetupIncomplete from "@/app/components/layout/SetupIncomplete";
 import ToastLayer from "@/app/components/ToastLayer";
@@ -580,6 +581,11 @@ export default async function AppLayout({ children }) {
                 search, Create, bell, avatar) and the phone's 52px bar
                 (hamburger, logo, search, bell). */}
             <TopBar />
+            {/* "Text and call prices changed" — our new price and the date,
+                owners/admins of a company that texts or calls through
+                FieldQuo only, never a demo. Renders nothing otherwise. Inside
+                the language provider because the sentence is translated. */}
+            <PhonePriceBanner />
             {/* The bottom padding reserves exactly what is pinned over the
                 bottom of the viewport: MobileTabBar below `lg` (0 from `lg`
                 up, where it stops rendering) plus whatever Save / Send bar the

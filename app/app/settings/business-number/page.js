@@ -144,14 +144,14 @@ function OnceMoved({ path, receptionist }) {
   );
 }
 
-function CostBox({ estimate, basedOn, portFee, country }) {
+function CostBox({ estimate, basedOn, portFee, country, callFloor }) {
   const { t } = useTranslation();
   if (!estimate) return null;
   const r = estimate.rates;
   return (
     <div className="rounded-lg bg-muted px-3 py-2 text-sm space-y-1">
       <div className="font-semibold text-foreground">
-        {t("app.bizNumber.cost.total", "About {amount} a month", { amount: money(estimate.totalCents) })}
+        {t("app.bizNumber.cost.total", "From {amount} a month", { amount: money(estimate.totalCents) })}
       </div>
       <div className="text-xs text-muted-foreground">
         {t("app.bizNumber.cost.breakdown", "{rent} number + {texts} texts", { rent: money(estimate.rentCents), texts: money(estimate.textCents) })}
@@ -172,6 +172,13 @@ function CostBox({ estimate, basedOn, portFee, country }) {
           photo: `${r.photoCents}¢`,
         })}
         {r.callCentsPerMinute ? `, ${t("app.bizNumber.cost.perMinute", "{rate} per call minute", { rate: `${r.callCentsPerMinute}¢` })}` : ""}.
+      </div>
+      <div className="text-xs text-muted-foreground">
+        {t("app.bizNumber.cost.rule", "Texts and calls are billed at cost × 2, minimum {text} per text, {photo} per photo and {minute} per call minute — so the estimate above is the least a month like that costs.", {
+          text: `${r.textCents}¢`,
+          photo: `${r.photoCents}¢`,
+          minute: `${callFloor}¢`,
+        })}
       </div>
       {portFee && (
         <div className="text-xs text-muted-foreground">
@@ -330,7 +337,7 @@ function PortForm({ number, data, onDone }) {
         </label>
       </div>
 
-      <CostBox estimate={data.costs.port} basedOn={data.costs.basedOn} portFee country={number.country} />
+      <CostBox estimate={data.costs.port} basedOn={data.costs.basedOn} portFee country={number.country} callFloor={data.costs.callCentsPerMinute} />
       {!canPort && <p className="text-sm text-muted-foreground">{t("app.bizNumber.notReadyPort", "Moving a number isn't switched on for your account yet. There's nothing for you to do — it'll open here when it's ready.")}</p>}
       <ErrorLine error={error} />
       <button type="submit" disabled={busy || !canPort} className={primaryBtn}>
@@ -384,7 +391,7 @@ function HostedForm({ number, data, onDone }) {
       </div>
       <p className="text-xs font-medium text-muted-foreground">{t("app.bizNumber.form.ownerAddress", "The owner's address")}</p>
       <AddressFields value={f.address} onChange={(address) => setF({ ...f, address })} country={number.country} />
-      <CostBox estimate={data.costs.hosted} basedOn={data.costs.basedOn} />
+      <CostBox estimate={data.costs.hosted} basedOn={data.costs.basedOn} callFloor={data.costs.callCentsPerMinute} />
       <ErrorLine error={error} />
       <button type="submit" disabled={busy || !data.available.twilio} className={primaryBtn}>
         {busy && <Loader2 size={14} className="animate-spin" />}
@@ -747,7 +754,7 @@ export default function BusinessNumberSettingsPage() {
 
       {data && (
         <p className="text-xs text-muted-foreground">
-          {t("app.bizNumber.footnote", "Landline or toll-free? Texts move to FieldQuo and calls stay with your provider — about {amount} a month from your phone balance ({balance} now).", {
+          {t("app.bizNumber.footnote", "Landline or toll-free? Texts move to FieldQuo and calls stay with your provider — from {amount} a month from your phone balance ({balance} now).", {
             amount: money(data.costs.hosted.totalCents),
             balance: money(data.balanceCents),
           })}{" "}

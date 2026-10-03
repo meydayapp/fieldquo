@@ -67,7 +67,7 @@ export const ARTICLES = {
         id: "cost",
         heading: "Ce que ça coûte",
         blocks: [
-          { p: "Tout est pris sur votre solde téléphonique (celui de la réceptionniste) : 4,00 $ par mois pour le numéro, facturés dès la mise en service, 2 ¢ par texto, 5 ¢ par photo et, sur un numéro transféré, 5 ¢ la minute pour les appels qu'on vous transfère ou que vous passez avec le bouton Appeler. L'écran affiche une estimation mensuelle d'après vos textos des 30 derniers jours avant que vous commenciez. FieldQuo ne facture rien pour transférer le numéro." },
+          { p: "Tout est pris sur votre solde téléphonique (celui de la réceptionniste) : 4,00 $ par mois pour le numéro, facturés dès la mise en service. Les textos et les appels sont facturés au coût × 2, au minimum 2 ¢ par texto, 5 ¢ par photo et, sur un numéro transféré, 5 ¢ la minute pour les appels qu'on vous transfère ou que vous passez avec le bouton Appeler — les textos de certains fournisseurs coûtent plus que ce minimum. L'écran affiche une estimation mensuelle minimale d'après vos textos des 30 derniers jours avant que vous commenciez. FieldQuo ne facture rien pour transférer le numéro." },
         ],
       },
     ],
