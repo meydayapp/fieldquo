@@ -75,6 +75,45 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Interior painting instant estimate: a room picker, sized like stairs (3 October 2026)
+
+The owner: build the interior painting instant quote from typical room sizes by region,
+"similarly to how we simplified the instant estimate for stairs".
+
+**What it does now.** On the public instant form, painting with interior sold opens on a
+room picker (`app/instant-quote/[companySlug]/RoomPicker.js`): add rooms by type (12 types),
+pick Small / Medium (typical, preselected) / Large, Standard / High ceiling, tick walls /
+ceiling / trim, count doors. "I know my measurements" switches to the old surface box,
+unchanged. The browser posts KEYS; the server (`measureForTrade`) assumes the dimensions from
+`lib/estimate/roomPresetData.js` for the region the company's own record states
+(`statedCountry` → `regionForCountry`; feet for US/CA, metres elsewhere), and
+`estimatePaintingRooms` prices walls by `areaGeometry` wall area (the builder's gross
+2 × (L + W) × H, openings not deducted) at the company's own $/sqft, and ceiling / trim / doors
+at the interior book's standard-tier `ceilingPrice` / `trimPrice` / `doorPrice` (derived live,
+like stairs' riser/baluster/post prices; shown read-only on the settings card). The draft gets
+one builder Room (4 walls) area per room with a "typical size … assumed, not measured. Confirm
+on site." note; every line carries the same detail; the lead and the report print each room as
+typical. Research and sources: `docs/research/ROOM-SIZES-2026.md`.
+
+**Proof.** `npm run check:room-presets` (new, in check:all, 1,201): table complete and cited,
+units by country, posted sizes ignored, payload and /measure rate-free (executed), area maths =
+areaGeometry for every preset, rooms price exactly as their wall area typed in, labels in all
+nine languages, and an md5 over 672 typed estimates, option lists, costing and two stored
+quotes equal to the commit before.
+
+### Owed
+- **Settled by the owner (3 October):** interior painting is priced on WALL area, never floor
+  ("people don't paint floors"), so the picker's wall pricing stands; the legacy builder's
+  "Floor area (sqft)" label is being renamed by another change. Ceilings in the picker are
+  still priced at the book's per-room `ceilingPrice`, not by ceiling area × a rate — the owner
+  said "ceilings on ceiling area"; switching needs a per-sqft ceiling rate the book does not
+  carry yet (the takeoff's `ceiling` substrate is area-driven already).
+- No per-company preset override (stairs has none); no Irish or NZ source (IE uses UK, NZ uses
+  AU); metric companies' per-sqft rates are restated per m² on lines, not re-asked.
+- The instant form itself still offers en/fr/es only; the picker's words exist in all nine.
+
+---
+
 ## The client's PO number on quotes, jobs and invoices (3 October 2026)
 
 Owner, 3 October: "We should be able to add PO jobs… to Quotes, invoices and
