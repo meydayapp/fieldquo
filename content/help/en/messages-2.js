@@ -523,7 +523,7 @@ export const ARTICLES = {
         heading: "Calling one client by hand",
         blocks: [
           { p: "On any quote, **Call about this quote** queues the same call for that one client — “Queued — we'll ring Maria within about 15 minutes.” A person pressing it has made the scope decision themselves, so the scope choice does not stop it; what still does is the master switch being off, a draft nobody has approved, a quote the client has not been emailed, and a client with no phone number. Consent and calling hours are checked at dial time exactly as for an automatic call." },
-          { tip: "Every call the assistant places appears on the Receptionist screen with a **We called** badge, its recording, its summary and its cost — the same 35¢ a minute as an answered call." },
+          { tip: "Every call the assistant places appears on the Receptionist screen with a **We called** badge, its recording, its summary and what it was charged — the same 35¢ a minute as an answered call." },
         ],
       },
       {
@@ -614,8 +614,8 @@ export const ARTICLES = {
           { table: {
             head: ["Item", "Cost"],
             rows: [
-              ["A text from the crew", "2¢ per 160 characters — a long text is two charges."],
-              ["A photo from the crew", "5¢, however much text rides along with it."],
+              ["A text from the crew", "From 2¢ per 160 characters — a long text is two charges. Some carriers are priced higher."],
+              ["A photo from the crew", "From 5¢, however much text rides along with it."],
               ["A reply from FieldQuo (the question, the confirmation, an @mention notice)", "The same rates, and only sent when the balance covers it."],
               ["The number", "$4 a month from your credit, the first month up front. The line stays connected up to $2 in the red so a crew mid-job is not cut off; past that it is paused at the provider until you top up."],
             ],

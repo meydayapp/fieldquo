@@ -272,7 +272,7 @@ const PART_1 = {
             rows: [
               ["Texto Voy en camino, recordatorio de cita", "El número compartido de FieldQuo, con el nombre de su empresa al inicio", "Nada — los mensajes a clientes no se cobran"],
               ["Recepcionista telefónica", "Un número local o gratuito que usted alquila, o su propio número desviado a él", "$4/mes local, $9/mes gratuito, más 35¢ por minuto (40¢ en gratuito), del crédito telefónico"],
-              ["Línea de mensajes de la cuadrilla", "Un número propio, comprado para la empresa, o la línea de prueba compartida de FieldQuo prestada 7 días", "$4/mes por su propia línea, 2¢ por mensaje y 5¢ por foto, del mismo crédito"],
+              ["Línea de mensajes de la cuadrilla", "Un número propio, comprado para la empresa, o la línea de prueba compartida de FieldQuo prestada 7 días", "$4/mes por su propia línea, desde 2¢ por mensaje y desde 5¢ por foto, del mismo crédito"],
             ],
           } },
           { p: "El crédito telefónico es un solo saldo prepagado, mostrado en **Configuración → Crédito de IA** como **Crédito telefónico** y en la página de la recepcionista como **Crédito**. Recargue $10, $30, $50 o $100 — o cualquier importe de $5 a $1,000 — con tarjeta, o active la **recarga automática** para cobrar a la tarjeta guardada cuando el saldo baje de $5, $10 o $20. Vea [[ai-credit-and-phone-credit|Crédito de IA y crédito telefónico]]." },
@@ -306,7 +306,7 @@ const PART_1 = {
         heading: "La línea de mensajes de la cuadrilla",
         blocks: [
           { p: "Su cuadrilla envía fotos a un solo número y se archivan en el trabajo correcto — por el trabajo nombrado en el mensaje, por GPS cuando el teléfono lo envía, o por el único trabajo que esa persona tiene ese día; cuando nada de eso lo decide, la oficina elige el trabajo bajo **Te necesita — elige el trabajo**. La persona se reconoce por el celular registrado en su ficha de trabajador. La configuración está en la página **Bandeja del equipo**, no en la recepcionista: **Comprarle a tu equipo su propio número** por $4 al mes, o **Usar la línea de prueba de FieldQuo** durante 7 días primero." },
-          { p: "Cada mensaje que entra o sale cuesta **2¢** por cada 160 caracteres y una foto **5¢**, del mismo crédito telefónico. Una foto entrante siempre se recibe y se cobra; si el crédito queda $2 en negativo, la línea se desconecta y la página dice **Los mensajes del equipo están en pausa porque se acabó tu crédito. Recarga y se reconectará.** Vea [[the-crew-inbox|La bandeja del equipo]]." },
+          { p: "Cada mensaje que entra o sale se cobra desde **2¢** por cada 160 caracteres y una foto desde **5¢** (algunos operadores tienen precios más altos), del mismo crédito telefónico. Una foto entrante siempre se recibe y se cobra; si el crédito queda $2 en negativo, la línea se desconecta y la página dice **Los mensajes del equipo están en pausa porque se acabó tu crédito. Recarga y se reconectará.** Vea [[the-crew-inbox|La bandeja del equipo]]." },
           { note: "La línea de prueba compartida es el mismo número desde el que salen los mensajes a clientes. Mientras está prestada a su cuadrilla, un STOP que un cliente le envíe cae en la bandeja del equipo y no se lee como una baja — una razón más para comprarle a la cuadrilla su propio número." },
         ],
       },

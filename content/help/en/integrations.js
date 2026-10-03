@@ -275,7 +275,7 @@ const PART_1 = {
             rows: [
               ["On my way text, appointment reminder", "FieldQuo's shared texting number, with your company name first", "Nothing — client texts are not metered"],
               ["Phone receptionist", "A local or toll-free number you rent, or your own number forwarded to it", "$4/month local, $9/month toll-free, plus 35¢ a minute (40¢ toll-free), from phone credit"],
-              ["Crew texting line", "A number of its own, bought for the company, or FieldQuo's shared test line on loan for 7 days", "$4/month for your own line, 2¢ a text and 5¢ a photo, from the same credit"],
+              ["Crew texting line", "A number of its own, bought for the company, or FieldQuo's shared test line on loan for 7 days", "$4/month for your own line, from 2¢ a text and from 5¢ a photo, from the same credit"],
             ],
           } },
           { p: "Phone credit is one prepaid balance, shown on **Settings → AI credit** as **Phone credit** and on the receptionist page as **Credit**. Top up in $10, $30, $50 or $100 — or any amount from $5 to $1,000 — with a card, or turn on **Automatic top-up** to charge the card on file when the balance drops below $5, $10 or $20. See [[ai-credit-and-phone-credit|AI credit and phone credit]]." },
@@ -309,7 +309,7 @@ const PART_1 = {
         heading: "The crew texting line",
         blocks: [
           { p: "Your crew text photos to one number and they are filed to the right job — by the job named in the text, by GPS when the phone sends it, or by the only job that person is on that day; when none of those decide it, the office picks the job under **Needs you — pick the job**. The person is recognised by the mobile on their worker record. Set-up is on the **Crew inbox** page, not under the receptionist: **Buy your crew a number of their own** at $4 a month, or **Use the FieldQuo test line** for 7 days first." },
-          { p: "Every text in or out costs **2¢** per 160 characters and a photo **5¢**, from the same phone credit. An incoming photo is always received and charged; if credit is $2 overdrawn the line is disconnected and the page reads **Crew texting is paused because your credit ran out. Top up and it reconnects.** See [[the-crew-inbox|The crew inbox]]." },
+          { p: "Every text in or out is from **2¢** per 160 characters and a photo from **5¢** (some carriers are priced higher), from the same phone credit. An incoming photo is always received and charged; if credit is $2 overdrawn the line is disconnected and the page reads **Crew texting is paused because your credit ran out. Top up and it reconnects.** See [[the-crew-inbox|The crew inbox]]." },
           { note: "The shared test line is the same number client texts leave from. While it is on loan to your crew, a client's STOP reply to it lands in the crew inbox and is not read as an opt-out — one more reason to buy the crew their own number." },
         ],
       },

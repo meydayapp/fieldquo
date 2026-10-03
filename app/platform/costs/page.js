@@ -44,6 +44,7 @@ import { AlertCircle, Loader2, RefreshCw } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { TWILIO_CATEGORY_LABELS } from "@/lib/platform/costs/dailyLedger";
 import { formatArchiveBytes } from "@/lib/marketing/videoArchive";
+import PhoneCostsTable from "./PhoneCostsTable";
 
 const CARD = "rounded-xl border border-border bg-card p-4 space-y-3";
 const BTN = "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
@@ -603,6 +604,9 @@ export default function PlatformCostsPage() {
               </p>
             ) : null}
           </section>
+
+          {/* ── Phone unit prices vs our charge (the 2× rule) ───────────── */}
+          <PhoneCostsTable cardClass={CARD} />
 
           {/* ── By period ────────────────────────────────────────────── */}
           <section className={CARD}>

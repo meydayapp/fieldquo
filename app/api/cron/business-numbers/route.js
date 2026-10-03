@@ -18,6 +18,7 @@ import { db } from "@/lib/db";
 import { getAppOrigin } from "@/lib/appUrl";
 import { syncRequest, billRent } from "@/lib/businessNumber/store";
 import { IN_FLIGHT } from "@/lib/businessNumber/state";
+import { settlePending } from "@/lib/phoneUsage/settle";
 
 const BATCH = 200;
 
@@ -58,5 +59,19 @@ export async function GET(request) {
       counts.errors++;
     }
   }
-  return NextResponse.json({ success: true, inFlight: inFlight.length, live: live.length, ...counts });
+  // ── Texts and calls: from the floor to Twilio's price × 2 ─────────────────
+  //
+  // Crew texts and business-number texts and calls alike (lib/phoneUsage/
+  // settle.js): each was charged its floor when it happened; here the ones
+  // Twilio has since rated are topped up, and the observed prices feed the
+  // cost table and the price-change detector. Own try: a settlement failure
+  // must not stop rent or syncing, nor the other way round.
+  let usage = null;
+  try {
+    usage = await settlePending();
+  } catch (err) {
+    console.error("[business-numbers] usage settlement failed:", err?.message);
+    counts.errors++;
+  }
+  return NextResponse.json({ success: true, inFlight: inFlight.length, live: live.length, ...counts, usage });
 }

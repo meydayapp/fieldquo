@@ -25,7 +25,7 @@ export const ARTICLES = {
             "**A landline or a toll-free number** — calls stay with your phone provider exactly as they are, and only texting moves to FieldQuo.",
             "**Any number outside the US and Canada** — not available yet. The screen says so.",
           ] },
-          { note: "A VoIP line has to move rather than keep its calls, because Twilio — the carrier FieldQuo uses — does not host texting on VoIP lines." },
+          { note: "A VoIP line has to move rather than keep its calls, because texting on a VoIP line cannot be moved on its own." },
         ],
       },
       {
@@ -39,7 +39,7 @@ export const ARTICLES = {
             "Press **Move my number**. The screen then tracks it: authorization signed, bill uploaded, account number and PIN, and the days spent waiting for your carrier.",
           ] },
           { warning: "Your carrier will text the phone to approve the move. Reply within 90 minutes or the move is cancelled. It takes 5–7 working days, up to 4 weeks, and afterwards the number no longer works on your SIM — get a new number from your carrier for the phone, or cancel that line, and check your contract for cancellation fees first." },
-          { tip: "Your PIN and account number are stored encrypted only while the move needs them, and deleted when it finishes. For a US number they go straight to Twilio and are never stored." },
+          { tip: "Your PIN and account number are stored encrypted only while the move needs them, and deleted when it finishes. For a US number they go straight to the carrier and are never stored." },
         ],
       },
       {
@@ -48,11 +48,11 @@ export const ARTICLES = {
         blocks: [
           { steps: [
             "Fill in the owner's name, an email for the authorization, a phone we can reach you on and the owner's address, then press **Start moving texts**.",
-            "When the screen says so, press **Call the number now** and stand by that phone. Twilio calls it and asks for the code shown on the screen.",
-            "Sign the authorization Twilio emails you.",
+            "When the screen says so, press **Call the number now** and stand by that phone. An automated call asks for the code shown on the screen.",
+            "Sign the authorization emailed to you.",
             "The carrier switches texting over, usually within 1–3 working days. Your calls are never affected.",
           ] },
-          { note: "If the number can already send texts through another company — a texting app or your provider's business-texting add-on — Twilio refuses it. The screen tells you to ask that company to remove texting from the number, then start again." },
+          { note: "If the number can already send texts through another company — a texting app or your provider's business-texting add-on — it can't be moved here. The screen tells you to ask that company to remove texting from the number, then start again." },
         ],
       },
       {
@@ -67,10 +67,10 @@ export const ARTICLES = {
         ],
       },
       {
-        id: "cost",
-        heading: "What it costs",
+        id: "prices",
+        heading: "Prices",
         blocks: [
-          { p: "Everything is taken from your phone balance (the one the receptionist uses): $4.00 a month for the number, charged from the day it goes live, 2¢ a text, 5¢ a photo, and on a moved number 5¢ a minute for calls forwarded to you or placed with the Call button. The screen shows a monthly estimate from your own last 30 days of texts before you start. FieldQuo charges nothing to move the number." },
+          { p: "Everything is taken from your phone balance (the one the receptionist uses): $4.00 a month for the number, charged from the day it goes live. Texts from 2¢ each, photos from 5¢, and on a moved number calls from 5¢ a minute (forwarded to you or placed with the Call button). Some carriers are priced higher. Before you start, the screen shows the least a month would come to, from your own last 30 days of texts. FieldQuo charges nothing to move the number." },
         ],
       },
     ],

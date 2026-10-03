@@ -22,7 +22,7 @@ export const ARTICLES = {
             "**Une ligne fixe ou un numéro sans frais** — les appels restent chez votre fournisseur tels quels, et seuls les textos passent à FieldQuo.",
             "**Tout numéro hors des États-Unis et du Canada** — pas encore offert. L'écran le dit.",
           ] },
-          { note: "Une ligne VoIP doit être transférée plutôt que de garder ses appels, parce que Twilio — l'opérateur qu'utilise FieldQuo — n'héberge pas les textos sur les lignes VoIP." },
+          { note: "Une ligne VoIP doit être transférée plutôt que de garder ses appels, parce que les textos d'une ligne VoIP ne peuvent pas être transférés seuls." },
         ],
       },
       {
@@ -36,7 +36,7 @@ export const ARTICLES = {
             "Appuyez sur **Transférer mon numéro**. L'écran suit ensuite la demande : autorisation signée, facture téléversée, numéro de compte et NIP, et les jours d'attente chez votre fournisseur.",
           ] },
           { warning: "Votre fournisseur enverra un texto au téléphone pour approuver le transfert. Répondez dans les 90 minutes, sinon il est annulé. Comptez 5 à 7 jours ouvrables, jusqu'à 4 semaines; ensuite, le numéro ne fonctionne plus sur votre carte SIM — demandez un nouveau numéro à votre fournisseur pour le téléphone, ou annulez cette ligne, et vérifiez d'abord les frais de résiliation de votre contrat." },
-          { tip: "Votre NIP et votre numéro de compte sont conservés chiffrés seulement le temps du transfert, puis supprimés. Pour un numéro américain, ils vont directement à Twilio et ne sont jamais conservés." },
+          { tip: "Votre NIP et votre numéro de compte sont conservés chiffrés seulement le temps du transfert, puis supprimés. Pour un numéro américain, ils vont directement à l'opérateur et ne sont jamais conservés." },
         ],
       },
       {
@@ -45,11 +45,11 @@ export const ARTICLES = {
         blocks: [
           { steps: [
             "Inscrivez le nom du propriétaire, un courriel pour l'autorisation, un téléphone où vous joindre et l'adresse du propriétaire, puis appuyez sur **Commencer le transfert des textos**.",
-            "Quand l'écran l'indique, appuyez sur **Appeler le numéro maintenant** et restez près de ce téléphone. Twilio l'appelle et demande le code affiché à l'écran.",
-            "Signez l'autorisation que Twilio vous envoie par courriel.",
+            "Quand l'écran l'indique, appuyez sur **Appeler le numéro maintenant** et restez près de ce téléphone. Un appel automatisé demande le code affiché à l'écran.",
+            "Signez l'autorisation qu'on vous envoie par courriel.",
             "Le fournisseur bascule les textos, généralement en 1 à 3 jours ouvrables. Vos appels ne sont jamais touchés.",
           ] },
-          { note: "Si le numéro peut déjà envoyer des textos par une autre entreprise — une appli de textos ou une option de textos d'affaires de votre fournisseur — Twilio le refuse. L'écran vous dit de demander à cette entreprise de retirer les textos du numéro, puis de recommencer." },
+          { note: "Si le numéro peut déjà envoyer des textos par une autre entreprise — une appli de textos ou une option de textos d'affaires de votre fournisseur — il ne peut pas être transféré ici. L'écran vous dit de demander à cette entreprise de retirer les textos du numéro, puis de recommencer." },
         ],
       },
       {
@@ -64,10 +64,10 @@ export const ARTICLES = {
         ],
       },
       {
-        id: "cost",
-        heading: "Ce que ça coûte",
+        id: "prices",
+        heading: "Les prix",
         blocks: [
-          { p: "Tout est pris sur votre solde téléphonique (celui de la réceptionniste) : 4,00 $ par mois pour le numéro, facturés dès la mise en service, 2 ¢ par texto, 5 ¢ par photo et, sur un numéro transféré, 5 ¢ la minute pour les appels qu'on vous transfère ou que vous passez avec le bouton Appeler. L'écran affiche une estimation mensuelle d'après vos textos des 30 derniers jours avant que vous commenciez. FieldQuo ne facture rien pour transférer le numéro." },
+          { p: "Tout est pris sur votre solde téléphonique (celui de la réceptionniste) : 4,00 $ par mois pour le numéro, facturés dès la mise en service. Textos à partir de 2 ¢ chacun, photos à partir de 5 ¢ et, sur un numéro transféré, appels à partir de 5 ¢ la minute (transférés vers vous ou passés avec le bouton Appeler). Certains fournisseurs sont plus chers. Avant que vous commenciez, l'écran affiche le minimum d'un mois, d'après vos textos des 30 derniers jours. FieldQuo ne facture rien pour transférer le numéro." },
         ],
       },
     ],

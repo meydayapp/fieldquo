@@ -520,7 +520,7 @@ export const ARTICLES = {
         heading: "Appeler un client à la main",
         blocks: [
           { p: "Sur n'importe quelle soumission, **Appeler au sujet de cette soumission** met le même appel en file pour ce seul client — « En file — nous appellerons Maria d'ici une quinzaine de minutes. » Une personne qui appuie a pris elle-même la décision de portée, donc le choix de portée ne l'arrête pas; ce qui l'arrête encore, c'est l'interrupteur principal désactivé, un brouillon que personne n'a approuvé, une soumission que le client n'a pas reçue par courriel, et un client sans numéro de téléphone. Le consentement et les heures d'appel sont vérifiés au moment de composer, exactement comme pour un appel automatique." },
-          { tip: "Chaque appel que l'assistant passe apparaît à l'écran Réceptionniste avec une pastille **Nous avons appelé**, son enregistrement, son résumé et son coût — les mêmes 35 ¢ la minute qu'un appel reçu." },
+          { tip: "Chaque appel que l'assistant passe apparaît à l'écran Réceptionniste avec une pastille **Nous avons appelé**, son enregistrement, son résumé et son prix — les mêmes 35 ¢ la minute qu'un appel reçu." },
         ],
       },
       {
@@ -611,8 +611,8 @@ export const ARTICLES = {
           { table: {
             head: ["Élément", "Coût"],
             rows: [
-              ["Un texto de l'équipe", "2 ¢ par tranche de 160 caractères — un long texto compte pour deux."],
-              ["Une photo de l'équipe", "5 ¢, quelle que soit la quantité de texte qui l'accompagne."],
+              ["Un texto de l'équipe", "À partir de 2 ¢ par tranche de 160 caractères — un long texto compte pour deux. Certains fournisseurs sont plus chers."],
+              ["Une photo de l'équipe", "À partir de 5 ¢, quelle que soit la quantité de texte qui l'accompagne."],
               ["Une réponse de FieldQuo (la question, la confirmation, un avis de @mention)", "Les mêmes tarifs, et envoyée seulement quand le solde la couvre."],
               ["Le numéro", "4 $ par mois sur votre crédit, le premier mois d'avance. La ligne reste branchée jusqu'à 2 $ dans le rouge pour qu'une équipe en plein chantier ne soit pas coupée; au-delà, elle est mise en pause chez le fournisseur jusqu'à votre recharge."],
             ],

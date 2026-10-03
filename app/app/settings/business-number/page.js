@@ -144,14 +144,14 @@ function OnceMoved({ path, receptionist }) {
   );
 }
 
-function CostBox({ estimate, basedOn, portFee, country }) {
+function CostBox({ estimate, basedOn, portFee, country, callFloor }) {
   const { t } = useTranslation();
   if (!estimate) return null;
   const r = estimate.rates;
   return (
     <div className="rounded-lg bg-muted px-3 py-2 text-sm space-y-1">
       <div className="font-semibold text-foreground">
-        {t("app.bizNumber.cost.total", "About {amount} a month", { amount: money(estimate.totalCents) })}
+        {t("app.bizNumber.cost.total", "From {amount} a month", { amount: money(estimate.totalCents) })}
       </div>
       <div className="text-xs text-muted-foreground">
         {t("app.bizNumber.cost.breakdown", "{rent} number + {texts} texts", { rent: money(estimate.rentCents), texts: money(estimate.textCents) })}
@@ -173,11 +173,18 @@ function CostBox({ estimate, basedOn, portFee, country }) {
         })}
         {r.callCentsPerMinute ? `, ${t("app.bizNumber.cost.perMinute", "{rate} per call minute", { rate: `${r.callCentsPerMinute}¢` })}` : ""}.
       </div>
+      <div className="text-xs text-muted-foreground">
+        {t("app.bizNumber.cost.rule", "Texts from {text} each, photos from {photo}, calls from {minute} a minute. Some carriers are priced higher, so the estimate above is the least a month like that comes to.", {
+          text: `${r.textCents}¢`,
+          photo: `${r.photoCents}¢`,
+          minute: `${callFloor}¢`,
+        })}
+      </div>
       {portFee && (
         <div className="text-xs text-muted-foreground">
           {country === "CA"
-            ? t("app.bizNumber.cost.portFeeCa", "Moving it: FieldQuo charges nothing. Twilio doesn't publish a Canadian port fee — if there is one, we'll tell you before filing.")
-            : t("app.bizNumber.cost.portFeeUs", "Moving it: no fee from FieldQuo or Twilio for a US number.")}
+            ? t("app.bizNumber.cost.portFeeCa", "Moving it: FieldQuo charges nothing. If the Canadian side charges a fee, we'll tell you before anything is filed.")
+            : t("app.bizNumber.cost.portFeeUs", "Moving it: no fee for a US number.")}
         </div>
       )}
     </div>
@@ -319,7 +326,7 @@ function PortForm({ number, data, onDone }) {
         {number.country === "CA" ? (
           <pre className="whitespace-pre-wrap text-xs bg-muted rounded-lg p-3 text-foreground">{loa}</pre>
         ) : (
-          <p className="text-sm text-muted-foreground">{t("app.bizNumber.loa.us", "Twilio will email the address above an authorization to sign. The move starts once it's signed.")}</p>
+          <p className="text-sm text-muted-foreground">{t("app.bizNumber.loa.us", "Our carrier partner will email the address above an authorization to sign. The move starts once it's signed.")}</p>
         )}
         <Field label={t("app.bizNumber.loa.sign", "Type your full name to sign")}>
           <input className={inputCls} value={f.signatureName || ""} onChange={set("signatureName")} />
@@ -330,7 +337,7 @@ function PortForm({ number, data, onDone }) {
         </label>
       </div>
 
-      <CostBox estimate={data.costs.port} basedOn={data.costs.basedOn} portFee country={number.country} />
+      <CostBox estimate={data.costs.port} basedOn={data.costs.basedOn} portFee country={number.country} callFloor={data.costs.callCentsPerMinute} />
       {!canPort && <p className="text-sm text-muted-foreground">{t("app.bizNumber.notReadyPort", "Moving a number isn't switched on for your account yet. There's nothing for you to do — it'll open here when it's ready.")}</p>}
       <ErrorLine error={error} />
       <button type="submit" disabled={busy || !canPort} className={primaryBtn}>
@@ -366,7 +373,7 @@ function HostedForm({ number, data, onDone }) {
     <form onSubmit={submit} className="space-y-4">
       <h2 className="text-lg font-semibold text-foreground">{t("app.bizNumber.hosted.title", "Keep calls where they are, move texts to FieldQuo")}</h2>
       <p className="text-sm text-muted-foreground">
-        {t("app.bizNumber.hosted.body", "Your provider keeps your calls. Twilio takes over texting for the number: it calls the number once to prove it's yours, then emails an authorization to sign. Usually live within 1–3 working days.")}
+        {t("app.bizNumber.hosted.body", "Your provider keeps your calls. Our carrier partner takes over texting for the number: an automated call to the number proves it's yours, then an authorization arrives by email to sign. Usually live within 1–3 working days.")}
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label={t("app.bizNumber.form.owner", "Owner's name")}>
@@ -384,7 +391,7 @@ function HostedForm({ number, data, onDone }) {
       </div>
       <p className="text-xs font-medium text-muted-foreground">{t("app.bizNumber.form.ownerAddress", "The owner's address")}</p>
       <AddressFields value={f.address} onChange={(address) => setF({ ...f, address })} country={number.country} />
-      <CostBox estimate={data.costs.hosted} basedOn={data.costs.basedOn} />
+      <CostBox estimate={data.costs.hosted} basedOn={data.costs.basedOn} callFloor={data.costs.callCentsPerMinute} />
       <ErrorLine error={error} />
       <button type="submit" disabled={busy || !data.available.twilio} className={primaryBtn}>
         {busy && <Loader2 size={14} className="animate-spin" />}
@@ -438,10 +445,10 @@ function Tracker({ number, onChanged }) {
             <Step done label={t("app.bizNumber.track.bill", "Bill uploaded")} detail={number.billName} />
             <Step done label={t("app.bizNumber.track.account", "Account number and PIN")} detail={number.accountNumberHint || (number.secretsPurgedAt ? t("app.bizNumber.track.purged", "Sent, and deleted from FieldQuo") : null)} />
             {number.submitChannel === "twilio_form" && (
-              <Step done={past("awaiting_filing")} current={s === "awaiting_filing"} label={t("app.bizNumber.track.filing", "FieldQuo files it with Twilio (within one working day)")} />
+              <Step done={past("awaiting_filing")} current={s === "awaiting_filing"} label={t("app.bizNumber.track.filing", "FieldQuo files it with the carrier (within one working day)")} />
             )}
             {number.submitChannel === "twilio_api" && (
-              <Step done={past("awaiting_signature")} current={s === "awaiting_signature" || s === "submitted"} label={t("app.bizNumber.track.emailSign", "Sign the authorization Twilio emailed to {email}", { email: number.holderEmail })} />
+              <Step done={past("awaiting_signature")} current={s === "awaiting_signature" || s === "submitted"} label={t("app.bizNumber.track.emailSign", "Sign the authorization emailed to {email}", { email: number.holderEmail })} />
             )}
             <Step
               done={s === "active"}
@@ -456,9 +463,9 @@ function Tracker({ number, onChanged }) {
           </>
         ) : (
           <>
-            <Step done={past("submitted")} current={s === "submitted"} label={t("app.bizNumber.track.eligible", "Twilio checks the number can be hosted")} />
+            <Step done={past("submitted")} current={s === "submitted"} label={t("app.bizNumber.track.eligible", "The carrier checks the number can take texts here")} />
             <Step done={past("pending_verification")} current={s === "pending_verification"} label={t("app.bizNumber.track.call", "Ownership call to the number")} />
-            <Step done={past("awaiting_signature")} current={s === "awaiting_signature"} label={t("app.bizNumber.track.emailSign", "Sign the authorization Twilio emailed to {email}", { email: number.holderEmail })} />
+            <Step done={past("awaiting_signature")} current={s === "awaiting_signature"} label={t("app.bizNumber.track.emailSign", "Sign the authorization emailed to {email}", { email: number.holderEmail })} />
             <Step done={s === "active"} current={s === "carrier_processing"} label={t("app.bizNumber.track.carrier", "The carrier switches texting over (1–3 working days)")} />
           </>
         )}
@@ -471,7 +478,7 @@ function Tracker({ number, onChanged }) {
       {!port && s === "pending_verification" && (
         <div className="space-y-2">
           <p className="text-sm text-foreground">
-            {t("app.bizNumber.verify.body", "Stand by the phone on {number}. Twilio will call it and ask for a code — the one shown here once you press the button.", { number: number.e164 })}
+            {t("app.bizNumber.verify.body", "Stand by the phone on {number}. An automated call will ask for a code — the one shown here once you press the button.", { number: number.e164 })}
           </p>
           <button type="button" onClick={() => act("verify_call")} disabled={busy} className={primaryBtn}>
             {busy && <Loader2 size={14} className="animate-spin" />}
@@ -490,7 +497,7 @@ function Tracker({ number, onChanged }) {
           {number.alreadyTextEnabled
             ? t(
                 "app.bizNumber.alreadyEnabled",
-                "This number can already send and receive texts through another company — a texting app, your phone provider's business-texting add-on, or an old software tool. Twilio can only host texting for a number that isn't text-enabled anywhere else. Ask whoever provides that texting to remove it from the number, wait for them to confirm, then start again here. Your calls are not affected.",
+                "This number can already send and receive texts through another company — a texting app, your phone provider's business-texting add-on, or an old software tool. Texting can only be moved here for a number that isn't text-enabled anywhere else. Ask whoever provides that texting to remove it from the number, wait for them to confirm, then start again here. Your calls are not affected.",
               )
             : number.failureReason}
         </div>
@@ -685,7 +692,7 @@ export default function BusinessNumberSettingsPage() {
             )}
             {verdict && !verdict.ok && <p className="text-sm text-muted-foreground">{verdict.reason}</p>}
             {verdict?.ok && verdict.reasonKey === "voip_ports" && (
-              <p className="text-sm text-muted-foreground">{t("app.bizNumber.voipPorts", "Twilio won't host texting on a VoIP line, so this number has to move to FieldQuo instead.")}</p>
+              <p className="text-sm text-muted-foreground">{t("app.bizNumber.voipPorts", "Texting can't be moved on its own for a VoIP line, so this number has to move to FieldQuo instead.")}</p>
             )}
             {(status === "failed" || status === "cancelled") && number?.failureReason && (
               <p className="text-sm text-muted-foreground">{t("app.bizNumber.lastAttempt", "Last attempt:")} {number.failureReason}</p>
@@ -747,7 +754,7 @@ export default function BusinessNumberSettingsPage() {
 
       {data && (
         <p className="text-xs text-muted-foreground">
-          {t("app.bizNumber.footnote", "Landline or toll-free? Texts move to FieldQuo and calls stay with your provider — about {amount} a month from your phone balance ({balance} now).", {
+          {t("app.bizNumber.footnote", "Landline or toll-free? Texts move to FieldQuo and calls stay with your provider — from {amount} a month from your phone balance ({balance} now).", {
             amount: money(data.costs.hosted.totalCents),
             balance: money(data.balanceCents),
           })}{" "}

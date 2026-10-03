@@ -520,7 +520,7 @@ export const ARTICLES = {
         heading: "Llamar a un cliente a mano",
         blocks: [
           { p: "En cualquier presupuesto, **Llamar sobre este presupuesto** encola la misma llamada para ese único cliente — «En cola — llamaremos a Maria en unos 15 minutos.» Una persona que lo pulsa ya tomó la decisión de alcance por sí misma, así que la opción de alcance no lo detiene; lo que sí lo detiene es el interruptor principal apagado, un borrador que nadie aprobó, un presupuesto que el cliente no ha recibido por correo, y un cliente sin número de teléfono. El consentimiento y el horario de llamadas se comprueban al marcar, exactamente igual que en una llamada automática." },
-          { tip: "Cada llamada que hace el asistente aparece en la pantalla Recepcionista con una etiqueta **Llamamos**, su grabación, su resumen y su costo — los mismos 35¢ por minuto que una llamada atendida." },
+          { tip: "Cada llamada que hace el asistente aparece en la pantalla Recepcionista con una etiqueta **Llamamos**, su grabación, su resumen y su precio — los mismos 35¢ por minuto que una llamada atendida." },
         ],
       },
       {
@@ -611,8 +611,8 @@ export const ARTICLES = {
           { table: {
             head: ["Concepto", "Costo"],
             rows: [
-              ["Un mensaje de la cuadrilla", "2¢ por cada 160 caracteres — un mensaje largo son dos cargos."],
-              ["Una foto de la cuadrilla", "5¢, sea cual sea la cantidad de texto que la acompañe."],
+              ["Un mensaje de la cuadrilla", "Desde 2¢ por cada 160 caracteres — un mensaje largo son dos cargos. Algunos operadores tienen precios más altos."],
+              ["Una foto de la cuadrilla", "Desde 5¢, sea cual sea la cantidad de texto que la acompañe."],
               ["Una respuesta de FieldQuo (la pregunta, la confirmación, un aviso de @mención)", "Las mismas tarifas, y solo se envía cuando el saldo la cubre."],
               ["El número", "$4 al mes de su crédito, el primer mes por adelantado. La línea sigue conectada hasta $2 en negativo para que una cuadrilla a mitad de un trabajo no quede cortada; pasado eso, se pausa en el proveedor hasta que usted recargue."],
             ],
