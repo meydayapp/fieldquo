@@ -2727,6 +2727,15 @@ model Company {
   // Instant payouts the company requested from Settings → Payments.
   instantPayouts        InstantPayout[]
   connectFeeRecoveries  ConnectFeeRecovery[]
+
+  /// The shape of the client-PO reference the "Generate" button suggests
+  /// (lib/documents/clientPo.js): prefix, the year or not, and how many
+  /// digits the sequence is padded to — "PO-2026-0042" by default. Changing
+  /// it never rewrites a reference already on a document; the next one is
+  /// counted only among values of the NEW shape. Settings → Company.
+  clientPoPrefix      String  @default("PO-")
+  clientPoIncludeYear Boolean @default(true)
+  clientPoDigits      Int     @default(4)
   @@index([influencerRepId])
 }
 
@@ -4647,6 +4656,16 @@ model JobPaymentStage {
   /// email goes out, same discipline Invoice.sentAt and Quote.sentAt already
   /// keep: this records an EVENT, not an intention.
   requestedAt DateTime?
+
+  /// Set when a payment request for this stage was due to go out but the
+  /// client requires a PO number on invoices (Client.requiresPo) and the
+  /// job's not-yet-sent invoice has none — "no PO, no invoice", the owner's
+  /// decision of 3 October 2026. The stage stays `pending`, the invoice stays
+  /// a draft, and the office gets a task. Entering the PO on the quote, the
+  /// job or the invoice clears this in one conditional write (the claim) and
+  /// sends the request — exactly once, because only one writer can flip a
+  /// non-null to null. See lib/paymentSchedule/poHold.js.
+  heldForPoAt DateTime?
 
   /// The one invoice for this job — shared by every stage. Many stages to one
   /// invoice, NOT one each; see the header above. SetNull, never Cascade: an

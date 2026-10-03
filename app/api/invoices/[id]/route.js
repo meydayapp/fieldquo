@@ -36,6 +36,7 @@ import { recordActivity } from "@/lib/activity/log";
 import { invoiceChaseKey, resolveTaskBySource } from "@/lib/tasks/autoCreate";
 import { syncCommissionsForInvoice } from "@/lib/commissions/hook";
 import { readClientPoInput } from "@/lib/documents/clientPo";
+import { releaseHeldForPo } from "@/lib/paymentSchedule/run";
 
 // Next 16: params is a Promise — same fix as the quotes route.
 export async function GET(request, { params }) {
@@ -347,6 +348,10 @@ export async function PATCH(request, { params }) {
     });
     if (refusal)
       return NextResponse.json(refusal.body, { status: refusal.status });
+
+    // A PO just written onto a draft releases the payment request held for
+    // it — once (lib/paymentSchedule/poHold.js). Never throws.
+    if (clientPoNumber) await releaseHeldForPo({ invoiceIds: [existing.parentInvoiceId || id] });
 
     // Same shape GET returns. Permission to edit an invoice is not permission
     // to read the client's private fields — those are a separate dial — and a
