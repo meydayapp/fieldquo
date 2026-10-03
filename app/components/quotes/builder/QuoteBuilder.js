@@ -557,6 +557,71 @@ export default function QuoteBuilder({ mode = "create", quoteId = null }) {
       typeof window === "undefined"
         ? null
         : new URLSearchParams(window.location.search).get("fromCall");
+    // `?fromPlanRead=<id>` — the draft a drawing read produced
+    // (lib/planRead/). Same rule as a call's: a prefill, not a saved quote,
+    // so the painting takeoff opens LIVE and the company's book prices it
+    // here exactly as it prices a typed one. The read's own preview figure
+    // never travels.
+    const planReadId =
+      typeof window === "undefined"
+        ? null
+        : new URLSearchParams(window.location.search).get("fromPlanRead");
+
+    if (planReadId && !callId) {
+      let cancelled = false;
+      (async () => {
+        const base = initialStateFromQuote(null);
+        try {
+          const res = await fetch(`/api/plan-reads/${planReadId}/draft-quote`);
+          if (!res.ok) throw new Error("no draft");
+          const data = await res.json();
+          if (cancelled) return;
+          const draft = data?.draft;
+          const cats = Array.isArray(bootstrap.categories) ? bootstrap.categories : [];
+          const missing = [];
+          const groups = (Array.isArray(draft?.groups) ? draft.groups : [])
+            .map((g) => {
+              const category = cats.find((c) => c.key === g.categoryKey && c.enabled);
+              if (!category) {
+                missing.push(g.categoryKey);
+                return null;
+              }
+              const group = newScopeGroup(category, category.label, rateOverridesIn(cats, category.id), {
+                tempId: crypto.randomUUID(),
+                language: bootstrap.companyLanguage || "en",
+              });
+              return {
+                ...group,
+                // The read's takeoff replaces the empty one the group opens
+                // with; the builder derives every line and price from it.
+                ...(g.takeoff ? { takeoff: g.takeoff } : {}),
+                // Only access equipment the ESTIMATOR priced on the read.
+                lineItems: Array.isArray(g.extraLines) ? g.extraLines : [],
+              };
+            })
+            .filter(Boolean);
+          const client =
+            (draft?.clientId && (bootstrap.clients || []).find((c) => c.id === draft.clientId)) || null;
+          const notMoved = missing.length
+            ? `\n\n${t("app.planRead.builderMissing", "Some of the drawing read's work is under a service you haven't switched on ({keys}). Switch it on in Settings → Services, then start the quote from the read again.", { keys: [...new Set(missing)].join(", ") })}`
+            : "";
+          setInitial({
+            ...base,
+            groups,
+            client,
+            reviewNotes: `${typeof draft?.reviewNotes === "string" ? draft.reviewNotes : ""}${notMoved}`,
+            // Sent with the save so the read records its quote and its files
+            // become the quote's (POST /api/quotes sourcePlanReadId).
+            planReadId: draft?.planReadId || planReadId,
+          });
+        } catch {
+          if (!cancelled) setInitial(base);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
 
     if (!callId) {
       setInitial(initialStateFromQuote(null));
@@ -2309,6 +2374,9 @@ export function QuoteBuilderForm({
       // References only — the route prices them. Empty on a save that
       // clicked none, and then the body is exactly what it always was.
       offerAddOns: livePendingOffers,
+      // The drawing read this draft came from, create only. Absent on every
+      // other save, so their bodies are unchanged.
+      sourcePlanReadId: !isEdit ? initial?.planReadId || null : null,
     });
 
     let quote = null;
@@ -3284,6 +3352,17 @@ export function QuoteBuilderForm({
             ? selectedClient?.name || ""
             : t("app.quoteNew.subtitle")}
         </p>
+        {/* Commercial bids arrive as a drawing set and a scope sheet: the
+            drawing read (lib/planRead/) drafts this same builder from them.
+            Not on an edit, and not on a draft that already came from one. */}
+        {!isEdit && !initial?.planReadId && (
+          <Link
+            href="/app/quotes/drawings/new"
+            className="mt-2 inline-flex items-center gap-1.5 min-h-[40px] text-sm text-primary hover:underline"
+          >
+            {t("app.planRead.startFromDrawings", "Start from drawings — upload a drawing set, scope sheet and photos")}
+          </Link>
+        )}
       </div>
 
       {isEdit && start.status === "accepted" && (

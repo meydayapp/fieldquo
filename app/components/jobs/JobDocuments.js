@@ -205,6 +205,8 @@ export default function JobDocuments({ jobId }) {
                         ` · ${t("app.jobDocuments.source.invoiceSend", "Filed when sent")}`}
                       {doc.source === "backfill" &&
                         ` · ${t("app.jobDocuments.source.backfill", "Filed from the quote")}`}
+                      {doc.source === "quote_upload" &&
+                        ` · ${t("app.jobDocuments.source.quoteUpload", "Uploaded on the quote")}`}
                       {doc.source === "prep_guide" &&
                         ` · ${t("app.jobDocuments.source.prepGuide", "Filed when sent to the client")}`}
                     </p>
