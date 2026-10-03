@@ -38,6 +38,7 @@ import { checkServiceArea, serviceAreaConfigured, postalCodeFromAddress } from "
 import { geocodeAddress } from "@/lib/measure/roofMeasurement";
 import { visitForSubmit, linkVisitToLead } from "@/lib/tracking/visits";
 import { estimateBucket, pixelParams } from "@/lib/tracking/attribution";
+import { roomSummary } from "@/lib/estimate/roomPresets";
 
 export async function POST(request, { params }) {
   // The heaviest of the public intakes — it re-measures, re-prices, writes a
@@ -398,6 +399,14 @@ export async function POST(request, { params }) {
       country: addressAsked ? country : undefined,
       details: {
         ...enteredDetails(intake, materialKey),
+        // The painting room picker: each room as the homeowner told it (the
+        // room, the size, what to paint) with the dimensions the price
+        // ASSUMED, marked as typical and to be confirmed on site — in the
+        // form's language. Built from the priced measurement, not the posted
+        // list, so the lead names exactly the rooms the figure was made of.
+        ...(Array.isArray(pricedMeasurement?.rooms) && pricedMeasurement.rooms.length > 0 && {
+          rooms: pricedMeasurement.rooms.map((r) => roomSummary(r, language)).join(" · "),
+        }),
         // The option actually tapped (the lead card prints its label), the
         // trade's answers, the note, and the area verdict — only when it is
         // a real "outside"; `false` is not written, absence is the record.
@@ -535,6 +544,11 @@ function enteredDetails(intake, materialKey) {
     for (const [k, v] of Object.entries(intake).slice(0, 40)) {
       if (!/^[A-Za-z][A-Za-z0-9_]{0,40}$/.test(k)) continue;
       if (k === "items") continue; // handled below — it is the one list
+      // The painting form's mode switch ("rooms" / "measured") is how the
+      // page chose which box to show, not something the homeowner said; the
+      // rooms themselves are written from the PRICED measurement (see the
+      // `rooms` detail above), never from the posted list.
+      if (k === "mode" || k === "rooms") continue;
       if (typeof v === "number" && Number.isFinite(v)) out[k] = v;
       else if (typeof v === "boolean") out[k] = v;
       else if (typeof v === "string" && v.trim()) out[k] = v.trim().slice(0, 200);
@@ -632,6 +646,15 @@ function sanitiseMeasurement(m) {
     provider: m.provider ? { key: m.provider.key, reason: m.provider.reason ?? null } : null,
     programKey: m.programKey ?? null,
     addOnKeys: Array.isArray(m.addOnKeys) ? m.addOnKeys : null,
+    // Interior painting by the room (lib/estimate/roomPresets.js): every room
+    // with the dimensions it was ASSUMED at and `assumed: true`, the region
+    // whose typical sizes they are, and whether the company's record stated
+    // its country. The report re-prices from these, the draft's takeoff is
+    // built from them, and the review screen prints them as typical sizes.
+    rooms: Array.isArray(m.rooms) ? m.rooms : null,
+    roomRegion: m.roomRegion ?? null,
+    roomRegionStated: m.roomRegionStated ?? null,
+    unitSystem: m.unitSystem ?? null,
   };
 }
 

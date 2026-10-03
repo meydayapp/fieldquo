@@ -117,6 +117,13 @@ export async function POST(request, { params }) {
     ...(isPolygonMeasure(INSTANT_ESTIMATE_TRADES[trade]?.measure) && {
       polygon: Array.isArray(m.vertices) ? m.vertices : null,
     }),
+    // Interior painting by the room: the rooms as priced — type, size, the
+    // dimensions ASSUMED for them (marked `assumed`) and their wall areas —
+    // so the panel can say what the figure was built from. Sizes, not rates.
+    ...(Array.isArray(m.rooms) && {
+      rooms: m.rooms,
+      unitSystem: m.unitSystem ?? null,
+    }),
     // Gutters: the run, the count and the imagery date — facts, not rates —
     // plus the two sentences the range is shown under, in the company's
     // language (lib/i18n/gutterEstimateCopy.js). Absent for every other trade.
