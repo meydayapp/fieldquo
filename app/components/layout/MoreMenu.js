@@ -17,29 +17,52 @@
 // row here is hidden nowhere else.
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Search, X, FileText, Clock, Wallet, Users, Settings as SettingsIcon } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
-import { HOME_ITEM, NAV_GROUPS, MORE_GROUPS, isNavRowActive, useNavGroups } from "@/app/components/layout/AdminSidebar";
-import { TAB_ITEMS } from "@/app/components/layout/MobileTabBar";
+import { HOME_ITEM, NAV_GROUPS, MORE_GROUPS, isNavRowActive, useNavGroups, useRailMoreGroups } from "@/app/components/layout/AdminSidebar";
+import { usePermissions } from "@/app/providers/PermissionProvider";
+import { useFeatureFlags } from "@/app/providers/FeatureProvider";
+import { phoneBarFor } from "@/lib/nav/phoneBar";
 import { useSettingsGroups } from "@/app/components/layout/SettingsSidebar";
 import { useNavShell } from "@/app/components/layout/NavShell";
 import { useRovingRows } from "@/app/components/layout/rovingRows";
 import AccountMenu from "@/app/components/layout/AccountMenu";
 
 // The phone sheet's first tile: the rail's rows that are NOT one of the
-// five tabs under it — so the sheet is the phone's whole menu, and every
-// destination is two taps from anywhere (More, then the row). Built from
-// NAV_GROUPS at module level, filtered at render through the same pipeline.
-const TAB_HREFS = new Set(TAB_ITEMS.map((i) => i.href));
-const PHONE_MENU_GROUPS = [
-  {
-    key: "app.nav.mainMenu",
-    items: [HOME_ITEM, ...NAV_GROUPS.flatMap((g) => g.items)].filter((i) => !TAB_HREFS.has(i.href)),
-  },
-];
+// tabs under it — so the sheet is the phone's whole menu, and every
+// destination is two taps from anywhere (More, then the row).
+//
+// "The tabs under it" are the CALLER's tabs since the bar became per role
+// (2026-10-03, lib/nav/phoneBar.js). Subtracting the owner's five from
+// everybody's sheet would hide Jobs and Invoices from an Estimator whose bar
+// carries neither, and would list the Calendar twice on that same person's
+// screen. The More groups below lose the bar's rows the same way — a
+// Dispatcher's Team tab is the timesheets screen, so Timesheets is not a
+// second row in their sheet. Filtered at render through the same pipeline.
+function usePhoneSheetGroups() {
+  const caller = usePermissions();
+  const flags = useFeatureFlags();
+  const barHrefs = phoneBarFor(caller, flags).tabs.map((row) => row.href).join(" ");
+  const PHONE_MENU_GROUPS = useMemo(() => {
+    const onBar = new Set(barHrefs.split(" "));
+    return {
+      menu: [
+        {
+          key: "app.nav.mainMenu",
+          items: [HOME_ITEM, ...NAV_GROUPS.flatMap((g) => g.items)].filter((i) => !onBar.has(i.href)),
+        },
+      ],
+      more: MORE_GROUPS.map((g) => ({ ...g, items: g.items.filter((i) => !onBar.has(i.href)) })),
+    };
+  }, [barHrefs]);
+  return {
+    menu: useNavGroups(PHONE_MENU_GROUPS.menu),
+    more: useNavGroups(PHONE_MENU_GROUPS.more),
+  };
+}
 
 /** Each More group's icon and its one-line description key. */
 export const MORE_GROUP_META = {
@@ -60,7 +83,7 @@ function isActive(pathname, href) {
  */
 export function MoreGrid({ onNavigate, columns = 2 }) {
   const { t } = useTranslation();
-  const groups = useNavGroups(MORE_GROUPS);
+  const groups = useRailMoreGroups();
   const onRowsKeyDown = useRovingRows();
   if (groups.length === 0) {
     return <p className="text-sm text-muted-foreground px-1">{t("app.more.empty")}</p>;
@@ -134,8 +157,7 @@ function Tile({ group, meta = {}, onNavigate, compact = false }) {
 function PhoneMenuTiles({ onNavigate }) {
   const { t } = useTranslation();
   const pathname = usePathname();
-  const menu = useNavGroups(PHONE_MENU_GROUPS);
-  const more = useNavGroups(MORE_GROUPS);
+  const { menu, more } = usePhoneSheetGroups();
   const settings = useSettingsGroups();
   // The mockup's sheet (s3 `.sheet .srow` / `.sg`): a 10px heading, then
   // ROWS — the rail rows that are not tabs one per row, and each More group

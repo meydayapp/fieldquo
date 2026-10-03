@@ -4,6 +4,15 @@
 // the company's own crew chat — a room (#general, a job room) or a direct
 // message to one person — with an optional line from the sender.
 //
+// ── Who the links open for (2026-10-03) ─────────────────────────────────────
+//
+// The quote link opens for people whose grid reads quotes; Crew are at `none`
+// and the page refuses them. When the quote is a job, the message also
+// carries the job's WORK ORDER — no prices, the crew's copy — labelled for
+// the crew, and a share straight to one person who can open neither is
+// refused before it posts. The rules, and why, are lib/quotes/
+// shareWithStaff.js; this file supplies the words.
+//
 // ── Why chat, and not a new "internal note" ─────────────────────────────────
 //
 // The company already has a place its people read (app/app/chat, backed by
@@ -19,8 +28,10 @@ import { useEffect, useState } from "react";
 import { Share2, X, Loader2, AlertCircle } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { fetchJson } from "@/lib/fetchJson";
+import { workOrderPath } from "@/lib/workOrder/url";
+import { shareMessageBody, shareVerdict } from "@/lib/quotes/shareWithStaff";
 
-export default function ShareWithStaffModal({ isOpen, onClose, quoteId, quoteNumber, onShared }) {
+export default function ShareWithStaffModal({ isOpen, onClose, quoteId, quoteNumber, workOrderJobId = null, onShared }) {
   const { t } = useTranslation();
   const [rooms, setRooms] = useState(null);
   const [people, setPeople] = useState([]);
@@ -57,11 +68,32 @@ export default function ShareWithStaffModal({ isOpen, onClose, quoteId, quoteNum
 
   if (!isOpen) return null;
 
-  const link = typeof window !== "undefined" ? `${window.location.origin}/app/quotes/${quoteId}` : `/app/quotes/${quoteId}`;
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const link = `${origin}/app/quotes/${quoteId}`;
+  const workOrderLink = workOrderJobId ? `${origin}${workOrderPath(workOrderJobId)}` : null;
+  const pickedPerson = target.startsWith("member:") ? people.find((p) => p.id === target.slice(7)) || null : null;
+  // A directory row from before canOpenQuote existed says nothing — unknown,
+  // not "no". Only an explicit false refuses.
+  const personCanOpen = pickedPerson ? (typeof pickedPerson.canOpenQuote === "boolean" ? pickedPerson.canOpenQuote : null) : null;
 
   async function share() {
     if (!target) {
       setError(t("app.shareStaff.pickTarget", "Pick a room or a person."));
+      return;
+    }
+    const verdict = shareVerdict({
+      kind: pickedPerson ? "person" : "room",
+      personCanOpenQuote: personCanOpen,
+      hasWorkOrder: Boolean(workOrderLink),
+    });
+    if (!verdict.ok) {
+      setError(
+        t(
+          "app.shareStaff.noAccessNoWorkOrder",
+          "{name} can't open quotes, and there's no work order yet — it exists once the client accepts. Share it with someone in the office instead.",
+          { name: pickedPerson?.name || pickedPerson?.email || "" },
+        ),
+      );
       return;
     }
     setBusy(true);
@@ -78,7 +110,14 @@ export default function ShareWithStaffModal({ isOpen, onClose, quoteId, quoteNum
         roomId = made?.roomId;
         if (!roomId) throw new Error(t("app.shareStaff.noRoom", "Couldn't open a conversation with them."));
       }
-      const body = [message.trim(), `${t("app.shareStaff.quoteWord", "Quote")} ${quoteNumber}: ${link}`].filter(Boolean).join("\n");
+      const body = shareMessageBody({
+        message,
+        quoteLine: t("app.shareStaff.quoteLine", "Quote {number}, for the office (needs quote access): {link}", { number: quoteNumber, link }),
+        workOrderLine: workOrderLink
+          ? t("app.shareStaff.workOrderLine", "Work order, no prices, for the crew booked on the job: {link}", { link: workOrderLink })
+          : null,
+        accessNote: t("app.shareStaff.accessNote", "This link opens for people with access to quotes. The crew get the work order once the quote is a job."),
+      });
       await fetchJson(`/api/chat/rooms/${roomId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -103,7 +142,11 @@ export default function ShareWithStaffModal({ isOpen, onClose, quoteId, quoteNum
           <button type="button" onClick={onClose} aria-label={t("app.action.close", "Close")} className="p-1.5 text-muted-foreground hover:text-foreground"><X size={16} /></button>
         </div>
         <div className="px-5 py-4 space-y-3">
-          <p className="text-xs text-muted-foreground">{t("app.shareStaff.hint", "Posts a link to this quote in your team chat. Only people in your company can open it.")}</p>
+          <p className="text-xs text-muted-foreground">
+            {workOrderLink
+              ? t("app.shareStaff.hintWithJob", "Posts the quote link for the office and the job's work order, with no prices, for the crew. Everyone in the room reads your message.")
+              : t("app.shareStaff.hintNoJob", "Posts a link to this quote. It opens for people with access to quotes; crew can't open it and get the work order once the client accepts. Everyone in the room reads your message.")}
+          </p>
           <div>
             <label htmlFor="share-staff-target" className="block text-xs font-medium text-muted-foreground mb-1">{t("app.shareStaff.to", "To")}</label>
             {rooms === null ? (
@@ -121,7 +164,12 @@ export default function ShareWithStaffModal({ isOpen, onClose, quoteId, quoteNum
                 {people.length > 0 && (
                   <optgroup label={t("app.shareStaff.people", "People")}>
                     {people.map((p) => (
-                      <option key={p.id} value={`member:${p.id}`}>{p.name || p.email}</option>
+                      <option key={p.id} value={`member:${p.id}`}>
+                        {p.name || p.email}
+                        {p.canOpenQuote === false
+                          ? ` — ${workOrderLink ? t("app.shareStaff.getsWorkOrder", "gets the work order") : t("app.shareStaff.cantOpen", "can't open quotes")}`
+                          : ""}
+                      </option>
                     ))}
                   </optgroup>
                 )}
@@ -133,6 +181,7 @@ export default function ShareWithStaffModal({ isOpen, onClose, quoteId, quoteNum
             <textarea id="share-staff-message" value={message} onChange={(e) => setMessage(e.target.value)} rows={3} className="w-full border border-border rounded px-2 py-2 text-sm bg-background resize-none" placeholder={t("app.shareStaff.messagePlaceholder", "Can you check the ceiling price before this goes out?")} />
           </div>
           <p className="text-[11px] text-muted-foreground break-all">{link}</p>
+          {workOrderLink ? <p className="text-[11px] text-muted-foreground break-all">{workOrderLink}</p> : null}
           {error ? <p className="text-xs text-red-600 flex items-center gap-1.5"><AlertCircle size={12} /> {error}</p> : null}
         </div>
         <div className="flex justify-end gap-2 px-5 py-3 border-t border-border">

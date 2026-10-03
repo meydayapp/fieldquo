@@ -22,13 +22,13 @@
 //
 // Below `lg` the shell renders NO bar of its own. app/components/layout/
 // MobileTabBar.js — mounted once by app/app/layout.js for every /app screen —
-// swaps its pipeline tabs for the me tabs (MeTabBar below) whenever the
-// pathname is one of these screens, or whenever the caller is a crew member
-// (lib/dashboard/crewHome.js isCrewHome — the same decision that gives them
-// My day on /app). Two fixed bars at the bottom of one
-// viewport would be the alternative, and <main>'s padding only reserves one.
-// So: the bar is the layout's, the tabs are this file's, the decision is
-// lib/me/tabs.js's.
+// draws the me tabs (MeTabBar below) on these screens for everybody who is
+// not crew. Crew keep their own role bar (Clock · Today · Chat · More, whose
+// More is /app/me/more — lib/nav/phoneBar.js) on these screens too, because
+// for them it is already this section's bar. Two fixed bars at the bottom of
+// one viewport would be the alternative, and <main>'s padding only reserves
+// one. So: the bar is the layout's, the me tabs are this file's, the
+// decisions are lib/me/tabs.js's and lib/nav/phoneBar.js's.
 //
 // From `lg` up the same five tabs are a sub-nav across the top of the page,
 // inside the ordinary /app layout with the sidebar — the sidebar's "My home"

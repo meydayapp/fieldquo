@@ -16,7 +16,16 @@ import {
   NAV_REQUIREMENTS,
 } from "../lib/permissions/nav.js";
 import { PERMISSION_PRESETS, PRESET_TO_ROLE } from "../lib/permissions.js";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
+import {
+  phoneBarFor,
+  phoneBarSetFor,
+  phoneTabActive,
+  phoneMoreActive,
+  railPinsClock,
+  rowGateKeys,
+  PHONE_MORE,
+} from "../lib/nav/phoneBar.js";
 
 let pass = 0;
 const failures = [];
@@ -119,6 +128,101 @@ check("non-array groups pass through", filterNavGroupsByPermission(null, employe
 check("non-array items pass through", filterNavItemsByPermission(undefined, employee) === undefined);
 check("a group with no items array doesn't throw", filterNavGroupsByPermission([{ key: "x" }], employee).length === 0);
 check("flat item list filters", filterNavItemsByPermission([{ key: "app.nav.team" }, { key: "app.nav.clock" }], employee).length === 1);
+
+// ── The phone bar, per role (2026-10-03) ───────────────────────────────────
+//
+// The owner: "the core things of the other employees should be easily
+// accessed there." Each preset's bar is pinned here, EXECUTED through the
+// real phoneBarFor against the real preset grids — so a preset edit that
+// would drop a tab (or add a tab its grid refuses) fails here, not on a
+// phone. Every tab is then re-asked of navRowAllowed for its own key and
+// every `also` key, its page must exist, and the More slot must be the
+// only "More" — no tab duplicates it and the sheet drops the bar's rows.
+console.log("\nThe phone bar, per preset — executed\n");
+const PRESET_BARS = {
+  owner: { caller: owner, set: "office", hrefs: ["/app/leads", "/app/quotes", "/app/jobs", "/app/invoices", "/app/chat"], more: "sheet", pin: false },
+  admin: { caller: { role: "admin", permissions: null }, set: "office", hrefs: ["/app/leads", "/app/quotes", "/app/jobs", "/app/invoices", "/app/chat"], more: "sheet", pin: false },
+  worker: { set: "crew", hrefs: ["/app/clock", "/app", "/app/chat"], more: "page", pin: true },
+  estimator: { set: "estimator", hrefs: ["/app/leads", "/app/quotes", "/app/appointments", "/app/chat"], more: "sheet", pin: true },
+  dispatcher: { set: "dispatch", hrefs: ["/app/scheduler", "/app/jobs", "/app/settings/team/timesheets", "/app/chat"], more: "sheet", pin: true },
+  manager: { set: "dispatch", hrefs: ["/app/scheduler", "/app/jobs", "/app/settings/team/timesheets", "/app/chat"], more: "sheet", pin: true },
+};
+const pageExists = (href) => existsSync(new URL(`../app${href}/page.js`, import.meta.url));
+for (const [name, want] of Object.entries(PRESET_BARS)) {
+  const caller = want.caller || { role: PRESET_TO_ROLE[name], permissions: PERMISSION_PRESETS[name].values };
+  const bar = phoneBarFor(caller);
+  const hrefs = bar.tabs.map((t) => t.href);
+  check(`${name}: the ${want.set} set — ${hrefs.join(" · ")} · More`,
+    bar.set === want.set && JSON.stringify(hrefs) === JSON.stringify(want.hrefs));
+  check(`${name}: ${bar.tabs.length + 1} slots, at most six`, bar.tabs.length + 1 <= 6);
+  check(`${name}: every tab passes navRowAllowed for its key and each 'also' key`,
+    bar.tabs.every((row) => rowGateKeys(row).every((k) => navRowAllowed(k, caller))));
+  check(`${name}: every tab is a real page`, bar.tabs.every((row) => pageExists(row.href)));
+  check(`${name}: More is the ${want.more}${bar.more.href ? ` (${bar.more.href})` : ""}`,
+    bar.more.kind === want.more && (!bar.more.href || pageExists(bar.more.href)));
+  check(`${name}: no tab is a second More`, !hrefs.some((h) => h === "/app/more" || h === bar.more.href));
+  check(`${name}: the desktop rail ${want.pin ? "pins" : "does not pin"} the clock`, railPinsClock(caller) === want.pin);
+}
+
+// Crew: no money anywhere on the bar. The four office documents are the money
+// screens a crew grid refuses; none may be a tab, and Today is My day, whose
+// payload is whitelisted (check:dashboard-home).
+{
+  const crewCaller = { role: PRESET_TO_ROLE.worker, permissions: PERMISSION_PRESETS.worker.values };
+  const hrefs = phoneBarFor(crewCaller).tabs.map((t) => t.href);
+  check("Crew: no quotes, invoices, leads or payroll on the bar",
+    !hrefs.some((h) => ["/app/quotes", "/app/invoices", "/app/leads", "/app/payroll", "/app/me/earnings"].includes(h)));
+  check("Crew: Today lights on /app only, not on every /app screen",
+    phoneTabActive(phoneBarFor(crewCaller).tabs.find((t) => t.href === "/app"), "/app") &&
+    !phoneTabActive(phoneBarFor(crewCaller).tabs.find((t) => t.href === "/app"), "/app/clock"));
+  check("Crew: More is lit on the employee-home screens it opens", phoneMoreActive(PHONE_MORE.crew, "/app/me/earnings"));
+}
+
+// The Team tab needs BOTH rules: the timesheets page is NoAccessPanel below
+// user:manage, the row below timeTracking:view_record_edit_all. A custom grid
+// that holds one and not the other must not be handed the tab.
+{
+  const oddDispatcher = { role: "employee", permissions: { ...PERMISSION_PRESETS.dispatcher.values } };
+  const bar = phoneBarFor(oddDispatcher);
+  check("a schedule-running EMPLOYEE (no user:manage) gets no Team tab", bar.set === "dispatch" && !bar.tabs.some((t) => t.href === "/app/settings/team/timesheets"));
+  check("…and still a bar with Schedule, Jobs and Chat", ["/app/scheduler", "/app/jobs", "/app/chat"].every((h) => bar.tabs.some((t) => t.href === h)));
+}
+
+// A grid at `none` on everything an estimator set carries falls back to the
+// crew bar rather than "Chat · More" (the docs/MOBILE-TABBAR.md edge case).
+{
+  const bare = { role: "employee", permissions: { ...PERMISSION_PRESETS.estimator.values, requests: "none", quotes: "view_only", invoices: "view_only" } };
+  check("a quotes-only reader is an estimator-set member", phoneBarSetFor(bare) === "estimator");
+  const hollow = { role: "employee", permissions: { ...PERMISSION_PRESETS.worker.values, invoices: "view_only" } };
+  const hb = phoneBarFor(hollow);
+  check("an invoices-only reader (office set, Jobs and Invoices survive) keeps real tabs", hb.tabs.filter((t) => t.href !== "/app/chat").length > 0);
+}
+
+// Legacy and unresolved callers keep the owner's bar, as before the split.
+check("a null caller gets the office bar", phoneBarFor(null).set === "office" && phoneBarFor(null).tabs.length === 5);
+check("a gridless employee keeps the office bar they had", phoneBarSetFor(legacy) === "office");
+check("a gridless supervisor keeps the office bar they had", phoneBarSetFor({ role: "supervisor", permissions: null }) === "office");
+
+// A feature that is off takes its tab with it, exactly as on the rail.
+{
+  const crewCaller = { role: PRESET_TO_ROLE.worker, permissions: PERMISSION_PRESETS.worker.values };
+  const chatOff = { team_chat: { state: "hidden", visible: false, usable: false } };
+  check("team_chat hidden → no Chat tab on the crew bar", !phoneBarFor(crewCaller, chatOff).tabs.some((t) => t.href === "/app/chat"));
+}
+
+// The More sheet subtracts the CALLER's bar (MoreMenu.js usePhoneSheetGroups),
+// so an Estimator's sheet still reaches Jobs and Invoices and does not list
+// Calendar twice. Source-level, because the hook needs React; the inputs it
+// subtracts are the executed bars above.
+{
+  const moreSrc = readFileSync(new URL("../app/components/layout/MoreMenu.js", import.meta.url), "utf8");
+  check("the sheet subtracts phoneBarFor(caller, flags), not a fixed list",
+    /phoneBarFor\(caller, flags\)\.tabs/.test(moreSrc) && /!onBar\.has\(i\.href\)/.test(moreSrc) && !/TAB_HREFS/.test(moreSrc));
+  const sidebarSrc = readFileSync(new URL("../app/components/layout/AdminSidebar.js", import.meta.url), "utf8");
+  check("the rail pins through railPinsClock and drops the pinned row from More",
+    /railPinsClock\(caller\) \? PINNED_CLOCK : NOTHING_PINNED/.test(sidebarSrc) &&
+    /railPinsClock\(caller\) \? MORE_GROUPS_UNPINNED : MORE_GROUPS/.test(sidebarSrc));
+}
 
 console.log(`\n${pass + failures.length} checks, ${failures.length} failure(s).\n`);
 if (failures.length) process.exitCode = 1;

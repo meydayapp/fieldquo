@@ -72,6 +72,7 @@ import {
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { useTradeGate } from "@/app/providers/TradeGateProvider";
 import { filterNavGroupsByTrade } from "@/lib/settings/tradeGateNav";
+import { railPinsClock } from "@/lib/nav/phoneBar";
 import FeatureRowBadge from "@/app/components/layout/FeatureRowBadge";
 import { useNavShell, isSettingsPath } from "@/app/components/layout/NavShell";
 import { SettingsPanel } from "@/app/components/layout/SettingsSidebar";
@@ -407,6 +408,36 @@ export function useNavItems(items) {
   );
 }
 
+// ── The clock, pinned for the people who punch it (2026-10-03) ─────────────
+//
+// The same object More › Crew holds, so the gates, the help article and the
+// active-row rule are that row's. Pinned under Home on the rail for every
+// role that is not office (railPinsClock in lib/nav/phoneBar.js — crew,
+// estimators, dispatchers and managers clock in daily; most owners do not),
+// and dropped from More for those same people, so the row is in one place.
+// The phone sheet keeps it: the rail is not on a phone.
+export const CLOCK_ITEM = MORE_GROUPS.find((g) => g.key === "app.nav.group.moreCrew").items.find(
+  (i) => i.key === "app.nav.clock",
+);
+const PINNED_CLOCK = [CLOCK_ITEM];
+const NOTHING_PINNED = [];
+const MORE_GROUPS_UNPINNED = MORE_GROUPS.map((g) => ({
+  ...g,
+  items: g.items.filter((i) => i !== CLOCK_ITEM),
+}));
+
+/** The rows pinned under Home for this caller, through the rail's two gates. */
+export function useRailPins() {
+  const caller = usePermissions();
+  return useNavItems(railPinsClock(caller) ? PINNED_CLOCK : NOTHING_PINNED);
+}
+
+/** MORE_GROUPS for the rail and /app/more: minus whatever the rail pins for this caller. */
+export function useRailMoreGroups() {
+  const caller = usePermissions();
+  return useNavGroups(railPinsClock(caller) ? MORE_GROUPS_UNPINNED : MORE_GROUPS);
+}
+
 // One group open at a time (owner, 2026-09-29: "if I open a new accordion
 // the other should close … to keep things minimalistic"). This reverses the
 // earlier all-open default, which existed because the owner once couldn't
@@ -440,7 +471,8 @@ export default function AdminSidebar() {
 
   const featureFlags = useFeatureFlags();
   const navGroups = useNavGroups(NAV_GROUPS);
-  const moreGroups = useNavGroups(MORE_GROUPS);
+  const moreGroups = useRailMoreGroups();
+  const railPins = useRailPins();
   const bottomItems = useNavItems(BOTTOM_ITEMS);
   const settingsItem = bottomItems.find((i) => i.key === "app.nav.settings") || null;
   const moreCount = moreGroups.reduce((n, g) => n + g.items.length, 0);
@@ -525,6 +557,7 @@ export default function AdminSidebar() {
         onKeyDown={onRowsKeyDown}
       >
         {row(HOME_ITEM, { forceExpanded })}
+        {railPins.map((item) => row(item, { forceExpanded }))}
 
         {navGroups.map((group) => {
           const open = isGroupOpen({
