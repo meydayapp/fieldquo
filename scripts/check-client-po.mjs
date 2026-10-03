@@ -20,6 +20,12 @@
 //   6. the generated PO-<year>-NNNN reference and its sequence
 //   7. supplier purchase orders untouched — a different series, never read
 //   8. the accounting export's column, escaped
+//   9. "no PO, no invoice": a PO-required client's deposit request is held
+//      (stage pending, invoice draft, a task for the office), released by a
+//      PO on the quote/job/invoice exactly once — two racing saves, one send;
+//      every other client, and every invoice already sent, unchanged
+//  10. the company's reference format: prefix / year / digits, validated,
+//      previewed with the generator's own function, old values untouched
 //
 // Judged by exit code.
 
@@ -41,6 +47,11 @@ import {
   nextGeneratedClientPo,
   allocateGeneratedClientPo,
   draftInvoicesFollowingJobPo,
+  holdPaymentRequestForPo,
+  poHoldTaskKey,
+  readClientPoFormat,
+  validateClientPoFormat,
+  formatGeneratedClientPo,
 } from "@/lib/documents/clientPo";
 import { documentFacts, documentCustomFacts } from "@/lib/documentSections/customFacts";
 import { DOCUMENT_LABELS, documentLabels, documentFormatters } from "@/lib/i18n/documentLabels";
@@ -57,6 +68,9 @@ import { buildAccountingExport } from "@/lib/export/accountingExport";
 import { nextPoNumber, formatPoNumber } from "@/lib/purchasing/poNumber";
 import { quoteRequestBody } from "@/lib/quotes/builderRequest";
 import { invoiceCreateBody, invoicePatchBody } from "@/lib/invoices/builderRequest";
+import { requestStagePayment } from "@/lib/paymentSchedule/run";
+import { releaseHeldPaymentRequests } from "@/lib/paymentSchedule/poHold";
+import { selectInvoiceBanners } from "@/lib/invoices/lifecycle";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => readFileSync(join(ROOT, p), "utf8");
@@ -86,28 +100,77 @@ function fakeDb(seed = {}) {
   const rows = JSON.parse(JSON.stringify(seed));
   const writes = [];
   const touched = new Set();
+  // Prisma's filter vocabulary, as far as the client-PO paths use it:
+  // equality, null, { in }, { not }, { startsWith, mode }, OR, AND. Anything
+  // else relational is read as "matches" (not modelled).
   const matches = (row, where = {}) =>
-    Object.entries(where).every(([k, v]) => {
-      if (v && typeof v === "object" && !Array.isArray(v) && !(v instanceof Date)) return true; // relational filters: not modelled
+    Object.entries(where || {}).every(([k, v]) => {
+      if (k === "OR") return v.some((w) => matches(row, w));
+      if (k === "AND") return v.every((w) => matches(row, w));
+      if (v === null) return row[k] === null || row[k] === undefined;
+      if (v && typeof v === "object" && !Array.isArray(v) && !(v instanceof Date)) {
+        if ("in" in v) return v.in.includes(row[k]);
+        if ("not" in v) return v.not === null ? row[k] !== null && row[k] !== undefined : row[k] !== v.not;
+        if ("startsWith" in v) {
+          const a = String(row[k] ?? "");
+          return v.mode === "insensitive" ? a.toLowerCase().startsWith(v.startsWith.toLowerCase()) : a.startsWith(v.startsWith);
+        }
+        return true;
+      }
       return row[k] === v;
     });
+  // `include` / `select` of a relation, answered from the sibling table by
+  // its foreign key (invoice → invoiceId, client → clientId, job → jobId).
+  const withRelations = (row, spec) => {
+    if (!row || !spec) return row;
+    const out = { ...row };
+    for (const [rel, sub] of Object.entries(spec)) {
+      if (!sub || !rows[rel]) continue;
+      const target = rows[rel].find((r) => r.id === row[`${rel}Id`]) || null;
+      out[rel] = target ? (sub === true ? { ...target } : withRelations(target, sub.include || sub.select)) : null;
+    }
+    return out;
+  };
   const model = (name) => {
     rows[name] = rows[name] || [];
+    const list = () => rows[name];
     return {
-      findFirst: async ({ where } = {}) => (touched.add(name), rows[name].find((r) => matches(r, where)) ?? null),
-      findUnique: async ({ where } = {}) => (touched.add(name), rows[name].find((r) => matches(r, where)) ?? null),
-      findMany: async ({ where } = {}) => (touched.add(name), rows[name].filter((r) => matches(r, where))),
-      count: async () => (touched.add(name), 0),
+      findFirst: async ({ where, include, select } = {}) => (touched.add(name), withRelations(list().find((r) => matches(r, where)) ?? null, include || select)),
+      findUnique: async ({ where, include, select } = {}) => (touched.add(name), withRelations(list().find((r) => matches(r, where)) ?? null, include || select)),
+      findMany: async ({ where } = {}) => (touched.add(name), list().filter((r) => matches(r, where))),
+      count: async ({ where } = {}) => (touched.add(name), list().filter((r) => matches(r, where)).length),
       create: async ({ data }) => {
         touched.add(name);
-        const row = { id: `${name}-${rows[name].length + 1}`, ...data };
-        rows[name].push(row);
+        // The unique index on Task.sourceKey, which the hold's "one task per
+        // invoice" leans on.
+        if (name === "task" && data.sourceKey && list().some((r) => r.sourceKey === data.sourceKey)) {
+          const err = new Error("Unique constraint failed on sourceKey");
+          err.code = "P2002";
+          throw err;
+        }
+        const row = { id: `${name}-${list().length + 1}`, status: name === "task" ? "open" : undefined, ...data };
+        list().push(row);
         writes.push({ model: name, op: "create", data });
         return row;
       },
       createMany: async ({ data }) => (touched.add(name), writes.push({ model: name, op: "createMany", data }), { count: 0 }),
-      update: async ({ where, data }) => (touched.add(name), writes.push({ model: name, op: "update", where, data }), { id: where?.id, ...data }),
-      updateMany: async ({ where, data }) => (touched.add(name), writes.push({ model: name, op: "updateMany", where, data }), { count: 0 }),
+      // Applied synchronously, before the first await resolves, the way a
+      // single UPDATE … WHERE is atomic in Postgres: two racing claims cannot
+      // both see the row still matching.
+      update: async ({ where, data }) => {
+        touched.add(name);
+        writes.push({ model: name, op: "update", where, data });
+        const row = list().find((r) => matches(r, where));
+        if (row) Object.assign(row, data);
+        return row ? { ...row } : { id: where?.id, ...data };
+      },
+      updateMany: async ({ where, data }) => {
+        touched.add(name);
+        writes.push({ model: name, op: "updateMany", where, data });
+        const hit = list().filter((r) => matches(r, where));
+        for (const r of hit) Object.assign(r, data);
+        return { count: hit.length };
+      },
       upsert: async ({ create }) => (touched.add(name), writes.push({ model: name, op: "upsert", data: create }), create),
       deleteMany: async () => ({ count: 0 }),
     };
@@ -122,6 +185,7 @@ function fakeDb(seed = {}) {
         if (prop === "then") return undefined;
         if (prop === "__writes") return writes;
         if (prop === "__touched") return touched;
+        if (prop === "__rows") return rows;
         if (typeof prop !== "string") return undefined;
         return model(prop);
       },
@@ -278,7 +342,7 @@ console.log("\n2. Carry-forward — quote → job → invoice, executed\n");
   ok("…and prints it in the document's language, only when set", /clientPoLine\(data, documentLabels\(data\.language\)\) && \(/.test(coPage));
 
   const quoteRoute = decomment(read("app/api/quotes/[id]/route.js"));
-  ok("a quote's PO is editable while open and refused once decided", /if \(poChanging && !\["draft", "sent"\]\.includes\(existing\.status\)\)/.test(quoteRoute) && /\.\.\.\(poChanging && \{ clientPoNumber \}\)/.test(quoteRoute));
+  ok("a quote's PO is editable while open; once decided it can only be added, not changed", /if \(poChanging && !\["draft", "sent"\]\.includes\(existing\.status\) && !poAddedAfterDecision\)/.test(quoteRoute) && /\.\.\.\(poChanging && \{ clientPoNumber \}\)/.test(quoteRoute));
   ok("a new quote stores what the builder sent", /clientPoNumber: readClientPoInput\(body\) \?\? null/.test(decomment(read("app/api/quotes/route.js"))));
 }
 
@@ -486,7 +550,7 @@ console.log("\n6. Generated PO-<year>-NNNN — the sequence\n");
   ok("the allocator counts quotes, jobs and invoices together", value === "PO-2026-0014", value);
   ok("…and never reads the supplier purchaseOrder table", !db.__touched.has("purchaseOrder"));
   const src = decomment(read("lib/documents/clientPo.js"));
-  ok("…company-scoped and year-scoped, case-insensitive", /where = \{ companyId, clientPoNumber: \{ startsWith: `PO-\$\{year\}-`, mode: "insensitive" \} \}/.test(src));
+  ok("…company-scoped and shape-scoped, case-insensitive", /where = \{ companyId, clientPoNumber: \{ startsWith: clientPoStem\(f, year\), mode: "insensitive" \} \}/.test(src));
 
   const route = decomment(read("app/api/client-po/next/route.js"));
   ok("GET /api/client-po/next writes nothing", !/\.(create|update|upsert|delete)(Many)?\(/.test(route));
@@ -536,11 +600,173 @@ console.log("\nThe builders' request bodies — untouched when no PO is involved
   const q = { isEdit: true, subtotal: 1, appliedDiscount: 0, tax: 0, taxEnabled: true, total: 1, notes: "", reviewNotes: "", processNotes: "", validUntil: null, clientPhotos: [], siteAddress: "", groupsPayload: [], canEditScope: true, assignedToTouched: false, version: "v" };
   ok("quote: an untouched box adds no key (the doc-builder md5 holds)", same(quoteRequestBody(q), quoteRequestBody({ ...q, clientPoNumber: undefined })) && !("clientPoNumber" in quoteRequestBody(q)));
   ok("quote: a typed PO is sent, last", Object.keys(quoteRequestBody({ ...q, clientPoNumber: "4471" })).at(-1) === "clientPoNumber");
-  ok("quote: a decided quote never sends it", !("clientPoNumber" in quoteRequestBody({ ...q, canEditScope: false, clientPoNumber: "4471" })));
+  ok("quote: the builder decides — a locked PO is passed as undefined and adds no key", !("clientPoNumber" in quoteRequestBody({ ...q, canEditScope: false, clientPoNumber: undefined })));
+  ok("quote: a decided quote that never had a PO can be given one", quoteRequestBody({ ...q, canEditScope: false, clientPoNumber: "4471" }).clientPoNumber === "4471");
+  const builder = read("app/components/quotes/builder/QuoteBuilder.js");
+  ok("quote builder: locked only when decided AND already carrying a PO", /const clientPoLocked = Boolean\(isEdit\) && !OPEN_STATUSES\.includes\(start\.status\) && Boolean\(start\.clientPoNumber\);/.test(builder) && /clientPoNumber: \(clientPoTouched \|\| start\.clientPoNumber\) && !clientPoLocked \? clientPoNumber : undefined/.test(builder));
   ok("quote create: sent when typed", quoteRequestBody({ ...q, isEdit: false, clientPoNumber: "4471" }).clientPoNumber === "4471");
   const i = { clientId: "c", lineItems: [], subtotal: 1, tax: 0, taxEnabled: true, total: 1, notes: "", clientPhotos: [], dueDate: "", status: "draft" };
   ok("invoice create: no key unless given", !("clientPoNumber" in invoiceCreateBody(i)) && invoiceCreateBody({ ...i, clientPoNumber: "" }).clientPoNumber === "");
   ok("invoice edit: no key unless given", !("clientPoNumber" in invoicePatchBody({ lineItems: [], isDraft: true })) && invoicePatchBody({ lineItems: [], isDraft: true, clientPoNumber: "4471" }).clientPoNumber === "4471");
+}
+
+// ══ 9. "No PO, no invoice" — the held deposit ════════════════════════════════
+console.log("\n9. The held deposit — held, prompted, released once\n");
+{
+  const northline = { id: "cl1", companyId: "c1", name: "Northline Property Management", email: "ap@northline.test", requiresPo: true };
+  ok("hold: PO-required client, no PO, never sent", holdPaymentRequestForPo({ client: northline, invoice: { clientPoNumber: null, sentAt: null } }));
+  ok("no hold: the invoice has a PO", !holdPaymentRequestForPo({ client: northline, invoice: { clientPoNumber: "NPM-1", sentAt: null } }));
+  ok("no hold: a whitespace PO is no PO", holdPaymentRequestForPo({ client: northline, invoice: { clientPoNumber: "  ", sentAt: null } }));
+  ok("no hold: a client without the rule (unchanged — sent immediately)", !holdPaymentRequestForPo({ client: { ...northline, requiresPo: false }, invoice: { clientPoNumber: null, sentAt: null } }));
+  ok("no hold: an invoice ALREADY sent keeps being asked for (owner's rule 2)", !holdPaymentRequestForPo({ client: northline, invoice: { clientPoNumber: null, sentAt: "2026-10-01T00:00:00Z" } }));
+
+  const seed = (over = {}) => ({
+    company: [{ id: "c1", defaultLanguage: "en" }],
+    member: [{ id: "m1", companyId: "c1", active: true, role: "owner", userId: "u-owner" }],
+    client: [{ ...northline, ...(over.client || {}) }],
+    invoice: [{ id: "inv1", companyId: "c1", clientId: "cl1", invoiceNumber: "INV-2026-0042", status: "draft", sentAt: null, clientPoNumber: null, ...(over.invoice || {}) }],
+    job: [{ id: "j1", companyId: "c1" }],
+    jobPaymentStage: [
+      { id: "s1", companyId: "c1", jobId: "j1", invoiceId: "inv1", seq: 1, label: "Deposit", trigger: "on_invoice_created", status: "pending", amountCents: 150000, heldForPoAt: null, dueDate: null },
+      { id: "s2", companyId: "c1", jobId: "j1", invoiceId: "inv1", seq: 2, label: "Balance", trigger: "job_end", status: "pending", amountCents: 350000, heldForPoAt: null, dueDate: "2027-01-01T00:00:00Z" },
+    ],
+    task: [],
+  });
+
+  // The automatic deposit request, through the shipped requestStagePayment.
+  const db = fakeDb(seed());
+  const first = await quietly(() => requestStagePayment("s1", { db }));
+  ok("the deposit request is HELD, not sent", first.fired === false && first.reason === "po_required", first);
+  const s1 = db.__rows.jobPaymentStage.find((s) => s.id === "s1");
+  ok("…the stage stays pending, stamped held", s1.status === "pending" && Boolean(s1.heldForPoAt));
+  ok("…the invoice stays a draft, never sent", db.__rows.invoice[0].status === "draft" && db.__rows.invoice[0].sentAt === null);
+  ok("…nothing was minted on the way (no portal token written)", !db.__writes.some((w) => w.model === "client"));
+  const task = db.__rows.task.find((t) => t.sourceKey === poHoldTaskKey("inv1"));
+  ok("…the office gets a prompt naming the client and the request", Boolean(task) && task.title === "Northline Property Management requires a PO — add it to send the Deposit request" && task.priority === "high" && task.invoiceId === "inv1", task);
+  const stamp = s1.heldForPoAt;
+  const again = await quietly(() => requestStagePayment("s1", { db }));
+  ok("the cron finding it again re-holds — same first stamp, still one task", again.reason === "po_required" && db.__rows.jobPaymentStage.find((s) => s.id === "s1").heldForPoAt === stamp && db.__rows.task.length === 1);
+
+  // Release: two PO saves racing, then a third.
+  let sends = 0;
+  const fire = async (stageId) => {
+    sends++;
+    const s = db.__rows.jobPaymentStage.find((x) => x.id === stageId);
+    s.status = "requested";
+    return { fired: true, outcome: "requested" };
+  };
+  const [a, b] = await Promise.all([
+    releaseHeldPaymentRequests(db, { invoiceIds: ["inv1"], fire }),
+    releaseHeldPaymentRequests(db, { invoiceIds: ["inv1"], fire }),
+  ]);
+  ok("two PO saves racing send the held deposit exactly ONCE", sends === 1 && a.length + b.length === 1, { sends, a, b });
+  const c = await releaseHeldPaymentRequests(db, { invoiceIds: ["inv1"], fire });
+  ok("…a third save sends nothing", sends === 1 && c.length === 0);
+  ok("…the stage is requested and no longer held", db.__rows.jobPaymentStage.find((s) => s.id === "s1").status === "requested" && db.__rows.jobPaymentStage.find((s) => s.id === "s1").heldForPoAt === null);
+  ok("…and the prompt is answered", db.__rows.task.find((t) => t.sourceKey === poHoldTaskKey("inv1")).status === "done");
+
+  // A later stage held by the cron and not yet due waits for its date.
+  const later = fakeDb(seed());
+  later.__rows.jobPaymentStage[1].heldForPoAt = "2026-10-02T00:00:00Z";
+  let laterSends = 0;
+  const r = await releaseHeldPaymentRequests(later, { invoiceIds: ["inv1"], fire: async () => (laterSends++, { fired: true }), now: new Date("2026-10-03T00:00:00Z") });
+  ok("a held stage that is not yet due is unheld but not sent early", laterSends === 0 && r[0]?.result?.reason === "not_due" && later.__rows.jobPaymentStage[1].heldForPoAt === null);
+  ok("release touches only the invoices it is given", (await releaseHeldPaymentRequests(fakeDb(seed()), { invoiceIds: ["other"], fire })).length === 0);
+
+  // The other clients: unchanged. No company row in these fixtures, so a
+  // request that is NOT held stops at "no_company" — past the hold, short of
+  // the real email — which is exactly the line being tested.
+  const plain = fakeDb({ ...seed({ client: { requiresPo: false } }), company: [] });
+  const p = await quietly(() => requestStagePayment("s1", { db: plain }));
+  ok("a client without the rule is not held (the request carries on to the send)", p.reason === "no_company" && plain.__rows.jobPaymentStage[0].heldForPoAt === null && plain.__rows.task.length === 0, p);
+  const sent = fakeDb({ ...seed({ invoice: { sentAt: "2026-10-01T00:00:00Z", status: "sent" } }), company: [] });
+  const q = await quietly(() => requestStagePayment("s1", { db: sent }));
+  ok("an invoice already sent is not held (rule 2)", q.reason === "no_company" && sent.__rows.jobPaymentStage[0].heldForPoAt === null, q);
+  const withPo = fakeDb({ ...seed({ invoice: { clientPoNumber: "NPM-77812" } }), company: [] });
+  const w = await quietly(() => requestStagePayment("s1", { db: withPo }));
+  ok("a PO-required client whose invoice carries the PO is sent immediately", w.reason === "no_company" && withPo.__rows.task.length === 0, w);
+
+  // Where the hold and the release are wired.
+  const run = decomment(read("lib/paymentSchedule/run.js"));
+  ok("requestStagePayment holds after the $0 waiver and before anything is minted or sent", (() => {
+    const at = (re) => run.search(re);
+    return at(/outcome: "waived"/) < at(/holdStageIfPoMissing\(prisma, stage\)/) && at(/holdStageIfPoMissing\(prisma, stage\)/) < at(/ensurePortalToken\(prisma/) && at(/holdStageIfPoMissing\(prisma, stage\)/) < at(/sendEmail\(\{/);
+  })());
+  ok("…a stage sent by any path is no longer held", /status: "requested", requestedAt: new Date\(\), heldForPoAt: null/.test(run));
+  ok("…and releaseHeldForPo sends through requestStagePayment, never throwing", /fire: \(stageId\) => requestStagePayment\(stageId, \{ db: prisma \}\)/.test(run) && /export async function releaseHeldForPo[\s\S]*?catch \(err\)/.test(run));
+  ok("entering the PO on the JOB releases it (after the drafts carry it)", /data: \{ clientPoNumber \},\s*\}\);[\s\S]{0,400}if \(clientPoNumber\) await releaseHeldForPo\(\{ job: existing \}\)/.test(decomment(read("app/api/jobs/[id]/route.js"))));
+  ok("entering it on the INVOICE (a draft) releases it", /if \(clientPoNumber\) await releaseHeldForPo\(\{ invoiceIds: \[existing\.parentInvoiceId \|\| id\] \}\)/.test(decomment(read("app/api/invoices/[id]/route.js"))));
+  const quoteRoute = decomment(read("app/api/quotes/[id]/route.js"));
+  ok("entering it on the accepted QUOTE carries it to the job and its drafts, then releases", /poAddedAfterDecision && existing\.status === "accepted"/.test(quoteRoute) && /clientPoNumber: null \},[\s\S]*?db\.job\.update[\s\S]*?draftInvoicesFollowingJobPo\(\{ job, previousPo: null \}\)[\s\S]*?releaseHeldForPo\(\{ job \}\)/.test(quoteRoute));
+  ok("…a decided quote may be GIVEN a PO it never had, but not have one changed", /const poAddedAfterDecision =\s*poChanging && !\["draft", "sent"\]\.includes\(existing\.status\) && !normaliseClientPo\(existing\.clientPoNumber\) && Boolean\(clientPoNumber\)/.test(quoteRoute) && /if \(poChanging && !\["draft", "sent"\]\.includes\(existing\.status\) && !poAddedAfterDecision\)/.test(quoteRoute));
+  const sendRoute = decomment(read("app/api/invoices/[id]/send/route.js"));
+  ok("a person sending the invoice answers the hold (with the PO or deliberately without)", /heldForPoAt: \{ not: null \} \},\s*data: \{ heldForPoAt: null \}/.test(sendRoute) && /resolveTaskBySource\(poHoldTaskKey\(invoice\.id\)\)/.test(sendRoute));
+
+  // The prompt on the invoice page.
+  const inv = { id: "inv1", status: "draft", sentAt: null, total: 5000, amountDue: 5000, amountPaid: 0, clientPoNumber: null, client: { name: "Northline Property Management", email: "ap@n.test" } };
+  const banners = selectInvoiceBanners({ invoice: inv, job: null, poHold: { label: "Deposit", heldForPoAt: "2026-10-03T00:00:00Z" } });
+  const held = banners.find((x) => x.id === "heldForPo");
+  ok("the invoice page says the request is held, and offers to add the PO", held?.action === "addPo" && held.data.clientName === "Northline Property Management" && held.data.stageLabel === "Deposit" && held.data.invoiceId === "inv1", held);
+  ok("…it reads before 'not sent' — it is the reason", banners.findIndex((x) => x.id === "heldForPo") < banners.findIndex((x) => x.id === "unsent"));
+  ok("…and goes once the invoice has a PO or has been sent", !selectInvoiceBanners({ invoice: { ...inv, clientPoNumber: "N-1" }, poHold: { label: "Deposit" } }).some((x) => x.id === "heldForPo") && !selectInvoiceBanners({ invoice: { ...inv, status: "sent", sentAt: "2026-10-03" }, poHold: { label: "Deposit" } }).some((x) => x.id === "heldForPo"));
+  ok("…no hold, no banner", !selectInvoiceBanners({ invoice: inv }).some((x) => x.id === "heldForPo"));
+  const renderer = read("app/app/invoices/[id]/LifecycleBanners.js");
+  ok("…the renderer has its sentence and a working action (a link to the PO box)", /case "heldForPo":/.test(renderer) && /addPo: "app\.invoiceLifecycle\.actionAddPo"/.test(renderer) && /banner\.action === "addPo" && d\.invoiceId/.test(renderer));
+  ok("…the lifecycle route finds the held stage on the family root", /invoiceId: rootId, status: "pending", heldForPoAt: \{ not: null \}/.test(decomment(read("app/api/invoices/[id]/lifecycle/route.js"))));
+  ok("the job's payment schedule says the stage is held", /stage\.status === "pending" && stage\.heldForPoAt &&\s*t\("app\.job\.paymentSchedule\.heldForPo"\)/.test(read("app/app/jobs/[id]/PaymentScheduleCard.js")));
+  for (const k of ["app.autoTask.poHold.title", "app.autoTask.poHold.desc", "app.invoiceLifecycle.heldForPo", "app.invoiceLifecycle.actionAddPo", "app.job.paymentSchedule.heldForPo"]) {
+    ok(`${k} in every app language`, Object.values(APP_MESSAGES).every((m) => typeof m[k] === "string" && m[k].trim()));
+  }
+  ok("the task and the banner name the client and the request in every language", Object.values(APP_MESSAGES).every((m) => ["app.autoTask.poHold.title", "app.invoiceLifecycle.heldForPo"].every((k) => m[k].includes("{client}") && m[k].includes("{stage}"))));
+}
+
+// ══ 10. The reference format ══════════════════════════════════════════════════
+console.log("\n10. The generated reference's format — the company's setting\n");
+{
+  ok("defaults: PO-, the year, 4 digits", same(readClientPoFormat(null), { prefix: "PO-", includeYear: true, digits: 4 }));
+  ok("a Company row is read", same(readClientPoFormat({ clientPoPrefix: "REF-", clientPoIncludeYear: false, clientPoDigits: 3 }), { prefix: "REF-", includeYear: false, digits: 3 }));
+  ok("a broken row generates the default shape, never nothing", same(readClientPoFormat({ clientPoPrefix: "x".repeat(40), clientPoIncludeYear: "yes", clientPoDigits: 99 }), { prefix: "PO-", includeYear: true, digits: 4 }));
+  ok("format: PO-2026-0042", formatGeneratedClientPo(null, 2026, 42) === "PO-2026-0042");
+  ok("format: REF-007 (no year, 3 digits)", formatGeneratedClientPo({ prefix: "REF-", includeYear: false, digits: 3 }, 2026, 7) === "REF-007");
+  ok("format: no prefix, the year — 2026-00042", formatGeneratedClientPo({ prefix: "", includeYear: true, digits: 5 }, 2026, 42) === "2026-00042");
+  ok("padding is a floor, never a ceiling", formatGeneratedClientPo({ prefix: "J", includeYear: false, digits: 2 }, 2026, 1234) === "J1234");
+
+  ok("validate: a good format passes", validateClientPoFormat({ prefix: "REF-", includeYear: false, digits: 3 }).ok);
+  ok("validate: partial input keeps the rest", same(validateClientPoFormat({ digits: 6 }, { prefix: "WO/", includeYear: false, digits: 4 }).format, { prefix: "WO/", includeYear: false, digits: 6 }));
+  ok("validate: prefix trimmed", validateClientPoFormat({ prefix: "  ABC-  " }).format?.prefix === "ABC-");
+  ok("validate: a prefix too long, or with markup / quotes / newlines, is refused", ["x".repeat(13), "<b>", 'P"O', "P\nO"].every((v) => !validateClientPoFormat({ prefix: v }).ok));
+  ok("validate: digits outside 1–8 or not whole are refused", [0, 9, 2.5, "x", null].every((v) => !validateClientPoFormat({ digits: v }).ok));
+  ok("validate: includeYear must be a boolean", !validateClientPoFormat({ includeYear: "yes" }).ok);
+  ok("validate: no prefix AND no year is refused (it would read a client's '4471' as ours)", !validateClientPoFormat({ prefix: "", includeYear: false }).ok);
+
+  const ref = { prefix: "REF-", includeYear: false, digits: 3 };
+  ok("the sequence counts only its own shape", nextGeneratedClientPo(["REF-007", "REF-003", "PO-2026-0042", "4471", "REF-9A"], 2026, ref) === "REF-008");
+  ok("existing values never change: after a switch, the old shape is left alone and the new one starts at 1", nextGeneratedClientPo(["PO-2026-0042", "PO-2026-0043"], 2026, ref) === "REF-001");
+  ok("a prefix with regex characters is matched literally", nextGeneratedClientPo(["P.O#2026-0009", "PXO#2026-0050"], 2026, { prefix: "P.O#", includeYear: true, digits: 4 }) === "P.O#2026-0010");
+  ok("the default format behaves exactly as before", nextGeneratedClientPo(["PO-2026-0041"], 2026) === "PO-2026-0042");
+
+  const db = fakeDb({
+    company: [{ id: "c1", clientPoPrefix: "REF-", clientPoIncludeYear: false, clientPoDigits: 3 }],
+    quote: [{ companyId: "c1", clientPoNumber: "REF-011" }, { companyId: "c1", clientPoNumber: "PO-2026-0090" }],
+    job: [{ companyId: "c1", clientPoNumber: "ref-012" }],
+    invoice: [{ companyId: "c2", clientPoNumber: "REF-500" }],
+  });
+  const next = await allocateGeneratedClientPo(db, { companyId: "c1", year: 2026 });
+  ok("Generate uses the company's format, counts its own references only (not another company's)", next === "REF-013", next);
+  ok("…and still never reads supplier purchase orders", !db.__touched.has("purchaseOrder"));
+
+  const route = decomment(read("app/api/settings/client-po-format/route.js"));
+  ok("PATCH /api/settings/client-po-format is owners/admins, validated, and writes only the three columns", /requirePermission\(member\.role, "user:manage"\)/.test(route) && /validateClientPoFormat\(body, readClientPoFormat\(current\)\)/.test(route) && /data: \{ clientPoPrefix: prefix, clientPoIncludeYear: includeYear, clientPoDigits: digits \}/.test(route));
+  ok("…it rewrites no document (no quote/job/invoice write)", !/db\.(quote|job|invoice)\.(update|updateMany|create)/.test(route));
+  const editor = read("app/app/settings/company/ClientPoFormatEditor.js");
+  ok("the settings card previews with the SAME function the server generates with", /formatGeneratedClientPo\(verdict\.format, year, 1\)/.test(editor) && /validateClientPoFormat\(form, CLIENT_PO_FORMAT_DEFAULT\)/.test(editor));
+  ok("…and is on the company settings page", /<ClientPoFormatEditor canEdit=\{canEdit\} \/>/.test(read("app/app/settings/company/page.js")));
+  ok("the Generate route reads the company's format (no format passed)", /allocateGeneratedClientPo\(db, \{ companyId: member\.companyId \}\)/.test(decomment(read("app/api/client-po/next/route.js"))));
+  for (const k of ["app.clientPoFormat.title", "app.clientPoFormat.desc", "app.clientPoFormat.prefix", "app.clientPoFormat.digits", "app.clientPoFormat.includeYear", "app.clientPoFormat.preview", "app.clientPoFormat.next", "app.clientPoFormat.existingNote", "app.clientPoFormat.loadError", "app.clientPoFormat.saveError"]) {
+    ok(`${k} in every app language`, Object.values(APP_MESSAGES).every((m) => typeof m[k] === "string" && m[k].trim()));
+  }
+  const schema = read("prisma/schema.prisma");
+  ok("the format and the hold are additive columns with the stated defaults", /clientPoPrefix\s+String\s+@default\("PO-"\)/.test(schema) && /clientPoIncludeYear Boolean @default\(true\)/.test(schema) && /clientPoDigits\s+Int\s+@default\(4\)/.test(schema) && /\n  heldForPoAt DateTime\?\n/.test(schema));
 }
 
 // ══ White-label ═══════════════════════════════════════════════════════════════

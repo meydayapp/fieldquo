@@ -178,7 +178,16 @@ export async function GET(request, { params }) {
     select: { id: true, status: true, dueDate: true, title: true },
   });
 
-  const banners = selectInvoiceBanners({ invoice, job, chaseTask });
+  // A payment request held because the client requires a PO and this
+  // invoice has none (lib/paymentSchedule/poHold.js). Stages hang off the
+  // family root.
+  const poHold = await db.jobPaymentStage.findFirst({
+    where: { companyId: member.companyId, invoiceId: rootId, status: "pending", heldForPoAt: { not: null } },
+    orderBy: { seq: "asc" },
+    select: { label: true, heldForPoAt: true },
+  });
+
+  const banners = selectInvoiceBanners({ invoice, job, chaseTask, poHold });
 
   // ── The money half of THIS endpoint, which is not the costing half ──────
   //

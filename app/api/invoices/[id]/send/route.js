@@ -34,11 +34,11 @@ import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import { loadPhrases } from "@/lib/i18n/phrases";
 import { taxStatement, taxSendRefusal } from "@/lib/tax/documentTax";
 import { attachUsTaxRate } from "@/lib/tax/usRates";
-import { taskForSentInvoice } from "@/lib/tasks/autoCreate";
+import { taskForSentInvoice, resolveTaskBySource } from "@/lib/tasks/autoCreate";
 import { familyPayments } from "@/lib/invoices/family";
 import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
 import { invoiceSendAsk } from "@/lib/invoices/sendAsk";
-import { clientPoSendPrompt, normaliseClientPo, readClientPoInput } from "@/lib/documents/clientPo";
+import { clientPoSendPrompt, normaliseClientPo, poHoldTaskKey, readClientPoInput } from "@/lib/documents/clientPo";
 import { fileSentInvoiceDocument } from "@/lib/jobs/documentAutofile";
 import { syncForSourceInvoice } from "@/lib/subcontractors/sourceLink";
 import {
@@ -385,6 +385,16 @@ export async function POST(request, { params }) {
       : `Sent invoice ${invoice.invoiceNumber} to ${to}`,
     metadata: { to, total: invoice.total, requested: ask.requestCents / 100, collected: ask.collectedCents / 100, stage: ask.stage ? ask.stage.label : null },
   });
+
+  // A person sent it — with the PO, or deliberately without. Whatever was held
+  // for want of a PO is no longer waiting (the stage asked above is now
+  // `requested`; a later one is the cron's, on its date), and the "add the
+  // PO" task is answered.
+  await db.jobPaymentStage.updateMany({
+    where: { companyId: member.companyId, invoiceId: invoice.id, heldForPoAt: { not: null } },
+    data: { heldForPoAt: null },
+  });
+  await resolveTaskBySource(poHoldTaskKey(invoice.id));
 
   // A chase-it reminder a week out. After the send, never before: a task
   // telling someone to follow up an invoice that never left is worse than no

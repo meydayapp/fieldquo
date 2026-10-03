@@ -161,6 +161,11 @@ function sentence({ banner, t, money, formatDate }) {
     case "partiallyRefunded":
       if (hidden) return t("app.invoiceLifecycle.partiallyRefundedNoAmount");
       return t("app.invoiceLifecycle.partiallyRefunded", { amount: money(d.refunded) });
+    case "heldForPo":
+      return t("app.invoiceLifecycle.heldForPo", {
+        client: d.clientName || t("app.invoiceLifecycle.thisClient"),
+        stage: d.stageLabel || "",
+      });
     case "unsent":
       return t("app.invoiceLifecycle.unsent");
     case "noClientEmail":
@@ -202,6 +207,7 @@ const ACTION_LABELS = {
   assignVisit: "app.invoiceLifecycle.actionAssignVisit",
   addClientEmail: "app.invoiceLifecycle.actionAddClientEmail",
   openLatest: "app.invoiceLifecycle.actionOpenLatest",
+  addPo: "app.invoiceLifecycle.actionAddPo",
 };
 
 /**
@@ -231,6 +237,14 @@ function Action({ banner, t, handlers, busy }) {
   if (banner.action === "assignVisit" && d.jobId)
     return (
       <Link href={`/app/jobs/${d.jobId}`} className={linkClass}>
+        {label}
+      </Link>
+    );
+  // The PO box is on the invoice's editor; saving it there releases the held
+  // request (PATCH /api/invoices/[id] → lib/paymentSchedule/poHold.js).
+  if (banner.action === "addPo" && d.invoiceId)
+    return (
+      <Link href={`/app/invoices/${d.invoiceId}/edit`} className={linkClass}>
         {label}
       </Link>
     );

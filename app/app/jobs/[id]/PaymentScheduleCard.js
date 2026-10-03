@@ -40,7 +40,7 @@ const BLOCKED_FALLBACK = {
 function StatusIcon({ stage }) {
   if (stage.status === "requested") return <Send size={15} className="text-emerald-600" />;
   if (stage.status === "waived") return <CircleSlash size={15} className="text-muted-foreground" />;
-  if (stage.blockedReason) return <AlertCircle size={15} className="text-amber-600" />;
+  if (stage.blockedReason || (stage.status === "pending" && stage.heldForPoAt)) return <AlertCircle size={15} className="text-amber-600" />;
   return <Clock size={15} className="text-muted-foreground" />;
 }
 
@@ -99,12 +99,17 @@ export default function PaymentScheduleCard({ stages, changeOrders }) {
                         (stage.dueDate ? ` · ${formatDateOnly(stage.dueDate)}` : "")}
                     {stage.status === "waived" &&
                       t("app.job.paymentSchedule.waived", "Waived (0%)")}
-                    {stage.status === "pending" && stage.blockedReason &&
+                    {/* Held for the client's PO — "no PO, no invoice"
+                        (lib/paymentSchedule/poHold.js). Adding the PO on
+                        this job sends it. */}
+                    {stage.status === "pending" && stage.heldForPoAt &&
+                      t("app.job.paymentSchedule.heldForPo")}
+                    {stage.status === "pending" && !stage.heldForPoAt && stage.blockedReason &&
                       t(
                         BLOCKED_KEY[stage.blockedReason] || "app.job.paymentSchedule.pending",
                         BLOCKED_FALLBACK[stage.blockedReason] || "Waiting",
                       )}
-                    {stage.status === "pending" && !stage.blockedReason && stage.dueDate &&
+                    {stage.status === "pending" && !stage.heldForPoAt && !stage.blockedReason && stage.dueDate &&
                       t("app.job.paymentSchedule.dueOn", "Due {date}", {
                         date: formatDateOnly(stage.dueDate),
                       })}

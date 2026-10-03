@@ -951,6 +951,10 @@ export function QuoteBuilderForm({
     setClientPoNumberState(v);
     setClientPoTouched(true);
   };
+  // Locked once the client has decided AND the quote already carries a PO —
+  // a decided quote that never had one may still be given one (it releases a
+  // deposit held for it; app/api/quotes/[id]/route.js).
+  const clientPoLocked = Boolean(isEdit) && !OPEN_STATUSES.includes(start.status) && Boolean(start.clientPoNumber);
 
   // ── Scope ────────────────────────────────────────────────────────────────
   const [scopeGroups, setScopeGroups] = useState(start.groups || []);
@@ -2426,7 +2430,7 @@ export function QuoteBuilderForm({
       // The drawing read this draft came from, create only. Absent on every
       // other save, so their bodies are unchanged.
       sourcePlanReadId: !isEdit ? initial?.planReadId || null : null,
-      clientPoNumber: clientPoTouched || start.clientPoNumber ? clientPoNumber : undefined,
+      clientPoNumber: (clientPoTouched || start.clientPoNumber) && !clientPoLocked ? clientPoNumber : undefined,
     });
 
     let quote = null;
@@ -3371,7 +3375,7 @@ export function QuoteBuilderForm({
           showNewClient, setShowNewClient, newClient, setNewClient, handleCreateClient, creatingClient,
           siteAddress, setSiteAddress,
           clientPoNumber, setClientPoNumber,
-          clientPoLocked: !canEditScope, clientPoLockedNote: t("app.clientPo.locked"),
+          clientPoLocked, clientPoLockedNote: t("app.clientPo.locked"),
           categories, products, teamRoster, settingsAccess,
           scopeGroups, setScopeGroups, addScopeGroup, addPaintingEstimate, paintingFirst, servicePicker, removeScopeGroup, updateLineItem, removeLineItem,
           groupFromStored, groupTotal, rateOverridesFor, wordingOverrideFor, getProductsForCategory,
@@ -3576,7 +3580,7 @@ export function QuoteBuilderForm({
           value={clientPoNumber}
           onChange={setClientPoNumber}
           client={selectedClient}
-          locked={!canEditScope}
+          locked={clientPoLocked}
           lockedNote={t("app.clientPo.locked")}
         />
       )}

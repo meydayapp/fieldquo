@@ -15,6 +15,7 @@ import UsTaxCard from "@/app/components/settings/UsTaxCard";
 import CompanyDetailsFields from "@/app/components/settings/CompanyDetailsFields";
 import TaxRegistrationFields from "@/app/components/settings/TaxRegistrationFields";
 import PaymentScheduleEditor from "./PaymentScheduleEditor";
+import ClientPoFormatEditor from "./ClientPoFormatEditor";
 import BackToHome from "@/app/components/BackToHome";
 import { INDUSTRIES } from "@/app/data/industries";
 import {
@@ -1181,6 +1182,16 @@ export default function CompanySettingsPage() {
           }}
           onCleared={() => setScheduleActive(false)}
         />
+      </SectionCard>
+
+      {/* The shape of the reference the client-PO "Generate" button suggests
+          on a quote, job or invoice (lib/documents/clientPo.js). */}
+      <SectionCard
+        id="po-references"
+        title={t("app.clientPoFormat.title")}
+        description={t("app.clientPoFormat.desc")}
+      >
+        <ClientPoFormatEditor canEdit={canEdit} />
       </SectionCard>
 
       {/* Industry & quote types — read-only reflection of what was picked at
