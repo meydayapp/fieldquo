@@ -262,12 +262,14 @@ export default function PlatformDashboardPage() {
         </div>
       )}
 
-      {/* The pinned exchange rate. Amber while it is due for its re-read and
-          still converting; red once it refuses, because from that day every
-          company's ad spend in the other currency is left out of its totals. */}
+      {/* The automatic exchange rate (app/api/cron/fx-refresh). Amber while
+          the daily update has been failing but the last good rate still
+          converts; red once the rate in use refuses, because from that day
+          every company's ad spend in the other currency is left out of its
+          totals. */}
       {fxHealth && !fxHealth.healthy && fxHealth.problems?.length > 0 &&
         (() => {
-          const refused = fxHealth.rates?.some((r) => r.state === "refused");
+          const refused = Boolean(fxHealth.refused);
           const box = refused
             ? "bg-red-50 dark:bg-red-950/40 border-red-300 dark:border-red-900"
             : "bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-900";
@@ -279,7 +281,7 @@ export default function PlatformDashboardPage() {
                 <Coins size={20} className={`${body} shrink-0 mt-0.5`} />
                 <div className="min-w-0">
                   <h2 className={`font-semibold ${ink}`}>
-                    {refused ? "The exchange rate has expired" : "The exchange rate is due for its re-read"}
+                    {refused ? "The exchange rate has expired" : "The automatic exchange-rate update is failing"}
                   </h2>
                   {fxHealth.problems.map((p) => (
                     <p key={p} className={`text-sm ${body} mt-1`}>
@@ -287,8 +289,11 @@ export default function PlatformDashboardPage() {
                     </p>
                   ))}
                   <p className={`text-xs ${body} mt-2`}>{fxHealth.remedy}</p>
+                  <Link href="/platform/errors" className={`text-xs font-semibold ${ink} underline mt-2 mr-3 inline-block`}>
+                    See the failures
+                  </Link>
                   {fxHealth.rates
-                    ?.filter((r) => r.state !== "fresh")
+                    ?.filter((r) => r.state !== "fresh" || !r.live)
                     .map((r) => (
                       <a
                         key={r.pair}

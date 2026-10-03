@@ -97,19 +97,40 @@ and quotes were October's first eight hours ("Revenue and expenses were both
   placeholders); any failure, refusal or exhausted quota uses the catalogue sentences.
 - "Open the full report" lands on `/app/analytics/kpis?from&to` — the KPI page now
   honours those params.
-- FX: there was no refresh job to break — the USD/CAD rate in `lib/marketing/fx.js` is
-  hand-read by design and was simply 34 days old. Re-read (1.4246 for 2026-10-02) and
-  `rateHealth()` + `/api/platform/fx-health` put an amber/red banner on /platform from
-  day 31 (red past day 45, when conversions stop).
+- FX: there was no refresh job to break — the USD/CAD rate in `lib/marketing/fx.js` was
+  hand-read by design and simply 34 days old. Re-read (1.4246 for 2026-10-02).
+- **Owner decisions, 2026-10-03 (round 2):**
+  - **AI insights only for companies with FieldQuo AI credit, paid from it, automatic.**
+    `monthly_digest` is registered in `lib/ai/featurePayer.js` as company-paid from the
+    AI-credit wallet (the AI employee's ledger, `lib/ai/walletMeter.js`; AI wallet kind in
+    `lib/voice/credits.js`). A company with no AI credit gets the catalogue sentences, no
+    model call, no AiUsage row, no debit. Before this the call ran for EVERY company and
+    was counted against each company's monthly token allowance.
+  - **The exchange rate is fetched automatically.** `/api/cron/fx-refresh` (daily 22:15
+    UTC) → `lib/marketing/fxRefresh.js` reads the Bank of Canada Valet API and upserts an
+    `ExchangeRate` row per pair per day; `lib/marketing/fxLive.js` gives the converters the
+    newest usable stored rate, falling back to fx.js's checked-in one (empty, missing,
+    unreadable or older store). Failures → `fx_refresh_failed` on /platform/errors; the
+    /platform banner now means "the automatic update has failed for N days" (amber from
+    day 2) and goes red only if the rate in use passes the 45-day cutoff.
+  - **SQL to apply by hand (not run — no production writes from this branch):**
+    `CREATE TABLE "ExchangeRate" (...)` + `CREATE UNIQUE INDEX
+    "ExchangeRate_base_quote_rateDate_key"` — the exact text is in the commit message.
+    Until it runs, the cron logs "could not be stored" daily and the converters use the
+    checked-in rate.
 - Preview: `scripts/preview-monthly-summary.mjs` → `docs/screens/monthly-summary/`.
 
 ### Checks
-`check:monthly-summary` (538 assertions, eight mutations caught); `check:ai-credit`
-moved to `buildDigestInsights`; `check:fx` covers `rateHealth`.
+`check:monthly-summary` (547 assertions; a non-AI company is never charged, an AI
+company is charged to its own wallet — executed through the real meterFor);
+`check:fx-refresh` (58, no network; fetch mocked, stale-store fallback, the 45-day
+cutoff can't drop spend while the cron is healthy); `check:ai-credit` on the wallet
+gate; `check:fx` covers `rateHealth`. Fifteen mutations, all caught.
 
 ### Owed
-- The FX rate is still a monthly manual re-read; automating it (a cron writing a dated
-  rate row) contradicts fx.js's reviewable-constant design and is a product decision.
+- `buildCallInsights` (the call-transcript notes stored on the digest row, not in the
+  email) still runs for any company with decided quotes linked to calls and counts
+  against the monthly token allowance — not covered by the owner's decision; flagged.
 - The in-app digest archive (/app/analytics/digest) shows the new formatted tiles but
   not the tables or pipeline.
 

@@ -749,7 +749,9 @@ section("8c. The spend gate has NO isDemo branch — a demo has a balance, not a
 
   // The digest's model call is buildDigestInsights since 2026-10-03 (it words
   // the "what to act on" lines of the monthly summary email; the numbers are
-  // built in code). Same gate, same seam, same assertions.
+  // built in code). Owner, same day: it runs ONLY for a company with AI
+  // credit and is paid from it — the gate is meterFor("monthly_digest")'s
+  // wallet check(). Same seam discipline: the meter is handed in as a fake.
   const { buildDigestInsights } = await import("@/lib/ai/monthlyDigest");
   const { summaryFormatter } = await import("@/lib/email/monthlySummaryEmail");
   const fmt = summaryFormatter({ language: "en", currency: "CAD" });
@@ -763,13 +765,24 @@ section("8c. The spend gate has NO isDemo branch — a demo has a balance, not a
       },
     },
   ];
+  const fakeMeter = (verdict, records) => ({
+    payer: "company",
+    ledger: "wallet",
+    async check() {
+      return verdict;
+    },
+    async record(usage, opts) {
+      records.push({ usage, opts });
+      return { billing: "wallet", chargedCents: 1, entry: null };
+    },
+  });
 
-  // Under quota: complete() runs, recordAiUsage runs, nothing logged as an
-  // error.
+  // Entitled (AI credit covers a call): complete() runs, the company's own
+  // ledger records it, nothing logged as an error.
   {
     let completeCalls = 0;
-    let usageCalls = 0;
     let errorCalls = 0;
+    const records = [];
     const result = await buildDigestInsights({
       companyId: "co1",
       companyName: "Acme Painting",
@@ -777,78 +790,82 @@ section("8c. The spend gate has NO isDemo branch — a demo has a balance, not a
       fmt,
       periodStart: new Date("2026-07-01"),
       periodEnd: new Date("2026-07-31"),
-      checkAiQuota: async () => ({ allowed: true, cap: 750000, usage: { tokens: 100 } }),
+      periodKey: "2026-07",
+      meter: fakeMeter({ allowed: true, billing: "wallet" }, records),
       complete: async ({ onUsage }) => {
         completeCalls++;
         onUsage({ model: "gpt-5.4", promptTokens: 10, completionTokens: 20 });
         return { ok: true, data: { insights: [{ fact: "overdue", text: "Chase the {overdueAmount} owed on {overdueInvoices} today." }] } };
       },
-      recordAiUsage: async () => {
-        usageCalls++;
+      recordError: async () => {
+        errorCalls++;
+      },
+    });
+    ok("entitled: complete() is called exactly once", completeCalls === 1);
+    ok("entitled: the company's own ledger records the call, once, with a per-month ref", records.length === 1 && records[0].opts?.ref === "monthly_digest:co1:2026-07");
+    ok("entitled: the model's sentence is used, filled by the email's formatter", result.sentences?.[0]?.text?.startsWith("Chase the $1,200.00 owed on 2 invoices"));
+    ok("entitled: aiSkipped is false and the charge is reported", result.aiSkipped === false && result.chargedCents === 1);
+    ok("entitled: nothing logged to /platform/errors", errorCalls === 0);
+  }
+
+  // No AI credit: complete() must NEVER run and nothing is recorded — the
+  // gate runs before the spend, not after. The email still goes, with the
+  // catalogue's own sentences (sentences: null asks for them). Not an error:
+  // it is the normal case for a company without FieldQuo AI.
+  {
+    let completeCalls = 0;
+    let errorCalls = 0;
+    const records = [];
+    const result = await buildDigestInsights({
+      companyId: "co2",
+      companyName: "No Credit Roofing",
+      facts,
+      fmt,
+      periodStart: new Date("2026-07-01"),
+      periodEnd: new Date("2026-07-31"),
+      meter: fakeMeter({ allowed: false, code: "no_credit", reason: "AI credit is empty." }, records),
+      complete: async () => {
+        completeCalls++;
+        return { ok: true, data: { insights: [] } };
       },
       recordError: async () => {
         errorCalls++;
       },
     });
-    ok("under quota: complete() is called exactly once", completeCalls === 1);
-    ok("under quota: recordAiUsage fires from complete()'s own onUsage hook", usageCalls === 1);
-    ok("under quota: the model's sentence is used, filled by the email's formatter", result.sentences?.[0]?.text?.startsWith("Chase the $1,200.00 owed on 2 invoices"));
-    ok("under quota: aiSkipped is false", result.aiSkipped === false);
-    ok("under quota: nothing logged to /platform/errors", errorCalls === 0);
+    ok("no AI credit: complete() is NEVER called — the gate runs before the spend, not after", completeCalls === 0);
+    ok("no AI credit: nothing is recorded or charged", records.length === 0 && result.chargedCents === 0);
+    ok("no AI credit: the catalogue's sentences are asked for (sentences: null), never an empty section", result.sentences === null && result.chosen === null);
+    ok("no AI credit: skipCode says why, so the archive can tell it from a fault", result.skipCode === "no_credit");
+    ok("no AI credit: NOT logged as an error — it is the normal case", errorCalls === 0);
   }
 
-  // Over quota: complete() must NEVER run — checkAiQuota is a gate, not a
-  // formality. The email still goes, with the catalogue's own sentences
-  // (sentences: null asks for them) — not empty, not silence — and the skip
-  // is logged somewhere a human looks.
+  // Any other refusal (FieldQuo's own budget, if a superadmin moved the
+  // feature there) IS a fault and is logged where a human looks.
   {
     let completeCalls = 0;
-    let usageCalls = 0;
-    let errorCalls = 0;
     let errorDetail = null;
-    const result = await buildDigestInsights({
-      companyId: "co2",
-      companyName: "Overcap Roofing",
+    await buildDigestInsights({
+      companyId: "co3",
+      companyName: "Budget Painting",
       facts,
       fmt,
       periodStart: new Date("2026-07-01"),
       periodEnd: new Date("2026-07-31"),
-      checkAiQuota: async () => ({
-        allowed: false,
-        reason: "You've used this month's FieldQuo AI allowance.",
-        cap: 750000,
-        usage: { tokens: 750000 },
-      }),
+      meter: fakeMeter({ allowed: false, code: "quota", reason: "paused" }, []),
       complete: async () => {
         completeCalls++;
-        return { ok: true, data: { insights: [] } };
-      },
-      recordAiUsage: async () => {
-        usageCalls++;
+        return { ok: false };
       },
       recordError: async (e) => {
-        errorCalls++;
         errorDetail = e;
       },
     });
-    ok("over quota: complete() is NEVER called — the gate runs before the spend, not after",
-      completeCalls === 0);
-    ok("over quota: recordAiUsage never fires either — nothing to meter for a call that didn't happen",
-      usageCalls === 0);
-    ok("over quota: the catalogue's sentences are asked for (sentences: null), never an empty section",
-      result.sentences === null && result.chosen === null);
-    ok("over quota: aiSkipped is true, so a UI can tell the digest apart from a model-worded one",
-      result.aiSkipped === true);
-    ok("over quota: logged to /platform/errors so a human can see it, not just the company's own owner",
-      errorCalls === 1 &&
-        errorDetail?.area === "ai" &&
-        errorDetail?.code === "monthly_digest_quota_exceeded" &&
-        errorDetail?.companyId === "co2");
+    ok("another refusal: complete() is not called", completeCalls === 0);
+    ok("another refusal: logged to /platform/errors", errorDetail?.area === "ai" && errorDetail?.code === "monthly_digest_ai_refused" && errorDetail?.companyId === "co3");
   }
 
-
-  // Mutation pass: prove the two blocks above are load-bearing by actually
-  // breaking the "checkAiQuota BEFORE complete()" ordering and confirming
+  // Mutation pass: prove the blocks above are load-bearing by actually
+  // breaking the "gate BEFORE complete()" ordering and confirming
   // THIS check catches it — guarded against re-spawning itself the same way
   // check-money-flow.mjs guards its own mutation pass.
   if (!process.argv.includes("--no-mutate")) {
@@ -859,11 +876,11 @@ section("8c. The spend gate has NO isDemo branch — a demo has a balance, not a
 
     const MUTATIONS = [
       [
-        "quota refusal is ignored — complete() runs even when checkAiQuota says no",
+        "the AI-credit gate is ignored — complete() runs for a company with no AI credit",
         (s) =>
           s.replace(
-            "  const quota = await checkQuotaFn(companyId);\n\n  if (!quota.allowed) {",
-            "  const quota = await checkQuotaFn(companyId);\n\n  if (false) {",
+            "  const gate = await m.check();\n\n  if (!gate.allowed) {",
+            "  const gate = await m.check();\n\n  if (false) {",
           ),
       ],
     ];

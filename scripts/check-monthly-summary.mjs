@@ -220,10 +220,10 @@ section("The AI fence, and the fallback that makes it safe to be strict");
   bad([], "nothing at all");
 
   const fmt = summaryFormatter({ language: "en", currency: "CAD" });
-  const base = { companyId: "co1", companyName: COMPANY.name, facts: sept.candidates, fmt, periodStart: PERIOD.start, periodEnd: PERIOD.end, recordAiUsage: async () => {}, recordError: async () => {} };
-  const allowed = async () => ({ allowed: true });
+  const base = { companyId: "co1", companyName: COMPANY.name, facts: sept.candidates, fmt, periodStart: PERIOD.start, periodEnd: PERIOD.end, periodKey: PERIOD.key, recordError: async () => {} };
+  const openMeter = () => ({ payer: "company", ledger: "wallet", check: async () => ({ allowed: true }), record: async () => ({ chargedCents: 1 }) });
 
-  const run = async (completeImpl, extra = {}) => buildDigestInsights({ ...base, checkAiQuota: allowed, complete: completeImpl, ...extra });
+  const run = async (completeImpl, extra = {}) => buildDigestInsights({ ...base, meter: openMeter(), complete: completeImpl, ...extra });
 
   // A valid answer is used, filled by OUR formatter.
   const used = await run(async ({ onUsage }) => { onUsage?.({ model: "m", promptTokens: 1, completionTokens: 1 }); return { ok: true, data: good }; });
@@ -244,12 +244,63 @@ section("The AI fence, and the fallback that makes it safe to be strict");
     ok(`${label} → and is a whole document`, e.html.startsWith("<!DOCTYPE html>") && e.html.trim().endsWith("</html>") && (e.html.match(/<table/g) || []).length === (e.html.match(/<\/table>/g) || []).length);
   }
 
-  let calls = 0;
-  const over = await buildDigestInsights({ ...base, checkAiQuota: async () => ({ allowed: false, reason: "cap" }), complete: async () => { calls++; return {}; } });
-  ok("over quota → no model call, fallback, aiSkipped", calls === 0 && over.sentences === null && over.aiSkipped === true);
   let called = false;
-  const none = await buildDigestInsights({ ...base, facts: [], checkAiQuota: async () => { called = true; return { allowed: true }; }, complete: async () => { called = true; return {}; } });
-  ok("nothing to act on → no quota check, no call, no sentences", !called && none.sentences.length === 0);
+  const none = await buildDigestInsights({ ...base, facts: [], meter: { ledger: "wallet", check: async () => { called = true; return { allowed: true }; }, record: async () => { called = true; } }, complete: async () => { called = true; return {}; } });
+  ok("nothing to act on → no gate, no call, no sentences", !called && none.sentences.length === 0);
+
+  // ── Who pays: the REAL meterFor → wallet ledger, every store faked ───────
+  //
+  // Owner, 2026-10-03: AI insights only for a company with FieldQuo AI
+  // credit, taken from theirs; everyone else gets the standard sentences and
+  // is never charged. Executed through meterFor("monthly_digest") itself, so
+  // the registry entry, the wallet ledger and the AI-wallet kind are all real.
+  const { meterFor, clearPayerCache, companyLedgerFor, payerFeature } = await import("@/lib/ai/featurePayer");
+  const { poolForKind, POOLS } = await import("@/lib/voice/credits");
+  ok("monthly_digest is registered as company-paid from the AI wallet, wired", payerFeature("monthly_digest")?.defaultPayer === "company" && companyLedgerFor("monthly_digest") === "wallet" && payerFeature("monthly_digest")?.wired === true);
+  ok("…and its debit lands in the AI wallet, not the voice one", poolForKind("monthly_digest") === POOLS.AI);
+  const AFTER_GRACE = new Date("2026-11-01T08:00:00Z");
+  const ledgerFor = (balanceCents) => {
+    const debits = [];
+    const usages = [];
+    let allowanceAsked = 0;
+    const fakePrisma = { aiFeaturePayer: { findUnique: async () => null } };
+    const deps = {
+      balanceFor: async () => balanceCents,
+      debitCredit: async (d) => { debits.push(d); return { cents: -d.cents }; },
+      recordAiUsage: async (u) => { usages.push(u); },
+      checkAiQuota: async () => { allowanceAsked++; return { allowed: true }; },
+    };
+    return { fakePrisma, deps, debits, usages, allowanceAsked: () => allowanceAsked };
+  };
+  const answer = async ({ onUsage }) => {
+    onUsage?.({ model: "gpt-5.4-mini", promptTokens: 620, completionTokens: 110 });
+    return { ok: true, data: good };
+  };
+
+  {
+    clearPayerCache();
+    const L = ledgerFor(0);
+    let modelCalls = 0;
+    const meter = await meterFor("monthly_digest", { companyId: "co_no_ai", prisma: L.fakePrisma, now: AFTER_GRACE, deps: L.deps });
+    const r = await buildDigestInsights({ ...base, companyId: "co_no_ai", meter, complete: async (a) => { modelCalls++; return answer(a); } });
+    ok("a company with NO AI credit: no model call", modelCalls === 0);
+    ok("…never charged: no debit, no AiUsage row, its allowance not even consulted", L.debits.length === 0 && L.usages.length === 0 && L.allowanceAsked() === 0, { debits: L.debits, usages: L.usages });
+    ok("…and gets the deterministic sentences", r.sentences === null && r.skipCode === "no_credit");
+    const e = buildMonthlySummaryEmail({ summary: sept, company: COMPANY, language: "en", origin: ORIGIN, insights: r.sentences });
+    ok("…in a complete email", fallbackInsights(sept.insights, fmt).every((s) => e.text.includes(s.text)));
+  }
+  {
+    clearPayerCache();
+    const L = ledgerFor(5000);
+    let modelCalls = 0;
+    const meter = await meterFor("monthly_digest", { companyId: "co_ai", prisma: L.fakePrisma, now: AFTER_GRACE, deps: L.deps });
+    const r = await buildDigestInsights({ ...base, companyId: "co_ai", meter, complete: async (a) => { modelCalls++; return answer(a); } });
+    ok("a company WITH AI credit: the model runs once", modelCalls === 1);
+    ok("…its AiUsage row is its own, marked paid from the wallet (so not ALSO taken from its allowance)", L.usages.length === 1 && L.usages[0].companyId === "co_ai" && L.usages[0].feature === "monthly_digest" && L.usages[0].paidFromWallet === true, L.usages);
+    ok("…the debit is the company's own AI credit, kind monthly_digest, once a month by ref", L.debits.length === 1 && L.debits[0].companyId === "co_ai" && L.debits[0].kind === "monthly_digest" && L.debits[0].ref === `monthly_digest:co_ai:${PERIOD.key}` && L.debits[0].cents >= 1, L.debits);
+    ok("…and the email gets the AI's sentences", r.sentences?.length === 2 && r.chargedCents >= 1);
+  }
+  clearPayerCache();
   ok("the system prompt forbids typed numbers and invented facts", /never write a digit/.test(DIGEST_SYSTEM) && /do not invent/.test(DIGEST_SYSTEM));
 
   const metrics = digestMetrics(empty, summaryFormatter({ language: "en", currency: "CAD" }));

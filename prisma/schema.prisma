@@ -629,6 +629,33 @@ model AiFeaturePayer {
   updatedAt        DateTime @updatedAt
 }
 
+/// A central bank's daily exchange rate, fetched by /api/cron/fx-refresh
+/// (lib/marketing/fxRefresh.js) — one row per pair per day the rate is FOR.
+///
+/// The owner's decision of 2026-10-03: the rate is fetched automatically, not
+/// re-read by hand. Readers (lib/marketing/fxLive.js) take the newest row per
+/// pair and fall back to the checked-in rate in lib/marketing/fx.js when the
+/// table is empty, unreadable, or older than it — never to no conversion.
+///
+/// `rateDate` is the day the rate describes (the Valet observation's `d`);
+/// `fetchedAt` is the last time a fetch SUCCEEDED and saw it, so "the update
+/// has failed for N days" is measured from it, not from the rate's own date
+/// (a weekend leaves Friday's rate the newest one, and that is not a failure).
+/// No company column: a rate is a fact about two currencies, not a tenant.
+model ExchangeRate {
+  id         String   @id @default(cuid())
+  base       String
+  quote      String
+  rate       Decimal  @db.Decimal(14, 6)
+  rateDate   DateTime @db.Date
+  source     String
+  sourceName String
+  fetchedAt  DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  @@unique([base, quote, rateDate])
+}
+
 /// One company's answer, overriding the global. Absent row = inherit.
 ///
 /// No foreign key to PlatformFeature on purpose: an override is meaningful
