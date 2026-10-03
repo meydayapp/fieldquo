@@ -2,7 +2,7 @@
 
 Last updated: 3 October 2026 (Bring your number — Settings → Business number. Twilio Lookup classifies the number; a landline/toll-free gets Hosted SMS (texts move, calls stay; Twilio's ownership call + emailed LOA; numbers v2 HostedNumber/Orders), a cell or VoIP line is PORTED (Twilio refuses to host VoIP). US ports go through Twilio's Port In API (bill uploaded as a document, LOA e-signed via Twilio, nothing secret stored); Canadian ports have no API — FieldQuo files them on Twilio's international form from /platform/business-numbers (superadmin, audited; PortFiling log; the PIN/account/bill sealed with PORT_SECRETS_KEY and purged at the end). Status syncs hourly (/api/cron/business-numbers) and on view; a number goes `active` only after it is wired (SMS → /api/sms/inbound, voice → /api/business-number/voice) and becomes Company.smsFromNumber. Texts on it file through the existing inbox, link to client/lead/job by phone, and a stranger becomes a lead by the social-leads rules; calls ring up to three phones (caller ID passed through), then the existing receptionist number or voicemail, each filed as a `call` line on the conversation; the Call button (leads, clients, jobs, the inbox header) rings the member then the client from the business number. Costs from the phone balance: $4/mo, 2¢/text, 5¢/photo, 5¢/call-minute (the last one NEW and unconfirmed — BUSINESS_CALL_CENTS_PER_MINUTE). The client inbox now draws bubbles (ours navy, contrast measured), a linked-record chip on the list, and a voicemail player. OWNER TO DO: PORT_SECRETS_KEY in Vercel; Hosted SMS + Port In enabled on the Twilio account; A2P 10DLC brand/campaign before any US number texts US phones — scripts/check-bring-your-number.mjs)
 
-Last updated: 3 October 2026 (referrals only work once a plan is chosen — the owner: "should only work when they have selected a plan. Not before." A trial company sees "Refer & Earn opens once you choose a plan" with a Choose a plan link: no link from GET /api/settings/referral, invites refused 403 no_plan. The newcomer's month is no longer added to the trial at signup: it defers the first charge when the newcomer chooses a plan (onPlanSelected → grantRefereeBonus → extendAccessByMonths, the same trial_end deferral as the referrer's), only if the referrer had a plan when the newcomer signed up (stamped then as referralTerms "plan_required_month_promised" and kept even if the referrer cancels later; "plan_required" = nothing promised). The referrer's month needs a plan at grant time; held otherwise and granted once when the referrer chooses one (grantHeldReferrerRewards). Grandfathering is Company.referralTerms: NULL = referred before the rule, old terms; "plan_required" stamped at signup since. Grants claim the ReferralCredit row first, so races grant once. Column applied to the live DB by SQL (ALTER TABLE "Company" ADD COLUMN "referralTerms" TEXT). Copy moved in nine catalogues, help EN/FR/ES, terms, landing, invite email/SMS, phone and chat AI, rep scripts — the live Reverse Selling playbook needs "Refresh the built-ins" to pick up the new referral offer; sales guide PDFs not rebuilt — scripts/check-referral-reward.mjs)
+Last updated: 3 October 2026 ("Start from drawings" — a drawing set, a scope spreadsheet, site photos and what the client wants read into ONE project overview with every quantity sourced (sheet + printed dimension, spreadsheet row, photo reference, or "estimated · verify"), a draft quote priced by the company's own paint engine, and a chat that changes both, paid from the AI credit with the cost shown first; files uploaded on a quote now carry to the job's Documents on approval — see "Start from drawings" below)
 Last updated: 3 October 2026 (demos send for real to a client created live in the demo — public booking, self-quote, instant quote, or a client a rep types in — capped 30 emails / 20 texts a day, SMS from the system number, US texts wait on A2P 10DLC; a demo's Pay button walks to a branded "no card is charged" screen and never reaches Stripe — see "Demos send for real to a client created live" below)
 Last updated: 29 September 2026 (the one-screen signup and the welcome questions — /signup asks email + password, Start creates the company with explicit nulls on a TRIAL_DAYS trial, /welcome/<step> asks the rest and resumes after any sign-out, the setup screen names the services it created, a readiness gate refuses client-facing sends without a name and country — see "One-screen signup and the welcome questions" below)
 Last updated: 29 September 2026 (the trial is 14 days, no card — TRIAL_DAYS / TRIAL_CARD_REQUIRED in lib/pricing.js; existing trials keep their date; referral month still composes on top; reminders 7/3/1 with a new Company.trialReminder1At column the owner must add before deploy; "first month free" gone from every screen, email, help article and catalogue in nine languages — see "The trial is 14 days")
@@ -72,6 +72,89 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## Start from drawings — the drawing read (3 October 2026)
+
+A commercial contractor gets a drawing set (PDF), a scope spreadsheet and site photos.
+`/app/quotes/drawings/[id]` (entry: "Start from drawings" on the quote builder and on a
+lead) reads them as one project. Code in `lib/planRead/`; check: `npm run check:plan-deep-read`.
+
+### What shipped
+
+- **Files on a quote** — `QuoteDocument` (new, additive), the job store's rules: kinds, revisions
+  supersede, URL must be in the company's own upload folder. Upload purpose `plans` (PDF up to
+  100 MB, .xlsx, .csv, photos). The quote page has a Files card; approval copies every file into
+  the job's Documents (`fileQuoteDocumentsOnJob`, idempotent on `qd:<id>`, chains kept), also
+  lazily on the job's Documents GET and at once when the quote already has a job.
+- **Free extraction in code** — PDF vector text by unpdf (dimension strings imperial and metric,
+  title-block scale, sheet number/title, room labels, finish schedule, paint codes); scanned sheets
+  flagged; spreadsheets by read-excel-file / papaparse. Pages rendered to JPEG in the browser.
+- **The paid read** (`PlanRead`, resumable under after() with a lease, polled): per-sheet pass on the
+  standard model (overview + 4 tiles at high detail), one photo pass and one synthesis on the best
+  model. Quantities computed in code from cited dimension ids, spreadsheet cells, photo reference
+  objects (door 80 in, outlet plate, brick course…) or a labelled estimate; drawings win, conflicts
+  become questions; a surface seen in several photos is counted once (split/merge on screen).
+- **Pricing** — the company's own `paintTakeoff` book (rate sets, production rates, sell rate, paint
+  costs). The model never sets a price. Access equipment is drafted unpriced (no rental rates exist
+  anywhere); the estimator types a price.
+- **Chat** — ops applied to the model, history in `PlanReadMessage`, cached prefix + prompt_cache_key,
+  can re-open a sheet. "Create quote" opens the builder `?fromPlanRead=` with the takeoff live.
+- **Credits** — shown before (ceiling), held, settled to cost × 2, refunded in full on failure; chat
+  per call through the wallet meter. provider.js now reports cached tokens; usage.js prices them at
+  the cached rate (cost-REDUCING for any wallet feature whose call hits the cache).
+
+### Owed
+
+- Measured token counts on a real set: no OPENAI_API_KEY locally. Every call is recorded on
+  `PlanRead.usage` (per step) and as AiUsage `plan_read*` rows — read them after the first live read
+  and correct `READ_TOKENS` in lib/planRead/billing.js.
+- Phase 2: siding, roofing and other trades (their own catalogues/engines), equipment rental rates,
+  deductions for openings, a cron backstop for reads abandoned mid-way (today a poll resumes them).
+
+## Referrals need a chosen plan (3 October 2026)
+
+referrals only work once a plan is chosen — the owner: "should only work when they have selected a plan. Not before." A trial company sees "Refer & Earn opens once you choose a plan" with a Choose a plan link: no link from GET /api/settings/referral, invites refused 403 no_plan. The newcomer's month is no longer added to the trial at signup: it defers the first charge when the newcomer chooses a plan (onPlanSelected → grantRefereeBonus → extendAccessByMonths, the same trial_end deferral as the referrer's), only if the referrer had a plan when the newcomer signed up (stamped then as referralTerms "plan_required_month_promised" and kept even if the referrer cancels later; "plan_required" = nothing promised). The referrer's month needs a plan at grant time; held otherwise and granted once when the referrer chooses one (grantHeldReferrerRewards). Grandfathering is Company.referralTerms: NULL = referred before the rule, old terms; "plan_required" stamped at signup since. Grants claim the ReferralCredit row first, so races grant once. Column applied to the live DB by SQL (ALTER TABLE "Company" ADD COLUMN "referralTerms" TEXT). Copy moved in nine catalogues, help EN/FR/ES, terms, landing, invite email/SMS, phone and chat AI, rep scripts — the live Reverse Selling playbook needs "Refresh the built-ins" to pick up the new referral offer; sales guide PDFs not rebuilt — scripts/check-referral-reward.mjs
+## Each estimate kind opens its own calculator (3 October 2026)
+
+The owner, on TrueFinish Cabinets: after adding Interior Painting, the cards
+inside the takeoff opened a room (W × L × H) for Cabinets & millwork and for
+Staining, and Refinish, Reface and Stairs were nowhere. The first-screen card
+already opened the cabinet trade; the in-takeoff card only re-filtered the
+room's substrates.
+
+### What shipped
+
+- `lib/quotes/estimateKindRouting.js` decides, for both sets of cards:
+  Cabinets & millwork → the cabinet trade (refinishing first, with its
+  Refinish | Reface switch); Staining → asks Cabinets / Stairs / Decks, fences
+  & doors when the company sells cabinets or stairs, and opens that trade;
+  everything else stays the painting takeoff. Only trades the company sells.
+  A press inside an untouched painting group replaces it (same tempId, so the
+  document layout keeps it open); one with work in it is left alone and the
+  trade goes after it. Staining groups are headed "Cabinet staining" / "Stair
+  staining" in the document's language.
+- Exterior, and a commercial area set to exterior, is a surface calculator:
+  siding area (sqft), trim (linear ft), counted doors, window frames,
+  shutters, soffit & fascia, garage doors — the `measurement: "surface"` style
+  the recovered exterior job used. An area stored with room dimensions keeps
+  its room form. Commercial prices from its own rate set as before.
+- Four exterior substrates, all `analogue` (rates borrowed from existing
+  figures, edit on the rate card): `ext_door` 1 h/side, `ext_window_frame`
+  0.5 h, `ext_trim` 30 lnft/h (soffit & fascia's rate) read from the trim
+  linear feet, `shutters` $75/pair ÷ $80/h.
+- `check:estimate-kind-routing` (in check:all): routing, rendering of every
+  kind, wiring, and md5 pins of existing quotes of every kind taken from
+  origin/main. TrueFinish's real quotes were recomputed read-only through
+  origin/main and this tree: 129 md5s, identical.
+
+### Owed — owner decisions
+
+- The four exterior rates are placeholders until he names his own.
+- A painter with no cabinet trade still gets the painting book's cabinet
+  substrates inside a room for Cabinets & millwork; whether that should drop
+  the room geometry is his call.
+- The cabinet trade has no stain-vs-paint price; a stained cabinet group
+  prices at the refinishing card and only its heading says stain.
 
 ## The monthly summary email, rebuilt (3 October 2026)
 

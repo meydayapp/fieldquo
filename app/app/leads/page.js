@@ -1616,6 +1616,16 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t, sample = null })
               t={t}
             />
             )}
+            {/* A commercial enquiry with drawings: read them into a draft
+                quote (lib/planRead/). Only where a quote could be created. */}
+            {!sample && canCreateQuotes && !lead.quote?.id && (
+              <Link
+                href={`/app/quotes/drawings/new?lead=${leadId}`}
+                className="mt-3 inline-flex items-center min-h-[44px] px-3 rounded-lg border border-border text-sm hover:bg-accent"
+              >
+                {t("app.planRead.startFromDrawingsShort", "Start from drawings")}
+              </Link>
+            )}
             {picker && (
               <QuoteLinkPicker
                 leadId={leadId}

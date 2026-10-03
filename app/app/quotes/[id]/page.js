@@ -144,6 +144,7 @@ import ImportedCostsPanel from "./ImportedCostsPanel";
 import StreetViewPeek from "@/app/components/StreetViewPeek";
 import SiteVisitPanel from "@/app/components/quotes/SiteVisitPanel";
 import LinkedJobDocuments from "@/app/components/jobs/LinkedJobDocuments";
+import QuoteFiles from "@/app/components/planRead/QuoteFiles";
 import { visibleLineItems } from "@/lib/quotes/scopeGroupDisplay";
 import { jobAddressLine } from "@/lib/quotes/jobAddress";
 import { offlineDiscountLine } from "@/lib/payments/offlineDiscount";
@@ -1374,6 +1375,10 @@ export default function QuoteDetailPage() {
           job page is where documents are added. Absent until there is a job,
           and absent for a member the route withholds money kinds from. */}
       {quote.jobs?.[0]?.id && <LinkedJobDocuments jobId={quote.jobs[0].id} />}
+
+      {/* The quote's own files — drawings, scope sheets, permits, site
+          photos — which move to the job's Documents on approval. */}
+      {!quote.historicalImportedAt && <QuoteFiles quoteId={id} />}
 
       {quote.invoices?.length > 0 && (
         <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900 rounded-lg px-4 py-3 text-sm text-blue-800 dark:text-blue-300">
