@@ -40,7 +40,8 @@ import { normaliseSiteAddress } from "@/lib/geo/geocodeJob";
 import { offlineDiscountPctFor } from "@/lib/payments/offlineDiscount";
 import { canUseKitchenDesigner } from "@/lib/kitchen/access";
 import { linkInstantVisits } from "@/lib/quotes/linkInstantVisits";
-import { normaliseClientPo, readClientPoInput } from "@/lib/documents/clientPo";
+import { draftInvoicesFollowingJobPo, normaliseClientPo, readClientPoInput } from "@/lib/documents/clientPo";
+import { releaseHeldForPo } from "@/lib/paymentSchedule/run";
 import {
   parseExpectedVersion,
   versionWhere,
@@ -371,17 +372,22 @@ export async function PATCH(request, { params }) {
 
   // ── The client's PO ───────────────────────────────────────────────────────
   //
-  // Absent leaves it; "" clears it (lib/documents/clientPo.js). The same rule
-  // as the line items just below: editable while the quote is open, fixed once
-  // the client has decided — after acceptance the PO lives on the job, which
-  // is where a PO issued against the approved quote is typed. A save that
-  // re-posts the SAME value on a decided quote is not a change and passes.
+  // Absent leaves it; "" clears it (lib/documents/clientPo.js). Editable while
+  // the quote is open, like its line items. Once the client has decided, a PO
+  // the quote already carries is fixed (it is what was agreed against; the
+  // job takes changes) — but one the quote never had may still be ADDED:
+  // "no PO, no invoice" holds a PO-required client's deposit until the PO is
+  // entered on the quote, the job or the invoice (owner, 3 October 2026), and
+  // the quote is where an estimator looks first. A save that re-posts the
+  // SAME value is not a change and passes.
   const clientPoNumber = readClientPoInput(body);
   const poChanging =
     clientPoNumber !== undefined && clientPoNumber !== normaliseClientPo(existing.clientPoNumber);
-  if (poChanging && !["draft", "sent"].includes(existing.status)) {
+  const poAddedAfterDecision =
+    poChanging && !["draft", "sent"].includes(existing.status) && !normaliseClientPo(existing.clientPoNumber) && Boolean(clientPoNumber);
+  if (poChanging && !["draft", "sent"].includes(existing.status) && !poAddedAfterDecision) {
     return NextResponse.json(
-      { error: "This quote is already decided — add the PO number on its job instead.", code: "po_locked" },
+      { error: "This quote is already decided — change the PO number on its job instead.", code: "po_locked" },
       { status: 400 },
     );
   }
@@ -621,6 +627,41 @@ export async function PATCH(request, { params }) {
   if (refusal) return NextResponse.json(refusal.body, { status: refusal.status });
 
   const updated = outcome.result;
+
+  // ── A PO added to an accepted quote travels on ─────────────────────────
+  //
+  // To the job(s) the acceptance created, where they have none; from each
+  // job to its draft invoices (the same rule PATCH /api/jobs/[id] applies);
+  // and then whatever deposit request was held for it goes out, once
+  // (lib/paymentSchedule/poHold.js). Best-effort after the write, like the
+  // hooks below: the quote's own save already stands.
+  if (poAddedAfterDecision && existing.status === "accepted") {
+    try {
+      const jobs = await db.job.findMany({
+        where: { quoteId: existing.id, companyId: member.companyId, clientPoNumber: null },
+        select: { id: true, companyId: true, quoteId: true, clientPoNumber: true },
+      });
+      for (const job of jobs) {
+        await db.job.update({ where: { id: job.id, companyId: member.companyId }, data: { clientPoNumber } });
+        await db.invoice.updateMany({ where: draftInvoicesFollowingJobPo({ job, previousPo: null }), data: { clientPoNumber } });
+        await releaseHeldForPo({ job });
+      }
+      if (!jobs.length) {
+        // No job without a PO (none was created, or it already has its own):
+        // the quote's own draft invoices with none still take it.
+        const drafts = await db.invoice.findMany({
+          where: { companyId: member.companyId, quoteId: existing.id, status: "draft", parentInvoiceId: null, historicalImportedAt: null, clientPoNumber: null },
+          select: { id: true },
+        });
+        if (drafts.length) {
+          await db.invoice.updateMany({ where: { id: { in: drafts.map((d) => d.id) }, companyId: member.companyId }, data: { clientPoNumber } });
+          await releaseHeldForPo({ invoiceIds: drafts.map((d) => d.id) });
+        }
+      }
+    } catch (err) {
+      console.error("[quotes] PO onto the job:", err?.message);
+    }
+  }
 
   // The takeoff's optional scope, rewritten to match what was just saved. A
   // takeoff-sourced add-on is a VIEW of the takeoff, so editing the room has to

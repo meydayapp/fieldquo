@@ -169,18 +169,41 @@ esbuild), search, the prompt, the sequence, supplier POs untouched, the export.
 Documents without a PO were proved byte-identical to HEAD: 240 renders
 (emails, PDF sections, web facts, work order; eight languages) by md5.
 
+### Owner decisions, same day — built
+
+1. **"No PO, no invoice."** A client with "requires a PO" whose quote is
+   accepted with none: the job's invoice is still created, as a draft, but
+   the automatic deposit request (or a stage the cron finds due) is HELD —
+   `JobPaymentStage.heldForPoAt`, the stage stays pending, a high-priority
+   task "Northline … requires a PO — add it to send the Deposit request",
+   a "held" banner on the invoice (linking to its PO box) and a line on the
+   job's payment schedule. Entering the PO on the quote (an accepted quote
+   may now be GIVEN a PO it never had; one it carries stays fixed), the job
+   or the invoice releases it: one conditional write claims the stage, so
+   two racing saves send it once. Every other client: unchanged.
+   `lib/paymentSchedule/poHold.js`, wired in `requestStagePayment`.
+2. **Invoices already sent** keep their stage requests and reminders whatever
+   the PO says — unchanged, as built.
+3. **The generated reference's format** is the company's: Settings → Company
+   → "PO references" — prefix (default `PO-`), the year or not (default yes),
+   digits (default 4), with a live preview drawn by the generator's own
+   function and the real next value after a save. Existing references never
+   change; the sequence counts only values of the current shape.
+
+    ALTER TABLE "Company" ADD COLUMN IF NOT EXISTS "clientPoDigits" INTEGER NOT NULL DEFAULT 4;
+    ALTER TABLE "Company" ADD COLUMN IF NOT EXISTS "clientPoIncludeYear" BOOLEAN NOT NULL DEFAULT true;
+    ALTER TABLE "Company" ADD COLUMN IF NOT EXISTS "clientPoPrefix" TEXT NOT NULL DEFAULT 'PO-';
+    ALTER TABLE "JobPaymentStage" ADD COLUMN IF NOT EXISTS "heldForPoAt" TIMESTAMP(3);
+
+`check:client-po` grew sections 9 (held, prompted, released once) and 10
+(the format).
+
 ### Owed
 
-- The payment reminder (`request-payment`, only offered on sent invoices) and
-  the automatic deposit request do not stop for a missing PO — they are not
-  the invoice's first send by a person. Say if they should.
 - The classic invoice forms (`?layout=classic`) have no PO box; the server
   still carries the job's/quote's PO onto an invoice they create.
-- With a payment schedule, the deposit request SENDS the job's invoice the
-  moment the quote is accepted — usually before the client's PO exists. A PO
-  typed on the job afterwards is not copied onto that (now sent) invoice; it
-  takes an amendment. Copying onto sent invoices would break the "a sent
-  document keeps saying what it said" rule, so it needs a decision.
+- A held request whose send fails at release (no client email, Resend down)
+  is not re-held: the PO is in, so the office sends it from the invoice page.
 
 ## Start from drawings — the drawing read (3 October 2026)
 

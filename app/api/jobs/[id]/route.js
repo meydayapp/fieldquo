@@ -28,6 +28,7 @@ import {
 } from "@/lib/concurrency/staleWrite";
 import { geocodeJob, normaliseSiteAddress, siteAddressChanged } from "@/lib/geo/geocodeJob";
 import { draftInvoicesFollowingJobPo, normaliseClientPo, readClientPoInput } from "@/lib/documents/clientPo";
+import { releaseHeldForPo } from "@/lib/paymentSchedule/run";
 import { withWarranty } from "@/lib/equipment/warranty";
 import { warrantyLinkVerdict } from "@/lib/equipment/installed";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
@@ -437,6 +438,10 @@ export async function PATCH(request, { params }) {
       where: draftInvoicesFollowingJobPo({ job: existing, previousPo: existing.clientPoNumber }),
       data: { clientPoNumber },
     });
+    // …and a deposit request held for want of this PO goes out now, once
+    // (lib/paymentSchedule/poHold.js). After the drafts above carry it, so
+    // the email prints it. Never throws.
+    if (clientPoNumber) await releaseHeldForPo({ job: existing });
   }
 
   // The job's chat room follows its status and its name (lib/company/chat/
