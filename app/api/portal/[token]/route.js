@@ -176,6 +176,8 @@ export async function GET(request, { params }) {
           parentInvoiceId: true,
           version: true,
           invoiceNumber: true,
+          // The client's own PO, read back to them on their copy.
+          clientPoNumber: true,
           total: true,
           amountPaid: true,
           dueDate: true,
@@ -436,6 +438,9 @@ export async function GET(request, { params }) {
       dueDate: invoice.dueDate,
       // Only what the company flagged for the document, with an answer.
       customFields: customFieldsByInvoice.get(invoice.id) || [],
+      // Their PO number, when the invoice carries one — printed as "PO #"
+      // and never as an empty label (lib/documents/clientPo.js).
+      clientPoNumber: invoice.clientPoNumber || null,
       lineItems: invoice.lineItems,
       notes: invoice.notes,
       subtotal: invoice.subtotal,

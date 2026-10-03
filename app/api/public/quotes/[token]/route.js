@@ -379,6 +379,10 @@ function present(quote, { financingTr = null } = {}) {
     // Only definitions the company flagged showOnDocuments, with an answer —
     // never the whole set. See lib/customFields/values.js.
     customFields: Array.isArray(quote.customFields) ? quote.customFields : [],
+    // The client's own PO number, when they gave one — their reference, read
+    // back to them; printed as "PO #" beside the custom facts and never as an
+    // empty label (lib/documents/clientPo.js).
+    clientPoNumber: quote.clientPoNumber || null,
     sentAt: quote.sentAt,
     subtotal: num(quote.subtotal),
     discount: num(quote.discount),

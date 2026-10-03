@@ -94,6 +94,7 @@ export async function POST(request) {
     county,
     notes,
     language,
+    requiresPo,
   } = body;
 
   if (!name) {
@@ -149,6 +150,9 @@ export async function POST(request) {
         // so a company that later switches default would keep sending old-
         // language quotes to everyone already on file.
         language: isSupported(language) ? language : null,
+        // "Requires a PO number on invoices" — true only when the form said
+        // so in as many words (Client.requiresPo).
+        requiresPo: requiresPo === true,
         // A demo company's client typed in by a person, here and now — the
         // one kind of record a demo may send real mail and texts to
         // (lib/demo/simulatedSpend.js). Computed from the company row, never

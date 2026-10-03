@@ -3264,6 +3264,16 @@ model Client {
   /// typing a stranger's address onto fixture data would send. A reset wipes
   /// these rows with the rest of the demo, and a retired rep demo refuses.
   demoLiveAt         DateTime?
+
+  /// "This client requires a PO number on invoices" — a property manager or a
+  /// general contractor whose accounts payable rejects an invoice that does
+  /// not quote their purchase order. Read by the invoice send routes
+  /// (lib/documents/clientPo.js clientPoSendPrompt), which stop and ASK
+  /// before an invoice for this client goes out without one: enter it, or
+  /// send anyway. A prompt, not a block — the tax gate beside it is a hard
+  /// stop because a wrong tax line is a wrong amount; a missing PO is a
+  /// document the client may bounce, and the office may know better.
+  requiresPo         Boolean   @default(false)
 }
 
 /// See Company.taxMode.
@@ -3442,6 +3452,16 @@ model Quote {
   /// means "not asked", and every reader falls back to the client's address
   /// only where the client is an individual.
   siteAddress String?
+
+  /// The CLIENT's purchase-order number — the reference a commercial client
+  /// issues and expects quoted back on the paperwork. NOT a supplier
+  /// PurchaseOrder (the contractor ordering materials; lib/purchasing). Typed
+  /// by the office, or filled by "Generate" with a company-sequenced
+  /// reference (lib/documents/clientPo.js). Carried forward on acceptance to
+  /// Job.clientPoNumber and from there to the invoice. Editable while the
+  /// quote is open (draft / sent), like its line items; fixed once decided.
+  /// Null means none was given — the documents print no "PO #" line at all.
+  clientPoNumber String?
 
   /// Archived: off the working list, never deleted. A status would have to
   /// be an enum value every switch in the product learns about; a timestamp
@@ -4132,6 +4152,14 @@ model Invoice {
   // video. Changed while every row was still empty.
   clientPhotos Json?
   language     String    @default("en")
+
+  /// The client's purchase-order number this invoice bills against (see
+  /// Quote.clientPoNumber). Seeded from the job, else the quote, when the
+  /// invoice is raised; its own column so a client that issues a PO per
+  /// phase gets a different one on each invoice. Edited in place on a draft;
+  /// on a sent invoice an edit is a new version, like every other field, and
+  /// the version carries it. Null prints nothing.
+  clientPoNumber String?
 
   stripePaymentIntentId String?
   stripeCheckoutUrl     String?
@@ -6034,6 +6062,12 @@ model Job {
   // wrong: a property manager's billing address is an office, and sending a
   // crew there is worse than sending them nowhere.
   siteAddress    String?
+  /// The client's purchase-order number for this job (see
+  /// Quote.clientPoNumber), carried from the quote on acceptance and
+  /// editable on the job page at any time. A change is copied onto the job's
+  /// DRAFT invoices that had none or had the old one — never onto a sent
+  /// invoice, which changes only by amendment. Printed on the work order.
+  clientPoNumber String?
   /// Where the site is, geocoded from siteAddress (lib/geo/geocodeJob.js).
   /// Nullable and never invented: a job whose address did not geocode has no
   /// coordinates, and every distance built on these says "unknown" rather

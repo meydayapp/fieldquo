@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 import { JOB_STATUS_LABEL_KEYS } from "@/lib/jobs/statusLabels";
 import Link from "next/link";
 import { Briefcase, Plus, Search, Upload } from "lucide-react";
+import { matchesClientPo } from "@/lib/documents/clientPo";
 import { fetchArray } from "@/lib/loadState";
 import ListState from "@/app/components/ListState";
 import JobListRow from "./JobListRow";
@@ -71,7 +72,9 @@ export default function JobsPage() {
     const s = search.toLowerCase();
     return (
       j.title?.toLowerCase().includes(s) ||
-      j.client?.name?.toLowerCase().includes(s)
+      j.client?.name?.toLowerCase().includes(s) ||
+      // The client's PO — what a property manager quotes when they call.
+      matchesClientPo(j, s)
     );
   });
 

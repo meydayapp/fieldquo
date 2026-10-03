@@ -14,7 +14,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Building2, Check, Loader2, MessageCircleQuestion } from "lucide-react";
 import SignaturePad from "@/app/components/SignaturePad";
 import { documentTheme, fillPair, ruleColor, washPair } from "@/lib/documents/theme";
-import { documentFormatters } from "@/lib/i18n/documentLabels";
+import { documentFormatters, documentLabels } from "@/lib/i18n/documentLabels";
+import { clientPoLine } from "@/lib/documents/clientPo";
 import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
 import { jsonBody } from "@/lib/jsonBody";
 
@@ -154,6 +155,10 @@ export default function ChangeOrderApproval({ token }) {
               </div>
               <div className="font-bold text-[#2d2520]">{co.label}</div>
               {data.quote?.quoteNumber && <div className="text-xs text-[#2d2520]/55">{copy.toQuote(data.quote.quoteNumber)}</div>}
+              {/* The job's PO, labelled in the document's language. */}
+              {clientPoLine(data, documentLabels(data.language)) && (
+                <div className="text-xs text-[#2d2520]/55" data-co-client-po>{clientPoLine(data, documentLabels(data.language))}</div>
+              )}
             </div>
           </div>
         </div>

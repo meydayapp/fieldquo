@@ -10,6 +10,7 @@ import Link from "next/link";
 import { Briefcase, ArrowRight } from "lucide-react";
 import { jobStatusClasses, jobStatusLabel } from "@/lib/jobs/statusLabels";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import ClientPoChip from "@/app/components/documents/ClientPoChip";
 
 /**
  * @param job          a GET /api/jobs row: id, title, status, recurring,
@@ -40,6 +41,7 @@ export default function JobListRow({ job, statusLabel }) {
             >
               {label(job.status)}
             </span>
+            <ClientPoChip value={job.clientPoNumber} />
             {job.recurring && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 shrink-0">
                 {t("app.jobs.recurring")}

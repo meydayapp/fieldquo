@@ -55,6 +55,9 @@ export default function NewClientPage() {
     // Null = follow the company default. See LanguagePicker for why this
     // isn't pre-filled with the company's current language.
     language: null,
+    // Client.requiresPo — the invoice send asks before an invoice for this
+    // client goes out without a PO number (lib/documents/clientPo.js).
+    requiresPo: false,
   });
 
   // The company's own default, shown in the picker's inherit option so the
@@ -298,6 +301,19 @@ export default function NewClientPage() {
           onChange={(v) => set("language", v)}
           companyDefault={companyLanguage}
         />
+
+        <label className="flex items-start gap-2 text-sm text-foreground cursor-pointer">
+          <input
+            type="checkbox"
+            checked={Boolean(form.requiresPo)}
+            onChange={(e) => set("requiresPo", e.target.checked)}
+            className="mt-0.5"
+          />
+          <span>
+            {t("app.clientDetail.requiresPo")}
+            <span className="block text-xs text-muted-foreground">{t("app.clientDetail.requiresPoHint")}</span>
+          </span>
+        </label>
 
         <CustomFieldInputs cf={cf} />
 

@@ -72,6 +72,8 @@ import { feeRateKey } from "@/lib/stripe/feeRateKey";
 import RefundDialog from "./RefundDialog";
 import { refundableCents } from "@/lib/invoices/refund";
 import { documentLabels } from "@/lib/i18n/documentLabels";
+import { clientPoFact } from "@/lib/documents/clientPo";
+import ClientPoRequiredModal from "@/app/components/documents/ClientPoRequiredModal";
 import { documentIssueDate } from "@/lib/documents/issueDate";
 import { taxStatement } from "@/lib/tax/documentTax";
 import { documentTaxSentence } from "@/lib/tax/documentSentence";
@@ -105,6 +107,10 @@ export default function InvoiceDetailPage() {
   const [company, setCompany] = useState(null);
   // The send refused because this invoice can't say what tax is owed.
   const [taxBlocked, setTaxBlocked] = useState(null);
+  // The send stopped to ask: this client requires a PO number on invoices
+  // and this one has none (lib/documents/clientPo.js). Not a failure — a
+  // question with two answers, held by ClientPoRequiredModal.
+  const [poPrompt, setPoPrompt] = useState(null);
   // Everything the invoice SAYS. Its own request for the same reason the quote
   // page makes one: several kilobytes of prose that the PDF route and the
   // editor have no use for.
@@ -292,11 +298,16 @@ export default function InvoiceDetailPage() {
    * now written only after Resend accepts the message, and the send route
    * raises the chase task on the way out.
    */
-  async function sendInvoice() {
+  async function sendInvoice(answer = null) {
     setSending(true);
     setError("");
     try {
-      const res = await fetch(`/api/invoices/${id}/send`, { method: "POST" });
+      // `answer` is the PO dialog's: { clientPoNumber } or { sendWithoutPo }.
+      // A plain press sends no body, exactly as before.
+      const res = await fetch(`/api/invoices/${id}/send`, {
+        method: "POST",
+        ...(answer ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(answer) } : {}),
+      });
       const data = await res.json().catch(() => null);
       // The invoice says tax applies and charges none. Not a failure to
       // report — a decision to make, and the dialog holds both ways out. An
@@ -307,6 +318,11 @@ export default function InvoiceDetailPage() {
         setTaxBlocked(data);
         return;
       }
+      if (res.status === 409 && data?.code === "po_required") {
+        setPoPrompt(data);
+        return;
+      }
+      setPoPrompt(null);
       if (res.status === 409 && data?.code === "nothing_owed") {
         throw new Error(t("app.invoiceDetail.sendNothingOwed"));
       }
@@ -594,7 +610,7 @@ export default function InvoiceDetailPage() {
                 about it would be the first this client ever got from us. */}
             {owing && !historical && (
               <button
-                onClick={sendInvoice}
+                onClick={() => sendInvoice()}
                 disabled={sending}
                 className="flex items-center gap-1.5 bg-inverted text-inverted-foreground px-4 py-2 rounded-full text-sm font-semibold disabled:opacity-60"
               >
@@ -698,12 +714,20 @@ export default function InvoiceDetailPage() {
         }}
       />
 
+      <ClientPoRequiredModal
+        prompt={poPrompt}
+        invoiceId={id}
+        busy={sending}
+        onClose={() => setPoPrompt(null)}
+        onSend={(answer) => sendInvoice(answer)}
+      />
+
       <LifecycleBanners
         banners={life?.banners || []}
         money={money}
         busy={sending ? "send" : requesting ? "chase" : ""}
         handlers={{
-          send: sendInvoice,
+          send: () => sendInvoice(),
           chase: () => setShowChase(true),
           createJob: () => setJobFocus(`create:${Date.now()}`),
           scheduleVisit: () => setJobFocus(`visit:${Date.now()}`),
@@ -876,6 +900,11 @@ export default function InvoiceDetailPage() {
           </div>
 
           <dl className="text-sm space-y-1 sm:text-right">
+            {/* The client's PO, as their copy prints it. Absent, no row —
+                never an empty "PO #" (lib/documents/clientPo.js). */}
+            {clientPoFact(invoice, labels) && (
+              <Fact label={clientPoFact(invoice, labels)[0]} value={clientPoFact(invoice, labels)[1]} />
+            )}
             {/* sentAt over createdAt when the invoice has actually gone out —
                 see lib/documents/issueDate.js. Otherwise the office would read
                 a March date on an invoice the client only received in May. */}

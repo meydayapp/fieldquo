@@ -79,6 +79,7 @@ import CostMarginPanel from "./CostMarginPanel";
 import QuoteTotalsBar from "./QuoteTotalsBar";
 import ClientPicker from "./ClientPicker";
 import JobAddressField from "./JobAddressField";
+import ClientPoField from "@/app/components/documents/ClientPoField";
 import TemplatePicker from "./TemplatePicker";
 import SiteVisitPanel from "@/app/components/quotes/SiteVisitPanel";
 import { defaultSiteAddressFor, siteAddressRequired } from "@/lib/quotes/jobAddress";
@@ -267,6 +268,7 @@ export function initialStateFromQuote(quote, { fallbackLabel = "Scope" } = {}) {
       assignedTo: null,
       siteAddress: "",
       taxResolution: null,
+      clientPoNumber: "",
     };
   }
 
@@ -311,6 +313,8 @@ export function initialStateFromQuote(quote, { fallbackLabel = "Scope" } = {}) {
     // prints "HST 13% (Ontario)" from the record rather than re-resolving
     // (an edit never re-prices — see the tax effect below).
     taxResolution: readTaxResolution(quote.taxResolution),
+    // The client's PO as saved; "" for none (lib/documents/clientPo.js).
+    clientPoNumber: quote.clientPoNumber || "",
   };
 }
 
@@ -936,6 +940,15 @@ export function QuoteBuilderForm({
   // Where the work is (Quote.siteAddress). Prefilled from a homeowner when
   // they are picked, typed for a company client — see JobAddressField.
   const [siteAddress, setSiteAddress] = useState(start.siteAddress || "");
+  // The client's purchase-order number (Quote.clientPoNumber). Sent only once
+  // the box has been touched or the quote already had one — see
+  // lib/quotes/builderRequest.js on why an untouched box adds no key.
+  const [clientPoNumber, setClientPoNumberState] = useState(start.clientPoNumber || "");
+  const [clientPoTouched, setClientPoTouched] = useState(false);
+  const setClientPoNumber = (v) => {
+    setClientPoNumberState(v);
+    setClientPoTouched(true);
+  };
 
   // ── Scope ────────────────────────────────────────────────────────────────
   const [scopeGroups, setScopeGroups] = useState(start.groups || []);
@@ -2407,6 +2420,7 @@ export function QuoteBuilderForm({
       // The drawing read this draft came from, create only. Absent on every
       // other save, so their bodies are unchanged.
       sourcePlanReadId: !isEdit ? initial?.planReadId || null : null,
+      clientPoNumber: clientPoTouched || start.clientPoNumber ? clientPoNumber : undefined,
     });
 
     let quote = null;
@@ -3336,6 +3350,8 @@ export function QuoteBuilderForm({
           clients: filteredClients, clientSearch, setClientSearch, selectedClient, setSelectedClient,
           showNewClient, setShowNewClient, newClient, setNewClient, handleCreateClient, creatingClient,
           siteAddress, setSiteAddress,
+          clientPoNumber, setClientPoNumber,
+          clientPoLocked: !canEditScope, clientPoLockedNote: t("app.clientPo.locked"),
           categories, products, teamRoster, settingsAccess,
           scopeGroups, setScopeGroups, addScopeGroup, addPaintingEstimate, paintingFirst, servicePicker, removeScopeGroup, updateLineItem, removeLineItem,
           groupFromStored, groupTotal, rateOverridesFor, wordingOverrideFor, getProductsForCategory,
@@ -3529,6 +3545,20 @@ export function QuoteBuilderForm({
           it is answered from the client and overridden for a company one. */}
       {selectedClient && (
         <JobAddressField client={selectedClient} value={siteAddress} onChange={setSiteAddress} />
+      )}
+
+      {/* The client's PO — under the job address, the other fact a commercial
+          client hands over with the job. Locked once the client has decided;
+          from then on it lives on the job. */}
+      {selectedClient && (
+        <ClientPoField
+          kind="quote"
+          value={clientPoNumber}
+          onChange={setClientPoNumber}
+          client={selectedClient}
+          locked={!canEditScope}
+          lockedNote={t("app.clientPo.locked")}
+        />
       )}
 
       {/* A saved shape to start from — the groups, notes and process notes

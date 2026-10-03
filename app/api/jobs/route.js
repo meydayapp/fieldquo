@@ -93,6 +93,9 @@ export async function POST(request) {
     callbackReason,
     warrantyEquipmentId: typeof warrantyEquipmentId === "string" ? warrantyEquipmentId : null,
     siteAddress,
+    // The client's PO when the form sent one; absent → carried from the
+    // quote (lib/jobs/createJob.js).
+    clientPoNumber: body.clientPoNumber,
   });
   if (error) return NextResponse.json({ error }, { status });
 

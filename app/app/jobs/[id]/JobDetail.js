@@ -69,6 +69,7 @@ import { usePermissions } from "@/app/providers/PermissionProvider";
 import { hasLevel } from "@/lib/permissions/enforce";
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import PaymentScheduleCard from "./PaymentScheduleCard";
+import JobClientPo from "@/app/components/jobs/JobClientPo";
 import OpenTicketsLink from "@/app/components/tickets/OpenTicketsLink";
 
 // ── One STATUS_STYLES held two vocabularies, and lost a key doing it ───────
@@ -700,6 +701,10 @@ export default function JobDetail({ jobId }) {
           variant="rows"
           className="mt-4 pt-3 border-t border-border"
         />
+        {/* The client's PO number — carried from the quote, typed here when
+            it arrives after approval, and copied onto the job's draft
+            invoices on save. See JobClientPo. */}
+        <JobClientPo job={job} canEdit={canEditJob} onSaved={load} />
       </div>
 
       {/* Visits */}

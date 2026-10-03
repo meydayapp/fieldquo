@@ -37,6 +37,7 @@ import { mintShareToken } from "@/lib/quotes/shareToken";
 import { normaliseSiteAddress } from "@/lib/geo/geocodeJob";
 import { offlineDiscountPctFor } from "@/lib/payments/offlineDiscount";
 import { attachDefaultWaivers } from "@/lib/waivers/service";
+import { readClientPoInput } from "@/lib/documents/clientPo";
 // "What happens next" is copied onto the quote in the QUOTE's language: the
 // company's reviewed or auto-drafted translation when one exists for the
 // current wording, the source text otherwise (lib/i18n/companyText.js).
@@ -461,6 +462,9 @@ export async function POST(request) {
       validUntil: validUntil ? new Date(validUntil) : null,
       language: language || "en",
       siteAddress: siteAddressValue,
+      // The client's PO, when the builder sent one (lib/documents/clientPo.js).
+      // Absent and blank are both "none" on a new quote.
+      clientPoNumber: readClientPoInput(body) ?? null,
       // The e-transfer / cheque offer, decided by the server from the
       // company's switch and frozen here — the browser never sends it, and a
       // sent quote never re-reads it (lib/payments/offlineDiscount.js).
