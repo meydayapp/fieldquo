@@ -502,12 +502,43 @@ job labour, Driving linked/unlinked, breaks paid/unpaid per setting, md5 proof
 that legacy entries' hours are byte-identical, midnight/DST, crew sees only
 their own log, crew nav shows the clock, offline fold.
 
+### Follow-up, on the owner's answers (same day)
+
+- **The clock is a grid rung.** Time Tracking & Timesheets gained a bottom rung,
+  `none` ("No access"); every preset sits above it. lib/timeclock/access.js is
+  the one rule: the rail pin and More row (NAV_REQUIREMENTS `app.nav.clock`),
+  the phone bars, the employee-home tab, the Clock in cards, AND
+  /api/time-clock, its log and week routes and /api/time-entries all follow
+  it. In Edit access it is the Time Tracking dial; on the fixed Crew panel (no
+  dials) a "Time clock" checkbox. Turning it off keeps the person in their
+  preset (PRESET_OFF_SWITCHES) and a Crew member stays free. Job-costing
+  visibility was already the grid's `jobCosting` toggle (Manager on, others
+  off, switchable per person) — unchanged, asserted.
+- **Correction requests.** "Request a correction" on your own entries in the
+  Time log (start, end, activity, job, reason) writes a TimeEntryCorrection and
+  nothing else. Managers (supervisor seat + Time Tracking "everyone's") approve
+  or reject on Timesheets; approving updates the same entry via the shared
+  hours arithmetic and stores what it said before (`original`) in the same
+  transaction; nobody below owner/admin decides their own. Never deleted.
+- **Invoices: on site only.** Driving and Supplies linked to a job count in
+  job costing but are skipped from the invoice labour offer (`not_on_site`);
+  entries with no activity are offered exactly as before (md5-proved).
+- **Owners and pay runs.** Worker.paidByPayroll (null = by role): an owner's
+  row is left out of pay runs unless marked "Pay me through payroll" on Your
+  own rate; everyone else is paid as before. The run names who it left out.
+- Schema (additive, by SQL): `CREATE TABLE "TimeEntryCorrection"` (+2 indexes,
+  2 FKs: company CASCADE, timeEntry SET NULL);
+  `ALTER TABLE "Worker" ADD COLUMN "paidByPayroll" BOOLEAN`.
+
 ### Owed
 
 - Help screenshots `live:app-clock` and `harness:mobile-clock` show the old
   screen until the capture sets are re-shot; the captions describe the new one.
-- Owner decisions listed in the hand-off (desktop rail row for the clock,
-  estimators and job costing, crew editing their own hours, driving on invoices).
+- Help articles don't yet describe correction requests or the clock switch.
+- The old direct self-edit (PATCH /api/time-entries/[id] on one's own entry,
+  view_record_edit_own — it sends the entry back to pending) still exists for
+  API callers; no screen uses it. Owner to say whether to close it now that
+  corrections are requests.
 
 ## The monthly summary email, rebuilt (3 October 2026)
 

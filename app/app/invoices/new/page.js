@@ -469,6 +469,10 @@ export function ClassicNewInvoicePage() {
           {labourOffer.skipped?.billed > 0 && (
             <p className="text-xs opacity-80">{t("app.invoiceNew.labourAlreadyBilled", { count: labourOffer.skipped.billed })}</p>
           )}
+          {/* Drives and supply runs on the job: its cost, not the client's bill. */}
+          {labourOffer.skipped?.not_on_site > 0 && (
+            <p className="text-xs opacity-80">{t("app.invoiceNew.labourNotOnSite", { count: labourOffer.skipped.not_on_site })}</p>
+          )}
           {labourOffer.entries?.length > 0 && labourOffer.rates?.length === 0 && (
             <p className="text-xs">
               {t("app.invoiceNew.labourNoRate")}{" "}

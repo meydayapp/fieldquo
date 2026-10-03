@@ -29,6 +29,8 @@ import { fetchList } from "@/lib/loadState";
 import ListState from "@/app/components/ListState";
 import { formatTimeOfDay, formatWeekdayDayMonth } from "@/lib/format/localeDate";
 import { localYmd } from "@/lib/shifts/coverage";
+import { usePermissions } from "@/app/providers/PermissionProvider";
+import { clockOffered } from "@/lib/timeclock/access";
 
 const DAYS = 14;
 
@@ -192,6 +194,8 @@ export default function MySchedulePage() {
 }
 
 function ShiftCard({ shift, coworkers, isToday, now, language, t }) {
+  // Offered only while the clock is on for this person (lib/timeclock/access.js).
+  const clockOn = clockOffered(usePermissions());
   // The client and the job title on one line, the site on its own line
   // under the pin — not the board's block label, which folds the address in
   // and would print it twice here.
@@ -247,7 +251,7 @@ function ShiftCard({ shift, coworkers, isToday, now, language, t }) {
           </span>
         </p>
       )}
-      {isToday && !ended && (
+      {clockOn && isToday && !ended && (
         <Link
           href="/app/clock"
           className="mt-3 inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700"

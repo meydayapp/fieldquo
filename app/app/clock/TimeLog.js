@@ -16,6 +16,7 @@ import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { fetchList } from "@/lib/loadState";
 import ListState from "@/app/components/ListState";
+import { reportResponseError } from "@/lib/clientErrors";
 import { activityIcon, activityName, fmtDuration } from "@/app/components/timeclock/activityUi";
 
 function timeIn(iso, timeZone) {
@@ -122,7 +123,7 @@ export default function TimeLog() {
       ) : data ? (
         <div className={`mt-3 space-y-3 ${loading ? "opacity-60" : ""}`}>
           {data.people.map((p) => (
-            <PersonDay key={p.worker.id} person={p} data={data} now={now} t={t} />
+            <PersonDay key={p.worker.id} person={p} data={data} now={now} t={t} onCorrected={load} />
           ))}
         </div>
       ) : null}
@@ -130,7 +131,8 @@ export default function TimeLog() {
   );
 }
 
-function PersonDay({ person, data, now, t }) {
+function PersonDay({ person, data, now, t, onCorrected }) {
+  const [correcting, setCorrecting] = useState(null);
   // A running segment's end is "now", which moves; the server's figure is
   // from load time. Add the minutes since, so the total keeps up with it.
   const drift = person.open ? Math.max(0, now - Date.parse(person.segments.at(-1)?.end || now)) : 0;
@@ -195,6 +197,230 @@ function PersonDay({ person, data, now, t }) {
           );
         })}
       </ol>
+      {/* ── Your entries: ask for a correction ──────────────────────────
+          Only on your own day, and only as a REQUEST (owner, 2026-10-03):
+          nothing changes until a manager approves it on Timesheets. One
+          request at a time per entry; an entry already on an invoice is
+          not offered — the invoice has to change first. */}
+      {person.me && data.myEntries?.length ? (
+        <ul className="mt-3 space-y-1.5 border-t border-border pt-3">
+          {data.myEntries.map((e) => (
+            <li key={e.id} className="flex flex-wrap items-center justify-between gap-2 text-xs">
+              <span className="min-w-0 text-muted-foreground tabular-nums">
+                {activityName(e.activity, data.activities, t)} · {timeIn(e.clockIn, data.timezone)} –{" "}
+                {e.clockOut ? timeIn(e.clockOut, data.timezone) : t("app.clock.log.running")}
+              </span>
+              {e.correction?.status === "pending" ? (
+                <span className="rounded-full bg-amber-50 px-2 py-0.5 font-semibold text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                  {t("app.clock.correction.pending")}
+                </span>
+              ) : e.billed ? (
+                <span className="text-muted-foreground">{t("app.clock.correction.billed")}</span>
+              ) : (
+                <span className="flex items-center gap-2">
+                  {e.correction?.status === "approved" ? (
+                    <span className="text-emerald-700 dark:text-emerald-300">{t("app.clock.correction.approved")}</span>
+                  ) : e.correction?.status === "rejected" ? (
+                    <span className="text-muted-foreground" title={e.correction.decisionNote || undefined}>
+                      {t("app.clock.correction.rejected")}
+                    </span>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => setCorrecting(e)}
+                    className="inline-flex min-h-[44px] items-center rounded-full border border-border px-3 font-semibold text-foreground hover:bg-muted"
+                  >
+                    {t("app.clock.correction.request")}
+                  </button>
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {correcting ? (
+        <CorrectionSheet
+          entry={correcting}
+          data={data}
+          t={t}
+          onClose={() => setCorrecting(null)}
+          onDone={async () => {
+            setCorrecting(null);
+            await onCorrected();
+          }}
+        />
+      ) : null}
     </section>
+  );
+}
+
+/** "2026-10-03T07:05" for an instant, in the company's zone — what a datetime-local input holds. */
+function wallClockInput(iso, timeZone) {
+  if (!iso) return "";
+  try {
+    const parts = Object.fromEntries(
+      new Intl.DateTimeFormat("en-CA", {
+        timeZone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hourCycle: "h23",
+      })
+        .formatToParts(new Date(iso))
+        .map((p) => [p.type, p.value]),
+    );
+    return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * The request form. Times are typed in the company's zone (the server
+ * resolves them there, lib/time/wallClock.js), so a crew member whose phone
+ * is set to another zone still writes the times they worked. The job list is
+ * the clock's own picker list (GET /api/time-clock), so a request cannot
+ * name a job the server would refuse.
+ */
+function CorrectionSheet({ entry, data, t, onClose, onDone }) {
+  const [clockIn, setClockIn] = useState(() => wallClockInput(entry.clockIn, data.timezone));
+  const [clockOut, setClockOut] = useState(() => wallClockInput(entry.clockOut, data.timezone));
+  const [activity, setActivity] = useState(entry.activity);
+  const [jobId, setJobId] = useState(entry.jobId || "");
+  const [reason, setReason] = useState("");
+  const [jobs, setJobs] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let live = true;
+    fetchList("/api/time-clock").then((r) => {
+      if (live) setJobs(r.ok ? r.data?.jobOptions || [] : []);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  const work = (data.activities || []).filter((a) => a.enabled && !a.isBreak);
+  const meta = work.find((a) => a.key === activity);
+  const jobRule = meta?.job || "none";
+  const options = jobs || [];
+  // The entry's own job stays choosable even if it has left the picker list.
+  const withCurrent =
+    entry.jobId && !options.some((o) => o.id === entry.jobId)
+      ? [{ id: entry.jobId, title: entry.job?.title || t("app.clock.untitledJob", "Untitled job") }, ...options]
+      : options;
+
+  async function send() {
+    setBusy(true);
+    setError("");
+    try {
+      const res = await fetch("/api/time-entries/corrections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          timeEntryId: entry.id,
+          clockIn,
+          clockOut,
+          activity,
+          jobId: jobRule === "none" ? null : jobId || null,
+          reason,
+        }),
+      });
+      if (!res.ok) {
+        const message = await reportResponseError(res, t("app.clock.correction.error"));
+        setError(message || t("app.clock.correction.error"));
+        return;
+      }
+      await onDone();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="correction-title"
+        className="fq-dialog-card max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-card p-5 shadow-2xl sm:rounded-2xl pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 id="correction-title" className="text-lg font-bold text-foreground">{t("app.clock.correction.title")}</h2>
+        <p className="mt-1 text-xs text-muted-foreground">{t("app.clock.correction.intro")}</p>
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="block text-xs font-semibold text-muted-foreground">
+            {t("app.clock.correction.start")}
+            <input type="datetime-local" value={clockIn} onChange={(e) => setClockIn(e.target.value)} className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-3 text-base text-foreground" />
+          </label>
+          <label className="block text-xs font-semibold text-muted-foreground">
+            {t("app.clock.correction.end")}
+            <input type="datetime-local" value={clockOut} onChange={(e) => setClockOut(e.target.value)} className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-3 text-base text-foreground" />
+          </label>
+        </div>
+        <label className="mt-3 block text-xs font-semibold text-muted-foreground">
+          {t("app.clock.correction.activity")}
+          <select value={activity} onChange={(e) => setActivity(e.target.value)} className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-3 text-base text-foreground">
+            {work.map((a) => (
+              <option key={a.key} value={a.key}>
+                {activityName(a.key, data.activities, t)}
+              </option>
+            ))}
+          </select>
+        </label>
+        {jobRule !== "none" ? (
+          <label className="mt-3 block text-xs font-semibold text-muted-foreground">
+            {t("app.clock.jobLabel", "Which job?")}
+            <select value={jobId} onChange={(e) => setJobId(e.target.value)} className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-3 text-base text-foreground">
+              {jobRule === "required" ? (
+                <option value="" disabled>
+                  {t("app.clock.pickJob")}
+                </option>
+              ) : (
+                <option value="">{t("app.clock.noJobPlain")}</option>
+              )}
+              {withCurrent.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.title || t("app.clock.untitledJob", "Untitled job")}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        <label className="mt-3 block text-xs font-semibold text-muted-foreground">
+          {t("app.clock.correction.reason")}
+          <textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value.slice(0, 500))}
+            rows={3}
+            className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-3 text-base text-foreground"
+            placeholder={t("app.clock.correction.reasonPlaceholder")}
+          />
+        </label>
+        {error ? (
+          <p role="alert" className="mt-2 text-sm text-red-700 dark:text-red-300">
+            {error}
+          </p>
+        ) : null}
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <button type="button" onClick={onClose} className="min-h-[48px] rounded-xl border border-border bg-background px-4 text-base font-semibold text-foreground hover:bg-muted">
+            {t("app.action.cancel")}
+          </button>
+          <button
+            type="button"
+            onClick={send}
+            disabled={busy || !clockIn || !clockOut || !reason.trim() || (jobRule === "required" && !jobId)}
+            className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-inverted px-4 text-base font-semibold text-inverted-foreground disabled:opacity-50"
+          >
+            {busy ? <Loader2 size={18} className="animate-spin" /> : null}
+            {t("app.clock.correction.send")}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

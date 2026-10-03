@@ -178,8 +178,10 @@ function NewUserForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function setPermission(key, value) {
-    setActivePreset(null); // any manual edit means it's no longer exactly a named preset
+  function setPermission(key, value, opts) {
+    // Any manual edit means it's no longer exactly a named preset — except an
+    // OFF switch such as the time clock (PRESET_OFF_SWITCHES), which keeps it.
+    if (!opts?.keepPreset) setActivePreset(null);
     setPermissionValues((prev) => ({ ...prev, [key]: value }));
   }
 

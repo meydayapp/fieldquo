@@ -277,7 +277,7 @@ export async function POST(request) {
         ...(jobId ? { jobId } : {}),
       },
       select: {
-        id: true, clockIn: true, clockOut: true, hours: true, status: true, billedInvoiceId: true,
+        id: true, clockIn: true, clockOut: true, hours: true, status: true, billedInvoiceId: true, activity: true,
         worker: { select: { name: true } },
       },
     });

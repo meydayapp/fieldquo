@@ -1259,11 +1259,14 @@ export default function TeamOverviewPage() {
                   }))
                 }
                 values={editing.values}
-                onValueChange={(key, value) =>
+                onValueChange={(key, value, opts) =>
                   setEditing((e) => ({
                     ...e,
-                    // Touching any dial means this is no longer that preset.
-                    preset: null,
+                    // Touching any dial means this is no longer that preset —
+                    // except an OFF switch such as the time clock, which
+                    // keeps the person in it (lib/permissions/accessPresets.js
+                    // PRESET_OFF_SWITCHES).
+                    preset: opts?.keepPreset ? e.preset : null,
                     values: { ...e.values, [key]: value },
                   }))
                 }

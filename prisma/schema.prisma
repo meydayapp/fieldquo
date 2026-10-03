@@ -1586,6 +1586,7 @@ model Company {
   /// the clock always had: work paid, breaks and lunch unpaid. One Json column
   /// for the same reason as payCycle — read together, as one policy.
   timeActivities Json?
+  timeEntryCorrections TimeEntryCorrection[]
   taxRate                Decimal          @default(0) @db.Decimal(6, 3)
   paymentMethods         String[]         @default(["cash", "e_transfer", "cheque"])
   /// WHERE to send each offline payment, keyed by method — the e-transfer
@@ -8013,6 +8014,12 @@ model Worker {
   province                  String?
   type                      WorkerType @default(contractor)
   hourlyRate                Decimal?   @db.Decimal(10, 2)
+  /// Is this person paid through pay runs? Null = not decided, resolved by
+  /// role: an OWNER's row is left out (their rate is for job costing — they
+  /// take the profit, not wages), everyone else is paid as before. True or
+  /// false is an explicit choice ("Pay me through payroll" on Your own rate).
+  /// lib/payroll/ownerPay.js is the one rule.
+  paidByPayroll             Boolean?
 
   /// What the company CALLS this person — Receptionist, Clerk, Foreman, Lead
   /// installer, Estimator, Office manager. Free text, up to 60 characters,
@@ -8193,7 +8200,52 @@ model TimeEntry {
   /// paid, and the column changes none of them.
   paid Boolean @default(true)
 
+  /// Corrections the person asked for (TimeEntryCorrection). Nothing in them
+  /// touches this row until a manager approves one.
+  corrections TimeEntryCorrection[]
+
   @@index([billedInvoiceId])
+}
+
+/// A crew member asking for their own entry to be fixed — new start, end,
+/// activity or job, and why — which changes NOTHING until a manager approves
+/// it (owner, 2026-10-03: "Crew can fix their own hours, but only as a
+/// REQUEST that a manager approves"). Approving applies it to the entry
+/// through the same hours arithmetic every close path uses and writes
+/// `original` — what the entry said before — onto this row in the same
+/// transaction, so the trail survives the edit. The entry itself is never
+/// deleted, and neither is a correction: a rejected one stays, with who
+/// rejected it and why. lib/timeclock/corrections.js holds the rules.
+model TimeEntryCorrection {
+  id          String          @id @default(cuid())
+  companyId   String
+  company     Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  /// SetNull, not Cascade: a manager deleting the entry later must not
+  /// delete the record of what was asked and decided about it.
+  timeEntryId String?
+  timeEntry   TimeEntry?      @relation(fields: [timeEntryId], references: [id], onDelete: SetNull)
+  workerId    String
+  /// The User who asked — always the person whose entry it is.
+  requestedById String
+  /// What they say it should be. clockIn/clockOut are instants (resolved in
+  /// the company's zone from what they typed); activity and job are null
+  /// when unchanged.
+  clockIn     DateTime
+  clockOut    DateTime
+  activity    TimeActivity?
+  jobId       String?
+  reason      String
+  status      TimeEntryStatus @default(pending)
+  decidedById String?
+  decidedAt   DateTime?
+  decisionNote String?
+  /// The entry as it stood when the correction was applied:
+  /// { clockIn, clockOut, hours, activity, jobId, paid, status }.
+  original    Json?
+  createdAt   DateTime        @default(now())
+
+  @@index([companyId, status])
+  @@index([timeEntryId])
 }
 
 /// The activity tiles of the time clock. Lunch and break are deliberately
