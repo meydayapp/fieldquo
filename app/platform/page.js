@@ -19,6 +19,7 @@ import {
   MailWarning,
   PhoneOff,
   Sparkles,
+  Coins,
 } from "lucide-react";
 import MetricCard, { money, count } from "@/app/components/platform/MetricCard";
 import Sparkline from "@/app/components/platform/Sparkline";
@@ -71,6 +72,9 @@ export default function PlatformDashboardPage() {
   // subscription whose row stayed "active" because no webhook was arriving —
   // in minutes. See app/api/platform/webhook-health.
   const [webhookHealth, setWebhookHealth] = useState(null);
+  // The hand-read exchange rate in lib/marketing/fx.js, and whether it is due
+  // (or past) its re-read. See app/api/platform/fx-health.
+  const [fxHealth, setFxHealth] = useState(null);
   // "Re-check now" on the destination audit: POST asks Stripe again instead
   // of serving the ten-minute cache. Held apart from `loading` so the rest of
   // the dashboard does not blank while one Stripe call runs.
@@ -129,6 +133,11 @@ export default function PlatformDashboardPage() {
     fetch("/api/platform/webhook-health")
       .then((r) => (r.ok ? r.json() : null))
       .then(setWebhookHealth)
+      .catch(() => {});
+
+    fetch("/api/platform/fx-health")
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setFxHealth)
       .catch(() => {});
   }, []);
 
@@ -252,6 +261,50 @@ export default function PlatformDashboardPage() {
           </div>
         </div>
       )}
+
+      {/* The pinned exchange rate. Amber while it is due for its re-read and
+          still converting; red once it refuses, because from that day every
+          company's ad spend in the other currency is left out of its totals. */}
+      {fxHealth && !fxHealth.healthy && fxHealth.problems?.length > 0 &&
+        (() => {
+          const refused = fxHealth.rates?.some((r) => r.state === "refused");
+          const box = refused
+            ? "bg-red-50 dark:bg-red-950/40 border-red-300 dark:border-red-900"
+            : "bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-900";
+          const ink = refused ? "text-red-800 dark:text-red-200" : "text-amber-900 dark:text-amber-200";
+          const body = refused ? "text-red-700 dark:text-red-300" : "text-amber-800 dark:text-amber-300";
+          return (
+            <div className={`${box} border rounded-xl p-5`}>
+              <div className="flex items-start gap-3">
+                <Coins size={20} className={`${body} shrink-0 mt-0.5`} />
+                <div className="min-w-0">
+                  <h2 className={`font-semibold ${ink}`}>
+                    {refused ? "The exchange rate has expired" : "The exchange rate is due for its re-read"}
+                  </h2>
+                  {fxHealth.problems.map((p) => (
+                    <p key={p} className={`text-sm ${body} mt-1`}>
+                      {p}
+                    </p>
+                  ))}
+                  <p className={`text-xs ${body} mt-2`}>{fxHealth.remedy}</p>
+                  {fxHealth.rates
+                    ?.filter((r) => r.state !== "fresh")
+                    .map((r) => (
+                      <a
+                        key={r.pair}
+                        href={r.source}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={`text-xs font-semibold ${ink} underline mt-2 mr-3 inline-block`}
+                      >
+                        {r.sourceName}
+                      </a>
+                    ))}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
       {/* ── The shared phone pool ─────────────────────────────────────────
           Red when a tenant's caller is being dropped right now, amber when

@@ -41,6 +41,7 @@ import { readFileSync } from "node:fs";
 import {
   Approximate,
   RATES,
+  RATE_DUE_AFTER_DAYS,
   RATE_STALE_AFTER_DAYS,
   approximateAmount,
   approximateInCurrency,
@@ -76,7 +77,11 @@ const SOURCE = readFileSync("lib/marketing/fx.js", "utf8");
 // check whose result depends on the wall clock passes on Monday and fails on
 // Tuesday for no reason anybody can reproduce. The wall clock is used ONCE,
 // right at the end, and only to raise a warning.
-const TODAY = "2026-08-29";
+//
+// Moves with the rate: it is the day the rate was READ (RATES[0].readOn), set
+// by hand on every re-read. A pinned clock earlier than the rate's own date
+// would see the rate as "dated in the future" and refuse everything.
+const TODAY = "2026-10-03";
 const RATE = RATES[0];
 const FIGURES = [...allFigures(), ...allAddOns()];
 
@@ -465,6 +470,25 @@ ok("...and not for a pair we hold nothing for", rateFor("USD", "EUR") === null);
 }
 
 // ══════════════════════════════════════════════════════════════════════════
+// rateHealth — what /platform shows, so a stale rate is seen by staff rather
+// than first read in a customer's monthly email ("rate 34 days old").
+// Executed on dates pinned to the rate's own date, so it never drifts.
+{
+  const { rateHealth } = await import("@/lib/marketing/fx");
+  const dayAfter = (n) => new Date(Date.parse(`${RATE.rateDate}T12:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+  const at = (n) => rateHealth(dayAfter(n)).find((h) => h.pair === `${RATE.base}/${RATE.quote}`);
+  ok("rateHealth requires asOf", (() => { try { rateHealth(); return false; } catch { return true; } })());
+  ok("a rate read today is fresh", at(0)?.state === "fresh", at(0));
+  ok("...still fresh on the last day before it is due", at(RATE_DUE_AFTER_DAYS)?.state === "fresh", at(RATE_DUE_AFTER_DAYS));
+  ok("...due the day after — the same day check-fx starts warning", at(RATE_DUE_AFTER_DAYS + 1)?.state === "due", at(RATE_DUE_AFTER_DAYS + 1));
+  ok("...still converting on the last day of the window", at(RATE_STALE_AFTER_DAYS)?.state === "due" && at(RATE_STALE_AFTER_DAYS)?.refusedBecause === null);
+  ok("...refused the day after, with rateRefusal's own reason", at(RATE_STALE_AFTER_DAYS + 1)?.state === "refused" && /days old/.test(at(RATE_STALE_AFTER_DAYS + 1)?.refusedBecause || ""));
+  ok("stopsOn is that first refused day", at(0)?.stopsOn === dayAfter(RATE_STALE_AFTER_DAYS + 1), [at(0)?.stopsOn, dayAfter(RATE_STALE_AFTER_DAYS + 1)]);
+  ok("the age it reports is rateAgeDays' age", at(33)?.ageDays === 33, at(33)?.ageDays);
+  ok("RATE_DUE_AFTER_DAYS sits inside the window", RATE_DUE_AFTER_DAYS > 0 && RATE_DUE_AFTER_DAYS < RATE_STALE_AFTER_DAYS);
+}
+
+// ══════════════════════════════════════════════════════════════════════════
 // The one thing measured against the real clock, and it only WARNS.
 //
 // Assertions run on a fixed date so this check is reproducible. But a
@@ -480,7 +504,7 @@ for (const r of RATES) {
   if (age === null) continue;
   if (age > RATE_STALE_AFTER_DAYS) {
     warn(`${r.base}/${r.quote} is ${age} days old and NO LONGER CONVERTS — re-read ${r.source} and update rate, rateDate, readOn and readBy in lib/marketing/fx.js`);
-  } else if (age > RATE_STALE_AFTER_DAYS - 15) {
+  } else if (age > RATE_DUE_AFTER_DAYS) {
     warn(`${r.base}/${r.quote} is ${age} days old and stops converting in ${RATE_STALE_AFTER_DAYS - age} days — re-read ${r.source}`);
   }
 }

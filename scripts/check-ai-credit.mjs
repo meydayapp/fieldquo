@@ -731,7 +731,7 @@ section("8c. The spend gate has NO isDemo branch — a demo has a balance, not a
 /* ═══════════════════════════════════════════════════════════════════════════
    Money-fixes finding #2: checkAiQuota BEFORE the model call, on the
    monthly-digest cron. Executed against lib/ai/monthlyDigest.js's
-   buildDigestSummaryText with every dependency faked — the injection seam
+   buildDigestInsights (buildDigestSummaryText until 2026-10-03) with every dependency faked — the injection seam
    exists specifically so this can run without a database or an OpenAI key,
    the same discipline check-digest-transcripts.mjs already uses for
    buildCallInsights's own quota gate.
@@ -746,7 +746,23 @@ section("8c. The spend gate has NO isDemo branch — a demo has a balance, not a
 {
   section("AI quota gate — monthly digest cron (money-fixes finding #2)");
 
-  const { buildDigestSummaryText } = await import("@/lib/ai/monthlyDigest");
+
+  // The digest's model call is buildDigestInsights since 2026-10-03 (it words
+  // the "what to act on" lines of the monthly summary email; the numbers are
+  // built in code). Same gate, same seam, same assertions.
+  const { buildDigestInsights } = await import("@/lib/ai/monthlyDigest");
+  const { summaryFormatter } = await import("@/lib/email/monthlySummaryEmail");
+  const fmt = summaryFormatter({ language: "en", currency: "CAD" });
+  const facts = [
+    {
+      key: "overdue",
+      values: {
+        overdueAmount: { kind: "money", amount: 1200 },
+        overdueInvoices: { kind: "count", n: 2, noun: "invoices" },
+        overdueDays: { kind: "count", n: 30, noun: "days" },
+      },
+    },
+  ];
 
   // Under quota: complete() runs, recordAiUsage runs, nothing logged as an
   // error.
@@ -754,18 +770,18 @@ section("8c. The spend gate has NO isDemo branch — a demo has a balance, not a
     let completeCalls = 0;
     let usageCalls = 0;
     let errorCalls = 0;
-    const result = await buildDigestSummaryText({
+    const result = await buildDigestInsights({
       companyId: "co1",
       companyName: "Acme Painting",
-      metricsForPrompt: { revenue: 1000 },
-      flags: [],
+      facts,
+      fmt,
       periodStart: new Date("2026-07-01"),
       periodEnd: new Date("2026-07-31"),
       checkAiQuota: async () => ({ allowed: true, cap: 750000, usage: { tokens: 100 } }),
       complete: async ({ onUsage }) => {
         completeCalls++;
         onUsage({ model: "gpt-5.4", promptTokens: 10, completionTokens: 20 });
-        return "A real AI paragraph.";
+        return { ok: true, data: { insights: [{ fact: "overdue", text: "Chase the {overdueAmount} owed on {overdueInvoices} today." }] } };
       },
       recordAiUsage: async () => {
         usageCalls++;
@@ -776,25 +792,25 @@ section("8c. The spend gate has NO isDemo branch — a demo has a balance, not a
     });
     ok("under quota: complete() is called exactly once", completeCalls === 1);
     ok("under quota: recordAiUsage fires from complete()'s own onUsage hook", usageCalls === 1);
-    ok("under quota: summaryText is the model's own text", result.summaryText === "A real AI paragraph.");
+    ok("under quota: the model's sentence is used, filled by the email's formatter", result.sentences?.[0]?.text?.startsWith("Chase the $1,200.00 owed on 2 invoices"));
     ok("under quota: aiSkipped is false", result.aiSkipped === false);
     ok("under quota: nothing logged to /platform/errors", errorCalls === 0);
   }
 
   // Over quota: complete() must NEVER run — checkAiQuota is a gate, not a
-  // formality. The digest still gets a real summaryText (the same reason
-  // text an on-demand feature shows), not null, not empty, not silence —
-  // and the skip is logged somewhere a human looks.
+  // formality. The email still goes, with the catalogue's own sentences
+  // (sentences: null asks for them) — not empty, not silence — and the skip
+  // is logged somewhere a human looks.
   {
     let completeCalls = 0;
     let usageCalls = 0;
     let errorCalls = 0;
     let errorDetail = null;
-    const result = await buildDigestSummaryText({
+    const result = await buildDigestInsights({
       companyId: "co2",
       companyName: "Overcap Roofing",
-      metricsForPrompt: { revenue: 500 },
-      flags: [],
+      facts,
+      fmt,
       periodStart: new Date("2026-07-01"),
       periodEnd: new Date("2026-07-31"),
       checkAiQuota: async () => ({
@@ -805,7 +821,7 @@ section("8c. The spend gate has NO isDemo branch — a demo has a balance, not a
       }),
       complete: async () => {
         completeCalls++;
-        return "should never run";
+        return { ok: true, data: { insights: [] } };
       },
       recordAiUsage: async () => {
         usageCalls++;
@@ -819,9 +835,9 @@ section("8c. The spend gate has NO isDemo branch — a demo has a balance, not a
       completeCalls === 0);
     ok("over quota: recordAiUsage never fires either — nothing to meter for a call that didn't happen",
       usageCalls === 0);
-    ok("over quota: summaryText falls back to the SAME reason text an on-demand feature shows, not null/empty/silence",
-      result.summaryText === "You've used this month's FieldQuo AI allowance.");
-    ok("over quota: aiSkipped is true, so a UI can tell the digest apart from a real AI paragraph",
+    ok("over quota: the catalogue's sentences are asked for (sentences: null), never an empty section",
+      result.sentences === null && result.chosen === null);
+    ok("over quota: aiSkipped is true, so a UI can tell the digest apart from a model-worded one",
       result.aiSkipped === true);
     ok("over quota: logged to /platform/errors so a human can see it, not just the company's own owner",
       errorCalls === 1 &&
@@ -829,6 +845,7 @@ section("8c. The spend gate has NO isDemo branch — a demo has a balance, not a
         errorDetail?.code === "monthly_digest_quota_exceeded" &&
         errorDetail?.companyId === "co2");
   }
+
 
   // Mutation pass: prove the two blocks above are load-bearing by actually
   // breaking the "checkAiQuota BEFORE complete()" ordering and confirming

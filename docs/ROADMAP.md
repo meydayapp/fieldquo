@@ -69,6 +69,51 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## The monthly summary email, rebuilt (3 October 2026)
+
+The 1st-of-the-month email ("Your September summary", From: FieldQuo) was one
+model-written paragraph — and its numbers were the WRONG MONTH: the cron called
+`getAnalyticsOverview()` with no date at 08:00 on the 1st, so revenue, expenses
+and quotes were October's first eight hours ("Revenue and expenses were both
+0… created 0 quotes") beside a lead count that was September's.
+
+### What shipped
+- `lib/analytics/monthlySummaryData.js` (read-only loader) + `lib/analytics/monthlySummary.js`
+  (pure): invoiced (invoice families by issue date), collected (`buildRevenueTrend`),
+  leads, quotes sent/accepted/rate (`getAnalyticsOverview({ now })` — which now takes
+  the month and bounds every current-month filter above), jobs completed, spend and
+  blended cost per lead, a five-stage pipeline, lead sources with quoted/won,
+  Meta campaigns (`loadCampaignRollup`, extracted from the Spend route — query code
+  md5-identical), social conversations (`loadMonthlyConversations`), money owed
+  (`buildReceivables`), and ranked "what to act on" facts. Absence is a reason, never 0.
+- `lib/email/monthlySummaryEmail.js`: table layout, 600px, tiles that stack on a
+  phone, a measured dark palette, ▲/▼ vs last month only when last month is real,
+  money only through `formatAppMoney`, "≈" and nothing else for converted spend,
+  plain-text part. 84 `app.monthlySummary.*` keys in all nine catalogue languages;
+  each recipient gets their own language (User.language, else the company's).
+- `lib/ai/monthlyDigest.js`: the model only rewords the three insights, in
+  {placeholder} form, behind a fence (no digits, currency signs, % or foreign
+  placeholders); any failure, refusal or exhausted quota uses the catalogue sentences.
+- "Open the full report" lands on `/app/analytics/kpis?from&to` — the KPI page now
+  honours those params.
+- FX: there was no refresh job to break — the USD/CAD rate in `lib/marketing/fx.js` is
+  hand-read by design and was simply 34 days old. Re-read (1.4246 for 2026-10-02) and
+  `rateHealth()` + `/api/platform/fx-health` put an amber/red banner on /platform from
+  day 31 (red past day 45, when conversions stop).
+- Preview: `scripts/preview-monthly-summary.mjs` → `docs/screens/monthly-summary/`.
+
+### Checks
+`check:monthly-summary` (538 assertions, eight mutations caught); `check:ai-credit`
+moved to `buildDigestInsights`; `check:fx` covers `rateHealth`.
+
+### Owed
+- The FX rate is still a monthly manual re-read; automating it (a cron writing a dated
+  rate row) contradicts fx.js's reviewable-constant design and is a product decision.
+- The in-app digest archive (/app/analytics/digest) shows the new formatted tiles but
+  not the tables or pipeline.
+
+---
+
 ## Reverse Selling, version 3: one script, a thirty-minute demo (2 October 2026)
 
 Owner decisions: **the demo is 30 minutes**, one number everywhere; and **one
