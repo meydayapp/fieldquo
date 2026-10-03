@@ -7,5 +7,6 @@ import { ARTICLES as PART_1 } from "./settings-1.js";
 import { ARTICLES as PART_2 } from "./settings-2.js";
 import { ARTICLES as PART_3 } from "./settings-3.js";
 import { ARTICLES as PART_4 } from "./settings-4.js";
+import { ARTICLES as PART_5 } from "./settings-5.js";
 
-export const ARTICLES = { ...PART_1, ...PART_2, ...PART_3, ...PART_4 };
+export const ARTICLES = { ...PART_1, ...PART_2, ...PART_3, ...PART_4, ...PART_5 };

@@ -35,6 +35,7 @@ import { formatMoney } from "@/lib/currency";
 import { recordActivity } from "@/lib/activity/log";
 import { invoiceChaseKey, resolveTaskBySource } from "@/lib/tasks/autoCreate";
 import { syncCommissionsForInvoice } from "@/lib/commissions/hook";
+import { readClientPoInput } from "@/lib/documents/clientPo";
 
 // Next 16: params is a Promise — same fix as the quotes route.
 export async function GET(request, { params }) {
@@ -227,6 +228,11 @@ export async function PATCH(request, { params }) {
     clientPhotos,
     costing,
   } = body;
+  // The client's PO (lib/documents/clientPo.js): absent leaves it, "" clears
+  // it. The same edit rule as every field here — in place on a draft, a new
+  // version once sent — so a client that issues a different PO per phase can
+  // be given one on each invoice.
+  const clientPoNumber = readClientPoInput(body);
 
   // The version the browser is editing FROM. See lib/concurrency/staleWrite.js.
   // Absent means unguarded and behaves exactly as it did before; unreadable is
@@ -306,6 +312,7 @@ export async function PATCH(request, { params }) {
           ...(total !== undefined && { total }),
           ...(dueDate !== undefined && { dueDate: new Date(dueDate) }),
           ...(notes !== undefined && { notes }),
+          ...(clientPoNumber !== undefined && { clientPoNumber }),
           ...(status !== undefined && { status }),
           ...(clientPhotos !== undefined && {
             clientPhotos: normaliseMediaList(clientPhotos),
@@ -451,6 +458,9 @@ export async function PATCH(request, { params }) {
       amountRefunded: ledger.amountRefunded,
       dueDate: dueDate ? new Date(dueDate) : existing.dueDate,
       notes: notes ?? existing.notes,
+      // Carried like the notes: a version that lost the PO would bounce at the
+      // client's payables desk for a reason nobody chose.
+      clientPoNumber: clientPoNumber !== undefined ? clientPoNumber : existing.clientPoNumber,
       // Carried forward, not dropped: a new version that silently lost the job
       // photos would be a worse document than the one it replaced.
       clientPhotos:

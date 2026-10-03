@@ -133,6 +133,7 @@ import ClientMediaTile from "@/app/components/ClientMediaTile";
 import { CustomFieldsPanel } from "@/app/components/customFields/CustomFieldsBox";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { documentLabels } from "@/lib/i18n/documentLabels";
+import { clientPoFact } from "@/lib/documents/clientPo";
 import ImportedByPanel from "./ImportedByPanel";
 import QuoteCostEditor from "@/app/components/quotes/QuoteCostEditor";
 import CostingDefaultsNotice from "@/app/components/quotes/CostingDefaultsNotice";
@@ -144,6 +145,7 @@ import ImportedCostsPanel from "./ImportedCostsPanel";
 import StreetViewPeek from "@/app/components/StreetViewPeek";
 import SiteVisitPanel from "@/app/components/quotes/SiteVisitPanel";
 import LinkedJobDocuments from "@/app/components/jobs/LinkedJobDocuments";
+import QuoteFiles from "@/app/components/planRead/QuoteFiles";
 import { visibleLineItems } from "@/lib/quotes/scopeGroupDisplay";
 import { jobAddressLine } from "@/lib/quotes/jobAddress";
 import { offlineDiscountLine } from "@/lib/payments/offlineDiscount";
@@ -1375,6 +1377,10 @@ export default function QuoteDetailPage() {
           and absent for a member the route withholds money kinds from. */}
       {quote.jobs?.[0]?.id && <LinkedJobDocuments jobId={quote.jobs[0].id} />}
 
+      {/* The quote's own files — drawings, scope sheets, permits, site
+          photos — which move to the job's Documents on approval. */}
+      {!quote.historicalImportedAt && <QuoteFiles quoteId={id} />}
+
       {quote.invoices?.length > 0 && (
         <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900 rounded-lg px-4 py-3 text-sm text-blue-800 dark:text-blue-300">
           {t("app.quoteDetail.alreadyConverted")}{" "}
@@ -1541,6 +1547,8 @@ export default function QuoteDetailPage() {
           // the top of lib/format/companyDate.js. "Valid until" borrows the
           // quote EDITOR's string rather than adding a seventh translation.
           facts={[
+            // The client's PO, as their copy prints it — absent, no row.
+            ...(clientPoFact(quote, labels) ? [clientPoFact(quote, labels)] : []),
             [labels.date, formatDate(quote.createdAt)],
             ...(quote.validUntil ? [[t("app.quoteEdit.validUntil"), formatDate(quote.validUntil)]] : []),
           ]}

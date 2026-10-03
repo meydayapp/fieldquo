@@ -6,10 +6,17 @@
 // companies. Both were fiction: nothing anywhere read the `ref` parameter, so
 // referredByCode was never written and the list was permanently empty.
 //
-// The distinction this page now makes carefully: signing up earns the NEW
-// company their free month, but earns the referrer nothing until that company
-// actually pays. Blurring that produces exactly one support conversation —
-// "I referred three people, where are my months?"
+// The distinction this page now makes carefully: choosing a plan earns the
+// NEW company their free month (since 2026-10-03; it used to be signing up),
+// but earns the referrer nothing until that company actually pays. Blurring
+// that produces exactly one support conversation — "I referred three people,
+// where are my months?"
+//
+// And the page only OPENS once this company has chosen a plan (the owner,
+// 2026-10-03: referrals "only work when they have selected a plan"). Before
+// that, GET /api/settings/referral answers canRefer: false with no link, and
+// the page says so with a way to choose one — the invite route refuses too,
+// because hiding the form is not the control.
 //
 // "three months" above was correct until 2026-08-27, when the owner cut both
 // sides of the reward to one (AGENTS.md non-negotiable #1, and
@@ -19,6 +26,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import {
   Copy,
   Check,
@@ -159,6 +167,69 @@ function ReferScreen() {
   // paid. One free month each (REFERRER_BONUS_MONTHS), applied by
   // extendAccess as a trial_end deferral — not a credit on an invoice.
   const rewardedCount = Number(data.rewardedCount) || 0;
+
+  // ── Before a plan is chosen: say so, and where to choose one ────────────
+  //
+  // Not a hidden page and not a dead Copy button: the server sends no link
+  // and refuses invites for a company with no plan, so the screen states the
+  // rule and offers the one action that changes it. Anyone it already
+  // referred (through a link shared before the rule) is still listed — that
+  // is history, and what it is owed is held, not lost (lib/referrals).
+  if (!data.canRefer) {
+    return (
+      <div className="max-w-2xl space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">{t("app.nav.refer")}</h1>
+        </div>
+        <div data-refer-locked className="bg-card border border-border rounded-xl p-5">
+          <div className="flex items-center gap-2 mb-2">
+            <Gift size={16} className="text-muted-foreground" />
+            <h2 className="text-base font-semibold text-foreground">
+              {t("app.refer.lockedTitle")}
+            </h2>
+          </div>
+          <p className="text-sm text-muted-foreground">{t("app.refer.lockedBody")}</p>
+          {/* Account & Billing is the one place a plan is chosen; the
+              server names it so this page and the route cannot disagree.
+              A support session sees the same state and the same link —
+              following it is read-only for them like every other page. */}
+          {data.choosePlanHref && (
+            <Link
+              href={data.choosePlanHref}
+              className="mt-4 inline-flex items-center gap-1.5 bg-inverted text-inverted-foreground px-4 py-2 rounded-lg text-sm font-semibold"
+            >
+              {t("app.refer.lockedCta")}
+            </Link>
+          )}
+        </div>
+        {data.referred?.length > 0 && (
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-border">
+              <h2 className="text-base font-semibold text-foreground">
+                {t("app.refer.referredTitle")}
+              </h2>
+            </div>
+            <div className="divide-y divide-border">
+              {data.referred.map((c) => (
+                <div key={c.id} className="flex items-center justify-between px-5 py-3 gap-3">
+                  <span className="text-sm font-medium text-foreground truncate">{c.name}</span>
+                  {c.rewarded ? (
+                    <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300 shrink-0">
+                      <Check size={11} /> {t("app.refer.creditedBadge")}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium bg-muted text-muted-foreground shrink-0">
+                      <Clock size={11} /> {t("app.refer.notYetPaying")}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   // The invite the user sends from their OWN app. Mirrors the spirit of the
   // server SMS copy (identify the product, name the free months, end on the

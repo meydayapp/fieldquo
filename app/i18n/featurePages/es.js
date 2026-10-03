@@ -322,7 +322,7 @@ const es = {
   "featurePage.marketing.pain.2.pain": "Gastas en anuncios todos los meses y no sabrías decir cuál de ellos trajo alguna vez un trabajo.",
   "featurePage.marketing.pain.2.fix": "El gasto se anota por canal y queda al lado de los trabajos que trajo, así que el canal que no produce nada se ve, en vez de suponerse.",
   "featurePage.marketing.pain.3.pain": "Tus mejores clientes te recomendarían encantados y nadie se lo pide nunca.",
-  "featurePage.marketing.pain.3.fix": "Cuando el trabajo se marca como terminado, sale una sola petición amable — y un contratista que recomiendes les da a los dos un mes gratis.",
+  "featurePage.marketing.pain.3.fix": "Cuando el trabajo se marca como terminado, sale una sola petición amable — y un contratista que recomiendes les da a los dos, cuando ambos tengan un plan, un mes gratis.",
   "featurePage.marketing.how.1.step": "Sale con tu nombre, a tu propia lista",
   "featurePage.marketing.how.1.body": "Las campañas salen desde tu dirección verificada hacia los clientes que ya están en tu cuenta, y puedes ver qué les llegó.",
   "featurePage.marketing.how.2.step": "El trabajo del barrio se planea, no se recuerda",

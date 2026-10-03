@@ -13,12 +13,13 @@
 // the row shows what is on file and says who can change it, rather than
 // offering fields that would not save.
 import { useRouter } from "next/navigation";
-import { CalendarClock, ClipboardCheck, ClipboardList, Clock, FileBadge, Inbox, LifeBuoy, LogOut, PackagePlus, ScrollText, Settings, User, Users, Bell, Calendar } from "lucide-react";
+import { Briefcase, CalendarClock, ClipboardCheck, ClipboardList, Clock, FileBadge, Inbox, LifeBuoy, LogOut, PackagePlus, ScrollText, Settings, User, Users, Bell, Calendar, Wallet } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { signOut } from "@/lib/auth-client";
 import { helpPath } from "@/lib/help/urls";
 import { meTabSetFor } from "@/lib/me/tabs";
+import { navRowAllowed } from "@/lib/permissions/nav";
 import { HR_MORE_LINKS } from "@/lib/me/moreLinks";
 import MeShell from "@/app/components/me/MeShell";
 import { BigRow, MeLoad, PersonAvatar, RowList, useMeData } from "@/app/components/me/bits";
@@ -73,7 +74,22 @@ export default function MeMorePage() {
                   office for what the site is short of. app/app/me/supplies. */}
               <BigRow icon={PackagePlus} title={t("app.supplies.title")} subtitle={t("app.supplies.moreNote")} href="/app/me/supplies" />
               <BigRow icon={Users} title={t("app.me.tab.team")} href="/app/me/team" />
-              {!manager ? <BigRow icon={Clock} title={t("app.me.tab.earnings")} href="/app/me/earnings" /> : null}
+              {/* Everyone's own pay page — GET /api/me/earnings answers every
+                  member (lib/payroll/ownPayGate.js decides what money it
+                  shows). It was drawn for the worker set only, so a
+                  supervisor entitled to their own timecard had no way to it. */}
+              <BigRow icon={Wallet} title={t("app.me.tab.earnings")} href="/app/me/earnings" />
+              {/* The clock is a tab for the worker set; a manager clocks in
+                  from here. */}
+              {manager ? <BigRow icon={Clock} title={t("app.nav.clock")} href="/app/clock" /> : null}
+              {/* The jobs list, for the worker set — a crew member's bar is
+                  the employee bar everywhere now (MobileTabBar), so the Jobs
+                  tab they had is a row here, behind the same navRowAllowed
+                  the bar used: /api/jobs serves Crew their assigned jobs
+                  only, and refuses below view_only. */}
+              {!manager && navRowAllowed("app.nav.jobs", caller) ? (
+                <BigRow icon={Briefcase} title={t("app.nav.jobs")} href="/app/jobs" />
+              ) : null}
             </RowList>
 
             {/* ── The HR file: onboarding, policies, documents ────────

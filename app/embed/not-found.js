@@ -13,6 +13,16 @@
 // pasted the snippet, not the homeowner reading their page — see the header of
 // [companySlug]/[widget]/page.js, which checks the company up front for the
 // same reason.
+//
+// The head: without this export the root layout's title ("FieldQuo"),
+// description and favicon answered for it.
+import { neutralClientMetadata } from "@/lib/whiteLabel/pageMetadata";
+
+export const metadata = neutralClientMetadata({
+  title: " ",
+  robots: { index: false, follow: false },
+});
+
 export default function EmbedNotFound() {
   return (
     <div className="p-6 text-sm text-neutral-600">

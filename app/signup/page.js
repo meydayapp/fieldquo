@@ -1101,10 +1101,15 @@ export default function SignupPage() {
           </div>
         )}
 
-        {referrer && !alreadyOnFieldquo && (
+        {/* Only when the link carries a month: since 2026-10-03 a link
+            shared by a company still on the free trial signs you up but
+            promises nothing (months 0 from /api/public/refer — lib/referrals),
+            and "0 months free" is not a banner. The month lands when the
+            plan is chosen, which is what the sentence now says. */}
+        {referrer && Number(referrer.months) > 0 && !alreadyOnFieldquo && (
           <div className="mb-6 bg-brand-accent/10 border border-brand-accent/40 rounded-xl px-4 py-3 text-center">
             {(() => {
-              const sentence = t("app.signup.referred", "{name} referred you — {months} added to your trial.");
+              const sentence = t("app.signup.referred", "{name} referred you — {months} when you choose a plan.");
               const [a, rest] = around(sentence, "{name}");
               const [b, c] = around(rest, "{months}");
               return (

@@ -322,7 +322,7 @@ const fr = {
   "featurePage.marketing.pain.2.pain": "Vous dépensez en publicité chaque mois et vous seriez incapable de dire laquelle a déjà produit un chantier.",
   "featurePage.marketing.pain.2.fix": "Les dépenses entrent par canal et se retrouvent à côté des chantiers qu'elles ont amenés, donc le canal qui ne produit rien se voit au lieu d'être supposé.",
   "featurePage.marketing.pain.3.pain": "Vos meilleurs clients vous recommanderaient volontiers et personne ne le leur demande jamais.",
-  "featurePage.marketing.pain.3.fix": "Une fois le chantier marqué terminé, une seule demande polie part — et un entrepreneur que vous référez vous vaut à tous les deux un mois gratuit.",
+  "featurePage.marketing.pain.3.fix": "Une fois le chantier marqué terminé, une seule demande polie part — et un entrepreneur que vous référez vous vaut à tous les deux, une fois que vous avez chacun un forfait, un mois gratuit.",
   "featurePage.marketing.how.1.step": "Ça part en votre nom, vers votre propre liste",
   "featurePage.marketing.how.1.body": "Les campagnes partent de votre adresse vérifiée vers les clients déjà dans votre compte, et vous pouvez voir ce qui leur est parvenu.",
   "featurePage.marketing.how.2.step": "Le travail de quartier est planifié, pas retenu de mémoire",

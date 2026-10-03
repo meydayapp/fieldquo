@@ -18,6 +18,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { rows, writes, reads, resetDbStub } from "./fixtures/dbStub.mjs";
+import { state as stripeState, resetStripeStub } from "./fixtures/stripeStub.mjs";
 import {
   INFLUENCER_KIND,
   INFLUENCER_SOURCE,
@@ -31,6 +32,8 @@ import {
 } from "@/lib/influencers";
 import {
   REFEREE_BONUS_MONTHS,
+  REFERRAL_TERMS_PLAN_REQUIRED,
+  REFERRAL_TERMS_MONTH_PROMISED,
   applySignupReferral,
   grantReferrerCredit,
   ensureReferralCode,
@@ -89,6 +92,7 @@ function company(id, name, email, extra = {}) {
 
 function fresh() {
   resetDbStub();
+  resetStripeStub();
   rows.salesCommissionPlan.push({ ...PLAN }, { ...RETIRED });
 }
 
@@ -181,8 +185,13 @@ section("Referral through an influencer's link");
   const result = await applySignupReferral({ company: newco, code });
   ok("the referral applies", result && result.referrer?.id === dan.id, result);
   const stored = rows.company.find((c) => c.id === "c_new");
-  ok("the NEW company still gets its referee month", stored.trialEndsAt.getTime() > trialBefore && stored.referredByCode === code);
-  ok("…recorded as a referred credit row", rows.referralCredit.some((r) => r.companyId === "c_new" && r.role === "referred" && r.months === REFEREE_BONUS_MONTHS));
+  // Moved 2026-10-03 (the owner: referrals "only work when they have selected
+  // a plan"): the newcomer's month no longer lands on the trial at signup. It
+  // lands when the newcomer chooses a plan, through lib/referrals
+  // grantRefereeBonus — executed in scripts/check-referral-reward.mjs. Signup
+  // records the referral under those terms and grants nothing.
+  ok("the NEW company is recorded as referred, under the plan-required terms", stored.referredByCode === code && stored.referralTerms === REFERRAL_TERMS_PLAN_REQUIRED);
+  ok("…its trial is NOT extended at signup, and no credit row is written yet", stored.trialEndsAt.getTime() === trialBefore && !rows.referralCredit.some((r) => r.companyId === "c_new" && r.role === "referred") && REFEREE_BONUS_MONTHS === 1);
   const attribution = rows.salesAttribution.find((a) => a.companyId === "c_new");
   ok("a SalesAttribution is written on the influencer's ledger", attribution && attribution.salesRepId === ledger.id, attribution);
   ok("…with source influencer_link", attribution?.source === INFLUENCER_SOURCE);
@@ -203,6 +212,18 @@ section("Referral through an influencer's link");
   writes.length = 0;
   const second = await applySignupReferral({ company: stored, code });
   ok("a repeated signup on the same code does not write a second attribution", rows.salesAttribution.filter((a) => a.companyId === "c_new").length === 1 && second?.attribution?.outcome === "already_attributed", second?.attribution?.outcome);
+
+  // The newcomer's month on an influencer's link is the same promise as on
+  // any link (2026-10-03): stamped at signup when the influencer has a plan
+  // then, and kept at plan selection (scripts/check-referral-reward.mjs).
+  rows.subscription.push({ companyId: "c_dan", planId: "plan_crew", stripeCustomerId: "cus_dan", stripeSubscriptionId: "sub_dan", status: "active" });
+  const onPlanNewco = company("c_new_b", "Second Floors", "second@example.com");
+  rows.company.push(onPlanNewco);
+  const promised = await applySignupReferral({ company: onPlanNewco, code });
+  ok("an influencer on a plan: the newcomer is promised its month at signup, and the attribution still lands",
+    promised?.bonusMonths === REFEREE_BONUS_MONTHS &&
+      rows.company.find((c) => c.id === "c_new_b").referralTerms === REFERRAL_TERMS_MONTH_PROMISED &&
+      rows.salesAttribution.some((a) => a.companyId === "c_new_b"));
 }
 
 // ── 5b. Stop influencer status, and start it again ─────────────────────────
@@ -235,8 +256,12 @@ section("Unenrol: back to a regular company; re-enrol: the same ledger comes bac
   const result = await applySignupReferral({ company: later, code });
   ok("a referral after unenrol still applies for the referee", result && result.referrer?.id === dan.id, result);
   ok("…writes NO attribution — the ledger is closed", !rows.salesAttribution.some((a) => a.companyId === "c_later"));
+  // Since 2026-10-03 a referrer earns its month only with a plan chosen
+  // (lib/referrals): Dan picks one here, through the recording Stripe stub.
+  rows.subscription.push({ companyId: "c_dan", planId: "plan_crew", stripeCustomerId: "cus_dan", stripeSubscriptionId: "sub_dan", status: "active" });
+  stripeState.subscriptions.set("sub_dan", { id: "sub_dan", status: "active", current_period_end: Math.floor(NOW.getTime() / 1000) + 20 * 86400, items: { data: [] } });
   const credit = await grantReferrerCredit({ paidCompanyId: "c_later", paidAmountCents: 12900, currency: "usd" });
-  ok("…and the referrer month is granted again once they pay", credit !== null && rows.referralCredit.some((r) => r.role === "referrer" && r.companyId === "c_dan"), credit);
+  ok("…and the referrer month is granted again once they pay (Dan on a plan)", credit !== null && rows.referralCredit.some((r) => r.role === "referrer" && r.companyId === "c_dan"), credit);
 
   // Re-enrol under another plan: the SAME row comes back, active, on the new plan.
   const OTHER = { ...PLAN, id: "plan_other", name: "Other plan" };
@@ -270,7 +295,7 @@ section("Self-dealing is refused by the same rule as a rep");
   const mine = company("c_mine", "Dan's Other Shop", "dan@example.com");
   rows.company.push(mine);
   const result = await applySignupReferral({ company: mine, code });
-  ok("the referee month is still granted (the link's promise)", rows.referralCredit.some((r) => r.companyId === "c_mine" && r.role === "referred"));
+  ok("the referral is still recorded for the newcomer (its month comes at plan selection)", rows.company.find((c) => c.id === "c_mine")?.referredByCode === code);
   ok("but the attribution is refused as self_dealing", result?.attribution?.outcome === "self_dealing", result?.attribution);
   ok("…and no attribution row exists", !rows.salesAttribution.some((a) => a.companyId === "c_mine"));
   ok("…nor a touch (a disqualified claim is not evidence)", rows.salesAttributionTouch.length === 0);

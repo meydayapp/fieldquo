@@ -48,6 +48,7 @@ import { loadCardData } from "@/lib/reviews/cardData";
 import { cleanCardSource } from "@/lib/reviews/card";
 import { recordCardTap } from "@/lib/analytics/product/server";
 import LinkPageView from "@/app/components/links/LinkPageView";
+import { clientPageMetadata, neutralClientMetadata } from "@/lib/whiteLabel/pageMetadata";
 
 async function load(slug) {
   const h = await headers();
@@ -73,16 +74,11 @@ export async function generateMetadata({ params }) {
   // Next 16: params is a Promise.
   const { slug } = await params;
   const card = await load(slug);
-  if (!card) return { robots: { index: false, follow: false } };
-  const { company } = card;
-  return {
-    title: company.name,
-    robots: { index: false, follow: true },
-    openGraph: {
-      title: company.name,
-      ...(company.logoUrl ? { images: [company.logoUrl] } : {}),
-    },
-  };
+  if (!card) return neutralClientMetadata({ title: " ", robots: { index: false, follow: false } });
+  // Name, logo-or-initial icon and logo share image — and, as important, no
+  // root-layout FieldQuo description or favicon under them
+  // (lib/whiteLabel/pageMetadata.js).
+  return clientPageMetadata(card.company, { robots: { index: false, follow: true } });
 }
 
 export default async function BusinessCardPage({ params, searchParams }) {

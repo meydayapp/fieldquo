@@ -531,7 +531,7 @@ export const ARTICLES = {
         id: "the-clock-and-the-dots",
         heading: "El reloj de fichaje mueve los puntos",
         blocks: [
-          { p: "El punto sobre las iniciales de cada persona sale del [[the-time-clock|reloj de fichaje]], no del plan. **Verde** significa fichado ahora —la línea dice **en el sitio desde las 7:42**. **Ámbar** significa que pulsó **Iniciar almuerzo** o **Iniciar descanso** en el reloj y no lo ha terminado —**en descanso desde las 12:03**. **Gris** significa programado hoy y sin fichar. Un punto hueco no está programado; uno atenuado está de permiso aprobado." },
+          { p: "El punto sobre las iniciales de cada persona sale del [[the-time-clock|reloj de fichaje]], no del plan. **Verde** significa fichado ahora —la línea dice **en el sitio desde las 7:42**. **Ámbar** significa que pulsó **Almuerzo** o **Descanso** en el reloj y no lo ha terminado —**en descanso desde las 12:03**. **Gris** significa programado hoy y sin fichar. Un punto hueco no está programado; uno atenuado está de permiso aprobado." },
           { p: "El tablero se relee cada treinta segundos mientras la pestaña está abierta, y al instante cuando vuelves a ella, así que un descanso fichado en la furgoneta cambia el color aquí sin recargar. El almuerzo planificado sigue rayado dentro del bloque; el punto muestra el real —así ves que el almuerzo de las 12:00 empezó de verdad a las 12:20." },
           { p: "Un descanso fichado en el reloj se registra en la entrada de tiempo de la persona, no en el turno. Los descansos no pagados se restan de las horas anotadas al fichar la salida, y la [[timesheets-and-approving-hours|hoja de horas]] muestra los minutos junto a las horas." },
         ],
@@ -652,21 +652,21 @@ export const ARTICLES = {
         id: "overview",
         heading: "Qué hay en la pantalla",
         blocks: [
-          { p: "El día y el reloj en vivo. Debajo, o bien **Estás fuera de turno.** con un selector **¿Qué trabajo?** y un botón verde **Registrar entrada**, o bien una píldora **En turno** con **Desde {hora}**, el tiempo transcurrido, **En {trabajo}** y un botón rojo **Registrar salida**. Mientras está en turno, **¿Te pasaste a otro trabajo?** ofrece un segundo selector y **Cambiar de trabajo**. Debajo, **Hoy** suma las horas del día y lista cada entrada, la que está en curso marcada **Abierto**, con la línea « Tus horas se envían a tu gerente para revisar y aprobar. »" },
-          { figure: "live:app-clock", caption: "Reloj de tiempo — fuera de turno, el selector ¿Qué trabajo? en « Sin trabajo — traslados, taller, presupuestar », y el botón Registrar entrada." },
+          { p: "Dos pestañas: **Registrar tiempo** y **Registro**. Registrar tiempo muestra lo que haces ahora — la actividad (**En obra**, **Manejando**, **Oficina**, **Materiales**, **Descanso**, **Almuerzo** o **General**, según use tu empresa), cuánto llevas en ella, **Desde** qué hora y **En {trabajo}** — y luego **Total de hoy**. Debajo, los botones de actividad, con el que está en curso resaltado y un **Registrar salida** rojo en la última fila. **Hoy** lista cada tramo con su actividad, horas y trabajo, con la línea «Tus horas se envían a tu gerente para revisar y aprobar.» Registro muestra un día entero como línea de tiempo, persona por persona; un supervisor que puede ver las horas de todos ve a todos." },
+          { figure: "live:app-clock", caption: "Reloj de tiempo — el cronómetro y el Total de hoy, los botones de actividad y la lista Hoy." },
         ],
       },
       {
         id: "clock-in-and-out",
-        heading: "Cómo registrar la entrada, cambiar de trabajo y registrar la salida",
+        heading: "Cómo registrar entrada, cambiar de actividad y registrar salida",
         blocks: [
           { steps: [
-            "Elija el trabajo bajo **¿Qué trabajo?**. Si tiene una visita programada hoy, ya está seleccionada (« Hoy estás programado aquí — cámbialo si estás en otro lado. »); con varias, elija con la que empieza; sin ninguna, elija un trabajo bajo **Tus otros trabajos abiertos** o deje **Sin trabajo — traslados, taller, presupuestar**.",
-            "Pulse **Registrar entrada**. Si el navegador pregunta dónde está su teléfono, esa es la posición única que se guarda junto a esta marcación — diga sí o no; la marcación se registra de cualquier modo.",
-            "¿Cambió de sitio? Bajo **¿Te pasaste a otro trabajo?**, elija el trabajo nuevo y pulse **Cambiar de trabajo**. Las horas hechas hasta ahora se quedan en el primer trabajo y una entrada nueva empieza desde ese momento.",
-            "Pulse **Registrar salida** al final. La entrada se cierra y aparece bajo **Hoy**.",
+            "Toca el botón de lo que vas a empezar. Eso marca tu entrada. **En obra** pide primero el trabajo — la única visita del día ya viene elegida; si hay varias, elige la que empiezas. **Manejando** y **Materiales** te dejan elegir un trabajo, para que el tiempo cuente en él, o dejar **Ningún trabajo**. **Oficina** y **General** nunca llevan trabajo.",
+            "Si el navegador pregunta dónde está tu teléfono, es la posición única que se guarda junto a este toque — di sí o no; el registro se guarda en ambos casos.",
+            "¿Pasas a otra cosa? Toca el siguiente botón. Lo que estaba en curso se cierra en ese instante y empieza la nueva actividad; el tiempo hecho conserva la actividad y el trabajo en que se hizo. **Descanso** y **Almuerzo** pausan lo que hacías; **Terminar descanso — volver a …**, o el mismo botón, lo retoma.",
+            "Presiona **Registrar salida** al final del día. Todo se cierra y aparece en **Hoy** y en el **Registro**.",
           ] },
-          { note: "Una sola entrada abierta a la vez. Registrar la entrada cuando ya está en turno se rechaza con « You're already clocked in — clock out first. » Una salida olvidada se corrige en las hojas de tiempo — vea [[timesheets-and-approving-hours|Hojas de tiempo: revisar y aprobar horas]]." },
+          { note: "Tocar el botón que ya está en curso no hace nada — el reloj lo rechaza en lugar de duplicarlo. Una salida olvidada se corrige en las hojas de horas — consulta [[timesheets-and-approving-hours|Hojas de horas: revisar y aprobar horas]]." },
         ],
       },
       {

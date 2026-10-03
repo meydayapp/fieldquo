@@ -27,7 +27,7 @@ import { readableForeground } from "@/lib/brand/colour";
 import { documentTheme } from "@/lib/documents/theme";
 import HowToPayBlock from "@/app/components/public/HowToPayBlock";
 import { documentLabels, documentFormatters } from "@/lib/i18n/documentLabels";
-import { documentCustomFacts } from "@/lib/documentSections/customFacts";
+import { documentFacts } from "@/lib/documentSections/customFacts";
 import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
 import { taxIdLine } from "@/lib/documents/taxId";
 import { documentIssueDate } from "@/lib/documents/issueDate";
@@ -247,7 +247,7 @@ export default function PortalInvoice({ token, invoiceId, stageId = null }) {
               )}
               {/* The company's own boxes flagged for the document — a PO
                   number — in the same words as the PDF and the email. */}
-              {documentCustomFacts(invoice.customFields, { date, labels }).map(([label, value]) => (
+              {documentFacts(invoice, { date, labels }).map(([label, value]) => (
                 <div key={label} className="text-xs text-[#2d2520]/55 mt-1">
                   {label} · <span className="text-[#2d2520]">{value}</span>
                 </div>

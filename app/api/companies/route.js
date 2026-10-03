@@ -19,7 +19,7 @@ import { runSetupInline } from "@/lib/signup/setupStages";
 import { APP_MESSAGES } from "@/app/i18n/appMessages";
 import { welcomePath } from "@/lib/signup/welcome";
 import { getAppOrigin, isInternalPath } from "@/lib/appUrl";
-import { applySignupReferral, REFEREE_BONUS_MONTHS } from "@/lib/referrals";
+import { applySignupReferral } from "@/lib/referrals";
 import { redeemPromoCode } from "@/lib/platform/promoCodes";
 import { enrolInfluencer } from "@/lib/influencers";
 import { captureSalesAttribution, isAttributionMiss } from "@/lib/sales/attribution";
@@ -825,11 +825,11 @@ export async function POST(request) {
     // the business screen establishes, so they run on the welcome setup
     // screen (POST /api/signup/setup) once the country is known.
     return NextResponse.json({
+      // A referral no longer moves the trial (lib/referrals, 2026-10-03): the
+      // newcomer's month lands when it chooses a plan. Only a promo does.
+      trialEndsAt: (promo?.ok && promo.trialEndsAt) || company.trialEndsAt,
       welcomeUrl: welcomePath("profile"),
-      trialEndsAt: referral?.trialEndsAt || (promo?.ok && promo.trialEndsAt) || company.trialEndsAt,
-      referral: referral
-        ? { referrerName: referral.referrer.name, trialEndsAt: referral.trialEndsAt, months: REFEREE_BONUS_MONTHS }
-        : null,
+      referral: signupReferralSummary(referral),
     });
   }
 
@@ -840,23 +840,22 @@ export async function POST(request) {
       // reaches a server without it (a deploy in between) reads its absence
       // as "all done here" and goes straight to the app.
       setup: staged ? "staged" : "done",
-      referral: referral
-        ? { referrerName: referral.referrer.name, trialEndsAt: referral.trialEndsAt, months: REFEREE_BONUS_MONTHS }
-        : null,
+      referral: signupReferralSummary(referral),
     });
   }
 
   // Trial length Stripe should honour = however long this company is actually
-  // free for. applySignupReferral may have just extended trialEndsAt by
-  // REFEREE_BONUS_MONTHS; `company` in memory still holds the base TRIAL_DAYS
-  // date, so read the referral's returned value when present. This is what
-  // makes a referred signup's FIRST Stripe trial the full TRIAL_DAYS +
-  // referral, not TRIAL_DAYS with the extra time stranded in a column Stripe
+  // free for. A promo code may have just extended trialEndsAt; `company` in
+  // memory still holds the base TRIAL_DAYS date, so read the promo's returned
+  // value when present, so the extra time is not stranded in a column Stripe
   // never sees.
-  // Whichever path extended the trial (referral or a promo code) is the real
-  // free-until date Stripe should honour.
-  const effectiveTrialEnd =
-    referral?.trialEndsAt || (promo?.ok && promo.trialEndsAt) || company.trialEndsAt;
+  //
+  // A referral is no longer one of these. Until 2026-10-03 applySignupReferral
+  // pushed trialEndsAt out a month here too; the newcomer's month now lands
+  // when the plan is chosen — on THIS path, when the checkout below completes
+  // (upsertSubscriptionFromCheckoutSession → onPlanSelected), as a deferral
+  // of the trial_end Stripe was just given.
+  const effectiveTrialEnd = (promo?.ok && promo.trialEndsAt) || company.trialEndsAt;
   // Through the one-trial rule (lib/billing/trialOnce.js) like every other
   // checkout. The row was created a few lines up, so trialUsedAt is null and
   // this is the full free trial — the call is here so the rule has no path
@@ -945,15 +944,27 @@ export async function POST(request) {
     // "a free month from Sunset Inc" rather than guessing from the code it
     // sent — which may have been rejected as self-referral or unknown.
     //
-    // months comes from the constant that actually granted them. It was
-    // hardcoded to 3 while lib/referrals granted 1, so the confirmation
-    // promised three times what the trial had been extended by.
-    referral: referral
-      ? {
-          referrerName: referral.referrer.name,
-          trialEndsAt: referral.trialEndsAt,
-          months: REFEREE_BONUS_MONTHS,
-        }
-      : null,
+    // months comes from the constant that will grant them. It was hardcoded
+    // to 3 while lib/referrals granted 1, so the confirmation promised three
+    // times what the trial had been extended by.
+    referral: signupReferralSummary(referral),
   });
+}
+
+/**
+ * What the signup's answer says about a referral — one shape for all three
+ * exits above, which used to repeat it inline.
+ *
+ * `months` is what the newcomer will get WHEN IT CHOOSES A PLAN: 1 when the
+ * referrer has a plan at signup (the promise is stamped on the company and
+ * kept — lib/referrals grantRefereeBonus), 0 when it does not. There is no
+ * trialEndsAt any more, because a referral no longer moves the trial.
+ */
+function signupReferralSummary(referral) {
+  if (!referral) return null;
+  return {
+    referrerName: referral.referrer.name,
+    months: referral.bonusMonths,
+    appliesWhen: "plan_selected",
+  };
 }

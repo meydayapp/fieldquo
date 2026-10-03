@@ -547,6 +547,9 @@ const GROUPS = [
       // Beside voice webhooks because it is the same kind of question: is
       // the provider's side doing what our side believes it did.
       { label: "SMS delivery", href: "/platform/sms-health", icon: MessageSquareText },
+      // Companies bringing their own number in — and the Canadian ports a
+      // person has to file on Twilio's form, because there is no API for them.
+      { label: "Business numbers", href: "/platform/business-numbers", icon: PhoneCall },
       // Where fieldquo.com's traffic goes, the signup funnel, which /app
       // screens are used and by how many companies. FieldQuo's own count
       // (lib/analytics/product/), so it sits with FieldQuo's own systems.

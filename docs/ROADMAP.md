@@ -1,5 +1,8 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 3 October 2026 (Bring your number — Settings → Business number. Twilio Lookup classifies the number; a landline/toll-free gets Hosted SMS (texts move, calls stay; Twilio's ownership call + emailed LOA; numbers v2 HostedNumber/Orders), a cell or VoIP line is PORTED (Twilio refuses to host VoIP). US ports go through Twilio's Port In API (bill uploaded as a document, LOA e-signed via Twilio, nothing secret stored); Canadian ports have no API — FieldQuo files them on Twilio's international form from /platform/business-numbers (superadmin, audited; PortFiling log; the PIN/account/bill sealed with PORT_SECRETS_KEY and purged at the end). Status syncs hourly (/api/cron/business-numbers) and on view; a number goes `active` only after it is wired (SMS → /api/sms/inbound, voice → /api/business-number/voice) and becomes Company.smsFromNumber. Texts on it file through the existing inbox, link to client/lead/job by phone, and a stranger becomes a lead by the social-leads rules; calls ring up to three phones (caller ID passed through), then the existing receptionist number or voicemail, each filed as a `call` line on the conversation; the Call button (leads, clients, jobs, the inbox header) rings the member then the client from the business number. Costs from the phone balance: $4/mo, 2¢/text, 5¢/photo, 5¢/call-minute (the last one NEW and unconfirmed — BUSINESS_CALL_CENTS_PER_MINUTE). The client inbox now draws bubbles (ours navy, contrast measured), a linked-record chip on the list, and a voicemail player. OWNER TO DO: PORT_SECRETS_KEY in Vercel; Hosted SMS + Port In enabled on the Twilio account; A2P 10DLC brand/campaign before any US number texts US phones — scripts/check-bring-your-number.mjs)
+
+Last updated: 3 October 2026 ("Start from drawings" — a drawing set, a scope spreadsheet, site photos and what the client wants read into ONE project overview with every quantity sourced (sheet + printed dimension, spreadsheet row, photo reference, or "estimated · verify"), a draft quote priced by the company's own paint engine, and a chat that changes both, paid from the AI credit with the cost shown first; files uploaded on a quote now carry to the job's Documents on approval — see "Start from drawings" below)
 Last updated: 3 October 2026 (demos send for real to a client created live in the demo — public booking, self-quote, instant quote, or a client a rep types in — capped 30 emails / 20 texts a day, SMS from the system number, US texts wait on A2P 10DLC; a demo's Pay button walks to a branded "no card is charged" screen and never reaches Stripe — see "Demos send for real to a client created live" below)
 Last updated: 29 September 2026 (the one-screen signup and the welcome questions — /signup asks email + password, Start creates the company with explicit nulls on a TRIAL_DAYS trial, /welcome/<step> asks the rest and resumes after any sign-out, the setup screen names the services it created, a readiness gate refuses client-facing sends without a name and country — see "One-screen signup and the welcome questions" below)
 Last updated: 29 September 2026 (the trial is 14 days, no card — TRIAL_DAYS / TRIAL_CARD_REQUIRED in lib/pricing.js; existing trials keep their date; referral month still composes on top; reminders 7/3/1 with a new Company.trialReminder1At column the owner must add before deploy; "first month free" gone from every screen, email, help article and catalogue in nine languages — see "The trial is 14 days")
@@ -97,15 +100,346 @@ nine languages, and an md5 over 672 typed estimates, option lists, costing and t
 quotes equal to the commit before.
 
 ### Owed
-- **Owner decision — what the wall rate means.** The interior book's `wallPricePerSqft` is
-  labelled "Floor area (sqft)" in the legacy builder but "Surface area" on the instant form.
-  The picker prices walls by WALL area (the instant form's meaning); if the rate is per floor
-  sq ft, room figures are ~2.5× high. Pre-existing ambiguity, now visible.
+- **Settled by the owner (3 October):** interior painting is priced on WALL area, never floor
+  ("people don't paint floors"), so the picker's wall pricing stands; the legacy builder's
+  "Floor area (sqft)" label is being renamed by another change. Ceilings in the picker are
+  still priced at the book's per-room `ceilingPrice`, not by ceiling area × a rate — the owner
+  said "ceilings on ceiling area"; switching needs a per-sqft ceiling rate the book does not
+  carry yet (the takeoff's `ceiling` substrate is area-driven already).
 - No per-company preset override (stairs has none); no Irish or NZ source (IE uses UK, NZ uses
   AU); metric companies' per-sqft rates are restated per m² on lines, not re-asked.
 - The instant form itself still offers en/fr/es only; the picker's words exist in all nine.
 
 ---
+
+## The client's PO number on quotes, jobs and invoices (3 October 2026)
+
+Owner, 3 October: "We should be able to add PO jobs… to Quotes, invoices and
+jobs, or if it needs to be generated then generate them." The CLIENT's
+purchase-order number — the one a property manager's payables desk wants
+quoted back — not the supplier `PurchaseOrder` (purchasing, "PO-001"), which
+is untouched.
+
+### What shipped
+
+- `Quote.clientPoNumber`, `Job.clientPoNumber`, `Invoice.clientPoNumber`,
+  `Client.requiresPo`. One module decides everything about them:
+  `lib/documents/clientPo.js`.
+- **Carried forward**: quote → job on acceptance (`createJobFromQuote`), a
+  hand-raised job from its quote (`createJob`), job-then-quote onto the
+  invoice (`ensureInvoiceForQuote`, `POST /api/invoices` when the body says
+  nothing), the invoice's own PO onto a job raised from it. A PO typed on the
+  JOB later is copied onto that job's DRAFT invoices that had none or the old
+  one; sent invoices change only by amendment, and the version carries it.
+  Deposit / progress stage emails print what the job's one invoice carries;
+  the change-order page prints the job's.
+- **Editable** with the document's own rules: a quote while draft/sent
+  (refused once decided — it lives on the job then), a job at any time, an
+  invoice in place while draft and by new version once sent; an invoice can
+  have its own PO per phase.
+- **Printed only when set**, labelled in the document's language (eight
+  languages, `documentLabels().poNumber`): the PDF details panel, the emailed
+  quote/invoice (deposit requests included), `/q`, the portal invoice, the
+  change-order page, the work order (PDF, print sheet, screen), and the office
+  copies on the quote/invoice pages. A company's old custom "PO number" box
+  holding the same value is not printed twice.
+- **Searchable** in the quote, job and invoice lists, shown as a "PO …" chip.
+- **"Requires a PO number on invoices"** on the client (edit and new). The
+  send stops with a 409 `po_required` question — after the tax gate, before
+  anything is minted — and the invoice page's dialog offers "Add it and send"
+  (written onto the draft first) or "Send without a PO". Save & send in the
+  invoice builder asks the same in its confirm dialog. A prompt, not a block.
+- **Generate**: `GET /api/client-po/next` suggests the company's next
+  `PO-<year>-NNNN` from the references already on its quotes/jobs/invoices;
+  nothing is reserved until the document is saved.
+- **Accounting export**: a "Client PO" column after "Invoice number".
+
+### Schema (additive, applied by hand; the live diff's unrelated DROPs were not run)
+
+    ALTER TABLE "Client"  ADD COLUMN IF NOT EXISTS "requiresPo" BOOLEAN NOT NULL DEFAULT false;
+    ALTER TABLE "Invoice" ADD COLUMN IF NOT EXISTS "clientPoNumber" TEXT;
+    ALTER TABLE "Job"     ADD COLUMN IF NOT EXISTS "clientPoNumber" TEXT;
+    ALTER TABLE "Quote"   ADD COLUMN IF NOT EXISTS "clientPoNumber" TEXT;
+
+### Checks
+
+`check:client-po` (new, in `check:all`) — carry-forward executed against a
+recording fake db, printing in every language (PDF sections bundled with
+esbuild), search, the prompt, the sequence, supplier POs untouched, the export.
+Documents without a PO were proved byte-identical to HEAD: 240 renders
+(emails, PDF sections, web facts, work order; eight languages) by md5.
+
+### Owed
+
+- The payment reminder (`request-payment`, only offered on sent invoices) and
+  the automatic deposit request do not stop for a missing PO — they are not
+  the invoice's first send by a person. Say if they should.
+- The classic invoice forms (`?layout=classic`) have no PO box; the server
+  still carries the job's/quote's PO onto an invoice they create.
+- With a payment schedule, the deposit request SENDS the job's invoice the
+  moment the quote is accepted — usually before the client's PO exists. A PO
+  typed on the job afterwards is not copied onto that (now sent) invoice; it
+  takes an amendment. Copying onto sent invoices would break the "a sent
+  document keeps saying what it said" rule, so it needs a decision.
+
+## Start from drawings — the drawing read (3 October 2026)
+
+A commercial contractor gets a drawing set (PDF), a scope spreadsheet and site photos.
+`/app/quotes/drawings/[id]` (entry: "Start from drawings" on the quote builder and on a
+lead) reads them as one project. Code in `lib/planRead/`; check: `npm run check:plan-deep-read`.
+
+### What shipped
+
+- **Files on a quote** — `QuoteDocument` (new, additive), the job store's rules: kinds, revisions
+  supersede, URL must be in the company's own upload folder. Upload purpose `plans` (PDF up to
+  100 MB, .xlsx, .csv, photos). The quote page has a Files card; approval copies every file into
+  the job's Documents (`fileQuoteDocumentsOnJob`, idempotent on `qd:<id>`, chains kept), also
+  lazily on the job's Documents GET and at once when the quote already has a job.
+- **Free extraction in code** — PDF vector text by unpdf (dimension strings imperial and metric,
+  title-block scale, sheet number/title, room labels, finish schedule, paint codes); scanned sheets
+  flagged; spreadsheets by read-excel-file / papaparse. Pages rendered to JPEG in the browser.
+- **The paid read** (`PlanRead`, resumable under after() with a lease, polled): per-sheet pass on the
+  standard model (overview + 4 tiles at high detail), one photo pass and one synthesis on the best
+  model. Quantities computed in code from cited dimension ids, spreadsheet cells, photo reference
+  objects (door 80 in, outlet plate, brick course…) or a labelled estimate; drawings win, conflicts
+  become questions; a surface seen in several photos is counted once (split/merge on screen).
+- **Pricing** — the company's own `paintTakeoff` book (rate sets, production rates, sell rate, paint
+  costs). The model never sets a price. Access equipment is drafted unpriced (no rental rates exist
+  anywhere); the estimator types a price.
+- **Chat** — ops applied to the model, history in `PlanReadMessage`, cached prefix + prompt_cache_key,
+  can re-open a sheet. "Create quote" opens the builder `?fromPlanRead=` with the takeoff live.
+- **Credits** — shown before (ceiling), held, settled to cost × 2, refunded in full on failure; chat
+  per call through the wallet meter. provider.js now reports cached tokens; usage.js prices them at
+  the cached rate (cost-REDUCING for any wallet feature whose call hits the cache).
+
+### Owed
+
+- Measured token counts on a real set: no OPENAI_API_KEY locally. Every call is recorded on
+  `PlanRead.usage` (per step) and as AiUsage `plan_read*` rows — read them after the first live read
+  and correct `READ_TOKENS` in lib/planRead/billing.js.
+- Phase 2: siding, roofing and other trades (their own catalogues/engines), equipment rental rates,
+  deductions for openings, a cron backstop for reads abandoned mid-way (today a poll resumes them).
+
+## Referrals need a chosen plan (3 October 2026)
+
+referrals only work once a plan is chosen — the owner: "should only work when they have selected a plan. Not before." A trial company sees "Refer & Earn opens once you choose a plan" with a Choose a plan link: no link from GET /api/settings/referral, invites refused 403 no_plan. The newcomer's month is no longer added to the trial at signup: it defers the first charge when the newcomer chooses a plan (onPlanSelected → grantRefereeBonus → extendAccessByMonths, the same trial_end deferral as the referrer's), only if the referrer had a plan when the newcomer signed up (stamped then as referralTerms "plan_required_month_promised" and kept even if the referrer cancels later; "plan_required" = nothing promised). The referrer's month needs a plan at grant time; held otherwise and granted once when the referrer chooses one (grantHeldReferrerRewards). Grandfathering is Company.referralTerms: NULL = referred before the rule, old terms; "plan_required" stamped at signup since. Grants claim the ReferralCredit row first, so races grant once. Column applied to the live DB by SQL (ALTER TABLE "Company" ADD COLUMN "referralTerms" TEXT). Copy moved in nine catalogues, help EN/FR/ES, terms, landing, invite email/SMS, phone and chat AI, rep scripts — the live Reverse Selling playbook needs "Refresh the built-ins" to pick up the new referral offer; sales guide PDFs not rebuilt — scripts/check-referral-reward.mjs
+## Each estimate kind opens its own calculator (3 October 2026)
+
+The owner, on TrueFinish Cabinets: after adding Interior Painting, the cards
+inside the takeoff opened a room (W × L × H) for Cabinets & millwork and for
+Staining, and Refinish, Reface and Stairs were nowhere. The first-screen card
+already opened the cabinet trade; the in-takeoff card only re-filtered the
+room's substrates.
+
+### What shipped
+
+- `lib/quotes/estimateKindRouting.js` decides, for both sets of cards:
+  Cabinets & millwork → the cabinet trade (refinishing first, with its
+  Refinish | Reface switch); Staining → asks Cabinets / Stairs / Decks, fences
+  & doors when the company sells cabinets or stairs, and opens that trade;
+  everything else stays the painting takeoff. Only trades the company sells.
+  A press inside an untouched painting group replaces it (same tempId, so the
+  document layout keeps it open); one with work in it is left alone and the
+  trade goes after it. Staining groups are headed "Cabinet staining" / "Stair
+  staining" in the document's language.
+- Exterior, and a commercial area set to exterior, is a surface calculator:
+  siding area (sqft), trim (linear ft), counted doors, window frames,
+  shutters, soffit & fascia, garage doors — the `measurement: "surface"` style
+  the recovered exterior job used. An area stored with room dimensions keeps
+  its room form. Commercial prices from its own rate set as before.
+- Four exterior substrates, all `analogue` (rates borrowed from existing
+  figures, edit on the rate card): `ext_door` 1 h/side, `ext_window_frame`
+  0.5 h, `ext_trim` 30 lnft/h (soffit & fascia's rate) read from the trim
+  linear feet, `shutters` $75/pair ÷ $80/h.
+- `check:estimate-kind-routing` (in check:all): routing, rendering of every
+  kind, wiring, and md5 pins of existing quotes of every kind taken from
+  origin/main. TrueFinish's real quotes were recomputed read-only through
+  origin/main and this tree: 129 md5s, identical.
+
+### Owed — owner decisions
+
+- The four exterior rates are placeholders until he names his own.
+- A painter with no cabinet trade still gets the painting book's cabinet
+  substrates inside a room for Cabinets & millwork; whether that should drop
+  the room geometry is his call.
+- The cabinet trade has no stain-vs-paint price; a stained cabinet group
+  prices at the refinishing card and only its heading says stain.
+## The time clock by activity, and the clock in the crew's menu (3 October 2026)
+
+The owner: "Crew members don't have the clock in and clock out option in their
+menu" and "In the clock I only see lunch and break … on site, something like
+what Jobber does."
+
+### What shipped
+
+- **The crew's menu.** The worker tab bar is Home · **Clock** · Schedule ·
+  Messages · More (Earnings moved to a More row, drawn there for every set now —
+  a supervisor had no way to their own timecard). A Crew member (isCrewHome)
+  gets that bar on every screen, not only /app/me: the Crew preset's jobs:view_only
+  kept a Jobs tab alive, so their bar was Jobs · Chat · More with no clock. Their
+  Jobs list is a More row behind the same navRowAllowed. Managers get a Time clock
+  row on More. `/api/time-clock` answers every member, so no link leads to a refusal.
+- **Activity tiles** on `/app/clock` (Track time): On site, Driving, Office,
+  Supplies, Break, Lunch, General, in a 3-column grid with Clock out on the
+  last row; a live timer for the running activity and Total today. One POST
+  action, `activity`: off the clock a work tile clocks in; a different tile
+  closes the running entry and opens the next at the same instant (one
+  transaction, the mis-tap minute re-points); Break/Lunch stay TimeEntryBreak
+  rows on the running entry; the same tile during a break ends it. On site needs
+  a job (today's only visit pre-picked), Driving/Supplies take one optionally,
+  Office/General never. Offline queue carries it (lib/offline/punchState.js folds
+  the queue). Location stamps per segment change, as the job switch did.
+- **Time log** tab: a company-zone day per person as a timeline (icon, label,
+  start–end, duration, Total and Paid), ‹ day › navigation; everyone at
+  timeTracking view_record_edit_all, own rows below (GET /api/time-clock/log).
+- **This week** card (time on the clock, paid hours when they differ, View
+  timesheet → the log) on My day and the worker home (GET /api/time-clock/week).
+- **Settings → Payroll → Time clock activities** (owner/admin): switch tiles off,
+  rename them, choose which are paid. On site and General are always on; On site
+  always paid. `paid` is stamped on the entry at clock-in (TimeEntry.paid), so a
+  change applies from the next tap and never re-prices worked time.
+- **Pay and costing.** `hours` stays the one figure payroll and costing read: an
+  unpaid activity books 0 (lib/timeclock/entryHours.js `{ paid }`, used by every
+  close path incl. the manager's manual clock-out), breaks keep their rule
+  (unpaid unless the company setting says paid). On site and linked Driving/
+  Supplies carry the jobId, so job costing counts them unchanged. The
+  unattributed-hours line on job costing no longer counts Office/General (declared
+  overhead); old untagged rows and unlinked Driving still count.
+- Timesheets show each entry's activity and "Unpaid". Help (EN/FR/ES) rewritten
+  for the tiles.
+
+### Schema (applied additively by hand; the diff's Community/PlanRead/QuoteDocument DROPs were not run)
+
+`CREATE TYPE "TimeActivity" AS ENUM ('visit','driving','office','supplies','general')`;
+`ALTER TABLE "Company" ADD COLUMN "timeActivities" JSONB`;
+`ALTER TABLE "TimeEntry" ADD COLUMN "activity" "TimeActivity", ADD COLUMN "paid" BOOLEAN NOT NULL DEFAULT true`.
+No existing entry is rewritten: a null activity reads as On site with a job,
+General without.
+
+### Checks
+
+`check:time-activities` (89, in check:all): switching, clock out, On site →
+job labour, Driving linked/unlinked, breaks paid/unpaid per setting, md5 proof
+that legacy entries' hours are byte-identical, midnight/DST, crew sees only
+their own log, crew nav shows the clock, offline fold.
+
+### Owed
+
+- Help screenshots `live:app-clock` and `harness:mobile-clock` show the old
+  screen until the capture sets are re-shot; the captions describe the new one.
+- Owner decisions listed in the hand-off (desktop rail row for the clock,
+  estimators and job costing, crew editing their own hours, driving on invoices).
+
+## The monthly summary email, rebuilt (3 October 2026)
+
+The 1st-of-the-month email ("Your September summary", From: FieldQuo) was one
+model-written paragraph — and its numbers were the WRONG MONTH: the cron called
+`getAnalyticsOverview()` with no date at 08:00 on the 1st, so revenue, expenses
+and quotes were October's first eight hours ("Revenue and expenses were both
+0… created 0 quotes") beside a lead count that was September's.
+
+### What shipped
+- `lib/analytics/monthlySummaryData.js` (read-only loader) + `lib/analytics/monthlySummary.js`
+  (pure): invoiced (invoice families by issue date), collected (`buildRevenueTrend`),
+  leads, quotes sent/accepted/rate (`getAnalyticsOverview({ now })` — which now takes
+  the month and bounds every current-month filter above), jobs completed, spend and
+  blended cost per lead, a five-stage pipeline, lead sources with quoted/won,
+  Meta campaigns (`loadCampaignRollup`, extracted from the Spend route — query code
+  md5-identical), social conversations (`loadMonthlyConversations`), money owed
+  (`buildReceivables`), and ranked "what to act on" facts. Absence is a reason, never 0.
+- `lib/email/monthlySummaryEmail.js`: table layout, 600px, tiles that stack on a
+  phone, a measured dark palette, ▲/▼ vs last month only when last month is real,
+  money only through `formatAppMoney`, "≈" and nothing else for converted spend,
+  plain-text part. 84 `app.monthlySummary.*` keys in all nine catalogue languages;
+  each recipient gets their own language (User.language, else the company's).
+- `lib/ai/monthlyDigest.js`: the model only rewords the three insights, in
+  {placeholder} form, behind a fence (no digits, currency signs, % or foreign
+  placeholders); any failure, refusal or exhausted quota uses the catalogue sentences.
+- "Open the full report" lands on `/app/analytics/kpis?from&to` — the KPI page now
+  honours those params.
+- FX: there was no refresh job to break — the USD/CAD rate in `lib/marketing/fx.js` was
+  hand-read by design and simply 34 days old. Re-read (1.4246 for 2026-10-02).
+- **Owner decisions, 2026-10-03 (round 2):**
+  - **AI insights only for companies with FieldQuo AI credit, paid from it, automatic.**
+    `monthly_digest` is registered in `lib/ai/featurePayer.js` as company-paid from the
+    AI-credit wallet (the AI employee's ledger, `lib/ai/walletMeter.js`; AI wallet kind in
+    `lib/voice/credits.js`). A company with no AI credit gets the catalogue sentences, no
+    model call, no AiUsage row, no debit. Before this the call ran for EVERY company and
+    was counted against each company's monthly token allowance.
+  - **The exchange rate is fetched automatically.** `/api/cron/fx-refresh` (daily 22:15
+    UTC) → `lib/marketing/fxRefresh.js` reads the Bank of Canada Valet API and upserts an
+    `ExchangeRate` row per pair per day; `lib/marketing/fxLive.js` gives the converters the
+    newest usable stored rate, falling back to fx.js's checked-in one (empty, missing,
+    unreadable or older store). Failures → `fx_refresh_failed` on /platform/errors; the
+    /platform banner now means "the automatic update has failed for N days" (amber from
+    day 2) and goes red only if the rate in use passes the 45-day cutoff.
+  - **SQL to apply by hand (not run — no production writes from this branch):**
+    `CREATE TABLE "ExchangeRate" (...)` + `CREATE UNIQUE INDEX
+    "ExchangeRate_base_quote_rateDate_key"` — the exact text is in the commit message.
+    Until it runs, the cron logs "could not be stored" daily and the converters use the
+    checked-in rate.
+- Preview: `scripts/preview-monthly-summary.mjs` → `docs/screens/monthly-summary/`.
+
+### Checks
+`check:monthly-summary` (547 assertions; a non-AI company is never charged, an AI
+company is charged to its own wallet — executed through the real meterFor);
+`check:fx-refresh` (58, no network; fetch mocked, stale-store fallback, the 45-day
+cutoff can't drop spend while the cron is healthy); `check:ai-credit` on the wallet
+gate; `check:fx` covers `rateHealth`. Fifteen mutations, all caught.
+
+### Owed
+- `buildCallInsights` (the call-transcript notes stored on the digest row, not in the
+  email) still runs for any company with decided quotes linked to calls and counts
+  against the monthly token allowance — not covered by the owner's decision; flagged.
+- The in-app digest archive (/app/analytics/digest) shows the new formatted tiles but
+  not the tables or pipeline.
+
+---
+## Client pages: the contractor's tab, icon and link preview; demos hide the fake pay box (3 October 2026)
+
+Owner-approved 2026-10-03. Every client-facing page's `<head>` was FieldQuo's:
+the root `app/favicon.ico` (which Next forces into EVERY route — no page can
+remove it), `app/icon.png` / `apple-icon.png` (what iMessage shows beside a
+link with no og:image), the root description "The all-in-one system for
+contractors and service pros" (the second line of a WhatsApp preview) and the
+FieldQuo `/manifest.webmanifest` on the apex. 25 pages, measured through Next's
+own `accumulateMetadata`.
+
+### What shipped
+
+- `lib/whiteLabel/pageMetadata.js` — `clientPageMetadata(company, …)`: tab title
+  is the company's name (quote / invoice add the document in the DOCUMENT's
+  language: "Devis Q-0123 · Northline Painting"), description the company's,
+  favicon + apple-touch-icon = the logo padded square on white by Cloudinary,
+  or a generated initial on the brand colour (`/api/brand-icon`, colours from
+  `fillPair`, ≥ 4.5:1 measured), og:image = the logo or none, `manifest: null`,
+  `appleWebApp.title` = the company. Share titles never carry a document number;
+  no client name, amount or address anywhere in a head.
+- `lib/whiteLabel/metadataLoaders.js` — one narrow read per token page, mirroring
+  each page's own gate (a draft quote's head names nobody; an unissued invoice's
+  number stays out) and answering null on a DB error (neutral head, not a 500).
+- `app/favicon.ico` → `public/favicon.ico` (still served at /favicon.ico).
+  Client not-found pages (and the site/embed 404s, which said "FieldQuo" in the
+  tab) carry `neutralClientMetadata` — a blank `data:,` icon, no description.
+- Demos: `lib/demo/clientFacing.js` — the portal and public-quote routes drop a
+  demo's How-to-pay block and its 555-01xx / example.com phone, email and
+  website (only fictional values; a rep's real number stays). Real companies:
+  same objects back; payload md5 identical to the pre-change route.
+- `check:white-label-meta` (in check:all, 777 assertions) executes all 25 pages'
+  generateMetadata with and without a logo and for an unknown token, through
+  Next's resolver under the real root layout, plus the icon route's PNG.
+
+### Owed
+
+- The link DOMAIN is still fieldquo.com on every client link except a tenant
+  website (custom domains are a separate product).
+- A demo's 555 number / example.com still shows on: the visit manage page
+  ("Questions? Call…"), the booking page's no-times line, the change-order
+  page header, the waiver page footer, the plan-authorisation page, the
+  contractor's website header/footer if a demo has one, and in PDFs and emails
+  (quote header, invoice How-to-pay section, stored `Invoice.howToPay`).
+- A Cyrillic / Gurmukhi company name gets a plain brand-colour square (next/og's
+  bundled font is Latin-only).
 
 ## Drywall: the six GA-214 finish levels (3 October 2026)
 
@@ -137,8 +471,7 @@ Levels 1–5 (`finish_l1` … `finish_l5`) — but that book is STAGED: nothing 
   pattern): the select writes the `finish_l*` line at the company's merged-book rate × the
   intake's square feet, swaps it in place on a change, removes it for Level 0 or a blank, and
   never touches a line whose fields no longer match what it wrote (no second line beside an
-  edited one; the builder says so). **Dormant until a drywall book is merged** — today it
-  writes nothing and the builder says no rate is set and the level still prints.
+  edited one; the builder says so). Priced since the book went live — see below.
 - A group added from a tile opens on Level 4 (`newScopeGroup` `fieldDefaults`); a phone-call
   draft keeps its blanks. `publicIntakeFields` now projects to the public keys, so the self-
   quote form gets the six strings and nothing staff-side; no route prices from it.
@@ -148,19 +481,64 @@ legacy map, each level's line against the merged staged book and against the liv
 in-place swap, edited lines kept, eight languages, old/absent/junk answers byte-identical,
 public payload shape. `check:service-content-fr` regexes widened to allow the fifth argument.
 
+### The drywall price book goes live (3 October 2026, same day)
+
+The owner: "YES — each level should have its price on the price book, per sqft."
+
+- **Registered** in `app/data/tradePriceBooks.js` as `drywall_install:
+  INTERIOR_PRICE_BOOKS.drywall_install` (by reference — the numbers keep one home in
+  interior.js). The other five staged books stay staged. Like every book, it is read as code
+  defaults with the company's sparse `CompanyServiceCategory.rates` merged over them
+  (`getPriceBook`), so **no row is written for any company**: every drywall_install company
+  sees the defaults on its rate card at once and an edit stores only what changed.
+- **Rate card** (`PRICE_BOOK_FIELDS.drywall_install`): per tier, Hang + Finish Levels 1–5, $/sq ft.
+  Standard 1.20 / 0.45 / 0.75 / 1.10 / 1.45 / 2.20; Moderate 1.55 / 0.55 / 0.95 / 1.40 /
+  1.85 / 2.80; High 2.05 / 0.70 / 1.20 / 1.80 / 2.45 / 3.70. Level 0 = hang only. The staged
+  ceiling surcharge, corner bead and extras are NOT on the card — no quote reads them yet.
+  Settings now hides the single-rate box for the trade (it has a book), like every book trade.
+- **Lines**: the intake now writes the book's **hang** line as well as the finishing line —
+  the hang row would otherwise be a rate nobody reads, and the old seeded "Drywall Installation
+  — $rate" line a second price for the same work (new groups no longer seed it). Square feet:
+  the intake's Square Footage, else the room measure's board area. A new staff-only intake
+  select, **Complexity** (Standard / Moderate / High, default Standard), picks the tier — the
+  Moderate and High columns would otherwise be dead. Modes: a level change may add the
+  finishing line; square feet, tier or the room measure only re-price lines still there, so a
+  deleted line is never resurrected. Edited lines are kept, both parts.
+- **Double-billing fix**: the book owns the board. `keysPricedByGroup(drywall_install)` holds
+  back every board figure (areaSqFt, wallSqft, ceilingSqft, drywallSheets), so a template line
+  keyed to one is never added into a drywall_install group — whichever comes first — and the
+  note names the "drywall price book". "Add with its template lines" keeps the book's lines plus
+  the template's other lines. "Add as one line" (a company's own service) marks the group
+  `ownPricing`: the level then adds no line there and the builder says so.
+- **Scope paragraph**: drywall_install now prints a trade paragraph (eight languages), required
+  for a priced trade by check:trade-labour. It names no level; the level sentence follows it.
+  **Only on documents created from 2026-10-04 00:00 UTC** (`DRYWALL_INSTALL_PARAGRAPH_SINCE`,
+  `descriptionSince` on the catalogue entry): service content renders live, so
+  `resolveServiceContent` takes the document's createdAt as a sixth argument (an invoice passes
+  its quote's) and withholds a dated paragraph from older documents. The quote page, PDF,
+  email (HTML + text), staff document, invoice, builder card, readiness checks and AI review
+  all pass it. check:drywall-finish-levels §G2 proves an old drywall_install quote renders
+  byte-identical to the pre-paragraph catalogue in all eight languages (content, email HTML
+  and text), and a new one gets it. A quote written on 2026-10-03 itself is treated as old.
+- Counts moved deliberately: check:pricebook-interior (17 books, 64 unpriced trades),
+  check:pricebook-systems (17), check:reuse-takeoffs and check:service-template-lines (drywall's
+  board figures are held back). check:drywall-finish-levels rewritten: 1,334.
+
 ### Still owed here
 
-- **Merge the drywall book** (`TRADE_PRICE_BOOKS.drywall_install` + its PRICE_BOOK_FIELDS from
-  interior.js) — the owner's decision; until then the level prices nothing.
-- **Materials:** no live drywall recipe. The staged one records Level 4 compound coverage only
-  (475 sq ft of board a box, "Level 5 roughly doubles it"); check:drywall-finish-levels §H
-  fails the day a recipe lands, so compound follows the level then.
+- **Materials:** the staged drywall recipe is not merged — its costs are two-currency objects no
+  costing reader takes yet (interior.js "Wiring" §1), and it states Level 4 compound coverage
+  only. check:drywall-finish-levels §J fails the day a recipe lands, so compound follows the
+  level (Level 5 ≈ 2 × Level 4) then.
+- **Plain `drywall`** has no book and keeps its seeded line; its staged book in interior.js is a
+  REPAIR book (patches, skim, texture), while its intake asks install questions. Sharing
+  drywall_install's book with it is a product decision.
 - The PDF's process-steps section and the quote email's steps call `dominantProcessSteps`
   without the document language (pre-existing): they print English steps on any language,
   the level sentence included.
 - The public self-quote select still shows raw values ("level 4") like every select there.
-- A service added "with its template lines" opens on Level 4 without the finish line; changing
-  the level later adds one beside the template's lines (once a book exists).
+- A template line keyed to no board figure (a flat "taping and finishing" fee) is not held back:
+  the guard is per measurement, as for every calculator.
 
 ---
 ## Demos send for real to a client created live (3 October 2026)
@@ -196,6 +574,33 @@ The owner: "Can the demo accounts send actual emails and have the text messages 
 - The cap is counted before the send, so two sends at the very same instant can both pass at 29/30.
 - Client-facing pages still use FieldQuo's favicon, root meta description and app domain. This is pre-existing and not specific to demos.
 - Seeded demos print fictional "How to pay" details (`pay@<slug>.example.com`) and a 555 phone number.
+## Leads from Facebook / Instagram / WhatsApp conversations, and proof they converted (2 October 2026)
+
+The owner: "are we able to create better leads than fb from the client conversation and add them into leads? And … validate the client name address phone number to quotes jobs and invoices to confirm conversion from social media."
+
+### What shipped
+
+- **A conversation becomes ONE lead** (`lib/leads/conversationLead.js`, called from `lib/messaging/ingest.js` on a genuinely new inbound Meta message, never an imported one). Free deterministic pass on every message (phone/email/address/postcode from the customer's own text via `lib/attribution/contactPatterns.js`, the WhatsApp number, the photo count from `lib/aiEmployee/evidence.js`); a metered model read (`lib/ai/conversationLeadExtract.js`, standard tier, strict schema) decides work request / existing-customer issue / spam / not work / undetermined and copies name, phone, email, address, area, service (company's own list only), timeline — each field must literally appear in the customer message it cites or it is dropped. Every field is stored with its evidence on `LeadRequest.conversationEvidence`.
+- **Never overwrite, never invent.** Only empty columns (or one still holding this code's own previous value) are written; what the conversation said instead is kept in `conversationEvidence.skipped` and shown. No typed name → Meta's profile name, labelled as such.
+- **No duplicates.** The thread's linked lead, else an open lead with the same phone/email, else a Meta lead-FORM lead with exactly this Facebook profile name within 30 days (Meta pre-fills the form from the same profile) — enriched, not duplicated. `MessageThread.leadId` is set only where nobody set it.
+- **Campaign credit.** Meta's click-to-message `referral` (Messenger/Instagram message, `messaging_referrals`, Get Started postback, WhatsApp `referral.source_type: ad`) is now parsed and kept, first touch, on `MessageThread.adReferral`; the ad is resolved to its campaign (`resolveCampaignForAd` in `lib/meta/leadsFetch.js`) and stamped on the lead's `metaCampaignId`, which the campaign rollup already joins on.
+- **Conversion validation** (`lib/attribution/conversionEvidence.js`) on top of the unchanged `conversationOutcome`: phone (E.164), email, tolerant name (`namesClose` in `matchContact`, opt-in), and address as ADDITIVE evidence against the client and Quote/Job `siteAddress`. Confirmed = recorded link, or one client at `likely`+ not tied; possible (shown, never counted) = name alone, address alone, or an unbroken tie. A shared phone is settled by an agreeing address on exactly one of the clients. Fed into the monthly attribution loader (lead contact + `LeadRequest.quoteId` as a recorded link).
+- **Where it shows:** the lead drawer's Linked documents block ("From Facebook · What the conversation told us · Did it convert? Confirmed · matched on phone + job-site address · Quote Q-0123 · won · invoice INV-45 paid $2,800"); the thread's existing "Open lead" button; the Spend page's Campaigns table (conversation leads counted, confirmed-but-unlinked quotes counted with a note saying how many, new **Paid** column).
+- **Cost:** feature `conversation_lead`, the company's AI credit (wallet, cost × 2, 1¢ minimum per call), switchable on /platform/ai-billing. Runs at most 3 times per conversation: first read once there are 12+ characters of customer text, again per new customer message only while "undetermined", otherwise only when a new phone/email/address appears; never for spam.
+
+### Schema (applied additively by hand; the live diff's Community DROPs were not run)
+
+`LeadRequest.conversationEvidence JSONB`, `MessageThread.adReferral JSONB`, `MessageThread.leadCapture JSONB`.
+
+### Checks
+
+`npm run check:social-leads` (new, in check:all): five phone spellings, a misspelled name, an address two ways, a phone shared by two clients, a lead-ad lead then a message (no duplicate), spam, an existing customer's complaint, a staff-edited field, a model that lies, the cost rule, the tenant, the referral parser, recorded-vs-inferred, paid revenue.
+
+### Owed — owner decisions
+
+- Approve the cost (it is a cost increase): see the agent's report for the per-conversation figures.
+- With no AI credit (the AI-employee grace ended 2026-10-01) only the free pass runs: a lead is enriched by phone/email match, and a new lead is made only when the AI employee's front desk read the first message as `book`/`price`. Whether FieldQuo should absorb this feature instead is one switch on /platform/ai-billing.
+- Imported (historical) conversations are deliberately not read.
 
 ## Reverse Selling, version 3: one script, a thirty-minute demo (2 October 2026)
 
@@ -274,6 +679,31 @@ last. The phone agent's prompt is byte-identical (md5 over every variant).
   `/demo/<code>` page, which a visitor is never sent to.
 - **Company mode** (signed-in support) is unchanged and hash-pinned in
   `check:jennifer`, with a scan for selling words.
+## The contractors' closer learns Reverse Selling, by trade (2 October 2026)
+
+The AI employee's **closer** (the one that sells a company's work to a
+homeowner on web chat, SMS and Meta) now carries a technique section,
+`lib/aiEmployee/closerTechnique.js`, in our own words: the goal is a visit
+("no commitment, someone takes a look, then you decide"), times offered as two
+of check_availability's own labels, one question at a time, A-S-P, no "why",
+"fair enough?", two-to-four-sentence objection answers that end at the visit,
+the too-easy yes confirmed, and the referral question only after a booking.
+It is built from the company's ENABLED services (`closerTrades.js`, no rates
+read): per trade family, what to ask, what the visit is, and the objection
+that trade hears; a company with none listed gets the general approach,
+stated. Placed after every absolute rule, before the company's own style.
+
+- Receptionist, troubleshooter and custom prompts are byte-identical (md5
+  pins in `check:closer-technique`, new, in check:all).
+- Separate from `lib/sales/technique.js` on purpose: that one is about
+  FieldQuo (white-label), and imports referrals → db → Stripe.
+- **Open, owner's call:** the closer's system prompt grows by ~1,100–1,600
+  tokens per round (≈ +$0.006 a round on the best model), and
+  `TYPICAL_CONVERSATION_TOKENS` (the cost the settings screen prints) was not
+  raised; a booking request still routes to the receptionist when a company
+  has one (the flow view can map "book" to the closer); no inbound message
+  becomes a LeadRequest until book_callback is called; the reply cap defaults
+  to three per thread; there is no per-role switch for the technique.
 
 ## Reverse Selling, version 2: the first call books the demo (1 October 2026)
 
@@ -749,6 +1179,7 @@ Owner decision, restated with numbers and approved: a NEW signup gets 14 days fr
 
 - `lib/pricing.js`: `TRIAL_DAYS = 14`, `TRIAL_CARD_REQUIRED = false`; `trialLabel()` now reads "14 days free". `/api/companies` stamps `trialEndsAt = now + TRIAL_DAYS` on create only — no existing row is rewritten; a company on the 30-day trial keeps its date. `createTrialCheckoutSession`'s default is TRIAL_DAYS; every real caller still derives Stripe's `trial_period_days` from `trialEndsAt` (trialDaysAllowed), so a legacy trial choosing a plan keeps its own remaining days.
 - Referral: unchanged composition — base `trialEndsAt` + REFEREE_BONUS_MONTHS calendar months. Oct 1 referral signup: before Oct 31 → Nov 30 (60 days); now Oct 15 → Nov 15 (45 days).
+  - Superseded 2026-10-03: the referral month no longer touches the trial. Oct 1 signup, trial to Oct 15; Crew chosen Oct 10 → Stripe trial_end Oct 15 → the referral month moves the first charge to Nov 15, and only if the referrer had a plan when the newcomer signed up.
 - Trial reminders 15/7/3 → **7/3/1** (a 15-day letter cannot happen in 14 days). Applies to every trial from deploy, including the legacy 30-day ones; the claim-on-null stamps mean no duplicates (a legacy company that already had its 7-day letter is not mailed it again). The old 15-day stamp is kept as history, no longer read.
 - Copy: app + marketing catalogues (9 languages), compare / feature / industry / savings / cost / glossary / pricing metadata / terms, auth panel, signup fallbacks (wording only — signup is being rebuilt), billing banner, sales emails / SMS / call scripts / the AI sales agent, platform console labels, growth forecast comment. Help centre: "free-first-month" rewritten (en/fr/es) for 14 days, no card, 7/3/1, the read-only week; trial-length wording elsewhere.
 

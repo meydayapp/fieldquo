@@ -10,11 +10,15 @@
 // page to derive a language from, so there is nothing honest to translate
 // FOR — see SurveyForm.js for the case that DOES have a company and answers
 // in the language the survey was sent in.
+//
+// No FieldQuo favicon, description or manifest in the head either — see
+// neutralClientMetadata in lib/whiteLabel/pageMetadata.js.
+import { neutralClientMetadata } from "@/lib/whiteLabel/pageMetadata";
 
-export const metadata = {
+export const metadata = neutralClientMetadata({
   title: "How did we do?",
   robots: { index: false, follow: false },
-};
+});
 
 export default function SurveyNotFound() {
   return (

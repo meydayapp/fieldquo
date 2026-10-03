@@ -118,6 +118,9 @@ export async function PATCH(request, { params }) {
     county,
     notes,
     language,
+    // "Requires a PO number on invoices" (Client.requiresPo). A boolean or
+    // nothing — anything else is ignored rather than read as true.
+    requiresPo,
   } = body;
 
   // Editing a client's address is the moment a working one becomes a broken
@@ -174,6 +177,7 @@ export async function PATCH(request, { params }) {
       ...(language !== undefined && {
         language: isSupported(language) ? language : null,
       }),
+      ...(typeof requiresPo === "boolean" && { requiresPo }),
     },
   });
 
@@ -199,6 +203,7 @@ export async function PATCH(request, { params }) {
     ["postalCode", postalCode],
     ["county", county],
     ["language", language],
+    ["requiresPo", typeof requiresPo === "boolean" ? requiresPo : undefined],
   ]
     .filter(([field, value]) => value !== undefined && value !== existing[field])
     .map(([field]) => field);

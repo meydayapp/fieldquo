@@ -392,14 +392,22 @@ section("K — the reuse takeoffs: flooring, tile, drywall, siding, fencing, con
   ok(at("cc").values.areaSqft === 810 && at("cc").values.concreteCuYd === 10.5, "concrete: slab 810 sq ft, 10.5 yd at 4 in + 5%", at("cc").values);
   // The group the template goes into wins: the tile group's wall, not the drywall's.
   ok(at("ti").sources.wallSqft.groupTempId === "ti" && at("dw").sources.wallSqft.groupTempId === "dw", "each group reads its own walls first");
-  // Nothing held back on the five that only measure; siding still holds its priced box.
-  ok(["fl", "ti", "dw", "fe", "cc"].every((id) => keysPricedByGroup(groups.find((g) => g.tempId === id)).length === 0) && keysPricedByGroup(groups[3]).join() === "wallSqft", "only a takeoff that prices a quantity holds its template lines back");
+  // Nothing held back on the four that only measure; siding still holds its
+  // priced box; and drywall_install — since 2026-10-03, when its price book
+  // went live and began billing the board — holds back the board figures.
+  ok(["fl", "ti", "fe", "cc"].every((id) => keysPricedByGroup(groups.find((g) => g.tempId === id)).length === 0) && keysPricedByGroup(groups[3]).join() === "wallSqft", "only a takeoff (or a book) that prices a quantity holds its template lines back");
+  ok(keysPricedByGroup(groups[2]).join() === "areaSqFt,wallSqft,ceilingSqft,drywallSheets", "drywall_install: its price book's board figures are held back", keysPricedByGroup(groups[2]));
   const tpl = { templateLines: [
     { kind: "labour", name: "Hang", qty: 1, unit: "sqft", unitPrice: 2, measurementKey: "areaSqFt" },
     { kind: "material", name: "Board", qty: 1, unit: "each", unitPrice: 18, measurementKey: "drywallSheets", wastePct: 10 },
   ] };
-  const d = expandServiceTemplate(tpl, { measurements: at("dw"), currency: "USD", runId: "k", heading: false, pricedKeys: keysPricedByGroup(groups[2]) });
+  // The figures still reach a template that nothing holds back (an invoice,
+  // a quote type with no book) exactly as before…
+  const d = expandServiceTemplate(tpl, { measurements: at("dw"), currency: "USD", runId: "k", heading: false, pricedKeys: [] });
   ok(d.lines[0].quantity === 451 && d.lines[1].quantity === 16 && d.summary.awaiting === 0, "drywall template: hang 451 sq ft, 16 sheets — the template's 10% not added on top of the sheet waste", d.lines.map((l) => l.quantity));
+  // …and inside a drywall_install group they are the book's, not the template's.
+  const inGroup = expandServiceTemplate(tpl, { measurements: at("dw"), currency: "USD", runId: "k2", heading: false, pricedKeys: keysPricedByGroup(groups[2]) });
+  ok(inGroup.lines.length === 0 && inGroup.summary.skipped.length === 2, "drywall template inside a drywall_install group: both board lines held back and named", inGroup.summary.skipped);
 }
 
 console.log(`\n${passed} passed, ${fail} failed`);

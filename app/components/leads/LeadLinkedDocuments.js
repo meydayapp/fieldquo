@@ -287,6 +287,8 @@ export function LinkedDocuments({
               )}
             </section>
           )}
+
+          <SocialEvidence lead={lead} conversion={docs.conversion} money={money} t={t} />
         </>
       )}
 
@@ -340,6 +342,159 @@ export function LinkedDocuments({
         </p>
       )}
     </div>
+  );
+}
+
+// ── "From Facebook / Instagram / WhatsApp" ─────────────────────────────────
+//
+// Two halves, both read-only:
+//
+//   * What the conversation told us — lead.conversationEvidence, written by
+//     lib/leads/conversationLead.js: each field with the customer's own words
+//     it came from, and what was NOT written because a person had already
+//     filled that field (kept, and shown).
+//   * Did it convert — docs.conversion, from lib/attribution/conversionEvidence.js
+//     via GET /api/leads/[id]/documents: confirmed (with what matched, on
+//     which record) or possible (shown, never counted), or no match at all,
+//     which is said as "not matched", never as "did not convert".
+//
+// Renders nothing for a lead with neither — every non-social lead.
+
+const EVIDENCE_FIELDS = ["name", "phone", "email", "address", "area", "service", "timeline"];
+const OUTCOME_KEYS = { won: "won", quoted: "quoted", lost: "lost", no_quote: "no_quote" };
+
+const REASONS = new Set(["recorded_link", "name_similar", "phone", "email", "name", "address"]);
+function reasonLabel(reason, t) {
+  return REASONS.has(reason) ? t(`app.leads.social.reason.${reason}`) : reason;
+}
+
+function SocialEvidence({ lead, conversion, money, t }) {
+  const ev = lead?.conversationEvidence && typeof lead.conversationEvidence === "object" ? lead.conversationEvidence : null;
+  if (!ev && !conversion) return null;
+
+  const platform = conversion?.platform || ev?.platform || null;
+  const from = platform
+    ? t(`app.messages.platform.${platform}`, platform)
+    : lead?.source === "meta_lead_form"
+      ? t("app.leads.source.meta_lead_form", "Facebook lead form")
+      : null;
+  const fields = ev?.fields || {};
+  const shown = EVIDENCE_FIELDS.filter((f) => fields[f]?.value);
+
+  const matched = (conversion?.matchedOn || []).map((r) =>
+    r === "address" && (conversion.addressOn || []).some((a) => a === "quote" || a === "job")
+      ? t("app.leads.social.reason.siteAddress", "job-site address")
+      : reasonLabel(r, t),
+  );
+
+  const docsLine = (d) => {
+    if (!d) return null;
+    const parts = [];
+    if (d.quote?.restricted) parts.push(t("app.access.restricted", "Hidden by your access level"));
+    else if (d.quote) parts.push(t("app.leads.social.quoteRef", { number: d.quote.number || "" }));
+    if (d.outcome && OUTCOME_KEYS[d.outcome]) parts.push(t(`app.leads.social.outcome.${d.outcome}`));
+    const inv = d.invoices;
+    if (inv?.restricted) parts.push(t("app.access.restricted", "Hidden by your access level"));
+    else if (inv && inv.count) {
+      const numbers = (inv.numbers || []).join(", ");
+      if (inv.pricingHidden) parts.push(numbers);
+      else if (inv.fullyPaid) parts.push(t("app.leads.social.invoicePaid", { numbers, amount: money(inv.paid) }));
+      else parts.push(t("app.leads.social.invoicePartial", { numbers, paid: money(inv.paid || 0), total: inv.total == null ? "—" : money(inv.total) }));
+    } else if (d.quote && d.outcome === "won") parts.push(t("app.leads.social.notInvoiced", "Not invoiced yet"));
+    return parts.join(" · ");
+  };
+
+  return (
+    <section className="rounded-lg border border-border p-2.5 space-y-2" data-social-evidence>
+      {from && (
+        <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+          {t("app.leads.social.fromPlatform", { platform: from })}
+        </div>
+      )}
+
+      {ev && (
+        <div className="space-y-1">
+          <div className="text-xs font-semibold text-foreground">{t("app.leads.social.told", "What the conversation told us")}</div>
+          {ev.summary && (
+            <p className="text-xs text-foreground">{t("app.leads.social.summary", { text: ev.summary })}</p>
+          )}
+          {shown.length > 0 && (
+            <ul className="space-y-0.5">
+              {shown.map((f) => {
+                const e = fields[f];
+                const value = f === "service" ? e.label || e.value : f === "timeline" ? null : e.value;
+                const how =
+                  e.method === "profile"
+                    ? t("app.leads.social.methodProfile", "Facebook profile name")
+                    : e.method === "whatsapp_number"
+                      ? t("app.leads.social.methodWhatsapp", "WhatsApp number")
+                      : e.method === "sms_number"
+                        ? t("app.leads.social.methodSms", "Texted from this number")
+                        : e.quote
+                        ? `“${e.quote}”`
+                        : null;
+                return (
+                  <li key={f} className="text-xs text-muted-foreground">
+                    <span className="text-foreground">{t(`app.leads.social.field.${f}`, f)}</span>
+                    {value ? <>: <span className="text-foreground">{value}</span></> : null}
+                    {how ? <> · <span className="italic">{how}</span></> : null}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {Number(ev.photos?.total) > 0 && (
+            <p className="text-xs text-muted-foreground">{t("app.leads.social.photos", { count: ev.photos.total })}</p>
+          )}
+          {(ev.skipped || []).map((s) => (
+            <p key={s.field} className="text-xs text-amber-800 dark:text-amber-300">
+              {t("app.leads.social.kept", { field: t(`app.leads.social.field.${s.field}`, s.field), offered: String(s.offered), kept: String(s.kept) })}
+            </p>
+          ))}
+          {ev.campaign?.adTitle && <p className="text-xs text-muted-foreground">{t("app.leads.social.ad", { ad: ev.campaign.adTitle })}</p>}
+          {ev.campaign?.campaignName && (
+            <p className="text-xs text-muted-foreground">{t("app.leads.social.campaign", { campaign: ev.campaign.campaignName })}</p>
+          )}
+          {Array.isArray(ev.joinedOn) && ev.joinedOn.includes("profile_name") && (
+            <p className="text-xs text-amber-800 dark:text-amber-300">{t("app.leads.social.joinedProfile")}</p>
+          )}
+        </div>
+      )}
+
+      {conversion && (
+        <div className="space-y-1">
+          <div className="text-xs font-semibold text-foreground">{t("app.leads.social.conversion", "Did it convert?")}</div>
+          {conversion.status === "confirmed" && (
+            <p className="text-xs text-foreground">
+              <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-400">
+                <CheckCircle2 size={12} aria-hidden="true" />
+                {t("app.leads.social.confirmed", "Confirmed")}
+              </span>{" "}
+              · {t("app.leads.social.matchedOn", { fields: matched.join(" + ") })}
+              {docsLine(conversion) ? ` · ${docsLine(conversion)}` : ""}
+            </p>
+          )}
+          {conversion.status === "confirmed" && conversion.tieBrokenBy === "address" && (
+            <p className="text-xs text-muted-foreground">
+              {t("app.leads.social.tieBroken", { field: (conversion.matchedOn || []).filter((r) => r !== "address").map((r) => reasonLabel(r, t)).join(" + ") })}
+            </p>
+          )}
+          {conversion.status === "possible" && (
+            <>
+              <p className="text-xs text-amber-800 dark:text-amber-300">
+                <span className="font-semibold">{t("app.leads.social.possible", "Possible match — not counted")}</span>
+                {matched.length ? ` · ${t("app.leads.social.matchedOn", { fields: matched.join(" + ") })}` : ""}
+                {docsLine(conversion.possible) ? ` · ${docsLine(conversion.possible)}` : ""}
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                {conversion.ambiguous ? t("app.leads.social.ambiguous") : t("app.leads.social.possibleNote")}
+              </p>
+            </>
+          )}
+          {conversion.status === "none" && <p className="text-xs text-muted-foreground">{t("app.leads.social.none")}</p>}
+        </div>
+      )}
+    </section>
   );
 }
 

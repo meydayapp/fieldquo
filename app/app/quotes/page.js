@@ -4,6 +4,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { FileText, Plus, Search } from "lucide-react";
+import { matchesClientPo } from "@/lib/documents/clientPo";
 import { fetchArray } from "@/lib/loadState";
 import ListState from "@/app/components/ListState";
 import QuoteListRow from "./QuoteListRow";
@@ -97,7 +98,9 @@ export default function QuotesPage() {
     const s = search.toLowerCase();
     return (
       q.quoteNumber?.toLowerCase().includes(s) ||
-      q.client?.name?.toLowerCase().includes(s)
+      q.client?.name?.toLowerCase().includes(s) ||
+      // The client's PO — what a property manager quotes when they call.
+      matchesClientPo(q, s)
     );
   });
 

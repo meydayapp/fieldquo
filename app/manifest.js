@@ -20,6 +20,12 @@
 // incoming Host header and refuses to hand out FieldQuo's identity to
 // anything that isn't a FieldQuo host.
 //
+// The host test cannot see the PATH, though, and a contractor's quote,
+// portal and booking links live on the apex (fieldquo.com/q/…). Those pages
+// drop the manifest link from their own head instead (`manifest: null` in
+// lib/whiteLabel/pageMetadata.js), so Android never offers them this
+// FieldQuo-named install.
+//
 // `headers()` is a Request-time API (see node_modules/next/dist/docs/01-app/
 // 04-glossary.md, "Request-time APIs"), and Next's own manifest.md doc notes
 // manifest.js "is cached by default unless it uses a Request-time API" —

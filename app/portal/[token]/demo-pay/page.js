@@ -7,11 +7,20 @@
 export const dynamic = "force-dynamic";
 
 import DemoPay from "./DemoPay";
+import { clientPageMetadata, neutralClientMetadata } from "@/lib/whiteLabel/pageMetadata";
+import { portalCompany } from "@/lib/whiteLabel/metadataLoaders";
 
-export const metadata = {
-  title: "Your payment",
-  robots: { index: false, follow: false },
-};
+const ROBOTS = { index: false, follow: false };
+
+// The demo company's name and icon, exactly as a real company's portal —
+// this screen exists to show a prospect what THEIR clients would see.
+export async function generateMetadata({ params }) {
+  const { token } = await params;
+  const found = await portalCompany(token);
+  return found
+    ? clientPageMetadata(found.company, { robots: ROBOTS })
+    : neutralClientMetadata({ title: "Your payment", robots: ROBOTS });
+}
 
 export default async function DemoPayPage({ params, searchParams }) {
   const { token } = await params;

@@ -17,6 +17,13 @@ export const dynamic = "force-dynamic";
 import { findBookingCompany } from "@/lib/booking/findBookingCompany";
 import { documentTheme } from "@/lib/documents/theme";
 import BookingFlow from "./BookingFlow";
+import {
+  CLIENT_META_COMPANY_SELECT,
+  clientPageMetadata,
+  neutralClientMetadata,
+} from "@/lib/whiteLabel/pageMetadata";
+
+const ROBOTS = { index: false, follow: false };
 
 // ── The tab title is a white-label surface ────────────────────────────────
 //
@@ -33,13 +40,16 @@ import BookingFlow from "./BookingFlow";
 // A bare space rather than a name for an unknown slug: the flow renders its own
 // "booking page not found" card, and a title guessed from the URL would be a
 // second, contradictory answer.
+//
+// The title alone was half the fix: the tab ICON was still FieldQuo's, and so
+// was the link preview's. clientPageMetadata (lib/whiteLabel/pageMetadata.js)
+// carries the name, the logo-or-initial icon and the logo share image.
 export async function generateMetadata({ params }) {
   const { companySlug } = await params;
-  const company = await findBookingCompany(companySlug, { name: true });
-  return {
-    title: company?.name || " ",
-    robots: { index: false, follow: false },
-  };
+  const company = await findBookingCompany(companySlug, CLIENT_META_COMPANY_SELECT);
+  return company
+    ? clientPageMetadata(company, { robots: ROBOTS })
+    : neutralClientMetadata({ title: " ", robots: ROBOTS });
 }
 
 export default async function BookingPage({ params }) {

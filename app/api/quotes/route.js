@@ -37,6 +37,7 @@ import { mintShareToken } from "@/lib/quotes/shareToken";
 import { normaliseSiteAddress } from "@/lib/geo/geocodeJob";
 import { offlineDiscountPctFor } from "@/lib/payments/offlineDiscount";
 import { attachDefaultWaivers } from "@/lib/waivers/service";
+import { readClientPoInput } from "@/lib/documents/clientPo";
 // "What happens next" is copied onto the quote in the QUOTE's language: the
 // company's reviewed or auto-drafted translation when one exists for the
 // current wording, the source text otherwise (lib/i18n/companyText.js).
@@ -196,6 +197,14 @@ export async function POST(request) {
     // own rows (lib/quotes/suggestedAddOns.js). Absent from every request
     // that clicked none.
     offerAddOns,
+    // ── The drawing read this quote was drafted from ────────────────────
+    //
+    // `/app/quotes/new?fromPlanRead=<id>` (lib/planRead/). Verified below
+    // against this company's own reads; on save the read records its quote
+    // and the read's files (QuoteDocument) become this quote's — which is
+    // what carries the drawings, scope sheet and photos to the job's
+    // Documents on approval.
+    sourcePlanReadId,
   } = body;
 
   // The satellite still behind a measured group, captured to Cloudinary
@@ -453,6 +462,9 @@ export async function POST(request) {
       validUntil: validUntil ? new Date(validUntil) : null,
       language: language || "en",
       siteAddress: siteAddressValue,
+      // The client's PO, when the builder sent one (lib/documents/clientPo.js).
+      // Absent and blank are both "none" on a new quote.
+      clientPoNumber: readClientPoInput(body) ?? null,
       // The e-transfer / cheque offer, decided by the server from the
       // company's switch and frozen here — the browser never sends it, and a
       // sent quote never re-reads it (lib/payments/offlineDiscount.js).
@@ -566,6 +578,28 @@ export async function POST(request) {
   await attachDefaultWaivers({ companyId: member.companyId, quoteId: quote.id }).catch((err) =>
     console.error("[quotes] default waivers failed:", err?.message),
   );
+
+  // A read that already has a quote keeps it: a second save from the same
+  // draft makes a second quote, and the files stay with the first.
+  if (typeof sourcePlanReadId === "string" && sourcePlanReadId) {
+    try {
+      const planRead = await db.planRead.findFirst({
+        where: { id: sourcePlanReadId, companyId: member.companyId, quoteId: null },
+        select: { id: true },
+      });
+      if (planRead) {
+        await db.$transaction([
+          db.planRead.updateMany({ where: { id: planRead.id, companyId: member.companyId }, data: { quoteId: quote.id } }),
+          db.quoteDocument.updateMany({
+            where: { companyId: member.companyId, planReadId: planRead.id, quoteId: null },
+            data: { quoteId: quote.id },
+          }),
+        ]);
+      }
+    } catch (err) {
+      console.error("[quotes POST] drawing read link:", err?.message);
+    }
+  }
 
   return NextResponse.json(redactQuote(full, quote), { status: 201 });
 }

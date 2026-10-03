@@ -15,11 +15,21 @@ export const dynamic = "force-dynamic";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import VisitManager from "./VisitManager";
+import { clientPageMetadata, neutralClientMetadata } from "@/lib/whiteLabel/pageMetadata";
+import { visitCompany } from "@/lib/whiteLabel/metadataLoaders";
 
-export const metadata = {
-  title: "Your visit",
-  robots: { index: false, follow: false },
-};
+const ROBOTS = { index: false, follow: false };
+
+// The company's name and logo in the tab and the link preview
+// (lib/whiteLabel/pageMetadata.js). Never the client's name, the address or
+// the time — a preview is drawn for whoever the link is forwarded to.
+export async function generateMetadata({ params }) {
+  const { token } = await params;
+  const company = await visitCompany(token);
+  return company
+    ? clientPageMetadata(company, { robots: ROBOTS })
+    : neutralClientMetadata({ title: "Your visit", robots: ROBOTS });
+}
 
 export default async function VisitPage({ params }) {
   // Next 16: `params` is a Promise. Reading it synchronously gives undefined,

@@ -93,6 +93,16 @@ const GLOBAL_BY_DESIGN = {
       "Same row: the update stamps callbackRequestedAt on the quote loaded " +
       "by { id, companyId } three lines above; the id is the scoped read's.",
   },
+  "app/api/platform/business-numbers/route.js": {
+    broughtNumber:
+      "FieldQuo's console, behind getCurrentPlatformAdmin — it has no tenant, " +
+      "and reading ACROSS tenants is what it is for: a superadmin opening a " +
+      "Canadian port package to file it on Twilio's form (porting:handle, " +
+      "superadmin-only, audit-logged). Both lookups are READS by the id the " +
+      "console listed; the route writes no BroughtNumber at all — its one " +
+      "write is FieldQuo's own PortFiling log (scripts/check-bring-your-number " +
+      "asserts that).",
+  },
   "app/api/sales/support/[id]/route.js": {
     supportTicket:
       "The sales portal has no tenant — a rep's ticket is scoped by " +

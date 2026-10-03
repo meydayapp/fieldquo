@@ -443,12 +443,23 @@ de-anonymised).
 
 ## G. Grow — referrals & marketing automation
 
-**Refer & earn** ✅ — Share your `/refer/<company>` link. The **new company** gets 1
-free month; **you** earn a Stripe account credit equal to **one month of the
-referred company's plan** — so referring a big team is worth more than a small one.
-Paid only once that company is a **verified paying customer** (onboarding done +
-Stripe Connect + first payment), capped at 50 referrals/month. Send email/SMS
-invites and track credit earned + per-referral status.
+**Refer & earn** ✅ — Opens once your company has **chosen a plan**; on the free
+trial the page says "Refer & Earn opens once you choose a plan" and links to
+Account & Billing, with no link and no invites (owner, 2026-10-03). Then share
+your `/refer/<company>` link. The **new company** keeps the ordinary 14-day trial
+and gets **one free month when it chooses a plan** — its first charge moves a
+month later — provided you had a plan when it signed up through your link
+(kept even if your plan has ended since; a signup while you had no plan was
+promised nothing and gets no month later). **You** get **one free
+month** (your next charge moves a month later) — the same month whatever size
+the business you referred, not a dollar credit — once that company is a
+**verified paying customer** (onboarding done + Stripe Connect + first real
+payment); if you were on the trial when that happened (a link shared before
+the rule), the month is held and added when you choose a plan. Never twice;
+capped at 50 rewarded referrals/month. Businesses referred before 3 Oct 2026
+keep the month already added to their trial, and their referrers are rewarded
+on the old terms. Send email/SMS invites and track months earned + per-referral
+status.
 
 **Automated follow-ups** ✅ — "N days after an unanswered quote, send this email,"
 with soft-then-final sequences; a cron actually fires them.

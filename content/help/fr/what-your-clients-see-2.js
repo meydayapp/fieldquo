@@ -170,9 +170,9 @@ export const ARTICLES = {
     title: "La page de parrainage",
     summary:
       "La page sur laquelle un autre propriétaire d'entreprise arrive quand vous partagez votre lien Parrainage — à qui elle s'adresse, ce qu'elle promet, ce qu'elle dit de vous, et le seul endroit où le nom de FieldQuo est censé apparaître.",
-    updated: "2026-09-12",
+    updated: "2026-10-03",
     intro: [
-      "Votre lien de parrainage n'est pas pour les propriétaires. Il est pour **une autre entreprise** — l'électricien avec qui vous partagez des chantiers, le peintre qui a demandé quel logiciel vous utilisez. La page qu'il ouvre dit que vous utilisez FieldQuo, lui offre un mois gratuit en plus de l'essai, et l'envoie au formulaire d'inscription avec votre nom attaché.",
+      "Votre lien de parrainage n'est pas pour les propriétaires. Il est pour **une autre entreprise** — l'électricien avec qui vous partagez des chantiers, le peintre qui a demandé quel logiciel vous utilisez. La page qu'il ouvre dit que vous utilisez FieldQuo, lui offre un mois de parrainage quand il choisira un forfait — son premier prélèvement recule d'un mois — et l'envoie au formulaire d'inscription avec votre nom attaché. Vous avez un lien à partager une fois que votre entreprise a choisi un forfait.",
       "C'est donc l'exception à la règle de la marque blanche, volontairement : une page dont tout le but est de dire « cet entrepreneur utilise FieldQuo — vous pourriez aussi » ne peut pas cacher le nom. Votre logo et votre couleur y sont comme parrain, et ceux de FieldQuo y sont comme produit.",
     ],
     sections: [
@@ -190,8 +190,9 @@ export const ARTICLES = {
         blocks: [
           { bullets: [
             "Votre logo — ou, sans logo, votre initiale sur votre couleur de marque — au-dessus de la ligne « [Votre entreprise] uses FieldQuo ».",
-            "Le titre **Get your first month free**, un paragraphe de description de FieldQuo, et un bouton **Claim your first month free** qui ouvre le formulaire d'inscription avec votre code de parrainage attaché.",
-            "Sous le bouton : « No card needed to start — you choose a plan from inside the app. » Puis trois puces sur ce que fait le produit.",
+            "Le titre **Get a month free when you choose a plan** — le mois de parrainage — un paragraphe de description de FieldQuo, et un bouton **Start my free trial** qui ouvre le formulaire d'inscription avec votre code de parrainage attaché.",
+            "Sous le bouton, une petite ligne : pas de carte pour commencer et, quand on choisit un forfait depuis l'application, le premier prélèvement recule d'un mois. Puis trois puces sur ce que fait le produit.",
+            "Si votre entreprise n'a pas de forfait quand le visiteur ouvre le lien — un lien partagé pendant votre essai — le titre devient **Try FieldQuo free** et la page ne promet rien de plus que l'essai ordinaire. Le visiteur peut quand même s'inscrire, mais ne reçoit pas de mois de parrainage plus tard, même si vous choisissez un forfait ensuite : ce que la page disait à son inscription est ce qui compte.",
             "Un pied de page qui dit la partie discrète : « For businesses new to FieldQuo. Already have an account? Sign in. » — une entreprise existante ne peut pas réclamer l'offre.",
           ] },
           { p: "La page est rendue sur le serveur pour être lisible dans la première demi-seconde avec une barre de signal, et elle porte un aperçu de lien (titre et description) parce qu'elle se fait coller dans des groupes WhatsApp et Facebook où la carte d'aperçu est l'argument de vente." },
@@ -204,11 +205,11 @@ export const ARTICLES = {
           { table: {
             head: ["Qui", "Ce qu'il reçoit", "Quand"],
             rows: [
-              ["L'entreprise que vous avez parrainée", "**1 mois gratuit de plus** ajouté à son essai", "À l'inscription, dès qu'elle utilise votre lien"],
+              ["L'entreprise que vous avez parrainée", "**1 mois gratuit** — son premier prélèvement recule d'un mois", "Quand elle choisit un forfait — si vous en aviez un quand elle s'est inscrite par votre lien, même si le vôtre a pris fin depuis"],
               ["Vous", "**1 mois gratuit** ajouté à votre propre accès", "Quand l'entreprise parrainée fait son premier paiement — pas à l'inscription"],
             ],
           } },
-          { p: "Les deux côtés reçoivent la même chose — un mois de FieldQuo — quelle que soit la taille de l'entreprise que vous parrainez. Votre mois tombe à son premier paiement plutôt qu'à son inscription pour que vingt inscriptions jetables ne puissent pas rapporter une année gratuite; le plafond est de 50 parrainages crédités par mois civil." },
+          { p: "Les deux côtés reçoivent la même chose — un mois de FieldQuo — quelle que soit la taille de l'entreprise que vous parrainez. Son essai de 14 jours reste l'essai ordinaire; rien n'y est ajouté. Votre mois tombe à son premier paiement plutôt qu'à son inscription pour que vingt inscriptions jetables ne puissent pas rapporter une année gratuite; le plafond est de 50 parrainages crédités par mois civil." },
           { note: "Le lien ne fait rien pour une entreprise qui a déjà un compte, et vous ne pouvez pas vous parrainer vous-même. La page le leur dit avant qu'ils remplissent quoi que ce soit." },
         ],
       },

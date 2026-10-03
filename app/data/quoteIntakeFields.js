@@ -24,14 +24,16 @@ import {
   FINISH_LEVEL_LABELS,
   LEGACY_FINISH_LEVELS,
   DEFAULT_FINISH_LEVEL,
+  DRYWALL_TIERS,
+  DRYWALL_TIER_LABELS,
 } from "./drywallFinishLevels";
 
 // One definition for both drywall quote types, so the two selects cannot drift
 // apart the way two copies of the old option list could have.
 //
-// Three keys no other field has, all STAFF-SIDE — publicIntakeFields below
-// strips them, so the public form receives the plain definition it always
-// did:
+// Keys only the drywall fields carry, all STAFF-SIDE — publicIntakeFields
+// below strips them (and drops a `staffOnly` field entirely), so the public
+// form receives the plain definition it always did:
 //   optionLabels  the English line under each value (the app catalogue's
 //                 app.intake.finishLevel.<value> translates it)
 //   legacyValues  stored values from before 2026-10-03, displayed as the level
@@ -232,6 +234,18 @@ export const INTAKE_FIELDS = {
   drywall_install: [
     { key: "squareFootage", label: "Square Footage", type: "number" },
     FINISH_LEVEL_FIELD,
+    // The price book's tier (live 2026-10-03) — which column of the rate card
+    // the hang and finishing lines price from. `staffOnly`: a homeowner on the
+    // public form is not asked to grade their own job's difficulty.
+    {
+      key: "complexityLevel",
+      label: "Complexity",
+      type: "select",
+      options: DRYWALL_TIERS,
+      optionLabels: DRYWALL_TIER_LABELS,
+      default: "standard",
+      staffOnly: true,
+    },
   ],
 
   // ── General construction / renovation ──
@@ -1162,7 +1176,7 @@ const MAX_PUBLIC_FIELDS = 3;
  */
 export function publicIntakeFields(categoryKey) {
   return getIntakeFields(categoryKey)
-    .filter((f) => f.type === "number" || f.type === "select")
+    .filter((f) => (f.type === "number" || f.type === "select") && !f.staffOnly)
     .slice(0, MAX_PUBLIC_FIELDS)
     .map(publicShape);
 }

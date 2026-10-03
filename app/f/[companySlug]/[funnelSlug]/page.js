@@ -42,16 +42,25 @@ import { cache } from "react";
 import { findBookingCompany } from "@/lib/booking/findBookingCompany";
 import { funnelPageLanguage } from "@/lib/i18n/funnelCopy";
 import FunnelRunner from "./FunnelRunner";
+import {
+  CLIENT_META_COMPANY_SELECT,
+  clientPageMetadata,
+  neutralClientMetadata,
+} from "@/lib/whiteLabel/pageMetadata";
 
-const companyFor = cache((slug) => findBookingCompany(slug, { name: true, defaultLanguage: true }));
+const companyFor = cache((slug) =>
+  findBookingCompany(slug, { ...CLIENT_META_COMPANY_SELECT, defaultLanguage: true }),
+);
 
+// Name, icon and share image are the company's (lib/whiteLabel/pageMetadata.js):
+// a funnel is a link in an ad, and its preview is the ad's first impression.
 export async function generateMetadata({ params }) {
   const { companySlug } = await params;
   const company = await companyFor(companySlug);
-  return {
-    title: company?.name || " ",
-    robots: { index: false, follow: false },
-  };
+  const robots = { index: false, follow: false };
+  return company
+    ? clientPageMetadata(company, { robots })
+    : neutralClientMetadata({ title: " ", robots });
 }
 
 export default async function FunnelPage({ params }) {

@@ -316,13 +316,13 @@ export const ARTICLES = {
         heading: "Qué hay en la pantalla",
         blocks: [
           { bullets: [
-            "**La carátula del reloj** — la fecha de hoy y la hora en vivo. En turno, agrega una etiqueta **En turno**, el tiempo transcurrido, **Desde** su hora de entrada, y **En** el nombre del trabajo (o **No está ligado a un trabajo**). Fuera de turno, se lee **Estás fuera de turno.**",
-            "**¿Qué trabajo?** — un selector, mostrado solo mientras está fuera de turno y solo cuando su empresa tiene trabajos abiertos. **Sin trabajo — traslados, taller, presupuestar** va arriba; luego **Programados para ti hoy** y **Tus otros trabajos abiertos**.",
-            "**La línea de ubicación** — mostrada solo mientras el teléfono todavía no ha respondido la pregunta de permiso, para que lea el porqué antes de que el teléfono pregunte.",
-            "**Registrar entrada** (verde) o **Registrar salida** (rojo) — el único botón.",
-            "**Hoy** — el total del día y cada entrada con sus horas y su trabajo, más la nota de que sus horas van a su gerente.",
+            "**Registrar tiempo** y **Registro** — dos pestañas. Registrar tiempo es lo que haces ahora; Registro es un día como línea de tiempo, con flechas para ir a días anteriores.",
+            "**El cronómetro** — en turno, la actividad en curso, cuánto llevas en ella, **Desde** qué hora y **En** el nombre del trabajo (o **No está ligado a un trabajo**). Fuera de turno, la fecha, la hora en vivo y **Estás fuera de turno.** Debajo, **Total de hoy**.",
+            "**Los botones** — las actividades que usa tu empresa, en cuadrícula; la que está en curso aparece resaltada. **No pagado** bajo un botón significa que tu empresa no paga ese tiempo. **Registrar salida** (rojo) está en la última fila mientras estás en turno.",
+            "**La línea de ubicación** — aparece solo mientras el teléfono no ha respondido a la solicitud de permiso, para que leas por qué antes de que pregunte.",
+            "**Hoy** — cada tramo con su actividad, sus horas y su trabajo, y la nota de que tus horas van a tu supervisor.",
           ] },
-          { figure: "harness:mobile-clock", caption: "El reloj de tiempo en un teléfono — En turno desde las 7:28 en el trabajo de la cocina Dubois, la nota de ubicación, el botón Registrar salida, y ¿Te pasaste a otro trabajo? debajo." },
+          { figure: "harness:mobile-clock", caption: "El reloj de tiempo en un teléfono — la actividad en curso y su cronómetro, los botones y Registrar salida en la última fila." },
         ],
       },
       {
@@ -330,21 +330,21 @@ export const ARTICLES = {
         heading: "Cómo registrar entrada y salida",
         blocks: [
           { steps: [
-            "Abra **Más → Reloj de tiempo** (o guárdelo en favoritos).",
-            "Revise el trabajo bajo **¿Qué trabajo?** Si tiene exactamente una visita hoy, queda rellenado por usted y la pantalla lo dice; con varias, le pide elegir la que empieza; sin ninguna, lo dice y lo deja en blanco.",
-            "Toque **Registrar entrada**. Si su teléfono pregunta si FieldQuo puede usar su ubicación, responda una vez; una negativa no cambia nada de la marcación.",
-            "Trabaje. El tiempo transcurrido corre en la pantalla; también sigue contando en el servidor si cierra la pestaña o se agota la batería.",
-            "Toque **Registrar salida**. La entrada pasa a **Hoy** con sus horas.",
+            "Toca **Reloj** en la barra inferior de tu teléfono (en una computadora, **Más → Reloj de tiempo**).",
+            "Toca lo que vas a empezar. **En obra** abre una pequeña ventana con el trabajo: si tienes exactamente una visita hoy, ya viene llena; si hay varias, elige la que empiezas; luego toca **Empezar**.",
+            "Si tu teléfono pregunta si FieldQuo puede usar tu ubicación, responde una vez; negarte no cambia nada del registro.",
+            "Trabaja. El cronómetro avanza en la pantalla; el tiempo también sigue contando en el servidor si cierras la pestaña o se acaba la batería.",
+            "Toca **Registrar salida**. Cada tramo del día está en **Hoy**, y en la pestaña **Registro** como línea de tiempo.",
           ] },
-          { figure: "live:app-clock", caption: "La misma pantalla en una computadora — la carátula del reloj, la lista Hoy con cada entrada y su trabajo, y la nota de revisión." },
+          { figure: "live:app-clock", caption: "La misma pantalla en una computadora — el cronómetro, los botones y la lista Hoy con cada tramo y su trabajo." },
         ],
       },
       {
         id: "switch-job",
-        heading: "¿Se pasó a otro trabajo?",
+        heading: "Pasar de una actividad a otra",
         blocks: [
-          { p: "Quedarse en turno todo el día pone el turno completo en el primer trabajo. La tarjeta **¿Te pasaste a otro trabajo?** lo arregla: elija el nuevo trabajo y toque **Cambiar de trabajo**. La entrada actual se cierra en ese instante y se abre una nueva en el nuevo trabajo — las horas ya trabajadas conservan el trabajo en el que se hicieron y, como dice la tarjeta, empieza una entrada nueva desde ahora." },
-          { note: "Cambiar de trabajo está desactivado mientras el selector muestra el trabajo en el que ya está. No hay deshacer: si cambió al trabajo equivocado, cambie otra vez — el minuto entre medio cae en el trabajo equivocado y su gerente puede corregirlo en Hojas de horas." },
+          { p: "Quedarte en una sola actividad todo el día pone todo el turno ahí. Toca mejor el siguiente botón — **Manejando** hacia la próxima obra, **En obra** al llegar (elige el trabajo), **Materiales** para ir a la tienda. El tramo en curso se cierra en ese instante y se abre el nuevo; el tiempo ya trabajado conserva la actividad y el trabajo en que se hizo. En un descanso, toca el botón en el que estabas, o **Terminar descanso — volver a …**, para seguir." },
+          { note: "Tocar el botón que ya está en curso no hace nada. Un toque equivocado corregido en menos de un minuto reemplaza al primero en lugar de dejar una entrada de más; después, toca el botón correcto — los minutos intermedios se quedan donde estaban y tu supervisor puede corregirlos en las hojas de horas." },
         ],
       },
       {

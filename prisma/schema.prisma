@@ -629,6 +629,33 @@ model AiFeaturePayer {
   updatedAt        DateTime @updatedAt
 }
 
+/// A central bank's daily exchange rate, fetched by /api/cron/fx-refresh
+/// (lib/marketing/fxRefresh.js) — one row per pair per day the rate is FOR.
+///
+/// The owner's decision of 2026-10-03: the rate is fetched automatically, not
+/// re-read by hand. Readers (lib/marketing/fxLive.js) take the newest row per
+/// pair and fall back to the checked-in rate in lib/marketing/fx.js when the
+/// table is empty, unreadable, or older than it — never to no conversion.
+///
+/// `rateDate` is the day the rate describes (the Valet observation's `d`);
+/// `fetchedAt` is the last time a fetch SUCCEEDED and saw it, so "the update
+/// has failed for N days" is measured from it, not from the rate's own date
+/// (a weekend leaves Friday's rate the newest one, and that is not a failure).
+/// No company column: a rate is a fact about two currencies, not a tenant.
+model ExchangeRate {
+  id         String   @id @default(cuid())
+  base       String
+  quote      String
+  rate       Decimal  @db.Decimal(14, 6)
+  rateDate   DateTime @db.Date
+  source     String
+  sourceName String
+  fetchedAt  DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  @@unique([base, quote, rateDate])
+}
+
 /// One company's answer, overriding the global. Absent row = inherit.
 ///
 /// No foreign key to PlatformFeature on purpose: an override is meaningful
@@ -1551,6 +1578,14 @@ model Company {
   /// list is three rows long in practice. Null means no rules, which is what
   /// every company had before the column existed.
   leaveRules Json?
+  /// The time clock's activities — which tiles the crew see on /app/clock,
+  /// what each is called here, and which are paid. Shape:
+  /// { [activity]: { enabled?, label?, paid? } }, keys from
+  /// lib/timeclock/activities.js, resolved and defaulted there and nowhere
+  /// else. Null means every activity on, the built-in names, and the pay rule
+  /// the clock always had: work paid, breaks and lunch unpaid. One Json column
+  /// for the same reason as payCycle — read together, as one policy.
+  timeActivities Json?
   taxRate                Decimal          @default(0) @db.Decimal(6, 3)
   paymentMethods         String[]         @default(["cash", "e_transfer", "cheque"])
   /// WHERE to send each offline payment, keyed by method — the e-transfer
@@ -1819,8 +1854,22 @@ model Company {
   referredByCode String?
   // When the referral was actually redeemed. Null on a company that arrived
   // organically, and also on one that arrived via a link but was blocked from
-  // redeeming (see lib/referrals/grantCredit.js).
+  // redeeming (see lib/referrals/index.js applySignupReferral).
   referredAt     DateTime?
+  /// Which referral terms this company's referral was made under, stamped
+  /// beside referredByCode at signup (the owner, 2026-10-03: "should only work
+  /// when they have selected a plan"). "plan_required_month_promised" — the
+  /// referrer had a plan at signup, the link promised the newcomer a month, and
+  /// it lands when the newcomer chooses a plan even if the referrer has lost its
+  /// plan since. "plan_required" — the referrer had none, nothing was promised,
+  /// no newcomer month. Either way the REFERRER's own month needs a plan at the
+  /// moment of its grant. NULL on every company referred
+  /// before that: its month was already added to its trial at signup, and its
+  /// referrer is paid on the terms of the day — on the first payment, plan or
+  /// no plan. The grandfathering is this column and nothing else, so it can
+  /// never depend on when a deploy happened. lib/referrals/index.js
+  /// (REFERRAL_TERMS_PLAN_REQUIRED) is the only writer and the only reader.
+  referralTerms  String?
 
   // ── The influencer programme ─────────────────────────────────────────────
   //
@@ -2535,6 +2584,9 @@ model Company {
   voiceCallTasks VoiceCallTask[]
   crewMessages CrewInboundMessage[]
   crewLine     CrewInboxNumber?
+  /// "Bring your number" — the business line clients already know, hosted
+  /// for texts or ported to FieldQuo. See lib/businessNumber/.
+  broughtNumber BroughtNumber?
   jobPhotos JobPhoto[]
   jobPhotoTags JobPhotoTag[]
 
@@ -2640,6 +2692,11 @@ model Company {
   /// not the contractor's — see SupportTicket.
   supportTickets          SupportTicket[]
   jobDocuments          JobDocument[]
+  /// Files uploaded on a quote, or on a drawing read before its quote exists.
+  quoteDocuments        QuoteDocument[]
+  /// Drawing-set reads ("Start from drawings").
+  planReads             PlanRead[]
+  planReadMessages      PlanReadMessage[]
   jobDailyLogs          JobDailyLog[]
   clientEquipment       ClientEquipment[]
   suppliers             Supplier[]
@@ -3210,6 +3267,16 @@ model Client {
   /// typing a stranger's address onto fixture data would send. A reset wipes
   /// these rows with the rest of the demo, and a retired rep demo refuses.
   demoLiveAt         DateTime?
+
+  /// "This client requires a PO number on invoices" — a property manager or a
+  /// general contractor whose accounts payable rejects an invoice that does
+  /// not quote their purchase order. Read by the invoice send routes
+  /// (lib/documents/clientPo.js clientPoSendPrompt), which stop and ASK
+  /// before an invoice for this client goes out without one: enter it, or
+  /// send anyway. A prompt, not a block — the tax gate beside it is a hard
+  /// stop because a wrong tax line is a wrong amount; a missing PO is a
+  /// document the client may bounce, and the office may know better.
+  requiresPo         Boolean   @default(false)
 }
 
 /// See Company.taxMode.
@@ -3388,6 +3455,16 @@ model Quote {
   /// means "not asked", and every reader falls back to the client's address
   /// only where the client is an individual.
   siteAddress String?
+
+  /// The CLIENT's purchase-order number — the reference a commercial client
+  /// issues and expects quoted back on the paperwork. NOT a supplier
+  /// PurchaseOrder (the contractor ordering materials; lib/purchasing). Typed
+  /// by the office, or filled by "Generate" with a company-sequenced
+  /// reference (lib/documents/clientPo.js). Carried forward on acceptance to
+  /// Job.clientPoNumber and from there to the invoice. Editable while the
+  /// quote is open (draft / sent), like its line items; fixed once decided.
+  /// Null means none was given — the documents print no "PO #" line at all.
+  clientPoNumber String?
 
   /// Archived: off the working list, never deleted. A status would have to
   /// be an enum value every switch in the product learns about; a timestamp
@@ -4078,6 +4155,14 @@ model Invoice {
   // video. Changed while every row was still empty.
   clientPhotos Json?
   language     String    @default("en")
+
+  /// The client's purchase-order number this invoice bills against (see
+  /// Quote.clientPoNumber). Seeded from the job, else the quote, when the
+  /// invoice is raised; its own column so a client that issues a PO per
+  /// phase gets a different one on each invoice. Edited in place on a draft;
+  /// on a sent invoice an edit is a new version, like every other field, and
+  /// the version carries it. Null prints nothing.
+  clientPoNumber String?
 
   stripePaymentIntentId String?
   stripeCheckoutUrl     String?
@@ -5980,6 +6065,12 @@ model Job {
   // wrong: a property manager's billing address is an office, and sending a
   // crew there is worse than sending them nowhere.
   siteAddress    String?
+  /// The client's purchase-order number for this job (see
+  /// Quote.clientPoNumber), carried from the quote on acceptance and
+  /// editable on the job page at any time. A change is copied onto the job's
+  /// DRAFT invoices that had none or had the old one — never onto a sent
+  /// invoice, which changes only by amendment. Printed on the work order.
+  clientPoNumber String?
   /// Where the site is, geocoded from siteAddress (lib/geo/geocodeJob.js).
   /// Nullable and never invented: a job whose address did not geocode has no
   /// coordinates, and every distance built on these says "unknown" rather
@@ -7339,6 +7430,18 @@ model LeadRequest {
   /// visit, which means "we do not know", never "direct".
   attribution Json?
 
+  /// For a lead built or enriched from a Facebook / Instagram / WhatsApp
+  /// conversation (lib/leads/conversationLead.js): every field it took from
+  /// the conversation WITH the message it came from —
+  /// { threadId, platform, kind, summary, fields: { name|phone|email|address|
+  /// service|timeline: { value, messageId, sentAt, quote, method } },
+  /// photos: { total, pictures }, campaign, skipped: [...], updatedAt }.
+  /// `skipped` lists what the conversation said that was NOT written because
+  /// a person (or the form) had already filled that column — the lead keeps
+  /// what a person entered, and the drawer shows the disagreement instead of
+  /// hiding it. Null on every lead that never came from a conversation.
+  conversationEvidence Json?
+
   @@unique([companyId, metaLeadId])
   @@index([companyId, metaFormId])
 }
@@ -8053,7 +8156,34 @@ model TimeEntry {
   billedInvoiceId String?
   billedInvoice   Invoice? @relation("TimeEntryBilledOn", fields: [billedInvoiceId], references: [id], onDelete: SetNull)
 
+  /// What the person was doing for this stretch, from the activity tiles on
+  /// /app/clock: on site at a job, driving, at the office, on a supply run,
+  /// or general. Null is every entry written before the tiles existed, and is
+  /// READ, never rewritten: a null with a job is a visit, a null without one
+  /// is general (lib/timeclock/activities.js effectiveActivity). Lunch and
+  /// breaks are not activities here — they stay TimeEntryBreak rows inside
+  /// the entry, so their pay rule is the one it always was.
+  activity TimeActivity?
+  /// Whether this stretch is paid, stamped from the company's activity
+  /// settings when the entry is opened (Company.timeActivities) so changing
+  /// the setting later never re-prices a day already worked. An unpaid
+  /// stretch closes with hours = 0 (lib/timeclock/entryHours.js), and since
+  /// `hours` is what payroll multiplies and job costing sums, nothing
+  /// downstream needs a second rule. Defaults true: every existing entry was
+  /// paid, and the column changes none of them.
+  paid Boolean @default(true)
+
   @@index([billedInvoiceId])
+}
+
+/// The activity tiles of the time clock. Lunch and break are deliberately
+/// absent — they are TimeEntryBreak rows (ShiftBreakKind), not entries.
+enum TimeActivity {
+  visit
+  driving
+  office
+  supplies
+  general
 }
 
 /// A lunch or break the person ACTUALLY took, punched from /app/clock while
@@ -10580,13 +10710,17 @@ model ReferralCredit {
   counterpartyCompanyId String?
 
   role   ReferralRole
-  // Referee ("referred") side: free months added to their trial. Referrer side
-  // no longer uses months — its reward is a dollar credit (below).
+  // Free months granted, both sides (lib/referrals). Referee rows written
+  // before 2026-10-03 added them to the trial at signup; since then the
+  // referee's month defers its first charge when it chooses a plan. Referrer
+  // rows have been months since 2026-08-27; the dollar credit below is history.
   months Int          @default(1)
 
-  // The trial end date this credit produced (referee side), captured at grant
-  // time. Storing it means a later change to the reward size can't retroactively
-  // rewrite what a company was actually given.
+  // The access end date this credit produced, captured at grant time — a trial
+  // end, or the Stripe trial_end a deferral set. NULL on a claimed row whose
+  // extension failed: a reward owed and visibly unpaid. Storing it means a
+  // later change to the reward size can't retroactively rewrite what a company
+  // was actually given.
   appliedTrialEndsAt DateTime?
 
   // Referrer side: the account credit earned, in cents, = one month of the
@@ -18622,6 +18756,24 @@ model MessageThread {
   /// a conversation over does not want it back after the next question.
   humanTookOverAt DateTime?
 
+  /// The Facebook / Instagram / WhatsApp ad this conversation was opened
+  /// from — Meta's click-to-message `referral`, in lib/messaging/envelope.js's
+  /// cleanReferral shape ({ adId, source, type, ref, adTitle, postId }) plus
+  /// `at`. FIRST touch: written once, never overwritten by a later click, so
+  /// the campaign that started the conversation keeps the credit. Read by
+  /// lib/leads/conversationLead.js, which resolves the ad to a campaign and
+  /// stamps it on the lead (LeadRequest.metaCampaignId) — the column the
+  /// campaign rollup already joins on. Null means Meta said nothing, never
+  /// "organic".
+  adReferral Json?
+  /// What lib/leads/conversationLead.js has concluded about this conversation
+  /// as a lead: { kind, reason, aiRuns, lastAiAt, contactsSeen, leadId, ... }.
+  /// Kept on the THREAD because most verdicts ("spam", "an existing customer
+  /// with a problem") create no lead to keep them on — and it is what stops
+  /// the paid extraction running again on every message: it reruns only when
+  /// a new contact detail appears, up to a cap. Null means never looked at.
+  leadCapture Json?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -21110,4 +21262,292 @@ model JobCommissionEntry {
   @@index([companyId, memberId, createdAt])
   @@index([companyId, payRunId])
   @@index([jobId])
+}
+
+/// "Bring your number": the business line a company's clients already know,
+/// brought into FieldQuo so every text and call on it lands in the
+/// conversation history. One per company.
+///
+/// Two paths, chosen by what the line IS (Twilio Lookup line type
+/// intelligence — lib/businessNumber/lineType.js), never by a preference:
+///
+///   hosted_sms  a landline or toll-free number. Texts move to Twilio (Hosted
+///               SMS); calls stay with the company's current provider.
+///   port        a cell, or a VoIP line (Twilio refuses to host VoIP). The
+///               number itself moves to FieldQuo's Twilio account; calls then
+///               ring the company's chosen phones from here.
+///
+/// The status vocabulary and every transition live in
+/// lib/businessNumber/state.js; this row is only where they are kept.
+///
+/// ── The secrets ────────────────────────────────────────────────────────────
+///
+/// accountNumberEnc, pinEnc and billEnc are AES-256-GCM blobs sealed with
+/// PORT_SECRETS_KEY and this row's id as AAD (lib/businessNumber/secrets.js),
+/// so a blob copied to another row will not open. They exist only as long as
+/// the port needs them: the store nulls all three the moment the request
+/// reaches a terminal state (active, failed, cancelled) and stamps
+/// secretsPurgedAt, so "only as long as needed" is a column, not a promise.
+model BroughtNumber {
+  id        String  @id @default(cuid())
+  companyId String  @unique
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// E.164. NOT unique: a failed or cancelled attempt keeps its row as
+  /// history, and another company may legitimately try the same digits later
+  /// (numbers change hands). A LIVE number is unique where it decides routing
+  /// — Company.smsFromNumber is @unique — and the claim check in
+  /// lib/businessNumber/store.js refuses a number another company is still
+  /// bringing in.
+  e164    String
+  /// "US" | "CA". Nothing else is offered yet.
+  country String
+
+  /// mobile | landline | voip | toll_free | unknown — what Lookup said.
+  lineType    String
+  carrierName String?
+  lookedUpAt  DateTime?
+
+  /// hosted_sms | port
+  path   String
+  /// See lib/businessNumber/state.js STATUSES.
+  status String @default("draft")
+  /// Twilio's own word for where it is, verbatim — shown beside ours so a
+  /// support conversation can quote the provider.
+  providerStatus String?
+  /// Why it failed, in the provider's words or ours. Shown to the company.
+  failureReason  String?
+  /// twilio_api (a US port, every hosted order) | twilio_form (a Canadian
+  /// port — filed by FieldQuo through Twilio's porting form; see PortFiling).
+  submitChannel  String?
+
+  /// HR… (hosted order) or the port-in request sid.
+  providerOrderSid  String?
+  /// PN… once the number exists in FieldQuo's Twilio account.
+  providerNumberSid String?
+  addressSid        String?
+  /// RD… the bill uploaded to Twilio for a US port.
+  documentSid       String?
+
+  /// The account holder exactly as the carrier has them.
+  holderName   String?
+  /// Who signs the authorization (Twilio emails them the LOA).
+  holderEmail  String?
+  contactPhone String?
+  /// Individual | Business
+  customerType String?
+  /// { street, street2, city, region, postalCode, country } — exactly as on
+  /// the carrier's records.
+  serviceAddress Json?
+
+  accountNumberEnc String?
+  pinEnc           String?
+  billEnc          String? @db.Text
+  billName         String?
+  billType         String?
+  secretsPurgedAt  DateTime?
+
+  /// The authorization as signed inside FieldQuo (a Canadian port). Twilio's
+  /// own e-signature covers hosted orders and US ports.
+  loaSignedName String?
+  loaSignedAt   DateTime?
+  loaSignedIp   String?
+
+  /// Where calls ring once the number is here: up to three E.164 numbers,
+  /// rung together. Null/empty = not set, and a call then goes straight to the
+  /// fallback rather than ringing nobody for twenty seconds.
+  forwardTo   Json?
+  ringSeconds Int    @default(20)
+  /// On no answer: receptionist | voicemail
+  fallback    String @default("receptionist")
+
+  submittedAt  DateTime?
+  expectedAt   DateTime?
+  activatedAt  DateTime?
+  cancelledAt  DateTime?
+  lastSyncedAt DateTime?
+
+  /// Rent is paid up to here. Same idempotency rule as VoicePhoneNumber.
+  rentPaidThroughAt DateTime?
+
+  /// A demo account's request — nothing was sent to any carrier.
+  simulated Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  filings PortFiling[]
+
+  @@index([e164])
+  @@index([status])
+}
+
+/// FieldQuo's OWN record of filing a port it cannot file by API — a Canadian
+/// number goes to Twilio through its international porting form, by a person.
+///
+/// Deliberately no companyId and a separate table: the platform console writes
+/// nothing a customer owns (non-negotiable #3). This is the log of what
+/// FieldQuo staff did on the company's behalf — filed, rejected by the carrier,
+/// a confirmed date — and the company's screen reads it, exactly as it reads
+/// Twilio's status for a port the API filed.
+model PortFiling {
+  id              String        @id @default(cuid())
+  broughtNumberId String
+  broughtNumber   BroughtNumber @relation(fields: [broughtNumberId], references: [id], onDelete: Cascade)
+  /// filed | rejected | confirmed
+  action          String
+  /// The carrier's rejection reason, or Twilio's ticket reference.
+  note            String?
+  /// The carrier-confirmed port date (FOC), when action = confirmed.
+  portDate        DateTime?
+  platformAdminId String?
+  createdAt       DateTime      @default(now())
+
+  @@index([broughtNumberId, createdAt])
+}
+
+/// A file uploaded on a QUOTE — a drawing set, a scope spreadsheet, a site
+/// photo, a permit — or on a drawing read (PlanRead) before its quote exists.
+///
+/// ══ Why a second table and not JobDocument ═══════════════════════════════
+///
+/// JobDocument.jobId is required, and a quote has no job until it is
+/// approved. Making that column optional would turn every reader of the job's
+/// Documents into a reader that has to remember "unless it's a quote's". So
+/// the quote keeps its own store under the SAME rules (lib/jobs/documents.js:
+/// the kinds, the revision chains, the URL check) and approval COPIES each row
+/// into the job's Documents (lib/jobs/documentAutofile.js
+/// fileQuoteDocumentsOnJob) — idempotent on (sourceQuoteId, kind,
+/// documentHash = "qd:<this id>"), revision chains preserved.
+///
+/// A revision SUPERSEDES, exactly as on the job: a revised drawing is a new
+/// row pointing at the one it replaces; nothing is overwritten.
+model QuoteDocument {
+  id         String    @id @default(cuid())
+  companyId  String
+  company    Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  /// Null until the quote exists (a drawing read's files get it when its
+  /// quote is saved). Plain columns, not relations, for
+  /// JobDocument.sourceQuoteId's reason: a filed document outlives what it
+  /// was attached to.
+  quoteId    String?
+  leadId     String?
+  planReadId String?
+  planRead   PlanRead? @relation(fields: [planReadId], references: [id], onDelete: SetNull)
+
+  name      String
+  /// One of lib/jobs/documents.js DOCUMENT_KINDS.
+  kind      String  @default("other")
+  url       String
+  /// Cloudinary public id — a page tile is cut from a sheet image by it.
+  publicId  String?
+  /// Bytes as the uploader reported them. Null when unknown — never zero.
+  sizeBytes Int?
+  mimeType  String?
+
+  /// A drawing PDF's rendered pages: [{ page, url, publicId, width, height,
+  /// pointsWidth, pointsHeight }]. Rendered in the browser at upload — the
+  /// stored PDF is a raw file Cloudinary will not rasterise (see
+  /// lib/media/validate.js). Null for anything that is not a PDF.
+  pages Json?
+
+  supersedesId String?        @unique
+  supersedes   QuoteDocument? @relation("QuoteDocumentRevision", fields: [supersedesId], references: [id])
+  supersededBy QuoteDocument? @relation("QuoteDocumentRevision")
+
+  uploadedById String?
+  uploadedAt   DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([companyId, quoteId])
+  @@index([companyId, leadId])
+  @@index([planReadId])
+}
+
+/// "Start from drawings": one project overview read from a drawing set, a
+/// scope spreadsheet, site photos and what the client wants — and a draft
+/// quote priced from the company's own rates. See lib/planRead/.
+///
+/// Everything the model produced is persisted here, so a chat turn sends the
+/// compact project model and never the raw drawings again.
+model PlanRead {
+  id          String  @id @default(cuid())
+  companyId   String
+  company     Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdById String?
+  leadId      String?
+  clientId    String?
+  /// Set when a quote was saved from this read.
+  quoteId     String?
+
+  title         String
+  /// What the client wants, in the estimator's words.
+  clientRequest String?
+  /// "painting" | "staining" — phase 1.
+  trade         String  @default("painting")
+
+  /// draft | reading | ready | failed
+  status     String    @default("draft")
+  /// Where a running read has got to: sheets | photos | synthesis | done
+  stage      String?
+  /// { sheetsTotal, sheetsDone, photosTotal, photosDone }
+  progress   Json?
+  error      String?
+  /// A running read's lease — a stale one is resumed by the next POST /run.
+  leaseUntil DateTime?
+
+  /// Deterministic extraction per sheet (lib/planRead/sheetFacts.js) plus
+  /// that sheet's model notes once read.
+  sheets    Json?
+  /// { byDoc: { <documentId>: parsed rows }, failed: { <documentId>: reason } }
+  /// — scope spreadsheets parsed in code (lib/planRead/excel.js), and which
+  /// uploaded files could not be read at all (lib/planRead/documents.js).
+  excelRows Json?
+  /// The photo pass: references, surfaces and cross-photo groups.
+  photoRead Json?
+  /// The compact project model (lib/planRead/projectModel.js).
+  model     Json?
+  /// The company's own similar past quotes, found at read time.
+  similar   Json?
+
+  /// Credits: what was shown before the read, what is held, what was taken.
+  estimateCents  Int?
+  reservedCents  Int     @default(0)
+  reservationRef String?
+  chargedCents   Int     @default(0)
+  /// Token totals across every call: { promptTokens, cachedTokens,
+  /// completionTokens, calls, vendorMicros, byStep }.
+  usage          Json?
+
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  documents QuoteDocument[]
+  messages  PlanReadMessage[]
+
+  @@index([companyId, createdAt])
+  @@index([companyId, leadId])
+}
+
+/// One chat turn on a drawing read — the estimator's line, or the reply and
+/// what it changed. The whole history is kept.
+model PlanReadMessage {
+  id           String   @id @default(cuid())
+  companyId    String
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  planReadId   String
+  planRead     PlanRead @relation(fields: [planReadId], references: [id], onDelete: Cascade)
+  /// "user" | "assistant"
+  role         String
+  text         String
+  /// The applied changes, as the server summarised them.
+  changes      Json?
+  /// { model, promptTokens, cachedTokens, completionTokens, calls }
+  usage        Json?
+  chargedCents Int?
+  userId       String?
+  createdAt    DateTime @default(now())
+
+  @@index([planReadId, createdAt])
 }

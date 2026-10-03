@@ -32,6 +32,7 @@ import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 import { readOfflineKey, withOfflineKey, recordOfflineRefusal } from "@/lib/offline/idempotency";
 import { buildLabourLine, labourRequestFrom, retotal } from "@/lib/invoices/labourLine";
 import { resolveLabourRate } from "@/lib/invoices/labourRates";
+import { carriedClientPo, readClientPoInput } from "@/lib/documents/clientPo";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -79,6 +80,9 @@ export async function GET(request) {
           dueDate: true,
           status: true,
           payments: true,
+          // A PO added by amendment belongs to the version that stands, and
+          // the list searches and shows it (lib/documents/clientPo.js).
+          clientPoNumber: true,
         },
         orderBy: { version: "desc" },
       },
@@ -119,6 +123,7 @@ export async function GET(request) {
         tax: latest.tax,
         discount: latest.discount,
         dueDate: latest.dueDate,
+        clientPoNumber: latest.clientPoNumber,
         status: state.status,
         amountPaid: state.amountPaid,
         amountDue: state.amountDue,
@@ -304,9 +309,28 @@ export async function POST(request) {
   const sourceQuote = quoteId
     ? await db.quote.findFirst({
         where: { id: quoteId, companyId: member.companyId },
-        select: { quoteNumber: true, taxResolution: true, siteAddress: true },
+        select: { quoteNumber: true, taxResolution: true, siteAddress: true, clientPoNumber: true },
       })
     : null;
+
+  // ── The client's PO ───────────────────────────────────────────────────────
+  //
+  // What the editor posted, when it posted the field at all (cleared → null).
+  // Silent → carried forward: the job this invoice bills for, then the quote
+  // it was raised from (lib/documents/clientPo.js carriedClientPo — the job's
+  // is the newer of the two). That covers every caller that never heard of the
+  // field: the offline queue, the classic form, an older tab.
+  const postedPo = readClientPoInput(body);
+  let clientPoNumber = postedPo;
+  if (postedPo === undefined) {
+    const sourceJob = jobId
+      ? await db.job.findFirst({
+          where: { id: jobId, companyId: member.companyId },
+          select: { clientPoNumber: true },
+        })
+      : null;
+    clientPoNumber = carriedClientPo(sourceJob, sourceQuote);
+  }
 
   // ── What the tax line says ──────────────────────────────────────────────
   //
@@ -430,6 +454,7 @@ export async function POST(request) {
       dueDate: dueDate ? new Date(dueDate) : null,
       notes: notes || null,
       language: language || "en",
+      clientPoNumber,
       // An invoice raised without a quote behind it still needs the job
       // photos — same sanitising boundary as the quote routes.
       ...(clientPhotos !== undefined && {

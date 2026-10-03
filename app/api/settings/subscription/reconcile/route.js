@@ -38,6 +38,7 @@ import { upsertSubscriptionFromCheckoutSession } from "@/lib/platform/stripeBill
 import { recordError } from "@/lib/platform/errorLog";
 import { recordActivity } from "@/lib/activity/log";
 import { notifySubscriptionState } from "@/lib/billing/notify";
+import { onPlanSelected } from "@/lib/referrals";
 import { CLEAR_PENDING } from "@/lib/platform/planChange";
 import { subscriptionFieldsFromStripe } from "@/lib/billing/subscriptionFields";
 
@@ -231,6 +232,13 @@ export async function POST(request) {
         ...fields,
       },
     });
+
+    // The plan-selection moment for a company whose checkout webhook never
+    // came: the same referral grants upsertSubscriptionFromCheckoutSession
+    // makes on Mode 1 (a newcomer's month, a referrer's held months).
+    // Idempotent and never throws; it reads the row just written, so a
+    // subscription Stripe no longer calls live grants nothing.
+    if (nowLive) await onPlanSelected(member.companyId);
 
     await notifySubscriptionState(member.companyId, request);
     await recordActivity(member, {

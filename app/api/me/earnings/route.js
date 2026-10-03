@@ -53,7 +53,7 @@ export async function GET(request) {
     where: { workerId: worker.id, clockIn: { gte: period.start, lte: endOfDay(period.end) } },
     orderBy: { clockIn: "asc" },
     select: {
-      id: true, clockIn: true, clockOut: true, hours: true, status: true,
+      id: true, clockIn: true, clockOut: true, hours: true, status: true, paid: true,
       job: { select: { id: true, title: true, client: { select: { name: true } } } },
       breaks: { select: { start: true, end: true, kind: true, paid: true }, orderBy: { start: "asc" } },
     },
@@ -64,7 +64,7 @@ export async function GET(request) {
   let unpaidBreakMinutes = 0;
   const days = {};
   for (const e of entries) {
-    const hours = e.clockOut ? round2(e.hours ?? entryHours(e.clockIn, e.clockOut, e.breaks)) : round2(entryHours(e.clockIn, now, e.breaks));
+    const hours = e.clockOut ? round2(e.hours ?? entryHours(e.clockIn, e.clockOut, e.breaks, { paid: e.paid })) : round2(entryHours(e.clockIn, now, e.breaks, { paid: e.paid }));
     const breakMin = Math.round(unpaidBreakMs(e.breaks, e.clockIn, e.clockOut || now) / 60_000);
     unpaidBreakMinutes += breakMin;
     if (e.status === "approved") approvedHours += hours;

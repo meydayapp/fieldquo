@@ -93,9 +93,15 @@ ok("no groups: the French generic steps", dominantProcessSteps([], "fr").length 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => fs.readFileSync(path.join(ROOT, p), "utf8");
 // The language is the fourth argument. A fifth — the group's intake, read for
-// a drywall group's finish level (2026-10-03) — may follow it, with comments
-// between; the language must still sit straight after the takeoff.
-const INTAKE_TAIL = String.raw`\s*(?:\/\/[^\n]*\n\s*)*(?:g\.intake(?:Values)?,\s*)?\)`;
+// a drywall group's finish level — and a sixth — the document's createdAt, for
+// a trade paragraph added after it was written (both 2026-10-03) — may follow
+// it, with comments between; the language must still sit straight after the
+// takeoff.
+const COMMENTS = String.raw`\s*(?:\/\/[^\n]*\n\s*)*`;
+const INTAKE_TAIL =
+  COMMENTS +
+  String.raw`(?:g\.intake(?:Values)?,` + COMMENTS + String.raw`)?` +
+  String.raw`(?:(?:quote\.createdAt|invoice\.quote\?\.createdAt|data\?\.createdAt),\s*)?\)`;
 ok("the public quote route resolves the language ONCE and hands it to the prose",
   /const docLanguage = resolveClientLanguage\(/.test(read("app/api/public/quotes/[token]/route.js")) && new RegExp(String.raw`g\.takeoff,\s*docLanguage,` + INTAKE_TAIL).test(read("app/api/public/quotes/[token]/route.js")));
 ok("the quote document route passes quote.language", new RegExp(String.raw`g\.takeoff,\s*quote\.language,` + INTAKE_TAIL).test(read("app/api/quotes/[id]/document/route.js")));

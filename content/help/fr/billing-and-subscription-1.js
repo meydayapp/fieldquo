@@ -177,7 +177,7 @@ export const ARTICLES = {
         heading: "Aperçu",
         blocks: [
           { p: "L'essai commence au moment où votre entreprise est créée et dure 14 jours. Il n'y a pas encore d'abonnement derrière, ni rien à annuler : c'est simplement une date. Une entreprise inscrite avec l'ancien essai de 30 jours garde la date de fin qu'on lui a donnée." },
-          { p: "C'est gratuit, pas un dollar symbolique. Un parrainage par une autre entreprise FieldQuo ajoute un mois de plus à l'essai — voir [[referral-months|Mois de parrainage]]." },
+          { p: "C'est gratuit, pas un dollar symbolique. Un parrainage par une autre entreprise FieldQuo n'allonge pas l'essai : son mois vient quand vous choisissez un forfait, et repousse votre premier prélèvement d'un mois — voir [[referral-months|Mois de parrainage]]." },
         ],
       },
       {
@@ -216,7 +216,7 @@ export const ARTICLES = {
     faq: [
       { q: "Est-ce vraiment gratuit, ou c'est 1 $?", a: "Gratuit. Rien n'est facturé pendant les 14 jours, et aucune carte n'est demandée avant que vous choisissiez un forfait." },
       { q: "L'essai s'applique-t-il aussi au forfait annuel?", a: "Oui. Choisissez le forfait annuel pendant l'essai et l'année commence — et est prélevée — le jour où l'essai se termine." },
-      { q: "J'ai été parrainé par un autre entrepreneur — combien de temps dure mon essai?", a: "14 jours plus un mois de parrainage, et les rappels se décalent d'autant. La confirmation après l'inscription nomme l'entreprise qui vous a parrainé." },
+      { q: "J'ai été parrainé par un autre entrepreneur — combien de temps dure mon essai?", a: "14 jours, comme pour tout le monde. Votre mois de parrainage vient quand vous choisissez un forfait : votre premier prélèvement recule d'un mois. La confirmation après l'inscription nomme l'entreprise qui vous a parrainé. (Une entreprise parrainée avant le 3 octobre 2026 a plutôt eu le mois ajouté à son essai, et le garde.)" },
       { q: "Puis-je l'essayer sans carte?", a: "Oui. L'inscription ne demande aucune carte. Vous en ajoutez une en choisissant un forfait, et elle n'est pas prélevée avant la fin de l'essai." },
     ],
   },

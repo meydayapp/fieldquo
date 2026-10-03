@@ -22,6 +22,7 @@ import { formatTimeOfDay, formatWeekdayDayMonth } from "@/lib/format/localeDate"
 import ListState from "@/app/components/ListState";
 import { KindChip } from "@/app/components/me/bits";
 import { CARD, CARD_CLIPPED } from "./surface";
+import WeekHoursCard from "@/app/components/timeclock/WeekHoursCard";
 
 function timeRange(item, language) {
   const s = formatTimeOfDay(new Date(item.start), language);
@@ -169,6 +170,9 @@ export default function CrewMyDay() {
                 </Link>
               </section>
             )}
+
+            {/* ── This week's time, and the way to the log ────────────── */}
+            {clock?.onRoster && <WeekHoursCard t={t} />}
 
             {/* ── Today ───────────────────────────────────────────────── */}
             <section className={CARD_CLIPPED} aria-labelledby="myday-today">

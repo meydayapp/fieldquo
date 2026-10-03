@@ -254,10 +254,10 @@ export const ARTICLES = {
   "referral-months": {
     title: "Mois de parrainage",
     summary:
-      "Comment une entreprise parrainée et l'entreprise qui l'a parrainée gagnent chacune un mois gratuit, quand chaque mois tombe, et les règles qui empêchent d'abuser du programme.",
-    updated: "2026-09-12",
+      "Comment une entreprise parrainée et l'entreprise qui l'a parrainée gagnent chacune un mois gratuit une fois sur un forfait, quand chaque mois tombe, et les règles qui empêchent d'abuser du programme.",
+    updated: "2026-10-03",
     intro: [
-      "Parrainez un autre entrepreneur et vous recevez tous les deux la même chose : **un mois de plus de FieldQuo gratuit**. Le mois du nouveau venu s'ajoute à son essai gratuit dès qu'il s'inscrit par votre lien. Le vôtre s'ajoute à votre compte quand il fait son **premier vrai paiement** — pas à l'inscription, parce qu'un mois pour une inscription, c'est un mois pour une adresse jetable.",
+      "Parrainez un autre entrepreneur et vous recevez tous les deux la même chose : **un mois de plus de FieldQuo gratuit**. Le parrainage fonctionne pour les entreprises qui ont **choisi un forfait** — une entreprise encore dans son essai gratuit ne peut pas encore parrainer. Le mois du nouveau venu arrive quand il choisit un forfait : son premier prélèvement recule d'un mois. Le vôtre s'ajoute à votre compte quand il fait son **premier vrai paiement** — pas à l'inscription, parce qu'un mois pour une inscription, c'est un mois pour une adresse jetable.",
       "Cet article, c'est la mécanique : comment le mois est gagné, où il va sur un compte mensuel, annuel ou en essai, et les limites. La page elle-même — le lien, le formulaire d'invitation, la liste des entreprises — est couverte dans [[refer-another-business|Parrainer une autre entreprise, gagner un mois gratuit]].",
     ],
     sections: [
@@ -265,7 +265,9 @@ export const ARTICLES = {
         id: "overview",
         heading: "Vue d'ensemble",
         blocks: [
-          { p: "Chaque entreprise a un code de parrainage et un lien dans **Parrainage**. Une entreprise qui s'inscrit par ce lien commence avec son essai gratuit normal de 14 jours plus un mois de parrainage. Elle est ensuite listée sous **Entreprises que vous avez parrainées** comme **Inscrit — pas encore payant** jusqu'à ce que sa première facture payée passe, moment où la pastille devient **Crédité** et un mois s'ajoute à votre propre accès, automatiquement." },
+          { p: "Chaque entreprise qui a choisi un forfait a un code de parrainage et un lien dans **Parrainage**. Tant que vous n'en avez pas choisi, la page indique que le parrainage s'ouvre une fois un forfait choisi, avec un lien vers **Compte et facturation** — pas de lien à partager, rien à gagner pour l'instant." },
+          { p: "Une entreprise qui s'inscrit par votre lien commence avec l'essai gratuit ordinaire de 14 jours — rien n'y est ajouté. Quand elle choisit un forfait, son mois de parrainage repousse son premier prélèvement d'un mois. Inscrite le 1er octobre, essai jusqu'au 15 octobre, forfait choisi le 10 octobre : sans parrainage, le premier prélèvement tomberait le 15 octobre; avec, le 15 novembre. À une condition : que vous ayez eu un forfait quand elle s'est inscrite par votre lien — c'est à ce moment que le lien a promis le mois, et la promesse est tenue même si votre forfait a pris fin depuis. Une entreprise inscrite pendant que vous n'aviez pas de forfait ne s'est vu promettre que l'essai ordinaire et ne reçoit pas de mois de parrainage plus tard, même si vous choisissez un forfait ensuite." },
+          { p: "Elle est ensuite listée sous **Entreprises que vous avez parrainées** comme **Inscrit — pas encore payant** jusqu'à ce que sa première facture payée passe, moment où la pastille devient **Crédité** et un mois s'ajoute à votre propre accès, automatiquement." },
           { p: "Le mois est de la même taille peu importe qui vous parrainez. Une entreprise Solo qui parraine une entreprise Scale gagne un mois de Solo; la taille de l'entreprise que vous amenez ne change pas ce que vous recevez — l'écran le dit en toutes lettres." },
         ],
       },
@@ -274,8 +276,8 @@ export const ARTICLES = {
         heading: "Comment un mois est gagné",
         blocks: [
           { steps: [
-            "Ouvrez **Parrainage** (dans la barre latérale principale, ou sous Paramètres) et partagez **Votre lien** — **Copier**-le, ou utilisez **Envoyer une invitation** par courriel ou par texto. FieldQuo envoie un message et ne relance pas, et le formulaire d'invitation en permet 20 par jour.",
-            "L'autre entreprise s'inscrit par le lien. Son essai gratuit est prolongé d'un mois sur-le-champ, et elle apparaît dans votre liste comme **Inscrit — pas encore payant**.",
+            "Choisissez un forfait, si vous êtes encore dans l'essai gratuit. Ouvrez ensuite **Parrainage** (dans la barre latérale principale, ou sous Paramètres) et partagez **Votre lien** — **Copier**-le, ou utilisez **Envoyer une invitation** par courriel ou par texto. FieldQuo envoie un message et ne relance pas, et le formulaire d'invitation en permet 20 par jour.",
+            "L'autre entreprise s'inscrit par le lien et reçoit l'essai gratuit ordinaire de 14 jours. Elle apparaît dans votre liste comme **Inscrit — pas encore payant**. Quand elle choisit un forfait, son premier prélèvement recule d'un mois — c'est son mois de parrainage.",
             "Elle paie sa première vraie facture — l'essai gratuit est à 0 $, donc le premier prélèvement après — après avoir terminé son intégration et connecté un compte Stripe vérifié pour encaisser des paiements.",
             "Votre mois s'ajoute dès que ce paiement tombe, et la ligne indique **Crédité**.",
           ] },
@@ -290,12 +292,13 @@ export const ARTICLES = {
           { table: {
             head: ["Votre compte", "Ce que fait le mois"],
             rows: [
-              ["Encore dans l'essai gratuit", "La date de fin de votre essai recule d'un mois. Rien n'est facturé d'ici là."],
+              ["Encore dans l'essai gratuit", "Le mois est mis de côté, pas perdu, et s'ajoute dès que vous choisissez un forfait : votre premier prélèvement recule d'un mois. (Possible seulement par un lien partagé avant le 3 octobre 2026 — aujourd'hui, il faut un forfait pour parrainer.)"],
               ["Payant au mois", "Votre prochain prélèvement est reporté d'un mois civil. Le forfait continue; vous n'êtes simplement pas facturé pour ce mois-là."],
               ["Payant à l'année", "Votre date de renouvellement recule d'un mois — une année qui finit le 27 août se renouvelle le 27 septembre. On ne vous facture pas une autre année pour le recevoir."],
             ],
           } },
           { p: "Les mois s'empilent à partir de la plus tardive des deux dates. Parrainez une deuxième entreprise avant que le premier mois soit écoulé et la date de fin recule d'un autre mois, pas à son point de départ. Un 31 qui tomberait dans un mois plus court devient le dernier jour de ce mois." },
+          { p: "Les parrainages faits avant le 3 octobre 2026 gardent les conditions d'alors. Une entreprise parrainée avant cette date a déjà eu son mois ajouté à son essai à l'inscription et le garde — elle n'en reçoit pas un deuxième en choisissant un forfait — et son parrain est crédité à son premier vrai paiement, forfait ou pas. Rien de ce qui a déjà été accordé ne change." },
         ],
       },
       {
@@ -304,7 +307,8 @@ export const ARTICLES = {
         blocks: [
           { bullets: [
             "**Un mois chacun**, pour le parrain et le parrainé, quelle que soit la taille de l'une ou l'autre entreprise.",
-            "**Une entreprise qui existe déjà peut parrainer mais jamais réclamer.** Le lien est pour les entreprises nouvelles sur FieldQuo; un client existant qui se réinscrit par un lien ne reçoit rien.",
+            "**Un forfait des deux côtés.** Vous parrainez une fois un forfait choisi. L'entreprise parrainée reçoit son mois quand elle choisit un forfait, si vous en aviez un quand elle s'est inscrite par votre lien — même si votre forfait a pris fin depuis; vous recevez le vôtre à son premier vrai paiement, si vous avez un forfait à ce moment-là. Chaque mois est accordé une fois, jamais deux.",
+            "**Une entreprise qui existe déjà peut parrainer mais jamais réclamer.** Elle parraine une fois un forfait choisi. Le lien est pour les entreprises nouvelles sur FieldQuo; un client existant qui se réinscrit par un lien ne reçoit rien.",
             "**Vous ne pouvez pas vous parrainer vous-même.** Vérifié sur le code, pas sur l'adresse courriel.",
             "**Au plus 50 parrainages crédités par entreprise par mois civil.** Un plafond contre les abus, pas une limite sur ce qu'un vrai parrainage rapporte.",
             "**Chaque entreprise parrainée vous fait gagner le mois une seule fois.** Un paiement réessayé ou un renouvellement ne paie jamais le même parrainage deux fois.",
@@ -322,7 +326,8 @@ export const ARTICLES = {
     faq: [
       { q: "L'entreprise que j'ai parrainée s'est inscrite il y a des semaines. Pourquoi ne suis-je toujours pas crédité?", a: "Sa ligne indique encore Inscrit — pas encore payant. Le mois est accordé à son premier vrai paiement, après son essai gratuit, et seulement une fois son intégration terminée et son compte Stripe pour les paiements de clients vérifié." },
       { q: "Est-ce un rabais ou un mois gratuit?", a: "Un mois gratuit : votre prochain prélèvement recule d'un mois. Ce n'est pas un crédit en dollars sur une facture plus grosse." },
-      { q: "L'entreprise parrainée reçoit-elle quelque chose?", a: "Oui — un mois de plus ajouté à son essai gratuit à l'inscription, avant qu'elle ait payé quoi que ce soit." },
+      { q: "L'entreprise parrainée reçoit-elle quelque chose?", a: "Oui — un mois gratuit de parrainage quand elle choisit un forfait : son premier prélèvement recule d'un mois. Son essai gratuit, lui, reste de 14 jours. Une entreprise parrainée avant le 3 octobre 2026 a plutôt eu le mois ajouté à son essai à l'inscription, et le garde." },
+      { q: "Pourquoi je ne vois pas mon lien de parrainage?", a: "Le parrainage s'ouvre une fois un forfait choisi. Pendant l'essai gratuit, la page affiche plutôt un lien vers Compte et facturation; choisissez-y un forfait et votre lien apparaît." },
     ],
   },
 

@@ -79,6 +79,7 @@ import CostMarginPanel from "./CostMarginPanel";
 import QuoteTotalsBar from "./QuoteTotalsBar";
 import ClientPicker from "./ClientPicker";
 import JobAddressField from "./JobAddressField";
+import ClientPoField from "@/app/components/documents/ClientPoField";
 import TemplatePicker from "./TemplatePicker";
 import SiteVisitPanel from "@/app/components/quotes/SiteVisitPanel";
 import { defaultSiteAddressFor, siteAddressRequired } from "@/lib/quotes/jobAddress";
@@ -96,12 +97,12 @@ import {
   FALLBACK_OVERHEAD_PCT,
   FALLBACK_LABOUR_RATE,
 } from "@/lib/costing/quoteCosting";
-import { isUnitPriced, UNIT_PRICED_CATEGORIES } from "@/app/data/cabinetPricing";
+import { isUnitPriced } from "@/app/data/cabinetPricing";
 import { PAINT_ESTIMATE_TYPES } from "@/lib/pricing/paintTakeoff";
 import { APP_MESSAGES } from "@/app/i18n/appMessages";
 import { fieldsForCategory } from "@/app/data/quoteIntakeFields";
 import { FINISH_LEVEL_TRADES } from "@/app/data/drywallFinishLevels";
-import { syncFinishLine, isUntouchedFinishLine } from "@/lib/quotes/drywallFinishLine";
+import { syncFinishLine, isDrywallLine } from "@/lib/quotes/drywallFinishLine";
 import { isLotMeasureTrade } from "@/lib/measure/lotTakeoff";
 import { isRoomMeasureTrade, isTraceMeasureTrade } from "@/lib/measure/reuseTakeoffs";
 import { getPriceBook, defaultTradeRate } from "@/app/data/tradePriceBooks";
@@ -130,6 +131,9 @@ import {
   cabinetServiceOptions,
   switchCabinetService,
 } from "@/lib/quotes/cabinetServiceSwitch";
+// Which calculator a painting estimate kind opens — the cabinet or stair
+// trade, or the painting takeoff. Why, in the module's header.
+import { routeEstimateKind, stainingChoices, placeRoutedGroup } from "@/lib/quotes/estimateKindRouting";
 // The estimator's own complexity factors, on any trade — the model and its
 // composition order are in lib/pricing/customFactors.js.
 import CustomFactorsEditor from "@/app/components/pricing/CustomFactorsEditor";
@@ -264,6 +268,7 @@ export function initialStateFromQuote(quote, { fallbackLabel = "Scope" } = {}) {
       assignedTo: null,
       siteAddress: "",
       taxResolution: null,
+      clientPoNumber: "",
     };
   }
 
@@ -281,6 +286,10 @@ export function initialStateFromQuote(quote, { fallbackLabel = "Scope" } = {}) {
     status: quote.status || null,
     client: quote.client || null,
     language: quote.language || null,
+    // The quote's age, read only so the group cards show the scope paragraph
+    // THIS quote's client copy prints — a trade paragraph added after it was
+    // written does not appear on it (resolveServiceContent).
+    createdAt: quote.createdAt || null,
     groups: (Array.isArray(quote.scopeGroups) ? quote.scopeGroups : []).map(
       (g) => groupFromStored(g, quote.importedGroupIds, fallbackLabel),
     ),
@@ -304,6 +313,8 @@ export function initialStateFromQuote(quote, { fallbackLabel = "Scope" } = {}) {
     // prints "HST 13% (Ontario)" from the record rather than re-resolving
     // (an edit never re-prices — see the tax effect below).
     taxResolution: readTaxResolution(quote.taxResolution),
+    // The client's PO as saved; "" for none (lib/documents/clientPo.js).
+    clientPoNumber: quote.clientPoNumber || "",
   };
 }
 
@@ -553,6 +564,71 @@ export default function QuoteBuilder({ mode = "create", quoteId = null }) {
       typeof window === "undefined"
         ? null
         : new URLSearchParams(window.location.search).get("fromCall");
+    // `?fromPlanRead=<id>` — the draft a drawing read produced
+    // (lib/planRead/). Same rule as a call's: a prefill, not a saved quote,
+    // so the painting takeoff opens LIVE and the company's book prices it
+    // here exactly as it prices a typed one. The read's own preview figure
+    // never travels.
+    const planReadId =
+      typeof window === "undefined"
+        ? null
+        : new URLSearchParams(window.location.search).get("fromPlanRead");
+
+    if (planReadId && !callId) {
+      let cancelled = false;
+      (async () => {
+        const base = initialStateFromQuote(null);
+        try {
+          const res = await fetch(`/api/plan-reads/${planReadId}/draft-quote`);
+          if (!res.ok) throw new Error("no draft");
+          const data = await res.json();
+          if (cancelled) return;
+          const draft = data?.draft;
+          const cats = Array.isArray(bootstrap.categories) ? bootstrap.categories : [];
+          const missing = [];
+          const groups = (Array.isArray(draft?.groups) ? draft.groups : [])
+            .map((g) => {
+              const category = cats.find((c) => c.key === g.categoryKey && c.enabled);
+              if (!category) {
+                missing.push(g.categoryKey);
+                return null;
+              }
+              const group = newScopeGroup(category, category.label, rateOverridesIn(cats, category.id), {
+                tempId: crypto.randomUUID(),
+                language: bootstrap.companyLanguage || "en",
+              });
+              return {
+                ...group,
+                // The read's takeoff replaces the empty one the group opens
+                // with; the builder derives every line and price from it.
+                ...(g.takeoff ? { takeoff: g.takeoff } : {}),
+                // Only access equipment the ESTIMATOR priced on the read.
+                lineItems: Array.isArray(g.extraLines) ? g.extraLines : [],
+              };
+            })
+            .filter(Boolean);
+          const client =
+            (draft?.clientId && (bootstrap.clients || []).find((c) => c.id === draft.clientId)) || null;
+          const notMoved = missing.length
+            ? `\n\n${t("app.planRead.builderMissing", "Some of the drawing read's work is under a service you haven't switched on ({keys}). Switch it on in Settings → Services, then start the quote from the read again.", { keys: [...new Set(missing)].join(", ") })}`
+            : "";
+          setInitial({
+            ...base,
+            groups,
+            client,
+            reviewNotes: `${typeof draft?.reviewNotes === "string" ? draft.reviewNotes : ""}${notMoved}`,
+            // Sent with the save so the read records its quote and its files
+            // become the quote's (POST /api/quotes sourcePlanReadId).
+            planReadId: draft?.planReadId || planReadId,
+          });
+        } catch {
+          if (!cancelled) setInitial(base);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
 
     if (!callId) {
       setInitial(initialStateFromQuote(null));
@@ -604,6 +680,10 @@ export default function QuoteBuilder({ mode = "create", quoteId = null }) {
                 addOns: (Array.isArray(g.addOns) ? g.addOns : [])
                   .map((a) => a?.key)
                   .filter(Boolean),
+                // The words of any line a price book writes from the call's
+                // answers (a drywall group's hang line) — the language a new
+                // quote opens in, the company's.
+                language: bootstrap.companyLanguage || "en",
               },
             );
           })
@@ -860,6 +940,15 @@ export function QuoteBuilderForm({
   // Where the work is (Quote.siteAddress). Prefilled from a homeowner when
   // they are picked, typed for a company client — see JobAddressField.
   const [siteAddress, setSiteAddress] = useState(start.siteAddress || "");
+  // The client's purchase-order number (Quote.clientPoNumber). Sent only once
+  // the box has been touched or the quote already had one — see
+  // lib/quotes/builderRequest.js on why an untouched box adds no key.
+  const [clientPoNumber, setClientPoNumberState] = useState(start.clientPoNumber || "");
+  const [clientPoTouched, setClientPoTouched] = useState(false);
+  const setClientPoNumber = (v) => {
+    setClientPoNumberState(v);
+    setClientPoTouched(true);
+  };
 
   // ── Scope ────────────────────────────────────────────────────────────────
   const [scopeGroups, setScopeGroups] = useState(start.groups || []);
@@ -1291,7 +1380,11 @@ export function QuoteBuilderForm({
   function templateSkipNote(summary, categoryKey) {
     const skipped = Array.isArray(summary?.skipped) ? summary.skipped : [];
     if (!skipped.length) return null;
-    const calc = calculatorOfTrade(categoryKey);
+    // A drywall group's board is priced by its price book (the hang and
+    // finishing lines), not by the room measure that measures it.
+    const calc = FINISH_LEVEL_TRADES.includes(categoryKey) && keysPricedByGroup({ categoryKey }).length
+      ? "drywallBook"
+      : calculatorOfTrade(categoryKey);
     return t("app.templateLines.pricedByCalculator", "{lines} — already priced by the {calc}, so not added again.", {
       lines: skipped.map((x) => x.description).join(", "),
       calc: t(`app.templateLines.calc_${calc || "intake"}`),
@@ -1334,12 +1427,19 @@ export function QuoteBuilderForm({
    * would be the same work billed twice.
    */
   function addScopeGroupWithTemplate(category, product) {
-    // fieldDefaults: the finish level opens on Level 4 as it does from a
-    // tile. The finishing line it would write is dropped with the seeded line
-    // below — the template's lines are the price.
+    // fieldDefaults: the finish level opens on Level 4 as it does from a tile.
+    //
+    // A drywall group priced by its book KEEPS the book's hang and finishing
+    // lines, and the template brings everything else. The two cannot bill the
+    // same board twice: keysPricedByGroup names the board figures (sq ft of
+    // board, walls, ceiling, sheets) as the book's, so a template line keyed
+    // to any of them is held back here and named in the note — the guard
+    // every calculator already uses (lib/quotes/serviceTemplateLines.js).
+    // Every other trade's seeded line is dropped as before.
     const group = newScopeGroup(category, category.label, rateOverridesFor(category.id), {
       tempId: crypto.randomUUID(),
       fieldDefaults: true,
+      language: quoteLanguage || companyLanguage,
     });
     const { lines } = expandServiceTemplate(product, {
       measurements: measurementsFromGroups([...scopeGroups, group], { targetTempId: group.tempId }),
@@ -1349,7 +1449,8 @@ export function QuoteBuilderForm({
       runId: crypto.randomUUID(),
       pricedKeys: keysPricedByGroup(group),
     });
-    setScopeGroups((prev) => [...prev, { ...group, lineItems: lines }]);
+    const book = group.lineItems.filter(isDrywallLine);
+    setScopeGroups((prev) => [...prev, { ...group, lineItems: [...book, ...lines] }]);
   }
 
   /**
@@ -1360,7 +1461,12 @@ export function QuoteBuilderForm({
    * "{service} — $rate" line under it: that would be the same work twice.
    */
   function addScopeGroupWithProduct(category, product) {
-    // Same as the template add above: the level's default, not its line.
+    // The level's default, not its lines. The company's own service IS the
+    // price here, unkeyed and unmeasured, so nothing can tell whether it
+    // already covers hanging or finishing — and a drywall book line beside it
+    // could be the same walls twice. `ownPricing` keeps it that way: the
+    // finish level still prints on the quote, and adds no line to this group
+    // (lib/quotes/drywallFinishLine.js), which the builder says.
     const group = newScopeGroup(category, category.label, rateOverridesFor(category.id), {
       tempId: crypto.randomUUID(),
       fieldDefaults: true,
@@ -1369,7 +1475,14 @@ export function QuoteBuilderForm({
       language: quoteLanguage || companyLanguage,
       defaultLanguage: companyLanguage,
     });
-    setScopeGroups((prev) => [...prev, { ...group, lineItems: [line] }]);
+    setScopeGroups((prev) => [
+      ...prev,
+      {
+        ...group,
+        lineItems: [line],
+        ...(FINISH_LEVEL_TRADES.includes(category.key) ? { ownPricing: true } : {}),
+      },
+    ]);
   }
 
   // ── "Add service" (owner, 2026-09-25) ────────────────────────────────────
@@ -1418,21 +1531,19 @@ export function QuoteBuilderForm({
    * The group is the one newScopeGroup builds for the tile; only
    * `takeoff.estimateType` differs, and it is the field PaintAreas reads.
    */
-  function addPaintingEstimate(estimateType) {
+  function addPaintingEstimate(estimateType, choice = null) {
     // Owner's decision (2026-09-22): a company selling cabinet refinishing
     // or refacing has ONE cabinet takeoff — that trade's doors / drawers /
     // complexity card — and the painter's "Cabinets & millwork" card opens
     // it, refinishing first as the higher-volume trade. The painting
     // substrate list stays for a painter with no cabinet trade. Nothing
     // stored changes: this only decides which group a fresh pick creates.
-    if (estimateType === "cabinets") {
-      const cabinet = UNIT_PRICED_CATEGORIES.map((key) =>
-        categories.find((c) => c?.key === key),
-      ).find(Boolean);
-      if (cabinet) {
-        addScopeGroup(cabinet, cabinet.label);
-        return;
-      }
+    // Staining → Cabinets / Stairs opens those trades the same way
+    // (2026-10-03); lib/quotes/estimateKindRouting.js decides.
+    const route = routeEstimateKind(estimateType, categories, choice);
+    if (route) {
+      addScopeGroup(route.category, routedLabel(route));
+      return;
     }
     const category = paintingCategoryFor(estimateType, categories);
     if (!category) return;
@@ -1462,6 +1573,35 @@ export function QuoteBuilderForm({
     ]);
   }
 
+  // A routed group's heading — what the CLIENT reads. Cabinets & millwork
+  // keeps the trade's own name, as it did. Staining says it is staining, in
+  // the document's language (non-negotiable #6): it is the one place the
+  // stain pick shows on a trade whose rate card has no stain/paint switch.
+  function routedLabel(route) {
+    if (!route.stain) return route.category.label;
+    const lang = String(quoteLanguage || companyLanguage || "en").slice(0, 2).toLowerCase();
+    const key = `app.paint.stainHeading.${route.calculator === "stairs" ? "stairs" : "cabinets"}`;
+    return APP_MESSAGES[lang]?.[key] || APP_MESSAGES.en[key] || route.category.label;
+  }
+
+  // The same cards INSIDE a painting takeoff (PaintAreas.js) — the path the
+  // owner took on 2026-10-03: add Interior Painting, press Cabinets & millwork,
+  // get a room. Now that press opens the cabinet trade (or, under Staining,
+  // the cabinet or stair trade) in place of the painting group while nothing
+  // is in it, or after it when something is. Returns false when there is no
+  // trade to open, and the takeoff takes the pick itself, as before.
+  function routePaintGroup(groupTempId, kind, choice = null) {
+    const route = routeEstimateKind(kind, categories, choice);
+    if (!route) return false;
+    const fresh = newScopeGroup(route.category, routedLabel(route), rateOverridesFor(route.category.id), {
+      tempId: crypto.randomUUID(),
+      fieldDefaults: true,
+      language: quoteLanguage || companyLanguage,
+    });
+    setScopeGroups((prev) => placeRoutedGroup(prev, groupTempId, fresh));
+    return true;
+  }
+
   function removeScopeGroup(tempId) {
     setScopeGroups((prev) => prev.filter((g) => g.tempId !== tempId));
   }
@@ -1485,7 +1625,13 @@ export function QuoteBuilderForm({
 
   function updatePricing(groupTempId, patch) {
     setScopeGroups((prev) =>
-      prev.map((g) => (g.tempId === groupTempId ? { ...g, ...patch } : g)),
+      prev.map((g) =>
+        g.tempId === groupTempId
+          ? // A drywall room measure is the board area the book's lines bill
+            // when no square footage is typed — re-price ours, add nothing.
+            withFinishLine({ ...g, ...patch }, Object.keys(patch || {}))
+          : g,
+      ),
     );
   }
 
@@ -1563,35 +1709,48 @@ export function QuoteBuilderForm({
     );
   }
 
-  // ── The drywall finish level drives its finishing line ──────────────────
+  // ── The drywall intake drives the book's lines ──────────────────────────
   //
-  // lib/quotes/drywallFinishLine.js does the work; this decides WHEN. A new
-  // level swaps the line the select wrote (and never one the estimator
-  // edited). A new square footage re-sizes that line only while it is still
-  // there — so a finishing line the estimator deleted is not brought back by
-  // typing a number into a different box. Any other answer changes nothing.
+  // lib/quotes/drywallFinishLine.js does the work; this decides WHEN, and in
+  // which mode. A new level swaps the finishing line the select wrote (never
+  // one the estimator edited) and may add one; square feet, the tier or the
+  // room measure only RE-PRICE the lines of ours still there — so a line the
+  // estimator deleted is not brought back by typing a number into a different
+  // box. Any other answer changes nothing.
+  function drywallMode(changedKeys) {
+    if (changedKeys.includes("finishLevel")) return "level";
+    if (changedKeys.some((k) => k === "squareFootage" || k === "complexityLevel" || k === "takeoff")) return "resize";
+    return null;
+  }
+
   function withFinishLine(group, changedKeys) {
     if (!FINISH_LEVEL_TRADES.includes(group.categoryKey) || group.persisted) return group;
-    const levelChanged = changedKeys.includes("finishLevel");
-    const sizeChanged =
-      changedKeys.includes("squareFootage") &&
-      (group.lineItems || []).some(isUntouchedFinishLine);
-    if (!levelChanged && !sizeChanged) return group;
+    const mode = drywallMode(changedKeys);
+    if (!mode) return group;
     const { lineItems } = syncFinishLine(group, {
       book: getPriceBook(group.categoryKey, rateOverridesFor(group.categoryId)),
       language: quoteLanguage || companyLanguage,
+      mode,
     });
     return { ...group, lineItems };
   }
 
   // What the select's line could not do, said under it: no rate for the level
-  // in this company's book, or an edited finishing line that was kept.
+  // in this company's book, an edited finishing line that was kept, or a
+  // group whose price is the company's own service line.
   function finishLineNotice(group) {
     if (!FINISH_LEVEL_TRADES.includes(group.categoryKey) || group.persisted) return null;
     const { held, unpriced } = syncFinishLine(group, {
       book: getPriceBook(group.categoryKey, rateOverridesFor(group.categoryId)),
       language: quoteLanguage || companyLanguage,
+      mode: "resize",
     });
+    if (group.ownPricing === true && group.intakeValues?.finishLevel) {
+      return t(
+        "app.drywallFinish.ownPricing",
+        "This service's own line prices the work, so the finish level adds no line here. The level still prints on the quote.",
+      );
+    }
     if (held) {
       return t(
         "app.drywallFinish.held",
@@ -2258,6 +2417,10 @@ export function QuoteBuilderForm({
       // References only — the route prices them. Empty on a save that
       // clicked none, and then the body is exactly what it always was.
       offerAddOns: livePendingOffers,
+      // The drawing read this draft came from, create only. Absent on every
+      // other save, so their bodies are unchanged.
+      sourcePlanReadId: !isEdit ? initial?.planReadId || null : null,
+      clientPoNumber: clientPoTouched || start.clientPoNumber ? clientPoNumber : undefined,
     });
 
     let quote = null;
@@ -2579,6 +2742,11 @@ export function QuoteBuilderForm({
                   ? updateTakeoff(group.tempId, next)
                   : updatePricing(group.tempId, { takeoff: next })
               }
+              // Read by the painting takeoff's estimate-type cards only.
+              routing={{
+                stainChoices: stainingChoices(categories),
+                onRoute: (kind, choice) => routePaintGroup(group.tempId, kind, choice),
+              }}
             />
           )}
 
@@ -3182,6 +3350,8 @@ export function QuoteBuilderForm({
           clients: filteredClients, clientSearch, setClientSearch, selectedClient, setSelectedClient,
           showNewClient, setShowNewClient, newClient, setNewClient, handleCreateClient, creatingClient,
           siteAddress, setSiteAddress,
+          clientPoNumber, setClientPoNumber,
+          clientPoLocked: !canEditScope, clientPoLockedNote: t("app.clientPo.locked"),
           categories, products, teamRoster, settingsAccess,
           scopeGroups, setScopeGroups, addScopeGroup, addPaintingEstimate, paintingFirst, servicePicker, removeScopeGroup, updateLineItem, removeLineItem,
           groupFromStored, groupTotal, rateOverridesFor, wordingOverrideFor, getProductsForCategory,
@@ -3233,6 +3403,17 @@ export function QuoteBuilderForm({
             ? selectedClient?.name || ""
             : t("app.quoteNew.subtitle")}
         </p>
+        {/* Commercial bids arrive as a drawing set and a scope sheet: the
+            drawing read (lib/planRead/) drafts this same builder from them.
+            Not on an edit, and not on a draft that already came from one. */}
+        {!isEdit && !initial?.planReadId && (
+          <Link
+            href="/app/quotes/drawings/new"
+            className="mt-2 inline-flex items-center gap-1.5 min-h-[40px] text-sm text-primary hover:underline"
+          >
+            {t("app.planRead.startFromDrawings", "Start from drawings — upload a drawing set, scope sheet and photos")}
+          </Link>
+        )}
       </div>
 
       {isEdit && start.status === "accepted" && (
@@ -3366,6 +3547,20 @@ export function QuoteBuilderForm({
         <JobAddressField client={selectedClient} value={siteAddress} onChange={setSiteAddress} />
       )}
 
+      {/* The client's PO — under the job address, the other fact a commercial
+          client hands over with the job. Locked once the client has decided;
+          from then on it lives on the job. */}
+      {selectedClient && (
+        <ClientPoField
+          kind="quote"
+          value={clientPoNumber}
+          onChange={setClientPoNumber}
+          client={selectedClient}
+          locked={!canEditScope}
+          lockedNote={t("app.clientPo.locked")}
+        />
+      )}
+
       {/* A saved shape to start from — the groups, notes and process notes
           of a quote somebody kept (lib/quotes/quoteTemplates.js). Only on a
           create with nothing added yet: applying one over half a quote would
@@ -3493,6 +3688,7 @@ export function QuoteBuilderForm({
             subtotal={groupTotal(group)}
             onRemove={locked ? null : () => removeScopeGroup(group.tempId)}
             wordingOverride={wordingOverrideFor(group.categoryId)}
+            documentCreatedAt={start.createdAt || null}
             t={t}
           >
             {renderGroupEditor(group)}

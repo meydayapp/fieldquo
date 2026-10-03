@@ -121,8 +121,18 @@ console.log("\nThe brief's premise, tested rather than believed");
 const emptyBooks = Object.keys(TRADE_PRICE_BOOKS).filter(
   (k) => !(PRICE_BOOK_FIELDS[k] || []).length,
 );
+// 17 since 2026-10-03: the owner switched drywall_install's book on ("each
+// level should have its price on the price book, per sqft"). It is THIS file's
+// book, registered in tradePriceBooks.js by reference — the only one of the
+// six that is live. A count that moves without a sentence here is a book
+// appearing or vanishing by accident.
 ok(
-  "all 16 shipped books carry editable rates — NONE is empty",
+  "17 shipped books (16 + drywall_install, live 2026-10-03)",
+  Object.keys(TRADE_PRICE_BOOKS).length === 17 && TRADE_PRICE_BOOKS.drywall_install === INTERIOR_PRICE_BOOKS.drywall_install,
+  Object.keys(TRADE_PRICE_BOOKS).length,
+);
+ok(
+  "all 17 shipped books carry editable rates — NONE is empty",
   emptyBooks.length === 0,
   emptyBooks.join(", ") || "0 empty",
 );
@@ -169,7 +179,10 @@ const unpriced = catalogKeys.filter((k) => !tradeIsPricedByDefault(k));
 // that had a book lost it (compared against the catalogue and tradePriceBooks
 // at 45216ca5, when this last read 49) — so the number moved by new trades
 // arriving on the unpriced side, not by a book disappearing.
-ok(`65 of ${catalogKeys.length} catalogue trades cannot price themselves`, unpriced.length === 65, unpriced.length);
+//
+// 64 since 2026-10-03: drywall_install's book went live and it left the
+// unpriced side — the one deliberate move.
+ok(`64 of ${catalogKeys.length} catalogue trades cannot price themselves`, unpriced.length === 64 && !unpriced.includes("drywall_install"), unpriced.length);
 ok("only 2 material recipes exist in the whole product", Object.keys(MATERIAL_RECIPES).length === 2);
 ok("...and this file adds 8", Object.keys(INTERIOR_RECIPES).length === 8);
 // The three the brief named as empty. Overwriting any of them would have
@@ -196,7 +209,13 @@ console.log("\nSix new keys, and not one of them lands on an existing book");
 // book. The owner does that merge by hand; this is the guard that says it is
 // safe to.
 for (const key of MY_BOOKS) {
-  ok(`\`${key}\` is a new key, not an overwrite`, !hasPriceBook(key));
+  // drywall_install is live, registered BY REFERENCE to this file's own
+  // object — so the merge below re-assigns the same book, it overwrites
+  // nothing. Any other key already present would be a collision.
+  ok(
+    `\`${key}\` is a new key, not an overwrite`,
+    key === "drywall_install" ? TRADE_PRICE_BOOKS[key] === INTERIOR_PRICE_BOOKS[key] : !hasPriceBook(key),
+  );
   ok(`...and \`${key}\` has no shipped recipe to clobber either`, !MATERIAL_RECIPES[key]);
   ok(`...and no shipped add-on list either`, !STANDARD_ADDONS[key]);
 }

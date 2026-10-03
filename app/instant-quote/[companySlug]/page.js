@@ -11,14 +11,32 @@ export const dynamic = "force-dynamic";
 
 import InstantQuoteFlow from "./InstantQuoteFlow";
 import { loadPublicFormLook } from "@/lib/estimate/publicFormLook";
+import { findBookingCompany } from "@/lib/booking/findBookingCompany";
+import {
+  CLIENT_META_COMPANY_SELECT,
+  clientPageMetadata,
+  neutralClientMetadata,
+} from "@/lib/whiteLabel/pageMetadata";
+
+// Same sentence as always; the company's name in the tab, and its icon and
+// share image, now replace the root layout's FieldQuo ones — this is the link
+// a company runs an ad with (lib/whiteLabel/pageMetadata.js).
+const DESCRIPTION =
+  "Enter your address for a real starting price in seconds — measured from satellite imagery.";
 
 export async function generateMetadata({ params }) {
   const { companySlug } = await params;
+  const canonical = { alternates: { canonical: `/instant-quote/${companySlug}` } };
+  const company = await findBookingCompany(companySlug, CLIENT_META_COMPANY_SELECT).catch(() => null);
+  if (!company) {
+    return { ...neutralClientMetadata({ title: "Get an instant estimate", description: DESCRIPTION }), ...canonical };
+  }
   return {
-    title: "Get an instant estimate",
-    description:
-      "Enter your address for a real starting price in seconds — measured from satellite imagery.",
-    alternates: { canonical: `/instant-quote/${companySlug}` },
+    ...clientPageMetadata(company, {
+      title: `Get an instant estimate · ${company.name}`,
+      description: DESCRIPTION,
+    }),
+    ...canonical,
   };
 }
 

@@ -316,6 +316,7 @@ export const SCREENS = [
   { slug: "settings-lead-form", nav: "app.settings.leadForm", href: "/app/settings/lead-form", page: "app/app/settings/lead-form/page.js", settings: true },
   { slug: "settings-bio-link", nav: "app.settings.bioLink", href: "/app/settings/links", page: "app/app/settings/links/page.js", settings: true },
   { slug: "settings-voice", nav: "app.settings.voice", href: "/app/settings/voice", page: "app/app/settings/voice/page.js", settings: true },
+  { slug: "settings-business-number", nav: "app.settings.businessNumber", href: "/app/settings/business-number", page: "app/app/settings/business-number/page.js", settings: true },
   { slug: "settings-ai-employee", nav: "app.settings.aiEmployee", href: "/app/settings/ai-employee", page: "app/app/settings/ai-employee/page.js", settings: true, sameAs: "ai-team" },
   { slug: "settings-reviews", nav: "app.settings.reviews", href: "/app/settings/reviews", page: "app/app/settings/reviews/page.js", settings: true },
 

@@ -86,7 +86,7 @@ p(
   "",
   `- The demo: **${REP_DEMO_MINUTES} minutes** — \`REP_DEMO_MINUTES\` in \`lib/sales/demoBooking/slots.js\`, read from \`NEXT_STEP_MINUTES.demo\` in \`lib/sales/nextSteps.js\`: the block the call panel books, the slot the rep's demo page offers, and the length the intro email promises.`,
   `- The trial: **${TRIAL_DAYS} days**, ${TRIAL_CARD_REQUIRED ? "a card at signup" : "no card to start"} — \`TRIAL_DAYS\` / \`TRIAL_CARD_REQUIRED\` in \`lib/pricing.js\`.`,
-  "- Plans, seats and crew: `SEAT_LADDER` in `lib/pricing/ladder.js`. Referral months: `lib/referrals` (the referrer's month lands when the referred company pays; the newcomer's extra trial month only through the referrer's own link).",
+  "- Plans, seats and crew: `SEAT_LADDER` in `lib/pricing/ladder.js`. Referral months: `lib/referrals` (only a customer on a plan can refer; the referrer's month lands when the referred company pays; the newcomer's extra month lands when it chooses a plan, only through the referrer's own link).",
   "- Placeholders: `{businessName}`, `{repName}` and `{first}` are filled on the call screen where it knows them; `[day]`, `[time]` and `[their words]` are the rep's, from the calendar and the call notes. No line names a day.",
   "",
   "## Where a rep sees them",

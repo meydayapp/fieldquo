@@ -1677,6 +1677,13 @@ function claimIn(text) {
   return null;
 }
 
+// A NEW document: no createdAt is passed, which the resolver reads as "written
+// now". That is the rule this asserts — every priced trade states its scope on
+// the quotes written from here on. A trade whose paragraph arrived after
+// documents already existed (drywall_install, `descriptionSince`, 2026-10-04)
+// withholds it from those older documents on purpose, so a signed quote keeps
+// saying what it said; the second half below pins that exception to the one
+// trade it was made for.
 check("every trade with a price book states what the work IS", () => {
   for (const key of Object.keys(TRADE_PRICE_BOOKS)) {
     const c = resolveServiceContent(key, null);
@@ -1684,6 +1691,12 @@ check("every trade with a price book states what the work IS", () => {
       typeof c.description === "string" && c.description.length > 60,
       `${key} has a price book but no scope paragraph`,
     );
+    const old = resolveServiceContent(key, null, null, undefined, undefined, "2026-01-01T00:00:00Z");
+    if (key === "drywall_install") {
+      assert.equal(old.description, "", "drywall_install's paragraph must stay off documents written before it existed");
+    } else {
+      assert.equal(old.description, c.description, `${key}: only drywall_install's paragraph is dated`);
+    }
   }
 });
 

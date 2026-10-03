@@ -66,6 +66,7 @@ import {
   DEMO_MINUTES_WORDS,
   DEMO_OFFER,
   PLAN_SENTENCE,
+  REFEREE_OFFER,
   REFERRAL_OFFER,
   REVERSE_SELLING_PRIORITY,
   REVERSE_SELLING_SELECTOR,
@@ -263,7 +264,13 @@ section("3. Trial, price and referral text come from the constants");
   ok("…and nothing still says the old fifteen-minute demo", !/fifteen minutes|fifteen-minute/i.test(live), live.match(/[^.]*fifteen[- ]minute[^.]*/i)?.[0]);
   ok("'starts at' is the first rung", STARTS_AT === `${W(rungs[0].price)} dollars a month`);
   ok("the referrer's reward is REFERRER_BONUS_MONTHS, on paying", REFERRAL_OFFER.includes(REFERRER_BONUS_MONTHS === 1 ? "you get a month of FieldQuo free" : `you get ${W(REFERRER_BONUS_MONTHS)} months`) && /signs up and starts paying/.test(REFERRAL_OFFER));
-  ok("the newcomer's is REFEREE_BONUS_MONTHS, on their trial, through the link", REFERRAL_OFFER.includes(REFEREE_BONUS_MONTHS === 1 ? "an extra free month" : `${W(REFEREE_BONUS_MONTHS)} extra free months`) && /with your link/.test(REFERRAL_OFFER));
+  // Pin moved 2026-10-03 (the owner: referrals "only work when they have
+  // selected a plan"): the newcomer's month is no longer "on their trial when
+  // they sign up with your link" but "when they choose a plan, through your
+  // link", and the offer is for a referrer on a plan. Everything else here is
+  // unchanged.
+  ok("the newcomer's is REFEREE_BONUS_MONTHS, when they choose a plan, through the link", REFERRAL_OFFER.includes(REFEREE_BONUS_MONTHS === 1 ? "an extra free month" : `${W(REFEREE_BONUS_MONTHS)} extra free months`) && /when they choose a plan, through your link/.test(REFERRAL_OFFER) && !/on their trial/.test(REFERRAL_OFFER));
+  ok("…and the offer is said only to a referrer on a plan", /^Once you're on a plan,/.test(REFERRAL_OFFER) && /when you choose a plan\.$/.test(REFEREE_OFFER));
   // Every "free for N days" and every "N dollars" anywhere is a constant.
   const trialMentions = [...everything.join(" ").matchAll(/free for (\w+(?:-\w+)?) days/g)].map((m) => m[1]);
   ok("every 'free for N days' is TRIAL_DAYS", trialMentions.length > 0 && trialMentions.every((w) => w === W(TRIAL_DAYS)), trialMentions);
@@ -582,8 +589,26 @@ section("9. The console keeps what it saves; install creates it switched off");
   // BE version two by the fingerprint seedHistory.js recorded for it. Then the
   // console's "Refresh the built-ins" runs against a database holding the four
   // starters, the shared library and that v2 install: recorded, never written.
+  // Version three AS IT FIRST SHIPPED (2026-10-02), before the referral offer
+  // took the owner's 2026-10-03 plan rule: the close's offer prompt and the
+  // tip about who hears it are the only two strings that moved. Same version
+  // number — one prompt and one tip, not a new script — but a different
+  // fingerprint, recorded in seedHistory.js so an unedited install of it is
+  // refreshed like any retired version.
+  const OLD_REFERRAL_OFFER =
+    "For every contractor you refer who signs up and starts paying, you get a month of FieldQuo free. " +
+    "They get an extra free month on their trial when they sign up with your link.";
+  const OLD_REFERRAL_TIP = "The referral offer is for people with an account: say it to anyone who signed up. It works through their own link.";
+  const NEW_REFERRAL_TIP = "The referral offer is for people who have chosen a plan: say it to anyone on one, not to someone who just started the trial. It works through their own link, which appears once they choose a plan.";
+  const toV3Shipped = (text) => String(text).replace(REFERRAL_OFFER, OLD_REFERRAL_OFFER).replace(NEW_REFERRAL_TIP, OLD_REFERRAL_TIP);
+  const v3pb = {
+    ...PB,
+    stages: PB.stages.map((st) => ({ ...st, say: toV3Shipped(st.say), prompts: st.prompts.map(toV3Shipped), ...(st.tips ? { tips: st.tips.map(toV3Shipped) } : {}) })),
+  };
+  ok("version three as shipped differs from today's only in the referral offer and its tip", playbookFingerprint(v3pb) !== playbookFingerprint(PB) && PB.stages.some((st) => st.prompts.includes(`"${REFERRAL_OFFER}"`)) && PB.stages.some((st) => (st.tips || []).includes(NEW_REFERRAL_TIP)));
+  ok("…and its fingerprint is recorded as retired, so Refresh can reach it", playbookFingerprint(v3pb) === "accae419fdbe02d7" && isUnedited("playbook", PB.key, playbookFingerprint(v3pb)), playbookFingerprint(v3pb));
   const toV2 = (text) =>
-    String(text)
+    toV3Shipped(text)
       .replaceAll(`${W(REP_DEMO_MINUTES)} minutes on a screen`, "fifteen minutes on a screen")
       .replaceAll(`Here's how the ${W(REP_DEMO_MINUTES)} minutes go`, "Here's how the fifteen minutes go")
       .replace("are under Backup on the Playbook tab. They're for the demo", "are under Backup, beside the scripts. They're for the demo")

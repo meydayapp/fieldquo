@@ -19,6 +19,7 @@
 import { notFound } from "next/navigation";
 import { isSupported } from "@/app/i18n/languages";
 import CompanySitePage, { generateMetadata as parentMetadata } from "../page";
+import { neutralClientMetadata } from "@/lib/whiteLabel/pageMetadata";
 
 // Turn the path segments into { language, pageSlug }. Returns null for anything
 // that isn't a valid shape — a 404, not a silent fall-through to Home.
@@ -39,7 +40,7 @@ function parseRoute(pathArr) {
 export async function generateMetadata({ params }) {
   const { path } = await params;
   const parsed = parseRoute(path);
-  if (!parsed) return { title: "Not found", robots: { index: false } };
+  if (!parsed) return neutralClientMetadata({ title: "Not found", robots: { index: false } });
   return parentMetadata({
     params,
     language: parsed.language || undefined,

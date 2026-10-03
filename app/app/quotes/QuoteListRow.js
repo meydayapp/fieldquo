@@ -19,6 +19,7 @@ import { ArrowRight } from "lucide-react";
 import { quoteStatusClasses, quoteStatusLabel } from "@/lib/quotes/statusLabels";
 import { quoteAgeDays, quoteExpiry, quoteNeedsChasing } from "@/lib/quotes/listRanking";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import ClientPoChip from "@/app/components/documents/ClientPoChip";
 
 /**
  * @param quote       a GET /api/quotes row: id, quoteNumber, status, total,
@@ -56,6 +57,7 @@ export default function QuoteListRow({ quote: q, now = new Date(), money, format
             <span className="font-medium text-foreground truncate">
               {q.quoteNumber}
             </span>
+            <ClientPoChip value={q.clientPoNumber} />
             <span
               className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${quoteStatusClasses(
                 q.status,

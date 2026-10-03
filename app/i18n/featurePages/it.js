@@ -312,7 +312,7 @@ const it = {
   "featurePage.marketing.pain.2.pain": "Spende in pubblicità ogni mese e non saprebbe dire quale di quelle inserzioni abbia mai prodotto un lavoro.",
   "featurePage.marketing.pain.2.fix": "La spesa si inserisce per canale e sta accanto ai lavori che ha portato, così il canale che non produce niente si vede invece di essere supposto.",
   "featurePage.marketing.pain.3.pain": "I suoi clienti migliori la raccomanderebbero volentieri e nessuno glielo chiede mai.",
-  "featurePage.marketing.pain.3.fix": "Quando il lavoro viene segnato come finito, parte una richiesta cortese — e un artigiano che lei segnala fa guadagnare a entrambi un mese gratuito.",
+  "featurePage.marketing.pain.3.fix": "Quando il lavoro viene segnato come finito, parte una richiesta cortese — e un artigiano che lei segnala fa guadagnare a entrambi un mese gratuito, una volta che avete entrambi un piano.",
   "featurePage.marketing.how.1.step": "Parte a suo nome, verso il suo elenco",
   "featurePage.marketing.how.1.body": "Le campagne partono dal suo indirizzo verificato verso i clienti già presenti nel suo account, e lei può vedere cosa è arrivato loro.",
   "featurePage.marketing.how.2.step": "Il lavoro sul quartiere si pianifica, non si ricorda a memoria",

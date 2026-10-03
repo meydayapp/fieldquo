@@ -156,6 +156,7 @@ export function initialStateFromInvoice(invoice) {
       amountPaid: 0,
       language: null,
       invoice: null,
+      clientPoNumber: "",
     };
   }
   const subtotal = num(invoice.subtotal);
@@ -185,6 +186,8 @@ export function initialStateFromInvoice(invoice) {
     amountPaid: num(invoice.amountPaid),
     language: invoice.language || null,
     invoice,
+    // The client's PO as saved; "" for none (lib/documents/clientPo.js).
+    clientPoNumber: invoice.clientPoNumber || "",
   };
 }
 
@@ -239,6 +242,21 @@ export default function InvoiceBuilder({ mode = "create", invoiceId = null, clie
         }
         if (cancelled) return;
 
+        // The job's PO, so a new invoice raised from a job opens with the
+        // number it will carry. Best effort: if the read fails the box opens
+        // empty and untouched, and POST /api/invoices carries the job's PO
+        // itself (lib/documents/clientPo.js carriedClientPo).
+        let jobPo = "";
+        if (jobId) {
+          try {
+            const jobRow = await fetchJson(`/api/jobs/${encodeURIComponent(jobId)}`);
+            jobPo = jobRow?.clientPoNumber || "";
+          } catch {
+            jobPo = "";
+          }
+        }
+        if (cancelled) return;
+
         let client = base.client;
         if (mode === "create") {
           const wanted = preselectedClientId || labourOffer?.job?.clientId || null;
@@ -266,7 +284,7 @@ export default function InvoiceBuilder({ mode = "create", invoiceId = null, clie
           jobId: jobId || null,
           labourOffer,
         });
-        setInitial({ ...base, client });
+        setInitial({ ...base, client, ...(mode === "create" && jobPo ? { clientPoNumber: jobPo } : {}) });
       } catch (err) {
         if (!cancelled) setLoadError(err?.message || t(mode === "edit" ? "app.invoiceEdit.loadError" : "app.invoiceNew.createError"));
       }
@@ -363,6 +381,18 @@ export function InvoiceBuilderForm({ mode = "create", invoiceId = null, bootstra
   const [dueDate, setDueDate] = useState(start.dueDate || "");
   const [discount, setDiscount] = useState(start.discount ?? "");
   const [changeReason, setChangeReason] = useState("");
+  // The client's PO (Invoice.clientPoNumber). Posted only once touched, or
+  // when the invoice (or its job) already had one — see builderRequest.js.
+  const [clientPoNumber, setClientPoNumberState] = useState(start.clientPoNumber || "");
+  const [clientPoTouched, setClientPoTouched] = useState(false);
+  const setClientPoNumber = (v) => {
+    setClientPoNumberState(v);
+    setClientPoTouched(true);
+  };
+  const postedPo = clientPoTouched || start.clientPoNumber ? clientPoNumber : undefined;
+  // The client's "requires a PO" rule, asked about in the send dialog rather
+  // than discovered from a refusal after the save.
+  const poMissing = Boolean(selectedClient?.requiresPo) && !String(clientPoNumber || "").trim();
 
   // ── Tax ──────────────────────────────────────────────────────────────────
   const [taxEnabled, setTaxEnabled] = useState(start.taxEnabled !== false);
@@ -676,6 +706,7 @@ export function InvoiceBuilderForm({ mode = "create", invoiceId = null, bootstra
             costing,
             isDraft: start.isDraft !== false,
             changeReason,
+            clientPoNumber: postedPo,
           }),
         ),
       });
@@ -725,6 +756,7 @@ export function InvoiceBuilderForm({ mode = "create", invoiceId = null, bootstra
             status: action === "sent" ? "sent" : "draft",
             costing,
             discount: appliedDiscount,
+            clientPoNumber: postedPo,
           }),
         ),
       });
@@ -752,7 +784,12 @@ export function InvoiceBuilderForm({ mode = "create", invoiceId = null, bootstra
     }
 
     if (action === "sent") {
-      const sendRes = await fetch(`/api/invoices/${invoice.id}/send`, { method: "POST" });
+      // The send dialog already said this client requires a PO and this
+      // invoice has none; pressing Send there was the "send anyway".
+      const sendRes = await fetch(`/api/invoices/${invoice.id}/send`, {
+        method: "POST",
+        ...(poMissing ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sendWithoutPo: true }) } : {}),
+      });
       if (!sendRes.ok) {
         const data = await sendRes.json().catch(() => null);
         if (planRequiredFrom(sendRes.status, data)) {
@@ -939,8 +976,15 @@ export function InvoiceBuilderForm({ mode = "create", invoiceId = null, bootstra
       }}
       recipient={pendingSend?.to}
       title={t("app.invoiceBuilder.confirmSendTitle", "Send this invoice?")}
-      detail={t("app.quoteNew.confirmSendDetail")}
-      confirmLabel={t("app.invoiceNew.saveSend")}
+      detail={
+        // The client's "requires a PO" rule, asked HERE rather than refused
+        // after the save: Cancel goes back to the PO box above the lines,
+        // Send goes ahead without one (posted as sendWithoutPo below).
+        poMissing
+          ? `${t("app.clientPo.sendWarning", { client: selectedClient?.name || "" })} ${t("app.quoteNew.confirmSendDetail")}`
+          : t("app.quoteNew.confirmSendDetail")
+      }
+      confirmLabel={poMissing ? t("app.clientPo.promptAnyway") : t("app.invoiceNew.saveSend")}
     />
   );
 
@@ -1108,6 +1152,11 @@ export function InvoiceBuilderForm({ mode = "create", invoiceId = null, bootstra
         caller,
         mayCost,
         canEditScope: true,
+        // The client's PO. Never locked on an invoice: a draft is edited in
+        // place and a sent one by a new version, which carries it.
+        clientPoNumber,
+        setClientPoNumber,
+        clientPoLocked: false,
         companyCurrency,
         companyLanguage,
         quoteLanguage: documentLanguage,

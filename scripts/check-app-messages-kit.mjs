@@ -61,7 +61,7 @@ import { layoutThread, ROW_UNREAD, ROW_MESSAGE } from "@/lib/chat/threadLayout";
 import { composerBlock, connectionBlurb } from "@/lib/messaging/composerState";
 import { THREAD_STATUSES, THREAD_OUTCOMES, statusLabelKey, outcomeLabelKey } from "@/lib/messaging/outcomes";
 import { MESSAGING_PLATFORMS, platformLabelKey } from "@/lib/messaging/platforms";
-import { ACTIVITY_TYPES, LINK_KINDS, activityLabel } from "@/lib/messaging/activity";
+import { ACTIVITY_TYPES, LINK_KINDS, CALL_OUTCOMES, activityLabel } from "@/lib/messaging/activity";
 import { waitedLabel } from "@/lib/messaging/waiting";
 import { INBOX_POLL_MS, inboxPollPlan } from "@/lib/messaging/inboxPoll";
 import { APP_MESSAGES } from "../app/i18n/appMessages.js";
@@ -290,6 +290,17 @@ for (const type of ACTIVITY_TYPES) {
     for (const to of THREAD_STATUSES) activityFixtures.push({ ...base, to }, { ...base, to, by: null });
   } else if (type === "linked" || type === "unlinked") {
     for (const kind of LINK_KINDS) activityFixtures.push({ ...base, kind }, { ...base, kind, by: null });
+  } else if (type === "call") {
+    // A call on the business number (lib/businessNumber/): every direction ×
+    // outcome in the closed CALL_OUTCOMES list, with a duration. An outbound
+    // call always names who placed it — without a name it renders nothing,
+    // by design — so only the inbound ones are walked "auto".
+    for (const [direction, outcomes] of Object.entries(CALL_OUTCOMES)) {
+      for (const outcome of outcomes) {
+        activityFixtures.push({ type, direction, outcome, durationSec: 95, by: "Dave" });
+        if (direction === "in") activityFixtures.push({ type, direction, outcome, durationSec: 95, by: null });
+      }
+    }
   } else {
     activityFixtures.push(base, { ...base, by: null });
   }

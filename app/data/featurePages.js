@@ -899,7 +899,7 @@ const PAGES = [
         pain:
           "Your best clients would happily recommend you and nobody ever asks them.",
         fix:
-          "After the job is marked done, one polite ask goes out — and a contractor you refer earns you both a free month.",
+          "After the job is marked done, one polite ask goes out — and a contractor you refer earns you both a free month once you're both on a plan.",
       },
     ],
     how: [

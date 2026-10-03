@@ -24,7 +24,8 @@
 // MobileTabBar.js — mounted once by app/app/layout.js for every /app screen —
 // swaps its pipeline tabs for the me tabs (MeTabBar below) whenever the
 // pathname is one of these screens, or whenever the caller is a crew member
-// whose pipeline tabs all gated away. Two fixed bars at the bottom of one
+// (lib/dashboard/crewHome.js isCrewHome — the same decision that gives them
+// My day on /app). Two fixed bars at the bottom of one
 // viewport would be the alternative, and <main>'s padding only reserves one.
 // So: the bar is the layout's, the tabs are this file's, the decision is
 // lib/me/tabs.js's.
@@ -52,6 +53,7 @@ import {
   MessagesSquare,
   Menu,
   Users,
+  Clock,
 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { usePermissions } from "@/app/providers/PermissionProvider";
@@ -64,6 +66,7 @@ const ICONS = {
   messages: MessagesSquare,
   more: Menu,
   team: Users,
+  clock: Clock,
 };
 
 /** The five tabs for this caller, with their icons resolved. */

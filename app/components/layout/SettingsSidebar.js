@@ -55,6 +55,7 @@ import {
   Droplet,
   Ruler,
   Headset,
+  Phone,
   Bot,
   Mail,
   Clock,
@@ -94,6 +95,7 @@ import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { filterSettingsGroups } from "@/lib/permissions/settingsAccess";
 import { filterSettingsGroupsByTrade } from "@/lib/settings/tradeGateNav";
+import { settingsChipClass, useActiveChipInView } from "@/app/components/settings/SettingsTabStrip";
 
 export const GROUPS = [
   {
@@ -222,6 +224,10 @@ export const GROUPS = [
       { key: "app.settings.leadForm", href: "/app/settings/lead-form", icon: ClipboardList, helpArticle: "settings-lead-form" },
       { key: "app.settings.bioLink", href: "/app/settings/links", icon: Link2, helpArticle: "settings-bio-link" },
       { key: "app.settings.voice", href: "/app/settings/voice", icon: Headset, helpArticle: "settings-voice" },
+      // Bringing the number clients already know into FieldQuo — hosted texts
+      // for a landline, a port for a cell. Beside the receptionist because
+      // that is where a missed call on it ends up.
+      { key: "app.settings.businessNumber", href: "/app/settings/business-number", icon: Phone, helpArticle: "settings-business-number" },
       // Beside the phone receptionist rather than under Messaging, and for the
       // same reason the receptionist is here: both are an agent a STRANGER
       // meets. The Messaging group is about the wording of what the company
@@ -456,6 +462,8 @@ export function SettingsPhoneNav() {
   const current = currentSettingsItem(allItems, pathname);
   const group = current ? groups.find((g) => g.items.some((i) => i.href === current.href)) : null;
   const shell = useNavShell();
+  // Hooks before the early return: the strip mounts on every settings page.
+  const stripRef = useActiveChipInView(current?.href);
   if (!group) return null;
   return (
     <div className="lg:hidden sticky top-[52px] z-30 border-b border-border/60 bg-card/80 supports-[backdrop-filter]:bg-card/65 backdrop-blur-xl">
@@ -463,7 +471,7 @@ export function SettingsPhoneNav() {
           between settings pages on a phone, measured on every settings
           screen in the harness. The strip loses its own py-2 instead, so it
           grows by 10px, not 26. */}
-      <div className="flex items-center gap-1.5 px-3 py-1 overflow-x-auto" data-settings-phone-nav>
+      <div ref={stripRef} className="flex items-center gap-1.5 px-3 py-1 overflow-x-auto" data-settings-phone-nav>
         <Link
           href="/app/settings"
           onClick={() => shell.close()}
@@ -482,11 +490,9 @@ export function SettingsPhoneNav() {
               key={item.href}
               href={item.href}
               aria-current={active ? "page" : undefined}
-              className={`shrink-0 inline-flex min-h-[44px] items-center rounded-full px-3 text-xs font-semibold border ${
-                active
-                  ? "bg-sidebar-primary text-sidebar-primary-foreground border-sidebar-primary"
-                  : "text-muted-foreground border-border hover:bg-sidebar-panel-accent hover:text-foreground"
-              }`}
+              // The chip lives in SettingsTabStrip so the in-page rows
+              // (Manage Team, the HR screens) are drawn by the same class.
+              className={settingsChipClass(active)}
             >
               {t(item.key)}
             </Link>

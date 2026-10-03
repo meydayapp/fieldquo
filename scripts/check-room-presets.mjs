@@ -303,6 +303,17 @@ ok(`all ${presets} preset × height combinations match areaGeometry`, presets > 
   const lines = buildTradeLineItems("interior_painting", takeoff, null);
   ok("the builder prices the takeoff (the cost side opens with real hours)", lines.length > 0 && lines.every((l) => Number.isFinite(l.amount ?? l.rate)), lines.slice(0, 2));
 
+  // The stairwell is priced on WALL area too (owner, 2026-10-03: walls by wall
+  // area, never floor) — two storeys of it: 14 × 3 ft footprint, 2 × 8 ft high.
+  {
+    const sw = roomsFromIntake([{ type: "stairwell" }], "north_america")[0];
+    const swCfg = { ...INSTANT_ESTIMATE_DEFAULTS.painting, enabled: true, minCharge: 0 };
+    const swEst = computeInstantEstimate({ trade: "painting", measurements: { rooms: [sw], scope: "interior" }, materialKey: "standard", config: swCfg });
+    ok("a stairwell's wall is two storeys high (16 ft) and 2 × (14 + 3) × 16 = 544 sq ft", sw.heightFt === 16 && sw.wallSqft === 544, sw);
+    ok("...priced as that wall area × the $/sqft, not the 42 sq ft floor",
+      near(swEst.point, Math.round((544 * swCfg.materials[0].ratePerSqft) / 10) * 10) && /\(544 sq ft\)/.test(swEst.breakdown[0].label), swEst);
+  }
+
   // Walls only: the picker prices exactly as typing its wall area.
   const cfg = { ...INSTANT_ESTIMATE_DEFAULTS.painting, enabled: true };
   for (const region of REGIONS) {

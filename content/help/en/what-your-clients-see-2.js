@@ -174,9 +174,9 @@ export const ARTICLES = {
     title: "The referral page",
     summary:
       "The page another business owner lands on when you share your Refer & Earn link — who it is for, what it promises, what it says about you, and the one place FieldQuo's own name is meant to appear.",
-    updated: "2026-09-12",
+    updated: "2026-10-03",
     intro: [
-      "Your referral link is not for homeowners. It is for **another business** — the electrician you share jobs with, the painter who asked what software you use. The page it opens says that you use FieldQuo, offers them a free month on top of the trial, and sends them to the signup form with your name attached.",
+      "Your referral link is not for homeowners. It is for **another business** — the electrician you share jobs with, the painter who asked what software you use. The page it opens says that you use FieldQuo, offers them a referral month when they choose a plan — their first charge moves a month later — and sends them to the signup form with your name attached. You get a link to share once your company has chosen a plan.",
       "That makes it the exception to the white-label rule, on purpose: a page whose whole point is to say “this contractor uses FieldQuo — you could too” cannot hide the name. Your logo and colour are on it as the referrer, and FieldQuo's are on it as the product.",
     ],
     sections: [
@@ -194,8 +194,9 @@ export const ARTICLES = {
         blocks: [
           { bullets: [
             "Your logo — or, without one, your initial on your brand colour — over the line “[Your company] uses FieldQuo”.",
-            "The headline **Get your first month free**, a one-paragraph description of FieldQuo, and a **Claim your first month free** button that opens the signup form with your referral code attached.",
-            "Under the button: “No card needed to start — you choose a plan from inside the app.” Then three bullets on what the product does.",
+            "The headline **Get a month free when you choose a plan** — the referral month — a one-paragraph description of FieldQuo, and a **Start my free trial** button that opens the signup form with your referral code attached.",
+            "Under the button: “No card needed to start. When you choose a plan from inside the app, your first charge moves a month later.” Then three bullets on what the product does.",
+            "If your company has no plan when the visitor opens the link — a link shared while you were still on the trial — the headline reads **Try FieldQuo free** instead, and the page promises nothing beyond the ordinary trial. The visitor can still sign up, but gets no referral month later, even if you choose a plan afterwards: what the page said when they signed up is what counts.",
             "A footer that says the quiet part: “For businesses new to FieldQuo. Already have an account? Sign in.” — an existing company cannot redeem an offer.",
           ] },
           { p: "The page is server-rendered so it is readable in the first half-second on one bar of signal, and it carries a link preview (title and description) because it gets pasted into WhatsApp and Facebook groups where the preview card is the pitch." },
@@ -208,11 +209,11 @@ export const ARTICLES = {
           { table: {
             head: ["Who", "What they get", "When"],
             rows: [
-              ["The business you referred", "**1 extra free month** added to their trial", "At signup, the moment they use your link"],
+              ["The business you referred", "**1 free month** — its first charge moves a month later", "When it chooses a plan — provided you had one when it signed up through your link, even if yours has ended since"],
               ["You", "**1 free month** added to your own access", "When the referred company makes its first payment — not at signup"],
             ],
           } },
-          { p: "Both sides get the same thing — a month of FieldQuo — whatever the size of the business you refer. Your month lands on their first payment rather than their signup so that twenty throwaway signups cannot earn a free year; the cap is 50 credited referrals per calendar month." },
+          { p: "Both sides get the same thing — a month of FieldQuo — whatever the size of the business you refer. Their 14-day trial is the ordinary one; nothing is added to it. Your month lands on their first payment rather than their signup so that twenty throwaway signups cannot earn a free year; the cap is 50 credited referrals per calendar month." },
           { note: "The link does nothing for a company that already has an account, and you cannot refer yourself. The page tells them so before they fill anything in." },
         ],
       },

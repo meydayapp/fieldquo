@@ -43,6 +43,7 @@ import { usePermissions } from "@/app/providers/PermissionProvider";
 import { filterNavItems } from "@/lib/features/nav";
 import { filterNavItemsByPermission } from "@/lib/permissions/nav";
 import { isMePath } from "@/lib/me/tabs";
+import { isCrewHome } from "@/lib/dashboard/crewHome";
 import { MeTabBar } from "@/app/components/me/MeShell";
 import { useNavShell } from "@/app/components/layout/NavShell";
 
@@ -52,8 +53,9 @@ import { useNavShell } from "@/app/components/layout/NavShell";
 //
 // Chat is the fifth, and it is the one a CREW member keeps. The four pipeline
 // tabs are gated on the document ladders (lib/permissions/nav.js), and the
-// Crew preset sits at `none` on every one of them — so for the person in the
-// van the bar used to hold nothing but More. Chat has no NAV_REQUIREMENTS
+// Crew preset sits at `none` on three of them (jobs is view_only, scoped to
+// their own) — the person in the van gets the employee bar instead, see
+// isCrewHome below. Chat has no NAV_REQUIREMENTS
 // entry on purpose: everyone on the roster is in #general and in the rooms
 // of the jobs they are booked on, and the chat is the crew's own screen.
 // Same shell, same kit, same drawer for everything else. It is feature-gated
@@ -91,16 +93,32 @@ export default function MobileTabBar() {
   // ── The employee home's bar ─────────────────────────────────────────────
   //
   // On any /app/me screen the five tabs are the employee home's (Home ·
-  // Schedule · Earnings · Messages · More, or the manager set — lib/me/
+  // Clock · Schedule · Messages · More, or the manager set — lib/me/
   // tabs.js), so the bar a person is standing on is the bar of the screen
   // they are on. And for the person in the van it is the bar EVERYWHERE:
-  // when the pipeline gating above leaves nothing but Chat standing — the
-  // Crew preset sits at `none` on all four document ladders — the old bar
-  // was Chat + More, the docs/MOBILE-TABBAR.md edge case. That person's
+  // when the pipeline gating above leaves nothing but Chat standing — a grid
+  // at `none` on all four document ladders — the old bar was Chat + More,
+  // the docs/MOBILE-TABBAR.md edge case. That person's
   // product is their next shift, their hours and their crew, and those are
   // the tabs they get. One bar at a time: MeTabBar carries the same chrome
   // and the same row height <main> reserves, so nothing else changes.
-  if (isMePath(pathname) || tabs.filter((t) => t.href !== "/app/chat").length === 0) {
+  //
+  // ── Who "the person in the van" is (2026-10-03) ─────────────────────────
+  //
+  // The gating test alone stopped catching them: the Crew preset holds jobs
+  // at view_only (scoped to their own assigned jobs, lib/permissions/
+  // enforce.js assignedJobWhere), so the Jobs tab survived and a crew
+  // member's bar was Jobs · Chat · More — no clock, which is what the owner
+  // reported. isCrewHome is the decision that already gives them My day on
+  // /app (no owner/admin seat, no schedule to run, none of the office
+  // documents), so the bar and the home agree about who they are. Their
+  // jobs list is still a tap away: the More tab's "Jobs" row
+  // (app/app/me/more/page.js), behind the same navRowAllowed as this bar.
+  if (
+    isMePath(pathname) ||
+    isCrewHome(caller) ||
+    tabs.filter((t) => t.href !== "/app/chat").length === 0
+  ) {
     return <MeTabBar />;
   }
 

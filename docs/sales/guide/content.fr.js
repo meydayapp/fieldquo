@@ -493,6 +493,7 @@ export const SCREENS_CHAPTER = {
     refer: { body: [
       "Recommander une autre entreprise donne un autre mois de FieldQuo gratuit une fois qu'elle est cliente payante. Le lien de l'entreprise avec « Copier » — assez court pour le dire à voix haute, sur une carte d'affaires, un pied de facture ou un camion — un bouton de partage WhatsApp, et « Envoyer l'invitation » par courriel ou texto.",
       "En dessous, les mois gagnés, les entreprises recommandées (créditée ou pas encore payante) et les invitations envoyées.",
+      "Tout cela seulement une fois que l'entreprise a choisi un forfait. Pendant l'essai gratuit, la page indique que le parrainage s'ouvre une fois un forfait choisi, avec un lien vers Compte et facturation — pas de lien, pas d'invitations.",
     ] },
     help: { body: [
       "« Centre d'aide » — des guides pas à pas pour tout dans FieldQuo : soumissions, chantiers, factures, encaissement, réservation, site web, équipe, et l'utilisation sur le téléphone. Une boîte de recherche, un bouton pour rejouer la visite guidée, et des articles groupés par sujet.",
@@ -539,7 +540,7 @@ export const SCREENS_CHAPTER = {
     ] },
     "settings-refer": { body: [
       "La même page « Parrainage » que dans le menu principal : le lien de parrainage de l'entreprise, le partage et l'invitation, les mois gagnés et les entreprises recommandées.",
-      "Un mois gratuit chacun, pour celui qui recommande et pour celui qui est recommandé, une fois que l'entreprise recommandée paie.",
+      "Un mois gratuit de parrainage chacun, une fois sur un forfait. L'entreprise recommandée garde l'essai ordinaire de 14 jours; quand elle choisit un forfait, son premier prélèvement recule d'un mois, si le parrain avait un forfait quand elle s'est inscrite par le lien — même si ce forfait a pris fin depuis. Le mois du parrain tombe au premier vrai paiement de l'entreprise recommandée.",
     ] },
     "settings-migration": { body: [
       "« Migration de données » — le service payant où FieldQuo importe les anciennes données d'une entreprise. La carte de la demande montre ce qu'elle a dit apporter (QuickBooks, Jobber…), son statut (« Devis prêt »), le prix de FieldQuo avec sa note, et « Accepter » / « Refuser » ; en dessous, « Documents » avec « Téléverser un fichier » pour les exports.",

@@ -22,6 +22,7 @@ import {
   Plus,
   Languages,
   MessageSquare,
+  Hash,
 } from "lucide-react";
 import SmsReceiptLine from "@/app/components/sms/SmsReceiptLine";
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
@@ -42,6 +43,7 @@ import OpenTicketsLink from "@/app/components/tickets/OpenTicketsLink";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 import { jobStatusLabel, jobStatusClasses } from "@/lib/jobs/statusLabels";
 import StreetViewPeek from "@/app/components/StreetViewPeek";
+import BridgeCallButton from "@/app/components/calls/BridgeCallButton";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -134,6 +136,8 @@ export default function ClientDetailPage() {
       // this field the API accepted a language the UI could never change, so a
       // client created in the wrong language was stuck there forever.
       language: client.language || null,
+      // Client.requiresPo — read by the invoice send (lib/documents/clientPo.js).
+      requiresPo: client.requiresPo === true,
     });
     setEditing(true);
   }
@@ -253,6 +257,8 @@ export default function ClientDetailPage() {
           <div className="flex items-center gap-2 text-sm text-foreground">
             <Phone size={14} className="text-muted-foreground shrink-0" />
             {client.phone}
+            {/* From the business number, when the company has one. */}
+            <BridgeCallButton kind="client" id={client.id} className="ml-auto" />
           </div>
         )}
         {client.email && (
@@ -318,6 +324,15 @@ export default function ClientDetailPage() {
               })}
           <span className="text-muted-foreground">· {t("app.clientDetail.docsEmails")}</span>
         </div>
+        {/* Said on the record, not only in the edit form: the office should
+            know before raising an invoice that this client's payables desk
+            wants a PO on it. */}
+        {client.requiresPo && (
+          <div className="flex items-center gap-2 text-sm text-foreground" data-client-requires-po>
+            <Hash size={14} className="text-muted-foreground shrink-0" />
+            {t("app.clientDetail.requiresPo")}
+          </div>
+        )}
         <CustomFieldsPanel
           entityType="client"
           entityId={id}
@@ -626,6 +641,21 @@ export default function ClientDetailPage() {
                 companyDefault={companyLanguage}
                 hint={t("app.clientDetail.langHint")}
               />
+
+              {/* Client.requiresPo — the invoice send stops and asks before an
+                  invoice for this client goes out without a PO number. */}
+              <label className="flex items-start gap-2 text-sm text-foreground cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={Boolean(form.requiresPo)}
+                  onChange={(e) => setForm({ ...form, requiresPo: e.target.checked })}
+                  className="mt-0.5"
+                />
+                <span>
+                  {t("app.clientDetail.requiresPo")}
+                  <span className="block text-xs text-muted-foreground">{t("app.clientDetail.requiresPoHint")}</span>
+                </span>
+              </label>
 
               <CustomFieldInputs cf={cf} />
 

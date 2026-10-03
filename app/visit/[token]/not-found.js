@@ -16,11 +16,15 @@
 // English only, matching the two pages above: there is no booking here, so
 // there is no client language to answer in, and guessing one from the phone's
 // setting is how an English client gets a French page.
+//
+// No FieldQuo favicon, description or manifest in the head either — see
+// neutralClientMetadata in lib/whiteLabel/pageMetadata.js.
+import { neutralClientMetadata } from "@/lib/whiteLabel/pageMetadata";
 
-export const metadata = {
+export const metadata = neutralClientMetadata({
   title: "Your visit",
   robots: { index: false, follow: false },
-};
+});
 
 export default function VisitNotFound() {
   return (

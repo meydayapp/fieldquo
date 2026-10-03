@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import PayCycleCard from "@/app/components/settings/PayCycleCard";
+import TimeActivitiesCard from "@/app/components/settings/TimeActivitiesCard";
 import { showError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
@@ -259,6 +260,9 @@ function PayrollSettingsScreen() {
           product knew the answer, which is why a worker could not be shown
           what they had earned so far. */}
         <PayCycleCard />
+        {/* Which clock activities exist here and which are paid — the
+          other half of "what time do we pay for". */}
+        <TimeActivitiesCard />
         <p className="text-sm text-muted-foreground">
           {t("app.setPayroll.subtitle")}
         </p>

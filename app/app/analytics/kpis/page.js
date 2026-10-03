@@ -180,6 +180,46 @@ export default function KpiDashboardPage() {
     setRange(presetRange(key));
   };
 
+  // ── ?from=YYYY-MM-DD&to=YYYY-MM-DD ──────────────────────────────────────
+  //
+  // The monthly summary email's "Open the full report" button lands here for
+  // the month it describes (lib/email/monthlySummaryEmail.js). Without this
+  // the button opened "This quarter" — a working link to the wrong numbers,
+  // which reads exactly like a broken one. Read from window.location once on
+  // mount rather than useSearchParams, which would need a Suspense boundary
+  // around the whole page. A range equal to a preset selects that preset;
+  // any other shows as its own chip, so the screen always says which period
+  // it is showing.
+  useEffect(() => {
+    let params;
+    try {
+      params = new URLSearchParams(window.location.search);
+    } catch {
+      return;
+    }
+    const from = params.get("from");
+    const to = params.get("to");
+    const day = /^\d{4}-\d{2}-\d{2}$/;
+    if (!day.test(from || "") || !day.test(to || "") || from > to) return;
+    if (Number.isNaN(Date.parse(`${from}T00:00:00Z`)) || Number.isNaN(Date.parse(`${to}T00:00:00Z`))) return;
+    const match = PERIOD_PRESETS.find(([key]) => {
+      const r = presetRange(key);
+      return r.from === from && r.to === to;
+    });
+    setPreset(match ? match[0] : "custom");
+    setRange({ from, to });
+  }, []);
+
+  const customLabel = useMemo(() => {
+    if (preset !== "custom") return null;
+    try {
+      const f = new Intl.DateTimeFormat(language || undefined, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+      return f.formatRange(new Date(`${range.from}T12:00:00Z`), new Date(`${range.to}T12:00:00Z`));
+    } catch {
+      return `${range.from} – ${range.to}`;
+    }
+  }, [preset, range.from, range.to, language]);
+
   const pct = (v) => `${v}%`;
   const weeks = (v) => (v === 1 ? "1 week" : `${v} weeks`);
 
@@ -301,6 +341,11 @@ export default function KpiDashboardPage() {
               {t(`app.kpis.preset.${key}`, label)}
             </button>
           ))}
+          {customLabel && (
+            <span className="text-sm px-3 py-1.5 rounded-lg border bg-inverted text-inverted-foreground border-transparent font-semibold tabular-nums">
+              {customLabel}
+            </span>
+          )}
         </div>
       </div>
 

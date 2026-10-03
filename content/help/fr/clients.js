@@ -798,10 +798,11 @@ export const ARTICLES = {
         id: "refer-and-earn",
         heading: "Ce qu'est vraiment Parrainage",
         blocks: [
-          { p: "**Parrainage** — dans le groupe **Croissance** de la barre latérale et de nouveau sous **Paramètres → Compte** — sert à parler de FieldQuo à une autre entreprise. Votre entreprise a un lien de parrainage ; quand un autre entrepreneur s'inscrit par ce lien, il obtient son premier mois gratuit, et vous obtenez un mois ajouté à votre propre abonnement une fois qu'il paie vraiment. C'est un programme d'entrepreneur à entrepreneur, géré par FieldQuo, et les personnes qui voient la page sont le propriétaire et les administrateurs." },
+          { p: "**Parrainage** — dans le groupe **Croissance** de la barre latérale et de nouveau sous **Paramètres → Compte** — sert à parler de FieldQuo à une autre entreprise. Une fois un forfait choisi, votre entreprise a un lien de parrainage ; quand un autre entrepreneur s'inscrit par ce lien, il obtient un mois de parrainage quand il choisit un forfait — son premier prélèvement recule d'un mois — et vous obtenez un mois ajouté à votre propre abonnement une fois qu'il paie vraiment. C'est un programme d'entrepreneur à entrepreneur, géré par FieldQuo, et les personnes qui voient la page sont le propriétaire et les administrateurs." },
           { figure: "live:app-settings-refer", caption: "Parrainage — votre lien de parrainage, le partage par courriel ou par texto, et les entreprises que vous avez parrainées avec l'indication de crédit pour chacune." },
           { bullets: [
             "La récompense est **un mois de chaque côté**, et le vôtre n'arrive que lorsque l'entreprise parrainée fait son premier paiement — jamais à l'inscription.",
+            "Il faut un forfait pour parrainer. Pendant l'essai gratuit, la page Parrainage indique qu'elle s'ouvre une fois un forfait choisi et affiche un lien vers Compte et facturation au lieu d'un lien à partager.",
             "Vous ne pouvez pas vous parrainer vous-même, et une entreprise qui existe déjà ne peut pas utiliser un lien.",
             "Tous les détails : [[refer-another-business|Parrainer une autre entreprise]] et [[referral-months|Les mois de parrainage]]. Ce que l'autre entrepreneur voit : [[the-referral-page|La page de parrainage]].",
           ] },
@@ -821,7 +822,7 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "Y aura-t-il un programme de recommandation pour les clients?", a: "Pas aujourd'hui, et cette page le dira tant que le produit ne le fera pas. Tout ce que vous lisez ailleurs qui promet une récompense de recommandation pour un particulier ne décrit pas FieldQuo." },
-      { q: "Un client peut-il utiliser mon lien de Parrainage?", a: "Seulement s'il exploite une entreprise de services sur le terrain et s'inscrit lui-même à FieldQuo. Ça lui donne un mois gratuit du logiciel, pas quoi que ce soit sur ses travaux avec vous." },
+      { q: "Un client peut-il utiliser mon lien de Parrainage?", a: "Seulement s'il exploite une entreprise de services sur le terrain et s'inscrit lui-même à FieldQuo. Ça lui donne un mois de parrainage du logiciel quand elle choisit un forfait, pas quoi que ce soit sur ses travaux avec vous." },
       { q: "Puis-je voir quels clients sont venus par recommandation?", a: "Seulement ce que vous avez écrit dans les notes. Il n'y a pas de rapport des sources de recommandation par client." },
     ],
   },

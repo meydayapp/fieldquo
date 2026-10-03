@@ -4,6 +4,8 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Receipt, Plus, Search, ArrowRight } from "lucide-react";
+import { matchesClientPo } from "@/lib/documents/clientPo";
+import ClientPoChip from "@/app/components/documents/ClientPoChip";
 import { fetchArray } from "@/lib/loadState";
 import ListState from "@/app/components/ListState";
 
@@ -60,7 +62,10 @@ export default function InvoicesPage() {
     const s = search.toLowerCase();
     return (
       inv.invoiceNumber?.toLowerCase().includes(s) ||
-      inv.client?.name?.toLowerCase().includes(s)
+      inv.client?.name?.toLowerCase().includes(s) ||
+      // The client's PO, the one the latest version carries (GET
+      // /api/invoices overlays it) — what their payables desk quotes.
+      matchesClientPo(inv, s)
     );
   });
 
@@ -233,6 +238,7 @@ export default function InvoicesPage() {
                       <span className="font-medium text-foreground truncate">
                         {inv.invoiceNumber}
                       </span>
+                      <ClientPoChip value={inv.clientPoNumber} />
                       <span
                         className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${invoiceStatusClasses(
                           inv.status,
