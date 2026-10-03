@@ -2576,6 +2576,9 @@ model Company {
   voiceCallTasks VoiceCallTask[]
   crewMessages CrewInboundMessage[]
   crewLine     CrewInboxNumber?
+  /// "Bring your number" — the business line clients already know, hosted
+  /// for texts or ported to FieldQuo. See lib/businessNumber/.
+  broughtNumber BroughtNumber?
   jobPhotos JobPhoto[]
   jobPhotoTags JobPhotoTag[]
 
@@ -21185,4 +21188,146 @@ model JobCommissionEntry {
   @@index([companyId, memberId, createdAt])
   @@index([companyId, payRunId])
   @@index([jobId])
+}
+
+/// "Bring your number": the business line a company's clients already know,
+/// brought into FieldQuo so every text and call on it lands in the
+/// conversation history. One per company.
+///
+/// Two paths, chosen by what the line IS (Twilio Lookup line type
+/// intelligence — lib/businessNumber/lineType.js), never by a preference:
+///
+///   hosted_sms  a landline or toll-free number. Texts move to Twilio (Hosted
+///               SMS); calls stay with the company's current provider.
+///   port        a cell, or a VoIP line (Twilio refuses to host VoIP). The
+///               number itself moves to FieldQuo's Twilio account; calls then
+///               ring the company's chosen phones from here.
+///
+/// The status vocabulary and every transition live in
+/// lib/businessNumber/state.js; this row is only where they are kept.
+///
+/// ── The secrets ────────────────────────────────────────────────────────────
+///
+/// accountNumberEnc, pinEnc and billEnc are AES-256-GCM blobs sealed with
+/// PORT_SECRETS_KEY and this row's id as AAD (lib/businessNumber/secrets.js),
+/// so a blob copied to another row will not open. They exist only as long as
+/// the port needs them: the store nulls all three the moment the request
+/// reaches a terminal state (active, failed, cancelled) and stamps
+/// secretsPurgedAt, so "only as long as needed" is a column, not a promise.
+model BroughtNumber {
+  id        String  @id @default(cuid())
+  companyId String  @unique
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// E.164. NOT unique: a failed or cancelled attempt keeps its row as
+  /// history, and another company may legitimately try the same digits later
+  /// (numbers change hands). A LIVE number is unique where it decides routing
+  /// — Company.smsFromNumber is @unique — and the claim check in
+  /// lib/businessNumber/store.js refuses a number another company is still
+  /// bringing in.
+  e164    String
+  /// "US" | "CA". Nothing else is offered yet.
+  country String
+
+  /// mobile | landline | voip | toll_free | unknown — what Lookup said.
+  lineType    String
+  carrierName String?
+  lookedUpAt  DateTime?
+
+  /// hosted_sms | port
+  path   String
+  /// See lib/businessNumber/state.js STATUSES.
+  status String @default("draft")
+  /// Twilio's own word for where it is, verbatim — shown beside ours so a
+  /// support conversation can quote the provider.
+  providerStatus String?
+  /// Why it failed, in the provider's words or ours. Shown to the company.
+  failureReason  String?
+  /// twilio_api (a US port, every hosted order) | twilio_form (a Canadian
+  /// port — filed by FieldQuo through Twilio's porting form; see PortFiling).
+  submitChannel  String?
+
+  /// HR… (hosted order) or the port-in request sid.
+  providerOrderSid  String?
+  /// PN… once the number exists in FieldQuo's Twilio account.
+  providerNumberSid String?
+  addressSid        String?
+  /// RD… the bill uploaded to Twilio for a US port.
+  documentSid       String?
+
+  /// The account holder exactly as the carrier has them.
+  holderName   String?
+  /// Who signs the authorization (Twilio emails them the LOA).
+  holderEmail  String?
+  contactPhone String?
+  /// Individual | Business
+  customerType String?
+  /// { street, street2, city, region, postalCode, country } — exactly as on
+  /// the carrier's records.
+  serviceAddress Json?
+
+  accountNumberEnc String?
+  pinEnc           String?
+  billEnc          String? @db.Text
+  billName         String?
+  billType         String?
+  secretsPurgedAt  DateTime?
+
+  /// The authorization as signed inside FieldQuo (a Canadian port). Twilio's
+  /// own e-signature covers hosted orders and US ports.
+  loaSignedName String?
+  loaSignedAt   DateTime?
+  loaSignedIp   String?
+
+  /// Where calls ring once the number is here: up to three E.164 numbers,
+  /// rung together. Null/empty = not set, and a call then goes straight to the
+  /// fallback rather than ringing nobody for twenty seconds.
+  forwardTo   Json?
+  ringSeconds Int    @default(20)
+  /// On no answer: receptionist | voicemail
+  fallback    String @default("receptionist")
+
+  submittedAt  DateTime?
+  expectedAt   DateTime?
+  activatedAt  DateTime?
+  cancelledAt  DateTime?
+  lastSyncedAt DateTime?
+
+  /// Rent is paid up to here. Same idempotency rule as VoicePhoneNumber.
+  rentPaidThroughAt DateTime?
+
+  /// A demo account's request — nothing was sent to any carrier.
+  simulated Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  filings PortFiling[]
+
+  @@index([e164])
+  @@index([status])
+}
+
+/// FieldQuo's OWN record of filing a port it cannot file by API — a Canadian
+/// number goes to Twilio through its international porting form, by a person.
+///
+/// Deliberately no companyId and a separate table: the platform console writes
+/// nothing a customer owns (non-negotiable #3). This is the log of what
+/// FieldQuo staff did on the company's behalf — filed, rejected by the carrier,
+/// a confirmed date — and the company's screen reads it, exactly as it reads
+/// Twilio's status for a port the API filed.
+model PortFiling {
+  id              String        @id @default(cuid())
+  broughtNumberId String
+  broughtNumber   BroughtNumber @relation(fields: [broughtNumberId], references: [id], onDelete: Cascade)
+  /// filed | rejected | confirmed
+  action          String
+  /// The carrier's rejection reason, or Twilio's ticket reference.
+  note            String?
+  /// The carrier-confirmed port date (FOC), when action = confirmed.
+  portDate        DateTime?
+  platformAdminId String?
+  createdAt       DateTime      @default(now())
+
+  @@index([broughtNumberId, createdAt])
 }

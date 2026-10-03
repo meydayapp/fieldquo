@@ -152,6 +152,11 @@ export async function GET(request) {
       // to see without opening anything, and a list that only said it once you
       // were already typing would say it too late.
       lastInboundAt: true,
+      // What the conversation is linked to, for the list's chip ("Job",
+      // "Lead", "Client") — the ids only, never the record.
+      jobId: true,
+      leadId: true,
+      clientId: true,
       channel: { select: { id: true, name: true, platform: true } },
       // The last message only — the list shows one line of preview, and
       // loading whole conversations to render 200 previews is how an inbox
@@ -196,6 +201,10 @@ export async function GET(request) {
     // reached the homeowner is the thing a contractor most needs to see
     // without opening anything.
     lastFailed: Boolean(t.messages[0]?.failedReason),
+    // The most specific link, for the list's chip. Additive: every key above
+    // is exactly what it was. A job outranks a lead because a job is what a
+    // lead became.
+    linked: t.jobId ? "job" : t.leadId ? "lead" : t.clientId ? "client" : null,
     // Null on web chat, SMS and email (no window); computed on WhatsApp,
     // Facebook and Instagram. Decided here, by the same pure function
     // the send path calls, so the list, the composer and the refusal cannot

@@ -88,6 +88,19 @@ export function DayBubble({ children, className = "" }) {
  *                    with many authors); defaults to `them`
  * @param empty       node for a thread with nothing in it
  * @param loading     draw a spinner instead of rows
+ * @param variant     "rows" (default — the left-aligned reading layout the
+ *                    header explains) or "bubbles": theirs on the left in
+ *                    the muted wash, ours on the right in FieldQuo navy.
+ *                    The owner asked for bubbles on the CLIENT inbox
+ *                    (2026-10-03: a conversation with a homeowner, read on
+ *                    a phone, should look like the texts it mirrors). Staff
+ *                    chat and the sales screens keep "rows", for the
+ *                    reason above — a choice per surface, not a reversal.
+ *                    Contrast is measured, not assumed: primary-foreground
+ *                    on primary and foreground on muted, both themes, are
+ *                    asserted ≥ 4.5:1 by scripts/check-bring-your-number.mjs.
+ *                    Notes, drafts and system rows are drawn the same in
+ *                    both variants.
  */
 export default function Thread({
   rows,
@@ -103,6 +116,7 @@ export default function Thread({
   loading = false,
   ariaLabel = "",
   className = "",
+  variant = "rows",
 }) {
   const { t } = useTranslation();
   const scroller = useRef(null);
@@ -263,6 +277,81 @@ export default function Thread({
             const who = inbound ? m.who || them : m.who || me;
             const initials = inbound ? (initialsFor ? initialsFor(m) : initialsOf(who)) : initialsOf(who);
             const actions = hoverActions ? hoverActions(m) : null;
+
+            // ── Bubbles: the client inbox's layout (see `variant`) ─────────
+            //
+            // Same row, same states, same data — only drawn as a bubble.
+            // A note keeps the rows layout: it is not something either side
+            // SAID, and a note drawn as our bubble would read as sent.
+            if (variant === "bubbles" && m.kind !== "note") {
+              const tone = failed
+                ? "bg-red-50 text-red-900 border border-red-200 dark:bg-red-950/40 dark:text-red-100 dark:border-red-900"
+                : inbound
+                  ? "bg-muted text-foreground"
+                  : "bg-primary text-primary-foreground";
+              return (
+                <div
+                  key={row.key}
+                  data-chat-row="message"
+                  data-bubble={inbound ? "them" : "us"}
+                  data-own={inbound ? undefined : "true"}
+                  data-sequential={row.sequential ? "true" : undefined}
+                  data-unread={row.unread ? "true" : undefined}
+                  className={`group relative flex px-1 ${inbound ? "justify-start" : "justify-end"} ${row.groupStart ? "pt-2" : "pt-0.5"} ${row.groupEnd ? "pb-1" : ""}`}
+                >
+                  <div className={`flex max-w-[85%] sm:max-w-[72%] flex-col ${inbound ? "items-start" : "items-end"}`}>
+                    {row.showSender && inbound ? (
+                      <span className="px-1 pb-0.5 text-xs font-medium text-muted-foreground break-words">{who}</span>
+                    ) : null}
+                    <div
+                      className={`rounded-2xl px-3 py-2 ${inbound ? "rounded-bl-md" : "rounded-br-md"} ${tone} ${pending ? "opacity-70" : ""}`}
+                    >
+                      {(renderBody ? renderBody({ ...m, bubble: true }) : null) ?? (
+                        <p className="whitespace-pre-wrap break-words text-sm">{displayBody(m.body)}</p>
+                      )}
+                    </div>
+                    <p className="mt-0.5 flex items-center gap-1.5 px-1 text-[11px] text-muted-foreground tabular-nums">
+                      {pending ? (
+                        <>
+                          <Loader2 size={11} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                          {t("app.chat.sending")}
+                        </>
+                      ) : row.undated ? (
+                        t("app.chat.timeUnknown")
+                      ) : row.groupEnd || !inbound ? (
+                        <time dateTime={new Date(m.at).toISOString()}>{timeLabel(m.at)}</time>
+                      ) : null}
+                      {!failed && !pending && !inbound && m.deliveryNote ? <span>· {m.deliveryNote}</span> : null}
+                    </p>
+                    {failed ? (
+                      <div className="px-1">
+                        <p className="flex items-start gap-1.5 text-xs text-red-700 dark:text-red-300 break-words">
+                          <AlertTriangle size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
+                          <span>{m.error || t("app.chat.sendFailed")}</span>
+                        </p>
+                        {onRetry ? (
+                          <button
+                            type="button"
+                            onClick={() => onRetry(m)}
+                            className="mt-1 min-h-[44px] px-3 text-xs font-semibold text-red-700 dark:text-red-300 underline"
+                          >
+                            {t("app.chat.retry")}
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                  {actions ? (
+                    <div
+                      data-hover-toolbar
+                      className={`absolute -top-3 ${inbound ? "left-2" : "right-2"} hidden items-center gap-0.5 rounded-md border border-border bg-card p-0.5 shadow-sm group-hover:flex group-focus-within:flex`}
+                    >
+                      {actions}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            }
 
             return (
               <div

@@ -51,6 +51,14 @@ export function RowBadges({ row, now, t }) {
       {/* An annotation, never a filter. A conversation that scored cold sits
           in this list exactly where it would have without a score. */}
       <TemperatureChip temperature={row.temperature} score={row.score} t={t} />
+      {/* What it is filed against — the chip the list was missing: a
+          conversation linked to a job reads differently from a stranger's
+          first text. The words are the inbox's own link-kind labels. */}
+      {row.linked ? (
+        <span className="shrink-0 rounded-full border border-border px-1.5 text-[10px] leading-4 text-muted-foreground" data-linked={row.linked}>
+          {t(`app.messages.activity.kind.${row.linked}`)}
+        </span>
+      ) : null}
       {row.lastFailed && (
         // Surfaced on the list, not only inside the thread: a reply that
         // never reached the homeowner is the thing a contractor most needs

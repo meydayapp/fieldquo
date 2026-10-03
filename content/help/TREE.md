@@ -90,7 +90,7 @@ callbacks, the crew inbox, team chat, How You Compare, the KPI dashboard,
 
 <!-- tree:start -->
 
-_Generated 2026-10-03 — 337 articles in the tree; written: en 337, fr 337, es 337; “Only in FieldQuo”: 34._
+_Generated 2026-10-03 — 338 articles in the tree; written: en 338, fr 338, es 338; “Only in FieldQuo”: 34._
 
 ### getting-started (23)
 
@@ -386,7 +386,7 @@ _Generated 2026-10-03 — 337 articles in the tree; written: en 337, fr 337, es 
 | `import-expenses-from-a-bank-csv` — Import expenses from a bank CSV | ✓ | ✓ | ✓ | expenses | expenses |  |
 | `overhead-and-your-minimum-price` — Overhead and your minimum price | ✓ | ✓ | ✓ | settings-overhead | break_even |  |
 
-### settings (49)
+### settings (50)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -433,6 +433,7 @@ _Generated 2026-10-03 — 337 articles in the tree; written: en 337, fr 337, es 
 | `settings-share-your-links` — Share your links | ✓ | ✓ | ✓ | settings-lead-form | embeds |  |
 | `settings-bio-link` — Bio link | ✓ | ✓ | ✓ | settings-bio-link | bio_link |  |
 | `settings-phone-receptionist` — Phone receptionist | ✓ | ✓ | ✓ | settings-voice | voice_receptionist |  |
+| `settings-business-number` — Your business number | ✓ | ✓ | ✓ | settings-business-number |  |  |
 | `settings-ai-employee` — AI employee | ✓ | ✓ | ✓ | settings-ai-employee | ai_employee |  |
 | `settings-reviews` — Reviews | ✓ | ✓ | ✓ | settings-reviews | review_requests |  |
 | `settings-data-migration` — Data Migration | ✓ | ✓ | ✓ | settings-migration |  |  |

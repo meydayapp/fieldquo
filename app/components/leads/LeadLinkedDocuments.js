@@ -428,7 +428,9 @@ function SocialEvidence({ lead, conversion, money, t }) {
                     ? t("app.leads.social.methodProfile", "Facebook profile name")
                     : e.method === "whatsapp_number"
                       ? t("app.leads.social.methodWhatsapp", "WhatsApp number")
-                      : e.quote
+                      : e.method === "sms_number"
+                        ? t("app.leads.social.methodSms", "Texted from this number")
+                        : e.quote
                         ? `“${e.quote}”`
                         : null;
                 return (

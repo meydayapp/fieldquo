@@ -538,6 +538,9 @@ const HREFS_BEFORE_REGROUP = [
   // callback agenda and the per-call-billed settings (Sales team, after
   // the retry pool — docs/SALES-OUTCOMES.md).
   "/platform/sales/outcomes",
+  // 2026-10-03: "Bring your number" — the Canadian ports a person files on
+  // Twilio's form (own systems, beside SMS delivery).
+  "/platform/business-numbers",
 ];
 const allHrefs = [HOME?.[1], ...PLATFORM_ITEMS.map((i) => i.href)].filter(Boolean);
 const counts = new Map();
@@ -559,7 +562,7 @@ const MEMBERSHIP = {
   salesTeam: ["/platform/sales/reps", "/platform/sales/floor", "/platform/sales/performance", "/platform/sales/call-quality", "/platform/sales/funnel", "/platform/sales/notes", "/platform/sales/conversations", "/platform/sales/windows", "/platform/sales/review", "/platform/sales/retry-pool", "/platform/sales/outcomes"],
   leadData: ["/platform/sales/prospects", "/platform/sales/campaigns", "/platform/sales/snapshots", "/platform/sales/capabilities", "/platform/sales/rules", "/platform/sales/playbooks", "/platform/sales/confidence", "/platform/sales/signatures", "/platform/suppressions"],
   support: ["/platform/chat", "/platform/support", "/platform/feedback", "/platform/jennifer", "/platform/data-deletion", "/platform/errors"],
-  own: ["/platform/sales-agent", "/platform/voice-webhooks", "/platform/sms-health", "/platform/analytics", "/platform/service-categories", "/platform/audit-log", "/platform/help", "/platform/team", "/platform/settings"],
+  own: ["/platform/sales-agent", "/platform/voice-webhooks", "/platform/sms-health", "/platform/business-numbers", "/platform/analytics", "/platform/service-categories", "/platform/audit-log", "/platform/help", "/platform/team", "/platform/settings"],
 };
 for (const [key, hrefs] of Object.entries(MEMBERSHIP)) {
   const strays = hrefs.filter((h) => groupOf(h) !== key);
