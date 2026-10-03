@@ -9,6 +9,7 @@ import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvide
 import { useTranslation } from "@/app/hooks/useTranslation";
 import SeatCapUpgradeNotice from "@/app/components/SeatCapUpgradeNotice";
 import BackToHome from "@/app/components/BackToHome";
+import SettingsTabStrip from "@/app/components/settings/SettingsTabStrip";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import AccessEditor, {
   emptyPermissionValues,
@@ -849,44 +850,30 @@ export default function TeamOverviewPage() {
           the settings sidebar already hides them correctly — this row did not,
           so a Manager saw two tabs that answered "Not available to your
           account". A link to a refusal is a dead control with extra steps. */}
-      <div className="flex gap-2 text-sm">
-        {access.canSee("payroll") && (
-          <Link
-            href="/app/settings/team/workers"
-            className="border border-border rounded-full px-4 py-2"
-          >
-            {t("app.setTeam.workers")}
-          </Link>
-        )}
-        <Link
-          href="/app/settings/team/timesheets"
-          className="border border-border rounded-full px-4 py-2"
-        >
-          {t("app.nav.timesheets")}
-        </Link>
-        {access.canSee("payroll") && (
-          <Link
-            href="/app/settings/team/payroll"
-            className="border border-border rounded-full px-4 py-2"
-          >
-            {t("app.nav.payroll")}
-          </Link>
-        )}
-        {/* The HR file: the same `user:manage` every /api/hr route requires. */}
-        {canAdd && (
-          <>
-            <Link href="/app/settings/team/compliance" className="border border-border rounded-full px-4 py-2" data-hr-tab="compliance">
-              {t("app.hr.compliance.tab")}
-            </Link>
-            <Link href="/app/settings/team/onboarding" className="border border-border rounded-full px-4 py-2" data-hr-tab="onboarding">
-              {t("app.hr.templates.tab")}
-            </Link>
-            <Link href="/app/settings/policies" className="border border-border rounded-full px-4 py-2" data-hr-tab="policies">
-              {t("app.hr.policies.tab")}
-            </Link>
-          </>
-        )}
-      </div>
+      {/* Drawn by SettingsTabStrip — one row that scrolls sideways on a
+          phone, chips that never wrap. It was a non-wrapping `flex` of
+          shrinkable pills, so long labels broke onto two lines and stretched
+          every other pill tall with its text at the top. */}
+      <SettingsTabStrip
+        label={t("app.setTeam.title")}
+        tabs={[
+          ...(access.canSee("payroll")
+            ? [{ key: "workers", href: "/app/settings/team/workers", label: t("app.setTeam.workers") }]
+            : []),
+          { key: "timesheets", href: "/app/settings/team/timesheets", label: t("app.nav.timesheets") },
+          ...(access.canSee("payroll")
+            ? [{ key: "payroll", href: "/app/settings/team/payroll", label: t("app.nav.payroll") }]
+            : []),
+          // The HR file: the same `user:manage` every /api/hr route requires.
+          ...(canAdd
+            ? [
+                { key: "compliance", href: "/app/settings/team/compliance", label: t("app.hr.compliance.tab"), attrs: { "data-hr-tab": "compliance" } },
+                { key: "onboarding", href: "/app/settings/team/onboarding", label: t("app.hr.templates.tab"), attrs: { "data-hr-tab": "onboarding" } },
+                { key: "policies", href: "/app/settings/policies", label: t("app.hr.policies.tab"), attrs: { "data-hr-tab": "policies" } },
+              ]
+            : []),
+        ]}
+      />
 
       <div className="bg-card border border-border rounded-xl overflow-x-auto">
         {/* ── Why "last login" hides first ────────────────────────────────

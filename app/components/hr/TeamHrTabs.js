@@ -2,9 +2,10 @@
 
 // app/components/hr/TeamHrTabs.js — the row of pills across Manage Team's
 // HR screens, so Compliance, Onboarding checklists and Policies are one
-// hop from each other and from the roster.
-import Link from "next/link";
+// hop from each other and from the roster. Drawn by SettingsTabStrip: it
+// used to `flex-wrap` onto a second line on a phone instead of scrolling.
 import { useTranslation } from "@/app/hooks/useTranslation";
+import SettingsTabStrip from "@/app/components/settings/SettingsTabStrip";
 
 const TABS = [
   { key: "team", href: "/app/settings/team", labelKey: "app.setTeam.title" },
@@ -16,12 +17,11 @@ const TABS = [
 export default function TeamHrTabs({ active }) {
   const { t } = useTranslation();
   return (
-    <div className="flex flex-wrap gap-2 text-sm" data-hr-tabs>
-      {TABS.map((tab) => (
-        <Link key={tab.key} href={tab.href} className={`border rounded-full px-4 py-2 min-h-[44px] inline-flex items-center ${active === tab.key ? "bg-primary text-primary-foreground border-primary" : "border-border"}`}>
-          {t(tab.labelKey)}
-        </Link>
-      ))}
-    </div>
+    <SettingsTabStrip
+      data-hr-tabs
+      label={t("app.setTeam.title")}
+      active={active}
+      tabs={TABS.map((tab) => ({ key: tab.key, href: tab.href, label: t(tab.labelKey) }))}
+    />
   );
 }

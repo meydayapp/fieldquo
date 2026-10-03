@@ -153,8 +153,19 @@ const TEXT_PAIRS = [
     "app/components/layout/MoreMenu.js", "hover:bg-sidebar-panel-accent"],
   ["More tile selected row", "--sidebar-primary-foreground", "--sidebar-primary",
     "app/components/layout/MoreMenu.js", "bg-sidebar-primary"],
+  // The chip class moved to SettingsTabStrip.js (2026-10-03) so Manage
+  // Team's and the HR screens' in-page rows draw the same chip. The phone
+  // strip sits on the card; the in-page rows sit on the page background.
   ["phone settings strip chip", "--muted-foreground", "--card",
-    "app/components/layout/SettingsSidebar.js", "text-muted-foreground border-border"],
+    "app/components/settings/SettingsTabStrip.js", "text-muted-foreground border-border"],
+  ["in-page settings tab chip", "--muted-foreground", "--background",
+    "app/components/settings/SettingsTabStrip.js", "text-muted-foreground border-border"],
+  ["settings tab chip hover", "--foreground", "--sidebar-panel-accent",
+    "app/components/settings/SettingsTabStrip.js", "hover:bg-sidebar-panel-accent hover:text-foreground"],
+  ["settings tab chip current", "--sidebar-primary-foreground", "--sidebar-primary",
+    "app/components/settings/SettingsTabStrip.js", "bg-sidebar-primary text-sidebar-primary-foreground"],
+  ["phone strip uses the shared chip", "--muted-foreground", "--card",
+    "app/components/layout/SettingsSidebar.js", "settingsChipClass(active)"],
   ["search result text", "--foreground", "--card",
     "app/components/layout/GlobalSearch.js", "text-foreground"],
   ["search result highlighted", "--foreground", "--muted",
