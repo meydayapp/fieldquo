@@ -40,6 +40,7 @@ import { normaliseSiteAddress } from "@/lib/geo/geocodeJob";
 import { offlineDiscountPctFor } from "@/lib/payments/offlineDiscount";
 import { canUseKitchenDesigner } from "@/lib/kitchen/access";
 import { linkInstantVisits } from "@/lib/quotes/linkInstantVisits";
+import { normaliseClientPo, readClientPoInput } from "@/lib/documents/clientPo";
 import {
   parseExpectedVersion,
   versionWhere,
@@ -368,6 +369,23 @@ export async function PATCH(request, { params }) {
     offlineDiscountPct = offlineDiscountPctFor(companyOffer);
   }
 
+  // ── The client's PO ───────────────────────────────────────────────────────
+  //
+  // Absent leaves it; "" clears it (lib/documents/clientPo.js). The same rule
+  // as the line items just below: editable while the quote is open, fixed once
+  // the client has decided — after acceptance the PO lives on the job, which
+  // is where a PO issued against the approved quote is typed. A save that
+  // re-posts the SAME value on a decided quote is not a change and passes.
+  const clientPoNumber = readClientPoInput(body);
+  const poChanging =
+    clientPoNumber !== undefined && clientPoNumber !== normaliseClientPo(existing.clientPoNumber);
+  if (poChanging && !["draft", "sent"].includes(existing.status)) {
+    return NextResponse.json(
+      { error: "This quote is already decided — add the PO number on its job instead.", code: "po_locked" },
+      { status: 400 },
+    );
+  }
+
   // Line-item edits are only valid while the quote is open. Editing scope groups
   // on a decided (accepted/declined) quote would rewrite what was agreed and —
   // through reconcileImportsForQuote below — could delete a subcontractor cost
@@ -465,6 +483,7 @@ export async function PATCH(request, { params }) {
     ...(reviewNotes !== undefined && { reviewNotes }),
     ...(processNotes !== undefined && { processNotes }),
     ...(siteAddressValue !== undefined && { siteAddress: siteAddressValue }),
+    ...(poChanging && { clientPoNumber }),
     ...(offlineDiscountPct !== undefined && { offlineDiscountPct }),
     ...(validUntil !== undefined && {
       validUntil: validUntil ? new Date(validUntil) : null,

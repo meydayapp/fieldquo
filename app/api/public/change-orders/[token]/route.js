@@ -68,6 +68,8 @@ const SELECT = {
       id: true,
       companyId: true,
       endDate: true,
+      // The client's PO for the job — a change order is billed under it.
+      clientPoNumber: true,
       client: { select: { name: true, address: true, city: true, language: true } },
       quote: {
         select: {
@@ -138,6 +140,9 @@ async function present(co) {
       address: [client?.address, client?.city].filter(Boolean).join(", "),
     },
     quote: quote ? { quoteNumber: quote.quoteNumber, acceptedAt: quote.acceptedAt } : null,
+    // Their own PO number, read back to them under the reference; null prints
+    // nothing (lib/documents/clientPo.js).
+    clientPoNumber: job.clientPoNumber || null,
     changeOrder: {
       id: co.id,
       label: changeOrderLabel(co, all),

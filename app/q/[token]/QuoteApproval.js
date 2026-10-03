@@ -62,7 +62,7 @@ import SignaturePad from "@/app/components/SignaturePad";
 import HowToPayBlock from "@/app/components/public/HowToPayBlock";
 import WaiverSign from "@/app/components/public/WaiverSign";
 import { documentLabels, documentFormatters } from "@/lib/i18n/documentLabels";
-import { documentCustomFacts } from "@/lib/documentSections/customFacts";
+import { documentFacts } from "@/lib/documentSections/customFacts";
 import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
 import { planOfferCopy } from "@/lib/servicePlans/offerCopy";
 import { monthlyPayment } from "@/lib/financing/monthlyEstimate";
@@ -743,7 +743,7 @@ export default function QuoteApproval({ token, sample = null }) {
           )}
           {/* The company's own boxes flagged for the document, in the same
               words as the PDF attached to the email that brought them here. */}
-          {documentCustomFacts(quote.customFields, { date: fmt.date, labels }).map(([label, value]) => (
+          {documentFacts(quote, { date: fmt.date, labels }).map(([label, value]) => (
             <p key={label} className="text-sm mt-1 text-[#2d2520]/70">
               {label} · <span className="text-[#2d2520]">{value}</span>
             </p>

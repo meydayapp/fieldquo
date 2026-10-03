@@ -27,6 +27,7 @@ import {
   settleGuardedWrite,
 } from "@/lib/concurrency/staleWrite";
 import { geocodeJob, normaliseSiteAddress, siteAddressChanged } from "@/lib/geo/geocodeJob";
+import { draftInvoicesFollowingJobPo, normaliseClientPo, readClientPoInput } from "@/lib/documents/clientPo";
 import { withWarranty } from "@/lib/equipment/warranty";
 import { warrantyLinkVerdict } from "@/lib/equipment/installed";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
@@ -234,6 +235,12 @@ export async function PATCH(request, { params }) {
 
   const body = await request.json();
   const { title, status, recurring, recurrenceRule, archived, startDate, endDate, siteAddress, warrantyEquipmentId } = body;
+  // The client's PO (lib/documents/clientPo.js): absent leaves it, "" clears
+  // it. Editable on a job at any time — a job is not a document the client
+  // holds; the invoices are, and they follow below only while still drafts.
+  const clientPoNumber = readClientPoInput(body);
+  const poChanging =
+    clientPoNumber !== undefined && clientPoNumber !== normaliseClientPo(existing.clientPoNumber);
 
   // ── Which equipment a warranty callback is about ──────────────────────────
   //
@@ -378,6 +385,7 @@ export async function PATCH(request, { params }) {
         ...(startDate !== undefined && { startDate: nextStart }),
         ...(endDate !== undefined && { endDate: nextEnd }),
         ...(nextWarrantyEquipmentId !== undefined && { warrantyEquipmentId: nextWarrantyEquipmentId }),
+        ...(poChanging && { clientPoNumber }),
         // Archiving is a separate axis from status — see Job.archivedAt. A job
         // can be archived whatever state the work is in, and unarchiving is
         // just as available, because nothing was destroyed.
@@ -415,6 +423,21 @@ export async function PATCH(request, { params }) {
   if (refusal) return NextResponse.json(refusal.body, { status: refusal.status });
 
   const updated = outcome.result;
+
+  // ── The PO onto the job's draft invoices ──────────────────────────────────
+  //
+  // "Carried forward automatically" has to include the PO that arrives AFTER
+  // the invoice was drafted — accepting a quote drafts its invoice the same
+  // minute, and the client's PO is usually issued later. Only drafts, and
+  // only those holding no PO or the job's previous one: a sent invoice
+  // changes by amendment and nothing else, and a draft somebody gave its own
+  // phase PO keeps it. See draftInvoicesFollowingJobPo.
+  if (poChanging) {
+    await db.invoice.updateMany({
+      where: draftInvoicesFollowingJobPo({ job: existing, previousPo: existing.clientPoNumber }),
+      data: { clientPoNumber },
+    });
+  }
 
   // The job's chat room follows its status and its name (lib/company/chat/
   // store.js): a job that just became scheduled gets its room before the

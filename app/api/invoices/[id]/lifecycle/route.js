@@ -54,6 +54,8 @@ const INVOICE_SELECT = {
   id: true,
   companyId: true,
   invoiceNumber: true,
+  // Handed to a job raised from this invoice, below.
+  clientPoNumber: true,
   status: true,
   clientId: true,
   quoteId: true,
@@ -471,6 +473,9 @@ export async function POST(request, { params }) {
       // every other surface (job costing, the accepted-quote task) matches on.
       quoteId: invoice.quoteId,
       title,
+      // The job this invoice bills for takes the invoice's PO when it has
+      // one; otherwise createJob carries the quote's (lib/documents/clientPo.js).
+      clientPoNumber: invoice.clientPoNumber || undefined,
     });
     if (error) return NextResponse.json({ error }, { status });
 

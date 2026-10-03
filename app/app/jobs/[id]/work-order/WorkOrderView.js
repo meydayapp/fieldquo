@@ -147,7 +147,10 @@ export default function WorkOrderView({ jobId }) {
     .filter(Boolean)
     .map((d) => formatShortDate(d, language));
   const dateText = dates.length === 2 && dates[0] !== dates[1] ? `${dates[0]} – ${dates[1]}` : dates[0] || "";
-  const sub = [wo.job.siteAddress, wo.client?.name, dateText].filter(Boolean).join(" · ");
+  // The client's PO, when the job has one — the same fact the PDF and the
+  // print sheet put on this line.
+  const poText = wo.job.clientPoNumber ? t("app.clientPo.chip", { po: wo.job.clientPoNumber }) : "";
+  const sub = [wo.job.siteAddress, wo.client?.name, dateText, poText].filter(Boolean).join(" · ");
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">

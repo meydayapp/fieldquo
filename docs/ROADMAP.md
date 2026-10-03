@@ -71,6 +71,76 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## The client's PO number on quotes, jobs and invoices (3 October 2026)
+
+Owner, 3 October: "We should be able to add PO jobs… to Quotes, invoices and
+jobs, or if it needs to be generated then generate them." The CLIENT's
+purchase-order number — the one a property manager's payables desk wants
+quoted back — not the supplier `PurchaseOrder` (purchasing, "PO-001"), which
+is untouched.
+
+### What shipped
+
+- `Quote.clientPoNumber`, `Job.clientPoNumber`, `Invoice.clientPoNumber`,
+  `Client.requiresPo`. One module decides everything about them:
+  `lib/documents/clientPo.js`.
+- **Carried forward**: quote → job on acceptance (`createJobFromQuote`), a
+  hand-raised job from its quote (`createJob`), job-then-quote onto the
+  invoice (`ensureInvoiceForQuote`, `POST /api/invoices` when the body says
+  nothing), the invoice's own PO onto a job raised from it. A PO typed on the
+  JOB later is copied onto that job's DRAFT invoices that had none or the old
+  one; sent invoices change only by amendment, and the version carries it.
+  Deposit / progress stage emails print what the job's one invoice carries;
+  the change-order page prints the job's.
+- **Editable** with the document's own rules: a quote while draft/sent
+  (refused once decided — it lives on the job then), a job at any time, an
+  invoice in place while draft and by new version once sent; an invoice can
+  have its own PO per phase.
+- **Printed only when set**, labelled in the document's language (eight
+  languages, `documentLabels().poNumber`): the PDF details panel, the emailed
+  quote/invoice (deposit requests included), `/q`, the portal invoice, the
+  change-order page, the work order (PDF, print sheet, screen), and the office
+  copies on the quote/invoice pages. A company's old custom "PO number" box
+  holding the same value is not printed twice.
+- **Searchable** in the quote, job and invoice lists, shown as a "PO …" chip.
+- **"Requires a PO number on invoices"** on the client (edit and new). The
+  send stops with a 409 `po_required` question — after the tax gate, before
+  anything is minted — and the invoice page's dialog offers "Add it and send"
+  (written onto the draft first) or "Send without a PO". Save & send in the
+  invoice builder asks the same in its confirm dialog. A prompt, not a block.
+- **Generate**: `GET /api/client-po/next` suggests the company's next
+  `PO-<year>-NNNN` from the references already on its quotes/jobs/invoices;
+  nothing is reserved until the document is saved.
+- **Accounting export**: a "Client PO" column after "Invoice number".
+
+### Schema (additive, applied by hand; the live diff's unrelated DROPs were not run)
+
+    ALTER TABLE "Client"  ADD COLUMN IF NOT EXISTS "requiresPo" BOOLEAN NOT NULL DEFAULT false;
+    ALTER TABLE "Invoice" ADD COLUMN IF NOT EXISTS "clientPoNumber" TEXT;
+    ALTER TABLE "Job"     ADD COLUMN IF NOT EXISTS "clientPoNumber" TEXT;
+    ALTER TABLE "Quote"   ADD COLUMN IF NOT EXISTS "clientPoNumber" TEXT;
+
+### Checks
+
+`check:client-po` (new, in `check:all`) — carry-forward executed against a
+recording fake db, printing in every language (PDF sections bundled with
+esbuild), search, the prompt, the sequence, supplier POs untouched, the export.
+Documents without a PO were proved byte-identical to HEAD: 240 renders
+(emails, PDF sections, web facts, work order; eight languages) by md5.
+
+### Owed
+
+- The payment reminder (`request-payment`, only offered on sent invoices) and
+  the automatic deposit request do not stop for a missing PO — they are not
+  the invoice's first send by a person. Say if they should.
+- The classic invoice forms (`?layout=classic`) have no PO box; the server
+  still carries the job's/quote's PO onto an invoice they create.
+- With a payment schedule, the deposit request SENDS the job's invoice the
+  moment the quote is accepted — usually before the client's PO exists. A PO
+  typed on the job afterwards is not copied onto that (now sent) invoice; it
+  takes an amendment. Copying onto sent invoices would break the "a sent
+  document keeps saying what it said" rule, so it needs a decision.
+
 ## The monthly summary email, rebuilt (3 October 2026)
 
 The 1st-of-the-month email ("Your September summary", From: FieldQuo) was one

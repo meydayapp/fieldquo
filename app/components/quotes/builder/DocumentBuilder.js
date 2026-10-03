@@ -106,6 +106,7 @@ import {
 } from "./QuoteTotalsBar";
 import ClientPicker from "./ClientPicker";
 import JobAddressField from "./JobAddressField";
+import ClientPoField from "@/app/components/documents/ClientPoField";
 import AddServicePicker from "./AddServicePicker";
 import TemplatePicker from "./TemplatePicker";
 import ServicesTab from "./ServicesTab";
@@ -1187,6 +1188,22 @@ export default function DocumentBuilder({ b, kind = "quote" }) {
                 <button type="button" onClick={() => setEditing(null)} className="mt-2 text-xs underline underline-offset-2">
                   {t("app.docBuilder.done", "Done")}
                 </button>
+              </div>
+            )}
+            {/* The client's PO (lib/documents/clientPo.js) — a quote's from
+                QuoteBuilder, an invoice's from InvoiceBuilder; each hands over
+                its own value, setter and lock. Absent from `b`, nothing draws. */}
+            {b.selectedClient && typeof b.setClientPoNumber === "function" && (
+              <div className="px-5 sm:px-7 pb-4" data-doc-client-po>
+                <ClientPoField
+                  kind={isInvoice ? "invoice" : "quote"}
+                  value={b.clientPoNumber}
+                  onChange={b.setClientPoNumber}
+                  client={b.selectedClient}
+                  locked={Boolean(b.clientPoLocked)}
+                  lockedNote={b.clientPoLockedNote || ""}
+                  framed={false}
+                />
               </div>
             )}
 

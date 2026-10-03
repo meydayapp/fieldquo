@@ -133,6 +133,7 @@ import ClientMediaTile from "@/app/components/ClientMediaTile";
 import { CustomFieldsPanel } from "@/app/components/customFields/CustomFieldsBox";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { documentLabels } from "@/lib/i18n/documentLabels";
+import { clientPoFact } from "@/lib/documents/clientPo";
 import ImportedByPanel from "./ImportedByPanel";
 import QuoteCostEditor from "@/app/components/quotes/QuoteCostEditor";
 import CostingDefaultsNotice from "@/app/components/quotes/CostingDefaultsNotice";
@@ -1541,6 +1542,8 @@ export default function QuoteDetailPage() {
           // the top of lib/format/companyDate.js. "Valid until" borrows the
           // quote EDITOR's string rather than adding a seventh translation.
           facts={[
+            // The client's PO, as their copy prints it — absent, no row.
+            ...(clientPoFact(quote, labels) ? [clientPoFact(quote, labels)] : []),
             [labels.date, formatDate(quote.createdAt)],
             ...(quote.validUntil ? [[t("app.quoteEdit.validUntil"), formatDate(quote.validUntil)]] : []),
           ]}

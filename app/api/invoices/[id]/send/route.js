@@ -38,6 +38,7 @@ import { taskForSentInvoice } from "@/lib/tasks/autoCreate";
 import { familyPayments } from "@/lib/invoices/family";
 import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
 import { invoiceSendAsk } from "@/lib/invoices/sendAsk";
+import { clientPoSendPrompt, normaliseClientPo, readClientPoInput } from "@/lib/documents/clientPo";
 import { fileSentInvoiceDocument } from "@/lib/jobs/documentAutofile";
 import { syncForSourceInvoice } from "@/lib/subcontractors/sourceLink";
 import {
@@ -185,6 +186,40 @@ export async function POST(request, { params }) {
       { status: 409 },
     );
   }
+
+  // ── "This client requires a PO" ─────────────────────────────────────────
+  //
+  // A prompt, not a block (lib/documents/clientPo.js clientPoSendPrompt): the
+  // tax gate above stops hard because a wrong tax line is a wrong amount; a
+  // missing PO is a document the client's payables desk may bounce, and the
+  // office may know something we don't. So the send answers 409 with the
+  // question, and the screen offers both ways out — type the PO (posted back
+  // here as `clientPoNumber`, written onto a DRAFT in place, the same rule as
+  // every other field on a draft) or `sendWithoutPo: true`. A sent invoice
+  // takes a PO only by amendment, so the prompt says so rather than writing
+  // into a document the client already holds. Placed after the hard refusals
+  // so nobody types a PO only to be refused for something else.
+  const sendBody = await request.json().catch(() => ({}));
+  const typedPo = readClientPoInput(sendBody);
+  if (typedPo && !normaliseClientPo(invoice.clientPoNumber)) {
+    if (invoice.status !== "draft") {
+      return NextResponse.json(
+        { error: "This invoice has already been sent. Edit it to add the PO number — that saves a new version.", code: "po_locked" },
+        { status: 409 },
+      );
+    }
+    await db.invoice.update({
+      where: { id: invoice.id, companyId: member.companyId },
+      data: { clientPoNumber: typedPo },
+    });
+    invoice.clientPoNumber = typedPo;
+  }
+  const poPrompt = clientPoSendPrompt({
+    client: invoice.client,
+    invoice,
+    sendWithoutPo: sendBody?.sendWithoutPo === true,
+  });
+  if (poPrompt) return NextResponse.json(poPrompt, { status: 409 });
 
   const token = await ensurePortalToken(db, invoice.clientId, member.companyId);
   if (!token) {
