@@ -275,6 +275,31 @@ last. The phone agent's prompt is byte-identical (md5 over every variant).
   `/demo/<code>` page, which a visitor is never sent to.
 - **Company mode** (signed-in support) is unchanged and hash-pinned in
   `check:jennifer`, with a scan for selling words.
+## The contractors' closer learns Reverse Selling, by trade (2 October 2026)
+
+The AI employee's **closer** (the one that sells a company's work to a
+homeowner on web chat, SMS and Meta) now carries a technique section,
+`lib/aiEmployee/closerTechnique.js`, in our own words: the goal is a visit
+("no commitment, someone takes a look, then you decide"), times offered as two
+of check_availability's own labels, one question at a time, A-S-P, no "why",
+"fair enough?", two-to-four-sentence objection answers that end at the visit,
+the too-easy yes confirmed, and the referral question only after a booking.
+It is built from the company's ENABLED services (`closerTrades.js`, no rates
+read): per trade family, what to ask, what the visit is, and the objection
+that trade hears; a company with none listed gets the general approach,
+stated. Placed after every absolute rule, before the company's own style.
+
+- Receptionist, troubleshooter and custom prompts are byte-identical (md5
+  pins in `check:closer-technique`, new, in check:all).
+- Separate from `lib/sales/technique.js` on purpose: that one is about
+  FieldQuo (white-label), and imports referrals → db → Stripe.
+- **Open, owner's call:** the closer's system prompt grows by ~1,100–1,600
+  tokens per round (≈ +$0.006 a round on the best model), and
+  `TYPICAL_CONVERSATION_TOKENS` (the cost the settings screen prints) was not
+  raised; a booking request still routes to the receptionist when a company
+  has one (the flow view can map "book" to the closer); no inbound message
+  becomes a LeadRequest until book_callback is called; the reply cap defaults
+  to three per thread; there is no per-role switch for the technique.
 
 ## Reverse Selling, version 2: the first call books the demo (1 October 2026)
 
