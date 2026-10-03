@@ -119,14 +119,16 @@ const cabinets = CATALOGUE.find((c) => c.key === "cabinet_refinishing");
 section("1. The catalogue is the whole sellable surface, not one slice of it");
 
 ok(
+  // Six since 2026-10-03: the stain finish (strip and re-stain instead of
+  // paint) joined the refinishing book's add-ons.
   "cabinet refinishing carries its price-book add-ons",
-  cabinets.addOns.length === 5,
+  cabinets.addOns.length === 6,
   JSON.stringify(cabinets.addOns),
 );
 eq(
   "and their keys are the flags cabinetAddOnLines reads",
   cabinets.addOns.map((a) => a.key).sort(),
-  ["drawerSlides", "handleHoles", "softCloseHinges", "threeTone", "twoTone"],
+  ["drawerSlides", "handleHoles", "softCloseHinges", "stainFinish", "threeTone", "twoTone"],
 );
 eq(
   "labelled from the price book, never by a model",
@@ -157,7 +159,7 @@ eq(
   addOnsForCategory("cabinet_refinishing", {
     addOns: { softCloseHingesPerDoor: 0 },
   }).map((a) => a.key),
-  ["handleHoles", "drawerSlides", "twoTone", "threeTone"],
+  ["handleHoles", "drawerSlides", "twoTone", "threeTone", "stainFinish"],
 );
 
 /* ═════════════════ 2. No rate reaches the prompt ══════════════════════════ */
@@ -177,6 +179,7 @@ for (const [name, value] of [
   ["soft-close hinge rate", book.addOns.softCloseHingesPerDoor],
   ["handle hole rate", book.addOns.handleHolesPerDoor],
   ["two-tone flat", book.addOns.twoToneFlat],
+  ["stain finish rate", `${book.addOns.stainFinishPerUnit}`],
   ["job minimum", book.minimumTotal],
 ]) {
   ok(`no ${name} (${value}) in the prompt`, !PROMPT.includes(String(value)));

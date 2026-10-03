@@ -941,7 +941,11 @@ function PaintRoom({ room, index, book, canRemove, onChange, onRemove }) {
             ))}
           </select>
         </Field>
-        <Field label="Floor area (sqft)">
+        {/* The WALL area: `room.sqft` × wallPricePerSqft is the walls line
+            (lib/pricing/tradeScope.js buildInteriorPaint). This box said
+            "Floor area" — painting is priced on wall and ceiling area, never
+            floor (owner, 2026-10-03). Label only; the number is unchanged. */}
+        <Field label="Wall area (sqft)">
           <Num value={room.sqft} onChange={(v) => set({ sqft: v })} />
         </Field>
       </div>
@@ -960,7 +964,7 @@ function PaintRoom({ room, index, book, canRemove, onChange, onRemove }) {
           hint={
             sqft > 0
               ? `${sqft} sqft × ${money(c.wallPricePerSqft)}/sqft`
-              : "Enter the floor area above to price this"
+              : "Enter the wall area above to price this"
           }
           amount={wallAmount}
         />

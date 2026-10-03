@@ -126,9 +126,15 @@ const emptyBooks = Object.keys(TRADE_PRICE_BOOKS).filter(
 // book, registered in tradePriceBooks.js by reference — the only one of the
 // six that is live. A count that moves without a sentence here is a book
 // appearing or vanishing by accident.
+//
+// 18 later the same day: the drywall REPAIR book went live too (owner:
+// "drywall repairs are not the room calculator" — fixed-price repair items),
+// also by reference, read by lib/quotes/drywallRepairs.js.
 ok(
-  "17 shipped books (16 + drywall_install, live 2026-10-03)",
-  Object.keys(TRADE_PRICE_BOOKS).length === 17 && TRADE_PRICE_BOOKS.drywall_install === INTERIOR_PRICE_BOOKS.drywall_install,
+  "18 shipped books (16 + drywall_install + drywall, live 2026-10-03)",
+  Object.keys(TRADE_PRICE_BOOKS).length === 18 &&
+    TRADE_PRICE_BOOKS.drywall_install === INTERIOR_PRICE_BOOKS.drywall_install &&
+    TRADE_PRICE_BOOKS.drywall === INTERIOR_PRICE_BOOKS.drywall,
   Object.keys(TRADE_PRICE_BOOKS).length,
 );
 ok(
@@ -181,8 +187,9 @@ const unpriced = catalogKeys.filter((k) => !tradeIsPricedByDefault(k));
 // arriving on the unpriced side, not by a book disappearing.
 //
 // 64 since 2026-10-03: drywall_install's book went live and it left the
-// unpriced side — the one deliberate move.
-ok(`64 of ${catalogKeys.length} catalogue trades cannot price themselves`, unpriced.length === 64 && !unpriced.includes("drywall_install"), unpriced.length);
+// unpriced side — the one deliberate move. 63 the same day: drywall's repair
+// book followed it.
+ok(`63 of ${catalogKeys.length} catalogue trades cannot price themselves`, unpriced.length === 63 && !unpriced.includes("drywall_install") && !unpriced.includes("drywall"), unpriced.length);
 ok("only 2 material recipes exist in the whole product", Object.keys(MATERIAL_RECIPES).length === 2);
 ok("...and this file adds 8", Object.keys(INTERIOR_RECIPES).length === 8);
 // The three the brief named as empty. Overwriting any of them would have
@@ -214,7 +221,7 @@ for (const key of MY_BOOKS) {
   // nothing. Any other key already present would be a collision.
   ok(
     `\`${key}\` is a new key, not an overwrite`,
-    key === "drywall_install" ? TRADE_PRICE_BOOKS[key] === INTERIOR_PRICE_BOOKS[key] : !hasPriceBook(key),
+    key === "drywall_install" || key === "drywall" ? TRADE_PRICE_BOOKS[key] === INTERIOR_PRICE_BOOKS[key] : !hasPriceBook(key),
   );
   ok(`...and \`${key}\` has no shipped recipe to clobber either`, !MATERIAL_RECIPES[key]);
   ok(`...and no shipped add-on list either`, !STANDARD_ADDONS[key]);
@@ -733,11 +740,14 @@ const basementL5 = quote("drywall_install", "standard", [["hang", 2400], ["finis
 ok("...and at Level 5 it is $9,310 — the skim is $1,800 of it", near(basementL5, 9310), basementL5.toFixed(2));
 
 // Three small patches, one large, and a stippled ceiling scraped. Moderate:
-// an occupied furnished house.
-//   3 × 285 = 855;  1 × 950;  120 × 4.75 = 570  ⇒  2,375
+// an occupied furnished house. (Researched prices, 2026-10-03.)
+//   3 × 215 = 645;  1 × 500;  120 × 4.75 = 570  ⇒  1,715
 const repair = quote("drywall", "moderate", [["small_patch", 3], ["large_patch", 1], ["popcorn_removal", 120]]);
-ok("drywall — 3 small patches, 1 large, 120 sqft of stipple: $2,375", near(repair, 2375), repair.toFixed(2));
-ok("...comfortably over the $425 call-out minimum, so it does not apply", repair > getPriceBook("drywall").complexity.moderate.callOutMinimum);
+ok("drywall — 3 small patches, 1 large, 120 sqft of stipple: $1,715", near(repair, 1715), repair.toFixed(2));
+ok("...comfortably over the $250 call-out minimum, so it does not apply", repair > getPriceBook("drywall").complexity.moderate.callOutMinimum);
+// One sheet replaced and its texture matched, Standard: 600 + 80 = 680.
+const sheet = quote("drywall", "standard", [["sheet_replace", 1], ["texture_match", 1]]);
+ok("drywall — one 4 × 8 sheet replaced and texture-matched: $680", near(sheet, 680), sheet.toFixed(2));
 
 // A two-car garage, 480 sqft, ground and flaked, with 22 lf of crack.
 //   480 × 1.75 = 840;  480 × 9.00 = 4,320;  22 × 14 = 308  ⇒  5,468

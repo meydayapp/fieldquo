@@ -1,6 +1,7 @@
 # FieldQuo — current phase and what's left
 
 Last updated: 3 October 2026 (phone usage at cost × 2 — the owner's rule. Every crew text and every business-number text and call is charged its FLOOR at once (2¢/segment, 5¢/photo, 5¢/call-minute — lib/phoneUsage/pricing.js now owns these; crew and business-number meters re-export them) and queued (PhoneUsageCharge); the hourly /api/cron/business-numbers reads Twilio's price off the message / call (all legs) and debits the difference to max(floor, price × 2) under `<ref>:settle`, once. Each settled price is an observation per class (sms/mms in/out per CA/US/INTL, call_forward, call_bridge); a new unit price seen 5× in a class that already had one is a change → PlatformErrorLog "twilio_price_change", and if it RAISES what companies pay, a PhonePriceChange → an owners/admins-only banner (our new price + date, never the carrier/cost/multiple; not demos, not crew; dismissed per user). /platform/costs shows "Phone costs vs what we charge" with anything under 2× in red. Companies never see the multiple: Settings → Business number, the crew-rate lines and the help articles say only our minimum prices ("Texts from 2¢ each, photos from 5¢, calls from 5¢ a minute. Some carriers are priced higher."), and check:phone-usage scans every catalogue, help module and those screens for ×2 / cost / Twilio / markup / double; "× 2" appears only on /platform. Tables applied by SQL: PhoneUsageCharge, PhoneCostTier, PhonePriceChange — scripts/check-phone-usage.mjs)
+Last updated: 3 October 2026 (researched market defaults for the exterior door / window frame / trim boards / shutters, a stain-finish add-on on cabinet refinishing, cabinets COUNTED for a painter without the cabinet trade, Siding & trim and Trim boards exclusive per area, drywall repairs as fixed-price items from the now-live repair book, "Wall area" on the legacy room box, and ceilings by area on the instant room picker — see "Researched defaults, counted cabinets, trim once, drywall repairs, wall area" below)
 
 Last updated: 3 October 2026 (Bring your number — Settings → Business number. Twilio Lookup classifies the number; a landline/toll-free gets Hosted SMS (texts move, calls stay; Twilio's ownership call + emailed LOA; numbers v2 HostedNumber/Orders), a cell or VoIP line is PORTED (Twilio refuses to host VoIP). US ports go through Twilio's Port In API (bill uploaded as a document, LOA e-signed via Twilio, nothing secret stored); Canadian ports have no API — FieldQuo files them on Twilio's international form from /platform/business-numbers (superadmin, audited; PortFiling log; the PIN/account/bill sealed with PORT_SECRETS_KEY and purged at the end). Status syncs hourly (/api/cron/business-numbers) and on view; a number goes `active` only after it is wired (SMS → /api/sms/inbound, voice → /api/business-number/voice) and becomes Company.smsFromNumber. Texts on it file through the existing inbox, link to client/lead/job by phone, and a stranger becomes a lead by the social-leads rules; calls ring up to three phones (caller ID passed through), then the existing receptionist number or voicemail, each filed as a `call` line on the conversation; the Call button (leads, clients, jobs, the inbox header) rings the member then the client from the business number. Costs from the phone balance: $4/mo, 2¢/text, 5¢/photo, 5¢/call-minute (the last one NEW and unconfirmed — BUSINESS_CALL_CENTS_PER_MINUTE). The client inbox now draws bubbles (ours navy, contrast measured), a linked-record chip on the list, and a voicemail player. OWNER TO DO: PORT_SECRETS_KEY in Vercel; Hosted SMS + Port In enabled on the Twilio account; A2P 10DLC brand/campaign before any US number texts US phones — scripts/check-bring-your-number.mjs)
 
@@ -169,6 +170,65 @@ execute the per-role bar.
   owner's Worker row should be excluded from pay runs.
 
 ---
+## Researched defaults, counted cabinets, trim once, drywall repairs, wall area (3 October 2026)
+
+The owner's five follow-ups to "each estimate kind opens its own calculator",
+plus ceilings priced by area on the instant room picker. Research with every
+source, date, region and range: `docs/research/PRICING-EXTERIOR-STAIN-DRYWALL-2026.md`.
+
+### What shipped
+
+- **Market defaults** for the four exterior substrates, still in hours and
+  tagged `market`: exterior door 1.5 h/side ($265.85 a door both sides),
+  window frame 1 h ($87.75), trim boards 25 lf/h ($3.51/lf), shutters 2 h a
+  pair ($167.38). A company's own rate is kept (key-by-key merge); no stored
+  row used these keys (read-only count: 0).
+- **Stain vs paint** on cabinet refinishing: a `stainFinish` add-on,
+  `addOns.stainFinishPerUnit` $45 a door/drawer front (+30% on $150, inferred
+  from the strip-and-restain premium), on the rate card and in the add-ons
+  list; Staining → Cabinets opens with it ticked. Refacing has none. TrueFinish
+  has no cabinet stain price of its own (its stain rate is floors).
+- **Count calculator**: for a painter without the cabinet trade, a
+  Cabinets & millwork area is counted (doors, drawer fronts, box lf, built-in
+  sqft from the `cab_*` substrates) with no W × L × H and no geometry strip
+  (`usesCountCalculator`). A stored area with dimensions keeps its room.
+- **Trim once**: Siding & trim and Trim boards exclude each other per area
+  (the tick and the Add-substrate list), with a one-line reason; a stored area
+  with both keeps its price and shows a warning (read-only count: 0 such
+  areas in production).
+- **Drywall repairs** are fixed-price items: the staged repair book is live
+  (`TRADE_PRICE_BOOKS.drywall`, by reference) with researched prices (small
+  $170, medium $275, large $400, sheet $600, texture $80 a patch, call-out
+  $200 — CAD, three tiers), a Repairs panel on drywall groups
+  (`lib/quotes/drywallRepairs.js`, `DrywallRepairPicker.js`) adding one line
+  per pick, and the call-out minimum offered as the difference. It bills no
+  board (`bookBillsBoard`), so drywall groups still open on the company's own
+  rate line, and Services keeps their rate box (`keepsOwnRate` — of the 8
+  companies selling drywall, 6 are demos on the painting preset's $3.25/sqft
+  and 2 real ones have no rate). A dated scope paragraph (from 2026-10-04,
+  eight languages) states the work, so check:trade-labour holds.
+  `drywall_install` is untouched.
+- **Wall area**: the legacy interior room box said "Floor area (sqft)" and
+  priced walls; it now says "Wall area (sqft)". Label only.
+- **Ceilings by area** on the instant room picker: ceiling sq ft ×
+  `ceilingPricePerSqft` (2.40, standard tier, on the rate card), never under
+  the per-room ceiling price; the walls-only pin and the typed path's md5 hold.
+- Checks: `check:estimate-kind-routing` sections 4–8 (443 assertions, a second
+  md5 set pinned against origin/main f74dd7f9), `check:room-presets` ceiling
+  assertions; book counts updated in the pricebook and drywall checks.
+
+### Owed — owner decisions
+
+- Gel stain / tone-over (cheaper than paint) is not priced; only strip and
+  re-stain is.
+- The stain finish adds no stripping hours to the cabinet COST estimate
+  (lib/pricing/cabinetLabour.js) — the price carries it, the margin panel does
+  not yet.
+- Drywall's intake still asks square footage and ceiling height (they feed the
+  finish level's wording and the company's per-sqft rate line); whether repairs
+  should drop them is his call.
+- The CAD figures for repairs and ceilings are inferred at an assumed
+  1 USD = 1.37 CAD — check against his own invoices.
 
 ## Interior painting instant estimate: a room picker, sized like stairs (3 October 2026)
 
@@ -378,12 +438,11 @@ room's substrates.
 
 ### Owed — owner decisions
 
-- The four exterior rates are placeholders until he names his own.
-- A painter with no cabinet trade still gets the painting book's cabinet
-  substrates inside a room for Cabinets & millwork; whether that should drop
-  the room geometry is his call.
-- The cabinet trade has no stain-vs-paint price; a stained cabinet group
-  prices at the refinishing card and only its heading says stain.
+- ~~The four exterior rates are placeholders~~ — set from market research the
+  same day (see "Researched defaults…" above).
+- ~~A painter with no cabinet trade gets a room for Cabinets & millwork~~ — it
+  is counted now, no room geometry.
+- ~~No stain-vs-paint price~~ — a stain-finish add-on on refinishing.
 ## The time clock by activity, and the clock in the crew's menu (3 October 2026)
 
 The owner: "Crew members don't have the clock in and clock out option in their

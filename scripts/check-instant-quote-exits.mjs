@@ -451,7 +451,9 @@ ok("...and refacing gets no add-on boxes its estimator never reads",
 
 ok("refinishing gets both complexity uplifts",
   ["complexityUpchargePerUnit.moderate", "complexityUpchargePerUnit.high"].every((p) => paths(refinishFields).includes(p)));
-ok("...and all seven upgrade rates", paths(refinishFields).filter((p) => p.startsWith("addOns.")).length === 7, paths(refinishFields));
+// Eight since 2026-10-03: the stain finish (strip and re-stain), which the
+// estimator prices through cabinetAddOnLines when a call or form asks for it.
+ok("...and all eight upgrade rates", paths(refinishFields).filter((p) => p.startsWith("addOns.")).length === 8, paths(refinishFields));
 
 // Every rate the estimator can charge for has a box. The reverse of the dead
 // control: a live rate with no editor is the bug this whole section is about.

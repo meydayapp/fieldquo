@@ -13,7 +13,12 @@
 // have its price on the price book, per sqft"). app/data/tradePriceBooks.js
 // registers INTERIOR_PRICE_BOOKS.drywall_install by reference, with a field
 // list of only the rows a quote reads (hang + finish Levels 1–5, per tier —
-// lib/quotes/drywallFinishLine.js). Edit its numbers HERE. The other five
+// lib/quotes/drywallFinishLine.js). Edit its numbers HERE.
+//
+// A SECOND went live the same day: `drywall`, the repair book (owner —
+// drywall repairs are fixed-price items, not the room calculator), read by
+// lib/quotes/drywallRepairs.js, prices researched and written up in
+// docs/research/PRICING-EXTERIOR-STAIN-DRYWALL-2026.md. The other four
 // books, every recipe and every add-on below are still staged.
 //
 // ══ What was actually missing, which is not what the brief said ════════════
@@ -189,14 +194,29 @@ export const INTERIOR_PRICE_BOOKS = {
   // ("Drywall Installation"). Splitting them repair/new-work is the only
   // reading under which both earn their place, and it is how the trade sells:
   // a patch call and a basement board-out are different crews, different
-  // minimums and different failure modes. FLAGGED as a product decision — if
-  // the owner meant `drywall` as the umbrella, these two books collapse into
-  // one and the repair rows become items on it.
+  // minimums and different failure modes.
   //
-  // The number that decides whether this book is honest is not any rate, it is
-  // `returnVisitHours` in the recipe. A patch is two visits, because the mud
-  // has to dry overnight, and a repair quote that prices one visit loses the
-  // second one every time.
+  // LIVE since 2026-10-03 (owner: "drywall repairs are not the room
+  // calculator" — plain drywall offers fixed-price repair items). Registered
+  // in app/data/tradePriceBooks.js by reference, like drywall_install, and
+  // read by lib/quotes/drywallRepairs.js: the drywall group's "Repairs" panel
+  // adds each item as an ordinary line at the book's price. No geometry —
+  // a patch is priced by the size of the hole, a sheet by the sheet.
+  //
+  // Prices are MARKET defaults, researched 2026-10-03 —
+  // docs/research/PRICING-EXTERIOR-STAIN-DRYWALL-2026.md has every source,
+  // date, region and range. They replaced the staged Ottawa all-in figures
+  // ($225 / $425 / $750), which priced the visit INTO each patch; the visit
+  // is `callOutMinimum` now, so one small patch is not charged a call-out
+  // twice. The published figures are mostly US; these are the CAD figures
+  // inferred from them and from HomeStars (Toronto/Canada), labelled so in
+  // the research file. Moderate and High keep the staged book's own steps
+  // (about ×1.25 and ×1.6 over Standard), rounded to $5.
+  //
+  // The second visit (the mud drying overnight — `returnVisitHours` in the
+  // recipe) is inside a published per-patch price, so it is NOT added to
+  // each patch; `extras.returnVisitPrice` is there for the job that needs a
+  // separate one.
   drywall: {
     label: "Drywall Repair & Finishing",
     complexity: {
@@ -204,71 +224,78 @@ export const INTERIOR_PRICE_BOOKS = {
         desc: "Empty or easily cleared room, flat 8–9 ft ceiling, paint-ready flat finish, one accessible work area",
         // A patch is priced by the size of the hole because that is what
         // decides whether it needs backing, a butt joint or a whole sheet.
-        // Bands cross-checked against an Ottawa small-repair call at
-        // $250–$450 all-in; standard sits at the bottom of that.
-        smallPatchPrice: 225, // up to 6" — no backing, mesh and two coats
-        mediumPatchPrice: 425, // 6" to 2 ft — wood backing, tape, three coats
-        largePatchPrice: 750, // 2 ft to half a sheet — cut back to studs
+        smallPatchPrice: 170, // up to 6" — nail pop, screw hole, doorknob: mesh or California patch, two coats
+        mediumPatchPrice: 275, // 6" to 1 ft, fist-size — backing, tape, three coats
+        largePatchPrice: 400, // 1 ft to about 2 × 2 ft — cut back to framing, new piece
+        sheetReplacePrice: 600, // one 4 × 8 sheet out and in, taped and finished as a repair
+        textureMatchPrice: 80, // per patch — knockdown / orange peel blended to the wall
         skimCoatPricePerSqft: 2.2, // full Level 5 skim over sound board
-        textureMatchPricePerSqft: 3.0, // knockdown/orange peel blended to match
         // MATCHED DELIBERATELY to interior_painting.global
         // .popcornRemovalPricePerSqft, which is 3.50. Two books quoting the
         // same scrape at two prices is how a painter who also does drywall
         // ends up with two numbers on one job.
         popcornRemovalPricePerSqft: 3.5,
-        callOutMinimum: 350,
+        callOutMinimum: 200,
       },
       moderate: {
         desc: "Occupied and furnished home, 9–10 ft or sloped ceiling, several rooms, texture or a sheen that shows every flaw",
-        smallPatchPrice: 285,
-        mediumPatchPrice: 525,
-        largePatchPrice: 950,
+        smallPatchPrice: 215,
+        mediumPatchPrice: 345,
+        largePatchPrice: 500,
+        sheetReplacePrice: 750,
+        textureMatchPrice: 100,
         skimCoatPricePerSqft: 2.85,
-        textureMatchPricePerSqft: 3.75,
         popcornRemovalPricePerSqft: 4.75,
-        callOutMinimum: 425,
+        callOutMinimum: 250,
       },
       high: {
         desc: "Vaulted or over 12 ft needing staging, water or smoke damage of unknown extent, plaster rather than board, or a Level 5 under raking light",
-        smallPatchPrice: 375,
-        mediumPatchPrice: 700,
-        largePatchPrice: 1250,
+        smallPatchPrice: 270,
+        mediumPatchPrice: 440,
+        largePatchPrice: 640,
+        sheetReplacePrice: 960,
+        textureMatchPrice: 130,
         skimCoatPricePerSqft: 3.75,
-        textureMatchPricePerSqft: 4.75,
         popcornRemovalPricePerSqft: 6.5,
-        callOutMinimum: 550,
+        callOutMinimum: 320,
       },
     },
     items: [
       {
         id: "small_patch",
-        label: 'Patch — up to 6"',
+        label: 'Small patch — nail pop, screw or doorknob hole (up to 6")',
         unit: "each",
         priceType: "smallPatchPrice",
       },
       {
         id: "medium_patch",
-        label: 'Patch — 6" to 2 ft',
+        label: 'Medium patch — fist-size hole (6" to 1 ft)',
         unit: "each",
         priceType: "mediumPatchPrice",
       },
       {
         id: "large_patch",
-        label: "Patch — 2 ft to half a sheet",
+        label: "Large patch — up to 2 × 2 ft",
         unit: "each",
         priceType: "largePatchPrice",
+      },
+      {
+        id: "sheet_replace",
+        label: "Sheet replacement — 4 × 8, hung, taped and finished",
+        unit: "sheet",
+        priceType: "sheetReplacePrice",
+      },
+      {
+        id: "texture_match",
+        label: "Texture match — per patch",
+        unit: "each",
+        priceType: "textureMatchPrice",
       },
       {
         id: "skim_coat",
         label: "Skim coat — Level 5",
         unit: "sqft",
         priceType: "skimCoatPricePerSqft",
-      },
-      {
-        id: "texture_match",
-        label: "Texture match",
-        unit: "sqft",
-        priceType: "textureMatchPricePerSqft",
       },
       {
         id: "popcorn_removal",
@@ -297,8 +324,8 @@ export const INTERIOR_PRICE_BOOKS = {
       // Dust containment is sold, not absorbed. A poly wall and a negative-air
       // machine is the difference between a repair and a whole-house clean.
       dustContainmentPrice: 275,
-      // The second visit. Priced as its own line because the client can then
-      // see why a $225 patch is not a one-hour job — see returnVisitHours.
+      // A separate second visit, for the job that needs one — see the note
+      // above the book: a published patch price already includes it.
       returnVisitPrice: 165,
       furnitureMovingPrice: 175,
     },
@@ -1191,11 +1218,12 @@ export const INTERIOR_PRICE_BOOK_GROUPS = {
 export const INTERIOR_PRICE_BOOK_FIELDS = {
   drywall: [
     ...tiers([
-      ["smallPatchPrice", 'Patch — up to 6"', "$ / each"],
-      ["mediumPatchPrice", 'Patch — 6" to 2 ft', "$ / each"],
-      ["largePatchPrice", "Patch — 2 ft to half a sheet", "$ / each"],
+      ["smallPatchPrice", 'Small patch — up to 6"', "$ / each"],
+      ["mediumPatchPrice", 'Medium patch — 6" to 1 ft', "$ / each"],
+      ["largePatchPrice", "Large patch — up to 2 × 2 ft", "$ / each"],
+      ["sheetReplacePrice", "Sheet replacement — 4 × 8", "$ / sheet"],
+      ["textureMatchPrice", "Texture match — per patch", "$ / each"],
       ["skimCoatPricePerSqft", "Skim coat — Level 5", "$ / sqft"],
-      ["textureMatchPricePerSqft", "Texture match", "$ / sqft"],
       ["popcornRemovalPricePerSqft", "Popcorn / stipple removal", "$ / sqft"],
       ["callOutMinimum", "Call-out minimum", "$ flat"],
     ]),
@@ -2731,12 +2759,13 @@ export const INTERIOR_ADD_ONS = {
         "Compound has to dry before the finish coat. Most repairs are two visits.",
     },
     {
+      // Per patch since 2026-10-03, as the live book prices it.
       name: "Texture Match",
-      unit: "sqft",
-      unitPrice: 3.0,
+      unit: "each",
+      unitPrice: 80,
       type: "service",
       description:
-        "Blend knockdown, orange peel or stipple into the surrounding surface.",
+        "Blend knockdown, orange peel or stipple over a patch into the surrounding surface.",
     },
     {
       name: "Corner Bead Replacement",

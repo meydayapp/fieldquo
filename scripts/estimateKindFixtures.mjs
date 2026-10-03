@@ -79,3 +79,88 @@ export function fixtureDigests(fns) {
   }
   return out;
 }
+
+// ── The second set (2026-10-03, later) ─────────────────────────────────────
+//
+// What the same day's second change touches — the drywall repair book going
+// live, the cabinet stain add-on, the legacy room label, and an area holding
+// both trims — pinned against origin/main (f74dd7f9) through the same
+// injected functions. Kept apart from fixtureDigests so the first set's pins
+// stay exactly the ones they were taken as.
+
+// A legacy complexity-grid painting takeoff (no `model`): the "Wall area"
+// box (it said "Floor area") is `sqft` here. Label only — the number prices
+// as it did.
+export const LEGACY_ROOMS = {
+  rooms: [
+    { title: "Living", roomType: "living_room", sqft: 420, walls: true, ceiling: true, trim: true, doors: true, doorsCount: 2, closets: false, closetsCount: 0, colorChange: false, drywallPrep: false, complexityLevel: "standard" },
+    { title: "Bed", roomType: "bedroom", sqft: 300, walls: true, ceiling: false, trim: true, doors: true, doorsCount: 1, complexityLevel: "moderate" },
+  ],
+  popcornRemoval: false,
+  popcornSqft: 0,
+  furnitureMoving: false,
+  notes: "",
+};
+
+// A stored exterior area carrying BOTH Siding & trim and Trim boards — the
+// pair the builder now keeps apart. Its lines are what the quote billed, as
+// stored (literal, never derived here): a stored quote prints from them.
+const BOTH_TRIMS_TAKEOFF = {
+  model: "area_substrate",
+  estimateType: "exterior",
+  areas: [room({ areaType: "exterior", surface: "exterior", measurement: "surface", lengthFt: 0, widthFt: 0, heightFt: 0, surfaceSqft: 1200, linearFt: 180 }, [sub("siding_trim", { driver: "wallSqft", coats: 1 }), sub("ext_trim", { driver: "linearFt" })])],
+};
+const BOTH_TRIMS_LINES = [
+  { description: "Exterior — Siding & trim", quantity: 1200, unit: "sqft", rate: 1.1077, amount: 1329.24 },
+  { description: "Exterior — Trim boards", quantity: 180, unit: "lnft", rate: 2.9744, amount: 535.39 },
+];
+
+/**
+ * fns: as fixtureDigests.
+ */
+export function moreFixtureDigests(fns) {
+  const out = {};
+  // Drywall repairs: a company's own rate line ($3.25/sqft — six of the eight
+  // drywall companies' figure), intake answered, Level 4. New groups must open
+  // exactly as before the repair book went live.
+  for (const [key, cat] of [
+    ["drywall", { id: "cat-dw", key: "drywall", label: "Drywall", unit: "sqft", defaultRate: 3.25 }],
+    ["drywall_install", { id: "cat-dwi", key: "drywall_install", label: "Drywall Installation", unit: null, defaultRate: null }],
+  ]) {
+    const g = fns.newScopeGroup(cat, cat.label, null, { tempId: "d", fieldDefaults: true, language: "en", intakeValues: { squareFootage: 400 } });
+    const payload = fns.scopeGroupPayload(g, null, "en");
+    out[`${key}/live`] = md5({ group: g, payload, subtotal: fns.groupSubtotal(g, null) });
+    const stored = { ...g, persisted: true, lineItems: payload.lineItems };
+    out[`${key}/stored`] = md5({ payload: fns.scopeGroupPayload(stored, null, "en"), subtotal: fns.groupSubtotal(stored, null) });
+  }
+  // Cabinet refinishing with upgrades ticked — the stain finish is offered
+  // beside them now, and must change nothing on a group that did not tick it.
+  {
+    const g = fns.newScopeGroup({ id: "cat-rf", key: "cabinet_refinishing", label: "Cabinet Refinishing" }, "Cabinet Refinishing", null, {
+      tempId: "u",
+      intakeValues: CABINET_INTAKE,
+      addOns: ["softCloseHinges", "twoTone", "handleHoles"],
+    });
+    const payload = fns.scopeGroupPayload(g, null, "en");
+    out["cabinet_refinishing_upgrades/live"] = md5({ group: g, payload, subtotal: fns.groupSubtotal(g, null) });
+    const stored = { ...g, persisted: true, lineItems: payload.lineItems };
+    out["cabinet_refinishing_upgrades/stored"] = md5({ payload: fns.scopeGroupPayload(stored, null, "en"), subtotal: fns.groupSubtotal(stored, null) });
+  }
+  // The legacy room grid.
+  {
+    const g = { tempId: "l", persisted: false, categoryKey: "interior_painting", takeoff: LEGACY_ROOMS, lineItems: [], intakeValues: {} };
+    out["legacy_rooms/interior_painting"] = md5({
+      lines: fns.buildTradeLineItems("interior_painting", LEGACY_ROOMS, null),
+      subtotal: fns.tradeSubtotal("interior_painting", LEGACY_ROOMS, null),
+      payload: fns.scopeGroupPayload(g, null, "en"),
+    });
+  }
+  // A stored area with both trims: its price is kept.
+  {
+    const g = { tempId: "b", persisted: true, categoryKey: "exterior_painting", takeoff: BOTH_TRIMS_TAKEOFF, lineItems: BOTH_TRIMS_LINES, intakeValues: {} };
+    out["both_trims/stored"] = md5({ payload: fns.scopeGroupPayload(g, null, "en"), subtotal: fns.groupSubtotal(g, null) });
+  }
+  return out;
+}
+
+export const STORED_BOTH_TRIMS = { takeoff: BOTH_TRIMS_TAKEOFF, lineItems: BOTH_TRIMS_LINES };

@@ -78,7 +78,7 @@ import {
 } from "@/lib/pricing/paintTakeoff";
 import { Field, Num, inputClass, asList } from "./fields";
 import { MeasurementStyleToggle, AreaDimensionFields, GeometryStrip } from "./AreaGeometry";
-import { usesSurfaceCalculator } from "@/lib/quotes/estimateKindRouting";
+import { usesSurfaceCalculator, usesCountCalculator, excludedBy, trimCountedTwice } from "@/lib/quotes/estimateKindRouting";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 import MediaUploader from "@/app/components/MediaUploader";
 import ActionMenu from "@/app/components/mobile/ActionMenu";
@@ -121,6 +121,7 @@ function ProvenanceTag({ provenance, t }) {
   if (!provenance || provenance === "custom") return null;
   const words = {
     recovered: t("app.paint.provRecovered", "✓ recovered"),
+    market: t("app.paint.provMarket", "market rate"),
     analogue: t("app.paint.provAnalogue", "analogue"),
     derived: t("app.paint.provDerived", "derived"),
     example: t("app.paint.provExample", "example"),
@@ -495,12 +496,15 @@ function RatePicker({ row, def, rateSet, estimateType, money, t, onPick, onClose
 
 /* ── Substrate picker ──────────────────────────────────────────────────── */
 
-function SubstratePicker({ book, estimateType, surface, t, onPick, onClose }) {
+function SubstratePicker({ book, estimateType, surface, area = null, t, onPick, onClose }) {
   const [q, setQ] = useState("");
   const needle = q.trim().toLowerCase();
   const keys = Object.keys(book?.substrates || {}).filter((key) => {
     const def = book.substrates[key];
     if (!substrateFits(def, { estimateType, surface })) return false;
+    // Not the half of an exclusive pair whose other half is already here —
+    // the same rule as the ticks (Siding & trim includes Trim boards).
+    if (area && excludedBy(area, key)) return false;
     return !needle || `${def.label} ${key}`.toLowerCase().includes(needle);
   });
   return (
@@ -590,6 +594,12 @@ function QuickPicks({ area, book, estimateType, picksType = estimateType, t, onC
     });
 
   if (!picks.length) return null;
+  // Siding & trim already includes the trim; Trim boards is trim on its own
+  // (lib/quotes/estimateKindRouting.js EXCLUSIVE_SUBSTRATES). Whichever is on
+  // the area disables the other, and the line under the picks says why.
+  const blocked = picks
+    .map((pick) => ({ pick, by: rowFor(pick.key) < 0 ? excludedBy(area, pick.key) : null }))
+    .filter((x) => x.by);
   return (
     <div className="rounded border border-border p-2.5">
       <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
@@ -604,12 +614,22 @@ function QuickPicks({ area, book, estimateType, picksType = estimateType, t, onC
           const row = on ? substrates[i] : null;
           const [lk, ld] = PICK_LABELS[pick.pick || pick.key] || [null, def.label];
           const label = lk ? t(lk, ld) : def.label;
+          const off = !on && Boolean(excludedBy(area, pick.key));
           return (
             <div key={pick.key} className="flex items-center gap-1.5 flex-wrap">
-              <label className="flex items-center gap-1.5">
-                <input type="checkbox" checked={on} onChange={(e) => toggle(pick, e.target.checked)} />
+              <label className={`flex items-center gap-1.5 ${off ? "text-muted-foreground" : ""}`}>
+                <input
+                  type="checkbox"
+                  checked={on}
+                  disabled={off}
+                  data-excluded-substrate={off ? pick.key : undefined}
+                  onChange={(e) => toggle(pick, e.target.checked)}
+                />
                 {label}
               </label>
+              {on && pick.count && !["each", "side", "pair"].includes(def.unit) && (
+                <span className="order-last text-xs text-muted-foreground">{def.unit}</span>
+              )}
               {on && pick.count && (
                 <input
                   type="number"
@@ -664,6 +684,19 @@ function QuickPicks({ area, book, estimateType, picksType = estimateType, t, onC
           );
         })}
       </div>
+      {blocked.map(({ pick }) => (
+        <p key={pick.key} className="mt-1.5 text-xs text-muted-foreground" data-trim-exclusive={pick.key}>
+          {pick.key === "ext_trim"
+            ? t(
+                "app.paint.trimExclusive.trim",
+                "Siding & trim already includes the trim, so Trim boards is off on this area. Use Trim boards alone where only the trim is painted.",
+              )
+            : t(
+                "app.paint.trimExclusive.siding",
+                "Trim boards is on this area, so Siding & trim (which includes the trim) is off. Untick Trim boards to price the siding with its trim.",
+              )}
+        </p>
+      ))}
     </div>
   );
 }
@@ -1212,6 +1245,10 @@ function AreaCard({
   // not as a room — lib/quotes/estimateKindRouting.js says when, and why an
   // area stored with room dimensions keeps its room form.
   const surfaceCalc = usesSurfaceCalculator(estimateType, area);
+  // Cabinets & millwork (a painter without the cabinet trade) is COUNTED —
+  // doors, drawer fronts, box linear feet, built-in square feet — and has no
+  // room geometry to ask for. Same module, same keep-what-was-stored rule.
+  const countCalc = !surfaceCalc && usesCountCalculator(estimateType, area);
   // On the surface form every edit — the boxes and the strip — stores the
   // measured style, so a typed-over figure never flips it back to a room.
   const setSurface = (patch) => set({ measurement: "surface", ...patch });
@@ -1242,6 +1279,10 @@ function AreaCard({
         {surfaceCalc ? (
           <span className="text-sm font-medium text-foreground" data-surface-calculator>
             {t("app.paint.surfaceCalc", "Measured by surface")}
+          </span>
+        ) : countCalc ? (
+          <span className="text-sm font-medium text-foreground" data-count-calculator>
+            {t("app.paint.countCalc", "Counted by the piece")}
           </span>
         ) : (
           <MeasurementStyleToggle closed={closed} set={set} t={t} />
@@ -1277,8 +1318,24 @@ function AreaCard({
             )}
           </p>
         </>
+      ) : countCalc ? (
+        <p className="text-xs text-muted-foreground">
+          {t(
+            "app.paint.countHint",
+            "Cabinets are priced by the piece, not by the room: count the doors and drawer fronts, the linear feet of cabinet box and the square feet of built-ins below.",
+          )}
+        </p>
       ) : (
         <AreaDimensionFields area={area} index={index} style={style} closed={closed} set={set} t={t} />
+      )}
+
+      {trimCountedTwice(area) && (
+        <p className="rounded border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100" data-trim-twice>
+          {t(
+            "app.paint.trimTwice",
+            "This area has both Siding & trim and Trim boards, so its trim may be priced twice. Its price is kept as written — remove Trim boards if the trim is part of the siding.",
+          )}
+        </p>
       )}
 
       <div className="grid gap-2 sm:grid-cols-3">
@@ -1328,18 +1385,20 @@ function AreaCard({
       </div>
 
       {/* ── Calculated from measurements — type over any figure ── */}
-      <GeometryStrip
-        area={area}
-        geo={geo}
-        calc={calc}
-        closed={surfaceCalc ? false : closed}
-        set={surfaceCalc ? setSurface : set}
-        t={t}
-        hint={t(
-          "app.paint.grossHint",
-          "Every surface below reads its quantity from this strip. Gross area — openings are not deducted, which is what the production rates were recovered against.",
-        )}
-      />
+      {!countCalc && (
+        <GeometryStrip
+          area={area}
+          geo={geo}
+          calc={calc}
+          closed={surfaceCalc ? false : closed}
+          set={surfaceCalc ? setSurface : set}
+          t={t}
+          hint={t(
+            "app.paint.grossHint",
+            "Every surface below reads its quantity from this strip. Gross area — openings are not deducted, which is what the production rates were recovered against.",
+          )}
+        />
+      )}
 
       {/* ── Tick what's painted ── */}
       {estimateType && (
@@ -1514,6 +1573,7 @@ function AreaCard({
       {addingSubstrate && (
         <SubstratePicker
           book={book}
+          area={area}
           estimateType={estimateType}
           surface={estimateType === "commercial" || !estimateType ? area.surface || "interior" : null}
           t={t}
