@@ -139,7 +139,7 @@ export const ARTICLES = {
         heading: "No card today, and the free trial",
         blocks: [
           { p: "Signup asks for no card. The trial runs 14 days from the moment the company is created, with the whole product and nothing to cancel. When you choose a plan, Stripe takes the card on its own page — FieldQuo never sees the number — and the plan's first charge lands on the day the trial ends, so choosing early costs you no free days. If the trial ends with no plan chosen, the account goes read-only for 7 days and then locks; nothing is deleted. See [[free-first-month|Your first 14 days are free]]." },
-          { tip: "Arrived through another contractor's referral link? The banner on the form says so, and one extra free month is added to your trial. The person who referred you earns a month once you are a paying customer. See [[referral-months|Referral months]]." },
+          { tip: "Arrived through another contractor's referral link? The banner on the form says so — “[their company] referred you — 1 month free when you choose a plan.” Your trial is the ordinary 14 days; the referral month comes when you choose a plan, and moves your first charge a month later. The person who referred you earns a month once you are a paying customer. See [[referral-months|Referral months]]." },
         ],
       },
       {

@@ -259,10 +259,10 @@ export const ARTICLES = {
   "referral-months": {
     title: "Referral months",
     summary:
-      "How a referred business and the business that referred it each earn one free month, when each month lands, and the rules that stop the programme being gamed.",
-    updated: "2026-09-12",
+      "How a referred business and the business that referred it each earn one free month once they are on a plan, when each month lands, and the rules that stop the programme being gamed.",
+    updated: "2026-10-03",
     intro: [
-      "Refer another contractor and you both get the same thing: **one more month of FieldQuo free**. The newcomer's month is added to their free trial the moment they sign up through your link. Yours is added to your account when they make their **first real payment** — not when they sign up, because a month for a signup is a month for a throwaway address.",
+      "Refer another contractor and you both get the same thing: **one more month of FieldQuo free**. The referral programme works for companies that have **chosen a plan** — a company still on its free trial cannot refer yet. The newcomer's month comes when they choose a plan: their first charge moves a month later. Yours is added to your account when they make their **first real payment** — not when they sign up, because a month for a signup is a month for a throwaway address.",
       "This article is the mechanics: how the month is earned, where it goes on a monthly, yearly or trial account, and the limits. The page itself — the link, the invite form, the list of businesses — is covered in [[refer-another-business|Refer another business, earn a free month]].",
     ],
     sections: [
@@ -270,7 +270,9 @@ export const ARTICLES = {
         id: "overview",
         heading: "Overview",
         blocks: [
-          { p: "Every company has a referral code and a link on **Refer & Earn**. A business that signs up through it starts with its normal 14-day free trial plus one referral month. You are then listed under **Businesses you've referred** as **Signed up — not yet paying** until their first paid invoice clears, at which point the badge becomes **Credited** and a month is added to your own access, automatically." },
+          { p: "Every company that has chosen a plan has a referral code and a link on **Refer & Earn**. Until you choose one, the page says **Refer & Earn opens once you choose a plan**, with a link to **Account & Billing** — there is no link to share and nothing to earn yet." },
+          { p: "A business that signs up through your link starts with the ordinary 14-day free trial — nothing is added to it. When it chooses a plan, its referral month moves its first charge a month later. Signed up on 1 Oct, trial ending 15 Oct, plan chosen on 10 Oct: without the referral the first charge would be on 15 Oct; with it, 15 Nov. That applies if you had a plan when they signed up through your link — that is when the link promised the month, so the promise is kept even if your plan has ended since. A business that signed up while you had no plan was promised nothing beyond the ordinary trial, and gets no referral month later, even if you choose a plan afterwards." },
+          { p: "You are listed under **Businesses you've referred** as **Signed up — not yet paying** until their first paid invoice clears, at which point the badge becomes **Credited** and a month is added to your own access, automatically." },
           { p: "The month is the same size whoever you refer. A Solo company referring a Scale company earns a month of Solo; the size of the business you bring in does not change what you get — the screen says so in its own words." },
         ],
       },
@@ -279,8 +281,8 @@ export const ARTICLES = {
         heading: "How a month is earned",
         blocks: [
           { steps: [
-            "Open **Refer & Earn** (in the main sidebar, or under Settings) and share **Your link** — **Copy** it, or use **Send an invite** by email or text. FieldQuo sends one message and does not follow up, and the invite form allows 20 a day.",
-            "The other business signs up through the link. Their free trial is extended by one month on the spot, and they appear in your list as **Signed up — not yet paying**.",
+            "Choose a plan, if you are still on the free trial. Then open **Refer & Earn** (in the main sidebar, or under Settings) and share **Your link** — **Copy** it, or use **Send an invite** by email or text. FieldQuo sends one message and does not follow up, and the invite form allows 20 a day.",
+            "The other business signs up through the link and gets the ordinary 14-day free trial. They appear in your list as **Signed up — not yet paying**. When they choose a plan, their first charge moves a month later — that is their referral month.",
             "They pay their first real invoice — the free trial is $0, so the first charge after it — having finished onboarding and connected a verified Stripe account for taking payments.",
             "Your month is added the moment that payment lands, and the row reads **Credited**.",
           ] },
@@ -295,12 +297,13 @@ export const ARTICLES = {
           { table: {
             head: ["Your account", "What the month does"],
             rows: [
-              ["Still on the free trial", "Your trial end date moves one month later. Nothing is charged until then."],
+              ["Still on the free trial", "The month is held, not lost, and added the moment you choose a plan: your first charge moves a month later. (Only possible through a link shared before 3 October 2026 — today you need a plan to refer at all.)"],
               ["Paying monthly", "Your next charge is deferred by a calendar month. The plan keeps going; you are simply not billed for that month."],
               ["Paying yearly", "Your renewal date moves one month later — a year ending 27 Aug renews 27 Sep. You are not billed another year to receive it."],
             ],
           } },
           { p: "Months stack from the later of the two dates. Refer a second business before the first month has run and the end date moves another month, not back to where it was. A 31st that would land in a shorter month becomes that month's last day." },
+          { p: "Referrals made before 3 October 2026 keep the terms they were made on. A business referred before then already had its month added to its trial at signup and keeps it — it does not get a second one when it chooses a plan — and its referrer is credited on that business's first real payment, plan or no plan. Nothing already granted changes." },
         ],
       },
       {
@@ -309,7 +312,8 @@ export const ARTICLES = {
         blocks: [
           { bullets: [
             "**One month each**, for the referrer and the referred, however large either business is.",
-            "**A company that already exists can refer but never redeem.** The link is for businesses that are new to FieldQuo; an existing customer signing up again through a link gets nothing.",
+            "**A plan on both sides.** You refer once you have chosen a plan. The business you referred gets its month when it chooses a plan, provided you had one when it signed up through your link — kept even if your plan has ended since; you get yours on its first real payment, provided you have a plan at that point. Each month is granted once, never twice.",
+            "**A company that already exists can refer but never redeem.** It can refer once it has a plan. The link is for businesses that are new to FieldQuo; an existing customer signing up again through a link gets nothing.",
             "**You cannot refer yourself.** Checked on the code, not the email address.",
             "**At most 50 credited referrals per company per calendar month.** A count cap against abuse, not a limit on what a real referral earns.",
             "**Each referred company earns you the month once.** A retried payment or a renewal never pays the same referral twice.",
@@ -327,7 +331,8 @@ export const ARTICLES = {
     faq: [
       { q: "The business I referred signed up weeks ago. Why am I still not credited?", a: "Their row still reads Signed up — not yet paying. The month is granted on their first real payment, after their free trial, and only once their onboarding is complete and their Stripe account for client payments is verified." },
       { q: "Is it a discount or a free month?", a: "A free month: your next charge moves a month later. It is not a dollar credit against a bigger invoice." },
-      { q: "Does the referred business get anything?", a: "Yes — one extra month added to their free trial at signup, before they have paid anything." },
+      { q: "Does the referred business get anything?", a: "Yes — one free month when it chooses a plan: its first charge moves a month later. Its free trial itself is the ordinary 14 days. A business referred before 3 October 2026 had the month added to its trial at signup instead, and keeps it." },
+      { q: "Why can't I see my referral link?", a: "Refer & Earn opens once you choose a plan. On the free trial the page shows a link to Account & Billing instead; choose a plan there and your link appears." },
     ],
   },
 

@@ -286,7 +286,7 @@ const de = {
   "featurePage.marketing.pain.2.pain": "Sie geben jeden Monat Geld für Anzeigen aus und könnten nicht sagen, welche davon je einen Auftrag gebracht hat.",
   "featurePage.marketing.pain.2.fix": "Die Ausgaben gehen je Kanal hinein und stehen neben den Aufträgen, die sie gebracht haben — der Kanal, der nichts bringt, wird sichtbar statt vermutet.",
   "featurePage.marketing.pain.3.pain": "Ihre besten Kunden würden Sie gern weiterempfehlen, und niemand fragt sie je danach.",
-  "featurePage.marketing.pain.3.fix": "Wenn der Auftrag als erledigt markiert ist, geht eine höfliche Bitte raus — und ein von Ihnen empfohlener Betrieb bringt Ihnen beiden einen Gratismonat.",
+  "featurePage.marketing.pain.3.fix": "Wenn der Auftrag als erledigt markiert ist, geht eine höfliche Bitte raus — und ein von Ihnen empfohlener Betrieb bringt Ihnen beiden einen Gratismonat, sobald Sie beide einen Tarif haben.",
   "featurePage.marketing.how.1.step": "Es geht als Sie raus, an Ihre eigene Liste",
   "featurePage.marketing.how.1.body": "Kampagnen gehen von Ihrer bestätigten Adresse an die Kunden, die schon in Ihrem Konto sind, und Sie sehen, was sie erreicht hat.",
   "featurePage.marketing.how.2.step": "Die Arbeit im Viertel wird geplant, nicht erinnert",

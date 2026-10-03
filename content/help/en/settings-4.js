@@ -567,16 +567,18 @@ export const ARTICLES = {
   "settings-refer-and-earn": {
     title: "Refer & Earn",
     summary:
-      "The Settings row that is the same page as Refer & Earn in the main sidebar: your referral link, WhatsApp and text sharing, an invite by email or text, the months you earned and the businesses you referred.",
-    updated: "2026-09-12",
+      "The Settings row that is the same page as Refer & Earn in the main sidebar: once you have chosen a plan, your referral link, WhatsApp and text sharing, an invite by email or text, the months you earned and the businesses you referred.",
+    updated: "2026-10-03",
     intro: [
-      "**Settings → Account → Refer & Earn** is the same page as the **Refer & Earn** row of the main sidebar — “Refer another business and get another month of FieldQuo free, once they're a paying customer.” One free month for the business you refer, at signup; one free month for you, when they make their first real payment. This is the short version; the full article is [[refer-another-business|Refer another business, earn a free month]].",
+      "**Settings → Account → Refer & Earn** is the same page as the **Refer & Earn** row of the main sidebar — “Refer another business and get another month of FieldQuo free, once they're a paying customer.” It opens once your company has chosen a plan. One free month for the business you refer, when it chooses a plan (its first charge moves a month later); one free month for you, when they make their first real payment. This is the short version; the full article is [[refer-another-business|Refer another business, earn a free month]].",
     ],
     sections: [
       {
         id: "on-the-screen",
         heading: "What is on the screen",
         blocks: [
+          { p: "**Before you choose a plan**, the page shows one card — **Refer & Earn opens once you choose a plan** — with a button to **Account & Billing**, where a plan is chosen. There is no link to copy and invites cannot be sent. Any business that already signed up through a link you shared before 3 October 2026 is still listed below it, with its badge." },
+          { p: "**Once you have a plan**, the page shows:" },
           { bullets: [
             "**Your link** with **Copy** — “Short enough to say out loud. Put it on a business card, an invoice footer, or a van.”",
             "**Share the invite** — a WhatsApp button, and **Text it** on a phone, each opening your own app with the message ready.",
@@ -594,11 +596,11 @@ export const ARTICLES = {
           { table: {
             head: ["Who", "What they get", "When"],
             rows: [
-              ["The business you referred", "One extra free month of trial", "At signup through your link or invite"],
+              ["The business you referred", "One free month — its first charge moves a month later", "When it chooses a plan, provided you had one when it signed up through your link — even if yours has ended since"],
               ["You", "One free month", "When that business makes its first real payment"],
             ],
           } },
-          { p: "Your month is a month of the product: on a trial it pushes the trial end out; on a paid plan it moves the next charge a month later. A second referral adds a second month. How it lands on your subscription is in [[referral-months|Referral months]]." },
+          { p: "Your month is a month of the product. You need a plan to refer, so it moves your next charge a month later. A second referral adds a second month. Referrals made before 3 October 2026 keep their old terms. How it lands on your subscription is in [[referral-months|Referral months]]." },
         ],
       },
       {

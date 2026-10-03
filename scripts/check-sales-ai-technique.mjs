@@ -269,9 +269,16 @@ ok(liveRef.referee === referrals.REFEREE_BONUS_MONTHS && liveRef.referrer === re
 ok(s.includes(flat(liveRef.sentence)), "the phone prompt states that programme");
 ok(/once the new company starts paying/.test(liveRef.sentence),
    "the referrer's month is said to land on the referred company's first payment, as grantReferrerCredit does");
+// Pin moved 2026-10-03 (the owner: referrals "only work when they have
+// selected a plan"): the newcomer's months were "N months extra on their free
+// trial"; they are "N months free when they choose a plan" now, and the
+// programme is said to be for customers on a plan. The referrer's half and
+// every other pin here are unchanged.
 const movedRef = referralTerms({ referee: 3, referrer: 2 }).sentence;
-ok(/3 months extra/.test(movedRef) && /2 months added/.test(movedRef),
+ok(/3 months free when they choose a plan/.test(movedRef) && /2 months added/.test(movedRef),
    "different referral months render different words");
+ok(/for customers who have chosen a plan/.test(liveRef.sentence) && !/free trial/.test(liveRef.sentence),
+   "the programme is said to be for customers on a plan, and the newcomer's month is no longer on the trial");
 ok(/not a deal you are offering: rule 3 still stands/i.test(s),
    "the referral programme is framed so rule 3 (no free extension) still holds");
 

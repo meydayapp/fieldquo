@@ -25,7 +25,7 @@ Our own words, written for trade contractors. Nothing here is taken from the boo
 
 - The demo: **30 minutes** — `REP_DEMO_MINUTES` in `lib/sales/demoBooking/slots.js`, read from `NEXT_STEP_MINUTES.demo` in `lib/sales/nextSteps.js`: the block the call panel books, the slot the rep's demo page offers, and the length the intro email promises.
 - The trial: **14 days**, no card to start — `TRIAL_DAYS` / `TRIAL_CARD_REQUIRED` in `lib/pricing.js`.
-- Plans, seats and crew: `SEAT_LADDER` in `lib/pricing/ladder.js`. Referral months: `lib/referrals` (the referrer's month lands when the referred company pays; the newcomer's extra trial month only through the referrer's own link).
+- Plans, seats and crew: `SEAT_LADDER` in `lib/pricing/ladder.js`. Referral months: `lib/referrals` (only a customer on a plan can refer; the referrer's month lands when the referred company pays; the newcomer's extra month lands when it chooses a plan, only through the referrer's own link).
 - Placeholders: `{businessName}`, `{repName}` and `{first}` are filled on the call screen where it knows them; `[day]`, `[time]` and `[their words]` are the rep's, from the calendar and the call notes. No line names a day.
 
 ## Where a rep sees them
@@ -176,14 +176,14 @@ You're all set for [day] at [time], and the invite's on its way. Quick question 
 - "Who else do you know who wants to scale their business?"
 - If they didn't book: "No problem at all, I appreciate your time. One last thing: who do you know that's growing their company and might need something like this?"
 - If they started the trial because they asked: "Congrats, you're going to love getting your evenings back." Then the same question.
-- "For every contractor you refer who signs up and starts paying, you get a month of FieldQuo free. They get an extra free month on their trial when they sign up with your link."
+- "Once you're on a plan, for every contractor you refer who signs up and starts paying, you get a month of FieldQuo free. They get an extra free month when they choose a plan, through your link."
 - "Your link is in FieldQuo under Settings, Refer & Earn, and it can send the invite for you."
 - Get the details: name, trade, phone number, and whether you can say they sent you.
 
 **Notes for the rep (not read out)**
 
 - Ask on every call, whether they booked or not. People who said no often still know someone who needs it.
-- The referral offer is for people with an account: say it to anyone who signed up. It works through their own link.
+- The referral offer is for people who have chosen a plan: say it to anyone on one, not to someone who just started the trial. It works through their own link, which appears once they choose a plan.
 - Only when they asked to start now: sign them up while on the phone. Text them the signup link from the call panel and stay on the line. They fill in their company details. No card needed. Tell them plainly: "It's free for fourteen days. You only add a card if you pick a plan when the trial ends."
 - Then help them connect Stripe so they can take payments, and don't treat the call as done until it's connected. Have them create one real quote while you're on the phone, so they see it work tonight.
 - Plant the referral ask early, while you book the demo or while they sign up: "The way I know I did my job is if a month from now you'd tell another contractor about this. Fair enough?" It makes the ask at the end feel natural.
@@ -438,7 +438,7 @@ _Where these leads come from:_ A name a customer gave you on a call, or a compan
 3. How are you handling your quotes and invoices right now?
 4. What's the part of that you'd most like to get off your plate?
 5. Let's do this: thirty minutes on a screen, [day] or [day]. Which is better, morning or afternoon?
-6. If you do try it, sign up through their link and you get an extra free month on your trial.
+6. If you do try it, sign up through their link and you get an extra free month when you choose a plan.
 7. What's the best email for the invite? I'll send you something useful before we talk.
 8. So it's about you: what trade are you in, and how many on the crew?
 9. Last thing before I let you go: who do you know who's trying to grow their company?
@@ -446,7 +446,7 @@ _Where these leads come from:_ A name a customer gave you on a call, or a compan
 **Notes for the rep**
 
 - Only say the customer's name if they said you could. First name only, never their business.
-- The extra trial month only lands when they sign up through the customer's own link (Settings, Refer & Earn). Never promise it any other way.
+- The extra month only lands when they sign up through the customer's own link (Settings, Refer & Earn) and then choose a plan, and only if that customer had a plan when they signed up. Never promise it any other way.
 
 ### Uses another app
 
@@ -774,7 +774,7 @@ Building on a crooked foundation and planning to fix it later never works. The m
 - The stories here are the pattern form only. Tell your own real story instead when you have one: first name only.
 - Best case / worst case and "let's play it out" work best in the demo, after they've seen it.
 - If they want every price: Every plan has every feature. You just pick by team size: Solo, ninety-nine dollars a month for one seat and five crew; Crew, one hundred and sixty-nine for three seats and eight crew; Shop, two hundred and sixty-nine for six seats and eleven crew; Scale, three hundred and sixty-nine for ten seats and fifteen crew.
-- The referral offer, for anyone with an account: "For every contractor you refer who signs up and starts paying, you get a month of FieldQuo free. They get an extra free month on their trial when they sign up with your link."
+- The referral offer, for anyone on a plan: "Once you're on a plan, for every contractor you refer who signs up and starts paying, you get a month of FieldQuo free. They get an extra free month when they choose a plan, through your link."
 - It starts at ninety-nine dollars a month.
 
 ---

@@ -528,17 +528,17 @@ export const ARTICLES = {
   "refer-another-business": {
     title: "Refer another business, earn a free month",
     summary:
-      "Send another contractor your link or an invite; they get a free month when they sign up, and you get one added to your account once they are a paying customer.",
-    updated: "2026-09-12",
+      "Once you have chosen a plan, send another contractor your link or an invite; they get a free referral month when they choose a plan, and you get one added to your account once they are a paying customer.",
+    updated: "2026-10-03",
     intro: [
-      "**Refer & Earn** — a row in the sidebar and again under **Settings → Account** — is FieldQuo's own referral programme, one contractor telling another. Both sides get the same thing: a month of FieldQuo. The newcomer's month lands the day they sign up; yours lands the day they make their first real payment. The screen keeps the two apart deliberately, so “I referred three people, where are my months?” has a visible answer: **Signed up — not yet paying**.",
+      "**Refer & Earn** — a row in the sidebar and again under **Settings → Account** — is FieldQuo's own referral programme, one contractor telling another. It opens once your company has **chosen a plan**; on the free trial the page says **Refer & Earn opens once you choose a plan**, with a link to **Account & Billing**, and has no link to share. Both sides get the same thing: a month of FieldQuo. The newcomer's month lands the day they choose a plan — their first charge moves a month later; yours lands the day they make their first real payment. The screen keeps the two apart deliberately, so “I referred three people, where are my months?” has a visible answer: **Signed up — not yet paying**.",
     ],
     sections: [
       {
         id: "overview",
         heading: "Overview",
         blocks: [
-          { p: "The page opens with “Refer another business and get another month of FieldQuo free, once they're a paying customer.” Then **Your link** with **Copy** — “Short enough to say out loud. Put it on a business card, an invoice footer, or a van.” — a **WhatsApp** button, **Text it** on a phone, and **Send an invite** by **Email** or **Text**. Below: how many free months you have earned, **Businesses you've referred** with a **Credited** or **Signed up — not yet paying** badge on each, and **Invites sent**." },
+          { p: "With a plan chosen, the page opens with “Refer another business and get another month of FieldQuo free, once they're a paying customer.” Then **Your link** with **Copy** — “Short enough to say out loud. Put it on a business card, an invoice footer, or a van.” — a **WhatsApp** button, **Text it** on a phone, and **Send an invite** by **Email** or **Text**. Below: how many free months you have earned, **Businesses you've referred** with a **Credited** or **Signed up — not yet paying** badge on each, and **Invites sent**." },
           { figure: "live:app-settings-refer", caption: "Refer & Earn — your link, the share buttons, the invite form, and the businesses referred so far." },
         ],
       },
@@ -562,11 +562,12 @@ export const ARTICLES = {
           { table: {
             head: ["Who", "What they get", "When"],
             rows: [
-              ["The business you referred", "One extra free month of trial", "At signup through your link or invite"],
+              ["The business you referred", "One free month — its first charge moves a month later (its 14-day trial is the ordinary one)", "When it chooses a plan, provided you had a plan when it signed up through your link — even if yours has ended since"],
               ["You", "One free month", "When that business makes its first real payment, has finished setup and has verified payments — “Added to your account automatically when a business you referred makes their first payment.”"],
             ],
           } },
-          { p: "Your month is a month of the product, not a dollar figure: if you are still on trial it pushes your trial end out; if you are paying it moves your next charge a month later, on monthly and annual plans alike. Nothing is ever shortened, and a second referral adds a second month. The reward is the same whatever size the business you refer is." },
+          { p: "Your month is a month of the product, not a dollar figure. You need a plan to refer, so it moves your next charge a month later, on monthly and annual plans alike. Nothing is ever shortened, and a second referral adds a second month. The reward is the same whatever size the business you refer is." },
+          { p: "Referrals made before 3 October 2026 keep their old terms: the business you referred then had its month added to its trial at signup and keeps it, and you are credited on its first real payment as before. Nothing already granted changes." },
           { p: "The limits, all anti-abuse: you cannot refer yourself, a company that already exists cannot redeem a link, and a referrer is credited for at most 50 qualifying referrals in a calendar month." },
         ],
       },
@@ -582,6 +583,7 @@ export const ARTICLES = {
       { q: "They signed up but I have no month yet — why?", a: "Their badge reads Signed up — not yet paying. Your month arrives on their first real payment, once their setup is complete and their payments are verified; a $0 trial invoice earns nothing." },
       { q: "Where does the invite come from?", a: "From FieldQuo — it is FieldQuo inviting a business on your behalf, not a message to one of your clients. Your name is in it." },
       { q: "Is there a cap?", a: "20 invites a day, and credit for up to 50 qualifying referrals a month." },
+      { q: "Why is there no link on my Refer & Earn page?", a: "You are still on the free trial. Refer & Earn opens once you choose a plan — follow the link on the page to Account & Billing, choose one, and your link appears." },
     ],
   },
 
@@ -686,7 +688,7 @@ export const ARTICLES = {
               ["Retention", "The company is still subscribed after the plan's retention period, counted from the day its subscription started, trial included."],
             ],
           } },
-          { p: "The person who signs up through your link still gets their own extra free month, exactly as they would through any referral link. You do not get a month as well: one link, one reward. You cannot earn on a company registered with your own email address, and a company that was already credited to somebody else stays theirs." },
+          { p: "The person who signs up through your link still gets their own referral month when they choose a plan — their first charge moves a month later — exactly as they would through any referral link, and on the same condition: that you had a plan when they signed up through your link. You do not get a month as well: one link, one reward. You cannot earn on a company registered with your own email address, and a company that was already credited to somebody else stays theirs." },
         ],
       },
       {

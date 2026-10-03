@@ -458,7 +458,7 @@ const en = {
     "Collect what clients said and show it on your website and in your quotes.",
   "feature.referrals.name": "Refer another contractor",
   "feature.referrals.summary":
-    "Send an invite; when they sign up you both get a free month added to your account.",
+    "On a plan, send an invite; they get a free month when they choose a plan, and you get one when they start paying.",
   "feature.embeds.name": "Drop-in widgets",
   "feature.embeds.summary":
     "Paste one line into any website you already have to embed your booking, quote form or reviews.",
@@ -1032,7 +1032,7 @@ const fr = {
     "Recueillez ce que vos clients ont dit et affichez-le sur votre site et dans vos soumissions.",
   "feature.referrals.name": "Référez un autre entrepreneur",
   "feature.referrals.summary":
-    "Envoyez une invitation; à son inscription, vous obtenez chacun un mois gratuit ajouté à votre compte.",
+    "Avec un forfait, envoyez une invitation; elle obtient un mois gratuit en choisissant un forfait, et vous en obtenez un quand elle commence à payer.",
   "feature.embeds.name": "Modules à intégrer",
   "feature.embeds.summary":
     "Collez une ligne dans le site que vous avez déjà pour y intégrer votre réservation, votre formulaire ou vos avis.",
@@ -1589,7 +1589,7 @@ const es = {
     "Recoge lo que dijeron tus clientes y muéstralo en tu sitio y en tus presupuestos.",
   "feature.referrals.name": "Recomienda a otro contratista",
   "feature.referrals.summary":
-    "Envía una invitación; cuando se registre, los dos reciben un mes gratis en su cuenta.",
+    "Con un plan, envía una invitación; recibe un mes gratis al elegir un plan, y tú recibes otro cuando empiece a pagar.",
   "feature.embeds.name": "Widgets para pegar",
   "feature.embeds.summary":
     "Pega una línea en el sitio que ya tienes para incrustar tu reserva, tu formulario o tus reseñas.",
@@ -2147,7 +2147,7 @@ const uk = {
     "Збирайте те, що сказали клієнти, і показуйте це на сайті та в кошторисах.",
   "feature.referrals.name": "Порекомендуйте іншого підрядника",
   "feature.referrals.summary":
-    "Надішліть запрошення; коли він зареєструється, кожен з вас отримає безкоштовний місяць на рахунок.",
+    "Маючи тариф, надішліть запрошення; він отримає безкоштовний місяць, коли обере тариф, а ви — коли він почне платити.",
   "feature.embeds.name": "Віджети для вставки",
   "feature.embeds.summary":
     "Вставте один рядок у вже наявний сайт, щоб додати бронювання, форму запиту або відгуки.",
@@ -2704,7 +2704,7 @@ const pa = {
     "ਗਾਹਕਾਂ ਨੇ ਜੋ ਕਿਹਾ ਉਹ ਇਕੱਠਾ ਕਰੋ ਅਤੇ ਆਪਣੀ ਵੈੱਬਸਾਈਟ ਤੇ ਕੋਟਾਂ ਵਿੱਚ ਵਿਖਾਓ।",
   "feature.referrals.name": "ਕਿਸੇ ਹੋਰ ਠੇਕੇਦਾਰ ਨੂੰ ਸੱਦੋ",
   "feature.referrals.summary":
-    "ਸੱਦਾ ਭੇਜੋ; ਜਦੋਂ ਉਹ ਸਾਈਨ ਅੱਪ ਕਰੇ, ਤੁਹਾਡੇ ਦੋਵਾਂ ਦੇ ਖਾਤੇ ਵਿੱਚ ਇੱਕ ਮੁਫ਼ਤ ਮਹੀਨਾ ਜੁੜਦਾ ਹੈ।",
+    "ਪਲਾਨ ਹੋਣ 'ਤੇ ਸੱਦਾ ਭੇਜੋ; ਪਲਾਨ ਚੁਣਨ 'ਤੇ ਉਹਨਾਂ ਨੂੰ ਇੱਕ ਮੁਫ਼ਤ ਮਹੀਨਾ ਮਿਲਦਾ ਹੈ, ਅਤੇ ਜਦੋਂ ਉਹ ਭੁਗਤਾਨ ਸ਼ੁਰੂ ਕਰਨ ਤਾਂ ਤੁਹਾਨੂੰ ਵੀ।",
   "feature.embeds.name": "ਲਾਉਣ ਵਾਲੇ ਵਿਜੇਟ",
   "feature.embeds.summary":
     "ਆਪਣੀ ਮੌਜੂਦਾ ਵੈੱਬਸਾਈਟ ਵਿੱਚ ਇੱਕ ਲਾਈਨ ਚਿਪਕਾਓ ਅਤੇ ਬੁਕਿੰਗ, ਕੋਟ ਫਾਰਮ ਜਾਂ ਰਿਵਿਊ ਲਾ ਲਵੋ।",
@@ -3266,7 +3266,7 @@ const tl = {
     "Tipunin ang sinabi ng mga kliyente at ipakita ito sa website at sa mga quote mo.",
   "feature.referrals.name": "Mag-refer ng ibang kontratista",
   "feature.referrals.summary":
-    "Magpadala ng imbitasyon; pag nag-sign up siya, parehas kayong makakakuha ng isang libreng buwan.",
+    "Kapag may plano ka, magpadala ng imbitasyon; makakakuha siya ng isang libreng buwan kapag pumili siya ng plano, at ikaw kapag nagsimula siyang magbayad.",
   "feature.embeds.name": "Mga widget na idinidikit",
   "feature.embeds.summary":
     "Idikit ang isang linya sa website na meron ka na para ilagay ang booking, quote form o mga review mo.",
@@ -3748,7 +3748,7 @@ const de = {
   "feature.testimonials.name": "Kundenstimmen auf Ihrer Website",
   "feature.testimonials.summary": "Sammeln Sie, was Kunden gesagt haben, und zeigen Sie es auf Ihrer Website und in Ihren Angeboten.",
   "feature.referrals.name": "Einen anderen Betrieb empfehlen",
-  "feature.referrals.summary": "Schicken Sie eine Einladung; wenn der Betrieb sich anmeldet, bekommen Sie beide einen Gratismonat gutgeschrieben.",
+  "feature.referrals.summary": "Mit einem Tarif schicken Sie eine Einladung; der Betrieb bekommt einen Gratismonat, sobald er einen Tarif wählt, und Sie einen, sobald er zahlt.",
   "feature.embeds.name": "Widgets zum Einbinden",
   "feature.embeds.summary": "Eine Zeile in Ihre bestehende Website einfügen und Buchung, Angebotsformular oder Bewertungen einbetten.",
   "feature.bio_link.name": "Ein Link für Ihre Profile",
@@ -4168,7 +4168,7 @@ const zh = {
   "feature.testimonials.name": "网站上的客户评价",
   "feature.testimonials.summary": "把客户说的话收集起来，展示在你的网站和报价单上。",
   "feature.referrals.name": "推荐给同行",
-  "feature.referrals.summary": "发一个邀请；对方注册后，你们两边账户都多一个免费月。",
+  "feature.referrals.summary": "选好套餐后发一个邀请；对方选择套餐时得一个免费月，开始付费后你也得一个。",
   "feature.embeds.name": "即插即用的组件",
   "feature.embeds.summary": "在你现有的网站上粘一行代码，就能嵌入你的预约、报价表单或评价。",
   "feature.bio_link.name": "一个链接串起所有主页",
@@ -4681,7 +4681,7 @@ const it = {
     "Raccolga quello che dicono i clienti e lo mostri sul suo sito e nei suoi preventivi.",
   "feature.referrals.name": "Segnali un altro artigiano",
   "feature.referrals.summary":
-    "Mandi un invito; quando si registrano, un mese gratis viene aggiunto sia al suo account sia al loro.",
+    "Con un piano, mandi un invito; ricevono un mese gratis quando scelgono un piano, e Lei ne riceve uno quando iniziano a pagare.",
   "feature.embeds.name": "Widget pronti all'uso",
   "feature.embeds.summary":
     "Incolli una riga in un sito che ha già per inserirci prenotazioni, modulo di preventivo o recensioni.",

@@ -761,7 +761,11 @@ export const db = new Proxy(
     // the way Postgres refuses it.
     salesAttribution: uniqueCreateModel("salesAttribution", ["companyId"]),
     salesAttributionTouch: model("salesAttributionTouch"),
-    referralCredit: model("referralCredit"),
+    // @@unique([companyId, role, counterpartyCompanyId]) — the claim row
+    // lib/referrals writes BEFORE it gives a month. Modelled so a second grant
+    // for the same pair is refused the way Postgres refuses it, which is what
+    // lets check-referral-reward race two deliveries and count one month.
+    referralCredit: uniqueCreateModel("referralCredit", ["companyId", "role", "counterpartyCompanyId"]),
     referralInvite: model("referralInvite"),
     platformPromoCode: model("platformPromoCode"),
     // A company redeems at most one promo, ever (schema: companyId @unique).

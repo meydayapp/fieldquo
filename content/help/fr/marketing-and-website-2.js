@@ -524,17 +524,17 @@ export const ARTICLES = {
   "refer-another-business": {
     title: "Parrainer une autre entreprise, gagner un mois gratuit",
     summary:
-      "Envoyez votre lien ou une invitation à un autre entrepreneur ; il obtient un mois gratuit à son inscription, et vous en obtenez un ajouté à votre compte une fois qu'il est client payant.",
-    updated: "2026-09-12",
+      "Une fois votre forfait choisi, envoyez votre lien ou une invitation à un autre entrepreneur ; il obtient un mois gratuit de parrainage quand il choisit un forfait, et vous en obtenez un ajouté à votre compte une fois qu'il est client payant.",
+    updated: "2026-10-03",
     intro: [
-      "**Parrainage** — une ligne dans la barre latérale et de nouveau sous **Paramètres → Compte** — est le programme de parrainage de FieldQuo, un entrepreneur qui en parle à un autre. Les deux parties reçoivent la même chose : un mois de FieldQuo. Le mois du nouveau venu arrive le jour de son inscription ; le vôtre arrive le jour de son premier vrai paiement. L'écran sépare les deux volontairement, pour que « J'ai parrainé trois personnes, où sont mes mois ? » ait une réponse visible : **Inscrit — pas encore payant**.",
+      "**Parrainage** — une ligne dans la barre latérale et de nouveau sous **Paramètres → Compte** — est le programme de parrainage de FieldQuo, un entrepreneur qui en parle à un autre. Il s'ouvre une fois que votre entreprise a **choisi un forfait** ; pendant l'essai gratuit, la page indique que le parrainage s'ouvre une fois un forfait choisi, avec un lien vers **Compte et facturation**, et n'a aucun lien à partager. Les deux parties reçoivent la même chose : un mois de FieldQuo. Le mois du nouveau venu arrive le jour où il choisit un forfait — son premier prélèvement recule d'un mois ; le vôtre arrive le jour de son premier vrai paiement. L'écran sépare les deux volontairement, pour que « J'ai parrainé trois personnes, où sont mes mois ? » ait une réponse visible : **Inscrit — pas encore payant**.",
     ],
     sections: [
       {
         id: "overview",
         heading: "Vue d'ensemble",
         blocks: [
-          { p: "La page s'ouvre sur « Parrainez une autre entreprise et obtenez un mois de FieldQuo gratuit de plus, une fois qu'elle devient cliente payante. » Puis **Votre lien** avec **Copier** — « Assez court pour être dit à voix haute. Mettez-le sur une carte professionnelle, au bas d'une facture ou sur un camion. » — un bouton **WhatsApp**, **Envoyer par texto** sur un téléphone, et **Envoyer une invitation** par **Courriel** ou **Texto**. En dessous : le nombre de mois gratuits gagnés, **Entreprises que vous avez parrainées** avec une pastille **Crédité** ou **Inscrit — pas encore payant** sur chacune, et **Invitations envoyées**." },
+          { p: "Une fois un forfait choisi, la page s'ouvre sur « Parrainez une autre entreprise et obtenez un mois de FieldQuo gratuit de plus, une fois qu'elle devient cliente payante. » Puis **Votre lien** avec **Copier** — « Assez court pour être dit à voix haute. Mettez-le sur une carte professionnelle, au bas d'une facture ou sur un camion. » — un bouton **WhatsApp**, **Envoyer par texto** sur un téléphone, et **Envoyer une invitation** par **Courriel** ou **Texto**. En dessous : le nombre de mois gratuits gagnés, **Entreprises que vous avez parrainées** avec une pastille **Crédité** ou **Inscrit — pas encore payant** sur chacune, et **Invitations envoyées**." },
           { figure: "live:app-settings-refer", caption: "Parrainage — votre lien, les boutons de partage, le formulaire d'invitation et les entreprises parrainées jusqu'ici." },
         ],
       },
@@ -558,11 +558,12 @@ export const ARTICLES = {
           { table: {
             head: ["Qui", "Ce qu'il reçoit", "Quand"],
             rows: [
-              ["L'entreprise que vous avez parrainée", "Un mois d'essai gratuit de plus", "À l'inscription par votre lien ou votre invitation"],
+              ["L'entreprise que vous avez parrainée", "Un mois gratuit — son premier prélèvement recule d'un mois (son essai de 14 jours reste l'essai ordinaire)", "Quand elle choisit un forfait, si vous en aviez un quand elle s'est inscrite par votre lien — même si le vôtre a pris fin depuis"],
               ["Vous", "Un mois gratuit", "Quand cette entreprise fait son premier vrai paiement, a terminé sa configuration et a vérifié ses paiements — « Ajouté automatiquement à votre compte lorsqu'une entreprise que vous avez parrainée effectue son premier paiement. »"],
             ],
           } },
-          { p: "Votre mois est un mois du produit, pas un montant en dollars : si vous êtes encore en essai, il repousse la fin de votre essai ; si vous payez, il reporte votre prochain prélèvement d'un mois, sur les forfaits mensuels comme annuels. Rien n'est jamais raccourci, et un deuxième parrainage ajoute un deuxième mois. La récompense est la même quelle que soit la taille de l'entreprise que vous parrainez." },
+          { p: "Votre mois est un mois du produit, pas un montant en dollars. Il faut un forfait pour parrainer, donc il reporte votre prochain prélèvement d'un mois, sur les forfaits mensuels comme annuels. Rien n'est jamais raccourci, et un deuxième parrainage ajoute un deuxième mois. La récompense est la même quelle que soit la taille de l'entreprise que vous parrainez." },
+          { p: "Les parrainages faits avant le 3 octobre 2026 gardent leurs anciennes conditions : l'entreprise parrainée à l'époque a eu son mois ajouté à son essai à l'inscription et le garde, et vous êtes crédité à son premier vrai paiement comme avant. Rien de ce qui a déjà été accordé ne change." },
           { p: "Les limites, toutes contre les abus : vous ne pouvez pas vous parrainer vous-même, une entreprise qui existe déjà ne peut pas utiliser un lien, et un parrain est crédité pour au plus 50 parrainages admissibles par mois civil." },
         ],
       },
@@ -578,6 +579,7 @@ export const ARTICLES = {
       { q: "Ils se sont inscrits mais je n'ai pas encore mon mois — pourquoi ?", a: "Leur pastille se lit Inscrit — pas encore payant. Votre mois arrive à leur premier vrai paiement, une fois leur configuration terminée et leurs paiements vérifiés ; une facture d'essai à 0 $ ne rapporte rien." },
       { q: "D'où vient l'invitation ?", a: "De FieldQuo — c'est FieldQuo qui invite une entreprise en votre nom, pas un message à l'un de vos clients. Votre nom y figure." },
       { q: "Y a-t-il un plafond ?", a: "20 invitations par jour, et un crédit pour au plus 50 parrainages admissibles par mois." },
+      { q: "Pourquoi n'y a-t-il pas de lien sur ma page Parrainage ?", a: "Vous êtes encore dans l'essai gratuit. Le parrainage s'ouvre une fois un forfait choisi — suivez le lien de la page vers Compte et facturation, choisissez-en un, et votre lien apparaît." },
     ],
   },
 
@@ -682,7 +684,7 @@ export const ARTICLES = {
               ["Fidélisation", "L'entreprise est toujours abonnée après la période de fidélisation du plan, comptée depuis le jour où son abonnement a commencé, essai inclus."],
             ],
           } },
-          { p: "La personne qui s'inscrit par votre lien reçoit quand même son propre mois gratuit supplémentaire, exactement comme avec n'importe quel lien de parrainage. Vous ne recevez pas de mois en plus : un lien, une récompense. Vous ne pouvez pas gagner sur une entreprise enregistrée avec votre propre adresse courriel, et une entreprise déjà créditée à quelqu'un d'autre reste la sienne." },
+          { p: "La personne qui s'inscrit par votre lien reçoit quand même son propre mois de parrainage quand elle choisit un forfait — son premier prélèvement recule d'un mois — exactement comme avec n'importe quel lien de parrainage, et à la même condition : que vous ayez eu un forfait quand elle s'est inscrite par votre lien. Vous ne recevez pas de mois en plus : un lien, une récompense. Vous ne pouvez pas gagner sur une entreprise enregistrée avec votre propre adresse courriel, et une entreprise déjà créditée à quelqu'un d'autre reste la sienne." },
         ],
       },
       {

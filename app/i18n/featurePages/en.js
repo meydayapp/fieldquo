@@ -339,7 +339,7 @@ const en = {
   "featurePage.marketing.pain.2.pain": "You spend on ads every month and could not say which of them ever produced a job.",
   "featurePage.marketing.pain.2.fix": "Spend goes in by channel and sits beside the jobs it brought in, so the channel that produces nothing is visible rather than assumed.",
   "featurePage.marketing.pain.3.pain": "Your best clients would happily recommend you and nobody ever asks them.",
-  "featurePage.marketing.pain.3.fix": "After the job is marked done, one polite ask goes out — and a contractor you refer earns you both a free month.",
+  "featurePage.marketing.pain.3.fix": "After the job is marked done, one polite ask goes out — and a contractor you refer earns you both a free month once you're both on a plan.",
   "featurePage.marketing.how.1.step": "It goes out as you, to your own list",
   "featurePage.marketing.how.1.body": "Campaigns send from your verified address to the clients already in your account, and you can see what reached them.",
   "featurePage.marketing.how.2.step": "The neighbourhood work is planned, not remembered",

@@ -564,16 +564,18 @@ export const ARTICLES = {
   "settings-refer-and-earn": {
     title: "Recomienda y gana",
     summary:
-      "La fila de Configuración que es la misma página que Recomienda y gana en la barra lateral principal: su enlace de referido, compartir por WhatsApp y por SMS, una invitación por correo o por SMS, los meses que ganó y los negocios que refirió.",
-    updated: "2026-09-12",
+      "La fila de Configuración que es la misma página que Recomienda y gana en la barra lateral principal: una vez elegido un plan, su enlace de referido, compartir por WhatsApp y por SMS, una invitación por correo o por SMS, los meses que ganó y los negocios que refirió.",
+    updated: "2026-10-03",
     intro: [
-      "**Configuración → Cuenta → Recomienda y gana** es la misma página que la fila **Recomienda y gana** de la barra lateral principal — «Recomienda a otro negocio y consigue otro mes de FieldQuo gratis, en cuanto sea cliente de pago.» Un mes gratis para el negocio que usted refiere, al registrarse; un mes gratis para usted, cuando hace su primer pago real. Esta es la versión corta; el artículo completo es [[refer-another-business|Recomendar otro negocio, ganar un mes gratis]].",
+      "**Configuración → Cuenta → Recomienda y gana** es la misma página que la fila **Recomienda y gana** de la barra lateral principal — «Recomienda a otro negocio y consigue otro mes de FieldQuo gratis, en cuanto sea cliente de pago.» Se abre una vez que su empresa eligió un plan. Un mes gratis para el negocio que usted refiere, cuando elige un plan (su primer cobro se corre un mes); un mes gratis para usted, cuando hace su primer pago real. Esta es la versión corta; el artículo completo es [[refer-another-business|Recomendar otro negocio, ganar un mes gratis]].",
     ],
     sections: [
       {
         id: "on-the-screen",
         heading: "Qué hay en la pantalla",
         blocks: [
+          { p: "**Antes de elegir un plan**, la página muestra una sola tarjeta, que indica que Recomienda y gana se abre cuando elija un plan, con un botón a **Cuenta y facturación**, donde se elige el plan. No hay enlace que copiar y no se pueden enviar invitaciones. Un negocio que ya se registró con un enlace que usted compartió antes del 3 de octubre de 2026 sigue listado debajo, con su insignia." },
+          { p: "**Con un plan elegido**, la página muestra:" },
           { bullets: [
             "**Tu enlace** con **Copiar** — «Lo bastante corto para decirlo en voz alta. Ponlo en una tarjeta de presentación, al pie de una factura o en una camioneta.»",
             "**Compartir la invitación** — un botón de WhatsApp, y **Enviar por SMS** en un teléfono, cada uno abre su propia app con el mensaje listo.",
@@ -591,11 +593,11 @@ export const ARTICLES = {
           { table: {
             head: ["Quién", "Qué recibe", "Cuándo"],
             rows: [
-              ["El negocio que usted refirió", "Un mes extra de prueba gratis", "Al registrarse a través de su enlace o invitación"],
+              ["El negocio que usted refirió", "Un mes gratis: su primer cobro se corre un mes", "Cuando elige un plan, si usted tenía uno cuando se registró con su enlace — aunque el suyo haya terminado después"],
               ["Usted", "Un mes gratis", "Cuando ese negocio hace su primer pago real"],
             ],
           } },
-          { p: "Su mes es un mes del producto: en una prueba, extiende el final de la prueba; en un plan de pago, mueve el próximo cobro un mes más adelante. Un segundo referido agrega un segundo mes. Cómo aterriza en su suscripción está en [[referral-months|Meses por referidos]]." },
+          { p: "Su mes es un mes del producto. Hace falta un plan para referir, así que mueve su próximo cobro un mes más adelante. Un segundo referido agrega un segundo mes. Los referidos hechos antes del 3 de octubre de 2026 conservan sus condiciones anteriores. Cómo aterriza en su suscripción está en [[referral-months|Meses por referidos]]." },
         ],
       },
       {
