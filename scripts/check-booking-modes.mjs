@@ -547,6 +547,13 @@ const demoCo = { ...COMPANY, isDemo: true, bookingChangeNoticeHours: 1 };
 resetDbStub();
 rows.company.push(demoCo);
 rows.eventType.push({ ...EVENT_TYPE });
+// The booker matches a client the demo was SEEDED with. Since 2026-10-03 a
+// stranger booking a demo as a NEW client is sent the real letters
+// (lib/demo/simulatedSpend.js demoSendVerdict — scripts/check-demo-live-
+// recipients.mjs covers that); this walkthrough is about what the letters
+// CARRY, which only the simulated record can show offline, so it books as a
+// fixture client — the path that must stay simulated.
+rows.client.push({ id: "c_seeded", companyId: demoCo.id, name: "Dana", email: "d@x.test", phone: null, language: null, demoLiveAt: null });
 for (const dayOfWeek of [0, 1, 2, 3, 4, 5, 6]) rows.availabilitySchedule.push({ id: `s${dayOfWeek}`, userId: "u1", dayOfWeek, startTime: "06:00", endTime: "22:00", timezone: "America/Toronto" });
 r = await post({ ...base, mode: "call", clientPhone: "819-238-7263", startTime: new Date(Date.now() + 5 * 864e5).toISOString() });
 j = await r.json();

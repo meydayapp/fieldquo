@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { attachUsTaxRate, attachUsTaxRates } from "@/lib/tax/usRates";
 import { db } from "@/lib/db";
+import { demoLiveStamp } from "@/lib/demo/simulatedSpend";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { recordActivity } from "@/lib/activity/log";
 import {
@@ -148,6 +149,11 @@ export async function POST(request) {
         // so a company that later switches default would keep sending old-
         // language quotes to everyone already on file.
         language: isSupported(language) ? language : null,
+        // A demo company's client typed in by a person, here and now — the
+        // one kind of record a demo may send real mail and texts to
+        // (lib/demo/simulatedSpend.js). Computed from the company row, never
+        // read from the body above; `{}` for every real company.
+        ...(await demoLiveStamp(member.companyId)),
       },
     });
 

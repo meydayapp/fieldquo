@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { demoLiveStamp } from "@/lib/demo/simulatedSpend";
 import { rateLimit } from "@/lib/rateLimit";
 import { normaliseMediaList } from "@/lib/media/validate";
 import { createScoredLead } from "@/lib/leads/createLead";
@@ -179,6 +180,10 @@ export async function POST(request) {
     budgetBand,
     timeline,
     language: docLanguage,
+    // A person typed this into a demo's PUBLIC form: the confirmation below
+    // (and anything later sent to the client this lead converts into) may go
+    // out for real. Computed from the company row; `{}` for a real company.
+    ...(await demoLiveStamp(company.id)),
   });
 
   // ── The confirmation ──────────────────────────────────────────────────────

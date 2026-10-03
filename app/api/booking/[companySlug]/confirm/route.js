@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { demoLiveStamp, isDemoCompany } from "@/lib/demo/simulatedSpend";
 import { findBookingCompany } from "@/lib/booking/findBookingCompany";
 import { emailRefusal, cleanEmail } from "@/lib/validation";
 import { geocodeAddress } from "@/lib/measure/roofMeasurement";
@@ -290,6 +291,12 @@ export async function POST(request, { params }) {
         email: bookingEmail,
         phone: bookingPhone,
         ...(bookerLanguage ? { language: bookerLanguage } : {}),
+        // A stranger typed their own details into a demo's public booking
+        // page — the case the owner asked for ("have the text messages sent
+        // when someone books"). Only a NEW client: a booking that matched an
+        // existing (seeded) row above stays simulated, because that row's
+        // address came from the fixture, not from this person.
+        ...(await demoLiveStamp(company.id)),
         // ── Why the address lands here at all ────────────────────────────
         //
         // This route created a client with a name, an email and a phone
@@ -410,7 +417,13 @@ export async function POST(request, { params }) {
   // priced the chips with, so the client paid what they were shown.
   const { feeCents } = effectiveBookingFeeCents(company, eventType, chosenMode);
 
-  if (feeCents > 0) {
+  // A demo never takes a booking fee, even one holding a Stripe account: the
+  // booking is confirmed the free way below, so the prospect still gets the
+  // real confirmation (lib/demo/simulatedSpend.js refuseDemoCharge — which
+  // would otherwise refuse the Checkout session and leave them at an error).
+  const demoSkipsFee = feeCents > 0 && (await isDemoCompany(company.id));
+
+  if (feeCents > 0 && !demoSkipsFee) {
     // PAID: hold the slot with a pending_payment booking and send the client to
     // Stripe. Deliberately NO appointment yet — an unpaid appointment must not
     // appear on the crew's calendar.

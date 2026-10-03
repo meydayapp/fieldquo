@@ -3199,6 +3199,17 @@ model Client {
   /// shown on the client page. Never cleared by code; a person clears it.
   doNotContactAt     DateTime?
   doNotContactReason String?
+
+  /// A demo company's client that a PERSON created during the demo, through
+  /// the app or the demo's public booking/request pages — the one thing that
+  /// lets a demo send a real email or text (lib/demo/simulatedSpend.js
+  /// demoSendVerdict). Written ONLY by the server, from isDemoCompany() re-read
+  /// at create time (demoLiveStamp), never from a request body; null on every
+  /// seeded, imported, migrated or converted-from-seed row, and on every real
+  /// company's client. Editing a seeded client never sets it — otherwise
+  /// typing a stranger's address onto fixture data would send. A reset wipes
+  /// these rows with the rest of the demo, and a retired rep demo refuses.
+  demoLiveAt         DateTime?
 }
 
 /// See Company.taxMode.
@@ -7234,6 +7245,12 @@ model LeadRequest {
   /// estimator to book the on-site visit rather than ring about the price.
   /// Null on every lead that never asked.
   callbackRequestedAt DateTime?
+
+  /// Same marker as Client.demoLiveAt, for a demo company's lead that a
+  /// person submitted through the demo's PUBLIC request form. Set only by
+  /// that route (app/api/self-quote), never from the body; converting a live
+  /// lead carries it onto the client it creates (lib/leads/convertLead.js).
+  demoLiveAt DateTime?
 
   // The language the homeowner filled the form in, fixed at creation.
   //

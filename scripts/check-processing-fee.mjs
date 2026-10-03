@@ -132,7 +132,10 @@ console.log("\n── 2. Every charge creator carries the fee, the destination a
 
 const stripeLib = await import("@/lib/stripe.js");
 const { stripe, destinationChargeParams, ensureChargeCapabilities, CHARGE_CAPABILITIES } = stripeLib;
-const COMPANY = { id: "co1", stripeAccountId: "acct_contractor", currency: "CAD", offerFinancing: false };
+// isDemo: the column every company row carries. The Stripe seams answer a
+// demo before Stripe (lib/demo/simulatedSpend.js refuseDemoCharge) and read
+// it off the row they were handed — without it they would ask the database.
+const COMPANY = { id: "co1", stripeAccountId: "acct_contractor", currency: "CAD", offerFinancing: false, isDemo: false };
 
 {
   const p = destinationChargeParams({ company: COMPANY, amountCents: 226_000, currency: "cad", method: "card" });

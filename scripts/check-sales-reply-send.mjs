@@ -54,7 +54,9 @@ section("1. The provider's real contract, executed");
   // Pinned, because everything below assumes it. If sendSms ever starts
   // returning `ok`, this is the assertion that says so rather than a caller
   // silently going quiet again.
-  ok("sendSms returns `success` on the happy path", /return \{ success: true, sid: [\w.]+ \}/.test(twilio));
+  // The tail after the sid is the live-demo flag (lib/demo/simulatedSpend.js
+  // demoSendVerdict) — `success` is still the key every caller reads.
+  ok("sendSms returns `success` on the happy path", /return \{ success: true, sid: [\w.]+(, \.\.\.\([^)]*\))? \}/.test(twilio));
   ok("…and `success: false` with a reason on failure", /return \{ success: false, error/.test(twilio));
   ok("…and never returns `ok`", !/return \{[^}]*\bok:/.test(twilio), "sendSms returns an `ok`");
 }

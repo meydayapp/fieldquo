@@ -696,7 +696,9 @@ section("9. Static: the credential never leaves the server");
   for (const v of ["MAIL_CREDENTIALS_KEY", "MICROSOFT_OAUTH_CLIENT_ID", "MICROSOFT_OAUTH_CLIENT_SECRET", "MICROSOFT_OAUTH_TENANT"]) ok(`${v} is documented in docs/VERCEL.md`, docs.includes(v));
   ok("the cron is scheduled", read("vercel.json").includes("/api/cron/mailbox-sync"));
   const resendSrc = read("lib/email/resend.js");
-  ok("sendEmail tries the mailbox only for client mail with a company", /if \(companyId && clientMail\)/.test(resendSrc));
+  // `&& !demoLive`: a demo's live send (lib/demo/simulatedSpend.js) goes the
+  // platform sender's way, never through a mailbox.
+  ok("sendEmail tries the mailbox only for client mail with a company", /if \(companyId && clientMail( && !demoLive)?\)/.test(resendSrc));
 }
 
 console.log(`\n${failed ? "✗" : "✓"} mailbox: ${passed} passed, ${failed} failed`);
