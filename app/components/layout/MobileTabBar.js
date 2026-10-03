@@ -6,7 +6,10 @@
 // the rail. Above `lg` this renders nothing — AdminSidebar's real rail takes
 // over there.
 //
-// ── Which five, and why ─────────────────────────────────────────────────
+// ── Which tabs ──────────────────────────────────────────────────────────
+//
+// Per role since 2026-10-03 — lib/nav/phoneBar.js holds the four sets and
+// why. What follows is the reasoning for the OWNER's bar, the office set.
 //
 // AdminSidebar's own comment on NAV_GROUPS names the order work actually
 // moves: "Leads -> Quotes -> Jobs -> Invoices". AGENTS.md's pipeline
@@ -17,7 +20,7 @@
 // them own a FEATURES entry), so they degrade to a permission check alone
 // and never disappear because a company's plan doesn't include them.
 //
-// The fifth is Chat — the crew's own screen, see the note on TAB_ITEMS.
+// The fifth is Chat — every set carries it, see the note on TAB_ITEMS.
 //
 // Home is deliberately NOT a tab: the phone's top bar (TopBar.js) links the
 // logo to /app, so Home stays one tap away without spending a slot on a
@@ -36,91 +39,85 @@
 // mounted by TopBar so there is one per shell.
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList, FileText, Briefcase, Receipt, MessagesSquare, LayoutGrid } from "lucide-react";
+import {
+  ClipboardList,
+  FileText,
+  Briefcase,
+  Receipt,
+  MessagesSquare,
+  LayoutGrid,
+  Clock,
+  MapPin,
+  Calendar,
+  CalendarClock,
+  Users,
+} from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useFeatureFlags } from "@/app/providers/FeatureProvider";
 import { usePermissions } from "@/app/providers/PermissionProvider";
-import { filterNavItems } from "@/lib/features/nav";
-import { filterNavItemsByPermission } from "@/lib/permissions/nav";
 import { isMePath } from "@/lib/me/tabs";
-import { isCrewHome } from "@/lib/dashboard/crewHome";
+import { PHONE_BARS, phoneBarFor, phoneMoreActive, phoneTabActive } from "@/lib/nav/phoneBar";
 import { MeTabBar } from "@/app/components/me/MeShell";
 import { useNavShell } from "@/app/components/layout/NavShell";
 
-// Same i18n keys AdminSidebar's own NAV_GROUPS rows use for these four
-// destinations — not new strings, so there is nothing to translate twice and
-// nothing that can drift from what the drawer calls the same page.
-//
-// Chat is the fifth, and it is the one a CREW member keeps. The four pipeline
-// tabs are gated on the document ladders (lib/permissions/nav.js), and the
-// Crew preset sits at `none` on three of them (jobs is view_only, scoped to
-// their own) — the person in the van gets the employee bar instead, see
-// isCrewHome below. Chat has no NAV_REQUIREMENTS
-// entry on purpose: everyone on the roster is in #general and in the rooms
-// of the jobs they are booked on, and the chat is the crew's own screen.
-// Same shell, same kit, same drawer for everything else. It is feature-gated
-// (team_chat) like every other row, through the same filterNavItems below.
-export const TAB_ITEMS = [
-  { key: "app.nav.requests", href: "/app/leads", icon: ClipboardList },
-  { key: "app.nav.quotes", href: "/app/quotes", icon: FileText },
-  { key: "app.nav.jobs", href: "/app/jobs", icon: Briefcase },
-  { key: "app.nav.invoices", href: "/app/invoices", icon: Receipt },
-  { key: "app.nav.chat", href: "/app/chat", icon: MessagesSquare },
-];
+// lib/nav/phoneBar.js names icons; this maps them. One table of rows, one of
+// pictures, so the decision stays pure and executable by the check.
+const ICONS = {
+  leads: ClipboardList,
+  quotes: FileText,
+  jobs: Briefcase,
+  invoices: Receipt,
+  chat: MessagesSquare,
+  clock: Clock,
+  today: MapPin,
+  calendar: Calendar,
+  schedule: CalendarClock,
+  team: Users,
+};
 
-/** Mirrors AdminSidebar's own `isActive`: /app is exact, everything else is a prefix. */
-function isActive(pathname, href) {
-  return href === "/app" ? pathname === "/app" : pathname.startsWith(href);
-}
+// The owner's bar, with its icons — what the More sheet used to subtract
+// from the rail before the bar became per-role (MoreMenu.js now subtracts the
+// caller's OWN bar). Kept exported because it is still the office set, and
+// the same i18n keys AdminSidebar's NAV_GROUPS rows use for these
+// destinations: nothing to translate twice, nothing that can drift from what
+// the drawer calls the same page.
+//
+// Chat is the fifth, and every set carries it. It has no NAV_REQUIREMENTS
+// entry on purpose: everyone on the roster is in #general and in the rooms of
+// the jobs they are booked on. It is feature-gated (team_chat) like every
+// other row, through the same filter as the rest (lib/nav/phoneBar.js).
+export const TAB_ITEMS = PHONE_BARS.office.map((row) => ({ ...row, icon: ICONS[row.icon] }));
 
 export default function MobileTabBar() {
   const { t } = useTranslation();
   const pathname = usePathname();
   const shell = useNavShell();
-
-  // Same two-filter pipeline AdminSidebar runs on NAV_GROUPS, in the same
-  // order (feature flags first, then the permission grid) and via the exact
-  // same shared helpers — not a second, hand-rolled gate that could disagree
-  // with the one the drawer enforces. See the long comment on that pipeline
-  // in AdminSidebar.js for why the two filters stay separate.
   const featureFlags = useFeatureFlags();
   const caller = usePermissions();
-  const tabs = filterNavItemsByPermission(
-    filterNavItems(TAB_ITEMS, featureFlags),
-    caller,
-  );
 
-  // ── The employee home's bar ─────────────────────────────────────────────
+  // ── Which bar (2026-10-03) ──────────────────────────────────────────────
   //
-  // On any /app/me screen the five tabs are the employee home's (Home ·
-  // Clock · Schedule · Messages · More, or the manager set — lib/me/
-  // tabs.js), so the bar a person is standing on is the bar of the screen
-  // they are on. And for the person in the van it is the bar EVERYWHERE:
-  // when the pipeline gating above leaves nothing but Chat standing — a grid
-  // at `none` on all four document ladders — the old bar was Chat + More,
-  // the docs/MOBILE-TABBAR.md edge case. That person's
-  // product is their next shift, their hours and their crew, and those are
-  // the tabs they get. One bar at a time: MeTabBar carries the same chrome
-  // and the same row height <main> reserves, so nothing else changes.
+  // The caller's ROLE bar — lib/nav/phoneBar.js decides the set (office,
+  // crew, estimator, dispatch) and runs the rail's own two filters over it
+  // (feature flags, then the permission grid, via the same shared helpers),
+  // so a tab is never a link to a refusal. One bar per person, the same on
+  // every screen: the owner asked for the menu to be "simple and easy to
+  // access", and a bar that rearranges itself as you move is neither.
   //
-  // ── Who "the person in the van" is (2026-10-03) ─────────────────────────
-  //
-  // The gating test alone stopped catching them: the Crew preset holds jobs
-  // at view_only (scoped to their own assigned jobs, lib/permissions/
-  // enforce.js assignedJobWhere), so the Jobs tab survived and a crew
-  // member's bar was Jobs · Chat · More — no clock, which is what the owner
-  // reported. isCrewHome is the decision that already gives them My day on
-  // /app (no owner/admin seat, no schedule to run, none of the office
-  // documents), so the bar and the home agree about who they are. Their
-  // jobs list is still a tap away: the More tab's "Jobs" row
-  // (app/app/me/more/page.js), behind the same navRowAllowed as this bar.
-  if (
-    isMePath(pathname) ||
-    isCrewHome(caller) ||
-    tabs.filter((t) => t.href !== "/app/chat").length === 0
-  ) {
+  // The one exception is the employee home (/app/me and the screens under
+  // it) for everybody who is NOT crew: a section with its own five tabs (Home ·
+  // Clock · Schedule · Messages · More, or the manager set — lib/me/tabs.js),
+  // reached from More › My home, and the bar there is that section's, so
+  // earnings, requests and availability stay a tap apart. Crew live on those
+  // screens, so for them the crew bar IS the section's bar — its More is
+  // /app/me/more.
+  const bar = phoneBarFor(caller, featureFlags);
+  if (isMePath(pathname) && bar.set !== "crew") {
     return <MeTabBar />;
   }
+  const moreIsPage = bar.more?.kind === "page";
+  const moreActive = phoneMoreActive(bar.more, pathname, shell.isOpen("more"));
+  const tabs = bar.tabs.map((row) => ({ ...row, Icon: ICONS[row.icon] || LayoutGrid }));
 
   return (
     // The bottom padding below carries the safe-area inset as extra space BELOW
@@ -146,8 +143,8 @@ export default function MobileTabBar() {
           section there. */}
       <div className="h-[var(--fq-tab-bar-row)] flex items-stretch justify-center">
         {tabs.map((item) => {
-          const active = isActive(pathname, item.href);
-          const Icon = item.icon;
+          const active = phoneTabActive(item, pathname);
+          const Icon = item.Icon;
           return (
             <Link
               key={item.href}
@@ -182,34 +179,59 @@ export default function MobileTabBar() {
               >
                 <Icon size={20} className="shrink-0" />
                 <span className="text-[10px] font-semibold leading-none truncate max-w-[4.25rem]">
-                  {t(item.key)}
+                  {t(item.label || item.key)}
                 </span>
               </span>
             </Link>
           );
         })}
 
-        <button
-          type="button"
-          onClick={() => shell.toggle("more")}
-          aria-label={t("app.nav.more")}
-          aria-expanded={shell.isOpen("more")}
-          data-more-tab
-          className="flex-1 max-w-[7rem] min-w-0 flex items-center justify-center active:bg-sidebar-accent/50 transition-colors"
-        >
-          <span
-            className={`flex flex-col items-center gap-[3px] rounded-[10px] px-2 py-[5px] min-h-[44px] min-w-[44px] justify-center ${
-              shell.isOpen("more") || pathname.startsWith("/app/more")
-                ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                : "text-sidebar-muted-foreground"
-            }`}
+        {/* More. The sheet for office, estimator and dispatch; the crew's
+            own More PAGE (/app/me/more) for crew — see lib/nav/phoneBar.js.
+            Same chrome either way, so the slot never changes shape. */}
+        {moreIsPage ? (
+          <Link
+            href={bar.more.href}
+            aria-current={moreActive ? "page" : undefined}
+            data-more-tab
+            className="flex-1 max-w-[7rem] min-w-0 flex items-center justify-center active:bg-sidebar-accent/50 transition-colors"
           >
-            <LayoutGrid size={20} className="shrink-0" />
-            <span className="text-[10px] font-semibold leading-none truncate max-w-[4.25rem]">
-              {t("app.nav.more")}
+            <span
+              className={`flex flex-col items-center gap-[3px] rounded-[10px] px-2 py-[5px] min-h-[44px] min-w-[44px] justify-center ${
+                moreActive
+                  ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                  : "text-sidebar-muted-foreground"
+              }`}
+            >
+              <LayoutGrid size={20} className="shrink-0" />
+              <span className="text-[10px] font-semibold leading-none truncate max-w-[4.25rem]">
+                {t("app.nav.more")}
+              </span>
             </span>
-          </span>
-        </button>
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={() => shell.toggle("more")}
+            aria-label={t("app.nav.more")}
+            aria-expanded={shell.isOpen("more")}
+            data-more-tab
+            className="flex-1 max-w-[7rem] min-w-0 flex items-center justify-center active:bg-sidebar-accent/50 transition-colors"
+          >
+            <span
+              className={`flex flex-col items-center gap-[3px] rounded-[10px] px-2 py-[5px] min-h-[44px] min-w-[44px] justify-center ${
+                moreActive
+                  ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                  : "text-sidebar-muted-foreground"
+              }`}
+            >
+              <LayoutGrid size={20} className="shrink-0" />
+              <span className="text-[10px] font-semibold leading-none truncate max-w-[4.25rem]">
+                {t("app.nav.more")}
+              </span>
+            </span>
+          </button>
+        )}
       </div>
     </nav>
   );

@@ -120,6 +120,55 @@ Not gated, on purpose: the monthly conversation review (aggregate prose over a
 month of redacted conversations, no per-message quote), and review text the
 company itself published on its website or in its designs (public by the
 company's choice). No consent flow yet; when one exists it lifts this gate.
+## A phone bar per role, who a shared quote opens for, and the owner's own rate (3 October 2026)
+
+The owner: "On mobile there are 6 buttons at the bottom for the main account
+holder … the core things of the other employees should be easily accessed
+there", "what about the option to share a quote with the team?", and "I don't
+know where to change my own rate."
+
+### What shipped
+
+- **Phone bar per role** — `lib/nav/phoneBar.js` (pure; MobileTabBar, the More
+  sheet and `check:rbac-nav` read it). Owner/Admin unchanged: Leads · Quotes ·
+  Jobs · Invoices · Chat · More. Crew: Clock · Today (My day on `/app`) · Chat ·
+  More (`/app/me/more`), on every screen. Estimator: Leads · Quotes · Calendar ·
+  Chat · More. Dispatcher/Manager: Schedule (`/app/scheduler`) · Jobs · Team
+  (timesheets) · Chat · More. Every tab still runs the rail's feature-flag and
+  `navRowAllowed` filters; the Team tab needs `app.nav.timesheets` AND
+  `app.nav.team`. Null callers and gridless members keep the office bar. The
+  More sheet now subtracts the caller's own bar, not the owner's five. Non-crew
+  still get the employee-home bar inside `/app/me`.
+- **Desktop rail** — Time clock pinned under Home for crew, estimators,
+  dispatchers and managers (`railPinsClock`), and dropped from their More.
+- **Share with staff** — the message now carries the job's work order (no
+  prices) for the crew when the quote is a job, and says the quote link needs
+  quote access when it isn't; a share straight to one person who can open
+  neither is refused (`lib/quotes/shareWithStaff.js`). The chat directory
+  carries a `canOpenQuote` boolean. A Crew member opening a quote link reads
+  "Quotes aren't part of your access…" instead of "Quote not found."
+- **Your own rate** — `OwnRateCard` on Team → Workers (`#own-rate`) and the
+  Team page; `GET/PUT /api/me/own-rate` (payroll:view_all; creates the owner's
+  Worker row through the self-enrol rule; writes only if the rate is still the
+  one shown). Suggests the member's labour cost or FieldQuo's $35/h default,
+  never stores it unasked. The set-up card's pay-rates row asks a one-person
+  company (one seat, nobody on the payroll) for "your own rate" and lands on
+  the card.
+
+### Checks
+
+`check:rbac-nav` (pins every preset's bar), `check:own-rate` (new, incl. md5
+proof that job costing is unchanged until a rate is set), `check:share-staff`
+(new); `check:shell`, `check:company-chat`, `check:time-activities` updated to
+execute the per-role bar.
+
+### Owed
+
+- The owner's clocked hours now appear in pay runs at their rate once set (they
+  already appeared, unrated, after a clock self-enrol). Owner to say whether an
+  owner's Worker row should be excluded from pay runs.
+
+---
 
 ## Interior painting instant estimate: a room picker, sized like stairs (3 October 2026)
 

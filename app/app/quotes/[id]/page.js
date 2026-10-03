@@ -256,6 +256,10 @@ export default function QuoteDetailPage() {
     return { headline: t(headline.key, headline.params), source: source ? t(source.key, source.params) : "" };
   })();
   const [loading, setLoading] = useState(true);
+  // 403 from GET /api/quotes/[id]: the quote exists and this person's grid
+  // does not read quotes (the Crew preset, opening a link shared in the team
+  // chat). "Quote not found" was a lie about why the page is empty.
+  const [refused, setRefused] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
@@ -363,7 +367,10 @@ export default function QuoteDetailPage() {
     // $NaN total instead of the not-found screen. Leave quote null on failure so
     // the existing not-found branch shows.
     fetch(`/api/quotes/${id}`)
-      .then((r) => (r.ok ? r.json() : null))
+      .then((r) => {
+        setRefused(r.status === 403);
+        return r.ok ? r.json() : null;
+      })
       .then(setQuote)
       .catch(() => setQuote(null))
       .finally(() => setLoading(false));
@@ -781,8 +788,13 @@ export default function QuoteDetailPage() {
     );
   if (!quote)
     return (
-      <div className="p-4 sm:p-6 max-w-4xl mx-auto text-sm text-muted-foreground">
-        {t("app.quoteDetail.notFound")}
+      <div className="p-4 sm:p-6 max-w-4xl mx-auto text-sm text-muted-foreground" data-quote-refused={refused ? "" : undefined}>
+        {refused
+          ? t(
+              "app.quoteDetail.noAccess",
+              "Quotes aren't part of your access, so this one can't open for you. If it became a job you're booked on, its work order is on your schedule.",
+            )
+          : t("app.quoteDetail.notFound")}
       </div>
     );
 
@@ -1163,6 +1175,10 @@ export default function QuoteDetailPage() {
         onClose={() => setShareStaffOpen(false)}
         quoteId={id}
         quoteNumber={quote.quoteNumber}
+        // The crew's copy of the same job — the share carries it for them,
+        // because the quote link refuses the Crew grid (lib/quotes/
+        // shareWithStaff.js).
+        workOrderJobId={quote.jobs?.[0]?.id || null}
         onShared={() => setMenuNotice(t("app.sendMenu.shared", "Shared in your team chat."))}
       />
       <SaveAsTemplateModal

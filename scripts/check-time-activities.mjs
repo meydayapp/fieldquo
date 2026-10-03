@@ -58,6 +58,7 @@ import { queuedPunchState } from "@/lib/offline/punchState";
 import { PERMISSION_PRESETS } from "@/lib/permissions";
 import { meTabsFor, activeMeTab } from "@/lib/me/tabs";
 import { isCrewHome } from "@/lib/dashboard/crewHome";
+import { phoneBarFor } from "@/lib/nav/phoneBar";
 import { navRowAllowed } from "@/lib/permissions/nav";
 
 let pass = 0;
@@ -581,9 +582,15 @@ section("8. The crew's menu shows the clock — and the clock serves them");
   ok("Estimator (worker set) has it too", meTabsFor(estimator).some((t) => t.href === "/app/clock"));
   ok("Crew are the crew home — the same decision that now gives them the employee bar everywhere", isCrewHome(crew) && !isCrewHome(estimator) && !isCrewHome(manager));
 
+  // Since 2026-10-03 the bar is per role (lib/nav/phoneBar.js): a crew member
+  // gets the crew bar — Clock · Today · Chat · More — on every screen,
+  // /app/me included. Executed, not read: the clock must be on the bar the
+  // real function hands the Crew preset.
+  const crewBar = phoneBarFor(crew);
+  ok("the crew's phone bar, on every screen, has the clock", crewBar.set === "crew" && crewBar.tabs.some((t) => t.href === "/app/clock"), crewBar.tabs.map((t) => t.href));
   const bar = readFileSync("app/components/layout/MobileTabBar.js", "utf8");
-  const gate = bar.slice(bar.indexOf("if (\n    isMePath(pathname)"), bar.indexOf("return <MeTabBar />"));
-  ok("MobileTabBar swaps to the employee bar for a crew member, not only on /app/me", gate.length > 0 && /isCrewHome\(caller\)/.test(gate), gate.slice(0, 120));
+  ok("MobileTabBar keeps the crew bar on /app/me too (only non-crew get the employee-home bar there)",
+    /isMePath\(pathname\) && bar\.set !== "crew"/.test(bar));
 
   const more = readFileSync("app/app/me/more/page.js", "utf8");
   ok("a manager reaches the clock from More (their tabs have no clock)", /manager \? <BigRow icon=\{Clock\} title=\{t\("app\.nav\.clock"\)\} href="\/app\/clock"/.test(more));

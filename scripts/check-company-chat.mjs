@@ -75,6 +75,8 @@ import {
 } from "@/lib/company/chat/rules";
 import { FEATURES, featureForNavKey } from "@/lib/features/registry";
 import { NAV_REQUIREMENTS, navRowAllowed } from "@/lib/permissions/nav";
+import { PHONE_BARS, phoneBarFor } from "@/lib/nav/phoneBar";
+import { PERMISSION_PRESETS } from "@/lib/permissions";
 import { APP_MESSAGES } from "@/app/i18n/appMessages";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -575,9 +577,13 @@ section("9. The row, the tab, the gate and the catalogue agree");
   ok("…and the nav row maps back to it", featureForNavKey("app.nav.chat") === "team_chat");
   ok("app/app/chat/layout.js mounts <FeatureGate feature=\"team_chat\">", /<FeatureGate[^>]*feature=["']team_chat["']/.test(read("app/app/chat/layout.js")));
   const sidebar = decomment(read("app/components/layout/AdminSidebar.js"));
-  const tabbar = decomment(read("app/components/layout/MobileTabBar.js"));
   ok("AdminSidebar has the Chat row at /app/chat", /"app\.nav\.chat"[^}]*href:\s*"\/app\/chat"/.test(sidebar));
-  ok("MobileTabBar — the crew's shell — has the Chat tab", /"app\.nav\.chat"[^}]*href:\s*"\/app\/chat"/.test(tabbar));
+  // The bar is per role since 2026-10-03 (lib/nav/phoneBar.js), so this is
+  // executed against every set rather than read off one array's text.
+  ok("every phone bar set — the crew's included — has the Chat tab at /app/chat",
+    Object.values(PHONE_BARS).every((set) => set.some((row) => row.key === "app.nav.chat" && row.href === "/app/chat")));
+  ok("…and it survives the Crew preset's grid on the bar they actually get",
+    phoneBarFor({ role: "employee", permissions: PERMISSION_PRESETS.worker.values }).tabs.some((row) => row.href === "/app/chat"));
   ok("the Chat row has NO NAV_REQUIREMENTS entry — a Crew member keeps it", !("app.nav.chat" in NAV_REQUIREMENTS));
   const crew = { role: "employee", permissions: { jobs: "none", quotes: "none", invoices: "none", requests: "none", schedule: "view_complete_own", clientsProperties: "name_address_only" } };
   ok("navRowAllowed shows Chat to a Crew member with `none` on every document ladder", navRowAllowed("app.nav.chat", crew) === true);

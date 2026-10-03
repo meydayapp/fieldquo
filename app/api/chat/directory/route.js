@@ -6,7 +6,7 @@
 // (lib/company/chat/store.js directoryFor), and there is no parameter that
 // could name a different one.
 //
-// GET ?q= → { me, people: [{ id, name, email, role, label, isYou }] }
+// GET ?q= → { me, people: [{ id, name, email, role, label, title, canOpenQuote, isYou }] }
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
