@@ -281,6 +281,10 @@ export function initialStateFromQuote(quote, { fallbackLabel = "Scope" } = {}) {
     status: quote.status || null,
     client: quote.client || null,
     language: quote.language || null,
+    // The quote's age, read only so the group cards show the scope paragraph
+    // THIS quote's client copy prints — a trade paragraph added after it was
+    // written does not appear on it (resolveServiceContent).
+    createdAt: quote.createdAt || null,
     groups: (Array.isArray(quote.scopeGroups) ? quote.scopeGroups : []).map(
       (g) => groupFromStored(g, quote.importedGroupIds, fallbackLabel),
     ),
@@ -3540,6 +3544,7 @@ export function QuoteBuilderForm({
             subtotal={groupTotal(group)}
             onRemove={locked ? null : () => removeScopeGroup(group.tempId)}
             wordingOverride={wordingOverrideFor(group.categoryId)}
+            documentCreatedAt={start.createdAt || null}
             t={t}
           >
             {renderGroupEditor(group)}

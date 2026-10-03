@@ -70,7 +70,9 @@ import {
   dominantProcessSteps,
   drywallFinishText,
   presetCatalogues,
+  DRYWALL_INSTALL_PARAGRAPH_SINCE,
 } from "@/lib/documents/serviceContent";
+import { scopeBreakdownHtml, quoteSectionsText } from "@/lib/email/quoteSections";
 import {
   TRADE_PRICE_BOOKS,
   PRICE_BOOK_FIELDS,
@@ -453,6 +455,75 @@ for (const [file, needles] of [
   ok(`${file}: passes the group's intake to the resolver`, needles.every((n) => s.includes(n)), needles.filter((n) => !s.includes(n)));
 }
 ok("public quote route: intakeValues is never a returned key", !/\bintakeValues\s*:/.test(code("app/api/public/quotes/[token]/route.js")));
+
+/* ══ G2. The trade paragraph: new documents only ════════════════════════ */
+section("G2. drywall_install's paragraph prints on documents created after it, never on older ones");
+{
+  // A real "before": the catalogues with drywall_install's paragraph removed
+  // for the length of one render — exactly what the product printed before the
+  // paragraph existed — compared through the real renderers, not a model of
+  // them. Restored immediately after.
+  const ENTRIES = LANGUAGE_CODES.map((l) => cats[l].content.drywall_install);
+  const renderAll = (lang, intake, createdAt) => {
+    const group = { label: "Drywall", subtotal: 1200, category: { key: "drywall_install", label: "Drywall" }, intakeValues: intake, lineItems: [{ description: "Board", quantity: 1, amount: 1200 }] };
+    const data = { scopeGroups: [group], ...(createdAt !== undefined ? { createdAt } : {}) };
+    return JSON.stringify({
+      content: resolveServiceContent("drywall_install", null, null, lang, intake, createdAt),
+      html: scopeBreakdownHtml({ data, company: {}, language: lang }),
+      text: quoteSectionsText({ data, company: {}, language: lang }),
+    });
+  };
+  const before = (lang, intake) => {
+    const saved = ENTRIES.map((e) => e.description);
+    ENTRIES.forEach((e) => { delete e.description; });
+    try {
+      return renderAll(lang, intake, undefined);
+    } finally {
+      ENTRIES.forEach((e, i) => { e.description = saved[i]; });
+    }
+  };
+  const OLD = ["2026-09-15T12:00:00.000Z", new Date("2026-10-03T23:59:59.999Z"), "2025-01-01"];
+  const NEW = ["2026-10-04T00:00:00.000Z", new Date("2026-11-02T09:30:00Z")];
+  ok("the cut-over is the start of the day after the change", DRYWALL_INSTALL_PARAGRAPH_SINCE === "2026-10-04T00:00:00.000Z");
+  for (const lang of LANGUAGE_CODES) {
+    for (const intake of [null, {}, { finishLevel: "level_4_standard" }, { finishLevel: "level_5_premium", squareFootage: 800 }]) {
+      const was = before(lang, intake);
+      for (const at of OLD) {
+        ok(`${lang} ${JSON.stringify(intake)} created ${String(at instanceof Date ? at.toISOString() : at)}: content, email HTML and email text byte-identical to before`, renderAll(lang, intake, at) === was);
+      }
+      ok(`${lang} ${JSON.stringify(intake)}: the comparison is not vacuous — a new document differs from "before"`, renderAll(lang, intake, NEW[0]) !== was);
+      for (const at of NEW) {
+        const doc = resolveServiceContent("drywall_install", null, null, lang, intake, at);
+        ok(`${lang} ${JSON.stringify(intake)} created after: the paragraph prints`, doc.description === cats[lang].content.drywall_install.description && renderAll(lang, intake, at).includes(JSON.stringify(doc.description).slice(1, 40)));
+      }
+    }
+    ok(`${lang}: the paragraph really was restored after each "before"`, typeof cats[lang].content.drywall_install.description === "string" && cats[lang].content.drywall_install.description.length > 60);
+    // A quote written on the day itself with a NEW level: the level sentence,
+    // no paragraph.
+    const day = resolveServiceContent("drywall_install", null, null, lang, { finishLevel: "level_5" }, "2026-10-03T15:00:00Z");
+    ok(`${lang}: written on the cut-over day with a level — the level sentence alone`, day.description === drywallFinishText("level_5", lang).description);
+  }
+  ok("1 ms before the cut-over: withheld; at it: printed", resolveServiceContent("drywall_install", null, null, "en", null, "2026-10-03T23:59:59.999Z").description === "" && resolveServiceContent("drywall_install", null, null, "en", null, "2026-10-04T00:00:00.000Z").description.length > 60);
+  ok("no date, or an unreadable one: treated as a new document", ["", null, undefined, "not a date", NaN].every((d) => resolveServiceContent("drywall_install", null, null, "en", null, d).description.length > 60));
+  ok("a company's own paragraph is never withdrawn by the cut-over", resolveServiceContent("drywall_install", { scopeDescription: "Our words." }, null, "en", null, "2026-01-01").description === "Our words.");
+  ok("no other trade is dated: an old roofing quote prints what a new one does", resolveServiceContent("roofing_service", null, null, "en", null, "2020-01-01").description === resolveServiceContent("roofing_service", null, null, "en").description);
+  // Every surface that renders an EXISTING document passes its age.
+  for (const [file, needles] of [
+    ["app/api/quotes/[id]/document/route.js", ["createdAt: true", "quote.createdAt,"]],
+    ["app/api/invoices/[id]/document/route.js", ["createdAt: true", "invoice.quote?.createdAt,"]],
+    ["app/api/public/quotes/[token]/route.js", ["quote.createdAt,"]],
+    ["lib/documentSections/ScopeGroupsSection.js", ["data?.createdAt,"]],
+    ["lib/email/quoteSections.js", ["data?.createdAt,"]],
+    ["lib/email/quoteEmail.js", ["createdAt: quote.createdAt"]],
+    ["lib/ai/quoteReview.js", ["quote.createdAt)"]],
+    ["lib/quotes/completeness.js", ["quote?.createdAt)", "quote.createdAt)"]],
+    ["app/components/quotes/builder/ScopeGroupCard.js", ["documentCreatedAt)"]],
+    ["app/components/quotes/builder/QuoteBuilder.js", ["createdAt: quote.createdAt || null", "documentCreatedAt={start.createdAt || null}"]],
+  ]) {
+    const s = code(file);
+    ok(`${file}: passes the document's createdAt`, needles.every((n) => s.includes(n)), needles.filter((n) => !s.includes(n)));
+  }
+}
 
 /* ══ H. The public intake carries no prices ════════════════════════════ */
 section("H. Public self-quote field");

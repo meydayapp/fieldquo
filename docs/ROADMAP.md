@@ -141,8 +141,14 @@ The owner: "YES — each level should have its price on the price book, per sqft
   `ownPricing`: the level then adds no line there and the builder says so.
 - **Scope paragraph**: drywall_install now prints a trade paragraph (eight languages), required
   for a priced trade by check:trade-labour. It names no level; the level sentence follows it.
-  This is new wording on existing drywall_install documents — deliberate, and the only change
-  to them.
+  **Only on documents created from 2026-10-04 00:00 UTC** (`DRYWALL_INSTALL_PARAGRAPH_SINCE`,
+  `descriptionSince` on the catalogue entry): service content renders live, so
+  `resolveServiceContent` takes the document's createdAt as a sixth argument (an invoice passes
+  its quote's) and withholds a dated paragraph from older documents. The quote page, PDF,
+  email (HTML + text), staff document, invoice, builder card, readiness checks and AI review
+  all pass it. check:drywall-finish-levels §G2 proves an old drywall_install quote renders
+  byte-identical to the pre-paragraph catalogue in all eight languages (content, email HTML
+  and text), and a new one gets it. A quote written on 2026-10-03 itself is treated as old.
 - Counts moved deliberately: check:pricebook-interior (17 books, 64 unpriced trades),
   check:pricebook-systems (17), check:reuse-takeoffs and check:service-template-lines (drywall's
   board figures are held back). check:drywall-finish-levels rewritten: 1,334.
