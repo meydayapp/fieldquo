@@ -24,7 +24,7 @@ import { KindChip } from "@/app/components/me/bits";
 import { CARD, CARD_CLIPPED } from "./surface";
 import WeekHoursCard from "@/app/components/timeclock/WeekHoursCard";
 import { usePermissions } from "@/app/providers/PermissionProvider";
-import { canUseTimeClock } from "@/lib/timeclock/access";
+import { clockOffered } from "@/lib/timeclock/access";
 
 function timeRange(item, language) {
   const s = formatTimeOfDay(new Date(item.start), language);
@@ -80,7 +80,7 @@ export default function CrewMyDay() {
   const [loading, setLoading] = useState(true);
   // Switchable per person in Edit access (lib/timeclock/access.js): off, and
   // the clock card and the week card are not offered.
-  const clockOn = canUseTimeClock(usePermissions());
+  const clockOn = clockOffered(usePermissions());
 
   const load = useCallback(async () => {
     const result = await fetchList("/api/dashboard/my-day", { cache: "no-store" });

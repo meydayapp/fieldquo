@@ -23,7 +23,7 @@ import { Action, BigRow, Card, CardTitle, EmptyNote, KindChip, MeLoad, PersonAva
 import ShiftRequestDialog from "./ShiftRequestDialog";
 import WeekHoursCard from "@/app/components/timeclock/WeekHoursCard";
 import { usePermissions } from "@/app/providers/PermissionProvider";
-import { canUseTimeClock } from "@/lib/timeclock/access";
+import { clockOffered } from "@/lib/timeclock/access";
 
 /** Morning / afternoon / evening by the phone's clock — the greeting is for the reader, where they are. */
 export function greetingKey(hour) {
@@ -44,7 +44,7 @@ export default function WorkerHome() {
   const [shout, setShout] = useState(false);
   // The clock is a rung of the grid an owner can switch off per person
   // (lib/timeclock/access.js); then its button and card are not offered.
-  const clockOn = canUseTimeClock(usePermissions());
+  const clockOn = clockOffered(usePermissions());
   const now = useMemo(() => new Date(), [data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (

@@ -26,7 +26,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
-import { resolveTimeActivities } from "@/lib/timeclock/activities";
+import { resolveTimeActivities, effectiveActivity } from "@/lib/timeclock/activities";
 import { canUseTimeClock, CLOCK_REFUSAL } from "@/lib/timeclock/access";
 import { buildDayLog, dayBoundsForDate, isoDayInZone, shiftIsoDay } from "@/lib/timeclock/segments";
 import { DEFAULT_TIMEZONE } from "@/lib/time/wallClock";
@@ -99,6 +99,7 @@ export async function GET(request) {
       activity: true,
       paid: true,
       status: true,
+      billedInvoiceId: true,
       jobId: true,
       job: { select: { id: true, title: true } },
       task: { select: { id: true, title: true } },
@@ -117,9 +118,35 @@ export async function GET(request) {
       })
     : [];
 
+  // The reader's OWN entries on this day, whole (not clipped), for "Request
+  // a correction" — the form starts from what the entry says — with the
+  // latest request on each, so a pending one reads as pending rather than
+  // inviting a second. Only ever the reader's: corrections are asked for by
+  // the person whose hours they are (app/api/time-entries/corrections).
+  const mine = me ? entries.filter((e) => e.workerId === me.id) : [];
+  const requests = mine.length
+    ? await db.timeEntryCorrection.findMany({
+        where: { companyId: member.companyId, timeEntryId: { in: mine.map((e) => e.id) } },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, timeEntryId: true, status: true, decisionNote: true },
+      })
+    : [];
+  const latest = new Map();
+  for (const r of requests) if (!latest.has(r.timeEntryId)) latest.set(r.timeEntryId, r);
+
   return NextResponse.json({
     ...base,
     hasWorker: Boolean(me),
     people: buildDayLog({ entries, workers, meWorkerId: me?.id || null, bounds, now }),
+    myEntries: mine.map((e) => ({
+      id: e.id,
+      clockIn: e.clockIn,
+      clockOut: e.clockOut,
+      activity: effectiveActivity(e),
+      jobId: e.jobId || null,
+      job: e.job || null,
+      billed: Boolean(e.billedInvoiceId),
+      correction: latest.get(e.id) || null,
+    })),
   });
 }

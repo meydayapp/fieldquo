@@ -41,6 +41,10 @@ export const rows = {
   // unpaid ones out of the hours from these rows — so the relation has to
   // resolve for real, not come back undefined and read as "no breaks".
   timeEntryBreak: [],
+  // Crew correction requests (TimeEntryCorrection) — written by
+  // app/api/time-entries/corrections, read by the Time log. Empty unless a
+  // check seeds one.
+  timeEntryCorrection: [],
 };
 
 /** Every write attempted, in order. */
@@ -72,6 +76,9 @@ const RELATIONS = {
     job: { list: false, get: (e) => (e.jobId ? rows.job.find((j) => j.id === e.jobId) || null : null) },
     task: { list: false, get: (e) => (e.taskId ? rows.task.find((t) => t.id === e.taskId) || null : null) },
     breaks: { list: true, of: "timeEntryBreak", on: (e, b) => b.timeEntryId === e.id },
+  },
+  timeEntryCorrection: {
+    timeEntry: { list: false, get: (c) => (c.timeEntryId ? rows.timeEntry.find((e) => e.id === c.timeEntryId) || null : null) },
   },
 };
 
@@ -170,6 +177,7 @@ function relationModel(model, key) {
   if (model === "timeEntry" && key === "job") return "job";
   if (model === "timeEntry" && key === "task") return "task";
   if (model === "timeEntry" && key === "breaks") return "timeEntryBreak";
+  if (model === "timeEntryCorrection" && key === "timeEntry") return "timeEntry";
   throw new Error(`timeClockDb: unknown relation ${model}.${key}`);
 }
 
@@ -280,6 +288,7 @@ export const db = new Proxy(
     timeEntry: model("timeEntry"),
     task: model("task"),
     timeEntryBreak: model("timeEntryBreak"),
+    timeEntryCorrection: model("timeEntryCorrection"),
     // Prisma's batch form invokes each call eagerly and awaits the array. The
     // stub's methods are already-running promises by the time they arrive here,
     // so awaiting them is the same sequence a batch would produce — enough to

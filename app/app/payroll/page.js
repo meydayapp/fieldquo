@@ -566,6 +566,17 @@ export default function PayrollPage() {
                     )}
                   </p>
                 )}
+                {/* Left out on purpose: an owner whose row is not marked as
+                    paid (lib/payroll/ownerPay.js). Named, so nobody reads as
+                    forgotten, with where the switch is. */}
+                {preview.meta?.notOnPayroll?.length > 0 && (
+                  <p className="text-xs flex items-start gap-1.5 text-muted-foreground mb-2">
+                    <Info size={13} className="mt-0.5 shrink-0" />
+                    {t("app.payroll.notOnPayroll", {
+                      list: preview.meta.notOnPayroll.map((w) => w.name).join(", "),
+                    })}
+                  </p>
+                )}
                 {/* Paid leave is IN these numbers — say so, or a leave week
                     looks like someone was paid for hours they didn't work. */}
                 {preview.meta?.paidLeave?.length > 0 && (

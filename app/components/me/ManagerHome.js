@@ -26,7 +26,7 @@ import { reportResponseError } from "@/lib/clientErrors";
 import { Action, BigRow, Card, CardTitle, EmptyNote, MeLoad, PersonAvatar, RowList, useMeData } from "./bits";
 import { greetingKey } from "./WorkerHome";
 import { usePermissions } from "@/app/providers/PermissionProvider";
-import { canUseTimeClock } from "@/lib/timeclock/access";
+import { clockOffered } from "@/lib/timeclock/access";
 
 const STATE_TONE = {
   clocked_in: "bg-emerald-500",
@@ -41,7 +41,7 @@ const STATE_TONE = {
 export default function ManagerHome() {
   const { t, language } = useTranslation();
   // Switchable per person in Edit access (lib/timeclock/access.js).
-  const clockOn = canUseTimeClock(usePermissions());
+  const clockOn = clockOffered(usePermissions());
   const { money } = useCompanyPreferences();
   const [period, setPeriod] = useState("today");
   const { data, errorKey, loading, reload } = useMeData(`/api/me/manager?period=${period}`, { every: 60_000 });

@@ -26,6 +26,16 @@ import { ensureWorkerForMember } from "@/lib/team/ensureWorker";
 import { ownRateAccess, ownRateWriteVerdict, parseOwnRate } from "@/lib/team/ownRate";
 import { FALLBACK_LABOUR_RATE } from "@/lib/costing/costingDefaults";
 import { recordActivity } from "@/lib/activity/log";
+import { isOnPayroll } from "@/lib/payroll/ownerPay";
+
+// Whether pay runs pay this person (lib/payroll/ownerPay.js): the explicit
+// choice when there is one, else the role's default — an owner is left out.
+function payrollState(member, worker) {
+  return {
+    paidByPayroll: worker.paidByPayroll ?? null,
+    onPayroll: isOnPayroll(worker, member.role === "owner" ? [member.userId] : []),
+  };
+}
 
 const PRIVATE = { "Cache-Control": "private, no-store" };
 const num = (v) => (v === null || v === undefined ? null : Number(v));
@@ -35,7 +45,7 @@ async function load(member) {
     loadEnforceableMember(db, member.id),
     db.worker.findFirst({
       where: { companyId: member.companyId, userId: member.userId },
-      select: { id: true, hourlyRate: true, active: true },
+      select: { id: true, hourlyRate: true, active: true, paidByPayroll: true },
     }),
     db.member.findFirst({
       where: { id: member.id, companyId: member.companyId },
@@ -67,7 +77,7 @@ export async function GET(request) {
   return NextResponse.json(
     {
       ...access,
-      worker: worker ? { id: worker.id, hourlyRate: num(worker.hourlyRate), active: worker.active !== false } : null,
+      worker: worker ? { id: worker.id, hourlyRate: num(worker.hourlyRate), active: worker.active !== false, ...payrollState(member, worker) } : null,
       suggestion,
     },
     { headers: PRIVATE },
@@ -118,7 +128,7 @@ export async function PUT(request) {
     }
     worker = await db.worker.findUnique({
       where: { id: made.worker.id },
-      select: { id: true, hourlyRate: true, active: true },
+      select: { id: true, hourlyRate: true, active: true, paidByPayroll: true },
     });
   }
 
@@ -153,7 +163,45 @@ export async function PUT(request) {
   });
 
   return NextResponse.json(
-    { worker: { id: worker.id, hourlyRate: parsed.value, active: worker.active !== false } },
+    { worker: { id: worker.id, hourlyRate: parsed.value, active: worker.active !== false, ...payrollState(member, worker) } },
+    { headers: PRIVATE },
+  );
+}
+
+// ── "Pay me through payroll" ─────────────────────────────────────────────────
+//
+// The explicit choice for the person's OWN row, from the same card and under
+// the same gate as the rate (payroll:view_all, never in a support session).
+// Only a boolean is accepted: `null` ("back to the default") is not offered
+// by the card, so it is not accepted here either.
+export async function PATCH(request) {
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
+  if (member.impersonation) {
+    return NextResponse.json({ error: "Impersonation is read-only." }, { status: 403 });
+  }
+  const body = await request.json().catch(() => null);
+  if (typeof body?.paidByPayroll !== "boolean") {
+    return NextResponse.json({ error: "Say whether you're paid through payroll." }, { status: 400 });
+  }
+  const { full, worker } = await load(member);
+  if (!canSeeAllPay(full)) {
+    return NextResponse.json({ error: "You don't have access to pay settings. Ask an owner or admin." }, { status: 403 });
+  }
+  if (!worker) {
+    return NextResponse.json({ error: "Set your rate first — that adds you to Team → Workers." }, { status: 409 });
+  }
+  await db.worker.update({ where: { id: worker.id }, data: { paidByPayroll: body.paidByPayroll } });
+  await recordActivity(member, {
+    action: "worker.ownPayrollSet",
+    entityType: "worker",
+    entityId: worker.id,
+    summary: body.paidByPayroll ? "Put themselves on payroll" : "Took themselves off payroll",
+    metadata: { workerId: worker.id, paidByPayroll: body.paidByPayroll },
+  });
+  const next = { ...worker, paidByPayroll: body.paidByPayroll };
+  return NextResponse.json(
+    { worker: { id: worker.id, hourlyRate: num(worker.hourlyRate), active: worker.active !== false, ...payrollState(member, next) } },
     { headers: PRIVATE },
   );
 }

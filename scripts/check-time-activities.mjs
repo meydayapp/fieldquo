@@ -55,7 +55,10 @@ import {
 import { actualJobCost } from "@/lib/costing/actualJobCost";
 import { unattributedLabourForJob } from "@/lib/costing/unattributedHours";
 import { queuedPunchState } from "@/lib/offline/punchState";
-import { PERMISSION_PRESETS } from "@/lib/permissions";
+import { PERMISSION_PRESETS, PERMISSION_CATEGORIES, PERMISSION_TOGGLES } from "@/lib/permissions";
+import { canUseTimeClock } from "@/lib/timeclock/access";
+import { presetForValues, isPresetOffSwitch } from "@/lib/permissions/accessPresets";
+import { isBillableSeat } from "@/lib/pricing/ladder";
 import { meTabsFor, activeMeTab } from "@/lib/me/tabs";
 import { isCrewHome } from "@/lib/dashboard/crewHome";
 import { phoneBarFor } from "@/lib/nav/phoneBar";
@@ -593,7 +596,7 @@ section("8. The crew's menu shows the clock — and the clock serves them");
     /isMePath\(pathname\) && bar\.set !== "crew"/.test(bar));
 
   const more = readFileSync("app/app/me/more/page.js", "utf8");
-  ok("a manager reaches the clock from More (their tabs have no clock)", /manager \? <BigRow icon=\{Clock\} title=\{t\("app\.nav\.clock"\)\} href="\/app\/clock"/.test(more));
+  ok("a manager reaches the clock from More (their tabs have no clock), while the grid allows it", /manager && clockOffered\(caller\) \? <BigRow icon=\{Clock\} title=\{t\("app\.nav\.clock"\)\} href="\/app\/clock"/.test(more));
   ok("the Jobs row on More is behind the same navRowAllowed the bar used", /navRowAllowed\("app\.nav\.jobs", caller\)/.test(more));
   ok("…which lets Crew through (jobs view_only, scoped to their own)", navRowAllowed("app.nav.jobs", crew));
   ok("Earnings is a More row for every set now, not only the worker set", /<BigRow icon=\{Wallet\} title=\{t\("app\.me\.tab\.earnings"\)\} href="\/app\/me\/earnings" \/>/.test(more));
@@ -622,6 +625,196 @@ section("9. Offline: a day tapped through with no signal shows as tapped");
   ok("…and a queued Clock out shows clocked out", s3.open === null && s3.pending);
   const queue = readFileSync("lib/offline/queue.js", "utf8");
   ok("the replay carries the activity to the server", /\.\.\.\(p\.activity \? \{ activity: p\.activity \} : \{\}\)/.test(queue));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("10. The clock is a grid rung, switchable per person (Edit access)");
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  const levels = PERMISSION_CATEGORIES.timeTracking.levels.map((l) => l.value);
+  ok("Time Tracking has a bottom rung `none` (No access) — the clock's off switch", levels[0] === "none" && PERMISSION_CATEGORIES.timeTracking.levels[0].label === "No access", levels);
+  for (const key of Object.keys(PERMISSION_PRESETS)) {
+    ok(`preset ${key} has the clock by default`, canUseTimeClock({ role: "employee", permissions: grid(key) }));
+  }
+  const crewOff = { role: "employee", permissions: { ...grid("worker"), timeTracking: "none" } };
+  const estOff = { role: "employee", permissions: { ...grid("estimator"), timeTracking: "none" } };
+  ok("switched off: no rail/More row (NAV_REQUIREMENTS)", navRowAllowed("app.nav.clock", crewOff) === false && navRowAllowed("app.nav.clock", { role: "employee", permissions: grid("worker") }) === true);
+  ok("switched off: no tab on the employee-home bar", !meTabsFor(crewOff).some((t) => t.href === "/app/clock") && meTabsFor({ role: "employee", permissions: grid("worker") }).some((t) => t.href === "/app/clock"));
+  ok("switched off: no clock on the crew phone bar", !phoneBarFor(crewOff).tabs.some((t) => t.href === "/app/clock"), phoneBarFor(crewOff).tabs.map((t) => t.href));
+  ok("owner/admin always keep it (unrestricted)", canUseTimeClock({ role: "owner", permissions: null }) && navRowAllowed("app.nav.clock", { role: "admin" }));
+  ok("a member with no grid at all keeps it (pre-grid fail-open)", canUseTimeClock({ role: "employee", permissions: null }));
+  ok("Crew with the clock off is still Crew — the switch does not unlock the grid", presetForValues(crewOff.permissions, "employee") === "worker");
+  ok("…and still free (a grid BELOW Crew is not a seat)", isBillableSeat({ role: "employee", permissions: crewOff.permissions }) === false);
+  ok("an Estimator with the clock off is still an Estimator", presetForValues(estOff.permissions, "employee") === "estimator");
+  ok("only OFF values are preset-preserving switches", isPresetOffSwitch("timeTracking", "none") && !isPresetOffSwitch("timeTracking", "view_record_edit_all") && !isPresetOffSwitch("jobCosting", true));
+
+  // And the ROUTES refuse — hiding the row alone would be cosmetic.
+  const OFF = { ...CREW, permissions: { ...grid("worker"), timeTracking: "none" } };
+  seed({ member: OFF });
+  rows.member = rows.member.map((m) => (m.id === OFF.id ? { ...OFF } : m));
+  const g = await call(clockGET, new Request("http://x/api/time-clock"));
+  const p = await call(clockPOST, post({ action: "activity", activity: "general" }));
+  const l = await call(logGET, new Request("http://x/api/time-clock/log"));
+  const w = await call(weekGET, new Request("http://x/api/time-clock/week"));
+  ok("switched off: GET /api/time-clock 403", g.status === 403, g.status);
+  ok("switched off: a punch is refused and nothing is written", p.status === 403 && rows.timeEntry.length === 0, p.status);
+  ok("switched off: the log and the week refuse too", l.status === 403 && w.status === 403, [l.status, w.status]);
+
+  // Job costing visibility is the grid's own toggle, already in Edit access.
+  ok("job costing is a grid toggle (jobCosting), shown in the editor's toggle list", "jobCosting" in PERMISSION_TOGGLES && /Object\.entries\(PERMISSION_TOGGLES\)/.test(readFileSync("app/components/team/AccessEditor.js", "utf8")));
+  ok("…on by default only where the preset says (Manager), switchable per person", grid("manager").jobCosting === true && grid("estimator").jobCosting === false && grid("dispatcher").jobCosting === false);
+  ok("…and the KPI row follows it", navRowAllowed("app.nav.kpis", { role: "employee", permissions: { ...grid("estimator"), jobCosting: false } }) === false);
+  const editor = readFileSync("app/components/team/AccessEditor.js", "utf8");
+  ok("the fixed Crew panel offers the clock switch (it has no dials)", /activePreset === FIXED_PRESET \? \(\s*<>[\s\S]{0,2500}<label[\s\S]{0,1500}app\.setTeamNew\.timeClock/.test(editor));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("11. Crew correct their own hours only as a REQUEST a manager approves");
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  const { POST: corrPOST, GET: corrGET } = await import("@/app/api/time-entries/corrections/route.js");
+  const { PATCH: corrPATCH } = await import("@/app/api/time-entries/corrections/[id]/route.js");
+  const SUP = { id: "mem_sup", userId: "usr_sup", companyId: OURS, role: "supervisor", permissions: grid("manager") };
+  const day = isoDayInZone(ago(30), TZ);
+  const wall = (hm) => `${day}T${hm}`;
+  const inst = (hm) => dayBoundsForDate(day, TZ).start.getTime() + (Number(hm.slice(0, 2)) * 60 + Number(hm.slice(3))) * 60_000;
+  const base = () => {
+    seed({
+      member: CREW,
+      entries: [
+        { id: "e1", workerId: "wrk_crew", clockIn: new Date(inst("07:00")), clockOut: new Date(inst("12:00")), hours: 5, activity: "general", jobId: null, paid: true, status: "pending" },
+        { id: "e_other", workerId: "wrk_other", clockIn: new Date(inst("07:00")), clockOut: new Date(inst("15:00")), hours: 8, activity: "office", jobId: null, paid: true, status: "pending" },
+      ],
+    });
+    rows.member.push({ ...SUP });
+  };
+  const req = (body) => new Request("http://x/api/time-entries/corrections", { method: "POST", body: JSON.stringify(body) });
+
+  base();
+  const before = md5(rows.timeEntry);
+  const r1 = await call(corrPOST, req({ timeEntryId: "e1", clockIn: wall("07:00"), clockOut: wall("16:30"), reason: "Forgot to clock out" }));
+  ok("a crew member can request a correction on their own entry", r1.status === 201 && rows.timeEntryCorrection.length === 1, r1);
+  ok("…and NOTHING changes on the entry until it is approved (md5)", md5(rows.timeEntry) === before);
+  const r2 = await call(corrPOST, req({ timeEntryId: "e1", clockIn: wall("07:00"), clockOut: wall("16:00"), reason: "again" }));
+  ok("one pending request per entry", r2.status === 409, r2.status);
+  const r3 = await call(corrPOST, req({ timeEntryId: "e_other", clockIn: wall("07:00"), clockOut: wall("16:00"), reason: "x" }));
+  ok("a colleague's entry is not theirs to ask about", r3.status === 404, r3.status);
+  const r4 = await call(corrPOST, req({ timeEntryId: "e1", clockIn: wall("07:00"), clockOut: wall("16:00") }));
+  ok("a reason is required", r4.status >= 400, r4.status);
+
+  const id = rows.timeEntryCorrection[0].id;
+  const decide = (decision, note) => new Request("http://x", { method: "PATCH", body: JSON.stringify({ decision, note }) });
+  const crewTry = await call((rq) => corrPATCH(rq, { params: Promise.resolve({ id }) }), decide("approve"));
+  ok("crew cannot approve their own", crewTry.status === 403 && md5(rows.timeEntry) === before, crewTry.status);
+  session.member = { ...OTHER };
+  const colleagueTry = await call((rq) => corrPATCH(rq, { params: Promise.resolve({ id }) }), decide("approve"));
+  ok("…nor a colleague's — deciding needs a supervisor seat AND everyone's time", colleagueTry.status === 403 && md5(rows.timeEntry) === before, colleagueTry.status);
+
+  session.member = { ...SUP };
+  const list = await call(corrGET, new Request("http://x/api/time-entries/corrections?status=pending"));
+  ok("the manager's queue lists it", list.body?.scope === "all" && list.body?.corrections?.length === 1, list.body?.corrections?.length);
+  const ap = await call((rq) => corrPATCH(rq, { params: Promise.resolve({ id }) }), decide("approve", "OK"));
+  const e1 = rows.timeEntry.find((e) => e.id === "e1");
+  const c = rows.timeEntryCorrection[0];
+  ok("a manager's approval applies it to the SAME entry", ap.status === 200 && e1 && +e1.clockOut === inst("16:30"), ap);
+  ok("…hours by the shared arithmetic (9.5 h)", Number(e1.hours) === 9.5, e1.hours);
+  ok("…the original is kept on the request (audit trail)", c.status === "approved" && c.original?.hours === 5 && c.original?.clockOut === new Date(inst("12:00")).toISOString() && c.decidedById === "usr_sup", c);
+  ok("…and the entry was never deleted or duplicated", rows.timeEntry.length === 2 && !writes.some((w) => w.action === "delete"));
+  ok("…its approval status is the manager's to give, unchanged by the correction", e1.status === "pending");
+  const again = await call((rq) => corrPATCH(rq, { params: Promise.resolve({ id }) }), decide("approve"));
+  ok("a decided request cannot be decided twice", again.status === 409);
+
+  base();
+  await call(corrPOST, req({ timeEntryId: "e1", clockIn: wall("06:00"), clockOut: wall("12:00"), reason: "Started at six" }));
+  const snap = md5(rows.timeEntry);
+  session.member = { ...SUP };
+  const rj = await call((rq) => corrPATCH(rq, { params: Promise.resolve({ id: rows.timeEntryCorrection[0].id }) }), decide("reject", "Site opened at 7"));
+  ok("rejecting leaves the entry exactly as it was (md5) and records who and why", rj.status === 200 && md5(rows.timeEntry) === snap && rows.timeEntryCorrection[0].status === "rejected" && rows.timeEntryCorrection[0].decisionNote === "Site opened at 7");
+
+  // A supervisor may not decide their own request.
+  base();
+  rows.worker.push({ id: "wrk_sup", companyId: OURS, userId: "usr_sup", name: "Sam", hourlyRate: 40 });
+  rows.timeEntry.push({ id: "e_sup", workerId: "wrk_sup", clockIn: new Date(inst("08:00")), clockOut: new Date(inst("10:00")), hours: 2, activity: "general", jobId: null, paid: true, status: "pending" });
+  session.member = { ...SUP };
+  await call(corrPOST, req({ timeEntryId: "e_sup", clockIn: wall("08:00"), clockOut: wall("11:00"), reason: "Stayed late" }));
+  const selfDecide = await call((rq) => corrPATCH(rq, { params: Promise.resolve({ id: rows.timeEntryCorrection[0].id }) }), decide("approve"));
+  ok("nobody below owner/admin decides their own correction", selfDecide.status === 403, selfDecide.status);
+
+  // The log offers the request on the reader's own entries only.
+  base();
+  const lg = await call(logGET, new Request(`http://x/api/time-clock/log?date=${day}`));
+  ok("the Time log lists the reader's own entries for a correction, never a colleague's", lg.body?.myEntries?.map((e) => e.id).join(",") === "e1", lg.body?.myEntries);
+  const page = readFileSync("app/app/clock/TimeLog.js", "utf8");
+  ok("…and the screen posts to the request route, not the entry", /fetch\("\/api\/time-entries\/corrections"/.test(page) && !/\/api\/time-entries\/\$\{/.test(page));
+  ok("Timesheets shows the queue to managers", /<CorrectionRequests/.test(readFileSync("app/app/settings/team/timesheets/page.js", "utf8")));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("12. Driving and Supplies cost the job; only On site is offered on the invoice");
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  const { partitionBillable, sumHours, hoursByWorker } = await import("@/lib/invoices/labourLine");
+  // origin/main's partitionBillable, VERBATIM, for the md5 proof.
+  const OLD_partition = (entries) => {
+    const round2 = (n) => Math.round(n * 100) / 100;
+    const billable = [];
+    const skipped = [];
+    for (const e of Array.isArray(entries) ? entries : []) {
+      if (!e || typeof e.id !== "string") continue;
+      if (!e.clockOut) { skipped.push({ id: e.id, reason: "open" }); continue; }
+      if (e.billedInvoiceId) { skipped.push({ id: e.id, reason: "billed" }); continue; }
+      const hours = Number(e.hours);
+      if (!Number.isFinite(hours) || hours <= 0) { skipped.push({ id: e.id, reason: "no_hours" }); continue; }
+      if (e.status === "rejected") { skipped.push({ id: e.id, reason: "rejected" }); continue; }
+      billable.push({ ...e, hours: round2(hours) });
+    }
+    return { billable, skipped };
+  };
+  let s = 31337;
+  const rnd = () => ((s = (s * 1103515245 + 12345) % 2147483648) / 2147483648);
+  const legacy = Array.from({ length: 1500 }, (_, i) => ({
+    id: `l${i}`,
+    clockIn: new Date(Date.UTC(2026, 8, 1) + i * HOUR),
+    clockOut: rnd() < 0.1 ? null : new Date(Date.UTC(2026, 8, 1) + i * HOUR + 3 * HOUR),
+    hours: rnd() < 0.05 ? null : Math.round(rnd() * 900) / 100,
+    status: rnd() < 0.1 ? "rejected" : rnd() < 0.5 ? "approved" : "pending",
+    billedInvoiceId: rnd() < 0.1 ? "inv" : null,
+    activity: null,
+    worker: { name: rnd() < 0.5 ? "Dee" : "Ana" },
+  }));
+  const o = md5(OLD_partition(legacy));
+  console.log(`       md5 old labour offer over 1500 entries without an activity: ${o}`);
+  ok("existing invoices' suggested labour is unchanged for entries without an activity (md5)", md5(partitionBillable(legacy)) === o, md5(partitionBillable(legacy)));
+  const mixed = [
+    { id: "v", clockIn: ago(9), clockOut: ago(7), hours: 2, status: "approved", activity: "visit", worker: { name: "Dee" } },
+    { id: "d", clockIn: ago(7), clockOut: ago(6), hours: 1, status: "approved", activity: "driving", worker: { name: "Dee" } },
+    { id: "s", clockIn: ago(6), clockOut: ago(5.5), hours: 0.5, status: "approved", activity: "supplies", worker: { name: "Dee" } },
+    { id: "old", clockIn: ago(5), clockOut: ago(4), hours: 1, status: "approved", activity: null, worker: { name: "Dee" } },
+  ];
+  const part = partitionBillable(mixed);
+  ok("On site and legacy job time are offered on the invoice", part.billable.map((e) => e.id).join(",") === "v,old", part.billable.map((e) => e.id));
+  ok("Driving and Supplies are not — skipped as not_on_site", part.skipped.filter((x) => x.reason === "not_on_site").map((x) => x.id).join(",") === "d,s");
+  ok("the offered hours are the on-site hours only", sumHours(mixed) === 3 && hoursByWorker(mixed)[0]?.hours === 3, sumHours(mixed));
+  // …while job costing still counts them: it reads every entry by jobId.
+  const cost = actualJobCost([], mixed.map((e) => ({ ...e, worker: { hourlyRate: 30 } })));
+  ok("…while the job's cost still counts all four (4.5 h × rate)", Math.abs(cost.labour.cost - 4.5 * 30) < 0.01, cost.labour);
+  const routes = ["app/api/invoices/labour-line/route.js", "app/api/invoices/route.js"].map((f) => readFileSync(f, "utf8"));
+  ok("both invoice labour reads select the activity the rule needs", routes.every((src) => /billedInvoiceId: true, activity: true/.test(src)));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("13. An owner's own rate costs their jobs; pay runs leave them out unless marked paid");
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  const { isOnPayroll } = await import("@/lib/payroll/ownerPay");
+  const owners = new Set(["usr_owner"]);
+  ok("an owner's row, undecided, is not on payroll", isOnPayroll({ userId: "usr_owner", paidByPayroll: null }, owners) === false);
+  ok("an owner marked as paid is", isOnPayroll({ userId: "usr_owner", paidByPayroll: true }, owners) === true);
+  ok("every other row, undecided, is paid exactly as before", isOnPayroll({ userId: "usr_crew", paidByPayroll: null }, owners) === true && isOnPayroll({ userId: null }, owners) === true);
+  ok("an explicit false leaves anyone out", isOnPayroll({ userId: "usr_crew", paidByPayroll: false }, owners) === false);
+  const run = readFileSync("lib/payroll/buildPayRun.js", "utf8");
+  ok("buildPayRun pays only isOnPayroll rows and names the rest", /allWorkers\.filter\(\(w\) => isOnPayroll\(w, ownerUserIds\)\)/.test(run) && /notOnPayroll,/.test(run) && /role: "owner"/.test(run));
+  ok("the run screen says who it left out", /preview\.meta\?\.notOnPayroll\?\.length > 0/.test(readFileSync("app/app/payroll/page.js", "utf8")));
 }
 
 console.error = realError;

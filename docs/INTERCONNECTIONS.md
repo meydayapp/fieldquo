@@ -457,8 +457,9 @@ tenancy, so it carries no information.
 | `TaskDependency` | Task | — |
 | `TaxFormSubmission` | Worker | — |
 | `TikTokPublish` | MarketingDesign, VideoPost | — |
-| `TimeEntry` | Invoice, Job, Task, Worker | LocationStamp, TimeEntryBreak |
+| `TimeEntry` | Invoice, Job, Task, Worker | LocationStamp, TimeEntryBreak, TimeEntryCorrection |
 | `TimeEntryBreak` | TimeEntry | — |
+| `TimeEntryCorrection` | TimeEntry | — |
 | `User` | Worker | Account, AccountDevice, Appointment, AvailabilityRequest, AvailabilitySchedule, CallbackEntry, ChangeOrder, DailyObjectiveSheet, EventType, Funnel, Invoice, JobMaterial, JobVisit, LeadNote, LeadRequest, MarketingCampaign, MarketingDesign, Member, OrgMember, PamphletStop, PushSubscription, Quote, ScheduleEvent, Session, Shift, ShiftRequest, SupplyRequest, Task, TimeEntry, TwoFactor, WorkAreaAssignment, Worker, WorkingHours |
 | `VehicleDetail` | — | VehicleMaintenance |
 | `VehicleMaintenance` | VehicleDetail | — |

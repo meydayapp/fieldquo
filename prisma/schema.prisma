@@ -7994,6 +7994,12 @@ model Worker {
   province                  String?
   type                      WorkerType @default(contractor)
   hourlyRate                Decimal?   @db.Decimal(10, 2)
+  /// Is this person paid through pay runs? Null = not decided, resolved by
+  /// role: an OWNER's row is left out (their rate is for job costing — they
+  /// take the profit, not wages), everyone else is paid as before. True or
+  /// false is an explicit choice ("Pay me through payroll" on Your own rate).
+  /// lib/payroll/ownerPay.js is the one rule.
+  paidByPayroll             Boolean?
 
   /// What the company CALLS this person — Receptionist, Clerk, Foreman, Lead
   /// installer, Estimator, Office manager. Free text, up to 60 characters,

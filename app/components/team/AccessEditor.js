@@ -218,13 +218,13 @@ export default function AccessEditor({
               grid would be worse than none — twenty greyed selects invite the
               reader to hunt for the one that will let them through. */}
           {activePreset === FIXED_PRESET ? (
+            <>
             <p className="text-sm text-muted-foreground pt-2 border-t border-border">
               {t(
                 "app.setTeamNew.crewFixed",
                 "Crew access is fixed: their own schedule, the jobs they're assigned to, what to buy for those jobs, and their own hours. No prices, quotes, invoices or requests. Crew don't use a seat — to give someone more than this, pick another level.",
               )}
             </p>
-          ) : null}
           {/* The time clock, per person (owner, 2026-10-03). On for every
               preset by default; this switch turns it off — and the rail row,
               the Clock in cards and the clock's own routes with it
@@ -232,7 +232,6 @@ export default function AccessEditor({
               keeps the person in their preset (PRESET_OFF_SWITCHES) and a
               Crew member stays free. Shown on the fixed Crew panel, where
               there is no Time Tracking dial to use instead. */}
-          {activePreset === FIXED_PRESET ? (
             <label className="flex items-start gap-2.5 text-sm border-t border-border pt-3">
               <input
                 type="checkbox"
@@ -242,7 +241,7 @@ export default function AccessEditor({
                   changeValue(
                     "timeTracking",
                     e.target.checked
-                      ? PERMISSION_PRESETS[FIXED_PRESET].values.timeTracking
+                      ? PERMISSION_PRESETS[activePreset].values.timeTracking
                       : PRESET_OFF_SWITCHES.timeTracking,
                   )
                 }
@@ -253,6 +252,7 @@ export default function AccessEditor({
                 <span className="text-muted-foreground">{t("app.setTeamNew.timeClockDesc")}</span>
               </span>
             </label>
+            </>
           ) : (
           <>
           <div className="grid sm:grid-cols-2 gap-4 pt-2">
