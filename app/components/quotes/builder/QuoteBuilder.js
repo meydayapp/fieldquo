@@ -96,7 +96,7 @@ import {
   FALLBACK_OVERHEAD_PCT,
   FALLBACK_LABOUR_RATE,
 } from "@/lib/costing/quoteCosting";
-import { isUnitPriced, UNIT_PRICED_CATEGORIES } from "@/app/data/cabinetPricing";
+import { isUnitPriced } from "@/app/data/cabinetPricing";
 import { PAINT_ESTIMATE_TYPES } from "@/lib/pricing/paintTakeoff";
 import { APP_MESSAGES } from "@/app/i18n/appMessages";
 import { fieldsForCategory } from "@/app/data/quoteIntakeFields";
@@ -130,6 +130,9 @@ import {
   cabinetServiceOptions,
   switchCabinetService,
 } from "@/lib/quotes/cabinetServiceSwitch";
+// Which calculator a painting estimate kind opens — the cabinet or stair
+// trade, or the painting takeoff. Why, in the module's header.
+import { routeEstimateKind, stainingChoices, placeRoutedGroup } from "@/lib/quotes/estimateKindRouting";
 // The estimator's own complexity factors, on any trade — the model and its
 // composition order are in lib/pricing/customFactors.js.
 import CustomFactorsEditor from "@/app/components/pricing/CustomFactorsEditor";
@@ -1450,21 +1453,19 @@ export function QuoteBuilderForm({
    * The group is the one newScopeGroup builds for the tile; only
    * `takeoff.estimateType` differs, and it is the field PaintAreas reads.
    */
-  function addPaintingEstimate(estimateType) {
+  function addPaintingEstimate(estimateType, choice = null) {
     // Owner's decision (2026-09-22): a company selling cabinet refinishing
     // or refacing has ONE cabinet takeoff — that trade's doors / drawers /
     // complexity card — and the painter's "Cabinets & millwork" card opens
     // it, refinishing first as the higher-volume trade. The painting
     // substrate list stays for a painter with no cabinet trade. Nothing
     // stored changes: this only decides which group a fresh pick creates.
-    if (estimateType === "cabinets") {
-      const cabinet = UNIT_PRICED_CATEGORIES.map((key) =>
-        categories.find((c) => c?.key === key),
-      ).find(Boolean);
-      if (cabinet) {
-        addScopeGroup(cabinet, cabinet.label);
-        return;
-      }
+    // Staining → Cabinets / Stairs opens those trades the same way
+    // (2026-10-03); lib/quotes/estimateKindRouting.js decides.
+    const route = routeEstimateKind(estimateType, categories, choice);
+    if (route) {
+      addScopeGroup(route.category, routedLabel(route));
+      return;
     }
     const category = paintingCategoryFor(estimateType, categories);
     if (!category) return;
@@ -1492,6 +1493,35 @@ export function QuoteBuilderForm({
       ...prev,
       group.takeoff ? { ...group, takeoff: { ...group.takeoff, estimateType } } : group,
     ]);
+  }
+
+  // A routed group's heading — what the CLIENT reads. Cabinets & millwork
+  // keeps the trade's own name, as it did. Staining says it is staining, in
+  // the document's language (non-negotiable #6): it is the one place the
+  // stain pick shows on a trade whose rate card has no stain/paint switch.
+  function routedLabel(route) {
+    if (!route.stain) return route.category.label;
+    const lang = String(quoteLanguage || companyLanguage || "en").slice(0, 2).toLowerCase();
+    const key = `app.paint.stainHeading.${route.calculator === "stairs" ? "stairs" : "cabinets"}`;
+    return APP_MESSAGES[lang]?.[key] || APP_MESSAGES.en[key] || route.category.label;
+  }
+
+  // The same cards INSIDE a painting takeoff (PaintAreas.js) — the path the
+  // owner took on 2026-10-03: add Interior Painting, press Cabinets & millwork,
+  // get a room. Now that press opens the cabinet trade (or, under Staining,
+  // the cabinet or stair trade) in place of the painting group while nothing
+  // is in it, or after it when something is. Returns false when there is no
+  // trade to open, and the takeoff takes the pick itself, as before.
+  function routePaintGroup(groupTempId, kind, choice = null) {
+    const route = routeEstimateKind(kind, categories, choice);
+    if (!route) return false;
+    const fresh = newScopeGroup(route.category, routedLabel(route), rateOverridesFor(route.category.id), {
+      tempId: crypto.randomUUID(),
+      fieldDefaults: true,
+      language: quoteLanguage || companyLanguage,
+    });
+    setScopeGroups((prev) => placeRoutedGroup(prev, groupTempId, fresh));
+    return true;
   }
 
   function removeScopeGroup(tempId) {
@@ -2630,6 +2660,11 @@ export function QuoteBuilderForm({
                   ? updateTakeoff(group.tempId, next)
                   : updatePricing(group.tempId, { takeoff: next })
               }
+              // Read by the painting takeoff's estimate-type cards only.
+              routing={{
+                stainChoices: stainingChoices(categories),
+                onRoute: (kind, choice) => routePaintGroup(group.tempId, kind, choice),
+              }}
             />
           )}
 

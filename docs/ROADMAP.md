@@ -71,6 +71,48 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Each estimate kind opens its own calculator (3 October 2026)
+
+The owner, on TrueFinish Cabinets: after adding Interior Painting, the cards
+inside the takeoff opened a room (W × L × H) for Cabinets & millwork and for
+Staining, and Refinish, Reface and Stairs were nowhere. The first-screen card
+already opened the cabinet trade; the in-takeoff card only re-filtered the
+room's substrates.
+
+### What shipped
+
+- `lib/quotes/estimateKindRouting.js` decides, for both sets of cards:
+  Cabinets & millwork → the cabinet trade (refinishing first, with its
+  Refinish | Reface switch); Staining → asks Cabinets / Stairs / Decks, fences
+  & doors when the company sells cabinets or stairs, and opens that trade;
+  everything else stays the painting takeoff. Only trades the company sells.
+  A press inside an untouched painting group replaces it (same tempId, so the
+  document layout keeps it open); one with work in it is left alone and the
+  trade goes after it. Staining groups are headed "Cabinet staining" / "Stair
+  staining" in the document's language.
+- Exterior, and a commercial area set to exterior, is a surface calculator:
+  siding area (sqft), trim (linear ft), counted doors, window frames,
+  shutters, soffit & fascia, garage doors — the `measurement: "surface"` style
+  the recovered exterior job used. An area stored with room dimensions keeps
+  its room form. Commercial prices from its own rate set as before.
+- Four exterior substrates, all `analogue` (rates borrowed from existing
+  figures, edit on the rate card): `ext_door` 1 h/side, `ext_window_frame`
+  0.5 h, `ext_trim` 30 lnft/h (soffit & fascia's rate) read from the trim
+  linear feet, `shutters` $75/pair ÷ $80/h.
+- `check:estimate-kind-routing` (in check:all): routing, rendering of every
+  kind, wiring, and md5 pins of existing quotes of every kind taken from
+  origin/main. TrueFinish's real quotes were recomputed read-only through
+  origin/main and this tree: 129 md5s, identical.
+
+### Owed — owner decisions
+
+- The four exterior rates are placeholders until he names his own.
+- A painter with no cabinet trade still gets the painting book's cabinet
+  substrates inside a room for Cabinets & millwork; whether that should drop
+  the room geometry is his call.
+- The cabinet trade has no stain-vs-paint price; a stained cabinet group
+  prices at the refinishing card and only its heading says stain.
+
 ## The monthly summary email, rebuilt (3 October 2026)
 
 The 1st-of-the-month email ("Your September summary", From: FieldQuo) was one
