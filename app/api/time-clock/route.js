@@ -45,6 +45,11 @@ import { recordActivity } from "@/lib/activity/log";
 import { canSelfEnrol } from "@/lib/timeclock/selfEnrol";
 import { readOfflineKey, recordOfflineRefusal } from "@/lib/offline/idempotency";
 import { punchMoment } from "@/lib/offline/punchMoment";
+import {
+  resolveTimeActivities,
+  effectiveActivity,
+  checkActivityJob,
+} from "@/lib/timeclock/activities";
 
 // ── Every punch leaves a row in the activity trail ──────────────────────────
 //
@@ -76,7 +81,14 @@ function logPunch(member, action, { worker, entry, job, hours, kind } = {}) {
     summary: summaries[action],
     summaryKey: PUNCH_KEYS[action],
     summaryParams: { name: worker.name, job: jobTitle, hours: hours ?? "", kind: kind || "" },
-    metadata: { workerId: worker.id, jobId: job?.id || entry?.jobId || null, at: new Date().toISOString() },
+    metadata: {
+      workerId: worker.id,
+      jobId: job?.id || entry?.jobId || null,
+      // The tile, when the punch came from one — "switched to no job" is true
+      // of Driving and of Office, and this is what tells them apart.
+      ...(entry?.activity ? { activity: entry.activity } : {}),
+      at: new Date().toISOString(),
+    },
   });
 }
 
@@ -90,6 +102,10 @@ const BREAKS_SELECT = {
 const OPEN_SELECT = {
   id: true,
   clockIn: true,
+  // What the person is doing, and whether it is paid — the tiles light the
+  // running one, and the live total leaves an unpaid stretch out.
+  activity: true,
+  paid: true,
   jobId: true,
   job: { select: { id: true, title: true } },
   // The plan step this entry is booked to, so the screen can say "on Walls,
@@ -113,12 +129,18 @@ async function myWorker(member) {
 // UTC on Vercel is 8pm the previous evening in Toronto, so a server-local day
 // put a 7am punch on the wrong date and looked for the wrong day's visits.
 // Same argument lib/time/wallClock.js makes for manual entries.
-async function companyTimezone(companyId) {
+//
+// The activity policy rides along: which tiles are on, what they are called
+// here, which are paid (lib/timeclock/activities.js resolves it).
+async function companyClock(companyId) {
   const company = await db.company.findUnique({
     where: { id: companyId },
-    select: { timezone: true },
+    select: { timezone: true, timeActivities: true },
   });
-  return company?.timezone || null;
+  return {
+    timezone: company?.timezone || null,
+    activities: resolveTimeActivities(company?.timeActivities),
+  };
 }
 
 // What today's entries are shown with. `job` is selected so the list on the
@@ -130,6 +152,8 @@ const ENTRY_SELECT = {
   clockOut: true,
   hours: true,
   status: true,
+  activity: true,
+  paid: true,
   jobId: true,
   job: { select: { id: true, title: true } },
   taskId: true,
@@ -160,10 +184,11 @@ export async function GET(request) {
     });
   }
 
-  const [full, timezone] = await Promise.all([
+  const [full, clock] = await Promise.all([
     loadEnforceableMember(db, member.id),
-    companyTimezone(member.companyId),
+    companyClock(member.companyId),
   ]);
+  const { timezone } = clock;
   const now = new Date();
   const { start } = dayBoundsInZone(now, timezone);
 
@@ -210,6 +235,11 @@ export async function GET(request) {
     todayCount: choices.todayCount,
     suggestedJobId: choices.suggestedJobId,
     truncated: choices.truncated,
+    // The tiles, in order, with the company's names and pay rule. The screen
+    // draws only `enabled` ones — the POST refuses the rest, so a tile drawn
+    // for a switched-off activity would be a control that cannot work.
+    activities: clock.activities,
+    timezone: timezone || null,
   });
 }
 
@@ -355,8 +385,15 @@ export async function POST(request) {
       return NextResponse.json({ error: "You're already on a break — end it first." }, { status: 409 });
     }
     const kind = BREAK_KINDS.includes(body?.kind) ? body.kind : "break";
+    // The company's policy, not the worker's say: switched-off kinds are
+    // refused, and a kind the company pays for is recorded paid. Never
+    // configured is the old behaviour exactly — on, and the schema default.
+    const policy = (await companyClock(member.companyId)).activities.find((a) => a.key === kind);
+    if (policy && !policy.enabled) {
+      return NextResponse.json({ error: "Your company has switched that off on the clock." }, { status: 400 });
+    }
     await db.timeEntryBreak.create({
-      data: { timeEntryId: open.id, start: new Date(), kind },
+      data: { timeEntryId: open.id, start: new Date(), kind, ...(policy?.paid ? { paid: true } : {}) },
     });
     const entry = await db.timeEntry.findUnique({ where: { id: open.id }, select: OPEN_SELECT });
     await logPunch(member, "break_start", { worker, entry, kind });
@@ -437,7 +474,7 @@ export async function POST(request) {
     const breaks = (open.breaks || []).map((b) =>
       running && b.id === running.id ? { ...b, end: clockOut } : b,
     );
-    const hours = entryHours(open.clockIn, clockOut, breaks);
+    const hours = entryHours(open.clockIn, clockOut, breaks, { paid: open.paid });
     const ops = [];
     if (running) {
       ops.push(db.timeEntryBreak.update({ where: { id: running.id }, data: { end: clockOut } }));
@@ -522,7 +559,7 @@ export async function POST(request) {
     const closedBreaks = (open.breaks || []).map((b) =>
       running && b.id === running.id ? { ...b, end: at } : b,
     );
-    const hours = entryHours(open.clockIn, at, closedBreaks);
+    const hours = entryHours(open.clockIn, at, closedBreaks, { paid: open.paid });
     // One transaction: a close without its reopen leaves somebody off the clock
     // who believes they are on it, and an open without its close is two open
     // entries — the state every other path in this file refuses.
@@ -577,8 +614,200 @@ export async function POST(request) {
     return NextResponse.json({ ok: true, open: entry, closedHours: hours });
   }
 
+  // ── The activity tiles ──────────────────────────────────────────────────
+  //
+  // One action for every tile, because "what happens when I tap Driving"
+  // depends on what is running, and the server is the one that knows:
+  //
+  //   off the clock  + work tile   → clock in, on that activity
+  //   off the clock  + break tile  → refused: a break is taken FROM the clock
+  //   on the clock   + break tile  → a break on the running entry (a running
+  //                                  break of the other kind ends at the same
+  //                                  instant — lunch straight into a coffee)
+  //   on the clock   + same tile   → if on a break, the break ends and the
+  //                                  entry carries on; otherwise nothing to do
+  //   on the clock   + other tile  → the running entry closes NOW and the new
+  //                                  one opens NOW, in one transaction — the
+  //                                  job switch above, widened to activities
+  //
+  // Breaks stay TimeEntryBreak rows, so their pay rule is the one they always
+  // had (lib/timeclock/activities.js says why). Every instant is `now` — the
+  // tap's own moment for a punch replayed from the offline queue — so a day
+  // tapped through in a basement replays as the day it was.
+  if (action === "activity") {
+    const activities = (await companyClock(member.companyId)).activities;
+    const policy = activities.find((a) => a.key === body?.activity);
+    if (!policy) {
+      return refuse("That isn't one of the clock's activities.", 400);
+    }
+    if (!policy.enabled) {
+      return refuse("Your company has switched that off on the clock.", 400);
+    }
+    const kind = policy.key;
+
+    if (policy.isBreak) {
+      if (!open) {
+        return refuse("Clock in first — a break is taken from the clock.", 409);
+      }
+      if (now.getTime() < new Date(open.clockIn).getTime()) {
+        return refuse("That break is earlier than the clock-in it belongs to.", 409);
+      }
+      const running = openBreak(open.breaks);
+      if (running && running.kind === kind) {
+        return refuse("You're already on that.", 409);
+      }
+      if (running && now.getTime() <= new Date(running.start).getTime()) {
+        return refuse("That is earlier than the break it would end.", 409);
+      }
+      const ops = [];
+      if (running) {
+        ops.push(db.timeEntryBreak.update({ where: { id: running.id }, data: { end: now } }));
+      }
+      ops.push(
+        db.timeEntryBreak.create({
+          data: { timeEntryId: open.id, start: now, kind, ...(policy.paid ? { paid: true } : {}) },
+        }),
+      );
+      await db.$transaction(ops);
+      const entry = await db.timeEntry.findUnique({ where: { id: open.id }, select: OPEN_SELECT });
+      await ledger(open.id);
+      await logPunch(member, "break_start", { worker, entry, kind });
+      return NextResponse.json({ ok: true, open: entry });
+    }
+
+    // A work tile. The job rule first (Visit needs one, Office never takes
+    // one), then the same proofs the job picker's punches go through.
+    const rule = checkActivityJob(kind, body?.jobId, body?.taskId);
+    if (rule.error) {
+      const words = {
+        job_required: "Pick the job you're on.",
+        job_not_allowed: "That activity isn't linked to a job.",
+        step_not_allowed: "Only time on site is booked to a step.",
+      };
+      return refuse(words[rule.error] || "That isn't one of the clock's activities.", 400);
+    }
+    const full = await loadEnforceableMember(db, member.id);
+    const resolved = await resolveJobId(body?.jobId, member, full);
+    if (resolved.error) {
+      return refuse(resolved.error, resolved.status);
+    }
+    const step = await resolveTaskId(body?.taskId, resolved.jobId);
+    if (step.error) {
+      return refuse(step.error, step.status);
+    }
+    const fresh = {
+      workerId: worker.id,
+      clockIn: now,
+      status: "pending",
+      jobId: resolved.jobId,
+      taskId: step.taskId,
+      activity: kind,
+      // Stamped now, from the policy as it stands at the tap, so a setting
+      // changed next month never re-prices this stretch.
+      paid: policy.paid,
+    };
+
+    if (!open) {
+      const entry = await db.timeEntry.create({ data: fresh, select: OPEN_SELECT });
+      await recordStampIfPresent({
+        db,
+        companyId: member.companyId,
+        kind: "clock_in",
+        stamp: body?.stamp,
+        workerId: worker.id,
+        timeEntryId: entry.id,
+        jobId: entry.jobId,
+      });
+      await ledger(entry.id);
+      await logPunch(member, "in", { worker, entry, job: entry.job });
+      return NextResponse.json({ ok: true, open: entry });
+    }
+
+    const running = openBreak(open.breaks);
+    const same =
+      effectiveActivity(open) === kind &&
+      (open.jobId || null) === resolved.jobId &&
+      (open.taskId || null) === step.taskId;
+    if (same) {
+      if (!running) {
+        return refuse("You're already on that.", 409);
+      }
+      // Back from the break to what they were doing: the break ends and the
+      // entry carries on. No new entry — it is the same stretch of work.
+      if (now.getTime() <= new Date(running.start).getTime()) {
+        return refuse("That is earlier than the break it would end.", 409);
+      }
+      await db.timeEntryBreak.update({ where: { id: running.id }, data: { end: now } });
+      const entry = await db.timeEntry.findUnique({ where: { id: open.id }, select: OPEN_SELECT });
+      await ledger(open.id);
+      await logPunch(member, "break_end", { worker, entry });
+      return NextResponse.json({ ok: true, open: entry });
+    }
+
+    const elapsedMs = now.getTime() - new Date(open.clockIn).getTime();
+    if (elapsedMs < 0) {
+      return refuse("That is earlier than the clock-in it follows.", 409);
+    }
+
+    // The mis-tap window, as for a job switch: a tile corrected within a
+    // minute re-points the entry rather than leaving a 0.01 h row behind.
+    // Not with a break in it — then the first minute was real.
+    if (elapsedMs < MISTAP_WINDOW_MS && !(open.breaks || []).length) {
+      const entry = await db.timeEntry.update({
+        where: { id: open.id },
+        data: { jobId: fresh.jobId, taskId: fresh.taskId, activity: kind, paid: fresh.paid },
+        select: OPEN_SELECT,
+      });
+      await ledger(entry.id);
+      await logPunch(member, "switch", { worker, entry, job: entry.job });
+      return NextResponse.json({ ok: true, open: entry, corrected: true });
+    }
+
+    // Close at this instant, less its unpaid breaks (a running one ends here
+    // too), and open the next at the same instant — one transaction, for the
+    // reason the job switch gives.
+    const closedBreaks = (open.breaks || []).map((b) =>
+      running && b.id === running.id ? { ...b, end: now } : b,
+    );
+    const hours = entryHours(open.clockIn, now, closedBreaks, { paid: open.paid });
+    const ops = [];
+    if (running) {
+      ops.push(db.timeEntryBreak.update({ where: { id: running.id }, data: { end: now } }));
+    }
+    ops.push(
+      db.timeEntry.update({ where: { id: open.id }, data: { clockOut: now, hours } }),
+      db.timeEntry.create({ data: fresh, select: OPEN_SELECT }),
+    );
+    const entry = (await db.$transaction(ops)).at(-1);
+    // One position, kept beside both entries — a segment change is a
+    // clock-out and a clock-in at one instant, the same as the job switch.
+    if (body?.stamp != null) {
+      await recordStampIfPresent({
+        db,
+        companyId: member.companyId,
+        kind: "clock_out",
+        stamp: body.stamp,
+        workerId: worker.id,
+        timeEntryId: open.id,
+        jobId: open.jobId,
+      });
+      await recordStampIfPresent({
+        db,
+        companyId: member.companyId,
+        kind: "clock_in",
+        stamp: body.stamp,
+        workerId: worker.id,
+        timeEntryId: entry.id,
+        jobId: entry.jobId,
+      });
+    }
+    await ledger(entry.id);
+    await logPunch(member, "switch", { worker, entry, job: entry.job, hours });
+    return NextResponse.json({ ok: true, open: entry, closedHours: hours });
+  }
+
   return NextResponse.json(
-    { error: "action must be 'in', 'out', 'switch', 'break_start' or 'break_end'" },
+    { error: "action must be 'in', 'out', 'switch', 'activity', 'break_start' or 'break_end'" },
     { status: 400 },
   );
 }

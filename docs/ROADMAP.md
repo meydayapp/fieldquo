@@ -71,6 +71,72 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## The time clock by activity, and the clock in the crew's menu (3 October 2026)
+
+The owner: "Crew members don't have the clock in and clock out option in their
+menu" and "In the clock I only see lunch and break … on site, something like
+what Jobber does."
+
+### What shipped
+
+- **The crew's menu.** The worker tab bar is Home · **Clock** · Schedule ·
+  Messages · More (Earnings moved to a More row, drawn there for every set now —
+  a supervisor had no way to their own timecard). A Crew member (isCrewHome)
+  gets that bar on every screen, not only /app/me: the Crew preset's jobs:view_only
+  kept a Jobs tab alive, so their bar was Jobs · Chat · More with no clock. Their
+  Jobs list is a More row behind the same navRowAllowed. Managers get a Time clock
+  row on More. `/api/time-clock` answers every member, so no link leads to a refusal.
+- **Activity tiles** on `/app/clock` (Track time): On site, Driving, Office,
+  Supplies, Break, Lunch, General, in a 3-column grid with Clock out on the
+  last row; a live timer for the running activity and Total today. One POST
+  action, `activity`: off the clock a work tile clocks in; a different tile
+  closes the running entry and opens the next at the same instant (one
+  transaction, the mis-tap minute re-points); Break/Lunch stay TimeEntryBreak
+  rows on the running entry; the same tile during a break ends it. On site needs
+  a job (today's only visit pre-picked), Driving/Supplies take one optionally,
+  Office/General never. Offline queue carries it (lib/offline/punchState.js folds
+  the queue). Location stamps per segment change, as the job switch did.
+- **Time log** tab: a company-zone day per person as a timeline (icon, label,
+  start–end, duration, Total and Paid), ‹ day › navigation; everyone at
+  timeTracking view_record_edit_all, own rows below (GET /api/time-clock/log).
+- **This week** card (time on the clock, paid hours when they differ, View
+  timesheet → the log) on My day and the worker home (GET /api/time-clock/week).
+- **Settings → Payroll → Time clock activities** (owner/admin): switch tiles off,
+  rename them, choose which are paid. On site and General are always on; On site
+  always paid. `paid` is stamped on the entry at clock-in (TimeEntry.paid), so a
+  change applies from the next tap and never re-prices worked time.
+- **Pay and costing.** `hours` stays the one figure payroll and costing read: an
+  unpaid activity books 0 (lib/timeclock/entryHours.js `{ paid }`, used by every
+  close path incl. the manager's manual clock-out), breaks keep their rule
+  (unpaid unless the company setting says paid). On site and linked Driving/
+  Supplies carry the jobId, so job costing counts them unchanged. The
+  unattributed-hours line on job costing no longer counts Office/General (declared
+  overhead); old untagged rows and unlinked Driving still count.
+- Timesheets show each entry's activity and "Unpaid". Help (EN/FR/ES) rewritten
+  for the tiles.
+
+### Schema (applied additively by hand; the diff's Community/PlanRead/QuoteDocument DROPs were not run)
+
+`CREATE TYPE "TimeActivity" AS ENUM ('visit','driving','office','supplies','general')`;
+`ALTER TABLE "Company" ADD COLUMN "timeActivities" JSONB`;
+`ALTER TABLE "TimeEntry" ADD COLUMN "activity" "TimeActivity", ADD COLUMN "paid" BOOLEAN NOT NULL DEFAULT true`.
+No existing entry is rewritten: a null activity reads as On site with a job,
+General without.
+
+### Checks
+
+`check:time-activities` (89, in check:all): switching, clock out, On site →
+job labour, Driving linked/unlinked, breaks paid/unpaid per setting, md5 proof
+that legacy entries' hours are byte-identical, midnight/DST, crew sees only
+their own log, crew nav shows the clock, offline fold.
+
+### Owed
+
+- Help screenshots `live:app-clock` and `harness:mobile-clock` show the old
+  screen until the capture sets are re-shot; the captions describe the new one.
+- Owner decisions listed in the hand-off (desktop rail row for the clock,
+  estimators and job costing, crew editing their own hours, driving on invoices).
+
 ## The monthly summary email, rebuilt (3 October 2026)
 
 The 1st-of-the-month email ("Your September summary", From: FieldQuo) was one

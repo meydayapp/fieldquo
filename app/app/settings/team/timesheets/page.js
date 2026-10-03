@@ -6,6 +6,8 @@ import { fetchJson } from "@/lib/fetchJson";
 import { personOptionLabel } from "@/lib/team/personLabel";
 import { reportResponseError } from "@/lib/clientErrors";
 import { unpaidBreakMs } from "@/lib/timeclock/entryHours";
+import { effectiveActivity } from "@/lib/timeclock/activities";
+import { activityName } from "@/app/components/timeclock/activityUi";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -131,6 +133,17 @@ function TimesheetsPageScreen() {
       // settled on an empty timesheet with nothing said.
       .catch(() => setLoadFailed(true))
       .finally(() => setLoading(false));
+  }, []);
+
+  // The company's own names for the clock's activities ("Supply run"), so a
+  // row here says what the crew's tile said. A failure leaves the built-in
+  // names, which are still true — nothing here is guessed.
+  const [activities, setActivities] = useState(null);
+  useEffect(() => {
+    fetch("/api/settings/time-activities")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setActivities(Array.isArray(d?.activities) ? d.activities : null))
+      .catch(() => setActivities(null));
   }, []);
 
   async function approve(id) {
@@ -412,6 +425,14 @@ function TimesheetsPageScreen() {
               </div>
               <div className="text-xs text-muted-foreground">
                 {formatDate(e.clockIn)} ·{" "}
+                {/* What the stretch was — On site, Driving, Office… — read
+                    from the entry (an old entry with no activity reads as
+                    On site with a job, General without). An unpaid one says
+                    so, because its 0h is the rule, not a missing figure. */}
+                {activityName(effectiveActivity(e), activities, t)}
+                {e.job?.title ? ` (${e.job.title})` : ""}
+                {e.paid === false ? ` · ${t("app.clock.unpaidTag")}` : ""}
+                {" · "}
                 {e.hours ? `${e.hours}h` : t("app.timesheets.inProgress")}
                 {/* The unpaid minutes already taken off `hours`, so a
                     manager reading 7.5h beside an 8-to-4 punch sees why. */}
