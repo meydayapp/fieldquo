@@ -75,6 +75,52 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Privacy policy: the Google user data section (3 October 2026)
+
+For Google OAuth verification. `/privacy` Section 9 "Google user data" says,
+per scope, what is read, written, stored and for how long, who sees it, how to
+disconnect / revoke / have it deleted, and carries the Limited Use statement
+with the link to the Google API Services User Data Policy. Scopes the code
+requests (all through the one OAuth client in `lib/calendar/googleClient.js`):
+`calendar.events` + `calendar.readonly` (My calendar), `business.manage`
+(Reviews / Booking Page Book button), `gmail.readonly` + `gmail.send` only for
+a company mailbox set to send (Work email), each with `openid email`.
+`lib/legal/processors.js` gains Google Business Profile and Gmail rows; the
+Calendar row now names the client's name and the Meet link; OpenAI's row names
+the redacted conversation text the paid conversation read / coach / monthly
+review send. Quebec, Changes and Contact renumbered 10–12. Privacy effective
+date 2026-10-03. English only, like the other legal pages.
+
+### Support view hides Google content (same day)
+
+The human-access promise is now enforced for "view as company": under any
+impersonation session (`member.impersonation`), `lib/mailbox/supportView.js`
+withholds, server-side, in the GET handlers the screens read —
+
+- a Gmail message's body, subject and attachments (inbox list preview and
+  search, one thread, the client/job page's filed email): the message still
+  shows, with its sender, date and direction, as "Email from client" / "Email
+  to client" and "Email content hidden in support view — ask the company for
+  permission". "Gmail" = an EmailMessage whose mailbox is `google`, or whose
+  mailbox is unknown (null) — unknown counts as Google. Inbox replies sent
+  through Gmail are hidden too (their subject is the client's). Microsoft,
+  IMAP, SMS, chat and Meta messages are unchanged;
+- a Google review's text and reply (Settings › Reviews card); name, stars and
+  dates stay;
+- on a thread holding Gmail, the verbatim quotes in the conversation score
+  and the coach's likelihood, and the stored coaching itself.
+
+A company's own staff get byte-identical responses: the new check's owner
+responses were md5-diffed against the tree before the gate, all nine equal.
+`npm run check:support-view-google` (in check:all) executes all nine routes as
+the owner and as a superadmin; with the gate switched off, 10 of its 48
+assertions fail.
+
+Not gated, on purpose: the monthly conversation review (aggregate prose over a
+month of redacted conversations, no per-message quote), and review text the
+company itself published on its website or in its designs (public by the
+company's choice). No consent flow yet; when one exists it lifts this gate.
+
 ## Interior painting instant estimate: a room picker, sized like stairs (3 October 2026)
 
 The owner: build the interior painting instant quote from typical room sizes by region,

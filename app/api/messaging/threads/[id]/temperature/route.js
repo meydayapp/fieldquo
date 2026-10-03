@@ -66,6 +66,7 @@ import {
   MIN_MESSAGES_FOR_AI_READ,
 } from "@/lib/ai/conversationTemperature";
 import { ConversationReviewTenantError } from "@/lib/ai/conversationReview";
+import { inSupportView, threadHasGoogleEmail, withoutQuotedText } from "@/lib/mailbox/supportView";
 
 /** The thread, its messages, and the stored reading. Company-scoped by findFirst. */
 async function loadThread(companyId, id) {
@@ -184,12 +185,20 @@ export async function GET(request, { params }) {
 
   const { scored, storedAi } = await scoreNow(member.companyId, thread);
 
+  // The score quotes the homeowner verbatim. On a thread holding Gmail, a
+  // FieldQuo support session gets the chip and the signals without the words
+  // (lib/mailbox/supportView.js); everyone else gets `scored` itself.
+  const shownScore =
+    inSupportView(member) && (await threadHasGoogleEmail(db, { companyId: member.companyId, threadId: thread.id }))
+      ? withoutQuotedText(scored)
+      : scored;
+
   if (!isAiConfigured()) {
     // The free score still goes down. The paid layer being unavailable is not
     // a reason to show a blank verdict — it was never the verdict.
     return NextResponse.json({
       connection,
-      score: scored,
+      score: shownScore,
       available: false,
       reasonKey: "app.messages.temperature.aiUnavailable",
     });
@@ -222,7 +231,7 @@ export async function GET(request, { params }) {
 
   return NextResponse.json({
     connection,
-    score: scored,
+    score: shownScore,
     available: quota.allowed && stale && !tooShort,
     // ── The moment the corpus's acceptance test is written about ─────────
     //

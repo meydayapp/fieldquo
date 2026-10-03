@@ -35,6 +35,12 @@ import { noteColours } from "@/lib/messaging/noteTheme";
 import { readStatus, THREAD_STATUSES } from "@/lib/messaging/outcomes";
 import { isMessagingPlatform } from "@/lib/messaging/platforms";
 import { pageImportState } from "@/lib/messaging/pageImport";
+import {
+  inSupportView,
+  EMAIL_PROVENANCE_SELECT,
+  GOOGLE_EMAIL_MESSAGE_WHERE,
+  supportViewMessage,
+} from "@/lib/mailbox/supportView";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -104,6 +110,15 @@ export async function GET(request) {
     return NextResponse.json({ connection, note, threads, pageImport: await pageImportState(member.companyId) });
   }
 
+  // A FieldQuo support session (impersonation) never reads Gmail content —
+  // lib/mailbox/supportView.js. Two places on this list: the preview line,
+  // and the search, which would otherwise answer "which conversations
+  // mention X" about email text the session may not read. Both branches are
+  // skipped entirely for a company's own staff, so their query and their
+  // response are exactly what they were.
+  const support = inSupportView(member);
+  const bodyMatch = { body: { contains: q, mode: "insensitive" } };
+
   const rows = await db.messageThread.findMany({
     where: {
       companyId: member.companyId,
@@ -118,7 +133,7 @@ export async function GET(request) {
         ? {
             OR: [
               { participantName: { contains: q, mode: "insensitive" } },
-              { messages: { some: { body: { contains: q, mode: "insensitive" } } } },
+              { messages: { some: support ? { ...bodyMatch, NOT: GOOGLE_EMAIL_MESSAGE_WHERE } : bodyMatch } },
             ],
           }
         : {}),
@@ -169,12 +184,12 @@ export async function GET(request) {
         where: { direction: { in: ["in", "out"] } },
         orderBy: { sentAt: "desc" },
         take: 1,
-        select: { body: true, direction: true, failedReason: true },
+        select: { body: true, direction: true, failedReason: true, ...(support ? { email: EMAIL_PROVENANCE_SELECT } : {}) },
       },
     },
   });
 
-  const threads = rows.map((t) => ({
+  const threads = rows.map((row) => (support ? { ...row, messages: row.messages.map(supportViewMessage) } : row)).map((t) => ({
     id: t.id,
     channelId: t.channel?.id || null,
     channelName: t.channel?.name || null,

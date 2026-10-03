@@ -62,6 +62,7 @@ import {
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import { readerLanguage as readerLanguageOf } from "@/lib/i18n/readerLanguage";
 import { isSupported, DEFAULT_LANGUAGE } from "@/app/i18n/languages";
+import { inSupportView, threadHasGoogleEmail, withoutQuotedText } from "@/lib/mailbox/supportView";
 
 /** The gate for both verbs, re-checked on the fresh grid. */
 async function gate(member, runLevel) {
@@ -139,8 +140,15 @@ export async function GET(request, { params }) {
     scoreThreadFresh(member.companyId, thread, { db }),
     loadStoredCoach({ db, companyId: member.companyId, threadId: thread.id }),
   ]);
-  const coach = publicCoach(stored, scored.messageCount);
-  const likelihood = likelihoodFrom(scored);
+  // The stored coaching quotes the homeowner (red flags, slips) and the
+  // likelihood carries the score's verbatim signals. On a thread holding
+  // Gmail, a FieldQuo support session gets neither the coaching nor the words
+  // (lib/mailbox/supportView.js) — the likelihood's chip and numbers stay.
+  // A company's own staff never reach the count.
+  const hideGoogleText =
+    inSupportView(member) && (await threadHasGoogleEmail(db, { companyId: member.companyId, threadId: thread.id }));
+  const coach = hideGoogleText ? null : publicCoach(stored, scored.messageCount);
+  const likelihood = hideGoogleText ? withoutQuotedText(likelihoodFrom(scored)) : likelihoodFrom(scored);
 
   if (!isAiConfigured()) {
     return NextResponse.json({ available: false, coach, likelihood, reasonKey: "app.messages.coach.aiUnavailable" });

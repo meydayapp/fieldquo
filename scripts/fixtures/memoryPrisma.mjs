@@ -59,6 +59,19 @@ const RELATIONS = {
   booking: { eventType: { table: "eventType", kind: "one", localKey: "eventTypeId" } },
   eventType: { user: { table: "user", kind: "one", localKey: "userId" } },
   memberGoogleCalendar: { member: { table: "member", kind: "one", localKey: "memberId" } },
+  // The conversation inbox and the filed-email routes, executed as a FieldQuo
+  // support session by scripts/check-support-view-google.mjs. `email` on a
+  // message is the REVERSE side of a one-to-one (EmailMessage.messageId).
+  messageThread: {
+    messages: { table: "message", kind: "many", foreignKey: "threadId" },
+    channel: { table: "messagingChannel", kind: "one", localKey: "channelId" },
+    client: { table: "client", kind: "one", localKey: "clientId" },
+  },
+  message: {
+    thread: { table: "messageThread", kind: "one", localKey: "threadId" },
+    email: { table: "emailMessage", kind: "one", foreignKey: "messageId" },
+  },
+  emailMessage: { mailbox: { table: "mailboxConnection", kind: "one", localKey: "mailboxId" } },
 };
 const RELATION_NAMES = new Set(Object.values(RELATIONS).flatMap((r) => Object.keys(r)));
 
