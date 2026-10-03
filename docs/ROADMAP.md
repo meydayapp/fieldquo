@@ -203,6 +203,33 @@ The owner: "Can the demo accounts send actual emails and have the text messages 
 - The cap is counted before the send, so two sends at the very same instant can both pass at 29/30.
 - Client-facing pages still use FieldQuo's favicon, root meta description and app domain. This is pre-existing and not specific to demos.
 - Seeded demos print fictional "How to pay" details (`pay@<slug>.example.com`) and a 555 phone number.
+## Leads from Facebook / Instagram / WhatsApp conversations, and proof they converted (2 October 2026)
+
+The owner: "are we able to create better leads than fb from the client conversation and add them into leads? And … validate the client name address phone number to quotes jobs and invoices to confirm conversion from social media."
+
+### What shipped
+
+- **A conversation becomes ONE lead** (`lib/leads/conversationLead.js`, called from `lib/messaging/ingest.js` on a genuinely new inbound Meta message, never an imported one). Free deterministic pass on every message (phone/email/address/postcode from the customer's own text via `lib/attribution/contactPatterns.js`, the WhatsApp number, the photo count from `lib/aiEmployee/evidence.js`); a metered model read (`lib/ai/conversationLeadExtract.js`, standard tier, strict schema) decides work request / existing-customer issue / spam / not work / undetermined and copies name, phone, email, address, area, service (company's own list only), timeline — each field must literally appear in the customer message it cites or it is dropped. Every field is stored with its evidence on `LeadRequest.conversationEvidence`.
+- **Never overwrite, never invent.** Only empty columns (or one still holding this code's own previous value) are written; what the conversation said instead is kept in `conversationEvidence.skipped` and shown. No typed name → Meta's profile name, labelled as such.
+- **No duplicates.** The thread's linked lead, else an open lead with the same phone/email, else a Meta lead-FORM lead with exactly this Facebook profile name within 30 days (Meta pre-fills the form from the same profile) — enriched, not duplicated. `MessageThread.leadId` is set only where nobody set it.
+- **Campaign credit.** Meta's click-to-message `referral` (Messenger/Instagram message, `messaging_referrals`, Get Started postback, WhatsApp `referral.source_type: ad`) is now parsed and kept, first touch, on `MessageThread.adReferral`; the ad is resolved to its campaign (`resolveCampaignForAd` in `lib/meta/leadsFetch.js`) and stamped on the lead's `metaCampaignId`, which the campaign rollup already joins on.
+- **Conversion validation** (`lib/attribution/conversionEvidence.js`) on top of the unchanged `conversationOutcome`: phone (E.164), email, tolerant name (`namesClose` in `matchContact`, opt-in), and address as ADDITIVE evidence against the client and Quote/Job `siteAddress`. Confirmed = recorded link, or one client at `likely`+ not tied; possible (shown, never counted) = name alone, address alone, or an unbroken tie. A shared phone is settled by an agreeing address on exactly one of the clients. Fed into the monthly attribution loader (lead contact + `LeadRequest.quoteId` as a recorded link).
+- **Where it shows:** the lead drawer's Linked documents block ("From Facebook · What the conversation told us · Did it convert? Confirmed · matched on phone + job-site address · Quote Q-0123 · won · invoice INV-45 paid $2,800"); the thread's existing "Open lead" button; the Spend page's Campaigns table (conversation leads counted, confirmed-but-unlinked quotes counted with a note saying how many, new **Paid** column).
+- **Cost:** feature `conversation_lead`, the company's AI credit (wallet, cost × 2, 1¢ minimum per call), switchable on /platform/ai-billing. Runs at most 3 times per conversation: first read once there are 12+ characters of customer text, again per new customer message only while "undetermined", otherwise only when a new phone/email/address appears; never for spam.
+
+### Schema (applied additively by hand; the live diff's Community DROPs were not run)
+
+`LeadRequest.conversationEvidence JSONB`, `MessageThread.adReferral JSONB`, `MessageThread.leadCapture JSONB`.
+
+### Checks
+
+`npm run check:social-leads` (new, in check:all): five phone spellings, a misspelled name, an address two ways, a phone shared by two clients, a lead-ad lead then a message (no duplicate), spam, an existing customer's complaint, a staff-edited field, a model that lies, the cost rule, the tenant, the referral parser, recorded-vs-inferred, paid revenue.
+
+### Owed — owner decisions
+
+- Approve the cost (it is a cost increase): see the agent's report for the per-conversation figures.
+- With no AI credit (the AI-employee grace ended 2026-10-01) only the free pass runs: a lead is enriched by phone/email match, and a new lead is made only when the AI employee's front desk read the first message as `book`/`price`. Whether FieldQuo should absorb this feature instead is one switch on /platform/ai-billing.
+- Imported (historical) conversations are deliberately not read.
 
 ## Reverse Selling, version 3: one script, a thirty-minute demo (2 October 2026)
 
