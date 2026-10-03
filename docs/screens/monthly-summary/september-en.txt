@@ -28,15 +28,16 @@ Your pipeline in September
 
 Where your leads came from
   Instant estimate — Leads: 7 · Quoted: 5 · Won: 3
-  Facebook lead form — Leads: 5 · Quoted: 3 · Won: 1
+  Facebook lead form — Leads: 4 · Quoted: 3 · Won: 1
   Taken from a phone call — Leads: 3 · Quoted: 2 · Won: 1
   Self-quote form — Leads: 2 · Quoted: 1 · Won: 1
-  Typed by staff — Leads: 1 · Quoted: 1 · Won: 0
+  Facebook — Leads: 1 · Quoted: 0 · Won: 0
+  Other sources — Leads: 1 · Quoted: 1 · Won: 0
 
 Facebook and Instagram ad campaigns
-  Fall interiors — Leads: 3 · Cost per lead: ≈ $85.67 · Quotes: 2 · Jobs: 1
-  Deck & fence staining — Leads: 2 · Cost per lead: ≈ $57.49 · Quotes: 1 · Jobs: 0
-  Counts leads from Meta lead forms only. Someone who saw an ad and phoned you isn't in these numbers.
+  Fall interiors — Leads: 3 · Cost per lead: ≈ $85.67 · Quotes: 2 · Jobs: 1 · Paid: $3,430.00
+  Deck & fence staining — Leads: 2 · Cost per lead: ≈ $57.49 · Quotes: 1 · Jobs: 0 · Paid: Not invoiced (1 from messages)
+  Counts the leads Meta tied to each campaign, from lead forms and messages; a quote matched to a lead by phone or email counts too. Someone who saw an ad and phoned you isn't in these numbers.
 
 Messages and chats
   Facebook: 6 conversations, 2 won

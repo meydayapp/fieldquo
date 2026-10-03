@@ -28,15 +28,16 @@ Votre activité en septembre
 
 D'où viennent vos prospects
   Estimation instantanée — Prospects: 7 · Avec soumission: 5 · Gagnés: 3
-  Formulaire de prospects Facebook — Prospects: 5 · Avec soumission: 3 · Gagnés: 1
+  Formulaire de prospects Facebook — Prospects: 4 · Avec soumission: 3 · Gagnés: 1
   Tiré d'un appel téléphonique — Prospects: 3 · Avec soumission: 2 · Gagnés: 1
   Formulaire d'auto-soumission — Prospects: 2 · Avec soumission: 1 · Gagnés: 1
-  Saisi par l'équipe — Prospects: 1 · Avec soumission: 1 · Gagnés: 0
+  Facebook — Prospects: 1 · Avec soumission: 0 · Gagnés: 0
+  Autres provenances — Prospects: 1 · Avec soumission: 1 · Gagnés: 0
 
 Campagnes publicitaires Facebook et Instagram
-  Fall interiors — Prospects: 3 · Coût par prospect: ≈ 85,67 $ · Soumissions: 2 · Chantiers: 1
-  Deck & fence staining — Prospects: 2 · Coût par prospect: ≈ 57,49 $ · Soumissions: 1 · Chantiers: 0
-  Compte uniquement les prospects des formulaires Meta. Une personne qui a vu une publicité puis vous a appelé n'apparaît pas ici.
+  Fall interiors — Prospects: 3 · Coût par prospect: ≈ 85,67 $ · Soumissions: 2 · Chantiers: 1 · Payé: 3 430,00 $
+  Deck & fence staining — Prospects: 2 · Coût par prospect: ≈ 57,49 $ · Soumissions: 1 · Chantiers: 0 · Payé: Non facturé (dont 1 par message)
+  Compte les prospects que Meta associe à chaque campagne, par formulaire ou par message; une soumission rattachée à un prospect par téléphone ou courriel compte aussi. Une personne qui a vu une publicité puis vous a appelé n'apparaît pas ici.
 
 Messages et clavardages
   Facebook: 6 conversations · gagnées : 2

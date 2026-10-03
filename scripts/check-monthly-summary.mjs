@@ -96,6 +96,17 @@ section("The numbers are September's, by the shared definitions");
   ok("…the partly-paid one counts for its remainder, the future-due one is owed but not overdue", sept.owed.total === 7180 && sept.owed.count === 4, sept.owed);
   ok("sources: one row per LeadRequest.source, quoted and won through LeadRequest.quoteId", JSON.stringify(sept.sources.leads[0]) === JSON.stringify({ source: "instant_quote", leads: 7, quoted: 5, won: 3 }), sept.sources.leads[0]);
   ok("campaigns come from buildCampaignRollup (Fall interiors: 3 leads, 2 quotes, 1 job)", sept.sources.campaigns[0]?.name === "Fall interiors" && sept.sources.campaigns[0].leads === 3 && sept.sources.campaigns[0].quotes === 2 && sept.sources.campaigns[0].jobs === 1, sept.sources.campaigns[0]);
+  {
+    const A = sept.sources.campaigns.find((c) => c.name === "Fall interiors");
+    const B = sept.sources.campaigns.find((c) => c.name === "Deck & fence staining");
+    ok("campaigns carry the social-leads rollup's Paid (money received, from amountPaid)", A?.paid === 3430, A);
+    ok("…null, never 0, when nothing was invoiced", B?.paid === null, B);
+    ok("…and its conversation leads (a Messenger lead from the ad)", B?.conversationLeads === 1, B);
+    const e = buildMonthlySummaryEmail({ summary: sept, company: COMPANY, language: "en", origin: ORIGIN });
+    const body = text(e.html);
+    ok("the email prints Paid as money, and 'Not invoiced' for none", body.includes(sp(formatAppMoney(3430, "CAD", "en"))) && body.includes(APP_MESSAGES.en["app.monthlySummary.sources.notInvoiced"]));
+    ok("…and says how many leads came from messages", body.includes("1 from messages") && sp(e.text).includes("1 from messages"));
+  }
   ok("social conversations come from monthlyConversations' bySource", sept.sources.conversations.find((c) => c.source === "meta_messenger")?.conversations === 6);
 }
 

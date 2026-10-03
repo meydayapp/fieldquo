@@ -12,10 +12,11 @@ import { loadCampaignRollup } from "@/lib/analytics/campaignRollupData";
 // FieldQuo — the "Campaigns" section of app/app/marketing/spend/page.js.
 // Sibling of ../summary (same gate, same shape of read): summary is the
 // whole-company picture, this is the one join it cannot make, campaign by
-// campaign. The queries live in lib/analytics/campaignRollupData.js (shared
-// with the monthly summary email, so the two cannot disagree about a
-// campaign) and the counting in lib/analytics/campaignRollup.js, which has no
-// database of its own.
+// campaign. The queries — including the confirmed-match conversion check for
+// leads nobody linked to their quote, and the invoices' amountPaid — live in
+// lib/analytics/campaignRollupData.js (shared with the monthly summary email,
+// so the two cannot disagree about a campaign) and the counting in
+// lib/analytics/campaignRollup.js, which has no database of its own.
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;

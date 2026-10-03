@@ -90,7 +90,7 @@ export function leads() {
     lead("l8", "meta_lead_form", 3, { quoteId: "q4", quoteStatus: "accepted", metaCampaignId: "A" }),
     lead("l9", "meta_lead_form", 8, { quoteId: "q13", quoteStatus: "sent", metaCampaignId: "A" }),
     lead("l10", "meta_lead_form", 17, { metaCampaignId: "A", status: "contacted" }),
-    lead("l11", "meta_lead_form", 23, { metaCampaignId: "B" }),
+    lead("l11", "meta_messenger", 23, { metaCampaignId: "B" }), // a Messenger lead from the ad — a conversation lead
     lead("l12", "meta_lead_form", 28, { quoteId: "q14", quoteStatus: "sent", metaCampaignId: "B" }),
     lead("l13", "phone_agent", 6, { quoteId: "q15", quoteStatus: "accepted" }),
     lead("l14", "phone_agent", 19, { quoteId: "q16", quoteStatus: "sent" }),
@@ -130,9 +130,13 @@ export function spendRows(month = 9) {
 }
 
 export function campaignRollup(asOf = AS_OF) {
-  const ls = leads().filter((l) => l.metaCampaignId).map((l) => ({ id: l.id, metaCampaignId: l.metaCampaignId, metaCampaignName: null, quoteId: l.quoteId }));
+  const ls = leads().filter((l) => l.metaCampaignId).map((l) => ({ id: l.id, metaCampaignId: l.metaCampaignId, metaCampaignName: null, quoteId: l.quoteId, inferredQuoteId: null, source: l.source }));
   const jobs = [{ id: "j2", quoteId: "q4", createdAt: d("2026-09-08T12:00:00Z") }];
-  const invs = invoices().filter((i) => i.status !== "draft" && (i.jobId === "j2" || i.quoteId === "q4"));
+  // amountPaid as the social-leads route selects it, for the Paid column.
+  const paidOf = new Map(payments().map((p) => [p.invoiceId, p.amount]));
+  const invs = invoices()
+    .filter((i) => i.status !== "draft" && (i.jobId === "j2" || i.quoteId === "q4"))
+    .map((i) => ({ ...i, amountPaid: paidOf.get(i.id) || 0 }));
   return buildCampaignRollup({ spendRows: spendRows(9), leads: ls, jobs, invoices: invs, companyCurrency: COMPANY.currency, asOf });
 }
 
