@@ -83,6 +83,7 @@ import { layoutThread } from "@/lib/chat/threadLayout";
 import { THREAD_OUTCOMES, outcomeLabelKey } from "@/lib/messaging/outcomes";
 import { MESSAGING_PLATFORMS, platformLabelKey } from "@/lib/messaging/platforms";
 import { activityLabel } from "@/lib/messaging/activity";
+import BridgeCallButton from "@/app/components/calls/BridgeCallButton";
 import {
   GROUP_DONE,
   messageItem,
@@ -898,6 +899,16 @@ function MessagesScreen() {
                 <ExternalLink size={13} aria-hidden="true" /> {t("app.messages.action.openQuote")}
               </Link>
             ) : null}
+            {/* Call them from the business number — the record the thread is
+                linked to decides who, so the phone is read from that record
+                server-side, never from the thread. Draws nothing when the
+                company has no live business number (BridgeCallButton). */}
+            {!isDemo && (thread.jobId || thread.clientId || thread.leadId) ? (
+              <BridgeCallButton
+                kind={thread.jobId ? "job" : thread.clientId ? "client" : "lead"}
+                id={thread.jobId || thread.clientId || thread.leadId}
+              />
+            ) : null}
             {canEdit ? (
               <button
                 type="button"
@@ -947,6 +958,8 @@ function MessagesScreen() {
       <Thread
         rows={rows}
         them={them}
+        variant="bubbles"
+        renderSystem={(m) => <SystemLine item={m} t={t} />}
         loading={threadLoading && !thread}
         empty={<p className="py-10 text-center text-sm text-muted-foreground">{t("app.messages.noMessages")}</p>}
         renderBody={(m) => (
@@ -1147,6 +1160,32 @@ function MessagesScreen() {
  * never reads "Marked won" in French with an English "won" in the middle.
  * Null for an activity this version does not recognise: silent, not guessed.
  */
+/**
+ * A system row as drawn in the thread: the sentence, plus — for a call on the
+ * business number that left a voicemail — a player. The audio is served by
+ * /api/business-number/recording/[sid], which only answers for a recording
+ * one of this company's own conversation lines carries.
+ */
+function SystemLine({ item, t }) {
+  const sid = item?.activity?.type === "call" ? item.activity.recordingSid : null;
+  return (
+    <>
+      {item.body}
+      {sid ? (
+        <span className="mt-1 block not-italic">
+          <audio
+            controls
+            preload="none"
+            src={`/api/business-number/recording/${encodeURIComponent(sid)}`}
+            aria-label={t("app.messages.voicemailPlayer", "Voicemail")}
+            className="h-8 max-w-full"
+          />
+        </span>
+      ) : null}
+    </>
+  );
+}
+
 function activitySentence(activity, t) {
   const label = activityLabel(activity);
   if (!label) return null;
@@ -1256,8 +1295,12 @@ function MessageBody({ item, note, thread, isDemo, onRetryAttachment, onAddClien
     onSaveAddress,
   };
   const failed = item.status === "failed";
+  // Inside a bubble (Thread variant "bubbles") the bubble owns the colour —
+  // navy with its own foreground for ours, the muted wash for theirs, red for
+  // a failure — so the body inherits rather than painting dark text on navy.
+  const tone = item.bubble ? "" : failed ? "text-red-900 dark:text-red-200" : "text-foreground";
   return (
-    <div className={`text-sm ${failed ? "text-red-900 dark:text-red-200" : "text-foreground"}`}>
+    <div className={`text-sm ${tone}`}>
       {item.body ? <p className="whitespace-pre-wrap break-words">{item.body}</p> : null}
       <Attachments message={item} onRetry={onRetryAttachment} media={media} t={t} />
     </div>

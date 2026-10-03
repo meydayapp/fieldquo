@@ -31,11 +31,11 @@
 //   1. `To` is a company's own Company.smsFromNumber (@unique for exactly this
 //      lookup, mirroring CrewInboxNumber.e164 on the crew line). One tenant.
 //
-//   2. `To` is FieldQuo's shared system number (lib/sms/systemNumber.js). As
-//      of this writing NOTHING writes smsFromNumber — no settings screen, no
-//      provisioning path; the crew line and the receptionist's number are
-//      different tables for different jobs — so this is the case every
-//      company is in, and before clientLine.js it resolved to nobody: the
+//   2. `To` is FieldQuo's shared system number (lib/sms/systemNumber.js).
+//      smsFromNumber is written in exactly one place — a brought business
+//      number going live (lib/businessNumber/store.js activate()) — so this
+//      is the case every company WITHOUT one is in, and before clientLine.js
+//      it resolved to nobody: the
 //      STOP fell through to the sales branch below, matched no sales number,
 //      and was dropped with a 200. "Reply STOP to opt out" was on every
 //      reminder and had never worked. The shared number cannot be attributed
@@ -195,6 +195,12 @@ export async function POST(request) {
       body,
       messageSid: params.MessageSid || null,
       companies: tenants.companies,
+      // `To` is the company's own number (a brought business number — see
+      // lib/businessNumber/): the text is linked to the client / lead / job,
+      // a stranger becomes a lead by the social-leads rules, and it is
+      // metered. The shared line does none of the three.
+      dedicated: tenants.kind === "dedicated",
+      hasMedia: Number(params.NumMedia || 0) > 0,
     }).catch(async (err) => {
       await recordError({
         area: "sms_inbox",

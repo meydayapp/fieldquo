@@ -72,6 +72,7 @@ import { leadSourceLabel } from "@/lib/leads/sourceLabel";
 import { serviceAreaCopy } from "@/lib/company/serviceArea";
 import { tradeQuestionCopy, whenNeededLabel } from "@/lib/leads/tradeQuestions";
 import { summarisePotential } from "@/lib/leads/potentialValue";
+import BridgeCallButton from "@/app/components/calls/BridgeCallButton";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 import {
   LinkedDocuments,
@@ -1306,6 +1307,9 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t, sample = null })
                       <PhoneOff size={11} /> {t("app.leads.doNotCall")}
                     </span>
                   )}
+                  {/* From the business number, when the company has one —
+                      renders nothing otherwise (BridgeCallButton). */}
+                  <BridgeCallButton kind="lead" id={lead.id} className="ml-auto" />
                 </div>
               )}
               {addressLine && (

@@ -71,6 +71,7 @@ import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import PaymentScheduleCard from "./PaymentScheduleCard";
 import JobClientPo from "@/app/components/jobs/JobClientPo";
 import OpenTicketsLink from "@/app/components/tickets/OpenTicketsLink";
+import BridgeCallButton from "@/app/components/calls/BridgeCallButton";
 
 // ── One STATUS_STYLES held two vocabularies, and lost a key doing it ───────
 //
@@ -596,12 +597,16 @@ export default function JobDetail({ jobId }) {
             label={t("app.field.phone")}
             value={
               job.client?.phone ? (
-                <a
-                  href={`tel:${job.client.phone}`}
-                  className="text-foreground underline"
-                >
-                  {job.client.phone}
-                </a>
+                <span className="inline-flex flex-wrap items-center gap-2">
+                  <a
+                    href={`tel:${job.client.phone}`}
+                    className="text-foreground underline"
+                  >
+                    {job.client.phone}
+                  </a>
+                  {/* From the business number, when the company has one. */}
+                  <BridgeCallButton kind="job" id={job.id} />
+                </span>
               ) : (
                 <Absent client={job.client} t={t} />
               )

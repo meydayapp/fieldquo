@@ -43,6 +43,7 @@ import OpenTicketsLink from "@/app/components/tickets/OpenTicketsLink";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 import { jobStatusLabel, jobStatusClasses } from "@/lib/jobs/statusLabels";
 import StreetViewPeek from "@/app/components/StreetViewPeek";
+import BridgeCallButton from "@/app/components/calls/BridgeCallButton";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -256,6 +257,8 @@ export default function ClientDetailPage() {
           <div className="flex items-center gap-2 text-sm text-foreground">
             <Phone size={14} className="text-muted-foreground shrink-0" />
             {client.phone}
+            {/* From the business number, when the company has one. */}
+            <BridgeCallButton kind="client" id={client.id} className="ml-auto" />
           </div>
         )}
         {client.email && (

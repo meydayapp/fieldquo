@@ -55,6 +55,7 @@ import {
   Droplet,
   Ruler,
   Headset,
+  Phone,
   Bot,
   Mail,
   Clock,
@@ -223,6 +224,10 @@ export const GROUPS = [
       { key: "app.settings.leadForm", href: "/app/settings/lead-form", icon: ClipboardList, helpArticle: "settings-lead-form" },
       { key: "app.settings.bioLink", href: "/app/settings/links", icon: Link2, helpArticle: "settings-bio-link" },
       { key: "app.settings.voice", href: "/app/settings/voice", icon: Headset, helpArticle: "settings-voice" },
+      // Bringing the number clients already know into FieldQuo — hosted texts
+      // for a landline, a port for a cell. Beside the receptionist because
+      // that is where a missed call on it ends up.
+      { key: "app.settings.businessNumber", href: "/app/settings/business-number", icon: Phone, helpArticle: "settings-business-number" },
       // Beside the phone receptionist rather than under Messaging, and for the
       // same reason the receptionist is here: both are an agent a STRANGER
       // meets. The Messaging group is about the wording of what the company

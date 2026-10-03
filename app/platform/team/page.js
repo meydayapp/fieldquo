@@ -58,6 +58,8 @@ const PERMISSION_WORDS = {
     "mark a flagged signup reviewed — one whose request came from outside CA/US, disagreed with the stated country, or repeated an IP",
   "chat:audit":
     "read any staff conversation and any rep's texts and emails with a prospect, read-only — every look is logged, and the people in a staff conversation are told",
+  "porting:handle":
+    "open a Canadian number-port package (the carrier account number, PIN and bill) and record that it was filed, rejected or given a date — every open is logged",
 };
 
 function describe(permissions) {
