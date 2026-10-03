@@ -30,6 +30,9 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { EstimateTypeCards } from "./PaintAreas";
 import ServiceTiles from "./ServiceTiles";
+// Staining asks "cabinets, stairs, or decks & fences?" when the company sells
+// the cabinet or stair trade; the pick (type, choice) reaches onPickType.
+import { stainingChoices } from "@/lib/quotes/estimateKindRouting";
 
 export const PAINTING_KEYS = Object.freeze(["interior_painting", "exterior_painting"]);
 
@@ -67,7 +70,7 @@ export default function EstimateTypeFirst({ categories = [], onPickType, onAddOt
           {t("app.paint.typeHint", "The pick decides which areas, surfaces and rates you see next.")}
         </p>
       </div>
-      <EstimateTypeCards value={null} onPick={onPickType} t={t} legacyNote={false} bare />
+      <EstimateTypeCards value={null} onPick={onPickType} t={t} legacyNote={false} bare stainChoices={stainingChoices(categories)} />
       {others.length > 0 && (
         <div>
           <p className="text-[13px] text-muted-foreground">

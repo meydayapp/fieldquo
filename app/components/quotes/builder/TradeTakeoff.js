@@ -1030,7 +1030,7 @@ function PaintRoom({ room, index, book, canRemove, onChange, onRemove }) {
   );
 }
 
-function InteriorPaintTakeoff({ takeoff, book, onChange }) {
+function InteriorPaintTakeoff({ takeoff, book, onChange, routing = null }) {
   const money = useCompanyMoney();
   // The discriminator. A takeoff written before the area/substrate model landed
   // has no `model` key and keeps the complexity-grid form below, so reopening
@@ -1038,7 +1038,7 @@ function InteriorPaintTakeoff({ takeoff, book, onChange }) {
   // change a number a client may already be holding.
   if (takeoff?.model === "area_substrate")
     return (
-      <PaintAreas takeoff={takeoff} book={book?.takeoff} onChange={onChange} />
+      <PaintAreas takeoff={takeoff} book={book?.takeoff} onChange={onChange} routing={routing} />
     );
 
   const rooms = asList(takeoff.rooms);
@@ -1109,12 +1109,12 @@ function InteriorPaintTakeoff({ takeoff, book, onChange }) {
 
 /* ── Exterior painting ─────────────────────────────────────────────────── */
 
-function ExteriorPaintTakeoff({ takeoff, book, onChange }) {
+function ExteriorPaintTakeoff({ takeoff, book, onChange, routing = null }) {
   const money = useCompanyMoney();
   // Same discriminator, same reason, as InteriorPaintTakeoff above.
   if (takeoff?.model === "area_substrate")
     return (
-      <PaintAreas takeoff={takeoff} book={book?.takeoff} onChange={onChange} />
+      <PaintAreas takeoff={takeoff} book={book?.takeoff} onChange={onChange} routing={routing} />
     );
 
   const level = takeoff.complexityLevel || "standard";
@@ -3905,6 +3905,10 @@ export default function TradeTakeoff({
   // zoom the estimator chose, and stores both on its takeoff
   // (useSatelliteStill.js).
   siteAddress = "",
+  // The painting takeoff's estimate-type cards hand a cabinet or stair pick
+  // to the builder (lib/quotes/estimateKindRouting.js). Every other form
+  // ignores it.
+  routing = null,
 }) {
   const Component = TAKEOFFS[categoryKey];
   if (!Component || !takeoff || !book) return null;
@@ -3915,6 +3919,7 @@ export default function TradeTakeoff({
         book={book}
         onChange={onChange}
         siteAddress={siteAddress}
+        routing={routing}
       />
     </div>
   );
