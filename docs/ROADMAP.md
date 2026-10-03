@@ -70,6 +70,72 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## The monthly summary email, rebuilt (3 October 2026)
+
+The 1st-of-the-month email ("Your September summary", From: FieldQuo) was one
+model-written paragraph — and its numbers were the WRONG MONTH: the cron called
+`getAnalyticsOverview()` with no date at 08:00 on the 1st, so revenue, expenses
+and quotes were October's first eight hours ("Revenue and expenses were both
+0… created 0 quotes") beside a lead count that was September's.
+
+### What shipped
+- `lib/analytics/monthlySummaryData.js` (read-only loader) + `lib/analytics/monthlySummary.js`
+  (pure): invoiced (invoice families by issue date), collected (`buildRevenueTrend`),
+  leads, quotes sent/accepted/rate (`getAnalyticsOverview({ now })` — which now takes
+  the month and bounds every current-month filter above), jobs completed, spend and
+  blended cost per lead, a five-stage pipeline, lead sources with quoted/won,
+  Meta campaigns (`loadCampaignRollup`, extracted from the Spend route — query code
+  md5-identical), social conversations (`loadMonthlyConversations`), money owed
+  (`buildReceivables`), and ranked "what to act on" facts. Absence is a reason, never 0.
+- `lib/email/monthlySummaryEmail.js`: table layout, 600px, tiles that stack on a
+  phone, a measured dark palette, ▲/▼ vs last month only when last month is real,
+  money only through `formatAppMoney`, "≈" and nothing else for converted spend,
+  plain-text part. 84 `app.monthlySummary.*` keys in all nine catalogue languages;
+  each recipient gets their own language (User.language, else the company's).
+- `lib/ai/monthlyDigest.js`: the model only rewords the three insights, in
+  {placeholder} form, behind a fence (no digits, currency signs, % or foreign
+  placeholders); any failure, refusal or exhausted quota uses the catalogue sentences.
+- "Open the full report" lands on `/app/analytics/kpis?from&to` — the KPI page now
+  honours those params.
+- FX: there was no refresh job to break — the USD/CAD rate in `lib/marketing/fx.js` was
+  hand-read by design and simply 34 days old. Re-read (1.4246 for 2026-10-02).
+- **Owner decisions, 2026-10-03 (round 2):**
+  - **AI insights only for companies with FieldQuo AI credit, paid from it, automatic.**
+    `monthly_digest` is registered in `lib/ai/featurePayer.js` as company-paid from the
+    AI-credit wallet (the AI employee's ledger, `lib/ai/walletMeter.js`; AI wallet kind in
+    `lib/voice/credits.js`). A company with no AI credit gets the catalogue sentences, no
+    model call, no AiUsage row, no debit. Before this the call ran for EVERY company and
+    was counted against each company's monthly token allowance.
+  - **The exchange rate is fetched automatically.** `/api/cron/fx-refresh` (daily 22:15
+    UTC) → `lib/marketing/fxRefresh.js` reads the Bank of Canada Valet API and upserts an
+    `ExchangeRate` row per pair per day; `lib/marketing/fxLive.js` gives the converters the
+    newest usable stored rate, falling back to fx.js's checked-in one (empty, missing,
+    unreadable or older store). Failures → `fx_refresh_failed` on /platform/errors; the
+    /platform banner now means "the automatic update has failed for N days" (amber from
+    day 2) and goes red only if the rate in use passes the 45-day cutoff.
+  - **SQL to apply by hand (not run — no production writes from this branch):**
+    `CREATE TABLE "ExchangeRate" (...)` + `CREATE UNIQUE INDEX
+    "ExchangeRate_base_quote_rateDate_key"` — the exact text is in the commit message.
+    Until it runs, the cron logs "could not be stored" daily and the converters use the
+    checked-in rate.
+- Preview: `scripts/preview-monthly-summary.mjs` → `docs/screens/monthly-summary/`.
+
+### Checks
+`check:monthly-summary` (547 assertions; a non-AI company is never charged, an AI
+company is charged to its own wallet — executed through the real meterFor);
+`check:fx-refresh` (58, no network; fetch mocked, stale-store fallback, the 45-day
+cutoff can't drop spend while the cron is healthy); `check:ai-credit` on the wallet
+gate; `check:fx` covers `rateHealth`. Fifteen mutations, all caught.
+
+### Owed
+- `buildCallInsights` (the call-transcript notes stored on the digest row, not in the
+  email) still runs for any company with decided quotes linked to calls and counts
+  against the monthly token allowance — not covered by the owner's decision; flagged.
+- The in-app digest archive (/app/analytics/digest) shows the new formatted tiles but
+  not the tables or pipeline.
+
+---
+
 ## Drywall: the six GA-214 finish levels (3 October 2026)
 
 The owner: drywall quotes must handle the levels of finish properly (GA-214 / ASTM C840,

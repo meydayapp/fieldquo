@@ -179,6 +179,10 @@
     {
       "path": "/api/cron/video-archive",
       "schedule": "27 * * * *"
+    },
+    {
+      "path": "/api/cron/fx-refresh",
+      "schedule": "15 22 * * *"
     }
   ]
 }

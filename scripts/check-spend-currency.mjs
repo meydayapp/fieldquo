@@ -108,7 +108,11 @@ console.log("\n2. A stale rate refuses, names the amount, and the total says wha
 {
   // The reverse direction: a US company whose ad account reports in CAD
   // — the pinned rate applied in reverse, inverted, still approximate.
-  const r = rollupSpendRows({ rows: [{ platform: "facebook", amount: 138.88, currency: "CAD" }], companyCurrency: "USD", asOf: FRESH });
+  // The CAD amount is US$100 at whatever the pinned rate is today, so a
+  // re-read of the rate does not turn this into a failure (it was a literal
+  // 138.88 — US$100 at 1.3888 — and failed the day the rate moved).
+  const cad = Math.round(100 * USD_CAD.rate * 100) / 100;
+  const r = rollupSpendRows({ rows: [{ platform: "facebook", amount: cad, currency: "CAD" }], companyCurrency: "USD", asOf: FRESH });
   ok("a USD company with CAD rows converts too, with the rate applied in reverse", r.totals.approximate === true && r.totals.currencyConversions[0].inverted === true && r.totals.spend === 100, r.totals);
 }
 
