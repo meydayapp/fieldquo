@@ -272,7 +272,7 @@ const PART_1 = {
             rows: [
               ["Texto En route, rappel de rendez-vous", "Le numéro texto partagé de FieldQuo, avec le nom de votre entreprise en tête", "Rien — les textos aux clients ne sont pas facturés"],
               ["Réceptionniste téléphonique", "Un numéro local ou sans frais que vous louez, ou votre propre numéro renvoyé vers lui", "4 $/mois local, 9 $/mois sans frais, plus 35 ¢ la minute (40 ¢ sans frais), pris sur le crédit téléphonique"],
-              ["Ligne texto de l'équipe", "Un numéro à elle, acheté pour l'entreprise, ou la ligne d'essai partagée de FieldQuo prêtée 7 jours", "4 $/mois pour votre propre ligne, 2 ¢ le texto et 5 ¢ la photo, sur le même crédit"],
+              ["Ligne texto de l'équipe", "Un numéro à elle, acheté pour l'entreprise, ou la ligne d'essai partagée de FieldQuo prêtée 7 jours", "4 $/mois pour votre propre ligne, à partir de 2 ¢ le texto et de 5 ¢ la photo, sur le même crédit"],
             ],
           } },
           { p: "Le crédit téléphonique est un seul solde prépayé, affiché dans **Paramètres → Crédit IA** comme **Crédit téléphonique** et sur la page de la réceptionniste comme **Crédit**. Rechargez de 10 $, 30 $, 50 $ ou 100 $ — ou n'importe quel montant de 5 $ à 1 000 $ — par carte, ou activez la **recharge automatique** pour prélever la carte enregistrée quand le solde passe sous 5 $, 10 $ ou 20 $. Voir [[ai-credit-and-phone-credit|Crédit IA et crédit téléphonique]]." },
@@ -306,7 +306,7 @@ const PART_1 = {
         heading: "La ligne texto de l'équipe",
         blocks: [
           { p: "Votre équipe texte ses photos à un seul numéro et elles sont classées sur le bon chantier — par le chantier nommé dans le texto, par le GPS quand le téléphone l'envoie, ou par le seul chantier où cette personne est ce jour-là ; quand rien de tout ça ne tranche, le bureau choisit le chantier sous **Votre attention — choisissez le chantier**. La personne est reconnue par le cellulaire inscrit sur sa fiche de travailleur. La configuration se fait sur la page **Boîte équipe**, pas sous la réceptionniste : **Acheter un numéro à votre équipe** à 4 $ par mois, ou **Utiliser la ligne d'essai FieldQuo** pendant 7 jours d'abord." },
-          { p: "Chaque texto entrant ou sortant coûte **2 ¢** par 160 caractères et une photo **5 ¢**, sur le même crédit téléphonique. Une photo entrante est toujours reçue et facturée ; si le crédit est à découvert de 2 $, la ligne est débranchée et la page affiche **Les textos de l'équipe sont en pause car votre crédit est épuisé. Rechargez et la ligne se reconnecte.** Voir [[the-crew-inbox|La boîte équipe]]." },
+          { p: "Chaque texto entrant ou sortant est facturé à partir de **2 ¢** par 160 caractères et une photo à partir de **5 ¢** (certains fournisseurs sont plus chers), sur le même crédit téléphonique. Une photo entrante est toujours reçue et facturée ; si le crédit est à découvert de 2 $, la ligne est débranchée et la page affiche **Les textos de l'équipe sont en pause car votre crédit est épuisé. Rechargez et la ligne se reconnecte.** Voir [[the-crew-inbox|La boîte équipe]]." },
           { note: "La ligne d'essai partagée est le même numéro d'où partent les textos aux clients. Pendant qu'elle est prêtée à votre équipe, un STOP qu'un client lui envoie tombe dans la boîte équipe et n'est pas lu comme un désabonnement — une raison de plus d'acheter à l'équipe son propre numéro." },
         ],
       },

@@ -54,8 +54,8 @@ export default function PhonePriceBanner() {
         const price = formatAppMoney(item.chargeCents / 100, CREDIT_CURRENCY, language || "en");
         const what = t(`app.phonePrice.what.${item.priceClass}`, item.priceClass);
         const sentence = item.priceClass.startsWith("call_")
-          ? t("app.phonePrice.bannerPerMinute", "Text and call prices changed on {date}: {what} now cost {price} a minute.", { date, what, price })
-          : t("app.phonePrice.bannerEach", "Text and call prices changed on {date}: {what} now cost {price} each.", { date, what, price });
+          ? t("app.phonePrice.bannerPerMinute", "Text and call prices changed on {date}: {what} are now {price} a minute.", { date, what, price })
+          : t("app.phonePrice.bannerEach", "Text and call prices changed on {date}: {what} are now {price} each.", { date, what, price });
         return (
           <div key={item.key} role="status" data-phone-price-banner className="flex items-start gap-2 px-4 py-2.5 text-sm border-b border-border bg-muted text-foreground">
             <Info size={16} className="mt-0.5 shrink-0 text-muted-foreground" aria-hidden="true" />

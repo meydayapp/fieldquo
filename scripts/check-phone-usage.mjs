@@ -74,8 +74,8 @@ const meterSrc = strip(read("lib/businessNumber/meter.js"));
 ok("business-number texts and calls queue for settlement", (meterSrc.match(/await enqueue\(/g) || []).length === 2);
 ok("the hourly cron settles", /settlePending\(\)/.test(strip(read("app/api/cron/business-numbers/route.js"))));
 const est = monthlyEstimate({ path: "port", textsIn: 10, textsOut: 10, callMinutes: 10 });
-ok("the settings estimate is marked a minimum and carries the markup", est.isMinimum === true && est.rates.markup === 2);
-ok("the settings screen states the rule", /app\.bizNumber\.cost\.rule/.test(read("app/app/settings/business-number/page.js")) && /cost × 2, minimum/.test(APP_MESSAGES.en["app.bizNumber.cost.rule"]));
+ok("the settings estimate is marked a minimum — and its payload carries NO markup", est.isMinimum === true && !("markup" in est.rates) && !/markup|×/.test(JSON.stringify(est)));
+ok("the settings screen states our prices as minimums", /app\.bizNumber\.cost\.rule/.test(read("app/app/settings/business-number/page.js")) && /^Texts from \{text\} each, photos from \{photo\}, calls from \{minute\} a minute\. Some carriers are priced higher/.test(APP_MESSAGES.en["app.bizNumber.cost.rule"]));
 
 // ═══════════════════════════════════════════════════════════════════════════
 section("3. Settlement: floor now, the difference later, once");
@@ -213,6 +213,93 @@ for (const [lang, dict] of Object.entries(APP_MESSAGES)) {
 ok(`banner text in all ${Object.keys(APP_MESSAGES).length} languages: present, and no Twilio / link / cost / multiple`, leaks.length === 0, leaks);
 ok("every class has a phrase", pricing.PRICE_CLASSES.every((c) => APP_MESSAGES.en[`app.phonePrice.what.${c}`]));
 ok("the banner is mounted in the app shell", /<PhonePriceBanner \/>/.test(read("app/app/layout.js")));
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("6. A company never sees that we charge double (owner, 2026-10-03)");
+//
+// The "× 2" lives in /platform and in code comments only. Everything a
+// company can read about phone prices — every catalogue string, every help
+// article, the settings screen, the banner, the settings API's payload — is
+// scanned in every language for the multiple, the word for cost, the
+// carrier's name and markup / double. "Phone-pricing context" is named, not
+// guessed: the business-number, banner, call-button and crew-rate strings
+// whole, and any other string that prices a text, photo or call (a ¢ next to
+// one of those words).
+
+const FORBIDDEN = /twilio|×\s*2|\bx\s?2\b|\b2\s?x\b|markup|mark-up|\bdouble|doble|doppel|doppio|подвій|两倍|\bcost|coût|costo|costa|\bkosten\b|cuesta|coûte|собівартіст|成本|ਲਾਗਤ|halaga ×/i;
+const PHONE_KEYS = /^app\.(bizNumber|phonePrice|bridge|crewSetup)\.|^app\.setVoice\.crewRate$/;
+const PRICED_PHONE = /¢[^.]*?(text|texto|mensaje|SMS|photo|foto|call|appel|llamada|minute)|(text|texto|mensaje|SMS|photo|foto|call|appel|llamada)[^.]*?¢/i;
+const catalogueHits = [];
+for (const [lang, dict] of Object.entries(APP_MESSAGES)) {
+  for (const [k, v] of Object.entries(dict)) {
+    const s = String(v ?? "");
+    if ((PHONE_KEYS.test(k) || PRICED_PHONE.test(s)) && FORBIDDEN.test(s)) catalogueHits.push(`${lang}:${k}`);
+  }
+}
+// Two keys legitimately name something else: the LOA a Canadian port is
+// filed under must name the gaining carrier — it is not a price — and is not
+// a catalogue string at all (lib/businessNumber/loa.js), so nothing is exempt
+// here.
+ok(`app catalogue (${Object.keys(APP_MESSAGES).length} languages): no multiple, cost, carrier name or markup in any phone-price string`, catalogueHits.length === 0, catalogueHits);
+
+const { MESSAGES } = await import("@/app/i18n/messages");
+const marketingHits = [];
+for (const [lang, dict] of Object.entries(MESSAGES || {})) {
+  for (const [k, v] of Object.entries(dict || {})) {
+    const s = String(v ?? "");
+    if (!k.startsWith("app.") && PRICED_PHONE.test(s) && /twilio|×\s*2|markup|\bdouble/i.test(s)) marketingHits.push(`${lang}:${k}`);
+  }
+}
+ok("marketing catalogue: no phone price names the multiple, the carrier or a markup", marketingHits.length === 0, marketingHits);
+
+const { readdirSync } = await import("node:fs");
+const helpHits = [];
+const walk = (o, where, whole) => {
+  if (typeof o === "string") {
+    if ((whole || PRICED_PHONE.test(o)) && FORBIDDEN.test(o)) helpHits.push(`${where}: ${o.slice(0, 80)}`);
+    return;
+  }
+  if (o && typeof o === "object") for (const [k, v] of Object.entries(o)) walk(v, `${where}.${k}`, whole);
+};
+let helpFiles = 0;
+for (const lang of ["en", "fr", "es"]) {
+  for (const f of readdirSync(new URL(`../content/help/${lang}/`, import.meta.url))) {
+    if (!f.endsWith(".js")) continue;
+    helpFiles++;
+    const mod = await import(new URL(`../content/help/${lang}/${f}`, import.meta.url).href);
+    for (const [slug, article] of Object.entries(mod.ARTICLES || {})) {
+      // The business-number article is phone pricing from top to bottom.
+      walk(article, `${lang}/${f}#${slug}`, slug === "settings-business-number");
+    }
+  }
+}
+ok(`help content (${helpFiles} modules, en/fr/es): the business-number article and every text/photo/call price are clean`, helpHits.length === 0, helpHits.slice(0, 10));
+
+const literals = (file) =>
+  [...strip(read(file)).replace(/t\(\s*"app\.[^"]*"/g, "t(\"\"").matchAll(/"((?:[^"\\]|\\.)*)"|`((?:[^`\\]|\\.)*)`/g)].map((m) => m[1] ?? m[2]).filter((s) => /\s/.test(s));
+const screenHits = [
+  "app/app/settings/business-number/page.js",
+  "app/components/layout/PhonePriceBanner.js",
+  "app/components/calls/BridgeCallButton.js",
+].flatMap((f) => literals(f).filter((s) => FORBIDDEN.test(s)).map((s) => `${f}: ${s.slice(0, 80)}`));
+ok("the settings screen, the banner and the call button: no forbidden word in any sentence", screenHits.length === 0, screenHits);
+
+const { PORT_FEE_NOTE } = await import("@/lib/businessNumber/costs");
+const { ALREADY_TEXT_ENABLED_ADVICE, mapHostedStatus, mapPortStatus } = await import("@/lib/businessNumber/state");
+const { classifyNumber } = await import("@/lib/businessNumber/lineType");
+const served = [
+  ...Object.values(PORT_FEE_NOTE),
+  ALREADY_TEXT_ENABLED_ADVICE,
+  mapHostedStatus("failed").reason,
+  mapHostedStatus("action-required").reason,
+  mapPortStatus("Action Required").reason,
+  classifyNumber({ e164: "+12125550199", lookup: { countryCode: "US", valid: true, lineTypeIntelligence: { type: "fixedVoip" } } }).reason,
+];
+ok("sentences the settings API serves (port fee, refusals, advice) never name the carrier or a cost", served.every((s) => !FORBIDDEN.test(String(s))), served.filter((s) => FORBIDDEN.test(String(s))));
+const storeSrc = strip(read("lib/businessNumber/store.js"));
+ok("the store's refusals to a company never say Twilio", !/refuse\([^)]*Twilio/.test(storeSrc) && !/`[^`]*Twilio[^`]*`/.test(storeSrc));
+ok("the statement line for a settlement shows our price only", !FORBIDDEN.test(settleNote({ resource: "call", hasMedia: false, chargedCents: 17, provisionalCents: 15 })));
+ok("…while /platform still shows the rule (superadmin only)", /× \{data\.rule\.markup\}/.test(read("app/platform/costs/PhoneCostsTable.js")));
 
 section("Wiring");
 const pkg = JSON.parse(read("package.json"));

@@ -1128,7 +1128,7 @@ export default function VoiceSettingsPage() {
           <p className="text-sm text-muted-foreground mt-3">
             {t(
               "app.setVoice.crewRate",
-              "Crew texting comes out of this same credit: {sms}¢ per text (each {chars} characters) and {mms}¢ per photo.",
+              "Crew texting comes out of this same credit: from {sms}¢ per text (each {chars} characters) and from {mms}¢ per photo; some carriers are priced higher.",
               {
                 sms: credit.crew.smsCents,
                 mms: credit.crew.mmsCents,

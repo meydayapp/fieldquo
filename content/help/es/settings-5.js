@@ -22,7 +22,7 @@ export const ARTICLES = {
             "**Una línea fija o un número gratuito** — las llamadas se quedan con su proveedor tal como están y solo los mensajes pasan a FieldQuo.",
             "**Cualquier número fuera de EE. UU. y Canadá** — todavía no disponible. La pantalla lo indica.",
           ] },
-          { note: "Una línea VoIP tiene que traspasarse en lugar de conservar sus llamadas, porque Twilio — el operador que usa FieldQuo — no aloja mensajes en líneas VoIP." },
+          { note: "Una línea VoIP tiene que traspasarse en lugar de conservar sus llamadas, porque los mensajes de una línea VoIP no se pueden traspasar por separado." },
         ],
       },
       {
@@ -36,7 +36,7 @@ export const ARTICLES = {
             "Pulse **Traspasar mi número**. La pantalla sigue la solicitud: autorización firmada, factura subida, número de cuenta y PIN, y los días de espera con su operador.",
           ] },
           { warning: "Su operador enviará un mensaje al teléfono para aprobar el traspaso. Responda en 90 minutos o se cancela. Tarda de 5 a 7 días hábiles, hasta 4 semanas, y después el número deja de funcionar en su SIM — pida a su operador un número nuevo para el teléfono o cancele esa línea, y revise antes las penalizaciones de su contrato." },
-          { tip: "Su PIN y su número de cuenta se guardan cifrados solo mientras el traspaso los necesita y se borran al terminar. Para un número de EE. UU. van directamente a Twilio y nunca se guardan." },
+          { tip: "Su PIN y su número de cuenta se guardan cifrados solo mientras el traspaso los necesita y se borran al terminar. Para un número de EE. UU. van directamente al operador y nunca se guardan." },
         ],
       },
       {
@@ -45,11 +45,11 @@ export const ARTICLES = {
         blocks: [
           { steps: [
             "Escriba el nombre del propietario, un correo para la autorización, un teléfono donde localizarle y la dirección del propietario, y pulse **Empezar a pasar los mensajes**.",
-            "Cuando la pantalla lo indique, pulse **Llamar al número ahora** y quédese junto a ese teléfono. Twilio llama y pide el código que aparece en pantalla.",
-            "Firme la autorización que Twilio le envía por correo.",
+            "Cuando la pantalla lo indique, pulse **Llamar al número ahora** y quédese junto a ese teléfono. Una llamada automática pide el código que aparece en pantalla.",
+            "Firme la autorización que le llega por correo.",
             "El operador cambia los mensajes, normalmente en 1 a 3 días hábiles. Sus llamadas nunca se ven afectadas.",
           ] },
-          { note: "Si el número ya puede enviar mensajes a través de otra empresa — una app de mensajes o un servicio de mensajes para empresas de su proveedor — Twilio lo rechaza. La pantalla le indica que pida a esa empresa que quite los mensajes del número y que vuelva a empezar." },
+          { note: "Si el número ya puede enviar mensajes a través de otra empresa — una app de mensajes o un servicio de mensajes para empresas de su proveedor — no se puede traer aquí. La pantalla le indica que pida a esa empresa que quite los mensajes del número y que vuelva a empezar." },
         ],
       },
       {
@@ -64,10 +64,10 @@ export const ARTICLES = {
         ],
       },
       {
-        id: "cost",
-        heading: "Lo que cuesta",
+        id: "prices",
+        heading: "Los precios",
         blocks: [
-          { p: "Todo se descuenta de su saldo telefónico (el que usa la recepcionista): 4,00 $ al mes por el número, cobrados desde el día que se activa. Los mensajes y las llamadas se cobran al costo × 2, con un mínimo de 2 ¢ por mensaje, 5 ¢ por foto y, en un número traspasado, 5 ¢ por minuto de las llamadas que se le desvían o que hace con el botón Llamar — los mensajes de algunos operadores cuestan más que ese mínimo. Antes de empezar, la pantalla muestra una estimación mensual mínima con sus mensajes de los últimos 30 días. FieldQuo no cobra nada por traspasar el número." },
+          { p: "Todo se descuenta de su saldo telefónico (el que usa la recepcionista): 4,00 $ al mes por el número, cobrados desde el día que se activa. Mensajes desde 2 ¢ cada uno, fotos desde 5 ¢ y, en un número traspasado, llamadas desde 5 ¢ por minuto (desviadas a usted o hechas con el botón Llamar). Algunos operadores tienen precios más altos. Antes de empezar, la pantalla muestra lo mínimo de un mes, con sus mensajes de los últimos 30 días. FieldQuo no cobra nada por traspasar el número." },
         ],
       },
     ],
