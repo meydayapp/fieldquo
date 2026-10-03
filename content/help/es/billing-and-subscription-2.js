@@ -266,7 +266,7 @@ export const ARTICLES = {
         heading: "Resumen",
         blocks: [
           { p: "Cada empresa que eligió un plan tiene un código de referido y un enlace en **Recomienda y gana**. Mientras no elija uno, la página indica que Recomienda y gana se abre cuando elija un plan, con un enlace a **Cuenta y facturación**: no hay enlace que compartir ni nada que ganar todavía." },
-          { p: "Un negocio que se registra con su enlace empieza con la prueba gratuita normal de 14 días: no se le agrega nada. Cuando elige un plan, su mes por referido corre su primer cobro un mes. Registrado el 1 de octubre, prueba hasta el 15 de octubre, plan elegido el 10 de octubre: sin el referido, el primer cobro sería el 15 de octubre; con él, el 15 de noviembre. Con una condición: que usted todavía tenga un plan en el momento en que ese negocio elige el suyo." },
+          { p: "Un negocio que se registra con su enlace empieza con la prueba gratuita normal de 14 días: no se le agrega nada. Cuando elige un plan, su mes por referido corre su primer cobro un mes. Registrado el 1 de octubre, prueba hasta el 15 de octubre, plan elegido el 10 de octubre: sin el referido, el primer cobro sería el 15 de octubre; con él, el 15 de noviembre. Con una condición: que usted tuviera un plan cuando ese negocio se registró con su enlace — ahí es cuando el enlace prometió el mes, y la promesa se cumple aunque su plan haya terminado después. Un negocio que se registró mientras usted no tenía plan no recibió más promesa que la prueba normal, y no recibe un mes por referido más tarde, aunque usted elija un plan después." },
           { p: "El negocio aparece bajo **Negocios que has referido** como **Registrado: aún no paga** hasta que su primera factura pagada se procesa, momento en que la etiqueta pasa a **Acreditado** y se agrega un mes a su propio acceso, automáticamente." },
           { p: "El mes es del mismo tamaño sin importar a quién refiera. Una empresa Solo que refiere a una empresa Scale gana un mes de Solo; el tamaño del negocio que trae no cambia lo que recibe: la pantalla lo dice con sus propias palabras." },
         ],
@@ -307,7 +307,7 @@ export const ARTICLES = {
         blocks: [
           { bullets: [
             "**Un mes cada uno**, para quien refiere y para el referido, sin importar el tamaño de ninguno de los dos negocios.",
-            "**Un plan en ambos lados.** Usted refiere una vez que eligió un plan. El negocio referido recibe su mes cuando elige un plan, si usted tiene uno en ese momento; usted recibe el suyo con su primer pago real, si tiene uno en ese momento. Cada mes se otorga una vez, nunca dos.",
+            "**Un plan en ambos lados.** Usted refiere una vez que eligió un plan. El negocio referido recibe su mes cuando elige un plan, si usted tenía uno cuando se registró con su enlace — aunque su plan haya terminado después; usted recibe el suyo con su primer pago real, si tiene un plan en ese momento. Cada mes se otorga una vez, nunca dos.",
             "**Una empresa que ya existe puede referir pero nunca canjear.** Refiere una vez que tiene un plan. El enlace es para negocios nuevos en FieldQuo; un cliente existente que vuelve a registrarse con un enlace no recibe nada.",
             "**No puede referirse a sí mismo.** Se comprueba por el código, no por la dirección de correo.",
             "**Como máximo 50 referidos acreditados por empresa por mes calendario.** Un tope contra el abuso, no un límite a lo que gana un referido real.",

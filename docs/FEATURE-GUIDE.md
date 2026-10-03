@@ -448,7 +448,9 @@ trial the page says "Refer & Earn opens once you choose a plan" and links to
 Account & Billing, with no link and no invites (owner, 2026-10-03). Then share
 your `/refer/<company>` link. The **new company** keeps the ordinary 14-day trial
 and gets **one free month when it chooses a plan** — its first charge moves a
-month later — provided you have a plan at that moment. **You** get **one free
+month later — provided you had a plan when it signed up through your link
+(kept even if your plan has ended since; a signup while you had no plan was
+promised nothing and gets no month later). **You** get **one free
 month** (your next charge moves a month later) — the same month whatever size
 the business you referred, not a dollar credit — once that company is a
 **verified paying customer** (onboarding done + Stripe Connect + first real

@@ -43,6 +43,7 @@ import {
   REFEREE_BONUS_MONTHS,
   REFERRER_BONUS_MONTHS,
   REFERRAL_TERMS_PLAN_REQUIRED,
+  REFERRAL_TERMS_MONTH_PROMISED,
   applySignupReferral,
   grantReferrerCredit,
   grantRefereeBonus,
@@ -307,7 +308,7 @@ asMember(R);
 }
 await choosePlan(N.id, N.trialEndsAt);
 ok("the newcomer chooses a plan (through the checkout upsert)", await companyHasSelectedPlan(N.id));
-ok("…and gets no month: at that moment its referrer has no plan",
+ok("…and gets no month: its referrer had no plan when it signed up, so nothing was promised",
   credit(N.id, "referred", R.id).length === 0 && updatesTo(`sub_${N.id}`).length === 0);
 {
   const referrerTrial = rows.company.find((c) => c.id === R.id).trialEndsAt.getTime();
@@ -345,7 +346,7 @@ stripeState.invoices.push(
   ok("never twice: a replayed plan selection and the next renewal grant nothing more",
     again === null && credit(R.id, "referrer", N.id).length === 1 && updatesTo(subR).length === 1, `${updatesTo(subR).length} updates`);
 }
-ok("the newcomer's own month is not granted after the fact — it was re-checked when it chose its plan",
+ok("the newcomer's own month is not granted after the fact — nothing was promised at signup",
   credit(N.id, "referred", R.id).length === 0);
 
 // ── 3. The newcomer's month lands at plan selection, not signup ─────────────
@@ -367,6 +368,8 @@ const trialBefore2 = N2.trialEndsAt.getTime();
 {
   const signed = await applySignupReferral({ company: N2, code: "sunsetinc" });
   ok("signup records the referral and promises one month — for later", signed?.bonusMonths === REFEREE_BONUS_MONTHS);
+  ok("…and stamps the promise on the newcomer (the referrer had a plan at signup)",
+    rows.company.find((c) => c.id === N2.id).referralTerms === REFERRAL_TERMS_MONTH_PROMISED);
   ok("…but writes no month: the trial is untouched and there is no credit row",
     rows.company.find((c) => c.id === N2.id).trialEndsAt.getTime() === trialBefore2 && rows.referralCredit.length === 0);
 }
@@ -449,7 +452,7 @@ ok("nothing was deleted from ReferralCredit, and every update touched a row writ
 console.log("\n5. Double-grant attempts are refused");
 fresh();
 const R3 = company("c_r3", { referralCode: "r3co" });
-const N3 = company("c_n3", { referredByCode: "r3co", referredAt: new Date(), referralTerms: REFERRAL_TERMS_PLAN_REQUIRED, trialEndsAt: inDays(4) });
+const N3 = company("c_n3", { referredByCode: "r3co", referredAt: new Date(), referralTerms: REFERRAL_TERMS_MONTH_PROMISED, trialEndsAt: inDays(4) });
 rows.company.push(R3, N3);
 const subR3 = onPlan(R3.id, inDays(12));
 const subN3 = onPlan(N3.id, inDays(4));
@@ -476,6 +479,53 @@ ok("a $0 invoice earns nothing", (await grantReferrerCredit({ paidCompanyId: N3.
   stripeState.invoices.push({ id: "in_b4", customer: `cus_${N4.id}`, subscription: "sub_bundle4", status: "paid", amount_paid: 3000, currency: "cad", billing_reason: "subscription_create" });
   await choosePlan(R4.id, R4.trialEndsAt);
   ok("a bundle invoice is not the plan paid: no referrer month from it", credit(R4.id, "referrer", N4.id).length === 0);
+}
+
+// ── 6. The promise made at signup is the one kept ───────────────────────────
+console.log("\n6. The newcomer's month is the promise made at signup");
+fresh();
+{
+  // The referrer HAD a plan when the newcomer signed up, then cancelled
+  // before the newcomer chose a plan. The page promised the month: it is kept.
+  const R5 = company("c_r5", { referralCode: "r5co" });
+  const N5 = company("c_n5", { trialEndsAt: inDays(6) });
+  rows.company.push(R5, N5);
+  const subR5 = onPlan(R5.id, inDays(15));
+  const signed = await applySignupReferral({ company: N5, code: "r5co" });
+  ok("referrer on a plan at signup: the month is promised and stamped",
+    signed?.bonusMonths === REFEREE_BONUS_MONTHS && rows.company.find((c) => c.id === N5.id).referralTerms === REFERRAL_TERMS_MONTH_PROMISED);
+  // The referrer cancels.
+  rows.subscription.find((r) => r.companyId === R5.id).status = "canceled";
+  stripeState.subscriptions.get(subR5).status = "canceled";
+  ok("…the referrer then cancels — it has no plan any more", !(await companyHasSelectedPlan(R5.id)));
+  const subN5 = await choosePlan(N5.id, N5.trialEndsAt);
+  const expected = addMonths(fromSec(SEC(N5.trialEndsAt)), REFEREE_BONUS_MONTHS);
+  ok("the newcomer still gets its month when it chooses a plan",
+    credit(N5.id, "referred", R5.id).length === 1 && updatesTo(subN5).length === 1 && updatesTo(subN5)[0].args[1].trial_end === SEC(expected));
+  await onPlanSelected(N5.id);
+  await grantRefereeBonus(N5.id);
+  ok("…once: replays grant nothing more", credit(N5.id, "referred", R5.id).length === 1 && updatesTo(subN5).length === 1);
+  const r = await grantReferrerCredit({ paidCompanyId: N5.id, paidAmountCents: 12900, currency: "cad" });
+  ok("…while the cancelled referrer's own month still needs a plan: held", r === null && credit(R5.id, "referrer", N5.id).length === 0);
+}
+{
+  // The referrer had NO plan when the newcomer signed up (the page said
+  // "Try FieldQuo free"), subscribes afterwards, and only then does the
+  // newcomer choose a plan. Nothing was promised: no newcomer month.
+  const R6 = company("c_r6", { referralCode: "r6co", trialEndsAt: inDays(8) });
+  const N6 = company("c_n6", { trialEndsAt: inDays(7) });
+  rows.company.push(R6, N6);
+  const signed = await applySignupReferral({ company: N6, code: "r6co" });
+  ok("referrer without a plan at signup: nothing promised, terms say so",
+    signed?.bonusMonths === 0 && rows.company.find((c) => c.id === N6.id).referralTerms === REFERRAL_TERMS_PLAN_REQUIRED);
+  await choosePlan(R6.id, R6.trialEndsAt);
+  ok("…the referrer subscribes afterwards", await companyHasSelectedPlan(R6.id));
+  const subN6 = await choosePlan(N6.id, N6.trialEndsAt);
+  ok("…and the newcomer, choosing a plan after that, still gets no month",
+    credit(N6.id, "referred", R6.id).length === 0 && updatesTo(subN6).length === 0);
+  stripeState.invoices.push({ id: "in_n6", customer: `cus_${N6.id}`, subscription: subN6, status: "paid", amount_paid: 12900, currency: "cad", billing_reason: "subscription_cycle" });
+  const g = await grantReferrerCredit({ paidCompanyId: N6.id, paidAmountCents: 12900, currency: "cad" });
+  ok("…while the referrer, now on a plan, earns its own month when the newcomer pays", g?.referrerId === R6.id && credit(R6.id, "referrer", N6.id).length === 1);
 }
 
 console.log(

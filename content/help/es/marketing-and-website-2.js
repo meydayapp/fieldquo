@@ -559,7 +559,7 @@ export const ARTICLES = {
           { table: {
             head: ["Quién", "Qué recibe", "Cuándo"],
             rows: [
-              ["El negocio que usted recomendó", "Un mes gratis: su primer cobro se corre un mes (su prueba de 14 días es la normal)", "Cuando elige un plan, si usted tiene uno en ese momento"],
+              ["El negocio que usted recomendó", "Un mes gratis: su primer cobro se corre un mes (su prueba de 14 días es la normal)", "Cuando elige un plan, si usted tenía uno cuando se registró con su enlace — aunque el suyo haya terminado después"],
               ["Usted", "Un mes gratis", "Cuando ese negocio hace su primer pago real, ha completado la configuración y tiene los pagos verificados: «Se añade automáticamente a tu cuenta cuando un negocio que referiste realiza su primer pago.»"],
             ],
           } },
@@ -685,7 +685,7 @@ export const ARTICLES = {
               ["Retención", "La empresa sigue suscrita después del periodo de retención del plan, contado desde el día en que empezó su suscripción, prueba incluida."],
             ],
           } },
-          { p: "Quien se registra con tu enlace recibe igualmente su propio mes por recomendación cuando elige un plan —su primer cobro se corre un mes—, exactamente como con cualquier enlace de recomendación, y con la misma condición: que tú tengas un plan en ese momento. Tú no recibes además un mes: un enlace, una recompensa. No puedes ganar por una empresa registrada con tu propio correo, y una empresa ya acreditada a otra persona sigue siendo suya." },
+          { p: "Quien se registra con tu enlace recibe igualmente su propio mes por recomendación cuando elige un plan —su primer cobro se corre un mes—, exactamente como con cualquier enlace de recomendación, y con la misma condición: que tú tuvieras un plan cuando se registró con tu enlace. Tú no recibes además un mes: un enlace, una recompensa. No puedes ganar por una empresa registrada con tu propio correo, y una empresa ya acreditada a otra persona sigue siendo suya." },
         ],
       },
       {

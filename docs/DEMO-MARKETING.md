@@ -503,9 +503,10 @@ own domain closes that gap; it's a DNS record, not a code limitation.
 No, and don't imply it can — that's a deliberately different, unbuilt feature.
 What exists is a contractor-to-contractor referral: you send another business
 owner a link, they sign up, and you each get one free month — theirs when
-they choose a plan (their first charge moves a month later), yours on their
-first real payment, and only while you have a plan yourself; a company still
-on the free trial cannot refer (owner, 2026-10-03)
+they choose a plan (their first charge moves a month later) if you had a plan
+when they signed up through your link, yours on their first real payment if
+you have a plan then; a company still on the free trial cannot refer (owner,
+2026-10-03)
 (`lib/referrals/index.js` — `REFEREE_BONUS_MONTHS` and `REFERRER_BONUS_MONTHS`,
 both `1`, overridden down from an original three by the product owner on
 2026-08-27). There's a model for a homeowner-refers-a-neighbour feature sitting

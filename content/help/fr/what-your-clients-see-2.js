@@ -192,7 +192,7 @@ export const ARTICLES = {
             "Votre logo — ou, sans logo, votre initiale sur votre couleur de marque — au-dessus de la ligne « [Votre entreprise] uses FieldQuo ».",
             "Le titre **Get a month free when you choose a plan** — le mois de parrainage — un paragraphe de description de FieldQuo, et un bouton **Start my free trial** qui ouvre le formulaire d'inscription avec votre code de parrainage attaché.",
             "Sous le bouton, une petite ligne : pas de carte pour commencer et, quand on choisit un forfait depuis l'application, le premier prélèvement recule d'un mois. Puis trois puces sur ce que fait le produit.",
-            "Si votre entreprise n'a pas de forfait à ce moment-là — un lien partagé pendant votre essai — le titre devient **Try FieldQuo free** et la page ne promet rien de plus que l'essai ordinaire. Le visiteur peut quand même s'inscrire.",
+            "Si votre entreprise n'a pas de forfait quand le visiteur ouvre le lien — un lien partagé pendant votre essai — le titre devient **Try FieldQuo free** et la page ne promet rien de plus que l'essai ordinaire. Le visiteur peut quand même s'inscrire, mais ne reçoit pas de mois de parrainage plus tard, même si vous choisissez un forfait ensuite : ce que la page disait à son inscription est ce qui compte.",
             "Un pied de page qui dit la partie discrète : « For businesses new to FieldQuo. Already have an account? Sign in. » — une entreprise existante ne peut pas réclamer l'offre.",
           ] },
           { p: "La page est rendue sur le serveur pour être lisible dans la première demi-seconde avec une barre de signal, et elle porte un aperçu de lien (titre et description) parce qu'elle se fait coller dans des groupes WhatsApp et Facebook où la carte d'aperçu est l'argument de vente." },
@@ -205,7 +205,7 @@ export const ARTICLES = {
           { table: {
             head: ["Qui", "Ce qu'il reçoit", "Quand"],
             rows: [
-              ["L'entreprise que vous avez parrainée", "**1 mois gratuit** — son premier prélèvement recule d'un mois", "Quand elle choisit un forfait (et que vous en avez un)"],
+              ["L'entreprise que vous avez parrainée", "**1 mois gratuit** — son premier prélèvement recule d'un mois", "Quand elle choisit un forfait — si vous en aviez un quand elle s'est inscrite par votre lien, même si le vôtre a pris fin depuis"],
               ["Vous", "**1 mois gratuit** ajouté à votre propre accès", "Quand l'entreprise parrainée fait son premier paiement — pas à l'inscription"],
             ],
           } },

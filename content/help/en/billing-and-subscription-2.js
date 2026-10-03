@@ -271,7 +271,7 @@ export const ARTICLES = {
         heading: "Overview",
         blocks: [
           { p: "Every company that has chosen a plan has a referral code and a link on **Refer & Earn**. Until you choose one, the page says **Refer & Earn opens once you choose a plan**, with a link to **Account & Billing** — there is no link to share and nothing to earn yet." },
-          { p: "A business that signs up through your link starts with the ordinary 14-day free trial — nothing is added to it. When it chooses a plan, its referral month moves its first charge a month later. Signed up on 1 Oct, trial ending 15 Oct, plan chosen on 10 Oct: without the referral the first charge would be on 15 Oct; with it, 15 Nov. That only applies if you still have a plan at the moment they choose theirs." },
+          { p: "A business that signs up through your link starts with the ordinary 14-day free trial — nothing is added to it. When it chooses a plan, its referral month moves its first charge a month later. Signed up on 1 Oct, trial ending 15 Oct, plan chosen on 10 Oct: without the referral the first charge would be on 15 Oct; with it, 15 Nov. That applies if you had a plan when they signed up through your link — that is when the link promised the month, so the promise is kept even if your plan has ended since. A business that signed up while you had no plan was promised nothing beyond the ordinary trial, and gets no referral month later, even if you choose a plan afterwards." },
           { p: "You are listed under **Businesses you've referred** as **Signed up — not yet paying** until their first paid invoice clears, at which point the badge becomes **Credited** and a month is added to your own access, automatically." },
           { p: "The month is the same size whoever you refer. A Solo company referring a Scale company earns a month of Solo; the size of the business you bring in does not change what you get — the screen says so in its own words." },
         ],
@@ -312,7 +312,7 @@ export const ARTICLES = {
         blocks: [
           { bullets: [
             "**One month each**, for the referrer and the referred, however large either business is.",
-            "**A plan on both sides.** You refer once you have chosen a plan. The business you referred gets its month when it chooses a plan, provided you have one at that moment; you get yours on its first real payment, provided you have one then. Each month is granted once, never twice.",
+            "**A plan on both sides.** You refer once you have chosen a plan. The business you referred gets its month when it chooses a plan, provided you had one when it signed up through your link — kept even if your plan has ended since; you get yours on its first real payment, provided you have a plan at that point. Each month is granted once, never twice.",
             "**A company that already exists can refer but never redeem.** It can refer once it has a plan. The link is for businesses that are new to FieldQuo; an existing customer signing up again through a link gets nothing.",
             "**You cannot refer yourself.** Checked on the code, not the email address.",
             "**At most 50 credited referrals per company per calendar month.** A count cap against abuse, not a limit on what a real referral earns.",

@@ -540,7 +540,7 @@ export const SCREENS_CHAPTER = {
     ] },
     "settings-refer": { body: [
       "La même page « Parrainage » que dans le menu principal : le lien de parrainage de l'entreprise, le partage et l'invitation, les mois gagnés et les entreprises recommandées.",
-      "Un mois gratuit de parrainage chacun, une fois sur un forfait. L'entreprise recommandée garde l'essai ordinaire de 14 jours; quand elle choisit un forfait, son premier prélèvement recule d'un mois, si le parrain a un forfait à ce moment-là. Le mois du parrain tombe au premier vrai paiement de l'entreprise recommandée.",
+      "Un mois gratuit de parrainage chacun, une fois sur un forfait. L'entreprise recommandée garde l'essai ordinaire de 14 jours; quand elle choisit un forfait, son premier prélèvement recule d'un mois, si le parrain avait un forfait quand elle s'est inscrite par le lien — même si ce forfait a pris fin depuis. Le mois du parrain tombe au premier vrai paiement de l'entreprise recommandée.",
     ] },
     "settings-migration": { body: [
       "« Migration de données » — le service payant où FieldQuo importe les anciennes données d'une entreprise. La carte de la demande montre ce qu'elle a dit apporter (QuickBooks, Jobber…), son statut (« Devis prêt »), le prix de FieldQuo avec sa note, et « Accepter » / « Refuser » ; en dessous, « Documents » avec « Téléverser un fichier » pour les exports.",

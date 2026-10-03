@@ -558,7 +558,7 @@ export const ARTICLES = {
           { table: {
             head: ["Qui", "Ce qu'il reçoit", "Quand"],
             rows: [
-              ["L'entreprise que vous avez parrainée", "Un mois gratuit — son premier prélèvement recule d'un mois (son essai de 14 jours reste l'essai ordinaire)", "Quand elle choisit un forfait, si vous en avez un à ce moment-là"],
+              ["L'entreprise que vous avez parrainée", "Un mois gratuit — son premier prélèvement recule d'un mois (son essai de 14 jours reste l'essai ordinaire)", "Quand elle choisit un forfait, si vous en aviez un quand elle s'est inscrite par votre lien — même si le vôtre a pris fin depuis"],
               ["Vous", "Un mois gratuit", "Quand cette entreprise fait son premier vrai paiement, a terminé sa configuration et a vérifié ses paiements — « Ajouté automatiquement à votre compte lorsqu'une entreprise que vous avez parrainée effectue son premier paiement. »"],
             ],
           } },
@@ -684,7 +684,7 @@ export const ARTICLES = {
               ["Fidélisation", "L'entreprise est toujours abonnée après la période de fidélisation du plan, comptée depuis le jour où son abonnement a commencé, essai inclus."],
             ],
           } },
-          { p: "La personne qui s'inscrit par votre lien reçoit quand même son propre mois de parrainage quand elle choisit un forfait — son premier prélèvement recule d'un mois — exactement comme avec n'importe quel lien de parrainage, et à la même condition : que vous ayez un forfait à ce moment-là. Vous ne recevez pas de mois en plus : un lien, une récompense. Vous ne pouvez pas gagner sur une entreprise enregistrée avec votre propre adresse courriel, et une entreprise déjà créditée à quelqu'un d'autre reste la sienne." },
+          { p: "La personne qui s'inscrit par votre lien reçoit quand même son propre mois de parrainage quand elle choisit un forfait — son premier prélèvement recule d'un mois — exactement comme avec n'importe quel lien de parrainage, et à la même condition : que vous ayez eu un forfait quand elle s'est inscrite par votre lien. Vous ne recevez pas de mois en plus : un lien, une récompense. Vous ne pouvez pas gagner sur une entreprise enregistrée avec votre propre adresse courriel, et une entreprise déjà créditée à quelqu'un d'autre reste la sienne." },
         ],
       },
       {

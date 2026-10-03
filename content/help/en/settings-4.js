@@ -596,7 +596,7 @@ export const ARTICLES = {
           { table: {
             head: ["Who", "What they get", "When"],
             rows: [
-              ["The business you referred", "One free month — its first charge moves a month later", "When it chooses a plan, provided you have one at that moment"],
+              ["The business you referred", "One free month — its first charge moves a month later", "When it chooses a plan, provided you had one when it signed up through your link — even if yours has ended since"],
               ["You", "One free month", "When that business makes its first real payment"],
             ],
           } },

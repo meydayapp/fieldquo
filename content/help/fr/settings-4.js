@@ -593,7 +593,7 @@ export const ARTICLES = {
           { table: {
             head: ["Qui", "Ce qu'il obtient", "Quand"],
             rows: [
-              ["L'entreprise que vous avez parrainée", "Un mois gratuit — son premier prélèvement recule d'un mois", "Quand elle choisit un forfait, si vous en avez un à ce moment-là"],
+              ["L'entreprise que vous avez parrainée", "Un mois gratuit — son premier prélèvement recule d'un mois", "Quand elle choisit un forfait, si vous en aviez un quand elle s'est inscrite par votre lien — même si le vôtre a pris fin depuis"],
               ["Vous", "Un mois gratuit", "Quand cette entreprise fait son premier vrai paiement"],
             ],
           } },

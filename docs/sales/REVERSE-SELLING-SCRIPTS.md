@@ -446,7 +446,7 @@ _Where these leads come from:_ A name a customer gave you on a call, or a compan
 **Notes for the rep**
 
 - Only say the customer's name if they said you could. First name only, never their business.
-- The extra month only lands when they sign up through the customer's own link (Settings, Refer & Earn) and then choose a plan, and only while that customer has a plan. Never promise it any other way.
+- The extra month only lands when they sign up through the customer's own link (Settings, Refer & Earn) and then choose a plan, and only if that customer had a plan when they signed up. Never promise it any other way.
 
 ### Uses another app
 

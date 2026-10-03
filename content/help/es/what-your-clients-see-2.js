@@ -193,7 +193,7 @@ export const ARTICLES = {
             "Su logotipo — o, sin uno, su inicial sobre su color de marca — sobre la línea «[Su empresa] uses FieldQuo».",
             "El titular **Get a month free when you choose a plan** —el mes por referido—, un párrafo de descripción de FieldQuo, y un botón **Start my free trial** que abre el formulario de registro con su código de referido adjunto.",
             "Bajo el botón, una línea pequeña: no hace falta tarjeta para empezar y, cuando elija un plan desde la app, su primer cobro se corre un mes. Luego tres viñetas sobre lo que hace el producto.",
-            "Si su empresa no tiene plan en ese momento —un enlace compartido durante su prueba—, el titular dice **Try FieldQuo free** y la página no promete nada más que la prueba normal. El visitante puede registrarse igual.",
+            "Si su empresa no tiene plan cuando el visitante abre el enlace —un enlace compartido durante su prueba—, el titular dice **Try FieldQuo free** y la página no promete nada más que la prueba normal. El visitante puede registrarse igual, pero no recibe un mes por referido más tarde, aunque usted elija un plan después: lo que la página decía cuando se registró es lo que cuenta.",
             "Un pie que dice la parte discreta: «For businesses new to FieldQuo. Already have an account? Sign in.»: una empresa existente no puede canjear una oferta.",
           ] },
           { p: "La página se renderiza en el servidor para que se lea en el primer medio segundo con una sola barra de señal, y lleva una vista previa de enlace (título y descripción) porque se pega en grupos de WhatsApp y Facebook donde la tarjeta de vista previa es el argumento de venta." },
@@ -206,7 +206,7 @@ export const ARTICLES = {
           { table: {
             head: ["Quién", "Qué recibe", "Cuándo"],
             rows: [
-              ["El negocio que usted refirió", "**1 mes gratis**: su primer cobro se corre un mes", "Cuando elige un plan (y usted tiene uno)"],
+              ["El negocio que usted refirió", "**1 mes gratis**: su primer cobro se corre un mes", "Cuando elige un plan, si usted tenía uno cuando se registró con su enlace, aunque el suyo haya terminado después"],
               ["Usted", "**1 mes gratis** agregado a su propio acceso", "Cuando la empresa referida hace su primer pago, no al registrarse"],
             ],
           } },

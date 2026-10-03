@@ -562,7 +562,7 @@ export const ARTICLES = {
           { table: {
             head: ["Who", "What they get", "When"],
             rows: [
-              ["The business you referred", "One free month — its first charge moves a month later (its 14-day trial is the ordinary one)", "When it chooses a plan, provided you have a plan at that moment"],
+              ["The business you referred", "One free month — its first charge moves a month later (its 14-day trial is the ordinary one)", "When it chooses a plan, provided you had a plan when it signed up through your link — even if yours has ended since"],
               ["You", "One free month", "When that business makes its first real payment, has finished setup and has verified payments — “Added to your account automatically when a business you referred makes their first payment.”"],
             ],
           } },
@@ -688,7 +688,7 @@ export const ARTICLES = {
               ["Retention", "The company is still subscribed after the plan's retention period, counted from the day its subscription started, trial included."],
             ],
           } },
-          { p: "The person who signs up through your link still gets their own referral month when they choose a plan — their first charge moves a month later — exactly as they would through any referral link, and on the same condition: that you have a plan at that moment. You do not get a month as well: one link, one reward. You cannot earn on a company registered with your own email address, and a company that was already credited to somebody else stays theirs." },
+          { p: "The person who signs up through your link still gets their own referral month when they choose a plan — their first charge moves a month later — exactly as they would through any referral link, and on the same condition: that you had a plan when they signed up through your link. You do not get a month as well: one link, one reward. You cannot earn on a company registered with your own email address, and a company that was already credited to somebody else stays theirs." },
         ],
       },
       {

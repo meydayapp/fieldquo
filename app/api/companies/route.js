@@ -955,9 +955,9 @@ export async function POST(request) {
  * What the signup's answer says about a referral — one shape for all three
  * exits above, which used to repeat it inline.
  *
- * `months` is what the newcomer will get WHEN IT CHOOSES A PLAN, provided the
- * referrer still has one then (lib/referrals grantRefereeBonus re-checks): 1
- * when the referrer has a plan today, 0 when it does not. There is no
+ * `months` is what the newcomer will get WHEN IT CHOOSES A PLAN: 1 when the
+ * referrer has a plan at signup (the promise is stamped on the company and
+ * kept — lib/referrals grantRefereeBonus), 0 when it does not. There is no
  * trialEndsAt any more, because a referral no longer moves the trial.
  */
 function signupReferralSummary(referral) {

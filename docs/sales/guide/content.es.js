@@ -540,7 +540,7 @@ export const SCREENS_CHAPTER = {
     ] },
     "settings-refer": { body: [
       "La misma página « Recomienda y gana » que en el menú principal: el enlace de recomendación de la empresa, compartir e invitar, los meses ganados y las empresas recomendadas.",
-      "Un mes gratis por recomendación para cada uno, una vez con plan. La empresa recomendada conserva la prueba normal de 14 días; cuando elige un plan, su primer cobro se corre un mes, si quien la recomendó tiene un plan en ese momento. El mes de quien recomienda cae con el primer pago real de la empresa recomendada.",
+      "Un mes gratis por recomendación para cada uno, una vez con plan. La empresa recomendada conserva la prueba normal de 14 días; cuando elige un plan, su primer cobro se corre un mes, si quien la recomendó tenía un plan cuando se registró con el enlace, aunque ese plan haya terminado después. El mes de quien recomienda cae con el primer pago real de la empresa recomendada.",
     ] },
     "settings-migration": { body: [
       "« Migración de datos » — el servicio de pago en el que FieldQuo importa los datos antiguos de una empresa. La tarjeta de la solicitud muestra lo que dijo que traería (QuickBooks, Jobber…), su estado (« Presupuesto listo »), el precio de FieldQuo con su nota, y « Aceptar » / « Rechazar »; debajo, « Documentos » con « Subir un archivo » para las exportaciones.",

@@ -196,7 +196,7 @@ export const ARTICLES = {
             "Your logo — or, without one, your initial on your brand colour — over the line “[Your company] uses FieldQuo”.",
             "The headline **Get a month free when you choose a plan** — the referral month — a one-paragraph description of FieldQuo, and a **Start my free trial** button that opens the signup form with your referral code attached.",
             "Under the button: “No card needed to start. When you choose a plan from inside the app, your first charge moves a month later.” Then three bullets on what the product does.",
-            "If your company has no plan at that moment — a link shared while you were still on the trial — the headline reads **Try FieldQuo free** instead, and the page promises nothing beyond the ordinary trial. The visitor can still sign up.",
+            "If your company has no plan when the visitor opens the link — a link shared while you were still on the trial — the headline reads **Try FieldQuo free** instead, and the page promises nothing beyond the ordinary trial. The visitor can still sign up, but gets no referral month later, even if you choose a plan afterwards: what the page said when they signed up is what counts.",
             "A footer that says the quiet part: “For businesses new to FieldQuo. Already have an account? Sign in.” — an existing company cannot redeem an offer.",
           ] },
           { p: "The page is server-rendered so it is readable in the first half-second on one bar of signal, and it carries a link preview (title and description) because it gets pasted into WhatsApp and Facebook groups where the preview card is the pitch." },
@@ -209,7 +209,7 @@ export const ARTICLES = {
           { table: {
             head: ["Who", "What they get", "When"],
             rows: [
-              ["The business you referred", "**1 free month** — its first charge moves a month later", "When it chooses a plan (and you have one)"],
+              ["The business you referred", "**1 free month** — its first charge moves a month later", "When it chooses a plan — provided you had one when it signed up through your link, even if yours has ended since"],
               ["You", "**1 free month** added to your own access", "When the referred company makes its first payment — not at signup"],
             ],
           } },

@@ -33,6 +33,7 @@ import {
 import {
   REFEREE_BONUS_MONTHS,
   REFERRAL_TERMS_PLAN_REQUIRED,
+  REFERRAL_TERMS_MONTH_PROMISED,
   applySignupReferral,
   grantReferrerCredit,
   ensureReferralCode,
@@ -211,6 +212,18 @@ section("Referral through an influencer's link");
   writes.length = 0;
   const second = await applySignupReferral({ company: stored, code });
   ok("a repeated signup on the same code does not write a second attribution", rows.salesAttribution.filter((a) => a.companyId === "c_new").length === 1 && second?.attribution?.outcome === "already_attributed", second?.attribution?.outcome);
+
+  // The newcomer's month on an influencer's link is the same promise as on
+  // any link (2026-10-03): stamped at signup when the influencer has a plan
+  // then, and kept at plan selection (scripts/check-referral-reward.mjs).
+  rows.subscription.push({ companyId: "c_dan", planId: "plan_crew", stripeCustomerId: "cus_dan", stripeSubscriptionId: "sub_dan", status: "active" });
+  const onPlanNewco = company("c_new_b", "Second Floors", "second@example.com");
+  rows.company.push(onPlanNewco);
+  const promised = await applySignupReferral({ company: onPlanNewco, code });
+  ok("an influencer on a plan: the newcomer is promised its month at signup, and the attribution still lands",
+    promised?.bonusMonths === REFEREE_BONUS_MONTHS &&
+      rows.company.find((c) => c.id === "c_new_b").referralTerms === REFERRAL_TERMS_MONTH_PROMISED &&
+      rows.salesAttribution.some((a) => a.companyId === "c_new_b"));
 }
 
 // ── 5b. Stop influencer status, and start it again ─────────────────────────

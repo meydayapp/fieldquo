@@ -593,7 +593,7 @@ export const ARTICLES = {
           { table: {
             head: ["Quién", "Qué recibe", "Cuándo"],
             rows: [
-              ["El negocio que usted refirió", "Un mes gratis: su primer cobro se corre un mes", "Cuando elige un plan, si usted tiene uno en ese momento"],
+              ["El negocio que usted refirió", "Un mes gratis: su primer cobro se corre un mes", "Cuando elige un plan, si usted tenía uno cuando se registró con su enlace — aunque el suyo haya terminado después"],
               ["Usted", "Un mes gratis", "Cuando ese negocio hace su primer pago real"],
             ],
           } },

@@ -510,7 +510,7 @@ export const SCREENS_CHAPTER = {
     ] },
     "settings-refer": { body: [
       "The same “Refer & Earn” page as in the main sidebar: the company's referral link, share and invite, the months earned and the businesses referred.",
-      "One free month each, once on a plan. The referred company keeps the ordinary 14-day trial; when it chooses a plan its first charge moves a month later, provided the referrer has a plan then. The referrer's month lands on the referred company's first real payment.",
+      "One free month each, once on a plan. The referred company keeps the ordinary 14-day trial; when it chooses a plan its first charge moves a month later, provided the referrer had a plan when it signed up through the link — kept even if that plan has ended since. The referrer's month lands on the referred company's first real payment.",
     ] },
     "settings-migration": { body: [
       "“Data Migration” — the paid service where FieldQuo brings a company's old data in. The request card shows what they said they are bringing (QuickBooks, Jobber…), its status (“Quote ready”), FieldQuo's price with its note, and “Accept” / “Decline”; below, “Documents” with “Upload a file” for the exports.",
