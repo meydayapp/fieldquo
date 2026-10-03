@@ -64,6 +64,7 @@ import {
   isDrywallLine,
   drywallPartOf,
   drywallQuantity,
+  bookBillsBoard,
 } from "@/lib/quotes/drywallFinishLine";
 import {
   resolveServiceContent,
@@ -173,8 +174,13 @@ section("C. drywall_install's price book is live, and every rate on its card is 
 const STAGED = INTERIOR_PRICE_BOOKS.drywall_install;
 ok("registered BY REFERENCE to the staged book — one home for the numbers", TRADE_PRICE_BOOKS.drywall_install === STAGED);
 ok("hasPriceBook / tradeIsPricedByDefault: priced", hasPriceBook("drywall_install") && tradeIsPricedByDefault("drywall_install"));
-ok("only this one of interior.js's six went live", Object.keys(INTERIOR_PRICE_BOOKS).filter((k) => hasPriceBook(k)).join() === "drywall_install");
-ok("plain `drywall` (repair) has no book — see the report", !hasPriceBook("drywall"));
+// Two of the six since later on 2026-10-03: plain `drywall`'s REPAIR book went
+// live too (fixed-price patches and sheets, lib/quotes/drywallRepairs.js). It
+// bills no board — no hang row, no finishing row — so nothing in this file's
+// finish-line machinery fires on a drywall group (bookBillsBoard).
+ok("two of interior.js's six are live: drywall (repairs) and drywall_install", Object.keys(INTERIOR_PRICE_BOOKS).filter((k) => hasPriceBook(k)).sort().join() === "drywall,drywall_install");
+ok("plain `drywall`'s book is the repair book, registered by reference", TRADE_PRICE_BOOKS.drywall === INTERIOR_PRICE_BOOKS.drywall);
+ok("…and it bills no board, so no hang or finishing line is ever written from it", !bookBillsBoard(TRADE_PRICE_BOOKS.drywall) && bookBillsBoard(STAGED));
 // The rates per tier, pinned, so a change to them is a decision with a diff.
 const EXPECT = {
   standard: [1.2, 0.45, 0.75, 1.1, 1.45, 2.2],
@@ -432,13 +438,18 @@ for (const lang of LANGUAGE_CODES) {
   ok(`${lang}: a general contractor's shell sequence is not touched by a level`, JSON.stringify(resolveServiceContent("general_contracting", null, null, lang, { finishLevel: "level_5" })) === JSON.stringify(resolveServiceContent("general_contracting", null, null, lang)));
 }
 ok("the shared SHELL_SEQUENCE is not mutated by a level (copy, not edit)", resolveServiceContent("drywall", null, null, "en").steps.at(-1).body.includes("Level 4, or Level 5 where specified"));
-ok("plain drywall still prints no paragraph without a level", resolveServiceContent("drywall", null, null, "en").description === "");
+// Plain drywall has a scope paragraph since its repair book went live
+// (2026-10-03), dated like drywall_install's: a document from before it
+// prints none, as it always did.
+const DW_PARA = resolveServiceContent("drywall", null, null, "en").description;
+ok("plain drywall prints its own scope paragraph without a level", DW_PARA.startsWith("We do the drywall work priced above"));
+ok("...but a drywall document written before it prints none, as it did", resolveServiceContent("drywall", null, null, "en", undefined, "2026-10-01T12:00:00Z").description === "");
 {
   const own = resolveServiceContent("drywall_install", { scopeDescription: "We hang and finish board.", processSteps: [{ title: "Ours", body: "Our step." }] }, null, "en", { finishLevel: "level_5" });
   ok("a company's own paragraph still prints, with the level stated after it", own.description === `We hang and finish board. ${drywallFinishText("level_5", "en").description}`);
   ok("a company's own steps are theirs — not rewritten", own.steps.length === 1 && own.steps[0].body === "Our step.");
   const en5 = resolveServiceContent("drywall", null, null, "en", { finishLevel: "level_5" });
-  ok("the owner's example sentence, in our words", en5.description.startsWith("Finished to Level 5: Level 4 plus a full skim coat"), en5.description);
+  ok("the owner's example sentence, in our words — after the trade's own paragraph", en5.description === `${DW_PARA} ${drywallFinishText("level_5", "en").description}` && en5.description.includes("Finished to Level 5: Level 4 plus a full skim coat"), en5.description);
 }
 for (const [file, needles] of [
   ["app/api/quotes/[id]/document/route.js", ["intakeValues: true", "g.intakeValues,", "intake: g.intakeValues"]],
@@ -566,7 +577,7 @@ section("I. New groups");
   const at = raw.indexOf("Only what the caller actually said");
   const fromCall = at >= 0 ? raw.slice(Math.max(0, at - 400), at + 1600) : "";
   ok("builder: the phone-call prefill does not ask for defaults, and names the language", fromCall.includes("newScopeGroup(") && !fromCall.includes("fieldDefaults") && fromCall.includes("language: bootstrap.companyLanguage"));
-  ok("builder: a tile add asks for defaults", /function addScopeGroup\(category, label\)[\s\S]{0,400}fieldDefaults: true/.test(code("app/components/quotes/builder/QuoteBuilder.js")));
+  ok("builder: a tile add asks for defaults", /function addScopeGroup\(category, label(, addOns = \[\])?\)[\s\S]{0,400}fieldDefaults: true/.test(code("app/components/quotes/builder/QuoteBuilder.js")));
 }
 
 /* ══ J. Materials ══════════════════════════════════════════════════════ */

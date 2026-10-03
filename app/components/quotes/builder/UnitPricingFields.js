@@ -107,6 +107,19 @@ const ADD_ONS = [
     hint: (a, money) =>
       `${money(a.threeToneFlat)} + ${money(a.threeTonePerUnit)} per unit`,
   },
+  {
+    // Stain instead of paint (2026-10-03). Only where the trade's book prices
+    // it — refinishing; a refaced door arrives finished — so refacing never
+    // shows a box that adds nothing.
+    key: "stainFinish",
+    label: "Stain finish instead of paint (strip and re-stain)",
+    needsDrawers: false,
+    countsKey: "stainFinish",
+    defaultUnits: (d, dr) => d + dr,
+    unitWord: "pieces",
+    onlyWhenPriced: (a) => Number(a?.stainFinishPerUnit) > 0,
+    hint: (a, money) => `${money(a.stainFinishPerUnit)} more per piece`,
+  },
 ];
 
 const Field = ({ label, children }) => (
@@ -441,7 +454,11 @@ export default function UnitPricingFields({
         <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Add-ons &amp; upgrades
         </div>
-        {ADD_ONS.map((addOn) => {
+        {ADD_ONS.filter(
+          // A row the book does not price is not drawn — unless it is already
+          // ticked, so a tick never disappears from under the estimator.
+          (addOn) => !addOn.onlyWhenPriced || addOn.onlyWhenPriced(book?.addOns) || Boolean(group[addOn.key]),
+        ).map((addOn) => {
           const on = Boolean(group[addOn.key]);
           // Priced through the shared helper one at a time, so the row shows
           // what this upgrade alone costs on this job.

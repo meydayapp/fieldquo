@@ -84,6 +84,7 @@ const readPath = (obj, path) =>
 function ProvenanceWord({ provenance, t }) {
   const words = {
     recovered: t("app.paint.provRecovered", "✓ recovered"),
+    market: t("app.paint.provMarket", "market rate"),
     analogue: t("app.paint.provAnalogue", "analogue"),
     derived: t("app.paint.provDerived", "derived"),
     example: t("app.paint.provExample", "example"),

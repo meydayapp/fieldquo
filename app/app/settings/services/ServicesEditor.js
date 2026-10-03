@@ -608,7 +608,9 @@ export default function ServicesEditor({ compact = false, focus = "services", on
           const def = tradeDefinition(c.key);
           const basis = def?.priceBookBasis || [];
           const complexity = def?.priceBookComplexity || null;
-          const priced = Boolean(def?.hasPriceBook);
+          // Priced BY its book — unless the book prices items beside the
+          // company's own rate (drywall's repairs), which keeps its box.
+          const priced = Boolean(def?.hasPriceBook) && !def?.keepsOwnRate;
           return (
             // Two layers, on purpose. The ROW is the switch, the label and —
             // for a one-number trade — the rate box, side by side from `sm`

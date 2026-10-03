@@ -85,6 +85,19 @@ export const TRADE_PRICE_BOOKS = {
       twoTonePerUnit: 15,
       threeToneFlat: 1000,
       threeTonePerUnit: 25,
+      // STAIN instead of paint (owner, 2026-10-03: a stain vs paint
+      // distinction, additive). Added to each door and drawer front ticked
+      // for it. MARKET, inferred: re-staining cabinets a new colour means
+      // stripping the old finish, and the one source that prices both per
+      // door (Kitchen Cabinet Kings, 2026) states stain at 30–50% over paint
+      // while its own door ranges come to +24%; trade forums put painted
+      // finishes over stain on NEW work, which is the other direction and
+      // not this job. 30% of TrueFinish's own $150 a face is $45. TrueFinish
+      // has no cabinet stain rate of its own (its stain rate is floors).
+      // A gel stain over the existing finish costs LESS than paint — that is
+      // a different product and is not priced here; see
+      // docs/research/PRICING-EXTERIOR-STAIN-DRYWALL-2026.md.
+      stainFinishPerUnit: 45,
     },
     // TrueFinish's "Essential" package floor. A small kitchen still needs a
     // full spray booth setup, so per-unit pricing alone under-recovers.
@@ -328,6 +341,19 @@ export const TRADE_PRICE_BOOKS = {
         desc: "Similar colour, good wall condition, standard 8–9 ft ceilings",
         wallPricePerSqft: 2.5,
         ceilingPrice: 175,
+        // A ceiling by its AREA (owner, 2026-10-03: painting is priced on wall
+        // and ceiling area). Additive: the instant room picker reads it
+        // (lib/estimate/instantEstimate.js estimatePaintingRooms: ceiling area
+        // × this, never under ceilingPrice above, which stays as the per-room
+        // minimum); the legacy room grid keeps its flat ceilingPrice, so no
+        // stored quote moves. MARKET: US cost guides publish $0.50–3
+        // (HomeAdvisor) and $1–2.50 (Fixr) per sq ft of ceiling at 8–9 ft;
+        // $1.75 is the inferred US midpoint and 2.40 its Canadian equivalent,
+        // the currency this book is written in. A 12 × 12 bedroom ceiling is
+        // $345.60, beside HomeAdvisor's $250 average room. Standard tier only
+        // — the picker prices from it. Sources and dates:
+        // docs/research/PRICING-EXTERIOR-STAIN-DRYWALL-2026.md.
+        ceilingPricePerSqft: 2.4,
         trimPrice: 175,
         doorPrice: 45,
         closetPrice: 150,
@@ -1933,8 +1959,9 @@ export const TRADE_PRICE_BOOKS = {
   // unchanged, so the numbers have one home. Level 0 is hung board: the hang
   // row with no finishing row.
   //
-  // Only this ONE of interior.js's six books is live. The other five, the
-  // recipes and the add-ons stay staged — see that file's "Wiring" section.
+  // This and the drywall repair book below are the two of interior.js's six
+  // books that are live. The other four, the recipes and the add-ons stay
+  // staged — see that file's "Wiring" section.
   //
   // What reads it: lib/quotes/drywallFinishLine.js, which writes the hang line
   // and the chosen level's finishing line from the intake (square feet, the
@@ -1943,6 +1970,23 @@ export const TRADE_PRICE_BOOKS = {
   // extras have no reader on a drywall quote yet, and a rate a company can
   // type that no quote ever uses is the dead control AGENTS.md forbids.
   drywall_install: INTERIOR_PRICE_BOOKS.drywall_install,
+
+  // ── Drywall — repairs (live since 2026-10-03) ───────────────────────────
+  //
+  // The owner: drywall repairs are not the room calculator — plain drywall
+  // offers FIXED-PRICE repair items (small, medium and large patch, sheet
+  // replacement, texture match…). The book is interior.js's staged repair
+  // book, used from there by reference like drywall_install, with prices
+  // researched 2026-10-03 (docs/research/PRICING-EXTERIOR-STAIN-DRYWALL-2026.md).
+  //
+  // What reads it: lib/quotes/drywallRepairs.js, the drywall group's Repairs
+  // panel — each item lands as one ordinary line at the book's price for the
+  // chosen tier, and the call-out minimum tops a small job up. It has no
+  // hang or finishing row, so lib/quotes/drywallFinishLine.js still writes
+  // nothing on a drywall group and its new groups still open with the
+  // company's own rate line (builderPayload isBookDrywall asks for a board
+  // row, not just a book).
+  drywall: INTERIOR_PRICE_BOOKS.drywall,
 };
 
 /* ── Access ────────────────────────────────────────────────────────────── */
@@ -2031,6 +2075,23 @@ export function defaultTradeRate(categoryKey) {
   return ownEntry(TRADE_DEFAULT_RATES, categoryKey) || null;
 }
 
+/**
+ * Trades whose book prices ITEMS beside the company's own single rate rather
+ * than instead of it. Drywall's repair book (2026-10-03) is a list of
+ * fixed-price repairs the estimator adds one by one; the job's own line is
+ * still the company's rate. When the book went live, eight companies sold
+ * drywall: six demos carrying the painting preset's $3.25/sqft and two real
+ * companies with no rate yet (read-only count, 2026-10-03). So the settings
+ * screen keeps the rate box beside the rate card, the demo keeps seeding it,
+ * and a new drywall group still opens on it — exactly as before the book.
+ */
+export const RATE_BESIDE_BOOK = Object.freeze(["drywall"]);
+
+/** Does this trade keep its single rate box even though it has a book? */
+export function keepsOwnRate(categoryKey) {
+  return typeof categoryKey === "string" && RATE_BESIDE_BOOK.includes(categoryKey);
+}
+
 /** True when a trade prices itself out of the box — a book or an opening rate. */
 export function tradeIsPricedByDefault(categoryKey) {
   return hasPriceBook(categoryKey) || Boolean(defaultTradeRate(categoryKey));
@@ -2103,7 +2164,16 @@ export const PRICE_BOOK_GROUPS = {
 };
 
 export const PRICE_BOOK_FIELDS = {
-  cabinet_refinishing: cabinetFields(),
+  cabinet_refinishing: [
+    ...cabinetFields(),
+    // Refinishing only: a refaced door arrives with its finish.
+    {
+      path: "addOns.stainFinishPerUnit",
+      label: "Stain finish instead of paint (strip and re-stain)",
+      suffix: "$ / unit",
+      step: 5,
+    },
+  ],
   cabinet_refacing: [
     ...cabinetFields(),
     // Door specs: what you charge for each, and what each costs you. The cost
@@ -2189,6 +2259,25 @@ export const PRICE_BOOK_FIELDS = {
     ["furnitureMovingPrice", "Furniture moving", "$ flat"],
     ["stairBlendingPrice", "Stair blending", "$ flat"],
   ]),
+  // The rows lib/quotes/drywallRepairs.js prices the Repairs panel from —
+  // every item on the repair book, per tier, the call-out minimum and the
+  // three flat extras. The two flat items (corner bead, nail pops) are one
+  // price at every tier and are edited on the line, as the staged book chose.
+  drywall: [
+    ...complexityFields("drywall", [
+      ["smallPatchPrice", 'Small patch — up to 6"', "$ / each"],
+      ["mediumPatchPrice", 'Medium patch — 6" to 1 ft', "$ / each"],
+      ["largePatchPrice", "Large patch — up to 2 × 2 ft", "$ / each"],
+      ["sheetReplacePrice", "Sheet replacement — 4 × 8", "$ / sheet"],
+      ["textureMatchPrice", "Texture match — per patch", "$ / each"],
+      ["skimCoatPricePerSqft", "Skim coat — Level 5", "$ / sqft"],
+      ["popcornRemovalPricePerSqft", "Popcorn / stipple removal", "$ / sqft"],
+      ["callOutMinimum", "Call-out minimum", "$ flat"],
+    ]),
+    { path: "extras.dustContainmentPrice", label: "Dust containment", suffix: "$ flat", step: 25 },
+    { path: "extras.returnVisitPrice", label: "Return visit — second coat", suffix: "$ flat", step: 25 },
+    { path: "extras.furnitureMovingPrice", label: "Furniture moving", suffix: "$ flat", step: 25 },
+  ],
   // The rows lib/quotes/drywallFinishLine.js prices from, and no others — see
   // the book's note above. Per tier, because the builder asks the tier.
   drywall_install: complexityFields("drywall_install", [
@@ -2217,6 +2306,17 @@ export const PRICE_BOOK_FIELDS = {
       ["colorChangeSurcharge", "Colour change", "$ / room"],
       ["drywallPrepPrice", "Drywall prep", "$ / room"],
     ]),
+    // Read by the instant room picker only — ceiling area × this, never under
+    // the standard per-room Ceiling price (2026-10-03). Standard tier only,
+    // because the picker prices from the standard tier and nothing reads a
+    // Moderate or High figure; a box nothing reads is the dead control.
+    {
+      path: "complexity.standard.ceilingPricePerSqft",
+      label: "Ceiling, by area (instant estimate)",
+      suffix: "$ / sqft",
+      level: "standard",
+      step: 0.25,
+    },
     {
       path: "global.popcornRemovalPricePerSqft",
       label: "Popcorn ceiling removal",

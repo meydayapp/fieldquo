@@ -1692,10 +1692,11 @@ check("every trade with a price book states what the work IS", () => {
       `${key} has a price book but no scope paragraph`,
     );
     const old = resolveServiceContent(key, null, null, undefined, undefined, "2026-01-01T00:00:00Z");
-    if (key === "drywall_install") {
-      assert.equal(old.description, "", "drywall_install's paragraph must stay off documents written before it existed");
+    // drywall joined it the same day, when its repair book went live.
+    if (key === "drywall_install" || key === "drywall") {
+      assert.equal(old.description, "", `${key}'s paragraph must stay off documents written before it existed`);
     } else {
-      assert.equal(old.description, c.description, `${key}: only drywall_install's paragraph is dated`);
+      assert.equal(old.description, c.description, `${key}: only the two drywall paragraphs are dated`);
     }
   }
 });

@@ -343,11 +343,43 @@ ok(`all ${presets} preset × height combinations match areaGeometry`, presets > 
   const one = roomsFromIntake([{ type: "living", ceiling: true, trim: true, doors: 2 }], "north_america");
   const est = computeInstantEstimate({ trade: "painting", measurements: { rooms: one, scope: "interior", surfaceCondition: "good" }, materialKey: "standard", config: c2 });
   const wallAmt = one[0].wallSqft * c2.materials[0].ratePerSqft;
-  ok("walls + $190 ceiling + $160 trim + 2 × $50 doors", near(est.point, Math.round(Math.max(wallAmt + 190 + 160 + 100, c2.minCharge) / 10) * 10), { point: est.point, wallAmt });
+  // Ceilings by AREA since 2026-10-03 (owner: painting is priced on wall and
+  // ceiling area): ceiling sq ft × the book's ceilingPricePerSqft (2.40, the
+  // researched default), the per-room price as the floor.
+  ok("the seed carries the ceiling rate per sq ft — the researched default when untouched", d.ceilingPerSqft === 2.4, d);
+  ok("...and the settings screen lists it with the rest", seedFields("painting").some((f) => f.path === "ceilingPerSqft" && f.kind === "money"));
+  ok("a company's own ceiling rate per sq ft is the one derived",
+    deriveInstantSeed("painting", seedInputsFor("painting", [{ key: "interior_painting", rates: { complexity: { standard: { ceilingPricePerSqft: 3 } } } }])).ceilingPerSqft === 3);
+  const ceilAmt = Math.max(one[0].ceilingSqft * 2.4, 190);
+  ok("the living room's ceiling is priced by its area (above the $190 per-room floor)", one[0].ceilingSqft * 2.4 > 190, one[0].ceilingSqft);
+  ok("walls + ceiling area × $2.40 + $160 trim + 2 × $50 doors", near(est.point, Math.round(Math.max(wallAmt + ceilAmt + 160 + 100, c2.minCharge) / 10) * 10), { point: est.point, wallAmt, ceilAmt });
+  {
+    const line = est.breakdown.find((b) => /Ceiling/.test(b.label))?.line;
+    ok("the ceiling line states its area and the per-sq-ft rate", line && line.rate === 2.4 && near(line.quantity, Math.round(one[0].ceilingSqft * 100) / 100, 0.01) && /sq/.test(String(line.unit)), line);
+  }
   ok("the range is a range", est.low < est.point && est.point < est.high);
-  const noCeil = computeInstantEstimate({ trade: "painting", measurements: { rooms: one, scope: "interior" }, materialKey: "standard", config: { ...c2, ceilingPerRoom: 0 } });
-  ok("a zeroed ceiling rate leaves the ceiling out and SAYS so",
+  // A small ceiling is held at the per-room price: 40 sq ft × 2.40 = $96 < $190.
+  {
+    const tiny = [{ ...one[0], lengthFt: 5, widthFt: 8, ceiling: true, walls: false, trim: false, doors: 0 }];
+    const small = computeInstantEstimate({ trade: "painting", measurements: { rooms: tiny, scope: "interior" }, materialKey: "standard", config: c2 });
+    const cl = small.breakdown?.find((b) => /Ceiling/.test(b.label));
+    ok("a small ceiling is held at the per-room minimum ($190, not $96)", cl && near(cl.amount, 190) && cl.line.quantity === 1, small.breakdown);
+  }
+  // Zeroing the per-sq-ft rate returns to the per-room price, as before it existed.
+  {
+    const perRoom = computeInstantEstimate({ trade: "painting", measurements: { rooms: one, scope: "interior" }, materialKey: "standard", config: { ...c2, ceilingPerSqft: 0 } });
+    const cl = perRoom.breakdown.find((b) => /Ceiling/.test(b.label));
+    ok("a zeroed per-sq-ft rate prices the ceiling per room again", cl && near(cl.amount, 190) && cl.line.quantity === 1, cl);
+  }
+  const noCeil = computeInstantEstimate({ trade: "painting", measurements: { rooms: one, scope: "interior" }, materialKey: "standard", config: { ...c2, ceilingPerRoom: 0, ceilingPerSqft: 0 } });
+  ok("both ceiling rates zeroed leaves the ceiling out and SAYS so",
     !noCeil.breakdown.some((b) => /Ceiling/.test(b.label)) && noCeil.assumptions.some((a) => a === roomCopy("en").notPriced("Ceiling")), noCeil.assumptions);
+  {
+    // Only the per-room price zeroed: the area rate still prices it, with no floor.
+    const areaOnly = computeInstantEstimate({ trade: "painting", measurements: { rooms: one, scope: "interior" }, materialKey: "standard", config: { ...c2, ceilingPerRoom: 0 } });
+    const cl = areaOnly.breakdown.find((b) => /Ceiling/.test(b.label));
+    ok("a zeroed per-room price leaves the area rate pricing the ceiling", cl && cl.line.rate === 2.4 && near(cl.line.quantity * cl.line.rate, one[0].ceilingSqft * 2.4, 0.5), cl);
+  }
   const fairBox = computeInstantEstimate({ trade: "painting", measurements: { rooms: one, scope: "interior", surfaceCondition: "poor" }, materialKey: "standard", config: c2 });
   ok("the condition surcharge applies to the walls only", near(fairBox.point - est.point, Math.round((wallAmt * c2.conditionSurcharge.poor) / 10) * 10, 10.0001), { diff: fairBox.point - est.point });
   ok("rooms under an exterior scope are refused, not priced as exterior",
