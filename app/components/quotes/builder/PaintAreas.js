@@ -78,6 +78,7 @@ import {
 } from "@/lib/pricing/paintTakeoff";
 import { Field, Num, inputClass, asList } from "./fields";
 import { MeasurementStyleToggle, AreaDimensionFields, GeometryStrip } from "./AreaGeometry";
+import { usesSurfaceCalculator } from "@/lib/quotes/estimateKindRouting";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 import MediaUploader from "@/app/components/MediaUploader";
 import ActionMenu from "@/app/components/mobile/ActionMenu";
@@ -173,12 +174,26 @@ function Modal({ title, onClose, children }) {
 
 /* ── 1. Estimate type ──────────────────────────────────────────────────── */
 
+const STAIN_CHOICE_LABELS = {
+  cabinets: "Cabinets",
+  stairs: "Stairs",
+  surfaces: "Decks, fences & doors",
+};
+
 // Exported: the same cards are the FIRST screen of a painting company's new
 // quote (EstimateTypeFirst.js), before any service tile — the owner's b1
 // mockup, which landed inside the takeoff and was never seen (2026-09-21).
-export function EstimateTypeCards({ value, onPick, t, legacyNote = true, bare = false }) {
+export function EstimateTypeCards({ value, onPick, t, legacyNote = true, bare = false, stainChoices = null }) {
   // `bare`: the caller draws the card and the title (EstimateTypeFirst's
   // "New painting quote" card, mockup b1); only the tiles are drawn here.
+  //
+  // `stainChoices` (lib/quotes/estimateKindRouting.js stainingChoices): when
+  // the company sells cabinets or stairs, Staining asks what is stained
+  // before anything is added — cabinets and stairs open those trades'
+  // calculators, decks & fences the painting book's staining surfaces. With
+  // nothing to choose between, the card picks at once, as it always did.
+  const [stainOpen, setStainOpen] = useState(false);
+  const asksStain = Array.isArray(stainChoices) && stainChoices.some((c) => c !== "surfaces");
   return (
     <div className={bare ? "space-y-2" : "rounded-lg border border-border p-3 space-y-2"}>
       {!bare && (
@@ -203,8 +218,16 @@ export function EstimateTypeCards({ value, onPick, t, legacyNote = true, bare = 
             <button
               key={key}
               type="button"
-              onClick={() => onPick(key)}
+              onClick={() => {
+                if (key === "staining" && asksStain) {
+                  setStainOpen((v) => !v);
+                  return;
+                }
+                setStainOpen(false);
+                onPick(key);
+              }}
               aria-pressed={on}
+              aria-expanded={key === "staining" && asksStain ? stainOpen : undefined}
               className={`text-left rounded-xl border p-3 flex flex-col gap-1.5 min-w-0 transition-colors ${
                 on
                   ? "border-blue-600 bg-blue-50 dark:bg-blue-950/40"
@@ -224,6 +247,25 @@ export function EstimateTypeCards({ value, onPick, t, legacyNote = true, bare = 
           );
         })}
       </div>
+      {asksStain && stainOpen && (
+        <div className="flex items-center gap-2 flex-wrap" data-stain-choices>
+          <span className="text-xs text-muted-foreground">{t("app.paint.stainWhat", "What's being stained?")}</span>
+          {stainChoices.map((choice) => (
+            <button
+              key={choice}
+              type="button"
+              data-stain-choice={choice}
+              onClick={() => {
+                setStainOpen(false);
+                onPick("staining", choice);
+              }}
+              className="rounded-lg border border-border bg-card px-3 py-1 text-sm hover:border-muted-foreground"
+            >
+              {t(`app.paint.stainChoice.${choice}`, STAIN_CHOICE_LABELS[choice] || choice)}
+            </button>
+          ))}
+        </div>
+      )}
       {!value && legacyNote && (
         <p className="text-xs text-muted-foreground">
           {t(
@@ -514,8 +556,10 @@ const PICK_LABELS = {
   closets: ["app.paint.pick.closets", "Closets"],
 };
 
-function QuickPicks({ area, book, estimateType, t, onChange }) {
-  const picks = own(PAINT_QUICK_PICKS, estimateType) || [];
+function QuickPicks({ area, book, estimateType, picksType = estimateType, t, onChange }) {
+  // `picksType`: a commercial area on the exterior surface calculator ticks
+  // the exterior list; its rows still price from `estimateType`'s set.
+  const picks = own(PAINT_QUICK_PICKS, picksType) || [];
   const substrates = asList(area.substrates);
   const rowFor = (key) => substrates.findIndex((s) => s?.key === key);
 
@@ -1164,6 +1208,13 @@ function AreaCard({
   const geo = priced?.geometry || areaGeometry(area);
   const calc = priced?.derived || derivedGeometry(area);
   const type = estimateType ? PAINT_ESTIMATE_TYPES[estimateType] : null;
+  // Exterior (and a commercial area set to exterior) is measured by surface,
+  // not as a room — lib/quotes/estimateKindRouting.js says when, and why an
+  // area stored with room dimensions keeps its room form.
+  const surfaceCalc = usesSurfaceCalculator(estimateType, area);
+  // On the surface form every edit — the boxes and the strip — stores the
+  // measured style, so a typed-over figure never flips it back to a room.
+  const setSurface = (patch) => set({ measurement: "surface", ...patch });
 
   const setSub = (i, next) =>
     set({ substrates: substrates.map((s, j) => (j === i ? next : s)) });
@@ -1188,7 +1239,13 @@ function AreaCard({
     <div className="rounded-lg border border-border p-3 space-y-3" data-paint-area={index}>
       {/* ── Header: name · Room/Surface · total ── */}
       <div className="flex items-center gap-2 flex-wrap">
-        <MeasurementStyleToggle closed={closed} set={set} t={t} />
+        {surfaceCalc ? (
+          <span className="text-sm font-medium text-foreground" data-surface-calculator>
+            {t("app.paint.surfaceCalc", "Measured by surface")}
+          </span>
+        ) : (
+          <MeasurementStyleToggle closed={closed} set={set} t={t} />
+        )}
         <span className="ml-auto shrink-0 text-sm font-semibold tabular-nums">{money(priced?.total ?? 0)}</span>
         <button
           type="button"
@@ -1200,7 +1257,29 @@ function AreaCard({
         </button>
       </div>
 
-      <AreaDimensionFields area={area} index={index} style={style} closed={closed} set={set} t={t} />
+      {surfaceCalc ? (
+        <>
+          {/* The measured style's own fields — area and linear feet — read
+              as siding and trim. Any edit stores the style, so the strip and
+              the price read these boxes and never a blank room's zeros. */}
+          <AreaDimensionFields
+            area={area}
+            index={index}
+            style="surface"
+            closed={false}
+            set={setSurface}
+            t={t}
+          />
+          <p className="text-xs text-muted-foreground">
+            {t(
+              "app.paint.surfaceHint",
+              "Measured area is the siding (sqft) and linear feet the trim boards. Count doors, window frames and shutters below; soffit & fascia in linear feet.",
+            )}
+          </p>
+        </>
+      ) : (
+        <AreaDimensionFields area={area} index={index} style={style} closed={closed} set={set} t={t} />
+      )}
 
       <div className="grid gap-2 sm:grid-cols-3">
         <Field label={t("app.paint.areaType", "Area type")}>
@@ -1253,8 +1332,8 @@ function AreaCard({
         area={area}
         geo={geo}
         calc={calc}
-        closed={closed}
-        set={set}
+        closed={surfaceCalc ? false : closed}
+        set={surfaceCalc ? setSurface : set}
         t={t}
         hint={t(
           "app.paint.grossHint",
@@ -1264,7 +1343,14 @@ function AreaCard({
 
       {/* ── Tick what's painted ── */}
       {estimateType && (
-        <QuickPicks area={area} book={book} estimateType={estimateType} t={t} onChange={onChange} />
+        <QuickPicks
+          area={area}
+          book={book}
+          estimateType={estimateType}
+          picksType={surfaceCalc ? "exterior" : estimateType}
+          t={t}
+          onChange={onChange}
+        />
       )}
 
       {/* ── The area table ── */}
@@ -1491,7 +1577,7 @@ function useSavedRates(book) {
   return [merged, save];
 }
 
-export default function PaintAreas({ takeoff, book: rawBook, onChange }) {
+export default function PaintAreas({ takeoff, book: rawBook, onChange, routing = null }) {
   const money = useCompanyMoney();
   const { t } = useTranslation();
   const [book, saveRate] = useSavedRates(rawBook);
@@ -1525,7 +1611,14 @@ export default function PaintAreas({ takeoff, book: rawBook, onChange }) {
       <EstimateTypeCards
         value={estimateType}
         t={t}
-        onPick={(key) => onChange({ ...takeoff, estimateType: key })}
+        stainChoices={routing?.stainChoices || null}
+        // A cabinet or stair pick opens that trade's calculator when the
+        // company sells it (QuoteBuilder routePaintGroup); anything it does
+        // not take is this takeoff's own type, exactly as before.
+        onPick={(key, choice) => {
+          if (routing?.onRoute && routing.onRoute(key, choice)) return;
+          onChange({ ...takeoff, estimateType: key });
+        }}
       />
 
       {areas.map((area, i) => (

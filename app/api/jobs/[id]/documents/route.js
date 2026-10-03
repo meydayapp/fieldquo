@@ -46,7 +46,7 @@ import {
   visibleDocuments,
   revisionChains,
 } from "@/lib/jobs/documents";
-import { fileAcceptanceDocuments, AUTOFILE_SOURCES } from "@/lib/jobs/documentAutofile";
+import { fileAcceptanceDocuments, fileQuoteDocumentsOnJob, AUTOFILE_SOURCES } from "@/lib/jobs/documentAutofile";
 
 const SELECT = {
   id: true,
@@ -109,6 +109,14 @@ export async function GET(request, { params }) {
       });
     } catch (err) {
       console.error("[job documents] backfill:", err?.message);
+    }
+    // The quote's own uploads, the same lazy way: a job approved before
+    // they could be carried, or a file added to the quote after approval,
+    // catches up here. Idempotent per quote document.
+    try {
+      if (member.impersonationMode !== "read_only") await fileQuoteDocumentsOnJob({ quoteId: job.quoteId, jobId: job.id });
+    } catch (err) {
+      console.error("[job documents] quote files:", err?.message);
     }
   }
 

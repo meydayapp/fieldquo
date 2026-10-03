@@ -2681,6 +2681,11 @@ model Company {
   /// not the contractor's — see SupportTicket.
   supportTickets          SupportTicket[]
   jobDocuments          JobDocument[]
+  /// Files uploaded on a quote, or on a drawing read before its quote exists.
+  quoteDocuments        QuoteDocument[]
+  /// Drawing-set reads ("Start from drawings").
+  planReads             PlanRead[]
+  planReadMessages      PlanReadMessage[]
   jobDailyLogs          JobDailyLog[]
   clientEquipment       ClientEquipment[]
   suppliers             Supplier[]
@@ -21219,4 +21224,150 @@ model JobCommissionEntry {
   @@index([companyId, memberId, createdAt])
   @@index([companyId, payRunId])
   @@index([jobId])
+}
+
+/// A file uploaded on a QUOTE — a drawing set, a scope spreadsheet, a site
+/// photo, a permit — or on a drawing read (PlanRead) before its quote exists.
+///
+/// ══ Why a second table and not JobDocument ═══════════════════════════════
+///
+/// JobDocument.jobId is required, and a quote has no job until it is
+/// approved. Making that column optional would turn every reader of the job's
+/// Documents into a reader that has to remember "unless it's a quote's". So
+/// the quote keeps its own store under the SAME rules (lib/jobs/documents.js:
+/// the kinds, the revision chains, the URL check) and approval COPIES each row
+/// into the job's Documents (lib/jobs/documentAutofile.js
+/// fileQuoteDocumentsOnJob) — idempotent on (sourceQuoteId, kind,
+/// documentHash = "qd:<this id>"), revision chains preserved.
+///
+/// A revision SUPERSEDES, exactly as on the job: a revised drawing is a new
+/// row pointing at the one it replaces; nothing is overwritten.
+model QuoteDocument {
+  id         String    @id @default(cuid())
+  companyId  String
+  company    Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  /// Null until the quote exists (a drawing read's files get it when its
+  /// quote is saved). Plain columns, not relations, for
+  /// JobDocument.sourceQuoteId's reason: a filed document outlives what it
+  /// was attached to.
+  quoteId    String?
+  leadId     String?
+  planReadId String?
+  planRead   PlanRead? @relation(fields: [planReadId], references: [id], onDelete: SetNull)
+
+  name      String
+  /// One of lib/jobs/documents.js DOCUMENT_KINDS.
+  kind      String  @default("other")
+  url       String
+  /// Cloudinary public id — a page tile is cut from a sheet image by it.
+  publicId  String?
+  /// Bytes as the uploader reported them. Null when unknown — never zero.
+  sizeBytes Int?
+  mimeType  String?
+
+  /// A drawing PDF's rendered pages: [{ page, url, publicId, width, height,
+  /// pointsWidth, pointsHeight }]. Rendered in the browser at upload — the
+  /// stored PDF is a raw file Cloudinary will not rasterise (see
+  /// lib/media/validate.js). Null for anything that is not a PDF.
+  pages Json?
+
+  supersedesId String?        @unique
+  supersedes   QuoteDocument? @relation("QuoteDocumentRevision", fields: [supersedesId], references: [id])
+  supersededBy QuoteDocument? @relation("QuoteDocumentRevision")
+
+  uploadedById String?
+  uploadedAt   DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([companyId, quoteId])
+  @@index([companyId, leadId])
+  @@index([planReadId])
+}
+
+/// "Start from drawings": one project overview read from a drawing set, a
+/// scope spreadsheet, site photos and what the client wants — and a draft
+/// quote priced from the company's own rates. See lib/planRead/.
+///
+/// Everything the model produced is persisted here, so a chat turn sends the
+/// compact project model and never the raw drawings again.
+model PlanRead {
+  id          String  @id @default(cuid())
+  companyId   String
+  company     Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdById String?
+  leadId      String?
+  clientId    String?
+  /// Set when a quote was saved from this read.
+  quoteId     String?
+
+  title         String
+  /// What the client wants, in the estimator's words.
+  clientRequest String?
+  /// "painting" | "staining" — phase 1.
+  trade         String  @default("painting")
+
+  /// draft | reading | ready | failed
+  status     String    @default("draft")
+  /// Where a running read has got to: sheets | photos | synthesis | done
+  stage      String?
+  /// { sheetsTotal, sheetsDone, photosTotal, photosDone }
+  progress   Json?
+  error      String?
+  /// A running read's lease — a stale one is resumed by the next POST /run.
+  leaseUntil DateTime?
+
+  /// Deterministic extraction per sheet (lib/planRead/sheetFacts.js) plus
+  /// that sheet's model notes once read.
+  sheets    Json?
+  /// { byDoc: { <documentId>: parsed rows }, failed: { <documentId>: reason } }
+  /// — scope spreadsheets parsed in code (lib/planRead/excel.js), and which
+  /// uploaded files could not be read at all (lib/planRead/documents.js).
+  excelRows Json?
+  /// The photo pass: references, surfaces and cross-photo groups.
+  photoRead Json?
+  /// The compact project model (lib/planRead/projectModel.js).
+  model     Json?
+  /// The company's own similar past quotes, found at read time.
+  similar   Json?
+
+  /// Credits: what was shown before the read, what is held, what was taken.
+  estimateCents  Int?
+  reservedCents  Int     @default(0)
+  reservationRef String?
+  chargedCents   Int     @default(0)
+  /// Token totals across every call: { promptTokens, cachedTokens,
+  /// completionTokens, calls, vendorMicros, byStep }.
+  usage          Json?
+
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  documents QuoteDocument[]
+  messages  PlanReadMessage[]
+
+  @@index([companyId, createdAt])
+  @@index([companyId, leadId])
+}
+
+/// One chat turn on a drawing read — the estimator's line, or the reply and
+/// what it changed. The whole history is kept.
+model PlanReadMessage {
+  id           String   @id @default(cuid())
+  companyId    String
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  planReadId   String
+  planRead     PlanRead @relation(fields: [planReadId], references: [id], onDelete: Cascade)
+  /// "user" | "assistant"
+  role         String
+  text         String
+  /// The applied changes, as the server summarised them.
+  changes      Json?
+  /// { model, promptTokens, cachedTokens, completionTokens, calls }
+  usage        Json?
+  chargedCents Int?
+  userId       String?
+  createdAt    DateTime @default(now())
+
+  @@index([planReadId, createdAt])
 }
