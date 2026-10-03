@@ -27,6 +27,7 @@ import {
   submitSeparation,
 } from "@/app/components/team/EndEmployment";
 import { PERMISSION_PRESETS, PRESET_TO_ROLE } from "@/lib/permissions";
+import OwnRateCard from "@/app/components/team/OwnRateCard";
 import {
   ROLE_LABELS,
   ROLE_RANK,
@@ -844,6 +845,12 @@ export default function TeamOverviewPage() {
             nextTier={seats.nextTier}
           />
         )}
+
+      {/* The owner's own rate, here as well as on Workers: this is the page an
+          owner opens looking for "my rate", and a solo owner has nobody else
+          on the roster to look past. The card draws nothing for anyone who
+          cannot set pay (lib/team/ownRate.js). */}
+      <OwnRateCard />
 
       {/* ── Tabs only for pages this person can open ────────────────────────
           Workers and Payroll both refuse anyone without payroll access, and

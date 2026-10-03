@@ -84,10 +84,10 @@ export default function MeMorePage() {
                   from here. */}
               {manager && canUseTimeClock(caller) ? <BigRow icon={Clock} title={t("app.nav.clock")} href="/app/clock" /> : null}
               {/* The jobs list, for the worker set — a crew member's bar is
-                  the employee bar everywhere now (MobileTabBar), so the Jobs
-                  tab they had is a row here, behind the same navRowAllowed
-                  the bar used: /api/jobs serves Crew their assigned jobs
-                  only, and refuses below view_only. */}
+                  Clock · Today · Chat · More (lib/nav/phoneBar.js) and this
+                  page is its More, so their jobs list is a row here, behind
+                  the same navRowAllowed the rail uses: /api/jobs serves Crew
+                  their assigned jobs only, and refuses below view_only. */}
               {!manager && navRowAllowed("app.nav.jobs", caller) ? (
                 <BigRow icon={Briefcase} title={t("app.nav.jobs")} href="/app/jobs" />
               ) : null}

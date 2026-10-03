@@ -32,6 +32,7 @@ import JobTitleInput from "@/app/components/team/JobTitleInput";
 import { personTitle } from "@/lib/team/personLabel";
 import Link from "next/link";
 import BackToHome from "@/app/components/BackToHome";
+import OwnRateCard from "@/app/components/team/OwnRateCard";
 import {
   EndEmploymentDialog,
   ReactivateDialog,
@@ -151,6 +152,12 @@ function WorkersScreen() {
           {notice}
         </div>
       )}
+
+      {/* The owner's own rate. Everybody else's is a row below; the owner
+          usually has no row (they never accepted an invitation), so there
+          was nowhere to type theirs. Saving adds their row to this list —
+          hence the reload. Draws nothing for anyone who can't set pay. */}
+      <OwnRateCard onSaved={load} />
 
       {/* The setup card's "Set pay rates" row lands here (#pay-rates): a quote
           costs its labour from these rates, and a worker without one is

@@ -1697,6 +1697,7 @@ export default function DocumentBuilder({ b, kind = "quote" }) {
             onClose={() => setShareOpen(false)}
             quoteId={quoteId}
             quoteNumber={start.quoteNumber}
+            workOrderJobId={workOrderJobId}
             onShared={() => setNotice(t("app.sendMenu.shared", "Shared in your team chat."))}
           />
           <SaveAsTemplateModal

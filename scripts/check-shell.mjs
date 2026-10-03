@@ -46,6 +46,7 @@ import {
 import { navRowAllowed, NAV_REQUIREMENTS } from "../lib/permissions/nav.js";
 import { PERMISSION_PRESETS, PRESET_TO_ROLE } from "../lib/permissions.js";
 import { APP_MESSAGES } from "../app/i18n/appMessages.js";
+import { PHONE_BARS, PHONE_MORE } from "../lib/nav/phoneBar.js";
 import { normaliseQuery, searchableTypes } from "../app/api/search/route.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -103,7 +104,6 @@ function parseOne(src, name) {
 
 const adminSrc = read("app/components/layout/AdminSidebar.js");
 const settingsSrc = read("app/components/layout/SettingsSidebar.js");
-const tabSrc = read("app/components/layout/MobileTabBar.js");
 const moreSrc = read("app/components/layout/MoreMenu.js");
 
 const NAV = parseGroups(adminSrc, "export const NAV_GROUPS = [", "app\\.nav\\.group\\.");
@@ -113,7 +113,14 @@ const QUICK = parseItems(adminSrc, "export const QUICK_ADD_ITEMS = [");
 const HOME = parseOne(adminSrc, "HOME_ITEM");
 const MORE_ROW = parseOne(adminSrc, "MORE_ITEM");
 const SETTINGS = parseGroups(settingsSrc, "export const GROUPS = [", "app\\.settings\\.group\\.");
-const TABS = parseItems(tabSrc, "export const TAB_ITEMS = [");
+// The owner's bar is the office set; every role's bar (lib/nav/phoneBar.js)
+// is walked for dead links in section 6. TAB_ITEMS in MobileTabBar.js is
+// built from the same table, so the text is no longer where the rows live.
+const TABS = PHONE_BARS.office.map(({ key, href }) => ({ key, href }));
+const ALL_PHONE_TABS = [
+  ...Object.values(PHONE_BARS).flat().map(({ key, href }) => ({ key, href })),
+  ...Object.values(PHONE_MORE).filter((m) => m.href).map((m) => ({ key: "app.nav.more", href: m.href })),
+];
 
 const railRows = [HOME, ...NAV.flatMap((g) => g.items)];
 const moreRows = MORE.flatMap((g) => g.items);
@@ -236,11 +243,13 @@ const OLD_SETTINGS = [
 // groups and the account rows (PhoneMenuTiles in MoreMenu.js). The hamburger
 // drawer is a second two-tap route to every rail row.
 const settingsOpenByDefault = settingsSrc.includes("const DEFAULT_OPEN = GROUPS.map((g) => g.key)") && /defaultOpenKeys: DEFAULT_OPEN,\s*activeKey,\s*exclusive: true,/.test(settingsSrc);
-const sheetHoldsRail = moreSrc.includes("PHONE_MENU_GROUPS") && moreSrc.includes("NAV_GROUPS.flatMap((g) => g.items)") && moreSrc.includes("!TAB_HREFS.has(i.href)");
+// The sheet subtracts the CALLER's own bar (lib/nav/phoneBar.js), not the owner's
+// five — an Estimator's sheet must still hold Jobs and Invoices.
+const sheetHoldsRail = moreSrc.includes("PHONE_MENU_GROUPS") && moreSrc.includes("NAV_GROUPS.flatMap((g) => g.items)") && moreSrc.includes("!onBar.has(i.href)") && moreSrc.includes("phoneBarFor(caller, flags)");
 // The sheet draws the mockup's rows (s3, 2026-09-22): one row per More
 // group and per settings group, every page of the group as a link in the
 // row's caption — so the tell is the group map plus the item links in it.
-const sheetHoldsMore = moreSrc.includes("const more = useNavGroups(MORE_GROUPS);") && moreSrc.includes("{more.map((group) => {") && /group\.items\.map\(\(item, i\) => \(\s*<span key=\{item\.href\}>[\s\S]*?<Link href=\{item\.href\}/.test(moreSrc);
+const sheetHoldsMore = moreSrc.includes("more: useNavGroups(PHONE_MENU_GROUPS.more)") && moreSrc.includes("const { menu, more } = usePhoneSheetGroups();") && moreSrc.includes("{more.map((group) => {") && /group\.items\.map\(\(item, i\) => \(\s*<span key=\{item\.href\}>[\s\S]*?<Link href=\{item\.href\}/.test(moreSrc);
 const sheetHoldsSettings = moreSrc.includes("useSettingsGroups()") && moreSrc.includes("{settings.map((group, i) => (") && /group\.items\.map\(\(item, j\) => \(\s*<span key=\{item\.href\}>[\s\S]*?<Link href=\{item\.href\}/.test(moreSrc);
 const sheetHoldsAccount = moreSrc.includes("<AccountMenu onNavigate={shell.close} tone=\"sheet\" />");
 ok("the settings list opens one group at a time, like the rail (owner 2026-09-29)", settingsOpenByDefault);
@@ -345,7 +354,7 @@ ok("the list that slid away is inert (no tab stops, not in the accessibility tre
 
 // ── 6. No dead link ────────────────────────────────────────────────────────
 section("6. No dead link");
-const everyRow = [...railRows, MORE_ROW, ...moreRows, ...BOTTOM, ...QUICK, ...settingsRows, ...TABS];
+const everyRow = [...railRows, MORE_ROW, ...moreRows, ...BOTTOM, ...QUICK, ...settingsRows, ...TABS, ...ALL_PHONE_TABS];
 // The query string is not part of the path ("/app/receipts?snap=1" renders
 // app/app/receipts/page.js with the capture panel open).
 const dead = everyRow.filter((r) => !exists(`app${r.href.split("?")[0]}/page.js`));
