@@ -47,6 +47,9 @@ import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 import BookVisitPanel from "@/app/components/public/BookVisitPanel";
 import LawnCareOffer, { lawnPickTotal, estimateMoneyCents } from "./LawnCareOffer";
 import MeasurementDoubt from "./MeasurementDoubt";
+import RoomPicker, { roomsDescribed } from "./RoomPicker";
+import { roomCopy, roomCopyLocale } from "@/lib/i18n/roomPresetCopy";
+import { areaText } from "@/lib/estimate/roomDisplay";
 import { lawnEstimateCopy } from "@/lib/i18n/lawnEstimateCopy";
 import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
 import {
@@ -151,7 +154,17 @@ const INTAKE_INPUTS = {
     },
   ],
   painting: [
-    { key: "squareFootage", label: "squareFootageSurface", type: "number", required: true },
+    // The "I know my measurements" box. Hidden while the room picker is the
+    // mode in use (paintingRoomMode below) — a hidden box that still counted
+    // as required, or still priced, would be a control the homeowner cannot
+    // see deciding their figure.
+    {
+      key: "squareFootage",
+      label: "squareFootageSurface",
+      type: "number",
+      required: true,
+      askedWhen: (trade, intake) => !paintingRoomMode(trade, intake),
+    },
     // Asked only when the company sells BOTH. The page payload carries the
     // scopes they sell (`trade.scopes`); with one, the server prices that one
     // whatever the form sent, so a question here would be a control whose
@@ -187,11 +200,40 @@ const INTAKE_INPUTS = {
   ],
 };
 
+// ── Interior painting: rooms, or measurements ──────────────────────────────
+//
+// The room picker is the default whenever the page offers it — the payload
+// carries `trade.rooms` only when the company sells interior painting — and
+// the homeowner has not picked exterior. "I know my measurements" switches to
+// the typed surface box, which prices exactly as it always did.
+function paintingRoomsOffered(trade, intake) {
+  return trade?.trade === "painting" && Boolean(trade.rooms) && intake?.scope !== "exterior";
+}
+function paintingRoomMode(trade, intake) {
+  return paintingRoomsOffered(trade, intake) && intake?.mode !== "measured";
+}
+
+/**
+ * The intake as POSTED. In room mode the mode is said outright, so an empty
+ * picker is refused as "no rooms" and never falls back to a surface figure
+ * the page was hiding; in measured mode the rooms stay on the page (switching
+ * back keeps them) and only the mode travels to say they are not in use.
+ */
+function postedIntake(trade, intake) {
+  if (!paintingRoomsOffered(trade, intake)) return intake;
+  if (paintingRoomMode(trade, intake)) {
+    const { squareFootage: _hidden, ...rest } = intake;
+    return { ...rest, mode: "rooms", rooms: Array.isArray(intake.rooms) ? intake.rooms : [] };
+  }
+  const { rooms: _unused, ...rest } = intake;
+  return { ...rest, mode: "measured" };
+}
+
 /** The trade's inputs with their words resolved in the page's language. */
-function intakeInputs(trade, t) {
+function intakeInputs(trade, t, intake = {}) {
   if (!trade) return [];
   return (INTAKE_INPUTS[trade.trade] || [])
-    .filter((f) => !f.askedWhen || f.askedWhen(trade))
+    .filter((f) => !f.askedWhen || f.askedWhen(trade, intake))
     .map((f) => ({
       ...f,
       labelText: t.inputs[f.label] || f.label,
@@ -658,7 +700,8 @@ export default function InstantQuoteFlow({ companySlug, embedded = false, look: 
   // What the form still needs. Computed before the effects below because the
   // preview is only worth fetching once the job itself is described — the
   // contact and budget answers don't change the number.
-  const inputs = intakeInputs(trade, t);
+  const inputs = intakeInputs(trade, t, intake);
+  const roomMode = paintingRoomMode(trade, intake);
   const itemQtyTotal = Array.isArray(intake.items)
     ? intake.items.reduce((s, it) => s + (Number(it.quantity) || 0), 0)
     : 0;
@@ -668,6 +711,8 @@ export default function InstantQuoteFlow({ companySlug, embedded = false, look: 
     (!byTrace(trade.measure) || (polygon && polygon.length >= 3)) &&
     // Junk: at least one item picked. The access toggles are all optional.
     (trade.measure !== "item_picker" || itemQtyTotal > 0) &&
+    // Painting by the room: at least one room with something ticked.
+    (!roomMode || roomsDescribed(intake.rooms)) &&
     inputs.filter((f) => f.required).every((f) => Number(intake[f.key]) > 0),
   );
 
@@ -739,7 +784,7 @@ export default function InstantQuoteFlow({ companySlug, embedded = false, look: 
     const timer = setTimeout(async () => {
       setPreviewing(true);
       try {
-        const payload = { trade: trade.trade, intake, language: lang };
+        const payload = { trade: trade.trade, intake: postedIntake(trade, intake), language: lang };
         if (byAddress(trade.measure)) payload.address = address;
         if (byTrace(trade.measure)) payload.polygon = polygon;
         // The trace is the correction: with one, the server sizes the lawn
@@ -819,7 +864,7 @@ export default function InstantQuoteFlow({ companySlug, embedded = false, look: 
     try {
       const payload = {
         trade: trade.trade,
-        intake,
+        intake: postedIntake(trade, intake),
         materialKey,
         ...contact,
         // The language the form was read in — the draft, the lead and the
@@ -1233,6 +1278,27 @@ export default function InstantQuoteFlow({ companySlug, embedded = false, look: 
                         setIntake={setIntake}
                         t={t}
                       />
+                    )}
+
+                    {/* Interior painting: the room picker, and the way to
+                        the typed box for someone who has measured. */}
+                    {roomMode && (
+                      <RoomPicker
+                        picker={trade.rooms}
+                        rooms={intake.rooms}
+                        onChange={(rooms) => setIntake({ ...intake, rooms })}
+                        language={lang}
+                        theme={theme}
+                      />
+                    )}
+                    {paintingRoomsOffered(trade, intake) && (
+                      <button
+                        type="button"
+                        onClick={() => setIntake({ ...intake, mode: roomMode ? "measured" : "rooms" })}
+                        className="mt-2 text-sm font-medium underline text-foreground min-h-8"
+                      >
+                        {roomMode ? roomCopy(lang).knowMeasurements : roomCopy(lang).pickRooms}
+                      </button>
                     )}
 
                     {inputs.length > 0 && (
@@ -1889,6 +1955,12 @@ function EstimatePanel({ trade, result, preview, previewing, theme, solid, langu
           {measurement.downspouts != null && <span><strong className="text-foreground">{measurement.downspouts}</strong> {t.downspouts}</span>}
         </div>
       )}
+      {/* Painting by the room: how many rooms and the wall area the figure
+          was built from, and — always beside it — that the sizes are
+          typical ones to be confirmed on site. */}
+      {shown && Array.isArray(measurement?.rooms) && measurement.rooms.length > 0 && (
+        <RoomsSummary rooms={measurement.rooms} language={language} />
+      )}
       {/* Gutters: the two sentences the server wrote in the form's
           language — "measured from aerial imagery of your roofline · imagery
           date …" and "an estimate, not a contract". They replace the generic
@@ -1977,6 +2049,25 @@ function measurementSummaryText(m, measure, lawnCopy) {
   if (measure === "roof_address") return [m.squares != null && `${m.squares} squares`, m.areaSqft != null && `${Math.round(m.areaSqft)} sq ft`, m.predominantPitch && `${m.predominantPitch.rise}/12`].filter(Boolean).join(", ");
   if (m.areaSqft != null) return `${Math.round(m.areaSqft)} sq ft traced`;
   return "";
+}
+
+function RoomsSummary({ rooms, language }) {
+  const rc = roomCopy(language);
+  const locale = roomCopyLocale(language);
+  const unit = rooms.some((r) => r?.unit === "m") ? "m" : "ft";
+  const walls = rooms.reduce((s, r) => s + (r?.walls !== false ? Number(r?.wallSqft) || 0 : 0), 0);
+  const ceilings = rooms.reduce((s, r) => s + (r?.ceiling === true ? Number(r?.ceilingSqft) || 0 : 0), 0);
+  const parts = [
+    rc.roomsCount(rooms.length),
+    walls > 0 ? rc.wallsAbout(areaText(walls, unit, locale)) : null,
+    ceilings > 0 ? rc.ceilingsAbout(areaText(ceilings, unit, locale)) : null,
+  ].filter(Boolean);
+  return (
+    <div className="mt-3 text-xs text-muted-foreground">
+      <p>{parts.join(" · ")}</p>
+      <p className="mt-0.5">{rc.typical}</p>
+    </div>
+  );
 }
 
 function SuccessCard({ result, company, theme, t }) {

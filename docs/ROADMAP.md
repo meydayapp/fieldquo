@@ -70,6 +70,43 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Interior painting instant estimate: a room picker, sized like stairs (3 October 2026)
+
+The owner: build the interior painting instant quote from typical room sizes by region,
+"similarly to how we simplified the instant estimate for stairs".
+
+**What it does now.** On the public instant form, painting with interior sold opens on a
+room picker (`app/instant-quote/[companySlug]/RoomPicker.js`): add rooms by type (12 types),
+pick Small / Medium (typical, preselected) / Large, Standard / High ceiling, tick walls /
+ceiling / trim, count doors. "I know my measurements" switches to the old surface box,
+unchanged. The browser posts KEYS; the server (`measureForTrade`) assumes the dimensions from
+`lib/estimate/roomPresetData.js` for the region the company's own record states
+(`statedCountry` → `regionForCountry`; feet for US/CA, metres elsewhere), and
+`estimatePaintingRooms` prices walls by `areaGeometry` wall area (the builder's gross
+2 × (L + W) × H, openings not deducted) at the company's own $/sqft, and ceiling / trim / doors
+at the interior book's standard-tier `ceilingPrice` / `trimPrice` / `doorPrice` (derived live,
+like stairs' riser/baluster/post prices; shown read-only on the settings card). The draft gets
+one builder Room (4 walls) area per room with a "typical size … assumed, not measured. Confirm
+on site." note; every line carries the same detail; the lead and the report print each room as
+typical. Research and sources: `docs/research/ROOM-SIZES-2026.md`.
+
+**Proof.** `npm run check:room-presets` (new, in check:all, 1,201): table complete and cited,
+units by country, posted sizes ignored, payload and /measure rate-free (executed), area maths =
+areaGeometry for every preset, rooms price exactly as their wall area typed in, labels in all
+nine languages, and an md5 over 672 typed estimates, option lists, costing and two stored
+quotes equal to the commit before.
+
+### Owed
+- **Owner decision — what the wall rate means.** The interior book's `wallPricePerSqft` is
+  labelled "Floor area (sqft)" in the legacy builder but "Surface area" on the instant form.
+  The picker prices walls by WALL area (the instant form's meaning); if the rate is per floor
+  sq ft, room figures are ~2.5× high. Pre-existing ambiguity, now visible.
+- No per-company preset override (stairs has none); no Irish or NZ source (IE uses UK, NZ uses
+  AU); metric companies' per-sqft rates are restated per m² on lines, not re-asked.
+- The instant form itself still offers en/fr/es only; the picker's words exist in all nine.
+
+---
+
 ## Drywall: the six GA-214 finish levels (3 October 2026)
 
 The owner: drywall quotes must handle the levels of finish properly (GA-214 / ASTM C840,

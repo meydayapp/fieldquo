@@ -208,7 +208,9 @@ console.log("\nThe language is posted, validated, and becomes the document's");
   ok("/request never trusts a raw `language ||` fallback any more", !/language \|\| company\.defaultLanguage/.test(request));
 
   ok("the form fetches the payload with ?lang=", /\/api\/instant-quote\/\$\{companySlug\}\$\{wanted \? `\?lang=\$\{wanted\}` : ""\}/.test(flow));
-  ok("the form posts language on /measure", /const payload = \{ trade: trade\.trade, intake, language: lang \};/.test(flow));
+  // The intake goes through postedIntake (the painting room picker says its
+  // mode outright — check:room-presets); the language rides beside it.
+  ok("the form posts language on /measure", /const payload = \{ trade: trade\.trade, intake: postedIntake\(trade, intake\), language: lang \};/.test(flow));
   ok("the form posts language, whenNeeded, answers and notes on /request", /language: lang,\s*whenNeeded,\s*answers,\s*\.\.\.\(notes\.trim\(\)/.test(flow));
   ok("?lang= pre-selects, localStorage remembers, per company", /new URLSearchParams\(window\.location\.search\)\.get\("lang"\)/.test(flow) && /fq\.instantQuote\.lang\.\$\{slug\}/.test(flow) && /storeLanguage\(companySlug, code\)/.test(flow));
   ok("the browser's Accept-Language is tried when it is one of the three", /instantQuoteLanguage\(window\.navigator\?\.language\)/.test(flow));
