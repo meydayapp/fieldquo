@@ -17,6 +17,7 @@ import { orderPlan, planStatus } from "@/lib/jobs/plan";
 import { changeOrderLabel } from "@/lib/jobs/changeOrderAddendum";
 import { shapePlanForPortal, shapeVisits, changeRequestPrefix, isoDay, canRequestChange, HIDDEN_PHOTO_STAGES, PAST_PHOTOS_PER_VISIT } from "@/lib/portal/view";
 import { openChangeRequestKeys } from "@/lib/portal/changeRequest";
+import { demoSafeContact, demoSafeHowToPay } from "@/lib/demo/clientFacing";
 
 export async function GET(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -484,15 +485,23 @@ export async function GET(request, { params }) {
       // How to pay: the block stored at send time, else one built now in the
       // document's language. Rendered sentences only — the company's
       // settings above never leave this route.
-      howToPay: howToPayFor(invoice, {
-        company: client.company || {},
-        language: invoice.language || resolveClientLanguage(client, client.company),
-        online: demoPayments
-          ? { url: null, card: true, bank: false, affirm: false }
-          : onlinePayments
-            ? onlineOptions(client.company)
-            : null,
-      }),
+      //
+      // Null for a demo (the row's own isDemo, read above): every method in a
+      // demo's block is the seed's fictional pay@<slug>.example.com, and the
+      // demo Pay button is what shows a prospect the payment experience
+      // (lib/demo/clientFacing.js). A real company's block is unchanged.
+      howToPay: demoSafeHowToPay(
+        howToPayFor(invoice, {
+          company: client.company || {},
+          language: invoice.language || resolveClientLanguage(client, client.company),
+          online: demoPayments
+            ? { url: null, card: true, bank: false, affirm: false }
+            : onlinePayments
+              ? onlineOptions(client.company)
+              : null,
+        }),
+        demoPayments,
+      ),
       taxKind: statement.kind,
       taxAssumedRegion: statement.assumed ? statement.assumedRegion : null,
       taxSentence:
@@ -743,7 +752,11 @@ export async function GET(request, { params }) {
     // language the client was written to elsewhere. client.language is
     // selected explicitly above for exactly this.
     language: resolveClientLanguage(client, client.company),
-    company: companyView,
+    // A demo's seeded 555 phone and example.com email would print under
+    // "Questions?" and in the invoice header; demoSafeContact drops only those
+    // fictional values, and hands a real company's object back untouched
+    // (lib/demo/clientFacing.js).
+    company: demoSafeContact(companyView, demoPayments),
     onlinePayments,
     demoPayments,
     // No company-level `bankDebit` here any more: the answer depends on the

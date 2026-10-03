@@ -46,6 +46,7 @@ import ClientLoginForm from "./ClientLoginForm";
 import { serviceName, customCategoryPhrases } from "@/lib/i18n/serviceName";
 import SiteChatMount from "@/app/components/chat/SiteChatMount";
 import SiteVisitBeacon from "./SiteVisitBeacon";
+import { clientPageMetadata, neutralClientMetadata } from "@/lib/whiteLabel/pageMetadata";
 
 async function loadSite(subdomain, { preview = false } = {}) {
   const site = await db.companySite.findUnique({
@@ -131,7 +132,7 @@ export async function generateMetadata({ params, language: langParam, pageSlug: 
   // a page that doesn't exist publicly, and getting it wrong is how an
   // unpublished title ends up in a link preview when someone shares the URL.
   const site = await loadSite(subdomain);
-  if (!site) return { title: "Not found", robots: { index: false } };
+  if (!site) return neutralClientMetadata({ title: "Not found", robots: { index: false } });
 
   const c = site.company;
   const place = [c.city, c.province].filter(Boolean).join(", ");
@@ -158,16 +159,26 @@ export async function generateMetadata({ params, language: langParam, pageSlug: 
   // The login page is a door, not content: titled as the company's account
   // page and kept out of search results.
   if (pageSlugParam === CLIENT_LOGIN_SLUG) {
-    if (!site.clientPortalEnabled) return { title: "Not found", robots: { index: false } };
-    return {
+    if (!site.clientPortalEnabled) return neutralClientMetadata({ title: "Not found", robots: { index: false } });
+    return clientPageMetadata(c, {
       title: `${siteCopy(language).clientLoginHeading} · ${c.name}`,
       robots: { index: false, follow: false },
-    };
+    });
   }
 
-  return {
+  // The company's icon (logo, or its initial on its colour), its logo as the
+  // share image, and no root-layout FieldQuo favicon or manifest — on the
+  // contractor's own hostname, where the root's would have been the worst
+  // leak of all (lib/whiteLabel/pageMetadata.js). The tab title, description
+  // and share text below are this site's own, exactly as before.
+  const brand = clientPageMetadata(c, {
     title: tr?.seoTitle || title,
+    shareTitle: title,
     description: tr?.seoDescription || description,
+  });
+
+  return {
+    ...brand,
     // Indexable, unlike every other public surface in this product. A
     // marketing site nobody can find is the one thing this feature must not
     // be.
@@ -188,12 +199,8 @@ export async function generateMetadata({ params, language: langParam, pageSlug: 
           },
         }
       : {}),
-    openGraph: {
-      title,
-      description,
-      type: "website",
-      ...(c.logoUrl ? { images: [c.logoUrl] } : {}),
-    },
+    openGraph: { ...brand.openGraph, title, description },
+    twitter: { ...brand.twitter, title, description },
   };
 }
 

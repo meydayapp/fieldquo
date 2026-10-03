@@ -70,6 +70,12 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// FieldQuo's own head — title, description, and (through app/icon.png and
+// app/apple-icon.png) its icon. Every client-facing page overrides all of it
+// with the contractor's (lib/whiteLabel/pageMetadata.js; check:white-label-
+// meta runs each one through Next's own resolver beneath this object). The
+// favicon.ico lives in public/, not app/: Next forces a root app/favicon.ico
+// into EVERY route's head and no page can take it back out.
 export const metadata = {
   title: "FieldQuo",
   description: "The all-in-one system for contractors and service pros",
@@ -97,7 +103,9 @@ export const metadata = {
   // icon's suggested name falls back to each page's own <title> — which for
   // /site/*, /quote/*, /book/* etc. is already the contractor's own business
   // name (see the generateMetadata in app/site/[subdomain]/page.js), so the
-  // omission is safe, not just silent.
+  // omission is safe, not just silent. Client pages now also set
+  // appleWebApp.title to the company's name explicitly
+  // (lib/whiteLabel/pageMetadata.js).
   appleWebApp: {
     capable: true,
     // "default" (opaque, non-overlapping bar) rather than "black-

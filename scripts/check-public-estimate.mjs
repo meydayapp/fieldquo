@@ -355,9 +355,14 @@ const TOKEN_PAGES = [
 
 for (const file of TOKEN_PAGES) {
   const src = code(file);
+  // Inline, or — since the head became the company's (generateMetadata via
+  // lib/whiteLabel/pageMetadata.js, 2026-10-03) — one ROBOTS constant handed
+  // to both the found and the not-found branch. check:white-label-meta
+  // executes those pages and asserts the resolved head says noindex.
   ok(
     `${file} sets robots index:false`,
-    /robots:\s*\{[^}]*index:\s*false/.test(src),
+    /robots:\s*\{[^}]*index:\s*false/.test(src) ||
+      (/const ROBOTS = \{[^}]*index:\s*false/.test(src) && /robots:\s*ROBOTS\b/.test(src)),
     file,
   );
   ok(

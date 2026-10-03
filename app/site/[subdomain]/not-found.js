@@ -16,7 +16,17 @@
 // receives no params (a Next constraint, not an oversight), so the subdomain
 // isn't available here; inventing a brand for a page that can't know whose it
 // is would be worse than plain type.
+//
+// The same goes for the head. Without a metadata export here the 404 took
+// the root layout's — title "FieldQuo", FieldQuo's description and favicon —
+// on the contractor's own hostname. Plain words and a blank icon instead.
 import Link from "next/link";
+import { neutralClientMetadata } from "@/lib/whiteLabel/pageMetadata";
+
+export const metadata = neutralClientMetadata({
+  title: "Page not found",
+  robots: { index: false, follow: false },
+});
 
 export default function SiteNotFound() {
   return (

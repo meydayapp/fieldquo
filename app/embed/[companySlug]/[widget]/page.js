@@ -48,6 +48,11 @@ import EmbedFrame from "../../EmbedFrame";
 import Reviews from "../../Reviews";
 import SiteChatMount from "@/app/components/chat/SiteChatMount";
 import { loadPublicFormLook } from "@/lib/estimate/publicFormLook";
+import {
+  CLIENT_META_COMPANY_SELECT,
+  clientPageMetadata,
+  neutralClientMetadata,
+} from "@/lib/whiteLabel/pageMetadata";
 
 // ── The fourth widget: the instant estimate ────────────────────────────────
 //
@@ -72,16 +77,19 @@ const WIDGETS = new Set(["book", "quote", "reviews", "instant-quote", "chat"]);
 // here anyway a few lines down, and Next dedupes the two calls in a request.
 // An unknown slug falls back to a bare, unbranded title instead of throwing —
 // the 404 below is what answers that case, and metadata must not pre-empt it.
+//
+// The icon is the company's too (lib/whiteLabel/pageMetadata.js) — the same
+// opened-in-a-tab case put the FieldQuo favicon beside the contractor's name.
 export async function generateMetadata({ params }) {
   const { companySlug } = await params;
-  const company = await findBookingCompany(companySlug, { name: true });
-  return {
-    title: company?.name || " ",
-    // Never indexed. The company's OWN page is what should rank; an embed
-    // competing with it in search results splits their traffic between the
-    // real page and a chrome-less fragment of it.
-    robots: { index: false, follow: false },
-  };
+  const company = await findBookingCompany(companySlug, CLIENT_META_COMPANY_SELECT);
+  // Never indexed. The company's OWN page is what should rank; an embed
+  // competing with it in search results splits their traffic between the
+  // real page and a chrome-less fragment of it.
+  const robots = { index: false, follow: false };
+  return company
+    ? clientPageMetadata(company, { robots })
+    : neutralClientMetadata({ title: " ", robots });
 }
 
 /** The company's default language — the embed has no page language of its own. */

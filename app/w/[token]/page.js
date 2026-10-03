@@ -12,11 +12,21 @@ export const dynamic = "force-dynamic";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import WaiverPage from "./WaiverPage";
+import { clientPageMetadata, neutralClientMetadata } from "@/lib/whiteLabel/pageMetadata";
+import { waiverCompany } from "@/lib/whiteLabel/metadataLoaders";
 
-export const metadata = {
-  title: "Document to sign",
-  robots: { index: false, follow: false },
-};
+const ROBOTS = { index: false, follow: false };
+
+// The company's name and logo in the tab and the link preview
+// (lib/whiteLabel/pageMetadata.js) — not the document's title, which is the
+// company's own wording and may name the client or the job.
+export async function generateMetadata({ params }) {
+  const { token } = await params;
+  const company = await waiverCompany(token);
+  return company
+    ? clientPageMetadata(company, { robots: ROBOTS })
+    : neutralClientMetadata({ title: "Document to sign", robots: ROBOTS });
+}
 
 export default async function PublicWaiverPage({ params }) {
   const { token } = await params;

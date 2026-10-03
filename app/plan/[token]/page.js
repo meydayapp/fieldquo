@@ -20,18 +20,29 @@
 //
 // Not "FieldQuo", which is what the root layout would otherwise put in the tab
 // of a page the homeowner is being asked to trust with their bank details.
-// Deliberately generic rather than the company's name: naming the company
-// would need a database read on a route whose whole point is to be fast on one
-// bar of signal, and the brand band at the top of the page — logo, colour,
-// name — is the identification that matters. Nothing here says FieldQuo.
+//
+// The company's name, and its logo as the tab icon, since 2026-10-03
+// (lib/whiteLabel/pageMetadata.js). This used to be deliberately generic, to
+// spare the route a database read on one bar of signal. That reasoning no
+// longer holds: Next 16 streams metadata to browsers, so the read does not
+// hold the page body back — only an HTML-limited link-preview bot waits for
+// it, and the bot is exactly who needs the name. And a generic title left
+// the root layout's FieldQuo favicon in the tab, which is the leak.
 export const dynamic = "force-dynamic";
 
 import PlanAuthorisation from "./PlanAuthorisation";
+import { clientPageMetadata, neutralClientMetadata } from "@/lib/whiteLabel/pageMetadata";
+import { servicePlanCompany } from "@/lib/whiteLabel/metadataLoaders";
 
-export const metadata = {
-  title: "Payment authorisation",
-  robots: { index: false, follow: false },
-};
+const ROBOTS = { index: false, follow: false };
+
+export async function generateMetadata({ params }) {
+  const { token } = await params;
+  const company = await servicePlanCompany(token);
+  return company
+    ? clientPageMetadata(company, { robots: ROBOTS })
+    : neutralClientMetadata({ title: "Payment authorisation", robots: ROBOTS });
+}
 
 export default function PlanPage() {
   return <PlanAuthorisation />;

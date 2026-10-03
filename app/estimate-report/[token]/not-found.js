@@ -5,11 +5,13 @@
 // not-found: no app shell, no FieldQuo branding, and no explanation of WHY
 // — "never existed" and "withdrawn" are both information about the
 // contractor's business that a stranger holding a bad URL has no claim to.
+// No FieldQuo favicon, description or manifest in the head either.
+import { neutralClientMetadata } from "@/lib/whiteLabel/pageMetadata";
 
-export const metadata = {
+export const metadata = neutralClientMetadata({
   title: "Your estimate",
   robots: { index: false, follow: false },
-};
+});
 
 export default function EstimateReportNotFound() {
   return (

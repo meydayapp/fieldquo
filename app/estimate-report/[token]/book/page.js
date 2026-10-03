@@ -26,6 +26,7 @@ import { db } from "@/lib/db";
 import { documentTheme } from "@/lib/documents/theme";
 import { isInstantEstimateQuote } from "@/lib/estimate/report/model";
 import BookingFlow from "@/app/book/[companySlug]/BookingFlow";
+import { clientPageMetadata, neutralClientMetadata } from "@/lib/whiteLabel/pageMetadata";
 
 async function loadDraft(token) {
   if (!token || typeof token !== "string" || token.length > 128) return null;
@@ -39,20 +40,24 @@ async function loadDraft(token) {
       autoEstimated: true,
       createdVia: true,
       client: { select: { name: true, email: true, phone: true, address: true } },
-      company: { select: { name: true, slug: true, bookingSlug: true, brandColor: true } },
+      // logoUrl for the tab icon and the share image only — the company
+      // object is never handed to the flow below.
+      company: { select: { name: true, slug: true, bookingSlug: true, brandColor: true, logoUrl: true } },
     },
   });
   if (!quote || !isInstantEstimateQuote(quote)) return null;
   return quote;
 }
 
+// The company's name, icon and share image — never the client's name or the
+// address this page pre-fills (lib/whiteLabel/pageMetadata.js).
 export async function generateMetadata({ params }) {
   const { token } = await params;
   const draft = await loadDraft(token);
-  return {
-    title: draft?.company?.name || " ",
-    robots: { index: false, follow: false },
-  };
+  const robots = { index: false, follow: false };
+  return draft?.company
+    ? clientPageMetadata(draft.company, { robots })
+    : neutralClientMetadata({ title: " ", robots });
 }
 
 export default async function ReportBookingPage({ params }) {

@@ -12,6 +12,13 @@ export const dynamic = "force-dynamic";
 import { findBookingCompany } from "@/lib/booking/findBookingCompany";
 import { documentTheme } from "@/lib/documents/theme";
 import BookingFlow from "../BookingFlow";
+import {
+  CLIENT_META_COMPANY_SELECT,
+  clientPageMetadata,
+  neutralClientMetadata,
+} from "@/lib/whiteLabel/pageMetadata";
+
+const ROBOTS = { index: false, follow: false };
 
 // Same reasoning as the parent route's, and it applies harder here: this is the
 // URL that goes in an email signature, so it is the one a stranger opens in a
@@ -19,14 +26,14 @@ import BookingFlow from "../BookingFlow";
 //
 // The COMPANY, not the event: the event name is already the heading on the page
 // and a tab reading "Consultation with Dave" says nothing about whose business
-// it is — which is the one thing the title has to carry.
+// it is — which is the one thing the title has to carry. Icon and share image
+// are the company's as well (lib/whiteLabel/pageMetadata.js).
 export async function generateMetadata({ params }) {
   const { companySlug } = await params;
-  const company = await findBookingCompany(companySlug, { name: true });
-  return {
-    title: company?.name || " ",
-    robots: { index: false, follow: false },
-  };
+  const company = await findBookingCompany(companySlug, CLIENT_META_COMPANY_SELECT);
+  return company
+    ? clientPageMetadata(company, { robots: ROBOTS })
+    : neutralClientMetadata({ title: " ", robots: ROBOTS });
 }
 
 export default async function DirectBookingPage({ params }) {

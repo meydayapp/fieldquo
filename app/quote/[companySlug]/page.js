@@ -25,13 +25,31 @@ export const dynamic = "force-dynamic";
 
 import SelfQuoteFlow from "./SelfQuoteFlow";
 import { loadPublicFormLook } from "@/lib/estimate/publicFormLook";
+import { findBookingCompany } from "@/lib/booking/findBookingCompany";
+import {
+  CLIENT_META_COMPANY_SELECT,
+  clientPageMetadata,
+  neutralClientMetadata,
+} from "@/lib/whiteLabel/pageMetadata";
+
+// The company's name in the tab, its logo as the icon and the share image —
+// this is the link a company puts in an ad, so the preview is theirs
+// (lib/whiteLabel/pageMetadata.js). The sentence is the one this page always
+// carried, in the company's own voice; it now replaces the root layout's
+// FieldQuo description instead of sitting beside it in the head.
+const DESCRIPTION = "Tell us about your project and we'll get back to you with a price.";
 
 export async function generateMetadata({ params }) {
   const { companySlug } = await params;
+  const canonical = { alternates: { canonical: `/quote/${companySlug}` } };
+  const company = await findBookingCompany(companySlug, CLIENT_META_COMPANY_SELECT).catch(() => null);
+  if (!company) return { ...neutralClientMetadata({ title: "Request a quote", description: DESCRIPTION }), ...canonical };
   return {
-    title: "Request a quote",
-    description: `Tell us about your project and we'll get back to you with a price.`,
-    alternates: { canonical: `/quote/${companySlug}` },
+    ...clientPageMetadata(company, {
+      title: `Request a quote · ${company.name}`,
+      description: DESCRIPTION,
+    }),
+    ...canonical,
   };
 }
 

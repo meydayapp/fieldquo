@@ -12,13 +12,23 @@ export const dynamic = "force-dynamic";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import SurveyForm from "./SurveyForm";
+import { clientPageMetadata, neutralClientMetadata } from "@/lib/whiteLabel/pageMetadata";
+import { surveyCompany } from "@/lib/whiteLabel/metadataLoaders";
 
-export const metadata = {
-  title: "How did we do?",
-  // A survey token in a search index would let anyone answer (or re-answer)
-  // anyone else's survey who guessed a real URL.
-  robots: { index: false, follow: false },
-};
+// A survey token in a search index would let anyone answer (or re-answer)
+// anyone else's survey who guessed a real URL.
+const ROBOTS = { index: false, follow: false };
+
+// The company's name and logo in the tab and the link preview — the survey
+// is the company asking, in the language it was sent in, so the tab says
+// their name rather than an English question (lib/whiteLabel/pageMetadata.js).
+export async function generateMetadata({ params }) {
+  const { token } = await params;
+  const company = await surveyCompany(token);
+  return company
+    ? clientPageMetadata(company, { robots: ROBOTS })
+    : neutralClientMetadata({ title: "How did we do?", robots: ROBOTS });
+}
 
 export default async function SurveyPage({ params }) {
   const { token } = await params;
