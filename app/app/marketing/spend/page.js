@@ -78,6 +78,8 @@ const CAMPAIGN_COLUMNS = [
   { key: "quotes", label: "colQuotes", fallback: "Quotes", kind: "count" },
   { key: "jobs", label: "colJobs", fallback: "Jobs", kind: "count" },
   { key: "revenue", label: "colRevenue", fallback: "Invoiced", kind: "money" },
+  // Collected on those same invoices — "did the ad actually pay?".
+  { key: "paid", label: "colPaid", fallback: "Paid", kind: "money" },
 ];
 
 function CampaignsSection({ id, campaigns, error, loading, currency, onRetry, t }) {
@@ -181,9 +183,16 @@ function CampaignsSection({ id, campaigns, error, loading, currency, onRetry, t 
             <p className="text-[11px] text-muted-foreground">
               {t(
                 "app.marketingSpend.campaigns.leadsNote",
-                "Leads are the Meta lead-form submissions FieldQuo received for that campaign. A homeowner who saw the ad and phoned is not counted, so cost per lead here is the most a lead-form lead cost you — the blended figure above is the whole picture.",
+                "Leads are the Meta lead-form submissions FieldQuo received for that campaign, plus Messenger, Instagram and WhatsApp conversations that started from one of its ads. A homeowner who saw the ad and phoned is not counted, so cost per lead here is the most a lead cost you — the blended figure above is the whole picture.",
               )}
             </p>
+            {/* Said whenever it applies: some of the quotes above were found
+                by a confirmed contact match, not by a link somebody made. */}
+            {campaigns.totals?.inferredQuotes > 0 && (
+              <p className="text-[11px] text-muted-foreground">
+                {t("app.marketingSpend.campaigns.inferredNote", { count: campaigns.totals.inferredQuotes })}
+              </p>
+            )}
             <p className="text-[11px] text-muted-foreground">
               {t(
                 "app.marketingSpend.campaigns.reachNote",

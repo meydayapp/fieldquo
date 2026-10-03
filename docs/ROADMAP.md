@@ -146,8 +146,7 @@ Levels 1–5 (`finish_l1` … `finish_l5`) — but that book is STAGED: nothing 
   pattern): the select writes the `finish_l*` line at the company's merged-book rate × the
   intake's square feet, swaps it in place on a change, removes it for Level 0 or a blank, and
   never touches a line whose fields no longer match what it wrote (no second line beside an
-  edited one; the builder says so). **Dormant until a drywall book is merged** — today it
-  writes nothing and the builder says no rate is set and the level still prints.
+  edited one; the builder says so). Priced since the book went live — see below.
 - A group added from a tile opens on Level 4 (`newScopeGroup` `fieldDefaults`); a phone-call
   draft keeps its blanks. `publicIntakeFields` now projects to the public keys, so the self-
   quote form gets the six strings and nothing staff-side; no route prices from it.
@@ -157,19 +156,64 @@ legacy map, each level's line against the merged staged book and against the liv
 in-place swap, edited lines kept, eight languages, old/absent/junk answers byte-identical,
 public payload shape. `check:service-content-fr` regexes widened to allow the fifth argument.
 
+### The drywall price book goes live (3 October 2026, same day)
+
+The owner: "YES — each level should have its price on the price book, per sqft."
+
+- **Registered** in `app/data/tradePriceBooks.js` as `drywall_install:
+  INTERIOR_PRICE_BOOKS.drywall_install` (by reference — the numbers keep one home in
+  interior.js). The other five staged books stay staged. Like every book, it is read as code
+  defaults with the company's sparse `CompanyServiceCategory.rates` merged over them
+  (`getPriceBook`), so **no row is written for any company**: every drywall_install company
+  sees the defaults on its rate card at once and an edit stores only what changed.
+- **Rate card** (`PRICE_BOOK_FIELDS.drywall_install`): per tier, Hang + Finish Levels 1–5, $/sq ft.
+  Standard 1.20 / 0.45 / 0.75 / 1.10 / 1.45 / 2.20; Moderate 1.55 / 0.55 / 0.95 / 1.40 /
+  1.85 / 2.80; High 2.05 / 0.70 / 1.20 / 1.80 / 2.45 / 3.70. Level 0 = hang only. The staged
+  ceiling surcharge, corner bead and extras are NOT on the card — no quote reads them yet.
+  Settings now hides the single-rate box for the trade (it has a book), like every book trade.
+- **Lines**: the intake now writes the book's **hang** line as well as the finishing line —
+  the hang row would otherwise be a rate nobody reads, and the old seeded "Drywall Installation
+  — $rate" line a second price for the same work (new groups no longer seed it). Square feet:
+  the intake's Square Footage, else the room measure's board area. A new staff-only intake
+  select, **Complexity** (Standard / Moderate / High, default Standard), picks the tier — the
+  Moderate and High columns would otherwise be dead. Modes: a level change may add the
+  finishing line; square feet, tier or the room measure only re-price lines still there, so a
+  deleted line is never resurrected. Edited lines are kept, both parts.
+- **Double-billing fix**: the book owns the board. `keysPricedByGroup(drywall_install)` holds
+  back every board figure (areaSqFt, wallSqft, ceilingSqft, drywallSheets), so a template line
+  keyed to one is never added into a drywall_install group — whichever comes first — and the
+  note names the "drywall price book". "Add with its template lines" keeps the book's lines plus
+  the template's other lines. "Add as one line" (a company's own service) marks the group
+  `ownPricing`: the level then adds no line there and the builder says so.
+- **Scope paragraph**: drywall_install now prints a trade paragraph (eight languages), required
+  for a priced trade by check:trade-labour. It names no level; the level sentence follows it.
+  **Only on documents created from 2026-10-04 00:00 UTC** (`DRYWALL_INSTALL_PARAGRAPH_SINCE`,
+  `descriptionSince` on the catalogue entry): service content renders live, so
+  `resolveServiceContent` takes the document's createdAt as a sixth argument (an invoice passes
+  its quote's) and withholds a dated paragraph from older documents. The quote page, PDF,
+  email (HTML + text), staff document, invoice, builder card, readiness checks and AI review
+  all pass it. check:drywall-finish-levels §G2 proves an old drywall_install quote renders
+  byte-identical to the pre-paragraph catalogue in all eight languages (content, email HTML
+  and text), and a new one gets it. A quote written on 2026-10-03 itself is treated as old.
+- Counts moved deliberately: check:pricebook-interior (17 books, 64 unpriced trades),
+  check:pricebook-systems (17), check:reuse-takeoffs and check:service-template-lines (drywall's
+  board figures are held back). check:drywall-finish-levels rewritten: 1,334.
+
 ### Still owed here
 
-- **Merge the drywall book** (`TRADE_PRICE_BOOKS.drywall_install` + its PRICE_BOOK_FIELDS from
-  interior.js) — the owner's decision; until then the level prices nothing.
-- **Materials:** no live drywall recipe. The staged one records Level 4 compound coverage only
-  (475 sq ft of board a box, "Level 5 roughly doubles it"); check:drywall-finish-levels §H
-  fails the day a recipe lands, so compound follows the level then.
+- **Materials:** the staged drywall recipe is not merged — its costs are two-currency objects no
+  costing reader takes yet (interior.js "Wiring" §1), and it states Level 4 compound coverage
+  only. check:drywall-finish-levels §J fails the day a recipe lands, so compound follows the
+  level (Level 5 ≈ 2 × Level 4) then.
+- **Plain `drywall`** has no book and keeps its seeded line; its staged book in interior.js is a
+  REPAIR book (patches, skim, texture), while its intake asks install questions. Sharing
+  drywall_install's book with it is a product decision.
 - The PDF's process-steps section and the quote email's steps call `dominantProcessSteps`
   without the document language (pre-existing): they print English steps on any language,
   the level sentence included.
 - The public self-quote select still shows raw values ("level 4") like every select there.
-- A service added "with its template lines" opens on Level 4 without the finish line; changing
-  the level later adds one beside the template's lines (once a book exists).
+- A template line keyed to no board figure (a flat "taping and finishing" fee) is not held back:
+  the guard is per measurement, as for every calculator.
 
 ---
 ## Demos send for real to a client created live (3 October 2026)
@@ -205,6 +249,33 @@ The owner: "Can the demo accounts send actual emails and have the text messages 
 - The cap is counted before the send, so two sends at the very same instant can both pass at 29/30.
 - Client-facing pages still use FieldQuo's favicon, root meta description and app domain. This is pre-existing and not specific to demos.
 - Seeded demos print fictional "How to pay" details (`pay@<slug>.example.com`) and a 555 phone number.
+## Leads from Facebook / Instagram / WhatsApp conversations, and proof they converted (2 October 2026)
+
+The owner: "are we able to create better leads than fb from the client conversation and add them into leads? And … validate the client name address phone number to quotes jobs and invoices to confirm conversion from social media."
+
+### What shipped
+
+- **A conversation becomes ONE lead** (`lib/leads/conversationLead.js`, called from `lib/messaging/ingest.js` on a genuinely new inbound Meta message, never an imported one). Free deterministic pass on every message (phone/email/address/postcode from the customer's own text via `lib/attribution/contactPatterns.js`, the WhatsApp number, the photo count from `lib/aiEmployee/evidence.js`); a metered model read (`lib/ai/conversationLeadExtract.js`, standard tier, strict schema) decides work request / existing-customer issue / spam / not work / undetermined and copies name, phone, email, address, area, service (company's own list only), timeline — each field must literally appear in the customer message it cites or it is dropped. Every field is stored with its evidence on `LeadRequest.conversationEvidence`.
+- **Never overwrite, never invent.** Only empty columns (or one still holding this code's own previous value) are written; what the conversation said instead is kept in `conversationEvidence.skipped` and shown. No typed name → Meta's profile name, labelled as such.
+- **No duplicates.** The thread's linked lead, else an open lead with the same phone/email, else a Meta lead-FORM lead with exactly this Facebook profile name within 30 days (Meta pre-fills the form from the same profile) — enriched, not duplicated. `MessageThread.leadId` is set only where nobody set it.
+- **Campaign credit.** Meta's click-to-message `referral` (Messenger/Instagram message, `messaging_referrals`, Get Started postback, WhatsApp `referral.source_type: ad`) is now parsed and kept, first touch, on `MessageThread.adReferral`; the ad is resolved to its campaign (`resolveCampaignForAd` in `lib/meta/leadsFetch.js`) and stamped on the lead's `metaCampaignId`, which the campaign rollup already joins on.
+- **Conversion validation** (`lib/attribution/conversionEvidence.js`) on top of the unchanged `conversationOutcome`: phone (E.164), email, tolerant name (`namesClose` in `matchContact`, opt-in), and address as ADDITIVE evidence against the client and Quote/Job `siteAddress`. Confirmed = recorded link, or one client at `likely`+ not tied; possible (shown, never counted) = name alone, address alone, or an unbroken tie. A shared phone is settled by an agreeing address on exactly one of the clients. Fed into the monthly attribution loader (lead contact + `LeadRequest.quoteId` as a recorded link).
+- **Where it shows:** the lead drawer's Linked documents block ("From Facebook · What the conversation told us · Did it convert? Confirmed · matched on phone + job-site address · Quote Q-0123 · won · invoice INV-45 paid $2,800"); the thread's existing "Open lead" button; the Spend page's Campaigns table (conversation leads counted, confirmed-but-unlinked quotes counted with a note saying how many, new **Paid** column).
+- **Cost:** feature `conversation_lead`, the company's AI credit (wallet, cost × 2, 1¢ minimum per call), switchable on /platform/ai-billing. Runs at most 3 times per conversation: first read once there are 12+ characters of customer text, again per new customer message only while "undetermined", otherwise only when a new phone/email/address appears; never for spam.
+
+### Schema (applied additively by hand; the live diff's Community DROPs were not run)
+
+`LeadRequest.conversationEvidence JSONB`, `MessageThread.adReferral JSONB`, `MessageThread.leadCapture JSONB`.
+
+### Checks
+
+`npm run check:social-leads` (new, in check:all): five phone spellings, a misspelled name, an address two ways, a phone shared by two clients, a lead-ad lead then a message (no duplicate), spam, an existing customer's complaint, a staff-edited field, a model that lies, the cost rule, the tenant, the referral parser, recorded-vs-inferred, paid revenue.
+
+### Owed — owner decisions
+
+- Approve the cost (it is a cost increase): see the agent's report for the per-conversation figures.
+- With no AI credit (the AI-employee grace ended 2026-10-01) only the free pass runs: a lead is enriched by phone/email match, and a new lead is made only when the AI employee's front desk read the first message as `book`/`price`. Whether FieldQuo should absorb this feature instead is one switch on /platform/ai-billing.
+- Imported (historical) conversations are deliberately not read.
 
 ## Reverse Selling, version 3: one script, a thirty-minute demo (2 October 2026)
 
@@ -283,6 +354,31 @@ last. The phone agent's prompt is byte-identical (md5 over every variant).
   `/demo/<code>` page, which a visitor is never sent to.
 - **Company mode** (signed-in support) is unchanged and hash-pinned in
   `check:jennifer`, with a scan for selling words.
+## The contractors' closer learns Reverse Selling, by trade (2 October 2026)
+
+The AI employee's **closer** (the one that sells a company's work to a
+homeowner on web chat, SMS and Meta) now carries a technique section,
+`lib/aiEmployee/closerTechnique.js`, in our own words: the goal is a visit
+("no commitment, someone takes a look, then you decide"), times offered as two
+of check_availability's own labels, one question at a time, A-S-P, no "why",
+"fair enough?", two-to-four-sentence objection answers that end at the visit,
+the too-easy yes confirmed, and the referral question only after a booking.
+It is built from the company's ENABLED services (`closerTrades.js`, no rates
+read): per trade family, what to ask, what the visit is, and the objection
+that trade hears; a company with none listed gets the general approach,
+stated. Placed after every absolute rule, before the company's own style.
+
+- Receptionist, troubleshooter and custom prompts are byte-identical (md5
+  pins in `check:closer-technique`, new, in check:all).
+- Separate from `lib/sales/technique.js` on purpose: that one is about
+  FieldQuo (white-label), and imports referrals → db → Stripe.
+- **Open, owner's call:** the closer's system prompt grows by ~1,100–1,600
+  tokens per round (≈ +$0.006 a round on the best model), and
+  `TYPICAL_CONVERSATION_TOKENS` (the cost the settings screen prints) was not
+  raised; a booking request still routes to the receptionist when a company
+  has one (the flow view can map "book" to the closer); no inbound message
+  becomes a LeadRequest until book_callback is called; the reply cap defaults
+  to three per thread; there is no per-role switch for the technique.
 
 ## Reverse Selling, version 2: the first call books the demo (1 October 2026)
 

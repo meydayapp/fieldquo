@@ -456,6 +456,8 @@ function present(quote, { financingTr = null } = {}) {
         // Read here for one answer, a drywall group's finish level, and never
         // returned — the same rule as the takeoff above.
         g.intakeValues,
+        // A trade paragraph added after this quote was written stays off it.
+        quote.createdAt,
       );
       return {
         label: g.label || g.category?.label || "Scope",

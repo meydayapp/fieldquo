@@ -293,7 +293,21 @@ section("D — into the template lines");
 section("E — the double-billing guard");
 {
   for (const trade of [...Object.keys(ROOM_MEASURE_TRADES), ...Object.keys(TRACE_MEASURE_TRADES)]) {
-    ok(`${trade}: not a pricing takeoff trade, and nothing is held back`, !hasTakeoff(trade) && keysPricedByGroup({ categoryKey: trade, takeoff: newRoomMeasure(trade) }).length === 0);
+    // drywall_install since 2026-10-03: still not a takeoff trade, but its
+    // PRICE BOOK bills the board (lib/quotes/drywallFinishLine.js), so the
+    // board figures the room measure produces are held back from templates.
+    // Pinned exactly; check-drywall-finish-levels proves the rest.
+    const held = keysPricedByGroup({ categoryKey: trade, takeoff: newRoomMeasure(trade) });
+    ok(
+      trade === "drywall_install"
+        ? `${trade}: not a takeoff trade; its price book's board figures are held back`
+        : `${trade}: not a pricing takeoff trade, and nothing is held back`,
+      !hasTakeoff(trade) &&
+        (trade === "drywall_install"
+          ? held.join() === "areaSqFt,wallSqft,ceilingSqft,drywallSheets"
+          : held.length === 0),
+      held,
+    );
     const g = newScopeGroup({ id: `c_${trade}`, key: trade, label: trade }, trade, null, { tempId: trade });
     const withTakeoff = { ...g, takeoff: trade in ROOM_MEASURE_TRADES ? { ...newRoomMeasure(trade), rooms: [{ ...newMeasureRoom(trade), lengthFt: 20, widthFt: 20, heightFt: 8 }] } : { notFencedFt: 20 } };
     const p0 = scopeGroupPayload(g, null, "en");

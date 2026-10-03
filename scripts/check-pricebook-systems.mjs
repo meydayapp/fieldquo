@@ -86,9 +86,11 @@ const round2 = (n) => Math.round(n * 100) / 100;
  */
 console.log("\nThe existing books are NOT empty — the brief's premise, checked");
 const EXISTING = Object.keys(TRADE_PRICE_BOOKS);
-ok("tradePriceBooks.js ships 16 books", EXISTING.length === 16, EXISTING.length);
+// 17 since 2026-10-03: drywall_install's book (app/data/priceBooks/
+// interior.js) went live on the owner's say-so. Moved here deliberately.
+ok("tradePriceBooks.js ships 17 books", EXISTING.length === 17 && EXISTING.includes("drywall_install"), EXISTING.length);
 const populated = EXISTING.filter((k) => Object.keys(TRADE_PRICE_BOOKS[k]).length > 1);
-ok("...and every one of them has content beyond a label", populated.length === 16, populated.length);
+ok("...and every one of them has content beyond a label", populated.length === 17, populated.length);
 for (const key of ["roofing_service", "siding", "gutter_services", "garage_door"]) {
   const book = TRADE_PRICE_BOOKS[key];
   ok(`${key} is populated, not empty`, Object.keys(book).length > 2, Object.keys(book).length);

@@ -87,6 +87,9 @@ export async function GET(request, { params }) {
         select: {
           id: true,
           quoteNumber: true,
+          // The invoice mirrors its quote, so the quote's age decides whether
+          // a trade paragraph added since prints (documentCreatedAt).
+          createdAt: true,
           // The quote's own "what happens next" if it has one. An invoice has
           // no processNotes column: the wording the client agreed to lives on
           // the document they approved, and re-asking the company default here
@@ -141,6 +144,7 @@ export async function GET(request, { params }) {
         g.takeoff,
         invoice.language,
         g.intakeValues,
+        invoice.quote?.createdAt,
       ),
     ]),
   );

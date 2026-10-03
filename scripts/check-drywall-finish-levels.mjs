@@ -2,32 +2,36 @@
 //
 //   npm run check:drywall-finish-levels
 //
-// The drywall Finish Level select: the six GA-214 levels, what the answer
-// does, and what it must never do. Before 2026-10-03 the select offered three
-// values (one of them, "level 2 unfinished", wrong), nothing read the answer,
-// and every drywall document said "Level 4, or Level 5 where specified"
-// whatever was sold — the control that appears to work and doesn't.
+// Drywall quotes and the GA-214 finish levels: the select, the price book that
+// went live behind it, the lines it writes, and what none of that may do.
+// Before 2026-10-03 the select offered three values (one, "level 2
+// unfinished", wrong), nothing read the answer, every drywall document said
+// "Level 4, or Level 5 where specified" whatever was sold, and the drywall
+// book sat staged in app/data/priceBooks/interior.js with no reader.
 //
 // What is asserted, section by section:
 //
-//   A. Six levels offered, on both drywall quote types, each with a plain line
-//      in every app catalogue language.
-//   B. The three old stored values still read as the levels they meant, and
-//      nothing else is read as a level.
-//   C. Each level puts exactly its own priced line on the quote (Level 0: none),
-//      at the rate the company's own merged book carries, and a change of level
-//      swaps that one line in place. Run TWICE: against the live product, where
-//      no drywall book exists yet (no line, said so), and against the staged
-//      book in app/data/priceBooks/interior.js merged in for the run.
-//   D. A finishing line the contractor edited is never replaced or removed.
-//   E. The client's document names the chosen level in each of the eight
-//      document languages — and a quote holding an old value, or none, prints
-//      byte-for-byte what it printed before.
-//   F. The public self-quote field carries the question and six strings: no
-//      price, no rate, none of the staff-side keys.
-//   G. A new group opens on Level 4 only when the estimator added it; a phone
-//      call's draft keeps its blanks.
-//   H. Materials: a tripwire on the recipe the compound would scale in.
+//   A. Six levels offered on both drywall quote types, the book's three tiers
+//      on drywall_install, each with a plain line in every app language.
+//   B. The three old stored values read as the levels they meant; nothing
+//      else is read as a level.
+//   C. The book is live: registered, shown on the rate card with ONLY the
+//      rows a quote reads (hang + Levels 1–5, per tier), every one of those
+//      rows proven read by overriding it and finding the override on a line.
+//   D. The lines: each level × tier puts exactly its hang and finishing lines
+//      on, at the company's merged-book rates; a change swaps in place; Level
+//      0 is hang only; the modes add / update exactly what they say.
+//   E. A line the contractor edited is never replaced or removed.
+//   F. Templates: the book owns the board — a template line keyed to a board
+//      figure is held back in either order of adding, a company's own single
+//      service owns its group, and a template line is never touched.
+//   G. The client's document names the chosen level in all eight languages;
+//      an old value or none prints exactly what no answer prints.
+//   H. The public self-quote field: the question and six strings, no price,
+//      no rate, no tier, none of the staff-side keys.
+//   I. New groups: Level 4 + Standard for one the estimator added; a phone
+//      call's draft keeps its blanks but still gets the hang line it sized.
+//   J. Materials: a tripwire on the recipe the compound would scale in.
 //
 // Executed, not matched: the real modules are imported and run; only the
 // builder and route wiring (React and Prisma files) are read as text.
@@ -38,7 +42,10 @@ import {
   FINISH_LEVEL_LABELS,
   LEGACY_FINISH_LEVELS,
   DEFAULT_FINISH_LEVEL,
+  DRYWALL_TIERS,
+  DRYWALL_TIER_LABELS,
   normaliseFinishLevel,
+  normaliseDrywallTier,
   documentFinishLevel,
 } from "@/app/data/drywallFinishLevels";
 import {
@@ -51,21 +58,36 @@ import {
 import {
   FINISH_LINE_IDS,
   finishLevelRate,
-  finishLevelLine,
+  hangRate,
   syncFinishLine,
   isFinishLine,
-  isUntouchedFinishLine,
+  isDrywallLine,
+  drywallPartOf,
+  drywallQuantity,
 } from "@/lib/quotes/drywallFinishLine";
 import {
   resolveServiceContent,
   dominantProcessSteps,
   drywallFinishText,
   presetCatalogues,
+  DRYWALL_INSTALL_PARAGRAPH_SINCE,
 } from "@/lib/documents/serviceContent";
-import { TRADE_PRICE_BOOKS, getPriceBook } from "@/app/data/tradePriceBooks";
+import { scopeBreakdownHtml, quoteSectionsText } from "@/lib/email/quoteSections";
+import {
+  TRADE_PRICE_BOOKS,
+  PRICE_BOOK_FIELDS,
+  getPriceBook,
+  hasPriceBook,
+  tradeIsPricedByDefault,
+  priceBookBasis,
+  readField,
+} from "@/app/data/tradePriceBooks";
+import { sanitiseRates } from "@/lib/pricing/sanitiseRates";
 import { MATERIAL_RECIPES } from "@/app/data/materialRecipes";
-import { INTERIOR_PRICE_BOOKS } from "@/app/data/priceBooks/interior";
-import { newScopeGroup, applyLineItemEdit, scopeGroupPayload } from "@/lib/quotes/builderPayload";
+import { INTERIOR_PRICE_BOOKS, INTERIOR_RECIPES } from "@/app/data/priceBooks/interior";
+import { newScopeGroup, applyLineItemEdit, scopeGroupPayload, groupSubtotal } from "@/lib/quotes/builderPayload";
+import { expandServiceTemplate, keysPricedByGroup, measurementsFromGroups } from "@/lib/quotes/serviceTemplateLines";
+import { newRoomMeasure, newMeasureRoom } from "@/lib/measure/reuseTakeoffs";
 import { APP_MESSAGES } from "@/app/i18n/appMessages";
 import { LANGUAGE_CODES } from "@/app/i18n/languages";
 
@@ -78,13 +100,16 @@ const ok = (label, cond, detail) =>
 const section = (s) => console.log(`\n${s}`);
 const src = (p) => readFileSync(p, "utf8");
 const code = (p) => src(p).split("\n").filter((l) => !l.trim().startsWith("//")).join("\n");
+const r2 = (n) => Math.round(n * 100) / 100;
 
 const TRADES = ["drywall", "drywall_install"];
 const SIX = ["level_0", "level_1", "level_2", "level_3", "level_4", "level_5"];
+const TIERS = ["standard", "moderate", "high"];
 const finishField = (k) => getIntakeFields(k).find((f) => f.key === "finishLevel");
+const tierField = () => getIntakeFields("drywall_install").find((f) => f.key === "complexityLevel");
 
-/* ══ A. Six levels offered ══════════════════════════════════════════════ */
-section("A. Six levels offered");
+/* ══ A. What is offered ═════════════════════════════════════════════════ */
+section("A. Six levels and three tiers offered");
 
 ok("FINISH_LEVELS is level_0 … level_5, in order", JSON.stringify(FINISH_LEVELS) === JSON.stringify(SIX), FINISH_LEVELS);
 ok("the default is Level 4", DEFAULT_FINISH_LEVEL === "level_4");
@@ -97,8 +122,18 @@ for (const k of TRADES) {
 }
 ok("both quote types share one definition", finishField("drywall") === finishField("drywall_install"));
 ok("no other quote type offers the old values", Object.entries(INTAKE_FIELDS).every(([, fields]) => fields.every((f) => !(f.options || []).some((o) => Object.hasOwn(LEGACY_FINISH_LEVELS, o)))));
-// The app catalogue: every language carries every level's line and both notes.
-const APP_KEYS = [...SIX.map((l) => `app.intake.finishLevel.${l}`), "app.drywallFinish.held", "app.drywallFinish.unpriced"];
+ok("drywall_install asks the book's tier: standard / moderate / high, default standard, staff only", JSON.stringify(tierField()?.options) === JSON.stringify(TIERS) && tierField().default === "standard" && tierField().staffOnly === true && JSON.stringify(DRYWALL_TIERS) === JSON.stringify(TIERS));
+ok("…the tiers are the book's own", TIERS.every((t) => Boolean(INTERIOR_PRICE_BOOKS.drywall_install.complexity[t])));
+ok("plain drywall (no book) is not asked a tier it could not price", !getIntakeFields("drywall").some((f) => f.key === "complexityLevel"));
+ok("a blank or junk tier prices as Standard, as every takeoff's does", normaliseDrywallTier("") === "standard" && normaliseDrywallTier("__proto__") === "standard" && normaliseDrywallTier(" high ") === "high");
+const APP_KEYS = [
+  ...SIX.map((l) => `app.intake.finishLevel.${l}`),
+  ...TIERS.map((t) => `app.intake.complexityLevel.${t}`),
+  "app.drywallFinish.held",
+  "app.drywallFinish.unpriced",
+  "app.drywallFinish.ownPricing",
+  "app.templateLines.calc_drywallBook",
+];
 for (const lang of Object.keys(APP_MESSAGES)) {
   for (const key of APP_KEYS) {
     const v = APP_MESSAGES[lang][key];
@@ -112,7 +147,7 @@ for (const lang of Object.keys(APP_MESSAGES)) {
     ok(`app catalogue ${lang}: ${l} names its own number first`, (v.match(/\d/) || [])[0] === l.slice(-1), v);
   }
 }
-ok("the English catalogue is the definition's own wording", SIX.every((l) => APP_MESSAGES.en[`app.intake.finishLevel.${l}`] === FINISH_LEVEL_LABELS[l]));
+ok("the English catalogue is the definitions' own wording", SIX.every((l) => APP_MESSAGES.en[`app.intake.finishLevel.${l}`] === FINISH_LEVEL_LABELS[l]) && TIERS.every((t) => APP_MESSAGES.en[`app.intake.complexityLevel.${t}`] === DRYWALL_TIER_LABELS[t]));
 
 /* ══ B. The old stored values still read ═══════════════════════════════ */
 section("B. Legacy values map");
@@ -132,131 +167,221 @@ ok("a select with no legacy map is untouched", shownSelectValue(getIntakeFields(
 ok("the DOCUMENT reads only new values (old ones keep their old wording)", documentFinishLevel("drywall", { finishLevel: "level_5_premium" }) === null && documentFinishLevel("drywall", { finishLevel: "level_5" }) === "level_5");
 ok("…and only on the drywall quote types", documentFinishLevel("general_contracting", { finishLevel: "level_5" }) === null && documentFinishLevel("interior_painting", { finishLevel: "level_4" }) === null);
 
-/* ══ C. Each level adds exactly its priced line ════════════════════════ */
-section("C. Each level drives its line — live product (no drywall book)");
+/* ══ C. The book is live ═══════════════════════════════════════════════ */
+section("C. drywall_install's price book is live, and every rate on its card is read");
 
-const dwGroup = (intake, lineItems = [{ description: "Drywall Installation", quantity: 1, unit: "flat", rate: 0, amount: 0 }]) => ({
+const STAGED = INTERIOR_PRICE_BOOKS.drywall_install;
+ok("registered BY REFERENCE to the staged book — one home for the numbers", TRADE_PRICE_BOOKS.drywall_install === STAGED);
+ok("hasPriceBook / tradeIsPricedByDefault: priced", hasPriceBook("drywall_install") && tradeIsPricedByDefault("drywall_install"));
+ok("only this one of interior.js's six went live", Object.keys(INTERIOR_PRICE_BOOKS).filter((k) => hasPriceBook(k)).join() === "drywall_install");
+ok("plain `drywall` (repair) has no book — see the report", !hasPriceBook("drywall"));
+// The rates per tier, pinned, so a change to them is a decision with a diff.
+const EXPECT = {
+  standard: [1.2, 0.45, 0.75, 1.1, 1.45, 2.2],
+  moderate: [1.55, 0.55, 0.95, 1.4, 1.85, 2.8],
+  high: [2.05, 0.7, 1.2, 1.8, 2.45, 3.7],
+};
+for (const t of TIERS) {
+  const g = getPriceBook("drywall_install").complexity[t];
+  const got = [g.hangPricePerSqft, ...[1, 2, 3, 4, 5].map((n) => g[`finishLevel${n}PricePerSqft`])];
+  ok(`${t}: hang, L1 … L5 = ${EXPECT[t].join(" / ")} $/sqft`, JSON.stringify(got) === JSON.stringify(EXPECT[t]), got);
+  ok(`${t}: each level costs more than the one below`, got.slice(1).every((v, i, a) => i === 0 || v > a[i - 1]));
+}
+const FIELDS = PRICE_BOOK_FIELDS.drywall_install || [];
+const KEYS = ["hangPricePerSqft", ...[1, 2, 3, 4, 5].map((n) => `finishLevel${n}PricePerSqft`)];
+ok("the rate card: 18 rows = 3 tiers × (hang + Levels 1–5)", FIELDS.length === 18 && TIERS.every((t) => KEYS.every((k) => FIELDS.some((f) => f.path === `complexity.${t}.${k}` && f.level === t))), FIELDS.map((f) => f.path));
+ok("…no Level 0 row — Level 0 is the hang row with no finishing", !FIELDS.some((f) => /finishLevel0/.test(f.path)));
+ok("…every row is $ / sqft and resolves to a real number", FIELDS.every((f) => f.suffix === "$ / sqft" && Number(readField(getPriceBook("drywall_install"), f.path)) > 0));
+ok("…the staged rows nothing reads (ceiling surcharge, corner bead, extras) are NOT on the card", !FIELDS.some((f) => /ceilingUpcharge|cornerBead|extras\./.test(f.path)));
+ok("Settings > Services states the basis: per sq ft", priceBookBasis("drywall_install").some((b) => b.unit === "sqft"));
+{
+  // The save path keeps every row on the card, and only those.
+  const patch = { complexity: { high: { finishLevel5PricePerSqft: 4.1, ceilingUpchargePerSqft: 9 } }, extras: { debrisRemovalPrice: 1 } };
+  const kept = sanitiseRates("drywall_install", patch);
+  ok("sanitiseRates keeps a card row and drops rows the card does not show", kept?.complexity?.high?.finishLevel5PricePerSqft === 4.1 && kept?.complexity?.high?.ceilingUpchargePerSqft === undefined && kept?.extras === undefined, kept);
+}
+// Every row on the card is READ: override exactly that path and find the
+// override on a line. A card row no line moves would be a dead control.
+for (const f of FIELDS) {
+  const [, tier, key] = f.path.split(".");
+  const override = { complexity: { [tier]: { [key]: 9.87 } } };
+  const book = getPriceBook("drywall_install", override);
+  const level = key === "hangPricePerSqft" ? "level_4" : `level_${key.match(/\d/)[0]}`;
+  const r = syncFinishLine(
+    { tempId: "x", categoryKey: "drywall_install", intakeValues: { finishLevel: level, complexityLevel: tier, squareFootage: 10 }, lineItems: [] },
+    { book, mode: "create" },
+  );
+  ok(`${f.path}: a company's own rate reaches the quote`, r.lineItems.some((l) => l.rate === 9.87 && l.amount === 98.7), r.lineItems.map((l) => l.rate));
+}
+
+/* ══ D. The lines ═══════════════════════════════════════════════════════ */
+section("D. Each level × tier bills exactly its lines");
+
+const dwGroup = (intake, lineItems = [], extra = {}) => ({
   tempId: "g",
   persisted: false,
   categoryKey: "drywall_install",
   categoryId: "cat_dw",
   intakeValues: intake,
   lineItems,
+  ...extra,
 });
-
-ok("live: drywall_install has no price book today", getPriceBook("drywall_install") === null && getPriceBook("drywall") === null);
-for (const l of SIX) {
-  const r = syncFinishLine(dwGroup({ finishLevel: l, squareFootage: 1000 }), { book: getPriceBook("drywall_install") });
-  ok(`live ${l}: no line is invented without a rate`, r.line === null && r.lineItems.filter(isFinishLine).length === 0 && r.lineItems.length === 1);
-  ok(`live ${l}: the builder is told why (${l === "level_0" ? "Level 0 bills nothing" : "unpriced"})`, r.unpriced === (l !== "level_0"));
-}
-ok("live: no level answered → nothing to say", syncFinishLine(dwGroup({}), { book: null }).unpriced === false);
-
-section("C. Each level drives its line — the staged book, merged for this run");
-
-// Merged exactly as the owner's one-line merge would (check-pricebook-interior
-// does the same), and removed again at the end of the section.
-TRADE_PRICE_BOOKS.drywall_install = INTERIOR_PRICE_BOOKS.drywall_install;
 const COMPANY = { complexity: { standard: { finishLevel5PricePerSqft: 2.95 } } };
 const book = getPriceBook("drywall_install", COMPANY);
-const grid = book.complexity.standard;
-ok("merged: the company's own Level 5 rate is in the book it prices from", grid.finishLevel5PricePerSqft === 2.95 && grid.finishLevel4PricePerSqft === 1.45);
+ok("a company override merges over the code default", book.complexity.standard.finishLevel5PricePerSqft === 2.95 && book.complexity.standard.finishLevel4PricePerSqft === 1.45);
 
-let previous = null;
-for (const l of SIX) {
-  const g = dwGroup({ finishLevel: l, squareFootage: 1000 });
-  const r = syncFinishLine(g, { book, language: "en" });
-  const mine = r.lineItems.filter(isFinishLine);
-  if (l === "level_0") {
-    ok("Level 0 adds NO line — it is hung board", mine.length === 0 && r.line === null && !r.unpriced);
-    continue;
-  }
-  const n = Number(l.slice(-1));
-  const item = book.items.find((i) => i.id === `finish_l${n}`);
-  const expected = grid[item.priceType];
-  ok(`${l}: exactly one finishing line`, mine.length === 1, mine.length);
-  ok(`${l}: it is the book's row finish_l${n}`, mine[0]?.meta?.drywallFinish?.itemId === `finish_l${n}` && FINISH_LINE_IDS[l] === `finish_l${n}`);
-  ok(`${l}: priced from the merged book exactly as the row is (${expected}/sqft)`, mine[0]?.rate === expected && finishLevelRate(book, l) === expected, mine[0]?.rate);
-  ok(`${l}: quantity × rate`, mine[0]?.quantity === 1000 && mine[0]?.amount === Math.round(1000 * expected * 100) / 100, mine[0]);
-  ok(`${l}: the line names the level`, mine[0]?.description.includes(`Level ${n}`) && mine[0]?.unit === "sqft", mine[0]?.description);
-  ok(`${l}: the seeded line beside it is untouched`, r.lineItems[0].description === "Drywall Installation" && r.lineItems.length === 2);
-  if (previous) {
-    // A change of level, starting from the previous level's lines.
-    const before = syncFinishLine(dwGroup({ finishLevel: previous, squareFootage: 1000 }), { book }).lineItems;
-    const typed = { description: "Corner bead", quantity: 40, unit: "linear ft", rate: 4, amount: 160 };
-    const withTyped = [...before, typed];
-    const swapped = syncFinishLine(dwGroup({ finishLevel: l, squareFootage: 1000 }, withTyped), { book });
-    const fin = swapped.lineItems.filter(isFinishLine);
-    ok(`${previous} → ${l}: still exactly one finishing line, now ${l}`, fin.length === 1 && fin[0].meta.drywallFinish.level === l);
-    ok(`${previous} → ${l}: swapped IN PLACE (same position)`, swapped.lineItems.indexOf(fin[0]) === before.findIndex(isFinishLine));
-    ok(`${previous} → ${l}: a typed line is the same object, untouched`, swapped.lineItems.includes(typed) && swapped.lineItems.length === withTyped.length);
-  }
-  previous = l;
-}
-{
-  const l4 = syncFinishLine(dwGroup({ finishLevel: "level_4", squareFootage: 1000 }), { book }).lineItems;
-  const to0 = syncFinishLine(dwGroup({ finishLevel: "level_0", squareFootage: 1000 }, l4), { book });
-  ok("Level 4 → Level 0 removes our line and only our line", to0.lineItems.length === 1 && !to0.lineItems.some(isFinishLine));
-  const cleared = syncFinishLine(dwGroup({ finishLevel: "", squareFootage: 1000 }, l4), { book });
-  ok("clearing the select removes our line", !cleared.lineItems.some(isFinishLine) && cleared.lineItems.length === 1);
-  const resized = syncFinishLine(dwGroup({ finishLevel: "level_4", squareFootage: 1250 }, l4), { book });
-  ok("a new square footage re-sizes our untouched line", resized.lineItems.filter(isFinishLine)[0]?.quantity === 1250 && resized.lineItems.length === 2);
-  const legacy = syncFinishLine(dwGroup({ finishLevel: "level_5_premium", squareFootage: 100 }), { book });
-  ok("an old stored value prices as the level it meant", legacy.line?.meta?.drywallFinish?.level === "level_5" && legacy.line?.rate === 2.95);
-  const blankSqft = syncFinishLine(dwGroup({ finishLevel: "level_4" }), { book });
-  ok("no square footage: the line opens at 0 sq ft and $0, never an invented area", blankSqft.line?.quantity === 0 && blankSqft.line?.amount === 0);
-  const hostile = syncFinishLine(dwGroup({ finishLevel: "level_4", squareFootage: "1e308x" }), { book });
-  ok("hostile square footage is 0, not NaN", hostile.line?.quantity === 0 && Number.isFinite(hostile.line?.amount));
-  const neg = syncFinishLine(dwGroup({ finishLevel: "level_4", squareFootage: -50 }), { book });
-  ok("negative square footage is 0", neg.line?.quantity === 0);
-  const fr = syncFinishLine(dwGroup({ finishLevel: "level_3", squareFootage: 10 }), { book, language: "fr" });
-  ok("the line is written in the DOCUMENT's language", fr.line?.description.startsWith("Finition du gypse") && fr.line?.detail === drywallFinishText("level_3", "fr").description);
-  ok("a saved group is never synced", syncFinishLine({ ...dwGroup({ finishLevel: "level_5" }), persisted: true }, { book }).lineItems.length === 1);
-  ok("another trade is never synced", syncFinishLine({ ...dwGroup({ finishLevel: "level_5" }), categoryKey: "tiling" }, { book }).lineItems.length === 1);
-  const zeroed = getPriceBook("drywall_install", { complexity: { standard: { finishLevel2PricePerSqft: 0 } } });
-  const z = syncFinishLine(dwGroup({ finishLevel: "level_2", squareFootage: 100 }), { book: zeroed });
-  ok("a level the company zeroed adds no $0 line, and says so", z.line === null && z.unpriced === true);
-  // The line survives the save path as written: a drywall group is not a
-  // takeoff or unit-priced trade, so scopeGroupPayload stores its lines.
-  const saved = scopeGroupPayload({ ...dwGroup({ finishLevel: "level_5", squareFootage: 300 }), lineItems: syncFinishLine(dwGroup({ finishLevel: "level_5", squareFootage: 300 }), { book }).lineItems, label: "Drywall" });
-  const savedFinish = (saved.lineItems || []).find(isFinishLine);
-  ok("the save stores the finishing line with its rate and amount", savedFinish?.rate === 2.95 && savedFinish?.amount === 885, savedFinish);
-}
-
-/* ══ D. A hand-edited line is never replaced ═══════════════════════════ */
-section("D. A hand-edited finishing line is the contractor's");
-
-{
-  const start = syncFinishLine(dwGroup({ finishLevel: "level_4", squareFootage: 1000 }), { book }).lineItems;
-  const idx = start.findIndex(isFinishLine);
-  for (const [field, value] of [["rate", 1.6], ["quantity", 900], ["description", "Taping and finishing, my way"]]) {
-    const edited = start.map((li, i) => (i === idx ? applyLineItemEdit(li, field, value) : li));
-    ok(`edited ${field}: no longer counts as ours`, !isUntouchedFinishLine(edited[idx]) && isFinishLine(edited[idx]));
-    for (const l of SIX) {
-      const r = syncFinishLine(dwGroup({ finishLevel: l, squareFootage: 1000 }, edited), { book });
-      ok(`edited ${field}, then ${l}: the edited line is kept, byte for byte`, r.lineItems.includes(edited[idx]) && JSON.stringify(r.lineItems) === JSON.stringify(edited));
-      ok(`edited ${field}, then ${l}: no second finishing line beside it`, r.lineItems.filter(isFinishLine).length === 1 && r.held === true && r.line === null);
+for (const t of TIERS) {
+  for (const l of SIX) {
+    const r = syncFinishLine(dwGroup({ finishLevel: l, complexityLevel: t, squareFootage: 1000 }), { book, mode: "create" });
+    const hang = r.lineItems.filter((x) => drywallPartOf(x) === "hang");
+    const fin = r.lineItems.filter(isFinishLine);
+    const hr = book.complexity[t].hangPricePerSqft;
+    ok(`${t} ${l}: one hang line at ${hr}/sqft × 1000`, hang.length === 1 && hang[0].rate === hr && hang[0].amount === r2(1000 * hr) && hangRate(book, t) === hr, hang);
+    if (l === "level_0") {
+      ok(`${t} level_0: hang only — no finishing line`, fin.length === 0 && r.lineItems.length === 1 && !r.unpriced);
+      continue;
     }
-    const resized = syncFinishLine(dwGroup({ finishLevel: "level_4", squareFootage: 2000 }, edited), { book });
-    ok(`edited ${field}, then a new square footage: kept as typed`, JSON.stringify(resized.lineItems) === JSON.stringify(edited));
+    const n = l.slice(-1);
+    const expected = book.complexity[t][`finishLevel${n}PricePerSqft`];
+    ok(`${t} ${l}: exactly one finishing line, row finish_l${n}, at ${expected}/sqft`, fin.length === 1 && fin[0].meta.drywallFinish.itemId === `finish_l${n}` && FINISH_LINE_IDS[l] === `finish_l${n}` && fin[0].rate === expected && finishLevelRate(book, l, t) === expected, fin.map((x) => x.rate));
+    ok(`${t} ${l}: amount = 1000 × rate, the line names the level`, fin[0].amount === r2(1000 * expected) && fin[0].description.includes(`Level ${n}`) && fin[0].unit === "sqft");
+    ok(`${t} ${l}: hang first, finishing straight after`, drywallPartOf(r.lineItems[0]) === "hang" && drywallPartOf(r.lineItems[1]) === "finish");
+    ok(`${t} ${l}: the group total is hang + finishing, once each`, groupSubtotal({ ...dwGroup({}), lineItems: r.lineItems }) === r2(1000 * hr) + r2(1000 * expected));
   }
-  const noRecord = start.map((li, i) => (i === idx ? { ...li, meta: { drywallFinish: { level: "level_4" } } } : li));
-  ok("a marker with no record of what was written is treated as edited", !isUntouchedFinishLine(noRecord[idx]) && syncFinishLine(dwGroup({ finishLevel: "level_5", squareFootage: 1000 }, noRecord), { book }).held);
-  ok("a plain line is never ours", !isFinishLine({ description: "Finish — Level 4 (paint ready)", rate: 1.45 }));
-  // The builder's own trigger, read as text: a level change syncs; a square
-  // footage change syncs ONLY while our untouched line is still there, so a
-  // line the estimator deleted is not resurrected by typing a number.
+}
+{
+  const typed = { description: "Corner bead", quantity: 40, unit: "linear ft", rate: 4, amount: 160 };
+  const start = [...syncFinishLine(dwGroup({ finishLevel: "level_4", squareFootage: 1000 }), { book, mode: "create" }).lineItems, typed];
+  let prev = start;
+  for (const l of ["level_5", "level_1", "level_3", "level_2", "level_4"]) {
+    const r = syncFinishLine(dwGroup({ finishLevel: l, squareFootage: 1000 }, prev), { book, mode: "level" });
+    const fin = r.lineItems.filter(isFinishLine);
+    ok(`→ ${l}: still one finishing line, now ${l}, in the same place`, fin.length === 1 && fin[0].meta.drywallFinish.level === l && r.lineItems.indexOf(fin[0]) === prev.findIndex(isFinishLine));
+    ok(`→ ${l}: the hang line is the same object and the typed line untouched`, r.lineItems[0] === prev[0] && r.lineItems.includes(typed) && r.lineItems.length === 3);
+    prev = r.lineItems;
+  }
+  const to0 = syncFinishLine(dwGroup({ finishLevel: "level_0", squareFootage: 1000 }, prev), { book, mode: "level" });
+  ok("→ Level 0 removes the finishing line and only it", to0.lineItems.length === 2 && !to0.lineItems.some(isFinishLine) && to0.lineItems.includes(typed));
+  const back = syncFinishLine(dwGroup({ finishLevel: "level_5", squareFootage: 1000 }, to0.lineItems), { book, mode: "level" });
+  ok("Level 0 → Level 5 adds the finishing line back, after the hang", back.lineItems.filter(isFinishLine).length === 1 && drywallPartOf(back.lineItems[1]) === "finish");
+  const cleared = syncFinishLine(dwGroup({ finishLevel: "", squareFootage: 1000 }, prev), { book, mode: "level" });
+  ok("clearing the select removes the finishing line, keeps the hang", !cleared.lineItems.some(isFinishLine) && cleared.lineItems.some((x) => drywallPartOf(x) === "hang"));
+  // The modes.
+  const noHang = prev.filter((x) => drywallPartOf(x) !== "hang");
+  const lvl = syncFinishLine(dwGroup({ finishLevel: "level_2", squareFootage: 1000 }, noHang), { book, mode: "level" });
+  ok("a level change does NOT bring back a hang line the estimator deleted", !lvl.lineItems.some((x) => drywallPartOf(x) === "hang"));
+  const noFin = prev.filter((x) => !isFinishLine(x));
+  const rs = syncFinishLine(dwGroup({ finishLevel: "level_4", squareFootage: 2000 }, noFin), { book, mode: "resize" });
+  ok("a new square footage does NOT bring back a deleted finishing line", !rs.lineItems.some(isFinishLine) && rs.lineItems.find((x) => drywallPartOf(x) === "hang").quantity === 2000);
+  const resized = syncFinishLine(dwGroup({ finishLevel: "level_4", squareFootage: 1250 }, prev), { book, mode: "resize" });
+  ok("a new square footage re-sizes both untouched lines in place", resized.lineItems.filter(isDrywallLine).every((x) => x.quantity === 1250) && resized.lineItems.length === 3);
+  const retiered = syncFinishLine(dwGroup({ finishLevel: "level_4", squareFootage: 1000, complexityLevel: "high" }, prev), { book, mode: "resize" });
+  ok("a new tier re-prices both lines from that tier's column", retiered.lineItems[0].rate === 2.05 && retiered.lineItems.find(isFinishLine).rate === 2.45);
+}
+{
+  // Square feet: typed wins; else the room measure's board area.
+  const takeoff = { ...newRoomMeasure("drywall_install"), rooms: [{ ...newMeasureRoom("drywall_install"), lengthFt: 12, widthFt: 10, heightFt: 8, openings: [{ kind: "door", count: 1, widthFt: 3, heightFt: 7 }] }] };
+  ok("no typed square footage: the room measure's board (451 sq ft)", drywallQuantity(dwGroup({}, [], { takeoff })) === 451);
+  ok("typed square footage wins over the measure", drywallQuantity(dwGroup({ squareFootage: 500 }, [], { takeoff })) === 500);
+  ok("neither: 0, never an invented area", drywallQuantity(dwGroup({})) === 0);
+  const measured = syncFinishLine(dwGroup({ finishLevel: "level_4" }, [], { takeoff }), { book, mode: "create" });
+  ok("…and the lines bill the measured board", measured.lineItems.every((x) => x.quantity === 451));
+  const legacy = syncFinishLine(dwGroup({ finishLevel: "level_5_premium", squareFootage: 100 }), { book, mode: "create" });
+  ok("an old stored value prices as the level it meant", legacy.line?.meta?.drywallFinish?.level === "level_5" && legacy.line?.rate === 2.95);
+  const hostile = syncFinishLine(dwGroup({ finishLevel: "level_4", squareFootage: "1e308x" }), { book, mode: "create" });
+  ok("hostile square footage is 0, not NaN", hostile.lineItems.every((x) => x.quantity === 0 && x.amount === 0));
+  ok("negative square footage is 0", syncFinishLine(dwGroup({ finishLevel: "level_4", squareFootage: -50 }), { book, mode: "create" }).lineItems.every((x) => x.quantity === 0));
+  const fr = syncFinishLine(dwGroup({ finishLevel: "level_3", squareFootage: 10 }), { book, language: "fr", mode: "create" });
+  ok("the lines are written in the DOCUMENT's language", fr.lineItems[0].description.startsWith("Panneaux de gypse") && fr.line?.description.startsWith("Finition du gypse") && fr.line?.detail === drywallFinishText("level_3", "fr").description);
+  ok("a saved group is never synced", syncFinishLine({ ...dwGroup({ finishLevel: "level_5" }), persisted: true }, { book, mode: "create" }).lineItems.length === 0);
+  ok("another trade is never synced", syncFinishLine({ ...dwGroup({ finishLevel: "level_5" }), categoryKey: "tiling" }, { book, mode: "create" }).lineItems.length === 0);
+  const zeroed = getPriceBook("drywall_install", { complexity: { standard: { finishLevel2PricePerSqft: 0 } } });
+  const z = syncFinishLine(dwGroup({ finishLevel: "level_2", squareFootage: 100 }), { book: zeroed, mode: "create" });
+  ok("a level the company zeroed adds no $0 line, and says so", z.line === null && z.unpriced === true && z.lineItems.length === 1);
+  const plain = syncFinishLine({ ...dwGroup({ finishLevel: "level_5", squareFootage: 100 }), categoryKey: "drywall" }, { book: getPriceBook("drywall"), mode: "create" });
+  ok("plain drywall (no book): no lines, and the builder says no rate is set", plain.lineItems.length === 0 && plain.unpriced === true);
+  const saved = scopeGroupPayload({ ...dwGroup({}), label: "Drywall", lineItems: syncFinishLine(dwGroup({ finishLevel: "level_5", squareFootage: 300 }), { book, mode: "create" }).lineItems });
+  ok("the save stores both lines with their rates and amounts", saved.lineItems.length === 2 && saved.lineItems[0].amount === 360 && saved.lineItems[1].amount === 885, saved.lineItems.map((x) => x.amount));
+}
+
+/* ══ E. Hand edits ══════════════════════════════════════════════════════ */
+section("E. A line the contractor edited is the contractor's");
+{
+  const start = syncFinishLine(dwGroup({ finishLevel: "level_4", squareFootage: 1000 }), { book, mode: "create" }).lineItems;
+  for (const part of ["finish", "hang"]) {
+    const idx = start.findIndex((x) => drywallPartOf(x) === part);
+    for (const [field, value] of [["rate", 1.6], ["quantity", 900], ["description", "My own wording"]]) {
+      const edited = start.map((li, i) => (i === idx ? applyLineItemEdit(li, field, value) : li));
+      for (const [mode, intake] of [
+        ["level", { finishLevel: "level_5", squareFootage: 1000 }],
+        ["level", { finishLevel: "level_0", squareFootage: 1000 }],
+        ["resize", { finishLevel: "level_4", squareFootage: 2000 }],
+        ["resize", { finishLevel: "level_4", squareFootage: 1000, complexityLevel: "high" }],
+      ]) {
+        const r = syncFinishLine(dwGroup(intake, edited), { book, mode });
+        ok(`edited ${part} ${field}, then ${mode} ${JSON.stringify(intake)}: the edited line is kept as typed`, r.lineItems.includes(edited[idx]));
+        ok(`…and no second ${part} line beside it`, r.lineItems.filter((x) => drywallPartOf(x) === part).length === 1 && (part === "finish" ? r.held : r.hangHeld) === true);
+      }
+    }
+  }
+  const noRecord = start.map((li) => (isFinishLine(li) ? { ...li, meta: { drywallFinish: { level: "level_4" } } } : li));
+  ok("a marker with no record of what was written is treated as edited", syncFinishLine(dwGroup({ finishLevel: "level_5", squareFootage: 1000 }, noRecord), { book, mode: "level" }).held);
+  ok("a plain line is never ours", !isDrywallLine({ description: "Finish — Level 4 (paint ready)", rate: 1.45 }));
   const qb = code("app/components/quotes/builder/QuoteBuilder.js");
-  ok("builder: updateIntakeValue and updateIntakeValues both run withFinishLine", (qb.match(/withFinishLine\(/g) || []).length >= 3);
-  ok("builder: square footage re-syncs only with an untouched line present", /changedKeys\.includes\("squareFootage"\)\s*&&\s*\(group\.lineItems \|\| \[\]\)\.some\(isUntouchedFinishLine\)/.test(qb));
+  ok("builder: a level change syncs in `level` mode; size, tier and the room measure in `resize`", /includes\("finishLevel"\)\) return "level"/.test(qb) && /k === "squareFootage" \|\| k === "complexityLevel" \|\| k === "takeoff"\)\) return "resize"/.test(qb));
+  ok("builder: intake edits AND the room measure (updatePricing) run withFinishLine", (qb.match(/withFinishLine\(/g) || []).length >= 4);
   ok("builder: a saved group is never synced", /FINISH_LEVEL_TRADES\.includes\(group\.categoryKey\) \|\| group\.persisted\) return group/.test(qb));
   ok("builder: the notice is rendered under the intake", qb.includes("finishLineNotice(group)") && qb.includes("data-drywall-finish-notice"));
 }
-delete TRADE_PRICE_BOOKS.drywall_install;
-ok("the merged book was removed again — the live map is as it was", getPriceBook("drywall_install") === null);
 
-/* ══ E. The document names the chosen level, in every language ═════════ */
-section("E. Document text");
+/* ══ F. Templates — the double-billing fix ═════════════════════════════ */
+section("F. The book owns the board; a template cannot bill it twice");
+{
+  const DW = { id: "cat_dw", key: "drywall_install", label: "Drywall Installation", unit: "flat", defaultRate: null };
+  const BOARD = "areaSqFt,wallSqft,ceilingSqft,drywallSheets";
+  ok("a drywall_install group holds back every board figure", keysPricedByGroup({ categoryKey: "drywall_install" }).join() === BOARD);
+  ok("…except one priced by the company's own single service", keysPricedByGroup({ categoryKey: "drywall_install", ownPricing: true }).length === 0);
+  ok("plain drywall (no book) holds nothing back", keysPricedByGroup({ categoryKey: "drywall" }).length === 0);
+  const takeoff = { ...newRoomMeasure("drywall_install"), rooms: [{ ...newMeasureRoom("drywall_install"), lengthFt: 12, widthFt: 10, heightFt: 8, openings: [{ kind: "door", count: 1, widthFt: 3, heightFt: 7 }] }] };
+  const tpl = { templateLines: [
+    { kind: "labour", name: "Tape and finish", qty: 1, unit: "sqft", unitPrice: 1.5, measurementKey: "areaSqFt" },
+    { kind: "labour", name: "Walls finished", qty: 1, unit: "sqft", unitPrice: 1.5, measurementKey: "wallSqft" },
+    { kind: "material", name: "Board", qty: 1, unit: "each", unitPrice: 18, measurementKey: "drywallSheets" },
+    { kind: "other", name: "Disposal", qty: 1, unit: "flat", unitPrice: 150 },
+  ] };
+  // Order 1 — the service added WITH its template (addScopeGroupWithTemplate).
+  const g = { ...newScopeGroup(DW, DW.label, null, { tempId: "t1", fieldDefaults: true }), takeoff, intakeValues: { finishLevel: "level_4", complexityLevel: "standard" } };
+  const sized = { ...g, lineItems: syncFinishLine(g, { book: getPriceBook("drywall_install"), mode: "resize" }).lineItems };
+  const exp = expandServiceTemplate(tpl, { measurements: measurementsFromGroups([sized], { targetTempId: "t1" }), currency: "USD", runId: "r1", heading: false, pricedKeys: keysPricedByGroup(sized) });
+  const lines = [...sized.lineItems.filter(isDrywallLine), ...exp.lines];
+  ok("template added with the service: only the flat Disposal lands", exp.lines.length === 1 && exp.lines[0].description.includes("Disposal") && exp.summary.skipped.length === 3, exp.summary.skipped?.map((s) => s.description));
+  ok("…the board is billed once: book hang + book Level 4 + disposal", lines.length === 3 && groupSubtotal({ ...sized, lineItems: lines }) === r2(451 * 1.2) + r2(451 * 1.45) + 150, groupSubtotal({ ...sized, lineItems: lines }));
+  // Order 2 — a template added INTO a group that already carries the book's
+  // lines, then the level changed: still one finishing line, and every
+  // template line the same object, untouched.
+  const disposal = exp.lines[0];
+  const editedTemplate = applyLineItemEdit(disposal, "rate", 175);
+  const withTpl = [...sized.lineItems, editedTemplate];
+  for (const l of ["level_5", "level_0", "level_3"]) {
+    const r = syncFinishLine({ ...sized, lineItems: withTpl, intakeValues: { ...sized.intakeValues, finishLevel: l } }, { book: getPriceBook("drywall_install"), mode: "level" });
+    ok(`template in the group, then ${l}: at most one finishing line, the template line untouched (even edited)`, r.lineItems.filter(isFinishLine).length === (l === "level_0" ? 0 : 1) && r.lineItems.includes(editedTemplate));
+  }
+  // A company's own single service owns its group.
+  const own = { ...newScopeGroup(DW, DW.label, null, { tempId: "p1", fieldDefaults: true }), lineItems: [{ description: "Drywall, hung and finished", quantity: 1, unit: "flat", rate: 4200, amount: 4200, productId: "p" }], ownPricing: true };
+  for (const [mode, intake] of [["level", { finishLevel: "level_5", squareFootage: 1000 }], ["resize", { finishLevel: "level_5", squareFootage: 1500 }]]) {
+    const r = syncFinishLine({ ...own, intakeValues: intake }, { book: getPriceBook("drywall_install"), mode });
+    ok(`own service, ${mode}: the level adds no line — the service is the price`, r.lineItems.length === 1 && r.lineItems[0] === own.lineItems[0]);
+  }
+  const ownTpl = expandServiceTemplate(tpl, { measurements: measurementsFromGroups([{ ...own, takeoff }], { targetTempId: "p1" }), currency: "USD", runId: "r2", heading: false, pricedKeys: keysPricedByGroup(own) });
+  ok("…and a template added to it keeps every line (nothing of ours to protect)", ownTpl.lines.length === 4);
+  const qb = code("app/components/quotes/builder/QuoteBuilder.js");
+  ok("builder: the template add keeps the book's lines and passes the held-back keys", /lineItems\.filter\(isDrywallLine\)/.test(qb) && /lineItems: \[\.\.\.book, \.\.\.lines\]/.test(qb));
+  ok("builder: the one-line add marks the group ownPricing", /ownPricing: true/.test(qb));
+  ok("builder: the held-back note names the drywall price book", /"drywallBook"/.test(qb));
+}
+
+/* ══ G. The document names the chosen level, in every language ═════════ */
+section("G. Document text");
 
 const cats = presetCatalogues();
 ok("eight document languages carry a finish catalogue", LANGUAGE_CODES.every((l) => cats[l]?.drywallFinish?.levels) && Object.keys(cats).length === 8, Object.keys(cats));
@@ -264,16 +389,19 @@ const ENGLISH = /\b(the|and|with|your|we|is|are|of)\b/i;
 const SCRIPT = { uk: /[Ѐ-ӿ]/, pa: /[਀-੿]/ };
 for (const lang of LANGUAGE_CODES) {
   const c = cats[lang].drywallFinish;
-  for (const k of ["lineTitle", "hung", "cleaned"]) {
+  for (const k of ["lineTitle", "hangTitle", "hung", "cleaned"]) {
     ok(`${lang}: ${k} present`, typeof c[k] === "string" && c[k].trim().length > 0);
     if (lang !== "en") ok(`${lang}: ${k} translated`, c[k] !== cats.en.drywallFinish[k] && !ENGLISH.test(c[k]), c[k]);
   }
   ok(`${lang}: exactly the six levels`, JSON.stringify(Object.keys(c.levels)) === JSON.stringify(SIX), Object.keys(c.levels));
   // The finish step is the LAST step of the drywall trades in this language —
   // the one finishSteps() rewrites. It must be the one that mentions 4 and 5.
-  const plain = resolveServiceContent("drywall_install", null, null, lang);
-  const lastBody = plain.steps.at(-1)?.body || "";
+  const plainDoc = resolveServiceContent("drywall_install", null, null, lang);
+  const lastBody = plainDoc.steps.at(-1)?.body || "";
   ok(`${lang}: the drywall trades' last step is the finish step (mentions 4 and 5)`, /4/.test(lastBody) && /5/.test(lastBody), lastBody.slice(0, 80));
+  // drywall_install has had a trade paragraph since its book went live (a
+  // priced trade states its scope — check:trade-labour); plain drywall has none.
+  ok(`${lang}: drywall_install's trade paragraph names no level of its own`, plainDoc.description.length > 60 && !/\d/.test(plainDoc.description), plainDoc.description.slice(0, 60));
   for (const l of SIX) {
     const n = l.slice(-1);
     const words = drywallFinishText(l, lang);
@@ -284,32 +412,34 @@ for (const lang of LANGUAGE_CODES) {
     }
     if (SCRIPT[lang]) ok(`${lang} ${l}: written in its own script`, SCRIPT[lang].test(words.description));
     for (const trade of TRADES) {
+      const base = resolveServiceContent(trade, null, null, lang);
       const doc = resolveServiceContent(trade, null, null, lang, { finishLevel: l });
-      ok(`${lang} ${trade} ${l}: the scope paragraph states the level`, doc.description === words.description, doc.description.slice(0, 80));
-      ok(`${lang} ${trade} ${l}: the Drywall step states it too`, doc.steps.at(-1).body.includes(words.description) && doc.steps.at(-1).title === plain.steps.at(-1).title && doc.steps.at(-1).timeline === plain.steps.at(-1).timeline);
-      ok(`${lang} ${trade} ${l}: every other step unchanged`, JSON.stringify(doc.steps.slice(0, -1)) === JSON.stringify(plain.steps.slice(0, -1)));
+      const expected = [base.description, words.description].filter(Boolean).join(" ");
+      ok(`${lang} ${trade} ${l}: the scope paragraph states the level (after the trade's own)`, doc.description === expected, doc.description.slice(0, 80));
+      ok(`${lang} ${trade} ${l}: the Drywall step states it too`, doc.steps.at(-1).body.includes(words.description) && doc.steps.at(-1).title === base.steps.at(-1).title && doc.steps.at(-1).timeline === base.steps.at(-1).timeline);
+      ok(`${lang} ${trade} ${l}: every other step unchanged`, JSON.stringify(doc.steps.slice(0, -1)) === JSON.stringify(base.steps.slice(0, -1)));
       ok(`${lang} ${trade} ${l}: the quote's steps (dominant group) state it`, dominantProcessSteps([{ categoryKey: trade, subtotal: 10, intake: { finishLevel: l } }], lang).at(-1).body === doc.steps.at(-1).body);
     }
   }
-  // Already-sent quotes: no answer, an old answer, junk — the document is
-  // byte-for-byte what it was before this existed.
+  // No answer, an old answer, junk: the document is exactly what no answer
+  // prints — the old step wording, word for word.
   for (const trade of TRADES) {
-    const before = JSON.stringify(resolveServiceContent(trade, null, null, lang));
+    const none = JSON.stringify(resolveServiceContent(trade, null, null, lang));
     for (const intake of [undefined, null, {}, { finishLevel: "level_4_standard" }, { finishLevel: "level_5_premium" }, { finishLevel: "level_2_unfinished" }, { finishLevel: "level_9" }, { finishLevel: 5 }, "level_5"]) {
-      ok(`${lang} ${trade}: intake ${JSON.stringify(intake)} prints exactly what it printed before`, JSON.stringify(resolveServiceContent(trade, null, null, lang, intake)) === before);
+      ok(`${lang} ${trade}: intake ${JSON.stringify(intake)} prints exactly what no answer prints`, JSON.stringify(resolveServiceContent(trade, null, null, lang, intake)) === none);
     }
   }
   ok(`${lang}: a general contractor's shell sequence is not touched by a level`, JSON.stringify(resolveServiceContent("general_contracting", null, null, lang, { finishLevel: "level_5" })) === JSON.stringify(resolveServiceContent("general_contracting", null, null, lang)));
 }
 ok("the shared SHELL_SEQUENCE is not mutated by a level (copy, not edit)", resolveServiceContent("drywall", null, null, "en").steps.at(-1).body.includes("Level 4, or Level 5 where specified"));
+ok("plain drywall still prints no paragraph without a level", resolveServiceContent("drywall", null, null, "en").description === "");
 {
   const own = resolveServiceContent("drywall_install", { scopeDescription: "We hang and finish board.", processSteps: [{ title: "Ours", body: "Our step." }] }, null, "en", { finishLevel: "level_5" });
   ok("a company's own paragraph still prints, with the level stated after it", own.description === `We hang and finish board. ${drywallFinishText("level_5", "en").description}`);
   ok("a company's own steps are theirs — not rewritten", own.steps.length === 1 && own.steps[0].body === "Our step.");
-  const en5 = resolveServiceContent("drywall_install", null, null, "en", { finishLevel: "level_5" });
+  const en5 = resolveServiceContent("drywall", null, null, "en", { finishLevel: "level_5" });
   ok("the owner's example sentence, in our words", en5.description.startsWith("Finished to Level 5: Level 4 plus a full skim coat"), en5.description);
 }
-// Every document surface passes the group's intake to the resolver.
 for (const [file, needles] of [
   ["app/api/quotes/[id]/document/route.js", ["intakeValues: true", "g.intakeValues,", "intake: g.intakeValues"]],
   ["app/api/invoices/[id]/document/route.js", ["intakeValues: true", "g.intakeValues,", "intake: g.intakeValues"]],
@@ -324,14 +454,79 @@ for (const [file, needles] of [
   const s = code(file);
   ok(`${file}: passes the group's intake to the resolver`, needles.every((n) => s.includes(n)), needles.filter((n) => !s.includes(n)));
 }
-// The public route reads intakeValues for the paragraph and never returns it.
+ok("public quote route: intakeValues is never a returned key", !/\bintakeValues\s*:/.test(code("app/api/public/quotes/[token]/route.js")));
+
+/* ══ G2. The trade paragraph: new documents only ════════════════════════ */
+section("G2. drywall_install's paragraph prints on documents created after it, never on older ones");
 {
-  const pub = code("app/api/public/quotes/[token]/route.js");
-  ok("public quote route: intakeValues is never a returned key", !/\bintakeValues\s*:/.test(pub));
+  // A real "before": the catalogues with drywall_install's paragraph removed
+  // for the length of one render — exactly what the product printed before the
+  // paragraph existed — compared through the real renderers, not a model of
+  // them. Restored immediately after.
+  const ENTRIES = LANGUAGE_CODES.map((l) => cats[l].content.drywall_install);
+  const renderAll = (lang, intake, createdAt) => {
+    const group = { label: "Drywall", subtotal: 1200, category: { key: "drywall_install", label: "Drywall" }, intakeValues: intake, lineItems: [{ description: "Board", quantity: 1, amount: 1200 }] };
+    const data = { scopeGroups: [group], ...(createdAt !== undefined ? { createdAt } : {}) };
+    return JSON.stringify({
+      content: resolveServiceContent("drywall_install", null, null, lang, intake, createdAt),
+      html: scopeBreakdownHtml({ data, company: {}, language: lang }),
+      text: quoteSectionsText({ data, company: {}, language: lang }),
+    });
+  };
+  const before = (lang, intake) => {
+    const saved = ENTRIES.map((e) => e.description);
+    ENTRIES.forEach((e) => { delete e.description; });
+    try {
+      return renderAll(lang, intake, undefined);
+    } finally {
+      ENTRIES.forEach((e, i) => { e.description = saved[i]; });
+    }
+  };
+  const OLD = ["2026-09-15T12:00:00.000Z", new Date("2026-10-03T23:59:59.999Z"), "2025-01-01"];
+  const NEW = ["2026-10-04T00:00:00.000Z", new Date("2026-11-02T09:30:00Z")];
+  ok("the cut-over is the start of the day after the change", DRYWALL_INSTALL_PARAGRAPH_SINCE === "2026-10-04T00:00:00.000Z");
+  for (const lang of LANGUAGE_CODES) {
+    for (const intake of [null, {}, { finishLevel: "level_4_standard" }, { finishLevel: "level_5_premium", squareFootage: 800 }]) {
+      const was = before(lang, intake);
+      for (const at of OLD) {
+        ok(`${lang} ${JSON.stringify(intake)} created ${String(at instanceof Date ? at.toISOString() : at)}: content, email HTML and email text byte-identical to before`, renderAll(lang, intake, at) === was);
+      }
+      ok(`${lang} ${JSON.stringify(intake)}: the comparison is not vacuous — a new document differs from "before"`, renderAll(lang, intake, NEW[0]) !== was);
+      for (const at of NEW) {
+        const doc = resolveServiceContent("drywall_install", null, null, lang, intake, at);
+        ok(`${lang} ${JSON.stringify(intake)} created after: the paragraph prints`, doc.description === cats[lang].content.drywall_install.description && renderAll(lang, intake, at).includes(JSON.stringify(doc.description).slice(1, 40)));
+      }
+    }
+    ok(`${lang}: the paragraph really was restored after each "before"`, typeof cats[lang].content.drywall_install.description === "string" && cats[lang].content.drywall_install.description.length > 60);
+    // A quote written on the day itself with a NEW level: the level sentence,
+    // no paragraph.
+    const day = resolveServiceContent("drywall_install", null, null, lang, { finishLevel: "level_5" }, "2026-10-03T15:00:00Z");
+    ok(`${lang}: written on the cut-over day with a level — the level sentence alone`, day.description === drywallFinishText("level_5", lang).description);
+  }
+  ok("1 ms before the cut-over: withheld; at it: printed", resolveServiceContent("drywall_install", null, null, "en", null, "2026-10-03T23:59:59.999Z").description === "" && resolveServiceContent("drywall_install", null, null, "en", null, "2026-10-04T00:00:00.000Z").description.length > 60);
+  ok("no date, or an unreadable one: treated as a new document", ["", null, undefined, "not a date", NaN].every((d) => resolveServiceContent("drywall_install", null, null, "en", null, d).description.length > 60));
+  ok("a company's own paragraph is never withdrawn by the cut-over", resolveServiceContent("drywall_install", { scopeDescription: "Our words." }, null, "en", null, "2026-01-01").description === "Our words.");
+  ok("no other trade is dated: an old roofing quote prints what a new one does", resolveServiceContent("roofing_service", null, null, "en", null, "2020-01-01").description === resolveServiceContent("roofing_service", null, null, "en").description);
+  // Every surface that renders an EXISTING document passes its age.
+  for (const [file, needles] of [
+    ["app/api/quotes/[id]/document/route.js", ["createdAt: true", "quote.createdAt,"]],
+    ["app/api/invoices/[id]/document/route.js", ["createdAt: true", "invoice.quote?.createdAt,"]],
+    ["app/api/public/quotes/[token]/route.js", ["quote.createdAt,"]],
+    ["lib/documentSections/ScopeGroupsSection.js", ["data?.createdAt,"]],
+    ["lib/email/quoteSections.js", ["data?.createdAt,"]],
+    ["lib/email/quoteEmail.js", ["createdAt: quote.createdAt"]],
+    ["lib/ai/quoteReview.js", ["quote.createdAt)"]],
+    ["lib/quotes/completeness.js", ["quote?.createdAt)", "quote.createdAt)"]],
+    ["app/components/quotes/builder/ScopeGroupCard.js", ["documentCreatedAt)"]],
+    ["app/components/quotes/builder/QuoteBuilder.js", ["createdAt: quote.createdAt || null", "documentCreatedAt={start.createdAt || null}"]],
+  ]) {
+    const s = code(file);
+    ok(`${file}: passes the document's createdAt`, needles.every((n) => s.includes(n)), needles.filter((n) => !s.includes(n)));
+  }
 }
 
-/* ══ F. The public intake carries no prices ════════════════════════════ */
-section("F. Public self-quote field");
+/* ══ H. The public intake carries no prices ════════════════════════════ */
+section("H. Public self-quote field");
 
 const PUBLIC_KEYS = new Set(["key", "label", "type", "options", "unit", "placeholder", "help"]);
 for (const k of TRADES) {
@@ -340,6 +535,7 @@ for (const k of TRADES) {
   ok(`${k}: the public form still asks the finish level`, Boolean(f));
   ok(`${k}: …with the six level strings and nothing priced`, JSON.stringify(f?.options) === JSON.stringify(SIX) && f.options.every((o) => typeof o === "string"));
   ok(`${k}: only the public keys travel (no labels, legacy map or default)`, pub.every((x) => Object.keys(x).every((p) => PUBLIC_KEYS.has(p))), pub.map((x) => Object.keys(x)));
+  ok(`${k}: the tier is never asked of a homeowner`, !pub.some((x) => x.key === "complexityLevel"));
   const text = JSON.stringify(pub);
   ok(`${k}: no rate, price or money anywhere in the public payload`, !/price|rate|\$|amount|cost/i.test(text), text);
   ok(`${k}: the public copy is a copy — mutating it cannot reach the definition`, (() => { f.options.push("x"); return finishField(k).options.length === 6; })());
@@ -347,44 +543,47 @@ for (const k of TRADES) {
 ok("every other category's public fields are unchanged in shape", Object.keys(INTAKE_FIELDS).every((k) => publicIntakeFields(k).every((x) => Object.keys(x).every((p) => PUBLIC_KEYS.has(p)))));
 ok("the self-quote routes read the projected helper", code("app/api/self-quote/route.js").includes("publicIntakeFields(") && code("app/api/self-quote/[companySlug]/route.js").includes("publicIntakeFields("));
 
-/* ══ G. Defaults ═══════════════════════════════════════════════════════ */
-section("G. A new group opens on Level 4 — when the estimator added it");
-
-const DW = { id: "cat_dw", key: "drywall_install", label: "Drywall Installation", unit: "flat", defaultRate: null };
-ok("added from a tile: Level 4", newScopeGroup(DW, DW.label, null, { tempId: "a", fieldDefaults: true }).intakeValues.finishLevel === "level_4");
-ok("a phone call's draft: absent stays absent", !("finishLevel" in newScopeGroup(DW, DW.label, null, { tempId: "b", intakeValues: { squareFootage: 400 } }).intakeValues));
-ok("an answer the caller gave wins over the default", newScopeGroup(DW, DW.label, null, { tempId: "c", fieldDefaults: true, intakeValues: { finishLevel: "level_2" } }).intakeValues.finishLevel === "level_2");
-ok("…even a blank one", newScopeGroup(DW, DW.label, null, { tempId: "d", fieldDefaults: true, intakeValues: { finishLevel: "" } }).intakeValues.finishLevel === "");
-ok("a trade with no defaults is byte-identical either way", JSON.stringify(newScopeGroup({ id: "e", key: "electrical", label: "Electrical", unit: "hour", defaultRate: 110 }, "Electrical", null, { tempId: "e", fieldDefaults: true })) === JSON.stringify(newScopeGroup({ id: "e", key: "electrical", label: "Electrical", unit: "hour", defaultRate: 110 }, "Electrical", null, { tempId: "e" })));
-ok("withFieldDefaults never fills a key the caller set", JSON.stringify(withFieldDefaults(getIntakeFields("drywall"), { finishLevel: "level_1" })) === JSON.stringify({ finishLevel: "level_1" }));
-ok("live (no book): the default adds no line", newScopeGroup(DW, DW.label, null, { tempId: "f", fieldDefaults: true }).lineItems.length === 1);
-TRADE_PRICE_BOOKS.drywall_install = INTERIOR_PRICE_BOOKS.drywall_install;
+/* ══ I. New groups ═════════════════════════════════════════════════════ */
+section("I. New groups");
 {
-  const g = newScopeGroup(DW, DW.label, null, { tempId: "g", fieldDefaults: true, language: "es" });
-  const fin = g.lineItems.filter(isFinishLine);
-  ok("merged book: the default Level 4 bills its line at once, in the document's language", fin.length === 1 && fin[0].meta.drywallFinish.level === "level_4" && fin[0].description.startsWith("Acabado de paneles de yeso"));
-}
-delete TRADE_PRICE_BOOKS.drywall_install;
-{
-  // Raw source for the anchor: it is a comment, which code() strips.
+  const DW = { id: "cat_dw", key: "drywall_install", label: "Drywall Installation", unit: "flat", defaultRate: 999 };
+  const tile = newScopeGroup(DW, DW.label, null, { tempId: "a", fieldDefaults: true, language: "es" });
+  ok("added from a tile: Level 4, Standard", tile.intakeValues.finishLevel === "level_4" && tile.intakeValues.complexityLevel === "standard");
+  ok("…opens on the book's hang + Level 4 lines (0 sq ft until measured), in the document's language — no seeded flat line", tile.lineItems.length === 2 && tile.lineItems.every(isDrywallLine) && tile.lineItems[0].description.startsWith("Paneles de yeso") && tile.lineItems.every((x) => x.quantity === 0));
+  ok("…an old single rate on the category never becomes a second price", !tile.lineItems.some((x) => x.rate === 999));
+  const call = newScopeGroup(DW, DW.label, null, { tempId: "b", intakeValues: { squareFootage: 400 } });
+  ok("a phone call's draft: absent stays absent", !("finishLevel" in call.intakeValues) && !("complexityLevel" in call.intakeValues));
+  ok("…but the square feet the caller gave are hung, at Standard, with no finishing line invented", call.lineItems.length === 1 && drywallPartOf(call.lineItems[0]) === "hang" && call.lineItems[0].quantity === 400 && call.lineItems[0].rate === 1.2);
+  const said = newScopeGroup(DW, DW.label, null, { tempId: "c", intakeValues: { squareFootage: 400, finishLevel: "level_5" } });
+  ok("…and a level the caller named is billed", said.lineItems.filter(isFinishLine).length === 1 && said.lineItems.find(isFinishLine).rate === 2.2);
+  ok("an answer the caller gave wins over the default", newScopeGroup(DW, DW.label, null, { tempId: "d", fieldDefaults: true, intakeValues: { finishLevel: "level_2" } }).intakeValues.finishLevel === "level_2");
+  ok("…even a blank one", newScopeGroup(DW, DW.label, null, { tempId: "e", fieldDefaults: true, intakeValues: { finishLevel: "" } }).intakeValues.finishLevel === "");
+  const plain = newScopeGroup({ id: "cat_d", key: "drywall", label: "Drywall", unit: "flat", defaultRate: null }, "Drywall", null, { tempId: "f", fieldDefaults: true });
+  ok("plain drywall (no book): Level 4 by default, its one seeded line as before", plain.intakeValues.finishLevel === "level_4" && plain.lineItems.length === 1 && !isDrywallLine(plain.lineItems[0]));
+  ok("a trade with no defaults is byte-identical either way", JSON.stringify(newScopeGroup({ id: "e", key: "electrical", label: "Electrical", unit: "hour", defaultRate: 110 }, "Electrical", null, { tempId: "e", fieldDefaults: true })) === JSON.stringify(newScopeGroup({ id: "e", key: "electrical", label: "Electrical", unit: "hour", defaultRate: 110 }, "Electrical", null, { tempId: "e" })));
+  ok("withFieldDefaults never fills a key the caller set", JSON.stringify(withFieldDefaults(getIntakeFields("drywall"), { finishLevel: "level_1" })) === JSON.stringify({ finishLevel: "level_1" }));
   const raw = src("app/components/quotes/builder/QuoteBuilder.js");
   const at = raw.indexOf("Only what the caller actually said");
-  const fromCall = at >= 0 ? raw.slice(Math.max(0, at - 400), at + 1200) : "";
-  ok("builder: the phone-call prefill does not ask for defaults", fromCall.includes("newScopeGroup(") && !fromCall.includes("fieldDefaults"));
-  const qb = code("app/components/quotes/builder/QuoteBuilder.js");
-  ok("builder: a tile add does", /function addScopeGroup\(category, label\)[\s\S]{0,400}fieldDefaults: true/.test(qb));
+  const fromCall = at >= 0 ? raw.slice(Math.max(0, at - 400), at + 1600) : "";
+  ok("builder: the phone-call prefill does not ask for defaults, and names the language", fromCall.includes("newScopeGroup(") && !fromCall.includes("fieldDefaults") && fromCall.includes("language: bootstrap.companyLanguage"));
+  ok("builder: a tile add asks for defaults", /function addScopeGroup\(category, label\)[\s\S]{0,400}fieldDefaults: true/.test(code("app/components/quotes/builder/QuoteBuilder.js")));
 }
 
-/* ══ H. Materials ══════════════════════════════════════════════════════ */
-section("H. Materials");
+/* ══ J. Materials ══════════════════════════════════════════════════════ */
+section("J. Materials");
 
-// No drywall recipe is live — the one in app/data/priceBooks/interior.js is
-// staged with the book, and records Level 4 compound coverage only (475 sq ft
-// of board a box; "Level 5 roughly doubles it"). So there is nothing for the
-// level to scale today. This fails the day a drywall recipe lands, so whoever
-// lands it makes compound follow the level instead of costing every job at
-// Level 4.
+// No drywall recipe is live. The staged one in app/data/priceBooks/interior.js
+// carries two-currency costs that nothing reads yet (that file's "Wiring" §1)
+// and records Level 4 compound coverage only (475 sq ft of board a box; "Level
+// 5 roughly doubles it"). So there is nothing for the level to scale. This
+// fails the day a drywall recipe lands, so whoever lands it makes compound
+// follow the level instead of costing every job at Level 4.
 ok("no live drywall material recipe yet — compound scaling is owed when one lands", !Object.hasOwn(MATERIAL_RECIPES, "drywall_install") && !Object.hasOwn(MATERIAL_RECIPES, "drywall"));
+{
+  const compound = INTERIOR_RECIPES.drywall_install?.materials?.compound_allpurpose;
+  ok("…the staged recipe's costs are two-currency objects, which no costing reader takes yet", compound && typeof compound.cost?.cad === "object" && typeof compound.cost?.usd === "object");
+  ok("…and it states Level 4 coverage only — no per-level figure to scale by", INTERIOR_RECIPES.drywall_install?.consumption?.compoundSqftOfBoardPerBoxLevel4 === 475 && !Object.keys(INTERIOR_RECIPES.drywall_install?.consumption || {}).some((k) => /Level5/.test(k)));
+}
 
 console.log(`\ncheck-drywall-finish-levels: ${pass} passed, ${fails.length} failed`);
 if (fails.length) {

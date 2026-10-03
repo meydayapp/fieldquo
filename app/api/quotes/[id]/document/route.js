@@ -69,6 +69,9 @@ export async function GET(request, { params }) {
       // Read below for the process steps and the company wording; it was
       // never selected, so the preview's steps were always English.
       language: true,
+      // A trade paragraph added after this quote was written does not appear
+      // on it (resolveServiceContent's documentCreatedAt).
+      createdAt: true,
       processNotes: true,
       scopeGroups: {
         orderBy: { sortOrder: "asc" },
@@ -110,6 +113,7 @@ export async function GET(request, { params }) {
       g.takeoff,
       quote.language,
       g.intakeValues,
+      quote.createdAt,
     );
     return {
       id: g.id,

@@ -6,9 +6,15 @@
 // Staged here rather than written straight into app/data/tradePriceBooks.js,
 // app/data/materialRecipes.js and app/data/standardAddOns.js because five other
 // agents are in those files this session. Every export below is keyed to be
-// spread into its destination unchanged. Nothing here is imported by product
-// code yet — see "Wiring" at the bottom for the four one-line merges and the
-// two integration points that are NOT one-liners.
+// spread into its destination unchanged. See "Wiring" at the bottom for the
+// four one-line merges and the two integration points that are NOT one-liners.
+//
+// ONE book is live: `drywall_install` (owner, 2026-10-03 — "each level should
+// have its price on the price book, per sqft"). app/data/tradePriceBooks.js
+// registers INTERIOR_PRICE_BOOKS.drywall_install by reference, with a field
+// list of only the rows a quote reads (hang + finish Levels 1–5, per tier —
+// lib/quotes/drywallFinishLine.js). Edit its numbers HERE. The other five
+// books, every recipe and every add-on below are still staged.
 //
 // ══ What was actually missing, which is not what the brief said ════════════
 //
@@ -3206,6 +3212,11 @@ export function interiorPriceBookUnits() {
 /* ══ WIRING ════════════════════════════════════════════════════════════════
  *
  * Four spreads, and then two things that are not spreads.
+ *
+ * Done for drywall_install only (2026-10-03): TRADE_PRICE_BOOKS and a
+ * PRICE_BOOK_FIELDS entry (hang + finish levels — the staged ceiling surcharge,
+ * corner bead and extras stay off the rate card until a quote reads them). Its
+ * recipe is NOT merged: point 1 below still holds for it.
  *
  *   app/data/tradePriceBooks.js
  *     TRADE_PRICE_BOOKS   ...INTERIOR_PRICE_BOOKS

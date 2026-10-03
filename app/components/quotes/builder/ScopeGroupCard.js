@@ -50,6 +50,8 @@ export default function ScopeGroupCard({
   // The company's saved wording for this service (Settings > Services), or
   // null for the catalogue's defaults — see wordingOverrideFor in the builder.
   wordingOverride = null,
+  // The quote's createdAt when it is a saved one — null for a new quote.
+  documentCreatedAt = null,
   t = null,
   children,
 }) {
@@ -62,8 +64,9 @@ export default function ScopeGroupCard({
   // paragraph is shown here, folded, so what the client reads is in front of
   // the person writing it.
   // The intake rides along for a drywall group's finish level, which the
-  // client's paragraph states (lib/documents/serviceContent.js).
-  const content = resolveServiceContent(group.categoryKey, wordingOverride, group.takeoff || null, undefined, group.intakeValues);
+  // client's paragraph states, and the quote's age for a trade paragraph
+  // added after it was written (lib/documents/serviceContent.js).
+  const content = resolveServiceContent(group.categoryKey, wordingOverride, group.takeoff || null, undefined, group.intakeValues, documentCreatedAt);
   const accent = content.accent;
   const [showWording, setShowWording] = useState(false);
   const hasWording = Boolean(content.description) || (content.included || []).length > 0;

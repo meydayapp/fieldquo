@@ -27,6 +27,7 @@ import { ROOF_LABOUR_DEFAULTS } from "@/lib/pricing/roofLabour";
 import { PAVER_LABOUR_DEFAULTS } from "@/lib/pricing/paverLabour";
 import { INSULATION_LABOUR_DEFAULTS } from "@/lib/pricing/insulation";
 import { PAINT_TAKEOFF_DEFAULTS } from "@/lib/pricing/paintTakeoff";
+import { INTERIOR_PRICE_BOOKS } from "@/app/data/priceBooks/interior";
 
 /* ── Shared vocabulary ─────────────────────────────────────────────────── */
 
@@ -1922,6 +1923,26 @@ export const TRADE_PRICE_BOOKS = {
       airSealCasePerUnit: null,
     },
   },
+
+  // ── Drywall — hang, tape and finish (live since 2026-10-03) ─────────────
+  //
+  // The owner: "each level should have its price on the price book, per
+  // sqft." The book itself — three tiers, a hang rate and one finishing rate
+  // per GA-214 level 1–5, its sourcing and its arithmetic — was written and
+  // checked in app/data/priceBooks/interior.js and is used from there
+  // unchanged, so the numbers have one home. Level 0 is hung board: the hang
+  // row with no finishing row.
+  //
+  // Only this ONE of interior.js's six books is live. The other five, the
+  // recipes and the add-ons stay staged — see that file's "Wiring" section.
+  //
+  // What reads it: lib/quotes/drywallFinishLine.js, which writes the hang line
+  // and the chosen level's finishing line from the intake (square feet, the
+  // tier, the finish level). That is why PRICE_BOOK_FIELDS below lists the
+  // hang and finish rows only: the staged ceiling surcharge, corner bead and
+  // extras have no reader on a drywall quote yet, and a rate a company can
+  // type that no quote ever uses is the dead control AGENTS.md forbids.
+  drywall_install: INTERIOR_PRICE_BOOKS.drywall_install,
 };
 
 /* ── Access ────────────────────────────────────────────────────────────── */
@@ -2167,6 +2188,16 @@ export const PRICE_BOOK_FIELDS = {
     ["gapFillingPricePerSqft", "Gap filling", "$ / sqft"],
     ["furnitureMovingPrice", "Furniture moving", "$ flat"],
     ["stairBlendingPrice", "Stair blending", "$ flat"],
+  ]),
+  // The rows lib/quotes/drywallFinishLine.js prices from, and no others — see
+  // the book's note above. Per tier, because the builder asks the tier.
+  drywall_install: complexityFields("drywall_install", [
+    ["hangPricePerSqft", "Hang board", "$ / sqft"],
+    ["finishLevel1PricePerSqft", "Finish — Level 1 (tape only)", "$ / sqft"],
+    ["finishLevel2PricePerSqft", "Finish — Level 2 (one coat over tape)", "$ / sqft"],
+    ["finishLevel3PricePerSqft", "Finish — Level 3 (two coats, under texture)", "$ / sqft"],
+    ["finishLevel4PricePerSqft", "Finish — Level 4 (three coats, paint ready)", "$ / sqft"],
+    ["finishLevel5PricePerSqft", "Finish — Level 5 (full skim coat)", "$ / sqft"],
   ]),
   countertop: [
     {
