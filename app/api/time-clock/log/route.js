@@ -27,6 +27,7 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
 import { resolveTimeActivities } from "@/lib/timeclock/activities";
+import { canUseTimeClock, CLOCK_REFUSAL } from "@/lib/timeclock/access";
 import { buildDayLog, dayBoundsForDate, isoDayInZone, shiftIsoDay } from "@/lib/timeclock/segments";
 import { DEFAULT_TIMEZONE } from "@/lib/time/wallClock";
 
@@ -50,6 +51,11 @@ export async function GET(request) {
   }
 
   const full = await loadEnforceableMember(db, member.id);
+  // Below the clock's rung there is no own log to show, and a manager's view
+  // of everyone needs view_record_edit_all, which is above it anyway.
+  if (!canUseTimeClock(full)) {
+    return NextResponse.json({ error: CLOCK_REFUSAL }, { status: 403 });
+  }
   const seesEveryone = hasLevel(full, "timeTracking", "view_record_edit_all");
   const me = await db.worker.findFirst({
     where: { companyId: member.companyId, userId: member.userId },

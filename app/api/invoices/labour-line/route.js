@@ -39,7 +39,7 @@ export async function GET(request) {
       where: { jobId: job.id, worker: { companyId: member.companyId } },
       orderBy: { clockIn: "asc" },
       select: {
-        id: true, clockIn: true, clockOut: true, hours: true, status: true, billedInvoiceId: true,
+        id: true, clockIn: true, clockOut: true, hours: true, status: true, billedInvoiceId: true, activity: true,
         worker: { select: { name: true } },
       },
     }),

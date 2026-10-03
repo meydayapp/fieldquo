@@ -20,6 +20,7 @@ import { signOut } from "@/lib/auth-client";
 import { helpPath } from "@/lib/help/urls";
 import { meTabSetFor } from "@/lib/me/tabs";
 import { navRowAllowed } from "@/lib/permissions/nav";
+import { canUseTimeClock } from "@/lib/timeclock/access";
 import { HR_MORE_LINKS } from "@/lib/me/moreLinks";
 import MeShell from "@/app/components/me/MeShell";
 import { BigRow, MeLoad, PersonAvatar, RowList, useMeData } from "@/app/components/me/bits";
@@ -81,7 +82,7 @@ export default function MeMorePage() {
               <BigRow icon={Wallet} title={t("app.me.tab.earnings")} href="/app/me/earnings" />
               {/* The clock is a tab for the worker set; a manager clocks in
                   from here. */}
-              {manager ? <BigRow icon={Clock} title={t("app.nav.clock")} href="/app/clock" /> : null}
+              {manager && canUseTimeClock(caller) ? <BigRow icon={Clock} title={t("app.nav.clock")} href="/app/clock" /> : null}
               {/* The jobs list, for the worker set — a crew member's bar is
                   the employee bar everywhere now (MobileTabBar), so the Jobs
                   tab they had is a row here, behind the same navRowAllowed

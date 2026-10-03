@@ -41,6 +41,8 @@ import { ROLE_LABELS, tierNote } from "@/lib/permissions/roleManagement";
 import {
   emptyPermissionValues,
   presetForValues,
+  PRESET_OFF_SWITCHES,
+  isPresetOffSwitch,
 } from "@/lib/permissions/accessPresets";
 
 const inputClass =
@@ -95,6 +97,15 @@ export default function AccessEditor({
     const mine = grants?.yourPermissions?.[key];
     const idx = cat.levels.findIndex((l) => l.value === mine);
     return idx === -1 ? cat.levels.slice(0, 1) : cat.levels.slice(0, idx + 1);
+  }
+  // A switch turned off, or back on to the preset's own value, keeps the
+  // preset (PRESET_OFF_SWITCHES); any other dial makes the grid custom, as
+  // it always did. The parent decides what `keepPreset` means for its state.
+  function changeValue(key, value) {
+    const presetValue = activePreset ? PERMISSION_PRESETS[activePreset]?.values?.[key] : undefined;
+    const keepPreset =
+      Boolean(activePreset) && (isPresetOffSwitch(key, value) || (key in PRESET_OFF_SWITCHES && value === presetValue));
+    onValueChange(key, value, { keepPreset });
   }
   const canOfferToggle = (key) =>
     unrestricted || grants?.yourPermissions?.[key] === true;
@@ -213,6 +224,35 @@ export default function AccessEditor({
                 "Crew access is fixed: their own schedule, the jobs they're assigned to, what to buy for those jobs, and their own hours. No prices, quotes, invoices or requests. Crew don't use a seat — to give someone more than this, pick another level.",
               )}
             </p>
+          ) : null}
+          {/* The time clock, per person (owner, 2026-10-03). On for every
+              preset by default; this switch turns it off — and the rail row,
+              the Clock in cards and the clock's own routes with it
+              (lib/timeclock/access.js). It is an OFF switch only, so it
+              keeps the person in their preset (PRESET_OFF_SWITCHES) and a
+              Crew member stays free. Shown on the fixed Crew panel, where
+              there is no Time Tracking dial to use instead. */}
+          {activePreset === FIXED_PRESET ? (
+            <label className="flex items-start gap-2.5 text-sm border-t border-border pt-3">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={values.timeTracking !== PRESET_OFF_SWITCHES.timeTracking}
+                onChange={(e) =>
+                  changeValue(
+                    "timeTracking",
+                    e.target.checked
+                      ? PERMISSION_PRESETS[FIXED_PRESET].values.timeTracking
+                      : PRESET_OFF_SWITCHES.timeTracking,
+                  )
+                }
+              />
+              <span>
+                <span className="font-medium text-foreground">{t("app.setTeamNew.timeClock")}</span>
+                <br />
+                <span className="text-muted-foreground">{t("app.setTeamNew.timeClockDesc")}</span>
+              </span>
+            </label>
           ) : (
           <>
           <div className="grid sm:grid-cols-2 gap-4 pt-2">
@@ -224,7 +264,7 @@ export default function AccessEditor({
                 <select
                   className={inputClass}
                   value={values[key] ?? cat.levels[0].value}
-                  onChange={(e) => onValueChange(key, e.target.value)}
+                  onChange={(e) => changeValue(key, e.target.value)}
                 >
                   {offerableLevels(key, cat).map((lvl) => (
                     <option key={lvl.value} value={lvl.value}>

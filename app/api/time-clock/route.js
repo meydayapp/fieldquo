@@ -44,6 +44,7 @@ import { BREAK_KINDS } from "@/lib/shifts/coverage";
 import { recordActivity } from "@/lib/activity/log";
 import { canSelfEnrol } from "@/lib/timeclock/selfEnrol";
 import { readOfflineKey, recordOfflineRefusal } from "@/lib/offline/idempotency";
+import { canUseTimeClock, CLOCK_REFUSAL } from "@/lib/timeclock/access";
 import { punchMoment } from "@/lib/offline/punchMoment";
 import {
   resolveTimeActivities,
@@ -165,6 +166,13 @@ export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
+  // The clock is a rung of the grid (lib/timeclock/access.js): switched off
+  // for this person in Edit access means refused here, not merely unlinked.
+  const full = await loadEnforceableMember(db, member.id);
+  if (!canUseTimeClock(full)) {
+    return NextResponse.json({ error: CLOCK_REFUSAL }, { status: 403 });
+  }
+
   const worker = await myWorker(member);
   if (!worker) {
     return NextResponse.json({
@@ -184,10 +192,7 @@ export async function GET(request) {
     });
   }
 
-  const [full, clock] = await Promise.all([
-    loadEnforceableMember(db, member.id),
-    companyClock(member.companyId),
-  ]);
+  const clock = await companyClock(member.companyId);
   const { timezone } = clock;
   const now = new Date();
   const { start } = dayBoundsInZone(now, timezone);
@@ -306,6 +311,13 @@ const MISTAP_WINDOW_MS = 60_000;
 export async function POST(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+
+  // Same rung as GET. Checked before anything is read or written — a punch
+  // replayed from the offline queue after the clock was switched off is
+  // refused like any other.
+  if (!canUseTimeClock(await loadEnforceableMember(db, member.id))) {
+    return NextResponse.json({ error: CLOCK_REFUSAL }, { status: 403 });
+  }
 
   const worker = await myWorker(member);
   if (!worker) {

@@ -23,6 +23,8 @@ import ListState from "@/app/components/ListState";
 import { KindChip } from "@/app/components/me/bits";
 import { CARD, CARD_CLIPPED } from "./surface";
 import WeekHoursCard from "@/app/components/timeclock/WeekHoursCard";
+import { usePermissions } from "@/app/providers/PermissionProvider";
+import { canUseTimeClock } from "@/lib/timeclock/access";
 
 function timeRange(item, language) {
   const s = formatTimeOfDay(new Date(item.start), language);
@@ -76,6 +78,9 @@ export default function CrewMyDay() {
   const [data, setData] = useState(null);
   const [errorKey, setErrorKey] = useState("");
   const [loading, setLoading] = useState(true);
+  // Switchable per person in Edit access (lib/timeclock/access.js): off, and
+  // the clock card and the week card are not offered.
+  const clockOn = canUseTimeClock(usePermissions());
 
   const load = useCallback(async () => {
     const result = await fetchList("/api/dashboard/my-day", { cache: "no-store" });
@@ -155,7 +160,7 @@ export default function CrewMyDay() {
             </section>
 
             {/* ── The clock ───────────────────────────────────────────── */}
-            {clock?.onRoster && (
+            {clockOn && clock?.onRoster && (
               <section className={`${CARD} flex flex-wrap items-center justify-between gap-3 p-4 sm:p-5`}>
                 <p className="flex items-center gap-2 text-sm text-foreground">
                   <Clock size={16} aria-hidden="true" />
@@ -172,7 +177,7 @@ export default function CrewMyDay() {
             )}
 
             {/* ── This week's time, and the way to the log ────────────── */}
-            {clock?.onRoster && <WeekHoursCard t={t} />}
+            {clockOn && clock?.onRoster && <WeekHoursCard t={t} />}
 
             {/* ── Today ───────────────────────────────────────────────── */}
             <section className={CARD_CLIPPED} aria-labelledby="myday-today">
