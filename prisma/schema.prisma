@@ -1578,6 +1578,14 @@ model Company {
   /// list is three rows long in practice. Null means no rules, which is what
   /// every company had before the column existed.
   leaveRules Json?
+  /// The time clock's activities — which tiles the crew see on /app/clock,
+  /// what each is called here, and which are paid. Shape:
+  /// { [activity]: { enabled?, label?, paid? } }, keys from
+  /// lib/timeclock/activities.js, resolved and defaulted there and nowhere
+  /// else. Null means every activity on, the built-in names, and the pay rule
+  /// the clock always had: work paid, breaks and lunch unpaid. One Json column
+  /// for the same reason as payCycle — read together, as one policy.
+  timeActivities Json?
   taxRate                Decimal          @default(0) @db.Decimal(6, 3)
   paymentMethods         String[]         @default(["cash", "e_transfer", "cheque"])
   /// WHERE to send each offline payment, keyed by method — the e-transfer
@@ -8111,7 +8119,34 @@ model TimeEntry {
   billedInvoiceId String?
   billedInvoice   Invoice? @relation("TimeEntryBilledOn", fields: [billedInvoiceId], references: [id], onDelete: SetNull)
 
+  /// What the person was doing for this stretch, from the activity tiles on
+  /// /app/clock: on site at a job, driving, at the office, on a supply run,
+  /// or general. Null is every entry written before the tiles existed, and is
+  /// READ, never rewritten: a null with a job is a visit, a null without one
+  /// is general (lib/timeclock/activities.js effectiveActivity). Lunch and
+  /// breaks are not activities here — they stay TimeEntryBreak rows inside
+  /// the entry, so their pay rule is the one it always was.
+  activity TimeActivity?
+  /// Whether this stretch is paid, stamped from the company's activity
+  /// settings when the entry is opened (Company.timeActivities) so changing
+  /// the setting later never re-prices a day already worked. An unpaid
+  /// stretch closes with hours = 0 (lib/timeclock/entryHours.js), and since
+  /// `hours` is what payroll multiplies and job costing sums, nothing
+  /// downstream needs a second rule. Defaults true: every existing entry was
+  /// paid, and the column changes none of them.
+  paid Boolean @default(true)
+
   @@index([billedInvoiceId])
+}
+
+/// The activity tiles of the time clock. Lunch and break are deliberately
+/// absent — they are TimeEntryBreak rows (ShiftBreakKind), not entries.
+enum TimeActivity {
+  visit
+  driving
+  office
+  supplies
+  general
 }
 
 /// A lunch or break the person ACTUALLY took, punched from /app/clock while

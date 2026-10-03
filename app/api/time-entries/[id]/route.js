@@ -152,7 +152,10 @@ export async function PATCH(request, { params }) {
     // the self-serve clock-out and the job switch use, so a pay run sees one
     // arithmetic whichever door closed the entry. A break still running is
     // counted up to this clock-out and closed at it below.
-    hours = entryHours(clockInMs, clockOutMs, existing.breaks);
+    // An activity the company does not pay for books 0 here as at the clock
+    // (TimeEntry.paid, stamped when the entry opened) — every entry before
+    // that column is paid, so its hours are computed exactly as before.
+    hours = entryHours(clockInMs, clockOutMs, existing.breaks, { paid: existing.paid });
   }
 
   const selfApproved =

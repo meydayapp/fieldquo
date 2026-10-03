@@ -318,13 +318,13 @@ export const ARTICLES = {
         heading: "What is on the screen",
         blocks: [
           { bullets: [
-            "**The clock face** — today's date and the live time. Clocked in, it adds an **On the clock** pill, the elapsed time, **Since** your clock-in time, and **On** the job's name (or **Not linked to a job**). Clocked out, it reads **You're clocked out.**",
-            "**Which job?** — a picker, shown only while you are clocked out and only when your company has open jobs. **No job — travel, yard, quoting** sits at the top; then **Scheduled for you today** and **Your other open jobs**.",
+            "**Track time** and **Time log** — two tabs. Track time is what you are doing now; Time log is a day as a timeline, with arrows to step back through the days.",
+            "**The timer** — clocked in, the activity you are on, how long you have been on it, **Since** when, and **On** the job's name (or **Not linked to a job**). Clocked out, the date, the live time and **You're clocked out.** Under it, **Total today**.",
+            "**The tiles** — the activities your company uses, in a grid; the one running is lit. **Unpaid** under a tile means your company does not pay for that time. **Clock out** (red) sits on the last row while you are clocked in.",
             "**The location line** — shown only while the phone has not yet answered the permission question, so you read why before the phone asks.",
-            "**Clock in** (green) or **Clock out** (red) — the one button.",
-            "**Today** — the day's total and each entry with its times and its job, plus the note that your hours go to your manager.",
+            "**Today** — each stretch with its activity, its times and its job, plus the note that your hours go to your manager.",
           ] },
-          { figure: "harness:mobile-clock", caption: "Time clock on a phone — On the clock since 7:28 on the Dubois kitchen job, the location note, the Clock out button, and Moved to another job? underneath." },
+          { figure: "harness:mobile-clock", caption: "Time clock on a phone — the running activity and its timer, the tiles, and Clock out on the last row." },
         ],
       },
       {
@@ -332,21 +332,21 @@ export const ARTICLES = {
         heading: "How to clock in and out",
         blocks: [
           { steps: [
-            "Open **More → Time clock** (or bookmark it).",
-            "Check the job under **Which job?** If you have exactly one visit today it is filled in for you and the screen says so; with several, it asks you to pick the one you are starting; with none, it says so and leaves it blank.",
-            "Tap **Clock in**. If your phone asks whether FieldQuo may use your location, answer once; a refusal changes nothing about the punch.",
-            "Work. The elapsed time counts up on the screen; it also keeps counting on the server if you close the tab or the battery dies.",
-            "Tap **Clock out**. The entry moves into **Today** with its hours.",
+            "Tap **Clock** in the bar at the bottom of your phone (on a computer, **More → Time clock**).",
+            "Tap what you are starting. **On site** opens a short sheet with the job: if you have exactly one visit today it is filled in; with several, pick the one you are starting; then tap **Start**.",
+            "If your phone asks whether FieldQuo may use your location, answer once; a refusal changes nothing about the punch.",
+            "Work. The timer counts up on the screen; the time also keeps counting on the server if you close the tab or the battery dies.",
+            "Tap **Clock out**. Every stretch of the day is under **Today**, and on the **Time log** tab as a timeline.",
           ] },
-          { figure: "live:app-clock", caption: "The same screen on a computer — the clock face, the Today list with each entry and its job, and the review note." },
+          { figure: "live:app-clock", caption: "The same screen on a computer — the timer, the tiles, and the Today list with each stretch and its job." },
         ],
       },
       {
         id: "switch-job",
-        heading: "Moved to another job?",
+        heading: "Moving between activities",
         blocks: [
-          { p: "Staying clocked in all day puts the whole shift on the first job. The **Moved to another job?** card fixes that: pick the new job and tap **Switch job**. The current entry is closed at that instant and a new one opened on the new job — the hours already worked keep the job they were worked on, and, as the card says, a new entry starts from now." },
-          { note: "Switch job is disabled while the picker shows the job you are already on. There is no undo: if you switched to the wrong job, switch again — the minute in between lands on the wrong job and your manager can correct it on Timesheets." },
+          { p: "Staying on one activity all day puts the whole shift there. Tap the next tile instead — **Driving** to the next site, **On site** when you arrive (pick the job), **Supplies** for a run to the store. The current stretch closes at that instant and the new one opens, so the time already worked keeps the activity and job it was worked on. On a break, tap the tile you were on, or **End break — back to …**, to carry on." },
+          { note: "Tapping the tile that is already running does nothing. A wrong tap fixed within a minute replaces the first one rather than leaving a stray entry; after that, tap the right tile — the minutes in between stay where they were, and your manager can correct them on Timesheets." },
         ],
       },
       {

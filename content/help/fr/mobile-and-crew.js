@@ -316,13 +316,13 @@ export const ARTICLES = {
         heading: "Ce qu'il y a à l'écran",
         blocks: [
           { bullets: [
-            "**Le cadran** — la date du jour et l'heure en direct. Une fois pointé, il ajoute une pastille **En service**, le temps écoulé, **Depuis** votre heure d'entrée, et **Sur** le nom du chantier (ou **Rattaché à aucun chantier**). Une fois sorti, il se lit **Vous êtes hors service.**",
-            "**Quel chantier?** — un sélecteur, affiché seulement quand vous êtes hors service et seulement quand votre entreprise a des chantiers en cours. **Aucun chantier — déplacement, cour, soumissions** est en haut; puis **Prévu pour vous aujourd'hui** et **Vos autres chantiers en cours**.",
-            "**La ligne de position** — affichée seulement tant que le téléphone n'a pas encore répondu à la question de permission, pour que vous lisiez pourquoi avant que le téléphone demande.",
-            "**Pointer l'entrée** (vert) ou **Pointer la sortie** (rouge) — le seul bouton.",
-            "**Aujourd'hui** — le total de la journée et chaque entrée avec ses heures et son chantier, plus la note disant que vos heures vont à votre gestionnaire.",
+            "**Pointer** et **Journal** — deux onglets. Pointer, c'est ce que vous faites maintenant ; Journal, c'est une journée en ligne du temps, avec des flèches pour remonter les jours.",
+            "**Le chronomètre** — en service, l'activité en cours, depuis combien de temps, **Depuis** quelle heure, et **Sur** le nom du chantier (ou **Rattaché à aucun chantier**). Hors service, la date, l'heure en direct et **Vous êtes hors service.** Dessous, **Total aujourd'hui**.",
+            "**Les tuiles** — les activités qu'utilise votre entreprise, en grille ; celle en cours est allumée. **Non payé** sous une tuile veut dire que votre entreprise ne paie pas ce temps. **Pointer la sortie** (rouge) est sur la dernière rangée quand vous êtes en service.",
+            "**La ligne de localisation** — affichée seulement tant que le téléphone n'a pas répondu à la demande d'autorisation, pour que vous lisiez pourquoi avant qu'il ne demande.",
+            "**Aujourd'hui** — chaque période avec son activité, ses heures et son chantier, et la note indiquant que vos heures vont à votre gestionnaire.",
           ] },
-          { figure: "harness:mobile-clock", caption: "La pointeuse sur un téléphone — En service depuis 7 h 28 sur le chantier de la cuisine Dubois, la note de position, le bouton Pointer la sortie, et Vous avez changé de chantier? dessous." },
+          { figure: "harness:mobile-clock", caption: "La pointeuse sur un téléphone — l'activité en cours et son chronomètre, les tuiles, et Pointer la sortie sur la dernière rangée." },
         ],
       },
       {
@@ -330,21 +330,21 @@ export const ARTICLES = {
         heading: "Comment pointer l'entrée et la sortie",
         blocks: [
           { steps: [
-            "Ouvrez **Plus → Pointeuse** (ou mettez-la en favoris).",
-            "Vérifiez le chantier sous **Quel chantier?** Si vous avez exactement une visite aujourd'hui, il est rempli pour vous et l'écran le dit; avec plusieurs, il vous demande de choisir celle que vous commencez; sans aucune, il le dit et laisse vide.",
-            "Tapotez **Pointer l'entrée**. Si votre téléphone demande si FieldQuo peut utiliser votre position, répondez une fois; un refus ne change rien au pointage.",
-            "Travaillez. Le temps écoulé défile à l'écran; il continue aussi de compter sur le serveur si vous fermez l'onglet ou si la pile meurt.",
-            "Tapotez **Pointer la sortie**. L'entrée passe dans **Aujourd'hui** avec ses heures.",
+            "Touchez **Pointage** dans la barre au bas de votre téléphone (sur un ordinateur, **Plus → Pointeuse**).",
+            "Touchez ce que vous commencez. **Sur le chantier** ouvre une petite fenêtre avec le chantier : si vous avez exactement une visite aujourd'hui, elle est déjà remplie ; s'il y en a plusieurs, choisissez celle que vous commencez ; puis touchez **Commencer**.",
+            "Si votre téléphone demande si FieldQuo peut utiliser votre position, répondez une fois ; un refus ne change rien au pointage.",
+            "Travaillez. Le chronomètre avance à l'écran ; le temps continue aussi de compter sur le serveur si vous fermez l'onglet ou si la batterie meurt.",
+            "Touchez **Pointer la sortie**. Chaque période de la journée est sous **Aujourd'hui**, et dans l'onglet **Journal** en ligne du temps.",
           ] },
-          { figure: "live:app-clock", caption: "Le même écran sur un ordinateur — le cadran, la liste Aujourd'hui avec chaque entrée et son chantier, et la note de révision." },
+          { figure: "live:app-clock", caption: "Le même écran sur un ordinateur — le chronomètre, les tuiles et la liste Aujourd'hui avec chaque période et son chantier." },
         ],
       },
       {
         id: "switch-job",
-        heading: "Vous avez changé de chantier?",
+        heading: "Passer d'une activité à l'autre",
         blocks: [
-          { p: "Rester pointé toute la journée met tout le quart sur le premier chantier. La carte **Vous avez changé de chantier?** règle ça : choisissez le nouveau chantier et tapotez **Changer de chantier**. L'entrée courante est fermée à cet instant et une nouvelle est ouverte sur le nouveau chantier — les heures déjà travaillées gardent le chantier où elles ont été faites, et, comme le dit la carte, une nouvelle entrée commence maintenant." },
-          { note: "Changer de chantier est désactivé tant que le sélecteur montre le chantier où vous êtes déjà. Il n'y a pas d'annulation : si vous avez changé pour le mauvais chantier, changez de nouveau — la minute entre les deux atterrit sur le mauvais chantier et votre gestionnaire peut la corriger dans Feuilles de temps." },
+          { p: "Rester sur une seule activité toute la journée met tout le quart au même endroit. Touchez plutôt la tuile suivante — **Route** vers le prochain chantier, **Sur le chantier** à l'arrivée (choisissez le chantier), **Matériel** pour un aller au magasin. La période en cours se ferme à cet instant et la nouvelle s'ouvre ; le temps déjà fait garde l'activité et le chantier où il a été fait. En pause, touchez la tuile où vous étiez, ou **Fin de la pause — retour à …**, pour reprendre." },
+          { note: "Toucher la tuile déjà en cours ne fait rien. Une erreur corrigée dans la minute remplace la première plutôt que de laisser une entrée de trop ; après, touchez la bonne tuile — les minutes entre les deux restent où elles sont, et votre gestionnaire peut les corriger sur les feuilles de temps." },
         ],
       },
       {

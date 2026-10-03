@@ -534,7 +534,7 @@ export const ARTICLES = {
         id: "the-clock-and-the-dots",
         heading: "The time clock drives the dots",
         blocks: [
-          { p: "The dot on each person's initials comes from the [[the-time-clock|time clock]], not from the plan. **Green** means clocked in now — the line says **on site since 7:42**. **Amber** means they pressed **Start lunch** or **Start break** on the clock and have not ended it — **on break since 12:03**. **Grey** means scheduled today and not clocked in. A hollow dot is not scheduled; a muted one is on approved leave." },
+          { p: "The dot on each person's initials comes from the [[the-time-clock|time clock]], not from the plan. **Green** means clocked in now — the line says **on site since 7:42**. **Amber** means they tapped **Lunch** or **Break** on the clock and have not ended it — **on break since 12:03**. **Grey** means scheduled today and not clocked in. A hollow dot is not scheduled; a muted one is on approved leave." },
           { p: "The board re-reads itself every thirty seconds while the tab is open, and at once when you come back to it, so a break punched in the van changes the colour here without a reload. The planned lunch stays hatched inside the block; the dot shows the real one — so you can see that the 12:00 lunch actually started at 12:20." },
           { p: "A break punched on the clock is recorded on the person's time entry, not on the shift. Unpaid breaks come off the hours booked at clock-out, and the [[timesheets-and-approving-hours|timesheet]] shows the minutes beside the hours." },
         ],
@@ -655,8 +655,8 @@ export const ARTICLES = {
         id: "overview",
         heading: "What is on the screen",
         blocks: [
-          { p: "The day and the live clock. Under it either **You're clocked out.** with a **Which job?** picker and a green **Clock in**, or an **On the clock** pill with **Since {time}**, the elapsed time, **On {job}**, and a red **Clock out**. While clocked in, **Moved to another job?** offers a second picker and **Switch job**. Below, **Today** totals the day's hours and lists each entry, the running one marked **Open**, with the line “Your hours go to your manager to review and approve.”" },
-          { figure: "live:app-clock", caption: "Time clock — clocked out, the Which job? picker on “No job — travel, yard, quoting”, and the Clock in button." },
+          { p: "Two tabs: **Track time** and **Time log**. Track time shows what you are doing now — the activity (**On site**, **Driving**, **Office**, **Supplies**, **Break**, **Lunch** or **General**, whichever your company uses), how long you have been on it, **Since** when, and **On {job}** — then **Total today**. Below, the activity tiles, with the running one lit and a red **Clock out** on the last row. **Today** lists each stretch with its activity, times and job, with the line “Your hours go to your manager to review and approve.” Time log shows a whole day as a timeline, one person at a time; a manager who can see everyone's hours sees everyone." },
+          { figure: "live:app-clock", caption: "Time clock — the timer and Total today, the activity tiles, and the Today list." },
         ],
       },
       {
@@ -664,12 +664,12 @@ export const ARTICLES = {
         heading: "How to clock in, switch and clock out",
         blocks: [
           { steps: [
-            "Pick the job under **Which job?**. If you have one visit scheduled today it is already selected (“You're scheduled here today — change it if you're somewhere else.”); with several, pick the one you are starting; with none, choose a job under **Your other open jobs** or leave **No job — travel, yard, quoting**.",
-            "Press **Clock in**. If the browser asks where your phone is, that is the one-time position beside this punch — say yes or no; the punch records either way.",
-            "Moved sites? Under **Moved to another job?** pick the new job and press **Switch job**. The hours so far stay on the first job and a new entry starts from now.",
-            "Press **Clock out** at the end. The entry closes and appears under **Today**.",
+            "Tap the tile for what you are starting. That clocks you in. **On site** asks which job first — today's only visit is already picked; with several, pick the one you are starting. **Driving** and **Supplies** let you pick a job, so the time counts toward it, or leave **No job**. **Office** and **General** never take a job.",
+            "If the browser asks where your phone is, that is the one-time position beside this tap — say yes or no; the punch records either way.",
+            "Moving on? Tap the next tile. What was running closes at that instant and the new activity starts, so the time so far keeps the activity and job it was worked on. **Break** and **Lunch** pause what you were doing; **End break — back to …**, or the same tile, carries on.",
+            "Press **Clock out** at the end of the day. Everything closes and appears under **Today** and in the **Time log**.",
           ] },
-          { note: "One open entry at a time. Clocking in while already in is refused with “You're already clocked in — clock out first.” A forgotten clock-out is fixed on Timesheets — see [[timesheets-and-approving-hours|Timesheets: review and approve hours]]." },
+          { note: "Tapping the tile that is already running does nothing — the clock refuses it rather than doubling it. A forgotten clock-out is fixed on Timesheets — see [[timesheets-and-approving-hours|Timesheets: review and approve hours]]." },
         ],
       },
       {

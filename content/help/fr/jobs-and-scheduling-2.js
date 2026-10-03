@@ -531,7 +531,7 @@ export const ARTICLES = {
         id: "the-clock-and-the-dots",
         heading: "L'horodateur pilote les points",
         blocks: [
-          { p: "Le point sur les initiales de chaque personne vient de l'[[the-time-clock|horodateur]], pas du plan. **Vert** : pointé en ce moment — la ligne dit **sur place depuis 7:42**. **Ambre** : la personne a appuyé sur **Commencer le dîner** ou **Commencer une pause** sur l'horodateur sans y mettre fin — **en pause depuis 12:03**. **Gris** : planifié aujourd'hui et pas encore pointé. Un point creux n'est pas planifié ; un point atténué est en congé approuvé." },
+          { p: "Le point sur les initiales de chaque personne vient de l'[[the-time-clock|horodateur]], pas du plan. **Vert** : pointé en ce moment — la ligne dit **sur place depuis 7:42**. **Ambre** : la personne a appuyé sur **Dîner** ou **Pause** sur la pointeuse sans y mettre fin — **en pause depuis 12:03**. **Gris** : planifié aujourd'hui et pas encore pointé. Un point creux n'est pas planifié ; un point atténué est en congé approuvé." },
           { p: "Le tableau se relit toutes les trente secondes tant que l'onglet est ouvert, et immédiatement quand vous y revenez, si bien qu'une pause pointée dans le camion change la couleur ici sans recharger. Le dîner prévu reste hachuré dans le bloc ; le point montre le vrai — vous voyez donc que le dîner de 12:00 a réellement commencé à 12:20." },
           { p: "Une pause pointée sur l'horodateur est inscrite sur l'entrée de temps de la personne, pas sur le quart. Les pauses non payées sont déduites des heures inscrites au pointage de sortie, et la [[timesheets-and-approving-hours|feuille de temps]] affiche les minutes à côté des heures." },
         ],
@@ -652,21 +652,21 @@ export const ARTICLES = {
         id: "overview",
         heading: "Ce qu'il y a à l'écran",
         blocks: [
-          { p: "Le jour et l'horloge en direct. Dessous, soit **Vous êtes hors service.** avec un sélecteur **Quel chantier?** et un bouton vert **Pointer l'entrée**, soit une pastille **En service** avec **Depuis {heure}**, le temps écoulé, **Sur {chantier}** et un bouton rouge **Pointer la sortie**. Pendant que vous êtes en service, **Vous avez changé de chantier?** offre un second sélecteur et **Changer de chantier**. Dessous, **Aujourd'hui** totalise les heures du jour et liste chaque entrée, celle en cours marquée **En cours**, avec la ligne « Vos heures sont transmises à votre gestionnaire pour révision et approbation. »" },
-          { figure: "live:app-clock", caption: "Pointeuse — hors service, le sélecteur Quel chantier? sur « Aucun chantier — déplacement, cour, soumissions », et le bouton Pointer l'entrée." },
+          { p: "Deux onglets : **Pointer** et **Journal**. Pointer montre ce que vous faites maintenant — l'activité (**Sur le chantier**, **Route**, **Bureau**, **Matériel**, **Pause**, **Dîner** ou **Général**, selon ce que votre entreprise utilise), depuis combien de temps, **Depuis** quelle heure et **Sur {chantier}** — puis **Total aujourd'hui**. Dessous, les tuiles d'activité, celle en cours allumée, et un bouton rouge **Pointer la sortie** sur la dernière rangée. **Aujourd'hui** liste chaque période avec son activité, ses heures et son chantier, avec la ligne « Vos heures sont transmises à votre gestionnaire pour révision et approbation. » Journal montre une journée entière en ligne du temps, personne par personne ; un gestionnaire qui voit les heures de tout le monde voit tout le monde." },
+          { figure: "live:app-clock", caption: "Pointeuse — le chronomètre et le Total aujourd'hui, les tuiles d'activité et la liste Aujourd'hui." },
         ],
       },
       {
         id: "clock-in-and-out",
-        heading: "Comment pointer l'entrée, changer de chantier et pointer la sortie",
+        heading: "Comment pointer l'entrée, changer d'activité et pointer la sortie",
         blocks: [
           { steps: [
-            "Choisissez le chantier sous **Quel chantier?**. Si vous avez une visite prévue aujourd'hui, elle est déjà sélectionnée (« Vous êtes prévu ici aujourd'hui — changez-le si vous êtes ailleurs. ») ; s'il y en a plusieurs, choisissez celle que vous commencez ; s'il n'y en a aucune, choisissez un chantier sous **Vos autres chantiers en cours** ou laissez **Aucun chantier — déplacement, cour, soumissions**.",
-            "Appuyez sur **Pointer l'entrée**. Si le navigateur demande où est votre téléphone, c'est la position unique conservée à côté de ce pointage — dites oui ou non ; le pointage est enregistré dans les deux cas.",
-            "Changé de chantier ? Sous **Vous avez changé de chantier?**, choisissez le nouveau chantier et appuyez sur **Changer de chantier**. Les heures faites jusque-là restent sur le premier chantier et une nouvelle entrée commence maintenant.",
-            "Appuyez sur **Pointer la sortie** à la fin. L'entrée se ferme et apparaît sous **Aujourd'hui**.",
+            "Touchez la tuile de ce que vous commencez. Cela vous met en service. **Sur le chantier** demande d'abord le chantier — la seule visite du jour est déjà choisie ; s'il y en a plusieurs, choisissez celle que vous commencez. **Route** et **Matériel** permettent de choisir un chantier, pour que le temps y compte, ou de laisser **Aucun chantier**. **Bureau** et **Général** ne prennent jamais de chantier.",
+            "Si le navigateur demande où est votre téléphone, c'est la position unique conservée à côté de ce pointage — dites oui ou non ; le pointage est enregistré dans les deux cas.",
+            "Vous passez à autre chose ? Touchez la tuile suivante. Ce qui était en cours se ferme à cet instant et la nouvelle activité commence ; le temps déjà fait garde l'activité et le chantier où il a été fait. **Pause** et **Dîner** mettent en pause ce que vous faisiez ; **Fin de la pause — retour à …**, ou la même tuile, reprend.",
+            "Appuyez sur **Pointer la sortie** à la fin de la journée. Tout se ferme et apparaît sous **Aujourd'hui** et dans le **Journal**.",
           ] },
-          { note: "Une seule entrée ouverte à la fois. Pointer l'entrée quand on est déjà en service est refusé avec « You're already clocked in — clock out first. » Une sortie oubliée se corrige sur les feuilles de temps — voir [[timesheets-and-approving-hours|Feuilles de temps : réviser et approuver les heures]]." },
+          { note: "Toucher la tuile déjà en cours ne fait rien — la pointeuse le refuse plutôt que de doubler l'entrée. Une sortie oubliée se corrige sur les feuilles de temps — voir [[timesheets-and-approving-hours|Feuilles de temps : réviser et approuver les heures]]." },
         ],
       },
       {

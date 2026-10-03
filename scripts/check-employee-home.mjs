@@ -81,14 +81,21 @@ check("both sets are five tabs with Home first, Messages fourth, More last", () 
     assert.equal(set[3].href, "/app/chat");
     assert.equal(set[4].href, "/app/me/more");
   }
-  assert.equal(ME_TABS.worker[2].href, "/app/me/earnings");
+  // The worker's second tab is the time clock (2026-10-03, the owner:
+  // "Crew members don't have the clock in and clock out option in their
+  // menu"); Earnings moved to a row on More, drawn there for every set.
+  assert.equal(ME_TABS.worker[1].href, "/app/clock");
+  assert.equal(ME_TABS.worker[2].href, "/app/me/schedule");
+  assert.ok(!ME_TABS.worker.some((tab) => tab.href === "/app/me/earnings"));
   assert.equal(ME_TABS.manager[2].href, "/app/me/team");
   assert.equal(ME_TABS.manager[1].href, "/app/scheduler");
 });
 check("the active tab is exact for Home and a prefix for the rest", () => {
   const tabs = meTabsFor(preset("worker"));
   assert.equal(activeMeTab(tabs, "/app/me"), "/app/me");
-  assert.equal(activeMeTab(tabs, "/app/me/earnings"), "/app/me/earnings");
+  assert.equal(activeMeTab(tabs, "/app/clock"), "/app/clock");
+  assert.equal(activeMeTab(tabs, "/app/me/schedule"), "/app/me/schedule");
+  assert.equal(activeMeTab(tabs, "/app/me/earnings"), null);
   assert.equal(activeMeTab(tabs, "/app/me/requests"), null);
   assert.equal(activeMeTab(tabs, "/app/chat?room=x"), null);
   assert.equal(activeMeTab(tabs, "/app/chat"), "/app/chat");

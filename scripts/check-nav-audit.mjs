@@ -298,6 +298,7 @@ const DRILL_INS = {
   "/app/me/tax-forms": "the TD1 / W-4 form — opened from a checklist item, never browsed to: it is a thing you fill in once",
   "/app/me/requests": "the person's own shift and availability requests — a row on the employee home's More tab (app/app/me/more/page.js), with the pending count as its badge",
   "/app/me/availability": "when the person can work, or be booked — a row on the employee home's More tab",
+  "/app/me/earnings": "the person's own timecard and pay — a row on the employee home's More tab for every tab set (app/app/me/more/page.js), and the Today card's \"View timecard\" link; it was the worker set's third tab until the time clock took that slot on 2026-10-03",
   "/app/me/supplies": "request a supply from the van — a row on the employee home's More tab, a link on the job's Materials card, and the target of the ordered/restocked notifications",
   "/app/subcontractors/[id]": "one subcontractor — opened from the Subcontractors list and from a job's own \"Subs on this job\" panel",
   "/app/subcontractors/new": "opened from the Subcontractors list page's own Add button",
@@ -314,7 +315,7 @@ function walkPages(dir, out = []) {
 }
 const allAppRoutes = walkPages("app/app").map((d) => d.replace(/^app/, ""));
 // The employee home is its own surface with its own nav — the tab bar
-// lib/me/tabs.js draws (Home, Schedule, Earnings / Team, Messages, More).
+// lib/me/tabs.js draws (Home, Clock / Schedule, Schedule / Team, Messages, More).
 // A page a tab reaches is reached, the same as a sidebar row; the pages
 // under More are named as drill-ins below, because More IS the row.
 const meTabItems = Object.values(ME_TABS).flat();

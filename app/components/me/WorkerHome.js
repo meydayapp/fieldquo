@@ -21,6 +21,7 @@ import { formatTimeOfDay } from "@/lib/format/localeDate";
 import { reportResponseError } from "@/lib/clientErrors";
 import { Action, BigRow, Card, CardTitle, EmptyNote, KindChip, MeLoad, PersonAvatar, RowList, hoursWords, useMeData, whenWords } from "./bits";
 import ShiftRequestDialog from "./ShiftRequestDialog";
+import WeekHoursCard from "@/app/components/timeclock/WeekHoursCard";
 
 /** Morning / afternoon / evening by the phone's clock — the greeting is for the reader, where they are. */
 export function greetingKey(hour) {
@@ -92,6 +93,9 @@ export default function WorkerHome() {
 
           {/* ── Today ───────────────────────────────────────────────── */}
           {data.clock.entries.length ? <TodayCard clock={data.clock} t={t} language={language} money={money} now={now} /> : null}
+
+          {/* ── This week's time, and the way to the Time log ────────── */}
+          <WeekHoursCard t={t} />
 
           {/* ── Coming up ───────────────────────────────────────────── */}
           {data.upcoming?.length ? (
