@@ -19,6 +19,36 @@
 // genuinely different UI pattern (a fixed menu, not a formula), and mixing
 // the two schemas in one file would blur a real distinction.
 
+import {
+  FINISH_LEVELS,
+  FINISH_LEVEL_LABELS,
+  LEGACY_FINISH_LEVELS,
+  DEFAULT_FINISH_LEVEL,
+} from "./drywallFinishLevels";
+
+// One definition for both drywall quote types, so the two selects cannot drift
+// apart the way two copies of the old option list could have.
+//
+// Three keys no other field has, all STAFF-SIDE — publicIntakeFields below
+// strips them, so the public form receives the plain definition it always
+// did:
+//   optionLabels  the English line under each value (the app catalogue's
+//                 app.intake.finishLevel.<value> translates it)
+//   legacyValues  stored values from before 2026-10-03, displayed as the level
+//                 they meant rather than as a blank select
+//   default       what a NEW scope group opens on (newScopeGroup), visible in
+//                 the select and changeable — never written over an answer a
+//                 caller gave, and never into an existing group
+const FINISH_LEVEL_FIELD = Object.freeze({
+  key: "finishLevel",
+  label: "Finish Level",
+  type: "select",
+  options: FINISH_LEVELS,
+  optionLabels: FINISH_LEVEL_LABELS,
+  legacyValues: LEGACY_FINISH_LEVELS,
+  default: DEFAULT_FINISH_LEVEL,
+});
+
 export const INTAKE_FIELDS = {
   // ── Cabinets / original TrueFinish categories ──
   cabinet_refinishing: [
@@ -186,25 +216,22 @@ export const INTAKE_FIELDS = {
   ],
 
   // ── Drywall ── (three-phase: hang / tape+mud / sand+finish, each priced separately)
+  //
+  // The finish level is the six GA-214 levels — app/data/drywallFinishLevels.js
+  // says what each one is, maps the three values this select used to offer,
+  // and is the one place either list is written. The answer is READ: it names
+  // the level on the client's document (lib/documents/serviceContent.js) and
+  // puts that level's finishing line on the quote when the price book has a
+  // rate for it (lib/quotes/drywallFinishLine.js).
   drywall: [
     { key: "squareFootage", label: "Square Footage", type: "number" },
     { key: "ceilingHeight", label: "Ceiling Height (ft)", type: "number" },
-    {
-      key: "finishLevel",
-      label: "Finish Level",
-      type: "select",
-      options: ["level_2_unfinished", "level_4_standard", "level_5_premium"],
-    },
+    FINISH_LEVEL_FIELD,
     { key: "demoExisting", label: "Demo Existing Drywall", type: "boolean" },
   ],
   drywall_install: [
     { key: "squareFootage", label: "Square Footage", type: "number" },
-    {
-      key: "finishLevel",
-      label: "Finish Level",
-      type: "select",
-      options: ["level_2_unfinished", "level_4_standard", "level_5_premium"],
-    },
+    FINISH_LEVEL_FIELD,
   ],
 
   // ── General construction / renovation ──
@@ -1136,5 +1163,57 @@ const MAX_PUBLIC_FIELDS = 3;
 export function publicIntakeFields(categoryKey) {
   return getIntakeFields(categoryKey)
     .filter((f) => f.type === "number" || f.type === "select")
-    .slice(0, MAX_PUBLIC_FIELDS);
+    .slice(0, MAX_PUBLIC_FIELDS)
+    .map(publicShape);
+}
+
+// The keys a public field may carry — the same list scripts/check-self-quote.mjs
+// holds the endpoint to. Projected rather than trusted: the staff-side keys a
+// definition grows (the finish level's labels, legacy map and default) are for
+// the builder, and a field handed to a stranger's browser carries the question
+// and its choices, nothing else. A field with no extra keys comes out with
+// exactly the keys and values it went in with.
+const PUBLIC_FIELD_KEYS = ["key", "label", "type", "options", "unit", "placeholder", "help"];
+
+function publicShape(field) {
+  const out = {};
+  for (const k of PUBLIC_FIELD_KEYS) {
+    if (Object.prototype.hasOwnProperty.call(field, k)) {
+      out[k] = Array.isArray(field[k]) ? [...field[k]] : field[k];
+    }
+  }
+  return out;
+}
+
+/**
+ * The option a select shows for a stored value: the value itself, or — for a
+ * value the field no longer offers but used to — the option it meant. Anything
+ * else comes back unchanged, so nothing stored is hidden or invented.
+ */
+export function shownSelectValue(field, value) {
+  if (typeof value !== "string" || !value) return value;
+  if (Array.isArray(field?.options) && field.options.includes(value)) return value;
+  const legacy = field?.legacyValues;
+  if (legacy && Object.prototype.hasOwnProperty.call(legacy, value)) return legacy[value];
+  return value;
+}
+
+/**
+ * The answers a NEW scope group opens with: the caller's own, plus each
+ * field's `default` where the caller left that key out entirely. Only the
+ * finish level declares one. An answer the caller did give — even "" — wins.
+ */
+export function withFieldDefaults(fields, intakeValues = {}) {
+  const out = { ...(intakeValues || {}) };
+  for (const f of Array.isArray(fields) ? fields : []) {
+    if (
+      f &&
+      typeof f.key === "string" &&
+      f.default !== undefined &&
+      !Object.prototype.hasOwnProperty.call(out, f.key)
+    ) {
+      out[f.key] = f.default;
+    }
+  }
+  return out;
 }

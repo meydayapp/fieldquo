@@ -61,7 +61,9 @@ export default function ScopeGroupCard({
   // finding read as nonsense against a document that plainly had one. The
   // paragraph is shown here, folded, so what the client reads is in front of
   // the person writing it.
-  const content = resolveServiceContent(group.categoryKey, wordingOverride, group.takeoff || null);
+  // The intake rides along for a drywall group's finish level, which the
+  // client's paragraph states (lib/documents/serviceContent.js).
+  const content = resolveServiceContent(group.categoryKey, wordingOverride, group.takeoff || null, undefined, group.intakeValues);
   const accent = content.accent;
   const [showWording, setShowWording] = useState(false);
   const hasWording = Boolean(content.description) || (content.included || []).length > 0;

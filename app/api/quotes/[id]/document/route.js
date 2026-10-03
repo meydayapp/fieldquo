@@ -82,6 +82,9 @@ export async function GET(request, { params }) {
           // this response is rendered on a page an estimator without costing
           // permission can open.
           takeoff: true,
+          // Read for one answer — a drywall group's finish level, which the
+          // scope paragraph and the Drywall step state. Not returned.
+          intakeValues: true,
           category: { select: { key: true, label: true } },
         },
       },
@@ -106,6 +109,7 @@ export async function GET(request, { params }) {
       g.companySettings || null,
       g.takeoff,
       quote.language,
+      g.intakeValues,
     );
     return {
       id: g.id,
@@ -129,6 +133,7 @@ export async function GET(request, { params }) {
     categoryKey: g.category?.key || null,
     override: g.companySettings || null,
     subtotal: num(g.subtotal),
+    intake: g.intakeValues,
   }));
 
   return NextResponse.json({
