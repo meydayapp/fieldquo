@@ -22,6 +22,8 @@ import { reportResponseError } from "@/lib/clientErrors";
 import { Action, BigRow, Card, CardTitle, EmptyNote, KindChip, MeLoad, PersonAvatar, RowList, hoursWords, useMeData, whenWords } from "./bits";
 import ShiftRequestDialog from "./ShiftRequestDialog";
 import WeekHoursCard from "@/app/components/timeclock/WeekHoursCard";
+import { usePermissions } from "@/app/providers/PermissionProvider";
+import { clockOffered } from "@/lib/timeclock/access";
 
 /** Morning / afternoon / evening by the phone's clock — the greeting is for the reader, where they are. */
 export function greetingKey(hour) {
@@ -40,6 +42,9 @@ export default function WorkerHome() {
   const { data, errorKey, loading, reload } = useMeData("/api/me/home", { every: 60_000 });
   const [dialog, setDialog] = useState(null); // { shift, mode }
   const [shout, setShout] = useState(false);
+  // The clock is a rung of the grid an owner can switch off per person
+  // (lib/timeclock/access.js); then its button and card are not offered.
+  const clockOn = clockOffered(usePermissions());
   const now = useMemo(() => new Date(), [data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
@@ -73,10 +78,12 @@ export default function WorkerHome() {
           <NextUp item={data.next} t={t} language={language} money={money} now={now} onCover={(shift) => setDialog({ shift, mode: "cover" })} onTrade={(shift) => setDialog({ shift, mode: "trade" })} onClaim={(shift) => setDialog({ shift, mode: "claim" })} onRoster={data.me.onRoster} />
 
           {/* ── Quick actions ───────────────────────────────────────── */}
-          <div className="grid grid-cols-3 gap-2">
-            <Action href="/app/clock" variant="good" icon={Clock} className="flex-col gap-1 py-3 text-sm">
-              {data.clock.open ? t("app.me.action.clockOut") : t("app.me.action.clockIn")}
-            </Action>
+          <div className={`grid gap-2 ${clockOn ? "grid-cols-3" : "grid-cols-2"}`}>
+            {clockOn ? (
+              <Action href="/app/clock" variant="good" icon={Clock} className="flex-col gap-1 py-3 text-sm">
+                {data.clock.open ? t("app.me.action.clockOut") : t("app.me.action.clockIn")}
+              </Action>
+            ) : null}
             <Action href="/app/chat" variant="secondary" icon={MessagesSquare} className="flex-col gap-1 py-3 text-sm">
               {t("app.me.action.message")}
             </Action>
@@ -95,7 +102,7 @@ export default function WorkerHome() {
           {data.clock.entries.length ? <TodayCard clock={data.clock} t={t} language={language} money={money} now={now} /> : null}
 
           {/* ── This week's time, and the way to the Time log ────────── */}
-          <WeekHoursCard t={t} />
+          {clockOn ? <WeekHoursCard t={t} /> : null}
 
           {/* ── Coming up ───────────────────────────────────────────── */}
           {data.upcoming?.length ? (

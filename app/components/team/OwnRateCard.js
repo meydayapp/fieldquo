@@ -152,6 +152,44 @@ export default function OwnRateCard({ id = "own-rate", onSaved = null }) {
         ) : null}
       </div>
 
+      {/* ── Paid through payroll? (lib/payroll/ownerPay.js) ───────────────
+          An owner's row is left out of pay runs unless this is ticked —
+          the rate above is for job costing; the profit is how an owner is
+          paid. Anyone else is on payroll unless they untick it. Saved on
+          its own, the moment it changes, and redrawn from the server. */}
+      {data.worker && data.canSave ? (
+        <label className="flex items-start gap-2 text-sm text-foreground">
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={Boolean(data.worker.onPayroll)}
+            disabled={busy}
+            onChange={async (e) => {
+              const want = e.target.checked;
+              setBusy(true);
+              setError("");
+              try {
+                const res = await fetchJson("/api/me/own-rate", { method: "PATCH", body: { paidByPayroll: want } });
+                setData((d) => ({ ...d, worker: res.worker }));
+              } catch (err) {
+                setError(err.message || t("app.ownRate.payrollError", "Couldn't save that."));
+              } finally {
+                setBusy(false);
+              }
+            }}
+          />
+          <span>
+            <span className="font-medium">{t("app.ownRate.payroll", "Pay me through payroll")}</span>
+            <br />
+            <span className="text-xs text-muted-foreground">
+              {data.worker.onPayroll
+                ? t("app.ownRate.payrollOn", "Pay runs include your approved hours at this rate.")
+                : t("app.ownRate.payrollOff", "Pay runs leave you out. Your clocked hours still cost your jobs at this rate.")}
+            </span>
+          </span>
+        </label>
+      ) : null}
+
       {current == null && suggestion ? (
         <p className="text-xs text-muted-foreground">
           {suggestion.source === "labour_cost"

@@ -63,6 +63,11 @@ export async function GET(request) {
   // should return their rows, not 403. TimeEntry links to a Worker rather
   // than a User, so the scope goes on the nested relation.
   const full = await loadEnforceableMember(db, member.id);
+  // "No access" on the Time Tracking dial (the rung the time clock gained,
+  // lib/timeclock/access.js) is no timesheet at all — not even one's own.
+  if (!hasLevel(full, "timeTracking", "view_record_own")) {
+    return NextResponse.json({ error: "Your access level for Time Tracking & Timesheets doesn't include timesheets." }, { status: 403 });
+  }
   const seesEveryone = hasLevel(full, "timeTracking", "view_record_edit_all");
 
   const entries = await db.timeEntry.findMany({
@@ -134,6 +139,9 @@ export async function POST(request) {
   // any member open a shift on any colleague's timesheet, and hours are what
   // payroll pays out and what a job gets costed at.
   const full = await loadEnforceableMember(db, member.id);
+  if (!hasLevel(full, "timeTracking", "view_record_own")) {
+    return NextResponse.json({ error: "Your access level for Time Tracking & Timesheets doesn't include recording time." }, { status: 403 });
+  }
   if (
     !hasLevel(full, "timeTracking", "view_record_edit_all") &&
     worker.userId !== member.userId

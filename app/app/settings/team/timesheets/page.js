@@ -19,6 +19,7 @@ import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import { AlertTriangle, MapPin } from "lucide-react";
 import { stampVerdict, formatDistanceM } from "@/lib/geo/distance";
 import AttendanceChip from "@/app/components/team/AttendanceChip";
+import CorrectionRequests from "@/app/components/team/CorrectionRequests";
 
 // ── Where the phone was, as a chip ─────────────────────────────────────────
 //
@@ -396,6 +397,23 @@ function TimesheetsPageScreen() {
           </div>
         </form>
       )}
+
+      {/* Crew's correction requests — decided here, beside the hours they
+          change. Draws nothing for someone who cannot decide them. */}
+      <CorrectionRequests
+        caller={caller}
+        activities={activities}
+        t={t}
+        onApplied={async () => {
+          // The entry changed: re-read the list so its row shows the new
+          // times rather than the ones the request replaced.
+          const res = await fetch("/api/time-entries");
+          if (res.ok) {
+            const next = await res.json().catch(() => null);
+            if (Array.isArray(next)) setEntries(next);
+          }
+        }}
+      />
 
       <div data-tour="timesheets-list" className="bg-card border border-border rounded-xl divide-y divide-border">
         {/* Empty and failed are different sentences. "No time entries yet" on

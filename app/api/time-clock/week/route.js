@@ -21,10 +21,15 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { todayHoursFrom } from "@/lib/timeclock/todayHours";
 import { entrySegments, segmentTotals, weekStartInZone } from "@/lib/timeclock/segments";
 import { DEFAULT_TIMEZONE } from "@/lib/time/wallClock";
+import { loadEnforceableMember } from "@/lib/permissions/enforce";
+import { canUseTimeClock, CLOCK_REFUSAL } from "@/lib/timeclock/access";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+  if (!canUseTimeClock(await loadEnforceableMember(db, member.id))) {
+    return NextResponse.json({ error: CLOCK_REFUSAL }, { status: 403 });
+  }
 
   const [worker, company] = await Promise.all([
     db.worker.findFirst({
