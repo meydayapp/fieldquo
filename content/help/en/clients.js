@@ -803,10 +803,11 @@ export const ARTICLES = {
         id: "refer-and-earn",
         heading: "What Refer & Earn actually is",
         blocks: [
-          { p: "**Refer & Earn** — in the **Grow** group of the sidebar and again under **Settings → Account** — is for telling another business about FieldQuo. Your company has a referral link; when another contractor signs up through it, they get their first month free, and you get one month added to your own subscription once they actually pay. It is a contractor-to-contractor programme, run by FieldQuo, and the people who see the page are the owner and administrators." },
+          { p: "**Refer & Earn** — in the **Grow** group of the sidebar and again under **Settings → Account** — is for telling another business about FieldQuo. Once your company has chosen a plan it has a referral link; when another contractor signs up through it, they get a free referral month when they choose a plan — their first charge moves a month later — and you get one month added to your own subscription once they actually pay. It is a contractor-to-contractor programme, run by FieldQuo, and the people who see the page are the owner and administrators." },
           { figure: "live:app-settings-refer", caption: "Refer & Earn — your referral link, share by email or text, and the businesses you have referred with whether each is credited yet." },
           { bullets: [
             "The reward is **one month each way**, and yours lands only when the referred company makes its first payment — never on signup.",
+            "You need a plan to refer. On the free trial, Refer & Earn shows **Refer & Earn opens once you choose a plan** and a link to Account & Billing instead of a link to share.",
             "You cannot refer yourself, and a company that already exists cannot redeem a link.",
             "Full detail: [[refer-another-business|Refer another business]] and [[referral-months|Referral months]]. What the other contractor sees: [[the-referral-page|The referral page]].",
           ] },
@@ -826,7 +827,7 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "Will there be a client referral programme?", a: "Not today, and this page will say so until the product does it. Anything you read elsewhere promising a homeowner referral reward is not describing FieldQuo." },
-      { q: "Can a client use my Refer & Earn link?", a: "Only if they run a field-service business and sign up for FieldQuo themselves. It gives them a free month of the software, not anything on their job with you." },
+      { q: "Can a client use my Refer & Earn link?", a: "Only if they run a field-service business and sign up for FieldQuo themselves. It gives them a referral month of the software when they choose a plan, not anything on their job with you." },
       { q: "Can I see which clients came from referrals?", a: "Only what you wrote in Notes. There is no report of referral sources by client." },
     ],
   },

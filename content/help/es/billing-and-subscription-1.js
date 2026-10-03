@@ -178,7 +178,7 @@ export const ARTICLES = {
         heading: "Resumen",
         blocks: [
           { p: "La prueba empieza en el momento en que se crea su empresa y dura 14 días. Todavía no hay una suscripción detrás ni nada que cancelar: es simplemente una fecha. Una empresa que se registró con la prueba anterior de 30 días conserva la fecha de fin que se le dio." },
-          { p: "Es gratis, no un dólar simbólico. Una recomendación de otra empresa de FieldQuo añade un mes más a la prueba — vea [[referral-months|Meses por recomendación]]." },
+          { p: "Es gratis, no un dólar simbólico. Una recomendación de otra empresa de FieldQuo no alarga la prueba: su mes llega cuando elige un plan, y corre su primer cobro un mes — vea [[referral-months|Meses por recomendación]]." },
         ],
       },
       {
@@ -217,7 +217,7 @@ export const ARTICLES = {
     faq: [
       { q: "¿Es realmente gratis, o cuesta $1?", a: "Gratis. No se cobra nada durante los 14 días, y no se pide tarjeta hasta que elige un plan." },
       { q: "¿La prueba también aplica al plan anual?", a: "Sí. Elija el plan anual durante la prueba y el año empieza —y se cobra— el día en que termina la prueba." },
-      { q: "Me recomendó otro contratista — ¿cuánto dura mi prueba?", a: "14 días más un mes por recomendación, y los recordatorios se corren con ella. La confirmación después del registro nombra a la empresa que lo recomendó." },
+      { q: "Me recomendó otro contratista — ¿cuánto dura mi prueba?", a: "14 días, como todos. Su mes por recomendación llega cuando elige un plan: su primer cobro se corre un mes. La confirmación después del registro nombra a la empresa que lo recomendó. (Una empresa recomendada antes del 3 de octubre de 2026 recibió el mes agregado a su prueba, y lo conserva.)" },
       { q: "¿Puedo probarlo sin tarjeta?", a: "Sí. El registro no pide tarjeta. La añade al elegir un plan, y no se cobra hasta que termina la prueba." },
     ],
   },

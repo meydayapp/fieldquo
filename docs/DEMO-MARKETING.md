@@ -376,9 +376,11 @@ someone." Then continue.
 *[Open `/app/settings/refer`.]*
 
 > And this last one isn't about your customers at all — it's about you
-> talking to another contractor. You send them a link, they sign up, you
-> both get a free month. That's it — not your client referring their
-> neighbour, you referring another business owner you know.
+> talking to another contractor. Once you're on a plan, you send them a
+> link and they sign up. When they choose a plan, their first charge moves
+> a month later; when they make their first payment, you get a month too.
+> That's it — not your client referring their neighbour, you referring
+> another business owner you know.
 
 ---
 
@@ -500,7 +502,10 @@ own domain closes that gap; it's a DNS record, not a code limitation.
 **"Can my customer's neighbour refer themselves and get me a discount?"**
 No, and don't imply it can — that's a deliberately different, unbuilt feature.
 What exists is a contractor-to-contractor referral: you send another business
-owner a link, they sign up, and you both get one free month
+owner a link, they sign up, and you each get one free month — theirs when
+they choose a plan (their first charge moves a month later), yours on their
+first real payment, and only while you have a plan yourself; a company still
+on the free trial cannot refer (owner, 2026-10-03)
 (`lib/referrals/index.js` — `REFEREE_BONUS_MONTHS` and `REFERRER_BONUS_MONTHS`,
 both `1`, overridden down from an original three by the product owner on
 2026-08-27). There's a model for a homeowner-refers-a-neighbour feature sitting

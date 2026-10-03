@@ -110,7 +110,7 @@ Everything between a stranger hearing your name and a signed price: where the en
 | **Door-hanger routes** | Plan the streets, assign them, and tick off the stops as your crew works the neighbourhood. | `marketing_campaigns` | **Partial** |
 | **Review requests** | After the job is marked done, the client gets one polite ask for a review. | — | Shipped |
 | **Testimonials on your site** | Collect what clients said and show it on your website and in your quotes. | — | Shipped |
-| **Refer another contractor** | Send an invite; when they sign up you both get a free month added to your account. | — | Shipped |
+| **Refer another contractor** | On a plan, send an invite; they get a free month when they choose a plan, and you get one when they start paying. | — | Shipped |
 | **Drop-in widgets** | Paste one line into any website you already have to embed your booking, quote form or reviews. | — | Shipped |
 | **One link for your profiles** | A single branded page for your Instagram or truck decal that points at everything you offer. | — | Shipped |
 | **Subcontractor prices in your bid** | Pull a sub's quote straight into yours as a cost, mark it up, and your client sees only your price. | — | **Partial** |

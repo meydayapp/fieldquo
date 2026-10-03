@@ -1819,8 +1819,19 @@ model Company {
   referredByCode String?
   // When the referral was actually redeemed. Null on a company that arrived
   // organically, and also on one that arrived via a link but was blocked from
-  // redeeming (see lib/referrals/grantCredit.js).
+  // redeeming (see lib/referrals/index.js applySignupReferral).
   referredAt     DateTime?
+  /// Which referral terms this company's referral was made under, stamped
+  /// beside referredByCode at signup. "plan_required" (the owner, 2026-10-03:
+  /// "should only work when they have selected a plan") — the newcomer's month
+  /// lands when IT chooses a plan, and both sides need the REFERRER to have
+  /// chosen one at the moment of each grant. NULL on every company referred
+  /// before that: its month was already added to its trial at signup, and its
+  /// referrer is paid on the terms of the day — on the first payment, plan or
+  /// no plan. The grandfathering is this column and nothing else, so it can
+  /// never depend on when a deploy happened. lib/referrals/index.js
+  /// (REFERRAL_TERMS_PLAN_REQUIRED) is the only writer and the only reader.
+  referralTerms  String?
 
   // ── The influencer programme ─────────────────────────────────────────────
   //
@@ -10580,13 +10591,17 @@ model ReferralCredit {
   counterpartyCompanyId String?
 
   role   ReferralRole
-  // Referee ("referred") side: free months added to their trial. Referrer side
-  // no longer uses months — its reward is a dollar credit (below).
+  // Free months granted, both sides (lib/referrals). Referee rows written
+  // before 2026-10-03 added them to the trial at signup; since then the
+  // referee's month defers its first charge when it chooses a plan. Referrer
+  // rows have been months since 2026-08-27; the dollar credit below is history.
   months Int          @default(1)
 
-  // The trial end date this credit produced (referee side), captured at grant
-  // time. Storing it means a later change to the reward size can't retroactively
-  // rewrite what a company was actually given.
+  // The access end date this credit produced, captured at grant time — a trial
+  // end, or the Stripe trial_end a deferral set. NULL on a claimed row whose
+  // extension failed: a reward owed and visibly unpaid. Storing it means a
+  // later change to the reward size can't retroactively rewrite what a company
+  // was actually given.
   appliedTrialEndsAt DateTime?
 
   // Referrer side: the account credit earned, in cents, = one month of the

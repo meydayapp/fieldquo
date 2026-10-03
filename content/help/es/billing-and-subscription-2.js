@@ -254,10 +254,10 @@ export const ARTICLES = {
   "referral-months": {
     title: "Meses por referidos",
     summary:
-      "Cómo un negocio referido y el negocio que lo refirió ganan cada uno un mes gratis, cuándo cae cada mes, y las reglas que impiden abusar del programa.",
-    updated: "2026-09-12",
+      "Cómo un negocio referido y el negocio que lo refirió ganan cada uno un mes gratis una vez que tienen un plan, cuándo cae cada mes, y las reglas que impiden abusar del programa.",
+    updated: "2026-10-03",
     intro: [
-      "Refiera a otro contratista y ambos reciben lo mismo: **un mes más de FieldQuo gratis**. El mes del recién llegado se agrega a su prueba gratis en el momento en que se registra con su enlace. El suyo se agrega a su cuenta cuando ese negocio hace su **primer pago real** — no cuando se registra, porque un mes por un registro es un mes por una dirección desechable.",
+      "Refiera a otro contratista y ambos reciben lo mismo: **un mes más de FieldQuo gratis**. El programa de referidos funciona para las empresas que ya **eligieron un plan**: una empresa que sigue en su prueba gratuita todavía no puede referir. El mes del recién llegado llega cuando elige un plan: su primer cobro se corre un mes. El suyo se agrega a su cuenta cuando ese negocio hace su **primer pago real** — no cuando se registra, porque un mes por un registro es un mes por una dirección desechable.",
       "Este artículo es la mecánica: cómo se gana el mes, adónde va en una cuenta mensual, anual o en prueba, y los límites. La página en sí — el enlace, el formulario de invitación, la lista de negocios — se cubre en [[refer-another-business|Referir a otro negocio y ganar un mes gratis]].",
     ],
     sections: [
@@ -265,7 +265,9 @@ export const ARTICLES = {
         id: "overview",
         heading: "Resumen",
         blocks: [
-          { p: "Cada empresa tiene un código de referido y un enlace en **Recomienda y gana**. Un negocio que se registra con él empieza con su prueba gratuita normal de 14 días más un mes por referido. Luego aparece bajo **Negocios que has referido** como **Registrado: aún no paga** hasta que su primera factura pagada se procesa, momento en que la etiqueta pasa a **Acreditado** y se agrega un mes a su propio acceso, automáticamente." },
+          { p: "Cada empresa que eligió un plan tiene un código de referido y un enlace en **Recomienda y gana**. Mientras no elija uno, la página indica que Recomienda y gana se abre cuando elija un plan, con un enlace a **Cuenta y facturación**: no hay enlace que compartir ni nada que ganar todavía." },
+          { p: "Un negocio que se registra con su enlace empieza con la prueba gratuita normal de 14 días: no se le agrega nada. Cuando elige un plan, su mes por referido corre su primer cobro un mes. Registrado el 1 de octubre, prueba hasta el 15 de octubre, plan elegido el 10 de octubre: sin el referido, el primer cobro sería el 15 de octubre; con él, el 15 de noviembre. Con una condición: que usted todavía tenga un plan en el momento en que ese negocio elige el suyo." },
+          { p: "El negocio aparece bajo **Negocios que has referido** como **Registrado: aún no paga** hasta que su primera factura pagada se procesa, momento en que la etiqueta pasa a **Acreditado** y se agrega un mes a su propio acceso, automáticamente." },
           { p: "El mes es del mismo tamaño sin importar a quién refiera. Una empresa Solo que refiere a una empresa Scale gana un mes de Solo; el tamaño del negocio que trae no cambia lo que recibe: la pantalla lo dice con sus propias palabras." },
         ],
       },
@@ -274,8 +276,8 @@ export const ARTICLES = {
         heading: "Cómo se gana un mes",
         blocks: [
           { steps: [
-            "Abra **Recomienda y gana** (en la barra lateral principal, o bajo Configuración) y comparta **Tu enlace**: cópielo con **Copiar**, o use **Enviar una invitación** por correo o por SMS. FieldQuo envía un mensaje y no insiste, y el formulario de invitación permite 20 al día.",
-            "El otro negocio se registra con el enlace. Su prueba gratis se extiende un mes en el acto, y aparece en su lista como **Registrado: aún no paga**.",
+            "Elija un plan, si todavía está en la prueba gratuita. Luego abra **Recomienda y gana** (en la barra lateral principal, o bajo Configuración) y comparta **Tu enlace**: cópielo con **Copiar**, o use **Enviar una invitación** por correo o por SMS. FieldQuo envía un mensaje y no insiste, y el formulario de invitación permite 20 al día.",
+            "El otro negocio se registra con el enlace y recibe la prueba gratuita normal de 14 días. Aparece en su lista como **Registrado: aún no paga**. Cuando elige un plan, su primer cobro se corre un mes: ese es su mes por referido.",
             "Paga su primera factura real — la prueba gratuita es $0, así que el primer cobro después — habiendo terminado su incorporación y conectado una cuenta de Stripe verificada para recibir pagos.",
             "Su mes se agrega en el momento en que cae ese pago, y la fila dice **Acreditado**.",
           ] },
@@ -290,12 +292,13 @@ export const ARTICLES = {
           { table: {
             head: ["Su cuenta", "Qué hace el mes"],
             rows: [
-              ["Todavía en la prueba gratuita", "La fecha de fin de su prueba se corre un mes. No se cobra nada hasta entonces."],
+              ["Todavía en la prueba gratuita", "El mes queda guardado, no se pierde, y se agrega en el momento en que elige un plan: su primer cobro se corre un mes. (Solo es posible con un enlace compartido antes del 3 de octubre de 2026; hoy hace falta un plan para referir.)"],
               ["Pagando mensual", "Su próximo cobro se aplaza un mes calendario. El plan sigue; simplemente no se le cobra ese mes."],
               ["Pagando anual", "Su fecha de renovación se corre un mes: un año que termina el 27 de agosto se renueva el 27 de septiembre. No se le cobra otro año para recibirlo."],
             ],
           } },
           { p: "Los meses se apilan a partir de la más tardía de las dos fechas. Refiera a un segundo negocio antes de que el primer mes se haya agotado y la fecha de fin se corre otro mes, no vuelve a donde estaba. Un 31 que caería en un mes más corto pasa a ser el último día de ese mes." },
+          { p: "Los referidos hechos antes del 3 de octubre de 2026 conservan las condiciones de entonces. Un negocio referido antes de esa fecha ya recibió su mes agregado a la prueba al registrarse y lo conserva —no recibe un segundo mes al elegir un plan—, y a quien lo refirió se le acredita con el primer pago real de ese negocio, tenga plan o no. Nada de lo ya otorgado cambia." },
         ],
       },
       {
@@ -304,7 +307,8 @@ export const ARTICLES = {
         blocks: [
           { bullets: [
             "**Un mes cada uno**, para quien refiere y para el referido, sin importar el tamaño de ninguno de los dos negocios.",
-            "**Una empresa que ya existe puede referir pero nunca canjear.** El enlace es para negocios nuevos en FieldQuo; un cliente existente que vuelve a registrarse con un enlace no recibe nada.",
+            "**Un plan en ambos lados.** Usted refiere una vez que eligió un plan. El negocio referido recibe su mes cuando elige un plan, si usted tiene uno en ese momento; usted recibe el suyo con su primer pago real, si tiene uno en ese momento. Cada mes se otorga una vez, nunca dos.",
+            "**Una empresa que ya existe puede referir pero nunca canjear.** Refiere una vez que tiene un plan. El enlace es para negocios nuevos en FieldQuo; un cliente existente que vuelve a registrarse con un enlace no recibe nada.",
             "**No puede referirse a sí mismo.** Se comprueba por el código, no por la dirección de correo.",
             "**Como máximo 50 referidos acreditados por empresa por mes calendario.** Un tope contra el abuso, no un límite a lo que gana un referido real.",
             "**Cada empresa referida le gana el mes una sola vez.** Un pago reintentado o una renovación nunca pagan el mismo referido dos veces.",
@@ -322,7 +326,8 @@ export const ARTICLES = {
     faq: [
       { q: "El negocio que referí se registró hace semanas. ¿Por qué todavía no me acreditan?", a: "Su fila todavía dice Registrado: aún no paga. El mes se otorga con su primer pago real, después de su prueba gratuita, y solo una vez que su incorporación está completa y su cuenta de Stripe para pagos de clientes está verificada." },
       { q: "¿Es un descuento o un mes gratis?", a: "Un mes gratis: su próximo cobro se corre un mes. No es un crédito en dólares contra una factura más grande." },
-      { q: "¿El negocio referido recibe algo?", a: "Sí: un mes extra agregado a su prueba gratis al registrarse, antes de haber pagado nada." },
+      { q: "¿El negocio referido recibe algo?", a: "Sí: un mes gratis por referido cuando elige un plan: su primer cobro se corre un mes. Su prueba gratuita en sí es la normal de 14 días. Un negocio referido antes del 3 de octubre de 2026 recibió el mes agregado a su prueba al registrarse, y lo conserva." },
+      { q: "¿Por qué no veo mi enlace de referido?", a: "Recomienda y gana se abre cuando elige un plan. Durante la prueba gratuita la página muestra en su lugar un enlace a Cuenta y facturación; elija allí un plan y su enlace aparece." },
     ],
   },
 

@@ -171,9 +171,9 @@ export const ARTICLES = {
     title: "La página de referidos",
     summary:
       "La página en la que aterriza otro dueño de negocio cuando comparte su enlace de Recomienda y gana: para quién es, qué promete, qué dice de usted, y el único lugar donde el nombre de FieldQuo está pensado para aparecer.",
-    updated: "2026-09-12",
+    updated: "2026-10-03",
     intro: [
-      "Su enlace de referidos no es para propietarios de vivienda. Es para **otro negocio**: el electricista con el que comparte trabajos, el pintor que preguntó qué software usa. La página que abre dice que usted usa FieldQuo, le ofrece un mes gratis además de la prueba, y lo manda al formulario de registro con su nombre adjunto.",
+      "Su enlace de referidos no es para propietarios de vivienda. Es para **otro negocio**: el electricista con el que comparte trabajos, el pintor que preguntó qué software usa. La página que abre dice que usted usa FieldQuo, le ofrece un mes por referido cuando elija un plan —su primer cobro se corre un mes—, y lo manda al formulario de registro con su nombre adjunto. Usted tiene un enlace que compartir una vez que su empresa eligió un plan.",
       "Eso la hace la excepción a la regla de la marca blanca, a propósito: una página cuyo único fin es decir «este contratista usa FieldQuo; usted también podría» no puede esconder el nombre. Su logotipo y su color están en ella como quien refiere, y los de FieldQuo como el producto.",
     ],
     sections: [
@@ -191,8 +191,9 @@ export const ARTICLES = {
         blocks: [
           { bullets: [
             "Su logotipo — o, sin uno, su inicial sobre su color de marca — sobre la línea «[Su empresa] uses FieldQuo».",
-            "El titular **Get your first month free**, un párrafo de descripción de FieldQuo, y un botón **Claim your first month free** que abre el formulario de registro con su código de referido adjunto.",
-            "Bajo el botón: «No card needed to start — you choose a plan from inside the app.» Luego tres viñetas sobre lo que hace el producto.",
+            "El titular **Get a month free when you choose a plan** —el mes por referido—, un párrafo de descripción de FieldQuo, y un botón **Start my free trial** que abre el formulario de registro con su código de referido adjunto.",
+            "Bajo el botón, una línea pequeña: no hace falta tarjeta para empezar y, cuando elija un plan desde la app, su primer cobro se corre un mes. Luego tres viñetas sobre lo que hace el producto.",
+            "Si su empresa no tiene plan en ese momento —un enlace compartido durante su prueba—, el titular dice **Try FieldQuo free** y la página no promete nada más que la prueba normal. El visitante puede registrarse igual.",
             "Un pie que dice la parte discreta: «For businesses new to FieldQuo. Already have an account? Sign in.»: una empresa existente no puede canjear una oferta.",
           ] },
           { p: "La página se renderiza en el servidor para que se lea en el primer medio segundo con una sola barra de señal, y lleva una vista previa de enlace (título y descripción) porque se pega en grupos de WhatsApp y Facebook donde la tarjeta de vista previa es el argumento de venta." },
@@ -205,11 +206,11 @@ export const ARTICLES = {
           { table: {
             head: ["Quién", "Qué recibe", "Cuándo"],
             rows: [
-              ["El negocio que usted refirió", "**1 mes gratis extra** agregado a su prueba", "Al registrarse, en el momento en que usa su enlace"],
+              ["El negocio que usted refirió", "**1 mes gratis**: su primer cobro se corre un mes", "Cuando elige un plan (y usted tiene uno)"],
               ["Usted", "**1 mes gratis** agregado a su propio acceso", "Cuando la empresa referida hace su primer pago, no al registrarse"],
             ],
           } },
-          { p: "Ambos lados reciben lo mismo — un mes de FieldQuo — sea cual sea el tamaño del negocio que refiera. Su mes cae con su primer pago y no con su registro para que veinte registros desechables no puedan ganar un año gratis; el tope es de 50 referidos acreditados por mes calendario." },
+          { p: "Ambos lados reciben lo mismo — un mes de FieldQuo — sea cual sea el tamaño del negocio que refiera. Su prueba de 14 días es la normal; no se le agrega nada. Su mes cae con su primer pago y no con su registro para que veinte registros desechables no puedan ganar un año gratis; el tope es de 50 referidos acreditados por mes calendario." },
           { note: "El enlace no hace nada por una empresa que ya tiene cuenta, y usted no puede referirse a sí mismo. La página se lo dice antes de que llenen nada." },
         ],
       },

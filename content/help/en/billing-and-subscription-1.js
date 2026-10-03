@@ -184,7 +184,7 @@ export const ARTICLES = {
         heading: "Overview",
         blocks: [
           { p: "The trial starts the moment your company is created and runs for 14 days. There is no subscription behind it yet and nothing to cancel: it is simply a date. A company that signed up on the earlier 30-day trial keeps the end date it was given." },
-          { p: "It is free, not a token dollar. A referral from another FieldQuo company adds one more month to the trial — see [[referral-months|Referral months]]." },
+          { p: "It is free, not a token dollar. A referral from another FieldQuo company does not lengthen the trial: its month comes when you choose a plan, moving your first charge a month later — see [[referral-months|Referral months]]." },
         ],
       },
       {
@@ -223,7 +223,7 @@ export const ARTICLES = {
     faq: [
       { q: "Is it really free, or is it $1?", a: "Free. Nothing is charged during the 14 days, and no card is asked for until you choose a plan." },
       { q: "Does the trial apply to the yearly plan too?", a: "Yes. Choose the yearly plan during the trial and the year starts — and is charged — on the day the trial ends." },
-      { q: "I was referred by another contractor — how long is my trial?", a: "14 days plus one referral month, and the reminders move out with it. The confirmation after signup names the company that referred you." },
+      { q: "I was referred by another contractor — how long is my trial?", a: "14 days, like everyone's. Your referral month comes when you choose a plan: your first charge moves a month later. The confirmation after signup names the company that referred you. (A business referred before 3 October 2026 had the month added to its trial instead, and keeps it.)" },
       { q: "Can I try it without a card?", a: "Yes. Signup takes no card. You add one when you choose a plan, and it is not charged until the trial ends." },
     ],
   },

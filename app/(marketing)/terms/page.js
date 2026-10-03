@@ -61,10 +61,12 @@ export default function TermsPage() {
       </p>
       <p>
         A new company's first 14 days are free (see the pricing page for current
-        plans and rates). We also run a referral programme: when a company
-        you refer signs up and qualifies, both you and they receive one free
-        month. Referral terms may change; the terms in effect at the time you
-        refer someone govern that referral.
+        plans and rates). We also run a referral programme, open to companies
+        that have chosen a plan. A company you refer receives one free month
+        when it chooses a plan (its first charge moves a month later); as its
+        referrer you receive one free month when it makes its first payment,
+        provided you are on a plan at that time. Referral terms may change; the terms in
+        effect at the time you refer someone govern that referral.
       </p>
 
       <h2>3. Subscriptions and billing</h2>

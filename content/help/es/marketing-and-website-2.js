@@ -525,17 +525,17 @@ export const ARTICLES = {
   "refer-another-business": {
     title: "Recomendar otro negocio y ganar un mes gratis",
     summary:
-      "Envíe a otro contratista su enlace o una invitación; él recibe un mes gratis al registrarse, y usted recibe uno añadido a su cuenta cuando se convierte en cliente de pago.",
-    updated: "2026-09-12",
+      "Una vez que eligió un plan, envíe a otro contratista su enlace o una invitación; él recibe un mes gratis por recomendación cuando elige un plan, y usted recibe uno añadido a su cuenta cuando se convierte en cliente de pago.",
+    updated: "2026-10-03",
     intro: [
-      "**Recomienda y gana** —una fila en la barra lateral y de nuevo bajo **Configuración → Cuenta**— es el programa de referidos de FieldQuo, un contratista que se lo cuenta a otro. Ambas partes reciben lo mismo: un mes de FieldQuo. El mes del recién llegado cae el día en que se registra; el suyo cae el día de su primer pago real. La pantalla separa las dos cosas a propósito, para que «recomendé a tres personas, ¿dónde están mis meses?» tenga una respuesta visible: **Registrado: aún no paga**.",
+      "**Recomienda y gana** —una fila en la barra lateral y de nuevo bajo **Configuración → Cuenta**— es el programa de referidos de FieldQuo, un contratista que se lo cuenta a otro. Se abre una vez que su empresa **eligió un plan**; durante la prueba gratuita la página indica que Recomienda y gana se abre cuando elija un plan, con un enlace a **Cuenta y facturación**, y no tiene enlace que compartir. Ambas partes reciben lo mismo: un mes de FieldQuo. El mes del recién llegado cae el día en que elige un plan —su primer cobro se corre un mes—; el suyo cae el día de su primer pago real. La pantalla separa las dos cosas a propósito, para que «recomendé a tres personas, ¿dónde están mis meses?» tenga una respuesta visible: **Registrado: aún no paga**.",
     ],
     sections: [
       {
         id: "overview",
         heading: "Resumen",
         blocks: [
-          { p: "La página abre con «Recomienda a otro negocio y consigue otro mes de FieldQuo gratis, en cuanto sea cliente de pago.» Luego **Tu enlace** con **Copiar** —«Lo bastante corto para decirlo en voz alta. Ponlo en una tarjeta de presentación, al pie de una factura o en una camioneta.»—, un botón **WhatsApp**, **Enviar por SMS** en un teléfono, y **Enviar una invitación** por **Correo** o **SMS**. Debajo: cuántos meses gratis ha ganado, **Negocios que has referido** con una insignia **Acreditado** o **Registrado: aún no paga** en cada uno, e **Invitaciones enviadas**." },
+          { p: "Con un plan elegido, la página abre con «Recomienda a otro negocio y consigue otro mes de FieldQuo gratis, en cuanto sea cliente de pago.» Luego **Tu enlace** con **Copiar** —«Lo bastante corto para decirlo en voz alta. Ponlo en una tarjeta de presentación, al pie de una factura o en una camioneta.»—, un botón **WhatsApp**, **Enviar por SMS** en un teléfono, y **Enviar una invitación** por **Correo** o **SMS**. Debajo: cuántos meses gratis ha ganado, **Negocios que has referido** con una insignia **Acreditado** o **Registrado: aún no paga** en cada uno, e **Invitaciones enviadas**." },
           { figure: "live:app-settings-refer", caption: "Recomienda y gana: su enlace, los botones para compartir, el formulario de invitación y los negocios referidos hasta ahora." },
         ],
       },
@@ -559,11 +559,12 @@ export const ARTICLES = {
           { table: {
             head: ["Quién", "Qué recibe", "Cuándo"],
             rows: [
-              ["El negocio que usted recomendó", "Un mes extra de prueba gratis", "Al registrarse con su enlace o su invitación"],
+              ["El negocio que usted recomendó", "Un mes gratis: su primer cobro se corre un mes (su prueba de 14 días es la normal)", "Cuando elige un plan, si usted tiene uno en ese momento"],
               ["Usted", "Un mes gratis", "Cuando ese negocio hace su primer pago real, ha completado la configuración y tiene los pagos verificados: «Se añade automáticamente a tu cuenta cuando un negocio que referiste realiza su primer pago.»"],
             ],
           } },
-          { p: "Su mes es un mes del producto, no una cifra en dólares: si todavía está en prueba, extiende el final de su prueba; si ya paga, mueve su próximo cobro un mes más tarde, tanto en planes mensuales como anuales. Nunca se acorta nada, y una segunda recomendación añade un segundo mes. La recompensa es la misma sin importar el tamaño del negocio que recomiende." },
+          { p: "Su mes es un mes del producto, no una cifra en dólares. Hace falta un plan para recomendar, así que mueve su próximo cobro un mes más tarde, tanto en planes mensuales como anuales. Nunca se acorta nada, y una segunda recomendación añade un segundo mes. La recompensa es la misma sin importar el tamaño del negocio que recomiende." },
+          { p: "Las recomendaciones hechas antes del 3 de octubre de 2026 conservan sus condiciones anteriores: el negocio que recomendó entonces recibió su mes agregado a la prueba al registrarse y lo conserva, y a usted se le acredita con su primer pago real como antes. Nada de lo ya otorgado cambia." },
           { p: "Los límites, todos contra el abuso: no puede recomendarse a sí mismo, una empresa que ya existe no puede canjear un enlace, y a un recomendante se le acreditan como máximo 50 referidos válidos por mes calendario." },
         ],
       },
@@ -579,6 +580,7 @@ export const ARTICLES = {
       { q: "Se registraron pero todavía no tengo mi mes, ¿por qué?", a: "Su insignia dice Registrado: aún no paga. Su mes llega con su primer pago real, una vez completada su configuración y verificados sus pagos; una factura de prueba de $0 no genera nada." },
       { q: "¿De dónde sale la invitación?", a: "De FieldQuo: es FieldQuo invitando a un negocio en su nombre, no un mensaje a uno de sus clientes. Su nombre va en ella." },
       { q: "¿Hay un tope?", a: "20 invitaciones al día, y crédito por hasta 50 referidos válidos al mes." },
+      { q: "¿Por qué no hay enlace en mi página Recomienda y gana?", a: "Todavía está en la prueba gratuita. Recomienda y gana se abre cuando elige un plan: siga el enlace de la página a Cuenta y facturación, elija uno, y su enlace aparece." },
     ],
   },
 
@@ -683,7 +685,7 @@ export const ARTICLES = {
               ["Retención", "La empresa sigue suscrita después del periodo de retención del plan, contado desde el día en que empezó su suscripción, prueba incluida."],
             ],
           } },
-          { p: "Quien se registra con tu enlace recibe igualmente su propio mes gratis adicional, exactamente como con cualquier enlace de recomendación. Tú no recibes además un mes: un enlace, una recompensa. No puedes ganar por una empresa registrada con tu propio correo, y una empresa ya acreditada a otra persona sigue siendo suya." },
+          { p: "Quien se registra con tu enlace recibe igualmente su propio mes por recomendación cuando elige un plan —su primer cobro se corre un mes—, exactamente como con cualquier enlace de recomendación, y con la misma condición: que tú tengas un plan en ese momento. Tú no recibes además un mes: un enlace, una recompensa. No puedes ganar por una empresa registrada con tu propio correo, y una empresa ya acreditada a otra persona sigue siendo suya." },
         ],
       },
       {

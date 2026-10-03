@@ -322,7 +322,7 @@ const tl = {
   "featurePage.marketing.pain.2.pain": "Gumagastos ka sa ad buwan-buwan at hindi mo masasabi kung alin sa mga iyon ang nakapagbigay ng trabaho.",
   "featurePage.marketing.pain.2.fix": "Ang gastos ay ipinapasok bawat channel at nakahanay sa mga trabahong dinala nito, kaya nakikita ang channel na walang naibibigay sa halip na hulaan lang.",
   "featurePage.marketing.pain.3.pain": "Malugod kang irerekomenda ng pinakamagagaling mong kliyente pero walang humihingi niyon sa kanila.",
-  "featurePage.marketing.pain.3.fix": "Kapag minarkahang tapos na ang trabaho, isang magalang na hiling ang lumalabas — at ang kontratistang ire-refer mo ay nagbibigay sa inyong dalawa ng isang libreng buwan.",
+  "featurePage.marketing.pain.3.fix": "Kapag minarkahang tapos na ang trabaho, isang magalang na hiling ang lumalabas — at ang kontratistang ire-refer mo ay nagbibigay sa inyong dalawa ng isang libreng buwan kapag pareho kayong may plano.",
   "featurePage.marketing.how.1.step": "Lumalabas ito bilang ikaw, papunta sa sarili mong listahan",
   "featurePage.marketing.how.1.body": "Ang mga kampanya ay ipinapadala mula sa na-verify mong address papunta sa mga kliyenteng nasa account mo na, at nakikita mo kung ano ang nakarating sa kanila.",
   "featurePage.marketing.how.2.step": "Ang paglibot sa lugar ay pinaplano, hindi inaalala",

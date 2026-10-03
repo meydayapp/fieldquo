@@ -4,7 +4,8 @@
 //
 // The 14-day trial (owner decision 2026-09-29). New signups get TRIAL_DAYS
 // free, no card; everyone already on a trial keeps the trialEndsAt they were
-// given; the referral month composes on top exactly as before; the reminders
+// given; the referral month no longer touches the trial (it defers the first
+// charge at plan selection, since 2026-10-03); the reminders
 // are 7/3/1; and no screen, email, help article or catalogue in any language
 // still says "first month free" about the trial.
 //
@@ -96,23 +97,30 @@ ok(trialAccessFor({ trialEndsAt: signupEnd }, new Date("2026-10-14T15:00:00Z")).
   ok(trialDaysAllowed({ trialUsedAt: null, trialEndsAt: legacyEnd }, { now: OCT1 }) === 20, "a legacy 30-day trial choosing a plan keeps its own 20 days — nothing is cut to 14");
 }
 
-// ── 3. The referral month composes on top, unchanged ──────────────────────
-// lib/referrals/index.js applySignupReferral: base = the company's trialEndsAt
-// (if still ahead) else now; new end = base + REFEREE_BONUS_MONTHS calendar
-// months. Only the base moved.
+// ── 3. The referral month lands at PLAN SELECTION, not on the trial ───────
+// Pin moved 2026-10-03 (the owner: referrals "only work when they have
+// selected a plan"). Until then applySignupReferral composed base trialEndsAt
+// + REFEREE_BONUS_MONTHS at signup, and this section pinned that composition.
+// Now signup leaves the trial at TRIAL_DAYS, and the month defers the first
+// charge when a plan is chosen (lib/referrals grantRefereeBonus →
+// extendAccessByMonths). The full fixtures are in check-referral-reward.mjs;
+// this is the trial-length half: the trial itself never grows.
 {
   const src = read("lib/referrals/index.js");
   ok(/export const REFEREE_BONUS_MONTHS = 1;/.test(src), "REFEREE_BONUS_MONTHS is still 1");
-  ok(/company\.trialEndsAt && company\.trialEndsAt > new Date\(\)\s*\?\s*company\.trialEndsAt\s*:\s*new Date\(\)/.test(src) &&
-     /const trialEndsAt = addMonths\(base, REFEREE_BONUS_MONTHS\);/.test(src),
-     "the composition is still base trialEndsAt + one calendar month");
-  // Worked example. Before: Oct 1 + 30d = Oct 31, + 1 month = Nov 30 (60 days).
-  // Now:               Oct 1 + 14d = Oct 15, + 1 month = Nov 15 (45 days).
-  const before = addMonths(new Date(OCT1.getTime() + 30 * DAY), 1);
-  const now = addMonths(signupEnd, 1);
-  ok(before.toISOString().slice(0, 10) === "2026-11-30", "before: Oct 1 referral signup ran to Nov 30", before.toISOString());
-  ok(now.toISOString().slice(0, 10) === "2026-11-15", "now: Oct 1 referral signup runs to Nov 15", now.toISOString());
-  ok(trialDaysAllowed({ trialEndsAt: now }, { now: OCT1 }) === 45, "…45 free days, all of which reach Stripe");
+  const signupFn = src.slice(src.indexOf("export async function applySignupReferral"), src.indexOf("export async function grantRefereeBonus"));
+  ok(signupFn.length > 0 && !/trialEndsAt/.test(signupFn.replace(/\/\/.*$/gm, "")),
+     "applySignupReferral no longer writes trialEndsAt — the trial is the ordinary TRIAL_DAYS one");
+  ok(!/const trialEndsAt = addMonths\(base, REFEREE_BONUS_MONTHS\);/.test(src), "…and the signup-time composition is gone");
+  // Worked example. Before: Oct 1 + 14d = Oct 15, + 1 month at signup = Nov 15
+  // of TRIAL. Now: the trial ends Oct 15; a plan chosen Oct 10 opens Stripe
+  // with the 5 days left, and the referral month moves the first charge from
+  // Oct 15 to Nov 15. Same date for the company, but only for one that chose
+  // a plan — and the reminders count down to Oct 15, the trial they have.
+  const OCT10 = new Date("2026-10-10T15:00:00Z");
+  ok(trialDaysAllowed({ trialEndsAt: signupEnd }, { now: OCT10 }) === 5, "a plan chosen Oct 10 carries the 5 trial days left into Stripe");
+  const firstCharge = addMonths(signupEnd, 1);
+  ok(firstCharge.toISOString().slice(0, 10) === "2026-11-15", "…and the referral month moves the first charge Oct 15 → Nov 15", firstCharge.toISOString());
 }
 
 // ── 4. Reminders: 7 / 3 / 1, all inside a 14-day trial ────────────────────

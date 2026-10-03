@@ -463,6 +463,7 @@ export const SCREENS_CHAPTER = {
     refer: { body: [
       "“Refer another business and get another month of FieldQuo free, once they're a paying customer.” The company's link with “Copy” (“Short enough to say out loud. Put it on a business card, an invoice footer, or a van.”), a “WhatsApp” share button, and “Send an invite” by Email or Text.",
       "Under it, the months earned, the businesses referred (“Credited” or “Not yet paying”) and the invites sent.",
+      "All of that only once the company has chosen a plan. On the free trial the page shows “Refer & Earn opens once you choose a plan” and a link to Account & Billing — no link, no invites.",
     ] },
     help: { body: [
       "“Help Centre — Step-by-step guides for everything in FieldQuo — quotes, jobs, invoices, getting paid, booking, your website, your team, and using it on your phone.” A search box, “Replay the setup walkthrough”, and articles grouped by topic (“Getting started”, “Quoting & invoicing”, “Jobs & clients”…).",
@@ -509,7 +510,7 @@ export const SCREENS_CHAPTER = {
     ] },
     "settings-refer": { body: [
       "The same “Refer & Earn” page as in the main sidebar: the company's referral link, share and invite, the months earned and the businesses referred.",
-      "One free month each, for the referrer and the referred, once the referred company is paying.",
+      "One free month each, once on a plan. The referred company keeps the ordinary 14-day trial; when it chooses a plan its first charge moves a month later, provided the referrer has a plan then. The referrer's month lands on the referred company's first real payment.",
     ] },
     "settings-migration": { body: [
       "“Data Migration” — the paid service where FieldQuo brings a company's old data in. The request card shows what they said they are bringing (QuickBooks, Jobber…), its status (“Quote ready”), FieldQuo's price with its note, and “Accept” / “Decline”; below, “Documents” with “Upload a file” for the exports.",

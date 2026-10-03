@@ -297,7 +297,7 @@ const zh = {
   "featurePage.marketing.pain.2.pain": "你每个月都在投广告，却说不出哪一个真带来过工程。",
   "featurePage.marketing.pain.2.fix": "花费按渠道录入，和它带来的工程并排放着，所以颗粒无收的那个渠道是看得见的，不是靠猜的。",
   "featurePage.marketing.pain.3.pain": "你最好的客户很乐意推荐你，却从来没人开口问过他们。",
-  "featurePage.marketing.pain.3.fix": "工单标记为完工之后，会发出一次客气的邀请——而你推荐来的同行，能让你们两边各得一个月免费。",
+  "featurePage.marketing.pain.3.fix": "工单标记为完工之后，会发出一次客气的邀请——而你推荐来的同行，能让你们两边在选好套餐后各得一个月免费。",
   "featurePage.marketing.how.1.step": "以你的名义，发给你自己的名单",
   "featurePage.marketing.how.1.body": "推广邮件从你已验证的邮箱发出，收件人是你账户里已有的客户，而且你能看到哪些真的送到了他们手上。",
   "featurePage.marketing.how.2.step": "片区扫街是排出来的，不是靠脑子记的",

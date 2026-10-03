@@ -26,6 +26,8 @@ export const state = {
   // Prices minted through prices.create, found again by lookup_key — the
   // extra-seat Price of a custom plan (stripeBilling.js ensureExtraSeatPrice).
   prices: [],
+  // Invoices invoices.list answers with — a check pushes the paid ones.
+  invoices: [],
   nextId: 1,
 };
 
@@ -36,6 +38,7 @@ export function resetStripeStub() {
   state.products.length = 0;
   state.productSearchHits = [];
   state.prices.length = 0;
+  state.invoices.length = 0;
   state.nextId = 1;
 }
 
@@ -83,6 +86,16 @@ export const stripe = {
       record("subscriptions.update", subId, params);
       const sub = state.subscriptions.get(subId) || { id: subId };
       Object.assign(sub, { metadata: params.metadata ?? sub.metadata });
+      // A numeric trial_end on a live subscription is Stripe's own way to
+      // defer the next invoice (lib/referrals/extendAccess.js): Stripe puts it
+      // in trial and its current period now ends there. Modelled so a second
+      // extension reads the first one back, which is what makes them stack.
+      // "now" (ending a trial) and absent are left alone, as before.
+      if (typeof params?.trial_end === "number") {
+        sub.trial_end = params.trial_end;
+        sub.current_period_end = params.trial_end;
+        sub.status = "trialing";
+      }
       state.subscriptions.set(subId, sub);
       return sub;
     },
@@ -166,6 +179,21 @@ export const stripe = {
       const price = { id: id("price"), active: true, ...params };
       state.prices.push(price);
       return price;
+    },
+  },
+  // Paid invoices, for the referral sweep that looks for a referred
+  // company's first paid plan invoice (lib/referrals grantHeldReferrerRewards).
+  // Filtered the way Stripe filters: by customer, subscription and status.
+  invoices: {
+    list: async (params = {}) => {
+      record("invoices.list", params);
+      const data = state.invoices.filter(
+        (inv) =>
+          (!params.customer || inv.customer === params.customer) &&
+          (!params.subscription || inv.subscription === params.subscription) &&
+          (!params.status || inv.status === params.status),
+      );
+      return { data: data.slice(0, params.limit || 10), has_more: false };
     },
   },
   customers: unscripted("customers"),

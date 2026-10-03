@@ -798,10 +798,11 @@ export const ARTICLES = {
         id: "refer-and-earn",
         heading: "Qué es realmente Recomienda y gana",
         blocks: [
-          { p: "**Recomienda y gana** — en el grupo **Crecer** de la barra lateral y de nuevo en **Configuración → Cuenta** — sirve para hablarle de FieldQuo a otro negocio. Su empresa tiene un enlace de recomendación; cuando otro contratista se registra con él, obtiene su primer mes gratis, y usted obtiene un mes agregado a su propia suscripción una vez que ese contratista realmente paga. Es un programa de contratista a contratista, administrado por FieldQuo, y quienes ven la página son el propietario y los administradores." },
+          { p: "**Recomienda y gana** — en el grupo **Crecer** de la barra lateral y de nuevo en **Configuración → Cuenta** — sirve para hablarle de FieldQuo a otro negocio. Una vez elegido un plan, su empresa tiene un enlace de recomendación; cuando otro contratista se registra con él, obtiene un mes por recomendación cuando elige un plan —su primer cobro se corre un mes—, y usted obtiene un mes agregado a su propia suscripción una vez que ese contratista realmente paga. Es un programa de contratista a contratista, administrado por FieldQuo, y quienes ven la página son el propietario y los administradores." },
           { figure: "live:app-settings-refer", caption: "Recomienda y gana — su enlace de recomendación, compartir por correo o mensaje de texto, y los negocios que ha recomendado con si cada uno ya fue acreditado." },
           { bullets: [
             "La recompensa es **un mes para cada lado**, y el suyo llega solo cuando la empresa recomendada hace su primer pago — nunca al registrarse.",
+            "Hace falta un plan para recomendar. Durante la prueba gratuita, Recomienda y gana indica que se abre cuando elija un plan y muestra un enlace a Cuenta y facturación en lugar de un enlace que compartir.",
             "No puede recomendarse a sí mismo, y una empresa que ya existe no puede canjear un enlace.",
             "Todos los detalles: [[refer-another-business|Recomendar otro negocio]] y [[referral-months|Meses por recomendación]]. Lo que ve el otro contratista: [[the-referral-page|La página de recomendación]].",
           ] },
@@ -821,7 +822,7 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "¿Habrá un programa de recomendación para clientes?", a: "Hoy no, y esta página lo dirá hasta que el producto lo haga. Cualquier cosa que lea en otro lado prometiendo una recompensa de recomendación para un propietario no describe a FieldQuo." },
-      { q: "¿Un cliente puede usar mi enlace de Recomienda y gana?", a: "Solo si tiene un negocio de servicios en campo y se registra él mismo en FieldQuo. Eso le da un mes gratis del software, no nada en su trabajo con usted." },
+      { q: "¿Un cliente puede usar mi enlace de Recomienda y gana?", a: "Solo si tiene un negocio de servicios en campo y se registra él mismo en FieldQuo. Eso le da un mes del software por recomendación cuando elige un plan, no nada en su trabajo con usted." },
       { q: "¿Puedo ver qué clientes llegaron por recomendación?", a: "Solo lo que usted escribió en Notas. No hay un informe de fuentes de recomendación por cliente." },
     ],
   },

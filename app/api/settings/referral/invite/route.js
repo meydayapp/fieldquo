@@ -23,7 +23,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { sendEmail } from "@/lib/email/resend";
 import { getAppOrigin } from "@/lib/appUrl";
 import { sendSms, toE164 } from "@/lib/sms/twilioClient";
-import { REFEREE_BONUS_MONTHS } from "@/lib/referrals";
+import { REFEREE_BONUS_MONTHS, companyHasSelectedPlan } from "@/lib/referrals";
 import { checkSuppression } from "@/lib/sales/suppression";
 
 
@@ -60,7 +60,23 @@ export async function POST(request) {
     where: { id: member.companyId },
     select: { id: true, name: true, referralCode: true },
   });
-  if (!company?.referralCode) {
+
+  // ── Only once a plan is chosen (the owner, 2026-10-03) ──────────────────
+  //
+  // The page hides the form for a company on the free trial; this is the
+  // check that makes that true, because hiding a form is not access control.
+  // Read fresh, through the same predicate every referral grant uses.
+  if (!company || !(await companyHasSelectedPlan(company.id))) {
+    return NextResponse.json(
+      {
+        error: "Refer & Earn opens once you choose a plan. Choose one on Account & Billing, then send invites from here.",
+        code: "no_plan",
+      },
+      { status: 403 },
+    );
+  }
+
+  if (!company.referralCode) {
     return NextResponse.json(
       { error: "Your referral link isn't ready yet. Reload and try again." },
       { status: 400 },
@@ -180,7 +196,10 @@ export async function POST(request) {
       // 'this company's opt-out list' for this recipient to be on", which was
       // true of the tenant list and became a hole once FieldQuo had one of its
       // own.
-      const text = `${greeting}${company.name} uses FieldQuo for quotes and invoices and thinks you'd like it. ${REFEREE_BONUS_MONTHS} month${REFEREE_BONUS_MONTHS === 1 ? "" : "s"} free: ${url}`;
+      //
+      // "when you pick a plan" since 2026-10-03: the newcomer's month defers
+      // its first charge rather than lengthening its trial (lib/referrals).
+      const text = `${greeting}${company.name} uses FieldQuo for quotes and invoices and thinks you'd like it. ${REFEREE_BONUS_MONTHS} month${REFEREE_BONUS_MONTHS === 1 ? "" : "s"} free when you pick a plan: ${url}`;
       // companyId, matching the email branch below — this is the path the
       // audit named: a rep on a demo account types a live prospect's mobile in
       // and a stranger gets a real text about a company that does not exist.
@@ -298,8 +317,9 @@ function inviteHtml({ companyName, url, recipientName }) {
         and keep their schedule straight — and thought you might get something out of it too.
       </p>
       <p style="margin:0 0 22px">
-        Sign up through their link and your first
-        <strong>${REFEREE_BONUS_MONTHS} month${REFEREE_BONUS_MONTHS === 1 ? " is" : "s are"} free</strong>.
+        Sign up through their link, and when you choose a plan you get
+        <strong>${REFEREE_BONUS_MONTHS} month${REFEREE_BONUS_MONTHS === 1 ? "" : "s"} free</strong>
+        — your first charge moves ${REFEREE_BONUS_MONTHS === 1 ? "a month" : `${REFEREE_BONUS_MONTHS} months`} later.
       </p>
       <p style="margin:0 0 22px">
         <a href="${url}" style="background:#ff5a00;color:#0b1a2e;text-decoration:none;padding:13px 26px;border-radius:999px;font-weight:bold;display:inline-block">

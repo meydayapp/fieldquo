@@ -140,7 +140,7 @@ export const ARTICLES = {
         heading: "Pas de carte aujourd'hui, et l'essai gratuit",
         blocks: [
           { p: "L'inscription ne demande aucune carte. L'essai dure 14 jours à partir de la création de l'entreprise, avec tout le produit et rien à annuler. Quand vous choisissez un forfait, Stripe prend la carte sur sa propre page — FieldQuo ne voit jamais le numéro — et le premier prélèvement du forfait tombe le jour où l'essai se termine : choisir tôt ne vous coûte aucun jour gratuit. Si l'essai se termine sans forfait choisi, le compte passe en lecture seule pendant 7 jours, puis se verrouille; rien n'est supprimé. Voir [[free-first-month|Vos 14 premiers jours sont gratuits]]." },
-          { tip: "Arrivé par le lien de parrainage d'un autre entrepreneur? La bannière du formulaire le dit, et un mois gratuit de plus s'ajoute à votre essai. La personne qui vous a recommandé gagne un mois une fois que vous êtes client payant. Voir [[referral-months|Les mois de parrainage]]." },
+          { tip: "Arrivé par le lien de parrainage d'un autre entrepreneur? La bannière du formulaire le dit. Votre essai reste de 14 jours, comme pour tout le monde; le mois de parrainage vient quand vous choisissez un forfait, et repousse votre premier prélèvement d'un mois. La personne qui vous a recommandé gagne un mois une fois que vous êtes client payant. Voir [[referral-months|Les mois de parrainage]]." },
         ],
       },
       {

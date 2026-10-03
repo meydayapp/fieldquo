@@ -5,8 +5,12 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { getAppOrigin } from "@/lib/appUrl";
-import { ensureReferralCode, REFEREE_BONUS_MONTHS } from "@/lib/referrals";
+import { ensureReferralCode, companyHasSelectedPlan, REFEREE_BONUS_MONTHS } from "@/lib/referrals";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
+
+// Where "Choose a plan" goes from the locked Refer & Earn state: Account &
+// Billing, the one place a plan is chosen.
+const CHOOSE_PLAN_HREF = "/app/settings/account-billing";
 
 // The code itself is minted by lib/referrals' ensureReferralCode — it used
 // to live here, and moved so that an influencer enrolment can mint the same
@@ -37,6 +41,20 @@ export async function GET(request) {
     where: { id: member.companyId },
   });
 
+  // ── Refer & Earn opens once a plan is chosen (the owner, 2026-10-03) ────
+  //
+  // "The referral plan we have for companies should only work when they have
+  // selected a plan. Not before." A company still on the free trial gets no
+  // link from here — not minted, and not handed back if one was minted before
+  // the rule — and the page shows why with a way to choose a plan, instead of
+  // a link that would earn nothing. Read fresh on every load, through the
+  // same predicate the grants use (lib/referrals companyHasSelectedPlan), so
+  // the page and the reward can never disagree about who may refer.
+  //
+  // What was already earned still shows: the ledger below is history, and a
+  // company that referred someone before the rule is owed what it is owed.
+  const canRefer = await companyHasSelectedPlan(company.id);
+
   // A support session never MINTS the code. ensureReferralCode writes a
   // row, and the impersonation gate in getCurrentMember only blocks non-GET
   // methods — so a platform admin merely opening this page used to create a
@@ -44,9 +62,13 @@ export async function GET(request) {
   // everything, edit nothing" line in non-negotiable #3. A company that has
   // never had one reads as null here instead, and the page shows nothing to
   // copy, which is the truth.
-  const referralCode = member.impersonation
+  const referralCode = member.impersonation || !canRefer
     ? company?.referralCode || null
     : await ensureReferralCode(company);
+  // The code above is still READ for a plan-less company, because the ledger
+  // query below is keyed on it — a trial company that shared its link before
+  // the rule still sees who signed up. It is never RETURNED to it.
+  const shareableCode = canRefer ? referralCode : null;
 
   // Guarded on referralCode being a real string. `where: { referredByCode:
   // null }` does not mean "nobody" to Prisma — it matches every company that
@@ -86,12 +108,16 @@ export async function GET(request) {
   const creditedIds = new Set(credits.map((c) => c.counterpartyCompanyId));
 
   return NextResponse.json({
-    referralCode,
+    // false until the company has chosen a plan; the page renders the honest
+    // "opens once you choose a plan" state and no link.
+    canRefer,
+    choosePlanHref: canRefer ? null : CHOOSE_PLAN_HREF,
+    referralCode: shareableCode,
     // Null rather than ".../refer/null" when no code exists yet — see above.
-    referralUrl: referralCode
-      ? `${getAppOrigin(request)}/refer/${referralCode}`
+    referralUrl: shareableCode
+      ? `${getAppOrigin(request)}/refer/${shareableCode}`
       : null,
-    // What the NEW company gets for signing up through the link.
+    // What the NEW company gets through the link — when it chooses a plan.
     refereeBonusMonths: REFEREE_BONUS_MONTHS,
     // The referrer bills in their own currency; the credit is denominated in it.
     currency: company.currency || "CAD",
@@ -102,8 +128,9 @@ export async function GET(request) {
       // sets up a support conversation about a reward that never arrived.
       rewarded: creditedIds.has(c.id),
     })),
-    // Total account credit earned so far, in cents (one month of each referred
-    // company's plan). Bigger teams referred → bigger credit.
+    // Dollar credit earned under the pre-2026-08-27 scheme, in cents — only
+    // the two historical rows carry any. The reward is a month now
+    // (rewardedCount); the page no longer shows this figure.
     creditEarnedCents: credits.reduce((sum, c) => sum + (c.creditCents || 0), 0),
     rewardedCount: credits.length,
     invites,

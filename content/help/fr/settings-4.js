@@ -564,16 +564,18 @@ export const ARTICLES = {
   "settings-refer-and-earn": {
     title: "Parrainage",
     summary:
-      "La ligne des Paramètres qui est la même page que Parrainage dans la barre latérale principale : votre lien de parrainage, le partage par WhatsApp et par texto, une invitation par courriel ou par texto, les mois gagnés et les entreprises que vous avez parrainées.",
-    updated: "2026-09-12",
+      "La ligne des Paramètres qui est la même page que Parrainage dans la barre latérale principale : une fois un forfait choisi, votre lien de parrainage, le partage par WhatsApp et par texto, une invitation par courriel ou par texto, les mois gagnés et les entreprises que vous avez parrainées.",
+    updated: "2026-10-03",
     intro: [
-      "**Paramètres → Compte → Parrainage** est la même page que la ligne **Parrainage** de la barre latérale principale — « Parrainez une autre entreprise et obtenez un mois de FieldQuo gratuit de plus, une fois qu'elle devient cliente payante. » Un mois gratuit pour l'entreprise que vous parrainez, à l'inscription; un mois gratuit pour vous, quand elle fait son premier vrai paiement. Ceci est la version courte; l'article complet est [[refer-another-business|Parrainer une autre entreprise, gagner un mois gratuit]].",
+      "**Paramètres → Compte → Parrainage** est la même page que la ligne **Parrainage** de la barre latérale principale — « Parrainez une autre entreprise et obtenez un mois de FieldQuo gratuit de plus, une fois qu'elle devient cliente payante. » Elle s'ouvre une fois que votre entreprise a choisi un forfait. Un mois gratuit pour l'entreprise que vous parrainez, quand elle choisit un forfait (son premier prélèvement recule d'un mois); un mois gratuit pour vous, quand elle fait son premier vrai paiement. Ceci est la version courte; l'article complet est [[refer-another-business|Parrainer une autre entreprise, gagner un mois gratuit]].",
     ],
     sections: [
       {
         id: "on-the-screen",
         heading: "Ce qu'il y a à l'écran",
         blocks: [
+          { p: "**Avant que vous choisissiez un forfait**, la page affiche une seule carte, qui indique que le parrainage s'ouvre une fois un forfait choisi, avec un bouton vers **Compte et facturation**, là où un forfait se choisit. Il n'y a pas de lien à copier et les invitations ne peuvent pas être envoyées. Une entreprise déjà inscrite par un lien que vous avez partagé avant le 3 octobre 2026 reste listée dessous, avec sa pastille." },
+          { p: "**Une fois un forfait choisi**, la page affiche :" },
           { bullets: [
             "**Votre lien** avec **Copier** — « Assez court pour être dit à voix haute. Mettez-le sur une carte professionnelle, au bas d'une facture ou sur un camion. »",
             "**Partager l'invitation** — un bouton WhatsApp, et **Envoyer par texto** sur un téléphone, chacun ouvrant votre propre application avec le message prêt.",
@@ -591,11 +593,11 @@ export const ARTICLES = {
           { table: {
             head: ["Qui", "Ce qu'il obtient", "Quand"],
             rows: [
-              ["L'entreprise que vous avez parrainée", "Un mois d'essai gratuit de plus", "À l'inscription par votre lien ou votre invitation"],
+              ["L'entreprise que vous avez parrainée", "Un mois gratuit — son premier prélèvement recule d'un mois", "Quand elle choisit un forfait, si vous en avez un à ce moment-là"],
               ["Vous", "Un mois gratuit", "Quand cette entreprise fait son premier vrai paiement"],
             ],
           } },
-          { p: "Votre mois est un mois du produit : pendant un essai, il repousse la fin de l'essai; sur un forfait payant, il reporte le prochain prélèvement d'un mois. Un second parrainage ajoute un second mois. La façon dont il atterrit sur votre abonnement est dans [[referral-months|Mois de parrainage]]." },
+          { p: "Votre mois est un mois du produit. Il faut un forfait pour parrainer, donc il reporte votre prochain prélèvement d'un mois. Un second parrainage ajoute un second mois. Les parrainages faits avant le 3 octobre 2026 gardent leurs anciennes conditions. La façon dont il atterrit sur votre abonnement est dans [[referral-months|Mois de parrainage]]." },
         ],
       },
       {

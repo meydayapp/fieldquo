@@ -140,7 +140,7 @@ export const ARTICLES = {
         heading: "Sin tarjeta hoy, y la prueba gratuita",
         blocks: [
           { p: "El registro no pide tarjeta. La prueba dura 14 días desde que se crea la empresa, con todo el producto y nada que cancelar. Cuando elige un plan, Stripe toma la tarjeta en su propia página — FieldQuo nunca ve el número — y el primer cargo del plan cae el día en que termina la prueba, así que elegir pronto no le cuesta ningún día gratis. Si la prueba termina sin un plan elegido, la cuenta queda en solo lectura durante 7 días y luego se bloquea; no se borra nada. Vea [[free-first-month|Sus primeros 14 días son gratis]]." },
-          { tip: "¿Llegó por el enlace de recomendación de otro contratista? El aviso del formulario lo dice, y se añade un mes gratis extra a su prueba. La persona que lo recomendó gana un mes cuando usted ya es cliente de pago. Vea [[referral-months|Los meses por recomendación]]." },
+          { tip: "¿Llegó por el enlace de recomendación de otro contratista? El aviso del formulario lo dice. Su prueba es la normal de 14 días; el mes por recomendación llega cuando elige un plan, y corre su primer cobro un mes. La persona que lo recomendó gana un mes cuando usted ya es cliente de pago. Vea [[referral-months|Los meses por recomendación]]." },
         ],
       },
       {
