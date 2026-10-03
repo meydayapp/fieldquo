@@ -7350,6 +7350,18 @@ model LeadRequest {
   /// visit, which means "we do not know", never "direct".
   attribution Json?
 
+  /// For a lead built or enriched from a Facebook / Instagram / WhatsApp
+  /// conversation (lib/leads/conversationLead.js): every field it took from
+  /// the conversation WITH the message it came from —
+  /// { threadId, platform, kind, summary, fields: { name|phone|email|address|
+  /// service|timeline: { value, messageId, sentAt, quote, method } },
+  /// photos: { total, pictures }, campaign, skipped: [...], updatedAt }.
+  /// `skipped` lists what the conversation said that was NOT written because
+  /// a person (or the form) had already filled that column — the lead keeps
+  /// what a person entered, and the drawer shows the disagreement instead of
+  /// hiding it. Null on every lead that never came from a conversation.
+  conversationEvidence Json?
+
   @@unique([companyId, metaLeadId])
   @@index([companyId, metaFormId])
 }
@@ -18636,6 +18648,24 @@ model MessageThread {
   /// guard in decide.js is "since this message", and a person who has taken
   /// a conversation over does not want it back after the next question.
   humanTookOverAt DateTime?
+
+  /// The Facebook / Instagram / WhatsApp ad this conversation was opened
+  /// from — Meta's click-to-message `referral`, in lib/messaging/envelope.js's
+  /// cleanReferral shape ({ adId, source, type, ref, adTitle, postId }) plus
+  /// `at`. FIRST touch: written once, never overwritten by a later click, so
+  /// the campaign that started the conversation keeps the credit. Read by
+  /// lib/leads/conversationLead.js, which resolves the ad to a campaign and
+  /// stamps it on the lead (LeadRequest.metaCampaignId) — the column the
+  /// campaign rollup already joins on. Null means Meta said nothing, never
+  /// "organic".
+  adReferral Json?
+  /// What lib/leads/conversationLead.js has concluded about this conversation
+  /// as a lead: { kind, reason, aiRuns, lastAiAt, contactsSeen, leadId, ... }.
+  /// Kept on the THREAD because most verdicts ("spam", "an existing customer
+  /// with a problem") create no lead to keep them on — and it is what stops
+  /// the paid extraction running again on every message: it reruns only when
+  /// a new contact detail appears, up to a cap. Null means never looked at.
+  leadCapture Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
