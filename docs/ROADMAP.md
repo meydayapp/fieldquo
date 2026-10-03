@@ -100,8 +100,7 @@ Levels 1–5 (`finish_l1` … `finish_l5`) — but that book is STAGED: nothing 
   pattern): the select writes the `finish_l*` line at the company's merged-book rate × the
   intake's square feet, swaps it in place on a change, removes it for Level 0 or a blank, and
   never touches a line whose fields no longer match what it wrote (no second line beside an
-  edited one; the builder says so). **Dormant until a drywall book is merged** — today it
-  writes nothing and the builder says no rate is set and the level still prints.
+  edited one; the builder says so). Priced since the book went live — see below.
 - A group added from a tile opens on Level 4 (`newScopeGroup` `fieldDefaults`); a phone-call
   draft keeps its blanks. `publicIntakeFields` now projects to the public keys, so the self-
   quote form gets the six strings and nothing staff-side; no route prices from it.
@@ -111,19 +110,58 @@ legacy map, each level's line against the merged staged book and against the liv
 in-place swap, edited lines kept, eight languages, old/absent/junk answers byte-identical,
 public payload shape. `check:service-content-fr` regexes widened to allow the fifth argument.
 
+### The drywall price book goes live (3 October 2026, same day)
+
+The owner: "YES — each level should have its price on the price book, per sqft."
+
+- **Registered** in `app/data/tradePriceBooks.js` as `drywall_install:
+  INTERIOR_PRICE_BOOKS.drywall_install` (by reference — the numbers keep one home in
+  interior.js). The other five staged books stay staged. Like every book, it is read as code
+  defaults with the company's sparse `CompanyServiceCategory.rates` merged over them
+  (`getPriceBook`), so **no row is written for any company**: every drywall_install company
+  sees the defaults on its rate card at once and an edit stores only what changed.
+- **Rate card** (`PRICE_BOOK_FIELDS.drywall_install`): per tier, Hang + Finish Levels 1–5, $/sq ft.
+  Standard 1.20 / 0.45 / 0.75 / 1.10 / 1.45 / 2.20; Moderate 1.55 / 0.55 / 0.95 / 1.40 /
+  1.85 / 2.80; High 2.05 / 0.70 / 1.20 / 1.80 / 2.45 / 3.70. Level 0 = hang only. The staged
+  ceiling surcharge, corner bead and extras are NOT on the card — no quote reads them yet.
+  Settings now hides the single-rate box for the trade (it has a book), like every book trade.
+- **Lines**: the intake now writes the book's **hang** line as well as the finishing line —
+  the hang row would otherwise be a rate nobody reads, and the old seeded "Drywall Installation
+  — $rate" line a second price for the same work (new groups no longer seed it). Square feet:
+  the intake's Square Footage, else the room measure's board area. A new staff-only intake
+  select, **Complexity** (Standard / Moderate / High, default Standard), picks the tier — the
+  Moderate and High columns would otherwise be dead. Modes: a level change may add the
+  finishing line; square feet, tier or the room measure only re-price lines still there, so a
+  deleted line is never resurrected. Edited lines are kept, both parts.
+- **Double-billing fix**: the book owns the board. `keysPricedByGroup(drywall_install)` holds
+  back every board figure (areaSqFt, wallSqft, ceilingSqft, drywallSheets), so a template line
+  keyed to one is never added into a drywall_install group — whichever comes first — and the
+  note names the "drywall price book". "Add with its template lines" keeps the book's lines plus
+  the template's other lines. "Add as one line" (a company's own service) marks the group
+  `ownPricing`: the level then adds no line there and the builder says so.
+- **Scope paragraph**: drywall_install now prints a trade paragraph (eight languages), required
+  for a priced trade by check:trade-labour. It names no level; the level sentence follows it.
+  This is new wording on existing drywall_install documents — deliberate, and the only change
+  to them.
+- Counts moved deliberately: check:pricebook-interior (17 books, 64 unpriced trades),
+  check:pricebook-systems (17), check:reuse-takeoffs and check:service-template-lines (drywall's
+  board figures are held back). check:drywall-finish-levels rewritten: 1,334.
+
 ### Still owed here
 
-- **Merge the drywall book** (`TRADE_PRICE_BOOKS.drywall_install` + its PRICE_BOOK_FIELDS from
-  interior.js) — the owner's decision; until then the level prices nothing.
-- **Materials:** no live drywall recipe. The staged one records Level 4 compound coverage only
-  (475 sq ft of board a box, "Level 5 roughly doubles it"); check:drywall-finish-levels §H
-  fails the day a recipe lands, so compound follows the level then.
+- **Materials:** the staged drywall recipe is not merged — its costs are two-currency objects no
+  costing reader takes yet (interior.js "Wiring" §1), and it states Level 4 compound coverage
+  only. check:drywall-finish-levels §J fails the day a recipe lands, so compound follows the
+  level (Level 5 ≈ 2 × Level 4) then.
+- **Plain `drywall`** has no book and keeps its seeded line; its staged book in interior.js is a
+  REPAIR book (patches, skim, texture), while its intake asks install questions. Sharing
+  drywall_install's book with it is a product decision.
 - The PDF's process-steps section and the quote email's steps call `dominantProcessSteps`
   without the document language (pre-existing): they print English steps on any language,
   the level sentence included.
 - The public self-quote select still shows raw values ("level 4") like every select there.
-- A service added "with its template lines" opens on Level 4 without the finish line; changing
-  the level later adds one beside the template's lines (once a book exists).
+- A template line keyed to no board figure (a flat "taping and finishing" fee) is not held back:
+  the guard is per measurement, as for every calculator.
 
 ---
 ## Demos send for real to a client created live (3 October 2026)

@@ -108,6 +108,27 @@ export function documentFinishLevel(categoryKey, intake) {
   return typeof v === "string" && FINISH_LEVELS.includes(v) ? v : null;
 }
 
+// ── The drywall book's tier, asked on the quote (2026-10-03) ────────────────
+//
+// drywall_install's price book (app/data/priceBooks/interior.js, live in
+// app/data/tradePriceBooks.js) prices every row per tier. The builder has no
+// tier control for a trade without a takeoff, so the tier is an intake answer
+// — without it the Moderate and High columns of the rate card would be numbers
+// a company types that no quote reads. The labels are the book's own `desc`,
+// shortened.
+export const DRYWALL_TIERS = Object.freeze(["standard", "moderate", "high"]);
+
+export const DRYWALL_TIER_LABELS = Object.freeze({
+  standard: "Standard — new or gutted room, 8–9 ft flat ceilings",
+  moderate: "Moderate — lived-in home, 9–10 ft or sloped ceilings, cut-up rooms",
+  high: "High — vaulted or over 12 ft, curved walls, fire-rated assemblies",
+});
+
+/** A stored tier answer → one of DRYWALL_TIERS; anything else is Standard. */
+export function normaliseDrywallTier(value) {
+  return typeof value === "string" && DRYWALL_TIERS.includes(value.trim()) ? value.trim() : "standard";
+}
+
 /** "level_4" → 4; null for anything else. */
 export function finishLevelNumber(level) {
   const i = FINISH_LEVELS.indexOf(level);
