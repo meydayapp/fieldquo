@@ -24,6 +24,12 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { loadEnforceableMember, hasLevel, assignedJobWhere } from "@/lib/permissions/enforce";
 import { publicAttachments } from "@/lib/messaging/attachments";
+import {
+  inSupportView,
+  isGoogleEmail,
+  supportViewEmailSubject,
+  SUPPORT_VIEW_EMAIL_TEXT,
+} from "@/lib/mailbox/supportView";
 
 const MAX_THREADS = 50;
 
@@ -52,6 +58,12 @@ export async function GET(request) {
     where = { companyId: member.companyId, jobId: job.id, channel: { platform: "email" } };
   }
 
+  // A FieldQuo support session (impersonation) sees that a Gmail message
+  // exists — who, when, which way — and never its subject, body or
+  // attachments (lib/mailbox/supportView.js). Provenance is loaded only for
+  // that session; a company's own staff get exactly the old query and bytes.
+  const support = inSupportView(member);
+
   const threads = await db.messageThread.findMany({
     where,
     orderBy: { lastMessageAt: "desc" },
@@ -74,7 +86,16 @@ export async function GET(request) {
           sentAt: true,
           attachments: true,
           failedReason: true,
-          email: { select: { subject: true, fromAddress: true, toAddresses: true, ccAddresses: true, sentVia: true } },
+          email: {
+            select: {
+              subject: true,
+              fromAddress: true,
+              toAddresses: true,
+              ccAddresses: true,
+              sentVia: true,
+              ...(support ? { mailboxId: true, mailbox: { select: { provider: true } } } : {}),
+            },
+          },
         },
       },
     },
@@ -105,32 +126,50 @@ export async function GET(request) {
   }
 
   const hide = (s) => (seesContacts ? s : null);
+  const shapeMessage = (m) => ({
+    id: m.id,
+    direction: m.direction,
+    body: m.body,
+    sentAt: m.sentAt,
+    failed: Boolean(m.failedReason),
+    subject: m.email?.subject || "",
+    from: hide(m.email?.fromAddress || null),
+    to: hide(m.email?.toAddresses || null),
+    cc: hide(m.email?.ccAddresses || null),
+    sentVia: m.email?.sentVia || null,
+    attachments: publicAttachments(m.attachments),
+  });
+  const shapeForSupport = (m) =>
+    isGoogleEmail(m.email)
+      ? {
+          ...shapeMessage(m),
+          body: SUPPORT_VIEW_EMAIL_TEXT,
+          subject: supportViewEmailSubject(m.direction),
+          attachments: [],
+          hiddenInSupportView: true,
+        }
+      : shapeMessage(m);
+  // The thread's headline subject: the first message that has one, as
+  // before — and in a support session, that message's hidden form.
+  const threadSubject = (t) => {
+    const first = t.messages.find((m) => m.email?.subject);
+    if (!first) return "";
+    return support && isGoogleEmail(first.email) ? supportViewEmailSubject(first.direction) : first.email.subject;
+  };
   return NextResponse.json({
     threads: threads.map((t) => ({
       id: t.id,
       threadNumber: t.threadNumber,
       participantName: t.participantName,
       lastMessageAt: t.lastMessageAt,
-      subject: t.messages.find((m) => m.email?.subject)?.email?.subject || "",
+      subject: threadSubject(t),
       filedTo: {
         jobId: t.jobId,
         jobTitle: t.jobId ? jobTitle.get(t.jobId) || null : null,
         quoteId: t.quoteId,
         quoteNumber: t.quoteId ? quoteNumber.get(t.quoteId) || null : null,
       },
-      messages: t.messages.map((m) => ({
-        id: m.id,
-        direction: m.direction,
-        body: m.body,
-        sentAt: m.sentAt,
-        failed: Boolean(m.failedReason),
-        subject: m.email?.subject || "",
-        from: hide(m.email?.fromAddress || null),
-        to: hide(m.email?.toAddresses || null),
-        cc: hide(m.email?.ccAddresses || null),
-        sentVia: m.email?.sentVia || null,
-        attachments: publicAttachments(m.attachments),
-      })),
+      messages: t.messages.map(support ? shapeForSupport : shapeMessage),
     })),
     canRefile,
     targets,

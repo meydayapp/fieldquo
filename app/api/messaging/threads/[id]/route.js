@@ -41,6 +41,7 @@ import {
 import { writeActivity } from "@/lib/messaging/activity";
 import { smsReceiptsBySid } from "@/lib/sms/deliveryStore";
 import { recordError, errorDetail } from "@/lib/platform/errorLog";
+import { inSupportView, EMAIL_PROVENANCE_SELECT, supportViewMessage } from "@/lib/mailbox/supportView";
 
 /** The member with their grid attached — a scope decided without it widens. */
 async function graded(member) {
@@ -107,6 +108,12 @@ async function readThread({ id, member }) {
     return NextResponse.json({ connection, thread });
   }
 
+  // A FieldQuo support session (impersonation) gets a Gmail message's
+  // existence, never its body or attachments (lib/mailbox/supportView.js).
+  // The provenance is selected only for that session, so a company's own
+  // staff run the same query and get the same bytes as before.
+  const support = inSupportView(member);
+
   // Company-scoped by findFirst, not findUnique — the id alone would serve
   // another tenant's conversation to anyone who guessed one.
   const thread = await db.messageThread.findFirst({
@@ -171,6 +178,7 @@ async function readThread({ id, member }) {
           // Read server-side only, to find each text's delivery receipt below
           // (the SMS externalId is Twilio's SID). Stripped before the response.
           externalId: true,
+          ...(support ? { email: EMAIL_PROVENANCE_SELECT } : {}),
         },
       },
     },
@@ -252,11 +260,14 @@ async function readThread({ id, member }) {
       // — the Retry endpoint names an INDEX for exactly that reason). What
       // reaches the screen is the state, the type, and a Cloudinary URL or
       // null.
-      messages: thread.messages.map(({ externalId, ...m }) => ({
-        ...m,
-        attachments: publicAttachments(m.attachments),
-        sms: m.direction === "out" ? receipts.get(externalId) || null : null,
-      })),
+      messages: thread.messages.map(({ externalId, ...m }) => {
+        const shaped = {
+          ...m,
+          attachments: publicAttachments(m.attachments),
+          sms: m.direction === "out" ? receipts.get(externalId) || null : null,
+        };
+        return support ? supportViewMessage(shaped) : shaped;
+      }),
       // Normalised on the way out so a row still carrying the pre-four-state
       // "closed" arrives at the screen as a status the chips actually draw.
       status: readStatus(thread.status),

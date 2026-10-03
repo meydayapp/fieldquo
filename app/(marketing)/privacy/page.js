@@ -445,13 +445,16 @@ export default function PrivacyPage() {
                        (client mail only, never campaigns), connections.js
                        (disconnect wipes the credential; filed mail stays).
 
-          The human-access paragraph is a commitment about PRACTICE, and the
-          code does not enforce it: a superadmin's read-only "view as
-          company" (lib/platform/impersonate.js) can open the inbox — filed
-          emails included — and the Google reviews with only a free-text
-          reason, no consent from the company. Anyone using that view on a
-          company with a connected mailbox is bound by this paragraph. If
-          impersonation changes, re-read this.
+          The human-access paragraph is enforced for the one way FieldQuo
+          staff reach a company's data, the superadmin's read-only "view as
+          company" (lib/platform/impersonate.js): lib/mailbox/supportView.js
+          withholds a Gmail message's subject, body and attachments, a Google
+          review's text and reply, and the verbatim quotes the conversation
+          score and coach carry on a Gmail thread, in the GET handlers the
+          screens read. scripts/check-support-view-google.mjs executes them.
+          There is no consent flow yet — "with your permission" today means
+          the company shows us. A route that newly returns message bodies or
+          review text must apply the same gate.
 
           If a scope is added or a behaviour changes, this section and the
           matching row in lib/legal/processors.js change in the same commit,

@@ -4,11 +4,17 @@
 // words are Google's, refreshed nightly and purged at thirty days
 // (lib/reviews/googleBusiness/sync.js). The one thing a company decides —
 // whether a review shows on their site — is the PATCH in ./[id].
+//
+// A FieldQuo support session (impersonation) gets each review's existence,
+// name, stars and dates, never its words or the reply — lib/mailbox/
+// supportView.js, the privacy policy's Google user data promise. A company's
+// own staff get exactly what they did before.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { inSupportView, supportViewReview } from "@/lib/mailbox/supportView";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -29,5 +35,5 @@ export async function GET(request) {
     },
     take: 500,
   });
-  return NextResponse.json({ reviews });
+  return NextResponse.json({ reviews: inSupportView(member) ? reviews.map(supportViewReview) : reviews });
 }
