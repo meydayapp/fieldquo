@@ -456,7 +456,9 @@ section("10. The client portal: the rendered block ships, the settings do not");
   ok("the company payload carries no paymentMethods, paymentMethodDetails, offerFinancing, stripeAffirmStatus or address", body?.company && ["paymentMethods", "paymentMethodDetails", "offerFinancing", "stripeAffirmStatus", "stripeAccountId", "address"].every((k) => !(k in body.company)), Object.keys(body?.company || {}));
   ok("the select spreads HOW_TO_PAY_COMPANY_SELECT rather than a hand-listed copy", /\.\.\.HOW_TO_PAY_COMPANY_SELECT/.test(code(read("app/api/portal/[token]/route.js"))));
   const quoteRoute = code(read("app/api/public/quotes/[token]/route.js"));
-  ok("the public quote route builds the deposit block server-side and strips the settings", /howToPay: depositHowToPay\(/.test(quoteRoute) && /paymentMethodDetails: _paymentMethodDetails/.test(quoteRoute) && /\.\.\.HOW_TO_PAY_COMPANY_SELECT/.test(quoteRoute));
+  // demoSafeHowToPay passes a real company's block through untouched and
+  // drops a demo's fictional one (lib/demo/clientFacing.js, 2026-10-03).
+  ok("the public quote route builds the deposit block server-side and strips the settings", /howToPay:\s*(demoSafeHowToPay\(\s*)?depositHowToPay\(/.test(quoteRoute) && /paymentMethodDetails: _paymentMethodDetails/.test(quoteRoute) && /\.\.\.HOW_TO_PAY_COMPANY_SELECT/.test(quoteRoute));
   ok("the public quote route does not load the PDF engine for the block", !/from "@\/lib\/documentSections\/PaymentTermsSection"/.test(quoteRoute));
   ok("the invoice email does not import a JSX module (plain-node checks read it)", !/documentSections\/HowToPaySection/.test(code(read("lib/email/invoiceEmail.js"))));
   ok("QuoteApproval and PortalInvoice paint HowToPayBlock", /HowToPayBlock/.test(read("app/q/[token]/QuoteApproval.js")) && /HowToPayBlock/.test(read("app/portal/[token]/invoices/[id]/PortalInvoice.js")));

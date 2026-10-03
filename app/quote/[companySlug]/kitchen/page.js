@@ -14,15 +14,23 @@ import { companyOffersKitchenDesign } from "@/lib/kitchen/access";
 // for any company whose two slugs differ, and nothing said why.
 import { findBookingCompany } from "@/lib/booking/findBookingCompany";
 import KitchenSelfQuote from "./KitchenSelfQuote";
+import {
+  CLIENT_META_COMPANY_SELECT,
+  clientPageMetadata,
+  neutralClientMetadata,
+} from "@/lib/whiteLabel/pageMetadata";
 
+// Title and description as before; the icon, share image and the rest of the
+// head are now the company's too (lib/whiteLabel/pageMetadata.js) instead of
+// the root layout's FieldQuo favicon.
 export async function generateMetadata({ params }) {
   const { companySlug } = await params;
-  const company = await findBookingCompany(companySlug, { name: true });
-  if (!company) return { title: "Not found" };
-  return {
+  const company = await findBookingCompany(companySlug, CLIENT_META_COMPANY_SELECT);
+  if (!company) return neutralClientMetadata({ title: "Not found" });
+  return clientPageMetadata(company, {
     title: `Design your kitchen — ${company.name}`,
     description: `Lay out your kitchen and get a price from ${company.name}.`,
-  };
+  });
 }
 
 export default async function Page({ params }) {

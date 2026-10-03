@@ -162,7 +162,10 @@ for (const file of BOOK_PAGES) {
   ok(
     `${file} resolves its own <title> from the company`,
     /export\s+async\s+function\s+generateMetadata/.test(s) &&
-      /title:\s*company\?\.name/.test(s),
+      // Inline, or through clientPageMetadata(company, …), whose title is the
+      // company's name — with its icon and share image too (2026-10-03;
+      // check:white-label-meta executes it and reads the resolved <title>).
+      (/title:\s*company\?\.name/.test(s) || /clientPageMetadata\(company\b/.test(s)),
     "with no title of its own this page inherits the root layout's, which is \"FieldQuo\" — in the tab, on a link a contractor put in their email signature",
   );
   ok(

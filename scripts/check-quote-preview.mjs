@@ -259,14 +259,22 @@ section("The public route, executed: who gets what");
   // A demo company's sent quote, opened by the prospect it was really emailed
   // to (a client created live in the demo — scripts/check-demo-live-
   // recipients.mjs). Nothing on this route may treat a demo differently: the
-  // prospect must see exactly what a real client sees, Approve included.
+  // prospect must see exactly what a real client sees, Approve included —
+  // the one exception being the seed's fictional pay box and contacts,
+  // dropped by lib/demo/clientFacing.js (owner, 2026-10-03).
   rows.quote.push(quote({ id: "q_demo", status: "sent", sentAt: new Date(), shareToken: "tok_demo", company: { ...COMPANY, isDemo: true } }));
   const prospectOnDemo = await call("tok_demo", null);
   ok("a DEMO company's sent quote, to its client: 200, the real document", prospectOnDemo.status === 200 && prospectOnDemo.body.quoteNumber === "Q-1", prospectOnDemo.status);
   ok("…not a preview, so Approve and Decline are there", !("preview" in prospectOnDemo.body));
-  // The stub hands rows back whole (it does not apply `select`), so the
-  // payload half of "nothing says demo" is the route's own company select.
-  ok("…and the route never selects isDemo for the client's copy", !/isDemo/.test(publicApi));
+  // "Nothing says demo" in the payload. The route has read isDemo since
+  // 2026-10-03 — owner-approved, to drop a demo's fictional How-to-pay box
+  // and 555 / example.com contacts (lib/demo/clientFacing.js) — so the
+  // source test this used to be ("never selects isDemo") became a test of
+  // the response: the stub hands rows back whole, flag included, and the
+  // flag must still not reach the prospect.
+  ok("…and isDemo never reaches the client's copy", !JSON.stringify(prospectOnDemo.body).includes("isDemo"), prospectOnDemo.body?.company);
+  ok("…the route reads it from the company select and peels it off before `company` is returned",
+    /isDemo: true,/.test(publicApi) && /isDemo: _isDemo,/.test(publicApi));
 
   const unknown = await call("tok_nothing", OWNER);
   ok("an unknown token is 404 even for a signed-in member", unknown.status === 404);

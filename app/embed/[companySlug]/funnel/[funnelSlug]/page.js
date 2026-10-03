@@ -25,17 +25,22 @@ import { findBookingCompany } from "@/lib/booking/findBookingCompany";
 import { funnelPageLanguage } from "@/lib/i18n/funnelCopy";
 import FunnelRunner from "@/app/f/[companySlug]/[funnelSlug]/FunnelRunner";
 import EmbedFrame from "../../../EmbedFrame";
+import {
+  CLIENT_META_COMPANY_SELECT,
+  clientPageMetadata,
+  neutralClientMetadata,
+} from "@/lib/whiteLabel/pageMetadata";
 
 export async function generateMetadata({ params }) {
   const { companySlug } = await params;
-  const company = await findBookingCompany(companySlug, { name: true });
-  // Same reasoning as the other embeds: the tab title is a white-label
-  // surface, and an embed must never compete with the company's own page in
-  // search results.
-  return {
-    title: company?.name || " ",
-    robots: { index: false, follow: false },
-  };
+  const company = await findBookingCompany(companySlug, CLIENT_META_COMPANY_SELECT);
+  // Same reasoning as the other embeds: the tab title (and icon —
+  // lib/whiteLabel/pageMetadata.js) is a white-label surface, and an embed
+  // must never compete with the company's own page in search results.
+  const robots = { index: false, follow: false };
+  return company
+    ? clientPageMetadata(company, { robots })
+    : neutralClientMetadata({ title: " ", robots });
 }
 
 export default async function FunnelEmbedPage({ params }) {

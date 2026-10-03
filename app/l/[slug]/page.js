@@ -73,27 +73,27 @@ export const dynamic = "force-dynamic";
 import { notFound } from "next/navigation";
 import { loadLinkPageData } from "@/lib/links/load";
 import LinkPageView from "@/app/components/links/LinkPageView";
+import { clientPageMetadata, neutralClientMetadata } from "@/lib/whiteLabel/pageMetadata";
 
 export async function generateMetadata({ params }) {
   // Next 16: params is a Promise.
   const { slug } = await params;
   const data = await loadLinkPageData(slug);
   if (!data || !data.config.published) {
-    return { robots: { index: false, follow: false } };
+    return neutralClientMetadata({ title: " ", robots: { index: false, follow: false } });
   }
   const { company, config } = data;
-  return {
-    title: config.headline || company.name,
-    // No invented description. A company that wrote nothing gets nothing,
-    // rather than a sentence FieldQuo made up appearing under their name.
-    ...(config.bio ? { description: config.bio } : {}),
+  const title = config.headline || company.name;
+  // No invented description. A company that wrote no bio gets its own name
+  // — which it did write — rather than a sentence FieldQuo made up. Leaving
+  // the key out entirely, as this used to, did not mean "nothing": the root
+  // layout's FieldQuo description filled the gap under their name.
+  return clientPageMetadata(company, {
+    title,
+    shareTitle: title,
+    description: config.bio || company.name,
     robots: { index: false, follow: true },
-    openGraph: {
-      title: config.headline || company.name,
-      ...(config.bio ? { description: config.bio } : {}),
-      ...(company.logoUrl ? { images: [company.logoUrl] } : {}),
-    },
-  };
+  });
 }
 
 export default async function BioLinkPage({ params }) {

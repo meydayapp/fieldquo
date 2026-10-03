@@ -20,13 +20,35 @@ import { canPreviewCompanyDocument } from "@/lib/quotes/previewAccess";
 import QuoteApproval from "./QuoteApproval";
 import ContractorImportPanel from "./ContractorImportPanel";
 import PreviewBanner from "./PreviewBanner";
+import { documentLabels } from "@/lib/i18n/documentLabels";
+import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
+import { clientPageMetadata, documentTitle, neutralClientMetadata } from "@/lib/whiteLabel/pageMetadata";
+import { readableQuoteMeta } from "@/lib/whiteLabel/metadataLoaders";
 
-export const metadata = {
-  title: "Your quote",
-  // Keep it out of search results. A share token in a Google index would
-  // defeat the point of the token.
-  robots: { index: false, follow: false },
-};
+// Keep it out of search results. A share token in a Google index would
+// defeat the point of the token.
+const ROBOTS = { index: false, follow: false };
+
+// The tab and the link preview are the contractor's: "Quote Q-0123 ·
+// Northline Painting", their logo as the icon (lib/whiteLabel/pageMetadata.js).
+// Same gate as the page below — a draft's link names nobody, so a stranger
+// holding an early-copied URL learns no more from the preview than from the
+// 404. The label is in the quote's own language (non-negotiable #6); the
+// share title leaves the number out, because a preview is read by whoever
+// the link is forwarded to.
+export async function generateMetadata({ params }) {
+  const { token } = await params;
+  const quote = await readableQuoteMeta(token);
+  if (!quote) return neutralClientMetadata({ title: "Your quote", robots: ROBOTS });
+  const label = documentLabels(
+    resolveClientLanguage({ document: quote, client: quote.client, company: quote.company }),
+  ).quote;
+  return clientPageMetadata(quote.company, {
+    title: documentTitle(label, quote.quoteNumber, quote.company.name),
+    shareTitle: documentTitle(label, null, quote.company.name),
+    robots: ROBOTS,
+  });
+}
 
 export default async function PublicQuotePage({ params }) {
   const { token } = await params;

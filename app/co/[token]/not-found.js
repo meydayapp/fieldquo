@@ -1,12 +1,14 @@
 // app/co/[token]/not-found.js
 //
 // A wrong or replaced change-order link. No app shell, no FieldQuo branding,
-// and no explanation of why — see app/q/[token]/not-found.js.
+// and no explanation of why — see app/q/[token]/not-found.js. No FieldQuo
+// favicon, description or manifest in the head either.
+import { neutralClientMetadata } from "@/lib/whiteLabel/pageMetadata";
 
-export const metadata = {
+export const metadata = neutralClientMetadata({
   title: "Change order",
   robots: { index: false, follow: false },
-};
+});
 
 export default function ChangeOrderNotFound() {
   return (

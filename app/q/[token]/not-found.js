@@ -15,11 +15,16 @@
 // contractor, not us. And no explanation of WHY the link failed — "expired",
 // "revoked" and "never existed" are all information about the contractor's
 // business that a stranger holding a bad URL has no claim to.
+//
+// The head too: neutralClientMetadata keeps the root layout's FieldQuo
+// favicon, description and manifest off this page (lib/whiteLabel/
+// pageMetadata.js) — a 404 has no company to show, and must not show ours.
+import { neutralClientMetadata } from "@/lib/whiteLabel/pageMetadata";
 
-export const metadata = {
+export const metadata = neutralClientMetadata({
   title: "Your quote",
   robots: { index: false, follow: false },
-};
+});
 
 export default function QuoteNotFound() {
   return (

@@ -476,9 +476,31 @@ section("§13 The client-facing pages carry no demo block");
     "app/portal/[token]/ClientPortal.js",
     "app/portal/[token]/invoices/[id]/PortalInvoice.js",
   ];
+  // ONE sanctioned exception, owner-approved 2026-10-03: the seed's fictional
+  // How-to-pay box (pay@<slug>.example.com) and its 555 / example.com
+  // contacts are dropped from a demo's client payload, through
+  // lib/demo/clientFacing.js and nothing else — the same row flag, read in the
+  // same query, and stripped before the response. Nothing is refused or
+  // simulated by it: Approve, Decline and the Pay button are untouched, and
+  // a real company's payload is byte-identical (check:white-label-meta
+  // executes both). So a line naming isDemo is allowed only in these shapes;
+  // any other demo branch on a public file still fails here.
+  const SANCTIONED = [
+    /^\s*isDemo: true,\s*$/, // the company select
+    /^\s*isDemo: _isDemo,\s*$/, // peeled off before `company` is returned
+    /^\s*const isDemo = _isDemo === true;\s*$/,
+    /^\s*isDemo,\s*$/, // the flag argument to demoSafeHowToPay(…)
+    /demoSafe(Contact|HowToPay)\([^)]*\bisDemo\b/,
+  ];
   for (const file of PUBLIC) {
     const src = code(read(file));
-    ok(`${file} has no demo branch`, !/isDemo|isDemoCompany|demoSendVerdict/.test(src));
+    const branches = src
+      .split("\n")
+      .filter((l) => /isDemo|isDemoCompany|demoSendVerdict/.test(l) && !SANCTIONED.some((re) => re.test(l)));
+    ok(`${file} has no demo branch (beyond the sanctioned lib/demo/clientFacing.js hide)`, branches.length === 0, branches);
+    if (/isDemo/.test(src)) {
+      ok(`${file}: its demo lines only feed lib/demo/clientFacing.js`, /from "@\/lib\/demo\/clientFacing"/.test(src) && !/isDemoCompany|demoSendVerdict/.test(src));
+    }
   }
   // The quote's acceptance mails the client their signed copy through the
   // gate, by company — so a live client receives it for real (§3 executes

@@ -21,6 +21,7 @@ import { headers } from "next/headers";
 import { loadEstimateReportByToken } from "@/lib/estimate/report/load";
 import { loadEstimatePresentation } from "@/lib/estimate/report/presentation";
 import ReportView from "./ReportView";
+import { clientPageMetadata, neutralClientMetadata } from "@/lib/whiteLabel/pageMetadata";
 
 // generateMetadata and the page both need the report; React's cache() makes
 // that one load (one re-pricing, one company read) per request.
@@ -31,13 +32,16 @@ const load = cache(async (token) =>
 export async function generateMetadata({ params }) {
   const { token } = await params;
   const loaded = await load(token);
-  return {
-    // The company's name in the tab — the white-label rule for every
-    // client-facing surface. A bare space for an unknown token: the
-    // not-found page carries its own wording.
-    title: loaded ? `${loaded.report.title.text} · ${loaded.company.name}` : " ",
-    robots: { index: false, follow: false },
-  };
+  const robots = { index: false, follow: false };
+  // The company's name in the tab — the white-label rule for every
+  // client-facing surface — and its icon and share image
+  // (lib/whiteLabel/pageMetadata.js). The report's title is its own
+  // localised "Your free roofing estimate", which names no client and no
+  // address. A bare space for an unknown token: the not-found page carries
+  // its own wording.
+  if (!loaded) return neutralClientMetadata({ title: " ", robots });
+  const title = `${loaded.report.title.text} · ${loaded.company.name}`;
+  return clientPageMetadata(loaded.company, { title, shareTitle: title, robots });
 }
 
 export default async function EstimateReportPage({ params }) {

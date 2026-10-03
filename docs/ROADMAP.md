@@ -70,6 +70,52 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Client pages: the contractor's tab, icon and link preview; demos hide the fake pay box (3 October 2026)
+
+Owner-approved 2026-10-03. Every client-facing page's `<head>` was FieldQuo's:
+the root `app/favicon.ico` (which Next forces into EVERY route — no page can
+remove it), `app/icon.png` / `apple-icon.png` (what iMessage shows beside a
+link with no og:image), the root description "The all-in-one system for
+contractors and service pros" (the second line of a WhatsApp preview) and the
+FieldQuo `/manifest.webmanifest` on the apex. 25 pages, measured through Next's
+own `accumulateMetadata`.
+
+### What shipped
+
+- `lib/whiteLabel/pageMetadata.js` — `clientPageMetadata(company, …)`: tab title
+  is the company's name (quote / invoice add the document in the DOCUMENT's
+  language: "Devis Q-0123 · Northline Painting"), description the company's,
+  favicon + apple-touch-icon = the logo padded square on white by Cloudinary,
+  or a generated initial on the brand colour (`/api/brand-icon`, colours from
+  `fillPair`, ≥ 4.5:1 measured), og:image = the logo or none, `manifest: null`,
+  `appleWebApp.title` = the company. Share titles never carry a document number;
+  no client name, amount or address anywhere in a head.
+- `lib/whiteLabel/metadataLoaders.js` — one narrow read per token page, mirroring
+  each page's own gate (a draft quote's head names nobody; an unissued invoice's
+  number stays out) and answering null on a DB error (neutral head, not a 500).
+- `app/favicon.ico` → `public/favicon.ico` (still served at /favicon.ico).
+  Client not-found pages (and the site/embed 404s, which said "FieldQuo" in the
+  tab) carry `neutralClientMetadata` — a blank `data:,` icon, no description.
+- Demos: `lib/demo/clientFacing.js` — the portal and public-quote routes drop a
+  demo's How-to-pay block and its 555-01xx / example.com phone, email and
+  website (only fictional values; a rep's real number stays). Real companies:
+  same objects back; payload md5 identical to the pre-change route.
+- `check:white-label-meta` (in check:all, 777 assertions) executes all 25 pages'
+  generateMetadata with and without a logo and for an unknown token, through
+  Next's resolver under the real root layout, plus the icon route's PNG.
+
+### Owed
+
+- The link DOMAIN is still fieldquo.com on every client link except a tenant
+  website (custom domains are a separate product).
+- A demo's 555 number / example.com still shows on: the visit manage page
+  ("Questions? Call…"), the booking page's no-times line, the change-order
+  page header, the waiver page footer, the plan-authorisation page, the
+  contractor's website header/footer if a demo has one, and in PDFs and emails
+  (quote header, invoice How-to-pay section, stored `Invoice.howToPay`).
+- A Cyrillic / Gurmukhi company name gets a plain brand-colour square (next/og's
+  bundled font is Latin-only).
+
 ## Drywall: the six GA-214 finish levels (3 October 2026)
 
 The owner: drywall quotes must handle the levels of finish properly (GA-214 / ASTM C840,

@@ -11,12 +11,23 @@
 export const dynamic = "force-dynamic";
 
 import ClientPortal from "./ClientPortal";
+import { clientPageMetadata, neutralClientMetadata } from "@/lib/whiteLabel/pageMetadata";
+import { portalCompany } from "@/lib/whiteLabel/metadataLoaders";
 
-export const metadata = {
-  title: "Your account",
-  // A portal token in a search index would defeat the point of the token.
-  robots: { index: false, follow: false },
-};
+// A portal token in a search index would defeat the point of the token.
+const ROBOTS = { index: false, follow: false };
+
+// The company's name in the tab and its logo as the icon — the portal is
+// their client account, not ours (lib/whiteLabel/pageMetadata.js). The name
+// alone, not "Your account · …": the page speaks the client's language and
+// the tab has no translation to borrow.
+export async function generateMetadata({ params }) {
+  const { token } = await params;
+  const found = await portalCompany(token);
+  return found
+    ? clientPageMetadata(found.company, { robots: ROBOTS })
+    : neutralClientMetadata({ title: "Your account", robots: ROBOTS });
+}
 
 export default async function PortalPage({ params }) {
   const { token } = await params;

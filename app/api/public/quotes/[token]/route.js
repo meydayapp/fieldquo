@@ -30,6 +30,7 @@ import { financingOffer, financingPhrases } from "@/lib/estimate/financing";
 import { loadPhrases } from "@/lib/i18n/phrases";
 import { financingTerms } from "@/lib/financing/monthlyEstimate";
 import { HOW_TO_PAY_COMPANY_SELECT, depositHowToPay } from "@/lib/payments/offlineMethods";
+import { demoSafeContact, demoSafeHowToPay } from "@/lib/demo/clientFacing";
 // The proposal beside the quote — story, gallery, documents, reviews,
 // services, the day plan — and the waivers attached to it. Loaded per
 // company, projected without ids; see lib/proposal/load.js.
@@ -122,6 +123,10 @@ async function loadQuote(token) {
           // Stripped from `company` in present() and re-published only
           // through the proposal projection.
           ...PROPOSAL_COMPANY_SELECT,
+          // A demo's How-to-pay block and its fictional 555 / example.com
+          // contact details stay off the page (lib/demo/clientFacing.js) —
+          // decided by this row's own flag, and stripped in present().
+          isDemo: true,
         },
       },
       scopeGroups: {
@@ -321,8 +326,11 @@ function present(quote, { financingTr = null } = {}) {
     storyVideoUrl: _storyVideoUrl,
     teamPhotoUrl: _teamPhotoUrl,
     proposalSections: _proposalSections,
+    // Read for the two demo decisions below, never forwarded.
+    isDemo: _isDemo,
     ...companyPublic
   } = quote.company || {};
+  const isDemo = _isDemo === true;
 
   // ── Why the page is told a KIND and not just a number ────────────────────
   //
@@ -422,7 +430,9 @@ function present(quote, { financingTr = null } = {}) {
     // recomputed on the page as extras are ticked (from the pct, never from
     // a figure the page could edit); the server reprices at approval.
     offlineDiscount: offlineDiscountLine(quote, { language: docLanguage }),
-    company: companyPublic,
+    // A real company's object as it always was; a demo's without the seed's
+    // 555 phone and example.com email/website (lib/demo/clientFacing.js).
+    company: demoSafeContact(companyPublic, isDemo),
     financing: financingBlock(quote, financingTr),
     scopeGroups: quote.scopeGroups.map((g) => {
       // Resolved server-side rather than sent as a category key for the page
@@ -522,12 +532,18 @@ function present(quote, { financingTr = null } = {}) {
     // block the quote PDF prints (PaymentTermsSection), in the document's
     // language, with the quote number as the reference. Null when the terms
     // don't parse into a schedule: no deposit is asked for at approval.
-    howToPay: depositHowToPay({
-      data: quote,
-      company: quote.company || {},
-      language: docLanguage,
-      schedule: parsePaymentSchedule(quote.company?.paymentTerms),
-    }),
+    //
+    // Null for a demo: its methods are the seed's fictional addresses, and
+    // the demo's Pay step is what shows the payment experience.
+    howToPay: demoSafeHowToPay(
+      depositHowToPay({
+        data: quote,
+        company: quote.company || {},
+        language: docLanguage,
+        schedule: parsePaymentSchedule(quote.company?.paymentTerms),
+      }),
+      isDemo,
+    ),
   };
 }
 
