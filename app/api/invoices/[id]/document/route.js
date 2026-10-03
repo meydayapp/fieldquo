@@ -105,6 +105,9 @@ export async function GET(request, { params }) {
               // different job from one in painted MDF. Never returned: some
               // takeoffs carry supplier cost and markup.
               takeoff: true,
+              // Read for one answer — a drywall group's finish level, which
+              // the invoice states as the quote did. Never returned.
+              intakeValues: true,
               category: { select: { key: true, label: true } },
             },
           },
@@ -137,6 +140,7 @@ export async function GET(request, { params }) {
         g.companySettings || null,
         g.takeoff,
         invoice.language,
+        g.intakeValues,
       ),
     ]),
   );
@@ -184,6 +188,7 @@ export async function GET(request, { params }) {
     categoryKey: g.category?.key || null,
     override: g.companySettings || null,
     subtotal: num(g.subtotal),
+    intake: g.intakeValues,
   }));
 
   return NextResponse.json({

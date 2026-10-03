@@ -100,6 +100,8 @@ import { isUnitPriced, UNIT_PRICED_CATEGORIES } from "@/app/data/cabinetPricing"
 import { PAINT_ESTIMATE_TYPES } from "@/lib/pricing/paintTakeoff";
 import { APP_MESSAGES } from "@/app/i18n/appMessages";
 import { fieldsForCategory } from "@/app/data/quoteIntakeFields";
+import { FINISH_LEVEL_TRADES } from "@/app/data/drywallFinishLevels";
+import { syncFinishLine, isUntouchedFinishLine } from "@/lib/quotes/drywallFinishLine";
 import { isLotMeasureTrade } from "@/lib/measure/lotTakeoff";
 import { isRoomMeasureTrade, isTraceMeasureTrade } from "@/lib/measure/reuseTakeoffs";
 import { getPriceBook, defaultTradeRate } from "@/app/data/tradePriceBooks";
@@ -1268,6 +1270,10 @@ export function QuoteBuilderForm({
       ...prev,
       newScopeGroup(category, label, rateOverridesFor(category.id), {
         tempId: crypto.randomUUID(),
+        // The estimator added this one, and is looking at it: a field that
+        // declares a default (the drywall finish level) opens on it.
+        fieldDefaults: true,
+        language: quoteLanguage || companyLanguage,
       }),
     ]);
   }
@@ -1328,8 +1334,12 @@ export function QuoteBuilderForm({
    * would be the same work billed twice.
    */
   function addScopeGroupWithTemplate(category, product) {
+    // fieldDefaults: the finish level opens on Level 4 as it does from a
+    // tile. The finishing line it would write is dropped with the seeded line
+    // below — the template's lines are the price.
     const group = newScopeGroup(category, category.label, rateOverridesFor(category.id), {
       tempId: crypto.randomUUID(),
+      fieldDefaults: true,
     });
     const { lines } = expandServiceTemplate(product, {
       measurements: measurementsFromGroups([...scopeGroups, group], { targetTempId: group.tempId }),
@@ -1350,8 +1360,10 @@ export function QuoteBuilderForm({
    * "{service} — $rate" line under it: that would be the same work twice.
    */
   function addScopeGroupWithProduct(category, product) {
+    // Same as the template add above: the level's default, not its line.
     const group = newScopeGroup(category, category.label, rateOverridesFor(category.id), {
       tempId: crypto.randomUUID(),
+      fieldDefaults: true,
     });
     const line = lineFromProduct(product, {
       language: quoteLanguage || companyLanguage,
@@ -1526,7 +1538,10 @@ export function QuoteBuilderForm({
     setScopeGroups((prev) =>
       prev.map((g) =>
         g.tempId === groupTempId
-          ? { ...g, intakeValues: { ...g.intakeValues, [fieldKey]: value } }
+          ? withFinishLine(
+              { ...g, intakeValues: { ...g.intakeValues, [fieldKey]: value } },
+              [fieldKey],
+            )
           : g,
       ),
     );
@@ -1539,10 +1554,57 @@ export function QuoteBuilderForm({
     setScopeGroups((prev) =>
       prev.map((g) =>
         g.tempId === groupTempId
-          ? { ...g, intakeValues: { ...g.intakeValues, ...patch } }
+          ? withFinishLine(
+              { ...g, intakeValues: { ...g.intakeValues, ...patch } },
+              Object.keys(patch || {}),
+            )
           : g,
       ),
     );
+  }
+
+  // ── The drywall finish level drives its finishing line ──────────────────
+  //
+  // lib/quotes/drywallFinishLine.js does the work; this decides WHEN. A new
+  // level swaps the line the select wrote (and never one the estimator
+  // edited). A new square footage re-sizes that line only while it is still
+  // there — so a finishing line the estimator deleted is not brought back by
+  // typing a number into a different box. Any other answer changes nothing.
+  function withFinishLine(group, changedKeys) {
+    if (!FINISH_LEVEL_TRADES.includes(group.categoryKey) || group.persisted) return group;
+    const levelChanged = changedKeys.includes("finishLevel");
+    const sizeChanged =
+      changedKeys.includes("squareFootage") &&
+      (group.lineItems || []).some(isUntouchedFinishLine);
+    if (!levelChanged && !sizeChanged) return group;
+    const { lineItems } = syncFinishLine(group, {
+      book: getPriceBook(group.categoryKey, rateOverridesFor(group.categoryId)),
+      language: quoteLanguage || companyLanguage,
+    });
+    return { ...group, lineItems };
+  }
+
+  // What the select's line could not do, said under it: no rate for the level
+  // in this company's book, or an edited finishing line that was kept.
+  function finishLineNotice(group) {
+    if (!FINISH_LEVEL_TRADES.includes(group.categoryKey) || group.persisted) return null;
+    const { held, unpriced } = syncFinishLine(group, {
+      book: getPriceBook(group.categoryKey, rateOverridesFor(group.categoryId)),
+      language: quoteLanguage || companyLanguage,
+    });
+    if (held) {
+      return t(
+        "app.drywallFinish.held",
+        "Your edited finishing line was kept. Change it by hand to match the finish level chosen.",
+      );
+    }
+    if (unpriced) {
+      return t(
+        "app.drywallFinish.unpriced",
+        "No finishing rate for this level is set for this quote type, so no finishing line was added. The level still prints on the quote; add the finishing line by hand.",
+      );
+    }
+    return null;
   }
 
   // The measured evidence on a group that has no structured takeoff form —
@@ -2592,6 +2654,14 @@ export function QuoteBuilderForm({
                   updateIntakeValue(group.tempId, key, value)
                 }
               />
+              {(() => {
+                const notice = finishLineNotice(group);
+                return notice ? (
+                  <p className="text-xs text-muted-foreground" data-drywall-finish-notice>
+                    {notice}
+                  </p>
+                ) : null;
+              })()}
             </>
           )}
 

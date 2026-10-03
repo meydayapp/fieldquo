@@ -443,6 +443,9 @@ function present(quote, { financingTr = null } = {}) {
         g.companySettings || null,
         g.takeoff,
         docLanguage,
+        // Read here for one answer, a drywall group's finish level, and never
+        // returned — the same rule as the takeoff above.
+        g.intakeValues,
       );
       return {
         label: g.label || g.category?.label || "Scope",
@@ -506,6 +509,7 @@ function present(quote, { financingTr = null } = {}) {
         categoryKey: g.category?.key || null,
         override: g.companySettings || null,
         subtotal: num(g.subtotal),
+        intake: g.intakeValues,
       })),
       // The same resolved language as the prose above — the first deploy of
       // the French catalogue left "Measure and specify" under a French quote

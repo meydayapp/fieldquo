@@ -69,6 +69,63 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Drywall: the six GA-214 finish levels (3 October 2026)
+
+The owner: drywall quotes must handle the levels of finish properly (GA-214 / ASTM C840,
+in our own words — no supplier products, no supplier text).
+
+**What was there.** `drywall` and `drywall_install` had a Finish Level select offering
+`level_2_unfinished` / `level_4_standard` / `level_5_premium` — no 0, 1 or 3, "Level 2
+unfinished" wrong — and nothing read the answer. Every drywall document printed "Level 4, or
+Level 5 where specified" whatever was sold. `app/data/priceBooks/interior.js` prices
+Levels 1–5 (`finish_l1` … `finish_l5`) — but that book is STAGED: nothing imports it,
+`getPriceBook("drywall_install")` is null in the product, and merging it is the owner's call
+(its header). No drywall material recipe is live either.
+
+**What it does now.**
+- `app/data/drywallFinishLevels.js` — the six levels, the default (Level 4), the legacy map,
+  `normaliseFinishLevel`. One field definition serves both quote types; each option has a plain
+  line (`app.intake.finishLevel.*`, nine app languages). Old stored values DISPLAY as the level
+  they meant (`shownSelectValue`) and are never rewritten.
+- The document states the level: the drywall group's scope paragraph ("Finished to Level 5:
+  Level 4 plus a full skim coat over the whole surface, for a smooth finish under gloss paint
+  or strong side light.") and the Drywall step's body, in all eight document languages
+  (`DRYWALL_FINISH*` in `lib/documents/serviceContent*.js`). `resolveServiceContent` takes
+  the group's intake as a fifth argument; quote page, PDF, email, staff document, invoice and
+  the builder card pass it. **Only new values print it** — every existing quote holds an old
+  value or none and renders byte-for-byte as before. A company's own paragraph still prints,
+  with the level after it; a company's own steps are left alone.
+- The level drives its line (`lib/quotes/drywallFinishLine.js`, the lawn picker's `meta`
+  pattern): the select writes the `finish_l*` line at the company's merged-book rate × the
+  intake's square feet, swaps it in place on a change, removes it for Level 0 or a blank, and
+  never touches a line whose fields no longer match what it wrote (no second line beside an
+  edited one; the builder says so). **Dormant until a drywall book is merged** — today it
+  writes nothing and the builder says no rate is set and the level still prints.
+- A group added from a tile opens on Level 4 (`newScopeGroup` `fieldDefaults`); a phone-call
+  draft keeps its blanks. `publicIntakeFields` now projects to the public keys, so the self-
+  quote form gets the six strings and nothing staff-side; no route prices from it.
+
+**Proof.** `npm run check:drywall-finish-levels` (new, in check:all, 1,119): six levels,
+legacy map, each level's line against the merged staged book and against the live product,
+in-place swap, edited lines kept, eight languages, old/absent/junk answers byte-identical,
+public payload shape. `check:service-content-fr` regexes widened to allow the fifth argument.
+
+### Still owed here
+
+- **Merge the drywall book** (`TRADE_PRICE_BOOKS.drywall_install` + its PRICE_BOOK_FIELDS from
+  interior.js) — the owner's decision; until then the level prices nothing.
+- **Materials:** no live drywall recipe. The staged one records Level 4 compound coverage only
+  (475 sq ft of board a box, "Level 5 roughly doubles it"); check:drywall-finish-levels §H
+  fails the day a recipe lands, so compound follows the level then.
+- The PDF's process-steps section and the quote email's steps call `dominantProcessSteps`
+  without the document language (pre-existing): they print English steps on any language,
+  the level sentence included.
+- The public self-quote select still shows raw values ("level 4") like every select there.
+- A service added "with its template lines" opens on Level 4 without the finish line; changing
+  the level later adds one beside the template's lines (once a book exists).
+
+---
+
 ## Reverse Selling, version 3: one script, a thirty-minute demo (2 October 2026)
 
 Owner decisions: **the demo is 30 minutes**, one number everywhere; and **one

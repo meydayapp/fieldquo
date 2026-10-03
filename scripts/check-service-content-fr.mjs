@@ -92,11 +92,15 @@ ok("no groups: the French generic steps", dominantProcessSteps([], "fr").length 
 // ── The four call sites hand the language in ───────────────────────────────
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => fs.readFileSync(path.join(ROOT, p), "utf8");
+// The language is the fourth argument. A fifth — the group's intake, read for
+// a drywall group's finish level (2026-10-03) — may follow it, with comments
+// between; the language must still sit straight after the takeoff.
+const INTAKE_TAIL = String.raw`\s*(?:\/\/[^\n]*\n\s*)*(?:g\.intake(?:Values)?,\s*)?\)`;
 ok("the public quote route resolves the language ONCE and hands it to the prose",
-  /const docLanguage = resolveClientLanguage\(/.test(read("app/api/public/quotes/[token]/route.js")) && /g\.takeoff,\s*docLanguage,\s*\)/.test(read("app/api/public/quotes/[token]/route.js")));
-ok("the quote document route passes quote.language", /g\.takeoff,\s*quote\.language,\s*\)/.test(read("app/api/quotes/[id]/document/route.js")));
-ok("the invoice document route passes invoice.language", /g\.takeoff,\s*invoice\.language,\s*\)/.test(read("app/api/invoices/[id]/document/route.js")));
-ok("the PDF scope section passes its language", /g\.takeoff,[\s\S]{0,200}language,\s*\)/.test(read("lib/documentSections/ScopeGroupsSection.js")));
+  /const docLanguage = resolveClientLanguage\(/.test(read("app/api/public/quotes/[token]/route.js")) && new RegExp(String.raw`g\.takeoff,\s*docLanguage,` + INTAKE_TAIL).test(read("app/api/public/quotes/[token]/route.js")));
+ok("the quote document route passes quote.language", new RegExp(String.raw`g\.takeoff,\s*quote\.language,` + INTAKE_TAIL).test(read("app/api/quotes/[id]/document/route.js")));
+ok("the invoice document route passes invoice.language", new RegExp(String.raw`g\.takeoff,\s*invoice\.language,` + INTAKE_TAIL).test(read("app/api/invoices/[id]/document/route.js")));
+ok("the PDF scope section passes its language", new RegExp(String.raw`g\.takeoff,[\s\S]{0,200}language,` + INTAKE_TAIL).test(read("lib/documentSections/ScopeGroupsSection.js")));
 ok("the process-steps section threads language into stepsFor", /stepsFor\(data, language\)/.test(read("lib/documentSections/ProcessStepsSection.js")));
 // The steps are built in three routes, separately from the prose. The first
 // deploy translated the prose and left "Measure and specify" under a French
