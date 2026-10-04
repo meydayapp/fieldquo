@@ -17272,6 +17272,11 @@ const en = {
   "app.customItem.error_costNegative": "A cost can't be negative.",
   "app.customItem.error_costLarge": "That cost is larger than a line can hold — check for a stray digit.",
   "app.customItem.error_amountLarge": "This line comes to more than one line can hold — check the quantity and the price.",
+  // ── Subcontractor details from their FieldQuo profile (2026-10-03) ──
+  "app.subcontractors.address": "Business address",
+  "app.subcontractors.fromProfile": "From their FieldQuo profile",
+  "app.subcontractors.filledFromProfile": "From their FieldQuo profile (what their own quotes print): {fields}. Anything else here is what you typed.",
+  "app.subcontractors.noContactOnDocuments": "Their documents don't name a contact person, so none was filled — add one with Edit.",
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -34041,6 +34046,11 @@ const fr = {
   "app.customItem.error_costNegative": "Un coût ne peut pas être négatif.",
   "app.customItem.error_costLarge": "Ce coût dépasse ce qu'une ligne peut contenir — vérifiez s'il y a un chiffre de trop.",
   "app.customItem.error_amountLarge": "Cette ligne dépasse ce qu'une ligne peut contenir — vérifiez la quantité et le prix.",
+  // ── Subcontractor details from their FieldQuo profile (2026-10-03) ──
+  "app.subcontractors.address": "Adresse de l'entreprise",
+  "app.subcontractors.fromProfile": "Tiré de leur profil FieldQuo",
+  "app.subcontractors.filledFromProfile": "Tiré de leur profil FieldQuo (ce qu'affichent leurs propres soumissions) : {fields}. Le reste, c'est ce que vous avez entré.",
+  "app.subcontractors.noContactOnDocuments": "Leurs documents ne nomment aucune personne-ressource, donc aucune n'a été remplie — ajoutez-en une avec Modifier.",
 };
 
 
@@ -51162,6 +51172,11 @@ const es = {
   "app.customItem.error_costNegative": "Un costo no puede ser negativo.",
   "app.customItem.error_costLarge": "Ese costo es mayor de lo que cabe en una línea — revise si sobra un dígito.",
   "app.customItem.error_amountLarge": "Esta línea suma más de lo que cabe en una línea — revise la cantidad y el precio.",
+  // ── Subcontractor details from their FieldQuo profile (2026-10-03) ──
+  "app.subcontractors.address": "Dirección de la empresa",
+  "app.subcontractors.fromProfile": "De su perfil de FieldQuo",
+  "app.subcontractors.filledFromProfile": "De su perfil de FieldQuo (lo que muestran sus propios presupuestos): {fields}. Lo demás es lo que usted escribió.",
+  "app.subcontractors.noContactOnDocuments": "Sus documentos no nombran a una persona de contacto, así que no se completó ninguna — agréguela con Editar.",
 };
 
 const uk = {
@@ -67761,6 +67776,11 @@ const uk = {
   "app.customItem.error_costNegative": "Собівартість не може бути від'ємною.",
   "app.customItem.error_costLarge": "Ця собівартість завелика для рядка — перевірте, чи немає зайвої цифри.",
   "app.customItem.error_amountLarge": "Сума рядка завелика — перевірте кількість і ціну.",
+  // ── Subcontractor details from their FieldQuo profile (2026-10-03) ──
+  "app.subcontractors.address": "Адреса компанії",
+  "app.subcontractors.fromProfile": "З їхнього профілю FieldQuo",
+  "app.subcontractors.filledFromProfile": "З їхнього профілю FieldQuo (те, що друкують їхні власні кошториси): {fields}. Решту ввели ви.",
+  "app.subcontractors.noContactOnDocuments": "Їхні документи не називають контактної особи, тож її не заповнено — додайте через «Редагувати».",
 };
 
 const pa = {
@@ -84290,6 +84310,11 @@ const pa = {
   "app.customItem.error_costNegative": "ਲਾਗਤ ਮਨਫ਼ੀ ਨਹੀਂ ਹੋ ਸਕਦੀ।",
   "app.customItem.error_costLarge": "ਇਹ ਲਾਗਤ ਇੱਕ ਲਾਈਨ ਲਈ ਬਹੁਤ ਵੱਡੀ ਹੈ — ਕੋਈ ਵਾਧੂ ਅੰਕ ਤਾਂ ਨਹੀਂ, ਦੇਖੋ।",
   "app.customItem.error_amountLarge": "ਇਹ ਲਾਈਨ ਇੱਕ ਲਾਈਨ ਦੀ ਹੱਦ ਤੋਂ ਵੱਧ ਬਣਦੀ ਹੈ — ਮਾਤਰਾ ਅਤੇ ਕੀਮਤ ਦੇਖੋ।",
+  // ── Subcontractor details from their FieldQuo profile (2026-10-03) ──
+  "app.subcontractors.address": "ਕਾਰੋਬਾਰ ਦਾ ਪਤਾ",
+  "app.subcontractors.fromProfile": "ਉਹਨਾਂ ਦੀ FieldQuo ਪ੍ਰੋਫਾਈਲ ਤੋਂ",
+  "app.subcontractors.filledFromProfile": "ਉਹਨਾਂ ਦੀ FieldQuo ਪ੍ਰੋਫਾਈਲ ਤੋਂ (ਜੋ ਉਹਨਾਂ ਦੇ ਆਪਣੇ ਕੋਟ ਛਾਪਦੇ ਹਨ): {fields}। ਬਾਕੀ ਸਭ ਤੁਸੀਂ ਲਿਖਿਆ ਹੈ।",
+  "app.subcontractors.noContactOnDocuments": "ਉਹਨਾਂ ਦੇ ਦਸਤਾਵੇਜ਼ਾਂ ਵਿੱਚ ਕਿਸੇ ਸੰਪਰਕ ਵਿਅਕਤੀ ਦਾ ਨਾਂ ਨਹੀਂ, ਇਸ ਲਈ ਕੋਈ ਨਹੀਂ ਭਰਿਆ ਗਿਆ — ਸੋਧੋ ਨਾਲ ਜੋੜੋ।",
 };
 
 const tl = {
@@ -100829,6 +100854,11 @@ const tl = {
   "app.customItem.error_costNegative": "Hindi puwedeng negatibo ang gastos.",
   "app.customItem.error_costLarge": "Masyadong malaki ang gastos na iyan para sa isang linya — tingnan kung may sobrang digit.",
   "app.customItem.error_amountLarge": "Lampas sa kaya ng isang linya ang kabuuan nito — tingnan ang dami at presyo.",
+  // ── Subcontractor details from their FieldQuo profile (2026-10-03) ──
+  "app.subcontractors.address": "Address ng negosyo",
+  "app.subcontractors.fromProfile": "Mula sa kanilang FieldQuo profile",
+  "app.subcontractors.filledFromProfile": "Mula sa kanilang FieldQuo profile (ang naka-print sa sarili nilang mga quote): {fields}. Ang iba rito ay ikaw ang nag-type.",
+  "app.subcontractors.noContactOnDocuments": "Walang pangalan ng contact person sa kanilang mga dokumento, kaya walang nailagay — magdagdag gamit ang I-edit.",
 };
 
 const de = {
@@ -117254,6 +117284,11 @@ const de = {
   "app.customItem.error_costNegative": "Kosten können nicht negativ sein.",
   "app.customItem.error_costLarge": "Diese Kosten sind für eine Zeile zu groß — prüfen Sie auf eine überzählige Ziffer.",
   "app.customItem.error_amountLarge": "Diese Zeile ergibt mehr, als eine Zeile fassen kann — prüfen Sie Menge und Preis.",
+  // ── Subcontractor details from their FieldQuo profile (2026-10-03) ──
+  "app.subcontractors.address": "Geschäftsadresse",
+  "app.subcontractors.fromProfile": "Aus ihrem FieldQuo-Profil",
+  "app.subcontractors.filledFromProfile": "Aus ihrem FieldQuo-Profil (was ihre eigenen Angebote drucken): {fields}. Alles andere hier haben Sie eingegeben.",
+  "app.subcontractors.noContactOnDocuments": "Ihre Dokumente nennen keinen Ansprechpartner, daher wurde keiner eingetragen — fügen Sie ihn über Bearbeiten hinzu.",
 };
 
 const zh = {
@@ -133671,6 +133706,11 @@ const zh = {
   "app.customItem.error_costNegative": "成本不能为负数。",
   "app.customItem.error_costLarge": "该成本超出了一行的上限 —— 请检查是否多打了一位数字。",
   "app.customItem.error_amountLarge": "此行金额超出了一行的上限 —— 请检查数量和价格。",
+  // ── Subcontractor details from their FieldQuo profile (2026-10-03) ──
+  "app.subcontractors.address": "公司地址",
+  "app.subcontractors.fromProfile": "来自其 FieldQuo 资料",
+  "app.subcontractors.filledFromProfile": "来自其 FieldQuo 资料（即其自己的报价单上印出的内容）：{fields}。其余内容是您填写的。",
+  "app.subcontractors.noContactOnDocuments": "其文件上没有列出联系人，因此未填写 —— 请通过“编辑”添加。",
 };
 
 const it = {
@@ -150390,6 +150430,11 @@ const it = {
   "app.customItem.error_costNegative": "Un costo non può essere negativo.",
   "app.customItem.error_costLarge": "Questo costo è troppo grande per una riga — controlla se c'è una cifra in più.",
   "app.customItem.error_amountLarge": "Questa riga supera ciò che una riga può contenere — controlla quantità e prezzo.",
+  // ── Subcontractor details from their FieldQuo profile (2026-10-03) ──
+  "app.subcontractors.address": "Indirizzo dell'azienda",
+  "app.subcontractors.fromProfile": "Dal loro profilo FieldQuo",
+  "app.subcontractors.filledFromProfile": "Dal loro profilo FieldQuo (ciò che stampano i loro preventivi): {fields}. Il resto l'hai inserito tu.",
+  "app.subcontractors.noContactOnDocuments": "I loro documenti non indicano un referente, quindi non ne è stato compilato nessuno — aggiungilo con Modifica.",
 };
 
 export const APP_MESSAGES = { en, fr, es, uk, pa, tl, de, zh, it };

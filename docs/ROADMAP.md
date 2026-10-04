@@ -80,6 +80,29 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Subcontractor details from their FieldQuo profile (3 October 2026)
+
+Owner decision 2026-10-03: when a subcontractor company is added to a GC's roster from an accepted quote (the B2B subcontract flow), fill its contact details from the sub's own FieldQuo company profile — only what that company prints on its own documents, never private account data; fill blanks only, never overwrite what the GC typed, and say on the roster where each came from.
+
+### What shipped
+
+- **`lib/subcontractors/profileFill.js`** (pure): `PROFILE_COMPANY_SELECT` (name, email, phone, address, city, province, postalCode — the document identity the quote page masthead and email footer print; nothing else of the other tenant is selected), `documentProfileOf` (email shape-checked and lowercased, address = `formatAddress` exactly as the email footer prints it, control characters stripped, capped), `profileFillPatch` (blanks only — null, "", whitespace; records `{ field: value }` in `Subcontractor.profileFilled`), `fieldSources` ("profile" while the value still equals what was filled, else "typed" — derived at read, so an edit by the GC needs no bookkeeping).
+- **Both roads to the roster** use it: acceptance (`sourceLink.js adoptImportsOnJob` — new entries filled, an existing linked entry gets its blanks filled) and the job panel's "from an import" (`POST /api/jobs/[id]/subcontractors`, which before copied only the name).
+- **Contact person is not filled**: no FieldQuo document prints a person (masthead, PDF header/footer, signature block and the email From line are all the company), Company has no contact column, and members' own names are account data. The roster says "Their documents don't name a contact person, so none was filled — add one with Edit." **Product decision if wanted:** a "contact person on documents" box in Settings › Business info would be the source; `profileFill.js` is the one reader to change.
+- Roster: `Subcontractor.address` (typed or filled; on the form, the detail page, `parseSubcontractorBody` capped at 300); the detail page lists what came from the profile; each filled box in Edit says "From their FieldQuo profile" until changed. `GET /api/subcontractors/[id]` sends `sources`, not the raw `profileFilled`.
+- Strings in nine languages; help "Subcontractors and their insurance" › "A sub who is on FieldQuo too" (en/fr/es).
+
+### Schema — additive, NOT applied (apply before deploying this; the roster's selects read both columns)
+
+```sql
+ALTER TABLE "Subcontractor" ADD COLUMN IF NOT EXISTS "address" TEXT;
+ALTER TABLE "Subcontractor" ADD COLUMN IF NOT EXISTS "profileFilled" JSONB;
+```
+
+### Checks
+
+`check:subcontractors` 199 → 232: the worked example now asserts address + `profileFilled` and that a Stripe id / billing email on the sub's Company never cross; an existing linked entry keeps the GC's typed email/name/contact while a whitespace phone and missing address are filled; a later adoption overwrites nothing; an edited value reads as typed; hostile `documentProfileOf` / `profileFillPatch` / `fieldSources` input; both routes wired to the same fill.
+
 ## "Create custom item" in the Add service dialog (3 October 2026)
 
 Owner decision 2026-10-03: "custom item should be based on the current estimate so they pick one service and based on what we have the custom line item makes sense." The button the owner's reference window had, held back until it had a real add behind it, is now in the quote builder's **Add service** dialog (under the search) and inline picker.
@@ -1324,7 +1347,7 @@ The owner-approved flow for a quote sent to another BUSINESS: the general contra
 - The unmounted reactive signup panel (`AuthAside` signup variant, `app/components/auth/samples/`, `SignupSteps`, the step functions in `lib/signup/funnel.js`) can be deleted with its checks.
 - The early nudge's "free month" copy and the trial-length copy elsewhere belong to the 14-day trial change running beside this one.
 - Product decision: the sales floor's SignupLead capture no longer fires from `/signup` (an email alone is not a lead); stalled owners are visible on `/platform/companies` with their welcome step and phone instead.
-- The sub's owner name is NOT copied as the roster contact (it is not on the quote the GC received), and `Subcontractor` has no address column — both left empty rather than invented. Owner's call if either should change.
+- ~~The sub's owner name is NOT copied as the roster contact (it is not on the quote the GC received), and `Subcontractor` has no address column — both left empty rather than invented. Owner's call if either should change.~~ — decided 3 October 2026: details are filled from the sub's FieldQuo profile, blanks only (see "Subcontractor details from their FieldQuo profile"). The contact name still is not: no document prints a person.
 - Wire `isViewedNoAnswer` into `lib/dashboard/workPanel.js` once that branch lands.
 ## Designer: contractor templates, "Save as template", a format per destination, carousels (29 September 2026)
 

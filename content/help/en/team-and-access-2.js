@@ -534,7 +534,7 @@ export const ARTICLES = {
     title: "Subcontractors and their insurance",
     summary:
       "The companies you hire per job — their trade and contact, whether their certificate of insurance and WSIB/WCB clearance are in date, what you agreed with them on each job, and what you paid them this year.",
-    updated: "2026-09-12",
+    updated: "2026-10-03",
     intro: [
       "**Subcontractors** is the roster of other companies — the electrician, the countertop fabricator, the roofer — with the one fact that has a same-day consequence at the top: whether their paperwork is still valid. A lapsed certificate of insurance is a sub who must not step on site tomorrow, so the **Insurance or clearance expiring** panel comes before everything else.",
       "This is not the roster of people you employ; that is [[manage-team|Manage Team]]. And it is not a way to pay a sub: the feature FieldQuo does ship — paying a contractor from the app — pays a person on your own roster, for hours they clocked, at the rate you set. It cannot pay a fixed bid to another company. Payments to a subcontractor company are recorded here after the money has left.",
@@ -566,7 +566,7 @@ export const ARTICLES = {
         blocks: [
           { steps: [
             "Open **Subcontractors** (under People) and press **Add**.",
-            "Fill in the **Company name** and **Trade** (“electrical, roofing, drywall…”), then the **Contact person**, **Email** and **Phone**.",
+            "Fill in the **Company name** and **Trade** (“electrical, roofing, drywall…”), then the **Contact person**, **Email**, **Phone** and **Business address**.",
             "Enter **Insurance (COI) expires** and **WSIB / WCB clearance expires** if you have the certificates. “Leave a date blank if you don't have the certificate — blank means not recorded, not expired.”",
             "Leave **Goes on the year-end contractor form (T5018 / 1099-NEC)** ticked for a construction sub; untick it for an incorporated materials supplier your accountant says does not get one.",
             "Press **Add subcontractor**.",
@@ -574,6 +574,19 @@ export const ARTICLES = {
           ] },
           { figure: "create:app-subcontractors-create", caption: "Subcontractors → Add — the new-subcontractor form: company, trade, contact, the two expiry dates and the year-end form checkbox." },
           { tip: "A sub you no longer use gets **Mark inactive** rather than a delete: they drop out of the “add a sub to a job” picker, keep their jobs and payments, and still appear with their total for the years you paid them." },
+        ],
+      },
+      {
+        id: "from-their-fieldquo-profile",
+        heading: "A sub who is on FieldQuo too",
+        blocks: [
+          { p: "When a sub's quote that you pulled into your own quote is accepted — or you put that import on the job from **Subs on this job** — the sub is added to your roster, or found there if you already linked them, and their details are filled from their own FieldQuo company profile: the email, phone and business address their own quotes and invoices print." },
+          { bullets: [
+            "**Only blanks are filled.** Anything you typed — an estimator's direct email, your own note of their phone — stays exactly as you typed it.",
+            "**Only what they print.** Nothing private crosses: no account, login or billing details of theirs. If their documents leave a box empty, it stays empty here.",
+            "**The contact person is not filled.** FieldQuo documents name the company, not a person, so there is no contact name to copy; the sub's page says so — add the name with **Edit**.",
+            "**It says where each came from.** The sub's page reads “From their FieldQuo profile (what their own quotes print): Email, Phone, Business address”, and the same label sits under each box in **Edit**. Change a value and it is yours: the label goes.",
+          ] },
         ],
       },
       {

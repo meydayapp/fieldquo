@@ -530,7 +530,7 @@ export const ARTICLES = {
     title: "Les sous-traitants et leurs assurances",
     summary:
       "Les entreprises que vous engagez par chantier — leur métier et leur contact, si leur attestation d'assurance et leur attestation CNESST/WSIB/WCB sont en vigueur, ce que vous avez convenu avec eux sur chaque chantier, et ce que vous leur avez payé cette année.",
-    updated: "2026-09-12",
+    updated: "2026-10-03",
     intro: [
       "**Sous-traitants**, c'est la liste des autres entreprises — l'électricien, le fabricant de comptoirs, le couvreur — avec, tout en haut, le seul fait qui a une conséquence le jour même : si leurs papiers sont encore valides. Une attestation d'assurance échue, c'est un sous-traitant qui ne doit pas mettre le pied sur le chantier demain, alors le panneau **Assurance ou attestation qui expire** passe avant tout le reste.",
       "Ce n'est pas la liste des gens que vous employez; ça, c'est [[manage-team|Gérer l'équipe]]. Et ce n'est pas un moyen de payer un sous-traitant : la fonctionnalité que FieldQuo offre bel et bien — payer un contractuel depuis l'application — paie une personne de votre propre équipe, pour des heures pointées, au taux que vous avez fixé. Elle ne peut pas payer un prix forfaitaire à une autre entreprise. Les paiements à une entreprise sous-traitante sont inscrits ici après que l'argent est sorti.",
@@ -562,7 +562,7 @@ export const ARTICLES = {
         blocks: [
           { steps: [
             "Ouvrez **Sous-traitants** (sous Personnes) et appuyez sur **Ajouter**.",
-            "Remplissez le **Nom de l'entreprise** et le **Métier** (« électricité, toiture, gypse… »), puis la **Personne-ressource**, le **Courriel** et le **Téléphone**.",
+            "Remplissez le **Nom de l'entreprise** et le **Métier** (« électricité, toiture, gypse… »), puis la **Personne-ressource**, le **Courriel**, le **Téléphone** et l'**Adresse de l'entreprise**.",
             "Entrez **Assurance (attestation) expire le** et **Attestation CNESST / WSIB / WCB expire le** si vous avez les certificats. « Laissez la date vide si vous n'avez pas le certificat — vide veut dire non consigné, pas expiré. »",
             "Laissez **Figure sur le relevé de fin d'année des sous-traitants (T5018 / 1099-NEC)** coché pour un sous-traitant en construction; décochez-le pour un fournisseur de matériaux incorporé qui, selon votre comptable, n'en reçoit pas.",
             "Appuyez sur **Ajouter le sous-traitant**.",
@@ -570,6 +570,19 @@ export const ARTICLES = {
           ] },
           { figure: "create:app-subcontractors-create", caption: "Sous-traitants → Ajouter — le formulaire de nouveau sous-traitant : entreprise, métier, contact, les deux dates d'expiration et la case du relevé de fin d'année." },
           { tip: "Un sous-traitant que vous n'utilisez plus reçoit **Marquer inactif** plutôt qu'une suppression : il sort du sélecteur « ajouter un sous-traitant à un chantier », garde ses chantiers et ses paiements, et figure toujours avec son total pour les années où vous l'avez payé." },
+        ],
+      },
+      {
+        id: "from-their-fieldquo-profile",
+        heading: "Un sous-traitant qui utilise aussi FieldQuo",
+        blocks: [
+          { p: "Quand la soumission d'un sous-traitant que vous avez intégrée à votre propre soumission est acceptée — ou que vous mettez cette importation sur le chantier depuis **Sous-traitants sur ce chantier** — le sous-traitant est ajouté à votre liste, ou retrouvé s'il y est déjà lié, et ses coordonnées sont remplies à partir de son propre profil d'entreprise FieldQuo : le courriel, le téléphone et l'adresse de l'entreprise qu'affichent ses propres soumissions et factures." },
+          { bullets: [
+            "**Seules les cases vides sont remplies.** Ce que vous avez entré — le courriel direct d'un estimateur, votre propre note de son téléphone — reste exactement tel quel.",
+            "**Seulement ce qu'il affiche.** Rien de privé ne passe : aucun détail de compte, de connexion ou de facturation. Si ses documents laissent une case vide, elle reste vide ici.",
+            "**La personne-ressource n'est pas remplie.** Les documents FieldQuo nomment l'entreprise, pas une personne : il n'y a donc aucun nom à copier, et la fiche du sous-traitant le dit — ajoutez le nom avec **Modifier**.",
+            "**L'origine de chaque donnée est indiquée.** La fiche affiche « Tiré de leur profil FieldQuo (ce qu'affichent leurs propres soumissions) : Courriel, Téléphone, Adresse de l'entreprise », et la même mention figure sous chaque case dans **Modifier**. Changez une valeur et elle devient la vôtre : la mention disparaît.",
+          ] },
         ],
       },
       {
