@@ -304,7 +304,12 @@ function OfficeDashboard() {
     const result = await fetchArray("/api/quotes");
     if (result.aborted) return;
     if (result.ok) {
-      setRecentQuotes(result.data.slice(0, 5));
+      // Imported past jobs are skipped BEFORE the slice. The list is newest
+      // created first, and a Past jobs import creates a year of quotes today
+      // — so the five most recent were all imports and the quotes a
+      // contractor actually sent this week fell off the card. The quotes page
+      // still lists them; "Recent quotes" means recent work.
+      setRecentQuotes(result.data.filter((q) => !q.historicalImportedAt).slice(0, 5));
       setQuotesErrorKey("");
       return;
     }

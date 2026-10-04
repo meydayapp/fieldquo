@@ -19,6 +19,7 @@
 //      rows sees exactly what it saw, and the import moves nothing.
 import { register } from "node:module";
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { countingFakeDb } from "./fixtures/countingFakeDb.mjs";
 
 process.removeAllListeners("warning");
@@ -148,6 +149,31 @@ console.log("\n2. lib/dashboard/homeData.js — \"Your focus\": won this month o
   ok("the home loader writes nothing", writes.length === 0);
   const { result: bare } = await run(withoutHistory(seed));
   ok("a company with no historical rows sees identical focus facts (md5)", md5(h.facts) === md5(bare.facts), [h.facts, bare.facts]);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+console.log("\n3. app/app/page.js — the \"Recent quotes\" card\n");
+{
+  // The card is a client component; what it does with the list is one
+  // expression, lifted from the shipped source and executed — not re-typed.
+  const page = readFileSync(new URL("../app/app/page.js", import.meta.url), "utf8");
+  const m = page.match(/setRecentQuotes\((result\.data[^;]*?\.slice\(0, 5\))\);/);
+  ok("the card's list expression is found in app/app/page.js", Boolean(m));
+  const cardList = m ? new Function("result", `return ${m[1]};`) : () => [];
+  // GET /api/quotes: newest CREATED first, every row through redactQuotes.
+  const { redactQuotes } = await import("@/lib/permissions/enforce");
+  const { PERMISSION_PRESETS } = await import("@/lib/permissions");
+  const estimator = { id: "m3", role: "employee", companyId: "c1", permissions: { ...PERMISSION_PRESETS.estimator.values, showPricing: false } };
+  const apiList = (quotes) =>
+    redactQuotes(estimator, [...quotes].filter((q) => q.companyId === "c1").sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+  const all = apiList([...LIVE_QUOTES, ...importedQuotes()]);
+  ok("historicalImportedAt survives the API's redaction (so the filter is not vacuous)", all.some((q) => q.historicalImportedAt));
+  ok("...and a bare slice(0, 5) would be four imports and one draft (the bug)", all.slice(0, 5).filter((q) => q.historicalImportedAt).length === 4);
+  const shown = cardList({ data: all });
+  ok("the card shows the live quotes, newest first", JSON.stringify(shown.map((q) => q.id)) === JSON.stringify(["q5", "q2", "q1", "q3", "q4"]), shown.map((q) => q.id));
+  ok("...and no import", shown.every((q) => !q.historicalImportedAt));
+  const bare = apiList(LIVE_QUOTES);
+  ok("a company with no historical rows sees the same five it always did (md5 vs slice(0, 5))", md5(cardList({ data: bare })) === md5(bare.slice(0, 5)));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
