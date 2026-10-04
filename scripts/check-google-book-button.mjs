@@ -16,6 +16,8 @@
 //   3. approved but not connected / no listing picked / page not bookable /
 //      non-https origin: each refused with its own kind, Google never called
 //   4. permission: nobody → 401, an employee → 403 on every verb, a
+//      supervisor reads (GET, canManage false) but POST/DELETE → 403
+//      owner_admin_only before Google is asked (owner, 2026-10-03), a
 //      read-only support session → 403 on POST and DELETE
 //   5. create: list first, then ONE create with exactly { uri, APPOINTMENT,
 //      isPreferred } to the documented URL; a uri in the body is ignored
@@ -263,9 +265,27 @@ links = [
   { name: "locations/456/placeActionLinks/rwg", uri: "https://partner.example/cedar", placeActionType: "APPOINTMENT", providerType: "AGGREGATOR_3P", isEditable: false },
 ];
 const before = JSON.stringify(await db.companyGoogleBusiness.findUnique({ where: { companyId: company.id } }));
-setCurrentMember(supervisor); // user:manage — the Booking Page's own gate
+// A supervisor holds user:manage — the Booking Page's own gate — so reads
+// the card; changing the Google listing is owners and admins only
+// (2026-10-03), refused before Google is asked anything.
+setCurrentMember(supervisor);
 calls.length = 0;
 r = await call("GET");
+ok(r.status === 200 && r.json.canManage === false && r.json.google.canAutomate === true, "supervisor GET → 200, canManage false");
+calls.length = 0;
+r = await call("POST", { preferred: true });
+ok(r.status === 403 && r.json.kind === "owner_admin_only", "supervisor POST → 403 owner_admin_only");
+r = await call("DELETE");
+ok(r.status === 403 && r.json.kind === "owner_admin_only", "supervisor DELETE → 403 owner_admin_only");
+ok(calls.length === 0, "supervisor refused → Google never called");
+ok(links.length === 2, "supervisor refused → listing unchanged");
+setCurrentMember({ ...owner, role: "admin", id: "m-admin" });
+r = await call("GET");
+ok(r.json.canManage === true, "admin GET → canManage true");
+setCurrentMember(owner);
+calls.length = 0;
+r = await call("GET");
+ok(r.json.canManage === true, "owner GET → canManage true");
 ok(r.json.google.canAutomate === true && r.json.google.onGoogle === false, "connected + listing + live → canAutomate, not on Google yet");
 ok(r.json.google.locationTitle === "Cedar & Co — Main St", "listing title passed through");
 ok(googleCalls().every((c) => c.method === "GET"), "GET only lists");
@@ -359,18 +379,28 @@ ok(html.includes(URL_OURS) && html.includes("https://business.google.com") && ha
 ok(!html.includes(ADD) && !html.includes(REMOVE) && !has(html, "app.setBooking.gbp.connectFirst"), "flag off → no automation, no connect nudge");
 html = render({ state: { bookingLive: true, bookingUrl: URL_OURS, google: G({ available: true }) } });
 ok(has(html, "app.setBooking.gbp.connectFirst") && html.includes('href="/app/settings/reviews"') && !html.includes(ADD), "approved, not connected → nudge to Settings › Reviews, no button");
-html = render({ state: { bookingLive: true, bookingUrl: URL_OURS, google: G({ available: true, connected: true, canAutomate: true, onGoogle: false, locationTitle: "Main St" }) } });
+html = render({ state: { bookingLive: true, bookingUrl: URL_OURS, canManage: true, google: G({ available: true, connected: true, canAutomate: true, onGoogle: false, locationTitle: "Main St" }) } });
 ok(html.includes(ADD) && html.includes('type="checkbox"') && !html.includes(REMOVE) && html.includes("Main St"), "ready → Add it for me + preferred checkbox + listing");
-html = render({ state: { bookingLive: true, bookingUrl: URL_OURS, google: G({ available: true, connected: true, canAutomate: true, onGoogle: true, link: { uri: URL_OURS, isPreferred: true } }) } });
+html = render({ state: { bookingLive: true, bookingUrl: URL_OURS, canManage: true, google: G({ available: true, connected: true, canAutomate: true, onGoogle: true, link: { uri: URL_OURS, isPreferred: true } }) } });
 ok(html.includes(REMOVE) && !html.includes(ADD) && has(html, "app.setBooking.gbp.onGooglePreferred"), "on Google → Remove, preferred wording, no Add");
-html = render({ state: { bookingLive: true, bookingUrl: URL_OURS, google: G({ available: true, connected: true, canAutomate: true, error: "Google said: nope" }) } });
+html = render({ state: { bookingLive: true, bookingUrl: URL_OURS, canManage: true, google: G({ available: true, connected: true, canAutomate: true, error: "Google said: nope" }) } });
 ok(html.includes("Google said: nope") && html.includes(ADD), "lookup error printed, Add still offered (it answers with the same sentence)");
 html = render({ copy: "failed", state: { bookingLive: true, bookingUrl: URL_OURS, google: G() } });
 ok(has(html, "app.setBooking.gbp.copyFailed"), "copy failed → says so");
 html = render({ copy: "copied", state: { bookingLive: true, bookingUrl: URL_OURS, google: G() } });
 ok(html.includes(en["app.action.copied"]), "copied → says so");
-html = render({ result: { tone: "ok", text: en["app.setBooking.gbp.already"] }, state: { bookingLive: true, bookingUrl: URL_OURS, google: G({ available: true, connected: true, canAutomate: true, onGoogle: true }) } });
+html = render({ result: { tone: "ok", text: en["app.setBooking.gbp.already"] }, state: { bookingLive: true, bookingUrl: URL_OURS, canManage: true, google: G({ available: true, connected: true, canAutomate: true, onGoogle: true }) } });
 ok(has(html, "app.setBooking.gbp.already"), "already-on-Google result shown");
+
+// Owners and admins only (2026-10-03): a supervisor's GET says canManage
+// false, and the card then draws neither button — the status and the note.
+html = render({ state: { bookingLive: true, bookingUrl: URL_OURS, canManage: false, google: G({ available: true, connected: true, canAutomate: true, onGoogle: false, locationTitle: "Main St" }) } });
+ok(!html.includes(ADD) && !html.includes('type="checkbox"') && has(html, "app.setBooking.gbp.ownerAdminOnly"), "supervisor, ready → no Add, no checkbox, who-can note");
+ok(html.includes(URL_OURS) && has(html, "app.setBooking.gbp.step2"), "supervisor still sees the link and the manual steps");
+html = render({ state: { bookingLive: true, bookingUrl: URL_OURS, canManage: false, google: G({ available: true, connected: true, canAutomate: true, onGoogle: true, link: { uri: URL_OURS, isPreferred: false } }) } });
+ok(!html.includes(REMOVE) && has(html, "app.setBooking.gbp.onGoogle") && has(html, "app.setBooking.gbp.ownerAdminOnly"), "supervisor, on Google → status shown, no Remove");
+html = render({ state: { bookingLive: true, bookingUrl: URL_OURS, google: G({ available: true, connected: true, canAutomate: true, onGoogle: false }) } });
+ok(!html.includes(ADD), "canManage absent → no button (absence is not permission)");
 
 const gbpKeys = Object.keys(en).filter((k) => k.startsWith("app.setBooking.gbp."));
 ok(gbpKeys.length >= 30, `card keys present in English (${gbpKeys.length})`);
@@ -383,8 +413,9 @@ for (const code of LANGS) {
   for (const state of [
     { bookingLive: false, bookingUrl: null, google: G() },
     { bookingLive: true, bookingUrl: URL_OURS, google: G({ available: true }) },
-    { bookingLive: true, bookingUrl: URL_OURS, google: G({ available: true, connected: true, canAutomate: true, onGoogle: false, locationTitle: "X" }) },
-    { bookingLive: true, bookingUrl: URL_OURS, google: G({ available: true, connected: true, canAutomate: true, onGoogle: true, link: { isPreferred: false } }) },
+    { bookingLive: true, bookingUrl: URL_OURS, canManage: true, google: G({ available: true, connected: true, canAutomate: true, onGoogle: false, locationTitle: "X" }) },
+    { bookingLive: true, bookingUrl: URL_OURS, canManage: true, google: G({ available: true, connected: true, canAutomate: true, onGoogle: true, link: { isPreferred: false } }) },
+    { bookingLive: true, bookingUrl: URL_OURS, canManage: false, google: G({ available: true, connected: true, canAutomate: true, onGoogle: true, link: { isPreferred: false } }) },
   ]) {
     const out = render({ state, copy: "failed" }, code);
     ok(!out.includes("[[app."), `${code}: no unresolved key in a rendered state`);

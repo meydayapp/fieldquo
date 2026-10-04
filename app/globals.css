@@ -610,3 +610,25 @@ input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [ty
   max-width: 100%;
   min-width: 0;
 }
+
+/* ── "View as company": write controls drawn off (2026-10-03) ─────────────
+ * Every rule here sits under [data-view-only], which app/app/layout.js puts
+ * on the shell ONLY in a read-only support session — for everyone else
+ * these selectors match nothing. The list of what counts as a write by its
+ * nature is lib/impersonation/viewOnly.js WRITE_CONTROL_SELECTOR (repeated
+ * here because CSS cannot import it; scripts/check-view-only.mjs holds the
+ * two to each other). Scoped to the page and its dialogs: the rail, top bar
+ * and account menu keep working. The press itself is stopped by
+ * app/providers/ViewOnlyProvider.js; this is how the control LOOKS. A
+ * control the guard stopped mid-press gets [data-view-only-blocked]. */
+[data-view-only] :is(main, [role="dialog"]) :is(button[type="submit"], input[type="submit"], input[type="file"], [role="switch"], [contenteditable="true"], [data-write], form input:not([type="hidden"]), form textarea, form select),
+[data-view-only] [data-view-only-blocked] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+[data-view-only] :is(main, [role="dialog"]) :is(form input:not([type="hidden"]), form textarea, form select, [contenteditable="true"]) {
+  pointer-events: none;
+}
+[data-view-only] [data-view-only-hide] {
+  display: none !important;
+}

@@ -33,7 +33,8 @@ import {
 // one array. "Trialing" is both trial buckets together, the number the owner
 // asks about; "No-plan free trials, any day" is the card-free trial whatever
 // its day, which /platform/signups and /platform/billing/subscriptions link
-// to. Demos stay out of every chip but their own.
+// to. Demos stay out of every chip but their own; test companies too (the
+// "Test company" chip), unless "Show test companies" is on.
 const STATUS_FILTERS = [
   { value: "", label: "All" },
   { value: "trialing", label: "Trialing" },
@@ -171,6 +172,11 @@ export default function PlatformCompaniesPage() {
     if (new URLSearchParams(window.location.search).get("callBack") === "1") setCallBackOnly(true);
   }, []);
   const [sortBy, setSortBy] = useState("newest");
+  // Test companies (owner, 2026-10-03): hidden like demos unless asked for.
+  // Server-side, because the API decides which rows a chip holds; shown,
+  // they sit under their REAL standing's chip with a "Test" badge, and the
+  // per-country tally below still leaves them out (their bucket is "test").
+  const [showTests, setShowTests] = useState(false);
   const badgeFor = useCallback(
     (c) => {
       const p = presenceById.get(c.id);
@@ -193,13 +199,14 @@ export default function PlatformCompaniesPage() {
   }, [companies, onlineOnly, callBackOnly, sortBy, presenceData, presenceById, badgeFor, now]);
   const callBackCount = Array.isArray(companies) ? companies.filter((c) => c.callBack).length : 0;
 
-  const load = useCallback(async (q, s) => {
+  const load = useCallback(async (q, s, tests) => {
     setLoading(true);
     setError("");
     try {
       const params = new URLSearchParams();
       if (q) params.set("q", q);
       if (s) params.set("status", s);
+      if (tests) params.set("tests", "1");
       const res = await fetch(`/api/platform/companies?${params}`);
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Couldn't load companies.");
@@ -214,9 +221,9 @@ export default function PlatformCompaniesPage() {
 
   // Debounced so typing doesn't fire a request per keystroke.
   useEffect(() => {
-    const t = setTimeout(() => load(query, status), 250);
+    const t = setTimeout(() => load(query, status, showTests), 250);
     return () => clearTimeout(t);
-  }, [query, status, load]);
+  }, [query, status, showTests, load]);
 
   return (
     <div className="space-y-6">
@@ -307,6 +314,19 @@ export default function PlatformCompaniesPage() {
             }`}
           >
             Needs call back ({count(callBackCount)})
+          </button>
+          <button
+            onClick={() => setShowTests((v) => !v)}
+            aria-pressed={showTests}
+            data-filter-tests
+            title="Test companies are left out of every number; this only lists them"
+            className={`min-h-[44px] min-w-[44px] lg:min-h-0 px-3 py-2 rounded-lg text-sm font-medium border ${
+              showTests
+                ? "bg-violet-700 text-white border-violet-700"
+                : "border-border text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            {showTests ? "Showing test companies" : "Show test companies"}
           </button>
           <label className="sr-only" htmlFor="company-sort">
             Sort
@@ -428,6 +448,15 @@ export default function PlatformCompaniesPage() {
                           wants to know about a new company is whether anyone
                           is actually in it. */}
                       <PresenceBadge badge={presence} />
+                      {c.isTestCompany && (
+                        <span
+                          className="text-xs px-2 py-0.5 rounded-full border bg-violet-50 dark:bg-violet-950/40 text-violet-800 dark:text-violet-200 border-violet-300 dark:border-violet-800 font-semibold"
+                          title="Marked test by a superadmin — left out of every /platform number"
+                          data-test-company
+                        >
+                          Test
+                        </span>
+                      )}
                       {c.isDemo ? (
                         /* A demo has no onboarding and no checkout to finish;
                            printing "pending" on it is a lie about a company

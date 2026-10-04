@@ -10,6 +10,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { isMetricsBucket } from "@/lib/platform/metricsScope";
 import { db } from "@/lib/db";
 import { stripe } from "@/lib/stripe";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
@@ -37,10 +38,10 @@ export async function GET(request) {
   //
   // The same classified book every /platform number counts with
   // (lib/platform/trialCounting.js), so "3 trialling in CA" here and
-  // "Trialing" on the dashboard are one population. Demos are their own
-  // bucket and fall out of the tally by construction.
+  // "Trialing" on the dashboard are one population. Demos and test companies
+  // are their own buckets and fall out of the tally by construction.
   const { companies: book } = await loadSubscriberBook(db, { now });
-  const companies = book.filter((c) => c.bucket !== "demo");
+  const companies = book.filter((c) => isMetricsBucket(c.bucket));
 
   // ── Stripe: paid subscription invoices, last 12 months ───────────────────
   //

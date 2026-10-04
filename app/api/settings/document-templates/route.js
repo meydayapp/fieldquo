@@ -9,6 +9,7 @@ import {
   defaultSubjectFor,
 } from "@/app/data/emailTemplateBlocks";
 import { starterSectionsFor, isPdfTemplate } from "@/lib/documents/templateKind";
+import { templateLanguageOf } from "@/lib/email/templateTranslation";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -81,6 +82,17 @@ export async function POST(request) {
     }
   }
 
+  // The starter is written in the COMPANY's language (lib/i18n/emailStarterCopy.js)
+  // — it was English for every company until 2026-10-03 — and the row records
+  // it: `language` is what the email-translation panel translates FROM
+  // (lib/email/templateTranslation.js). A copy keeps its source's language, the
+  // words being the source's.
+  const company = await db.company.findUnique({
+    where: { id: member.companyId },
+    select: { defaultLanguage: true },
+  });
+  const language = templateLanguageOf(null, company);
+
   // starterSectionsFor, not defaultSectionsFor: the latter only knows the email
   // block vocabulary and falls through to [heading, text] for anything else, so
   // creating a PDF layout used to produce a template the PDF renderer couldn't
@@ -95,8 +107,12 @@ export async function POST(request) {
         ? source.subject
         : isPdfTemplate(type)
           ? null
-          : defaultSubjectFor(type),
-      sections: source ? source.sections : starterSectionsFor(type),
+          : defaultSubjectFor(type, language),
+      sections: source ? source.sections : starterSectionsFor(type, language),
+      // An email's authored language. Null on a PDF layout — it has no words
+      // of its own (its sections print the document's labels in the
+      // document's language).
+      ...(isPdfTemplate(type) ? {} : { language: source ? templateLanguageOf(source, company) : language }),
       // A copy is never active. `isDefault` stays false so copying the live
       // layout cannot swap what clients receive as a side effect of pressing
       // Copy — the company activates it explicitly, as it does for any other

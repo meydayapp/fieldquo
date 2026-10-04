@@ -1,5 +1,7 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 3 October 2026 (email templates in the client's language — the owner: "starter email templates … in various language that matches the client's language … if each email created costs more than 5 cents for translation … we might charge the company". (1) Starters are hand-written in all eight document languages and created in the COMPANY's language: the six starter emails + subjects + new-block placeholders (lib/i18n/emailStarterCopy.js; English byte-identical, md5-pinned) and the four starter funnels, the blank funnel and the AI funnel generator (lib/i18n/funnelStarterCopy.js, written in funnelPageLanguage; budget figures grouped per language). DocumentTemplate.language now records the language an ordinary email template is WRITTEN in ("Written in" in the editor). (2) A company's own follow-up/campaign template gets a "Translations" panel: per language Translate / Review-Edit / Update / Regenerate / Write it yourself; drafted once per template version per language via lib/ai/provider.js (only changed lines on Update), stored in the new TemplateTranslation table, never used until a person presses Approve & use, never redrafted at send time. Sends (campaign route, follow-up cron) use the approved, current translation for the reader's language (document language first, non-negotiable 6) else the original — never held up. {{tokens}}, HTML, links, emails and amounts are hidden behind ⟦n⟧ markers before the model sees the text; a reply that drops/doubles/alters/adds one is refused line by line and left empty. (3) Money: lib/ai/emailTranslationMeter.js — AI credit when the company has it (cost × 2, ≥ 1¢, kind email_translation), otherwise FieldQuo absorbs while a version's estimate ≤ 5¢ and the company's absorbed month ≤ $1.00 (MONTHLY_ABSORB_CAP_MICROS), else "needs AI credit"; measured cost (cached prompt at 10%) stored on the row and shown in the panel; /platform/ai-billing switch "email_translation". Estimated 0.09–0.18¢ per 150–300-word email per language on the standard model. NOT YET LIVE until the TemplateTranslation SQL is applied — until then the panel hides itself (GET answers ready:false) and sends go out in the original (translationsForSend never throws); the starters in the company language work without it. check:email-template-translation (196 checks).)
+Last updated: 3 October 2026 (role access confirmed per role — `check:role-access` runs the real routes as Owner/Admin/Manager/Dispatcher/Estimator/Crew; 40 leaks fixed, see docs/ROLE-ACCESS.md and "Who sees what" below)
 Last updated: 3 October 2026 (audit loose ends: /platform revenue is written per currency and never summed — owner decision; the sales funnel counts a started card-free trial as "signup completed"; "End trial now" explains itself on a card-free trial; WhatsApp names Meta's App Review as the blocker; the signup help article matches /welcome; the dashboard counts "viewed, no answer"; Presentation's Google reviews link is gated; the handyman new-services release — see "Audit loose ends" below)
 Last updated: 3 October 2026 (everyone has a clock, crew get no accordion — the owner: "everyone should have a clock even the boss … for crews i don't think we need the accordion". The Time clock is the FIRST tab on every phone bar, owners/admins included, each bar keeping its size: owner Clock · Leads · Quotes · Jobs · Chat · More (Invoices → More), estimator Clock · Quotes · Calendar · Chat · More (Leads → More), dispatcher/manager Clock · Schedule · Team · Chat · More (Jobs → More), crew unchanged Clock · Today · Chat · More; someone switched to "No access" gets the old bar back. The desktop rail pins the clock under Home for owners and admins too (owners stay off payroll unless "Pay me through payroll"). Crew from `lg` up get no rail: CrewShell.js — a slim header (company logo + name, their name, bell, Sign out), one big Clock in / Clock out button (green/red/brown, white text 5.5–7.1:1, opens /app/clock), then big buttons Today · My schedule · Chat · Jobs · More; the phone drawer is gone for crew too, and every row it held is on /app/me/more under "Everything else". PATCH /api/time-entries/[id] now refuses a crew member's own times with a pointer to Time log › Request a correction; estimators, supervisors and owners unchanged. The swap choices are reasoned from the screens, not from counts — the per-role page counts in AnalyticsEvent (memberId × viewport) were not read; if they disagree it is one line per set in lib/nav/phoneBar.js — scripts/check-rbac-nav.mjs, check-rbac-redaction.mjs C6b)
 
@@ -92,7 +94,7 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 - Measured (`check:shrink-image`, sharp standing in for the canvas): a detailed 4032×3024 q92 photo 2.75 MB → 2560×1920 0.82 MB (−70%); a smooth one 0.63 → 0.16 MB (−74%).
 - Help: integrations › "Photos and files (Cloudinary)", Overview (en/fr/es).
 
-### 2. The AI allowance in dollars per plan — shipped (column NOT applied)
+### 2. The AI allowance in dollars per plan — shipped (column applied in production 2026-10-03)
 
 - `Plan.aiMonthlyAllowanceCents` (US cents of FieldQuo's model cost). `lib/ai/usage.js` `resolveAiCap` is the one place the unit is decided: Company.aiMonthlyTokenCap (override, tokens) → **Plan.aiMonthlyAllowanceCents (dollars)** → Plan.aiMonthlyTokenCap (tokens) → DEFAULT_TRIAL_CAP 750,000 tokens. `allowanceVerdict` measures `costMicros` against a dollar cap and tokens against a token cap; `used`/`cap` always share a unit. Cost is `estimateCostMicros` with the real PRICING table, cached input at 10%.
 - **No change for anyone until a plan row gets a dollar figure.** Found while doing it: a plan with a NULL token cap has never meant unlimited (the schema comment said so; the code gave the 750,000 default) — kept as it was, comment corrected. Making null unlimited would raise spend, so it is the owner's call.
@@ -100,9 +102,9 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 - `/platform/billing/plans`: "AI allowance (US$ / month)" field (superadmin only — the routes refuse an admin's change), and every plan card prints its AI line: "US$5.00/mo allowance", or "250,000 tokens/mo ≈ US$0.05 at the 30-day blended rate" (measured: `/api/platform/ai-usage` now returns `blended`, sum of costMicros ÷ tokens over 30 days). `/platform/ai-usage` resolves caps with the same function and shows a dollar cap in dollars.
 - Company side: `GET /api/ai/allowance` → Settings › Account & Billing card "FieldQuo AI this month — US$1.20 of US$5.00 AI used this month" (tools line + the assistant's own line); the copilot shows the same line under its subtitle. The quote/invoice review and call-draft routes ship the same `allowanceDisplay` shape (they sent tokens beside a cap that can now be micros).
 - Conversion for the owner (no live plan rows were read — a production read was refused; the plans screen shows the real conversion per row). Blended at the typical 94% prompt / 6% completion mix, no cache: gpt-5-mini US$0.18/M tokens, gpt-5.4 US$3.28/M, gpt-5.5 US$6.56/M. 100k tokens ≈ $0.02 / $0.33 / $0.66; 250k ≈ $0.05 / $0.82 / $1.64; 750k (default) ≈ $0.14 / $2.46 / $4.92; 2M ≈ $0.37 / $6.56 / $13.13.
-- SQL (additive, not applied): `ALTER TABLE "Plan" ADD COLUMN "aiMonthlyAllowanceCents" INTEGER;`
+- SQL (additive, applied in production 2026-10-03): `ALTER TABLE "Plan" ADD COLUMN "aiMonthlyAllowanceCents" INTEGER;`
 - Checks: `check:ai-dollar-allowance` (68), `check:ai-allowance` updated for the unit. Help: Getting started › FieldQuo AI › "The monthly allowance" (en/fr/es). Strings: `app.aiAllowance.*` in all nine languages.
-- **Owed — owner:** dollar figures per plan (type them on /platform/billing/plans after the column is added); whether a NULL plan should mean unlimited.
+- **Owed — owner:** dollar figures per plan (type them on /platform/billing/plans); whether a NULL plan should mean unlimited.
 
 ### 3. Booking drive times: offline on the calendar, Google only at booking — shipped
 
@@ -112,14 +114,14 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 - Not changed: the staff-side move checks (`/api/appointments/[id]`, `/api/jobs/[id]/visits/[visitId]`) still ask Google per edit — staff actions, not browsing; the booking page's per-address geocode is unchanged.
 - Docs: docs/BOOKING.md rule 5 and "Not covered yet". Help: Jobs and scheduling › Arrival windows and travel buffer (en/fr/es). Check: `check:booking-drive-check` (45); `check:booking-modes` count relaxed (≥ 2 uses of the mode sizing in the reschedule route).
 
-### 4. A card-free trial verifies a mobile before spending FieldQuo money — shipped (schema NOT applied)
+### 4. A card-free trial verifies a mobile before spending FieldQuo money — shipped (schema applied in production 2026-10-03)
 
 - `lib/trial/phoneGate.js`: asked only when `accessForCompany` says **trial_no_plan** (no Subscription, trialEndsAt ahead), not a demo, not yet verified. Paid companies — any Subscription row, incl. a card trial — are never asked and never read the company row for it.
 - Gated, at the place that spends: `sendSms` (every tenant text — refused as `{ success:false, code }`, which every caller handles), `POST /api/settings/voice/number` (a line + ~US$10.50 starter credit), crew line **buy** (search is free), business number **hosted** + **port**, `POST /api/quotes/[id]/call` (AI calls a client), `POST /api/marketing/video-posts`, `POST /api/marketing/campaigns/[id]/send`. Refusal: 403 `phone_verification_required` + `phoneVerification.path`; `lib/fetchJson.js` and `reportResponseError` open `PhoneVerifyPrompt` (mounted in app/app/layout.js). Not gated: FieldQuo-paid AI (copilot/receipts/translation) — each already has a per-company ceiling.
 - `/app/settings/verify-phone` (+ an Account & Billing card while it is owed): why, the list it unlocks, mobile → 6-digit code → verified. Owner/admin only. Strings `app.phoneVerify.*` in all nine languages.
 - **Sender, by price** (checked 2026-10-03): own Twilio number US$0.0083/SMS vs Twilio Verify US$0.05 per verification + the same per-SMS fee → own number is the default (our code, stored only as an HMAC). Verify only for a **US** mobile while the system number is not A2P-registered (US texts from it fail with 30034) AND `TWILIO_VERIFY_SERVICE_SID` is set; otherwise a US trial is not asked (a code that can't arrive is a gate nobody can pass). Lookup line type US$0.008/number — trivial, so it is used: VoIP/landline/toll-free/pager refused, Lookup down lets the number through, answer reused 30 days.
 - Limits: 60 s between sends, 3/hour, 6/day per company, 5/day per number across companies; code lives 10 min, 5 tries; one number verifies one trial (re-asked at the write).
-- SQL (additive, not applied):
+- SQL (additive, applied in production 2026-10-03):
   `ALTER TABLE "Company" ADD COLUMN "trialPhoneE164" TEXT, ADD COLUMN "trialPhoneVerifiedAt" TIMESTAMP(3);`
   `CREATE TABLE "PhoneVerification" ("id" TEXT NOT NULL, "companyId" TEXT NOT NULL, "userId" TEXT, "e164" TEXT NOT NULL, "sender" TEXT NOT NULL, "codeHash" TEXT, "lineType" TEXT, "attempts" INTEGER NOT NULL DEFAULT 0, "status" TEXT NOT NULL DEFAULT 'pending', "expiresAt" TIMESTAMP(3) NOT NULL, "verifiedAt" TIMESTAMP(3), "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "PhoneVerification_pkey" PRIMARY KEY ("id"));`
   `CREATE INDEX "PhoneVerification_companyId_createdAt_idx" ON "PhoneVerification"("companyId", "createdAt");`
@@ -127,9 +129,405 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
   `CREATE INDEX "Company_trialPhoneE164_idx" ON "Company"("trialPhoneE164");`
 - Env (docs/VERCEL.md): `TWILIO_VERIFY_SERVICE_SID` (optional, US case), `PHONE_CODE_SECRET` (optional, falls back to BETTER_AUTH_SECRET).
 - Checks: `check:trial-phone-verification` (120, scripted DB and Twilio — never a real text); `check:sms-delivery` / `check:sales-sms` fixtures gained the Subscription read; `check:nav-audit` names the page as a drill-in. Help: Billing › Start your free trial › What you see during the trial (en/fr/es).
-- **Owed — owner:** apply the SQL BEFORE deploying (the Prisma client selects the new Company columns — see the deploy note under item 2); create a Verify service if US trials should be gated before US A2P registration.
+- **Owed — owner:** create a Verify service if US trials should be gated before US A2P registration.
 
-**Deploy order for all four:** apply the SQL in items 2 and 4 first, then deploy. Every Plan read selects `aiMonthlyAllowanceCents` and the gate selects the Company columns; deploying first would fail those reads.
+**Deploy order:** the SQL in items 2 and 4 is applied in production, so the code can deploy (every Plan read selects `aiMonthlyAllowanceCents`, and the gate selects the Company columns).
+
+---
+
+## Facebook / Instagram history, attachments, fair scoring, and the FB lead check (3 October 2026)
+
+The owner, 2026-10-03: "the leads doesn't seem to fetch all the leads from
+facebook only the new ones … same thing for the messages in fb and instagram …
+also images and video were not probably fetched", "remove the penalty if they
+are sourced from somewhere else", and "validate FB leads with messages to not
+create a copy … determine if a client is a lead, if it is a converted client …
+because fb leads are pretty bad and deceptive".
+
+### Why it happened (each found in the code, not guessed)
+
+- **Lead forms.** `pollForm` read ONE page of `/<form>/leads` (100) and moved the
+  cursor to the newest lead on it — Meta returns newest first, so anything past
+  the hundredth in a window was stepped over for good; and a form switched on
+  after its leads came in only ever saw what came next.
+- **Conversations.** `lib/messaging/pageImport.js` pulls conversations updated
+  since the company SIGNED UP (owner's own earlier rule, capped at 30 days), and
+  only each one's newest 50 messages. A test company signed up last week sees
+  last week.
+- **Images and video.** (a) the Conversations API was asked for a bare
+  `attachments` field, whose default fields Meta does not promise include the
+  URL — an attachment stored with no URL could only ever say "unavailable";
+  (b) the re-host applied WhatsApp's ceilings to Messenger (5 MB image, 16 MB
+  video) while Messenger/IG carry 25 MB, so a 9 MB phone photo was refused as
+  "larger than WhatsApp's own limit"; (c) every re-pull overwrote a re-hosted
+  Cloudinary copy with Meta's expiring link again.
+
+### What shipped
+
+- **History walk** — `lib/meta/historyBackfill.js`, one `MetaHistoryBackfill`
+  row per Messenger channel / Instagram channel / active lead form: Meta's
+  `after` cursor stored between chunks (resumable), rate-limit answers park the
+  row until Meta's retry-after, a lease stops two runners on one row, auth /
+  Leads Access refusals stop it with the reason. Conversations: every page, and
+  each conversation's OLDER messages paged via `GET /<conversation>/messages`
+  (`listConversationMessages`, up to 500 per conversation; a cut-off is counted
+  as `truncated`, shown on the card). Lead forms: every page of the 90 days
+  Meta keeps. Idempotent on Meta's message id / leadgen id.
+- **Started** on connect (`importAfterConnect` queues it), when a form is
+  switched ON (forms PATCH), and by **Fetch older** on both Meta cards
+  (`POST /api/meta/history`, billing admin; GET for the progress line). Carried
+  on by `/api/cron/messaging-import` (conversations, 150 s/tick) and
+  `/api/cron/meta-leads` (forms). A never-polled form is WALKED, not polled; the
+  walk sets the form's cursor when done. An errored walk falls back to the old
+  poll so a form is never deaf. Pages connected before today get a walk queued
+  by the cron without anyone pressing anything.
+- **History wakes nobody.** Every pulled message is stamped `Message.imported`
+  (AI employee / Closer, staff push and live capture already skip imported).
+  Messages older than the inbox floor carry `history: true`: a history-only
+  thread is created **resolved**, no unread increment, no waiting clock, never
+  reopened by history. Leads older than a day get `LeadRequest.importedAt` and
+  createScoredLead sends no `lead.created` for them; a lead under a day old is
+  live and announced. Each conversation is reviewed ONCE after its history is
+  in (`captureLeadFromConversation({ imported: true })`).
+- **Cost (company-paid AI, named):** the history review runs the model only for
+  conversations whose customer last wrote within 90 days, at most 25 per run,
+  metered through the existing `conversation_lead` meter (company AI credit);
+  older ones get the free records-only review. Without AI credit, nothing is
+  read by the model and the review says so.
+- **Attachments:** named subfields (`attachments{id,mime_type,name,size,
+  image_data,video_data,file_url}`) with a one-shot bare fallback on Meta's
+  "nonexisting field"; 25 MB ceiling for Messenger/IG (`maxBytesFor`); an IG
+  reel is a video; `mergeAttachmentsOnRedelivery` keeps a durable copy on
+  re-delivery and revives an expired failed link when Meta hands a fresh one.
+- **Scoring by source** (`lib/leads/qualifiers.js` ASKED_BY_SOURCE /
+  `unaskedForScoring`, `scoringOptions` in createLead): a missing budget or
+  timeline counts against a lead only when its channel put the question —
+  self_quote and instant_quote (both), the phone (timeline). Everyone else
+  (manual, Meta form, Messenger, IG, WhatsApp, CSV, embed, funnels, portal,
+  kitchen, AI employee, web chat, SMS) is scored on what it captured; an answer
+  that IS present still counts. Reasons say "Budget unknown / Timing unknown —
+  not counted". **Existing leads keep their stored score until edited** (no
+  data was rewritten); a bulk re-score is a write the owner should approve.
+- **FB lead check** — `lib/leads/identityMatch.js` (pure): a new form lead is
+  matched against open leads, Meta threads (PSID/IGSID, typed phone/email,
+  profile name + address) and clients. Certain/likely + not tied → **folded**
+  into the existing lead (`LeadIdentityLink` kind meta_lead_form, payload kept,
+  only empty columns filled, each recorded with its before-value) instead of a
+  second lead; a thread with no lead is pointed at the new lead; a client on
+  file is tied so `convertLead` reuses it. Shared family phone with different
+  names, same name at another address, name alone, ties: shown, never linked.
+  **Not the same person** (`POST /api/leads/[id]/identity`) splits it back,
+  reverts only untouched fields, and the pair is never proposed again.
+- **Message reviewer** — `lib/leads/messageReview.js`: verdict genuine lead /
+  not a lead (spam, wrong number, job seeker, vendor, other) / existing client
+  / already converted, with the customer's message, the matched client and the
+  quote/job/invoice it rests on. The model (`conversationLeadExtract`, new
+  `notLeadReason` + `kindMessage`, still witness-verified) reads the words; the
+  RECORDS (`loadVerifiedConversion`, shared with the drawer) decide who it is.
+  A converted person or an existing client with no new work makes no new lead;
+  the thread is pointed at the client (inbox **Not this client** undoes it and
+  is respected). Drawn in the lead drawer and the inbox thread header; document
+  numbers only on the quotes / jobs / invoices dials.
+
+### Schema (additive — NOT applied; SQL in the agent report)
+
+`LeadRequest.importedAt`, `Message.imported`, models `LeadIdentityLink`,
+`MetaHistoryBackfill` (+ back-relations on Company and LeadRequest).
+
+### Checks
+
+`check:meta-history` (new, 130 assertions: Meta error payloads, attachment
+merge/limits/expiry, hostile identities, lying model, end-to-end walks against
+an in-memory Graph + db stub, rate limit/resume, undo), plus `check:meta-leads`
+(cron now walks never-polled forms), `check:lead-intake`, `check:lead-scoring`,
+`check:page-import` (its pre-existing `referral` key failure fixed),
+`check:social-leads`, `check:lead-linking`, `check:help-centre` (three new
+articles en/fr/es).
+
+### Owed
+
+- **Live only:** whether Meta's Message Attachment node accepts every named
+  subfield on v21 for both Messenger and Instagram (the bare fallback covers a
+  refusal); how far back `/<conversation>/messages` actually returns per
+  platform; real rate-limit behaviour on a Page with thousands of threads.
+- **ads_management — deliberately NOT added** (owner: later, after the current
+  Meta reviews). When it is: add it to the lead-forms permission list in
+  lib/meta/pageConnect.js / META_LEADS_SCOPE and re-run check:meta-leads.
+- Re-scoring existing leads under the new rule (a data write — owner's yes).
+
+## Owner decisions 3 October 2026: test companies, Unlock, View as company hides edits, the Book button (3 October 2026)
+
+Four decisions, four commits.
+
+### 1. Test companies — out of every /platform number
+
+A "Test company" card on /platform/companies/[id] (superadmin only,
+`company:mark_test` in `SUPERADMIN_ONLY_PERMISSIONS`; reason required;
+refused inside a View as company session; `test_company_marked` /
+`test_company_unmarked` audit rows; "Marked test by … on …" from
+`testMarkedAt` / `testMarkedBy`). A violet "Test" badge on the company page
+header and in the companies list; the list hides test companies by default
+("Show test companies" lists them under their REAL standing's chip — the
+per-country tally still leaves them out) and the "Test company" chip lists
+only them. The company itself is untouched: no cron, gate or email reads the
+column (check asserts it).
+
+One rule, `lib/platform/metricsScope.js` (`METRICS_COMPANY_WHERE`,
+`countsInMetrics`, `isMetricsBucket`), replacing six re-declared `NOT_DEMO`
+literals and three `bucket !== "demo"` filters; and a `test` bucket in
+`subscriberBucket` (read straight after `demo`), so the one book every tile
+counts leaves it out by construction — MRR/ARR and the revenue outlook,
+paying/past-due/trialing/customers, the plans page's subscriber counts, the
+tax tally, the growth model's starting stock. Also scoped: the overview's
+quote/payment series and totals (and quotes/jobs this month, which had no
+filter at all — demos are now out of those two as well), the tenant board and
+per-tenant comparison, the pricing benchmark (both readers), /platform/signups,
+the subscriptions page's free-trial list, measured growth (cohorts,
+retention, conversion — id list and raw SQL), product analytics (signups
+completed, trial linking, the signup funnel's browsers, client conversions,
+the company denominator, every usage row, range-wide uniques by SQL; the
+company picker keeps them, labelled "test — in no total"), campaign outcomes,
+the reps' top-features card, the rep sales funnel, "companies online now",
+cost per signup (denominator only — the costs stay whole), and the growth CSV
+export (which had no demo filter either; now matches the dashboard).
+The company page keeps the real standing in words ("Test company · Paying").
+
+`check:test-companies` (new, in check:all, 63 assertions): the scope against
+hostile rows; the book with and without three test companies is identical
+in every tally and in MRR, unmarking restores the real buckets; each other
+aggregate executed on fixtures; the route's gates and write set; a sweep of
+every metric directory that fails on a demo-only exclusion that is not listed
+with its reason (mutation-tested); crons/gates never read the column.
+`check:platform-buckets`, `check:abandoned-signup`, `check:signup-funnel`
+updated for the shared scope.
+
+**Applied in production (by hand, confirmed by the coordinator 2026-10-03):**
+
+```sql
+ALTER TABLE "Company" ADD COLUMN "isTestCompany" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN "testMarkedAt" TIMESTAMP(3),
+ADD COLUMN "testMarkedBy" TEXT;
+```
+
+(Before it was applied, every Prisma read of Company that does not name its
+columns would have failed — which is why it had to land before the code.) Not covered (not metrics,
+or not excluding demos either): the sales-floor "unplaced signups" queue, rep
+performance rows (they badge demos rather than drop them), the
+subscriptions CSV export.
+
+### 2. Unlock company
+
+`POST /api/platform/companies/[id]/unlock { reason }` and an "Unlock company"
+block in Support actions, drawn only when FieldQuo locked or ended the
+company. Superadmin only (`company:unlock`, added to
+`SUPERADMIN_ONLY_PERMISSIONS`, worded on /platform/team), refused while the
+caller holds a live View as company session, reason required, one
+transaction with a `company_unlocked_by_platform` audit row (who, why, the
+values cleared, what was left off). `lib/platform/unlock.js` decides from the
+rows: only the two locks FieldQuo writes are reversible —
+`Company.platformEnd*` (no-Stripe ending, any mode → all three columns back
+to null; `trialEndsAt` was never touched, so the access verdict is exactly
+the pre-lock one) and `Subscription.accessLockedAt/Reason` (the Stripe-path
+terms lock → back to null). An expired trial, a failed card or a plan the
+company cancelled itself is refused (409) — not FieldQuo's lock. Stripe is
+never called (not imported): a Stripe-path unlock leaves the subscription
+cancelled, so the company reads as a cancelled plan and can start one again
+from Billing. The cancel panel and extend-trial now point at Unlock instead
+of "no reinstate control yet". `check:platform-unlock` (new, in check:all,
+75 assertions: every lock source and non-lock, lock → unlock round trips
+through the real cancel route with the access verdict compared at three
+moments, every gate with nothing written, the audit row, wiring).
+
+**Owner decision owed:** Unlock does NOT re-enable automatic phone-credit
+top-up that a terms lock switched off (`disabledReason "terms_lock"`) — that
+would re-arm an off-session card charge from the console, and
+`lib/voice/autoTopup.js` keeps one path to `enabled: true` (the company
+saving a card under terms). The panel and the audit row say so; the company
+switches it back on itself. Numbers the rent run already released are not
+restored (gone from the carrier). Say if top-up should be re-armed.
+
+### 3. View as company hides its edits
+
+The server always refused a support session's writes; the screen still drew
+every Save, Send, Delete and switch. Instead of editing ~400 write sites, the
+browser now gets the server's own rule at the three seams every control goes
+through (`lib/impersonation/viewOnly.js`, `app/providers/ViewOnlyProvider.js`,
+mounted by `app/app/layout.js` only when the resolved member is a READ-ONLY
+impersonation — a demo sandbox still writes):
+
+- **The request.** `window.fetch`, `XMLHttpRequest` and `navigator.sendBeacon`
+  are wrapped for the session. A request middleware would refuse
+  (`isBlockedRequest` — the same `isReadOnlyMethod` / `isWriteShapedGet`,
+  moved import-free to `lib/platform/readOnlyRequests.js` and re-exported
+  from `impersonationToken.js`, so middleware's imports are unchanged; staff
+  surfaces and cross-origin left alone) never leaves the browser; the caller
+  gets middleware's 403 marked `viewOnly`, and the person gets one "View
+  only" toast (only after a press — a page that posts on mount is refused
+  silently, as before). `reportResponseError` stays quiet for that answer.
+- **The control.** Write-by-nature controls inside the page and its dialogs
+  (submit buttons, switches, file pickers, editable regions, form fields,
+  anything with `data-write`) are drawn off from the first paint (CSS under
+  `[data-view-only]`), get `aria-disabled` and a "View only" title, and a
+  press on one is stopped before its handler runs. Any other control whose
+  press turns out to be a write is marked the same way the moment the guard
+  stops it. `SendConfirmModal` draws Send disabled with a View only note.
+- **Personal pages.** `/app/me/availability`, `/app/settings/availability`,
+  `/app/me/earnings`, `/app/me/more` (me/home) and `/app/time-off` show
+  "Personal page — not shown in View as company" instead of the owner's own
+  data (one gate in the shell, `PERSONAL_PAGES`; the page never mounts, so its
+  "my" endpoint is never asked). The notification bell is inert with
+  "Notifications are personal" — the live bell and its poll (which also
+  announced the owner's notifications on the auditor's machine) never mount.
+
+Strings `app.viewOnly.*` in nine languages. `check:view-only` (new, in
+check:all, 88 assertions): a static scan of the whole client import graph
+(698 "use client" files, 1,401 modules, 675 non-GET requests — 372 in
+app/app) places every one inside fetch / fetchJson / a local wrapper that
+calls fetch / uploadFile's fetch, with no other HTTP client, server action,
+native form post or captured fetch; the guard on a fake window agrees with
+middleware on 216 method × path pairs and never calls the real fetch for a
+refused one (mutation-tested); SendConfirmModal and the bell render
+byte-identical markup to HEAD outside a session (pinned md5) and under
+`viewOnly={false}`; every CSS rule is under `[data-view-only]`; the personal
+gate rendered at each path through Next's own PathnameContext.
+
+Honest limit: a write control that is none of the by-nature kinds (a plain
+"Mark as paid" button, say) still draws normally until it is first pressed —
+then nothing is sent, the toast says View only, and it reads as off from then
+on. Hiding those before a press needs the control to say what it does
+(`data-write`), which is the per-file edit this change avoided.
+
+### 4. Google "Book" button — owners and admins only
+
+`POST`/`DELETE /api/reviews/google/book-button` now refuse anyone but an
+owner or admin (`canManageBookButton`, `lib/reviews/googleBusiness/bookButton.js`)
+with `kind: "owner_admin_only"`, before Google is asked anything. The GET
+keeps the Booking Page's own gate (user:manage — supervisors still see the
+card, the link and the manual steps) and answers `canManage`; the card draws
+Add / Remove only when it is true and otherwise prints who can
+(`app.setBooking.gbp.ownerAdminOnly`, nine languages).
+`docs/GOOGLE-BUSINESS-PROFILE.md` "Who" rewritten. `check:google-book-button`
+224 assertions (supervisor GET/POST/DELETE, admin/owner canManage, the card
+with canManage false / absent).
+## Who sees what — role access confirmed (3 October 2026)
+
+The owner asked for a confirmation that a shared quote or job shows each
+teammate only what their access allows, especially crew: scope and address,
+no prices, cost or margin, and work actions logged under their own name.
+**docs/ROLE-ACCESS.md** is the plain-English answer per role × document;
+`npm run check:role-access` (new, 168 checks) is the proof. It calls the shipped
+route handlers as each preset against `scripts/fixtures/prismaShapeStub.mjs`,
+a Prisma stand-in that honours select/include using relations parsed from
+prisma/schema.prisma. Run against the pre-fix tree, the same check fails 40
+times.
+
+### What shipped
+- **One redactor per document** in `lib/permissions/enforce.js`:
+  - `redactJob` and `redactChangeOrder` (through `presentChangeOrder`): payment
+    stages, change-order price and invoice refs, and the cost-review note, each
+    by its own dial.
+  - The quote and invoice redactors now cover `aiReview` (margin without
+    jobCosting, all of it without showPricing), the offline discount, tax
+    breakdown, refunds, `sentToEmail`, and the amended invoice's `versions` and
+    `parentInvoice`.
+  - New helpers: `redactDocumentRefs`, `assignedClientWhere`,
+    `claimableTaskWhere` and `redactAiReview`.
+- **Crew scope reaches the side doors:**
+  - Client list, detail and search are scoped to their jobs. Contact fields are
+    not searchable below full_view.
+  - The client page sends quotes, invoices and jobs only by their own dials
+    (`documentsHidden`).
+  - To-dos: an orphan is claimable only when it hangs off things the member can
+    open (also on PATCH and on task photos).
+  - Calendar, appointment detail and "about" search: no invoice or quote refs
+    below those dials.
+  - Copilot upcoming work.
+  - Daily-sheet upsells (GET was any job in the company) and the sheet's PUT.
+  - Time entries and expenses are scoped to the member's jobs. A recurring
+    overhead expense needs the fixedCosts cost-basis write
+    (`lib/expenses/placement.js`).
+- **Crew actions match the Schedule dial:**
+  - A visit PATCH now has the assigned-job scope.
+  - Rescheduling, cancelling or reopening a visit, and booking a new one, need
+    schedule:edit_own (`mayRescheduleVisit` in `lib/jobs/visitStatus.js`).
+    Crew and Estimator sit at view_complete_own.
+  - Job checklist: a member without job edit may fill it in and append a
+    template, but not remove or redefine items (`checklistDefinitionKept`).
+- **Estimator/Dispatcher costing:** an imported sub quote's cost and markup now
+  need jobCosting, read and write.
+- **Activity log**, under the actor's name: visit status and notes, visit
+  booked, job checklist, job photos, task photos, daily log create and edit,
+  equipment used, work-order area ticks, task status, expense edit and delete.
+- **UI matches the server:**
+  - Change orders and the payment schedule draw no money without showPricing.
+  - The client page hides withheld lists and missing totals.
+  - Job page: New invoice, callback, Set dates, Add/Schedule visit, From
+    quote and Suggested tasks are gated.
+  - A colleague's visit checklist and plan steps are read-only.
+  - Reschedule and Cancel are hidden below edit_own.
+  - The new-visit page refuses below edit_own and offers only yourself without
+    job:assign.
+  - Convert to invoice is hidden for the Estimator.
+  - The costing fetch is skipped without jobCosting.
+
+### Checks
+`check:role-access` is new. `check:rbac-redaction` was updated (the job route's
+pattern is now `redactJob`), and so was `check:job-cost-review` (the costing
+effect deps now include `mayCost`).
+
+### Owed: owner decisions
+Listed at the end of docs/ROLE-ACCESS.md:
+- client phone for crew without opening the whole board;
+- crew ticking materials as bought;
+- whether crew see upsell amounts on their own daily sheet;
+- activity log access for Managers.
+
+The job page has no "Share with team" control of its own (the quote's share
+already carries the work order).
+## Subcontractor details from their FieldQuo profile (3 October 2026)
+
+Owner decision 2026-10-03: when a subcontractor company is added to a GC's roster from an accepted quote (the B2B subcontract flow), fill its contact details from the sub's own FieldQuo company profile — only what that company prints on its own documents, never private account data; fill blanks only, never overwrite what the GC typed, and say on the roster where each came from.
+
+### What shipped
+
+- **`lib/subcontractors/profileFill.js`** (pure): `PROFILE_COMPANY_SELECT` (name, email, phone, address, city, province, postalCode — the document identity the quote page masthead and email footer print; nothing else of the other tenant is selected), `documentProfileOf` (email shape-checked and lowercased, address = `formatAddress` exactly as the email footer prints it, control characters stripped, capped), `profileFillPatch` (blanks only — null, "", whitespace; records `{ field: value }` in `Subcontractor.profileFilled`), `fieldSources` ("profile" while the value still equals what was filled, else "typed" — derived at read, so an edit by the GC needs no bookkeeping).
+- **Both roads to the roster** use it: acceptance (`sourceLink.js adoptImportsOnJob` — new entries filled, an existing linked entry gets its blanks filled) and the job panel's "from an import" (`POST /api/jobs/[id]/subcontractors`, which before copied only the name).
+- **Contact person is not filled**: no FieldQuo document prints a person (masthead, PDF header/footer, signature block and the email From line are all the company), Company has no contact column, and members' own names are account data. The roster says "Their documents don't name a contact person, so none was filled — add one with Edit." **Product decision if wanted:** a "contact person on documents" box in Settings › Business info would be the source; `profileFill.js` is the one reader to change.
+- Roster: `Subcontractor.address` (typed or filled; on the form, the detail page, `parseSubcontractorBody` capped at 300); the detail page lists what came from the profile; each filled box in Edit says "From their FieldQuo profile" until changed. `GET /api/subcontractors/[id]` sends `sources`, not the raw `profileFilled`.
+- Strings in nine languages; help "Subcontractors and their insurance" › "A sub who is on FieldQuo too" (en/fr/es).
+
+### Schema — additive, NOT applied (apply before deploying this; the roster's selects read both columns)
+
+```sql
+ALTER TABLE "Subcontractor" ADD COLUMN IF NOT EXISTS "address" TEXT;
+ALTER TABLE "Subcontractor" ADD COLUMN IF NOT EXISTS "profileFilled" JSONB;
+```
+
+### Checks
+
+`check:subcontractors` 199 → 232: the worked example now asserts address + `profileFilled` and that a Stripe id / billing email on the sub's Company never cross; an existing linked entry keeps the GC's typed email/name/contact while a whitespace phone and missing address are filled; a later adoption overwrites nothing; an edited value reads as typed; hostile `documentProfileOf` / `profileFillPatch` / `fieldSources` input; both routes wired to the same fill.
+
+## "Create custom item" in the Add service dialog (3 October 2026)
+
+Owner decision 2026-10-03: "custom item should be based on the current estimate so they pick one service and based on what we have the custom line item makes sense." The button the owner's reference window had, held back until it had a real add behind it, is now in the quote builder's **Add service** dialog (under the search) and inline picker.
+
+### What shipped
+
+- **`lib/quotes/customItem.js`** (pure): `customItemTargets` (the estimate's own scope groups — never an imported sub cost), `customItemUnits` (the group's measured units from `TRADE_MEASUREMENTS` — per door / drawer on cabinets, wall / ceiling / floor sq ft and trim linear ft on painting by estimate type, treads / risers / balusters / posts / handrail on stairs, board on drywall … — each with the figure THIS group's calculator holds (`groupMeasurements`), then the company's unit for the service, then each / hour / lump sum; the cabinet base line's `unit/door/drawer` is never offered plainly, so `billedUnitsOf` cannot misread a custom line as more faces), `buildCustomLine` (the boundary: description required and capped, unit must be one of the group's, quantity > 0 and ≤ 1,000,000, price ≥ 0 and ≤ 10M, line ≤ $99,999,999.99, cost optional, details through the rich-text sanitiser; no price or cost without showPricing), `tierSelectedLines`, `priceBookBody`.
+- **The line is an ordinary line** in the group's typed lines (description, detail, quantity, unit, rate, amount, unitCost, productId) plus office-only `meta.customItem` (no money). Saved, printed (PDF/email/client page via `toGroups`), mirrored onto the invoice, costed (`lineItemCost`) and commissioned (`productId`) like a price-book line; beside — never inside — the calculator's derived lines, so it is counted once and a save → reload → save is a fixed point. No tax flag: a quote taxes as a whole.
+- **Double counting**: a unit the group's calculator already bills (`keysPricedByGroup` — treads on a stair takeoff, trim on a painted room, doors on cabinets, board on a drywall book) is not refused (a second coat on the doors is real work) but the dialog and the line table say it is charged on top.
+- **Tiered packages**: picking a tier used to REPLACE the group's lines; it now keeps custom items (`tierSelectedLines`; a group without one gets the identical single line). Good/Better/Best variants are separate quotes, each with its own lines.
+- **Save to price book**: `POST /api/products` (the route Settings uses) under the service's quote type, at the typed price/cost/unit; offered to owner/admin only (the route's rule), on quotes in the company's own language, price > 0; a failed save adds nothing. The new row is offered in the same session.
+- `CustomItemDialog.js` (StepDialog / BottomSheet like the picker); `AddServicePicker` `CustomItemEntry` (disabled with "Add a service first" when the estimate has no service; never on an invoice); `DocumentBuilder` unfolds the chosen service; strings in all nine app languages; help "Lines from your price book" › "A custom item, written on the spot" (en/fr/es).
+
+### Checks
+
+`check:custom-item` (new, 143: units per trade, hostile inputs incl. negative/huge/NaN quantity, empty description, unit mismatch, tiered and G/B/B quotes, `ensureInvoiceForQuote` executed with a custom line, costing, md5 `4dc8be0f9121266407ec707bbb57dd44` of no-custom-item payloads — `builderPayload.js` untouched), `check:service-picker` (the entry drawn only with an add behind it, disabled state, never on an invoice), plus quote-builder, doc-builder, invoice-builder, quote-text-blocks, service-template-lines, help-centre.
+
+### Owed
+
+- The invoice builder has no custom item (not asked; its line table already takes typed lines).
+- Not exercised in a browser this session (no local login).
 
 ## Audit loose ends (3 October 2026)
 
@@ -1353,7 +1751,7 @@ The owner-approved flow for a quote sent to another BUSINESS: the general contra
 - The unmounted reactive signup panel (`AuthAside` signup variant, `app/components/auth/samples/`, `SignupSteps`, the step functions in `lib/signup/funnel.js`) can be deleted with its checks.
 - The early nudge's "free month" copy and the trial-length copy elsewhere belong to the 14-day trial change running beside this one.
 - Product decision: the sales floor's SignupLead capture no longer fires from `/signup` (an email alone is not a lead); stalled owners are visible on `/platform/companies` with their welcome step and phone instead.
-- The sub's owner name is NOT copied as the roster contact (it is not on the quote the GC received), and `Subcontractor` has no address column — both left empty rather than invented. Owner's call if either should change.
+- ~~The sub's owner name is NOT copied as the roster contact (it is not on the quote the GC received), and `Subcontractor` has no address column — both left empty rather than invented. Owner's call if either should change.~~ — decided 3 October 2026: details are filled from the sub's FieldQuo profile, blanks only (see "Subcontractor details from their FieldQuo profile"). The contact name still is not: no document prints a person.
 - Wire `isViewedNoAnswer` into `lib/dashboard/workPanel.js` once that branch lands.
 ## Designer: contractor templates, "Save as template", a format per destination, carousels (29 September 2026)
 

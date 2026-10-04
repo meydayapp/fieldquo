@@ -41,6 +41,8 @@ import { templateBody } from "@/lib/email/templateBody";
 import { ensureSubscriberToken, unsubscribeHeaders } from "@/lib/marketing/unsubscribe";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import { phoneGateResponse } from "@/lib/trial/phoneGate";
+import { localizeTemplate } from "@/lib/email/templateTranslation";
+import { translationsForSend } from "@/lib/email/templateTranslationStore";
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -170,6 +172,12 @@ export async function sendCampaignEmails({ campaign, companyId, request }) {
     for (const c of clients || []) clientLanguages.set(c.id, c);
   }
 
+  // The company's APPROVED translations of this template, read once
+  // (lib/email/templateTranslationStore.js). A subscriber whose language has
+  // one gets it; everyone else gets the template as written. Nothing is
+  // translated here — a send never calls a model and never waits for one.
+  const translations = await translationsForSend(db, campaign.template.id);
+
   for (const sub of pending) {
     // The claim. A unique-constraint failure here means someone else (an
     // earlier attempt, or a request racing this one) already has this
@@ -205,21 +213,24 @@ export async function sendCampaignEmails({ campaign, companyId, request }) {
         companyPhone: campaign.company?.phone || "",
         companyEmail: campaign.company?.email || "",
       };
+      const language = resolveClientLanguage({
+        client: clientLanguages.get(sub.clientId) || null,
+        company: campaign.company,
+      });
+      // The reviewed translation for this reader's language, or the original.
+      const { template } = localizeTemplate(campaign.template, translations, language, campaign.company);
       // Whichever body the template says is sent — blocks or canvas. The
       // unsubscribe row rides in the shell both modes share, so a canvas
       // campaign cannot leave it out (lib/email/canvasEmail.js).
-      const html = templateBody(campaign.template, mergeData, {
+      const html = templateBody(template, mergeData, {
         company: campaign.company || {},
-        language: resolveClientLanguage({
-          client: clientLanguages.get(sub.clientId) || null,
-          company: campaign.company,
-        }),
+        language,
         unsubscribe: { token: unsubscribeToken, request },
       });
       // The campaign name is an internal label; prefer the template's
       // client-facing subject when one is set.
       const subject = renderSubject(
-        campaign.template.subject,
+        template.subject,
         mergeData,
         campaign.name,
       );

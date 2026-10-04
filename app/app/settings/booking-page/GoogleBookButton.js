@@ -18,7 +18,9 @@
 //   for them    "Add it for me", only when GET /api/reviews/google/book-button
 //               says canAutomate: Google has approved FieldQuo's Business
 //               Profile API (googleBusinessAvailable()), the company is
-//               connected and has picked its listing. Not approved → the
+//               connected and has picked its listing — and the buttons
+//               only for an owner or admin (GET's canManage; a supervisor
+//               reads who can instead). Not approved → the
 //               section is absent, not greyed. Approved but not connected →
 //               one line pointing at Settings › Reviews, where the connect
 //               button is real.
@@ -82,6 +84,7 @@ export default function GoogleBookButton() {
   }
 
   function refusalText(json) {
+    if (json?.kind === "owner_admin_only") return t("app.setBooking.gbp.ownerAdminOnly");
     if (json?.kind && KNOWN_KINDS.has(json.kind)) return t(`app.setBooking.gbp.err.${json.kind}`);
     return json?.error || t("app.setBooking.gbp.actionError");
   }
@@ -267,7 +270,22 @@ export function BookButtonCard({ t, state, loadFailed, copy, preferred, busy, re
             <p className="text-xs text-red-700 dark:text-red-300 mt-2 leading-relaxed">{g.error}</p>
           )}
 
-          {g.onGoogle ? (
+          {/* Owners and admins only (owner, 2026-10-03). A supervisor sees
+              whether the link is on Google, never a button the route would
+              refuse — the note says who can, and that the manual steps
+              above still work. */}
+          {!state.canManage ? (
+            <div className="mt-2">
+              {g.onGoogle && (
+                <p className="text-xs text-foreground">
+                  {g.link?.isPreferred ? t("app.setBooking.gbp.onGooglePreferred") : t("app.setBooking.gbp.onGoogle")}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground mt-1 leading-relaxed" data-owner-admin-only>
+                {t("app.setBooking.gbp.ownerAdminOnly")}
+              </p>
+            </div>
+          ) : g.onGoogle ? (
             <div className="mt-2">
               <p className="text-xs text-foreground">
                 {g.link?.isPreferred ? t("app.setBooking.gbp.onGooglePreferred") : t("app.setBooking.gbp.onGoogle")}

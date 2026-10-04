@@ -1244,7 +1244,8 @@ model Subscription {
   /// FIRST: a company locked for its conduct gets no thirty-day read-only
   /// window (that window exists for people who chose to leave), and the
   /// locked screen says why in one sentence rather than "your subscription
-  /// was cancelled". Null on every ordinary row.
+  /// was cancelled". Null on every ordinary row. Cleared only by "Unlock
+  /// company" (lib/platform/unlock.js), which leaves Stripe cancelled.
   accessLockedAt     DateTime?
   accessLockedReason String?
 
@@ -1727,7 +1728,8 @@ model Company {
   /// they also close checkout and Resume (a trial FieldQuo ended cannot buy
   /// its way back — lib/billing/access.js fieldquoEndRefusal) and every
   /// trial letter (reminders, next steps, signup recovery). Null on every
-  /// ordinary row. Nothing clears them: there is no reinstate control yet.
+  /// ordinary row. Cleared only by "Unlock company" (superadmin, with a
+  /// reason — app/api/platform/companies/[id]/unlock, lib/platform/unlock.js).
   platformEndsAt         DateTime?
   platformEndMode        String?
   platformEndReason      String?
@@ -1997,6 +1999,7 @@ model Company {
   designTemplates       DesignTemplate[]
   socialPublishes       SocialPublish[]
   documentTemplates     DocumentTemplate[]
+  templateTranslations  TemplateTranslation[]
   expenses              Expense[]
   expenseImportBatches  ExpenseImportBatch[]
   receipts              Receipt[]
@@ -2023,6 +2026,12 @@ model Company {
   // the lead-gen forms attached to a Page, each of which a company turns on or
   // off individually. See lib/meta/leadsImport.js.
   metaLeadForms         MetaLeadForm[]
+  // How far back the Facebook / Instagram history pull has got, per channel
+  // and per lead form — lib/meta/historyBackfill.js.
+  metaHistoryBackfills  MetaHistoryBackfill[]
+  // "This form lead / conversation / client is the same person as that
+  // lead" — lib/leads/identityLinks.js. Reversible by design.
+  leadIdentityLinks     LeadIdentityLink[]
   // Facebook Page / Instagram ORGANIC PUBLISHING — a fourth Meta surface, and
   // separate again for the same reason the three above are separate from each
   // other: this row holds a per-Page token carrying pages_manage_posts /
@@ -2555,6 +2564,23 @@ model Company {
   instantQuoteLanguages String[] @default([])
 
   isDemo Boolean @default(false)
+
+  /// FieldQuo's own label: a company a superadmin marked as a TEST company
+  /// (the owner's live payment tests, a QA account) from the "Test company"
+  /// switch on /platform/companies/[id] (owner, 2026-10-03). It is left out
+  /// of every /platform number exactly where isDemo is — revenue/MRR,
+  /// paying and trialing counts, signups, funnels, cohorts, cost per signup —
+  /// through ONE helper, lib/platform/metricsScope.js, and the bucket
+  /// "test" in lib/platform/trialCounting.js. The company itself is not
+  /// touched: it keeps working, billing and emailing exactly as before.
+  /// Non-null with a false default so every metric `where` can say
+  /// `isTestCompany: false` without a NULL branch. Who and when are here
+  /// for the list; the reason and the full record are the audit row
+  /// (test_company_marked / test_company_unmarked). testMarkedBy is the
+  /// PlatformAdmin id, no relation — the audit log is the join.
+  isTestCompany Boolean   @default(false)
+  testMarkedAt  DateTime?
+  testMarkedBy  String?
 
   // ── Account standing (seat-sharing guard) ────────────────────────────────
   //
@@ -3833,6 +3859,17 @@ model Subcontractor {
   contactName String?
   email       String?
   phone       String?
+  /// The sub's business address, one line. Typed by the GC, or filled from a
+  /// linked FieldQuo sub's own document identity (lib/subcontractors/
+  /// profileFill.js — formatAddress of what their quotes print).
+  address     String?
+  /// What was filled from the linked sub's FieldQuo profile, as
+  /// { email?, phone?, address? } → the value filled. Only blanks are ever
+  /// filled. The roster labels a field "from their FieldQuo profile" while
+  /// its value still equals the one recorded here (fieldSources); an edit by
+  /// the GC makes it theirs without touching this column. Null = nothing was
+  /// ever filled.
+  profileFilled Json?
 
   /// When the sub is on FieldQuo too. Set by matching their quote's source
   /// company on import, or by hand. Their Stripe Connect account and quote
@@ -5276,8 +5313,20 @@ model DocumentTemplate {
   // reads an English copy), and `isDefault` is "Use this": the builder reads
   // the copy only while it is true, else the original. The original lives in
   // code and is never written.
+  //
+  // On an ordinary email template (documentKind null) `language` is the
+  // language the company AUTHORED it in (2026-10-03): set at creation from
+  // Company.defaultLanguage, changeable in the editor, and what the
+  // Translations panel translates FROM (lib/email/templateTranslation.js).
+  // Null on rows from before — read as the company's default language. The
+  // unique index below is not involved: Postgres treats the null
+  // documentKind of every ordinary template as distinct.
   documentKind String?
   language     String?
+
+  // A version of this template in another language, for clients who read
+  // that one — drafted once, reviewed by a person. See TemplateTranslation.
+  translations TemplateTranslation[]
 
   // ── Blocks or canvas ─────────────────────────────────────────────────────
   //
@@ -5295,6 +5344,71 @@ model DocumentTemplate {
   marketingCampaigns MarketingCampaign[]
 
   @@unique([companyId, documentKind, language])
+}
+
+/// A company's email template in ONE other language — for clients who read
+/// that language (lib/email/templateTranslation.js, 2026-10-03).
+///
+/// Drafted by the model once per template VERSION per language, when a person
+/// presses Translate or Regenerate in the template's Translations panel —
+/// never at send time, never silently. A draft is not used until a person
+/// approves it (`status` "approved"); an approved translation stops being used
+/// the moment the template's words change (`sourceHash` no longer matches),
+/// and that client gets the original until it is updated and re-approved. A
+/// send is never held up for a translation.
+model TemplateTranslation {
+  id         String           @id @default(cuid())
+  companyId  String
+  company    Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  templateId String
+  template   DocumentTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  /// The language this row is IN.
+  language       String
+  /// The language the template was written in when this was drafted.
+  sourceLanguage String
+  /// templateSourceHash() of the template version this row translates.
+  sourceHash     String
+
+  /// { "<path>": { src, text, edited? } } — one entry per translatable string
+  /// (lib/email/templateTranslation.js extractStrings). `src` is the source
+  /// string it was made from, so a later draft re-translates only what moved.
+  strings Json
+  /// The strings of the previous draft, kept when Regenerate replaces them —
+  /// a person's reviewed wording is never destroyed by a button.
+  previousStrings Json?
+
+  /// "draft" (needs a person's review) | "approved" (used for sends).
+  status String @default("draft")
+  /// Strings the model's reply was REFUSED for — [{ path, reason }]: a token
+  /// dropped, altered, doubled or added. Their text is left empty for a
+  /// person to write; a row with problems cannot be approved.
+  problems Json?
+
+  /// The last draft, measured from the provider's own token counts.
+  model            String?
+  promptTokens     Int     @default(0)
+  completionTokens Int     @default(0)
+  cachedTokens     Int     @default(0)
+  /// Millionths of a dollar — the last draft's vendor cost (cached prompt at
+  /// the cached rate), and every draft of this row together.
+  costMicros      Int     @default(0)
+  totalCostMicros Int     @default(0)
+  /// Who paid the last draft: "wallet" (the company's AI credit) or
+  /// "fieldquo" — and what the AI credit was charged for it, in cents.
+  billing      String?
+  chargedCents Int     @default(0)
+  drafts       Int     @default(0)
+
+  draftedAt    DateTime?
+  draftedById  String?
+  approvedAt   DateTime?
+  approvedById String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([templateId, language])
+  @@index([companyId])
 }
 
 // A company-configured automation rule: "N days/hours after <triggerEvent>,
@@ -7488,8 +7602,135 @@ model LeadRequest {
   /// hiding it. Null on every lead that never came from a conversation.
   conversationEvidence Json?
 
+  /// Set when this lead was created from HISTORY — a lead-form submission or a
+  /// conversation pulled by lib/meta/historyBackfill.js, not one arriving now.
+  /// createScoredLead skips the `lead.created` notification for it (a hundred
+  /// old enquiries must not ring every phone in the company at once), and the
+  /// lead drawer says "Imported from Facebook history" so nobody mistakes a
+  /// two-month-old form for a fresh one. Null on every live lead.
+  importedAt DateTime?
+
+  /// Other records that are the same person as this lead — a Meta form lead
+  /// that was folded in instead of becoming a second lead, a conversation, a
+  /// client on file. Each one can be undone ("Not the same person").
+  identityLinks LeadIdentityLink[]
+
   @@unique([companyId, metaLeadId])
   @@index([companyId, metaFormId])
+}
+
+// ── "This is the same person as that lead" ───────────────────────────────────
+//
+// Facebook lead forms are cheap to fill and often filled twice — once on the
+// form, once in Messenger — and the owner's words were that FB leads are
+// "pretty bad and deceptive". So when a form lead or a conversation turns out
+// to be somebody already on the board (matched on a Meta id, a phone, an
+// email, or a full name AND an address — lib/leads/identityMatch.js), it is
+// LINKED to that lead rather than becoming a second one.
+//
+// Never a destructive merge. The row keeps what arrived (`payload` — the form
+// answers as mapped), what the link wrote onto the surviving lead (`wrote`,
+// with the value before), and the evidence. "Not the same person"
+// (lib/leads/identityLinks.js undoIdentityLink) turns `payload` back into its
+// own lead, reverts only the columns that still hold the value the link
+// wrote, and leaves the row as status "undone" so the matcher never proposes
+// the same pair again.
+model LeadIdentityLink {
+  id        String      @id @default(cuid())
+  companyId String
+  company   Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  /// The lead that stands — the one the other record was folded into.
+  leadId    String
+  lead      LeadRequest @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  /// "meta_lead_form" | "thread" | "client"
+  kind String
+
+  /// For kind meta_lead_form: Meta's leadgen id. Unique per company, which is
+  /// what keeps a folded-in form lead idempotent — the webhook and the cron
+  /// both re-deliver it, and the importer finds THIS row before it would
+  /// create a lead (lib/meta/leadsImport.js).
+  metaLeadId String?
+  metaFormId String?
+  threadId   String?
+  clientId   String?
+
+  /// "certain" | "likely" — lib/contacts/matchContact.js's tiers. A
+  /// "possible" match is never linked; it is shown on the lead instead.
+  confidence String
+  /// What agreed: ["psid", "phone", "email", "name", "address"].
+  matchedOn  Json
+  /// The sentence and the records it rests on, for the drawer.
+  evidence   Json?
+  /// What arrived, so an undo can rebuild it as its own lead.
+  payload    Json?
+  /// { field: { before, after } } for every column the link filled on the
+  /// surviving lead — an undo reverts a field only while it still holds `after`.
+  wrote      Json?
+  /// "deterministic" (contact details only) | "ai" (the message reviewer
+  /// read the conversation as well).
+  method     String @default("deterministic")
+  /// "linked" | "undone"
+  status     String @default("linked")
+
+  createdAt   DateTime  @default(now())
+  undoneAt    DateTime?
+  undoneById  String?
+  /// The lead an undo created from `payload`.
+  splitLeadId String?
+
+  @@unique([companyId, metaLeadId])
+  @@index([companyId, leadId])
+  @@index([companyId, threadId])
+  @@index([companyId, clientId])
+}
+
+// ── How far back the Facebook / Instagram history pull has got ──────────────
+//
+// One row per thing being walked backwards: a Messenger channel, an Instagram
+// channel, a lead form. Meta pages its history with an opaque `after` cursor
+// and rate-limits the walk, so the walk is done in chunks by a cron and the
+// cursor is stored between them — a function that runs out of time, a 429,
+// or a deploy mid-walk all resume where they stopped instead of starting
+// over. Idempotence does not depend on this row: every write below it is
+// keyed on Meta's own message id or leadgen id. This row is progress, for
+// the settings card ("214 conversations · back to 3 Mar") and for the cron
+// to know what is unfinished.
+model MetaHistoryBackfill {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// "messenger" | "instagram" | "lead_form"
+  kind    String
+  /// MessagingChannel.id for the two inboxes, MetaLeadForm.id for a form.
+  scopeId String
+
+  /// "queued" | "running" | "rate_limited" | "done" | "error"
+  status String @default("queued")
+  /// Meta's `after` cursor for the next page, or null at the start / the end.
+  cursor String?
+  /// How far back this walk is meant to go (lead forms: Meta keeps 90 days),
+  /// or null for "as far as Meta returns".
+  floorAt DateTime?
+  /// The oldest item seen so far — what "back to 3 Mar" prints.
+  oldestSeenAt DateTime?
+  /// { conversations, messages, created, leads, linked, skipped, attachments, errors }
+  counts Json?
+  /// Meta's refusal, as a kind (classifyMetaError) and a sentence.
+  lastErrorKind String?
+  lastError     String?
+  /// Not before this moment — set from Meta's rate-limit answer.
+  retryAfter DateTime?
+
+  requestedById String?
+  startedAt     DateTime  @default(now())
+  lastRunAt     DateTime?
+  finishedAt    DateTime?
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([companyId, kind, scopeId])
+  @@index([status, retryAfter])
 }
 
 // ── One Facebook/Instagram lead form a company has told us about ────────────
@@ -19108,6 +19349,14 @@ model Message {
   /// definition of "pending", so the flag and the work can never disagree and
   /// leave the cron spinning on a row it will not change.
   mediaPending Boolean @default(false)
+
+  /// Pulled from Meta's history (lib/messaging/pageImport.js, lib/meta/
+  /// historyBackfill.js) rather than delivered as it happened. Written from
+  /// the event's `imported` flag by the ingest, which also keeps the AI
+  /// employee, the push and lead capture off it; read by lead capture to run
+  /// silently (no "new lead" alert) when the newest thing a customer said is
+  /// history.
+  imported Boolean @default(false)
 
   /// When it HAPPENED, from Meta's own timestamp — not when this row was
   /// written. The response-time arithmetic in monthlyReview.js measures the

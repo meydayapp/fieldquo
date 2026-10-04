@@ -20,8 +20,12 @@ import {
   talkingPoints,
 } from "@/lib/analytics/companyComparison";
 import { buildFunnel, buildTradeBreakdown } from "@/lib/analytics/tenantHealth";
+import { METRICS_COMPANY_WHERE } from "@/lib/platform/metricsScope";
 
-const NOT_DEMO = { isDemo: false };
+// Demos AND companies a superadmin marked as tests (owner, 2026-10-03) —
+// one rule for every FieldQuo number, lib/platform/metricsScope.js. The
+// name is kept so the checks that look for it still find it.
+const NOT_DEMO = METRICS_COMPANY_WHERE;
 
 export async function GET(request, { params }) {
   // Next 16: params is a Promise.

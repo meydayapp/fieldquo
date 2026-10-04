@@ -19,7 +19,7 @@
 // under an impersonation cookie, so the carve-out cannot become a write.
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
@@ -27,6 +27,7 @@ import { metaLeadsScopeEnabled } from "@/lib/meta/client";
 import { getPageConnection } from "@/lib/meta/pageConnection";
 import { missingFeaturePermissions } from "@/lib/meta/pageConnect";
 import { META_LEAD_SOURCE } from "@/lib/meta/leadsImport";
+import { ensureBackfills, continueBackfills } from "@/lib/meta/historyBackfill";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -56,6 +57,17 @@ export async function GET(request) {
     _count: { _all: true },
   });
   const counts = new Map(perForm.map((r) => [r.metaFormId, r._count._all]));
+  // Submissions FOLDED into a lead that already existed (the same person
+  // messaged too, or is a client — lib/leads/identityLinks.js). Counted
+  // apart, so "12 leads" does not quietly mean "12 of the 15 who filled it".
+  const perFormLinked = await db.leadIdentityLink
+    .groupBy({
+      by: ["metaFormId"],
+      where: { companyId: member.companyId, kind: "meta_lead_form", status: "linked" },
+      _count: { _all: true },
+    })
+    .catch(() => []);
+  const linkedCounts = new Map(perFormLinked.map((r) => [r.metaFormId, r._count._all]));
 
   // ── Which campaigns these leads came from ────────────────────────────────
   //
@@ -114,6 +126,7 @@ export async function GET(request) {
       active: f.active,
       lastLeadAt: f.lastLeadAt,
       leadCount: counts.get(f.formId) || 0,
+      linkedCount: linkedCounts.get(f.formId) || 0,
     })),
     campaigns: byCampaign
       .map((c) => ({
@@ -173,6 +186,18 @@ export async function PATCH(request) {
   });
   if (result.count === 0) {
     return NextResponse.json({ error: "No such lead form for this company." }, { status: 404 });
+  }
+
+  // Switching a form ON starts its history walk: the ninety days of
+  // submissions Meta still holds, imported silently (lib/meta/
+  // historyBackfill.js) — the owner's "only the new ones" was a form whose
+  // past leads were never asked for. One chunk behind the response; the
+  // meta-leads cron finishes it. Not restarted if one already ran.
+  if (body.active) {
+    after(async () => {
+      await ensureBackfills({ companyId: member.companyId, scope: "leads", requestedById: member.userId || null }).catch(() => null);
+      await continueBackfills({ companyId: member.companyId, kinds: ["lead_form"], budgetMs: 40000, maxRows: 5 }).catch(() => null);
+    });
   }
 
   return NextResponse.json({ formId, active: body.active });

@@ -52,7 +52,7 @@ export async function GET(request, { params }) {
     include: CHANGE_ORDER_INCLUDE,
   });
 
-  return NextResponse.json(changeOrders.map((co) => presentChangeOrder(co, changeOrders)));
+  return NextResponse.json(changeOrders.map((co) => presentChangeOrder(co, changeOrders, full)));
 }
 
 export async function POST(request, { params }) {
@@ -168,5 +168,5 @@ export async function POST(request, { params }) {
 
   const all = await db.changeOrder.findMany({ where: { jobId: job.id }, select: { id: true, seq: true, createdAt: true } });
   const fresh = await db.changeOrder.findUnique({ where: { id: changeOrder.id }, include: CHANGE_ORDER_INCLUDE });
-  return NextResponse.json({ ...presentChangeOrder(fresh, all), sent }, { status: 201 });
+  return NextResponse.json({ ...presentChangeOrder(fresh, all, full), sent }, { status: 201 });
 }

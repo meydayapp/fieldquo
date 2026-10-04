@@ -870,7 +870,7 @@ export const ARTICLES = {
     title: "Des lignes tirées de votre catalogue de prix",
     summary:
       "Réglages → Produits et services : les articles que vous pouvez déposer sur n'importe quelle soumission avec leur prix déjà en place, comment les ajouter et les importer, et comment ils apparaissent dans le générateur.",
-    updated: "2026-09-12",
+    updated: "2026-10-03",
     intro: [
       "**Produits et services** est votre catalogue de prix : les extras et les articles ponctuels — poignées, charnières, frais d'urgence, frais de disposition — que vous déposez sur une soumission d'un seul geste, avec le prix que vous avez fixé. Une ligne prise ici est chiffrée par vous, de sorte que le montant que le propriétaire voit est celui que vous avez décidé.",
       "Il est distinct de la grille tarifaire de **Réglages → Services et tarifs**, qui chiffre la portée principale d'un métier. Les deux répondent à des questions différentes : un tarif dit ce que coûte une unité de travail ; un produit dit ce qui s'est ajouté au chantier.",
@@ -939,6 +939,27 @@ export const ARTICLES = {
             "Changez la quantité ou le tarif sur cette soumission si le chantier l'exige. L'article du catalogue reste inchangé.",
           ] },
           { p: "Une ligne venue du catalogue est une ligne ordinaire une fois sur la soumission : le client voit une description et un montant, comme pour une ligne que vous avez tapée." },
+        ],
+      },
+      {
+        id: "custom-item",
+        heading: "Un article personnalisé, écrit sur place",
+        blocks: [
+          { p: "Quand le chantier demande quelque chose qui n'est pas dans votre catalogue, appuyez sur **Ajouter un service** au bas de la soumission, puis sur **Créer un article personnalisé**. Un article personnalisé appartient toujours à l'un des services déjà sur la soumission et utilise les unités de ce service — par porte pour les armoires, par pied carré de mur ou pied linéaire de moulure pour un intérieur, par marche pour un escalier — ou à l'unité, à l'heure ou au forfait." },
+          { steps: [
+            "Appuyez sur **Ajouter un service**, puis sur **Créer un article personnalisé**. Sans service sur la soumission, le bouton est grisé et indique **Ajoutez d'abord un service**.",
+            "Si la soumission compte plus d'un service, choisissez celui dont l'article fait partie.",
+            "Écrivez la **Description** que lit le client, et des **Détails** au besoin.",
+            "Choisissez l'**Unité**. Quand le service l'a déjà mesurée — 32 portes, 412 pi² de mur — la **Quantité** s'ouvre sur ce chiffre et indique d'où il vient; modifiez-la si l'article n'en couvre qu'une partie.",
+            "Entrez le **Prix unitaire** et, pour votre marge, le **Coût unitaire**. Le client ne voit jamais le coût.",
+            "Cochez **Enregistrer dans la liste de prix** pour le garder, puis appuyez sur **Ajouter à** ce service.",
+          ] },
+          { p: "La ligne s'ajoute dans ce service, à côté des lignes qu'écrit son calculateur, et devient une ligne ordinaire : enregistrée avec la soumission, sur le PDF, la page du client et le courriel, taxée avec le reste de la soumission, reportée sur la facture quand la soumission est acceptée, et comptée une seule fois dans **Coût et marge**." },
+          { note: "Si l'unité choisie est déjà chiffrée par le calculateur du service — les marches d'un relevé d'escalier, la moulure d'une pièce peinte — la fenêtre le dit. La ligne personnalisée s'ajoute à celle du calculateur : servez-vous-en pour du travail en plus (une moulure couronnée, une deuxième couche sur les portes), pas pour le même travail deux fois." },
+          { bullets: [
+            "**Enregistrer dans la liste de prix** ajoute un article dans Produits et services sous le type de soumission de ce service, au prix unitaire, au coût et à l'unité que vous avez entrés. L'option est offerte aux propriétaires et aux administrateurs, sur les soumissions dans la langue de votre entreprise, et seulement avec un prix supérieur à zéro. Si l'enregistrement échoue, rien n'est ajouté à la soumission — décochez-la pour ajouter la ligne seule.",
+            "Sur un type de soumission à forfaits (chargements d'enlèvement de déchets, forfaits d'esthétique automobile), choisir ou changer le forfait conserve les articles personnalisés déjà ajoutés.",
+          ] },
         ],
       },
       {

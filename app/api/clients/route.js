@@ -12,6 +12,8 @@ import {
   requireLevel,
   permissionErrorResponse,
   redactClients,
+  hasLevel,
+  assignedClientWhere,
 } from "@/lib/permissions/enforce";
 import { isSupported } from "@/app/i18n/languages";
 import { normaliseCountry } from "@/lib/tax/jurisdictions";
@@ -29,14 +31,23 @@ export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q");
 
+  // Searching a field the reader may not see is reading it one character at
+  // a time: a crew member typing a phone number got back the household it
+  // belongs to. Contact fields are searchable only by whoever may see them.
+  const seesContact = hasLevel(full, "clientsProperties", "full_view");
+
   const clients = await db.client.findMany({
     where: {
       companyId: member.companyId,
+      // A crew member's client book is the households on their own jobs —
+      // see assignedClientWhere. `{}` for everyone else.
+      ...assignedClientWhere(full),
       ...(q && {
         OR: [
           { name: { contains: q, mode: "insensitive" } },
-          { email: { contains: q, mode: "insensitive" } },
-          { phone: { contains: q } },
+          ...(seesContact
+            ? [{ email: { contains: q, mode: "insensitive" } }, { phone: { contains: q } }]
+            : []),
           // The street too: the office booking "the Maple Street job" knows
           // the address before the surname. Same field the calendar's
           // client picker types into (app/app/appointments/page.js).

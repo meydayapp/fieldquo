@@ -21,6 +21,7 @@
 // through the quick-add and sent to whatever address happened to be on it.
 
 import { Send, X } from "lucide-react";
+import { useViewOnly, ViewOnlyNote } from "@/app/providers/ViewOnlyProvider";
 
 // ── Why `icon` and `cancelLabel` are props rather than constants ───────────
 //
@@ -48,6 +49,11 @@ export default function SendConfirmModal({
   cancelLabel,
   icon,
 }) {
+  // "View as company": the one irreversible button is drawn off, with the
+  // note, before anyone presses it (the request would be refused anyway —
+  // app/providers/ViewOnlyProvider.js). False for everyone else, so every
+  // other caller renders exactly what it rendered before.
+  const viewOnly = useViewOnly();
   if (!isOpen) return null;
 
   return (
@@ -95,13 +101,14 @@ export default function SendConfirmModal({
           </button>
           <button
             type="button"
-            onClick={onConfirm}
-            disabled={busy}
+            onClick={viewOnly ? undefined : onConfirm}
+            disabled={busy || viewOnly}
             className="flex-1 bg-inverted text-inverted-foreground rounded-full px-4 py-2.5 text-sm font-semibold disabled:opacity-60"
           >
             {confirmLabel || "Send"}
           </button>
         </div>
+        {viewOnly ? <ViewOnlyNote className="mt-3 w-full justify-center" /> : null}
       </div>
     </div>
   );

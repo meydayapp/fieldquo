@@ -28,8 +28,8 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { requireSalesRep } from "@/lib/sales/gate";
-import { rangeFor, dailyRows } from "@/lib/analytics/product/queries";
-import { salesTopFeatures, SALES_MIN_APP_VIEWS, SALES_TOP_N } from "@/lib/analytics/product/aggregate";
+import { rangeFor, dailyRows, testCompanyIds } from "@/lib/analytics/product/queries";
+import { salesTopFeatures, excludeTestCompanies, SALES_MIN_APP_VIEWS, SALES_TOP_N } from "@/lib/analytics/product/aggregate";
 import { featureEntry } from "@/lib/features/registry";
 
 export async function GET(request) {
@@ -37,7 +37,12 @@ export async function GET(request) {
   if (refusal) return NextResponse.json(refusal.body, { status: refusal.status });
 
   const range = rangeFor(30);
-  const rows = await dailyRows({ start: range.start, end: range.end, surface: "app" });
+  // Test companies (owner, 2026-10-03) out, as demos are inside salesTopFeatures.
+  const [daily, testIds] = await Promise.all([
+    dailyRows({ start: range.start, end: range.end, surface: "app" }),
+    testCompanyIds(),
+  ]);
+  const rows = excludeTestCompanies(daily, testIds);
   const top = salesTopFeatures(rows, { threshold: SALES_MIN_APP_VIEWS, limit: SALES_TOP_N });
 
   return NextResponse.json({

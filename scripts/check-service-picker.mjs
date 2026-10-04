@@ -502,6 +502,19 @@ console.log("E. the control's three shapes");
   eq("an invoice with no services draws nothing (its Add line item remains)", invoiceEmpty, "");
   const invoiceBig = render(quotePicker({ kind: "invoice", products: [...PRODUCTS, { ...OUTLET, id: "p9", name: "GFCI" }] }));
   ok("an invoice with 6 services → the button, counted as services", invoiceBig.includes("data-add-service-open") && invoiceBig.includes("6 services to choose from"));
+
+  // ── Create custom item (owner, 2026-10-03) ─────────────────────────────
+  const custom = (targets) => ({ targets, unitsFor: () => [], add: () => {} });
+  const listWith = renderList(quotePicker({ customItem: custom([{ tempId: "g1", label: "Kitchen cabinets" }]) }), { onCustom: () => {} });
+  ok("the dialog offers Create custom item under the search, when the estimate has a service", /data-custom-item-entry="ready"/.test(listWith) && />Create custom item</.test(listWith) && !/<button[^>]*data-custom-item-open[^>]*disabled/.test(listWith));
+  ok("…above the tiles", listWith.indexOf("data-custom-item-open") < listWith.indexOf("data-service-picker-tile"));
+  const listNone = renderList(quotePicker({ customItem: custom([]) }), { onCustom: () => {} });
+  ok("no service on the estimate → disabled, with the reason beside it (not a button that opens onto nothing)", /<button[^>]*disabled[^>]*data-custom-item-open|<button[^>]*data-custom-item-open[^>]*disabled/.test(listNone) && listNone.includes("Add a service first"));
+  ok("no customItem handed → nothing drawn", !renderList(quotePicker(), { onCustom: () => {} }).includes("data-custom-item"));
+  const inlineWith = render(quotePicker({ categories: [STAIRS, CABINETS], products: [STAIR_REFINISH], customItem: custom([{ tempId: "g1", label: "Stairs" }]) }));
+  ok("the inline shape offers it too", inlineWith.includes('data-service-picker="inline"') && inlineWith.includes("data-custom-item-open"));
+  const invoiceCustom = render(quotePicker({ kind: "invoice", products: [...PRODUCTS, { ...OUTLET, id: "p9", name: "GFCI" }], customItem: custom([{ tempId: "g1", label: "x" }]) }));
+  ok("an invoice never draws it, even if handed one", !invoiceCustom.includes("data-custom-item"));
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -559,7 +572,11 @@ console.log("G. the wiring — the quote types are the old call; the headings co
   ok("GET /api/products attaches the heading with the pure helper and the server's seeds", /seedCategory = productSeedCategory\(p, \{ seedServiceByKey, seedCategoryName, SERVICE_SEEDS \}\)/.test(route) && /if \(seedCategory\) out\.seedCategory = seedCategory;/.test(route));
   ok("…inside the showPricing gate the route already had (nothing new served to anyone)", route.indexOf('requireToggle(full, "showPricing"') > 0 && route.indexOf('requireToggle(full, "showPricing"') < route.indexOf("productSeedCategory(p"));
   ok("the picker reads the heading off the row", /seedCategoryOf\(p, lang\)/.test(me));
-  ok("no 'Create custom item' without an add behind it", !/custom item/i.test(me.replace(/\/\/.*$/gm, "")));
+  // "Create custom item" (owner, 2026-10-03) — drawn only with an add behind
+  // it: the builder's `customItem` (QuoteBuilder addCustomItem), never on an
+  // invoice. Its own rules are scripts/check-custom-item.mjs.
+  ok("'Create custom item' is drawn only when the builder hands a customItem add", /if \(!onCustom \|\| !picker\?\.customItem\) return null;/.test(me) && /customItem: customItemPicker,/.test(qb) && /add: addCustomItem,/.test(qb));
+  ok("…and never on an invoice", /picker\?\.kind === "invoice" \? null : picker\?\.customItem/.test(me) && !/customItem/.test(inv));
 }
 
 // ───────────────────────────────────────────────────────────────────────────

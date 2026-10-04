@@ -87,7 +87,9 @@ for (const [type, meta] of Object.entries(TEMPLATE_TYPE_META)) {
 ok("follow_up_email is sent by the follow-up cron, which picks the RULE's template by id",
   /include: \{ template: true \}/.test(SEND_PATHS.cron) && /templateBody\(rule\.template/.test(SEND_PATHS.cron) && !/isDefault/.test(SEND_PATHS.cron));
 ok("marketing/custom are sent by the campaign route, which picks the CAMPAIGN's template by id",
-  /template: true/.test(SEND_PATHS.campaign) && /templateBody\(campaign\.template/.test(SEND_PATHS.campaign) && !/isDefault/.test(SEND_PATHS.campaign));
+  // Since 2026-10-03 through localizeTemplate first: the campaign's template,
+  // or the company's approved translation of it (lib/email/templateTranslation.js).
+  /template: true/.test(SEND_PATHS.campaign) && /localizeTemplate\(campaign\.template[\s\S]{0,600}?templateBody\(template/.test(SEND_PATHS.campaign) && !/isDefault/.test(SEND_PATHS.campaign));
 ok("the quote email is built from the document, never from a DocumentTemplate",
   !/documentTemplate/.test(SEND_PATHS.quoteEmail) && !/renderTemplateSections/.test(SEND_PATHS.quoteEmail));
 ok("the quote SEND route reads a template only for the PDF attachment (quote_pdf), never an email type",

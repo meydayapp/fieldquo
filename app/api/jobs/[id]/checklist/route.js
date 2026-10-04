@@ -15,8 +15,9 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
-import { assignedJobWhere } from "@/lib/permissions/enforce";
-import { normalizeChecklistItems } from "@/lib/jobs/checklistItems";
+import { assignedJobWhere, hasLevel } from "@/lib/permissions/enforce";
+import { normalizeChecklistItems, checklistDefinitionKept } from "@/lib/jobs/checklistItems";
+import { recordActivity } from "@/lib/activity/log";
 
 export async function PATCH(request, { params }) {
   const { id } = await params;
@@ -28,7 +29,7 @@ export async function PATCH(request, { params }) {
 
   const job = await db.job.findFirst({
     where: { id, companyId: member.companyId, ...assignedJobWhere(full) },
-    select: { id: true },
+    select: { id: true, title: true, checklistItems: true },
   });
   if (!job) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -40,10 +41,32 @@ export async function PATCH(request, { params }) {
   // keepDone: this is somebody answering the form, so the answers ARE the
   // payload. Empty stores null — "no checklist" — never [].
   const items = normalizeChecklistItems(body.checklistItems, { keepDone: true });
+
+  // Filling the form is anyone's who can see the job; REDEFINING it —
+  // removing an item, unticking "required", retyping one — is whoever edits
+  // the job's (jobs:view_create_edit). Appending a template stays open, the
+  // way the job page offers it. See checklistDefinitionKept.
+  if (!hasLevel(full, "jobs", "view_create_edit") && !checklistDefinitionKept(job.checklistItems, items)) {
+    return NextResponse.json(
+      { error: "You can fill in this checklist, but changing or removing its items is up to whoever runs the job." },
+      { status: 403 },
+    );
+  }
+
   const updated = await db.job.update({
     where: { id },
     data: { checklistItems: items.length ? items : null },
     select: { id: true, checklistItems: true },
   });
+
+  // On the record under whoever filled it in. Never throws.
+  const answered = items.filter((i) => i.done || i.response != null).length;
+  await recordActivity(member, {
+    action: "job.checklistUpdated",
+    entityType: "job",
+    entityId: id,
+    summary: `Updated the checklist on ${job.title || "a job"} (${answered}/${items.length} answered)`,
+  });
+
   return NextResponse.json(updated);
 }

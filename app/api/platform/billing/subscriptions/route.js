@@ -35,6 +35,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { METRICS_COMPANY_WHERE, isMetricsBucket } from "@/lib/platform/metricsScope";
 import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { requirePlatformPermission } from "@/lib/platform/permissions";
@@ -73,7 +74,7 @@ export async function GET(request) {
     // The owner's name and email for the free-trial list — the one thing the
     // book does not carry.
     db.company.findMany({
-      where: { isDemo: false, ...cardFreeTrialWhere() },
+      where: { ...METRICS_COMPANY_WHERE, ...cardFreeTrialWhere() },
       select: {
         id: true,
         name: true,
@@ -111,7 +112,8 @@ export async function GET(request) {
     };
   });
 
-  const customers = book.companies.filter((c) => c.bucket !== "demo");
+  // Demos and test companies are their own buckets (lib/platform/metricsScope.js).
+  const customers = book.companies.filter((c) => isMetricsBucket(c.bucket));
 
   // One row per real company holding a Subscription, newest first.
   const allRows = customers

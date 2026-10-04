@@ -24,6 +24,41 @@ import SubcontractorForm from "@/app/components/subcontractors/SubcontractorForm
 import SubcontractorDocuments from "@/app/components/subcontractors/SubcontractorDocuments";
 import RecordPaymentForm from "@/app/components/subcontractors/RecordPaymentForm";
 
+/**
+ * Where the roster's details came from (owner, 2026-10-03): the ones filled
+ * from a linked sub's own documents are named; everything else is what this
+ * company typed. A linked sub with no contact person is told why it was not
+ * filled — no FieldQuo document prints a person (lib/subcontractors/
+ * profileFill.js) — rather than left looking forgotten.
+ */
+function ProfileSources({ sub, t }) {
+  const s = sub?.sources || {};
+  const labels = {
+    email: t("app.subcontractors.email", "Email"),
+    phone: t("app.subcontractors.phone", "Phone"),
+    address: t("app.subcontractors.address", "Business address"),
+  };
+  const filled = ["email", "phone", "address"].filter((k) => s[k] === "profile").map((k) => labels[k]);
+  const noContact = Boolean(sub?.linkedCompanyId) && !sub?.contactName;
+  if (!filled.length && !noContact) return null;
+  return (
+    <div className="mt-1 space-y-0.5 text-xs text-muted-foreground" data-sub-sources>
+      {filled.length > 0 && (
+        <p data-sub-sources-profile>
+          {t("app.subcontractors.filledFromProfile", "From their FieldQuo profile (what their own quotes print): {fields}. Anything else here is what you typed.", {
+            fields: filled.join(", "),
+          })}
+        </p>
+      )}
+      {noContact && (
+        <p data-sub-sources-no-contact>
+          {t("app.subcontractors.noContactOnDocuments", "Their documents don't name a contact person, so none was filled — add one with Edit.")}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function SubcontractorDetail({ id }) {
   const { t } = useTranslation();
   const { money, formatDate } = useCompanyPreferences();
@@ -110,6 +145,8 @@ export default function SubcontractorDetail({ id }) {
                       {[sub.trade, sub.contactName, sub.phone, sub.email].filter(Boolean).join(" · ") ||
                         t("app.subcontractors.noDetails", "No details yet")}
                     </p>
+                    {sub.address && <p className="text-sm text-muted-foreground">{sub.address}</p>}
+                    <ProfileSources sub={sub} t={t} />
                     {!sub.active && (
                       <p className="text-xs text-muted-foreground mt-1">{t("app.subcontractors.inactiveNote", "Inactive — not offered when adding a sub to a job.")}</p>
                     )}

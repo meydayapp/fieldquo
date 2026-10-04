@@ -29,12 +29,24 @@
 // company can HAVE one until `leads_retrieval` is granted and a Page's forms
 // can be read. Until then it finds nothing and says so — it does not pretend
 // to have polled something.
+//
+// ══ And the history walk (2026-10-03) ══════════════════════════════════════
+//
+// A form that has never been polled is not polled: its ninety days of
+// history are lib/meta/historyBackfill.js's job, which imports them silently
+// (no "new lead" alert for a July enquiry) and sets the form's cursor when it
+// finishes. This cron queues that walk for any active form that has none,
+// runs the walk's next chunks, and only then polls the forms that have a
+// cursor. A form whose walk stopped on an error is polled the old way, so a
+// broken walk can never leave a form deaf.
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 import { NextResponse } from "next/server";
 import { requireCronSecret } from "@/lib/security/cronAuth";
 import { db } from "@/lib/db";
 import { pollForm, resolveLeadsCredential } from "@/lib/meta/leadsFetch";
+import { ensureBackfills, continueBackfills } from "@/lib/meta/historyBackfill";
 
 export async function GET(request) {
   const denied = requireCronSecret(request);
@@ -53,7 +65,41 @@ export async function GET(request) {
     byCompany.get(form.companyId).push(form);
   }
 
-  const summary = { companies: 0, forms: 0, created: 0, duplicates: 0, skipped: 0, errors: [] };
+  const summary = { companies: 0, forms: 0, created: 0, duplicates: 0, linked: 0, skipped: 0, errors: [], history: [] };
+
+  // ── History first: queue a walk for every never-polled form, run chunks ──
+  //
+  // "Never polled" is read ONCE, here, before the walk runs — a walk that
+  // finishes this tick sets the form's cursor, and the poll below must not
+  // then read the same window a second time in the same run.
+  const neverPolled = new Set(forms.filter((f) => !f.cursorLeadCreatedAt).map((f) => f.id));
+  const walks = await db.metaHistoryBackfill
+    .findMany({ where: { kind: "lead_form" }, select: { scopeId: true, status: true } })
+    .catch(() => []);
+  const walkFor = new Map(walks.map((w) => [w.scopeId, w.status]));
+  const needWalk = [...new Set(forms.filter((f) => !f.cursorLeadCreatedAt && !walkFor.has(f.id)).map((f) => f.companyId))];
+  for (const companyId of needWalk) {
+    await ensureBackfills({ companyId, scope: "leads" }).catch((err) => summary.errors.push(`history ${companyId}: ${err?.message}`));
+  }
+  summary.history = await continueBackfills({ kinds: ["lead_form"], budgetMs: 120000, maxRows: 20 }).catch((err) => {
+    summary.errors.push(`history: ${err?.message}`);
+    return [];
+  });
+  // The walk's leads are this cron's leads: counted in the same totals, and
+  // a walk Meta refused is an error in the same list as a refused poll.
+  for (const h of summary.history) {
+    summary.created += h.delta?.created || 0;
+    summary.duplicates += h.delta?.duplicates || 0;
+    summary.linked += h.delta?.linked || 0;
+    summary.skipped += h.delta?.skipped || 0;
+    if (h.status === "rate_limited" || h.status === "error") {
+      summary.errors.push(`history ${h.kind} ${h.id}: ${h.lastErrorKind || h.error || h.status}`);
+    }
+  }
+  const walksNow = await db.metaHistoryBackfill
+    .findMany({ where: { kind: "lead_form" }, select: { scopeId: true, status: true } })
+    .catch(() => []);
+  const walkStatus = new Map(walksNow.map((w) => [w.scopeId, w.status]));
 
   for (const [companyId, companyForms] of byCompany) {
     // The Page connection's stored page token, resolved once per company —
@@ -74,6 +120,9 @@ export async function GET(request) {
     summary.companies += 1;
 
     for (const form of companyForms) {
+      // History still walking: not polled (see the header). An errored walk
+      // falls back to the poll.
+      if (neverPolled.has(form.id) && walkStatus.has(form.id) && walkStatus.get(form.id) !== "error") continue;
       summary.forms += 1;
       let result;
       try {
@@ -86,6 +135,7 @@ export async function GET(request) {
 
       summary.created += result.created;
       summary.duplicates += result.duplicates;
+      summary.linked += result.linked || 0;
       summary.skipped += result.skipped;
       for (const e of result.errors) summary.errors.push(e);
 
@@ -99,7 +149,12 @@ export async function GET(request) {
       //
       // Only ever moves forward. A clock skew or an out-of-order page must
       // not rewind the cursor and re-import a month of leads.
+      //
+      // And never when the poll stopped short of the end of Meta's pages
+      // (`incomplete`): moving past the newest lead of a window it did not
+      // finish is exactly how the leads beyond the first hundred were lost.
       if (
+        !result.incomplete &&
         result.newestCreatedTime &&
         (!form.cursorLeadCreatedAt || result.newestCreatedTime > form.cursorLeadCreatedAt)
       ) {

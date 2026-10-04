@@ -110,6 +110,7 @@ import {
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { useFeatureFlags } from "@/app/providers/FeatureProvider";
 import { hasLevel, hasToggle } from "@/lib/permissions/enforce";
+import { can } from "@/lib/permissions";
 // The SAME gate POST /api/quotes/[id]/call runs, not a description of it.
 // quoteCallScope.js has no imports precisely so a browser bundle can execute
 // it — see its header — which is what keeps the button and the endpoint from
@@ -291,6 +292,13 @@ export default function QuoteDetailPage() {
   // Duplicating mints a new quote, so it takes the rung POST /api/quotes and
   // POST /api/quotes/[id]/duplicate both ask for. Absent, not greyed, below it.
   const canDuplicateQuote = hasLevel(caller, "quotes", "view_create_edit");
+  // POST /api/quotes/[id]/convert asks for quote:convert (supervisor and up)
+  // AND invoices:view_create_edit. The Estimator holds neither — they write
+  // the quote; raising the invoice is the dispatcher's and the manager's — and
+  // was offered the button anyway, which answered 403 in the error banner
+  // (the 2026-10-03 role-access audit). An unresolved provider falls open.
+  const canConvertQuote =
+    !caller || (can(caller.role, "quote:convert") && hasLevel(caller, "invoices", "view_create_edit"));
   // The PDF is the priced document and nothing else — /api/quotes/[id]/pdf
   // refuses without showPricing rather than rendering a quote with the numbers
   // taken out (its header says why). The same read here, so a member whose
@@ -909,7 +917,7 @@ export default function QuoteDetailPage() {
                 icon: Share2,
                 onSelect: () => setShareStaffOpen(true),
               },
-              {
+              canConvertQuote && {
                 key: "invoice",
                 label: t("app.quoteDetail.convertToInvoice"),
                 hint: canInvoice ? null : t("app.sendMenu.invoiceAfterAccept", "After the client accepts."),
@@ -1115,7 +1123,7 @@ export default function QuoteDetailPage() {
               {t("app.quoteDetail.reopen")}
             </button>
           )}
-          {quote.status === "accepted" && !quote.invoices?.length && (
+          {canConvertQuote && quote.status === "accepted" && !quote.invoices?.length && (
             <button
               onClick={handleConvert}
               disabled={actionLoading}

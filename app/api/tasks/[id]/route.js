@@ -3,9 +3,11 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { recordActivity } from "@/lib/activity/log";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { can } from "@/lib/permissions";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
+import { loadEnforceableMember, claimableTaskWhere } from "@/lib/permissions/enforce";
 import {
   canEditTask,
   completionGate,
@@ -14,6 +16,27 @@ import {
 import { dependencyGate, gateMessage, wouldCycle } from "@/lib/jobs/plan";
 import { normalisePlanFields } from "@/lib/tasks/planFields";
 import { changeOrderLabel } from "@/lib/jobs/changeOrderAddendum";
+
+// ── Mine, or an orphan this member may claim ────────────────────────────────
+//
+// canEditTask answers "mine or unassigned". The unassigned half was every
+// orphan in the company, including the office's auto-created invoice chases
+// and quote follow-ups, which a crew member could then tick off as done
+// (the 2026-10-03 role-access audit). An orphan is claimable here only when
+// GET /api/tasks would list it to this member — the same claimableTaskWhere,
+// asked of the database, so the list and the write cannot disagree.
+async function mayActOnTask(member, task) {
+  if (!canEditTask(member, task)) return false;
+  const mine =
+    !!member?.userId && (task.assignedToId === member.userId || task.createdById === member.userId);
+  if (mine) return true;
+  const full = await loadEnforceableMember(db, member.id);
+  const hit = await db.task.findFirst({
+    where: { id: task.id, companyId: member.companyId, ...claimableTaskWhere(full) },
+    select: { id: true },
+  });
+  return Boolean(hit);
+}
 
 export async function PATCH(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -44,7 +67,7 @@ export async function PATCH(request, { params }) {
   // canEditTask() is the "mine-or-claimable" half, shared with
   // POST /api/tasks/[id]/photos (see lib/tasks/completion.js's own comment for
   // why it's a shared helper now rather than a third inline copy).
-  const editable = canEditTask(member, existing);
+  const editable = await mayActOnTask(member, existing);
   if (!editable && !can(member.role, "task:create")) {
     return NextResponse.json(
       {
@@ -288,6 +311,19 @@ export async function PATCH(request, { params }) {
     },
   });
 
+  // A status change is somebody's work — started, done, reopened — and goes
+  // on the record under their name (the owner, 2026-10-03). Edits to the
+  // wording are not logged; they move nothing. Never throws.
+  if (body.status !== undefined && body.status !== existing.status) {
+    await recordActivity(member, {
+      action: body.status === "done" ? "task.completed" : "task.statusChanged",
+      entityType: existing.jobId ? "job" : "task",
+      entityId: existing.jobId || existing.id,
+      summary: `${body.status === "done" ? "Completed" : `Set to ${body.status}`}: ${existing.title || "a to-do"}`,
+      metadata: { taskId: existing.id, from: existing.status, to: body.status },
+    });
+  }
+
   return NextResponse.json({ ...updated, dependsOn: updated.dependsOn.map((d) => d.dependsOn) });
 }
 
@@ -335,3 +371,4 @@ export async function DELETE(request, { params }) {
   await db.task.delete({ where: { id: _params.id } });
   return NextResponse.json({ success: true });
 }
+

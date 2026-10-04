@@ -9,6 +9,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { METRICS_COMPANY_WHERE } from "@/lib/platform/metricsScope";
 import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { requirePlatformPermission } from "@/lib/platform/permissions";
@@ -133,13 +134,18 @@ export async function GET(request) {
     // Assembled in JS rather than SQL so it stays provider-agnostic and
     // readable; at platform scale the row counts are small.
     //
+    // Demos and test companies out (lib/platform/metricsScope.js, 2026-10-03)
+    // — the population the dashboard's own series count. Unscoped, a seeded
+    // demo's invented invoices were most of "Payment value" here while the
+    // dashboard beside it left them out.
     // Money is split per currency — one "Quoted value (CAD)" column per
     // currency in the book — never summed across them (owner decision
     // 2026-10-03). A quote and a payment are in their company's currency.
     const [companies, quotes, payments] = await Promise.all([
-      db.company.findMany({ select: { createdAt: true } }),
-      db.quote.findMany({ select: { createdAt: true, total: true, company: { select: { currency: true } } } }),
+      db.company.findMany({ where: METRICS_COMPANY_WHERE, select: { createdAt: true } }),
+      db.quote.findMany({ where: { company: METRICS_COMPANY_WHERE }, select: { createdAt: true, total: true, company: { select: { currency: true } } } }),
       db.payment.findMany({
+        where: { invoice: { company: METRICS_COMPANY_WHERE } },
         select: { createdAt: true, amount: true, invoice: { select: { company: { select: { currency: true } } } } },
       }),
     ]);

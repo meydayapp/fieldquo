@@ -66,6 +66,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { METRICS_COMPANY_WHERE } from "@/lib/platform/metricsScope";
 import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { requirePlatformPermission } from "@/lib/platform/permissions";
@@ -177,7 +178,8 @@ export async function GET(request) {
   };
   const [incompleteRows, trialRows] = await Promise.all([
     db.company.findMany({
-      where: { isDemo: false, ...incompleteSignupWhere() },
+      // Demos and test companies out (lib/platform/metricsScope.js).
+      where: { ...METRICS_COMPANY_WHERE, ...incompleteSignupWhere() },
       select: COMPANY_SELECT,
       orderBy: { createdAt: "desc" },
     }),
@@ -185,7 +187,7 @@ export async function GET(request) {
     // signed up lately" section, and /platform/companies?status=card_free
     // is the full list.
     db.company.findMany({
-      where: { isDemo: false, ...cardFreeTrialWhere() },
+      where: { ...METRICS_COMPANY_WHERE, ...cardFreeTrialWhere() },
       select: COMPANY_SELECT,
       orderBy: { createdAt: "desc" },
       take: 200,

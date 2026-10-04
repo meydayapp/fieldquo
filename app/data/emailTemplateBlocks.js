@@ -10,6 +10,8 @@
 // remove renders reliably in real email clients and covers "move sections
 // around, add pictures and text" without a page-builder canvas.
 
+import { STARTER_COPY, starterCopy } from "@/lib/i18n/emailStarterCopy";
+
 export const BLOCK_TYPES = [
   {
     type: "heading",
@@ -157,9 +159,22 @@ export const MERGE_FIELDS = [
 // render as "1" and "[object Object]" if someone dropped them into a text
 // block, so they're not offered as insertable chips.
 
-export function newBlock(type) {
+export function newBlock(type, language = null) {
   const meta = BLOCK_TYPES.find((b) => b.type === type);
   if (!meta) return null;
+  // The placeholder words a fresh heading, text or button carries, in the
+  // template's own language when the caller knows it (the editor passes the
+  // template's language; the starters pass the company's). No language keeps
+  // the English defaults above, which is what every caller got before.
+  const words = language ? starterCopy(language).blockDefaults : null;
+  const wording =
+    words && type === "heading"
+      ? { text: words.heading }
+      : words && type === "text"
+        ? { text: words.text }
+        : words && type === "button"
+          ? { label: words.button }
+          : {};
   // Deep clone, not `{ ...meta.defaults }`. A shallow spread copies the
   // `stages` array on the progress block *by reference*, so every progress
   // block in every template would share one array — renaming a stage in one
@@ -168,6 +183,7 @@ export function newBlock(type) {
     id: crypto.randomUUID(),
     type,
     ...structuredClone(meta.defaults),
+    ...wording,
   };
 }
 
@@ -258,148 +274,122 @@ function progressAt(index) {
 }
 
 // Default subject lines. Merge tokens work here exactly as in the body.
-export const DEFAULT_SUBJECTS = {
-  quote_email: "Your quote from {{companyName}} is ready",
-  instructions_email: "You're booked in — what to expect on {{projectStartDate}}",
-  receipt_email: "Payment received — thank you, {{clientName}}",
-  follow_up_email: "Still thinking it over, {{clientName}}?",
-  marketing_email: "A note from {{companyName}}",
-  custom_email: "A message from {{companyName}}",
-};
+//
+// The words live in lib/i18n/emailStarterCopy.js, in every document language
+// (2026-10-03 — they were English for every company until then). This map is
+// the English column, kept under its old name for the readers that want it.
+export const DEFAULT_SUBJECTS = STARTER_COPY.en.subjects;
 
-export function defaultSubjectFor(type) {
-  return DEFAULT_SUBJECTS[type] || DEFAULT_SUBJECTS.custom_email;
+/**
+ * The starter subject for a template type, in `language` — the company's
+ * language when a company creates a template (Company.defaultLanguage).
+ * English when no language is given, which is what every caller got before.
+ */
+export function defaultSubjectFor(type, language = "en") {
+  const subjects = starterCopy(language).subjects;
+  return subjects[type] || subjects.custom_email;
 }
 
-export function defaultSectionsFor(type) {
+/**
+ * The starter blocks for a template type, written in `language`.
+ *
+ * Only the words change with the language. The layout, the tokens, the
+ * progress stages (stored in English and translated when the email is drawn
+ * — see LIFECYCLE_STAGES) and the button URLs are the same in every language,
+ * so a French starter and an English one are the same email.
+ */
+export function defaultSectionsFor(type, language = "en") {
+  const c = starterCopy(language);
+  const block = (t) => newBlock(t, language);
+
   if (type === "quote_email") {
+    const w = c.quote;
     return [
-      { ...newBlock("heading"), text: "Your quote is ready" },
-      {
-        ...newBlock("text"),
-        text: "Hi {{clientName}},\n\nThank you for the opportunity to earn your business. We've put together a detailed quote for {{jobTitle}} — everything is broken out below so you can see exactly what's included.\n\nJob address: {{clientAddress}}",
-      },
+      { ...block("heading"), text: w.heading },
+      { ...block("text"), text: w.intro },
       progressAt(0),
-      { ...newBlock("lineItems"), title: "Your quote" },
+      { ...block("lineItems"), title: w.lineItemsTitle },
       {
-        ...newBlock("button"),
-        label: "View & approve your quote",
+        ...block("button"),
+        label: w.button,
         url: "{{quoteUrl}}",
         align: "center",
       },
-      {
-        ...newBlock("text"),
-        text: "Every job includes:\n• Full preparation and protection of the surrounding area\n• Premium materials and professional application\n• Complete cleanup and a final walkthrough with you\n• Our workmanship guarantee",
-      },
-      newBlock("divider"),
-      {
-        ...newBlock("text"),
-        text: "Questions, or want to adjust anything? Just reply to this email or give us a call — we're happy to talk it through.",
-      },
+      { ...block("text"), text: w.includes },
+      block("divider"),
+      { ...block("text"), text: w.closing },
     ];
   }
 
   if (type === "instructions_email") {
+    const w = c.instructions;
     return [
-      { ...newBlock("heading"), text: "You're all set" },
-      {
-        ...newBlock("text"),
-        text: "Hi {{clientName}},\n\nGreat news — {{jobTitle}} is confirmed and on the schedule. Here's everything you need to know before we arrive.",
-      },
+      { ...block("heading"), text: w.heading },
+      { ...block("text"), text: w.intro },
       progressAt(2),
-      {
-        ...newBlock("summary"),
-      },
-      {
-        ...newBlock("text"),
-        text: "Your booking:\n• Address — {{clientAddress}}\n• Start date — {{projectStartDate}}\n• Estimated completion — {{projectEndDate}}",
-      },
-      {
-        ...newBlock("text"),
-        text: "How to prepare:\n• Clear the work area of personal items and furniture where possible\n• Make sure we have clear access to the job site on the start date\n• Keep pets in a separate area during work hours\n• We'll walk you through the finished work before we call the job complete",
-      },
-      newBlock("divider"),
-      {
-        ...newBlock("text"),
-        text: "Something come up? Let us know as early as you can and we'll find another slot.",
-      },
+      { ...block("summary") },
+      { ...block("text"), text: w.booking },
+      { ...block("text"), text: w.prepare },
+      block("divider"),
+      { ...block("text"), text: w.closing },
     ];
   }
 
   if (type === "receipt_email") {
+    const w = c.receipt;
     return [
-      { ...newBlock("heading"), text: "Payment received — thank you" },
-      {
-        ...newBlock("text"),
-        text: "Hi {{clientName}},\n\nThis confirms we've received your payment of {{amountPaid}}. Here's your receipt.",
-      },
+      { ...block("heading"), text: w.heading },
+      { ...block("text"), text: w.intro },
       progressAt(1),
-      { ...newBlock("lineItems"), title: "Receipt" },
+      { ...block("lineItems"), title: w.lineItemsTitle },
+      { ...block("text"), text: w.balance, align: "center" },
       {
-        ...newBlock("text"),
-        text: "Balance remaining: {{balanceDue}}",
-        align: "center",
-      },
-      {
-        ...newBlock("button"),
-        label: "View your invoice",
+        ...block("button"),
+        label: w.button,
         url: "{{invoiceUrl}}",
         align: "center",
       },
-      newBlock("divider"),
-      {
-        ...newBlock("text"),
-        text: "Thank you for your business — we genuinely appreciate it.",
-      },
+      block("divider"),
+      { ...block("text"), text: w.closing },
     ];
   }
 
   if (type === "follow_up_email") {
+    const w = c.followUp;
     return [
-      { ...newBlock("heading"), text: "Still thinking it over?" },
+      { ...block("heading"), text: w.heading },
+      { ...block("text"), text: w.intro },
+      block("summary"),
       {
-        ...newBlock("text"),
-        text: "Hi {{clientName}},\n\nWe wanted to check in on quote #{{quoteNumber}} for {{jobTitle}}. It's still available at {{quoteTotal}}, and we'd love to get you on the schedule.\n\nIf anything's holding you up — timing, budget, scope — just reply and tell us. We can usually work something out.",
-      },
-      newBlock("summary"),
-      {
-        ...newBlock("button"),
-        label: "View your quote",
+        ...block("button"),
+        label: w.button,
         url: "{{quoteUrl}}",
         align: "center",
       },
-      newBlock("divider"),
-      {
-        ...newBlock("text"),
-        text: "No longer need it? Reply and let us know, and we'll stop following up.",
-      },
+      block("divider"),
+      { ...block("text"), text: w.closing },
     ];
   }
 
   if (type === "marketing_email") {
+    const w = c.marketing;
     return [
-      { ...newBlock("heading"), text: "A quick note from {{companyName}}" },
+      { ...block("heading"), text: w.heading },
+      { ...block("text"), text: w.intro },
+      { ...block("image"), url: "", alt: w.imageAlt },
       {
-        ...newBlock("text"),
-        text: "Hi {{clientName}},\n\nWrite your message here — an offer, a seasonal reminder, or an update about your business.",
-      },
-      { ...newBlock("image"), url: "", alt: "Add a photo of your work" },
-      {
-        ...newBlock("button"),
-        label: "Get a free quote",
+        ...block("button"),
+        label: w.button,
         url: "",
         align: "center",
       },
-      newBlock("divider"),
-      {
-        ...newBlock("text"),
-        text: "You're receiving this because you're a customer of {{companyName}}.",
-      },
+      block("divider"),
+      { ...block("text"), text: w.footer },
     ];
   }
 
   return [
-    { ...newBlock("heading"), text: "Hello {{clientName}}" },
-    newBlock("text"),
+    { ...block("heading"), text: c.custom.heading },
+    block("text"),
   ];
 }

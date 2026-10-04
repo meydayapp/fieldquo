@@ -30,6 +30,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle2, Circle, ExternalLink, Inbox, RefreshCw, Search } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { fetchJson } from "@/lib/fetchJson";
+import MetaHistoryStatus from "@/app/components/settings/MetaHistoryStatus";
 import { articleMeta } from "@/lib/help/tree";
 import { helpPath } from "@/lib/help/urls";
 import { isHelpChromeLang } from "@/lib/help/chrome";
@@ -453,6 +454,7 @@ export default function MetaLeadFormsPanel() {
                       {f.pageName || f.pageId}
                       {" · "}
                       {t("app.setMetaLeads.formLeadCount", { count: f.leadCount })}
+                      {f.linkedCount > 0 ? ` · ${t("app.metaHistory.formLinked", { count: f.linkedCount })}` : ""}
                       {f.lastLeadAt
                         ? ` · ${t("app.setMetaLeads.formLastLead", {
                             date: new Date(f.lastLeadAt).toLocaleDateString(),
@@ -484,6 +486,11 @@ export default function MetaLeadFormsPanel() {
               ))}
             </ul>
           )}
+
+          {/* The ninety days of submissions Meta still holds, for the forms
+              that are on — lib/meta/historyBackfill.js. Drawn only once a form
+              is on: with none, there is nothing to fetch history FOR. */}
+          {connected && scopeReady && data.forms.some((f) => f.active) && <MetaHistoryStatus scope="leads" t={t} />}
 
           {/* Leads Access Manager can refuse FieldQuo a Page's LEADS while its
               forms list fine — so a working "Find my lead forms" is no proof

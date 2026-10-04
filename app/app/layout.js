@@ -28,6 +28,7 @@ import { FeatureProvider } from "@/app/providers/FeatureProvider";
 import { PermissionProvider } from "@/app/providers/PermissionProvider";
 import { SettingsAccessProvider } from "@/app/providers/SettingsAccessProvider";
 import { TradeGateProvider } from "@/app/providers/TradeGateProvider";
+import ViewOnlyProvider, { PersonalPageGate } from "@/app/providers/ViewOnlyProvider";
 import { companyTradeGate } from "@/lib/settings/tradeGate";
 import { isInfluencer } from "@/lib/influencers";
 import { db } from "@/lib/db";
@@ -258,7 +259,15 @@ async function resolveSettingsShell() {
       { skipBillingGate: true },
     );
     if (!member?.role) return { access: null, tradeGate: null };
-    const access = { role: member.role, impersonation: !!member.impersonation };
+    // viewOnly: a READ-ONLY support session ("View as company"). A demo
+    // sandbox is impersonation too, but it may write — the same split
+    // middleware.js makes with allowsWrites(). Decided from the member the
+    // server resolved, never from anything the browser sent.
+    const access = {
+      role: member.role,
+      impersonation: !!member.impersonation,
+      viewOnly: !!member.impersonation && member.impersonationMode === "read_only",
+    };
     const tradeGate = member.companyId ? await companyTradeGate(member.companyId) : null;
     return { access, tradeGate };
   } catch (err) {
@@ -507,7 +516,10 @@ export default async function AppLayout({ children }) {
     // fq-app-shell sets --fq-tab-bar-height for everything inside it — the
     // one place the mobile tab bar's footprint is declared. See the "bottom
     // dock" section of app/globals.css.
-    <div className="min-h-screen bg-background fq-app-shell">
+    // data-view-only: only in a read-only support session, so every rule
+    // under [data-view-only] in app/globals.css is inert for everyone else
+    // (undefined renders no attribute at all — the markup is unchanged).
+    <div className="min-h-screen bg-background fq-app-shell" data-view-only={settingsShell.access?.viewOnly ? "1" : undefined}>
       {/* Renders nothing unless a read-only support session is active. */}
       <ImpersonationBanner />
       {/* Renders nothing. Tells the platform console a person is using this
@@ -551,6 +563,10 @@ export default async function AppLayout({ children }) {
           centre — for as long as this browser stays signed in
           (lib/i18n/statedLanguage.js, rung 3). */}
       <LanguageProvider initialLanguage={language} fromAccount={Boolean(language)} accountSession={accountSession}>
+      {/* "View as company": the browser half of the read-only session —
+          app/providers/ViewOnlyProvider.js. False for everyone else, which
+          renders the children untouched and installs nothing. */}
+      <ViewOnlyProvider viewOnly={Boolean(settingsShell.access?.viewOnly)}>
       <CompanyPreferencesProvider
         initialCurrency={company?.currency || null}
         initialInfluencer={isInfluencer(company)}
@@ -607,7 +623,11 @@ export default async function AppLayout({ children }) {
                 last row of a list can be scrolled out from under them — see
                 "launcher column's clearance" in app/globals.css. */}
             <main className="flex-1 min-w-0 pb-[calc(var(--fq-tab-bar-height)+var(--fq-dock-height)+var(--fq-launcher-clearance))]">
-              {children}
+              {/* A personal page (their own hours, pay, time off) shows a
+                  notice in a support session instead of the owner's own data
+                  — lib/impersonation/viewOnly.js PERSONAL_PAGES. Passes the
+                  page through untouched for everyone else. */}
+              <PersonalPageGate>{children}</PersonalPageGate>
             </main>
           </div>
           <MobileTabBar />
@@ -619,6 +639,7 @@ export default async function AppLayout({ children }) {
       </PermissionProvider>
       </FeatureProvider>
       </CompanyPreferencesProvider>
+      </ViewOnlyProvider>
       </LanguageProvider>
       {/* Renders nothing until something calls showToast() or showError().
           Mounted here so no individual page needs its own error state and

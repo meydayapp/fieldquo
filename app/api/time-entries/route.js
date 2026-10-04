@@ -6,7 +6,7 @@ import { resolveWallClock } from "@/lib/time/wallClock";
 import { recordActivity } from "@/lib/activity/log";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
-import { loadEnforceableMember, hasLevel, redactPayList } from "@/lib/permissions/enforce";
+import { loadEnforceableMember, hasLevel, redactPayList, assignedJobWhere } from "@/lib/permissions/enforce";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 import { PUNCH_WINDOW_MS } from "@/lib/shifts/attendance";
 
@@ -158,6 +158,19 @@ export async function POST(request) {
   // cross-tenant WRITE rather than a read, and silent on both sides.
   const notOurs = await ownedIdsRefusal(NextResponse, db, member.companyId, { jobId });
   if (notOurs) return notOurs;
+
+  // …and, for a crew member, one of THEIR jobs. Ours-not-theirs let a crew
+  // member book hours — labour cost — against any job in the company, which
+  // the clock's own job picker and the corrections route already refuse
+  // (clockableJobWhere). Same scope as every job read: not theirs reads as
+  // not there.
+  if (jobId) {
+    const reachable = await db.job.findFirst({
+      where: { id: jobId, companyId: member.companyId, ...assignedJobWhere(full) },
+      select: { id: true },
+    });
+    if (!reachable) return NextResponse.json({ error: "Job not found" }, { status: 404 });
+  }
 
   // Prevent double clock-in — a worker can't have two open entries at once
   const openEntry = await db.timeEntry.findFirst({

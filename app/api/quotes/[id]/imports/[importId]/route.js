@@ -42,6 +42,10 @@ export async function PATCH(request, { params }) {
     const full = await loadEnforceableMember(db, member.id);
     requireLevel(full, "quotes", "view_create_edit", "edit quotes");
     requireToggle(full, "showPricing", "change a cost markup");
+    // The markup IS the margin on the sub's cost — jobCosting's number, which
+    // GET .../imports now withholds below that toggle. Setting a margin you
+    // may not see is the dead control from the other side.
+    requireToggle(full, "jobCosting", "change a cost markup");
   } catch (err) {
     const { body, status } = permissionErrorResponse(err);
     return NextResponse.json(body, { status });

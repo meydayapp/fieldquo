@@ -330,8 +330,11 @@ for (const [label, rel, pattern] of [
   ["…and the route actually calls that feed", "app/api/appointments/route.js", /loadScheduleFeed\(db, member, full\)/],
   ["…as does the day map", "app/api/schedule/map/route.js", /loadScheduleFeed\(db, member, full, \{ from, to \}\)/],
   ["POST /api/appointments", "app/api/appointments/route.js", /client: redactClient\(full, appointment\.client\)/],
-  ["GET /api/jobs/[id]", "app/api/jobs/[id]/route.js", /client: redactClient\(full, job\.client\)/],
-  ["PATCH /api/jobs/[id]", "app/api/jobs/[id]/route.js", /client: redactClient\(full, updated\.client\)/],
+  // redactJob (lib/permissions/enforce.js) carries redactClient for the
+  // nested client and adds the job's own money and costing rules; the
+  // payloads themselves are executed per role in check-role-access.mjs.
+  ["GET /api/jobs/[id]", "app/api/jobs/[id]/route.js", /redactJob\(full, \{\s*\.\.\.job,/],
+  ["PATCH /api/jobs/[id]", "app/api/jobs/[id]/route.js", /redactJob\(full, updated\)/],
   ["GET /api/invoices", "app/api/invoices/route.js", /redactInvoices\(full, invoices\)/],
   ["POST /api/invoices", "app/api/invoices/route.js", /redactInvoice\(full, invoice\)/],
   ["GET /api/invoices/[id]", "app/api/invoices/[id]/route.js", /redactInvoice\(full, invoice\)/],
