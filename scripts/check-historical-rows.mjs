@@ -374,6 +374,33 @@ console.log("\n5. lib/ai/copilotTools.js — the AI's conversion, cash flow, cat
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+console.log("\n6. lib/platform/planLimits.js — the monthly quote limit\n");
+{
+  const { checkQuoteLimit, requireWithinLimit } = await import("@/lib/platform/planLimits");
+  // Created "now" by the real clock (the limit reads it), so always this month.
+  const fresh = (id, patch = {}) => ({ id, companyId: "c1", createdAt: new Date(), historicalImportedAt: null, ...patch });
+  const seed = {
+    subscription: [{ id: "s1", companyId: "c1", plan: { maxQuotesPerMonth: 5 } }],
+    quote: [
+      fresh("l1"), fresh("l2"), fresh("l3"),
+      ...Array.from({ length: 40 }, (_, i) => fresh(`h${i}`, { historicalImportedAt: new Date() })),
+      fresh("x1", { companyId: "c2" }),
+    ],
+  };
+  const { result: r } = await withDb(seed, () => checkQuoteLimit("c1"));
+  ok("3 of 5 used — the 40 imported past jobs are not this month's quotes", r.allowed === true && r.currentCount === 3 && r.limit === 5, r);
+  let refused = null;
+  await withDb(seed, () => requireWithinLimit("c1", "quotes").catch((e) => { refused = e; }));
+  ok("...so New quote is not refused with a 402", refused === null, refused?.message);
+  const { result: bare } = await withDb(withoutHistory(seed), () => checkQuoteLimit("c1"));
+  ok("a company with no historical rows gets the identical answer (md5)", md5(r) === md5(bare));
+  const full = { ...seed, quote: [...seed.quote, fresh("l4"), fresh("l5")] };
+  let atCap = null;
+  await withDb(full, () => requireWithinLimit("c1", "quotes").catch((e) => { atCap = e; }));
+  ok("five live quotes still hit the cap (402)", atCap?.status === 402, atCap?.message);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 if (failures.length) {
   console.error(`\n✗ ${failures.length} failed, ${pass} passed\n`);
   for (const f of failures) console.error(`  ✗ ${f}`);
