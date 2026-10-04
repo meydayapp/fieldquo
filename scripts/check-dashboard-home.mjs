@@ -122,6 +122,24 @@ console.log("\n1. The work panel's badge rules, on hostile rows\n");
       // re-quoted AND expiring: the newer quote is the live conversation
       { id: "q14", companyId: "c1", clientId: "k14", status: "sent", sentAt: ago(1), validUntil: ahead(2), createdAt: ago(5) },
       { id: "q14b", companyId: "c1", clientId: "k14", status: "other", createdAt: ago(1) },
+      // "Viewed, no answer" — Quote.viewedAt, stamped only by the client's page.
+      // opened yesterday, sent two days ago: not yet a follow-up, but warm
+      { id: "q15", companyId: "c1", clientId: "k15", status: "sent", sentAt: ago(2), viewedAt: ago(1), viewCount: 2, createdAt: ago(2) },
+      // opened, then followed up AFTER the open: answered by us — and not yet quiet for 3 days
+      { id: "q16", companyId: "c1", clientId: "k16", status: "sent", sentAt: ago(5), viewedAt: ago(4), followUpSentAt: ago(1), createdAt: ago(5) },
+      // a junk view date is not a view — falls back to the follow-up rule
+      { id: "q17", companyId: "c1", clientId: "k17", status: "sent", sentAt: ago(9), viewedAt: "nope", viewCount: 3, createdAt: ago(9) },
+      // opened long ago, silent since: "viewed" names it over "follow up"
+      { id: "q18", companyId: "c1", clientId: "k18", status: "sent", sentAt: ago(9), viewedAt: ago(8), createdAt: ago(9) },
+      // opened AND expiring: the deadline names it
+      { id: "q19", companyId: "c1", clientId: "k19", status: "sent", sentAt: ago(1), viewedAt: ago(1), validUntil: ahead(2), createdAt: ago(1) },
+      // opened and answered — not waiting on anyone
+      { id: "q20", companyId: "c1", clientId: "k20", status: "accepted", sentAt: ago(3), viewedAt: ago(2), acceptedAt: ago(1), createdAt: ago(3) },
+      // opened but superseded by a newer quote to the same client
+      { id: "q21", companyId: "c1", clientId: "k21", status: "sent", sentAt: ago(6), viewedAt: ago(5), createdAt: ago(6) },
+      { id: "q21b", companyId: "c1", clientId: "k21", status: "other", createdAt: ago(1) },
+      // opened, but another tenant's
+      { id: "q22", companyId: "OTHER", clientId: "k22", status: "sent", sentAt: ago(2), viewedAt: ago(1), createdAt: ago(2) },
     ],
     jobs: [
       { id: "j1", companyId: "c1", status: "unscheduled", createdAt: ago(3), title: "Deck" },
@@ -165,10 +183,18 @@ console.log("\n1. The work panel's badge rules, on hostile rows\n");
   );
   ok(
     "Quotes: silent past the quiet days, and expiring within the week — not answered, expired, superseded, archived, historical, junk-dated, recently contacted or another tenant's",
-    reasons(panel, "quotes").join(" ") === ["q1:follow_up", "q8:expiring"].sort().join(" "),
+    reasons(panel, "quotes").join(" ") === ["q1:follow_up", "q8:expiring", "q15:viewed", "q17:follow_up", "q18:viewed", "q19:expiring"].sort().join(" "),
     reasons(panel, "quotes").join(" "),
   );
-  ok("...and no quote is ever badged 'viewed' — FieldQuo does not record a client opening one", VIEWED_TRACKED === false && !JSON.stringify(panel).includes("viewed"));
+  ok("...'viewed' only where the CLIENT's open was recorded and nothing went to them since — never a junk date, an answered, superseded, followed-up or other tenant's quote",
+    VIEWED_TRACKED === true && reasons(panel, "quotes").filter((r) => r.endsWith(":viewed")).join(" ") === "q15:viewed q18:viewed");
+  {
+    const q = tab(panel, "quotes")?.items || [];
+    const order = q.map((i) => i.reason);
+    ok("...expiring rows first, then viewed, then follow-ups", order.join(",") === [...order].sort((a, b) => ({ expiring: 0, viewed: 1, follow_up: 2 })[a] - ({ expiring: 0, viewed: 1, follow_up: 2 })[b]).join(","), order);
+    const v = q.find((i) => i.id === "q15");
+    ok("...a viewed row is dated by the open, not the send", v && v.at instanceof Date && Math.abs(v.at.getTime() - ago(1).getTime()) < 1000);
+  }
   ok(
     "Jobs: unscheduled, today and tomorrow by the COMPANY's calendar — not closed, cancelled (either spelling) or another tenant's",
     reasons(panel, "jobs").join(" ") === ["j1:not_scheduled", "v1:starts_today", "v2:starts_tomorrow", "v9:starts_today"].sort().join(" "),
