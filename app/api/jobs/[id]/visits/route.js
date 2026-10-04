@@ -8,7 +8,8 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { requirePermission } from "@/lib/permissions";
 import { normalizeChecklistItems } from "@/lib/jobs/checklistItems";
-import { assignedJobWhere } from "@/lib/permissions/enforce";
+import { assignedJobWhere, hasLevel } from "@/lib/permissions/enforce";
+import { recordActivity } from "@/lib/activity/log";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 import { isCallbackReason } from "@/lib/jobs/callbackReasons";
 import { syncJobRoom } from "@/lib/company/chat/store";
@@ -68,6 +69,21 @@ export async function POST(request, { params }) {
     "see jobs",
   );
   if (denied) return denied;
+
+  // ── …and the schedule half the comment above always named ───────────────
+  //
+  // "Scheduling a visit is governed by the SCHEDULE category" — and nothing
+  // here read it, so "View and complete their own schedule" (Crew) could put
+  // new visits on the calendar, flip an unscheduled job to scheduled and close
+  // the office's "schedule this job" task (the 2026-10-03 role-access audit).
+  // Booking a visit is editing a schedule: "Edit their own schedule" and up,
+  // the same rung moving or cancelling one needs (mayRescheduleVisit).
+  if (!hasLevel(full, "schedule", "edit_own")) {
+    return NextResponse.json(
+      { error: "Booking a visit is up to whoever runs the schedule. Ask them to add it." },
+      { status: 403 },
+    );
+  }
 
   // This one MATTERS, and is not the dead-code spread the write routes carry:
   // booking a visit is gated at view_only by the decision above, so a scoped
@@ -174,6 +190,15 @@ export async function POST(request, { params }) {
   void syncJobRoom(member.companyId, _params.id);
 
   scheduleSync("visit", visit.id);
+
+  // On the record under whoever booked it. recordActivity never throws.
+  await recordActivity(member, {
+    action: "visit.created",
+    entityType: "job",
+    entityId: _params.id,
+    summary: `Booked a visit on ${job.title || "a job"}${visit.assignedTo?.name ? ` for ${visit.assignedTo.name}` : ""}`,
+    metadata: { visitId: visit.id },
+  });
 
   return NextResponse.json(visit, { status: 201 });
 }

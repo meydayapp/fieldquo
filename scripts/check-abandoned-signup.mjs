@@ -239,14 +239,21 @@ ok(
   JSON.stringify(cardFreeTrialWhere()),
 );
 // completedSignupWhere is an OR, so a caller spreading it beside an OR of its
-// own would lose one silently. Every caller spreads it beside isDemo only.
+// own would lose one silently. Every caller spreads it beside the metrics
+// scope only — { isDemo: false, isTestCompany: false } since 2026-10-03
+// (lib/platform/metricsScope.js), which is no OR either.
 // (The overview no longer counts with the fragment at all — it classifies
 // the book with hasFinishedSignup, asserted under "The counts" below.)
 for (const [file, needle] of [
-  ["lib/analytics/tenantData.js", "{ isDemo: false, ...completedSignupWhere() }"],
-  ["lib/analytics/product/queries.js", "{ isDemo: false, ...completedSignupWhere() }"],
+  ["lib/analytics/tenantData.js", "{ ...METRICS_COMPANY_WHERE, ...completedSignupWhere() }"],
+  ["lib/analytics/product/queries.js", "{ ...METRICS_COMPANY_WHERE, ...completedSignupWhere() }"],
 ]) {
-  ok(`${file} spreads completedSignupWhere beside the demo filter alone`, read(file).includes(needle));
+  ok(`${file} spreads completedSignupWhere beside the demo/test filter alone`, read(file).includes(needle));
+}
+{
+  const { METRICS_COMPANY_WHERE } = await import("../lib/platform/metricsScope.js");
+  ok("the metrics scope it is spread beside carries no OR of its own",
+    JSON.stringify(METRICS_COMPANY_WHERE) === JSON.stringify({ isDemo: false, isTestCompany: false }));
 }
 ok(
   "neither fragment bakes in the demo filter (the caller composes NOT_DEMO)",
@@ -664,7 +671,10 @@ ok("and links to the screen that lists them", dash.includes('href="/platform/sig
 // subscriberBucket — the classifier above — rather than a fragment of its own.
 const listRoute = decomment(read("app/api/platform/companies/route.js"));
 ok("the companies list resolves bucket filters server-side, by the shared classifier",
-  listRoute.includes("subscriberBucket(c, now)") && /if \(BUCKETS\[status\]\) return \(c\) => c\.bucket === status;/.test(listRoute));
+  listRoute.includes("subscriberBucket(c, now)") &&
+    // 2026-10-03: a test company shown with ?tests=1 sits under its REAL
+    // bucket (bucketOf); hidden otherwise (visible).
+    /if \(BUCKETS\[status\]\) return \(c\) => visible\(c\) && bucketOf\(c\) === status;/.test(listRoute));
 ok("`incomplete` is one of those buckets", Boolean(BUCKETS.incomplete) && BUCKET_ORDER.includes("incomplete"));
 const listPage = read("app/platform/companies/page.js");
 ok("the list page offers every bucket, incomplete included",
@@ -699,7 +709,7 @@ const signupsRoute = decomment(read("app/api/platform/signups/route.js"));
 const signupsGet = handlerBodies(signupsRoute).find((h) => h.name === "GET")?.text || "";
 ok("the console endpoint is behind a platform permission",
   signupsGet.includes("requirePlatformPermission") && signupsGet.includes("company:view"));
-ok("it excludes demos", signupsGet.includes("isDemo: false"));
+ok("it excludes demos (and test companies — the shared metrics scope)", signupsGet.includes("...METRICS_COMPANY_WHERE"));
 ok("it reports the do-not-contact state, so nobody rings someone who opted out",
   signupsGet.includes("checkSuppression") && signupsGet.includes("doNotContact"));
 ok("it uses the same decision the cron uses rather than a second opinion",

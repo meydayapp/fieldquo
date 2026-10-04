@@ -50,6 +50,7 @@ import {
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { reportResponseError } from "@/lib/clientErrors";
+import { useSession } from "@/lib/auth-client";
 import { crewDayLanes, dayOf } from "@/lib/jobs/plan";
 
 const hours = (v) => (v === null || v === undefined || Number.isNaN(Number(v)) ? null : `${Number(v).toFixed(1)} h`);
@@ -63,6 +64,12 @@ const PILL = {
 };
 
 export default function JobPlan({ jobId, onChanged }) {
+  // PATCH /api/tasks/[id] lets a member move a step that is theirs or
+  // unassigned; anyone else's needs task:create (the plan payload's
+  // `canCreate`). Asked per step below so a colleague's step is not offered
+  // as Start / Done buttons that answer 403.
+  const { data: session } = useSession();
+  const me = session?.user?.id || null;
   const { t } = useTranslation();
   const { formatDate } = useCompanyPreferences();
   const [plan, setPlan] = useState(null);
@@ -336,6 +343,7 @@ export default function JobPlan({ jobId, onChanged }) {
                     reordering={reordering}
                     busy={busy === s.id}
                     canEdit={canEdit}
+                    canWork={canCreate || !s.assignedToId || (me !== null && s.assignedToId === me)}
                     onMove={(dir) => move(s.id, dir)}
                     onStart={() => patch(s, { status: "in_progress" })}
                     onDone={() => patch(s, { status: "done" })}
@@ -431,7 +439,7 @@ function timeOf(v) {
   }
 }
 
-function StepRow({ t, step: s, index, formatDate, reordering, busy, canEdit, onMove, onStart, onDone, onReopen, onEdit, holding, onHold, onHoldCancel, onHoldSave, onHoldClear }) {
+function StepRow({ t, step: s, index, formatDate, reordering, busy, canEdit, canWork = true, onMove, onStart, onDone, onReopen, onEdit, holding, onHold, onHoldCancel, onHoldSave, onHoldClear }) {
   const [reason, setReason] = useState(s.waitingReason || "");
   const status = s.planStatus;
   const statusLabel = {
@@ -504,29 +512,29 @@ function StepRow({ t, step: s, index, formatDate, reordering, busy, canEdit, onM
           </div>
         )}
 
-        {!reordering && (
+        {!reordering && (canWork || canEdit) && (
           <div className="mt-2 flex flex-wrap gap-2 items-center">
-            {status !== "done" && status !== "cancelled" && status !== "in_progress" && (
+            {canWork && status !== "done" && status !== "cancelled" && status !== "in_progress" && (
               <button type="button" disabled={busy || blockedByDeps} title={blockedByDeps ? t("app.jobPlan.blockedHint", "Waiting on another step") : undefined} onClick={onStart} className="inline-flex min-h-[44px] lg:min-h-0 items-center gap-1 border border-border text-xs font-semibold px-2.5 py-1 rounded-md hover:bg-muted disabled:opacity-50">
                 <Play size={12} /> {t("app.jobPlan.start", "Start")}
               </button>
             )}
-            {status !== "done" && status !== "cancelled" && (
+            {canWork && status !== "done" && status !== "cancelled" && (
               <button type="button" disabled={busy || blockedByDeps} onClick={onDone} className="inline-flex min-h-[44px] lg:min-h-0 items-center gap-1 border border-border text-xs font-semibold px-2.5 py-1 rounded-md hover:bg-muted disabled:opacity-50">
                 <Check size={12} /> {t("app.job.taskMarkDone")}
               </button>
             )}
-            {status === "done" && (
+            {canWork && status === "done" && (
               <button type="button" disabled={busy} onClick={onReopen} className="inline-flex min-h-[44px] lg:min-h-0 items-center gap-1 border border-border text-xs font-semibold px-2.5 py-1 rounded-md hover:bg-muted disabled:opacity-50">
                 <RotateCcw size={12} /> {t("app.job.taskReopen")}
               </button>
             )}
-            {status !== "done" && status !== "cancelled" && !holding && !s.waitingReason && (
+            {canWork && status !== "done" && status !== "cancelled" && !holding && !s.waitingReason && (
               <button type="button" disabled={busy} onClick={onHold} className="inline-flex min-h-[44px] lg:min-h-0 items-center gap-1 border border-border text-xs font-semibold px-2.5 py-1 rounded-md hover:bg-muted disabled:opacity-50">
                 <PauseCircle size={12} /> {t("app.jobPlan.hold", "Put on hold")}
               </button>
             )}
-            {s.waitingReason && status !== "done" && (
+            {canWork && s.waitingReason && status !== "done" && (
               <button type="button" disabled={busy} onClick={onHoldClear} className="inline-flex min-h-[44px] lg:min-h-0 items-center gap-1 border border-border text-xs font-semibold px-2.5 py-1 rounded-md hover:bg-muted disabled:opacity-50">
                 <X size={12} /> {t("app.jobPlan.holdClear", "Clear hold")}
               </button>

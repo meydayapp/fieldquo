@@ -20,7 +20,14 @@
 // them own a FEATURES entry), so they degrade to a permission check alone
 // and never disappear because a company's plan doesn't include them.
 //
-// The fifth is Chat — every set carries it, see the note on TAB_ITEMS.
+// Since 2026-10-03 the Time clock is the first tab on every bar, the
+// owner's included ("everyone should have a clock, even the boss"), and
+// Invoices gave up its slot for it — the one of the four most often reached
+// from another (its job, the +, a payment notification). lib/nav/phoneBar.js
+// says why for every set. Somebody whose clock is switched off gets the bar
+// as it was, Invoices and all.
+//
+// Chat is on every bar — see the note on TAB_ITEMS.
 //
 // Home is deliberately NOT a tab: the phone's top bar (TopBar.js) links the
 // logo to /app, so Home stays one tap away without spending a slot on a
@@ -82,7 +89,7 @@ const ICONS = {
 // destinations: nothing to translate twice, nothing that can drift from what
 // the drawer calls the same page.
 //
-// Chat is the fifth, and every set carries it. It has no NAV_REQUIREMENTS
+// Chat is on every set. It has no NAV_REQUIREMENTS
 // entry on purpose: everyone on the roster is in #general and in the rooms of
 // the jobs they are booked on. It is feature-gated (team_chat) like every
 // other row, through the same filter as the rest (lib/nav/phoneBar.js).

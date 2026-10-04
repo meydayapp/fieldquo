@@ -73,6 +73,7 @@ import { usePermissions } from "@/app/providers/PermissionProvider";
 import { useTradeGate } from "@/app/providers/TradeGateProvider";
 import { filterNavGroupsByTrade } from "@/lib/settings/tradeGateNav";
 import { railPinsClock } from "@/lib/nav/phoneBar";
+import { usesCrewShell } from "@/lib/nav/crewShell";
 import FeatureRowBadge from "@/app/components/layout/FeatureRowBadge";
 import { useNavShell, isSettingsPath } from "@/app/components/layout/NavShell";
 import { SettingsPanel } from "@/app/components/layout/SettingsSidebar";
@@ -411,11 +412,11 @@ export function useNavItems(items) {
 // ── The clock, pinned for the people who punch it (2026-10-03) ─────────────
 //
 // The same object More › Crew holds, so the gates, the help article and the
-// active-row rule are that row's. Pinned under Home on the rail for every
-// role that is not office (railPinsClock in lib/nav/phoneBar.js — crew,
-// estimators, dispatchers and managers clock in daily; most owners do not),
-// and dropped from More for those same people, so the row is in one place.
-// The phone sheet keeps it: the rail is not on a phone.
+// active-row rule are that row's. Pinned under Home on the rail for everybody
+// whose clock is on — owners and admins included since 2026-10-03 ("everyone
+// should have a clock, even the boss"; railPinsClock in lib/nav/phoneBar.js)
+// — and dropped from More for those same people, so the row is in one place.
+// The phone sheet drops it too, because it is the first tab on every bar.
 export const CLOCK_ITEM = MORE_GROUPS.find((g) => g.key === "app.nav.group.moreCrew").items.find(
   (i) => i.key === "app.nav.clock",
 );
@@ -470,6 +471,11 @@ export default function AdminSidebar() {
   const setMobileOpen = (v) => (v ? shell.open("drawer") : shell.close());
 
   const featureFlags = useFeatureFlags();
+  // Crew get no rail and no drawer — the accordion is the menu the owner
+  // said they don't need (lib/nav/crewShell.js). Decided here, drawn by
+  // CrewShell.js from `lg` up and by the bottom bar below it; the early
+  // return is after every hook below, so the hook order never changes.
+  const crewShell = usesCrewShell(usePermissions(), featureFlags);
   const navGroups = useNavGroups(NAV_GROUPS);
   const moreGroups = useRailMoreGroups();
   const railPins = useRailPins();
@@ -859,6 +865,8 @@ export default function AdminSidebar() {
       </div>
     );
   }
+
+  if (crewShell) return null;
 
   return (
     <>

@@ -199,6 +199,10 @@ export default function ClientDetailPage() {
   const quotes = client.quotes || [];
   const invoices = client.invoices || [];
   const jobs = client.jobs || [];
+  // Lists the server withheld by the reader's grid (GET /api/clients/[id]
+  // `documentsHidden`). A withheld list is not drawn at all — "No quotes yet"
+  // would be a false statement about a client who has ten.
+  const hidden = new Set(Array.isArray(client.documentsHidden) ? client.documentsHidden : []);
 
   return (
     <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
@@ -398,6 +402,7 @@ export default function ClientDetailPage() {
       {canSeeEquipment && <FiledEmails clientId={client.id} />}
 
       {/* Related records */}
+      {!hidden.has("quotes") && (
       <RelatedList
         icon={FileText}
         title={t("app.nav.quotes")}
@@ -412,13 +417,19 @@ export default function ClientDetailPage() {
             <span className="text-sm text-foreground">
               {q.quoteNumber || t("app.clientDetail.quoteFallback")}
             </span>
-            <span className="text-sm font-medium text-foreground">
-              {money(q.total)}
-            </span>
+            {/* No total for a reader without showPricing — the server sent
+                none (pricingHidden), and money(undefined) would draw $0. */}
+            {!q.pricingHidden && (
+              <span className="text-sm font-medium text-foreground">
+                {money(q.total)}
+              </span>
+            )}
           </Link>
         )}
       />
+      )}
 
+      {!hidden.has("jobs") && (
       <RelatedList
         icon={Briefcase}
         title={t("app.nav.jobs")}
@@ -446,7 +457,9 @@ export default function ClientDetailPage() {
           </Link>
         )}
       />
+      )}
 
+      {!hidden.has("invoices") && (
       <RelatedList
         icon={Receipt}
         title={t("app.nav.invoices")}
@@ -461,12 +474,15 @@ export default function ClientDetailPage() {
             <span className="text-sm text-foreground">
               {inv.invoiceNumber || t("app.clientDetail.invoiceFallback")}
             </span>
-            <span className="text-sm font-medium text-foreground">
-              {money(inv.total)}
-            </span>
+            {!inv.pricingHidden && (
+              <span className="text-sm font-medium text-foreground">
+                {money(inv.total)}
+              </span>
+            )}
           </Link>
         )}
       />
+      )}
 
       {/* The texts this client was sent and whether each one ARRIVED —
           Twilio accepting a text is not the phone getting it (a carrier

@@ -301,7 +301,7 @@ export const ARTICLES = {
         heading: "A day on a Crew login",
         blocks: [
           { steps: [
-            "Open FieldQuo on your phone. The tab bar shows **Jobs**, **Chat** and **More**; the pipeline tabs the office uses are not there for you.",
+            "Open FieldQuo on your phone. The tab bar shows **Clock**, **Today**, **Chat** and **More**; the pipeline tabs the office uses are not there for you. On a computer you get the same in big buttons under one big clock button.",
             "Open **Jobs**, tap today's job, and read the visit notes and the checklist.",
             "Open **Time clock** and press **Clock in**. The pill reads **On the clock** and the timer runs against that job.",
             "Photos: take them from the job page, or text them to the crew number and they file themselves — see [[text-a-photo-to-the-crew-inbox|Text a photo in without an app]].",

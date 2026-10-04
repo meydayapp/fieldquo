@@ -22,6 +22,7 @@ import {
   Coins,
 } from "lucide-react";
 import MetricCard, { money, count } from "@/app/components/platform/MetricCard";
+import { moneyByCurrency, pickByCurrency, anyPositive } from "@/lib/platform/metricFormat";
 import Sparkline from "@/app/components/platform/Sparkline";
 import TenantBoard from "./TenantBoard";
 import MailboxHealthCard from "@/app/components/platform/MailboxHealthCard";
@@ -652,7 +653,10 @@ export default function PlatformDashboardPage() {
                 over a real fault — a fabricated zero standing where a blank
                 belonged. AGENTS.md: absence of a statement is not a
                 statement. */}
-            {data.outlook.blockedMrr > 0 && (
+            {/* Per currency (owner decision 2026-10-03): the blocked total
+                is "CAD 169 · USD 99", never one sum, and it is stated only
+                when some currency holds more than zero. */}
+            {anyPositive(pickByCurrency(data.outlook.byCurrency, (m) => m.blockedMrr)) && (
               <p
                 className={`text-xs mt-0.5 ${
                   data.outlook.nothingCollectable
@@ -660,7 +664,13 @@ export default function PlatformDashboardPage() {
                     : "text-amber-800 dark:text-amber-300"
                 }`}
               >
-                {money(data.outlook.blockedMrr, { compact: true })}/mo of the
+                {moneyByCurrency(
+                  Object.fromEntries(
+                    Object.entries(pickByCurrency(data.outlook.byCurrency, (m) => m.blockedMrr) || {}).filter(([, v]) => v > 0),
+                  ),
+                  { compact: true },
+                )}
+                /mo of the
                 total above cannot be raised.
               </p>
             )}
@@ -679,7 +689,7 @@ export default function PlatformDashboardPage() {
                       its own diagnosis reads as a rounding error rather than
                       as the fault the sentence goes on to name. */}
                   {b.monthly > 0
-                    ? ` · ${money(b.monthly, { compact: true })}/mo`
+                    ? ` · ${money(b.monthly, { compact: true, currency: b.currency })}/mo`
                     : ""}{" "}
                   — {b.reason}
                 </li>
@@ -688,9 +698,19 @@ export default function PlatformDashboardPage() {
           </div>
         )}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Every money tile below is split per currency — "CAD 845 ·
+              USD 99" — and never summed across them (owner decision
+              2026-10-03; lib/platform/metricFormat.js). The outlook is the
+              source; the overview's own mrrByCurrency is the fallback when
+              the outlook did not come back. */}
           <MetricCard
             label="Collectable MRR"
-            value={money(data.outlook?.collectableMrr ?? data.mrr, { compact: true })}
+            value={moneyByCurrency(
+              data.outlook
+                ? pickByCurrency(data.outlook.byCurrency, (m) => m.collectableMrr)
+                : data.mrrByCurrency,
+              { compact: true },
+            )}
             note={
               data.outlook
                 ? `${count(data.outlook.collectableCount)} of ${count(data.outlook.nominalCount)} subscriptions can bill`
@@ -700,12 +720,17 @@ export default function PlatformDashboardPage() {
           />
           <MetricCard
             label="On paper"
-            value={money(data.outlook?.nominalMrr ?? data.mrr, { compact: true })}
+            value={moneyByCurrency(
+              data.outlook
+                ? pickByCurrency(data.outlook.byCurrency, (m) => m.nominalMrr)
+                : data.mrrByCurrency,
+              { compact: true },
+            )}
             note="What you'd bill if every plan were configured"
           />
           <MetricCard
             label="This month"
-            value={money(data.outlook?.thisMonth?.expected ?? 0, { compact: true })}
+            value={moneyByCurrency(pickByCurrency(data.outlook?.byCurrency, (m) => m.thisMonth?.expected), { compact: true })}
             note={
               data.outlook
                 ? `${count(data.outlook.thisMonth.converting)} trial(s) convert before month end`
@@ -714,7 +739,7 @@ export default function PlatformDashboardPage() {
           />
           <MetricCard
             label="Next month"
-            value={money(data.outlook?.nextMonth?.expected ?? 0, { compact: true })}
+            value={moneyByCurrency(pickByCurrency(data.outlook?.byCurrency, (m) => m.nextMonth?.expected), { compact: true })}
             note={
               data.outlook
                 ? `+${count(data.outlook.nextMonth.converting)} more converting`
@@ -725,7 +750,12 @@ export default function PlatformDashboardPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mt-4">
           <MetricCard
             label="Annual run rate"
-            value={money(data.outlook?.annualRunRate ?? data.arr, { compact: true })}
+            value={moneyByCurrency(
+              data.outlook
+                ? pickByCurrency(data.outlook.byCurrency, (m) => m.annualRunRate)
+                : data.arrByCurrency,
+              { compact: true },
+            )}
             note="Collectable MRR × 12"
           />
           {/* The Paying bucket (lib/platform/trialCounting.js) — the same
@@ -1008,6 +1038,7 @@ function BookLedger({ book, stripeMirror }) {
                 {/* Twenty-odd sales fixtures by name would bury the real
                     companies; the chip opens them for anyone who asks. */}
                 {b === "demo" ? "FieldQuo's own sales fixtures, in no count above." : null}
+                {b === "test" ? "Marked test by a superadmin, in no count above: " : null}
                 {(b === "demo" ? [] : book.members?.[b] || []).map((m, i) => (
                   <span key={m.id}>
                     {i > 0 ? ", " : ""}

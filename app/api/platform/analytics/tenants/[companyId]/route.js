@@ -20,8 +20,12 @@ import {
   talkingPoints,
 } from "@/lib/analytics/companyComparison";
 import { buildFunnel, buildTradeBreakdown } from "@/lib/analytics/tenantHealth";
+import { METRICS_COMPANY_WHERE } from "@/lib/platform/metricsScope";
 
-const NOT_DEMO = { isDemo: false };
+// Demos AND companies a superadmin marked as tests (owner, 2026-10-03) —
+// one rule for every FieldQuo number, lib/platform/metricsScope.js. The
+// name is kept so the checks that look for it still find it.
+const NOT_DEMO = METRICS_COMPANY_WHERE;
 
 export async function GET(request, { params }) {
   // Next 16: params is a Promise.
@@ -42,7 +46,7 @@ export async function GET(request, { params }) {
 
   const company = await db.company.findUnique({
     where: { id: companyId },
-    select: { id: true, name: true, createdAt: true, isDemo: true },
+    select: { id: true, name: true, createdAt: true, isDemo: true, currency: true },
   });
   if (!company)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -51,7 +55,7 @@ export async function GET(request, { params }) {
     // Everyone's rows in one pass, then split. Querying the subject separately
     // would let the two halves drift — a filter tightened on one and not the
     // other would compare a company against a differently-defined cohort.
-    const [quotes, jobs, invoices, scopeGroups] = await Promise.all([
+    const [quotes, jobs, invoices, scopeGroups, currencies] = await Promise.all([
       db.quote.findMany({
         where: { company: NOT_DEMO },
         select: {
@@ -75,7 +79,12 @@ export async function GET(request, { params }) {
           quote: { select: { id: true, companyId: true, status: true, sentAt: true, total: true } },
         },
       }),
+      // Every company's quoting currency: the money metric is benchmarked
+      // only against companies in the subject's own (owner decision
+      // 2026-10-03 — never mixed across currencies).
+      db.company.findMany({ where: NOT_DEMO, select: { id: true, currency: true } }),
     ]);
+    const currencyOf = new Map(currencies.map((c) => [c.id, c.currency || null]));
 
     const group = (rows) => {
       const m = new Map();
@@ -95,19 +104,19 @@ export async function GET(request, { params }) {
       invoices: iBy.get(id) || [],
     });
 
-    const subject = metricsForCompany(rowsFor(companyId));
+    const subject = metricsForCompany(rowsFor(companyId), { currency: company.currency });
 
     // Every OTHER company. The subject is excluded from its own benchmark —
     // in a small cohort it would otherwise be a large share of the thing it is
     // being measured against.
     const otherIds = [...new Set([...qBy.keys(), ...jBy.keys(), ...iBy.keys()])]
       .filter((id) => id !== companyId);
-    const others = otherIds.map((id) => metricsForCompany(rowsFor(id)));
+    const others = otherIds.map((id) => metricsForCompany(rowsFor(id), { currency: currencyOf.get(id) }));
 
     const comparison = compareToCohort(subject, others);
 
     return NextResponse.json({
-      company: { id: company.id, name: company.name, createdAt: company.createdAt, isDemo: company.isDemo },
+      company: { id: company.id, name: company.name, createdAt: company.createdAt, isDemo: company.isDemo, currency: company.currency || null },
       comparison,
       talkingPoints: talkingPoints(comparison),
       // Their own funnel and trade mix, unbenchmarked — the detail behind the

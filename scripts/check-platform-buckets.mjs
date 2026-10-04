@@ -128,6 +128,10 @@ const FIXTURES = [
   { expect: "unknown", c: co("Odd Status", { subscription: sub({ status: "paused" }) }) },
   { expect: "demo", c: co("Demo With Sub", { isDemo: true, subscription: sub({ status: "trialing" }) }) },
   { expect: "demo", c: co("Demo Bare", { isDemo: true, subscription: null }) },
+  // Marked test by a superadmin (2026-10-03): out of every count like a demo,
+  // whatever it would otherwise be — a paying test card, a card-free trial.
+  { expect: "test", c: co("Test Paying", { isTestCompany: true, subscription: sub({}) }) },
+  { expect: "test", c: co("Test Card Free", { isTestCompany: true, onboardingStatus: "pending", trialEndsAt: day(30), subscription: null }) },
 ];
 
 for (const f of FIXTURES) {
@@ -197,8 +201,10 @@ ok("the counts sum to every company, each counted once",
 ok("trialing = with a plan + no plan yet",
   tally.trialing.total === tally.trialing.withPlan + tally.trialing.noPlan &&
     tally.trialing.withPlan === 2 && tally.trialing.noPlan === 2, tally.trialing);
-ok("'companies' leaves out demos and never-finished signups, and nothing else",
-  tally.customers === FIXTURES.length - expectCount("demo") - expectCount("incomplete"), tally.customers);
+ok("'companies' leaves out demos, test companies and never-finished signups, and nothing else",
+  tally.customers === FIXTURES.length - expectCount("demo") - expectCount("test") - expectCount("incomplete"), tally.customers);
+ok("test companies are listed as their own bucket and counted in no customer number",
+  tally.counts.test === 2 && !Object.entries(tally.members).some(([b, list]) => b !== "test" && list.some((m) => /^Test /.test(m.name))));
 ok("billed = paying + past due", tally.billed === expectCount("paying") + expectCount("past_due"));
 ok("the members list names the companies a number counts",
   tally.members.trial_no_plan.map((m) => m.name).join() === "Card Free Day One,Card Free Last Hour");
@@ -213,7 +219,7 @@ const priced = outlookSubscriptions(classified);
 ok("the revenue feed is the Paying and Trialing-with-a-plan buckets only",
   priced.length === expectCount("paying") + expectCount("trial_with_plan"));
 ok("no card-free trial, locked, cancelled or demo row is priced",
-  !priced.some((s) => ["Card Free Day One", "Terms Lock", "Cancelled Co", "Demo With Sub", "Past Due Grace Over"].includes(s.company?.name)));
+  !priced.some((s) => ["Card Free Day One", "Terms Lock", "Cancelled Co", "Demo With Sub", "Past Due Grace Over", "Test Paying"].includes(s.company?.name)));
 const outlook = buildRevenueOutlook(priced, NOW);
 ok("nominal MRR is the paying companies' plans alone (2 × $99)", outlook.nominalMrr === 198, outlook.nominalMrr);
 ok("the outlook's trial count is the Stripe trials — the with-a-plan half", outlook.trials.count === tally.trialing.withPlan);
@@ -330,15 +336,15 @@ ok("subscriptions: tiles are the book's, not the open tab's rows",
     !/trialing: rows\.filter/.test(subsRoute) && !/active: rows\.filter/.test(subsRoute));
 ok("subscriptions: MRR is the home page's collectable MRR",
   /mrr: outlook\.collectableMrr,/.test(subsRoute) && /buildRevenueOutlook\(outlookSubscriptions\(book\.companies\), nowDate\)/.test(subsRoute));
-ok("subscriptions: demo companies' rows are left out",
-  /const customers = book\.companies\.filter\(\(c\) => c\.bucket !== "demo"\);/.test(subsRoute));
+ok("subscriptions: demo and test companies' rows are left out (metricsScope)",
+  /const customers = book\.companies\.filter\(\(c\) => isMetricsBucket\(c\.bucket\)\);/.test(subsRoute));
 const subsPage = code("app/platform/billing/subscriptions/page.js");
 ok("subscriptions page: the Trialing tile prints the split",
   /data\.summary\.trialingWithPlan/.test(subsPage) && /data\.summary\.trialingNoPlan/.test(subsPage));
 ok("subscriptions page: prints how fresh the Stripe mirror is", /data\.stripeMirror/.test(subsPage) && /data\.countedAt/.test(subsPage));
 
 const companiesRoute = code("app/api/platform/companies/route.js");
-ok("companies: every row is classified by the shared classifier", /bucket: subscriberBucket\(c, now\)/.test(companiesRoute));
+ok("companies: every row is classified by the shared classifier", /bucket: subscriberBucket\(c, now\)|const bucket = subscriberBucket\(c, now\)/.test(companiesRoute));
 ok("companies: no onboardingStatus filter survives", !/onboardingStatus: status/.test(companiesRoute));
 ok("companies: an unknown filter is refused, not answered with everything", /Unknown filter/.test(companiesRoute));
 const companiesPage = code("app/platform/companies/page.js");

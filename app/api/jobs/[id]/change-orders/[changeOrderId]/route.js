@@ -138,5 +138,5 @@ export async function PATCH(request, { params }) {
   await syncForSourceJob(db, { jobId: job.id });
 
   const all = await db.changeOrder.findMany({ where: { jobId: job.id }, select: { id: true, seq: true, createdAt: true } });
-  return NextResponse.json(presentChangeOrder(updated, all));
+  return NextResponse.json(presentChangeOrder(updated, all, full));
 }

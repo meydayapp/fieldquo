@@ -8,9 +8,16 @@
 //
 // ══ The state that matters most is the one where nothing works ═════════════
 //
-// `leads_retrieval` is not approved for this app yet. So the ordinary state
-// of this panel today is: connected, forms listed if any were ever
-// discovered, every toggle DISABLED, and a sentence saying exactly why.
+// Leads are no longer hypothetical: real lead-form submissions have arrived
+// since 2026-09-28 (TrueFinish's Page, once the Meta app was switched from
+// Development to Live — the dashboard's test deliveries had worked all
+// along). What this panel still has to handle is the deployment or company
+// where the lead permissions are NOT in force: `scopeReady` below is
+// META_LEADS_ENABLED (lib/meta/client.js metaLeadsScopeEnabled), and while it
+// is off the panel shows connected, forms listed if any were ever discovered,
+// every toggle DISABLED, and a sentence saying exactly why. A company whose
+// own grant lacks a lead permission is named by Settings › Meta Ads' per-
+// feature permission line.
 //
 // Not hidden. Hiding it would leave a contractor who saw the feature
 // advertised wondering where it went, and would hide the one fact they need —

@@ -297,7 +297,7 @@ export const ARTICLES = {
         id: "their-menu",
         heading: "Qué muestra su menú",
         blocks: [
-          { p: "**Inicio**, **Trabajos** (los suyos), **Calendario**, **Tareas**, **Chat**, **Reloj de tiempo**, **Ausencias**, **Seguridad**, **Nómina** (sus propios recibos de pago) y **Ayuda**. Bajo Configuración: **Idioma**, **Disponibilidad** y **Novedades del producto**. En un teléfono, las mismas pantallas están en la barra de pestañas de la cuadrilla — vea [[what-a-crew-member-sees|Qué ve un miembro de la cuadrilla]] y [[how-fieldquo-works-for-crew|Cómo funciona FieldQuo para la cuadrilla]]." },
+          { p: "**Inicio**, **Trabajos** (los suyos), **Calendario**, **Tareas**, **Chat**, **Reloj de tiempo**, **Ausencias**, **Seguridad**, **Nómina** (sus propios recibos de pago) y **Ayuda**. Bajo Configuración: **Idioma**, **Disponibilidad** y **Novedades del producto**. No están en una barra lateral plegable: en una computadora, un miembro de la cuadrilla tiene un botón grande **Fichar entrada** y botones grandes para **Hoy**, **Mi horario**, **Chat**, **Trabajos** y **Más**, y en un teléfono la barra **Reloj · Hoy · Chat · Más**; todo lo demás de esta lista está en su página Más, en **Todo lo demás** — vea [[the-crew-tab-bar|La barra de pestañas de la cuadrilla]], [[what-a-crew-member-sees|Qué ve un miembro de la cuadrilla]] y [[how-fieldquo-works-for-crew|Cómo funciona FieldQuo para la cuadrilla]]." },
         ],
       },
       {
@@ -665,7 +665,7 @@ export const ARTICLES = {
         heading: "Qué cambia para esa persona",
         blocks: [
           { bullets: [
-            "**Reloj de tiempo** sale de su menú y de la página Más, el reloj sale de la barra de pestañas de su teléfono, y las tarjetas de **Registrar entrada** y las horas de la semana salen de su pantalla de inicio.",
+            "**Reloj de tiempo** sale de su menú y de la página Más, el reloj sale de la barra de pestañas de su teléfono (vuelve la pestaña que reemplazaba — **Prospectos** para un estimador, **Trabajos** para un despachador), el botón de reloj grande sale de la pantalla de computadora de un miembro de la cuadrilla, y las tarjetas de **Registrar entrada** y las horas de la semana salen de su pantalla de inicio.",
             "El propio reloj la rechaza — registrar entrada y salida, el **Registro** y **Pedir una corrección** — con un mensaje que dice que el reloj está apagado para ella y que un propietario o un administrador puede encenderlo.",
             "Si estaba fichada cuando usted lo apagó, ese registro queda abierto. Ciérrelo con **Registrar salida** en [[timesheets-and-approving-hours|Hojas de horas]].",
             "Para un Dispatcher o un Manager el mismo ajuste también incluye **Hojas de horas**: en **No access** pierde además la pantalla de hojas de horas y la aprobación de horas, no solo su propio fichaje.",

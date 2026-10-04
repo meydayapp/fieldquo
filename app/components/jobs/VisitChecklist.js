@@ -38,6 +38,10 @@ import {
   PHASE_LABELS,
 } from "@/lib/jobs/checklistItems";
 import { reportResponseError, showError } from "@/lib/clientErrors";
+import { mayMoveVisit } from "@/lib/jobs/visitStatus";
+import { usePermissions } from "@/app/providers/PermissionProvider";
+import { hasLevel } from "@/lib/permissions/enforce";
+import { useSession } from "@/lib/auth-client";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import ChecklistItemControl, { TYPED_RESPONSES } from "@/app/components/checklists/ChecklistItemControl";
 import { itemsFromTemplate, localizeItem, templateName, isAnswered } from "@/lib/checklists/typedItems";
@@ -61,6 +65,17 @@ function sameItems(a, b) {
 
 export default function VisitChecklist({ jobId, visit, onChanged }) {
   const { language } = useTranslation();
+  // The visit route refuses a tick on somebody else's visit unless the
+  // reader holds schedule:edit_all — the rule VisitStatus already mirrors
+  // (mayMoveVisit). A colleague's checklist is shown, read-only, rather than
+  // offered as boxes that answer 403.
+  const caller = usePermissions();
+  const { data: session } = useSession();
+  const mayWork = mayMoveVisit({
+    assignedToId: visit.assignedToId ?? null,
+    userId: session?.user?.id || null,
+    hasEditAll: hasLevel(caller, "schedule", "edit_all"),
+  });
   const serverItems = useMemo(
     () => normalizeChecklistItems(visit.checklistItems, { keepDone: true }),
     [visit.checklistItems],
@@ -164,7 +179,7 @@ export default function VisitChecklist({ jobId, visit, onChanged }) {
                   items={group.items}
                   onToggle={toggle}
                   onAnswer={answer}
-                  disabled={saving}
+                  disabled={saving || !mayWork}
                 />
               </div>
             );
@@ -172,6 +187,7 @@ export default function VisitChecklist({ jobId, visit, onChanged }) {
         </div>
       )}
 
+      {mayWork && (
       <button
         onClick={() => setPicking((v) => !v)}
         className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
@@ -179,6 +195,7 @@ export default function VisitChecklist({ jobId, visit, onChanged }) {
         {picking ? <X size={12} /> : <Plus size={12} />}
         {picking ? "Cancel" : "Add a checklist"}
       </button>
+      )}
 
       {picking && (
         <ChecklistPicker

@@ -243,8 +243,12 @@ ok("the banner fires on ANY blocked row, not only when nothing is collectable",
   /outlook\?\.blocked\?\.length\s*>\s*0/.test(page),
   "a single blocked subscription printed no banner at all before");
 // The zero it must not print.
-ok("the blocked-MRR line is conditional on there being money to name",
-  /blockedMrr\s*>\s*0/.test(page));
+ok("the blocked-MRR line is conditional on there being money to name — in some currency",
+  /anyPositive\(pickByCurrency\(data\.outlook\.byCurrency, \(m\) => m\.blockedMrr\)\)/.test(page));
+ok("…and the blocked total is printed per currency, never as one sum",
+  /moneyByCurrency\(/.test(page) && !/money\(data\.outlook\.blockedMrr/.test(page));
+ok("…and each blocked row's price is written in its own currency",
+  /money\(b\.monthly, \{ compact: true, currency: b\.currency \}\)/.test(page));
 
 /* ══ 5. Nothing else in the console re-states the old reasoning ═══════════ */
 

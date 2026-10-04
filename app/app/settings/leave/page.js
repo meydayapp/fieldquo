@@ -43,11 +43,13 @@ import { fetchJson } from "@/lib/fetchJson";
 import { COUNTRIES } from "@/lib/currency";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import LeaveLimitsCard from "@/app/components/settings/LeaveLimitsCard";
+import { rateLabel } from "@/app/components/leave/AccrualPanels";
 
 const METHOD_LABEL = {
   annual_allotment: "Fixed days per year",
   per_period: "Accrues each pay period",
   percent_of_gross: "Vacation pay (% of gross)",
+  per_hours_worked: "Earned per hour worked",
 };
 
 const KINDS = [
@@ -67,6 +69,13 @@ const BLANK = {
   percentOfGross: 4,
   carryoverMaxDays: "",
   requiresApproval: true,
+  // per_hours_worked only. Blank, not a guessed rate: the company states its
+  // rule, or picks a cited one, before anything accrues.
+  accrualHoursEarned: "",
+  accrualPerHoursWorked: "",
+  accrualYearlyCapHours: "",
+  hoursPerDay: "",
+  accrualPreset: null,
 };
 
 export default function LeaveSettingsPage() {
@@ -254,6 +263,7 @@ export default function LeaveSettingsPage() {
         {adding && (
           <PolicyForm
             initial={BLANK}
+            presets={data.accrualPresets || []}
             onSaved={() => {
               setAdding(false);
               load();
@@ -266,6 +276,7 @@ export default function LeaveSettingsPage() {
           <div className="space-y-2">
             {active.map((p) => (
               <PolicyCard
+                presets={data.accrualPresets || []}
                 key={p.id}
                 policy={p}
                 onSaved={load}
@@ -529,7 +540,10 @@ function TemplateButton({ tpl, isHome = false, busy, onSeed }) {
   );
 }
 
-function PolicyCard({ policy, onSaved, onRemove, removing }) {
+// Decimal columns arrive as strings or null; the form wants "" for empty.
+const numOrBlank = (v) => (v == null || v === "" ? "" : Number(v));
+
+function PolicyCard({ policy, presets = [], onSaved, onRemove, removing }) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
 
@@ -543,7 +557,12 @@ function PolicyCard({ policy, onSaved, onRemove, removing }) {
             policy.percentOfGross == null ? "" : Number(policy.percentOfGross),
           carryoverMaxDays:
             policy.carryoverMaxDays == null ? "" : Number(policy.carryoverMaxDays),
+          accrualHoursEarned: numOrBlank(policy.accrualHoursEarned),
+          accrualPerHoursWorked: numOrBlank(policy.accrualPerHoursWorked),
+          accrualYearlyCapHours: numOrBlank(policy.accrualYearlyCapHours),
+          hoursPerDay: numOrBlank(policy.hoursPerDay),
         }}
+        presets={presets}
         onSaved={() => {
           setEditing(false);
           onSaved();
@@ -553,14 +572,25 @@ function PolicyCard({ policy, onSaved, onRemove, removing }) {
     );
   }
 
+  const preset = presets.find((p) => p.key === policy.accrualPreset) || null;
   const entitlement =
-    policy.accrualMethod === "percent_of_gross"
-      ? t("app.setLeave.entitlementPercent", {
-          percent: Number(policy.percentOfGross || 0),
-        })
-      : t("app.setLeave.entitlementDays", {
-          days: Number(policy.annualDays || 0),
-        });
+    policy.accrualMethod === "per_hours_worked"
+      ? [
+          rateLabel(t, policy.accrualHoursEarned, policy.accrualPerHoursWorked),
+          policy.accrualYearlyCapHours != null
+            ? t("app.leaveAccrual.capShort", { hours: Number(policy.accrualYearlyCapHours) })
+            : t("app.leaveAccrual.noCapShort"),
+          policy.hoursPerDay != null
+            ? t("app.leaveAccrual.dayShort", { hours: Number(policy.hoursPerDay) })
+            : t("app.leaveAccrual.noDayShort"),
+        ].join(" · ")
+      : policy.accrualMethod === "percent_of_gross"
+        ? t("app.setLeave.entitlementPercent", {
+            percent: Number(policy.percentOfGross || 0),
+          })
+        : t("app.setLeave.entitlementDays", {
+            days: Number(policy.annualDays || 0),
+          });
 
   return (
     <div className="rounded-xl border border-border bg-card p-3 sm:p-4">
@@ -586,6 +616,15 @@ function PolicyCard({ policy, onSaved, onRemove, removing }) {
               ? t("app.setLeave.unlimited")
               : t("app.setLeave.nDays", { n: Number(policy.carryoverMaxDays) })}
           </div>
+          {preset && (
+            <div className="text-xs text-muted-foreground mt-0.5">
+              {t("app.leaveAccrual.presetSource", { source: preset.source })} —{" "}
+              <a href={preset.sourceUrl} target="_blank" rel="noopener noreferrer" className="underline">
+                {t("app.leaveAccrual.presetSourceLink")}
+              </a>{" "}
+              · {t("app.leaveAccrual.presetCheckShort")}
+            </div>
+          )}
         </div>
         <div className="flex gap-2 shrink-0">
           <button
@@ -612,13 +651,37 @@ function PolicyCard({ policy, onSaved, onRemove, removing }) {
   );
 }
 
-function PolicyForm({ initial, onSaved, onCancel }) {
+function PolicyForm({ initial, presets = [], onSaved, onCancel }) {
   const { t } = useTranslation();
   const [form, setForm] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   const isMoney = form.accrualMethod === "percent_of_gross";
+  const byHours = form.accrualMethod === "per_hours_worked";
+
+  // A cited rule fills the rate, the cap and the kind — the numbers stay
+  // editable, and the server drops the preset label the moment they no
+  // longer match it. Name only filled when the form has none, so picking a
+  // rule never overwrites what somebody typed.
+  function applyPreset(key) {
+    const p = presets.find((x) => x.key === key);
+    if (!p) {
+      setForm((f) => ({ ...f, accrualPreset: null }));
+      return;
+    }
+    setForm((f) => ({
+      ...f,
+      accrualPreset: p.key,
+      name: f.name || p.name,
+      kind: p.kind,
+      paid: true,
+      accrualHoursEarned: p.hoursEarned,
+      accrualPerHoursWorked: p.perHoursWorked,
+      accrualYearlyCapHours: p.yearlyCapHours == null ? "" : p.yearlyCapHours,
+    }));
+  }
+  const chosenPreset = presets.find((x) => x.key === form.accrualPreset) || null;
 
   async function save(e) {
     e.preventDefault();
@@ -693,7 +756,9 @@ function PolicyForm({ initial, onSaved, onCancel }) {
           </select>
         </label>
 
-        {isMoney ? (
+        {byHours ? (
+          <HourFields form={form} set={set} presets={presets} chosenPreset={chosenPreset} applyPreset={applyPreset} t={t} />
+        ) : isMoney ? (
           <label className="block">
             <span className="text-xs font-medium text-muted-foreground">
               {t("app.setLeave.percentOfGrossLabel")}
@@ -796,5 +861,101 @@ function PolicyForm({ initial, onSaved, onCancel }) {
         </button>
       </div>
     </form>
+  );
+}
+
+/**
+ * The "earned per hour worked" fields: an optional cited rule to start from,
+ * the rate as "X hours per Y hours worked", an optional yearly cap, and how
+ * many hours a day off is worth (required — it is how earned hours become
+ * bookable days, and the screen will not invent 8).
+ */
+function HourFields({ form, set, presets, chosenPreset, applyPreset, t }) {
+  return (
+    <div className="sm:col-span-2 grid gap-3 sm:grid-cols-2 rounded-lg border border-border p-3">
+      {presets.length > 0 && (
+        <label className="block sm:col-span-2">
+          <span className="text-xs font-medium text-muted-foreground">{t("app.leaveAccrual.presetLabel")}</span>
+          <select
+            value={form.accrualPreset || ""}
+            onChange={(e) => applyPreset(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+          >
+            <option value="">{t("app.leaveAccrual.presetNone")}</option>
+            {presets.map((p) => (
+              <option key={p.key} value={p.key}>
+                {p.name} — {p.source}
+              </option>
+            ))}
+          </select>
+          <span className="mt-1 block text-[11px] text-amber-700 dark:text-amber-300">
+            {t("app.leaveAccrual.presetCheck")}
+          </span>
+          {chosenPreset && (
+            <span className="mt-1 block text-[11px] text-muted-foreground">
+              {t("app.leaveAccrual.presetSource", { source: chosenPreset.source })} —{" "}
+              <a href={chosenPreset.sourceUrl} target="_blank" rel="noopener noreferrer" className="underline">
+                {t("app.leaveAccrual.presetSourceLink")}
+              </a>
+            </span>
+          )}
+        </label>
+      )}
+      <label className="block">
+        <span className="text-xs font-medium text-muted-foreground">{t("app.leaveAccrual.hoursEarned")}</span>
+        <input
+          type="number"
+          step="any"
+          min="0"
+          required
+          value={form.accrualHoursEarned}
+          onChange={set("accrualHoursEarned")}
+          className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+        />
+      </label>
+      <label className="block">
+        <span className="text-xs font-medium text-muted-foreground">{t("app.leaveAccrual.perHoursWorked")}</span>
+        <input
+          type="number"
+          step="any"
+          min="0"
+          required
+          value={form.accrualPerHoursWorked}
+          onChange={set("accrualPerHoursWorked")}
+          className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+        />
+      </label>
+      <p className="sm:col-span-2 text-[11px] text-muted-foreground">{t("app.leaveAccrual.rateHint")}</p>
+      <label className="block">
+        <span className="text-xs font-medium text-muted-foreground">{t("app.leaveAccrual.yearlyCap")}</span>
+        <input
+          type="number"
+          step="any"
+          min="0"
+          value={form.accrualYearlyCapHours}
+          onChange={set("accrualYearlyCapHours")}
+          placeholder={t("app.leaveAccrual.yearlyCapHint")}
+          className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+        />
+      </label>
+      <label className="block">
+        <span className="text-xs font-medium text-muted-foreground">{t("app.leaveAccrual.hoursPerDay")}</span>
+        <input
+          type="number"
+          step="any"
+          min="0"
+          max="24"
+          required
+          value={form.hoursPerDay}
+          onChange={set("hoursPerDay")}
+          className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+        />
+        <span className="mt-1 block text-[11px] text-muted-foreground">{t("app.leaveAccrual.hoursPerDayHint")}</span>
+      </label>
+      <p className="sm:col-span-2 text-xs text-muted-foreground flex items-start gap-1.5">
+        <Info size={13} className="mt-0.5 shrink-0" />
+        {t("app.leaveAccrual.whichHours")}
+      </p>
+    </div>
   );
 }

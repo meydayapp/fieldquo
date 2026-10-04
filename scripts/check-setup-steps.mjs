@@ -703,6 +703,20 @@ console.log("\n9. \"Connect Google reviews\" waits for Google's approval (2026-0
   ok("google: an absent signal APPLIES (the snapshot always sets it)", gr({}).applies === true && stepsFor({}).find((x) => x.key === "google_reviews").applies === true);
   ok("google: a non-boolean is not false", gr({ googleReviewsAvailable: "no" }).applies === true);
 
+  // Settings › Presentation linked "Connect Google reviews" unconditionally
+  // while this row was off the card. It now reads the same helper through its
+  // own route and offers the link only on an explicit true.
+  const presRoute = stripComments(source("app/api/settings/presentation/route.js"));
+  const presPage = stripComments(source("app/app/settings/presentation/page.js"));
+  ok("presentation: the route reports googleReviewsAvailable from googleBusinessAvailable()",
+    /googleReviewsAvailable: googleBusinessAvailable\(\),/.test(presRoute));
+  ok("presentation: the Connect Google reviews link is drawn only when available",
+    /\{googleReviewsAvailable && \(/.test(presPage) &&
+      (presPage.match(/settings\/reviews#google-business/g) || []).length === 1 &&
+      presPage.indexOf("{googleReviewsAvailable && (") < presPage.indexOf("settings/reviews#google-business"));
+  ok("presentation: unknown is not available (only an explicit true shows it)",
+    /setGoogleReviewsAvailable\(d\?\.googleReviewsAvailable === true\)/.test(presPage) && /useState\(null\)/.test(presPage));
+
   // The producer: the snapshot sets it from the ONE helper, every time.
   const snap = stripComments(source("lib/setupStepsSnapshot.js"));
   ok("the snapshot reports googleReviewsAvailable from googleBusinessAvailable()",

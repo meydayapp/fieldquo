@@ -147,8 +147,15 @@ export default function ImportedCostsPanel({ quoteId, currency, editable, onTota
                   <p className="text-sm font-medium text-foreground truncate">
                     {r.label || r.sourceCompanyName || "—"}
                   </p>
+                  {/* Cost and markup only for a reader with jobCosting — the
+                      server withholds them otherwise (costHidden) and the
+                      client price stands alone. */}
                   <p className="text-xs text-muted-foreground">
-                    {money(r.costAmount)} + {Math.round(r.markupPercent)}% ={" "}
+                    {!r.costHidden && (
+                      <>
+                        {money(r.costAmount)} + {Math.round(r.markupPercent)}% ={" "}
+                      </>
+                    )}
                     <span className="font-medium text-foreground">
                       {money(r.clientPrice)}
                     </span>
@@ -159,7 +166,7 @@ export default function ImportedCostsPanel({ quoteId, currency, editable, onTota
                     <Icon size={13} />
                     {t(s.key)}
                   </span>
-                  {editable && canEditQuote && !isEditing && (
+                  {editable && canEditQuote && !r.costHidden && !isEditing && (
                     <>
                       <button
                         type="button"

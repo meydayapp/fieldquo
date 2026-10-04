@@ -90,7 +90,7 @@ callbacks, the crew inbox, team chat, How You Compare, the KPI dashboard,
 
 <!-- tree:start -->
 
-_Generated 2026-10-04 — 343 articles in the tree; written: en 343, fr 343, es 343; “Only in FieldQuo”: 34._
+_Generated 2026-10-04 — 344 articles in the tree; written: en 344, fr 344, es 344; “Only in FieldQuo”: 34._
 
 ### getting-started (23)
 
@@ -254,7 +254,7 @@ _Generated 2026-10-04 — 343 articles in the tree; written: en 343, fr 343, es 
 | `referrals-from-clients` — Referrals from clients | ✓ | ✓ | ✓ |  |  |  |
 | `duplicate-clients` — Duplicate clients | ✓ | ✓ | ✓ |  | clients |  |
 
-### team-and-access (27)
+### team-and-access (28)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -272,6 +272,7 @@ _Generated 2026-10-04 — 343 articles in the tree; written: en 343, fr 343, es 
 | `deactivate-a-team-member` — Deactivate a team member | ✓ | ✓ | ✓ |  | team_access |  |
 | `working-hours-and-bookable-hours` — Working hours and bookable hours | ✓ | ✓ | ✓ | settings-availability | booking_page |  |
 | `time-off-policies` — Time off policies | ✓ | ✓ | ✓ | settings-leave | time_off |  |
+| `leave-earned-from-hours` — Leave earned from hours worked | ✓ | ✓ | ✓ | time-off | time_off |  |
 | `payroll-runs` — Payroll runs | ✓ | ✓ | ✓ | payroll | payroll | ✓ |
 | `payroll-settings` — Payroll settings | ✓ | ✓ | ✓ | settings-payroll | payroll |  |
 | `payslips` — Payslips | ✓ | ✓ | ✓ |  | payroll |  |

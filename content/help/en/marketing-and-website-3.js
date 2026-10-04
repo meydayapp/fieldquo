@@ -292,7 +292,7 @@ export const ARTICLES = {
         heading: "What the card says today",
         blocks: [
           {
-            p: "The card reads **WhatsApp is coming soon. We're waiting on Meta to approve FieldQuo for WhatsApp, and we'll tell you the day it's ready.** If your Facebook Page or Instagram account is already connected, it adds, for example, **Your Facebook and Instagram messages already come in here.**",
+            p: "The card reads **WhatsApp is coming soon. It's built, and waiting on Meta's App Review to grant FieldQuo's two WhatsApp permissions — the Connect WhatsApp button appears here the day Meta does.** If your Facebook Page or Instagram account is already connected, it adds, for example, **Your Facebook and Instagram messages already come in here.**",
           },
           {
             p: "There is no button and nothing to fill in. Like the rest of **Settings → Meta Ads**, the card is for the owner and administrators.",

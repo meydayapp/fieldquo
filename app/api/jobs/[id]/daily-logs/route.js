@@ -37,6 +37,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { recordActivity } from "@/lib/activity/log";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { assignedJobWhere } from "@/lib/permissions/enforce";
@@ -221,6 +222,16 @@ export async function POST(request, { params }) {
       entityId: created.id,
       editorUserId: full?.userId || null,
       versionAt: created.updatedAt,
+    });
+
+    // On the record under whoever did it — the owner asked that field work be
+    // logged by name (2026-10-03). recordActivity never throws.
+    await recordActivity(member, {
+      action: "job.dailyLogCreated",
+      entityType: "job",
+      entityId: id,
+      summary: "Wrote the daily log",
+      metadata: { logId: created.id },
     });
 
     return NextResponse.json({ log: shapeLog(created) }, { status: 201 });

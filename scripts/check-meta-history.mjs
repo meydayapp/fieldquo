@@ -312,6 +312,9 @@ section("4. The message reviewer");
 
   const shaped = publicReview({ ...v1, wroteClientId: "C1" }, { quotes: true, jobs: false, invoices: false });
   ok("redaction: a quote number on the quotes dial, a job and invoice hidden on theirs", shaped.documents[0].number === "Q-0012" && shaped.documents[1].restricted === true && shaped.documents[2].restricted === true && !("number" in shaped.documents[2]), shaped.documents);
+  const crew = publicReview({ ...v1, wroteClientId: "C1" }, { quotes: true, jobs: true, invoices: true, scoped: true });
+  ok("an assignment-scoped member (crew) gets no client, no document numbers, no client undo", crew.client === null && crew.wroteClientId === null && crew.documents.every((d) => d.restricted === true && !("number" in d)), crew);
+  ok("the documents route and the thread route both pass the scope", /scoped: seesOnlyAssignedJobs\(full\)/.test(code("app/api/leads/[id]/documents/route.js")) && /scoped: seesOnlyAssignedJobs\(full\)/.test(code("app/api/messaging/threads/[id]/route.js")));
   ok("a stored review of an unknown verdict is not shown", publicReview({ verdict: "maybe" }) === null && publicReview(null) === null);
   const onLead = reviewForLead(v1);
   ok("the copy on the LEAD row keeps no document numbers", onLead.evidence.documents.every((d) => !("number" in d)) && onLead.evidence.documents.length === 3);

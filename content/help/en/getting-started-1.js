@@ -90,7 +90,7 @@ export const ARTICLES = {
     title: "Start your free trial",
     summary:
       "The public signup form, step by step: no card and no plan today, the first 14 days free, and a plan chosen from inside the app when you are ready.",
-    updated: "2026-09-29",
+    updated: "2026-10-03",
     intro: [
       "Signing up a company is self-serve: anyone can open the signup page, set up a business and start. The first 14 days are free, and signup asks for no card and no plan — you choose a plan, and add a card for it, from inside the app when you are ready.",
       "Joining a company that already exists is different — that is invite-only. If a colleague already uses FieldQuo, ask them to invite you from Manage Team; see [[invite-a-team-member|Invite a team member]].",
@@ -100,7 +100,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Overview",
         blocks: [
-          { p: "The form says **Start your 14-day free trial** at the top and walks five short steps: your account and business, your team, what is top of mind, your trades and your services. The team and top-of-mind steps can be skipped. One login owns one business; if you are already signed in with a company, the page tells you so and offers to take you to your dashboard or to invite someone instead." },
+          { p: "The signup page says **Start your free trial** at the top and asks for three things: **Work email**, **Password** (8 to 128 characters) and an unticked **Send me product news and offers**. **Start my free trial →** creates your login and your company together — the 14 days start there. Seven short questions follow, one screen each, with **Question 1 of 7** above them; each answer is saved when you press **Continue**, and **Back** returns to the one before. Every question needs an answer — there is no skip. If you sign out or close the tab half way, signing in again brings you back to the question you stopped at. One login owns one business; if you are already signed in with a company, the page says **You already have a business here** and offers **Go to your dashboard** or **Add someone to your team instead**." },
         ],
       },
       {
@@ -108,12 +108,15 @@ export const ARTICLES = {
         heading: "The steps",
         blocks: [
           { steps: [
-            "**Your account and business** — your first and last name, email and a password of 8 to 128 characters, plus the company name, phone and address. The address matters: it decides the country, and the country decides the currency your plan will be priced in.",
-            "**Your team** — “How many people work with you, including you?” and “How long have you been in business?” The answers size the calendar preview beside the form and the plan the trial banner suggests. **Skip this step** moves on and saves nothing.",
-            "**What's top of mind?** — pick the one thing you most want FieldQuo for, and say how you heard about us. Also optional.",
-            "**Trades** — “What trades does your company work in?” Pick every trade that applies; this narrows the quote types you will see.",
-            "**Services** — “Which services do you offer?” The usual quote types for your trades are preselected. Turn on the ones you offer; you can change this any time under Settings → Services & Pricing. **Start my free trial** creates the company and takes you straight in.",
+            "**Tell us about you** — under **Your free trial is now active**, with the date the trial is free until. **First name**, **Last name** and **Phone number**.",
+            "**Tell us about your business** — **Company name**, **Company address**, **Industry** and **Website** (optional). This is what your clients see on your quotes and invoices. Start typing the address and pick it from the list: the country is read from the place you pick, and the country decides your currency and the currency your plan is priced in. Under **Industry**, search for your trade; trades are listed under the industry they belong to.",
+            "**Your [trade] business at a glance** — “How many people work at your company (including you)?”, from **Just me** to **21+**, and “How many years have you been in business?”. **Just me** also takes the team step off your setup list.",
+            "**Let's fine-tune your FieldQuo experience** — “What's your estimated revenue this year?”, in bands drawn in your own currency, or **I'd prefer not to say**. Only FieldQuo sees this — never your clients or your team.",
+            "**[Your first name], let's get FieldQuo working for you** — “What matters most to you right now? Pick one.” Four cards, from **I want my business to look as professional as my work** to **I'm not sure yet, just exploring**.",
+            "The next screen's heading follows the card you picked — **Let's make every job look as good as your work**, for example. Under **Tell us what you'd like to focus on**, pick one or more.",
+            "**How did you hear about FieldQuo?** — choose an answer under **Where did you first hear about us?**, then press **Get started**.",
           ] },
+          { p: "**Setting up your account** comes next and needs nothing from you: it adds the services for your trade, your checklists and maintenance plans, and your templates, a line at a time, then opens your dashboard. If a stage fails, **Retry** runs it again; once your answers are saved, **Go to my dashboard anyway** carries on without the missing stage, and before that **Back to the questions** returns to the last question. The services it adds can be changed any time under **Settings → Services & Pricing**." },
           { note: "The app, once you are in, follows the language you choose — see [[choose-your-language|Choose your language]]." },
         ],
       },
@@ -146,10 +149,10 @@ export const ARTICLES = {
         id: "after-signup",
         heading: "After signup",
         blocks: [
-          { p: "**Start my free trial** lands you on the dashboard. A short walkthrough points at the sidebar the first time; you can replay it later from Help — see [[replay-the-setup-walkthrough|Replay the setup walkthrough]]. The card **Finish setting up FieldQuo** lists what is still missing, and, for the owner, a banner across the top reads **Free trial · N days left** with **Choose a plan** beside it." },
+          { p: "**Get started** and the setup screen land you on the dashboard. A short walkthrough points at the sidebar the first time; you can replay it later from Help — see [[replay-the-setup-walkthrough|Replay the setup walkthrough]]. The card **Finish setting up FieldQuo** lists what is still missing, and, for the owner, a banner across the top reads **Free trial · N days left** with **Choose a plan** beside it." },
           { bullets: [
             "[[your-first-day-setup-checklist|Your first day: the setup checklist]] — what to do in what order.",
-            "[[company-settings-basics|Company settings basics]] — the address, taxes and hours the signup form did not ask for.",
+            "[[company-settings-basics|Company settings basics]] — the taxes and hours the signup questions did not ask for.",
             "[[connect-stripe-and-get-verified|Connect Stripe]] — so the first invoice can be paid online.",
           ] },
         ],

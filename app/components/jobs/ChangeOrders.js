@@ -52,6 +52,7 @@ export default function ChangeOrders({ jobId, changeOrders, onChanged }) {
   // of hooks the moment the first is false.
   const hasJobsEdit = useHasLevel("jobs", "view_create_edit");
   const hasShowPricing = useHasToggle("showPricing");
+  const hasInvoices = useHasLevel("invoices", "view_only");
   const canLog = hasJobsEdit && hasShowPricing;
 
   const [adding, setAdding] = useState(false);
@@ -68,15 +69,19 @@ export default function ChangeOrders({ jobId, changeOrders, onChanged }) {
   // What would happen if the bill button were pressed, answered by the server
   // rather than guessed here — the screen must not offer an action the route
   // will refuse. 403 is the ordinary answer for someone without showPricing.
+  //
+  // Not asked at all without showPricing: the server already withholds every
+  // change order's price from that reader (redactChangeOrder), so there is
+  // no amount to bill and a 403 per render is noise.
   const loadBilling = useCallback(async () => {
-    if (!jobId) return;
+    if (!jobId || !hasShowPricing) return;
     try {
       const res = await fetch(`/api/jobs/${jobId}/change-orders/bill`);
       setBilling(res.ok ? await res.json() : null);
     } catch {
       setBilling(null);
     }
-  }, [jobId]);
+  }, [jobId, hasShowPricing]);
 
   useEffect(() => {
     loadBilling();
@@ -201,7 +206,10 @@ export default function ChangeOrders({ jobId, changeOrders, onChanged }) {
 
       {/* Agreed and not-yet-agreed money, kept apart. A blended total would
           state that a change nobody has said yes to is part of the job. */}
-      {orders.length > 0 && (
+      {/* Without showPricing the server sent no priceDelta (lib/permissions/
+          enforce.js redactChangeOrder), so there is no total to draw — the
+          scope of each change still lists below. */}
+      {orders.length > 0 && hasShowPricing && (
         <div className="mb-4 flex flex-wrap gap-x-6 gap-y-1 text-sm">
           <span className="text-muted-foreground">
             {t("app.changeOrder.approvedTotal", "Agreed changes")}: <span className="font-semibold text-foreground tabular-nums">{signed(summary.approvedTotal, money)}</span>
@@ -243,9 +251,11 @@ export default function ChangeOrders({ jobId, changeOrders, onChanged }) {
                     {extras.length > 0 && <p className="text-xs text-muted-foreground mt-0.5">{extras.join(" · ")}</p>}
                   </div>
                   <div className="shrink-0 text-right">
-                    <span className={`tabular-nums text-sm font-semibold ${status !== "approved" ? "text-muted-foreground" : Number(co.priceDelta) < 0 ? "text-red-600 dark:text-red-400" : "text-foreground"} ${status === "rejected" ? "line-through" : ""}`}>
-                      {signed(co.priceDelta, money)}
-                    </span>
+                    {hasShowPricing && (
+                      <span className={`tabular-nums text-sm font-semibold ${status !== "approved" ? "text-muted-foreground" : Number(co.priceDelta) < 0 ? "text-red-600 dark:text-red-400" : "text-foreground"} ${status === "rejected" ? "line-through" : ""}`}>
+                        {signed(co.priceDelta, money)}
+                      </span>
+                    )}
                     <div className="text-xs mt-0.5">
                       {status === "approved" && (
                         <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
@@ -263,7 +273,7 @@ export default function ChangeOrders({ jobId, changeOrders, onChanged }) {
                           {co.invoiceId ? ` · ${t("app.changeOrder.onInvoice", "on {invoice}", { invoice: co.invoice?.invoiceNumber || "—" })}` : ""}
                         </div>
                       )}
-                      {status === "approved" && !co.invoiceId && <div className="text-amber-700 dark:text-amber-400">{t("app.changeOrder.unbilled", "Not yet invoiced")}</div>}
+                      {status === "approved" && hasShowPricing && hasInvoices && !co.invoiceId && <div className="text-amber-700 dark:text-amber-400">{t("app.changeOrder.unbilled", "Not yet invoiced")}</div>}
                       {status === "waiting_client" && (
                         <>
                           <span className="inline-flex items-center gap-1 font-semibold text-amber-700 dark:text-amber-300">

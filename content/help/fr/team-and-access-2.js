@@ -110,7 +110,7 @@ export const ARTICLES = {
         heading: "Vue d'ensemble",
         blocks: [
           { p: "L'écran est coiffé de **Politiques de congés** — « Les congés que votre équipe peut prendre, et comment ils s'accumulent. Les demandes et les soldes se trouvent dans Congés. » Sans politique encore, une carte de départ est offerte d'abord; dès que vous en avez au moins une, la carte disparaît et la section **Fin d'année** apparaît à sa place." },
-          { p: "Trois méthodes d'accumulation existent et elles sont vraiment différentes. **Jours fixes par an** rend toute l'allocation disponible tout de suite. **S'accumule à chaque paie** répartit les jours sur les périodes de paie écoulées, selon la fréquence des [[payroll-settings|Paramètres de paie]] — plus bas en janvier, complet en décembre. **Indemnité de vacances (% du brut)** accumule de l'argent, pas des jours, à partir du brut des paies approuvées; un congé sous cette méthode n'est pas limité par un solde de jours." },
+          { p: "Quatre méthodes d'accumulation existent et elles sont vraiment différentes. **Jours fixes par an** rend toute l'allocation disponible tout de suite. **S'accumule à chaque paie** répartit les jours sur les périodes de paie écoulées, selon la fréquence des [[payroll-settings|Paramètres de paie]] — plus bas en janvier, complet en décembre. **Indemnité de vacances (% du brut)** accumule de l'argent, pas des jours, à partir du brut des paies approuvées; un congé sous cette méthode n'est pas limité par un solde de jours. **Acquis par heure travaillée** construit le solde à partir des heures approuvées — voir [[leave-earned-from-hours|Congés acquis selon les heures travaillées]]." },
         ],
       },
       {
@@ -152,6 +152,7 @@ export const ARTICLES = {
               ["Jours fixes par an", "Tout le nombre de **Jours par an** est disponible dès le premier jour. Une personne avec une date d'embauche cette année reçoit une part au prorata; sans date d'embauche au dossier, elle reçoit le montant entier."],
               ["S'accumule à chaque paie", "**Jours par an** divisés sur les périodes de paie de l'année, accordés à mesure que chaque période passe."],
               ["Indemnité de vacances (% du brut)", "Accumule un montant égal au pourcentage du brut des paies approuvées et payées cette année. Les demandes sous cette méthode ne sont pas vérifiées contre un solde de jours."],
+              ["Acquis par heure travaillée", "Heures acquises par heures travaillées (4 par 100 = 4 %), un plafond annuel facultatif, et combien d'heures vaut un jour de congé. Calculé sur les entrées de temps approuvées plus les heures saisies d'avant FieldQuo — voir [[leave-earned-from-hours|Congés acquis selon les heures travaillées]]."],
               ["Plafond de report (jours)", "Combien de jours inutilisés le bouton **Fin d'année** peut reporter à l'année suivante. Vide, c'est illimité; 0, c'est aucun."],
               ["Payé", "Décoché, la politique affiche un badge **non payé** et les jours approuvés sous elle ne sont pas ajoutés à un bulletin. Coché, un congé approuvé dans une période de paie devient une ligne de gain sur le bulletin."],
               ["Nécessite l'approbation d'un gestionnaire", "Coché, une demande attend en attente jusqu'à ce qu'un gestionnaire l'approuve. Décoché, la demande est approuvée dès qu'elle est faite et le solde est consommé immédiatement — la carte affiche **approuvé automatiquement**."],
@@ -185,6 +186,89 @@ export const ARTICLES = {
       { q: "Une politique de jours de maladie doit-elle être approuvée?", a: "Seulement si vous cochez **Nécessite l'approbation d'un gestionnaire**. Les ensembles de départ la laissent décochée pour la maladie, donc une demande est approuvée sur-le-champ et le gestionnaire la voit quand même dans la liste." },
       { q: "Où les gens voient-ils leur solde?", a: "Sur l'écran **Congés** — une carte par politique avec l'accumulé et le pris, et un onglet Équipe pour les gestionnaires. Les soldes sont recalculés chaque fois qu'une politique est ajoutée ou modifiée." },
       { q: "Puis-je modifier les chiffres qu'un ensemble de départ m'a donnés?", a: "Oui. Une fois chargées, ce sont vos politiques; appuyez sur **Modifier** sur n'importe quelle carte. FieldQuo ne les change jamais après." },
+    ],
+  },
+
+  // ── Congés acquis selon les heures travaillées (2026-10-03) ─────────────
+  "leave-earned-from-hours": {
+    title: "Congés acquis selon les heures travaillées",
+    summary:
+      "Des vacances et congés de maladie qui s'accumulent selon les heures réellement travaillées — le taux, le plafond annuel, les heures d'avant FieldQuo, et le détail du calcul de chaque solde.",
+    updated: "2026-10-03",
+    intro: [
+      "Une politique réglée sur **Acquis par heure travaillée** donne à chaque personne des congés proportionnels au temps travaillé : « 4 heures par 100 heures travaillées » correspond à 4 % (environ deux semaines par an à temps plein), « 1 heure par 30 heures travaillées » est la règle courante des congés de maladie payés. Rien ne s'accumule selon les heures tant que vous n'avez pas créé une telle politique — FieldQuo ne suppose aucune règle à votre place.",
+      "Pour une personne ajoutée en cours d'année, vous pouvez saisir les heures travaillées depuis le 1er janvier : son solde reflète alors toute l'année, pas seulement les semaines depuis son arrivée.",
+    ],
+    sections: [
+      {
+        id: "set-it-up",
+        heading: "Créer une politique acquise par heure",
+        blocks: [
+          { steps: [
+            "Ouvrez **Paramètres → Politiques de congés** et appuyez sur **Ajouter une politique** (ou **Modifier** sur une politique existante).",
+            "Réglez **Comment elle s'accumule** sur **Acquis par heure travaillée**.",
+            "Choisissez au besoin **Partir d'une règle** — par exemple les vacances de l'Ontario à 4 % ou 6 %, ou la règle de congé de maladie de la Californie, de Washington, du Colorado ou de New York. Elle remplit le taux et le plafond et nomme la loi d'origine, avec un lien vers la source.",
+            "Vérifiez **Heures acquises** et **Par heures travaillées**, le **Plafond annuel (heures)** (vide = sans plafond) et **Heures dans un jour de congé** — obligatoire, car les demandes se réservent en jours.",
+            "Appuyez sur **Ajouter une politique** ou **Enregistrer les modifications**. Tous les soldes sont recalculés aussitôt.",
+          ] },
+          { warning: "Les règles proposées sont des points de départ, pas un avis juridique. Certaines dépendent de la taille de l'entreprise ou de l'ancienneté (40 ou 56 heures à New York, 4 % ou 6 % en Ontario), et les lois changent. Vérifiez les règles qui s'appliquent chez vous. Si vous modifiez un chiffre, la carte cesse de nommer la loi d'origine." },
+        ],
+      },
+      {
+        id: "which-hours",
+        heading: "Quelles heures comptent",
+        blocks: [
+          { bullets: [
+            "Uniquement les entrées de temps **approuvées**. Une entrée en attente compte dès qu'un gestionnaire l'approuve dans les [[timesheets-and-approving-hours|Feuilles de temps]].",
+            "Toutes les activités de travail : chantier, route, bureau, achats et général — y compris une période que votre entreprise a choisi de ne pas payer, car elle a quand même été travaillée.",
+            "Les dîners et pauses non payés ne comptent jamais.",
+            "L'année civile, du 1er janvier au 31 décembre.",
+          ] },
+          { p: "Un jour de congé vaut la journée de travail de la personne quand ses heures de travail sont définies, sinon les **Heures dans un jour de congé** de la politique. Le même chiffre sert quand un congé payé arrive dans une paie : un jour acquis est un jour payé." },
+        ],
+      },
+      {
+        id: "rate-changes",
+        heading: "Changer le taux",
+        blocks: [
+          { p: "Un nouveau taux s'applique à partir du jour où vous l'enregistrez. Les heures travaillées avant gardent le taux auquel elles ont été acquises : baisser un taux ne reprend jamais des congés déjà acquis. Le premier taux d'une politique s'applique depuis le 1er janvier." },
+          { p: "Pour une personne — un cinquième anniversaire qui la fait passer de 4 % à 6 % — ouvrez **Congés → Équipe → Soldes**, ouvrez son nom et appuyez sur **Définir un taux personnel** : choisissez la politique, le jour de début et le taux. Laissez les deux champs du taux vides pour la remettre au taux de l'entreprise à partir d'un jour. Chaque taux personnel reste au dossier avec qui l'a défini." },
+        ],
+      },
+      {
+        id: "before-fieldquo",
+        heading: "Heures travaillées avant FieldQuo",
+        blocks: [
+          { steps: [
+            "Ouvrez **Congés → Équipe**, descendez jusqu'à **Soldes** et ouvrez le nom de la personne.",
+            "Sous **Avant FieldQuo**, appuyez sur **Saisir les heures avant FieldQuo**.",
+            "Saisissez les **Heures travaillées depuis le 1er janvier** et le dernier jour couvert — en général la veille de son premier pointage dans FieldQuo.",
+            "Saisissez les congés déjà pris cette année, en jours, pour chaque politique — payés et non payés.",
+            "Appuyez sur **Enregistrer**.",
+          ] },
+          { p: "Ces heures acquièrent des congés au taux en vigueur le dernier jour couvert. Les entrées FieldQuo jusqu'à ce jour inclus sont exclues : une heure n'est jamais comptée deux fois. Les congés déjà pris sont déduits des soldes payés; les congés non payés sont consignés et ne changent aucun solde." },
+          { note: "Ces heures servent uniquement aux soldes de congés. Elles ne sont jamais ajoutées aux feuilles de temps, aux coûts des travaux ni à la paie — elles ont été payées par ce que vous utilisiez avant." },
+          { p: "Une modification ajoute une nouvelle version; rien n'est écrasé. L'écran affiche « Saisi par … le … » et chaque version précédente avec qui l'a modifiée et quand." },
+        ],
+      },
+      {
+        id: "how-balances-read",
+        heading: "Lire un solde",
+        blocks: [
+          { p: "Chaque solde affiche **Acquis** (en heures et en jours), **Pris dans FieldQuo**, **Pris avant FieldQuo**, ce qui attend une approbation, et **Restant**. **Comment c'est calculé** détaille les heures comptées à chaque taux, les heures d'avant FieldQuo, un plafond atteint et la conversion des heures en jours. Une politique non payée n'affiche que les jours pris, car elle n'a pas de solde." },
+        ],
+      },
+      {
+        id: "who-can-see-it",
+        heading: "Qui peut le voir",
+        blocks: [
+          { p: "Chacun voit ses propres soldes, ses heures d'avant FieldQuo et son taux personnel dans **Congés**. Les gestionnaires voient ceux de tout le monde dans l'onglet Équipe. Seuls les propriétaires et administrateurs peuvent saisir des heures d'avant FieldQuo ou définir un taux personnel; une session de soutien en lecture seule ne peut rien changer." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "Pourquoi le solde d'une nouvelle recrue est-il bas?", a: "Les congés s'acquièrent à mesure que les heures sont travaillées et approuvées. Si la personne a travaillé pour vous cette année avant FieldQuo, saisissez ces heures sous **Avant FieldQuo**." },
+      { q: "Pourquoi un solde ne bouge-t-il pas après l'approbation d'heures?", a: "Les soldes sont actualisés à l'ouverture de l'écran Congés, au plus toutes les quelques heures, et immédiatement quand une politique, un taux personnel ou des heures d'avant FieldQuo sont enregistrés. **Comment c'est calculé** indique quand le calcul a été fait." },
     ],
   },
 

@@ -34,12 +34,12 @@ export const ARTICLES = {
         blocks: [
           { p: "De haut en bas, sur n'importe quelle page :" },
           { bullets: [
-            "**La barre du haut** — le bouton de menu à gauche ouvre le menu complet en tiroir; le logo FieldQuo au centre mène au tableau de bord; la cloche à droite indique combien de notifications vous n'avez pas lues.",
+            "**La barre du haut** — le bouton de menu à gauche ouvre le menu complet en tiroir (l'équipe n'a pas de bouton de menu : sa page Plus contient tout); le logo FieldQuo mène au tableau de bord; la cloche à droite indique combien de notifications vous n'avez pas lues.",
             "**La page elle-même** — les mêmes cartes que sur un ordinateur, empilées sur une colonne. Les boutons sont taillés pour un pouce, et le sélecteur de chantier de la pointeuse est le sélecteur natif de votre téléphone, pas un menu maison.",
-            "**La barre d'onglets** — jusqu'à cinq onglets plus **Plus**. Les onglets que vous obtenez dépendent de votre niveau d'accès; un équipier voit **Chantiers**, **Clavardage** et **Plus**. Voir [[the-crew-tab-bar|La barre d'onglets de l'équipe]].",
+            "**La barre d'onglets** — **Pointage** en premier pour tout le monde, puis les écrans que votre rôle utilise le plus, puis **Plus**. Un équipier voit **Pointage**, **Aujourd'hui**, **Clavardage** et **Plus**. Voir [[the-crew-tab-bar|La barre d'onglets de l'équipe]].",
             "**La zone sûre** — sur un iPhone, la barre se place au-dessus de l'indicateur d'accueil plutôt que dessous, alors l'onglet du bas n'est jamais à moitié couvert.",
           ] },
-          { figure: "harness:mobile-job", caption: "Un chantier sur un téléphone — la visite avec ses boutons En route et Marquer comme terminée, la liste de vérification dessous, et la barre d'onglets Chantiers · Clavardage · Plus." },
+          { figure: "harness:mobile-job", caption: "Un chantier sur un téléphone — la visite avec ses boutons En route et Marquer comme terminée, la liste de vérification dessous, et la barre d'onglets en bas." },
         ],
       },
       {
@@ -49,7 +49,7 @@ export const ARTICLES = {
           { steps: [
             "Ouvrez le courriel d'invitation sur votre téléphone et acceptez-le — c'est ainsi qu'on rejoint une entreprise; il n'y a aucun moyen de s'y ajouter soi-même. Au niveau Crew, votre compte ne coûte rien à l'entreprise.",
             "Choisissez votre mot de passe. Ensuite, la page de connexion demande **Courriel** et **Mot de passe**, et le bouton s'appelle **Se connecter**.",
-            "Vous arrivez sur l'**Accueil**. Tapotez le bouton de menu, ou un onglet, pour aller où vous voulez.",
+            "Vous arrivez sur l'**Accueil**. Tapotez un onglet — ou le bouton de menu, ou **Plus** si vous êtes au niveau équipe — pour aller où vous voulez.",
             "Facultatif mais utile : ajoutez FieldQuo à votre écran d'accueil pour qu'il s'ouvre comme une application — [[install-it-like-an-app|L'installer comme une application]].",
           ] },
           { tip: "Restez connecté. FieldQuo ne vous déconnecte pas entre deux visites, alors l'icône de l'écran d'accueil s'ouvre directement sur votre journée; si jamais vous êtes déconnecté, l'icône ouvre plutôt la page de connexion." },
@@ -83,7 +83,7 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "Y a-t-il une application dans l'App Store?", a: "Non. FieldQuo tourne dans le navigateur du téléphone. Vous pouvez l'ajouter à votre écran d'accueil pour qu'il s'ouvre plein écran avec sa propre icône, ce qui est aujourd'hui ce qui se rapproche le plus d'une application." },
-      { q: "Est-ce que ça fonctionne sur un iPad ou une petite tablette?", a: "Oui. Sous environ 1 024 pixels de largeur, vous obtenez la disposition mobile avec la barre d'onglets; au-delà, vous obtenez la barre latérale, exactement comme sur un ordinateur." },
+      { q: "Est-ce que ça fonctionne sur un iPad ou une petite tablette?", a: "Oui. Sous environ 1 024 pixels de largeur, vous obtenez la disposition mobile avec la barre d'onglets; au-delà, la disposition d'ordinateur — la barre latérale pour le bureau, et pour l'équipe un en-tête mince avec un grand bouton de pointage et de grands boutons pour leurs écrans." },
       { q: "Est-ce que le bureau voit où est mon téléphone?", a: "Seulement où il était au moment où vous avez tapoté Pointer l'entrée, Pointer la sortie, En route ou Marquer comme terminée — et seulement si vous l'avez permis quand le téléphone l'a demandé. Rien ne tourne entre deux tapotements." },
     ],
   },
@@ -153,62 +153,84 @@ export const ARTICLES = {
   "the-crew-tab-bar": {
     title: "La barre d'onglets de l'équipe",
     summary:
-      "La barre au bas de la disposition mobile : quels onglets elle contient, pourquoi un équipier en voit trois, et où est passé tout le reste.",
-    updated: "2026-09-12",
+      "La barre au bas de la disposition mobile : la pointeuse en premier dans la barre de tout le monde, ce que chaque rôle obtient d'autre, et la disposition simple de l'équipe sur un ordinateur.",
+    updated: "2026-10-03",
     intro: [
-      "Sur un téléphone, la barre au bas de l'écran est votre moyen de vous déplacer. Elle contient les quatre écrans par lesquels le travail circule — **Prospects**, **Soumissions**, **Chantiers**, **Factures** — plus **Clavardage**, et un bouton **Plus** qui ouvre le menu complet. Les onglets que vous ne pouvez pas utiliser ne sont pas dessinés, alors la barre qu'un équipier voit est plus courte que celle du propriétaire.",
+      "Sur un téléphone, la barre au bas de l'écran est votre moyen de vous déplacer. La barre de tout le monde commence par **Pointage** — celle du propriétaire aussi — et le reste dépend de ce que vous faites toute la journée : un équipier a **Aujourd'hui** et **Clavardage**, quelqu'un qui rédige les soumissions a **Soumissions** et **Calendrier**, quelqu'un qui gère l'horaire a **Horaire** et **Équipe**. **Plus**, à droite, contient tout le reste.",
     ],
     sections: [
       {
         id: "overview",
         heading: "Vue d'ensemble",
         blocks: [
-          { p: "La barre apparaît dès que l'écran fait moins d'environ 1 024 pixels de largeur — tous les téléphones, la plupart des tablettes tenues à la verticale. L'onglet de l'écran courant est mis en évidence; les autres sont dans une couleur atténuée. Au-delà de cette largeur, la barre disparaît et la barre latérale prend le relais." },
+          { p: "La barre apparaît dès que l'écran fait moins d'environ 1 024 pixels de largeur — tous les téléphones, la plupart des tablettes tenues à la verticale. L'onglet de l'écran courant est mis en évidence; les autres sont dans une couleur atténuée. Au-delà de cette largeur, la barre disparaît : le bureau a la barre latérale, et un équipier a la disposition simple décrite plus bas." },
           { figure: "harness:mobile-chat", caption: "Le salon de clavardage d'un chantier sur un téléphone, avec Clavardage mis en évidence dans la barre d'onglets et Plus à droite." },
         ],
       },
       {
         id: "the-tabs",
-        heading: "Les onglets, et quand chacun apparaît",
+        heading: "Les onglets, par rôle",
         blocks: [
           { table: {
-            head: ["Onglet", "Ouvre", "Affiché quand"],
+            head: ["Qui", "La barre", "Passé sous Plus"],
             rows: [
-              ["**Prospects**", "Le tableau des prospects", "Votre accès aux demandes (Requests) est au moins View only"],
-              ["**Soumissions**", "La liste des soumissions", "Votre accès aux soumissions est au moins View only"],
-              ["**Chantiers**", "La liste des chantiers", "Votre accès aux chantiers est au moins View only"],
-              ["**Factures**", "La liste des factures", "Votre accès aux factures est au moins View only"],
-              ["**Clavardage**", "Le clavardage de l'entreprise", "Toujours — tant que la fonction de clavardage d'équipe est activée pour votre entreprise"],
-              ["**Plus**", "Le menu complet, en tiroir", "Toujours"],
+              ["Propriétaire et administrateurs", "**Pointage** · **Prospects** · **Soumissions** · **Chantiers** · **Clavardage** · **Plus**", "**Factures** — on arrive d'habitude à une facture par son chantier, par le bouton **+** ou par la notification de paiement."],
+              ["Équipe (Crew)", "**Pointage** · **Aujourd'hui** · **Clavardage** · **Plus**", "Rien — la pointeuse était déjà en premier."],
+              ["Estimateur", "**Pointage** · **Soumissions** · **Calendrier** · **Clavardage** · **Plus**", "**Prospects** — un nouveau prospect arrive comme une notification qui l'ouvre, et la visite que vous réservez tombe dans le Calendrier."],
+              ["Répartiteur et gestionnaire", "**Pointage** · **Horaire** · **Équipe** · **Clavardage** · **Plus**", "**Chantiers** — chaque réservation de l'horaire ouvre son chantier."],
             ],
           } },
-          { p: "Les mêmes règles cachent les mêmes lignes dans le menu complet, et les pages derrière refusent au même niveau, alors la barre est un raccourci, pas la sécurité." },
+          { p: "Un onglet que vous ne pouvez pas utiliser n'est pas dessiné : les mêmes règles d'accès cachent les mêmes lignes dans le menu complet, et les pages derrière refusent au même niveau, alors la barre est un raccourci, pas la sécurité. **Équipe** demande à la fois un accès à Time Tracking sur tout le monde et la permission de gérer les gens; **Clavardage** demande que le clavardage d'équipe soit activé pour votre entreprise." },
+        ],
+      },
+      {
+        id: "the-clock-tab",
+        heading: "L'onglet Pointage",
+        blocks: [
+          { p: "**Pointage** ouvre la pointeuse. Il est dans toutes les barres, propriétaires et administrateurs compris. Un propriétaire ou un administrateur qui n'est pas encore sur la liste y voit **Me configurer pour pointer** — ça ne coûte aucun siège et ça ne vous met dans aucune paie : les propriétaires restent hors paie tant que **Me payer par la paie** n'est pas activé sous Équipe → Votre propre taux." },
+          { p: "Si un propriétaire règle **Time Tracking & Timesheets** à **No access** pour quelqu'un (Gérer l'équipe → Rôle → Custom…), l'onglet Pointage quitte la barre de cette personne et l'onglet qu'il remplaçait revient — un estimateur retrouve **Prospects**, un répartiteur **Chantiers**. La pointeuse d'un propriétaire ou d'un administrateur ne peut pas être désactivée." },
         ],
       },
       {
         id: "what-a-crew-member-gets",
         heading: "Ce qu'un équipier obtient",
         blocks: [
-          { p: "Le niveau Crew est réglé à No access sur les prospects, les soumissions et les factures, donc aucun des quatre onglets de documents n'est dessiné. Quand il ne reste que le clavardage dans la barre, FieldQuo y met plutôt les cinq onglets de l'espace employé — **Accueil · Horaire · Gains · Messages · Plus** — les mêmes cinq que montre chaque écran sous Mon espace. Voir [[your-home-screen|Votre écran d'accueil]]." },
           { bullets: [
-            "**Accueil** — votre prochain quart ou visite, Pointer, Message et Trouver un remplaçant, les heures du jour, les coups de chapeau.",
-            "**Horaire** — vos quarts, visites et tâches par jour. **Gains** — vos heures par période de paie, et l'argent si votre accès le permet.",
-            "**Messages** — #general, le salon de chaque chantier où vous êtes, et les messages directs. **Plus** — les demandes, le répertoire de l'équipe, les notifications, les paramètres, la déconnexion.",
+            "**Pointage** — pointer l'arrivée et le départ, commencer une pause, changer de chantier; l'onglet **Journal** est l'endroit où **Demander une correction** si une heure est fausse.",
+            "**Aujourd'hui** — les visites du jour avec l'adresse et l'itinéraire, les photos et la liste de contrôle du chantier, puis le reste de la semaine.",
+            "**Clavardage** — #general, le salon de chaque chantier où vous êtes, et les messages directs.",
+            "**Plus** — une page, pas un menu : vos demandes, vos congés, vos disponibilités, les fournitures, l'équipe, vos gains, vos chantiers, puis **Tout le reste** — chaque autre écran que votre accès permet, une grande ligne chacun.",
           ] },
+          { p: "Il n'y a pas de bouton de menu pour l'équipe. Le menu repliable du bureau n'est pas dessiné pour eux, ni sur un téléphone ni sur un ordinateur : tout ce qu'il contenait pour eux est sur la page Plus." },
+        ],
+      },
+      {
+        id: "crew-on-a-computer",
+        heading: "L'équipe sur un ordinateur ou une tablette à l'horizontale",
+        blocks: [
+          { p: "Au-delà d'environ 1 024 pixels, un équipier n'a pas de barre latérale. À la place, en haut de chaque page :" },
+          { bullets: [
+            "**Un en-tête mince** — le logo et le nom de votre entreprise, votre nom, la cloche des notifications et **Se déconnecter**.",
+            "**Un grand bouton de pointage** juste en dessous. Il dit **Pointer l'arrivée** quand vous n'êtes pas pointé (vert), **Pointer le départ** avec l'heure de début quand vous l'êtes (rouge), et **Terminer la pause** pendant une pause. Il ouvre la pointeuse, où vous tapez une fois de plus pour pointer — comme la carte de pointage d'Aujourd'hui.",
+            "**De grands boutons** pour **Aujourd'hui**, **Mon horaire**, **Clavardage**, **Chantiers** et **Plus**. Celui où vous êtes est rempli en foncé.",
+          ] },
+          { note: "Les lettres et les boutons plus gros sont voulus : un écran d'équipe se lit dans un camion, avec des gants, par des gens qui ne veulent pas de menu. Rien n'est caché derrière un survol ou un repli." },
         ],
       },
       {
         id: "the-more-drawer",
-        heading: "Le tiroir Plus",
+        heading: "Plus, pour les autres rôles",
         blocks: [
-          { p: "**Plus** n'ouvre pas un deuxième menu. Il ouvre le même tiroir que le bouton de menu du haut — le menu complet, regroupé exactement comme sur un ordinateur — pour qu'il y ait une seule liste d'écrans, et non deux qui pourraient se contredire. L'**Accueil** n'est pas un onglet : le logo FieldQuo dans la barre du haut vous y mène déjà." },
-          { tip: "Si la barre ne montre rien d'autre que Plus, chacune de vos catégories de documents est réglée à No access. C'est une grille valide, pas un défaut — tout ce que vous pouvez utiliser est dans le tiroir." },
+          { p: "Pour les rôles du bureau, **Plus** ouvre un panneau par-dessus la barre : la recherche d'abord, puis chaque écran qui n'est pas déjà un de vos onglets, puis les lignes de votre compte. Un écran est à un seul endroit, jamais deux — quand **Factures** a quitté la barre du propriétaire, elle est apparue dans le panneau. L'**Accueil** n'est pas un onglet : le logo FieldQuo dans la barre du haut vous y mène." },
+          { tip: "Si votre barre ne montre que Pointage, Clavardage et Plus, chaque document de votre rôle est réglé à No access. C'est une grille valide, pas un défaut — tout ce que vous pouvez utiliser est sous Plus." },
         ],
       },
     ],
     faq: [
-      { q: "Puis-je choisir quels onglets sont dans la barre?", a: "Non. Les cinq sont fixes — les quatre écrans de documents et le clavardage, ou les cinq de l'espace employé quand tous les onglets de documents sont masqués ou que vous êtes sur un écran de Mon espace — et votre niveau d'accès décide quel jeu vous obtenez." },
-      { q: "Pourquoi n'y a-t-il pas d'onglet Pointeuse?", a: "La barre est réservée aux écrans par lesquels le travail circule et au clavardage. La pointeuse est à un tapotement sous Plus, et c'est pareil pour tout le monde, quel que soit le niveau." },
+      { q: "Puis-je choisir quels onglets sont dans la barre?", a: "Non. La barre de chaque rôle est fixe, et votre niveau d'accès décide laquelle vous obtenez. Sous Plus, tout le reste est à un tapotement." },
+      { q: "Je suis propriétaire et je ne pointe jamais. Pourquoi un onglet Pointage?", a: "Parce que certains propriétaires travaillent sur les chantiers, et la pointeuse doit être à un tapotement pour eux comme pour tout le monde. Ça ne change rien tant que vous ne l'utilisez pas : ça ne vous met pas dans la paie." },
+      { q: "Où sont passées les Factures?", a: "Sous Plus, dans le même panneau que tous les autres écrans. Vous arrivez aussi à une facture par la page de son chantier, par le bouton + et par la notification quand elle est payée." },
+      { q: "Un équipier veut retrouver l'ancienne barre latérale.", a: "Il n'y a pas d'interrupteur pour ça. Tout ce que la barre latérale lui montrait est sur sa page Plus, sous Tout le reste." },
     ],
   },
 
@@ -999,8 +1021,8 @@ export const ARTICLES = {
         id: "overview",
         heading: "Vue d'ensemble",
         blocks: [
-          { p: "Ouvrez **Mon espace** dans la barre latérale sous Personnes, ou touchez **Accueil** dans la barre du bas. Les cinq onglets sont **Accueil · Horaire · Gains · Messages · Plus**. Si vous gérez l'horaire — votre accès à Horaire est *Modifier l'horaire de tous* ou plus — les deux du milieu deviennent **Horaire** (le tableau) et **Équipe**, et l'accueil montre la couverture du jour plutôt que votre propre journée." },
-          { figure: "harness:my-home", caption: "Mon espace sur un téléphone — la carte du prochain quart avec Trouver un remplaçant et Échanger, les trois actions rapides, les heures du jour et le fil des coups de chapeau, avec la barre Accueil · Horaire · Gains · Messages · Plus." },
+          { p: "Ouvrez **Mon espace** sous **Plus** (sur un ordinateur, le Plus de la barre latérale; sur un téléphone, le panneau Plus). Sur un téléphone, ses écrans ont leurs propres cinq onglets : **Accueil · Pointage · Horaire · Messages · Plus**. Si vous gérez l'horaire — votre accès à Horaire est *Modifier l'horaire de tous* ou plus — ce sont **Accueil · Horaire · Équipe · Messages · Plus**, et l'accueil montre la couverture du jour plutôt que votre propre journée. L'équipe garde sa propre barre — **Pointage · Aujourd'hui · Clavardage · Plus** — et atteint Mon espace depuis sa page Plus." },
+          { figure: "harness:my-home", caption: "Mon espace sur un téléphone — la carte du prochain quart avec Trouver un remplaçant et Échanger, les trois actions rapides, les heures du jour et le fil des coups de chapeau, avec la barre d'onglets en bas." },
         ],
       },
       {

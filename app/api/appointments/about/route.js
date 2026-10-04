@@ -18,7 +18,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
-import { loadEnforceableMember, assignedJobWhere } from "@/lib/permissions/enforce";
+import { loadEnforceableMember, assignedJobWhere, hasLevel, canSeeInvoices } from "@/lib/permissions/enforce";
 import { loadOpenRecords, searchRecords } from "@/lib/schedule/aboutRecord";
 import { suggestAbout } from "@/lib/schedule/appointmentAbout";
 
@@ -41,12 +41,23 @@ export async function GET(request) {
   // A client id from another company matches no rows here — `companyId` is
   // on every where in loadOpenRecords — so the answer is honestly empty
   // rather than a 404 that would tell a caller the id exists somewhere.
-  const open = clientId
-    ? await loadOpenRecords(db, member.companyId, clientId, { jobWhere })
-    : { quotes: [], jobs: [], invoices: [] };
-  const search = q
-    ? await searchRecords(db, member.companyId, q, { jobWhere })
-    : { quotes: [], jobs: [], invoices: [] };
+  // Gated on appointment:create, which every employee holds — so this
+  // searched every quote and invoice in the company for a crew member at
+  // quotes:none and invoices:none, numbers and statuses back. A document the
+  // reader cannot open is not offered as something the visit is about.
+  const withinGrid = (records) => ({
+    ...records,
+    quotes: hasLevel(full, "quotes", "view_only") ? records.quotes : [],
+    invoices: canSeeInvoices(full) ? records.invoices : [],
+  });
+  const open = withinGrid(
+    clientId
+      ? await loadOpenRecords(db, member.companyId, clientId, { jobWhere })
+      : { quotes: [], jobs: [], invoices: [] },
+  );
+  const search = withinGrid(
+    q ? await searchRecords(db, member.companyId, q, { jobWhere }) : { quotes: [], jobs: [], invoices: [] },
+  );
 
   return NextResponse.json({
     suggested: suggestAbout(open),

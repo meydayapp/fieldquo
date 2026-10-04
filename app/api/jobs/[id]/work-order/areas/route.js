@@ -21,6 +21,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { recordActivity } from "@/lib/activity/log";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { loadWorkOrder } from "@/lib/workOrder/load";
@@ -82,6 +83,18 @@ export async function POST(request, { params }) {
     await db.task.update({
       where: { id: task.id, companyId: member.companyId },
       data: { status: body.done ? "done" : "open" },
+    });
+  }
+
+  // A tick on the work order is the crew saying an area is done — on the
+  // record under their name (the owner, 2026-10-03). Never throws.
+  if (body.done === true || body.done === false) {
+    await recordActivity(member, {
+      action: body.done ? "workOrder.areaDone" : "workOrder.areaReopened",
+      entityType: "job",
+      entityId: id,
+      summary: `${body.done ? "Marked done" : "Reopened"}: ${area.label}`,
+      metadata: { taskId: task.id, key },
     });
   }
 

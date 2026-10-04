@@ -23,6 +23,7 @@ import {
   requireLevel,
   hasLevel,
   permissionErrorResponse,
+  seesOnlyAssignedJobs,
 } from "@/lib/permissions/enforce";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 import { messagingConnection } from "@/lib/messaging/channels";
@@ -256,6 +257,7 @@ async function readThread({ id, member }) {
         quotes: hasLevel(full, "quotes", "view_only"),
         jobs: hasLevel(full, "jobs", "view_only"),
         invoices: hasLevel(full, "invoices", "view_only"),
+        scoped: seesOnlyAssignedJobs(full),
       }),
       ai,
       // Only for somebody who could act on it. A crew member sees the contact

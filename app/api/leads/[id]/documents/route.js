@@ -8,6 +8,7 @@ import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { loadLeadDocuments, loadLeadConversion, documentAccess } from "@/lib/leads/linkedDocuments";
 import { listIdentityLinks } from "@/lib/leads/identityLinks";
 import { publicReview } from "@/lib/leads/messageReview";
+import { seesOnlyAssignedJobs } from "@/lib/permissions/enforce";
 
 // The lead drawer's "Linked documents": the quote linked to this lead, the
 // jobs it became and the invoices billed from it, plus the Won rule's verdict
@@ -72,15 +73,18 @@ export async function GET(request, { params }) {
     (async () =>
       db.messageThread.findFirst({ where: { companyId: member.companyId, leadId: lead.id }, orderBy: { createdAt: "asc" }, select: { leadCapture: true } }))().catch(() => null),
   ]);
-  const access = documentAccess(full);
+  const access = { ...documentAccess(full), scoped: seesOnlyAssignedJobs(full) };
   // The thread's own review carries the document numbers; the lead's copy
   // does not (lib/leads/messageReview.js reviewForLead). Either way, shaped
   // for this member.
   const review = publicReview(thread?.leadCapture?.review || lead.conversationEvidence?.review || null, access);
+  // The same dials for the links' evidence; an assignment-scoped member (a
+  // crew member) gets no client id and no documents from them at all.
   const links = identityLinks.map((l) => ({
     ...l,
+    clientId: access.scoped ? null : l.clientId,
     documents: (l.documents || []).map((d) =>
-      (d.type === "quote" && access.quotes) || (d.type === "job" && access.jobs) || (d.type === "invoice" && access.invoices)
+      !access.scoped && ((d.type === "quote" && access.quotes) || (d.type === "job" && access.jobs) || (d.type === "invoice" && access.invoices))
         ? d
         : { type: d.type, restricted: true },
     ),
