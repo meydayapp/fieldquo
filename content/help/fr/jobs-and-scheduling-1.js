@@ -538,7 +538,7 @@ export const ARTICLES = {
         id: "travel-check",
         heading: "La vérification de trajet",
         blocks: [
-          { p: "Avec **N'offrez pas d'heures où vous ne pouvez pas vous rendre** activé, un client qui tape une adresse ne voit que les plages que vous pourriez atteindre depuis votre rendez-vous précédent : la fin du rendez-vous précédent, plus le trajet, plus la marge, doivent tenir avant le début de la plage. Le trajet, c'est le temps de conduite de Google quand FieldQuo a les coordonnées des deux bouts et une clé, et une estimation à vol d'oiseau sinon." },
+          { p: "Avec **N'offrez pas d'heures où vous ne pouvez pas vous rendre** activé, un client qui tape une adresse ne voit que les plages que vous pourriez atteindre depuis votre rendez-vous précédent : la fin du rendez-vous précédent, plus le trajet, plus la marge, doivent tenir avant le début de la plage. Pendant que le client parcourt le calendrier, le trajet est une estimation volontairement lente — la distance à vol d'oiseau multipliée par un facteur de route, à 32 km/h — pour qu'une heure limite soit cachée plutôt qu'offerte. Quand le client appuie sur le bouton pour réserver, FieldQuo vérifie cette heure-là avec le vrai temps de conduite de Google, à l'aller et au départ. Si Google dit que vous n'y arriverez pas, la réservation n'est pas faite : le client lit pourquoi, et la prochaine heure que vous pouvez atteindre est sélectionnée pour qu'il la confirme. Rien n'est jamais réservé sur une plage où vous ne pouvez pas vous rendre." },
           { steps: [
             "Ouvrez **Paramètres → Page de rendez-vous** et assurez-vous que **Se rendre chez eux** est sélectionné.",
             "Activez **N'offrez pas d'heures où vous ne pouvez pas vous rendre**. Il est activé tant que vous ne l'avez pas éteint.",
@@ -594,7 +594,7 @@ export const ARTICLES = {
     faq: [
       { q: "Pourquoi une plage que je sais libre n'est-elle pas offerte?", a: "Habituellement la vérification de trajet : depuis la fin du rendez-vous précédent, le trajet plus la marge ne tiennent pas avant cette plage. Soit le chantier d'avant finit tard au calendrier, soit la marge est généreuse. Éteindre la vérification montre chaque plage libre." },
       { q: "La fenêtre change-t-elle mon calendrier?", a: "Non. Votre calendrier garde l'heure exacte ; seules la confirmation et la page de gestion du client montrent la fenêtre." },
-      { q: "Le temps de route est-il exact?", a: "Avec des coordonnées aux deux bouts et Google disponible, c'est le temps de conduite de Google. Sinon, c'est une estimation à vol d'oiseau avec un facteur de route, et FieldQuo dit « environ » quand c'est tout ce qu'il a." },
+      { q: "Le temps de route est-il exact?", a: "Le calendrier utilise une estimation à vol d'oiseau avec un facteur de route, du côté prudent. L'heure que le client réserve vraiment est vérifiée avec le temps de conduite de Google quand FieldQuo a les coordonnées des deux bouts et une clé ; si Google n'est pas disponible, l'estimation tient, et FieldQuo dit « environ » quand c'est tout ce qu'il a." },
     ],
   },
 

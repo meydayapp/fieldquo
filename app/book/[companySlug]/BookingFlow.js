@@ -687,6 +687,33 @@ export default function BookingFlow({
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
+        // ── The real drive says this time can't be made ───────────────────
+        //
+        // The calendar offers times on a free distance estimate; the confirm
+        // route checks the one time being booked against Google's driving
+        // time (lib/booking/verifyTravel.js). When that fails it names the
+        // next time that passes the same check. That time is SELECTED here —
+        // shown in the heading with the server's sentence under it — and the
+        // visitor presses Confirm themselves. Nothing is booked for them, and
+        // the grid is not refetched: the refusal changed nothing it shows.
+        // The next time may sit in a month the grid has not loaded, so it is
+        // added to what counts as offered — otherwise the "can't reach this
+        // time" guard below would disable the very button the sentence names.
+        if (res.status === 409 && data?.reason === "travel_infeasible") {
+          const next = typeof data.nextSlot === "string" ? data.nextSlot : null;
+          if (next) {
+            setChosen(next);
+            setOffered((o) => {
+              if (!o) return o;
+              const day = next.split("T")[0];
+              const times = o.slots?.[day] || [];
+              return times.includes(next) ? o : { ...o, slots: { ...o.slots, [day]: [...times, next].sort() } };
+            });
+          }
+          // No next time: the time stays on screen with the sentence and
+          // "Pick another time" above it, rather than vanishing with the form.
+          throw new Error(data?.error || "Couldn't book that time.");
+        }
         // 409 means someone took the slot between loading and submitting.
         // Send them back to the grid with fresh times rather than leaving
         // them staring at a form for a time that no longer exists.

@@ -159,7 +159,13 @@ export default function VisitManager({ token }) {
       // closed, between loading the grid and tapping the button. Send them back
       // to fresh times rather than leaving them looking at a time that no
       // longer exists.
-      if (err.status === 409 && body.startTime) {
+      if (err.status === 409 && body.startTime && err.data?.reason === "travel_infeasible") {
+        // The crew can't drive there in time (Google's real drive, checked on
+        // the move). The next time that passes is selected — its confirm
+        // panel below shows it — and the client presses the button. No
+        // refetch: the grid's times are unchanged by this refusal.
+        setPicked(typeof err.data?.nextSlot === "string" ? err.data.nextSlot : null);
+      } else if (err.status === 409 && body.startTime) {
         setPicked(null);
         setSlotEpoch((n) => n + 1);
       }

@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { rateLimit } from "@/lib/rateLimit";
 import { getAppOrigin } from "@/lib/appUrl";
 import { computeAvailableSlots } from "@/lib/booking/computeAvailability";
+import { verifySlotTravel, nextVerifiedSlot } from "@/lib/booking/verifyTravel";
 import { eventTypeForMode } from "@/lib/booking/bookingModes";
 import { canClientChange, changeNoticeHours } from "@/lib/booking/changePolicy";
 import {
@@ -263,6 +264,34 @@ export async function POST(request, { params }) {
       { error: reasonMessage("slot_unavailable"), reason: "slot_unavailable" },
       { status: 409 },
     );
+  }
+
+  // ── The real drive, for the one time being moved to ─────────────────────
+  //
+  // The grid above is the free offline estimate; this is Google's driving
+  // time for the two legs around the new time (lib/booking/verifyTravel.js),
+  // the same check a new booking gets. If it can't be made, the move is
+  // refused with the next time that passes — after the notice window — which
+  // the page selects for the client to confirm. Nothing moves on its own.
+  if (destination) {
+    const travelBuffer = company.travelBufferMinutes || 0;
+    const exclude = { bookingId: booking.id, appointmentId: booking.appointmentId };
+    const sized = eventTypeForMode({ company, eventType, mode: booking.mode });
+    const drive = await verifySlotTravel({ eventType: sized, start: plan.start, end: plan.end, destination, travelBuffer, exclude });
+    if (!drive.ok) {
+      const nextSlot = await nextVerifiedSlot({
+        eventType: sized,
+        after: plan.start,
+        destination,
+        travelBuffer,
+        exclude,
+        minStart: new Date(now.getTime() + changeNoticeHours(company) * 3_600_000),
+      }).catch(() => null);
+      return NextResponse.json(
+        { error: reasonMessage("travel_infeasible"), reason: "travel_infeasible", nextSlot },
+        { status: 409 },
+      );
+    }
   }
 
   // No second conflict query before the write, unlike the confirm route. There

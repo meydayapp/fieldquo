@@ -104,6 +104,14 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 - Checks: `check:ai-dollar-allowance` (68), `check:ai-allowance` updated for the unit. Help: Getting started › FieldQuo AI › "The monthly allowance" (en/fr/es). Strings: `app.aiAllowance.*` in all nine languages.
 - **Owed — owner:** dollar figures per plan (type them on /platform/billing/plans after the column is added); whether a NULL plan should mean unlimited.
 
+### 3. Booking drive times: offline on the calendar, Google only at booking — shipped
+
+- `lib/booking/computeAvailability.js` travelIndex now uses `estimateTravel` only (straight line × 1.35 at 32 km/h). It used to call Distance Matrix per distinct address on every calendar load — ≈ US$105/month in the heavy case (US$5 per 1,000 elements). The rationale is in the code comment there and in `lib/booking/verifyTravel.js`.
+- `lib/booking/verifyTravel.js`: `verifySlotTravel` asks Google for the two legs around the ONE time being booked (≈ 2 elements ≈ US$0.01 per booking; in-memory cache 6 h, Google answers only — a failure falls back to the estimate and is not cached). `loadBusyRanges` and `slotNeighbours` are shared with the calendar so the two weigh the same neighbours. Unknown never refuses.
+- Confirm route: the address is geocoded once, before anything is written; with the travel check on, an infeasible time is refused **409 travel_infeasible** in en/fr/es with `nextSlot` — the first later offered time that passes the same Google check (at most 3 checked, 7 days). The booking page selects it and the visitor presses the button; never booked for them, never double-booked. Reschedule (/api/visit/[token]/reschedule) gets the same check, after the grid check, respecting the notice window; the visit page selects the next time (`travelNext`/`travelNone` in the eight client languages).
+- Not changed: the staff-side move checks (`/api/appointments/[id]`, `/api/jobs/[id]/visits/[visitId]`) still ask Google per edit — staff actions, not browsing; the booking page's per-address geocode is unchanged.
+- Docs: docs/BOOKING.md rule 5 and "Not covered yet". Help: Jobs and scheduling › Arrival windows and travel buffer (en/fr/es). Check: `check:booking-drive-check` (45); `check:booking-modes` count relaxed (≥ 2 uses of the mode sizing in the reschedule route).
+
 ## Audit loose ends (3 October 2026)
 
 A read-only audit against origin/main found ten loose ends; each is its own commit.

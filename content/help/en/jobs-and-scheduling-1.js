@@ -539,7 +539,7 @@ export const ARTICLES = {
         id: "travel-check",
         heading: "The travel check",
         blocks: [
-          { p: "With **Don't offer times you can't drive to** on, a client who types an address is shown only the slots you could reach from your previous appointment: the earlier appointment's end, plus the drive, plus the buffer, must fit before the slot starts. The drive is Google's driving time when FieldQuo has coordinates for both ends and a key, and a straight-line estimate otherwise." },
+          { p: "With **Don't offer times you can't drive to** on, a client who types an address is shown only the slots you could reach from your previous appointment: the earlier appointment's end, plus the drive, plus the buffer, must fit before the slot starts. While the client browses the calendar, the drive is a deliberately slow estimate — the straight line times a road factor, at 32 km/h — so a borderline time is hidden rather than offered. When the client presses the button to book, FieldQuo checks that one time against Google's real driving time, in and out. If Google says you can't make it, the booking is not made: the client reads why, and the next time you can reach is selected for them to confirm. Nothing is ever booked into a slot you can't drive to." },
           { steps: [
             "Open **Settings → Booking Page** and make sure **Visit their place** is selected.",
             "Turn on **Don't offer times you can't drive to**. It is on unless you switched it off.",
@@ -595,7 +595,7 @@ export const ARTICLES = {
     faq: [
       { q: "Why is a slot I know is free not offered?", a: "Usually the travel check: from the previous appointment's end, the drive plus the buffer does not fit before that slot. Either the earlier job runs late in the calendar, or the buffer is generous. Turning the check off shows every free slot." },
       { q: "Does the window change my calendar?", a: "No. Your calendar keeps the exact time; only the client's confirmation and manage page show the window." },
-      { q: "Is the drive time exact?", a: "With coordinates on both ends and Google available, it is Google's driving time. Otherwise it is a straight-line estimate with a road factor, and FieldQuo says “about” when that is all it has." },
+      { q: "Is the drive time exact?", a: "The calendar uses a straight-line estimate with a road factor, on the slow side. The time the client actually books is checked against Google's driving time when FieldQuo has coordinates for both ends and a key; if Google is unavailable the estimate stands, and FieldQuo says “about” when that is all it has." },
     ],
   },
 

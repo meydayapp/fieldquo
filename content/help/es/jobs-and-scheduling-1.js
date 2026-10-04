@@ -538,7 +538,7 @@ export const ARTICLES = {
         id: "travel-check",
         heading: "La verificación de trayecto",
         blocks: [
-          { p: "Con **No ofrezcas horarios a los que no puedas llegar en auto** activado, un cliente que escribe una dirección ve solo los horarios a los que usted podría llegar desde su cita anterior: el fin de la cita anterior, más el trayecto, más el margen, deben caber antes de que empiece el horario. El trayecto es el tiempo de conducción de Google cuando FieldQuo tiene las coordenadas de ambos extremos y una clave, y una estimación en línea recta si no." },
+          { p: "Con **No ofrezcas horarios a los que no puedas llegar en auto** activado, un cliente que escribe una dirección ve solo los horarios a los que usted podría llegar desde su cita anterior: el fin de la cita anterior, más el trayecto, más el margen, deben caber antes de que empiece el horario. Mientras el cliente recorre el calendario, el trayecto es una estimación deliberadamente lenta — la línea recta por un factor de carretera, a 32 km/h — para que un horario justo se oculte en lugar de ofrecerse. Cuando el cliente pulsa el botón para reservar, FieldQuo comprueba ese horario con el tiempo de conducción real de Google, de ida y de salida. Si Google dice que no llega, la reserva no se hace: el cliente lee por qué, y el siguiente horario al que usted puede llegar queda seleccionado para que lo confirme. Nunca se reserva un horario al que usted no puede llegar." },
           { steps: [
             "Abra **Configuración → Página de reservas** y asegúrese de que **Ir a su domicilio** esté seleccionado.",
             "Active **No ofrezcas horarios a los que no puedas llegar en auto**. Está activado mientras usted no lo apague.",
@@ -594,7 +594,7 @@ export const ARTICLES = {
     faq: [
       { q: "¿Por qué no se ofrece un horario que sé que está libre?", a: "Normalmente la verificación de trayecto: desde el fin de la cita anterior, el trayecto más el margen no caben antes de ese horario. O el trabajo anterior termina tarde en el calendario, o el margen es generoso. Apagar la verificación muestra cada horario libre." },
       { q: "¿La ventana cambia mi calendario?", a: "No. Su calendario conserva la hora exacta; solo la confirmación y la página de gestión del cliente muestran la ventana." },
-      { q: "¿El tiempo de trayecto es exacto?", a: "Con coordenadas en ambos extremos y Google disponible, es el tiempo de conducción de Google. Si no, es una estimación en línea recta con un factor de carretera, y FieldQuo dice “about” cuando eso es todo lo que tiene." },
+      { q: "¿El tiempo de trayecto es exacto?", a: "El calendario usa una estimación en línea recta con un factor de carretera, del lado prudente. El horario que el cliente realmente reserva se comprueba con el tiempo de conducción de Google cuando FieldQuo tiene las coordenadas de ambos extremos y una clave; si Google no está disponible, la estimación se mantiene, y FieldQuo dice “about” cuando eso es todo lo que tiene." },
     ],
   },
 
