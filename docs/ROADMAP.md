@@ -4,6 +4,7 @@ Last updated: 3 October 2026 (audit loose ends: /platform revenue is written per
 Last updated: 3 October 2026 (everyone has a clock, crew get no accordion — the owner: "everyone should have a clock even the boss … for crews i don't think we need the accordion". The Time clock is the FIRST tab on every phone bar, owners/admins included, each bar keeping its size: owner Clock · Leads · Quotes · Jobs · Chat · More (Invoices → More), estimator Clock · Quotes · Calendar · Chat · More (Leads → More), dispatcher/manager Clock · Schedule · Team · Chat · More (Jobs → More), crew unchanged Clock · Today · Chat · More; someone switched to "No access" gets the old bar back. The desktop rail pins the clock under Home for owners and admins too (owners stay off payroll unless "Pay me through payroll"). Crew from `lg` up get no rail: CrewShell.js — a slim header (company logo + name, their name, bell, Sign out), one big Clock in / Clock out button (green/red/brown, white text 5.5–7.1:1, opens /app/clock), then big buttons Today · My schedule · Chat · Jobs · More; the phone drawer is gone for crew too, and every row it held is on /app/me/more under "Everything else". PATCH /api/time-entries/[id] now refuses a crew member's own times with a pointer to Time log › Request a correction; estimators, supervisors and owners unchanged. The swap choices are reasoned from the screens, not from counts — the per-role page counts in AnalyticsEvent (memberId × viewport) were not read; if they disagree it is one line per set in lib/nav/phoneBar.js — scripts/check-rbac-nav.mjs, check-rbac-redaction.mjs C6b)
 
 Last updated: 3 October 2026 (phone usage at cost × 2 — the owner's rule. Every crew text and every business-number text and call is charged its FLOOR at once (2¢/segment, 5¢/photo, 5¢/call-minute — lib/phoneUsage/pricing.js now owns these; crew and business-number meters re-export them) and queued (PhoneUsageCharge); the hourly /api/cron/business-numbers reads Twilio's price off the message / call (all legs) and debits the difference to max(floor, price × 2) under `<ref>:settle`, once. Each settled price is an observation per class (sms/mms in/out per CA/US/INTL, call_forward, call_bridge); a new unit price seen 5× in a class that already had one is a change → PlatformErrorLog "twilio_price_change", and if it RAISES what companies pay, a PhonePriceChange → an owners/admins-only banner (our new price + date, never the carrier/cost/multiple; not demos, not crew; dismissed per user). /platform/costs shows "Phone costs vs what we charge" with anything under 2× in red. Companies never see the multiple: Settings → Business number, the crew-rate lines and the help articles say only our minimum prices ("Texts from 2¢ each, photos from 5¢, calls from 5¢ a minute. Some carriers are priced higher."), and check:phone-usage scans every catalogue, help module and those screens for ×2 / cost / Twilio / markup / double; "× 2" appears only on /platform. Tables applied by SQL: PhoneUsageCharge, PhoneCostTier, PhonePriceChange — scripts/check-phone-usage.mjs)
+Last updated: 3 October 2026 (leave earned from hours worked: a fourth accrual method, “Earned per hour worked” — X hours per Y hours worked, optional yearly cap, a stated day length — on approved time entries of every work activity; cited presets only (Ontario ESA 4%/6%, California LC §246, Washington RCW 49.46.210, Colorado HFWA, New York LL §196-b), each labelled “check with your local rules”; rate changes apply from the day saved; hours worked since 1 January before FieldQuo, plus leave already taken (paid and unpaid), entered per person as an append-only opening balance with who/when; per-person rates from a date; balances with earned / taken / left and “How it's calculated” on Time off, for the person and on the Team tab. Schema additive, NOT yet applied — SQL in the section below.)
 Last updated: 3 October 2026 (researched market defaults for the exterior door / window frame / trim boards / shutters, a stain-finish add-on on cabinet refinishing, cabinets COUNTED for a painter without the cabinet trade, Siding & trim and Trim boards exclusive per area, drywall repairs as fixed-price items from the now-live repair book, "Wall area" on the legacy room box, and ceilings by area on the instant room picker — see "Researched defaults, counted cabinets, trim once, drywall repairs, wall area" below)
 
 Last updated: 3 October 2026 (Bring your number — Settings → Business number. Twilio Lookup classifies the number; a landline/toll-free gets Hosted SMS (texts move, calls stay; Twilio's ownership call + emailed LOA; numbers v2 HostedNumber/Orders), a cell or VoIP line is PORTED (Twilio refuses to host VoIP). US ports go through Twilio's Port In API (bill uploaded as a document, LOA e-signed via Twilio, nothing secret stored); Canadian ports have no API — FieldQuo files them on Twilio's international form from /platform/business-numbers (superadmin, audited; PortFiling log; the PIN/account/bill sealed with PORT_SECRETS_KEY and purged at the end). Status syncs hourly (/api/cron/business-numbers) and on view; a number goes `active` only after it is wired (SMS → /api/sms/inbound, voice → /api/business-number/voice) and becomes Company.smsFromNumber. Texts on it file through the existing inbox, link to client/lead/job by phone, and a stranger becomes a lead by the social-leads rules; calls ring up to three phones (caller ID passed through), then the existing receptionist number or voicemail, each filed as a `call` line on the conversation; the Call button (leads, clients, jobs, the inbox header) rings the member then the client from the business number. Costs from the phone balance: $4/mo, 2¢/text, 5¢/photo, 5¢/call-minute (the last one NEW and unconfirmed — BUSINESS_CALL_CENTS_PER_MINUTE). The client inbox now draws bubbles (ours navy, contrast measured), a linked-record chip on the list, and a voicemail player. OWNER TO DO: PORT_SECRETS_KEY in Vercel; Hosted SMS + Port In enabled on the Twilio account; A2P 10DLC brand/campaign before any US number texts US phones — scripts/check-bring-your-number.mjs)
@@ -98,6 +99,110 @@ A read-only audit against origin/main found ten loose ends; each is its own comm
 
 - `/platform/voice-economics`, `/platform/ai-billing` and `/platform/costs` still print a bare "$" (FieldQuo's own costs and voice/AI top-ups) — not revenue/MRR, so outside this decision; worth confirming which currency each is in.
 - The sales funnel's firstPayment benchmark (First Page Sage, 48.8%) is for card-required trials; FieldQuo's trial is card-free, so it is now labelled as a ceiling on the console, not replaced.
+## Leave earned from hours worked, and hours before FieldQuo (3 October 2026)
+
+The owner: "we should be calculating the time earned for vacation and sick
+leave as that is based on time worked.. and an ability to register already
+worked hours since January 1, so that someone registering now can enter
+previous hours to better reflect employees accumulated paid leave.. and unpaid
+leave if applicable."
+
+### What existed
+
+LeavePolicy / LeaveBalance / LeaveRequest with three DAY-based methods (fixed
+days, per pay period, % of gross), unpaid policies (`paid: false`, never
+limited by a balance, never consumed — already worked end to end in the
+request form and payroll), approvals, blackouts, and a Team tab that carried
+balances in its payload but printed none of them. Nothing earned leave from
+hours, and nothing could record time before FieldQuo.
+
+### What shipped
+
+- **Earned per hour worked** (`per_hours_worked`) — `lib/leave/hourAccrual.js`
+  (pure). "X h per Y h worked", optional yearly cap, required day length
+  (person's WorkingHours win; never an invented 8). Approved TimeEntries only;
+  every work activity counts — visit, driving, office, supplies, general —
+  including a stretch the company doesn't PAY (re-derived through
+  `entryHours`, less unpaid breaks), because it was worked. Rate changes apply
+  from the day saved (`LeavePolicy.accrualRateHistory`); earlier hours keep
+  their rate, the first rate reaches back to 1 January.
+- **Cited presets only**, each "check with your local rules", none applied
+  until picked: Ontario ESA ss.33–35.2 (4% / 6% — an hours approximation of the
+  ESA's per-year time, said so), California LC §246(b)(1) (1/30, no imposed cap
+  — the 80 h / 40 h limits are employer options), Washington RCW 49.46.210
+  (1/40), Colorado HFWA C.R.S. 8-13.3-403 (1/30, 48 h/yr), New York LL §196-b
+  (1/30, 40 or 56 h/yr). The label drops the moment a number is edited.
+- **Opening balance** (`LeaveOpeningBalance`, append-only) — hours worked
+  1 Jan → a stated day, and leave already taken per policy (paid and unpaid).
+  FieldQuo entries on or before that day are left out (nothing counted twice);
+  taken days land in `LeaveBalance.openingUsedDays`, apart from approvals'
+  `usedDays`. Never a TimeEntry, never read by payroll. Owner/admin only
+  (`POST /api/leave/opening`); every version shown with who and when.
+- **Personal rate** (`LeaveAccrualOverride`, append-only) from a date — the
+  fifth-anniversary 6%; blank rate = back to the company rate.
+  `POST /api/leave/accrual-override`, owner/admin.
+- **Balances shown** — the person's own cards and the new **Team → Balances**
+  list: earned (h + days), taken in FieldQuo, taken before FieldQuo, pending,
+  left, and "How it's calculated" from `LeaveBalance.accrualBasis` (written in
+  the same upsert as the numbers). Unpaid policies show days taken, not "0
+  left". Crew see only their own (the self GET is scoped to their worker).
+- Pay runs pay an hour-policy leave day at the policy's stated day length when
+  the person has no WorkingHours (was the flat 8 fallback). A policy with a
+  personal rate on record is retired, never hard-deleted (the rate rows would
+  cascade).
+- Strings in all nine app languages; help article "Leave earned from hours
+  worked" (en/fr/es) and the Time off policies article updated (four methods).
+
+### Schema (additive, NOT applied — run by hand; the live diff's Community DROPs are not ours)
+
+```sql
+ALTER TABLE "LeaveBalance" ADD COLUMN "accrualBasis" JSONB,
+ADD COLUMN "accruedHours" DECIMAL(10,2) NOT NULL DEFAULT 0,
+ADD COLUMN "openingUsedDays" DECIMAL(8,2) NOT NULL DEFAULT 0;
+ALTER TABLE "LeavePolicy" ADD COLUMN "accrualHoursEarned" DECIMAL(8,4),
+ADD COLUMN "accrualPerHoursWorked" DECIMAL(8,2),
+ADD COLUMN "accrualPreset" TEXT,
+ADD COLUMN "accrualRateHistory" JSONB,
+ADD COLUMN "accrualYearlyCapHours" DECIMAL(8,2),
+ADD COLUMN "hoursPerDay" DECIMAL(5,2);
+CREATE TABLE "LeaveOpeningBalance" ("id" TEXT NOT NULL, "companyId" TEXT NOT NULL, "workerId" TEXT NOT NULL, "year" INTEGER NOT NULL, "hoursWorked" DECIMAL(8,2) NOT NULL DEFAULT 0, "throughDate" TIMESTAMP(3) NOT NULL, "taken" JSONB, "note" TEXT, "enteredById" TEXT NOT NULL, "enteredByName" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "LeaveOpeningBalance_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "LeaveAccrualOverride" ("id" TEXT NOT NULL, "companyId" TEXT NOT NULL, "workerId" TEXT NOT NULL, "policyId" TEXT NOT NULL, "effectiveFrom" TIMESTAMP(3) NOT NULL, "hoursEarned" DECIMAL(8,4), "perHoursWorked" DECIMAL(8,2), "note" TEXT, "enteredById" TEXT NOT NULL, "enteredByName" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "LeaveAccrualOverride_pkey" PRIMARY KEY ("id"));
+CREATE INDEX "LeaveOpeningBalance_workerId_year_createdAt_idx" ON "LeaveOpeningBalance"("workerId", "year", "createdAt");
+CREATE INDEX "LeaveOpeningBalance_companyId_year_idx" ON "LeaveOpeningBalance"("companyId", "year");
+CREATE INDEX "LeaveAccrualOverride_workerId_policyId_effectiveFrom_idx" ON "LeaveAccrualOverride"("workerId", "policyId", "effectiveFrom");
+CREATE INDEX "LeaveAccrualOverride_companyId_idx" ON "LeaveAccrualOverride"("companyId");
+ALTER TABLE "LeaveOpeningBalance" ADD CONSTRAINT "LeaveOpeningBalance_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "LeaveOpeningBalance" ADD CONSTRAINT "LeaveOpeningBalance_workerId_fkey" FOREIGN KEY ("workerId") REFERENCES "Worker"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "LeaveAccrualOverride" ADD CONSTRAINT "LeaveAccrualOverride_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "LeaveAccrualOverride" ADD CONSTRAINT "LeaveAccrualOverride_workerId_fkey" FOREIGN KEY ("workerId") REFERENCES "Worker"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "LeaveAccrualOverride" ADD CONSTRAINT "LeaveAccrualOverride_policyId_fkey" FOREIGN KEY ("policyId") REFERENCES "LeavePolicy"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+```
+
+The GET /api/leave and refreshAccruals read the new columns/tables, so this
+SQL must be applied BEFORE the code deploys, or the Time off screen 500s.
+
+### Checks
+
+`check:leave-hour-accrual` (new, 193 assertions; mutation-tested — seven
+planted bugs each caught), plus check:leave-templates, check-leave-escalation,
+check:hr, check:timesheet-approval, check:time-activities, check:payroll-*,
+check:shift-notify, check:interconnections (graph regenerated), i18n checks,
+check:help-centre, check:undef, check:route-callers, check:ungated-routes,
+check:impersonation.
+
+### Owed — owner decisions
+
+- Year boundaries are UTC calendar years (as the rest of leave). Statutes often
+  allow an employer-chosen 12-month year (hire anniversary); not modelled.
+- Balances refresh on Time off load at most every 6 h (existing rule) and at
+  once on any policy / opening / personal-rate save — not on timesheet
+  approval. Say if approval should force it.
+- Carryover caps stay in DAYS (existing column); Washington's 40-hour
+  carryover is in the preset note, not enforced in hours.
+- Contractors accrue like employees (existing behaviour for every method);
+  `Worker.type` is not consulted. Say if contractors should be excluded.
+
+---
 
 ## Privacy policy: the Google user data section (3 October 2026)
 
