@@ -2,7 +2,8 @@
 //
 // Partie 3 de la catégorie « jobs-and-scheduling » en français (voir le
 // composeur, jobs-and-scheduling.js). Slugs de cette partie (lib/help/tree.js) :
-// timesheets-and-approving-hours, time-off-requests, safety-incidents,
+// timesheets-and-approving-hours, time-correction-requests,
+// time-off-requests, safety-incidents,
 // job-costing, materials-on-a-job, cancel-or-archive-a-job,
 // when-a-job-is-completed, a-chat-room-for-every-job,
 // supervisor-required-visits.
@@ -18,7 +19,7 @@ export const ARTICLES = {
     title: "Feuilles de temps : réviser et approuver les heures",
     summary:
       "L'écran où le bureau révise chaque pointage, voit où était le téléphone à ce moment-là, approuve les heures qu'une paie peut utiliser et enregistre un pointage oublié.",
-    updated: "2026-09-13",
+    updated: "2026-10-03",
     intro: [
       "L'équipe pointe l'entrée et la sortie sur la **Pointeuse**; le bureau révise le résultat sur **Feuilles de temps**. Rien n'atteint une paie tant que quelqu'un n'a pas appuyé sur **Approuver**, et rien sur cet écran n'est caché à la personne qui a fait les heures — l'entrée qu'elle voit sur son téléphone est la ligne que vous voyez ici.",
       "Cet article décrit ce que montre chaque ligne, ce que les puces de position veulent dire et ne veulent pas dire, comment ajouter un pointage oublié, et qui a le droit d'approuver, de modifier ou de supprimer une entrée.",
@@ -46,6 +47,7 @@ export const ARTICLES = {
         blocks: [
           { bullets: [
             "**Ajouter une entrée**, en haut à droite — ouvre le formulaire **Nouvelle entrée de temps**. Il n'apparaît qu'une fois qu'au moins un intervenant existe; sinon la page dit **Ajoutez d'abord un intervenant sous Intervenants, puis enregistrez ses heures ici.**",
+            "**Demandes de correction (2)**, au-dessus de la liste et seulement quand une demande attend — un équipier qui demande qu'une de ses entrées soit changée : ce qu'elle dit **Actuellement :**, ce qu'il a **Demandé :**, **Pourquoi :**, puis **Approuver** / **Refuser**. Voir [[time-correction-requests|Demandes de correction]].",
             "Chaque ligne : le nom de l'intervenant, la date, puis soit les heures (**7.5h**), soit **En cours**.",
             "Deux puces sous le nom : **Entrée · Sur place**, **Entrée · à 2,1 km** ou **Entrée · —**, et la même chose pour **Sortie** une fois la sortie pointée.",
             "À droite : **Pointer la sortie** sur une ligne encore ouverte, **Approuver** sur une ligne en attente avec des heures, le mot de statut sur tout le reste, et un ✕ pour supprimer une ligne pas encore approuvée.",
@@ -66,7 +68,7 @@ export const ARTICLES = {
             "Une ligne encore **En cours** ne peut pas être approuvée. Appuyez d'abord sur **Pointer la sortie** (l'heure de fin est maintenant), ou attendez que la personne pointe elle-même sa sortie.",
           ] },
           { note: "Approuver ses propres heures est permis — un travailleur autonome n'a personne d'autre à qui demander — mais c'est nommé : la ligne dit **· auto-approuvé**, la paie le dit aussi, et le [[the-activity-log|journal d'activité]] l'enregistre comme une action distincte." },
-          { warning: "Une entrée approuvée est fermée. Seuls un propriétaire, un administrateur, un Dispatcher ou un Manager peuvent la modifier ou la rouvrir, parce que ces heures sont peut-être déjà sur un bulletin de paie. Un équipier qui corrige ses propres heures — la sortie oubliée est le cas classique — renvoie l'entrée à « pending » pour qu'elle soit regardée de nouveau." },
+          { warning: "Une entrée approuvée est fermée. Seuls un propriétaire, un administrateur, un Dispatcher ou un Manager peuvent la modifier ou la rouvrir, parce que ces heures sont peut-être déjà sur un bulletin de paie. Un équipier ne modifie pas une entrée lui-même : il envoie une demande de correction depuis son **Journal** — la sortie oubliée est le cas classique — et l'entrée reste telle quelle jusqu'à ce que quelqu'un approuve la demande ici." },
         ],
       },
       {
@@ -114,6 +116,109 @@ export const ARTICLES = {
       { q: "Une ligne signalée empêche-t-elle la personne d'être payée?", a: "Non. La puce ne change rien par elle-même; les heures atteignent la paie seulement quand vous les approuvez, signalées ou non." },
       { q: "Puis-je voir sur quel chantier les heures ont été faites?", a: "Pas dans cette liste — elle montre l'intervenant, la date et les heures. Le chantier apparaît sur l'entrée de la Pointeuse de la personne et dans le volet de coûts du chantier une fois les heures approuvées." },
       { q: "D'où vient le taux horaire?", a: "De la fiche de l'intervenant sous Paramètres → Travailleurs. Un intervenant sans taux voit quand même ses heures approuvées comptées, mais elles n'ajoutent aucun coût de main-d'œuvre au chantier, et le volet de coûts le dit plutôt que d'afficher un chantier moins cher." },
+    ],
+  },
+
+  "time-correction-requests": {
+    title: "Demandes de correction : corriger des heures pointées",
+    summary:
+      "Comment un équipier demande qu'une de ses propres entrées de temps soit corrigée, comment un superviseur l'approuve ou la refuse dans les feuilles de temps, et ce que l'approbation change — et conserve.",
+    updated: "2026-10-03",
+    intro: [
+      "Personne dans l'équipe ne modifie ses propres heures directement. Dans le **Journal**, l'équipier appuie sur **Demander une correction** à côté d'une de ses entrées, indique ce qu'elle devrait dire et pourquoi, et l'entrée reste exactement telle quelle jusqu'à ce qu'une personne qui révise les feuilles de temps approuve la demande.",
+      "Cet article couvre les deux côtés : envoyer une demande depuis le téléphone, et la trancher dans **Feuilles de temps**. Rien n'est supprimé d'un côté comme de l'autre — une approbation garde la trace de ce que l'entrée disait avant.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "Vue d'ensemble",
+        blocks: [
+          { p: "Une demande donne la période au complet — un début et une fin — et, s'ils étaient faux aussi, l'activité et le chantier, avec une raison. Elle apparaît en haut de **Feuilles de temps** sous **Demandes de correction**. **Approuver** inscrit les nouvelles heures sur la même entrée; **Refuser** laisse l'entrée telle quelle. Dans les deux cas, la personne voit le résultat dans son propre Journal." },
+          { p: "Le formulaire le dit en une ligne : « Votre gestionnaire l'approuve dans les feuilles de temps. Rien ne change d'ici là, et l'original reste au dossier. »" },
+        ],
+      },
+      {
+        id: "send-a-request",
+        heading: "Comment demander une correction",
+        blocks: [
+          { steps: [
+            "Ouvrez la **Pointeuse** et passez à l'onglet **Journal**. Utilisez la flèche de retour (**Jour précédent**) pour revenir au jour de l'entrée.",
+            "Sous votre journée, chacune de vos entrées est listée avec son activité et ses heures. Appuyez sur **Demander une correction** à côté de celle qui est fausse.",
+            "Réglez **Début** et **Fin** — toujours les deux, dans le fuseau horaire de votre entreprise — et l'**Activité**. Pour une activité qui prend un chantier, **Quel chantier?** apparaît : **Sur le chantier** en exige un, **Route** et **Matériel** peuvent en avoir un ou **Aucun chantier**.",
+            "Sous **Pourquoi**, expliquez ce qui s'est passé, par exemple « J'ai oublié de pointer la sortie en quittant le chantier à 16 h 30. » La demande ne peut pas partir sans raison.",
+            "Appuyez sur **Envoyer la demande**. L'entrée affiche maintenant **Correction demandée**.",
+          ] },
+          { note: "Une seule demande à la fois par entrée. Une deuxième demande sur la même entrée est refusée tant que la première n'a pas été tranchée." },
+        ],
+      },
+      {
+        id: "what-your-entry-shows",
+        heading: "Ce que votre entrée affiche ensuite",
+        blocks: [
+          { table: {
+            head: ["Mention dans le Journal", "Ce que ça veut dire"],
+            rows: [
+              ["**Correction demandée**", "En attente d'une décision. L'entrée n'a pas changé."],
+              ["**Correction approuvée**", "L'entrée porte maintenant les heures, l'activité et le chantier corrigés."],
+              ["**Correction non approuvée**", "L'entrée est restée telle quelle. Si la personne qui a tranché a écrit une note, elle s'affiche sur un ordinateur quand vous placez le pointeur sur la mention. Vous pouvez envoyer une nouvelle demande."],
+              ["**Sur une facture**", "Ces heures sont déjà facturées au client, donc il n'y a pas de bouton de demande. Parlez-en à votre gestionnaire — la facture doit changer d'abord."],
+            ],
+          } },
+        ],
+      },
+      {
+        id: "when-a-request-is-refused",
+        heading: "Quand une demande est refusée",
+        blocks: [
+          { bullets: [
+            "La fin doit venir après le début, la période peut durer au plus 24 heures, et la fin ne peut pas être dans le futur.",
+            "Les corrections remontent jusqu'à 45 jours. Au-delà, c'est votre gestionnaire qui s'en occupe.",
+            "Des heures qui chevauchent une autre de vos entrées sont refusées, et le message le dit.",
+            "Une demande qui ne change rien — mêmes heures, même activité, même chantier — est refusée.",
+            "**Sur le chantier** exige un chantier; **Bureau** et **Général** n'en prennent jamais.",
+            "Des heures déjà sur une facture ne peuvent pas être corrigées par une demande.",
+          ] },
+        ],
+      },
+      {
+        id: "decide-a-request",
+        heading: "Comment approuver ou refuser une demande",
+        blocks: [
+          { p: "Les demandes en attente se trouvent au-dessus de la liste des heures dans **Feuilles de temps**, sous **Demandes de correction (2)** et la ligne « Approuver modifie l'entrée et garde ce qu'elle disait avant. Refuser la laisse telle quelle. » Quand rien n'attend, la section n'est pas affichée." },
+          { steps: [
+            "Lisez la ligne : le nom de la personne; **Actuellement :** — ce que dit l'entrée (activité, début et fin, durée, chantier); **Demandé :** — ce qu'elle voudrait qu'elle dise; et **Pourquoi :** — sa raison.",
+            "Pour lui dire quelque chose, écrivez-le dans **Note en retour (facultatif)**.",
+            "Appuyez sur **Approuver** ou **Refuser**. La demande quitte la section; après une approbation, la liste des heures en dessous affiche les nouvelles heures.",
+          ] },
+          { note: "L'approbation est vérifiée de nouveau au moment où vous appuyez. Si les heures sont entre-temps passées sur une facture, ou si les heures demandées chevauchent maintenant une autre de ses entrées, **Approuver** est refusé avec la raison — corrigez d'abord l'autre entrée, ou refusez la demande." },
+        ],
+      },
+      {
+        id: "what-approving-changes",
+        heading: "Ce que l'approbation change, et ce qu'elle garde",
+        blocks: [
+          { bullets: [
+            "C'est la même entrée qui est mise à jour — jamais remplacée ni supprimée — donc ses pauses, ses positions de pointage et son approbation y restent rattachées.",
+            "Les heures sont recalculées à partir du nouveau début et de la nouvelle fin, moins les pauses. Une activité changée prend le réglage payé ou non payé actuel de votre entreprise pour cette activité, exactement comme un nouveau pointage le ferait.",
+            "Un chantier changé déplace les heures vers le coût de revient de ce chantier.",
+            "L'entrée garde son statut. Une entrée en attente doit encore être approuvée avec **Approuver** dans la liste des heures avant qu'une paie la compte; une entrée déjà approuvée reste approuvée, avec les heures corrigées.",
+            "Ce que l'entrée disait avant est conservé avec la demande, et le [[the-activity-log|journal d'activité]] enregistre la demande et la décision — pour une approbation, avec les heures avant et après.",
+          ] },
+        ],
+      },
+      {
+        id: "who-can-decide",
+        heading: "Qui peut demander et qui peut trancher",
+        blocks: [
+          { p: "Toute personne pour qui la pointeuse est activée peut demander une correction de ses propres entrées, et seulement des siennes. Trancher revient au propriétaire, à un administrateur, ou à un **Dispatcher** ou **Manager** — le niveau superviseur — dont l'accès **Time Tracking & Timesheets** est à « View, record, edit, and delete everyone's ». Personne d'autre ne voit la section." },
+          { p: "Personne sous le propriétaire ou un administrateur ne tranche sa propre demande : un Manager qui demande de corriger ses propres heures attend un autre superviseur, un administrateur ou le propriétaire." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "J'ai oublié de pointer la sortie hier. Que faire?", a: "Pointez la sortie maintenant, puis ouvrez le Journal, revenez à hier et appuyez sur Demander une correction sur cette entrée avec l'heure à laquelle vous êtes vraiment parti. Votre gestionnaire l'approuve dans les feuilles de temps." },
+      { q: "Où voir les demandes déjà tranchées?", a: "Les feuilles de temps ne listent que celles qui attendent. Chaque décision se trouve dans le journal d'activité, et la personne voit Correction approuvée ou Correction non approuvée sur sa propre entrée." },
+      { q: "Refuser une demande supprime-t-il quelque chose?", a: "Non. L'entrée reste exactement telle quelle, et la demande est conservée comme non approuvée." },
     ],
   },
 
@@ -295,7 +400,7 @@ export const ARTICLES = {
     title: "Coût de revient : soumissionné contre réel",
     summary:
       "Ce qu'un chantier a réellement coûté — heures approuvées, reçus, sous-traitants, frais généraux — à côté de ce que vous aviez soumissionné, et la clôture qui demande si vos taux doivent changer.",
-    updated: "2026-09-12",
+    updated: "2026-10-03",
     intro: [
       "Une soumission porte un coût estimé : matériaux, heures de main-d'œuvre, une part de frais généraux, une marge visée (voir [[cost-and-margin-on-a-quote|Coût et marge sur une soumission]]). Puis le chantier a lieu. Le coût de revient, c'est l'autre moitié — ce que ça a vraiment coûté —, affichée sur la page du chantier sous **Ce que ce projet a coûté**, et comparée ligne par ligne à l'estimation quand le chantier est terminé.",
       "Rien là-dedans n'est deviné. C'est la somme de choses qui ont été enregistrées : des heures que quelqu'un a approuvées, des dépenses que quelqu'un a rattachées, le prix convenu avec un sous-traitant, les frais généraux que vous avez indiqués à FieldQuo. Quand un chiffre manque, le volet le dit plutôt que d'afficher un chantier moins cher.",
@@ -316,7 +421,7 @@ export const ARTICLES = {
           { table: {
             head: ["Ligne", "D'où ça vient", "Règle"],
             rows: [
-              ["**Main-d'œuvre**", "Les entrées de temps approuvées sur ce chantier × le taux horaire du travailleur (Paramètres → Travailleurs).", "Les heures en attente sont montrées mais pas chiffrées. Un travailleur sans taux ajoute des heures et aucun montant, et le volet dit combien d'heures sont sans taux."],
+              ["**Main-d'œuvre**", "Les entrées de temps approuvées sur ce chantier × le taux horaire du travailleur (Paramètres → Travailleurs) — le temps de **Route** et de **Matériel** lié au chantier compris, même si seul le temps **Sur le chantier** est proposé comme main-d'œuvre sur la facture du client.", "Les heures en attente sont montrées mais pas chiffrées. Un travailleur sans taux ajoute des heures et aucun montant, et le volet dit combien d'heures sont sans taux."],
               ["**Dépenses**", "Les dépenses rattachées à ce chantier dans le [[expense-tracking-and-burn-rate|suivi des dépenses]], par catégorie.", "Les paiements aux sous-traitants sont ignorés ici pour ne pas être comptés deux fois."],
               ["**Sous-traitants**", "Le montant convenu avec chaque sous-traitant du chantier (convenu, terminé ou payé).", "Une offre soumissionnée mais non convenue s'affiche comme **+{amount} soumissionné, non convenu** et reste hors du total."],
               ["**Frais généraux**", "Votre coût par chantier venant de [[overhead-and-your-minimum-price|Paramètres → Frais généraux]].", "Absent, pas zéro, tant que vous n'avez pas rempli cet écran — un chantier ne peut pas être chiffré contre des frais généraux que personne n'a indiqués."],

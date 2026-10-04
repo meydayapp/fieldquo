@@ -636,7 +636,7 @@ export const ARTICLES = {
     title: "The time clock",
     summary:
       "The crew's own punch: clock in against the job they are on, switch jobs mid-day, clock out, and see today's hours — with one position captured at the tap so the timesheet can show how far from the site it was.",
-    updated: "2026-09-13",
+    updated: "2026-10-03",
     intro: [
       "**Time clock** is the one screen an hourly worker touches every shift, so it is kept spare: the date, a live clock, one big button, today's total. Every tap writes a plain time entry that goes to the manager to review on Timesheets — no pay maths happens here.",
       "Each entry can name the job it was worked on, which is what lets job costing know what a job's labour really cost. An hour with no job — travel, the yard, a morning of quoting — is a real hour and is recorded as exactly that.",
@@ -691,7 +691,8 @@ export const ARTICLES = {
           { bullets: [
             "Every entry is **pending** until a manager approves it on **Timesheets**; approved hours feed payroll.",
             "Hours on a job feed that job's costing as labour. Hours with no job are counted and named as unattributed on the costing panel rather than dropped. See [[job-costing|Job costing: quoted against actual]].",
-            "Correcting your own entry sends it back to pending so it is reviewed again.",
+            "**Driving** and **Supplies** time linked to a job counts toward that job's cost, but only **On site** time is offered as labour on the client's invoice.",
+            "You do not change an entry yourself. On the **Time log**, **Request a correction** sends the fix to your manager, and the entry stays as it is until they approve it — see [[time-correction-requests|Correction requests]].",
           ] },
         ],
       },
@@ -700,13 +701,14 @@ export const ARTICLES = {
         heading: "Who can use it",
         blocks: [
           { p: "Anyone with a worker record, at every access level — the clock is scoped to the signed-in person and nobody can punch for somebody else. Without a worker record the screen says “You're not set up as a worker yet. Ask an admin to add you under Team.”" },
+          { p: "An owner or administrator can switch the clock off for one person. It then leaves that person's menu and the clock refuses them — see [[switch-the-clock-off-for-someone|Switch the time clock off for one person]]." },
         ],
       },
     ],
     faq: [
       { q: "Do I need the app?", a: "No. The time clock is a web page that works on whatever phone you have. See [[clock-in-and-out-on-your-phone|Clock in and out on your phone]]." },
       { q: "Does FieldQuo track where I am during the day?", a: "No. It asks for one position at the moment you tap, if you allow it, and nothing in between." },
-      { q: "I forgot to clock out yesterday.", a: "The entry is still open. Clock out now, then tell your manager — the hours are corrected on Timesheets before they are approved." },
+      { q: "I forgot to clock out yesterday.", a: "The entry is still open. Clock out now, then open the Time log, go back to yesterday and press Request a correction with the time you really left. Your manager approves it on Timesheets." },
     ],
   },
 };

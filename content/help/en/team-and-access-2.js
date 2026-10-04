@@ -193,7 +193,7 @@ export const ARTICLES = {
     title: "Payroll runs",
     summary:
       "How approved hours and saved rates become a pay run with payslips — Calculate, save as draft, approve, record as paid — and the one thing FieldQuo deliberately does not do: move the money.",
-    updated: "2026-09-12",
+    updated: "2026-10-03",
     intro: [
       "The **Payroll** screen works out what each person should be paid for a period, from the hours a manager approved on Timesheets and the rates saved on their record, and produces a payslip per person. The sentence at the top of the screen is the whole contract: “You pay through your own bank or payroll provider — FieldQuo doesn't move the money.”",
       "The feature matrix marks payroll as partial, and the limit is exactly that: FieldQuo works out gross pay and produces the payslips. It does not pay employees or file your payroll taxes — deductions are the ones you or your accountant supply on [[payroll-settings|Payroll settings]].",
@@ -247,6 +247,7 @@ export const ARTICLES = {
             "**A salary** divided over the period when one is saved for the person instead of an hourly rate.",
             "**Approved paid leave** as a named earning line (“Vacation — 5 days”), priced from that person's own working day, so a week off is not a week of zero hours.",
             "**Deductions and allowances** from Payroll settings, applied to everyone. Without any, the run is gross-only and says so.",
+            "**The owner only if they ask.** An owner's own hours are left out of pay runs unless the owner ticks **Pay me through payroll** on the **Your own rate** card on Manage Team. The preview names who it left out (“Not on payroll, so not in this run: …”), and those clocked hours still cost the owner's jobs at that rate.",
           ] },
         ],
       },

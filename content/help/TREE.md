@@ -90,7 +90,7 @@ callbacks, the crew inbox, team chat, How You Compare, the KPI dashboard,
 
 <!-- tree:start -->
 
-_Generated 2026-10-03 — 338 articles in the tree; written: en 338, fr 338, es 338; “Only in FieldQuo”: 34._
+_Generated 2026-10-04 — 340 articles in the tree; written: en 340, fr 340, es 340; “Only in FieldQuo”: 34._
 
 ### getting-started (23)
 
@@ -165,7 +165,7 @@ _Generated 2026-10-03 — 338 articles in the tree; written: en 338, fr 338, es 
 | `scope-of-work-and-terms` — Scope of work and payment terms on every quote | ✓ | ✓ | ✓ | settings-company | contract_terms |  |
 | `the-large-quote-alert` — The large-quote alert | ✓ | ✓ | ✓ | settings-notifications |  |  |
 
-### jobs-and-scheduling (31)
+### jobs-and-scheduling (32)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -190,6 +190,7 @@ _Generated 2026-10-03 — 338 articles in the tree; written: en 338, fr 338, es 
 | `the-team-schedule` — The Team Schedule | ✓ | ✓ | ✓ | team-schedule | scheduling |  |
 | `the-time-clock` — The time clock | ✓ | ✓ | ✓ | clock | time_clock |  |
 | `timesheets-and-approving-hours` — Timesheets: review and approve hours | ✓ | ✓ | ✓ | timesheets | timesheets |  |
+| `time-correction-requests` — Correction requests: fixing clocked hours | ✓ | ✓ | ✓ |  | timesheets |  |
 | `daily-sheets` — Daily sheets and performance pay | ✓ | ✓ | ✓ | daily-sheets |  |  |
 | `time-off-requests` — Time off requests | ✓ | ✓ | ✓ | time-off | time_off |  |
 | `safety-incidents` — Safety incidents and near-misses | ✓ | ✓ | ✓ | safety | proof | ✓ |
@@ -253,7 +254,7 @@ _Generated 2026-10-03 — 338 articles in the tree; written: en 338, fr 338, es 
 | `referrals-from-clients` — Referrals from clients | ✓ | ✓ | ✓ |  |  |  |
 | `duplicate-clients` — Duplicate clients | ✓ | ✓ | ✓ |  | clients |  |
 
-### team-and-access (26)
+### team-and-access (27)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -266,6 +267,7 @@ _Generated 2026-10-03 — 338 articles in the tree; written: en 338, fr 338, es 
 | `role-manager` — The Manager level | ✓ | ✓ | ✓ |  | team_access |  |
 | `administrators` — Administrators | ✓ | ✓ | ✓ |  | team_access |  |
 | `the-custom-access-editor` — The Custom access editor | ✓ | ✓ | ✓ |  | team_access |  |
+| `switch-the-clock-off-for-someone` — Switch the time clock off for one person | ✓ | ✓ | ✓ |  | time_clock |  |
 | `seats-and-crew-logins` — Seats and crew logins | ✓ | ✓ | ✓ |  | team_access |  |
 | `deactivate-a-team-member` — Deactivate a team member | ✓ | ✓ | ✓ |  | team_access |  |
 | `working-hours-and-bookable-hours` — Working hours and bookable hours | ✓ | ✓ | ✓ | settings-availability | booking_page |  |

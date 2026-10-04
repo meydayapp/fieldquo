@@ -2,7 +2,8 @@
 //
 // Parte 3 de la categoría «jobs-and-scheduling» en español (ver el compositor,
 // jobs-and-scheduling.js). Slugs de esta parte (lib/help/tree.js):
-// timesheets-and-approving-hours, time-off-requests, safety-incidents,
+// timesheets-and-approving-hours, time-correction-requests,
+// time-off-requests, safety-incidents,
 // job-costing, materials-on-a-job, cancel-or-archive-a-job,
 // when-a-job-is-completed, a-chat-room-for-every-job,
 // supervisor-required-visits.
@@ -19,7 +20,7 @@ export const ARTICLES = {
     title: "Hojas de horas: revisar y aprobar horas",
     summary:
       "La pantalla donde la oficina revisa cada fichaje, ve dónde estaba el teléfono en ese momento, aprueba las horas que una nómina puede usar y registra un fichaje que alguien olvidó.",
-    updated: "2026-09-13",
+    updated: "2026-10-03",
     intro: [
       "La cuadrilla marca entrada y salida en el **Reloj de tiempo**; la oficina revisa el resultado en **Hojas de horas**. Nada llega a una nómina hasta que alguien presiona **Aprobar**, y nada en esta pantalla se le oculta a la persona que trabajó las horas: el registro que ve en su teléfono es la fila que usted ve aquí.",
       "Este artículo explica qué muestra cada fila, qué significan y qué no significan las etiquetas de posición, cómo agregar un fichaje olvidado y quién puede aprobar, editar o eliminar un registro.",
@@ -47,6 +48,7 @@ export const ARTICLES = {
         blocks: [
           { bullets: [
             "**Agregar entrada**, arriba a la derecha: abre el formulario **Nueva entrada de tiempo**. Solo aparece cuando existe al menos un trabajador; si no, la página dice **Agrega primero un trabajador en Trabajadores, luego registra sus horas aquí.**",
+            "**Solicitudes de corrección (2)**, encima de la lista y solo mientras alguna espera — un miembro de la cuadrilla que pide cambiar uno de sus registros: lo que dice el registro (**Ahora:**), lo que se pide (**Pedido:**), el motivo (**Por qué:**), y **Aprobar** / **Rechazar**. Vea [[time-correction-requests|Solicitudes de corrección]].",
             "Cada fila: el nombre del trabajador, la fecha, y las horas (**7.5h**) o **En curso**.",
             "Dos etiquetas bajo el nombre: **Entrada · En el sitio**, **Entrada · a 2,1 km** o **Entrada · —**, y lo mismo para **Salida** una vez marcada la salida.",
             "A la derecha: **Registrar salida** en una fila todavía abierta, **Aprobar** en una fila pendiente con horas, la palabra de estado en todo lo demás, y una ✕ para eliminar una fila aún no aprobada.",
@@ -67,7 +69,7 @@ export const ARTICLES = {
             "Una fila todavía **En curso** no se puede aprobar. Presione primero **Registrar salida** (la hora de fin es ahora) o espere a que la persona marque su salida.",
           ] },
           { note: "Aprobar sus propias horas está permitido — quien trabaja solo no tiene a nadie más a quien pedírselo —, pero queda señalado: la fila dice **· autoaprobado**, la nómina lo dice, y el [[the-activity-log|registro de actividad]] lo guarda como una acción aparte." },
-          { warning: "Un registro aprobado queda cerrado. Solo un propietario, un administrador, un Dispatcher o un Manager pueden cambiarlo o reabrirlo, porque esas horas pueden estar ya en un recibo de pago. Un miembro de la cuadrilla que corrige sus propias horas — la salida olvidada es el caso típico — devuelve el registro a «pending» para que se revise de nuevo." },
+          { warning: "Un registro aprobado queda cerrado. Solo un propietario, un administrador, un Dispatcher o un Manager pueden cambiarlo o reabrirlo, porque esas horas pueden estar ya en un recibo de pago. Un miembro de la cuadrilla no cambia un registro por su cuenta: envía una solicitud de corrección desde su **Registro** — la salida olvidada es el caso típico — y el registro queda como está hasta que alguien aprueba la solicitud aquí." },
         ],
       },
       {
@@ -115,6 +117,109 @@ export const ARTICLES = {
       { q: "¿Una fila marcada impide que la persona cobre?", a: "No. La etiqueta no cambia nada por sí sola; las horas llegan a la nómina solo cuando usted las aprueba, marcadas o no." },
       { q: "¿Puedo ver en qué trabajo se hicieron las horas?", a: "En esta lista no: muestra el trabajador, la fecha y las horas. El trabajo aparece en el registro del Reloj de tiempo de la persona y en el panel de costos del trabajo una vez aprobadas las horas." },
       { q: "¿De dónde sale la tarifa por hora?", a: "De la ficha del trabajador en Configuración → Trabajadores. Un trabajador sin tarifa sigue con sus horas aprobadas contadas, pero no suma costo de mano de obra al trabajo, y el panel de costos lo dice en lugar de mostrar un trabajo más barato." },
+    ],
+  },
+
+  "time-correction-requests": {
+    title: "Solicitudes de corrección: arreglar horas registradas",
+    summary:
+      "Cómo un miembro de la cuadrilla pide corregir uno de sus propios registros de tiempo, cómo un supervisor la aprueba o la rechaza en Hojas de horas, y qué cambia —y qué se conserva— al aprobarla.",
+    updated: "2026-10-03",
+    intro: [
+      "Nadie de la cuadrilla cambia sus propias horas directamente. En el **Registro** presiona **Pedir una corrección** junto a uno de sus registros, indica lo que debería decir y por qué, y el registro queda exactamente como estaba hasta que alguien que revisa las hojas de horas aprueba la solicitud.",
+      "Este artículo cubre los dos lados: enviar una solicitud desde el teléfono y decidirla en **Hojas de horas**. Nada se elimina en ninguno de los dos — una aprobación guarda constancia de lo que el registro decía antes.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "Resumen",
+        blocks: [
+          { p: "Una solicitud indica el tramo completo — un inicio y un fin — y, si también estaban mal, la actividad y el trabajo, junto con un motivo. Aparece arriba en **Hojas de horas**, bajo **Solicitudes de corrección**. **Aprobar** escribe las nuevas horas en el mismo registro; **Rechazar** deja el registro como está. En ambos casos, la persona ve el resultado en su propio Registro." },
+          { p: "El formulario lo dice en una línea: «Tu gerente la aprueba en las hojas de horas. Nada cambia hasta entonces, y el original queda registrado.»" },
+        ],
+      },
+      {
+        id: "send-a-request",
+        heading: "Cómo pedir una corrección",
+        blocks: [
+          { steps: [
+            "Abra el **Reloj de tiempo** y pase a la pestaña **Registro**. Use la flecha hacia atrás (**Día anterior**) para volver al día del registro.",
+            "Bajo su día aparecen sus registros, cada uno con su actividad y sus horas. Presione **Pedir una corrección** junto al que está mal.",
+            "Fije **Inicio** y **Fin** — siempre los dos, en la zona horaria de su empresa — y la **Actividad**. Para una actividad que lleva trabajo aparece **¿Qué trabajo?**: **En obra** necesita uno; **Manejando** y **Materiales** pueden tener uno o **Ningún trabajo**.",
+            "En **Por qué**, cuente lo que pasó, por ejemplo «Olvidé registrar la salida al dejar la obra a las 4:30.» La solicitud no se puede enviar sin un motivo.",
+            "Presione **Enviar solicitud**. El registro ahora dice **Corrección pedida**.",
+          ] },
+          { note: "Una sola solicitud a la vez por registro. Una segunda solicitud sobre el mismo registro se rechaza hasta que la primera se haya decidido." },
+        ],
+      },
+      {
+        id: "what-your-entry-shows",
+        heading: "Qué muestra su registro después",
+        blocks: [
+          { table: {
+            head: ["Texto en el Registro", "Qué significa"],
+            rows: [
+              ["**Corrección pedida**", "Esperando una decisión. El registro no ha cambiado."],
+              ["**Corrección aprobada**", "El registro ahora tiene las horas, la actividad y el trabajo corregidos."],
+              ["**Corrección no aprobada**", "El registro quedó como estaba. Si quien decidió escribió una nota, se ve en una computadora al dejar el puntero sobre el texto. Puede enviar una nueva solicitud."],
+              ["**En una factura**", "Esas horas ya se le facturaron al cliente, así que no hay botón de solicitud. Hable con su gerente: primero tiene que cambiar la factura."],
+            ],
+          } },
+        ],
+      },
+      {
+        id: "when-a-request-is-refused",
+        heading: "Cuándo se rechaza una solicitud",
+        blocks: [
+          { bullets: [
+            "El fin debe ser posterior al inicio, el tramo puede durar como máximo 24 horas y el fin no puede estar en el futuro.",
+            "Las correcciones llegan hasta 45 días atrás. Lo más antiguo lo resuelve su gerente.",
+            "Unas horas que se cruzan con otro de sus registros se rechazan, y el mensaje lo dice.",
+            "Una solicitud que no cambia nada — mismas horas, misma actividad, mismo trabajo — se rechaza.",
+            "**En obra** necesita un trabajo; **Oficina** y **General** nunca llevan uno.",
+            "Las horas que ya están en una factura no se pueden corregir con una solicitud.",
+          ] },
+        ],
+      },
+      {
+        id: "decide-a-request",
+        heading: "Cómo aprobar o rechazar una solicitud",
+        blocks: [
+          { p: "Las solicitudes pendientes están encima de la lista de horas en **Hojas de horas**, bajo **Solicitudes de corrección (2)** y la línea «Aprobar cambia la entrada y guarda lo que decía antes. Rechazar la deja como está.» Cuando no hay nada esperando, la sección no se muestra." },
+          { steps: [
+            "Lea la fila: el nombre de la persona; **Ahora:** — lo que dice el registro (actividad, inicio y fin, duración, trabajo); **Pedido:** — lo que quiere que diga; y **Por qué:** — su motivo.",
+            "Si quiere decirle algo, escríbalo en **Nota de respuesta (opcional)**.",
+            "Presione **Aprobar** o **Rechazar**. La solicitud sale de la sección; después de aprobar, la lista de horas de abajo muestra las horas nuevas.",
+          ] },
+          { note: "La aprobación se vuelve a comprobar en el momento en que la presiona. Si entretanto las horas pasaron a una factura, o las horas pedidas ahora se cruzan con otro de sus registros, **Aprobar** se rechaza con el motivo: corrija primero el otro registro, o rechace la solicitud." },
+        ],
+      },
+      {
+        id: "what-approving-changes",
+        heading: "Qué cambia al aprobar, y qué se conserva",
+        blocks: [
+          { bullets: [
+            "Se actualiza el mismo registro — nunca se reemplaza ni se elimina —, así que sus descansos, sus posiciones de fichaje y su aprobación siguen unidos a él.",
+            "Las horas se calculan de nuevo con el nuevo inicio y fin, menos los descansos. Una actividad cambiada toma el ajuste actual de su empresa, pagada o no pagada, para esa actividad, igual que un fichaje nuevo.",
+            "Un trabajo cambiado mueve las horas al costeo de ese trabajo.",
+            "El registro conserva su estado. Un registro pendiente todavía necesita **Aprobar** en la lista de horas antes de que una nómina lo cuente; un registro ya aprobado sigue aprobado, con las horas corregidas.",
+            "Lo que el registro decía antes se guarda con la solicitud, y el [[the-activity-log|registro de actividad]] anota la solicitud y la decisión — en una aprobación, con las horas de antes y de después.",
+          ] },
+        ],
+      },
+      {
+        id: "who-can-decide",
+        heading: "Quién puede pedir y quién puede decidir",
+        blocks: [
+          { p: "Cualquier persona que tenga el reloj activado puede pedir una corrección de sus propios registros, y solo de los suyos. Decidir les corresponde al propietario, a un administrador, o a un **Dispatcher** o **Manager** — el nivel de supervisor — cuyo acceso **Time Tracking & Timesheets** esté en «View, record, edit, and delete everyone's». Nadie más ve la sección." },
+          { p: "Nadie por debajo del propietario o de un administrador decide su propia solicitud: un Manager que pide corregir sus propias horas espera a otro supervisor, a un administrador o al propietario." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "Ayer olvidé registrar la salida. ¿Qué hago?", a: "Registre la salida ahora, luego abra el Registro, vuelva a ayer y presione Pedir una corrección en ese registro con la hora en que de verdad se fue. Su gerente la aprueba en Hojas de horas." },
+      { q: "¿Dónde veo las solicitudes ya decididas?", a: "Hojas de horas lista solo las que esperan. Cada decisión está en el registro de actividad, y la persona ve Corrección aprobada o Corrección no aprobada en su propio registro." },
+      { q: "¿Rechazar una solicitud elimina algo?", a: "No. El registro queda exactamente como estaba, y la solicitud se guarda como no aprobada." },
     ],
   },
 
@@ -296,7 +401,7 @@ export const ARTICLES = {
     title: "Costeo del trabajo: presupuestado contra real",
     summary:
       "Lo que un trabajo costó de verdad — horas aprobadas, recibos, subcontratistas, gastos generales — junto a lo que usted presupuestó, y el cierre que pregunta si sus tarifas deben cambiar.",
-    updated: "2026-09-12",
+    updated: "2026-10-03",
     intro: [
       "Un presupuesto lleva un costo estimado: materiales, horas de mano de obra, una parte de gastos generales, un margen objetivo (vea [[cost-and-margin-on-a-quote|Costo y margen en un presupuesto]]). Luego el trabajo ocurre. El costeo del trabajo es la otra mitad — lo que costó de verdad —, mostrada en la página del trabajo como **Lo que ha costado este trabajo** y comparada línea por línea con la estimación cuando el trabajo termina.",
       "Nada de esto se adivina. Es la suma de cosas que se registraron: horas que alguien aprobó, gastos que alguien asignó, el precio acordado con un subcontratista, los gastos generales que usted le indicó a FieldQuo. Donde falta un número, el panel lo dice en lugar de mostrar un trabajo más barato.",
@@ -317,7 +422,7 @@ export const ARTICLES = {
           { table: {
             head: ["Línea", "De dónde sale", "Regla"],
             rows: [
-              ["**Mano de obra**", "Los registros de tiempo aprobados en este trabajo × la tarifa por hora del trabajador (Configuración → Trabajadores).", "Las horas pendientes se muestran pero no se costean. Un trabajador sin tarifa suma horas y nada de dinero, y el panel dice cuántas horas están sin tarifa."],
+              ["**Mano de obra**", "Los registros de tiempo aprobados en este trabajo × la tarifa por hora del trabajador (Configuración → Trabajadores) — incluido el tiempo de **Manejando** y **Materiales** vinculado al trabajo, aunque solo el tiempo **En obra** se ofrece como mano de obra en la factura del cliente.", "Las horas pendientes se muestran pero no se costean. Un trabajador sin tarifa suma horas y nada de dinero, y el panel dice cuántas horas están sin tarifa."],
               ["**Gastos**", "Los gastos asignados a este trabajo en el [[expense-tracking-and-burn-rate|seguimiento de gastos]], por categoría.", "Los pagos a subcontratistas se omiten aquí para no contarlos dos veces."],
               ["**Subcontratistas**", "El monto acordado con cada subcontratista del trabajo (acordado, terminado o pagado).", "Una oferta cotizada pero no acordada se muestra como **+{amount} cotizados, no acordados** y queda fuera del total."],
               ["**Gastos generales**", "Su costo por trabajo desde [[overhead-and-your-minimum-price|Configuración → Gastos generales]].", "Ausente, no cero, hasta que llene esa pantalla: un trabajo no se puede costear contra unos gastos generales que nadie ha indicado."],

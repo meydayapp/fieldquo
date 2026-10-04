@@ -192,7 +192,7 @@ export const ARTICLES = {
     title: "Ciclos de pago",
     summary:
       "Cómo las horas aprobadas y las tarifas guardadas se convierten en una nómina con recibos de pago — Calcular, guardar como borrador, aprobar, registrar como pagada — y lo único que FieldQuo no hace a propósito: mover el dinero.",
-    updated: "2026-09-12",
+    updated: "2026-10-03",
     intro: [
       "La pantalla **Nómina** calcula lo que debe cobrar cada persona en un periodo, a partir de las horas que un encargado aprobó en Hojas de tiempo y de las tarifas guardadas en su ficha, y genera un recibo de pago por persona. La frase al inicio de la pantalla es todo el contrato: «Pagas a través de tu propio banco o proveedor de nómina: FieldQuo no mueve el dinero.»",
       "La matriz de funciones marca la nómina como parcial, y el límite es exactamente ese: FieldQuo calcula el bruto y genera los recibos. No paga a los empleados ni presenta sus impuestos de nómina — las deducciones son las que usted o su contador cargan en la [[payroll-settings|Configuración de nómina]].",
@@ -246,6 +246,7 @@ export const ARTICLES = {
             "**Un salario** dividido entre el periodo cuando hay uno guardado para la persona en lugar de una tarifa por hora.",
             "**Ausencias con goce aprobadas** como línea de ingreso con nombre («Vacaciones — 5 días»), calculada a partir de la jornada propia de esa persona, para que una semana libre no sea una semana de cero horas.",
             "**Deducciones y asignaciones** de la Configuración de nómina, aplicadas a todos. Sin ninguna, la nómina es solo bruta y lo dice.",
+            "**El propietario solo si lo pide.** Las horas del propietario quedan fuera de las nóminas a menos que marque **Pagarme por nómina** en la tarjeta **Tu propia tarifa** de Gestionar equipo. La vista previa nombra a quién dejó fuera («Fuera de nómina, así que no están en esta: …»), y esas horas registradas siguen contando en el costo de sus trabajos a esa tarifa.",
           ] },
         ],
       },

@@ -252,7 +252,7 @@ export const ARTICLES = {
     title: "El nivel Crew",
     summary:
       "Qué puede ver y hacer un acceso Crew — su propio horario, los trabajos que se le asignan, sus horas — qué no ve nunca, y por qué es gratuito.",
-    updated: "2026-09-12",
+    updated: "2026-10-03",
     intro: [
       "**Crew** es el nivel de la gente de la camioneta: instaladores, pintores, ayudantes. Es el único nivel gratuito — un acceso Crew nunca ocupa una licencia — y el único cuyos ajustes son fijos, de modo que nada se le puede agregar por accidente.",
       "La descripción del propio producto en la tarjeta del nivel, mostrada en inglés: ver su horario, los trabajos que se le asignan y qué comprar para ellos; marcar el trabajo como completado y registrar su tiempo; sin precios, presupuestos, facturas ni solicitudes.",
@@ -263,6 +263,7 @@ export const ARTICLES = {
         heading: "Resumen",
         blocks: [
           { p: "Crew pertenece al **nivel Worker**. Cuando lo elige, el editor no muestra ningún ajuste y dice en su lugar: «El acceso de la cuadrilla es fijo: su propio horario, los trabajos que se le asignan, qué comprar para esos trabajos y sus propias horas. Sin precios, presupuestos, facturas ni solicitudes. La cuadrilla no ocupa un puesto: para dar más que esto, elige otro nivel.» Esa frase es todo el contrato." },
+          { p: "Una sola cosa se puede cambiar en ese panel: la casilla **Reloj de tiempo**. Desmarcada, el reloj queda apagado solo para esa persona, que sigue en Crew y sigue siendo gratuita — vea [[switch-the-clock-off-for-someone|Apagar el reloj de tiempo para una persona]]." },
         ],
       },
       {
@@ -271,7 +272,7 @@ export const ARTICLES = {
         blocks: [
           { bullets: [
             "Ver su propio horario y marcarlo como completado (**Schedule**: View and complete their own schedule).",
-            "Fichar entrada y salida y corregir sus propias horas (**Time Tracking & Timesheets**: View, record, and edit their own). Una entrada que edita él mismo vuelve a pendiente, para que un supervisor la revise antes de que llegue a una nómina.",
+            "Fichar entrada y salida, y pedir una corrección de sus propias horas (**Time Tracking & Timesheets**: View, record, and edit their own). Una corrección no cambia nada hasta que un supervisor la aprueba en Hojas de horas — vea [[time-correction-requests|Solicitudes de corrección]].",
             "Abrir los trabajos que se le asignan — y solo esos — en solo lectura: la dirección, la visita, la lista de verificación y qué comprar (**Jobs**: View only, limitado a los suyos).",
             "Registrar sus propios gastos (**Expenses**: View, record, and edit their own).",
             "Ver sus propios recibos de pago (**Payroll & Payslips**: View their own payslips).",
@@ -550,7 +551,7 @@ export const ARTICLES = {
     title: "El editor de acceso personalizado",
     summary:
       "La cuadrícula detrás de cada nivel — once áreas, tres interruptores — cómo abrirla para una persona nueva o existente, qué hace cada ajuste, y qué tiene usted permiso para otorgar.",
-    updated: "2026-09-12",
+    updated: "2026-10-03",
     intro: [
       "Todos los niveles salvo Administrator son una cuadrícula: once áreas, cada una una escalera de menos a más acceso, y tres interruptores de encendido/apagado. Los cuatro preajustes son cuadrículas rellenas. **Personalizado** es la misma cuadrícula con sus propios ajustes.",
       "El mismo editor se usa en **Nuevo usuario** y, para alguien que ya está en el equipo, desde la entrada **Personalizado…** de su lista Rol en **Gestionar equipo** — así que lo que puede configurar al invitar también lo puede cambiar después.",
@@ -584,7 +585,7 @@ export const ARTICLES = {
             head: ["Área","Peldaño 1 (el más bajo)","Peldaño 2","Peldaño 3","Peldaño 4","Peldaño 5"],
             rows: [
               ["Schedule","View their own schedule","View and complete their own schedule","Edit their own schedule","Edit everyone's schedule","Edit and delete everyone's schedule"],
-              ["Time Tracking & Timesheets","View and record their own","View, record, and edit their own","View, record, edit, and delete everyone's","—","—"],
+              ["Time Tracking & Timesheets","No access","View and record their own","View, record, and edit their own","View, record, edit, and delete everyone's","—"],
               ["Payroll & Payslips","No access","View their own payslips","View everyone's payslips","View everyone's and run payroll","—"],
               ["Notes","View notes on jobs and visits only","View all notes","View and edit all","View, edit, and delete all","—"],
               ["Expenses","View, record, and edit their own","View, record, and edit everyone's","—","—","—"],
@@ -596,7 +597,7 @@ export const ARTICLES = {
               ["Safety Incidents","No access","Report incidents, and view their own","View everyone's incidents","View everyone's incidents and follow up on them","—"],
             ],
           } },
-          { p: "Un guion significa que la escalera termina ahí; la última celda llena es el peldaño más alto. **Requests** es la pantalla Prospectos. **Jobs** en No access retiene la ficha del trabajo, no el trabajo en sí: el horario, la lista de verificación de la visita y el reloj son áreas propias, así que un miembro de la cuadrilla sigue viendo su día. El peldaño más alto de Time Tracking es el que borra una entrada, y la escalera de la nómina empieza a propósito en «los suyos»: un empleado que ve la paga de otro es un incidente, no un ajuste." },
+          { p: "Un guion significa que la escalera termina ahí; la última celda llena es el peldaño más alto. **Requests** es la pantalla Prospectos. **Jobs** en No access retiene la ficha del trabajo, no el trabajo en sí: el horario, la lista de verificación de la visita y el reloj son áreas propias, así que un miembro de la cuadrilla sigue viendo su día. **No access** en Time Tracking apaga el reloj de tiempo para esa persona — vea [[switch-the-clock-off-for-someone|Apagar el reloj de tiempo para una persona]]. El peldaño más alto de Time Tracking es el que borra una entrada, y la escalera de la nómina empieza a propósito en «los suyos»: un empleado que ve la paga de otro es un incidente, no un ajuste." },
           { note: "El ajuste **Notes** controla las notas internas sobre personas — el registro de llamadas de un cliente potencial y las notas privadas de un cliente: leerlas en **View all notes**, escribirlas en **View and edit all notes**, borrar una nota de cliente potencial en **View, edit and delete all notes**. Por debajo, la persona ve «oculto por su nivel de acceso» en lugar de las notas. Las notas de una visita siguen siendo legibles en todos los niveles, y las notas de un presupuesto o de un gasto pertenecen a ese documento, no a este ajuste." },
         ],
       },
@@ -617,7 +618,7 @@ export const ARTICLES = {
         heading: "Qué puede otorgar",
         blocks: [
           { p: "Un propietario o un administrador ve todos los peldaños y todos los interruptores. Un Dispatcher o un Manager ve cada escalera solo hasta su propio peldaño, y solo los interruptores que él mismo tiene — un nivel que usted no tiene no es suyo para delegarlo. El servidor aplica el mismo límite al guardar, así que una cuadrícula que llegó por otro camino se recorta a la misma línea. Cambiar la cuadrícula de una persona existente es solo para el propietario y los administradores; un Dispatcher o un Manager se encuentra con este editor únicamente en Nuevo usuario." },
-          { note: "**Crew** no muestra ningún ajuste. Elegirlo bloquea la cuadrícula en el nivel gratuito; para darle a alguien más que Crew, parta de otra tarjeta o de Personalizado — y eso lo convierte en una licencia." },
+          { note: "**Crew** no muestra ningún ajuste. Elegirlo bloquea la cuadrícula en el nivel gratuito; para darle a alguien más que Crew, parta de otra tarjeta o de Personalizado — y eso lo convierte en una licencia. El único control que ofrece el panel de Crew es la casilla **Reloj de tiempo**, que solo puede quitar algo." },
         ],
       },
     ],
@@ -625,6 +626,77 @@ export const ARTICLES = {
       { q: "¿Una cuadrícula personalizada ocupa una licencia?", a: "Sí, salvo que cada ajuste esté en el nivel de Crew o por debajo y ningún interruptor esté encendido. Un solo ajuste por encima del de Crew convierte el acceso en una licencia, diga lo que diga el resto." },
       { q: "Elegí un preajuste y la insignia dice Personalizado.", a: "Se movió un ajuste después de cargar el preajuste — usted, o alguien antes. Vuelva a elegir el preajuste en la lista Rol para reemplazar toda la cuadrícula." },
       { q: "El ajuste que elegí volvió más bajo.", a: "No puede otorgar más de lo que tiene. El servidor recortó la cuadrícula a su propio peldaño en esa área; pida a un propietario o a un administrador que lo configure." },
+    ],
+  },
+
+  "switch-the-clock-off-for-someone": {
+    title: "Apagar el reloj de tiempo para una persona",
+    summary:
+      "El reloj de tiempo está encendido en todos los niveles por defecto. Cómo apagarlo para una persona, qué desaparece para ella, qué rechaza el servidor, y qué no cambia: su nivel, su licencia, sus horas anteriores y el costeo de trabajos.",
+    updated: "2026-10-03",
+    intro: [
+      "Todos los niveles — Crew, Estimator, Dispatcher, Manager — vienen con el reloj de tiempo encendido. Algunas personas no deberían fichar nunca: una gerente de oficina con salario fijo, un familiar que ayuda con las cuentas, alguien cuyas horas usted registra por él. El reloj se apaga persona por persona, en el mismo editor de acceso que todo lo demás.",
+      "Apagarlo no es cosmético. La fila del menú desaparece y el propio reloj rechaza a esa persona, así que no queda una puerta trasera para fichar.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "Resumen",
+        blocks: [
+          { p: "El reloj es el peldaño más bajo del ajuste **Time Tracking & Timesheets**: **No access**. Todos los niveles empiezan por encima, así que nada cambia para nadie hasta que usted baja a alguien a ese peldaño." },
+          { p: "Crew no tiene ajustes, así que en el panel de Crew lo mismo es una sola casilla, **Reloj de tiempo**: «Registrar entrada y salida, y su propio registro de horas. Desmárcalo para apagar el reloj para esta persona: desaparece de su menú y sus páginas la rechazan.»" },
+        ],
+      },
+      {
+        id: "switch-it-off",
+        heading: "Cómo apagarlo",
+        blocks: [
+          { steps: [
+            "Abra **Gestionar equipo**, busque a la persona y elija **Personalizado…** en su lista **Rol**. El panel **Acceso de …** se abre con el nivel que tiene ahora.",
+            "En un miembro de Crew: desmarque **Reloj de tiempo**, bajo la frase que dice que el acceso de la cuadrilla es fijo.",
+            "En cualquier otro nivel: ponga **Time Tracking & Timesheets** en **No access**.",
+            "Pulse **Guardar**. Para volver a encenderlo más adelante, marque de nuevo la casilla, o devuelva el ajuste al peldaño que tenía el nivel.",
+          ] },
+          { tip: "El mismo editor está en **Agregar usuario**, así que puede configurarlo antes del primer día de la persona." },
+        ],
+      },
+      {
+        id: "what-changes",
+        heading: "Qué cambia para esa persona",
+        blocks: [
+          { bullets: [
+            "**Reloj de tiempo** sale de su menú y de la página Más, el reloj sale de la barra de pestañas de su teléfono, y las tarjetas de **Registrar entrada** y las horas de la semana salen de su pantalla de inicio.",
+            "El propio reloj la rechaza — registrar entrada y salida, el **Registro** y **Pedir una corrección** — con un mensaje que dice que el reloj está apagado para ella y que un propietario o un administrador puede encenderlo.",
+            "Si estaba fichada cuando usted lo apagó, ese registro queda abierto. Ciérrelo con **Registrar salida** en [[timesheets-and-approving-hours|Hojas de horas]].",
+            "Para un Dispatcher o un Manager el mismo ajuste también incluye **Hojas de horas**: en **No access** pierde además la pantalla de hojas de horas y la aprobación de horas, no solo su propio fichaje.",
+          ] },
+        ],
+      },
+      {
+        id: "what-it-leaves-alone",
+        heading: "Qué no cambia",
+        blocks: [
+          { bullets: [
+            "**Su nivel.** Apagar el reloj no convierte a la persona en Personalizado: un miembro de Crew sigue en Crew y sigue siendo gratuito, un Estimator sigue siendo Estimator con la misma licencia.",
+            "**Las horas ya registradas.** No se elimina nada. Sus registros siguen en Hojas de horas, las horas aprobadas siguen yendo a las nóminas, y las horas en un trabajo siguen contando en su costo.",
+            "**Job Costing.** Ver lo que cuestan los trabajos es un interruptor aparte en el mismo editor. Apagar el reloj no lo otorga ni lo quita. Crew nunca lo tiene.",
+            "**Las horas que otros registran por ella.** Un gerente puede seguir agregando sus horas a mano en Hojas de horas con **Agregar entrada**.",
+          ] },
+        ],
+      },
+      {
+        id: "who-can-switch-it",
+        heading: "Quién puede apagarlo",
+        blocks: [
+          { p: "Un propietario o un administrador lo cambia para cualquier persona que ya esté en el equipo. Un Dispatcher o un Manager que agrega a alguien nuevo encuentra el mismo editor en **Agregar usuario**." },
+          { p: "El reloj no se puede apagar para un propietario ni para un administrador, usted incluido. Su acceso no es una cuadrícula, así que no hay ajuste que bajar, y el reloj siempre está ahí para ellos." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "¿Apagar el reloj libera una licencia?", a: "No. Una licencia se cuenta por lo que una persona puede hacer con el dinero, y el reloj no forma parte de eso. Un acceso Crew ya era gratuito y lo sigue siendo." },
+      { q: "La persona dice que el reloj le muestra un error.", a: "Es el interruptor funcionando: el reloj rechaza a toda persona para la que está apagado. Vuelva a encenderlo en su acceso si no era lo que quería." },
+      { q: "¿Se le seguirá pagando?", a: "Por las horas aprobadas, sí, exactamente como antes. Las horas nuevas tienen que llegar a Hojas de horas de otra manera: un gerente las agrega con Agregar entrada." },
     ],
   },
 

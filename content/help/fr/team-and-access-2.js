@@ -192,7 +192,7 @@ export const ARTICLES = {
     title: "Périodes de paie",
     summary:
       "Comment les heures approuvées et les taux enregistrés deviennent une paie avec des bulletins — Calculer, enregistrer comme brouillon, approuver, enregistrer comme payée — et la seule chose que FieldQuo ne fait volontairement pas : déplacer l'argent.",
-    updated: "2026-09-12",
+    updated: "2026-10-03",
     intro: [
       "L'écran **Paie** calcule ce que chaque personne doit recevoir pour une période, à partir des heures qu'un gestionnaire a approuvées dans les Feuilles de temps et des taux enregistrés sur sa fiche, et produit un bulletin par personne. La phrase en haut de l'écran est tout le contrat : « Vous payez par votre propre banque ou votre fournisseur de paie — FieldQuo ne déplace pas l'argent. »",
       "La matrice des fonctionnalités marque la paie comme partielle, et la limite est exactement celle-là : FieldQuo calcule le brut et produit les bulletins. Il ne paie pas les employés et ne produit pas vos déclarations de retenues — les retenues sont celles que vous ou votre comptable fournissez dans les [[payroll-settings|Paramètres de paie]].",
@@ -246,6 +246,7 @@ export const ARTICLES = {
             "**Un salaire** divisé sur la période quand un salaire est enregistré pour la personne au lieu d'un taux horaire.",
             "**Les congés payés approuvés** comme ligne de gain nommée (« Vacances — 5 jours »), calculée à partir de la journée de travail propre à cette personne, pour qu'une semaine de congé ne soit pas une semaine à zéro heure.",
             "**Les retenues et indemnités** des Paramètres de paie, appliquées à tout le monde. Sans aucune, la paie est en brut seulement et le dit.",
+            "**Le propriétaire seulement s'il le demande.** Les heures du propriétaire sont laissées hors des paies à moins qu'il coche **Me payer par la paie** sur la carte **Votre propre taux** dans Gérer l'équipe. L'aperçu nomme qui il a laissé de côté (« Hors paie, donc pas dans cette paie : … »), et ses heures pointées comptent quand même dans le coût de ses chantiers à ce taux.",
           ] },
         ],
       },

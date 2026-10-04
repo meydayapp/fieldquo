@@ -2,7 +2,8 @@
 //
 // Part 3 of the “jobs-and-scheduling” category in English (see the composer,
 // jobs-and-scheduling.js). Slugs assigned to this part (lib/help/tree.js):
-// timesheets-and-approving-hours, time-off-requests, safety-incidents,
+// timesheets-and-approving-hours, time-correction-requests,
+// time-off-requests, safety-incidents,
 // job-costing, materials-on-a-job, cancel-or-archive-a-job,
 // when-a-job-is-completed, a-chat-room-for-every-job,
 // supervisor-required-visits.
@@ -20,7 +21,7 @@ export const ARTICLES = {
     title: "Timesheets: review and approve hours",
     summary:
       "Where the office reviews every clock-in, sees where the phone was when it happened, approves the hours a pay run may use, and logs a punch somebody forgot.",
-    updated: "2026-09-13",
+    updated: "2026-10-03",
     intro: [
       "The crew clock in and out on **Time clock**; the office reviews the result on **Timesheets**. Nothing reaches a pay run until somebody presses **Approve** on it, and nothing on this screen is hidden from the person who worked the hours — the same entry they see on their phone is the row you see here.",
       "This article covers what each row shows, what the position chips mean and do not mean, how to add a missed punch, and who is allowed to approve, edit or delete an entry.",
@@ -48,6 +49,7 @@ export const ARTICLES = {
         blocks: [
           { bullets: [
             "**Add entry**, top right — opens the **New time entry** form. It only appears once at least one worker exists; otherwise the page says **Add a worker under Workers first, then log their hours here.**",
+            "**Correction requests (2)**, above the list and only while one is waiting — a crew member asking for one of their entries to be changed: what it says **Now:**, what they **Asked for:**, **Why:**, and **Approve** / **Reject**. See [[time-correction-requests|Correction requests]].",
             "Each row: the worker's name, the date, and either the hours (**7.5h**) or **In progress**.",
             "Two chips under the name: **In · On site**, **In · 2.1 km away** or **In · —**, and the same for **Out** once the person has clocked out.",
             "On the right: **Clock out** on a row still open, **Approve** on a pending row with hours, the status word on everything else, and a ✕ to delete a row that is not yet approved.",
@@ -68,7 +70,7 @@ export const ARTICLES = {
             "A row that is still **In progress** cannot be approved. Press **Clock out** on it first (the end time is now), or wait for the person to clock out themselves.",
           ] },
           { note: "Approving your own hours is allowed — a sole trader has nobody else to ask — but it is named: the row says **· self-approved**, the pay run says so, and the [[the-activity-log|Activity Log]] records it as a separate action." },
-          { warning: "An approved entry is closed. Only an owner, administrator, Dispatcher or Manager can change or reopen it, because those hours may already be on a payslip. A crew member who corrects their own hours — a forgotten clock-out is the usual case — sends the entry back to **pending** so it gets looked at again." },
+          { warning: "An approved entry is closed. Only an owner, administrator, Dispatcher or Manager can change or reopen it, because those hours may already be on a payslip. A crew member does not change an entry themselves: they send a correction request from their **Time log** — a forgotten clock-out is the usual case — and the entry stays as it is until somebody approves the request here." },
         ],
       },
       {
@@ -116,6 +118,109 @@ export const ARTICLES = {
       { q: "Does a flagged row stop the person being paid?", a: "No. The chip changes nothing on its own; the hours reach the pay run only when you approve them, flagged or not." },
       { q: "Can I see which job the hours were on?", a: "Not on this list — it shows the worker, the date and the hours. The job is on the person's Time clock entry and in the job's own cost panel once the hours are approved." },
       { q: "Where does the hourly rate come from?", a: "From the worker's record under Settings → Workers. A worker with no rate still has their approved hours counted, but they add no labour cost to the job, and the cost panel says so rather than showing a cheaper job." },
+    ],
+  },
+
+  "time-correction-requests": {
+    title: "Correction requests: fixing clocked hours",
+    summary:
+      "How a crew member asks for one of their own time entries to be fixed, how a supervisor approves or rejects it on Timesheets, and what approving changes — and keeps.",
+    updated: "2026-10-03",
+    intro: [
+      "Nobody on the crew changes their own hours directly. On the **Time log** they press **Request a correction** on one of their entries, say what it should read and why, and the entry stays exactly as it was until somebody who reviews timesheets approves it.",
+      "This article covers both sides: sending a request from the phone, and deciding it on **Timesheets**. Nothing is deleted on either side — an approval keeps a record of what the entry said before.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "Overview",
+        blocks: [
+          { p: "A request states the whole stretch — a start and an end — and, if they were wrong too, the activity and the job, plus a reason. It appears at the top of **Timesheets** under **Correction requests**. **Approve** writes the new times onto the same entry; **Reject** leaves the entry as it is. Either way the person sees the outcome on their own Time log." },
+          { p: "The form says it in one line: “Your manager approves it on Timesheets. Nothing changes until then, and the original stays on record.”" },
+        ],
+      },
+      {
+        id: "send-a-request",
+        heading: "How to ask for a correction",
+        blocks: [
+          { steps: [
+            "Open **Time clock** and switch to the **Time log** tab. Use the back arrow (**Previous day**) to go back to the day the entry is on.",
+            "Under your day, each of your entries is listed with its activity and its times. Press **Request a correction** beside the one that is wrong.",
+            "Set **Start** and **End** — always both, in your company's time zone — and the **Activity**. For an activity that takes a job, **Which job?** appears: **On site** needs one, **Driving** and **Supplies** can have one or **No job**.",
+            "Under **Why**, say what happened, for example “Forgot to clock out when I left the site at 4:30.” The request cannot be sent without a reason.",
+            "Press **Send request**. The entry now reads **Correction requested**.",
+          ] },
+          { note: "One request per entry at a time. A second request on the same entry is refused until the first has been decided." },
+        ],
+      },
+      {
+        id: "what-your-entry-shows",
+        heading: "What your entry shows afterwards",
+        blocks: [
+          { table: {
+            head: ["Label on the Time log", "What it means"],
+            rows: [
+              ["**Correction requested**", "Waiting for a decision. The entry has not changed."],
+              ["**Correction approved**", "The entry now carries the corrected times, activity and job."],
+              ["**Correction not approved**", "The entry was left as it was. If the reviewer wrote a note, it shows on a computer when you hold the pointer over the words. You can send a new request."],
+              ["**On an invoice**", "These hours are already billed to the client, so there is no request button. Ask your manager — the invoice has to change first."],
+            ],
+          } },
+        ],
+      },
+      {
+        id: "when-a-request-is-refused",
+        heading: "When a request is refused",
+        blocks: [
+          { bullets: [
+            "The end must be after the start, the stretch can be at most 24 hours, and the end cannot be in the future.",
+            "Corrections reach back 45 days. Anything older goes to your manager.",
+            "Times that overlap another of your entries are refused: “Those times overlap another of your entries.”",
+            "A request that changes nothing — same times, same activity, same job — is refused.",
+            "**On site** needs a job; **Office** and **General** never take one.",
+            "Hours already on an invoice cannot be corrected by request.",
+          ] },
+        ],
+      },
+      {
+        id: "decide-a-request",
+        heading: "How to approve or reject a request",
+        blocks: [
+          { p: "Pending requests sit above the list of hours on **Timesheets**, under **Correction requests (2)** and the line “Approve changes the entry and keeps what it said before. Reject leaves it as it is.” When nothing is waiting, the section is not shown." },
+          { steps: [
+            "Read the row: the person's name; **Now:** — what the entry says (activity, start and end, length, job); **Asked for:** — what they want it to say; and **Why:** — their reason.",
+            "If you want to tell them something, type it in **Note back (optional)**.",
+            "Press **Approve** or **Reject**. The request leaves the section; after an approval, the list of hours underneath shows the new times.",
+          ] },
+          { note: "Approval is checked again at the moment you press it. If the hours have since gone onto an invoice, or the asked-for times now overlap another of their entries, **Approve** is refused with the reason — fix the other entry first, or reject the request." },
+        ],
+      },
+      {
+        id: "what-approving-changes",
+        heading: "What approving changes, and what it keeps",
+        blocks: [
+          { bullets: [
+            "The same entry is updated — never replaced or deleted — so its breaks, its location stamps and its approval stay attached to it.",
+            "The hours are worked out again from the new start and end, less its breaks. A changed activity takes your company's current paid or unpaid setting for that activity, exactly as a fresh tap on the clock would.",
+            "A changed job moves the hours to that job's costing.",
+            "The entry keeps its status. A pending entry still needs **Approve** in the list of hours before a pay run counts it; an entry that was already approved stays approved, with the corrected times.",
+            "What the entry said before is kept with the request, and the [[the-activity-log|Activity Log]] records the request and the decision — on an approval, with the hours before and after.",
+          ] },
+        ],
+      },
+      {
+        id: "who-can-decide",
+        heading: "Who can send and who can decide",
+        blocks: [
+          { p: "Anyone the time clock is on for can ask for a correction to their own entries, and only their own. Deciding belongs to an owner, an administrator, or a **Dispatcher** or **Manager** — the supervisor level — whose **Time Tracking & Timesheets** access is **View, record, edit, and delete everyone's**. Nobody else sees the section." },
+          { p: "Nobody below owner or administrator decides their own request: a Manager who asks for a fix to their own hours waits for another supervisor, an administrator or the owner." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "I forgot to clock out yesterday. What do I do?", a: "Clock out now, then open the Time log, go back to yesterday and press Request a correction on that entry with the time you really left. Your manager approves it on Timesheets." },
+      { q: "Where do I see requests that were already decided?", a: "Timesheets lists only the ones waiting. Each decision is in the Activity Log, and the person sees Correction approved or Correction not approved on their own entry." },
+      { q: "Does rejecting a request delete anything?", a: "No. The entry stays exactly as it was, and the request is kept as not approved." },
     ],
   },
 
@@ -297,7 +402,7 @@ export const ARTICLES = {
     title: "Job costing: quoted against actual",
     summary:
       "What a job actually cost — approved hours, receipts, subcontractors, overhead — beside what you quoted for it, and the close-out that asks whether your rates need changing.",
-    updated: "2026-09-12",
+    updated: "2026-10-03",
     intro: [
       "A quote carries an estimated cost: materials, labour hours, a share of overhead, a target margin (see [[cost-and-margin-on-a-quote|Cost and margin on a quote]]). Then the job happens. Job costing is the other half — what it really cost — shown on the job page as **What this job has cost**, and compared line for line against the estimate when the job is done.",
       "Nothing in it is guessed. It is a sum of things that were recorded: hours somebody approved, expenses somebody tagged, a subcontractor's agreed price, the overhead you told FieldQuo about. Where a number is missing, the panel says so rather than showing a cheaper job.",
@@ -318,7 +423,7 @@ export const ARTICLES = {
           { table: {
             head: ["Line", "Where it comes from", "Rule"],
             rows: [
-              ["**Labour**", "Approved time entries on this job × the worker's hourly rate (Settings → Workers).", "Pending hours are shown but not costed. A worker with no rate adds hours and no money, and the panel says how many hours are unrated."],
+              ["**Labour**", "Approved time entries on this job × the worker's hourly rate (Settings → Workers) — **Driving** and **Supplies** time linked to the job included, although only **On site** time is offered as labour on the client's invoice.", "Pending hours are shown but not costed. A worker with no rate adds hours and no money, and the panel says how many hours are unrated."],
               ["**Expenses**", "Expenses tagged to this job in [[expense-tracking-and-burn-rate|Expense Tracking]], by category.", "Payments to subcontractors are skipped here so they are not counted twice."],
               ["**Subcontractors**", "The amount agreed with each subcontractor on the job (agreed, done or paid).", "A quoted-but-not-agreed bid is shown as **+{amount} quoted, not agreed** and left out of the total."],
               ["**Overhead**", "Your cost per job from [[overhead-and-your-minimum-price|Settings → Overhead]].", "Absent, not zero, until you fill that screen in — a job cannot be costed against an overhead nobody has stated."],
