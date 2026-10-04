@@ -42,7 +42,13 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { centsOrNull, count, money, UNKNOWN } from "../lib/platform/metricFormat.js";
+import {
+  centsOrNull, count, money, UNKNOWN,
+  moneyIn, moneyByCurrency, sumByCurrency, pickByCurrency, anyPositive, UNKNOWN_CURRENCY,
+} from "../lib/platform/metricFormat.js";
+import { buildRevenueOutlook } from "../lib/platform/revenueOutlook.js";
+import { buildTradeBreakdown } from "../lib/analytics/tenantHealth.js";
+import { metricsForCompany, compareToCohort, talkingPoints } from "../lib/analytics/companyComparison.js";
 import { numberOrNull } from "../lib/platform/numericField.js";
 import { planMoney } from "../lib/pricing/ladder.js";
 import { STATUSES } from "../lib/platform/subscriptionStatus.js";
@@ -1081,6 +1087,128 @@ ok("only the writable statuses are green",
     "the screen actually renders it — a field nothing reads is the failure class",
     /e\.companyOwnerEmail/.test(errorsPage),
   );
+}
+
+console.log("\n── Mixed currencies: split, never summed (owner decision 2026-10-03) ──");
+//
+// The book bills in CAD, USD and AUD at once. Every fixture below mixes them
+// on purpose: the bug was a sum that looked right while the book happened to
+// be all one currency.
+{
+  // Intl puts a NO-BREAK space between the code and the figure ("USD\u00a099.00")
+  // so a tile never wraps "USD" away from its number. Compared as plain spaces.
+  const sp = (v) => String(v).replace(/\u00a0/g, " ");
+  // ── The formatters ───────────────────────────────────────────────────────
+  ok("money() with no currency is unchanged — en-CA CAD", money(1234.5) === "$1,234.50" && money(12345.6, { compact: true }) === "$12,346");
+  ok("money() with a currency writes that currency's code", sp(money(99, { currency: "USD" })) === "USD 99.00", money(99, { currency: "USD" }));
+  ok("money() with currency: undefined does NOT fall back to CAD", money(99, { currency: undefined }) === "99.00 (currency unknown)", money(99, { currency: undefined }));
+  ok("moneyIn lower-case code is read", sp(moneyIn(19.99, "aud")) === "AUD 19.99", moneyIn(19.99, "aud"));
+  ok("moneyIn keeps absent-is-not-zero", moneyIn(null, "CAD") === UNKNOWN && sp(moneyIn(0, "CAD")) === "CAD 0.00");
+  ok("moneyIn with a malformed code prints the number and says so", moneyIn(5, "C$") === "5.00 (currency unknown)", moneyIn(5, "C$"));
+
+  const BOOK = [
+    { amount: 99, currency: "CAD" },
+    { amount: "169", currency: "cad" },
+    { amount: 99, currency: "USD" },
+    { amount: 369, currency: "USD" },
+    { amount: 99, currency: "AUD" },
+    { amount: null, currency: "USD" }, // did not arrive — skipped, not zero
+    { amount: 50, currency: undefined }, // no currency — never guessed
+  ];
+  const totals = sumByCurrency(BOOK, (r) => r.amount, (r) => r.currency);
+  ok("sumByCurrency keeps CAD, USD and AUD apart", totals.CAD === 268 && totals.USD === 468 && totals.AUD === 99, totals);
+  ok("…files an unknown currency under its own key, never CAD", totals[UNKNOWN_CURRENCY] === 50 && Object.keys(totals).length === 4, totals);
+  ok("…and nothing in it is the cross-currency sum (885)", !Object.values(totals).includes(885));
+  const written = sp(moneyByCurrency(totals));
+  ok("moneyByCurrency writes every currency, largest first", written === "USD 468.00 · CAD 268.00 · AUD 99.00 · 50.00 (currency unknown)", written);
+  ok("moneyByCurrency of nothing to add is a real zero with no invented currency", moneyByCurrency({}) === "0");
+  ok("moneyByCurrency of a breakdown that did not arrive is unknown", moneyByCurrency(null) === UNKNOWN && moneyByCurrency(undefined) === UNKNOWN && moneyByCurrency([]) === UNKNOWN);
+  ok("pickByCurrency lifts one field and drops what is not a number",
+    JSON.stringify(pickByCurrency({ CAD: { x: 1 }, USD: { x: null }, AUD: { x: 2 } }, (m) => m.x)) === JSON.stringify({ CAD: 1, AUD: 2 }));
+  ok("anyPositive answers per currency", anyPositive({ CAD: 0, USD: 99 }) === true && anyPositive({ CAD: 0 }) === false && anyPositive(null) === false);
+
+  // ── The revenue outlook ──────────────────────────────────────────────────
+  const NOW = new Date("2026-10-03T12:00:00Z");
+  const sub = (status, price, currency, extra = {}) => ({
+    status, stripeSubscriptionId: "sub_x", company: { name: `${currency} co` },
+    plan: { name: "Solo", priceMonthly: price, currency }, ...extra,
+  });
+  const mixed = buildRevenueOutlook([
+    sub("active", 99, "CAD"),
+    sub("active", 169, "CAD"),
+    sub("active", 99, "USD"),
+    sub("active", 99, "AUD", { stripeSubscriptionId: null }), // blocked
+    sub("trialing", 169, "USD", { trialEndsAt: "2026-10-20" }),
+  ], NOW);
+  ok("outlook: the currencies are named", mixed.currencies.join() === "AUD,CAD,USD" && mixed.mixedCurrencies === true && mixed.currency === null, mixed.currencies);
+  ok("outlook: collectable MRR per currency — CAD 268, USD 99, AUD 0",
+    mixed.byCurrency.CAD.collectableMrr === 268 && mixed.byCurrency.USD.collectableMrr === 99 && mixed.byCurrency.AUD.collectableMrr === 0, mixed.byCurrency);
+  ok("outlook: blocked MRR lands in AUD only", mixed.byCurrency.AUD.blockedMrr === 99 && mixed.byCurrency.CAD.blockedMrr === 0);
+  ok("outlook: the USD trial converting this month is added in USD only",
+    mixed.byCurrency.USD.thisMonth.expected === 268 && mixed.byCurrency.CAD.thisMonth.expected === 268);
+  ok("outlook: annual run rate per currency", mixed.byCurrency.CAD.annualRunRate === 268 * 12 && mixed.byCurrency.USD.annualRunRate === 99 * 12);
+  ok("outlook: NO whole-book money figure while currencies are mixed (null, never 367)",
+    [mixed.collectableMrr, mixed.nominalMrr, mixed.blockedMrr, mixed.annualRunRate, mixed.thisMonth.expected, mixed.nextMonth.expected, mixed.trials.nominalValue]
+      .every((v) => v === null));
+  ok("outlook: counts are currency-free and unchanged", mixed.collectableCount === 3 && mixed.nominalCount === 4 && mixed.thisMonth.converting === 1);
+  ok("outlook: each blocked row carries its own currency", mixed.blocked.length === 1 && mixed.blocked[0].currency === "AUD");
+  const oneCcy = buildRevenueOutlook([sub("active", 99, "USD"), sub("active", 369, "USD")], NOW);
+  ok("outlook: a one-currency book keeps its whole-book figure", oneCcy.collectableMrr === 468 && oneCcy.currency === "USD" && oneCcy.mixedCurrencies === false);
+
+  // ── The tenant board's trade table ───────────────────────────────────────
+  const trades = buildTradeBreakdown([
+    { companyId: "a", currency: "CAD", categoryKey: "paint", categoryLabel: "Painting", status: "accepted", sentAt: NOW, scopeSubtotal: 4000 },
+    { companyId: "a", currency: "CAD", categoryKey: "paint", categoryLabel: "Painting", status: "sent", sentAt: NOW, scopeSubtotal: 2000 },
+    { companyId: "b", currency: "USD", categoryKey: "paint", categoryLabel: "Painting", status: "sent", sentAt: NOW, scopeSubtotal: 3000 },
+    { companyId: "c", currency: "CAD", categoryKey: "roof", categoryLabel: "Roofing", status: "sent", sentAt: NOW, scopeSubtotal: 9000 },
+  ]);
+  const paint = trades.find((t) => t.categoryKey === "paint");
+  const roof = trades.find((t) => t.categoryKey === "roof");
+  ok("trade table: a trade quoted in two currencies has its money per currency",
+    paint.byCurrency.CAD.pipelineValue === 6000 && paint.byCurrency.USD.pipelineValue === 3000 && paint.byCurrency.CAD.medianQuote === 3000, paint.byCurrency);
+  ok("trade table: …and no mixed median or pipeline (null, never 9000 / 3000)", paint.medianQuote === null && paint.pipelineValue === null);
+  ok("trade table: a one-currency trade keeps its figures", roof.medianQuote === 9000 && roof.pipelineValue === 9000);
+  ok("trade table: counts are unchanged by currency", paint.quotes === 3 && paint.accepted === 1);
+
+  // ── One company against its cohort ───────────────────────────────────────
+  const quotesAt = (total) => ({ quotes: Array(6).fill(0).map(() => ({ total, status: "sent", sentAt: NOW })) });
+  const subject = metricsForCompany(quotesAt(1000), { currency: "CAD" });
+  const sameCcy = Array(4).fill(0).map(() => metricsForCompany(quotesAt(2000), { currency: "CAD" }));
+  const otherCcy = Array(6).fill(0).map(() => metricsForCompany(quotesAt(50), { currency: "USD" }));
+  const cmp = compareToCohort(subject, [...sameCcy, ...otherCcy]).find((m) => m.key === "medianQuoteValue");
+  ok("comparison: the money median is drawn from the same currency only (CAD 2000, not the USD 50s)",
+    cmp.cohortMedian === 2000 && cmp.cohortSize === 4 && cmp.currency === "CAD", cmp);
+  const onlyOther = compareToCohort(subject, otherCcy).find((m) => m.key === "medianQuoteValue");
+  ok("comparison: no same-currency cohort → no money comparison, not a USD one", onlyOther.comparable === false && onlyOther.cohortMedian === null);
+  const noCcy = compareToCohort(metricsForCompany(quotesAt(1000)), sameCcy).find((m) => m.key === "medianQuoteValue");
+  ok("comparison: a company with no currency is benchmarked against nobody's money", noCcy.comparable === false);
+  const win = compareToCohort(subject, [...sameCcy, ...otherCcy]).find((m) => m.key === "winRate");
+  ok("comparison: rates still use every company, whatever their currency", win.cohortSize === 10, win.cohortSize);
+  const points = talkingPoints([{ ...cmp, comparable: true, position: "behind", deltaPct: -50 }]);
+  ok("comparison: a talking point writes the money in the subject's currency", /CAD 1,000\.00/.test(sp(points[0]?.text || "")) && !/\$/.test(points[0]?.text || ""), points);
+
+  // ── The screens read the split, not a sum ────────────────────────────────
+  const home = stripComments(read("app/platform/page.js"));
+  ok("home: every MRR tile is moneyByCurrency over the outlook's byCurrency",
+    ["collectableMrr", "nominalMrr", "thisMonth?.expected", "nextMonth?.expected", "annualRunRate"].every((f) =>
+      home.includes(`pickByCurrency(data.outlook${f.includes("?") ? "?" : ""}.byCurrency, (m) => m.${f})`)),
+  );
+  ok("home: no money() call prints an outlook scalar", !/money\(data\.(outlook|mrr|arr)/.test(home));
+  const overview = stripComments(read("app/api/platform/analytics/overview/route.js"));
+  ok("overview: MRR is summed per currency", /sumByCurrency\(/.test(overview) && /mrrByCurrency,/.test(overview) && /arrByCurrency,/.test(overview));
+  ok("overview: the mixed tenant-volume sums are gone", !/totalBilled:|quotedValue:|invoicedValue:/.test(overview));
+  const subsPage = stripComments(read("app/platform/billing/subscriptions/page.js"));
+  ok("subscriptions: the MRR tile and each row's price are per currency",
+    /moneyByCurrency\(data\.summary\.mrrByCurrency/.test(subsPage) && /currency: r\.currency/.test(subsPage));
+  const board = stripComments(read("app/platform/TenantBoard.js"));
+  ok("tenant board: no bare-$ formatter left", !/`\$\$\{/.test(board) && /tradeMoney\(t, \(m\) => m\.medianQuote\)/.test(board));
+  const insight = stripComments(read("app/platform/CompanyInsight.js"));
+  ok("company insight: money is written in the company's currency", !/`\$\$\{/.test(insight) && /moneyIn\(/.test(insight));
+  const history = stripComments(read("app/platform/companies/[id]/CompanyHistory.js"));
+  ok("company history: every money() passes a currency", (history.match(/money\(/g) || []).length === (history.match(/money\([^)]*currency:/g) || []).length);
+  const reports = stripComments(read("app/api/platform/reports/route.js"));
+  ok("reports: growth money has one column per currency", /`Quoted value \(\$\{c\}\)`/.test(reports) && /`Payment value \(\$\{c\}\)`/.test(reports));
+  ok("reports: the companies export selects the price it prints, with its currency", /plan: \{ select: \{ name: true, priceMonthly: true, currency: true \} \}/.test(reports));
 }
 
 console.log(`\n${checks} checks, ${failures} failure(s).`);

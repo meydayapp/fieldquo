@@ -340,7 +340,7 @@ export default function CompanyDetail({ companyId }) {
             <Field label="Plan" value={sub.plan?.name || "—"} />
             <Field
               label="Monthly"
-              value={money(sub.plan?.priceMonthly, { compact: true })}
+              value={money(sub.plan?.priceMonthly, { compact: true, currency: sub.plan?.currency })}
             />
             {/* Was the raw enum in plain text: "past_due" in a field labelled
                 Status, on the panel a support agent reads out loud. */}

@@ -22,16 +22,20 @@ import {
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import CompanyInsight from "./CompanyInsight";
+import { moneyByCurrency, pickByCurrency, UNKNOWN } from "@/lib/platform/metricFormat";
 
-// The bare "$" is knowingly wrong when the book is not all one currency: these
-// are sums across tenants, and a euro invoice is in the total. Not fixed here
-// because which fix is right is a product decision — the three options and what
-// each costs are written out beside money() in lib/platform/metricFormat.js.
-// Same caveat applies to CompanyInsight.js and to app/platform/page.js.
-const money = (n) =>
-  n === null || n === undefined
-    ? "—"
-    : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+// The trade table's money is across tenants, and tenants quote in their own
+// currencies. It printed one bare "$" figure — a CAD and a USD quote in one
+// median. Owner decision 2026-10-03: split per currency, never summed
+// ("CAD 4,250.00 · USD 3,100.00"); each trade row carries `byCurrency` from
+// lib/analytics/tenantHealth.js buildTradeBreakdown.
+// A trade with no valued quote has no median: "—", not the "0" an empty
+// breakdown would print. Its pipeline IS zero, and says so.
+const tradeMoney = (t, pick, { emptyIsZero = false } = {}) => {
+  const totals = pickByCurrency(t.byCurrency, pick);
+  if (totals && Object.keys(totals).length === 0 && !emptyIsZero) return UNKNOWN;
+  return moneyByCurrency(totals, { compact: true, separator: " / " });
+};
 
 const rate = (n) => (n === null || n === undefined ? "—" : `${n}%`);
 
@@ -179,8 +183,8 @@ export default function TenantBoard() {
                         {t.winRateLabel}
                       </span>
                     </Td>
-                    <Td>{money(t.medianQuote)}</Td>
-                    <Td>{money(t.pipelineValue)}</Td>
+                    <Td>{tradeMoney(t, (m) => m.medianQuote)}</Td>
+                    <Td>{tradeMoney(t, (m) => m.pipelineValue, { emptyIsZero: true })}</Td>
                   </tr>
                 ))}
               </tbody>
