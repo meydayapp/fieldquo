@@ -85,52 +85,62 @@ export const TRADE_PRICE_BOOKS = {
       twoTonePerUnit: 15,
       threeToneFlat: 1000,
       threeTonePerUnit: 25,
-      // STAIN instead of paint (owner, 2026-10-03: a stain vs paint
-      // distinction, additive). Added to each door and drawer front ticked
-      // for it. MARKET, inferred: re-staining cabinets a new colour means
-      // stripping the old finish, and the one source that prices both per
-      // door (Kitchen Cabinet Kings, 2026) states stain at 30–50% over paint
-      // while its own door ranges come to +24%; trade forums put painted
-      // finishes over stain on NEW work, which is the other direction and
-      // not this job. 30% of TrueFinish's own $150 a face is $45. TrueFinish
-      // has no cabinet stain rate of its own (its stain rate is floors).
-      // See docs/research/PRICING-EXTERIOR-STAIN-DRYWALL-2026.md.
+      // ── STAINED instead of painted (owner, 2026-10-03 / 2026-10-04) ──────
       //
-      // 45 → 10 the same day (owner: stripping is LABOUR, on its own line —
-      // lib/pricing/stainFinish.js). The $45 was the whole strip-and-restain
-      // premium; with the stripping now billed by the hour beside it, keeping
-      // $45 would charge the stripping twice. What is left is the stain
-      // itself against the enamel it replaces (penetrating stain and clear
-      // coats in place of primer and colour), INFERRED: KCK's own door
-      // ranges give +24% with stripping = $36 on $150; sanding-level
-      // stripping on a 20-door, 8-drawer kitchen is 9.2 h (the book's
-      // defaults below) — at $75/h about $25 a piece — leaving ~$11 → $10.
-      // Chemical stripping is slower and costs more, which is the point of
-      // itemising it. Groups saved before keep the line they saved.
-      stainFinishPerUnit: 10,
-      // GEL stain over the existing finish (owner, 2026-10-03: "if it is
-      // relevant for stain it should have gel or liquid"). A gel stain is
-      // thickened and SITS ON the surface; a liquid (penetrating) stain soaks
-      // into bare wood. So gel goes over the old finish after a clean and a
-      // light scuff — no stripping — and does not blotch on maple, birch,
-      // cherry or pine, which drink a thin stain unevenly (Bob Vila, "Gel
-      // Stain", 2019-11-18). It is slower per piece, not faster: wiped or
-      // brushed by hand, often two or three coats for depth, and General
-      // Finishes (the gel most refinishers use) asks 72 hours before
-      // recoating or top-coating over an existing finish, against 6–12 h on
-      // raw wood (generalfinishes.com FAQ, read 2026-10-03) — extra visits,
-      // not extra material. MARKET, INFERRED: Angi (2026, search summary;
-      // the page refused our fetch) puts gel-stain refinishing at $80–140 a
-      // door, Fixr (2026-01-27) painting at $70–125 — midpoints $110 against
-      // $97.50, +12.8%; on TrueFinish's $150 a face that is $19, rounded to
-      // $20. A default: the company's own figure replaces it on the rate card.
-      gelStainPerUnit: 20,
+      // Not an add-on line. A stained piece is quoted ALL-IN, one rate per
+      // door or drawer front: the company's painting rate per piece (perDoor
+      // / perDrawer above — $150, TrueFinish's all-in painting figure) PLUS
+      // the difference below. lib/pricing/stainFinish.js stainedUnitRate;
+      // the line reads "<service> — stained finish (to bare wood)". The
+      // owner, on a first version that showed "$45" and "$10" a door:
+      // "staining requires more labor because you're sanding to bare wood..
+      // so it should be more.. make sure you look at real pricing that
+      // encompasses the whole process." Stripping is INSIDE this price; the
+      // chemical / sanding choice moves only the crew's hours on the cost
+      // side (`stripping` below, lib/pricing/cabinetLabour.js).
+      //
+      // TO BARE WOOD (liquid stain, or any stain going dark → light): +$45
+      // a piece → $195 all-in, +30% over painting. MARKET, read 2026-10-03/04:
+      //   - Kitchen Cabinet Kings (2026, search summary; 403 on fetch):
+      //     staining costs 30–50% more a door than painting because the old
+      //     finish is stripped; Shaker door painted $85–140, stained
+      //     $110–170 (+24% on the midpoints).
+      //   - realcostiq.com kitchen-cabinet-refinishing (updated July 2026,
+      //     US): sand & restain $100–175 a door, strip & restain $150–250;
+      //     its cabinet-painting page (Sept 2026) $100–250 a door — strip &
+      //     restain +14% over painting on the midpoints ($200 vs $175).
+      //   - homewyse stain & finish kitchen cabinets (Sept 2026, US):
+      //     $7.45–15.09 per sq ft for scrape/sand, stain, two clear coats.
+      //   - Bottom-up: stripping a door to bare wood is ~0.75 h (the chemical
+      //     rate below); at a $60/h trade rate that is $45.
+      // +30% sits at the bottom of KCK's stated band, above the +14% and +24%
+      // the same sources' own ranges give, and equals the stripping labour
+      // worked out bottom-up — so the $45 that shipped on 2026-10-03 as a
+      // premium stands, now folded into one all-in rate. (+50%, KCK's top,
+      // would be $75 → $225: the owner's call.)
+      stainFinishPerUnit: 45,
+      // GEL stain over the existing finish (no stripping): $0 difference →
+      // the painting rate, $150 a piece. A gel SITS ON the old finish after a
+      // clean and light scuff (Bob Vila, "Gel Stain", 2019-11-18) — no
+      // stripping, no primer — but is wiped on by hand in two or three coats
+      // with long recoats over a finish (General Finishes FAQ: 72 h), so it
+      // saves the primer and the spray setup and spends the time back in
+      // hand coats and return visits. MARKET: realcostiq (July 2026) gel
+      // $80–140 a door against its painting $100–250 (gel −37% on the
+      // midpoints); Angi (2026, search summary) gel $80–140 against Fixr's
+      // painting $70–125 (2026-01-27; gel +13%); HomeAdvisor (2026-06-17)
+      // staining without stripping ~30% under painting per sq ft. The sources
+      // split around painting, so gel is priced AT the painting rate: below
+      // the bare-wood stain, not under painting. A company that sells gel
+      // cheaper types a negative difference.
+      gelStainPerUnit: 0,
     },
     // Hours to strip a door / drawer front to bare wood when a stain needs
     // it — RESEARCHED DEFAULTS, inferred from published per-sq-ft figures;
     // the sources and the arithmetic are in lib/pricing/stainFinish.js.
-    // Billed at the company's labour rate (Settings → Field work) as its own
-    // line, and counted in the cost estimate's hours (cabinetLabour.js).
+    // COST SIDE ONLY: the crew's hours in Cost & margin (cabinetLabour.js).
+    // The client is charged for stripping inside the all-in stained rate
+    // (addOns.stainFinishPerUnit above), never per hour.
     stripping: {
       chemical: { hoursPerDoor: 0.75, hoursPerDrawer: 0.25 },
       sanding: { hoursPerDoor: 0.4, hoursPerDrawer: 0.15 },
@@ -266,7 +276,9 @@ export const TRADE_PRICE_BOOKS = {
     // Hours to strip a PAINTED staircase to bare wood for a stain —
     // RESEARCHED DEFAULTS, inferred; sources and arithmetic in
     // lib/pricing/stainFinish.js. A clear-finished staircase takes none: the
-    // tread rates above already sand it.
+    // tread rates above already sand it. COST SIDE ONLY: the client pays for
+    // stripping paint through the High tier ("painted-over surfaces to
+    // strip"), never as an hourly line.
     stripping: {
       chemical: { hoursPerTread: 0.5, hoursPerRiser: 0.35, hoursPerRailFt: 0.15 },
       sanding: { hoursPerTread: 0.3, hoursPerRiser: 0.2, hoursPerRailFt: 0.1 },
@@ -2171,7 +2183,7 @@ export const PRICE_BOOK_GROUPS = {
     "Complexity multipliers — applied to LABOUR HOURS only, never to materials. Starting figures from a summary of trade practice, not from a measured job; tune them against your own closed jobs.",
   complexityForce: "Force an on-site assessment",
   stripping:
-    "Stripping to bare wood for a stain — hours, billed at your labour rate (Settings → Field work). Researched defaults, not a measured job; tune them to your crew.",
+    "Stripping to bare wood for a stain — your crew's HOURS, internal: they cost the job in Cost & margin; the client pays for stripping inside the stained price. Researched defaults, not a measured job; tune them to your crew.",
   inspectionBands: "Full home inspection — by living area",
   inspectionWarranty: "New-build warranty inspections",
   inspectionAncillary: "Ancillary inspections and testing",
@@ -2215,13 +2227,13 @@ export const PRICE_BOOK_FIELDS = {
     // Refinishing only: a refaced door arrives with its finish.
     {
       path: "addOns.stainFinishPerUnit",
-      label: "Liquid (penetrating) stain instead of paint — stripping is its own line (researched default)",
+      label: "Stained to bare wood (liquid) — added to your painting rate per piece, stripping included (researched default)",
       suffix: "$ / unit",
       step: 5,
     },
     {
       path: "addOns.gelStainPerUnit",
-      label: "Gel stain over the existing finish, no stripping (researched default)",
+      label: "Gel-stained over the existing finish — added to your painting rate per piece; zero means the painting rate (researched default)",
       suffix: "$ / unit",
       step: 5,
     },
@@ -3825,8 +3837,9 @@ function complexityFactorFields({ forces = [] } = {}) {
  * The stripping production rates (lib/pricing/stainFinish.js), as rate-card
  * rows: chemical then sanding, each labelled with FieldQuo's researched
  * default so the person reading the box knows the number is a starting
- * point, not a measurement of their crew. Not `internal`: the hours are the
- * quantity on a line the client reads.
+ * point, not a measurement of their crew. `internal`: since 2026-10-04 the
+ * hours cost the job (Cost & margin) and are never billed by the hour — the
+ * client pays for stripping inside the all-in stained rate.
  *
  * @param rows [key, "per door", chemicalDefault, sandingDefault][]
  */
@@ -3838,6 +3851,7 @@ function strippingFields(rows) {
       suffix: "hours",
       step: 0.05,
       group: "stripping",
+      internal: true,
     })),
   );
 }

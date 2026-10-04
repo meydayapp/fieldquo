@@ -20,6 +20,7 @@ import {
   COMPLEXITY_REASONS,
   finalUnitPrice,
   groupUnits,
+  unitPricingSubtotal,
 } from "@/app/data/cabinetPricing";
 import { formatAppMoney } from "@/lib/format/money";
 import { currencyMeta } from "@/lib/currency";
@@ -31,6 +32,9 @@ import {
   normaliseStripMethod,
   cabinetNeedsStripping,
   cabinetStrippingHours,
+  stainedPieceCount,
+  stainPremiumPerUnit,
+  stainedUnitRate,
 } from "@/lib/pricing/stainFinish";
 import ComplexityPicker from "@/app/components/pricing/ComplexityPicker";
 import {
@@ -120,17 +124,18 @@ const ADD_ONS = [
     // it — refinishing; a refaced door arrives finished — so refacing never
     // shows a box that adds nothing.
     key: "stainFinish",
-    label: "Stain finish instead of paint (stripping, when needed, is its own line)",
+    label: "Stained instead of painted — priced all-in per piece",
     needsDrawers: false,
     countsKey: "stainFinish",
     defaultUnits: (d, dr) => d + dr,
     unitWord: "pieces",
-    // Either stain type priced is enough — gel or liquid (owner, 2026-10-03;
-    // lib/pricing/stainFinish.js). The hint names the rate of the type the
-    // group is on, so the figure beside the tick is the one the line bills.
-    onlyWhenPriced: (a) => Number(a?.stainFinishPerUnit) > 0 || Number(a?.gelStainPerUnit) > 0,
-    hint: (a, money, group) =>
-      `${money(normaliseStainType(group?.stainType) === "gel" ? a.gelStainPerUnit : a.stainFinishPerUnit)} more per piece`,
+    // Offered while the book sells stain (the bare-wood difference above 0,
+    // lib/pricing/offerings.js). The hint names the ALL-IN stained rate per
+    // piece (owner, 2026-10-04: the painting rate plus the stain difference,
+    // stripping included — lib/pricing/stainFinish.js), never a bare premium.
+    onlyWhenPriced: (a) => Number(a?.stainFinishPerUnit) > 0,
+    hint: (a, money, group, paintRate, book) =>
+      `${money(stainedUnitRate(paintRate, stainPremiumPerUnit(group, book)))} a piece all-in, instead of ${money(paintRate)} painted`,
   },
 ];
 
@@ -156,9 +161,6 @@ export default function UnitPricingFields({
   onToggleReason,
   // The trade's rate card, for the add-on prices.
   book,
-  // The company's billed labour rate (Settings → Field work), or null — what
-  // a stain's stripping line is priced at (lib/pricing/stainFinish.js).
-  labourSellRate = null,
 }) {
   // One bound formatter for the whole component. Currency is the company's,
   // locale is "en" — the same pair every other builder panel passes.
@@ -181,15 +183,14 @@ export default function UnitPricingFields({
     book,
   ).reduce((sum, i) => sum + i.amount, 0);
 
-  // Every stain control re-snapshots the company's labour rate onto the group
-  // (`stripLabourRate`), so the stripping line is priced at the rate in force
-  // when the estimator set the stain — and a group saved stays at it.
-  const rateSnap = Number(labourSellRate) > 0 ? { stripLabourRate: Number(labourSellRate) } : {};
-  const setStain = (patch) => onPricingChange({ ...patch, ...rateSnap });
-  const stainConfig = { ...group, doors, drawers, ...rateSnap };
+  // The stain (lib/pricing/stainFinish.js): stained pieces are priced ALL-IN
+  // on the unit line — the base total below is unitPricingSubtotal, which
+  // carries them — and the stripping method only moves the crew's hours.
+  const setStain = (patch) => onPricingChange(patch);
+  const stainConfig = { ...group, doors, drawers };
   const needsStrip = cabinetNeedsStripping(stainConfig);
-  const stripHours = cabinetStrippingHours(stainConfig, book);
-  const stripRate = Number(group.stripLabourRate) > 0 ? Number(group.stripLabourRate) : Number(labourSellRate) || 0;
+  const stainedPieces = stainedPieceCount(group, units);
+  const baseTotal = unitPricingSubtotal(group, book);
 
   const upcharge = factors
     ? finalPrice - (Number(group.baseUnitPrice) || 0)
@@ -498,7 +499,14 @@ export default function UnitPricingFields({
             { doors, drawers, [addOn.key]: true, addOnUnits: units, stainType: group.stainType },
             book,
           );
-          const amount = own.reduce((sum, i) => sum + i.amount, 0);
+          // The stain is not an add-on line: its row shows what the stained
+          // pieces add over painting them — the all-in stained rate less the
+          // painting rate, × the pieces stained (the base total carries it).
+          const amount =
+            addOn.key === "stainFinish"
+              ? stainedPieceCount({ ...group, stainFinish: true }, doors + drawers) *
+                (stainedUnitRate(finalPrice, stainPremiumPerUnit(group, book)) - finalPrice)
+              : own.reduce((sum, i) => sum + i.amount, 0);
           const applicable = addOn.needsDrawers ? drawers > 0 : doors > 0;
           return (
             <label
@@ -533,7 +541,7 @@ export default function UnitPricingFields({
                 </span>
                 <span className="block text-xs text-muted-foreground">
                   {applicable
-                    ? addOn.hint(book?.addOns || {}, money, group)
+                    ? addOn.hint(book?.addOns || {}, money, group, finalPrice, book)
                     : addOn.needsDrawers
                       ? "Enter a drawer count above"
                       : "Enter a door count above"}
@@ -594,7 +602,8 @@ export default function UnitPricingFields({
                     <span className="flex flex-wrap gap-1.5" role="group" aria-label={t("app.stain.typeLabel", "Which stain")}>
                       {STAIN_TYPES.map((type) => {
                         const active = normaliseStainType(group.stainType) === type;
-                        const rate = type === "gel" ? book?.addOns?.gelStainPerUnit : book?.addOns?.stainFinishPerUnit;
+                        // The ALL-IN rate a piece is quoted at with this stain.
+                        const rate = stainedUnitRate(finalPrice, stainPremiumPerUnit({ ...group, stainType: type }, book));
                         return (
                           <button
                             key={type}
@@ -614,7 +623,7 @@ export default function UnitPricingFields({
                               ? t("app.stain.gel", "Gel stain — over the existing finish")
                               : t("app.stain.liquid", "Liquid (penetrating) stain — bare wood")}
                             {" · "}
-                            {Number(rate) > 0 ? money(rate) : "—"}
+                            {t("app.stain.perPieceAllIn", "{rate} a piece all-in", { rate: money(rate) })}
                           </button>
                         );
                       })}
@@ -683,27 +692,13 @@ export default function UnitPricingFields({
                             );
                           })}
                         </span>
-                        <span className="mt-1 block text-xs text-muted-foreground">
-                          {stripRate > 0
-                            ? t(
-                                "app.stain.stripLine",
-                                "Its own line on the quote: {hours} h × {rate} = {amount}, at your labour rate (Settings → Field work).",
-                                { hours: stripHours, rate: money(stripRate), amount: money(Math.round(stripHours * stripRate * 100) / 100) },
-                              )
-                            : null}
+                        <span className="mt-1 block text-xs text-muted-foreground" data-stripping-included>
+                          {t(
+                            "app.stain.stripIncluded",
+                            "Stripping is included in the stained price — the client is never charged for it twice. The method only sets your crew's hours in Cost & margin: {hours} h on this job.",
+                            { hours: cabinetStrippingHours(stainConfig, book) },
+                          )}
                         </span>
-                        {stripRate > 0 ? null : (
-                          <span className="mt-1 block text-xs font-medium text-amber-800 dark:text-amber-300" data-stripping-unpriced>
-                            {t(
-                              "app.stain.stripNoRate",
-                              "No labour rate is set, so these {hours} h of stripping are NOT on the quote. Set your labour rate in Settings → Field work.",
-                              { hours: stripHours },
-                            )}{" "}
-                            <a href="/app/settings/field-work" className="underline">
-                              {t("app.stain.stripSetRate", "Set the rate")}
-                            </a>
-                          </span>
-                        )}
                         <span className="mt-1 block text-[11px] text-muted-foreground">
                           {t(
                             "app.stain.stripDefaults",
@@ -736,12 +731,22 @@ export default function UnitPricingFields({
 
       <div className="flex items-center justify-between bg-muted border border-border rounded-lg px-4 py-2.5">
         <span className="text-sm text-muted-foreground">
-          {units} unit{units === 1 ? "" : "s"} ×{" "}
-          {money(finalPrice)}
+          {stainedPieces > 0 ? (
+            <>
+              {units - stainedPieces > 0 && `${units - stainedPieces} × ${money(finalPrice)} + `}
+              {stainedPieces} × {money(stainedUnitRate(finalPrice, stainPremiumPerUnit(group, book)))}{" "}
+              {t("app.stain.stainedAllIn", "stained, all-in")}
+            </>
+          ) : (
+            <>
+              {units} unit{units === 1 ? "" : "s"} ×{" "}
+              {money(finalPrice)}
+            </>
+          )}
           {addOnTotal > 0 && " + add-ons"}
         </span>
         <span className="text-base font-bold text-foreground">
-          {money(units * finalPrice + addOnTotal)}
+          {money(baseTotal + addOnTotal)}
         </span>
       </div>
     </div>

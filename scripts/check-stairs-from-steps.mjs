@@ -178,7 +178,8 @@ const FLOW = read("app/instant-quote/[companySlug]/InstantQuoteFlow.js");
 ok("the public form asks the shape, L preselected", /key: "shape",[\s\S]*?defaultValue: "L"/.test(FLOW));
 ok("...as a select with the three shapes", /\[\["straight", "stairStraight"\], \["L", "stairL"\], \["U", "stairU"\]\]/.test(FLOW));
 const COPY = read("lib/i18n/instantQuoteCopy.js");
-ok("the shape words exist in en, fr and es", (COPY.match(/stairStraight:/g) || []).length === 3 && (COPY.match(/stairShape:/g) || []).length === 3);
+// Eight since 2026-10-03: the instant form is read in every product language.
+ok("the shape words exist in all eight instant-quote languages", (COPY.match(/stairStraight:/g) || []).length === 8 && (COPY.match(/stairShape:/g) || []).length === 8);
 const SERVER = read("lib/estimate/instantQuoteServer.js");
 ok("the server reads the shape through stairShape()", /shape: stairShape\(input\?\.intake\?\.shape\)/.test(SERVER));
 

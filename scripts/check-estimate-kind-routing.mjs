@@ -549,21 +549,17 @@ console.log("8. researched defaults, the stain distinction, and existing quotes"
   {
     const cat = TF.find((c) => c.key === "cabinet_refinishing");
     const stained = newScopeGroup(cat, "Stained cabinets", null, { tempId: "s", intakeValues: { doorCount: 20, drawerCount: 8 }, addOns: ["stainFinish"] });
-    const lines = cabinetAddOnLinesFor(stained);
-    const line = lines.find((l) => /Stain finish/.test(l.description));
-    // $45 → $10 the same day: stripping became its own labour line
-    // (check:stain-finish F), so the stain premium no longer carries it.
-    ok("a stained kitchen carries the premium per piece: 28 × $10 = $280", line && line.quantity === 28 && line.rate === 10 && line.amount === 280, lines);
-    ok("…and no stripping line without a labour rate (never a $0 line)", !lines.some((l) => /Stripping/.test(l.description)));
+    // 2026-10-04: a stained piece is priced ALL-IN on the unit line — the
+    // painting rate plus the stain difference ($150 + $45 = $195) — never an
+    // add-on line and never an hourly stripping line (check:stain-finish).
+    const saved = scopeGroupPayload(stained, null, "en");
+    ok("a stained kitchen is 28 × $195 all-in = $5,460, one line", saved.lineItems.length === 1 && saved.lineItems[0].quantity === 28 && saved.lineItems[0].rate === 195 && saved.lineItems[0].amount === 5460, saved.lineItems);
+    ok("…the same total origin/main charged as $150 + a $45 add-on", groupSubtotal(stained) === 5460);
+    ok("…and no add-on line for the stain", !cabinetAddOnLinesFor(stained).some((l) => /tain/.test(l.description)));
     const painted = newScopeGroup(cat, "Painted cabinets", null, { tempId: "p", intakeValues: { doorCount: 20, drawerCount: 8 } });
-    ok("a painted kitchen carries no stain line", !cabinetAddOnLinesFor(painted).some((l) => /Stain/.test(l.description)));
-    // Since gel vs liquid (2026-10-03, check:stain-finish): the tick is
-    // offered while EITHER stain type is priced — zeroing the liquid rate
-    // leaves gel to sell; zeroing both takes the tick away.
-    const zeroed = newScopeGroup(cat, "x", { addOns: { stainFinishPerUnit: 0, gelStainPerUnit: 0 } }, { tempId: "z", intakeValues: { doorCount: 20 }, addOns: ["stainFinish"] });
-    ok("a company that zeroed both stain rates cannot tick it", !zeroed.stainFinish);
-    const liquidOnlyZeroed = newScopeGroup(cat, "x", { addOns: { stainFinishPerUnit: 0 } }, { tempId: "z", intakeValues: { doorCount: 20 }, addOns: ["stainFinish"] });
-    ok("…zeroing the liquid rate alone leaves gel to sell", liquidOnlyZeroed.stainFinish === true);
+    ok("a painted kitchen carries no stain line", !scopeGroupPayload(painted, null, "en").lineItems.some((l) => /stain/i.test(l.description)));
+    const zeroed = newScopeGroup(cat, "x", { addOns: { stainFinishPerUnit: 0 } }, { tempId: "z", intakeValues: { doorCount: 20 }, addOns: ["stainFinish"] });
+    ok("a company that zeroed the stain difference cannot tick it", !zeroed.stainFinish);
   }
   // Existing quotes, the second set, against origin/main f74dd7f9.
   const PINNED_MORE = {

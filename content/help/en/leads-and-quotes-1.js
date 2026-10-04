@@ -817,20 +817,13 @@ export const ARTICLES = {
         id: "stain-gel-or-liquid",
         heading: "Staining: gel or liquid",
         blocks: [
-          { p: "Wherever a quote stains wood — the **Stain finish instead of paint** add-on on cabinet refinishing, and each staircase on stairs — you choose which stain:" },
+          { p: "Wherever a quote stains wood — the **Stained instead of painted** option on cabinet refinishing, and each staircase on stairs — you choose which stain:" },
           { bullets: [
             "**Liquid (penetrating) stain — bare wood.** It soaks into the wood, so the existing finish has to come off first. It can blotch on maple, birch, cherry and pine.",
             "**Gel stain — over the existing finish.** It sits on top of the old finish after a clean and a light scuff, with no stripping, and does not blotch. It is slower per piece: more hand-wiped coats and longer drying between them.",
           ] },
-          { p: "On cabinets the two buttons under the ticked add-on each show their own rate per door or drawer front, and the line on the quote says which stain it is. The gel rate opens at a researched default of **$20 a piece** (**Gel stain over the existing finish** on the rate card); type your own over it. On stairs the tread rate is the same either way — a stair refinish sands the treads — and the choice is printed under the treads line. **Staining → Stairs** opens its staircase on liquid." },
-          { p: "**Stripping to bare wood** is labour, so it is its own line: hours × your labour rate (**Settings → Field work**). It is added when the stain needs bare wood — a liquid stain on cabinets, a liquid stain on a **painted** staircase (**What is on it now → Paint**), or any stain when you tick **Going lighter than the current colour (dark → light)**. Gel over the existing finish adds none. A clear-finished staircase adds none either: the tread rates already sand it." },
-          { bullets: [
-            "Pick **Chemical stripper** or **Sanding**; each button shows its hours for this job.",
-            "Hours come from the rate card's **Stripping to bare wood** block: researched defaults, labelled as such — chemical 0.75 h a door and 0.25 h a drawer front (sanding 0.4 and 0.15); on stairs 0.5 h a tread, 0.35 h a riser and 0.15 h a foot of handrail (sanding 0.3, 0.2 and 0.1). Type your crew's own figures over them.",
-            "With no labour rate set, the panel says the stripping hours are **not** on the quote and links to Field work — it never prints a $0 stripping line.",
-            "The same hours are counted in **Cost & margin**.",
-          ] },
-          { note: "Since stripping became its own line, the liquid stain premium on cabinets is the stain alone — a researched default of **$10 a piece** (it was $45 when it also carried the stripping). Quotes already saved keep their lines." },
+          { p: "**Cabinets are priced all-in per stained door or drawer front** — one line on the quote, never a stain add-on and never a separate stripping charge. The stained rate is your painting rate plus the stain difference from your rate card: to bare wood (liquid, or any stain going **dark → light**) **+$45**, so **$195** a piece on the $150 default — about 30% over painting, the work of stripping or sanding to bare wood included; gel over the existing finish **+$0**, so the same **$150** as painting. Both differences are researched defaults on the rate card; type your own. An island stained beside painted cabinets is two lines: the painted pieces at your painting rate and the stained ones all-in." },
+          { p: "**Stripping is never charged twice.** On cabinets it is inside the stained rate; the **Chemical stripper** / **Sanding** buttons only set your crew's hours in **Cost & margin** (researched defaults: chemical 0.75 h a door and 0.25 h a drawer front, sanding 0.4 and 0.15 — internal rows on the rate card). On stairs the tread rate already includes sanding a clear finish; a **painted** staircase stained to bare wood (**What is on it now → Paint**) is priced on the **High** tier, whose rates include stripping the paint — the section says so and offers **Use the High tier**. The stair tread rate is the same for liquid and gel, and the choice is printed under the treads line. **Staining → Stairs** opens its staircase on liquid." },
         ],
       },
       {

@@ -577,7 +577,7 @@ section("I. New groups");
   const at = raw.indexOf("Only what the caller actually said");
   const fromCall = at >= 0 ? raw.slice(Math.max(0, at - 400), at + 1600) : "";
   ok("builder: the phone-call prefill does not ask for defaults, and names the language", fromCall.includes("newScopeGroup(") && !fromCall.includes("fieldDefaults") && fromCall.includes("language: bootstrap.companyLanguage"));
-  ok("builder: a tile add asks for defaults", /function addScopeGroup\(category, label(, addOns = \[\])?\)[\s\S]{0,400}fieldDefaults: true/.test(code("app/components/quotes/builder/QuoteBuilder.js")));
+  ok("builder: a tile add asks for defaults", /function addScopeGroup\(category, label(, addOns = \[\])?(, route = null)?\)[\s\S]{0,500}fieldDefaults: true/.test(code("app/components/quotes/builder/QuoteBuilder.js")));
 }
 
 /* ══ J. Materials ══════════════════════════════════════════════════════ */

@@ -9,7 +9,7 @@ Last updated: 3 October 2026 (audit loose ends: /platform revenue is written per
 Last updated: 3 October 2026 (everyone has a clock, crew get no accordion — the owner: "everyone should have a clock even the boss … for crews i don't think we need the accordion". The Time clock is the FIRST tab on every phone bar, owners/admins included, each bar keeping its size: owner Clock · Leads · Quotes · Jobs · Chat · More (Invoices → More), estimator Clock · Quotes · Calendar · Chat · More (Leads → More), dispatcher/manager Clock · Schedule · Team · Chat · More (Jobs → More), crew unchanged Clock · Today · Chat · More; someone switched to "No access" gets the old bar back. The desktop rail pins the clock under Home for owners and admins too (owners stay off payroll unless "Pay me through payroll"). Crew from `lg` up get no rail: CrewShell.js — a slim header (company logo + name, their name, bell, Sign out), one big Clock in / Clock out button (green/red/brown, white text 5.5–7.1:1, opens /app/clock), then big buttons Today · My schedule · Chat · Jobs · More; the phone drawer is gone for crew too, and every row it held is on /app/me/more under "Everything else". PATCH /api/time-entries/[id] now refuses a crew member's own times with a pointer to Time log › Request a correction; estimators, supervisors and owners unchanged. The swap choices are reasoned from the screens, not from counts — the per-role page counts in AnalyticsEvent (memberId × viewport) were not read; if they disagree it is one line per set in lib/nav/phoneBar.js — scripts/check-rbac-nav.mjs, check-rbac-redaction.mjs C6b)
 
 Last updated: 3 October 2026 (phone usage at cost × 2 — the owner's rule. Every crew text and every business-number text and call is charged its FLOOR at once (2¢/segment, 5¢/photo, 5¢/call-minute — lib/phoneUsage/pricing.js now owns these; crew and business-number meters re-export them) and queued (PhoneUsageCharge); the hourly /api/cron/business-numbers reads Twilio's price off the message / call (all legs) and debits the difference to max(floor, price × 2) under `<ref>:settle`, once. Each settled price is an observation per class (sms/mms in/out per CA/US/INTL, call_forward, call_bridge); a new unit price seen 5× in a class that already had one is a change → PlatformErrorLog "twilio_price_change", and if it RAISES what companies pay, a PhonePriceChange → an owners/admins-only banner (our new price + date, never the carrier/cost/multiple; not demos, not crew; dismissed per user). /platform/costs shows "Phone costs vs what we charge" with anything under 2× in red. Companies never see the multiple: Settings → Business number, the crew-rate lines and the help articles say only our minimum prices ("Texts from 2¢ each, photos from 5¢, calls from 5¢ a minute. Some carriers are priced higher."), and check:phone-usage scans every catalogue, help module and those screens for ×2 / cost / Twilio / markup / double; "× 2" appears only on /platform. Tables applied by SQL: PhoneUsageCharge, PhoneCostTier, PhonePriceChange — scripts/check-phone-usage.mjs)
-Last updated: 3 October 2026 (drywall REPAIRS no longer ask square footage or ceiling height; gel vs liquid stain on cabinets and stairs (gel $20/piece researched default); stripping to bare wood as its own labour line at Company.labourSellRate with researched chemical/sanding hours, liquid stain premium 45 → 10 so the stripping is not billed twice; the hourly price floor warned in the quote builder (ForecastSettings.billableHoursPerMonth — SQL owed); the instant quote in all eight product languages, chosen per company, unset still en/fr/es — see "Repairs without a room, gel vs liquid stain, stripping labour, the hourly floor, instant-quote languages" below)
+Last updated: 3 October 2026 (drywall REPAIRS no longer ask square footage or ceiling height; stained cabinets and stairs priced ALL-IN per piece (painting rate + stain difference: to bare wood $150 + $45 = $195, gel $150; stripping inside the price, its hours cost-side only; painted stairs on the High tier) — awaiting the owner's approval of the numbers; the hourly price floor warned in the quote builder (ForecastSettings.billableHoursPerMonth — column applied in production); the instant quote in all eight product languages, chosen per company, unset still en/fr/es — see "Repairs without a room, gel vs liquid stain, stripping labour, the hourly floor, instant-quote languages" below)
 Last updated: 3 October 2026 (leave earned from hours worked: a fourth accrual method, “Earned per hour worked” — X hours per Y hours worked, optional yearly cap, a stated day length — on approved time entries of every work activity; cited presets only (Ontario ESA 4%/6%, California LC §246, Washington RCW 49.46.210, Colorado HFWA, New York LL §196-b), each labelled “check with your local rules”; rate changes apply from the day saved; hours worked since 1 January before FieldQuo, plus leave already taken (paid and unpaid), entered per person as an append-only opening balance with who/when; per-person rates from a date; balances with earned / taken / left and “How it's calculated” on Time off, for the person and on the Team tab. Schema additive, NOT yet applied — SQL in the section below.)
 
 Last updated: 3 October 2026 (Bring your number — Settings → Business number. Twilio Lookup classifies the number; a landline/toll-free gets Hosted SMS (texts move, calls stay; Twilio's ownership call + emailed LOA; numbers v2 HostedNumber/Orders), a cell or VoIP line is PORTED (Twilio refuses to host VoIP). US ports go through Twilio's Port In API (bill uploaded as a document, LOA e-signed via Twilio, nothing secret stored); Canadian ports have no API — FieldQuo files them on Twilio's international form from /platform/business-numbers (superadmin, audited; PortFiling log; the PIN/account/bill sealed with PORT_SECRETS_KEY and purged at the end). Status syncs hourly (/api/cron/business-numbers) and on view; a number goes `active` only after it is wired (SMS → /api/sms/inbound, voice → /api/business-number/voice) and becomes Company.smsFromNumber. Texts on it file through the existing inbox, link to client/lead/job by phone, and a stranger becomes a lead by the social-leads rules; calls ring up to three phones (caller ID passed through), then the existing receptionist number or voicemail, each filed as a `call` line on the conversation; the Call button (leads, clients, jobs, the inbox header) rings the member then the client from the business number. Costs from the phone balance: $4/mo, 2¢/text, 5¢/photo, 5¢/call-minute (the last one NEW and unconfirmed — BUSINESS_CALL_CENTS_PER_MINUTE). The client inbox now draws bubbles (ours navy, contrast measured), a linked-record chip on the list, and a voicemail player. OWNER TO DO: PORT_SECRETS_KEY in Vercel; Hosted SMS + Port In enabled on the Twilio account; A2P 10DLC brand/campaign before any US number texts US phones — scripts/check-bring-your-number.mjs)
@@ -109,81 +109,58 @@ once, drywall repairs, wall area" (below).
   drywall repair group now asks for its quantity instead of filling it.
 - Checks: `check:drywall-finish-levels` section K (1573 passed).
 
-### 2. Gel or liquid stain
+### 2–3. Stained cabinets and stairs: gel or liquid, priced all-in (reworked 4 October 2026)
 
-- `lib/pricing/stainFinish.js`: `stainType` "liquid" | "gel"; absent and junk
-  read as liquid, so every stored or new group without a choice prices and
-  prints byte-identically (md5 of cabinet lines/subtotals/hours and stair
-  lines/payloads against HEAD before the change: identical).
-- **Cabinets** (refinishing): under the ticked **Stain finish instead of
-  paint** add-on, two buttons — liquid (`addOns.stainFinishPerUnit`) and gel
-  over the existing finish (`addOns.gelStainPerUnit`, **$20 researched
-  default**, on the rate card labelled as such). Gel writes its own line and
-  sentence ("No stripping"), en + fr like the rest of the cabinet add-ons. The
-  add-on is offered while either rate is priced. `stainFinish` and
-  `stainType` are now saved with the cabinet answers (`stainFinish` was
-  missing from that list since it shipped — the line was saved, the tick was
-  not).
-- **Stairs**: a **Which stain** select per staircase; a chosen type is printed
-  under the treads line (en/fr); the tread rate is the same either way.
-  Staining → Stairs opens its staircase on liquid (`routedGroup`).
-- Research: Bob Vila "Gel Stain" (2019-11-18: sits on top, light scuff, no
-  blotch on maple/birch/cherry/pine, 8–24 h between coats); General Finishes
-  FAQ (72 h recoat over an existing finish vs 6–12 h on raw wood); Angi
-  gel-stain cabinets $80–140 a door (search summary, page 403) vs Fixr painting
-  $70–125 (2026-01-27) → +12.8% on $150 = $19 → **$20**.
-- Not done: the painting book's own staining substrates (`stain_cab_door`,
-  `stain_tread` … in `lib/pricing/paintTakeoff.js`) — for a painter without the
-  cabinet/stair trade — are ILLUSTRATIVE and unpriced (they report gallons and
-  no money), so a gel/liquid price there would be a price on an unpriced line.
-- Checks: new `check:stain-finish` (in check:all), `check:estimate-kind-routing`
-  (zeroing only the liquid rate now leaves gel to sell), `check:instant-exits`
-  (the instant-quote card shows no gel box — the instant estimate asks no
-  stain type).
+**Owner, 4 October, on the first version** (a $45 → $10 stain add-on plus an
+hourly stripping line): "painting right now is 150 default that includes all
+the labor etc.. staining requires more labor because you're sanding to bare
+wood.. so it should be more.. make sure you look at real pricing that
+encompasses the whole process." Rebuilt as below; **awaiting his approval of
+the numbers before it ships.**
 
-### 3. Stripping to bare wood — its own labour line
-
-- When a stain needs bare wood the builder adds **"Stripping to bare wood —
-  chemical stripper / sanding"**: hours × `Company.labourSellRate` (Settings →
-  Field work), en/fr. Cabinets: liquid stain, or **Going lighter (dark →
-  light)** with any stain; gel over the finish adds none. Stairs: only a
-  **painted** staircase (new **What is on it now** select) stained liquid or
-  going lighter — a clear-finished one is sanded by the tread rate already, so
-  a second sanding would bill the treads twice. Treads, risers when ticked,
-  handrail feet. Balusters/posts not stripped (not asked).
-- Hours from the rate card's new **Stripping to bare wood** block (both
-  trades), every row labelled "researched default": cabinets chemical 0.75 h
-  a door / 0.25 a drawer front, sanding 0.4 / 0.15; stairs chemical 0.5 a
-  tread / 0.35 a riser / 0.15 a ft of rail, sanding 0.3 / 0.2 / 0.1. Sources
-  and arithmetic: `lib/pricing/stainFinish.js` header and research doc §E
-  (homewyse paint removal $5.72–11.11/sqft and refinish prep 6 h/100 sqft,
-  Sept 2026; BBS Flooring 3–5 h for 13 treads, 2026-05-11).
-- **Money change, named:** `addOns.stainFinishPerUnit` 45 → **10**. The $45 was
-  the whole strip-and-restain premium; with stripping billed by the hour it
-  would charge the stripping twice. A 20-door/8-drawer liquid-stain kitchen at
-  $85/h: was 28 × $45 = $1,260; now 28 × $10 + 17 h × $85 = $1,725 (chemical)
-  or $1,062 (sanding). Companies that set their own $ keep it; saved quotes keep
-  their lines.
-- The rate: snapshotted as `stripLabourRate` on the cabinet group / stair
-  takeoff whenever a stain control changes, on Staining → routes, and by a
-  builder effect for any group that arrived without one (phone-call drafts).
-  `/api/settings/business-info` now returns `labourSellRate` — only to a member
-  who may see money. **No rate set: no line** (never a $0 stripping line) and an
-  amber note with a link to Field work.
-- Cost: `cabinetLabour.js` adds a stripping step of exactly the billed hours;
-  stairs' cost hours are the stripping hours (they were 0). The builder's live
-  Cost & margin panel now reads the cabinet answers (upgrades, stain) before a
-  save — it saw them only after save + reopen.
-- Instant/phone estimates carry no labour rate: a stain asked for on a call
-  prices the $10 premium and the draft says "stripping … not in this figure —
-  the quote adds it by the hour"; the builder adds the line when the draft
-  opens. The instant-quote rate card shows no stripping boxes.
-- md5: every cabinet path without a stain, and every stair path that is not
-  painted, identical to the item-2 commit.
-- Checks: `check:stain-finish` sections F–G (159), `check:call-offerings`
-  (stain rates checked money-shaped — and a "$10" in the rate-card label was
-  reaching the call-draft prompt, so labels say "(researched default)" with no
-  figure), `check:estimate-kind-routing` 445, `check:instant-exits` 190.
+- **All-in per stained piece**, one line, never an add-on and never an hourly
+  stripping line: the company's painting rate (`perDoor`/`perDrawer`, $150 —
+  TrueFinish's all-in figure) + a stain difference from the rate card
+  (`lib/pricing/stainFinish.js`, `scopeGroupPayload`, `unitPricingSubtotal`,
+  `buildCabinets`, the instant/call estimate). Liquid / to bare wood (or any
+  stain going dark → light): `addOns.stainFinishPerUnit` **+$45 — unchanged
+  from what shipped** → **$195** (+30%). Gel over the existing finish:
+  `addOns.gelStainPerUnit` **$0** → **$150**. An island stained beside painted
+  cabinets is two lines.
+- **Example kitchen, 20 doors + 8 drawer fronts:** painted **$4,200**; liquid to
+  bare wood **$5,460** (the same total origin/main already charged as
+  $150 + a $45 add-on line — now one honest all-in line); gel **$4,200**.
+  +50% option for the owner: $75 difference → $225 a piece, $6,300.
+- **Sources** (research doc §F): realcostiq (July/Sept 2026) painting
+  $100–250 a door, strip & restain $150–250, sand & restain $100–175, gel
+  $80–140; Kitchen Cabinet Kings (2026) stained 30–50% over painted, Shaker
+  $110–170 vs $85–140; Angi gel $80–140; Fixr painting $70–125 (2026-01-27);
+  HomeStars CAD 150–200 a piece painted (2026-08-21); homewyse stain & finish
+  $7.45–15.09/sqft (Sept 2026); HomeAdvisor no-strip staining 30% under paint.
+- **Stripping is cost only:** the chemical / sanding buttons set the crew's
+  hours in Cost & margin (17 h / 9.2 h on the example; `cabinetLabour.js`), the
+  stripping rows on the rate card are now `internal` and labelled researched
+  defaults. The labour-rate plumbing of the first version is gone
+  (business-info no longer returns `labourSellRate`; no snapshot, no effect).
+- **Stairs:** a **Which stain** select per staircase (printed under the treads
+  line); the tread rate already includes sanding a clear finish ($150 against
+  BBS Flooring CAD 125–145 and De Armas $90–200 a step). A **painted** staircase
+  stained to bare wood is the book's **High** tier ("painted-over surfaces to
+  strip": tread $275, riser $40, rail $28/ft) — the section says so with a
+  **Use the High tier** button; no stripping line. Example 13 treads / 14
+  risers / 14 ft: clear **$2,510**, painted to stain **$4,527**. Staining →
+  Stairs opens on liquid.
+- `stainFinish`, `stainType`, `stripMethod`, `stainDarkToLight` are saved with
+  the cabinet answers (`stainFinish` never was). The live Cost & margin panel
+  reads the cabinet answers before a save.
+- md5: every cabinet path without a stain, the stairs, the cabinet hours and
+  the instant estimate identical to origin/main (pinned in
+  `check:stain-finish` §G).
+- Not done: the painting book's illustrative, unpriced staining substrates;
+  stripping balusters/posts (not asked).
+- Checks: `check:stain-finish` 105, `check:estimate-kind-routing` 445,
+  `check:call-offerings`, `check:instant-exits` 190, `check:cabinet-labour`,
+  `check:quote-costing`, `check:stairs-from-steps`, `check:drywall-finish-levels`.
 
 ### 4. The hourly floor reaches the quote builder
 
@@ -202,10 +179,8 @@ once, drywall repairs, wall area" (below).
   reaches a quote as the margin panel's overhead and its red "losing money".
 - Pure arithmetic in `lib/analytics/hourlyFloor.js`; `calculateHourlyFloor`
   now returns it (same formula; check:depreciation's pinned floor unchanged).
-- **Schema (additive — coordinator applies; not pushed):**
+- **Schema (additive — applied in production by the coordinator, 2026-10-04):**
   `ALTER TABLE "ForecastSettings" ADD COLUMN "billableHoursPerMonth" INTEGER;`
-  Until it exists the forecast GET/PUT and the hourly-floor route will error on
-  the unknown column, so apply it before deploying this commit.
 - Checks: new `check:hourly-floor` (81, in check:all); `check:settings-access`
   lists the new route beside minimum-price (dark to a support session for the
   same reason).

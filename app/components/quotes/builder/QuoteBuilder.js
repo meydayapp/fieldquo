@@ -137,7 +137,6 @@ import {
 // Which calculator a painting estimate kind opens — the cabinet or stair
 // trade, or the painting takeoff. Why, in the module's header.
 import { routeEstimateKind, routedAddOns, routedGroup, stainingChoices, placeRoutedGroup } from "@/lib/quotes/estimateKindRouting";
-import { withStripLabourRate } from "@/lib/pricing/stainFinish";
 import { checkHourlyFloor, hasHourlyLine } from "@/lib/analytics/hourlyFloor";
 import HourlyFloorNotice from "./HourlyFloorNotice";
 // The estimator's own complexity factors, on any trade — the model and its
@@ -501,9 +500,6 @@ export default function QuoteBuilder({ mode = "create", quoteId = null }) {
           // The billing currency, so every money render here matches the
           // document the client will receive.
           companyCurrency: businessInfo?.currency || null,
-          // Present only for a member who may see money (the business-info
-          // route withholds it otherwise).
-          labourSellRate: businessInfo?.labourSellRate ?? null,
           // The company as the document's masthead prints it — name, logo,
           // address, phone, email, brand colour — and the e-transfer /
           // cheque switch the totals need. The document layout draws the
@@ -914,11 +910,6 @@ export function QuoteBuilderForm({
   // edit route already had the authoritative one and dropping it would put the
   // fallback back on screen.
   const companyCurrency = start.currency ?? boot.companyCurrency ?? null;
-  // The hourly rate the company BILLS labour at (Company.labourSellRate,
-  // Settings → Field work) — what a stain's stripping line is priced at
-  // (lib/pricing/stainFinish.js). Null when unset or not visible to this
-  // member; the stripping controls then say the line cannot be priced.
-  const labourSellRate = Number(boot.labourSellRate) > 0 ? Number(boot.labourSellRate) : null;
   // The company's own target, or the shared default — the same resolution
   // the server makes when it freezes the row (companyMarginTarget).
   const marginTarget = boot.marginTargetPct ?? MARGIN_TARGET_PCT;
@@ -1005,24 +996,6 @@ export function QuoteBuilderForm({
   const [scopeGroups, setScopeGroups] = useState(start.groups || []);
   const [reasonsOpen, setReasonsOpen] = useState({});
 
-  // A stain's stripping line is priced at the labour rate snapshotted on the
-  // group (lib/pricing/stainFinish.js). Any open group that needs stripping
-  // and arrived without one — a phone-call draft, a group opened before the
-  // rate loaded — takes the company's rate here, so the line the stain panel
-  // describes is the line the quote carries. Returns the same array when
-  // nothing needed it, so this settles after one pass.
-  useEffect(() => {
-    if (!labourSellRate) return;
-    setScopeGroups((prev) => {
-      let changed = false;
-      const next = prev.map((g) => {
-        const out = withStripLabourRate(g, labourSellRate);
-        if (out !== g) changed = true;
-        return out;
-      });
-      return changed ? next : prev;
-    });
-  }, [labourSellRate, scopeGroups]);
 
   // ── The company's saved complexity factors ──────────────────────────────
   //
@@ -1441,7 +1414,6 @@ export function QuoteBuilderForm({
           // (routedAddOns); every other add starts with nothing ticked.
           addOns,
         }),
-        { labourSellRate },
       ),
     ]);
   }
@@ -1716,7 +1688,6 @@ export function QuoteBuilderForm({
         language: quoteLanguage || companyLanguage,
         addOns: routedAddOns(route),
       }),
-      { labourSellRate },
     );
     setScopeGroups((prev) => placeRoutedGroup(prev, groupTempId, fresh));
     return true;
@@ -2830,7 +2801,6 @@ export function QuoteBuilderForm({
               rateOverridesFor(group.categoryId),
             )}
             currency={companyCurrency}
-            labourSellRate={labourSellRate}
             group={group}
             reasonsOpen={Boolean(reasonsOpen[group.tempId])}
             onToggleReasons={() =>
@@ -2854,7 +2824,6 @@ export function QuoteBuilderForm({
           group.takeoff && (
             <TradeTakeoff
               siteAddress={siteAddress || selectedClient?.address || ""}
-              labourSellRate={labourSellRate}
               categoryKey={group.categoryKey}
               takeoff={group.takeoff}
               book={getPriceBook(

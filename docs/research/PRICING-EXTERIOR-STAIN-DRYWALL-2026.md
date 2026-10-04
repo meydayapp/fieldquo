@@ -286,8 +286,54 @@ No source publishes hours per cabinet door or per stair tread for stripping. The
 - Stairs, sanding: 3–5 h / 13 treads → **0.3 h a tread**; a riser ~70% of a tread's face → **0.2 h**; handrail ~0.67 sq ft per foot, profiled at twice the flat rate → **0.1 h a foot**.
 - Stairs, chemical: the same 0.11 / 0.06 ratio → **0.5 h a tread, 0.35 h a riser, 0.15 h a foot of handrail**.
 
-### What we set (app/data/tradePriceBooks.js, lib/pricing/stainFinish.js)
+### What we set first, and why it was replaced
 
-- Stripping is LABOUR on its own line: hours × `Company.labourSellRate`. Cabinets: when the stain is liquid, or the colour goes lighter. Stairs: only a **painted** staircase stained liquid (or going lighter) — a clear-finished one is sanded by the tread rate already.
-- `addOns.stainFinishPerUnit` **45 → 10**: the $45 was the whole strip-and-restain premium (B6); with stripping itemised it would bill the stripping twice. INFERRED remainder: KCK's own ranges +24% = $36 on $150; sanding-level stripping on a 20-door / 8-drawer kitchen is 9.2 h, ~$25 a piece at $75/h; $36 − $25 ≈ $11 → **$10**.
-- Not priced: stripping balusters and newel posts (the owner named treads, risers and railing), and the painting book's illustrative staining substrates.
+On 2026-10-03 the stripping was put on its own hourly line and the liquid premium cut from $45 to $10. The owner rejected that on 2026-10-04 ("you say the price is 45 a door and 10 a door; painting right now is 150 default that includes all the labor etc.. staining requires more labor because you're sanding to bare wood.. so it should be more.. make sure you look at real pricing that encompasses the whole process"). §F is what replaced it. The stripping hours above stay, as COST only.
+
+---
+
+## F. Stained cabinets and stairs, priced all-in (4 October 2026)
+
+### F1. What the market charges for the whole process, per door
+
+| Source | Date | Region | Painting a door | Stain to bare wood (strip/sand, stain, seal) | Gel over the existing finish | Kind |
+|---|---|---|---|---|---|---|
+| realcostiq.com — kitchen-cabinet-refinishing / cabinet-painting-estimate | July 2026 / Sept 2026 | US | $100–250 a door, $50–100 a drawer | sand & restain $100–175; **strip & restain $150–250** | $80–140 | range |
+| Kitchen Cabinet Kings — how-much-to-paint-kitchen-cabinets [snippet] | 2026 | US | Shaker $85–140 | Shaker **$110–170**; "30–50% more" because the old finish is stripped | — | range |
+| Angi — cost to stain cabinets [snippet] | 2026 | US | — | $4–15 / sq ft | $80–140 a door | range |
+| Fixr — paint kitchen cabinets (B5) | 2026-01-27 | US | $70–125 | — | — | range |
+| HomeStars — cost to paint kitchen cabinets (B5) | 2026-08-21 | Canada | CAD 150–200 a piece | — | — | range |
+| homewyse — stain and finish kitchen cabinets | 2026-09 | US | — | $7.45–15.09 / sq ft (scrape/sand, stain, 2 clear coats) | — | range |
+| HomeAdvisor — refinish cabinets (B6) | 2026-06-17 | US | $6–14 / sq ft | staining $4–10 / sq ft (no stripping) | — | range |
+
+FieldQuo's painting default is **$150 a door and a drawer front, all-in** — `app/data/tradePriceBooks.js` `cabinet_refinishing.perDoor` / `perDrawer` (TrueFinish's own figure), inside HomeStars' CAD 150–200 and realcostiq's $100–250.
+
+### F2. What we set
+
+The stained rate is **the company's painting rate + a stain difference**, one all-in line per piece (`lib/pricing/stainFinish.js`). Building on the painting rate keeps the relationship when a company prices painting differently, and keeps any stain difference a company has already set.
+
+| | Difference (rate card) | All-in on the $150 default | vs painting | Basis |
+|---|---|---|---|---|
+| Liquid, to bare wood (or any stain going dark → light) | `addOns.stainFinishPerUnit` **+$45** (unchanged from what shipped) | **$195** | +30% | KCK's stated +30–50% (bottom); KCK's own ranges +24%; realcostiq strip & restain +14% on its own painting midpoint; bottom-up stripping 0.75 h × $60/h = $45 |
+| Gel over the existing finish | `addOns.gelStainPerUnit` **$0** | **$150** | same | realcostiq gel −37% vs its painting; Angi gel vs Fixr painting +13%; HomeAdvisor no-strip staining −30%. Split around painting → priced at painting: no primer and no spray setup, paid back in hand-wiped coats and 72 h recoats |
+
+Stripping is inside the liquid rate. The chemical / sanding choice moves only the crew's hours in Cost & margin.
+
+**+50% option for the owner:** a $75 difference → **$225** a piece (KCK's top of band; realcostiq strip & restain midpoint $200 USD ≈ CAD 274 suggests the absolute market can carry it).
+
+### F3. The example kitchen — 20 doors + 8 drawer fronts (28 pieces), standard complexity
+
+| Finish | Per piece | Total | Note |
+|---|---|---|---|
+| Painted (today) | $150 | **$4,200** | above the $3,800 job minimum |
+| Liquid stain to bare wood | $195 | **$5,460** | +$1,260 (+30%); the same total origin/main already charged as $150 + a $45 add-on line, now one honest all-in line |
+| Gel over the existing finish | $150 | **$4,200** | no stripping |
+| (+50% option) liquid at $225 | $225 | $6,300 | |
+
+Crew hours added in Cost & margin for the liquid kitchen: 17 h chemical / 9.2 h sanding.
+
+### F4. Stairs
+
+The stair book's tread rate is already a refinish to bare wood with stain (TrueFinish's stairs paragraph: sanded back to bare wood, stain applied): $150 a tread Standard, against BBS Flooring (GTA, 2026-05-11) CAD 125–145 sand-stain-refinish a tread and De Armas (Miami/Charlotte, 2026-03-16) $90–200 a step. Railing: $15 a foot Standard against Oakerds (Atlanta, 2026-03-18) $15–25 a foot for a railing refinish including balusters. A **painted** staircase stained to bare wood is the book's **High** tier ("painted-over surfaces to strip"): tread $275, riser $40, handrail $28 a foot. No stripping line.
+
+Example, 13 treads + 14 risers + 14 ft of handrail: clear-finished, Standard **$2,510**; painted to stain, High **$4,527**.
