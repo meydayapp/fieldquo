@@ -40,6 +40,7 @@ import { renderSubject } from "@/lib/email/renderTemplateSections";
 import { templateBody } from "@/lib/email/templateBody";
 import { ensureSubscriberToken, unsubscribeHeaders } from "@/lib/marketing/unsubscribe";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
+import { phoneGateResponse } from "@/lib/trial/phoneGate";
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -60,6 +61,11 @@ export async function POST(request, { params }) {
   // finished checkout does not get to use FieldQuo's reputation for it.
   const { response: unpaid } = await planOrRefusal(member, "send this campaign");
   if (unpaid) return unpaid;
+
+  // A card-free trial verifies a mobile before this spends FieldQuo money
+  // (lib/trial/phoneGate.js). Paid companies never reach a refusal here.
+  const phoneGate = await phoneGateResponse(member, "email_campaign");
+  if (phoneGate) return phoneGate;
 
   const campaign = await db.marketingCampaign.findUnique({
     where: { id },

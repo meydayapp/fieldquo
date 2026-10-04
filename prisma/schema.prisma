@@ -1919,6 +1919,17 @@ model Company {
   // why this is nullable rather than defaulted.
   aiMonthlyTokenCap Int?
 
+  /// The mobile number a CARD-FREE trial verified by SMS code before using
+  /// features that spend FieldQuo's money (lib/trial/phoneGate.js, owner-
+  /// approved 2026-10-03). Written only by lib/trial/phoneVerify.js checkCode,
+  /// together with the date; read by the gate (a stamped trial is let
+  /// through) and by sendCode/checkCode (one number verifies ONE trial).
+  /// Indexed, not @unique: prisma db push treats a new unique constraint on a
+  /// live table as possible data loss, so the one-number rule is enforced in
+  /// code, re-asked at the moment of the write.
+  trialPhoneE164       String?
+  trialPhoneVerifiedAt DateTime?
+
   // Stripe Connect — for this company to receive payments from ITS clients
   stripeAccountId      String?
   stripeOnboarded      Boolean @default(false)
@@ -2752,6 +2763,7 @@ model Company {
   clientPoIncludeYear Boolean @default(true)
   clientPoDigits      Int     @default(4)
   @@index([influencerRepId])
+  @@index([trialPhoneE164])
 }
 
 /// Configuration for the bio-link page at /l/<slug> — the single link an
@@ -21838,4 +21850,32 @@ model PhonePriceChange {
   createdAt     DateTime @default(now())
 
   @@index([effectiveAt])
+}
+
+/// One SMS code sent to verify a card-free trial's mobile (lib/trial/
+/// phoneVerify.js). The rows ARE the rate limit (sends per company per hour
+/// and day, per number per day) and the code's own state; nothing else reads
+/// them. The code itself is never stored — only an HMAC bound to the company
+/// and number (codeHash), and nothing at all when Twilio Verify sent it
+/// (sender "verify" keeps its own code).
+model PhoneVerification {
+  id         String    @id @default(cuid())
+  companyId  String
+  userId     String?
+  e164       String
+  /// "sms" (FieldQuo's own number, our code) | "verify" (Twilio Verify)
+  sender     String
+  codeHash   String?
+  /// Lookup's verdict, reused for 30 days so a number is looked up once:
+  /// mobile | unknown | voip | landline | toll_free
+  lineType   String?
+  attempts   Int       @default(0)
+  /// pending | approved | expired
+  status     String    @default("pending")
+  expiresAt  DateTime
+  verifiedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([companyId, createdAt])
+  @@index([e164, createdAt])
 }

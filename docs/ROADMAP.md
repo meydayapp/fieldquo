@@ -112,6 +112,25 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 - Not changed: the staff-side move checks (`/api/appointments/[id]`, `/api/jobs/[id]/visits/[visitId]`) still ask Google per edit — staff actions, not browsing; the booking page's per-address geocode is unchanged.
 - Docs: docs/BOOKING.md rule 5 and "Not covered yet". Help: Jobs and scheduling › Arrival windows and travel buffer (en/fr/es). Check: `check:booking-drive-check` (45); `check:booking-modes` count relaxed (≥ 2 uses of the mode sizing in the reschedule route).
 
+### 4. A card-free trial verifies a mobile before spending FieldQuo money — shipped (schema NOT applied)
+
+- `lib/trial/phoneGate.js`: asked only when `accessForCompany` says **trial_no_plan** (no Subscription, trialEndsAt ahead), not a demo, not yet verified. Paid companies — any Subscription row, incl. a card trial — are never asked and never read the company row for it.
+- Gated, at the place that spends: `sendSms` (every tenant text — refused as `{ success:false, code }`, which every caller handles), `POST /api/settings/voice/number` (a line + ~US$10.50 starter credit), crew line **buy** (search is free), business number **hosted** + **port**, `POST /api/quotes/[id]/call` (AI calls a client), `POST /api/marketing/video-posts`, `POST /api/marketing/campaigns/[id]/send`. Refusal: 403 `phone_verification_required` + `phoneVerification.path`; `lib/fetchJson.js` and `reportResponseError` open `PhoneVerifyPrompt` (mounted in app/app/layout.js). Not gated: FieldQuo-paid AI (copilot/receipts/translation) — each already has a per-company ceiling.
+- `/app/settings/verify-phone` (+ an Account & Billing card while it is owed): why, the list it unlocks, mobile → 6-digit code → verified. Owner/admin only. Strings `app.phoneVerify.*` in all nine languages.
+- **Sender, by price** (checked 2026-10-03): own Twilio number US$0.0083/SMS vs Twilio Verify US$0.05 per verification + the same per-SMS fee → own number is the default (our code, stored only as an HMAC). Verify only for a **US** mobile while the system number is not A2P-registered (US texts from it fail with 30034) AND `TWILIO_VERIFY_SERVICE_SID` is set; otherwise a US trial is not asked (a code that can't arrive is a gate nobody can pass). Lookup line type US$0.008/number — trivial, so it is used: VoIP/landline/toll-free/pager refused, Lookup down lets the number through, answer reused 30 days.
+- Limits: 60 s between sends, 3/hour, 6/day per company, 5/day per number across companies; code lives 10 min, 5 tries; one number verifies one trial (re-asked at the write).
+- SQL (additive, not applied):
+  `ALTER TABLE "Company" ADD COLUMN "trialPhoneE164" TEXT, ADD COLUMN "trialPhoneVerifiedAt" TIMESTAMP(3);`
+  `CREATE TABLE "PhoneVerification" ("id" TEXT NOT NULL, "companyId" TEXT NOT NULL, "userId" TEXT, "e164" TEXT NOT NULL, "sender" TEXT NOT NULL, "codeHash" TEXT, "lineType" TEXT, "attempts" INTEGER NOT NULL DEFAULT 0, "status" TEXT NOT NULL DEFAULT 'pending', "expiresAt" TIMESTAMP(3) NOT NULL, "verifiedAt" TIMESTAMP(3), "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "PhoneVerification_pkey" PRIMARY KEY ("id"));`
+  `CREATE INDEX "PhoneVerification_companyId_createdAt_idx" ON "PhoneVerification"("companyId", "createdAt");`
+  `CREATE INDEX "PhoneVerification_e164_createdAt_idx" ON "PhoneVerification"("e164", "createdAt");`
+  `CREATE INDEX "Company_trialPhoneE164_idx" ON "Company"("trialPhoneE164");`
+- Env (docs/VERCEL.md): `TWILIO_VERIFY_SERVICE_SID` (optional, US case), `PHONE_CODE_SECRET` (optional, falls back to BETTER_AUTH_SECRET).
+- Checks: `check:trial-phone-verification` (120, scripted DB and Twilio — never a real text); `check:sms-delivery` / `check:sales-sms` fixtures gained the Subscription read; `check:nav-audit` names the page as a drill-in. Help: Billing › Start your free trial › What you see during the trial (en/fr/es).
+- **Owed — owner:** apply the SQL BEFORE deploying (the Prisma client selects the new Company columns — see the deploy note under item 2); create a Verify service if US trials should be gated before US A2P registration.
+
+**Deploy order for all four:** apply the SQL in items 2 and 4 first, then deploy. Every Plan read selects `aiMonthlyAllowanceCents` and the gate selects the Company columns; deploying first would fail those reads.
+
 ## Audit loose ends (3 October 2026)
 
 A read-only audit against origin/main found ten loose ends; each is its own commit.
