@@ -421,8 +421,11 @@ export default function CostReview({ jobId, data, onClose, onChanged, onReviewed
               estimate: money(comparison.estimatedCost),
               actual: money(actual.total),
             });
-  const marginSentence =
-    comparison.marginPct == null
+  // A past job with nothing recorded has an unknown cost, not a 100% margin —
+  // the same sentence the panel behind this modal shows (see the costing route).
+  const marginSentence = data?.costsNotRecorded
+    ? t("app.jobCosting.costsNotRecorded", "Costs weren't recorded for this past job.")
+    : comparison.marginPct == null
       ? t("app.jobCosting.verdictMarginUnknown", "Margin not known yet — nothing invoiced.")
       : t("app.jobCosting.verdictMargin", "Margin {margin}%.", { margin: fmtNum(comparison.marginPct) });
 

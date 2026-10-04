@@ -75,6 +75,8 @@ export async function GET(request, { params }) {
       // lib/costing/costRevision.js.
       costRevisionDecision: true,
       costRevisionDecidedAt: true,
+      // A past job typed in after the fact — see costsNotRecorded below.
+      historicalImportedAt: true,
       // Returned so the panel formats in the company's billing currency. The
       // job endpoint doesn't load the company, and defaulting to CAD in the
       // component is exactly the bug that put "$2100.00" on client documents.
@@ -262,8 +264,26 @@ export async function GET(request, { params }) {
     }),
   };
 
+  // ── A past job with nothing recorded against it ─────────────────────────
+  //
+  // A job typed in through the Past jobs screen carries what it was paid and,
+  // usually, nothing it cost — the work happened before anyone clocked hours
+  // or filed receipts here. Its cost is unknown, not $0, and the panel
+  // printed "Left after costs: $3,200 · Margin 100%". The flag tells the
+  // panel to say so instead of drawing a margin; the moment anything IS
+  // recorded against the job, it is measured like any other. Every company
+  // that never imported a job gets the same payload it always did (the key
+  // is absent, not false).
+  const costsNotRecorded =
+    Boolean(job.historicalImportedAt) &&
+    expenses.length === 0 &&
+    timeEntries.length === 0 &&
+    assetUseLogs.length === 0 &&
+    !(subcontracts && subcontracts.length);
+
   return NextResponse.json({
     actual,
+    ...(costsNotRecorded ? { costsNotRecorded: true } : {}),
     // Hours in this window that belong to no job. Its own key, never merged
     // into `actual.labour` — see the note where it is computed.
     unattributed,
