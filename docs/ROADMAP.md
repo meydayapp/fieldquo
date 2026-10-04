@@ -176,6 +176,31 @@ once, drywall repairs, wall area" (below).
   reaching the call-draft prompt, so labels say "(researched default)" with no
   figure), `check:estimate-kind-routing` 445, `check:instant-exits` 190.
 
+### 4. The hourly floor reaches the quote builder
+
+- `calculateHourlyFloor` had no caller. Now: **Settings → Overhead** asks
+  **Billable hours a month** (beside Jobs per week and Target margin) and shows
+  **Your hourly floor** = monthly costs ÷ billable hours; the new
+  `GET /api/analytics/hourly-floor` (same cost-basis gate as minimum-price;
+  400 `needsHours` when unset — never defaulted) feeds the builder; beside
+  **Cost & margin**, `HourlyFloorNotice` checks every line billed by the hour
+  (`isHourUnit`, priced as the save prices it) — their **average** against the
+  floor. Below: an amber warning with the average, the floor, the shortfall on
+  the quote, and every input (monthly costs and billable hours, both Settings →
+  Overhead; **profit $0 — FieldQuo's default, so the floor is break-even**).
+  At/above: one quiet line. No hours set: a hint linking to Overhead. Never
+  blocks, never changes a price — the mirror of the per-job floor, which
+  reaches a quote as the margin panel's overhead and its red "losing money".
+- Pure arithmetic in `lib/analytics/hourlyFloor.js`; `calculateHourlyFloor`
+  now returns it (same formula; check:depreciation's pinned floor unchanged).
+- **Schema (additive — coordinator applies; not pushed):**
+  `ALTER TABLE "ForecastSettings" ADD COLUMN "billableHoursPerMonth" INTEGER;`
+  Until it exists the forecast GET/PUT and the hourly-floor route will error on
+  the unknown column, so apply it before deploying this commit.
+- Checks: new `check:hourly-floor` (81, in check:all); `check:settings-access`
+  lists the new route beside minimum-price (dark to a support session for the
+  same reason).
+
 ---
 
 ## Privacy policy: the Google user data section (3 October 2026)

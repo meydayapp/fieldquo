@@ -136,6 +136,11 @@ function OverheadEditor() {
   // the owner had chosen it. Saved with the capacity, read by the same
   // calculation (resolveTargetMargin in lib/analytics/minimumPrice.js).
   const [marginPct, setMarginPct] = useState("");
+  // Billable hours a month — what the HOURLY floor divides by
+  // (ForecastSettings.billableHoursPerMonth, 2026-10-03). "" = not said, and
+  // there is then no hourly floor: never defaulted.
+  const [billableHours, setBillableHours] = useState("");
+  const [hourlyFloor, setHourlyFloor] = useState(null);
   const [minPrice, setMinPrice] = useState(null);
   const [debts, setDebts] = useState([]);
   // Null until the server answers, never []. An empty array is a claim that
@@ -202,6 +207,15 @@ function OverheadEditor() {
       setMinPrice(await res.json());
     } catch {
       setMinPrice(null);
+    }
+    // The HOURLY floor beside it (lib/analytics/hourlyFloor.js) — the same
+    // costs over the billable hours below. Same gate as the minimum price, so
+    // a refusal was already reported above; a 400 is "hours not set".
+    try {
+      const res = await fetch("/api/analytics/hourly-floor");
+      setHourlyFloor(res.ok || res.status === 400 ? await res.json() : null);
+    } catch {
+      setHourlyFloor(null);
     }
   }, []);
 
@@ -309,6 +323,9 @@ function OverheadEditor() {
       }
       setMarginPct(
         forecast?.targetMarginPct == null ? "" : String(forecast.targetMarginPct),
+      );
+      setBillableHours(
+        forecast?.billableHoursPerMonth == null ? "" : String(forecast.billableHoursPerMonth),
       );
       setLoading(false);
     });
@@ -465,6 +482,7 @@ function OverheadEditor() {
           // "" is sent as null — "clear it, back to the default" — never
           // omitted, so a blanked field really does blank the column.
           targetMarginPct: marginPct === "" ? null : Number(marginPct),
+          billableHoursPerMonth: billableHours === "" ? null : Number(billableHours),
         }),
       });
       if (res.ok) {
@@ -473,6 +491,9 @@ function OverheadEditor() {
         const saved = await res.json().catch(() => null);
         if (saved && "targetMarginPct" in saved) {
           setMarginPct(saved.targetMarginPct == null ? "" : String(saved.targetMarginPct));
+        }
+        if (saved && "billableHoursPerMonth" in saved) {
+          setBillableHours(saved.billableHoursPerMonth == null ? "" : String(saved.billableHoursPerMonth));
         }
         await loadMinPrice();
       } else {
@@ -649,6 +670,22 @@ function OverheadEditor() {
               className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
             />
           </label>
+          <label className="flex-1">
+            <span className="text-xs font-medium text-muted-foreground block mb-1">
+              {t("app.setOverhead.billableHours", "Billable hours a month")}
+            </span>
+            <input
+              type="number"
+              min="1"
+              max="744"
+              step="1"
+              value={billableHours}
+              onChange={(e) => setBillableHours(e.target.value)}
+              placeholder={t("app.setOverhead.notSet")}
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
+              data-billable-hours
+            />
+          </label>
           <button
             disabled={capacitySaving}
             className="rounded-lg bg-inverted text-inverted-foreground px-4 py-2 text-sm font-semibold disabled:opacity-60"
@@ -660,6 +697,29 @@ function OverheadEditor() {
         {minPrice?.needsCapacity && (
           <p className="text-sm text-muted-foreground">{minPrice.error}</p>
         )}
+
+        {/* The hourly floor (lib/analytics/hourlyFloor.js): what the quote
+            builder warns against on lines billed by the hour. */}
+        {Number(hourlyFloor?.hourlyFloor) > 0 ? (
+          <p className="text-sm text-foreground" data-hourly-floor-figure>
+            {t(
+              "app.setOverhead.hourlyFloor",
+              "Your hourly floor: {floor} an hour — {monthly} monthly costs ÷ {hours} billable hours. No profit is included (the default), so this is break-even; quotes billed by the hour below it get a warning.",
+              {
+                floor: money(hourlyFloor.hourlyFloor),
+                monthly: money(hourlyFloor.monthlyFixedCosts),
+                hours: hourlyFloor.billableHoursPerMonth,
+              },
+            )}
+          </p>
+        ) : hourlyFloor?.needsHours ? (
+          <p className="text-xs text-muted-foreground">
+            {t(
+              "app.setOverhead.hourlyFloorNeedsHours",
+              "Add your billable hours a month — the hours you can actually invoice, not hours worked — to get an hourly floor for work you bill by the hour.",
+            )}
+          </p>
+        ) : null}
 
         {showFigures && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">

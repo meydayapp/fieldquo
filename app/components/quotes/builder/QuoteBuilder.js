@@ -138,6 +138,8 @@ import {
 // trade, or the painting takeoff. Why, in the module's header.
 import { routeEstimateKind, routedAddOns, routedGroup, stainingChoices, placeRoutedGroup } from "@/lib/quotes/estimateKindRouting";
 import { withStripLabourRate } from "@/lib/pricing/stainFinish";
+import { checkHourlyFloor, hasHourlyLine } from "@/lib/analytics/hourlyFloor";
+import HourlyFloorNotice from "./HourlyFloorNotice";
 // The estimator's own complexity factors, on any trade — the model and its
 // composition order are in lib/pricing/customFactors.js.
 import CustomFactorsEditor from "@/app/components/pricing/CustomFactorsEditor";
@@ -400,6 +402,7 @@ export default function QuoteBuilder({ mode = "create", quoteId = null }) {
           overheadData,
           forecastData,
           productionData,
+          hourlyFloorData,
         ] = await Promise.all([
           // fetchJson throws on a non-ok/HTML-error response instead of feeding
           // a 404/500 body into a state setter — a failed load surfaces below
@@ -457,6 +460,15 @@ export default function QuoteBuilder({ mode = "create", quoteId = null }) {
           fetch("/api/products/production")
             .then((r) => (r.ok ? r.json() : []))
             .catch(() => []),
+          // The HOURLY floor (lib/analytics/hourlyFloor.js) — the per-hour
+          // twin of the per-job overhead above. 400 { needsHours } when the
+          // company has not said its billable hours: a real "we don't know",
+          // which the warning turns into a pointer to Settings → Overhead.
+          // A 403 without jobCosting arrives as a body with no floor on it,
+          // and the panel it sits in is not rendered for that person anyway.
+          fetch("/api/analytics/hourly-floor")
+            .then((r) => r.json().catch(() => null))
+            .catch(() => null),
         ]);
 
         if (cancelled) return;
@@ -533,6 +545,15 @@ export default function QuoteBuilder({ mode = "create", quoteId = null }) {
             ? Number(forecastData.targetMarginPct)
             : null,
           productionRates: Array.isArray(productionData) ? productionData : [],
+          hourlyFloor:
+            Number(hourlyFloorData?.hourlyFloor) > 0
+              ? {
+                  hourlyFloor: Number(hourlyFloorData.hourlyFloor),
+                  monthlyFixedCosts: Number(hourlyFloorData.monthlyFixedCosts) || 0,
+                  billableHoursPerMonth: Number(hourlyFloorData.billableHoursPerMonth) || 0,
+                }
+              : null,
+          hourlyFloorNeedsHours: hourlyFloorData?.needsHours === true,
         });
       } catch (e) {
         if (!cancelled) setLoadError(e?.message || t("app.quoteNew.createError"));
@@ -3109,9 +3130,37 @@ export function QuoteBuilderForm({
     );
   };
 
+  // ── The hourly floor (lib/analytics/hourlyFloor.js) ──────────────────────
+  //
+  // Every line the save would store, priced exactly as the save prices it
+  // (scopeGroupPayload), so the average the warning quotes is the document's.
+  // Only computed for someone who sees the panel it sits in.
+  const quoteLinesForFloor = mayCost
+    ? scopeGroups.flatMap((g) => {
+        try {
+          return buildScopeGroupPayload(g, rateOverridesFor(g.categoryId), quoteLanguage || companyLanguage)?.lineItems || [];
+        } catch {
+          return [];
+        }
+      })
+    : [];
+  const hourlyFloorCheck = boot.hourlyFloor
+    ? checkHourlyFloor(quoteLinesForFloor, boot.hourlyFloor.hourlyFloor)
+    : null;
+
   /** Internal cost & margin — never client-facing; see the component. */
   const renderCostMarginPanel = () => (
     <>
+    {mayCost && (
+      <HourlyFloorNotice
+        check={hourlyFloorCheck}
+        floor={boot.hourlyFloor || null}
+        needsHours={boot.hourlyFloorNeedsHours === true}
+        hasHourly={hasHourlyLine(quoteLinesForFloor)}
+        money={(n) => formatAppMoney(n, companyCurrency, "en")}
+        t={t}
+      />
+    )}
     {mayCost && (
       <CostMarginPanel
         currency={companyCurrency}
