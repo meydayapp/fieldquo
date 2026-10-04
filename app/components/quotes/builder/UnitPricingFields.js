@@ -24,7 +24,14 @@ import {
 import { formatAppMoney } from "@/lib/format/money";
 import { currencyMeta } from "@/lib/currency";
 import { cabinetAddOnLines } from "@/lib/pricing/tradeScope";
-import { normaliseStainType, STAIN_TYPES } from "@/lib/pricing/stainFinish";
+import {
+  normaliseStainType,
+  STAIN_TYPES,
+  STRIP_METHODS,
+  normaliseStripMethod,
+  cabinetNeedsStripping,
+  cabinetStrippingHours,
+} from "@/lib/pricing/stainFinish";
 import ComplexityPicker from "@/app/components/pricing/ComplexityPicker";
 import {
   COMPLEXITY_MODEL,
@@ -113,7 +120,7 @@ const ADD_ONS = [
     // it — refinishing; a refaced door arrives finished — so refacing never
     // shows a box that adds nothing.
     key: "stainFinish",
-    label: "Stain finish instead of paint (strip and re-stain)",
+    label: "Stain finish instead of paint (stripping, when needed, is its own line)",
     needsDrawers: false,
     countsKey: "stainFinish",
     defaultUnits: (d, dr) => d + dr,
@@ -149,6 +156,9 @@ export default function UnitPricingFields({
   onToggleReason,
   // The trade's rate card, for the add-on prices.
   book,
+  // The company's billed labour rate (Settings → Field work), or null — what
+  // a stain's stripping line is priced at (lib/pricing/stainFinish.js).
+  labourSellRate = null,
 }) {
   // One bound formatter for the whole component. Currency is the company's,
   // locale is "en" — the same pair every other builder panel passes.
@@ -170,6 +180,16 @@ export default function UnitPricingFields({
     { doors, drawers, ...group },
     book,
   ).reduce((sum, i) => sum + i.amount, 0);
+
+  // Every stain control re-snapshots the company's labour rate onto the group
+  // (`stripLabourRate`), so the stripping line is priced at the rate in force
+  // when the estimator set the stain — and a group saved stays at it.
+  const rateSnap = Number(labourSellRate) > 0 ? { stripLabourRate: Number(labourSellRate) } : {};
+  const setStain = (patch) => onPricingChange({ ...patch, ...rateSnap });
+  const stainConfig = { ...group, doors, drawers, ...rateSnap };
+  const needsStrip = cabinetNeedsStripping(stainConfig);
+  const stripHours = cabinetStrippingHours(stainConfig, book);
+  const stripRate = Number(group.stripLabourRate) > 0 ? Number(group.stripLabourRate) : Number(labourSellRate) || 0;
 
   const upcharge = factors
     ? finalPrice - (Number(group.baseUnitPrice) || 0)
@@ -491,7 +511,7 @@ export default function UnitPricingFields({
                 checked={on}
                 disabled={!applicable}
                 onChange={(e) =>
-                  onPricingChange({ [addOn.key]: e.target.checked })
+                  addOn.key === "stainFinish" ? setStain({ stainFinish: e.target.checked }) : onPricingChange({ [addOn.key]: e.target.checked })
                 }
               />
               <span className="min-w-0 flex-1">
@@ -561,7 +581,16 @@ export default function UnitPricingFields({
                     tick, and a nested label would toggle the tick. Each
                     names its own rate so the choice shows what it moves. */}
                 {on && addOn.key === "stainFinish" && (
-                  <span className="mt-2 block" data-stain-type>
+                  // This block sits inside the row's <label>: a click on its
+                  // words would otherwise reach the label and untick the
+                  // stain. Cancelled here — except on the Field work link.
+                  <span
+                    className="mt-2 block"
+                    data-stain-type
+                    onClick={(e) => {
+                      if (!(e.target instanceof Element && e.target.closest("a"))) e.preventDefault();
+                    }}
+                  >
                     <span className="flex flex-wrap gap-1.5" role="group" aria-label={t("app.stain.typeLabel", "Which stain")}>
                       {STAIN_TYPES.map((type) => {
                         const active = normaliseStainType(group.stainType) === type;
@@ -573,7 +602,7 @@ export default function UnitPricingFields({
                             aria-pressed={active}
                             onClick={(e) => {
                               e.preventDefault();
-                              onPricingChange({ stainType: type });
+                              setStain({ stainType: type });
                             }}
                             className={`rounded-lg border px-2.5 py-1 text-xs min-h-8 ${
                               active
@@ -601,6 +630,94 @@ export default function UnitPricingFields({
                             "Liquid stain soaks into bare wood, so the existing finish has to come off first. It can blotch on maple, birch, cherry and pine.",
                           )}
                     </span>
+
+                    {/* ── Stripping to bare wood (owner, 2026-10-03) ─────────
+                        Its own labour line, hours × the labour rate; shown
+                        here with where each number comes from. */}
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={group.stainDarkToLight === true}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setStain({ stainDarkToLight: group.stainDarkToLight !== true });
+                      }}
+                      className="mt-2 flex items-start gap-2 text-left text-xs text-foreground min-h-8"
+                      data-stain-dark-to-light
+                    >
+                      <span
+                        aria-hidden="true"
+                        className={`mt-0.5 inline-block h-3.5 w-3.5 shrink-0 rounded-sm border ${
+                          group.stainDarkToLight === true ? "border-foreground bg-foreground" : "border-border"
+                        }`}
+                      />
+                      {t("app.stain.darkToLight", "Going lighter than the current colour (dark → light) — needs bare wood, even with gel")}
+                    </button>
+                    {needsStrip ? (
+                      <span className="mt-2 block rounded-md border border-border p-2" data-stripping>
+                        <span className="flex flex-wrap gap-1.5" role="group" aria-label={t("app.stain.stripTitle", "Stripping to bare wood")}>
+                          {STRIP_METHODS.map((method) => {
+                            const active = normaliseStripMethod(group.stripMethod) === method;
+                            const h = cabinetStrippingHours({ ...stainConfig, stripMethod: method }, book);
+                            return (
+                              <button
+                                key={method}
+                                type="button"
+                                aria-pressed={active}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setStain({ stripMethod: method });
+                                }}
+                                className={`rounded-lg border px-2.5 py-1 text-xs min-h-8 ${
+                                  active
+                                    ? "border-foreground bg-foreground text-background"
+                                    : "border-border text-foreground"
+                                }`}
+                              >
+                                {method === "sanding"
+                                  ? t("app.stain.stripSanding", "Sanding")
+                                  : t("app.stain.stripChemical", "Chemical stripper")}
+                                {" · "}
+                                {t("app.stain.hours", "{hours} h", { hours: h })}
+                              </button>
+                            );
+                          })}
+                        </span>
+                        <span className="mt-1 block text-xs text-muted-foreground">
+                          {stripRate > 0
+                            ? t(
+                                "app.stain.stripLine",
+                                "Its own line on the quote: {hours} h × {rate} = {amount}, at your labour rate (Settings → Field work).",
+                                { hours: stripHours, rate: money(stripRate), amount: money(Math.round(stripHours * stripRate * 100) / 100) },
+                              )
+                            : null}
+                        </span>
+                        {stripRate > 0 ? null : (
+                          <span className="mt-1 block text-xs font-medium text-amber-800 dark:text-amber-300" data-stripping-unpriced>
+                            {t(
+                              "app.stain.stripNoRate",
+                              "No labour rate is set, so these {hours} h of stripping are NOT on the quote. Set your labour rate in Settings → Field work.",
+                              { hours: stripHours },
+                            )}{" "}
+                            <a href="/app/settings/field-work" className="underline">
+                              {t("app.stain.stripSetRate", "Set the rate")}
+                            </a>
+                          </span>
+                        )}
+                        <span className="mt-1 block text-[11px] text-muted-foreground">
+                          {t(
+                            "app.stain.stripDefaults",
+                            "Hours per door and drawer front come from your rate card (Settings → Services). FieldQuo's researched defaults: chemical 0.75 h a door, 0.25 h a drawer front; sanding 0.4 h and 0.15 h.",
+                          )}
+                        </span>
+                      </span>
+                    ) : (
+                      normaliseStainType(group.stainType) === "gel" && (
+                        <span className="mt-1 block text-xs text-muted-foreground">
+                          {t("app.stain.noStrip", "Gel over the existing finish: no stripping.")}
+                        </span>
+                      )
+                    )}
                   </span>
                 )}
               </span>

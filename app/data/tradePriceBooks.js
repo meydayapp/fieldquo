@@ -94,10 +94,20 @@ export const TRADE_PRICE_BOOKS = {
       // finishes over stain on NEW work, which is the other direction and
       // not this job. 30% of TrueFinish's own $150 a face is $45. TrueFinish
       // has no cabinet stain rate of its own (its stain rate is floors).
-      // A gel stain over the existing finish costs LESS than paint — that is
-      // a different product and is not priced here; see
-      // docs/research/PRICING-EXTERIOR-STAIN-DRYWALL-2026.md.
-      stainFinishPerUnit: 45,
+      // See docs/research/PRICING-EXTERIOR-STAIN-DRYWALL-2026.md.
+      //
+      // 45 → 10 the same day (owner: stripping is LABOUR, on its own line —
+      // lib/pricing/stainFinish.js). The $45 was the whole strip-and-restain
+      // premium; with the stripping now billed by the hour beside it, keeping
+      // $45 would charge the stripping twice. What is left is the stain
+      // itself against the enamel it replaces (penetrating stain and clear
+      // coats in place of primer and colour), INFERRED: KCK's own door
+      // ranges give +24% with stripping = $36 on $150; sanding-level
+      // stripping on a 20-door, 8-drawer kitchen is 9.2 h (the book's
+      // defaults below) — at $75/h about $25 a piece — leaving ~$11 → $10.
+      // Chemical stripping is slower and costs more, which is the point of
+      // itemising it. Groups saved before keep the line they saved.
+      stainFinishPerUnit: 10,
       // GEL stain over the existing finish (owner, 2026-10-03: "if it is
       // relevant for stain it should have gel or liquid"). A gel stain is
       // thickened and SITS ON the surface; a liquid (penetrating) stain soaks
@@ -115,6 +125,15 @@ export const TRADE_PRICE_BOOKS = {
       // $97.50, +12.8%; on TrueFinish's $150 a face that is $19, rounded to
       // $20. A default: the company's own figure replaces it on the rate card.
       gelStainPerUnit: 20,
+    },
+    // Hours to strip a door / drawer front to bare wood when a stain needs
+    // it — RESEARCHED DEFAULTS, inferred from published per-sq-ft figures;
+    // the sources and the arithmetic are in lib/pricing/stainFinish.js.
+    // Billed at the company's labour rate (Settings → Field work) as its own
+    // line, and counted in the cost estimate's hours (cabinetLabour.js).
+    stripping: {
+      chemical: { hoursPerDoor: 0.75, hoursPerDrawer: 0.25 },
+      sanding: { hoursPerDoor: 0.4, hoursPerDrawer: 0.15 },
     },
     // TrueFinish's "Essential" package floor. A small kitchen still needs a
     // full spray booth setup, so per-unit pricing alone under-recovers.
@@ -243,6 +262,14 @@ export const TRADE_PRICE_BOOKS = {
     complexityFactors: {
       multiplier: { moderate: 1.25, complex: 1.75 },
       force: { darkToLight: 0, veneer: 0 },
+    },
+    // Hours to strip a PAINTED staircase to bare wood for a stain —
+    // RESEARCHED DEFAULTS, inferred; sources and arithmetic in
+    // lib/pricing/stainFinish.js. A clear-finished staircase takes none: the
+    // tread rates above already sand it.
+    stripping: {
+      chemical: { hoursPerTread: 0.5, hoursPerRiser: 0.35, hoursPerRailFt: 0.15 },
+      sanding: { hoursPerTread: 0.3, hoursPerRiser: 0.2, hoursPerRailFt: 0.1 },
     },
   },
 
@@ -2143,6 +2170,8 @@ export const PRICE_BOOK_GROUPS = {
   complexityFactors:
     "Complexity multipliers — applied to LABOUR HOURS only, never to materials. Starting figures from a summary of trade practice, not from a measured job; tune them against your own closed jobs.",
   complexityForce: "Force an on-site assessment",
+  stripping:
+    "Stripping to bare wood for a stain — hours, billed at your labour rate (Settings → Field work). Researched defaults, not a measured job; tune them to your crew.",
   inspectionBands: "Full home inspection — by living area",
   inspectionWarranty: "New-build warranty inspections",
   inspectionAncillary: "Ancillary inspections and testing",
@@ -2186,16 +2215,20 @@ export const PRICE_BOOK_FIELDS = {
     // Refinishing only: a refaced door arrives with its finish.
     {
       path: "addOns.stainFinishPerUnit",
-      label: "Stain finish instead of paint (strip and re-stain)",
+      label: "Liquid (penetrating) stain instead of paint — stripping is its own line (researched default)",
       suffix: "$ / unit",
       step: 5,
     },
     {
       path: "addOns.gelStainPerUnit",
-      label: "Gel stain over the existing finish (no stripping) — researched default $20",
+      label: "Gel stain over the existing finish, no stripping (researched default)",
       suffix: "$ / unit",
       step: 5,
     },
+    ...strippingFields([
+      ["hoursPerDoor", "per door", "0.75", "0.4"],
+      ["hoursPerDrawer", "per drawer front", "0.25", "0.15"],
+    ]),
   ],
   cabinet_refacing: [
     ...cabinetFields(),
@@ -2273,6 +2306,11 @@ export const PRICE_BOOK_FIELDS = {
     // Stairs is the trade the factor module was built for, and the only one
     // with a veneer answer to force on.
     ...complexityFactorFields({ forces: ["darkToLight", "veneer"] }),
+    ...strippingFields([
+      ["hoursPerTread", "per tread", "0.5", "0.3"],
+      ["hoursPerRiser", "per riser", "0.35", "0.2"],
+      ["hoursPerRailFt", "per linear ft of handrail", "0.15", "0.1"],
+    ]),
   ],
   flooring: complexityFields("flooring", [
     ["pricePerSqft", "Refinishing", "$ / sqft"],
@@ -3781,6 +3819,27 @@ function complexityFactorFields({ forces = [] } = {}) {
     });
   }
   return rows;
+}
+
+/**
+ * The stripping production rates (lib/pricing/stainFinish.js), as rate-card
+ * rows: chemical then sanding, each labelled with FieldQuo's researched
+ * default so the person reading the box knows the number is a starting
+ * point, not a measurement of their crew. Not `internal`: the hours are the
+ * quantity on a line the client reads.
+ *
+ * @param rows [key, "per door", chemicalDefault, sandingDefault][]
+ */
+function strippingFields(rows) {
+  return ["chemical", "sanding"].flatMap((method) =>
+    rows.map(([key, per, chem, sand]) => ({
+      path: `stripping.${method}.${key}`,
+      label: `${method === "chemical" ? "Chemical stripper" : "Sanding"} — hours ${per} (researched default ${method === "chemical" ? chem : sand})`,
+      suffix: "hours",
+      step: 0.05,
+      group: "stripping",
+    })),
+  );
 }
 
 function complexityFields(categoryKey, rows) {

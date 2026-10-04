@@ -819,6 +819,14 @@ export const ARTICLES = {
             "**Tinte en gel — sobre el acabado existente.** Se aplica sobre el acabado anterior tras limpiar y lijar ligeramente, sin decapar, y no mancha. Es más lento por pieza: más capas a mano y más secado entre ellas.",
           ] },
           { p: "En los gabinetes, los dos botones bajo el extra marcado muestran cada uno su propia tarifa por puerta o frente de cajón, y la línea del presupuesto dice qué tinte es. La tarifa del gel arranca en un valor predeterminado investigado de **$20 por pieza** (**Gel stain over the existing finish** en la lista de tarifas); escriba la suya encima. En las escaleras la tarifa por peldaño es la misma en ambos casos — una renovación de escalera lija los peldaños — y la elección se imprime bajo la línea de peldaños. **Staining → Stairs** abre la escalera con tinte líquido." },
+          { p: "**El decapado hasta la madera desnuda** es mano de obra, así que tiene su propia línea: horas × su tarifa de mano de obra (**Configuración → Trabajo de campo**). Se agrega cuando el tinte necesita madera desnuda — un tinte líquido en gabinetes, un tinte líquido en una escalera **pintada** (**Qué tiene ahora → Pintura**), o cualquier tinte cuando marca **Aclarar el color actual (oscuro → claro)**. El gel sobre el acabado existente no agrega nada. Una escalera barnizada tampoco: las tarifas por peldaño ya la lijan." },
+          { bullets: [
+            "Elija **Decapante químico** o **Lijado**; cada botón muestra sus horas para este trabajo.",
+            "Las horas vienen del bloque **Stripping to bare wood** de la lista de tarifas: valores predeterminados investigados, marcados como tales — químico 0,75 h por puerta y 0,25 h por frente de cajón (lijado 0,4 y 0,15); en escaleras 0,5 h por peldaño, 0,35 h por contrahuella y 0,15 h por pie de pasamanos (lijado 0,3, 0,2 y 0,1). Escriba encima las cifras de su equipo.",
+            "Sin tarifa de mano de obra, el panel dice que las horas de decapado **no** están en el presupuesto y enlaza a Trabajo de campo — nunca imprime una línea de decapado de $0.",
+            "Las mismas horas se cuentan en **Costo y margen**.",
+          ] },
+          { note: "Desde que el decapado tiene su propia línea, el recargo de tinte líquido en gabinetes es solo el tinte — un valor predeterminado investigado de **$10 por pieza** (era $45 cuando también incluía el decapado). Los presupuestos ya guardados conservan sus líneas." },
         ],
       },
       {

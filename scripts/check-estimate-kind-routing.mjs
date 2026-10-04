@@ -551,7 +551,10 @@ console.log("8. researched defaults, the stain distinction, and existing quotes"
     const stained = newScopeGroup(cat, "Stained cabinets", null, { tempId: "s", intakeValues: { doorCount: 20, drawerCount: 8 }, addOns: ["stainFinish"] });
     const lines = cabinetAddOnLinesFor(stained);
     const line = lines.find((l) => /Stain finish/.test(l.description));
-    ok("a stained kitchen carries the premium per piece: 28 × $45 = $1,260", line && line.quantity === 28 && line.rate === 45 && line.amount === 1260, lines);
+    // $45 → $10 the same day: stripping became its own labour line
+    // (check:stain-finish F), so the stain premium no longer carries it.
+    ok("a stained kitchen carries the premium per piece: 28 × $10 = $280", line && line.quantity === 28 && line.rate === 10 && line.amount === 280, lines);
+    ok("…and no stripping line without a labour rate (never a $0 line)", !lines.some((l) => /Stripping/.test(l.description)));
     const painted = newScopeGroup(cat, "Painted cabinets", null, { tempId: "p", intakeValues: { doorCount: 20, drawerCount: 8 } });
     ok("a painted kitchen carries no stain line", !cabinetAddOnLinesFor(painted).some((l) => /Stain/.test(l.description)));
     // Since gel vs liquid (2026-10-03, check:stain-finish): the tick is

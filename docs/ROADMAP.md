@@ -128,7 +128,53 @@ once, drywall repairs, wall area" (below).
   cabinet/stair trade — are ILLUSTRATIVE and unpriced (they report gallons and
   no money), so a gel/liquid price there would be a price on an unpriced line.
 - Checks: new `check:stain-finish` (in check:all), `check:estimate-kind-routing`
-  (zeroing only the liquid rate now leaves gel to sell).
+  (zeroing only the liquid rate now leaves gel to sell), `check:instant-exits`
+  (the instant-quote card shows no gel box — the instant estimate asks no
+  stain type).
+
+### 3. Stripping to bare wood — its own labour line
+
+- When a stain needs bare wood the builder adds **"Stripping to bare wood —
+  chemical stripper / sanding"**: hours × `Company.labourSellRate` (Settings →
+  Field work), en/fr. Cabinets: liquid stain, or **Going lighter (dark →
+  light)** with any stain; gel over the finish adds none. Stairs: only a
+  **painted** staircase (new **What is on it now** select) stained liquid or
+  going lighter — a clear-finished one is sanded by the tread rate already, so
+  a second sanding would bill the treads twice. Treads, risers when ticked,
+  handrail feet. Balusters/posts not stripped (not asked).
+- Hours from the rate card's new **Stripping to bare wood** block (both
+  trades), every row labelled "researched default": cabinets chemical 0.75 h
+  a door / 0.25 a drawer front, sanding 0.4 / 0.15; stairs chemical 0.5 a
+  tread / 0.35 a riser / 0.15 a ft of rail, sanding 0.3 / 0.2 / 0.1. Sources
+  and arithmetic: `lib/pricing/stainFinish.js` header and research doc §E
+  (homewyse paint removal $5.72–11.11/sqft and refinish prep 6 h/100 sqft,
+  Sept 2026; BBS Flooring 3–5 h for 13 treads, 2026-05-11).
+- **Money change, named:** `addOns.stainFinishPerUnit` 45 → **10**. The $45 was
+  the whole strip-and-restain premium; with stripping billed by the hour it
+  would charge the stripping twice. A 20-door/8-drawer liquid-stain kitchen at
+  $85/h: was 28 × $45 = $1,260; now 28 × $10 + 17 h × $85 = $1,725 (chemical)
+  or $1,062 (sanding). Companies that set their own $ keep it; saved quotes keep
+  their lines.
+- The rate: snapshotted as `stripLabourRate` on the cabinet group / stair
+  takeoff whenever a stain control changes, on Staining → routes, and by a
+  builder effect for any group that arrived without one (phone-call drafts).
+  `/api/settings/business-info` now returns `labourSellRate` — only to a member
+  who may see money. **No rate set: no line** (never a $0 stripping line) and an
+  amber note with a link to Field work.
+- Cost: `cabinetLabour.js` adds a stripping step of exactly the billed hours;
+  stairs' cost hours are the stripping hours (they were 0). The builder's live
+  Cost & margin panel now reads the cabinet answers (upgrades, stain) before a
+  save — it saw them only after save + reopen.
+- Instant/phone estimates carry no labour rate: a stain asked for on a call
+  prices the $10 premium and the draft says "stripping … not in this figure —
+  the quote adds it by the hour"; the builder adds the line when the draft
+  opens. The instant-quote rate card shows no stripping boxes.
+- md5: every cabinet path without a stain, and every stair path that is not
+  painted, identical to the item-2 commit.
+- Checks: `check:stain-finish` sections F–G (159), `check:call-offerings`
+  (stain rates checked money-shaped — and a "$10" in the rate-card label was
+  reaching the call-draft prompt, so labels say "(researched default)" with no
+  figure), `check:estimate-kind-routing` 445, `check:instant-exits` 190.
 
 ---
 

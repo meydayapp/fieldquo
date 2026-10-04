@@ -250,3 +250,44 @@ The staged patch prices were all-in figures for an Ottawa visit: $225 small, $42
 - **What reads it.** Only the instant room picker. It prices a ceiling at its area × this rate, and never below the per-room `ceilingPrice` ($175).
 - **What does not change.** The legacy room grid keeps its flat per-room ceiling price.
 - **Example.** A 12 × 12 bedroom ceiling comes to $345.60, against HomeAdvisor's $250 typical room.
+
+---
+
+## E. Gel vs liquid stain, and stripping to bare wood (added later on 3 October 2026)
+
+The owner's follow-ups: "if it is relevant for stain it should have gel or liquid", and "research average stripping sanding very chemical.. that could be used". Read 2026-10-03.
+
+### E1. Gel vs liquid (penetrating) stain
+
+| Source | Date | Region | What it says | Kind |
+|---|---|---|---|---|
+| Bob Vila — "Gel Stain" | 2019-11-18 | US | Gel sits on the surface, liquid soaks in; gel needs only a light sanding over an old finish, not bare wood; maple, birch, cherry and pine take gel evenly where thin stain blotches; 8–24 h between coats | facts |
+| General Finishes — FAQ (gel stain / gel topcoat over existing finishes) | n.d. | US | 6–12 h recoat on raw wood; 72 h over an existing finish before recoating or top-coating | facts |
+| Angi — "How much does it cost to stain cabinets" [snippet] | 2026 | US | Gel-stain refinishing $80–140 a door; staining $1,500–4,000 a kitchen, $2,750 average | range + average |
+| Fixr — paint kitchen cabinets (B5 above) | 2026-01-27 | US | Painting $70–125 a door | range |
+
+**INFERRED.** Gel per door midpoint $110 against painting's $97.50 = +12.8%; on TrueFinish's $150 a face, $19 → **$20** (`addOns.gelStainPerUnit`). Gel is slower per piece (hand-wiped coats, long recoat over a finish), not cheaper; the premium is the extra visits.
+
+### E2. Stripping to bare wood — hours
+
+No source publishes hours per cabinet door or per stair tread for stripping. These are worked out from per-area figures:
+
+| Source | Date | Region | Figure | Kind |
+|---|---|---|---|---|
+| homewyse — Cost to Remove Paint | 2026-09 | US national | $5.72–11.11 per sq ft: chemical remover, scrape, clean, sand | range |
+| homewyse — Cost to Refinish Cabinets | 2026-09 | US national | Prep "up to 6 hr per 100 SF" (scrape and sand for stain) | rate |
+| BBS Flooring (Markham ON) — refinish hardwood stairs | 2026-05-11 | GTA, CAD | Sanding a 13-tread staircase 3–5 h; sand & stain CAD 125–145 a tread | range |
+| designedcurated.com — strip and restain cabinets | 2026 | US | Stained 28-door kitchen 40–50 labour hours; stripping ~80% of the labour | range (cross-check only) |
+
+**INFERRED, with the arithmetic:**
+
+- Chemical: midpoint $8.42/sq ft, ~80% labour at a $60/h trade rate → ~0.11 h/sq ft. Door ~7 sq ft stripped (two faces of 15" × 30" + edges) → **0.75 h**; drawer front ~2.5 sq ft → **0.25 h**. (designedcurated's figure works out near 1.3 h a door, so 0.75 is the cautious end.)
+- Sanding: 6 h per 100 sq ft = 0.06 h/sq ft → door **0.4 h**, drawer front **0.15 h**. Suits a clear finish or one thin coat.
+- Stairs, sanding: 3–5 h / 13 treads → **0.3 h a tread**; a riser ~70% of a tread's face → **0.2 h**; handrail ~0.67 sq ft per foot, profiled at twice the flat rate → **0.1 h a foot**.
+- Stairs, chemical: the same 0.11 / 0.06 ratio → **0.5 h a tread, 0.35 h a riser, 0.15 h a foot of handrail**.
+
+### What we set (app/data/tradePriceBooks.js, lib/pricing/stainFinish.js)
+
+- Stripping is LABOUR on its own line: hours × `Company.labourSellRate`. Cabinets: when the stain is liquid, or the colour goes lighter. Stairs: only a **painted** staircase stained liquid (or going lighter) — a clear-finished one is sanded by the tread rate already.
+- `addOns.stainFinishPerUnit` **45 → 10**: the $45 was the whole strip-and-restain premium (B6); with stripping itemised it would bill the stripping twice. INFERRED remainder: KCK's own ranges +24% = $36 on $150; sanding-level stripping on a 20-door / 8-drawer kitchen is 9.2 h, ~$25 a piece at $75/h; $36 − $25 ≈ $11 → **$10**.
+- Not priced: stripping balusters and newel posts (the owner named treads, risers and railing), and the painting book's illustrative staining substrates.

@@ -819,6 +819,14 @@ export const ARTICLES = {
             "**Teinture en gel — sur le fini existant.** Elle se pose sur l'ancien fini après nettoyage et léger égrenage, sans décapage, et ne fait pas de taches. Elle est plus lente par pièce : davantage de couches à la main et un séchage plus long entre elles.",
           ] },
           { p: "Sur les armoires, les deux boutons sous l'extra coché affichent chacun leur propre tarif par porte ou façade de tiroir, et la ligne de la soumission dit quelle teinture est utilisée. Le tarif du gel part d'une valeur par défaut documentée de **20 $ la pièce** (**Gel stain over the existing finish** dans la grille tarifaire) ; remplacez-la par la vôtre. Sur les escaliers, le tarif des marches est le même dans les deux cas — une remise à neuf d'escalier ponce les marches — et le choix est imprimé sous la ligne des marches. **Staining → Stairs** ouvre l'escalier sur la teinture liquide." },
+          { p: "**Le décapage jusqu'au bois nu** est de la main-d'œuvre : il a donc sa propre ligne, heures × votre taux de main-d'œuvre (**Paramètres → Travail sur le terrain**). Il s'ajoute quand la teinture exige le bois nu — une teinture liquide sur des armoires, une teinture liquide sur un escalier **peint** (**Ce qu'il y a dessus maintenant → De la peinture**), ou toute teinture quand vous cochez **Passer à une couleur plus pâle (foncé → pâle)**. Le gel sur le fini existant n'en ajoute pas. Un escalier verni non plus : les tarifs des marches le poncent déjà." },
+          { bullets: [
+            "Choisissez **Décapant chimique** ou **Ponçage** ; chaque bouton affiche ses heures pour ce travail.",
+            "Les heures viennent du bloc **Stripping to bare wood** de la grille tarifaire : des valeurs par défaut documentées, indiquées comme telles — chimique 0,75 h par porte et 0,25 h par façade de tiroir (ponçage 0,4 et 0,15) ; pour les escaliers 0,5 h par marche, 0,35 h par contremarche et 0,15 h par pied de main courante (ponçage 0,3, 0,2 et 0,1). Remplacez-les par les chiffres de votre équipe.",
+            "Sans taux de main-d'œuvre, le panneau indique que les heures de décapage ne sont **pas** sur la soumission et renvoie à Travail sur le terrain — il n'imprime jamais une ligne de décapage à 0 $.",
+            "Les mêmes heures sont comptées dans **Coûts et marge**.",
+          ] },
+          { note: "Depuis que le décapage a sa propre ligne, le supplément de teinture liquide sur les armoires ne couvre que la teinture — une valeur par défaut documentée de **10 $ la pièce** (45 $ quand il incluait aussi le décapage). Les soumissions déjà enregistrées gardent leurs lignes." },
         ],
       },
       {

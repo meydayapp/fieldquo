@@ -6,6 +6,7 @@ import { normaliseWebsiteUrl } from "@/lib/signup/website";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
+import { loadEnforceableMember, canSeeMoney } from "@/lib/permissions/enforce";
 import { recordActivity } from "@/lib/activity/log";
 import { normaliseHours } from "@/lib/company/businessHours";
 import { clampWindow } from "@/lib/booking/arrivalWindow";
@@ -160,8 +161,18 @@ export async function GET(request) {
   ]);
   const usOverrides = normaliseUsOverrides(company?.usTaxOverrides);
 
+  // The rate the company bills labour at (Settings → Field work), for the
+  // quote builder's stripping line (lib/pricing/stainFinish.js). A price, so
+  // only for a member who may see money — anyone else gets no key at all,
+  // and the builder treats that as "no rate" and says so.
+  const full = await loadEnforceableMember(db, member.id).catch(() => null);
+  const labour = full && canSeeMoney(full)
+    ? await db.company.findUnique({ where: { id: member.companyId }, select: { labourSellRate: true } })
+    : null;
+
   return NextResponse.json({
     ...withCoords,
+    ...(labour ? { labourSellRate: labour.labourSellRate == null ? null : Number(labour.labourSellRate) } : {}),
     // Never null on the wire: a company that has not chosen is on the mode
     // its old setting implies, and the screen shows that one.
     taxMode: effectiveTaxMode(company),

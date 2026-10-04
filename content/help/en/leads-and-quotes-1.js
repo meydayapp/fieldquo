@@ -823,6 +823,14 @@ export const ARTICLES = {
             "**Gel stain — over the existing finish.** It sits on top of the old finish after a clean and a light scuff, with no stripping, and does not blotch. It is slower per piece: more hand-wiped coats and longer drying between them.",
           ] },
           { p: "On cabinets the two buttons under the ticked add-on each show their own rate per door or drawer front, and the line on the quote says which stain it is. The gel rate opens at a researched default of **$20 a piece** (**Gel stain over the existing finish** on the rate card); type your own over it. On stairs the tread rate is the same either way — a stair refinish sands the treads — and the choice is printed under the treads line. **Staining → Stairs** opens its staircase on liquid." },
+          { p: "**Stripping to bare wood** is labour, so it is its own line: hours × your labour rate (**Settings → Field work**). It is added when the stain needs bare wood — a liquid stain on cabinets, a liquid stain on a **painted** staircase (**What is on it now → Paint**), or any stain when you tick **Going lighter than the current colour (dark → light)**. Gel over the existing finish adds none. A clear-finished staircase adds none either: the tread rates already sand it." },
+          { bullets: [
+            "Pick **Chemical stripper** or **Sanding**; each button shows its hours for this job.",
+            "Hours come from the rate card's **Stripping to bare wood** block: researched defaults, labelled as such — chemical 0.75 h a door and 0.25 h a drawer front (sanding 0.4 and 0.15); on stairs 0.5 h a tread, 0.35 h a riser and 0.15 h a foot of handrail (sanding 0.3, 0.2 and 0.1). Type your crew's own figures over them.",
+            "With no labour rate set, the panel says the stripping hours are **not** on the quote and links to Field work — it never prints a $0 stripping line.",
+            "The same hours are counted in **Cost & margin**.",
+          ] },
+          { note: "Since stripping became its own line, the liquid stain premium on cabinets is the stain alone — a researched default of **$10 a piece** (it was $45 when it also carried the stripping). Quotes already saved keep their lines." },
         ],
       },
       {

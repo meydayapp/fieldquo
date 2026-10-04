@@ -61,7 +61,14 @@ import {
 } from "@/lib/pricing/insulation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DRIVEWAY_LABELS } from "@/lib/pricing/tradeScope";
-import { stainTypeChosen } from "@/lib/pricing/stainFinish";
+import {
+  stainTypeChosen,
+  normaliseStainType,
+  STRIP_METHODS,
+  normaliseStripMethod,
+  stairNeedsStripping,
+  stairStrippingHours,
+} from "@/lib/pricing/stainFinish";
 import { useTranslation } from "@/app/hooks/useTranslation";
 // The factor list (stairs 14, roofing 7) — named apart from this file's own
 // ComplexityPicker, which is the tier tiles and stays exactly as it was.
@@ -316,7 +323,7 @@ function FillFromSteps({ section, onPatch, t }) {
   );
 }
 
-function StairSection({ section, index, book, canRemove, onChange, onRemove }) {
+function StairSection({ section, index, book, canRemove, onChange, onRemove, stripRate = 0 }) {
   const money = useCompanyMoney();
   const { t } = useTranslation();
   const level = section.complexityLevel || "standard";
@@ -454,15 +461,109 @@ function StairSection({ section, index, book, canRemove, onChange, onRemove }) {
           <option value="gel">{t("app.stain.gel", "Gel stain — over the existing finish")}</option>
         </select>
       </Field>
+
+      {/* What is on the stairs now — the question stripping turns on
+          (lib/pricing/stainFinish.js). Clear finish is what every staircase
+          was assumed to be: the tread rates sand it. */}
+      <Field label={t("app.stain.existingFinish", "What is on it now")}>
+        <select
+          value={section.existingFinish === "painted" ? "painted" : "clear"}
+          onChange={(e) => set({ existingFinish: e.target.value === "painted" ? "painted" : undefined })}
+          className={inputClass}
+          data-stair-existing-finish
+        >
+          <option value="clear">{t("app.stain.existingClear", "A clear finish or stain — the refinish sands it")}</option>
+          <option value="painted">{t("app.stain.existingPainted", "Paint")}</option>
+        </select>
+      </Field>
+      {section.existingFinish === "painted" && (
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={section.stainDarkToLight === true}
+            onChange={(e) => set({ stainDarkToLight: e.target.checked || undefined })}
+          />
+          {t("app.stain.darkToLight", "Going lighter than the current colour (dark → light) — needs bare wood, even with gel")}
+        </label>
+      )}
+      {stairNeedsStripping(section) ? (
+        <div className="rounded-md border border-border p-2 space-y-1" data-stair-stripping>
+          <Field label={t("app.stain.stripTitle", "Stripping to bare wood")}>
+            <select
+              value={normaliseStripMethod(section.stripMethod)}
+              onChange={(e) => set({ stripMethod: e.target.value })}
+              className={inputClass}
+            >
+              {STRIP_METHODS.map((m) => (
+                <option key={m} value={m}>
+                  {(m === "sanding" ? t("app.stain.stripSanding", "Sanding") : t("app.stain.stripChemical", "Chemical stripper")) +
+                    " · " +
+                    t("app.stain.hours", "{hours} h", { hours: stairStrippingHours({ ...section, stripMethod: m }, book) })}
+                </option>
+              ))}
+            </select>
+          </Field>
+          {stripRate > 0 ? (
+            <p className="text-xs text-muted-foreground">
+              {t(
+                "app.stain.stripLine",
+                "Its own line on the quote: {hours} h × {rate} = {amount}, at your labour rate (Settings → Field work).",
+                {
+                  hours: stairStrippingHours(section, book),
+                  rate: money(stripRate),
+                  amount: money(Math.round(stairStrippingHours(section, book) * stripRate * 100) / 100),
+                },
+              )}
+            </p>
+          ) : (
+            <p className="text-xs font-medium text-amber-800 dark:text-amber-300" data-stripping-unpriced>
+              {t(
+                "app.stain.stripNoRate",
+                "No labour rate is set, so these {hours} h of stripping are NOT on the quote. Set your labour rate in Settings → Field work.",
+                { hours: stairStrippingHours(section, book) },
+              )}{" "}
+              <a href="/app/settings/field-work" className="underline">
+                {t("app.stain.stripSetRate", "Set the rate")}
+              </a>
+            </p>
+          )}
+          <p className="text-[11px] text-muted-foreground">
+            {t(
+              "app.stain.stripDefaultsStairs",
+              "Hours per tread, riser (when risers are ticked) and foot of handrail come from your rate card (Settings → Services). FieldQuo's researched defaults: chemical 0.5 h a tread, 0.35 h a riser, 0.15 h a foot of rail; sanding 0.3, 0.2 and 0.1.",
+            )}
+          </p>
+        </div>
+      ) : (
+        section.existingFinish === "painted" &&
+        normaliseStainType(section.stainType) === "gel" && (
+          <p className="text-xs text-muted-foreground">
+            {t("app.stain.noStrip", "Gel over the existing finish: no stripping.")}
+          </p>
+        )
+      )}
     </div>
   );
 }
 
-function StairsTakeoff({ takeoff, book, onChange }) {
+function StairsTakeoff({ takeoff, book, onChange, labourSellRate = null }) {
   const money = useCompanyMoney();
   const { t, language } = useTranslation();
   const sections = Array.isArray(takeoff.sections) ? takeoff.sections : [];
-  const setSections = (next) => onChange({ ...takeoff, sections: next });
+  // A staircase that now needs stripping snapshots the company's labour rate
+  // onto the takeoff (`stripLabourRate`, read by buildStairs's stripping
+  // line). Nothing is written while no staircase needs it, so a takeoff
+  // without stripping stores exactly what it always did.
+  const setSections = (next) =>
+    onChange({
+      ...takeoff,
+      sections: next,
+      ...(Number(labourSellRate) > 0 && next.some(stairNeedsStripping)
+        ? { stripLabourRate: Number(labourSellRate) }
+        : {}),
+    });
+  const stripRate = Number(takeoff.stripLabourRate) > 0 ? Number(takeoff.stripLabourRate) : Number(labourSellRate) || 0;
 
   // The level the stored answers add up to, for the note and for the "did
   // this answer move it" test below. Null for a takeoff with no factor object.
@@ -506,6 +607,7 @@ function StairsTakeoff({ takeoff, book, onChange }) {
           section={section}
           index={i}
           book={book}
+          stripRate={stripRate}
           canRemove={sections.length > 1}
           onChange={(next) =>
             setSections(sections.map((s, j) => (j === i ? next : s)))
@@ -3931,6 +4033,9 @@ export default function TradeTakeoff({
   // to the builder (lib/quotes/estimateKindRouting.js). Every other form
   // ignores it.
   routing = null,
+  // The company's billed labour rate — the stair takeoff prices a stain's
+  // stripping at it (lib/pricing/stainFinish.js). Every other form ignores it.
+  labourSellRate = null,
 }) {
   const Component = TAKEOFFS[categoryKey];
   if (!Component || !takeoff || !book) return null;
@@ -3942,6 +4047,7 @@ export default function TradeTakeoff({
         onChange={onChange}
         siteAddress={siteAddress}
         routing={routing}
+        labourSellRate={labourSellRate}
       />
     </div>
   );
