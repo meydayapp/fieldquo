@@ -24,6 +24,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { recordActivity } from "@/lib/activity/log";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { assignedJobWhere } from "@/lib/permissions/enforce";
@@ -121,6 +122,16 @@ export async function PATCH(request, { params }) {
     versionAt: outcome.result?.updatedAt,
   });
   if (refusal) return NextResponse.json(refusal.body, { status: refusal.status });
+
+  // On the record under whoever did it — the owner asked that field work be
+  // logged by name (2026-10-03). recordActivity never throws.
+  await recordActivity(member, {
+    action: "job.dailyLogEdited",
+    entityType: "job",
+    entityId: id,
+    summary: "Edited the daily log",
+    metadata: { logId },
+  });
 
   return NextResponse.json({ log: shapeLog(outcome.result) });
 }

@@ -21,6 +21,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { recordActivity } from "@/lib/activity/log";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { assignedJobWhere } from "@/lib/permissions/enforce";
@@ -158,6 +159,15 @@ export async function POST(request, { params }) {
     where: { jobId: id, companyId: member.companyId },
     select: SELECT,
     orderBy: { usedOn: "desc" },
+  });
+
+  // On the record under whoever did it — the owner asked that field work be
+  // logged by name (2026-10-03). recordActivity never throws.
+  await recordActivity(member, {
+    action: "job.equipmentLogged",
+    entityType: "job",
+    entityId: id,
+    summary: `Logged ${rows.length} piece${rows.length === 1 ? "" : "s"} of equipment on a job`,
   });
 
   return NextResponse.json({ logs }, { status: 201 });

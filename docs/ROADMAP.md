@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 3 October 2026 (role access confirmed per role — `check:role-access` runs the real routes as Owner/Admin/Manager/Dispatcher/Estimator/Crew; 40 leaks fixed, see docs/ROLE-ACCESS.md and "Who sees what" below)
 Last updated: 3 October 2026 (audit loose ends: /platform revenue is written per currency and never summed — owner decision; the sales funnel counts a started card-free trial as "signup completed"; "End trial now" explains itself on a card-free trial; WhatsApp names Meta's App Review as the blocker; the signup help article matches /welcome; the dashboard counts "viewed, no answer"; Presentation's Google reviews link is gated; the handyman new-services release — see "Audit loose ends" below)
 Last updated: 3 October 2026 (everyone has a clock, crew get no accordion — the owner: "everyone should have a clock even the boss … for crews i don't think we need the accordion". The Time clock is the FIRST tab on every phone bar, owners/admins included, each bar keeping its size: owner Clock · Leads · Quotes · Jobs · Chat · More (Invoices → More), estimator Clock · Quotes · Calendar · Chat · More (Leads → More), dispatcher/manager Clock · Schedule · Team · Chat · More (Jobs → More), crew unchanged Clock · Today · Chat · More; someone switched to "No access" gets the old bar back. The desktop rail pins the clock under Home for owners and admins too (owners stay off payroll unless "Pay me through payroll"). Crew from `lg` up get no rail: CrewShell.js — a slim header (company logo + name, their name, bell, Sign out), one big Clock in / Clock out button (green/red/brown, white text 5.5–7.1:1, opens /app/clock), then big buttons Today · My schedule · Chat · Jobs · More; the phone drawer is gone for crew too, and every row it held is on /app/me/more under "Everything else". PATCH /api/time-entries/[id] now refuses a crew member's own times with a pointer to Time log › Request a correction; estimators, supervisors and owners unchanged. The swap choices are reasoned from the screens, not from counts — the per-role page counts in AnalyticsEvent (memberId × viewport) were not read; if they disagree it is one line per set in lib/nav/phoneBar.js — scripts/check-rbac-nav.mjs, check-rbac-redaction.mjs C6b)
 
@@ -234,6 +235,82 @@ Add / Remove only when it is true and otherwise prints who can
 `docs/GOOGLE-BUSINESS-PROFILE.md` "Who" rewritten. `check:google-book-button`
 224 assertions (supervisor GET/POST/DELETE, admin/owner canManage, the card
 with canManage false / absent).
+## Who sees what — role access confirmed (3 October 2026)
+
+The owner asked for a confirmation that a shared quote or job shows each
+teammate only what their access allows, especially crew: scope and address,
+no prices, cost or margin, and work actions logged under their own name.
+**docs/ROLE-ACCESS.md** is the plain-English answer per role × document;
+`npm run check:role-access` (new, 168 checks) is the proof. It calls the shipped
+route handlers as each preset against `scripts/fixtures/prismaShapeStub.mjs`,
+a Prisma stand-in that honours select/include using relations parsed from
+prisma/schema.prisma. Run against the pre-fix tree, the same check fails 40
+times.
+
+### What shipped
+- **One redactor per document** in `lib/permissions/enforce.js`:
+  - `redactJob` and `redactChangeOrder` (through `presentChangeOrder`): payment
+    stages, change-order price and invoice refs, and the cost-review note, each
+    by its own dial.
+  - The quote and invoice redactors now cover `aiReview` (margin without
+    jobCosting, all of it without showPricing), the offline discount, tax
+    breakdown, refunds, `sentToEmail`, and the amended invoice's `versions` and
+    `parentInvoice`.
+  - New helpers: `redactDocumentRefs`, `assignedClientWhere`,
+    `claimableTaskWhere` and `redactAiReview`.
+- **Crew scope reaches the side doors:**
+  - Client list, detail and search are scoped to their jobs. Contact fields are
+    not searchable below full_view.
+  - The client page sends quotes, invoices and jobs only by their own dials
+    (`documentsHidden`).
+  - To-dos: an orphan is claimable only when it hangs off things the member can
+    open (also on PATCH and on task photos).
+  - Calendar, appointment detail and "about" search: no invoice or quote refs
+    below those dials.
+  - Copilot upcoming work.
+  - Daily-sheet upsells (GET was any job in the company) and the sheet's PUT.
+  - Time entries and expenses are scoped to the member's jobs. A recurring
+    overhead expense needs the fixedCosts cost-basis write
+    (`lib/expenses/placement.js`).
+- **Crew actions match the Schedule dial:**
+  - A visit PATCH now has the assigned-job scope.
+  - Rescheduling, cancelling or reopening a visit, and booking a new one, need
+    schedule:edit_own (`mayRescheduleVisit` in `lib/jobs/visitStatus.js`).
+    Crew and Estimator sit at view_complete_own.
+  - Job checklist: a member without job edit may fill it in and append a
+    template, but not remove or redefine items (`checklistDefinitionKept`).
+- **Estimator/Dispatcher costing:** an imported sub quote's cost and markup now
+  need jobCosting, read and write.
+- **Activity log**, under the actor's name: visit status and notes, visit
+  booked, job checklist, job photos, task photos, daily log create and edit,
+  equipment used, work-order area ticks, task status, expense edit and delete.
+- **UI matches the server:**
+  - Change orders and the payment schedule draw no money without showPricing.
+  - The client page hides withheld lists and missing totals.
+  - Job page: New invoice, callback, Set dates, Add/Schedule visit, From
+    quote and Suggested tasks are gated.
+  - A colleague's visit checklist and plan steps are read-only.
+  - Reschedule and Cancel are hidden below edit_own.
+  - The new-visit page refuses below edit_own and offers only yourself without
+    job:assign.
+  - Convert to invoice is hidden for the Estimator.
+  - The costing fetch is skipped without jobCosting.
+
+### Checks
+`check:role-access` is new. `check:rbac-redaction` was updated (the job route's
+pattern is now `redactJob`), and so was `check:job-cost-review` (the costing
+effect deps now include `mayCost`).
+
+### Owed: owner decisions
+Listed at the end of docs/ROLE-ACCESS.md:
+- client phone for crew without opening the whole board;
+- crew ticking materials as bought;
+- whether crew see upsell amounts on their own daily sheet;
+- activity log access for Managers.
+
+The job page has no "Share with team" control of its own (the quote's share
+already carries the work order).
+
 ## Audit loose ends (3 October 2026)
 
 A read-only audit against origin/main found ten loose ends; each is its own commit.

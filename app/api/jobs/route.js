@@ -11,6 +11,7 @@ import {
   requireLevel,
   permissionErrorResponse,
   assignedJobWhere,
+  redactJobs,
 } from "@/lib/permissions/enforce";
 import { createJob } from "@/lib/jobs/createJob";
 import { recordFeatureUse } from "@/lib/analytics/product/server";
@@ -55,7 +56,9 @@ export async function GET(request) {
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json(jobs);
+  // The cost-review note is a Job column, so a list with no `select` carries
+  // it to everyone who can see the board. Same rule as the detail route.
+  return NextResponse.json(redactJobs(full, jobs));
 }
 
 export async function POST(request) {
