@@ -261,6 +261,26 @@ if (stale.length) {
   );
 }
 
+// ── Unpaid time off with no policies (2026-10-04) ─────────────────────────
+//
+// lib/leave/unpaidFallback.js. Executed end to end through POST /api/leave in
+// check:role-access §11; the pure rule is held here, beside the templates it
+// must never collide with.
+{
+  const { offersUnpaidFallback, companySetPolicies, unpaidFallbackName, unpaidFallbackPolicyData } = await import("@/lib/leave/unpaidFallback");
+  ok("no policies at all → the fallback is offered", offersUnpaidFallback([]) && offersUnpaidFallback(null));
+  ok("only the fallback row itself → still offered (it is not a policy the company set up)", offersUnpaidFallback([{ systemUnpaid: true }]));
+  ok("any real policy → not offered", !offersUnpaidFallback([{ systemUnpaid: true }, { systemUnpaid: false }]) && !offersUnpaidFallback([{}]));
+  ok("companySetPolicies drops the fallback and junk", companySetPolicies([{ id: "a" }, { id: "b", systemUnpaid: true }, null]).map((p) => p.id).join() === "a");
+  const data = unpaidFallbackPolicyData("co1", "fr-CA");
+  ok("the row: unpaid, no allotment, needs approval, flagged, named in the company's language",
+    data.paid === false && data.annualDays === null && data.requiresApproval === true && data.systemUnpaid === true && data.kind === "unpaid" && data.name === "Congé sans solde");
+  ok("an unknown language names it in English", unpaidFallbackName("xx") === "Unpaid time off" && unpaidFallbackName(null) === "Unpaid time off");
+  const templateNames = new Set(Object.values(LEAVE_TEMPLATES).flatMap((tpl) => (tpl.policies || []).map((p) => p.name)));
+  ok("no starter template carries the fallback's name (the (companyId, name) unique would refuse it)",
+    !["en", "fr", "es"].some((l) => templateNames.has(unpaidFallbackName(l))), [...templateNames].join(", "));
+}
+
 console.log(
   fails.length
     ? `\nFAILED — ${fails.length} of ${pass + fails.length}\n${fails.map((f) => `  ✗ ${f}`).join("\n")}`

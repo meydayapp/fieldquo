@@ -82,13 +82,13 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Who can see it",
         blocks: [
-          { p: "The **Jobs** row appears for anyone whose Jobs access is at least **View only**; somebody set to **No access** has no row and the page refuses them. The Crew preset sits at View only, scoped: a crew member sees only the jobs that have a visit assigned to them, and a job with no visit yet is nobody's and does not appear. Estimators see every job but cannot create or change one. Dispatchers create and edit; Managers, administrators and the owner can also delete. The presets are described in [[access-levels-overview|Access levels: who sees what]]." },
+          { p: "The **Jobs** row appears for anyone whose Jobs access is at least **View only**; somebody set to **No access** has no row and the page refuses them. The Crew preset sits at View only, scoped: a crew member sees only the jobs that have a visit assigned to them or a published shift of theirs on the scheduler with that job picked (from the moment the week is published until two weeks after the shift ends), and a job with neither is nobody's and does not appear. A draft shift grants nothing. Estimators see every job but cannot create or change one. Dispatchers create and edit; Managers, administrators and the owner can also delete. The presets are described in [[access-levels-overview|Access levels: who sees what]]." },
           { note: "Hiding the button is not the rule — the server checks the same access on every request. A person who reaches the New Job form through an old bookmark without the right level reads **Your access level lets you view jobs, not create them.**" },
         ],
       },
     ],
     faq: [
-      { q: "Why is a job missing for my crew member?", a: "A crew member only sees jobs with a visit assigned to them. Book a visit on the job with their name on it and it appears in their list immediately." },
+      { q: "Why is a job missing for my crew member?", a: "A crew member only sees jobs with a visit assigned to them, or a published shift on the scheduler with that job picked under **Job (optional)**. Book a visit with their name on it, or publish their shift, and it appears in their list immediately — with the job's work order and its chat room. A shift stops granting the job two weeks after it ends; a draft shift never does." },
       { q: "Does the Archived toggle mean cancelled?", a: "No. Cancelled is a status; archived is whether you still want to see the job. A finished job you file away stays Completed, and Restore on the job page brings it back to the live list." },
       { q: "Can I sort or export the list?", a: "No. The order is fixed, newest first, and FieldQuo does not export lists — past-job history goes the other way, into FieldQuo, through Past jobs." },
     ],

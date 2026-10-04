@@ -19,7 +19,7 @@ export const ARTICLES = {
     title: "Feuilles de temps : réviser et approuver les heures",
     summary:
       "L'écran où le bureau révise chaque pointage, voit où était le téléphone à ce moment-là, approuve les heures qu'une paie peut utiliser et enregistre un pointage oublié.",
-    updated: "2026-10-03",
+    updated: "2026-10-04",
     intro: [
       "L'équipe pointe l'entrée et la sortie sur la **Pointeuse**; le bureau révise le résultat sur **Feuilles de temps**. Rien n'atteint une paie tant que quelqu'un n'a pas appuyé sur **Approuver**, et rien sur cet écran n'est caché à la personne qui a fait les heures — l'entrée qu'elle voit sur son téléphone est la ligne que vous voyez ici.",
       "Cet article décrit ce que montre chaque ligne, ce que les puces de position veulent dire et ne veulent pas dire, comment ajouter un pointage oublié, et qui a le droit d'approuver, de modifier ou de supprimer une entrée.",
@@ -38,6 +38,7 @@ export const ARTICLES = {
         heading: "Vue d'ensemble",
         blocks: [
           { p: "Feuilles de temps se trouve dans la barre latérale sous **Personnel**, à côté de **Pointeuse** et **Congés**. L'en-tête dit **Feuilles de temps — Enregistrez, révisez et approuvez les heures.** En dessous, une ligne par pointage, du plus récent au plus ancien, pour toute l'entreprise — pas une vue par semaine, et pas de filtre par personne." },
+          { tip: "Taper **/app/timesheets** dans la barre d'adresse ouvre aussi cet écran. Pour une personne qui ne peut pas approuver les heures, la même adresse ouvre plutôt son propre **Journal** sur la pointeuse." },
           { p: "Une entrée est en attente — « pending » à l'écran — dès que la sortie est pointée, jusqu'à ce que quelqu'un l'approuve; une ligne encore en service affiche **En cours** au lieu d'un nombre d'heures. Seules les heures approuvées sont comptées par [[payroll-runs|une paie]] et par [[job-costing|le coût de revient du chantier]]; les heures en attente sont indiquées à côté comme non comptées, jamais ajoutées en silence." },
         ],
       },
@@ -123,7 +124,7 @@ export const ARTICLES = {
     title: "Demandes de correction : corriger des heures pointées",
     summary:
       "Comment un équipier demande qu'une de ses propres entrées de temps soit corrigée, comment un superviseur l'approuve ou la refuse dans les feuilles de temps, et ce que l'approbation change — et conserve.",
-    updated: "2026-10-03",
+    updated: "2026-10-04",
     intro: [
       "Personne dans l'équipe ne modifie ses propres heures directement. Dans le **Journal**, l'équipier appuie sur **Demander une correction** à côté d'une de ses entrées, indique ce qu'elle devrait dire et pourquoi, et l'entrée reste exactement telle quelle jusqu'à ce qu'une personne qui révise les feuilles de temps approuve la demande.",
       "Cet article couvre les deux côtés : envoyer une demande depuis le téléphone, et la trancher dans **Feuilles de temps**. Rien n'est supprimé d'un côté comme de l'autre — une approbation garde la trace de ce que l'entrée disait avant.",
@@ -144,7 +145,7 @@ export const ARTICLES = {
           { steps: [
             "Ouvrez la **Pointeuse** et passez à l'onglet **Journal**. Utilisez la flèche de retour (**Jour précédent**) pour revenir au jour de l'entrée.",
             "Sous votre journée, chacune de vos entrées est listée avec son activité et ses heures. Appuyez sur **Demander une correction** à côté de celle qui est fausse.",
-            "Réglez **Début** et **Fin** — toujours les deux, dans le fuseau horaire de votre entreprise — et l'**Activité**. Pour une activité qui prend un chantier, **Quel chantier?** apparaît : **Sur le chantier** en exige un, **Route** et **Matériel** peuvent en avoir un ou **Aucun chantier**.",
+            "Réglez **Début** et **Fin** — toujours les deux, dans le fuseau horaire de votre entreprise — et l'**Activité**. **Quel chantier?** est toujours là, avec les chantiers où vous pouvez inscrire du temps (ceux où vous avez une visite ou un quart publié) : **Sur le chantier** en exige un, **Route** et **Matériel** peuvent en avoir un ou **Aucun chantier**, et choisir un chantier sur une entrée **Général** ou **Bureau** fait passer l'activité à **Sur le chantier**, puisque du temps à un chantier est du temps sur place.",
             "Sous **Pourquoi**, expliquez ce qui s'est passé, par exemple « J'ai oublié de pointer la sortie en quittant le chantier à 16 h 30. » La demande ne peut pas partir sans raison.",
             "Appuyez sur **Envoyer la demande**. L'entrée affiche maintenant **Correction demandée**.",
           ] },

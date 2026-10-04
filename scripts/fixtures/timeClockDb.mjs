@@ -45,6 +45,10 @@ export const rows = {
   // app/api/time-entries/corrections, read by the Time log. Empty unless a
   // check seeds one.
   timeEntryCorrection: [],
+  // Published shifts on a job grant that job to the worker on them
+  // (lib/permissions/enforce.js shiftAssignmentWhere), and today's put the
+  // job at the top of the clock's picker. Empty unless a check seeds one.
+  shift: [],
 };
 
 /** Every write attempted, in order. */
@@ -65,11 +69,16 @@ export function reset() {
 const RELATIONS = {
   job: {
     visits: { list: true, of: "jobVisit", on: (job, v) => v.jobId === job.id },
+    shifts: { list: true, of: "shift", on: (job, sh) => sh.jobId === job.id },
     client: { list: false, get: (job) => job.client || null },
     company: { list: false, get: (job) => rows.company.find((c) => c.id === job.companyId) || null },
   },
   jobVisit: {
     job: { list: false, get: (v) => rows.job.find((j) => j.id === v.jobId) || null },
+  },
+  shift: {
+    job: { list: false, get: (sh) => (sh.jobId ? rows.job.find((j) => j.id === sh.jobId) || null : null) },
+    worker: { list: false, get: (sh) => (sh.workerId ? rows.worker.find((w) => w.id === sh.workerId) || null : null) },
   },
   timeEntry: {
     worker: { list: false, get: (e) => rows.worker.find((w) => w.id === e.workerId) || null },
@@ -173,6 +182,9 @@ function relationModel(model, key) {
   if (model === "job" && key === "client") return "client";
   if (model === "job" && key === "company") return "company";
   if (model === "jobVisit" && key === "job") return "job";
+  if (model === "job" && key === "shifts") return "shift";
+  if (model === "shift" && key === "job") return "job";
+  if (model === "shift" && key === "worker") return "worker";
   if (model === "timeEntry" && key === "worker") return "worker";
   if (model === "timeEntry" && key === "job") return "job";
   if (model === "timeEntry" && key === "task") return "task";
@@ -289,6 +301,7 @@ export const db = new Proxy(
     task: model("task"),
     timeEntryBreak: model("timeEntryBreak"),
     timeEntryCorrection: model("timeEntryCorrection"),
+    shift: model("shift"),
     // Prisma's batch form invokes each call eagerly and awaits the array. The
     // stub's methods are already-running promises by the time they arrive here,
     // so awaiting them is the same sequence a batch would produce — enough to

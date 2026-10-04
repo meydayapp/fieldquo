@@ -38,7 +38,8 @@ import { canSeeOwnPay } from "@/lib/payroll/ownPayGate";
 import { selectRecipients } from "@/lib/notifications/recipients";
 import { NOTIFICATION_TYPES } from "@/lib/notifications/catalog";
 import { estimateForShift, teamState, TEAM_STATES } from "@/lib/me/home";
-import { nextUp, sortItems } from "@/lib/me/timeline";
+import { nextUp, sortItems, visitItem } from "@/lib/me/timeline";
+import { readFileSync } from "node:fs";
 import { jobTone } from "@/lib/shifts/jobTone";
 import { weekDatesAround } from "@/lib/shifts/weekDates";
 
@@ -359,6 +360,43 @@ check("nextUp is the first item that has not ended, events excluded; sortItems p
   assert.equal(nextUp(items, T(12)).id, "s");
   assert.equal(nextUp(items, T(18)), null);
   assert.equal(nextUp([], T(8)), null);
+});
+
+// ── 7b. My schedule shows job visits, from the same read as My day ──────────
+//
+// The live test, 2026-10-04: a visit on Oct 5 at 8 AM showed on My day and
+// not on My schedule, which read /api/shifts only. Both now go through
+// lib/me/timeline.js visitItemsFor.
+check("visitItem: the job's site, a link to the job, the visit note, never the billing address", () => {
+  const item = visitItem({
+    id: "v1", jobId: "j 1", scheduledAt: T(8), status: null, notes: "Bring the ladder",
+    job: { id: "j 1", title: "Kitchen", siteAddress: "12 rue Principale", siteCity: "Laval", client: { name: "Marie" } },
+  });
+  assert.equal(item.kind, "visit");
+  assert.equal(item.href, "/app/jobs/j 1");
+  assert.equal(item.jobId, "j 1");
+  assert.equal(item.address, "12 rue Principale, Laval");
+  assert.equal(item.title, "Marie");
+  assert.equal(item.subtitle, "Kitchen");
+  assert.equal(item.note, "Bring the ladder");
+  assert.equal(item.status, "scheduled");
+  assert.equal(visitItem({ id: "v2", jobId: null, scheduledAt: T(9), job: null }).href, null);
+});
+check("My schedule and My day read visits through ONE helper, and the page asks for them", () => {
+  const timeline = readFileSync(new URL("../lib/me/timeline.js", import.meta.url), "utf8");
+  const route = readFileSync(new URL("../app/api/me/visits/route.js", import.meta.url), "utf8");
+  const page = readFileSync(new URL("../app/app/me/schedule/page.js", import.meta.url), "utf8");
+  assert.match(timeline, /visitItemsFor\(member, from, to\),/, "timelineFor reads visits through visitItemsFor");
+  assert.equal((timeline.match(/db\.jobVisit\.findMany/g) || []).length, 1, "one visit query in the timeline module");
+  assert.match(timeline, /assignedToId: member\.userId/, "only the caller's own visits");
+  assert.match(route, /memberOrRefusal\(request\)/);
+  assert.match(route, /visitItemsFor\(member, from, to\)/);
+  assert.match(route, /MAX_DAYS/, "the range is capped");
+  assert.match(page, /fetchList\(`\/api\/me\/visits\?\$\{qs\}`\)/, "My schedule fetches the visits");
+  assert.match(page, /<VisitCard /, "and draws them");
+  assert.match(page, /workOrderPath\(visit\.jobId\)/, "a visit links its work order");
+  assert.match(page, /href=\{`\/app\/jobs\/\$\{encodeURIComponent\(visit\.jobId\)\}`\}/, "and its job");
+  assert.match(page, /workOrderPath\(shift\.job\.id\)/, "a shift on a job links its work order too");
 });
 
 // ── 8. The week grid's small pure pieces ────────────────────────────────────

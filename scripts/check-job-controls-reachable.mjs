@@ -178,5 +178,25 @@ ok(
   );
 }
 
+// ── 3. An error goes away when the field it was about changes (2026-10-04) ──
+//
+// Add visit: tick "This is a return to fix…", submit with no reason, read
+// "Say why you're going back." — untick the box, and the sentence stayed,
+// asking for a field no longer on the screen.
+{
+  const { fieldError, afterFieldChange } = await import("../lib/forms/fieldError.js");
+  const why = fieldError("Say why you're going back.", "returnReason", "isReturn");
+  ok("unticking the return box clears the return-reason error", afterFieldChange(why, "isReturn") === null);
+  ok("…so does picking a reason", afterFieldChange(why, "returnReason") === null);
+  ok("…but typing the notes or changing the date does not", afterFieldChange(why, "notes") === why && afterFieldChange(why, "scheduledAt") === why);
+  const server = fieldError("The server refused.");
+  ok("a server or network error, about no field, stays until the next submit", afterFieldChange(server, "isReturn") === server);
+  ok("no error stays no error", afterFieldChange(null, "isReturn") === null);
+  const page = read("../app/app/jobs/[id]/visits/new/page.js");
+  ok("the form raises the reason error against both fields", /fieldError\(t\("app\.job\.returnReasonRequired"[^)]*\), "returnReason", "isReturn"\)/.test(page));
+  ok("…and the box, the reason and the date each report their change", /touched\("isReturn"\)/.test(page) && /touched\("returnReason"\)/.test(page) && /touched\("scheduledAt"\)/.test(page));
+  ok("…and prints error.message (the state is the object now)", /\{error\.message\}/.test(page) && !/^\s*\{error\}\s*$/m.test(page));
+}
+
 console.log(fail === 0 ? "\nAll good.\n" : `\n${fail} problem(s).\n`);
 process.exit(fail === 0 ? 0 : 1);

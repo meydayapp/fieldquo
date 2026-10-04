@@ -21,7 +21,7 @@ export const ARTICLES = {
     title: "Timesheets: review and approve hours",
     summary:
       "Where the office reviews every clock-in, sees where the phone was when it happened, approves the hours a pay run may use, and logs a punch somebody forgot.",
-    updated: "2026-10-03",
+    updated: "2026-10-04",
     intro: [
       "The crew clock in and out on **Time clock**; the office reviews the result on **Timesheets**. Nothing reaches a pay run until somebody presses **Approve** on it, and nothing on this screen is hidden from the person who worked the hours — the same entry they see on their phone is the row you see here.",
       "This article covers what each row shows, what the position chips mean and do not mean, how to add a missed punch, and who is allowed to approve, edit or delete an entry.",
@@ -40,6 +40,7 @@ export const ARTICLES = {
         heading: "Overview",
         blocks: [
           { p: "Timesheets sits in the sidebar under **People**, next to **Time clock** and **Time Off**. The heading reads **Timesheets — Log, review and approve hours.** Below it is one row per punch, newest first, for everyone in the company — not a week view, and not filtered by person." },
+          { tip: "Typing **/app/timesheets** in the address bar opens this screen too. For someone who cannot approve hours, the same address opens their own **Time log** on the clock instead." },
           { p: "An entry is **pending** from the moment it is clocked out until somebody approves it; a row still on the clock reads **In progress** instead of a number of hours. Only approved hours are counted by [[payroll-runs|a payroll run]] and by [[job-costing|job costing]]; pending hours are reported beside them as left out, never silently added." },
         ],
       },
@@ -125,7 +126,7 @@ export const ARTICLES = {
     title: "Correction requests: fixing clocked hours",
     summary:
       "How a crew member asks for one of their own time entries to be fixed, how a supervisor approves or rejects it on Timesheets, and what approving changes — and keeps.",
-    updated: "2026-10-03",
+    updated: "2026-10-04",
     intro: [
       "Nobody on the crew changes their own hours directly. On the **Time log** they press **Request a correction** on one of their entries, say what it should read and why, and the entry stays exactly as it was until somebody who reviews timesheets approves it.",
       "This article covers both sides: sending a request from the phone, and deciding it on **Timesheets**. Nothing is deleted on either side — an approval keeps a record of what the entry said before.",
@@ -146,7 +147,7 @@ export const ARTICLES = {
           { steps: [
             "Open **Time clock** and switch to the **Time log** tab. Use the back arrow (**Previous day**) to go back to the day the entry is on.",
             "Under your day, each of your entries is listed with its activity and its times. Press **Request a correction** beside the one that is wrong.",
-            "Set **Start** and **End** — always both, in your company's time zone — and the **Activity**. For an activity that takes a job, **Which job?** appears: **On site** needs one, **Driving** and **Supplies** can have one or **No job**.",
+            "Set **Start** and **End** — always both, in your company's time zone — and the **Activity**. **Which job?** is always there, listing the jobs you can book time to (the ones you have a visit or a published shift on): **On site** needs one, **Driving** and **Supplies** can have one or **No job**, and picking a job on a **General** or **Office** entry changes the activity to **On site**, because time at a job is time on site.",
             "Under **Why**, say what happened, for example “Forgot to clock out when I left the site at 4:30.” The request cannot be sent without a reason.",
             "Press **Send request**. The entry now reads **Correction requested**.",
           ] },

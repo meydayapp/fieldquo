@@ -759,6 +759,18 @@ export default function KpiDashboardPage() {
                 format={money}
               />
             </div>
+            {/* Past jobs typed in with no costs are left out of the margin
+                and labour figures (lib/analytics/kpis.js buildMarginRollup) —
+                said here, so a smaller sample is never a mystery. */}
+            {data.profit.labourCostPctOfRevenue?.raw?.excludedCostsNotRecorded > 0 && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                {t(
+                  "app.kpis.costsNotRecorded",
+                  "Past jobs with no costs recorded: {count}. They're left out of margin and labour cost rather than counted as costing nothing.",
+                  { count: data.profit.labourCostPctOfRevenue.raw.excludedCostsNotRecorded },
+                )}
+              </p>
+            )}
           </section>
 
           {/* ── Execution ────────────────────────────────────────────────── */}

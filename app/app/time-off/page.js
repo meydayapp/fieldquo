@@ -270,7 +270,14 @@ function MyTimeOff({ data, errorMessage, onRetry, reload }) {
     );
   }
 
-  if (!data.policies?.length) {
+  // No policies set up. Until 2026-10-04 this was the whole page — a note,
+  // and no way to ask for a day off at all. Now the note stays (the owner
+  // still has no policies of their own) and unpaid time off can still be
+  // requested: lib/leave/unpaidFallback.js. An old API answer without the
+  // fallback keeps the old note-only page rather than a form that would fail.
+  const noPolicies = !data.policies?.length;
+  const unpaidFallback = noPolicies ? data.unpaidFallback || null : null;
+  if (noPolicies && !unpaidFallback) {
     return (
       <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground flex items-start gap-2">
         <Info size={16} className="mt-0.5 shrink-0" />
@@ -281,15 +288,25 @@ function MyTimeOff({ data, errorMessage, onRetry, reload }) {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {data.balances?.length ? (
-          data.balances.map((b) => <BalanceCard key={b.id} balance={b} />)
-        ) : (
-          <div className="sm:col-span-2 lg:col-span-3 rounded-xl border border-dashed border-border p-5 text-sm text-muted-foreground">
-            {t("app.timeOff.noBalance")}
+      {noPolicies ? (
+        <div className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground flex items-start gap-2" data-unpaid-fallback>
+          <Info size={16} className="mt-0.5 shrink-0" />
+          <div>
+            <p>{t("app.timeOff.noPolicies")}</p>
+            <p className="mt-1 text-foreground">{t("app.timeOff.unpaidStillAsk", "You can still ask for unpaid time off — your request goes to whoever approves time off.")}</p>
           </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {data.balances?.length ? (
+            data.balances.map((b) => <BalanceCard key={b.id} balance={b} />)
+          ) : (
+            <div className="sm:col-span-2 lg:col-span-3 rounded-xl border border-dashed border-border p-5 text-sm text-muted-foreground">
+              {t("app.timeOff.noBalance")}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* What the balances were built from besides this year's clocked
           hours — the opening balance a manager entered, and any rate of
@@ -327,7 +344,8 @@ function MyTimeOff({ data, errorMessage, onRetry, reload }) {
 
       {open && (
         <RequestForm
-          policies={data.policies}
+          policies={data.policies || []}
+          unpaidFallback={unpaidFallback}
           balances={data.balances || []}
           rules={data.rules || null}
           holidays={data.holidays || []}

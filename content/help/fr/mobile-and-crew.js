@@ -63,7 +63,7 @@ export const ARTICLES = {
             head: ["Ce que vous devez faire", "Où", "Notes"],
             rows: [
               ["Pointer l'entrée et la sortie, changer de chantier", "**Pointeuse**", "Votre téléphone est interrogé sur sa position une fois, au tapotement — jamais en arrière-plan."],
-              ["Voir vos quarts et vos visites", "**Attribuer les quarts**, **Calendrier**, **Chantiers**", "Seulement ce qui est publié, et seulement ce où vous êtes assigné."],
+              ["Voir vos quarts et vos visites", "**Mes quarts**, **Calendrier**, **Chantiers**", "Seulement ce qui est publié, et seulement ce où vous êtes assigné."],
               ["Ajouter des photos à un chantier", "La page du chantier, **Photos du chantier**", "Depuis l'appareil photo ou la pellicule; ou textez-les sans rien ouvrir."],
               ["Parler au bureau", "**Clavardage**", "Un salon par chantier, #general pour tout le monde, des messages directs."],
               ["Demander un congé", "**Congés**", "Les soldes et vos demandes sur un seul écran."],
@@ -238,7 +238,7 @@ export const ARTICLES = {
     title: "Ce qu'un équipier voit",
     summary:
       "Le niveau d'accès Crew vu de l'intérieur : quelles lignes de menu apparaissent, ce qu'une page de chantier montre et cache, et pourquoi les prix ne sont nulle part.",
-    updated: "2026-09-12",
+    updated: "2026-10-04",
     intro: [
       "**Crew** est le niveau d'accès des gens dans le camion — installateurs, aides, un deuxième peintre. Il ne coûte rien à l'entreprise et il est volontairement étroit : votre propre horaire, les chantiers où vous êtes réservé, la pointeuse, les congés, la sécurité, vos propres bulletins de paie. Aucun prix nulle part, pas de soumissions, pas de factures, pas de prospects, et pas de liste de clients.",
       "Cet article décrit ce que ça donne sur le téléphone. Il est écrit à partir de la grille de permissions du produit lui-même, alors il dit ce que le menu fait vraiment; si votre propriétaire vous a donné une grille personnalisée, certaines lignes peuvent différer.",
@@ -264,7 +264,7 @@ export const ARTICLES = {
               ["**Calendrier**", "Les rendez-vous qui vous sont assignés, les rendez-vous non assignés, et les visites sur vos chantiers."],
               ["**À faire**", "Les tâches qui vous sont assignées, celles que vous avez créées, et les non assignées que n'importe qui peut prendre."],
               ["**Clavardage**", "#general, un salon par chantier où vous êtes, les messages directs."],
-              ["**Attribuer les quarts**", "Vos propres quarts publiés — le titre est celui du gestionnaire; vous voyez votre semaine, en lecture seule."],
+              ["**Mes quarts**", "Vos propres quarts publiés, en lecture seule. (Les gestionnaires voient le même écran sous **Attribuer les quarts**.)"],
               ["**Pointeuse**", "Votre pointage, votre chantier, vos heures d'aujourd'hui."],
               ["**Congés**", "Vos soldes et vos demandes."],
               ["**Sécurité**", "Signaler un incident; voir ceux que vous avez signalés."],
@@ -282,7 +282,9 @@ export const ARTICLES = {
             "Le **nom et l'adresse** du client, et l'adresse du site. Le numéro de téléphone et le courriel sont retenus par votre niveau — la page du chantier le dit à côté du bouton En route, et le client reçoit quand même le texto.",
             "**Visites** : la date et l'heure, qui est assigné, la liste de vérification avec ses points d'arrêt, et — sur les visites qui vous sont assignées — **En route**, **Marquer comme terminée** et **Annuler la visite**.",
             "**Matériaux à acheter**, en liste avec les quantités et sans prix.",
-            "**Photos du chantier** avec un bouton de téléversement, et le **Journal de chantier** que vous pouvez rédiger et enregistrer — voir [[photos-from-the-field|Photos depuis le terrain]].",
+            "Le **bon de travail** (depuis la page du chantier, ou le lien dans **Mon horaire**) : chaque zone avec quoi faire et combien — « Cabinet Refinishing × 32 », le nombre de portes et de tiroirs — la couleur, le lustre et les couches vendus, ce qui est inclus, les options choisies par le client (une finition deux tons, par exemple), la liste des matériaux, la liste de vérification et les notes des visites, plus l'estimation des heures quand la soumission en a une. Jamais un prix, un total, un dépôt ni un coût.",
+            "**Photos du chantier** avec un bouton de téléversement, et le **Journal de chantier** que vous pouvez rédiger et enregistrer — voir [[photos-from-the-field|Photos depuis le terrain]]. Vous ajoutez des photos et les commentez ; mettre une photo sur le site Web de l'entreprise, changer son étape et gérer les étiquettes de photos relèvent du bureau, donc ces contrôles ne sont pas sur votre copie.",
+            "Pas sur votre copie : la carte du **guide de préparation du client** — quand le guide part chez le client et à quel courriel, c'est l'affaire du bureau.",
             "Les notes de la visite elle-même. Les notes privées sur le client et le journal de rappels du prospect ne sont pas affichés.",
           ] },
         ],
@@ -397,8 +399,8 @@ export const ARTICLES = {
   "your-schedule-on-your-phone": {
     title: "Votre horaire sur votre téléphone",
     summary:
-      "Où vit la journée d'un équipier : les quarts publiés sous Attribuer les quarts, les rendez-vous dans le Calendrier, les visites sur le chantier, et les tâches à faire.",
-    updated: "2026-09-13",
+      "Où vit la journée d'un équipier : les quarts publiés sous Mes quarts, les rendez-vous dans le Calendrier, les visites sur le chantier, et les tâches à faire.",
+    updated: "2026-10-04",
     intro: [
       "Votre journée est à trois endroits, exprès, parce que ce sont trois choses différentes : un **quart**, ce sont les heures que votre gestionnaire a publiées pour vous; une **visite**, c'est un bloc de travail réservé sur un chantier; une **tâche à faire**, c'est une tâche à votre nom. Les trois ne montrent que ce qui est à vous, et aucun ne montre un brouillon que le bureau n'a pas publié.",
     ],
@@ -408,6 +410,7 @@ export const ARTICLES = {
         heading: 'Mon horaire',
         blocks: [
           { p: "**Mon horaire** dans le menu (et l'onglet Horaire de la barre du bas sur le téléphone) est vos deux prochaines semaines, une carte par jour, faite pour le pouce : **Demain, mardi 15 sept.**, puis les heures en grand — **8:00 – 16:00** — le client et l'adresse du chantier, qui d'autre est sur ce travail ce jour-là en initiales, votre dîner et vos pauses, et la note du gestionnaire citée. Sur la carte d'aujourd'hui, un bouton vert **Pointer** ouvre l'horodateur. Un quart placé hors des heures où vous vous êtes dit disponible le dit, avec qui l'a fait." },
+          { p: "Vos **visites de chantier** sont sur les mêmes cartes, dans l'ordre de la journée avec vos quarts et marquées **Visite** : l'heure, le client et le chantier, l'adresse du chantier et la note de la visite — les mêmes visites que **Ma journée**. Une visite, et un quart que le bureau a placé sur un chantier, portent chacun les boutons **Ouvrir le chantier** et **Bon de travail** ; les deux s'ouvrent pour vous, puisque c'est d'être affecté au chantier qui vous l'ouvre." },
           { p: "**Ajouter au calendrier** télécharge vos quarts publiés en fichier .ics que le calendrier du téléphone ouvre ; retéléchargez-le la semaine suivante et les événements se mettent à jour au lieu de se dédoubler. **Demander un congé** mène à l'écran Congés. Seuls les quarts publiés apparaissent — un brouillon que votre gestionnaire n'a pas validé n'atteint jamais votre téléphone." },
           { note: "Quand un gestionnaire publie, déplace, change le travail ou annule l'un de vos quarts, vous recevez une notification dans la cloche et, si vous les avez activées, une notification push : **Votre horaire est publié : lun. 14 sept., 8:00 – 16:00 chez Sophie Dubois, 12 rue Principale, et 4 de plus**. La toucher ouvre cet écran." },
         ],
@@ -426,7 +429,7 @@ export const ARTICLES = {
           { table: {
             head: ["Ligne", "Ce qu'elle montre", "Ce que vous pouvez faire"],
             rows: [
-              ["**Attribuer les quarts**", "Vos quarts publiés, une semaine à la fois, du dimanche au samedi, aujourd'hui encadré", "Les lire. La ligne du bas dit : Voici les quarts publiés par votre gestionnaire. Revenez pour les changements."],
+              ["**Mes quarts**", "Vos quarts publiés, une semaine à la fois, du dimanche au samedi, aujourd'hui encadré", "Les lire. La ligne du bas dit : Voici les quarts publiés par votre gestionnaire. Revenez pour les changements."],
               ["**Calendrier**", "Les rendez-vous qui vous sont assignés, les non assignés, et les visites sur vos chantiers", "Ouvrir le chantier; sur votre propre visite, En route et Marquer comme terminée."],
               ["**Chantiers**", "Les chantiers où vous avez une visite, avec la date et l'heure de chaque visite", "Cocher la liste de vérification, ajouter des photos, rédiger le journal de chantier."],
               ["**À faire**", "Les tâches qui vous sont assignées, celles que vous avez créées, et les non assignées", "Prendre une tâche non assignée; terminer les vôtres."],
@@ -440,7 +443,7 @@ export const ARTICLES = {
         blocks: [
           { p: "Un gestionnaire prépare la semaine sur l'écran Horaire et appuie sur **Publier la semaine**; jusque-là, un quart est un **Brouillon** que l'équipe ne peut pas voir. Une fois publié, votre quart montre son début et sa fin, le chantier, et toute note que le gestionnaire a tapée — où être, quoi apporter. Si un quart a été placé en dehors des heures où vous avez dit être disponible, le quart lui-même affiche **En dehors des disponibilités déclarées**, avec qui l'a fait et pourquoi, pour que vous l'appreniez ici plutôt que le matin même." },
           { figure: "harness:scheduler", caption: "L'horaire tel qu'un gestionnaire le voit — la semaine en cartes par jour, Ajouter un quart et Publier la semaine. Un équipier voit les mêmes cartes avec seulement ses propres quarts publiés, et aucun bouton." },
-          { note: "La ligne de l'écran s'intitule **Attribuer les quarts** pour tout le monde parce que le titre est celui du gestionnaire. Vous n'attribuez rien; vous lisez ce qui vous a été attribué." },
+          { note: "La ligne s'appelle **Attribuer les quarts** seulement pour les personnes qui peuvent modifier l'horaire de tout le monde. Pour vous, elle s'appelle **Mes quarts** — vous n'attribuez rien, vous lisez ce qui vous a été attribué. Un superviseur qui voit la semaine de l'équipe sans pouvoir la modifier voit **Quarts de l'équipe**." },
         ],
       },
       {
@@ -718,7 +721,7 @@ export const ARTICLES = {
     title: "Demander un congé depuis votre téléphone",
     summary:
       "Demander une journée de congé, voir ce qu'il vous reste, retirer une demande, et savoir qui la fait attendre.",
-    updated: "2026-09-12",
+    updated: "2026-10-04",
     intro: [
       "**Congés** est un seul écran avec deux fonctions : ce qu'il vous reste, et vos demandes. Une demande va à la personne à qui vous rendez des comptes; certains types sont approuvés automatiquement dès que vous soumettez; et tant qu'elle n'est pas prise, vous pouvez la retirer vous-même.",
     ],
@@ -728,6 +731,7 @@ export const ARTICLES = {
         heading: "Vue d'ensemble",
         blocks: [
           { p: "En haut, une carte par type de congé que votre entreprise a configuré — vacances, jours de maladie, journée personnelle, peu importe comment le propriétaire l'a nommé — avec **Accumulé**, **Pris**, ce qui est en attente d'approbation, et les jours **Restant**. Dessous, **Vos demandes** avec le bouton **Demander un congé**, chaque demande avec sa pastille d'état et, tant qu'elle est en attente, une ligne disant qui la fait attendre. Si aucune politique de congé n'existe encore, l'écran le dit et nomme la page de paramètres qu'un propriétaire utilise pour en ajouter." },
+          { note: "Si votre entreprise n'a encore configuré aucun type de congé, l'écran le dit — et vous pouvez quand même demander un congé **sans solde** : les dates et une raison. La demande va à la personne qui approuve les congés, comme toute demande, et ne touche à aucun solde. Les types payés apparaissent dès que le propriétaire les configure dans Réglages → Politiques de congé." },
           { figure: "harness:mobile-time-off", caption: "Les congés sur un téléphone — les cartes de solde Vacances et Journée personnelle, Demander un congé, et une demande en attente avec son bouton Withdraw." },
         ],
       },

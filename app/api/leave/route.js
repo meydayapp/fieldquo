@@ -29,6 +29,12 @@ import { judgeLeaveRequest, loadLeaveLimits, othersApprovedDuring } from "@/lib/
 import { holidaysBetween } from "@/lib/leave/statutoryHolidays";
 import { hoursPerWorkingDay } from "@/lib/leave/balances";
 import { isLeaveAdmin } from "@/lib/leave/accrualAdmin";
+import {
+  companySetPolicies,
+  offersUnpaidFallback,
+  unpaidFallbackName,
+  unpaidFallbackPolicyData,
+} from "@/lib/leave/unpaidFallback";
 
 const YEAR = () => new Date().getUTCFullYear();
 
@@ -138,10 +144,23 @@ export async function GET(request) {
   const scope = searchParams.get("scope"); // "team" | undefined
   const year = Number(searchParams.get("year")) || YEAR();
 
-  const policies = await db.leavePolicy.findMany({
+  const activePolicies = await db.leavePolicy.findMany({
     where: { companyId: member.companyId, active: true },
     orderBy: { name: "asc" },
   });
+  // The policies the company set up — never the unpaid fallback row, which
+  // exists only because somebody asked before there were any
+  // (lib/leave/unpaidFallback.js). With none set up, the screen still offers
+  // unpaid time off, named in the company's language.
+  const policies = companySetPolicies(activePolicies);
+  const unpaidFallback = offersUnpaidFallback(activePolicies)
+    ? {
+        name: unpaidFallbackName(
+          (await db.company.findUnique({ where: { id: member.companyId }, select: { defaultLanguage: true } }))
+            ?.defaultLanguage,
+        ),
+      }
+    : null;
 
   // Bring accruals up to date before reading them. refreshAccruals SETS rather
   // than increments, so doing this on read is safe and means nobody has to
@@ -263,6 +282,7 @@ export async function GET(request) {
       // this only keeps the screen from offering a form that would be refused.
       canEditAccrual: isLeaveAdmin(member.role) && member.impersonationMode !== "read_only",
       canApprove: can(member.role, "user:manage"),
+      unpaidFallback,
       // The same people, as a picker for "Add time off" — active workers
       // whose leave a manager may enter on their behalf.
       workers: await db.worker.findMany({
@@ -280,6 +300,7 @@ export async function GET(request) {
       scope: "self",
       worker: null,
       policies,
+      unpaidFallback,
       requests: [],
       balances: [],
       reason: "no_worker_record",
@@ -321,6 +342,7 @@ export async function GET(request) {
       ? holidaysBetween({ ...limits.region, from: new Date(Date.UTC(year, 0, 1)), to: new Date(Date.UTC(year + 1, 11, 31)) })
       : [],
     policies,
+    unpaidFallback,
     // The person who asked for the time off is the one most in the dark about
     // where it went. `canAct` comes back false on their own request, which is
     // correct and is what the PATCH route enforces.
@@ -378,9 +400,45 @@ export async function POST(request) {
     );
   }
 
-  const policy = await db.leavePolicy.findFirst({
-    where: { id: policyId, companyId: member.companyId, active: true },
-  });
+  // ── Unpaid time off, when the company has set up no policies ─────────────
+  //
+  // lib/leave/unpaidFallback.js says why. Only while there are none: once the
+  // owner sets up their own, `unpaid` is refused and the form offers theirs.
+  // The fallback row is created on this first ask, never on a page load.
+  let policy = null;
+  if (body?.unpaid === true && !policyId) {
+    const active = await db.leavePolicy.findMany({
+      where: { companyId: member.companyId, active: true },
+      select: { id: true, systemUnpaid: true },
+    });
+    if (!offersUnpaidFallback(active)) {
+      return NextResponse.json({ error: "Pick a leave type." }, { status: 400 });
+    }
+    policy = await db.leavePolicy.findFirst({ where: { companyId: member.companyId, systemUnpaid: true } });
+    if (!policy) {
+      const company = await db.company.findUnique({ where: { id: member.companyId }, select: { defaultLanguage: true } });
+      const data = unpaidFallbackPolicyData(member.companyId, company?.defaultLanguage);
+      // Upsert on the (companyId, name) unique: two people asking in the same
+      // second land on one row, not a duplicate-name error.
+      policy = await db.leavePolicy.upsert({
+        where: { companyId_name: { companyId: member.companyId, name: data.name } },
+        update: {},
+        create: data,
+      });
+    }
+    // A retired policy of the owner's that happens to carry the same name is
+    // theirs, not ours — and retired. Say so rather than file under it.
+    if (!policy.systemUnpaid || !policy.active) {
+      return NextResponse.json(
+        { error: "There's no leave type to file this under yet. Ask whoever runs the office to set one up in Settings → Time off policies." },
+        { status: 409 },
+      );
+    }
+  } else {
+    policy = await db.leavePolicy.findFirst({
+      where: { id: policyId, companyId: member.companyId, active: true },
+    });
+  }
   if (!policy) {
     return NextResponse.json({ error: "Pick a leave type." }, { status: 400 });
   }

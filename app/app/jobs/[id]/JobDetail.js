@@ -68,7 +68,7 @@ import DirectionsButtons from "@/app/components/jobs/DirectionsButtons";
 import StreetViewPeek from "@/app/components/StreetViewPeek";
 import { useRouter } from "next/navigation";
 import { usePermissions } from "@/app/providers/PermissionProvider";
-import { hasLevel } from "@/lib/permissions/enforce";
+import { hasLevel, seesOnlyAssignedJobs } from "@/lib/permissions/enforce";
 import { can } from "@/lib/permissions";
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import PaymentScheduleCard from "./PaymentScheduleCard";
@@ -844,9 +844,11 @@ export default function JobDetail({ jobId }) {
 
       {/* What the client was asked to do before the crew arrives, and when
           they were (or will be) told. Under Documents because the sent guide
-          is filed there; its own card because "did they get it" is a
-          question asked from the van on the first morning. */}
-      <PrepGuideCard jobId={job.id} />
+          is filed there. Office information — when it goes, to which email,
+          the send / don't-send controls — so a crew member scoped to their
+          own jobs does not get the card (the owner, 2026-10-04 live test),
+          and GET /api/jobs/[id]/prep-guide refuses them the same way. */}
+      {!seesOnlyAssignedJobs(caller) && <PrepGuideCard jobId={job.id} />}
 
       {/* Email with the client about this job, filed from a connected work
           mailbox (Settings → Work email) — by the job's quote or invoice

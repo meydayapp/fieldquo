@@ -58,6 +58,8 @@ import { MessageCircle, X, Send, Loader2, Paperclip, WifiOff } from "lucide-reac
 import { fetchJson } from "@/lib/fetchJson";
 import { uploadFile } from "@/lib/media/uploadClient";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { usePathname } from "next/navigation";
+import { launcherHiddenOn } from "@/lib/jennifer/launcher";
 
 const MARKETING_OPENERS = [
   "I want to grow, but my current setup can't keep up",
@@ -106,6 +108,10 @@ function roleClasses(role) {
 export default function JenniferPanel({ variant = "marketing", role = null }) {
   const isCompany = variant === "app";
   const { t } = useTranslation();
+  // Not drawn over a chat screen's own composer — lib/jennifer/launcher.js
+  // says which screens and why the launcher, not the composer, gives way.
+  const pathname = usePathname();
+  const hideLauncher = isCompany && launcherHiddenOn(pathname);
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -290,7 +296,7 @@ export default function JenniferPanel({ variant = "marketing", role = null }) {
            access editor). The launcher only needs to clear page content;
            it must never clear an overlay. */
         className={`fixed bottom-[calc(var(--fq-tab-bar-height)+var(--fq-dock-height)+1.25rem)] right-5 z-30 h-14 w-14 items-center justify-center rounded-full bg-inverted text-inverted-foreground shadow-lg hover:opacity-90 ${
-          open ? "hidden" : "flex"
+          open || hideLauncher ? "hidden" : "flex"
         }`}
       >
         <MessageCircle size={22} />

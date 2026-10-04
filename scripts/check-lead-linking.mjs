@@ -390,7 +390,7 @@ as("m_crew");
 leadRow("lead_bare").quoteId = "q_acc";
 await docsRoute.GET(req(null), ctx("lead_bare"));
 ok("a crew member's job query is narrowed to their own visits (assignedJobWhere)",
-  globalThis.__FQ_LAST_JOB_WHERE?.visits?.some?.assignedToId === "u_crew", globalThis.__FQ_LAST_JOB_WHERE);
+  (globalThis.__FQ_LAST_JOB_WHERE?.AND?.[0]?.OR || []).some((b) => b.visits?.some?.assignedToId === "u_crew"), globalThis.__FQ_LAST_JOB_WHERE);
 
 // ═══════════════════════════════════════════════════════════════════════════
 section("4. Candidates and client matching against junk");

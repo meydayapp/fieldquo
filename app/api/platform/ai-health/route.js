@@ -29,12 +29,29 @@
 // AiUsage: that table attributes spend to a company, and this belongs to no
 // company. A platform diagnostic showing up as a tenant's usage would be a
 // small lie in the one place the numbers have to be trustworthy.
+//
+// ── ?tools=1 — the tool loop, per tier ──────────────────────────────────────
+//
+// The two-token completion above proved nothing about the AI EMPLOYEE, which
+// runs a tool-calling loop on the BEST tier: on 2026-10-04 this route was
+// green while every employee reply in production had failed with a gpt-5.5
+// 400 (tools + reasoning_effort refused on Chat Completions). With ?tools=1
+// it also runs lib/ai/toolLoopProbe.js for each tier — the shipped
+// runToolLoop, one trivial tool, reasoning on — and reports them separately
+// under `toolLoop`, with the API each tier's model was sent to.
+//
+// OPT-IN, because /platform loads this route on every visit and the best
+// tier's probe costs about a cent each time; running it on every dashboard
+// load is a spend decision for the owner, not a side effect of a fix. The
+// always-on signal for the employee is /platform/errors, where every failed
+// reply is now filed (area "ai-employee", lib/aiEmployee/respond.js).
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
-import { AI_MODEL, AI_WRITING_MODEL } from "@/lib/ai/provider";
+import { AI_MODEL, AI_WRITING_MODEL, AI_TIERS } from "@/lib/ai/provider";
 import { hasKnownPricing } from "@/lib/ai/usage";
+import { probeToolLoop } from "@/lib/ai/toolLoopProbe";
 
 // Ordered by fitness for THIS workload, not by capability. Almost every call
 // FieldQuo makes is "pick one of six tools, then write two sentences about
@@ -134,7 +151,25 @@ export async function GET(request) {
     : null;
 
   const usable = PREFERRED.filter((m) => available.has(m));
-  const healthy = listed && result.ok && (!writing || writing.listed);
+
+  // Each tier on its own, in parallel — one failing must not hide the other.
+  // Keyed by tier so the response says which one the employee depends on.
+  const wantTools = new URL(request.url).searchParams.get("tools") === "1";
+  const toolLoop = wantTools
+    ? Object.fromEntries(
+        await Promise.all(
+          AI_TIERS.map(async (tier) => {
+            const probed = await probeToolLoop({ tier, timeoutMs: 20_000 });
+            // An unpriced best model meters a company's most expensive calls
+            // at the fallback rate — worth seeing beside the probe.
+            return [tier, { ...probed, pricingKnown: hasKnownPricing(probed.model) }];
+          }),
+        ),
+      )
+    : null;
+  const toolLoopOk = !toolLoop || Object.values(toolLoop).every((t) => t.ok);
+
+  const healthy = listed && result.ok && (!writing || writing.listed) && toolLoopOk;
 
   return NextResponse.json({
     healthy,
@@ -143,17 +178,26 @@ export async function GET(request) {
     listed,
     probe: result,
     writing,
+    // null unless ?tools=1 — see the header. Not "healthy" by omission: a
+    // caller that wants the tool loops checked has to ask for them.
+    toolLoop,
     usable,
     // Cost reports fall back to an estimate when a model isn't in the pricing
     // table, so an unpriced model means the numbers in Settings → AI usage are
     // a guess. Worth surfacing here rather than discovering it in a report.
     pricingKnown: hasKnownPricing(AI_MODEL),
     recommended: listed ? null : usable[0] || null,
-    problem: describe({ listed, result, writing, usable, model: AI_MODEL }),
+    problem: describe({ listed, result, writing, usable, model: AI_MODEL, toolLoop }),
   });
 }
 
-function describe({ listed, result, writing, usable, model }) {
+/** What breaks when a tier's tool loop does — said in the product's terms. */
+const TIER_USERS = Object.freeze({
+  best: "The AI employee cannot reply to anyone.",
+  standard: "The copilot and Jennifer cannot answer questions that need a lookup.",
+});
+
+function describe({ listed, result, writing, usable, model, toolLoop }) {
   if (!listed) {
     return (
       `"${model}" isn't available on this key — most likely retired. ` +
@@ -170,6 +214,12 @@ function describe({ listed, result, writing, usable, model }) {
   }
   if (writing && !writing.listed) {
     return `OPENAI_WRITING_MODEL is set to "${writing.model}", which isn't available on this key. Website copy will fail and fall back to the factual draft. Unset it to use ${model} for everything.`;
+  }
+  const broken = toolLoop ? Object.values(toolLoop).filter((t) => !t.ok) : [];
+  if (broken.length) {
+    return broken
+      .map((t) => `The ${t.tier} tier's tool loop (${t.model} via ${t.api}) failed: ${t.error} ${TIER_USERS[t.tier] || ""}`.trim())
+      .join(" ");
   }
   return null;
 }

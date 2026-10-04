@@ -65,7 +65,7 @@ export const ARTICLES = {
             head: ["What you need to do", "Where", "Notes"],
             rows: [
               ["Clock in and out, switch job", "**Time clock**", "Your phone is asked where it is once, at the tap — never in the background."],
-              ["See your shifts and visits", "**Assign shifts**, **Calendar**, **Jobs**", "Only what is published, and only what you are on."],
+              ["See your shifts and visits", "**My shifts**, **Calendar**, **Jobs**", "Only what is published, and only what you are on."],
               ["Add photos to a job", "The job page, **Job photos**", "From the camera or the camera roll; or text them in without opening anything."],
               ["Talk to the office", "**Chat**", "A room per job, #general for everyone, direct messages."],
               ["Ask for time off", "**Time Off**", "Balances and your requests on one screen."],
@@ -240,7 +240,7 @@ export const ARTICLES = {
     title: "What a crew member sees",
     summary:
       "The Crew access level from the inside: which menu rows appear, what a job page shows and hides, and why prices are nowhere.",
-    updated: "2026-09-12",
+    updated: "2026-10-04",
     intro: [
       "**Crew** is the access level for the people in the van — installers, helpers, a second painter. It costs the company nothing and it is deliberately narrow: your own schedule, the jobs you are booked on, the clock, time off, safety, your own payslips. No prices anywhere, no quotes, no invoices, no leads, and no customer list.",
       "This article is what that looks like on the phone. It is written from the product's own permission grid, so it says what the menu actually does; if your owner gave you a custom grid, some rows may differ.",
@@ -266,7 +266,7 @@ export const ARTICLES = {
               ["**Calendar**", "Appointments assigned to you, unassigned appointments, and visits on your jobs."],
               ["**To-do**", "Tasks assigned to you, tasks you created, and unassigned ones anyone can claim."],
               ["**Chat**", "#general, a room per job you are on, direct messages."],
-              ["**Assign shifts**", "Your own published shifts — the title is the manager's; you see your week, read-only."],
+              ["**My shifts**", "Your own published shifts, read-only. (Managers see the same screen as **Assign shifts**.)"],
               ["**Time clock**", "Your punch, your job, your hours today."],
               ["**Time Off**", "Your balances and requests."],
               ["**Safety**", "Report an incident; see the ones you filed."],
@@ -284,7 +284,9 @@ export const ARTICLES = {
             "The client's **name and address**, and the site address. The phone number and email are withheld by your level — the job page says so beside the On my way button, and the client still gets the text.",
             "**Visits**: date and time, who is assigned, the checklist with its hold points, and — on visits assigned to you — **On my way**, **Mark complete** and **Cancel visit**.",
             "**Materials to buy**, as a list with quantities and no prices.",
-            "**Job photos** with an upload button, and the **Daily log** you can write and save — see [[photos-from-the-field|Photos from the field]].",
+            "The **Work order** (from the job page, or the link on **My schedule**): each area with what to do and how many — \"Cabinet Refinishing × 32\", the door and drawer counts — the colour, sheen and coats it was sold in, what's included, the options the client chose (a two-tone finish, say), the materials list, the checklist and the visit notes, plus the hours estimate when the quote has one. Never a price, a total, a deposit or a cost.",
+            "**Job photos** with an upload button, and the **Daily log** you can write and save — see [[photos-from-the-field|Photos from the field]]. You add photos and comment on them; putting a photo on the company website, changing its stage and managing photo tags are the office's, so those controls are not on your copy.",
+            "Not on your copy: the **client preparation guide** card — when the guide goes to the client and to which email is the office's business.",
             "The notes on the visit itself. Private notes on the client and the lead's call-back log are not shown.",
           ] },
         ],
@@ -399,8 +401,8 @@ export const ARTICLES = {
   "your-schedule-on-your-phone": {
     title: "Your schedule on your phone",
     summary:
-      "Where a crew member's day lives: published shifts under Assign shifts, appointments on the Calendar, visits on the job, and to-dos.",
-    updated: "2026-09-13",
+      "Where a crew member's day lives: published shifts under My shifts, appointments on the Calendar, visits on the job, and to-dos.",
+    updated: "2026-10-04",
     intro: [
       "Your day is in three places on purpose, because they are three different things: a **shift** is the hours your manager published for you, a **visit** is a booked block of work on a job, and a **to-do** is a task with your name on it. All three show only what is yours, and none of them shows a draft the office has not published.",
     ],
@@ -410,6 +412,7 @@ export const ARTICLES = {
         heading: 'My schedule',
         blocks: [
           { p: "**My schedule** in the menu (and the Schedule tab on the phone's bottom bar) is your own next two weeks, one card per day, sized for a thumb: **Tomorrow, Tuesday Sep 15**, then the hours large — **8:00 AM – 4:00 PM** — the client and site address, who else is on that job that day as initials, your lunch and breaks, and the manager's note quoted. On today's card a green **Clock in** button opens the time clock. A shift placed outside the hours you said you were available says so, with who did it." },
+          { p: "Your **job visits** are on the same cards, in time order with your shifts and marked **Visit**: the time, the client and job, the site address, and the note on the visit — the same visits **My day** shows. A visit, and a shift the office put on a job, each carry **Open job** and **Work order** buttons; both open for you, because being booked on a job is what opens it." },
           { p: "**Add to calendar** downloads your published shifts as an .ics file your phone's calendar opens; download it again next week and the events update rather than doubling. **Request time off** goes to the Time off screen. Only published shifts appear — a draft your manager has not committed to never reaches your phone." },
           { note: "When a manager publishes, moves, re-jobs or cancels one of your shifts you get a notification in the bell and, if you turned them on, a push: **Your schedule is out: Mon 14 Sep, 8:00 – 16:00 at Sophie Dubois, 12 rue Principale, and 4 more**. Tapping it opens this screen." },
         ],
@@ -428,7 +431,7 @@ export const ARTICLES = {
           { table: {
             head: ["Row", "What it shows", "What you can do"],
             rows: [
-              ["**Assign shifts**", "Your published shifts, a week at a time, Sunday to Saturday, today outlined", "Read them. The line at the bottom says: These are the shifts your manager has published. Check back for changes."],
+              ["**My shifts**", "Your published shifts, a week at a time, Sunday to Saturday, today outlined", "Read them. The line at the bottom says: These are the shifts your manager has published. Check back for changes."],
               ["**Calendar**", "Appointments assigned to you, unassigned ones, and visits on your jobs", "Open the job; on your own visit, On my way and Mark complete."],
               ["**Jobs**", "The jobs you have a visit on, with each visit's date and time", "Tick the checklist, add photos, write the daily log."],
               ["**To-do**", "Tasks assigned to you, ones you created, and unassigned ones", "Claim an unassigned task; complete yours."],
@@ -442,7 +445,7 @@ export const ARTICLES = {
         blocks: [
           { p: "A manager drafts the week on the Scheduling screen and presses **Publish week**; until then a shift is a **Draft** the crew cannot see. Once published, your shift shows its start and end, the job, and any note the manager typed — where to be, what to bring. If a shift was placed outside the hours you said you were available, the shift itself says **Outside stated availability**, with who did it and why, so you learn it here rather than on the morning." },
           { figure: "harness:scheduler", caption: "Scheduling as a manager sees it — the week as day cards, Add shift and Publish week. A crew member sees the same cards with only their own published shifts, and no buttons." },
-          { note: "The screen's row is titled **Assign shifts** for everyone because the title is the manager's. You are not assigning anything; you are reading what was assigned to you." },
+          { note: "The row is called **Assign shifts** only for people who can change everyone's schedule. For you it reads **My shifts** — you are not assigning anything, you are reading what was assigned to you. A supervisor who can see the team's week but not change it sees **Team shifts**." },
         ],
       },
       {
@@ -720,7 +723,7 @@ export const ARTICLES = {
     title: "Ask for time off from your phone",
     summary:
       "Request a day off, see what you have left, withdraw a request, and know who it is waiting on.",
-    updated: "2026-09-12",
+    updated: "2026-10-04",
     intro: [
       "**Time Off** is one screen with two jobs: what you have left, and your requests. A request goes to the person you report to; some types are approved automatically the moment you submit; and until it is taken you can withdraw it yourself.",
     ],
@@ -730,6 +733,7 @@ export const ARTICLES = {
         heading: "Overview",
         blocks: [
           { p: "At the top, a card per leave type your company set up — Vacation, Sick days, Personal day, whatever the owner named — with **Accrued**, **Taken**, what is awaiting approval, and days **Left**. Under it, **Your requests** with the **Request time off** button, each request with its status pill and, while it is pending, a line saying who it is waiting on. If no leave policies exist yet, the screen says so and names the settings page an owner uses to add them." },
+          { note: "If your company has not set up any leave types yet, the screen says so — and you can still ask for **unpaid** time off: the dates and a reason. It goes to whoever approves time off, like any request, and it uses no balance. Paid types appear once the owner sets them up in Settings → Time off policies." },
           { figure: "harness:mobile-time-off", caption: "Time off on a phone — the Vacation and Personal day balance cards, Request time off, and a pending request with its Withdraw button." },
         ],
       },

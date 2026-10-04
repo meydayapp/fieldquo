@@ -164,6 +164,7 @@ function seed() {
     "timeEntry", "jobPhoto", "changeOrder", "jobDailyLog", "assetUseLog", "companyChatRoom", "kitchenDesignConfig",
     "customFieldValue", "customField", "recordEdit", "materialPriceObservation", "smsDelivery", "safetyIncident",
     "booking", "shift", "leaveRequest", "calendarConnection", "googleCalendarBusy", "smsOptOut", "locationStamp",
+    "jobDocument", "jobPhotoTag", "jobPhotoTagLink",
   ]) tables[m] ||= [];
   tables.changeOrder = job1.changeOrders.map((c) => ({ ...c }));
   tables.payment ||= [];
@@ -284,6 +285,46 @@ for (const role of ROLES) {
 }
 seed();
 ok("crew: the work order of a job they are not on is Not found", (await call(WORK_ORDER, "GET", { as: "crew", params: { id: "j2" } })).status === 404);
+// What the crew need to DO the job — the live test's work order said only
+// "0 h across 1 areas · Cabinet Refinishing · 0 h". Each fact below comes
+// from a row that ALSO carries money (the add-on's amount, the material's
+// cost, the quote costing's dollars), and none of the money may follow it.
+seed();
+{
+  const job1 = tables.job.find((j) => j.id === "j1");
+  const quote1 = tables.quote.find((q) => q.id === "q1");
+  quote1.addOns = [
+    { id: "a1", quoteId: "q1", description: "Paint the ceiling", amount: 650, sortOrder: 0, selected: false },
+    { id: "a2", quoteId: "q1", description: "Two-Tone Finish", detail: "Uppers white, lowers navy", amount: 900, sortOrder: 1, selected: true, areaLabel: "Kitchen" },
+  ];
+  quote1.costing = { quoteId: "q1", labourHours: 18, labourCost: 1260, totalCost: 2400, materialTotal: 400 };
+  quote1.scopeGroups.push({
+    id: "g2", quoteId: "q1", label: "Cabinet Refinishing", sortOrder: 1, categoryId: "cat2", subtotal: 4800, takeoff: null,
+    intakeValues: { doorCount: 32, drawerCount: 12, topCoats: 2, twoTone: true },
+    category: { id: "cat2", key: "cabinet_refinishing", label: "Cabinet Refinishing" },
+    lineItems: [{ description: "Cabinet Refinishing", quantity: 44, unit: "unit", rate: 109, amount: 4800, meta: { baseUnitPrice: 100, color: "Hale Navy", sheen: "satin", doorStyle: "Shaker" } }],
+  });
+  job1.materials = [
+    { id: "m1", jobId: "j1", name: "Cabinet enamel", qty: 3, unit: "gal", group: "Paint", estUnitCost: 89, actualCost: 260, excludedAt: null, purchasedAt: null, sortOrder: 0, createdAt: new Date() },
+    { id: "m2", jobId: "j1", name: "Dropped item", qty: 1, unit: "ea", estUnitCost: 5, excludedAt: new Date(), purchasedAt: null, sortOrder: 1, createdAt: new Date() },
+  ];
+  job1.checklistItems = [{ label: "Mask the windows", required: true, phase: "before", done: false }];
+  const { status, json } = await call(WORK_ORDER, "GET", { as: "crew", params: { id: "j1" } });
+  const wo = json?.workOrder;
+  ok("crew work order: opens with the cabinet group (200)", status === 200 && wo?.areas?.some((a) => a.label === "Cabinet Refinishing"), `status ${status}`);
+  const cab = wo?.areas?.find((a) => a.label === "Cabinet Refinishing");
+  ok("…how many: 32 doors and 12 drawers", cab?.counts?.doors === 32 && cab?.counts?.drawers === 12, JSON.stringify(cab?.counts));
+  ok("…the finish: colour, sheen, door style, coats, two-tone", cab?.finish?.colour === "Hale Navy" && cab.finish.sheen === "satin" && cab.finish.doorStyle === "Shaker" && cab.finish.topCoats === 2 && cab.finish.twoTone === true, JSON.stringify(cab?.finish));
+  ok("…the scope says how many, not only what", /Cabinet Refinishing × 44/.test(cab?.scope || ""), cab?.scope);
+  ok("…what's included, as the client's quote printed it", Array.isArray(cab?.included) && cab.included.length > 0, JSON.stringify(cab?.included));
+  ok("…the option the client CHOSE, and not the one they didn't", wo?.addOns?.map((a) => a.description).join("|") === "Two-Tone Finish" && wo.addOns[0].detail === "Uppers white, lowers navy");
+  ok("…the materials still on the list, with quantity and unit", wo?.materials?.length === 1 && wo.materials[0].name === "Cabinet enamel" && wo.materials[0].qty === 3 && wo.materials[0].unit === "gal");
+  ok("…the checklist and the visit note", wo?.checklist?.[0]?.label === "Mask the windows" && wo.checklist[0].required === true && wo?.visits?.[0]?.notes === "Bring the 24ft ladder");
+  ok("…hours: the cabinet group has its own (no takeoff, counted from the doors and drawers)", Number(cab?.hours) > 0, String(cab?.hours));
+  ok("…and the total is the areas', not the quote's estimate added on top", wo?.hoursFromQuote === false && Math.abs(Number(wo?.totalHours) - wo.areas.reduce((s, a) => s + a.hours, 0)) < 0.2, String(wo?.totalHours));
+  ok("…and STILL no money key anywhere — add-on amount, material cost, costing dollars", findWorkOrderMoneyKey(wo) === null && moneyIn(json).length === 0, `${findWorkOrderMoneyKey(wo)} ${moneyIn(json).join(", ")}`);
+  ok("…and no price figure leaked as text (900, 4800, 89, 260, 1260)", !/\b(900|4800|4,800|1260|2400)\b/.test(JSON.stringify(wo)) && !/"(89|260)"/.test(JSON.stringify(wo)));
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 section("4. Quotes — GET /api/quotes/[id] and the list");
@@ -446,6 +487,155 @@ seed();
   ok("manager: cannot either — the log is owner/admin (documented, not a leak)", m.status === 403);
   const o = await call(ACTIVITY, "GET", { as: "owner", url: "http://test.local/api/activity" });
   ok("owner: reads it", o.status === 200);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("9. A published SHIFT on a job puts the crew member on it — a draft does not");
+//
+// The live test, 2026-10-04: the scheduler's "Job (optional)" sent Joe to a
+// job on My schedule, and the job page told him it did not exist. A
+// published shift on a job now grants the same access a visit does, from
+// publication until SHIFT_ACCESS_DAYS_AFTER days after it ends
+// (lib/permissions/enforce.js shiftAssignmentWhere). j2 is the job the crew
+// member has NO visit on; each case below puts a different shift on it.
+const DAY = 86400000;
+function seedShift(over = {}) {
+  seed();
+  const job2 = tables.job.find((j) => j.id === "j2");
+  const shift = {
+    id: "s1", companyId: "co1", workerId: "w_crew", jobId: "j2", published: true,
+    start: new Date(Date.now() + 2 * DAY), end: new Date(Date.now() + 2 * DAY + 8 * 3600000),
+    worker: tables.worker[0], ...over,
+  };
+  job2.shifts = [shift];
+  tables.shift = [{ ...shift, job: job2 }];
+  return shift;
+}
+seedShift();
+{
+  const page = await call(JOB, "GET", { as: "crew", params: { id: "j2" } });
+  ok("crew: a published shift on j2 opens the job page (200)", page.status === 200, `status ${page.status}`);
+  ok("…with no money and no contact details, exactly as via a visit", moneyIn(page.json).length === 0 && contactIn(page.json).length === 0, [...moneyIn(page.json), ...contactIn(page.json)].join(", "));
+  const wo = await call(WORK_ORDER, "GET", { as: "crew", params: { id: "j2" } });
+  ok("crew: …and its work order (200), with no money key", wo.status === 200 && wo.json?.workOrder && findWorkOrderMoneyKey(wo.json.workOrder) === null, `status ${wo.status}`);
+  const list = await call(JOBS, "GET", { as: "crew", url: "http://test.local/api/jobs" });
+  ok("crew: the job list now holds both jobs", (list.json || []).map((j) => j.id).sort().join(",") === "j1,j2");
+  const cl = await call(CLIENT, "GET", { as: "crew", params: { id: "c2" } });
+  ok("crew: the shift job's household opens — name and address, no contact", cl.status === 200 && cl.json?.name === "Jean Roy" && contactIn(cl.json).length === 0);
+  const t = await call(TIME, "POST", { as: "crew", body: { workerId: "w_crew", jobId: "j2" } });
+  ok("crew: hours may be booked to it (not 404)", t.status !== 404, `status ${t.status}`);
+  const e = await call(EXPENSES, "POST", { as: "crew", body: { category: "materials", amount: 40, projectId: "j2" } });
+  ok("crew: a receipt may be filed on it", e.status === 200 || e.status === 201, `status ${e.status}`);
+  const quote = await call(QUOTE, "GET", { as: "crew", params: { id: "q1" } });
+  ok("crew: the shift opens the job, never the quote (still 403)", quote.status === 403);
+}
+for (const [label, over] of [
+  ["an UNPUBLISHED draft shift", { published: false }],
+  ["somebody else's shift", { workerId: "w_other", worker: { id: "w_other", companyId: "co1", userId: "u_other", name: "other" } }],
+  ["an open shift (nobody on it)", { workerId: null, worker: null }],
+  ["a shift that ended 15 days ago", { start: new Date(Date.now() - 15 * DAY - 8 * 3600000), end: new Date(Date.now() - 15 * DAY) }],
+]) {
+  seedShift(over);
+  const page = await call(JOB, "GET", { as: "crew", params: { id: "j2" } });
+  ok(`crew: ${label} grants nothing — job is Not found (404)`, page.status === 404, `status ${page.status}`);
+  const wo = await call(WORK_ORDER, "GET", { as: "crew", params: { id: "j2" } });
+  ok(`crew: ${label} — work order Not found too`, wo.status === 404, `status ${wo.status}`);
+  const t = await call(TIME, "POST", { as: "crew", body: { workerId: "w_crew", jobId: "j2" } });
+  ok(`crew: ${label} — no hours on it (404)`, t.status === 404, `status ${t.status}`);
+}
+seedShift({ start: new Date(Date.now() - 13 * DAY - 8 * 3600000), end: new Date(Date.now() - 13 * DAY) });
+ok("crew: a shift that ended 13 days ago still opens the job (late receipts, corrections)", (await call(JOB, "GET", { as: "crew", params: { id: "j2" } })).status === 200);
+seedShift({ start: new Date(Date.now() + 30 * DAY), end: new Date(Date.now() + 30 * DAY + 8 * 3600000) });
+ok("crew: a shift published for a month out opens the job now (My schedule links it)", (await call(JOB, "GET", { as: "crew", params: { id: "j2" } })).status === 200);
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("10. Crew on the job page: photos yes, the website and the office's cards no");
+//
+// The live test (2026-10-04): the crew's job page said "Tap the star to show
+// a photo on your website", linked "Manage tags", captioned the upload box
+// with the homeowner's "helps us quote accurately", and drew the client
+// preparation guide card. Each refusal below is the SERVER's; the static
+// half proves the screen no longer offers what the server refuses.
+const PHOTOS = await import("../app/api/jobs/[id]/photos/route.js");
+const PHOTO_TAGS = await import("../app/api/settings/job-photo-tags/route.js");
+const PREP_GUIDE = await import("../app/api/jobs/[id]/prep-guide/route.js");
+seed();
+{
+  tables.jobPhoto = [{ id: "ph1", companyId: "co1", jobId: "j1", url: "https://x/1.jpg", stage: "finish", featured: false, createdAt: new Date(), tags: [] }];
+  const add = await call(PHOTOS, "POST", { as: "crew", params: { id: "j1" }, body: { photos: [{ url: "https://res.cloudinary.com/x/2.jpg" }] } });
+  ok("crew: CAN add a photo to their job (200)", add.status === 200, `status ${add.status} ${JSON.stringify(add.json)}`);
+  const star = await call(PHOTOS, "PATCH", { as: "crew", params: { id: "j1" }, body: { photoId: "ph1", featured: true } });
+  ok("crew: cannot put a photo on the company website (403)", star.status === 403, `status ${star.status}`);
+  const tag = await call(PHOTO_TAGS, "POST", { as: "crew", body: { name: "Sanding", color: "#123456" } });
+  ok("crew: cannot create a photo tag (403)", tag.status === 403, `status ${tag.status}`);
+  ok("…and nothing was featured or tagged", !writes.some((w) => (w.model === "jobPhoto" && w.action === "update") || w.model === "jobPhotoTag"));
+  const prep = await call(PREP_GUIDE, "GET", { as: "crew", params: { id: "j1" } });
+  ok("crew: the client preparation guide's status is refused (403) — office information", prep.status === 403, `status ${prep.status}`);
+  const prepMgr = await call(PREP_GUIDE, "GET", { as: "manager", params: { id: "j1" } });
+  ok("manager: reads it (not refused)", prepMgr.status !== 403, `status ${prepMgr.status}`);
+}
+{
+  const { readFileSync } = await import("node:fs");
+  const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
+  const curator = src("app/components/jobs/JobPhotoCurator.js");
+  ok("screen: the website star tip and count are drawn only for curators", /canCurate \? \(\s*<p[^>]*>\s*\{t\("app\.jobPhotos\.starTip"/.test(curator) && /\{canCurate && \(\s*<span[^>]*>\s*\{t\("app\.jobPhotos\.onWebsite"/.test(curator));
+  ok("screen: 'Manage tags' only for whoever may manage them", /\{canManageTags && \(/.test(curator) && curator.indexOf("canManageTags && (") < curator.indexOf("/app/settings/job-photo-tags\" className"));
+  ok("screen: the job upload box has the job's words, not the homeowner's", /hint=\{t\("app\.jobPhotos\.uploadHint"/.test(curator));
+  ok("screen: no hardcoded 'Tap the star' left in the markup", !/>\s*Tap the star/.test(curator));
+  const detail = src("app/app/jobs/[id]/JobDetail.js");
+  ok("screen: the preparation guide card is not drawn for crew", /\{!seesOnlyAssignedJobs\(caller\) && <PrepGuideCard /.test(detail));
+  ok("screen: the safety report's photo box has its own words too", /hint=\{t\("app\.safety\.photos\.hint"/.test(src("app/app/safety/page.js")));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("11. Time off with no leave policies — crew can still ask for unpaid days");
+//
+// The live test (2026-10-04): with no policies set up, crew read "No leave
+// policies have been set up yet" and could not ask for anything.
+// lib/leave/unpaidFallback.js: unpaid only, approval required, created on the
+// first ask; the owner's "set up policies" note stays.
+const LEAVE = await import("../app/api/leave/route.js");
+function seedLeave(policies = []) {
+  seed();
+  tables.leavePolicy = policies;
+  for (const m of ["leaveBalance", "leaveRequest", "leaveOpeningBalance", "leaveAccrualOverride", "workingHours", "leaveBlackout", "notification", "notificationDelivery", "pushSubscription", "orgReport"]) tables[m] ||= [];
+  tables.workingHours = [1, 2, 3, 4, 5].map((d) => ({ userId: "u_crew", dayOfWeek: d }));
+  tables.company[0].defaultLanguage = "fr";
+}
+seedLeave();
+{
+  const g = await call(LEAVE, "GET", { as: "crew", url: "http://test.local/api/leave" });
+  ok("crew GET: no policies → the unpaid fallback is offered, named in the company's language", g.status === 200 && g.json?.policies?.length === 0 && g.json?.unpaidFallback?.name === "Congé sans solde", JSON.stringify(g.json?.unpaidFallback) + ` status ${g.status} ${g.json?.error || ""}`);
+  ok("…and GET wrote nothing (looking creates no policy)", !writes.some((w) => w.model === "leavePolicy"));
+  const p = await call(LEAVE, "POST", { as: "crew", body: { unpaid: true, startDate: "2026-11-16", endDate: "2026-11-17", reason: "Moving house" } });
+  ok("crew POST unpaid: accepted", p.status === 200 || p.status === 201, `status ${p.status} ${JSON.stringify(p.json)}`);
+  const made = writes.find((w) => w.model === "leavePolicy" && (w.action === "upsert" || w.action === "create"));
+  const policyData = made?.args?.create || made?.args?.data;
+  ok("…the fallback policy is unpaid, needs approval, flagged systemUnpaid", policyData?.paid === false && policyData?.requiresApproval === true && policyData?.systemUnpaid === true && policyData?.kind === "unpaid");
+  const req = writes.find((w) => w.model === "leaveRequest" && w.action === "create")?.args?.data;
+  ok("…the request is PENDING (routed to approvers), with the dates and the reason", req?.status === "pending" && req?.reason === "Moving house" && String(req?.days) === "2", JSON.stringify(req));
+  ok("…and no balance was consumed", !writes.some((w) => w.model === "leaveBalance"));
+}
+seedLeave([{ id: "lp1", companyId: "co1", name: "Vacation", kind: "vacation", paid: true, accrualMethod: "annual_allotment", annualDays: 10, requiresApproval: true, active: true, systemUnpaid: false }]);
+{
+  const g = await call(LEAVE, "GET", { as: "crew", url: "http://test.local/api/leave" });
+  ok("with a policy set up: no fallback offered", g.json?.unpaidFallback === null && g.json?.policies?.length === 1);
+  const p = await call(LEAVE, "POST", { as: "crew", body: { unpaid: true, startDate: "2026-11-16", endDate: "2026-11-16" } });
+  ok("…and 'unpaid' without a policy is refused (400) — the company's own types apply", p.status === 400, `status ${p.status}`);
+}
+seedLeave([{ id: "lpx", companyId: "co1", name: "Unpaid time off", kind: "unpaid", paid: false, requiresApproval: true, active: true, systemUnpaid: true }]);
+{
+  const g = await call(LEAVE, "GET", { as: "crew", url: "http://test.local/api/leave" });
+  ok("the fallback row, once made, is NOT a 'policy the company set up' — note and fallback stay", g.json?.policies?.length === 0 && Boolean(g.json?.unpaidFallback));
+}
+{
+  const { readFileSync } = await import("node:fs");
+  const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
+  ok("the settings list leaves the fallback out (starter templates still offered)", /where: \{ companyId: member\.companyId, systemUnpaid: false \}/.test(src("app/api/settings/leave-policies/route.js")));
+  ok("accrual refresh leaves it out (no balance card for it)", /systemUnpaid: false/.test(src("lib/leave/balances.js")));
+  const page = src("app/app/time-off/page.js");
+  ok("the page keeps the owner's note AND offers the request", /data-unpaid-fallback/.test(page) && /app\.timeOff\.noPolicies/.test(page) && /unpaidFallback=\{unpaidFallback\}/.test(page));
+  ok("the form posts unpaid:true in place of a policy", /unpaid: true/.test(src("app/app/time-off/RequestForm.js")));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
