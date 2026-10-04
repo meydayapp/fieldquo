@@ -154,7 +154,7 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "Do I have to create a job when a quote is approved?", a: "No. FieldQuo does it for you, once per quote, and it shows in Needs a date. Creating another by hand would give you two jobs for one quote." },
-      { q: "Where do I put the date?", a: "On the job page. Either Schedule a visit (a trip to the site with a person on it) or Set dates (the work's own start and end). Either one moves the job from Needs a date to Scheduled." },
+      { q: "Where do I put the date?", a: "On the job page. Either Schedule a visit (a trip to the site with a person on it) or Set dates (the work's own start and end). Either one moves the job from Needs a date to Scheduled. A visit also gives a job with no dates of its own its start (the first visit's day) and end (the last one's), shown as **from the visits** — so the payment schedule and the preparation guide have a date to work from. Those follow the visits as they are booked, moved or cancelled; a date you type yourself is never moved." },
       { q: "Can I attach a quote to a job I created by hand?", a: "Not from the form — the quote link is set when the job is created from the quote. Start from the quote if you need the link." },
     ],
   },

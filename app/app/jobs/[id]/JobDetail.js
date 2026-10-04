@@ -545,6 +545,14 @@ export default function JobDetail({ jobId }) {
                 ({t("app.job.noEndDateYet", "no end date yet")})
               </span>
             )}
+            {/* Said, so nobody mistakes a date FieldQuo filled from the
+                visits for one a person decided (lib/jobs/visitDates.js). */}
+            {(job.startDateFromVisits || job.endDateFromVisits) && (
+              <span className="text-muted-foreground" data-dates-from-visits>
+                {" · "}
+                {t("app.job.datesFromVisits", "from the visits")}
+              </span>
+            )}
           </span>
         </div>
       )}

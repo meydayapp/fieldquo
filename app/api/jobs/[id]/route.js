@@ -20,6 +20,7 @@ import {
 } from "@/lib/tasks/autoCreate";
 import { recordActivity } from "@/lib/activity/log";
 import { validateJobDates, parseDateOrNull } from "@/lib/jobs/validateJobDates";
+import { personDateFlags } from "@/lib/jobs/visitDates";
 import {
   parseExpectedVersion,
   versionWhere,
@@ -403,6 +404,10 @@ export async function PATCH(request, { params }) {
         ...(recurrenceRule !== undefined && { recurrenceRule }),
         ...(startDate !== undefined && { startDate: nextStart }),
         ...(endDate !== undefined && { endDate: nextEnd }),
+        // A date a person CHANGES is theirs from now on — the visits stop
+        // moving it (lib/jobs/visitDates.js). Re-sending the same date, as
+        // the edit form does on every save, decides nothing.
+        ...personDateFlags({ existing, sentStart: startDate, sentEnd: endDate, nextStart, nextEnd }),
         ...(nextWarrantyEquipmentId !== undefined && { warrantyEquipmentId: nextWarrantyEquipmentId }),
         ...(poChanging && { clientPoNumber }),
         // Archiving is a separate axis from status — see Job.archivedAt. A job

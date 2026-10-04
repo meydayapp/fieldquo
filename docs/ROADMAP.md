@@ -122,6 +122,29 @@ activity, §1/§3/§9 phone), `check:access-editor`, `check:crew-fixed`,
 `check:crew-access`, `check:work-order`. Help en/fr/es: Crew access, the
 activity log (two articles), daily sheets.
 
+### 2. Booking a visit gives the job its dates
+
+`lib/jobs/visitDates.js`: a job's start = the earliest live visit's day, end
+= the last one's (the company's calendar day, at UTC midnight), written only
+into a field that is empty or that FieldQuo filled from the visits
+(`Job.startDateFromVisits` / `endDateFromVisits`, new, default false — every
+existing date is a person's). Derived fields follow bookings, moves and
+cancels (POST visits; PATCH a visit on a move/cancel/reopen); a person
+changing a date on PATCH /api/jobs/[id] makes it theirs (re-sending the same
+date, as the edit form does, decides nothing). Never an invalid pair (no end
+without start, none before it, no span over 366 days); a recurring job gets a
+start and no end. The job page says "from the visits"; the edit form explains.
+`check:job-visit-dates` (38, incl. the shipped POST route on the stub).
+**SQL owed before deploy** (additive):
+
+```sql
+ALTER TABLE "Job" ADD COLUMN IF NOT EXISTS "startDateFromVisits" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "Job" ADD COLUMN IF NOT EXISTS "endDateFromVisits" BOOLEAN NOT NULL DEFAULT false;
+```
+
+Existing jobs with visits and no dates are NOT backfilled (no data was
+written); they get dates the next time a visit on them is booked or moved.
+
 ## Imported past jobs no longer count as this month's work (4 October 2026)
 
 A Past jobs import creates its quotes and jobs TODAY with last year's dates.

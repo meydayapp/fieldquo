@@ -6028,6 +6028,14 @@ model Job {
   /// calendar", both closing the "needs a date" banner.
   startDate DateTime?
   endDate   DateTime?
+  /// Who set the date above: true = FieldQuo filled it from the job's visits
+  /// (earliest visit → start, last → end, the company's calendar day), so it
+  /// follows the visits as they are booked, moved and cancelled; false = a
+  /// person set it (or it is empty), and it is never moved. A person changing
+  /// the date flips it to false. See lib/jobs/visitDates.js (owner, 2026-10-04).
+  /// Default false: every date that existed before this column is a person's.
+  startDateFromVisits Boolean @default(false)
+  endDateFromVisits   Boolean @default(false)
 
   visits      JobVisit[]
   /// Appointments booked by hand about this job (Appointment.jobId) — a call

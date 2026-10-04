@@ -44,6 +44,9 @@ export default function EditJobPage() {
   const [recurring, setRecurring] = useState(false);
   const [recurrenceRule, setRecurrenceRule] = useState("");
   const [startDate, setStartDate] = useState("");
+  // FieldQuo filled the dates from the visits (lib/jobs/visitDates.js) —
+  // said under the fields, because changing one makes it the person's.
+  const [datesFromVisits, setDatesFromVisits] = useState(false);
   const [endDate, setEndDate] = useState("");
   const [siteAddress, setSiteAddress] = useState("");
   // The company's own extra boxes for a job, with this job's answers. A hook,
@@ -88,6 +91,7 @@ export default function EditJobPage() {
         setEndDate(
           data.endDate ? new Date(data.endDate).toISOString().slice(0, 10) : "",
         );
+        setDatesFromVisits(Boolean(data.startDateFromVisits || data.endDateFromVisits));
       } catch (err) {
         if (!cancelled) setError(err.message);
       } finally {
@@ -264,6 +268,14 @@ export default function EditJobPage() {
               aria-label={t("app.jobEdit.endDate", "End date")}
             />
           </div>
+          {datesFromVisits && (
+            <p className="text-xs text-muted-foreground mt-1.5" data-dates-from-visits>
+              {t(
+                "app.jobEdit.datesFromVisits",
+                "Filled in from the visits: the first visit's day and the last one's. They follow the visits until you change them — a date you change stays as you set it.",
+              )}
+            </p>
+          )}
           {!dateCheck.ok && (startDate || endDate) && (
             <p className="text-xs text-red-600 dark:text-red-400 mt-1.5">
               {dateCheck.error}
