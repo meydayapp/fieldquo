@@ -12,6 +12,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Loader2, AlertCircle, CreditCard, AlertTriangle } from "lucide-react";
 import MetricCard, { money, count } from "@/app/components/platform/MetricCard";
+import { moneyByCurrency } from "@/lib/platform/metricFormat";
 import { STATUSES, statusMeta } from "@/lib/platform/subscriptionStatus";
 
 // ── One table for the filter and the badge ─────────────────────────────────
@@ -97,14 +98,16 @@ export default function SubscriptionsPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard
             label="Collectable MRR"
-            value={money(data.summary.mrr, { compact: true })}
+            value={moneyByCurrency(data.summary.mrrByCurrency, { compact: true })}
             note={[
               `${count(data.summary.active)} paying`,
               data.summary.collectableCount !== data.summary.active
                 ? `${count(data.summary.collectableCount)} can be charged`
                 : null,
-              data.summary.mrrOnPaper !== data.summary.mrr
-                ? `${money(data.summary.mrrOnPaper, { compact: true })} on paper`
+              // Per currency, like the tile: "on paper" is named only when it
+              // differs from the collectable figure in some currency.
+              moneyByCurrency(data.summary.mrrOnPaperByCurrency) !== moneyByCurrency(data.summary.mrrByCurrency)
+                ? `${moneyByCurrency(data.summary.mrrOnPaperByCurrency, { compact: true })} on paper`
                 : null,
               data.summary.pastDue ? `+${count(data.summary.pastDue)} past due` : null,
             ]
@@ -313,7 +316,7 @@ export default function SubscriptionsPage() {
                   {/* No plan, no price — "$0/mo" would read as a free plan. */}
                   {!r.noPlan && (
                     <div className="text-xs text-muted-foreground">
-                      {money(r.priceMonthly, { compact: true })}/mo
+                      {money(r.priceMonthly, { compact: true, currency: r.currency })}/mo
                     </div>
                   )}
                 </div>

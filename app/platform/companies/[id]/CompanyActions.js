@@ -25,7 +25,7 @@ import PlatformWriteGate, {
   usePlatformAdmin,
 } from "@/app/components/platform/PlatformWriteGate";
 
-export default function CompanyActions({ companyId, companyName, trialEndsAt, cancelOptions, onDone }) {
+export default function CompanyActions({ companyId, companyName, trialEndsAt, subscription, cancelOptions, onDone }) {
   const [days, setDays] = useState(30);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -66,6 +66,24 @@ export default function CompanyActions({ companyId, companyName, trialEndsAt, ca
   const [endBusy, setEndBusy] = useState(false);
   const [endResult, setEndResult] = useState(null);
   const [endError, setEndError] = useState("");
+
+  // Whether there is a Stripe subscription for "End trial now" to act on.
+  // The card-free trial (TRIAL_CARD_REQUIRED = false since 2026-09-24) has
+  // no Subscription row at all, and a cancelled one has nothing to bill; the
+  // route refuses both with a 409 before it ever asks Stripe. So the panel
+  // says why instead of offering a form that can only fail. `undefined`
+  // (a caller that did not pass the row) keeps the form — the route still
+  // decides, and absence of the prop is not a statement that there is no card.
+  // Whether a subscription that IS present is still trialing stays Stripe's
+  // call, as the route's own comment explains; our status column can lag.
+  const endTrialBlocked =
+    subscription === undefined
+      ? null
+      : !subscription?.stripeSubscriptionId
+        ? "nostripe"
+        : subscription.status === "canceled"
+          ? "canceled"
+          : null;
 
   async function endTrial() {
     if (!window.confirm(`Charge ${companyName} now? Stripe will create and pay the first invoice immediately.`)) return;
@@ -262,8 +280,22 @@ export default function CompanyActions({ companyId, companyName, trialEndsAt, ca
         <div className="flex items-center gap-2 mb-3">
           <ShieldAlert size={15} className="text-muted-foreground" />
           <span className="text-sm font-semibold text-foreground">End trial now</span>
-          <span className="text-xs text-muted-foreground">· Stripe bills the first invoice today</span>
+          {!endTrialBlocked && (
+            <span className="text-xs text-muted-foreground">· Stripe bills the first invoice today</span>
+          )}
         </div>
+        {endTrialBlocked === "nostripe" ? (
+          <p className="text-xs text-muted-foreground">
+            Not available: {companyName} has no Stripe subscription — it is on the free trial with no card, so
+            there is nothing for Stripe to bill. The trial ends by itself
+            {trialEndsAt ? ` on ${new Date(trialEndsAt).toLocaleDateString()}` : ""}, or sooner when they choose
+            a plan from Account &amp; Billing.
+          </p>
+        ) : endTrialBlocked === "canceled" ? (
+          <p className="text-xs text-muted-foreground">
+            Not available: the subscription is cancelled, so there is no trial to end.
+          </p>
+        ) : (
         <PlatformWriteGate
           status={roleStatus}
           allowed={canExtend}
@@ -291,6 +323,7 @@ export default function CompanyActions({ companyId, companyName, trialEndsAt, ca
             </button>
           </div>
         </PlatformWriteGate>
+        )}
         {endError && <p className="text-xs text-red-600 mt-2">{endError}</p>}
         {endResult && (
           <p className="text-xs text-emerald-700 dark:text-emerald-300 font-semibold mt-2">

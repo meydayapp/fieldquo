@@ -194,7 +194,7 @@ const PART_1 = {
     updated: "2026-09-28",
     intro: [
       "El panel **WhatsApp Business** de **Configuración → Meta Ads** conecta el número de WhatsApp Business al que escriben sus clientes, para que sus mensajes lleguen a **Mensajes** junto a sus conversaciones de Facebook e Instagram y se respondan desde allí. Es un número de empresa, no el WhatsApp personal de nadie.",
-      "Hoy el panel dice **WhatsApp llegará pronto. Estamos esperando que Meta apruebe a FieldQuo para WhatsApp y le avisaremos el día que esté listo.**, sin botón: Meta todavía no ha concedido a FieldQuo el acceso avanzado (Advanced Access) a los permisos de WhatsApp que necesita el número de una empresa, y hasta entonces el registro de Meta rechaza a toda empresa que no sea FieldQuo. Esa revisión depende de Meta. No falta nada de su parte — vea [[whatsapp-coming-soon|WhatsApp (próximamente)]] — y este artículo cuenta qué hace la función el día que se active — incluida la única regla que sorprende a todo el mundo.",
+      "Hoy el panel dice **WhatsApp llegará pronto. Ya está listo y a la espera de que la revisión de apps de Meta (App Review) conceda a FieldQuo sus dos permisos de WhatsApp; el botón Conectar WhatsApp aparecerá aquí el día que Meta lo haga.**, sin botón: Meta todavía no ha concedido a FieldQuo el acceso avanzado (Advanced Access) a los permisos de WhatsApp que necesita el número de una empresa, y hasta entonces el registro de Meta rechaza a toda empresa que no sea FieldQuo. Esa revisión depende de Meta. No falta nada de su parte — vea [[whatsapp-coming-soon|WhatsApp (próximamente)]] — y este artículo cuenta qué hace la función el día que se active — incluida la única regla que sorprende a todo el mundo.",
     ],
     sections: [
       {

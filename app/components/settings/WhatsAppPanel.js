@@ -19,9 +19,11 @@
 //
 // With the switch ON, Embedded Signup still dead-ends on Meta's own page
 // ("FieldQuo can't onboard customers right now") for every company that is
-// not FieldQuo's own, until Meta approves FieldQuo as a WhatsApp Tech
-// Provider (META_WHATSAPP_ONBOARDING_APPROVED — lib/meta/whatsappOnboarding
-// .js). Until then a company sees ONE sentence and no control. FieldQuo staff
+// not FieldQuo's own, until Meta's App Review grants FieldQuo ADVANCED access
+// to whatsapp_business_management + whatsapp_business_messaging
+// (META_WHATSAPP_ONBOARDING_APPROVED — lib/meta/whatsappOnboarding.js). The
+// Tech Provider verification is NOT the blocker: it landed 2026-09-14; both
+// permissions still read "Ready for testing" (Standard access). Until then a company sees ONE sentence and no control. FieldQuo staff
 // (an active /platform session in the same browser) still get both doors,
 // labelled as staff-only, so the flow can be tested and recorded for Meta's
 // review. Which card shows is lib/meta/whatsappPanelState.js, a pure function
@@ -415,7 +417,7 @@ export default function WhatsAppPanel() {
       )}
 
       {/* State 1 — waiting on Meta. The honest sentence, and NO connect
-          control: whatsapp_business_messaging has not been approved, so there
+          control: whatsapp_business_messaging has no advanced access yet, so there
           is nothing a contractor can do here today and pretending otherwise
           would be the dead button AGENTS.md is built around. */}
       {view.showAwaiting && (

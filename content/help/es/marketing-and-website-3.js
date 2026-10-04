@@ -288,7 +288,7 @@ export const ARTICLES = {
         heading: "Qué dice la tarjeta hoy",
         blocks: [
           {
-            p: "La tarjeta dice **WhatsApp llegará pronto. Estamos esperando que Meta apruebe a FieldQuo para WhatsApp y le avisaremos el día que esté listo.** Si su Página de Facebook o su cuenta de Instagram ya están conectadas, agrega por ejemplo **Sus mensajes de Facebook e Instagram ya llegan aquí.**",
+            p: "La tarjeta dice **WhatsApp llegará pronto. Ya está listo y a la espera de que la revisión de apps de Meta (App Review) conceda a FieldQuo sus dos permisos de WhatsApp; el botón Conectar WhatsApp aparecerá aquí el día que Meta lo haga.** Si su Página de Facebook o su cuenta de Instagram ya están conectadas, agrega por ejemplo **Sus mensajes de Facebook e Instagram ya llegan aquí.**",
           },
           {
             p: "No hay botón ni nada que llenar. Como el resto de **Configuración → Meta Ads**, la tarjeta es solo para el propietario y los administradores.",

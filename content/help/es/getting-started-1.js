@@ -91,7 +91,7 @@ export const ARTICLES = {
     title: "Empiece su prueba gratis",
     summary:
       "El formulario público de registro, paso a paso: ni tarjeta ni plan hoy, los primeros 14 días gratis, y un plan elegido desde la aplicación cuando usted esté listo.",
-    updated: "2026-09-29",
+    updated: "2026-10-03",
     intro: [
       "Registrar una empresa es autoservicio: cualquiera puede abrir la página de registro, configurar un negocio y empezar. Los primeros 14 días son gratis, y el registro no pide tarjeta ni plan — usted elige un plan, y añade una tarjeta para pagarlo, desde la aplicación cuando esté listo.",
       "Unirse a una empresa que ya existe es distinto: solo por invitación. Si un colega ya usa FieldQuo, pídale que lo invite desde Gestionar equipo; vea [[invite-a-team-member|Invitar a un miembro del equipo]].",
@@ -101,7 +101,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Resumen",
         blocks: [
-          { p: "El formulario dice **Empieza tus 14 días gratis** arriba y recorre cinco pasos cortos: su cuenta y su empresa, su equipo, lo que más le importa, sus oficios y sus servicios. Los pasos del equipo y de lo que más le importa se pueden omitir. Una cuenta de acceso posee un solo negocio; si ya inició sesión con una empresa, la página se lo dice y le ofrece ir a su panel o invitar a alguien en su lugar." },
+          { p: "La página de registro dice **Empieza tu prueba gratis** arriba y pide tres cosas: **Correo electrónico de trabajo**, **Contraseña** (de 8 a 128 caracteres) y una casilla sin marcar, **Envíame novedades y ofertas del producto**. **Empezar mi prueba gratuita →** crea su cuenta de acceso y su empresa a la vez — los 14 días empiezan ahí. Siguen siete preguntas cortas, una por pantalla, con **Pregunta 1 de 7** encima; cada respuesta se guarda al pulsar **Continuar**, y **Atrás** vuelve a la anterior. Todas las preguntas necesitan respuesta — ninguna se puede omitir. Si cierra sesión o cierra la pestaña a mitad de camino, al volver a iniciar sesión regresa a la pregunta donde se quedó. Una cuenta de acceso posee un solo negocio; si ya inició sesión con una empresa, la página dice **Ya tienes un negocio aquí** y ofrece **Ir a tu panel** o **Añade a alguien a tu equipo en su lugar**." },
         ],
       },
       {
@@ -109,12 +109,15 @@ export const ARTICLES = {
         heading: "Los pasos",
         blocks: [
           { steps: [
-            "**Tu cuenta y tu empresa** — su nombre y apellido, correo y una contraseña de 8 a 128 caracteres, más el nombre de la empresa, el teléfono y la dirección. La dirección importa: decide el país, y el país decide la moneda en la que se cotizará su plan.",
-            "**Su equipo** — «¿Cuántas personas trabajan con usted, incluido usted?» y «¿Cuánto tiempo lleva en el negocio?» Las respuestas ajustan la vista previa del calendario junto al formulario y el plan que sugiere el aviso de la prueba. **Omitir este paso** sigue adelante sin guardar nada.",
-            "**¿Qué es lo que más le importa ahora?** — elija lo que más quiere resolver con FieldQuo, y diga cómo supo de nosotros. También es opcional.",
-            "**Oficios** — «¿En qué oficios trabaja tu empresa?» Marque todos los oficios que apliquen; esto reduce los tipos de presupuesto que verá.",
-            "**Servicios** — «¿Qué servicios ofreces?» Los tipos de presupuesto habituales de sus oficios vienen preseleccionados. Active los que ofrece; podrá cambiarlo en cualquier momento en Configuración → Servicios y precios. **Empezar mi prueba gratuita** crea la empresa y lo lleva directo adentro.",
+            "**Cuéntanos sobre ti** — bajo **Tu prueba gratuita ya está activa**, con la fecha hasta la que la prueba es gratis. **Nombre**, **Apellido** y **Número de teléfono**.",
+            "**Cuéntanos sobre tu negocio** — **Nombre de la empresa**, **Dirección de la empresa**, **Rubro** y **Sitio web** (opcional). Es lo que sus clientes ven en sus presupuestos y facturas. Empiece a escribir la dirección y elíjala de la lista: el país se lee del lugar que elija, y el país decide su moneda y la moneda en la que se cotiza su plan. En **Rubro**, busque su oficio; los oficios aparecen bajo el rubro al que pertenecen.",
+            "**Tu negocio de [oficio] de un vistazo** — «¿Cuántas personas trabajan en tu empresa (incluyéndote)?», de **Solo yo** a **21+**, y «¿Cuántos años llevas en el negocio?». **Solo yo** además quita el paso del equipo de su lista de configuración.",
+            "**Ajustemos tu experiencia en FieldQuo** — «¿Cuál es tu ingreso estimado este año?», en tramos en su propia moneda, o **Prefiero no decirlo**. Solo FieldQuo ve esto — nunca sus clientes ni su equipo.",
+            "**[Su nombre], pongamos a FieldQuo a trabajar para ti** — «¿Qué es lo que más te importa ahora? Elige una opción.» Cuatro tarjetas, desde **Quiero que mi negocio se vea tan profesional como mi trabajo** hasta **Todavía no estoy seguro, solo estoy explorando**.",
+            "El título de la pantalla siguiente depende de la tarjeta elegida — **Hagamos que cada trabajo se vea tan bien como tu trabajo**, por ejemplo. Bajo **Cuéntanos en qué te gustaría enfocarte**, elija una o varias.",
+            "**¿Cómo te enteraste de FieldQuo?** — elija una respuesta en **¿Dónde escuchaste de nosotros por primera vez?** y pulse **Empezar**.",
           ] },
+          { p: "Después viene **Configurando tu cuenta**, que no le pide nada: añade los servicios de su oficio, sus listas de verificación y planes de mantenimiento, y sus plantillas, una línea a la vez, y luego abre su panel. Si una etapa falla, **Reintentar** la vuelve a ejecutar; una vez guardadas sus respuestas, **Ir a mi panel de todos modos** sigue sin la etapa que falta, y antes de eso **Volver a las preguntas** regresa a la última pregunta. Los servicios añadidos se pueden cambiar en cualquier momento en **Configuración → Servicios y precios**." },
           { note: "La aplicación, una vez dentro, sigue el idioma que usted elija — vea [[choose-your-language|Elija su idioma]]." },
         ],
       },
@@ -147,10 +150,10 @@ export const ARTICLES = {
         id: "after-signup",
         heading: "Después del registro",
         blocks: [
-          { p: "**Empezar mi prueba gratuita** lo lleva al panel. Un recorrido corto señala el menú la primera vez; podrá repetirlo después desde Ayuda — vea [[replay-the-setup-walkthrough|Repetir el recorrido de configuración]]. La tarjeta **Termina de configurar FieldQuo** enumera lo que todavía falta y, para el propietario, un aviso arriba muestra **Prueba gratuita · quedan N días** con **Elegir un plan** al lado." },
+          { p: "**Empezar** y la pantalla de configuración lo llevan al panel. Un recorrido corto señala el menú la primera vez; podrá repetirlo después desde Ayuda — vea [[replay-the-setup-walkthrough|Repetir el recorrido de configuración]]. La tarjeta **Termina de configurar FieldQuo** enumera lo que todavía falta y, para el propietario, un aviso arriba muestra **Prueba gratuita · quedan N días** con **Elegir un plan** al lado." },
           { bullets: [
             "[[your-first-day-setup-checklist|Su primer día: la lista de configuración]] — qué hacer y en qué orden.",
-            "[[company-settings-basics|Lo básico de la configuración de la empresa]] — la dirección, los impuestos y el horario que el formulario de registro no pidió.",
+            "[[company-settings-basics|Lo básico de la configuración de la empresa]] — los impuestos y el horario que las preguntas del registro no pidieron.",
             "[[connect-stripe-and-get-verified|Conectar Stripe]] — para que la primera factura pueda pagarse en línea.",
           ] },
         ],

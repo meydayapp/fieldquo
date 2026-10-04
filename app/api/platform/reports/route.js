@@ -14,6 +14,7 @@ import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { requirePlatformPermission } from "@/lib/platform/permissions";
 import { subscriberBucket } from "@/lib/platform/trialCounting";
 import { BUCKETS } from "@/lib/platform/subscriberBuckets";
+import { normaliseCurrency, UNKNOWN_CURRENCY } from "@/lib/platform/metricFormat";
 
 /**
  * Minimal RFC-4180 escaping. Company names contain commas and apostrophes
@@ -63,7 +64,11 @@ export async function GET(request) {
   if (report === "companies") {
     const companies = await db.company.findMany({
       include: {
-        subscription: { include: { plan: { select: { name: true } } } },
+        // priceMonthly and currency: the "Monthly" column read
+        // plan.priceMonthly while only `name` was selected, so it exported
+        // NaN; and a price with no currency beside it is a CAD-or-USD guess
+        // for whoever totals the column (owner decision 2026-10-03).
+        subscription: { include: { plan: { select: { name: true, priceMonthly: true, currency: true } } } },
         _count: {
           select: { members: true, clients: true, quotes: true, invoices: true },
         },
@@ -94,6 +99,7 @@ export async function GET(request) {
       "Plan",
       "Subscription status",
       "Monthly",
+      "Currency",
       "Trial ends",
       "Members",
       "Clients",
@@ -113,6 +119,7 @@ export async function GET(request) {
       c.subscription?.plan?.name || "",
       c.subscription?.status || "",
       c.subscription?.plan ? Number(c.subscription.plan.priceMonthly) : "",
+      c.subscription?.plan?.currency || "",
       isoDate(c.trialEndsAt),
       c._count.members,
       c._count.clients,
@@ -125,11 +132,19 @@ export async function GET(request) {
     // One row per month with the counts that describe the shape of growth.
     // Assembled in JS rather than SQL so it stays provider-agnostic and
     // readable; at platform scale the row counts are small.
+    //
+    // Money is split per currency — one "Quoted value (CAD)" column per
+    // currency in the book — never summed across them (owner decision
+    // 2026-10-03). A quote and a payment are in their company's currency.
     const [companies, quotes, payments] = await Promise.all([
       db.company.findMany({ select: { createdAt: true } }),
-      db.quote.findMany({ select: { createdAt: true, total: true } }),
-      db.payment.findMany({ select: { createdAt: true, amount: true } }),
+      db.quote.findMany({ select: { createdAt: true, total: true, company: { select: { currency: true } } } }),
+      db.payment.findMany({
+        select: { createdAt: true, amount: true, invoice: { select: { company: { select: { currency: true } } } } },
+      }),
     ]);
+    const currencies = new Set();
+    const codeOf = (c) => normaliseCurrency(c) || UNKNOWN_CURRENCY;
 
     const buckets = new Map();
     const bucket = (key) => {
@@ -137,9 +152,9 @@ export async function GET(request) {
         buckets.set(key, {
           companies: 0,
           quotes: 0,
-          quotedValue: 0,
+          quotedValue: {},
           payments: 0,
-          paymentValue: 0,
+          paymentValue: {},
         });
       }
       return buckets.get(key);
@@ -149,23 +164,28 @@ export async function GET(request) {
     for (const q of quotes) {
       const b = bucket(isoDate(q.createdAt).slice(0, 7));
       b.quotes++;
-      b.quotedValue += Number(q.total || 0);
+      const code = codeOf(q.company?.currency);
+      currencies.add(code);
+      b.quotedValue[code] = (b.quotedValue[code] || 0) + Number(q.total || 0);
     }
     for (const p of payments) {
       const b = bucket(isoDate(p.createdAt).slice(0, 7));
       b.payments++;
-      b.paymentValue += Number(p.amount || 0);
+      const code = codeOf(p.invoice?.company?.currency);
+      currencies.add(code);
+      b.paymentValue[code] = (b.paymentValue[code] || 0) + Number(p.amount || 0);
     }
 
     filename = "fieldquo-growth";
+    const codes = [...currencies].sort();
     headers = [
       "Month",
       "New companies",
       "Cumulative companies",
       "Quotes created",
-      "Quoted value",
+      ...codes.map((c) => `Quoted value (${c})`),
       "Payments",
-      "Payment value",
+      ...codes.map((c) => `Payment value (${c})`),
     ];
 
     let cumulative = 0;
@@ -178,15 +198,15 @@ export async function GET(request) {
           b.companies,
           cumulative,
           b.quotes,
-          b.quotedValue.toFixed(2),
+          ...codes.map((c) => (b.quotedValue[c] || 0).toFixed(2)),
           b.payments,
-          b.paymentValue.toFixed(2),
+          ...codes.map((c) => (b.paymentValue[c] || 0).toFixed(2)),
         ];
       });
   } else if (report === "subscriptions") {
     const subs = await db.subscription.findMany({
       include: {
-        plan: { select: { name: true, priceMonthly: true } },
+        plan: { select: { name: true, priceMonthly: true, currency: true } },
         company: { select: { name: true, email: true } },
       },
       orderBy: { createdAt: "asc" },
@@ -198,6 +218,7 @@ export async function GET(request) {
       "Email",
       "Plan",
       "Monthly",
+      "Currency",
       "Status",
       "Started",
       "Trial ends",
@@ -209,6 +230,7 @@ export async function GET(request) {
       s.company?.email,
       s.plan?.name,
       Number(s.plan?.priceMonthly || 0),
+      s.plan?.currency || "",
       s.status,
       isoDate(s.createdAt),
       isoDate(s.trialEndsAt),

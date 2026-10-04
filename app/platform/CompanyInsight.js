@@ -15,6 +15,7 @@
 import { useEffect, useState } from "react";
 import { Loader2, X, ArrowUp, ArrowDown, Minus, Phone } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { moneyIn } from "@/lib/platform/metricFormat";
 
 const WHY = {
   no_data: "They haven't done this yet.",
@@ -32,11 +33,11 @@ const POSITION = {
 function display(metric) {
   if (metric.value === null) return "—";
   switch (metric.key) {
-    // The "$" is this company's own money AND the cohort median's, and the
-    // cohort is every currency at once. Left as it is on purpose: see the
-    // options written out beside money() in lib/platform/metricFormat.js.
+    // This company's own currency; the cohort median beside it is drawn
+    // only from companies quoting in that same currency
+    // (lib/analytics/companyComparison.js, owner decision 2026-10-03).
     case "medianQuoteValue":
-      return `$${Number(metric.value).toLocaleString()}`;
+      return moneyIn(metric.value, metric.currency, { compact: true });
     case "medianComposeSeconds":
       return `${metric.value}s`;
     case "medianDecisionDays":
@@ -191,7 +192,7 @@ export default function CompanyInsight({ companyId, name, onClose }) {
                           {Number.isFinite(Number(t.medianQuote)) &&
                           t.medianQuote !== null &&
                           t.medianQuote !== ""
-                            ? `$${Number(t.medianQuote).toLocaleString()}`
+                            ? moneyIn(t.medianQuote, data.company?.currency, { compact: true })
                             : "—"}
                         </span>
                       </div>

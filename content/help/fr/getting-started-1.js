@@ -91,7 +91,7 @@ export const ARTICLES = {
     title: "Commencer votre essai gratuit",
     summary:
       "Le formulaire d'inscription public, étape par étape : ni carte ni forfait aujourd'hui, les 14 premiers jours gratuits, et un forfait choisi depuis l'application quand vous êtes prêt.",
-    updated: "2026-09-29",
+    updated: "2026-10-03",
     intro: [
       "L'inscription d'une entreprise se fait en libre-service : n'importe qui peut ouvrir la page d'inscription, créer son entreprise et commencer. Les 14 premiers jours sont gratuits, et l'inscription ne demande ni carte ni forfait — vous choisissez un forfait, et ajoutez une carte pour le payer, depuis l'application quand vous êtes prêt.",
       "Rejoindre une entreprise qui existe déjà, c'est autre chose : ça se fait sur invitation seulement. Si un collègue utilise déjà FieldQuo, demandez-lui de vous inviter depuis Gérer l'équipe; voir [[invite-a-team-member|Inviter un membre de l'équipe]].",
@@ -101,7 +101,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Aperçu",
         blocks: [
-          { p: "Le formulaire affiche **Commencez vos 14 jours gratuits** en haut et parcourt cinq courtes étapes : votre compte et votre entreprise, votre équipe, ce qui vous préoccupe le plus, vos corps de métier et vos services. Les étapes de l'équipe et des préoccupations peuvent être passées. Un identifiant possède une seule entreprise; si vous êtes déjà connecté avec une entreprise, la page vous le dit et vous propose d'aller à votre tableau de bord ou d'inviter quelqu'un à la place." },
+          { p: "La page d'inscription affiche **Commencez votre essai gratuit** en haut et demande trois choses : **Courriel professionnel**, **Mot de passe** (8 à 128 caractères) et une case non cochée, **M'envoyer les nouveautés et offres**. **Commencer mon essai gratuit →** crée votre identifiant et votre entreprise en même temps — les 14 jours commencent là. Suivent sept courtes questions, une par écran, avec **Question 1 sur 7** au-dessus; chaque réponse est enregistrée quand vous appuyez sur **Continuer**, et **Retour** revient à la précédente. Chaque question demande une réponse — aucune ne peut être passée. Si vous vous déconnectez ou fermez l'onglet en cours de route, vous revenez à la question où vous vous étiez arrêté à votre prochaine connexion. Un identifiant possède une seule entreprise; si vous êtes déjà connecté avec une entreprise, la page affiche **Vous avez déjà une entreprise ici** et propose **Aller à votre tableau de bord** ou **Ajoutez plutôt quelqu'un à votre équipe**." },
         ],
       },
       {
@@ -109,12 +109,15 @@ export const ARTICLES = {
         heading: "Les étapes",
         blocks: [
           { steps: [
-            "**Votre compte et votre entreprise** — votre prénom et votre nom, votre courriel et un mot de passe de 8 à 128 caractères, plus le nom de l'entreprise, le téléphone et l'adresse. L'adresse compte : elle détermine le pays, et le pays détermine la devise dans laquelle votre forfait sera tarifé.",
-            "**Votre équipe** — « Combien de personnes travaillent avec vous, vous compris? » et « Depuis combien de temps êtes-vous en affaires? » Les réponses ajustent l'aperçu du calendrier à côté du formulaire et le forfait que la bannière d'essai vous suggère. **Passer cette étape** continue sans rien enregistrer.",
-            "**Qu'est-ce qui vous préoccupe le plus?** — choisissez la chose pour laquelle vous voulez surtout FieldQuo, et dites comment vous avez entendu parler de nous. Facultatif aussi.",
-            "**Corps de métier** — « Dans quels corps de métier votre entreprise travaille-t-elle? » Cochez tous les métiers qui s'appliquent; cela réduit les types de soumission que vous verrez.",
-            "**Services** — « Quels services offrez-vous? » Les types de soumission habituels de vos métiers sont présélectionnés. Activez ceux que vous offrez; vous pourrez changer cela n'importe quand sous Paramètres → Services et tarifs. **Commencer mon essai gratuit** crée l'entreprise et vous fait entrer tout de suite.",
+            "**Parlez-nous de vous** — sous **Votre essai gratuit est maintenant actif**, avec la date jusqu'à laquelle l'essai est gratuit. **Prénom**, **Nom** et **Numéro de téléphone**.",
+            "**Parlez-nous de votre entreprise** — **Nom de l'entreprise**, **Adresse de l'entreprise**, **Métier** et **Site web** (facultatif). C'est ce que vos clients voient sur vos soumissions et vos factures. Commencez à taper l'adresse et choisissez-la dans la liste : le pays est lu dans le lieu choisi, et le pays détermine votre devise et celle dans laquelle votre forfait est tarifé. Sous **Métier**, cherchez votre métier; les métiers sont classés sous leur secteur.",
+            "**Votre entreprise de [métier] en un coup d'œil** — « Combien de personnes travaillent dans votre entreprise (vous inclus)? », de **Moi seulement** à **21+**, et « Depuis combien d'années êtes-vous en affaires? ». **Moi seulement** retire aussi l'étape de l'équipe de votre liste de configuration.",
+            "**Peaufinons votre expérience FieldQuo** — « Quel est votre chiffre d'affaires estimé cette année? », par tranches dans votre propre devise, ou **Je préfère ne pas répondre**. Seul FieldQuo voit cette information — jamais vos clients ni votre équipe.",
+            "**[Votre prénom], mettons FieldQuo à votre service** — « Qu'est-ce qui compte le plus pour vous en ce moment? Choisissez-en une. » Quatre cartes, de **Je veux que mon entreprise ait l'air aussi professionnelle que mon travail** à **Je ne sais pas encore, je regarde simplement**.",
+            "Le titre de l'écran suivant dépend de la carte choisie — **Faisons en sorte que chaque chantier ait l'air aussi bon que votre travail**, par exemple. Sous **Dites-nous sur quoi vous aimeriez vous concentrer**, choisissez-en une ou plusieurs.",
+            "**Comment avez-vous entendu parler de FieldQuo?** — choisissez une réponse sous **Où avez-vous entendu parler de nous pour la première fois?**, puis appuyez sur **Commencer**.",
           ] },
+          { p: "**Configuration de votre compte** vient ensuite et ne vous demande rien : l'écran ajoute les services de votre métier, vos listes de vérification et plans d'entretien, et vos modèles, une ligne à la fois, puis ouvre votre tableau de bord. Si une étape échoue, **Réessayer** la relance; une fois vos réponses enregistrées, **Aller quand même à mon tableau de bord** continue sans l'étape manquante, et avant cela **Retour aux questions** revient à la dernière question. Les services ajoutés se modifient n'importe quand sous **Paramètres → Services et tarifs**." },
           { note: "L'application, une fois entré, suit la langue que vous choisissez — voir [[choose-your-language|Choisir votre langue]]." },
         ],
       },
@@ -147,10 +150,10 @@ export const ARTICLES = {
         id: "after-signup",
         heading: "Après l'inscription",
         blocks: [
-          { p: "**Commencer mon essai gratuit** vous amène au tableau de bord. Une courte visite guidée pointe le menu la première fois; vous pourrez la rejouer plus tard depuis Aide — voir [[replay-the-setup-walkthrough|Rejouer la visite guidée]]. La carte **Terminer la configuration de FieldQuo** liste ce qui manque encore et, pour le propriétaire, une bannière en haut affiche **Essai gratuit · N jours restants** avec **Choisir un forfait** à côté." },
+          { p: "**Commencer** et l'écran de configuration vous amènent au tableau de bord. Une courte visite guidée pointe le menu la première fois; vous pourrez la rejouer plus tard depuis Aide — voir [[replay-the-setup-walkthrough|Rejouer la visite guidée]]. La carte **Terminer la configuration de FieldQuo** liste ce qui manque encore et, pour le propriétaire, une bannière en haut affiche **Essai gratuit · N jours restants** avec **Choisir un forfait** à côté." },
           { bullets: [
             "[[your-first-day-setup-checklist|Votre première journée : la liste de configuration]] — quoi faire, dans quel ordre.",
-            "[[company-settings-basics|Les bases du profil de l'entreprise]] — l'adresse, les taxes et les heures que le formulaire d'inscription n'a pas demandées.",
+            "[[company-settings-basics|Les bases du profil de l'entreprise]] — les taxes et les heures que les questions d'inscription n'ont pas demandées.",
             "[[connect-stripe-and-get-verified|Connecter Stripe]] — pour que la première facture puisse être payée en ligne.",
           ] },
         ],
