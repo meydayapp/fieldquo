@@ -9,7 +9,7 @@
 // each in their own language with the trade's name in it, nobody twice, and
 // nothing ever writes a Product.
 import fs from "node:fs";
-import { newSeedKeysFor, planCompanyNotice, planNewSeedNotices, tradeLabelIn, joinTrades, readerLanguage, NEW_SEEDS_TYPE, NEW_SEEDS_RELEASE } from "@/lib/services/newSeedNotice";
+import { newSeedKeysFor, planCompanyNotice, planNewSeedNotices, tradeLabelIn, joinTrades, readerLanguage, announceableKeys, NEW_SEEDS_TYPE, NEW_SEEDS_RELEASE, NEW_SEEDS_RELEASES } from "@/lib/services/newSeedNotice";
 import { serviceSeedsForCompanyTrade, seedableServices, seededTrades } from "@/lib/services/seeds";
 import { PERMISSION_PRESETS } from "@/lib/permissions";
 import { typeMeta } from "@/lib/notifications/catalog";
@@ -160,7 +160,7 @@ for (const lang of Object.keys(APP_MESSAGES)) {
     notificationDelivery: {
       findMany: async (q) => {
         calls.push(["delivery", q]);
-        return [{ memberId: "a_admin" }];
+        return [{ memberId: "a_admin", companyId: "co_a", event: { entityId: NEW_SEEDS_RELEASE } }];
       },
     },
   };
@@ -169,10 +169,72 @@ for (const lang of Object.keys(APP_MESSAGES)) {
   ok("demo companies are excluded in the query", companyQ?.where?.isDemo === false);
   ok("only ENABLED trades are read", companyQ?.select?.serviceCategories?.where?.enabled === true);
   const deliveryQ = calls.find((c) => c[0] === "delivery")?.[1];
-  ok("the marker is this type and this release", deliveryQ?.where?.event?.type === NEW_SEEDS_TYPE && deliveryQ?.where?.event?.entityId === NEW_SEEDS_RELEASE);
+  ok("the marker is this type, read across every release (to know what a company was already told)",
+    deliveryQ?.where?.event?.type === NEW_SEEDS_TYPE &&
+      JSON.stringify(deliveryQ?.where?.event?.entityId?.in) === JSON.stringify(NEW_SEEDS_RELEASES.map((r) => r.id)) &&
+      deliveryQ?.select?.event?.select?.entityId === true && deliveryQ?.select?.companyId === true);
   ok("a company holding every key is not planned", !plans.some((p) => p.companyId === "co_b"));
   const a = plans.find((p) => p.companyId === "co_a");
   ok("the member already told is skipped, the other is planned", a && a.groups.flatMap((g) => g.memberIds).join() === "a_owner");
+}
+
+// ── Releases: the handyman rows are announced once, and only they are new ──
+{
+  const HANDYMAN_KEYS = NEW_SEEDS_RELEASES.find((r) => r.id === NEW_SEEDS_RELEASE)?.keys || [];
+  ok("the current release is the handyman one, after 2026-09-24", NEW_SEEDS_RELEASE === "service-seeds-2026-09-25-handyman" && NEW_SEEDS_RELEASES[0].id === "service-seeds-2026-09-24" && NEW_SEEDS_RELEASES[0].keys === null);
+  ok("it announces the twelve rows 40d8375b6 added", HANDYMAN_KEYS.length === 12 && new Set(HANDYMAN_KEYS).size === 12);
+  const handyman = serviceSeedsForCompanyTrade("handyman");
+  const handymanSeedable = new Set(seedableServices(handyman).map((x) => x.seedKey));
+  ok("every announced key is a live, seedable handyman row (the button would add it)", HANDYMAN_KEYS.every((k) => handymanSeedable.has(k)), HANDYMAN_KEYS.filter((k) => !handymanSeedable.has(k)));
+  ok("release ids are unique", new Set(NEW_SEEDS_RELEASES.map((r) => r.id)).size === NEW_SEEDS_RELEASES.length);
+
+  ok("never told → no restriction (everything the button would add)", announceableKeys(null) === null);
+  ok("told 09-24 → only the keys introduced since", announceableKeys("service-seeds-2026-09-24") instanceof Set && [...announceableKeys("service-seeds-2026-09-24")].join() === HANDYMAN_KEYS.join());
+  ok("told the current release → nothing left to announce", announceableKeys(NEW_SEEDS_RELEASE)?.size === 0);
+  ok("an unknown release id counts as never told", announceableKeys("bogus") === null);
+
+  const HANDY = { key: "handyman", label: "Handyman", labelTranslations: { fr: "Homme à tout faire" } };
+  const allHandyman = [...handymanSeedable];
+  const oldOnly = allHandyman.filter((k) => !HANDYMAN_KEYS.includes(k));
+  const owner = [person("h_owner", "owner", null)];
+  // Told on 09-24, holds none of the handyman book: hears about the 12 only,
+  // never the old rows again as "new".
+  const told = planCompanyNotice({ company: { id: "co_h", name: "H", defaultLanguage: "en", categories: [HANDY] }, seedKeys: [], members: owner, onlyKeys: announceableKeys("service-seeds-2026-09-24") });
+  ok("a company told on 09-24 is told about exactly the 12 handyman rows", told?.total === 12 && told.groups[0].params.count === 12, told?.total);
+  // Never told: the full count, as the first release would have.
+  const never = planCompanyNotice({ company: { id: "co_n", name: "N", defaultLanguage: "en", categories: [HANDY] }, seedKeys: [], members: owner, onlyKeys: announceableKeys(null) });
+  ok("a company never told hears every row the button would add", never?.total === newSeedKeysFor({ tradeKeys: ["handyman"] }).total && never.total > 12);
+  // Holds the old rows, lacks the new: 12 either way.
+  const upToDate = planCompanyNotice({ company: { id: "co_u", name: "U", defaultLanguage: "en", categories: [HANDY] }, seedKeys: oldOnly, members: owner, onlyKeys: announceableKeys(null) });
+  ok("a company holding the old book and not the new is told 12", upToDate?.total === 12);
+  // Already holds the 12 (added by hand): nothing to say.
+  ok("a company already holding the 12 is told nothing", planCompanyNotice({ company: { id: "co_d", name: "D", defaultLanguage: "en", categories: [HANDY] }, seedKeys: HANDYMAN_KEYS, members: owner, onlyKeys: announceableKeys("service-seeds-2026-09-24") }) === null);
+  // A trade the 12 are not tagged for, told 09-24: nothing new for it.
+  ok("a plumber told on 09-24 is not told again", planCompanyNotice({ company: { id: "co_p", name: "P", defaultLanguage: "en", categories: [PLUMB] }, seedKeys: [], members: owner, onlyKeys: announceableKeys("service-seeds-2026-09-24") }) === null);
+
+  // The database half: the newest release a company was told about decides.
+  const stub = {
+    company: { findMany: async () => [
+      { id: "co_told", name: "Told", defaultLanguage: "en", serviceCategories: [{ category: HANDY }] },
+      { id: "co_new", name: "New", defaultLanguage: "en", serviceCategories: [{ category: HANDY }] },
+      { id: "co_done", name: "Done", defaultLanguage: "en", serviceCategories: [{ category: HANDY }] },
+    ] },
+    product: { findMany: async () => [] },
+    member: { findMany: async () => [
+      { ...person("t_owner", "owner", null), companyId: "co_told", user: { language: "en" } },
+      { ...person("n_owner", "owner", null), companyId: "co_new", user: { language: "en" } },
+      { ...person("d_owner", "owner", null), companyId: "co_done", user: { language: "en" } },
+    ] },
+    notificationDelivery: { findMany: async () => [
+      { memberId: "t_owner", companyId: "co_told", event: { entityId: "service-seeds-2026-09-24" } },
+      { memberId: "d_owner", companyId: "co_done", event: { entityId: "service-seeds-2026-09-24" } },
+      { memberId: "d_owner", companyId: "co_done", event: { entityId: NEW_SEEDS_RELEASE } },
+    ] },
+  };
+  const plans = await planNewSeedNotices({ db: stub });
+  ok("planner: told on 09-24 → the 12", plans.find((p) => p.companyId === "co_told")?.total === 12);
+  ok("planner: never told → the whole book", plans.find((p) => p.companyId === "co_new")?.total === newSeedKeysFor({ tradeKeys: ["handyman"] }).total);
+  ok("planner: already told this release → not planned (once)", !plans.some((p) => p.companyId === "co_done"));
 }
 
 // ── It tells; it never adds ───────────────────────────────────────────────
