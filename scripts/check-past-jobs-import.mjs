@@ -28,6 +28,7 @@ import {
   parseYesNo,
   isoDay,
   recordedFiguresProblems,
+  recordedQuoteProblems,
   recordedMarker,
 } from "../lib/jobs/pastJobImport.js";
 
@@ -333,6 +334,73 @@ ok("...and offers the way back when arrived at from the dashboard",
     now: TODAY,
   });
   ok("...while the same client and dates at another price is still written", third.status === "created", third);
+
+  // ── A recorded quote with no job: lost (historical, declined) and draft (live)
+  const { createRecordedQuote } = await import("../lib/jobs/importPastJob.js");
+  const qdb = fakeDb();
+  qdb.T.company.push({ id: "co1", defaultLanguage: "en", defaultProcessNotes: "We protect the floors.", taxRate: 0, autoApplyLocalTax: true, taxMode: null, province: "ON", country: "CA", vatRegistered: null, usTaxOverrides: null, taxRates: [], paymentMethods: null, offlinePaymentDiscount: false });
+  // One live quote on file, so the live series has somewhere to continue from.
+  qdb.T.quote.push({ id: "live1", companyId: "co1", quoteNumber: "Q-2026-0016", status: "sent", historicalImportedAt: null, createdAt: new Date() });
+  const qctx = await loadPastJobContext(qdb, "co1");
+  const qlines = [{ description: "Cabinet Refinishing", quantity: 18, rate: 170, amount: 3060 }];
+  const qfig = { lineItems: qlines, subtotal: 3060, discount: 0, tax: 397.8, total: 3457.8, taxEnabled: true, notes: "Shaker doors" };
+  const client = { clientName: "Paul Example", clientEmail: "paul@example.com", clientPhone: null, clientAddress: "1 Main St, Ottawa, ON" };
+  const lostRec = {
+    kind: "lost",
+    sourceRef: "src:quote:lost1",
+    sourceLabel: "Source Q1",
+    internalNote: "Deposit of $500 received at the source; refund or forfeit undecided.",
+    declinedAt: new Date("2026-02-21T00:00:00Z"),
+    declineReason: "Lost — recorded from history",
+    quote: qfig,
+  };
+  const before = qdb.T.payment.length;
+  const lost = await createRecordedQuote(qdb, { companyId: "co1", row: { ...client, quoteDate: new Date("2026-02-09T00:00:00Z") }, context: qctx, now: TODAY, recorded: lostRec });
+  const lq = qdb.T.quote.find((q) => q.id === lost.quoteId);
+  ok("a lost quote is written as a historical, declined, never-sent quote", lost.status === "created" && lq?.status === "declined" && lq.historicalImportedAt === TODAY && lq.sentAt === null, lost);
+  ok("...in the historical series, with its decline date and reason", /^Q-2026-H\d{4}$/.test(lq?.quoteNumber || "") && lq.declinedAt.toISOString().startsWith("2026-02-21") && lq.declineReason === "Lost — recorded from history", lq?.quoteNumber);
+  ok("...keeping the source's figures and lines, never accepted", lq?.total === 3457.8 && lq.tax === 397.8 && lq.acceptedAt == null && lq.acceptedTotal == null && lq.lineItems === qlines);
+  ok("...with the deposit and the source marker on its INTERNAL note, not its client notes",
+    lq?.reviewNotes.includes("Deposit of $500") && lq.reviewNotes.includes("[src:quote:lost1]") && lq.notes === "Shaker doors");
+  ok("...and no job, no invoice, no payment", qdb.T.job.length === 0 && qdb.T.invoice.length === 0 && qdb.T.payment.length === before);
+  const lostAgain = await createRecordedQuote(qdb, { companyId: "co1", row: { ...client, quoteDate: new Date("2026-02-09T00:00:00Z") }, context: qctx, now: TODAY, recorded: lostRec });
+  ok("...and a re-run is skipped on its marker", lostAgain.status === "skipped" && lostAgain.reason === "source_ref" && qdb.T.quote.length === 2, lostAgain);
+
+  const draftRec = { kind: "draft", sourceRef: "src:quote:draft1", sourceLabel: "Source Q2", internalNote: "Send it again when ready.", quote: qfig };
+  const draft = await createRecordedQuote(qdb, { companyId: "co1", row: { ...client, quoteDate: new Date("2026-08-28T00:00:00Z") }, context: qctx, now: TODAY, recorded: draftRec });
+  const dq = qdb.T.quote.find((q) => q.id === draft.quoteId);
+  ok("a carried-over draft is a LIVE draft: next live number, not historical, never sent",
+    draft.status === "created" && dq?.status === "draft" && dq.quoteNumber === "Q-2026-0017" && dq.historicalImportedAt == null && dq.sentAt === null, dq?.quoteNumber);
+  ok("...with the draft defaults a new quote gets (share token, company wording)", typeof dq?.shareToken === "string" && dq.shareToken.length > 20 && dq.processNotes === "We protect the floors.");
+  ok("...the source's figures, and no decision stamped", dq?.total === 3457.8 && dq.declinedAt == null && dq.acceptedAt == null);
+  ok("...reusing the client the lost quote created (name-first match)", draft.clientCreated === false && draft.clientId === lost.clientId);
+  const draftAgain = await createRecordedQuote(qdb, { companyId: "co1", row: { ...client }, context: qctx, now: TODAY, recorded: draftRec });
+  ok("...and a re-run is skipped on its marker", draftAgain.status === "skipped" && qdb.T.quote.length === 3, draftAgain);
+  for (const q of [lq, dq]) ok(`${q?.status} quote created via "import" (not produced by this product)`, q?.createdVia === "import");
+
+  const refusedQ = await createRecordedQuote(qdb, { companyId: "co1", row: client, context: qctx, now: TODAY, recorded: { ...lostRec, sourceRef: "src:quote:x" } });
+  ok("a lost quote with no quote date (its number's year) is refused", refusedQ.status === "error" && refusedQ.error === "quote_date_required", refusedQ);
+}
+
+// ── recordedQuoteProblems against hostile input ────────────────────────────
+{
+  const day = (s) => new Date(`${s}T00:00:00.000Z`);
+  const quote = { lineItems: [{ amount: 100 }], subtotal: 100, discount: 0, tax: 13, total: 113, taxEnabled: true };
+  const LOST = { kind: "lost", sourceRef: "s:q:1", declinedAt: day("2026-02-21"), declineReason: "Lost", quote };
+  const codes = (r) => recordedQuoteProblems(r, { today: TODAY }).map((p) => `${p.field}:${p.code}`);
+  ok("a consistent lost quote passes", codes(LOST).length === 0, codes(LOST));
+  ok("a consistent draft passes (no decision needed)", codes({ kind: "draft", sourceRef: "s:q:2", quote }).length === 0);
+  for (const [label, payload, code] of [
+    ["no payload", null, "recorded:required"],
+    ["an unknown kind", { ...LOST, kind: "won" }, "kind:unknown_kind"],
+    ["no decline date", { ...LOST, declinedAt: null }, "declinedAt:bad_date"],
+    ["a decline in the future", { ...LOST, declinedAt: day("2027-01-01") }, "declinedAt:future"],
+    ["no reason", { ...LOST, declineReason: "  " }, "declineReason:required"],
+    ["a total that does not add up", { ...LOST, quote: { ...quote, total: 114 } }, "quote:total_disagrees"],
+    ["a bracket in the ref", { ...LOST, sourceRef: "a[b" }, "sourceRef:bad_ref"],
+  ]) {
+    ok(`a recorded quote with ${label} is refused`, codes(payload).includes(code), codes(payload));
+  }
 }
 
 console.log(`\ncheck-past-jobs-import: ${passed} passed, ${failed} failed`);

@@ -62,9 +62,40 @@
 //   job not started yet   held: a future job is live work, not history — it
 //                         belongs in the live pipeline, where it can be
 //                         scheduled and invoiced normally
+//
+// …unless the owner has said otherwise for that quote — OWNER_DECISIONS below,
+// which win over the rules above and are printed on every run.
 
 import fs from "node:fs";
 import pg from "pg";
+
+// ── The owner's answers, 2026-10-03 ───────────────────────────────────────
+//
+// Keyed by TrueFinish quote number. Each is checked against the data before
+// it is applied: a decision whose premise no longer holds (the duplicate
+// payments are not there, the quote is no longer open) refuses the record
+// rather than being applied to something it was not said about.
+//
+//   lost        the job fell through: a historical DECLINED quote, no job, no
+//               invoice, nothing owing (createRecordedQuote kind "lost")
+//   live_draft  still to happen: a LIVE draft quote in the company's normal
+//               series, for the owner to send again himself (kind "draft")
+//   one_payment two identical payments on one day are a typing error: keep
+//               the first, record the invoice paid in full
+const LOST_REASON = "Lost — recorded from TrueFinish history";
+const OWNER_DECISIONS = {
+  "Q2026-0082": {
+    kind: "one_payment",
+    expect: { count: 2, amount: 1000, method: "cash" },
+    said: "the two $1,000 cash payments on the same day are a typo — one $1,000 payment",
+  },
+  "Q2026-0075": { kind: "lost", said: "lost job (Emery Mbonigaba)" },
+  "Q2026-0012": { kind: "lost", said: "lost job (Paul Machaka)" },
+  "Q2026-0077": { kind: "lost", said: "lost job (Pierre Paul Racicot)" },
+  "Q2026-0150": { kind: "live_draft", said: "re-quote as a live draft to send again (David Paul Kingsbury)" },
+  // Q2026-0086 (Debbi Driscoll, $282.50 open): no answer yet — the rules above
+  // hold it.
+};
 
 const argv = process.argv.slice(2);
 const flag = (name) => argv.includes(`--${name}`);
@@ -113,8 +144,8 @@ if (SOURCE_URL === TARGET_URL) die("The TrueFinish and FieldQuo connection strin
 // any query that slipped in would fail to connect instead of landing.
 if (!APPLY) delete process.env.DATABASE_URL;
 
-const { normalisePastJob, recordedFiguresProblems, isoDay, PAST_JOB_PAYMENT_METHODS } = await import("@/lib/jobs/pastJobImport");
-const { nextHistoricalQuoteNumber, looksLikeLiveQuoteNumber } = await import("@/lib/quotes/quoteNumber");
+const { normalisePastJob, recordedFiguresProblems, recordedQuoteProblems, isoDay, PAST_JOB_PAYMENT_METHODS } = await import("@/lib/jobs/pastJobImport");
+const { nextHistoricalQuoteNumber, looksLikeLiveQuoteNumber, getNextQuoteNumber, LIVE_QUOTE_NUMBER_WHERE } = await import("@/lib/quotes/quoteNumber");
 const { nextHistoricalInvoiceNumber, looksLikeLiveInvoiceNumber } = await import("@/lib/invoices/invoiceNumber");
 const { matchContactAgainst } = await import("@/lib/contacts/matchContact");
 const { computeInvoiceState } = await import("@/lib/invoices/computeInvoiceState");
@@ -151,14 +182,14 @@ async function readTrueFinish() {
   return readOnly(SOURCE_URL, async (q) => {
     const quotes = await q(
       `select id, "quoteNumber", status::text as status, "clientId", "lineItems", subtotal::text, discount::text, tax::text,
-              total::text, "taxEnabled", notes, language, "quoteType", "createdAt", "sentAt"
+              total::text, "taxEnabled", notes, language, "quoteType", "createdAt", "sentAt", "updatedAt"
          from "Quote" where status = 'accepted' order by "createdAt", "quoteNumber"`,
     );
     const quoteIds = quotes.map((r) => r.id);
     const invoices = await q(
       `select id, "invoiceNumber", status::text as status, "clientId", "quoteId", "lineItems", subtotal::text, discount::text,
               tax::text, total::text, "amountPaid"::text, "amountDue"::text, "taxEnabled", notes, "dueDate", "startDate",
-              "endDate", "paidDate", "createdAt", version, "parentInvoiceId", language
+              "endDate", "paidDate", "createdAt", "sentAt", version, "parentInvoiceId", language
          from "Invoice" where "quoteId" = any($1) order by "createdAt"`,
       [quoteIds],
     );
@@ -188,6 +219,11 @@ const TARGET_SQL = {
   quoteNumbers: `select "quoteNumber" from "Quote" where "companyId" = $1`,
   invoiceNumbers: `select "invoiceNumber" from "Invoice" where "companyId" = $1`,
   markers: `select id, "costReviewNote" from "Job" where "companyId" = $1 and "historicalImportedAt" is not null`,
+  // Lost quotes and the live draft have no job; their marker is on the quote's
+  // internal note (createRecordedQuote).
+  quoteMarkers: `select id, "reviewNotes" from "Quote" where "companyId" = $1 and "reviewNotes" like '%[truefinish:%'`,
+  // The live series' last number, as nextQuoteNumberForCompany reads it.
+  lastLiveQuote: `select "quoteNumber" from "Quote" where "companyId" = $1 and "historicalImportedAt" is null order by "createdAt" desc limit 1`,
   categories: `select id, key, label from "ServiceCategory" where "isSystem" or "companyId" = $1`,
 };
 async function readFieldQuoReadOnly() {
@@ -199,7 +235,7 @@ async function readFieldQuoReadOnly() {
   });
 }
 async function readFieldQuoPrisma(db) {
-  const [company, clients, quoteNumbers, invoiceNumbers, markers, categories] = await Promise.all([
+  const [company, clients, quoteNumbers, invoiceNumbers, markers, categories, quoteMarkers, lastLive] = await Promise.all([
     db.company.findUnique({ where: { id: COMPANY_ID }, select: { id: true, name: true, defaultLanguage: true, province: true, country: true } }),
     db.client.findMany({
       where: { companyId: COMPANY_ID },
@@ -209,8 +245,10 @@ async function readFieldQuoPrisma(db) {
     db.invoice.findMany({ where: { companyId: COMPANY_ID }, select: { invoiceNumber: true } }),
     db.job.findMany({ where: { companyId: COMPANY_ID, historicalImportedAt: { not: null } }, select: { id: true, costReviewNote: true } }),
     db.serviceCategory.findMany({ where: { OR: [{ isSystem: true }, { companyId: COMPANY_ID }] }, select: { id: true, key: true, label: true } }),
+    db.quote.findMany({ where: { companyId: COMPANY_ID, reviewNotes: { contains: "[truefinish:" } }, select: { id: true, reviewNotes: true } }),
+    db.quote.findFirst({ where: { companyId: COMPANY_ID, ...LIVE_QUOTE_NUMBER_WHERE }, orderBy: { createdAt: "desc" }, select: { quoteNumber: true } }),
   ]);
-  return { company, clients, quoteNumbers, invoiceNumbers, markers, categories };
+  return { company, clients, quoteNumbers, invoiceNumbers, markers, categories, quoteMarkers, lastLiveQuote: lastLive ? [lastLive] : [] };
 }
 
 // ── Mapping ────────────────────────────────────────────────────────────────
@@ -350,11 +388,104 @@ function resolveClient(tfClient, fqClients, createdInRun) {
 function buildPlan(tf, fq) {
   const clientsById = new Map(tf.clients.map((c) => [c.id, c]));
   const categoriesByKey = new Map(fq.categories.map((c) => [c.key, c]));
-  const markers = fq.markers.map((m) => m.costReviewNote || "").join("\n");
+  const markers = [...fq.markers.map((m) => m.costReviewNote || ""), ...(fq.quoteMarkers || []).map((m) => m.reviewNotes || "")].join("\n");
   const takenQuotes = new Set(fq.quoteNumbers.map((r) => r.quoteNumber));
   const takenInvoices = new Set(fq.invoiceNumbers.map((r) => r.invoiceNumber));
   const createdInRun = new Map();
   const todayDay = isoDay(TODAY);
+  let lastLiveQuote = fq.lastLiveQuote?.[0]?.quoteNumber || null;
+
+  // A quote that carries over WITHOUT a job (owner: lost, or re-send as a
+  // draft) — createRecordedQuote's payload, built from the TrueFinish QUOTE
+  // (what was offered), never from its invoice.
+  function planRecordedQuote(item, decision) {
+    const { quote, invoice, payments, tfClient: client } = item;
+    const lost = decision.kind === "lost";
+    const computed = [];
+    const qFig = docFigures(quote, computed);
+    if (computed.length) item.notes.push(`line total computed with TrueFinish's rule (none stored): ${computed.join(", ")}`);
+    const startDay = tfDay(invoice?.startDate);
+    const endDay = tfDay(invoice?.endDate) || startDay;
+
+    // The last day TrueFinish shows the job alive: the latest thing that
+    // reached the client or came from them — quote sent, invoice raised or
+    // sent, a payment. updatedAt is NOT used: a bulk touch on 2026-08-11 moved
+    // it on rows nobody had opened in months. The day it was actually lost is
+    // not recorded anywhere; this is the honest lower bound.
+    const alive = [tfDay(quote.sentAt), tfDay(quote.createdAt), tfDay(invoice?.createdAt), tfDay(invoice?.sentAt), ...payments.map((p) => tfDay(p.date))]
+      .filter(Boolean)
+      .sort();
+    const lastAlive = alive[alive.length - 1];
+
+    const internal = [];
+    if (lost) {
+      internal.push(
+        `Lost job (owner, 2026-10-03). Accepted at TrueFinish${invoice ? `, invoiced as ${invoice.invoiceNumber} for ${money(invoice.total)}` : ""}` +
+          `${startDay ? `, job booked ${startDay} → ${endDay}` : ", no job dates"}. Last seen live ${lastAlive}; the day it was lost is not recorded.`,
+      );
+      if (payments.length) {
+        const sum = round2(payments.reduce((s, p) => s + Number(p.amount), 0));
+        internal.push(
+          `Money received at TrueFinish: ${payments.map((p) => `${money(p.amount)} ${p.method.replace("_", "-")} on ${tfDay(p.date)}`).join(", ")} (total ${money(sum)}). ` +
+            `Not entered as a payment — there is no invoice. Refund or forfeit is the owner's decision.`,
+        );
+        item.notes.push(`OWNER DECISION NEEDED: ${money(sum)} received at TrueFinish (${payments.map((p) => `${p.method} ${tfDay(p.date)}`).join(", ")}) — recorded in the quote's internal note only; refund or forfeit?`);
+      }
+    } else {
+      internal.push(
+        `Carried over from TrueFinish (owner, 2026-10-03), where it was accepted${startDay ? ` and booked for ${startDay} → ${endDay}` : ""}` +
+          `${invoice ? `; TrueFinish invoice ${invoice.invoiceNumber} (${money(invoice.total)}, ${invoice.status}) is NOT carried over` : ""}. Send it again when ready.`,
+      );
+    }
+
+    item.recorded = {
+      kind: lost ? "lost" : "draft",
+      sourceRef: item.sourceRef,
+      sourceLabel: `TrueFinish ${quote.quoteNumber}${invoice ? ` / ${invoice.invoiceNumber}` : ""}`,
+      internalNote: internal.join("\n\n"),
+      ...(lost ? { declinedAt: dayDate(lastAlive), declineReason: LOST_REASON } : {}),
+      quote: { lineItems: qFig.lineItems, subtotal: qFig.subtotal, discount: qFig.discount, tax: qFig.tax, total: qFig.total, taxEnabled: qFig.taxEnabled, notes: qFig.notes },
+    };
+    for (const p of recordedQuoteProblems(item.recorded, { today: TODAY })) item.problems.push(`${p.field}: ${p.code}`);
+
+    const resolved = resolveClient(client, fq.clients, createdInRun);
+    item.client = resolved;
+    if (resolved.warning) item.notes.push(resolved.warning);
+    const cat = categoryKeyFor(quote);
+    item.category = cat.key ? categoriesByKey.get(cat.key) || null : null;
+    if (cat.key && !item.category) item.problems.push(`service category "${cat.key}" not found`);
+    if (cat.inferred) item.notes.push(`no quoteType at TrueFinish; filed as ${cat.key} from its lines`);
+
+    // Client fields through the same normaliser; only its client refusals
+    // apply — a quote with no job has no dates, amount or payment to check.
+    const address = clean(client.address) || [clean(client.city), clean(client.province)].filter(Boolean).join(", ") || "";
+    const n = normalisePastJob(
+      { clientId: resolved.clientId || "", clientName: client.name, clientEmail: client.email || "", clientPhone: client.phone || "", clientAddress: address },
+      { today: TODAY, defaultTaxApplied: true },
+    );
+    for (const e of n.errors.filter((x) => x.field.startsWith("client"))) item.problems.push(`${e.field}: ${e.code}`);
+    item.row = {
+      clientId: n.value.clientId,
+      clientName: n.value.clientName,
+      clientEmail: n.value.clientEmail,
+      clientPhone: n.value.clientPhone,
+      clientAddress: n.value.clientAddress,
+      quoteDate: dayDate(tfDay(quote.createdAt)),
+    };
+
+    if (lost) {
+      item.quoteNumber = nextHistoricalQuoteNumber([...takenQuotes], Number(tfDay(quote.createdAt).slice(0, 4)));
+    } else {
+      item.quoteNumber = getNextQuoteNumber(lastLiveQuote);
+      if (takenQuotes.has(item.quoteNumber)) item.problems.push(`live number ${item.quoteNumber} is already taken — the live allocator would collide`);
+    }
+    item.decision = item.problems.length ? "error" : lost ? "lost" : "draft";
+    if (item.decision !== "error") {
+      takenQuotes.add(item.quoteNumber);
+      if (!lost) lastLiveQuote = item.quoteNumber;
+      if (resolved.kind === "new" || resolved.kind === "name_only") createdInRun.set(client.id, resolved.clientId || `(new: ${client.name})`);
+    }
+  }
 
   const items = [];
   for (const quote of tf.quotes) {
@@ -371,21 +502,56 @@ function buildPlan(tf, fq) {
     }
     const invoice = invoices[0];
     item.invoice = invoice;
-    const payments = tf.payments.filter((p) => p.invoiceId === invoice.id);
+    let payments = tf.payments.filter((p) => p.invoiceId === invoice.id);
+    item.sourceRef = `truefinish:quote:${quote.id}`;
+    const decision = OWNER_DECISIONS[quote.quoteNumber] || null;
+    item.ownerDecision = decision;
+
+    // Classify. A marker on file means it landed already, whatever kind.
+    if (markers.includes(`[${item.sourceRef}]`)) {
+      item.decision = "skip";
+      item.reason = "already imported (source marker on file)";
+      item.payments = payments;
+      item.paidSum = round2(payments.reduce((s, p) => s + Number(p.amount), 0));
+      continue;
+    }
+
+    // The owner's correction to the payments, checked against what it was
+    // said about before it is applied.
+    if (decision?.kind === "one_payment") {
+      const { count, amount, method } = decision.expect;
+      const days = new Set(payments.map((p) => tfDay(p.date)));
+      const matchesPremise =
+        payments.length === count && days.size === 1 && payments.every((p) => Number(p.amount) === amount && p.method === method);
+      if (!matchesPremise) {
+        item.payments = payments;
+        item.paidSum = round2(payments.reduce((s, p) => s + Number(p.amount), 0));
+        item.decision = "error";
+        item.problems.push(`owner correction "${decision.said}" no longer matches TrueFinish's payments — not applied, record refused`);
+        continue;
+      }
+      const dropped = payments.slice(1);
+      payments = payments.slice(0, 1);
+      item.notes.push(
+        `OWNER CORRECTION (2026-10-03): ${decision.said}. Importing payment ${payments[0].id} only; not importing ${dropped.map((p) => p.id).join(", ")}.`,
+      );
+    }
     item.payments = payments;
     item.paidSum = round2(payments.reduce((s, p) => s + Number(p.amount), 0));
+
+    if (decision?.kind === "lost" || decision?.kind === "live_draft") {
+      if (invoice.status === "paid") {
+        item.decision = "error";
+        item.problems.push(`owner said "${decision.said}" but TrueFinish shows this invoice paid — refused`);
+        continue;
+      }
+      planRecordedQuote(item, decision);
+      continue;
+    }
 
     const startDay = tfDay(invoice.startDate);
     const endDay = tfDay(invoice.endDate) || startDay;
     const paid = invoice.status === "paid";
-    item.sourceRef = `truefinish:quote:${quote.id}`;
-
-    // Classify.
-    if (markers.includes(`[${item.sourceRef}]`)) {
-      item.decision = "skip";
-      item.reason = "already imported (source marker on file)";
-      continue;
-    }
     if (!startDay) {
       item.decision = "hold";
       item.reason = "invoice has no job dates";
@@ -517,6 +683,8 @@ function buildPlan(tf, fq) {
 const money = (n) => `$${Number(n).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const pad = (s, n) => String(s ?? "").slice(0, n).padEnd(n);
 
+const WRITES = new Set(["import", "lost", "draft"]);
+
 function printPlan(items, fq) {
   console.log(`\nFieldQuo company: ${fq.company?.name ?? "(not found)"} (${COMPANY_ID})`);
   console.log(`Mode: ${APPLY ? "APPLY" : "DRY RUN — nothing is written"}${INCLUDE_OPEN ? ", including open invoices" : ""}${KEEP_NUMBERS ? ", keeping TrueFinish numbers" : ", FieldQuo historical numbers"}\n`);
@@ -527,12 +695,20 @@ function printPlan(items, fq) {
     const inv = it.invoice;
     const tfNum = `${it.quote.quoteNumber}/${inv ? inv.invoiceNumber.replace("INV", "") : "-"}`;
     const job = inv ? `${tfDay(inv.startDate) || "—"}…${(tfDay(inv.endDate) || "").slice(5) || "—"}` : "—";
-    const to = it.decision === "import" ? `${it.quoteNumber} / ${it.invoiceNumber}` : `${it.decision.toUpperCase()}: ${it.reason || it.problems.join("; ")}`;
+    const writes = WRITES.has(it.decision);
+    const to =
+      it.decision === "import"
+        ? `${it.quoteNumber} / ${it.invoiceNumber}`
+        : it.decision === "lost"
+          ? `${it.quoteNumber} declined (lost)`
+          : it.decision === "draft"
+            ? `${it.quoteNumber} LIVE draft`
+            : `${it.decision.toUpperCase()}: ${it.reason || it.problems.join("; ")}`;
     const who = it.client ? (it.client.kind === "existing" ? `existing (${it.client.name})` : it.client.kind === "name_only" ? `reuses same-named "${it.client.name}"` : it.client.kind) : "";
     console.log(
-      `${pad(tfNum, 22)} ${pad(it.tfClient?.name, 24)} ${pad(job, 23)} ${pad(inv ? money(inv.total) : "", 11)} ${pad(inv ? money(it.paidSum) : "", 11)} ${pad(inv?.status, 8)} ${it.decision === "import" ? pad(to, 30) : to} ${it.decision === "import" ? who : ""}`,
+      `${pad(tfNum, 22)} ${pad(it.tfClient?.name, 24)} ${pad(job, 23)} ${pad(inv ? money(inv.total) : "", 11)} ${pad(inv ? money(it.paidSum) : "", 11)} ${pad(inv?.status, 8)} ${writes ? pad(to, 30) : to} ${writes ? who : ""}`,
     );
-    if (it.decision === "import" || it.decision === "error") {
+    if (writes || it.decision === "error") {
       for (const n of it.notes) console.log(`${" ".repeat(24)}· ${n}`);
       for (const p of it.problems) console.log(`${" ".repeat(24)}✗ ${p}`);
     }
@@ -564,6 +740,30 @@ function printPlan(items, fq) {
     for (const p of r.payments) console.log(`  Payment: ${isoDay(p.date)}  ${money(p.amount).padStart(11)}  ${p.method}${p.notes ? `  "${p.notes}"` : ""}`);
   }
 
+  // The quotes that carry over without a job (owner's decisions).
+  const quotesOnly = items.filter((i) => i.decision === "lost" || i.decision === "draft");
+  if (quotesOnly.length) console.log("\n── Quotes carried over without a job, as they would be written ──");
+  for (const it of quotesOnly) {
+    const r = it.recorded;
+    const c = it.row;
+    const lost = it.decision === "lost";
+    console.log(`\n${it.quoteNumber}  ←  ${r.sourceLabel}  [${r.sourceRef}]  — owner: ${it.ownerDecision.said}`);
+    console.log(
+      `  Client (${it.client.kind}${it.client.kind === "existing" ? `: ${it.client.name}` : ""}): ${c.clientName} | ${c.clientEmail || "—"} | ${c.clientPhone || "—"} | ${c.clientAddress || "—"} | language: company default`,
+    );
+    console.log(
+      lost
+        ? `  Quote: DECLINED ${isoDay(r.declinedAt)}, reason "${r.declineReason}", service ${it.category?.key || "—"}, historical (H series, historicalImportedAt), never sent`
+        : `  Quote: DRAFT in the live series, NOT historical, never sent (share token, company wording and e-transfer offer as any new quote), service ${it.category?.key || "—"}`,
+    );
+    for (const l of r.quote.lineItems) console.log(lineOut(l));
+    console.log(totalsOut(r.quote));
+    console.log(`  Internal note (Quote.reviewNotes, never shown to the client):`);
+    const marker = `${lost ? "Entered as a lost quote" : "Carried over as a draft"} — ${r.sourceLabel} [${r.sourceRef}]`;
+    for (const line of `${r.internalNote}\n\n${marker}`.split("\n")) console.log(`      ${line}`);
+    console.log(`  No job. No invoice. No payment. Nothing owing.`);
+  }
+
   const payments = imp.reduce((s, i) => s + i.recorded.payments.length, 0);
   const byKind = (k) => imp.filter((i) => i.client.kind === k).length;
   const newClients = new Set(imp.filter((i) => i.client.kind === "new").map((i) => i.tfClient.id)).size;
@@ -584,11 +784,22 @@ function printPlan(items, fq) {
   for (const [y, r] of [...years].sort()) {
     console.log(`  ${y}: ${r.jobs} jobs, invoiced ${money(r.invoiced)} (tax ${money(r.tax)}), payments ${money(r.paid)}, outstanding ${money(r.outstanding)}`);
   }
+  const lostItems = items.filter((i) => i.decision === "lost");
+  const drafts = items.filter((i) => i.decision === "draft");
+  console.log(`Would create, through createRecordedQuote (one transaction per quote):`);
+  console.log(`  ${lostItems.length} historical declined quotes (lost): ${lostItems.map((i) => `${i.quoteNumber} ${money(i.recorded.quote.total)}`).join(", ") || "none"}`);
+  console.log(`  ${drafts.length} live draft quote${drafts.length === 1 ? "" : "s"}: ${drafts.map((i) => `${i.quoteNumber} ${money(i.recorded.quote.total)}`).join(", ") || "none"}`);
+  const quoteNew = new Set([...lostItems, ...drafts].filter((i) => i.client.kind === "new").map((i) => i.tfClient.id)).size;
+  console.log(`  clients: ${quoteNew} new`);
+  const corrections = items.filter((i) => i.ownerDecision?.kind === "one_payment" && i.decision === "import");
+  if (corrections.length) console.log(`Owner corrections applied: ${corrections.map((i) => `${i.quote.quoteNumber} — ${i.ownerDecision.said}`).join("; ")}`);
   const held = items.filter((i) => i.decision === "hold");
   const skipped = items.filter((i) => i.decision === "skip");
   const errored = items.filter((i) => i.decision === "error");
-  console.log(`  held back: ${held.length}, already imported: ${skipped.length}, refused: ${errored.length}`);
-  return { imp, held, skipped, errored };
+  console.log(
+    `Held back: ${held.length}${held.length ? ` (${held.map((i) => `${i.quote.quoteNumber} ${i.tfClient?.name}`).join(", ")})` : ""}, already imported: ${skipped.length}, refused: ${errored.length}`,
+  );
+  return { imp, held, skipped, errored, writable: items.filter((i) => WRITES.has(i.decision)) };
 }
 
 // ── Run ────────────────────────────────────────────────────────────────────
@@ -608,66 +819,70 @@ if (!APPLY) {
 
 // APPLY.
 const { db } = await import("@/lib/db");
-const { createPastJob, loadPastJobContext } = await import("@/lib/jobs/importPastJob");
+const { createPastJob, createRecordedQuote, loadPastJobContext } = await import("@/lib/jobs/importPastJob");
 const { recordActivity } = await import("@/lib/activity/log");
 
 const fq = await readFieldQuoPrisma(db);
 if (!fq.company) die(`No FieldQuo company ${COMPANY_ID}.`);
 const items = buildPlan(tf, fq);
-const { imp } = printPlan(items, fq);
-if (!imp.length) {
+const { writable } = printPlan(items, fq);
+if (!writable.length) {
   console.log("\nNothing to write.");
   await db.$disconnect();
   process.exit(0);
 }
-console.log(`\nWriting ${imp.length} past jobs into "${fq.company.name}" (${COMPANY_ID}) …`);
+console.log(`\nWriting ${writable.length} records into "${fq.company.name}" (${COMPANY_ID}) …`);
 
 const context = await loadPastJobContext(db, COMPANY_ID);
 const now = new Date();
 const createdClients = new Map(); // TrueFinish client id → FieldQuo client id
 const results = [];
-for (const it of imp) {
+// In plan order, so the numbers allocated are the numbers printed above.
+for (const it of writable) {
   const clientId = createdClients.get(it.tfClient.id) || (it.client.kind === "existing" ? it.client.clientId : null);
   const category = it.category ? context.categories.find((c) => c.id === it.category.id) || null : null;
+  const args = { companyId: COMPANY_ID, createdByUserId: null, row: { ...it.row, clientId }, category, context, now, recorded: it.recorded };
   let outcome;
   try {
-    outcome = await createPastJob(db, {
-      companyId: COMPANY_ID,
-      createdByUserId: null,
-      row: { ...it.row, clientId },
-      category,
-      context,
-      now,
-      recorded: it.recorded,
-    });
+    outcome = it.decision === "import" ? await createPastJob(db, args) : await createRecordedQuote(db, args);
   } catch (err) {
     outcome = { status: "error", error: err?.message || "write_failed" };
   }
   if (outcome.status === "created") createdClients.set(it.tfClient.id, outcome.clientId);
   results.push({ it, outcome });
-  console.log(
-    `  ${it.quote.quoteNumber}: ${outcome.status}${outcome.status === "created" ? ` → ${outcome.quoteNumber} / ${outcome.invoiceNumber} (${outcome.invoiceStatus}, paid ${money(outcome.amountPaid)}, due ${money(outcome.amountDue)})${outcome.clientCreated ? " + new client" : ""}` : ` ${outcome.reason || outcome.error || ""}${outcome.problems ? ` ${JSON.stringify(outcome.problems)}` : ""}`}`,
-  );
+  const what =
+    outcome.status !== "created"
+      ? ` ${outcome.reason || outcome.error || ""}${outcome.problems ? ` ${JSON.stringify(outcome.problems)}` : ""}`
+      : it.decision === "import"
+        ? ` → ${outcome.quoteNumber} / ${outcome.invoiceNumber} (${outcome.invoiceStatus}, paid ${money(outcome.amountPaid)}, due ${money(outcome.amountDue)})`
+        : ` → ${outcome.quoteNumber} (${outcome.quoteStatus})`;
+  console.log(`  ${it.quote.quoteNumber}: ${outcome.status}${what}${outcome.clientCreated ? " + new client" : ""}`);
 }
 
 const created = results.filter((r) => r.outcome.status === "created");
 if (created.length) {
   // One office-trail line for the batch, as POST /api/jobs/import writes —
   // attributed to the script, not to a person who did not do it.
+  const jobs = created.filter((r) => r.it.decision === "import");
+  const quotesOnly = created.filter((r) => r.it.decision !== "import");
   await recordActivity(
     { companyId: COMPANY_ID, userId: null, id: null, role: null },
     {
       action: "job.past_imported",
       entityType: "job",
-      entityId: created.length === 1 ? created[0].outcome.jobId : null,
+      entityId: jobs.length === 1 ? jobs[0].outcome.jobId : null,
       actorName: "TrueFinish migration",
-      summary: `Entered ${created.length} past job${created.length === 1 ? "" : "s"} from TrueFinish`,
+      summary:
+        `Entered ${jobs.length} past job${jobs.length === 1 ? "" : "s"} from TrueFinish` +
+        (quotesOnly.length ? `, and ${quotesOnly.length} quote${quotesOnly.length === 1 ? "" : "s"} with no job (lost, or to send again)` : ""),
       metadata: {
         created: created.length,
         skipped: results.filter((r) => r.outcome.status === "skipped").length,
         failed: results.filter((r) => r.outcome.status === "error").length,
         clientsCreated: created.filter((r) => r.outcome.clientCreated).length,
-        jobIds: created.map((r) => r.outcome.jobId),
+        jobIds: jobs.map((r) => r.outcome.jobId),
+        lostQuoteIds: quotesOnly.filter((r) => r.it.decision === "lost").map((r) => r.outcome.quoteId),
+        draftQuoteIds: quotesOnly.filter((r) => r.it.decision === "draft").map((r) => r.outcome.quoteId),
         source: "truefinish",
       },
     },
