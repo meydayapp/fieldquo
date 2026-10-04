@@ -76,6 +76,23 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Owner decisions 3 October 2026: test companies, Unlock, View as company hides edits, the Book button (3 October 2026)
+
+Four decisions, four commits.
+
+### 4. Google "Book" button — owners and admins only
+
+`POST`/`DELETE /api/reviews/google/book-button` now refuse anyone but an
+owner or admin (`canManageBookButton`, `lib/reviews/googleBusiness/bookButton.js`)
+with `kind: "owner_admin_only"`, before Google is asked anything. The GET
+keeps the Booking Page's own gate (user:manage — supervisors still see the
+card, the link and the manual steps) and answers `canManage`; the card draws
+Add / Remove only when it is true and otherwise prints who can
+(`app.setBooking.gbp.ownerAdminOnly`, nine languages).
+`docs/GOOGLE-BUSINESS-PROFILE.md` "Who" rewritten. `check:google-book-button`
+224 assertions (supervisor GET/POST/DELETE, admin/owner canManage, the card
+with canManage false / absent).
+
 ## Privacy policy: the Google user data section (3 October 2026)
 
 For Google OAuth verification. `/privacy` Section 9 "Google user data" says,
