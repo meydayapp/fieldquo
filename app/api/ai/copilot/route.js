@@ -21,6 +21,7 @@ import { askerFirstName } from "@/lib/ai/askerName";
 import { readerLanguage } from "@/lib/i18n/readerLanguage";
 import { isAiConfigured, AI_MODEL } from "@/lib/ai/provider";
 import { meterFor } from "@/lib/ai/featurePayer";
+import { allowanceDisplay } from "@/lib/ai/usage";
 
 export async function POST(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -114,13 +115,13 @@ export async function POST(request) {
       // Surfaced so the UI can warn at 80% rather than letting someone hit a
       // wall with no notice. A limit you were told about is a limit; one you
       // discover is a bug.
-      usage: quota.cap
-        ? {
-            used: quota.usage.tokens,
-            cap: quota.cap,
-            nearLimit: quota.nearLimit,
-          }
-        : null,
+      //
+      // allowanceDisplay is the one shape every company screen reads: `used`
+      // and `cap` in the SAME unit (micros against a dollar allowance, tokens
+      // against a token cap) for the percentage, plus usedCents/capCents for
+      // "US$X of US$Y". Null when the account is uncapped, so the page never
+      // invents a ceiling nobody set.
+      usage: allowanceDisplay(quota),
     });
   } catch (err) {
     // Rate limits, quota exhaustion, a revoked key: all things the person

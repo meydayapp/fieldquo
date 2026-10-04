@@ -26,7 +26,7 @@ import {
   requireLevel,
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
-import { checkAiQuota, recordAiUsage } from "@/lib/ai/usage";
+import { checkAiQuota, recordAiUsage, allowanceDisplay } from "@/lib/ai/usage";
 import { draftQuoteFromCall, DRAFT_REASONS } from "@/lib/ai/callQuoteDraft";
 import { AI_MODEL, isAiConfigured } from "@/lib/ai/provider";
 
@@ -133,9 +133,7 @@ export async function POST(request, { params }) {
     return NextResponse.json({
       draft: result.draft,
       draftedAt: result.draft.generatedAt,
-      usage: quota.cap
-        ? { used: quota.usage.tokens, cap: quota.cap, nearLimit: quota.nearLimit }
-        : null,
+      usage: allowanceDisplay(quota),
     });
   } catch (err) {
     console.error("[voice/draft-quote]", err);

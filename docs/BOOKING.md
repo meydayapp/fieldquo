@@ -33,12 +33,17 @@ that file; if one changes, change the other.
    (0 by default). If either leg fails, the time is not offered. There is no
    fixed kilometre cut-off: a 10-minute drive needs a 10-minute gap, and a
    3-hour drive needs 3 hours.
-5. **The drive.** Google's driving time (Distance Matrix) from the other
-   visit's address to the new one. It is looked up once per distinct address
-   per request and used for both directions. If Google can't answer, the
-   straight-line distance × 1.35 at 32 km/h (`lib/booking/travel.js`) is used
-   instead. That guess is deliberately slow, because offering a time nobody
-   can make is worse than losing one.
+5. **The drive.** On the calendar: the straight-line distance × 1.35 at
+   32 km/h (`lib/booking/travel.js` estimateTravel) — free, offline, and
+   deliberately slow, because offering a time nobody can make is worse than
+   losing one. When a time is booked (or a visit is moved): Google's real
+   driving time (Distance Matrix) for the leg in and the leg out of that one
+   time (`lib/booking/verifyTravel.js`, cached six hours). If Google says it
+   can't be made, the booking is refused in the visitor's language and the
+   next time that passes the same check is selected for them to confirm —
+   never booked behind their back. Since 2026-10-03; before, the calendar
+   asked Google once per distinct address on every load (≈ US$105/month in
+   the heavy case; now ≈ US$0.01 per booking).
 6. **Nothing known means nothing removed.** No other visit that day, a
    neighbour visit with no coordinates, Google busy time (which has no
    place), an address Google can't find, a phone or video appointment: in all
@@ -104,12 +109,12 @@ against these cases, and `npm run check:booking` covers the travel maths.
 
 ## Not covered yet
 
-- The confirm route re-checks overlap with other *bookings* only. It does not
-  re-run the travel test, and it does not check appointments created in the
-  office. A visitor who forces a POST, or books in the few hundred
-  milliseconds before a late address is checked, is not stopped by distance.
+- The confirm route re-checks overlap with other *bookings* only; it does not
+  check appointments created in the office for OVERLAP. It does re-run the
+  travel test (with Google's real drive) since 2026-10-03, against bookings,
+  appointments and Google busy time alike.
 - Every pause of 700 ms while typing sends one query, which costs one paid
-  geocode (and a Distance Matrix lookup per other visit that day). The same
+  geocode (no Distance Matrix since 2026-10-03 — the calendar is offline). The same
   is true of the service-area check. A half-typed address can resolve to
   somewhere plausible ("350 5th Ave New" → the Empire State Building) until a
   suggestion is picked.

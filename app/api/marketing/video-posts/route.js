@@ -34,6 +34,7 @@ import { uploadScope } from "@/lib/media/directUpload";
 import { cloudinaryUploadUrl, planLimits, uploadsConfigured } from "@/lib/media/directUploadServer";
 import { CHUNK_BYTES, planVideoUpload, signedUploadFields } from "@/lib/marketing/videoUpload";
 import { VIDEO_PURPOSE, allowanceBody, loadVideoAllowance, shapeVideoPost } from "@/lib/marketing/videoPostServer";
+import { phoneGateResponse } from "@/lib/trial/phoneGate";
 
 /** Where Cloudinary posts the finished upload. Declared in check:route-callers. */
 const NOTIFY_PATH = "/api/marketing/video-posts/cloudinary-notify";
@@ -73,6 +74,10 @@ export async function POST(request) {
   if (response) return response;
   const denied = manager(member);
   if (denied) return denied;
+  // A card-free trial verifies a mobile before this spends FieldQuo money
+  // (lib/trial/phoneGate.js). Paid companies never reach a refusal here.
+  const phoneGate = await phoneGateResponse(member, "video_post");
+  if (phoneGate) return phoneGate;
   if (!uploadsConfigured()) return refuse(503, "cloudinary_unavailable", "Uploads aren't available right now.");
 
   let body;

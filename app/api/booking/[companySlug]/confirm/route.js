@@ -26,7 +26,9 @@ import {
   requiredFieldRefusal,
   bookingDurationMinutes,
   bookingModeNoun,
+  eventTypeForMode,
 } from "@/lib/booking/bookingModes";
+import { verifySlotTravel, nextVerifiedSlot, travelRefusal } from "@/lib/booking/verifyTravel";
 import { findVisit, linkVisitToBooking } from "@/lib/tracking/visits";
 
 // The one refusal this route makes in the visitor's own language: the "when
@@ -272,6 +274,65 @@ export async function POST(request, { params }) {
   // that followed; now the language they chose on the form follows them.
   const bookerLanguage = bookingLanguage(postedLanguage);
 
+  // ── The visit address, geocoded ─────────────────────────────────────────
+  //
+  // Re-geocoded here rather than trusting coordinates from the browser: a
+  // client posting lat/lng directly could place an appointment anywhere, and
+  // these coordinates decide whether OTHER slots get offered. The availability
+  // step already resolved this address, so it's a cache hit at Google and the
+  // visitor sees no delay.
+  //
+  // A failed geocode stores the typed address with null coordinates. That's
+  // honest — the crew still needs the street address — and travel filtering
+  // treats missing coordinates as unknown rather than as the middle of the
+  // ocean.
+  //
+  // Hoisted above the client create (2026-10-03) so the drive check below can
+  // refuse BEFORE anything is written — a refused booking must not leave a
+  // client row behind.
+  let visitPoint = null;
+  if (visitAddress && chosenMode === "visit") {
+    const hit = await geocodeAddress(visitAddress);
+    if (hit) visitPoint = { lat: hit.lat, lng: hit.lng };
+  }
+
+  // ── Can the estimator actually get here? Google, once, now ─────────────
+  //
+  // The calendar offered this time on the free offline estimate (see
+  // lib/booking/computeAvailability.js — the calendar no longer pays Google
+  // for every month it shows). This is the one moment a real driving time is
+  // worth paying for: two Distance Matrix elements, the leg in from the visit
+  // before and the leg out to the visit after (lib/booking/verifyTravel.js).
+  // If the real drive cannot be made, the booking is REFUSED in the visitor's
+  // language with the next time that passes the same check — the page selects
+  // it and the visitor confirms it themselves. Nothing is booked behind their
+  // back, and nobody is double-booked. Unknown (no key, Google down, a
+  // neighbour with no address) never refuses: the estimate stands.
+  if (visitPoint && company.travelCheckEnabled) {
+    const travelBuffer = company.travelBufferMinutes || 0;
+    const drive = await verifySlotTravel({ eventType, start, end, destination: visitPoint, travelBuffer });
+    if (!drive.ok) {
+      const nextSlot = await nextVerifiedSlot({
+        eventType: eventTypeForMode({ company, eventType, mode: chosenMode }),
+        after: start,
+        destination: visitPoint,
+        travelBuffer,
+      }).catch((err) => {
+        console.error("[booking] next reachable time unavailable:", err?.message);
+        return null;
+      });
+      return NextResponse.json(
+        {
+          error: travelRefusal(refusalLanguage, nextSlot),
+          reason: "travel_infeasible",
+          nextSlot,
+          legs: drive.legs.map(({ leg, minutes, shortBy }) => ({ leg, minutes, shortBy })),
+        },
+        { status: 409 },
+      );
+    }
+  }
+
   // Create/find client record for this company
   let client = await db.client.findFirst({
     where: { companyId: company.id, email: bookingEmail },
@@ -326,18 +387,7 @@ export async function POST(request, { params }) {
     });
   }
 
-  // ── The visit address, geocoded ─────────────────────────────────────────
-  //
-  // Re-geocoded here rather than trusting coordinates from the browser: a
-  // client posting lat/lng directly could place an appointment anywhere, and
-  // these coordinates decide whether OTHER slots get offered. The availability
-  // step already resolved this address, so it's a cache hit at Google and the
-  // visitor sees no delay.
-  //
-  // A failed geocode stores the typed address with null coordinates. That's
-  // honest — the crew still needs the street address — and travel filtering
-  // treats missing coordinates as unknown rather than as the middle of the
-  // ocean.
+  // (The visit address is geocoded above, before the drive check.)
 
   // ── The estimate this visit is about, if the booking came from one ────────
   //
@@ -366,12 +416,6 @@ export async function POST(request, { params }) {
       q.client.email.trim().toLowerCase() === String(clientEmail).trim().toLowerCase();
     if (sameClient) linkedQuoteId = q.id;
   }
-  let visitPoint = null;
-  if (visitAddress && chosenMode === "visit") {
-    const hit = await geocodeAddress(visitAddress);
-    if (hit) visitPoint = { lat: hit.lat, lng: hit.lng };
-  }
-
   // ── The notes the crew reads ────────────────────────────────────────────
   //
   // Booking has no intake column, so these lines ARE the record of what the

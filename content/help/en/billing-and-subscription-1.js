@@ -205,6 +205,7 @@ export const ARTICLES = {
         blocks: [
           { p: "A banner across the top of the app reads **Free trial · 12 days left**, with **Choose a plan** beside it and, when your team size points to one, a recommended plan. The same choice is on **Account & Billing**. Choosing a plan during the trial keeps the days you have left: the plan starts, and is first charged, on the day the trial would have ended. See [[change-your-plan|Change your plan]]." },
           { p: "Once a plan is chosen, the banner names it and the date it starts, and says nothing is charged until then." },
+          { p: "**Verify your mobile number.** A few things cost FieldQuo real money every time they run, so before you choose a plan they ask for one verified mobile: sending text messages, getting a phone number or the AI receptionist, a crew texting line, bringing your own number, the AI calling a client, video posts and email campaigns. The first time you try one, FieldQuo explains and offers **Verify my mobile**; the same card is on **Account & Billing**. Enter a US or Canadian mobile, press **Text me a code**, and type the 6-digit code (it lasts 10 minutes). Internet (VoIP) numbers and landlines can't be used, and one number verifies one trial. Only the owner or an admin can do it. Everything else in the trial works without it, and choosing a plan unlocks these too." },
         ],
       },
       {

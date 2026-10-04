@@ -81,7 +81,11 @@ function applyData(row, data) {
 }
 function makeDb({ failCreate = false } = {}) {
   let n = 0;
-  const t = { smsDelivery: [], message: [], company: [{ id: "co_real", isDemo: false }, { id: "co_demo", isDemo: true }] };
+  // `subscription` since 2026-10-03: sendSms asks the trial phone gate
+  // (lib/trial/phoneGate.js), which reads the company's billing state. These
+  // companies have no Subscription and no trialEndsAt — not a card-free trial
+  // — so the gate stands aside and the sends below are exactly as before.
+  const t = { smsDelivery: [], message: [], subscription: [], company: [{ id: "co_real", isDemo: false }, { id: "co_demo", isDemo: true }] };
   const model = (name) => ({
     create: async ({ data }) => {
       if (failCreate && name === "smsDelivery") throw new Error('relation "SmsDelivery" does not exist');
@@ -104,7 +108,7 @@ function makeDb({ failCreate = false } = {}) {
       return { count: hit.length };
     },
   });
-  return { t, smsDelivery: model("smsDelivery"), message: model("message"), company: model("company"), platformErrorLog: { create: async () => ({}) } };
+  return { t, smsDelivery: model("smsDelivery"), message: model("message"), company: model("company"), subscription: model("subscription"), platformErrorLog: { create: async () => ({}) } };
 }
 
 globalThis.__smsCheckDb = makeDb();

@@ -229,6 +229,11 @@ const id = () => `fake_${nextId++}`;
 const fakeDb = {
   $transaction: (fn) => (typeof fn === "function" ? fn(fakeDb) : Promise.all(fn)),
 
+  // sendSms asks the trial phone gate (lib/trial/phoneGate.js, 2026-10-03),
+  // which reads the billing state. No Subscription and no trialEndsAt here —
+  // not a card-free trial — so the gate stands aside, as for a real company.
+  subscription: { findUnique: async () => null },
+
   company: {
     findUnique: async ({ where }) => {
       if (where.id === "COMPANY_THAT_EXPLODES") {

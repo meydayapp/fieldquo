@@ -25,6 +25,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import { startPort, BILL_MAX_BYTES } from "@/lib/businessNumber/store";
+import { phoneGateResponse } from "@/lib/trial/phoneGate";
 
 export async function POST(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -34,6 +35,11 @@ export async function POST(request) {
   } catch {
     return NextResponse.json({ error: "Only an owner or admin can do this." }, { status: 403 });
   }
+
+  // A card-free trial verifies a mobile before this spends FieldQuo money
+  // (lib/trial/phoneGate.js). Paid companies never reach a refusal here.
+  const phoneGate = await phoneGateResponse(member, "business_number");
+  if (phoneGate) return phoneGate;
 
   let form;
   try {

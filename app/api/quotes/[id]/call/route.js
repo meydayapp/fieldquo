@@ -34,6 +34,7 @@ import {
   QUOTE_CALLBACK_SELECT,
   quoteCallContext,
 } from "@/lib/voice/triggers";
+import { phoneGateResponse } from "@/lib/trial/phoneGate";
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -60,6 +61,11 @@ export async function POST(request, { params }) {
     "call this client about their quote",
   );
   if (unpaid) return unpaid;
+
+  // A card-free trial verifies a mobile before this spends FieldQuo money
+  // (lib/trial/phoneGate.js). Paid companies never reach a refusal here.
+  const phoneGate = await phoneGateResponse(member, "ai_call");
+  if (phoneGate) return phoneGate;
 
   // Scoped in the WHERE. A quote id from another tenant resolves to nothing
   // rather than to their customer's phone number.

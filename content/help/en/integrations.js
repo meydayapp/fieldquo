@@ -439,6 +439,7 @@ const PART_1 = {
             ],
           } },
           { p: "A refused file gets a sentence, not a spinner: **Upload a photo (JPEG, PNG, HEIC…), a video (MP4, MOV, WebM) or a PDF.** or **That photo is larger than 15 MB. Try a smaller photo.** A PDF is stored byte for byte with a random name; the filename you uploaded is never part of the address." },
+          { p: "Before a photo leaves your phone or computer, FieldQuo shrinks it to **2,560 pixels on its longest side** (sharp enough for any quote, invoice or website) and removes the **GPS location** your camera wrote into it, so a job photo on a public quote never gives away where it was taken. A photo already that size or smaller keeps its pixels and only loses the location. A drawing sheet rendered from a PDF plan is never shrunk. An HEIC photo on Chrome or Firefox goes up as it is." },
         ],
       },
       {

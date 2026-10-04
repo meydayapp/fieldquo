@@ -58,6 +58,23 @@ export async function POST(request) {
   const { data, error } = parsePlanFields(body, { partial: false });
   if (error) return NextResponse.json({ error }, { status: 400 });
 
+  // ── The AI allowance is FieldQuo's money, so superadmin only ────────────
+  //
+  // The same bar /api/platform/ai-usage's PATCH sets for a company's cap:
+  // raising it raises what FieldQuo pays OpenAI for every company on the
+  // plan. An admin may still edit the plan's other fields; only a CHANGE to
+  // this one is refused.
+  if (
+    "aiMonthlyAllowanceCents" in data &&
+    data.aiMonthlyAllowanceCents !== null &&
+    admin.role !== "superadmin"
+  ) {
+    return NextResponse.json(
+      { error: "Only superadmins can change a plan's AI allowance." },
+      { status: 403 },
+    );
+  }
+
   const plan = await db.plan.create({ data });
 
   // Plan updates and deletions were audited; creation was not — so a plan

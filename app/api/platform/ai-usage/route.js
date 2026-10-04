@@ -13,7 +13,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
-import { DEFAULT_TRIAL_CAP } from "@/lib/ai/usage";
+import { DEFAULT_TRIAL_CAP, resolveAiCap, AI_CAP_SELECT, blendedMicrosPerMillion } from "@/lib/ai/usage";
 
 function startOfMonth(offset = 0) {
   const d = new Date();
@@ -28,7 +28,13 @@ export async function GET(request) {
   const thisMonth = startOfMonth();
   const lastMonth = startOfMonth(-1);
 
-  const [current, previous, companies, featureSplit] = await Promise.all([
+  // The last 30 days, for the measured blended rate — what a million tokens
+  // has actually cost across every company's calls. /platform/billing/plans
+  // converts each plan's token cap to dollars with it, so the dollar
+  // allowance a superadmin types is compared against a real figure, not a
+  // guess about the model mix.
+  const blendedSince = new Date(Date.now() - 30 * 86400000);
+  const [current, previous, companies, featureSplit, blendedSum] = await Promise.all([
     db.aiUsage.groupBy({
       by: ["companyId"],
       where: { createdAt: { gte: thisMonth } },
@@ -46,16 +52,21 @@ export async function GET(request) {
       select: {
         id: true,
         name: true,
-        aiMonthlyTokenCap: true,
         onboardingStatus: true,
-        subscription: {
-          select: { plan: { select: { name: true, aiMonthlyTokenCap: true } } },
-        },
+        // The same select getAiCap reads, so this table and the gate resolve
+        // a company's cap with one function (resolveAiCap) — this route used
+        // to restate the chain inline, and the copy is the one that rots.
+        ...AI_CAP_SELECT,
       },
     }),
     db.aiUsage.groupBy({
       by: ["feature"],
       where: { createdAt: { gte: thisMonth } },
+      _sum: { totalTokens: true, costMicros: true },
+      _count: true,
+    }),
+    db.aiUsage.aggregate({
+      where: { createdAt: { gte: blendedSince }, paidFromWallet: false },
       _sum: { totalTokens: true, costMicros: true },
       _count: true,
     }),
@@ -70,8 +81,11 @@ export async function GET(request) {
     .map((u) => {
       const c = byId.get(u.companyId);
       const planCap = c?.subscription?.plan?.aiMonthlyTokenCap;
-      const effectiveCap =
-        c?.aiMonthlyTokenCap ?? planCap ?? DEFAULT_TRIAL_CAP;
+      const resolved = resolveAiCap(c);
+      const effectiveCap = resolved.cap;
+      // Measured in the cap's own unit: dollars (micros) against a dollar
+      // allowance, tokens against a token cap.
+      const measured = resolved.unit === "dollars" ? u._sum.costMicros || 0 : u._sum.totalTokens || 0;
 
       return {
         companyId: u.companyId,
@@ -84,11 +98,14 @@ export async function GET(request) {
         lastMonthTokens: prevById.get(u.companyId) || 0,
         companyCap: c?.aiMonthlyTokenCap ?? null,
         planCap: planCap ?? null,
+        planAllowanceCents: c?.subscription?.plan?.aiMonthlyAllowanceCents ?? null,
         effectiveCap,
+        capUnit: resolved.unit,
+        capSource: resolved.source,
         // null cap = unlimited, so percentage is meaningless there.
         percentUsed:
           effectiveCap && effectiveCap > 0
-            ? Math.round(((u._sum.totalTokens || 0) / effectiveCap) * 100)
+            ? Math.round((measured / effectiveCap) * 100)
             : null,
       };
     })
@@ -112,6 +129,18 @@ export async function GET(request) {
       .sort((a, b) => b.tokens - a.tokens),
     rows,
     defaultCap: DEFAULT_TRIAL_CAP,
+    blended: {
+      since: blendedSince,
+      tokens: blendedSum?._sum?.totalTokens || 0,
+      costMicros: blendedSum?._sum?.costMicros || 0,
+      calls: blendedSum?._count || 0,
+      // Null with no usage — the plans page then says "no usage to measure"
+      // rather than converting at an invented rate.
+      microsPerMillion: blendedMicrosPerMillion({
+        tokens: blendedSum?._sum?.totalTokens,
+        costMicros: blendedSum?._sum?.costMicros,
+      }),
+    },
   });
 }
 

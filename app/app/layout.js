@@ -17,6 +17,7 @@ import SetupIncomplete from "@/app/components/layout/SetupIncomplete";
 import ToastLayer from "@/app/components/ToastLayer";
 import UploadProgress from "@/app/components/UploadProgress";
 import PlanRequiredPrompt from "@/app/components/PlanRequiredPrompt";
+import PhoneVerifyPrompt from "@/app/components/PhoneVerifyPrompt";
 import AppTours from "@/app/components/AppTours";
 import JenniferPanel from "@/app/components/jennifer/JenniferPanel";
 import OfflineShell from "@/app/components/offline/OfflineShell";
@@ -657,6 +658,7 @@ export default async function AppLayout({ children }) {
           screen that can send something, and the alternative is nine copies of
           one modal. */}
       <PlanRequiredPrompt />
+      <PhoneVerifyPrompt />
       {/* First-visit walkthroughs. Mounted once here so a page never has to
           wire its own — it just needs a data-tour anchor. See tours.js. */}
       <AppTours />

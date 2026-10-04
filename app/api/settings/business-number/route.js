@@ -39,6 +39,7 @@ import {
 import { monthlyEstimate, EXAMPLE_VOLUMES, PORT_FEE_NOTE, BUSINESS_CALL_CENTS_PER_MINUTE } from "@/lib/businessNumber/costs";
 import { portSecretsConfigured } from "@/lib/businessNumber/secrets";
 import { TIMELINES } from "@/lib/businessNumber/state";
+import { phoneGateResponse } from "@/lib/trial/phoneGate";
 
 async function gate(request, { read = false } = {}) {
   const { member, response } = await memberOrRefusal(request);
@@ -163,7 +164,11 @@ export async function POST(request) {
         });
       }
       break;
-    case "hosted":
+    case "hosted": {
+      // A card-free trial verifies a mobile before this spends FieldQuo money
+      // (lib/trial/phoneGate.js). Paid companies never reach a refusal here.
+      const phoneGate = await phoneGateResponse(member, "business_number");
+      if (phoneGate) return phoneGate;
       result = await startHosted({ companyId, form: body.form || {}, origin });
       if (result.ok) {
         await recordActivity(member, {
@@ -174,6 +179,7 @@ export async function POST(request) {
         });
       }
       break;
+    }
     case "verify_call":
       result = await startVerificationCall({ companyId, extension: body.extension || null });
       break;

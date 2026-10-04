@@ -82,6 +82,59 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Four cost savers, owner-approved (3 October 2026)
+
+### 1. Photos shrink before they upload — shipped
+
+- `lib/media/shrinkImage.js`, called by `uploadFile()` (lib/media/uploadClient.js) BEFORE the sign step, so the size declared to the server is the size sent. Every staff, portal and self-quote upload goes through it.
+- A photo over **2,560 px** on its long side is resized to it and re-encoded at **0.85** (JPEG stays JPEG, PNG stays PNG with its alpha, WebP stays WebP); a JPEG/WebP under the cap but over 1.5 MB is re-encoded; a decodable HEIC (Safari) becomes a JPEG; an undecodable HEIC (Chrome/Firefox), GIF, SVG, video and PDF go up untouched. Never upscales; a result is kept only when it is smaller; any failure sends the original.
+- **GPS removed**: a re-encoded photo carries no EXIF (orientation applied to the pixels first); a photo small enough to keep has its EXIF GPS IFD zeroed in place (`stripJpegGps`, `stripPngGps` — orientation, camera, date kept; XMP naming a coordinate dropped). Checked first that nothing reads a photo's GPS: crew attribution uses Twilio's MMS Latitude/Longitude, location stamps use browser geolocation.
+- The drawing-read purpose (`plans`) is never resized; `pdfPages.js` passes `shrink: false` (its sheets are 3,000 px on purpose).
+- Not a Cloudinary incoming transformation: that is billed per upload and the full bytes would still cross the phone's connection. The server's sign/verify caps are untouched — the shrinker is an optimisation, never a control.
+- Measured (`check:shrink-image`, sharp standing in for the canvas): a detailed 4032×3024 q92 photo 2.75 MB → 2560×1920 0.82 MB (−70%); a smooth one 0.63 → 0.16 MB (−74%).
+- Help: integrations › "Photos and files (Cloudinary)", Overview (en/fr/es).
+
+### 2. The AI allowance in dollars per plan — shipped (column applied in production 2026-10-03)
+
+- `Plan.aiMonthlyAllowanceCents` (US cents of FieldQuo's model cost). `lib/ai/usage.js` `resolveAiCap` is the one place the unit is decided: Company.aiMonthlyTokenCap (override, tokens) → **Plan.aiMonthlyAllowanceCents (dollars)** → Plan.aiMonthlyTokenCap (tokens) → DEFAULT_TRIAL_CAP 750,000 tokens. `allowanceVerdict` measures `costMicros` against a dollar cap and tokens against a token cap; `used`/`cap` always share a unit. Cost is `estimateCostMicros` with the real PRICING table, cached input at 10%.
+- **No change for anyone until a plan row gets a dollar figure.** Found while doing it: a plan with a NULL token cap has never meant unlimited (the schema comment said so; the code gave the 750,000 default) — kept as it was, comment corrected. Making null unlimited would raise spend, so it is the owner's call.
+- The copilot's fair-use ceiling (FieldQuo's ledger) follows the same unit, from `PlatformAiUsage.costMicros`.
+- `/platform/billing/plans`: "AI allowance (US$ / month)" field (superadmin only — the routes refuse an admin's change), and every plan card prints its AI line: "US$5.00/mo allowance", or "250,000 tokens/mo ≈ US$0.05 at the 30-day blended rate" (measured: `/api/platform/ai-usage` now returns `blended`, sum of costMicros ÷ tokens over 30 days). `/platform/ai-usage` resolves caps with the same function and shows a dollar cap in dollars.
+- Company side: `GET /api/ai/allowance` → Settings › Account & Billing card "FieldQuo AI this month — US$1.20 of US$5.00 AI used this month" (tools line + the assistant's own line); the copilot shows the same line under its subtitle. The quote/invoice review and call-draft routes ship the same `allowanceDisplay` shape (they sent tokens beside a cap that can now be micros).
+- Conversion for the owner (no live plan rows were read — a production read was refused; the plans screen shows the real conversion per row). Blended at the typical 94% prompt / 6% completion mix, no cache: gpt-5-mini US$0.18/M tokens, gpt-5.4 US$3.28/M, gpt-5.5 US$6.56/M. 100k tokens ≈ $0.02 / $0.33 / $0.66; 250k ≈ $0.05 / $0.82 / $1.64; 750k (default) ≈ $0.14 / $2.46 / $4.92; 2M ≈ $0.37 / $6.56 / $13.13.
+- SQL (additive, applied in production 2026-10-03): `ALTER TABLE "Plan" ADD COLUMN "aiMonthlyAllowanceCents" INTEGER;`
+- Checks: `check:ai-dollar-allowance` (68), `check:ai-allowance` updated for the unit. Help: Getting started › FieldQuo AI › "The monthly allowance" (en/fr/es). Strings: `app.aiAllowance.*` in all nine languages.
+- **Owed — owner:** dollar figures per plan (type them on /platform/billing/plans); whether a NULL plan should mean unlimited.
+
+### 3. Booking drive times: offline on the calendar, Google only at booking — shipped
+
+- `lib/booking/computeAvailability.js` travelIndex now uses `estimateTravel` only (straight line × 1.35 at 32 km/h). It used to call Distance Matrix per distinct address on every calendar load — ≈ US$105/month in the heavy case (US$5 per 1,000 elements). The rationale is in the code comment there and in `lib/booking/verifyTravel.js`.
+- `lib/booking/verifyTravel.js`: `verifySlotTravel` asks Google for the two legs around the ONE time being booked (≈ 2 elements ≈ US$0.01 per booking; in-memory cache 6 h, Google answers only — a failure falls back to the estimate and is not cached). `loadBusyRanges` and `slotNeighbours` are shared with the calendar so the two weigh the same neighbours. Unknown never refuses.
+- Confirm route: the address is geocoded once, before anything is written; with the travel check on, an infeasible time is refused **409 travel_infeasible** in en/fr/es with `nextSlot` — the first later offered time that passes the same Google check (at most 3 checked, 7 days). The booking page selects it and the visitor presses the button; never booked for them, never double-booked. Reschedule (/api/visit/[token]/reschedule) gets the same check, after the grid check, respecting the notice window; the visit page selects the next time (`travelNext`/`travelNone` in the eight client languages).
+- Not changed: the staff-side move checks (`/api/appointments/[id]`, `/api/jobs/[id]/visits/[visitId]`) still ask Google per edit — staff actions, not browsing; the booking page's per-address geocode is unchanged.
+- Docs: docs/BOOKING.md rule 5 and "Not covered yet". Help: Jobs and scheduling › Arrival windows and travel buffer (en/fr/es). Check: `check:booking-drive-check` (45); `check:booking-modes` count relaxed (≥ 2 uses of the mode sizing in the reschedule route).
+
+### 4. A card-free trial verifies a mobile before spending FieldQuo money — shipped (schema applied in production 2026-10-03)
+
+- `lib/trial/phoneGate.js`: asked only when `accessForCompany` says **trial_no_plan** (no Subscription, trialEndsAt ahead), not a demo, not yet verified. Paid companies — any Subscription row, incl. a card trial — are never asked and never read the company row for it.
+- Gated, at the place that spends: `sendSms` (every tenant text — refused as `{ success:false, code }`, which every caller handles), `POST /api/settings/voice/number` (a line + ~US$10.50 starter credit), crew line **buy** (search is free), business number **hosted** + **port**, `POST /api/quotes/[id]/call` (AI calls a client), `POST /api/marketing/video-posts`, `POST /api/marketing/campaigns/[id]/send`. Refusal: 403 `phone_verification_required` + `phoneVerification.path`; `lib/fetchJson.js` and `reportResponseError` open `PhoneVerifyPrompt` (mounted in app/app/layout.js). Not gated: FieldQuo-paid AI (copilot/receipts/translation) — each already has a per-company ceiling.
+- `/app/settings/verify-phone` (+ an Account & Billing card while it is owed): why, the list it unlocks, mobile → 6-digit code → verified. Owner/admin only. Strings `app.phoneVerify.*` in all nine languages.
+- **Sender, by price** (checked 2026-10-03): own Twilio number US$0.0083/SMS vs Twilio Verify US$0.05 per verification + the same per-SMS fee → own number is the default (our code, stored only as an HMAC). Verify only for a **US** mobile while the system number is not A2P-registered (US texts from it fail with 30034) AND `TWILIO_VERIFY_SERVICE_SID` is set; otherwise a US trial is not asked (a code that can't arrive is a gate nobody can pass). Lookup line type US$0.008/number — trivial, so it is used: VoIP/landline/toll-free/pager refused, Lookup down lets the number through, answer reused 30 days.
+- Limits: 60 s between sends, 3/hour, 6/day per company, 5/day per number across companies; code lives 10 min, 5 tries; one number verifies one trial (re-asked at the write).
+- SQL (additive, applied in production 2026-10-03):
+  `ALTER TABLE "Company" ADD COLUMN "trialPhoneE164" TEXT, ADD COLUMN "trialPhoneVerifiedAt" TIMESTAMP(3);`
+  `CREATE TABLE "PhoneVerification" ("id" TEXT NOT NULL, "companyId" TEXT NOT NULL, "userId" TEXT, "e164" TEXT NOT NULL, "sender" TEXT NOT NULL, "codeHash" TEXT, "lineType" TEXT, "attempts" INTEGER NOT NULL DEFAULT 0, "status" TEXT NOT NULL DEFAULT 'pending', "expiresAt" TIMESTAMP(3) NOT NULL, "verifiedAt" TIMESTAMP(3), "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "PhoneVerification_pkey" PRIMARY KEY ("id"));`
+  `CREATE INDEX "PhoneVerification_companyId_createdAt_idx" ON "PhoneVerification"("companyId", "createdAt");`
+  `CREATE INDEX "PhoneVerification_e164_createdAt_idx" ON "PhoneVerification"("e164", "createdAt");`
+  `CREATE INDEX "Company_trialPhoneE164_idx" ON "Company"("trialPhoneE164");`
+- Env (docs/VERCEL.md): `TWILIO_VERIFY_SERVICE_SID` (optional, US case), `PHONE_CODE_SECRET` (optional, falls back to BETTER_AUTH_SECRET).
+- Checks: `check:trial-phone-verification` (120, scripted DB and Twilio — never a real text); `check:sms-delivery` / `check:sales-sms` fixtures gained the Subscription read; `check:nav-audit` names the page as a drill-in. Help: Billing › Start your free trial › What you see during the trial (en/fr/es).
+- **Owed — owner:** create a Verify service if US trials should be gated before US A2P registration.
+
+**Deploy order:** the SQL in items 2 and 4 is applied in production, so the code can deploy (every Plan read selects `aiMonthlyAllowanceCents`, and the gate selects the Company columns).
+
+---
+
 ## Facebook / Instagram history, attachments, fair scoring, and the FB lead check (3 October 2026)
 
 The owner, 2026-10-03: "the leads doesn't seem to fetch all the leads from

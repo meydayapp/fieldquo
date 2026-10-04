@@ -114,6 +114,10 @@ export async function load(url, context, nextLoad) {
   if (url === "fq-stub:usage") return mod([
     "export async function checkAiQuota() { return { allowed: true, usage: { tokens: 0 }, cap: 1000000, remaining: 1000000, nearLimit: false }; }",
     "export async function recordAiUsage() { return null; }",
+    // The copilot route ships allowanceDisplay(quota) since 2026-10-03 (the
+    // dollar AI allowance); the stub answers "uncapped", as checkAiQuota's
+    // stand-in above is not the thing under test here.
+    "export function allowanceDisplay() { return null; }",
   ].join("\\n"));
   if (url === "fq-stub:sales-knowledge") return mod("export async function salesKnowledge() { return {}; } export function renderSalesKnowledge() { return 'stub'; }");
   if (url === "fq-stub:rate") return mod("export function rateLimit() { return null; }");

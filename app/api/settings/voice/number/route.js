@@ -53,6 +53,7 @@ import { provisionAgent } from "@/lib/voice/provision";
 import { diagnoseNumber } from "@/lib/voice/diagnose";
 import { provisionSimulatedNumber } from "@/lib/voice/demoLine";
 import { getAppOrigin } from "@/lib/appUrl";
+import { phoneGateResponse } from "@/lib/trial/phoneGate";
 
 /**
  * Why they can't buy one, said in terms of what is actually wrong.
@@ -152,6 +153,11 @@ export async function POST(request) {
   } catch {
     return NextResponse.json({ error: "Only an owner or admin can do this." }, { status: 403 });
   }
+
+  // A card-free trial verifies a mobile before this spends FieldQuo money
+  // (lib/trial/phoneGate.js). Paid companies never reach a refusal here.
+  const phoneGate = await phoneGateResponse(member, "phone_number");
+  if (phoneGate) return phoneGate;
 
   const body = await request.json().catch(() => ({}));
   const source = ["forwarded", "purchased", "ported"].includes(body.source)

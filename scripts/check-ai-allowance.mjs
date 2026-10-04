@@ -91,18 +91,32 @@ ok(
   "lib/ai/usage.js warns below the cap rather than only at it",
   /WARN_THRESHOLD\s*=\s*0\.8/.test(usage),
 );
+// Since the allowance has a unit (2026-10-03: dollars when the plan says so,
+// tokens otherwise), `used` is whichever the cap is counted in — so the
+// threshold is applied to `used`, and the route ships allowanceDisplay(),
+// whose `used` and `cap` are always the same unit. Both executed below, not
+// only read: allowanceDisplay is pure.
 ok(
   "...and sets nearLimit from that threshold, not from allowed===false",
-  /const nearLimit = usage\.tokens >= cap \* WARN_THRESHOLD/.test(usage),
+  /const nearLimit = used >= cap \* WARN_THRESHOLD/.test(usage),
 );
 ok(
   "the copilot route puts used/cap/nearLimit on a SUCCESSFUL reply",
-  /nearLimit: quota\.nearLimit/.test(route) && /used: quota\.usage\.tokens/.test(route),
+  /usage: allowanceDisplay\(quota\)/.test(route),
 );
-ok(
-  "...and sends null rather than an invented ceiling when the account is uncapped",
-  /quota\.cap\s*\?[\s\S]{0,200}?:\s*null/.test(route),
-);
+{
+  const { allowanceVerdict, allowanceDisplay } = await import("../lib/ai/usage.js").catch(() => ({}));
+  const near = allowanceDisplay?.(allowanceVerdict({ usage: { tokens: 900 }, cap: 1000 }));
+  ok(
+    "...carrying used, cap and nearLimit in one unit (900 of 1,000 tokens → 90%, warned)",
+    near && near.used === 900 && near.cap === 1000 && near.nearLimit === true && near.pct === 90,
+    JSON.stringify(near),
+  );
+  ok(
+    "...and sends null rather than an invented ceiling when the account is uncapped",
+    allowanceDisplay?.(allowanceVerdict({ usage: { tokens: 5 }, cap: null })) === null,
+  );
+}
 ok(
   "the route refuses an exhausted allowance with a machine-readable flag, not only English",
   /quotaExceeded: true/.test(route) && /status: 429/.test(route),

@@ -199,6 +199,7 @@ export const ARTICLES = {
         blocks: [
           { p: "Un aviso en la parte superior de la app dice **Prueba gratuita · quedan 12 días**, con **Elegir un plan** al lado y, cuando el tamaño de su equipo apunta a uno, un plan recomendado. La misma opción está en **Cuenta y facturación**. Elegir un plan durante la prueba conserva los días que le quedan: el plan empieza, y se cobra por primera vez, el día en que la prueba habría terminado. Vea [[change-your-plan|Cambiar de plan]]." },
           { p: "Una vez elegido un plan, el aviso lo nombra con su fecha de inicio y dice que no se cobra nada hasta entonces." },
+          { p: "**Verifique su número de celular.** Algunas funciones le cuestan dinero real a FieldQuo cada vez que se usan, así que antes de que elija un plan piden un celular verificado: enviar mensajes de texto, obtener un número de teléfono o la recepcionista de IA, una línea de mensajes para el equipo, traer su propio número, que la IA llame a un cliente, las publicaciones de video y las campañas de correo. La primera vez que intente una, FieldQuo lo explica y ofrece **Verificar mi celular**; la misma tarjeta está en **Cuenta y facturación**. Escriba un celular de EE. UU. o Canadá, pulse **Enviarme un código** y escriba el código de 6 dígitos (dura 10 minutos). No se aceptan números de internet (VoIP) ni fijos, y un número verifica una sola prueba. Solo el propietario o un administrador puede hacerlo. Todo lo demás de la prueba funciona sin esto, y elegir un plan también las desbloquea." },
         ],
       },
       {

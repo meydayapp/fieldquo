@@ -14,7 +14,7 @@ import { recordFeatureUse } from "@/lib/analytics/product/server";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { requirePermission } from "@/lib/permissions";
 import { reviewQuote } from "@/lib/ai/quoteReview";
-import { checkAiQuota, recordAiUsage } from "@/lib/ai/usage";
+import { checkAiQuota, recordAiUsage, allowanceDisplay } from "@/lib/ai/usage";
 import { AI_MODEL } from "@/lib/ai/provider";
 import { hasToggle } from "@/lib/permissions/enforce";
 import { canWriteCostBasis } from "@/lib/permissions/costBasis";
@@ -142,9 +142,7 @@ export async function POST(request, { params }) {
       // Stored whole; sent as this reader may see it.
       review: forReader(review, member, full),
       reviewedAt: saved.aiReviewedAt,
-      usage: quota.cap
-        ? { used: quota.usage.tokens, cap: quota.cap, nearLimit: quota.nearLimit }
-        : null,
+      usage: allowanceDisplay(quota),
     });
   } catch (err) {
     console.error("[quotes/review]", err);

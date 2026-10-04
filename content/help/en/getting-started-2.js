@@ -389,6 +389,7 @@ export const ARTICLES = {
         blocks: [
           { p: "FieldQuo AI is included in every plan; there is nothing to buy. Each company has a monthly allowance shared by everything AI does for you — this assistant, the quote review, the website builder's copy, the AI employee's drafts. At 80% the screen shows a warning: “You've used {pct}% of this month's FieldQuo AI allowance.”" },
           { p: "When it runs out the question box is disabled and the screen says **This month's FieldQuo AI allowance is used up.** It resets at the start of next month, and everything else in FieldQuo carries on as normal. Buying AI credit on **Settings → AI credit** does not raise it — that credit is for phone minutes and AI images; get in touch if you need a bigger allowance." },
+          { p: "The allowance is set by your plan. A plan can give it **in dollars** — what the AI behind these features actually costs, so a long, detailed answer uses more of it than a short one — and then **Settings → Account & Billing** shows **FieldQuo AI this month** with a line such as “US$1.20 of US$5.00 AI used this month”, in US dollars whatever your plan's currency. A plan still counted the older way shows what has been used in dollars and the share of the allowance gone. The assistant here is counted on its own line, against a ceiling of the same size. The AI employee is not counted in either: it is paid from your AI credit." },
         ],
       },
       {

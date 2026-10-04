@@ -436,6 +436,7 @@ const PART_1 = {
             ],
           } },
           { p: "Un fichier refusé reçoit une phrase, pas une roue qui tourne : le message dit de téléverser une photo (JPEG, PNG, HEIC…), une vidéo (MP4, MOV, WebM) ou un PDF, ou qu'une photo dépasse 15 Mo et d'en essayer une plus petite. Un PDF est conservé octet pour octet sous un nom aléatoire ; le nom du fichier que vous avez téléversé ne fait jamais partie de l'adresse." },
+          { p: "Avant qu'une photo quitte votre téléphone ou votre ordinateur, FieldQuo la réduit à **2 560 pixels sur son plus grand côté** (assez net pour toute soumission, facture ou site web) et retire la **position GPS** que votre appareil y a inscrite : une photo de chantier sur une soumission publique ne révèle jamais où elle a été prise. Une photo déjà de cette taille ou plus petite garde ses pixels et perd seulement la position. Une feuille de plan tirée d'un PDF n'est jamais réduite. Une photo HEIC sur Chrome ou Firefox monte telle quelle." },
         ],
       },
       {
