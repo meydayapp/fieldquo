@@ -1,5 +1,6 @@
 # FieldQuo — current phase and what's left
 
+Last updated: 4 October 2026 (the AI employee's tool loop moves gpt-5.5 to the Responses API — it had never replied in production; failures now filed on /platform/errors; ai-health ?tools=1 probes each tier — see "The AI employee had never replied in production — fixed" below)
 Last updated: 3 October 2026 (team chat's seven live bugs: @mentions no longer draw "[object Object]", Share with staff names its rooms, "Message {name}" opens the DM, links are tappable (http/https only), "Open job chat" on the job page for the room's members, @everyone is the office's only, and the Chat tab shows its unread number — see "Team chat: seven live bugs fixed" below)
 Last updated: 3 October 2026 (email templates in the client's language — the owner: "starter email templates … in various language that matches the client's language … if each email created costs more than 5 cents for translation … we might charge the company". (1) Starters are hand-written in all eight document languages and created in the COMPANY's language: the six starter emails + subjects + new-block placeholders (lib/i18n/emailStarterCopy.js; English byte-identical, md5-pinned) and the four starter funnels, the blank funnel and the AI funnel generator (lib/i18n/funnelStarterCopy.js, written in funnelPageLanguage; budget figures grouped per language). DocumentTemplate.language now records the language an ordinary email template is WRITTEN in ("Written in" in the editor). (2) A company's own follow-up/campaign template gets a "Translations" panel: per language Translate / Review-Edit / Update / Regenerate / Write it yourself; drafted once per template version per language via lib/ai/provider.js (only changed lines on Update), stored in the new TemplateTranslation table, never used until a person presses Approve & use, never redrafted at send time. Sends (campaign route, follow-up cron) use the approved, current translation for the reader's language (document language first, non-negotiable 6) else the original — never held up. {{tokens}}, HTML, links, emails and amounts are hidden behind ⟦n⟧ markers before the model sees the text; a reply that drops/doubles/alters/adds one is refused line by line and left empty. (3) Money: lib/ai/emailTranslationMeter.js — AI credit when the company has it (cost × 2, ≥ 1¢, kind email_translation), otherwise FieldQuo absorbs while a version's estimate ≤ 5¢ and the company's absorbed month ≤ $1.00 (MONTHLY_ABSORB_CAP_MICROS), else "needs AI credit"; measured cost (cached prompt at 10%) stored on the row and shown in the panel; /platform/ai-billing switch "email_translation". Estimated 0.09–0.18¢ per 150–300-word email per language on the standard model. NOT YET LIVE until the TemplateTranslation SQL is applied — until then the panel hides itself (GET answers ready:false) and sends go out in the original (translationsForSend never throws); the starters in the company language work without it. check:email-template-translation (196 checks).)
 Last updated: 3 October 2026 (role access confirmed per role — `check:role-access` runs the real routes as Owner/Admin/Manager/Dispatcher/Estimator/Crew; 40 leaks fixed, see docs/ROLE-ACCESS.md and "Who sees what" below)
@@ -80,6 +81,70 @@ than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## The AI employee had never replied in production — fixed (4 October 2026)
+
+Vercel, `POST /api/meta/messaging/webhook`:
+`[aiEmployee] reply failed: 400 Function tools with reasoning_effort are not
+supported for gpt-5.5 in /v1/chat/completions. To use function tools, use
+/v1/responses or set reasoning_effort to 'none'.` Every company, every reply,
+since launch. The employee runs `runToolLoop` on the best tier (gpt-5.5) at
+medium effort; Chat Completions refuses tools + reasoning_effort for that
+model. The copilot and Jennifer run the same loop on gpt-5-mini, where it works,
+which is why nothing else noticed.
+
+### What shipped (not deployed — unpushed branch)
+
+- **`lib/ai/provider.js`** — a capability table (`TOOL_LOOP_CAPABILITIES`,
+  `toolLoopApiFor(model)`) sends the gpt-5.5 family's tool loops to the
+  **Responses API**: flat function tools with `strict: false` (the Responses
+  default is true), `reasoning.effort` kept, `instructions` for the system
+  prompt, `store: false` with `include: ["reasoning.encrypted_content"]`, and
+  every round's output items (reasoning + function_call) replayed verbatim
+  before their `function_call_output`s. Same budget, rounds, tool executor,
+  out-of-rounds text and return shape; usage maps input/output/cached tokens
+  onto the same `onUsage` fields (cached now priced at the cached rate on this
+  path). Everything else stays on Chat Completions — the gpt-5-mini request
+  bodies are md5-identical to the pre-fix provider. Optional `timeoutMs` /
+  `signal` go to the SDK as request options, only when a caller names one.
+  Effort "none" was rejected: it would charge the best model's rate for a
+  reply with no thinking.
+- **`lib/aiEmployee/respond.js`** — a vendor failure is now FILED in
+  PlatformErrorLog (area `ai-employee`, code `provider_error`, redacted and
+  truncated by `vendorErrorSummary`, with reply/thread/message/employee ids,
+  model, API, status and OpenAI request id — never the homeowner's words), not
+  only `console.error`. The system prompt is built before the vendor call: a
+  failure there is `prompt_error` (its own stop reason, sentence in all nine
+  languages on the handling timeline, its own error code), never "the AI
+  service returned an error". No schema change — AiEmployeeReply has no error
+  column and does not need one.
+- **`/api/platform/ai-health?tools=1`** — runs `lib/ai/toolLoopProbe.js` per
+  tier (the shipped runToolLoop, one trivial tool, low effort) and reports
+  `toolLoop.standard` / `toolLoop.best` with model, API, reply and error.
+  **Opt-in**: /platform loads this route on every visit and the best tier's
+  probe costs about a cent, so running it on every load is the owner's call.
+
+### Checks
+
+`check:ai-tool-loop` (new, 69 assertions, stubbed vendor — never the live API):
+the table, the md5 pin of the chat bodies, two Responses tool rounds with
+parallel calls and bad JSON, usage sums, images, out-of-rounds, empty output,
+a `failed` body, a vendor 400, the redactor, the probe (fake and real loop),
+and the best model's cached price. `check:ai-employee` files a vendor 400 and a
+prompt failure through `respondToMessage`.
+
+### Owed (live only)
+
+- Deploy, then `GET /api/platform/ai-health?tools=1` as a superadmin: both
+  tiers should say `ok: true`, best via `responses`.
+- Send one real message to a company with an employee switched on; the reply
+  row should carry text and a cost, and /platform/errors should stay empty
+  under `ai-employee`.
+- Not verified offline: that OpenAI accepts this exact body for gpt-5.5 (the
+  shapes are the SDK 7.0.0 typings, not a live call). If it refuses, the
+  vendor's message now lands on /platform/errors.
 
 ---
 
