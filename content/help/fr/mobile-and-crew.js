@@ -238,7 +238,7 @@ export const ARTICLES = {
     title: "Ce qu'un équipier voit",
     summary:
       "Le niveau d'accès Crew vu de l'intérieur : quelles lignes de menu apparaissent, ce qu'une page de chantier montre et cache, et pourquoi les prix ne sont nulle part.",
-    updated: "2026-09-12",
+    updated: "2026-10-04",
     intro: [
       "**Crew** est le niveau d'accès des gens dans le camion — installateurs, aides, un deuxième peintre. Il ne coûte rien à l'entreprise et il est volontairement étroit : votre propre horaire, les chantiers où vous êtes réservé, la pointeuse, les congés, la sécurité, vos propres bulletins de paie. Aucun prix nulle part, pas de soumissions, pas de factures, pas de prospects, et pas de liste de clients.",
       "Cet article décrit ce que ça donne sur le téléphone. Il est écrit à partir de la grille de permissions du produit lui-même, alors il dit ce que le menu fait vraiment; si votre propriétaire vous a donné une grille personnalisée, certaines lignes peuvent différer.",
@@ -282,6 +282,7 @@ export const ARTICLES = {
             "Le **nom et l'adresse** du client, et l'adresse du site. Le numéro de téléphone et le courriel sont retenus par votre niveau — la page du chantier le dit à côté du bouton En route, et le client reçoit quand même le texto.",
             "**Visites** : la date et l'heure, qui est assigné, la liste de vérification avec ses points d'arrêt, et — sur les visites qui vous sont assignées — **En route**, **Marquer comme terminée** et **Annuler la visite**.",
             "**Matériaux à acheter**, en liste avec les quantités et sans prix.",
+            "Le **bon de travail** (depuis la page du chantier, ou le lien dans **Mon horaire**) : chaque zone avec quoi faire et combien — « Cabinet Refinishing × 32 », le nombre de portes et de tiroirs — la couleur, le lustre et les couches vendus, ce qui est inclus, les options choisies par le client (une finition deux tons, par exemple), la liste des matériaux, la liste de vérification et les notes des visites, plus l'estimation des heures quand la soumission en a une. Jamais un prix, un total, un dépôt ni un coût.",
             "**Photos du chantier** avec un bouton de téléversement, et le **Journal de chantier** que vous pouvez rédiger et enregistrer — voir [[photos-from-the-field|Photos depuis le terrain]].",
             "Les notes de la visite elle-même. Les notes privées sur le client et le journal de rappels du prospect ne sont pas affichés.",
           ] },

@@ -238,7 +238,7 @@ export const ARTICLES = {
     title: "Qué ve un miembro de la cuadrilla",
     summary:
       "El nivel de acceso Crew desde adentro: qué filas del menú aparecen, qué muestra y qué oculta la página de un trabajo, y por qué los precios no están en ninguna parte.",
-    updated: "2026-09-12",
+    updated: "2026-10-04",
     intro: [
       "**Crew** es el nivel de acceso de la gente en la camioneta — instaladores, ayudantes, un segundo pintor. No le cuesta nada a la empresa y es deliberadamente estrecho: su propio horario, los trabajos en los que está reservado, el reloj, las ausencias, la seguridad, sus propios recibos de nómina. Ningún precio en ninguna parte, sin presupuestos, sin facturas, sin prospectos y sin lista de clientes.",
       "Este artículo es cómo se ve eso en el teléfono. Está escrito a partir de la propia cuadrícula de permisos del producto, así que dice lo que el menú realmente hace; si su propietario le dio una cuadrícula personalizada, algunas filas pueden diferir.",
@@ -282,6 +282,7 @@ export const ARTICLES = {
             "El **nombre y la dirección** del cliente, y la dirección del sitio. El número de teléfono y el correo los retiene su nivel — la página del trabajo lo dice junto al botón Voy en camino, y el cliente igual recibe el mensaje de texto.",
             "**Visitas**: fecha y hora, quién está asignado, la lista de verificación con sus puntos de control, y — en las visitas asignadas a usted — **Voy en camino**, **Marcar como completada** y **Cancelar visita**.",
             "**Materiales por comprar**, como una lista con cantidades y sin precios.",
+            "La **orden de trabajo** (desde la página del trabajo, o el enlace en **Mi horario**): cada área con qué hacer y cuánto — «Cabinet Refinishing × 32», el número de puertas y cajones — el color, el brillo y las capas vendidas, qué incluye, las opciones que eligió el cliente (un acabado de dos tonos, por ejemplo), la lista de materiales, la lista de verificación y las notas de las visitas, más la estimación de horas cuando la cotización la tiene. Nunca un precio, un total, un depósito ni un costo.",
             "**Fotos del trabajo** con un botón para subir, y el **Parte diario** que puede escribir y guardar — vea [[photos-from-the-field|Fotos desde el campo]].",
             "Las notas de la visita misma. Las notas privadas sobre el cliente y el registro de llamadas del prospecto no se muestran.",
           ] },

@@ -284,6 +284,46 @@ for (const role of ROLES) {
 }
 seed();
 ok("crew: the work order of a job they are not on is Not found", (await call(WORK_ORDER, "GET", { as: "crew", params: { id: "j2" } })).status === 404);
+// What the crew need to DO the job — the live test's work order said only
+// "0 h across 1 areas · Cabinet Refinishing · 0 h". Each fact below comes
+// from a row that ALSO carries money (the add-on's amount, the material's
+// cost, the quote costing's dollars), and none of the money may follow it.
+seed();
+{
+  const job1 = tables.job.find((j) => j.id === "j1");
+  const quote1 = tables.quote.find((q) => q.id === "q1");
+  quote1.addOns = [
+    { id: "a1", quoteId: "q1", description: "Paint the ceiling", amount: 650, sortOrder: 0, selected: false },
+    { id: "a2", quoteId: "q1", description: "Two-Tone Finish", detail: "Uppers white, lowers navy", amount: 900, sortOrder: 1, selected: true, areaLabel: "Kitchen" },
+  ];
+  quote1.costing = { quoteId: "q1", labourHours: 18, labourCost: 1260, totalCost: 2400, materialTotal: 400 };
+  quote1.scopeGroups.push({
+    id: "g2", quoteId: "q1", label: "Cabinet Refinishing", sortOrder: 1, categoryId: "cat2", subtotal: 4800, takeoff: null,
+    intakeValues: { doorCount: 32, drawerCount: 12, topCoats: 2, twoTone: true },
+    category: { id: "cat2", key: "cabinet_refinishing", label: "Cabinet Refinishing" },
+    lineItems: [{ description: "Cabinet Refinishing", quantity: 44, unit: "unit", rate: 109, amount: 4800, meta: { baseUnitPrice: 100, color: "Hale Navy", sheen: "satin", doorStyle: "Shaker" } }],
+  });
+  job1.materials = [
+    { id: "m1", jobId: "j1", name: "Cabinet enamel", qty: 3, unit: "gal", group: "Paint", estUnitCost: 89, actualCost: 260, excludedAt: null, purchasedAt: null, sortOrder: 0, createdAt: new Date() },
+    { id: "m2", jobId: "j1", name: "Dropped item", qty: 1, unit: "ea", estUnitCost: 5, excludedAt: new Date(), purchasedAt: null, sortOrder: 1, createdAt: new Date() },
+  ];
+  job1.checklistItems = [{ label: "Mask the windows", required: true, phase: "before", done: false }];
+  const { status, json } = await call(WORK_ORDER, "GET", { as: "crew", params: { id: "j1" } });
+  const wo = json?.workOrder;
+  ok("crew work order: opens with the cabinet group (200)", status === 200 && wo?.areas?.some((a) => a.label === "Cabinet Refinishing"), `status ${status}`);
+  const cab = wo?.areas?.find((a) => a.label === "Cabinet Refinishing");
+  ok("…how many: 32 doors and 12 drawers", cab?.counts?.doors === 32 && cab?.counts?.drawers === 12, JSON.stringify(cab?.counts));
+  ok("…the finish: colour, sheen, door style, coats, two-tone", cab?.finish?.colour === "Hale Navy" && cab.finish.sheen === "satin" && cab.finish.doorStyle === "Shaker" && cab.finish.topCoats === 2 && cab.finish.twoTone === true, JSON.stringify(cab?.finish));
+  ok("…the scope says how many, not only what", /Cabinet Refinishing × 44/.test(cab?.scope || ""), cab?.scope);
+  ok("…what's included, as the client's quote printed it", Array.isArray(cab?.included) && cab.included.length > 0, JSON.stringify(cab?.included));
+  ok("…the option the client CHOSE, and not the one they didn't", wo?.addOns?.map((a) => a.description).join("|") === "Two-Tone Finish" && wo.addOns[0].detail === "Uppers white, lowers navy");
+  ok("…the materials still on the list, with quantity and unit", wo?.materials?.length === 1 && wo.materials[0].name === "Cabinet enamel" && wo.materials[0].qty === 3 && wo.materials[0].unit === "gal");
+  ok("…the checklist and the visit note", wo?.checklist?.[0]?.label === "Mask the windows" && wo.checklist[0].required === true && wo?.visits?.[0]?.notes === "Bring the 24ft ladder");
+  ok("…hours: the cabinet group has its own (no takeoff, counted from the doors and drawers)", Number(cab?.hours) > 0, String(cab?.hours));
+  ok("…and the total is the areas', not the quote's estimate added on top", wo?.hoursFromQuote === false && Math.abs(Number(wo?.totalHours) - wo.areas.reduce((s, a) => s + a.hours, 0)) < 0.2, String(wo?.totalHours));
+  ok("…and STILL no money key anywhere — add-on amount, material cost, costing dollars", findWorkOrderMoneyKey(wo) === null && moneyIn(json).length === 0, `${findWorkOrderMoneyKey(wo)} ${moneyIn(json).join(", ")}`);
+  ok("…and no price figure leaked as text (900, 4800, 89, 260, 1260)", !/\b(900|4800|4,800|1260|2400)\b/.test(JSON.stringify(wo)) && !/"(89|260)"/.test(JSON.stringify(wo)));
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 section("4. Quotes — GET /api/quotes/[id] and the list");

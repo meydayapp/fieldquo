@@ -240,7 +240,7 @@ export const ARTICLES = {
     title: "What a crew member sees",
     summary:
       "The Crew access level from the inside: which menu rows appear, what a job page shows and hides, and why prices are nowhere.",
-    updated: "2026-09-12",
+    updated: "2026-10-04",
     intro: [
       "**Crew** is the access level for the people in the van — installers, helpers, a second painter. It costs the company nothing and it is deliberately narrow: your own schedule, the jobs you are booked on, the clock, time off, safety, your own payslips. No prices anywhere, no quotes, no invoices, no leads, and no customer list.",
       "This article is what that looks like on the phone. It is written from the product's own permission grid, so it says what the menu actually does; if your owner gave you a custom grid, some rows may differ.",
@@ -284,6 +284,7 @@ export const ARTICLES = {
             "The client's **name and address**, and the site address. The phone number and email are withheld by your level — the job page says so beside the On my way button, and the client still gets the text.",
             "**Visits**: date and time, who is assigned, the checklist with its hold points, and — on visits assigned to you — **On my way**, **Mark complete** and **Cancel visit**.",
             "**Materials to buy**, as a list with quantities and no prices.",
+            "The **Work order** (from the job page, or the link on **My schedule**): each area with what to do and how many — \"Cabinet Refinishing × 32\", the door and drawer counts — the colour, sheen and coats it was sold in, what's included, the options the client chose (a two-tone finish, say), the materials list, the checklist and the visit notes, plus the hours estimate when the quote has one. Never a price, a total, a deposit or a cost.",
             "**Job photos** with an upload button, and the **Daily log** you can write and save — see [[photos-from-the-field|Photos from the field]].",
             "The notes on the visit itself. Private notes on the client and the lead's call-back log are not shown.",
           ] },
