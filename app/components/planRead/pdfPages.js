@@ -46,7 +46,9 @@ export async function renderAndUploadPages(file, { onProgress, width = PAGE_WIDT
     await page.render({ canvas, canvasContext: ctx, viewport }).promise;
     const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
     if (!blob) throw new Error("render_failed");
-    const uploaded = await uploadFile(new File([blob], `sheet-${i}.jpg`, { type: "image/jpeg" }), { purpose: "plans" });
+    // shrink: false — this sheet is sized for the deep read on purpose (see
+    // the header), and lib/media/shrinkImage.js would otherwise cap it.
+    const uploaded = await uploadFile(new File([blob], `sheet-${i}.jpg`, { type: "image/jpeg" }), { purpose: "plans", shrink: false });
     pages.push({
       page: i,
       url: uploaded.url,

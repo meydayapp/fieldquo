@@ -436,6 +436,7 @@ const PART_1 = {
             ],
           } },
           { p: "Un archivo rechazado recibe una frase, no una rueda girando: el mensaje pide subir una foto (JPEG, PNG, HEIC…), un video (MP4, MOV, WebM) o un PDF, o avisa que una foto supera los 15 MB y pide una más pequeña. Un PDF se guarda byte a byte con un nombre aleatorio; el nombre del archivo que subió nunca forma parte de la dirección." },
+          { p: "Antes de que una foto salga de su teléfono o computadora, FieldQuo la reduce a **2560 píxeles en su lado más largo** (suficiente para cualquier cotización, factura o sitio web) y elimina la **ubicación GPS** que su cámara grabó en ella, para que una foto de obra en una cotización pública nunca revele dónde se tomó. Una foto que ya mide eso o menos conserva sus píxeles y solo pierde la ubicación. Una hoja de plano generada desde un PDF nunca se reduce. Una foto HEIC en Chrome o Firefox sube tal cual." },
         ],
       },
       {

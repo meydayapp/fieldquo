@@ -80,6 +80,18 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Four cost savers, owner-approved (3 October 2026)
+
+### 1. Photos shrink before they upload — shipped
+
+- `lib/media/shrinkImage.js`, called by `uploadFile()` (lib/media/uploadClient.js) BEFORE the sign step, so the size declared to the server is the size sent. Every staff, portal and self-quote upload goes through it.
+- A photo over **2,560 px** on its long side is resized to it and re-encoded at **0.85** (JPEG stays JPEG, PNG stays PNG with its alpha, WebP stays WebP); a JPEG/WebP under the cap but over 1.5 MB is re-encoded; a decodable HEIC (Safari) becomes a JPEG; an undecodable HEIC (Chrome/Firefox), GIF, SVG, video and PDF go up untouched. Never upscales; a result is kept only when it is smaller; any failure sends the original.
+- **GPS removed**: a re-encoded photo carries no EXIF (orientation applied to the pixels first); a photo small enough to keep has its EXIF GPS IFD zeroed in place (`stripJpegGps`, `stripPngGps` — orientation, camera, date kept; XMP naming a coordinate dropped). Checked first that nothing reads a photo's GPS: crew attribution uses Twilio's MMS Latitude/Longitude, location stamps use browser geolocation.
+- The drawing-read purpose (`plans`) is never resized; `pdfPages.js` passes `shrink: false` (its sheets are 3,000 px on purpose).
+- Not a Cloudinary incoming transformation: that is billed per upload and the full bytes would still cross the phone's connection. The server's sign/verify caps are untouched — the shrinker is an optimisation, never a control.
+- Measured (`check:shrink-image`, sharp standing in for the canvas): a detailed 4032×3024 q92 photo 2.75 MB → 2560×1920 0.82 MB (−70%); a smooth one 0.63 → 0.16 MB (−74%).
+- Help: integrations › "Photos and files (Cloudinary)", Overview (en/fr/es).
+
 ## Audit loose ends (3 October 2026)
 
 A read-only audit against origin/main found ten loose ends; each is its own commit.
