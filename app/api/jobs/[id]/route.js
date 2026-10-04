@@ -32,7 +32,7 @@ import { releaseHeldForPo } from "@/lib/paymentSchedule/run";
 import { withWarranty } from "@/lib/equipment/warranty";
 import { warrantyLinkVerdict } from "@/lib/equipment/installed";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
-import { syncJobRoom } from "@/lib/company/chat/store";
+import { syncJobRoom, jobRoomIdFor } from "@/lib/company/chat/store";
 import { CHANGE_ORDER_INCLUDE, presentChangeOrder } from "@/lib/jobs/changeOrderPresent";
 import { quotedCrewFrom, quotedCrewWorkerIds } from "@/lib/jobs/quotedCrew";
 
@@ -186,6 +186,15 @@ export async function GET(request, { params }) {
     job.warrantyEquipment = withWarranty(job.warrantyEquipment, { asOf: new Date() });
   }
 
+  // ── The job's crew-chat room, if this reader is in it ───────────────────
+  //
+  // For the page's "Open job chat". Membership, not a role check: the store
+  // answers with the room only for the office and the crew booked on the
+  // visits (and a read-only support session, which reads every room). The
+  // job itself was already narrowed by assignedJobWhere above. Best-effort:
+  // a chat read that fails leaves the button off, never the job page.
+  const chatRoomId = await jobRoomIdFor(member, job.id).catch(() => null);
+
   // ── The job is a crew member's door onto the client record ──────────────
   //
   // Jobs are `view_only` for both Worker presets and the job page is where a
@@ -210,6 +219,7 @@ export async function GET(request, { params }) {
       // grid. See lib/jobs/changeOrderPresent.js.
       changeOrders: (job.changeOrders || []).map((co) => presentChangeOrder(co, job.changeOrders, full)),
       quotedCrew,
+      chatRoomId,
     }),
   );
 }

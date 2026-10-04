@@ -47,6 +47,7 @@ import {
   openDirect,
   postMessage,
   markRoomSeen,
+  jobRoomIdFor,
   THREAD_TAKE,
 } from "@/lib/company/chat/store";
 import { seenUpTo } from "@/lib/chat/unreadQuery";
@@ -629,6 +630,42 @@ section("11. \"Message {name}\" on the team directory lands IN the conversation"
   ok("…not for a read-only support session", /data\.me\?\.readOnly\) return/.test(effect));
   ok("…and swaps the URL to ?room= so a reload does not re-open", /replaceState\([^)]*\?room=/.test(effect));
   ok("a refused open is said on the no-room pane, not swallowed", /data-action-error/.test(screen));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("12. The job page's \"Open job chat\": only for the room's members");
+
+{
+  // The job page had no way into the job's room. GET /api/jobs/[id] now
+  // carries chatRoomId from jobRoomIdFor, and the page draws the link only
+  // when it is there. Executed against the two-company fake: the office and
+  // the crew booked on the visits get the id; crew not booked, another
+  // company, and a job with no room get null.
+  const db = seed();
+  await ensureCompanyRooms("A", { client: db });
+  await ensureCompanyRooms("B", { client: db });
+  const j1 = roomOf(db, jobRoomKey("j1"));
+  ok("the owner (office) gets the job's room", (await jobRoomIdFor(ANA, "j1", { client: db })) === j1.id);
+  ok("…and the supervisor (office)", (await jobRoomIdFor(DAN, "j1", { client: db })) === j1.id);
+  ok("crew booked on the visits get it", (await jobRoomIdFor(BOB, "j1", { client: db })) === j1.id);
+  ok("crew NOT booked get nothing (the crew-assigned rule's own fact)", (await jobRoomIdFor(CAT, "j1", { client: db })) === null);
+  ok("another company gets nothing for A's job", (await jobRoomIdFor(ZED, "j1", { client: db })) === null);
+  ok("an unscheduled job has no room and so no link", (await jobRoomIdFor(ANA, "j3", { client: db })) === null);
+  ok("a read-only support session gets it (it reads every room)", (await jobRoomIdFor(SUPPORT, "j1", { client: db })) === j1.id);
+  // Bob taken off the visits: his row closes and the link goes with it.
+  db.tables.jobVisit.length = 0;
+  await syncJobRoom("A", "j1", { client: db });
+  ok("crew taken off the job lose the link with the room", (await jobRoomIdFor(BOB, "j1", { client: db })) === null);
+
+  const route = decomment(read("app/api/jobs/[id]/route.js"));
+  const get = route.slice(route.indexOf("export async function GET"), route.indexOf("export async function PATCH"));
+  ok("the job GET asks jobRoomIdFor AFTER the assignedJobWhere-scoped read", /assignedJobWhere\(full\)/.test(get) && get.indexOf("assignedJobWhere(full)") < get.indexOf("jobRoomIdFor(member, job.id)"));
+  ok("…best-effort: a failed chat read never fails the job page", /jobRoomIdFor\(member, job\.id\)\.catch\(\(\) => null\)/.test(get));
+  ok("…and returns it as chatRoomId", /\bchatRoomId,/.test(get));
+  const detail = decomment(read("app/app/jobs/[id]/JobDetail.js"));
+  ok("the job page draws Open job chat only when the id came back and team_chat is usable", /\{job\.chatRoomId && chatUsable && \(/.test(detail) && /useFeatureFlags\(\)\?\.team_chat/.test(detail));
+  ok("…linking into the room through the push landing (?room=)", /href=\{`\/app\/chat\?room=\$\{encodeURIComponent\(job\.chatRoomId\)\}`\}/.test(detail));
+  ok("…with its label in every language", Object.values(APP_MESSAGES).every((m) => typeof m["app.companyChat.openJobChat"] === "string" && m["app.companyChat.openJobChat"].trim()));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
