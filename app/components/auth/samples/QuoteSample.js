@@ -63,8 +63,13 @@ function publicCompany(c) {
  * The payload QuoteApproval renders — exported so the check can assert what
  * the panel shows.
  *
- * @param trade  the /api/signup/sample-services answer for the first trade
- *               ({ services, group, processSteps, glossary }) or null
+ * @param trade  one trade's sample services ({ services, group, processSteps,
+ *               glossary }, the shape lib/signup/sampleServices.js builds) or
+ *               null for the fixture. The public /api/signup/sample-services
+ *               route that used to supply it was removed with the old signup
+ *               page (2026-09-29). The one live caller, /login's AuthAside,
+ *               passes no preview, so it renders the fixture today;
+ *               check:signup-aside still runs both paths.
  * @param tax    taxPreviewFor's answer for the address, or null
  * @returns {{ fromTrade: boolean, payload: object }}
  */
