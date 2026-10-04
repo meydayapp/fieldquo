@@ -459,10 +459,10 @@ function buildPlan(tf, fq) {
       description: recorded.quote.lineItems[0]?.description || `TrueFinish ${quote.quoteNumber}`,
       startDate: startDay,
       endDate: endDay,
-      // The invoice TOTAL, not the pre-tax amount the screen asks for: in a
-      // recorded job nothing is derived from it, and it is what the
-      // natural-key duplicate check compares against (Invoice.total).
-      amount: String(iFig.total),
+      // The invoice's pre-tax amount, as the screen asks for. In a recorded
+      // job nothing is derived from it; it is what the natural-key duplicate
+      // check compares against (historicalInvoiceKey: subtotal − discount).
+      amount: String(round2(iFig.subtotal - iFig.discount)),
       taxApplied: iFig.taxEnabled ? "yes" : "no",
       paidDate: paidDay || "",
       paymentMethod: lastPayment?.method || "",

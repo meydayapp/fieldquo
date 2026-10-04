@@ -263,5 +263,77 @@ ok("...and offers the way back when arrived at from the dashboard",
   }
 }
 
+// ── A taxed past job committed twice is ONE past job ───────────────────────
+//
+// Regression, 2026-10-03: the duplicate check keyed rows on the pre-tax
+// amount and the rows on file on Invoice.total, so a taxed job never matched
+// its own earlier import and a second commit wrote a second quote, job,
+// invoice and payment. Executed, not read: the real loadPastJobContext,
+// buildPastJobsPreview and createPastJob against an in-memory Prisma stand-in.
+{
+  // The writer's module graph constructs a Prisma client (lib/db.js); with no
+  // URL it has nowhere to connect, so nothing here can reach a database.
+  delete process.env.DATABASE_URL;
+  const { createPastJob, loadPastJobContext } = await import("../lib/jobs/importPastJob.js");
+
+  const fakeDb = () => {
+    let seq = 0;
+    const T = { company: [], serviceCategory: [], client: [], quote: [], job: [], invoice: [], payment: [], expense: [] };
+    const same = (a, b) => (a instanceof Date || b instanceof Date ? a != null && b != null && new Date(a).getTime() === new Date(b).getTime() : a === b);
+    const matches = (row, where = {}) =>
+      Object.entries(where).every(([k, v]) => {
+        if (k === "OR") return v.some((w) => matches(row, w));
+        const val = row[k];
+        if (v && typeof v === "object" && !(v instanceof Date)) {
+          if ("not" in v && (v.not === null ? val == null : same(val, v.not))) return false;
+          if ("contains" in v && !(typeof val === "string" && val.includes(v.contains))) return false;
+          if ("equals" in v && String(val).toLowerCase() !== String(v.equals).toLowerCase()) return false;
+          if ("in" in v && !v.in.includes(val)) return false;
+          return true;
+        }
+        return v === null ? val == null : same(val, v);
+      });
+    const withRel = (t, r) => (t === "invoice" ? { ...r, client: T.client.find((c) => c.id === r.clientId), job: T.job.find((j) => j.id === r.jobId) } : { ...r });
+    const db = { $executeRaw: async () => 1, $transaction: async (fn) => fn(db), T };
+    for (const t of Object.keys(T)) {
+      db[t] = {
+        findMany: async ({ where } = {}) => T[t].filter((r) => matches(r, where)).map((r) => withRel(t, r)),
+        findFirst: async ({ where } = {}) => { const r = T[t].find((x) => matches(x, where)); return r ? withRel(t, r) : null; },
+        findUnique: async ({ where } = {}) => { const r = T[t].find((x) => matches(x, where)); return r ? withRel(t, r) : null; },
+        create: async ({ data }) => { const { scopeGroups, ...rest } = data; const r = { id: `${t}${++seq}`, version: 1, parentInvoiceId: null, createdAt: new Date(), ...rest }; T[t].push(r); return { ...r }; },
+        update: async ({ where, data }) => { const r = T[t].find((x) => matches(x, where)); Object.assign(r, data); return { ...r }; },
+      };
+    }
+    return db;
+  };
+
+  const db = fakeDb();
+  db.T.company.push({ id: "co1", defaultLanguage: "en", taxRate: 13, autoApplyLocalTax: false, taxMode: "manual", province: "ON", country: "CA", vatRegistered: null, usTaxOverrides: null, taxRates: [] });
+  const raw = { ...GOOD, startDate: "2025-06-02", endDate: "2025-06-04", amount: "3200", taxApplied: "yes", paidDate: "2025-06-20" };
+  const commit = async () => {
+    const context = await loadPastJobContext(db, "co1");
+    const preview = buildPastJobsPreview({ rows: [raw], today: TODAY, defaultTaxApplied: true, existingKeys: context.existingKeys, existingInvoiceNumbers: context.existingInvoiceNumbers, existingQuoteNumbers: context.existingQuoteNumbers });
+    const result = await createPastJob(db, { companyId: "co1", row: preview.rows[0].value, context, now: TODAY });
+    return { preview: preview.rows[0], result };
+  };
+  const first = await commit();
+  ok("a taxed past job is written the first time", first.preview.status === "ok" && first.result.status === "created" && first.result.tax > 0, first.result);
+  const second = await commit();
+  ok("...the same taxed row a second time is flagged as a duplicate by the preview",
+    second.preview.status === "duplicate" && second.preview.duplicateOf === "on_file", second.preview.status);
+  ok("...and skipped by the commit, under the lock", second.result.status === "skipped" && second.result.reason === "on_file", second.result);
+  ok("...leaving one quote, one job, one invoice, one payment",
+    [db.T.quote, db.T.job, db.T.invoice, db.T.payment].every((t) => t.length === 1), [db.T.quote.length, db.T.job.length, db.T.invoice.length, db.T.payment.length]);
+  // The same job at a different price is a different job — the fix must not
+  // turn the key into "same client, same day".
+  const third = await createPastJob(db, {
+    companyId: "co1",
+    row: normalisePastJob({ ...raw, amount: "3300" }, { today: TODAY, defaultTaxApplied: true }).value,
+    context: await loadPastJobContext(db, "co1"),
+    now: TODAY,
+  });
+  ok("...while the same client and dates at another price is still written", third.status === "created", third);
+}
+
 console.log(`\ncheck-past-jobs-import: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
