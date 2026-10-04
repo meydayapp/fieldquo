@@ -810,6 +810,18 @@ export const ARTICLES = {
         ],
       },
       {
+        id: "stain-gel-or-liquid",
+        heading: "Tinte: gel o líquido",
+        blocks: [
+          { p: "Donde un presupuesto tiñe madera — el extra **Stain finish instead of paint** de la renovación de gabinetes, y cada escalera — usted elige el tinte:" },
+          { bullets: [
+            "**Tinte líquido (penetrante) — madera desnuda.** Penetra en la madera, así que primero hay que quitar el acabado existente. Puede manchar de forma desigual el arce, el abedul, el cerezo y el pino.",
+            "**Tinte en gel — sobre el acabado existente.** Se aplica sobre el acabado anterior tras limpiar y lijar ligeramente, sin decapar, y no mancha. Es más lento por pieza: más capas a mano y más secado entre ellas.",
+          ] },
+          { p: "En los gabinetes, los dos botones bajo el extra marcado muestran cada uno su propia tarifa por puerta o frente de cajón, y la línea del presupuesto dice qué tinte es. La tarifa del gel arranca en un valor predeterminado investigado de **$20 por pieza** (**Gel stain over the existing finish** en la lista de tarifas); escriba la suya encima. En las escaleras la tarifa por peldaño es la misma en ambos casos — una renovación de escalera lija los peldaños — y la elección se imprime bajo la línea de peldaños. **Staining → Stairs** abre la escalera con tinte líquido." },
+        ],
+      },
+      {
         id: "turn-a-type-on",
         heading: "Cómo activar un tipo y fijar sus tarifas",
         blocks: [

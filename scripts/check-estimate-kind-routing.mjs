@@ -554,8 +554,13 @@ console.log("8. researched defaults, the stain distinction, and existing quotes"
     ok("a stained kitchen carries the premium per piece: 28 × $45 = $1,260", line && line.quantity === 28 && line.rate === 45 && line.amount === 1260, lines);
     const painted = newScopeGroup(cat, "Painted cabinets", null, { tempId: "p", intakeValues: { doorCount: 20, drawerCount: 8 } });
     ok("a painted kitchen carries no stain line", !cabinetAddOnLinesFor(painted).some((l) => /Stain/.test(l.description)));
-    const zeroed = newScopeGroup(cat, "x", { addOns: { stainFinishPerUnit: 0 } }, { tempId: "z", intakeValues: { doorCount: 20 }, addOns: ["stainFinish"] });
-    ok("a company that zeroed it cannot tick it", !zeroed.stainFinish);
+    // Since gel vs liquid (2026-10-03, check:stain-finish): the tick is
+    // offered while EITHER stain type is priced — zeroing the liquid rate
+    // leaves gel to sell; zeroing both takes the tick away.
+    const zeroed = newScopeGroup(cat, "x", { addOns: { stainFinishPerUnit: 0, gelStainPerUnit: 0 } }, { tempId: "z", intakeValues: { doorCount: 20 }, addOns: ["stainFinish"] });
+    ok("a company that zeroed both stain rates cannot tick it", !zeroed.stainFinish);
+    const liquidOnlyZeroed = newScopeGroup(cat, "x", { addOns: { stainFinishPerUnit: 0 } }, { tempId: "z", intakeValues: { doorCount: 20 }, addOns: ["stainFinish"] });
+    ok("…zeroing the liquid rate alone leaves gel to sell", liquidOnlyZeroed.stainFinish === true);
   }
   // Existing quotes, the second set, against origin/main f74dd7f9.
   const PINNED_MORE = {

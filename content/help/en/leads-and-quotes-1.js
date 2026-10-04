@@ -814,6 +814,18 @@ export const ARTICLES = {
         ],
       },
       {
+        id: "stain-gel-or-liquid",
+        heading: "Staining: gel or liquid",
+        blocks: [
+          { p: "Wherever a quote stains wood — the **Stain finish instead of paint** add-on on cabinet refinishing, and each staircase on stairs — you choose which stain:" },
+          { bullets: [
+            "**Liquid (penetrating) stain — bare wood.** It soaks into the wood, so the existing finish has to come off first. It can blotch on maple, birch, cherry and pine.",
+            "**Gel stain — over the existing finish.** It sits on top of the old finish after a clean and a light scuff, with no stripping, and does not blotch. It is slower per piece: more hand-wiped coats and longer drying between them.",
+          ] },
+          { p: "On cabinets the two buttons under the ticked add-on each show their own rate per door or drawer front, and the line on the quote says which stain it is. The gel rate opens at a researched default of **$20 a piece** (**Gel stain over the existing finish** on the rate card); type your own over it. On stairs the tread rate is the same either way — a stair refinish sands the treads — and the choice is printed under the treads line. **Staining → Stairs** opens its staircase on liquid." },
+        ],
+      },
+      {
         id: "turn-a-type-on",
         heading: "How to turn a type on and set its rates",
         blocks: [

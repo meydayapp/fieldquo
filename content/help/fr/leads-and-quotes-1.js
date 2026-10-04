@@ -810,6 +810,18 @@ export const ARTICLES = {
         ],
       },
       {
+        id: "stain-gel-or-liquid",
+        heading: "Teinture : gel ou liquide",
+        blocks: [
+          { p: "Partout où une soumission teint du bois — l'extra **Stain finish instead of paint** de la refinition d'armoires, et chaque escalier — vous choisissez la teinture :" },
+          { bullets: [
+            "**Teinture liquide (pénétrante) — bois nu.** Elle pénètre dans le bois : le fini existant doit d'abord être enlevé. Elle peut faire des taches sur l'érable, le bouleau, le cerisier et le pin.",
+            "**Teinture en gel — sur le fini existant.** Elle se pose sur l'ancien fini après nettoyage et léger égrenage, sans décapage, et ne fait pas de taches. Elle est plus lente par pièce : davantage de couches à la main et un séchage plus long entre elles.",
+          ] },
+          { p: "Sur les armoires, les deux boutons sous l'extra coché affichent chacun leur propre tarif par porte ou façade de tiroir, et la ligne de la soumission dit quelle teinture est utilisée. Le tarif du gel part d'une valeur par défaut documentée de **20 $ la pièce** (**Gel stain over the existing finish** dans la grille tarifaire) ; remplacez-la par la vôtre. Sur les escaliers, le tarif des marches est le même dans les deux cas — une remise à neuf d'escalier ponce les marches — et le choix est imprimé sous la ligne des marches. **Staining → Stairs** ouvre l'escalier sur la teinture liquide." },
+        ],
+      },
+      {
         id: "turn-a-type-on",
         heading: "Comment activer un type et fixer ses tarifs",
         blocks: [

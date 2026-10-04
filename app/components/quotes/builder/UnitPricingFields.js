@@ -24,6 +24,7 @@ import {
 import { formatAppMoney } from "@/lib/format/money";
 import { currencyMeta } from "@/lib/currency";
 import { cabinetAddOnLines } from "@/lib/pricing/tradeScope";
+import { normaliseStainType, STAIN_TYPES } from "@/lib/pricing/stainFinish";
 import ComplexityPicker from "@/app/components/pricing/ComplexityPicker";
 import {
   COMPLEXITY_MODEL,
@@ -117,8 +118,12 @@ const ADD_ONS = [
     countsKey: "stainFinish",
     defaultUnits: (d, dr) => d + dr,
     unitWord: "pieces",
-    onlyWhenPriced: (a) => Number(a?.stainFinishPerUnit) > 0,
-    hint: (a, money) => `${money(a.stainFinishPerUnit)} more per piece`,
+    // Either stain type priced is enough — gel or liquid (owner, 2026-10-03;
+    // lib/pricing/stainFinish.js). The hint names the rate of the type the
+    // group is on, so the figure beside the tick is the one the line bills.
+    onlyWhenPriced: (a) => Number(a?.stainFinishPerUnit) > 0 || Number(a?.gelStainPerUnit) > 0,
+    hint: (a, money, group) =>
+      `${money(normaliseStainType(group?.stainType) === "gel" ? a.gelStainPerUnit : a.stainFinishPerUnit)} more per piece`,
   },
 ];
 
@@ -470,7 +475,7 @@ export default function UnitPricingFields({
           // override at save time is how a screen comes to disagree with the
           // document it produces.
           const own = cabinetAddOnLines(
-            { doors, drawers, [addOn.key]: true, addOnUnits: units },
+            { doors, drawers, [addOn.key]: true, addOnUnits: units, stainType: group.stainType },
             book,
           );
           const amount = own.reduce((sum, i) => sum + i.amount, 0);
@@ -508,7 +513,7 @@ export default function UnitPricingFields({
                 </span>
                 <span className="block text-xs text-muted-foreground">
                   {applicable
-                    ? addOn.hint(book?.addOns || {}, money)
+                    ? addOn.hint(book?.addOns || {}, money, group)
                     : addOn.needsDrawers
                       ? "Enter a drawer count above"
                       : "Enter a door count above"}
@@ -547,6 +552,54 @@ export default function UnitPricingFields({
                       {hasOverride
                         ? ` — of ${addOn.defaultUnits(doors, drawers)}`
                         : " (all of them)"}
+                    </span>
+                  </span>
+                )}
+
+                {/* ── Gel or liquid (owner, 2026-10-03) ───────────────────
+                    Buttons, not radios: this row is a <label> around the
+                    tick, and a nested label would toggle the tick. Each
+                    names its own rate so the choice shows what it moves. */}
+                {on && addOn.key === "stainFinish" && (
+                  <span className="mt-2 block" data-stain-type>
+                    <span className="flex flex-wrap gap-1.5" role="group" aria-label={t("app.stain.typeLabel", "Which stain")}>
+                      {STAIN_TYPES.map((type) => {
+                        const active = normaliseStainType(group.stainType) === type;
+                        const rate = type === "gel" ? book?.addOns?.gelStainPerUnit : book?.addOns?.stainFinishPerUnit;
+                        return (
+                          <button
+                            key={type}
+                            type="button"
+                            aria-pressed={active}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              onPricingChange({ stainType: type });
+                            }}
+                            className={`rounded-lg border px-2.5 py-1 text-xs min-h-8 ${
+                              active
+                                ? "border-foreground bg-foreground text-background"
+                                : "border-border text-foreground"
+                            }`}
+                          >
+                            {type === "gel"
+                              ? t("app.stain.gel", "Gel stain — over the existing finish")
+                              : t("app.stain.liquid", "Liquid (penetrating) stain — bare wood")}
+                            {" · "}
+                            {Number(rate) > 0 ? money(rate) : "—"}
+                          </button>
+                        );
+                      })}
+                    </span>
+                    <span className="mt-1 block text-xs text-muted-foreground">
+                      {normaliseStainType(group.stainType) === "gel"
+                        ? t(
+                            "app.stain.gelHint",
+                            "Gel sits on top of the old finish after a clean and a light scuff — no stripping — and does not blotch on maple or birch. Slower per piece: more hand-wiped coats and longer drying between them.",
+                          )
+                        : t(
+                            "app.stain.liquidHint",
+                            "Liquid stain soaks into bare wood, so the existing finish has to come off first. It can blotch on maple, birch, cherry and pine.",
+                          )}
                     </span>
                   </span>
                 )}

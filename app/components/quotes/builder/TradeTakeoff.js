@@ -61,6 +61,7 @@ import {
 } from "@/lib/pricing/insulation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DRIVEWAY_LABELS } from "@/lib/pricing/tradeScope";
+import { stainTypeChosen } from "@/lib/pricing/stainFinish";
 import { useTranslation } from "@/app/hooks/useTranslation";
 // The factor list (stairs 14, roofing 7) — named apart from this file's own
 // ComplexityPicker, which is the tier tiles and stays exactly as it was.
@@ -435,6 +436,23 @@ function StairSection({ section, index, book, canRemove, onChange, onRemove }) {
           className={inputClass}
           placeholder="e.g. Jacobean"
         />
+      </Field>
+
+      {/* Gel or liquid (owner, 2026-10-03; lib/pricing/stainFinish.js). Blank
+          is what every staircase was before — a refinish sands the treads
+          and stains them — and prints exactly as it did; a choice is said
+          under the treads line. */}
+      <Field label={t("app.stain.typeLabel", "Which stain")}>
+        <select
+          value={stainTypeChosen(section.stainType) ? section.stainType : ""}
+          onChange={(e) => set({ stainType: e.target.value || undefined })}
+          className={inputClass}
+          data-stair-stain-type
+        >
+          <option value="">{t("app.stain.notSaid", "Not said")}</option>
+          <option value="liquid">{t("app.stain.liquid", "Liquid (penetrating) stain — bare wood")}</option>
+          <option value="gel">{t("app.stain.gel", "Gel stain — over the existing finish")}</option>
+        </select>
       </Field>
     </div>
   );

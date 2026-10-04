@@ -100,6 +100,36 @@ once, drywall repairs, wall area" (below).
   drywall repair group now asks for its quantity instead of filling it.
 - Checks: `check:drywall-finish-levels` section K (1573 passed).
 
+### 2. Gel or liquid stain
+
+- `lib/pricing/stainFinish.js`: `stainType` "liquid" | "gel"; absent and junk
+  read as liquid, so every stored or new group without a choice prices and
+  prints byte-identically (md5 of cabinet lines/subtotals/hours and stair
+  lines/payloads against HEAD before the change: identical).
+- **Cabinets** (refinishing): under the ticked **Stain finish instead of
+  paint** add-on, two buttons — liquid (`addOns.stainFinishPerUnit`) and gel
+  over the existing finish (`addOns.gelStainPerUnit`, **$20 researched
+  default**, on the rate card labelled as such). Gel writes its own line and
+  sentence ("No stripping"), en + fr like the rest of the cabinet add-ons. The
+  add-on is offered while either rate is priced. `stainFinish` and
+  `stainType` are now saved with the cabinet answers (`stainFinish` was
+  missing from that list since it shipped — the line was saved, the tick was
+  not).
+- **Stairs**: a **Which stain** select per staircase; a chosen type is printed
+  under the treads line (en/fr); the tread rate is the same either way.
+  Staining → Stairs opens its staircase on liquid (`routedGroup`).
+- Research: Bob Vila "Gel Stain" (2019-11-18: sits on top, light scuff, no
+  blotch on maple/birch/cherry/pine, 8–24 h between coats); General Finishes
+  FAQ (72 h recoat over an existing finish vs 6–12 h on raw wood); Angi
+  gel-stain cabinets $80–140 a door (search summary, page 403) vs Fixr painting
+  $70–125 (2026-01-27) → +12.8% on $150 = $19 → **$20**.
+- Not done: the painting book's own staining substrates (`stain_cab_door`,
+  `stain_tread` … in `lib/pricing/paintTakeoff.js`) — for a painter without the
+  cabinet/stair trade — are ILLUSTRATIVE and unpriced (they report gallons and
+  no money), so a gel/liquid price there would be a price on an unpriced line.
+- Checks: new `check:stain-finish` (in check:all), `check:estimate-kind-routing`
+  (zeroing only the liquid rate now leaves gel to sell).
+
 ---
 
 ## Privacy policy: the Google user data section (3 October 2026)

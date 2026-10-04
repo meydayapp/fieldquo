@@ -98,6 +98,23 @@ export const TRADE_PRICE_BOOKS = {
       // a different product and is not priced here; see
       // docs/research/PRICING-EXTERIOR-STAIN-DRYWALL-2026.md.
       stainFinishPerUnit: 45,
+      // GEL stain over the existing finish (owner, 2026-10-03: "if it is
+      // relevant for stain it should have gel or liquid"). A gel stain is
+      // thickened and SITS ON the surface; a liquid (penetrating) stain soaks
+      // into bare wood. So gel goes over the old finish after a clean and a
+      // light scuff — no stripping — and does not blotch on maple, birch,
+      // cherry or pine, which drink a thin stain unevenly (Bob Vila, "Gel
+      // Stain", 2019-11-18). It is slower per piece, not faster: wiped or
+      // brushed by hand, often two or three coats for depth, and General
+      // Finishes (the gel most refinishers use) asks 72 hours before
+      // recoating or top-coating over an existing finish, against 6–12 h on
+      // raw wood (generalfinishes.com FAQ, read 2026-10-03) — extra visits,
+      // not extra material. MARKET, INFERRED: Angi (2026, search summary;
+      // the page refused our fetch) puts gel-stain refinishing at $80–140 a
+      // door, Fixr (2026-01-27) painting at $70–125 — midpoints $110 against
+      // $97.50, +12.8%; on TrueFinish's $150 a face that is $19, rounded to
+      // $20. A default: the company's own figure replaces it on the rate card.
+      gelStainPerUnit: 20,
     },
     // TrueFinish's "Essential" package floor. A small kitchen still needs a
     // full spray booth setup, so per-unit pricing alone under-recovers.
@@ -2170,6 +2187,12 @@ export const PRICE_BOOK_FIELDS = {
     {
       path: "addOns.stainFinishPerUnit",
       label: "Stain finish instead of paint (strip and re-stain)",
+      suffix: "$ / unit",
+      step: 5,
+    },
+    {
+      path: "addOns.gelStainPerUnit",
+      label: "Gel stain over the existing finish (no stripping) — researched default $20",
       suffix: "$ / unit",
       step: 5,
     },

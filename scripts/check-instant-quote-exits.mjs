@@ -454,12 +454,17 @@ ok("refinishing gets both complexity uplifts",
 // Eight since 2026-10-03: the stain finish (strip and re-stain), which the
 // estimator prices through cabinetAddOnLines when a call or form asks for it.
 ok("...and all eight upgrade rates", paths(refinishFields).filter((p) => p.startsWith("addOns.")).length === 8, paths(refinishFields));
+ok("...and no gel-stain box: the instant estimate never prices gel", !paths(refinishFields).includes("addOns.gelStainPerUnit"));
+ok("...nor a stripping-hours box: it has no labour rate to price them at", !paths(refinishFields).some((p) => p.startsWith("stripping.")));
 
 // Every rate the estimator can charge for has a box. The reverse of the dead
 // control: a live rate with no editor is the bug this whole section is about.
 const seedRefinish = INSTANT_ESTIMATE_DEFAULTS.cabinet_refinishing;
 const wantedPaths = [
-  ...Object.keys(seedRefinish.addOns).map((k) => `addOns.${k}`),
+  // Less the gel stain rate: the seed copies the book's add-ons, but the
+  // instant estimate asks no stain type, so it never prices gel
+  // (lib/estimate/instantRateFields.js BOOK_ONLY_FIELDS).
+  ...Object.keys(seedRefinish.addOns).filter((k) => k !== "gelStainPerUnit").map((k) => `addOns.${k}`),
   // `standard` is zero by definition, so the book declares no field for it.
   ...Object.keys(seedRefinish.complexityUpchargePerUnit)
     .filter((k) => k !== "standard")

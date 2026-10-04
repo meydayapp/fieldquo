@@ -135,7 +135,7 @@ import {
 } from "@/lib/quotes/cabinetServiceSwitch";
 // Which calculator a painting estimate kind opens — the cabinet or stair
 // trade, or the painting takeoff. Why, in the module's header.
-import { routeEstimateKind, routedAddOns, stainingChoices, placeRoutedGroup } from "@/lib/quotes/estimateKindRouting";
+import { routeEstimateKind, routedAddOns, routedGroup, stainingChoices, placeRoutedGroup } from "@/lib/quotes/estimateKindRouting";
 // The estimator's own complexity factors, on any trade — the model and its
 // composition order are in lib/pricing/customFactors.js.
 import CustomFactorsEditor from "@/app/components/pricing/CustomFactorsEditor";
@@ -1360,19 +1360,24 @@ export function QuoteBuilderForm({
   // The shape itself lives in lib/quotes/builderPayload.js, because the phone-
   // call prefill below needs exactly the same one and a second copy of "what a
   // new group looks like" is the duplication that rots.
-  function addScopeGroup(category, label, addOns = []) {
+  // `route` (optional): the estimate-kind route that asked for this group —
+  // Staining → Stairs opens its staircases on a stain type (routedGroup).
+  function addScopeGroup(category, label, addOns = [], route = null) {
     setScopeGroups((prev) => [
       ...prev,
-      newScopeGroup(category, label, rateOverridesFor(category.id), {
-        tempId: crypto.randomUUID(),
-        // The estimator added this one, and is looking at it: a field that
-        // declares a default (the drywall finish level) opens on it.
-        fieldDefaults: true,
-        language: quoteLanguage || companyLanguage,
-        // Staining → Cabinets opens with the stain finish ticked
-        // (routedAddOns); every other add starts with nothing ticked.
-        addOns,
-      }),
+      routedGroup(
+        route,
+        newScopeGroup(category, label, rateOverridesFor(category.id), {
+          tempId: crypto.randomUUID(),
+          // The estimator added this one, and is looking at it: a field that
+          // declares a default (the drywall finish level) opens on it.
+          fieldDefaults: true,
+          language: quoteLanguage || companyLanguage,
+          // Staining → Cabinets opens with the stain finish ticked
+          // (routedAddOns); every other add starts with nothing ticked.
+          addOns,
+        }),
+      ),
     ]);
   }
 
@@ -1551,7 +1556,7 @@ export function QuoteBuilderForm({
     // (2026-10-03); lib/quotes/estimateKindRouting.js decides.
     const route = routeEstimateKind(estimateType, categories, choice);
     if (route) {
-      addScopeGroup(route.category, routedLabel(route), routedAddOns(route));
+      addScopeGroup(route.category, routedLabel(route), routedAddOns(route), route);
       return;
     }
     const category = paintingCategoryFor(estimateType, categories);
@@ -1602,12 +1607,15 @@ export function QuoteBuilderForm({
   function routePaintGroup(groupTempId, kind, choice = null) {
     const route = routeEstimateKind(kind, categories, choice);
     if (!route) return false;
-    const fresh = newScopeGroup(route.category, routedLabel(route), rateOverridesFor(route.category.id), {
-      tempId: crypto.randomUUID(),
-      fieldDefaults: true,
-      language: quoteLanguage || companyLanguage,
-      addOns: routedAddOns(route),
-    });
+    const fresh = routedGroup(
+      route,
+      newScopeGroup(route.category, routedLabel(route), rateOverridesFor(route.category.id), {
+        tempId: crypto.randomUUID(),
+        fieldDefaults: true,
+        language: quoteLanguage || companyLanguage,
+        addOns: routedAddOns(route),
+      }),
+    );
     setScopeGroups((prev) => placeRoutedGroup(prev, groupTempId, fresh));
     return true;
   }
