@@ -430,6 +430,50 @@ Listed at the end of docs/ROLE-ACCESS.md:
 
 The job page has no "Share with team" control of its own (the quote's share
 already carries the work order).
+## Subcontractor details from their FieldQuo profile (3 October 2026)
+
+Owner decision 2026-10-03: when a subcontractor company is added to a GC's roster from an accepted quote (the B2B subcontract flow), fill its contact details from the sub's own FieldQuo company profile — only what that company prints on its own documents, never private account data; fill blanks only, never overwrite what the GC typed, and say on the roster where each came from.
+
+### What shipped
+
+- **`lib/subcontractors/profileFill.js`** (pure): `PROFILE_COMPANY_SELECT` (name, email, phone, address, city, province, postalCode — the document identity the quote page masthead and email footer print; nothing else of the other tenant is selected), `documentProfileOf` (email shape-checked and lowercased, address = `formatAddress` exactly as the email footer prints it, control characters stripped, capped), `profileFillPatch` (blanks only — null, "", whitespace; records `{ field: value }` in `Subcontractor.profileFilled`), `fieldSources` ("profile" while the value still equals what was filled, else "typed" — derived at read, so an edit by the GC needs no bookkeeping).
+- **Both roads to the roster** use it: acceptance (`sourceLink.js adoptImportsOnJob` — new entries filled, an existing linked entry gets its blanks filled) and the job panel's "from an import" (`POST /api/jobs/[id]/subcontractors`, which before copied only the name).
+- **Contact person is not filled**: no FieldQuo document prints a person (masthead, PDF header/footer, signature block and the email From line are all the company), Company has no contact column, and members' own names are account data. The roster says "Their documents don't name a contact person, so none was filled — add one with Edit." **Product decision if wanted:** a "contact person on documents" box in Settings › Business info would be the source; `profileFill.js` is the one reader to change.
+- Roster: `Subcontractor.address` (typed or filled; on the form, the detail page, `parseSubcontractorBody` capped at 300); the detail page lists what came from the profile; each filled box in Edit says "From their FieldQuo profile" until changed. `GET /api/subcontractors/[id]` sends `sources`, not the raw `profileFilled`.
+- Strings in nine languages; help "Subcontractors and their insurance" › "A sub who is on FieldQuo too" (en/fr/es).
+
+### Schema — additive, NOT applied (apply before deploying this; the roster's selects read both columns)
+
+```sql
+ALTER TABLE "Subcontractor" ADD COLUMN IF NOT EXISTS "address" TEXT;
+ALTER TABLE "Subcontractor" ADD COLUMN IF NOT EXISTS "profileFilled" JSONB;
+```
+
+### Checks
+
+`check:subcontractors` 199 → 232: the worked example now asserts address + `profileFilled` and that a Stripe id / billing email on the sub's Company never cross; an existing linked entry keeps the GC's typed email/name/contact while a whitespace phone and missing address are filled; a later adoption overwrites nothing; an edited value reads as typed; hostile `documentProfileOf` / `profileFillPatch` / `fieldSources` input; both routes wired to the same fill.
+
+## "Create custom item" in the Add service dialog (3 October 2026)
+
+Owner decision 2026-10-03: "custom item should be based on the current estimate so they pick one service and based on what we have the custom line item makes sense." The button the owner's reference window had, held back until it had a real add behind it, is now in the quote builder's **Add service** dialog (under the search) and inline picker.
+
+### What shipped
+
+- **`lib/quotes/customItem.js`** (pure): `customItemTargets` (the estimate's own scope groups — never an imported sub cost), `customItemUnits` (the group's measured units from `TRADE_MEASUREMENTS` — per door / drawer on cabinets, wall / ceiling / floor sq ft and trim linear ft on painting by estimate type, treads / risers / balusters / posts / handrail on stairs, board on drywall … — each with the figure THIS group's calculator holds (`groupMeasurements`), then the company's unit for the service, then each / hour / lump sum; the cabinet base line's `unit/door/drawer` is never offered plainly, so `billedUnitsOf` cannot misread a custom line as more faces), `buildCustomLine` (the boundary: description required and capped, unit must be one of the group's, quantity > 0 and ≤ 1,000,000, price ≥ 0 and ≤ 10M, line ≤ $99,999,999.99, cost optional, details through the rich-text sanitiser; no price or cost without showPricing), `tierSelectedLines`, `priceBookBody`.
+- **The line is an ordinary line** in the group's typed lines (description, detail, quantity, unit, rate, amount, unitCost, productId) plus office-only `meta.customItem` (no money). Saved, printed (PDF/email/client page via `toGroups`), mirrored onto the invoice, costed (`lineItemCost`) and commissioned (`productId`) like a price-book line; beside — never inside — the calculator's derived lines, so it is counted once and a save → reload → save is a fixed point. No tax flag: a quote taxes as a whole.
+- **Double counting**: a unit the group's calculator already bills (`keysPricedByGroup` — treads on a stair takeoff, trim on a painted room, doors on cabinets, board on a drywall book) is not refused (a second coat on the doors is real work) but the dialog and the line table say it is charged on top.
+- **Tiered packages**: picking a tier used to REPLACE the group's lines; it now keeps custom items (`tierSelectedLines`; a group without one gets the identical single line). Good/Better/Best variants are separate quotes, each with its own lines.
+- **Save to price book**: `POST /api/products` (the route Settings uses) under the service's quote type, at the typed price/cost/unit; offered to owner/admin only (the route's rule), on quotes in the company's own language, price > 0; a failed save adds nothing. The new row is offered in the same session.
+- `CustomItemDialog.js` (StepDialog / BottomSheet like the picker); `AddServicePicker` `CustomItemEntry` (disabled with "Add a service first" when the estimate has no service; never on an invoice); `DocumentBuilder` unfolds the chosen service; strings in all nine app languages; help "Lines from your price book" › "A custom item, written on the spot" (en/fr/es).
+
+### Checks
+
+`check:custom-item` (new, 143: units per trade, hostile inputs incl. negative/huge/NaN quantity, empty description, unit mismatch, tiered and G/B/B quotes, `ensureInvoiceForQuote` executed with a custom line, costing, md5 `4dc8be0f9121266407ec707bbb57dd44` of no-custom-item payloads — `builderPayload.js` untouched), `check:service-picker` (the entry drawn only with an add behind it, disabled state, never on an invoice), plus quote-builder, doc-builder, invoice-builder, quote-text-blocks, service-template-lines, help-centre.
+
+### Owed
+
+- The invoice builder has no custom item (not asked; its line table already takes typed lines).
+- Not exercised in a browser this session (no local login).
 
 ## Audit loose ends (3 October 2026)
 
@@ -1653,7 +1697,7 @@ The owner-approved flow for a quote sent to another BUSINESS: the general contra
 - The unmounted reactive signup panel (`AuthAside` signup variant, `app/components/auth/samples/`, `SignupSteps`, the step functions in `lib/signup/funnel.js`) can be deleted with its checks.
 - The early nudge's "free month" copy and the trial-length copy elsewhere belong to the 14-day trial change running beside this one.
 - Product decision: the sales floor's SignupLead capture no longer fires from `/signup` (an email alone is not a lead); stalled owners are visible on `/platform/companies` with their welcome step and phone instead.
-- The sub's owner name is NOT copied as the roster contact (it is not on the quote the GC received), and `Subcontractor` has no address column — both left empty rather than invented. Owner's call if either should change.
+- ~~The sub's owner name is NOT copied as the roster contact (it is not on the quote the GC received), and `Subcontractor` has no address column — both left empty rather than invented. Owner's call if either should change.~~ — decided 3 October 2026: details are filled from the sub's FieldQuo profile, blanks only (see "Subcontractor details from their FieldQuo profile"). The contact name still is not: no document prints a person.
 - Wire `isViewedNoAnswer` into `lib/dashboard/workPanel.js` once that branch lands.
 ## Designer: contractor templates, "Save as template", a format per destination, carousels (29 September 2026)
 

@@ -43,6 +43,12 @@ import { subcontractorAttention } from "@/lib/subcontractors/expiry";
 import { paymentsCover } from "@/lib/subcontractors/money";
 import { subcontractBillState } from "@/lib/subcontractors/sourceLink";
 import {
+  PROFILE_COMPANY_SELECT,
+  ROSTER_FILL_SELECT,
+  documentProfileOf,
+  profileFillPatch,
+} from "@/lib/subcontractors/profileFill";
+import {
   parseJobSubcontractorBody,
   JOB_SUBCONTRACTOR_SELECT,
   PAYMENT_SELECT,
@@ -213,7 +219,7 @@ export async function POST(request, { params }) {
   if (typeof body?.quoteImportId === "string" && body.quoteImportId.trim()) {
     imp = await db.quoteImport.findFirst({
       where: { id: body.quoteImportId.trim(), targetCompanyId: member.companyId, targetQuoteId: job.quoteId || "__none__" },
-      select: { id: true, label: true, snapshotAmount: true, sourceCompanyId: true, sourceCompany: { select: { name: true } } },
+      select: { id: true, label: true, snapshotAmount: true, sourceCompanyId: true, sourceCompany: { select: PROFILE_COMPANY_SELECT } },
     });
     if (!imp) return NextResponse.json({ error: "That imported quote isn't on this job's quote." }, { status: 404 });
     const already = await db.jobSubcontractor.findFirst({
@@ -253,21 +259,33 @@ export async function POST(request, { params }) {
   let subcontractorId = data.subcontractorId;
   let createdSub = null;
   if (imp && subcontractorId === "__from_import__") {
+    // What the sub's own documents print — business name, email, phone,
+    // address — read through the import, the record both companies share
+    // (lib/subcontractors/profileFill.js; owner, 2026-10-03). The same fill
+    // the acceptance path uses (sourceLink.js adoptImportsOnJob).
+    const profile = documentProfileOf(imp.sourceCompany);
     const matched = await db.subcontractor.findFirst({
       where: { companyId: member.companyId, linkedCompanyId: imp.sourceCompanyId },
-      select: { id: true },
+      select: ROSTER_FILL_SELECT,
       orderBy: { createdAt: "asc" },
     });
-    if (matched) subcontractorId = matched.id;
-    else {
+    if (matched) {
+      subcontractorId = matched.id;
+      // Blanks only — a value the GC typed stays theirs.
+      const { data: fill } = profileFillPatch(matched, profile);
+      if (Object.keys(fill).length) {
+        await db.subcontractor.update({ where: { id: matched.id }, data: fill, select: { id: true } });
+      }
+    } else {
       // The GC has never listed this company. Create the roster entry from
-      // the import's own source — name and link only; nothing else of the
-      // other tenant is copied.
+      // the sub's document identity and the link; nothing else of the other
+      // tenant is copied.
       createdSub = await db.subcontractor.create({
         data: {
           companyId: member.companyId,
-          name: (imp.sourceCompany?.name || imp.label || "Subcontractor").slice(0, 160),
+          name: (profile.name || imp.label || "Subcontractor").slice(0, 160),
           trade: imp.label ? imp.label.slice(0, 80) : null,
+          ...profileFillPatch(null, profile).data,
           linkedCompanyId: imp.sourceCompanyId,
         },
         select: { id: true, name: true },

@@ -32,6 +32,7 @@ import {
   stripJobSubcontractorMoney,
 } from "@/lib/subcontractors/payload";
 import { recordActivity } from "@/lib/activity/log";
+import { fieldSources } from "@/lib/subcontractors/profileFill";
 
 async function ownSub(id, companyId, select = SUBCONTRACTOR_DETAIL_SELECT) {
   return db.subcontractor.findFirst({ where: { id, companyId }, select });
@@ -92,8 +93,16 @@ export async function GET(request, { params }) {
   const years = [...new Set(payments.map((p) => new Date(p.date).getUTCFullYear()))].sort((a, b) => b - a);
   if (!years.includes(year)) years.unshift(year);
 
+  // Where each detail came from — "profile" while it still equals what a
+  // linked sub's own documents filled (lib/subcontractors/profileFill.js).
+  // The record itself stays here; the screen gets the verdict.
+  const { profileFilled: _filled, ...subOut } = sub;
   return NextResponse.json({
-    subcontractor: { ...sub, attention: { state: attention.state, reasons: attention.reasons, expiries: attention.expiries } },
+    subcontractor: {
+      ...subOut,
+      sources: fieldSources(sub),
+      attention: { state: attention.state, reasons: attention.reasons, expiries: attention.expiries },
+    },
     documents,
     jobs: canSeeMoney ? jobs : jobs.map(stripJobSubcontractorMoney),
     ...(canSeeMoney

@@ -3835,6 +3835,17 @@ model Subcontractor {
   contactName String?
   email       String?
   phone       String?
+  /// The sub's business address, one line. Typed by the GC, or filled from a
+  /// linked FieldQuo sub's own document identity (lib/subcontractors/
+  /// profileFill.js — formatAddress of what their quotes print).
+  address     String?
+  /// What was filled from the linked sub's FieldQuo profile, as
+  /// { email?, phone?, address? } → the value filled. Only blanks are ever
+  /// filled. The roster labels a field "from their FieldQuo profile" while
+  /// its value still equals the one recorded here (fieldSources); an edit by
+  /// the GC makes it theirs without touching this column. Null = nothing was
+  /// ever filled.
+  profileFilled Json?
 
   /// When the sub is on FieldQuo too. Set by matching their quote's source
   /// company on import, or by hand. Their Stripe Connect account and quote

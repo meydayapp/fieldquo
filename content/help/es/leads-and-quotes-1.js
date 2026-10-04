@@ -870,7 +870,7 @@ export const ARTICLES = {
     title: "Líneas desde su lista de precios",
     summary:
       "Configuración → Productos y servicios: los artículos que puede soltar en cualquier presupuesto con su precio ya puesto, cómo añadirlos e importarlos, y cómo aparecen en el generador.",
-    updated: "2026-09-12",
+    updated: "2026-10-03",
     intro: [
       "**Productos y servicios** es su lista de precios: los extras y artículos puntuales — manijas, bisagras, un cargo por urgencia, un cargo por disposición — que usted suelta en un presupuesto con un toque, con el precio que fijó. Una línea tomada de aquí tiene el precio que usted puso, así que el número que ve el propietario es el que usted decidió.",
       "Es distinta de la lista de tarifas en **Configuración → Servicios y precios**, que pone precio al alcance principal de un oficio. Las dos responden preguntas distintas: una tarifa dice cuánto cuesta una unidad de trabajo; un producto dice qué más se agregó al trabajo.",
@@ -939,6 +939,27 @@ export const ARTICLES = {
             "Cambie la cantidad o la tarifa en ese presupuesto si el trabajo lo requiere. El artículo de la lista de precios no cambia.",
           ] },
           { p: "Una línea de la lista de precios es una línea común una vez en el presupuesto: el cliente ve una descripción y un monto, igual que en una línea que usted escribió." },
+        ],
+      },
+      {
+        id: "custom-item",
+        heading: "Un artículo personalizado, escrito en el momento",
+        blocks: [
+          { p: "Cuando el trabajo necesita algo que no está en su lista de precios, pulse **Agregar servicio** al pie del presupuesto y luego **Crear artículo personalizado**. Un artículo personalizado siempre pertenece a uno de los servicios que ya están en el presupuesto y usa las unidades de ese servicio — por puerta en gabinetes, por pie cuadrado de pared o pie lineal de moldura en un interior, por peldaño en escaleras — o por unidad, por hora o precio global." },
+          { steps: [
+            "Pulse **Agregar servicio** y luego **Crear artículo personalizado**. Si el presupuesto aún no tiene servicios, el botón aparece en gris y dice **Agregue primero un servicio**.",
+            "Si el presupuesto tiene más de un servicio, elija aquel del que forma parte el artículo.",
+            "Escriba la **Descripción** que lee el cliente, y **Detalles** si hace falta.",
+            "Elija la **Unidad**. Cuando el servicio ya la midió — 32 puertas, 412 pies² de pared — la **Cantidad** se abre con esa cifra y dice de dónde salió; cámbiela si el artículo cubre solo una parte.",
+            "Escriba el **Precio unitario** y, si lo quiere en su margen, el **Costo unitario**. El cliente nunca ve el costo.",
+            "Marque **Guardar en la lista de precios** para la próxima vez y pulse **Agregar a** ese servicio.",
+          ] },
+          { p: "La línea queda dentro de ese servicio, junto a las líneas que escribe su calculadora, y desde ahí es una línea común: se guarda con el presupuesto, aparece en el PDF, la página del cliente y el correo, lleva impuestos con el resto del presupuesto, pasa a la factura cuando el presupuesto se acepta y se cuenta una sola vez en **Costo y margen**." },
+          { note: "Si la unidad que elige ya la cotiza la calculadora del servicio — los peldaños de una medición de escalera, la moldura de una habitación pintada — el cuadro lo indica. La línea personalizada se cobra además de la de la calculadora: úsela para trabajo adicional (una moldura de corona, una segunda mano en las puertas), no para el mismo trabajo dos veces." },
+          { bullets: [
+            "**Guardar en la lista de precios** agrega un artículo en Productos y servicios bajo el tipo de presupuesto de ese servicio, con el precio unitario, el costo y la unidad que escribió. Se ofrece a propietarios y administradores, en presupuestos en el idioma de su empresa, y solo con un precio mayor que cero. Si no se puede guardar, no se agrega nada al presupuesto — desmárquelo para agregar solo la línea.",
+            "En un tipo de presupuesto por paquetes (cargas de retiro de escombros, paquetes de detallado), elegir o cambiar el paquete conserva los artículos personalizados ya agregados.",
+          ] },
         ],
       },
       {

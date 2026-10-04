@@ -530,7 +530,7 @@ export const ARTICLES = {
     title: "Los subcontratistas y su seguro",
     summary:
       "Las empresas que contrata por trabajo — su oficio y contacto, si su certificado de seguro y su constancia WSIB/WCB están vigentes, lo que acordó con ellas en cada trabajo y lo que les pagó este año.",
-    updated: "2026-09-12",
+    updated: "2026-10-03",
     intro: [
       "**Subcontratistas** es la lista de otras empresas — el electricista, el fabricante de cubiertas, el techador — con el único dato que tiene consecuencia el mismo día en la parte superior: si su papeleo sigue vigente. Un certificado de seguro vencido es un subcontratista que no debe pisar la obra mañana, así que el panel **Seguro o constancia por vencer** va antes que todo lo demás.",
       "No es la lista de las personas que emplea; eso es [[manage-team|Gestionar equipo]]. Y no es una forma de pagarle a un subcontratista: la función que FieldQuo sí ofrece — pagar a un contratista desde la aplicación — paga a una persona de su propia lista, por horas que fichó, a la tarifa que usted fijó. No puede pagar un precio cerrado a otra empresa. Los pagos a una empresa subcontratista se registran aquí después de que el dinero salió.",
@@ -562,7 +562,7 @@ export const ARTICLES = {
         blocks: [
           { steps: [
             "Abra **Subcontratistas** (bajo Personas) y pulse **Agregar**.",
-            "Complete el **Nombre de la empresa** y el **Oficio** («electricidad, techos, drywall…»), luego la **Persona de contacto**, el **Correo** y el **Teléfono**.",
+            "Complete el **Nombre de la empresa** y el **Oficio** («electricidad, techos, drywall…»), luego la **Persona de contacto**, el **Correo**, el **Teléfono** y la **Dirección de la empresa**.",
             "Ingrese **Seguro (certificado) vence el** y **Constancia WSIB / WCB vence el** si tiene los certificados. «Deja la fecha vacía si no tienes el certificado — vacío significa no registrado, no vencido.»",
             "Deje **Va en el formulario anual de contratistas (T5018 / 1099-NEC)** marcado para un subcontratista de construcción; desmárquelo para un proveedor de materiales incorporado que, según su contador, no lo recibe.",
             "Pulse **Agregar subcontratista**.",
@@ -570,6 +570,19 @@ export const ARTICLES = {
           ] },
           { figure: "create:app-subcontractors-create", caption: "Subcontratistas → Agregar — el formulario de nuevo subcontratista: empresa, oficio, contacto, las dos fechas de vencimiento y la casilla del formulario anual." },
           { tip: "Un subcontratista que ya no usa recibe **Marcar inactivo** en lugar de un borrado: sale del selector «agregar un subcontratista a un trabajo», conserva sus trabajos y pagos, y sigue apareciendo con su total en los años en que le pagó." },
+        ],
+      },
+      {
+        id: "from-their-fieldquo-profile",
+        heading: "Un subcontratista que también usa FieldQuo",
+        blocks: [
+          { p: "Cuando se acepta el presupuesto de un subcontratista que usted incorporó a su propio presupuesto — o cuando pone esa importación en el trabajo desde **Subcontratistas en este trabajo** — el subcontratista se agrega a su lista, o se encuentra si ya estaba vinculado, y sus datos se completan desde su propio perfil de empresa en FieldQuo: el correo, el teléfono y la dirección de la empresa que muestran sus propios presupuestos y facturas." },
+          { bullets: [
+            "**Solo se completan los vacíos.** Lo que usted escribió — el correo directo de un estimador, su propia nota del teléfono — queda exactamente como lo escribió.",
+            "**Solo lo que ellos muestran.** No pasa nada privado: ningún dato de cuenta, de acceso ni de facturación. Si sus documentos dejan un campo vacío, aquí queda vacío.",
+            "**La persona de contacto no se completa.** Los documentos de FieldQuo nombran a la empresa, no a una persona, así que no hay un nombre que copiar; la ficha del subcontratista lo indica — agregue el nombre con **Editar**.",
+            "**Dice de dónde salió cada dato.** La ficha muestra «De su perfil de FieldQuo (lo que muestran sus propios presupuestos): Correo, Teléfono, Dirección de la empresa», y la misma nota aparece bajo cada campo en **Editar**. Cambie un valor y pasa a ser suyo: la nota desaparece.",
+          ] },
         ],
       },
       {
